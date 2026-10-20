@@ -1,0 +1,10 @@
+id: typescript/react/no-prop-types
+description: No propTypes or defaultProps assignments. React 19 ignores them on function components; use types and default parameters.
+scope: {language: tsx}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule: {any: [{pattern: "$C.propTypes = $V"}, {pattern: "$C.defaultProps = $V"}]}
+examples:
+  match: ["Button.propTypes = { label: PropTypes.string };", "Button.defaultProps = { size: \"md\" };"]
+  no_match: ["function Button({ size = \"md\" }: Props) { return <button data-size={size} />; }", "type Props = { label: string };"]

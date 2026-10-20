@@ -1,0 +1,10 @@
+id: typescript/playwright/no-snapshot-update
+description: Updating Playwright snapshots needs confirmation; the snapshots are part of the reviewed expectations.
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: ask
+    pattern: '(^|[^A-Za-z0-9_-])playwright[[:space:]]+test[^|;&]*[[:space:]](--update-snapshots|-u)([[:space:]=;&|)]|$)'
+examples:
+  match: ["bunx playwright test --update-snapshots", "playwright test e2e/a.spec.ts -u", "bunx playwright test --update-snapshots=all"]
+  no_match: ["bunx playwright test", "bunx playwright test --project=chromium"]

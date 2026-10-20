@@ -1,0 +1,15 @@
+id: typescript/nextjs/no-legacy-image-config
+description: No next/legacy/image and no images.domains. Use next/image and images.remotePatterns.
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        - {kind: import_statement, has: {field: source, regex: "^[\"']next/legacy/image[\"']$"}}
+        - kind: pair
+          has: {field: key, regex: "^[\"']?domains[\"']?$"}
+          inside: {kind: object, inside: {kind: pair, has: {field: key, regex: "^[\"']?images[\"']?$"}}}
+examples:
+  match: ["import Image from \"next/legacy/image\";", "export default { images: { domains: [\"cdn.x.com\"] } };"]
+  no_match: ["import Image from \"next/image\";", "export default { images: { remotePatterns: [new URL(\"https://cdn.x.com/**\")] } };", "const cfg = { domains: [\"a.com\"] };"]

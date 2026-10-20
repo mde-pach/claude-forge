@@ -1,0 +1,10 @@
+id: typescript/no-double-assertion
+description: No double type assertions (x as unknown as T). Parse with a schema or narrow with a type guard.
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule: {any: [{pattern: "$X as unknown as $T"}, {pattern: "$X as any as $T"}]}
+examples:
+  match: ["const p = raw as unknown as Profile;", "const u = (req as unknown as { user: User }).user;", "const n = s as any as number;"]
+  no_match: ["const p = ProfileSchema.parse(raw);", "const cfg = { mode: \"x\" } as const;", "const v = raw as unknown;"]

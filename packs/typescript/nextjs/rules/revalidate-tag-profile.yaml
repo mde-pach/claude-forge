@@ -1,0 +1,10 @@
+id: typescript/nextjs/revalidate-tag-profile
+description: revalidateTag takes a cacheLife profile (revalidateTag(tag, "max")); use updateTag(tag) in Server Actions for read-your-writes.
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule: {pattern: "revalidateTag($A)"}
+examples:
+  match: ["revalidateTag(\"posts\");", "revalidateTag(`post-${id}`);"]
+  no_match: ["revalidateTag(\"posts\", \"max\");", "updateTag(\"posts\");"]

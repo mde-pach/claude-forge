@@ -1,0 +1,10 @@
+id: typescript/ts-expect-error-reason
+description: Every @ts-expect-error says why, after the directive.
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule: {kind: comment, regex: "^(//|/\\*)[[:space:]]*@ts-expect-error[[:space:]]*(\\*/)?$"}
+examples:
+  match: ["// @ts-expect-error\nconst x: number = \"a\";\n", "/* @ts-expect-error */\nconst y: number = \"b\";\n"]
+  no_match: ["// @ts-expect-error -- upstream types are wrong, see lib#123\nconst x: number = \"a\";\n", "// regular comment\nconst y = 1;\n"]

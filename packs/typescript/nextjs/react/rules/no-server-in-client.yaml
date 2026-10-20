@@ -1,0 +1,15 @@
+id: typescript/nextjs/react/no-server-in-client
+description: Client Components do not import server-only modules (server-only, node built-ins, the Prisma client).
+scope: {language: tsx, files: ["app/**", "src/app/**", "components/**", "src/components/**"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: import_statement
+      has: {field: source, regex: "^[\"'](server-only|node:[^\"']*|fs|fs/promises|child_process|@prisma/client|@prisma/adapter-[^\"']*|[^\"']*/generated/prisma[^\"']*)[\"']$"}
+      inside:
+        kind: program
+        has: {kind: expression_statement, nthChild: 1, regex: "^[\"']use client[\"'];?$"}
+examples:
+  match: ["'use client';\nimport fs from \"node:fs\";\n", "\"use client\";\nimport { prisma } from \"@/generated/prisma/client\";\n"]
+  no_match: ["import \"server-only\";\nimport { prisma } from \"@/generated/prisma/client\";\n", "'use client';\nimport { useState } from \"react\";\n"]

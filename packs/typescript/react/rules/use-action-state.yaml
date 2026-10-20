@@ -1,0 +1,14 @@
+id: typescript/react/use-action-state
+description: Form action state comes from useActionState in react, not useFormState from react-dom.
+scope: {language: tsx}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: import_statement
+      all:
+        - has: {field: source, regex: "^[\"']react-dom[\"']$"}
+        - has: {stopBy: end, kind: import_specifier, has: {field: name, regex: "^useFormState$"}}
+examples:
+  match: ["import { useFormState } from \"react-dom\";", "import { useFormState as ufs, flushSync } from 'react-dom';"]
+  no_match: ["import { useActionState } from \"react\";", "import { useFormState } from \"react-hook-form\";"]

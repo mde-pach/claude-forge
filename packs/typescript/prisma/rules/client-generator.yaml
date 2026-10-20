@@ -1,0 +1,5 @@
+id: typescript/prisma/client-generator
+description: The Prisma schema uses the prisma-client generator (Prisma 7), not prisma-client-js.
+scope: {language: any}
+enforce:
+  - {target: check, stage: lint, run: "! grep -nE 'provider[[:space:]]*=[[:space:]]*\"prisma-client-js\"' /dev/null $(git ls-files '*.prisma')", when_changed: ["**/*.prisma"]}

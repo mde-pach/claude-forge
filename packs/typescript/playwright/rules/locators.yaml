@@ -1,0 +1,12 @@
+id: typescript/playwright/locators
+description: Use locators (getByRole, getByLabel, locator()), not element handles or waitForSelector/waitForNavigation.
+scope: {language: typescript, files: ["e2e/**", "**/*.spec.*"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      has: {field: function, kind: member_expression, has: {field: property, regex: "^(\\$|\\$\\$|\\$eval|\\$\\$eval|waitForSelector|waitForNavigation)$"}}
+examples:
+  match: ["const btn = await page.$(\"#go\");", "await page.waitForNavigation();", "const n = await page.$$eval(\"li\", (els) => els.length);"]
+  no_match: ["await page.getByRole(\"button\", { name: \"Go\" }).click();", "await page.locator(\"#go\").click();", "const v = $(\"x\");"]

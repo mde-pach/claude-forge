@@ -15,11 +15,13 @@
  * (versions pinned in tests/helpers.ts).
  */
 import { beforeAll, describe, expect, test } from "bun:test";
-import { writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { examplePath } from "../../src/audit";
-import { commitAll, ensureTools, forge, git, hasBun, hasUv, linkTools, sampleRepo } from "../helpers";
-import type { Rule } from "../../src/types";
+import { auditTarget, examplePath } from "../../src/audit";
+import { loadPacks } from "../../src/packs";
+import { commitAll, ensureTools, forge, git, hasBun, hasUv, linkTools, ROOT, sampleRepo } from "../helpers";
+import type { Rule, ToolTarget } from "../../src/types";
 
 const T = 300_000;
 
@@ -181,4 +183,38 @@ test("examples are written to a temporary file inside the rule's scope", () => {
   expect(examplePath(rule("python", ["**/test_*.py"]), "f")).toBe("test_f.py");
   expect(examplePath(rule("typescript", ["app/**"]), "f")).toBe("app/f.ts");
   expect(examplePath(rule("typescript", ["**/*.test.*"]), "f")).toBe("f.test.ts");
+});
+
+/** A project whose config sets exactly the target's diagnostic to an error (on) or turns it off. */
+function projectFor(t: ToolTarget, on: boolean): string {
+  const dir = mkdtempSync(join(tmpdir(), "forge-audit-"));
+  if (t.tool === "biome") {
+    const [, group, name] = t.expects.split("/");
+    writeFileSync(join(dir, "biome.json"), JSON.stringify({ linter: { enabled: true, rules: { recommended: false, [group!]: { [name!]: on ? "error" : "off" } } } }));
+  } else if (t.tool === "tsc") {
+    writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ compilerOptions: { strict: on, noEmit: true, skipLibCheck: true } }));
+  } else {
+    const ruff = `[tool.ruff.lint]\nselect = ["${t.tool === "ruff" && on ? t.expects : "F"}"]\n`;
+    const pyright = `[tool.basedpyright]\npythonVersion = "3.12"\n${t.tool === "basedpyright" ? `${t.expects} = "${on ? "error" : "none"}"\n` : ""}`;
+    writeFileSync(join(dir, "pyproject.toml"), `[project]\nname = "audit"\nversion = "0.1.0"\n\n${ruff}\n${pyright}`);
+  }
+  linkTools(dir, t.tool === "ruff" || t.tool === "basedpyright" ? "python" : "node");
+  return dir;
+}
+
+const toolRules = [...loadPacks(join(ROOT, "packs")).values()].flatMap((p) => p.rules).filter((r) => r.enforce.some((t) => t.target === "tool"));
+
+describe.if(hasBun && hasUv)("every tool target", () => {
+  test.each(toolRules.map((r) => [r.id]))(
+    "%s: the examples prove each tool target: satisfied when the tool reports the diagnostic as an error, unsatisfied when it is off",
+    (id) => {
+      const rule = toolRules.find((r) => r.id === id)!;
+      for (const t of rule.enforce.filter((x): x is ToolTarget => x.target === "tool"))
+        for (const on of [true, false]) {
+          const r = auditTarget(projectFor(t, on), rule, t);
+          expect(`${t.tool} ${t.expects} ${on ? "on" : "off"}: ${r.status}${r.detail ? ` (${r.detail})` : ""}`).toBe(`${t.tool} ${t.expects} ${on ? "on" : "off"}: ${on ? "satisfied" : "unsatisfied"}${r.detail && !on ? ` (${r.detail})` : ""}`);
+        }
+    },
+    T,
+  );
 });

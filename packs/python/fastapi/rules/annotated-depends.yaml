@@ -1,0 +1,11 @@
+id: python/fastapi/annotated-depends
+description: FastAPI dependencies use Annotated[T, Depends(dep)], not a Depends() default value.
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: FAST002
+    snippet: '[tool.ruff.lint] extend-select = ["FAST002"]'
+examples:
+  match: ["from fastapi import Depends, FastAPI\n\napp = FastAPI()\n\n\ndef get_db() -> int:\n    return 1\n\n\n@app.get(\"/\")\ndef r(db: int = Depends(get_db)) -> int:\n    return db\n"]
+  no_match: ["from typing import Annotated\n\nfrom fastapi import Depends, FastAPI\n\napp = FastAPI()\n\n\ndef get_db() -> int:\n    return 1\n\n\n@app.get(\"/\")\ndef r(db: Annotated[int, Depends(get_db)]) -> int:\n    return db\n"]

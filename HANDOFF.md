@@ -14,7 +14,7 @@ Build state of Forge against `SPECS.md` (v0.5), as of 2026-10-20 (fourth session
 
 ## Done
 
-Everything in §3–§14 is implemented, with the pack tree (§5.1–§5.2) and the Astro/React packs added to the spec in this session. §14.1–§14.3 and everything else listed in the spec site are covered by **377 tests**; §14.4 has a harness that has not been run.
+Everything in §3–§14 is implemented, with the pack tree (§5.1–§5.2) and the Astro/React packs added to the spec in this session. §14.1–§14.3 and everything else listed in the spec site are covered by **443 tests**; §14.4 has a harness that has not been run.
 
 | Area | Files |
 |---|---|
@@ -22,7 +22,7 @@ Everything in §3–§14 is implemented, with the pack tree (§5.1–§5.2) and 
 | Generator: activation down the tree (child only under an active parent; `add` brings ancestors; `remove` drops the subtree), local overrides, disable, tool presence, ast-grep fallback | `src/plan.ts` |
 | Renderers, settings (JSONC), lock, audit, `forge test`, CLI (`USAGE` in `src/usage.ts`) | `src/render.ts`, `src/settings.ts`, `src/lock.ts`, `src/audit.ts`, `src/selftest.ts`, `src/cli.ts` |
 | Hook runtime and check engine | `templates/scripts/*.sh` |
-| Packs: 18 packs, 63 rules, as a tree (`safety`; `python/{uv,fastapi,pydantic,pytest,sqlalchemy/alembic}`; `typescript/{bun,nextjs/react,astro/react,prisma,zod,vitest,playwright}`) | `packs/**` |
+| Packs: 19 packs, 102 rules, as a tree (`safety`; `python/{uv,fastapi,pydantic,pytest,sqlalchemy/alembic}`; `typescript/{bun,react,nextjs/react,astro/react,prisma,zod,vitest,playwright}`) | `packs/**` |
 | **Executable specification**: one file per spec section, normative test titles | `tests/spec/*.test.ts`, `tests/helpers.ts`, samples in `tests/generator/{fastapi-app,nextjs-prisma-app,astro-app,eslint-app}` |
 | **Docs site**: pack pages from `packs/` (facts, a rules × lifecycle-steps matrix, context, tests, and per rule: file-pattern chips, lifecycle derived from its targets, red/green example panels, how it is enforced, its tests); guide and lifecycle pages in MDX that place the remaining tests with the `Spec` component; CLI page from `USAGE`; schemas from `src/schemas.ts`. No separate specification section: every test is shown where it applies, and `99-internals` fails if one is shown nowhere. The build fails if a CI result cannot be placed on a test | `docs/` (`src/lib/{spec,lifecycle,data}.ts`, `src/components/{Spec,SpecNodes,TestList,RuleCard,Results}.astro`, `{Lifecycle,StatusBadge}.tsx`, `src/pages/**`, `src/content/docs/**`) |
 | E2E harness (§14.4) — **written, not run** | `tests/e2e/` |
@@ -36,12 +36,22 @@ Everything in §3–§14 is implemented, with the pack tree (§5.1–§5.2) and 
 5. Smaller: `client-hooks` exempts custom hooks (`use…` functions); the `no-ts-ignore` fallback also matches `/* @ts-ignore */`; `typescript/strict` (which only proved `noImplicitAny`) is replaced by `no-implicit-any`, `strict-null-checks` and `strict-function-types`, one tsc example per flag.
 6. Docs: getting started explains running from a clone, one `forge …` form with how it gets on PATH, `--yes`, the pre-commit hook later, and no detected pack; tests on guide pages are collapsed by default, and a pack page lists each test once (tests shared by several rules go in the pack's Specification section).
 
+**Content roadmap (October 2026)**: 39 new rules, the `typescript/react` pack and new context facts, aimed at the ways agents get around the existing rules.
+
+- Type escapes: `typescript/{no-non-null-assertion, no-double-assertion, no-ts-nocheck, ts-expect-error-reason, no-ignore-deprecations}`, `python/{no-unscoped-ignore, no-unknown, no-useless-cast}`.
+- Deprecated and version-specific APIs: `python/no-deprecated`, `python/no-blocking-in-async`, `python/fastapi/annotated-depends`, `typescript/nextjs/{revalidate-tag-profile, no-legacy-image-config}`, `typescript/react/{no-forward-ref, no-prop-types, use-action-state}`, `typescript/zod/v4-string-formats`, `typescript/playwright/{no-wait-for-timeout, locators}`, `typescript/vitest/no-workspace-file`, `typescript/prisma/client-generator`.
+- Security: `typescript/prisma/no-raw-unsafe`, `python/sqlalchemy/no-text-fstring`, `python/{no-tls-bypass, no-shell-true}`, `typescript/react/no-dangerous-html`, `typescript/nextjs/no-public-secret-env`, `typescript/nextjs/react/no-server-in-client`, `python/fastapi/cors-credentials-wildcard`.
+- Test integrity: `typescript/no-focused-tests`, `typescript/vitest/{no-tautological-expect, no-snapshot-update}`, `typescript/playwright/no-snapshot-update`, `python/pytest/{no-tautological-assert, no-blind-raises}`; the `no-new-skip` rules also count `skipIf`, `runIf`, `describe.todo`, `test.fail`, `test.describe.*` and `pytest.importorskip`.
+- Bash: `safety/{docker-volumes, package-add, prisma-ai-consent, terraform-destroy}`.
+- Every `tool` target is now proved by its rule's examples against the pinned tools (`11-audits`, "every tool target"); the grep-based `check` rules run through `check.sh` in `10-check`.
+
 ## Remaining
 
 1. **Run the E2E harness** (`tests/e2e/README.md`) in a real container; expect to tune a few regexes and prompts on the first real run.
 2. **User work in progress during a turn.** When a turn does change the tree, `check.sh --changed` covers every uncommitted file, the user's included, so a user's broken WIP can still block Stop in a turn that edited something else. Narrowing to the files the turn touched would need a per-file snapshot at turn start.
 3. **More packs** for the tree, e.g. React rules under Astro (`.astro` files cannot be parsed by ast-grep; rules there would be `check` or `tool` targets).
-4. **Publishing**: the npm scope is still `@maximedepachtere`; nothing was published (`bunx`/`npx` return 404). The docs and README tell users to build from a clone until then; once published, update both.
+4. **Roadmap leftovers**: Squawk migration linting and `noDeprecatedImports` (see departures).
+5. **Publishing**: the npm scope is still `@maximedepachtere`; nothing was published (`bunx`/`npx` return 404). The docs and README tell users to build from a clone until then; once published, update both.
 
 ## Writing specification tests
 
@@ -84,6 +94,15 @@ Everything in §3–§14 is implemented, with the pack tree (§5.1–§5.2) and 
 - **Integrity manifest (§10.1 step 1, §12).** `.forge/manifest.sha256` is in sha256sum format, but its JSON entries hold the hash of the whitespace-stripped content, so `sha256sum -c` alone verifies only the non-JSON lines; `check.sh` hashes every file itself (sha256sum, shasum or openssl). Stripping removes whitespace inside JSON strings too, so a change that only adds or removes spaces inside a string value is not detected — accepted, since no generated string's meaning depends on its spaces.
 - **Formatting generated JSON.** Only Biome is used to format, and only when the project has it installed (`node_modules/.bin/biome`). A `.claude/settings.json` that already exists is never reformatted; appended entries follow its indentation (tabs or N spaces), but Biome may still prefer a different layout for the lines Forge added (e.g. collapsing a short array).
 - **Guard latency (§14.3)** is measured as the guard's own cost: p99 of `guard.sh` minus p99 of an empty `sh` script, interleaved, plus a median ≤ 20 ms for the whole call. On GitHub's macOS runners, bare process start-up alone produced a p99 of 80 ms in the first CI run; locally the guard adds ~2 ms (p99 < 6 ms) to a shell start.
+
+- **Roadmap rules, differences from the proposal.**
+  - The bare `@ts-expect-error` check is its own rule (`typescript/ts-expect-error-reason`), not part of `no-ts-ignore`: a rule's examples are shared by all its targets, and Biome's `noTsIgnore` does not report a bare `@ts-expect-error`.
+  - `typescript/no-ignore-deprecations` is a `check` (grep over tracked `tsconfig*.json`), since ast-grep rules here only cover Python and TypeScript.
+  - `python/no-unscoped-ignore` uses `# pyright: ignore` examples: basedpyright reports a bare `# type: ignore` only when `enableTypeIgnoreComments` is on, while ruff's `PGH003` reports both.
+  - `python/no-deprecated` adds to `python/pydantic/v2-api` instead of replacing it: the audit environment has no Pydantic, so its examples use the standard library (`datetime.utcnow()`), and v2-api still catches Pydantic v1 calls without basedpyright.
+  - `typescript/no-focused-tests` sits at the `typescript` level and covers Vitest and Playwright test files; the snapshot-update guard is one rule per test pack.
+  - `safety/package-add` asks only for `bun add` and `uv add`: a permission prefix cannot tell `npm install` (restore) from `npm install <pkg>`, and npm is already an ask through `typescript/bun/no-other-pm`.
+- **Roadmap items not added.** `typescript/no-deprecated-imports` (Biome `noDeprecatedImports` needs the dependency's types installed to know what is deprecated, so its examples cannot be proved in isolation); Squawk migration linting for Prisma and Alembic (the excluded rule names and `bunx squawk-cli` were not verified offline); and the "nice" items (`python/no-stale-ignore`, `typescript/unchecked-index`, `typescript/zod/error-param`, `python/aware-datetime`, `typescript/no-eval`, git stash/branch guards, `--passWithNoTests`). The roadmap's own "not to add" list was followed.
 
 ## Verified facts (Claude Code docs, 2026-10-20)
 

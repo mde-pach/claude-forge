@@ -1,0 +1,14 @@
+id: typescript/react/no-forward-ref
+description: No forwardRef. In React 19, ref is a regular prop.
+scope: {language: tsx}
+enforce:
+  - target: tool
+    tool: biome
+    expects: lint/suspicious/noReactForwardRef
+    snippet: '"linter": {"rules": {"suspicious": {"noReactForwardRef": "error"}}}'
+  - target: ast-grep
+    mode: forbid
+    rule: {kind: call_expression, has: {field: function, regex: "^(React\\.)?forwardRef$"}}
+examples:
+  match: ["import { forwardRef } from \"react\";\n\nexport const Input = forwardRef<HTMLInputElement>((p, ref) => <input ref={ref} {...p} />);\n", "import React from \"react\";\n\nexport const Box = React.forwardRef<HTMLDivElement>((p, ref) => <div ref={ref} {...p} />);\n"]
+  no_match: ["export function Input({ ref, ...p }: React.ComponentProps<\"input\">) {\n  return <input ref={ref} {...p} />;\n}\n", "import { useRef } from \"react\";\n\nexport function useInput() {\n  return useRef<HTMLInputElement>(null);\n}\n"]

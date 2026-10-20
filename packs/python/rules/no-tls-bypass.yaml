@@ -1,0 +1,11 @@
+id: python/no-tls-bypass
+description: HTTPS certificate checks stay on (no verify=False).
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: S501
+    snippet: '[tool.ruff.lint] extend-select = ["S501"]'
+examples:
+  match: ["import httpx\n\nhttpx.get(\"https://x\", verify=False)\n", "import requests\n\nrequests.post(\"https://x\", verify=False)\n"]
+  no_match: ["import httpx\n\nhttpx.get(\"https://x\")\n", "import httpx\n\nhttpx.get(\"https://x\", verify=\"/etc/ca.pem\")\n"]

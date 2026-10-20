@@ -1,5 +1,7 @@
 ===== .claude/rules/forge-typescript.md
 TypeScript, strict. Bun is the runtime and package manager.
+TypeScript 6 deprecates `baseUrl`, `moduleResolution: "node10"`, `target: "es5"` and `esModuleInterop: false`, and TypeScript 7 removes them: migrate them, never add `ignoreDeprecations`.
+No `!` non-null assertions and no `as unknown as T`: narrow with a check, or parse with a schema.
 
 ===== .claude/settings.json
 {
@@ -277,20 +279,35 @@ trap 'rm -rf "$FORGE_TMP"' EXIT HUP INT TERM
 # ---- generated checks
 # Project tools used in check commands, resolved through tool().
 tsc() { forge_exec_tool tsc "$@"; }
-FORGE_NCHECKS=1
+FORGE_NCHECKS=2
 
-# 1. typescript/typecheck
+# 1. typescript/no-ignore-deprecations
 forge_check_meta_1() {
+  c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0
+}
+forge_scope_1() {
+  case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
+  return 0
+}
+forge_when_1() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
+forge_check_run_1() {
+! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')
+}
+
+# 2. typescript/typecheck
+forge_check_meta_2() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0
 }
-forge_scope_1() {
+forge_scope_2() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_1() { return 1; }
-forge_check_run_1() {
+forge_when_2() { return 1; }
+forge_check_run_2() {
 tsc --noEmit -p tsconfig.json
 }
 # ---- end of generated checks
@@ -557,7 +574,7 @@ forge_required_tools() {
   done | awk 'NF && !seen[$0]++'
 }
 
-FORGE_FORBID='typescript/no-explicit-any|typescript/no-ts-ignore'
+FORGE_FORBID='typescript/no-double-assertion|typescript/no-explicit-any|typescript/no-focused-tests|typescript/no-non-null-assertion|typescript/no-ts-ignore|typescript/no-ts-nocheck|typescript/ts-expect-error-reason'
 
 forge_file_stage format "$file" > /dev/null 2>&1
 forge_file_stage lint "$file" > "$FORGE_TMP/report" 2>&1
@@ -584,20 +601,35 @@ IFS='
 # ---- generated checks
 # Project tools used in check commands, resolved through tool().
 tsc() { forge_exec_tool tsc "$@"; }
-FORGE_NCHECKS=1
+FORGE_NCHECKS=2
 
-# 1. typescript/typecheck
+# 1. typescript/no-ignore-deprecations
 forge_check_meta_1() {
+  c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0
+}
+forge_scope_1() {
+  case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
+  return 0
+}
+forge_when_1() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
+forge_check_run_1() {
+! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')
+}
+
+# 2. typescript/typecheck
+forge_check_meta_2() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0
 }
-forge_scope_1() {
+forge_scope_2() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_1() { return 1; }
-forge_check_run_1() {
+forge_when_2() { return 1; }
+forge_check_run_2() {
 tsc --noEmit -p tsconfig.json
 }
 # ---- end of generated checks
@@ -969,20 +1001,35 @@ IFS='
 # ---- generated checks
 # Project tools used in check commands, resolved through tool().
 tsc() { forge_exec_tool tsc "$@"; }
-FORGE_NCHECKS=1
+FORGE_NCHECKS=2
 
-# 1. typescript/typecheck
+# 1. typescript/no-ignore-deprecations
 forge_check_meta_1() {
+  c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0
+}
+forge_scope_1() {
+  case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
+  return 0
+}
+forge_when_1() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
+forge_check_run_1() {
+! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')
+}
+
+# 2. typescript/typecheck
+forge_check_meta_2() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0
 }
-forge_scope_1() {
+forge_scope_2() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_1() { return 1; }
-forge_check_run_1() {
+forge_when_2() { return 1; }
+forge_check_run_2() {
 tsc --noEmit -p tsconfig.json
 }
 # ---- end of generated checks
@@ -1280,6 +1327,17 @@ exit 2
 ===== .forge/.gitignore
 state/
 
+===== .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
+id: typescript/no-double-assertion
+valid:
+  - const p = ProfileSchema.parse(raw);
+  - 'const cfg = { mode: "x" } as const;'
+  - const v = raw as unknown;
+invalid:
+  - const p = raw as unknown as Profile;
+  - "const u = (req as unknown as { user: User }).user;"
+  - const n = s as any as number;
+
 ===== .forge/ast-grep/rule-tests/typescript-no-explicit-any-test.yml
 id: typescript/no-explicit-any
 valid:
@@ -1288,6 +1346,38 @@ valid:
 invalid:
   - const x = y as any
   - "function f(a: any) {}"
+
+===== .forge/ast-grep/rule-tests/typescript-no-focused-tests-test.yml
+id: typescript/no-focused-tests
+valid:
+  - |
+    it("x", () => {});
+  - |
+    test.describe("y", () => {});
+invalid:
+  - |
+    it.only("x", () => {});
+  - |
+    test.describe.only("y", () => {});
+
+===== .forge/ast-grep/rule-tests/typescript-no-non-null-assertion-test.yml
+id: typescript/no-non-null-assertion
+valid:
+  - |
+    declare const users: string[];
+    export const u = users.find((x) => x === "a");
+    if (!u) throw new Error("missing");
+  - |
+    declare const el: HTMLElement | null;
+    el?.focus();
+    export const ok = 1 !== 2;
+invalid:
+  - |
+    declare const users: string[];
+    export const u = users.find((x) => x === "a")!;
+  - |
+    declare const el: HTMLElement | null;
+    el!.focus();
 
 ===== .forge/ast-grep/rule-tests/typescript-no-ts-ignore-test.yml
 id: typescript/no-ts-ignore
@@ -1306,6 +1396,51 @@ invalid:
     /* @ts-ignore */
     const x: number = "a";
 
+===== .forge/ast-grep/rule-tests/typescript-no-ts-nocheck-test.yml
+id: typescript/no-ts-nocheck
+valid:
+  - |
+    // regular comment
+    export const x = 1;
+  - |
+    // we never use ts-nocheck here
+    export const y = 2;
+invalid:
+  - |
+    // @ts-nocheck
+    export const x: number = 1;
+  - |
+    /* @ts-nocheck */
+    export const y = 2;
+
+===== .forge/ast-grep/rule-tests/typescript-ts-expect-error-reason-test.yml
+id: typescript/ts-expect-error-reason
+valid:
+  - |
+    // @ts-expect-error -- upstream types are wrong, see lib#123
+    const x: number = "a";
+  - |
+    // regular comment
+    const y = 1;
+invalid:
+  - |
+    // @ts-expect-error
+    const x: number = "a";
+  - |
+    /* @ts-expect-error */
+    const y: number = "b";
+
+===== .forge/ast-grep/rules/typescript/no-double-assertion.yml
+# Generated by forge from typescript/no-double-assertion (mode: forbid).
+id: typescript/no-double-assertion
+language: Tsx
+severity: error
+message: forge:typescript/no-double-assertion No double type assertions (x as unknown as T). Parse with a schema or narrow with a type guard.
+rule:
+  any:
+    - pattern: $X as unknown as $T
+    - pattern: $X as any as $T
+
 ===== .forge/ast-grep/rules/typescript/no-explicit-any.yml
 # Generated by forge from typescript/no-explicit-any (mode: forbid).
 id: typescript/no-explicit-any
@@ -1318,6 +1453,33 @@ rule:
     - kind: predefined_type
       regex: ^any$
 
+===== .forge/ast-grep/rules/typescript/no-focused-tests.yml
+# Generated by forge from typescript/no-focused-tests (mode: forbid).
+id: typescript/no-focused-tests
+language: Tsx
+severity: error
+message: forge:typescript/no-focused-tests No focused tests (.only). They silently turn every other test into a pass.
+files:
+  - "**/*.test.*"
+  - "**/*.spec.*"
+  - "**/__tests__/**"
+  - e2e/**
+rule:
+  kind: call_expression
+  has:
+    field: function
+    kind: member_expression
+    regex: ^(it|test|describe)(\.describe)?\.only$
+
+===== .forge/ast-grep/rules/typescript/no-non-null-assertion.yml
+# Generated by forge from typescript/no-non-null-assertion (mode: forbid).
+id: typescript/no-non-null-assertion
+language: Tsx
+severity: error
+message: forge:typescript/no-non-null-assertion No non-null assertions (x!). Check for null, use optional chaining, or narrow the type.
+rule:
+  kind: non_null_expression
+
 ===== .forge/ast-grep/rules/typescript/no-ts-ignore.yml
 # Generated by forge from typescript/no-ts-ignore (mode: forbid).
 id: typescript/no-ts-ignore
@@ -1327,6 +1489,26 @@ message: forge:typescript/no-ts-ignore No @ts-ignore. Fix the type, or use @ts-e
 rule:
   kind: comment
   regex: ^(//|/\*)[[:space:]]*@ts-ignore
+
+===== .forge/ast-grep/rules/typescript/no-ts-nocheck.yml
+# Generated by forge from typescript/no-ts-nocheck (mode: forbid).
+id: typescript/no-ts-nocheck
+language: Tsx
+severity: error
+message: forge:typescript/no-ts-nocheck No @ts-nocheck. It turns off type checking for the whole file.
+rule:
+  kind: comment
+  regex: ^(//|/\*)[[:space:]]*@ts-nocheck
+
+===== .forge/ast-grep/rules/typescript/ts-expect-error-reason.yml
+# Generated by forge from typescript/ts-expect-error-reason (mode: forbid).
+id: typescript/ts-expect-error-reason
+language: Tsx
+severity: error
+message: forge:typescript/ts-expect-error-reason Every @ts-expect-error says why, after the directive.
+rule:
+  kind: comment
+  regex: ^(//|/\*)[[:space:]]*@ts-expect-error[[:space:]]*(\*/)?$
 
 ===== .forge/ast-grep/sgconfig.yml
 # Generated by forge.
@@ -1479,20 +1661,35 @@ tree_hash() {
 # ---- generated checks
 # Project tools used in check commands, resolved through tool().
 tsc() { forge_exec_tool tsc "$@"; }
-FORGE_NCHECKS=1
+FORGE_NCHECKS=2
 
-# 1. typescript/typecheck
+# 1. typescript/no-ignore-deprecations
 forge_check_meta_1() {
+  c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0
+}
+forge_scope_1() {
+  case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
+  return 0
+}
+forge_when_1() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
+forge_check_run_1() {
+! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')
+}
+
+# 2. typescript/typecheck
+forge_check_meta_2() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0
 }
-forge_scope_1() {
+forge_scope_2() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_1() { return 1; }
-forge_check_run_1() {
+forge_when_2() { return 1; }
+forge_check_run_2() {
 tsc --noEmit -p tsconfig.json
 }
 # ---- end of generated checks
@@ -1759,7 +1956,7 @@ forge_required_tools() {
   done | awk 'NF && !seen[$0]++'
 }
 
-FORGE_FORBID='typescript/no-explicit-any|typescript/no-ts-ignore'
+FORGE_FORBID='typescript/no-double-assertion|typescript/no-explicit-any|typescript/no-focused-tests|typescript/no-non-null-assertion|typescript/no-ts-ignore|typescript/no-ts-nocheck|typescript/ts-expect-error-reason'
 FORGE_NO_INCREASE=''
 FORGE_NO_DECREASE=''
 
@@ -1906,32 +2103,48 @@ exit "$fail"
   "claude_code_min": "2.1.295",
   "rules": {
     "typescript/format-lint": "3ba34f971648d4d09312b789d6805241cd47bb620138b59a360121798f483eef",
+    "typescript/no-double-assertion": "2c5b17cd8daa6bd598b4aa79b30259626c86e6a3afd00630a3a4a2918316ce80",
     "typescript/no-explicit-any": "66e8f9968e8c88a77229e6c092e4489cffced1186a72fa257017fa6a2e612d28",
+    "typescript/no-focused-tests": "0c7614dd6db46bbe6d9a19b58cf8130638128e786cd1dc912e58203ecc72a87b",
+    "typescript/no-ignore-deprecations": "5466ea84ffead364a621c26f7d28e4e63855d706ba39f24b83f3d71770d05785",
     "typescript/no-implicit-any": "7ac25a953e4d6df85abee5379ea5496788f5d15776ae37623ceff5ebcc034108",
+    "typescript/no-non-null-assertion": "24bf5fb3547ff36667d3886eaebc706fc21a387a18d2f5789156220e65462ce2",
     "typescript/no-ts-ignore": "afe518e61003a905fe90ca0548a0c472bc26a897d64cb5509ee1b3534297beee",
+    "typescript/no-ts-nocheck": "25caeef679e03c9b88f75f961ce1b5d13c0f28538112f9642c513658a10f4213",
     "typescript/strict-function-types": "7c8945ced7b73b7738f9a5bf3eb864c5cdb35c1eb55b7c3ad606b1db3b6a8263",
     "typescript/strict-null-checks": "1249d522c4e1a26bf6d951e14a7e9b3033d1be96ebf68d9cc93b0e8df9940df6",
+    "typescript/ts-expect-error-reason": "2d40d771a013778c75bc79c0e3965b3ecc94aea938e6db87ba92d2bee63ddf90",
     "typescript/typecheck": "bf760f73fb1dcb55afb15a82283fe65869554d3cf0cbb13d870b1ae0d77133c9"
   },
   "files": {
-    ".claude/rules/forge-typescript.md": "49026064803e7a686fb16a80425a9fe547f39bc4f020b90918ff120a89124fec",
+    ".claude/rules/forge-typescript.md": "25cdd6d16f576c721972491115827aaee0ad7c93adb9317c7447ca968ecefd36",
     ".claude/skills/forge-project/.claude-plugin/plugin.json": "c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2",
     ".claude/skills/forge-project/hooks/hooks.json": "800b8131fbce337baca09702c057ab8d094c37c8ceee1d85259f775a29e0e4e3",
     ".claude/skills/forge-project/scripts/guard.rules": "52a6f9fbaa079816551227307122ce0c0e20ba65ba3cc93e09e2d4d187f3e246",
     ".claude/skills/forge-project/scripts/guard.sh": "c8aace4b9c7c0f76d522ecef054c6dc920bd42702712c877825f0e5cd046827c",
     ".claude/skills/forge-project/scripts/lib.sh": "b7df79c393c7d23323aa64c3230e1e322243db8df02860c852fc8f6a2221d090",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "5a651f9b0c1ded4d40c97f2800e071c3ec68d49479b0d20a7f0232c43e4973e9",
-    ".claude/skills/forge-project/scripts/session-start.sh": "8ed0c862ba6228078975e54a989bd334109343adb4b9db1741b252e446ce579e",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "6ac49d8a5eeba54190d122dac0003f43ce8bf424077bc2f32f41a9d21feda351",
+    ".claude/skills/forge-project/scripts/session-start.sh": "aed59c406a2089836b7afa96bb20ed9afa65eb3a06183659c728cb3885b86d59",
     ".claude/skills/forge-project/scripts/stop.sh": "f5bb2d3d6b3c28b1138b8aecaabdd9225ab4bbc85fde5312da823a7144791da9",
     ".claude/skills/forge-project/scripts/turn-start.sh": "fb148547199c9426d53da2cbd7d01d701315965689b770b813e1f032aaf737c4",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "17350b3da3446439b3adad9b649ad24585c23d1ad3fa0377ebb9d4af8acae126",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "5da259ca84f59f47c35518b6137ef03553e90a9c6395678d365414edd081efb8",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
+    ".forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml": "c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20",
     ".forge/ast-grep/rule-tests/typescript-no-explicit-any-test.yml": "eceb8781d7730e333b1d6fa7756eef0fa73a06b755c63def1048f3e781afcc83",
+    ".forge/ast-grep/rule-tests/typescript-no-focused-tests-test.yml": "15fbc38ad50f9c7bd1c2eb86d3d1a3822a89dd3264aba34d9bd61cc08929c93d",
+    ".forge/ast-grep/rule-tests/typescript-no-non-null-assertion-test.yml": "af83eb23d31462a3adc9e8e3a6120e08c8b424814d2838333457276d998c04b0",
     ".forge/ast-grep/rule-tests/typescript-no-ts-ignore-test.yml": "93b696c834a40605113567e5e162447671e20c5b2350ca0f884654f7bf17eb4d",
+    ".forge/ast-grep/rule-tests/typescript-no-ts-nocheck-test.yml": "c15f604d5317f942de32470aeaff16702116a64d283347c9a9825056b4dbe69e",
+    ".forge/ast-grep/rule-tests/typescript-ts-expect-error-reason-test.yml": "7ae5fe613eff1c75cb68f1333b898ad82d6d4889c3cc4da6bb8e5962e825a1b1",
+    ".forge/ast-grep/rules/typescript/no-double-assertion.yml": "c0b8c6e7a7a09608b63f8c9367afb4ac22fb1daa93c79c967373efdab597a48c",
     ".forge/ast-grep/rules/typescript/no-explicit-any.yml": "b8d70ef96cab3b10d6555cd162baeb3e8862def634698e805f3873261c44b21a",
+    ".forge/ast-grep/rules/typescript/no-focused-tests.yml": "9c4c108fba7ed1ed8f96508aa0d5410c7cebbf90c09f7d078997182dd890e51e",
+    ".forge/ast-grep/rules/typescript/no-non-null-assertion.yml": "360266100827f2fc04116b4a840bff6376ad173bfd074d98570dc76897a52cac",
     ".forge/ast-grep/rules/typescript/no-ts-ignore.yml": "1ccf97d3fe7ae96888316db70a5a33a7b22c2b5972f02c8fea6b95fd2488f03c",
+    ".forge/ast-grep/rules/typescript/no-ts-nocheck.yml": "aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21",
+    ".forge/ast-grep/rules/typescript/ts-expect-error-reason.yml": "b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "7667f9166070fe8bece52bbc70435e4cfd123e3094bab2a622c6b4e6d2d4a26b",
+    ".forge/check.sh": "8c5bb4cf5e61fdb8b7176cb96655a83a3304fcd19a8b41c7c9fc498adef4698f",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -1959,24 +2172,34 @@ exit "$fail"
 }
 
 ===== .forge/manifest.sha256
-49026064803e7a686fb16a80425a9fe547f39bc4f020b90918ff120a89124fec  .claude/rules/forge-typescript.md
+25cdd6d16f576c721972491115827aaee0ad7c93adb9317c7447ca968ecefd36  .claude/rules/forge-typescript.md
 c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills/forge-project/.claude-plugin/plugin.json
 800b8131fbce337baca09702c057ab8d094c37c8ceee1d85259f775a29e0e4e3  .claude/skills/forge-project/hooks/hooks.json
 52a6f9fbaa079816551227307122ce0c0e20ba65ba3cc93e09e2d4d187f3e246  .claude/skills/forge-project/scripts/guard.rules
 c8aace4b9c7c0f76d522ecef054c6dc920bd42702712c877825f0e5cd046827c  .claude/skills/forge-project/scripts/guard.sh
 b7df79c393c7d23323aa64c3230e1e322243db8df02860c852fc8f6a2221d090  .claude/skills/forge-project/scripts/lib.sh
-5a651f9b0c1ded4d40c97f2800e071c3ec68d49479b0d20a7f0232c43e4973e9  .claude/skills/forge-project/scripts/post-edit.sh
-8ed0c862ba6228078975e54a989bd334109343adb4b9db1741b252e446ce579e  .claude/skills/forge-project/scripts/session-start.sh
+6ac49d8a5eeba54190d122dac0003f43ce8bf424077bc2f32f41a9d21feda351  .claude/skills/forge-project/scripts/post-edit.sh
+aed59c406a2089836b7afa96bb20ed9afa65eb3a06183659c728cb3885b86d59  .claude/skills/forge-project/scripts/session-start.sh
 f5bb2d3d6b3c28b1138b8aecaabdd9225ab4bbc85fde5312da823a7144791da9  .claude/skills/forge-project/scripts/stop.sh
 fb148547199c9426d53da2cbd7d01d701315965689b770b813e1f032aaf737c4  .claude/skills/forge-project/scripts/turn-start.sh
-17350b3da3446439b3adad9b649ad24585c23d1ad3fa0377ebb9d4af8acae126  .claude/skills/forge-project/scripts/typecheck.sh
+5da259ca84f59f47c35518b6137ef03553e90a9c6395678d365414edd081efb8  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
+c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20  .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
 eceb8781d7730e333b1d6fa7756eef0fa73a06b755c63def1048f3e781afcc83  .forge/ast-grep/rule-tests/typescript-no-explicit-any-test.yml
+15fbc38ad50f9c7bd1c2eb86d3d1a3822a89dd3264aba34d9bd61cc08929c93d  .forge/ast-grep/rule-tests/typescript-no-focused-tests-test.yml
+af83eb23d31462a3adc9e8e3a6120e08c8b424814d2838333457276d998c04b0  .forge/ast-grep/rule-tests/typescript-no-non-null-assertion-test.yml
 93b696c834a40605113567e5e162447671e20c5b2350ca0f884654f7bf17eb4d  .forge/ast-grep/rule-tests/typescript-no-ts-ignore-test.yml
+c15f604d5317f942de32470aeaff16702116a64d283347c9a9825056b4dbe69e  .forge/ast-grep/rule-tests/typescript-no-ts-nocheck-test.yml
+7ae5fe613eff1c75cb68f1333b898ad82d6d4889c3cc4da6bb8e5962e825a1b1  .forge/ast-grep/rule-tests/typescript-ts-expect-error-reason-test.yml
+c0b8c6e7a7a09608b63f8c9367afb4ac22fb1daa93c79c967373efdab597a48c  .forge/ast-grep/rules/typescript/no-double-assertion.yml
 b8d70ef96cab3b10d6555cd162baeb3e8862def634698e805f3873261c44b21a  .forge/ast-grep/rules/typescript/no-explicit-any.yml
+9c4c108fba7ed1ed8f96508aa0d5410c7cebbf90c09f7d078997182dd890e51e  .forge/ast-grep/rules/typescript/no-focused-tests.yml
+360266100827f2fc04116b4a840bff6376ad173bfd074d98570dc76897a52cac  .forge/ast-grep/rules/typescript/no-non-null-assertion.yml
 1ccf97d3fe7ae96888316db70a5a33a7b22c2b5972f02c8fea6b95fd2488f03c  .forge/ast-grep/rules/typescript/no-ts-ignore.yml
+aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21  .forge/ast-grep/rules/typescript/no-ts-nocheck.yml
+b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad  .forge/ast-grep/rules/typescript/ts-expect-error-reason.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-7667f9166070fe8bece52bbc70435e4cfd123e3094bab2a622c6b4e6d2d4a26b  .forge/check.sh
+8c5bb4cf5e61fdb8b7176cb96655a83a3304fcd19a8b41c7c9fc498adef4698f  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

@@ -1,0 +1,10 @@
+id: typescript/no-ts-nocheck
+description: No @ts-nocheck. It turns off type checking for the whole file.
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule: {kind: comment, regex: "^(//|/\\*)[[:space:]]*@ts-nocheck"}
+examples:
+  match: ["// @ts-nocheck\nexport const x: number = 1;\n", "/* @ts-nocheck */\nexport const y = 2;\n"]
+  no_match: ["// regular comment\nexport const x = 1;\n", "// we never use ts-nocheck here\nexport const y = 2;\n"]

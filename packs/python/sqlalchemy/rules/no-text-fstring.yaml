@@ -1,0 +1,22 @@
+id: python/sqlalchemy/no-text-fstring
+description: text() SQL is a constant with bound parameters (:id), never built with an f-string, .format() or %.
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call
+      all:
+        - has: {field: function, regex: "^(sa\\.|sqlalchemy\\.)?text$"}
+        - has:
+            field: arguments
+            has:
+              nthChild: 1
+              any:
+                - {kind: string, has: {kind: interpolation}}
+                - {pattern: "$S.format($$$)"}
+                - {kind: binary_operator, regex: "%"}
+                - {kind: binary_operator, has: {kind: string}, regex: "\\+"}
+examples:
+  match: ["text(f\"SELECT * FROM u WHERE id={uid}\")\n", "text(\"SELECT * FROM u WHERE id={}\".format(uid))\n", "sa.text(\"SELECT * FROM u WHERE id=%s\" % uid)\n"]
+  no_match: ["text(\"SELECT * FROM u WHERE id=:id\").bindparams(id=uid)\n", "select(User).where(User.id == uid)\n", "text(\"SELECT 1\")\n"]

@@ -1,0 +1,9 @@
+id: safety/package-add
+description: Adding a dependency needs confirmation; models invent package names that attackers then register (slopsquatting).
+scope: {language: any}
+enforce:
+  - {target: permission, decision: ask, rule: "Bash(bun add:*)"}
+  - {target: permission, decision: ask, rule: "Bash(uv add:*)"}
+examples:
+  match: ["Bash(bun add zod-email-validator)", "Bash(uv add fastapi-auth-utils)", "Bash(bun add -d vitest)"]
+  no_match: ["Bash(bun install)", "Bash(uv sync)"]

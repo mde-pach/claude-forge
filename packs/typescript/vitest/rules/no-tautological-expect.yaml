@@ -1,0 +1,22 @@
+id: typescript/vitest/no-tautological-expect
+description: Assertions test something. No expect() on a literal, such as expect(true).toBe(true).
+scope: {language: typescript, files: ["**/*.test.*", "**/*.spec.*", "**/__tests__/**", "!e2e/**"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      has:
+        field: function
+        kind: member_expression
+        has:
+          field: object
+          kind: call_expression
+          all:
+            - has: {field: function, regex: "^expect$"}
+            - has:
+                field: arguments
+                has: {nthChild: 1, any: [{kind: "true"}, {kind: "false"}, {kind: "null"}, {kind: undefined}, {kind: number}, {kind: string}]}
+examples:
+  match: ["it(\"a\", () => { expect(true).toBe(true); });", "it(\"b\", () => { expect(1).toEqual(1); });", "it(\"c\", () => { expect(\"x\").toBeTruthy(); });"]
+  no_match: ["it(\"a\", () => { expect(sum(1, 1)).toBe(2); });", "it(\"b\", () => { expect(result).toBe(true); });"]

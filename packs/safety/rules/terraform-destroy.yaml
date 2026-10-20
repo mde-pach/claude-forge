@@ -1,0 +1,10 @@
+id: safety/terraform-destroy
+description: terraform destroy and unattended applies need confirmation.
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: ask
+    pattern: '(^|[^A-Za-z0-9_-])(terraform|tofu)[[:space:]]+(destroy|apply[^|;&]*-auto-approve)([[:space:]=;&|)]|$)'
+examples:
+  match: ["terraform destroy", "terraform apply -auto-approve", "tofu destroy -target=aws_db_instance.main"]
+  no_match: ["terraform plan", "terraform fmt", "terraform apply"]

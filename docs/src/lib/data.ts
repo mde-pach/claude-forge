@@ -46,10 +46,14 @@ export function inline(text: string): string {
 
 // ---------------------------------------------------------------- rule results
 
-/** Results of "<rule-id>: examples behave as declared" in the packs spec. */
+/** The per-rule tests run for every rule: its examples (packs spec) and, for tool targets, the audit proof. */
+const PER_RULE = ["%s: examples behave as declared", "%s: the examples prove each tool target: satisfied when the tool reports the diagnostic as an error, unsatisfied when it is off"];
+
+/** Results of the per-rule tests for one rule. */
 export function ruleResults(r: Results, ruleId: string): TestResult[] {
+  const names = new Set(PER_RULE.map((t) => t.replace("%s", ruleId)));
   const out: TestResult[] = [];
-  for (const rs of r.byLocation.values()) for (const x of rs) if (x.name === `${ruleId}: examples behave as declared`) out.push(x);
+  for (const rs of r.byLocation.values()) for (const x of rs) if (names.has(x.name)) out.push(x);
   return out;
 }
 
@@ -123,11 +127,12 @@ export function placedStatus(results: Results, tests: PlacedTest[]): Status | "n
   return summarize(tests.flatMap((t) => (results.byLocation.get(`${t.file}:${t.node.line}`) ?? []).filter((r) => !t.instance || r.name.startsWith(t.instance))));
 }
 
-/** The rule's example test (its own case), then every test tagged @rule <id>. */
-export function ruleTests(sections: SpecSection[], ruleId: string): PlacedTest[] {
+/** The rule's per-rule tests (its own case), then every test tagged @rule <id>. */
+export function ruleTests(sections: SpecSection[], rule: Rule): PlacedTest[] {
+  const perRule = rule.enforce.some((t) => t.target === "tool") ? PER_RULE : PER_RULE.slice(0, 1);
   return [
-    ...findTests(sections, (t) => t.title === "%s: examples behave as declared").map((t) => ({ ...t, instance: `${ruleId}: ` })),
-    ...findTests(sections, (t) => t.rules.includes(ruleId)),
+    ...findTests(sections, (t) => perRule.includes(t.title)).map((t) => ({ ...t, instance: `${rule.id}: ` })),
+    ...findTests(sections, (t) => t.rules.includes(rule.id)),
   ];
 }
 

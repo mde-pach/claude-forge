@@ -1,0 +1,8 @@
+id: typescript/no-ignore-deprecations
+description: No "ignoreDeprecations" in tsconfig files. TypeScript 7 removes the options it silences; migrate them instead.
+scope: {language: any, files: ["tsconfig*.json", "**/tsconfig*.json"]}
+enforce:
+  - target: check
+    stage: lint
+    run: "! grep -n '\"ignoreDeprecations\"' /dev/null $(git ls-files '*tsconfig*.json')"
+    when_changed: ["tsconfig*.json", "**/tsconfig*.json"]

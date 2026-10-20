@@ -1,0 +1,11 @@
+id: python/no-deprecated
+description: No use of APIs their library marks deprecated (PEP 702, typeshed). Use the replacement the warning names.
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: basedpyright
+    expects: reportDeprecated
+    snippet: '[tool.basedpyright] reportDeprecated = "error"'
+examples:
+  match: ["from datetime import datetime\n\nnow = datetime.utcnow()\n", "from datetime import datetime\n\nthen = datetime.utcfromtimestamp(0)\n"]
+  no_match: ["from datetime import UTC, datetime\n\nnow = datetime.now(UTC)\n", "from datetime import UTC, datetime\n\nthen = datetime.fromtimestamp(0, UTC)\n"]

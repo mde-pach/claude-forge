@@ -1,0 +1,15 @@
+id: python/no-unscoped-ignore
+description: "Ignore comments name the rule they silence (# pyright: ignore[rule]); no blanket ignores."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: basedpyright
+    expects: reportIgnoreCommentWithoutRule
+    snippet: '[tool.basedpyright] reportIgnoreCommentWithoutRule = "error"'
+  - target: tool
+    tool: ruff
+    expects: PGH003
+    snippet: '[tool.ruff.lint] extend-select = ["PGH003"]'
+examples:
+  match: ["x = int(\"1\")  # pyright: ignore\n", "def f(s: str) -> int:\n    return int(s)  # pyright: ignore\n"]
+  no_match: ["x = int(\"1\")  # pyright: ignore[reportUnknownVariableType]\n", "x = int(\"1\")\n"]

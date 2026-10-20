@@ -1,0 +1,21 @@
+id: typescript/zod/v4-string-formats
+description: Zod 4 string formats are top-level (z.email(), z.uuid(), z.iso.datetime()), not z.string().email().
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      has:
+        field: function
+        kind: member_expression
+        all:
+          - has: {field: property, regex: "^(email|uuid|guid|url|cuid|cuid2|ulid|ipv4|ipv6|ip|datetime|date|time|duration|base64|base64url|nanoid|emoji|jwt)$"}
+          - has:
+              field: object
+              any:
+                - {pattern: "z.string()"}
+                - {has: {stopBy: end, pattern: "z.string()"}}
+examples:
+  match: ["const E = z.string().email();", "const U = z.string().min(1).uuid();", "const D = z.string().datetime({ offset: true });"]
+  no_match: ["const E = z.email();", "const D = z.iso.datetime();", "const S = z.string().min(1).max(10);", "const n = user.email();"]

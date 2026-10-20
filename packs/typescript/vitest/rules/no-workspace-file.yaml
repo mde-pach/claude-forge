@@ -1,0 +1,5 @@
+id: typescript/vitest/no-workspace-file
+description: No vitest.workspace file. Vitest 4 ignores it silently; declare test.projects in vitest.config instead.
+scope: {language: any}
+enforce:
+  - {target: check, stage: lint, run: "test -z \"$(git ls-files 'vitest.workspace.*')\"", when_changed: ["vitest.*"]}

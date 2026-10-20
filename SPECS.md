@@ -347,6 +347,10 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `safety/secret-read-bash` | `guard` deny: `cat`, `less`, `head`, `tail`, `cp`, `source`, `grep`, `base64` on `.env` files (not `.env.example`), `~/.ssh/`, `~/.pgpass`, `~/.netrc` |
 | `safety/dropdb` | `permission` deny: `Bash(dropdb:*)` |
 | `safety/sql-destructive` | `guard` deny: `psql` with `DROP TABLE`, `DROP DATABASE`, `DROP SCHEMA`, `TRUNCATE` |
+| `safety/docker-volumes` | `guard` deny: `docker compose down` / `docker-compose down` with `-v` or `--volumes`, `docker volume rm`, `docker volume prune`, `docker system prune --volumes` |
+| `safety/package-add` | `permission` ask: `Bash(bun add:*)`, `Bash(uv add:*)` (hallucinated package names, slopsquatting) |
+| `safety/prisma-ai-consent` | `guard` deny: any command containing `PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION` (only the user gives that consent) |
+| `safety/terraform-destroy` | `guard` ask: `terraform` / `tofu` `destroy`, `apply … -auto-approve` |
 
 ### python
 
@@ -357,8 +361,15 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `python/typecheck` | `check` typecheck: `run: basedpyright` |
 | `python/no-explicit-any` | `tool` basedpyright `reportExplicitAny`; `tool` ruff `ANN401` |
 | `python/no-bare-except` | `tool` ruff `E722` |
+| `python/no-unscoped-ignore` | `tool` basedpyright `reportIgnoreCommentWithoutRule`; `tool` ruff `PGH003` |
+| `python/no-unknown` | `tool` basedpyright `reportUnknownParameterType`, `reportUnknownVariableType` |
+| `python/no-useless-cast` | `tool` basedpyright `reportUnnecessaryCast`, `reportInvalidCast` |
+| `python/no-deprecated` | `tool` basedpyright `reportDeprecated` (PEP 702 and typeshed deprecations) |
+| `python/no-blocking-in-async` | `tool` ruff `ASYNC210`, `ASYNC230`, `ASYNC251` |
+| `python/no-tls-bypass` | `tool` ruff `S501` |
+| `python/no-shell-true` | `tool` ruff `S602` |
 
-context.md: "Python project managed with uv. Tools run from `.venv/bin`. Type checking: basedpyright."
+context.md: uv and `.venv/bin`, basedpyright; no blocking calls in `async def`; ignore comments name their rule.
 
 ### typescript
 
@@ -371,8 +382,14 @@ context.md: "Python project managed with uv. Tools run from `.venv/bin`. Type ch
 | `typescript/strict-function-types` | `tool` tsc: expects `TS2322` on a parameter-bivariant assignment (`strictFunctionTypes`) |
 | `typescript/no-explicit-any` | as §6.3 |
 | `typescript/no-ts-ignore` | `tool` biome `lint/suspicious/noTsIgnore`; `ast-grep` forbid comment `// @ts-ignore` or `/* @ts-ignore */` |
+| `typescript/no-non-null-assertion` | `tool` biome `lint/style/noNonNullAssertion`; `ast-grep` forbid `non_null_expression` |
+| `typescript/no-double-assertion` | `ast-grep` forbid: `$X as unknown as $T`, `$X as any as $T` |
+| `typescript/no-ts-nocheck` | `ast-grep` forbid comment `@ts-nocheck` |
+| `typescript/ts-expect-error-reason` | `ast-grep` forbid comment `@ts-expect-error` with nothing after it |
+| `typescript/no-ignore-deprecations` | `check` lint: no `"ignoreDeprecations"` in tracked `tsconfig*.json`, `when_changed: [tsconfig*.json]` |
+| `typescript/no-focused-tests` | `tool` biome `lint/suspicious/noFocusedTests`; `ast-grep` forbid `it.only(…)`, `test.only(…)`, `describe.only(…)`, `test.describe.only(…)` in test files and `e2e/**` |
 
-context.md: "TypeScript, strict. Bun is the runtime and package manager."
+context.md: strict TypeScript and Bun; TypeScript 6 deprecations are migrated, never silenced with `ignoreDeprecations`; no `!` or `as unknown as`.
 
 ### python/uv
 
@@ -386,6 +403,8 @@ context.md: "TypeScript, strict. Bun is the runtime and package manager."
 | Rule | Targets |
 |---|---|
 | `python/fastapi/no-on-event` | `ast-grep` forbid: `@app.on_event($$$)` |
+| `python/fastapi/annotated-depends` | `tool` ruff `FAST002` |
+| `python/fastapi/cors-credentials-wildcard` | `ast-grep` forbid: `add_middleware(CORSMiddleware, …)` with both `allow_origins=["*"]` and `allow_credentials=True` |
 
 context.md: "FastAPI. Dependencies use `Annotated[T, Depends(...)]`. Startup and shutdown use `lifespan`. Request and response bodies are Pydantic v2 models."
 
@@ -398,8 +417,9 @@ context.md: "FastAPI. Dependencies use `Annotated[T, Depends(...)]`. Startup and
 | `python/sqlalchemy/no-backref` | `ast-grep` forbid: `relationship($$$, backref=$_, $$$)` |
 | `python/sqlalchemy/mapped-column` | `ast-grep` forbid: `$N = Column($$$)` inside a class body |
 | `python/sqlalchemy/no-raw-execute` | `ast-grep` forbid: `$X.execute("$$$")` with a string literal |
+| `python/sqlalchemy/no-text-fstring` | `ast-grep` forbid: `text()` whose SQL is an f-string, `.format()`, `%` or `+` concatenation |
 
-context.md: "SQLAlchemy 2.0 async. Models: `class Base(DeclarativeBase)`, `Mapped[T]`, `mapped_column()`, `relationship(back_populates=...)`. Queries: `select()` with `session.execute()` or `session.scalars()`. Sessions: `async_sessionmaker(engine, expire_on_commit=False)`. Related rows load with `selectinload()`."
+context.md: SQLAlchemy 2.0 async models, queries and sessions; no lazy loading in async sessions (`selectinload()`, `lazy="raise"`); `text()` with bound parameters.
 
 ### python/sqlalchemy/alembic
 
@@ -418,16 +438,18 @@ context.md: "Alembic with an async engine: `alembic/env.py` runs migrations thro
 |---|---|
 | `python/pydantic/v2-api` | `ast-grep` forbid: `$M.dict()`, `$M.json()`, `$M.parse_obj($$$)`, `$M.parse_raw($$$)`, `@validator($$$)`, `@root_validator($$$)`, `class Config:` inside a `BaseModel` subclass |
 
-context.md: "Pydantic v2: `model_validate`, `model_dump`, `model_config = ConfigDict(...)`, `@field_validator`, `@model_validator`."
+context.md: "Pydantic v2: `model_validate`, `model_dump`, `model_config = ConfigDict(...)`, `@field_validator`, `@model_validator`, `Field(pattern=...)`, `TypeAdapter(T).validate_python(...)` (not `parse_obj_as`)."
 
 ### python/pytest
 
 | Rule | Targets |
 |---|---|
 | `python/pytest/run` | `check` test: `run: pytest -q`, `changed_run`: changed test files plus `tests/**/test_<module>.py` for each changed module; `pytest --testmon` when the project depends on pytest-testmon; timeout 300 s |
-| `python/pytest/no-new-skip` | `ast-grep` no-increase on test files: `@pytest.mark.skip($$$)`, `@pytest.mark.skipif($$$)`, `@pytest.mark.xfail($$$)`, `pytest.skip($$$)`, `@unittest.skip($$$)` |
+| `python/pytest/no-new-skip` | `ast-grep` no-increase on test files: `@pytest.mark.skip($$$)`, `@pytest.mark.skipif($$$)`, `@pytest.mark.xfail($$$)`, `pytest.skip($$$)`, `@unittest.skip($$$)`, `pytest.importorskip($$$)` |
 | `python/pytest/no-fewer-asserts` | `ast-grep` no-decrease on test files: `assert $$$` |
 | `python/pytest/no-test-env-branch` | `ast-grep` forbid on non-test files: `PYTEST_CURRENT_TEST` lookups, `"pytest" in sys.modules` |
+| `python/pytest/no-blind-raises` | `tool` ruff `B017` |
+| `python/pytest/no-tautological-assert` | `ast-grep` forbid on test files: `assert` on a literal (`True`, a number, a string), `assert $X == $X`, `assert $X is $X` |
 
 ### typescript/bun
 
@@ -443,16 +465,33 @@ context.md: "Pydantic v2: `model_validate`, `model_dump`, `model_config = Config
 | `typescript/nextjs/no-pages-data` | `ast-grep` forbid in `app/**`, `src/app/**`: `getServerSideProps`, `getStaticProps` exports |
 | `typescript/nextjs/no-next-router` | `ast-grep` forbid: `import $$$ from "next/router"` |
 | `typescript/nextjs/proxy-not-middleware` | `ast-grep` forbid: any code in `middleware.ts` / `src/middleware.ts` (file renamed to `proxy.ts` in Next.js 16) |
+| `typescript/nextjs/revalidate-tag-profile` | `ast-grep` forbid: `revalidateTag($A)` with one argument |
+| `typescript/nextjs/no-legacy-image-config` | `ast-grep` forbid: imports of `next/legacy/image`; a `domains` key inside `images` |
+| `typescript/nextjs/no-public-secret-env` | `ast-grep` forbid: `process.env.NEXT_PUBLIC_*` names containing `SECRET`, `PRIVATE`, `PASSWORD`, `SERVICE_ROLE` or `DATABASE_URL` |
 
-context.md: "Next.js 16 App Router. Request APIs (`params`, `searchParams`, `cookies()`, `headers()`) are async. Components are Server Components unless the file starts with `'use client'`. Request interception lives in `proxy.ts`. `next lint` no longer exists; lint runs through Biome."
+context.md: Next.js 16 App Router: async request APIs, Server Components by default, `proxy.ts`, `revalidateTag(tag, profile)` / `updateTag(tag)`, `images.remotePatterns`, no `next lint`, Server Actions validate input and check authorization, no secrets in `NEXT_PUBLIC_`.
 
 ### typescript/nextjs/react
 
 | Rule | Targets |
 |---|---|
 | `typescript/nextjs/react/client-hooks` | `ast-grep` forbid in `app/**`, `src/app/**`: client-only hooks (`useState`, `useEffect`, `useRef`, `useContext`, …) in a file without `'use client'`, except inside a custom hook (a function named `use…`) |
+| `typescript/nextjs/react/no-server-in-client` | `ast-grep` forbid in `app/**`, `src/app/**`, `components/**`, `src/components/**` (tsx): a file starting with `'use client'` that imports `server-only`, `node:*`, `fs`, `child_process`, `@prisma/client`, `@prisma/adapter-*` or a `generated/prisma` path |
 
 context.md: "React 19 in the App Router: components are Server Components unless their file starts with `'use client'`. State, effects, context, refs and event handlers need a Client Component; keep `'use client'` at the leaves. Server Actions are async functions marked `'use server'`."
+
+### typescript/react
+
+Detected by `react >= 19` (npm); a sibling of `nextjs` and `astro`, so it applies to every React setup.
+
+| Rule | Targets |
+|---|---|
+| `typescript/react/no-forward-ref` | `tool` biome `lint/suspicious/noReactForwardRef`; `ast-grep` forbid calls to `forwardRef` / `React.forwardRef` (tsx) |
+| `typescript/react/no-prop-types` | `ast-grep` forbid: `$C.propTypes = $V`, `$C.defaultProps = $V` |
+| `typescript/react/use-action-state` | `ast-grep` forbid: `useFormState` imported from `react-dom` |
+| `typescript/react/no-dangerous-html` | `tool` biome `lint/security/noDangerouslySetInnerHtml`; `ast-grep` forbid the `dangerouslySetInnerHTML` attribute |
+
+context.md: React 19: `ref` is a prop (no `forwardRef`), `useActionState` and `act` from `react`, no `propTypes` / `defaultProps`, `createRoot` instead of `ReactDOM.render`.
 
 ### typescript/astro
 
@@ -460,7 +499,7 @@ context.md: "React 19 in the App Router: components are Server Components unless
 |---|---|
 | `typescript/astro/check` | `check` typecheck: `run: astro check`, scope `**/*.astro`, `**/*.ts`, `**/*.tsx` |
 
-context.md: "Astro. `.astro` components render on the server; the default output is static HTML. `.astro` files are type-checked with `astro check`. Content lives in content collections declared in `src/content.config.ts`."
+context.md: Astro renders on the server to static HTML; `astro check`; content collections in `src/content.config.ts` with `glob()` / `file()` loaders and `entry.id`; no `Astro.glob()`; `<ClientRouter />`.
 
 ### typescript/astro/react
 
@@ -476,28 +515,44 @@ context.md: "React components in Astro render to static HTML; they become intera
 | `typescript/prisma/db-push` | `guard` ask: `prisma db push`, `prisma migrate deploy`, `prisma db execute` |
 | `typescript/prisma/generated-client-import` | `ast-grep` forbid: `import $$$ from "@prisma/client"` |
 | `typescript/prisma/no-middleware` | `ast-grep` forbid: `$C.$use($$$)` |
+| `typescript/prisma/no-raw-unsafe` | `ast-grep` forbid: `$C.$queryRawUnsafe($$$)`, `$C.$executeRawUnsafe($$$)` |
+| `typescript/prisma/client-generator` | `check` lint: no `provider = "prisma-client-js"` in tracked `*.prisma` files, `when_changed: [**/*.prisma]` |
 
-context.md: "Prisma 7. The connection URL lives in `prisma.config.ts`. Generator `prisma-client` with an explicit `output`; the client is imported from that path. Query hooks use Client Extensions."
+context.md: Prisma 7: `prisma-client` generator with `output`, driver adapters, `prisma.config.ts` (no automatic `.env`), `prisma db seed`, `$extends` (no `$use`), tagged `$queryRaw` only.
 
 ### typescript/vitest
 
 | Rule | Targets |
 |---|---|
 | `typescript/vitest/run` | `check` test: `run: vitest run`, `changed_run: vitest run --changed` |
-| `typescript/vitest/no-new-skip` | `ast-grep` no-increase on test files: `it.skip`, `test.skip`, `describe.skip`, `it.todo`, `test.todo`, `$X.only` |
+| `typescript/vitest/no-new-skip` | `ast-grep` no-increase on test files: `it.skip`, `test.skip`, `describe.skip`, `it.todo`, `test.todo`, `describe.todo`, `$X.skipIf`, `$X.runIf`, `$X.only` |
 | `typescript/vitest/no-fewer-expects` | `ast-grep` no-decrease on test files: `expect($$$)` |
 | `typescript/vitest/no-test-env-branch` | `ast-grep` forbid on non-test files: `process.env.VITEST`, `process.env.NODE_ENV === "test"` |
+| `typescript/vitest/no-tautological-expect` | `ast-grep` forbid on test files: `expect(<literal>).$M(…)` (`true`, `false`, `null`, `undefined`, a number or a string) |
+| `typescript/vitest/no-snapshot-update` | `guard` ask: `vitest` with `-u` or `--update` |
+| `typescript/vitest/no-workspace-file` | `check` lint: no tracked `vitest.workspace.*` (Vitest 4 ignores it), `when_changed: [vitest.*]` |
+
+context.md: Vitest 4 `test.projects` and `maxWorkers`; assertions are never weakened to make a test pass.
 
 ### typescript/playwright
 
 | Rule | Targets |
 |---|---|
 | `typescript/playwright/run` | `check` test: `run: playwright test --reporter=line`, `when_changed: [e2e/**, playwright.config.*]` |
-| `typescript/playwright/no-new-skip` | `ast-grep` no-increase on `e2e/**`: `test.skip`, `test.fixme`, `test.only` |
+| `typescript/playwright/no-new-skip` | `ast-grep` no-increase on `e2e/**`: `test.skip`, `test.fixme`, `test.fail`, `test.only`, `test.describe.skip`, `test.describe.fixme`, `test.describe.only` |
+| `typescript/playwright/no-wait-for-timeout` | `ast-grep` forbid in `e2e/**`, `**/*.spec.*`: `$P.waitForTimeout($$$)` |
+| `typescript/playwright/locators` | `ast-grep` forbid in `e2e/**`, `**/*.spec.*`: `$`, `$$`, `$eval`, `$$eval`, `waitForSelector`, `waitForNavigation` calls |
+| `typescript/playwright/no-snapshot-update` | `guard` ask: `playwright test` with `--update-snapshots` or `-u` |
+
+context.md: locators (`getByRole`, `getByLabel`, `getByText`, `getByTestId`) and web-first assertions; never `waitForTimeout`.
 
 ### typescript/zod
 
-context.md: "Untrusted input is validated with Zod at boundaries. Types derive from schemas with `z.infer<typeof Schema>`."
+| Rule | Targets |
+|---|---|
+| `typescript/zod/v4-string-formats` | `ast-grep` forbid: a string-format method (`email`, `uuid`, `url`, `datetime`, …) called on a chain rooted at `z.string()` |
+
+context.md: Zod at boundaries with `z.infer`; Zod 4 top-level formats, the single `error` parameter, `z.strictObject` / `z.looseObject`, `error.issues`, `z.treeifyError`.
 
 ## 14. Acceptance tests
 

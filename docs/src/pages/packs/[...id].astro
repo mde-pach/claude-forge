@@ -21,7 +21,7 @@ const chain = lineage(all, pack.id);
 // each test once per page: a test covering several of this pack's rules (or the pack
 // itself) is listed in the pack's section, the others under their rule
 const key = (t: PlacedTest) => `${t.file}:${t.node.line}:${t.instance ?? ""}`;
-const perRule = new Map(pack.rules.map((rule) => [rule.id, ruleTests(sections, rule.id)]));
+const perRule = new Map(pack.rules.map((rule) => [rule.id, ruleTests(sections, rule)]));
 const seen = new Map<string, number>();
 for (const ts of perRule.values()) for (const t of ts) seen.set(key(t), (seen.get(key(t)) ?? 0) + 1);
 const own = packTests(sections, pack);

@@ -1,0 +1,11 @@
+id: python/pytest/no-blind-raises
+description: pytest.raises names the exception expected, never bare Exception (which passes on any crash).
+scope: {language: python, files: ["**/test_*.py", "**/*_test.py"]}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: B017
+    snippet: '[tool.ruff.lint] extend-select = ["B017"]'
+examples:
+  match: ["import pytest\n\n\ndef test_a() -> None:\n    with pytest.raises(Exception):\n        int(\"x\")\n"]
+  no_match: ["import pytest\n\n\ndef test_a() -> None:\n    with pytest.raises(ValueError, match=\"invalid\"):\n        int(\"x\")\n"]

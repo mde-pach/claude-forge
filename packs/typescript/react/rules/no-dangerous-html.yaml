@@ -1,0 +1,14 @@
+id: typescript/react/no-dangerous-html
+description: No dangerouslySetInnerHTML. Render text as children, or a sanitizing Markdown component.
+scope: {language: tsx}
+enforce:
+  - target: tool
+    tool: biome
+    expects: lint/security/noDangerouslySetInnerHtml
+    snippet: '"linter": {"rules": {"security": {"noDangerouslySetInnerHtml": "error"}}}'
+  - target: ast-grep
+    mode: forbid
+    rule: {kind: jsx_attribute, has: {kind: property_identifier, regex: "^dangerouslySetInnerHTML$"}}
+examples:
+  match: ["export const C = ({ comment }: { comment: string }) => <div dangerouslySetInnerHTML={{ __html: comment }} />;\n", "export const M = ({ md }: { md: string }) => <p dangerouslySetInnerHTML={{ __html: md }} />;\n"]
+  no_match: ["export const C = ({ comment }: { comment: string }) => <div>{comment}</div>;\n", "export const M = ({ md }: { md: string }) => <p title={md} />;\n"]

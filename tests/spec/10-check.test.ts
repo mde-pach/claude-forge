@@ -330,3 +330,48 @@ describe("errors in unchanged files", () => {
   );
 });
 
+
+describe("checks that need no tool", () => {
+  /** An applied Next.js repository, committed; the given files are then written and committed too. */
+  function nextRepo(files: Record<string, string>): string {
+    const r = applied("nextjs-prisma-app");
+    commitAll(r, "forge");
+    for (const [rel, text] of Object.entries(files)) put(r, rel, text);
+    commitAll(r, "change");
+    return r;
+  }
+  const all = (r: string) => sh("sh", [".forge/check.sh", "--all"], { cwd: r });
+
+  /** @rule typescript/no-ignore-deprecations typescript/vitest/no-workspace-file typescript/prisma/client-generator */
+  test("the Next.js sample passes them as committed", () => {
+    const out = all(nextRepo({})).stdout;
+    // the lint stage ran (every check of a stage runs, even after one fails)
+    expect(out).toContain("forge:typescript/format-lint");
+    expect(out).not.toContain("forge:typescript/no-ignore-deprecations");
+    expect(out).not.toContain("forge:typescript/vitest/no-workspace-file");
+    expect(out).not.toContain("forge:typescript/prisma/client-generator");
+  }, T);
+
+  /** @rule typescript/no-ignore-deprecations */
+  test("a tsconfig that sets ignoreDeprecations fails, naming the file and line", () => {
+    const r = all(nextRepo({ "tsconfig.base.json": '{\n  "compilerOptions": {\n    "ignoreDeprecations": "6.0"\n  }\n}\n' }));
+    expect(r.status).toBe(1);
+    expect(r.stdout).toContain("forge:typescript/no-ignore-deprecations failed");
+    expect(r.stdout).toContain('tsconfig.base.json:3:    "ignoreDeprecations": "6.0"');
+  }, T);
+
+  /** @rule typescript/vitest/no-workspace-file */
+  test("a vitest.workspace file fails", () => {
+    const r = all(nextRepo({ "vitest.workspace.ts": "export default [];\n" }));
+    expect(r.status).toBe(1);
+    expect(r.stdout).toContain("forge:typescript/vitest/no-workspace-file failed");
+  }, T);
+
+  /** @rule typescript/prisma/client-generator */
+  test("a schema with the prisma-client-js generator fails, naming the line", () => {
+    const r = all(nextRepo({ "prisma/legacy.prisma": 'generator client {\n  provider = "prisma-client-js"\n}\n' }));
+    expect(r.status).toBe(1);
+    expect(r.stdout).toContain("forge:typescript/prisma/client-generator failed");
+    expect(r.stdout).toContain('prisma/legacy.prisma:2:  provider = "prisma-client-js"');
+  }, T);
+});

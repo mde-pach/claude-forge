@@ -1,0 +1,10 @@
+id: typescript/prisma/no-raw-unsafe
+description: No $queryRawUnsafe / $executeRawUnsafe. Use the tagged $queryRaw`...` form, which binds parameters.
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule: {any: [{pattern: "$C.$queryRawUnsafe($$$)"}, {pattern: "$C.$executeRawUnsafe($$$)"}]}
+examples:
+  match: ["await prisma.$queryRawUnsafe(`SELECT * FROM u WHERE id=${id}`);", "await tx.$executeRawUnsafe(sql);"]
+  no_match: ["await prisma.$queryRaw`SELECT * FROM u WHERE id=${id}`;", "await prisma.user.findUnique({ where: { id } });"]

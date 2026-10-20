@@ -1,0 +1,13 @@
+id: safety/docker-volumes
+description: Docker volumes are never deleted by Claude (docker compose down -v, docker volume rm/prune, system prune --volumes); they hold databases.
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: deny
+    pattern: '(^|[^A-Za-z0-9_-])docker[- ]compose[[:space:]][^|;&]*down[^|;&]*[[:space:]](-v|--volumes)([[:space:]=;&|)]|$)'
+  - target: guard
+    decision: deny
+    pattern: '(^|[^A-Za-z0-9_-])docker[[:space:]]+(volume[[:space:]]+(rm|prune)|system[[:space:]]+prune[^|;&]*--volumes)([[:space:];&|)]|$)'
+examples:
+  match: ["docker compose down -v", "docker-compose -f dev.yml down --volumes", "docker volume rm app_pgdata", "docker volume prune -f", "docker system prune -a --volumes"]
+  no_match: ["docker compose down", "docker compose up -d db", "docker volume ls", "docker system prune"]

@@ -1,0 +1,16 @@
+id: typescript/no-focused-tests
+description: No focused tests (.only). They silently turn every other test into a pass.
+scope: {language: typescript, files: ["**/*.test.*", "**/*.spec.*", "**/__tests__/**", "e2e/**"]}
+enforce:
+  - target: tool
+    tool: biome
+    expects: lint/suspicious/noFocusedTests
+    snippet: '"linter": {"rules": {"suspicious": {"noFocusedTests": "error"}}}'
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      has: {field: function, kind: member_expression, regex: "^(it|test|describe)(\\.describe)?\\.only$"}
+examples:
+  match: ["it.only(\"x\", () => {});\n", "test.describe.only(\"y\", () => {});\n"]
+  no_match: ["it(\"x\", () => {});\n", "test.describe(\"y\", () => {});\n"]

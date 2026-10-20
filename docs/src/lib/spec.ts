@@ -305,5 +305,5 @@ export function specUses(root: string): SpecUse[] {
 
 /** Tests shown on a rule or pack page automatically: its example test, its context test, and tagged tests. */
 export function autoPlaced(t: SpecTest): boolean {
-  return t.rules.length > 0 || t.packs.length > 0 || /: (examples behave as declared|context\.md is at most 10 lines)$/.test(t.title);
+  return t.rules.length > 0 || t.packs.length > 0 || /: (examples behave as declared|the examples prove each tool target: .*|context\.md is at most 10 lines)$/.test(t.title);
 }

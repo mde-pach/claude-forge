@@ -40,13 +40,14 @@ describe("the pack tree", () => {
     for (const p of PACKS.values()) for (const r of p.rules) expect(r.id).toBe(`${p.id}/${r.file.split("/").pop()!.replace(/\.yaml$/, "")}`);
   });
 
-  /** @pack typescript/nextjs/react typescript/astro/react */
-  test("a child pack is active only under its active parent: react is under Next.js in a Next.js app and under Astro in an Astro app", () => {
+  /** @pack typescript/nextjs/react typescript/astro/react typescript/react */
+  test("a child pack is active only under its active parent: react is under Next.js in a Next.js app and under Astro in an Astro app, while typescript/react applies to both", () => {
     const next = activePacks("nextjs-prisma-app");
     expect(next).toContain("typescript/nextjs/react");
+    expect(next).toContain("typescript/react");
     expect(next).not.toContain("typescript/astro/react");
     const astro = activePacks("astro-app");
-    expect(astro).toEqual(["typescript", "typescript/astro", "typescript/astro/react", "typescript/bun"]);
+    expect(astro).toEqual(["typescript", "typescript/astro", "typescript/astro/react", "typescript/bun", "typescript/react"]);
   });
 
   test("detection follows dependencies with versions, and lock files refine them", () => {

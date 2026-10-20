@@ -1,0 +1,14 @@
+id: typescript/no-non-null-assertion
+description: No non-null assertions (x!). Check for null, use optional chaining, or narrow the type.
+scope: {language: typescript}
+enforce:
+  - target: tool
+    tool: biome
+    expects: lint/style/noNonNullAssertion
+    snippet: '"linter": {"rules": {"style": {"noNonNullAssertion": "error"}}}'
+  - target: ast-grep
+    mode: forbid
+    rule: {kind: non_null_expression}
+examples:
+  match: ["declare const users: string[];\nexport const u = users.find((x) => x === \"a\")!;\n", "declare const el: HTMLElement | null;\nel!.focus();\n"]
+  no_match: ["declare const users: string[];\nexport const u = users.find((x) => x === \"a\");\nif (!u) throw new Error(\"missing\");\n", "declare const el: HTMLElement | null;\nel?.focus();\nexport const ok = 1 !== 2;\n"]

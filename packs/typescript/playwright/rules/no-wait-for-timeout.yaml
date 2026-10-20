@@ -1,0 +1,10 @@
+id: typescript/playwright/no-wait-for-timeout
+description: No fixed waits (waitForTimeout). Wait for a condition with a web-first assertion or waitForURL.
+scope: {language: typescript, files: ["e2e/**", "**/*.spec.*"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule: {pattern: "$P.waitForTimeout($$$)"}
+examples:
+  match: ["await page.waitForTimeout(2000);", "await frame.waitForTimeout(500);"]
+  no_match: ["await expect(page.getByRole(\"listitem\")).toHaveCount(20);", "await page.waitForURL(\"**/done\");"]

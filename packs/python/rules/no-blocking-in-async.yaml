@@ -1,0 +1,10 @@
+id: python/no-blocking-in-async
+description: Async functions do not block the event loop with sync HTTP, sleep or file I/O.
+scope: {language: python}
+enforce:
+  - {target: tool, tool: ruff, expects: ASYNC210, snippet: '[tool.ruff.lint] extend-select = ["ASYNC"]'}
+  - {target: tool, tool: ruff, expects: ASYNC230, snippet: '[tool.ruff.lint] extend-select = ["ASYNC"]'}
+  - {target: tool, tool: ruff, expects: ASYNC251, snippet: '[tool.ruff.lint] extend-select = ["ASYNC"]'}
+examples:
+  match: ["import time\n\nimport requests\n\n\nasync def h(u: str, p: str) -> None:\n    requests.get(u)\n    time.sleep(1)\n    open(p)\n"]
+  no_match: ["import asyncio\n\nimport httpx\n\n\nasync def h(client: httpx.AsyncClient, u: str) -> None:\n    await client.get(u)\n    await asyncio.sleep(1)\n", "import time\n\n\ndef sync_job() -> None:\n    time.sleep(1)\n"]

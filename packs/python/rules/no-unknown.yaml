@@ -1,0 +1,15 @@
+id: python/no-unknown
+description: No implicit Any (Unknown). Annotate parameters, and validate untyped data into typed models.
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: basedpyright
+    expects: reportUnknownParameterType
+    snippet: '[tool.basedpyright] reportUnknownParameterType = "error"'
+  - target: tool
+    tool: basedpyright
+    expects: reportUnknownVariableType
+    snippet: '[tool.basedpyright] reportUnknownVariableType = "error"'
+examples:
+  match: ["def f(x):\n    y = x\n    return y\n", "def g(a, b: int) -> int:\n    c = a\n    return b + len(c)\n"]
+  no_match: ["def f(x: int) -> int:\n    y = x\n    return y\n", "def g(a: list[int], b: int) -> int:\n    c = a\n    return b + len(c)\n"]
