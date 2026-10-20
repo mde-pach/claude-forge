@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 
@@ -111,4 +111,32 @@ export function applied(name: string): string {
 export function commitAll(repo: string, message = "commit"): void {
   git(repo, "add", "-A");
   git(repo, "commit", "-qm", message);
+}
+
+/** Pinned project tools used by specs that need the real thing. */
+export const TOOL_VERSIONS = { biome: "2.5.15", typescript: "7.0.2", ruff: "0.17.1", basedpyright: "1.40.2" };
+export const TOOLS_CACHE = join(tmpdir(), "forge-tools-v2");
+export const hasBun = sh("sh", ["-c", "command -v bun"]).status === 0;
+export const hasUv = sh("sh", ["-c", "command -v uv"]).status === 0;
+
+/** Installs Biome and TypeScript (bun) and ruff and basedpyright (uv) once into TOOLS_CACHE. */
+export function ensureTools(): void {
+  mkdirSync(TOOLS_CACHE, { recursive: true });
+  if (hasBun && !existsSync(join(TOOLS_CACHE, "node_modules/.bin/tsc"))) {
+    writeFileSync(join(TOOLS_CACHE, "package.json"), '{"name":"tools","private":true}');
+    const r = sh("bun", ["add", "-d", `@biomejs/biome@${TOOL_VERSIONS.biome}`, `typescript@${TOOL_VERSIONS.typescript}`], { cwd: TOOLS_CACHE });
+    if (r.status !== 0) throw new Error(`bun add failed: ${r.stderr}`);
+  }
+  if (hasUv && !existsSync(join(TOOLS_CACHE, ".venv/bin/basedpyright"))) {
+    let r = sh("uv", ["venv", "-q", join(TOOLS_CACHE, ".venv")]);
+    if (r.status === 0)
+      r = sh("uv", ["pip", "install", "-q", "--python", join(TOOLS_CACHE, ".venv/bin/python"), `ruff==${TOOL_VERSIONS.ruff}`, `basedpyright==${TOOL_VERSIONS.basedpyright}`]);
+    if (r.status !== 0) throw new Error(`uv install failed: ${r.stderr}`);
+  }
+}
+
+/** Links the cached tools into a sample repository (node_modules or .venv). */
+export function linkTools(repo: string, kind: "node" | "python"): void {
+  if (kind === "python") symlinkSync(join(TOOLS_CACHE, ".venv"), join(repo, ".venv"));
+  else symlinkSync(join(TOOLS_CACHE, "node_modules"), join(repo, "node_modules"));
 }

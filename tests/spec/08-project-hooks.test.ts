@@ -11,7 +11,7 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { applied, commitAll, git, hookJson, put, sh } from "../helpers";
+import { applied, commitAll, ensureTools, forge, git, hasBun, hookJson, linkTools, put, sampleRepo, sh } from "../helpers";
 
 const T = 180_000;
 const SCRIPTS = ".claude/skills/forge-project/scripts";
@@ -115,6 +115,7 @@ describe("PostToolUse", () => {
     "typecheck reports errors with exit 2 on stderr, and skips while another run holds the lock",
     () => {
       stub("basedpyright", 'sleep 1; echo "app/main.py:1:1 - error: nope"; exit 1');
+      put(repo, "app/main.py", readFileSync(join(repo, "app/main.py"), "utf8") + "\n# edited\n");
       const input = join(mkdtempSync(join(tmpdir(), "forge-in-")), "in.json");
       writeFileSync(input, hookJson({ cwd: repo, ...edit("app/main.py") }));
       const r = sh("sh", ["-c", `sh ${SCRIPTS}/typecheck.sh <"$1" & sleep 0.3; sh ${SCRIPTS}/typecheck.sh <"$1"; echo "second=$?"; wait $!; echo "first=$?"`, "x", input], { cwd: repo });
@@ -123,6 +124,7 @@ describe("PostToolUse", () => {
       expect(r.stderr).toContain("forge:python/typecheck");
       expect(existsSync(join(repo, ".forge/state/typecheck.lock"))).toBe(false);
       rmSync(join(repo, ".venv/bin/basedpyright"));
+      reset();
     },
     T,
   );
@@ -136,6 +138,7 @@ describe("PostToolUse", () => {
       expect(hook("typecheck.sh", edit("app/main.py")).status).toBe(0);
       expect(existsSync(join(repo, ".forge/state/typecheck.lock"))).toBe(false);
       rmSync(join(repo, ".venv/bin/basedpyright"));
+      reset();
     },
     T,
   );
@@ -199,3 +202,51 @@ test(
   },
   T,
 );
+
+/**
+ * Errors that were already in files Claude did not touch are not Claude's: the
+ * Stop hook and the background type check report only errors in changed files.
+ */
+describe("errors in unchanged files", () => {
+  function legacyRepo(): string {
+    ensureTools();
+    const r = sampleRepo("eslint-app");
+    linkTools(r, "node");
+    put(r, "src/legacy.ts", 'export const legacy: number = "oops";\n');
+    commitAll(r, "legacy");
+    expect(forge(["apply", "--yes"], r).status).toBe(0);
+    commitAll(r, "forge");
+    return r;
+  }
+
+  /** @rule typescript/typecheck */
+  test.if(hasBun)(
+    "Stop allows a clean edit while an unchanged file has a type error",
+    () => {
+      const r = legacyRepo();
+      put(r, "src/ok.ts", "export const ok: number = 1;\n");
+      expect(hook("stop.sh", { session_id: "legacy" }, {}, r).stdout).toBe("");
+    },
+    T,
+  );
+
+  /** @rule typescript/typecheck */
+  test.if(hasBun)(
+    "typecheck stays silent for errors only in unchanged files, and wakes Claude for an error in the edited file",
+    () => {
+      const r = legacyRepo();
+      const edit = { tool_name: "Edit", tool_input: { file_path: join(r, "src/ok.ts") } };
+      put(r, "src/ok.ts", "export const ok: number = 1;\n");
+      const quiet = hook("typecheck.sh", edit, {}, r);
+      expect(quiet.status).toBe(0);
+      expect(quiet.stderr).toBe("");
+      put(r, "src/ok.ts", 'export const ok: number = "no";\n');
+      const loud = hook("typecheck.sh", edit, {}, r);
+      expect(loud.status).toBe(2);
+      expect(loud.stderr).toContain("forge:typescript/typecheck\nsrc/ok.ts(1,14): error TS2322");
+      expect(loud.stderr).not.toContain("legacy");
+    },
+    T,
+  );
+});
+

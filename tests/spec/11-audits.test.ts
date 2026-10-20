@@ -6,41 +6,25 @@
  * must appear for every `match` example and for no `no_match` example; then the
  * rule is satisfied, and stricter configs satisfy it automatically. Otherwise
  * `forge status` prints the snippet to add. Forge never edits a tool config.
- * These tests install real Biome, TypeScript, ruff and basedpyright once.
+ * These tests install real Biome, TypeScript, ruff and basedpyright once
+ * (versions pinned in tests/helpers.ts).
  */
 import { beforeAll, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, symlinkSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { examplePath } from "../../src/audit";
-import { commitAll, forge, git, sampleRepo, sh } from "../helpers";
+import { commitAll, ensureTools, forge, git, hasBun, hasUv, linkTools, sampleRepo } from "../helpers";
 import type { Rule } from "../../src/types";
 
-const CACHE = join(tmpdir(), "forge-audit-tools-v1");
 const T = 300_000;
-const hasBun = sh("sh", ["-c", "command -v bun"]).status === 0;
-const hasUv = sh("sh", ["-c", "command -v uv"]).status === 0;
 
-beforeAll(() => {
-  mkdirSync(CACHE, { recursive: true });
-  if (hasBun && !existsSync(join(CACHE, "node_modules/.bin/biome"))) {
-    writeFileSync(join(CACHE, "package.json"), '{"name":"tools","private":true}');
-    const r = sh("bun", ["add", "-d", "@biomejs/biome@2.2.4", "typescript@5.9.3"], { cwd: CACHE });
-    if (r.status !== 0) throw new Error(`bun add failed: ${r.stderr}`);
-  }
-  if (hasUv && !existsSync(join(CACHE, ".venv/bin/basedpyright"))) {
-    let r = sh("uv", ["venv", "-q", join(CACHE, ".venv")]);
-    if (r.status === 0) r = sh("uv", ["pip", "install", "-q", "--python", join(CACHE, ".venv/bin/python"), "ruff==0.14.1", "basedpyright==1.31.7"]);
-    if (r.status !== 0) throw new Error(`uv install failed: ${r.stderr}`);
-  }
-}, T);
+beforeAll(ensureTools, T);
 
 /** A sample repo with the cached tools linked in and the given config files, committed. */
 function repo(name: string, files: Record<string, string>): string {
   const dir = sampleRepo(name);
   for (const [rel, text] of Object.entries(files)) writeFileSync(join(dir, rel), text);
-  if (name === "fastapi-app") symlinkSync(join(CACHE, ".venv"), join(dir, ".venv"));
-  else symlinkSync(join(CACHE, "node_modules"), join(dir, "node_modules"));
+  linkTools(dir, name === "fastapi-app" ? "python" : "node");
   commitAll(dir, "config");
   return dir;
 }

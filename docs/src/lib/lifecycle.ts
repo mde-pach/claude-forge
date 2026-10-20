@@ -66,12 +66,14 @@ function checkEvents(rule: Rule, t: CheckTarget): LifecycleEvent[] {
     case "lint":
       if (files) out.push({ step: "edit", effect: "feedback", text: `Lints the edited file with ${cmd(t.changed_run!.replace("{files}", "<file>"), "--changed")}; findings go back to Claude.` });
       out.push(...changed("blocks", "Runs"));
+      if (!files) for (const e of out) if (e.step === "stop" || e.step === "commit") e.text += " Only errors in changed files count.";
       out.push({ step: "ci", effect: "blocks", text: `Runs ${cmd(t.run, "--all")} on the whole project.` });
       break;
     case "typecheck":
-      out.push({ step: "edit", effect: "wakes", text: `Runs ${cmd(t.run, "--all")} in the background after an edit to a ${scopeNoun(rule)}; errors wake Claude.` });
+      out.push({ step: "edit", effect: "wakes", text: `Runs ${cmd(t.run, "--all")} in the background after an edit to a ${scopeNoun(rule)}; errors in changed files wake Claude, errors only in other files stay silent.` });
       out.push(...changed("blocks", "Runs"));
-      out.push({ step: "ci", effect: "blocks", text: `Runs ${cmd(t.run, "--all")}.` });
+      for (const e of out) if (e.step === "stop" || e.step === "commit") e.text += " Only errors in changed files count.";
+      out.push({ step: "ci", effect: "blocks", text: `Runs ${cmd(t.run, "--all")}; any error fails.` });
       break;
     case "migration":
     case "test":

@@ -11,7 +11,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { chmodSync, existsSync, mkdirSync, readFileSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { applied, commitAll, forge, git, put, sampleRepo, sh } from "../helpers";
+import { applied, commitAll, ensureTools, forge, git, hasBun, hasUv, linkTools, put, sampleRepo, sh } from "../helpers";
 
 const T = 180_000;
 const hasRuff = sh("sh", ["-c", "command -v ruff"]).status === 0;
@@ -248,3 +248,85 @@ test(
   },
   T,
 );
+
+/**
+ * A whole-project typecheck or lint run under `--changed` (Stop, pre-commit)
+ * fails only when an error names a file in the change: errors already in
+ * unchanged files are not Claude's, and blocking on them would block every
+ * turn. `--all` (CI) still fails on any error.
+ */
+describe("errors in unchanged files", () => {
+  /** A TypeScript repository with a type error committed in src/legacy.ts. */
+  function legacyRepo(): string {
+    ensureTools();
+    const r = sampleRepo("eslint-app");
+    linkTools(r, "node");
+    put(r, "src/legacy.ts", 'export const legacy: number = "oops";\n');
+    commitAll(r, "legacy");
+    expect(forge(["apply", "--yes"], r).status).toBe(0);
+    commitAll(r, "forge");
+    return r;
+  }
+
+  /** @rule typescript/typecheck */
+  test.if(hasBun)(
+    "a clean change passes even though an unchanged file has a type error, and says so",
+    () => {
+      const r = legacyRepo();
+      put(r, "src/ok.ts", "export const ok: number = 1;\n");
+      const c = sh("sh", [".forge/check.sh", "--changed"], { cwd: r });
+      expect(c.status).toBe(0);
+      expect(c.stdout).toContain("forge:typescript/typecheck ok for the changed files (errors remain in unchanged files");
+    },
+    T,
+  );
+
+  /** @rule typescript/typecheck */
+  test.if(hasBun)(
+    "a type error in a changed file fails, and only the changed file's diagnostics are shown",
+    () => {
+      const r = legacyRepo();
+      put(r, "src/ok.ts", 'export const ok: number = "no";\n');
+      const c = sh("sh", [".forge/check.sh", "--changed"], { cwd: r });
+      expect(c.status).toBe(1);
+      expect(c.stdout).toContain("forge:typescript/typecheck failed\nsrc/ok.ts(1,14): error TS2322");
+      expect(c.stdout).not.toContain("src/legacy.ts");
+    },
+    T,
+  );
+
+  /** @rule typescript/typecheck */
+  test.if(hasBun)(
+    "--all still fails on the error in the unchanged file",
+    () => {
+      const c = sh("sh", [".forge/check.sh", "--all"], { cwd: legacyRepo() });
+      expect(c.status).toBe(1);
+      expect(c.stdout).toContain("forge:typescript/typecheck failed\nsrc/legacy.ts(1,14): error TS2322");
+    },
+    T,
+  );
+
+  test.if(hasUv)(
+    "the same holds for a lint check run on the whole project",
+    () => {
+      ensureTools();
+      const r = sampleRepo("fastapi-app");
+      linkTools(r, "python");
+      put(r, ".forge/rules/lint-all.yaml", "id: local/lint-all\ndescription: ruff on the whole project.\nscope: {language: python}\nenforce:\n  - {target: check, stage: lint, run: \"ruff check --output-format concise .\"}\n");
+      put(r, "app/legacy.py", "import os\n");
+      commitAll(r, "legacy");
+      expect(forge(["apply", "--yes"], r).status).toBe(0);
+      commitAll(r, "forge");
+      put(r, "app/new.py", "X = 1\n");
+      const ok = sh("sh", [".forge/check.sh", "--changed"], { cwd: r });
+      expect(ok.stdout).toContain("forge:local/lint-all ok for the changed files");
+      expect(ok.stdout).not.toContain("forge:local/lint-all failed");
+      put(r, "app/new.py", "import sys\n");
+      const bad = sh("sh", [".forge/check.sh", "--changed"], { cwd: r });
+      expect(bad.stdout).toContain("forge:local/lint-all failed\napp/new.py:1:8: F401");
+      expect(bad.stdout).not.toContain("app/legacy.py");
+    },
+    T,
+  );
+});
+

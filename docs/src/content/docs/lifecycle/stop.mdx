@@ -15,6 +15,13 @@ When Claude ends its turn, `stop.sh` runs `.forge/check.sh --changed` on the sta
 
 <Spec file="10-check" describe="steps" />
 
+## Errors that were already there
+
+A whole-project type check or lint run blocks only for errors in files that are part of the change. Errors already present in other files are reported as remaining and do not block; CI (`check.sh --all`) still fails on them.
+
+<Spec file="10-check" describe="errors in unchanged files" />
+<Spec file="08-project-hooks" describe="errors in unchanged files" />
+
 ## Local databases
 
 Migration checks that need a database run only when it is local.

@@ -231,7 +231,7 @@ All scripts are POSIX `sh`. They read file paths and the working directory from 
 | SessionStart | `startup\|resume\|clear\|compact` | `session-start.sh` | sync | 10 s | ≤ 20 lines: branch, number of changed files and first 10 paths, last 5 commits (`%h %s`, ≤ 72 chars), active packs, missing tools (once). |
 | PreToolUse | `Bash` | `guard.sh` | sync | 5 s | Project `guard` rules. `onFailure: "block"`. |
 | PostToolUse | `Edit\|Write` | `post-edit.sh` | sync | 30 s | Format the file silently; lint it; run ast-grep `forbid` rules on it. Findings → JSON `{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"…"}}`, ≤ 20 lines, diagnostics for this file only. Nothing on success. |
-| PostToolUse | `Edit\|Write` | `typecheck.sh` | `asyncRewake: true` | 300 s | Project typecheck. Errors → exit 2, stderr ≤ 20 lines. Skips if one is already running (lock in `.forge/state/`). |
+| PostToolUse | `Edit\|Write` | `typecheck.sh` | `asyncRewake: true` | 300 s | Project typecheck. Errors in files of the changed set (`git status`) → exit 2, stderr ≤ 20 lines, those files' diagnostics only; errors only in other files → silent. Skips if one is already running (lock in `.forge/state/`). |
 | Stop | — | `stop.sh` | sync | 600 s | §10.2. |
 
 ### 8.2 Permissions appended
@@ -271,7 +271,7 @@ One entry point for the Stop hook, the optional pre-commit hook and CI. Runs in 
 2. **Applied migrations:** any file under `alembic/versions/` or `prisma/migrations/` that exists at `HEAD` and is modified or deleted → fail.
 3. **Tests:** test files present at `HEAD` and deleted → fail; ast-grep `no-increase` / `no-decrease` rules compared with `HEAD`.
 4. **ast-grep `forbid` rules.**
-5. **Format, lint, typecheck:** `check` targets of stages `format`, `lint`, `typecheck`, using project binaries (`changed_run` with `--changed`).
+5. **Format, lint, typecheck:** `check` targets of stages `format`, `lint`, `typecheck`, using project binaries (`changed_run` with `--changed`). With `--changed`, a `lint` or `typecheck` check that runs on the whole project (no `{files}` form) fails only if an error diagnostic names a changed file; it then prints only those diagnostics. Errors only in unchanged files print `forge:<rule-id> ok for the changed files (errors remain in unchanged files: …)` and pass. Output naming no file at all (configuration error, crash) fails as before. Diagnostic paths are read from the tools' plain output (`path(l,c)`, `path:l:c`, `--> path:l:c`; absolute paths under the repository are made relative; warning-only lines are ignored). `--all` fails on any error.
 6. **Migration checks:** `check` targets of stage `migration`, only if a `when_changed` path changed and, when `requires_local_db` is set, the configured database host is `localhost`, `127.0.0.1`, `::1` or a Unix socket. Otherwise print `forge:<rule-id> skipped: no local database` and continue.
 7. **Tests:** `check` targets of stage `test` (`changed_run` with `--changed`).
 

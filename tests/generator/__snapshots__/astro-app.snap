@@ -436,6 +436,37 @@ forge_exec_check() {
   return "$_fe_rc"
 }
 
+# forge_diagnostics <output> [print]: sorts the error diagnostics of a whole-project
+# run by the files they name (tsc "path(l,c)", "path:l:c" from basedpyright, ruff,
+# biome, "--> path:l:c"; absolute paths under the repository are made relative;
+# warning-only lines are ignored). Prints "changed" when one names a file of
+# $FORGE_TMP/changed, "other" when they name only other files, "none" when no line
+# names a file. With "print", prints the lines that name a changed file instead.
+forge_diagnostics() {
+  awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v mode="$2" '
+    FILENAME == ARGV[1] { ch[$0] = 1; next }
+    {
+      line = $0
+      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
+      sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
+      if (!match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) next
+      p = substr(line, 1, RLENGTH)
+      sub(/([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)$/, "", p)
+      if (index(p, r1 "/") == 1) p = substr(p, length(r1) + 2)
+      else if (index(p, r2 "/") == 1) p = substr(p, length(r2) + 2)
+      sub(/^\.\//, "", p)
+      named = 1
+      if (p in ch) { hit = 1; if (mode == "print") print $0 }
+    }
+    END { if (mode != "print") print (hit ? "changed" : named ? "other" : "none") }' "$FORGE_TMP/changed" "$1"
+}
+
+# forge_attribute <stage> <output>: for a failed whole-project typecheck or lint run,
+# "other" when its errors are all in unchanged files, else "changed" or "none".
+forge_attribute() {
+  case $1 in typecheck|lint) forge_diagnostics "$2" ;; *) printf 'none\n' ;; esac
+}
+
 # forge_run_check <n>: one check under check.sh ($mode, $FORGE_TMP/changed, $FORGE_TMP/existing).
 forge_run_check() {
   forge_check_meta_"$1"
@@ -460,6 +491,18 @@ forge_run_check() {
   if forge_exec_check "$_fc_fn" "$c_timeout"; then
     grep '^forge:' "$FORGE_TMP/out"
     return 0
+  fi
+  # --changed, whole-project run: only errors in changed files count
+  if [ "$mode" = --changed ] && [ "$_fc_fn" = "forge_check_run_$1" ]; then
+    case $(forge_attribute "$c_stage" "$FORGE_TMP/out") in
+      other)
+        printf 'forge:%s ok for the changed files (errors remain in unchanged files: sh .forge/check.sh --all)\n' "$c_id"
+        return 0 ;;
+      changed)
+        printf 'forge:%s failed\n' "$c_id"
+        forge_diagnostics "$FORGE_TMP/out" print | first_lines 15
+        return 1 ;;
+    esac
   fi
   printf 'forge:%s failed\n' "$c_id"
   first_lines 15 < "$FORGE_TMP/out"
@@ -501,7 +544,8 @@ forge_file_stage() {
   return "$_fp_rc"
 }
 
-# forge_typecheck <file>: the full run of each typecheck check whose scope covers <file>.
+# forge_typecheck <file>: the full run of each typecheck check whose scope covers <file>;
+# only errors in files of $FORGE_TMP/changed count.
 forge_typecheck() {
   _ft_i=1
   _ft_rc=0
@@ -509,9 +553,18 @@ forge_typecheck() {
     forge_check_meta_"$_ft_i"
     if [ "$c_stage" = typecheck ] && forge_scope_"$_ft_i" "$1" && ! forge_missing_tool >/dev/null; then
       if ! forge_exec_check "forge_check_run_$_ft_i" "$c_timeout"; then
-        printf 'forge:%s\n' "$c_id"
-        first_lines 19 < "$FORGE_TMP/out"
-        _ft_rc=1
+        # only errors in changed files wake Claude
+        case $(forge_diagnostics "$FORGE_TMP/out") in
+          other) ;;
+          changed)
+            printf 'forge:%s\n' "$c_id"
+            forge_diagnostics "$FORGE_TMP/out" print | first_lines 19
+            _ft_rc=1 ;;
+          *)
+            printf 'forge:%s\n' "$c_id"
+            first_lines 19 < "$FORGE_TMP/out"
+            _ft_rc=1 ;;
+        esac
       fi
     fi
     _ft_i=$((_ft_i + 1))
@@ -739,6 +792,37 @@ forge_exec_check() {
   return "$_fe_rc"
 }
 
+# forge_diagnostics <output> [print]: sorts the error diagnostics of a whole-project
+# run by the files they name (tsc "path(l,c)", "path:l:c" from basedpyright, ruff,
+# biome, "--> path:l:c"; absolute paths under the repository are made relative;
+# warning-only lines are ignored). Prints "changed" when one names a file of
+# $FORGE_TMP/changed, "other" when they name only other files, "none" when no line
+# names a file. With "print", prints the lines that name a changed file instead.
+forge_diagnostics() {
+  awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v mode="$2" '
+    FILENAME == ARGV[1] { ch[$0] = 1; next }
+    {
+      line = $0
+      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
+      sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
+      if (!match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) next
+      p = substr(line, 1, RLENGTH)
+      sub(/([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)$/, "", p)
+      if (index(p, r1 "/") == 1) p = substr(p, length(r1) + 2)
+      else if (index(p, r2 "/") == 1) p = substr(p, length(r2) + 2)
+      sub(/^\.\//, "", p)
+      named = 1
+      if (p in ch) { hit = 1; if (mode == "print") print $0 }
+    }
+    END { if (mode != "print") print (hit ? "changed" : named ? "other" : "none") }' "$FORGE_TMP/changed" "$1"
+}
+
+# forge_attribute <stage> <output>: for a failed whole-project typecheck or lint run,
+# "other" when its errors are all in unchanged files, else "changed" or "none".
+forge_attribute() {
+  case $1 in typecheck|lint) forge_diagnostics "$2" ;; *) printf 'none\n' ;; esac
+}
+
 # forge_run_check <n>: one check under check.sh ($mode, $FORGE_TMP/changed, $FORGE_TMP/existing).
 forge_run_check() {
   forge_check_meta_"$1"
@@ -763,6 +847,18 @@ forge_run_check() {
   if forge_exec_check "$_fc_fn" "$c_timeout"; then
     grep '^forge:' "$FORGE_TMP/out"
     return 0
+  fi
+  # --changed, whole-project run: only errors in changed files count
+  if [ "$mode" = --changed ] && [ "$_fc_fn" = "forge_check_run_$1" ]; then
+    case $(forge_attribute "$c_stage" "$FORGE_TMP/out") in
+      other)
+        printf 'forge:%s ok for the changed files (errors remain in unchanged files: sh .forge/check.sh --all)\n' "$c_id"
+        return 0 ;;
+      changed)
+        printf 'forge:%s failed\n' "$c_id"
+        forge_diagnostics "$FORGE_TMP/out" print | first_lines 15
+        return 1 ;;
+    esac
   fi
   printf 'forge:%s failed\n' "$c_id"
   first_lines 15 < "$FORGE_TMP/out"
@@ -804,7 +900,8 @@ forge_file_stage() {
   return "$_fp_rc"
 }
 
-# forge_typecheck <file>: the full run of each typecheck check whose scope covers <file>.
+# forge_typecheck <file>: the full run of each typecheck check whose scope covers <file>;
+# only errors in files of $FORGE_TMP/changed count.
 forge_typecheck() {
   _ft_i=1
   _ft_rc=0
@@ -812,9 +909,18 @@ forge_typecheck() {
     forge_check_meta_"$_ft_i"
     if [ "$c_stage" = typecheck ] && forge_scope_"$_ft_i" "$1" && ! forge_missing_tool >/dev/null; then
       if ! forge_exec_check "forge_check_run_$_ft_i" "$c_timeout"; then
-        printf 'forge:%s\n' "$c_id"
-        first_lines 19 < "$FORGE_TMP/out"
-        _ft_rc=1
+        # only errors in changed files wake Claude
+        case $(forge_diagnostics "$FORGE_TMP/out") in
+          other) ;;
+          changed)
+            printf 'forge:%s\n' "$c_id"
+            forge_diagnostics "$FORGE_TMP/out" print | first_lines 19
+            _ft_rc=1 ;;
+          *)
+            printf 'forge:%s\n' "$c_id"
+            first_lines 19 < "$FORGE_TMP/out"
+            _ft_rc=1 ;;
+        esac
       fi
     fi
     _ft_i=$((_ft_i + 1))
@@ -918,7 +1024,8 @@ exit 0
 ===== .claude/skills/forge-project/scripts/typecheck.sh
 #!/bin/sh
 # Generated by forge. PostToolUse(Edit|Write), asyncRewake: project typecheck.
-# Errors: exit 2 with <= 20 lines on stderr. Skips if a typecheck is already
+# Errors in changed files: exit 2 with <= 20 lines on stderr; errors only in
+# unchanged files are not Claude's and stay silent. Skips if a typecheck is already
 # running (lock directory in .forge/state/, taken over when its pid is gone).
 dir=$(cd "$(dirname "$0")" && pwd)
 FORGE_INPUT=$(cat)
@@ -1117,6 +1224,37 @@ forge_exec_check() {
   return "$_fe_rc"
 }
 
+# forge_diagnostics <output> [print]: sorts the error diagnostics of a whole-project
+# run by the files they name (tsc "path(l,c)", "path:l:c" from basedpyright, ruff,
+# biome, "--> path:l:c"; absolute paths under the repository are made relative;
+# warning-only lines are ignored). Prints "changed" when one names a file of
+# $FORGE_TMP/changed, "other" when they name only other files, "none" when no line
+# names a file. With "print", prints the lines that name a changed file instead.
+forge_diagnostics() {
+  awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v mode="$2" '
+    FILENAME == ARGV[1] { ch[$0] = 1; next }
+    {
+      line = $0
+      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
+      sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
+      if (!match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) next
+      p = substr(line, 1, RLENGTH)
+      sub(/([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)$/, "", p)
+      if (index(p, r1 "/") == 1) p = substr(p, length(r1) + 2)
+      else if (index(p, r2 "/") == 1) p = substr(p, length(r2) + 2)
+      sub(/^\.\//, "", p)
+      named = 1
+      if (p in ch) { hit = 1; if (mode == "print") print $0 }
+    }
+    END { if (mode != "print") print (hit ? "changed" : named ? "other" : "none") }' "$FORGE_TMP/changed" "$1"
+}
+
+# forge_attribute <stage> <output>: for a failed whole-project typecheck or lint run,
+# "other" when its errors are all in unchanged files, else "changed" or "none".
+forge_attribute() {
+  case $1 in typecheck|lint) forge_diagnostics "$2" ;; *) printf 'none\n' ;; esac
+}
+
 # forge_run_check <n>: one check under check.sh ($mode, $FORGE_TMP/changed, $FORGE_TMP/existing).
 forge_run_check() {
   forge_check_meta_"$1"
@@ -1141,6 +1279,18 @@ forge_run_check() {
   if forge_exec_check "$_fc_fn" "$c_timeout"; then
     grep '^forge:' "$FORGE_TMP/out"
     return 0
+  fi
+  # --changed, whole-project run: only errors in changed files count
+  if [ "$mode" = --changed ] && [ "$_fc_fn" = "forge_check_run_$1" ]; then
+    case $(forge_attribute "$c_stage" "$FORGE_TMP/out") in
+      other)
+        printf 'forge:%s ok for the changed files (errors remain in unchanged files: sh .forge/check.sh --all)\n' "$c_id"
+        return 0 ;;
+      changed)
+        printf 'forge:%s failed\n' "$c_id"
+        forge_diagnostics "$FORGE_TMP/out" print | first_lines 15
+        return 1 ;;
+    esac
   fi
   printf 'forge:%s failed\n' "$c_id"
   first_lines 15 < "$FORGE_TMP/out"
@@ -1182,7 +1332,8 @@ forge_file_stage() {
   return "$_fp_rc"
 }
 
-# forge_typecheck <file>: the full run of each typecheck check whose scope covers <file>.
+# forge_typecheck <file>: the full run of each typecheck check whose scope covers <file>;
+# only errors in files of $FORGE_TMP/changed count.
 forge_typecheck() {
   _ft_i=1
   _ft_rc=0
@@ -1190,9 +1341,18 @@ forge_typecheck() {
     forge_check_meta_"$_ft_i"
     if [ "$c_stage" = typecheck ] && forge_scope_"$_ft_i" "$1" && ! forge_missing_tool >/dev/null; then
       if ! forge_exec_check "forge_check_run_$_ft_i" "$c_timeout"; then
-        printf 'forge:%s\n' "$c_id"
-        first_lines 19 < "$FORGE_TMP/out"
-        _ft_rc=1
+        # only errors in changed files wake Claude
+        case $(forge_diagnostics "$FORGE_TMP/out") in
+          other) ;;
+          changed)
+            printf 'forge:%s\n' "$c_id"
+            forge_diagnostics "$FORGE_TMP/out" print | first_lines 19
+            _ft_rc=1 ;;
+          *)
+            printf 'forge:%s\n' "$c_id"
+            first_lines 19 < "$FORGE_TMP/out"
+            _ft_rc=1 ;;
+        esac
       fi
     fi
     _ft_i=$((_ft_i + 1))
@@ -1231,6 +1391,9 @@ printf '%s\n' "$$" > "$lock/pid"
 FORGE_TMP=$(mktemp -d "${TMPDIR:-/tmp}/forge-tc.XXXXXX") || { rm -rf "$lock"; exit 0; }
 trap 'rm -rf "$FORGE_TMP" "$lock"' EXIT HUP INT TERM
 
+# the changed set, as check.sh --changed computes it
+git status --porcelain --untracked-files=all 2>/dev/null \
+  | sed -e 's/^...//' -e 's/^.* -> //' -e 's/^"\(.*\)"$/\1/' | sort -u > "$FORGE_TMP/changed"
 if forge_typecheck "$file" > "$FORGE_TMP/report" 2>&1; then exit 0; fi
 first_lines 20 < "$FORGE_TMP/report" >&2
 exit 2
@@ -1548,6 +1711,37 @@ forge_exec_check() {
   return "$_fe_rc"
 }
 
+# forge_diagnostics <output> [print]: sorts the error diagnostics of a whole-project
+# run by the files they name (tsc "path(l,c)", "path:l:c" from basedpyright, ruff,
+# biome, "--> path:l:c"; absolute paths under the repository are made relative;
+# warning-only lines are ignored). Prints "changed" when one names a file of
+# $FORGE_TMP/changed, "other" when they name only other files, "none" when no line
+# names a file. With "print", prints the lines that name a changed file instead.
+forge_diagnostics() {
+  awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v mode="$2" '
+    FILENAME == ARGV[1] { ch[$0] = 1; next }
+    {
+      line = $0
+      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
+      sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
+      if (!match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) next
+      p = substr(line, 1, RLENGTH)
+      sub(/([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)$/, "", p)
+      if (index(p, r1 "/") == 1) p = substr(p, length(r1) + 2)
+      else if (index(p, r2 "/") == 1) p = substr(p, length(r2) + 2)
+      sub(/^\.\//, "", p)
+      named = 1
+      if (p in ch) { hit = 1; if (mode == "print") print $0 }
+    }
+    END { if (mode != "print") print (hit ? "changed" : named ? "other" : "none") }' "$FORGE_TMP/changed" "$1"
+}
+
+# forge_attribute <stage> <output>: for a failed whole-project typecheck or lint run,
+# "other" when its errors are all in unchanged files, else "changed" or "none".
+forge_attribute() {
+  case $1 in typecheck|lint) forge_diagnostics "$2" ;; *) printf 'none\n' ;; esac
+}
+
 # forge_run_check <n>: one check under check.sh ($mode, $FORGE_TMP/changed, $FORGE_TMP/existing).
 forge_run_check() {
   forge_check_meta_"$1"
@@ -1572,6 +1766,18 @@ forge_run_check() {
   if forge_exec_check "$_fc_fn" "$c_timeout"; then
     grep '^forge:' "$FORGE_TMP/out"
     return 0
+  fi
+  # --changed, whole-project run: only errors in changed files count
+  if [ "$mode" = --changed ] && [ "$_fc_fn" = "forge_check_run_$1" ]; then
+    case $(forge_attribute "$c_stage" "$FORGE_TMP/out") in
+      other)
+        printf 'forge:%s ok for the changed files (errors remain in unchanged files: sh .forge/check.sh --all)\n' "$c_id"
+        return 0 ;;
+      changed)
+        printf 'forge:%s failed\n' "$c_id"
+        forge_diagnostics "$FORGE_TMP/out" print | first_lines 15
+        return 1 ;;
+    esac
   fi
   printf 'forge:%s failed\n' "$c_id"
   first_lines 15 < "$FORGE_TMP/out"
@@ -1613,7 +1819,8 @@ forge_file_stage() {
   return "$_fp_rc"
 }
 
-# forge_typecheck <file>: the full run of each typecheck check whose scope covers <file>.
+# forge_typecheck <file>: the full run of each typecheck check whose scope covers <file>;
+# only errors in files of $FORGE_TMP/changed count.
 forge_typecheck() {
   _ft_i=1
   _ft_rc=0
@@ -1621,9 +1828,18 @@ forge_typecheck() {
     forge_check_meta_"$_ft_i"
     if [ "$c_stage" = typecheck ] && forge_scope_"$_ft_i" "$1" && ! forge_missing_tool >/dev/null; then
       if ! forge_exec_check "forge_check_run_$_ft_i" "$c_timeout"; then
-        printf 'forge:%s\n' "$c_id"
-        first_lines 19 < "$FORGE_TMP/out"
-        _ft_rc=1
+        # only errors in changed files wake Claude
+        case $(forge_diagnostics "$FORGE_TMP/out") in
+          other) ;;
+          changed)
+            printf 'forge:%s\n' "$c_id"
+            forge_diagnostics "$FORGE_TMP/out" print | first_lines 19
+            _ft_rc=1 ;;
+          *)
+            printf 'forge:%s\n' "$c_id"
+            first_lines 19 < "$FORGE_TMP/out"
+            _ft_rc=1 ;;
+        esac
       fi
     fi
     _ft_i=$((_ft_i + 1))
@@ -1804,13 +2020,13 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "18bdde8fa587f680b66978b6c1b0c1185df421abd9ef9564713d406ff5e4590f",
     ".claude/skills/forge-project/scripts/guard.sh": "c8aace4b9c7c0f76d522ecef054c6dc920bd42702712c877825f0e5cd046827c",
     ".claude/skills/forge-project/scripts/lib.sh": "1c6f99f004ce4f07a17f071fa9c5f3a1f7f0f7a62a4f58963451a59ef8761e70",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "73a950039ddf40f203325e861435bf4ca9b0e6ae42c431184a108945772523dd",
-    ".claude/skills/forge-project/scripts/session-start.sh": "b16702862d8f7e921a2b9bc2b24cea4bd90e268f3c3636f38915340f02532c3e",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "7c7f624301cb53a9621b71d969e5874c0f59f993ffb7573c0fba7cf2207583fa",
+    ".claude/skills/forge-project/scripts/session-start.sh": "8613e6fbebb75e3772cbf6ec112df2890d21c5c124a2099845e219fbe3b78c6f",
     ".claude/skills/forge-project/scripts/stop.sh": "c73c8d6a404ebcd23fe1aed1b747dd97aa4e9b6b5e5201c8321f8f95e1c02443",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "d3a958db8f6cf975e5b50fe19cb515b9353c22fe02f044f9b3bebb669fbb0a1c",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "f7edb03d50b79aa7fb976a6f2563d527443ec88adf5f61728f442122ca92f7b7",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "6697bc84b3d779abd8f508cdd26e9d4ee782e241f69c20bd26fb5826fcb11961",
+    ".forge/check.sh": "ae03486f00bd4d06ed7d4cdf52a0b956e85889028f2cc19059137ea5e88daf79",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
