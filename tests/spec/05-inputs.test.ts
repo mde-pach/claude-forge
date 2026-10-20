@@ -40,6 +40,7 @@ describe("the pack tree", () => {
     for (const p of PACKS.values()) for (const r of p.rules) expect(r.id).toBe(`${p.id}/${r.file.split("/").pop()!.replace(/\.yaml$/, "")}`);
   });
 
+  /** @pack typescript/nextjs/react typescript/astro/react */
   test("a child pack is active only under its active parent: react is under Next.js in a Next.js app and under Astro in an Astro app", () => {
     const next = activePacks("nextjs-prisma-app");
     expect(next).toContain("typescript/nextjs/react");
@@ -214,6 +215,7 @@ describe("strict YAML", () => {
   });
 });
 
+/** @pack typescript/astro typescript/astro/react */
 test(
   "status shows the whole active tree of a sample with nested packs",
   () => {

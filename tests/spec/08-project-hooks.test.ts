@@ -81,6 +81,7 @@ describe("SessionStart", () => {
 });
 
 describe("PostToolUse", () => {
+  /** @rule python/format python/lint python/sqlalchemy/no-query-api */
   test(
     "post-edit formats the file silently, then returns lint and ast-grep findings for this file as additionalContext (≤ 20 lines)",
     () => {
@@ -109,6 +110,7 @@ describe("PostToolUse", () => {
     T,
   );
 
+  /** @rule python/typecheck */
   test(
     "typecheck reports errors with exit 2 on stderr, and skips while another run holds the lock",
     () => {
@@ -140,6 +142,7 @@ describe("PostToolUse", () => {
 });
 
 describe("Stop", () => {
+  /** @rule python/sqlalchemy/no-query-api */
   test(
     "stop blocks with the check output while check.sh fails, then hands over after 3 blocks",
     () => {
@@ -178,6 +181,7 @@ describe("Stop", () => {
   );
 });
 
+/** @pack typescript/bun */
 test(
   "without bun on PATH in a TypeScript repository every hook exits 0 and SessionStart reports bun once",
   () => {

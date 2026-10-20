@@ -1,0 +1,13 @@
+---
+// Tests shown on a rule or pack page, each with its CI result and code.
+import SpecNodes from "./SpecNodes.astro";
+import type { PlacedTest, Results } from "../lib/data";
+
+interface Props {
+  tests: PlacedTest[];
+  results: Results;
+}
+const { tests, results } = Astro.props;
+---
+
+{tests.map((t) => <SpecNodes nodes={[t.node]} file={t.file} results={results} instance={t.instance} />)}

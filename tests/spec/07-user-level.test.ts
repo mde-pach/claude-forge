@@ -40,6 +40,7 @@ test(
   T,
 );
 
+/** @pack safety */
 test(
   "apply --user appends the safety pack's permissions and sandbox, and ask on Forge's own files",
   () => {
@@ -53,6 +54,7 @@ test(
   T,
 );
 
+/** @rule safety/git-force-push */
 test(
   "the user-level guard blocks a force push in any directory",
   () => {
@@ -64,6 +66,7 @@ test(
   T,
 );
 
+/** @rule safety/sandbox */
 test(
   "existing user settings keep their comments and values; a scalar set differently is left alone with a warning",
   () => {

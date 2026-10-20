@@ -1,0 +1,67 @@
+---
+title: Writing packs
+description: The pack tree, the rule file, and forge test.
+---
+
+import Spec from "../../../components/Spec.astro";
+
+## The pack tree
+
+Packs are directories, nested **language first, then package, then sub-package**. A pack's id is its path, and a child pack is active only when its parent is, so a package can carry different rules under different parents:
+
+```
+packs/
+├── safety/                      # user level, not tied to a language
+├── python/
+│   └── sqlalchemy/
+│       └── alembic/             # python/sqlalchemy/alembic
+└── typescript/
+    ├── nextjs/
+    │   └── react/               # React in the App Router
+    └── astro/
+        └── react/               # React as Astro islands
+```
+
+| Path | |
+|---|---|
+| `pack.yaml` | `id` (its path), `description`, `level`, optional `detect` and `requires` — [schema](../../reference/schemas/#pack) |
+| `rules/<name>.yaml` | one rule each; its id is `<pack id>/<name>` — [schema](../../reference/schemas/#rule) |
+| `context.md` | optional, ≤ 10 lines of facts for Claude |
+| `init/` | optional templates for `forge init` |
+| `<child>/` | sub-packs |
+
+## The rule file
+
+```yaml
+id: typescript/nextjs/react/client-hooks
+description: Client-only React hooks in app/ need a 'use client' file.
+scope: {language: typescript, files: ["app/**", "src/app/**"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule: { … }
+examples:
+  match: [ … ]       # must trigger the rule
+  no_match: [ … ]    # must not — include the near misses
+```
+
+Targets, in order of preference: `tool` (your linter or type checker, audited), `ast-grep`, `permission`, `sandbox`, `guard`, `check`. The [lifecycle](../../lifecycle/) of a rule follows from its targets, and every rule's page shows it.
+
+## Examples are tests
+
+`forge test` validates every pack and rule against the schemas and runs every example. Each rule's result appears on its pack page.
+
+<Spec file="13-packs" top />
+<Spec file="13-packs" describe="forge test catches broken packs" />
+<Spec file="13-packs" describe="permission matching used by forge test" />
+
+## Documenting behaviour
+
+Behaviour is documented by tests in `tests/spec/`, nowhere else:
+
+- a test title is the requirement, in the present tense; a `/** … */` comment above it explains;
+- `/** @rule <id> */` or `/** @pack <id> */` shows the test on that rule's or pack's page;
+- otherwise a docs page places it with the `Spec` component (a spec file, plus a `describe` title, a `test` title or `top`);
+- a test that is shown nowhere fails the suite (see [Internals](../internals/)).
+
+Run `bun run test` before sending a pack, and `bun run docs:dev` to see its page.

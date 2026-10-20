@@ -1,0 +1,28 @@
+---
+title: During a session
+description: Session start, tool calls and edits.
+---
+
+import Spec from "../../../components/Spec.astro";
+
+## Session start
+
+At startup, resume, `/clear` and `/compact`, `session-start.sh` prints a short summary for Claude. Claude Code also loads each active pack's context from `.claude/rules/forge-<pack>.md`.
+
+<Spec file="08-project-hooks" describe="SessionStart" />
+
+## Tool call
+
+Before a tool runs, Claude Code applies the permissions Forge appended (`deny` refuses, `ask` asks you) and runs Bash in the sandbox at user level. For Bash commands that a permission prefix cannot express, the PreToolUse guard matches `guard.rules` patterns. Permissions and the sandbox are the protection boundary; the guard is a tripwire.
+
+<Spec file="09-scripts" describe="guard.sh" />
+
+All guard rules together, against the commands that must and must not trigger:
+
+<Spec file="14-3-guard-corpus" />
+
+## After an edit
+
+After an `Edit` or `Write`, `post-edit.sh` formats the file silently, lints it and runs the ast-grep `forbid` rules on it; findings go back to Claude as context. `typecheck.sh` runs the project type check in the background and wakes Claude when it fails.
+
+<Spec file="08-project-hooks" describe="PostToolUse" />

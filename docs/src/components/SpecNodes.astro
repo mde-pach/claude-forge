@@ -3,17 +3,24 @@
 import { Code } from "@astrojs/starlight/components";
 import StatusBadge from "./StatusBadge";
 import { inline, markdown, REPO_URL } from "../lib/data";
-import { slugify } from "../lib/headings";
 import { resultsFor, summarize, type Results, type SpecNode } from "../lib/spec";
 
 interface Props {
   nodes: SpecNode[];
   file: string;
   results: Results;
+  /** Heading level of top-level describes: 2 → h2. */
   depth?: number;
+  /** Keep only matching cases of parameterised tests (e.g. one rule of the per-rule test). */
+  instance?: string;
 }
-const { nodes, file, results, depth = 0 } = Astro.props;
-const H = depth === 0 ? "h2" : depth === 1 ? "h3" : "h4";
+const { nodes, file, results, depth = 2, instance } = Astro.props;
+const H = (`h${Math.min(depth, 5)}`) as "h2";
+const slugify = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 ---
 
@@ -35,21 +42,21 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
           </p>
         )}
         {n.comment && <div set:html={markdown(n.comment)} />}
-        <Astro.self nodes={n.children} file={file} results={results} depth={depth + 1} />
+        <Astro.self nodes={n.children} file={file} results={results} depth={depth + 1} instance={instance} />
       </section>
     ) : (
       (() => {
-        const rs = resultsFor(results, file, n.line);
+        const rs = resultsFor(results, file, n.line).filter((r) => !instance || r.name.startsWith(instance));
         const status = summarize(rs);
         const platforms = [...new Set(rs.map((r) => r.platform))].join(", ");
         const names = [...new Set(rs.map((r) => r.name))];
-        const instances = n.table || names.length > 1;
+        const instances = (n.table && !instance) || names.length > 1;
         const failures = rs.filter((r) => r.status === "failed");
         return (
           <article class="forge-test" id={`L${n.line}`} data-status={status}>
             <header>
               <p>
-                <Fragment set:html={inline(n.title)} />
+                <Fragment set:html={inline(instance && n.title.includes("%s") ? n.title.replace("%s", `\`${instance.replace(/: $/, "")}\``) : n.title)} />
               </p>
               <StatusBadge status={status} detail={platforms || undefined} />
             </header>
@@ -83,7 +90,7 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
               <summary>
                 Test code · <a href={`${REPO_URL}/blob/main/${file}#L${n.line}`}>{file}:{n.line}</a>
               </summary>
-              {n.table && <Code code={n.table} lang="ts" title="for each of" />}
+              {n.table && !instance && <Code code={n.table} lang="ts" title="for each of" />}
               <Code code={n.code} lang="ts" />
             </details>
           </article>

@@ -16,6 +16,7 @@ const T = 120_000;
 const read = (repo: string, rel: string) => readFileSync(join(repo, rel), "utf8");
 
 describe("ast-grep targets", () => {
+  /** @rule typescript/nextjs/no-pages-data */
   test(
     "each ast-grep target becomes .forge/ast-grep/rules/<rule-id>.yml with the rule's scope, and its examples become a rule test",
     () => {
@@ -30,6 +31,7 @@ describe("ast-grep targets", () => {
     T,
   );
 
+  /** @rule python/pytest/no-test-env-branch */
   test(
     "scope.files entries starting with ! become ast-grep ignores",
     () => {
@@ -49,6 +51,7 @@ describe("ast-grep targets", () => {
 });
 
 describe("tool targets and their fallback", () => {
+  /** @rule typescript/no-explicit-any */
   test(
     "with Biome configured, no-explicit-any is enforced by Biome (audited) and no ast-grep rule is generated",
     () => {
@@ -59,6 +62,7 @@ describe("tool targets and their fallback", () => {
     T,
   );
 
+  /** @rule typescript/no-explicit-any typescript/format-lint */
   test(
     "with ESLint instead of Biome, no-explicit-any runs through its ast-grep target and the Biome check is not enforced here",
     () => {
@@ -96,6 +100,7 @@ describe("permission, guard and context targets", () => {
     T,
   );
 
+  /** @pack typescript/nextjs/react */
   test(
     "each active pack with a context.md produces .claude/rules/forge-<pack-id>.md with the same content",
     () => {
@@ -108,6 +113,7 @@ describe("permission, guard and context targets", () => {
 });
 
 describe("check targets", () => {
+  /** @rule typescript/astro/check */
   test(
     "check targets become functions of check.sh; project tools in their commands resolve to the project's own binaries",
     () => {

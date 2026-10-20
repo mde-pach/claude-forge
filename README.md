@@ -4,7 +4,7 @@
 
 Forge reads rules grouped in packs and writes a standalone Claude Code setup — permissions, sandbox, hooks and a `check.sh` — for your user account or for one git repository. Once written, it runs with plain Claude Code: no generated file calls Forge.
 
-📖 **Documentation: https://mde-pach.github.io/claude-forge/** — the [pack tree](https://mde-pach.github.io/claude-forge/packs/) generated from [`packs/`](packs/), and the [specification](https://mde-pach.github.io/claude-forge/spec/), which is the test suite in [`tests/spec/`](tests/spec/) with its latest CI results.
+📖 **Documentation: https://mde-pach.github.io/claude-forge/** — a page per pack, generated from [`packs/`](packs/), showing what each rule does at each step of the [lifecycle](https://mde-pach.github.io/claude-forge/lifecycle/). Every behaviour on the site is a test from [`tests/spec/`](tests/spec/), shown where it applies with its latest CI result.
 
 ```sh
 bunx @maximedepachtere/forge apply --user   # once per machine

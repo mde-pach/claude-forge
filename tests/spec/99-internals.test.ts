@@ -9,7 +9,8 @@
 import { describe, expect, test } from "bun:test";
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
-import { countTests, parseJUnit, readSpec, summarize } from "../../docs/src/lib/spec";
+import { allTests, autoPlaced, countTests, parseJUnit, readSpec, selectNodes, specUses, summarize } from "../../docs/src/lib/spec";
+import { loadPacks } from "../../src/packs";
 import { globMatch } from "../../src/packs";
 import { globToCase, toolsInCommand } from "../../src/render";
 import { ROOT, sh } from "../helpers";
@@ -53,6 +54,33 @@ test("tools are found in check commands, not in paths or package names", () => {
 });
 
 describe("the documentation is the test suite", () => {
+  test("every test is shown in the documentation: placed on a page with <Spec>, or on the page of a rule or pack it covers", () => {
+    const sections = readSpec(ROOT);
+    const placed = new Set<string>();
+    for (const use of specUses(ROOT)) {
+      const section = sections.find((x) => x.slug === use.file);
+      expect(section ? use.file : `${use.page}: <Spec file="${use.file}"> names no spec file`).toBe(use.file);
+      const nodes = selectNodes(section!, use);
+      expect(nodes.length ? "ok" : `${use.page}: <Spec file="${use.file}" describe="${use.describe ?? ""}" test="${use.test ?? ""}"> selects nothing`).toBe("ok");
+      for (const t of allTests(nodes)) placed.add(`${section!.file}:${t.test.line}`);
+    }
+    const missing = sections.flatMap((s) =>
+      allTests(s.children)
+        .filter((t) => !placed.has(`${s.file}:${t.test.line}`) && !autoPlaced(t.test))
+        .map((t) => `${s.file}:${t.test.line} ${[...t.path, t.test.title].join(" > ")}`),
+    );
+    expect(missing).toEqual([]);
+  });
+
+  test("@rule and @pack tags name rules and packs that exist", () => {
+    const packs = loadPacks(join(ROOT, "packs"));
+    const rules = new Set([...packs.values()].flatMap((p) => p.rules.map((r) => r.id)));
+    const unknown = readSpec(ROOT).flatMap((s) =>
+      allTests(s.children).flatMap(({ test }) => [...test.rules.filter((r) => !rules.has(r)).map((r) => `@rule ${r}`), ...test.packs.filter((p) => !packs.has(p)).map((p) => `@pack ${p}`)]),
+    );
+    expect(unknown).toEqual([]);
+  });
+
   test("every spec file has an @spec header, and the docs extractor finds its tests at the lines bun reports", () => {
     const sections = readSpec(ROOT);
     expect(sections.map((s) => s.file).sort()).toEqual(readdirSync(join(ROOT, "tests/spec")).filter((f) => f.endsWith(".test.ts")).map((f) => `tests/spec/${f}`).sort());
@@ -63,7 +91,8 @@ describe("the documentation is the test suite", () => {
     // this very test, found where bun will report it
     const self = sections.find((s) => s.slug === "99-internals")!;
     const describe = self.children.find((n) => n.kind === "describe" && n.title === "the documentation is the test suite");
-    expect(describe && describe.kind === "describe" && describe.children[0]!.kind === "test" && describe.children[0]!.code).toContain("this very test");
+    const me = describe?.kind === "describe" ? describe.children.find((n) => n.kind === "test" && n.title.startsWith("every spec file has an @spec header")) : undefined;
+    expect(me?.kind === "test" ? me.code : "").toContain("this very test");
   });
 
   test("JUnit results are keyed by file and line, with every parameterised case", () => {

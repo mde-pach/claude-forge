@@ -4,7 +4,7 @@ import react from "@astrojs/react";
 import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
 import type { AstroIntegration } from "astro";
-import { leaf, packs, REPO_URL, ROOT, spec } from "./src/lib/data";
+import { leaf, packs, REPO_URL, ROOT } from "./src/lib/data";
 import type { Pack } from "../src/types";
 
 type SidebarItem = { label: string; link: string } | { label: string; collapsed?: boolean; items: SidebarItem[] };
@@ -15,7 +15,7 @@ function packItems(all: Map<string, Pack>, ids: string[]): SidebarItem[] {
     const p = all.get(id)!;
     const link = { label: leaf(id), link: `/packs/${id}/` };
     if (!p.children.length) return link;
-    return { label: leaf(id), collapsed: p.parent !== undefined, items: [{ label: `${leaf(id)} (overview)`, link: link.link }, ...packItems(all, p.children)] };
+    return { label: leaf(id), collapsed: p.parent !== undefined, items: [{ label: `${leaf(id)} · overview`, link: link.link }, ...packItems(all, p.children)] };
   });
 }
 
@@ -29,20 +29,33 @@ function sidebar(): SidebarItem[] {
         { label: "Introduction", link: "/guide/introduction/" },
         { label: "Getting started", link: "/guide/getting-started/" },
         { label: "Configuration", link: "/guide/configuration/" },
-        { label: "Writing packs", link: "/guide/writing-packs/" },
+        { label: "User level", link: "/guide/user-level/" },
       ],
     },
     {
-      label: "Specification",
-      items: [{ label: "Overview and results", link: "/spec/" }, ...spec().map((s) => ({ label: `${s.number} · ${s.title}`, link: `/spec/${s.slug}/` }))],
+      label: "Lifecycle",
+      items: [
+        { label: "Overview", link: "/lifecycle/" },
+        { label: "forge apply", link: "/lifecycle/apply/" },
+        { label: "During a session", link: "/lifecycle/session/" },
+        { label: "When Claude stops", link: "/lifecycle/stop/" },
+        { label: "Commit and CI", link: "/lifecycle/commit-ci/" },
+        { label: "Status, diff and remove", link: "/lifecycle/maintenance/" },
+      ],
     },
     {
       label: "Packs",
       items: [
-        { label: "Pack tree", link: "/packs/" },
-        { label: "All rules", link: "/packs/rules/" },
         ...packItems(all, roots.filter((p) => p.level === "project").map((p) => p.id)),
-        { label: "User level", items: packItems(all, roots.filter((p) => p.level === "user").map((p) => p.id)) },
+        ...packItems(all, roots.filter((p) => p.level === "user").map((p) => p.id)),
+        { label: "All rules", link: "/packs/rules/" },
+      ],
+    },
+    {
+      label: "Contributing",
+      items: [
+        { label: "Writing packs", link: "/contributing/writing-packs/" },
+        { label: "Internals", link: "/contributing/internals/" },
       ],
     },
     {

@@ -58,6 +58,7 @@ const BIOME = (rules: object) =>
 const TSCONFIG = (strict: boolean) => JSON.stringify({ compilerOptions: { strict, noEmit: true, skipLibCheck: true }, include: ["src"] });
 
 describe.if(hasBun)("Biome and tsc", () => {
+  /** @rule typescript/no-explicit-any typescript/no-ts-ignore typescript/strict */
   test(
     "a correct config is satisfied: Biome rules on and strict tsconfig",
     () => {
@@ -69,6 +70,7 @@ describe.if(hasBun)("Biome and tsc", () => {
     T,
   );
 
+  /** @rule typescript/no-explicit-any typescript/no-ts-ignore typescript/strict */
   test(
     "an incorrect config is unsatisfied and status prints the snippet to add",
     () => {
@@ -97,6 +99,7 @@ describe.if(hasUv)("ruff and basedpyright", () => {
   const PYPROJECT = (select: string[], any: string) =>
     `[project]\nname = "fastapi-app"\nversion = "0.1.0"\ndependencies = ["fastapi>=0.115", "sqlalchemy>=2.0.36", "alembic>=1.14", "pydantic>=2.9"]\n\n[dependency-groups]\ndev = ["pytest>=8.3", "ruff>=0.8", "basedpyright>=1.22"]\n\n[tool.ruff.lint]\nselect = ${JSON.stringify(select)}\n\n[tool.basedpyright]\nreportExplicitAny = "${any}"\n`;
 
+  /** @rule python/no-bare-except python/no-explicit-any */
   test(
     "a correct config is satisfied: E722 and ANN401 selected, reportExplicitAny on",
     () => {
@@ -108,6 +111,7 @@ describe.if(hasUv)("ruff and basedpyright", () => {
     T,
   );
 
+  /** @rule python/no-bare-except python/no-explicit-any */
   test(
     "an incorrect config is unsatisfied and status prints the snippet to add",
     () => {
@@ -120,6 +124,7 @@ describe.if(hasUv)("ruff and basedpyright", () => {
     T,
   );
 
+  /** @rule python/no-bare-except python/no-explicit-any */
   test(
     "a stricter config satisfies the rule automatically (select ALL)",
     () => {

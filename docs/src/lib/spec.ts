@@ -5,7 +5,13 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import ts from "typescript";
 
-export interface SpecTest {
+/** `@rule <id…>` / `@pack <id…>` tags in a doc comment: where else the test is shown. Inherited from enclosing describes. */
+export interface Tags {
+  rules: string[];
+  packs: string[];
+}
+
+export interface SpecTest extends Tags {
   kind: "test";
   title: string;
   comment?: string;
@@ -19,7 +25,7 @@ export interface SpecTest {
   skip?: boolean;
 }
 
-export interface SpecGroup {
+export interface SpecGroup extends Tags {
   kind: "describe";
   title: string;
   comment?: string;
@@ -65,8 +71,9 @@ export interface RunMeta {
 const TEST = new Set(["test", "it"]);
 const DESCRIBE = new Set(["describe"]);
 
-function jsdoc(source: string, node: ts.Node): string | undefined {
+function jsdoc(source: string, node: ts.Node): { comment?: string } & Tags {
   const ranges = ts.getLeadingCommentRanges(source, node.getFullStart()) ?? [];
+  const tags: Tags = { rules: [], packs: [] };
   const docs = ranges
     .map((r) => source.slice(r.pos, r.end))
     .filter((c) => c.startsWith("/**"))
@@ -76,10 +83,16 @@ function jsdoc(source: string, node: ts.Node): string | undefined {
         .replace(/\s*\*\/$/, "")
         .split("\n")
         .map((l) => l.replace(/^\s*\* ?/, ""))
+        .filter((l) => {
+          const m = /^@(rule|pack)\s+(.+)$/.exec(l.trim());
+          if (m) (m[1] === "rule" ? tags.rules : tags.packs).push(...m[2]!.split(/[\s,]+/).filter(Boolean));
+          return !m;
+        })
         .join("\n")
         .trim(),
-    );
-  return docs.length ? docs.join("\n\n") : undefined;
+    )
+    .filter(Boolean);
+  return { comment: docs.length ? docs.join("\n\n") : undefined, ...tags };
 }
 
 function dedent(text: string): string {
@@ -114,7 +127,7 @@ function classify(call: ts.CallExpression, sf: ts.SourceFile) {
   return { kind, title, table, condition, skip, fn: call.arguments[1] } as const;
 }
 
-function walk(statements: ts.NodeArray<ts.Statement>, sf: ts.SourceFile): SpecNode[] {
+function walk(statements: ts.NodeArray<ts.Statement>, sf: ts.SourceFile, inherited: Tags = { rules: [], packs: [] }): SpecNode[] {
   const out: SpecNode[] = [];
   for (const st of statements) {
     if (!ts.isExpressionStatement(st) || !ts.isCallExpression(st.expression)) continue;
@@ -122,15 +135,17 @@ function walk(statements: ts.NodeArray<ts.Statement>, sf: ts.SourceFile): SpecNo
     if (!c) continue;
     // bun reports the line of the title argument
     const line = sf.getLineAndCharacterOfPosition(st.expression.arguments[0]!.getStart(sf)).line + 1;
-    const comment = jsdoc(sf.text, st);
+    const doc = jsdoc(sf.text, st);
+    const comment = doc.comment;
+    const tags: Tags = { rules: [...inherited.rules, ...doc.rules], packs: [...inherited.packs, ...doc.packs] };
     const fn = c.fn && (ts.isArrowFunction(c.fn) || ts.isFunctionExpression(c.fn)) ? c.fn : undefined;
     if (c.kind === "describe") {
       const body = fn && ts.isBlock(fn.body) ? fn.body.statements : undefined;
-      out.push({ kind: "describe", title: c.title, comment, line, table: c.table, condition: c.condition, children: body ? walk(body, sf) : [] });
+      out.push({ kind: "describe", title: c.title, comment, line, table: c.table, condition: c.condition, ...tags, children: body ? walk(body, sf, tags) : [] });
     } else {
       let code = "";
       if (fn) code = ts.isBlock(fn.body) ? dedent(sf.text.slice(fn.body.getStart(sf) + 1, fn.body.getEnd() - 1)) : fn.body.getText(sf);
-      out.push({ kind: "test", title: c.title, comment, line, code, table: c.table, condition: c.condition, skip: c.skip || undefined });
+      out.push({ kind: "test", title: c.title, comment, line, code, table: c.table, condition: c.condition, skip: c.skip || undefined, ...tags });
     }
   }
   return out;
@@ -243,4 +258,52 @@ export function tally(section: SpecNode[], file: string, results: Results): Reco
   };
   visit(section);
   return t;
+}
+
+// ---------------------------------------------------------------- placement
+
+/** Every test of a section, with the titles of its enclosing describes. */
+export function allTests(nodes: SpecNode[], path: string[] = []): { test: SpecTest; path: string[] }[] {
+  return nodes.flatMap((n) => (n.kind === "test" ? [{ test: n, path }] : allTests(n.children, [...path, n.title])));
+}
+
+/** A `<Spec file="…" describe="…" test="…" top />` usage in a docs page. */
+export interface SpecUse {
+  page: string;
+  file: string;
+  describe?: string;
+  test?: string;
+  top?: boolean;
+}
+
+/** Selects the nodes a <Spec> usage shows. */
+export function selectNodes(section: SpecSection, use: Omit<SpecUse, "page" | "file">): SpecNode[] {
+  if (use.test !== undefined) return allTests(section.children).filter((t) => t.test.title === use.test).map((t) => t.test);
+  if (use.describe !== undefined) return section.children.filter((n) => n.kind === "describe" && n.title === use.describe);
+  if (use.top) return section.children.filter((n) => n.kind === "test");
+  return section.children;
+}
+
+/** <Spec> usages in docs/src (pages, components, content). */
+export function specUses(root: string): SpecUse[] {
+  const out: SpecUse[] = [];
+  const visit = (dir: string) => {
+    for (const f of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, f.name);
+      if (f.isDirectory()) visit(p);
+      else if (/\.(mdx|astro)$/.test(f.name))
+        for (const m of readFileSync(p, "utf8").matchAll(/<Spec\s([^>]*?)\/>/g)) {
+          const a = (k: string) => new RegExp(`\\b${k}="([^"]*)"`).exec(m[1]!)?.[1];
+          const file = a("file");
+          if (file) out.push({ page: relative(root, p), file, describe: a("describe"), test: a("test"), top: /\btop\b/.test(m[1]!) || undefined });
+        }
+    }
+  };
+  visit(join(root, "docs", "src"));
+  return out;
+}
+
+/** Tests shown on a rule or pack page automatically: its example test, its context test, and tagged tests. */
+export function autoPlaced(t: SpecTest): boolean {
+  return t.rules.length > 0 || t.packs.length > 0 || /: (examples behave as declared|context\.md is at most 10 lines)$/.test(t.title);
 }

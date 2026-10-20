@@ -1,0 +1,29 @@
+---
+title: Introduction
+description: What Forge is, the principles it follows, and how this documentation is built.
+---
+
+import Results from "../../../components/Results.astro";
+
+Forge is a command-line generator. It reads **rules**, grouped in a tree of **packs** — language, then package, then sub-package — and writes a Claude Code setup for your user account (`~/.claude/`) or for one git repository. Once written, the setup runs with plain Claude Code: no generated file calls Forge.
+
+## What you get
+
+- **User level**, once per machine: permissions that keep Claude away from secrets and history-destroying git commands, the Bash sandbox, a tripwire on dangerous commands, and terminal notifications. See [User level](../user-level/).
+- **Project level**, for the stack Forge detects: feedback after every edit, a background type check, a check when Claude stops that sends it back to work if something is wrong, and the same check in your pre-commit hook and CI. The [lifecycle](../../lifecycle/) walks through each step.
+
+## Principles
+
+1. **Standalone output.** Generated files never call Forge.
+2. **Nothing to install.** Hooks are POSIX `sh`; project tools are the project's own binaries; ast-grep runs through a pinned `bunx` / `uvx`.
+3. **Forge writes only what it owns.** Tool configs, manifests, git config and `CLAUDE.md` are audited, never written.
+4. **Rules are data.** One YAML file per rule, with examples that are also its tests.
+5. **Enforce in the closest native place:** your own tools, then ast-grep, then Claude Code permissions and the sandbox, then hooks.
+6. **Claude cannot change the setup unnoticed.**
+7. **Success is silent.** Every message starts with `forge:<rule-id>`.
+
+## How to read this site
+
+Every behaviour described here is a test from `tests/spec/`, shown where it matters: each lifecycle page carries the tests for its step, and each pack page carries the tests of the pack and of each rule. A test's title is the requirement, its code is how the requirement is checked, and the badge next to it is its result in the latest CI run.
+
+<Results />

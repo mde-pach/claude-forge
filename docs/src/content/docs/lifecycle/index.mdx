@@ -1,0 +1,30 @@
+---
+title: Lifecycle
+description: What Forge does at each step, from forge apply to CI.
+---
+
+import Spec from "../../../components/Spec.astro";
+
+Forge acts at seven moments. Each rule and pack page shows which of them it uses; these pages explain each step and carry its tests.
+
+| Step | What runs | What it can do |
+|---|---|---|
+| [**forge apply**](./apply/) | you run `forge apply` (and `forge status`) | detects packs, writes the setup, **audits** your tool configs |
+| [**Session start**](./session/#session-start) | SessionStart hook | **informs** Claude: branch, changes, packs, missing tools; context files |
+| [**Tool call**](./session/#tool-call) | Claude Code permissions and sandbox; PreToolUse guard | **blocks** or **asks** before a Bash command, a read or an edit |
+| [**After an edit**](./session/#after-an-edit) | PostToolUse hooks | **fixes** formatting, **tells Claude** lint and ast-grep findings, **wakes Claude** on type errors |
+| [**Claude stops**](./stop/) | Stop hook → `check.sh --changed` | **blocks** the stop until the change passes; hands over after 3 tries |
+| [**git commit**](./commit-ci/#pre-commit) | pre-commit hook → `check.sh --changed` | **blocks** the commit |
+| [**CI**](./commit-ci/#ci) | `check.sh --all` | **blocks** the build, on the whole project |
+
+Effects use the same colours everywhere: <span class="forge-effect" data-effect="blocks">blocks</span><span class="forge-effect" data-effect="asks">asks</span><span class="forge-effect" data-effect="feedback">tells Claude</span><span class="forge-effect" data-effect="wakes">wakes Claude</span><span class="forge-effect" data-effect="fixes">fixes</span><span class="forge-effect" data-effect="audits">audits config</span><span class="forge-effect" data-effect="informs">informs Claude</span>
+
+## How the hooks are wired
+
+The project setup is a Claude Code plugin in `.claude/skills/forge-project/`. Its `hooks/hooks.json`:
+
+<Spec file="08-project-hooks" test="hooks.json wires SessionStart, PreToolUse(Bash), PostToolUse(Edit|Write) twice and Stop, with the specified timeouts" />
+
+A missing runtime never breaks a session; every hook exits cleanly:
+
+<Spec file="08-project-hooks" test="without bun on PATH in a TypeScript repository every hook exits 0 and SessionStart reports bun once" />

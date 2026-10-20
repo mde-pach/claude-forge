@@ -10,11 +10,11 @@ hero:
     - text: Get started
       link: guide/getting-started/
       icon: right-arrow
-    - text: Browse the pack tree
-      link: packs/
+    - text: Browse the packs
+      link: packs/python/
       variant: secondary
-    - text: Read the specification
-      link: spec/
+    - text: The lifecycle
+      link: lifecycle/
       variant: minimal
 ---
 
@@ -34,7 +34,7 @@ import { Card, CardGrid } from "@astrojs/starlight/components";
     One YAML file per rule, in a tree of packs — language, package, sub-package — with examples that are also tests.
   </Card>
   <Card title="The tests are the spec" icon="list-format">
-    The specification on this site is the test suite itself, with each requirement's latest CI result next to it.
+    Every behaviour on this site is a test from the suite, shown where it matters, with its latest CI result.
   </Card>
   <Card title="Audits, never edits" icon="magnifier">
     Forge checks your Biome, ruff, basedpyright and tsc configs against each rule and tells you the snippet to add.

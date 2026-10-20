@@ -80,6 +80,7 @@ describe("steps", () => {
     T,
   );
 
+  /** @rule python/pytest/no-fewer-asserts python/pytest/no-new-skip */
   test(
     "3. tests: fewer asserts than at HEAD fail (no-decrease), and a new skip fails even in a file new since HEAD (no-increase)",
     () => {
@@ -94,6 +95,7 @@ describe("steps", () => {
     T,
   );
 
+  /** @rule python/sqlalchemy/no-query-api */
   test(
     "4. ast-grep forbid rules report file:line:column with the rule's description",
     () => {
@@ -106,6 +108,7 @@ describe("steps", () => {
     T,
   );
 
+  /** @rule python/lint */
   test.if(hasRuff)(
     "5. lint runs the project's ruff on the changed files and prints the first 15 lines on failure",
     () => {
@@ -117,6 +120,7 @@ describe("steps", () => {
     T,
   );
 
+  /** @rule python/typecheck */
   test(
     "a check whose tool is not installed prints skipped and does not fail",
     () => {
@@ -128,6 +132,7 @@ describe("steps", () => {
     T,
   );
 
+  /** @rule python/sqlalchemy/alembic/check */
   test(
     "6. migration checks run only against a local database; a remote DATABASE_URL prints skipped and never blocks",
     () => {
@@ -144,6 +149,7 @@ describe("steps", () => {
     T,
   );
 
+  /** @rule python/pytest/run */
   test(
     "7. tests: with --changed, pytest gets the changed test files plus tests/**/test_<module>.py of each changed module",
     () => {
@@ -175,6 +181,7 @@ describe("local database detection", () => {
 });
 
 describe("pre-commit", () => {
+  /** @rule typescript/no-explicit-any */
   test(
     "apply --yes creates .git/hooks/pre-commit running check.sh --changed, which blocks a bad commit",
     () => {
@@ -228,6 +235,7 @@ describe("pre-commit", () => {
   );
 });
 
+/** @rule python/sqlalchemy/no-query-api */
 test(
   "CI: --all checks the whole project, not only the changed files",
   () => {

@@ -1,0 +1,41 @@
+---
+title: forge apply
+description: Detection, generation, settings, the lock and tool audits.
+---
+
+import Spec from "../../../components/Spec.astro";
+
+`forge apply` reads the packs, decides which are active in this repository, writes the files Forge owns, appends permission entries to `.claude/settings.json` with your consent, records everything in `.forge/forge.lock.json`, and audits your tool configs. It is idempotent.
+
+## Running it
+
+<Spec file="03-cli" describe="Claude Code version gate" />
+<Spec file="03-cli" describe="apply" />
+
+## Which packs are active
+
+Packs are a tree: language, then package, then sub-package. See any [pack page](../../packs/python/) for what activates it.
+
+<Spec file="05-inputs" describe="the pack tree" />
+
+## What each rule becomes
+
+<Spec file="06-rules" />
+
+## Files Forge owns
+
+<Spec file="04-ownership" describe="owned files" />
+
+## The lock
+
+<Spec file="04-ownership" describe="the lock" />
+
+## Settings Forge appends
+
+<Spec file="04-ownership" describe="appended settings" />
+
+## Tool audits
+
+For each rule with a `tool` target, Forge runs your own tool, with your own config, on the rule's examples. Forge never edits a tool config: when the audit fails it prints the snippet to add.
+
+<Spec file="11-audits" />

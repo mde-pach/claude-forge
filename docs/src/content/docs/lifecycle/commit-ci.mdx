@@ -1,0 +1,18 @@
+---
+title: Commit and CI
+description: The same check.sh in the pre-commit hook and in CI.
+---
+
+import Spec from "../../../components/Spec.astro";
+
+## Pre-commit
+
+`forge apply` offers a `.git/hooks/pre-commit` running `sh .forge/check.sh --changed`, unless another hook manager is in charge; then `forge status` prints the line to add to it.
+
+<Spec file="10-check" describe="pre-commit" />
+
+## CI
+
+Add `sh .forge/check.sh --all` as a CI step. It needs only `sh`, `git` and the project's own tools.
+
+<Spec file="10-check" top />

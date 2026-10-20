@@ -1,18 +1,20 @@
 ---
 import { Code } from "@astrojs/starlight/components";
 import StarlightPage from "@astrojs/starlight/components/StarlightPage.astro";
-import { spec, specUrl } from "../../lib/data";
+import Spec from "../../components/Spec.astro";
+import { url } from "../../lib/data";
 import { USAGE } from "../../../../src/usage";
-
-const cli = spec().find((s) => s.number === "3");
 ---
 
-<StarlightPage frontmatter={{ title: "CLI", description: "forge --help, and where each behaviour is specified." }}>
-  <p>This is the output of <code>forge --help</code>, taken from the CLI's own source.</p>
+<StarlightPage frontmatter={{ title: "CLI", description: "forge --help, and where each command is described." }}>
+  <p>The output of <code>forge --help</code>, taken from the CLI's own source. Run it with <code>bunx @maximedepachtere/forge</code> or <code>npx @maximedepachtere/forge</code>.</p>
   <Code code={USAGE} lang="txt" />
-  <p>
-    Run it with <code>bunx @maximedepachtere/forge</code> or <code>npx @maximedepachtere/forge</code>. What each command does —
-    exit codes, confirmation, drift handling — is specified and tested in
-    {cli && <a href={specUrl(cli.slug)}>{cli.number} · {cli.title}</a>}.
-  </p>
+  <ul>
+    <li><code>init</code>: <a href={url("guide/getting-started/#a-new-project")}>Getting started</a></li>
+    <li><code>apply</code>, <code>--user</code>, <code>--local</code>, <code>--dry-run</code>, <code>--yes</code>, <code>--force</code>: <a href={url("lifecycle/apply/")}>forge apply</a>, <a href={url("guide/user-level/")}>User level</a></li>
+    <li><code>status</code>, <code>explain</code>, <code>diff</code>, <code>remove</code>: <a href={url("lifecycle/maintenance/")}>Status, diff and remove</a></li>
+    <li><code>test</code>: <a href={url("contributing/writing-packs/#examples-are-tests")}>Writing packs</a></li>
+  </ul>
+  <h2 id="usage-errors">Usage errors</h2>
+  <Spec file="03-cli" describe="usage errors exit 2" />
 </StarlightPage>

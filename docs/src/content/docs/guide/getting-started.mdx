@@ -1,0 +1,34 @@
+---
+title: Getting started
+description: Install the user-level setup once, then apply Forge in each repository.
+---
+
+import Spec from "../../../components/Spec.astro";
+
+You need Claude Code **≥ 2.1.295**, and Node ≥ 20 or Bun to run Forge itself. The generated hooks need `sh`, `git`, `grep`, `sed`, `awk`, and `bunx` or `uvx` for ast-grep.
+
+## Once per machine
+
+```sh
+bunx @maximedepachtere/forge apply --user
+```
+
+Forge shows what it appends to `~/.claude/settings.json` and asks before writing. See [User level](../user-level/).
+
+## In each repository
+
+```sh
+cd my-app
+bunx @maximedepachtere/forge apply
+git add .forge .claude && git commit -m "Add Forge"
+```
+
+Forge detects your stack, writes its files under `.forge/` and `.claude/`, offers a pre-commit hook, and audits your tool configs. Commit the result: everyone who clones the repository gets the setup, with or without Forge. What happens next is the [lifecycle](../../lifecycle/).
+
+In a repository you don't own, `forge apply --local` keeps the permission entries in `.claude/settings.local.json`.
+
+## A new project
+
+`forge init` first creates the stack's tool configs that are missing (`ruff.toml`, `pyrightconfig.json`, `biome.json`, `tsconfig.json`), then applies:
+
+<Spec file="03-cli" describe="init" />

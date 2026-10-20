@@ -31,7 +31,6 @@ export function url(path: string): string {
 
 export const packUrl = (id: string) => url(`packs/${id}/`);
 export const ruleAnchor = (id: string) => id.replaceAll("/", "-");
-export const specUrl = (slug: string, line?: number) => url(`spec/${slug}/`) + (line ? `#L${line}` : "");
 
 // ---------------------------------------------------------------- markdown
 
@@ -52,23 +51,6 @@ export function ruleResults(r: Results, ruleId: string): TestResult[] {
   const out: TestResult[] = [];
   for (const rs of r.byLocation.values()) for (const x of rs) if (x.name === `${ruleId}: examples behave as declared`) out.push(x);
   return out;
-}
-
-/** The spec test that checks every rule's examples, for linking. */
-export function ruleTestLocation(sections: SpecSection[]): { slug: string; line: number } | undefined {
-  for (const s of sections) {
-    const find = (nodes: SpecNode[]): number | undefined => {
-      for (const n of nodes) {
-        if (n.kind === "test" && n.title.endsWith(": examples behave as declared")) return n.line;
-        if (n.kind === "describe") {
-          const l = find(n.children);
-          if (l) return l;
-        }
-      }
-    };
-    const line = find(s.children);
-    if (line) return { slug: s.slug, line };
-  }
 }
 
 export function ruleStatus(r: Results, ruleId: string): Status | "not run" {
@@ -118,4 +100,36 @@ export function assertResultsMatch(sections: SpecSection[], r: Results): void {
   sections.forEach((s) => visit(s.file, s.children));
   const unmatched = [...r.byLocation.keys()].filter((k) => !known.has(k));
   if (unmatched.length) throw new Error(`forge docs: test results without a matching test in tests/spec: ${unmatched.slice(0, 10).join(", ")}`);
+}
+
+// ---------------------------------------------------------------- tests on rule and pack pages
+
+export interface PlacedTest {
+  file: string;
+  node: SpecNode;
+  /** Only this case of a parameterised test. */
+  instance?: string;
+}
+
+function findTests(sections: SpecSection[], keep: (t: Extract<SpecNode, { kind: "test" }>) => boolean): { file: string; node: Extract<SpecNode, { kind: "test" }> }[] {
+  const out: { file: string; node: Extract<SpecNode, { kind: "test" }> }[] = [];
+  const visit = (file: string, nodes: SpecNode[]) => nodes.forEach((n) => (n.kind === "test" ? keep(n) && out.push({ file, node: n }) : visit(file, n.children)));
+  sections.forEach((s) => visit(s.file, s.children));
+  return out;
+}
+
+/** The rule's example test (its own case), then every test tagged @rule <id>. */
+export function ruleTests(sections: SpecSection[], ruleId: string): PlacedTest[] {
+  return [
+    ...findTests(sections, (t) => t.title === "%s: examples behave as declared").map((t) => ({ ...t, instance: `${ruleId}: ` })),
+    ...findTests(sections, (t) => t.rules.includes(ruleId)),
+  ];
+}
+
+/** The pack's context test (its own case), then every test tagged @pack <id>. */
+export function packTests(sections: SpecSection[], pack: Pack): PlacedTest[] {
+  return [
+    ...(pack.context !== undefined ? findTests(sections, (t) => t.title === "%s: context.md is at most 10 lines").map((t) => ({ ...t, instance: `${pack.id}: ` })) : []),
+    ...findTests(sections, (t) => t.packs.includes(pack.id)),
+  ];
 }

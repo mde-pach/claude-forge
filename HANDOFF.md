@@ -24,7 +24,7 @@ Everything in §3–§14 is implemented, with the pack tree (§5.1–§5.2) and 
 | Hook runtime and check engine | `templates/scripts/*.sh` |
 | Packs: 18 packs, 61 rules, as a tree (`safety`; `python/{uv,fastapi,pydantic,pytest,sqlalchemy/alembic}`; `typescript/{bun,nextjs/react,astro/react,prisma,zod,vitest,playwright}`) | `packs/**` |
 | **Executable specification**: one file per spec section, normative test titles | `tests/spec/*.test.ts`, `tests/helpers.ts`, samples in `tests/generator/{fastapi-app,nextjs-prisma-app,astro-app,eslint-app}` |
-| **Docs site**: spec pages rendered from the test files + JUnit results (build fails on an unplaceable result); pack tree, pack and rule pages from `packs/`; CLI page from `USAGE`; schema page from `src/schemas.ts`; four short hand-written guide pages that link into the spec | `docs/` (`src/lib/spec.ts` extractor, `src/lib/data.ts`, `src/pages/**`, `src/components/{SpecNodes,RuleCard}.astro`, `{PackTree,StatusBadge}.tsx`) |
+| **Docs site**: pack pages from `packs/` (facts, a rules × lifecycle-steps matrix, context, tests, and per rule: file-pattern chips, lifecycle derived from its targets, red/green example panels, how it is enforced, its tests); guide and lifecycle pages in MDX that place the remaining tests with the `Spec` component; CLI page from `USAGE`; schemas from `src/schemas.ts`. No separate specification section: every test is shown where it applies, and `99-internals` fails if one is shown nowhere. The build fails if a CI result cannot be placed on a test | `docs/` (`src/lib/{spec,lifecycle,data}.ts`, `src/components/{Spec,SpecNodes,TestList,RuleCard,Results}.astro`, `{Lifecycle,StatusBadge}.tsx`, `src/pages/**`, `src/content/docs/**`) |
 | E2E harness (§14.4) — **written, not run** | `tests/e2e/` |
 
 ## Remaining
@@ -36,10 +36,12 @@ Everything in §3–§14 is implemented, with the pack tree (§5.1–§5.2) and 
 
 ## Writing specification tests
 
-- A file in `tests/spec/` starts with `/** @spec <number> · <title>` and a Markdown paragraph; the site orders sections by file name.
+- A file in `tests/spec/` starts with `/** @spec <number> · <title>` and a Markdown paragraph.
 - Test titles are requirements, in the present tense. A `/** … */` comment right above a `test` or `describe` is rendered as explanation.
-- The site shows each test's code, its parameterised cases and its result per platform, matched by file and **title line** (that is the line bun's JUnit reporter gives).
+- Where a test is shown: `/** @rule <id…> */` or `/** @pack <id…> */` puts it on those rule or pack pages (tags inherit into nested tests); the per-rule examples test and the per-pack context test land on their rule and pack automatically; anything else is placed in an MDX page with `<Spec file="<slug>" describe="…" />` (or `test="…"`, or `top`). `99-internals` fails if a test is shown nowhere or a tag names an unknown rule or pack.
+- Results are matched by file and **title line** (the line bun's JUnit reporter gives).
 - A test that needs a tool which may be missing uses `test.if(...)`, so the site shows it as skipped rather than passed.
+- A rule's lifecycle on the site is derived from its targets in `docs/src/lib/lifecycle.ts`, mirroring `src/plan.ts` and the hook scripts; change both together.
 
 ## How the generated checks work
 

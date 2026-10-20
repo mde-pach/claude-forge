@@ -1,0 +1,20 @@
+---
+title: Internals
+description: Shared shell helpers, generator snapshots, and the checks that keep this site honest.
+---
+
+import Spec from "../../../components/Spec.astro";
+
+## lib.sh
+
+<Spec file="09-scripts" describe="lib.sh on %s" />
+
+## Generator samples
+
+Each sample repository in `tests/generator/` is applied and compared with a stored snapshot.
+
+<Spec file="14-2-generator" />
+
+## Building blocks and this site
+
+<Spec file="99-internals" />

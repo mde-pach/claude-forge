@@ -1,0 +1,36 @@
+---
+// The latest CI results over the whole test suite, shown on the introduction page.
+import StatusBadge from "./StatusBadge";
+import { assertResultsMatch, REPO_URL, results, spec } from "../lib/data";
+import { tally } from "../lib/spec";
+
+const r = results();
+// fails the build if a CI result cannot be placed on a test (stale or foreign results)
+assertResultsMatch(spec(), r);
+const totals = spec().reduce(
+  (a, s) => {
+    const t = tally(s.children, s.file, r);
+    return { passed: a.passed + t.passed, failed: a.failed + t.failed, skipped: a.skipped + t.skipped, notRun: a.notRun + t["not run"] };
+  },
+  { passed: 0, failed: 0, skipped: 0, notRun: 0 },
+);
+const runs = [...r.byLocation.values()].flat().length;
+const names: Record<string, string> = { linux: "Linux", darwin: "macOS", win32: "Windows" };
+---
+
+<div class="forge-meta" style="margin: 1rem 0">
+  {
+    r.platforms.length ? (
+      <span>
+        Latest CI run{r.meta.sha && <> at <a href={`${REPO_URL}/commit/${r.meta.sha}`}><code>{r.meta.sha.slice(0, 7)}</code></a></>}
+        {r.meta.runUrl && <> (<a href={r.meta.runUrl}>logs</a>)</>} on {r.platforms.map((p) => names[p] ?? p).join(" and ")}: {runs} test runs.
+      </span>
+    ) : (
+      <span>No test results were available when this site was built (run <code>bun run test:report</code>).</span>
+    )
+  }
+  {totals.passed > 0 && <StatusBadge status="passed" detail={`${totals.passed} tests`} />}
+  {totals.failed > 0 && <StatusBadge status="failed" detail={`${totals.failed} tests`} />}
+  {totals.skipped > 0 && <StatusBadge status="skipped" detail={`${totals.skipped} tests`} />}
+  {totals.notRun > 0 && <StatusBadge status="not run" detail={`${totals.notRun} tests`} />}
+</div>

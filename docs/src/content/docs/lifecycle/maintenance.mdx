@@ -1,0 +1,16 @@
+---
+title: Status, diff and remove
+description: Inspect the setup, preview changes, and take it out again.
+---
+
+import Spec from "../../../components/Spec.astro";
+
+## Inspecting
+
+<Spec file="03-cli" describe="status, explain, diff" />
+
+## Removing
+
+`forge remove` deletes every file Forge owns and exactly the settings entries recorded in the lock.
+
+<Spec file="04-ownership" describe="remove" />
