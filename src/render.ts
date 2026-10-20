@@ -222,6 +222,7 @@ export function renderHooks(level: Level): string {
         }
       : {
           SessionStart: [{ matcher: "startup|resume|clear|compact", hooks: [hook("session-start.sh", 10)] }],
+          UserPromptSubmit: [{ hooks: [hook("turn-start.sh", 10)] }],
           PreToolUse: [guard],
           PostToolUse: [
             { matcher: "Edit|Write", hooks: [hook("post-edit.sh", 30), hook("typecheck.sh", 300, { asyncRewake: true })] },

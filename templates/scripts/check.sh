@@ -19,12 +19,6 @@ FORGE_FORBID='@@FORBID@@'
 FORGE_NO_INCREASE='@@NO_INCREASE@@'
 FORGE_NO_DECREASE='@@NO_DECREASE@@'
 
-forge_sha256() {
-  if command -v sha256sum >/dev/null 2>&1; then sha256sum | awk '{ print $1 }'
-  elif command -v shasum >/dev/null 2>&1; then shasum -a 256 | awk '{ print $1 }'
-  else openssl dgst -sha256 -r | awk '{ print $1 }'
-  fi
-}
 
 # Changed files (staged, unstaged, untracked), one per line; renames give the new path.
 git status --porcelain --untracked-files=all 2>/dev/null \

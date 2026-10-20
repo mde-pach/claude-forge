@@ -99,3 +99,27 @@ rel_path() {
   _rp_rel=${_rp_rel#/}
   printf '%s' "${_rp_rel:+$_rp_rel/}${_rp_p##*/}"
 }
+
+# session_id: the hook input's session_id, safe as a file name ("default" if absent).
+session_id() {
+  _si=$(json_get session_id | tr -c 'A-Za-z0-9_-' '_')
+  printf '%s' "${_si:-default}"
+}
+
+# forge_sha256: sha256 of stdin, hex.
+forge_sha256() {
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum | awk '{ print $1 }'
+  elif command -v shasum >/dev/null 2>&1; then shasum -a 256 | awk '{ print $1 }'
+  else openssl dgst -sha256 -r | awk '{ print $1 }'
+  fi
+}
+
+# tree_hash: hash of git diff HEAD plus the untracked files (names and contents).
+tree_hash() {
+  {
+    if git rev-parse --verify -q HEAD >/dev/null; then git diff HEAD --binary 2>/dev/null; else git diff --cached --binary 2>/dev/null; fi
+    git ls-files --others --exclude-standard 2>/dev/null | while IFS= read -r _th_f; do
+      printf '%s ' "$_th_f"; git hash-object -- "$_th_f" 2>/dev/null || printf '\n'
+    done
+  } | forge_sha256
+}

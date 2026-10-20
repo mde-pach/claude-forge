@@ -40,10 +40,11 @@ beforeAll(() => {
 }, T);
 
 test(
-  "hooks.json wires SessionStart, PreToolUse(Bash), PostToolUse(Edit|Write) twice and Stop, with the specified timeouts",
+  "hooks.json wires SessionStart, UserPromptSubmit, PreToolUse(Bash), PostToolUse(Edit|Write) twice and Stop, with the specified timeouts",
   () => {
     const hooks = JSON.parse(readFileSync(join(repo, ".claude/skills/forge-project/hooks/hooks.json"), "utf8")).hooks;
     expect(hooks.SessionStart[0]).toMatchObject({ matcher: "startup|resume|clear|compact", hooks: [{ timeout: 10 }] });
+    expect(hooks.UserPromptSubmit[0]).toMatchObject({ hooks: [{ command: 'sh "${CLAUDE_PLUGIN_ROOT}/scripts/turn-start.sh"', timeout: 10 }] });
     expect(hooks.PreToolUse[0]).toMatchObject({ matcher: "Bash", hooks: [{ timeout: 5, onFailure: "block" }] });
     expect(hooks.PostToolUse[0].matcher).toBe("Edit|Write");
     expect(hooks.PostToolUse[0].hooks).toMatchObject([{ timeout: 30 }, { timeout: 300, asyncRewake: true }]);
@@ -169,6 +170,55 @@ describe("Stop", () => {
       const t0 = performance.now();
       expect(hook("stop.sh", { session_id: "s-2" }).stdout).toBe("");
       expect(performance.now() - t0).toBeLessThan(1000);
+    },
+    T,
+  );
+
+  test(
+    "work the user left uncommitted before the turn does not block Claude when the turn changes nothing",
+    () => {
+      put(repo, "app/wip.py", "def f(session):\n    return session.query(1)\n");
+      expect(hook("turn-start.sh", { session_id: "t-1", hook_event_name: "UserPromptSubmit", prompt: "What does app/main.py do?" }).stdout).toBe("");
+      expect(hook("stop.sh", { session_id: "t-1" }).stdout).toBe("");
+      reset();
+    },
+    T,
+  );
+
+  test(
+    "a change made during the turn runs the check",
+    () => {
+      hook("turn-start.sh", { session_id: "t-2" });
+      put(repo, "app/q.py", "def f(session):\n    return session.query(1)\n");
+      const out = JSON.parse(hook("stop.sh", { session_id: "t-2" }).stdout);
+      expect(out.decision).toBe("block");
+      expect(out.reason).toContain("forge:python/sqlalchemy/no-query-api app/q.py:2:12");
+      reset();
+    },
+    T,
+  );
+
+  test(
+    "without a turn-start snapshot (e.g. the first Stop after forge apply) the check runs on every changed file, as before",
+    () => {
+      rmSync(join(repo, ".forge/state/t-3.turn"), { force: true });
+      put(repo, "app/wip.py", "def f(session):\n    return session.query(1)\n");
+      expect(JSON.parse(hook("stop.sh", { session_id: "t-3" }).stdout).decision).toBe("block");
+      reset();
+    },
+    T,
+  );
+
+  test(
+    "a new prompt resets the Stop block counter",
+    () => {
+      put(repo, "app/q.py", "def f(session):\n    return session.query(1)\n");
+      for (let i = 0; i < 2; i++) expect(JSON.parse(hook("stop.sh", { session_id: "t-4" }).stdout).decision).toBe("block");
+      hook("turn-start.sh", { session_id: "t-4" });
+      put(repo, "app/q2.py", "def g(session):\n    return session.query(2)\n");
+      for (let i = 0; i < 3; i++) expect(JSON.parse(hook("stop.sh", { session_id: "t-4" }).stdout).decision).toBe("block");
+      expect(JSON.parse(hook("stop.sh", { session_id: "t-4" }).stdout).systemMessage).toContain("Handing over");
+      reset();
     },
     T,
   );

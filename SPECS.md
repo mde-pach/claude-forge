@@ -212,7 +212,7 @@ examples:
 │   ├── skills/forge-project/
 │   │   ├── .claude-plugin/plugin.json    # {"name":"forge-project", ...}
 │   │   ├── hooks/hooks.json
-│   │   └── scripts/{lib.sh, session-start.sh, guard.sh, guard.rules, post-edit.sh, typecheck.sh, stop.sh}
+│   │   └── scripts/{lib.sh, session-start.sh, turn-start.sh, guard.sh, guard.rules, post-edit.sh, typecheck.sh, stop.sh}
 │   └── rules/forge-<pack-id>.md          # one per active pack with context.md; "/" in the id becomes "-"
 └── .forge/
     ├── check.sh
@@ -229,6 +229,7 @@ All scripts are POSIX `sh`. They read file paths and the working directory from 
 | Event | Matcher | Script | Mode | Timeout | Behavior |
 |---|---|---|---|---|---|
 | SessionStart | `startup\|resume\|clear\|compact` | `session-start.sh` | sync | 10 s | ≤ 20 lines: branch, number of changed files and first 10 paths, last 5 commits (`%h %s`, ≤ 72 chars), active packs, missing tools (once). |
+| UserPromptSubmit | — | `turn-start.sh` | sync | 10 s | Records the tree at the start of the turn and resets the Stop block counter (§10.2). Prints nothing. |
 | PreToolUse | `Bash` | `guard.sh` | sync | 5 s | Project `guard` rules. `onFailure: "block"`. |
 | PostToolUse | `Edit\|Write` | `post-edit.sh` | sync | 30 s | Format the file silently; lint it; run ast-grep `forbid` rules on it. Findings → JSON `{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"…"}}`, ≤ 20 lines, diagnostics for this file only. Nothing on success. |
 | PostToolUse | `Edit\|Write` | `typecheck.sh` | `asyncRewake: true` | 300 s | Project typecheck. Errors in files of the changed set (`git status`) → exit 2, stderr ≤ 20 lines, those files' diagnostics only; errors only in other files → silent. Skips if one is already running (lock in `.forge/state/`). |
@@ -279,11 +280,15 @@ One entry point for the Stop hook, the optional pre-commit hook and CI. Runs in 
 
 ### 10.2 Stop hook (`stop.sh`)
 
-1. Compute a hash of `git diff HEAD` plus the list of untracked files. If it equals the last passing hash in `.forge/state/last-pass`, exit 0.
-2. If the block counter in `.forge/state/<session_id>` is ≥ 3: reset it, print `{"systemMessage":"forge: check failed 3 times. Handing over to you."}`, exit 0.
-3. Run `check.sh --changed`.
-4. Pass: store the hash in `last-pass`, reset the counter, print nothing.
-5. Fail: increment the counter, print `{"decision":"block","reason":"<check output, ≤ 20 lines>"}`.
+`tree_hash` (in `lib.sh`, shared with `turn-start.sh`) hashes `git diff HEAD` plus the untracked files (names and contents).
+
+0. **Turn start** (`turn-start.sh`, UserPromptSubmit): store `tree_hash` in `.forge/state/<session_id>.turn` and reset the block counter `.forge/state/<session_id>`. Print nothing.
+1. If `tree_hash` equals the last passing hash in `.forge/state/last-pass`, exit 0.
+2. If `.forge/state/<session_id>.turn` exists and equals `tree_hash`, the tree did not change during the turn: exit 0. Without that file (no prompt seen yet, e.g. the first Stop after `forge apply`), continue.
+3. If the block counter in `.forge/state/<session_id>` is ≥ 3: reset it, print `{"systemMessage":"forge: check failed 3 times. Handing over to you."}`, exit 0.
+4. Run `check.sh --changed`.
+5. Pass: store the hash in `last-pass`, reset the counter, print nothing.
+6. Fail: increment the counter, print `{"decision":"block","reason":"<check output, ≤ 20 lines>"}`.
 
 ### 10.3 Pre-commit and CI
 

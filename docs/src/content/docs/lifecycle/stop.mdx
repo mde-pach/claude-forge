@@ -5,7 +5,7 @@ description: The Stop hook and the steps of check.sh.
 
 import Spec from "../../../components/Spec.astro";
 
-When Claude ends its turn, `stop.sh` runs `.forge/check.sh --changed` on the staged, unstaged and untracked files. If it fails, the stop is blocked and Claude gets the output, so it keeps working. After three blocks in a row it hands over to you.
+When you send a prompt, `turn-start.sh` (UserPromptSubmit) records the state of the working tree. When Claude ends its turn, `stop.sh` compares: if nothing changed during the turn — Claude only answered a question, while your own uncommitted work sits in the tree — Claude stops freely. Otherwise it runs `.forge/check.sh --changed` on the staged, unstaged and untracked files. If that fails, the stop is blocked and Claude gets the output, so it keeps working. After three blocks in a row it hands over to you; a new prompt starts the count again.
 
 <Spec file="08-project-hooks" describe="Stop" />
 

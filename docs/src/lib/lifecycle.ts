@@ -11,7 +11,7 @@ export const STEPS: { id: StepId; label: string; when: string }[] = [
   { id: "session", label: "Session start", when: "when a Claude Code session starts or resumes" },
   { id: "tool", label: "Tool call", when: "before Claude runs a Bash command or reads or edits a file" },
   { id: "edit", label: "After an edit", when: "right after Claude edits or writes a file" },
-  { id: "stop", label: "Claude stops", when: "when Claude ends its turn (Stop hook runs check.sh --changed)" },
+  { id: "stop", label: "Claude stops", when: "when Claude ends a turn that changed the tree (Stop hook runs check.sh --changed)" },
   { id: "commit", label: "git commit", when: "in the pre-commit hook (check.sh --changed)" },
   { id: "ci", label: "CI", when: "in CI (check.sh --all, the whole project)" },
 ];
