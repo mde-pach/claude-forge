@@ -1,18 +1,20 @@
 # Forge — hand-off notes
 
-Build state of Forge against `SPECS.md` (v0.5), as of 2026-10-20 (second session). Read the spec first, then this file.
+Build state of Forge against `SPECS.md` (v0.5), as of 2026-10-20 (third session). Read the spec first, then this file.
 
 ## Toolchain
 
 - Bun 1.3+, Node ≥ 20, uv, Claude Code ≥ 2.1.295. BusyBox is optional (the guard matrix skips a missing shell with a note).
 - Dev dependencies (`package.json`): `yaml`, `ajv` (2020-12), `jsonc-parser` (imported from `jsonc-parser/lib/esm/main.js`: its UMD entry does not bundle), `semver`, `smol-toml`, `typescript`. Run `bun install`.
 - Build: `bun run build` → `dist/forge.js`; `scripts/postbuild.mjs` adds the shebang, chmods it and writes `schemas/*.schema.json`.
-- Tests: `bun run test` (build + `bun test ./tests/*.test.ts`; the path glob keeps bun away from the sample apps' own `*.test.ts`). About 30 s; ast-grep runs through `bunx`, so the first run needs the network. `FORGE_UPDATE_SNAPSHOTS=1` rewrites `tests/generator/__snapshots__/`.
+- Tests: `bun run test` (build + `bun test ./tests/*.test.ts`; the path glob keeps bun away from the sample apps' own `*.test.ts`). About 60 s; ast-grep runs through `bunx`, and `tests/audit.test.ts` installs Biome, TypeScript, ruff and basedpyright into a temp cache, so the first run needs the network. `FORGE_UPDATE_SNAPSHOTS=1` rewrites `tests/generator/__snapshots__/`. `bun run typecheck` covers `src/`, `tests/` and the docs code.
+- Docs: VitePress in `docs/`. `bun run docs:dev` / `docs:build` (they run VitePress on the Bun runtime: jsonc-parser's ESM build has extensionless imports that Node's loader rejects). `docs/.vitepress/packs.ts` generates `docs/packs/*.md`, `docs/reference/rules.md` and `docs/reference/spec.md` from `packs/` and `SPECS.md` at every build; they are gitignored. In dev, editing a pack regenerates its page, and adding or removing a pack touches the config so VitePress reloads the sidebar.
+- CI (`.github/workflows/ci.yml`): typecheck, the full test suite and `forge test` on ubuntu-latest (with dash and BusyBox) and macos-latest (bash 3.2 as `/bin/sh`), plus a docs build. `docs.yml` deploys the site to GitHub Pages on every push to main; the repository's Pages source must be set to "GitHub Actions".
 - ast-grep pinned to **0.45.3**.
 
 ## Done
 
-Everything in §3–§14 is implemented. Verified in this environment: all of §14.1, §14.2 and §14.3 (152 tests), plus the audits against real Biome 2.2, TypeScript 5.9, ruff and basedpyright, and check.sh / hooks under dash, `bash --posix` and BusyBox.
+Everything in §3–§14 is implemented. §14.1–§14.3 and the behaviors below are covered by 199 automated tests; §14.4 has a harness that has not been run.
 
 | Area | Files |
 |---|---|
@@ -26,14 +28,35 @@ Everything in §3–§14 is implemented. Verified in this environment: all of §
 | CLI: all commands, `claude --version` gate, drift / unowned-file stop, `--force`, `--dry-run`, `--yes`, pre-commit offer, `remove` (also deletes `.forge/state/` and prunes empty dirs) | `src/cli.ts` |
 | Check engine (static shell shared by check.sh, post-edit, typecheck, session-start) | `templates/scripts/engine.sh` |
 | Hook scripts | `templates/scripts/{post-edit,typecheck,stop,session-start,notify}.sh` |
-| Tests | `tests/{units,guard,generator,check}.test.ts`, `tests/generator/{fastapi-app,nextjs-prisma-app,eslint-app}` + snapshots |
+| Tests | `tests/*.test.ts` (see the conformance table), `tests/generator/{fastapi-app,nextjs-prisma-app,eslint-app}` + snapshots |
+| Docs site, generated pack pages | `docs/`, `docs/.vitepress/packs.ts` |
+| CI and Pages | `.github/workflows/{ci,docs}.yml` |
 | E2E harness (§14.4) — **written, not run** (needs an authenticated `claude -p` and PostgreSQL) | `tests/e2e/` (see its README) |
 
 ## Remaining
 
 1. **Run the E2E harness** (`tests/e2e/README.md`) in a real container and fix whatever it finds. The regexes in `run.ts` match Forge's own output, but how Claude Code frames hook output in the stream and debug log was not observed. Scenarios that depend on model behavior (e.g. "impossible test", three failed Stops) may need prompt tuning.
-2. **macOS.** Shell code is POSIX and was run under dash, `bash --posix` (standing in for bash 3.2) and BusyBox, but not on macOS itself (BSD `sed`/`awk`/`find`, `shasum`).
+2. **macOS** is covered by the macos-latest CI job (bash 3.2 `/bin/sh`, BSD tools); check its first run.
 3. **Publishing**: the npm scope is still `@maximedepachtere`; nothing was published.
+
+## Spec conformance
+
+| Spec | Tested by |
+|---|---|
+| §3 CLI: commands, `--dry-run`, `--yes`, `--force`, `--local`, exit codes, version gate | `generator`, `inputs` |
+| §4 ownership, §12 lock: drift, unowned files, deleted files, missing settings entries, changed rules, remove | `generator`, `inputs`, `user` |
+| §5 inputs: detection, `forge.yaml` add/remove/disable, local rules, invalid inputs (schema, duplicate keys, aliases) | `generator`, `inputs`, `units` |
+| §6 targets → output; tool absent → ast-grep fallback / not enforced (ESLint repo) | `generator` snapshots |
+| §7 user level: files, settings with comments and pre-existing entries, scalar conflicts, guard, notify OSC 777/9 | `user` |
+| §8 project hooks: session-start, post-edit, typecheck (lock, takeover), stop (3 blocks, pass memory), missing runtime | `check` |
+| §9 lib.sh (`json_get` incl. `\uXXXX`), guard format | `guard`, `user`, `units` |
+| §10 check.sh steps 1–7, local-DB detection, related pytest files, pre-commit offer / hook managers / existing hook / blocks a bad commit | `check`, `inputs` |
+| §11 audits with real tools, correct and incorrect configs, stricter configs, configured-but-not-installed | `audit` |
+| §14.1 `forge test` on the shipped packs, and on broken packs (each failure kind) | `units`, `inputs` |
+| §14.2 generator samples | `generator` |
+| §14.3 guard corpus on sh, dash, bash, BusyBox; p99 ≤ 20 ms | `guard` |
+| §14.4 end-to-end with real `claude -p` | `tests/e2e/` harness, **not run** |
+| Docs cover every pack and rule | `docs` |
 
 ## How the generated checks work
 

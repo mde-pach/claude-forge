@@ -194,6 +194,13 @@ function computeChanges(ctx: Ctx): Changes {
   const files = [...new Set([p.settingsFile, ...old.map((e) => e.file)])];
   const kept: SettingsEntry[] = [];
   for (const file of files) {
+    try {
+      settingsChanges(file);
+    } catch (e) {
+      throw new ForgeError(`forge: ${file}: ${(e as Error).message}; fix it and re-run`);
+    }
+  }
+  function settingsChanges(file: string): void {
     const before = readText(join(base, file)) ?? "";
     let text: string | undefined = before;
     const drop = old.filter((e) => e.file === file && !desired.has(entryKey(e)));

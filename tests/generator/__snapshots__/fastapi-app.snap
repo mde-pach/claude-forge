@@ -153,6 +153,13 @@ json_get() {
           if (d == "n") out = out "\n"
           else if (d == "t") out = out "\t"
           else if (d == "r") out = out ""
+          else if (d == "u") {
+            # \uXXXX: ASCII decoded, anything else kept escaped (UTF-8 arrives unescaped)
+            h = tolower(substr(s, i + 1, 4)); v = 0
+            for (k = 1; k <= 4; k++) v = v * 16 + index("0123456789abcdef", substr(h, k, 1)) - 1
+            if (v > 0 && v < 128) out = out sprintf("%c", v); else out = out "\\u" h
+            i += 4
+          }
           else out = out d
         } else out = out c
       }
@@ -1748,6 +1755,13 @@ json_get() {
           if (d == "n") out = out "\n"
           else if (d == "t") out = out "\t"
           else if (d == "r") out = out ""
+          else if (d == "u") {
+            # \uXXXX: ASCII decoded, anything else kept escaped (UTF-8 arrives unescaped)
+            h = tolower(substr(s, i + 1, 4)); v = 0
+            for (k = 1; k <= 4; k++) v = v * 16 + index("0123456789abcdef", substr(h, k, 1)) - 1
+            if (v > 0 && v < 128) out = out sprintf("%c", v); else out = out "\\u" h
+            i += 4
+          }
           else out = out d
         } else out = out c
       }
@@ -2332,7 +2346,7 @@ exit "$fail"
     ".claude/skills/forge-project/hooks/hooks.json": "991b10b78beec536c9c4a137f62a20dc2ccf44465d166a5c169b7ad12aa6fe08",
     ".claude/skills/forge-project/scripts/guard.rules": "0e1681c95fe24e10ee473e88ff9269d73aa67d836a5319fbf028bb82f3c08233",
     ".claude/skills/forge-project/scripts/guard.sh": "c8aace4b9c7c0f76d522ecef054c6dc920bd42702712c877825f0e5cd046827c",
-    ".claude/skills/forge-project/scripts/lib.sh": "4cb0a7212b006afe9cc03fb27675268df4532dee249c77ec9a13dbe56416a259",
+    ".claude/skills/forge-project/scripts/lib.sh": "1c6f99f004ce4f07a17f071fa9c5f3a1f7f0f7a62a4f58963451a59ef8761e70",
     ".claude/skills/forge-project/scripts/post-edit.sh": "e43f02d7b11e9d5b8c36f181253e2e6601aff2c4807c90870032862c50eea471",
     ".claude/skills/forge-project/scripts/session-start.sh": "e1928bc2ee4e3f6b122c86750583861c8d5ab20046a75ebe8d79cf4159e20370",
     ".claude/skills/forge-project/scripts/stop.sh": "c73c8d6a404ebcd23fe1aed1b747dd97aa4e9b6b5e5201c8321f8f95e1c02443",
@@ -2359,7 +2373,7 @@ exit "$fail"
     ".forge/ast-grep/rules/sqlalchemy/no-query-api.yml": "b5bf6c9042b7e56b0c4852d2bc444bd9e9ad95b41143e22c478f95adabb6606e",
     ".forge/ast-grep/rules/sqlalchemy/no-raw-execute.yml": "03443f73cbae77ec02aa0d1f95bd0b77e637feed3a8540cb81d6d3c77e6db54e",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "05f67fb2c97c1be65112559cd37cece87e312a745fb1062670f8020c1649c47c",
+    ".forge/check.sh": "34efe69d37a6b660c145e641f02843e5015342e688e4ba2331721a2ee27607c8",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [

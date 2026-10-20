@@ -1,0 +1,6 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": { "types": ["node", "bun"] },
+  "include": [".", "../src", "../docs/.vitepress"],
+  "exclude": ["generator", "e2e/work"]
+}

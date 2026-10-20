@@ -18,6 +18,13 @@ json_get() {
           if (d == "n") out = out "\n"
           else if (d == "t") out = out "\t"
           else if (d == "r") out = out ""
+          else if (d == "u") {
+            # \uXXXX: ASCII decoded, anything else kept escaped (UTF-8 arrives unescaped)
+            h = tolower(substr(s, i + 1, 4)); v = 0
+            for (k = 1; k <= 4; k++) v = v * 16 + index("0123456789abcdef", substr(h, k, 1)) - 1
+            if (v > 0 && v < 128) out = out sprintf("%c", v); else out = out "\\u" h
+            i += 4
+          }
           else out = out d
         } else out = out c
       }
