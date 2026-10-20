@@ -93,10 +93,10 @@ describe("the lock", () => {
       const repo = applied("eslint-app");
       const lockFile = join(repo, ".forge/forge.lock.json");
       const lock = JSON.parse(readFileSync(lockFile, "utf8"));
-      lock.rules["typescript/strict"] = "0".repeat(64);
+      lock.rules["typescript/no-implicit-any"] = "0".repeat(64);
       writeFileSync(lockFile, JSON.stringify(lock, null, 2) + "\n");
-      expect(forge(["diff"], repo).stdout).toContain("rule typescript/strict changed since the last apply");
-      expect(forge(["status"], repo).stdout).toContain("rule typescript/strict changed since the last apply");
+      expect(forge(["diff"], repo).stdout).toContain("rule typescript/no-implicit-any changed since the last apply");
+      expect(forge(["status"], repo).stdout).toContain("rule typescript/no-implicit-any changed since the last apply");
     },
     T,
   );

@@ -1,0 +1,11 @@
+id: typescript/strict-null-checks
+description: null and undefined are checked (strictNullChecks, part of strict).
+scope: {language: typescript}
+enforce:
+  - target: tool
+    tool: tsc
+    expects: TS18047
+    snippet: '"compilerOptions": {"strict": true}'
+examples:
+  match: ["export function g(s: string | null) {\n  return s.length;\n}\n"]
+  no_match: ["export function g(s: string | null) {\n  return s?.length;\n}\n"]

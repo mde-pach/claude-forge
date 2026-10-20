@@ -1,5 +1,5 @@
 id: typescript/nextjs/react/client-hooks
-description: Client-only React hooks in app/ need a 'use client' file.
+description: Client-only React hooks in app/ need a 'use client' file (custom hooks named use… are exempt).
 scope: {language: typescript, files: ["app/**", "src/app/**"]}
 enforce:
   - target: ast-grep
@@ -10,10 +10,18 @@ enforce:
         field: function
         regex: "^(React\\.)?(useState|useReducer|useEffect|useLayoutEffect|useInsertionEffect|useRef|useContext|useTransition|useOptimistic|useActionState|useSyncExternalStore|useDeferredValue|useImperativeHandle)$"
       not:
-        inside:
-          kind: program
-          stopBy: end
-          has: {kind: expression_statement, regex: "^[\"']use client[\"']"}
+        any:
+          # a 'use client' file
+          - inside:
+              kind: program
+              stopBy: end
+              has: {kind: expression_statement, regex: "^[\"']use client[\"']"}
+          # a custom hook: hooks may call hooks; its callers decide where it runs
+          - inside:
+              stopBy: end
+              any:
+                - {kind: function_declaration, has: {field: name, regex: "^use[A-Z0-9]"}}
+                - {kind: variable_declarator, has: {field: name, regex: "^use[A-Z0-9]"}}
 examples:
   match:
     - "export default function Page() {\n  const [n, setN] = useState(0);\n  return n;\n}\n"
@@ -24,3 +32,5 @@ examples:
     - "'use client';\nexport function Box() {\n  const r = React.useRef(null);\n  return r;\n}\n"
     - "export default async function Page() {\n  const data = await fetch(\"/x\");\n  return data;\n}\n"
     - "export function useCounterLabel(n: number) {\n  return `${n} items`;\n}\n"
+    - "import { useState } from \"react\";\nexport function useThing() {\n  const [v, setV] = useState(0);\n  return [v, setV] as const;\n}\n"
+    - "import { useState } from \"react\";\nexport const useToggle = () => {\n  const [on, setOn] = useState(false);\n  return { on, setOn };\n};\n"

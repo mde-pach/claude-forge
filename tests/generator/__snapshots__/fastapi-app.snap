@@ -528,8 +528,8 @@ forge_exec_check() {
 }
 
 # forge_diagnostics <output> [print]: sorts the error diagnostics of a whole-project
-# run by the files they name (tsc "path(l,c)", "path:l:c" from basedpyright, ruff,
-# biome, "--> path:l:c"; absolute paths under the repository are made relative;
+# run by the files they name (tsc "path(l,c)", "path:l:c" from Python and JS linters,
+# "--> path:l:c"; absolute paths under the repository are made relative;
 # warning-only lines are ignored). Prints "changed" when one names a file of
 # $FORGE_TMP/changed, "other" when they name only other files, "none" when no line
 # names a file. With "print", prints the lines that name a changed file instead.
@@ -936,8 +936,8 @@ forge_exec_check() {
 }
 
 # forge_diagnostics <output> [print]: sorts the error diagnostics of a whole-project
-# run by the files they name (tsc "path(l,c)", "path:l:c" from basedpyright, ruff,
-# biome, "--> path:l:c"; absolute paths under the repository are made relative;
+# run by the files they name (tsc "path(l,c)", "path:l:c" from Python and JS linters,
+# "--> path:l:c"; absolute paths under the repository are made relative;
 # warning-only lines are ignored). Prints "changed" when one names a file of
 # $FORGE_TMP/changed, "other" when they name only other files, "none" when no line
 # names a file. With "print", prints the lines that name a changed file instead.
@@ -1422,8 +1422,8 @@ forge_exec_check() {
 }
 
 # forge_diagnostics <output> [print]: sorts the error diagnostics of a whole-project
-# run by the files they name (tsc "path(l,c)", "path:l:c" from basedpyright, ruff,
-# biome, "--> path:l:c"; absolute paths under the repository are made relative;
+# run by the files they name (tsc "path(l,c)", "path:l:c" from Python and JS linters,
+# "--> path:l:c"; absolute paths under the repository are made relative;
 # warning-only lines are ignored). Prints "changed" when one names a file of
 # $FORGE_TMP/changed, "other" when they name only other files, "none" when no line
 # names a file. With "print", prints the lines that name a changed file instead.
@@ -2300,8 +2300,8 @@ forge_exec_check() {
 }
 
 # forge_diagnostics <output> [print]: sorts the error diagnostics of a whole-project
-# run by the files they name (tsc "path(l,c)", "path:l:c" from basedpyright, ruff,
-# biome, "--> path:l:c"; absolute paths under the repository are made relative;
+# run by the files they name (tsc "path(l,c)", "path:l:c" from Python and JS linters,
+# "--> path:l:c"; absolute paths under the repository are made relative;
 # warning-only lines are ignored). Prints "changed" when one names a file of
 # $FORGE_TMP/changed, "other" when they name only other files, "none" when no line
 # names a file. With "print", prints the lines that name a changed file instead.
@@ -2625,11 +2625,11 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "abda384154c0c859546b6aa0e79a6a1a8c4cead27ff82e014fc69de843294b74",
     ".claude/skills/forge-project/scripts/guard.sh": "c8aace4b9c7c0f76d522ecef054c6dc920bd42702712c877825f0e5cd046827c",
     ".claude/skills/forge-project/scripts/lib.sh": "b7df79c393c7d23323aa64c3230e1e322243db8df02860c852fc8f6a2221d090",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "56acb433b7a0d6796e12a295a7d198d3e847338e47a63d346ecf182019eae2d5",
-    ".claude/skills/forge-project/scripts/session-start.sh": "1b5c37a41cce2d660828d97809b0a1357d9b9b73efb88ac0db16961c0f9fc9dc",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "1319e60363e4972817323f13ffbf4105a4fe8f7a7ed511283a4d3a2682af8224",
+    ".claude/skills/forge-project/scripts/session-start.sh": "5a2b309f8601682bff82368acc4cdb107ba9714711ae57f1aa9c495d84fb7429",
     ".claude/skills/forge-project/scripts/stop.sh": "f5bb2d3d6b3c28b1138b8aecaabdd9225ab4bbc85fde5312da823a7144791da9",
     ".claude/skills/forge-project/scripts/turn-start.sh": "fb148547199c9426d53da2cbd7d01d701315965689b770b813e1f032aaf737c4",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "6b1fc705f5aba6357aed45c454bd46563e07ce155fee603b6516805e28175782",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "7048b8b2b6b71fca5072376b1785c2803c52c674cbaa3f0aa98a9199f5817338",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml": "1589382e5e0b5cae841a8f47dae9f2b3a8583a4bb1074ceb858d882e648e9b49",
     ".forge/ast-grep/rule-tests/python-pydantic-v2-api-test.yml": "190345231426a2518af45845d7e40c71d9a4cc0f68b656a91b17fb10156c4f0c",
@@ -2652,7 +2652,7 @@ exit "$fail"
     ".forge/ast-grep/rules/python/sqlalchemy/no-query-api.yml": "5b9ebb8978bdecc05305da9102596664f88653d8b8a7a2b3985763f8d661fe7e",
     ".forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml": "4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "5225e2e6472e4d53d56fade3addad95fc8f645b11f5a8f57043cf7424627e6c6",
+    ".forge/check.sh": "df10172a08bcf28cd65ef7adc059c23b157e2fab4e7112543109edaca7af9d87",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -2690,11 +2690,11 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 abda384154c0c859546b6aa0e79a6a1a8c4cead27ff82e014fc69de843294b74  .claude/skills/forge-project/scripts/guard.rules
 c8aace4b9c7c0f76d522ecef054c6dc920bd42702712c877825f0e5cd046827c  .claude/skills/forge-project/scripts/guard.sh
 b7df79c393c7d23323aa64c3230e1e322243db8df02860c852fc8f6a2221d090  .claude/skills/forge-project/scripts/lib.sh
-56acb433b7a0d6796e12a295a7d198d3e847338e47a63d346ecf182019eae2d5  .claude/skills/forge-project/scripts/post-edit.sh
-1b5c37a41cce2d660828d97809b0a1357d9b9b73efb88ac0db16961c0f9fc9dc  .claude/skills/forge-project/scripts/session-start.sh
+1319e60363e4972817323f13ffbf4105a4fe8f7a7ed511283a4d3a2682af8224  .claude/skills/forge-project/scripts/post-edit.sh
+5a2b309f8601682bff82368acc4cdb107ba9714711ae57f1aa9c495d84fb7429  .claude/skills/forge-project/scripts/session-start.sh
 f5bb2d3d6b3c28b1138b8aecaabdd9225ab4bbc85fde5312da823a7144791da9  .claude/skills/forge-project/scripts/stop.sh
 fb148547199c9426d53da2cbd7d01d701315965689b770b813e1f032aaf737c4  .claude/skills/forge-project/scripts/turn-start.sh
-6b1fc705f5aba6357aed45c454bd46563e07ce155fee603b6516805e28175782  .claude/skills/forge-project/scripts/typecheck.sh
+7048b8b2b6b71fca5072376b1785c2803c52c674cbaa3f0aa98a9199f5817338  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 1589382e5e0b5cae841a8f47dae9f2b3a8583a4bb1074ceb858d882e648e9b49  .forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml
 190345231426a2518af45845d7e40c71d9a4cc0f68b656a91b17fb10156c4f0c  .forge/ast-grep/rule-tests/python-pydantic-v2-api-test.yml
@@ -2717,7 +2717,7 @@ e1a15384665afb7aae24664c55f4d81523622a6ef117385b17f806bc30cd3c3f  .forge/ast-gre
 5b9ebb8978bdecc05305da9102596664f88653d8b8a7a2b3985763f8d661fe7e  .forge/ast-grep/rules/python/sqlalchemy/no-query-api.yml
 4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0  .forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-5225e2e6472e4d53d56fade3addad95fc8f645b11f5a8f57043cf7424627e6c6  .forge/check.sh
+df10172a08bcf28cd65ef7adc059c23b157e2fab4e7112543109edaca7af9d87  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

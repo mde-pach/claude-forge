@@ -1,0 +1,11 @@
+id: typescript/strict-function-types
+description: Function parameters are checked contravariantly (strictFunctionTypes, part of strict).
+scope: {language: typescript}
+enforce:
+  - target: tool
+    tool: tsc
+    expects: TS2322
+    snippet: '"compilerOptions": {"strict": true}'
+examples:
+  match: ["export const h: (x: string | number) => void = (x: string) => {\n  void x;\n};\n"]
+  no_match: ["export const h: (x: string) => void = (x: string | number) => {\n  void x;\n};\n"]

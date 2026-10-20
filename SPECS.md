@@ -366,9 +366,11 @@ context.md: "Python project managed with uv. Tools run from `.venv/bin`. Type ch
 |---|---|
 | `typescript/format-lint` | `check` lint: `run: biome ci .`, `changed_run: biome check --write {files}` |
 | `typescript/typecheck` | `check` typecheck: `run: tsc --noEmit -p tsconfig.json` |
-| `typescript/strict` | `tool` tsc: expects `TS7006` on an implicit-any example (`strict` on) |
+| `typescript/no-implicit-any` | `tool` tsc: expects `TS7006` on an untyped parameter (`noImplicitAny`, part of `strict`) |
+| `typescript/strict-null-checks` | `tool` tsc: expects `TS18047` on a possibly-null access (`strictNullChecks`) |
+| `typescript/strict-function-types` | `tool` tsc: expects `TS2322` on a parameter-bivariant assignment (`strictFunctionTypes`) |
 | `typescript/no-explicit-any` | as §6.3 |
-| `typescript/no-ts-ignore` | `tool` biome `lint/suspicious/noTsIgnore`; `ast-grep` forbid comment `// @ts-ignore` |
+| `typescript/no-ts-ignore` | `tool` biome `lint/suspicious/noTsIgnore`; `ast-grep` forbid comment `// @ts-ignore` or `/* @ts-ignore */` |
 
 context.md: "TypeScript, strict. Bun is the runtime and package manager."
 
@@ -448,7 +450,7 @@ context.md: "Next.js 16 App Router. Request APIs (`params`, `searchParams`, `coo
 
 | Rule | Targets |
 |---|---|
-| `typescript/nextjs/react/client-hooks` | `ast-grep` forbid in `app/**`, `src/app/**`: client-only hooks (`useState`, `useEffect`, `useRef`, `useContext`, …) in a file without `'use client'` |
+| `typescript/nextjs/react/client-hooks` | `ast-grep` forbid in `app/**`, `src/app/**`: client-only hooks (`useState`, `useEffect`, `useRef`, `useContext`, …) in a file without `'use client'`, except inside a custom hook (a function named `use…`) |
 
 context.md: "React 19 in the App Router: components are Server Components unless their file starts with `'use client'`. State, effects, context, refs and event handlers need a Client Component; keep `'use client'` at the leaves. Server Actions are async functions marked `'use server'`."
 

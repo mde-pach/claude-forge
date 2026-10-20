@@ -47,19 +47,21 @@ const BIOME = (rules: object) =>
 const TSCONFIG = (strict: boolean) => JSON.stringify({ compilerOptions: { strict, noEmit: true, skipLibCheck: true }, include: ["src"] });
 
 describe.if(hasBun)("Biome and tsc", () => {
-  /** @rule typescript/no-explicit-any typescript/no-ts-ignore typescript/strict */
+  /** @rule typescript/no-explicit-any typescript/no-ts-ignore typescript/no-implicit-any typescript/strict-null-checks typescript/strict-function-types */
   test(
     "a correct config is satisfied: Biome rules on and strict tsconfig",
     () => {
       const out = audit(repo("nextjs-prisma-app", { "biome.json": BIOME({ suspicious: { noExplicitAny: "error", noTsIgnore: "error" } }), "tsconfig.json": TSCONFIG(true) }));
       expect(out).toContain("forge:typescript/no-explicit-any biome lint/suspicious/noExplicitAny: satisfied");
       expect(out).toContain("forge:typescript/no-ts-ignore biome lint/suspicious/noTsIgnore: satisfied");
-      expect(out).toContain("forge:typescript/strict tsc TS7006: satisfied");
+      expect(out).toContain("forge:typescript/no-implicit-any tsc TS7006: satisfied");
+      expect(out).toContain("forge:typescript/strict-null-checks tsc TS18047: satisfied");
+      expect(out).toContain("forge:typescript/strict-function-types tsc TS2322: satisfied");
     },
     T,
   );
 
-  /** @rule typescript/no-explicit-any typescript/no-ts-ignore typescript/strict */
+  /** @rule typescript/no-explicit-any typescript/no-ts-ignore typescript/no-implicit-any typescript/strict-null-checks typescript/strict-function-types */
   test(
     "an incorrect config is unsatisfied and status prints the snippet to add",
     () => {
@@ -67,7 +69,9 @@ describe.if(hasBun)("Biome and tsc", () => {
       expect(out).toContain("forge:typescript/no-explicit-any biome lint/suspicious/noExplicitAny: unsatisfied");
       expect(out).toContain('add to the biome config: "linter": {"rules": {"suspicious": {"noExplicitAny": "error"}}}');
       expect(out).toContain("forge:typescript/no-ts-ignore biome lint/suspicious/noTsIgnore: unsatisfied");
-      expect(out).toContain("forge:typescript/strict tsc TS7006: unsatisfied");
+      expect(out).toContain("forge:typescript/no-implicit-any tsc TS7006: unsatisfied");
+      expect(out).toContain("forge:typescript/strict-null-checks tsc TS18047: unsatisfied");
+      expect(out).toContain("forge:typescript/strict-function-types tsc TS2322: unsatisfied");
       expect(out).toContain('add to the tsc config: "compilerOptions": {"strict": true}');
     },
     T,

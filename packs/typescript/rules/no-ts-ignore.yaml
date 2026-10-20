@@ -8,7 +8,7 @@ enforce:
     snippet: '"linter": {"rules": {"suspicious": {"noTsIgnore": "error"}}}'
   - target: ast-grep
     mode: forbid
-    rule: {kind: comment, regex: "^//[[:space:]]*@ts-ignore"}
+    rule: {kind: comment, regex: "^(//|/\\*)[[:space:]]*@ts-ignore"}
 examples:
-  match: ["// @ts-ignore\nconst x: number = \"a\";\n"]
+  match: ["// @ts-ignore\nconst x: number = \"a\";\n", "/* @ts-ignore */\nconst x: number = \"a\";\n"]
   no_match: ["// @ts-expect-error legacy API\nconst x: number = \"a\";\n", "// ts-ignore is banned\nconst y = 1;\n"]
