@@ -43,7 +43,7 @@ const MODE: Record<string, string> = {
         <StatusBadge status={status} />
       )
     }
-    <span>scope: <code>{rule.scope.language}</code>{rule.scope.files && <> · files {rule.scope.files.map((f) => <code>{f}</code>)}</>}</span>
+    <span>scope: <code>{rule.scope.language}</code>{rule.scope.files && <> · files {rule.scope.files.map((f, i) => <>{i > 0 && ", "}<code>{f}</code></>)}</>}</span>
   </div>
   <div class="forge-targets">{enforcedBy(rule).map((e) => <span class="forge-chip">{e}</span>)}</div>
   {rule.deprecated && <p>Deprecated: replaced by <code>{rule.deprecated.replaced_by}</code>.</p>}
@@ -87,9 +87,9 @@ const MODE: Record<string, string> = {
         <>
           <p>
             <strong>check · {t.stage}</strong>
-            {t.when_changed && <> · only when {t.when_changed.map((w) => <code>{w}</code>)} changed</>}
+            {t.when_changed && <> · only when {t.when_changed.map((w, i) => <>{i > 0 && ", "}<code>{w}</code></>)} changed</>}
             {t.requires_local_db && <> · only against a local database</>}
-            {t.timeout && <> · timeout {t.timeout} s</>} · tools {checkTools(t).map((x) => <code>{x}</code>)}
+            {t.timeout && <> · timeout {t.timeout} s</>} · tools {checkTools(t).map((x, i) => <>{i > 0 && ", "}<code>{x}</code></>)}
           </p>
           <Code code={t.run} lang="sh" title="--all (CI)" />
           {t.changed_run && <Code code={t.changed_run} lang="sh" title="--changed (Stop, pre-commit)" />}

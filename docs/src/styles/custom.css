@@ -84,3 +84,12 @@
 .forge-tree .count { font-size: var(--sl-text-xs); color: var(--sl-color-gray-3); }
 .sl-markdown-content .forge-facts > * { margin: 0; }
 .sl-markdown-content .forge-facts dt { line-height: 1.6; }
+
+/* narrow screens: nothing in our own blocks may widen the page */
+.forge-meta > * { min-width: 0; }
+.forge-meta code, .forge-facts code, .forge-rule p code, .forge-group-condition code { white-space: normal; overflow-wrap: anywhere; }
+.forge-test > header { flex-wrap: wrap; }
+.forge-test > header p { flex: 1 1 14rem; min-width: 0; overflow-wrap: anywhere; }
+.forge-status { white-space: normal; }
+.forge-failure { overflow-wrap: anywhere; }
+.forge-rule summary a, .forge-test summary a, .forge-meta a { overflow-wrap: anywhere; }
