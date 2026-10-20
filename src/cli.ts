@@ -2,12 +2,12 @@ import { chmodSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rm
 import { homedir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { auditRules, auditTarget, projectBinary, type AuditResult } from "./audit.js";
-import { readLock, renderLock } from "./lock.js";
+import { MANIFEST_PATH, readLock, renderLock, renderManifest } from "./lock.js";
 import { loadLocalRules, loadPacks } from "./packs.js";
 import { plan, readProjectInputs, type Plan } from "./plan.js";
 import { selfTest } from "./selftest.js";
 import { addEntries, conflictingScalars, entryKey, hasEntry, removeEntries } from "./settings.js";
-import { CLAUDE_CODE_MIN, FORGE_VERSION, compareVersions, gitToplevel, lineDiff, packageRoot, run, sha256 } from "./util.js";
+import { CLAUDE_CODE_MIN, FORGE_VERSION, compareVersions, gitToplevel, lineDiff, ownedHash, packageRoot, run } from "./util.js";
 import type { Level, Lock, SettingsEntry } from "./types.js";
 import { USAGE } from "./usage.js";
 
@@ -107,7 +107,20 @@ function context(flags: Flags): Ctx {
   const p = plan({ level, base, packs, local: flags.local, ...(level === "project" ? readProjectInputs(base) : {}) });
   const ctx: Ctx = { level, base, plan: p, lock: readLock(base, p.lockPath), flags };
   addPreCommit(ctx);
+  if (level === "project") for (const [path, text] of p.files) if (path.endsWith(".json")) p.files.set(path, formatJson(base, path, text));
   return ctx;
+}
+
+/**
+ * JSON Forge generates, formatted with the project's own Biome when it has one,
+ * so `biome ci .` passes on a fresh apply. Unchanged when there is no Biome or
+ * it declines (e.g. the path is ignored in its config).
+ */
+function formatJson(base: string, path: string, text: string): string {
+  const bin = projectBinary(base, "biome");
+  if (!bin) return text;
+  const r = run(bin, ["format", `--stdin-file-path=${path}`], { cwd: base, input: text });
+  return r.status === 0 && r.stdout.trim() ? r.stdout : text;
 }
 
 // ---------------------------------------------------------------- pre-commit (§10.3)
@@ -157,6 +170,8 @@ interface Changes {
   /** Scalar settings the user set differently; never overwritten. */
   overridden: string[];
   lockText: string;
+  /** .forge/manifest.sha256 (project level), or undefined. */
+  manifestText?: string;
 }
 
 function computeChanges(ctx: Ctx): Changes {
@@ -165,15 +180,17 @@ function computeChanges(ctx: Ctx): Changes {
   const owned = lock?.files ?? {};
   for (const [path, after] of p.files) {
     const before = readText(join(base, path));
-    if (before !== undefined && path in owned && sha256(before) !== owned[path]) ch.drift.push(path);
-    else if (before !== undefined && !(path in owned) && before !== after) ch.conflicts.push(path);
-    if (before !== after) ch.writes.push({ path, before, after });
+    // owned hashes ignore JSON whitespace: a file the project's formatter reflowed is neither drift nor rewritten
+    const same = before !== undefined && ownedHash(path, before) === ownedHash(path, after);
+    if (before !== undefined && path in owned && ownedHash(path, before) !== owned[path]) ch.drift.push(path);
+    else if (before !== undefined && !(path in owned) && !same) ch.conflicts.push(path);
+    if (!same) ch.writes.push({ path, before, after });
   }
   for (const [path, hash] of Object.entries(owned)) {
     if (p.files.has(path)) continue;
     const before = readText(join(base, path));
     if (before === undefined) continue;
-    if (sha256(before) !== hash) ch.drift.push(path);
+    if (ownedHash(path, before) !== hash) ch.drift.push(path);
     ch.deletes.push(path);
   }
 
@@ -208,7 +225,9 @@ function computeChanges(ctx: Ctx): Changes {
       added = r.added;
     }
     for (const e of added) if (!kept.some((k) => entryKey(k) === entryKey(e))) kept.push(e);
-    const after = text === undefined || text === "" ? undefined : text;
+    let after = text === undefined || text === "" ? undefined : text;
+    // a settings file Forge creates is formatted like the rest of its JSON; an existing one keeps its own indentation
+    if (after !== undefined && before === "" && ctx.level === "project") after = formatJson(base, file, after);
     if ((after ?? "") !== before) ch.settings.push({ file, before, after, shared: !file.endsWith("settings.local.json") });
   }
   const order = new Map(p.settings.map((e, i) => [entryKey(e), i]));
@@ -216,8 +235,12 @@ function computeChanges(ctx: Ctx): Changes {
 
   for (const [id, hash] of Object.entries(lock?.rules ?? {})) if (p.rules[id] !== undefined && p.rules[id] !== hash) ch.rulesChanged.push(id);
   const hashes: Record<string, string> = {};
-  for (const [path, text] of p.files) hashes[path] = sha256(text);
+  for (const [path, text] of p.files) hashes[path] = ownedHash(path, text);
   ch.lockText = renderLock(p.rules, hashes, ch.lockSettings);
+  if (ctx.level === "project") {
+    ch.lockText = formatJson(base, p.lockPath, ch.lockText);
+    ch.manifestText = renderManifest(hashes);
+  }
   return ch;
 }
 
@@ -238,10 +261,25 @@ function printDiff(ctx: Ctx, ch: Changes, opts: { withLock: boolean }): boolean 
   for (const e of ch.missingEntries) out(`forge: ${e.file}: entry missing, apply re-adds it: ${e.path} ${JSON.stringify(e.value)}`);
   for (const id of ch.rulesChanged) out(`forge: rule ${id} changed since the last apply`);
   if (opts.withLock) {
+    // the lock compares as JSON: a formatter reflowing it is not a change
     const before = readText(join(ctx.base, ctx.plan.lockPath)) ?? "";
-    if (before !== ch.lockText) {
+    const parsed = (t: string) => {
+      try {
+        return JSON.stringify(JSON.parse(t));
+      } catch {
+        return t;
+      }
+    };
+    if (parsed(before) !== parsed(ch.lockText)) {
       process.stdout.write(lineDiff(before, ch.lockText, ctx.plan.lockPath));
       any = true;
+    }
+    if (ch.manifestText !== undefined) {
+      const m = readText(join(ctx.base, MANIFEST_PATH)) ?? "";
+      if (m !== ch.manifestText) {
+        process.stdout.write(lineDiff(m, ch.manifestText, MANIFEST_PATH));
+        any = true;
+      }
     }
   }
   return any || ch.missingEntries.length > 0 || ch.rulesChanged.length > 0;
@@ -286,6 +324,7 @@ function cmdApply(flags: Flags): number {
     else writeText(join(ctx.base, s.file), s.after);
   }
   writeText(join(ctx.base, ctx.plan.lockPath), ch.lockText);
+  if (ch.manifestText !== undefined) writeText(join(ctx.base, MANIFEST_PATH), ch.manifestText);
 
   for (const o of ch.overridden) err(`forge: ${o}`);
   const changed = ch.writes.length + ch.deletes.length + ch.settings.length;
@@ -441,7 +480,7 @@ function cmdRemove(flags: Flags): number {
   }
   const files = Object.keys(lock.files).filter((f) => existsSync(join(base, f)));
   if (flags.dryRun) {
-    for (const f of [...files, lockPath]) out(`--- ${f} (deleted)`);
+    for (const f of [...files, lockPath, ...(level === "project" && existsSync(join(base, MANIFEST_PATH)) ? [MANIFEST_PATH] : [])]) out(`--- ${f} (deleted)`);
     for (const [file, s] of settings) process.stdout.write(lineDiff(s.before, s.after ?? "", s.after === undefined ? `${file} (deleted)` : file));
     return 0;
   }
@@ -452,7 +491,7 @@ function cmdRemove(flags: Flags): number {
   }
   for (const f of files) {
     const text = readFileSync(join(base, f), "utf8");
-    if (sha256(text) !== lock.files[f]) err(`forge: ${f} was modified since the last apply; removing it anyway`);
+    if (ownedHash(f, text) !== lock.files[f]) err(`forge: ${f} was modified since the last apply; removing it anyway`);
     rmSync(join(base, f), { force: true });
     pruneDirs(dirname(join(base, f)), base);
   }
@@ -462,6 +501,7 @@ function cmdRemove(flags: Flags): number {
     pruneDirs(dirname(join(base, file)), base);
   }
   rmSync(join(base, lockPath), { force: true });
+  if (level === "project") rmSync(join(base, MANIFEST_PATH), { force: true });
   if (level === "project") {
     rmSync(join(base, ".forge", "state"), { recursive: true, force: true });
     pruneDirs(join(base, ".forge"), base);

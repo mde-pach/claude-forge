@@ -16,10 +16,7 @@ export function readLock(base: string, lockPath: string): Lock | undefined {
   };
 }
 
-/**
- * Two-space indent, one `"path": "hash"` per line under `  "files": {`:
- * check.sh reads the files section with awk. The lock does not hash itself.
- */
+/** The lock, read by the CLI only (check.sh reads .forge/manifest.sha256). The lock does not hash itself. */
 export function renderLock(rules: Record<string, string>, files: Record<string, string>, settings: SettingsEntry[]): string {
   const sorted = (o: Record<string, string>) => Object.fromEntries(Object.entries(o).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
   const lock: Lock = {
@@ -30,4 +27,21 @@ export function renderLock(rules: Record<string, string>, files: Record<string, 
     settings,
   };
   return JSON.stringify(lock, null, 2) + "\n";
+}
+
+export const MANIFEST_PATH = ".forge/manifest.sha256";
+
+/**
+ * .forge/manifest.sha256: "<sha256>  <path>" per owned file under .forge/ and
+ * .claude/, in sha256sum format, read by check.sh's integrity step. Hashes are
+ * ownedHash() values (whitespace-insensitive for JSON).
+ */
+export function renderManifest(files: Record<string, string>): string {
+  return (
+    Object.entries(files)
+      .filter(([p]) => p.startsWith(".forge/") || p.startsWith(".claude/"))
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+      .map(([p, h]) => `${h}  ${p}`)
+      .join("\n") + "\n"
+  );
 }

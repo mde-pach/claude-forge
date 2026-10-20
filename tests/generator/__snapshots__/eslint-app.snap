@@ -1778,24 +1778,31 @@ fi
 fail=0
 report() { printf 'forge:%s %s\n' "$1" "$2"; fail=1; }
 
-# 1. Integrity: owned files match .forge/forge.lock.json.
+# 1. Integrity: owned files match .forge/manifest.sha256 ("<sha256>  <path>" lines,
+# sha256sum format). JSON files are hashed with spaces, tabs and newlines removed,
+# so a formatter run is not tampering; any other change is.
+forge_owned_hash() {
+  case $1 in
+    *.json) tr -d ' \t\r\n' < "$1" | forge_sha256 ;;
+    *) forge_sha256 < "$1" ;;
+  esac
+}
 forge_integrity() {
-  lock=.forge/forge.lock.json
-  [ -f "$lock" ] || { report forge/integrity "$lock is missing"; return; }
-  awk '/^  "files": \{/ { f = 1; next } f && /^  \}/ { exit }
-       f { line = $0; sub(/^[[:space:]]*"/, "", line); split(line, a, "\": \""); h = a[2]; sub(/".*/, "", h); print a[1] "\t" h }' "$lock" \
-    > "$FORGE_TMP/owned"
+  manifest=.forge/manifest.sha256
+  [ -f "$manifest" ] || { report forge/integrity "$manifest is missing (run forge apply)"; return; }
+  awk '/^[0-9a-f]+  ./ { h = $1; p = substr($0, length(h) + 3); print p "\t" h }' "$manifest" > "$FORGE_TMP/owned"
   while IFS='	' read -r path hash; do
     [ -n "$path" ] || continue
     case $path in .forge/*|.claude/*) ;; *) continue ;; esac
     if [ ! -f "$path" ]; then report forge/integrity "$path is missing (run forge apply)"
-    elif [ "$(forge_sha256 < "$path")" != "$hash" ]; then report forge/integrity "$path was modified (run forge diff)"
+    elif [ "$(forge_owned_hash "$path")" != "$hash" ]; then report forge/integrity "$path was modified (run forge diff)"
     fi
   done < "$FORGE_TMP/owned"
+  cut -f 1 "$FORGE_TMP/owned" > "$FORGE_TMP/owned-paths"
   { find .forge .claude/skills/forge-project -type f 2>/dev/null; find .claude/rules -name 'forge-*.md' -type f 2>/dev/null; } \
     | sed 's|^\./||' | while read -r path; do
-      case $path in .forge/state/*|.forge/rules/*|.forge/forge.lock.json) continue ;; esac
-      grep -q "^$path	" "$FORGE_TMP/owned" || printf 'forge:forge/integrity %s is not a forge file (remove it or run forge apply)\n' "$path"
+      case $path in .forge/state/*|.forge/rules/*|.forge/forge.lock.json|.forge/manifest.sha256) continue ;; esac
+      grep -qxF "$path" "$FORGE_TMP/owned-paths" || printf 'forge:forge/integrity %s is not a forge file (remove it or run forge apply)\n' "$path"
     done > "$FORGE_TMP/extra"
   if [ -s "$FORGE_TMP/extra" ]; then cat "$FORGE_TMP/extra"; fail=1; fi
 }
@@ -1903,8 +1910,8 @@ exit "$fail"
   },
   "files": {
     ".claude/rules/forge-typescript.md": "49026064803e7a686fb16a80425a9fe547f39bc4f020b90918ff120a89124fec",
-    ".claude/skills/forge-project/.claude-plugin/plugin.json": "cdba0be91f821a92e0e572343bacf5aab79183984eb22fa7ae6e5573f68fcc55",
-    ".claude/skills/forge-project/hooks/hooks.json": "d89a3e956af3b4028e33951dc16814d8b3e3a72d5ad1c2a31727fea7b4e6471e",
+    ".claude/skills/forge-project/.claude-plugin/plugin.json": "c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2",
+    ".claude/skills/forge-project/hooks/hooks.json": "800b8131fbce337baca09702c057ab8d094c37c8ceee1d85259f775a29e0e4e3",
     ".claude/skills/forge-project/scripts/guard.rules": "52a6f9fbaa079816551227307122ce0c0e20ba65ba3cc93e09e2d4d187f3e246",
     ".claude/skills/forge-project/scripts/guard.sh": "c8aace4b9c7c0f76d522ecef054c6dc920bd42702712c877825f0e5cd046827c",
     ".claude/skills/forge-project/scripts/lib.sh": "b7df79c393c7d23323aa64c3230e1e322243db8df02860c852fc8f6a2221d090",
@@ -1919,7 +1926,7 @@ exit "$fail"
     ".forge/ast-grep/rules/typescript/no-explicit-any.yml": "b8d70ef96cab3b10d6555cd162baeb3e8862def634698e805f3873261c44b21a",
     ".forge/ast-grep/rules/typescript/no-ts-ignore.yml": "5c4067176927694fbc3131566232ec33b74643a4a32370ffacd8f67b4a1e43cb",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "564d882fc23b927661ef34714eced8ed2e591570c80722699916c18477c0aeb0",
+    ".forge/check.sh": "d1a8faf4e814b3811e84327a366d79373b51f91fb047bc4df6ec6007ea1ad378",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -1945,6 +1952,26 @@ exit "$fail"
     }
   ]
 }
+
+===== .forge/manifest.sha256
+49026064803e7a686fb16a80425a9fe547f39bc4f020b90918ff120a89124fec  .claude/rules/forge-typescript.md
+c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills/forge-project/.claude-plugin/plugin.json
+800b8131fbce337baca09702c057ab8d094c37c8ceee1d85259f775a29e0e4e3  .claude/skills/forge-project/hooks/hooks.json
+52a6f9fbaa079816551227307122ce0c0e20ba65ba3cc93e09e2d4d187f3e246  .claude/skills/forge-project/scripts/guard.rules
+c8aace4b9c7c0f76d522ecef054c6dc920bd42702712c877825f0e5cd046827c  .claude/skills/forge-project/scripts/guard.sh
+b7df79c393c7d23323aa64c3230e1e322243db8df02860c852fc8f6a2221d090  .claude/skills/forge-project/scripts/lib.sh
+c5be09ae0908c715a0bd8b92dbfb6fc9c80d3a42ca0f36f49e278d437c986420  .claude/skills/forge-project/scripts/post-edit.sh
+d0d9f4ae5e91c1c59a724a3ca9275bfdad931b588635470e8e7fa294a3043d9e  .claude/skills/forge-project/scripts/session-start.sh
+f5bb2d3d6b3c28b1138b8aecaabdd9225ab4bbc85fde5312da823a7144791da9  .claude/skills/forge-project/scripts/stop.sh
+fb148547199c9426d53da2cbd7d01d701315965689b770b813e1f032aaf737c4  .claude/skills/forge-project/scripts/turn-start.sh
+aa4e3850225b43c03481aa50b7f2265a7a0484058edf33f383c9b41051480cd1  .claude/skills/forge-project/scripts/typecheck.sh
+14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
+eceb8781d7730e333b1d6fa7756eef0fa73a06b755c63def1048f3e781afcc83  .forge/ast-grep/rule-tests/typescript-no-explicit-any-test.yml
+a30937b33c13d6bd1bc4e35655b54d334c5913c7ae7ea6117c861616b526fbde  .forge/ast-grep/rule-tests/typescript-no-ts-ignore-test.yml
+b8d70ef96cab3b10d6555cd162baeb3e8862def634698e805f3873261c44b21a  .forge/ast-grep/rules/typescript/no-explicit-any.yml
+5c4067176927694fbc3131566232ec33b74643a4a32370ffacd8f67b4a1e43cb  .forge/ast-grep/rules/typescript/no-ts-ignore.yml
+ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
+d1a8faf4e814b3811e84327a366d79373b51f91fb047bc4df6ec6007ea1ad378  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

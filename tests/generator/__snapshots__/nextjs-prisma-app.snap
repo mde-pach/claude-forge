@@ -2412,24 +2412,31 @@ fi
 fail=0
 report() { printf 'forge:%s %s\n' "$1" "$2"; fail=1; }
 
-# 1. Integrity: owned files match .forge/forge.lock.json.
+# 1. Integrity: owned files match .forge/manifest.sha256 ("<sha256>  <path>" lines,
+# sha256sum format). JSON files are hashed with spaces, tabs and newlines removed,
+# so a formatter run is not tampering; any other change is.
+forge_owned_hash() {
+  case $1 in
+    *.json) tr -d ' \t\r\n' < "$1" | forge_sha256 ;;
+    *) forge_sha256 < "$1" ;;
+  esac
+}
 forge_integrity() {
-  lock=.forge/forge.lock.json
-  [ -f "$lock" ] || { report forge/integrity "$lock is missing"; return; }
-  awk '/^  "files": \{/ { f = 1; next } f && /^  \}/ { exit }
-       f { line = $0; sub(/^[[:space:]]*"/, "", line); split(line, a, "\": \""); h = a[2]; sub(/".*/, "", h); print a[1] "\t" h }' "$lock" \
-    > "$FORGE_TMP/owned"
+  manifest=.forge/manifest.sha256
+  [ -f "$manifest" ] || { report forge/integrity "$manifest is missing (run forge apply)"; return; }
+  awk '/^[0-9a-f]+  ./ { h = $1; p = substr($0, length(h) + 3); print p "\t" h }' "$manifest" > "$FORGE_TMP/owned"
   while IFS='	' read -r path hash; do
     [ -n "$path" ] || continue
     case $path in .forge/*|.claude/*) ;; *) continue ;; esac
     if [ ! -f "$path" ]; then report forge/integrity "$path is missing (run forge apply)"
-    elif [ "$(forge_sha256 < "$path")" != "$hash" ]; then report forge/integrity "$path was modified (run forge diff)"
+    elif [ "$(forge_owned_hash "$path")" != "$hash" ]; then report forge/integrity "$path was modified (run forge diff)"
     fi
   done < "$FORGE_TMP/owned"
+  cut -f 1 "$FORGE_TMP/owned" > "$FORGE_TMP/owned-paths"
   { find .forge .claude/skills/forge-project -type f 2>/dev/null; find .claude/rules -name 'forge-*.md' -type f 2>/dev/null; } \
     | sed 's|^\./||' | while read -r path; do
-      case $path in .forge/state/*|.forge/rules/*|.forge/forge.lock.json) continue ;; esac
-      grep -q "^$path	" "$FORGE_TMP/owned" || printf 'forge:forge/integrity %s is not a forge file (remove it or run forge apply)\n' "$path"
+      case $path in .forge/state/*|.forge/rules/*|.forge/forge.lock.json|.forge/manifest.sha256) continue ;; esac
+      grep -qxF "$path" "$FORGE_TMP/owned-paths" || printf 'forge:forge/integrity %s is not a forge file (remove it or run forge apply)\n' "$path"
     done > "$FORGE_TMP/extra"
   if [ -s "$FORGE_TMP/extra" ]; then cat "$FORGE_TMP/extra"; fail=1; fi
 }
@@ -2559,8 +2566,8 @@ exit "$fail"
     ".claude/rules/forge-typescript-prisma.md": "63a51c11b7209d79cc59c6895659c49f73c67829320daed40cff291a72b83494",
     ".claude/rules/forge-typescript-zod.md": "b8453a109d4cd3a21616b8490d2312c14495ac353e89474c740f21c2f6dd41d6",
     ".claude/rules/forge-typescript.md": "49026064803e7a686fb16a80425a9fe547f39bc4f020b90918ff120a89124fec",
-    ".claude/skills/forge-project/.claude-plugin/plugin.json": "cdba0be91f821a92e0e572343bacf5aab79183984eb22fa7ae6e5573f68fcc55",
-    ".claude/skills/forge-project/hooks/hooks.json": "d89a3e956af3b4028e33951dc16814d8b3e3a72d5ad1c2a31727fea7b4e6471e",
+    ".claude/skills/forge-project/.claude-plugin/plugin.json": "c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2",
+    ".claude/skills/forge-project/hooks/hooks.json": "800b8131fbce337baca09702c057ab8d094c37c8ceee1d85259f775a29e0e4e3",
     ".claude/skills/forge-project/scripts/guard.rules": "9b7b408f2e52670a6bc09da3f220bb605d74a16c72aa1e0b0974a3e8f1f29de5",
     ".claude/skills/forge-project/scripts/guard.sh": "c8aace4b9c7c0f76d522ecef054c6dc920bd42702712c877825f0e5cd046827c",
     ".claude/skills/forge-project/scripts/lib.sh": "b7df79c393c7d23323aa64c3230e1e322243db8df02860c852fc8f6a2221d090",
@@ -2591,7 +2598,7 @@ exit "$fail"
     ".forge/ast-grep/rules/typescript/vitest/no-new-skip.yml": "98173f4b9437b96586790869f4d1494f5ec3d4ae8f4e5764f59de7c07a3283ac",
     ".forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml": "d3c41a3915d84b21e86e9212a06ad14c52bf2f9bcefb7c5ca433200cc3ec44fb",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "6f1d1df3b9719b6a8231c9578a6c5bb6084c49e8f3d01bcec45fa029f3fcb05e",
+    ".forge/check.sh": "d5364c0b7a17c240aa9f0bdebac89cf22f300d171ef20c00fe85604112387f50",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -2617,6 +2624,46 @@ exit "$fail"
     }
   ]
 }
+
+===== .forge/manifest.sha256
+bbf9a525d99bb9496bfe7edf74c6b320cb871bec52f39eb5e95a9a9aaf5adda7  .claude/rules/forge-typescript-nextjs-react.md
+dfabfc8e8c052afe634cc2486a0e5f7ba71ec9ccb7ba032ed4849aa73461d65b  .claude/rules/forge-typescript-nextjs.md
+63a51c11b7209d79cc59c6895659c49f73c67829320daed40cff291a72b83494  .claude/rules/forge-typescript-prisma.md
+b8453a109d4cd3a21616b8490d2312c14495ac353e89474c740f21c2f6dd41d6  .claude/rules/forge-typescript-zod.md
+49026064803e7a686fb16a80425a9fe547f39bc4f020b90918ff120a89124fec  .claude/rules/forge-typescript.md
+c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills/forge-project/.claude-plugin/plugin.json
+800b8131fbce337baca09702c057ab8d094c37c8ceee1d85259f775a29e0e4e3  .claude/skills/forge-project/hooks/hooks.json
+9b7b408f2e52670a6bc09da3f220bb605d74a16c72aa1e0b0974a3e8f1f29de5  .claude/skills/forge-project/scripts/guard.rules
+c8aace4b9c7c0f76d522ecef054c6dc920bd42702712c877825f0e5cd046827c  .claude/skills/forge-project/scripts/guard.sh
+b7df79c393c7d23323aa64c3230e1e322243db8df02860c852fc8f6a2221d090  .claude/skills/forge-project/scripts/lib.sh
+6beb2b0e115c82ca066facd2a21f8acd8a27b732013f39b46cb23af5be44c80b  .claude/skills/forge-project/scripts/post-edit.sh
+83aab41ed9b562ad0fefcf67db77b72463dfffbdb7b85d5b0c923595e73f62c4  .claude/skills/forge-project/scripts/session-start.sh
+f5bb2d3d6b3c28b1138b8aecaabdd9225ab4bbc85fde5312da823a7144791da9  .claude/skills/forge-project/scripts/stop.sh
+fb148547199c9426d53da2cbd7d01d701315965689b770b813e1f032aaf737c4  .claude/skills/forge-project/scripts/turn-start.sh
+564cc7837a468bc984c55a78bdf0d8cbae4fd1b967d0d3aff0923741daf1f4c6  .claude/skills/forge-project/scripts/typecheck.sh
+14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
+5da1551f9fa49969cdbfb6ef3ba847589327a2d7430a3cdc79f3637fc81586f1  .forge/ast-grep/rule-tests/typescript-nextjs-no-next-router-test.yml
+d2c1565050d4c9260d1fcf98bae6a781ceb3a6f2e72c1db475ac459818bd450a  .forge/ast-grep/rule-tests/typescript-nextjs-no-pages-data-test.yml
+153ec749432cb54b30c8020cbe4d466b3746e39ee9be7af8129603cab6ca3232  .forge/ast-grep/rule-tests/typescript-nextjs-proxy-not-middleware-test.yml
+cb7527610c44c6de5c9f2720eb903d53f5102af992c1774e2bf4ee1a8e2e2df1  .forge/ast-grep/rule-tests/typescript-nextjs-react-client-hooks-test.yml
+119102317690786fbaac928eb5d674f31d24af971c3e2b7b2d6836c131422e32  .forge/ast-grep/rule-tests/typescript-playwright-no-new-skip-test.yml
+91fbbe5ce58f7acf72b9885cb48b5d0c6eb692b862834058404f1b58e6007f5a  .forge/ast-grep/rule-tests/typescript-prisma-generated-client-import-test.yml
+a0975e619303c2b7ebf6a13a1c424464c86b5f1c37fdf16667de00e241a56998  .forge/ast-grep/rule-tests/typescript-prisma-no-middleware-test.yml
+b8a0548c0fe777d62794a8a101d54fcb110517e3f5657d0d338d6a0f5b75487a  .forge/ast-grep/rule-tests/typescript-vitest-no-fewer-expects-test.yml
+eea44990bc99675ac16b280cfcea17e7c3e3272df0f5b75a8c9a735af94dd792  .forge/ast-grep/rule-tests/typescript-vitest-no-new-skip-test.yml
+72dcb1355a54b0a7a880206f4567d94c18f8eaaf6d2dc7d1ab0a9414981250c8  .forge/ast-grep/rule-tests/typescript-vitest-no-test-env-branch-test.yml
+2447380f96c63cf72fcf39285fff2abe7f1edd49646a74ed5ad91fbb77a908e0  .forge/ast-grep/rules/typescript/nextjs/no-next-router.yml
+c189e6db00b706044708a2c5fc1e5fe8698213059fabf7d6d4f549eb57a759fb  .forge/ast-grep/rules/typescript/nextjs/no-pages-data.yml
+29ce02d4f8748400d9a70259d51631bf7ef50cbdd4bccadd24d96695a289c7f8  .forge/ast-grep/rules/typescript/nextjs/proxy-not-middleware.yml
+6aa6656f3f30182cd790a00dd302823bcea6c2dce46482836736fa1f8e689aee  .forge/ast-grep/rules/typescript/nextjs/react/client-hooks.yml
+d282a59efd39a0f11f1e4f9080dc72f4b041a48a526b4ff60b2f282c19b33875  .forge/ast-grep/rules/typescript/playwright/no-new-skip.yml
+7b8a093b0f51e5d6b8f8a132b1ef43888104b1f5985465fc4f0f5984762a79c2  .forge/ast-grep/rules/typescript/prisma/generated-client-import.yml
+98cf3096f74f6db07744f597904e3df903a8a886a095cfffa52b133bf3acc1c7  .forge/ast-grep/rules/typescript/prisma/no-middleware.yml
+eb97cf87f7d0754f025a3afb9e1a97ac145789684524424f720d96ce1e8b98b2  .forge/ast-grep/rules/typescript/vitest/no-fewer-expects.yml
+98173f4b9437b96586790869f4d1494f5ec3d4ae8f4e5764f59de7c07a3283ac  .forge/ast-grep/rules/typescript/vitest/no-new-skip.yml
+d3c41a3915d84b21e86e9212a06ad14c52bf2f9bcefb7c5ca433200cc3ec44fb  .forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml
+ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
+d5364c0b7a17c240aa9f0bdebac89cf22f300d171ef20c00fe85604112387f50  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

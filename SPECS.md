@@ -217,7 +217,8 @@ examples:
 └── .forge/
     ├── check.sh
     ├── ast-grep/{sgconfig.yml, rules/*.yml, rule-tests/*.yml}
-    ├── forge.lock.json
+    ├── forge.lock.json                   # for the CLI
+    ├── manifest.sha256                   # owned-file hashes for check.sh (sha256sum format)
     ├── .gitignore                        # state/
     └── state/                            # not committed
 ```
@@ -268,7 +269,7 @@ All scripts are POSIX `sh`. They read file paths and the working directory from 
 
 One entry point for the Stop hook, the optional pre-commit hook and CI. Runs in order, stops at the first failure, prints `forge:<rule-id>` lines:
 
-1. **Integrity:** every owned file matches its hash in `.forge/forge.lock.json`.
+1. **Integrity:** every owned file under `.forge/` and `.claude/` matches its hash in `.forge/manifest.sha256`, and no other file sits in Forge's directories. check.sh never parses `forge.lock.json`, so the lock's formatting does not matter.
 2. **Applied migrations:** any file under `alembic/versions/` or `prisma/migrations/` that exists at `HEAD` and is modified or deleted → fail.
 3. **Tests:** test files present at `HEAD` and deleted → fail; ast-grep `no-increase` / `no-decrease` rules compared with `HEAD`.
 4. **ast-grep `forbid` rules.**
@@ -319,6 +320,9 @@ Audits run during `forge apply` and `forge status`, never in hooks.
 
 - `diff` and `status` report owned files whose hash differs, appended entries that are missing, and rules whose source changed since the last apply.
 - `remove` deletes listed files and removes exactly the listed settings entries.
+- **Owned-file hashes** are sha256 of the content, except for `.json` files, which are hashed with spaces, tabs, CR and LF removed: a formatter reflowing Forge's JSON is not drift, any other change is. A file whose owned hash matches is not rewritten by `apply`. The lock is compared as JSON (formatting ignored).
+- **`.forge/manifest.sha256`** (project level) repeats the owned-file hashes of `.forge/` and `.claude/` as `<sha256>  <path>` lines (sha256sum format) for `check.sh`. Non-JSON lines verify with `sha256sum -c`; JSON lines need the whitespace-stripped content, so `check.sh` hashes each file itself (`sha256sum`, `shasum -a 256` or `openssl`). The manifest and the lock do not hash themselves; `remove` deletes both.
+- **Formatting.** During `apply`, the JSON files Forge generates (plugin manifest, `hooks.json`, the lock, and a `.claude/settings.json` that Forge creates) are formatted with the project's own Biome when installed (`biome format --stdin-file-path`), so the project's `biome ci .` passes. An existing settings file keeps its own indentation for appended entries. Project-owned files are never formatted.
 
 ## 13. Packs and rules
 

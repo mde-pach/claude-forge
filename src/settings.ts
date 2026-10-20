@@ -2,7 +2,16 @@ import { applyEdits, modify, parse, type FormattingOptions, type JSONPath, type 
 import type { SettingsEntry } from "./types.js";
 import type { DesiredEntry } from "./plan.js";
 
-const FORMAT: FormattingOptions = { tabSize: 2, insertSpaces: true, eol: "\n" };
+const DEFAULT_FORMAT: FormattingOptions = { tabSize: 2, insertSpaces: true, eol: "\n" };
+
+/** The indentation an existing file uses (tabs or N spaces), so appended entries match it. */
+export function detectFormatting(text: string): FormattingOptions {
+  const indents = text.split("\n").map((l) => /^([ \t]+)\S/.exec(l)?.[1]).filter((x): x is string => !!x);
+  if (!indents.length) return DEFAULT_FORMAT;
+  if (indents.filter((i) => i.startsWith("\t")).length > indents.length / 2) return { tabSize: 1, insertSpaces: false, eol: "\n" };
+  const widths = indents.filter((i) => !i.includes("\t")).map((i) => i.length);
+  return { tabSize: widths.length ? Math.min(...widths) : 2, insertSpaces: true, eol: "\n" };
+}
 
 function read(text: string): unknown {
   const errors: ParseError[] = [];
@@ -40,6 +49,7 @@ export function hasEntry(text: string, e: SettingsEntry): boolean {
  */
 export function addEntries(text: string, entries: DesiredEntry[]): { text: string; added: SettingsEntry[] } {
   let out = text.trim() ? text : "{}\n";
+  const FORMAT = detectFormatting(text);
   const added: SettingsEntry[] = [];
   for (const e of entries) {
     const path = e.path.split(".");
@@ -68,6 +78,7 @@ export function addEntries(text: string, entries: DesiredEntry[]): { text: strin
  */
 export function removeEntries(text: string, entries: SettingsEntry[]): string | undefined {
   let out = text;
+  const FORMAT = detectFormatting(text);
   for (const e of entries) {
     const path = e.path.split(".");
     const cur = at(read(out), path);

@@ -12,7 +12,7 @@ import { describe, expect, test } from "bun:test";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { addEntries, removeEntries } from "../../src/settings";
-import { applied, commitAll, forge, git, put, sampleRepo, sh } from "../helpers";
+import { applied, commitAll, ensureTools, forge, git, hasBun, linkTools, put, sampleRepo, sh } from "../helpers";
 
 const T = 120_000;
 
@@ -71,12 +71,18 @@ describe("owned files", () => {
 
 describe("the lock", () => {
   test(
-    "the lock is pretty-printed with one path per line, as check.sh reads it with awk",
+    "check.sh reads owned-file hashes from .forge/manifest.sha256, in sha256sum format; the lock is for the CLI only",
     () => {
-      const text = readFileSync(join(applied("eslint-app"), ".forge/forge.lock.json"), "utf8");
-      expect(text).toMatch(/^\{\n {2}"forge_version": "0\.5\.0",\n {2}"claude_code_min": "2\.1\.295",\n {2}"rules": \{/);
-      expect(text).toMatch(/\n {2}"files": \{\n {4}"\.claude\/rules\/forge-typescript\.md": "[0-9a-f]{64}",\n/);
-      expect(text).not.toContain('"forge.lock.json"');
+      const r = applied("eslint-app");
+      const manifest = readFileSync(join(r, ".forge/manifest.sha256"), "utf8");
+      expect(manifest).toMatch(/^[0-9a-f]{64} {2}\.claude\/rules\/forge-typescript\.md\n/);
+      expect(manifest).not.toContain("forge.lock.json");
+      expect(manifest).not.toContain("manifest.sha256");
+      // non-JSON entries verify with the standard tool; JSON entries hash without whitespace
+      const plain = manifest.split("\n").filter((l) => l && !l.endsWith(".json")).join("\n") + "\n";
+      const c = sh("sh", ["-c", 'command -v sha256sum >/dev/null && sha256sum -c --quiet || shasum -a 256 -c --quiet'], { cwd: r, input: plain });
+      expect(c.status).toBe(0);
+      expect(readFileSync(join(r, ".forge/check.sh"), "utf8")).not.toMatch(/awk[^\n]*forge\.lock\.json/);
     },
     T,
   );
@@ -198,3 +204,79 @@ describe("remove", () => {
     T,
   );
 });
+
+/**
+ * Forge's JSON files are owned, but projects format JSON too. Owned JSON is
+ * hashed with spaces, tabs and newlines removed (by the CLI and by check.sh),
+ * so a formatter run is not tampering, while any other change still is; and on
+ * apply Forge formats the JSON it generates with the project's own Biome.
+ */
+describe("formatters and Forge's JSON", () => {
+  const forgeLines = (out: string) => out.split("\n").filter((l) => /(^|\s|\.\/)\.(forge|claude)\//.test(l));
+  const DEFAULT_BIOME = '{"linter":{"enabled":true,"rules":{"recommended":true}}}\n';
+
+  test.if(hasBun)(
+    "with the project's Biome, a fresh apply formats Forge's JSON so that biome ci reports nothing on Forge's files",
+    () => {
+      ensureTools();
+      const r = sampleRepo("nextjs-prisma-app");
+      put(r, "biome.json", DEFAULT_BIOME);
+      linkTools(r, "node");
+      commitAll(r, "biome");
+      expect(forge(["apply", "--yes"], r).status).toBe(0);
+      const ci = sh("node_modules/.bin/biome", ["ci", "."], { cwd: r });
+      expect(forgeLines(ci.stdout + ci.stderr)).toEqual([]);
+      expect(readFileSync(join(r, ".claude/skills/forge-project/hooks/hooks.json"), "utf8")).toStartWith('{\n\t"description"');
+    },
+    T,
+  );
+
+  test.if(hasBun)(
+    "reformatting Forge's JSON with the project's formatter keeps integrity, and apply then rewrites nothing",
+    () => {
+      ensureTools();
+      const r = sampleRepo("nextjs-prisma-app");
+      put(r, "biome.json", DEFAULT_BIOME);
+      commitAll(r, "biome");
+      expect(forge(["apply", "--yes"], r).status).toBe(0); // no Biome installed yet: two-space JSON
+      commitAll(r, "forge");
+      linkTools(r, "node");
+      sh("node_modules/.bin/biome", ["check", "--write", "."], { cwd: r });
+      expect(readFileSync(join(r, ".forge/forge.lock.json"), "utf8")).toStartWith('{\n\t"forge_version"');
+      const c = sh("sh", [".forge/check.sh", "--changed"], { cwd: r });
+      expect(c.stdout).not.toContain("forge/integrity");
+      const again = forge(["apply", "--yes"], r);
+      expect(again.stdout).toContain("forge: up to date");
+      expect(forge(["diff"], r).status).toBe(0);
+    },
+    T,
+  );
+
+  test(
+    "a real change to a Forge JSON file still fails integrity, naming the file",
+    () => {
+      const r = applied("eslint-app");
+      const f = join(r, ".claude/skills/forge-project/hooks/hooks.json");
+      writeFileSync(f, readFileSync(f, "utf8").replace('"timeout": 5,', '"timeout": 50,'));
+      const c = sh("sh", [".forge/check.sh", "--changed"], { cwd: r });
+      expect(c.status).toBe(1);
+      expect(c.stdout).toContain("forge:forge/integrity .claude/skills/forge-project/hooks/hooks.json was modified (run forge diff)");
+    },
+    T,
+  );
+
+  test(
+    "appending to an existing settings file keeps its indentation",
+    () => {
+      const r = sampleRepo("eslint-app");
+      put(r, ".claude/settings.json", '{\n\t"permissions": {\n\t\t"allow": ["Bash(ls:*)"]\n\t}\n}\n');
+      commitAll(r, "settings");
+      expect(forge(["apply", "--yes"], r).status).toBe(0);
+      const text = readFileSync(join(r, ".claude/settings.json"), "utf8");
+      expect(text).toContain('\n\t\t"ask": [\n\t\t\t"Edit(.forge/**)"');
+      expect(text).not.toMatch(/\n {2}"/);
+    },
+    T,
+  );
+});
+

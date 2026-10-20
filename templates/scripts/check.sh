@@ -37,24 +37,31 @@ fi
 fail=0
 report() { printf 'forge:%s %s\n' "$1" "$2"; fail=1; }
 
-# 1. Integrity: owned files match .forge/forge.lock.json.
+# 1. Integrity: owned files match .forge/manifest.sha256 ("<sha256>  <path>" lines,
+# sha256sum format). JSON files are hashed with spaces, tabs and newlines removed,
+# so a formatter run is not tampering; any other change is.
+forge_owned_hash() {
+  case $1 in
+    *.json) tr -d ' \t\r\n' < "$1" | forge_sha256 ;;
+    *) forge_sha256 < "$1" ;;
+  esac
+}
 forge_integrity() {
-  lock=.forge/forge.lock.json
-  [ -f "$lock" ] || { report forge/integrity "$lock is missing"; return; }
-  awk '/^  "files": \{/ { f = 1; next } f && /^  \}/ { exit }
-       f { line = $0; sub(/^[[:space:]]*"/, "", line); split(line, a, "\": \""); h = a[2]; sub(/".*/, "", h); print a[1] "\t" h }' "$lock" \
-    > "$FORGE_TMP/owned"
+  manifest=.forge/manifest.sha256
+  [ -f "$manifest" ] || { report forge/integrity "$manifest is missing (run forge apply)"; return; }
+  awk '/^[0-9a-f]+  ./ { h = $1; p = substr($0, length(h) + 3); print p "\t" h }' "$manifest" > "$FORGE_TMP/owned"
   while IFS='	' read -r path hash; do
     [ -n "$path" ] || continue
     case $path in .forge/*|.claude/*) ;; *) continue ;; esac
     if [ ! -f "$path" ]; then report forge/integrity "$path is missing (run forge apply)"
-    elif [ "$(forge_sha256 < "$path")" != "$hash" ]; then report forge/integrity "$path was modified (run forge diff)"
+    elif [ "$(forge_owned_hash "$path")" != "$hash" ]; then report forge/integrity "$path was modified (run forge diff)"
     fi
   done < "$FORGE_TMP/owned"
+  cut -f 1 "$FORGE_TMP/owned" > "$FORGE_TMP/owned-paths"
   { find .forge .claude/skills/forge-project -type f 2>/dev/null; find .claude/rules -name 'forge-*.md' -type f 2>/dev/null; } \
     | sed 's|^\./||' | while read -r path; do
-      case $path in .forge/state/*|.forge/rules/*|.forge/forge.lock.json) continue ;; esac
-      grep -q "^$path	" "$FORGE_TMP/owned" || printf 'forge:forge/integrity %s is not a forge file (remove it or run forge apply)\n' "$path"
+      case $path in .forge/state/*|.forge/rules/*|.forge/forge.lock.json|.forge/manifest.sha256) continue ;; esac
+      grep -qxF "$path" "$FORGE_TMP/owned-paths" || printf 'forge:forge/integrity %s is not a forge file (remove it or run forge apply)\n' "$path"
     done > "$FORGE_TMP/extra"
   if [ -s "$FORGE_TMP/extra" ]; then cat "$FORGE_TMP/extra"; fail=1; fi
 }

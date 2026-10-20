@@ -102,3 +102,12 @@ export function lineDiff(before: string, after: string, label: string): string {
   });
   return out.join("\n") + "\n";
 }
+
+/**
+ * Hash of an owned file as the lock and .forge/manifest.sha256 record it. JSON
+ * files are hashed with spaces, tabs and newlines removed, so a formatter run
+ * is not tampering (check.sh does the same with `tr -d ' \t\r\n'`).
+ */
+export function ownedHash(path: string, content: string): string {
+  return sha256(path.endsWith(".json") ? content.replace(/[ \t\r\n]/g, "") : content);
+}

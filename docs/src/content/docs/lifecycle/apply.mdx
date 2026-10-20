@@ -26,9 +26,17 @@ Packs are a tree: language, then package, then sub-package. See any [pack page](
 
 <Spec file="04-ownership" describe="owned files" />
 
-## The lock
+## The lock and the manifest
+
+`.forge/forge.lock.json` records what Forge wrote, for the CLI. `.forge/manifest.sha256` lists the same hashes in `sha256sum` format for `check.sh`.
 
 <Spec file="04-ownership" describe="the lock" />
+
+## Your formatter and Forge's JSON
+
+Forge formats the JSON it generates with your Biome, and hashes JSON without whitespace, so your formatter can run over Forge's files freely.
+
+<Spec file="04-ownership" describe="formatters and Forge's JSON" />
 
 ## Settings Forge appends
 

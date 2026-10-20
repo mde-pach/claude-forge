@@ -2467,24 +2467,31 @@ fi
 fail=0
 report() { printf 'forge:%s %s\n' "$1" "$2"; fail=1; }
 
-# 1. Integrity: owned files match .forge/forge.lock.json.
+# 1. Integrity: owned files match .forge/manifest.sha256 ("<sha256>  <path>" lines,
+# sha256sum format). JSON files are hashed with spaces, tabs and newlines removed,
+# so a formatter run is not tampering; any other change is.
+forge_owned_hash() {
+  case $1 in
+    *.json) tr -d ' \t\r\n' < "$1" | forge_sha256 ;;
+    *) forge_sha256 < "$1" ;;
+  esac
+}
 forge_integrity() {
-  lock=.forge/forge.lock.json
-  [ -f "$lock" ] || { report forge/integrity "$lock is missing"; return; }
-  awk '/^  "files": \{/ { f = 1; next } f && /^  \}/ { exit }
-       f { line = $0; sub(/^[[:space:]]*"/, "", line); split(line, a, "\": \""); h = a[2]; sub(/".*/, "", h); print a[1] "\t" h }' "$lock" \
-    > "$FORGE_TMP/owned"
+  manifest=.forge/manifest.sha256
+  [ -f "$manifest" ] || { report forge/integrity "$manifest is missing (run forge apply)"; return; }
+  awk '/^[0-9a-f]+  ./ { h = $1; p = substr($0, length(h) + 3); print p "\t" h }' "$manifest" > "$FORGE_TMP/owned"
   while IFS='	' read -r path hash; do
     [ -n "$path" ] || continue
     case $path in .forge/*|.claude/*) ;; *) continue ;; esac
     if [ ! -f "$path" ]; then report forge/integrity "$path is missing (run forge apply)"
-    elif [ "$(forge_sha256 < "$path")" != "$hash" ]; then report forge/integrity "$path was modified (run forge diff)"
+    elif [ "$(forge_owned_hash "$path")" != "$hash" ]; then report forge/integrity "$path was modified (run forge diff)"
     fi
   done < "$FORGE_TMP/owned"
+  cut -f 1 "$FORGE_TMP/owned" > "$FORGE_TMP/owned-paths"
   { find .forge .claude/skills/forge-project -type f 2>/dev/null; find .claude/rules -name 'forge-*.md' -type f 2>/dev/null; } \
     | sed 's|^\./||' | while read -r path; do
-      case $path in .forge/state/*|.forge/rules/*|.forge/forge.lock.json) continue ;; esac
-      grep -q "^$path	" "$FORGE_TMP/owned" || printf 'forge:forge/integrity %s is not a forge file (remove it or run forge apply)\n' "$path"
+      case $path in .forge/state/*|.forge/rules/*|.forge/forge.lock.json|.forge/manifest.sha256) continue ;; esac
+      grep -qxF "$path" "$FORGE_TMP/owned-paths" || printf 'forge:forge/integrity %s is not a forge file (remove it or run forge apply)\n' "$path"
     done > "$FORGE_TMP/extra"
   if [ -s "$FORGE_TMP/extra" ]; then cat "$FORGE_TMP/extra"; fail=1; fi
 }
@@ -2613,8 +2620,8 @@ exit "$fail"
     ".claude/rules/forge-python-sqlalchemy-alembic.md": "033a5662bf3ac0ea0d4d46bd7a58c929f4b9d6794022c64bc68e8fdb9d73531b",
     ".claude/rules/forge-python-sqlalchemy.md": "8900e55bb1f3e9a2f02fe7bbecee21f02220ec4fcf109681f3c3a9507cae4f07",
     ".claude/rules/forge-python.md": "f5ae2c09ca5facf086fccea26fd8f6d49148d94d7bb15c31bf83404dd9cf5407",
-    ".claude/skills/forge-project/.claude-plugin/plugin.json": "cdba0be91f821a92e0e572343bacf5aab79183984eb22fa7ae6e5573f68fcc55",
-    ".claude/skills/forge-project/hooks/hooks.json": "d89a3e956af3b4028e33951dc16814d8b3e3a72d5ad1c2a31727fea7b4e6471e",
+    ".claude/skills/forge-project/.claude-plugin/plugin.json": "c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2",
+    ".claude/skills/forge-project/hooks/hooks.json": "800b8131fbce337baca09702c057ab8d094c37c8ceee1d85259f775a29e0e4e3",
     ".claude/skills/forge-project/scripts/guard.rules": "abda384154c0c859546b6aa0e79a6a1a8c4cead27ff82e014fc69de843294b74",
     ".claude/skills/forge-project/scripts/guard.sh": "c8aace4b9c7c0f76d522ecef054c6dc920bd42702712c877825f0e5cd046827c",
     ".claude/skills/forge-project/scripts/lib.sh": "b7df79c393c7d23323aa64c3230e1e322243db8df02860c852fc8f6a2221d090",
@@ -2645,7 +2652,7 @@ exit "$fail"
     ".forge/ast-grep/rules/python/sqlalchemy/no-query-api.yml": "5b9ebb8978bdecc05305da9102596664f88653d8b8a7a2b3985763f8d661fe7e",
     ".forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml": "4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "c743e270024c3e99468c9166259b9a41abec1d81c539f057b8acc726d6f3456a",
+    ".forge/check.sh": "5225e2e6472e4d53d56fade3addad95fc8f645b11f5a8f57043cf7424627e6c6",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -2671,6 +2678,46 @@ exit "$fail"
     }
   ]
 }
+
+===== .forge/manifest.sha256
+c01694c6aaa78d058953ccf652819e9c4462229fc980fbec0c00aeeec0af48ca  .claude/rules/forge-python-fastapi.md
+1248c1dd1cce474c9fe56fcaae1ecdf99aaba71894daa49e8212c6fcb63664e2  .claude/rules/forge-python-pydantic.md
+033a5662bf3ac0ea0d4d46bd7a58c929f4b9d6794022c64bc68e8fdb9d73531b  .claude/rules/forge-python-sqlalchemy-alembic.md
+8900e55bb1f3e9a2f02fe7bbecee21f02220ec4fcf109681f3c3a9507cae4f07  .claude/rules/forge-python-sqlalchemy.md
+f5ae2c09ca5facf086fccea26fd8f6d49148d94d7bb15c31bf83404dd9cf5407  .claude/rules/forge-python.md
+c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills/forge-project/.claude-plugin/plugin.json
+800b8131fbce337baca09702c057ab8d094c37c8ceee1d85259f775a29e0e4e3  .claude/skills/forge-project/hooks/hooks.json
+abda384154c0c859546b6aa0e79a6a1a8c4cead27ff82e014fc69de843294b74  .claude/skills/forge-project/scripts/guard.rules
+c8aace4b9c7c0f76d522ecef054c6dc920bd42702712c877825f0e5cd046827c  .claude/skills/forge-project/scripts/guard.sh
+b7df79c393c7d23323aa64c3230e1e322243db8df02860c852fc8f6a2221d090  .claude/skills/forge-project/scripts/lib.sh
+56acb433b7a0d6796e12a295a7d198d3e847338e47a63d346ecf182019eae2d5  .claude/skills/forge-project/scripts/post-edit.sh
+1b5c37a41cce2d660828d97809b0a1357d9b9b73efb88ac0db16961c0f9fc9dc  .claude/skills/forge-project/scripts/session-start.sh
+f5bb2d3d6b3c28b1138b8aecaabdd9225ab4bbc85fde5312da823a7144791da9  .claude/skills/forge-project/scripts/stop.sh
+fb148547199c9426d53da2cbd7d01d701315965689b770b813e1f032aaf737c4  .claude/skills/forge-project/scripts/turn-start.sh
+6b1fc705f5aba6357aed45c454bd46563e07ce155fee603b6516805e28175782  .claude/skills/forge-project/scripts/typecheck.sh
+14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
+1589382e5e0b5cae841a8f47dae9f2b3a8583a4bb1074ceb858d882e648e9b49  .forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml
+190345231426a2518af45845d7e40c71d9a4cc0f68b656a91b17fb10156c4f0c  .forge/ast-grep/rule-tests/python-pydantic-v2-api-test.yml
+09250fc39904625fa6b9fbf8e680592026afa92b309bb44978ceced953e85443  .forge/ast-grep/rule-tests/python-pytest-no-fewer-asserts-test.yml
+80ee9ff2bda3a32eebf6aa2716b1e9b9d7c8c70e61d334a3e1513dcd75f47462  .forge/ast-grep/rule-tests/python-pytest-no-new-skip-test.yml
+b6b6511eb85b39a21fbfa8473e4c6c0b3a247493989c35b12ff669f142ba4ea9  .forge/ast-grep/rule-tests/python-pytest-no-test-env-branch-test.yml
+5e88453376b1a27b0f6616dc5980226ab0dfb537778763ba31d6448e4045a448  .forge/ast-grep/rule-tests/python-sqlalchemy-mapped-column-test.yml
+11bc076c2bb5996c604661efcb8b63c92b5452a42620ff6bee23c8abff645c0a  .forge/ast-grep/rule-tests/python-sqlalchemy-no-backref-test.yml
+4b93be91c7de1f3e2da242f86fd8a55dd79f4b4b629fe15163f656e62ac18892  .forge/ast-grep/rule-tests/python-sqlalchemy-no-declarative-base-test.yml
+95d6ae4ce3e640620dbbbdc7a29827e757164a28a4eeaf9758ac8fddccf025c7  .forge/ast-grep/rule-tests/python-sqlalchemy-no-query-api-test.yml
+e252681713a4306ca3b759cee11ed31df0350ad0355186f6120761fa8b03aa1d  .forge/ast-grep/rule-tests/python-sqlalchemy-no-raw-execute-test.yml
+98309160f9dfe6735de68fbbaebda767ddabd8c79bbd89ff63d9edaf7d6a723f  .forge/ast-grep/rules/python/fastapi/no-on-event.yml
+0285c193f340cfebcfd12ac21c1b8a21b96bea3970e1cbd8dd48aca0b1af5776  .forge/ast-grep/rules/python/pydantic/v2-api.yml
+6a5651b8e53b3fcd6d075650f3e52439916dde0d825bba80f5db0c5a9f3e1363  .forge/ast-grep/rules/python/pytest/no-fewer-asserts.yml
+36b60372d429f5982a00a0c143e2b5de7c84ab6d95571cc0e1e66cd0929f48b0  .forge/ast-grep/rules/python/pytest/no-new-skip.yml
+8876a2eb9e568b666a50631bc5629de93ec3a7804fed41f2e90507017f64ba13  .forge/ast-grep/rules/python/pytest/no-test-env-branch.yml
+e1a15384665afb7aae24664c55f4d81523622a6ef117385b17f806bc30cd3c3f  .forge/ast-grep/rules/python/sqlalchemy/mapped-column.yml
+13b73b70944eb1efd7c182f38a1832a0f639b622778db9c53c050c8f07511bcb  .forge/ast-grep/rules/python/sqlalchemy/no-backref.yml
+781d607290d560e8852c307a0e21211408c06731043ef0af7b44655f39f64d01  .forge/ast-grep/rules/python/sqlalchemy/no-declarative-base.yml
+5b9ebb8978bdecc05305da9102596664f88653d8b8a7a2b3985763f8d661fe7e  .forge/ast-grep/rules/python/sqlalchemy/no-query-api.yml
+4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0  .forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml
+ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
+5225e2e6472e4d53d56fade3addad95fc8f645b11f5a8f57043cf7424627e6c6  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh
