@@ -1,16 +1,41 @@
 ---
 title: Getting started
-description: Install the user-level setup once, then apply Forge in each repository.
+description: Get the Forge CLI, install the user-level setup once, then apply Forge in each repository.
 ---
 
 import Spec from "../../../components/Spec.astro";
 
 You need Claude Code **≥ 2.1.295**, and Node ≥ 20 or Bun to run Forge itself. The generated hooks need `sh`, `git`, `grep`, `sed`, `awk`, and `bunx` or `uvx` for ast-grep.
 
+## Get the CLI
+
+Forge is not published to npm yet (`bunx @maximedepachtere/forge` answers 404). Until it is, build it from a clone:
+
+```sh
+git clone https://github.com/mde-pach/claude-forge.git ~/src/claude-forge
+cd ~/src/claude-forge
+bun install
+bun run build        # writes dist/forge.js, a single Node script
+```
+
+Every command on this site is written `forge …`. Choose one way to make that name run the built script:
+
+```sh
+# a shell alias (add it to ~/.zshrc or ~/.bashrc)
+alias forge='node ~/src/claude-forge/dist/forge.js'
+
+# or a link on your PATH: bun link puts `forge` in ~/.bun/bin
+cd ~/src/claude-forge && bun link
+```
+
+Without either, write `node ~/src/claude-forge/dist/forge.js` wherever this site writes `forge`.
+
+Once the package is published, no clone is needed: `bunx @maximedepachtere/forge …` or `npx @maximedepachtere/forge …` run the same CLI, and stand in for `forge` everywhere.
+
 ## Once per machine
 
 ```sh
-bunx @maximedepachtere/forge apply --user
+forge apply --user
 ```
 
 Forge shows what it appends to `~/.claude/settings.json` and asks before writing. See [User level](../user-level/).
@@ -19,13 +44,16 @@ Forge shows what it appends to `~/.claude/settings.json` and asks before writing
 
 ```sh
 cd my-app
-bunx @maximedepachtere/forge apply
+forge apply
 git add .forge .claude && git commit -m "Add Forge"
 ```
 
-Forge detects your stack, writes its files under `.forge/` and `.claude/`, offers a pre-commit hook, and audits your tool configs. Commit the result: everyone who clones the repository gets the setup, with or without Forge. What happens next is the [lifecycle](../../lifecycle/).
+Forge detects your stack, prints the changes it makes to `.claude/settings.json`, writes its files under `.forge/` and `.claude/`, and audits your tool configs. Commit the result: everyone who clones the repository gets the setup, with or without Forge installed. What happens next is the [lifecycle](../../lifecycle/).
 
-In a repository you don't own, `forge apply --local` keeps the permission entries in `.claude/settings.local.json`.
+- **Questions.** `forge apply` asks before changing a settings file and before creating a pre-commit hook. `forge apply --yes` answers yes to both; use it in scripts. Without a terminal and without `--yes`, a settings change stops apply with a message asking for `--yes`, and no hook is created.
+- **The pre-commit hook.** If you declined it, run `forge apply` again to be asked again, or `forge apply --yes` to create it. If the repository already has a pre-commit hook or uses a hook manager (Husky, lefthook, pre-commit, `core.hooksPath`), Forge never writes one: add `sh .forge/check.sh --changed` to yours. `forge status` shows which applies.
+- **A repository you don't own.** `forge apply --local` keeps the permission entries in `.claude/settings.local.json`.
+- **No pack detected.** If Forge finds no manifest it knows (no `package.json`, `pyproject.toml`, …), it still applies: the setup protects its own files and runs the integrity check, but has no rules, and `forge status` lists no packs. Add packs by name in [`forge.yaml`](../configuration/) (`packs: add: [python]`), then run `forge apply` again.
 
 ## A new project
 

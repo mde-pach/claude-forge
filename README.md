@@ -6,10 +6,18 @@ Forge reads rules grouped in packs and writes a standalone Claude Code setup —
 
 📖 **Documentation: https://mde-pach.github.io/claude-forge/** — a page per pack, generated from [`packs/`](packs/), showing what each rule does at each step of the [lifecycle](https://mde-pach.github.io/claude-forge/lifecycle/). Every behaviour on the site is a test from [`tests/spec/`](tests/spec/), shown where it applies with its latest CI result.
 
+Forge is not on npm yet, so run it from a clone:
+
 ```sh
-bunx @maximedepachtere/forge apply --user   # once per machine
-bunx @maximedepachtere/forge apply          # in each repository
+git clone https://github.com/mde-pach/claude-forge.git ~/src/claude-forge
+cd ~/src/claude-forge && bun install && bun run build
+alias forge='node ~/src/claude-forge/dist/forge.js'   # or: bun link, which puts forge on PATH
+
+forge apply --user      # once per machine
+cd my-app && forge apply  # in each repository; --yes answers its questions
 ```
+
+Once published, `bunx @maximedepachtere/forge …` or `npx @maximedepachtere/forge …` replace `forge`. [Getting started](https://mde-pach.github.io/claude-forge/guide/getting-started/) covers the pre-commit hook, `--local`, and repositories where no pack is detected.
 
 - **Standalone output.** POSIX `sh`, `git`, `grep`, `sed`, `awk` and your project's own tools.
 - **Enforced in the closest native place:** your linter and type checker, then ast-grep, then Claude Code permissions and the sandbox, then hooks.

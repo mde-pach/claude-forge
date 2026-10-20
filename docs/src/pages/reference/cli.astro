@@ -7,7 +7,7 @@ import { USAGE } from "../../../../src/usage";
 ---
 
 <StarlightPage frontmatter={{ title: "CLI", description: "forge --help, and where each command is described." }}>
-  <p>The output of <code>forge --help</code>, taken from the CLI's own source. Run it with <code>bunx @maximedepachtere/forge</code> or <code>npx @maximedepachtere/forge</code>.</p>
+  <p>The output of <code>forge --help</code>, taken from the CLI's own source. Until the package is published, <code>forge</code> means <code>node dist/forge.js</code> in a built clone (see <a href={url("guide/getting-started/#get-the-cli")}>Getting started</a>); after that, <code>bunx @maximedepachtere/forge</code> or <code>npx @maximedepachtere/forge</code>.</p>
   <Code code={USAGE} lang="txt" />
   <ul>
     <li><code>init</code>: <a href={url("guide/getting-started/#a-new-project")}>Getting started</a></li>

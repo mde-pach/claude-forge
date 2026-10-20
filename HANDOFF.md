@@ -14,7 +14,7 @@ Build state of Forge against `SPECS.md` (v0.5), as of 2026-10-20 (fourth session
 
 ## Done
 
-Everything in §3–§14 is implemented, with the pack tree (§5.1–§5.2) and the Astro/React packs added to the spec in this session. §14.1–§14.3 and everything else listed in the spec site are covered by **356 tests**; §14.4 has a harness that has not been run.
+Everything in §3–§14 is implemented, with the pack tree (§5.1–§5.2) and the Astro/React packs added to the spec in this session. §14.1–§14.3 and everything else listed in the spec site are covered by **377 tests**; §14.4 has a harness that has not been run.
 
 | Area | Files |
 |---|---|
@@ -22,17 +22,26 @@ Everything in §3–§14 is implemented, with the pack tree (§5.1–§5.2) and 
 | Generator: activation down the tree (child only under an active parent; `add` brings ancestors; `remove` drops the subtree), local overrides, disable, tool presence, ast-grep fallback | `src/plan.ts` |
 | Renderers, settings (JSONC), lock, audit, `forge test`, CLI (`USAGE` in `src/usage.ts`) | `src/render.ts`, `src/settings.ts`, `src/lock.ts`, `src/audit.ts`, `src/selftest.ts`, `src/cli.ts` |
 | Hook runtime and check engine | `templates/scripts/*.sh` |
-| Packs: 18 packs, 61 rules, as a tree (`safety`; `python/{uv,fastapi,pydantic,pytest,sqlalchemy/alembic}`; `typescript/{bun,nextjs/react,astro/react,prisma,zod,vitest,playwright}`) | `packs/**` |
+| Packs: 18 packs, 63 rules, as a tree (`safety`; `python/{uv,fastapi,pydantic,pytest,sqlalchemy/alembic}`; `typescript/{bun,nextjs/react,astro/react,prisma,zod,vitest,playwright}`) | `packs/**` |
 | **Executable specification**: one file per spec section, normative test titles | `tests/spec/*.test.ts`, `tests/helpers.ts`, samples in `tests/generator/{fastapi-app,nextjs-prisma-app,astro-app,eslint-app}` |
 | **Docs site**: pack pages from `packs/` (facts, a rules × lifecycle-steps matrix, context, tests, and per rule: file-pattern chips, lifecycle derived from its targets, red/green example panels, how it is enforced, its tests); guide and lifecycle pages in MDX that place the remaining tests with the `Spec` component; CLI page from `USAGE`; schemas from `src/schemas.ts`. No separate specification section: every test is shown where it applies, and `99-internals` fails if one is shown nowhere. The build fails if a CI result cannot be placed on a test | `docs/` (`src/lib/{spec,lifecycle,data}.ts`, `src/components/{Spec,SpecNodes,TestList,RuleCard,Results}.astro`, `{Lifecycle,StatusBadge}.tsx`, `src/pages/**`, `src/content/docs/**`) |
 | E2E harness (§14.4) — **written, not run** | `tests/e2e/` |
 
+**Fixes from a trial on a real repository** (one commit each for 1–4):
+
+1. Errors in unchanged files no longer block Claude: whole-project `lint`/`typecheck` runs under `--changed` and `typecheck.sh` count only errors naming a changed file; `--all` (CI) still fails on any error.
+2. A `UserPromptSubmit` hook (`turn-start.sh`) records the tree hash per session; Stop runs the checks only if the turn changed the tree.
+3. Audits are satisfied only when the tool fails on the example (error severity); a warning is unsatisfied with "only a warning" and the snippet.
+4. `.forge/manifest.sha256` (sha256sum format) holds the owned hashes; JSON is hashed whitespace-insensitively; Forge's JSON is formatted with the project's Biome during apply, so `biome ci .` and `biome check --write .` leave integrity intact.
+5. Smaller: `client-hooks` exempts custom hooks (`use…` functions); the `no-ts-ignore` fallback also matches `/* @ts-ignore */`; `typescript/strict` (which only proved `noImplicitAny`) is replaced by `no-implicit-any`, `strict-null-checks` and `strict-function-types`, one tsc example per flag.
+6. Docs: getting started explains running from a clone, one `forge …` form with how it gets on PATH, `--yes`, the pre-commit hook later, and no detected pack; tests on guide pages are collapsed by default, and a pack page lists each test once (tests shared by several rules go in the pack's Specification section).
+
 ## Remaining
 
 1. **Run the E2E harness** (`tests/e2e/README.md`) in a real container; expect to tune a few regexes and prompts on the first real run.
-2. **First CI run.** Nothing has run on GitHub yet (Actions did not start on push, and this session could not dispatch workflows). Watch the macOS job in particular.
+2. **User work in progress during a turn.** When a turn does change the tree, `check.sh --changed` covers every uncommitted file, the user's included, so a user's broken WIP can still block Stop in a turn that edited something else. Narrowing to the files the turn touched would need a per-file snapshot at turn start.
 3. **More packs** for the tree, e.g. React rules under Astro (`.astro` files cannot be parsed by ast-grep; rules there would be `check` or `tool` targets).
-4. **Publishing**: the npm scope is still `@maximedepachtere`; nothing was published.
+4. **Publishing**: the npm scope is still `@maximedepachtere`; nothing was published (`bunx`/`npx` return 404). The docs and README tell users to build from a clone until then; once published, update both.
 
 ## Writing specification tests
 

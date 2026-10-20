@@ -118,6 +118,11 @@ function findTests(sections: SpecSection[], keep: (t: Extract<SpecNode, { kind: 
   return out;
 }
 
+/** Combined CI status of placed tests (only their own case of a parameterised test). */
+export function placedStatus(results: Results, tests: PlacedTest[]): Status | "not run" {
+  return summarize(tests.flatMap((t) => (results.byLocation.get(`${t.file}:${t.node.line}`) ?? []).filter((r) => !t.instance || r.name.startsWith(t.instance))));
+}
+
 /** The rule's example test (its own case), then every test tagged @rule <id>. */
 export function ruleTests(sections: SpecSection[], ruleId: string): PlacedTest[] {
   return [

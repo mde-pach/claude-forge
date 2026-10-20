@@ -5,7 +5,8 @@
 // Every test must be placed somewhere (checked by tests/spec/99-internals).
 import SpecNodes from "./SpecNodes.astro";
 import { markdown, results, spec } from "../lib/data";
-import { selectNodes } from "../lib/spec";
+import { allTests, resultsFor, selectNodes, summarize } from "../lib/spec";
+import StatusBadge from "./StatusBadge";
 
 interface Props {
   file: string;
@@ -13,8 +14,10 @@ interface Props {
   test?: string;
   top?: boolean;
   depth?: number;
+  /** Expanded on load; by default the tests are collapsed so the page reads as a guide. */
+  open?: boolean;
 }
-const { file, describe, test, top, depth = 3 } = Astro.props;
+const { file, describe, test, top, depth = 3, open = false } = Astro.props;
 const section = spec().find((s) => s.slug === file);
 if (!section) throw new Error(`<Spec file="${file}">: no tests/spec/${file}.test.ts`);
 const selected = selectNodes(section, { describe, test, top });
@@ -22,9 +25,15 @@ if (!selected.length) throw new Error(`<Spec file="${file}" describe="${describe
 // a placed describe sits under the page's own heading: show its comment and tests, not its title
 const group = describe !== undefined && selected[0]!.kind === "describe" ? selected[0] : undefined;
 const nodes = group?.kind === "describe" ? group.children : selected;
+const tests = allTests(nodes);
+const status = summarize(tests.flatMap((t) => resultsFor(results(), section.file, t.test.line)));
 ---
 
-<div class="forge-spec">
+<details class="forge-spec" open={open}>
+  <summary>
+    <span>Tests · {tests.length}</span>
+    <StatusBadge status={status} />
+  </summary>
   {group?.kind === "describe" && group.comment && <div set:html={markdown(group.comment)} />}
   <SpecNodes nodes={nodes} file={section.file} results={results()} depth={depth} />
-</div>
+</details>

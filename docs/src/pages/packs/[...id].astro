@@ -4,8 +4,9 @@ import { join, relative } from "node:path";
 import StarlightPage from "@astrojs/starlight/components/StarlightPage.astro";
 import { EFFECT_LABEL } from "../../components/Lifecycle";
 import RuleCard from "../../components/RuleCard.astro";
+import StatusBadge from "../../components/StatusBadge";
 import TestList from "../../components/TestList.astro";
-import { leaf, lineage, markdown, packs, packTests, packUrl, REPO_URL, results, ruleAnchor, spec } from "../../lib/data";
+import { leaf, lineage, markdown, packs, packTests, packUrl, REPO_URL, results, ruleAnchor, placedStatus, ruleTests, spec, type PlacedTest } from "../../lib/data";
 import { ruleLifecycle, STEPS, type Effect, type StepId } from "../../lib/lifecycle";
 
 export function getStaticPaths() {
@@ -17,7 +18,20 @@ const pack = all.get(Astro.params.id!)!;
 const r = results();
 const sections = spec();
 const chain = lineage(all, pack.id);
-const tests = packTests(sections, pack);
+// each test once per page: a test covering several of this pack's rules (or the pack
+// itself) is listed in the pack's section, the others under their rule
+const key = (t: PlacedTest) => `${t.file}:${t.node.line}:${t.instance ?? ""}`;
+const perRule = new Map(pack.rules.map((rule) => [rule.id, ruleTests(sections, rule.id)]));
+const seen = new Map<string, number>();
+for (const ts of perRule.values()) for (const t of ts) seen.set(key(t), (seen.get(key(t)) ?? 0) + 1);
+const own = packTests(sections, pack);
+const ownKeys = new Set(own.map(key));
+const shared = new Map<string, PlacedTest>();
+for (const t of [...perRule.values()].flat()) if (seen.get(key(t))! > 1 && !ownKeys.has(key(t))) shared.set(key(t), t);
+const tests = [...own, ...shared.values()];
+const sharedKeys = new Set(tests.map(key));
+const ruleOnly = (id: string) => perRule.get(id)!.filter((t) => !sharedKeys.has(key(t)));
+const ruleShared = (id: string) => perRule.get(id)!.length - ruleOnly(id).length;
 // rows: the pack's context, then each rule with its strongest effect per step
 const ORDER: Effect[] = ["blocks", "asks", "wakes", "feedback", "fixes", "audits", "informs"];
 const rows: { label: string; href?: string; cells: Partial<Record<StepId, Effect>> }[] = [
@@ -136,10 +150,17 @@ const headings = [
     tests.length > 0 && (
       <>
         <h2 id="specification">Specification</h2>
-        <TestList tests={tests} results={r} />
+        <p>Tests of the pack as a whole, and tests that cover several of its rules.</p>
+        <details class="forge-spec">
+          <summary>
+            <span>Tests · {tests.length}</span>
+            <StatusBadge status={placedStatus(r, tests)} />
+          </summary>
+          <TestList tests={tests} results={r} />
+        </details>
       </>
     )
   }
 
-  {pack.rules.map((rule) => <RuleCard rule={rule} results={r} sections={sections} />)}
+  {pack.rules.map((rule) => <RuleCard rule={rule} results={r} tests={ruleOnly(rule.id)} shared={ruleShared(rule.id)} />)}
 </StarlightPage>
