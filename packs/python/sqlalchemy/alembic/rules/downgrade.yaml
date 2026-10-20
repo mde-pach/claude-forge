@@ -1,0 +1,10 @@
+id: python/sqlalchemy/alembic/downgrade
+description: alembic downgrade and stamp change the database's revision; confirm them.
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: ask
+    pattern: '(^|[^A-Za-z0-9_-])alembic[[:space:]]([^;&|]*[[:space:]])?(downgrade|stamp)([[:space:];&|)]|$)'
+examples:
+  match: ["alembic downgrade -1", "uv run alembic stamp head"]
+  no_match: ["alembic upgrade head", "alembic revision --autogenerate -m x"]

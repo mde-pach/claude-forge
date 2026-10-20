@@ -11,7 +11,7 @@
   "properties": {
     "id": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9-]*$"
+      "pattern": "^[a-z][a-z0-9-]*(/[a-z][a-z0-9-]*)*$"
     },
     "description": {
       "type": "string",
@@ -27,7 +27,7 @@
       "type": "array",
       "items": {
         "type": "string",
-        "pattern": "^[a-z][a-z0-9-]*$"
+        "pattern": "^[a-z][a-z0-9-]*(/[a-z][a-z0-9-]*)*$"
       },
       "uniqueItems": true
     },

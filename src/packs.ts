@@ -13,43 +13,70 @@ export function loadRuleFile(file: string, origin: Rule["origin"]): Rule {
   const data = parseStrictYaml(text, file) as Record<string, unknown>;
   validate("rule", data, file);
   const rule = data as unknown as Rule;
-  return { ...rule, file, hash: sha256(text), origin, pack: rule.id.split("/")[0]! };
+  return { ...rule, file, hash: sha256(text), origin, pack: rule.id.slice(0, rule.id.lastIndexOf("/")) };
 }
 
+/** Directory names inside a pack that are not child packs. */
+const RESERVED = new Set(["rules", "init"]);
+
+/**
+ * Loads the pack tree. A directory with a pack.yaml is a pack whose id is its
+ * path below packsDir; its sub-directories with a pack.yaml are its children.
+ */
 export function loadPacks(packsDir: string): Map<string, Pack> {
   const packs = new Map<string, Pack>();
-  for (const name of readdirSync(packsDir).sort()) {
-    const dir = join(packsDir, name);
-    if (!statSync(dir).isDirectory()) continue;
+  const walk = (dir: string, id: string, parent?: Pack) => {
     const packFile = join(dir, "pack.yaml");
     const data = parseStrictYaml(readFileSync(packFile, "utf8"), packFile) as Record<string, unknown>;
     validate("pack", data, packFile);
     const pack = data as unknown as Pack;
-    if (pack.id !== name) throw new Error(`${packFile}: id "${pack.id}" must equal the directory name "${name}"`);
+    if (pack.id !== id) throw new Error(`${packFile}: id "${pack.id}" must equal its path in the pack tree, "${id}"`);
+    if (parent && pack.level !== parent.level) throw new Error(`${packFile}: level ${pack.level} differs from parent ${parent.id} (${parent.level})`);
     const rulesDir = join(dir, "rules");
     const rules: Rule[] = [];
     if (existsSync(rulesDir)) {
       for (const f of readdirSync(rulesDir).sort()) {
         if (!f.endsWith(".yaml")) continue;
         const rule = loadRuleFile(join(rulesDir, f), "pack");
-        if (rule.id !== `${name}/${f.slice(0, -5)}`) throw new Error(`${rule.file}: id must be "${name}/${f.slice(0, -5)}"`);
+        if (rule.id !== `${id}/${f.slice(0, -5)}`) throw new Error(`${rule.file}: id must be "${id}/${f.slice(0, -5)}"`);
         rules.push(rule);
       }
     }
     const contextFile = join(dir, "context.md");
     const initDir = join(dir, "init");
-    packs.set(name, {
+    const loaded: Pack = {
       ...pack,
       requires: pack.requires ?? [],
       dir,
+      parent: parent?.id,
+      children: [],
       context: existsSync(contextFile) ? readFileSync(contextFile, "utf8") : undefined,
       initDir: existsSync(initDir) ? initDir : undefined,
       rules,
-    });
+    };
+    packs.set(id, loaded);
+    parent?.children.push(id);
+    for (const name of readdirSync(dir).sort()) {
+      const sub = join(dir, name);
+      if (RESERVED.has(name) || !statSync(sub).isDirectory()) continue;
+      if (existsSync(join(sub, "pack.yaml"))) walk(sub, `${id}/${name}`, loaded);
+      else if (readdirSync(sub).length) throw new Error(`${sub}: not a pack (no pack.yaml)`);
+    }
+  };
+  for (const name of readdirSync(packsDir).sort()) {
+    const dir = join(packsDir, name);
+    if (statSync(dir).isDirectory()) walk(dir, name);
   }
   for (const pack of packs.values())
     for (const req of pack.requires) if (!packs.has(req)) throw new Error(`pack ${pack.id}: requires unknown pack ${req}`);
   return packs;
+}
+
+/** The pack and its ancestors, root first. */
+export function lineage(packs: Map<string, Pack>, id: string): string[] {
+  const out: string[] = [];
+  for (let p = packs.get(id); p; p = p.parent ? packs.get(p.parent) : undefined) out.unshift(p.id);
+  return out;
 }
 
 export function loadProjectConfig(repo: string): ProjectConfig | undefined {

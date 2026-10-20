@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parse as parseToml } from "smol-toml";
-import { detectPack, loadLocalRules, loadProjectConfig, readProjectFacts, type ProjectFacts } from "./packs.js";
+import { detectPack, lineage, loadLocalRules, loadProjectConfig, readProjectFacts, type ProjectFacts } from "./packs.js";
 import {
   AUDITED_TOOLS,
   astGrepRulePath,
@@ -115,43 +115,55 @@ function activePacks(opts: PlanOptions, warnings: string[]): { packs: PackStatus
   const all = [...opts.packs.values()];
   if (opts.level === "user") return { packs: all.filter((p) => p.level === "user").map((p) => ({ id: p.id, why: "user level" })), removed: [] };
   const why = new Map<string, string>();
-  for (const p of all) if (p.level === "project" && opts.facts && detectPack(p, opts.facts)) why.set(p.id, "detected");
+  const activate = (id: string, reason: string) => {
+    if (why.has(id)) return false;
+    why.set(id, reason);
+    return true;
+  };
+  // forge.yaml add: the pack and its ancestors
   for (const id of opts.config?.packs?.add ?? []) {
     const p = opts.packs.get(id);
     if (!p) warnings.push(`forge.yaml: packs.add: unknown pack "${id}"`);
     else if (p.level !== "project") warnings.push(`forge.yaml: packs.add: "${id}" is a user-level pack (use forge apply --user)`);
-    else if (!why.has(id)) why.set(id, "forge.yaml");
+    else {
+      for (const a of lineage(opts.packs, id).slice(0, -1)) activate(a, `parent of ${id}`);
+      activate(id, "forge.yaml");
+    }
   }
   for (const id of opts.config?.packs?.remove ?? []) if (!opts.packs.has(id)) warnings.push(`forge.yaml: packs.remove: unknown pack "${id}"`);
-  // requires closure
+  // detection down the tree (a child only under an active parent), and requires, to a fixpoint
   for (let changed = true; changed; ) {
     changed = false;
+    for (const p of all) {
+      if (p.level !== "project" || why.has(p.id)) continue;
+      if ((p.parent === undefined || why.has(p.parent)) && opts.facts && detectPack(p, opts.facts)) changed = activate(p.id, "detected") || changed;
+    }
     for (const id of [...why.keys()])
       for (const req of opts.packs.get(id)!.requires)
-        if (!why.has(req)) {
-          why.set(req, `required by ${id}`);
-          changed = true;
-        }
+        for (const a of lineage(opts.packs, req)) changed = activate(a, `required by ${id}`) || changed;
   }
-  // removal, then everything that requires a removed pack
+  // removal: the pack, its subtree, and every pack requiring a removed one
   const removed = new Map<string, string>();
   for (const id of opts.config?.packs?.remove ?? []) if (why.has(id)) removed.set(id, "removed in forge.yaml");
   for (let changed = true; changed; ) {
     changed = false;
     for (const id of why.keys()) {
       if (removed.has(id)) continue;
-      const req = opts.packs.get(id)!.requires.find((r) => removed.has(r));
-      if (req) {
-        removed.set(id, `requires removed pack ${req}`);
+      const p = opts.packs.get(id)!;
+      const req = p.requires.find((r) => removed.has(r));
+      const reason = p.parent && removed.has(p.parent) ? `parent ${p.parent} is not active` : req ? `requires removed pack ${req}` : undefined;
+      if (reason) {
+        removed.set(id, reason);
         changed = true;
       }
     }
   }
+  const order = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
   const packs = [...why.entries()]
     .filter(([id]) => !removed.has(id))
-    .sort(([a], [b]) => a.localeCompare(b))
+    .sort(([a], [b]) => order(a, b))
     .map(([id, w]) => ({ id, why: w }));
-  return { packs, removed: [...removed.entries()].sort().map(([id, w]) => ({ id, why: w })) };
+  return { packs, removed: [...removed.entries()].sort(([a], [b]) => order(a, b)).map(([id, w]) => ({ id, why: w })) };
 }
 
 // ---------------------------------------------------------------- plan
@@ -286,7 +298,7 @@ export function plan(opts: PlanOptions): Plan {
     files.set(`${root}/scripts/stop.sh`, template("stop.sh"));
     for (const p of packs) {
       const ctx = opts.packs.get(p.id)!.context;
-      if (ctx !== undefined) files.set(`.claude/rules/forge-${p.id}.md`, ctx);
+      if (ctx !== undefined) files.set(`.claude/rules/${contextFileName(p.id)}`, ctx);
     }
     files.set(
       ".forge/check.sh",
@@ -330,6 +342,11 @@ export function plan(opts: PlanOptions): Plan {
     warnings,
     tools,
   };
+}
+
+/** `.claude/rules/` file name for a pack's context: forge-<id with "/" as "-">.md. */
+export function contextFileName(packId: string): string {
+  return `forge-${packId.replaceAll("/", "-")}.md`;
 }
 
 function dedupe(entries: DesiredEntry[]): DesiredEntry[] {

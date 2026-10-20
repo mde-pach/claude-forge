@@ -1,0 +1,29 @@
+---
+import { Code } from "@astrojs/starlight/components";
+import StarlightPage from "@astrojs/starlight/components/StarlightPage.astro";
+import { packSchema, projectConfigSchema, ruleSchema } from "../../../../src/schemas";
+
+const schemas = [
+  { id: "pack", title: "pack.yaml", schema: packSchema },
+  { id: "rule", title: "Rule file", schema: ruleSchema },
+  { id: "forge", title: "forge.yaml", schema: projectConfigSchema },
+];
+---
+
+<StarlightPage
+  frontmatter={{ title: "Schemas", description: "The JSON Schemas (2020-12) Forge validates packs, rules and forge.yaml against." }}
+  headings={schemas.map((s) => ({ depth: 2, slug: s.id, text: s.title }))}
+>
+  <p>
+    These are the schemas Forge itself validates with, imported from its source and shipped in the package under
+    <code>schemas/</code>. Point your editor's YAML language server at them for completion.
+  </p>
+  {
+    schemas.map((s) => (
+      <>
+        <h2 id={s.id}>{s.title}</h2>
+        <Code code={JSON.stringify(s.schema, null, 2)} lang="json" />
+      </>
+    ))
+  }
+</StarlightPage>

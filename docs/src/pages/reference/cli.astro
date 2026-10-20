@@ -1,0 +1,18 @@
+---
+import { Code } from "@astrojs/starlight/components";
+import StarlightPage from "@astrojs/starlight/components/StarlightPage.astro";
+import { spec, specUrl } from "../../lib/data";
+import { USAGE } from "../../../../src/usage";
+
+const cli = spec().find((s) => s.number === "3");
+---
+
+<StarlightPage frontmatter={{ title: "CLI", description: "forge --help, and where each behaviour is specified." }}>
+  <p>This is the output of <code>forge --help</code>, taken from the CLI's own source.</p>
+  <Code code={USAGE} lang="txt" />
+  <p>
+    Run it with <code>bunx @maximedepachtere/forge</code> or <code>npx @maximedepachtere/forge</code>. What each command does —
+    exit codes, confirmation, drift handling — is specified and tested in
+    {cli && <a href={specUrl(cli.slug)}>{cli.number} · {cli.title}</a>}.
+  </p>
+</StarlightPage>

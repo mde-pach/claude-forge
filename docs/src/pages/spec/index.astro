@@ -1,0 +1,86 @@
+---
+import StarlightPage from "@astrojs/starlight/components/StarlightPage.astro";
+import StatusBadge from "../../components/StatusBadge";
+import { assertResultsMatch, REPO_URL, results, spec, url } from "../../lib/data";
+import { countTests, tally } from "../../lib/spec";
+
+const sections = spec();
+const r = results();
+assertResultsMatch(sections, r);
+const rows = sections.map((s) => ({ s, n: countTests(s.children), t: tally(s.children, s.file, r) }));
+const total = rows.reduce(
+  (a, { t }) => ({ passed: a.passed + t.passed, failed: a.failed + t.failed, skipped: a.skipped + t.skipped, notRun: a.notRun + t["not run"] }),
+  { passed: 0, failed: 0, skipped: 0, notRun: 0 },
+);
+const instances = [...r.byLocation.values()].flat();
+const platformNames: Record<string, string> = { linux: "Linux", darwin: "macOS", win32: "Windows" };
+---
+
+<StarlightPage frontmatter={{ title: "Specification", description: "Forge's specification is its test suite. This page and the section pages are generated from the tests and their latest CI results." }}>
+  <p>
+    Forge's specification <strong>is its test suite</strong>. Each section below is one file in
+    <a href={`${REPO_URL}/tree/main/tests/spec`}><code>tests/spec/</code></a>; every test title is a requirement, and its
+    code is how the requirement is checked. The status next to each test is the result of the latest CI run, never a
+    claim written by hand.
+  </p>
+
+  {
+    r.platforms.length ? (
+      <div class="forge-meta">
+        <span>
+          Results from {r.platforms.map((p) => platformNames[p] ?? p).join(" and ")}
+          {r.meta.sha && (
+            <>
+              {" "}at <a href={`${REPO_URL}/commit/${r.meta.sha}`}><code>{r.meta.sha.slice(0, 7)}</code></a>
+            </>
+          )}
+          {r.meta.runUrl && (
+            <>
+              {" "}(<a href={r.meta.runUrl}>CI run</a>)
+            </>
+          )}
+          {r.meta.date && <> on {r.meta.date.slice(0, 10)}</>}: {instances.length} test runs.
+        </span>
+      </div>
+    ) : (
+      <p>
+        <StatusBadge status="not run" /> No results were available when this site was built: run <code>bun run test:report</code> to
+        produce <code>test-results/</code>.
+      </p>
+    )
+  }
+
+  <table>
+    <thead>
+      <tr><th>Section</th><th>Tests</th><th>Passed</th><th>Failed</th><th>Skipped</th><th>Not run</th></tr>
+    </thead>
+    <tbody>
+      {
+        rows.map(({ s, n, t }) => (
+          <tr>
+            <td><a href={url(`spec/${s.slug}/`)}>{s.number} · {s.title}</a></td>
+            <td>{n}</td>
+            <td>{t.passed || ""}</td>
+            <td>{t.failed ? <StatusBadge status="failed" detail={String(t.failed)} /> : ""}</td>
+            <td>{t.skipped || ""}</td>
+            <td>{t["not run"] || ""}</td>
+          </tr>
+        ))
+      }
+      <tr>
+        <td><strong>Total</strong></td>
+        <td><strong>{rows.reduce((a, x) => a + x.n, 0)}</strong></td>
+        <td><strong>{total.passed}</strong></td>
+        <td><strong>{total.failed || ""}</strong></td>
+        <td><strong>{total.skipped || ""}</strong></td>
+        <td><strong>{total.notRun || ""}</strong></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>
+    A test counts as passed when every run of it passed on every platform; parameterised tests list each case. One part
+    of the original specification is not covered here: the end-to-end scenarios with real <code>claude -p</code> sessions
+    (§14.4), whose harness lives in <a href={`${REPO_URL}/tree/main/tests/e2e`}><code>tests/e2e/</code></a> and is not run in CI.
+  </p>
+</StarlightPage>

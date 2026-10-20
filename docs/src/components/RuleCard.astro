@@ -1,0 +1,115 @@
+---
+// One rule: description, CI status of its examples, targets, examples, source.
+import { readFileSync } from "node:fs";
+import { relative } from "node:path";
+import { Code } from "@astrojs/starlight/components";
+import StatusBadge from "./StatusBadge";
+import { checkTools, enforcedBy, REPO_URL, ROOT, ruleAnchor, ruleResults, specUrl, type Results, type Rule } from "../lib/data";
+import { summarize } from "../lib/spec";
+import { toYaml } from "../../../src/yaml";
+
+interface Props {
+  rule: Rule;
+  results: Results;
+  ruleTest?: { slug: string; line: number };
+}
+const { rule, results, ruleTest } = Astro.props;
+const rs = ruleResults(results, rule.id);
+const status = summarize(rs);
+const platforms = [...new Set(rs.map((r) => r.platform))].join(", ");
+const source = relative(ROOT, rule.file);
+const kind = rule.enforce.some((t) => t.target === "guard") ? "sh" : rule.enforce.some((t) => t.target === "permission") ? "txt" : rule.scope.language === "python" ? "python" : "tsx";
+const joinExamples = (xs: string[] = []) => {
+  const single = xs.filter((x) => x !== "" && !x.trimEnd().includes("\n"));
+  return [...(single.length ? [single.join("\n")] : []), ...xs.filter((x) => !single.includes(x)).map((x) => x || "# (empty file)")];
+};
+const MODE: Record<string, string> = {
+  forbid: "any match in a changed file fails, after each edit and at Stop",
+  "no-increase": "a changed file may not have more matches than at HEAD",
+  "no-decrease": "a changed file may not have fewer matches than at HEAD",
+};
+---
+
+<section class="forge-rule">
+  <h2 id={ruleAnchor(rule.id)}>{rule.id}</h2>
+  <p>{rule.description}</p>
+  <div class="forge-meta">
+    {
+      ruleTest ? (
+        <a href={specUrl(ruleTest.slug, ruleTest.line)}>
+          <StatusBadge status={status} detail={platforms || undefined} />
+        </a>
+      ) : (
+        <StatusBadge status={status} />
+      )
+    }
+    <span>scope: <code>{rule.scope.language}</code>{rule.scope.files && <> · files {rule.scope.files.map((f) => <code>{f}</code>)}</>}</span>
+  </div>
+  <div class="forge-targets">{enforcedBy(rule).map((e) => <span class="forge-chip">{e}</span>)}</div>
+  {rule.deprecated && <p>Deprecated: replaced by <code>{rule.deprecated.replaced_by}</code>.</p>}
+
+  {
+    rule.enforce.map((t) => {
+      if (t.target === "tool")
+        return (
+          <>
+            <p>
+              <strong>{t.tool} audit</strong>: the project's own {t.tool} must report <code>{t.expects}</code> for every triggering example below and for none of the others.
+              {rule.enforce.some((x) => x.target === "ast-grep") && <> Without {t.tool} in the project, the ast-grep target applies instead.</>} If the audit fails, Forge asks you to add:
+            </p>
+            <Code code={t.snippet} lang={t.tool === "ruff" || t.tool === "basedpyright" ? "toml" : "json"} />
+          </>
+        );
+      if (t.target === "ast-grep")
+        return (
+          <>
+            <p><strong>ast-grep {t.mode}</strong>: {MODE[t.mode]}.</p>
+            <Code code={toYaml({ rule: t.rule, ...(t.constraints ? { constraints: t.constraints } : {}), ...(t.utils ? { utils: t.utils } : {}) })} lang="yaml" />
+          </>
+        );
+      if (t.target === "permission")
+        return <p><strong>permission {t.decision}</strong>: <code>{t.rule}</code></p>;
+      if (t.target === "guard")
+        return (
+          <>
+            <p><strong>guard {t.decision}</strong>: PreToolUse(Bash) tripwire, POSIX ERE on the JSON-escaped command.</p>
+            <Code code={t.pattern} lang="txt" />
+          </>
+        );
+      if (t.target === "sandbox")
+        return (
+          <>
+            <p><strong>sandbox</strong>: <code>sandbox.{t.path}</code> in <code>~/.claude/settings.json</code></p>
+            <Code code={JSON.stringify(t.value)} lang="json" />
+          </>
+        );
+      return (
+        <>
+          <p>
+            <strong>check · {t.stage}</strong>
+            {t.when_changed && <> · only when {t.when_changed.map((w) => <code>{w}</code>)} changed</>}
+            {t.requires_local_db && <> · only against a local database</>}
+            {t.timeout && <> · timeout {t.timeout} s</>} · tools {checkTools(t).map((x) => <code>{x}</code>)}
+          </p>
+          <Code code={t.run} lang="sh" title="--all (CI)" />
+          {t.changed_run && <Code code={t.changed_run} lang="sh" title="--changed (Stop, pre-commit)" />}
+        </>
+      );
+    })
+  }
+
+  {
+    rule.examples && (
+      <>
+        <h3 id={`${ruleAnchor(rule.id)}-examples`}>Examples</h3>
+        {joinExamples(rule.examples.match).map((e) => <Code code={e} lang={kind} title="triggers the rule" />)}
+        {joinExamples(rule.examples.no_match).map((e) => <Code code={e} lang={kind} title="does not trigger" />)}
+      </>
+    )
+  }
+
+  <details>
+    <summary>Rule file · <a href={`${REPO_URL}/blob/main/${source}`}>{source}</a></summary>
+    <Code code={readFileSync(rule.file, "utf8")} lang="yaml" />
+  </details>
+</section>

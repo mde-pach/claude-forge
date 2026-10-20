@@ -23,17 +23,25 @@ jobs:
       - name: Shells for the guard matrix (dash, BusyBox)
         if: runner.os == 'Linux'
         run: sudo apt-get update -q && sudo apt-get install -y -q dash busybox
-      - name: ruff on PATH (used by the check.sh tests)
+      - name: ruff on PATH (used by the hook and check.sh specs)
         run: |
           uv tool install ruff
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
-      - run: bun run test
-      - run: node dist/forge.js test
+      # The spec run: its JUnit report (test-results/<platform>.xml) is what the docs show.
+      - run: bun run test:report
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ runner.os }}
+          path: test-results/
+          if-no-files-found: error
 
   docs:
-    name: docs build
+    name: docs build (with this run's results)
+    needs: test
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -41,4 +49,9 @@ jobs:
         with:
           bun-version: 1.4.2
       - run: bun install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: test-results-*
+          merge-multiple: true
+          path: test-results/
       - run: bun run docs:build

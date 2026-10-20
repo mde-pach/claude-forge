@@ -1,0 +1,14 @@
+id: typescript/playwright/no-new-skip
+description: End-to-end tests are not skipped, marked fixme or focused.
+scope: {language: typescript, files: ["e2e/**"]}
+enforce:
+  - target: ast-grep
+    mode: no-increase
+    rule:
+      any:
+        - {pattern: "test.skip"}
+        - {pattern: "test.fixme"}
+        - {pattern: "test.only"}
+examples:
+  match: ["test.skip(\"login\", async ({ page }) => {});", "test.only(\"a\", async () => {});"]
+  no_match: ["test(\"login\", async ({ page }) => { await page.goto(\"/\"); });"]

@@ -1,0 +1,10 @@
+id: typescript/prisma/no-middleware
+description: No Prisma middleware ($use). Use Client Extensions.
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule: {pattern: "$C.$use($$$)"}
+examples:
+  match: ["prisma.$use(async (params, next) => next(params));"]
+  no_match: ["const db = prisma.$extends({ query: {} });"]

@@ -21,7 +21,7 @@ Every requirement uses MUST / MUST NOT. Anything not described here is out of sc
 | Slot | Python | TypeScript |
 |---|---|---|
 | Package manager | uv | Bun |
-| Framework | FastAPI | Next.js 16 (App Router) |
+| Framework | FastAPI | Next.js 16 (App Router) + React 19; Astro (+ React islands) |
 | Data | SQLAlchemy 2.0 async, typed declarative + Alembic async | Prisma 7 |
 | Validation | Pydantic v2 | Zod |
 | Format + lint | ruff | Biome 2 |
@@ -75,29 +75,37 @@ Every requirement uses MUST / MUST NOT. Anything not described here is out of sc
 
 ### 5.1 Packs
 
-`packs/<pack>/pack.yaml`:
+Packs form a tree: **language first, then package, then sub-package** (`typescript` → `typescript/nextjs` → `typescript/nextjs/react`). The same package can appear under several parents with different rules (`typescript/nextjs/react`, `typescript/astro/react`). User-level packs that are not tied to a language (`safety`) are roots of their own.
+
+`packs/<path>/pack.yaml`:
 
 ```yaml
-id: string                  # ^[a-z][a-z0-9-]*$
+id: string                  # the pack's path in the tree: ^seg(/seg)*$, seg = ^[a-z][a-z0-9-]*$
 description: string
-level: user | project
-requires: [pack-id]
+level: user | project       # equal to the parent's level
+requires: [pack-id]         # other branches only; the parent is implied
 detect:                     # omitted for user-level packs
   files_any: [glob]
   deps_any: [{ecosystem: pypi | npm, name: string, version: semver-range}]
 ```
 
-Detection reads `pyproject.toml`, `uv.lock`, `package.json`, `bun.lock`.
+- A root pack is active when detected; a child pack is active when its parent is active **and** it is detected.
+- `forge.yaml` `packs.add` activates a pack and its ancestors. `requires` activates the required pack and its ancestors.
+- `packs.remove` deactivates a pack, its whole subtree, and every pack that requires a removed pack.
+- Detection reads `pyproject.toml`, `uv.lock`, `package.json`, `bun.lock`.
 
 ### 5.2 Pack directory
 
 ```
-packs/<pack>/
+packs/<path>/
 ├── pack.yaml
-├── rules/<name>.yaml
+├── rules/<name>.yaml     # rule id: <path>/<name>
 ├── context.md            # optional, ≤ 10 lines of facts
-└── init/                 # optional, templates used only by forge init
+├── init/                 # optional, templates used only by forge init
+└── <child>/              # optional child packs (any directory with a pack.yaml)
 ```
+
+`rules` and `init` are reserved names; any other sub-directory must be a pack.
 
 ### 5.3 Project inputs
 
@@ -119,7 +127,7 @@ disable:
 ### 6.1 Rule file
 
 ```yaml
-id: <pack>/<kebab-name>        # stable, never reused
+id: <pack-id>/<kebab-name>     # stable, never reused
 description: string            # one sentence
 scope:
   language: python | typescript | tsx | any
@@ -141,7 +149,7 @@ Every rule blocks. A rule you don't want is disabled with a reason.
 | Target | Fields | Category | Effect |
 |---|---|---|---|
 | `tool` | `tool: biome \| ruff \| basedpyright \| tsc`, `expects` (diagnostic code or rule name), `snippet` (config to show when unsatisfied) | audited | §11 |
-| `ast-grep` | `rule` (ast-grep rule object), `mode: forbid \| no-increase \| no-decrease` | owned | `.forge/ast-grep/rules/<id>.yml` |
+| `ast-grep` | `rule` (ast-grep rule object), `mode: forbid \| no-increase \| no-decrease` | owned | `.forge/ast-grep/rules/<rule-id>.yml` |
 | `permission` | `decision: deny \| ask`, `rule` (permission rule string) | appended | settings `permissions` |
 | `guard` | `decision: deny \| ask`, `pattern` (POSIX ERE against the JSON-escaped command) | owned | `guard.rules` (§9.2) |
 | `sandbox` | `path`, `value` | appended, user only | `~/.claude/settings.json` `sandbox` |
@@ -205,7 +213,7 @@ examples:
 │   │   ├── .claude-plugin/plugin.json    # {"name":"forge-project", ...}
 │   │   ├── hooks/hooks.json
 │   │   └── scripts/{lib.sh, session-start.sh, guard.sh, guard.rules, post-edit.sh, typecheck.sh, stop.sh}
-│   └── rules/forge-<pack>.md             # one per active pack with context.md
+│   └── rules/forge-<pack-id>.md          # one per active pack with context.md; "/" in the id becomes "-"
 └── .forge/
     ├── check.sh
     ├── ast-grep/{sgconfig.yml, rules/*.yml, rule-tests/*.yml}
@@ -232,7 +240,7 @@ All scripts are POSIX `sh`. They read file paths and the working directory from 
 
 ### 8.3 Context
 
-- Each active pack with a `context.md` produces `.claude/rules/forge-<pack>.md` with the same content and no `paths:` frontmatter.
+- Each active pack with a `context.md` produces `.claude/rules/forge-<pack-id>.md` (`/` replaced by `-`) with the same content and no `paths:` frontmatter.
 - `context.md` is ≤ 10 lines, written as facts.
 - Context never enforces anything; enforcement is done by checks and hooks.
 
@@ -309,7 +317,7 @@ Audits run during `forge apply` and `forge status`, never in hooks.
 
 ## 13. Packs and rules
 
-Rule ids are `<pack>/<name>`. Each line is one rule file.
+Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack ids, so their nesting is the pack tree.
 
 ### safety (user)
 
@@ -355,112 +363,134 @@ context.md: "Python project managed with uv. Tools run from `.venv/bin`. Type ch
 
 context.md: "TypeScript, strict. Bun is the runtime and package manager."
 
-### uv
+### python/uv
 
 | Rule | Targets |
 |---|---|
-| `uv/lock-sync` | `check` lint: `run: uv lock --check`, `when_changed: [pyproject.toml]` |
-| `uv/no-pip` | `guard` ask: `pip install`, `pip3 install`, `uv pip install` |
+| `python/uv/lock-sync` | `check` lint: `run: uv lock --check`, `when_changed: [pyproject.toml]` |
+| `python/uv/no-pip` | `guard` ask: `pip install`, `pip3 install`, `uv pip install` |
 
-### fastapi
+### python/fastapi
 
 | Rule | Targets |
 |---|---|
-| `fastapi/no-on-event` | `ast-grep` forbid: `@app.on_event($$$)` |
+| `python/fastapi/no-on-event` | `ast-grep` forbid: `@app.on_event($$$)` |
 
 context.md: "FastAPI. Dependencies use `Annotated[T, Depends(...)]`. Startup and shutdown use `lifespan`. Request and response bodies are Pydantic v2 models."
 
-### sqlalchemy
+### python/sqlalchemy
 
 | Rule | Targets |
 |---|---|
-| `sqlalchemy/no-query-api` | `ast-grep` forbid: `$S.query($$$)` |
-| `sqlalchemy/no-declarative-base` | `ast-grep` forbid: `declarative_base($$$)` |
-| `sqlalchemy/no-backref` | `ast-grep` forbid: `relationship($$$, backref=$_, $$$)` |
-| `sqlalchemy/mapped-column` | `ast-grep` forbid: `$N = Column($$$)` inside a class body |
-| `sqlalchemy/no-raw-execute` | `ast-grep` forbid: `$X.execute("$$$")` with a string literal |
+| `python/sqlalchemy/no-query-api` | `ast-grep` forbid: `$S.query($$$)` |
+| `python/sqlalchemy/no-declarative-base` | `ast-grep` forbid: `declarative_base($$$)` |
+| `python/sqlalchemy/no-backref` | `ast-grep` forbid: `relationship($$$, backref=$_, $$$)` |
+| `python/sqlalchemy/mapped-column` | `ast-grep` forbid: `$N = Column($$$)` inside a class body |
+| `python/sqlalchemy/no-raw-execute` | `ast-grep` forbid: `$X.execute("$$$")` with a string literal |
 
 context.md: "SQLAlchemy 2.0 async. Models: `class Base(DeclarativeBase)`, `Mapped[T]`, `mapped_column()`, `relationship(back_populates=...)`. Queries: `select()` with `session.execute()` or `session.scalars()`. Sessions: `async_sessionmaker(engine, expire_on_commit=False)`. Related rows load with `selectinload()`."
 
-### alembic
+### python/sqlalchemy/alembic
 
 | Rule | Targets |
 |---|---|
-| `alembic/check` | `check` migration: `run: alembic check`, `when_changed: [**/models/**, **/models.py, alembic/versions/**]`, `requires_local_db: true` |
-| `alembic/single-head` | `check` migration: `run: test "$(alembic heads | wc -l)" -le 1`, `when_changed: [alembic/versions/**]` |
-| `alembic/no-downgrade-base` | `guard` deny: `alembic downgrade base` |
-| `alembic/downgrade` | `guard` ask: `alembic downgrade`, `alembic stamp` |
+| `python/sqlalchemy/alembic/check` | `check` migration: `run: alembic check`, `when_changed: [**/models/**, **/models.py, alembic/versions/**]`, `requires_local_db: true` |
+| `python/sqlalchemy/alembic/single-head` | `check` migration: `run: test "$(alembic heads | wc -l)" -le 1`, `when_changed: [alembic/versions/**]` |
+| `python/sqlalchemy/alembic/no-downgrade-base` | `guard` deny: `alembic downgrade base` |
+| `python/sqlalchemy/alembic/downgrade` | `guard` ask: `alembic downgrade`, `alembic stamp` |
 
 context.md: "Alembic with an async engine: `alembic/env.py` runs migrations through `run_async_migrations()` and `connection.run_sync()`. New revisions: `alembic revision --autogenerate -m \"<change>\"`. Committed revisions are never edited."
 
-### pydantic
+### python/pydantic
 
 | Rule | Targets |
 |---|---|
-| `pydantic/v2-api` | `ast-grep` forbid: `$M.dict()`, `$M.json()`, `$M.parse_obj($$$)`, `$M.parse_raw($$$)`, `@validator($$$)`, `@root_validator($$$)`, `class Config:` inside a `BaseModel` subclass |
+| `python/pydantic/v2-api` | `ast-grep` forbid: `$M.dict()`, `$M.json()`, `$M.parse_obj($$$)`, `$M.parse_raw($$$)`, `@validator($$$)`, `@root_validator($$$)`, `class Config:` inside a `BaseModel` subclass |
 
 context.md: "Pydantic v2: `model_validate`, `model_dump`, `model_config = ConfigDict(...)`, `@field_validator`, `@model_validator`."
 
-### pytest
+### python/pytest
 
 | Rule | Targets |
 |---|---|
-| `pytest/run` | `check` test: `run: pytest -q`, `changed_run`: changed test files plus `tests/**/test_<module>.py` for each changed module; `pytest --testmon` when the project depends on pytest-testmon; timeout 300 s |
-| `pytest/no-new-skip` | `ast-grep` no-increase on test files: `@pytest.mark.skip($$$)`, `@pytest.mark.skipif($$$)`, `@pytest.mark.xfail($$$)`, `pytest.skip($$$)`, `@unittest.skip($$$)` |
-| `pytest/no-fewer-asserts` | `ast-grep` no-decrease on test files: `assert $$$` |
-| `pytest/no-test-env-branch` | `ast-grep` forbid on non-test files: `PYTEST_CURRENT_TEST` lookups, `"pytest" in sys.modules` |
+| `python/pytest/run` | `check` test: `run: pytest -q`, `changed_run`: changed test files plus `tests/**/test_<module>.py` for each changed module; `pytest --testmon` when the project depends on pytest-testmon; timeout 300 s |
+| `python/pytest/no-new-skip` | `ast-grep` no-increase on test files: `@pytest.mark.skip($$$)`, `@pytest.mark.skipif($$$)`, `@pytest.mark.xfail($$$)`, `pytest.skip($$$)`, `@unittest.skip($$$)` |
+| `python/pytest/no-fewer-asserts` | `ast-grep` no-decrease on test files: `assert $$$` |
+| `python/pytest/no-test-env-branch` | `ast-grep` forbid on non-test files: `PYTEST_CURRENT_TEST` lookups, `"pytest" in sys.modules` |
 
-### bun
-
-| Rule | Targets |
-|---|---|
-| `bun/lock-sync` | `check` lint: `run: bun install --frozen-lockfile`, `when_changed: [package.json]` |
-| `bun/no-other-pm` | `guard` ask: `npm install`, `npm i`, `npm ci`, `pnpm`, `yarn` |
-
-### nextjs
+### typescript/bun
 
 | Rule | Targets |
 |---|---|
-| `nextjs/no-pages-data` | `ast-grep` forbid in `app/**`, `src/app/**`: `getServerSideProps`, `getStaticProps` exports |
-| `nextjs/no-next-router` | `ast-grep` forbid: `import $$$ from "next/router"` |
-| `nextjs/proxy-not-middleware` | `ast-grep` forbid: any code in `middleware.ts` / `src/middleware.ts` (file renamed to `proxy.ts` in Next.js 16) |
+| `typescript/bun/lock-sync` | `check` lint: `run: bun install --frozen-lockfile`, `when_changed: [package.json]` |
+| `typescript/bun/no-other-pm` | `guard` ask: `npm install`, `npm i`, `npm ci`, `pnpm`, `yarn` |
+
+### typescript/nextjs
+
+| Rule | Targets |
+|---|---|
+| `typescript/nextjs/no-pages-data` | `ast-grep` forbid in `app/**`, `src/app/**`: `getServerSideProps`, `getStaticProps` exports |
+| `typescript/nextjs/no-next-router` | `ast-grep` forbid: `import $$$ from "next/router"` |
+| `typescript/nextjs/proxy-not-middleware` | `ast-grep` forbid: any code in `middleware.ts` / `src/middleware.ts` (file renamed to `proxy.ts` in Next.js 16) |
 
 context.md: "Next.js 16 App Router. Request APIs (`params`, `searchParams`, `cookies()`, `headers()`) are async. Components are Server Components unless the file starts with `'use client'`. Request interception lives in `proxy.ts`. `next lint` no longer exists; lint runs through Biome."
 
-### prisma
+### typescript/nextjs/react
 
 | Rule | Targets |
 |---|---|
-| `prisma/validate` | `check` migration: `run: prisma validate`, `when_changed: [prisma/schema.prisma]` |
-| `prisma/migration-present` | `check` migration: `run: prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code`, `when_changed: [prisma/schema.prisma]`, `requires_local_db: true`; skipped with a message if `prisma.config.ts` has no `shadowDatabaseUrl` |
-| `prisma/no-reset` | `guard` deny: `prisma migrate reset`, `prisma db push --force-reset`, `prisma db push --accept-data-loss` |
-| `prisma/db-push` | `guard` ask: `prisma db push`, `prisma migrate deploy`, `prisma db execute` |
-| `prisma/generated-client-import` | `ast-grep` forbid: `import $$$ from "@prisma/client"` |
-| `prisma/no-middleware` | `ast-grep` forbid: `$C.$use($$$)` |
+| `typescript/nextjs/react/client-hooks` | `ast-grep` forbid in `app/**`, `src/app/**`: client-only hooks (`useState`, `useEffect`, `useRef`, `useContext`, …) in a file without `'use client'` |
+
+context.md: "React 19 in the App Router: components are Server Components unless their file starts with `'use client'`. State, effects, context, refs and event handlers need a Client Component; keep `'use client'` at the leaves. Server Actions are async functions marked `'use server'`."
+
+### typescript/astro
+
+| Rule | Targets |
+|---|---|
+| `typescript/astro/check` | `check` typecheck: `run: astro check`, scope `**/*.astro`, `**/*.ts`, `**/*.tsx` |
+
+context.md: "Astro. `.astro` components render on the server; the default output is static HTML. `.astro` files are type-checked with `astro check`. Content lives in content collections declared in `src/content.config.ts`."
+
+### typescript/astro/react
+
+context.md: "React components in Astro render to static HTML; they become interactive only with a `client:*` directive. Hooks and event handlers run only in hydrated islands. Props passed to a hydrated island must be serializable."
+
+### typescript/prisma
+
+| Rule | Targets |
+|---|---|
+| `typescript/prisma/validate` | `check` migration: `run: prisma validate`, `when_changed: [prisma/schema.prisma]` |
+| `typescript/prisma/migration-present` | `check` migration: `run: prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code`, `when_changed: [prisma/schema.prisma]`, `requires_local_db: true`; skipped with a message if `prisma.config.ts` has no `shadowDatabaseUrl` |
+| `typescript/prisma/no-reset` | `guard` deny: `prisma migrate reset`, `prisma db push --force-reset`, `prisma db push --accept-data-loss` |
+| `typescript/prisma/db-push` | `guard` ask: `prisma db push`, `prisma migrate deploy`, `prisma db execute` |
+| `typescript/prisma/generated-client-import` | `ast-grep` forbid: `import $$$ from "@prisma/client"` |
+| `typescript/prisma/no-middleware` | `ast-grep` forbid: `$C.$use($$$)` |
 
 context.md: "Prisma 7. The connection URL lives in `prisma.config.ts`. Generator `prisma-client` with an explicit `output`; the client is imported from that path. Query hooks use Client Extensions."
 
-### vitest
+### typescript/vitest
 
 | Rule | Targets |
 |---|---|
-| `vitest/run` | `check` test: `run: vitest run`, `changed_run: vitest run --changed` |
-| `vitest/no-new-skip` | `ast-grep` no-increase on test files: `it.skip`, `test.skip`, `describe.skip`, `it.todo`, `test.todo`, `$X.only` |
-| `vitest/no-fewer-expects` | `ast-grep` no-decrease on test files: `expect($$$)` |
-| `vitest/no-test-env-branch` | `ast-grep` forbid on non-test files: `process.env.VITEST`, `process.env.NODE_ENV === "test"` |
+| `typescript/vitest/run` | `check` test: `run: vitest run`, `changed_run: vitest run --changed` |
+| `typescript/vitest/no-new-skip` | `ast-grep` no-increase on test files: `it.skip`, `test.skip`, `describe.skip`, `it.todo`, `test.todo`, `$X.only` |
+| `typescript/vitest/no-fewer-expects` | `ast-grep` no-decrease on test files: `expect($$$)` |
+| `typescript/vitest/no-test-env-branch` | `ast-grep` forbid on non-test files: `process.env.VITEST`, `process.env.NODE_ENV === "test"` |
 
-### playwright
+### typescript/playwright
 
 | Rule | Targets |
 |---|---|
-| `playwright/run` | `check` test: `run: playwright test --reporter=line`, `when_changed: [e2e/**, playwright.config.*]` |
-| `playwright/no-new-skip` | `ast-grep` no-increase on `e2e/**`: `test.skip`, `test.fixme`, `test.only` |
+| `typescript/playwright/run` | `check` test: `run: playwright test --reporter=line`, `when_changed: [e2e/**, playwright.config.*]` |
+| `typescript/playwright/no-new-skip` | `ast-grep` no-increase on `e2e/**`: `test.skip`, `test.fixme`, `test.only` |
 
-### zod
+### typescript/zod
 
 context.md: "Untrusted input is validated with Zod at boundaries. Types derive from schemas with `z.infer<typeof Schema>`."
 
 ## 14. Acceptance tests
+
+The test suite in `tests/spec/` is the executable form of this specification: one file per section (`@spec <number> · <title>` header), one requirement per test title. The documentation site renders those files with the JUnit results of the CI run (`bun run test:report` → `test-results/<platform>.xml`) and fails to build if a result cannot be placed on a test.
 
 ### 14.1 `forge test`
 
@@ -493,14 +523,14 @@ Accepted misses: commands hidden behind variables, `eval` of built strings, enco
 Clean container with Claude Code ≥ 2.1.295, git, Bun, uv, PostgreSQL, and no Forge. Sample repositories are prepared with `forge apply` beforehand and committed. Run `claude -p --permission-mode acceptEdits --output-format stream-json --verbose --debug-file $LOG`; assertions read the stream and the log.
 
 **fastapi-app:**
-1. "Add a `phone` column to User" without a migration → Stop blocks on `alembic/check`; passes once a revision exists.
+1. "Add a `phone` column to User" without a migration → Stop blocks on `python/sqlalchemy/alembic/check`; passes once a revision exists.
 2. Impossible test → adding a skip or removing an assert is blocked at Stop.
 3. Editing an applied revision in `alembic/versions/` → Stop blocks.
 4. `session.query(` → PostToolUse feedback.
 5. `cat .env` → denied.
 
 **nextjs-prisma-app:**
-1. Schema change without a migration → Stop blocks on `prisma/migration-present`.
+1. Schema change without a migration → Stop blocks on `typescript/prisma/migration-present`.
 2. `as any` → PostToolUse feedback.
 3. `bunx prisma migrate reset` → denied.
 4. Only changed-related Vitest tests run.

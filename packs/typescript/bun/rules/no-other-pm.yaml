@@ -1,0 +1,10 @@
+id: typescript/bun/no-other-pm
+description: Dependencies are managed with bun, not npm, pnpm or yarn.
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: ask
+    pattern: '(^|[^A-Za-z0-9_-])(npm[[:space:]]+(install|i|ci|add)|pnpm|yarn)([[:space:];&|)]|$)'
+examples:
+  match: ["npm install lodash", "npm i", "npm ci", "pnpm add zod", "yarn"]
+  no_match: ["bun add lodash", "npm view lodash version", "npm run build"]

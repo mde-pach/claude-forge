@@ -1,0 +1,5 @@
+id: typescript/prisma/validate
+description: The Prisma schema is valid.
+scope: {language: any}
+enforce:
+  - {target: check, stage: migration, run: "prisma validate", when_changed: [prisma/schema.prisma]}

@@ -1,9 +1,0 @@
-id: pytest/run
-description: Tests pass.
-scope: {language: python}
-enforce:
-  - target: check
-    stage: test
-    run: "pytest -q"
-    changed_run: 'if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests {files}); [ "$#" -eq 0 ] || pytest -q "$@"; fi'
-    timeout: 300

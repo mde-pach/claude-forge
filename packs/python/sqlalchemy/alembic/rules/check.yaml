@@ -1,0 +1,9 @@
+id: python/sqlalchemy/alembic/check
+description: Model changes come with a migration (alembic check passes).
+scope: {language: python}
+enforce:
+  - target: check
+    stage: migration
+    run: "alembic check"
+    when_changed: ["**/models/**", "**/models.py", "alembic/versions/**"]
+    requires_local_db: true

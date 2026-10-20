@@ -1,0 +1,13 @@
+id: typescript/nextjs/no-pages-data
+description: No getServerSideProps or getStaticProps in the App Router. Fetch in Server Components.
+scope: {language: typescript, files: ["app/**", "src/app/**"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: identifier
+      regex: "^(getServerSideProps|getStaticProps)$"
+      inside: {kind: export_statement, stopBy: end}
+examples:
+  match: ["export async function getServerSideProps() {\n  return { props: {} };\n}\n", "export const getStaticProps = async () => ({ props: {} });\n"]
+  no_match: ["export default async function Page() {\n  return null;\n}\n"]

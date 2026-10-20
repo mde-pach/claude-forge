@@ -1,0 +1,5 @@
+id: typescript/astro/check
+description: The project passes astro check (types in .astro files).
+scope: {language: any, files: ["**/*.astro", "**/*.ts", "**/*.tsx"]}
+enforce:
+  - {target: check, stage: typecheck, run: "astro check"}

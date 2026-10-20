@@ -1,0 +1,10 @@
+id: typescript/vitest/no-fewer-expects
+description: Assertions are not removed from tests.
+scope: {language: typescript, files: ["**/*.test.*", "**/*.spec.*", "**/__tests__/**", "!e2e/**"]}
+enforce:
+  - target: ast-grep
+    mode: no-decrease
+    rule: {pattern: "expect($$$)"}
+examples:
+  match: ["it(\"a\", () => { expect(f()).toBe(1); });"]
+  no_match: ["it(\"a\", () => { f(); });"]

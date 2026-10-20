@@ -1,5 +1,0 @@
-id: bun/lock-sync
-description: bun.lock matches package.json.
-scope: {language: any}
-enforce:
-  - {target: check, stage: lint, run: "bun install --frozen-lockfile", when_changed: [package.json]}

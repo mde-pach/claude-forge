@@ -1,8 +1,0 @@
-id: alembic/single-head
-description: Alembic has a single head.
-scope: {language: python}
-enforce:
-  - target: check
-    stage: migration
-    run: 'test "$(alembic heads | wc -l)" -le 1'
-    when_changed: ["alembic/versions/**"]

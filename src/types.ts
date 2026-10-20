@@ -12,12 +12,16 @@ export interface DepSpec {
 }
 
 export interface Pack {
+  /** Path in the pack tree: language first, then package, then sub-package (e.g. "typescript/nextjs/react"). */
   id: string;
   description: string;
   level: Level;
   requires: string[];
   detect?: { files_any?: string[]; deps_any?: DepSpec[] };
   dir: string;
+  /** Parent pack id; a child is active only when its parent is. */
+  parent?: string;
+  children: string[];
   context?: string;
   initDir?: string;
   rules: Rule[];
@@ -76,6 +80,7 @@ export interface Rule {
   hash: string;
   /** "pack" or "local" (project .forge/rules). */
   origin: "pack" | "local";
+  /** Pack id: the rule id without its last segment. */
   pack: string;
 }
 

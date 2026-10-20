@@ -9,6 +9,7 @@ import { selfTest } from "./selftest.js";
 import { addEntries, conflictingScalars, entryKey, hasEntry, removeEntries } from "./settings.js";
 import { CLAUDE_CODE_MIN, FORGE_VERSION, compareVersions, gitToplevel, lineDiff, packageRoot, run, sha256 } from "./util.js";
 import type { Level, Lock, SettingsEntry } from "./types.js";
+import { USAGE } from "./usage.js";
 
 class ForgeError extends Error {
   constructor(
@@ -27,19 +28,7 @@ interface Flags {
   yes: boolean;
 }
 
-const USAGE = `forge ${FORGE_VERSION}: generates a standalone Claude Code setup from rule packs.
 
-Usage:
-  forge init                         new project: create tool configs from pack templates, then apply
-  forge apply [--user|--local]       generate or update the setup (project, user level, or local settings)
-  forge diff [--user]                show what apply would change (exit 1 if anything differs)
-  forge status [--user]              packs, rules, audits, drift, missing tools
-  forge explain <rule-id>            a rule, where it is enforced here, and its audit
-  forge test                         validate packs and run every rule's examples
-  forge remove [--user]              delete owned files and the settings entries forge added
-
-Options: --force (overwrite drifted files), --dry-run (print the diff, write nothing),
-         --yes (confirm settings changes non-interactively)`;
 
 const out = (s = "") => process.stdout.write(s + "\n");
 const err = (s: string) => process.stderr.write(s + "\n");

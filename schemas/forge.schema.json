@@ -19,14 +19,14 @@
           "type": "array",
           "items": {
             "type": "string",
-            "pattern": "^[a-z][a-z0-9-]*$"
+            "pattern": "^[a-z][a-z0-9-]*(/[a-z][a-z0-9-]*)*$"
           }
         },
         "remove": {
           "type": "array",
           "items": {
             "type": "string",
-            "pattern": "^[a-z][a-z0-9-]*$"
+            "pattern": "^[a-z][a-z0-9-]*(/[a-z][a-z0-9-]*)*$"
           }
         }
       }
@@ -43,7 +43,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^[a-z][a-z0-9-]*/[a-z][a-z0-9-]*$"
+            "pattern": "^[a-z][a-z0-9-]*(/[a-z][a-z0-9-]*)+$"
           },
           "reason": {
             "type": "string",

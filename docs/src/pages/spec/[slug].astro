@@ -1,0 +1,31 @@
+---
+import StarlightPage from "@astrojs/starlight/components/StarlightPage.astro";
+import SpecNodes from "../../components/SpecNodes.astro";
+import StatusBadge from "../../components/StatusBadge";
+import { markdown, REPO_URL, results, spec } from "../../lib/data";
+import { specHeadings } from "../../lib/headings";
+import { countTests, tally } from "../../lib/spec";
+
+export function getStaticPaths() {
+  return spec().map((s) => ({ params: { slug: s.slug } }));
+}
+
+const section = spec().find((s) => s.slug === Astro.params.slug)!;
+const r = results();
+const t = tally(section.children, section.file, r);
+---
+
+<StarlightPage
+  frontmatter={{ title: `${section.number} · ${section.title}`, description: `Executable specification: ${section.title}`, editUrl: `${REPO_URL}/edit/main/${section.file}` }}
+  headings={specHeadings(section.children)}
+>
+  <div class="forge-meta">
+    <span>{countTests(section.children)} tests in <a href={`${REPO_URL}/blob/main/${section.file}`}><code>{section.file}</code></a></span>
+    {t.passed > 0 && <StatusBadge status="passed" detail={String(t.passed)} />}
+    {t.failed > 0 && <StatusBadge status="failed" detail={String(t.failed)} />}
+    {t.skipped > 0 && <StatusBadge status="skipped" detail={String(t.skipped)} />}
+    {t["not run"] > 0 && <StatusBadge status="not run" detail={String(t["not run"])} />}
+  </div>
+  <Fragment set:html={markdown(section.intro)} />
+  <SpecNodes nodes={section.children} file={section.file} results={r} />
+</StarlightPage>

@@ -21,7 +21,7 @@ export function renderLib(): string {
 
 /** Project tools resolved through `tool <name>` (audited tools first). */
 export const AUDITED_TOOLS = ["biome", "ruff", "basedpyright", "tsc"] as const;
-export const PROJECT_TOOLS = [...AUDITED_TOOLS, "alembic", "pytest", "prisma", "vitest", "playwright"] as const;
+export const PROJECT_TOOLS = [...AUDITED_TOOLS, "alembic", "pytest", "prisma", "vitest", "playwright", "astro"] as const;
 /** System runtimes, checked with `command -v`. */
 export const SYSTEM_TOOLS = ["uv", "bun"] as const;
 
@@ -169,7 +169,7 @@ export function astGrepRulePath(id: string): string {
   return `rules/${id}.yml`;
 }
 export function astGrepTestPath(id: string): string {
-  return `rule-tests/${id.replace("/", "-")}-test.yml`;
+  return `rule-tests/${id.replaceAll("/", "-")}-test.yml`;
 }
 
 export function renderAstGrepRule(rule: Rule, target: AstGrepTarget): string {

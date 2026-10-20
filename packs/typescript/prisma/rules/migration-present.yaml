@@ -1,0 +1,9 @@
+id: typescript/prisma/migration-present
+description: Schema changes come with a migration.
+scope: {language: any}
+enforce:
+  - target: check
+    stage: migration
+    run: 'if ! grep -q shadowDatabaseUrl prisma.config.ts 2>/dev/null; then echo "forge:typescript/prisma/migration-present skipped: no shadowDatabaseUrl in prisma.config.ts"; else prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code; fi'
+    when_changed: [prisma/schema.prisma]
+    requires_local_db: true

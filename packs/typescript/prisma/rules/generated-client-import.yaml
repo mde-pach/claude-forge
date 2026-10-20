@@ -1,0 +1,10 @@
+id: typescript/prisma/generated-client-import
+description: Import the Prisma client from the generator output path, not @prisma/client.
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule: {kind: import_statement, has: {field: source, regex: "^[\"']@prisma/client[\"']$"}}
+examples:
+  match: ["import { PrismaClient } from \"@prisma/client\";"]
+  no_match: ["import { PrismaClient } from \"@/generated/prisma/client\";"]

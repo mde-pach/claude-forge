@@ -1,0 +1,42 @@
+---
+title: Forge
+description: Guardrails for Claude Code, generated from rule packs.
+template: splash
+hero:
+  tagline: One command writes a standalone Claude Code setup — permissions, sandbox, hooks and a check script — from rule packs for your stack. It runs with plain Claude Code; nothing calls Forge.
+  image:
+    file: ../../../public/logo.svg
+  actions:
+    - text: Get started
+      link: guide/getting-started/
+      icon: right-arrow
+    - text: Browse the pack tree
+      link: packs/
+      variant: secondary
+    - text: Read the specification
+      link: spec/
+      variant: minimal
+---
+
+import { Card, CardGrid } from "@astrojs/starlight/components";
+
+<CardGrid>
+  <Card title="Standalone output" icon="seti:shell">
+    POSIX `sh`, `git`, `grep`, `sed`, `awk` and your project's own tools. Uninstall Forge and the setup keeps working.
+  </Card>
+  <Card title="Closest native place" icon="setting">
+    Your linter and type checker first, then ast-grep, then Claude Code permissions and the sandbox, then hooks.
+  </Card>
+  <Card title="Cannot be changed unnoticed" icon="approve-check">
+    Forge's files sit behind a permission prompt and are hash-checked at every Stop, pre-commit and CI run.
+  </Card>
+  <Card title="Rules are data" icon="document">
+    One YAML file per rule, in a tree of packs — language, package, sub-package — with examples that are also tests.
+  </Card>
+  <Card title="The tests are the spec" icon="list-format">
+    The specification on this site is the test suite itself, with each requirement's latest CI result next to it.
+  </Card>
+  <Card title="Audits, never edits" icon="magnifier">
+    Forge checks your Biome, ruff, basedpyright and tsc configs against each rule and tells you the snippet to add.
+  </Card>
+</CardGrid>

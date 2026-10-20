@@ -1,0 +1,14 @@
+id: typescript/vitest/no-test-env-branch
+description: Application code does not branch on whether it runs under Vitest.
+scope: {language: typescript, files: ["**/*", "!**/*.test.*", "!**/*.spec.*", "!**/__tests__/**", "!e2e/**", "!vitest.config.*", "!vitest.setup.*"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        - {pattern: "process.env.VITEST"}
+        - {pattern: "process.env.NODE_ENV === \"test\""}
+        - {pattern: "process.env.NODE_ENV === 'test'"}
+examples:
+  match: ["if (process.env.VITEST) { mock(); }", "const t = process.env.NODE_ENV === \"test\";"]
+  no_match: ["if (process.env.DEBUG) { log(); }", "const p = process.env.NODE_ENV === \"production\";"]

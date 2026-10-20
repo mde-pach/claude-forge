@@ -1,62 +1,45 @@
 # Forge — hand-off notes
 
-Build state of Forge against `SPECS.md` (v0.5), as of 2026-10-20 (third session). Read the spec first, then this file.
+Build state of Forge against `SPECS.md` (v0.5), as of 2026-10-20 (fourth session). Read the spec first, then this file.
 
 ## Toolchain
 
-- Bun 1.3+, Node ≥ 20, uv, Claude Code ≥ 2.1.295. BusyBox is optional (the guard matrix skips a missing shell with a note).
-- Dev dependencies (`package.json`): `yaml`, `ajv` (2020-12), `jsonc-parser` (imported from `jsonc-parser/lib/esm/main.js`: its UMD entry does not bundle), `semver`, `smol-toml`, `typescript`. Run `bun install`.
-- Build: `bun run build` → `dist/forge.js`; `scripts/postbuild.mjs` adds the shebang, chmods it and writes `schemas/*.schema.json`.
-- Tests: `bun run test` (build + `bun test ./tests/*.test.ts`; the path glob keeps bun away from the sample apps' own `*.test.ts`). About 60 s; ast-grep runs through `bunx`, and `tests/audit.test.ts` installs Biome, TypeScript, ruff and basedpyright into a temp cache, so the first run needs the network. `FORGE_UPDATE_SNAPSHOTS=1` rewrites `tests/generator/__snapshots__/`. `bun run typecheck` covers `src/`, `tests/` and the docs code.
-- Docs: VitePress in `docs/`. `bun run docs:dev` / `docs:build` (they run VitePress on the Bun runtime: jsonc-parser's ESM build has extensionless imports that Node's loader rejects). `docs/.vitepress/packs.ts` generates `docs/packs/*.md`, `docs/reference/rules.md` and `docs/reference/spec.md` from `packs/` and `SPECS.md` at every build; they are gitignored. In dev, editing a pack regenerates its page, and adding or removing a pack touches the config so VitePress reloads the sidebar.
-- CI (`.github/workflows/ci.yml`): typecheck, the full test suite and `forge test` on ubuntu-latest (with dash and BusyBox) and macos-latest (bash 3.2 as `/bin/sh`), plus a docs build. `docs.yml` deploys the site to GitHub Pages on every push to main; the repository's Pages source must be set to "GitHub Actions".
+- Bun 1.4, Node ≥ 20, uv, Claude Code ≥ 2.1.295. dash and BusyBox are optional locally (the shell matrix skips a missing shell).
+- `bun install`. `jsonc-parser` is imported from `jsonc-parser/lib/esm/main.js` (its UMD entry does not bundle; its ESM build has extensionless imports, which is also why the docs run Astro on the Bun runtime).
+- Build: `bun run build` → `dist/forge.js`; `scripts/postbuild.mjs` adds the shebang, chmods, and writes `schemas/*.schema.json`.
+- **Spec / tests:** `bun run test` runs `tests/spec/*.test.ts` (≈ 80 s; ast-grep via `bunx`, and `11-audits` installs Biome, TypeScript, ruff and basedpyright into a temp cache, so the first run needs the network). `bun run test:report` does the same and writes `test-results/<platform>.xml` (JUnit). `FORGE_UPDATE_SNAPSHOTS=1` rewrites `tests/generator/__snapshots__/`. `bun run typecheck` covers `src/`, `tests/` and `docs/src/lib/spec.ts`.
+- **Docs:** Astro 7 + Starlight 0.42 + React 19 in `docs/` (`bun run docs:dev`, `docs:build`; output `docs/dist/`). No Vue anywhere. `astro preview` does not start under Bun; serve `docs/dist` with any static server under `/claude-forge/` instead.
+- **CI:** `.github/workflows/ci.yml` runs typecheck and `test:report` on ubuntu (with dash, BusyBox) and macOS (bash 3.2 as `/bin/sh`), uploads the JUnit files, and builds the docs with them. `docs.yml` runs after each CI run on `main`, downloads that run's results, checks out that run's commit, builds and deploys to GitHub Pages. The repository's Pages source must be "GitHub Actions" and Actions must be enabled.
 - ast-grep pinned to **0.45.3**.
 
 ## Done
 
-Everything in §3–§14 is implemented. §14.1–§14.3 and the behaviors below are covered by 199 automated tests; §14.4 has a harness that has not been run.
+Everything in §3–§14 is implemented, with the pack tree (§5.1–§5.2) and the Astro/React packs added to the spec in this session. §14.1–§14.3 and everything else listed in the spec site are covered by **356 tests**; §14.4 has a harness that has not been run.
 
 | Area | Files |
 |---|---|
-| Types, strict YAML, JSON Schemas (Ajv strict, with `strictRequired`/`strictTypes` off for the `if/then` target schemas), loaders, detection | `src/types.ts`, `src/yaml.ts`, `src/schemas.ts`, `src/packs.ts` |
-| Renderers: checks fragment, guard.rules, ast-grep rules/tests/sgconfig, hooks.json, plugin.json | `src/render.ts` |
-| Generator (pure): active packs (detect, forge.yaml add/remove, `requires` closure; packs requiring a removed pack are dropped too), local overrides, disable, deprecated, static tool presence, ast-grep fallback, files map, settings entries | `src/plan.ts` |
-| Settings append/remove (JSONC, comments kept; only added entries recorded; scalars never overwritten, with a warning) | `src/settings.ts` |
-| Lock | `src/lock.ts` |
-| Audit (§11) | `src/audit.ts` |
-| `forge test` (§14.1) | `src/selftest.ts` |
-| CLI: all commands, `claude --version` gate, drift / unowned-file stop, `--force`, `--dry-run`, `--yes`, pre-commit offer, `remove` (also deletes `.forge/state/` and prunes empty dirs) | `src/cli.ts` |
-| Check engine (static shell shared by check.sh, post-edit, typecheck, session-start) | `templates/scripts/engine.sh` |
-| Hook scripts | `templates/scripts/{post-edit,typecheck,stop,session-start,notify}.sh` |
-| Tests | `tests/*.test.ts` (see the conformance table), `tests/generator/{fastapi-app,nextjs-prisma-app,eslint-app}` + snapshots |
-| Docs site, generated pack pages | `docs/`, `docs/.vitepress/packs.ts` |
-| CI and Pages | `.github/workflows/{ci,docs}.yml` |
-| E2E harness (§14.4) — **written, not run** (needs an authenticated `claude -p` and PostgreSQL) | `tests/e2e/` (see its README) |
+| Types, strict YAML, JSON Schemas, **pack tree loader** (`loadPacks` walks nested directories; ids are paths; `lineage()`), detection | `src/types.ts`, `src/yaml.ts`, `src/schemas.ts`, `src/packs.ts` |
+| Generator: activation down the tree (child only under an active parent; `add` brings ancestors; `remove` drops the subtree), local overrides, disable, tool presence, ast-grep fallback | `src/plan.ts` |
+| Renderers, settings (JSONC), lock, audit, `forge test`, CLI (`USAGE` in `src/usage.ts`) | `src/render.ts`, `src/settings.ts`, `src/lock.ts`, `src/audit.ts`, `src/selftest.ts`, `src/cli.ts` |
+| Hook runtime and check engine | `templates/scripts/*.sh` |
+| Packs: 18 packs, 61 rules, as a tree (`safety`; `python/{uv,fastapi,pydantic,pytest,sqlalchemy/alembic}`; `typescript/{bun,nextjs/react,astro/react,prisma,zod,vitest,playwright}`) | `packs/**` |
+| **Executable specification**: one file per spec section, normative test titles | `tests/spec/*.test.ts`, `tests/helpers.ts`, samples in `tests/generator/{fastapi-app,nextjs-prisma-app,astro-app,eslint-app}` |
+| **Docs site**: spec pages rendered from the test files + JUnit results (build fails on an unplaceable result); pack tree, pack and rule pages from `packs/`; CLI page from `USAGE`; schema page from `src/schemas.ts`; four short hand-written guide pages that link into the spec | `docs/` (`src/lib/spec.ts` extractor, `src/lib/data.ts`, `src/pages/**`, `src/components/{SpecNodes,RuleCard}.astro`, `{PackTree,StatusBadge}.tsx`) |
+| E2E harness (§14.4) — **written, not run** | `tests/e2e/` |
 
 ## Remaining
 
-1. **Run the E2E harness** (`tests/e2e/README.md`) in a real container and fix whatever it finds. The regexes in `run.ts` match Forge's own output, but how Claude Code frames hook output in the stream and debug log was not observed. Scenarios that depend on model behavior (e.g. "impossible test", three failed Stops) may need prompt tuning.
-2. **macOS** is covered by the macos-latest CI job (bash 3.2 `/bin/sh`, BSD tools); check its first run.
-3. **Publishing**: the npm scope is still `@maximedepachtere`; nothing was published.
+1. **Run the E2E harness** (`tests/e2e/README.md`) in a real container; expect to tune a few regexes and prompts on the first real run.
+2. **First CI run.** Nothing has run on GitHub yet (Actions did not start on push, and this session could not dispatch workflows). Watch the macOS job in particular.
+3. **More packs** for the tree, e.g. React rules under Astro (`.astro` files cannot be parsed by ast-grep; rules there would be `check` or `tool` targets).
+4. **Publishing**: the npm scope is still `@maximedepachtere`; nothing was published.
 
-## Spec conformance
+## Writing specification tests
 
-| Spec | Tested by |
-|---|---|
-| §3 CLI: commands, `--dry-run`, `--yes`, `--force`, `--local`, exit codes, version gate | `generator`, `inputs` |
-| §4 ownership, §12 lock: drift, unowned files, deleted files, missing settings entries, changed rules, remove | `generator`, `inputs`, `user` |
-| §5 inputs: detection, `forge.yaml` add/remove/disable, local rules, invalid inputs (schema, duplicate keys, aliases) | `generator`, `inputs`, `units` |
-| §6 targets → output; tool absent → ast-grep fallback / not enforced (ESLint repo) | `generator` snapshots |
-| §7 user level: files, settings with comments and pre-existing entries, scalar conflicts, guard, notify OSC 777/9 | `user` |
-| §8 project hooks: session-start, post-edit, typecheck (lock, takeover), stop (3 blocks, pass memory), missing runtime | `check` |
-| §9 lib.sh (`json_get` incl. `\uXXXX`), guard format | `guard`, `user`, `units` |
-| §10 check.sh steps 1–7, local-DB detection, related pytest files, pre-commit offer / hook managers / existing hook / blocks a bad commit | `check`, `inputs` |
-| §11 audits with real tools, correct and incorrect configs, stricter configs, configured-but-not-installed | `audit` |
-| §14.1 `forge test` on the shipped packs, and on broken packs (each failure kind) | `units`, `inputs` |
-| §14.2 generator samples | `generator` |
-| §14.3 guard corpus on sh, dash, bash, BusyBox; p99 ≤ 20 ms | `guard` |
-| §14.4 end-to-end with real `claude -p` | `tests/e2e/` harness, **not run** |
-| Docs cover every pack and rule | `docs` |
+- A file in `tests/spec/` starts with `/** @spec <number> · <title>` and a Markdown paragraph; the site orders sections by file name.
+- Test titles are requirements, in the present tense. A `/** … */` comment right above a `test` or `describe` is rendered as explanation.
+- The site shows each test's code, its parameterised cases and its result per platform, matched by file and **title line** (that is the line bun's JUnit reporter gives).
+- A test that needs a tool which may be missing uses `test.if(...)`, so the site shows it as skipped rather than passed.
 
 ## How the generated checks work
 

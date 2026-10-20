@@ -1,0 +1,26 @@
+id: typescript/nextjs/react/client-hooks
+description: Client-only React hooks in app/ need a 'use client' file.
+scope: {language: typescript, files: ["app/**", "src/app/**"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      has:
+        field: function
+        regex: "^(React\\.)?(useState|useReducer|useEffect|useLayoutEffect|useInsertionEffect|useRef|useContext|useTransition|useOptimistic|useActionState|useSyncExternalStore|useDeferredValue|useImperativeHandle)$"
+      not:
+        inside:
+          kind: program
+          stopBy: end
+          has: {kind: expression_statement, regex: "^[\"']use client[\"']"}
+examples:
+  match:
+    - "export default function Page() {\n  const [n, setN] = useState(0);\n  return n;\n}\n"
+    - "import { useEffect } from \"react\";\nexport function Clock() {\n  useEffect(() => {}, []);\n  return null;\n}\n"
+    - "export function Box() {\n  const r = React.useRef(null);\n  return r;\n}\n"
+  no_match:
+    - "\"use client\";\nimport { useState } from \"react\";\nexport function Counter() {\n  const [n] = useState(0);\n  return n;\n}\n"
+    - "'use client';\nexport function Box() {\n  const r = React.useRef(null);\n  return r;\n}\n"
+    - "export default async function Page() {\n  const data = await fetch(\"/x\");\n  return data;\n}\n"
+    - "export function useCounterLabel(n: number) {\n  return `${n} items`;\n}\n"

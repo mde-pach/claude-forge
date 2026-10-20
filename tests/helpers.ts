@@ -93,3 +93,22 @@ export function expectSnapshot(name: string, text: string): { ok: boolean; path:
 export function hookJson(fields: Record<string, unknown>): string {
   return JSON.stringify({ session_id: "test", hook_event_name: "Test", ...fields });
 }
+
+export function put(repo: string, rel: string, text: string): void {
+  mkdirSync(join(repo, rel, ".."), { recursive: true });
+  writeFileSync(join(repo, rel), text);
+}
+
+/** A sample repository after a successful `forge apply --yes`. */
+export function applied(name: string): string {
+  const repo = sampleRepo(name);
+  const r = forge(["apply", "--yes"], repo);
+  if (r.status !== 0) throw new Error(`forge apply failed in ${name}:\n${r.stdout}\n${r.stderr}`);
+  return repo;
+}
+
+/** Commits everything in the repository. */
+export function commitAll(repo: string, message = "commit"): void {
+  git(repo, "add", "-A");
+  git(repo, "commit", "-qm", message);
+}

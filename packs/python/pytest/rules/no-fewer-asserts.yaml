@@ -1,0 +1,10 @@
+id: python/pytest/no-fewer-asserts
+description: Assertions are not removed from tests.
+scope: {language: python, files: ["**/test_*.py", "**/*_test.py"]}
+enforce:
+  - target: ast-grep
+    mode: no-decrease
+    rule: {kind: assert_statement}
+examples:
+  match: ["def test_a():\n    assert f() == 1\n"]
+  no_match: ["def test_a():\n    f()\n"]

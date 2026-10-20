@@ -1,0 +1,10 @@
+id: typescript/nextjs/no-next-router
+description: No next/router. Use next/navigation.
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule: {kind: import_statement, has: {field: source, regex: "^[\"']next/router[\"']$"}}
+examples:
+  match: ["import { useRouter } from \"next/router\";", "import Router from 'next/router';"]
+  no_match: ["import { useRouter } from \"next/navigation\";"]

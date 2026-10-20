@@ -1,7 +1,10 @@
 import Ajv2020 from "ajv/dist/2020.js";
 
-const ID = "^[a-z][a-z0-9-]*$";
-const RULE_ID = "^[a-z][a-z0-9-]*/[a-z][a-z0-9-]*$";
+const SEGMENT = "[a-z][a-z0-9-]*";
+/** Pack ids are paths in the pack tree: "python", "python/sqlalchemy/alembic". */
+const ID = `^${SEGMENT}(/${SEGMENT})*$`;
+/** Rule ids are a pack id plus the rule name. */
+const RULE_ID = `^${SEGMENT}(/${SEGMENT})+$`;
 
 export const packSchema = {
   $schema: "https://json-schema.org/draft/2020-12/schema",

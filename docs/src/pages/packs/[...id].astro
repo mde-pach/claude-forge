@@ -1,0 +1,67 @@
+---
+import { readdirSync, statSync } from "node:fs";
+import { join, relative } from "node:path";
+import StarlightPage from "@astrojs/starlight/components/StarlightPage.astro";
+import RuleCard from "../../components/RuleCard.astro";
+import { leaf, lineage, markdown, packs, packUrl, REPO_URL, results, ruleAnchor, ruleTestLocation, spec } from "../../lib/data";
+
+export function getStaticPaths() {
+  return [...packs().keys()].map((id) => ({ params: { id } }));
+}
+
+const all = packs();
+const pack = all.get(Astro.params.id!)!;
+const r = results();
+const ruleTest = ruleTestLocation(spec());
+const chain = lineage(all, pack.id);
+const requiredBy = [...all.values()].filter((p) => p.requires.includes(pack.id));
+const detect =
+  pack.level === "user"
+    ? ["always, at user level (forge apply --user)"]
+    : [
+        ...(pack.detect?.files_any ?? []).map((f) => `file ${f}`),
+        ...(pack.detect?.deps_any ?? []).map((d) => `${d.ecosystem} dependency ${d.name}${d.version ? ` ${d.version}` : ""}`),
+      ];
+const initFiles = (dir: string): string[] =>
+  readdirSync(dir).flatMap((f) => (statSync(join(dir, f)).isDirectory() ? initFiles(join(dir, f)) : [relative(pack.initDir!, join(dir, f))]));
+---
+
+<StarlightPage
+  frontmatter={{ title: pack.id, description: pack.description, editUrl: `${REPO_URL}/edit/main/packs/${pack.id}/pack.yaml` }}
+  headings={pack.rules.map((x) => ({ depth: 2, slug: ruleAnchor(x.id), text: leaf(x.id) }))}
+>
+  <p>{pack.description}</p>
+  <dl class="forge-facts">
+    <dt>Tree</dt>
+    <dd>{chain.map((p, i) => <>{i > 0 && " › "}<a href={packUrl(p.id)}>{leaf(p.id)}</a></>)}</dd>
+    <dt>Level</dt>
+    <dd>{pack.level}</dd>
+    <dt>Active when</dt>
+    <dd>
+      {pack.parent && <>the parent <a href={packUrl(pack.parent)}>{pack.parent}</a> is active, and </>}
+      {detect.length ? detect.map((d, i) => <>{i > 0 && ", or "}<code>{d}</code></>) : "it is added in forge.yaml"}
+    </dd>
+    {pack.children.length > 0 && <dt>Sub-packs</dt>}
+    {pack.children.length > 0 && <dd>{pack.children.map((c, i) => <>{i > 0 && ", "}<a href={packUrl(c)}>{leaf(c)}</a></>)}</dd>}
+    {pack.requires.length > 0 && <dt>Requires</dt>}
+    {pack.requires.length > 0 && <dd>{pack.requires.map((c, i) => <>{i > 0 && ", "}<a href={packUrl(c)}>{c}</a></>)}</dd>}
+    {requiredBy.length > 0 && <dt>Required by</dt>}
+    {requiredBy.length > 0 && <dd>{requiredBy.map((c, i) => <>{i > 0 && ", "}<a href={packUrl(c.id)}>{c.id}</a></>)}</dd>}
+    <dt>Source</dt>
+    <dd><a href={`${REPO_URL}/tree/main/packs/${pack.id}`}><code>packs/{pack.id}/</code></a></dd>
+  </dl>
+
+  {
+    pack.context !== undefined && (
+      <>
+        <p>
+          Context, written verbatim to <code>.claude/rules/forge-{pack.id.replaceAll("/", "-")}.md</code> so Claude reads these facts in every session:
+        </p>
+        <div class="forge-context" set:html={markdown(pack.context)} />
+      </>
+    )
+  }
+  {pack.initDir && <p><code>forge init</code> creates these files when missing: {initFiles(pack.initDir).map((f) => <code>{f} </code>)}</p>}
+  {pack.rules.length === 0 && <p>This pack has no rules of its own{pack.context !== undefined ? ": it contributes context only" : ""}.</p>}
+  {pack.rules.map((rule) => <RuleCard rule={rule} results={r} ruleTest={ruleTest} />)}
+</StarlightPage>
