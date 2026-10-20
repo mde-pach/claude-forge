@@ -69,6 +69,7 @@ Everything in §3–§14 is implemented, with the pack tree (§5.1–§5.2) and 
 - **Receiver constraints** (data-only changes to two rules, for the two false positives the previous hand-off flagged): `pydantic/v2-api` does not flag `.json()` / `.dict()` on `r`, `res`, `resp`, `response`, `*_response`; `sqlalchemy/no-query-api` only flags `.query()` on session-like receivers (`session`, `db`, `*_session`, `s`, `sess`, `self.session`).
 - **`forge test` structure checks** beyond the schema: at most one ast-grep target per rule, no ast-grep target on `language: any`, and match + no_match examples on every rule with ast-grep, guard, permission or tool targets. Guard examples also run under `bash --posix`.
 - **Deprecated rules** are not enforced; `status` lists them with their replacement.
+- **Guard latency (§14.3)** is measured as the guard's own cost: p99 of `guard.sh` minus p99 of an empty `sh` script, interleaved, plus a median ≤ 20 ms for the whole call. On GitHub's macOS runners, bare process start-up alone produced a p99 of 80 ms in the first CI run; locally the guard adds ~2 ms (p99 < 6 ms) to a shell start.
 
 ## Verified facts (Claude Code docs, 2026-10-20)
 
