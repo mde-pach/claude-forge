@@ -90,7 +90,7 @@ function targetEvents(rule: Rule, t: Target): LifecycleEvent[] {
     case "tool": {
       const s = TOOL_STAGE[t.tool];
       const out: LifecycleEvent[] = [
-        { step: "apply", effect: "audits", text: `Checks that your own ${t.tool} config reports ${code(t.expects)} on the examples below; if not, prints the config snippet to add.` },
+        { step: "apply", effect: "audits", text: `Checks that your own ${t.tool} config reports ${code(t.expects)} as an error that fails ${t.tool} on the examples below (a warning is not enough); if not, prints the config snippet to add.` },
       ];
       if (s.stage === "lint") out.push({ step: "edit", effect: "feedback", text: `Your ${t.tool}, run on the edited file by ${code(s.check)}, reports ${code(t.expects)} to Claude.` });
       else out.push({ step: "edit", effect: "wakes", text: `Your ${t.tool}, run in the background by ${code(s.check)}, reports ${code(t.expects)} and wakes Claude.` });

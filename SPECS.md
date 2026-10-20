@@ -300,9 +300,9 @@ One entry point for the Stop hook, the optional pre-commit hook and CI. Runs in 
 For each `tool` target of an active rule:
 
 1. The tool is not present in the project → the rule's `ast-grep` target is used if it has one; otherwise `forge status` reports "not enforced here: <tool> not configured".
-2. The tool is present → Forge writes each `match` example to a temporary file inside the rule's scope and runs the project's own tool with the project's config (`biome lint --stdin-file-path`, `ruff check --stdin-filename`, a temporary file for `basedpyright` and `tsc`).
-3. The expected diagnostic appears for every `match` example and none for `no_match` → satisfied (stricter configs satisfy automatically).
-4. Otherwise → `forge status` reports the rule as unsatisfied and prints its `snippet`. Forge never edits the config.
+2. The tool is present → Forge writes each example to a temporary file inside the rule's scope and runs the project's own tool with the project's config, reading machine-readable output: `biome lint --reporter=json <file>`, `ruff check --output-format json --stdin-filename`, `basedpyright --outputjson <file>`, `tsc --noEmit -p <temporary tsconfig extending the project's>`.
+3. Every `match` example gets the expected diagnostic **at a level that fails the tool's run**, and no `no_match` example gets it → satisfied (stricter configs satisfy automatically). A diagnostic fails the run when its severity is `error`, or when it is a warning and the run exits non-zero without any error diagnostic (the tool fails on warnings, e.g. basedpyright's `failOnWarnings`). ruff has no warning level; tsc reports errors only.
+4. Otherwise → `forge status` reports the rule as unsatisfied and prints its `snippet`; when the diagnostic is reported only as a warning, the detail says so. Forge never edits the config. Output that cannot be read → the audit is skipped with the tool's first line of output, never satisfied.
 
 Audits run during `forge apply` and `forge status`, never in hooks.
 

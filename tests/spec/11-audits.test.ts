@@ -2,10 +2,15 @@
  * @spec 11 · Tool audits
  *
  * For each `tool` target of an active rule, Forge runs the project's own tool
- * with the project's own config on the rule's examples. The expected diagnostic
- * must appear for every `match` example and for no `no_match` example; then the
- * rule is satisfied, and stricter configs satisfy it automatically. Otherwise
- * `forge status` prints the snippet to add. Forge never edits a tool config.
+ * with the project's own config on the rule's examples. Every `match` example
+ * must get the expected diagnostic **at a level that fails the tool's run**
+ * (an error, or a warning when the tool fails on warnings), and no `no_match`
+ * example may get it; then the rule is satisfied, and stricter configs satisfy
+ * it automatically. A diagnostic that is only a warning does not enforce
+ * anything: the rule is unsatisfied. Severity is read from the tools'
+ * machine-readable output (Biome's JSON reporter, `ruff --output-format json`,
+ * `basedpyright --outputjson`; tsc only has errors). Otherwise `forge status`
+ * prints the snippet to add. Forge never edits a tool config.
  * These tests install real Biome, TypeScript, ruff and basedpyright once
  * (versions pinned in tests/helpers.ts).
  */
@@ -68,6 +73,19 @@ describe.if(hasBun)("Biome and tsc", () => {
     T,
   );
 
+  /** @rule typescript/no-explicit-any */
+  test(
+    "Biome's recommended set reports noExplicitAny only as a warning, which does not fail biome ci: unsatisfied",
+    () => {
+      const out = audit(repo("nextjs-prisma-app", { "biome.json": JSON.stringify({ linter: { enabled: true, rules: { recommended: true } } }), "tsconfig.json": TSCONFIG(true) }));
+      expect(out).toContain(
+        "forge:typescript/no-explicit-any biome lint/suspicious/noExplicitAny: unsatisfied (lint/suspicious/noExplicitAny is only a warning in your biome config, so biome does not fail on it",
+      );
+      expect(out).toContain('add to the biome config: "linter": {"rules": {"suspicious": {"noExplicitAny": "error"}}}');
+    },
+    T,
+  );
+
   test(
     "apply prints the unsatisfied audits",
     () => {
@@ -80,8 +98,8 @@ describe.if(hasBun)("Biome and tsc", () => {
 });
 
 describe.if(hasUv)("ruff and basedpyright", () => {
-  const PYPROJECT = (select: string[], any: string) =>
-    `[project]\nname = "fastapi-app"\nversion = "0.1.0"\ndependencies = ["fastapi>=0.115", "sqlalchemy>=2.0.36", "alembic>=1.14", "pydantic>=2.9"]\n\n[dependency-groups]\ndev = ["pytest>=8.3", "ruff>=0.8", "basedpyright>=1.22"]\n\n[tool.ruff.lint]\nselect = ${JSON.stringify(select)}\n\n[tool.basedpyright]\nreportExplicitAny = "${any}"\n`;
+  const PYPROJECT = (select: string[], any: string, failOnWarnings?: boolean) =>
+    `[project]\nname = "fastapi-app"\nversion = "0.1.0"\ndependencies = ["fastapi>=0.115", "sqlalchemy>=2.0.36", "alembic>=1.14", "pydantic>=2.9"]\n\n[dependency-groups]\ndev = ["pytest>=8.3", "ruff>=0.8", "basedpyright>=1.22"]\n\n[tool.ruff.lint]\nselect = ${JSON.stringify(select)}\n\n[tool.basedpyright]\nreportExplicitAny = "${any}"\n${failOnWarnings === undefined ? "" : `failOnWarnings = ${failOnWarnings}\n`}`;
 
   /** @rule python/no-bare-except python/no-explicit-any */
   test(
@@ -104,6 +122,29 @@ describe.if(hasUv)("ruff and basedpyright", () => {
       expect(out).toContain('add to the ruff config: [tool.ruff.lint] extend-select = ["E722"]');
       expect(out).toContain("forge:python/no-explicit-any ruff ANN401: unsatisfied");
       expect(out).toContain("forge:python/no-explicit-any basedpyright reportExplicitAny: unsatisfied");
+    },
+    T,
+  );
+
+  /** @rule python/no-explicit-any */
+  test(
+    "reportExplicitAny as a warning, with failOnWarnings off, does not fail basedpyright: unsatisfied",
+    () => {
+      const out = audit(repo("fastapi-app", { "pyproject.toml": PYPROJECT(["E", "ANN401"], "warning", false) }));
+      expect(out).toContain(
+        "forge:python/no-explicit-any basedpyright reportExplicitAny: unsatisfied (reportExplicitAny is only a warning in your basedpyright config, so basedpyright does not fail on it",
+      );
+      expect(out).toContain('add to the basedpyright config: [tool.basedpyright] reportExplicitAny = "error"');
+    },
+    T,
+  );
+
+  /** @rule python/no-explicit-any */
+  test(
+    "reportExplicitAny as a warning, with failOnWarnings on, fails basedpyright: satisfied",
+    () => {
+      const out = audit(repo("fastapi-app", { "pyproject.toml": PYPROJECT(["E", "ANN401"], "warning", true) }));
+      expect(out).toContain("forge:python/no-explicit-any basedpyright reportExplicitAny: satisfied");
     },
     T,
   );
