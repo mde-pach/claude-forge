@@ -1,0 +1,10 @@
+id: safety/publish
+description: Packages are published by a human, not by Claude.
+scope: {language: any}
+enforce:
+  - {target: permission, decision: deny, rule: "Bash(npm publish:*)"}
+  - {target: permission, decision: deny, rule: "Bash(bun publish:*)"}
+  - {target: permission, decision: deny, rule: "Bash(uv publish:*)"}
+examples:
+  match: ["Bash(npm publish)", "Bash(bun publish --access public)", "Bash(uv publish)"]
+  no_match: ["Bash(npm pack)", "Bash(uv build)"]

@@ -1,0 +1,10 @@
+id: safety/sql-destructive
+description: No DROP TABLE / DATABASE / SCHEMA or TRUNCATE through psql.
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: deny
+    pattern: '(^|[^A-Za-z0-9_-])psql[[:space:]].*([Dd][Rr][Oo][Pp][[:space:]]+([Tt][Aa][Bb][Ll][Ee]|[Dd][Aa][Tt][Aa][Bb][Aa][Ss][Ee]|[Ss][Cc][Hh][Ee][Mm][Aa])|[Tt][Rr][Uu][Nn][Cc][Aa][Tt][Ee])([[:space:];]|$)'
+examples:
+  match: ["psql \"$DATABASE_URL\" -c 'DROP TABLE users;'", "psql -c \"truncate orders\"", "psql app -c 'drop schema public cascade'"]
+  no_match: ["psql -c 'SELECT 1'", "psql app -c 'select * from drop_table_log'"]

@@ -1,0 +1,17 @@
+id: pytest/no-new-skip
+description: Tests are not skipped or marked xfail to make the suite pass.
+scope: {language: python, files: ["**/test_*.py", "**/*_test.py", "**/conftest.py"]}
+enforce:
+  - target: ast-grep
+    mode: no-increase
+    rule:
+      any:
+        - {pattern: "pytest.mark.skip($$$)"}
+        - {pattern: "pytest.mark.skipif($$$)"}
+        - {pattern: "pytest.mark.xfail($$$)"}
+        - {pattern: "pytest.skip($$$)"}
+        - {pattern: "unittest.skip($$$)"}
+        - {kind: decorator, has: {kind: attribute, regex: "^(pytest\\.mark\\.(skip|xfail)|unittest\\.skip)$"}}
+examples:
+  match: ["@pytest.mark.skip(reason=\"flaky\")\ndef test_a():\n    assert 1\n", "@pytest.mark.xfail\ndef test_b():\n    assert 1\n", "def test_c():\n    pytest.skip(\"later\")\n"]
+  no_match: ["def test_a():\n    assert 1\n", "@pytest.mark.parametrize(\"x\", [1])\ndef test_b(x):\n    assert x\n"]

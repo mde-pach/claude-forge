@@ -1,0 +1,8 @@
+id: safety/dropdb
+description: Databases are never dropped by Claude.
+scope: {language: any}
+enforce:
+  - {target: permission, decision: deny, rule: "Bash(dropdb:*)"}
+examples:
+  match: ["Bash(dropdb app_dev)"]
+  no_match: ["Bash(createdb app_dev)"]

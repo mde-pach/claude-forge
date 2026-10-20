@@ -1,0 +1,5 @@
+id: typescript/typecheck
+description: The project passes tsc.
+scope: {language: typescript}
+enforce:
+  - {target: check, stage: typecheck, run: "tsc --noEmit -p tsconfig.json"}

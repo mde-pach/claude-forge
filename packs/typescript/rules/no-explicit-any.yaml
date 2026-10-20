@@ -1,0 +1,14 @@
+id: typescript/no-explicit-any
+description: No explicit any. Use unknown with narrowing, or a Zod schema.
+scope: {language: typescript}
+enforce:
+  - target: tool
+    tool: biome
+    expects: lint/suspicious/noExplicitAny
+    snippet: '"linter": {"rules": {"suspicious": {"noExplicitAny": "error"}}}'
+  - target: ast-grep
+    mode: forbid
+    rule: {any: [{pattern: "$A as any"}, {kind: predefined_type, regex: "^any$"}]}
+examples:
+  match: ["const x = y as any", "function f(a: any) {}"]
+  no_match: ["const x: unknown = y", "const many = 1"]

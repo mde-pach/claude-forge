@@ -1,0 +1,10 @@
+id: sqlalchemy/no-declarative-base
+description: No declarative_base(). Subclass DeclarativeBase.
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule: {pattern: "declarative_base($$$)"}
+examples:
+  match: ["Base = declarative_base()"]
+  no_match: ["class Base(DeclarativeBase):\n    pass\n"]

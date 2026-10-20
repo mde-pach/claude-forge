@@ -1,0 +1,5 @@
+id: typescript/format-lint
+description: TypeScript files are formatted and linted with Biome.
+scope: {language: typescript}
+enforce:
+  - {target: check, stage: lint, run: "biome ci .", changed_run: "biome check --write --no-errors-on-unmatched {files}"}

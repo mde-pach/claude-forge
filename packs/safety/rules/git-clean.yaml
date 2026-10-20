@@ -1,0 +1,8 @@
+id: safety/git-clean
+description: git clean deletes untracked files.
+scope: {language: any}
+enforce:
+  - {target: permission, decision: deny, rule: "Bash(git clean:*)"}
+examples:
+  match: ["Bash(git clean -fd)", "Bash(git clean)"]
+  no_match: ["Bash(git cleanup-branches)", "Bash(git status)"]

@@ -1,0 +1,17 @@
+id: vitest/no-new-skip
+description: Tests are not skipped, left as todo or focused with .only.
+scope: {language: typescript, files: ["**/*.test.*", "**/*.spec.*", "**/__tests__/**", "!e2e/**"]}
+enforce:
+  - target: ast-grep
+    mode: no-increase
+    rule:
+      any:
+        - {pattern: "it.skip"}
+        - {pattern: "test.skip"}
+        - {pattern: "describe.skip"}
+        - {pattern: "it.todo"}
+        - {pattern: "test.todo"}
+        - {pattern: "$X.only"}
+examples:
+  match: ["it.skip(\"a\", () => {});", "test.todo(\"later\");", "describe.only(\"x\", () => {});"]
+  no_match: ["it(\"a\", () => { expect(1).toBe(1); });"]

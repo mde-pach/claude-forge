@@ -1,0 +1,13 @@
+id: prisma/no-reset
+description: Prisma commands that wipe the database are not run by Claude.
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: deny
+    pattern: '(^|[^A-Za-z0-9_-])prisma[[:space:]]+migrate[[:space:]]+reset([[:space:];&|)]|$)'
+  - target: guard
+    decision: deny
+    pattern: '(^|[^A-Za-z0-9_-])prisma[[:space:]]+db[[:space:]]+push[^;&|]*--(force-reset|accept-data-loss)'
+examples:
+  match: ["bunx prisma migrate reset --force", "prisma db push --force-reset", "bunx prisma db push --accept-data-loss"]
+  no_match: ["bunx prisma migrate dev --name add_phone", "prisma generate"]

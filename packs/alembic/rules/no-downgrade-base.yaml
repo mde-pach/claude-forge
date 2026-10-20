@@ -1,0 +1,10 @@
+id: alembic/no-downgrade-base
+description: alembic downgrade base drops the whole schema.
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: deny
+    pattern: '(^|[^A-Za-z0-9_-])alembic[[:space:]]([^;&|]*[[:space:]])?downgrade[[:space:]]+base([[:space:];&|)]|$)'
+examples:
+  match: ["uv run alembic downgrade base", "alembic -c alembic.ini downgrade base"]
+  no_match: ["alembic downgrade -1", "alembic upgrade head"]

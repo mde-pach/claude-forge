@@ -1,0 +1,5 @@
+id: python/typecheck
+description: The project passes basedpyright.
+scope: {language: python}
+enforce:
+  - {target: check, stage: typecheck, run: "basedpyright"}

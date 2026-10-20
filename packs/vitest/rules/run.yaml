@@ -1,0 +1,5 @@
+id: vitest/run
+description: Tests pass.
+scope: {language: typescript}
+enforce:
+  - {target: check, stage: test, run: "vitest run", changed_run: "vitest run --changed"}

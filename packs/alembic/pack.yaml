@@ -1,0 +1,7 @@
+id: alembic
+description: Alembic migrations with an async engine.
+level: project
+requires: [python]
+detect:
+  files_any: [alembic.ini]
+  deps_any: [{ecosystem: pypi, name: alembic}]

@@ -1,0 +1,10 @@
+id: sqlalchemy/no-query-api
+description: No legacy session.query(). Use select() with session.execute() or session.scalars().
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule: {pattern: "$S.query($$$)"}
+examples:
+  match: ["users = session.query(User).all()", "db.query(User).filter(User.id == 1)"]
+  no_match: ["users = (await session.scalars(select(User))).all()", "query = select(User)"]

@@ -1,0 +1,11 @@
+id: typescript/strict
+description: tsconfig has strict mode on.
+scope: {language: typescript}
+enforce:
+  - target: tool
+    tool: tsc
+    expects: TS7006
+    snippet: '"compilerOptions": {"strict": true}'
+examples:
+  match: ["export function f(a) {\n  return a;\n}\n"]
+  no_match: ["export function f(a: number) {\n  return a;\n}\n"]

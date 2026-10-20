@@ -1,0 +1,7 @@
+id: prisma
+description: Prisma 7 schema, migrations and client.
+level: project
+requires: [typescript]
+detect:
+  files_any: [prisma/schema.prisma]
+  deps_any: [{ecosystem: npm, name: prisma, version: ">=7.0.0"}]

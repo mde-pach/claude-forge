@@ -1,0 +1,14 @@
+id: typescript/no-ts-ignore
+description: No @ts-ignore. Fix the type, or use @ts-expect-error with a reason.
+scope: {language: typescript}
+enforce:
+  - target: tool
+    tool: biome
+    expects: lint/suspicious/noTsIgnore
+    snippet: '"linter": {"rules": {"suspicious": {"noTsIgnore": "error"}}}'
+  - target: ast-grep
+    mode: forbid
+    rule: {kind: comment, regex: "^//[[:space:]]*@ts-ignore"}
+examples:
+  match: ["// @ts-ignore\nconst x: number = \"a\";\n"]
+  no_match: ["// @ts-expect-error legacy API\nconst x: number = \"a\";\n", "// ts-ignore is banned\nconst y = 1;\n"]

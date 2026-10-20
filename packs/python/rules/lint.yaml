@@ -1,0 +1,5 @@
+id: python/lint
+description: Python files pass ruff check.
+scope: {language: python}
+enforce:
+  - {target: check, stage: lint, run: "ruff check .", changed_run: "ruff check {files}"}

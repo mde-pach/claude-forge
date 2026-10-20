@@ -1,0 +1,14 @@
+id: pytest/no-test-env-branch
+description: Application code does not branch on whether it runs under pytest.
+scope: {language: python, files: ["**/*.py", "!**/test_*.py", "!**/*_test.py", "!**/conftest.py", "!tests/**"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        - {kind: string, regex: "PYTEST_CURRENT_TEST"}
+        - {pattern: "\"pytest\" in sys.modules"}
+        - {pattern: "'pytest' in sys.modules"}
+examples:
+  match: ["if os.environ.get(\"PYTEST_CURRENT_TEST\"):\n    pass\n", "if \"pytest\" in sys.modules:\n    pass\n"]
+  no_match: ["if os.environ.get(\"DEBUG\"):\n    pass\n", "if \"json\" in sys.modules:\n    pass\n"]

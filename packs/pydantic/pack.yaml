@@ -1,0 +1,6 @@
+id: pydantic
+description: Pydantic v2 APIs only.
+level: project
+requires: [python]
+detect:
+  deps_any: [{ecosystem: pypi, name: pydantic, version: ">=2.0.0"}, {ecosystem: pypi, name: fastapi}]

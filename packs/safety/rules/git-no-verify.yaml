@@ -1,0 +1,10 @@
+id: safety/git-no-verify
+description: Commits never skip hooks with --no-verify.
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: deny
+    pattern: '(^|[^A-Za-z0-9_-])git[[:space:]]+(-C[[:space:]]+[^[:space:];&|]+[[:space:]]+)*commit([[:space:]]+[^[:space:];&|"'']+)*[[:space:]]+(--no-verify|-[A-Za-z]*n[A-Za-z]*)([[:space:];&|)]|$)'
+examples:
+  match: ["git commit --no-verify -m x", "git commit -nm x", "git commit -a -n -m x", "git commit -m wip --no-verify"]
+  no_match: ["git commit -m \"fix --no-verify typo\"", "git commit -m x", "git commit --amend", "git commit -am x"]

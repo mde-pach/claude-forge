@@ -1,0 +1,10 @@
+id: uv/no-pip
+description: Dependencies are added with uv add, not pip install.
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: ask
+    pattern: '(^|[^A-Za-z0-9_-])(pip3?|uv[[:space:]]+pip|python[0-9.]*[[:space:]]+-m[[:space:]]+pip)[[:space:]]+install([[:space:];&|)]|$)'
+examples:
+  match: ["pip install requests", "pip3 install -r requirements.txt", "uv pip install httpx", "python -m pip install x"]
+  no_match: ["uv add requests", "pip list", "uv sync"]

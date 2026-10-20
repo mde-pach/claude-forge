@@ -1,0 +1,11 @@
+id: safety/git-history-rewrite
+description: History rewriting and reflog destruction are not done by Claude.
+scope: {language: any}
+enforce:
+  - {target: permission, decision: deny, rule: "Bash(git filter-branch:*)"}
+  - {target: permission, decision: deny, rule: "Bash(git filter-repo:*)"}
+  - {target: permission, decision: deny, rule: "Bash(git reflog expire:*)"}
+  - {target: permission, decision: deny, rule: "Bash(git stash clear:*)"}
+examples:
+  match: ["Bash(git filter-branch --tree-filter x)", "Bash(git filter-repo --path a)", "Bash(git reflog expire --all)", "Bash(git stash clear)"]
+  no_match: ["Bash(git reflog)", "Bash(git stash list)", "Bash(git stash)"]

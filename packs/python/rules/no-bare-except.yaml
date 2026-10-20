@@ -1,0 +1,11 @@
+id: python/no-bare-except
+description: No bare except. Catch the exceptions you expect.
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: E722
+    snippet: '[tool.ruff.lint] extend-select = ["E722"]'
+examples:
+  match: ["try:\n    pass\nexcept:\n    pass\n"]
+  no_match: ["try:\n    pass\nexcept ValueError:\n    pass\n"]

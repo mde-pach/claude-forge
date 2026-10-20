@@ -1,0 +1,15 @@
+id: python/no-explicit-any
+description: No explicit Any. Use a precise type, a Protocol, or object with narrowing.
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: basedpyright
+    expects: reportExplicitAny
+    snippet: '[tool.basedpyright] reportExplicitAny = "error"'
+  - target: tool
+    tool: ruff
+    expects: ANN401
+    snippet: '[tool.ruff.lint] extend-select = ["ANN401"]'
+examples:
+  match: ["from typing import Any\n\n\ndef f(a: Any) -> Any:\n    return a\n"]
+  no_match: ["def f(a: object) -> object:\n    return a\n"]

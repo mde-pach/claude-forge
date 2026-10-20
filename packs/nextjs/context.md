@@ -1,0 +1,1 @@
+Next.js 16 App Router. Request APIs (`params`, `searchParams`, `cookies()`, `headers()`) are async. Components are Server Components unless the file starts with `'use client'`. Request interception lives in `proxy.ts`. `next lint` no longer exists; lint runs through Biome.

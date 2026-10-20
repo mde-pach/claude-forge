@@ -1,0 +1,6 @@
+id: playwright
+description: Playwright end-to-end tests.
+level: project
+requires: [typescript]
+detect:
+  deps_any: [{ecosystem: npm, name: "@playwright/test"}]

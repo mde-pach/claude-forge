@@ -1,0 +1,8 @@
+id: playwright/run
+description: End-to-end tests pass.
+scope: {language: any}
+enforce:
+  - target: check
+    stage: test
+    run: "playwright test --reporter=line"
+    when_changed: ["e2e/**", "playwright.config.*"]

@@ -1,0 +1,6 @@
+id: typescript
+description: TypeScript project checks with Biome and tsc.
+level: project
+detect:
+  files_any: [tsconfig.json]
+  deps_any: [{ecosystem: npm, name: typescript}]

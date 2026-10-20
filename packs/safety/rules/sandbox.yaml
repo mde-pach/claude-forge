@@ -1,0 +1,8 @@
+id: safety/sandbox
+description: Bash runs in the sandbox with network limited to package registries and GitHub.
+scope: {language: any}
+enforce:
+  - {target: sandbox, path: enabled, value: true}
+  - target: sandbox
+    path: network.allowedDomains
+    value: [registry.npmjs.org, pypi.org, files.pythonhosted.org, github.com]

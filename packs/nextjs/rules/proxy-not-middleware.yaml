@@ -1,0 +1,10 @@
+id: nextjs/proxy-not-middleware
+description: middleware.ts is renamed to proxy.ts in Next.js 16.
+scope: {language: typescript, files: ["middleware.ts", "src/middleware.ts"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule: {kind: program, has: {regex: "."}}
+examples:
+  match: ["export function middleware() {}\n"]
+  no_match: [""]

@@ -1,0 +1,6 @@
+id: pytest
+description: pytest runs and test integrity.
+level: project
+requires: [python]
+detect:
+  deps_any: [{ecosystem: pypi, name: pytest}]
