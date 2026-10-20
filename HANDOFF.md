@@ -1,74 +1,47 @@
 # Forge — hand-off notes
 
-Build state of Forge against `SPECS.md` (v0.5), as of 2026-10-20. Read the spec first, then this file.
+Build state of Forge against `SPECS.md` (v0.5), as of 2026-10-20 (second session). Read the spec first, then this file.
 
 ## Toolchain
 
-- Bun 1.3, Node ≥ 20, uv, Claude Code ≥ 2.1.295.
-- Dev dependencies (`package.json`): `yaml`, `ajv` (2020-12), `jsonc-parser`, `semver`, `smol-toml`, `typescript`. Run `bun install`.
-- Build: `bun run build` → `dist/forge.js`. The `scripts/postbuild.mjs` it references does not exist yet; it should add the `#!/usr/bin/env node` shebang and chmod.
+- Bun 1.3+, Node ≥ 20, uv, Claude Code ≥ 2.1.295. BusyBox is optional (the guard matrix skips a missing shell with a note).
+- Dev dependencies (`package.json`): `yaml`, `ajv` (2020-12), `jsonc-parser` (imported from `jsonc-parser/lib/esm/main.js`: its UMD entry does not bundle), `semver`, `smol-toml`, `typescript`. Run `bun install`.
+- Build: `bun run build` → `dist/forge.js`; `scripts/postbuild.mjs` adds the shebang, chmods it and writes `schemas/*.schema.json`.
+- Tests: `bun run test` (build + `bun test ./tests/*.test.ts`; the path glob keeps bun away from the sample apps' own `*.test.ts`). About 30 s; ast-grep runs through `bunx`, so the first run needs the network. `FORGE_UPDATE_SNAPSHOTS=1` rewrites `tests/generator/__snapshots__/`.
 - ast-grep pinned to **0.45.3**.
 
 ## Done
 
+Everything in §3–§14 is implemented. Verified in this environment: all of §14.1, §14.2 and §14.3 (152 tests), plus the audits against real Biome 2.2, TypeScript 5.9, ruff and basedpyright, and check.sh / hooks under dash, `bash --posix` and BusyBox.
+
 | Area | Files |
 |---|---|
-| Types | `src/types.ts` |
-| Strict YAML (rejects duplicate keys, anchors, aliases, explicit tags; tested) | `src/yaml.ts` |
-| JSON Schemas for pack, rule, forge.yaml + `validate()` | `src/schemas.ts` (not yet exercised; Ajv strict mode may need tweaks) |
-| Pack, rule, local-rule and forge.yaml loading; dependency detection from package.json, bun.lock, pyproject.toml, uv.lock; glob→RegExp | `src/packs.ts` |
-| sha256, `run()`, git helpers, version constants, `packageRoot()` | `src/util.ts` |
-| All 15 packs from §13, one YAML per rule, `context.md` files, init templates (python: `ruff.toml`, `pyrightconfig.json`; typescript: `biome.json`, `tsconfig.json`) | `packs/**` |
-| Hook runtime: `json_get`, `json_escape`, `tool`, `astgrep`, `repo_root` (tested on sh + dash) | `templates/scripts/lib.sh` |
-| Guard (tested: every guard example passes on sh + dash) | `templates/scripts/guard.sh` |
-| `check.sh` template, steps 1–4 written, stages call `forge_run_stage` from the generated fragment | `templates/scripts/check.sh` |
+| Types, strict YAML, JSON Schemas (Ajv strict, with `strictRequired`/`strictTypes` off for the `if/then` target schemas), loaders, detection | `src/types.ts`, `src/yaml.ts`, `src/schemas.ts`, `src/packs.ts` |
+| Renderers: checks fragment, guard.rules, ast-grep rules/tests/sgconfig, hooks.json, plugin.json | `src/render.ts` |
+| Generator (pure): active packs (detect, forge.yaml add/remove, `requires` closure; packs requiring a removed pack are dropped too), local overrides, disable, deprecated, static tool presence, ast-grep fallback, files map, settings entries | `src/plan.ts` |
+| Settings append/remove (JSONC, comments kept; only added entries recorded; scalars never overwritten, with a warning) | `src/settings.ts` |
+| Lock | `src/lock.ts` |
+| Audit (§11) | `src/audit.ts` |
+| `forge test` (§14.1) | `src/selftest.ts` |
+| CLI: all commands, `claude --version` gate, drift / unowned-file stop, `--force`, `--dry-run`, `--yes`, pre-commit offer, `remove` (also deletes `.forge/state/` and prunes empty dirs) | `src/cli.ts` |
+| Check engine (static shell shared by check.sh, post-edit, typecheck, session-start) | `templates/scripts/engine.sh` |
+| Hook scripts | `templates/scripts/{post-edit,typecheck,stop,session-start,notify}.sh` |
+| Tests | `tests/{units,guard,generator,check}.test.ts`, `tests/generator/{fastapi-app,nextjs-prisma-app,eslint-app}` + snapshots |
+| E2E harness (§14.4) — **written, not run** (needs an authenticated `claude -p` and PostgreSQL) | `tests/e2e/` (see its README) |
 
 ## Remaining
 
-1. **Generated checks fragment** (`@@CHECKS@@` in check.sh, also embedded in post-edit.sh and typecheck.sh), rendered from active `check` targets:
-   - `IFS` is newline in these scripts. Paths with spaces then work, and `forge_exec_tool` re-splits the `tool` output on spaces.
-   - One wrapper function per project tool used in `run` strings (ruff, basedpyright, biome, tsc, alembic, pytest, prisma, vitest, playwright), dispatching through `tool <name>`. `uv` and `bun` are system commands, checked with `command -v`.
-   - For each check `n`: `forge_check_meta_n` (sets `c_id c_stage c_tools c_when c_localdb c_timeout c_changed`), `forge_scope_n <file>` (a literal `case` built from language extensions + `scope.files`; `!` globs exclude), `forge_when_n <file>`, `forge_check_run_n`, `forge_check_changed_n` (`{files}` → `$FORGE_FILES`).
-   - `forge_run_stage <stage>`:
-     - Under `--changed`, skip when no in-scope file changed (or no `when_changed` match).
-     - A missing tool prints `forge:<id> skipped: <tool> not installed`.
-     - `requires_local_db` uses `forge_local_db` (`DATABASE_URL` env → `.env` → `alembic.ini sqlalchemy.url`; localhost/127.0.0.1/::1/empty host/socket = local). Otherwise it prints `forge:<id> skipped: no local database`.
-     - Timeouts go through a background-sleep-kill helper.
-     - Failure prints `forge:<id> failed` + first 15 lines and returns 1.
-     - `forge:` lines from a passing run (prisma shadowDatabaseUrl skip) are echoed.
-   - `forge_related_py_tests` (used by `pytest/run` changed_run): changed test files + `tests/**/test_<module>.py`, newline-separated.
-2. **Hook scripts** (templates → `.claude/skills/forge-project/scripts/`): `post-edit.sh`, `typecheck.sh` (mkdir lock in `.forge/state/`, pid takeover if stale), `stop.sh` (§10.2), `session-start.sh` (≤ 20 lines, missing tools reported once via a state file), `notify.sh` (user level, OSC 777 / OSC 9 for iTerm.app and WezTerm via `terminalSequence`).
-3. **Generator / plan** (pure: inputs → files map + settings entries + lock + report). It covers:
-   - active packs: detect + `forge.yaml` add/remove + `requires` closure
-   - local rule override, disable with reason
-   - static tool presence:
-     - biome: `biome.json(c)` or `@biomejs/biome`
-     - ruff: `ruff.toml` / `[tool.ruff]` / dep
-     - basedpyright: dep / `[tool.basedpyright]` / `pyrightconfig.json`
-     - tsc: `tsconfig.json` / typescript
-   - ast-grep fallback only when none of a rule's `tool` targets' tools are present
-   - check targets whose tool is absent → "not enforced here"
-   - `.forge/ast-grep/{sgconfig.yml, rules/<pack>/<name>.yml, rule-tests/*.yml}`
-   - `guard.rules` (deny lines first, header comment naming source rule files)
-   - `hooks.json`, `plugin.json`, `.claude/rules/forge-<pack>.md`, `.forge/.gitignore`
-4. **Settings** (jsonc-parser `modify`/`applyEdits`, comments preserved):
-   - Append only. Array targets append items; scalar targets are set only if absent.
-   - Record only entries Forge actually added.
-   - Confirm `y` / `--yes` for shared files.
-   - On `remove`, prune containers emptied by the removal, and delete the file if it ends as `{}`.
-5. **Lock** (`.forge/forge.lock.json`, `~/.claude/forge.lock.json`). Pretty-printed with 2-space indent, one `"path": "hash"` per line under `  "files": {`, because `check.sh` parses it with awk. The lock does not hash itself.
-6. **CLI** (`src/cli.ts`): `init`, `apply [--user|--local] [--force] [--dry-run] [--yes]`, `diff`, `status`, `explain`, `test`, `remove`. Plus:
-   - The `claude --version` gate (≥ 2.1.295).
-   - The pre-commit offer (§10.3).
-   - `apply` stops when an owned file is drifted, or when an unowned file sits at an owned path, unless `--force`.
-7. **Audit** (§11): biome `lint --stdin-file-path`, `ruff check --stdin-filename`, temp files for basedpyright and tsc (temporary tsconfig extending the project's). Search output for `expects`.
-8. **`forge test`** (§14.1):
-   - schema validation
-   - ast-grep rule-tests via `ast-grep test --skip-snapshot-tests`; the loaded-rule count must equal the rule-file count
-   - guard examples **per rule in isolation** on sh, dash, BusyBox (skip a missing shell with a note)
-   - permission examples via a small matcher: `Bash(prefix:*)` = prefix + word boundary, Read/Edit = glob
-   - `context.md` ≤ 10 lines
-9. **Tests**: `tests/generator/` sample repos + snapshots (§14.2, including an ESLint repo), guard corpus + p99 ≤ 20 ms with 50 rules (§14.3). E2E (§14.4) needs a container with real `claude -p` runs; write the harness, flag that it was not run.
+1. **Run the E2E harness** (`tests/e2e/README.md`) in a real container and fix whatever it finds. The regexes in `run.ts` match Forge's own output, but how Claude Code frames hook output in the stream and debug log was not observed. Scenarios that depend on model behavior (e.g. "impossible test", three failed Stops) may need prompt tuning.
+2. **macOS.** Shell code is POSIX and was run under dash, `bash --posix` (standing in for bash 3.2) and BusyBox, but not on macOS itself (BSD `sed`/`awk`/`find`, `shasum`).
+3. **Publishing**: the npm scope is still `@maximedepachtere`; nothing was published.
+
+## How the generated checks work
+
+- Every check target becomes `forge_check_meta_<n>` (`c_id c_stage c_tools c_when c_localdb c_timeout c_changed c_files`), `forge_scope_<n>` (literal `case` from the language extensions and `scope.files`; `!` globs exclude), `forge_when_<n>`, `forge_check_run_<n>` and, with `changed_run`, `forge_check_changed_<n>` (`{files}` → unquoted `$FORGE_FILES` with `IFS` = newline and `set -f`).
+- Run strings are inserted verbatim. Project tools used in them (`ruff`, `basedpyright`, `biome`, `tsc`, `alembic`, `pytest`, `prisma`, `vitest`, `playwright`) are shell functions dispatching through `tool <name>`, so the strings run unchanged. `uv` and `bun` are checked with `command -v`.
+- `--all` runs every check regardless of `when_changed` and scope (CI should verify everything); `--changed` skips a check with no in-scope changed file, or with `when_changed` and no matching changed path.
+- A check whose audited tool (biome, ruff, basedpyright, tsc) is not configured in the project is not generated at all and is reported "not enforced here"; a check whose binary is merely not installed is generated and prints `skipped: <tool> not installed` at run time.
+- Within a stage all checks run; check.sh stops after the first failing step or stage.
 
 ## Deliberate departures from the spec
 
@@ -81,6 +54,15 @@ Build state of Forge against `SPECS.md` (v0.5), as of 2026-10-20. Read the spec 
 - **check.sh is self-contained.** It inlines lib.sh so CI does not depend on `.claude/`.
 - **Built-in check ids.** `forge/integrity`, `forge/applied-migration`, `forge/deleted-test`, `forge/ast-grep`.
 - **Pydantic detection.** `pydantic` is also detected via a `fastapi` dependency.
+- **Biome audit uses a temporary file**, not `biome lint --stdin-file-path`: Biome 2's stdin mode echoes the content and prints no lint diagnostics. basedpyright and tsc use temporary files as specified; ruff uses stdin.
+- **Hook commands** are `sh "${CLAUDE_PLUGIN_ROOT}/scripts/<x>.sh"`, so no executable bit is needed and a deleted `guard.sh` makes the hook fail (exit 127), which `onFailure: "block"` turns into a block.
+- **Stop hash** also includes each untracked file's blob hash (the spec says the list of untracked files), so editing an untracked file again re-runs the check. After a pass the hash is recomputed, because `changed_run` formatters may have rewritten files.
+- **Pre-commit hook** created by `apply` is recorded in the lock's `files` (`.git/hooks/pre-commit`), so `remove` deletes it and drift is detected; check.sh's integrity step only looks at `.forge/` and `.claude/` paths. It is only offered interactively or with `--yes`.
+- **User-level paths** are relative to the home directory (`.claude/settings.json`, `.claude/skills/forge-user/...`, `.claude/forge.lock.json`), the same shape as project paths.
+- **`python/lint` `changed_run`** is `ruff check --output-format concise {files}`: ruff's default output does not fit the 20-line PostToolUse budget.
+- **Receiver constraints** (data-only changes to two rules, for the two false positives the previous hand-off flagged): `pydantic/v2-api` does not flag `.json()` / `.dict()` on `r`, `res`, `resp`, `response`, `*_response`; `sqlalchemy/no-query-api` only flags `.query()` on session-like receivers (`session`, `db`, `*_session`, `s`, `sess`, `self.session`).
+- **`forge test` structure checks** beyond the schema: at most one ast-grep target per rule, no ast-grep target on `language: any`, and match + no_match examples on every rule with ast-grep, guard, permission or tool targets. Guard examples also run under `bash --posix`.
+- **Deprecated rules** are not enforced; `status` lists them with their replacement.
 
 ## Verified facts (Claude Code docs, 2026-10-20)
 
@@ -92,6 +74,6 @@ Build state of Forge against `SPECS.md` (v0.5), as of 2026-10-20. Read the spec 
 
 ## Open points
 
-- **pydantic false positives.** `pydantic/v2-api` forbids `$M.json()` and `$M.dict()` as the spec says. This also flags `response.json()` (httpx/requests, FastAPI tests).
-- **Broad `.query` match.** `sqlalchemy/no-query-api` (`$S.query($$$)`) matches any `.query(` call.
-- **Untested ast-grep rules.** None of the rules have been run through `ast-grep test` yet. Expect a few patterns to need fixes, for example `nextjs/proxy-not-middleware` with an empty `no_match`, and the pydantic `Config` rule.
+- **Settings formatting.** jsonc-parser reformats the arrays/objects Forge appends to (inline `["a"]` becomes multi-line). Values and comments are preserved and `remove` restores the values, but not necessarily the original layout of a pre-existing user file. A file Forge created is deleted on `remove`, so project repos come back clean.
+- **ast-grep on `.ts` with the Tsx parser**: old-style `<T>value` casts in `.ts` files misparse. Rare in modern code; kept for the one-rule-file design.
+- **Missing-tool noise.** check.sh prints `forge:<id> skipped: <tool> not installed` on every run, including CI. Intended (visible, never blocking), but could be reduced to once per run in CI if it proves noisy.

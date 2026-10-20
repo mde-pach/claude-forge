@@ -59,3 +59,46 @@ export function compareVersions(a: string, b: string): number {
 export function shQuote(s: string): string {
   return `'${s.replace(/'/g, `'\\''`)}'`;
 }
+
+/** Line diff (LCS) in unified style without hunks headers; "" when equal. */
+export function lineDiff(before: string, after: string, label: string): string {
+  if (before === after) return "";
+  const a = before === "" ? [] : before.replace(/\n$/, "").split("\n");
+  const b = after === "" ? [] : after.replace(/\n$/, "").split("\n");
+  const n = a.length;
+  const m = b.length;
+  const out: string[] = [`--- ${label}`, `+++ ${label}`];
+  if (n * m > 4_000_000) {
+    for (const l of a) out.push(`-${l}`);
+    for (const l of b) out.push(`+${l}`);
+    return out.join("\n") + "\n";
+  }
+  const dp: Uint32Array[] = Array.from({ length: n + 1 }, () => new Uint32Array(m + 1));
+  for (let i = n - 1; i >= 0; i--)
+    for (let j = m - 1; j >= 0; j--) dp[i]![j] = a[i] === b[j] ? dp[i + 1]![j + 1]! + 1 : Math.max(dp[i + 1]![j]!, dp[i]![j + 1]!);
+  const ops: string[] = [];
+  let i = 0;
+  let j = 0;
+  while (i < n || j < m) {
+    if (i < n && j < m && a[i] === b[j]) {
+      ops.push(` ${a[i]}`);
+      i++;
+      j++;
+    } else if (j < m && (i === n || dp[i]![j + 1]! >= dp[i + 1]![j]!)) ops.push(`+${b[j++]}`);
+    else ops.push(`-${a[i++]}`);
+  }
+  // keep 2 lines of context around changes
+  const keep = ops.map((o) => o[0] !== " ");
+  for (let k = 0; k < ops.length; k++) if (ops[k]![0] !== " ") for (let d = -2; d <= 2; d++) if (ops[k + d] !== undefined) keep[k + d] = true;
+  let skipped = false;
+  ops.forEach((o, k) => {
+    if (keep[k]) {
+      out.push(o);
+      skipped = false;
+    } else if (!skipped) {
+      out.push("@@");
+      skipped = true;
+    }
+  });
+  return out.join("\n") + "\n";
+}

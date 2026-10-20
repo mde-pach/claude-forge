@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { satisfies, minVersion, coerce, validRange } from "semver";
-import { parse as parseJsonc } from "jsonc-parser";
+import { parse as parseJsonc } from "jsonc-parser/lib/esm/main.js";
 import { parse as parseToml } from "smol-toml";
 import { parseStrictYaml } from "./yaml.js";
 import { validate } from "./schemas.js";

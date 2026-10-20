@@ -5,6 +5,8 @@ enforce:
   - target: ast-grep
     mode: forbid
     rule: {pattern: "$S.query($$$)"}
+    # Only session-like receivers: other libraries also have .query().
+    constraints: {S: {regex: "(^|\\.|_)([Ss]ession|db|sess|s)$"}}
 examples:
   match: ["users = session.query(User).all()", "db.query(User).filter(User.id == 1)"]
-  no_match: ["users = (await session.scalars(select(User))).all()", "query = select(User)"]
+  no_match: ["results = index.query(\"text\")", "users = (await session.scalars(select(User))).all()", "query = select(User)"]

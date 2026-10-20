@@ -80,3 +80,15 @@ repo_root() {
   _top=$(git rev-parse --show-toplevel 2>/dev/null) || return 1
   cd "$_top" || return 1
 }
+
+# rel_path <path>: <path> relative to the current directory (the repository
+# root after repo_root), resolving symlinks; fails when outside it.
+rel_path() {
+  case $1 in /*) _rp_p=$1 ;; *) _rp_p=$(json_get cwd)/$1 ;; esac
+  _rp_d=$(cd "$(dirname "$_rp_p")" 2>/dev/null && pwd -P) || return 1
+  _rp_root=$(pwd -P)
+  case $_rp_d/ in "$_rp_root"/*) ;; *) return 1 ;; esac
+  _rp_rel=${_rp_d#"$_rp_root"}
+  _rp_rel=${_rp_rel#/}
+  printf '%s' "${_rp_rel:+$_rp_rel/}${_rp_p##*/}"
+}

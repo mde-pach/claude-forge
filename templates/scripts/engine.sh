@@ -1,0 +1,208 @@
+# Check engine (static part). Expects: IFS = newline, FORGE_TMP, FORGE_NCHECKS,
+# forge_check_meta_<n>, forge_scope_<n>, forge_when_<n>, forge_check_run_<n>,
+# forge_check_changed_<n>, plus tool() and first_lines() from lib.sh.
+
+# forge_exec_tool <name> <args>: runs the project's own <name>; 127 when absent.
+forge_exec_tool() {
+  _fx_cmd=$(tool "$1")
+  [ -n "$_fx_cmd" ] || { printf 'forge: %s not installed\n' "$1" >&2; return 127; }
+  shift
+  _fx_ifs=$IFS
+  IFS=' '
+  # shellcheck disable=SC2086
+  set -- $_fx_cmd "$@"
+  IFS=$_fx_ifs
+  "$@"
+}
+
+# forge_has_tool <name>: system runtimes (uv, bun) via PATH, others via tool().
+forge_has_tool() {
+  case $1 in
+    uv|bun) command -v "$1" >/dev/null 2>&1 ;;
+    *) [ -n "$(tool "$1")" ] ;;
+  esac
+}
+
+# forge_missing_tool: prints the first tool of $c_tools that is absent.
+forge_missing_tool() {
+  _fm_ifs=$IFS
+  IFS=' '
+  for _fm_t in $c_tools; do
+    if ! forge_has_tool "$_fm_t"; then IFS=$_fm_ifs; printf '%s' "$_fm_t"; return 0; fi
+  done
+  IFS=$_fm_ifs
+  return 1
+}
+
+# forge_filter <predicate>: lines of stdin for which <predicate> <line> succeeds.
+forge_filter() {
+  while read -r _ff_line; do
+    [ -n "$_ff_line" ] && "$1" "$_ff_line" && printf '%s\n' "$_ff_line"
+  done
+  return 0
+}
+
+# forge_db_url: DATABASE_URL from the environment, then .env, then alembic.ini.
+forge_db_url() {
+  if [ -n "${DATABASE_URL:-}" ]; then printf '%s' "$DATABASE_URL"; return 0; fi
+  if [ -f .env ]; then
+    _fd_url=$(sed -n 's/^[[:space:]]*\(export[[:space:]][[:space:]]*\)\{0,1\}DATABASE_URL[[:space:]]*=[[:space:]]*//p' .env \
+      | tail -n 1 | sed -e 's/[[:space:]]*$//' -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'\$/\1/")
+    if [ -n "$_fd_url" ]; then printf '%s' "$_fd_url"; return 0; fi
+  fi
+  if [ -f alembic.ini ]; then
+    sed -n 's/^[[:space:]]*sqlalchemy\.url[[:space:]]*=[[:space:]]*//p' alembic.ini | head -n 1 | sed 's/[[:space:]]*$//'
+  fi
+}
+
+# forge_local_db: succeeds when the configured database is on this machine
+# (localhost, 127.0.0.1, ::1, empty host or a Unix socket).
+forge_local_db() {
+  _fl_url=$(forge_db_url)
+  [ -n "$_fl_url" ] || return 1
+  case $_fl_url in *host=/*|*host=%2[Ff]*) return 0 ;; esac
+  _fl_host=$(printf '%s' "$_fl_url" | sed -e 's|^[A-Za-z][A-Za-z0-9+.-]*://||' -e 's|[/?].*$||' -e 's|^.*@||')
+  case $_fl_host in
+    \[*) _fl_host=$(printf '%s' "$_fl_host" | sed 's|^\[\([^]]*\)\].*$|\1|') ;;
+    *) _fl_host=$(printf '%s' "$_fl_host" | sed 's|:.*$||') ;;
+  esac
+  case $_fl_host in ''|localhost|127.0.0.1|::1|%2[Ff]*) return 0 ;; esac
+  return 1
+}
+
+# forge_related_py_tests <files>: changed test files plus tests/**/test_<module>.py
+# for each changed module, one per line.
+forge_related_py_tests() {
+  for _fr_f in "$@"; do
+    case $_fr_f in
+      *.py) ;;
+      *) continue ;;
+    esac
+    _fr_b=${_fr_f##*/}
+    case $_fr_b in
+      test_*.py|*_test.py) [ -f "$_fr_f" ] && printf '%s\n' "$_fr_f" ;;
+      __init__.py|conftest.py) ;;
+      *) [ -d tests ] && find tests -type f -name "test_${_fr_b%.py}.py" 2>/dev/null ;;
+    esac
+  done | sort -u
+}
+
+# forge_kill_tree <pid>: kills a process and its descendants.
+forge_kill_tree() {
+  for _fk_c in $(ps -A -o pid= -o ppid= 2>/dev/null | awk -v p="$1" '$2 == p { print $1 }'); do
+    forge_kill_tree "$_fk_c"
+  done
+  kill "$1" 2>/dev/null
+}
+
+# forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out.
+forge_exec_check() {
+  set -f
+  if [ -n "$2" ]; then
+    "$1" > "$FORGE_TMP/out" 2>&1 &
+    _fe_pid=$!
+    ( sleep "$2"; printf 'forge: timed out after %ss\n' "$2" >> "$FORGE_TMP/out"; forge_kill_tree "$_fe_pid" ) >/dev/null 2>&1 &
+    _fe_watch=$!
+    wait "$_fe_pid" 2>/dev/null
+    _fe_rc=$?
+    forge_kill_tree "$_fe_watch"
+  else
+    "$1" > "$FORGE_TMP/out" 2>&1 < /dev/null
+    _fe_rc=$?
+  fi
+  set +f
+  return "$_fe_rc"
+}
+
+# forge_run_check <n>: one check under check.sh ($mode, $FORGE_TMP/changed, $FORGE_TMP/existing).
+forge_run_check() {
+  forge_check_meta_"$1"
+  FORGE_FILES=''
+  if [ "$mode" = --changed ]; then
+    if [ "$c_when" = 1 ]; then
+      [ -n "$(forge_filter "forge_when_$1" < "$FORGE_TMP/changed")" ] || return 0
+    fi
+    FORGE_FILES=$(forge_filter "forge_scope_$1" < "$FORGE_TMP/existing")
+    [ "$c_when" = 1 ] || [ -n "$FORGE_FILES" ] || return 0
+  fi
+  if _fc_missing=$(forge_missing_tool); then
+    printf 'forge:%s skipped: %s not installed\n' "$c_id" "$_fc_missing"
+    return 0
+  fi
+  if [ "$c_localdb" = 1 ] && ! forge_local_db; then
+    printf 'forge:%s skipped: no local database\n' "$c_id"
+    return 0
+  fi
+  _fc_fn=forge_check_run_$1
+  if [ "$mode" = --changed ] && [ "$c_changed" = 1 ] && [ -n "$FORGE_FILES" ]; then _fc_fn=forge_check_changed_$1; fi
+  if forge_exec_check "$_fc_fn" "$c_timeout"; then
+    grep '^forge:' "$FORGE_TMP/out"
+    return 0
+  fi
+  printf 'forge:%s failed\n' "$c_id"
+  first_lines 15 < "$FORGE_TMP/out"
+  return 1
+}
+
+# forge_run_stage <stage>: every check of <stage>; fails if one fails.
+forge_run_stage() {
+  _fs_i=1
+  _fs_rc=0
+  while [ "$_fs_i" -le "$FORGE_NCHECKS" ]; do
+    forge_check_meta_"$_fs_i"
+    if [ "$c_stage" = "$1" ]; then
+      forge_run_check "$_fs_i" || _fs_rc=1
+    fi
+    _fs_i=$((_fs_i + 1))
+  done
+  [ "$_fs_rc" -eq 0 ] || fail=1
+  return "$_fs_rc"
+}
+
+# forge_file_stage <stage> <file>: the {files} form of each in-scope check of
+# <stage>, on one file (PostToolUse). Prints failures; absent tools are skipped.
+forge_file_stage() {
+  _fp_i=1
+  _fp_rc=0
+  FORGE_FILES=$2
+  while [ "$_fp_i" -le "$FORGE_NCHECKS" ]; do
+    forge_check_meta_"$_fp_i"
+    if [ "$c_stage" = "$1" ] && [ "$c_files" = 1 ] && forge_scope_"$_fp_i" "$2" && ! forge_missing_tool >/dev/null; then
+      if ! forge_exec_check "forge_check_changed_$_fp_i" "$c_timeout"; then
+        printf 'forge:%s\n' "$c_id"
+        first_lines 15 < "$FORGE_TMP/out"
+        _fp_rc=1
+      fi
+    fi
+    _fp_i=$((_fp_i + 1))
+  done
+  return "$_fp_rc"
+}
+
+# forge_typecheck <file>: the full run of each typecheck check whose scope covers <file>.
+forge_typecheck() {
+  _ft_i=1
+  _ft_rc=0
+  while [ "$_ft_i" -le "$FORGE_NCHECKS" ]; do
+    forge_check_meta_"$_ft_i"
+    if [ "$c_stage" = typecheck ] && forge_scope_"$_ft_i" "$1" && ! forge_missing_tool >/dev/null; then
+      if ! forge_exec_check "forge_check_run_$_ft_i" "$c_timeout"; then
+        printf 'forge:%s\n' "$c_id"
+        first_lines 19 < "$FORGE_TMP/out"
+        _ft_rc=1
+      fi
+    fi
+    _ft_i=$((_ft_i + 1))
+  done
+  return "$_ft_rc"
+}
+
+# forge_required_tools: every tool the checks use, one per line.
+forge_required_tools() {
+  _fq_i=1
+  while [ "$_fq_i" -le "$FORGE_NCHECKS" ]; do
+    forge_check_meta_"$_fq_i"
+    printf '%s\n' "$c_tools" | tr ' ' '\n'
+    _fq_i=$((_fq_i + 1))
+  done | awk 'NF && !seen[$0]++'
+}

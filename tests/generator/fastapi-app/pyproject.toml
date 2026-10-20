@@ -1,0 +1,20 @@
+[project]
+name = "fastapi-app"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115",
+  "sqlalchemy[asyncio]>=2.0.36",
+  "alembic>=1.14",
+  "pydantic>=2.9",
+  "asyncpg>=0.30",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.3", "ruff>=0.8", "basedpyright>=1.22"]
+
+[tool.ruff.lint]
+select = ["E", "F", "ANN401", "E722"]
+
+[tool.basedpyright]
+reportExplicitAny = "error"

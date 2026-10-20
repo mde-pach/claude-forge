@@ -18,6 +18,8 @@ enforce:
           inside:
             kind: block
             inside: {kind: class_definition, has: {field: superclasses, has: {regex: "BaseModel"}}}
+    # HTTP responses (httpx, requests, TestClient) also have .json(): not Pydantic.
+    constraints: {M: {not: {regex: "^(r|res|resp|response|[A-Za-z_]*_(response|resp))$|\\.(response|resp)$"}}}
 examples:
   match: ["data = user.dict()", "u = User.parse_obj(raw)", "@validator(\"name\")\ndef check(cls, v):\n    return v\n", "class User(BaseModel):\n    class Config:\n        orm_mode = True\n"]
-  no_match: ["data = user.model_dump()", "u = User.model_validate(raw)", "@field_validator(\"name\")\ndef check(cls, v):\n    return v\n", "class User(BaseModel):\n    model_config = ConfigDict(from_attributes=True)\n"]
+  no_match: ["body = response.json()", "assert resp.json() == {}", "data = user.model_dump()", "u = User.model_validate(raw)", "@field_validator(\"name\")\ndef check(cls, v):\n    return v\n", "class User(BaseModel):\n    model_config = ConfigDict(from_attributes=True)\n"]

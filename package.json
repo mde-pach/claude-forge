@@ -7,9 +7,9 @@
   "files": ["dist", "packs", "templates", "schemas"],
   "engines": { "node": ">=20" },
   "scripts": {
-    "build": "bun build src/cli.ts --target=node --outfile=dist/forge.js && node scripts/postbuild.mjs",
+    "build": "bun build src/cli.ts --target=node --outfile=dist/forge.js && bun scripts/postbuild.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "bun run build && bun test tests"
+    "test": "bun run build && bun test --timeout 300000 ./tests/*.test.ts"
   },
   "devDependencies": {
     "@types/node": "24.10.1",

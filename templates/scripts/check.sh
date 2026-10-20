@@ -104,7 +104,7 @@ forge_tests_integrity() {
   awk -F '\t' -v inc="$FORGE_NO_INCREASE" -v dec="$FORGE_NO_DECREASE" '
     BEGIN { n = split(inc, a, "|"); for (i = 1; i <= n; i++) if (a[i] != "") mi[a[i]] = 1
             n = split(dec, b, "|"); for (i = 1; i <= n; i++) if (b[i] != "") md[b[i]] = 1 }
-    FNR == NR { then[$1 "\t" $2] = $3; keys[$1 "\t" $2] = 1; next }
+    FILENAME == ARGV[1] { then[$1 "\t" $2] = $3; keys[$1 "\t" $2] = 1; next }
     { now[$1 "\t" $2] = $3; keys[$1 "\t" $2] = 1 }
     END {
       for (k in keys) {

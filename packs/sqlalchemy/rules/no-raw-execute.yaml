@@ -4,7 +4,7 @@ scope: {language: python}
 enforce:
   - target: ast-grep
     mode: forbid
-    rule: {pattern: "$X.execute($S, $$$R)"}
+    rule: {any: [{pattern: "$X.execute($S)"}, {pattern: "$X.execute($S, $$$R)"}]}
     constraints: {S: {kind: string}}
 examples:
   match: ["await session.execute(\"DELETE FROM users\")", "conn.execute('SELECT 1', {})"]

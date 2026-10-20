@@ -6,7 +6,9 @@ enforce:
     mode: forbid
     rule:
       pattern: "$N = Column($$$)"
-      inside: {kind: block, inside: {kind: class_definition}}
+      inside:
+        kind: expression_statement
+        inside: {kind: block, inside: {kind: class_definition}}
 examples:
   match: ["class User(Base):\n    id = Column(Integer, primary_key=True)\n"]
   no_match: ["class User(Base):\n    id: Mapped[int] = mapped_column(primary_key=True)\n", "users = Table(\"users\", metadata, Column(\"id\", Integer))\n"]

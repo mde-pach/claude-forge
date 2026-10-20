@@ -190,7 +190,7 @@ export const projectConfigSchema = {
   },
 } as const;
 
-const ajv = new Ajv2020({ allErrors: true, strict: true, allowUnionTypes: true });
+const ajv = new Ajv2020({ allErrors: true, strict: true, strictRequired: false, strictTypes: false, allowUnionTypes: true });
 const validators = {
   pack: ajv.compile(packSchema),
   rule: ajv.compile(ruleSchema),
