@@ -1,0 +1,33 @@
+---
+// Claude Code's lifecycle with the Forge pieces a rule or pack uses lit up.
+// Compact by default (events this page does not involve collapse into one-line stubs);
+// "Show all … events" swaps in the full lifecycle. No client JavaScript.
+import type { LifecycleEvent } from "../lib/lifecycle";
+import { HOOK_EVENTS, litPieces, schemaSvg } from "../lib/schema";
+
+interface Props {
+  /** Events to light up, with who they belong to (a rule id, or "context"). */
+  events: { event: LifecycleEvent; who: string }[];
+  /** "rule" and "pack" pages collapse unused events; "overview" shows every Forge piece. */
+  variant: "rule" | "pack" | "overview";
+  uid: string;
+}
+const { events, variant, uid } = Astro.props;
+const lit = litPieces(events);
+const opts = { lit, counts: variant === "pack", showAllPieces: variant === "overview" };
+const compact = schemaSvg({ ...opts, full: false, uid: `${uid}-c` });
+const full = schemaSvg({ ...opts, full: true, uid: `${uid}-f` });
+---
+
+<figure class="forge-schema" data-variant={variant}>
+  <div class="forge-schema-compact" set:html={compact.svg} />
+  <details class="forge-schema-more">
+    <summary>Show all {HOOK_EVENTS.length} Claude Code hook events</summary>
+    <div set:html={full.svg} />
+  </details>
+  <figcaption class="forge-schema-legend">
+    <span><b class="forge-lane-key">A</b> next tool call</span>
+    <span class={compact.retry ? "forge-lane-on" : undefined}><b class="forge-lane-key">B</b> Stop blocked: Claude keeps working{compact.retry ? " (Forge: at most 3 times)" : ""}</span>
+    <span><b class="forge-lane-key">C</b> next prompt</span>
+  </figcaption>
+</figure>

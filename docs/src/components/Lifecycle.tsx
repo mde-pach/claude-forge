@@ -21,9 +21,6 @@ export const EFFECT_LABEL: Record<Effect, string> = {
   inactive: "not checked",
 };
 
-/** Strongest effect first, for the rail colour. */
-const ORDER: Effect[] = ["blocks", "asks", "wakes", "feedback", "fixes", "audits", "informs", "inactive"];
-
 function Inline({ text }: { text: string }) {
   return (
     <>
@@ -42,24 +39,13 @@ export function EffectPill({ effect }: { effect: Effect }) {
   );
 }
 
-/** What a rule does at each step: a rail of the seven steps, then one line per event. */
+/** What a rule does at each step, one line per event (the schema beside it shows where). */
 export default function Lifecycle({ events, title = "When it acts" }: { events: LifecycleEvent[]; title?: string }) {
   const byStep = new Map<StepId, LifecycleEvent[]>();
   for (const e of events) byStep.set(e.step, [...(byStep.get(e.step) ?? []), e]);
-  const strongest = (step: StepId) => ORDER.find((o) => byStep.get(step)?.some((e) => e.effect === o));
   return (
     <div className="forge-lifecycle">
       <p className="forge-label">{title}</p>
-      <ol className="forge-rail" aria-label="Lifecycle steps">
-        {STEPS.map((s) => {
-          const effect = strongest(s.id);
-          return (
-            <li key={s.id} data-effect={effect ?? "none"} title={effect ? EFFECT_LABEL[effect] : "not involved"}>
-              {s.label}
-            </li>
-          );
-        })}
-      </ol>
       <dl className="forge-events">
         {STEPS.filter((s) => byStep.has(s.id)).map((s) => (
           <div key={s.id}>

@@ -110,34 +110,6 @@ a.forge-chip--link:hover { border-color: var(--sl-color-accent); }
 
 .forge-lifecycle { margin: 1.25rem 0; }
 .sl-markdown-content .forge-label { margin: 0 0 0.4rem; font-size: var(--sl-text-xs); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--sl-color-gray-3); }
-.sl-markdown-content .forge-rail {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 3px;
-  list-style: none;
-  padding: 0;
-  margin: 0 0 0.75rem;
-}
-.sl-markdown-content .forge-rail li {
-  margin: 0;
-  padding: 0.35rem 0.25rem;
-  text-align: center;
-  font-size: 0.7rem;
-  line-height: 1.2;
-  border-radius: 0.3rem;
-  color: var(--sl-color-gray-4);
-  background: var(--sl-color-gray-6);
-  border-bottom: 3px solid transparent;
-}
-.sl-markdown-content .forge-rail li:not([data-effect="none"]) {
-  color: var(--sl-color-white);
-  font-weight: 600;
-  border-bottom-color: var(--forge-c);
-  background: color-mix(in srgb, var(--forge-c) 14%, var(--sl-color-gray-6));
-}
-@media (max-width: 40rem) {
-  .sl-markdown-content .forge-rail { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-}
 .sl-markdown-content .forge-events { margin: 0; display: grid; gap: 0.1rem; font-size: var(--sl-text-sm); }
 .sl-markdown-content .forge-events > div {
   display: grid;
@@ -224,17 +196,58 @@ a.forge-chip--link:hover { border-color: var(--sl-color-accent); }
 .forge-note { font-size: var(--sl-text-sm); color: var(--sl-color-gray-3); }
 .sl-markdown-content table code { white-space: nowrap; }
 
-/* pack matrix: rules × steps */
-.forge-matrix-wrap { overflow-x: auto; margin: 1rem 0; }
-.sl-markdown-content table.forge-matrix { display: table; width: auto; border-collapse: separate; border-spacing: 3px; font-size: var(--sl-text-xs); margin: 0; }
-.sl-markdown-content .forge-matrix th, .sl-markdown-content .forge-matrix td { border: none; padding: 0.3rem 0.4rem; text-align: center; vertical-align: middle; }
-.sl-markdown-content .forge-matrix thead th { color: var(--sl-color-gray-3); font-weight: 600; line-height: 1.2; background: none; }
-.sl-markdown-content .forge-matrix tbody th { text-align: start; font-weight: 600; font-size: var(--sl-text-sm); white-space: nowrap; background: none; }
-.sl-markdown-content .forge-matrix td { background: var(--sl-color-gray-6); border-radius: 0.3rem; }
-.sl-markdown-content .forge-matrix td[data-effect] { color: var(--forge-c); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; background: color-mix(in srgb, var(--forge-c) 15%, var(--sl-color-gray-6)); }
-.sl-markdown-content .forge-matrix td { min-width: 5.5rem; }
-@media (max-width: 30rem) {
-  .sl-markdown-content .forge-matrix th, .sl-markdown-content .forge-matrix td { padding: 0.25rem 0.2rem; font-size: 0.62rem; min-width: 0; }
-  .sl-markdown-content .forge-matrix tbody th { white-space: normal; overflow-wrap: anywhere; font-size: var(--sl-text-xs); }
-}
+
 .sl-markdown-content .forge-events code { white-space: normal; overflow-wrap: anywhere; }
+
+/* ---------------------------------------------------------------- lifecycle schema (Claude Code lifecycle, Forge pieces lit) */
+.forge-schema { margin: 1.25rem 0; display: grid; gap: 0.5rem; max-width: 34rem; }
+.forge-schema svg { display: block; width: 100%; height: auto; }
+.forge-schema:has(.forge-schema-more[open]) .forge-schema-compact { display: none; }
+.sl-markdown-content .forge-schema-more { margin: 0; }
+.sl-markdown-content .forge-schema-more summary { cursor: pointer; font-size: var(--sl-text-xs); color: var(--sl-color-gray-3); }
+.sl-markdown-content .forge-schema-more[open] summary { margin-bottom: 0.5rem; }
+.forge-schema-legend { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; font-size: var(--sl-text-xs); color: var(--sl-color-gray-3); }
+.forge-schema-legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
+.forge-lane-key { display: inline-grid; place-items: center; width: 1.1rem; height: 1.1rem; border-radius: 50%; border: 1px solid var(--sl-color-gray-4); font-size: 0.62rem; font-weight: 700; color: var(--sl-color-gray-2); }
+.forge-lane-on { color: var(--forge-red); font-weight: 600; }
+.forge-lane-on .forge-lane-key { border-color: var(--forge-red); color: var(--forge-red); }
+
+.forge-schema-svg text { font-family: var(--sl-font); fill: var(--sl-color-text); }
+.forge-schema-svg .zone, .forge-schema-svg .box-t { font-family: var(--sl-font-mono); font-size: 8px; letter-spacing: 0.08em; fill: var(--sl-color-gray-3); }
+.forge-schema-svg .box { fill: none; stroke: var(--sl-color-gray-5); stroke-dasharray: 3 4; stroke-width: 1.1; }
+.forge-schema-svg .box-turn { stroke: var(--sl-color-gray-4); }
+.forge-schema-svg .spine { stroke: var(--sl-color-gray-5); stroke-dasharray: 2 4; }
+.forge-schema-svg .ev rect { fill: var(--sl-color-bg); stroke: var(--sl-color-gray-4); stroke-width: 1.1; }
+.forge-schema-svg .ev-native rect { fill: var(--sl-color-gray-6); stroke-dasharray: 4 3; }
+.forge-schema-svg .ev-forge rect { fill: none; stroke: var(--sl-color-accent); stroke-dasharray: 5 3; }
+.forge-schema-svg .ev-outside rect, .forge-schema-svg .ev-small rect { fill: var(--sl-color-gray-6); }
+.forge-schema-svg .ev-n { font-family: var(--sl-font-mono); font-size: 10.5px; font-weight: 600; }
+.forge-schema-svg .ev-native .ev-n, .forge-schema-svg .ev-forge .ev-n, .forge-schema-svg .ev-outside .ev-n { font-family: var(--sl-font); }
+.forge-schema-svg .ev-small .ev-n { font-size: 8.4px; }
+.forge-schema-svg .ev-s { font-size: 8.5px; fill: var(--sl-color-gray-3); }
+.forge-schema-svg .ev-small .ev-s { font-size: 7.6px; }
+.forge-schema-svg .stub text { font-size: 8.5px; font-style: italic; fill: var(--sl-color-gray-3); }
+.forge-schema-svg .pill-r { fill: none; stroke: var(--sl-color-gray-4); stroke-dasharray: 3 3; }
+.forge-schema-svg .pill-t { font-family: var(--sl-font-mono); font-size: 9.5px; fill: var(--sl-color-gray-3); }
+.forge-schema-svg .tie { stroke: var(--sl-color-gray-4); stroke-dasharray: 2 3; }
+.forge-schema-svg .pill.infra .pill-r { fill: var(--sl-color-gray-6); stroke-dasharray: none; stroke: var(--sl-color-gray-5); }
+.forge-schema-svg .pill.on .pill-r { stroke: var(--forge-c); stroke-width: 1.6; stroke-dasharray: none; fill: color-mix(in srgb, var(--forge-c) 14%, var(--sl-color-bg)); }
+.forge-schema-svg .pill.on .pill-t { fill: var(--forge-c); font-weight: 700; }
+.forge-schema-svg .pill.on .tie { stroke: var(--forge-c); stroke-dasharray: none; }
+.forge-schema-svg .badge { fill: var(--forge-c); }
+.forge-schema-svg .badge-t { font-size: 7.5px; font-weight: 700; fill: var(--sl-color-bg); letter-spacing: 0.03em; }
+.forge-schema-svg .lane path { fill: none; stroke: var(--sl-color-gray-4); stroke-width: 1.2; }
+.forge-schema-svg .lane circle { fill: var(--sl-color-bg); stroke: var(--sl-color-gray-4); }
+.forge-schema-svg .lane text { font-size: 7.5px; font-weight: 700; fill: var(--sl-color-gray-2); }
+.forge-schema-svg .lane.on path, .forge-schema-svg .lane.on circle { stroke: var(--forge-red); stroke-width: 1.6; }
+.forge-schema-svg .lane.on text { fill: var(--forge-red); }
+.forge-schema-svg .m { fill: var(--sl-color-gray-4); }
+.forge-schema-svg .m-r { fill: var(--forge-red); }
+
+/* rule cards: the schema, then the per-step sentences */
+.sl-markdown-content .forge-rule-life { display: grid; gap: 1rem; margin: 1.25rem 0; }
+.sl-markdown-content .forge-rule-life .forge-schema { margin: 0; }
+.sl-markdown-content .forge-rule-life .forge-lifecycle { margin: 0; }
+
+/* ---------------------------------------------------------------- mascot */
+.forge-hero-mascot { font-size: clamp(0.85rem, 2.6vw, 1.6rem); color: var(--sl-color-accent); text-shadow: 0.06em 0 currentColor; }

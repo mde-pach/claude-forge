@@ -5,7 +5,7 @@ template: splash
 hero:
   tagline: One command writes a standalone Claude Code setup — permissions, sandbox, hooks and a check script — from rule packs for your stack. It runs with plain Claude Code; nothing calls Forge.
   image:
-    file: ../../../public/logo.svg
+    html: '<forge-mascot class="forge-hero-mascot" label="Forge, the anvil mascot"></forge-mascot>'
   actions:
     - text: Get started
       link: guide/getting-started/
@@ -19,6 +19,9 @@ hero:
 ---
 
 import { Card, CardGrid } from "@astrojs/starlight/components";
+import MascotScript from "../../components/MascotScript.astro";
+
+<MascotScript />
 
 <CardGrid>
   <Card title="Standalone output" icon="seti:shell">

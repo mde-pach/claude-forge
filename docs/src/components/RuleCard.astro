@@ -4,9 +4,10 @@ import { readFileSync } from "node:fs";
 import { relative } from "node:path";
 import { Code } from "@astrojs/starlight/components";
 import Lifecycle from "./Lifecycle";
+import LifecycleSchema from "./LifecycleSchema.astro";
 import StatusBadge from "./StatusBadge";
 import TestList from "./TestList.astro";
-import { checkTools, REPO_URL, ROOT, ruleAnchor, placedStatus, ruleResults, targetLabel, type PlacedTest, type Results, type Rule } from "../lib/data";
+import { checkTools, leaf, REPO_URL, ROOT, ruleAnchor, placedStatus, ruleResults, targetLabel, type PlacedTest, type Results, type Rule } from "../lib/data";
 import { ruleLifecycle } from "../lib/lifecycle";
 import { summarize } from "../lib/spec";
 import { toYaml } from "../../../src/yaml";
@@ -78,7 +79,10 @@ const MODE: Record<string, string> = {
     </div>
   </dl>
 
-  <Lifecycle events={ruleLifecycle(rule)} />
+  <div class="forge-rule-life">
+    <LifecycleSchema variant="rule" uid={`r-${ruleAnchor(rule.id)}`} events={ruleLifecycle(rule).map((event) => ({ event, who: leaf(rule.id) }))} />
+    <Lifecycle events={ruleLifecycle(rule)} />
+  </div>
 
   {
     rule.examples && (

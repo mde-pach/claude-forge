@@ -23,6 +23,8 @@ export interface LifecycleEvent {
   text: string;
   /** Applies only in some projects, e.g. "without biome". */
   condition?: string;
+  /** For tool-call events: which Claude Code mechanism acts. */
+  via?: "permission" | "guard" | "sandbox";
 }
 
 /** Where a tool target's diagnostics are enforced once the audit passes. */
@@ -118,6 +120,7 @@ function targetEvents(rule: Rule, t: Target): LifecycleEvent[] {
       return [
         {
           step: "tool",
+          via: "permission",
           effect: t.decision === "deny" ? "blocks" : "asks",
           text: `Claude Code ${t.decision === "deny" ? "refuses" : "asks you before"} ${code(t.rule)} (permission ${t.decision}).`,
         },
@@ -126,12 +129,13 @@ function targetEvents(rule: Rule, t: Target): LifecycleEvent[] {
       return [
         {
           step: "tool",
+          via: "guard",
           effect: t.decision === "deny" ? "blocks" : "asks",
           text: `The PreToolUse guard ${t.decision === "deny" ? "denies" : "asks you before"} any Bash command matching the pattern below.`,
         },
       ];
     case "sandbox":
-      return [{ step: "tool", effect: "blocks", text: `Bash runs in Claude Code's sandbox with ${code(`sandbox.${t.path}`)} = ${code(JSON.stringify(t.value))}.` }];
+      return [{ step: "tool", via: "sandbox", effect: "blocks", text: `Bash runs in Claude Code's sandbox with ${code(`sandbox.${t.path}`)} = ${code(JSON.stringify(t.value))}.` }];
     case "check":
       return checkEvents(rule, t);
   }
@@ -145,6 +149,7 @@ export function ruleLifecycle(rule: Rule): LifecycleEvent[] {
     if (specs.length)
       events.push({
         step: "tool",
+        via: "permission",
         effect: decision === "deny" ? "blocks" : "asks",
         text: `Claude Code ${decision === "deny" ? "refuses" : "asks you before"} ${specs.map(code).join(", ")} (permission ${decision}).`,
       });

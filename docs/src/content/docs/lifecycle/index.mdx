@@ -4,8 +4,13 @@ description: What Forge does at each step, from forge apply to CI.
 ---
 
 import Spec from "../../../components/Spec.astro";
+import LifecycleSchema from "../../../components/LifecycleSchema.astro";
 
-Forge acts at seven moments. Each rule and pack page shows which of them it uses; these pages explain each step and carry its tests.
+Forge does not add a lifecycle of its own. It plugs pieces into Claude Code's hook events, plus `forge apply` before the session and git and CI after it. The schema below is Claude Code's lifecycle with every Forge piece attached; grey filled pieces always run, dashed ones run when a rule needs them. Every rule and pack page shows this same schema with only its own pieces lit up.
+
+<LifecycleSchema variant="overview" uid="overview" events={[]} />
+
+Forge acts at seven moments. These pages explain each one and carry its tests.
 
 | Step | What runs | What it can do |
 |---|---|---|

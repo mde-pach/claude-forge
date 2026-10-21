@@ -93,7 +93,7 @@ export default defineConfig({
       title: "Forge",
       description: "Guardrails for Claude Code, generated from rule packs.",
       logo: { src: "./public/logo.svg" },
-      favicon: "/logo.svg",
+      favicon: "/favicon.svg",
       social: [{ icon: "github", label: "GitHub", href: REPO_URL }],
       editLink: { baseUrl: `${REPO_URL}/edit/main/docs/` },
       customCss: ["./src/styles/custom.css"],

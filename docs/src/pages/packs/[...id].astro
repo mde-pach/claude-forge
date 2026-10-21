@@ -2,12 +2,12 @@
 import { readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import StarlightPage from "@astrojs/starlight/components/StarlightPage.astro";
-import { EFFECT_LABEL } from "../../components/Lifecycle";
+import LifecycleSchema from "../../components/LifecycleSchema.astro";
 import RuleCard from "../../components/RuleCard.astro";
 import StatusBadge from "../../components/StatusBadge";
 import TestList from "../../components/TestList.astro";
 import { leaf, lineage, markdown, packs, packTests, packUrl, REPO_URL, results, ruleAnchor, placedStatus, ruleTests, spec, type PlacedTest } from "../../lib/data";
-import { ruleLifecycle, STEPS, type Effect, type StepId } from "../../lib/lifecycle";
+import { ruleLifecycle } from "../../lib/lifecycle";
 
 export function getStaticPaths() {
   return [...packs().keys()].map((id) => ({ params: { id } }));
@@ -32,18 +32,10 @@ const tests = [...own, ...shared.values()];
 const sharedKeys = new Set(tests.map(key));
 const ruleOnly = (id: string) => perRule.get(id)!.filter((t) => !sharedKeys.has(key(t)));
 const ruleShared = (id: string) => perRule.get(id)!.length - ruleOnly(id).length;
-// rows: the pack's context, then each rule with its strongest effect per step
-const ORDER: Effect[] = ["blocks", "asks", "wakes", "feedback", "fixes", "audits", "informs"];
-const rows: { label: string; href?: string; cells: Partial<Record<StepId, Effect>> }[] = [
-  ...(pack.context !== undefined ? [{ label: "context", href: "#context", cells: { session: "informs" as Effect } }] : []),
-  ...pack.rules.map((rule) => {
-    const cells: Partial<Record<StepId, Effect>> = {};
-    for (const e of ruleLifecycle(rule)) {
-      const cur = cells[e.step];
-      if (e.effect !== "inactive" && (!cur || ORDER.indexOf(e.effect) < ORDER.indexOf(cur))) cells[e.step] = e.effect;
-    }
-    return { label: leaf(rule.id), href: `#${ruleAnchor(rule.id)}`, cells };
-  }),
+// the pack's context and every rule's events, for the schema
+const schemaEvents = [
+  ...(pack.context !== undefined ? [{ event: { step: "session" as const, effect: "informs" as const, text: "the pack's context file is loaded" }, who: "context" }] : []),
+  ...pack.rules.flatMap((rule) => ruleLifecycle(rule).map((event) => ({ event, who: leaf(rule.id) }))),
 ];
 const detect =
   pack.level === "user"
@@ -52,8 +44,6 @@ const detect =
 const initFiles = (dir: string): string[] =>
   readdirSync(dir).flatMap((f) => (statSync(join(dir, f)).isDirectory() ? initFiles(join(dir, f)) : [relative(pack.initDir!, join(dir, f))]));
 const contextFile = `.claude/rules/forge-${pack.id.replaceAll("/", "-")}.md`;
-// only the steps this pack takes part in
-const cols = STEPS.filter((x) => rows.some((row) => row.cells[x.id]));
 const headings = [
   { depth: 2, slug: "what-it-does", text: "What it does" },
   ...(pack.context !== undefined ? [{ depth: 2, slug: "context", text: "Context" }] : []),
@@ -107,33 +97,13 @@ const headings = [
 
   <h2 id="what-it-does">What it does</h2>
   {
-    rows.length ? (
-      <div class="forge-matrix-wrap">
-        <table class="forge-matrix">
-          <thead>
-            <tr>
-              <th />
-              {cols.map((x) => <th scope="col">{x.label}</th>)}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr>
-                <th scope="row">{row.href ? <a href={row.href}>{row.label}</a> : row.label}</th>
-                {cols.map((x) => {
-                  const e = row.cells[x.id];
-                  return e ? <td data-effect={e} title={EFFECT_LABEL[e]}>{EFFECT_LABEL[e]}</td> : <td />;
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+    schemaEvents.length ? (
+      <LifecycleSchema variant="pack" uid="pack" events={schemaEvents} />
     ) : (
       <p>This pack has no rules or context of its own; its sub-packs do the work.</p>
     )
   }
-  <p class="forge-meta">Each rule's section below explains what it does at each step.</p>
+  <p class="forge-meta">Claude Code's lifecycle, with the Forge pieces this pack uses lit up; each badge counts the rules acting there (hover a piece for the list). Each rule's section below shows the same schema for that rule alone.</p>
   {pack.initDir && <p><code>forge init</code> also creates these files when missing: {initFiles(pack.initDir).map((f, i) => <>{i > 0 && ", "}<code>{f}</code></>)}.</p>}
 
   {
