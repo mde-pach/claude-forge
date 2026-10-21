@@ -1,5 +1,5 @@
 export type Level = "user" | "project";
-export type Language = "python" | "typescript" | "tsx" | "any";
+export type Language = "python" | "typescript" | "tsx" | "yaml" | "any";
 export type Decision = "deny" | "ask";
 export type Stage = "format" | "lint" | "typecheck" | "migration" | "test";
 export type ToolName = "biome" | "ruff" | "basedpyright" | "tsc";

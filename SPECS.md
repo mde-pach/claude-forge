@@ -134,7 +134,7 @@ accept:                     # config-ratchet findings accepted on purpose (§10.
 id: <pack-id>/<kebab-name>     # stable, never reused
 description: string            # one sentence
 scope:
-  language: python | typescript | tsx | any
+  language: python | typescript | tsx | yaml | any
   files: [glob]                # default: all files of the language
 enforce:                       # ordered; see §6.2
   - target: <target>
@@ -175,6 +175,8 @@ ast-grep and grep modes:
 - `no-decrease`: fewer matches than in the base in a changed file fails.
 
 A `grep` target is for text that is not code ast-grep parses: comments, configuration, `.astro` files.
+
+`scope.language` picks the ast-grep parser and the files a check covers: `python` (`*.py`, `*.pyi`), `typescript` (`.ts`, `.tsx`, `.mts`, `.cts` and the JavaScript extensions; ast-grep `Tsx`), `tsx` (`*.tsx`, `*.jsx`), `yaml` (`*.yaml`, `*.yml`; ast-grep `Yaml`). In YAML rules, a key is matched on the `key` field of a `block_mapping_pair` with a regex that allows quotes (`^["']?name["']?$`), several `has` clauses go under `all:`, and scalars are `string_scalar`, `double_quote_scalar`, `single_quote_scalar` or `integer_scalar` (quoted kinds include their quotes).
 
 A `tool` target is followed by an `ast-grep` target when the rule must still apply in projects that use a different tool for that job. The `ast-grep` target is used only when the `tool` target's tool is absent from the project.
 

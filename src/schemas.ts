@@ -165,7 +165,7 @@ export const ruleSchema = {
       additionalProperties: false,
       required: ["language"],
       properties: {
-        language: { enum: ["python", "typescript", "tsx", "any"] },
+        language: { enum: ["python", "typescript", "tsx", "yaml", "any"] },
         files: { type: "array", items: { type: "string", minLength: 1 }, minItems: 1 },
       },
     },

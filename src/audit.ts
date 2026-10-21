@@ -20,7 +20,7 @@ export function projectBinary(repo: string, tool: string): string | undefined {
   return undefined;
 }
 
-const EXT: Record<Rule["scope"]["language"], string> = { python: ".py", typescript: ".ts", tsx: ".tsx", any: ".txt" };
+const EXT: Record<Rule["scope"]["language"], string> = { python: ".py", typescript: ".ts", tsx: ".tsx", yaml: ".yaml", any: ".txt" };
 
 /** A concrete relative path inside the rule's scope for an example file. */
 export function examplePath(rule: Rule, stem: string): string {

@@ -29,7 +29,7 @@ const source = relative(ROOT, rule.file);
 const files = rule.scope.files ?? [];
 const include = files.filter((f) => !f.startsWith("!"));
 const exclude = files.filter((f) => f.startsWith("!")).map((f) => f.slice(1));
-const lang = rule.enforce.some((t) => t.target === "guard") ? "sh" : rule.enforce.some((t) => t.target === "permission") ? "txt" : rule.scope.language === "python" ? "python" : "tsx";
+const lang = rule.enforce.some((t) => t.target === "guard") ? "sh" : rule.enforce.some((t) => t.target === "permission") ? "txt" : rule.scope.language === "python" ? "python" : rule.scope.language === "yaml" ? "yaml" : "tsx";
 /** Code blocks for a list of examples: one-line strings grouped, fixtures one block per file (title = path). */
 const LANG_OF: [RegExp, string][] = [[/\.py$/, "python"], [/\.(ts|tsx|js|mjs|cjs)$/, "tsx"], [/\.json$/, "json"], [/\.toml$/, "toml"], [/\.ya?ml$/, "yaml"], [/\.sql$/, "sql"], [/(^|\/)(Dockerfile|Containerfile)[^/]*$|\.Dockerfile$/, "dockerfile"]];
 const fileLang = (path: string) => LANG_OF.find(([re]) => re.test(path))?.[1] ?? "txt";

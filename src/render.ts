@@ -46,6 +46,7 @@ const LANGUAGE_CASE: Record<Language, string[]> = {
   python: ["*.py", "*.pyi"],
   typescript: ["*.ts", "*.tsx", "*.mts", "*.cts", "*.js", "*.jsx", "*.mjs", "*.cjs"],
   tsx: ["*.tsx", "*.jsx"],
+  yaml: ["*.yaml", "*.yml"],
   any: [],
 };
 
@@ -227,6 +228,7 @@ export function renderGuardRules(guards: ActiveGuard[], base: string): string {
 export function astGrepLanguage(lang: Language): string {
   if (lang === "python") return "Python";
   if (lang === "typescript" || lang === "tsx") return "Tsx";
+  if (lang === "yaml") return "Yaml";
   throw new Error(`ast-grep targets need a concrete scope.language, not "${lang}"`);
 }
 

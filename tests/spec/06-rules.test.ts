@@ -10,7 +10,7 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { applied, forge, git } from "../helpers";
+import { applied, commitAll, forge, git, put, sampleRepo, sh } from "../helpers";
 
 const T = 120_000;
 const read = (repo: string, rel: string) => readFileSync(join(repo, rel), "utf8");
@@ -45,6 +45,31 @@ describe("ast-grep targets", () => {
     "typescript rules parse .ts and .tsx with one Tsx rule file",
     () => {
       expect(read(applied("eslint-app"), ".forge/ast-grep/sgconfig.yml")).toContain('languageGlobs:\n  tsx: ["*.ts", "*.mts", "*.cts"]');
+    },
+    T,
+  );
+});
+
+describe("YAML", () => {
+  test(
+    "scope.language yaml compiles to an ast-grep rule with language Yaml, matching *.yaml and *.yml, and its examples run as a rule test",
+    () => {
+      const rule = {
+        id: "local/no-latest",
+        description: "No latest tag.",
+        scope: { language: "yaml" },
+        enforce: [{ target: "ast-grep", mode: "forbid", rule: { kind: "block_mapping_pair", has: { field: "value", regex: ":latest[\"']?$" } } }],
+        examples: { match: ["image: postgres:latest\n"], no_match: ["image: postgres:17\n"] },
+      };
+      const repo = sampleRepo("fastapi-app");
+      put(repo, ".forge/rules/no-latest.yaml", JSON.stringify(rule));
+      put(repo, "forge.yaml", 'forge: "0.5"\npacks: {add: [python]}\n');
+      expect(forge(["apply", "--yes"], repo).status).toBe(0);
+      expect(read(repo, ".forge/ast-grep/rules/local/no-latest.yml")).toContain("language: Yaml");
+      expect(forge(["test"], repo).status).toBe(0);
+      commitAll(repo, "forge");
+      put(repo, "compose.yml", "services:\n  db:\n    image: postgres:latest\n");
+      expect(sh("sh", [".forge/check.sh", "--changed"], { cwd: repo }).stdout).toContain("forge:local/no-latest compose.yml:3:5");
     },
     T,
   );
