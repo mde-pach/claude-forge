@@ -16,7 +16,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadPacks } from "../../src/packs";
 import { checkExamplesOptional, hadolintIntegrity, permissionMatches, selfTest, type TestReport } from "../../src/selftest";
-import { ensureTools, forge, ROOT, TOOLS_CACHE } from "../helpers";
+import { ensureTools, forge, ROOT, sh, TOOLS_CACHE } from "../helpers";
 import type { CheckTarget } from "../../src/types";
 
 const T = 300_000;
@@ -51,8 +51,11 @@ test("the hadolint-bin wheel ships the upstream hadolint release binary (its sha
   expect(hadolintIntegrity().status).toBe("ok");
 }, T);
 
-test("every check example ran: none was skipped for a missing tool", () => {
-  expect(report.notes.filter((n) => n.includes(" example ") && n.includes("skipped"))).toEqual([]);
+/** Only a system tool this machine does not have (docker on CI's macOS runners) may skip an example. */
+test("every check example ran: none was skipped, except for a system tool that is not installed here", () => {
+  const absent = (tool: string) => sh("sh", ["-c", `command -v ${tool}`]).status !== 0;
+  const skipped = report.notes.filter((n) => n.includes(" example ") && n.includes("skipped"));
+  expect(skipped.filter((n) => !(/skipped: (docker) (not available|not installed)/.test(n) && absent("docker")))).toEqual([]);
 });
 
 describe("every pack", () => {
