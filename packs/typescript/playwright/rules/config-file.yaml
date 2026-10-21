@@ -1,0 +1,8 @@
+id: typescript/playwright/config-file
+description: Claude asks you before editing the Playwright config (test paths, retries, projects).
+scope: {language: any}
+enforce:
+  - {target: permission, decision: ask, rule: "Edit(**/playwright.config.*)"}
+examples:
+  match: ["Edit(playwright.config.ts)"]
+  no_match: ["Edit(e2e/home.spec.ts)"]

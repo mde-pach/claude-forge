@@ -60,7 +60,8 @@
               "permission",
               "guard",
               "sandbox",
-              "check"
+              "check",
+              "grep"
             ]
           }
         },
@@ -133,6 +134,40 @@
                 },
                 "utils": {
                   "type": "object"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "target": {
+                  "const": "grep"
+                }
+              }
+            },
+            "then": {
+              "additionalProperties": false,
+              "required": [
+                "mode",
+                "pattern"
+              ],
+              "properties": {
+                "target": true,
+                "mode": {
+                  "enum": [
+                    "forbid",
+                    "no-increase",
+                    "no-decrease"
+                  ]
+                },
+                "pattern": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^[^\\t\\n]+$"
+                },
+                "ignore_case": {
+                  "type": "boolean"
                 }
               }
             }

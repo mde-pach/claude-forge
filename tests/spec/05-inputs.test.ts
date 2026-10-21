@@ -133,6 +133,7 @@ describe("forge.yaml", () => {
   test.each([
     ["an unknown key", 'forge: "0.5"\nextra: 1\n', /invalid project.*extra/],
     ["a disable without a reason", 'forge: "0.5"\ndisable:\n  - id: python/pytest/run\n', /reason/],
+    ["an accepted config change without a reason", 'forge: "0.5"\naccept:\n  - {rule: python/config-ratchet, change: "pyproject.toml: tool.ruff.lint.ignore adds E501"}\n', /reason/],
     ["a duplicate key", 'forge: "0.5"\nforge: "0.5"\n', /forge\.yaml/],
     ["an alias", 'forge: &v "0.5"\npacks: {add: [*v]}\n', /alias|anchor/],
     ["no version", "packs: {add: [typescript/zod]}\n", /forge/],

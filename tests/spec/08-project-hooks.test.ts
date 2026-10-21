@@ -321,6 +321,25 @@ describe("Stop", () => {
     T,
   );
 
+  /** @rule python/pytest/no-test-edits */
+  test(
+    "a test that existed at the start of the turn and was edited blocks Stop; a new test in the same file does not; pre-commit does not check it",
+    () => {
+      const before = readFileSync(join(repo, "tests/test_main.py"), "utf8");
+      const more = "\n\ndef test_more() -> None:\n    assert 1 + 1 == 2\n";
+      hook("turn-start.sh", { session_id: "t-11" });
+      put(repo, "tests/test_main.py", before + more);
+      expect(hook("stop.sh", { session_id: "t-11" }).stdout).toBe("");
+      hook("turn-start.sh", { session_id: "t-11" });
+      put(repo, "tests/test_main.py", before.replace(/assert (.*)$/m, "assert True or $1") + more);
+      const reason = JSON.parse(hook("stop.sh", { session_id: "t-11" }).stdout).reason;
+      expect(reason).toContain('forge:python/pytest/no-test-edits failed\ntests/test_main.py: test "test_health" was changed');
+      expect(sh("sh", [".forge/check.sh", "--changed"], { cwd: repo }).stdout).not.toContain("no-test-edits");
+      reset();
+    },
+    T,
+  );
+
   test(
     "editing .forge/check.sh through Bash fails the next Stop on integrity",
     () => {

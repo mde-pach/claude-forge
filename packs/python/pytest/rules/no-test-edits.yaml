@@ -1,0 +1,18 @@
+id: python/pytest/no-test-edits
+description: Tests that existed at the start of the turn are not changed or removed by Claude (new tests are fine); checked at Stop.
+scope: {language: python, files: ["**/test_*.py", "**/*_test.py"]}
+enforce:
+  - {target: check, stage: lint, run: "forge_test_edits"}
+examples:
+  match:
+    - head: {tests/test_cart.py: "def test_total():\n    assert total([40, 60]) == 100\n"}
+      files: {tests/test_cart.py: "def test_total():\n    assert total([40, 60]) == 90\n"}
+    - head: {tests/test_cart.py: "import pytest\n\n\n@pytest.mark.parametrize(\"items, want\", [([1], 1)])\ndef test_total(items, want):\n    assert total(items) == want\n"}
+      files: {tests/test_cart.py: "import pytest\n\n\n@pytest.mark.parametrize(\"items, want\", [([1], 2)])\ndef test_total(items, want):\n    assert total(items) == want\n"}
+    - head: {tests/test_cart.py: "class TestCart:\n    def test_empty(self):\n        assert total([]) == 0\n"}
+      files: {tests/test_cart.py: "class TestCart:\n    pass\n"}
+  no_match:
+    - head: {tests/test_cart.py: "def test_total():\n    assert total([40, 60]) == 100\n"}
+      files: {tests/test_cart.py: "def test_total():\n    assert total([40, 60]) == 100\n\n\ndef test_empty():\n    assert total([]) == 0\n"}
+    - head: {tests/test_cart.py: "def test_total():\n    assert total([40,60])==100\n"}
+      files: {tests/test_cart.py: "def test_total():\n    assert total([40, 60]) == 100\n", app/cart.py: "def total(xs):\n    return sum(xs)\n"}

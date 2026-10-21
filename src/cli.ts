@@ -467,7 +467,7 @@ function cmdTest(): number {
   for (const f of r.failures) err(`forge:test ${f}`);
   const c = r.counts;
   out(
-    `forge: ${c.packs} packs, ${c.rules} rules; ast-grep ${c.astgrep}, guard ${c.guard}, permission ${c.permission}, check ${c.check}, context ${c.context}: ${r.failures.length ? `${r.failures.length} failure(s)` : "all passed"}`,
+    `forge: ${c.packs} packs, ${c.rules} rules; ast-grep ${c.astgrep}, guard ${c.guard}, permission ${c.permission}, grep ${c.grep}, check ${c.check}, context ${c.context}: ${r.failures.length ? `${r.failures.length} failure(s)` : "all passed"}`,
   );
   return r.failures.length ? 1 : 0;
 }

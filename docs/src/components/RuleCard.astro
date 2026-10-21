@@ -54,14 +54,14 @@ const oneLiners = [...(rule.examples?.match ?? []), ...(rule.examples?.no_match 
 const verdict = (() => {
   const t = rule.enforce.find((x) => x.target !== "tool") ?? rule.enforce[0]!;
   if (t.target === "guard" || t.target === "permission") return t.decision === "deny" ? "denied" : "asks you first";
-  if (t.target === "ast-grep") return t.mode === "forbid" ? "flagged" : t.mode === "no-increase" ? "counted: may not increase" : "counted: may not decrease";
+  if (t.target === "ast-grep" || t.target === "grep") return t.mode === "forbid" ? "flagged" : t.mode === "no-increase" ? "counted: may not increase" : "counted: may not decrease";
   if (t.target === "tool") return `reported by ${t.tool}`;
   return "fails";
 })();
 const MODE: Record<string, string> = {
-  forbid: "Any match fails.",
-  "no-increase": "A changed file may not have more matches than at HEAD.",
-  "no-decrease": "A changed file may not have fewer matches than at HEAD.",
+  forbid: "A match on an added line fails (any match, in CI with --all).",
+  "no-increase": "A changed file may not have more matches than in the base (the start of the turn, HEAD, or the merge base).",
+  "no-decrease": "A changed file may not have fewer matches than in the base (the start of the turn, HEAD, or the merge base).",
 };
 ---
 
@@ -132,6 +132,13 @@ const MODE: Record<string, string> = {
             <>
               <p><strong>ast-grep {t.mode}</strong>. {MODE[t.mode]}</p>
               <Code code={toYaml({ rule: t.rule, ...(t.constraints ? { constraints: t.constraints } : {}), ...(t.utils ? { utils: t.utils } : {}) })} lang="yaml" />
+            </>
+          );
+        if (t.target === "grep")
+          return (
+            <>
+              <p><strong>grep {t.mode}</strong>: POSIX ERE matched line by line in the rule's files. {MODE[t.mode]}</p>
+              <Code code={t.pattern} lang="txt" />
             </>
           );
         if (t.target === "permission") return <p><strong>permission {t.decision}</strong> <code>{t.rule}</code></p>;

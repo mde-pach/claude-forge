@@ -32,6 +32,7 @@ printf '%s\n' "$file" > "$FORGE_TMP/changed"
 base_file "$file" "$FORGE_TMP/base"
 added_lines "$file" "$FORGE_TMP/base" > "$FORGE_TMP/added"
 forge_file_stage lint "$file" > "$FORGE_TMP/report" 2>&1
+forge_grep_forbid "$FORGE_TMP/changed" >> "$FORGE_TMP/report"
 if [ -n "$FORGE_FORBID" ] && [ -f .forge/ast-grep/sgconfig.yml ]; then
   astgrep scan -c .forge/ast-grep/sgconfig.yml --filter "^($FORGE_FORBID)\$" --json=stream "$file" > "$FORGE_TMP/forbid" 2>/dev/null
   forge_sg_report "$FORGE_TMP/forbid" >> "$FORGE_TMP/report"

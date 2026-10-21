@@ -4,7 +4,8 @@
  * Every pack and rule validates against its schema, and every rule's examples
  * behave as declared: ast-grep rule tests pass (`match` is invalid code,
  * `no_match` valid), guard examples get the rule's decision on every shell,
- * permission examples match the rule's permission strings, and `check`
+ * permission examples match the rule's permission strings, `grep` patterns
+ * match every `match` example and no `no_match` one, and `check`
  * examples fail (`match`) or pass (`no_match`) the generated `check.sh` in a
  * temporary repository. There is one test per rule below; the pack pages of
  * this site show the same results.
@@ -142,6 +143,12 @@ describe("forge test catches broken packs", () => {
     },
     T,
   );
+  test("a grep pattern that misses a match example, or matches a no_match example, fails", () => {
+    const rule = 'id: demo/g2\ndescription: G.\nscope: {language: python}\nenforce: [{target: grep, mode: no-increase, pattern: "#[[:space:]]*noqa"}]\nexamples: {match: ["x  # type: ignore"], no_match: ["y  # noqa"]}\n';
+    const f = selfTest(packsWith({ "demo/rules/g2.yaml": rule })).failures;
+    expect(f).toContain('demo/g2: grep pattern does not match match example 1: "x  # type: ignore"');
+    expect(f).toContain('demo/g2: grep pattern matches no_match example 1: "y  # noqa"');
+  });
   test("fixture examples are for check rules only", () => {
     const rule = 'id: demo/f\ndescription: F.\nscope: {language: any}\nenforce: [{target: guard, decision: ask, pattern: "x"}]\nexamples: {match: [{files: {a: x}}], no_match: ["y"]}\n';
     expect(selfTest(packsWith({ "demo/rules/f.yaml": rule })).failures).toContain("demo/f: fixture examples (files) are for check rules only");

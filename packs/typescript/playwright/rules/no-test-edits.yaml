@@ -1,0 +1,12 @@
+id: typescript/playwright/no-test-edits
+description: End-to-end tests that existed at the start of the turn are not changed or removed by Claude (new tests are fine); checked at Stop.
+scope: {language: typescript, files: ["e2e/**"]}
+enforce:
+  - {target: check, stage: lint, run: "forge_test_edits"}
+examples:
+  match:
+    - head: {e2e/home.spec.ts: "import { expect, test } from \"@playwright/test\";\n\ntest.describe(\"home\", () => {\n  test(\"has a title\", async ({ page }) => {\n    await page.goto(\"/\");\n    await expect(page).toHaveTitle(/Shop/);\n  });\n});\n"}
+      files: {e2e/home.spec.ts: "import { expect, test } from \"@playwright/test\";\n\ntest.describe(\"home\", () => {\n  test(\"has a title\", async ({ page }) => {\n    await page.goto(\"/\");\n    await expect(page).toHaveTitle(/.*/);\n  });\n});\n"}
+  no_match:
+    - head: {e2e/home.spec.ts: "import { expect, test } from \"@playwright/test\";\n\ntest(\"has a title\", async ({ page }) => {\n  await page.goto(\"/\");\n  await expect(page).toHaveTitle(/Shop/);\n});\n"}
+      files: {e2e/home.spec.ts: "import { expect, test } from \"@playwright/test\";\n\ntest(\"has a title\", async ({ page }) => {\n  await page.goto(\"/\");\n  await expect(page).toHaveTitle(/Shop/);\n});\n\ntest(\"lists products\", async ({ page }) => {\n  await page.goto(\"/products\");\n  await expect(page.getByRole(\"listitem\")).not.toHaveCount(0);\n});\n"}

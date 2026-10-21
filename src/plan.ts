@@ -19,6 +19,7 @@ import {
   renderSgConfig,
   template,
   type ActiveCheck,
+  type ActiveGrep,
   type ActiveGuard,
 } from "./render.js";
 import { listRepoFiles } from "./util.js";
@@ -205,6 +206,7 @@ export function plan(opts: PlanOptions): Plan {
   const rulesSorted = [...byId.values()].sort((a, b) => a.id.localeCompare(b.id));
   const active: RuleStatus[] = [];
   const checks: ActiveCheck[] = [];
+  const greps: ActiveGrep[] = [];
   const guards: ActiveGuard[] = [];
   const settings: DesiredEntry[] = [];
   const settingsFile = level === "user" ? ".claude/settings.json" : opts.local ? ".claude/settings.local.json" : ".claude/settings.json";
@@ -248,6 +250,13 @@ export function plan(opts: PlanOptions): Plan {
         if (Array.isArray(t.value)) for (const v of t.value) settings.push({ file: settingsFile, path, value: v, append: true });
         else settings.push({ file: settingsFile, path, value: t.value, append: false });
         st.enforced.push(`sandbox ${t.path} (${settingsFile})`);
+      } else if (t.target === "grep") {
+        if (level === "user") {
+          warnings.push(`${rule.id}: grep targets are project-level only`);
+          continue;
+        }
+        greps.push({ rule, target: t });
+        st.enforced.push(`grep ${t.mode} (.forge/check.sh)`);
       } else if (t.target === "check") {
         if (level === "user") {
           warnings.push(`${rule.id}: check targets are project-level only`);
@@ -286,7 +295,7 @@ export function plan(opts: PlanOptions): Plan {
         .filter((a) => a.target.mode === mode)
         .map((a) => a.rule.id)
         .join("|");
-    const fragment = renderChecks(checks);
+    const fragment = renderChecks(checks, greps);
     const root = ".claude/skills/forge-project";
     files.set(`${root}/.claude-plugin/plugin.json`, renderPlugin("project"));
     files.set(`${root}/hooks/hooks.json`, renderHooks("project"));
@@ -302,7 +311,7 @@ export function plan(opts: PlanOptions): Plan {
       const ctx = opts.packs.get(p.id)!.context;
       if (ctx !== undefined) files.set(`.claude/rules/${contextFileName(p.id)}`, ctx);
     }
-    files.set(".forge/check.sh", renderCheckScript(checks, { forbid: ids("forbid"), noIncrease: ids("no-increase"), noDecrease: ids("no-decrease") }));
+    files.set(".forge/check.sh", renderCheckScript(checks, { forbid: ids("forbid"), noIncrease: ids("no-increase"), noDecrease: ids("no-decrease") }, greps));
     files.set(".forge/.gitignore", "state/\n");
     files.set(".forge/ast-grep/sgconfig.yml", renderSgConfig());
     for (const { rule, target } of astgrep) {

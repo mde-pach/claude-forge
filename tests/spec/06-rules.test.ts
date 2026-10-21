@@ -68,7 +68,8 @@ describe("tool targets and their fallback", () => {
     () => {
       const repo = applied("eslint-app");
       expect(existsSync(join(repo, ".forge/ast-grep/rules/typescript/no-explicit-any.yml"))).toBe(true);
-      expect(read(repo, ".forge/check.sh")).not.toContain("biome");
+      expect(read(repo, ".forge/check.sh")).not.toContain("biome() { forge_exec_tool biome");
+      expect(read(repo, ".forge/check.sh")).not.toContain("biome ci");
       expect(forge(["status"], repo).stdout).toContain("typescript/format-lint\n    not enforced here: biome not configured");
       expect(git(repo, "status", "--porcelain").stdout.trim().split("\n").sort()).toEqual(["?? .claude/", "?? .forge/"]);
     },
@@ -81,7 +82,15 @@ describe("permission, guard and context targets", () => {
     "permission targets of active project packs are appended to permissions.<decision>, with the setup's own ask entries",
     () => {
       const settings = JSON.parse(read(applied("fastapi-app"), ".claude/settings.json"));
-      expect(settings.permissions.ask).toEqual(["Edit(.forge/**)", "Edit(forge.yaml)", "Edit(.claude/skills/forge-project/**)", "Edit(.claude/rules/forge-*.md)"]);
+      expect(settings.permissions.ask).toEqual([
+        "Edit(.forge/**)",
+        "Edit(forge.yaml)",
+        "Edit(.claude/skills/forge-project/**)",
+        "Edit(.claude/rules/forge-*.md)",
+        "Edit(**/ruff.toml)",
+        "Edit(**/.ruff.toml)",
+        "Edit(**/pyrightconfig.json)",
+      ]);
     },
     T,
   );

@@ -1,0 +1,10 @@
+id: typescript/config-files
+description: Claude asks you before editing Biome or TypeScript configs; package.json is covered by typescript/config-ratchet.
+scope: {language: any}
+enforce:
+  - {target: permission, decision: ask, rule: "Edit(**/biome.json)"}
+  - {target: permission, decision: ask, rule: "Edit(**/biome.jsonc)"}
+  - {target: permission, decision: ask, rule: "Edit(**/tsconfig*.json)"}
+examples:
+  match: ["Edit(biome.json)", "Edit(biome.jsonc)", "Edit(tsconfig.json)", "Edit(apps/web/tsconfig.app.json)"]
+  no_match: ["Edit(package.json)", "Edit(src/biome.ts)"]

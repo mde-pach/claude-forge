@@ -51,6 +51,12 @@ function cmd(command: string, which: "--all" | "--changed"): string {
 }
 
 function checkEvents(rule: Rule, t: CheckTarget): LifecycleEvent[] {
+  if (/\bforge_test_edits\b/.test(t.run))
+    return [
+      { step: "stop", effect: "blocks", text: "A test that existed at the start of the turn and was changed or removed blocks Stop; new tests are fine." },
+      { step: "commit", effect: "inactive", text: "Not checked: a human edits tests on purpose." },
+      { step: "ci", effect: "inactive", text: "Not checked: a human edits tests on purpose." },
+    ];
   const files = t.changed_run?.includes("{files}");
   const changedCmd = t.changed_run ? cmd(t.changed_run, "--changed") : cmd(t.run, "--all");
   const trigger = t.when_changed ? `when ${t.when_changed.map(code).join(" or ")} changed` : `when the change includes a ${scopeNoun(rule)}`;
@@ -99,8 +105,9 @@ function targetEvents(rule: Rule, t: Target): LifecycleEvent[] {
       for (const step of ["stop", "commit", "ci"] as const) out.push({ step, effect: "blocks", text: `${code(s.check)} fails on ${code(t.expects)}.` });
       return out.map((e) => ({ ...e, condition: `with ${t.tool}` }));
     }
-    case "ast-grep": {
-      const condition = toolTargets.length ? `without ${toolTargets.map((x) => x.tool).join(" or ")}` : undefined;
+    case "ast-grep":
+    case "grep": {
+      const condition = t.target === "ast-grep" && toolTargets.length ? `without ${toolTargets.map((x) => x.tool).join(" or ")}` : undefined;
       const scope = `a changed ${scopeNoun(rule)}`;
       if (t.mode === "forbid")
         return [

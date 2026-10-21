@@ -96,6 +96,25 @@ describe("steps", () => {
     T,
   );
 
+  /** @rule python/no-new-suppressions */
+  test(
+    "3. counts: a changed file with more suppression comments than in the base fails (grep no-increase); removing one passes",
+    () => {
+      put(repo, "app/main.py", readFileSync(join(repo, "app/main.py"), "utf8") + "\nX = f()  # type: ignore[name-defined]\n");
+      const r = check();
+      expect(r.status).toBe(1);
+      expect(r.stdout).toContain("forge:python/no-new-suppressions app/main.py: 0 -> 1");
+      reset();
+      put(repo, "app/sup.py", "import os  # noqa: F401\n");
+      git(repo, "add", "-A");
+      git(repo, "commit", "-qm", "sup", "--no-verify");
+      put(repo, "app/sup.py", "import os\n\nprint(os.sep)\n");
+      expect(check().stdout).not.toContain("no-new-suppressions");
+      git(repo, "reset", "-q", "--hard", "HEAD~1");
+    },
+    T,
+  );
+
   /** @rule python/sqlalchemy/no-query-api */
   test(
     "4. ast-grep forbid rules report file:line:column with the rule's description",
@@ -459,6 +478,67 @@ describe("added lines", () => {
       expect(bad.status).toBe(1);
       expect(bad.stdout).toContain("forge:python/lint failed\napp/legacy.py:2:8: F401");
       expect(bad.stdout).not.toContain("app/legacy.py:1:8");
+    },
+    T,
+  );
+});
+
+/**
+ * The config ratchet compares the changed tool configs with the base and fails
+ * when one was loosened, for Claude at Stop and for anyone at pre-commit and in
+ * CI, until the change is accepted in forge.yaml.
+ */
+describe("config ratchet", () => {
+  /** @rule typescript/config-ratchet */
+  test.if(hasBun)(
+    "lowering a Biome rule fails pre-commit with the setting, before and after; the same line accepted in forge.yaml passes",
+    () => {
+      const r = sampleRepo("nextjs-prisma-app");
+      put(r, "forge.yaml", 'forge: "0.5"\ndisable:\n  - id: typescript/bun/lock-sync\n    reason: the sample lock file is a stub\n');
+      commitAll(r, "config");
+      expect(forge(["apply", "--yes"], r).status).toBe(0);
+      commitAll(r, "forge");
+      const biome = JSON.parse(readFileSync(join(r, "biome.json"), "utf8"));
+      biome.linter.rules.suspicious = { ...(biome.linter.rules.suspicious ?? {}), noExplicitAny: "off" };
+      put(r, "biome.json", JSON.stringify(biome, null, 2));
+      const out = sh("sh", [".forge/check.sh", "--changed"], { cwd: r });
+      expect(out.status).toBe(1);
+      expect(out.stdout).toContain("forge:typescript/config-ratchet failed\nbiome.json: linter.rules.suspicious.noExplicitAny error -> off");
+      put(r, "forge.yaml", readFileSync(join(r, "forge.yaml"), "utf8") + 'accept:\n  - rule: typescript/config-ratchet\n    change: "biome.json: linter.rules.suspicious.noExplicitAny error -> off"\n    reason: migrating a legacy module\n');
+      expect(sh("sh", [".forge/check.sh", "--changed"], { cwd: r }).stdout).not.toContain("config-ratchet");
+    },
+    T,
+  );
+
+  /** @rule python/config-ratchet */
+  test.if(hasUv)(
+    "with the project's Python: a ruff ignore added to pyproject.toml fails; a dependency change does not",
+    () => {
+      ensureTools();
+      const r = sampleRepo("fastapi-app");
+      linkTools(r, "python");
+      put(r, "forge.yaml", 'forge: "0.5"\ndisable:\n  - id: python/uv/lock-sync\n    reason: the sample lock file is a stub\n');
+      commitAll(r, "config");
+      expect(forge(["apply", "--yes"], r).status).toBe(0);
+      commitAll(r, "forge");
+      const py = readFileSync(join(r, "pyproject.toml"), "utf8");
+      put(r, "pyproject.toml", py.replace('dependencies = [', 'dependencies = ["httpx>=0.28", '));
+      expect(sh("sh", [".forge/check.sh", "--changed"], { cwd: r }).stdout).not.toContain("config-ratchet");
+      put(r, "pyproject.toml", py + '\n[tool.ruff.lint.per-file-ignores]\n"app/*" = ["E722"]\n');
+      const out = sh("sh", [".forge/check.sh", "--changed"], { cwd: r });
+      expect(out.stdout).toContain("forge:python/config-ratchet failed\npyproject.toml: tool.ruff.lint.per-file-ignores adds E722 for app/*");
+    },
+    T,
+  );
+
+  /** @rule python/config-ratchet */
+  test(
+    "without the project's Python the ratchet is skipped, never passed silently",
+    () => {
+      const r = applied("fastapi-app");
+      commitAll(r, "forge");
+      put(r, "pyproject.toml", readFileSync(join(r, "pyproject.toml"), "utf8") + "\n# edited\n");
+      expect(sh("sh", [".forge/check.sh", "--changed"], { cwd: r }).stdout).toContain("forge:python/config-ratchet skipped: python not installed");
     },
     T,
   );

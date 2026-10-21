@@ -81,6 +81,175 @@ forge_sg_report() {
     }' "$FORGE_TMP/added" "$1"
 }
 
+# forge_grep_counts <dir> <file-list>: "rule<TAB>file<TAB>count" (matching lines)
+# for each grep rule that counts (no-increase, no-decrease), on the listed files under <dir>.
+forge_grep_counts() {
+  _gc_i=1
+  while [ "$_gc_i" -le "$FORGE_NGREPS" ]; do
+    forge_grep_meta_"$_gc_i"
+    if [ "$g_mode" != forbid ]; then
+      while IFS= read -r _gc_f; do
+        [ -f "$1/$_gc_f" ] && forge_grep_scope_"$_gc_i" "$_gc_f" || continue
+        printf '%s\t%s\t%s\n' "$g_id" "$_gc_f" "$(grep -c "$g_flags" -- "$g_pattern" "$1/$_gc_f")"
+      done < "$2"
+    fi
+    _gc_i=$((_gc_i + 1))
+  done
+}
+
+# forge_grep_forbid <file-list>: "forge:<rule> path:line <description>" for each
+# match of a forbid grep rule; unless $mode is --all, only on lines of $FORGE_TMP/added.
+forge_grep_forbid() {
+  _gf_i=1
+  while [ "$_gf_i" -le "$FORGE_NGREPS" ]; do
+    forge_grep_meta_"$_gf_i"
+    if [ "$g_mode" = forbid ]; then
+      while IFS= read -r _gf_f; do
+        [ -f "$_gf_f" ] && forge_grep_scope_"$_gf_i" "$_gf_f" || continue
+        grep -n "$g_flags" -- "$g_pattern" "$_gf_f" 2>/dev/null | awk -F: -v f="$_gf_f" -v id="$g_id" -v d="$g_desc" -v all="$([ "$mode" = --all ] && printf 1)" '
+          FILENAME == ARGV[1] { split($0, a, "\t"); if (a[2] == "*") whole[a[1]] = 1; else ad[a[1] "\t" a[2]] = 1; next }
+          all != "" || (f in whole) || ((f "\t" $1) in ad) { printf "forge:%s %s:%s %s\n", id, f, $1, d }' "$FORGE_TMP/added" -
+      done < "$1"
+    fi
+    _gf_i=$((_gf_i + 1))
+  done
+}
+
+# forge_ratchet <runtime> <script>: the config ratchet. Runs <script> (embedded in
+# check.sh as forge_script_<script>) with the project's runtime on the changed files
+# and their base copies; each printed line is a loosened setting, unless forge.yaml
+# records it as accepted.
+forge_ratchet() {
+  _fr_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
+  "$_fr_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  set -f
+  # shellcheck disable=SC2046
+  "$1" "$FORGE_TMP/$2" "$FORGE_TMP/base" $(cat "$FORGE_TMP/existing") > "$FORGE_TMP/ratchet" 2>&1
+  _fr_rc=$?
+  set +f
+  case $_fr_rc in
+    0) return 0 ;;
+    1) ;;
+    *) printf 'forge:%s %s\n' "$c_id" "$(grep '^skipped:' "$FORGE_TMP/ratchet" | head -n 1 | grep . || printf 'skipped: %s exited with %s' "$1" "$_fr_rc")"; return 0 ;;
+  esac
+  while IFS= read -r _fr_l; do
+    [ -f forge.yaml ] && grep -qF -- "$_fr_l" forge.yaml && continue
+    printf '%s\n' "$_fr_l"
+  done < "$FORGE_TMP/ratchet" > "$FORGE_TMP/ratchet.open"
+  [ -s "$FORGE_TMP/ratchet.open" ] || return 0
+  cat "$FORGE_TMP/ratchet.open"
+  printf 'Restore the setting, or have the user accept the change in forge.yaml: accept: [{rule: %s, change: "<line above>", reason: "..."}]\n' "$c_id"
+  return 1
+}
+
+# Test blocks, for forge_test_edits: pytest test functions (with their decorators)
+# and classes; Vitest/Playwright test and it calls, and the describe calls around them.
+FORGE_TEST_BLOCKS='id: forge-test
+language: Python
+rule:
+  any:
+    - kind: decorated_definition
+      has: {field: definition, kind: function_definition, has: {field: name, regex: "^test"}}
+    - all:
+        - kind: function_definition
+        - has: {field: name, regex: "^test"}
+        - not: {inside: {kind: decorated_definition, stopBy: neighbor}}
+---
+id: forge-test-scope
+language: Python
+rule: {kind: class_definition}
+---
+id: forge-test
+language: Tsx
+rule: {pattern: "$F($NAME, $$$REST)"}
+constraints:
+  F: {all: [{regex: "^(test|it)([.(]|$)"}, {not: {regex: "^test[.](describe|step|use|extend|info|beforeEach|afterEach|beforeAll|afterAll)"}}]}
+  NAME: {any: [{kind: string}, {kind: template_string}]}
+---
+id: forge-test-scope
+language: Tsx
+rule: {pattern: "$F($NAME, $$$REST)"}
+constraints:
+  F: {regex: "^(describe|suite|test[.]describe)([.(]|$)"}
+  NAME: {any: [{kind: string}, {kind: template_string}]}'
+
+# forge_test_blocks <dir> <file-list>: "file<TAB>key<TAB>body" per test of the listed
+# files under <dir>; key = enclosing classes or describe names, then the test name
+# (" #2" for a repeated one); body = the test's text without whitespace.
+forge_test_blocks() {
+  set -f
+  # shellcheck disable=SC2046
+  ( cd "$1" && astgrep scan -c "$FORGE_ROOT/.forge/ast-grep/sgconfig.yml" --inline-rules "$FORGE_TEST_BLOCKS" --filter '^forge-test' --json=stream $(cat "$2") ) > "$FORGE_TMP/blocks.json"
+  _tb_rc=$?
+  set +f
+  [ "$_tb_rc" -le 1 ] || return 1
+  awk '
+    function str(s, key,   i, out, c) {
+      i = index(s, "\"" key "\":\""); if (!i) return ""
+      s = substr(s, i + length(key) + 4); out = ""
+      while (length(s)) {
+        c = substr(s, 1, 1)
+        if (c == "\"") break
+        if (c == "\\") { c = substr(s, 2, 1); if (c == "n" || c == "t" || c == "r") c = " "; s = substr(s, 2) }
+        out = out c; s = substr(s, 2)
+      }
+      return out
+    }
+    {
+      rid = str($0, "ruleId"); if (rid !~ /^forge-test/) next
+      r = substr($0, index($0, "\"byteOffset\":{\"start\":") + 22)
+      n++; F[n] = str($0, "file"); R[n] = rid; S[n] = r + 0; E[n] = substr(r, index(r, "\"end\":") + 6) + 0
+      t = str($0, "text"); k = index($0, "\"NAME\":{"); nm = k ? str(substr($0, k), "text") : ""
+      if (nm == "" && match(t, /(def|class)[ ]+[A-Za-z_][A-Za-z0-9_]*/)) { nm = substr(t, RSTART, RLENGTH); sub(/^(def|class)[ ]+/, "", nm) }
+      if (nm ~ /^["\047`]/) nm = substr(nm, 2, length(nm) - 2)
+      N[n] = nm; gsub(/[[:space:]]/, "", t); T[n] = t
+    }
+    END {
+      for (a = 1; a <= n; a++) {
+        if (R[a] != "forge-test") continue
+        m = 0
+        for (b = 1; b <= n; b++)
+          if (R[b] == "forge-test-scope" && F[b] == F[a] && S[b] <= S[a] && E[a] <= E[b]) {
+            m++; cs[m] = S[b]; cn[m] = N[b]
+            for (j = m; j > 1 && cs[j - 1] > cs[j]; j--) { x = cs[j]; cs[j] = cs[j - 1]; cs[j - 1] = x; x = cn[j]; cn[j] = cn[j - 1]; cn[j - 1] = x }
+          }
+        key = ""
+        for (j = 1; j <= m; j++) key = key cn[j] " > "
+        key = key N[a]
+        if (++seen[F[a] "\t" key] > 1) key = key " #" seen[F[a] "\t" key]
+        print F[a] "\t" key "\t" T[a]
+      }
+    }' "$FORGE_TMP/blocks.json"
+}
+
+# forge_test_edits: Stop only (--turn). Each test of the in-scope files ($FORGE_FILES)
+# that existed at the start of the turn must be unchanged (whitespace aside) and
+# still present; new tests are fine.
+forge_test_edits() {
+  [ "$mode" = --turn ] || return 0
+  printf '%s\n' "$FORGE_FILES" | grep -xF -f "$FORGE_TMP/inbase" > "$FORGE_TMP/tests.files"
+  [ -s "$FORGE_TMP/tests.files" ] || return 0
+  if ! forge_test_blocks "$FORGE_TMP/base" "$FORGE_TMP/tests.files" > "$FORGE_TMP/tests.then" \
+    || ! forge_test_blocks "$FORGE_ROOT" "$FORGE_TMP/tests.files" > "$FORGE_TMP/tests.now"; then
+    printf 'forge:%s skipped: ast-grep unavailable\n' "$c_id"
+    return 0
+  fi
+  awk -F '\t' '
+    FILENAME == ARGV[1] { then[$1 "\t" $2] = $3; next }
+    { now[$1 "\t" $2] = $3 }
+    END {
+      for (k in then) {
+        split(k, p, "\t")
+        if (!(k in now)) print p[1] ": test \"" p[2] "\" was removed"
+        else if (now[k] != then[k]) print p[1] ": test \"" p[2] "\" was changed"
+      }
+    }' "$FORGE_TMP/tests.then" "$FORGE_TMP/tests.now" | sort > "$FORGE_TMP/tests.edits"
+  [ -s "$FORGE_TMP/tests.edits" ] || return 0
+  cat "$FORGE_TMP/tests.edits"
+  printf 'Tests that existed before this turn are not edited to make the code pass. Restore them; if one looks wrong, stop and ask the user.\n'
+  return 1
+}
+
 # forge_exec_tool <name> <args>: runs the project's own <name>; 127 when absent.
 forge_exec_tool() {
   _fx_cmd=$(tool "$1")

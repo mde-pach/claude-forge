@@ -25,6 +25,9 @@ trap 'rm -rf "$FORGE_TMP"' EXIT HUP INT TERM
 
 @@CHECKS@@
 
+# Scripts that checks run with the project's own runtime (Python, bun).
+@@SCRIPTS@@
+
 FORGE_FORBID='@@FORBID@@'
 FORGE_NO_INCREASE='@@NO_INCREASE@@'
 FORGE_NO_DECREASE='@@NO_DECREASE@@'
@@ -93,7 +96,7 @@ forge_base_name() {
   esac
 }
 
-# 3. Tests: no deleted test files; ast-grep counts compared with the base.
+# 3. Tests and counts: no deleted test files; ast-grep and grep counts compared with the base.
 forge_tests_integrity() {
   while read -r f; do
     case $f in
@@ -101,17 +104,26 @@ forge_tests_integrity() {
         report forge/deleted-test "$f was deleted" ;;
     esac
   done < "$FORGE_TMP/deleted"
+  inc=$FORGE_NO_INCREASE
+  [ -n "$FORGE_GREP_NO_INCREASE" ] && inc="${inc:+$inc|}$FORGE_GREP_NO_INCREASE"
+  dec=$FORGE_NO_DECREASE
+  [ -n "$FORGE_GREP_NO_DECREASE" ] && dec="${dec:+$dec|}$FORGE_GREP_NO_DECREASE"
+  [ -n "$inc$dec" ] && [ -s "$FORGE_TMP/existing" ] || return
+  grep -vxF -f "$FORGE_TMP/deleted" "$FORGE_TMP/inbase" > "$FORGE_TMP/athead"
+  : > "$FORGE_TMP/now"; : > "$FORGE_TMP/then"
   ids=$FORGE_NO_INCREASE
   [ -n "$FORGE_NO_DECREASE" ] && ids="${ids:+$ids|}$FORGE_NO_DECREASE"
-  [ -n "$ids" ] && [ -s "$FORGE_TMP/existing" ] || return
-  grep -vxF -f "$FORGE_TMP/deleted" "$FORGE_TMP/inbase" > "$FORGE_TMP/athead"
-  forge_counts "$FORGE_ROOT" "$ids" "$FORGE_TMP/existing" > "$FORGE_TMP/now" || return
-  if [ -s "$FORGE_TMP/athead" ]; then
-    forge_counts "$FORGE_TMP/base" "$ids" "$FORGE_TMP/athead" > "$FORGE_TMP/then" || return
-  else
-    : > "$FORGE_TMP/then"
+  if [ -n "$ids" ]; then
+    if forge_counts "$FORGE_ROOT" "$ids" "$FORGE_TMP/existing" > "$FORGE_TMP/now" \
+      && { [ ! -s "$FORGE_TMP/athead" ] || forge_counts "$FORGE_TMP/base" "$ids" "$FORGE_TMP/athead" > "$FORGE_TMP/then"; }; then :
+    else
+      printf 'forge:forge/ast-grep skipped: ast-grep unavailable\n'
+      : > "$FORGE_TMP/now"; : > "$FORGE_TMP/then"
+    fi
   fi
-  awk -F '\t' -v inc="$FORGE_NO_INCREASE" -v dec="$FORGE_NO_DECREASE" '
+  forge_grep_counts "$FORGE_ROOT" "$FORGE_TMP/existing" >> "$FORGE_TMP/now"
+  forge_grep_counts "$FORGE_TMP/base" "$FORGE_TMP/athead" >> "$FORGE_TMP/then"
+  awk -F '\t' -v inc="$inc" -v dec="$dec" '
     BEGIN { n = split(inc, a, "|"); for (i = 1; i <= n; i++) if (a[i] != "") mi[a[i]] = 1
             n = split(dec, b, "|"); for (i = 1; i <= n; i++) if (b[i] != "") md[b[i]] = 1 }
     FILENAME == ARGV[1] { then[$1 "\t" $2] = $3; keys[$1 "\t" $2] = 1; next }
@@ -133,23 +145,26 @@ forge_counts() {
   ( cd "$1" && astgrep scan -c "$FORGE_ROOT/.forge/ast-grep/sgconfig.yml" --filter "^($2)\$" --json=stream $(cat "$3") ) > "$FORGE_TMP/json"
   rc=$?
   set +f
-  if [ "$rc" -gt 1 ]; then printf 'forge:forge/ast-grep skipped: ast-grep unavailable\n'; return 1; fi
+  [ "$rc" -le 1 ] || return 1
   grep -oE '"(file|ruleId)":"[^"]*"' "$FORGE_TMP/json" \
     | awk -F '"' '$2 == "file" { f = $4 } $2 == "ruleId" { c[$4 "\t" f]++ } END { for (k in c) print k "\t" c[k] }'
 }
 
-# 4. ast-grep forbid rules: outside --all, only matches on added lines.
+# 4. Forbid rules (ast-grep and grep): outside --all, only matches on added lines.
 forge_forbid() {
-  [ -n "$FORGE_FORBID" ] && [ -s "$FORGE_TMP/scope" ] || return
-  set -f
-  # shellcheck disable=SC2046
-  astgrep scan -c .forge/ast-grep/sgconfig.yml --filter "^($FORGE_FORBID)\$" --json=stream $(cat "$FORGE_TMP/scope") > "$FORGE_TMP/forbid"
-  rc=$?
-  set +f
-  if [ "$rc" -gt 1 ]; then printf 'forge:forge/ast-grep skipped: ast-grep unavailable\n'; return; fi
-  forge_sg_report "$FORGE_TMP/forbid" > "$FORGE_TMP/forbid.out"
-  if [ -s "$FORGE_TMP/forbid.out" ]; then cat "$FORGE_TMP/forbid.out"; fi
-  [ -s "$FORGE_TMP/forbid.out" ] && fail=1
+  [ -s "$FORGE_TMP/scope" ] || return
+  forge_grep_forbid "$FORGE_TMP/scope" > "$FORGE_TMP/forbid.out"
+  if [ -n "$FORGE_FORBID" ]; then
+    set -f
+    # shellcheck disable=SC2046
+    astgrep scan -c .forge/ast-grep/sgconfig.yml --filter "^($FORGE_FORBID)\$" --json=stream $(cat "$FORGE_TMP/scope") > "$FORGE_TMP/forbid"
+    rc=$?
+    set +f
+    if [ "$rc" -gt 1 ]; then printf 'forge:forge/ast-grep skipped: ast-grep unavailable\n'
+    else forge_sg_report "$FORGE_TMP/forbid" >> "$FORGE_TMP/forbid.out"
+    fi
+  fi
+  if [ -s "$FORGE_TMP/forbid.out" ]; then cat "$FORGE_TMP/forbid.out"; fail=1; fi
   return 0
 }
 

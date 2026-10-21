@@ -45,7 +45,7 @@ export const packSchema = {
 const target = {
   type: "object",
   required: ["target"],
-  properties: { target: { enum: ["tool", "ast-grep", "permission", "guard", "sandbox", "check"] } },
+  properties: { target: { enum: ["tool", "ast-grep", "permission", "guard", "sandbox", "check", "grep"] } },
   allOf: [
     {
       if: { properties: { target: { const: "tool" } } },
@@ -71,6 +71,19 @@ const target = {
           rule: { type: "object", minProperties: 1 },
           constraints: { type: "object" },
           utils: { type: "object" },
+        },
+      },
+    },
+    {
+      if: { properties: { target: { const: "grep" } } },
+      then: {
+        additionalProperties: false,
+        required: ["mode", "pattern"],
+        properties: {
+          target: true,
+          mode: { enum: ["forbid", "no-increase", "no-decrease"] },
+          pattern: { type: "string", minLength: 1, pattern: "^[^\\t\\n]+$" },
+          ignore_case: { type: "boolean" },
         },
       },
     },
@@ -197,6 +210,19 @@ export const projectConfigSchema = {
         additionalProperties: false,
         required: ["id", "reason"],
         properties: { id: { type: "string", pattern: RULE_ID }, reason: { type: "string", minLength: 1 } },
+      },
+    },
+    accept: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["rule", "change", "reason"],
+        properties: {
+          rule: { type: "string", pattern: RULE_ID },
+          change: { type: "string", minLength: 1, pattern: "^[^\\n]+$" },
+          reason: { type: "string", minLength: 1 },
+        },
       },
     },
   },

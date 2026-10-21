@@ -65,7 +65,15 @@ export interface CheckTarget {
   requires_local_db?: boolean;
   timeout?: number;
 }
-export type Target = ToolTarget | AstGrepTarget | PermissionTarget | GuardTarget | SandboxTarget | CheckTarget;
+/** A POSIX ERE matched line by line in the rule's files (comments, config text, .astro files). */
+export interface GrepTarget {
+  target: "grep";
+  mode: AstGrepMode;
+  pattern: string;
+  /** Match regardless of case (grep -i). */
+  ignore_case?: boolean;
+}
+export type Target = ToolTarget | AstGrepTarget | PermissionTarget | GuardTarget | SandboxTarget | CheckTarget | GrepTarget;
 
 /**
  * A rule example. A string is code written to a file inside the rule's scope.
@@ -99,6 +107,8 @@ export interface ProjectConfig {
   forge: string;
   packs?: { add?: string[]; remove?: string[] };
   disable?: { id: string; reason: string }[];
+  /** Config-ratchet findings the user accepted (the exact line check.sh printed). */
+  accept?: { rule: string; change: string; reason: string }[];
 }
 
 export interface SettingsEntry {

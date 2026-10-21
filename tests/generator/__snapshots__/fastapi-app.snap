@@ -4,6 +4,10 @@ FastAPI. Dependencies use `Annotated[T, Depends(...)]`. Startup and shutdown use
 ===== .claude/rules/forge-python-pydantic.md
 Pydantic v2: `model_validate`, `model_dump`, `model_config = ConfigDict(...)`, `@field_validator`, `@model_validator`, `Field(pattern=...)`, `TypeAdapter(T).validate_python(...)` (not `parse_obj_as`).
 
+===== .claude/rules/forge-python-pytest.md
+pytest. Tests assert behaviour: never weaken, remove or skip an assertion to make a test pass.
+If an existing test looks wrong, stop and ask; never edit it to make the code pass.
+
 ===== .claude/rules/forge-python-sqlalchemy-alembic.md
 Alembic with an async engine: `alembic/env.py` runs migrations through `run_async_migrations()` and `connection.run_sync()`. New revisions: `alembic revision --autogenerate -m "<change>"`. Committed revisions are never edited.
 
@@ -24,7 +28,10 @@ Ignore comments name their rule (`# pyright: ignore[ruleName]`).
       "Edit(.forge/**)",
       "Edit(forge.yaml)",
       "Edit(.claude/skills/forge-project/**)",
-      "Edit(.claude/rules/forge-*.md)"
+      "Edit(.claude/rules/forge-*.md)",
+      "Edit(**/ruff.toml)",
+      "Edit(**/.ruff.toml)",
+      "Edit(**/pyrightconfig.json)"
     ]
   }
 }
@@ -366,29 +373,27 @@ ruff() { forge_exec_tool ruff "$@"; }
 basedpyright() { forge_exec_tool basedpyright "$@"; }
 alembic() { forge_exec_tool alembic "$@"; }
 pytest() { forge_exec_tool pytest "$@"; }
-FORGE_NCHECKS=8
+python() { forge_exec_tool python "$@"; }
+FORGE_NCHECKS=10
 
-# 1. python/format
+# 1. python/config-ratchet
 forge_check_meta_1() {
-  c_id='python/format'; c_stage=format; c_tools='ruff'
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1
+  c_id='python/config-ratchet'; c_stage=lint; c_tools='python'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0
 }
 forge_scope_1() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
+  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) ;; *) return 1 ;; esac
+  return 0
 }
-forge_when_1() { return 1; }
+forge_when_1() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) return 0 ;; esac; return 1; }
 forge_check_run_1() {
-ruff format --check .
-}
-forge_check_changed_1() {
-ruff format $FORGE_FILES
+forge_ratchet python ratchet.py
 }
 
-# 2. python/lint
+# 2. python/format
 forge_check_meta_2() {
-  c_id='python/lint'; c_stage=lint; c_tools='ruff'
+  c_id='python/format'; c_stage=format; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1
 }
@@ -398,16 +403,16 @@ forge_scope_2() {
 }
 forge_when_2() { return 1; }
 forge_check_run_2() {
-ruff check .
+ruff format --check .
 }
 forge_check_changed_2() {
-ruff check --output-format concise $FORGE_FILES
+ruff format $FORGE_FILES
 }
 
-# 3. python/pytest/run
+# 3. python/lint
 forge_check_meta_3() {
-  c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
-  c_when=0; c_localdb=0; c_timeout=300
+  c_id='python/lint'; c_stage=lint; c_tools='ruff'
+  c_when=0; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1
 }
 forge_scope_3() {
@@ -416,88 +421,137 @@ forge_scope_3() {
 }
 forge_when_3() { return 1; }
 forge_check_run_3() {
-pytest -q
+ruff check .
 }
 forge_check_changed_3() {
-if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
+ruff check --output-format concise $FORGE_FILES
 }
 
-# 4. python/sqlalchemy/alembic/check
+# 4. python/pytest/no-test-edits
 forge_check_meta_4() {
-  c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=1; c_timeout=''
+  c_id='python/pytest/no-test-edits'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0
 }
 forge_scope_4() {
+  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_4() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
+forge_when_4() { return 1; }
 forge_check_run_4() {
-alembic check
+forge_test_edits
 }
 
-# 5. python/sqlalchemy/alembic/migration-lint
+# 5. python/pytest/run
 forge_check_meta_5() {
-  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
+  c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
+  c_when=0; c_localdb=0; c_timeout=300
   c_changed=1; c_files=1
 }
 forge_scope_5() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_5() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_when_5() { return 1; }
 forge_check_run_5() {
-forge_squawk_alembic $(alembic heads | forge_alembic_files)
+pytest -q
 }
 forge_check_changed_5() {
-forge_squawk_alembic $FORGE_FILES
+if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
 }
 
-# 6. python/sqlalchemy/alembic/single-head
+# 6. python/sqlalchemy/alembic/check
 forge_check_meta_6() {
-  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
+  c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=1; c_timeout=''
   c_changed=0; c_files=0
 }
 forge_scope_6() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_6() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_when_6() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
 forge_check_run_6() {
-test "$(alembic heads | wc -l)" -le 1
+alembic check
 }
 
-# 7. python/typecheck
+# 7. python/sqlalchemy/alembic/migration-lint
 forge_check_meta_7() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0
+  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=1; c_files=1
 }
 forge_scope_7() {
+  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_7() { return 1; }
+forge_when_7() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
 forge_check_run_7() {
-basedpyright
+forge_squawk_alembic $(alembic heads | forge_alembic_files)
+}
+forge_check_changed_7() {
+forge_squawk_alembic $FORGE_FILES
 }
 
-# 8. python/uv/lock-sync
+# 8. python/sqlalchemy/alembic/single-head
 forge_check_meta_8() {
-  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0
 }
 forge_scope_8() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_8() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_8() {
+test "$(alembic heads | wc -l)" -le 1
+}
+
+# 9. python/typecheck
+forge_check_meta_9() {
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0
+}
+forge_scope_9() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_9() { return 1; }
+forge_check_run_9() {
+basedpyright
+}
+
+# 10. python/uv/lock-sync
+forge_check_meta_10() {
+  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0
+}
+forge_scope_10() {
   return 0
 }
-forge_when_8() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
-forge_check_run_8() {
+forge_when_10() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_check_run_10() {
 uv lock --check
+}
+
+FORGE_NGREPS=1
+FORGE_GREP_NO_INCREASE='python/no-new-suppressions'
+FORGE_GREP_NO_DECREASE=''
+
+# grep 1. python/no-new-suppressions
+forge_grep_meta_1() {
+  g_id='python/no-new-suppressions'; g_mode=no-increase; g_flags=-E
+  g_pattern='#[[:space:]]*(noqa|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore)'
+  g_desc='No new suppression comments (# noqa,'
+}
+forge_grep_scope_1() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
 }
 # ---- end of generated checks
 
@@ -582,6 +636,175 @@ forge_sg_report() {
       d = m; sub(/^[^ ]* ?/, "", d)
       printf "forge:%s %s:%d:%d %s\n", id, f, sl, sc, d
     }' "$FORGE_TMP/added" "$1"
+}
+
+# forge_grep_counts <dir> <file-list>: "rule<TAB>file<TAB>count" (matching lines)
+# for each grep rule that counts (no-increase, no-decrease), on the listed files under <dir>.
+forge_grep_counts() {
+  _gc_i=1
+  while [ "$_gc_i" -le "$FORGE_NGREPS" ]; do
+    forge_grep_meta_"$_gc_i"
+    if [ "$g_mode" != forbid ]; then
+      while IFS= read -r _gc_f; do
+        [ -f "$1/$_gc_f" ] && forge_grep_scope_"$_gc_i" "$_gc_f" || continue
+        printf '%s\t%s\t%s\n' "$g_id" "$_gc_f" "$(grep -c "$g_flags" -- "$g_pattern" "$1/$_gc_f")"
+      done < "$2"
+    fi
+    _gc_i=$((_gc_i + 1))
+  done
+}
+
+# forge_grep_forbid <file-list>: "forge:<rule> path:line <description>" for each
+# match of a forbid grep rule; unless $mode is --all, only on lines of $FORGE_TMP/added.
+forge_grep_forbid() {
+  _gf_i=1
+  while [ "$_gf_i" -le "$FORGE_NGREPS" ]; do
+    forge_grep_meta_"$_gf_i"
+    if [ "$g_mode" = forbid ]; then
+      while IFS= read -r _gf_f; do
+        [ -f "$_gf_f" ] && forge_grep_scope_"$_gf_i" "$_gf_f" || continue
+        grep -n "$g_flags" -- "$g_pattern" "$_gf_f" 2>/dev/null | awk -F: -v f="$_gf_f" -v id="$g_id" -v d="$g_desc" -v all="$([ "$mode" = --all ] && printf 1)" '
+          FILENAME == ARGV[1] { split($0, a, "\t"); if (a[2] == "*") whole[a[1]] = 1; else ad[a[1] "\t" a[2]] = 1; next }
+          all != "" || (f in whole) || ((f "\t" $1) in ad) { printf "forge:%s %s:%s %s\n", id, f, $1, d }' "$FORGE_TMP/added" -
+      done < "$1"
+    fi
+    _gf_i=$((_gf_i + 1))
+  done
+}
+
+# forge_ratchet <runtime> <script>: the config ratchet. Runs <script> (embedded in
+# check.sh as forge_script_<script>) with the project's runtime on the changed files
+# and their base copies; each printed line is a loosened setting, unless forge.yaml
+# records it as accepted.
+forge_ratchet() {
+  _fr_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
+  "$_fr_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  set -f
+  # shellcheck disable=SC2046
+  "$1" "$FORGE_TMP/$2" "$FORGE_TMP/base" $(cat "$FORGE_TMP/existing") > "$FORGE_TMP/ratchet" 2>&1
+  _fr_rc=$?
+  set +f
+  case $_fr_rc in
+    0) return 0 ;;
+    1) ;;
+    *) printf 'forge:%s %s\n' "$c_id" "$(grep '^skipped:' "$FORGE_TMP/ratchet" | head -n 1 | grep . || printf 'skipped: %s exited with %s' "$1" "$_fr_rc")"; return 0 ;;
+  esac
+  while IFS= read -r _fr_l; do
+    [ -f forge.yaml ] && grep -qF -- "$_fr_l" forge.yaml && continue
+    printf '%s\n' "$_fr_l"
+  done < "$FORGE_TMP/ratchet" > "$FORGE_TMP/ratchet.open"
+  [ -s "$FORGE_TMP/ratchet.open" ] || return 0
+  cat "$FORGE_TMP/ratchet.open"
+  printf 'Restore the setting, or have the user accept the change in forge.yaml: accept: [{rule: %s, change: "<line above>", reason: "..."}]\n' "$c_id"
+  return 1
+}
+
+# Test blocks, for forge_test_edits: pytest test functions (with their decorators)
+# and classes; Vitest/Playwright test and it calls, and the describe calls around them.
+FORGE_TEST_BLOCKS='id: forge-test
+language: Python
+rule:
+  any:
+    - kind: decorated_definition
+      has: {field: definition, kind: function_definition, has: {field: name, regex: "^test"}}
+    - all:
+        - kind: function_definition
+        - has: {field: name, regex: "^test"}
+        - not: {inside: {kind: decorated_definition, stopBy: neighbor}}
+---
+id: forge-test-scope
+language: Python
+rule: {kind: class_definition}
+---
+id: forge-test
+language: Tsx
+rule: {pattern: "$F($NAME, $$$REST)"}
+constraints:
+  F: {all: [{regex: "^(test|it)([.(]|$)"}, {not: {regex: "^test[.](describe|step|use|extend|info|beforeEach|afterEach|beforeAll|afterAll)"}}]}
+  NAME: {any: [{kind: string}, {kind: template_string}]}
+---
+id: forge-test-scope
+language: Tsx
+rule: {pattern: "$F($NAME, $$$REST)"}
+constraints:
+  F: {regex: "^(describe|suite|test[.]describe)([.(]|$)"}
+  NAME: {any: [{kind: string}, {kind: template_string}]}'
+
+# forge_test_blocks <dir> <file-list>: "file<TAB>key<TAB>body" per test of the listed
+# files under <dir>; key = enclosing classes or describe names, then the test name
+# (" #2" for a repeated one); body = the test's text without whitespace.
+forge_test_blocks() {
+  set -f
+  # shellcheck disable=SC2046
+  ( cd "$1" && astgrep scan -c "$FORGE_ROOT/.forge/ast-grep/sgconfig.yml" --inline-rules "$FORGE_TEST_BLOCKS" --filter '^forge-test' --json=stream $(cat "$2") ) > "$FORGE_TMP/blocks.json"
+  _tb_rc=$?
+  set +f
+  [ "$_tb_rc" -le 1 ] || return 1
+  awk '
+    function str(s, key,   i, out, c) {
+      i = index(s, "\"" key "\":\""); if (!i) return ""
+      s = substr(s, i + length(key) + 4); out = ""
+      while (length(s)) {
+        c = substr(s, 1, 1)
+        if (c == "\"") break
+        if (c == "\\") { c = substr(s, 2, 1); if (c == "n" || c == "t" || c == "r") c = " "; s = substr(s, 2) }
+        out = out c; s = substr(s, 2)
+      }
+      return out
+    }
+    {
+      rid = str($0, "ruleId"); if (rid !~ /^forge-test/) next
+      r = substr($0, index($0, "\"byteOffset\":{\"start\":") + 22)
+      n++; F[n] = str($0, "file"); R[n] = rid; S[n] = r + 0; E[n] = substr(r, index(r, "\"end\":") + 6) + 0
+      t = str($0, "text"); k = index($0, "\"NAME\":{"); nm = k ? str(substr($0, k), "text") : ""
+      if (nm == "" && match(t, /(def|class)[ ]+[A-Za-z_][A-Za-z0-9_]*/)) { nm = substr(t, RSTART, RLENGTH); sub(/^(def|class)[ ]+/, "", nm) }
+      if (nm ~ /^["\047`]/) nm = substr(nm, 2, length(nm) - 2)
+      N[n] = nm; gsub(/[[:space:]]/, "", t); T[n] = t
+    }
+    END {
+      for (a = 1; a <= n; a++) {
+        if (R[a] != "forge-test") continue
+        m = 0
+        for (b = 1; b <= n; b++)
+          if (R[b] == "forge-test-scope" && F[b] == F[a] && S[b] <= S[a] && E[a] <= E[b]) {
+            m++; cs[m] = S[b]; cn[m] = N[b]
+            for (j = m; j > 1 && cs[j - 1] > cs[j]; j--) { x = cs[j]; cs[j] = cs[j - 1]; cs[j - 1] = x; x = cn[j]; cn[j] = cn[j - 1]; cn[j - 1] = x }
+          }
+        key = ""
+        for (j = 1; j <= m; j++) key = key cn[j] " > "
+        key = key N[a]
+        if (++seen[F[a] "\t" key] > 1) key = key " #" seen[F[a] "\t" key]
+        print F[a] "\t" key "\t" T[a]
+      }
+    }' "$FORGE_TMP/blocks.json"
+}
+
+# forge_test_edits: Stop only (--turn). Each test of the in-scope files ($FORGE_FILES)
+# that existed at the start of the turn must be unchanged (whitespace aside) and
+# still present; new tests are fine.
+forge_test_edits() {
+  [ "$mode" = --turn ] || return 0
+  printf '%s\n' "$FORGE_FILES" | grep -xF -f "$FORGE_TMP/inbase" > "$FORGE_TMP/tests.files"
+  [ -s "$FORGE_TMP/tests.files" ] || return 0
+  if ! forge_test_blocks "$FORGE_TMP/base" "$FORGE_TMP/tests.files" > "$FORGE_TMP/tests.then" \
+    || ! forge_test_blocks "$FORGE_ROOT" "$FORGE_TMP/tests.files" > "$FORGE_TMP/tests.now"; then
+    printf 'forge:%s skipped: ast-grep unavailable\n' "$c_id"
+    return 0
+  fi
+  awk -F '\t' '
+    FILENAME == ARGV[1] { then[$1 "\t" $2] = $3; next }
+    { now[$1 "\t" $2] = $3 }
+    END {
+      for (k in then) {
+        split(k, p, "\t")
+        if (!(k in now)) print p[1] ": test \"" p[2] "\" was removed"
+        else if (now[k] != then[k]) print p[1] ": test \"" p[2] "\" was changed"
+      }
+    }' "$FORGE_TMP/tests.then" "$FORGE_TMP/tests.now" | sort > "$FORGE_TMP/tests.edits"
+  [ -s "$FORGE_TMP/tests.edits" ] || return 0
+  cat "$FORGE_TMP/tests.edits"
+  printf 'Tests that existed before this turn are not edited to make the code pass. Restore them; if one looks wrong, stop and ask the user.\n'
+  return 1
 }
 
 # forge_exec_tool <name> <args>: runs the project's own <name>; 127 when absent.
@@ -973,6 +1196,7 @@ printf '%s\n' "$file" > "$FORGE_TMP/changed"
 base_file "$file" "$FORGE_TMP/base"
 added_lines "$file" "$FORGE_TMP/base" > "$FORGE_TMP/added"
 forge_file_stage lint "$file" > "$FORGE_TMP/report" 2>&1
+forge_grep_forbid "$FORGE_TMP/changed" >> "$FORGE_TMP/report"
 if [ -n "$FORGE_FORBID" ] && [ -f .forge/ast-grep/sgconfig.yml ]; then
   astgrep scan -c .forge/ast-grep/sgconfig.yml --filter "^($FORGE_FORBID)\$" --json=stream "$file" > "$FORGE_TMP/forbid" 2>/dev/null
   forge_sg_report "$FORGE_TMP/forbid" >> "$FORGE_TMP/report"
@@ -998,29 +1222,27 @@ ruff() { forge_exec_tool ruff "$@"; }
 basedpyright() { forge_exec_tool basedpyright "$@"; }
 alembic() { forge_exec_tool alembic "$@"; }
 pytest() { forge_exec_tool pytest "$@"; }
-FORGE_NCHECKS=8
+python() { forge_exec_tool python "$@"; }
+FORGE_NCHECKS=10
 
-# 1. python/format
+# 1. python/config-ratchet
 forge_check_meta_1() {
-  c_id='python/format'; c_stage=format; c_tools='ruff'
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1
+  c_id='python/config-ratchet'; c_stage=lint; c_tools='python'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0
 }
 forge_scope_1() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
+  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) ;; *) return 1 ;; esac
+  return 0
 }
-forge_when_1() { return 1; }
+forge_when_1() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) return 0 ;; esac; return 1; }
 forge_check_run_1() {
-ruff format --check .
-}
-forge_check_changed_1() {
-ruff format $FORGE_FILES
+forge_ratchet python ratchet.py
 }
 
-# 2. python/lint
+# 2. python/format
 forge_check_meta_2() {
-  c_id='python/lint'; c_stage=lint; c_tools='ruff'
+  c_id='python/format'; c_stage=format; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1
 }
@@ -1030,16 +1252,16 @@ forge_scope_2() {
 }
 forge_when_2() { return 1; }
 forge_check_run_2() {
-ruff check .
+ruff format --check .
 }
 forge_check_changed_2() {
-ruff check --output-format concise $FORGE_FILES
+ruff format $FORGE_FILES
 }
 
-# 3. python/pytest/run
+# 3. python/lint
 forge_check_meta_3() {
-  c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
-  c_when=0; c_localdb=0; c_timeout=300
+  c_id='python/lint'; c_stage=lint; c_tools='ruff'
+  c_when=0; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1
 }
 forge_scope_3() {
@@ -1048,88 +1270,137 @@ forge_scope_3() {
 }
 forge_when_3() { return 1; }
 forge_check_run_3() {
-pytest -q
+ruff check .
 }
 forge_check_changed_3() {
-if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
+ruff check --output-format concise $FORGE_FILES
 }
 
-# 4. python/sqlalchemy/alembic/check
+# 4. python/pytest/no-test-edits
 forge_check_meta_4() {
-  c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=1; c_timeout=''
+  c_id='python/pytest/no-test-edits'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0
 }
 forge_scope_4() {
+  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_4() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
+forge_when_4() { return 1; }
 forge_check_run_4() {
-alembic check
+forge_test_edits
 }
 
-# 5. python/sqlalchemy/alembic/migration-lint
+# 5. python/pytest/run
 forge_check_meta_5() {
-  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
+  c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
+  c_when=0; c_localdb=0; c_timeout=300
   c_changed=1; c_files=1
 }
 forge_scope_5() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_5() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_when_5() { return 1; }
 forge_check_run_5() {
-forge_squawk_alembic $(alembic heads | forge_alembic_files)
+pytest -q
 }
 forge_check_changed_5() {
-forge_squawk_alembic $FORGE_FILES
+if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
 }
 
-# 6. python/sqlalchemy/alembic/single-head
+# 6. python/sqlalchemy/alembic/check
 forge_check_meta_6() {
-  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
+  c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=1; c_timeout=''
   c_changed=0; c_files=0
 }
 forge_scope_6() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_6() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_when_6() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
 forge_check_run_6() {
-test "$(alembic heads | wc -l)" -le 1
+alembic check
 }
 
-# 7. python/typecheck
+# 7. python/sqlalchemy/alembic/migration-lint
 forge_check_meta_7() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0
+  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=1; c_files=1
 }
 forge_scope_7() {
+  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_7() { return 1; }
+forge_when_7() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
 forge_check_run_7() {
-basedpyright
+forge_squawk_alembic $(alembic heads | forge_alembic_files)
+}
+forge_check_changed_7() {
+forge_squawk_alembic $FORGE_FILES
 }
 
-# 8. python/uv/lock-sync
+# 8. python/sqlalchemy/alembic/single-head
 forge_check_meta_8() {
-  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0
 }
 forge_scope_8() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_8() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_8() {
+test "$(alembic heads | wc -l)" -le 1
+}
+
+# 9. python/typecheck
+forge_check_meta_9() {
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0
+}
+forge_scope_9() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_9() { return 1; }
+forge_check_run_9() {
+basedpyright
+}
+
+# 10. python/uv/lock-sync
+forge_check_meta_10() {
+  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0
+}
+forge_scope_10() {
   return 0
 }
-forge_when_8() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
-forge_check_run_8() {
+forge_when_10() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_check_run_10() {
 uv lock --check
+}
+
+FORGE_NGREPS=1
+FORGE_GREP_NO_INCREASE='python/no-new-suppressions'
+FORGE_GREP_NO_DECREASE=''
+
+# grep 1. python/no-new-suppressions
+forge_grep_meta_1() {
+  g_id='python/no-new-suppressions'; g_mode=no-increase; g_flags=-E
+  g_pattern='#[[:space:]]*(noqa|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore)'
+  g_desc='No new suppression comments (# noqa,'
+}
+forge_grep_scope_1() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
 }
 # ---- end of generated checks
 
@@ -1214,6 +1485,175 @@ forge_sg_report() {
       d = m; sub(/^[^ ]* ?/, "", d)
       printf "forge:%s %s:%d:%d %s\n", id, f, sl, sc, d
     }' "$FORGE_TMP/added" "$1"
+}
+
+# forge_grep_counts <dir> <file-list>: "rule<TAB>file<TAB>count" (matching lines)
+# for each grep rule that counts (no-increase, no-decrease), on the listed files under <dir>.
+forge_grep_counts() {
+  _gc_i=1
+  while [ "$_gc_i" -le "$FORGE_NGREPS" ]; do
+    forge_grep_meta_"$_gc_i"
+    if [ "$g_mode" != forbid ]; then
+      while IFS= read -r _gc_f; do
+        [ -f "$1/$_gc_f" ] && forge_grep_scope_"$_gc_i" "$_gc_f" || continue
+        printf '%s\t%s\t%s\n' "$g_id" "$_gc_f" "$(grep -c "$g_flags" -- "$g_pattern" "$1/$_gc_f")"
+      done < "$2"
+    fi
+    _gc_i=$((_gc_i + 1))
+  done
+}
+
+# forge_grep_forbid <file-list>: "forge:<rule> path:line <description>" for each
+# match of a forbid grep rule; unless $mode is --all, only on lines of $FORGE_TMP/added.
+forge_grep_forbid() {
+  _gf_i=1
+  while [ "$_gf_i" -le "$FORGE_NGREPS" ]; do
+    forge_grep_meta_"$_gf_i"
+    if [ "$g_mode" = forbid ]; then
+      while IFS= read -r _gf_f; do
+        [ -f "$_gf_f" ] && forge_grep_scope_"$_gf_i" "$_gf_f" || continue
+        grep -n "$g_flags" -- "$g_pattern" "$_gf_f" 2>/dev/null | awk -F: -v f="$_gf_f" -v id="$g_id" -v d="$g_desc" -v all="$([ "$mode" = --all ] && printf 1)" '
+          FILENAME == ARGV[1] { split($0, a, "\t"); if (a[2] == "*") whole[a[1]] = 1; else ad[a[1] "\t" a[2]] = 1; next }
+          all != "" || (f in whole) || ((f "\t" $1) in ad) { printf "forge:%s %s:%s %s\n", id, f, $1, d }' "$FORGE_TMP/added" -
+      done < "$1"
+    fi
+    _gf_i=$((_gf_i + 1))
+  done
+}
+
+# forge_ratchet <runtime> <script>: the config ratchet. Runs <script> (embedded in
+# check.sh as forge_script_<script>) with the project's runtime on the changed files
+# and their base copies; each printed line is a loosened setting, unless forge.yaml
+# records it as accepted.
+forge_ratchet() {
+  _fr_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
+  "$_fr_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  set -f
+  # shellcheck disable=SC2046
+  "$1" "$FORGE_TMP/$2" "$FORGE_TMP/base" $(cat "$FORGE_TMP/existing") > "$FORGE_TMP/ratchet" 2>&1
+  _fr_rc=$?
+  set +f
+  case $_fr_rc in
+    0) return 0 ;;
+    1) ;;
+    *) printf 'forge:%s %s\n' "$c_id" "$(grep '^skipped:' "$FORGE_TMP/ratchet" | head -n 1 | grep . || printf 'skipped: %s exited with %s' "$1" "$_fr_rc")"; return 0 ;;
+  esac
+  while IFS= read -r _fr_l; do
+    [ -f forge.yaml ] && grep -qF -- "$_fr_l" forge.yaml && continue
+    printf '%s\n' "$_fr_l"
+  done < "$FORGE_TMP/ratchet" > "$FORGE_TMP/ratchet.open"
+  [ -s "$FORGE_TMP/ratchet.open" ] || return 0
+  cat "$FORGE_TMP/ratchet.open"
+  printf 'Restore the setting, or have the user accept the change in forge.yaml: accept: [{rule: %s, change: "<line above>", reason: "..."}]\n' "$c_id"
+  return 1
+}
+
+# Test blocks, for forge_test_edits: pytest test functions (with their decorators)
+# and classes; Vitest/Playwright test and it calls, and the describe calls around them.
+FORGE_TEST_BLOCKS='id: forge-test
+language: Python
+rule:
+  any:
+    - kind: decorated_definition
+      has: {field: definition, kind: function_definition, has: {field: name, regex: "^test"}}
+    - all:
+        - kind: function_definition
+        - has: {field: name, regex: "^test"}
+        - not: {inside: {kind: decorated_definition, stopBy: neighbor}}
+---
+id: forge-test-scope
+language: Python
+rule: {kind: class_definition}
+---
+id: forge-test
+language: Tsx
+rule: {pattern: "$F($NAME, $$$REST)"}
+constraints:
+  F: {all: [{regex: "^(test|it)([.(]|$)"}, {not: {regex: "^test[.](describe|step|use|extend|info|beforeEach|afterEach|beforeAll|afterAll)"}}]}
+  NAME: {any: [{kind: string}, {kind: template_string}]}
+---
+id: forge-test-scope
+language: Tsx
+rule: {pattern: "$F($NAME, $$$REST)"}
+constraints:
+  F: {regex: "^(describe|suite|test[.]describe)([.(]|$)"}
+  NAME: {any: [{kind: string}, {kind: template_string}]}'
+
+# forge_test_blocks <dir> <file-list>: "file<TAB>key<TAB>body" per test of the listed
+# files under <dir>; key = enclosing classes or describe names, then the test name
+# (" #2" for a repeated one); body = the test's text without whitespace.
+forge_test_blocks() {
+  set -f
+  # shellcheck disable=SC2046
+  ( cd "$1" && astgrep scan -c "$FORGE_ROOT/.forge/ast-grep/sgconfig.yml" --inline-rules "$FORGE_TEST_BLOCKS" --filter '^forge-test' --json=stream $(cat "$2") ) > "$FORGE_TMP/blocks.json"
+  _tb_rc=$?
+  set +f
+  [ "$_tb_rc" -le 1 ] || return 1
+  awk '
+    function str(s, key,   i, out, c) {
+      i = index(s, "\"" key "\":\""); if (!i) return ""
+      s = substr(s, i + length(key) + 4); out = ""
+      while (length(s)) {
+        c = substr(s, 1, 1)
+        if (c == "\"") break
+        if (c == "\\") { c = substr(s, 2, 1); if (c == "n" || c == "t" || c == "r") c = " "; s = substr(s, 2) }
+        out = out c; s = substr(s, 2)
+      }
+      return out
+    }
+    {
+      rid = str($0, "ruleId"); if (rid !~ /^forge-test/) next
+      r = substr($0, index($0, "\"byteOffset\":{\"start\":") + 22)
+      n++; F[n] = str($0, "file"); R[n] = rid; S[n] = r + 0; E[n] = substr(r, index(r, "\"end\":") + 6) + 0
+      t = str($0, "text"); k = index($0, "\"NAME\":{"); nm = k ? str(substr($0, k), "text") : ""
+      if (nm == "" && match(t, /(def|class)[ ]+[A-Za-z_][A-Za-z0-9_]*/)) { nm = substr(t, RSTART, RLENGTH); sub(/^(def|class)[ ]+/, "", nm) }
+      if (nm ~ /^["\047`]/) nm = substr(nm, 2, length(nm) - 2)
+      N[n] = nm; gsub(/[[:space:]]/, "", t); T[n] = t
+    }
+    END {
+      for (a = 1; a <= n; a++) {
+        if (R[a] != "forge-test") continue
+        m = 0
+        for (b = 1; b <= n; b++)
+          if (R[b] == "forge-test-scope" && F[b] == F[a] && S[b] <= S[a] && E[a] <= E[b]) {
+            m++; cs[m] = S[b]; cn[m] = N[b]
+            for (j = m; j > 1 && cs[j - 1] > cs[j]; j--) { x = cs[j]; cs[j] = cs[j - 1]; cs[j - 1] = x; x = cn[j]; cn[j] = cn[j - 1]; cn[j - 1] = x }
+          }
+        key = ""
+        for (j = 1; j <= m; j++) key = key cn[j] " > "
+        key = key N[a]
+        if (++seen[F[a] "\t" key] > 1) key = key " #" seen[F[a] "\t" key]
+        print F[a] "\t" key "\t" T[a]
+      }
+    }' "$FORGE_TMP/blocks.json"
+}
+
+# forge_test_edits: Stop only (--turn). Each test of the in-scope files ($FORGE_FILES)
+# that existed at the start of the turn must be unchanged (whitespace aside) and
+# still present; new tests are fine.
+forge_test_edits() {
+  [ "$mode" = --turn ] || return 0
+  printf '%s\n' "$FORGE_FILES" | grep -xF -f "$FORGE_TMP/inbase" > "$FORGE_TMP/tests.files"
+  [ -s "$FORGE_TMP/tests.files" ] || return 0
+  if ! forge_test_blocks "$FORGE_TMP/base" "$FORGE_TMP/tests.files" > "$FORGE_TMP/tests.then" \
+    || ! forge_test_blocks "$FORGE_ROOT" "$FORGE_TMP/tests.files" > "$FORGE_TMP/tests.now"; then
+    printf 'forge:%s skipped: ast-grep unavailable\n' "$c_id"
+    return 0
+  fi
+  awk -F '\t' '
+    FILENAME == ARGV[1] { then[$1 "\t" $2] = $3; next }
+    { now[$1 "\t" $2] = $3 }
+    END {
+      for (k in then) {
+        split(k, p, "\t")
+        if (!(k in now)) print p[1] ": test \"" p[2] "\" was removed"
+        else if (now[k] != then[k]) print p[1] ": test \"" p[2] "\" was changed"
+      }
+    }' "$FORGE_TMP/tests.then" "$FORGE_TMP/tests.now" | sort > "$FORGE_TMP/tests.edits"
+  [ -s "$FORGE_TMP/tests.edits" ] || return 0
+  cat "$FORGE_TMP/tests.edits"
+  printf 'Tests that existed before this turn are not edited to make the code pass. Restore them; if one looks wrong, stop and ask the user.\n'
+  return 1
 }
 
 # forge_exec_tool <name> <args>: runs the project's own <name>; 127 when absent.
@@ -1708,29 +2148,27 @@ ruff() { forge_exec_tool ruff "$@"; }
 basedpyright() { forge_exec_tool basedpyright "$@"; }
 alembic() { forge_exec_tool alembic "$@"; }
 pytest() { forge_exec_tool pytest "$@"; }
-FORGE_NCHECKS=8
+python() { forge_exec_tool python "$@"; }
+FORGE_NCHECKS=10
 
-# 1. python/format
+# 1. python/config-ratchet
 forge_check_meta_1() {
-  c_id='python/format'; c_stage=format; c_tools='ruff'
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1
+  c_id='python/config-ratchet'; c_stage=lint; c_tools='python'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0
 }
 forge_scope_1() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
+  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) ;; *) return 1 ;; esac
+  return 0
 }
-forge_when_1() { return 1; }
+forge_when_1() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) return 0 ;; esac; return 1; }
 forge_check_run_1() {
-ruff format --check .
-}
-forge_check_changed_1() {
-ruff format $FORGE_FILES
+forge_ratchet python ratchet.py
 }
 
-# 2. python/lint
+# 2. python/format
 forge_check_meta_2() {
-  c_id='python/lint'; c_stage=lint; c_tools='ruff'
+  c_id='python/format'; c_stage=format; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1
 }
@@ -1740,16 +2178,16 @@ forge_scope_2() {
 }
 forge_when_2() { return 1; }
 forge_check_run_2() {
-ruff check .
+ruff format --check .
 }
 forge_check_changed_2() {
-ruff check --output-format concise $FORGE_FILES
+ruff format $FORGE_FILES
 }
 
-# 3. python/pytest/run
+# 3. python/lint
 forge_check_meta_3() {
-  c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
-  c_when=0; c_localdb=0; c_timeout=300
+  c_id='python/lint'; c_stage=lint; c_tools='ruff'
+  c_when=0; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1
 }
 forge_scope_3() {
@@ -1758,88 +2196,137 @@ forge_scope_3() {
 }
 forge_when_3() { return 1; }
 forge_check_run_3() {
-pytest -q
+ruff check .
 }
 forge_check_changed_3() {
-if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
+ruff check --output-format concise $FORGE_FILES
 }
 
-# 4. python/sqlalchemy/alembic/check
+# 4. python/pytest/no-test-edits
 forge_check_meta_4() {
-  c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=1; c_timeout=''
+  c_id='python/pytest/no-test-edits'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0
 }
 forge_scope_4() {
+  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_4() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
+forge_when_4() { return 1; }
 forge_check_run_4() {
-alembic check
+forge_test_edits
 }
 
-# 5. python/sqlalchemy/alembic/migration-lint
+# 5. python/pytest/run
 forge_check_meta_5() {
-  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
+  c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
+  c_when=0; c_localdb=0; c_timeout=300
   c_changed=1; c_files=1
 }
 forge_scope_5() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_5() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_when_5() { return 1; }
 forge_check_run_5() {
-forge_squawk_alembic $(alembic heads | forge_alembic_files)
+pytest -q
 }
 forge_check_changed_5() {
-forge_squawk_alembic $FORGE_FILES
+if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
 }
 
-# 6. python/sqlalchemy/alembic/single-head
+# 6. python/sqlalchemy/alembic/check
 forge_check_meta_6() {
-  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
+  c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=1; c_timeout=''
   c_changed=0; c_files=0
 }
 forge_scope_6() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_6() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_when_6() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
 forge_check_run_6() {
-test "$(alembic heads | wc -l)" -le 1
+alembic check
 }
 
-# 7. python/typecheck
+# 7. python/sqlalchemy/alembic/migration-lint
 forge_check_meta_7() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0
+  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=1; c_files=1
 }
 forge_scope_7() {
+  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_7() { return 1; }
+forge_when_7() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
 forge_check_run_7() {
-basedpyright
+forge_squawk_alembic $(alembic heads | forge_alembic_files)
+}
+forge_check_changed_7() {
+forge_squawk_alembic $FORGE_FILES
 }
 
-# 8. python/uv/lock-sync
+# 8. python/sqlalchemy/alembic/single-head
 forge_check_meta_8() {
-  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0
 }
 forge_scope_8() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_8() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_8() {
+test "$(alembic heads | wc -l)" -le 1
+}
+
+# 9. python/typecheck
+forge_check_meta_9() {
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0
+}
+forge_scope_9() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_9() { return 1; }
+forge_check_run_9() {
+basedpyright
+}
+
+# 10. python/uv/lock-sync
+forge_check_meta_10() {
+  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0
+}
+forge_scope_10() {
   return 0
 }
-forge_when_8() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
-forge_check_run_8() {
+forge_when_10() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_check_run_10() {
 uv lock --check
+}
+
+FORGE_NGREPS=1
+FORGE_GREP_NO_INCREASE='python/no-new-suppressions'
+FORGE_GREP_NO_DECREASE=''
+
+# grep 1. python/no-new-suppressions
+forge_grep_meta_1() {
+  g_id='python/no-new-suppressions'; g_mode=no-increase; g_flags=-E
+  g_pattern='#[[:space:]]*(noqa|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore)'
+  g_desc='No new suppression comments (# noqa,'
+}
+forge_grep_scope_1() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
 }
 # ---- end of generated checks
 
@@ -1924,6 +2411,175 @@ forge_sg_report() {
       d = m; sub(/^[^ ]* ?/, "", d)
       printf "forge:%s %s:%d:%d %s\n", id, f, sl, sc, d
     }' "$FORGE_TMP/added" "$1"
+}
+
+# forge_grep_counts <dir> <file-list>: "rule<TAB>file<TAB>count" (matching lines)
+# for each grep rule that counts (no-increase, no-decrease), on the listed files under <dir>.
+forge_grep_counts() {
+  _gc_i=1
+  while [ "$_gc_i" -le "$FORGE_NGREPS" ]; do
+    forge_grep_meta_"$_gc_i"
+    if [ "$g_mode" != forbid ]; then
+      while IFS= read -r _gc_f; do
+        [ -f "$1/$_gc_f" ] && forge_grep_scope_"$_gc_i" "$_gc_f" || continue
+        printf '%s\t%s\t%s\n' "$g_id" "$_gc_f" "$(grep -c "$g_flags" -- "$g_pattern" "$1/$_gc_f")"
+      done < "$2"
+    fi
+    _gc_i=$((_gc_i + 1))
+  done
+}
+
+# forge_grep_forbid <file-list>: "forge:<rule> path:line <description>" for each
+# match of a forbid grep rule; unless $mode is --all, only on lines of $FORGE_TMP/added.
+forge_grep_forbid() {
+  _gf_i=1
+  while [ "$_gf_i" -le "$FORGE_NGREPS" ]; do
+    forge_grep_meta_"$_gf_i"
+    if [ "$g_mode" = forbid ]; then
+      while IFS= read -r _gf_f; do
+        [ -f "$_gf_f" ] && forge_grep_scope_"$_gf_i" "$_gf_f" || continue
+        grep -n "$g_flags" -- "$g_pattern" "$_gf_f" 2>/dev/null | awk -F: -v f="$_gf_f" -v id="$g_id" -v d="$g_desc" -v all="$([ "$mode" = --all ] && printf 1)" '
+          FILENAME == ARGV[1] { split($0, a, "\t"); if (a[2] == "*") whole[a[1]] = 1; else ad[a[1] "\t" a[2]] = 1; next }
+          all != "" || (f in whole) || ((f "\t" $1) in ad) { printf "forge:%s %s:%s %s\n", id, f, $1, d }' "$FORGE_TMP/added" -
+      done < "$1"
+    fi
+    _gf_i=$((_gf_i + 1))
+  done
+}
+
+# forge_ratchet <runtime> <script>: the config ratchet. Runs <script> (embedded in
+# check.sh as forge_script_<script>) with the project's runtime on the changed files
+# and their base copies; each printed line is a loosened setting, unless forge.yaml
+# records it as accepted.
+forge_ratchet() {
+  _fr_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
+  "$_fr_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  set -f
+  # shellcheck disable=SC2046
+  "$1" "$FORGE_TMP/$2" "$FORGE_TMP/base" $(cat "$FORGE_TMP/existing") > "$FORGE_TMP/ratchet" 2>&1
+  _fr_rc=$?
+  set +f
+  case $_fr_rc in
+    0) return 0 ;;
+    1) ;;
+    *) printf 'forge:%s %s\n' "$c_id" "$(grep '^skipped:' "$FORGE_TMP/ratchet" | head -n 1 | grep . || printf 'skipped: %s exited with %s' "$1" "$_fr_rc")"; return 0 ;;
+  esac
+  while IFS= read -r _fr_l; do
+    [ -f forge.yaml ] && grep -qF -- "$_fr_l" forge.yaml && continue
+    printf '%s\n' "$_fr_l"
+  done < "$FORGE_TMP/ratchet" > "$FORGE_TMP/ratchet.open"
+  [ -s "$FORGE_TMP/ratchet.open" ] || return 0
+  cat "$FORGE_TMP/ratchet.open"
+  printf 'Restore the setting, or have the user accept the change in forge.yaml: accept: [{rule: %s, change: "<line above>", reason: "..."}]\n' "$c_id"
+  return 1
+}
+
+# Test blocks, for forge_test_edits: pytest test functions (with their decorators)
+# and classes; Vitest/Playwright test and it calls, and the describe calls around them.
+FORGE_TEST_BLOCKS='id: forge-test
+language: Python
+rule:
+  any:
+    - kind: decorated_definition
+      has: {field: definition, kind: function_definition, has: {field: name, regex: "^test"}}
+    - all:
+        - kind: function_definition
+        - has: {field: name, regex: "^test"}
+        - not: {inside: {kind: decorated_definition, stopBy: neighbor}}
+---
+id: forge-test-scope
+language: Python
+rule: {kind: class_definition}
+---
+id: forge-test
+language: Tsx
+rule: {pattern: "$F($NAME, $$$REST)"}
+constraints:
+  F: {all: [{regex: "^(test|it)([.(]|$)"}, {not: {regex: "^test[.](describe|step|use|extend|info|beforeEach|afterEach|beforeAll|afterAll)"}}]}
+  NAME: {any: [{kind: string}, {kind: template_string}]}
+---
+id: forge-test-scope
+language: Tsx
+rule: {pattern: "$F($NAME, $$$REST)"}
+constraints:
+  F: {regex: "^(describe|suite|test[.]describe)([.(]|$)"}
+  NAME: {any: [{kind: string}, {kind: template_string}]}'
+
+# forge_test_blocks <dir> <file-list>: "file<TAB>key<TAB>body" per test of the listed
+# files under <dir>; key = enclosing classes or describe names, then the test name
+# (" #2" for a repeated one); body = the test's text without whitespace.
+forge_test_blocks() {
+  set -f
+  # shellcheck disable=SC2046
+  ( cd "$1" && astgrep scan -c "$FORGE_ROOT/.forge/ast-grep/sgconfig.yml" --inline-rules "$FORGE_TEST_BLOCKS" --filter '^forge-test' --json=stream $(cat "$2") ) > "$FORGE_TMP/blocks.json"
+  _tb_rc=$?
+  set +f
+  [ "$_tb_rc" -le 1 ] || return 1
+  awk '
+    function str(s, key,   i, out, c) {
+      i = index(s, "\"" key "\":\""); if (!i) return ""
+      s = substr(s, i + length(key) + 4); out = ""
+      while (length(s)) {
+        c = substr(s, 1, 1)
+        if (c == "\"") break
+        if (c == "\\") { c = substr(s, 2, 1); if (c == "n" || c == "t" || c == "r") c = " "; s = substr(s, 2) }
+        out = out c; s = substr(s, 2)
+      }
+      return out
+    }
+    {
+      rid = str($0, "ruleId"); if (rid !~ /^forge-test/) next
+      r = substr($0, index($0, "\"byteOffset\":{\"start\":") + 22)
+      n++; F[n] = str($0, "file"); R[n] = rid; S[n] = r + 0; E[n] = substr(r, index(r, "\"end\":") + 6) + 0
+      t = str($0, "text"); k = index($0, "\"NAME\":{"); nm = k ? str(substr($0, k), "text") : ""
+      if (nm == "" && match(t, /(def|class)[ ]+[A-Za-z_][A-Za-z0-9_]*/)) { nm = substr(t, RSTART, RLENGTH); sub(/^(def|class)[ ]+/, "", nm) }
+      if (nm ~ /^["\047`]/) nm = substr(nm, 2, length(nm) - 2)
+      N[n] = nm; gsub(/[[:space:]]/, "", t); T[n] = t
+    }
+    END {
+      for (a = 1; a <= n; a++) {
+        if (R[a] != "forge-test") continue
+        m = 0
+        for (b = 1; b <= n; b++)
+          if (R[b] == "forge-test-scope" && F[b] == F[a] && S[b] <= S[a] && E[a] <= E[b]) {
+            m++; cs[m] = S[b]; cn[m] = N[b]
+            for (j = m; j > 1 && cs[j - 1] > cs[j]; j--) { x = cs[j]; cs[j] = cs[j - 1]; cs[j - 1] = x; x = cn[j]; cn[j] = cn[j - 1]; cn[j - 1] = x }
+          }
+        key = ""
+        for (j = 1; j <= m; j++) key = key cn[j] " > "
+        key = key N[a]
+        if (++seen[F[a] "\t" key] > 1) key = key " #" seen[F[a] "\t" key]
+        print F[a] "\t" key "\t" T[a]
+      }
+    }' "$FORGE_TMP/blocks.json"
+}
+
+# forge_test_edits: Stop only (--turn). Each test of the in-scope files ($FORGE_FILES)
+# that existed at the start of the turn must be unchanged (whitespace aside) and
+# still present; new tests are fine.
+forge_test_edits() {
+  [ "$mode" = --turn ] || return 0
+  printf '%s\n' "$FORGE_FILES" | grep -xF -f "$FORGE_TMP/inbase" > "$FORGE_TMP/tests.files"
+  [ -s "$FORGE_TMP/tests.files" ] || return 0
+  if ! forge_test_blocks "$FORGE_TMP/base" "$FORGE_TMP/tests.files" > "$FORGE_TMP/tests.then" \
+    || ! forge_test_blocks "$FORGE_ROOT" "$FORGE_TMP/tests.files" > "$FORGE_TMP/tests.now"; then
+    printf 'forge:%s skipped: ast-grep unavailable\n' "$c_id"
+    return 0
+  fi
+  awk -F '\t' '
+    FILENAME == ARGV[1] { then[$1 "\t" $2] = $3; next }
+    { now[$1 "\t" $2] = $3 }
+    END {
+      for (k in then) {
+        split(k, p, "\t")
+        if (!(k in now)) print p[1] ": test \"" p[2] "\" was removed"
+        else if (now[k] != then[k]) print p[1] ": test \"" p[2] "\" was changed"
+      }
+    }' "$FORGE_TMP/tests.then" "$FORGE_TMP/tests.now" | sort > "$FORGE_TMP/tests.edits"
+  [ -s "$FORGE_TMP/tests.edits" ] || return 0
+  cat "$FORGE_TMP/tests.edits"
+  printf 'Tests that existed before this turn are not edited to make the code pass. Restore them; if one looks wrong, stop and ask the user.\n'
+  return 1
 }
 
 # forge_exec_tool <name> <args>: runs the project's own <name>; 127 when absent.
@@ -3016,29 +3672,27 @@ ruff() { forge_exec_tool ruff "$@"; }
 basedpyright() { forge_exec_tool basedpyright "$@"; }
 alembic() { forge_exec_tool alembic "$@"; }
 pytest() { forge_exec_tool pytest "$@"; }
-FORGE_NCHECKS=8
+python() { forge_exec_tool python "$@"; }
+FORGE_NCHECKS=10
 
-# 1. python/format
+# 1. python/config-ratchet
 forge_check_meta_1() {
-  c_id='python/format'; c_stage=format; c_tools='ruff'
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1
+  c_id='python/config-ratchet'; c_stage=lint; c_tools='python'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0
 }
 forge_scope_1() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
+  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) ;; *) return 1 ;; esac
+  return 0
 }
-forge_when_1() { return 1; }
+forge_when_1() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) return 0 ;; esac; return 1; }
 forge_check_run_1() {
-ruff format --check .
-}
-forge_check_changed_1() {
-ruff format $FORGE_FILES
+forge_ratchet python ratchet.py
 }
 
-# 2. python/lint
+# 2. python/format
 forge_check_meta_2() {
-  c_id='python/lint'; c_stage=lint; c_tools='ruff'
+  c_id='python/format'; c_stage=format; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1
 }
@@ -3048,16 +3702,16 @@ forge_scope_2() {
 }
 forge_when_2() { return 1; }
 forge_check_run_2() {
-ruff check .
+ruff format --check .
 }
 forge_check_changed_2() {
-ruff check --output-format concise $FORGE_FILES
+ruff format $FORGE_FILES
 }
 
-# 3. python/pytest/run
+# 3. python/lint
 forge_check_meta_3() {
-  c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
-  c_when=0; c_localdb=0; c_timeout=300
+  c_id='python/lint'; c_stage=lint; c_tools='ruff'
+  c_when=0; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1
 }
 forge_scope_3() {
@@ -3066,88 +3720,137 @@ forge_scope_3() {
 }
 forge_when_3() { return 1; }
 forge_check_run_3() {
-pytest -q
+ruff check .
 }
 forge_check_changed_3() {
-if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
+ruff check --output-format concise $FORGE_FILES
 }
 
-# 4. python/sqlalchemy/alembic/check
+# 4. python/pytest/no-test-edits
 forge_check_meta_4() {
-  c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=1; c_timeout=''
+  c_id='python/pytest/no-test-edits'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0
 }
 forge_scope_4() {
+  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_4() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
+forge_when_4() { return 1; }
 forge_check_run_4() {
-alembic check
+forge_test_edits
 }
 
-# 5. python/sqlalchemy/alembic/migration-lint
+# 5. python/pytest/run
 forge_check_meta_5() {
-  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
+  c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
+  c_when=0; c_localdb=0; c_timeout=300
   c_changed=1; c_files=1
 }
 forge_scope_5() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_5() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_when_5() { return 1; }
 forge_check_run_5() {
-forge_squawk_alembic $(alembic heads | forge_alembic_files)
+pytest -q
 }
 forge_check_changed_5() {
-forge_squawk_alembic $FORGE_FILES
+if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
 }
 
-# 6. python/sqlalchemy/alembic/single-head
+# 6. python/sqlalchemy/alembic/check
 forge_check_meta_6() {
-  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
+  c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=1; c_timeout=''
   c_changed=0; c_files=0
 }
 forge_scope_6() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_6() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_when_6() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
 forge_check_run_6() {
-test "$(alembic heads | wc -l)" -le 1
+alembic check
 }
 
-# 7. python/typecheck
+# 7. python/sqlalchemy/alembic/migration-lint
 forge_check_meta_7() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0
+  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=1; c_files=1
 }
 forge_scope_7() {
+  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_7() { return 1; }
+forge_when_7() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
 forge_check_run_7() {
-basedpyright
+forge_squawk_alembic $(alembic heads | forge_alembic_files)
+}
+forge_check_changed_7() {
+forge_squawk_alembic $FORGE_FILES
 }
 
-# 8. python/uv/lock-sync
+# 8. python/sqlalchemy/alembic/single-head
 forge_check_meta_8() {
-  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0
 }
 forge_scope_8() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_8() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_8() {
+test "$(alembic heads | wc -l)" -le 1
+}
+
+# 9. python/typecheck
+forge_check_meta_9() {
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0
+}
+forge_scope_9() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_9() { return 1; }
+forge_check_run_9() {
+basedpyright
+}
+
+# 10. python/uv/lock-sync
+forge_check_meta_10() {
+  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0
+}
+forge_scope_10() {
   return 0
 }
-forge_when_8() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
-forge_check_run_8() {
+forge_when_10() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_check_run_10() {
 uv lock --check
+}
+
+FORGE_NGREPS=1
+FORGE_GREP_NO_INCREASE='python/no-new-suppressions'
+FORGE_GREP_NO_DECREASE=''
+
+# grep 1. python/no-new-suppressions
+forge_grep_meta_1() {
+  g_id='python/no-new-suppressions'; g_mode=no-increase; g_flags=-E
+  g_pattern='#[[:space:]]*(noqa|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore)'
+  g_desc='No new suppression comments (# noqa,'
+}
+forge_grep_scope_1() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
 }
 # ---- end of generated checks
 
@@ -3232,6 +3935,175 @@ forge_sg_report() {
       d = m; sub(/^[^ ]* ?/, "", d)
       printf "forge:%s %s:%d:%d %s\n", id, f, sl, sc, d
     }' "$FORGE_TMP/added" "$1"
+}
+
+# forge_grep_counts <dir> <file-list>: "rule<TAB>file<TAB>count" (matching lines)
+# for each grep rule that counts (no-increase, no-decrease), on the listed files under <dir>.
+forge_grep_counts() {
+  _gc_i=1
+  while [ "$_gc_i" -le "$FORGE_NGREPS" ]; do
+    forge_grep_meta_"$_gc_i"
+    if [ "$g_mode" != forbid ]; then
+      while IFS= read -r _gc_f; do
+        [ -f "$1/$_gc_f" ] && forge_grep_scope_"$_gc_i" "$_gc_f" || continue
+        printf '%s\t%s\t%s\n' "$g_id" "$_gc_f" "$(grep -c "$g_flags" -- "$g_pattern" "$1/$_gc_f")"
+      done < "$2"
+    fi
+    _gc_i=$((_gc_i + 1))
+  done
+}
+
+# forge_grep_forbid <file-list>: "forge:<rule> path:line <description>" for each
+# match of a forbid grep rule; unless $mode is --all, only on lines of $FORGE_TMP/added.
+forge_grep_forbid() {
+  _gf_i=1
+  while [ "$_gf_i" -le "$FORGE_NGREPS" ]; do
+    forge_grep_meta_"$_gf_i"
+    if [ "$g_mode" = forbid ]; then
+      while IFS= read -r _gf_f; do
+        [ -f "$_gf_f" ] && forge_grep_scope_"$_gf_i" "$_gf_f" || continue
+        grep -n "$g_flags" -- "$g_pattern" "$_gf_f" 2>/dev/null | awk -F: -v f="$_gf_f" -v id="$g_id" -v d="$g_desc" -v all="$([ "$mode" = --all ] && printf 1)" '
+          FILENAME == ARGV[1] { split($0, a, "\t"); if (a[2] == "*") whole[a[1]] = 1; else ad[a[1] "\t" a[2]] = 1; next }
+          all != "" || (f in whole) || ((f "\t" $1) in ad) { printf "forge:%s %s:%s %s\n", id, f, $1, d }' "$FORGE_TMP/added" -
+      done < "$1"
+    fi
+    _gf_i=$((_gf_i + 1))
+  done
+}
+
+# forge_ratchet <runtime> <script>: the config ratchet. Runs <script> (embedded in
+# check.sh as forge_script_<script>) with the project's runtime on the changed files
+# and their base copies; each printed line is a loosened setting, unless forge.yaml
+# records it as accepted.
+forge_ratchet() {
+  _fr_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
+  "$_fr_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  set -f
+  # shellcheck disable=SC2046
+  "$1" "$FORGE_TMP/$2" "$FORGE_TMP/base" $(cat "$FORGE_TMP/existing") > "$FORGE_TMP/ratchet" 2>&1
+  _fr_rc=$?
+  set +f
+  case $_fr_rc in
+    0) return 0 ;;
+    1) ;;
+    *) printf 'forge:%s %s\n' "$c_id" "$(grep '^skipped:' "$FORGE_TMP/ratchet" | head -n 1 | grep . || printf 'skipped: %s exited with %s' "$1" "$_fr_rc")"; return 0 ;;
+  esac
+  while IFS= read -r _fr_l; do
+    [ -f forge.yaml ] && grep -qF -- "$_fr_l" forge.yaml && continue
+    printf '%s\n' "$_fr_l"
+  done < "$FORGE_TMP/ratchet" > "$FORGE_TMP/ratchet.open"
+  [ -s "$FORGE_TMP/ratchet.open" ] || return 0
+  cat "$FORGE_TMP/ratchet.open"
+  printf 'Restore the setting, or have the user accept the change in forge.yaml: accept: [{rule: %s, change: "<line above>", reason: "..."}]\n' "$c_id"
+  return 1
+}
+
+# Test blocks, for forge_test_edits: pytest test functions (with their decorators)
+# and classes; Vitest/Playwright test and it calls, and the describe calls around them.
+FORGE_TEST_BLOCKS='id: forge-test
+language: Python
+rule:
+  any:
+    - kind: decorated_definition
+      has: {field: definition, kind: function_definition, has: {field: name, regex: "^test"}}
+    - all:
+        - kind: function_definition
+        - has: {field: name, regex: "^test"}
+        - not: {inside: {kind: decorated_definition, stopBy: neighbor}}
+---
+id: forge-test-scope
+language: Python
+rule: {kind: class_definition}
+---
+id: forge-test
+language: Tsx
+rule: {pattern: "$F($NAME, $$$REST)"}
+constraints:
+  F: {all: [{regex: "^(test|it)([.(]|$)"}, {not: {regex: "^test[.](describe|step|use|extend|info|beforeEach|afterEach|beforeAll|afterAll)"}}]}
+  NAME: {any: [{kind: string}, {kind: template_string}]}
+---
+id: forge-test-scope
+language: Tsx
+rule: {pattern: "$F($NAME, $$$REST)"}
+constraints:
+  F: {regex: "^(describe|suite|test[.]describe)([.(]|$)"}
+  NAME: {any: [{kind: string}, {kind: template_string}]}'
+
+# forge_test_blocks <dir> <file-list>: "file<TAB>key<TAB>body" per test of the listed
+# files under <dir>; key = enclosing classes or describe names, then the test name
+# (" #2" for a repeated one); body = the test's text without whitespace.
+forge_test_blocks() {
+  set -f
+  # shellcheck disable=SC2046
+  ( cd "$1" && astgrep scan -c "$FORGE_ROOT/.forge/ast-grep/sgconfig.yml" --inline-rules "$FORGE_TEST_BLOCKS" --filter '^forge-test' --json=stream $(cat "$2") ) > "$FORGE_TMP/blocks.json"
+  _tb_rc=$?
+  set +f
+  [ "$_tb_rc" -le 1 ] || return 1
+  awk '
+    function str(s, key,   i, out, c) {
+      i = index(s, "\"" key "\":\""); if (!i) return ""
+      s = substr(s, i + length(key) + 4); out = ""
+      while (length(s)) {
+        c = substr(s, 1, 1)
+        if (c == "\"") break
+        if (c == "\\") { c = substr(s, 2, 1); if (c == "n" || c == "t" || c == "r") c = " "; s = substr(s, 2) }
+        out = out c; s = substr(s, 2)
+      }
+      return out
+    }
+    {
+      rid = str($0, "ruleId"); if (rid !~ /^forge-test/) next
+      r = substr($0, index($0, "\"byteOffset\":{\"start\":") + 22)
+      n++; F[n] = str($0, "file"); R[n] = rid; S[n] = r + 0; E[n] = substr(r, index(r, "\"end\":") + 6) + 0
+      t = str($0, "text"); k = index($0, "\"NAME\":{"); nm = k ? str(substr($0, k), "text") : ""
+      if (nm == "" && match(t, /(def|class)[ ]+[A-Za-z_][A-Za-z0-9_]*/)) { nm = substr(t, RSTART, RLENGTH); sub(/^(def|class)[ ]+/, "", nm) }
+      if (nm ~ /^["\047`]/) nm = substr(nm, 2, length(nm) - 2)
+      N[n] = nm; gsub(/[[:space:]]/, "", t); T[n] = t
+    }
+    END {
+      for (a = 1; a <= n; a++) {
+        if (R[a] != "forge-test") continue
+        m = 0
+        for (b = 1; b <= n; b++)
+          if (R[b] == "forge-test-scope" && F[b] == F[a] && S[b] <= S[a] && E[a] <= E[b]) {
+            m++; cs[m] = S[b]; cn[m] = N[b]
+            for (j = m; j > 1 && cs[j - 1] > cs[j]; j--) { x = cs[j]; cs[j] = cs[j - 1]; cs[j - 1] = x; x = cn[j]; cn[j] = cn[j - 1]; cn[j - 1] = x }
+          }
+        key = ""
+        for (j = 1; j <= m; j++) key = key cn[j] " > "
+        key = key N[a]
+        if (++seen[F[a] "\t" key] > 1) key = key " #" seen[F[a] "\t" key]
+        print F[a] "\t" key "\t" T[a]
+      }
+    }' "$FORGE_TMP/blocks.json"
+}
+
+# forge_test_edits: Stop only (--turn). Each test of the in-scope files ($FORGE_FILES)
+# that existed at the start of the turn must be unchanged (whitespace aside) and
+# still present; new tests are fine.
+forge_test_edits() {
+  [ "$mode" = --turn ] || return 0
+  printf '%s\n' "$FORGE_FILES" | grep -xF -f "$FORGE_TMP/inbase" > "$FORGE_TMP/tests.files"
+  [ -s "$FORGE_TMP/tests.files" ] || return 0
+  if ! forge_test_blocks "$FORGE_TMP/base" "$FORGE_TMP/tests.files" > "$FORGE_TMP/tests.then" \
+    || ! forge_test_blocks "$FORGE_ROOT" "$FORGE_TMP/tests.files" > "$FORGE_TMP/tests.now"; then
+    printf 'forge:%s skipped: ast-grep unavailable\n' "$c_id"
+    return 0
+  fi
+  awk -F '\t' '
+    FILENAME == ARGV[1] { then[$1 "\t" $2] = $3; next }
+    { now[$1 "\t" $2] = $3 }
+    END {
+      for (k in then) {
+        split(k, p, "\t")
+        if (!(k in now)) print p[1] ": test \"" p[2] "\" was removed"
+        else if (now[k] != then[k]) print p[1] ": test \"" p[2] "\" was changed"
+      }
+    }' "$FORGE_TMP/tests.then" "$FORGE_TMP/tests.now" | sort > "$FORGE_TMP/tests.edits"
+  [ -s "$FORGE_TMP/tests.edits" ] || return 0
+  cat "$FORGE_TMP/tests.edits"
+  printf 'Tests that existed before this turn are not edited to make the code pass. Restore them; if one looks wrong, stop and ask the user.\n'
+  return 1
 }
 
 # forge_exec_tool <name> <args>: runs the project's own <name>; 127 when absent.
@@ -3610,6 +4482,228 @@ forge_required_tools() {
   done | awk 'NF && !seen[$0]++'
 }
 
+# Scripts that checks run with the project's own runtime (Python, bun).
+forge_script_ratchet_py() {
+cat <<'FORGE_SCRIPT_END'
+# Generated by forge. Config ratchet for Python tool configs (run by .forge/check.sh
+# with the project's own Python, 3.11+): compares each changed file with its copy in
+# the base and prints one line per loosened setting. Usage:
+#   python ratchet.py <base-dir> <path>...
+# Exit 0: nothing loosened; 1: findings printed; 3: cannot run ("skipped: …" printed).
+import json
+import re
+import sys
+
+try:
+    import tomllib
+except ImportError:
+    print("skipped: tomllib needs Python 3.11+")
+    sys.exit(3)
+
+findings = []
+
+
+def out(path, what):
+    findings.append(f"{path}: {what}")
+
+
+def show(v):
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if v is None:
+        return "unset"
+    if isinstance(v, (list, tuple)):
+        return "[" + ", ".join(show(x) for x in v) + "]"
+    return str(v).replace('"', "").replace("\\", "/")
+
+
+def as_list(v):
+    if v is None:
+        return []
+    return list(v) if isinstance(v, (list, tuple)) else [v]
+
+
+def strip_jsonc(text):
+    """JSON with comments and trailing commas -> JSON."""
+    out_, i, n, in_str = [], 0, len(text), False
+    while i < n:
+        c = text[i]
+        if in_str:
+            out_.append(c)
+            if c == "\\" and i + 1 < n:
+                out_.append(text[i + 1])
+                i += 1
+            elif c == '"':
+                in_str = False
+        elif c == '"':
+            in_str = True
+            out_.append(c)
+        elif text.startswith("//", i):
+            while i < n and text[i] != "\n":
+                i += 1
+            continue
+        elif text.startswith("/*", i):
+            end = text.find("*/", i + 2)
+            i = n if end < 0 else end + 2
+            continue
+        else:
+            out_.append(c)
+        i += 1
+    return re.sub(r",(\s*[}\]])", r"\1", "".join(out_))
+
+
+# ---- ruff
+
+def covered(code, selectors):
+    return any(s == "ALL" or code.startswith(s) for s in selectors)
+
+
+def ruff(path, before, after, prefix=""):
+    def lint(cfg):
+        return {**{k: v for k, v in cfg.items() if k != "lint"}, **(cfg.get("lint") or {})}
+
+    b, a = lint(before), lint(after)
+    for key in ("select", "extend-select"):
+        new = as_list(a.get("select")) + as_list(a.get("extend-select"))
+        for code in as_list(b.get(key)):
+            if not covered(code, new):
+                out(path, f"{prefix}lint.{key} no longer selects {code}")
+    for key in ("ignore", "extend-ignore"):
+        for code in as_list(a.get(key)):
+            if code not in as_list(b.get(key)):
+                out(path, f"{prefix}lint.{key} adds {code}")
+    for key in ("per-file-ignores", "extend-per-file-ignores"):
+        bb, aa = b.get(key) or {}, a.get(key) or {}
+        for glob, codes in aa.items():
+            for code in as_list(codes):
+                if code not in as_list(bb.get(glob)):
+                    out(path, f"{prefix}lint.{key} adds {code} for {glob}")
+    for key in ("exclude", "extend-exclude"):
+        for x in as_list(after.get(key)):
+            if x not in as_list(before.get(key)):
+                out(path, f"{prefix}{key} adds {x}")
+        for x in as_list((after.get("lint") or {}).get(key)):
+            if x not in as_list((before.get("lint") or {}).get(key)):
+                out(path, f"{prefix}lint.{key} adds {x}")
+
+
+# ---- basedpyright / pyright
+
+MODES = ["off", "basic", "standard", "strict", "recommended", "all"]
+LEVELS = {"none": 0, False: 0, "false": 0, "information": 1, "warning": 2, "error": 3, True: 3, "true": 3}
+
+
+def pyright(path, b, a, prefix="", default="standard"):
+    mb, ma = b.get("typeCheckingMode"), a.get("typeCheckingMode")
+    if mb in MODES and MODES.index(mb) > MODES.index(ma if ma in MODES else default):
+        out(path, f"{prefix}typeCheckingMode {mb} -> {show(ma)}")
+    for key, vb in b.items():
+        if not key.startswith("report"):
+            continue
+        va = a.get(key)
+        lb, la = LEVELS.get(vb, 0), LEVELS.get(va, -1)
+        if va is None and lb > 0:
+            out(path, f"{prefix}{key} {show(vb)} -> unset")
+        elif la >= 0 and la < lb:
+            out(path, f"{prefix}{key} {show(vb)} -> {show(va)}")
+    if b.get("failOnWarnings") is True and a.get("failOnWarnings") is not True:
+        out(path, f"{prefix}failOnWarnings true -> {show(a.get('failOnWarnings'))}")
+    if b.get("enableTypeIgnoreComments") is False and a.get("enableTypeIgnoreComments") is not False:
+        out(path, f"{prefix}enableTypeIgnoreComments false -> {show(a.get('enableTypeIgnoreComments'))}")
+    for key in ("exclude", "ignore"):
+        for x in as_list(a.get(key)):
+            if x not in as_list(b.get(key)):
+                out(path, f"{prefix}{key} adds {x}")
+    for x in as_list(b.get("strict")):
+        if x not in as_list(a.get("strict")):
+            out(path, f"{prefix}strict no longer has {x}")
+
+
+# ---- pytest
+
+LOOSE_OPTS = re.compile(r"^(--ignore(-glob)?|--deselect|-k|-m|--continue-on-collection-errors|--lf|--last-failed|--sw|--stepwise)(=|$)")
+
+
+def pytest(path, b, a, prefix):
+    tb = str(b.get("addopts", "")).split() if not isinstance(b.get("addopts"), list) else b.get("addopts")
+    ta = str(a.get("addopts", "")).split() if not isinstance(a.get("addopts"), list) else a.get("addopts")
+    for t in ta:
+        if LOOSE_OPTS.match(t) and t not in tb:
+            out(path, f"{prefix}addopts adds {t}")
+    for x in as_list(b.get("testpaths")):
+        if x not in as_list(a.get("testpaths")):
+            out(path, f"{prefix}testpaths no longer has {x}")
+    for x in as_list(a.get("norecursedirs")):
+        if x not in as_list(b.get("norecursedirs")):
+            out(path, f"{prefix}norecursedirs adds {x}")
+    if b.get("xfail_strict") is True and a.get("xfail_strict") is not True:
+        out(path, f"{prefix}xfail_strict true -> {show(a.get('xfail_strict'))}")
+
+
+# ---- coverage
+
+def coverage(path, b, a, prefix):
+    rb, ra = b.get("report") or {}, a.get("report") or {}
+    fb, fa = rb.get("fail_under"), ra.get("fail_under")
+    if isinstance(fb, (int, float)) and (not isinstance(fa, (int, float)) or fa < fb):
+        out(path, f"{prefix}report.fail_under {show(fb)} -> {show(fa)}")
+    for sect, key in (("run", "omit"), ("report", "omit"), ("report", "exclude_lines"), ("report", "exclude_also")):
+        for x in as_list((a.get(sect) or {}).get(key)):
+            if x not in as_list((b.get(sect) or {}).get(key)):
+                out(path, f"{prefix}{sect}.{key} adds {x}")
+
+
+def load(text, path):
+    if path.endswith(".json"):
+        return json.loads(strip_jsonc(text))
+    return tomllib.loads(text)
+
+
+def main():
+    base = sys.argv[1]
+    for path in sys.argv[2:]:
+        name = path.rsplit("/", 1)[-1]
+        if name not in ("pyproject.toml", "ruff.toml", ".ruff.toml", "pyrightconfig.json"):
+            continue
+        try:
+            with open(f"{base}/{path}", encoding="utf-8") as f:
+                before = load(f.read(), path)
+        except FileNotFoundError:
+            continue
+        except (ValueError, tomllib.TOMLDecodeError):
+            continue
+        try:
+            with open(path, encoding="utf-8") as f:
+                after = load(f.read(), path)
+        except (ValueError, tomllib.TOMLDecodeError) as e:
+            out(path, f"cannot be parsed ({str(e).splitlines()[0]})")
+            continue
+        if name == "pyproject.toml":
+            tb, ta = before.get("tool") or {}, after.get("tool") or {}
+            ruff(path, tb.get("ruff") or {}, ta.get("ruff") or {}, "tool.ruff.")
+            for tool, default in (("basedpyright", "recommended"), ("pyright", "standard")):
+                pyright(path, tb.get(tool) or {}, ta.get(tool) or {}, f"tool.{tool}.", default)
+            pytest(path, (tb.get("pytest") or {}).get("ini_options") or {}, (ta.get("pytest") or {}).get("ini_options") or {}, "tool.pytest.ini_options.")
+            coverage(path, tb.get("coverage") or {}, ta.get("coverage") or {}, "tool.coverage.")
+        elif name == "pyrightconfig.json":
+            pyright(path, before, after)
+        else:
+            ruff(path, before, after)
+    for f in findings:
+        print(f)
+    sys.exit(1 if findings else 0)
+
+
+try:
+    main()
+except SystemExit:
+    raise
+except Exception as e:  # never report a crash as a loosened setting
+    print(f"skipped: the ratchet could not run ({type(e).__name__}: {e})")
+    sys.exit(3)
+FORGE_SCRIPT_END
+}
+
 FORGE_FORBID='python/fastapi/cors-credentials-wildcard|python/fastapi/no-on-event|python/pydantic/v2-api|python/pytest/no-tautological-assert|python/pytest/no-test-env-branch|python/sqlalchemy/mapped-column|python/sqlalchemy/no-backref|python/sqlalchemy/no-declarative-base|python/sqlalchemy/no-query-api|python/sqlalchemy/no-raw-execute|python/sqlalchemy/no-text-fstring'
 FORGE_NO_INCREASE='python/pytest/no-new-skip'
 FORGE_NO_DECREASE='python/pytest/no-fewer-asserts'
@@ -3678,7 +4772,7 @@ forge_base_name() {
   esac
 }
 
-# 3. Tests: no deleted test files; ast-grep counts compared with the base.
+# 3. Tests and counts: no deleted test files; ast-grep and grep counts compared with the base.
 forge_tests_integrity() {
   while read -r f; do
     case $f in
@@ -3686,17 +4780,26 @@ forge_tests_integrity() {
         report forge/deleted-test "$f was deleted" ;;
     esac
   done < "$FORGE_TMP/deleted"
+  inc=$FORGE_NO_INCREASE
+  [ -n "$FORGE_GREP_NO_INCREASE" ] && inc="${inc:+$inc|}$FORGE_GREP_NO_INCREASE"
+  dec=$FORGE_NO_DECREASE
+  [ -n "$FORGE_GREP_NO_DECREASE" ] && dec="${dec:+$dec|}$FORGE_GREP_NO_DECREASE"
+  [ -n "$inc$dec" ] && [ -s "$FORGE_TMP/existing" ] || return
+  grep -vxF -f "$FORGE_TMP/deleted" "$FORGE_TMP/inbase" > "$FORGE_TMP/athead"
+  : > "$FORGE_TMP/now"; : > "$FORGE_TMP/then"
   ids=$FORGE_NO_INCREASE
   [ -n "$FORGE_NO_DECREASE" ] && ids="${ids:+$ids|}$FORGE_NO_DECREASE"
-  [ -n "$ids" ] && [ -s "$FORGE_TMP/existing" ] || return
-  grep -vxF -f "$FORGE_TMP/deleted" "$FORGE_TMP/inbase" > "$FORGE_TMP/athead"
-  forge_counts "$FORGE_ROOT" "$ids" "$FORGE_TMP/existing" > "$FORGE_TMP/now" || return
-  if [ -s "$FORGE_TMP/athead" ]; then
-    forge_counts "$FORGE_TMP/base" "$ids" "$FORGE_TMP/athead" > "$FORGE_TMP/then" || return
-  else
-    : > "$FORGE_TMP/then"
+  if [ -n "$ids" ]; then
+    if forge_counts "$FORGE_ROOT" "$ids" "$FORGE_TMP/existing" > "$FORGE_TMP/now" \
+      && { [ ! -s "$FORGE_TMP/athead" ] || forge_counts "$FORGE_TMP/base" "$ids" "$FORGE_TMP/athead" > "$FORGE_TMP/then"; }; then :
+    else
+      printf 'forge:forge/ast-grep skipped: ast-grep unavailable\n'
+      : > "$FORGE_TMP/now"; : > "$FORGE_TMP/then"
+    fi
   fi
-  awk -F '\t' -v inc="$FORGE_NO_INCREASE" -v dec="$FORGE_NO_DECREASE" '
+  forge_grep_counts "$FORGE_ROOT" "$FORGE_TMP/existing" >> "$FORGE_TMP/now"
+  forge_grep_counts "$FORGE_TMP/base" "$FORGE_TMP/athead" >> "$FORGE_TMP/then"
+  awk -F '\t' -v inc="$inc" -v dec="$dec" '
     BEGIN { n = split(inc, a, "|"); for (i = 1; i <= n; i++) if (a[i] != "") mi[a[i]] = 1
             n = split(dec, b, "|"); for (i = 1; i <= n; i++) if (b[i] != "") md[b[i]] = 1 }
     FILENAME == ARGV[1] { then[$1 "\t" $2] = $3; keys[$1 "\t" $2] = 1; next }
@@ -3718,23 +4821,26 @@ forge_counts() {
   ( cd "$1" && astgrep scan -c "$FORGE_ROOT/.forge/ast-grep/sgconfig.yml" --filter "^($2)\$" --json=stream $(cat "$3") ) > "$FORGE_TMP/json"
   rc=$?
   set +f
-  if [ "$rc" -gt 1 ]; then printf 'forge:forge/ast-grep skipped: ast-grep unavailable\n'; return 1; fi
+  [ "$rc" -le 1 ] || return 1
   grep -oE '"(file|ruleId)":"[^"]*"' "$FORGE_TMP/json" \
     | awk -F '"' '$2 == "file" { f = $4 } $2 == "ruleId" { c[$4 "\t" f]++ } END { for (k in c) print k "\t" c[k] }'
 }
 
-# 4. ast-grep forbid rules: outside --all, only matches on added lines.
+# 4. Forbid rules (ast-grep and grep): outside --all, only matches on added lines.
 forge_forbid() {
-  [ -n "$FORGE_FORBID" ] && [ -s "$FORGE_TMP/scope" ] || return
-  set -f
-  # shellcheck disable=SC2046
-  astgrep scan -c .forge/ast-grep/sgconfig.yml --filter "^($FORGE_FORBID)\$" --json=stream $(cat "$FORGE_TMP/scope") > "$FORGE_TMP/forbid"
-  rc=$?
-  set +f
-  if [ "$rc" -gt 1 ]; then printf 'forge:forge/ast-grep skipped: ast-grep unavailable\n'; return; fi
-  forge_sg_report "$FORGE_TMP/forbid" > "$FORGE_TMP/forbid.out"
-  if [ -s "$FORGE_TMP/forbid.out" ]; then cat "$FORGE_TMP/forbid.out"; fi
-  [ -s "$FORGE_TMP/forbid.out" ] && fail=1
+  [ -s "$FORGE_TMP/scope" ] || return
+  forge_grep_forbid "$FORGE_TMP/scope" > "$FORGE_TMP/forbid.out"
+  if [ -n "$FORGE_FORBID" ]; then
+    set -f
+    # shellcheck disable=SC2046
+    astgrep scan -c .forge/ast-grep/sgconfig.yml --filter "^($FORGE_FORBID)\$" --json=stream $(cat "$FORGE_TMP/scope") > "$FORGE_TMP/forbid"
+    rc=$?
+    set +f
+    if [ "$rc" -gt 1 ]; then printf 'forge:forge/ast-grep skipped: ast-grep unavailable\n'
+    else forge_sg_report "$FORGE_TMP/forbid" >> "$FORGE_TMP/forbid.out"
+    fi
+  fi
+  if [ -s "$FORGE_TMP/forbid.out" ]; then cat "$FORGE_TMP/forbid.out"; fail=1; fi
   return 0
 }
 
@@ -3757,6 +4863,8 @@ exit "$fail"
   "claude_code_min": "2.1.295",
   "rules": {
     "python/aware-datetime": "34edbcba3e80528562da1cc94eaf4c50305b8749f03027d6b653546eb64bd5dc",
+    "python/config-files": "da9ccbb03a788a9d5ef6c200d2fb71befbf02bf9a51d68cb623a258f15d1d8fe",
+    "python/config-ratchet": "f52f4a9010b8e8f25fd8a37629712e683c61ccc162748669e29967b5869ce599",
     "python/fastapi/annotated-depends": "74fc0e4e89bf389aa7377ee0ab2d47d29257c9d063592ab8156b1f3f9dca7f38",
     "python/fastapi/cors-credentials-wildcard": "1ff2c42562d1d01479da9e3f2bea4be08ad42b140de7d6dae3b80ef4d277d84c",
     "python/fastapi/no-on-event": "b271f0c2fcd5a098e169a20049f3734d1e74c555ef94815f85965c0f89dd13b7",
@@ -3766,6 +4874,7 @@ exit "$fail"
     "python/no-blocking-in-async": "153fdfba0b1d27a269663ac9d98ba8cb0f3eea2cc969cba6333e913f109bff16",
     "python/no-deprecated": "30f45650cb871e268ee0bdc12b4ef5b2ad467277a718a859b176ed6f947fb714",
     "python/no-explicit-any": "937b83f85a06043eec64d4a4aa2c8f237dac489a974924875b80daacd5a1c292",
+    "python/no-new-suppressions": "5891332cf27656ef9ceba4ad56b803c8c404814574488d1b464dbd057095d964",
     "python/no-shell-true": "3e958140e547ae367e19a44a2b3bd223ec1e095333d7ff7664f4a0d4e31e782f",
     "python/no-stale-ignore": "769b44645c8a286da6db1e30dc04850623474e90f72701c474d535a0008bc26a",
     "python/no-tls-bypass": "4196bdee89c3f655bbbf51c477b21ac4834f3c680211fa6b9d26d3d2a7695695",
@@ -3777,6 +4886,7 @@ exit "$fail"
     "python/pytest/no-fewer-asserts": "3fa20da5240c91db137cfaad8d04235b2c15fc7bc40d772682edc2618c74cb4f",
     "python/pytest/no-new-skip": "622053f8e74b1be32ce8517667af5acd7e695150a44641d46224e7f523165ffe",
     "python/pytest/no-tautological-assert": "2842d4fd3c1adbace9a3cb54d1d7e484452bda967f076f53579db34e9fbbd189",
+    "python/pytest/no-test-edits": "09690b8fc5fcc78fd2b41374ea872c27695e3c052bcd166eb82f08ece1ba9c63",
     "python/pytest/no-test-env-branch": "9d251f32eedb18ac7d819e8b6cf6a4450b14b5eead1f43c544e1fbf995a9e7aa",
     "python/pytest/run": "6c44f8c8897a1237212af2d20a60f49aeff777ab85ceb52f7f31ffb6774aaa87",
     "python/sqlalchemy/alembic/check": "20302f517e19991c41d1ab5de4a979a8aae9c8149b9b88ec44e87775c56ffc0c",
@@ -3797,6 +4907,7 @@ exit "$fail"
   "files": {
     ".claude/rules/forge-python-fastapi.md": "c01694c6aaa78d058953ccf652819e9c4462229fc980fbec0c00aeeec0af48ca",
     ".claude/rules/forge-python-pydantic.md": "03935c2af19721cf983bef1189c78631d082bf113145d26e862984dfc07ad41f",
+    ".claude/rules/forge-python-pytest.md": "dcf5ee0f84b1d8513cb5ce2293ee60bf28f10e03d3fb3b17936c91f608e5efd5",
     ".claude/rules/forge-python-sqlalchemy-alembic.md": "033a5662bf3ac0ea0d4d46bd7a58c929f4b9d6794022c64bc68e8fdb9d73531b",
     ".claude/rules/forge-python-sqlalchemy.md": "08019464ebec5262a7eacf26bcc1102a2746c6ab281c9b83855cd7068d2a2dda",
     ".claude/rules/forge-python.md": "11fa9c748e2b0f9ad1b81d0c29c2a2fd1a1f826976bb6aeb34fc9ff306683ff9",
@@ -3805,11 +4916,11 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "abda384154c0c859546b6aa0e79a6a1a8c4cead27ff82e014fc69de843294b74",
     ".claude/skills/forge-project/scripts/guard.sh": "c8aace4b9c7c0f76d522ecef054c6dc920bd42702712c877825f0e5cd046827c",
     ".claude/skills/forge-project/scripts/lib.sh": "99a351f77551e224d2a12fbe7d83489e1fdae27633343c3b762098ab3757dc8a",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "66ba0d20d988488f53a6032dd0ce7073505c3d0c5189d1f3504ffa9413c5e32d",
-    ".claude/skills/forge-project/scripts/session-start.sh": "7b10faef026c8749c510dcf4c4622b9ea1c0225599dcc741c3f7f686251b1c27",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "0dfc93d895d100c56daf287e9d29247027c087180210f785602efe2d2e3dffce",
+    ".claude/skills/forge-project/scripts/session-start.sh": "2fa1aea4011df1568a0971e74d655bfa15ee2941b53d41cf155f452d930d621b",
     ".claude/skills/forge-project/scripts/stop.sh": "f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173",
     ".claude/skills/forge-project/scripts/turn-start.sh": "a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "7557ab4900b034122c9784bed1c230b231beca545aaf20bede634ffbd541eefe",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "6ae2bd7bfb200154ba0750be10e7121e1c443878433798f436a5c5c77c8a47dc",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml": "69a94f1a0b16aa08bcf758af3e3dc269266cdd808aba1a4289b4c58c7f969700",
     ".forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml": "1589382e5e0b5cae841a8f47dae9f2b3a8583a4bb1074ceb858d882e648e9b49",
@@ -3838,7 +4949,7 @@ exit "$fail"
     ".forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml": "4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0",
     ".forge/ast-grep/rules/python/sqlalchemy/no-text-fstring.yml": "04c44c9e215449d46b10540e86e999ec1d6383d8c3a849855fe73cb456668fca",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "a1554c594eb605f78a92d2d728a5636be8682e71e0fe54b2165e30e52e4daaeb",
+    ".forge/check.sh": "9c7d0a7b39fa19ae0c41ae99e6d701443358994031b09b0fb2b160fce66f4ab8",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -3861,6 +4972,21 @@ exit "$fail"
       "file": ".claude/settings.json",
       "path": "permissions.ask",
       "value": "Edit(.claude/rules/forge-*.md)"
+    },
+    {
+      "file": ".claude/settings.json",
+      "path": "permissions.ask",
+      "value": "Edit(**/ruff.toml)"
+    },
+    {
+      "file": ".claude/settings.json",
+      "path": "permissions.ask",
+      "value": "Edit(**/.ruff.toml)"
+    },
+    {
+      "file": ".claude/settings.json",
+      "path": "permissions.ask",
+      "value": "Edit(**/pyrightconfig.json)"
     }
   ]
 }
@@ -3868,6 +4994,7 @@ exit "$fail"
 ===== .forge/manifest.sha256
 c01694c6aaa78d058953ccf652819e9c4462229fc980fbec0c00aeeec0af48ca  .claude/rules/forge-python-fastapi.md
 03935c2af19721cf983bef1189c78631d082bf113145d26e862984dfc07ad41f  .claude/rules/forge-python-pydantic.md
+dcf5ee0f84b1d8513cb5ce2293ee60bf28f10e03d3fb3b17936c91f608e5efd5  .claude/rules/forge-python-pytest.md
 033a5662bf3ac0ea0d4d46bd7a58c929f4b9d6794022c64bc68e8fdb9d73531b  .claude/rules/forge-python-sqlalchemy-alembic.md
 08019464ebec5262a7eacf26bcc1102a2746c6ab281c9b83855cd7068d2a2dda  .claude/rules/forge-python-sqlalchemy.md
 11fa9c748e2b0f9ad1b81d0c29c2a2fd1a1f826976bb6aeb34fc9ff306683ff9  .claude/rules/forge-python.md
@@ -3876,11 +5003,11 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 abda384154c0c859546b6aa0e79a6a1a8c4cead27ff82e014fc69de843294b74  .claude/skills/forge-project/scripts/guard.rules
 c8aace4b9c7c0f76d522ecef054c6dc920bd42702712c877825f0e5cd046827c  .claude/skills/forge-project/scripts/guard.sh
 99a351f77551e224d2a12fbe7d83489e1fdae27633343c3b762098ab3757dc8a  .claude/skills/forge-project/scripts/lib.sh
-66ba0d20d988488f53a6032dd0ce7073505c3d0c5189d1f3504ffa9413c5e32d  .claude/skills/forge-project/scripts/post-edit.sh
-7b10faef026c8749c510dcf4c4622b9ea1c0225599dcc741c3f7f686251b1c27  .claude/skills/forge-project/scripts/session-start.sh
+0dfc93d895d100c56daf287e9d29247027c087180210f785602efe2d2e3dffce  .claude/skills/forge-project/scripts/post-edit.sh
+2fa1aea4011df1568a0971e74d655bfa15ee2941b53d41cf155f452d930d621b  .claude/skills/forge-project/scripts/session-start.sh
 f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173  .claude/skills/forge-project/scripts/stop.sh
 a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c  .claude/skills/forge-project/scripts/turn-start.sh
-7557ab4900b034122c9784bed1c230b231beca545aaf20bede634ffbd541eefe  .claude/skills/forge-project/scripts/typecheck.sh
+6ae2bd7bfb200154ba0750be10e7121e1c443878433798f436a5c5c77c8a47dc  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 69a94f1a0b16aa08bcf758af3e3dc269266cdd808aba1a4289b4c58c7f969700  .forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml
 1589382e5e0b5cae841a8f47dae9f2b3a8583a4bb1074ceb858d882e648e9b49  .forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml
@@ -3909,7 +5036,7 @@ e1a15384665afb7aae24664c55f4d81523622a6ef117385b17f806bc30cd3c3f  .forge/ast-gre
 4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0  .forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml
 04c44c9e215449d46b10540e86e999ec1d6383d8c3a849855fe73cb456668fca  .forge/ast-grep/rules/python/sqlalchemy/no-text-fstring.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-a1554c594eb605f78a92d2d728a5636be8682e71e0fe54b2165e30e52e4daaeb  .forge/check.sh
+9c7d0a7b39fa19ae0c41ae99e6d701443358994031b09b0fb2b160fce66f4ab8  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

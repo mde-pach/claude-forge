@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { codeExamples } from "./packs.js";
 import { toYaml } from "./yaml.js";
 import { AST_GREP_VERSION, FORGE_VERSION, packageRoot, shQuote, SQUAWK_VERSION } from "./util.js";
-import type { AstGrepTarget, CheckTarget, GuardTarget, Language, Level, Rule } from "./types.js";
+import type { AstGrepTarget, CheckTarget, GrepTarget, GuardTarget, Language, Level, Rule } from "./types.js";
 
 export function template(name: string): string {
   return readFileSync(join(packageRoot(), "templates", "scripts", name), "utf8");
@@ -22,7 +22,7 @@ export function renderLib(): string {
 
 /** Project tools resolved through `tool <name>` (audited tools first). */
 export const AUDITED_TOOLS = ["biome", "ruff", "basedpyright", "tsc"] as const;
-export const PROJECT_TOOLS = [...AUDITED_TOOLS, "alembic", "pytest", "prisma", "vitest", "playwright", "astro"] as const;
+export const PROJECT_TOOLS = [...AUDITED_TOOLS, "alembic", "pytest", "prisma", "vitest", "playwright", "astro", "python"] as const;
 /** System runtimes, checked with `command -v`. */
 export const SYSTEM_TOOLS = ["uv", "bun"] as const;
 
@@ -77,12 +77,12 @@ function casePatterns(globs: string[]): string {
   return [...new Set(globs.flatMap(globToCase))].join("|");
 }
 
-function scopeFunction(n: number, rule: Rule): string {
+function scopeFunction(name: string, rule: Rule): string {
   const files = rule.scope.files ?? [];
   const exclude = files.filter((g) => g.startsWith("!")).map((g) => g.slice(1));
   const include = files.filter((g) => !g.startsWith("!"));
   const lang = LANGUAGE_CASE[rule.scope.language];
-  const lines = [`forge_scope_${n}() {`];
+  const lines = [`${name}() {`];
   if (exclude.length) lines.push(`  case $1 in ${casePatterns(exclude)}) return 1 ;; esac`);
   if (include.length) lines.push(`  case $1 in ${casePatterns(include)}) ;; *) return 1 ;; esac`);
   if (lang.length) lines.push(`  case $1 in ${lang.join("|")}) return 0 ;; esac`, "  return 1");
@@ -97,9 +97,33 @@ export interface ActiveCheck {
   rule: Rule;
   target: CheckTarget;
 }
+export interface ActiveGrep {
+  rule: Rule;
+  target: GrepTarget;
+}
 
-/** The generated checks fragment (wrappers, per-check functions, engine). */
-export function renderChecks(checks: ActiveCheck[]): string {
+/** The grep rules: forge_grep_meta_<n> (g_id g_mode g_pattern g_desc) and forge_grep_scope_<n>. */
+function renderGreps(greps: ActiveGrep[]): string[] {
+  const ids = (mode: GrepTarget["mode"]) => greps.filter((g) => g.target.mode === mode).map((g) => g.rule.id).join("|");
+  const out = [`FORGE_NGREPS=${greps.length}`, `FORGE_GREP_NO_INCREASE='${ids("no-increase")}'`, `FORGE_GREP_NO_DECREASE='${ids("no-decrease")}'`];
+  greps.forEach(({ rule, target }, i) => {
+    const n = i + 1;
+    out.push(
+      "",
+      `# grep ${n}. ${rule.id}`,
+      `forge_grep_meta_${n}() {`,
+      `  g_id=${shQuote(rule.id)}; g_mode=${target.mode}; g_flags=-${target.ignore_case ? "i" : ""}E`,
+      `  g_pattern=${shQuote(target.pattern)}`,
+      `  g_desc=${shQuote(rule.description)}`,
+      "}",
+      scopeFunction(`forge_grep_scope_${n}`, rule),
+    );
+  });
+  return out;
+}
+
+/** The generated checks fragment (wrappers, per-check functions, grep rules, engine). */
+export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = []): string {
   const used = new Set(checks.flatMap((c) => checkTools(c.target)));
   const out: string[] = ["# ---- generated checks"];
   const wrappers = PROJECT_TOOLS.filter((t) => used.has(t));
@@ -120,7 +144,7 @@ export function renderChecks(checks: ActiveCheck[]): string {
       `  c_when=${target.when_changed ? 1 : 0}; c_localdb=${target.requires_local_db ? 1 : 0}; c_timeout=${target.timeout ?? "''"}`,
       `  c_changed=${changed ? 1 : 0}; c_files=${changed && target.changed_run!.includes("{files}") ? 1 : 0}`,
       "}",
-      scopeFunction(n, rule),
+      scopeFunction(`forge_scope_${n}`, rule),
       target.when_changed
         ? `forge_when_${n}() { case $1 in ${casePatterns(target.when_changed)}) return 0 ;; esac; return 1; }`
         : `forge_when_${n}() { return 1; }`,
@@ -130,15 +154,17 @@ export function renderChecks(checks: ActiveCheck[]): string {
     );
     if (changed) out.push(`forge_check_changed_${n}() {`, target.changed_run!.replaceAll("{files}", "$FORGE_FILES"), "}");
   });
+  out.push("", ...renderGreps(greps));
   out.push("# ---- end of generated checks", "", fill(template("engine.sh"), { SQUAWK_VERSION }).trimEnd());
   return out.join("\n");
 }
 
 /** .forge/check.sh: the library, the checks fragment and the ast-grep rule ids by mode. */
-export function renderCheckScript(checks: ActiveCheck[], ids: { forbid: string; noIncrease: string; noDecrease: string }): string {
+export function renderCheckScript(checks: ActiveCheck[], ids: { forbid: string; noIncrease: string; noDecrease: string }, greps: ActiveGrep[] = []): string {
   return fill(template("check.sh"), {
     LIB: renderLib().trimEnd(),
-    CHECKS: renderChecks(checks),
+    CHECKS: renderChecks(checks, greps),
+    SCRIPTS: renderHelperScripts(checks),
     FORBID: ids.forbid,
     NO_INCREASE: ids.noIncrease,
     NO_DECREASE: ids.noDecrease,
@@ -147,6 +173,30 @@ export function renderCheckScript(checks: ActiveCheck[], ids: { forbid: string; 
 
 /** Tools resolved from the project's .venv/bin (the others from node_modules/.bin). */
 export const PYTHON_TOOLS = new Set(["ruff", "basedpyright", "alembic", "pytest", "python"]);
+
+/**
+ * Scripts that engine helpers run with the project's own runtime. They are
+ * embedded in check.sh as here-documents (forge_script_<name>), only when an
+ * active check uses them: as separate files, the project's formatters would
+ * rewrite them (ruff format ., biome check --write .).
+ */
+const HELPER_SCRIPTS: { name: string; template: string }[] = [
+  { name: "ratchet.py", template: "ratchet.py" },
+  { name: "ratchet.mjs", template: "ratchet.mjs" },
+];
+
+/** forge_script_<name>() functions for the helper scripts the checks use. */
+export function renderHelperScripts(checks: ActiveCheck[]): string {
+  const out: string[] = [];
+  for (const h of HELPER_SCRIPTS) {
+    const used = new RegExp(`\\bforge_ratchet [a-z]+ ${h.name.replace(".", "\\.")}(\\s|$)`);
+    if (!checks.some((c) => used.test(c.target.run) || used.test(c.target.changed_run ?? ""))) continue;
+    const text = readFileSync(join(packageRoot(), "templates", "helpers", h.template), "utf8");
+    if (text.split("\n").includes("FORGE_SCRIPT_END")) throw new Error(`${h.template}: contains the here-document delimiter`);
+    out.push(`forge_script_${h.name.replace(/\W/g, "_")}() {`, "cat <<'FORGE_SCRIPT_END'", text.trimEnd(), "FORGE_SCRIPT_END", "}");
+  }
+  return out.join("\n");
+}
 
 // ---------------------------------------------------------------- guard.rules
 

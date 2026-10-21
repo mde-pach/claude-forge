@@ -27,7 +27,10 @@ No `!` non-null assertions and no `as unknown as T`: narrow with a check, or par
       "Edit(.forge/**)",
       "Edit(forge.yaml)",
       "Edit(.claude/skills/forge-project/**)",
-      "Edit(.claude/rules/forge-*.md)"
+      "Edit(.claude/rules/forge-*.md)",
+      "Edit(**/biome.json)",
+      "Edit(**/biome.jsonc)",
+      "Edit(**/tsconfig*.json)"
     ]
   }
 }
@@ -366,7 +369,7 @@ trap 'rm -rf "$FORGE_TMP"' EXIT HUP INT TERM
 biome() { forge_exec_tool biome "$@"; }
 tsc() { forge_exec_tool tsc "$@"; }
 astro() { forge_exec_tool astro "$@"; }
-FORGE_NCHECKS=5
+FORGE_NCHECKS=6
 
 # 1. typescript/astro/check
 forge_check_meta_1() {
@@ -397,52 +400,82 @@ forge_check_run_2() {
 bun install --frozen-lockfile
 }
 
-# 3. typescript/format-lint
+# 3. typescript/config-ratchet
 forge_check_meta_3() {
+  c_id='typescript/config-ratchet'; c_stage=lint; c_tools='bun'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0
+}
+forge_scope_3() {
+  case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) ;; *) return 1 ;; esac
+  return 0
+}
+forge_when_3() { case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) return 0 ;; esac; return 1; }
+forge_check_run_3() {
+forge_ratchet bun ratchet.mjs
+}
+
+# 4. typescript/format-lint
+forge_check_meta_4() {
   c_id='typescript/format-lint'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1
 }
-forge_scope_3() {
+forge_scope_4() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_3() { return 1; }
-forge_check_run_3() {
+forge_when_4() { return 1; }
+forge_check_run_4() {
 biome ci .
 }
-forge_check_changed_3() {
+forge_check_changed_4() {
 biome check --write --no-errors-on-unmatched $FORGE_FILES
 }
 
-# 4. typescript/no-ignore-deprecations
-forge_check_meta_4() {
+# 5. typescript/no-ignore-deprecations
+forge_check_meta_5() {
   c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0
 }
-forge_scope_4() {
+forge_scope_5() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_4() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
-forge_check_run_4() {
+forge_when_5() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
+forge_check_run_5() {
 ! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')
 }
 
-# 5. typescript/typecheck
-forge_check_meta_5() {
+# 6. typescript/typecheck
+forge_check_meta_6() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0
 }
-forge_scope_5() {
+forge_scope_6() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_5() { return 1; }
-forge_check_run_5() {
+forge_when_6() { return 1; }
+forge_check_run_6() {
 tsc --noEmit -p tsconfig.json
+}
+
+FORGE_NGREPS=1
+FORGE_GREP_NO_INCREASE='typescript/no-new-suppressions'
+FORGE_GREP_NO_DECREASE=''
+
+# grep 1. typescript/no-new-suppressions
+forge_grep_meta_1() {
+  g_id='typescript/no-new-suppressions'; g_mode=no-increase; g_flags=-E
+  g_pattern='biome-ignore|@ts-expect-error'
+  g_desc='No new suppression comments (biome-ignore in any form, @ts-expect-error); a changed file may not have more than it had. Fix the finding instead.'
+}
+forge_grep_scope_1() {
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
 }
 # ---- end of generated checks
 
@@ -527,6 +560,175 @@ forge_sg_report() {
       d = m; sub(/^[^ ]* ?/, "", d)
       printf "forge:%s %s:%d:%d %s\n", id, f, sl, sc, d
     }' "$FORGE_TMP/added" "$1"
+}
+
+# forge_grep_counts <dir> <file-list>: "rule<TAB>file<TAB>count" (matching lines)
+# for each grep rule that counts (no-increase, no-decrease), on the listed files under <dir>.
+forge_grep_counts() {
+  _gc_i=1
+  while [ "$_gc_i" -le "$FORGE_NGREPS" ]; do
+    forge_grep_meta_"$_gc_i"
+    if [ "$g_mode" != forbid ]; then
+      while IFS= read -r _gc_f; do
+        [ -f "$1/$_gc_f" ] && forge_grep_scope_"$_gc_i" "$_gc_f" || continue
+        printf '%s\t%s\t%s\n' "$g_id" "$_gc_f" "$(grep -c "$g_flags" -- "$g_pattern" "$1/$_gc_f")"
+      done < "$2"
+    fi
+    _gc_i=$((_gc_i + 1))
+  done
+}
+
+# forge_grep_forbid <file-list>: "forge:<rule> path:line <description>" for each
+# match of a forbid grep rule; unless $mode is --all, only on lines of $FORGE_TMP/added.
+forge_grep_forbid() {
+  _gf_i=1
+  while [ "$_gf_i" -le "$FORGE_NGREPS" ]; do
+    forge_grep_meta_"$_gf_i"
+    if [ "$g_mode" = forbid ]; then
+      while IFS= read -r _gf_f; do
+        [ -f "$_gf_f" ] && forge_grep_scope_"$_gf_i" "$_gf_f" || continue
+        grep -n "$g_flags" -- "$g_pattern" "$_gf_f" 2>/dev/null | awk -F: -v f="$_gf_f" -v id="$g_id" -v d="$g_desc" -v all="$([ "$mode" = --all ] && printf 1)" '
+          FILENAME == ARGV[1] { split($0, a, "\t"); if (a[2] == "*") whole[a[1]] = 1; else ad[a[1] "\t" a[2]] = 1; next }
+          all != "" || (f in whole) || ((f "\t" $1) in ad) { printf "forge:%s %s:%s %s\n", id, f, $1, d }' "$FORGE_TMP/added" -
+      done < "$1"
+    fi
+    _gf_i=$((_gf_i + 1))
+  done
+}
+
+# forge_ratchet <runtime> <script>: the config ratchet. Runs <script> (embedded in
+# check.sh as forge_script_<script>) with the project's runtime on the changed files
+# and their base copies; each printed line is a loosened setting, unless forge.yaml
+# records it as accepted.
+forge_ratchet() {
+  _fr_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
+  "$_fr_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  set -f
+  # shellcheck disable=SC2046
+  "$1" "$FORGE_TMP/$2" "$FORGE_TMP/base" $(cat "$FORGE_TMP/existing") > "$FORGE_TMP/ratchet" 2>&1
+  _fr_rc=$?
+  set +f
+  case $_fr_rc in
+    0) return 0 ;;
+    1) ;;
+    *) printf 'forge:%s %s\n' "$c_id" "$(grep '^skipped:' "$FORGE_TMP/ratchet" | head -n 1 | grep . || printf 'skipped: %s exited with %s' "$1" "$_fr_rc")"; return 0 ;;
+  esac
+  while IFS= read -r _fr_l; do
+    [ -f forge.yaml ] && grep -qF -- "$_fr_l" forge.yaml && continue
+    printf '%s\n' "$_fr_l"
+  done < "$FORGE_TMP/ratchet" > "$FORGE_TMP/ratchet.open"
+  [ -s "$FORGE_TMP/ratchet.open" ] || return 0
+  cat "$FORGE_TMP/ratchet.open"
+  printf 'Restore the setting, or have the user accept the change in forge.yaml: accept: [{rule: %s, change: "<line above>", reason: "..."}]\n' "$c_id"
+  return 1
+}
+
+# Test blocks, for forge_test_edits: pytest test functions (with their decorators)
+# and classes; Vitest/Playwright test and it calls, and the describe calls around them.
+FORGE_TEST_BLOCKS='id: forge-test
+language: Python
+rule:
+  any:
+    - kind: decorated_definition
+      has: {field: definition, kind: function_definition, has: {field: name, regex: "^test"}}
+    - all:
+        - kind: function_definition
+        - has: {field: name, regex: "^test"}
+        - not: {inside: {kind: decorated_definition, stopBy: neighbor}}
+---
+id: forge-test-scope
+language: Python
+rule: {kind: class_definition}
+---
+id: forge-test
+language: Tsx
+rule: {pattern: "$F($NAME, $$$REST)"}
+constraints:
+  F: {all: [{regex: "^(test|it)([.(]|$)"}, {not: {regex: "^test[.](describe|step|use|extend|info|beforeEach|afterEach|beforeAll|afterAll)"}}]}
+  NAME: {any: [{kind: string}, {kind: template_string}]}
+---
+id: forge-test-scope
+language: Tsx
+rule: {pattern: "$F($NAME, $$$REST)"}
+constraints:
+  F: {regex: "^(describe|suite|test[.]describe)([.(]|$)"}
+  NAME: {any: [{kind: string}, {kind: template_string}]}'
+
+# forge_test_blocks <dir> <file-list>: "file<TAB>key<TAB>body" per test of the listed
+# files under <dir>; key = enclosing classes or describe names, then the test name
+# (" #2" for a repeated one); body = the test's text without whitespace.
+forge_test_blocks() {
+  set -f
+  # shellcheck disable=SC2046
+  ( cd "$1" && astgrep scan -c "$FORGE_ROOT/.forge/ast-grep/sgconfig.yml" --inline-rules "$FORGE_TEST_BLOCKS" --filter '^forge-test' --json=stream $(cat "$2") ) > "$FORGE_TMP/blocks.json"
+  _tb_rc=$?
+  set +f
+  [ "$_tb_rc" -le 1 ] || return 1
+  awk '
+    function str(s, key,   i, out, c) {
+      i = index(s, "\"" key "\":\""); if (!i) return ""
+      s = substr(s, i + length(key) + 4); out = ""
+      while (length(s)) {
+        c = substr(s, 1, 1)
+        if (c == "\"") break
+        if (c == "\\") { c = substr(s, 2, 1); if (c == "n" || c == "t" || c == "r") c = " "; s = substr(s, 2) }
+        out = out c; s = substr(s, 2)
+      }
+      return out
+    }
+    {
+      rid = str($0, "ruleId"); if (rid !~ /^forge-test/) next
+      r = substr($0, index($0, "\"byteOffset\":{\"start\":") + 22)
+      n++; F[n] = str($0, "file"); R[n] = rid; S[n] = r + 0; E[n] = substr(r, index(r, "\"end\":") + 6) + 0
+      t = str($0, "text"); k = index($0, "\"NAME\":{"); nm = k ? str(substr($0, k), "text") : ""
+      if (nm == "" && match(t, /(def|class)[ ]+[A-Za-z_][A-Za-z0-9_]*/)) { nm = substr(t, RSTART, RLENGTH); sub(/^(def|class)[ ]+/, "", nm) }
+      if (nm ~ /^["\047`]/) nm = substr(nm, 2, length(nm) - 2)
+      N[n] = nm; gsub(/[[:space:]]/, "", t); T[n] = t
+    }
+    END {
+      for (a = 1; a <= n; a++) {
+        if (R[a] != "forge-test") continue
+        m = 0
+        for (b = 1; b <= n; b++)
+          if (R[b] == "forge-test-scope" && F[b] == F[a] && S[b] <= S[a] && E[a] <= E[b]) {
+            m++; cs[m] = S[b]; cn[m] = N[b]
+            for (j = m; j > 1 && cs[j - 1] > cs[j]; j--) { x = cs[j]; cs[j] = cs[j - 1]; cs[j - 1] = x; x = cn[j]; cn[j] = cn[j - 1]; cn[j - 1] = x }
+          }
+        key = ""
+        for (j = 1; j <= m; j++) key = key cn[j] " > "
+        key = key N[a]
+        if (++seen[F[a] "\t" key] > 1) key = key " #" seen[F[a] "\t" key]
+        print F[a] "\t" key "\t" T[a]
+      }
+    }' "$FORGE_TMP/blocks.json"
+}
+
+# forge_test_edits: Stop only (--turn). Each test of the in-scope files ($FORGE_FILES)
+# that existed at the start of the turn must be unchanged (whitespace aside) and
+# still present; new tests are fine.
+forge_test_edits() {
+  [ "$mode" = --turn ] || return 0
+  printf '%s\n' "$FORGE_FILES" | grep -xF -f "$FORGE_TMP/inbase" > "$FORGE_TMP/tests.files"
+  [ -s "$FORGE_TMP/tests.files" ] || return 0
+  if ! forge_test_blocks "$FORGE_TMP/base" "$FORGE_TMP/tests.files" > "$FORGE_TMP/tests.then" \
+    || ! forge_test_blocks "$FORGE_ROOT" "$FORGE_TMP/tests.files" > "$FORGE_TMP/tests.now"; then
+    printf 'forge:%s skipped: ast-grep unavailable\n' "$c_id"
+    return 0
+  fi
+  awk -F '\t' '
+    FILENAME == ARGV[1] { then[$1 "\t" $2] = $3; next }
+    { now[$1 "\t" $2] = $3 }
+    END {
+      for (k in then) {
+        split(k, p, "\t")
+        if (!(k in now)) print p[1] ": test \"" p[2] "\" was removed"
+        else if (now[k] != then[k]) print p[1] ": test \"" p[2] "\" was changed"
+      }
+    }' "$FORGE_TMP/tests.then" "$FORGE_TMP/tests.now" | sort > "$FORGE_TMP/tests.edits"
+  [ -s "$FORGE_TMP/tests.edits" ] || return 0
+  cat "$FORGE_TMP/tests.edits"
+  printf 'Tests that existed before this turn are not edited to make the code pass. Restore them; if one looks wrong, stop and ask the user.\n'
+  return 1
 }
 
 # forge_exec_tool <name> <args>: runs the project's own <name>; 127 when absent.
@@ -918,6 +1120,7 @@ printf '%s\n' "$file" > "$FORGE_TMP/changed"
 base_file "$file" "$FORGE_TMP/base"
 added_lines "$file" "$FORGE_TMP/base" > "$FORGE_TMP/added"
 forge_file_stage lint "$file" > "$FORGE_TMP/report" 2>&1
+forge_grep_forbid "$FORGE_TMP/changed" >> "$FORGE_TMP/report"
 if [ -n "$FORGE_FORBID" ] && [ -f .forge/ast-grep/sgconfig.yml ]; then
   astgrep scan -c .forge/ast-grep/sgconfig.yml --filter "^($FORGE_FORBID)\$" --json=stream "$file" > "$FORGE_TMP/forbid" 2>/dev/null
   forge_sg_report "$FORGE_TMP/forbid" >> "$FORGE_TMP/report"
@@ -942,7 +1145,7 @@ IFS='
 biome() { forge_exec_tool biome "$@"; }
 tsc() { forge_exec_tool tsc "$@"; }
 astro() { forge_exec_tool astro "$@"; }
-FORGE_NCHECKS=5
+FORGE_NCHECKS=6
 
 # 1. typescript/astro/check
 forge_check_meta_1() {
@@ -973,52 +1176,82 @@ forge_check_run_2() {
 bun install --frozen-lockfile
 }
 
-# 3. typescript/format-lint
+# 3. typescript/config-ratchet
 forge_check_meta_3() {
+  c_id='typescript/config-ratchet'; c_stage=lint; c_tools='bun'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0
+}
+forge_scope_3() {
+  case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) ;; *) return 1 ;; esac
+  return 0
+}
+forge_when_3() { case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) return 0 ;; esac; return 1; }
+forge_check_run_3() {
+forge_ratchet bun ratchet.mjs
+}
+
+# 4. typescript/format-lint
+forge_check_meta_4() {
   c_id='typescript/format-lint'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1
 }
-forge_scope_3() {
+forge_scope_4() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_3() { return 1; }
-forge_check_run_3() {
+forge_when_4() { return 1; }
+forge_check_run_4() {
 biome ci .
 }
-forge_check_changed_3() {
+forge_check_changed_4() {
 biome check --write --no-errors-on-unmatched $FORGE_FILES
 }
 
-# 4. typescript/no-ignore-deprecations
-forge_check_meta_4() {
+# 5. typescript/no-ignore-deprecations
+forge_check_meta_5() {
   c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0
 }
-forge_scope_4() {
+forge_scope_5() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_4() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
-forge_check_run_4() {
+forge_when_5() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
+forge_check_run_5() {
 ! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')
 }
 
-# 5. typescript/typecheck
-forge_check_meta_5() {
+# 6. typescript/typecheck
+forge_check_meta_6() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0
 }
-forge_scope_5() {
+forge_scope_6() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_5() { return 1; }
-forge_check_run_5() {
+forge_when_6() { return 1; }
+forge_check_run_6() {
 tsc --noEmit -p tsconfig.json
+}
+
+FORGE_NGREPS=1
+FORGE_GREP_NO_INCREASE='typescript/no-new-suppressions'
+FORGE_GREP_NO_DECREASE=''
+
+# grep 1. typescript/no-new-suppressions
+forge_grep_meta_1() {
+  g_id='typescript/no-new-suppressions'; g_mode=no-increase; g_flags=-E
+  g_pattern='biome-ignore|@ts-expect-error'
+  g_desc='No new suppression comments (biome-ignore in any form, @ts-expect-error); a changed file may not have more than it had. Fix the finding instead.'
+}
+forge_grep_scope_1() {
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
 }
 # ---- end of generated checks
 
@@ -1103,6 +1336,175 @@ forge_sg_report() {
       d = m; sub(/^[^ ]* ?/, "", d)
       printf "forge:%s %s:%d:%d %s\n", id, f, sl, sc, d
     }' "$FORGE_TMP/added" "$1"
+}
+
+# forge_grep_counts <dir> <file-list>: "rule<TAB>file<TAB>count" (matching lines)
+# for each grep rule that counts (no-increase, no-decrease), on the listed files under <dir>.
+forge_grep_counts() {
+  _gc_i=1
+  while [ "$_gc_i" -le "$FORGE_NGREPS" ]; do
+    forge_grep_meta_"$_gc_i"
+    if [ "$g_mode" != forbid ]; then
+      while IFS= read -r _gc_f; do
+        [ -f "$1/$_gc_f" ] && forge_grep_scope_"$_gc_i" "$_gc_f" || continue
+        printf '%s\t%s\t%s\n' "$g_id" "$_gc_f" "$(grep -c "$g_flags" -- "$g_pattern" "$1/$_gc_f")"
+      done < "$2"
+    fi
+    _gc_i=$((_gc_i + 1))
+  done
+}
+
+# forge_grep_forbid <file-list>: "forge:<rule> path:line <description>" for each
+# match of a forbid grep rule; unless $mode is --all, only on lines of $FORGE_TMP/added.
+forge_grep_forbid() {
+  _gf_i=1
+  while [ "$_gf_i" -le "$FORGE_NGREPS" ]; do
+    forge_grep_meta_"$_gf_i"
+    if [ "$g_mode" = forbid ]; then
+      while IFS= read -r _gf_f; do
+        [ -f "$_gf_f" ] && forge_grep_scope_"$_gf_i" "$_gf_f" || continue
+        grep -n "$g_flags" -- "$g_pattern" "$_gf_f" 2>/dev/null | awk -F: -v f="$_gf_f" -v id="$g_id" -v d="$g_desc" -v all="$([ "$mode" = --all ] && printf 1)" '
+          FILENAME == ARGV[1] { split($0, a, "\t"); if (a[2] == "*") whole[a[1]] = 1; else ad[a[1] "\t" a[2]] = 1; next }
+          all != "" || (f in whole) || ((f "\t" $1) in ad) { printf "forge:%s %s:%s %s\n", id, f, $1, d }' "$FORGE_TMP/added" -
+      done < "$1"
+    fi
+    _gf_i=$((_gf_i + 1))
+  done
+}
+
+# forge_ratchet <runtime> <script>: the config ratchet. Runs <script> (embedded in
+# check.sh as forge_script_<script>) with the project's runtime on the changed files
+# and their base copies; each printed line is a loosened setting, unless forge.yaml
+# records it as accepted.
+forge_ratchet() {
+  _fr_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
+  "$_fr_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  set -f
+  # shellcheck disable=SC2046
+  "$1" "$FORGE_TMP/$2" "$FORGE_TMP/base" $(cat "$FORGE_TMP/existing") > "$FORGE_TMP/ratchet" 2>&1
+  _fr_rc=$?
+  set +f
+  case $_fr_rc in
+    0) return 0 ;;
+    1) ;;
+    *) printf 'forge:%s %s\n' "$c_id" "$(grep '^skipped:' "$FORGE_TMP/ratchet" | head -n 1 | grep . || printf 'skipped: %s exited with %s' "$1" "$_fr_rc")"; return 0 ;;
+  esac
+  while IFS= read -r _fr_l; do
+    [ -f forge.yaml ] && grep -qF -- "$_fr_l" forge.yaml && continue
+    printf '%s\n' "$_fr_l"
+  done < "$FORGE_TMP/ratchet" > "$FORGE_TMP/ratchet.open"
+  [ -s "$FORGE_TMP/ratchet.open" ] || return 0
+  cat "$FORGE_TMP/ratchet.open"
+  printf 'Restore the setting, or have the user accept the change in forge.yaml: accept: [{rule: %s, change: "<line above>", reason: "..."}]\n' "$c_id"
+  return 1
+}
+
+# Test blocks, for forge_test_edits: pytest test functions (with their decorators)
+# and classes; Vitest/Playwright test and it calls, and the describe calls around them.
+FORGE_TEST_BLOCKS='id: forge-test
+language: Python
+rule:
+  any:
+    - kind: decorated_definition
+      has: {field: definition, kind: function_definition, has: {field: name, regex: "^test"}}
+    - all:
+        - kind: function_definition
+        - has: {field: name, regex: "^test"}
+        - not: {inside: {kind: decorated_definition, stopBy: neighbor}}
+---
+id: forge-test-scope
+language: Python
+rule: {kind: class_definition}
+---
+id: forge-test
+language: Tsx
+rule: {pattern: "$F($NAME, $$$REST)"}
+constraints:
+  F: {all: [{regex: "^(test|it)([.(]|$)"}, {not: {regex: "^test[.](describe|step|use|extend|info|beforeEach|afterEach|beforeAll|afterAll)"}}]}
+  NAME: {any: [{kind: string}, {kind: template_string}]}
+---
+id: forge-test-scope
+language: Tsx
+rule: {pattern: "$F($NAME, $$$REST)"}
+constraints:
+  F: {regex: "^(describe|suite|test[.]describe)([.(]|$)"}
+  NAME: {any: [{kind: string}, {kind: template_string}]}'
+
+# forge_test_blocks <dir> <file-list>: "file<TAB>key<TAB>body" per test of the listed
+# files under <dir>; key = enclosing classes or describe names, then the test name
+# (" #2" for a repeated one); body = the test's text without whitespace.
+forge_test_blocks() {
+  set -f
+  # shellcheck disable=SC2046
+  ( cd "$1" && astgrep scan -c "$FORGE_ROOT/.forge/ast-grep/sgconfig.yml" --inline-rules "$FORGE_TEST_BLOCKS" --filter '^forge-test' --json=stream $(cat "$2") ) > "$FORGE_TMP/blocks.json"
+  _tb_rc=$?
+  set +f
+  [ "$_tb_rc" -le 1 ] || return 1
+  awk '
+    function str(s, key,   i, out, c) {
+      i = index(s, "\"" key "\":\""); if (!i) return ""
+      s = substr(s, i + length(key) + 4); out = ""
+      while (length(s)) {
+        c = substr(s, 1, 1)
+        if (c == "\"") break
+        if (c == "\\") { c = substr(s, 2, 1); if (c == "n" || c == "t" || c == "r") c = " "; s = substr(s, 2) }
+        out = out c; s = substr(s, 2)
+      }
+      return out
+    }
+    {
+      rid = str($0, "ruleId"); if (rid !~ /^forge-test/) next
+      r = substr($0, index($0, "\"byteOffset\":{\"start\":") + 22)
+      n++; F[n] = str($0, "file"); R[n] = rid; S[n] = r + 0; E[n] = substr(r, index(r, "\"end\":") + 6) + 0
+      t = str($0, "text"); k = index($0, "\"NAME\":{"); nm = k ? str(substr($0, k), "text") : ""
+      if (nm == "" && match(t, /(def|class)[ ]+[A-Za-z_][A-Za-z0-9_]*/)) { nm = substr(t, RSTART, RLENGTH); sub(/^(def|class)[ ]+/, "", nm) }
+      if (nm ~ /^["\047`]/) nm = substr(nm, 2, length(nm) - 2)
+      N[n] = nm; gsub(/[[:space:]]/, "", t); T[n] = t
+    }
+    END {
+      for (a = 1; a <= n; a++) {
+        if (R[a] != "forge-test") continue
+        m = 0
+        for (b = 1; b <= n; b++)
+          if (R[b] == "forge-test-scope" && F[b] == F[a] && S[b] <= S[a] && E[a] <= E[b]) {
+            m++; cs[m] = S[b]; cn[m] = N[b]
+            for (j = m; j > 1 && cs[j - 1] > cs[j]; j--) { x = cs[j]; cs[j] = cs[j - 1]; cs[j - 1] = x; x = cn[j]; cn[j] = cn[j - 1]; cn[j - 1] = x }
+          }
+        key = ""
+        for (j = 1; j <= m; j++) key = key cn[j] " > "
+        key = key N[a]
+        if (++seen[F[a] "\t" key] > 1) key = key " #" seen[F[a] "\t" key]
+        print F[a] "\t" key "\t" T[a]
+      }
+    }' "$FORGE_TMP/blocks.json"
+}
+
+# forge_test_edits: Stop only (--turn). Each test of the in-scope files ($FORGE_FILES)
+# that existed at the start of the turn must be unchanged (whitespace aside) and
+# still present; new tests are fine.
+forge_test_edits() {
+  [ "$mode" = --turn ] || return 0
+  printf '%s\n' "$FORGE_FILES" | grep -xF -f "$FORGE_TMP/inbase" > "$FORGE_TMP/tests.files"
+  [ -s "$FORGE_TMP/tests.files" ] || return 0
+  if ! forge_test_blocks "$FORGE_TMP/base" "$FORGE_TMP/tests.files" > "$FORGE_TMP/tests.then" \
+    || ! forge_test_blocks "$FORGE_ROOT" "$FORGE_TMP/tests.files" > "$FORGE_TMP/tests.now"; then
+    printf 'forge:%s skipped: ast-grep unavailable\n' "$c_id"
+    return 0
+  fi
+  awk -F '\t' '
+    FILENAME == ARGV[1] { then[$1 "\t" $2] = $3; next }
+    { now[$1 "\t" $2] = $3 }
+    END {
+      for (k in then) {
+        split(k, p, "\t")
+        if (!(k in now)) print p[1] ": test \"" p[2] "\" was removed"
+        else if (now[k] != then[k]) print p[1] ": test \"" p[2] "\" was changed"
+      }
+    }' "$FORGE_TMP/tests.then" "$FORGE_TMP/tests.now" | sort > "$FORGE_TMP/tests.edits"
+  [ -s "$FORGE_TMP/tests.edits" ] || return 0
+  cat "$FORGE_TMP/tests.edits"
+  printf 'Tests that existed before this turn are not edited to make the code pass. Restore them; if one looks wrong, stop and ask the user.\n'
+  return 1
 }
 
 # forge_exec_tool <name> <args>: runs the project's own <name>; 127 when absent.
@@ -1596,7 +1998,7 @@ IFS='
 biome() { forge_exec_tool biome "$@"; }
 tsc() { forge_exec_tool tsc "$@"; }
 astro() { forge_exec_tool astro "$@"; }
-FORGE_NCHECKS=5
+FORGE_NCHECKS=6
 
 # 1. typescript/astro/check
 forge_check_meta_1() {
@@ -1627,52 +2029,82 @@ forge_check_run_2() {
 bun install --frozen-lockfile
 }
 
-# 3. typescript/format-lint
+# 3. typescript/config-ratchet
 forge_check_meta_3() {
+  c_id='typescript/config-ratchet'; c_stage=lint; c_tools='bun'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0
+}
+forge_scope_3() {
+  case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) ;; *) return 1 ;; esac
+  return 0
+}
+forge_when_3() { case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) return 0 ;; esac; return 1; }
+forge_check_run_3() {
+forge_ratchet bun ratchet.mjs
+}
+
+# 4. typescript/format-lint
+forge_check_meta_4() {
   c_id='typescript/format-lint'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1
 }
-forge_scope_3() {
+forge_scope_4() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_3() { return 1; }
-forge_check_run_3() {
+forge_when_4() { return 1; }
+forge_check_run_4() {
 biome ci .
 }
-forge_check_changed_3() {
+forge_check_changed_4() {
 biome check --write --no-errors-on-unmatched $FORGE_FILES
 }
 
-# 4. typescript/no-ignore-deprecations
-forge_check_meta_4() {
+# 5. typescript/no-ignore-deprecations
+forge_check_meta_5() {
   c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0
 }
-forge_scope_4() {
+forge_scope_5() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_4() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
-forge_check_run_4() {
+forge_when_5() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
+forge_check_run_5() {
 ! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')
 }
 
-# 5. typescript/typecheck
-forge_check_meta_5() {
+# 6. typescript/typecheck
+forge_check_meta_6() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0
 }
-forge_scope_5() {
+forge_scope_6() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_5() { return 1; }
-forge_check_run_5() {
+forge_when_6() { return 1; }
+forge_check_run_6() {
 tsc --noEmit -p tsconfig.json
+}
+
+FORGE_NGREPS=1
+FORGE_GREP_NO_INCREASE='typescript/no-new-suppressions'
+FORGE_GREP_NO_DECREASE=''
+
+# grep 1. typescript/no-new-suppressions
+forge_grep_meta_1() {
+  g_id='typescript/no-new-suppressions'; g_mode=no-increase; g_flags=-E
+  g_pattern='biome-ignore|@ts-expect-error'
+  g_desc='No new suppression comments (biome-ignore in any form, @ts-expect-error); a changed file may not have more than it had. Fix the finding instead.'
+}
+forge_grep_scope_1() {
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
 }
 # ---- end of generated checks
 
@@ -1757,6 +2189,175 @@ forge_sg_report() {
       d = m; sub(/^[^ ]* ?/, "", d)
       printf "forge:%s %s:%d:%d %s\n", id, f, sl, sc, d
     }' "$FORGE_TMP/added" "$1"
+}
+
+# forge_grep_counts <dir> <file-list>: "rule<TAB>file<TAB>count" (matching lines)
+# for each grep rule that counts (no-increase, no-decrease), on the listed files under <dir>.
+forge_grep_counts() {
+  _gc_i=1
+  while [ "$_gc_i" -le "$FORGE_NGREPS" ]; do
+    forge_grep_meta_"$_gc_i"
+    if [ "$g_mode" != forbid ]; then
+      while IFS= read -r _gc_f; do
+        [ -f "$1/$_gc_f" ] && forge_grep_scope_"$_gc_i" "$_gc_f" || continue
+        printf '%s\t%s\t%s\n' "$g_id" "$_gc_f" "$(grep -c "$g_flags" -- "$g_pattern" "$1/$_gc_f")"
+      done < "$2"
+    fi
+    _gc_i=$((_gc_i + 1))
+  done
+}
+
+# forge_grep_forbid <file-list>: "forge:<rule> path:line <description>" for each
+# match of a forbid grep rule; unless $mode is --all, only on lines of $FORGE_TMP/added.
+forge_grep_forbid() {
+  _gf_i=1
+  while [ "$_gf_i" -le "$FORGE_NGREPS" ]; do
+    forge_grep_meta_"$_gf_i"
+    if [ "$g_mode" = forbid ]; then
+      while IFS= read -r _gf_f; do
+        [ -f "$_gf_f" ] && forge_grep_scope_"$_gf_i" "$_gf_f" || continue
+        grep -n "$g_flags" -- "$g_pattern" "$_gf_f" 2>/dev/null | awk -F: -v f="$_gf_f" -v id="$g_id" -v d="$g_desc" -v all="$([ "$mode" = --all ] && printf 1)" '
+          FILENAME == ARGV[1] { split($0, a, "\t"); if (a[2] == "*") whole[a[1]] = 1; else ad[a[1] "\t" a[2]] = 1; next }
+          all != "" || (f in whole) || ((f "\t" $1) in ad) { printf "forge:%s %s:%s %s\n", id, f, $1, d }' "$FORGE_TMP/added" -
+      done < "$1"
+    fi
+    _gf_i=$((_gf_i + 1))
+  done
+}
+
+# forge_ratchet <runtime> <script>: the config ratchet. Runs <script> (embedded in
+# check.sh as forge_script_<script>) with the project's runtime on the changed files
+# and their base copies; each printed line is a loosened setting, unless forge.yaml
+# records it as accepted.
+forge_ratchet() {
+  _fr_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
+  "$_fr_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  set -f
+  # shellcheck disable=SC2046
+  "$1" "$FORGE_TMP/$2" "$FORGE_TMP/base" $(cat "$FORGE_TMP/existing") > "$FORGE_TMP/ratchet" 2>&1
+  _fr_rc=$?
+  set +f
+  case $_fr_rc in
+    0) return 0 ;;
+    1) ;;
+    *) printf 'forge:%s %s\n' "$c_id" "$(grep '^skipped:' "$FORGE_TMP/ratchet" | head -n 1 | grep . || printf 'skipped: %s exited with %s' "$1" "$_fr_rc")"; return 0 ;;
+  esac
+  while IFS= read -r _fr_l; do
+    [ -f forge.yaml ] && grep -qF -- "$_fr_l" forge.yaml && continue
+    printf '%s\n' "$_fr_l"
+  done < "$FORGE_TMP/ratchet" > "$FORGE_TMP/ratchet.open"
+  [ -s "$FORGE_TMP/ratchet.open" ] || return 0
+  cat "$FORGE_TMP/ratchet.open"
+  printf 'Restore the setting, or have the user accept the change in forge.yaml: accept: [{rule: %s, change: "<line above>", reason: "..."}]\n' "$c_id"
+  return 1
+}
+
+# Test blocks, for forge_test_edits: pytest test functions (with their decorators)
+# and classes; Vitest/Playwright test and it calls, and the describe calls around them.
+FORGE_TEST_BLOCKS='id: forge-test
+language: Python
+rule:
+  any:
+    - kind: decorated_definition
+      has: {field: definition, kind: function_definition, has: {field: name, regex: "^test"}}
+    - all:
+        - kind: function_definition
+        - has: {field: name, regex: "^test"}
+        - not: {inside: {kind: decorated_definition, stopBy: neighbor}}
+---
+id: forge-test-scope
+language: Python
+rule: {kind: class_definition}
+---
+id: forge-test
+language: Tsx
+rule: {pattern: "$F($NAME, $$$REST)"}
+constraints:
+  F: {all: [{regex: "^(test|it)([.(]|$)"}, {not: {regex: "^test[.](describe|step|use|extend|info|beforeEach|afterEach|beforeAll|afterAll)"}}]}
+  NAME: {any: [{kind: string}, {kind: template_string}]}
+---
+id: forge-test-scope
+language: Tsx
+rule: {pattern: "$F($NAME, $$$REST)"}
+constraints:
+  F: {regex: "^(describe|suite|test[.]describe)([.(]|$)"}
+  NAME: {any: [{kind: string}, {kind: template_string}]}'
+
+# forge_test_blocks <dir> <file-list>: "file<TAB>key<TAB>body" per test of the listed
+# files under <dir>; key = enclosing classes or describe names, then the test name
+# (" #2" for a repeated one); body = the test's text without whitespace.
+forge_test_blocks() {
+  set -f
+  # shellcheck disable=SC2046
+  ( cd "$1" && astgrep scan -c "$FORGE_ROOT/.forge/ast-grep/sgconfig.yml" --inline-rules "$FORGE_TEST_BLOCKS" --filter '^forge-test' --json=stream $(cat "$2") ) > "$FORGE_TMP/blocks.json"
+  _tb_rc=$?
+  set +f
+  [ "$_tb_rc" -le 1 ] || return 1
+  awk '
+    function str(s, key,   i, out, c) {
+      i = index(s, "\"" key "\":\""); if (!i) return ""
+      s = substr(s, i + length(key) + 4); out = ""
+      while (length(s)) {
+        c = substr(s, 1, 1)
+        if (c == "\"") break
+        if (c == "\\") { c = substr(s, 2, 1); if (c == "n" || c == "t" || c == "r") c = " "; s = substr(s, 2) }
+        out = out c; s = substr(s, 2)
+      }
+      return out
+    }
+    {
+      rid = str($0, "ruleId"); if (rid !~ /^forge-test/) next
+      r = substr($0, index($0, "\"byteOffset\":{\"start\":") + 22)
+      n++; F[n] = str($0, "file"); R[n] = rid; S[n] = r + 0; E[n] = substr(r, index(r, "\"end\":") + 6) + 0
+      t = str($0, "text"); k = index($0, "\"NAME\":{"); nm = k ? str(substr($0, k), "text") : ""
+      if (nm == "" && match(t, /(def|class)[ ]+[A-Za-z_][A-Za-z0-9_]*/)) { nm = substr(t, RSTART, RLENGTH); sub(/^(def|class)[ ]+/, "", nm) }
+      if (nm ~ /^["\047`]/) nm = substr(nm, 2, length(nm) - 2)
+      N[n] = nm; gsub(/[[:space:]]/, "", t); T[n] = t
+    }
+    END {
+      for (a = 1; a <= n; a++) {
+        if (R[a] != "forge-test") continue
+        m = 0
+        for (b = 1; b <= n; b++)
+          if (R[b] == "forge-test-scope" && F[b] == F[a] && S[b] <= S[a] && E[a] <= E[b]) {
+            m++; cs[m] = S[b]; cn[m] = N[b]
+            for (j = m; j > 1 && cs[j - 1] > cs[j]; j--) { x = cs[j]; cs[j] = cs[j - 1]; cs[j - 1] = x; x = cn[j]; cn[j] = cn[j - 1]; cn[j - 1] = x }
+          }
+        key = ""
+        for (j = 1; j <= m; j++) key = key cn[j] " > "
+        key = key N[a]
+        if (++seen[F[a] "\t" key] > 1) key = key " #" seen[F[a] "\t" key]
+        print F[a] "\t" key "\t" T[a]
+      }
+    }' "$FORGE_TMP/blocks.json"
+}
+
+# forge_test_edits: Stop only (--turn). Each test of the in-scope files ($FORGE_FILES)
+# that existed at the start of the turn must be unchanged (whitespace aside) and
+# still present; new tests are fine.
+forge_test_edits() {
+  [ "$mode" = --turn ] || return 0
+  printf '%s\n' "$FORGE_FILES" | grep -xF -f "$FORGE_TMP/inbase" > "$FORGE_TMP/tests.files"
+  [ -s "$FORGE_TMP/tests.files" ] || return 0
+  if ! forge_test_blocks "$FORGE_TMP/base" "$FORGE_TMP/tests.files" > "$FORGE_TMP/tests.then" \
+    || ! forge_test_blocks "$FORGE_ROOT" "$FORGE_TMP/tests.files" > "$FORGE_TMP/tests.now"; then
+    printf 'forge:%s skipped: ast-grep unavailable\n' "$c_id"
+    return 0
+  fi
+  awk -F '\t' '
+    FILENAME == ARGV[1] { then[$1 "\t" $2] = $3; next }
+    { now[$1 "\t" $2] = $3 }
+    END {
+      for (k in then) {
+        split(k, p, "\t")
+        if (!(k in now)) print p[1] ": test \"" p[2] "\" was removed"
+        else if (now[k] != then[k]) print p[1] ": test \"" p[2] "\" was changed"
+      }
+    }' "$FORGE_TMP/tests.then" "$FORGE_TMP/tests.now" | sort > "$FORGE_TMP/tests.edits"
+  [ -s "$FORGE_TMP/tests.edits" ] || return 0
+  cat "$FORGE_TMP/tests.edits"
+  printf 'Tests that existed before this turn are not edited to make the code pass. Restore them; if one looks wrong, stop and ask the user.\n'
+  return 1
 }
 
 # forge_exec_tool <name> <args>: runs the project's own <name>; 127 when absent.
@@ -2521,7 +3122,7 @@ turn_dir() { printf '.forge/state/%s.turn' "$(session_id)"; }
 biome() { forge_exec_tool biome "$@"; }
 tsc() { forge_exec_tool tsc "$@"; }
 astro() { forge_exec_tool astro "$@"; }
-FORGE_NCHECKS=5
+FORGE_NCHECKS=6
 
 # 1. typescript/astro/check
 forge_check_meta_1() {
@@ -2552,52 +3153,82 @@ forge_check_run_2() {
 bun install --frozen-lockfile
 }
 
-# 3. typescript/format-lint
+# 3. typescript/config-ratchet
 forge_check_meta_3() {
+  c_id='typescript/config-ratchet'; c_stage=lint; c_tools='bun'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0
+}
+forge_scope_3() {
+  case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) ;; *) return 1 ;; esac
+  return 0
+}
+forge_when_3() { case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) return 0 ;; esac; return 1; }
+forge_check_run_3() {
+forge_ratchet bun ratchet.mjs
+}
+
+# 4. typescript/format-lint
+forge_check_meta_4() {
   c_id='typescript/format-lint'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1
 }
-forge_scope_3() {
+forge_scope_4() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_3() { return 1; }
-forge_check_run_3() {
+forge_when_4() { return 1; }
+forge_check_run_4() {
 biome ci .
 }
-forge_check_changed_3() {
+forge_check_changed_4() {
 biome check --write --no-errors-on-unmatched $FORGE_FILES
 }
 
-# 4. typescript/no-ignore-deprecations
-forge_check_meta_4() {
+# 5. typescript/no-ignore-deprecations
+forge_check_meta_5() {
   c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0
 }
-forge_scope_4() {
+forge_scope_5() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_4() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
-forge_check_run_4() {
+forge_when_5() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
+forge_check_run_5() {
 ! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')
 }
 
-# 5. typescript/typecheck
-forge_check_meta_5() {
+# 6. typescript/typecheck
+forge_check_meta_6() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0
 }
-forge_scope_5() {
+forge_scope_6() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_5() { return 1; }
-forge_check_run_5() {
+forge_when_6() { return 1; }
+forge_check_run_6() {
 tsc --noEmit -p tsconfig.json
+}
+
+FORGE_NGREPS=1
+FORGE_GREP_NO_INCREASE='typescript/no-new-suppressions'
+FORGE_GREP_NO_DECREASE=''
+
+# grep 1. typescript/no-new-suppressions
+forge_grep_meta_1() {
+  g_id='typescript/no-new-suppressions'; g_mode=no-increase; g_flags=-E
+  g_pattern='biome-ignore|@ts-expect-error'
+  g_desc='No new suppression comments (biome-ignore in any form, @ts-expect-error); a changed file may not have more than it had. Fix the finding instead.'
+}
+forge_grep_scope_1() {
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
 }
 # ---- end of generated checks
 
@@ -2682,6 +3313,175 @@ forge_sg_report() {
       d = m; sub(/^[^ ]* ?/, "", d)
       printf "forge:%s %s:%d:%d %s\n", id, f, sl, sc, d
     }' "$FORGE_TMP/added" "$1"
+}
+
+# forge_grep_counts <dir> <file-list>: "rule<TAB>file<TAB>count" (matching lines)
+# for each grep rule that counts (no-increase, no-decrease), on the listed files under <dir>.
+forge_grep_counts() {
+  _gc_i=1
+  while [ "$_gc_i" -le "$FORGE_NGREPS" ]; do
+    forge_grep_meta_"$_gc_i"
+    if [ "$g_mode" != forbid ]; then
+      while IFS= read -r _gc_f; do
+        [ -f "$1/$_gc_f" ] && forge_grep_scope_"$_gc_i" "$_gc_f" || continue
+        printf '%s\t%s\t%s\n' "$g_id" "$_gc_f" "$(grep -c "$g_flags" -- "$g_pattern" "$1/$_gc_f")"
+      done < "$2"
+    fi
+    _gc_i=$((_gc_i + 1))
+  done
+}
+
+# forge_grep_forbid <file-list>: "forge:<rule> path:line <description>" for each
+# match of a forbid grep rule; unless $mode is --all, only on lines of $FORGE_TMP/added.
+forge_grep_forbid() {
+  _gf_i=1
+  while [ "$_gf_i" -le "$FORGE_NGREPS" ]; do
+    forge_grep_meta_"$_gf_i"
+    if [ "$g_mode" = forbid ]; then
+      while IFS= read -r _gf_f; do
+        [ -f "$_gf_f" ] && forge_grep_scope_"$_gf_i" "$_gf_f" || continue
+        grep -n "$g_flags" -- "$g_pattern" "$_gf_f" 2>/dev/null | awk -F: -v f="$_gf_f" -v id="$g_id" -v d="$g_desc" -v all="$([ "$mode" = --all ] && printf 1)" '
+          FILENAME == ARGV[1] { split($0, a, "\t"); if (a[2] == "*") whole[a[1]] = 1; else ad[a[1] "\t" a[2]] = 1; next }
+          all != "" || (f in whole) || ((f "\t" $1) in ad) { printf "forge:%s %s:%s %s\n", id, f, $1, d }' "$FORGE_TMP/added" -
+      done < "$1"
+    fi
+    _gf_i=$((_gf_i + 1))
+  done
+}
+
+# forge_ratchet <runtime> <script>: the config ratchet. Runs <script> (embedded in
+# check.sh as forge_script_<script>) with the project's runtime on the changed files
+# and their base copies; each printed line is a loosened setting, unless forge.yaml
+# records it as accepted.
+forge_ratchet() {
+  _fr_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
+  "$_fr_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  set -f
+  # shellcheck disable=SC2046
+  "$1" "$FORGE_TMP/$2" "$FORGE_TMP/base" $(cat "$FORGE_TMP/existing") > "$FORGE_TMP/ratchet" 2>&1
+  _fr_rc=$?
+  set +f
+  case $_fr_rc in
+    0) return 0 ;;
+    1) ;;
+    *) printf 'forge:%s %s\n' "$c_id" "$(grep '^skipped:' "$FORGE_TMP/ratchet" | head -n 1 | grep . || printf 'skipped: %s exited with %s' "$1" "$_fr_rc")"; return 0 ;;
+  esac
+  while IFS= read -r _fr_l; do
+    [ -f forge.yaml ] && grep -qF -- "$_fr_l" forge.yaml && continue
+    printf '%s\n' "$_fr_l"
+  done < "$FORGE_TMP/ratchet" > "$FORGE_TMP/ratchet.open"
+  [ -s "$FORGE_TMP/ratchet.open" ] || return 0
+  cat "$FORGE_TMP/ratchet.open"
+  printf 'Restore the setting, or have the user accept the change in forge.yaml: accept: [{rule: %s, change: "<line above>", reason: "..."}]\n' "$c_id"
+  return 1
+}
+
+# Test blocks, for forge_test_edits: pytest test functions (with their decorators)
+# and classes; Vitest/Playwright test and it calls, and the describe calls around them.
+FORGE_TEST_BLOCKS='id: forge-test
+language: Python
+rule:
+  any:
+    - kind: decorated_definition
+      has: {field: definition, kind: function_definition, has: {field: name, regex: "^test"}}
+    - all:
+        - kind: function_definition
+        - has: {field: name, regex: "^test"}
+        - not: {inside: {kind: decorated_definition, stopBy: neighbor}}
+---
+id: forge-test-scope
+language: Python
+rule: {kind: class_definition}
+---
+id: forge-test
+language: Tsx
+rule: {pattern: "$F($NAME, $$$REST)"}
+constraints:
+  F: {all: [{regex: "^(test|it)([.(]|$)"}, {not: {regex: "^test[.](describe|step|use|extend|info|beforeEach|afterEach|beforeAll|afterAll)"}}]}
+  NAME: {any: [{kind: string}, {kind: template_string}]}
+---
+id: forge-test-scope
+language: Tsx
+rule: {pattern: "$F($NAME, $$$REST)"}
+constraints:
+  F: {regex: "^(describe|suite|test[.]describe)([.(]|$)"}
+  NAME: {any: [{kind: string}, {kind: template_string}]}'
+
+# forge_test_blocks <dir> <file-list>: "file<TAB>key<TAB>body" per test of the listed
+# files under <dir>; key = enclosing classes or describe names, then the test name
+# (" #2" for a repeated one); body = the test's text without whitespace.
+forge_test_blocks() {
+  set -f
+  # shellcheck disable=SC2046
+  ( cd "$1" && astgrep scan -c "$FORGE_ROOT/.forge/ast-grep/sgconfig.yml" --inline-rules "$FORGE_TEST_BLOCKS" --filter '^forge-test' --json=stream $(cat "$2") ) > "$FORGE_TMP/blocks.json"
+  _tb_rc=$?
+  set +f
+  [ "$_tb_rc" -le 1 ] || return 1
+  awk '
+    function str(s, key,   i, out, c) {
+      i = index(s, "\"" key "\":\""); if (!i) return ""
+      s = substr(s, i + length(key) + 4); out = ""
+      while (length(s)) {
+        c = substr(s, 1, 1)
+        if (c == "\"") break
+        if (c == "\\") { c = substr(s, 2, 1); if (c == "n" || c == "t" || c == "r") c = " "; s = substr(s, 2) }
+        out = out c; s = substr(s, 2)
+      }
+      return out
+    }
+    {
+      rid = str($0, "ruleId"); if (rid !~ /^forge-test/) next
+      r = substr($0, index($0, "\"byteOffset\":{\"start\":") + 22)
+      n++; F[n] = str($0, "file"); R[n] = rid; S[n] = r + 0; E[n] = substr(r, index(r, "\"end\":") + 6) + 0
+      t = str($0, "text"); k = index($0, "\"NAME\":{"); nm = k ? str(substr($0, k), "text") : ""
+      if (nm == "" && match(t, /(def|class)[ ]+[A-Za-z_][A-Za-z0-9_]*/)) { nm = substr(t, RSTART, RLENGTH); sub(/^(def|class)[ ]+/, "", nm) }
+      if (nm ~ /^["\047`]/) nm = substr(nm, 2, length(nm) - 2)
+      N[n] = nm; gsub(/[[:space:]]/, "", t); T[n] = t
+    }
+    END {
+      for (a = 1; a <= n; a++) {
+        if (R[a] != "forge-test") continue
+        m = 0
+        for (b = 1; b <= n; b++)
+          if (R[b] == "forge-test-scope" && F[b] == F[a] && S[b] <= S[a] && E[a] <= E[b]) {
+            m++; cs[m] = S[b]; cn[m] = N[b]
+            for (j = m; j > 1 && cs[j - 1] > cs[j]; j--) { x = cs[j]; cs[j] = cs[j - 1]; cs[j - 1] = x; x = cn[j]; cn[j] = cn[j - 1]; cn[j - 1] = x }
+          }
+        key = ""
+        for (j = 1; j <= m; j++) key = key cn[j] " > "
+        key = key N[a]
+        if (++seen[F[a] "\t" key] > 1) key = key " #" seen[F[a] "\t" key]
+        print F[a] "\t" key "\t" T[a]
+      }
+    }' "$FORGE_TMP/blocks.json"
+}
+
+# forge_test_edits: Stop only (--turn). Each test of the in-scope files ($FORGE_FILES)
+# that existed at the start of the turn must be unchanged (whitespace aside) and
+# still present; new tests are fine.
+forge_test_edits() {
+  [ "$mode" = --turn ] || return 0
+  printf '%s\n' "$FORGE_FILES" | grep -xF -f "$FORGE_TMP/inbase" > "$FORGE_TMP/tests.files"
+  [ -s "$FORGE_TMP/tests.files" ] || return 0
+  if ! forge_test_blocks "$FORGE_TMP/base" "$FORGE_TMP/tests.files" > "$FORGE_TMP/tests.then" \
+    || ! forge_test_blocks "$FORGE_ROOT" "$FORGE_TMP/tests.files" > "$FORGE_TMP/tests.now"; then
+    printf 'forge:%s skipped: ast-grep unavailable\n' "$c_id"
+    return 0
+  fi
+  awk -F '\t' '
+    FILENAME == ARGV[1] { then[$1 "\t" $2] = $3; next }
+    { now[$1 "\t" $2] = $3 }
+    END {
+      for (k in then) {
+        split(k, p, "\t")
+        if (!(k in now)) print p[1] ": test \"" p[2] "\" was removed"
+        else if (now[k] != then[k]) print p[1] ": test \"" p[2] "\" was changed"
+      }
+    }' "$FORGE_TMP/tests.then" "$FORGE_TMP/tests.now" | sort > "$FORGE_TMP/tests.edits"
+  [ -s "$FORGE_TMP/tests.edits" ] || return 0
+  cat "$FORGE_TMP/tests.edits"
+  printf 'Tests that existed before this turn are not edited to make the code pass. Restore them; if one looks wrong, stop and ask the user.\n'
+  return 1
 }
 
 # forge_exec_tool <name> <args>: runs the project's own <name>; 127 when absent.
@@ -3060,6 +3860,152 @@ forge_required_tools() {
   done | awk 'NF && !seen[$0]++'
 }
 
+# Scripts that checks run with the project's own runtime (Python, bun).
+forge_script_ratchet_mjs() {
+cat <<'FORGE_SCRIPT_END'
+// Generated by forge. Config ratchet for JavaScript tool configs (run by
+// .forge/check.sh with bun): compares each changed file with its copy in the base
+// and prints one line per loosened setting. Usage:
+//   bun ratchet.mjs <base-dir> <path>...
+// Exit 0: nothing loosened; 1: findings printed; 3: cannot run ("skipped: …" printed).
+import { readFileSync } from "node:fs";
+
+const findings = [];
+const out = (path, what) => findings.push(`${path}: ${what}`);
+const show = (v) => (v === undefined || v === null ? "unset" : Array.isArray(v) ? `[${v.map(show).join(", ")}]` : typeof v === "object" ? "{…}" : String(v).replace(/["\\]/g, ""));
+const list = (v) => (v === undefined || v === null ? [] : Array.isArray(v) ? v : [v]);
+const obj = (v) => (v && typeof v === "object" && !Array.isArray(v) ? v : {});
+
+/** JSON with comments and trailing commas -> value. */
+function parseJsonc(text) {
+  let s = "";
+  for (let i = 0, str = false; i < text.length; i++) {
+    const c = text[i];
+    if (str) {
+      s += c;
+      if (c === "\\") s += text[++i] ?? "";
+      else if (c === '"') str = false;
+    } else if (c === '"') {
+      str = true;
+      s += c;
+    } else if (text.startsWith("//", i)) {
+      while (i < text.length && text[i] !== "\n") i++;
+      s += "\n";
+    } else if (text.startsWith("/*", i)) {
+      const end = text.indexOf("*/", i + 2);
+      i = end < 0 ? text.length : end + 1;
+    } else s += c;
+  }
+  return JSON.parse(s.replace(/,(\s*[}\]])/g, "$1"));
+}
+
+// ---- Biome
+
+const LEVEL = { off: 0, info: 1, warn: 2, error: 3, on: 2 };
+const level = (v) => (typeof v === "string" ? v : obj(v).level);
+
+function biome(path, b, a) {
+  const lb = obj(b.linter), la = obj(a.linter);
+  if (lb.enabled !== false && la.enabled === false) out(path, "linter.enabled true -> false");
+  if (obj(b.formatter).enabled !== false && obj(a.formatter).enabled === false) out(path, "formatter.enabled true -> false");
+  const rb = obj(lb.rules), ra = obj(la.rules);
+  if (rb.recommended !== false && ra.recommended === false) out(path, `linter.rules.recommended ${show(rb.recommended ?? true)} -> false`);
+  for (const [group, gb] of Object.entries(rb)) {
+    if (group === "recommended") continue;
+    const ga = ra[group];
+    if (typeof gb === "string") {
+      const now = typeof ga === "string" ? ga : undefined;
+      if ((LEVEL[gb] ?? 0) > (LEVEL[now] ?? -1) && now !== undefined) out(path, `linter.rules.${group} ${gb} -> ${now}`);
+      else if (now === undefined && (LEVEL[gb] ?? 0) > 0 && typeof ga !== "object") out(path, `linter.rules.${group} ${gb} -> unset`);
+      continue;
+    }
+    for (const [name, vb] of Object.entries(obj(gb))) {
+      const before = level(vb);
+      const after = typeof ga === "string" ? ga : level(obj(ga)[name]);
+      if (before === undefined || !(before in LEVEL)) continue;
+      if (after === undefined) {
+        if (LEVEL[before] > 0) out(path, `linter.rules.${group}.${name} ${before} -> unset`);
+      } else if ((LEVEL[after] ?? 0) < LEVEL[before]) out(path, `linter.rules.${group}.${name} ${before} -> ${after}`);
+    }
+  }
+  const negated = (cfg) => list(cfg.includes).filter((g) => typeof g === "string" && g.startsWith("!"));
+  for (const [where, cb, ca] of [["files", obj(b.files), obj(a.files)], ["linter", lb, la]]) {
+    for (const g of negated(ca)) if (!negated(cb).includes(g)) out(path, `${where}.includes adds ${g}`);
+    for (const g of list(ca.ignore)) if (!list(cb.ignore).includes(g)) out(path, `${where}.ignore adds ${g}`);
+  }
+  if (JSON.stringify(b.overrides ?? []) !== JSON.stringify(a.overrides ?? [])) {
+    const before = new Set(list(b.overrides).map((o) => JSON.stringify(o)));
+    for (const o of list(a.overrides)) if (!before.has(JSON.stringify(o))) out(path, `overrides adds or changes an entry for ${show(list(obj(o).includes ?? obj(o).include).join(" "))}`);
+  }
+}
+
+// ---- tsconfig
+
+const STRICT = [
+  "strict", "noImplicitAny", "strictNullChecks", "strictFunctionTypes", "strictBindCallApply", "strictPropertyInitialization",
+  "strictBuiltinIteratorReturn", "noImplicitThis", "useUnknownInCatchVariables", "alwaysStrict", "noUncheckedIndexedAccess",
+  "exactOptionalPropertyTypes", "noImplicitReturns", "noFallthroughCasesInSwitch", "noImplicitOverride",
+  "noPropertyAccessFromIndexSignature", "noUnusedLocals", "noUnusedParameters", "checkJs",
+];
+
+function tsconfig(path, b, a) {
+  const cb = obj(b.compilerOptions), ca = obj(a.compilerOptions);
+  for (const k of STRICT) if (cb[k] === true && ca[k] !== true) out(path, `compilerOptions.${k} true -> ${show(ca[k])}`);
+  if (cb.skipLibCheck !== true && ca.skipLibCheck === true) out(path, `compilerOptions.skipLibCheck ${show(cb.skipLibCheck)} -> true`);
+  if (!("ignoreDeprecations" in cb) && "ignoreDeprecations" in ca) out(path, `compilerOptions.ignoreDeprecations unset -> ${show(ca.ignoreDeprecations)}`);
+  for (const x of list(a.exclude)) if (!list(b.exclude).includes(x)) out(path, `exclude adds ${show(x)}`);
+  for (const x of list(b.include)) if (!list(a.include).includes(x)) out(path, `include no longer has ${show(x)}`);
+  if (JSON.stringify(b.extends) !== JSON.stringify(a.extends)) out(path, `extends ${show(b.extends)} -> ${show(a.extends)}`);
+}
+
+// ---- package.json scripts
+
+const CHECK_SCRIPT = /test|check|lint|type|e2e|ci|verify/i;
+const LOOSE = [/--passWithNoTests\b/, /--pass-with-no-tests\b/, /\|\|\s*(true|exit 0|:)\b/, /--no-errors-on-unmatched\b/, /--testPathIgnorePatterns\b/, /--exclude\b/, /--ignore\b/, /--grep-invert\b/, /--skip\b/, /--diagnostic-level[= ](info|warn)\b/, /--max-warnings[= ]\d+/, /--bail[= ]0\b/, /--silent\b/];
+
+function scripts(path, b, a) {
+  const sb = obj(b.scripts), sa = obj(a.scripts);
+  for (const [name, cmd] of Object.entries(sb)) {
+    if (!CHECK_SCRIPT.test(name)) continue;
+    if (!(name in sa)) { out(path, `scripts.${name} removed`); continue; }
+    for (const re of LOOSE) {
+      const m = re.exec(String(sa[name]));
+      if (m && !re.test(String(cmd))) out(path, `scripts.${name} adds ${show(m[0].trim())}`);
+    }
+  }
+}
+
+const [base, ...paths] = process.argv.slice(2);
+try {
+for (const path of paths) {
+  const name = path.split("/").pop();
+  const kind = name === "biome.json" || name === "biome.jsonc" ? biome : /^tsconfig.*\.json$/.test(name) ? tsconfig : name === "package.json" ? scripts : undefined;
+  if (!kind) continue;
+  let before;
+  try {
+    before = parseJsonc(readFileSync(`${base}/${path}`, "utf8"));
+  } catch {
+    continue;
+  }
+  let after;
+  try {
+    after = parseJsonc(readFileSync(path, "utf8"));
+  } catch (e) {
+    out(path, `cannot be parsed (${String(e.message).split("\n")[0]})`);
+    continue;
+  }
+  kind(path, obj(before), obj(after));
+}
+} catch (e) {
+  // never report a crash as a loosened setting
+  console.log(`skipped: the ratchet could not run (${String(e && e.message).split("\n")[0]})`);
+  process.exit(3);
+}
+for (const f of findings) console.log(f);
+process.exit(findings.length ? 1 : 0);
+FORGE_SCRIPT_END
+}
+
 FORGE_FORBID='typescript/no-double-assertion|typescript/no-ts-nocheck|typescript/react/no-prop-types|typescript/react/use-action-state|typescript/ts-expect-error-reason'
 FORGE_NO_INCREASE=''
 FORGE_NO_DECREASE=''
@@ -3128,7 +4074,7 @@ forge_base_name() {
   esac
 }
 
-# 3. Tests: no deleted test files; ast-grep counts compared with the base.
+# 3. Tests and counts: no deleted test files; ast-grep and grep counts compared with the base.
 forge_tests_integrity() {
   while read -r f; do
     case $f in
@@ -3136,17 +4082,26 @@ forge_tests_integrity() {
         report forge/deleted-test "$f was deleted" ;;
     esac
   done < "$FORGE_TMP/deleted"
+  inc=$FORGE_NO_INCREASE
+  [ -n "$FORGE_GREP_NO_INCREASE" ] && inc="${inc:+$inc|}$FORGE_GREP_NO_INCREASE"
+  dec=$FORGE_NO_DECREASE
+  [ -n "$FORGE_GREP_NO_DECREASE" ] && dec="${dec:+$dec|}$FORGE_GREP_NO_DECREASE"
+  [ -n "$inc$dec" ] && [ -s "$FORGE_TMP/existing" ] || return
+  grep -vxF -f "$FORGE_TMP/deleted" "$FORGE_TMP/inbase" > "$FORGE_TMP/athead"
+  : > "$FORGE_TMP/now"; : > "$FORGE_TMP/then"
   ids=$FORGE_NO_INCREASE
   [ -n "$FORGE_NO_DECREASE" ] && ids="${ids:+$ids|}$FORGE_NO_DECREASE"
-  [ -n "$ids" ] && [ -s "$FORGE_TMP/existing" ] || return
-  grep -vxF -f "$FORGE_TMP/deleted" "$FORGE_TMP/inbase" > "$FORGE_TMP/athead"
-  forge_counts "$FORGE_ROOT" "$ids" "$FORGE_TMP/existing" > "$FORGE_TMP/now" || return
-  if [ -s "$FORGE_TMP/athead" ]; then
-    forge_counts "$FORGE_TMP/base" "$ids" "$FORGE_TMP/athead" > "$FORGE_TMP/then" || return
-  else
-    : > "$FORGE_TMP/then"
+  if [ -n "$ids" ]; then
+    if forge_counts "$FORGE_ROOT" "$ids" "$FORGE_TMP/existing" > "$FORGE_TMP/now" \
+      && { [ ! -s "$FORGE_TMP/athead" ] || forge_counts "$FORGE_TMP/base" "$ids" "$FORGE_TMP/athead" > "$FORGE_TMP/then"; }; then :
+    else
+      printf 'forge:forge/ast-grep skipped: ast-grep unavailable\n'
+      : > "$FORGE_TMP/now"; : > "$FORGE_TMP/then"
+    fi
   fi
-  awk -F '\t' -v inc="$FORGE_NO_INCREASE" -v dec="$FORGE_NO_DECREASE" '
+  forge_grep_counts "$FORGE_ROOT" "$FORGE_TMP/existing" >> "$FORGE_TMP/now"
+  forge_grep_counts "$FORGE_TMP/base" "$FORGE_TMP/athead" >> "$FORGE_TMP/then"
+  awk -F '\t' -v inc="$inc" -v dec="$dec" '
     BEGIN { n = split(inc, a, "|"); for (i = 1; i <= n; i++) if (a[i] != "") mi[a[i]] = 1
             n = split(dec, b, "|"); for (i = 1; i <= n; i++) if (b[i] != "") md[b[i]] = 1 }
     FILENAME == ARGV[1] { then[$1 "\t" $2] = $3; keys[$1 "\t" $2] = 1; next }
@@ -3168,23 +4123,26 @@ forge_counts() {
   ( cd "$1" && astgrep scan -c "$FORGE_ROOT/.forge/ast-grep/sgconfig.yml" --filter "^($2)\$" --json=stream $(cat "$3") ) > "$FORGE_TMP/json"
   rc=$?
   set +f
-  if [ "$rc" -gt 1 ]; then printf 'forge:forge/ast-grep skipped: ast-grep unavailable\n'; return 1; fi
+  [ "$rc" -le 1 ] || return 1
   grep -oE '"(file|ruleId)":"[^"]*"' "$FORGE_TMP/json" \
     | awk -F '"' '$2 == "file" { f = $4 } $2 == "ruleId" { c[$4 "\t" f]++ } END { for (k in c) print k "\t" c[k] }'
 }
 
-# 4. ast-grep forbid rules: outside --all, only matches on added lines.
+# 4. Forbid rules (ast-grep and grep): outside --all, only matches on added lines.
 forge_forbid() {
-  [ -n "$FORGE_FORBID" ] && [ -s "$FORGE_TMP/scope" ] || return
-  set -f
-  # shellcheck disable=SC2046
-  astgrep scan -c .forge/ast-grep/sgconfig.yml --filter "^($FORGE_FORBID)\$" --json=stream $(cat "$FORGE_TMP/scope") > "$FORGE_TMP/forbid"
-  rc=$?
-  set +f
-  if [ "$rc" -gt 1 ]; then printf 'forge:forge/ast-grep skipped: ast-grep unavailable\n'; return; fi
-  forge_sg_report "$FORGE_TMP/forbid" > "$FORGE_TMP/forbid.out"
-  if [ -s "$FORGE_TMP/forbid.out" ]; then cat "$FORGE_TMP/forbid.out"; fi
-  [ -s "$FORGE_TMP/forbid.out" ] && fail=1
+  [ -s "$FORGE_TMP/scope" ] || return
+  forge_grep_forbid "$FORGE_TMP/scope" > "$FORGE_TMP/forbid.out"
+  if [ -n "$FORGE_FORBID" ]; then
+    set -f
+    # shellcheck disable=SC2046
+    astgrep scan -c .forge/ast-grep/sgconfig.yml --filter "^($FORGE_FORBID)\$" --json=stream $(cat "$FORGE_TMP/scope") > "$FORGE_TMP/forbid"
+    rc=$?
+    set +f
+    if [ "$rc" -gt 1 ]; then printf 'forge:forge/ast-grep skipped: ast-grep unavailable\n'
+    else forge_sg_report "$FORGE_TMP/forbid" >> "$FORGE_TMP/forbid.out"
+    fi
+  fi
+  if [ -s "$FORGE_TMP/forbid.out" ]; then cat "$FORGE_TMP/forbid.out"; fail=1; fi
   return 0
 }
 
@@ -3209,6 +4167,8 @@ exit "$fail"
     "typescript/astro/check": "9fc987a05e9bf4333611dc0d8f01bb309daba7272bd0c69c489689272fbb8d26",
     "typescript/bun/lock-sync": "9e09d6a5edb31aa8fb18dc32cdf27b4610898b56dceb6715df786d729f80fb3c",
     "typescript/bun/no-other-pm": "fcdd00d782b97240fbb0c968b667110542cc5ca7fd48ee4bd5b9e7895e51ec05",
+    "typescript/config-files": "77940ff304752f88c143dedc5911b0961de9e16b68e10758a273cfc049505413",
+    "typescript/config-ratchet": "b0ff3b6c064f691984e217acc0388d0900b1a2a1d1ee493935badb41a8a45022",
     "typescript/format-lint": "0983d282177279ae47eeaf8fa826d4940b9c43fb86540981cfb7aff709fad606",
     "typescript/no-double-assertion": "2c5b17cd8daa6bd598b4aa79b30259626c86e6a3afd00630a3a4a2918316ce80",
     "typescript/no-eval": "695bc504e485395796c1500ec90804609a4f5e8c9a5867062271b9caa5f58143",
@@ -3216,6 +4176,7 @@ exit "$fail"
     "typescript/no-focused-tests": "0c7614dd6db46bbe6d9a19b58cf8130638128e786cd1dc912e58203ecc72a87b",
     "typescript/no-ignore-deprecations": "63044c1f4bd2f841800843fa17b4db5a29e5d8cc32053591a25622f15902c888",
     "typescript/no-implicit-any": "7ac25a953e4d6df85abee5379ea5496788f5d15776ae37623ceff5ebcc034108",
+    "typescript/no-new-suppressions": "b49b319f832234670b6d55d259add6b912cd7e49e81fd2143917e7b64976dfed",
     "typescript/no-non-null-assertion": "24bf5fb3547ff36667d3886eaebc706fc21a387a18d2f5789156220e65462ce2",
     "typescript/no-ts-ignore": "afe518e61003a905fe90ca0548a0c472bc26a897d64cb5509ee1b3534297beee",
     "typescript/no-ts-nocheck": "25caeef679e03c9b88f75f961ce1b5d13c0f28538112f9642c513658a10f4213",
@@ -3240,11 +4201,11 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "18bdde8fa587f680b66978b6c1b0c1185df421abd9ef9564713d406ff5e4590f",
     ".claude/skills/forge-project/scripts/guard.sh": "c8aace4b9c7c0f76d522ecef054c6dc920bd42702712c877825f0e5cd046827c",
     ".claude/skills/forge-project/scripts/lib.sh": "99a351f77551e224d2a12fbe7d83489e1fdae27633343c3b762098ab3757dc8a",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "bbe706d339195b7262c60320d5e000fb7f82e64e82ab5af55c3688bc002aa083",
-    ".claude/skills/forge-project/scripts/session-start.sh": "e2d44d2803bc3f72a74afb909d2f728addd865c28a219d0b8623a1b634bed866",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "a8c55bd3aa058893b83e2f6e571b49287852c4f89bb0cc1d5709df500044b5fc",
+    ".claude/skills/forge-project/scripts/session-start.sh": "eb719af6c4addb8760b6cf6d7a2302544191309b062b304eca6b38cef2744236",
     ".claude/skills/forge-project/scripts/stop.sh": "f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173",
     ".claude/skills/forge-project/scripts/turn-start.sh": "a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "62f39d115c2aa141a5d296074895ee85dae37ddbb7a413fea6ea692c7cd46722",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "241c3b738d8631919a1df9bfcbc042ec38bf4afcd0f3831354e1380d1459669b",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml": "c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20",
     ".forge/ast-grep/rule-tests/typescript-no-ts-nocheck-test.yml": "c15f604d5317f942de32470aeaff16702116a64d283347c9a9825056b4dbe69e",
@@ -3257,7 +4218,7 @@ exit "$fail"
     ".forge/ast-grep/rules/typescript/react/use-action-state.yml": "17b6fc5e510df3154be12c72a584d8bfb31034b577774718a8c50516b2b15a81",
     ".forge/ast-grep/rules/typescript/ts-expect-error-reason.yml": "b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "9c6e3477f6522ce64dfc66be3f15cba649562a861fc7ba50d0d3493daba53d36",
+    ".forge/check.sh": "1729bff97f6b74de49bbb030aa3953b53a06cd2528cb5908d5275e517e2a792e",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -3280,6 +4241,21 @@ exit "$fail"
       "file": ".claude/settings.json",
       "path": "permissions.ask",
       "value": "Edit(.claude/rules/forge-*.md)"
+    },
+    {
+      "file": ".claude/settings.json",
+      "path": "permissions.ask",
+      "value": "Edit(**/biome.json)"
+    },
+    {
+      "file": ".claude/settings.json",
+      "path": "permissions.ask",
+      "value": "Edit(**/biome.jsonc)"
+    },
+    {
+      "file": ".claude/settings.json",
+      "path": "permissions.ask",
+      "value": "Edit(**/tsconfig*.json)"
     }
   ]
 }
@@ -3294,11 +4270,11 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 18bdde8fa587f680b66978b6c1b0c1185df421abd9ef9564713d406ff5e4590f  .claude/skills/forge-project/scripts/guard.rules
 c8aace4b9c7c0f76d522ecef054c6dc920bd42702712c877825f0e5cd046827c  .claude/skills/forge-project/scripts/guard.sh
 99a351f77551e224d2a12fbe7d83489e1fdae27633343c3b762098ab3757dc8a  .claude/skills/forge-project/scripts/lib.sh
-bbe706d339195b7262c60320d5e000fb7f82e64e82ab5af55c3688bc002aa083  .claude/skills/forge-project/scripts/post-edit.sh
-e2d44d2803bc3f72a74afb909d2f728addd865c28a219d0b8623a1b634bed866  .claude/skills/forge-project/scripts/session-start.sh
+a8c55bd3aa058893b83e2f6e571b49287852c4f89bb0cc1d5709df500044b5fc  .claude/skills/forge-project/scripts/post-edit.sh
+eb719af6c4addb8760b6cf6d7a2302544191309b062b304eca6b38cef2744236  .claude/skills/forge-project/scripts/session-start.sh
 f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173  .claude/skills/forge-project/scripts/stop.sh
 a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c  .claude/skills/forge-project/scripts/turn-start.sh
-62f39d115c2aa141a5d296074895ee85dae37ddbb7a413fea6ea692c7cd46722  .claude/skills/forge-project/scripts/typecheck.sh
+241c3b738d8631919a1df9bfcbc042ec38bf4afcd0f3831354e1380d1459669b  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20  .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
 c15f604d5317f942de32470aeaff16702116a64d283347c9a9825056b4dbe69e  .forge/ast-grep/rule-tests/typescript-no-ts-nocheck-test.yml
@@ -3311,7 +4287,7 @@ aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21  .forge/ast-gre
 17b6fc5e510df3154be12c72a584d8bfb31034b577774718a8c50516b2b15a81  .forge/ast-grep/rules/typescript/react/use-action-state.yml
 b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad  .forge/ast-grep/rules/typescript/ts-expect-error-reason.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-9c6e3477f6522ce64dfc66be3f15cba649562a861fc7ba50d0d3493daba53d36  .forge/check.sh
+1729bff97f6b74de49bbb030aa3953b53a06cd2528cb5908d5275e517e2a792e  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

@@ -51,6 +51,33 @@
           }
         }
       }
+    },
+    "accept": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rule",
+          "change",
+          "reason"
+        ],
+        "properties": {
+          "rule": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*(/[a-z][a-z0-9-]*)+$"
+          },
+          "change": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[^\\n]+$"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
     }
   }
 }

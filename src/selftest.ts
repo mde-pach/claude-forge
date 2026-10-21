@@ -17,7 +17,7 @@ import {
   template,
 } from "./render.js";
 import { AST_GREP_VERSION, ownedHash, run } from "./util.js";
-import type { AstGrepTarget, CheckTarget, Example, ExampleFixture, GuardTarget, PermissionTarget, Rule } from "./types.js";
+import type { AstGrepTarget, CheckTarget, Example, ExampleFixture, GrepTarget, GuardTarget, PermissionTarget, Rule } from "./types.js";
 
 export interface TestReport {
   failures: string[];
@@ -140,7 +140,11 @@ export function runCheckExample(rule: Rule, t: CheckTarget, ex: Example, kind: "
   try {
     const fixture = exampleFixture(rule, ex);
     const script = renderCheckScript([{ rule, target: t }], { forbid: "", noIncrease: "", noDecrease: "" });
-    const owned = { ".forge/check.sh": script, ".forge/.gitignore": "state/\n" };
+    const owned: Record<string, string> = {
+      ".forge/check.sh": script,
+      ".forge/.gitignore": "state/\n",
+      ".forge/ast-grep/sgconfig.yml": renderSgConfig(),
+    };
     const manifest = Object.entries(owned).map(([p, text]) => `${ownedHash(p, text)}  ${p}`).join("\n") + "\n";
     writeFiles(dir, { ".gitignore": "node_modules/\n.venv/\n", ...owned, ".forge/manifest.sha256": manifest, ...(fixture.head ?? {}) });
     for (const tool of checkTools(t)) {
@@ -183,7 +187,7 @@ export function defaultToolBins(repo?: string): string[] {
 export function selfTest(packsDir: string, repo?: string, opts: { toolBins?: string[] } = {}): TestReport {
   const failures: string[] = [];
   const notes: string[] = [];
-  const counts: Record<string, number> = { packs: 0, rules: 0, astgrep: 0, guard: 0, permission: 0, check: 0, context: 0 };
+  const counts: Record<string, number> = { packs: 0, rules: 0, astgrep: 0, guard: 0, permission: 0, grep: 0, check: 0, context: 0 };
 
   let rules: Rule[] = [];
   try {
@@ -219,7 +223,7 @@ export function selfTest(packsDir: string, repo?: string, opts: { toolBins?: str
     if (ast.length > 1) failures.push(`${r.id}: at most one ast-grep target`);
     if (ast.length && r.scope.language === "any") failures.push(`${r.id}: ast-grep targets need a concrete scope.language`);
     const needsExamples = r.enforce.some(
-      (t) => ["ast-grep", "guard", "permission", "tool"].includes(t.target) || (t.target === "check" && !checkExamplesOptional(t)),
+      (t) => ["ast-grep", "guard", "permission", "tool", "grep"].includes(t.target) || (t.target === "check" && !checkExamplesOptional(t)),
     );
     if (needsExamples && !(r.examples?.match?.length && r.examples?.no_match?.length))
       failures.push(`${r.id}: needs match and no_match examples`);
@@ -306,6 +310,26 @@ export function selfTest(packsDir: string, repo?: string, opts: { toolBins?: str
     for (const ex of codeExamples(r, "no_match")) {
       const hit = specs.find((s) => permissionMatches(s, ex));
       if (hit) failures.push(`${r.id}: ${hit} matches no_match example ${ex}`);
+    }
+  }
+
+  // grep examples: the pattern (grep -E) matches a line of every match example and none of a no_match example
+  const grepRules = rules.filter((r) => r.enforce.some((t) => t.target === "grep"));
+  counts.grep = grepRules.length;
+  if (grepRules.length) {
+    const dir = mkdtempSync(join(tmpdir(), "forge-grep-"));
+    try {
+      for (const r of grepRules)
+        for (const t of r.enforce.filter((x): x is GrepTarget => x.target === "grep"))
+          for (const kind of ["match", "no_match"] as const)
+            codeExamples(r, kind).forEach((ex, i) => {
+              writeFileSync(join(dir, "example"), ex);
+              const n = Number(run("sh", ["-c", 'grep -c "$3" -- "$1" "$2"', "sh", t.pattern, join(dir, "example"), t.ignore_case ? "-iE" : "-E"]).stdout.trim() || "0");
+              if (kind === "match" && n === 0) failures.push(`${r.id}: grep pattern does not match match example ${i + 1}: ${JSON.stringify(ex)}`);
+              if (kind === "no_match" && n > 0) failures.push(`${r.id}: grep pattern matches no_match example ${i + 1}: ${JSON.stringify(ex)}`);
+            });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
     }
   }
 

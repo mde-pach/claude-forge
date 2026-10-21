@@ -118,6 +118,10 @@ packs:
 disable:
   - id: <rule-id>
     reason: string          # required
+accept:                     # config-ratchet findings accepted on purpose (§10.4)
+  - rule: <rule-id>
+    change: string          # the finding line exactly as check.sh printed it
+    reason: string          # required
 ```
 
 `<repo>/.forge/rules/<name>.yaml`: project-local rules. A local rule whose `id` equals a pack rule's `id` replaces it entirely. `forge.yaml` and `.forge/rules/` are inputs, not owned output: `apply` never rewrites them, but they are behind permission `ask` (§8.2).
@@ -163,11 +167,14 @@ Every rule blocks. A rule you don't want is disabled with a reason.
 | `guard` | `decision: deny \| ask`, `pattern` (POSIX ERE against the JSON-escaped command) | owned | `guard.rules` (§9.2) |
 | `sandbox` | `path`, `value` | appended, user only | `~/.claude/settings.json` `sandbox` |
 | `check` | `stage: format \| lint \| typecheck \| migration \| test`, `run`, `changed_run` (optional, `{files}`), `when_changed` (optional), `requires_local_db` (optional, boolean) | owned | `.forge/check.sh` (§10) |
+| `grep` | `pattern` (POSIX ERE, matched line by line), `mode: forbid \| no-increase \| no-decrease`, `ignore_case` (optional) | owned | `.forge/check.sh` (§10): counts are matching lines per file |
 
-ast-grep modes:
-- `forbid`: any match in a changed file fails.
-- `no-increase`: more matches than at `HEAD` in a changed file fails.
-- `no-decrease`: fewer matches than at `HEAD` in a changed file fails.
+ast-grep and grep modes:
+- `forbid`: a match on an added line of a changed file fails (§10.1); with `--all`, any match.
+- `no-increase`: more matches than in the base in a changed file fails.
+- `no-decrease`: fewer matches than in the base in a changed file fails.
+
+A `grep` target is for text that is not code ast-grep parses: comments, configuration, `.astro` files.
 
 A `tool` target is followed by an `ast-grep` target when the rule must still apply in projects that use a different tool for that job. The `ast-grep` target is used only when the `tool` target's tool is absent from the project.
 
@@ -291,8 +298,8 @@ Runs in order, stops at the first failing step, prints `forge:<rule-id>` lines:
 
 1. **Integrity:** every owned file under `.forge/` and `.claude/` matches its hash in `.forge/manifest.sha256`, and no other file sits in Forge's directories. check.sh never parses `forge.lock.json`, so the lock's formatting does not matter.
 2. **Applied migrations:** any file under `alembic/versions/` or `prisma/migrations/` that exists in the base and is modified or deleted → fail.
-3. **Tests:** test files present in the base and deleted → fail; ast-grep `no-increase` / `no-decrease` rules compared with the base.
-4. **ast-grep `forbid` rules**, on added lines outside `--all`.
+3. **Tests and counts:** test files present in the base and deleted → fail; ast-grep and grep `no-increase` / `no-decrease` rules compared with the base (`forge:<id> <path>: <before> -> <after>`).
+4. **Forbid rules** (ast-grep and grep), on added lines outside `--all` (`forge:<id> <path>:<line>[:<column>] <description>`).
 5. **Format, lint, typecheck:** `check` targets of stages `format`, `lint`, `typecheck`, using project binaries: `changed_run` on the changed files with `--turn` and `--changed`, `run` (read-only, whole project) with `--since` and `--all`. Outside `--all`, a failing run's error diagnostics are attributed: `lint` diagnostics count on added lines, `typecheck` diagnostics (and a whole-project `format` run's) on changed files. When none counts, the check prints `forge:<rule-id> ok for the added lines (…)` or `ok for the changed files (…)` and passes; otherwise it prints only the diagnostics that count. Output naming no file at all (configuration error, crash) fails as before. Diagnostic locations are read from the tools' plain output (`path(l,c)`, `path:l:c`, `--> path:l:c`; `Would reformat: path` and Biome's `path format` name a file only; absolute paths under the repository are made relative; warning-only lines are ignored). `--all` fails on any error.
 6. **Migration checks:** `check` targets of stage `migration`, only if a `when_changed` path changed and, when `requires_local_db` is set, the configured database host is `localhost`, `127.0.0.1`, `::1` or a Unix socket. Otherwise print `forge:<rule-id> skipped: no local database` and continue.
 7. **Tests:** `check` targets of stage `test` (`changed_run` with `--changed`).
@@ -313,6 +320,26 @@ Runs in order, stops at the first failing step, prints `forge:<rule-id>` lines:
 
 - `forge apply` offers to create `.git/hooks/pre-commit` (running `sh .forge/check.sh --changed`) only if no hook manager is present (`.husky/`, `lefthook.yml`, `.pre-commit-config.yaml`, `core.hooksPath` set) and the file does not exist. Otherwise `forge status` prints the line to add to the existing manager.
 - `forge status` prints the CI steps: `sh .forge/check.sh --since origin/<default branch>` for pull requests (the checkout needs the base branch's history: `fetch-depth: 0`), and `sh .forge/check.sh --all` for the default branch. The default branch is `origin/HEAD`, else `main`.
+
+### 10.4 Config ratchet
+
+`python/config-ratchet` and `typescript/config-ratchet` are `check` targets (stage `lint`) running the engine helper `forge_ratchet <runtime> <script>`. The script is embedded in `check.sh` as a here-document, only when the rule is active (`ratchet.py`, run with the project's own `.venv/bin/python`, 3.11+ for `tomllib`; `ratchet.mjs`, run with `bun`); a separate file would be rewritten by the project's own formatters. It compares each changed config file with its copy in the base (§10.1) and prints one line per loosened setting, `<path>: <setting> <before> -> <after>` (or `adds <x>`, `no longer has <x>`). Only the relevant sections are parsed, so dependency changes never trigger it:
+
+| File | Loosened when |
+|---|---|
+| `pyproject.toml` `[tool.ruff]`, `ruff.toml`, `.ruff.toml` | a selected code is no longer covered by `select` / `extend-select` (prefixes and `ALL` count); a code added to `ignore` / `extend-ignore` or to a glob of `per-file-ignores`; a path added to `exclude` / `extend-exclude` |
+| `[tool.basedpyright]`, `[tool.pyright]`, `pyrightconfig.json` | `typeCheckingMode` lowered (`off` < `basic` < `standard` < `strict` < `recommended` < `all`; removed = the tool's default); a `report*` level lowered or removed; `failOnWarnings` no longer true; `enableTypeIgnoreComments` no longer false; `exclude` / `ignore` entries added; `strict` paths removed |
+| `[tool.pytest.ini_options]` | `addopts` gains `--ignore`, `--ignore-glob`, `--deselect`, `-k`, `-m`, `--lf`, `--sw` or `--continue-on-collection-errors`; `testpaths` entries removed; `norecursedirs` entries added; `xfail_strict` no longer true |
+| `[tool.coverage]` | `report.fail_under` lowered or removed; `omit`, `exclude_lines` or `exclude_also` entries added |
+| `biome.json`, `biome.jsonc` | a rule's level lowered (`error` > `warn` > `info` > `off`) or removed; a group's level lowered; `recommended`, `linter.enabled` or `formatter.enabled` turned off; negated `files.includes` / `linter.includes` entries added; an `overrides` entry added or changed |
+| `tsconfig*.json` | a strict flag (`strict`, `noImplicitAny`, `strictNullChecks`, … `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noUnused*`, `checkJs`) no longer true; `skipLibCheck` or `ignoreDeprecations` added; `exclude` entries added; `include` entries removed; `extends` changed |
+| `package.json` `scripts` | a script named like `test`, `check`, `lint`, `type…`, `e2e`, `ci`, `verify` removed, or given `--passWithNoTests`, `\|\| true`, `--no-errors-on-unmatched`, an exclude/ignore/skip flag, `--max-warnings N`, `--silent` |
+
+A finding whose exact line appears in `forge.yaml` (an `accept` entry) is not reported. Otherwise the check fails with the findings and how to accept one. When the runtime is missing the check is `skipped: <tool> not installed`; when the script cannot run (no `tomllib`, a crash) it prints `forge:<id> skipped: …` and does not block. JS and TS config files (`vitest.config.*`, `playwright.config.*`) are code and are not parsed: they are behind permission `ask` only. The ratchet applies to everyone: a human loosening a config is stopped at pre-commit and in CI too, until the change is accepted in `forge.yaml`.
+
+### 10.5 Test integrity
+
+The engine helper `forge_test_edits` acts only at Stop (`--turn`): Claude may add tests, including in existing test files, but may not change or remove a test that existed at the start of the turn. For each in-scope file present in the base, it lists the tests at the start of the turn and now with ast-grep (`--inline-rules`, the pinned version): pytest `test*` functions and methods with their decorators, keyed by enclosing classes and name; Vitest and Playwright `test(…)` / `it(…)` calls (any modifier: `.only`, `.skip`, `.each(…)`, …; not `test.describe`, `test.step` or hooks), keyed by the enclosing `describe` / `test.describe` names and the test name (`#2` for a repeated name). A test whose text differs, whitespace aside, prints `<path>: test "<key>" was changed`; one that is gone prints `… was removed`. The check then fails with: "Tests that existed before this turn are not edited to make the code pass. Restore them; if one looks wrong, stop and ask the user." Pre-commit and CI do not run it: a human edits tests on purpose. It complements `no-fewer-asserts`, `no-fewer-expects` and `no-new-skip`, which miss a changed expected value.
 
 ## 11. Audit of tool targets
 
@@ -390,6 +417,9 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `python/no-shell-true` | `tool` ruff `S602` |
 | `python/no-stale-ignore` | `tool` basedpyright `reportUnnecessaryTypeIgnoreComment` |
 | `python/aware-datetime` | `tool` ruff `DTZ005` |
+| `python/no-new-suppressions` | `grep` no-increase: `# noqa`, `# type: ignore`, `# pyright: ignore` (suppression budget) |
+| `python/config-files` | `permission` ask: `Edit(**/ruff.toml)`, `Edit(**/.ruff.toml)`, `Edit(**/pyrightconfig.json)` |
+| `python/config-ratchet` | `check` lint: `forge_ratchet python ratchet.py` (§10.4), `when_changed`: the Python config files |
 
 context.md: uv and `.venv/bin`, basedpyright; no blocking calls in `async def`; ignore comments name their rule.
 
@@ -412,6 +442,9 @@ context.md: uv and `.venv/bin`, basedpyright; no blocking calls in `async def`; 
 | `typescript/no-focused-tests` | `tool` biome `lint/suspicious/noFocusedTests`; `ast-grep` forbid `it.only(…)`, `test.only(…)`, `describe.only(…)`, `test.describe.only(…)` in test files and `e2e/**` |
 | `typescript/no-eval` | `tool` biome `lint/security/noGlobalEval`; `ast-grep` forbid `eval(…)`, `globalThis.eval(…)`, `window.eval(…)` |
 | `typescript/unchecked-index` | `tool` tsc: expects `TS18048` on an unchecked array element (`noUncheckedIndexedAccess`; snippet adds it to `strict`) |
+| `typescript/no-new-suppressions` | `grep` no-increase: `biome-ignore` (every form), `@ts-expect-error` (suppression budget; `@ts-ignore` and `@ts-nocheck` are forbidden outright) |
+| `typescript/config-files` | `permission` ask: `Edit(**/biome.json)`, `Edit(**/biome.jsonc)`, `Edit(**/tsconfig*.json)` |
+| `typescript/config-ratchet` | `check` lint: `forge_ratchet bun ratchet.mjs` (§10.4), `when_changed`: Biome, tsconfig and `package.json` files |
 
 context.md: strict TypeScript and Bun; TypeScript 6 deprecations are migrated, never silenced with `ignoreDeprecations`; no `!` or `as unknown as`.
 
@@ -475,6 +508,9 @@ context.md: "Pydantic v2: `model_validate`, `model_dump`, `model_config = Config
 | `python/pytest/no-test-env-branch` | `ast-grep` forbid on non-test files: `PYTEST_CURRENT_TEST` lookups, `"pytest" in sys.modules` |
 | `python/pytest/no-blind-raises` | `tool` ruff `B017` |
 | `python/pytest/no-tautological-assert` | `ast-grep` forbid on test files: `assert` on a literal (`True`, a number, a string), `assert $X == $X`, `assert $X is $X` |
+| `python/pytest/no-test-edits` | `check` lint: `forge_test_edits` on `**/test_*.py`, `**/*_test.py` (§10.5) |
+
+context.md: tests assert behaviour, never weakened; "If an existing test looks wrong, stop and ask; never edit it to make the code pass."
 
 ### typescript/bun
 
@@ -559,8 +595,11 @@ context.md: Prisma 7: `prisma-client` generator with `output`, driver adapters, 
 | `typescript/vitest/no-snapshot-update` | `guard` ask: `vitest` with `-u` or `--update` |
 | `typescript/vitest/no-workspace-file` | `check` lint: no tracked `vitest.workspace.*` (Vitest 4 ignores it), `when_changed: [vitest.*]` |
 | `typescript/vitest/no-pass-with-no-tests` | `guard` ask: `vitest … --passWithNoTests` |
+| `typescript/vitest/config-file` | `permission` ask: `Edit(**/vitest.config.*)` |
 
-context.md: Vitest 4 `test.projects` and `maxWorkers`; assertions are never weakened to make a test pass.
+| `typescript/vitest/no-test-edits` | `check` lint: `forge_test_edits` on `**/*.test.*`, `**/*.spec.*`, `**/__tests__/**`, not `e2e/**` (§10.5) |
+
+context.md: Vitest 4 `test.projects` and `maxWorkers`; assertions are never weakened to make a test pass; "If an existing test looks wrong, stop and ask; never edit it to make the code pass."
 
 ### typescript/playwright
 
@@ -571,8 +610,11 @@ context.md: Vitest 4 `test.projects` and `maxWorkers`; assertions are never weak
 | `typescript/playwright/no-wait-for-timeout` | `ast-grep` forbid in `e2e/**`, `**/*.spec.*`: `$P.waitForTimeout($$$)` |
 | `typescript/playwright/locators` | `ast-grep` forbid in `e2e/**`, `**/*.spec.*`: `$`, `$$`, `$eval`, `$$eval`, `waitForSelector`, `waitForNavigation` calls |
 | `typescript/playwright/no-snapshot-update` | `guard` ask: `playwright test` with `--update-snapshots` or `-u` |
+| `typescript/playwright/config-file` | `permission` ask: `Edit(**/playwright.config.*)` |
 
-context.md: locators (`getByRole`, `getByLabel`, `getByText`, `getByTestId`) and web-first assertions; never `waitForTimeout`.
+| `typescript/playwright/no-test-edits` | `check` lint: `forge_test_edits` on `e2e/**` (§10.5) |
+
+context.md: locators (`getByRole`, `getByLabel`, `getByText`, `getByTestId`) and web-first assertions; never `waitForTimeout`; "If an existing test looks wrong, stop and ask; never edit it to make the code pass."
 
 ### typescript/zod
 
@@ -596,6 +638,7 @@ The test suite in `tests/spec/` is the executable form of this specification: on
 - Every pack and rule validates against its schema.
 - ast-grep targets compile to `rule-tests/*.yml` (`valid` = `no_match`, `invalid` = `match`) and pass `ast-grep test --skip-snapshot-tests`. The number of loaded rules equals the number of rule files.
 - Every guard target: `guard.sh` on each example wrapped in hook JSON returns the rule's decision for `match` and nothing for `no_match`, on macOS `sh` (bash 3.2), dash and BusyBox.
+- Every grep target: `grep -E` matches a line of each `match` example and no line of a `no_match` example.
 - Every check target: each example runs in a temporary git repository holding the fixture's `head` files (committed), a `.forge/check.sh` generated with only that check, then the fixture's `files` written and staged, as a turn that started at the `head` fixture. `check.sh` runs as Stop runs it (`--turn`; `format` checks, which fix files at Stop, as CI runs them: `--all`). A `match` example fails the check (`forge:<id> failed`), a `no_match` example passes. Project tools come from the current project's `node_modules/.bin` and `.venv/bin`, then `PATH`; an example whose tool is not found is reported skipped, never passed.
 - Every `context.md` ≤ 10 lines.
 

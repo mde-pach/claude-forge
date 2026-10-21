@@ -87,6 +87,8 @@ export function targetLabel(t: Target): string {
       return "sandbox";
     case "check":
       return `check · ${t.stage}`;
+    case "grep":
+      return `grep ${t.mode}`;
   }
 }
 

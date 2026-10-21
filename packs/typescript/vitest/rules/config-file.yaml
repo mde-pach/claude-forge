@@ -1,0 +1,8 @@
+id: typescript/vitest/config-file
+description: Claude asks you before editing the Vitest config (test paths, coverage thresholds).
+scope: {language: any}
+enforce:
+  - {target: permission, decision: ask, rule: "Edit(**/vitest.config.*)"}
+examples:
+  match: ["Edit(vitest.config.ts)", "Edit(vitest.config.mts)"]
+  no_match: ["Edit(src/config.ts)"]
