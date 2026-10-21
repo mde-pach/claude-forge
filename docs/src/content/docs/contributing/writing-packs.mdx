@@ -45,11 +45,26 @@ examples:
   no_match: [ … ]    # must not — include the near misses
 ```
 
-Targets, in order of preference: `tool` (your linter or type checker, audited), `ast-grep`, `permission`, `sandbox`, `guard`, `check`. The [lifecycle](../../lifecycle/) of a rule follows from its targets, and every rule's page shows it.
+Targets, in order of preference: `tool` (your linter or type checker, audited), `ast-grep` (Python, TypeScript or YAML, by `scope.language`), `grep` (a POSIX regex per line, for comments, config text and `.astro` files), `permission`, `sandbox`, `guard`, `check`. The [lifecycle](../../lifecycle/) of a rule follows from its targets, and every rule's page shows it.
+
+A `check` can call the engine's helpers instead of a project tool: `forge_ratchet`, `forge_test_edits`, `forge_hadolint`, `forge_zizmor`, `forge_squawk_files`, … (in `templates/scripts/engine.sh`). A `run` string never calls `exit`: it is a shell function body, and its last command's status is the result.
 
 ## Examples are tests
 
 `forge test` validates every pack and rule against the schemas and runs every example. Each rule's result appears on its pack page.
+
+A `check` rule's examples are **fixtures**: files written into a temporary repository, which `check.sh` (holding only that check) then examines as Stop would. `head` files are committed first; `files` are the change:
+
+```yaml
+examples:
+  match:
+    - head: {pyproject.toml: "[tool.coverage.report]\nfail_under = 90\n"}
+      files: {pyproject.toml: "[tool.coverage.report]\nfail_under = 75\n"}
+  no_match:
+    - files: {compose.yaml: "services:\n  db:\n    image: postgres:17\n"}
+```
+
+Only checks that need a whole project (test and migration runs, `astro check`, lock-file checks) may go without examples. An example whose tool is not installed is reported skipped, never passed.
 
 `forge test` cannot run a `tool` target: that needs the tool. The test suite does it instead, with the pinned Biome, TypeScript, ruff and basedpyright: for each `tool` target, the rule's examples must make the audit satisfied when the project's config reports the expected diagnostic as an error, and unsatisfied when that diagnostic is off. Every `match` example must therefore trigger every `tool` target of its rule; put all the variants a rule covers into each `match` example when the rule has several targets.
 

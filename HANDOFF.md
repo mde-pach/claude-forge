@@ -1,6 +1,6 @@
 # Forge — hand-off notes
 
-Build state of Forge against `SPECS.md` (v0.5), as of 2026-10-20 (fourth session). Read the spec first, then this file.
+Build state of Forge against `SPECS.md` (v0.5), as of 2026-10-21 (fifth session). Read the spec first, then this file.
 
 ## Toolchain
 
@@ -14,7 +14,7 @@ Build state of Forge against `SPECS.md` (v0.5), as of 2026-10-20 (fourth session
 
 ## Done
 
-Everything in §3–§14 is implemented, with the pack tree (§5.1–§5.2) and the Astro/React packs added to the spec in this session. §14.1–§14.3 and everything else listed in the spec site are covered by **465 tests**; §14.4 has a harness that has not been run.
+Everything in §3–§14 is implemented. §14.1–§14.3 and everything else listed in the spec site are covered by **567 tests** (`bun test` count; parametrised tests count once per case); §14.4 has a harness that has not been run.
 
 | Area | Files |
 |---|---|
@@ -22,7 +22,7 @@ Everything in §3–§14 is implemented, with the pack tree (§5.1–§5.2) and 
 | Generator: activation down the tree (child only under an active parent; `add` brings ancestors; `remove` drops the subtree), local overrides, disable, tool presence, ast-grep fallback | `src/plan.ts` |
 | Renderers, settings (JSONC), lock, audit, `forge test`, CLI (`USAGE` in `src/usage.ts`) | `src/render.ts`, `src/settings.ts`, `src/lock.ts`, `src/audit.ts`, `src/selftest.ts`, `src/cli.ts` |
 | Hook runtime and check engine | `templates/scripts/*.sh` |
-| Packs: 19 packs, 113 rules, as a tree (`safety`; `python/{uv,fastapi,pydantic,pytest,sqlalchemy/alembic}`; `typescript/{bun,react,nextjs/react,astro/react,prisma,zod,vitest,playwright}`) | `packs/**` |
+| Packs: 22 packs, 186 rules, as a tree (`safety`; `python/{uv,fastapi,pydantic,pytest,sqlalchemy/alembic}`; `typescript/{bun,react,nextjs/react,astro/react,prisma,zod,vitest,playwright}`; `github-actions`; `docker/compose`) | `packs/**` |
 | **Executable specification**: one file per spec section, normative test titles | `tests/spec/*.test.ts`, `tests/helpers.ts`, samples in `tests/generator/{fastapi-app,nextjs-prisma-app,astro-app,eslint-app}` |
 | **Docs site**: pack pages from `packs/` (facts, a rules × lifecycle-steps matrix, context, tests, and per rule: file-pattern chips, lifecycle derived from its targets, red/green example panels, how it is enforced, its tests); guide and lifecycle pages in MDX that place the remaining tests with the `Spec` component; CLI page from `USAGE`; schemas from `src/schemas.ts`. No separate specification section: every test is shown where it applies, and `99-internals` fails if one is shown nowhere. The build fails if a CI result cannot be placed on a test | `docs/` (`src/lib/{spec,lifecycle,data}.ts`, `src/components/{Spec,SpecNodes,TestList,RuleCard,Results}.astro`, `{Lifecycle,StatusBadge}.tsx`, `src/pages/**`, `src/content/docs/**`) |
 | **Lifecycle schema** (docs): Claude Code's own lifecycle — all 33 hook events from the official hooks reference, in documented order — as one fixed SVG, with the Forge pieces a rule or pack uses lit up (badge = strongest effect; on pack pages, rule count). Rendered as HTML: each run of events the page does not involve is a collapsible `<details>` section that opens and closes in place (no client JS). Return arrows are brackets on the boxes they repeat (A tool loop, B Stop block, C turn), so they stretch with open sections. Replaces the 7-step rail on rule cards and the matrix on pack pages; the full overview is on the Lifecycle page. `LifecycleEvent.via` tells permission, guard and sandbox events apart | `docs/src/lib/schema.ts`, `docs/src/components/LifecycleSchema.astro` |
@@ -64,8 +64,10 @@ Everything in §3–§14 is implemented, with the pack tree (§5.1–§5.2) and 
 ## Remaining
 
 1. **Run the E2E harness** (`tests/e2e/README.md`) in a real container; expect to tune a few regexes and prompts on the first real run.
-3. **More packs** for the tree, e.g. React rules under Astro (`.astro` files cannot be parsed by ast-grep; rules there would be `check` or `tool` targets).
-4. **Publishing**: the npm scope is still `@maximedepachtere`; nothing was published (`bunx`/`npx` return 404). The docs and README tell users to build from a clone until then; once published, update both.
+2. **More packs** for the tree, e.g. React rules under Astro (`.astro` files cannot be parsed by ast-grep; rules there would be `check`, `grep` or `tool` targets).
+3. **Prisma and Astro checks have no examples**: `prisma validate` needs engine binaries this environment could not download, and `astro check` needs Node ≥ 22.23. Their behaviour is the tool's; examples could be added where the tools run.
+4. **Noise to watch on real repositories**: `typescript/no-swallowed-catch` (a `catch {}` returning a fallback is flagged), `python/no-blind-except`, `python/no-commented-out-code` (ERA001), `typescript/nextjs/server-action-*` (DELETE handlers without a body), the ratchet's "removed key" findings. All are line-scoped, so only new code is affected.
+5. **Publishing**: the npm scope is still `@maximedepachtere`; nothing was published (`bunx`/`npx` return 404). The docs and README tell users to build from a clone until then; once published, update both.
 
 ## Writing specification tests
 

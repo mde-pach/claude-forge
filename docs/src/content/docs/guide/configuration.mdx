@@ -17,9 +17,15 @@ packs:
 disable:
   - id: python/pytest/run
     reason: The suite needs a GPU; it runs in CI only.
+accept:                           # a config change the ratchet reported, made on purpose
+  - rule: typescript/config-ratchet
+    change: "biome.json: linter.rules.suspicious.noExplicitAny error -> warn"
+    reason: Migrating the legacy API client; back to error by Q3.
 ```
 
-Every rule blocks, so a rule you don't want is disabled with a reason. The file format is in [Schemas](../../reference/schemas/#forge).
+Every rule blocks, so a rule you don't want is disabled with a reason.
+
+`accept` answers the config ratchet (`python/config-ratchet`, `typescript/config-ratchet`): when a tool config is loosened (a lint rule lowered, a strict flag removed, a path excluded, a coverage threshold lowered, `--passWithNoTests` added), `check.sh` fails at Stop, at pre-commit and in CI with one line per setting. Copying that line into `accept` with a reason records the change as deliberate; once it is committed, the ratchet measures against the new config. The file format is in [Schemas](../../reference/schemas/#forge).
 
 <Spec file="05-inputs" describe="forge.yaml" />
 <Spec file="05-inputs" top />
@@ -27,6 +33,8 @@ Every rule blocks, so a rule you don't want is disabled with a reason. The file 
 ## Project-local rules
 
 Rule files in `.forge/rules/` use the same format as pack rules. A local rule whose `id` equals a pack rule's id replaces it; a new id adds a rule. `forge test`, run inside the repository, tests their examples too.
+
+Rules have no parameters; a local rule of the same id is how you adapt one. For example, to exempt a public endpoint from `typescript/nextjs/server-action-auth`, or to add your own auth helper's name, copy the rule from its [pack page](../../packs/typescript/nextjs/) into `.forge/rules/server-action-auth.yaml` and add `"!app/api/newsletter/route.ts"` to `scope.files`, or the helper's name to the regex.
 
 <Spec file="05-inputs" describe="project-local rules" />
 
