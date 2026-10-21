@@ -170,6 +170,12 @@ describe("Stop", () => {
       const t0 = performance.now();
       expect(hook("stop.sh", { session_id: "s-2" }).stdout).toBe("");
       expect(performance.now() - t0).toBeLessThan(1000);
+      // within a turn, the pass is remembered in the turn's snapshot
+      hook("turn-start.sh", { session_id: "s-2" });
+      put(repo, "app/ok.py", "X = 1\n");
+      expect(hook("stop.sh", { session_id: "s-2" }).stdout).toBe("");
+      expect(existsSync(join(repo, ".forge/state/s-2.turn/pass"))).toBe(true);
+      reset();
     },
     T,
   );
@@ -201,7 +207,7 @@ describe("Stop", () => {
   test(
     "without a turn-start snapshot (e.g. the first Stop after forge apply) the check runs on every changed file, as before",
     () => {
-      rmSync(join(repo, ".forge/state/t-3.turn"), { force: true });
+      rmSync(join(repo, ".forge/state/t-3.turn"), { recursive: true, force: true });
       put(repo, "app/wip.py", "def f(session):\n    return session.query(1)\n");
       expect(JSON.parse(hook("stop.sh", { session_id: "t-3" }).stdout).decision).toBe("block");
       reset();
@@ -218,6 +224,98 @@ describe("Stop", () => {
       put(repo, "app/q2.py", "def g(session):\n    return session.query(2)\n");
       for (let i = 0; i < 3; i++) expect(JSON.parse(hook("stop.sh", { session_id: "t-4" }).stdout).decision).toBe("block");
       expect(JSON.parse(hook("stop.sh", { session_id: "t-4" }).stdout).systemMessage).toContain("Handing over");
+      reset();
+    },
+    T,
+  );
+
+  test(
+    "turn-start snapshots the dirty files at the start of the turn: paths, hashes and a copy of each",
+    () => {
+      put(repo, "app/wip.py", "X = 1\n");
+      hook("turn-start.sh", { session_id: "t-5" });
+      const snap = join(repo, ".forge/state/t-5.turn");
+      expect(readFileSync(join(snap, "head"), "utf8").trim()).toBe(git(repo, "rev-parse", "HEAD").stdout.trim());
+      expect(readFileSync(join(snap, "dirty"), "utf8")).toBe(`app/wip.py\t${git(repo, "hash-object", "app/wip.py").stdout.trim()}\n`);
+      expect(readFileSync(join(snap, "files/app/wip.py"), "utf8")).toBe("X = 1\n");
+      reset();
+    },
+    T,
+  );
+
+  /** @rule python/sqlalchemy/no-query-api */
+  test(
+    "Stop checks only what changed during the turn: the user's broken work in another file does not block a clean change",
+    () => {
+      put(repo, "app/wip.py", "def f(session):\n    return session.query(1)\n");
+      hook("turn-start.sh", { session_id: "t-6" });
+      put(repo, "app/ok.py", "X = 1\n");
+      expect(hook("stop.sh", { session_id: "t-6" }).stdout).toBe("");
+      reset();
+    },
+    T,
+  );
+
+  /** @rule python/sqlalchemy/no-query-api */
+  test(
+    "in a file the user had already changed, only the lines added during the turn count",
+    () => {
+      put(repo, "app/wip.py", "def f(session):\n    return session.query(1)\n");
+      hook("turn-start.sh", { session_id: "t-7" });
+      put(repo, "app/wip.py", "def f(session):\n    return session.query(1)\n\n\nX = 1\n");
+      expect(hook("stop.sh", { session_id: "t-7" }).stdout).toBe("");
+      hook("turn-start.sh", { session_id: "t-7" });
+      put(repo, "app/wip.py", "def f(session):\n    return session.query(1)\n\n\ndef g(session):\n    return session.query(2)\n");
+      const reason = JSON.parse(hook("stop.sh", { session_id: "t-7" }).stdout).reason;
+      expect(reason).toContain("forge:python/sqlalchemy/no-query-api app/wip.py:6:12");
+      expect(reason).not.toContain("app/wip.py:2:12");
+      reset();
+    },
+    T,
+  );
+
+  test(
+    "a commit made during the turn is still part of the turn",
+    () => {
+      hook("turn-start.sh", { session_id: "t-8" });
+      put(repo, "app/q.py", "def f(session):\n    return session.query(1)\n");
+      git(repo, "add", "-A");
+      git(repo, "commit", "-qm", "q", "--no-verify");
+      expect(JSON.parse(hook("stop.sh", { session_id: "t-8" }).stdout).reason).toContain("forge:python/sqlalchemy/no-query-api app/q.py:2:12");
+      git(repo, "reset", "-q", "--hard", "HEAD~1");
+    },
+    T,
+  );
+
+  /** @rule python/sqlalchemy/no-query-api */
+  test(
+    "post-edit reports findings only on lines added during the turn",
+    () => {
+      put(repo, "app/wip.py", "def f(session):\n    return session.query(1)\n");
+      hook("turn-start.sh", { session_id: "t-9" });
+      put(repo, "app/wip.py", "def f(session):\n    return session.query(1)\n\n\nX = 1\n");
+      expect(hook("post-edit.sh", { session_id: "t-9", ...edit("app/wip.py") }).stdout).toBe("");
+      put(repo, "app/wip.py", "def f(session):\n    return session.query(1)\n\n\ndef g(session):\n    return session.query(2)\n");
+      const ctx = JSON.parse(hook("post-edit.sh", { session_id: "t-9", ...edit("app/wip.py") }).stdout).hookSpecificOutput.additionalContext;
+      expect(ctx).toContain("app/wip.py:6:12");
+      expect(ctx).not.toContain("app/wip.py:2:12");
+      reset();
+    },
+    T,
+  );
+
+  /** @rule python/typecheck */
+  test(
+    "typecheck wakes Claude only for errors in files changed during the turn",
+    () => {
+      stub("basedpyright", 'echo "app/wip.py:1:1 - error: nope"; exit 1');
+      put(repo, "app/wip.py", "X = 1\n");
+      hook("turn-start.sh", { session_id: "t-10" });
+      put(repo, "app/main.py", readFileSync(join(repo, "app/main.py"), "utf8") + "\n# edited\n");
+      const r = hook("typecheck.sh", { session_id: "t-10", ...edit("app/main.py") });
+      expect(r.status).toBe(0);
+      expect(r.stderr).toBe("");
+      rmSync(join(repo, ".venv/bin/basedpyright"));
       reset();
     },
     T,

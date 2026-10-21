@@ -12,7 +12,7 @@ export const PIECES: Record<Piece, { label: string; at: string; infra?: true }> 
   apply: { label: "forge apply", at: "Forge CLI" },
   "session-start": { label: "session-start.sh", at: "SessionStart", infra: true },
   context: { label: "forge-<pack>.md", at: "InstructionsLoaded" },
-  "turn-start": { label: "turn-start.sh", at: "UserPromptSubmit", infra: true },
+  "turn-start": { label: "turn-start.sh (snapshot)", at: "UserPromptSubmit", infra: true },
   guard: { label: "guard.sh", at: "PreToolUse" },
   permission: { label: "permission rules", at: "PermissionRequest" },
   sandbox: { label: "sandbox", at: "tool executes" },
@@ -21,7 +21,7 @@ export const PIECES: Record<Piece, { label: string; at: string; infra?: true }> 
   stop: { label: "stop.sh → check.sh", at: "Stop" },
   notify: { label: "notify.sh", at: "Notification", infra: true },
   commit: { label: "pre-commit → check.sh", at: "git commit" },
-  ci: { label: "check.sh --all", at: "CI" },
+  ci: { label: "check.sh --since / --all", at: "CI" },
 };
 
 /** The Forge piece an event of the docs lifecycle model happens in. */

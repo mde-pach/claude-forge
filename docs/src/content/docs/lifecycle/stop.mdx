@@ -5,7 +5,7 @@ description: The Stop hook and the steps of check.sh.
 
 import Spec from "../../../components/Spec.astro";
 
-When you send a prompt, `turn-start.sh` (UserPromptSubmit) records the state of the working tree. When Claude ends its turn, `stop.sh` compares: if nothing changed during the turn — Claude only answered a question, while your own uncommitted work sits in the tree — Claude stops freely. Otherwise it runs `.forge/check.sh --changed` on the staged, unstaged and untracked files. If that fails, the stop is blocked and Claude gets the output, so it keeps working. After three blocks in a row it hands over to you; a new prompt starts the count again.
+When you send a prompt, `turn-start.sh` (UserPromptSubmit) snapshots the working tree: the commit, and a copy of every file you have not committed yet. When Claude ends its turn, `stop.sh` compares: if nothing changed during the turn — Claude only answered a question, while your own uncommitted work sits in the tree — Claude stops freely. Otherwise it runs `.forge/check.sh` on **what changed during the turn**: files whose content differs from the snapshot, commits made during the turn included. Your own work in progress is not part of it, and in a file you had already changed, only the lines Claude added count. If the check fails, the stop is blocked and Claude gets the output, so it keeps working. After three blocks in a row it hands over to you; a new prompt starts the count again.
 
 <Spec file="08-project-hooks" describe="Stop" />
 
@@ -15,9 +15,15 @@ When you send a prompt, `turn-start.sh` (UserPromptSubmit) records the state of 
 
 <Spec file="10-check" describe="steps" />
 
+## Added lines
+
+Outside `--all`, an ast-grep `forbid` match or a lint finding counts only on a line the change added: `git diff -U0` against the base (the start of the turn, `HEAD` for a commit, the merge base in a pull request). An edited line counts, a match spanning an edited line counts, and moved code counts; a new file counts fully. Counting rules (`no-increase`, `no-decrease`) compare whole files, and type checks, migrations and tests are not line-scoped.
+
+<Spec file="10-check" describe="added lines" />
+
 ## Errors that were already there
 
-A whole-project type check or lint run blocks only for errors in files that are part of the change. Errors already present in other files are reported as remaining and do not block; CI (`check.sh --all`) still fails on them.
+A whole-project type check blocks only for errors in files that are part of the change, and a lint run only for findings on added lines. Errors already present elsewhere are reported as remaining and do not block; CI (`check.sh --all`) still fails on them.
 
 <Spec file="10-check" describe="errors in unchanged files" />
 <Spec file="08-project-hooks" describe="errors in unchanged files" />

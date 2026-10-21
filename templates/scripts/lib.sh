@@ -123,3 +123,69 @@ tree_hash() {
     done
   } | forge_sha256
 }
+
+# status_paths: changed paths (staged, unstaged, untracked; renames as delete + add), one per line.
+status_paths() {
+  git status --porcelain --no-renames --untracked-files=all 2>/dev/null \
+    | sed -e 's/^...//' -e 's/^"\(.*\)"$/\1/'
+}
+
+# snapshot <dir>: the working tree at the start of a turn, for the Stop hook:
+# head (commit), tree (tree_hash), dirty ("path<TAB>blob hash", "-" when deleted)
+# and files/<path> (copies of the dirty files up to 1 MiB, to compute added lines).
+snapshot() {
+  rm -rf "$1" && mkdir -p "$1/files" || return 1
+  git rev-parse -q --verify HEAD > "$1/head" 2>/dev/null || : > "$1/head"
+  tree_hash > "$1/tree"
+  status_paths | while IFS= read -r _sn_f; do
+    if [ -f "$_sn_f" ]; then
+      printf '%s\t%s\n' "$_sn_f" "$(git hash-object -- "$_sn_f" 2>/dev/null)"
+      if [ "$(wc -c < "$_sn_f")" -le 1048576 ]; then
+        mkdir -p "$1/files/$(dirname "$_sn_f")" && cp "$_sn_f" "$1/files/$_sn_f"
+      fi
+    else
+      printf '%s\t-\n' "$_sn_f"
+    fi
+  done > "$1/dirty"
+}
+
+# The base a change is measured against: FORGE_SNAP (a turn snapshot) and/or
+# FORGE_BASE_REV (a commit). base_hash <path>: blob hash of <path> in the base, "-" if absent.
+base_hash() {
+  if [ -n "${FORGE_SNAP:-}" ] && _bh=$(awk -F '\t' -v p="$1" '$1 == p { print $2; f = 1; exit } END { exit !f }' "$FORGE_SNAP/dirty" 2>/dev/null); then
+    printf '%s' "$_bh"
+  elif [ -n "${FORGE_BASE_REV:-}" ] && _bh=$(git rev-parse -q --verify "$FORGE_BASE_REV:$1" 2>/dev/null); then
+    printf '%s' "$_bh"
+  else
+    printf -- '-'
+  fi
+}
+
+# now_hash <path>: blob hash of the working-tree file, "-" if absent.
+now_hash() {
+  if [ -f "$1" ]; then git hash-object -- "$1" 2>/dev/null; else printf -- '-'; fi
+}
+
+# base_file <path> <out>: writes <path> as it is in the base to <out>; fails if absent there.
+base_file() {
+  if [ -n "${FORGE_SNAP:-}" ] && _bf=$(awk -F '\t' -v p="$1" '$1 == p { print $2; f = 1; exit } END { exit !f }' "$FORGE_SNAP/dirty" 2>/dev/null); then
+    [ "$_bf" != - ] && [ -f "$FORGE_SNAP/files/$1" ] || return 1
+    mkdir -p "$(dirname "$2")" && cp "$FORGE_SNAP/files/$1" "$2"
+  elif [ -n "${FORGE_BASE_REV:-}" ] && git cat-file -e "$FORGE_BASE_REV:$1" 2>/dev/null; then
+    mkdir -p "$(dirname "$2")" && git cat-file blob "$FORGE_BASE_REV:$1" > "$2" 2>/dev/null
+  else
+    return 1
+  fi
+}
+
+# added_lines <path> <base-copy>: "path<TAB>line" for each line added since the base
+# (git diff -U0: an edited line counts, moved code counts); "path<TAB>*" when
+# <base-copy> does not exist (the file is new).
+added_lines() {
+  if [ ! -f "$2" ]; then printf '%s\t*\n' "$1"; return 0; fi
+  git diff --no-index --no-ext-diff --no-textconv --no-color -U0 -- "$2" "$1" 2>/dev/null \
+    | awk -v f="$1" '/^@@ / { split($3, p, ","); s = substr(p[1], 2) + 0; n = (p[2] == "" ? 1 : p[2] + 0); for (i = 0; i < n; i++) print f "\t" (s + i) }'
+}
+
+# turn_dir: the turn snapshot of this session (written by turn-start.sh).
+turn_dir() { printf '.forge/state/%s.turn' "$(session_id)"; }

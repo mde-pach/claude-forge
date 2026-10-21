@@ -13,6 +13,15 @@ import Spec from "../../../components/Spec.astro";
 
 ## CI
 
-Add `sh .forge/check.sh --all` as a CI step. It needs only `sh`, `git` and the project's own tools.
+On a pull request, run `sh .forge/check.sh --since origin/<default branch>`: it checks what the branch changed since its merge base, with the same added-lines rule as Stop, so code that was already on the default branch does not fail the pull request. The checkout needs the base branch's history (`actions/checkout` with `fetch-depth: 0`). On the default branch, run `sh .forge/check.sh --all`, which checks the whole project. Both need only `sh`, `git` and the project's own tools; `forge status` prints both lines.
+
+```yaml
+- uses: actions/checkout@<sha>
+  with: {fetch-depth: 0}
+- run: sh .forge/check.sh --since origin/${{ github.base_ref }}
+  if: github.event_name == 'pull_request'
+- run: sh .forge/check.sh --all
+  if: github.event_name != 'pull_request'
+```
 
 <Spec file="10-check" top />

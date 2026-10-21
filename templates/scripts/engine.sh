@@ -2,6 +2,85 @@
 # forge_check_meta_<n>, forge_scope_<n>, forge_when_<n>, forge_check_run_<n>,
 # forge_check_changed_<n>, plus tool() and first_lines() from lib.sh.
 
+# forge_change_set: the files a run is about, for $mode (--changed, --since,
+# --turn, --all; $FORGE_ARG is the ref or the snapshot directory). Writes to $FORGE_TMP:
+#   changed   changed paths, one per line   existing  those that exist now
+#   deleted   those gone since the base     inbase    those that exist in the base
+#   base/<p>  each one as it is in the base
+#   added     "path<TAB>line" per added line, "path<TAB>*" per new file (empty with --all)
+# The base is HEAD (--changed, --all), git merge-base <ref> HEAD (--since) or the
+# tree at the start of the turn (--turn: FORGE_SNAP, plus FORGE_BASE_REV for files
+# that were clean then).
+forge_change_set() {
+  FORGE_SNAP=''
+  case $mode in
+    --turn)
+      FORGE_SNAP=$FORGE_ARG
+      FORGE_BASE_REV=$(cat "$FORGE_SNAP/head" 2>/dev/null) ;;
+    --since)
+      FORGE_BASE_REV=$(git merge-base "$FORGE_ARG" HEAD 2>/dev/null) || {
+        printf 'forge:forge/since no merge base for %s and HEAD (fetch it: git fetch origin <branch>, or check out with fetch-depth: 0)\n' "$FORGE_ARG"
+        return 1
+      } ;;
+    *) FORGE_BASE_REV=$(git rev-parse -q --verify HEAD 2>/dev/null) ;;
+  esac
+  case $mode in
+    --turn)
+      { status_paths; cut -f 1 "$FORGE_SNAP/dirty" 2>/dev/null
+        [ -n "$FORGE_BASE_REV" ] && git diff --name-only --no-renames "$FORGE_BASE_REV" HEAD 2>/dev/null
+      } | sort -u | while IFS= read -r _cs_f; do
+        [ -n "$_cs_f" ] && [ "$(now_hash "$_cs_f")" != "$(base_hash "$_cs_f")" ] && printf '%s\n' "$_cs_f"
+      done ;;
+    --since)
+      { git diff --name-only --no-renames "$FORGE_BASE_REV" 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null; } | sort -u ;;
+    *) status_paths | sort -u ;;
+  esac > "$FORGE_TMP/changed"
+  : > "$FORGE_TMP/existing"; : > "$FORGE_TMP/deleted"; : > "$FORGE_TMP/inbase"; : > "$FORGE_TMP/added"
+  mkdir -p "$FORGE_TMP/base"
+  while IFS= read -r _cs_f; do
+    if base_file "$_cs_f" "$FORGE_TMP/base/$_cs_f"; then printf '%s\n' "$_cs_f" >> "$FORGE_TMP/inbase"; _cs_b=1; else _cs_b=0; fi
+    if [ -f "$_cs_f" ]; then
+      printf '%s\n' "$_cs_f" >> "$FORGE_TMP/existing"
+      [ "$mode" = --all ] || added_lines "$_cs_f" "$FORGE_TMP/base/$_cs_f" >> "$FORGE_TMP/added"
+    elif [ "$_cs_b" = 1 ]; then
+      printf '%s\n' "$_cs_f" >> "$FORGE_TMP/deleted"
+    fi
+  done < "$FORGE_TMP/changed"
+  return 0
+}
+
+# forge_sg_report <json>: ast-grep --json=stream matches as
+# "forge:<rule> path:line:column <description>" (from 1); unless $mode is --all, only
+# matches that overlap a line of $FORGE_TMP/added (a match spanning an edited line counts).
+forge_sg_report() {
+  awk -v all="$([ "$mode" = --all ] && printf 1)" '
+    function str(s, key,   i, out, c) {
+      i = index(s, "\"" key "\":\""); if (!i) return ""
+      s = substr(s, i + length(key) + 4); out = ""
+      while (length(s)) {
+        c = substr(s, 1, 1)
+        if (c == "\"") break
+        if (c == "\\") { c = substr(s, 2, 1); if (c == "n") c = " "; s = substr(s, 2) }
+        out = out c; s = substr(s, 2)
+      }
+      return out
+    }
+    function num(s, key,   i) { i = index(s, key); return i ? substr(s, i + length(key)) + 0 : -1 }
+    FILENAME == ARGV[1] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
+    {
+      r = substr($0, index($0, "\"range\":{"))
+      sl = num(r, "\"start\":{\"line\":") + 1; sc = num(r, "\"column\":") + 1
+      el = num(substr(r, index(r, "\"end\":{\"line\":")), "\"end\":{\"line\":") + 1
+      f = str($0, "file"); m = str($0, "message")
+      keep = (all != "" || (f in whole))
+      for (l = sl; !keep && l <= el; l++) if ((f "\t" l) in ad) keep = 1
+      if (!keep) next
+      id = m; sub(/^forge:/, "", id); sub(/ .*$/, "", id)
+      d = m; sub(/^[^ ]* ?/, "", d)
+      printf "forge:%s %s:%d:%d %s\n", id, f, sl, sc, d
+    }' "$FORGE_TMP/added" "$1"
+}
+
 # forge_exec_tool <name> <args>: runs the project's own <name>; 127 when absent.
 forge_exec_tool() {
   _fx_cmd=$(tool "$1")
@@ -194,42 +273,60 @@ forge_exec_check() {
   return "$_fe_rc"
 }
 
-# forge_diagnostics <output> [print]: sorts the error diagnostics of a whole-project
-# run by the files they name (tsc "path(l,c)", "path:l:c" from Python and JS linters,
-# "--> path:l:c"; absolute paths under the repository are made relative;
-# warning-only lines are ignored). Prints "changed" when one names a file of
-# $FORGE_TMP/changed, "other" when they name only other files, "none" when no line
-# names a file. With "print", prints the lines that name a changed file instead.
+# forge_diagnostics <output> <file|line> [print]: sorts the error diagnostics of a
+# failed run by what they name (tsc "path(l,c)", "path:l:c" from Python and JS
+# linters, "--> path:l:c"; "Would reformat: path" and Biome's "path format" name a
+# file only; absolute paths under the repository are made relative; warning-only
+# lines are ignored). A diagnostic counts when it names a file of $FORGE_TMP/changed
+# ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file
+# counts when that file changed). Prints "changed" when one counts, "other" when
+# they name only other files or lines, "none" when no line names a file. With
+# "print", prints the lines that count instead.
 forge_diagnostics() {
-  awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v mode="$2" '
+  awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
     FILENAME == ARGV[1] { ch[$0] = 1; next }
+    FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
       if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
-      if (!match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) next
-      p = substr(line, 1, RLENGTH)
-      sub(/([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)$/, "", p)
+      ln = ""
+      if (match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) {
+        p = substr(line, 1, RLENGTH)
+        loc = p; sub(/^[^[:space:]:(]+[(:]/, "", loc); ln = loc + 0
+        sub(/([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)$/, "", p)
+      } else if (match(line, /^Would reformat: [^[:space:]]+/)) p = substr(line, 18, RLENGTH - 17)
+      else if (match(line, /^[^[:space:]:(]+ format /)) { p = line; sub(/ format .*$/, "", p) }
+      else next
       if (index(p, r1 "/") == 1) p = substr(p, length(r1) + 2)
       else if (index(p, r2 "/") == 1) p = substr(p, length(r2) + 2)
       sub(/^\.\//, "", p)
       named = 1
-      if (p in ch) { hit = 1; if (mode == "print") print $0 }
+      if (level == "line") counts = (p in whole) || (ln == "" ? (p in ch) : ((p "\t" ln) in ad))
+      else counts = (p in ch)
+      if (counts) { hit = 1; if (mode == "print") print $0 }
     }
-    END { if (mode != "print") print (hit ? "changed" : named ? "other" : "none") }' "$FORGE_TMP/changed" "$1"
+    END { if (mode != "print") print (hit ? "changed" : named ? "other" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
 }
 
-# forge_attribute <stage> <output>: for a failed whole-project typecheck or lint run,
-# "other" when its errors are all in unchanged files, else "changed" or "none".
-forge_attribute() {
-  case $1 in typecheck|lint) forge_diagnostics "$2" ;; *) printf 'none\n' ;; esac
+# forge_attribute_level <stage> <whole-project run: 1|0>: how a failed check's
+# diagnostics are attributed outside --all: lint by added line, typecheck and a
+# whole-project format run by changed file; anything else is not attributed.
+forge_attribute_level() {
+  case $1 in
+    lint) printf 'line' ;;
+    typecheck) printf 'file' ;;
+    format) [ "$2" = 1 ] && printf 'file' ;;
+  esac
 }
 
-# forge_run_check <n>: one check under check.sh ($mode, $FORGE_TMP/changed, $FORGE_TMP/existing).
+# forge_run_check <n>: one check under check.sh ($mode and forge_change_set's files).
+# --changed and --turn run the {files} form on the changed files when there is one;
+# --since and --all run the whole-project form (read-only, as CI should).
 forge_run_check() {
   forge_check_meta_"$1"
   FORGE_FILES=''
-  if [ "$mode" = --changed ]; then
+  if [ "$mode" != --all ]; then
     if [ "$c_when" = 1 ]; then
       [ -n "$(forge_filter "forge_when_$1" < "$FORGE_TMP/changed")" ] || return 0
     fi
@@ -245,20 +342,28 @@ forge_run_check() {
     return 0
   fi
   _fc_fn=forge_check_run_$1
-  if [ "$mode" = --changed ] && [ "$c_changed" = 1 ] && [ -n "$FORGE_FILES" ]; then _fc_fn=forge_check_changed_$1; fi
+  _fc_whole=1
+  case $mode in --changed|--turn)
+    if [ "$c_changed" = 1 ] && [ -n "$FORGE_FILES" ]; then _fc_fn=forge_check_changed_$1; _fc_whole=0; fi ;;
+  esac
   if forge_exec_check "$_fc_fn" "$c_timeout"; then
     grep '^forge:' "$FORGE_TMP/out"
     return 0
   fi
-  # --changed, whole-project run: only errors in changed files count
-  if [ "$mode" = --changed ] && [ "$_fc_fn" = "forge_check_run_$1" ]; then
-    case $(forge_attribute "$c_stage" "$FORGE_TMP/out") in
+  # outside --all, only errors in the change count (§10.1 step 5)
+  _fc_level=$(forge_attribute_level "$c_stage" "$_fc_whole")
+  if [ "$mode" != --all ] && [ -n "$_fc_level" ]; then
+    case $(forge_diagnostics "$FORGE_TMP/out" "$_fc_level") in
       other)
-        printf 'forge:%s ok for the changed files (errors remain in unchanged files: sh .forge/check.sh --all)\n' "$c_id"
+        if [ "$_fc_level" = line ]; then
+          printf 'forge:%s ok for the added lines (findings remain on lines this change did not add: sh .forge/check.sh --all)\n' "$c_id"
+        else
+          printf 'forge:%s ok for the changed files (errors remain in unchanged files: sh .forge/check.sh --all)\n' "$c_id"
+        fi
         return 0 ;;
       changed)
         printf 'forge:%s failed\n' "$c_id"
-        forge_diagnostics "$FORGE_TMP/out" print | first_lines 15
+        forge_diagnostics "$FORGE_TMP/out" "$_fc_level" print | first_lines 15
         return 1 ;;
     esac
   fi
@@ -283,7 +388,8 @@ forge_run_stage() {
 }
 
 # forge_file_stage <stage> <file>: the {files} form of each in-scope check of
-# <stage>, on one file (PostToolUse). Prints failures; absent tools are skipped.
+# <stage>, on one file (PostToolUse). Prints failures; lint findings only on the
+# lines of $FORGE_TMP/added; absent tools are skipped.
 forge_file_stage() {
   _fp_i=1
   _fp_rc=0
@@ -292,9 +398,20 @@ forge_file_stage() {
     forge_check_meta_"$_fp_i"
     if [ "$c_stage" = "$1" ] && [ "$c_files" = 1 ] && forge_scope_"$_fp_i" "$2" && ! forge_missing_tool >/dev/null; then
       if ! forge_exec_check "forge_check_changed_$_fp_i" "$c_timeout"; then
-        printf 'forge:%s\n' "$c_id"
-        first_lines 15 < "$FORGE_TMP/out"
-        _fp_rc=1
+        _fp_level=$(forge_attribute_level "$1" 0)
+        _fp_what=none
+        [ -n "$_fp_level" ] && _fp_what=$(forge_diagnostics "$FORGE_TMP/out" "$_fp_level")
+        case $_fp_what in
+          other) ;;
+          changed)
+            printf 'forge:%s\n' "$c_id"
+            forge_diagnostics "$FORGE_TMP/out" "$_fp_level" print | first_lines 15
+            _fp_rc=1 ;;
+          *)
+            printf 'forge:%s\n' "$c_id"
+            first_lines 15 < "$FORGE_TMP/out"
+            _fp_rc=1 ;;
+        esac
       fi
     fi
     _fp_i=$((_fp_i + 1))
@@ -303,7 +420,7 @@ forge_file_stage() {
 }
 
 # forge_typecheck <file>: the full run of each typecheck check whose scope covers <file>;
-# only errors in files of $FORGE_TMP/changed count.
+# only errors in files of $FORGE_TMP/changed count ($FORGE_TMP/added must exist).
 forge_typecheck() {
   _ft_i=1
   _ft_rc=0
@@ -312,11 +429,11 @@ forge_typecheck() {
     if [ "$c_stage" = typecheck ] && forge_scope_"$_ft_i" "$1" && ! forge_missing_tool >/dev/null; then
       if ! forge_exec_check "forge_check_run_$_ft_i" "$c_timeout"; then
         # only errors in changed files wake Claude
-        case $(forge_diagnostics "$FORGE_TMP/out") in
+        case $(forge_diagnostics "$FORGE_TMP/out" file) in
           other) ;;
           changed)
             printf 'forge:%s\n' "$c_id"
-            forge_diagnostics "$FORGE_TMP/out" print | first_lines 19
+            forge_diagnostics "$FORGE_TMP/out" file print | first_lines 19
             _ft_rc=1 ;;
           *)
             printf 'forge:%s\n' "$c_id"

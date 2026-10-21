@@ -11,9 +11,9 @@ export const STEPS: { id: StepId; label: string; when: string }[] = [
   { id: "session", label: "Session start", when: "when a Claude Code session starts or resumes" },
   { id: "tool", label: "Tool call", when: "before Claude runs a Bash command or reads or edits a file" },
   { id: "edit", label: "After an edit", when: "right after Claude edits or writes a file" },
-  { id: "stop", label: "Claude stops", when: "when Claude ends a turn that changed the tree (Stop hook runs check.sh --changed)" },
+  { id: "stop", label: "Claude stops", when: "when Claude ends a turn that changed the tree (Stop hook runs check.sh on what the turn changed)" },
   { id: "commit", label: "git commit", when: "in the pre-commit hook (check.sh --changed)" },
-  { id: "ci", label: "CI", when: "in CI (check.sh --all, the whole project)" },
+  { id: "ci", label: "CI", when: "in CI (check.sh --since <base branch> on a pull request, --all on the default branch)" },
 ];
 
 export interface LifecycleEvent {
@@ -68,8 +68,8 @@ function checkEvents(rule: Rule, t: CheckTarget): LifecycleEvent[] {
     case "lint":
       if (files) out.push({ step: "edit", effect: "feedback", text: `Lints the edited file with ${cmd(t.changed_run!.replace("{files}", "<file>"), "--changed")}; findings go back to Claude.` });
       out.push(...changed("blocks", "Runs"));
-      if (!files) for (const e of out) if (e.step === "stop" || e.step === "commit") e.text += " Only errors in changed files count.";
-      out.push({ step: "ci", effect: "blocks", text: `Runs ${cmd(t.run, "--all")} on the whole project.` });
+      for (const e of out) if (e.step === "stop" || e.step === "commit") e.text += " Only findings on added lines count.";
+      out.push({ step: "ci", effect: "blocks", text: `Runs ${cmd(t.run, "--all")}: with \`--since\`, findings on the lines the branch added count; with \`--all\`, any finding.` });
       break;
     case "typecheck":
       out.push({ step: "edit", effect: "wakes", text: `Runs ${cmd(t.run, "--all")} in the background after an edit to a ${scopeNoun(rule)}; errors in changed files wake Claude, errors only in other files stay silent.` });
@@ -104,16 +104,16 @@ function targetEvents(rule: Rule, t: Target): LifecycleEvent[] {
       const scope = `a changed ${scopeNoun(rule)}`;
       if (t.mode === "forbid")
         return [
-          { step: "edit", effect: "feedback", text: "Matches in the edited file go back to Claude with file:line:column." },
-          { step: "stop", effect: "blocks", text: `Any match in ${scope} blocks Stop.` },
-          { step: "commit", effect: "blocks", text: `Any match in ${scope} fails the commit.` },
-          { step: "ci", effect: "blocks", text: "Any match anywhere in scope fails CI." },
+          { step: "edit", effect: "feedback", text: "Matches on lines added during the turn go back to Claude with file:line:column." },
+          { step: "stop", effect: "blocks", text: `A match on a line the turn added to ${scope} blocks Stop.` },
+          { step: "commit", effect: "blocks", text: `A match on a line added since \`HEAD\` to ${scope} fails the commit.` },
+          { step: "ci", effect: "blocks", text: "With `--since`, a match on a line the branch added fails CI; with `--all`, any match anywhere in scope." },
         ].map((e) => ({ ...e, step: e.step as StepId, effect: e.effect as Effect, condition }));
       const more = t.mode === "no-increase" ? "more" : "fewer";
       return [
-        { step: "stop" as const, effect: "blocks" as const, text: `${scope.replace(/^a /, "A ")} with ${more} matches than at \`HEAD\` blocks Stop.`, condition },
+        { step: "stop" as const, effect: "blocks" as const, text: `${scope.replace(/^a /, "A ")} with ${more} matches than at the start of the turn blocks Stop.`, condition },
         { step: "commit" as const, effect: "blocks" as const, text: `${scope.replace(/^a /, "A ")} with ${more} matches than at \`HEAD\` fails the commit.`, condition },
-        { step: "ci" as const, effect: "inactive" as const, text: "Not checked: a clean checkout has nothing to compare with `HEAD`.", condition },
+        { step: "ci" as const, effect: "blocks" as const, text: `With \`--since\`, ${scope.replace(/^a /, "")} with ${more} matches than at the merge base fails CI (\`--all\` has nothing to compare).`, condition },
       ];
     }
     case "permission":

@@ -18,9 +18,9 @@ Forge acts at seven moments. These pages explain each one and carry its tests.
 | [**Session start**](./session/#session-start) | SessionStart hook | **informs** Claude: branch, changes, packs, missing tools; context files |
 | [**Tool call**](./session/#tool-call) | Claude Code permissions and sandbox; PreToolUse guard | **blocks** or **asks** before a Bash command, a read or an edit |
 | [**After an edit**](./session/#after-an-edit) | PostToolUse hooks | **fixes** formatting, **tells Claude** lint and ast-grep findings, **wakes Claude** on type errors |
-| [**Claude stops**](./stop/) | UserPromptSubmit records the tree; Stop hook → `check.sh --changed` if the turn changed it | **blocks** the stop until the change passes; hands over after 3 tries |
+| [**Claude stops**](./stop/) | UserPromptSubmit snapshots the tree; Stop hook → `check.sh` on what the turn changed | **blocks** the stop until the change passes; hands over after 3 tries |
 | [**git commit**](./commit-ci/#pre-commit) | pre-commit hook → `check.sh --changed` | **blocks** the commit |
-| [**CI**](./commit-ci/#ci) | `check.sh --all` | **blocks** the build, on the whole project |
+| [**CI**](./commit-ci/#ci) | `check.sh --since <base>` on a pull request, `--all` on the default branch | **blocks** the build: what the branch added, or the whole project |
 
 Effects use the same colours everywhere: <span class="forge-effect" data-effect="blocks">blocks</span><span class="forge-effect" data-effect="asks">asks</span><span class="forge-effect" data-effect="feedback">tells Claude</span><span class="forge-effect" data-effect="wakes">wakes Claude</span><span class="forge-effect" data-effect="fixes">fixes</span><span class="forge-effect" data-effect="audits">audits config</span><span class="forge-effect" data-effect="informs">informs Claude</span>
 

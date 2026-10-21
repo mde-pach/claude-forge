@@ -239,10 +239,10 @@ All scripts are POSIX `sh`. They read file paths and the working directory from 
 | Event | Matcher | Script | Mode | Timeout | Behavior |
 |---|---|---|---|---|---|
 | SessionStart | `startup\|resume\|clear\|compact` | `session-start.sh` | sync | 10 s | ≤ 20 lines: branch, number of changed files and first 10 paths, last 5 commits (`%h %s`, ≤ 72 chars), active packs, missing tools (once). |
-| UserPromptSubmit | — | `turn-start.sh` | sync | 10 s | Records the tree at the start of the turn and resets the Stop block counter (§10.2). Prints nothing. |
+| UserPromptSubmit | — | `turn-start.sh` | sync | 10 s | Snapshots the tree at the start of the turn and resets the Stop block counter (§10.2). Prints nothing. |
 | PreToolUse | `Bash` | `guard.sh` | sync | 5 s | Project `guard` rules. `onFailure: "block"`. |
-| PostToolUse | `Edit\|Write` | `post-edit.sh` | sync | 30 s | Format the file silently; lint it; run ast-grep `forbid` rules on it. Findings → JSON `{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"…"}}`, ≤ 20 lines, diagnostics for this file only. Nothing on success. |
-| PostToolUse | `Edit\|Write` | `typecheck.sh` | `asyncRewake: true` | 300 s | Project typecheck. Errors in files of the changed set (`git status`) → exit 2, stderr ≤ 20 lines, those files' diagnostics only; errors only in other files → silent. Skips if one is already running (lock in `.forge/state/`). |
+| PostToolUse | `Edit\|Write` | `post-edit.sh` | sync | 30 s | Format the file silently; lint it; run ast-grep `forbid` rules on it. Findings on lines added during the turn (against the turn snapshot; before the first prompt, against `HEAD`) → JSON `{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"…"}}`, ≤ 20 lines, diagnostics for this file only. Nothing on success. |
+| PostToolUse | `Edit\|Write` | `typecheck.sh` | `asyncRewake: true` | 300 s | Project typecheck. Errors in files changed during the turn (the Stop hook's change set, §10.2) → exit 2, stderr ≤ 20 lines, those files' diagnostics only; errors only in other files → silent. Skips if one is already running (lock in `.forge/state/`). |
 | Stop | — | `stop.sh` | sync | 600 s | §10.2. |
 
 ### 8.2 Permissions appended
@@ -274,36 +274,45 @@ All scripts are POSIX `sh`. They read file paths and the working directory from 
 
 ## 10. `check`
 
-### 10.1 `.forge/check.sh [--changed | --all]`
+### 10.1 `.forge/check.sh [--changed | --since <ref> | --all]`
 
-One entry point for the Stop hook, the optional pre-commit hook and CI. Runs in order, stops at the first failure, prints `forge:<rule-id>` lines:
+One entry point for the Stop hook, the optional pre-commit hook and CI. Each mode checks a **change** against a **base**:
+
+| Mode | Used by | Changed files | Base |
+|---|---|---|---|
+| `--turn <snapshot>` | Stop (§10.2) | files whose content differs from the turn snapshot | the tree at the start of the turn |
+| `--changed` | pre-commit | `git status --porcelain --no-renames` (staged, unstaged, untracked) | `HEAD` |
+| `--since <ref>` | CI on a pull request | `git diff --name-only <base>` plus untracked files | `git merge-base <ref> HEAD`; none → fail with `forge:forge/since` |
+| `--all` | CI on the default branch | the whole project | `HEAD` (for the comparisons of steps 2–3) |
+
+**Added lines.** Outside `--all`, each changed file's added lines are computed with `git diff --no-index -U0` against its base copy; a file absent from the base counts fully. An edited line counts as added, and so does moved code. ast-grep `forbid` matches and `lint` diagnostics count only when they overlap an added line (a match spanning an edited line counts). `no-increase` / `no-decrease` rules and whole-project checks (typecheck, migrations, tests) are not line-scoped.
+
+Runs in order, stops at the first failing step, prints `forge:<rule-id>` lines:
 
 1. **Integrity:** every owned file under `.forge/` and `.claude/` matches its hash in `.forge/manifest.sha256`, and no other file sits in Forge's directories. check.sh never parses `forge.lock.json`, so the lock's formatting does not matter.
-2. **Applied migrations:** any file under `alembic/versions/` or `prisma/migrations/` that exists at `HEAD` and is modified or deleted → fail.
-3. **Tests:** test files present at `HEAD` and deleted → fail; ast-grep `no-increase` / `no-decrease` rules compared with `HEAD`.
-4. **ast-grep `forbid` rules.**
-5. **Format, lint, typecheck:** `check` targets of stages `format`, `lint`, `typecheck`, using project binaries (`changed_run` with `--changed`). With `--changed`, a `lint` or `typecheck` check that runs on the whole project (no `{files}` form) fails only if an error diagnostic names a changed file; it then prints only those diagnostics. Errors only in unchanged files print `forge:<rule-id> ok for the changed files (errors remain in unchanged files: …)` and pass. Output naming no file at all (configuration error, crash) fails as before. Diagnostic paths are read from the tools' plain output (`path(l,c)`, `path:l:c`, `--> path:l:c`; absolute paths under the repository are made relative; warning-only lines are ignored). `--all` fails on any error.
+2. **Applied migrations:** any file under `alembic/versions/` or `prisma/migrations/` that exists in the base and is modified or deleted → fail.
+3. **Tests:** test files present in the base and deleted → fail; ast-grep `no-increase` / `no-decrease` rules compared with the base.
+4. **ast-grep `forbid` rules**, on added lines outside `--all`.
+5. **Format, lint, typecheck:** `check` targets of stages `format`, `lint`, `typecheck`, using project binaries: `changed_run` on the changed files with `--turn` and `--changed`, `run` (read-only, whole project) with `--since` and `--all`. Outside `--all`, a failing run's error diagnostics are attributed: `lint` diagnostics count on added lines, `typecheck` diagnostics (and a whole-project `format` run's) on changed files. When none counts, the check prints `forge:<rule-id> ok for the added lines (…)` or `ok for the changed files (…)` and passes; otherwise it prints only the diagnostics that count. Output naming no file at all (configuration error, crash) fails as before. Diagnostic locations are read from the tools' plain output (`path(l,c)`, `path:l:c`, `--> path:l:c`; `Would reformat: path` and Biome's `path format` name a file only; absolute paths under the repository are made relative; warning-only lines are ignored). `--all` fails on any error.
 6. **Migration checks:** `check` targets of stage `migration`, only if a `when_changed` path changed and, when `requires_local_db` is set, the configured database host is `localhost`, `127.0.0.1`, `::1` or a Unix socket. Otherwise print `forge:<rule-id> skipped: no local database` and continue.
 7. **Tests:** `check` targets of stage `test` (`changed_run` with `--changed`).
 
-`--changed` = files from `git status --porcelain` (staged, unstaged, untracked). `--all` = whole project.
-
 ### 10.2 Stop hook (`stop.sh`)
 
-`tree_hash` (in `lib.sh`, shared with `turn-start.sh`) hashes `git diff HEAD` plus the untracked files (names and contents).
+`tree_hash` (in `lib.sh`) hashes `git diff HEAD` plus the untracked files (names and contents).
 
-0. **Turn start** (`turn-start.sh`, UserPromptSubmit): store `tree_hash` in `.forge/state/<session_id>.turn` and reset the block counter `.forge/state/<session_id>`. Print nothing.
-1. If `tree_hash` equals the last passing hash in `.forge/state/last-pass`, exit 0.
-2. If `.forge/state/<session_id>.turn` exists and equals `tree_hash`, the tree did not change during the turn: exit 0. Without that file (no prompt seen yet, e.g. the first Stop after `forge apply`), continue.
-3. If the block counter in `.forge/state/<session_id>` is ≥ 3: reset it, print `{"systemMessage":"forge: check failed 3 times. Handing over to you."}`, exit 0.
-4. Run `check.sh --changed`.
-5. Pass: store the hash in `last-pass`, reset the counter, print nothing.
+0. **Turn start** (`turn-start.sh`, UserPromptSubmit): write the snapshot `.forge/state/<session_id>.turn/`: `head` (the commit), `tree` (`tree_hash`), `dirty` (`<path><TAB><blob hash>` per uncommitted path, `-` when deleted) and `files/<path>` (a copy of each dirty file up to 1 MiB, for added lines); reset the block counter `.forge/state/<session_id>.blocks`. Print nothing.
+1. With a snapshot: if `tree_hash` and `HEAD` equal the snapshot's, the tree did not change during the turn: exit 0. The change is then what differs from the snapshot, commits made during the turn included; the user's own uncommitted work from before the turn is not part of it. Without a snapshot (no prompt seen yet, e.g. the first Stop after `forge apply`), the change is every uncommitted file (`--changed`).
+2. If the tree (and, with a snapshot, `HEAD`) equals the last passing one (`<snapshot>/pass`, else `.forge/state/last-pass`), exit 0.
+3. If the block counter is ≥ 3: reset it, print `{"systemMessage":"forge: check failed 3 times. Handing over to you."}`, exit 0.
+4. Run `check.sh --turn <snapshot>` (or `--changed`).
+5. Pass: record the tree as passing, reset the counter, print nothing.
 6. Fail: increment the counter, print `{"decision":"block","reason":"<check output, ≤ 20 lines>"}`.
 
 ### 10.3 Pre-commit and CI
 
 - `forge apply` offers to create `.git/hooks/pre-commit` (running `sh .forge/check.sh --changed`) only if no hook manager is present (`.husky/`, `lefthook.yml`, `.pre-commit-config.yaml`, `core.hooksPath` set) and the file does not exist. Otherwise `forge status` prints the line to add to the existing manager.
-- `forge status` prints the CI step: `sh .forge/check.sh --all`.
+- `forge status` prints the CI steps: `sh .forge/check.sh --since origin/<default branch>` for pull requests (the checkout needs the base branch's history: `fetch-depth: 0`), and `sh .forge/check.sh --all` for the default branch. The default branch is `origin/HEAD`, else `main`.
 
 ## 11. Audit of tool targets
 
@@ -587,7 +596,7 @@ The test suite in `tests/spec/` is the executable form of this specification: on
 - Every pack and rule validates against its schema.
 - ast-grep targets compile to `rule-tests/*.yml` (`valid` = `no_match`, `invalid` = `match`) and pass `ast-grep test --skip-snapshot-tests`. The number of loaded rules equals the number of rule files.
 - Every guard target: `guard.sh` on each example wrapped in hook JSON returns the rule's decision for `match` and nothing for `no_match`, on macOS `sh` (bash 3.2), dash and BusyBox.
-- Every check target: each example runs in a temporary git repository holding the fixture's `head` files (committed), a `.forge/check.sh` generated with only that check, then the fixture's `files` written and staged. `check.sh` runs as Stop runs it (`format` checks, which fix files at Stop, as CI runs them: `--all`). A `match` example fails the check (`forge:<id> failed`), a `no_match` example passes. Project tools come from the current project's `node_modules/.bin` and `.venv/bin`, then `PATH`; an example whose tool is not found is reported skipped, never passed.
+- Every check target: each example runs in a temporary git repository holding the fixture's `head` files (committed), a `.forge/check.sh` generated with only that check, then the fixture's `files` written and staged, as a turn that started at the `head` fixture. `check.sh` runs as Stop runs it (`--turn`; `format` checks, which fix files at Stop, as CI runs them: `--all`). A `match` example fails the check (`forge:<id> failed`), a `no_match` example passes. Project tools come from the current project's `node_modules/.bin` and `.venv/bin`, then `PATH`; an example whose tool is not found is reported skipped, never passed.
 - Every `context.md` ≤ 10 lines.
 
 ### 14.2 Generator

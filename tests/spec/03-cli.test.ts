@@ -135,7 +135,8 @@ describe("status, explain, diff", () => {
       expect(out).toContain("  typescript/nextjs (detected)");
       expect(out).toContain("  typescript/nextjs/react (detected)");
       expect(out).toContain("  typescript/nextjs/react/client-hooks\n    ast-grep forbid (.forge/ast-grep/rules/typescript/nextjs/react/client-hooks.yml)");
-      expect(out).toContain("CI step: sh .forge/check.sh --all");
+      expect(out).toContain("CI step, pull requests: sh .forge/check.sh --since origin/main");
+      expect(out).toContain("CI step, the default branch: sh .forge/check.sh --all");
     },
     T,
   );

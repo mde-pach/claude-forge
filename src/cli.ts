@@ -374,6 +374,12 @@ function missingTools(ctx: Ctx): string[] {
   return missing;
 }
 
+/** The remote's default branch (origin/HEAD), else "main". */
+function defaultBranch(base: string): string {
+  const r = run("git", ["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"], { cwd: base });
+  return r.status === 0 && r.stdout.trim().startsWith("origin/") ? r.stdout.trim().slice("origin/".length) : "main";
+}
+
 function cmdStatus(flags: Flags): number {
   const ctx = context(flags);
   const p = ctx.plan;
@@ -419,7 +425,8 @@ function cmdStatus(flags: Flags): number {
     out("");
     const pc = preCommitPath(ctx.base);
     out(ctx.lock?.files[pc] !== undefined ? `Pre-commit: ${pc} (forge)` : preCommitHint(ctx.base));
-    out("CI step: sh .forge/check.sh --all");
+    out(`CI step, pull requests: sh .forge/check.sh --since origin/${defaultBranch(ctx.base)}`);
+    out("CI step, the default branch: sh .forge/check.sh --all");
   }
   return 0;
 }

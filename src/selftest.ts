@@ -103,9 +103,9 @@ export function checkExamplesOptional(t: CheckTarget): boolean {
   return t.stage === "test" || t.stage === "migration" || checkTools(t).some((x) => x === "astro" || x === "uv" || x === "bun");
 }
 
-/** How check examples are run: format checks fix files at Stop, so they are run as CI runs them. */
-export function checkExampleMode(t: CheckTarget): "--changed" | "--all" {
-  return t.stage === "format" ? "--all" : "--changed";
+/** How check examples are run: as Stop runs them, except format checks, which fix files at Stop and are run as CI runs them. */
+export function checkExampleMode(t: CheckTarget): "--turn" | "--all" {
+  return t.stage === "format" ? "--all" : "--turn";
 }
 
 const GIT_ENV = { GIT_AUTHOR_NAME: "forge", GIT_AUTHOR_EMAIL: "forge@localhost", GIT_COMMITTER_NAME: "forge", GIT_COMMITTER_EMAIL: "forge@localhost", GIT_CONFIG_NOSYSTEM: "1" };
@@ -131,8 +131,8 @@ export interface CheckExampleResult {
 /**
  * Runs one example of a check target: a temporary git repository holding the
  * fixture's `head` files (committed) with only this check in `.forge/check.sh`,
- * then the fixture's `files` written and staged; check.sh runs in
- * checkExampleMode(). A `match` example must fail the check, a `no_match`
+ * then the fixture's `files` written and staged, as a turn that started at the
+ * head; check.sh runs in checkExampleMode(). A `match` example must fail the check, a `no_match`
  * example must pass it. Project tools come from `toolBins`, system tools from PATH.
  */
 export function runCheckExample(rule: Rule, t: CheckTarget, ex: Example, kind: "match" | "no_match", toolBins: string[]): CheckExampleResult {
@@ -156,9 +156,13 @@ export function runCheckExample(rule: Rule, t: CheckTarget, ex: Example, kind: "
     git("init", "-q", "-b", "main");
     git("add", "-A");
     git("commit", "-qm", "head", "--allow-empty");
+    // the turn starts at the head fixture, with a clean tree (the snapshot turn-start.sh would write)
+    const snap = ".forge/state/example.turn";
+    writeFiles(dir, { [`${snap}/head`]: git("rev-parse", "HEAD").stdout, [`${snap}/tree`]: "\n", [`${snap}/dirty`]: "" });
     writeFiles(dir, fixture.files);
     git("add", "-A");
-    const r = run("sh", [".forge/check.sh", checkExampleMode(t)], { cwd: dir });
+    const mode = checkExampleMode(t);
+    const r = run("sh", [".forge/check.sh", ...(mode === "--turn" ? [mode, snap] : [mode])], { cwd: dir });
     const out = (r.stdout + r.stderr).trim();
     const skipped = new RegExp(`^forge:${rule.id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} skipped: (.*)$`, "m").exec(out);
     if (skipped) return { outcome: "skip", detail: skipped[1]! };

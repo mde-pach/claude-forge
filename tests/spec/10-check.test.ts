@@ -320,7 +320,7 @@ describe("errors in unchanged files", () => {
       commitAll(r, "forge");
       put(r, "app/new.py", "X = 1\n");
       const ok = sh("sh", [".forge/check.sh", "--changed"], { cwd: r });
-      expect(ok.stdout).toContain("forge:local/lint-all ok for the changed files");
+      expect(ok.stdout).toContain("forge:local/lint-all ok for the added lines");
       expect(ok.stdout).not.toContain("forge:local/lint-all failed");
       put(r, "app/new.py", "import sys\n");
       const bad = sh("sh", [".forge/check.sh", "--changed"], { cwd: r });
@@ -331,6 +331,138 @@ describe("errors in unchanged files", () => {
   );
 });
 
+
+/**
+ * Outside `--all`, a forbid rule or a lint finding counts only on a line the
+ * change added (`git diff -U0` against the base; an edited line counts, moved code
+ * counts, a new file counts fully): code that was already there is not this
+ * change's. `--since <ref>` measures the change from `git merge-base <ref> HEAD`.
+ */
+describe("added lines", () => {
+  const QUERY = "def f(session):\n    return session.query(1)\n";
+  /** The fastapi sample, applied, with app/legacy.py (a forbidden match) committed. */
+  function legacyRepo(): string {
+    const r = applied("fastapi-app");
+    put(r, "app/legacy.py", QUERY);
+    git(r, "add", "-A");
+    git(r, "commit", "-qm", "legacy", "--no-verify"); // the forge pre-commit hook would refuse it
+    return r;
+  }
+  const run = (r: string, ...args: string[]) => sh("sh", [".forge/check.sh", ...args], { cwd: r });
+
+  /** @rule python/sqlalchemy/no-query-api */
+  test(
+    "--changed: a match on a line that was already at HEAD does not fail; one on an added line does, and only that one is reported",
+    () => {
+      const r = legacyRepo();
+      put(r, "app/legacy.py", QUERY + "\n\nX = 1\n");
+      expect(run(r, "--changed").status).toBe(0);
+      put(r, "app/legacy.py", QUERY + "\n\ndef g(session):\n    return session.query(2)\n");
+      const out = run(r, "--changed");
+      expect(out.status).toBe(1);
+      expect(out.stdout).toContain("forge:python/sqlalchemy/no-query-api app/legacy.py:6:12");
+      expect(out.stdout).not.toContain("app/legacy.py:2:12");
+    },
+    T,
+  );
+
+  /** @rule python/sqlalchemy/no-query-api */
+  test(
+    "a match spanning an edited line counts, and so does code moved to another place",
+    () => {
+      const r = applied("fastapi-app");
+      put(r, "app/span.py", "def f(session):\n    return session.query(\n        1,\n    )\n\n\nX = 1\n");
+      git(r, "add", "-A");
+      git(r, "commit", "-qm", "span", "--no-verify");
+      put(r, "app/span.py", "def f(session):\n    return session.query(\n        2,\n    )\n\n\nX = 1\n");
+      expect(run(r, "--changed").stdout).toContain("forge:python/sqlalchemy/no-query-api app/span.py:2:12");
+      git(r, "checkout", "-q", "--", "app/span.py");
+      put(r, "app/span.py", "X = 1\n");
+      put(r, "app/moved.py", "def f(session):\n    return session.query(\n        1,\n    )\n");
+      expect(run(r, "--changed").stdout).toContain("forge:python/sqlalchemy/no-query-api app/moved.py:2:12");
+    },
+    T,
+  );
+
+  /** @rule python/sqlalchemy/no-query-api */
+  test(
+    "--all still reports every match in the project",
+    () => {
+      const r = legacyRepo();
+      expect(run(r, "--all").stdout).toContain("forge:python/sqlalchemy/no-query-api app/legacy.py:2:12");
+    },
+    T,
+  );
+
+  /** @rule python/sqlalchemy/no-query-api */
+  test(
+    "--since <ref>: what a branch added since its merge base with <ref> fails, committed or not; the base's own code does not",
+    () => {
+      const r = legacyRepo();
+      git(r, "checkout", "-q", "-b", "feature");
+      put(r, "app/feature.py", "def g(session):\n    return session.query(2)\n");
+      git(r, "add", "-A");
+      git(r, "commit", "-qm", "feature", "--no-verify");
+      const out = run(r, "--since", "main");
+      expect(out.status).toBe(1);
+      expect(out.stdout).toContain("forge:python/sqlalchemy/no-query-api app/feature.py:2:12");
+      expect(out.stdout).not.toContain("app/legacy.py");
+      // --changed sees nothing: the work is committed
+      expect(run(r, "--changed").status).toBe(0);
+    },
+    T,
+  );
+
+  test(
+    "--since a ref that has no merge base with HEAD fails with what to fetch",
+    () => {
+      const r = legacyRepo();
+      const out = run(r, "--since", "origin/main");
+      expect(out.status).toBe(1);
+      expect(out.stdout).toContain("forge:forge/since no merge base for origin/main and HEAD");
+    },
+    T,
+  );
+
+  test(
+    "--since: a migration that exists at the merge base and was modified on the branch fails",
+    () => {
+      const r = legacyRepo();
+      git(r, "checkout", "-q", "-b", "feature");
+      put(r, "alembic/versions/0001_users.py", '"""users"""\n\nrevision = "0001"\ndown_revision = "x"\n');
+      git(r, "add", "-A");
+      git(r, "commit", "-qm", "edit", "--no-verify");
+      expect(run(r, "--since", "main").stdout).toContain(
+        "forge:forge/applied-migration alembic/versions/0001_users.py exists at the merge base with main and was modified or deleted",
+      );
+    },
+    T,
+  );
+
+  /** @rule python/lint */
+  test.if(hasUv)(
+    "a lint finding on a line that was already there does not fail; one on an added line does",
+    () => {
+      ensureTools();
+      const r = sampleRepo("fastapi-app");
+      linkTools(r, "python");
+      put(r, "app/legacy.py", "import os\n");
+      commitAll(r, "legacy");
+      expect(forge(["apply", "--yes"], r).status).toBe(0);
+      commitAll(r, "forge");
+      put(r, "app/legacy.py", "import os\n\nX = 1\n");
+      const ok = run(r, "--changed");
+      expect(ok.stdout).toContain("forge:python/lint ok for the added lines");
+      expect(ok.stdout).not.toContain("forge:python/lint failed");
+      put(r, "app/legacy.py", "import os\nimport sys\n\nX = 1\n");
+      const bad = run(r, "--changed");
+      expect(bad.status).toBe(1);
+      expect(bad.stdout).toContain("forge:python/lint failed\napp/legacy.py:2:8: F401");
+      expect(bad.stdout).not.toContain("app/legacy.py:1:8");
+    },
+    T,
+  );
+});
 
 describe("checks that need no tool", () => {
   /** An applied Next.js repository, committed; the given files are then written and committed too. */
