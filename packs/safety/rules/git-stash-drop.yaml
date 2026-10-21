@@ -1,0 +1,10 @@
+id: safety/git-stash-drop
+description: Dropping a stash needs confirmation; it deletes work that no branch references.
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: ask
+    pattern: '(^|[^A-Za-z0-9_-])git[[:space:]]+stash[[:space:]]+drop([[:space:];&|)]|$)'
+examples:
+  match: ["git stash drop", "git stash drop stash@{2}"]
+  no_match: ["git stash list", "git stash pop"]

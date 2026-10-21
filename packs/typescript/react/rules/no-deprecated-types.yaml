@@ -1,0 +1,11 @@
+id: typescript/react/no-deprecated-types
+description: No imports React's types mark @deprecated (ElementRef, MutableRefObject, LegacyRef, ...). Use the replacement the deprecation names. Biome reads the tags from node_modules, and only from real directories (not pnpm's symlinks).
+scope: {language: tsx}
+enforce:
+  - target: tool
+    tool: biome
+    expects: lint/suspicious/noDeprecatedImports
+    snippet: '"linter": {"rules": {"suspicious": {"noDeprecatedImports": "error"}}}'
+examples:
+  match: ["import type { ElementRef, MutableRefObject } from \"react\";\n\nexport type Box = ElementRef<\"div\">;\nexport type Count = MutableRefObject<number>;\n", "import type { LegacyRef } from \"react\";\n\nexport type R = LegacyRef<HTMLDivElement>;\n"]
+  no_match: ["import type { ComponentRef, RefObject } from \"react\";\n\nexport type Box = ComponentRef<\"div\">;\nexport type Count = RefObject<number>;\n", "import { useActionState } from \"react\";\n\nexport const hook = useActionState;\n"]

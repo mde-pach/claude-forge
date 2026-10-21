@@ -451,6 +451,86 @@ forge_local_db() {
   return 1
 }
 
+# Migration linting with Squawk: only the changes that break the running version of
+# the application during a deploy fail (renames, type changes, new required columns,
+# DROP DATABASE); Squawk's other advice is not enforced.
+FORGE_SQUAWK_VERSION="2.70.0"
+FORGE_SQUAWK_BLOCKING='renaming-column|renaming-table|changing-column-type|adding-required-field|adding-not-nullable-field|ban-drop-database'
+
+# forge_squawk <args>: the pinned Squawk through bunx or uvx; gcc-style output in
+# $FORGE_TMP/squawk. Exit status 0 when Squawk ran (with or without findings).
+forge_squawk() {
+  if command -v bunx >/dev/null 2>&1; then
+    bunx -p "squawk-cli@$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
+  elif command -v uvx >/dev/null 2>&1; then
+    uvx -q --from "squawk-cli==$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
+  else
+    printf 'bunx or uvx is needed\n' > "$FORGE_TMP/squawk"
+    return 2
+  fi
+  _sq_rc=$?
+  # Squawk exits 1 whenever it warns, which is almost always
+  [ "$_sq_rc" -eq 0 ] || grep -qE ':[0-9]+:[0-9]+: (warning|error): ' "$FORGE_TMP/squawk"
+}
+
+# forge_squawk_blocking: prints the blocking findings of the last forge_squawk run
+# (Squawk counts lines and columns from 0; printed from 1); fails if any.
+forge_squawk_blocking() {
+  grep -E ": (warning|error): ($FORGE_SQUAWK_BLOCKING) " "$FORGE_TMP/squawk" \
+    | sed -E 's/^(.*):([0-9]+):([0-9]+): /\1 \2 \3 /' \
+    | awk '{ f = $1; l = $2 + 1; c = $3 + 1; $1 = $2 = $3 = ""; sub(/^ +/, ""); print f ":" l ":" c ": " $0 }' > "$FORGE_TMP/squawk.found"
+  cat "$FORGE_TMP/squawk.found"
+  [ ! -s "$FORGE_TMP/squawk.found" ]
+}
+
+# forge_squawk_skipped: reports, as a forge: line of the current check, that Squawk could not run.
+forge_squawk_skipped() {
+  printf 'forge:%s skipped: squawk could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/squawk" | tail -n 1)"
+}
+
+# forge_squawk_files <sql files>: lints migration SQL files.
+forge_squawk_files() {
+  [ "$#" -gt 0 ] || return 0
+  forge_squawk "$@" || { forge_squawk_skipped; return 0; }
+  forge_squawk_blocking
+}
+
+# forge_alembic_files: Alembic revision ids on stdin (as printed by `alembic heads`)
+# -> the revision files under alembic/versions that define them.
+forge_alembic_files() {
+  awk '{ print $1 }' | while read -r _fa_id; do
+    [ -n "$_fa_id" ] && find alembic/versions -name '*.py' -exec grep -lE "^revision[^=]*=[[:space:]]*['\"]$_fa_id['\"]" {} + 2>/dev/null
+  done
+}
+
+# forge_squawk_alembic <revision files>: lints the SQL each revision's upgrade emits
+# (`alembic upgrade <down_revision>:<revision> --sql`, offline: no database needed).
+# Merge revisions are skipped; when Alembic cannot render SQL, the revision is reported skipped.
+forge_squawk_alembic() {
+  _fs_rc=0
+  for _fs_f in "$@"; do
+    _fs_rev=$(sed -n "s/^revision[^=]*=[[:space:]]*['\"]\([^'\"]*\)['\"].*/\1/p" "$_fs_f" | head -n 1)
+    _fs_down=$(sed -n 's/^down_revision[^=]*=[[:space:]]*//p' "$_fs_f" | head -n 1)
+    [ -n "$_fs_rev" ] || continue
+    case $_fs_down in
+      \(*|\[*) continue ;;
+      None*|'') _fs_range=$_fs_rev ;;
+      *) _fs_range="$(printf '%s' "$_fs_down" | sed "s/^['\"]\([^'\"]*\)['\"].*/\1/"):$_fs_rev" ;;
+    esac
+    if ! alembic upgrade "$_fs_range" --sql > "$FORGE_TMP/alembic.sql" 2> "$FORGE_TMP/alembic.err"; then
+      printf 'forge:%s skipped: alembic upgrade %s --sql failed for %s (%s)\n' "$c_id" "$_fs_range" "$_fs_f" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/alembic.err" | tail -n 1)"
+      continue
+    fi
+    if ! forge_squawk --stdin-filepath "$_fs_f" < "$FORGE_TMP/alembic.sql"; then forge_squawk_skipped; return 0; fi
+    if ! forge_squawk_blocking > "$FORGE_TMP/squawk.block"; then
+      printf 'SQL of alembic upgrade %s --sql (line numbers are in that SQL):\n' "$_fs_range"
+      cat "$FORGE_TMP/squawk.block"
+      _fs_rc=1
+    fi
+  done
+  return "$_fs_rc"
+}
+
 # forge_related_py_tests <files>: changed test files plus tests/**/test_<module>.py
 # for each changed module, one per line.
 forge_related_py_tests() {
@@ -820,6 +900,86 @@ forge_local_db() {
   esac
   case $_fl_host in ''|localhost|127.0.0.1|::1|%2[Ff]*) return 0 ;; esac
   return 1
+}
+
+# Migration linting with Squawk: only the changes that break the running version of
+# the application during a deploy fail (renames, type changes, new required columns,
+# DROP DATABASE); Squawk's other advice is not enforced.
+FORGE_SQUAWK_VERSION="2.70.0"
+FORGE_SQUAWK_BLOCKING='renaming-column|renaming-table|changing-column-type|adding-required-field|adding-not-nullable-field|ban-drop-database'
+
+# forge_squawk <args>: the pinned Squawk through bunx or uvx; gcc-style output in
+# $FORGE_TMP/squawk. Exit status 0 when Squawk ran (with or without findings).
+forge_squawk() {
+  if command -v bunx >/dev/null 2>&1; then
+    bunx -p "squawk-cli@$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
+  elif command -v uvx >/dev/null 2>&1; then
+    uvx -q --from "squawk-cli==$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
+  else
+    printf 'bunx or uvx is needed\n' > "$FORGE_TMP/squawk"
+    return 2
+  fi
+  _sq_rc=$?
+  # Squawk exits 1 whenever it warns, which is almost always
+  [ "$_sq_rc" -eq 0 ] || grep -qE ':[0-9]+:[0-9]+: (warning|error): ' "$FORGE_TMP/squawk"
+}
+
+# forge_squawk_blocking: prints the blocking findings of the last forge_squawk run
+# (Squawk counts lines and columns from 0; printed from 1); fails if any.
+forge_squawk_blocking() {
+  grep -E ": (warning|error): ($FORGE_SQUAWK_BLOCKING) " "$FORGE_TMP/squawk" \
+    | sed -E 's/^(.*):([0-9]+):([0-9]+): /\1 \2 \3 /' \
+    | awk '{ f = $1; l = $2 + 1; c = $3 + 1; $1 = $2 = $3 = ""; sub(/^ +/, ""); print f ":" l ":" c ": " $0 }' > "$FORGE_TMP/squawk.found"
+  cat "$FORGE_TMP/squawk.found"
+  [ ! -s "$FORGE_TMP/squawk.found" ]
+}
+
+# forge_squawk_skipped: reports, as a forge: line of the current check, that Squawk could not run.
+forge_squawk_skipped() {
+  printf 'forge:%s skipped: squawk could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/squawk" | tail -n 1)"
+}
+
+# forge_squawk_files <sql files>: lints migration SQL files.
+forge_squawk_files() {
+  [ "$#" -gt 0 ] || return 0
+  forge_squawk "$@" || { forge_squawk_skipped; return 0; }
+  forge_squawk_blocking
+}
+
+# forge_alembic_files: Alembic revision ids on stdin (as printed by `alembic heads`)
+# -> the revision files under alembic/versions that define them.
+forge_alembic_files() {
+  awk '{ print $1 }' | while read -r _fa_id; do
+    [ -n "$_fa_id" ] && find alembic/versions -name '*.py' -exec grep -lE "^revision[^=]*=[[:space:]]*['\"]$_fa_id['\"]" {} + 2>/dev/null
+  done
+}
+
+# forge_squawk_alembic <revision files>: lints the SQL each revision's upgrade emits
+# (`alembic upgrade <down_revision>:<revision> --sql`, offline: no database needed).
+# Merge revisions are skipped; when Alembic cannot render SQL, the revision is reported skipped.
+forge_squawk_alembic() {
+  _fs_rc=0
+  for _fs_f in "$@"; do
+    _fs_rev=$(sed -n "s/^revision[^=]*=[[:space:]]*['\"]\([^'\"]*\)['\"].*/\1/p" "$_fs_f" | head -n 1)
+    _fs_down=$(sed -n 's/^down_revision[^=]*=[[:space:]]*//p' "$_fs_f" | head -n 1)
+    [ -n "$_fs_rev" ] || continue
+    case $_fs_down in
+      \(*|\[*) continue ;;
+      None*|'') _fs_range=$_fs_rev ;;
+      *) _fs_range="$(printf '%s' "$_fs_down" | sed "s/^['\"]\([^'\"]*\)['\"].*/\1/"):$_fs_rev" ;;
+    esac
+    if ! alembic upgrade "$_fs_range" --sql > "$FORGE_TMP/alembic.sql" 2> "$FORGE_TMP/alembic.err"; then
+      printf 'forge:%s skipped: alembic upgrade %s --sql failed for %s (%s)\n' "$c_id" "$_fs_range" "$_fs_f" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/alembic.err" | tail -n 1)"
+      continue
+    fi
+    if ! forge_squawk --stdin-filepath "$_fs_f" < "$FORGE_TMP/alembic.sql"; then forge_squawk_skipped; return 0; fi
+    if ! forge_squawk_blocking > "$FORGE_TMP/squawk.block"; then
+      printf 'SQL of alembic upgrade %s --sql (line numbers are in that SQL):\n' "$_fs_range"
+      cat "$FORGE_TMP/squawk.block"
+      _fs_rc=1
+    fi
+  done
+  return "$_fs_rc"
 }
 
 # forge_related_py_tests <files>: changed test files plus tests/**/test_<module>.py
@@ -1269,6 +1429,86 @@ forge_local_db() {
   esac
   case $_fl_host in ''|localhost|127.0.0.1|::1|%2[Ff]*) return 0 ;; esac
   return 1
+}
+
+# Migration linting with Squawk: only the changes that break the running version of
+# the application during a deploy fail (renames, type changes, new required columns,
+# DROP DATABASE); Squawk's other advice is not enforced.
+FORGE_SQUAWK_VERSION="2.70.0"
+FORGE_SQUAWK_BLOCKING='renaming-column|renaming-table|changing-column-type|adding-required-field|adding-not-nullable-field|ban-drop-database'
+
+# forge_squawk <args>: the pinned Squawk through bunx or uvx; gcc-style output in
+# $FORGE_TMP/squawk. Exit status 0 when Squawk ran (with or without findings).
+forge_squawk() {
+  if command -v bunx >/dev/null 2>&1; then
+    bunx -p "squawk-cli@$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
+  elif command -v uvx >/dev/null 2>&1; then
+    uvx -q --from "squawk-cli==$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
+  else
+    printf 'bunx or uvx is needed\n' > "$FORGE_TMP/squawk"
+    return 2
+  fi
+  _sq_rc=$?
+  # Squawk exits 1 whenever it warns, which is almost always
+  [ "$_sq_rc" -eq 0 ] || grep -qE ':[0-9]+:[0-9]+: (warning|error): ' "$FORGE_TMP/squawk"
+}
+
+# forge_squawk_blocking: prints the blocking findings of the last forge_squawk run
+# (Squawk counts lines and columns from 0; printed from 1); fails if any.
+forge_squawk_blocking() {
+  grep -E ": (warning|error): ($FORGE_SQUAWK_BLOCKING) " "$FORGE_TMP/squawk" \
+    | sed -E 's/^(.*):([0-9]+):([0-9]+): /\1 \2 \3 /' \
+    | awk '{ f = $1; l = $2 + 1; c = $3 + 1; $1 = $2 = $3 = ""; sub(/^ +/, ""); print f ":" l ":" c ": " $0 }' > "$FORGE_TMP/squawk.found"
+  cat "$FORGE_TMP/squawk.found"
+  [ ! -s "$FORGE_TMP/squawk.found" ]
+}
+
+# forge_squawk_skipped: reports, as a forge: line of the current check, that Squawk could not run.
+forge_squawk_skipped() {
+  printf 'forge:%s skipped: squawk could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/squawk" | tail -n 1)"
+}
+
+# forge_squawk_files <sql files>: lints migration SQL files.
+forge_squawk_files() {
+  [ "$#" -gt 0 ] || return 0
+  forge_squawk "$@" || { forge_squawk_skipped; return 0; }
+  forge_squawk_blocking
+}
+
+# forge_alembic_files: Alembic revision ids on stdin (as printed by `alembic heads`)
+# -> the revision files under alembic/versions that define them.
+forge_alembic_files() {
+  awk '{ print $1 }' | while read -r _fa_id; do
+    [ -n "$_fa_id" ] && find alembic/versions -name '*.py' -exec grep -lE "^revision[^=]*=[[:space:]]*['\"]$_fa_id['\"]" {} + 2>/dev/null
+  done
+}
+
+# forge_squawk_alembic <revision files>: lints the SQL each revision's upgrade emits
+# (`alembic upgrade <down_revision>:<revision> --sql`, offline: no database needed).
+# Merge revisions are skipped; when Alembic cannot render SQL, the revision is reported skipped.
+forge_squawk_alembic() {
+  _fs_rc=0
+  for _fs_f in "$@"; do
+    _fs_rev=$(sed -n "s/^revision[^=]*=[[:space:]]*['\"]\([^'\"]*\)['\"].*/\1/p" "$_fs_f" | head -n 1)
+    _fs_down=$(sed -n 's/^down_revision[^=]*=[[:space:]]*//p' "$_fs_f" | head -n 1)
+    [ -n "$_fs_rev" ] || continue
+    case $_fs_down in
+      \(*|\[*) continue ;;
+      None*|'') _fs_range=$_fs_rev ;;
+      *) _fs_range="$(printf '%s' "$_fs_down" | sed "s/^['\"]\([^'\"]*\)['\"].*/\1/"):$_fs_rev" ;;
+    esac
+    if ! alembic upgrade "$_fs_range" --sql > "$FORGE_TMP/alembic.sql" 2> "$FORGE_TMP/alembic.err"; then
+      printf 'forge:%s skipped: alembic upgrade %s --sql failed for %s (%s)\n' "$c_id" "$_fs_range" "$_fs_f" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/alembic.err" | tail -n 1)"
+      continue
+    fi
+    if ! forge_squawk --stdin-filepath "$_fs_f" < "$FORGE_TMP/alembic.sql"; then forge_squawk_skipped; return 0; fi
+    if ! forge_squawk_blocking > "$FORGE_TMP/squawk.block"; then
+      printf 'SQL of alembic upgrade %s --sql (line numbers are in that SQL):\n' "$_fs_range"
+      cat "$FORGE_TMP/squawk.block"
+      _fs_rc=1
+    fi
+  done
+  return "$_fs_rc"
 }
 
 # forge_related_py_tests <files>: changed test files plus tests/**/test_<module>.py
@@ -1921,6 +2161,86 @@ forge_local_db() {
   return 1
 }
 
+# Migration linting with Squawk: only the changes that break the running version of
+# the application during a deploy fail (renames, type changes, new required columns,
+# DROP DATABASE); Squawk's other advice is not enforced.
+FORGE_SQUAWK_VERSION="2.70.0"
+FORGE_SQUAWK_BLOCKING='renaming-column|renaming-table|changing-column-type|adding-required-field|adding-not-nullable-field|ban-drop-database'
+
+# forge_squawk <args>: the pinned Squawk through bunx or uvx; gcc-style output in
+# $FORGE_TMP/squawk. Exit status 0 when Squawk ran (with or without findings).
+forge_squawk() {
+  if command -v bunx >/dev/null 2>&1; then
+    bunx -p "squawk-cli@$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
+  elif command -v uvx >/dev/null 2>&1; then
+    uvx -q --from "squawk-cli==$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
+  else
+    printf 'bunx or uvx is needed\n' > "$FORGE_TMP/squawk"
+    return 2
+  fi
+  _sq_rc=$?
+  # Squawk exits 1 whenever it warns, which is almost always
+  [ "$_sq_rc" -eq 0 ] || grep -qE ':[0-9]+:[0-9]+: (warning|error): ' "$FORGE_TMP/squawk"
+}
+
+# forge_squawk_blocking: prints the blocking findings of the last forge_squawk run
+# (Squawk counts lines and columns from 0; printed from 1); fails if any.
+forge_squawk_blocking() {
+  grep -E ": (warning|error): ($FORGE_SQUAWK_BLOCKING) " "$FORGE_TMP/squawk" \
+    | sed -E 's/^(.*):([0-9]+):([0-9]+): /\1 \2 \3 /' \
+    | awk '{ f = $1; l = $2 + 1; c = $3 + 1; $1 = $2 = $3 = ""; sub(/^ +/, ""); print f ":" l ":" c ": " $0 }' > "$FORGE_TMP/squawk.found"
+  cat "$FORGE_TMP/squawk.found"
+  [ ! -s "$FORGE_TMP/squawk.found" ]
+}
+
+# forge_squawk_skipped: reports, as a forge: line of the current check, that Squawk could not run.
+forge_squawk_skipped() {
+  printf 'forge:%s skipped: squawk could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/squawk" | tail -n 1)"
+}
+
+# forge_squawk_files <sql files>: lints migration SQL files.
+forge_squawk_files() {
+  [ "$#" -gt 0 ] || return 0
+  forge_squawk "$@" || { forge_squawk_skipped; return 0; }
+  forge_squawk_blocking
+}
+
+# forge_alembic_files: Alembic revision ids on stdin (as printed by `alembic heads`)
+# -> the revision files under alembic/versions that define them.
+forge_alembic_files() {
+  awk '{ print $1 }' | while read -r _fa_id; do
+    [ -n "$_fa_id" ] && find alembic/versions -name '*.py' -exec grep -lE "^revision[^=]*=[[:space:]]*['\"]$_fa_id['\"]" {} + 2>/dev/null
+  done
+}
+
+# forge_squawk_alembic <revision files>: lints the SQL each revision's upgrade emits
+# (`alembic upgrade <down_revision>:<revision> --sql`, offline: no database needed).
+# Merge revisions are skipped; when Alembic cannot render SQL, the revision is reported skipped.
+forge_squawk_alembic() {
+  _fs_rc=0
+  for _fs_f in "$@"; do
+    _fs_rev=$(sed -n "s/^revision[^=]*=[[:space:]]*['\"]\([^'\"]*\)['\"].*/\1/p" "$_fs_f" | head -n 1)
+    _fs_down=$(sed -n 's/^down_revision[^=]*=[[:space:]]*//p' "$_fs_f" | head -n 1)
+    [ -n "$_fs_rev" ] || continue
+    case $_fs_down in
+      \(*|\[*) continue ;;
+      None*|'') _fs_range=$_fs_rev ;;
+      *) _fs_range="$(printf '%s' "$_fs_down" | sed "s/^['\"]\([^'\"]*\)['\"].*/\1/"):$_fs_rev" ;;
+    esac
+    if ! alembic upgrade "$_fs_range" --sql > "$FORGE_TMP/alembic.sql" 2> "$FORGE_TMP/alembic.err"; then
+      printf 'forge:%s skipped: alembic upgrade %s --sql failed for %s (%s)\n' "$c_id" "$_fs_range" "$_fs_f" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/alembic.err" | tail -n 1)"
+      continue
+    fi
+    if ! forge_squawk --stdin-filepath "$_fs_f" < "$FORGE_TMP/alembic.sql"; then forge_squawk_skipped; return 0; fi
+    if ! forge_squawk_blocking > "$FORGE_TMP/squawk.block"; then
+      printf 'SQL of alembic upgrade %s --sql (line numbers are in that SQL):\n' "$_fs_range"
+      cat "$FORGE_TMP/squawk.block"
+      _fs_rc=1
+    fi
+  done
+  return "$_fs_rc"
+}
+
 # forge_related_py_tests <files>: changed test files plus tests/**/test_<module>.py
 # for each changed module, one per line.
 forge_related_py_tests() {
@@ -2262,6 +2582,7 @@ exit "$fail"
     "typescript/bun/no-other-pm": "fcdd00d782b97240fbb0c968b667110542cc5ca7fd48ee4bd5b9e7895e51ec05",
     "typescript/format-lint": "3ba34f971648d4d09312b789d6805241cd47bb620138b59a360121798f483eef",
     "typescript/no-double-assertion": "2c5b17cd8daa6bd598b4aa79b30259626c86e6a3afd00630a3a4a2918316ce80",
+    "typescript/no-eval": "695bc504e485395796c1500ec90804609a4f5e8c9a5867062271b9caa5f58143",
     "typescript/no-explicit-any": "66e8f9968e8c88a77229e6c092e4489cffced1186a72fa257017fa6a2e612d28",
     "typescript/no-focused-tests": "0c7614dd6db46bbe6d9a19b58cf8130638128e786cd1dc912e58203ecc72a87b",
     "typescript/no-ignore-deprecations": "5466ea84ffead364a621c26f7d28e4e63855d706ba39f24b83f3d71770d05785",
@@ -2270,13 +2591,15 @@ exit "$fail"
     "typescript/no-ts-ignore": "afe518e61003a905fe90ca0548a0c472bc26a897d64cb5509ee1b3534297beee",
     "typescript/no-ts-nocheck": "25caeef679e03c9b88f75f961ce1b5d13c0f28538112f9642c513658a10f4213",
     "typescript/react/no-dangerous-html": "8003159a1f2e7bfff7e2969b76516240e61ea57c583f97ae5df1f47360895854",
+    "typescript/react/no-deprecated-types": "b582f769c408d52526d146d6be00a955a33714945954f053711390edfe30cbf5",
     "typescript/react/no-forward-ref": "36a40a23adb17d7651f8f7ed849fe1341540551ab7c0940943555aca6cff8e07",
     "typescript/react/no-prop-types": "76b76db62c10d08486cd50217e27d8108355b161ef558d8b764106023764acb1",
     "typescript/react/use-action-state": "4fb479e74dbdfadf6a395d761fe269009bc694454e9c0bc845f8df8c0aa68c81",
     "typescript/strict-function-types": "7c8945ced7b73b7738f9a5bf3eb864c5cdb35c1eb55b7c3ad606b1db3b6a8263",
     "typescript/strict-null-checks": "1249d522c4e1a26bf6d951e14a7e9b3033d1be96ebf68d9cc93b0e8df9940df6",
     "typescript/ts-expect-error-reason": "2d40d771a013778c75bc79c0e3965b3ecc94aea938e6db87ba92d2bee63ddf90",
-    "typescript/typecheck": "bf760f73fb1dcb55afb15a82283fe65869554d3cf0cbb13d870b1ae0d77133c9"
+    "typescript/typecheck": "bf760f73fb1dcb55afb15a82283fe65869554d3cf0cbb13d870b1ae0d77133c9",
+    "typescript/unchecked-index": "c8a32a9a463d933695100cbee6ec896fc7bb41bad7d252871fd371ae78801755"
   },
   "files": {
     ".claude/rules/forge-typescript-astro-react.md": "9b8db26a069ae83cb68b64a9f6f379fef44ea224487857717c0d15a55bd531df",
@@ -2288,11 +2611,11 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "18bdde8fa587f680b66978b6c1b0c1185df421abd9ef9564713d406ff5e4590f",
     ".claude/skills/forge-project/scripts/guard.sh": "c8aace4b9c7c0f76d522ecef054c6dc920bd42702712c877825f0e5cd046827c",
     ".claude/skills/forge-project/scripts/lib.sh": "b7df79c393c7d23323aa64c3230e1e322243db8df02860c852fc8f6a2221d090",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "ee6c3481c61b61922485b32091f81ffac99c7763f7808a90e8dde99814b8c43d",
-    ".claude/skills/forge-project/scripts/session-start.sh": "b3625df8e3857f7789e04118ca9663707d9bd2b2676c35eae7c0cbf9ce83c7c6",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "dd2e5d8ae998fba458ab75649e7d6c0d783efbaaa3ef9dcc39704f1b20fc2df6",
+    ".claude/skills/forge-project/scripts/session-start.sh": "facada4c2dd77f6f99365d022dde39ce1c7a9cc648ef51445e56e2e1c5e9e344",
     ".claude/skills/forge-project/scripts/stop.sh": "f5bb2d3d6b3c28b1138b8aecaabdd9225ab4bbc85fde5312da823a7144791da9",
     ".claude/skills/forge-project/scripts/turn-start.sh": "fb148547199c9426d53da2cbd7d01d701315965689b770b813e1f032aaf737c4",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "ed86ef9bec693be91c44f06088d2e3f26df5cf62d615acdcd7db862316ee3816",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "85a0117f74d3c7a78210dd4aa68b76c0961cf8667839a6424d5baad2a653cfb7",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml": "c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20",
     ".forge/ast-grep/rule-tests/typescript-no-ts-nocheck-test.yml": "c15f604d5317f942de32470aeaff16702116a64d283347c9a9825056b4dbe69e",
@@ -2305,7 +2628,7 @@ exit "$fail"
     ".forge/ast-grep/rules/typescript/react/use-action-state.yml": "17b6fc5e510df3154be12c72a584d8bfb31034b577774718a8c50516b2b15a81",
     ".forge/ast-grep/rules/typescript/ts-expect-error-reason.yml": "b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "e7ec61865d38b981515dc27bd5931ffbbb5b500c496deb6c1995deb1eea51e7a",
+    ".forge/check.sh": "7586d40d6a52a5a8fb1d5f1f08af2c8d6fa45d6a638c616e322278b761ca2a0b",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -2342,11 +2665,11 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 18bdde8fa587f680b66978b6c1b0c1185df421abd9ef9564713d406ff5e4590f  .claude/skills/forge-project/scripts/guard.rules
 c8aace4b9c7c0f76d522ecef054c6dc920bd42702712c877825f0e5cd046827c  .claude/skills/forge-project/scripts/guard.sh
 b7df79c393c7d23323aa64c3230e1e322243db8df02860c852fc8f6a2221d090  .claude/skills/forge-project/scripts/lib.sh
-ee6c3481c61b61922485b32091f81ffac99c7763f7808a90e8dde99814b8c43d  .claude/skills/forge-project/scripts/post-edit.sh
-b3625df8e3857f7789e04118ca9663707d9bd2b2676c35eae7c0cbf9ce83c7c6  .claude/skills/forge-project/scripts/session-start.sh
+dd2e5d8ae998fba458ab75649e7d6c0d783efbaaa3ef9dcc39704f1b20fc2df6  .claude/skills/forge-project/scripts/post-edit.sh
+facada4c2dd77f6f99365d022dde39ce1c7a9cc648ef51445e56e2e1c5e9e344  .claude/skills/forge-project/scripts/session-start.sh
 f5bb2d3d6b3c28b1138b8aecaabdd9225ab4bbc85fde5312da823a7144791da9  .claude/skills/forge-project/scripts/stop.sh
 fb148547199c9426d53da2cbd7d01d701315965689b770b813e1f032aaf737c4  .claude/skills/forge-project/scripts/turn-start.sh
-ed86ef9bec693be91c44f06088d2e3f26df5cf62d615acdcd7db862316ee3816  .claude/skills/forge-project/scripts/typecheck.sh
+85a0117f74d3c7a78210dd4aa68b76c0961cf8667839a6424d5baad2a653cfb7  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20  .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
 c15f604d5317f942de32470aeaff16702116a64d283347c9a9825056b4dbe69e  .forge/ast-grep/rule-tests/typescript-no-ts-nocheck-test.yml
@@ -2359,7 +2682,7 @@ aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21  .forge/ast-gre
 17b6fc5e510df3154be12c72a584d8bfb31034b577774718a8c50516b2b15a81  .forge/ast-grep/rules/typescript/react/use-action-state.yml
 b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad  .forge/ast-grep/rules/typescript/ts-expect-error-reason.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-e7ec61865d38b981515dc27bd5931ffbbb5b500c496deb6c1995deb1eea51e7a  .forge/check.sh
+7586d40d6a52a5a8fb1d5f1f08af2c8d6fa45d6a638c616e322278b761ca2a0b  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

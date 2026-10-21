@@ -1,0 +1,11 @@
+id: python/no-stale-ignore
+description: No ignore comment that silences nothing; remove it once the code it covered is fixed.
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: basedpyright
+    expects: reportUnnecessaryTypeIgnoreComment
+    snippet: '[tool.basedpyright] reportUnnecessaryTypeIgnoreComment = "error"'
+examples:
+  match: ["x: int = 1  # pyright: ignore[reportAssignmentType]\n", "def f(n: int) -> int:\n    return n  # pyright: ignore[reportReturnType]\n"]
+  no_match: ["x: int = \"a\"  # pyright: ignore[reportAssignmentType]\n", "x: int = 1\n"]

@@ -1,0 +1,10 @@
+id: safety/git-branch-force-delete
+description: Force-deleting a branch needs confirmation; unmerged commits on it are lost.
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: ask
+    pattern: '(^|[^A-Za-z0-9_-])git[[:space:]]+branch[[:space:]][^|;&]*(-D|--delete[[:space:]][^|;&]*(-f|--force)|(-f|--force)[[:space:]][^|;&]*(-d|--delete))([[:space:];&|)]|$)'
+examples:
+  match: ["git branch -D feat/x", "git branch --delete --force feat/x", "git branch -f -d old"]
+  no_match: ["git branch -d feat/x", "git branch --list", "git branch -f main HEAD~1"]

@@ -1,0 +1,11 @@
+id: python/aware-datetime
+description: datetime.now() takes a time zone (datetime.now(UTC)); naive datetimes shift silently against timestamptz columns.
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: DTZ005
+    snippet: '[tool.ruff.lint] extend-select = ["DTZ005"]'
+examples:
+  match: ["from datetime import datetime\n\nnow = datetime.now()\n", "import datetime as dt\n\nnow = dt.datetime.now(None)\n"]
+  no_match: ["from datetime import UTC, datetime\n\nnow = datetime.now(UTC)\n", "from datetime import UTC, datetime\n\nnow = datetime.now(tz=UTC)\n"]

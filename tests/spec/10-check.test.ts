@@ -9,9 +9,10 @@
  * files.
  */
 import { beforeAll, describe, expect, test } from "bun:test";
-import { chmodSync, existsSync, mkdirSync, readFileSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { applied, commitAll, ensureTools, forge, git, hasBun, hasUv, linkTools, put, sampleRepo, sh } from "../helpers";
+import { applied, commitAll, ensureTools, forge, git, hasBun, hasUv, linkTools, put, sampleRepo, sh, TOOLS_CACHE } from "../helpers";
 
 const T = 180_000;
 const hasRuff = sh("sh", ["-c", "command -v ruff"]).status === 0;
@@ -374,4 +375,166 @@ describe("checks that need no tool", () => {
     expect(r.stdout).toContain("forge:typescript/prisma/client-generator failed");
     expect(r.stdout).toContain('prisma/legacy.prisma:2:  provider = "prisma-client-js"');
   }, T);
+});
+
+describe("migration linting", () => {
+  /** Squawk's advice that does not break a deploy (lock timeouts, IF NOT EXISTS, indexes on new tables) never fails. */
+  const PRISMA_CREATE = `-- CreateTable
+CREATE TABLE "Post" (
+    "id" SERIAL NOT NULL,
+    "title" VARCHAR(255) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "authorId" INTEGER NOT NULL,
+
+    CONSTRAINT "Post_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE INDEX "Post_authorId_idx" ON "Post"("authorId");
+
+-- AddForeignKey
+ALTER TABLE "Post" ADD CONSTRAINT "Post_authorId_fkey" FOREIGN KEY ("authorId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+`;
+  const PRISMA_RENAME = 'ALTER TABLE "User" RENAME COLUMN "email" TO "mail";\n';
+
+  /** The Next.js sample, applied and committed, with lock-sync off (the sample's lock file is a stub). */
+  function prismaRepo(): string {
+    const r = sampleRepo("nextjs-prisma-app");
+    put(r, "forge.yaml", 'forge: "0.5"\ndisable:\n  - id: typescript/bun/lock-sync\n    reason: the sample lock file is a stub\n');
+    commitAll(r, "config");
+    expect(forge(["apply", "--yes"], r).status).toBe(0);
+    commitAll(r, "forge");
+    return r;
+  }
+  const run = (r: string, mode: string, env: Record<string, string> = {}) => sh("sh", [".forge/check.sh", mode], { cwd: r, env });
+
+  /** @rule typescript/prisma/migration-lint */
+  test.if(hasBun)(
+    "a new Prisma migration that renames a column fails, naming the file, line and Squawk rule",
+    () => {
+      const r = prismaRepo();
+      put(r, "prisma/migrations/20261020000000_rename/migration.sql", PRISMA_RENAME);
+      const out = run(r, "--changed");
+      expect(out.status).toBe(1);
+      expect(out.stdout).toContain("forge:typescript/prisma/migration-lint failed");
+      expect(out.stdout).toContain("prisma/migrations/20261020000000_rename/migration.sql:1:20: warning: renaming-column");
+      expect(out.stdout).toContain("renaming-column");
+    },
+    T,
+  );
+
+  /** @rule typescript/prisma/migration-lint */
+  test.if(hasBun)(
+    "a typical Prisma migration (new table, index, foreign key) passes although Squawk has other advice for it",
+    () => {
+      const r = prismaRepo();
+      put(r, "prisma/migrations/20261020000000_post/migration.sql", PRISMA_CREATE);
+      const out = run(r, "--changed");
+      expect(out.stdout).not.toContain("forge:typescript/prisma/migration-lint");
+      // 0: every step ran, the migration stage included, and passed
+      expect(out.status).toBe(0);
+    },
+    T,
+  );
+
+  /** @rule typescript/prisma/migration-lint */
+  test.if(hasBun)(
+    "CI lints only the newest migration: a rename merged earlier does not fail every later run",
+    () => {
+      const r = prismaRepo();
+      put(r, "prisma/migrations/20261020000000_rename/migration.sql", PRISMA_RENAME);
+      commitAll(r, "rename");
+      expect(run(r, "--all").stdout).toContain("forge:typescript/prisma/migration-lint failed");
+      put(r, "prisma/migrations/20261021000000_post/migration.sql", PRISMA_CREATE);
+      commitAll(r, "post");
+      const after = run(r, "--all").stdout;
+      expect(after).not.toContain("forge:typescript/prisma/migration-lint");
+      expect(after).toContain("forge:typescript/vitest/run skipped");
+    },
+    T,
+  );
+
+  /** @rule typescript/prisma/migration-lint */
+  test.if(hasBun)(
+    "when Squawk cannot run (offline, no bunx or uvx), the check says so and does not block",
+    () => {
+      const r = prismaRepo();
+      put(r, "prisma/migrations/20261020000000_rename/migration.sql", PRISMA_RENAME);
+      const bin = join(r, ".offline-bin");
+      for (const name of ["bunx", "uvx"]) {
+        put(r, `.offline-bin/${name}`, "#!/bin/sh\necho 'error: could not reach the registry' >&2\nexit 1\n");
+        chmodSync(join(bin, name), 0o755);
+      }
+      const out = run(r, "--changed", { PATH: `${bin}:${process.env.PATH}` });
+      expect(out.stdout).toContain("forge:typescript/prisma/migration-lint skipped: squawk could not run (error: could not reach the registry)");
+      expect(out.stdout).not.toContain("migration-lint failed");
+    },
+    T,
+  );
+
+  /** The FastAPI sample with a real async Alembic setup (`alembic init -t async`) and the cached Alembic. */
+  function alembicRepo(): string {
+    ensureTools();
+    const r = sampleRepo("fastapi-app");
+    const tpl = mkdtempSync(join(tmpdir(), "forge-alembic-"));
+    // alembic init writes alembic.ini to its working directory, the scripts to the named one
+    expect(sh(join(TOOLS_CACHE, ".venv-alembic/bin/alembic"), ["init", "-t", "async", "alembic"], { cwd: tpl }).status).toBe(0);
+    put(r, "alembic/env.py", readFileSync(join(tpl, "alembic/env.py"), "utf8"));
+    put(r, "alembic/script.py.mako", readFileSync(join(tpl, "alembic/script.py.mako"), "utf8"));
+    put(r, "alembic.ini", readFileSync(join(tpl, "alembic.ini"), "utf8").replace(/^sqlalchemy\.url = .*$/m, "sqlalchemy.url = postgresql+asyncpg://app:app@localhost:5432/app").replace(/^script_location = .*$/m, "script_location = %(here)s/alembic"));
+    put(
+      r,
+      "alembic/versions/0001_users.py",
+      '"""users"""\nimport sqlalchemy as sa\nfrom alembic import op\n\nrevision = "0001"\ndown_revision = None\n\n\ndef upgrade() -> None:\n    op.create_table("users", sa.Column("id", sa.Integer, primary_key=True), sa.Column("name", sa.Text))\n\n\ndef downgrade() -> None:\n    op.drop_table("users")\n',
+    );
+    put(
+      r,
+      "forge.yaml",
+      'forge: "0.5"\ndisable:\n  - id: python/sqlalchemy/alembic/check\n    reason: no database in this test\n  - id: python/uv/lock-sync\n    reason: the sample lock file is a stub\n',
+    );
+    linkTools(r, "alembic");
+    commitAll(r, "alembic");
+    expect(forge(["apply", "--yes"], r).status).toBe(0);
+    commitAll(r, "forge");
+    return r;
+  }
+  const revision = (body: string, rev = "0002", down = "0001") =>
+    `"""next"""\nimport sqlalchemy as sa\nfrom alembic import op\n\nrevision: str = "${rev}"\ndown_revision: str | None = "${down}"\n\n\ndef upgrade() -> None:\n    ${body}\n\n\ndef downgrade() -> None:\n    pass\n`;
+
+  /** @rule python/sqlalchemy/alembic/migration-lint */
+  test.if(hasBun && hasUv)(
+    "an Alembic revision that renames a column fails: its upgrade is rendered to SQL offline and linted",
+    () => {
+      const r = alembicRepo();
+      put(r, "alembic/versions/0002_rename.py", revision('op.alter_column("users", "name", new_column_name="full_name")'));
+      const out = run(r, "--changed");
+      expect(out.status).toBe(1);
+      expect(out.stdout).toContain("forge:python/sqlalchemy/alembic/migration-lint failed");
+      expect(out.stdout).toContain("SQL of alembic upgrade 0001:0002 --sql");
+      expect(out.stdout).toContain("renaming-column");
+    },
+    T,
+  );
+
+  /** @rule python/sqlalchemy/alembic/migration-lint */
+  test.if(hasBun && hasUv)(
+    "an Alembic revision that adds a nullable column passes; CI lints the head revision, which fails when it adds a required column",
+    () => {
+      const r = alembicRepo();
+      put(r, "alembic/versions/0002_nick.py", revision('op.add_column("users", sa.Column("nick", sa.Text, nullable=True))'));
+      for (const mode of ["--changed", "--all"]) {
+        const out = run(r, mode).stdout;
+        expect(out).not.toContain("forge:python/sqlalchemy/alembic/migration-lint");
+        // the migration stage passed: the test stage, which comes after it, ran
+        expect(out).toContain("forge:python/pytest/run skipped");
+        commitAll(r, "nick");
+      }
+      put(r, "alembic/versions/0003_age.py", revision('op.add_column("users", sa.Column("age", sa.Integer, nullable=False))', "0003", "0002"));
+      commitAll(r, "required");
+      const all = run(r, "--all");
+      expect(all.stdout).toContain("forge:python/sqlalchemy/alembic/migration-lint failed");
+      expect(all.stdout).toContain("adding-required-field");
+    },
+    T,
+  );
 });

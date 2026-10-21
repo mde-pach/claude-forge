@@ -1,0 +1,19 @@
+id: typescript/zod/error-param
+description: Zod 4 custom messages use the single error parameter ({ error }), not message, required_error, invalid_type_error or errorMap.
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: pair
+      has: {field: key, regex: "^[\"']?(message|required_error|invalid_type_error|errorMap)[\"']?$"}
+      inside:
+        kind: object
+        inside:
+          kind: arguments
+          inside:
+            kind: call_expression
+            has: {field: function, regex: "^z\\."}
+examples:
+  match: ["const S = z.string().min(5, { message: \"too short\" });", "const E = z.email({ message: \"bad email\" });", "const N = z.number({ required_error: \"required\" });"]
+  no_match: ["const S = z.string().min(5, { error: \"too short\" });", "const S = z.string().min(5, \"too short\");", "toast({ message: \"saved\" });", "form.setError(\"email\", { message: \"taken\" });"]

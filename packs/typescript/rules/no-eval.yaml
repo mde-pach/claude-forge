@@ -1,0 +1,14 @@
+id: typescript/no-eval
+description: No eval(). Parse data with JSON.parse or a schema; never run strings as code.
+scope: {language: typescript}
+enforce:
+  - target: tool
+    tool: biome
+    expects: lint/security/noGlobalEval
+    snippet: '"linter": {"rules": {"security": {"noGlobalEval": "error"}}}'
+  - target: ast-grep
+    mode: forbid
+    rule: {any: [{pattern: "eval($$$)"}, {pattern: "globalThis.eval($$$)"}, {pattern: "window.eval($$$)"}]}
+examples:
+  match: ["declare const code: string;\neval(code);\n", "declare const code: string;\nglobalThis.eval(code);\n"]
+  no_match: ["declare const code: string;\nJSON.parse(code);\n", "declare const evaluate: (s: string) => void;\nevaluate(\"x\");\n"]

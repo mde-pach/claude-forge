@@ -1,0 +1,11 @@
+id: typescript/unchecked-index
+description: Indexed access can be undefined (noUncheckedIndexedAccess); check the element before using it.
+scope: {language: typescript}
+enforce:
+  - target: tool
+    tool: tsc
+    expects: TS18048
+    snippet: '"compilerOptions": {"strict": true, "noUncheckedIndexedAccess": true}'
+examples:
+  match: ["const items: { id: number }[] = [];\nconst first = items[0];\nexport const id = first.id;\n"]
+  no_match: ["const items: { id: number }[] = [];\nconst first = items[0];\nexport const id = first ? first.id : 0;\n"]

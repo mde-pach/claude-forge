@@ -1,0 +1,9 @@
+id: typescript/prisma/migration-lint
+description: New migrations do not break the running app during a deploy (no column or table renames, type changes, new required columns or DROP DATABASE); Squawk lints the SQL.
+scope: {language: any, files: ["prisma/migrations/**/migration.sql"]}
+enforce:
+  - target: check
+    stage: migration
+    run: "forge_squawk_files $(git ls-files 'prisma/migrations/*/migration.sql' | sort | tail -n 1)"
+    changed_run: "forge_squawk_files {files}"
+    when_changed: ["prisma/migrations/**"]

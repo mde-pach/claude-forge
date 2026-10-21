@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { toYaml } from "./yaml.js";
-import { AST_GREP_VERSION, FORGE_VERSION, packageRoot, shQuote } from "./util.js";
+import { AST_GREP_VERSION, FORGE_VERSION, packageRoot, shQuote, SQUAWK_VERSION } from "./util.js";
 import type { AstGrepTarget, CheckTarget, GuardTarget, Language, Level, Rule } from "./types.js";
 
 export function template(name: string): string {
@@ -129,7 +129,7 @@ export function renderChecks(checks: ActiveCheck[]): string {
     );
     if (changed) out.push(`forge_check_changed_${n}() {`, target.changed_run!.replaceAll("{files}", "$FORGE_FILES"), "}");
   });
-  out.push("# ---- end of generated checks", "", template("engine.sh").trimEnd());
+  out.push("# ---- end of generated checks", "", fill(template("engine.sh"), { SQUAWK_VERSION }).trimEnd());
   return out.join("\n");
 }
 

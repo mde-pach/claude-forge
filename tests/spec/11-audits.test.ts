@@ -20,7 +20,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { auditTarget, examplePath } from "../../src/audit";
 import { loadPacks } from "../../src/packs";
-import { commitAll, ensureTools, forge, git, hasBun, hasUv, linkTools, ROOT, sampleRepo } from "../helpers";
+import { commitAll, ensureTools, forge, git, hasBun, hasUv, linkTools, ROOT, sampleRepo, TOOL_VERSIONS } from "../helpers";
 import type { Rule, ToolTarget } from "../../src/types";
 
 const T = 300_000;
@@ -190,9 +190,14 @@ function projectFor(t: ToolTarget, on: boolean): string {
   const dir = mkdtempSync(join(tmpdir(), "forge-audit-"));
   if (t.tool === "biome") {
     const [, group, name] = t.expects.split("/");
+    // inside a package, as in a real project: Biome resolves imported types there
+    // (noDeprecatedImports) and reads the React version (noReactForwardRef is for React 19)
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "audit", private: true, dependencies: { react: TOOL_VERSIONS.react } }));
     writeFileSync(join(dir, "biome.json"), JSON.stringify({ linter: { enabled: true, rules: { recommended: false, [group!]: { [name!]: on ? "error" : "off" } } } }));
   } else if (t.tool === "tsc") {
-    writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ compilerOptions: { strict: on, noEmit: true, skipLibCheck: true } }));
+    // on: the rule's own snippet (e.g. strict plus noUncheckedIndexedAccess); off: not strict
+    const options = on ? (JSON.parse(`{${t.snippet}}`) as { compilerOptions: object }).compilerOptions : { strict: false };
+    writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ compilerOptions: { ...options, noEmit: true, skipLibCheck: true } }));
   } else {
     const ruff = `[tool.ruff.lint]\nselect = ["${t.tool === "ruff" && on ? t.expects : "F"}"]\n`;
     const pyright = `[tool.basedpyright]\npythonVersion = "3.12"\n${t.tool === "basedpyright" ? `${t.expects} = "${on ? "error" : "none"}"\n` : ""}`;

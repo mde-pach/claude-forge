@@ -70,6 +70,86 @@ forge_local_db() {
   return 1
 }
 
+# Migration linting with Squawk: only the changes that break the running version of
+# the application during a deploy fail (renames, type changes, new required columns,
+# DROP DATABASE); Squawk's other advice is not enforced.
+FORGE_SQUAWK_VERSION="@@SQUAWK_VERSION@@"
+FORGE_SQUAWK_BLOCKING='renaming-column|renaming-table|changing-column-type|adding-required-field|adding-not-nullable-field|ban-drop-database'
+
+# forge_squawk <args>: the pinned Squawk through bunx or uvx; gcc-style output in
+# $FORGE_TMP/squawk. Exit status 0 when Squawk ran (with or without findings).
+forge_squawk() {
+  if command -v bunx >/dev/null 2>&1; then
+    bunx -p "squawk-cli@$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
+  elif command -v uvx >/dev/null 2>&1; then
+    uvx -q --from "squawk-cli==$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
+  else
+    printf 'bunx or uvx is needed\n' > "$FORGE_TMP/squawk"
+    return 2
+  fi
+  _sq_rc=$?
+  # Squawk exits 1 whenever it warns, which is almost always
+  [ "$_sq_rc" -eq 0 ] || grep -qE ':[0-9]+:[0-9]+: (warning|error): ' "$FORGE_TMP/squawk"
+}
+
+# forge_squawk_blocking: prints the blocking findings of the last forge_squawk run
+# (Squawk counts lines and columns from 0; printed from 1); fails if any.
+forge_squawk_blocking() {
+  grep -E ": (warning|error): ($FORGE_SQUAWK_BLOCKING) " "$FORGE_TMP/squawk" \
+    | sed -E 's/^(.*):([0-9]+):([0-9]+): /\1 \2 \3 /' \
+    | awk '{ f = $1; l = $2 + 1; c = $3 + 1; $1 = $2 = $3 = ""; sub(/^ +/, ""); print f ":" l ":" c ": " $0 }' > "$FORGE_TMP/squawk.found"
+  cat "$FORGE_TMP/squawk.found"
+  [ ! -s "$FORGE_TMP/squawk.found" ]
+}
+
+# forge_squawk_skipped: reports, as a forge: line of the current check, that Squawk could not run.
+forge_squawk_skipped() {
+  printf 'forge:%s skipped: squawk could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/squawk" | tail -n 1)"
+}
+
+# forge_squawk_files <sql files>: lints migration SQL files.
+forge_squawk_files() {
+  [ "$#" -gt 0 ] || return 0
+  forge_squawk "$@" || { forge_squawk_skipped; return 0; }
+  forge_squawk_blocking
+}
+
+# forge_alembic_files: Alembic revision ids on stdin (as printed by `alembic heads`)
+# -> the revision files under alembic/versions that define them.
+forge_alembic_files() {
+  awk '{ print $1 }' | while read -r _fa_id; do
+    [ -n "$_fa_id" ] && find alembic/versions -name '*.py' -exec grep -lE "^revision[^=]*=[[:space:]]*['\"]$_fa_id['\"]" {} + 2>/dev/null
+  done
+}
+
+# forge_squawk_alembic <revision files>: lints the SQL each revision's upgrade emits
+# (`alembic upgrade <down_revision>:<revision> --sql`, offline: no database needed).
+# Merge revisions are skipped; when Alembic cannot render SQL, the revision is reported skipped.
+forge_squawk_alembic() {
+  _fs_rc=0
+  for _fs_f in "$@"; do
+    _fs_rev=$(sed -n "s/^revision[^=]*=[[:space:]]*['\"]\([^'\"]*\)['\"].*/\1/p" "$_fs_f" | head -n 1)
+    _fs_down=$(sed -n 's/^down_revision[^=]*=[[:space:]]*//p' "$_fs_f" | head -n 1)
+    [ -n "$_fs_rev" ] || continue
+    case $_fs_down in
+      \(*|\[*) continue ;;
+      None*|'') _fs_range=$_fs_rev ;;
+      *) _fs_range="$(printf '%s' "$_fs_down" | sed "s/^['\"]\([^'\"]*\)['\"].*/\1/"):$_fs_rev" ;;
+    esac
+    if ! alembic upgrade "$_fs_range" --sql > "$FORGE_TMP/alembic.sql" 2> "$FORGE_TMP/alembic.err"; then
+      printf 'forge:%s skipped: alembic upgrade %s --sql failed for %s (%s)\n' "$c_id" "$_fs_range" "$_fs_f" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/alembic.err" | tail -n 1)"
+      continue
+    fi
+    if ! forge_squawk --stdin-filepath "$_fs_f" < "$FORGE_TMP/alembic.sql"; then forge_squawk_skipped; return 0; fi
+    if ! forge_squawk_blocking > "$FORGE_TMP/squawk.block"; then
+      printf 'SQL of alembic upgrade %s --sql (line numbers are in that SQL):\n' "$_fs_range"
+      cat "$FORGE_TMP/squawk.block"
+      _fs_rc=1
+    fi
+  done
+  return "$_fs_rc"
+}
+
 # forge_related_py_tests <files>: changed test files plus tests/**/test_<module>.py
 # for each changed module, one per line.
 forge_related_py_tests() {

@@ -114,18 +114,36 @@ export function commitAll(repo: string, message = "commit"): void {
 }
 
 /** Pinned project tools used by specs that need the real thing. */
-export const TOOL_VERSIONS = { biome: "2.5.15", typescript: "7.0.2", ruff: "0.17.1", basedpyright: "1.40.2" };
+export const TOOL_VERSIONS = {
+  biome: "2.5.15",
+  typescript: "7.0.2",
+  ruff: "0.17.1",
+  basedpyright: "1.40.2",
+  // types that Biome reads to report deprecated imports
+  react: "19.2.0",
+  "@types/react": "19.2.2",
+  // migration linting (Alembic renders SQL offline; the async template needs greenlet)
+  alembic: "1.20.0",
+  sqlalchemy: "2.1.5",
+};
 export const TOOLS_CACHE = join(tmpdir(), "forge-tools-v2");
 export const hasBun = sh("sh", ["-c", "command -v bun"]).status === 0;
 export const hasUv = sh("sh", ["-c", "command -v uv"]).status === 0;
 
-/** Installs Biome and TypeScript (bun) and ruff and basedpyright (uv) once into TOOLS_CACHE. */
+/** Installs Biome, TypeScript and React's types (bun), ruff and basedpyright (uv), and Alembic (uv, own venv) once into TOOLS_CACHE. */
 export function ensureTools(): void {
   mkdirSync(TOOLS_CACHE, { recursive: true });
-  if (hasBun && !existsSync(join(TOOLS_CACHE, "node_modules/.bin/tsc"))) {
+  if (hasBun && !existsSync(join(TOOLS_CACHE, "node_modules/@types/react/package.json"))) {
     writeFileSync(join(TOOLS_CACHE, "package.json"), '{"name":"tools","private":true}');
-    const r = sh("bun", ["add", "-d", `@biomejs/biome@${TOOL_VERSIONS.biome}`, `typescript@${TOOL_VERSIONS.typescript}`], { cwd: TOOLS_CACHE });
+    const pkgs = ["@biomejs/biome", "typescript", "react", "@types/react"] as const;
+    const r = sh("bun", ["add", "-d", ...pkgs.map((p) => `${p}@${TOOL_VERSIONS[p === "@biomejs/biome" ? "biome" : p]}`)], { cwd: TOOLS_CACHE });
     if (r.status !== 0) throw new Error(`bun add failed: ${r.stderr}`);
+  }
+  if (hasUv && !existsSync(join(TOOLS_CACHE, ".venv-alembic/bin/alembic"))) {
+    let r = sh("uv", ["venv", "-q", join(TOOLS_CACHE, ".venv-alembic")]);
+    if (r.status === 0)
+      r = sh("uv", ["pip", "install", "-q", "--python", join(TOOLS_CACHE, ".venv-alembic/bin/python"), `alembic==${TOOL_VERSIONS.alembic}`, `sqlalchemy[asyncio]==${TOOL_VERSIONS.sqlalchemy}`]);
+    if (r.status !== 0) throw new Error(`uv install failed: ${r.stderr}`);
   }
   if (hasUv && !existsSync(join(TOOLS_CACHE, ".venv/bin/basedpyright"))) {
     let r = sh("uv", ["venv", "-q", join(TOOLS_CACHE, ".venv")]);
@@ -135,8 +153,20 @@ export function ensureTools(): void {
   }
 }
 
-/** Links the cached tools into a sample repository (node_modules or .venv). */
-export function linkTools(repo: string, kind: "node" | "python"): void {
+/**
+ * Puts the cached tools into a sample repository (.venv, or node_modules). node_modules is a
+ * real directory: tools are linked, but React and its types are copied, because Biome does not
+ * resolve types through symlinks (it would not see React's @deprecated tags).
+ */
+export function linkTools(repo: string, kind: "node" | "python" | "alembic"): void {
   if (kind === "python") symlinkSync(join(TOOLS_CACHE, ".venv"), join(repo, ".venv"));
-  else symlinkSync(join(TOOLS_CACHE, "node_modules"), join(repo, "node_modules"));
+  else if (kind === "alembic") symlinkSync(join(TOOLS_CACHE, ".venv-alembic"), join(repo, ".venv"));
+  else {
+    const from = join(TOOLS_CACHE, "node_modules");
+    mkdirSync(join(repo, "node_modules"));
+    for (const entry of readdirSync(from)) {
+      if (entry === "react" || entry === "@types") cpSync(join(from, entry), join(repo, "node_modules", entry), { recursive: true, dereference: true });
+      else symlinkSync(join(from, entry), join(repo, "node_modules", entry));
+    }
+  }
 }
