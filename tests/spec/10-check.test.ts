@@ -544,6 +544,60 @@ describe("config ratchet", () => {
   );
 });
 
+/**
+ * The Docker sample (a multi-stage Dockerfile, Compose with a database and a
+ * GitHub Actions workflow) passes every docker, docker/compose and
+ * github-actions rule; a typical slip in each file fails.
+ */
+describe("docker and github-actions", () => {
+  function dockerRepo(): string {
+    const r = applied("docker-app");
+    commitAll(r, "forge");
+    return r;
+  }
+  const run = (r: string, mode = "--changed") => sh("sh", [".forge/check.sh", mode], { cwd: r });
+
+  /** @pack docker docker/compose github-actions */
+  test(
+    "the sample passes as committed (--all)",
+    () => {
+      const out = run(dockerRepo(), "--all").stdout;
+      expect(out).not.toMatch(/forge:(docker|github-actions)\S* (failed|\S+:\d)/);
+    },
+    T,
+  );
+
+  /** @pack docker */
+  test(
+    "forge status says how to let Claude run docker outside the sandbox (sandbox.excludedCommands), without writing it",
+    () => {
+      const r = dockerRepo();
+      expect(forge(["status"], r).stdout).toContain('"sandbox": {"excludedCommands": ["docker compose *"]}');
+      expect(readFileSync(join(r, ".claude/settings.json"), "utf8")).not.toContain("excludedCommands");
+    },
+    T,
+  );
+
+  /** @rule docker/compose/datastore-loopback docker/non-root-user github-actions/zizmor */
+  test(
+    "publishing Postgres on every interface, dropping USER, and an unpinned action each fail",
+    () => {
+      const r = dockerRepo();
+      const compose = readFileSync(join(r, "compose.yaml"), "utf8");
+      put(r, "compose.yaml", compose.replace('"127.0.0.1:5432:5432"', '"5432:5432"'));
+      expect(run(r).stdout).toContain("forge:docker/compose/datastore-loopback compose.yaml:8:9");
+      // forbid rules run before the lint stage; with compose.yaml restored, the lint-stage checks
+      put(r, "compose.yaml", compose);
+      put(r, "Dockerfile", readFileSync(join(r, "Dockerfile"), "utf8").replace("USER 10001\n", ""));
+      put(r, ".github/workflows/ci.yml", readFileSync(join(r, ".github/workflows/ci.yml"), "utf8").replace(/checkout@\S+ # v5.0.0/, "checkout@v5"));
+      const out = run(r).stdout;
+      expect(out).toContain("forge:docker/non-root-user failed\nDockerfile:0 the final stage has no USER");
+      if (!out.includes("forge:github-actions/zizmor skipped")) expect(out).toContain("forge:github-actions/zizmor failed\n.github/workflows/ci.yml:13 unpinned-uses");
+    },
+    T,
+  );
+});
+
 describe("checks that need no tool", () => {
   /** An applied Next.js repository, committed; the given files are then written and committed too. */
   function nextRepo(files: Record<string, string>): string {

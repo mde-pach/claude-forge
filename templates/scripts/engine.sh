@@ -376,6 +376,195 @@ forge_zizmor() {
     END { exit bad }' "$FORGE_TMP/zizmor"
 }
 
+# Dockerfiles: pinned hadolint (hadolint-bin through uvx; its binary must match the
+# upstream release's sha256), run once per check.sh run and shared by the rules.
+FORGE_HADOLINT_VERSION="@@HADOLINT_VERSION@@"
+FORGE_HADOLINT_SHA256='@@HADOLINT_SHAS@@'
+
+# forge_dockerfiles: the Dockerfiles / Containerfiles of $FORGE_FILES, else every tracked one.
+forge_dockerfiles() {
+  if [ -n "$FORGE_FILES" ]; then printf '%s\n' "$FORGE_FILES"; else git ls-files 2>/dev/null; fi \
+    | grep -E '(^|/)(Dockerfile(\.[^/]*)?|[^/]*\.Dockerfile|Containerfile)$' | grep -v '\.dockerignore$'
+}
+
+# forge_hadolint <code>...: "path:line CODE: message" for the named hadolint codes.
+forge_hadolint() {
+  forge_dockerfiles > "$FORGE_TMP/dockerfiles"
+  [ -s "$FORGE_TMP/dockerfiles" ] || return 0
+  if ! cmp -s "$FORGE_TMP/dockerfiles" "$FORGE_TMP/hadolint.files" 2>/dev/null; then
+    cp "$FORGE_TMP/dockerfiles" "$FORGE_TMP/hadolint.files"
+    : > "$FORGE_TMP/hadolint.out"
+    if ! command -v uvx >/dev/null 2>&1; then
+      printf 'skipped: uvx is needed to run hadolint\n' > "$FORGE_TMP/hadolint.skip"
+    elif ! _fh_bin=$(uvx -q --from "hadolint-bin==$FORGE_HADOLINT_VERSION" python -c 'import shutil; print(shutil.which("hadolint") or "")' 2>/dev/null) || [ -z "$_fh_bin" ]; then
+      printf 'skipped: hadolint could not be installed (offline?)\n' > "$FORGE_TMP/hadolint.skip"
+    else
+      _fh_plat=$(uname -s)-$(uname -m)
+      _fh_want=$(printf '%s\n' "$FORGE_HADOLINT_SHA256" | awk -v p="$_fh_plat" '$1 == p { print $2 }')
+      _fh_have=$(forge_sha256 < "$_fh_bin")
+      if [ -z "$_fh_want" ]; then
+        printf 'skipped: no upstream hadolint checksum for %s\n' "$_fh_plat" > "$FORGE_TMP/hadolint.skip"
+      elif [ "$_fh_have" != "$_fh_want" ]; then
+        printf 'skipped: the hadolint-bin %s binary does not match the upstream release (sha256 %s)\n' "$FORGE_HADOLINT_VERSION" "$_fh_have" > "$FORGE_TMP/hadolint.skip"
+      else
+        rm -f "$FORGE_TMP/hadolint.skip"
+        printf 'ignored: []\n' > "$FORGE_TMP/hadolint.yaml"
+        set -f
+        # shellcheck disable=SC2046
+        "$_fh_bin" -c "$FORGE_TMP/hadolint.yaml" --disable-ignore-pragma --no-fail --no-color -f tty $(cat "$FORGE_TMP/dockerfiles") > "$FORGE_TMP/hadolint.out" 2>&1
+        set +f
+      fi
+    fi
+  fi
+  if [ -f "$FORGE_TMP/hadolint.skip" ]; then printf 'forge:%s %s\n' "$c_id" "$(cat "$FORGE_TMP/hadolint.skip")"; return 0; fi
+  _fh_codes=' '
+  for _fh_c in "$@"; do _fh_codes="$_fh_codes$_fh_c "; done
+  awk -v codes="$_fh_codes" '
+    match($0, /^[^[:space:]]+:[0-9]+ [A-Z]+[0-9]+ [a-z]+: /) {
+      split($0, w, " "); if (index(codes, " " w[2] " ") == 0) next
+      msg = $0; sub(/^[^[:space:]]+ [^[:space:]]+ [a-z]+: /, "", msg)
+      print w[1] " " w[2] ": " msg; bad = 1
+    }
+    END { exit bad }' "$FORGE_TMP/hadolint.out"
+}
+
+# forge_dockerfile_records <file>: one "line<TAB>instruction" per instruction,
+# continuation lines joined, comments dropped.
+forge_dockerfile_records() {
+  awk '
+    function flush() { if (cur != "") print start "\t" cur; cur = "" }
+    {
+      line = $0; sub(/\r$/, "", line)
+      if (cur == "") { if (line ~ /^[[:space:]]*(#|$)/) next; start = NR }
+      else if (line ~ /^[[:space:]]*#/) next
+      if (match(line, /\\[[:space:]]*$/)) { cur = cur substr(line, 1, RSTART - 1) " "; next }
+      cur = cur line; flush()
+    }
+    END { flush() }' "$1"
+}
+
+# forge_docker_nonroot: the final stage of each Dockerfile runs as a non-root USER,
+# set in that stage or inherited from the named stage it builds on; images that run
+# non-root by default (cgr.dev/, dhi.io/, *nonroot*, *unprivileged*, *rootless*) are exempt.
+forge_docker_nonroot() {
+  _dn_rc=0
+  forge_dockerfiles > "$FORGE_TMP/dockerfiles"
+  while IFS= read -r _dn_f; do
+    [ -f "$_dn_f" ] || continue
+    forge_dockerfile_records "$_dn_f" | awk -F '\t' -v f="$_dn_f" '
+      {
+        args = $2; sub(/^[[:space:]]*[A-Za-z]+[[:space:]]*/, "", args); instr = toupper($2); sub(/[[:space:]].*$/, "", instr)
+        if (instr == "FROM") {
+          n++; split(args, w, /[[:space:]]+/); i = 1; while (w[i] ~ /^--/) i++
+          img[n] = w[i]; name[n] = ""; user[n] = ""
+          if (tolower(w[i + 1]) == "as") name[n] = tolower(w[i + 2])
+        } else if (instr == "USER" && n) { split(args, w, /[[:space:]]+/); user[n] = w[1] }
+      }
+      END {
+        if (!n) exit 0
+        s = n; u = user[s]; b = img[s]
+        for (guard = 0; u == "" && guard < 50; guard++) {
+          k = 0; for (j = 1; j < s; j++) if (name[j] != "" && name[j] == tolower(b)) k = j
+          if (!k) break
+          s = k; u = user[k]; b = img[k]
+        }
+        if (u == "") {
+          if (b ~ /^(cgr\.dev|dhi\.io)\// || tolower(b) ~ /nonroot|unprivileged|rootless/) exit 0
+          print f ":0 the final stage has no USER (it runs as root); add a non-root USER"; exit 1
+        }
+        if (u ~ /^(root|0)(:.*)?$/) { print f ":0 the final stage runs as USER " u "; use a non-root user"; exit 1 }
+      }' || _dn_rc=1
+  done < "$FORGE_TMP/dockerfiles"
+  return "$_dn_rc"
+}
+
+# forge_docker_secrets: no ARG or ENV named like a secret (PASSWORD, SECRET, TOKEN,
+# API_KEY, PRIVATE_KEY, CREDENTIALS); *_FILE names are fine.
+forge_docker_secrets() {
+  _ds_rc=0
+  forge_dockerfiles > "$FORGE_TMP/dockerfiles"
+  while IFS= read -r _ds_f; do
+    [ -f "$_ds_f" ] || continue
+    forge_dockerfile_records "$_ds_f" | awk -F '\t' -v f="$_ds_f" '
+      {
+        instr = toupper($2); sub(/[[:space:]].*$/, "", instr)
+        if (instr != "ARG" && instr != "ENV") next
+        args = $2; sub(/^[[:space:]]*[A-Za-z]+[[:space:]]*/, "", args)
+        n = split(args, w, /[[:space:]]+/)
+        for (i = 1; i <= n; i++) {
+          name = w[i]; sub(/=.*$/, "", name)
+          if (instr == "ENV" && i > 1 && w[1] !~ /=/) break
+          if (toupper(name) ~ /(PASSWORD|SECRET|TOKEN|API_?KEY|PRIVATE_KEY|CREDENTIALS)/ && toupper(name) !~ /_FILE$/) {
+            print f ":" $1 " " instr " " name " puts a secret in the image or its history; use RUN --mount=type=secret,id=..."; bad = 1
+          }
+          if (instr == "ARG") break
+        }
+      }
+      END { exit bad }' || _ds_rc=1
+  done < "$FORGE_TMP/dockerfiles"
+  return "$_ds_rc"
+}
+
+# forge_docker_locked: RUN installs from the lock file (npm ci, bun install
+# --frozen-lockfile, uv sync --locked or --frozen, pnpm install --frozen-lockfile,
+# yarn --immutable or --frozen-lockfile) and never adds packages (bun add, uv add).
+forge_docker_locked() {
+  _dl_rc=0
+  forge_dockerfiles > "$FORGE_TMP/dockerfiles"
+  while IFS= read -r _dl_f; do
+    [ -f "$_dl_f" ] || continue
+    forge_dockerfile_records "$_dl_f" | awk -F '\t' -v f="$_dl_f" '
+      function why(c,   t) {
+        t = " " c " "
+        if (c ~ /^npm (install|i|add)( |$)/ && t !~ / (-g|--global) /) return "use npm ci"
+        if (c ~ /^bun (install|i)( |$)/ && t !~ / --frozen-lockfile /) return "add --frozen-lockfile"
+        if (c ~ /^bun add( |$)/) return "add dependencies to package.json and bun.lock, not in the image"
+        if (c ~ /^uv sync( |$)/ && t !~ / (--locked|--frozen) /) return "add --locked (or --frozen)"
+        if (c ~ /^uv add( |$)/) return "add dependencies to pyproject.toml and uv.lock, not in the image"
+        if (c ~ /^pnpm (install|i)( |$)/ && t !~ / --frozen-lockfile /) return "add --frozen-lockfile"
+        if (c ~ /^yarn( install)?( -[^ ]*)*$/ && t !~ / (--immutable|--frozen-lockfile) /) return "add --immutable (Yarn 2+) or --frozen-lockfile"
+        return ""
+      }
+      {
+        instr = toupper($2); sub(/[[:space:]].*$/, "", instr)
+        if (instr != "RUN") next
+        args = $2; sub(/^[[:space:]]*[A-Za-z]+[[:space:]]*/, "", args)
+        while (args ~ /^--[^[:space:]]+[[:space:]]/) sub(/^--[^[:space:]]+[[:space:]]+/, "", args)
+        n = split(args, cmds, /&&|\|\||;/)
+        for (i = 1; i <= n; i++) {
+          c = cmds[i]; gsub(/[[:space:]]+/, " ", c); sub(/^ /, "", c); sub(/ $/, "", c)
+          while (c ~ /^([A-Za-z_][A-Za-z0-9_]*=[^ ]* |sudo )/) sub(/^[^ ]+ /, "", c)
+          r = why(c)
+          if (r != "") { print f ":" $1 " " c ": " r; bad = 1 }
+        }
+      }
+      END { exit bad }' || _dl_rc=1
+  done < "$FORGE_TMP/dockerfiles"
+  return "$_dl_rc"
+}
+
+# forge_docker_ignore: each Dockerfile has a .dockerignore (<Dockerfile>.dockerignore,
+# the one in its directory, or the one at the repository root) that excludes .env files.
+forge_docker_ignore() {
+  _di_rc=0
+  forge_dockerfiles > "$FORGE_TMP/dockerfiles"
+  while IFS= read -r _di_f; do
+    [ -f "$_di_f" ] || continue
+    _di_d=$(dirname "$_di_f")
+    _di_ig=''
+    [ "$_di_d" = . ] && _di_d='' || _di_d="$_di_d/"
+    for _di_c in "$_di_f.dockerignore" "$_di_d.dockerignore" .dockerignore; do
+      [ -f "$_di_c" ] && { _di_ig=$_di_c; break; }
+    done
+    if [ -z "$_di_ig" ]; then
+      printf '%s:0 has no .dockerignore (next to it or at the root); add one that excludes .env files\n' "$_di_f"; _di_rc=1
+    elif ! grep -qE '^[[:space:]]*((\*\*/)?\.env(\*|\.\*)?|\*\.env|\*|\*\*)[[:space:]]*$' "$_di_ig"; then
+      printf '%s:0 %s does not exclude .env files; add .env* to it\n' "$_di_f" "$_di_ig"; _di_rc=1
+    fi
+  done < "$FORGE_TMP/dockerfiles"
+  return "$_di_rc"
+}
+
 # forge_exec_tool <name> <args>: runs the project's own <name>; 127 when absent.
 forge_exec_tool() {
   _fx_cmd=$(tool "$1")
@@ -392,7 +581,7 @@ forge_exec_tool() {
 # forge_has_tool <name>: system runtimes (uv, bun) via PATH, others via tool().
 forge_has_tool() {
   case $1 in
-    uv|bun) command -v "$1" >/dev/null 2>&1 ;;
+    uv|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
@@ -573,8 +762,8 @@ forge_exec_check() {
 # linters, "--> path:l:c"; "Would reformat: path" and Biome's "path format" name a
 # file only; absolute paths under the repository are made relative; warning-only
 # lines are ignored). A diagnostic counts when it names a file of $FORGE_TMP/changed
-# ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file
-# counts when that file changed). Prints "changed" when one counts, "other" when
+# ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
+# line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "none" when no line names a file. With
 # "print", prints the lines that count instead.
 forge_diagnostics() {
@@ -597,7 +786,7 @@ forge_diagnostics() {
       else if (index(p, r2 "/") == 1) p = substr(p, length(r2) + 2)
       sub(/^\.\//, "", p)
       named = 1
-      if (level == "line") counts = (p in whole) || (ln == "" ? (p in ch) : ((p "\t" ln) in ad))
+      if (level == "line") counts = (p in whole) || (ln == "" || ln == 0 ? (p in ch) : ((p "\t" ln) in ad))
       else counts = (p in ch)
       if (counts) { hit = 1; if (mode == "print") print $0 }
     }

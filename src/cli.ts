@@ -427,6 +427,10 @@ function cmdStatus(flags: Flags): number {
     out(ctx.lock?.files[pc] !== undefined ? `Pre-commit: ${pc} (forge)` : preCommitHint(ctx.base));
     out(`CI step, pull requests: sh .forge/check.sh --since origin/${defaultBranch(ctx.base)}`);
     out("CI step, the default branch: sh .forge/check.sh --all");
+    if (p.packs.some((pk) => pk.id === "docker"))
+      out(
+        'Docker: Claude Code\'s sandbox blocks docker. To let Claude run it, add "sandbox": {"excludedCommands": ["docker compose *"]} (or "docker *") to your settings; those commands then run outside the sandbox, guarded by safety/docker-* and the docker/compose rules.',
+      );
   }
   return 0;
 }

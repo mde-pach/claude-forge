@@ -679,6 +679,43 @@ Detected by `.github/workflows/*.yml` or `*.yaml`.
 
 context.md: actions pinned to a commit SHA, `permissions: {}` then per job, `persist-credentials: false`, no `${{ }}` inside `run:`, no `pull_request_target` / `workflow_run` on untrusted code.
 
+### docker
+
+Detected by `**/Dockerfile`, `**/Dockerfile.*`, `**/*.Dockerfile`, `**/Containerfile` or a compose file (a repository may use Compose only for a local database). Rules are `check` lint targets on the Dockerfiles of the change (every tracked one with `--all`).
+
+| Rule | Targets |
+|---|---|
+| `docker/pin-base-image` | `forge_hadolint DL3006 DL3007` (§13.3) |
+| `docker/copy-not-add` | `forge_hadolint DL3020` |
+| `docker/exec-form` | `forge_hadolint DL3025` |
+| `docker/workdir` | `forge_hadolint DL3045` |
+| `docker/pipefail` | `forge_hadolint DL4006` (DL3008, pinned apt versions, is not enforced: they disappear from mirrors) |
+| `docker/non-root-user` | `forge_docker_nonroot`: the final stage has a `USER` other than `root` / `0`, set in it or inherited from the named stage it builds on; base images under `cgr.dev/` or `dhi.io/`, or named `*nonroot*`, `*unprivileged*`, `*rootless*`, are exempt (hadolint's DL3002 misses a Dockerfile with no `USER`) |
+| `docker/no-secret-arg-env` | `forge_docker_secrets`: no `ARG` / `ENV` named like `*PASSWORD*`, `*SECRET*`, `*TOKEN*`, `*API_KEY*`, `*PRIVATE_KEY*`, `*CREDENTIALS*` (`*_FILE` is fine); use `RUN --mount=type=secret` |
+| `docker/locked-install` | `forge_docker_locked`: in `RUN` (continuations joined, commands split on `&&`, `\|\|`, `;`): no `npm install` / `npm i` (except `-g`), `bun install` with `--frozen-lockfile` and no `bun add`, `uv sync` with `--locked` or `--frozen` and no `uv add`, `pnpm install` with `--frozen-lockfile`, `yarn` with `--immutable` or `--frozen-lockfile` |
+| `docker/dockerignore` | `forge_docker_ignore`: each Dockerfile has a `.dockerignore` (`<Dockerfile>.dockerignore`, its directory's, or the root's) that excludes `.env` files |
+
+Structural findings (`non-root-user`, `dockerignore`) are reported at line 0, so they count whenever the Dockerfile changed (removing a `USER` adds no line). context.md: multi-stage builds, a non-root final stage, lock-file installs with cache mounts, build secrets, pinned base images; the sandbox blocks docker unless the user lists it in `sandbox.excludedCommands`. Forge does not write that setting; `forge status` prints the line to add when the pack is active.
+
+### docker/compose
+
+Detected by `**/compose*.y*ml` or `**/docker-compose*.y*ml`. ast-grep rules use `scope.language: yaml` on the compose files.
+
+| Rule | Targets |
+|---|---|
+| `docker/compose/config-valid` | `check` lint: `docker compose config --quiet --no-interpolate --no-env-resolution` on the root compose file (no `.env` is read) |
+| `docker/compose/no-version-key` | `ast-grep` forbid: a top-level `version` key |
+| `docker/compose/no-docker-sock` | `ast-grep` forbid: a scalar naming `/run/docker.sock` or `/var/run/docker.sock` |
+| `docker/compose/no-host-root-mounts` | `ast-grep` forbid: under `volumes`, a short-syntax source or a long-syntax `source` of `/`, `/etc`, `/root`, `/home`, `~`, `$HOME` |
+| `docker/compose/no-privileged` | `ast-grep` forbid: `privileged: true`; `network_mode`, `pid`, `ipc`, `userns_mode` or `uts` set to `host`; `cap_add` with `ALL` or `SYS_ADMIN`; a `security_opt` entry with `unconfined` |
+| `docker/compose/datastore-loopback` | `ast-grep` forbid: a short-syntax `ports` entry publishing 5432, 3306, 6379, 27017, 9200, 5672, 11211 or 1433 that does not start with `127.0.0.1:` (or `localhost:`, `[::1]:`); Docker-published ports bypass ufw and firewalld. Long syntax is not checked |
+| `docker/compose/no-inline-secrets` | `ast-grep` forbid: under `environment` or `args`, a secret-like key (map form) or `KEY=value` entry (list form) whose value is neither empty nor a `${VAR}` reference; `*_FILE` keys are fine |
+| `docker/compose/healthy-depends` | `ast-grep` forbid: `depends_on` as a list (block or flow); the long form with `condition:` is required |
+| `docker/compose/pinned-images` | `ast-grep` forbid: `image:` with `:latest` or no tag or digest, unless the service also has `build:`; `${VAR}` images are not checked |
+| `docker/compose/env-not-committed` | `check` lint: `git ls-files` lists no `.env` or `.env.*` other than `.env.example`, `.env.sample`, `.env.template` |
+
+context.md: `compose.yaml` + `compose.override.yaml`, healthchecks with `condition: service_healthy`, `develop.watch`, profiles, secrets, loopback-bound database ports, and that docker compose runs outside the sandbox, which makes these rules a real boundary.
+
 ### 13.1 Migration linting
 
 `migration-lint` checks run [Squawk](https://squawkhq.com) (`squawk-cli`, pinned, through `bunx` or `uvx`, like ast-grep) on migration SQL and fail only on the changes that break the running version of the application during a deploy: `renaming-column`, `renaming-table`, `changing-column-type`, `adding-required-field`, `adding-not-nullable-field`, `ban-drop-database`. Squawk's other advice (lock and statement timeouts, `IF NOT EXISTS`, `CONCURRENTLY`, column types) is not enforced: Prisma and Alembic generate SQL that triggers it on every migration. Findings are printed `file:line:column` (from 1). When Squawk cannot run (offline, no `bunx` or `uvx`) or Alembic cannot render a revision, the check prints `forge:<id> skipped: …` and does not block. In CI (`--all`) only the newest migration is linted, so an accepted rename does not fail every later run.
@@ -686,6 +723,10 @@ context.md: actions pinned to a commit SHA, `permissions: {}` then per job, `per
 ### 13.2 zizmor
 
 `forge_zizmor <audit>…` runs [zizmor](https://docs.zizmor.sh) pinned (`uvx zizmor@<pin>`), `--offline` (no GitHub token, no network audits), `--no-ignores` (inline `# zizmor: ignore` comments and ignore rules in its config do not apply; a rule is disabled in `forge.yaml`) and `--format github`, on the changed in-scope files (every tracked workflow and action with `--all`). Findings of the named audits print as `<path>:<line> <audit>: <message>` and are line-attributed like any lint check. When uvx is missing or zizmor cannot run (offline without a cached copy), the check prints `forge:<id> skipped: …` and does not block.
+
+### 13.3 hadolint
+
+`forge_hadolint <code>…` runs hadolint (pinned, from the `hadolint-bin` wheel through `uvx --from hadolint-bin==<pin>`) once per `check.sh` run on the Dockerfiles of the change, shared by the hadolint rules. Before running it, it hashes the binary and compares it with the upstream release's sha256 for the platform (embedded in Forge); a mismatch, an unknown platform, or no uvx prints `forge:<id> skipped: …` and does not block. It runs with `-c <file containing "ignored: []">` (the project's `.hadolint.yaml` ignores do not apply), `--disable-ignore-pragma` (inline `# hadolint ignore=` comments do not apply; a rule is disabled in `forge.yaml`), `--no-fail --no-color -f tty`; lines `path:line CODE level: message` of the named codes print as `path:line CODE: message`. `forge test` also checks the wheel's binary against the upstream checksum.
 
 ## 14. Acceptance tests
 
@@ -697,6 +738,7 @@ The test suite in `tests/spec/` is the executable form of this specification: on
 - ast-grep targets compile to `rule-tests/*.yml` (`valid` = `no_match`, `invalid` = `match`) and pass `ast-grep test --skip-snapshot-tests`. The number of loaded rules equals the number of rule files.
 - Every guard target: `guard.sh` on each example wrapped in hook JSON returns the rule's decision for `match` and nothing for `no_match`, on macOS `sh` (bash 3.2), dash and BusyBox.
 - Every grep target: `grep -E` matches a line of each `match` example and no line of a `no_match` example.
+- The `hadolint-bin` wheel's binary for this platform has the upstream release's sha256 (when a rule uses hadolint and uvx is available).
 - Every check target: each example runs in a temporary git repository holding the fixture's `head` files (committed), a `.forge/check.sh` generated with only that check, then the fixture's `files` written and staged, as a turn that started at the `head` fixture. `check.sh` runs as Stop runs it (`--turn`; `format` checks, which fix files at Stop, as CI runs them: `--all`). A `match` example fails the check (`forge:<id> failed`), a `no_match` example passes. Project tools come from the current project's `node_modules/.bin` and `.venv/bin`, then `PATH`; an example whose tool is not found is reported skipped, never passed.
 - Every `context.md` ≤ 10 lines.
 

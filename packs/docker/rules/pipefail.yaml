@@ -1,0 +1,10 @@
+id: docker/pipefail
+description: "A RUN with a pipe sets SHELL with -o pipefail first, so a failing left side fails the build (hadolint DL4006)."
+scope: {language: any, files: ["**/Dockerfile", "**/Dockerfile.*", "**/*.Dockerfile", "**/Containerfile"]}
+enforce:
+  - {target: check, stage: lint, run: "forge_hadolint DL4006", when_changed: ["**/Dockerfile", "**/Dockerfile.*", "**/*.Dockerfile", "**/Containerfile"]}
+examples:
+  match:
+    - files: {Dockerfile: "FROM debian:13-slim\nRUN curl -fsSL https://example.com/key | gpg --dearmor -o /usr/share/keyrings/x.gpg\nUSER app\n", .dockerignore: ".env*\n.git\n"}
+  no_match:
+    - files: {Dockerfile: "FROM debian:13-slim\nSHELL [\"/bin/bash\", \"-o\", \"pipefail\", \"-c\"]\nRUN curl -fsSL https://example.com/key | gpg --dearmor -o /usr/share/keyrings/x.gpg\nUSER app\n", .dockerignore: ".env*\n.git\n"}

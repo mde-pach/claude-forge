@@ -1,0 +1,11 @@
+id: docker/pin-base-image
+description: "Base images name a version tag (or a digest), never latest or nothing (hadolint DL3006, DL3007)."
+scope: {language: any, files: ["**/Dockerfile", "**/Dockerfile.*", "**/*.Dockerfile", "**/Containerfile"]}
+enforce:
+  - {target: check, stage: lint, run: "forge_hadolint DL3006 DL3007", when_changed: ["**/Dockerfile", "**/Dockerfile.*", "**/*.Dockerfile", "**/Containerfile"]}
+examples:
+  match:
+    - files: {Dockerfile: "FROM python:latest\nUSER app\n", .dockerignore: ".env*\n.git\n"}
+    - files: {api/Dockerfile: "FROM node\nUSER node\n", .dockerignore: ".env*\n.git\n"}
+  no_match:
+    - files: {Dockerfile: "FROM python:3.13-slim AS build\nWORKDIR /app\nCOPY pyproject.toml uv.lock ./\nRUN uv sync --locked --no-dev\n\nFROM python:3.13-slim\nWORKDIR /app\nCOPY --from=build /app /app\nUSER app\nCMD [\"python\", \"-m\", \"app\"]\n", .dockerignore: ".env*\n.git\n"}

@@ -5,14 +5,15 @@
  * compared with a stored snapshot (`FORGE_UPDATE_SNAPSHOTS=1` rewrites them).
  * The samples cover Python (FastAPI, SQLAlchemy, Alembic, pytest, uv),
  * TypeScript with Next.js + React + Prisma + Vitest + Playwright on Bun, Astro
- * with React islands, and a repository that uses ESLint instead of Biome.
+ * with React islands, a repository that uses ESLint instead of Biome, and a
+ * Docker repository (Dockerfile, Compose, a GitHub Actions workflow).
  */
 import { describe, expect, test } from "bun:test";
 import { expectSnapshot, forge, sampleRepo, snapshotOf } from "../helpers";
 
 const T = 120_000;
 
-describe.each([["fastapi-app"], ["nextjs-prisma-app"], ["astro-app"], ["eslint-app"]])("%s", (name) => {
+describe.each([["fastapi-app"], ["nextjs-prisma-app"], ["astro-app"], ["eslint-app"], ["docker-app"]])("%s", (name) => {
   test(
     "apply output equals the stored snapshot",
     () => {

@@ -1,0 +1,12 @@
+id: docker/dockerignore
+description: "Each Dockerfile has a .dockerignore (Dockerfile.dockerignore next to it, one in its directory, or one at the root) that excludes .env files from the build context."
+scope: {language: any, files: ["**/Dockerfile", "**/Dockerfile.*", "**/*.Dockerfile", "**/Containerfile"]}
+enforce:
+  - {target: check, stage: lint, run: "forge_docker_ignore", when_changed: ["**/Dockerfile", "**/Dockerfile.*", "**/*.Dockerfile", "**/Containerfile", "**/.dockerignore", "**/*.dockerignore"]}
+examples:
+  match:
+    - files: {Dockerfile: "FROM python:3.13-slim\nUSER app\n"}
+    - files: {Dockerfile: "FROM python:3.13-slim\nUSER app\n", .dockerignore: ".git\nnode_modules\n"}
+  no_match:
+    - files: {Dockerfile: "FROM python:3.13-slim\nUSER app\n", .dockerignore: ".git\n**/.env*\n"}
+    - files: {api/Dockerfile: "FROM python:3.13-slim\nUSER app\n", api/Dockerfile.dockerignore: "*\n!app\n"}

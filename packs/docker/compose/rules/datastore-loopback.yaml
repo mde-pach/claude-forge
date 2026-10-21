@@ -1,0 +1,19 @@
+id: docker/compose/datastore-loopback
+description: "Published database and broker ports (5432, 3306, 6379, 27017, 9200, 5672, 11211, 1433) bind to 127.0.0.1; Docker-published ports bypass ufw and firewalld. Short syntax only: a long-syntax ports entry is not checked."
+scope: {language: yaml, files: ["**/compose*.yml", "**/compose*.yaml", "**/docker-compose*.yml", "**/docker-compose*.yaml"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      all:
+        - any: [{kind: string_scalar}, {kind: double_quote_scalar}, {kind: single_quote_scalar}, {kind: integer_scalar}]
+        - regex: "(^[\"']?|:)(5432|3306|6379|27017|9200|5672|11211|1433)(/(tcp|udp))?[\"']?$"
+        - not: {regex: "^[\"']?(127\\.0\\.0\\.1|localhost|\\[::1\\]):"}
+        - inside: {stopBy: end, kind: block_mapping_pair, has: {field: key, regex: "^[\"']?(ports)[\"']?$"}}
+examples:
+  match:
+    - "services:\n  db:\n    image: postgres:17\n    ports:\n      - \"5432:5432\"\n"
+    - "services:\n  cache:\n    image: redis:8\n    ports:\n      - 0.0.0.0:16379:6379\n"
+    - "services:\n  db:\n    image: postgres:17\n    ports:\n      - 5432\n"
+  no_match:
+    - "services:\n  db:\n    image: postgres:17\n    ports:\n      - \"127.0.0.1:5432:5432\"\n  web:\n    image: nginx:1.29\n    ports:\n      - \"8080:80\"\n"

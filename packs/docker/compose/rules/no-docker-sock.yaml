@@ -1,0 +1,15 @@
+id: docker/compose/no-docker-sock
+description: "No service mounts the Docker socket; it gives the container root on the host."
+scope: {language: yaml, files: ["**/compose*.yml", "**/compose*.yaml", "**/docker-compose*.yml", "**/docker-compose*.yaml"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any: [{kind: string_scalar}, {kind: double_quote_scalar}, {kind: single_quote_scalar}]
+      regex: "/run/docker\\.sock"
+examples:
+  match:
+    - "services:\n  agent:\n    image: portainer/agent:2.21\n    volumes:\n      - /var/run/docker.sock:/var/run/docker.sock\n"
+    - "services:\n  agent:\n    image: traefik:v3.2\n    volumes:\n      - type: bind\n        source: /run/docker.sock\n        target: /var/run/docker.sock\n"
+  no_match:
+    - "services:\n  db:\n    image: postgres:17\n    volumes:\n      - pgdata:/var/lib/postgresql/data\nvolumes:\n  pgdata: {}\n"

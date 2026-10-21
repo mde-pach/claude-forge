@@ -1,0 +1,10 @@
+id: docker/workdir
+description: "COPY to a relative destination only after WORKDIR (hadolint DL3045)."
+scope: {language: any, files: ["**/Dockerfile", "**/Dockerfile.*", "**/*.Dockerfile", "**/Containerfile"]}
+enforce:
+  - {target: check, stage: lint, run: "forge_hadolint DL3045", when_changed: ["**/Dockerfile", "**/Dockerfile.*", "**/*.Dockerfile", "**/Containerfile"]}
+examples:
+  match:
+    - files: {Dockerfile: "FROM python:3.13-slim\nCOPY . app\nUSER app\n", .dockerignore: ".env*\n.git\n"}
+  no_match:
+    - files: {Dockerfile: "FROM python:3.13-slim\nWORKDIR /srv\nCOPY . app\nUSER app\n", .dockerignore: ".env*\n.git\n"}

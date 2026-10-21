@@ -15,7 +15,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadPacks } from "../../src/packs";
-import { checkExamplesOptional, permissionMatches, selfTest, type TestReport } from "../../src/selftest";
+import { checkExamplesOptional, hadolintIntegrity, permissionMatches, selfTest, type TestReport } from "../../src/selftest";
 import { ensureTools, forge, ROOT, TOOLS_CACHE } from "../helpers";
 import type { CheckTarget } from "../../src/types";
 
@@ -45,6 +45,11 @@ test("every check target has examples, except test and migration runs, astro che
   const missing = rules.filter((r) => r.enforce.some((t) => t.target === "check" && !checkExamplesOptional(t as CheckTarget)) && !(r.examples?.match?.length && r.examples?.no_match?.length));
   expect(missing.map((r) => r.id)).toEqual([]);
 });
+
+/** @pack docker */
+test("the hadolint-bin wheel ships the upstream hadolint release binary (its sha256 matches the release's)", () => {
+  expect(hadolintIntegrity().status).toBe("ok");
+}, T);
 
 test("every check example ran: none was skipped for a missing tool", () => {
   expect(report.notes.filter((n) => n.includes(" example ") && n.includes("skipped"))).toEqual([]);

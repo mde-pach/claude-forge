@@ -1,0 +1,19 @@
+id: docker/compose/pinned-images
+description: "Images name a version tag (or a digest), never latest or nothing, except in a service that builds its own image."
+scope: {language: yaml, files: ["**/compose*.yml", "**/compose*.yaml", "**/docker-compose*.yml", "**/docker-compose*.yaml"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: block_mapping_pair
+      has: {field: key, regex: "^[\"']?(image)[\"']?$"}
+      all:
+        - has: {field: value, any: [{regex: ":latest[\"']?$"}, {regex: "^[\"']?([^/\"'$]*/)*[^:/\"'@$]+[\"']?$"}]}
+        - not: {inside: {kind: block_mapping, has: {kind: block_mapping_pair, has: {field: key, regex: "^[\"']?(build)[\"']?$"}}}}
+examples:
+  match:
+    - "services:\n  db:\n    image: postgres:latest\n"
+    - "services:\n  db:\n    image: postgres\n"
+    - "services:\n  api:\n    image: ghcr.io/acme/api\n"
+  no_match:
+    - "services:\n  db:\n    image: postgres:17.6\n  api:\n    image: ghcr.io/acme/api@sha256:4d09c27d4f8151c586b83a9390eaa5843b1e2af2a67df61a53b18b2df4c769d4\n  web:\n    build: .\n    image: acme/web\n  cache:\n    image: ${CACHE_IMAGE}\n"

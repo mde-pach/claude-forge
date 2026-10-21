@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
 import { examplePath } from "./audit.js";
@@ -16,7 +16,7 @@ import {
   renderSgConfig,
   template,
 } from "./render.js";
-import { AST_GREP_VERSION, ownedHash, run } from "./util.js";
+import { AST_GREP_VERSION, HADOLINT_SHA256, HADOLINT_VERSION, ownedHash, run, sha256 } from "./util.js";
 import type { AstGrepTarget, CheckTarget, Example, ExampleFixture, GrepTarget, GuardTarget, PermissionTarget, Rule } from "./types.js";
 
 export interface TestReport {
@@ -88,6 +88,23 @@ export function permissionMatches(rule: string, call: string): boolean {
     return arg === spec;
   }
   return globMatch(spec, arg);
+}
+
+// ---------------------------------------------------------------- hadolint
+
+/** Whether the pinned hadolint-bin wheel ships the upstream release binary for this platform. */
+export function hadolintIntegrity(): { status: "ok" | "mismatch" | "skipped"; detail: string } {
+  if (run("uvx", ["--version"]).status !== 0) return { status: "skipped", detail: "uvx is not available" };
+  const which = run("uvx", ["-q", "--from", `hadolint-bin==${HADOLINT_VERSION}`, "python", "-c", 'import shutil; print(shutil.which("hadolint") or "")']);
+  const bin = which.stdout.trim();
+  if (which.status !== 0 || !bin) return { status: "skipped", detail: `hadolint-bin ${HADOLINT_VERSION} could not be installed` };
+  const platform = `${run("uname", ["-s"]).stdout.trim()}-${run("uname", ["-m"]).stdout.trim()}`;
+  const want = HADOLINT_SHA256[platform];
+  if (!want) return { status: "skipped", detail: `no upstream checksum for ${platform}` };
+  const have = sha256(readFileSync(bin));
+  return have === want
+    ? { status: "ok", detail: `${platform} ${have}` }
+    : { status: "mismatch", detail: `hadolint-bin ${HADOLINT_VERSION} ships ${have} for ${platform}, the upstream release is ${want}` };
 }
 
 // ---------------------------------------------------------------- forge test
@@ -345,6 +362,13 @@ export function selfTest(packsDir: string, repo?: string, opts: { toolBins?: str
           if (res.outcome === "fail") failures.push(`${r.id}: ${kind} example ${i + 1} ${res.detail}`);
           else if (res.outcome === "skip") notes.push(`${r.id}: ${kind} example ${i + 1} skipped: ${res.detail}`);
         });
+
+  // hadolint: the hadolint-bin wheel's binary is the upstream release binary (§13.3)
+  if (rules.some((r) => r.enforce.some((t) => t.target === "check" && /\bforge_hadolint\b/.test(t.run)))) {
+    const h = hadolintIntegrity();
+    if (h.status === "mismatch") failures.push(`hadolint: ${h.detail}`);
+    else if (h.status === "skipped") notes.push(`hadolint: ${h.detail}`);
+  }
 
   if (!existsSync(packsDir)) failures.push(`${packsDir} does not exist`);
   return { failures, notes, counts };

@@ -1,0 +1,14 @@
+id: docker/compose/config-valid
+description: The root compose file is valid (docker compose config --quiet --no-interpolate --no-env-resolution, so no .env is read).
+scope: {language: any, files: ["**/compose*.yml", "**/compose*.yaml", "**/docker-compose*.yml", "**/docker-compose*.yaml"]}
+enforce:
+  - target: check
+    stage: lint
+    run: "[ -z \"$(ls compose.yaml compose.yml docker-compose.yaml docker-compose.yml 2>/dev/null)\" ] || docker compose config --quiet --no-interpolate --no-env-resolution"
+    when_changed: ["**/compose*.yml", "**/compose*.yaml", "**/docker-compose*.yml", "**/docker-compose*.yaml", "**/.env.example"]
+examples:
+  match:
+    - files: {compose.yaml: "services:\n  db:\n    image: postgres:17\n    ports: 5432\n"}
+    - files: {compose.yaml: "services:\n  db:\n    imagee: postgres:17\n"}
+  no_match:
+    - files: {compose.yaml: "services:\n  db:\n    image: postgres:17\n    env_file: .env\n    environment:\n      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}\n"}

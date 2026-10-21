@@ -11,6 +11,19 @@ export const AST_GREP_VERSION = "0.45.3";
 export const SQUAWK_VERSION = "2.70.0";
 /** zizmor (GitHub Actions auditor), run through uvx by github-actions/zizmor. */
 export const ZIZMOR_VERSION = "1.30.1";
+/** hadolint, run through uvx from the hadolint-bin wheel, whose binary must match the upstream release. */
+export const HADOLINT_VERSION = "2.15.1";
+/**
+ * sha256 of the upstream hadolint 2.15.1 release binaries
+ * (https://github.com/hadolint/hadolint/releases/tag/v2.15.1), by `uname -s`-`uname -m`.
+ */
+export const HADOLINT_SHA256: Record<string, string> = {
+  "Linux-x86_64": "c7187db94eeeeca956519a6af171adc31453941a1e777961f6e680f697c8c507",
+  "Linux-aarch64": "f6198ef8090f404dbb771abfee086eb8c48ac177f30da7fd3510aca35b344b5d",
+  "Linux-arm64": "f6198ef8090f404dbb771abfee086eb8c48ac177f30da7fd3510aca35b344b5d",
+  "Darwin-arm64": "5c09f3213f8e40406abe048233d985eebef336d4a6a20021be47fadb6cf480a2",
+  "Darwin-x86_64": "ffe9bb18b23d5ed1eae50237aecdbb523d016e96da0bd4e7aa432040acfc3fde",
+};
 
 export function sha256(text: string | Buffer): string {
   return createHash("sha256").update(text).digest("hex");

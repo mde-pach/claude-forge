@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { codeExamples } from "./packs.js";
 import { toYaml } from "./yaml.js";
-import { AST_GREP_VERSION, FORGE_VERSION, packageRoot, shQuote, SQUAWK_VERSION, ZIZMOR_VERSION } from "./util.js";
+import { AST_GREP_VERSION, FORGE_VERSION, HADOLINT_SHA256, HADOLINT_VERSION, packageRoot, shQuote, SQUAWK_VERSION, ZIZMOR_VERSION } from "./util.js";
 import type { AstGrepTarget, CheckTarget, GrepTarget, GuardTarget, Language, Level, Rule } from "./types.js";
 
 export function template(name: string): string {
@@ -24,7 +24,7 @@ export function renderLib(): string {
 export const AUDITED_TOOLS = ["biome", "ruff", "basedpyright", "tsc"] as const;
 export const PROJECT_TOOLS = [...AUDITED_TOOLS, "alembic", "pytest", "prisma", "vitest", "playwright", "astro", "python"] as const;
 /** System runtimes, checked with `command -v`. */
-export const SYSTEM_TOOLS = ["uv", "bun"] as const;
+export const SYSTEM_TOOLS = ["uv", "bun", "docker"] as const;
 
 /** Tools invoked as commands in a shell string, in order of first use. */
 export function toolsInCommand(cmd: string): string[] {
@@ -156,7 +156,12 @@ export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = []): s
     if (changed) out.push(`forge_check_changed_${n}() {`, target.changed_run!.replaceAll("{files}", "$FORGE_FILES"), "}");
   });
   out.push("", ...renderGreps(greps));
-  out.push("# ---- end of generated checks", "", fill(template("engine.sh"), { SQUAWK_VERSION, ZIZMOR_VERSION }).trimEnd());
+  out.push("# ---- end of generated checks", "", fill(template("engine.sh"), {
+      SQUAWK_VERSION,
+      ZIZMOR_VERSION,
+      HADOLINT_VERSION,
+      HADOLINT_SHAS: Object.entries(HADOLINT_SHA256).map(([p, h]) => `${p} ${h}`).join("\n"),
+    }).trimEnd());
   return out.join("\n");
 }
 

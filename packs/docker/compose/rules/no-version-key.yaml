@@ -1,0 +1,15 @@
+id: docker/compose/no-version-key
+description: "No top-level version key; Compose ignores it and warns."
+scope: {language: yaml, files: ["**/compose*.yml", "**/compose*.yaml", "**/docker-compose*.yml", "**/docker-compose*.yaml"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: block_mapping_pair
+      has: {field: key, regex: "^[\"']?(version)[\"']?$"}
+      inside: {kind: block_mapping, inside: {kind: block_node, inside: {kind: document}}}
+examples:
+  match:
+    - "version: \"3.8\"\nservices:\n  db:\n    image: postgres:17\n"
+  no_match:
+    - "services:\n  db:\n    image: postgres:17\n    environment:\n      version: \"2\"\n"

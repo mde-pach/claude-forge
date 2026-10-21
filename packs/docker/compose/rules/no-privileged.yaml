@@ -1,0 +1,32 @@
+id: docker/compose/no-privileged
+description: "No privileged service, host namespaces (network_mode, pid, ipc, userns_mode, uts: host), ALL or SYS_ADMIN capabilities, or unconfined security options."
+scope: {language: yaml, files: ["**/compose*.yml", "**/compose*.yaml", "**/docker-compose*.yml", "**/docker-compose*.yaml"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        - all:
+            - kind: block_mapping_pair
+            - has: {field: key, regex: "^[\"']?(privileged)[\"']?$"}
+            - has: {field: value, regex: "^[\"']?true[\"']?$"}
+        - all:
+            - kind: block_mapping_pair
+            - has: {field: key, regex: "^[\"']?(network_mode|pid|ipc|userns_mode|uts)[\"']?$"}
+            - has: {field: value, regex: "^[\"']?host[\"']?$"}
+        - all:
+            - {any: [{kind: string_scalar}, {kind: double_quote_scalar}, {kind: single_quote_scalar}]}
+            - regex: "^[\"']?(CAP_)?(ALL|SYS_ADMIN)[\"']?$"
+            - inside: {stopBy: end, kind: block_mapping_pair, has: {field: key, regex: "^[\"']?(cap_add)[\"']?$"}}
+        - all:
+            - {any: [{kind: string_scalar}, {kind: double_quote_scalar}, {kind: single_quote_scalar}]}
+            - regex: "unconfined"
+            - inside: {stopBy: end, kind: block_mapping_pair, has: {field: key, regex: "^[\"']?(security_opt)[\"']?$"}}
+examples:
+  match:
+    - "services:\n  app:\n    image: alpine:3.22\n    privileged: true\n"
+    - "services:\n  app:\n    image: alpine:3.22\n    network_mode: host\n"
+    - "services:\n  app:\n    image: alpine:3.22\n    cap_add:\n      - SYS_ADMIN\n"
+    - "services:\n  app:\n    image: alpine:3.22\n    security_opt:\n      - seccomp:unconfined\n"
+  no_match:
+    - "services:\n  app:\n    image: alpine:3.22\n    privileged: false\n    cap_add:\n      - NET_BIND_SERVICE\n    security_opt:\n      - no-new-privileges:true\n"

@@ -1,0 +1,14 @@
+id: docker/non-root-user
+description: "The final stage runs as a non-root USER, set in it or inherited from the named stage it builds on (images that run non-root by default, cgr.dev/, dhi.io/ or *nonroot*, are exempt)."
+scope: {language: any, files: ["**/Dockerfile", "**/Dockerfile.*", "**/*.Dockerfile", "**/Containerfile"]}
+enforce:
+  - {target: check, stage: lint, run: "forge_docker_nonroot", when_changed: ["**/Dockerfile", "**/Dockerfile.*", "**/*.Dockerfile", "**/Containerfile"]}
+examples:
+  match:
+    - files: {Dockerfile: "FROM python:3.13-slim\nCMD [\"python\"]\n", .dockerignore: ".env*\n.git\n"}
+    - files: {Dockerfile: "FROM node:24-slim AS base\nUSER node\n\nFROM base\nUSER root\nCMD [\"node\", \"server.js\"]\n", .dockerignore: ".env*\n.git\n"}
+    - files: {Dockerfile: "FROM python:3.13-slim AS build\nUSER app\n\nFROM python:3.13-slim\nCMD [\"python\"]\n", .dockerignore: ".env*\n.git\n"}
+  no_match:
+    - files: {Dockerfile: "FROM python:3.13-slim AS build\nWORKDIR /app\nCOPY pyproject.toml uv.lock ./\nRUN uv sync --locked --no-dev\n\nFROM python:3.13-slim\nWORKDIR /app\nCOPY --from=build /app /app\nUSER app\nCMD [\"python\", \"-m\", \"app\"]\n", .dockerignore: ".env*\n.git\n"}
+    - files: {Dockerfile: "FROM node:24-slim AS base\nUSER node\n\nFROM base\nCMD [\"node\", \"server.js\"]\n", .dockerignore: ".env*\n.git\n"}
+    - files: {Dockerfile: "FROM golang:1.25 AS build\nRUN go build -o /app .\n\nFROM gcr.io/distroless/static-debian12:nonroot\nCOPY --from=build /app /app\nENTRYPOINT [\"/app\"]\n", .dockerignore: ".env*\n.git\n"}

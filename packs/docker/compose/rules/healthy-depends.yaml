@@ -1,0 +1,18 @@
+id: docker/compose/healthy-depends
+description: "depends_on uses the long form with a condition (service_healthy for databases), never the bare list, which only waits for the container to start."
+scope: {language: yaml, files: ["**/compose*.yml", "**/compose*.yaml", "**/docker-compose*.yml", "**/docker-compose*.yaml"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: block_mapping_pair
+      has: {field: key, regex: "^[\"']?(depends_on)[\"']?$"}
+      any:
+        - has: {field: value, kind: flow_node, has: {kind: flow_sequence}}
+        - has: {field: value, kind: block_node, has: {kind: block_sequence}}
+examples:
+  match:
+    - "services:\n  api:\n    image: acme/api:1.4\n    depends_on:\n      - db\n"
+    - "services:\n  api:\n    image: acme/api:1.4\n    depends_on: [db]\n"
+  no_match:
+    - "services:\n  api:\n    image: acme/api:1.4\n    depends_on:\n      db:\n        condition: service_healthy\n"

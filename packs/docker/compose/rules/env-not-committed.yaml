@@ -1,0 +1,14 @@
+id: docker/compose/env-not-committed
+description: No .env file is committed (.env.example, .env.sample and .env.template are fine).
+scope: {language: any}
+enforce:
+  - target: check
+    stage: lint
+    run: "! git ls-files | grep -E '(^|/)\\.env(\\..+)?$' | grep -vE '(^|/)\\.env\\.(example|sample|template)$'"
+    when_changed: ["**/.env", "**/.env.*"]
+examples:
+  match:
+    - files: {.env: "POSTGRES_PASSWORD=hunter2\n"}
+    - files: {api/.env.local: "API_KEY=abc\n"}
+  no_match:
+    - files: {.env.example: "POSTGRES_PASSWORD=\n", .gitignore: ".env\n"}
