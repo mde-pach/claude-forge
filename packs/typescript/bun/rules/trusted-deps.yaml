@@ -1,0 +1,14 @@
+id: typescript/bun/trusted-deps
+description: "No new trustedDependencies entries in package.json: each one lets that package run its install scripts. The user trusts packages, not Claude."
+scope: {language: any}
+enforce:
+  - {target: check, stage: lint, run: "forge_trusted_deps", when_changed: ["**/package.json"]}
+examples:
+  match:
+    - head: {package.json: "{\"name\": \"shop\", \"trustedDependencies\": [\"esbuild\"]}\n"}
+      files: {package.json: "{\"name\": \"shop\", \"trustedDependencies\": [\"esbuild\", \"sharp\"]}\n"}
+  no_match:
+    - head: {package.json: "{\"name\": \"shop\", \"trustedDependencies\": [\"esbuild\", \"sharp\"]}\n"}
+      files: {package.json: "{\"name\": \"shop\", \"trustedDependencies\": [\"esbuild\"]}\n"}
+    - head: {package.json: "{\"name\": \"shop\", \"dependencies\": {}}\n"}
+      files: {package.json: "{\"name\": \"shop\", \"dependencies\": {\"zod\": \"4.1.0\"}}\n"}

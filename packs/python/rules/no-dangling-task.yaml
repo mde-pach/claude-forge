@@ -1,0 +1,13 @@
+id: python/no-dangling-task
+description: "asyncio.create_task results are kept: an unreferenced task can be garbage-collected mid-flight."
+scope: {language: "python"}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: "RUF006"
+    snippet: "[tool.ruff.lint] extend-select = [\"RUF006\"]"
+examples:
+  match:
+    - "import asyncio\n\n\nasync def main() -> None:\n    asyncio.create_task(work())\n"
+  no_match:
+    - "import asyncio\n\nbackground: set[asyncio.Task[None]] = set()\n\n\nasync def main() -> None:\n    task = asyncio.create_task(work())\n    background.add(task)\n    task.add_done_callback(background.discard)\n"

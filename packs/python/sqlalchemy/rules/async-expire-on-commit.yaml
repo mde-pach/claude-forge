@@ -1,0 +1,20 @@
+id: python/sqlalchemy/async-expire-on-commit
+description: async_sessionmaker sets expire_on_commit=False, so attributes read after a commit do not trigger implicit IO (MissingGreenlet) in async code.
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call
+      has: {field: function, regex: "^(\\w+\\.)*async_sessionmaker$"}
+      not:
+        has:
+          field: arguments
+          has: {kind: keyword_argument, regex: "^expire_on_commit\\s*=\\s*False$"}
+examples:
+  match:
+    - "from sqlalchemy.ext.asyncio import async_sessionmaker\n\nSession = async_sessionmaker(engine)\n"
+    - "from sqlalchemy.ext import asyncio as sa\n\nSession = sa.async_sessionmaker(engine, expire_on_commit=True)\n"
+  no_match:
+    - "from sqlalchemy.ext.asyncio import async_sessionmaker\n\nSession = async_sessionmaker(engine, expire_on_commit=False)\n"
+    - "from sqlalchemy.orm import sessionmaker\n\nSession = sessionmaker(engine)\n"

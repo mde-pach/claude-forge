@@ -1,0 +1,13 @@
+id: typescript/react/stable-keys
+description: List keys are stable ids, never the array index.
+scope: {language: "tsx"}
+enforce:
+  - target: tool
+    tool: biome
+    expects: "lint/suspicious/noArrayIndexKey"
+    snippet: "\"linter\": {\"rules\": {\"suspicious\": {\"noArrayIndexKey\": \"error\"}}}"
+examples:
+  match:
+    - "export function List({ items }: { items: { id: string; name: string }[] }) {\n  return <ul>{items.map((item, i) => <li key={i}>{item.name}</li>)}</ul>;\n}\n"
+  no_match:
+    - "export function List({ items }: { items: { id: string; name: string }[] }) {\n  return <ul>{items.map((item) => <li key={item.id}>{item.name}</li>)}</ul>;\n}\n"

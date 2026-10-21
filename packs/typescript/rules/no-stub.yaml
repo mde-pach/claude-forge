@@ -1,0 +1,29 @@
+id: typescript/no-stub
+description: No stub left behind. A throw of "Not implemented" (or "TODO", "unimplemented"), or a named function or method with an empty body, is a stub; overload signatures, interfaces and constructors with parameter properties are not.
+scope: {language: typescript, files: ["!**/*.d.ts"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        - kind: throw_statement
+          has: {stopBy: end, kind: string_fragment, regex: "(?i)^(not (yet )?implemented|unimplemented|todo)\\b"}
+        - all:
+            - any: [{kind: function_declaration}, {kind: method_definition}]
+            - not: {has: {field: name, regex: "^constructor$"}}
+            - has:
+                field: body
+                kind: statement_block
+                regex: "^\\{\\s*((//[^\\n]*|/\\*(?s:.)*?\\*/)\\s*)*\\}$"
+examples:
+  match:
+    - "export function refund(orderId: string): void {\n  throw new Error(\"Not implemented\");\n}\n"
+    - "export class Billing {\n  charge(orderId: string): Promise<void> {\n    throw new Error(\"TODO: call Stripe\");\n  }\n}\n"
+    - "export function refund(orderId: string): void {}\n"
+    - "export class Billing {\n  refund(orderId: string): void {\n    // later\n  }\n}\n"
+  no_match:
+    - "export function parse(x: string): number;\nexport function parse(x: number): number;\nexport function parse(x: string | number): number {\n  return Number(x);\n}\n"
+    - "export interface Gateway {\n  charge(orderId: string): Promise<void>;\n}\n"
+    - "export class Billing {\n  constructor(private readonly gateway: Gateway) {}\n}\n"
+    - "export const noop = () => {};\n"
+    - "export function refund(orderId: string): void {\n  throw new Error(`Order ${orderId} cannot be refunded`);\n}\n"

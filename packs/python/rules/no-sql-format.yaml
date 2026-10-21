@@ -1,0 +1,14 @@
+id: python/no-sql-format
+description: No SQL built with f-strings, format or concatenation. Use bound parameters.
+scope: {language: "python"}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: "S608"
+    snippet: "[tool.ruff.lint] extend-select = [\"S608\"]"
+examples:
+  match:
+    - "def find(name: str) -> str:\n    return f\"SELECT * FROM users WHERE name = '{name}'\"\n"
+    - "def find(name: str) -> str:\n    return \"DELETE FROM users WHERE name = '%s'\" % name\n"
+  no_match:
+    - "QUERY = \"SELECT * FROM users WHERE name = :name\"\n"

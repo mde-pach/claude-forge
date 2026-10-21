@@ -1,0 +1,31 @@
+id: python/no-stub
+description: No stub left behind. A function whose body is only pass or ..., or that raises NotImplementedError, is a stub unless it is abstract, an overload or part of a Protocol (stub files and migrations are exempt).
+scope: {language: python, files: ["!**/*.pyi", "!**/alembic/versions/**", "!**/migrations/**"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      all:
+        - any:
+            - kind: function_definition
+              has:
+                field: body
+                all:
+                  - has: {any: [{kind: pass_statement}, {kind: expression_statement, has: {kind: ellipsis}}]}
+                  - not: {has: {not: {any: [{kind: pass_statement}, {kind: comment}, {kind: expression_statement, has: {any: [{kind: ellipsis}, {kind: string}]}}]}}}
+            - kind: raise_statement
+              regex: "^raise\\s+NotImplementedError\\b"
+        - not: {inside: {stopBy: end, kind: decorated_definition, has: {kind: decorator, regex: "\\b(abstractmethod|abstractproperty|overload)\\b"}}}
+        - not: {inside: {stopBy: end, kind: class_definition, has: {field: superclasses, regex: "\\b(Protocol|ABC)\\b"}}}
+examples:
+  match:
+    - "def charge(order_id: str) -> None:\n    pass\n"
+    - "def charge(order_id: str) -> None:\n    \"\"\"Charge the order.\"\"\"\n    ...\n"
+    - "class PaymentService:\n    def refund(self, order_id: str) -> None:\n        raise NotImplementedError\n"
+    - "def total(items: list[int]) -> int:\n    # TODO\n    pass\n"
+  no_match:
+    - "from abc import ABC, abstractmethod\n\n\nclass Gateway(ABC):\n    @abstractmethod\n    def charge(self, order_id: str) -> None:\n        raise NotImplementedError\n"
+    - "from typing import Protocol\n\n\nclass Gateway(Protocol):\n    def charge(self, order_id: str) -> None: ...\n"
+    - "from typing import overload\n\n\n@overload\ndef parse(x: int) -> int: ...\n@overload\ndef parse(x: str) -> str: ...\ndef parse(x: int | str) -> int | str:\n    return x\n"
+    - "class PaymentError(Exception):\n    pass\n"
+    - "def total(items: list[int]) -> int:\n    return sum(items)\n"

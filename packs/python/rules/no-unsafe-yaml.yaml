@@ -1,0 +1,13 @@
+id: python/no-unsafe-yaml
+description: yaml.load needs a safe loader; use yaml.safe_load.
+scope: {language: "python"}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: "S506"
+    snippet: "[tool.ruff.lint] extend-select = [\"S506\"]"
+examples:
+  match:
+    - "import yaml\n\n\ndef load(text: str) -> object:\n    return yaml.load(text, Loader=yaml.Loader)\n"
+  no_match:
+    - "import yaml\n\n\ndef load(text: str) -> object:\n    return yaml.safe_load(text)\n"

@@ -1,0 +1,17 @@
+id: typescript/no-placeholder-comment
+description: No placeholder comments on added lines ("TODO implement", "in a real implementation", "placeholder logic"); write the code or say what is missing.
+scope: {language: typescript}
+enforce:
+  - target: grep
+    mode: forbid
+    ignore_case: true
+    pattern: "(//|/\\*|^[[:space:]]*\\*).*(todo:?[[:space:]]*implement|in a real (implementation|app|application|system|project|world)|in production,? (you|we) would|placeholder (implementation|logic|code|value|for now)|stub(bed)? (implementation|for now)|implement (this|me) (later|properly))"
+examples:
+  match:
+    - "export function charge() {\n  // TODO: implement\n  return null;\n}\n"
+    - "/**\n * In a real implementation this would call Stripe.\n */\nexport function charge() {\n  return null;\n}\n"
+    - "export const RATE = 0.2; // placeholder value\n"
+  no_match:
+    - "export function charge() {\n  // Stripe retries webhooks for three days.\n  return null;\n}\n"
+    - "export const Field = () => <input placeholder=\"Email address\" />;\n"
+    - "// TODO(billing): support refunds in EUR\n"

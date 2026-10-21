@@ -377,7 +377,7 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 
 | Rule | Targets |
 |---|---|
-| `safety/secret-files` | `permission` deny: `Read(**/.env)`, `Read(**/.env.local)`, `Read(**/.env.development)`, `Read(**/.env.production)`, `Read(**/.env.test)`, same with `Edit(...)`, `Read(**/*.pem)`, `Read(**/*.key)`, `Read(~/.ssh/**)`, `Read(~/.netrc)`, `Read(~/.npmrc)`, `Read(~/.pypirc)`, `Read(~/.pgpass)`, `Read(~/.git-credentials)`, `Read(~/.config/gh/hosts.yml)` |
+| `safety/secret-files` | `permission` deny: `Read(**/.env)`, `Read(**/.env.local)`, `Read(**/.env.development)`, `Read(**/.env.production)`, `Read(**/.env.test)`, same with `Edit(...)`, `Read(**/*.pem)`, `Read(**/*.key)`, `Read(~/.ssh/**)`, `Read(~/.netrc)`, `Read(~/.npmrc)`, `Read(~/.pypirc)`, `Read(~/.pgpass)`, `Read(~/.git-credentials)`, `Read(~/.config/gh/hosts.yml)`, `Read(~/.docker/config.json)` |
 | `safety/sandbox` | `sandbox` `enabled: true`; `network.allowedDomains`: `registry.npmjs.org`, `pypi.org`, `files.pythonhosted.org`, `github.com` |
 | `safety/git-reset-hard` | `permission` deny: `Bash(git reset --hard:*)` |
 | `safety/git-clean` | `permission` deny: `Bash(git clean:*)` |
@@ -398,6 +398,9 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `safety/terraform-destroy` | `guard` ask: `terraform` / `tofu` `destroy`, `apply … -auto-approve` |
 | `safety/git-stash-drop` | `guard` ask: `git stash drop` (`git stash clear` is denied by `git-history-rewrite`) |
 | `safety/git-branch-force-delete` | `guard` ask: `git branch -D`, `--delete --force`, `-f -d` |
+| `safety/ephemeral-exec` | `guard` ask: packages fetched from a registry on the fly: `pnpm dlx`, `yarn dlx`, `pipx run`, `npm exec`, `uvx`, `uv tool run`; `npx` / `bunx` / `bun x` with `-y`, `--yes`, `-p`, `--package` or a `name@version` spec. `bunx prisma` (a tool installed in the project) is not asked |
+| `safety/docker-privileged` | `guard` deny: `docker run` / `create` / `exec` with `--privileged`, `--pid=host`, `--ipc=host`, `--userns=host`, `--cap-add ALL` or `SYS_ADMIN`, `--security-opt seccomp=unconfined` or `apparmor=unconfined`, `docker.sock`; `run` / `create` mounting `/`, `/etc`, `/root`, `~` or `$HOME` (`-v`, `--volume`, `--mount source=`) |
+| `safety/docker-push` | `guard` ask: `docker push`, `docker image push`, `docker compose push`, `docker buildx … --push` |
 
 ### python
 
@@ -420,6 +423,23 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `python/no-new-suppressions` | `grep` no-increase: `# noqa`, `# type: ignore`, `# pyright: ignore` (suppression budget) |
 | `python/config-files` | `permission` ask: `Edit(**/ruff.toml)`, `Edit(**/.ruff.toml)`, `Edit(**/pyrightconfig.json)` |
 | `python/config-ratchet` | `check` lint: `forge_ratchet python ratchet.py` (§10.4), `when_changed`: the Python config files |
+| `python/no-silent-except` | `tool` ruff `S110`, `S112` |
+| `python/no-blind-except` | `tool` ruff `BLE001` |
+| `python/no-blanket-noqa` | `tool` ruff `PGH004` |
+| `python/no-unused-noqa` | `tool` ruff `RUF100` |
+| `python/no-commented-out-code` | `tool` ruff `ERA001` |
+| `python/no-print` | `tool` ruff `T201` (snippet: per-file-ignores for `scripts/**` and CLIs) |
+| `python/no-dangling-task` | `tool` ruff `RUF006` |
+| `python/log-exception` | `tool` ruff `TRY400` |
+| `python/no-hardcoded-password` | `tool` ruff `S105`, `S106` (snippet: off under `tests/**`) |
+| `python/no-sql-format` | `tool` ruff `S608` |
+| `python/http-timeout` | `tool` ruff `S113` (requests without `timeout`; httpx with `timeout=None`) |
+| `python/no-weak-hash` | `tool` ruff `S324` |
+| `python/no-pickle` | `tool` ruff `S301` |
+| `python/no-unsafe-yaml` | `tool` ruff `S506` |
+| `python/jinja-autoescape` | `tool` ruff `S701` |
+| `python/no-stub` | `ast-grep` forbid, not in `*.pyi` or migrations: a function whose body is only `pass` / `...` (docstrings and comments aside), or `raise NotImplementedError`, outside `@abstractmethod`, `@overload` and `Protocol` / `ABC` classes |
+| `python/no-placeholder-comment` | `grep` forbid (case-insensitive): comments such as `TODO: implement`, "in a real implementation", "placeholder logic", "stub for now" |
 
 context.md: uv and `.venv/bin`, basedpyright; no blocking calls in `async def`; ignore comments name their rule.
 
@@ -443,6 +463,14 @@ context.md: uv and `.venv/bin`, basedpyright; no blocking calls in `async def`; 
 | `typescript/no-eval` | `tool` biome `lint/security/noGlobalEval`; `ast-grep` forbid `eval(…)`, `globalThis.eval(…)`, `window.eval(…)` |
 | `typescript/unchecked-index` | `tool` tsc: expects `TS18048` on an unchecked array element (`noUncheckedIndexedAccess`; snippet adds it to `strict`) |
 | `typescript/no-new-suppressions` | `grep` no-increase: `biome-ignore` (every form), `@ts-expect-error` (suppression budget; `@ts-ignore` and `@ts-nocheck` are forbidden outright) |
+| `typescript/no-empty-block` | `tool` biome `lint/suspicious/noEmptyBlockStatements` |
+| `typescript/no-swallowed-catch` | `ast-grep` forbid: a `catch` that neither throws nor uses its error; `.catch(() => {})`, `.catch(() => undefined)`, `.catch(() => null)` |
+| `typescript/no-console` | `tool` biome `lint/suspicious/noConsole` (snippet allows `warn` and `error`) |
+| `typescript/no-unused` | `tool` biome `lint/correctness/noUnusedImports`, `lint/correctness/noUnusedVariables` |
+| `typescript/no-secrets` | `tool` biome `lint/security/noSecrets` (snippet: error, `entropyThreshold` 50, off for tests and generated files) |
+| `typescript/no-unused-suppressions` | `check` lint: `biome lint` output has no `suppressions/unused` diagnostic (Biome reports it only as a warning, and no setting raises it) |
+| `typescript/no-stub` | `ast-grep` forbid, not in `*.d.ts`: a `throw` whose message starts with "Not implemented", "unimplemented" or "TODO"; a named function or method (not a constructor) whose body is empty or only comments |
+| `typescript/no-placeholder-comment` | `grep` forbid (case-insensitive): the Python list, after `//`, `/*` or `*` |
 | `typescript/config-files` | `permission` ask: `Edit(**/biome.json)`, `Edit(**/biome.jsonc)`, `Edit(**/tsconfig*.json)` |
 | `typescript/config-ratchet` | `check` lint: `forge_ratchet bun ratchet.mjs` (§10.4), `when_changed`: Biome, tsconfig and `package.json` files |
 
@@ -454,6 +482,7 @@ context.md: strict TypeScript and Bun; TypeScript 6 deprecations are migrated, n
 |---|---|
 | `python/uv/lock-sync` | `check` lint: `run: uv lock --check`, `when_changed: [pyproject.toml]` |
 | `python/uv/no-pip` | `guard` ask: `pip install`, `pip3 install`, `uv pip install` |
+| `python/uv/exclude-newer` | `check` lint: `forge_uv_cooldown`: `[tool.uv]` (or `uv.toml`) `exclude-newer` is a relative duration of at least 3 days (`"7 days"`, `P1W`) and `required-version` is `>=0.9.17`; `when_changed`: `pyproject.toml`, `uv.toml`, `uv.lock` |
 
 ### python/fastapi
 
@@ -474,6 +503,7 @@ context.md: "FastAPI. Dependencies use `Annotated[T, Depends(...)]`. Startup and
 | `python/sqlalchemy/no-backref` | `ast-grep` forbid: `relationship($$$, backref=$_, $$$)` |
 | `python/sqlalchemy/mapped-column` | `ast-grep` forbid: `$N = Column($$$)` inside a class body |
 | `python/sqlalchemy/no-raw-execute` | `ast-grep` forbid: `$X.execute("$$$")` with a string literal |
+| `python/sqlalchemy/async-expire-on-commit` | `ast-grep` forbid: `async_sessionmaker(…)` without `expire_on_commit=False` |
 | `python/sqlalchemy/no-text-fstring` | `ast-grep` forbid: `text()` whose SQL is an f-string, `.format()`, `%` or `+` concatenation |
 
 context.md: SQLAlchemy 2.0 async models, queries and sessions; no lazy loading in async sessions (`selectinload()`, `lazy="raise"`); `text()` with bound parameters.
@@ -508,6 +538,7 @@ context.md: "Pydantic v2: `model_validate`, `model_dump`, `model_config = Config
 | `python/pytest/no-test-env-branch` | `ast-grep` forbid on non-test files: `PYTEST_CURRENT_TEST` lookups, `"pytest" in sys.modules` |
 | `python/pytest/no-blind-raises` | `tool` ruff `B017` |
 | `python/pytest/no-tautological-assert` | `ast-grep` forbid on test files: `assert` on a literal (`True`, a number, a string), `assert $X == $X`, `assert $X is $X` |
+| `python/pytest/no-mock-increase` | `ast-grep` no-increase on test files: calls to `patch`, `patch.object`, `patch.dict`, `MagicMock`, `AsyncMock`, `Mock` (bare, `mock.`, `unittest.mock.` or `mocker.`) |
 | `python/pytest/no-test-edits` | `check` lint: `forge_test_edits` on `**/test_*.py`, `**/*_test.py` (§10.5) |
 
 context.md: tests assert behaviour, never weakened; "If an existing test looks wrong, stop and ask; never edit it to make the code pass."
@@ -518,6 +549,8 @@ context.md: tests assert behaviour, never weakened; "If an existing test looks w
 |---|---|
 | `typescript/bun/lock-sync` | `check` lint: `run: bun install --frozen-lockfile`, `when_changed: [package.json]` |
 | `typescript/bun/no-other-pm` | `guard` ask: `npm install`, `npm i`, `npm ci`, `pnpm`, `yarn` |
+| `typescript/bun/release-age` | `check` lint: `forge_bun_cooldown`: `bunfig.toml` `[install] minimumReleaseAge` ≥ 259200; `when_changed`: `bunfig.toml`, `package.json`, `bun.lock` |
+| `typescript/bun/trusted-deps` | `check` lint: `forge_trusted_deps`: no `trustedDependencies` entry added to a `package.json` since the base (with `bun`) |
 
 ### typescript/nextjs
 
@@ -528,6 +561,8 @@ context.md: tests assert behaviour, never weakened; "If an existing test looks w
 | `typescript/nextjs/proxy-not-middleware` | `ast-grep` forbid: any code in `middleware.ts` / `src/middleware.ts` (file renamed to `proxy.ts` in Next.js 16) |
 | `typescript/nextjs/revalidate-tag-profile` | `ast-grep` forbid: `revalidateTag($A)` with one argument |
 | `typescript/nextjs/no-legacy-image-config` | `ast-grep` forbid: imports of `next/legacy/image`; a `domains` key inside `images` |
+| `typescript/nextjs/server-action-validate` | `ast-grep` forbid: an exported async function with parameters in a `'use server'` file, or an exported `POST` / `PUT` / `PATCH` / `DELETE` function, without a `.parse` / `.safeParse` / `.parseAsync` / `.safeParseAsync` call |
+| `typescript/nextjs/server-action-auth` | `ast-grep` forbid: the same functions without a call to `auth`, `getSession`, `getServerSession`, `getCurrentUser`, `currentUser`, `getUser`, `requireUser`, `requireAuth`, `requireSession`, `verifySession`, `validateRequest` or `getAuth` (as a function or a method). Another helper name, or a public endpoint, is handled with a local rule of the same id (§5.3) |
 | `typescript/nextjs/no-public-secret-env` | `ast-grep` forbid: `process.env.NEXT_PUBLIC_*` names containing `SECRET`, `PRIVATE`, `PASSWORD`, `SERVICE_ROLE` or `DATABASE_URL` |
 
 context.md: Next.js 16 App Router: async request APIs, Server Components by default, `proxy.ts`, `revalidateTag(tag, profile)` / `updateTag(tag)`, `images.remotePatterns`, no `next lint`, Server Actions validate input and check authorization, no secrets in `NEXT_PUBLIC_`.
@@ -551,6 +586,10 @@ Detected by `react >= 19` (npm); a sibling of `nextjs` and `astro`, so it applie
 | `typescript/react/no-prop-types` | `ast-grep` forbid: `$C.propTypes = $V`, `$C.defaultProps = $V` |
 | `typescript/react/use-action-state` | `ast-grep` forbid: `useFormState` imported from `react-dom` |
 | `typescript/react/no-dangerous-html` | `tool` biome `lint/security/noDangerouslySetInnerHtml`; `ast-grep` forbid the `dangerouslySetInnerHTML` attribute |
+| `typescript/react/hooks-rules` | `tool` biome `lint/correctness/useHookAtTopLevel`, `lint/correctness/useExhaustiveDependencies` |
+| `typescript/react/stable-keys` | `tool` biome `lint/suspicious/noArrayIndexKey` |
+| `typescript/react/no-nested-components` | `tool` biome `lint/correctness/noNestedComponentDefinitions` |
+| `typescript/react/a11y` | `tool` biome `lint/a11y/useAltText`, `lint/a11y/useButtonType` (snippet: the whole `a11y` group at error) |
 | `typescript/react/no-deprecated-types` | `tool` biome `lint/suspicious/noDeprecatedImports`, on imports React's types mark `@deprecated` (`ElementRef`, `MutableRefObject`, `LegacyRef`); Biome reads the tags from real `node_modules` directories only (not pnpm's symlinks) |
 
 context.md: React 19: `ref` is a prop (no `forwardRef`), `useActionState` and `act` from `react`, no `propTypes` / `defaultProps`, `createRoot` instead of `ReactDOM.render`.
@@ -560,6 +599,7 @@ context.md: React 19: `ref` is a prop (no `forwardRef`), `useActionState` and `a
 | Rule | Targets |
 |---|---|
 | `typescript/astro/check` | `check` typecheck: `run: astro check`, scope `**/*.astro`, `**/*.ts`, `**/*.tsx` |
+| `typescript/astro/no-set-html` | `grep` forbid in `**/*.astro`: `set:html=` |
 
 context.md: Astro renders on the server to static HTML; `astro check`; content collections in `src/content.config.ts` with `glob()` / `file()` loaders and `entry.id`; no `Astro.glob()`; `<ClientRouter />`.
 
@@ -597,6 +637,7 @@ context.md: Prisma 7: `prisma-client` generator with `output`, driver adapters, 
 | `typescript/vitest/no-pass-with-no-tests` | `guard` ask: `vitest … --passWithNoTests` |
 | `typescript/vitest/config-file` | `permission` ask: `Edit(**/vitest.config.*)` |
 
+| `typescript/vitest/no-mock-increase` | `ast-grep` no-increase on test files: `vi.mock`, `vi.doMock`, `vi.spyOn`, `vi.fn` calls |
 | `typescript/vitest/no-test-edits` | `check` lint: `forge_test_edits` on `**/*.test.*`, `**/*.spec.*`, `**/__tests__/**`, not `e2e/**` (§10.5) |
 
 context.md: Vitest 4 `test.projects` and `maxWorkers`; assertions are never weakened to make a test pass; "If an existing test looks wrong, stop and ask; never edit it to make the code pass."
@@ -612,9 +653,10 @@ context.md: Vitest 4 `test.projects` and `maxWorkers`; assertions are never weak
 | `typescript/playwright/no-snapshot-update` | `guard` ask: `playwright test` with `--update-snapshots` or `-u` |
 | `typescript/playwright/config-file` | `permission` ask: `Edit(**/playwright.config.*)` |
 
+| `typescript/playwright/axe` | `check` lint: when `package.json` names `@axe-core/playwright`, a tracked `e2e/*` or `*.spec.*` file uses `AxeBuilder` |
 | `typescript/playwright/no-test-edits` | `check` lint: `forge_test_edits` on `e2e/**` (§10.5) |
 
-context.md: locators (`getByRole`, `getByLabel`, `getByText`, `getByTestId`) and web-first assertions; never `waitForTimeout`; "If an existing test looks wrong, stop and ask; never edit it to make the code pass."
+context.md: locators (`getByRole`, `getByLabel`, `getByText`, `getByTestId`) and web-first assertions; never `waitForTimeout`; `@axe-core/playwright` for accessibility scans; "If an existing test looks wrong, stop and ask; never edit it to make the code pass."
 
 ### typescript/zod
 

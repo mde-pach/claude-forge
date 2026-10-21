@@ -1,0 +1,13 @@
+id: safety/docker-privileged
+description: Containers started by Claude never get the host (--privileged, host pid/ipc/userns, ALL or SYS_ADMIN capabilities, unconfined seccomp or AppArmor, the Docker socket, or a mount of /, /etc, /root or the home directory); docker runs outside Claude Code's sandbox.
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: deny
+    pattern: '(^|[^A-Za-z0-9_-])docker[[:space:]]+(container[[:space:]]+)?(run|create|exec)[[:space:]][^;&|]*(--privileged|--(pid|ipc|userns)[= ]host|--cap-add[= ](ALL|SYS_ADMIN)|--security-opt[= ](seccomp|apparmor)[=:]unconfined|docker\.sock)'
+  - target: guard
+    decision: deny
+    pattern: '(^|[^A-Za-z0-9_-])docker[[:space:]]+(container[[:space:]]+)?(run|create)[[:space:]][^;&|]*((-v|--volume)[= ](\\?")?|(source|src)=)(/|/etc|/root|~|\$HOME|\$\{HOME\})/?([:,[:space:]]|\\?"|$)'
+examples:
+  match: ["docker run --privileged -it alpine sh", "docker run --pid=host alpine ps", "docker container run --userns host app", "docker run --cap-add SYS_ADMIN app", "docker run --security-opt seccomp=unconfined app", "docker exec --privileged web sh", "docker run -v /var/run/docker.sock:/var/run/docker.sock app", "docker run -v /:/host alpine", "docker run -v ~/:/root app", "docker run -v \"$HOME:/home/app\" app", "docker run --mount type=bind,source=/etc,target=/host-etc alpine"]
+  no_match: ["docker run --rm -p 127.0.0.1:5432:5432 postgres:17", "docker run -v ./data:/data app", "docker run -v /etc/nginx/conf.d:/etc/nginx/conf.d:ro nginx", "docker compose run --rm api pytest", "docker exec -it db psql -U app"]

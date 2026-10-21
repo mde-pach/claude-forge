@@ -1,0 +1,13 @@
+id: typescript/vitest/no-mock-increase
+description: A test file may not gain mocks (vi.mock, vi.spyOn, vi.fn); test through the real code or a fake at the boundary.
+scope: {language: typescript, files: ["**/*.test.*", "**/*.spec.*", "**/__tests__/**", "!e2e/**"]}
+enforce:
+  - target: ast-grep
+    mode: no-increase
+    rule: {kind: call_expression, has: {field: function, regex: "^vi\\.(mock|doMock|spyOn|fn)$"}}
+examples:
+  match:
+    - "import { vi } from \"vitest\";\n\nvi.mock(\"./billing\");\n"
+    - "import { expect, it, vi } from \"vitest\";\n\nit(\"charges\", () => {\n  const pay = vi.fn();\n  charge(pay);\n  expect(pay).toHaveBeenCalled();\n});\n"
+  no_match:
+    - "import { expect, it } from \"vitest\";\n\nit(\"charges\", () => {\n  const gateway = new FakeGateway();\n  charge(gateway);\n  expect(gateway.charged).toBe(1);\n});\n"

@@ -1,0 +1,17 @@
+id: typescript/react/hooks-rules
+description: Hooks run at the top level of a component or hook, and effects list every dependency they read.
+scope: {language: "tsx"}
+enforce:
+  - target: tool
+    tool: biome
+    expects: "lint/correctness/useHookAtTopLevel"
+    snippet: "\"linter\": {\"rules\": {\"correctness\": {\"useHookAtTopLevel\": \"error\", \"useExhaustiveDependencies\": \"error\"}}}"
+  - target: tool
+    tool: biome
+    expects: "lint/correctness/useExhaustiveDependencies"
+    snippet: "\"linter\": {\"rules\": {\"correctness\": {\"useHookAtTopLevel\": \"error\", \"useExhaustiveDependencies\": \"error\"}}}"
+examples:
+  match:
+    - "import { useEffect, useState } from \"react\";\n\nexport function Cart({ open, id }: { open: boolean; id: string }) {\n  if (open) {\n    useState(0);\n  }\n  useEffect(() => {\n    document.title = id;\n  }, []);\n  return null;\n}\n"
+  no_match:
+    - "import { useEffect, useState } from \"react\";\n\nexport function Cart({ open, id }: { open: boolean; id: string }) {\n  const [count] = useState(0);\n  useEffect(() => {\n    document.title = `${id} ${count}`;\n  }, [id, count]);\n  return open ? <p>{count}</p> : null;\n}\n"

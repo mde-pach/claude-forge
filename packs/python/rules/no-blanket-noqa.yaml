@@ -1,0 +1,13 @@
+id: python/no-blanket-noqa
+description: A noqa comment names the codes it silences.
+scope: {language: "python"}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: "PGH004"
+    snippet: "[tool.ruff.lint] extend-select = [\"PGH004\"]"
+examples:
+  match:
+    - "import os  # noqa\n"
+  no_match:
+    - "import os  # noqa: F401\n"

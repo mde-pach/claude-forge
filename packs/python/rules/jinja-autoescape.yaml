@@ -1,0 +1,14 @@
+id: python/jinja-autoescape
+description: Jinja2 environments escape HTML (autoescape on).
+scope: {language: "python"}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: "S701"
+    snippet: "[tool.ruff.lint] extend-select = [\"S701\"]"
+examples:
+  match:
+    - "from jinja2 import Environment\n\nenv = Environment(autoescape=False)\n"
+    - "import jinja2\n\nenv = jinja2.Environment()\n"
+  no_match:
+    - "from jinja2 import Environment, select_autoescape\n\nenv = Environment(autoescape=select_autoescape())\n"

@@ -1,0 +1,13 @@
+id: typescript/no-empty-block
+description: No empty block statements; an intentionally empty block says why in a comment.
+scope: {language: "typescript"}
+enforce:
+  - target: tool
+    tool: biome
+    expects: "lint/suspicious/noEmptyBlockStatements"
+    snippet: "\"linter\": {\"rules\": {\"suspicious\": {\"noEmptyBlockStatements\": \"error\"}}}"
+examples:
+  match:
+    - "export function apply(discount: number): void {\n  if (discount > 0) {\n  }\n}\n"
+  no_match:
+    - "export function apply(discount: number): void {\n  if (discount > 0) {\n    // discounts are applied at checkout\n  }\n}\n"

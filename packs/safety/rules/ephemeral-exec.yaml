@@ -1,0 +1,16 @@
+id: safety/ephemeral-exec
+description: Claude asks before running a package fetched from a registry on the fly (npx -y, bunx pkg@version, uvx, pnpm dlx, pipx run, npm exec); a typo or a hijacked name runs someone else's code. Tools already installed in the project (bunx prisma) run as usual.
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: ask
+    pattern: '(^|[^A-Za-z0-9_-])((pnpm|yarn)[[:space:]]+dlx|pipx[[:space:]]+run|npm[[:space:]]+exec|uvx|uv[[:space:]]+tool[[:space:]]+run)([[:space:]]|$)'
+  - target: guard
+    decision: ask
+    pattern: '(^|[^A-Za-z0-9_-])(npx|bunx|bun[[:space:]]+x)[[:space:]]([^;&|]*[[:space:]])?(-y|--yes|-p|--package)([[:space:]=]|$)'
+  - target: guard
+    decision: ask
+    pattern: '(^|[^A-Za-z0-9_-])(npx|bunx|bun[[:space:]]+x)[[:space:]]+(-[^[:space:]]+[[:space:]]+)*@?[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)?@[^[:space:];&|]+'
+examples:
+  match: ["npx -y create-next-app@latest shop", "bunx shadcn@latest add button", "bun x prisma@7 generate", "bunx @biomejs/biome@2.5.15 ci .", "npx --package=@biomejs/biome biome ci", "uvx ruff check", "uv tool run httpie", "pnpm dlx tsx script.ts", "pipx run cowsay hi", "npm exec -- prettier --check ."]
+  no_match: ["bunx prisma generate", "bunx vitest run", "bun x biome ci .", "npx tsc --noEmit", "bun run test", "uv run pytest", "bun add -d zod", "git commit -m \"use bunx\""]

@@ -1,0 +1,17 @@
+id: typescript/no-unused
+description: No unused imports or variables.
+scope: {language: "typescript"}
+enforce:
+  - target: tool
+    tool: biome
+    expects: "lint/correctness/noUnusedImports"
+    snippet: "\"linter\": {\"rules\": {\"correctness\": {\"noUnusedImports\": \"error\", \"noUnusedVariables\": \"error\"}}}"
+  - target: tool
+    tool: biome
+    expects: "lint/correctness/noUnusedVariables"
+    snippet: "\"linter\": {\"rules\": {\"correctness\": {\"noUnusedImports\": \"error\", \"noUnusedVariables\": \"error\"}}}"
+examples:
+  match:
+    - "import { readFile } from \"node:fs/promises\";\n\nexport function total(items: number[]): number {\n  const count = items.length;\n  return items.reduce((a, b) => a + b, 0);\n}\n"
+  no_match:
+    - "import { readFile } from \"node:fs/promises\";\n\nexport async function load(path: string): Promise<string> {\n  const text = await readFile(path, \"utf8\");\n  return text.trim();\n}\n"

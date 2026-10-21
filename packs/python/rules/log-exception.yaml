@@ -1,0 +1,13 @@
+id: python/log-exception
+description: Inside except, log with logger.exception (keeps the traceback), not logger.error.
+scope: {language: "python"}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: "TRY400"
+    snippet: "[tool.ruff.lint] extend-select = [\"TRY400\"]"
+examples:
+  match:
+    - "import logging\n\nlogger = logging.getLogger(__name__)\n\n\ndef charge() -> None:\n    try:\n        pay()\n    except ValueError:\n        logger.error(\"payment failed\")\n"
+  no_match:
+    - "import logging\n\nlogger = logging.getLogger(__name__)\n\n\ndef charge() -> None:\n    try:\n        pay()\n    except ValueError:\n        logger.exception(\"payment failed\")\n"

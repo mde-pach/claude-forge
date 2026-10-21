@@ -1,0 +1,15 @@
+id: python/http-timeout
+description: "HTTP calls never wait forever: requests calls set a timeout, httpx calls never pass timeout=None."
+scope: {language: "python"}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: "S113"
+    snippet: "[tool.ruff.lint] extend-select = [\"S113\"]"
+examples:
+  match:
+    - "import requests\n\nrequests.post(\"https://api.example.com/items\", json={})\n"
+    - "import httpx\n\nhttpx.get(\"https://api.example.com/items\", timeout=None)\n"
+  no_match:
+    - "import requests\n\nrequests.post(\"https://api.example.com/items\", json={}, timeout=10)\n"
+    - "import httpx\n\nhttpx.get(\"https://api.example.com/items\")\n"

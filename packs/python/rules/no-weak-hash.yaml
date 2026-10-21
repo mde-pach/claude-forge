@@ -1,0 +1,15 @@
+id: python/no-weak-hash
+description: No MD5 or SHA-1 for security. Use SHA-256 or better (or usedforsecurity=False for checksums).
+scope: {language: "python"}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: "S324"
+    snippet: "[tool.ruff.lint] extend-select = [\"S324\"]"
+examples:
+  match:
+    - "import hashlib\n\ndigest = hashlib.md5(b\"secret\").hexdigest()\n"
+    - "import hashlib\n\ndigest = hashlib.new(\"sha1\", b\"secret\").hexdigest()\n"
+  no_match:
+    - "import hashlib\n\ndigest = hashlib.sha256(b\"secret\").hexdigest()\n"
+    - "import hashlib\n\netag = hashlib.md5(b\"body\", usedforsecurity=False).hexdigest()\n"

@@ -250,6 +250,94 @@ forge_test_edits() {
   return 1
 }
 
+# forge_toml_get <file> <section> <key>: the value of <key> in [<section>] ("" for
+# the top level), quotes and comments removed; nothing when absent. One-line values only.
+forge_toml_get() {
+  awk -v want="$2" -v key="$3" '
+    /^[[:space:]]*\[/ { s = $0; sub(/^[[:space:]]*\[[[:space:]]*/, "", s); sub(/[[:space:]]*\].*$/, "", s); next }
+    s == want {
+      line = $0; sub(/^[[:space:]]*/, "", line)
+      if (substr(line, 1, length(key)) != key) next
+      rest = substr(line, length(key) + 1)
+      if (rest !~ /^[[:space:]]*=/) next
+      sub(/^[[:space:]]*=[[:space:]]*/, "", rest)
+      if (rest ~ /^"/) { sub(/^"/, "", rest); sub(/".*$/, "", rest) }
+      else if (rest ~ /^\047/) { sub(/^\047/, "", rest); sub(/\047.*$/, "", rest) }
+      else sub(/[[:space:]]*(#.*)?$/, "", rest)
+      print rest; exit
+    }' "$1" 2>/dev/null
+}
+
+# forge_duration_seconds <text>: a relative duration ("7 days", "1 week", "72 hours",
+# P7D, P1W, PT72H) in seconds; nothing when it is not one.
+forge_duration_seconds() {
+  printf '%s\n' "$1" | awk '{
+    v = tolower($0)
+    if (v ~ /^p[0-9]+w$/) print substr(v, 2) * 604800
+    else if (v ~ /^p[0-9]+d$/) print substr(v, 2) * 86400
+    else if (v ~ /^pt[0-9]+h$/) print substr(v, 3) * 3600
+    else if (v ~ /^[0-9]+[[:space:]]*(weeks?|days?|hours?)$/) {
+      n = v + 0; u = v; sub(/^[0-9]+[[:space:]]*/, "", u)
+      print n * (u ~ /^w/ ? 604800 : u ~ /^d/ ? 86400 : 3600)
+    }
+  }'
+}
+
+# forge_version_ge <a> <b>: succeeds when version a >= b (numeric dot-separated parts).
+forge_version_ge() {
+  awk -v a="$1" -v b="$2" 'BEGIN {
+    na = split(a, x, "."); nb = split(b, y, ".")
+    for (i = 1; i <= (na > nb ? na : nb); i++) { p = x[i] + 0; q = y[i] + 0; if (p > q) exit 0; if (p < q) exit 1 }
+    exit 0 }'
+}
+
+# forge_bun_cooldown: bunfig.toml [install] minimumReleaseAge is at least 3 days (259200 s).
+forge_bun_cooldown() {
+  _bc_v=$(forge_toml_get bunfig.toml install minimumReleaseAge)
+  case $_bc_v in ''|*[!0-9]*) ;; *) [ "$_bc_v" -ge 259200 ] && return 0 ;; esac
+  printf 'bunfig.toml: [install] minimumReleaseAge is %s; set it to at least 259200 (3 days, in seconds) so a freshly published (possibly compromised) version is not installed. Packages you must update sooner go in minimumReleaseAgeExcludes.\n' "${_bc_v:-unset}"
+  return 1
+}
+
+# forge_uv_cooldown: [tool.uv] (or uv.toml) exclude-newer is a relative duration of at
+# least 3 days, and required-version asks for uv >= 0.9.17 (older uv ignores relative values).
+forge_uv_cooldown() {
+  if [ -f uv.toml ]; then _uc_f=uv.toml; _uc_s=''; else _uc_f=pyproject.toml; _uc_s=tool.uv; fi
+  _uc_rc=0
+  _uc_v=$(forge_toml_get "$_uc_f" "$_uc_s" exclude-newer)
+  _uc_n=$(forge_duration_seconds "$_uc_v")
+  if [ -z "$_uc_n" ] || [ "$_uc_n" -lt 259200 ]; then
+    printf '%s: [%s] exclude-newer is %s; set a relative duration of at least 3 days, e.g. exclude-newer = "7 days", so a freshly published (possibly compromised) version is not resolved.\n' "$_uc_f" "${_uc_s:-top level}" "${_uc_v:-unset}"
+    _uc_rc=1
+  fi
+  _uc_r=$(forge_toml_get "$_uc_f" "$_uc_s" required-version)
+  _uc_min=$(printf '%s' "$_uc_r" | sed -n -E 's/^[[:space:]]*(>=|==|~=|>)[[:space:]]*([0-9][0-9.]*).*$/\2/p')
+  if [ -z "$_uc_min" ] || ! forge_version_ge "$_uc_min" 0.9.17; then
+    printf '%s: [%s] required-version is %s; set required-version = ">=0.9.17" (older uv ignores a relative exclude-newer).\n' "$_uc_f" "${_uc_s:-top level}" "${_uc_r:-unset}"
+    _uc_rc=1
+  fi
+  return "$_uc_rc"
+}
+
+# forge_trusted_deps: no package.json gains trustedDependencies entries (each one
+# lets that package run install scripts); compared with the base, with bun.
+forge_trusted_deps() {
+  _td_rc=0
+  while IFS= read -r _td_f; do
+    case $_td_f in package.json|*/package.json) ;; *) continue ;; esac
+    _td_new=$(bun -e '
+      const fs = require("fs");
+      const read = (p) => { try { const v = JSON.parse(fs.readFileSync(p, "utf8")).trustedDependencies; return Array.isArray(v) ? v : []; } catch { return []; } };
+      const before = new Set(read(process.argv[1]));
+      console.log(read(process.argv[2]).filter((d) => !before.has(d)).join(" "));' "$FORGE_TMP/base/$_td_f" "$_td_f") || continue
+    if [ -n "$_td_new" ]; then
+      printf '%s: trustedDependencies adds %s (its install scripts would run); the user adds trusted packages, not Claude\n' "$_td_f" "$_td_new"
+      _td_rc=1
+    fi
+  done < "$FORGE_TMP/existing"
+  return "$_td_rc"
+}
+
 # forge_exec_tool <name> <args>: runs the project's own <name>; 127 when absent.
 forge_exec_tool() {
   _fx_cmd=$(tool "$1")
@@ -435,7 +523,7 @@ forge_exec_check() {
     _fe_rc=$?
     forge_kill_tree "$_fe_watch"
   else
-    "$1" > "$FORGE_TMP/out" 2>&1 < /dev/null
+    ( "$1" ) > "$FORGE_TMP/out" 2>&1 < /dev/null
     _fe_rc=$?
   fi
   set +f

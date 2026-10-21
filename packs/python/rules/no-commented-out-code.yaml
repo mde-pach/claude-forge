@@ -1,0 +1,16 @@
+id: python/no-commented-out-code
+description: No commented-out code. Delete it; git keeps history.
+scope: {language: "python"}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: "ERA001"
+    snippet: "[tool.ruff.lint] extend-select = [\"ERA001\"]"
+examples:
+  match:
+    - "# total = compute(items)\nTOTAL = 0\n"
+    - "def f() -> int:\n    # return legacy()\n    return 1\n"
+  no_match:
+    - "# Totals are kept in cents to avoid float rounding.\nTOTAL = 0\n"
+    - "# TODO(billing): switch to the new invoice API in Q3.\nTOTAL = 0\n"
+    - "#!/usr/bin/env python3\n# -*- coding: utf-8 -*-\nTOTAL = 0\n"

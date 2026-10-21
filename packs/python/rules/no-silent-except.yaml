@@ -1,0 +1,17 @@
+id: python/no-silent-except
+description: "No except that only passes or continues: handle the error, log it, or let it propagate."
+scope: {language: "python"}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: "S110"
+    snippet: "[tool.ruff.lint] extend-select = [\"S110\", \"S112\"]"
+  - target: tool
+    tool: ruff
+    expects: "S112"
+    snippet: "[tool.ruff.lint] extend-select = [\"S110\", \"S112\"]"
+examples:
+  match:
+    - "def run(jobs: list[str]) -> None:\n    for job in jobs:\n        try:\n            start(job)\n        except Exception:\n            pass\n        try:\n            stop(job)\n        except Exception:\n            continue\n"
+  no_match:
+    - "import logging\n\nlogger = logging.getLogger(__name__)\n\n\ndef sync(items: list[str]) -> None:\n    for item in items:\n        try:\n            push(item)\n        except ValueError:\n            logger.warning(\"skipped %s\", item)\n"

@@ -1,0 +1,17 @@
+id: python/no-placeholder-comment
+description: No placeholder comments on added lines ("TODO implement", "in a real implementation", "placeholder logic"); write the code or say what is missing.
+scope: {language: python}
+enforce:
+  - target: grep
+    mode: forbid
+    ignore_case: true
+    pattern: "#.*(todo:?[[:space:]]*implement|in a real (implementation|app|application|system|project|world)|in production,? (you|we) would|placeholder (implementation|logic|code|value|for now)|stub(bed)? (implementation|for now)|implement (this|me) (later|properly))"
+examples:
+  match:
+    - "def charge() -> None:\n    # TODO: implement\n    return None\n"
+    - "def charge() -> None:\n    # In a real implementation this would call Stripe.\n    return None\n"
+    - "RATE = 0.2  # placeholder value\n"
+  no_match:
+    - "def charge() -> None:\n    # Stripe retries webhooks for three days.\n    return None\n"
+    - "PLACEHOLDER = \"Email address\"\n"
+    - "# TODO(billing): support refunds in EUR\n"

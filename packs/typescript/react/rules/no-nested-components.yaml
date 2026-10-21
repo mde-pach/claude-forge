@@ -1,0 +1,13 @@
+id: typescript/react/no-nested-components
+description: "No component defined inside another component: it remounts on every render."
+scope: {language: "tsx"}
+enforce:
+  - target: tool
+    tool: biome
+    expects: "lint/correctness/noNestedComponentDefinitions"
+    snippet: "\"linter\": {\"rules\": {\"correctness\": {\"noNestedComponentDefinitions\": \"error\"}}}"
+examples:
+  match:
+    - "export function Page() {\n  function Row() {\n    return <li>row</li>;\n  }\n  return <ul><Row /></ul>;\n}\n"
+  no_match:
+    - "function Row() {\n  return <li>row</li>;\n}\n\nexport function Page() {\n  return <ul><Row /></ul>;\n}\n"

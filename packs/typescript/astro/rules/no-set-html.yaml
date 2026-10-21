@@ -1,0 +1,8 @@
+id: typescript/astro/no-set-html
+description: No set:html in .astro files; it injects unescaped HTML. Render the content as text or sanitise it in a component.
+scope: {language: any, files: ["**/*.astro"]}
+enforce:
+  - {target: grep, mode: forbid, pattern: "set:html[[:space:]]*="}
+examples:
+  match: ["---\nconst { body } = Astro.props;\n---\n<article set:html={body} />\n"]
+  no_match: ["---\nconst { body } = Astro.props;\n---\n<article>{body}</article>\n", "<p>Use set:text for plain strings.</p>\n"]

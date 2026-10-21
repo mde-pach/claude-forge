@@ -1,0 +1,14 @@
+id: python/no-blind-except
+description: No except Exception (or BaseException) unless it re-raises or logs with logger.exception.
+scope: {language: "python"}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: "BLE001"
+    snippet: "[tool.ruff.lint] extend-select = [\"BLE001\"]"
+examples:
+  match:
+    - "def load() -> dict[str, str]:\n    try:\n        return read()\n    except Exception:\n        return {}\n"
+  no_match:
+    - "def load() -> dict[str, str]:\n    try:\n        return read()\n    except FileNotFoundError:\n        return {}\n"
+    - "import logging\n\nlogger = logging.getLogger(__name__)\n\n\ndef load() -> dict[str, str]:\n    try:\n        return read()\n    except Exception:\n        logger.exception(\"load failed\")\n        raise\n"

@@ -1,0 +1,14 @@
+id: python/no-unused-noqa
+description: No noqa comment that silences nothing.
+scope: {language: "python"}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: "RUF100"
+    snippet: "[tool.ruff.lint] extend-select = [\"RUF100\"]"
+examples:
+  match:
+    - "X = 1  # noqa: E501\n"
+  no_match:
+    - "X = 1\n"
+    - "# The noqa comments in this module are explained in CONTRIBUTING.md.\nX = 1\n"

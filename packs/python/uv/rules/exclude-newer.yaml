@@ -1,0 +1,13 @@
+id: python/uv/exclude-newer
+description: uv resolves only versions published at least 3 days ago ([tool.uv] exclude-newer set to a relative duration such as "7 days") and requires uv >= 0.9.17, which understands relative values.
+scope: {language: any}
+enforce:
+  - {target: check, stage: lint, run: "forge_uv_cooldown", when_changed: [pyproject.toml, uv.toml, uv.lock]}
+examples:
+  match:
+    - files: {pyproject.toml: "[project]\nname = \"shop\"\nversion = \"0.1.0\"\n"}
+    - files: {pyproject.toml: "[tool.uv]\nexclude-newer = \"2026-01-01T00:00:00Z\"\nrequired-version = \">=0.9.17\"\n"}
+    - files: {pyproject.toml: "[tool.uv]\nexclude-newer = \"7 days\"\n"}
+  no_match:
+    - files: {pyproject.toml: "[project]\nname = \"shop\"\n\n[tool.uv]\nexclude-newer = \"7 days\"\nrequired-version = \">=0.9.17\"\n"}
+    - files: {uv.toml: "exclude-newer = \"P1W\"\nrequired-version = \">=0.10\"\n"}

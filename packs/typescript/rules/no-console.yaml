@@ -1,0 +1,13 @@
+id: typescript/no-console
+description: No console.log, info or debug in application code; console.warn and console.error stay allowed.
+scope: {language: "typescript"}
+enforce:
+  - target: tool
+    tool: biome
+    expects: "lint/suspicious/noConsole"
+    snippet: "\"linter\": {\"rules\": {\"suspicious\": {\"noConsole\": {\"level\": \"error\", \"options\": {\"allow\": [\"warn\", \"error\"]}}}}}"
+examples:
+  match:
+    - "export function checkout(total: number): void {\n  console.log(\"total\", total);\n}\n"
+  no_match:
+    - "import { logger } from \"./logger\";\n\nexport function checkout(total: number): void {\n  logger.info({ total }, \"checkout\");\n}\n"
