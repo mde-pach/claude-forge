@@ -338,6 +338,44 @@ forge_trusted_deps() {
   return "$_td_rc"
 }
 
+# GitHub Actions workflows: pinned zizmor (through uvx), offline audits only, inline
+# ignore comments and ignore rules not honoured (disabling goes through forge.yaml).
+FORGE_ZIZMOR_VERSION="@@ZIZMOR_VERSION@@"
+
+# forge_zizmor <audit>...: zizmor on $FORGE_FILES (else every tracked workflow and
+# action); prints "path:line audit message" for the findings of the named audits.
+forge_zizmor() {
+  if [ -n "$FORGE_FILES" ]; then set -f; set -- "$@" -- $FORGE_FILES; set +f
+  else
+    set -f
+    # shellcheck disable=SC2046
+    set -- "$@" -- $(git ls-files -- '.github/workflows/*.yml' '.github/workflows/*.yaml' '.github/actions/*action.yml' '.github/actions/*action.yaml' 'action.yml' 'action.yaml')
+    set +f
+  fi
+  _fz_audits=''
+  while [ "$1" != -- ]; do _fz_audits="$_fz_audits|$1"; shift; done
+  shift
+  [ "$#" -gt 0 ] || return 0
+  command -v uvx >/dev/null 2>&1 || { printf 'forge:%s skipped: uvx is needed to run zizmor\n' "$c_id"; return 0; }
+  uvx -q "zizmor@$FORGE_ZIZMOR_VERSION" --offline --no-progress --no-ignores --format github "$@" > "$FORGE_TMP/zizmor" 2> "$FORGE_TMP/zizmor.err"
+  _fz_rc=$?
+  if [ "$_fz_rc" -ne 0 ] && [ "$_fz_rc" -lt 10 ]; then
+    printf 'forge:%s skipped: zizmor could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/zizmor.err" | tail -n 1)"
+    return 0
+  fi
+  awk -v audits="${_fz_audits#|}" '
+    BEGIN { n = split(audits, a, "|"); for (i = 1; i <= n; i++) want[a[i]] = 1 }
+    /^::(error|warning|notice) / {
+      meta = $0; sub(/^::[a-z]+ /, "", meta); msg = meta; sub(/^[^:]*::/, "", msg); sub(/::.*$/, "", meta)
+      file = meta; sub(/^.*file=/, "", file); sub(/,.*$/, "", file)
+      line = meta; sub(/^.*line=/, "", line); sub(/,.*$/, "", line)
+      title = meta; sub(/^.*title=/, "", title); sub(/,.*$/, "", title)
+      sub(/^[^:]*:[0-9]+: /, "", msg)
+      if (title in want) { print file ":" line " " title ": " msg; bad = 1 }
+    }
+    END { exit bad }' "$FORGE_TMP/zizmor"
+}
+
 # forge_exec_tool <name> <args>: runs the project's own <name>; 127 when absent.
 forge_exec_tool() {
   _fx_cmd=$(tool "$1")

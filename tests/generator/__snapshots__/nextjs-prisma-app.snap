@@ -1052,6 +1052,44 @@ forge_trusted_deps() {
   return "$_td_rc"
 }
 
+# GitHub Actions workflows: pinned zizmor (through uvx), offline audits only, inline
+# ignore comments and ignore rules not honoured (disabling goes through forge.yaml).
+FORGE_ZIZMOR_VERSION="1.30.1"
+
+# forge_zizmor <audit>...: zizmor on $FORGE_FILES (else every tracked workflow and
+# action); prints "path:line audit message" for the findings of the named audits.
+forge_zizmor() {
+  if [ -n "$FORGE_FILES" ]; then set -f; set -- "$@" -- $FORGE_FILES; set +f
+  else
+    set -f
+    # shellcheck disable=SC2046
+    set -- "$@" -- $(git ls-files -- '.github/workflows/*.yml' '.github/workflows/*.yaml' '.github/actions/*action.yml' '.github/actions/*action.yaml' 'action.yml' 'action.yaml')
+    set +f
+  fi
+  _fz_audits=''
+  while [ "$1" != -- ]; do _fz_audits="$_fz_audits|$1"; shift; done
+  shift
+  [ "$#" -gt 0 ] || return 0
+  command -v uvx >/dev/null 2>&1 || { printf 'forge:%s skipped: uvx is needed to run zizmor\n' "$c_id"; return 0; }
+  uvx -q "zizmor@$FORGE_ZIZMOR_VERSION" --offline --no-progress --no-ignores --format github "$@" > "$FORGE_TMP/zizmor" 2> "$FORGE_TMP/zizmor.err"
+  _fz_rc=$?
+  if [ "$_fz_rc" -ne 0 ] && [ "$_fz_rc" -lt 10 ]; then
+    printf 'forge:%s skipped: zizmor could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/zizmor.err" | tail -n 1)"
+    return 0
+  fi
+  awk -v audits="${_fz_audits#|}" '
+    BEGIN { n = split(audits, a, "|"); for (i = 1; i <= n; i++) want[a[i]] = 1 }
+    /^::(error|warning|notice) / {
+      meta = $0; sub(/^::[a-z]+ /, "", meta); msg = meta; sub(/^[^:]*::/, "", msg); sub(/::.*$/, "", meta)
+      file = meta; sub(/^.*file=/, "", file); sub(/,.*$/, "", file)
+      line = meta; sub(/^.*line=/, "", line); sub(/,.*$/, "", line)
+      title = meta; sub(/^.*title=/, "", title); sub(/,.*$/, "", title)
+      sub(/^[^:]*:[0-9]+: /, "", msg)
+      if (title in want) { print file ":" line " " title ": " msg; bad = 1 }
+    }
+    END { exit bad }' "$FORGE_TMP/zizmor"
+}
+
 # forge_exec_tool <name> <args>: runs the project's own <name>; 127 when absent.
 forge_exec_tool() {
   _fx_cmd=$(tool "$1")
@@ -2111,6 +2149,44 @@ forge_trusted_deps() {
     fi
   done < "$FORGE_TMP/existing"
   return "$_td_rc"
+}
+
+# GitHub Actions workflows: pinned zizmor (through uvx), offline audits only, inline
+# ignore comments and ignore rules not honoured (disabling goes through forge.yaml).
+FORGE_ZIZMOR_VERSION="1.30.1"
+
+# forge_zizmor <audit>...: zizmor on $FORGE_FILES (else every tracked workflow and
+# action); prints "path:line audit message" for the findings of the named audits.
+forge_zizmor() {
+  if [ -n "$FORGE_FILES" ]; then set -f; set -- "$@" -- $FORGE_FILES; set +f
+  else
+    set -f
+    # shellcheck disable=SC2046
+    set -- "$@" -- $(git ls-files -- '.github/workflows/*.yml' '.github/workflows/*.yaml' '.github/actions/*action.yml' '.github/actions/*action.yaml' 'action.yml' 'action.yaml')
+    set +f
+  fi
+  _fz_audits=''
+  while [ "$1" != -- ]; do _fz_audits="$_fz_audits|$1"; shift; done
+  shift
+  [ "$#" -gt 0 ] || return 0
+  command -v uvx >/dev/null 2>&1 || { printf 'forge:%s skipped: uvx is needed to run zizmor\n' "$c_id"; return 0; }
+  uvx -q "zizmor@$FORGE_ZIZMOR_VERSION" --offline --no-progress --no-ignores --format github "$@" > "$FORGE_TMP/zizmor" 2> "$FORGE_TMP/zizmor.err"
+  _fz_rc=$?
+  if [ "$_fz_rc" -ne 0 ] && [ "$_fz_rc" -lt 10 ]; then
+    printf 'forge:%s skipped: zizmor could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/zizmor.err" | tail -n 1)"
+    return 0
+  fi
+  awk -v audits="${_fz_audits#|}" '
+    BEGIN { n = split(audits, a, "|"); for (i = 1; i <= n; i++) want[a[i]] = 1 }
+    /^::(error|warning|notice) / {
+      meta = $0; sub(/^::[a-z]+ /, "", meta); msg = meta; sub(/^[^:]*::/, "", msg); sub(/::.*$/, "", meta)
+      file = meta; sub(/^.*file=/, "", file); sub(/,.*$/, "", file)
+      line = meta; sub(/^.*line=/, "", line); sub(/,.*$/, "", line)
+      title = meta; sub(/^.*title=/, "", title); sub(/,.*$/, "", title)
+      sub(/^[^:]*:[0-9]+: /, "", msg)
+      if (title in want) { print file ":" line " " title ": " msg; bad = 1 }
+    }
+    END { exit bad }' "$FORGE_TMP/zizmor"
 }
 
 # forge_exec_tool <name> <args>: runs the project's own <name>; 127 when absent.
@@ -3249,6 +3325,44 @@ forge_trusted_deps() {
     fi
   done < "$FORGE_TMP/existing"
   return "$_td_rc"
+}
+
+# GitHub Actions workflows: pinned zizmor (through uvx), offline audits only, inline
+# ignore comments and ignore rules not honoured (disabling goes through forge.yaml).
+FORGE_ZIZMOR_VERSION="1.30.1"
+
+# forge_zizmor <audit>...: zizmor on $FORGE_FILES (else every tracked workflow and
+# action); prints "path:line audit message" for the findings of the named audits.
+forge_zizmor() {
+  if [ -n "$FORGE_FILES" ]; then set -f; set -- "$@" -- $FORGE_FILES; set +f
+  else
+    set -f
+    # shellcheck disable=SC2046
+    set -- "$@" -- $(git ls-files -- '.github/workflows/*.yml' '.github/workflows/*.yaml' '.github/actions/*action.yml' '.github/actions/*action.yaml' 'action.yml' 'action.yaml')
+    set +f
+  fi
+  _fz_audits=''
+  while [ "$1" != -- ]; do _fz_audits="$_fz_audits|$1"; shift; done
+  shift
+  [ "$#" -gt 0 ] || return 0
+  command -v uvx >/dev/null 2>&1 || { printf 'forge:%s skipped: uvx is needed to run zizmor\n' "$c_id"; return 0; }
+  uvx -q "zizmor@$FORGE_ZIZMOR_VERSION" --offline --no-progress --no-ignores --format github "$@" > "$FORGE_TMP/zizmor" 2> "$FORGE_TMP/zizmor.err"
+  _fz_rc=$?
+  if [ "$_fz_rc" -ne 0 ] && [ "$_fz_rc" -lt 10 ]; then
+    printf 'forge:%s skipped: zizmor could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/zizmor.err" | tail -n 1)"
+    return 0
+  fi
+  awk -v audits="${_fz_audits#|}" '
+    BEGIN { n = split(audits, a, "|"); for (i = 1; i <= n; i++) want[a[i]] = 1 }
+    /^::(error|warning|notice) / {
+      meta = $0; sub(/^::[a-z]+ /, "", meta); msg = meta; sub(/^[^:]*::/, "", msg); sub(/::.*$/, "", meta)
+      file = meta; sub(/^.*file=/, "", file); sub(/,.*$/, "", file)
+      line = meta; sub(/^.*line=/, "", line); sub(/,.*$/, "", line)
+      title = meta; sub(/^.*title=/, "", title); sub(/,.*$/, "", title)
+      sub(/^[^:]*:[0-9]+: /, "", msg)
+      if (title in want) { print file ":" line " " title ": " msg; bad = 1 }
+    }
+    END { exit bad }' "$FORGE_TMP/zizmor"
 }
 
 # forge_exec_tool <name> <args>: runs the project's own <name>; 127 when absent.
@@ -5613,6 +5727,44 @@ forge_trusted_deps() {
   return "$_td_rc"
 }
 
+# GitHub Actions workflows: pinned zizmor (through uvx), offline audits only, inline
+# ignore comments and ignore rules not honoured (disabling goes through forge.yaml).
+FORGE_ZIZMOR_VERSION="1.30.1"
+
+# forge_zizmor <audit>...: zizmor on $FORGE_FILES (else every tracked workflow and
+# action); prints "path:line audit message" for the findings of the named audits.
+forge_zizmor() {
+  if [ -n "$FORGE_FILES" ]; then set -f; set -- "$@" -- $FORGE_FILES; set +f
+  else
+    set -f
+    # shellcheck disable=SC2046
+    set -- "$@" -- $(git ls-files -- '.github/workflows/*.yml' '.github/workflows/*.yaml' '.github/actions/*action.yml' '.github/actions/*action.yaml' 'action.yml' 'action.yaml')
+    set +f
+  fi
+  _fz_audits=''
+  while [ "$1" != -- ]; do _fz_audits="$_fz_audits|$1"; shift; done
+  shift
+  [ "$#" -gt 0 ] || return 0
+  command -v uvx >/dev/null 2>&1 || { printf 'forge:%s skipped: uvx is needed to run zizmor\n' "$c_id"; return 0; }
+  uvx -q "zizmor@$FORGE_ZIZMOR_VERSION" --offline --no-progress --no-ignores --format github "$@" > "$FORGE_TMP/zizmor" 2> "$FORGE_TMP/zizmor.err"
+  _fz_rc=$?
+  if [ "$_fz_rc" -ne 0 ] && [ "$_fz_rc" -lt 10 ]; then
+    printf 'forge:%s skipped: zizmor could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/zizmor.err" | tail -n 1)"
+    return 0
+  fi
+  awk -v audits="${_fz_audits#|}" '
+    BEGIN { n = split(audits, a, "|"); for (i = 1; i <= n; i++) want[a[i]] = 1 }
+    /^::(error|warning|notice) / {
+      meta = $0; sub(/^::[a-z]+ /, "", meta); msg = meta; sub(/^[^:]*::/, "", msg); sub(/::.*$/, "", meta)
+      file = meta; sub(/^.*file=/, "", file); sub(/,.*$/, "", file)
+      line = meta; sub(/^.*line=/, "", line); sub(/,.*$/, "", line)
+      title = meta; sub(/^.*title=/, "", title); sub(/,.*$/, "", title)
+      sub(/^[^:]*:[0-9]+: /, "", msg)
+      if (title in want) { print file ":" line " " title ": " msg; bad = 1 }
+    }
+    END { exit bad }' "$FORGE_TMP/zizmor"
+}
+
 # forge_exec_tool <name> <args>: runs the project's own <name>; 127 when absent.
 forge_exec_tool() {
   _fx_cmd=$(tool "$1")
@@ -6387,11 +6539,11 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "d660d521eb000121521ebe466d5dc93771432139ae59b8d03789bbdadc142ab1",
     ".claude/skills/forge-project/scripts/guard.sh": "c8aace4b9c7c0f76d522ecef054c6dc920bd42702712c877825f0e5cd046827c",
     ".claude/skills/forge-project/scripts/lib.sh": "99a351f77551e224d2a12fbe7d83489e1fdae27633343c3b762098ab3757dc8a",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "729ec861e60cdbdfb71a8700ee513a1d14727f02854a185c3fb54b09d38a411f",
-    ".claude/skills/forge-project/scripts/session-start.sh": "8f35fde2185cc3533a59183464a67cc5ae32abcac9987011b242951ef983d1bc",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "064fc72ede8f6910ceb327146d42512c73949707360b9b17dbd4799755d2d677",
+    ".claude/skills/forge-project/scripts/session-start.sh": "c38c807c1fa21d389070db7fa413446bd3d4fec9ea9036108451b497fc0ac7eb",
     ".claude/skills/forge-project/scripts/stop.sh": "f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173",
     ".claude/skills/forge-project/scripts/turn-start.sh": "a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "fe17ee83927096408b1e4c76eb55c6449f09cff7184a94c8293d675d6651f38a",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "a98768082df94c7e3b99dd82b32661dcec2d439b50e5c67f9c8d610d4f4a5e65",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-nextjs-no-legacy-image-config-test.yml": "9d723e3c62b5697de0fa5ab80b735c3cef23225a07c81425c492cd8827faf06d",
     ".forge/ast-grep/rule-tests/typescript-nextjs-no-next-router-test.yml": "5da1551f9fa49969cdbfb6ef3ba847589327a2d7430a3cdc79f3637fc81586f1",
@@ -6454,7 +6606,7 @@ exit "$fail"
     ".forge/ast-grep/rules/typescript/zod/error-param.yml": "88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a",
     ".forge/ast-grep/rules/typescript/zod/v4-string-formats.yml": "a7503c000f128a4718f29b0122170295972560de99263354d6ed0db1a8cb099c",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "e23fc32be52f4eacc0c2160546f0161facacab11ec4a89f00ee10c1b28034492",
+    ".forge/check.sh": "72877ea2a918f39c6f3cee656280446aa09d5f384273f41ba754f7f9810cbba5",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -6520,11 +6672,11 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 d660d521eb000121521ebe466d5dc93771432139ae59b8d03789bbdadc142ab1  .claude/skills/forge-project/scripts/guard.rules
 c8aace4b9c7c0f76d522ecef054c6dc920bd42702712c877825f0e5cd046827c  .claude/skills/forge-project/scripts/guard.sh
 99a351f77551e224d2a12fbe7d83489e1fdae27633343c3b762098ab3757dc8a  .claude/skills/forge-project/scripts/lib.sh
-729ec861e60cdbdfb71a8700ee513a1d14727f02854a185c3fb54b09d38a411f  .claude/skills/forge-project/scripts/post-edit.sh
-8f35fde2185cc3533a59183464a67cc5ae32abcac9987011b242951ef983d1bc  .claude/skills/forge-project/scripts/session-start.sh
+064fc72ede8f6910ceb327146d42512c73949707360b9b17dbd4799755d2d677  .claude/skills/forge-project/scripts/post-edit.sh
+c38c807c1fa21d389070db7fa413446bd3d4fec9ea9036108451b497fc0ac7eb  .claude/skills/forge-project/scripts/session-start.sh
 f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173  .claude/skills/forge-project/scripts/stop.sh
 a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c  .claude/skills/forge-project/scripts/turn-start.sh
-fe17ee83927096408b1e4c76eb55c6449f09cff7184a94c8293d675d6651f38a  .claude/skills/forge-project/scripts/typecheck.sh
+a98768082df94c7e3b99dd82b32661dcec2d439b50e5c67f9c8d610d4f4a5e65  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 9d723e3c62b5697de0fa5ab80b735c3cef23225a07c81425c492cd8827faf06d  .forge/ast-grep/rule-tests/typescript-nextjs-no-legacy-image-config-test.yml
 5da1551f9fa49969cdbfb6ef3ba847589327a2d7430a3cdc79f3637fc81586f1  .forge/ast-grep/rule-tests/typescript-nextjs-no-next-router-test.yml
@@ -6587,7 +6739,7 @@ d3c41a3915d84b21e86e9212a06ad14c52bf2f9bcefb7c5ca433200cc3ec44fb  .forge/ast-gre
 88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a  .forge/ast-grep/rules/typescript/zod/error-param.yml
 a7503c000f128a4718f29b0122170295972560de99263354d6ed0db1a8cb099c  .forge/ast-grep/rules/typescript/zod/v4-string-formats.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-e23fc32be52f4eacc0c2160546f0161facacab11ec4a89f00ee10c1b28034492  .forge/check.sh
+72877ea2a918f39c6f3cee656280446aa09d5f384273f41ba754f7f9810cbba5  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

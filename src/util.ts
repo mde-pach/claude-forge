@@ -9,6 +9,8 @@ export const CLAUDE_CODE_MIN = "2.1.295";
 export const AST_GREP_VERSION = "0.45.3";
 /** Squawk (Postgres migration linter), run through bunx or uvx by migration-lint checks. */
 export const SQUAWK_VERSION = "2.70.0";
+/** zizmor (GitHub Actions auditor), run through uvx by github-actions/zizmor. */
+export const ZIZMOR_VERSION = "1.30.1";
 
 export function sha256(text: string | Buffer): string {
   return createHash("sha256").update(text).digest("hex");

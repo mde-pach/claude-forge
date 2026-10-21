@@ -1,0 +1,15 @@
+id: github-actions/zizmor
+description: Workflows pass zizmor's unpinned-uses (actions pinned to a commit SHA, cf. the tj-actions/changed-files compromise, CVE-2025-30066), template-injection, dangerous-triggers, excessive-permissions and artipacked audits.
+scope: {language: any, files: [".github/workflows/*.yml", ".github/workflows/*.yaml", ".github/actions/**/action.yml", ".github/actions/**/action.yaml", "action.yml", "action.yaml"]}
+enforce:
+  - target: check
+    stage: lint
+    run: "forge_zizmor unpinned-uses template-injection dangerous-triggers excessive-permissions artipacked"
+    when_changed: [".github/workflows/**", ".github/actions/**", "action.yml", "action.yaml"]
+examples:
+  match:
+    - files: {.github/workflows/ci.yml: "name: ci\non: push\npermissions: {}\njobs:\n  test:\n    runs-on: ubuntu-latest\n    permissions:\n      contents: read\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          persist-credentials: false\n"}
+    - files: {.github/workflows/greet.yml: "name: greet\non: issues\npermissions: {}\njobs:\n  greet:\n    runs-on: ubuntu-latest\n    permissions: {}\n    steps:\n      - run: echo \"${{ github.event.issue.title }}\"\n"}
+    - files: {.github/workflows/pr.yml: "name: pr\non: pull_request_target\npermissions: {}\njobs:\n  label:\n    runs-on: ubuntu-latest\n    permissions: {}\n    steps:\n      - run: echo labelled\n"}
+  no_match:
+    - files: {.github/workflows/ci.yml: "name: ci\non: push\npermissions: {}\njobs:\n  test:\n    runs-on: ubuntu-latest\n    permissions:\n      contents: read\n    steps:\n      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0\n        with:\n          persist-credentials: false\n      - env:\n          TITLE: ${{ github.event.head_commit.message }}\n        run: echo \"$TITLE\"\n"}

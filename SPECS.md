@@ -669,9 +669,23 @@ context.md: locators (`getByRole`, `getByLabel`, `getByText`, `getByTestId`) and
 
 context.md: Zod at boundaries with `z.infer`; Zod 4 top-level formats, the single `error` parameter, `z.strictObject` / `z.looseObject`, `error.issues`, `z.treeifyError`.
 
+### github-actions
+
+Detected by `.github/workflows/*.yml` or `*.yaml`.
+
+| Rule | Targets |
+|---|---|
+| `github-actions/zizmor` | `check` lint: `forge_zizmor` (§13.2) on changed workflows and actions, failing on the `unpinned-uses`, `template-injection`, `dangerous-triggers`, `excessive-permissions` and `artipacked` audits |
+
+context.md: actions pinned to a commit SHA, `permissions: {}` then per job, `persist-credentials: false`, no `${{ }}` inside `run:`, no `pull_request_target` / `workflow_run` on untrusted code.
+
 ### 13.1 Migration linting
 
 `migration-lint` checks run [Squawk](https://squawkhq.com) (`squawk-cli`, pinned, through `bunx` or `uvx`, like ast-grep) on migration SQL and fail only on the changes that break the running version of the application during a deploy: `renaming-column`, `renaming-table`, `changing-column-type`, `adding-required-field`, `adding-not-nullable-field`, `ban-drop-database`. Squawk's other advice (lock and statement timeouts, `IF NOT EXISTS`, `CONCURRENTLY`, column types) is not enforced: Prisma and Alembic generate SQL that triggers it on every migration. Findings are printed `file:line:column` (from 1). When Squawk cannot run (offline, no `bunx` or `uvx`) or Alembic cannot render a revision, the check prints `forge:<id> skipped: …` and does not block. In CI (`--all`) only the newest migration is linted, so an accepted rename does not fail every later run.
+
+### 13.2 zizmor
+
+`forge_zizmor <audit>…` runs [zizmor](https://docs.zizmor.sh) pinned (`uvx zizmor@<pin>`), `--offline` (no GitHub token, no network audits), `--no-ignores` (inline `# zizmor: ignore` comments and ignore rules in its config do not apply; a rule is disabled in `forge.yaml`) and `--format github`, on the changed in-scope files (every tracked workflow and action with `--all`). Findings of the named audits print as `<path>:<line> <audit>: <message>` and are line-attributed like any lint check. When uvx is missing or zizmor cannot run (offline without a cached copy), the check prints `forge:<id> skipped: …` and does not block.
 
 ## 14. Acceptance tests
 

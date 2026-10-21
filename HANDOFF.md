@@ -10,7 +10,7 @@ Build state of Forge against `SPECS.md` (v0.5), as of 2026-10-20 (fourth session
 - **Spec / tests:** `bun run test` runs `tests/spec/*.test.ts` (≈ 80 s; ast-grep via `bunx`, and `11-audits` and `10-check` install Biome, TypeScript, React's types, ruff, basedpyright and (in its own venv) Alembic into a temp cache; Squawk comes through `bunx`, so the first run needs the network). `bun run test:report` does the same and writes `test-results/<platform>.xml` (JUnit). `FORGE_UPDATE_SNAPSHOTS=1` rewrites `tests/generator/__snapshots__/`. `bun run typecheck` covers `src/`, `tests/` and `docs/src/lib/spec.ts`.
 - **Docs:** Astro 7 + Starlight 0.42 + React 19 in `docs/` (`bun run docs:dev`, `docs:build`; output `docs/dist/`). No Vue anywhere. `astro preview` does not start under Bun; serve `docs/dist` with any static server under `/claude-forge/` instead.
 - **CI:** `.github/workflows/ci.yml` runs typecheck and `test:report` on ubuntu (with dash, BusyBox) and macOS (bash 3.2 as `/bin/sh`), uploads the JUnit files, and builds the docs with them. `docs.yml` runs after each CI run on `main`, downloads that run's results, checks out that run's commit, builds and deploys to GitHub Pages. The repository's Pages source must be "GitHub Actions" and Actions must be enabled.
-- ast-grep pinned to **0.45.3**.
+- ast-grep pinned to **0.45.3**; Squawk **2.70.0**; zizmor **1.30.1**.
 
 ## Done
 
@@ -58,6 +58,7 @@ Everything in §3–§14 is implemented, with the pack tree (§5.1–§5.2) and 
 5. **Test integrity (§10.5).** `forge_test_edits` (Stop only) lists tests with ast-grep `--inline-rules` and compares their whitespace-free text with the start of the turn; rules `python/pytest/no-test-edits`, `typescript/vitest/no-test-edits`, `typescript/playwright/no-test-edits`; the context line is in the three test packs.
 6. **New rules (Part 2), checked against ruff 0.17.1, Biome 2.5.15 and ast-grep 0.45.3.** python: `no-silent-except`, `no-blind-except`, `no-blanket-noqa`, `no-unused-noqa`, `no-commented-out-code`, `no-print`, `no-dangling-task`, `log-exception`, `no-hardcoded-password`, `no-sql-format`, `http-timeout`, `no-weak-hash`, `no-pickle`, `no-unsafe-yaml`, `jinja-autoescape`, `no-stub`, `no-placeholder-comment`; `python/sqlalchemy/async-expire-on-commit`; `python/pytest/no-mock-increase`; `python/uv/exclude-newer`. typescript: `no-empty-block`, `no-swallowed-catch`, `no-console`, `no-unused`, `no-secrets`, `no-unused-suppressions`, `no-stub`, `no-placeholder-comment`; react `hooks-rules`, `stable-keys`, `no-nested-components`, `a11y`; nextjs `server-action-validate`, `server-action-auth`; astro `no-set-html`; vitest `no-mock-increase`; playwright `axe` (+ context line); bun `release-age`, `trusted-deps`. safety: `ephemeral-exec`, `docker-privileged`, `docker-push`, `~/.docker/config.json` in `secret-files`. Engine helpers: `forge_toml_get`, `forge_duration_seconds`, `forge_version_ge`, `forge_bun_cooldown`, `forge_uv_cooldown`, `forge_trusted_deps`. The samples gained `bunfig.toml` / `[tool.uv]` cooldowns.
 7. **YAML rules (§6.2).** `scope.language: yaml` → ast-grep `Yaml`, `*.yaml` / `*.yml` in check scopes, `.yaml` example files.
+8. **`github-actions` pack (§13, §13.2).** zizmor 1.30.1 (the newest release older than 14 days) through uvx, `--offline --no-ignores --format github`, parsed by `forge_zizmor`.
 
 ## Remaining
 

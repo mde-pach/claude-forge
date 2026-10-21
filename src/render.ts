@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { codeExamples } from "./packs.js";
 import { toYaml } from "./yaml.js";
-import { AST_GREP_VERSION, FORGE_VERSION, packageRoot, shQuote, SQUAWK_VERSION } from "./util.js";
+import { AST_GREP_VERSION, FORGE_VERSION, packageRoot, shQuote, SQUAWK_VERSION, ZIZMOR_VERSION } from "./util.js";
 import type { AstGrepTarget, CheckTarget, GrepTarget, GuardTarget, Language, Level, Rule } from "./types.js";
 
 export function template(name: string): string {
@@ -156,7 +156,7 @@ export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = []): s
     if (changed) out.push(`forge_check_changed_${n}() {`, target.changed_run!.replaceAll("{files}", "$FORGE_FILES"), "}");
   });
   out.push("", ...renderGreps(greps));
-  out.push("# ---- end of generated checks", "", fill(template("engine.sh"), { SQUAWK_VERSION }).trimEnd());
+  out.push("# ---- end of generated checks", "", fill(template("engine.sh"), { SQUAWK_VERSION, ZIZMOR_VERSION }).trimEnd());
   return out.join("\n");
 }
 
