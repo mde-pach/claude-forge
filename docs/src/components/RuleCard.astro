@@ -80,7 +80,7 @@ const MODE: Record<string, string> = {
   </dl>
 
   <div class="forge-rule-life">
-    <LifecycleSchema variant="rule" uid={`r-${ruleAnchor(rule.id)}`} events={ruleLifecycle(rule).map((event) => ({ event, who: leaf(rule.id) }))} />
+    <LifecycleSchema variant="rule" events={ruleLifecycle(rule).map((event) => ({ event, who: leaf(rule.id) }))} />
     <Lifecycle events={ruleLifecycle(rule)} />
   </div>
 

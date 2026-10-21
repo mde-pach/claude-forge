@@ -199,50 +199,67 @@ a.forge-chip--link:hover { border-color: var(--sl-color-accent); }
 
 .sl-markdown-content .forge-events code { white-space: normal; overflow-wrap: anywhere; }
 
-/* ---------------------------------------------------------------- lifecycle schema (Claude Code lifecycle, Forge pieces lit) */
-.forge-schema { margin: 1.25rem 0; display: grid; gap: 0.5rem; max-width: 34rem; }
-.forge-schema svg { display: block; width: 100%; height: auto; }
-.forge-schema:has(.forge-schema-more[open]) .forge-schema-compact { display: none; }
-.sl-markdown-content .forge-schema-more { margin: 0; }
-.sl-markdown-content .forge-schema-more summary { cursor: pointer; font-size: var(--sl-text-xs); color: var(--sl-color-gray-3); }
-.sl-markdown-content .forge-schema-more[open] summary { margin-bottom: 0.5rem; }
-.forge-schema-legend { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; font-size: var(--sl-text-xs); color: var(--sl-color-gray-3); }
+/* ---------------------------------------------------------------- lifecycle schema (Claude Code lifecycle, Forge pieces lit)
+   HTML, not SVG: folded sections (<details>) open and close in place and the lanes
+   (return arrows, drawn as brackets on the rows they repeat) stretch with them. */
+.forge-schema { margin: 1.25rem 0; display: grid; gap: 0.6rem; max-width: 40rem; }
+.forge-schema-legend { display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; font-size: var(--sl-text-xs); color: var(--sl-color-gray-3); }
 .forge-schema-legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
-.forge-lane-key { display: inline-grid; place-items: center; width: 1.1rem; height: 1.1rem; border-radius: 50%; border: 1px solid var(--sl-color-gray-4); font-size: 0.62rem; font-weight: 700; color: var(--sl-color-gray-2); }
+.forge-schema-legend .forge-schema-note { flex-basis: 100%; }
+.forge-lane-key, .fs-key { display: inline-grid; place-items: center; width: 1.15rem; height: 1.15rem; border-radius: 50%; border: 1px solid var(--sl-color-gray-4); background: var(--sl-color-bg); font-size: 0.62rem; font-weight: 700; color: var(--sl-color-gray-2); line-height: 1; font-style: normal; }
 .forge-lane-on { color: var(--forge-red); font-weight: 600; }
 .forge-lane-on .forge-lane-key { border-color: var(--forge-red); color: var(--forge-red); }
 
-.forge-schema-svg text { font-family: var(--sl-font); fill: var(--sl-color-text); }
-.forge-schema-svg .zone, .forge-schema-svg .box-t { font-family: var(--sl-font-mono); font-size: 8px; letter-spacing: 0.08em; fill: var(--sl-color-gray-3); }
-.forge-schema-svg .box { fill: none; stroke: var(--sl-color-gray-5); stroke-dasharray: 3 4; stroke-width: 1.1; }
-.forge-schema-svg .box-turn { stroke: var(--sl-color-gray-4); }
-.forge-schema-svg .spine { stroke: var(--sl-color-gray-5); stroke-dasharray: 2 4; }
-.forge-schema-svg .ev rect { fill: var(--sl-color-bg); stroke: var(--sl-color-gray-4); stroke-width: 1.1; }
-.forge-schema-svg .ev-native rect { fill: var(--sl-color-gray-6); stroke-dasharray: 4 3; }
-.forge-schema-svg .ev-forge rect { fill: none; stroke: var(--sl-color-accent); stroke-dasharray: 5 3; }
-.forge-schema-svg .ev-outside rect, .forge-schema-svg .ev-small rect { fill: var(--sl-color-gray-6); }
-.forge-schema-svg .ev-n { font-family: var(--sl-font-mono); font-size: 10.5px; font-weight: 600; }
-.forge-schema-svg .ev-native .ev-n, .forge-schema-svg .ev-forge .ev-n, .forge-schema-svg .ev-outside .ev-n { font-family: var(--sl-font); }
-.forge-schema-svg .ev-small .ev-n { font-size: 8.4px; }
-.forge-schema-svg .ev-s { font-size: 8.5px; fill: var(--sl-color-gray-3); }
-.forge-schema-svg .ev-small .ev-s { font-size: 7.6px; }
-.forge-schema-svg .stub text { font-size: 8.5px; font-style: italic; fill: var(--sl-color-gray-3); }
-.forge-schema-svg .pill-r { fill: none; stroke: var(--sl-color-gray-4); stroke-dasharray: 3 3; }
-.forge-schema-svg .pill-t { font-family: var(--sl-font-mono); font-size: 9.5px; fill: var(--sl-color-gray-3); }
-.forge-schema-svg .tie { stroke: var(--sl-color-gray-4); stroke-dasharray: 2 3; }
-.forge-schema-svg .pill.infra .pill-r { fill: var(--sl-color-gray-6); stroke-dasharray: none; stroke: var(--sl-color-gray-5); }
-.forge-schema-svg .pill.on .pill-r { stroke: var(--forge-c); stroke-width: 1.6; stroke-dasharray: none; fill: color-mix(in srgb, var(--forge-c) 14%, var(--sl-color-bg)); }
-.forge-schema-svg .pill.on .pill-t { fill: var(--forge-c); font-weight: 700; }
-.forge-schema-svg .pill.on .tie { stroke: var(--forge-c); stroke-dasharray: none; }
-.forge-schema-svg .badge { fill: var(--forge-c); }
-.forge-schema-svg .badge-t { font-size: 7.5px; font-weight: 700; fill: var(--sl-color-bg); letter-spacing: 0.03em; }
-.forge-schema-svg .lane path { fill: none; stroke: var(--sl-color-gray-4); stroke-width: 1.2; }
-.forge-schema-svg .lane circle { fill: var(--sl-color-bg); stroke: var(--sl-color-gray-4); }
-.forge-schema-svg .lane text { font-size: 7.5px; font-weight: 700; fill: var(--sl-color-gray-2); }
-.forge-schema-svg .lane.on path, .forge-schema-svg .lane.on circle { stroke: var(--forge-red); stroke-width: 1.6; }
-.forge-schema-svg .lane.on text { fill: var(--forge-red); }
-.forge-schema-svg .m { fill: var(--sl-color-gray-4); }
-.forge-schema-svg .m-r { fill: var(--forge-red); }
+.sl-markdown-content .fs { display: grid; gap: 0.3rem; font-size: var(--sl-text-xs); line-height: 1.3; }
+.sl-markdown-content .fs > * , .sl-markdown-content .fs-lane > * { margin: 0; }
+.sl-markdown-content .fs-zone, .sl-markdown-content .fs-lane-t { font-family: var(--sl-font-mono); font-size: 0.66rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--sl-color-gray-3); margin-top: 0.35rem; }
+.sl-markdown-content .fs-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.4rem 1rem; align-items: center; }
+.sl-markdown-content .fs-pair .fs-ev { min-width: 0; }
+.sl-markdown-content .fs-ev { display: grid; gap: 0.05rem; padding: 0.35rem 0.6rem; border: 1px solid var(--sl-color-gray-4); border-radius: 0.4rem; background: var(--sl-color-bg); min-width: 0; }
+.sl-markdown-content .fs-ev b { font-family: var(--sl-font-mono); font-size: 0.76rem; font-weight: 600; overflow-wrap: anywhere; }
+.sl-markdown-content .fs-ev span { color: var(--sl-color-gray-3); font-size: 0.68rem; }
+.sl-markdown-content .fs-native { background: var(--sl-color-gray-6); border-style: dashed; }
+.sl-markdown-content .fs-native b, .sl-markdown-content .fs-forge b, .sl-markdown-content .fs-outside b { font-family: var(--sl-font); }
+.sl-markdown-content .fs-forge { border: 1px dashed var(--sl-color-accent); }
+.sl-markdown-content .fs-outside, .sl-markdown-content .fs-small { background: var(--sl-color-gray-6); }
+.sl-markdown-content .fs-small b { font-size: 0.68rem; }
+.sl-markdown-content .fs-pieces { display: grid; gap: 0.3rem; min-width: 0; }
+.sl-markdown-content .fs-piece { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; padding: 0.15rem 0.3rem 0.15rem 0.6rem; border: 1px dashed var(--sl-color-gray-4); border-radius: 999px; min-width: 0; }
+.sl-markdown-content .fs-piece::before { content: ""; position: absolute; right: 100%; top: 50%; width: 1rem; border-top: 1px dashed var(--sl-color-gray-4); }
+.sl-markdown-content .fs-piece code { background: none; padding: 0; font-size: 0.7rem; color: var(--sl-color-gray-3); overflow-wrap: anywhere; }
+.sl-markdown-content .fs-infra { border-style: solid; border-color: var(--sl-color-gray-5); background: var(--sl-color-gray-6); }
+.sl-markdown-content .fs-on { border: 1.5px solid var(--forge-c); background: color-mix(in srgb, var(--forge-c) 13%, var(--sl-color-bg)); }
+.sl-markdown-content .fs-on::before { border-top: 1.5px solid var(--forge-c); }
+.sl-markdown-content .fs-on code { color: var(--forge-c); font-weight: 700; }
+.sl-markdown-content .fs-piece em { font-style: normal; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.04em; padding: 0.05rem 0.45rem; border-radius: 999px; background: var(--forge-c); color: var(--sl-color-bg); white-space: nowrap; }
+
+.sl-markdown-content .fs-more { margin: 0; }
+.sl-markdown-content .fs-more > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 0.3rem; color: var(--sl-color-gray-3); font-style: italic; padding: 0.1rem 0.6rem; border-radius: 0.3rem; }
+.sl-markdown-content .fs-more > summary::-webkit-details-marker { display: none; }
+.sl-markdown-content .fs-more > summary::before { content: "▸"; font-style: normal; color: var(--sl-color-gray-3); }
+.sl-markdown-content .fs-more[open] > summary::before { content: "▾"; }
+.sl-markdown-content .fs-more > summary:hover { color: var(--sl-color-text); background: var(--sl-color-gray-6); }
+.sl-markdown-content .fs-count { font-style: normal; font-weight: 700; margin-inline-end: 0.35rem; }
+.sl-markdown-content .fs-more .fs-close { display: none; font-style: normal; }
+.sl-markdown-content .fs-more[open] .fs-open { display: none; }
+.sl-markdown-content .fs-more[open] .fs-close { display: inline; }
+.sl-markdown-content .fs-more[open] { display: grid; gap: 0.3rem; padding: 0.25rem 0 0.35rem 0.5rem; border-left: 2px solid var(--sl-color-gray-5); }
+
+/* lanes: a dashed box around the rows a return arrow repeats, the arrow as a bracket on its left */
+.sl-markdown-content .fs-lane { position: relative; display: grid; gap: 0.3rem; margin-left: 1.5rem; padding: 0.3rem 0.4rem 0.4rem; border: 1px dashed var(--sl-color-gray-5); border-radius: 0.5rem; }
+.sl-markdown-content .fs-lane-retry { border: none; padding: 0; }
+.sl-markdown-content .fs-lane::before { content: ""; position: absolute; left: -1.05rem; top: 1rem; bottom: 1rem; width: 0.85rem; border: 1.2px solid var(--sl-color-gray-4); border-right: none; border-radius: 0.35rem 0 0 0.35rem; }
+.sl-markdown-content .fs-lane::after { content: ""; position: absolute; left: -0.3rem; top: calc(1rem - 0.28rem); border: 0.28rem solid transparent; border-left-color: var(--sl-color-gray-4); }
+.sl-markdown-content .fs-key { position: absolute; left: -1.62rem; top: 50%; transform: translateY(-50%); }
+.sl-markdown-content .fs-lane-on::before { border-color: var(--forge-red); border-width: 1.8px; }
+.sl-markdown-content .fs-lane-on::after { border-left-color: var(--forge-red); }
+.sl-markdown-content .fs-lane-on > .fs-key { border-color: var(--forge-red); color: var(--forge-red); }
+@media (max-width: 30rem) {
+  .sl-markdown-content .fs-row { grid-template-columns: minmax(0, 1fr); gap: 0.25rem; }
+  .sl-markdown-content .fs-pieces { padding-left: 1rem; }
+  .sl-markdown-content .fs-piece::before { width: 0.7rem; }
+  .sl-markdown-content .fs-pair { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
 
 /* rule cards: the schema, then the per-step sentences */
 .sl-markdown-content .forge-rule-life { display: grid; gap: 1rem; margin: 1.25rem 0; }
