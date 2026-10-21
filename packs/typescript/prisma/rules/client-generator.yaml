@@ -3,3 +3,8 @@ description: The Prisma schema uses the prisma-client generator (Prisma 7), not 
 scope: {language: any}
 enforce:
   - {target: check, stage: lint, run: "! grep -nE 'provider[[:space:]]*=[[:space:]]*\"prisma-client-js\"' /dev/null $(git ls-files '*.prisma')", when_changed: ["**/*.prisma"]}
+examples:
+  match:
+    - files: {prisma/schema.prisma: "generator client {\n  provider = \"prisma-client-js\"\n}\n"}
+  no_match:
+    - files: {prisma/schema.prisma: "generator client {\n  provider = \"prisma-client\"\n  output   = \"../src/generated/prisma\"\n}\n"}

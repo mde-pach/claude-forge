@@ -3,3 +3,6 @@ description: The project passes basedpyright.
 scope: {language: python}
 enforce:
   - {target: check, stage: typecheck, run: "basedpyright"}
+examples:
+  match: ["x: int = \"one\"\n"]
+  no_match: ["x: int = 1\n"]

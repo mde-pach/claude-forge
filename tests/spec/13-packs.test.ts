@@ -4,24 +4,31 @@
  * Every pack and rule validates against its schema, and every rule's examples
  * behave as declared: ast-grep rule tests pass (`match` is invalid code,
  * `no_match` valid), guard examples get the rule's decision on every shell,
- * permission examples match the rule's permission strings. There is one test
- * per rule below; the pack pages of this site show the same results.
+ * permission examples match the rule's permission strings, and `check`
+ * examples fail (`match`) or pass (`no_match`) the generated `check.sh` in a
+ * temporary repository. There is one test per rule below; the pack pages of
+ * this site show the same results.
  */
 import { beforeAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadPacks } from "../../src/packs";
-import { permissionMatches, selfTest, type TestReport } from "../../src/selftest";
-import { forge, ROOT } from "../helpers";
+import { checkExamplesOptional, permissionMatches, selfTest, type TestReport } from "../../src/selftest";
+import { ensureTools, forge, ROOT, TOOLS_CACHE } from "../helpers";
+import type { CheckTarget } from "../../src/types";
 
 const T = 300_000;
 const packs = loadPacks(join(ROOT, "packs"));
 const rules = [...packs.values()].flatMap((p) => p.rules);
 let report: TestReport;
 
+/** The cached project tools (tests/helpers.ts), then PATH. */
+const toolBins = () => [join(TOOLS_CACHE, "node_modules/.bin"), join(TOOLS_CACHE, ".venv/bin"), ...(process.env.PATH ?? "").split(":")];
+
 beforeAll(() => {
-  report = selfTest(join(ROOT, "packs"));
+  ensureTools();
+  report = selfTest(join(ROOT, "packs"), undefined, { toolBins: toolBins() });
 }, T);
 
 /** Failures of `forge test` that concern one rule. */
@@ -31,6 +38,15 @@ describe("every rule", () => {
   test.each(rules.map((r) => [r.id]))("%s: examples behave as declared", (id) => {
     expect(failuresOf(id)).toEqual([]);
   });
+});
+
+test("every check target has examples, except test and migration runs, astro check and the lock-file checks", () => {
+  const missing = rules.filter((r) => r.enforce.some((t) => t.target === "check" && !checkExamplesOptional(t as CheckTarget)) && !(r.examples?.match?.length && r.examples?.no_match?.length));
+  expect(missing.map((r) => r.id)).toEqual([]);
+});
+
+test("every check example ran: none was skipped for a missing tool", () => {
+  expect(report.notes.filter((n) => n.includes(" example ") && n.includes("skipped"))).toEqual([]);
 });
 
 describe("every pack", () => {
@@ -97,6 +113,38 @@ describe("forge test catches broken packs", () => {
   test("a rule without examples fails", () => {
     const rule = 'id: demo/n\ndescription: N.\nscope: {language: any}\nenforce: [{target: guard, decision: ask, pattern: "x"}]\n';
     expect(selfTest(packsWith({ "demo/rules/n.yaml": rule })).failures).toContain("demo/n: needs match and no_match examples");
+  });
+  const checkRule = (match: string, noMatch: string) =>
+    `id: demo/c\ndescription: No TODO file.\nscope: {language: any}\nenforce: [{target: check, stage: lint, run: "! git ls-files TODO | grep ."}]\nexamples:\n  match: [{files: {${match}: x}}]\n  no_match: [{files: {${noMatch}: x}}]\n`;
+  test(
+    "check examples run check.sh in a temporary repository: a correct check rule passes",
+    () => {
+      expect(selfTest(packsWith({ "demo/rules/c.yaml": checkRule("TODO", "DONE") })).failures).toEqual([]);
+    },
+    T,
+  );
+  test(
+    "a check match example that does not fail the check fails, and so does a no_match example that does",
+    () => {
+      const f = selfTest(packsWith({ "demo/rules/c.yaml": checkRule("DONE", "TODO") })).failures;
+      expect(f.some((x) => x.startsWith("demo/c: match example 1 did not fail the check"))).toBe(true);
+      expect(f.some((x) => x.startsWith("demo/c: no_match example 1 failed the check: forge:demo/c failed"))).toBe(true);
+    },
+    T,
+  );
+  test(
+    "a check example whose tool is not available is reported skipped, never passed",
+    () => {
+      const rule = "id: demo/r\ndescription: R.\nscope: {language: python}\nenforce: [{target: check, stage: lint, run: \"ruff check .\"}]\nexamples: {match: [\"import os\\n\"], no_match: [\"X = 1\\n\"]}\n";
+      const r = selfTest(packsWith({ "demo/rules/r.yaml": rule }), undefined, { toolBins: [] });
+      expect(r.failures).toEqual([]);
+      expect(r.notes).toContain("demo/r: match example 1 skipped: ruff not available");
+    },
+    T,
+  );
+  test("fixture examples are for check rules only", () => {
+    const rule = 'id: demo/f\ndescription: F.\nscope: {language: any}\nenforce: [{target: guard, decision: ask, pattern: "x"}]\nexamples: {match: [{files: {a: x}}], no_match: ["y"]}\n';
+    expect(selfTest(packsWith({ "demo/rules/f.yaml": rule })).failures).toContain("demo/f: fixture examples (files) are for check rules only");
   });
   test("a pack requiring an unknown pack fails", () => {
     expect(selfTest(packsWith({ "demo/pack.yaml": "id: demo\ndescription: D.\nlevel: project\nrequires: [ghost]\n" })).failures[0]).toContain("requires unknown pack ghost");

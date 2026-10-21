@@ -3,3 +3,12 @@ description: The project passes tsc.
 scope: {language: typescript}
 enforce:
   - {target: check, stage: typecheck, run: "tsc --noEmit -p tsconfig.json"}
+examples:
+  match:
+    - files:
+        tsconfig.json: '{"compilerOptions": {"strict": true, "noEmit": true}, "include": ["src"]}'
+        src/total.ts: "export const total: number = \"12\";\n"
+  no_match:
+    - files:
+        tsconfig.json: '{"compilerOptions": {"strict": true, "noEmit": true}, "include": ["src"]}'
+        src/total.ts: "export const total: number = 12;\n"

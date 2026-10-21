@@ -7,3 +7,8 @@ enforce:
     run: "forge_squawk_files $(git ls-files 'prisma/migrations/*/migration.sql' | sort | tail -n 1)"
     changed_run: "forge_squawk_files {files}"
     when_changed: ["prisma/migrations/**"]
+examples:
+  match:
+    - files: {prisma/migrations/20261020000000_rename/migration.sql: "ALTER TABLE \"User\" RENAME COLUMN \"email\" TO \"mail\";\n"}
+  no_match:
+    - files: {prisma/migrations/20261020000000_post/migration.sql: "CREATE TABLE \"Post\" (\n    \"id\" SERIAL NOT NULL,\n    CONSTRAINT \"Post_pkey\" PRIMARY KEY (\"id\")\n);\n"}

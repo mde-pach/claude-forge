@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
+import { codeExamples } from "./packs.js";
 import { run } from "./util.js";
 import type { Rule, ToolTarget } from "./types.js";
 
@@ -130,8 +131,8 @@ export function auditTarget(repo: string, rule: Rule, t: ToolTarget): AuditResul
   const base = { rule: rule.id, tool: t.tool, expects: t.expects };
   const bin = projectBinary(repo, t.tool);
   if (!bin) return { ...base, status: "skipped", detail: `${t.tool} is configured but not installed (node_modules/.bin or .venv/bin)` };
-  const match = rule.examples?.match ?? [];
-  const noMatch = rule.examples?.no_match ?? [];
+  const match = codeExamples(rule, "match");
+  const noMatch = codeExamples(rule, "no_match");
   if (!match.length) return { ...base, status: "skipped", detail: "the rule has no match examples" };
   const judge = (code: string, n: number): Verdict | AuditResult => {
     const r = runTool(repo, rule, t, bin, code, n);

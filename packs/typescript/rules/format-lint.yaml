@@ -3,3 +3,6 @@ description: TypeScript files are formatted and linted with Biome.
 scope: {language: typescript}
 enforce:
   - {target: check, stage: lint, run: "biome ci .", changed_run: "biome check --write --no-errors-on-unmatched {files}"}
+examples:
+  match: ["export const same = (a: number, b: number) => a == b;\n"]
+  no_match: ["export const same = (a: number, b: number) => a === b;\n"]

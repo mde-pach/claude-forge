@@ -11,6 +11,7 @@ import {
   renderAstGrepRule,
   renderAstGrepTest,
   renderChecks,
+  renderCheckScript,
   renderGuardRules,
   renderHooks,
   renderLib,
@@ -301,16 +302,7 @@ export function plan(opts: PlanOptions): Plan {
       const ctx = opts.packs.get(p.id)!.context;
       if (ctx !== undefined) files.set(`.claude/rules/${contextFileName(p.id)}`, ctx);
     }
-    files.set(
-      ".forge/check.sh",
-      fill(template("check.sh"), {
-        LIB: lib.trimEnd(),
-        CHECKS: fragment,
-        FORBID: ids("forbid"),
-        NO_INCREASE: ids("no-increase"),
-        NO_DECREASE: ids("no-decrease"),
-      }),
-    );
+    files.set(".forge/check.sh", renderCheckScript(checks, { forbid: ids("forbid"), noIncrease: ids("no-increase"), noDecrease: ids("no-decrease") }));
     files.set(".forge/.gitignore", "state/\n");
     files.set(".forge/ast-grep/sgconfig.yml", renderSgConfig());
     for (const { rule, target } of astgrep) {

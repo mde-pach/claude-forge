@@ -129,6 +129,15 @@ const target = {
   ],
 } as const;
 
+/** A string (code in the rule's scope) or a fixture: files committed at HEAD, then the files of the change. */
+const files = { type: "object", minProperties: 1, additionalProperties: { type: "string" }, propertyNames: { pattern: "^(?!/)(?!(.*/)?\\.\\.(/|$)).*[^/]$" } } as const;
+const example = {
+  oneOf: [
+    { type: "string" },
+    { type: "object", additionalProperties: false, required: ["files"], properties: { files, head: files } },
+  ],
+} as const;
+
 export const ruleSchema = {
   $schema: "https://json-schema.org/draft/2020-12/schema",
   $id: "forge:rule",
@@ -152,8 +161,8 @@ export const ruleSchema = {
       type: "object",
       additionalProperties: false,
       properties: {
-        match: { type: "array", items: { type: "string" } },
-        no_match: { type: "array", items: { type: "string" } },
+        match: { type: "array", items: example },
+        no_match: { type: "array", items: example },
       },
     },
     deprecated: {

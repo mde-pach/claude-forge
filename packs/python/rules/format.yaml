@@ -3,3 +3,6 @@ description: Python files are formatted with ruff.
 scope: {language: python}
 enforce:
   - {target: check, stage: format, run: "ruff format --check .", changed_run: "ruff format {files}"}
+examples:
+  match: ["x=1\n"]
+  no_match: ["x = 1\n"]

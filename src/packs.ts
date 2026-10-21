@@ -8,6 +8,11 @@ import { validate } from "./schemas.js";
 import { sha256 } from "./util.js";
 import type { DepSpec, Pack, ProjectConfig, Rule } from "./types.js";
 
+/** A rule's code examples (strings); fixtures are for check rules only. */
+export function codeExamples(rule: Pick<Rule, "examples">, kind: "match" | "no_match"): string[] {
+  return (rule.examples?.[kind] ?? []).filter((e): e is string => typeof e === "string");
+}
+
 export function loadRuleFile(file: string, origin: Rule["origin"]): Rule {
   const text = readFileSync(file, "utf8");
   const data = parseStrictYaml(text, file) as Record<string, unknown>;

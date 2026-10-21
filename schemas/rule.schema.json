@@ -282,13 +282,79 @@
         "match": {
           "type": "array",
           "items": {
-            "type": "string"
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "files"
+                ],
+                "properties": {
+                  "files": {
+                    "type": "object",
+                    "minProperties": 1,
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "propertyNames": {
+                      "pattern": "^(?!/)(?!(.*/)?\\.\\.(/|$)).*[^/]$"
+                    }
+                  },
+                  "head": {
+                    "type": "object",
+                    "minProperties": 1,
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "propertyNames": {
+                      "pattern": "^(?!/)(?!(.*/)?\\.\\.(/|$)).*[^/]$"
+                    }
+                  }
+                }
+              }
+            ]
           }
         },
         "no_match": {
           "type": "array",
           "items": {
-            "type": "string"
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "files"
+                ],
+                "properties": {
+                  "files": {
+                    "type": "object",
+                    "minProperties": 1,
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "propertyNames": {
+                      "pattern": "^(?!/)(?!(.*/)?\\.\\.(/|$)).*[^/]$"
+                    }
+                  },
+                  "head": {
+                    "type": "object",
+                    "minProperties": 1,
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "propertyNames": {
+                      "pattern": "^(?!/)(?!(.*/)?\\.\\.(/|$)).*[^/]$"
+                    }
+                  }
+                }
+              }
+            ]
           }
         }
       }

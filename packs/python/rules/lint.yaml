@@ -3,3 +3,6 @@ description: Python files pass ruff check.
 scope: {language: python}
 enforce:
   - {target: check, stage: lint, run: "ruff check .", changed_run: "ruff check --output-format concise {files}"}
+examples:
+  match: ["import os\n"]
+  no_match: ["X = 1\n"]

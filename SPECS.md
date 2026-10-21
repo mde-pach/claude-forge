@@ -136,11 +136,20 @@ enforce:                       # ordered; see §6.2
   - target: <target>
     ...fields
 examples:
-  match: [string]              # MUST trigger the rule
-  no_match: [string]           # MUST NOT trigger the rule
+  match: [example]             # MUST trigger the rule
+  no_match: [example]          # MUST NOT trigger the rule
 deprecated:                    # optional
   replaced_by: <rule-id>
 ```
+
+An example is a string (code, written to a file inside the rule's scope) or, for rules whose targets are all `check`, a **fixture**:
+
+```yaml
+- head: {<path>: <content>}    # optional: committed first
+  files: {<path>: <content>}   # then written on top: the change being checked
+```
+
+Paths are relative, without `..`. Every rule has examples, except a `check` target that runs the project's tests (stage `test`), its migrations (stage `migration`), `astro check` or a lock-file check (`uv`, `bun`): those need a whole project, and their examples are optional.
 
 Every rule blocks. A rule you don't want is disabled with a reason.
 
@@ -578,6 +587,7 @@ The test suite in `tests/spec/` is the executable form of this specification: on
 - Every pack and rule validates against its schema.
 - ast-grep targets compile to `rule-tests/*.yml` (`valid` = `no_match`, `invalid` = `match`) and pass `ast-grep test --skip-snapshot-tests`. The number of loaded rules equals the number of rule files.
 - Every guard target: `guard.sh` on each example wrapped in hook JSON returns the rule's decision for `match` and nothing for `no_match`, on macOS `sh` (bash 3.2), dash and BusyBox.
+- Every check target: each example runs in a temporary git repository holding the fixture's `head` files (committed), a `.forge/check.sh` generated with only that check, then the fixture's `files` written and staged. `check.sh` runs as Stop runs it (`format` checks, which fix files at Stop, as CI runs them: `--all`). A `match` example fails the check (`forge:<id> failed`), a `no_match` example passes. Project tools come from the current project's `node_modules/.bin` and `.venv/bin`, then `PATH`; an example whose tool is not found is reported skipped, never passed.
 - Every `context.md` ≤ 10 lines.
 
 ### 14.2 Generator

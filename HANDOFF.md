@@ -48,6 +48,10 @@ Everything in §3–§14 is implemented, with the pack tree (§5.1–§5.2) and 
 - Also: `typescript/{no-eval, unchecked-index}`, `python/{no-stale-ignore, aware-datetime}`, `typescript/zod/error-param`, `typescript/react/no-deprecated-types` (Biome `noDeprecatedImports`), and migration linting with Squawk: `typescript/prisma/migration-lint`, `python/sqlalchemy/alembic/migration-lint` (SPECS §13.1).
 - Every `tool` target is now proved by its rule's examples against the pinned tools (`11-audits`, "every tool target"); the grep-based `check` rules run through `check.sh` in `10-check`.
 
+**Extension (fifth session, October 2026)**, one commit per item:
+
+1. **Check examples (§6.1, §14.1).** Examples may be fixtures (`head` files committed, then `files` as the change) for check rules. `forge test` runs each in a temporary repository with a `check.sh` holding only that check (`runCheckExample` in `src/selftest.ts`); tools come from the project, then PATH, and a missing tool is a skip note, never a pass. Examples are required on every check except test/migration runs, `astro check` and the lock-file checks. The docs render fixtures as one code block per file.
+
 ## Remaining
 
 1. **Run the E2E harness** (`tests/e2e/README.md`) in a real container; expect to tune a few regexes and prompts on the first real run.

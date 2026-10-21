@@ -67,12 +67,23 @@ export interface CheckTarget {
 }
 export type Target = ToolTarget | AstGrepTarget | PermissionTarget | GuardTarget | SandboxTarget | CheckTarget;
 
+/**
+ * A rule example. A string is code written to a file inside the rule's scope.
+ * A fixture (check rules only) is a set of files: `head` is committed first,
+ * then `files` are written on top as the change being checked.
+ */
+export type Example = string | ExampleFixture;
+export interface ExampleFixture {
+  files: Record<string, string>;
+  head?: Record<string, string>;
+}
+
 export interface Rule {
   id: string;
   description: string;
   scope: { language: Language; files?: string[] };
   enforce: Target[];
-  examples?: { match?: string[]; no_match?: string[] };
+  examples?: { match?: Example[]; no_match?: Example[] };
   deprecated?: { replaced_by: string };
   /** Absolute path of the rule file. */
   file: string;

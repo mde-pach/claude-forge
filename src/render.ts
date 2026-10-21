@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { codeExamples } from "./packs.js";
 import { toYaml } from "./yaml.js";
 import { AST_GREP_VERSION, FORGE_VERSION, packageRoot, shQuote, SQUAWK_VERSION } from "./util.js";
 import type { AstGrepTarget, CheckTarget, GuardTarget, Language, Level, Rule } from "./types.js";
@@ -133,6 +134,20 @@ export function renderChecks(checks: ActiveCheck[]): string {
   return out.join("\n");
 }
 
+/** .forge/check.sh: the library, the checks fragment and the ast-grep rule ids by mode. */
+export function renderCheckScript(checks: ActiveCheck[], ids: { forbid: string; noIncrease: string; noDecrease: string }): string {
+  return fill(template("check.sh"), {
+    LIB: renderLib().trimEnd(),
+    CHECKS: renderChecks(checks),
+    FORBID: ids.forbid,
+    NO_INCREASE: ids.noIncrease,
+    NO_DECREASE: ids.noDecrease,
+  });
+}
+
+/** Tools resolved from the project's .venv/bin (the others from node_modules/.bin). */
+export const PYTHON_TOOLS = new Set(["ruff", "basedpyright", "alembic", "pytest", "python"]);
+
 // ---------------------------------------------------------------- guard.rules
 
 export interface ActiveGuard {
@@ -191,7 +206,7 @@ export function renderAstGrepRule(rule: Rule, target: AstGrepTarget): string {
 }
 
 export function renderAstGrepTest(rule: Rule): string {
-  return toYaml({ id: rule.id, valid: rule.examples?.no_match ?? [], invalid: rule.examples?.match ?? [] });
+  return toYaml({ id: rule.id, valid: codeExamples(rule, "no_match"), invalid: codeExamples(rule, "match") });
 }
 
 export function renderSgConfig(): string {

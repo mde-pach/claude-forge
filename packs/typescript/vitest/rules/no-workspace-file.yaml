@@ -2,4 +2,9 @@ id: typescript/vitest/no-workspace-file
 description: No vitest.workspace file. Vitest 4 ignores it silently; declare test.projects in vitest.config instead.
 scope: {language: any}
 enforce:
-  - {target: check, stage: lint, run: "test -z \"$(git ls-files 'vitest.workspace.*')\"", when_changed: ["vitest.*"]}
+  - {target: check, stage: lint, run: "! git ls-files 'vitest.workspace.*' | grep .", when_changed: ["vitest.*"]}
+examples:
+  match:
+    - files: {vitest.workspace.ts: "export default [\"packages/*\"];\n"}
+  no_match:
+    - files: {vitest.config.ts: "import { defineConfig } from \"vitest/config\";\n\nexport default defineConfig({ test: { projects: [\"packages/*\"] } });\n"}

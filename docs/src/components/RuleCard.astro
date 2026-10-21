@@ -11,6 +11,7 @@ import { checkTools, leaf, REPO_URL, ROOT, ruleAnchor, placedStatus, ruleResults
 import { ruleLifecycle } from "../lib/lifecycle";
 import { summarize } from "../lib/spec";
 import { toYaml } from "../../../src/yaml";
+import type { Example } from "../../../src/types";
 
 interface Props {
   rule: Rule;
@@ -29,11 +30,27 @@ const files = rule.scope.files ?? [];
 const include = files.filter((f) => !f.startsWith("!"));
 const exclude = files.filter((f) => f.startsWith("!")).map((f) => f.slice(1));
 const lang = rule.enforce.some((t) => t.target === "guard") ? "sh" : rule.enforce.some((t) => t.target === "permission") ? "txt" : rule.scope.language === "python" ? "python" : "tsx";
-const group = (xs: string[] = []) => {
-  const single = xs.filter((x) => x !== "" && !x.trimEnd().includes("\n"));
-  return [...(single.length ? [single.join("\n")] : []), ...xs.filter((x) => !single.includes(x)).map((x) => x || "# (empty file)")];
+/** Code blocks for a list of examples: one-line strings grouped, fixtures one block per file (title = path). */
+const LANG_OF: [RegExp, string][] = [[/\.py$/, "python"], [/\.(ts|tsx|js|mjs|cjs)$/, "tsx"], [/\.json$/, "json"], [/\.toml$/, "toml"], [/\.ya?ml$/, "yaml"], [/\.sql$/, "sql"], [/(^|\/)(Dockerfile|Containerfile)[^/]*$|\.Dockerfile$/, "dockerfile"]];
+const fileLang = (path: string) => LANG_OF.find(([re]) => re.test(path))?.[1] ?? "txt";
+const group = (xs: Example[] = []): { code: string; lang: string; title?: string }[] => {
+  const strings = xs.filter((x): x is string => typeof x === "string");
+  const single = strings.filter((x) => x !== "" && !x.trimEnd().includes("\n"));
+  return [
+    ...(single.length ? [{ code: single.join("\n"), lang }] : []),
+    ...xs.flatMap((x) =>
+      typeof x !== "string"
+        ? [
+            ...Object.entries(x.head ?? {}).map(([p, code]) => ({ code, lang: fileLang(p), title: `${p} (at HEAD)` })),
+            ...Object.entries(x.files).map(([p, code]) => ({ code, lang: fileLang(p), title: x.head && p in x.head ? `${p} (changed)` : p })),
+          ]
+        : single.includes(x)
+          ? []
+          : [{ code: x || "# (empty file)", lang }],
+    ),
+  ];
 };
-const oneLiners = [...(rule.examples?.match ?? []), ...(rule.examples?.no_match ?? [])].every((x) => !x.trimEnd().includes("\n"));
+const oneLiners = [...(rule.examples?.match ?? []), ...(rule.examples?.no_match ?? [])].every((x) => typeof x === "string" && !x.trimEnd().includes("\n"));
 const verdict = (() => {
   const t = rule.enforce.find((x) => x.target !== "tool") ?? rule.enforce[0]!;
   if (t.target === "guard" || t.target === "permission") return t.decision === "deny" ? "denied" : "asks you first";
@@ -89,11 +106,11 @@ const MODE: Record<string, string> = {
       <div class="forge-examples" data-layout={oneLiners ? "columns" : "stacked"}>
         <div class="forge-ex forge-ex--bad">
           <p class="forge-ex-title"><span aria-hidden="true">✗</span> Triggers the rule <span class="forge-ex-verdict">{verdict}</span></p>
-          {group(rule.examples.match).map((e) => <Code code={e} lang={lang} frame="none" />)}
+          {group(rule.examples.match).map((e) => <Code code={e.code} lang={e.lang} title={e.title} frame={e.title ? "code" : "none"} />)}
         </div>
         <div class="forge-ex forge-ex--good">
           <p class="forge-ex-title"><span aria-hidden="true">✓</span> Does not trigger <span class="forge-ex-verdict">allowed</span></p>
-          {group(rule.examples.no_match).map((e) => <Code code={e} lang={lang} frame="none" />)}
+          {group(rule.examples.no_match).map((e) => <Code code={e.code} lang={e.lang} title={e.title} frame={e.title ? "code" : "none"} />)}
         </div>
       </div>
     )

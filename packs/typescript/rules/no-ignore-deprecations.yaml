@@ -6,3 +6,9 @@ enforce:
     stage: lint
     run: "! grep -n '\"ignoreDeprecations\"' /dev/null $(git ls-files '*tsconfig*.json')"
     when_changed: ["tsconfig*.json", "**/tsconfig*.json"]
+examples:
+  match:
+    - files: {tsconfig.json: '{"compilerOptions": {"ignoreDeprecations": "6.0", "strict": true}}'}
+    - files: {packages/web/tsconfig.app.json: '{"compilerOptions": {"ignoreDeprecations": "6.0"}}'}
+  no_match:
+    - files: {tsconfig.json: '{"compilerOptions": {"strict": true}}'}
