@@ -336,7 +336,29 @@ function cmdApply(flags: Flags): number {
     for (const a of audits.filter((x) => x.status === "unsatisfied")) out(formatAudit(a));
     if (!existsSync(join(ctx.base, preCommitPath(ctx.base))) && !ctx.plan.files.has(preCommitPath(ctx.base))) out(preCommitHint(ctx.base));
   }
+  const sandbox = sandboxProblem(ctx);
+  if (sandbox) out(sandbox);
   return 0;
+}
+
+/**
+ * When the setup enables Claude Code's sandbox on Linux, whether bubblewrap can
+ * start it here: a container with Docker's default seccomp/AppArmor profile cannot
+ * create namespaces ("Operation not permitted"). Returns the message to print, or
+ * undefined when the sandbox can run (or is not Linux's to check).
+ */
+function sandboxProblem(ctx: Ctx): string | undefined {
+  if (process.platform !== "linux") return undefined;
+  if (!ctx.plan.settings.some((e) => e.path === "sandbox.enabled" && e.value === true)) return undefined;
+  const off = 'or turn the sandbox off knowingly: set "sandbox": {"enabled": false} in ~/.claude/settings.json (forge keeps a value you set)';
+  const has = (c: string) => run("sh", ["-c", `command -v ${c}`]).status === 0;
+  const tools = ["bwrap", "socat"].filter((c) => !has(c));
+  if (tools.length)
+    return `forge: sandbox: Claude Code's sandbox needs ${tools.join(" and ")} on Linux (apt install bubblewrap socat, or your distribution's packages), ${off}.`;
+  const r = run("bwrap", ["--ro-bind", "/", "/", "--dev", "/dev", "--unshare-all", "--die-with-parent", "true"]);
+  if (r.status === 0) return undefined;
+  const why = (r.stderr || r.stdout).trim().split("\n")[0] || `exit ${r.status}`;
+  return `forge: sandbox: Claude Code's sandbox cannot start here: bubblewrap failed (${why}). In a container with Docker's default seccomp/AppArmor profile, namespaces are not allowed. Run the container with what bubblewrap needs (e.g. --security-opt seccomp=unconfined --security-opt apparmor=unconfined, or --cap-add SYS_ADMIN), ${off}.`;
 }
 
 function cmdDiff(flags: Flags): number {
@@ -503,6 +525,8 @@ function cmdStatus(flags: Flags): number {
   drift.push(...ch.overridden);
   if (ctx.lock && (ch.writes.length || ch.deletes.length)) drift.push(`${ch.writes.length + ch.deletes.length} file(s) differ from what apply would write (forge diff)`);
   out(drift.length ? "Drift:\n" + drift.map((d) => `  ${d}`).join("\n") : "Drift: none");
+  const sandbox = sandboxProblem(ctx);
+  if (sandbox) out(sandbox.replace(/^forge: sandbox: /, "Sandbox: "));
   out(missing.length ? "Missing tools:\n" + missing.map((m) => `  ${m}`).join("\n") : "Missing tools: none");
   if (ctx.level === "project") {
     out("");

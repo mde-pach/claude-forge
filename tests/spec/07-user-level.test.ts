@@ -6,8 +6,8 @@
  * permissions and sandbox settings to `~/.claude/settings.json`, plus `ask` on
  * Forge's own files. These tests run with a temporary `HOME`.
  */
-import { expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { describe, expect, test } from "bun:test";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parse } from "jsonc-parser/lib/esm/main.js";
@@ -114,3 +114,49 @@ test.each([
   },
   T,
 );
+
+/**
+ * On Linux, Claude Code's sandbox runs through bubblewrap. Inside a container
+ * with Docker's default seccomp/AppArmor profile it cannot create namespaces;
+ * apply and status say so, with the two ways out, instead of leaving a sandbox
+ * that cannot start.
+ */
+describe.if(process.platform === "linux")("a sandbox that cannot start", () => {
+  function fakeBin(bwrap: string): string {
+    const bin = mkdtempSync(join(tmpdir(), "forge-bwrap-"));
+    writeFileSync(join(bin, "bwrap"), bwrap);
+    writeFileSync(join(bin, "socat"), "#!/bin/sh\nexit 0\n");
+    chmodSync(join(bin, "bwrap"), 0o755);
+    chmodSync(join(bin, "socat"), 0o755);
+    return bin;
+  }
+
+  /** @rule safety/sandbox */
+  test(
+    "when bubblewrap cannot create namespaces, apply --user and status --user say so, with the container options and how to turn the sandbox off knowingly",
+    () => {
+      const { env } = home();
+      const bin = fakeBin("#!/bin/sh\necho 'bwrap: Creating new namespace failed: Operation not permitted' >&2\nexit 1\n");
+      const e = { ...env, PATH: `${bin}:${env.PATH ?? process.env.PATH}` };
+      const a = forge(["apply", "--user", "--yes"], "/", e);
+      expect(a.status).toBe(0);
+      expect(a.stdout).toContain("forge: sandbox: Claude Code's sandbox cannot start here: bubblewrap failed (bwrap: Creating new namespace failed: Operation not permitted)");
+      expect(a.stdout).toContain("--security-opt seccomp=unconfined");
+      expect(a.stdout).toContain('set "sandbox": {"enabled": false} in ~/.claude/settings.json');
+      expect(forge(["status", "--user"], "/", e).stdout).toContain("Sandbox: Claude Code's sandbox cannot start here");
+    },
+    T,
+  );
+
+  /** @rule safety/sandbox */
+  test(
+    "when bubblewrap works, nothing is said",
+    () => {
+      const { env } = home();
+      const bin = fakeBin("#!/bin/sh\nexit 0\n");
+      expect(forge(["apply", "--user", "--yes"], "/", { ...env, PATH: `${bin}:${env.PATH ?? process.env.PATH}` }).stdout).not.toContain("forge: sandbox:");
+    },
+    T,
+  );
+});
+
