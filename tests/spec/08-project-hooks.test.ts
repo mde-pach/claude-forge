@@ -40,7 +40,7 @@ beforeAll(() => {
 }, T);
 
 test(
-  "hooks.json wires SessionStart, UserPromptSubmit, PreToolUse(Bash) twice, PermissionRequest, PostToolUse(Edit|Write|Bash) twice and Stop, with the specified timeouts",
+  "hooks.json wires SessionStart, UserPromptSubmit, PreToolUse(Bash) twice, PermissionRequest, PostToolUse(Edit|Write|Bash) twice, PostToolUseFailure(Bash) twice and Stop, with the specified timeouts",
   () => {
     const hooks = JSON.parse(readFileSync(join(repo, ".claude/skills/forge-project/hooks/hooks.json"), "utf8")).hooks;
     expect(hooks.SessionStart[0]).toMatchObject({ matcher: "startup|resume|clear|compact", hooks: [{ timeout: 10 }] });
@@ -50,6 +50,8 @@ test(
     expect(hooks.PermissionRequest[0]).toMatchObject({ hooks: [{ command: 'sh "${CLAUDE_PLUGIN_ROOT}/scripts/review.sh"', timeout: 180 }] });
     expect(hooks.PostToolUse[0].matcher).toBe("Edit|Write|Bash");
     expect(hooks.PostToolUse[0].hooks).toMatchObject([{ timeout: 60 }, { timeout: 300, asyncRewake: true }]);
+    expect(hooks.PostToolUseFailure[0].matcher).toBe("Bash");
+    expect(hooks.PostToolUseFailure[0].hooks).toEqual(hooks.PostToolUse[0].hooks);
     expect(hooks.Stop[0].hooks).toMatchObject([{ timeout: 600 }]);
   },
   T,
@@ -237,6 +239,34 @@ describe("files changed by Bash", () => {
       hook("bash-snapshot.sh", bash("toolu_b3", { session_id: "b-2" }));
       put(repo, "app/main.py", readFileSync(join(repo, "app/main.py"), "utf8") + "\n\ndef q(session):\n    return session.query(2)\n");
       expect(JSON.parse(hook("post-edit.sh", bash("toolu_b3", { session_id: "b-2" })).stdout).hookSpecificOutput.additionalContext).toContain("forge:python/sqlalchemy/no-query-api app/main.py:");
+      reset();
+    },
+    T,
+  );
+
+  /** @rule python/sqlalchemy/no-query-api python/typecheck */
+  test(
+    "a Bash command that fails or is interrupted after writing files is checked like one that succeeded (PostToolUseFailure)",
+    () => {
+      stub("basedpyright", 'echo "app/partial_b.py:1:1 - error: nope"; exit 1');
+      const failed = (id: string, extra: Record<string, unknown> = {}) =>
+        bash(id, { hook_event_name: "PostToolUseFailure", error: "Exit code 3", is_interrupt: false, ...extra });
+      hook("bash-snapshot.sh", bash("toolu_f1"));
+      put(repo, "app/partial_a.py", "def f(session):\n    return session.query(1)\n");
+      put(repo, "app/partial_b.py", "X: int = 1\n");
+      const out = JSON.parse(hook("post-edit.sh", failed("toolu_f1")).stdout).hookSpecificOutput;
+      expect(out.hookEventName).toBe("PostToolUseFailure");
+      expect(out.additionalContext).toContain("forge:python/sqlalchemy/no-query-api app/partial_a.py:2:12");
+      const r = hook("typecheck.sh", failed("toolu_f1"));
+      expect(r.status).toBe(2);
+      expect(r.stderr).toContain("app/partial_b.py:1:1 - error: nope");
+      expect(readdirSync(join(repo, ".forge/state/bash")).filter((f) => f.startsWith("toolu_f1"))).toEqual([]);
+      hook("bash-snapshot.sh", bash("toolu_f2"));
+      put(repo, "app/interrupted.py", "def g(session):\n    return session.query(2)\n");
+      expect(JSON.parse(hook("post-edit.sh", failed("toolu_f2", { error: "Interrupted", is_interrupt: true })).stdout).hookSpecificOutput.additionalContext).toContain(
+        "app/interrupted.py:2:12",
+      );
+      rmSync(join(repo, ".venv/bin/basedpyright"));
       reset();
     },
     T,

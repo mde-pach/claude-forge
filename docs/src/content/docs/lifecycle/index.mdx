@@ -28,7 +28,7 @@ Effects use the same colours everywhere: <span class="forge-effect" data-effect=
 
 The project setup is a Claude Code plugin in `.claude/skills/forge-project/`. Its `hooks/hooks.json`:
 
-<Spec file="08-project-hooks" test="hooks.json wires SessionStart, UserPromptSubmit, PreToolUse(Bash) twice, PermissionRequest, PostToolUse(Edit|Write|Bash) twice and Stop, with the specified timeouts" />
+<Spec file="08-project-hooks" test="hooks.json wires SessionStart, UserPromptSubmit, PreToolUse(Bash) twice, PermissionRequest, PostToolUse(Edit|Write|Bash) twice, PostToolUseFailure(Bash) twice and Stop, with the specified timeouts" />
 
 A missing runtime never breaks a session; every hook exits cleanly:
 
