@@ -61,6 +61,8 @@ export interface CheckTarget {
   stage: Stage;
   run: string;
   changed_run?: string;
+  /** Lint checks: safe fixes applied to an edited file before it is linted ({files}). */
+  fix_run?: string;
   when_changed?: string[];
   requires_local_db?: boolean;
   timeout?: number;

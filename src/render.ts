@@ -37,7 +37,7 @@ export function toolsInCommand(cmd: string): string[] {
 }
 
 export function checkTools(t: CheckTarget): string[] {
-  return [...new Set([...toolsInCommand(t.run), ...toolsInCommand(t.changed_run ?? "")])];
+  return [...new Set([...toolsInCommand(t.run), ...toolsInCommand(t.changed_run ?? ""), ...toolsInCommand(t.fix_run ?? "")])];
 }
 
 // ---------------------------------------------------------------- shell case patterns
@@ -143,7 +143,7 @@ export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = []): s
       `forge_check_meta_${n}() {`,
       `  c_id=${shQuote(rule.id)}; c_stage=${target.stage}; c_tools=${shQuote(tools.join(" "))}`,
       `  c_when=${target.when_changed ? 1 : 0}; c_localdb=${target.requires_local_db ? 1 : 0}; c_timeout=${target.timeout ?? "''"}`,
-      `  c_changed=${changed ? 1 : 0}; c_files=${changed && target.changed_run!.includes("{files}") ? 1 : 0}`,
+      `  c_changed=${changed ? 1 : 0}; c_files=${changed && target.changed_run!.includes("{files}") ? 1 : 0}; c_fix=${target.fix_run ? 1 : 0}`,
       "}",
       scopeFunction(`forge_scope_${n}`, rule),
       target.when_changed
@@ -154,6 +154,7 @@ export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = []): s
       "}",
     );
     if (changed) out.push(`forge_check_changed_${n}() {`, target.changed_run!.replaceAll("{files}", "$FORGE_FILES"), "}");
+    if (target.fix_run) out.push(`forge_check_fix_${n}() {`, target.fix_run.replaceAll("{files}", "$FORGE_FILES"), "}");
   });
   out.push("", ...renderGreps(greps));
   out.push("# ---- end of generated checks", "", fill(template("engine.sh"), {

@@ -156,6 +156,7 @@ const MODE: Record<string, string> = {
             <p><strong>check · {t.stage}</strong>, tools {checkTools(t).map((x, i) => <>{i > 0 && ", "}<code>{x}</code></>)}</p>
             <Code code={t.run} lang="sh" title="--all (CI)" />
             {t.changed_run && <Code code={t.changed_run} lang="sh" title="--changed (Stop, pre-commit, after an edit)" />}
+            {t.fix_run && <Code code={t.fix_run} lang="sh" title="safe fixes, after an edit" />}
           </>
         );
       })

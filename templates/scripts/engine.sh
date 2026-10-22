@@ -895,6 +895,27 @@ forge_file_stage() {
   return "$_fp_rc"
 }
 
+# forge_file_fixes <file>: the safe fixes (fix_run) of each in-scope lint check, on
+# one file. When they changed it, prints "forge: auto-fixed <codes> in <file>" (codes
+# from ruff's --show-fixes summary), so Claude knows its view of the file is stale.
+forge_file_fixes() {
+  _fx_i=1
+  _fx_codes=''
+  _fx_before=$(git hash-object -- "$1" 2>/dev/null)
+  FORGE_FILES=$1
+  while [ "$_fx_i" -le "$FORGE_NCHECKS" ]; do
+    forge_check_meta_"$_fx_i"
+    if [ "$c_stage" = lint ] && [ "$c_fix" = 1 ] && forge_scope_"$_fx_i" "$1" && ! forge_missing_tool >/dev/null; then
+      forge_exec_check "forge_check_fix_$_fx_i" "$c_timeout"
+      _fx_codes="$_fx_codes $(awk '/^Fixed [0-9]+ error/ { on = 1; next } on && /^ +[0-9]+ / && match($0, /[A-Z]+[0-9]+ \(/) { printf "%s ", substr($0, RSTART, RLENGTH - 2) } /^$/ { on = 0 }' "$FORGE_TMP/out")"
+    fi
+    _fx_i=$((_fx_i + 1))
+  done
+  [ "$(git hash-object -- "$1" 2>/dev/null)" != "$_fx_before" ] || return 0
+  _fx_codes=$(printf '%s' "$_fx_codes" | tr ' ' '\n' | awk 'NF && !seen[$0]++' | tr '\n' ' ' | sed 's/ $//; s/ /, /g')
+  printf 'forge: auto-fixed %s in %s; re-read it before editing it again\n' "${_fx_codes:-safe lint fixes}" "$1"
+}
+
 # forge_typecheck <file>: the full run of each typecheck check whose scope covers <file>;
 # only errors in files of $FORGE_TMP/changed count ($FORGE_TMP/added must exist).
 forge_typecheck() {

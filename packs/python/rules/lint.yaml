@@ -2,7 +2,12 @@ id: python/lint
 description: Python files pass ruff check.
 scope: {language: python}
 enforce:
-  - {target: check, stage: lint, run: "ruff check .", changed_run: "ruff check --output-format concise {files}"}
+  - target: check
+    stage: lint
+    run: "ruff check ."
+    changed_run: "ruff check --output-format concise {files}"
+    # after an edit: sorted imports and pyupgrade, when the project selects them; never F401/F841 (an import added now is used in the next edit)
+    fix_run: "ruff check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise {files}"
 examples:
   match: ["import os\n"]
   no_match: ["X = 1\n"]

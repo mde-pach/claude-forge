@@ -11,7 +11,7 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { applied, commitAll, ensureTools, forge, git, hasBun, hookJson, linkTools, put, sampleRepo, sh } from "../helpers";
+import { applied, commitAll, ensureTools, forge, git, hasBun, hasUv, hookJson, linkTools, put, sampleRepo, sh } from "../helpers";
 
 const T = 180_000;
 const SCRIPTS = ".claude/skills/forge-project/scripts";
@@ -308,6 +308,71 @@ describe("files changed by Bash", () => {
       expect(r.status).toBe(0);
       expect(r.stdout).toBe("");
       expect(existsSync(join(plain, ".forge"))).toBe(false);
+    },
+    T,
+  );
+});
+
+/**
+ * After an edit, a lint check's safe fixes (`fix_run`) run before the report, so
+ * the agent does not spend a turn on sorted imports. Unused imports and variables
+ * are never removed: an import added now is often used in the next edit.
+ */
+describe("safe fixes after an edit", () => {
+  const post = (r: string, fields: Record<string, unknown>) => sh("sh", [join(SCRIPTS, "post-edit.sh")], { cwd: r, input: hookJson({ cwd: r, ...fields }) });
+  const ctx = (out: string) => JSON.parse(out).hookSpecificOutput.additionalContext as string;
+
+  /** @rule python/lint */
+  test.if(hasUv)(
+    "Python: sorted imports and pyupgrade fixes are applied when the project selects I and UP, said in one line; F401 is still reported, not fixed; the same after a Bash command",
+    () => {
+      ensureTools();
+      const r = sampleRepo("fastapi-app");
+      linkTools(r, "python");
+      put(r, "pyproject.toml", readFileSync(join(r, "pyproject.toml"), "utf8").replace('select = ["E", "F", "ANN401", "E722"]', 'select = ["E", "F", "ANN401", "E722", "I", "UP"]'));
+      commitAll(r, "config");
+      expect(forge(["apply", "--yes"], r).status).toBe(0);
+      commitAll(r, "forge");
+      const messy = "import sys\nimport os\nfrom typing import List\n\n\ndef f(x: List[int]) -> None:\n    print(os.sep, sys.argv, x)\n";
+      put(r, "app/x.py", messy);
+      const out = ctx(post(r, { tool_name: "Edit", tool_input: { file_path: join(r, "app/x.py") } }).stdout);
+      expect(out).toContain("forge: auto-fixed UP006, I001 in app/x.py; re-read it before editing it again");
+      expect(out).toContain("F401");
+      expect(out).not.toContain("I001 [*]");
+      expect(readFileSync(join(r, "app/x.py"), "utf8")).toStartWith("import os\nimport sys\n");
+      sh("sh", [join(SCRIPTS, "bash-snapshot.sh")], { cwd: r, input: hookJson({ cwd: r, tool_name: "Bash", tool_use_id: "toolu_fx", tool_input: { command: "cat > app/y.py" } }) });
+      put(r, "app/y.py", messy);
+      expect(ctx(post(r, { tool_name: "Bash", tool_use_id: "toolu_fx", tool_input: { command: "cat > app/y.py" } }).stdout)).toContain("forge: auto-fixed UP006, I001 in app/y.py");
+    },
+    T,
+  );
+
+  /** @rule typescript/format-lint */
+  test.if(hasBun)(
+    "TypeScript: Biome's safe fixes are applied without formatting and said in one line; an unused import is kept",
+    () => {
+      ensureTools();
+      const r = sampleRepo("nextjs-prisma-app");
+      linkTools(r, "node");
+      commitAll(r, "tools");
+      expect(forge(["apply", "--yes"], r).status).toBe(0);
+      commitAll(r, "forge");
+      put(r, "src/fix.ts", 'import { join } from "node:path";\nlet total = 1;\nexport const sum = total + 1;\n');
+      const out = ctx(post(r, { tool_name: "Write", tool_input: { file_path: join(r, "src/fix.ts") } }).stdout);
+      expect(out).toContain("forge: auto-fixed safe lint fixes in src/fix.ts");
+      const text = readFileSync(join(r, "src/fix.ts"), "utf8");
+      expect(text).toContain("const total = 1;");
+      expect(text).toContain('import { join } from "node:path";');
+    },
+    T,
+  );
+
+  test(
+    "a clean edit prints nothing: no fix, no note",
+    () => {
+      put(repo, "app/ok2.py", "X = 1\n");
+      expect(hook("post-edit.sh", edit("app/ok2.py")).stdout).toBe("");
+      reset();
     },
     T,
   );

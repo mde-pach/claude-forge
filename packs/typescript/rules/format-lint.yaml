@@ -2,7 +2,12 @@ id: typescript/format-lint
 description: TypeScript files are formatted and linted with Biome.
 scope: {language: typescript}
 enforce:
-  - {target: check, stage: lint, run: "biome ci .", changed_run: "biome check --write --no-errors-on-unmatched {files}"}
+  - target: check
+    stage: lint
+    run: "biome ci ."
+    changed_run: "biome check --write --no-errors-on-unmatched {files}"
+    # after an edit: Biome's safe lint fixes and import sorting, without formatting; never removing unused imports or variables
+    fix_run: "biome check --write --formatter-enabled=false --skip=correctness/noUnusedImports --skip=correctness/noUnusedVariables --no-errors-on-unmatched {files}"
 examples:
   match: ["export const same = (a: number, b: number) => a == b;\n"]
   no_match: ["export const same = (a: number, b: number) => a === b;\n"]

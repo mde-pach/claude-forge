@@ -73,6 +73,7 @@ function checkEvents(rule: Rule, t: CheckTarget): LifecycleEvent[] {
       break;
     case "lint":
       if (files) out.push({ step: "edit", effect: "feedback", text: `Lints the edited file with ${cmd(t.changed_run!.replace("{files}", "<file>"), "--changed")}; findings go back to Claude.` });
+      if (t.fix_run) out.push({ step: "edit", effect: "fixes", text: "First applies the safe fixes below to the edited file, and tells Claude when the file changed." });
       out.push(...changed("blocks", "Runs"));
       for (const e of out) if (e.step === "stop" || e.step === "commit") e.text += " Only findings on added lines count.";
       out.push({ step: "ci", effect: "blocks", text: `Runs ${cmd(t.run, "--all")}: with \`--since\`, findings on the lines the branch added count; with \`--all\`, any finding.` });
