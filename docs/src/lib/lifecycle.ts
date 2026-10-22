@@ -10,7 +10,7 @@ export const STEPS: { id: StepId; label: string; when: string }[] = [
   { id: "apply", label: "forge apply", when: "when you run forge apply or forge status" },
   { id: "session", label: "Session start", when: "when a Claude Code session starts or resumes" },
   { id: "tool", label: "Tool call", when: "before Claude runs a Bash command or reads or edits a file" },
-  { id: "edit", label: "After an edit", when: "right after Claude edits or writes a file" },
+  { id: "edit", label: "After an edit", when: "right after Claude edits or writes a file, or runs a Bash command that changes files" },
   { id: "stop", label: "Claude stops", when: "when Claude ends a turn that changed the tree (Stop hook runs check.sh on what the turn changed)" },
   { id: "commit", label: "git commit", when: "in the pre-commit hook (check.sh --changed)" },
   { id: "ci", label: "CI", when: "in CI (check.sh --since <base branch> on a pull request, --all on the default branch)" },

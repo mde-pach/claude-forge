@@ -298,10 +298,10 @@ export function renderHooks(level: Level): string {
       : {
           SessionStart: [{ matcher: "startup|resume|clear|compact", hooks: [hook("session-start.sh", 10)] }],
           UserPromptSubmit: [{ hooks: [hook("turn-start.sh", 10)] }],
-          PreToolUse: [guard],
+          PreToolUse: [guard, { matcher: "Bash", hooks: [hook("bash-snapshot.sh", 15)] }],
           PermissionRequest: review,
           PostToolUse: [
-            { matcher: "Edit|Write", hooks: [hook("post-edit.sh", 30), hook("typecheck.sh", 300, { asyncRewake: true })] },
+            { matcher: "Edit|Write|Bash", hooks: [hook("post-edit.sh", 60), hook("typecheck.sh", 300, { asyncRewake: true })] },
           ],
           Stop: [{ hooks: [hook("stop.sh", 600)] }],
         };

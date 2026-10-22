@@ -231,7 +231,7 @@ examples:
 │   ├── skills/forge-project/
 │   │   ├── .claude-plugin/plugin.json    # {"name":"forge-project", ...}
 │   │   ├── hooks/hooks.json
-│   │   └── scripts/{lib.sh, session-start.sh, turn-start.sh, guard.sh, guard.rules, review.sh, post-edit.sh, typecheck.sh, stop.sh}
+│   │   └── scripts/{lib.sh, session-start.sh, turn-start.sh, guard.sh, guard.rules, review.sh, bash-snapshot.sh, post-edit.sh, typecheck.sh, stop.sh}
 │   └── rules/forge-<pack-id>.md          # one per active pack with context.md; "/" in the id becomes "-"
 └── .forge/
     ├── check.sh
@@ -251,10 +251,22 @@ All scripts are POSIX `sh`. They read file paths and the working directory from 
 | SessionStart | `startup\|resume\|clear\|compact` | `session-start.sh` | sync | 10 s | ≤ 20 lines: branch, number of changed files and first 10 paths, last 5 commits (`%h %s`, ≤ 72 chars), active packs, missing tools (once). |
 | UserPromptSubmit | — | `turn-start.sh` | sync | 10 s | Snapshots the tree at the start of the turn and resets the Stop block counter (§10.2). Prints nothing. |
 | PreToolUse | `Bash` | `guard.sh` | sync | 180 s | Project `guard` rules. `onFailure: "block"`. An ask nobody can answer is reviewed (§9.3). |
+| PreToolUse | `Bash` | `bash-snapshot.sh` | sync | 15 s | Snapshots the working tree for the files the command changes (§8.4). Prints nothing. |
 | PermissionRequest | — | `review.sh` | sync | 180 s | §9.3. Defers to the user-level `review.sh` when it exists. |
-| PostToolUse | `Edit\|Write` | `post-edit.sh` | sync | 30 s | Format the file silently; lint it; run ast-grep `forbid` rules on it. Findings on lines added during the turn (against the turn snapshot; before the first prompt, against `HEAD`) → JSON `{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"…"}}`, ≤ 20 lines, diagnostics for this file only. Nothing on success. |
-| PostToolUse | `Edit\|Write` | `typecheck.sh` | `asyncRewake: true` | 300 s | Project typecheck. Errors in files changed during the turn (the Stop hook's change set, §10.2) → exit 2, stderr ≤ 20 lines, those files' diagnostics only; errors only in other files → silent. Skips if one is already running (lock in `.forge/state/`). |
+| PostToolUse | `Edit\|Write\|Bash` | `post-edit.sh` | sync | 60 s | On the edited file (Bash: the files the command changed, §8.4): format silently; lint it; run ast-grep `forbid` rules on it. Findings on lines added during the turn (against the turn snapshot; before the first prompt, against `HEAD`) → JSON `{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"…"}}`, ≤ 20 lines, diagnostics for these files only. Nothing on success. |
+| PostToolUse | `Edit\|Write\|Bash` | `typecheck.sh` | `asyncRewake: true` | 300 s | Project typecheck, when the edited file (Bash: a file the command changed) is in a typecheck's scope. Errors in files changed during the turn (the Stop hook's change set, §10.2) → exit 2, stderr ≤ 20 lines, those files' diagnostics only; errors only in other files → silent. Skips if one is already running (lock in `.forge/state/`). |
 | Stop | — | `stop.sh` | sync | 600 s | §10.2. |
+
+### 8.4 Files changed by Bash
+
+Agents also change files through Bash (heredocs, `sed -i`, `cat >`, `git apply`), so the per-edit checks also follow Bash commands:
+
+1. **Before** (`bash-snapshot.sh`, PreToolUse `Bash`): in a git repository with `.forge/`, write the working tree's git tree id to `.forge/state/bash/<tool_use_id>.tree`. The tree comes from `git add -A . && git write-tree` with `GIT_INDEX_FILE` set to a copy of the repository's index, `GIT_OBJECT_DIRECTORY` set to `.forge/state/bash/objects` and the repository's objects as `GIT_ALTERNATE_OBJECT_DIRECTORIES`: the user's index and object store are never written. Tracked and untracked files count; ignored ones do not. A snapshot that takes longer than `FORGE_SNAPSHOT_TIMEOUT` (5 s) is recorded as `skipped`.
+2. **After** (`post-edit.sh`, PostToolUse `Bash`): snapshot again and list the added and modified files (`git diff-tree -r --no-renames --name-status`), outside `.forge/`, `.claude/`, `.git/`, `node_modules/` and `.venv/`. The list goes to `<tool_use_id>.files` for typecheck.sh; the files (the first 20, with a note when there are more) get the same checks as an edited file, and the findings one `additionalContext` of at most 20 lines. Formatting happens after the comparison, so its writes are not counted (the next command's snapshot starts from them). A `skipped` snapshot prints, once per repository, that the Stop check covers Bash changes there.
+3. **typecheck.sh** (PostToolUse `Bash`, async) waits up to 60 s for that list, then runs when a listed file is in a typecheck's scope.
+4. **Cleanup.** A command denied before it runs never reaches PostToolUse: each snapshot drops `.tree` and `.files` older than a day or beyond the 50 newest, and the object directory once no snapshot is pending.
+
+Not covered: writes by a `run_in_background` command after it returns, and anything outside the repository; the Stop check still sees them.
 
 ### 8.2 Permissions appended
 

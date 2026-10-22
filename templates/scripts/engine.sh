@@ -730,14 +730,6 @@ forge_related_py_tests() {
   done | sort -u
 }
 
-# forge_kill_tree <pid>: kills a process and its descendants.
-forge_kill_tree() {
-  for _fk_c in $(ps -A -o pid= -o ppid= 2>/dev/null | awk -v p="$1" '$2 == p { print $1 }'); do
-    forge_kill_tree "$_fk_c"
-  done
-  kill "$1" 2>/dev/null
-}
-
 # forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out.
 forge_exec_check() {
   set -f

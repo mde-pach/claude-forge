@@ -6,7 +6,7 @@ import type { Effect, LifecycleEvent } from "./lifecycle";
 
 export type Piece =
   | "apply" | "context" | "session-start" | "turn-start" | "guard" | "permission" | "sandbox"
-  | "post-edit" | "typecheck" | "stop" | "notify" | "commit" | "ci" | "review";
+  | "post-edit" | "typecheck" | "stop" | "notify" | "commit" | "ci" | "review" | "bash-snapshot";
 
 export const PIECES: Record<Piece, { label: string; at: string; infra?: true }> = {
   apply: { label: "forge apply", at: "Forge CLI" },
@@ -14,6 +14,7 @@ export const PIECES: Record<Piece, { label: string; at: string; infra?: true }> 
   context: { label: "forge-<pack>.md", at: "InstructionsLoaded" },
   "turn-start": { label: "turn-start.sh (snapshot)", at: "UserPromptSubmit", infra: true },
   guard: { label: "guard.sh", at: "PreToolUse" },
+  "bash-snapshot": { label: "bash-snapshot.sh", at: "PreToolUse", infra: true },
   permission: { label: "permission rules", at: "PermissionRequest" },
   review: { label: "review.sh (nobody to answer)", at: "PermissionRequest", infra: true },
   sandbox: { label: "sandbox", at: "tool executes" },
@@ -64,7 +65,7 @@ export const FLOW: Row[] = [
   { ev: "UserPromptExpansion", sub: "slash command expands to a prompt" },
   { open: "retry" },
   { open: "loop", label: "agentic loop · each tool call" },
-  { ev: "PreToolUse", sub: "before the tool runs · can block", pieces: ["guard"], core: true },
+  { ev: "PreToolUse", sub: "before the tool runs · can block", pieces: ["guard", "bash-snapshot"], core: true },
   { ev: "PermissionRequest", sub: "a permission decision is needed", pieces: ["permission", "review"] },
   { ev: "PermissionDenied", sub: "auto mode denied the call" },
   { ev: "tool executes", sub: "built in · Bash runs in the sandbox", kind: "native", pieces: ["sandbox"], core: true },

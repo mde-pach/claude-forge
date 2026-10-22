@@ -266,3 +266,72 @@ forge_review_log() {
   printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$(session_id)" "$1" "$2" "$(printf '%s' "$3" | tr '\t\n' '  ')" "$4" >> "$_rl_f" 2>/dev/null
   return 0
 }
+
+# forge_kill_tree <pid>: kills a process and its descendants.
+forge_kill_tree() {
+  for _fk_c in $(ps -A -o pid= -o ppid= 2>/dev/null | awk -v p="$1" '$2 == p { print $1 }'); do
+    forge_kill_tree "$_fk_c"
+  done
+  kill "$1" 2>/dev/null
+}
+
+# ---- files changed by a Bash command (bash-snapshot.sh, post-edit.sh, typecheck.sh)
+
+# bash_state: where Bash-command snapshots live; bash_key: this tool call's id, file-name safe.
+bash_state() { printf '.forge/state/bash'; }
+bash_key() {
+  _bk=$(json_get tool_use_id | tr -c 'A-Za-z0-9_-' '_')
+  [ -n "$_bk" ] && printf '%s' "$_bk"
+}
+
+# tree_snapshot <seconds>: prints the git tree id of the working tree (tracked and
+# untracked files, ignored ones left out) without touching the user's index or
+# object store: a copy of .git/index, and new blobs written under bash_state/objects
+# (the repository's objects are read as alternates). Fails after <seconds>.
+tree_snapshot() {
+  _ts_s=$(bash_state)
+  mkdir -p "$_ts_s/objects" || return 1
+  _ts_objs=$(cd "$_ts_s/objects" && pwd -P) || return 1
+  _ts_alt=$(cd "$(git rev-parse --git-path objects 2>/dev/null)" 2>/dev/null && pwd -P) || return 1
+  _ts_idx=$(git rev-parse --git-path index 2>/dev/null) || return 1
+  _ts_tmp=$(mktemp "${TMPDIR:-/tmp}/forge-index.XXXXXX") || return 1
+  if [ -f "$_ts_idx" ]; then cp "$_ts_idx" "$_ts_tmp"; else rm -f "$_ts_tmp"; fi
+  (
+    export GIT_INDEX_FILE="$_ts_tmp" GIT_OBJECT_DIRECTORY="$_ts_objs" GIT_ALTERNATE_OBJECT_DIRECTORIES="$_ts_alt"
+    git add -A . >/dev/null 2>&1 && git write-tree 2>/dev/null
+  ) > "$_ts_tmp.out" &
+  _ts_pid=$!
+  ( sleep "$1"; forge_kill_tree "$_ts_pid" ) >/dev/null 2>&1 &
+  _ts_watch=$!
+  wait "$_ts_pid" 2>/dev/null
+  _ts_rc=$?
+  forge_kill_tree "$_ts_watch"
+  _ts_tree=$(cat "$_ts_tmp.out" 2>/dev/null)
+  rm -f "$_ts_tmp" "$_ts_tmp.out" "$_ts_tmp.lock"
+  [ "$_ts_rc" -eq 0 ] && [ -n "$_ts_tree" ] || return 1
+  printf '%s\n' "$_ts_tree"
+}
+
+# bash_changed_files <before-tree> <after-tree>: added or modified files, one per
+# line, outside Forge's, Claude's, git's and dependency directories.
+bash_changed_files() {
+  _bc_objs=$(cd "$(bash_state)/objects" && pwd -P) || return 1
+  _bc_alt=$(cd "$(git rev-parse --git-path objects 2>/dev/null)" 2>/dev/null && pwd -P) || return 1
+  GIT_OBJECT_DIRECTORY="$_bc_objs" GIT_ALTERNATE_OBJECT_DIRECTORIES="$_bc_alt" \
+    git diff-tree -r --no-renames --name-status "$1" "$2" 2>/dev/null \
+    | awk -F '\t' '$1 == "A" || $1 == "M" { print $2 }' \
+    | grep -vE '^(\.forge|\.claude|\.git|node_modules|\.venv)/' 
+  return 0
+}
+
+# bash_cleanup: drops snapshots older than a day or beyond the 50 newest (a denied
+# command never reaches PostToolUse), and the snapshot objects once none is pending.
+bash_cleanup() {
+  _bl_s=$(bash_state)
+  [ -d "$_bl_s" ] || return 0
+  find "$_bl_s" -type f \( -name '*.tree' -o -name '*.files' \) -mtime +0 -exec rm -f {} + 2>/dev/null
+  # shellcheck disable=SC2012
+  ls -t "$_bl_s" 2>/dev/null | grep -E '\.(tree|files)$' | sed '1,50d' | while IFS= read -r _bl_f; do rm -f "$_bl_s/$_bl_f"; done
+  if [ -z "$(ls "$_bl_s" 2>/dev/null | grep -E '\.tree$')" ]; then rm -rf "$_bl_s/objects"; fi
+  return 0
+}

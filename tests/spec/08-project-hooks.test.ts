@@ -8,7 +8,7 @@
  * JSON; ast-grep runs through `bunx` or `uvx`.
  */
 import { beforeAll, describe, expect, test } from "bun:test";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { applied, commitAll, ensureTools, forge, git, hasBun, hookJson, linkTools, put, sampleRepo, sh } from "../helpers";
@@ -40,15 +40,16 @@ beforeAll(() => {
 }, T);
 
 test(
-  "hooks.json wires SessionStart, UserPromptSubmit, PreToolUse(Bash), PermissionRequest, PostToolUse(Edit|Write) twice and Stop, with the specified timeouts",
+  "hooks.json wires SessionStart, UserPromptSubmit, PreToolUse(Bash) twice, PermissionRequest, PostToolUse(Edit|Write|Bash) twice and Stop, with the specified timeouts",
   () => {
     const hooks = JSON.parse(readFileSync(join(repo, ".claude/skills/forge-project/hooks/hooks.json"), "utf8")).hooks;
     expect(hooks.SessionStart[0]).toMatchObject({ matcher: "startup|resume|clear|compact", hooks: [{ timeout: 10 }] });
     expect(hooks.UserPromptSubmit[0]).toMatchObject({ hooks: [{ command: 'sh "${CLAUDE_PLUGIN_ROOT}/scripts/turn-start.sh"', timeout: 10 }] });
     expect(hooks.PreToolUse[0]).toMatchObject({ matcher: "Bash", hooks: [{ timeout: 180, onFailure: "block" }] });
+    expect(hooks.PreToolUse[1]).toMatchObject({ matcher: "Bash", hooks: [{ command: 'sh "${CLAUDE_PLUGIN_ROOT}/scripts/bash-snapshot.sh"', timeout: 15 }] });
     expect(hooks.PermissionRequest[0]).toMatchObject({ hooks: [{ command: 'sh "${CLAUDE_PLUGIN_ROOT}/scripts/review.sh"', timeout: 180 }] });
-    expect(hooks.PostToolUse[0].matcher).toBe("Edit|Write");
-    expect(hooks.PostToolUse[0].hooks).toMatchObject([{ timeout: 30 }, { timeout: 300, asyncRewake: true }]);
+    expect(hooks.PostToolUse[0].matcher).toBe("Edit|Write|Bash");
+    expect(hooks.PostToolUse[0].hooks).toMatchObject([{ timeout: 60 }, { timeout: 300, asyncRewake: true }]);
     expect(hooks.Stop[0].hooks).toMatchObject([{ timeout: 600 }]);
   },
   T,
@@ -190,6 +191,123 @@ describe("asks nobody can answer", () => {
       writeFileSync(join(home, ".claude/skills/forge-user/scripts/review.sh"), "");
       expect(run("review.sh", { hook_event_name: "PermissionRequest", tool_name: "Edit", tool_input: {} }, { HOME: home }).stdout).toBe("");
       expect(existsSync(log())).toBe(false);
+    },
+    T,
+  );
+});
+
+/**
+ * Agents often change files through Bash (a heredoc, `sed -i`, `git apply`)
+ * rather than Edit or Write. Before each Bash command `bash-snapshot.sh` records
+ * the working tree as a git tree (keyed by `tool_use_id`, through a copy of the
+ * index and a private object directory); after it, post-edit.sh and typecheck.sh
+ * check the files the command added or modified.
+ */
+describe("files changed by Bash", () => {
+  const bash = (id: string, extra: Record<string, unknown> = {}) => ({ tool_name: "Bash", tool_use_id: id, tool_input: { command: "python3 - <<EOF" }, ...extra });
+  const objects = () => git(repo, "count-objects").stdout;
+
+  /** @rule python/sqlalchemy/no-query-api */
+  test(
+    "a Bash command that writes a forbidden pattern into a new untracked file gets the finding as additionalContext; the user's index and object store are untouched",
+    () => {
+      put(repo, "app/staged.py", "X = 1\n");
+      git(repo, "add", "app/staged.py");
+      const index = readFileSync(join(repo, ".git/index"));
+      const before = objects();
+      expect(hook("bash-snapshot.sh", bash("toolu_b1")).stdout).toBe("");
+      put(repo, "app/via_bash.py", "def f(session):\n    return session.query(1)\n");
+      const out = JSON.parse(hook("post-edit.sh", bash("toolu_b1")).stdout).hookSpecificOutput;
+      expect(out.additionalContext).toContain("forge:python/sqlalchemy/no-query-api app/via_bash.py:2:12");
+      expect(readFileSync(join(repo, ".git/index")).equals(index)).toBe(true);
+      expect(objects()).toBe(before);
+      expect(existsSync(join(repo, ".forge/state/bash/objects"))).toBe(false);
+      reset();
+    },
+    T,
+  );
+
+  /** @rule python/sqlalchemy/no-query-api */
+  test(
+    "a modified tracked file is checked on the lines the turn added; a command that changes nothing prints nothing",
+    () => {
+      hook("turn-start.sh", { session_id: "b-2" });
+      hook("bash-snapshot.sh", bash("toolu_b2", { session_id: "b-2" }));
+      expect(hook("post-edit.sh", bash("toolu_b2", { session_id: "b-2" })).stdout).toBe("");
+      hook("bash-snapshot.sh", bash("toolu_b3", { session_id: "b-2" }));
+      put(repo, "app/main.py", readFileSync(join(repo, "app/main.py"), "utf8") + "\n\ndef q(session):\n    return session.query(2)\n");
+      expect(JSON.parse(hook("post-edit.sh", bash("toolu_b3", { session_id: "b-2" })).stdout).hookSpecificOutput.additionalContext).toContain("forge:python/sqlalchemy/no-query-api app/main.py:");
+      reset();
+    },
+    T,
+  );
+
+  test(
+    "files under .forge/, .claude/, .git/, node_modules/ and .venv/ are not checked, and deleted files are ignored",
+    () => {
+      hook("bash-snapshot.sh", bash("toolu_b4"));
+      put(repo, "node_modules/pkg/q.py", "def f(session):\n    return session.query(1)\n");
+      rmSync(join(repo, "app/main.py"));
+      expect(hook("post-edit.sh", bash("toolu_b4")).stdout).toBe("");
+      reset();
+    },
+    T,
+  );
+
+  /** @rule python/typecheck */
+  test(
+    "typecheck.sh runs when a Bash command changed a file in a typecheck's scope, using the list post-edit.sh wrote",
+    () => {
+      stub("basedpyright", 'echo "app/typed.py:1:1 - error: nope"; exit 1');
+      hook("bash-snapshot.sh", bash("toolu_b5"));
+      put(repo, "app/typed.py", "X: int = 1\n");
+      hook("post-edit.sh", bash("toolu_b5"));
+      const r = hook("typecheck.sh", bash("toolu_b5"));
+      expect(r.status).toBe(2);
+      expect(r.stderr).toContain("forge:python/typecheck\napp/typed.py:1:1 - error: nope");
+      expect(existsSync(join(repo, ".forge/state/bash/toolu_b5.files"))).toBe(false);
+      rmSync(join(repo, ".venv/bin/basedpyright"));
+      reset();
+    },
+    T,
+  );
+
+  test(
+    "snapshots of commands that never finished (denied by the guard) are cleaned: older than a day, or beyond the 50 newest",
+    () => {
+      mkdirSync(join(repo, ".forge/state/bash"), { recursive: true });
+      for (let i = 0; i < 60; i++) writeFileSync(join(repo, `.forge/state/bash/stale${i}.tree`), "x\n");
+      hook("bash-snapshot.sh", bash("toolu_b6"));
+      const left = readdirSync(join(repo, ".forge/state/bash")).filter((f) => f.endsWith(".tree"));
+      expect(left.length).toBeLessThanOrEqual(51);
+      expect(left).toContain("toolu_b6.tree");
+      rmSync(join(repo, ".forge/state/bash"), { recursive: true, force: true });
+    },
+    T,
+  );
+
+  test(
+    "when the tree is too large to snapshot in time, the change is left to Stop, with a note given once",
+    () => {
+      mkdirSync(join(repo, ".forge/state/bash"), { recursive: true });
+      rmSync(join(repo, ".forge/state/bash/snapshot-skipped"), { force: true });
+      writeFileSync(join(repo, ".forge/state/bash/toolu_b7.tree"), "skipped\n");
+      expect(JSON.parse(hook("post-edit.sh", bash("toolu_b7")).stdout).hookSpecificOutput.additionalContext).toContain("the Stop check still covers them");
+      writeFileSync(join(repo, ".forge/state/bash/toolu_b8.tree"), "skipped\n");
+      expect(hook("post-edit.sh", bash("toolu_b8")).stdout).toBe("");
+      rmSync(join(repo, ".forge/state/bash"), { recursive: true, force: true });
+    },
+    T,
+  );
+
+  test(
+    "outside a git repository nothing is snapshotted",
+    () => {
+      const plain = mkdtempSync(join(tmpdir(), "forge-nogit-"));
+      const r = sh("sh", [join(repo, SCRIPTS, "bash-snapshot.sh")], { cwd: plain, input: hookJson({ cwd: plain, ...bash("toolu_b9") }) });
+      expect(r.status).toBe(0);
+      expect(r.stdout).toBe("");
+      expect(existsSync(join(plain, ".forge"))).toBe(false);
     },
     T,
   );

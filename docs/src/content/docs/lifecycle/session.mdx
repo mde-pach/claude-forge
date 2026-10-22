@@ -39,6 +39,12 @@ In `dontAsk` mode asks stay denied (you chose that). `FORGE_REVIEW_MODEL` picks 
 
 ## After an edit
 
-After an `Edit` or `Write`, `post-edit.sh` formats the file silently, lints it and runs the ast-grep `forbid` rules on it; findings go back to Claude as context. `typecheck.sh` runs the project type check in the background and wakes Claude when it fails.
+After an `Edit` or `Write` (or a Bash command that changes files, below), `post-edit.sh` formats the file silently, lints it and runs the ast-grep `forbid` rules on it; findings go back to Claude as context. `typecheck.sh` runs the project type check in the background and wakes Claude when it fails.
 
 <Spec file="08-project-hooks" describe="PostToolUse" />
+
+### Files changed by Bash
+
+Agents often edit through Bash (a heredoc, `sed -i`, `git apply`) instead of `Edit` or `Write`. Before each Bash command, `bash-snapshot.sh` records the working tree as a git tree, through a copy of the index and a private object directory, so your index and object store are never touched. After the command, `post-edit.sh` compares and runs the same checks on every file the command added or modified (up to 20), and `typecheck.sh` runs when one of them is in a type check's scope. Formatting comes after the comparison and is not counted. A tree too large to snapshot in 5 s (`FORGE_SNAPSHOT_TIMEOUT`) is left to the Stop check, which also catches writes from background commands.
+
+<Spec file="08-project-hooks" describe="files changed by Bash" />
