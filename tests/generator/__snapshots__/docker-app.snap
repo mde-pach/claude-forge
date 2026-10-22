@@ -643,7 +643,7 @@ forge_check_run_2() {
 
 # 3. docker/copy-not-add
 forge_check_meta_3() {
-  c_id='docker/copy-not-add'; c_stage=lint; c_tools=''
+  c_id='docker/copy-not-add'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
@@ -673,7 +673,7 @@ forge_docker_ignore
 
 # 5. docker/exec-form
 forge_check_meta_5() {
-  c_id='docker/exec-form'; c_stage=lint; c_tools=''
+  c_id='docker/exec-form'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
@@ -733,7 +733,7 @@ forge_docker_nonroot
 
 # 9. docker/pin-base-image
 forge_check_meta_9() {
-  c_id='docker/pin-base-image'; c_stage=lint; c_tools=''
+  c_id='docker/pin-base-image'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
@@ -748,7 +748,7 @@ forge_hadolint DL3006 DL3007
 
 # 10. docker/pipefail
 forge_check_meta_10() {
-  c_id='docker/pipefail'; c_stage=lint; c_tools=''
+  c_id='docker/pipefail'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
@@ -763,7 +763,7 @@ forge_hadolint DL4006
 
 # 11. docker/workdir
 forge_check_meta_11() {
-  c_id='docker/workdir'; c_stage=lint; c_tools=''
+  c_id='docker/workdir'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
@@ -778,7 +778,7 @@ forge_hadolint DL3045
 
 # 12. github-actions/zizmor
 forge_check_meta_12() {
-  c_id='github-actions/zizmor'; c_stage=lint; c_tools=''
+  c_id='github-actions/zizmor'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
@@ -1420,7 +1420,7 @@ forge_exec_tool() {
 # forge_has_tool <name>: system runtimes (uv, bun) via PATH, others via tool().
 forge_has_tool() {
   case $1 in
-    uv|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
+    uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
@@ -1781,6 +1781,19 @@ forge_typecheck() {
     _ft_i=$((_ft_i + 1))
   done
   return "$_ft_rc"
+}
+
+# forge_missing_tools: the tools the checks need that are not here, comma-separated
+# (also what forge status prints: one source of truth).
+forge_missing_tools() {
+  _mt=''
+  for _mt_t in $(forge_required_tools); do
+    forge_has_tool "$_mt_t" || _mt="${_mt:+$_mt, }$_mt_t"
+  done
+  if ! command -v bunx >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then
+    _mt="${_mt:+$_mt, }bunx or uvx (ast-grep)"
+  fi
+  printf '%s' "$_mt"
 }
 
 # forge_required_tools: every tool the checks use, one per line.
@@ -1910,7 +1923,7 @@ forge_check_run_2() {
 
 # 3. docker/copy-not-add
 forge_check_meta_3() {
-  c_id='docker/copy-not-add'; c_stage=lint; c_tools=''
+  c_id='docker/copy-not-add'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
@@ -1940,7 +1953,7 @@ forge_docker_ignore
 
 # 5. docker/exec-form
 forge_check_meta_5() {
-  c_id='docker/exec-form'; c_stage=lint; c_tools=''
+  c_id='docker/exec-form'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
@@ -2000,7 +2013,7 @@ forge_docker_nonroot
 
 # 9. docker/pin-base-image
 forge_check_meta_9() {
-  c_id='docker/pin-base-image'; c_stage=lint; c_tools=''
+  c_id='docker/pin-base-image'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
@@ -2015,7 +2028,7 @@ forge_hadolint DL3006 DL3007
 
 # 10. docker/pipefail
 forge_check_meta_10() {
-  c_id='docker/pipefail'; c_stage=lint; c_tools=''
+  c_id='docker/pipefail'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
@@ -2030,7 +2043,7 @@ forge_hadolint DL4006
 
 # 11. docker/workdir
 forge_check_meta_11() {
-  c_id='docker/workdir'; c_stage=lint; c_tools=''
+  c_id='docker/workdir'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
@@ -2045,7 +2058,7 @@ forge_hadolint DL3045
 
 # 12. github-actions/zizmor
 forge_check_meta_12() {
-  c_id='github-actions/zizmor'; c_stage=lint; c_tools=''
+  c_id='github-actions/zizmor'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
@@ -2687,7 +2700,7 @@ forge_exec_tool() {
 # forge_has_tool <name>: system runtimes (uv, bun) via PATH, others via tool().
 forge_has_tool() {
   case $1 in
-    uv|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
+    uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
@@ -3050,6 +3063,19 @@ forge_typecheck() {
   return "$_ft_rc"
 }
 
+# forge_missing_tools: the tools the checks need that are not here, comma-separated
+# (also what forge status prints: one source of truth).
+forge_missing_tools() {
+  _mt=''
+  for _mt_t in $(forge_required_tools); do
+    forge_has_tool "$_mt_t" || _mt="${_mt:+$_mt, }$_mt_t"
+  done
+  if ! command -v bunx >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then
+    _mt="${_mt:+$_mt, }bunx or uvx (ast-grep)"
+  fi
+  printf '%s' "$_mt"
+}
+
 # forge_required_tools: every tool the checks use, one per line.
 forge_required_tools() {
   _fq_i=1
@@ -3073,13 +3099,7 @@ if git rev-parse --verify -q HEAD >/dev/null; then
 fi
 printf 'forge: packs docker, docker/compose, github-actions, python\n'
 
-missing=''
-for t in $(forge_required_tools); do
-  forge_has_tool "$t" || missing="${missing:+$missing, }$t"
-done
-if ! command -v bunx >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then
-  missing="${missing:+$missing, }bunx or uvx (ast-grep)"
-fi
+missing=$(forge_missing_tools)
 state=.forge/state/missing-tools
 if [ -n "$missing" ]; then
   if [ "$missing" != "$(cat "$state" 2>/dev/null)" ]; then
@@ -3219,7 +3239,7 @@ forge_check_run_2() {
 
 # 3. docker/copy-not-add
 forge_check_meta_3() {
-  c_id='docker/copy-not-add'; c_stage=lint; c_tools=''
+  c_id='docker/copy-not-add'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
@@ -3249,7 +3269,7 @@ forge_docker_ignore
 
 # 5. docker/exec-form
 forge_check_meta_5() {
-  c_id='docker/exec-form'; c_stage=lint; c_tools=''
+  c_id='docker/exec-form'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
@@ -3309,7 +3329,7 @@ forge_docker_nonroot
 
 # 9. docker/pin-base-image
 forge_check_meta_9() {
-  c_id='docker/pin-base-image'; c_stage=lint; c_tools=''
+  c_id='docker/pin-base-image'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
@@ -3324,7 +3344,7 @@ forge_hadolint DL3006 DL3007
 
 # 10. docker/pipefail
 forge_check_meta_10() {
-  c_id='docker/pipefail'; c_stage=lint; c_tools=''
+  c_id='docker/pipefail'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
@@ -3339,7 +3359,7 @@ forge_hadolint DL4006
 
 # 11. docker/workdir
 forge_check_meta_11() {
-  c_id='docker/workdir'; c_stage=lint; c_tools=''
+  c_id='docker/workdir'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
@@ -3354,7 +3374,7 @@ forge_hadolint DL3045
 
 # 12. github-actions/zizmor
 forge_check_meta_12() {
-  c_id='github-actions/zizmor'; c_stage=lint; c_tools=''
+  c_id='github-actions/zizmor'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
@@ -3996,7 +4016,7 @@ forge_exec_tool() {
 # forge_has_tool <name>: system runtimes (uv, bun) via PATH, others via tool().
 forge_has_tool() {
   case $1 in
-    uv|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
+    uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
@@ -4357,6 +4377,19 @@ forge_typecheck() {
     _ft_i=$((_ft_i + 1))
   done
   return "$_ft_rc"
+}
+
+# forge_missing_tools: the tools the checks need that are not here, comma-separated
+# (also what forge status prints: one source of truth).
+forge_missing_tools() {
+  _mt=''
+  for _mt_t in $(forge_required_tools); do
+    forge_has_tool "$_mt_t" || _mt="${_mt:+$_mt, }$_mt_t"
+  done
+  if ! command -v bunx >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then
+    _mt="${_mt:+$_mt, }bunx or uvx (ast-grep)"
+  fi
+  printf '%s' "$_mt"
 }
 
 # forge_required_tools: every tool the checks use, one per line.
@@ -5402,7 +5435,7 @@ forge_check_run_2() {
 
 # 3. docker/copy-not-add
 forge_check_meta_3() {
-  c_id='docker/copy-not-add'; c_stage=lint; c_tools=''
+  c_id='docker/copy-not-add'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
@@ -5432,7 +5465,7 @@ forge_docker_ignore
 
 # 5. docker/exec-form
 forge_check_meta_5() {
-  c_id='docker/exec-form'; c_stage=lint; c_tools=''
+  c_id='docker/exec-form'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
@@ -5492,7 +5525,7 @@ forge_docker_nonroot
 
 # 9. docker/pin-base-image
 forge_check_meta_9() {
-  c_id='docker/pin-base-image'; c_stage=lint; c_tools=''
+  c_id='docker/pin-base-image'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
@@ -5507,7 +5540,7 @@ forge_hadolint DL3006 DL3007
 
 # 10. docker/pipefail
 forge_check_meta_10() {
-  c_id='docker/pipefail'; c_stage=lint; c_tools=''
+  c_id='docker/pipefail'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
@@ -5522,7 +5555,7 @@ forge_hadolint DL4006
 
 # 11. docker/workdir
 forge_check_meta_11() {
-  c_id='docker/workdir'; c_stage=lint; c_tools=''
+  c_id='docker/workdir'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
@@ -5537,7 +5570,7 @@ forge_hadolint DL3045
 
 # 12. github-actions/zizmor
 forge_check_meta_12() {
-  c_id='github-actions/zizmor'; c_stage=lint; c_tools=''
+  c_id='github-actions/zizmor'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
@@ -6179,7 +6212,7 @@ forge_exec_tool() {
 # forge_has_tool <name>: system runtimes (uv, bun) via PATH, others via tool().
 forge_has_tool() {
   case $1 in
-    uv|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
+    uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
@@ -6540,6 +6573,19 @@ forge_typecheck() {
     _ft_i=$((_ft_i + 1))
   done
   return "$_ft_rc"
+}
+
+# forge_missing_tools: the tools the checks need that are not here, comma-separated
+# (also what forge status prints: one source of truth).
+forge_missing_tools() {
+  _mt=''
+  for _mt_t in $(forge_required_tools); do
+    forge_has_tool "$_mt_t" || _mt="${_mt:+$_mt, }$_mt_t"
+  done
+  if ! command -v bunx >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then
+    _mt="${_mt:+$_mt, }bunx or uvx (ast-grep)"
+  fi
+  printf '%s' "$_mt"
 }
 
 # forge_required_tools: every tool the checks use, one per line.
@@ -6998,12 +7044,12 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "52a6f9fbaa079816551227307122ce0c0e20ba65ba3cc93e09e2d4d187f3e246",
     ".claude/skills/forge-project/scripts/guard.sh": "33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d",
     ".claude/skills/forge-project/scripts/lib.sh": "1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "e4a9d0cb5a16d4e7e9302ffe65b0c9f4cb68af0c49fd2fbaa7ca4de3b95f7a67",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "4ba0455e6044e577de444d3e5ae190f77f3022fc3f1cb169e60f00e626cecd49",
     ".claude/skills/forge-project/scripts/review.sh": "9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac",
-    ".claude/skills/forge-project/scripts/session-start.sh": "c3ec1b3daed5e2217ca005c839dca3cbcd34947c9651b569b880009d87a10130",
+    ".claude/skills/forge-project/scripts/session-start.sh": "d1d84c43fc1ab9312f4666022512e77e3e422770fd9255166c265dade0649629",
     ".claude/skills/forge-project/scripts/stop.sh": "f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173",
     ".claude/skills/forge-project/scripts/turn-start.sh": "a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "8dad52ebbea17fdaa1ec60a4a0b9b91a27644817e1abfb0bcadc5dcb4ae7acc3",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "8ac271176d72a7f12e8919914f0ac09ee056134f04efa9c76b7c3c2ab0db245d",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/docker-compose-datastore-loopback-test.yml": "75507971edac1d4a2eca04e6bceb8a942429c0987372010b39ad0b7f126b55e9",
     ".forge/ast-grep/rule-tests/docker-compose-healthy-depends-test.yml": "bcd21e7f9112e5f0d44c9f5c9779824661b2f1dc40448323100787f342c4b7a8",
@@ -7024,7 +7070,7 @@ exit "$fail"
     ".forge/ast-grep/rules/docker/compose/pinned-images.yml": "026540d386ff8d8bd6f4f1951063c2fcd5cb8a96d8c7184f97e0887e3241c01a",
     ".forge/ast-grep/rules/python/no-stub.yml": "0660a06b80fa4e3cccbc89f496275e8f093b873632d1d93ecb48e4315d987bbf",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "f88ecfe9140db75fbbc313f6af9f7e0b239405fa1dbeeb7bb340538deefd71c2",
+    ".forge/check.sh": "5cb7428f41ed8032c012020ede4927bbd842a50c6b41cd70ea1554eed17d48f5",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -7077,12 +7123,12 @@ d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills
 52a6f9fbaa079816551227307122ce0c0e20ba65ba3cc93e09e2d4d187f3e246  .claude/skills/forge-project/scripts/guard.rules
 33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d  .claude/skills/forge-project/scripts/guard.sh
 1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a  .claude/skills/forge-project/scripts/lib.sh
-e4a9d0cb5a16d4e7e9302ffe65b0c9f4cb68af0c49fd2fbaa7ca4de3b95f7a67  .claude/skills/forge-project/scripts/post-edit.sh
+4ba0455e6044e577de444d3e5ae190f77f3022fc3f1cb169e60f00e626cecd49  .claude/skills/forge-project/scripts/post-edit.sh
 9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac  .claude/skills/forge-project/scripts/review.sh
-c3ec1b3daed5e2217ca005c839dca3cbcd34947c9651b569b880009d87a10130  .claude/skills/forge-project/scripts/session-start.sh
+d1d84c43fc1ab9312f4666022512e77e3e422770fd9255166c265dade0649629  .claude/skills/forge-project/scripts/session-start.sh
 f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173  .claude/skills/forge-project/scripts/stop.sh
 a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c  .claude/skills/forge-project/scripts/turn-start.sh
-8dad52ebbea17fdaa1ec60a4a0b9b91a27644817e1abfb0bcadc5dcb4ae7acc3  .claude/skills/forge-project/scripts/typecheck.sh
+8ac271176d72a7f12e8919914f0ac09ee056134f04efa9c76b7c3c2ab0db245d  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 75507971edac1d4a2eca04e6bceb8a942429c0987372010b39ad0b7f126b55e9  .forge/ast-grep/rule-tests/docker-compose-datastore-loopback-test.yml
 bcd21e7f9112e5f0d44c9f5c9779824661b2f1dc40448323100787f342c4b7a8  .forge/ast-grep/rule-tests/docker-compose-healthy-depends-test.yml
@@ -7103,7 +7149,7 @@ e4fd92858db90ac12b535496548f182e453e83bc9cb24f53a102ab7fc98cd67b  .forge/ast-gre
 026540d386ff8d8bd6f4f1951063c2fcd5cb8a96d8c7184f97e0887e3241c01a  .forge/ast-grep/rules/docker/compose/pinned-images.yml
 0660a06b80fa4e3cccbc89f496275e8f093b873632d1d93ecb48e4315d987bbf  .forge/ast-grep/rules/python/no-stub.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-f88ecfe9140db75fbbc313f6af9f7e0b239405fa1dbeeb7bb340538deefd71c2  .forge/check.sh
+5cb7428f41ed8032c012020ede4927bbd842a50c6b41cd70ea1554eed17d48f5  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

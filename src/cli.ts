@@ -1,6 +1,7 @@
 import { chmodSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmdirSync, rmSync, statSync, writeFileSync, readSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, relative } from "node:path";
+import { checkTools, renderLib } from "./render.js";
 import { auditRules, auditTarget, projectBinary, type AuditResult } from "./audit.js";
 import { MANIFEST_PATH, readLock, renderLock, renderManifest } from "./lock.js";
 import { loadLocalRules, loadPacks } from "./packs.js";
@@ -26,6 +27,7 @@ interface Flags {
   force: boolean;
   dryRun: boolean;
   yes: boolean;
+  json: boolean;
 }
 
 
@@ -360,18 +362,19 @@ function preCommitHint(base: string): string {
     : `forge: pre-commit: run forge apply interactively (or with --yes) to create ${preCommitPath(base)}, or add "sh .forge/check.sh --changed" to your hook manager`;
 }
 
+/**
+ * Tools the setup needs that are missing. Project level: the generated scripts'
+ * own forge_missing_tools (what SessionStart reports), run here on the checks
+ * fragment, so both always agree.
+ */
 function missingTools(ctx: Ctx): string[] {
-  const missing: string[] = [];
-  const has = (c: string) => run("sh", ["-c", `command -v ${c}`]).status === 0;
-  if (!has("bunx") && !has("uvx")) missing.push("bunx or uvx (needed for ast-grep)");
-  if (ctx.level === "user") return missing;
-  const ids = new Set(ctx.plan.packs.map((p) => p.id));
-  if (ids.has("bun") && !has("bun")) missing.push("bun");
-  if (ids.has("uv") && !has("uv")) missing.push("uv");
-  const fragment = ctx.plan.files.get(".forge/check.sh") ?? "";
-  for (const m of fragment.matchAll(/^([a-z]+)\(\) \{ forge_exec_tool /gm))
-    if (!projectBinary(ctx.base, m[1]!)) missing.push(`${m[1]} (not in node_modules/.bin or .venv/bin)`);
-  return missing;
+  if (ctx.level === "user" || !ctx.plan.checksFragment) {
+    const has = (c: string) => run("sh", ["-c", `command -v ${c}`]).status === 0;
+    return !has("bunx") && !has("uvx") ? ["bunx or uvx (ast-grep)"] : [];
+  }
+  const script = `${renderLib()}\nIFS='\n'\n${ctx.plan.checksFragment}\nforge_missing_tools\n`;
+  const r = run("sh", ["-c", script], { cwd: ctx.base });
+  return r.stdout.trim() ? r.stdout.trim().split(", ") : [];
 }
 
 /** The remote's default branch (origin/HEAD), else "main". */
@@ -380,9 +383,91 @@ function defaultBranch(base: string): string {
   return r.status === 0 && r.stdout.trim().startsWith("origin/") ? r.stdout.trim().slice("origin/".length) : "main";
 }
 
+interface Enforcement {
+  id: string;
+  enforced: boolean;
+  /** What enforces it here. */
+  by: string[];
+  /** Why a target does not enforce it here; the first one is the rule's summary reason. */
+  not_enforced: string[];
+}
+
+const UNSATISFIED: Record<string, string> = {
+  ruff: "ruff codes not selected",
+  biome: "Biome rules not at error",
+  basedpyright: "basedpyright rules not at error",
+  tsc: "tsc options not set",
+};
+
+/** Whether each active rule is actually enforced in this project, and why not. */
+function enforcement(ctx: Ctx, audits: AuditResult[], missing: string[]): Enforcement[] {
+  const absent = new Set(missing);
+  return ctx.plan.active.map((st) => {
+    const by: string[] = [];
+    const not: string[] = [];
+    for (const a of audits.filter((x) => x.rule === st.rule.id)) {
+      if (a.status === "satisfied") by.push(`${a.tool} ${a.expects}`);
+      else if (a.status === "unsatisfied") not.push(UNSATISFIED[a.tool]!);
+      else not.push(/not installed/.test(a.detail ?? "") ? `${a.tool} not installed` : `${a.tool} audit skipped`);
+    }
+    for (const n of st.notEnforced) not.push(n.replace(/^not enforced here: /, ""));
+    if (st.astgrep) by.push(`ast-grep ${st.astgrep.mode}`);
+    for (const t of st.rule.enforce) {
+      if (t.target === "permission" || t.target === "guard" || t.target === "sandbox" || t.target === "grep")
+        by.push(t.target === "permission" || t.target === "guard" ? `${t.target} ${t.decision}` : t.target);
+      else if (t.target === "check" && st.enforced.some((e) => e.startsWith("check "))) {
+        const gone = checkTools(t).filter((x) => absent.has(x));
+        if (gone.length) not.push(`${gone.join(", ")} not installed`);
+        else by.push(`check ${t.stage}`);
+      }
+    }
+    return { id: st.rule.id, enforced: by.length > 0, by: [...new Set(by)], not_enforced: [...new Set(not)] };
+  });
+}
+
+function enforcementSummary(rules: Enforcement[]): string {
+  const off = rules.filter((r) => !r.enforced);
+  const reasons = new Map<string, number>();
+  for (const r of off) {
+    const why = r.not_enforced[0] ?? "nothing applies here";
+    reasons.set(why, (reasons.get(why) ?? 0) + 1);
+  }
+  const detail = [...reasons.entries()].sort((a, b) => b[1] - a[1]).map(([w, n]) => `${n} ${w}`).join(", ");
+  return `${rules.length} active, ${rules.length - off.length} enforced, ${off.length} not enforced${off.length ? ` (${detail})` : ""}`;
+}
+
 function cmdStatus(flags: Flags): number {
   const ctx = context(flags);
   const p = ctx.plan;
+  const audits = ctx.level === "project" ? auditRules(ctx.base, p.active) : [];
+  const missing = missingTools(ctx);
+  const rules = enforcement(ctx, audits, missing);
+  if (flags.json) {
+    const ch = computeChanges(ctx);
+    out(
+      JSON.stringify(
+        {
+          forge_version: FORGE_VERSION,
+          level: ctx.level,
+          base: ctx.base,
+          applied: ctx.lock?.forge_version ?? null,
+          packs: p.packs,
+          inactive_packs: p.removedPacks,
+          counts: { active: rules.length, enforced: rules.filter((r) => r.enforced).length, not_enforced: rules.filter((r) => !r.enforced).length },
+          rules,
+          disabled: p.disabled,
+          deprecated: p.deprecated,
+          audits,
+          missing_tools: missing,
+          drift: [...ch.drift, ...ch.conflicts],
+          warnings: p.warnings,
+        },
+        null,
+        2,
+      ),
+    );
+    return 0;
+  }
   out(`forge ${FORGE_VERSION}: ${ctx.level} level, ${ctx.base}`);
   out(ctx.lock ? `applied with forge ${ctx.lock.forge_version}` : "not applied yet (run forge apply)");
   out("");
@@ -391,7 +476,7 @@ function cmdStatus(flags: Flags): number {
   for (const pk of p.removedPacks) out(`  ${pk.id}: not active (${pk.why})`);
   for (const w of p.warnings) out(`forge: ${w}`);
   out("");
-  out(`Rules (${p.active.length} active):`);
+  out(`Rules: ${enforcementSummary(rules)}`);
   for (const st of p.active) {
     out(`  ${st.rule.id}${st.rule.origin === "local" ? " (local)" : ""}`);
     for (const e of st.enforced) out(`    ${e}`);
@@ -404,7 +489,6 @@ function cmdStatus(flags: Flags): number {
   }
   if (p.deprecated.length) for (const d of p.deprecated) out(`  ${d.id}: deprecated, replaced by ${d.replaced_by}`);
   if (ctx.level === "project") {
-    const audits = auditRules(ctx.base, p.active);
     if (audits.length) {
       out("");
       out("Audit:");
@@ -419,7 +503,6 @@ function cmdStatus(flags: Flags): number {
   drift.push(...ch.overridden);
   if (ctx.lock && (ch.writes.length || ch.deletes.length)) drift.push(`${ch.writes.length + ch.deletes.length} file(s) differ from what apply would write (forge diff)`);
   out(drift.length ? "Drift:\n" + drift.map((d) => `  ${d}`).join("\n") : "Drift: none");
-  const missing = missingTools(ctx);
   out(missing.length ? "Missing tools:\n" + missing.map((m) => `  ${m}`).join("\n") : "Missing tools: none");
   if (ctx.level === "project") {
     out("");
@@ -552,7 +635,7 @@ function cmdInit(flags: Flags): number {
 // ---------------------------------------------------------------- main
 
 export function main(argv: string[]): number {
-  const flags: Flags = { user: false, local: false, force: false, dryRun: false, yes: false };
+  const flags: Flags = { user: false, local: false, force: false, dryRun: false, yes: false, json: false };
   const args: string[] = [];
   for (const a of argv) {
     if (a === "--user") flags.user = true;
@@ -560,6 +643,7 @@ export function main(argv: string[]): number {
     else if (a === "--force") flags.force = true;
     else if (a === "--dry-run") flags.dryRun = true;
     else if (a === "--yes" || a === "-y") flags.yes = true;
+    else if (a === "--json") flags.json = true;
     else if (a === "--help" || a === "-h") args.unshift("help");
     else if (a === "--version" || a === "-v") args.unshift("version");
     else if (a.startsWith("-")) throw new ForgeError(`forge: unknown option ${a}\n\n${USAGE}`, 2);

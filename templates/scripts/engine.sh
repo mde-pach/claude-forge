@@ -581,7 +581,7 @@ forge_exec_tool() {
 # forge_has_tool <name>: system runtimes (uv, bun) via PATH, others via tool().
 forge_has_tool() {
   case $1 in
-    uv|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
+    uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
@@ -942,6 +942,19 @@ forge_typecheck() {
     _ft_i=$((_ft_i + 1))
   done
   return "$_ft_rc"
+}
+
+# forge_missing_tools: the tools the checks need that are not here, comma-separated
+# (also what forge status prints: one source of truth).
+forge_missing_tools() {
+  _mt=''
+  for _mt_t in $(forge_required_tools); do
+    forge_has_tool "$_mt_t" || _mt="${_mt:+$_mt, }$_mt_t"
+  done
+  if ! command -v bunx >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then
+    _mt="${_mt:+$_mt, }bunx or uvx (ast-grep)"
+  fi
+  printf '%s' "$_mt"
 }
 
 # forge_required_tools: every tool the checks use, one per line.

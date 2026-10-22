@@ -1413,7 +1413,7 @@ forge_exec_tool() {
 # forge_has_tool <name>: system runtimes (uv, bun) via PATH, others via tool().
 forge_has_tool() {
   case $1 in
-    uv|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
+    uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
@@ -1774,6 +1774,19 @@ forge_typecheck() {
     _ft_i=$((_ft_i + 1))
   done
   return "$_ft_rc"
+}
+
+# forge_missing_tools: the tools the checks need that are not here, comma-separated
+# (also what forge status prints: one source of truth).
+forge_missing_tools() {
+  _mt=''
+  for _mt_t in $(forge_required_tools); do
+    forge_has_tool "$_mt_t" || _mt="${_mt:+$_mt, }$_mt_t"
+  done
+  if ! command -v bunx >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then
+    _mt="${_mt:+$_mt, }bunx or uvx (ast-grep)"
+  fi
+  printf '%s' "$_mt"
 }
 
 # forge_required_tools: every tool the checks use, one per line.
@@ -2670,7 +2683,7 @@ forge_exec_tool() {
 # forge_has_tool <name>: system runtimes (uv, bun) via PATH, others via tool().
 forge_has_tool() {
   case $1 in
-    uv|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
+    uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
@@ -3033,6 +3046,19 @@ forge_typecheck() {
   return "$_ft_rc"
 }
 
+# forge_missing_tools: the tools the checks need that are not here, comma-separated
+# (also what forge status prints: one source of truth).
+forge_missing_tools() {
+  _mt=''
+  for _mt_t in $(forge_required_tools); do
+    forge_has_tool "$_mt_t" || _mt="${_mt:+$_mt, }$_mt_t"
+  done
+  if ! command -v bunx >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then
+    _mt="${_mt:+$_mt, }bunx or uvx (ast-grep)"
+  fi
+  printf '%s' "$_mt"
+}
+
 # forge_required_tools: every tool the checks use, one per line.
 forge_required_tools() {
   _fq_i=1
@@ -3056,13 +3082,7 @@ if git rev-parse --verify -q HEAD >/dev/null; then
 fi
 printf 'forge: packs python, python/fastapi, python/pydantic, python/pytest, python/sqlalchemy, python/sqlalchemy/alembic, python/uv\n'
 
-missing=''
-for t in $(forge_required_tools); do
-  forge_has_tool "$t" || missing="${missing:+$missing, }$t"
-done
-if ! command -v bunx >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then
-  missing="${missing:+$missing, }bunx or uvx (ast-grep)"
-fi
+missing=$(forge_missing_tools)
 state=.forge/state/missing-tools
 if [ -n "$missing" ]; then
   if [ "$missing" != "$(cat "$state" 2>/dev/null)" ]; then
@@ -3969,7 +3989,7 @@ forge_exec_tool() {
 # forge_has_tool <name>: system runtimes (uv, bun) via PATH, others via tool().
 forge_has_tool() {
   case $1 in
-    uv|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
+    uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
@@ -4330,6 +4350,19 @@ forge_typecheck() {
     _ft_i=$((_ft_i + 1))
   done
   return "$_ft_rc"
+}
+
+# forge_missing_tools: the tools the checks need that are not here, comma-separated
+# (also what forge status prints: one source of truth).
+forge_missing_tools() {
+  _mt=''
+  for _mt_t in $(forge_required_tools); do
+    forge_has_tool "$_mt_t" || _mt="${_mt:+$_mt, }$_mt_t"
+  done
+  if ! command -v bunx >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then
+    _mt="${_mt:+$_mt, }bunx or uvx (ast-grep)"
+  fi
+  printf '%s' "$_mt"
 }
 
 # forge_required_tools: every tool the checks use, one per line.
@@ -6189,7 +6222,7 @@ forge_exec_tool() {
 # forge_has_tool <name>: system runtimes (uv, bun) via PATH, others via tool().
 forge_has_tool() {
   case $1 in
-    uv|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
+    uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
@@ -6550,6 +6583,19 @@ forge_typecheck() {
     _ft_i=$((_ft_i + 1))
   done
   return "$_ft_rc"
+}
+
+# forge_missing_tools: the tools the checks need that are not here, comma-separated
+# (also what forge status prints: one source of truth).
+forge_missing_tools() {
+  _mt=''
+  for _mt_t in $(forge_required_tools); do
+    forge_has_tool "$_mt_t" || _mt="${_mt:+$_mt, }$_mt_t"
+  done
+  if ! command -v bunx >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then
+    _mt="${_mt:+$_mt, }bunx or uvx (ast-grep)"
+  fi
+  printf '%s' "$_mt"
 }
 
 # forge_required_tools: every tool the checks use, one per line.
@@ -7017,12 +7063,12 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "abda384154c0c859546b6aa0e79a6a1a8c4cead27ff82e014fc69de843294b74",
     ".claude/skills/forge-project/scripts/guard.sh": "33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d",
     ".claude/skills/forge-project/scripts/lib.sh": "1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "23fba9cd295ba1d90cc50a4afb7eb11c09d936218fce71e428c6f23b9caa6e1e",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "55009b8956fe8377d474f4b944033c9b13cb40e2289323b5bd50a933233b9224",
     ".claude/skills/forge-project/scripts/review.sh": "9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac",
-    ".claude/skills/forge-project/scripts/session-start.sh": "7b6e788bf9957dbfa3c306405d181164ed31822e70ea8e3c1db8e5777005d855",
+    ".claude/skills/forge-project/scripts/session-start.sh": "ffdbd14991203a7de4a69968abc47ea334e0146fae8f94ee9f3372ed9513967a",
     ".claude/skills/forge-project/scripts/stop.sh": "f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173",
     ".claude/skills/forge-project/scripts/turn-start.sh": "a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "9c32db41d6393c5846e1c08199bcb53a5adc4e77cc12720e188282e0fe984c9d",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "6e4a91a9ea54dae415bb73784e87de66b676375cc8bfe24a847eb87bae2b98e7",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml": "69a94f1a0b16aa08bcf758af3e3dc269266cdd808aba1a4289b4c58c7f969700",
     ".forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml": "1589382e5e0b5cae841a8f47dae9f2b3a8583a4bb1074ceb858d882e648e9b49",
@@ -7057,7 +7103,7 @@ exit "$fail"
     ".forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml": "4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0",
     ".forge/ast-grep/rules/python/sqlalchemy/no-text-fstring.yml": "04c44c9e215449d46b10540e86e999ec1d6383d8c3a849855fe73cb456668fca",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "85ca77279354d04833658addbccbeb2a9c3381070b736f8a7ee709a7b50397c0",
+    ".forge/check.sh": "eef45dcd3608fd020057c62f8008e4049281a07834a2d7947f1168da31ad610b",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -7112,12 +7158,12 @@ d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills
 abda384154c0c859546b6aa0e79a6a1a8c4cead27ff82e014fc69de843294b74  .claude/skills/forge-project/scripts/guard.rules
 33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d  .claude/skills/forge-project/scripts/guard.sh
 1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a  .claude/skills/forge-project/scripts/lib.sh
-23fba9cd295ba1d90cc50a4afb7eb11c09d936218fce71e428c6f23b9caa6e1e  .claude/skills/forge-project/scripts/post-edit.sh
+55009b8956fe8377d474f4b944033c9b13cb40e2289323b5bd50a933233b9224  .claude/skills/forge-project/scripts/post-edit.sh
 9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac  .claude/skills/forge-project/scripts/review.sh
-7b6e788bf9957dbfa3c306405d181164ed31822e70ea8e3c1db8e5777005d855  .claude/skills/forge-project/scripts/session-start.sh
+ffdbd14991203a7de4a69968abc47ea334e0146fae8f94ee9f3372ed9513967a  .claude/skills/forge-project/scripts/session-start.sh
 f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173  .claude/skills/forge-project/scripts/stop.sh
 a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c  .claude/skills/forge-project/scripts/turn-start.sh
-9c32db41d6393c5846e1c08199bcb53a5adc4e77cc12720e188282e0fe984c9d  .claude/skills/forge-project/scripts/typecheck.sh
+6e4a91a9ea54dae415bb73784e87de66b676375cc8bfe24a847eb87bae2b98e7  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 69a94f1a0b16aa08bcf758af3e3dc269266cdd808aba1a4289b4c58c7f969700  .forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml
 1589382e5e0b5cae841a8f47dae9f2b3a8583a4bb1074ceb858d882e648e9b49  .forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml
@@ -7152,7 +7198,7 @@ e1a15384665afb7aae24664c55f4d81523622a6ef117385b17f806bc30cd3c3f  .forge/ast-gre
 4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0  .forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml
 04c44c9e215449d46b10540e86e999ec1d6383d8c3a849855fe73cb456668fca  .forge/ast-grep/rules/python/sqlalchemy/no-text-fstring.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-85ca77279354d04833658addbccbeb2a9c3381070b736f8a7ee709a7b50397c0  .forge/check.sh
+eef45dcd3608fd020057c62f8008e4049281a07834a2d7947f1168da31ad610b  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

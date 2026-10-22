@@ -24,7 +24,13 @@ export function renderLib(): string {
 export const AUDITED_TOOLS = ["biome", "ruff", "basedpyright", "tsc"] as const;
 export const PROJECT_TOOLS = [...AUDITED_TOOLS, "alembic", "pytest", "prisma", "vitest", "playwright", "astro", "python"] as const;
 /** System runtimes, checked with `command -v`. */
-export const SYSTEM_TOOLS = ["uv", "bun", "docker"] as const;
+export const SYSTEM_TOOLS = ["uv", "uvx", "bun", "docker"] as const;
+
+/** Tools that engine helpers run, which their name in a command does not show. */
+const HELPER_TOOLS: [RegExp, string][] = [
+  [/\bforge_(zizmor|hadolint)\b/, "uvx"],
+  [/\bforge_trusted_deps\b/, "bun"],
+];
 
 /** Tools invoked as commands in a shell string, in order of first use. */
 export function toolsInCommand(cmd: string): string[] {
@@ -37,7 +43,9 @@ export function toolsInCommand(cmd: string): string[] {
 }
 
 export function checkTools(t: CheckTarget): string[] {
-  return [...new Set([...toolsInCommand(t.run), ...toolsInCommand(t.changed_run ?? ""), ...toolsInCommand(t.fix_run ?? "")])];
+  const commands = [t.run, t.changed_run ?? "", t.fix_run ?? ""];
+  const helpers = HELPER_TOOLS.filter(([re]) => commands.some((c) => re.test(c))).map(([, tool]) => tool);
+  return [...new Set([...commands.flatMap(toolsInCommand), ...helpers])];
 }
 
 // ---------------------------------------------------------------- shell case patterns

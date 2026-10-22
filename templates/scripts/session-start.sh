@@ -22,13 +22,7 @@ if git rev-parse --verify -q HEAD >/dev/null; then
 fi
 printf 'forge: packs @@PACKS@@\n'
 
-missing=''
-for t in $(forge_required_tools); do
-  forge_has_tool "$t" || missing="${missing:+$missing, }$t"
-done
-if ! command -v bunx >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then
-  missing="${missing:+$missing, }bunx or uvx (ast-grep)"
-fi
+missing=$(forge_missing_tools)
 state=.forge/state/missing-tools
 if [ -n "$missing" ]; then
   if [ "$missing" != "$(cat "$state" 2>/dev/null)" ]; then

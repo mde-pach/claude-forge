@@ -64,6 +64,8 @@ export interface Plan {
   deprecated: { id: string; replaced_by: string }[];
   warnings: string[];
   tools: Record<AuditedTool, boolean>;
+  /** Project level: the checks fragment the hook scripts share (forge status runs its forge_missing_tools). */
+  checksFragment?: string;
 }
 
 export interface PlanOptions {
@@ -275,6 +277,7 @@ export function plan(opts: PlanOptions): Plan {
 
   // ---- files
   const files = new Map<string, string>();
+  let checksFragment: string | undefined;
   const lib = renderLib();
   const guardRules = renderGuardRules(guards, base);
   if (level === "user") {
@@ -297,6 +300,7 @@ export function plan(opts: PlanOptions): Plan {
         .map((a) => a.rule.id)
         .join("|");
     const fragment = renderChecks(checks, greps);
+    checksFragment = fragment;
     const root = ".claude/skills/forge-project";
     files.set(`${root}/.claude-plugin/plugin.json`, renderPlugin("project"));
     files.set(`${root}/hooks/hooks.json`, renderHooks("project"));
@@ -346,6 +350,7 @@ export function plan(opts: PlanOptions): Plan {
     deprecated,
     warnings,
     tools,
+    checksFragment,
   };
 }
 

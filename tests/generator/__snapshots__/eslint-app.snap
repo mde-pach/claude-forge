@@ -1243,7 +1243,7 @@ forge_exec_tool() {
 # forge_has_tool <name>: system runtimes (uv, bun) via PATH, others via tool().
 forge_has_tool() {
   case $1 in
-    uv|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
+    uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
@@ -1604,6 +1604,19 @@ forge_typecheck() {
     _ft_i=$((_ft_i + 1))
   done
   return "$_ft_rc"
+}
+
+# forge_missing_tools: the tools the checks need that are not here, comma-separated
+# (also what forge status prints: one source of truth).
+forge_missing_tools() {
+  _mt=''
+  for _mt_t in $(forge_required_tools); do
+    forge_has_tool "$_mt_t" || _mt="${_mt:+$_mt, }$_mt_t"
+  done
+  if ! command -v bunx >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then
+    _mt="${_mt:+$_mt, }bunx or uvx (ast-grep)"
+  fi
+  printf '%s' "$_mt"
 }
 
 # forge_required_tools: every tool the checks use, one per line.
@@ -2361,7 +2374,7 @@ forge_exec_tool() {
 # forge_has_tool <name>: system runtimes (uv, bun) via PATH, others via tool().
 forge_has_tool() {
   case $1 in
-    uv|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
+    uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
@@ -2724,6 +2737,19 @@ forge_typecheck() {
   return "$_ft_rc"
 }
 
+# forge_missing_tools: the tools the checks need that are not here, comma-separated
+# (also what forge status prints: one source of truth).
+forge_missing_tools() {
+  _mt=''
+  for _mt_t in $(forge_required_tools); do
+    forge_has_tool "$_mt_t" || _mt="${_mt:+$_mt, }$_mt_t"
+  done
+  if ! command -v bunx >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then
+    _mt="${_mt:+$_mt, }bunx or uvx (ast-grep)"
+  fi
+  printf '%s' "$_mt"
+}
+
 # forge_required_tools: every tool the checks use, one per line.
 forge_required_tools() {
   _fq_i=1
@@ -2747,13 +2773,7 @@ if git rev-parse --verify -q HEAD >/dev/null; then
 fi
 printf 'forge: packs typescript\n'
 
-missing=''
-for t in $(forge_required_tools); do
-  forge_has_tool "$t" || missing="${missing:+$missing, }$t"
-done
-if ! command -v bunx >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then
-  missing="${missing:+$missing, }bunx or uvx (ast-grep)"
-fi
+missing=$(forge_missing_tools)
 state=.forge/state/missing-tools
 if [ -n "$missing" ]; then
   if [ "$missing" != "$(cat "$state" 2>/dev/null)" ]; then
@@ -3521,7 +3541,7 @@ forge_exec_tool() {
 # forge_has_tool <name>: system runtimes (uv, bun) via PATH, others via tool().
 forge_has_tool() {
   case $1 in
-    uv|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
+    uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
@@ -3882,6 +3902,19 @@ forge_typecheck() {
     _ft_i=$((_ft_i + 1))
   done
   return "$_ft_rc"
+}
+
+# forge_missing_tools: the tools the checks need that are not here, comma-separated
+# (also what forge status prints: one source of truth).
+forge_missing_tools() {
+  _mt=''
+  for _mt_t in $(forge_required_tools); do
+    forge_has_tool "$_mt_t" || _mt="${_mt:+$_mt, }$_mt_t"
+  done
+  if ! command -v bunx >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then
+    _mt="${_mt:+$_mt, }bunx or uvx (ast-grep)"
+  fi
+  printf '%s' "$_mt"
 }
 
 # forge_required_tools: every tool the checks use, one per line.
@@ -5329,7 +5362,7 @@ forge_exec_tool() {
 # forge_has_tool <name>: system runtimes (uv, bun) via PATH, others via tool().
 forge_has_tool() {
   case $1 in
-    uv|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
+    uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
@@ -5692,6 +5725,19 @@ forge_typecheck() {
   return "$_ft_rc"
 }
 
+# forge_missing_tools: the tools the checks need that are not here, comma-separated
+# (also what forge status prints: one source of truth).
+forge_missing_tools() {
+  _mt=''
+  for _mt_t in $(forge_required_tools); do
+    forge_has_tool "$_mt_t" || _mt="${_mt:+$_mt, }$_mt_t"
+  done
+  if ! command -v bunx >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then
+    _mt="${_mt:+$_mt, }bunx or uvx (ast-grep)"
+  fi
+  printf '%s' "$_mt"
+}
+
 # forge_required_tools: every tool the checks use, one per line.
 forge_required_tools() {
   _fq_i=1
@@ -6041,12 +6087,12 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "52a6f9fbaa079816551227307122ce0c0e20ba65ba3cc93e09e2d4d187f3e246",
     ".claude/skills/forge-project/scripts/guard.sh": "33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d",
     ".claude/skills/forge-project/scripts/lib.sh": "1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "0ad6f9fd95aa970bbfa2001bc5649be2d3e79a2b00696dd9457ea540c0955394",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "dd69dca86bf9673d1889d42b3c85c47552feb5149b3e5c5f71c9ca7f696c09ae",
     ".claude/skills/forge-project/scripts/review.sh": "9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac",
-    ".claude/skills/forge-project/scripts/session-start.sh": "5d1199a968569fb0fbb89e7e76a70a1626717242fc1aec9b2a93b1720a391db1",
+    ".claude/skills/forge-project/scripts/session-start.sh": "dcb9262ebc713330c255fc3da6ede230b93e17474cf638394b046b1a22d9595d",
     ".claude/skills/forge-project/scripts/stop.sh": "f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173",
     ".claude/skills/forge-project/scripts/turn-start.sh": "a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "ab4f3e4ec752c86520a61ba4deed63a860f8684c1c710f68af1ae018b55ec33d",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "2d9268e94597be802ab8622684be11425ab93d6b50cb3d5082051616142bfac6",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml": "c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20",
     ".forge/ast-grep/rule-tests/typescript-no-eval-test.yml": "3716e00219b28a0974a07a56e1d264bb478b35a6ef38d5c13740a9080b09516e",
@@ -6069,7 +6115,7 @@ exit "$fail"
     ".forge/ast-grep/rules/typescript/no-ts-nocheck.yml": "aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21",
     ".forge/ast-grep/rules/typescript/ts-expect-error-reason.yml": "b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "6c397bf4fd1040627c2247a9a07fc850b0c64af6a663a91dcd2b4219697758b4",
+    ".forge/check.sh": "7c778f34dab2da1fa5b60e754ee0ca7c10de314f2ce929f0669e2e82efd26615",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -6119,12 +6165,12 @@ d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills
 52a6f9fbaa079816551227307122ce0c0e20ba65ba3cc93e09e2d4d187f3e246  .claude/skills/forge-project/scripts/guard.rules
 33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d  .claude/skills/forge-project/scripts/guard.sh
 1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a  .claude/skills/forge-project/scripts/lib.sh
-0ad6f9fd95aa970bbfa2001bc5649be2d3e79a2b00696dd9457ea540c0955394  .claude/skills/forge-project/scripts/post-edit.sh
+dd69dca86bf9673d1889d42b3c85c47552feb5149b3e5c5f71c9ca7f696c09ae  .claude/skills/forge-project/scripts/post-edit.sh
 9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac  .claude/skills/forge-project/scripts/review.sh
-5d1199a968569fb0fbb89e7e76a70a1626717242fc1aec9b2a93b1720a391db1  .claude/skills/forge-project/scripts/session-start.sh
+dcb9262ebc713330c255fc3da6ede230b93e17474cf638394b046b1a22d9595d  .claude/skills/forge-project/scripts/session-start.sh
 f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173  .claude/skills/forge-project/scripts/stop.sh
 a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c  .claude/skills/forge-project/scripts/turn-start.sh
-ab4f3e4ec752c86520a61ba4deed63a860f8684c1c710f68af1ae018b55ec33d  .claude/skills/forge-project/scripts/typecheck.sh
+2d9268e94597be802ab8622684be11425ab93d6b50cb3d5082051616142bfac6  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20  .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
 3716e00219b28a0974a07a56e1d264bb478b35a6ef38d5c13740a9080b09516e  .forge/ast-grep/rule-tests/typescript-no-eval-test.yml
@@ -6147,7 +6193,7 @@ b21497e3335f2271e6ca5874817957d18c640e7d787cfe76a72ef390ab62d634  .forge/ast-gre
 aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21  .forge/ast-grep/rules/typescript/no-ts-nocheck.yml
 b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad  .forge/ast-grep/rules/typescript/ts-expect-error-reason.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-6c397bf4fd1040627c2247a9a07fc850b0c64af6a663a91dcd2b4219697758b4  .forge/check.sh
+7c778f34dab2da1fa5b60e754ee0ca7c10de314f2ce929f0669e2e82efd26615  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

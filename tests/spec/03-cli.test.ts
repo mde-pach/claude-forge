@@ -10,7 +10,7 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { applied, fakeClaude, forge, git, put, ROOT, sampleRepo, sh } from "../helpers";
+import { applied, commitAll, ensureTools, fakeClaude, forge, git, hasUv, linkTools, put, ROOT, sampleRepo, sh } from "../helpers";
 
 const T = 120_000;
 
@@ -137,6 +137,50 @@ describe("status, explain, diff", () => {
       expect(out).toContain("  typescript/nextjs/react/client-hooks\n    ast-grep forbid (.forge/ast-grep/rules/typescript/nextjs/react/client-hooks.yml)");
       expect(out).toContain("CI step, pull requests: sh .forge/check.sh --since origin/main");
       expect(out).toContain("CI step, the default branch: sh .forge/check.sh --all");
+    },
+    T,
+  );
+
+  test.if(hasUv)(
+    "status counts active rules apart from enforced ones, with the reasons the others are not enforced",
+    () => {
+      ensureTools();
+      const r = sampleRepo("fastapi-app");
+      linkTools(r, "python");
+      commitAll(r, "tools");
+      const out = forge(["status"], r).stdout;
+      const m = /^Rules: (\d+) active, (\d+) enforced, (\d+) not enforced \((.*)\)$/m.exec(out);
+      expect(m).not.toBeNull();
+      expect(Number(m![2]) + Number(m![3])).toBe(Number(m![1]));
+      // the sample's ruff config selects E, F, ANN401 and E722 only
+      expect(m![4]).toMatch(/\d+ ruff codes not selected/);
+    },
+    T,
+  );
+
+  test(
+    "status --json lists every active rule with whether it is enforced, by what, and why not",
+    () => {
+      const r = forge(["status", "--json"], applied("fastapi-app"));
+      expect(r.status).toBe(0);
+      const j = JSON.parse(r.stdout) as { counts: { active: number; enforced: number; not_enforced: number }; rules: { id: string; enforced: boolean; by: string[]; not_enforced: string[] }[] };
+      expect(j.rules.length).toBe(j.counts.active);
+      expect(j.rules.filter((x) => x.enforced).length).toBe(j.counts.enforced);
+      expect(j.rules.find((x) => x.id === "python/sqlalchemy/no-query-api")).toMatchObject({ enforced: true, by: ["ast-grep forbid"] });
+      const lint = j.rules.find((x) => x.id === "python/lint")!;
+      if (!lint.enforced) expect(lint.not_enforced).toContain("ruff not installed");
+    },
+    T,
+  );
+
+  test(
+    "status and the SessionStart hook report the same missing tools (one source: the scripts' forge_missing_tools)",
+    () => {
+      const r = applied("fastapi-app");
+      const fromStatus = (JSON.parse(forge(["status", "--json"], r).stdout) as { missing_tools: string[] }).missing_tools;
+      const hook = sh("sh", [".claude/skills/forge-project/scripts/session-start.sh"], { cwd: r, input: JSON.stringify({ session_id: "s", cwd: r }) }).stdout;
+      const line = /forge: missing tools \(checks using them are skipped\): (.*)$/m.exec(hook);
+      expect(line ? line[1]!.split(", ") : []).toEqual(fromStatus);
     },
     T,
   );

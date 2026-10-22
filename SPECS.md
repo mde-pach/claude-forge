@@ -51,7 +51,7 @@ Every requirement uses MUST / MUST NOT. Anything not described here is out of sc
 | `forge apply --user` | Generate or update the user-level setup. |
 | `forge apply --local` | Like `apply`, but permission entries go to `.claude/settings.local.json` (for repositories you don't own). |
 | `forge diff [--user]` | Show what `apply` would change. Exit 1 if anything differs. |
-| `forge status [--user]` | Active packs, active rules, disabled rules with reasons, audit results with snippets, drift, missing runtimes or tools. |
+| `forge status [--user] [--json]` | Active packs; rules as `Rules: <n> active, <m> enforced, <k> not enforced (<count> <reason>, …)` then each rule with where it is enforced; disabled rules with reasons; audit results with snippets; drift; missing tools. A rule is enforced when at least one of its targets acts here: a satisfied audit, an ast-grep rule, a permission, guard, sandbox or grep target, or a check whose tools are installed. Reasons: `ruff codes not selected`, `Biome rules not at error`, `basedpyright rules not at error`, `tsc options not set` (unsatisfied audits), `<tool> not configured`, `<tool> not installed`. Missing tools are what the generated scripts' `forge_missing_tools` prints (the SessionStart hook reports the same list). `--json` prints all of it as one object: `counts`, `rules` (`id`, `enforced`, `by`, `not_enforced`), `audits`, `missing_tools`, `packs`, `disabled`, `drift`. |
 | `forge explain <rule-id>` | The rule file, where it is enforced in this project, and its audit result. |
 | `forge test` | Validate packs and rules against the schemas; run every rule's examples (§12.1). |
 | `forge remove [--user]` | Delete every owned file and exactly the settings entries recorded in the lock. |
