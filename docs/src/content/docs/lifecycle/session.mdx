@@ -21,6 +21,22 @@ All guard rules together, against the commands that must and must not trigger:
 
 <Spec file="14-3-guard-corpus" />
 
+### When nobody can answer an ask
+
+In an autonomous run (`claude -p`, the Agent SDK, the GitHub Action) nobody is there to answer an ask, and Claude Code denies it without anyone looking at it. Forge sends the ask to an **independent reviewer** instead: a fresh `claude -p` that sees only the action (the tool, its input, the Forge rule that asked, the repository path), may read the repository, and runs without hooks, MCP servers, settings or the agent's conversation. It allows or denies as a careful developer seeing only that action would, so the decision is not made in the agent's rush. Every review is logged in `.forge/state/reviews.log` (or `~/.claude/forge-reviews.log`).
+
+It covers both kinds of ask: a guard rule's `ask` (in `guard.sh`) and any permission prompt (a `PermissionRequest` hook, `review.sh`; the project-level one defers to the user-level one). It only acts when nobody can answer: in an interactive session, the usual prompt appears.
+
+| `FORGE_ASK_REVIEW` | Reviews asks |
+|---|---|
+| `auto` (default) | when `CLAUDE_CODE_ENTRYPOINT` is `sdk-cli`, `sdk-ts`, `sdk-py` or `claude-code-github-action` |
+| `always` | in every session, e.g. a cloud or remote session you leave running |
+| `never` | never: asks are denied, as in plain Claude Code |
+
+In `dontAsk` mode asks stay denied (you chose that). `FORGE_REVIEW_MODEL` picks the reviewer's model. In a headless run, Claude Code loads the project's Forge plugin only when the workspace is trusted (accept the trust dialog once, interactively).
+
+<Spec file="08-project-hooks" describe="asks nobody can answer" />
+
 ## After an edit
 
 After an `Edit` or `Write`, `post-edit.sh` formats the file silently, lints it and runs the ast-grep `forbid` rules on it; findings go back to Claude as context. `typecheck.sh` runs the project type check in the background and wakes Claude when it fails.

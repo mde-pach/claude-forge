@@ -208,7 +208,7 @@ examples:
 ├── skills/forge-user/
 │   ├── .claude-plugin/plugin.json        # {"name":"forge-user", ...}
 │   ├── hooks/hooks.json
-│   └── scripts/{guard.sh, guard.rules, notify.sh, lib.sh}
+│   └── scripts/{guard.sh, guard.rules, notify.sh, review.sh, lib.sh}
 └── forge.lock.json
 ```
 
@@ -216,7 +216,8 @@ examples:
 
 | Event | Matcher | Script | Options |
 |---|---|---|---|
-| PreToolUse | `Bash` | `guard.sh` | timeout 5 s, `onFailure: "block"` |
+| PreToolUse | `Bash` | `guard.sh` | timeout 180 s (an ask may wait for a review, §9.3), `onFailure: "block"` |
+| PermissionRequest | — | `review.sh` | timeout 180 s (§9.3) |
 | Notification | `permission_prompt\|idle_prompt` | `notify.sh` | prints `{"terminalSequence":"\u001b]777;notify;Claude Code;<msg>\u0007"}`; OSC 9 when `TERM_PROGRAM` is `iTerm.app` or `WezTerm` |
 
 - **Appended to `~/.claude/settings.json`:** the `safety` pack's `permission` and `sandbox` targets, and `ask` on `Edit(~/.claude/skills/forge-user/**)` and `Edit(~/.claude/forge.lock.json)`.
@@ -230,7 +231,7 @@ examples:
 │   ├── skills/forge-project/
 │   │   ├── .claude-plugin/plugin.json    # {"name":"forge-project", ...}
 │   │   ├── hooks/hooks.json
-│   │   └── scripts/{lib.sh, session-start.sh, turn-start.sh, guard.sh, guard.rules, post-edit.sh, typecheck.sh, stop.sh}
+│   │   └── scripts/{lib.sh, session-start.sh, turn-start.sh, guard.sh, guard.rules, review.sh, post-edit.sh, typecheck.sh, stop.sh}
 │   └── rules/forge-<pack-id>.md          # one per active pack with context.md; "/" in the id becomes "-"
 └── .forge/
     ├── check.sh
@@ -249,7 +250,8 @@ All scripts are POSIX `sh`. They read file paths and the working directory from 
 |---|---|---|---|---|---|
 | SessionStart | `startup\|resume\|clear\|compact` | `session-start.sh` | sync | 10 s | ≤ 20 lines: branch, number of changed files and first 10 paths, last 5 commits (`%h %s`, ≤ 72 chars), active packs, missing tools (once). |
 | UserPromptSubmit | — | `turn-start.sh` | sync | 10 s | Snapshots the tree at the start of the turn and resets the Stop block counter (§10.2). Prints nothing. |
-| PreToolUse | `Bash` | `guard.sh` | sync | 5 s | Project `guard` rules. `onFailure: "block"`. |
+| PreToolUse | `Bash` | `guard.sh` | sync | 180 s | Project `guard` rules. `onFailure: "block"`. An ask nobody can answer is reviewed (§9.3). |
+| PermissionRequest | — | `review.sh` | sync | 180 s | §9.3. Defers to the user-level `review.sh` when it exists. |
 | PostToolUse | `Edit\|Write` | `post-edit.sh` | sync | 30 s | Format the file silently; lint it; run ast-grep `forbid` rules on it. Findings on lines added during the turn (against the turn snapshot; before the first prompt, against `HEAD`) → JSON `{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"…"}}`, ≤ 20 lines, diagnostics for this file only. Nothing on success. |
 | PostToolUse | `Edit\|Write` | `typecheck.sh` | `asyncRewake: true` | 300 s | Project typecheck. Errors in files changed during the turn (the Stop hook's change set, §10.2) → exit 2, stderr ≤ 20 lines, those files' diagnostics only; errors only in other files → silent. Skips if one is already running (lock in `.forge/state/`). |
 | Stop | — | `stop.sh` | sync | 600 s | §10.2. |
@@ -280,6 +282,18 @@ All scripts are POSIX `sh`. They read file paths and the working directory from 
 - `guard.sh`: extracts `tool_input.command` (still JSON-escaped), tests each pattern with `grep -Eq`, prints on the first deny (else first ask) match `{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"<decision>","permissionDecisionReason":"forge:<id> <description>"}}`, exits 0. No match: prints nothing.
 - Commands expressible as a permission prefix use a `permission` target instead of a `guard` target.
 - The guard is a tripwire. The sandbox and permissions are the protection boundary.
+
+### 9.3 Asks nobody can answer
+
+In an autonomous run nobody answers an ask, and Claude Code denies it unseen (a PreToolUse `ask`, and a permission prompt without a `PermissionRequest` hook decision). Forge has an independent reviewer answer instead.
+
+- **When.** `FORGE_ASK_REVIEW=always`; or, by default (`auto`), when `CLAUDE_CODE_ENTRYPOINT` is `sdk-cli`, `sdk-ts`, `sdk-py` or `claude-code-github-action` (`claude -p`, the Agent SDK, the GitHub Action; an interactive session is `cli`). Never with `FORGE_ASK_REVIEW=never`, in `dontAsk` mode (`permission_mode`), or inside a review (`FORGE_REVIEWER` set). Otherwise the scripts print nothing and Claude Code behaves as usual.
+- **Guard asks.** `guard.sh` passes an `ask` to `review.sh pre <rule-id>`, and prints its `allow` or `deny` (`permissionDecisionReason`: `forge:<rule-id> reviewed by an independent session, nobody being there to answer: <reason>`). A PreToolUse `allow` does not override settings `deny` rules.
+- **Permission prompts.** `review.sh` on PermissionRequest prints `{"decision":{"behavior":"allow"}}` or `{"behavior":"deny","message":"forge: denied by an independent review, nobody being there to answer: <reason>"}`. The project-level hook prints nothing when `~/.claude/skills/forge-user/scripts/review.sh` exists, so a request is reviewed once.
+- **The reviewer** is `claude -p` with a prompt holding only the repository path, the tool name, its `tool_input`, and the Forge rule that asked; not the transcript or the conversation. It runs with `FORGE_REVIEWER=1`, `--tools Read,Grep,Glob --allowedTools Read,Grep,Glob --permission-mode dontAsk --setting-sources '' --settings '{"disableAllHooks":true}' --strict-mcp-config --no-session-persistence --output-format json --json-schema <decision allow|deny, reason>`, `--max-turns` 12 (`FORGE_REVIEW_MAX_TURNS`) and `FORGE_REVIEW_MODEL` as `--model` when set. Its instructions: allow only what is clearly normal work on the repository and safe unattended; deny anything irreversible, publishing or pushing, touching secrets, installing unverified packages, weakening security, tests or tool configuration, or running code from the internet; when in doubt, deny.
+- **No verdict** (claude missing, no `structured_output`, a decision other than allow/deny): nothing changes; the ask stays unanswered (denied). A timeout of the guard hook blocks the call (`onFailure: "block"`).
+- **Log.** One tab-separated line per review (time, session, decision, tool, input, reason) in `.forge/state/reviews.log` inside a Forge project, else `~/.claude/forge-reviews.log`.
+- **Trust.** Claude Code loads a project's skills-dir plugin only in a trusted workspace; a headless run in an untrusted one runs no project hook. The user-level plugin is not affected.
 
 ## 10. `check`
 

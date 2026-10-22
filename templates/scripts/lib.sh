@@ -189,3 +189,80 @@ added_lines() {
 
 # turn_dir: the turn snapshot of this session (written by turn-start.sh).
 turn_dir() { printf '.forge/state/%s.turn' "$(session_id)"; }
+
+# ---- reviews of permission asks nobody can answer (review.sh)
+
+# forge_review_wanted: succeeds when an ask should go to an independent reviewer:
+# FORGE_ASK_REVIEW=always, or (auto, the default) a run with nobody to answer
+# (CLAUDE_CODE_ENTRYPOINT sdk-cli, sdk-ts, sdk-py or claude-code-github-action:
+# claude -p, the Agent SDK, the GitHub Action). Never inside a review, never with
+# FORGE_ASK_REVIEW=never, never in dontAsk mode (the user chose to deny asks).
+forge_review_wanted() {
+  [ -z "${FORGE_REVIEWER:-}" ] || return 1
+  case $FORGE_INPUT in *'"permission_mode":"dontAsk"'*|*'"permission_mode": "dontAsk"'*) return 1 ;; esac
+  case ${FORGE_ASK_REVIEW:-auto} in
+    always) return 0 ;;
+    never) return 1 ;;
+  esac
+  case ${CLAUDE_CODE_ENTRYPOINT:-} in
+    sdk-cli|sdk-ts|sdk-py|claude-code-github-action) return 0 ;;
+  esac
+  return 1
+}
+
+# forge_json_object <key>: the JSON value (object or array) of the first <key> in stdin.
+forge_json_object() {
+  awk -v key="$1" '
+    { buf = buf $0 "\n" }
+    END {
+      if (!match(buf, "\"" key "\"[[:space:]]*:[[:space:]]*[{[]")) exit
+      s = substr(buf, RSTART + RLENGTH - 1); n = length(s); depth = 0; str = 0
+      for (i = 1; i <= n; i++) {
+        c = substr(s, i, 1)
+        if (str) { if (c == "\\") i++; else if (c == "\"") str = 0; continue }
+        if (c == "\"") str = 1
+        else if (c == "{" || c == "[") depth++
+        else if (c == "}" || c == "]") { depth--; if (!depth) { print substr(s, 1, i); exit } }
+      }
+    }'
+}
+
+# forge_review <tool> <tool-input-json> <rule>: runs the reviewer, a fresh `claude -p`
+# that sees only the action (tool, input, the Forge rule that asked, the repository
+# path), may read the repository (Read, Grep, Glob, nothing else) and runs without
+# hooks, MCP servers or settings. Prints "allow<TAB>reason" or "deny<TAB>reason";
+# fails when claude is missing or gives no verdict (the ask then stays unanswered).
+forge_review() {
+  command -v claude >/dev/null 2>&1 || return 1
+  _rv_why=''
+  [ -n "$3" ] && _rv_why="
+Forge flagged it with rule $3."
+  _rv_prompt="You are reviewing one action that an autonomous coding agent wants to take. Nobody is available to approve it, so you decide in the user's place, as a careful senior developer who sees only this action would.
+
+Repository: $(pwd)
+Tool: $1
+Input: $2$_rv_why
+
+You do not see the agent's conversation or its reasons, on purpose: judge the action itself. You may read files in the repository to understand it. Allow it only if it is clearly within normal work on this repository and safe to run unattended. Deny anything irreversible or destructive (deleting data or history, force pushes, dropping databases), anything that publishes, deploys or pushes outside this machine, anything that reads or sends secrets, installs packages you cannot verify, weakens security, permissions, tests or tool configuration, or runs code fetched from the internet. When in doubt, deny. Give the reason in one sentence."
+  _rv_schema='{"type":"object","properties":{"decision":{"type":"string","enum":["allow","deny"]},"reason":{"type":"string"}},"required":["decision","reason"],"additionalProperties":false}'
+  _rv_out=$(FORGE_REVIEWER=1 claude -p "$_rv_prompt" --output-format json --json-schema "$_rv_schema" \
+    --tools Read,Grep,Glob --allowedTools Read,Grep,Glob --permission-mode dontAsk --max-turns "${FORGE_REVIEW_MAX_TURNS:-12}" \
+    --no-session-persistence --strict-mcp-config --setting-sources '' --settings '{"disableAllHooks":true}' \
+    ${FORGE_REVIEW_MODEL:+--model "$FORGE_REVIEW_MODEL"} < /dev/null 2>/dev/null) || return 1
+  _rv_so=${_rv_out#*'"structured_output":'}
+  [ "$_rv_so" != "$_rv_out" ] || return 1
+  _rv_d=$(FORGE_INPUT=$_rv_so json_get decision)
+  _rv_r=$(FORGE_INPUT=$_rv_so json_get reason | tr '\t\n' '  ')
+  case $_rv_d in allow|deny) printf '%s\t%s' "$_rv_d" "${_rv_r:-no reason given}" ;; *) return 1 ;; esac
+}
+
+# forge_review_log <decision> <tool> <input> <reason>: one line per review in
+# .forge/state/reviews.log (in a Forge project) or ~/.claude/forge-reviews.log.
+forge_review_log() {
+  _rl_f="$HOME/.claude/forge-reviews.log"
+  if _rl_top=$(cd "$(json_get cwd)" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null) && [ -d "$_rl_top/.forge" ]; then
+    mkdir -p "$_rl_top/.forge/state" 2>/dev/null && _rl_f="$_rl_top/.forge/state/reviews.log"
+  fi
+  printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$(session_id)" "$1" "$2" "$(printf '%s' "$3" | tr '\t\n' '  ')" "$4" >> "$_rl_f" 2>/dev/null
+  return 0
+}

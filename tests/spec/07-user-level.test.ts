@@ -25,16 +25,17 @@ function home(settings?: string): { home: string; env: Record<string, string> } 
 }
 
 test(
-  "apply --user writes the forge-user plugin: plugin.json, hooks.json, guard.sh, guard.rules, notify.sh, lib.sh",
+  "apply --user writes the forge-user plugin: plugin.json, hooks.json, guard.sh, guard.rules, notify.sh, review.sh, lib.sh",
   () => {
     const { home: h, env } = home();
     expect(forge(["apply", "--user", "--yes"], "/", env).status).toBe(0);
     const root = join(h, ".claude/skills/forge-user");
-    for (const f of [".claude-plugin/plugin.json", "hooks/hooks.json", "scripts/guard.sh", "scripts/guard.rules", "scripts/notify.sh", "scripts/lib.sh"])
+    for (const f of [".claude-plugin/plugin.json", "hooks/hooks.json", "scripts/guard.sh", "scripts/guard.rules", "scripts/notify.sh", "scripts/review.sh", "scripts/lib.sh"])
       expect(existsSync(join(root, f))).toBe(true);
     expect(JSON.parse(readFileSync(join(root, ".claude-plugin/plugin.json"), "utf8")).name).toBe("forge-user");
     const hooks = JSON.parse(readFileSync(join(root, "hooks/hooks.json"), "utf8")).hooks;
-    expect(hooks.PreToolUse[0]).toMatchObject({ matcher: "Bash", hooks: [{ command: 'sh "${CLAUDE_PLUGIN_ROOT}/scripts/guard.sh"', timeout: 5, onFailure: "block" }] });
+    expect(hooks.PreToolUse[0]).toMatchObject({ matcher: "Bash", hooks: [{ command: 'sh "${CLAUDE_PLUGIN_ROOT}/scripts/guard.sh"', timeout: 180, onFailure: "block" }] });
+    expect(hooks.PermissionRequest[0]).toMatchObject({ hooks: [{ command: 'sh "${CLAUDE_PLUGIN_ROOT}/scripts/review.sh"', timeout: 180 }] });
     expect(hooks.Notification[0].matcher).toBe("permission_prompt|idle_prompt");
   },
   T,

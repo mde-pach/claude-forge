@@ -285,17 +285,21 @@ function hook(script: string, timeout: number, extra: Record<string, unknown> = 
 }
 
 export function renderHooks(level: Level): string {
-  const guard = { matcher: "Bash", hooks: [hook("guard.sh", 5, { onFailure: "block" })] };
+  // 180 s: an ask nobody can answer waits for an independent review (review.sh); the usual answer takes milliseconds
+  const guard = { matcher: "Bash", hooks: [hook("guard.sh", 180, { onFailure: "block" })] };
+  const review = [{ hooks: [hook("review.sh", 180)] }];
   const hooks =
     level === "user"
       ? {
           PreToolUse: [guard],
+          PermissionRequest: review,
           Notification: [{ matcher: "permission_prompt|idle_prompt", hooks: [hook("notify.sh", 5)] }],
         }
       : {
           SessionStart: [{ matcher: "startup|resume|clear|compact", hooks: [hook("session-start.sh", 10)] }],
           UserPromptSubmit: [{ hooks: [hook("turn-start.sh", 10)] }],
           PreToolUse: [guard],
+          PermissionRequest: review,
           PostToolUse: [
             { matcher: "Edit|Write", hooks: [hook("post-edit.sh", 30), hook("typecheck.sh", 300, { asyncRewake: true })] },
           ],

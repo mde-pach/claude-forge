@@ -285,6 +285,7 @@ export function plan(opts: PlanOptions): Plan {
     files.set(`${root}/scripts/guard.sh`, template("guard.sh"));
     files.set(`${root}/scripts/guard.rules`, guardRules);
     files.set(`${root}/scripts/notify.sh`, template("notify.sh"));
+    files.set(`${root}/scripts/review.sh`, template("review.sh"));
     settings.push(
       { file: settingsFile, path: "permissions.ask", value: "Edit(~/.claude/skills/forge-user/**)", append: true },
       { file: settingsFile, path: "permissions.ask", value: "Edit(~/.claude/forge.lock.json)", append: true },
@@ -302,6 +303,7 @@ export function plan(opts: PlanOptions): Plan {
     files.set(`${root}/scripts/lib.sh`, lib);
     files.set(`${root}/scripts/guard.sh`, template("guard.sh"));
     files.set(`${root}/scripts/guard.rules`, guardRules);
+    files.set(`${root}/scripts/review.sh`, template("review.sh"));
     files.set(`${root}/scripts/session-start.sh`, fill(template("session-start.sh"), { CHECKS: fragment, PACKS: packs.map((p) => p.id).join(", ") || "none" }));
     files.set(`${root}/scripts/post-edit.sh`, fill(template("post-edit.sh"), { CHECKS: fragment, FORBID: ids("forbid") }));
     files.set(`${root}/scripts/typecheck.sh`, fill(template("typecheck.sh"), { CHECKS: fragment }));

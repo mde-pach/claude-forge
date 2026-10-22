@@ -40,12 +40,13 @@ beforeAll(() => {
 }, T);
 
 test(
-  "hooks.json wires SessionStart, UserPromptSubmit, PreToolUse(Bash), PostToolUse(Edit|Write) twice and Stop, with the specified timeouts",
+  "hooks.json wires SessionStart, UserPromptSubmit, PreToolUse(Bash), PermissionRequest, PostToolUse(Edit|Write) twice and Stop, with the specified timeouts",
   () => {
     const hooks = JSON.parse(readFileSync(join(repo, ".claude/skills/forge-project/hooks/hooks.json"), "utf8")).hooks;
     expect(hooks.SessionStart[0]).toMatchObject({ matcher: "startup|resume|clear|compact", hooks: [{ timeout: 10 }] });
     expect(hooks.UserPromptSubmit[0]).toMatchObject({ hooks: [{ command: 'sh "${CLAUDE_PLUGIN_ROOT}/scripts/turn-start.sh"', timeout: 10 }] });
-    expect(hooks.PreToolUse[0]).toMatchObject({ matcher: "Bash", hooks: [{ timeout: 5, onFailure: "block" }] });
+    expect(hooks.PreToolUse[0]).toMatchObject({ matcher: "Bash", hooks: [{ timeout: 180, onFailure: "block" }] });
+    expect(hooks.PermissionRequest[0]).toMatchObject({ hooks: [{ command: 'sh "${CLAUDE_PLUGIN_ROOT}/scripts/review.sh"', timeout: 180 }] });
     expect(hooks.PostToolUse[0].matcher).toBe("Edit|Write");
     expect(hooks.PostToolUse[0].hooks).toMatchObject([{ timeout: 30 }, { timeout: 300, asyncRewake: true }]);
     expect(hooks.Stop[0].hooks).toMatchObject([{ timeout: 600 }]);
@@ -76,6 +77,119 @@ describe("SessionStart", () => {
       rmSync(join(repo, ".forge/state/missing-tools"), { force: true });
       expect(hook("session-start.sh", { source: "startup" }).stdout).toContain("forge: missing tools");
       expect(hook("session-start.sh", { source: "compact" }).stdout).not.toContain("missing tools");
+    },
+    T,
+  );
+});
+
+/**
+ * In an autonomous run (claude -p, the Agent SDK, the GitHub Action) nobody can
+ * answer an ask, and Claude Code denies it unseen. Forge sends it to an
+ * independent reviewer instead: a fresh `claude -p` that sees only the action.
+ * These tests put a stand-in `claude` on PATH that records how it was called.
+ */
+describe("asks nobody can answer", () => {
+  let ts = "";
+  let bin = "";
+  beforeAll(() => {
+    ts = applied("nextjs-prisma-app");
+    bin = mkdtempSync(join(tmpdir(), "forge-fake-claude-"));
+    writeFileSync(
+      join(bin, "claude"),
+      '#!/bin/sh\n{ printf "FORGE_REVIEWER=%s\\n" "$FORGE_REVIEWER"; for a in "$@"; do printf "ARG:%s\\n" "$a"; done; } > "$FAKE_LOG"\nprintf \'{"type":"result","result":"{}","structured_output":{"reason":"%s","decision":"%s"}}\\n\' "$FAKE_REASON" "$FAKE_DECISION"\n',
+    );
+    chmodSync(join(bin, "claude"), 0o755);
+  }, T);
+  const log = () => join(bin, "log");
+  function run(script: string, fields: Record<string, unknown>, env: Record<string, string>) {
+    rmSync(log(), { force: true });
+    return sh("sh", [join(SCRIPTS, script)], {
+      cwd: ts,
+      input: hookJson({ cwd: ts, permission_mode: "default", ...fields }),
+      env: { PATH: `${bin}:${process.env.PATH}`, FAKE_LOG: log(), FAKE_REASON: "it is routine", FAKE_DECISION: "allow", CLAUDE_CODE_ENTRYPOINT: "sdk-cli", FORGE_ASK_REVIEW: "", FORGE_REVIEWER: "", ...env },
+    });
+  }
+  const npm = { hook_event_name: "PreToolUse", tool_name: "Bash", tool_input: { command: "npm install left-pad" } };
+  const decision = (out: string) => JSON.parse(out).hookSpecificOutput;
+
+  /** @rule typescript/bun/no-other-pm */
+  test(
+    "in a headless run (CLAUDE_CODE_ENTRYPOINT sdk-cli, sdk-ts, sdk-py, claude-code-github-action) a guard ask is reviewed: allow or deny with the reviewer's reason",
+    () => {
+      const ok = decision(run("guard.sh", npm, {}).stdout);
+      expect(ok.permissionDecision).toBe("allow");
+      expect(ok.permissionDecisionReason).toBe("forge:typescript/bun/no-other-pm reviewed by an independent session, nobody being there to answer: it is routine");
+      const no = decision(run("guard.sh", npm, { FAKE_DECISION: "deny", FAKE_REASON: "Bun project", CLAUDE_CODE_ENTRYPOINT: "sdk-ts" }).stdout);
+      expect(no.permissionDecision).toBe("deny");
+      expect(no.permissionDecisionReason).toContain("nobody being there to answer: Bun project");
+      expect(readFileSync(join(ts, ".forge/state/reviews.log"), "utf8")).toContain("\tdeny\tBash\t");
+    },
+    T,
+  );
+
+  test(
+    "a PermissionRequest is answered with the reviewer's decision (behavior allow, or deny with a message)",
+    () => {
+      const edit = { hook_event_name: "PermissionRequest", tool_name: "Edit", tool_input: { file_path: join(ts, "biome.json"), old_string: "a", new_string: "b" } };
+      expect(decision(run("review.sh", edit, {}).stdout).decision).toEqual({ behavior: "allow" });
+      expect(decision(run("review.sh", edit, { FAKE_DECISION: "deny", FAKE_REASON: "weakens lint" }).stdout).decision).toEqual({
+        behavior: "deny",
+        message: "forge: denied by an independent review, nobody being there to answer: weakens lint",
+      });
+    },
+    T,
+  );
+
+  test(
+    "the reviewer sees only the action: a fresh claude -p with read-only tools, no hooks, settings or MCP servers, and not the agent's transcript",
+    () => {
+      run("guard.sh", { ...npm, transcript_path: "/secret/transcript.jsonl" }, {});
+      const call = readFileSync(log(), "utf8");
+      expect(call).toContain("FORGE_REVIEWER=1\nARG:-p\n");
+      for (const arg of ["--tools\nARG:Read,Grep,Glob", "--permission-mode\nARG:dontAsk", "--settings\nARG:{\"disableAllHooks\":true}", "--setting-sources\nARG:\n", "--strict-mcp-config", "--no-session-persistence", "--json-schema"])
+        expect(call).toContain(arg);
+      expect(call).toContain('Input: {"command":"npm install left-pad"}');
+      expect(call).toContain("Forge flagged it with rule typescript/bun/no-other-pm.");
+      expect(call).not.toContain("/secret/transcript.jsonl");
+    },
+    T,
+  );
+
+  test.each([
+    ["an interactive session (entrypoint cli): the usual prompt", { CLAUDE_CODE_ENTRYPOINT: "cli" }, {}],
+    ["FORGE_ASK_REVIEW=never", { FORGE_ASK_REVIEW: "never" }, {}],
+    ["dontAsk mode (the user chose to deny asks)", {}, { permission_mode: "dontAsk" }],
+    ["inside a review (FORGE_REVIEWER set)", { FORGE_REVIEWER: "1" }, {}],
+  ])("no review for %s: the guard keeps its ask", (_label, env, fields) => {
+    expect(decision(run("guard.sh", { ...npm, ...fields }, env).stdout).permissionDecision).toBe("ask");
+    expect(existsSync(log())).toBe(false);
+  }, T);
+
+  test(
+    "FORGE_ASK_REVIEW=always reviews even when a human could answer",
+    () => {
+      expect(decision(run("guard.sh", npm, { CLAUDE_CODE_ENTRYPOINT: "cli", FORGE_ASK_REVIEW: "always" }).stdout).permissionDecision).toBe("allow");
+    },
+    T,
+  );
+
+  test(
+    "without claude on PATH, or without a verdict, nothing changes: the ask stays, and a PermissionRequest gets no answer",
+    () => {
+      expect(decision(run("guard.sh", npm, { PATH: "/usr/bin:/bin" }).stdout).permissionDecision).toBe("ask");
+      expect(run("review.sh", { hook_event_name: "PermissionRequest", tool_name: "Edit", tool_input: {} }, { FAKE_DECISION: "maybe" }).stdout).toBe("");
+    },
+    T,
+  );
+
+  test(
+    "the project-level PermissionRequest hook defers to the user-level one, so a request is reviewed once",
+    () => {
+      const home = mkdtempSync(join(tmpdir(), "forge-home-"));
+      mkdirSync(join(home, ".claude/skills/forge-user/scripts"), { recursive: true });
+      writeFileSync(join(home, ".claude/skills/forge-user/scripts/review.sh"), "");
+      expect(run("review.sh", { hook_event_name: "PermissionRequest", tool_name: "Edit", tool_input: {} }, { HOME: home }).stdout).toBe("");
+      expect(existsSync(log())).toBe(false);
     },
     T,
   );

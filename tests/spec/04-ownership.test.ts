@@ -257,7 +257,7 @@ describe("formatters and Forge's JSON", () => {
     () => {
       const r = applied("eslint-app");
       const f = join(r, ".claude/skills/forge-project/hooks/hooks.json");
-      writeFileSync(f, readFileSync(f, "utf8").replace('"timeout": 5,', '"timeout": 50,'));
+      writeFileSync(f, readFileSync(f, "utf8").replace('"timeout": 10', '"timeout": 50'));
       const c = sh("sh", [".forge/check.sh", "--changed"], { cwd: r });
       expect(c.status).toBe(1);
       expect(c.stdout).toContain("forge:forge/integrity .claude/skills/forge-project/hooks/hooks.json was modified (run forge diff)");
