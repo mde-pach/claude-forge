@@ -312,7 +312,7 @@ export function plan(opts: PlanOptions): Plan {
     files.set(`${root}/scripts/turn-start.sh`, template("turn-start.sh"));
     for (const p of packs) {
       const ctx = opts.packs.get(p.id)!.context;
-      if (ctx !== undefined) files.set(`.claude/rules/${contextFileName(p.id)}`, ctx);
+      if (ctx !== undefined) files.set(`.claude/rules/${contextFileName(p.id)}`, CONTEXT_INTRO + ctx);
     }
     files.set(".forge/check.sh", renderCheckScript(checks, { forbid: ids("forbid"), noIncrease: ids("no-increase"), noDecrease: ids("no-decrease") }, greps));
     files.set(".forge/.gitignore", "state/\n");
@@ -348,6 +348,13 @@ export function plan(opts: PlanOptions): Plan {
     tools,
   };
 }
+
+/**
+ * First line of every generated context file: the facts guide defaults, and an
+ * explicit instruction wins (a rule followed against a clear request failed a task).
+ */
+export const CONTEXT_INTRO =
+  "These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.\n\n";
 
 /** `.claude/rules/` file name for a pack's context: forge-<id with "/" as "-">.md. */
 export function contextFileName(packId: string): string {

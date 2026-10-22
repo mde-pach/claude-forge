@@ -1,30 +1,37 @@
 ===== .claude/rules/forge-docker-compose.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
 Docker Compose. `compose.yaml` holds the shared setup; `compose.override.yaml` (loaded automatically) holds local changes.
-Services have a `healthcheck`, and dependents wait with `depends_on: {db: {condition: service_healthy}}`.
+`depends_on` uses the long form with a `condition` (the bare list form is rejected); `condition: service_healthy` needs a `healthcheck` on that service.
 `develop.watch` syncs or rebuilds on file changes (`docker compose watch`); `profiles` keep optional services off by default.
-Secrets come from `secrets:` (files mounted under /run/secrets) or `${VAR}` references, never inline values; `.env` is not committed.
-Published database ports bind to `127.0.0.1` (`"127.0.0.1:5432:5432"`): Docker-published ports bypass ufw and firewalld.
-docker compose runs outside Claude Code's sandbox, so these rules are a real boundary.
+Variables named like `*PASSWORD*`, `*SECRET*`, `*TOKEN*`, `*API_KEY*` under `environment` or build `args` hold a `${VAR}` reference or nothing (`*_FILE` is fine); a committed `.env` is rejected.
+Published ports 5432, 3306, 6379, 27017, 9200, 5672, 11211 and 1433 (short syntax) bind to `127.0.0.1`: Docker-published ports bypass ufw and firewalld.
+docker compose runs outside Claude Code's sandbox, so these checks are a real boundary.
 
 ===== .claude/rules/forge-docker.md
-Docker. Images are multi-stage: build tools stay in a builder stage, the final stage copies only what runs.
-The final stage runs as a non-root `USER`.
-Dependencies install from the lock file (`npm ci`, `bun install --frozen-lockfile`, `uv sync --locked`), with cache mounts (`RUN --mount=type=cache,target=...`).
-Secrets reach a build through `RUN --mount=type=secret,id=...`, never `ARG` or `ENV`.
-Base images are pinned to a version tag (or a digest); `.dockerignore` excludes `.env` files.
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
+Docker. Multi-stage builds keep build tools out of the final stage; the checks require the final stage to run as a non-root `USER`.
+`RUN` installs from the lock file: `npm ci`, `bun install --frozen-lockfile`, `uv sync --locked`, `pnpm install --frozen-lockfile`, `yarn --immutable`; `bun add` and `uv add` are rejected. Cache mounts (`RUN --mount=type=cache,target=...`) speed them up.
+`ARG` and `ENV` names like `*TOKEN*`, `*SECRET*`, `*PASSWORD*`, `*API_KEY*` are rejected (`*_FILE` is fine); build secrets use `RUN --mount=type=secret,id=...`.
+Base images name a version tag or a digest (not `latest`); each Dockerfile has a `.dockerignore` that excludes `.env` files.
 Claude Code's sandbox blocks docker unless the user lists it in `sandbox.excludedCommands`; docker commands then run outside the sandbox.
 
 ===== .claude/rules/forge-github-actions.md
-GitHub Actions. Actions are pinned to a full commit SHA with the version in a comment (`uses: actions/checkout@<sha> # v5`).
-Workflows set `permissions: {}` at the top and grant each job only what it needs.
-`actions/checkout` sets `persist-credentials: false` unless a later step pushes.
-`${{ }}` expressions never go inside `run:`; pass them through `env:` and use the shell variable.
-`pull_request_target` and `workflow_run` run with secrets on untrusted code; avoid them.
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
+GitHub Actions. Actions are pinned to a full commit SHA with the version in a comment (`uses: actions/checkout@<sha> # v5`); zizmor's unpinned-uses check rejects tags.
+Workflows set `permissions: {}` at the top and grant each job only what it needs (excessive-permissions).
+`actions/checkout` sets `persist-credentials: false` unless a later step pushes (artipacked).
+Attacker-controllable `${{ }}` values (issue and PR titles, bodies, branch names) inside `run:` are rejected (template-injection): pass them through `env:` and use the shell variable.
+`pull_request_target` and `workflow_run` run with secrets on untrusted code; zizmor's dangerous-triggers check rejects them.
 
 ===== .claude/rules/forge-python.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
 Python project managed with uv. Tools run from `.venv/bin`. Type checking: basedpyright.
-Async code never blocks the event loop: no `requests`, `time.sleep` or blocking `open()` inside `async def`.
-Ignore comments name their rule (`# pyright: ignore[ruleName]`).
+Inside `async def`, the checks reject blocking calls that ruff's ASYNC210, ASYNC230 and ASYNC251 detect (sync HTTP clients, `open()`, `time.sleep`).
+Ignore comments name their rule (`# pyright: ignore[ruleName]`), and a changed file may not gain suppression comments.
 
 ===== .claude/settings.json
 {
@@ -6981,10 +6988,10 @@ exit "$fail"
     "python/typecheck": "1e41c54ae5a5cd94ab184a0aab1e42e329877240f7e39361e8c35966aed53b2f"
   },
   "files": {
-    ".claude/rules/forge-docker-compose.md": "695043cac6bad9d8297b16f75d9345d3d078650af6a8cf743b15ae0bed9ba2df",
-    ".claude/rules/forge-docker.md": "e4ef56241c4af8083e05db9b92e50e292a028b334c46f5fb7727e2348623a4f8",
-    ".claude/rules/forge-github-actions.md": "90872a6da21edab17a237360e6b151f0b7a073eacb05b505c9e1541900f458ed",
-    ".claude/rules/forge-python.md": "11fa9c748e2b0f9ad1b81d0c29c2a2fd1a1f826976bb6aeb34fc9ff306683ff9",
+    ".claude/rules/forge-docker-compose.md": "35e094a47a5a4be9a61f496e4dc1de3b6c2cb1d836c4c0ca46846ab24414dfff",
+    ".claude/rules/forge-docker.md": "0aa39e4c93ea79eda0a7b7f7657829f72326d4c61a34b75c097461c568ec97d7",
+    ".claude/rules/forge-github-actions.md": "032616772621679b8f2daa8621475e79176b582af94221582d992e8576f3b426",
+    ".claude/rules/forge-python.md": "abdc89b63568d6ec94837deb55306633b3d76d55f5434a4995124278e6befb15",
     ".claude/skills/forge-project/.claude-plugin/plugin.json": "c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2",
     ".claude/skills/forge-project/hooks/hooks.json": "9d7dba31b8c292fd2222d41ed40899e1a9ffadf49af7ac13b167568ab0eb4035",
     ".claude/skills/forge-project/scripts/bash-snapshot.sh": "d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8",
@@ -7060,10 +7067,10 @@ exit "$fail"
 }
 
 ===== .forge/manifest.sha256
-695043cac6bad9d8297b16f75d9345d3d078650af6a8cf743b15ae0bed9ba2df  .claude/rules/forge-docker-compose.md
-e4ef56241c4af8083e05db9b92e50e292a028b334c46f5fb7727e2348623a4f8  .claude/rules/forge-docker.md
-90872a6da21edab17a237360e6b151f0b7a073eacb05b505c9e1541900f458ed  .claude/rules/forge-github-actions.md
-11fa9c748e2b0f9ad1b81d0c29c2a2fd1a1f826976bb6aeb34fc9ff306683ff9  .claude/rules/forge-python.md
+35e094a47a5a4be9a61f496e4dc1de3b6c2cb1d836c4c0ca46846ab24414dfff  .claude/rules/forge-docker-compose.md
+0aa39e4c93ea79eda0a7b7f7657829f72326d4c61a34b75c097461c568ec97d7  .claude/rules/forge-docker.md
+032616772621679b8f2daa8621475e79176b582af94221582d992e8576f3b426  .claude/rules/forge-github-actions.md
+abdc89b63568d6ec94837deb55306633b3d76d55f5434a4995124278e6befb15  .claude/rules/forge-python.md
 c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills/forge-project/.claude-plugin/plugin.json
 9d7dba31b8c292fd2222d41ed40899e1a9ffadf49af7ac13b167568ab0eb4035  .claude/skills/forge-project/hooks/hooks.json
 d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills/forge-project/scripts/bash-snapshot.sh

@@ -136,10 +136,13 @@ describe("permission, guard and context targets", () => {
 
   /** @pack typescript/nextjs/react */
   test(
-    "each active pack with a context.md produces .claude/rules/forge-<pack-id>.md with the same content",
+    "each active pack with a context.md produces .claude/rules/forge-<pack-id>.md: one line saying an explicit instruction wins, then the same content",
     () => {
       const repo = applied("nextjs-prisma-app");
-      expect(read(repo, ".claude/rules/forge-typescript-nextjs-react.md")).toBe(read(join(import.meta.dir, "../.."), "packs/typescript/nextjs/react/context.md"));
+      expect(read(repo, ".claude/rules/forge-typescript-nextjs-react.md")).toBe(
+        "These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.\n\n" +
+          read(join(import.meta.dir, "../.."), "packs/typescript/nextjs/react/context.md"),
+      );
       expect(read(repo, ".claude/rules/forge-typescript-nextjs-react.md")).not.toContain("paths:");
     },
     T,

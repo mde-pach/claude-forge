@@ -1,1 +1,1 @@
-FastAPI. Dependencies use `Annotated[T, Depends(...)]`. Startup and shutdown use `lifespan`. Request and response bodies are Pydantic v2 models.
+FastAPI. Dependencies use `Annotated[T, Depends(...)]` (FAST002). Startup and shutdown use `lifespan` (`@app.on_event` is rejected). FastAPI reads request and response bodies from Pydantic v2 models.

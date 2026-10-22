@@ -1,25 +1,37 @@
 ===== .claude/rules/forge-python-fastapi.md
-FastAPI. Dependencies use `Annotated[T, Depends(...)]`. Startup and shutdown use `lifespan`. Request and response bodies are Pydantic v2 models.
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
+FastAPI. Dependencies use `Annotated[T, Depends(...)]` (FAST002). Startup and shutdown use `lifespan` (`@app.on_event` is rejected). FastAPI reads request and response bodies from Pydantic v2 models.
 
 ===== .claude/rules/forge-python-pydantic.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
 Pydantic v2: `model_validate`, `model_dump`, `model_config = ConfigDict(...)`, `@field_validator`, `@model_validator`, `Field(pattern=...)`, `TypeAdapter(T).validate_python(...)` (not `parse_obj_as`).
 
 ===== .claude/rules/forge-python-pytest.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
 pytest. Tests assert behaviour: never weaken, remove or skip an assertion to make a test pass.
 If an existing test looks wrong, stop and ask; never edit it to make the code pass.
 
 ===== .claude/rules/forge-python-sqlalchemy-alembic.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
 Alembic with an async engine: `alembic/env.py` runs migrations through `run_async_migrations()` and `connection.run_sync()`. New revisions: `alembic revision --autogenerate -m "<change>"`. Committed revisions are never edited.
 
 ===== .claude/rules/forge-python-sqlalchemy.md
-SQLAlchemy 2.0 async. Models: `class Base(DeclarativeBase)`, `Mapped[T]`, `mapped_column()`, `relationship(back_populates=...)`. Queries: `select()` with `session.execute()` or `session.scalars()`. Sessions: `async_sessionmaker(engine, expire_on_commit=False)`.
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
+SQLAlchemy 2.0 async. Models: `class Base(DeclarativeBase)`, `Mapped[T]`, `mapped_column()`, `relationship(back_populates=...)`. Queries: `select()` with `session.execute()` or `session.scalars()` (`session.query()` is rejected). Sessions: `async_sessionmaker(engine, expire_on_commit=False)`.
 Async sessions cannot lazy-load (`MissingGreenlet`): load related rows with `selectinload()`, or declare `lazy="raise"`.
-`text()` SQL is constant with bound parameters (`:id`).
+Values reach `text()` SQL as bound parameters (`:id`): an f-string, `.format()`, `%` or `+` inside `text()`, and a string literal passed to `.execute()`, are rejected. Statements that cannot take parameters (`SET`, `SET LOCAL`) may embed a validated value such as an int.
 
 ===== .claude/rules/forge-python.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
 Python project managed with uv. Tools run from `.venv/bin`. Type checking: basedpyright.
-Async code never blocks the event loop: no `requests`, `time.sleep` or blocking `open()` inside `async def`.
-Ignore comments name their rule (`# pyright: ignore[ruleName]`).
+Inside `async def`, the checks reject blocking calls that ruff's ASYNC210, ASYNC230 and ASYNC251 detect (sync HTTP clients, `open()`, `time.sleep`).
+Ignore comments name their rule (`# pyright: ignore[ruleName]`), and a changed file may not gain suppression comments.
 
 ===== .claude/settings.json
 {
@@ -6993,12 +7005,12 @@ exit "$fail"
     "python/uv/no-pip": "00667955d4cd816878c5358a3503771adf37b8015214dae0b1ed32583a081537"
   },
   "files": {
-    ".claude/rules/forge-python-fastapi.md": "c01694c6aaa78d058953ccf652819e9c4462229fc980fbec0c00aeeec0af48ca",
-    ".claude/rules/forge-python-pydantic.md": "03935c2af19721cf983bef1189c78631d082bf113145d26e862984dfc07ad41f",
-    ".claude/rules/forge-python-pytest.md": "dcf5ee0f84b1d8513cb5ce2293ee60bf28f10e03d3fb3b17936c91f608e5efd5",
-    ".claude/rules/forge-python-sqlalchemy-alembic.md": "033a5662bf3ac0ea0d4d46bd7a58c929f4b9d6794022c64bc68e8fdb9d73531b",
-    ".claude/rules/forge-python-sqlalchemy.md": "08019464ebec5262a7eacf26bcc1102a2746c6ab281c9b83855cd7068d2a2dda",
-    ".claude/rules/forge-python.md": "11fa9c748e2b0f9ad1b81d0c29c2a2fd1a1f826976bb6aeb34fc9ff306683ff9",
+    ".claude/rules/forge-python-fastapi.md": "034ae6ae486c1c3657732c602c5e411ae2dad337d994de55231005807a8b40df",
+    ".claude/rules/forge-python-pydantic.md": "814dc766e022a4439f6b24578b90d34027f49f6e23ed46ee3b6d64519bfe9d07",
+    ".claude/rules/forge-python-pytest.md": "c44b8d211f665eb018bf3e8f375e5006d04dae400f28e50e1103837b549aa6cf",
+    ".claude/rules/forge-python-sqlalchemy-alembic.md": "f16da5b69615b1b19ec5997c9f3d54c1b9de2fa09fea0e085ef1ce99f6b6980d",
+    ".claude/rules/forge-python-sqlalchemy.md": "5f6196f04c027b1e056e5378adcd2dcf112ea9b1e4160cb1fb7e6b8974b54a69",
+    ".claude/rules/forge-python.md": "abdc89b63568d6ec94837deb55306633b3d76d55f5434a4995124278e6befb15",
     ".claude/skills/forge-project/.claude-plugin/plugin.json": "c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2",
     ".claude/skills/forge-project/hooks/hooks.json": "9d7dba31b8c292fd2222d41ed40899e1a9ffadf49af7ac13b167568ab0eb4035",
     ".claude/skills/forge-project/scripts/bash-snapshot.sh": "d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8",
@@ -7088,12 +7100,12 @@ exit "$fail"
 }
 
 ===== .forge/manifest.sha256
-c01694c6aaa78d058953ccf652819e9c4462229fc980fbec0c00aeeec0af48ca  .claude/rules/forge-python-fastapi.md
-03935c2af19721cf983bef1189c78631d082bf113145d26e862984dfc07ad41f  .claude/rules/forge-python-pydantic.md
-dcf5ee0f84b1d8513cb5ce2293ee60bf28f10e03d3fb3b17936c91f608e5efd5  .claude/rules/forge-python-pytest.md
-033a5662bf3ac0ea0d4d46bd7a58c929f4b9d6794022c64bc68e8fdb9d73531b  .claude/rules/forge-python-sqlalchemy-alembic.md
-08019464ebec5262a7eacf26bcc1102a2746c6ab281c9b83855cd7068d2a2dda  .claude/rules/forge-python-sqlalchemy.md
-11fa9c748e2b0f9ad1b81d0c29c2a2fd1a1f826976bb6aeb34fc9ff306683ff9  .claude/rules/forge-python.md
+034ae6ae486c1c3657732c602c5e411ae2dad337d994de55231005807a8b40df  .claude/rules/forge-python-fastapi.md
+814dc766e022a4439f6b24578b90d34027f49f6e23ed46ee3b6d64519bfe9d07  .claude/rules/forge-python-pydantic.md
+c44b8d211f665eb018bf3e8f375e5006d04dae400f28e50e1103837b549aa6cf  .claude/rules/forge-python-pytest.md
+f16da5b69615b1b19ec5997c9f3d54c1b9de2fa09fea0e085ef1ce99f6b6980d  .claude/rules/forge-python-sqlalchemy-alembic.md
+5f6196f04c027b1e056e5378adcd2dcf112ea9b1e4160cb1fb7e6b8974b54a69  .claude/rules/forge-python-sqlalchemy.md
+abdc89b63568d6ec94837deb55306633b3d76d55f5434a4995124278e6befb15  .claude/rules/forge-python.md
 c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills/forge-project/.claude-plugin/plugin.json
 9d7dba31b8c292fd2222d41ed40899e1a9ffadf49af7ac13b167568ab0eb4035  .claude/skills/forge-project/hooks/hooks.json
 d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills/forge-project/scripts/bash-snapshot.sh

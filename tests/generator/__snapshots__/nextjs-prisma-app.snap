@@ -1,52 +1,68 @@
 ===== .claude/rules/forge-typescript-nextjs-react.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
 React 19 in the App Router: components are Server Components unless their file starts with `'use client'`.
 State, effects, context, refs and event handlers need a Client Component; keep `'use client'` at the leaves.
 Server Actions are async functions in a file or function marked `'use server'`.
 
 ===== .claude/rules/forge-typescript-nextjs.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
 Next.js 16 App Router. Request APIs (`params`, `searchParams`, `cookies()`, `headers()`, `draftMode()`) are async: await them.
 Components are Server Components unless the file starts with `'use client'`.
 Request interception lives in `proxy.ts` (not `middleware.ts`).
 `revalidateTag(tag, "max")` takes a cacheLife profile; `updateTag(tag)` in a Server Action gives read-your-writes.
 Remote images are allowed with `images.remotePatterns`.
 `next lint` no longer exists and `next build` does not lint; lint runs through Biome.
-Server Actions are public POST endpoints: validate their input with Zod and check authorization inside each one.
-Variables prefixed `NEXT_PUBLIC_` are inlined into the browser bundle; secrets never use that prefix.
+Server Actions are public POST endpoints. An exported async function in a `'use server'` file that takes input, and a POST, PUT, PATCH or DELETE route handler, call a schema's `.parse()` / `.safeParse()` and an auth helper (`auth()`, `getSession()`, `currentUser()`, ...); both are checked.
+`NEXT_PUBLIC_` variables are inlined into the browser bundle; one named like `*SECRET*`, `*PRIVATE*`, `*PASSWORD*`, `*SERVICE_ROLE*` or `*DATABASE_URL*` is rejected.
 
 ===== .claude/rules/forge-typescript-playwright.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
 Playwright. Locate elements with `getByRole`, `getByLabel`, `getByText` or `getByTestId`; web-first assertions (`await expect(locator)...`) wait on their own.
-Never wait a fixed time (`waitForTimeout`).
+`waitForTimeout` (a fixed wait) is rejected in end-to-end tests.
 If an existing test looks wrong, stop and ask; never edit it to make the code pass.
 Accessibility: `@axe-core/playwright` (`new AxeBuilder({ page }).analyze()`) checks pages for WCAG violations in end-to-end tests.
 
 ===== .claude/rules/forge-typescript-prisma.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
 Prisma 7. Generator `prisma-client` with an explicit `output`; the client is imported from that path.
 SQL databases connect through a driver adapter (e.g. `@prisma/adapter-pg`) passed to `new PrismaClient({ adapter })`.
 CLI configuration and the connection URL live in `prisma.config.ts`; `.env` is not loaded automatically.
 `prisma migrate dev` does not seed: run `prisma db seed`. Query hooks use Client Extensions (`$extends`; `$use` is removed).
-Raw SQL uses the tagged `$queryRaw` / `$executeRaw` forms, never the `Unsafe` variants.
+Raw SQL uses the tagged `$queryRaw` / `$executeRaw` forms; the `Unsafe` variants are rejected.
 
 ===== .claude/rules/forge-typescript-react.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
 React 19: `ref` is a regular prop of function components; `forwardRef` is not needed.
 Form actions use `useActionState` from `react` (not `useFormState` from `react-dom`); `act` comes from `react`.
 Function components have no `propTypes` or `defaultProps`: use TypeScript types and default parameter values.
 `ReactDOM.render` is removed: use `createRoot` from `react-dom/client`.
 
 ===== .claude/rules/forge-typescript-vitest.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
 Vitest 4. Several test setups are `test.projects` in `vitest.config.*`; a `vitest.workspace.*` file is ignored. Parallelism is set with `maxWorkers`.
 Tests assert behaviour: never weaken, remove or skip an assertion to make a test pass.
 If an existing test looks wrong, stop and ask; never edit it to make the code pass.
 
 ===== .claude/rules/forge-typescript-zod.md
-Untrusted input is validated with Zod at boundaries. Types derive from schemas with `z.infer<typeof Schema>`.
-Zod 4: string formats are top-level (`z.email()`, `z.uuid()`, `z.url()`, `z.iso.datetime()`), not `z.string().email()`.
-Custom messages use the single `error` parameter (not `message`, `required_error`, `invalid_type_error` or `errorMap`).
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
+Zod validates untrusted input at boundaries; types derive from schemas with `z.infer<typeof Schema>`.
+Zod 4: string formats are top-level (`z.email()`, `z.uuid()`, `z.url()`, `z.iso.datetime()`); `z.string().email()` and the like are rejected.
+Custom messages use the single `error` parameter (`message`, `required_error`, `invalid_type_error` and `errorMap` are rejected).
 Object strictness: `z.strictObject()` and `z.looseObject()`. Errors: `error.issues`, `z.treeifyError()`, `z.flattenError()`.
 
 ===== .claude/rules/forge-typescript.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
 TypeScript, strict. Bun is the runtime and package manager.
-TypeScript 6 deprecates `baseUrl`, `moduleResolution: "node10"`, `target: "es5"` and `esModuleInterop: false`, and TypeScript 7 removes them: migrate them, never add `ignoreDeprecations`.
-No `!` non-null assertions and no `as unknown as T`: narrow with a check, or parse with a schema.
+TypeScript 6 deprecates `baseUrl`, `moduleResolution: "node10"`, `target: "es5"` and `esModuleInterop: false`, and TypeScript 7 removes them: migrate them; `ignoreDeprecations` in a tsconfig is rejected.
+`!` non-null assertions and `as unknown as T` are rejected: narrow with a check, or parse with a schema.
 
 ===== .claude/settings.json
 {
@@ -7803,14 +7819,14 @@ exit "$fail"
     "typescript/zod/v4-string-formats": "2a810c89da216a17bd340b34c932f213b62d48b3b6c7dbf52ad0f427c4bef286"
   },
   "files": {
-    ".claude/rules/forge-typescript-nextjs-react.md": "bbf9a525d99bb9496bfe7edf74c6b320cb871bec52f39eb5e95a9a9aaf5adda7",
-    ".claude/rules/forge-typescript-nextjs.md": "379002da1f40e28cca2b5f5d2050dabdcc9f985584d918902f5b5789553b47c2",
-    ".claude/rules/forge-typescript-playwright.md": "f691adf8d08f4306e75143e5f0d986368f68983fa98ea173b15154354913be38",
-    ".claude/rules/forge-typescript-prisma.md": "86ef1d28d55ff94140fa489111de8268d9b92f7ace05fa05b5ad95803d83eeb2",
-    ".claude/rules/forge-typescript-react.md": "f0d9fdb41ab5d3a0eada00b1e644a1c7482249e2b84790e0091dde243d646bba",
-    ".claude/rules/forge-typescript-vitest.md": "4e8ce04a2f16e25b8380743c714a0a1af80a4670e005e1232cee04f97595c402",
-    ".claude/rules/forge-typescript-zod.md": "e4ac6367bff4df753955b8b96f082c71aafa9e9d516fcd3e2a121c3fdd29beaf",
-    ".claude/rules/forge-typescript.md": "25cdd6d16f576c721972491115827aaee0ad7c93adb9317c7447ca968ecefd36",
+    ".claude/rules/forge-typescript-nextjs-react.md": "2e3462b5d3b2ae7ca170af39cf82bab25bbf97a1dc41f937dcd43239740f2736",
+    ".claude/rules/forge-typescript-nextjs.md": "9f2bdf93b2eb40986e973eb71d34968c40fc3ac43696c29064e8ae09a09bd68b",
+    ".claude/rules/forge-typescript-playwright.md": "bdcd46247bbeef5fb8b2f874dfe478cc2c606c432a16e9ac6fdf1b8a1ff08aaa",
+    ".claude/rules/forge-typescript-prisma.md": "3f346f62a0e2b51c52b0203f3862ea51a6d9b06cf42617678fd3954b948e43b3",
+    ".claude/rules/forge-typescript-react.md": "ae5f638883028fa1744f332b050e244ce57713ad2cc28ab5f8ee259f0088eb20",
+    ".claude/rules/forge-typescript-vitest.md": "079892578a4e06a375e61bb9bef8e098b8336ac6ee02f9ea4b605615f68fb0f2",
+    ".claude/rules/forge-typescript-zod.md": "a5e2685c59231ba3ce5e994b28fa8dfd5e5e7946275ef3236334776e61329db7",
+    ".claude/rules/forge-typescript.md": "adae3b7189e1b913fd0dbeb10f127fed7bde5b738f9889ddcff7f4a5a647b3a0",
     ".claude/skills/forge-project/.claude-plugin/plugin.json": "c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2",
     ".claude/skills/forge-project/hooks/hooks.json": "9d7dba31b8c292fd2222d41ed40899e1a9ffadf49af7ac13b167568ab0eb4035",
     ".claude/skills/forge-project/scripts/bash-snapshot.sh": "d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8",
@@ -7938,14 +7954,14 @@ exit "$fail"
 }
 
 ===== .forge/manifest.sha256
-bbf9a525d99bb9496bfe7edf74c6b320cb871bec52f39eb5e95a9a9aaf5adda7  .claude/rules/forge-typescript-nextjs-react.md
-379002da1f40e28cca2b5f5d2050dabdcc9f985584d918902f5b5789553b47c2  .claude/rules/forge-typescript-nextjs.md
-f691adf8d08f4306e75143e5f0d986368f68983fa98ea173b15154354913be38  .claude/rules/forge-typescript-playwright.md
-86ef1d28d55ff94140fa489111de8268d9b92f7ace05fa05b5ad95803d83eeb2  .claude/rules/forge-typescript-prisma.md
-f0d9fdb41ab5d3a0eada00b1e644a1c7482249e2b84790e0091dde243d646bba  .claude/rules/forge-typescript-react.md
-4e8ce04a2f16e25b8380743c714a0a1af80a4670e005e1232cee04f97595c402  .claude/rules/forge-typescript-vitest.md
-e4ac6367bff4df753955b8b96f082c71aafa9e9d516fcd3e2a121c3fdd29beaf  .claude/rules/forge-typescript-zod.md
-25cdd6d16f576c721972491115827aaee0ad7c93adb9317c7447ca968ecefd36  .claude/rules/forge-typescript.md
+2e3462b5d3b2ae7ca170af39cf82bab25bbf97a1dc41f937dcd43239740f2736  .claude/rules/forge-typescript-nextjs-react.md
+9f2bdf93b2eb40986e973eb71d34968c40fc3ac43696c29064e8ae09a09bd68b  .claude/rules/forge-typescript-nextjs.md
+bdcd46247bbeef5fb8b2f874dfe478cc2c606c432a16e9ac6fdf1b8a1ff08aaa  .claude/rules/forge-typescript-playwright.md
+3f346f62a0e2b51c52b0203f3862ea51a6d9b06cf42617678fd3954b948e43b3  .claude/rules/forge-typescript-prisma.md
+ae5f638883028fa1744f332b050e244ce57713ad2cc28ab5f8ee259f0088eb20  .claude/rules/forge-typescript-react.md
+079892578a4e06a375e61bb9bef8e098b8336ac6ee02f9ea4b605615f68fb0f2  .claude/rules/forge-typescript-vitest.md
+a5e2685c59231ba3ce5e994b28fa8dfd5e5e7946275ef3236334776e61329db7  .claude/rules/forge-typescript-zod.md
+adae3b7189e1b913fd0dbeb10f127fed7bde5b738f9889ddcff7f4a5a647b3a0  .claude/rules/forge-typescript.md
 c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills/forge-project/.claude-plugin/plugin.json
 9d7dba31b8c292fd2222d41ed40899e1a9ffadf49af7ac13b167568ab0eb4035  .claude/skills/forge-project/hooks/hooks.json
 d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills/forge-project/scripts/bash-snapshot.sh

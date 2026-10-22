@@ -1,24 +1,32 @@
 ===== .claude/rules/forge-typescript-astro-react.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
 React components in Astro render to static HTML; they become interactive only with a `client:*` directive (`client:load`, `client:idle`, `client:visible`, `client:only="react"`).
 Hooks and event handlers run only in hydrated islands.
 Props passed to a hydrated island must be serializable.
 
 ===== .claude/rules/forge-typescript-astro.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
 Astro. `.astro` components render on the server; the default output is static HTML.
 `.astro` files are type-checked with `astro check`, not `tsc`.
 Content collections are declared in `src/content.config.ts` with the `glob()` / `file()` loaders; entries are identified by `entry.id` (no `slug`).
 `Astro.glob()` is removed: use `getCollection()` or `import.meta.glob()`. View transitions use `<ClientRouter />`.
 
 ===== .claude/rules/forge-typescript-react.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
 React 19: `ref` is a regular prop of function components; `forwardRef` is not needed.
 Form actions use `useActionState` from `react` (not `useFormState` from `react-dom`); `act` comes from `react`.
 Function components have no `propTypes` or `defaultProps`: use TypeScript types and default parameter values.
 `ReactDOM.render` is removed: use `createRoot` from `react-dom/client`.
 
 ===== .claude/rules/forge-typescript.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
 TypeScript, strict. Bun is the runtime and package manager.
-TypeScript 6 deprecates `baseUrl`, `moduleResolution: "node10"`, `target: "es5"` and `esModuleInterop: false`, and TypeScript 7 removes them: migrate them, never add `ignoreDeprecations`.
-No `!` non-null assertions and no `as unknown as T`: narrow with a check, or parse with a schema.
+TypeScript 6 deprecates `baseUrl`, `moduleResolution: "node10"`, `target: "es5"` and `esModuleInterop: false`, and TypeScript 7 removes them: migrate them; `ignoreDeprecations` in a tsconfig is rejected.
+`!` non-null assertions and `as unknown as T` are rejected: narrow with a check, or parse with a schema.
 
 ===== .claude/settings.json
 {
@@ -6413,10 +6421,10 @@ exit "$fail"
     "typescript/unchecked-index": "c8a32a9a463d933695100cbee6ec896fc7bb41bad7d252871fd371ae78801755"
   },
   "files": {
-    ".claude/rules/forge-typescript-astro-react.md": "9b8db26a069ae83cb68b64a9f6f379fef44ea224487857717c0d15a55bd531df",
-    ".claude/rules/forge-typescript-astro.md": "d6d34d6c039053ad880b695cb238d6918070c08099d0d2430753f38a2142c0bd",
-    ".claude/rules/forge-typescript-react.md": "f0d9fdb41ab5d3a0eada00b1e644a1c7482249e2b84790e0091dde243d646bba",
-    ".claude/rules/forge-typescript.md": "25cdd6d16f576c721972491115827aaee0ad7c93adb9317c7447ca968ecefd36",
+    ".claude/rules/forge-typescript-astro-react.md": "6171b739150fd0044e80d41cf23c1863986f9b149ce3a86638ac495c7efdf96d",
+    ".claude/rules/forge-typescript-astro.md": "0dd306180802b4d702da1994991d67cdfd0d28bb3ca86b5808130e23a229d1cb",
+    ".claude/rules/forge-typescript-react.md": "ae5f638883028fa1744f332b050e244ce57713ad2cc28ab5f8ee259f0088eb20",
+    ".claude/rules/forge-typescript.md": "adae3b7189e1b913fd0dbeb10f127fed7bde5b738f9889ddcff7f4a5a647b3a0",
     ".claude/skills/forge-project/.claude-plugin/plugin.json": "c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2",
     ".claude/skills/forge-project/hooks/hooks.json": "9d7dba31b8c292fd2222d41ed40899e1a9ffadf49af7ac13b167568ab0eb4035",
     ".claude/skills/forge-project/scripts/bash-snapshot.sh": "d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8",
@@ -6488,10 +6496,10 @@ exit "$fail"
 }
 
 ===== .forge/manifest.sha256
-9b8db26a069ae83cb68b64a9f6f379fef44ea224487857717c0d15a55bd531df  .claude/rules/forge-typescript-astro-react.md
-d6d34d6c039053ad880b695cb238d6918070c08099d0d2430753f38a2142c0bd  .claude/rules/forge-typescript-astro.md
-f0d9fdb41ab5d3a0eada00b1e644a1c7482249e2b84790e0091dde243d646bba  .claude/rules/forge-typescript-react.md
-25cdd6d16f576c721972491115827aaee0ad7c93adb9317c7447ca968ecefd36  .claude/rules/forge-typescript.md
+6171b739150fd0044e80d41cf23c1863986f9b149ce3a86638ac495c7efdf96d  .claude/rules/forge-typescript-astro-react.md
+0dd306180802b4d702da1994991d67cdfd0d28bb3ca86b5808130e23a229d1cb  .claude/rules/forge-typescript-astro.md
+ae5f638883028fa1744f332b050e244ce57713ad2cc28ab5f8ee259f0088eb20  .claude/rules/forge-typescript-react.md
+adae3b7189e1b913fd0dbeb10f127fed7bde5b738f9889ddcff7f4a5a647b3a0  .claude/rules/forge-typescript.md
 c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills/forge-project/.claude-plugin/plugin.json
 9d7dba31b8c292fd2222d41ed40899e1a9ffadf49af7ac13b167568ab0eb4035  .claude/skills/forge-project/hooks/hooks.json
 d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills/forge-project/scripts/bash-snapshot.sh
