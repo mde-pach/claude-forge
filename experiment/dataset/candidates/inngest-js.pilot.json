@@ -1,0 +1,662 @@
+{
+ "repo": "inngest-js",
+ "window": "pilot",
+ "range": [
+  "2026-05-01T00:00:00Z",
+  "2026-07-01T00:00:00Z"
+ ],
+ "drops": {
+  "no_source_change": 4,
+  "bot_author": 10,
+  "no_test_change": 16,
+  "dependency_manifest_or_lock_changed": 3,
+  "source_lines_out_of_range": 2,
+  "revert": 1
+ },
+ "candidates": [
+  {
+   "repo": "inngest-js",
+   "commit": "5c8f50e102dcdcaf2e7d42b66972cc4bffb84e72",
+   "parent": "60cda73f255a6fb1f014f6eb3c3541be19940154",
+   "date": "2026-05-01T14:11:20-07:00",
+   "subject": "EXE-1708: Support Temporal.* types for .Timeout fields (#1504)",
+   "type": "other",
+   "test_files": [
+    "packages/inngest/src/components/InngestStepTools.test.ts",
+    "packages/inngest/src/components/middleware/utils.test.ts",
+    "packages/inngest/src/helpers/strings.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/InngestStepTools.ts",
+    "packages/inngest/src/components/middleware/manager.ts",
+    "packages/inngest/src/components/middleware/utils.ts",
+    "packages/inngest/src/helpers/strings.ts",
+    "packages/inngest/src/types.ts"
+   ],
+   "source_lines": 136,
+   "all_files": [
+    ".changeset/temporal-types.md",
+    "packages/inngest/src/components/InngestStepTools.test.ts",
+    "packages/inngest/src/components/InngestStepTools.ts",
+    "packages/inngest/src/components/middleware/manager.ts",
+    "packages/inngest/src/components/middleware/utils.test.ts",
+    "packages/inngest/src/components/middleware/utils.ts",
+    "packages/inngest/src/helpers/strings.test.ts",
+    "packages/inngest/src/helpers/strings.ts",
+    "packages/inngest/src/types.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "be675a3d3c2a39b415ded8db5e2626e22b941760",
+   "parent": "1f588388a99d3fa09fd745936a0a9db029eb4c98",
+   "date": "2026-05-06T20:48:24-04:00",
+   "subject": "Fix waitForSignal not in middleware StepType union (#1512)",
+   "type": "fix",
+   "test_files": [
+    "packages/inngest/src/components/middleware/utils.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/middleware/middleware.ts",
+    "packages/inngest/src/components/middleware/utils.ts"
+   ],
+   "source_lines": 3,
+   "all_files": [
+    ".changeset/itchy-turtles-wonder.md",
+    "packages/inngest/src/components/middleware/middleware.ts",
+    "packages/inngest/src/components/middleware/utils.test.ts",
+    "packages/inngest/src/components/middleware/utils.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "cbad05c3052de84defe36797c23eb0da295022fb",
+   "parent": "be675a3d3c2a39b415ded8db5e2626e22b941760",
+   "date": "2026-05-07T16:37:38-05:00",
+   "subject": "Standardize variant naming (#1513)",
+   "type": "other",
+   "test_files": [
+    "packages/inngest/src/components/experiment.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/InngestGroupTools.ts"
+   ],
+   "source_lines": 4,
+   "all_files": [
+    ".changeset/quiet-moons-cross.md",
+    "packages/inngest/src/components/InngestGroupTools.ts",
+    "packages/inngest/src/components/experiment.test.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "1bca44a8293d6d44e93266fbe3e8dd4dc7e0fa73",
+   "parent": "cbad05c3052de84defe36797c23eb0da295022fb",
+   "date": "2026-05-11T17:23:55+02:00",
+   "subject": "Add request ID (#1516)",
+   "type": "feat",
+   "test_files": [
+    "packages/inngest/src/components/InngestCommHandler.test.ts",
+    "packages/inngest/src/components/connect/config.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/Inngest.ts",
+    "packages/inngest/src/components/InngestCommHandler.ts",
+    "packages/inngest/src/components/connect/config.ts",
+    "packages/inngest/src/components/triggers/typeHelpers.ts",
+    "packages/inngest/src/helpers/consts.ts",
+    "packages/inngest/src/proto/src/components/connect/protobuf/connect.ts",
+    "packages/inngest/src/types.ts"
+   ],
+   "source_lines": 71,
+   "all_files": [
+    ".changeset/real-toys-repair.md",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "packages/inngest/src/components/Inngest.ts",
+    "packages/inngest/src/components/InngestCommHandler.test.ts",
+    "packages/inngest/src/components/InngestCommHandler.ts",
+    "packages/inngest/src/components/connect/CONNECT_SDK_SPEC.md",
+    "packages/inngest/src/components/connect/config.test.ts",
+    "packages/inngest/src/components/connect/config.ts",
+    "packages/inngest/src/components/connect/protobuf/connect.proto",
+    "packages/inngest/src/components/triggers/typeHelpers.ts",
+    "packages/inngest/src/helpers/consts.ts",
+    "packages/inngest/src/proto/src/components/connect/protobuf/connect.ts",
+    "packages/inngest/src/types.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "fd71a95bc2a5a1cbc20ae8d80a97a6e12955ce9c",
+   "parent": "8bab085560ca8c3f72516247f4fa6d1ae1877f6a",
+   "date": "2026-05-12T11:45:24-07:00",
+   "subject": "fix: preserve retryAfter through step error path (#1518)",
+   "type": "fix",
+   "test_files": [
+    "packages/inngest/src/test/integration/retryAfterError.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/execution/engine.ts"
+   ],
+   "source_lines": 10,
+   "all_files": [
+    ".changeset/warm-corners-check.md",
+    "packages/inngest/src/components/execution/engine.ts",
+    "packages/inngest/src/test/integration/retryAfterError.test.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "342a7369b757c5dd34f009eabcb6642cd207a721",
+   "parent": "0131f05d3d8afc86c984feb83237c94a9613143a",
+   "date": "2026-05-14T10:06:36-04:00",
+   "subject": "Add option to disable unauthed PUT requests (#1506)",
+   "type": "feat",
+   "test_files": [
+    "packages/inngest/src/test/integration/auth.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/InngestCommHandler.ts",
+    "packages/inngest/src/helpers/consts.ts",
+    "packages/inngest/src/types.ts"
+   ],
+   "source_lines": 127,
+   "all_files": [
+    ".changeset/stale-pants-hang.md",
+    "packages/inngest/src/components/InngestCommHandler.ts",
+    "packages/inngest/src/helpers/consts.ts",
+    "packages/inngest/src/test/integration/auth.test.ts",
+    "packages/inngest/src/types.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "10dad39891b99303d75576c7c53cd8339dac53f5",
+   "parent": "422ff7c95271ba60364e7755520e00e51e5c4621",
+   "date": "2026-05-22T13:25:21-04:00",
+   "subject": "Fix attempt count not resetting during checkpointing (#1540)",
+   "type": "fix",
+   "test_files": [
+    "packages/inngest/src/test/integration/retry.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/execution/engine.ts"
+   ],
+   "source_lines": 23,
+   "all_files": [
+    ".changeset/lucky-owls-prove.md",
+    "packages/inngest/src/components/execution/engine.ts",
+    "packages/inngest/src/test/integration/retry.test.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "79558be210b784b95ea26b36d1f70798548e7707",
+   "parent": "e4f6879f288b78ceb09ca699a3ee58efdb438902",
+   "date": "2026-06-02T08:11:39-07:00",
+   "subject": "feat: use RequestID to gate stale checkpoints (#1511)",
+   "type": "feat",
+   "test_files": [
+    "packages/inngest/src/test/integration/dispatchValidation.test.ts",
+    "packages/inngest/src/test/integration/middleware/useCases/encoding.test.ts",
+    "packages/inngest/src/test/integration/utils.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/api/api.ts",
+    "packages/inngest/src/components/DeferredFunction.ts",
+    "packages/inngest/src/components/InngestCommHandler.ts",
+    "packages/inngest/src/components/execution/InngestExecution.ts",
+    "packages/inngest/src/components/execution/engine.ts",
+    "packages/inngest/src/helpers/marker.ts",
+    "packages/inngest/src/helpers/promises.ts",
+    "packages/test-harness/src/utils.ts"
+   ],
+   "source_lines": 96,
+   "all_files": [
+    ".changeset/tender-areas-type.md",
+    "packages/inngest/src/api/api.ts",
+    "packages/inngest/src/components/DeferredFunction.ts",
+    "packages/inngest/src/components/InngestCommHandler.ts",
+    "packages/inngest/src/components/execution/InngestExecution.ts",
+    "packages/inngest/src/components/execution/engine.ts",
+    "packages/inngest/src/helpers/marker.ts",
+    "packages/inngest/src/helpers/promises.ts",
+    "packages/inngest/src/test/integration/dispatchValidation.test.ts",
+    "packages/inngest/src/test/integration/middleware/useCases/encoding.test.ts",
+    "packages/inngest/src/test/integration/utils.ts",
+    "packages/test-harness/src/utils.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "d68505b88daeb9ba937b218ce9c5bfb36362b675",
+   "parent": "5bd8777594a601e5cb08cd451fb47850ec9e8fe9",
+   "date": "2026-06-09T09:25:21-07:00",
+   "subject": "feat(defers): add transformDeferInput middleware hook (#1559)",
+   "type": "feat",
+   "test_files": [
+    "packages/inngest/src/test/integration/defer/middleware.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/InngestStepTools.ts",
+    "packages/inngest/src/components/execution/engine.ts",
+    "packages/inngest/src/components/middleware/manager.ts",
+    "packages/inngest/src/components/middleware/middleware.ts"
+   ],
+   "source_lines": 113,
+   "all_files": [
+    ".changeset/slick-sloths-matter.md",
+    "packages/inngest/src/components/InngestStepTools.ts",
+    "packages/inngest/src/components/execution/defer.md",
+    "packages/inngest/src/components/execution/engine.ts",
+    "packages/inngest/src/components/middleware/manager.ts",
+    "packages/inngest/src/components/middleware/middleware.ts",
+    "packages/inngest/src/test/integration/defer/middleware.test.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "ba9874dc4275592922ae5d9b1ea51a4ff60b2000",
+   "parent": "c6ac75ac3d522ec6b76589adbddfdbb92bb93d29",
+   "date": "2026-06-10T15:23:29-04:00",
+   "subject": "feat(experiments): Rename experiment_name -> experiment in metadata (#1561)",
+   "type": "feat",
+   "test_files": [
+    "packages/inngest/src/components/experiment.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/InngestGroupTools.ts"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    ".changeset/fancy-pumas-lick.md",
+    "packages/inngest/src/components/InngestGroupTools.ts",
+    "packages/inngest/src/components/experiment.test.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "1c3ad87606cea9441f2e01c4f44d2ed81cef8621",
+   "parent": "ba9874dc4275592922ae5d9b1ea51a4ff60b2000",
+   "date": "2026-06-11T11:33:55-07:00",
+   "subject": "fix(checkpointing): resume checkpointing after parallelism (#1567)",
+   "type": "fix",
+   "test_files": [
+    "packages/inngest/src/components/InngestFunction.test.ts",
+    "packages/inngest/src/test/integration/checkpointing/resumeAfterParallelism.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/Inngest.ts",
+    "packages/inngest/src/components/InngestFunction.ts",
+    "packages/inngest/src/types.ts"
+   ],
+   "source_lines": 31,
+   "all_files": [
+    ".changeset/goofy-baths-remain.md",
+    "packages/inngest/src/components/Inngest.ts",
+    "packages/inngest/src/components/InngestFunction.test.ts",
+    "packages/inngest/src/components/InngestFunction.ts",
+    "packages/inngest/src/test/integration/checkpointing/resumeAfterParallelism.test.ts",
+    "packages/inngest/src/types.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "db89151ae6e26b107db70b9e41636daf20509729",
+   "parent": "1c3ad87606cea9441f2e01c4f44d2ed81cef8621",
+   "date": "2026-06-12T09:34:15-07:00",
+   "subject": "EXE-1938: Parse basic AI Metadata from OTel Attributes (#1562)",
+   "type": "other",
+   "test_files": [
+    "packages/inngest/src/components/execution/otel/aiExtractor.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/execution/otel/aiExtractor.ts"
+   ],
+   "source_lines": 144,
+   "all_files": [
+    "packages/inngest/src/components/execution/otel/aiExtractor.test.ts",
+    "packages/inngest/src/components/execution/otel/aiExtractor.ts",
+    "packages/inngest/src/components/execution/otel/testdata/openai_langsmith_otel/basic_responses.otlp.json",
+    "packages/inngest/src/components/execution/otel/testdata/openai_langsmith_otel/basic_responses.otlp.json.out",
+    "packages/inngest/src/components/execution/otel/testdata/openai_langsmith_otel/params_chat.otlp.json",
+    "packages/inngest/src/components/execution/otel/testdata/openai_langsmith_otel/params_chat.otlp.json.out",
+    "packages/inngest/src/components/execution/otel/testdata/openai_langsmith_otel/reasoning_responses.otlp.json",
+    "packages/inngest/src/components/execution/otel/testdata/openai_langsmith_otel/reasoning_responses.otlp.json.out",
+    "packages/inngest/src/components/execution/otel/testdata/openai_langsmith_otel/tools_chat.otlp.json",
+    "packages/inngest/src/components/execution/otel/testdata/openai_langsmith_otel/tools_chat.otlp.json.out",
+    "packages/inngest/src/components/execution/otel/testdata/openai_openinference_arize/basic_responses.otlp.json",
+    "packages/inngest/src/components/execution/otel/testdata/openai_openinference_arize/basic_responses.otlp.json.out",
+    "packages/inngest/src/components/execution/otel/testdata/openai_openinference_arize/embeddings.otlp.json",
+    "packages/inngest/src/components/execution/otel/testdata/openai_openinference_arize/embeddings.otlp.json.out",
+    "packages/inngest/src/components/execution/otel/testdata/openai_openinference_arize/params_chat.otlp.json",
+    "packages/inngest/src/components/execution/otel/testdata/openai_openinference_arize/params_chat.otlp.json.out",
+    "packages/inngest/src/components/execution/otel/testdata/openai_openinference_arize/reasoning_responses.otlp.json",
+    "packages/inngest/src/components/execution/otel/testdata/openai_openinference_arize/reasoning_responses.otlp.json.out",
+    "packages/inngest/src/components/execution/otel/testdata/openai_openinference_arize/stream_chat.otlp.json",
+    "packages/inngest/src/components/execution/otel/testdata/openai_openinference_arize/stream_chat.otlp.json.out",
+    "packages/inngest/src/components/execution/otel/testdata/openai_openinference_arize/tools_chat.otlp.json",
+    "packages/inngest/src/components/execution/otel/testdata/openai_openinference_arize/tools_chat.otlp.json.out",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_official/embeddings.otlp.json",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_official/embeddings.otlp.json.out",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_official/params_chat.otlp.json",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_official/params_chat.otlp.json.out",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_official/stream_chat.otlp.json",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_official/stream_chat.otlp.json.out",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_official/tools_chat.otlp.json",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_official/tools_chat.otlp.json.out",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/basic_responses.otlp.json",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/basic_responses.otlp.json.out",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/params_chat.otlp.json",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/params_chat.otlp.json.out",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/reasoning_responses.otlp.json",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/reasoning_responses.otlp.json.out",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/stream_chat.otlp.json",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/stream_chat.otlp.json.out",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/tools_chat.otlp.json",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/tools_chat.otlp.json.out",
+    "packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/basic_responses.otlp.json",
+    "packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/basic_responses.otlp.json.out",
+    "packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/embeddings.otlp.json",
+    "packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/embeddings.otlp.json.out",
+    "packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/params_chat.otlp.json",
+    "packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/params_chat.otlp.json.out",
+    "packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/reasoning_responses.otlp.json",
+    "packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/reasoning_responses.otlp.json.out",
+    "packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/stream_chat.otlp.json",
+    "packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/stream_chat.otlp.json.out",
+    "packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/tools_chat.otlp.json",
+    "packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/tools_chat.otlp.json.out"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "f256221cd50698f2aaba07a5eda30ca57b5dda11",
+   "parent": "bd6016c18d135be04853f3fd72f5ba604ce9857c",
+   "date": "2026-06-15T14:08:09-07:00",
+   "subject": "Skip declaring startings spans when the span processor is not active (EXE-1950) (#1572)",
+   "type": "other",
+   "test_files": [
+    "packages/inngest/src/components/execution/otel/metadataProcessor.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/execution/otel/metadataProcessor.ts"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    "packages/inngest/src/components/execution/otel/metadataProcessor.test.ts",
+    "packages/inngest/src/components/execution/otel/metadataProcessor.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "1bc2ac7c1949a61e472334b832691e7dfd85290e",
+   "parent": "16fc3fc71167def39f3a3192256c8294e00bdcfc",
+   "date": "2026-06-17T10:35:50-07:00",
+   "subject": "Parse langfuse attributes for AI Metadata (EXE-1938) (#1577)",
+   "type": "other",
+   "test_files": [
+    "packages/inngest/src/components/execution/otel/aiExtractor.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/execution/otel/aiExtractor.ts"
+   ],
+   "source_lines": 101,
+   "all_files": [
+    ".changeset/parse-langfuse.md",
+    "packages/inngest/src/components/execution/otel/aiExtractor.test.ts",
+    "packages/inngest/src/components/execution/otel/aiExtractor.ts",
+    "packages/inngest/src/components/execution/otel/testdata/openai_langfuse_observe/basic_responses.otlp.json",
+    "packages/inngest/src/components/execution/otel/testdata/openai_langfuse_observe/basic_responses.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_langfuse_observe/embeddings.otlp.json",
+    "packages/inngest/src/components/execution/otel/testdata/openai_langfuse_observe/embeddings.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_langfuse_observe/params_chat.otlp.json",
+    "packages/inngest/src/components/execution/otel/testdata/openai_langfuse_observe/params_chat.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_langfuse_observe/reasoning_responses.otlp.json",
+    "packages/inngest/src/components/execution/otel/testdata/openai_langfuse_observe/reasoning_responses.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_langfuse_observe/stream_chat.otlp.json",
+    "packages/inngest/src/components/execution/otel/testdata/openai_langfuse_observe/stream_chat.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_langfuse_observe/tools_chat.otlp.json",
+    "packages/inngest/src/components/execution/otel/testdata/openai_langfuse_observe/tools_chat.otlp.json.snap"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "04a79c95294e08e04a6dd5fdd1ba3d2fc70d014c",
+   "parent": "50a349b772d75b0f60060afb1188116e750fe7dd",
+   "date": "2026-06-18T11:40:34-05:00",
+   "subject": "Sessions (#1547)",
+   "type": "other",
+   "test_files": [
+    "packages/inngest/src/components/Inngest.test.ts",
+    "packages/inngest/src/components/InngestFunction.test.ts",
+    "packages/inngest/src/components/InngestStepTools.test.ts",
+    "packages/inngest/src/components/triggers/trigger.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/Inngest.ts",
+    "packages/inngest/src/components/InngestStepTools.ts",
+    "packages/inngest/src/components/triggers/triggers.ts",
+    "packages/inngest/src/components/triggers/typeHelpers.ts",
+    "packages/inngest/src/helpers/sessions.ts",
+    "packages/inngest/src/index.ts",
+    "packages/inngest/src/types.ts"
+   ],
+   "source_lines": 202,
+   "all_files": [
+    ".changeset/plenty-comics-prove.md",
+    "packages/inngest/src/components/Inngest.test.ts",
+    "packages/inngest/src/components/Inngest.ts",
+    "packages/inngest/src/components/InngestFunction.test.ts",
+    "packages/inngest/src/components/InngestStepTools.test.ts",
+    "packages/inngest/src/components/InngestStepTools.ts",
+    "packages/inngest/src/components/triggers/trigger.test.ts",
+    "packages/inngest/src/components/triggers/triggers.ts",
+    "packages/inngest/src/components/triggers/typeHelpers.ts",
+    "packages/inngest/src/helpers/sessions.ts",
+    "packages/inngest/src/index.ts",
+    "packages/inngest/src/types.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "aa315c7ec9b99a69a7f85720e2805991b3e23841",
+   "parent": "748c6cc4fb167af9223c2b87d6c6543245d1428b",
+   "date": "2026-06-22T09:01:20-04:00",
+   "subject": "feature: add AI metadata extraction opt-out (#1595)",
+   "type": "feat",
+   "test_files": [
+    "packages/inngest/src/test/integration/traces/stepMetadata.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/Inngest.ts",
+    "packages/inngest/src/components/execution/engine.ts",
+    "packages/inngest/src/types.ts"
+   ],
+   "source_lines": 65,
+   "all_files": [
+    ".changeset/long-onions-accept.md",
+    "packages/inngest/src/components/Inngest.ts",
+    "packages/inngest/src/components/execution/engine.ts",
+    "packages/inngest/src/test/integration/traces/stepMetadata.test.ts",
+    "packages/inngest/src/types.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "c02cc265bfe73ead0a761c80ddcad52393193649",
+   "parent": "e2e89ead7475cec06693d4357b920820a1687ecf",
+   "date": "2026-06-23T11:50:50-07:00",
+   "subject": "Support deprecated `gen_ai.system` for AI Metadata Extraction (EXE-1976) (#1599)",
+   "type": "other",
+   "test_files": [
+    "packages/inngest/src/components/execution/otel/aiExtractor.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/execution/otel/aiExtractor.ts"
+   ],
+   "source_lines": 52,
+   "all_files": [
+    ".changeset/nice-books-vanish.md",
+    "packages/inngest/src/components/execution/otel/aiExtractor.test.ts",
+    "packages/inngest/src/components/execution/otel/aiExtractor.ts",
+    "packages/inngest/src/components/execution/otel/testdata/openai_langsmith_otel/basic_responses.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_official/embeddings.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_official/params_chat.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_official/stream_chat.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_official/tools_chat.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/basic_responses.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/params_chat.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/stream_chat.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/tools_chat.otlp.json.snap"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "2462e875c01b43f9b24a386d5cc7655fc64be37e",
+   "parent": "c02cc265bfe73ead0a761c80ddcad52393193649",
+   "date": "2026-06-23T11:57:29-07:00",
+   "subject": "Parse finish reasons from AI Metadata (EXE-1976) (#1600)",
+   "type": "other",
+   "test_files": [
+    "packages/inngest/src/components/execution/otel/aiExtractor.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/execution/otel/aiExtractor.ts"
+   ],
+   "source_lines": 59,
+   "all_files": [
+    ".changeset/wise-drinks-knock.md",
+    "packages/inngest/src/components/execution/otel/aiExtractor.test.ts",
+    "packages/inngest/src/components/execution/otel/aiExtractor.ts",
+    "packages/inngest/src/components/execution/otel/testdata/anthropic_otel_traceloop/cache_messages.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/anthropic_otel_traceloop/reasoning_messages.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_official/params_chat.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_official/stream_chat.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_official/tools_chat.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/basic_responses.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/params_chat.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/stream_chat.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/tools_chat.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/basic_responses.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/params_chat.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/stream_chat.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/tools_chat.otlp.json.snap"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "cd18ed1843ab2696b87778c0e947ad7d77f7feaf",
+   "parent": "2462e875c01b43f9b24a386d5cc7655fc64be37e",
+   "date": "2026-06-23T12:23:37-07:00",
+   "subject": "fix(scoring): remove warning on inngest.experiment.score (#1605)",
+   "type": "fix",
+   "test_files": [
+    "packages/inngest/src/components/InngestMetadata.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/InngestMetadata.ts"
+   ],
+   "source_lines": 4,
+   "all_files": [
+    ".changeset/fancy-baths-appear.md",
+    "packages/inngest/src/components/InngestMetadata.test.ts",
+    "packages/inngest/src/components/InngestMetadata.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "2b800c73cba6a2ff106517d2cd406628b7240c72",
+   "parent": "fbeb8ef33fab65222f8bb47b2297430f076a9607",
+   "date": "2026-06-23T13:01:52-07:00",
+   "subject": "Parse Operation Name for AI Metadata (#1601)",
+   "type": "other",
+   "test_files": [
+    "packages/inngest/src/components/execution/otel/aiExtractor.test.ts",
+    "packages/inngest/src/test/integration/traces/stepMetadata.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/execution/otel/aiExtractor.ts"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    ".changeset/tough-wolves-pump.md",
+    "packages/inngest/src/components/execution/otel/aiExtractor.test.ts",
+    "packages/inngest/src/components/execution/otel/aiExtractor.ts",
+    "packages/inngest/src/components/execution/otel/testdata/anthropic_otel_traceloop/cache_messages.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/anthropic_otel_traceloop/reasoning_messages.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_langsmith_otel/basic_responses.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_official/embeddings.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_official/params_chat.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_official/stream_chat.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_official/tools_chat.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/basic_responses.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/params_chat.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/stream_chat.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/tools_chat.otlp.json.snap",
+    "packages/inngest/src/test/integration/traces/stepMetadata.test.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "3d21d60e342eac3a0b2f4d3e639b00d08d845a0a",
+   "parent": "cd18ed1843ab2696b87778c0e947ad7d77f7feaf",
+   "date": "2026-06-23T15:25:26-04:00",
+   "subject": "fix: rename deprecated experiment_name to name (#1606)",
+   "type": "fix",
+   "test_files": [
+    "packages/inngest/src/components/InngestScore.test.ts",
+    "packages/inngest/src/test/integration/scorer/misc.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/InngestScore.ts"
+   ],
+   "source_lines": 5,
+   "all_files": [
+    "packages/inngest/src/components/InngestScore.test.ts",
+    "packages/inngest/src/components/InngestScore.ts",
+    "packages/inngest/src/test/integration/scorer/misc.test.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "525a6743d0c58dd77dce857e5d7c9294eab639d3",
+   "parent": "3ee1a1a68b2d01fe44718979acf0dc591b3e9dd2",
+   "date": "2026-06-23T20:21:33-07:00",
+   "subject": "Add SvelteKit streaming support (#1376)",
+   "type": "feat",
+   "test_files": [
+    "packages/inngest/src/sveltekit.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/sveltekit.ts"
+   ],
+   "source_lines": 41,
+   "all_files": [
+    ".changeset/thirty-squids-live.md",
+    "packages/inngest/src/sveltekit.test.ts",
+    "packages/inngest/src/sveltekit.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "2ae29bffe0a6b3241b8da99638ea224bb0b5f277",
+   "parent": "d92416725089c0489e3829c9b90b2ba92c8c3062",
+   "date": "2026-06-25T15:07:01-07:00",
+   "subject": "Make transport errors in CI more diagnosable (#1612)",
+   "type": "other",
+   "test_files": [
+    "packages/inngest/src/test/helpers.ts"
+   ],
+   "source_files": [
+    "packages/test-harness/src/utils.ts"
+   ],
+   "source_lines": 18,
+   "all_files": [
+    "packages/inngest/src/test/helpers.ts",
+    "packages/test-harness/src/utils.ts"
+   ]
+  }
+ ]
+}

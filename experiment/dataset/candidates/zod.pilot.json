@@ -1,0 +1,138 @@
+{
+ "repo": "zod",
+ "window": "pilot",
+ "range": [
+  "2026-05-01T00:00:00Z",
+  "2026-07-01T00:00:00Z"
+ ],
+ "drops": {
+  "no_test_change": 20,
+  "source_lines_out_of_range": 1,
+  "dependency_manifest_or_lock_changed": 1
+ },
+ "candidates": [
+  {
+   "repo": "zod",
+   "commit": "02c2baf7d0d615872fa4528a8020603b71211702",
+   "parent": "8ec4e73f4c4693b6361ad591be40fb41eb8a9f95",
+   "date": "2026-05-01T12:35:16-07:00",
+   "subject": "Make z.preprocess defer optionality to inner schema (#5929)",
+   "type": "other",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/assignability.test.ts",
+    "packages/zod/src/v4/classic/tests/preprocess-types.test.ts",
+    "packages/zod/src/v4/classic/tests/preprocess.test.ts",
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/classic/schemas.ts",
+    "packages/zod/src/v4/core/json-schema-processors.ts",
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/core/to-json-schema.ts"
+   ],
+   "source_lines": 59,
+   "all_files": [
+    "packages/docs/content/packages/core.mdx",
+    "packages/zod/src/v4/classic/schemas.ts",
+    "packages/zod/src/v4/classic/tests/assignability.test.ts",
+    "packages/zod/src/v4/classic/tests/preprocess-types.test.ts",
+    "packages/zod/src/v4/classic/tests/preprocess.test.ts",
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts",
+    "packages/zod/src/v4/core/json-schema-processors.ts",
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/core/to-json-schema.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "1cab69383fcdeae2a366d5e2a2fc4d8fc765d168",
+   "parent": "b8dffe9e62f17e6571e6249d05cc5102b54d94e4",
+   "date": "2026-05-03T14:38:02-07:00",
+   "subject": "fix(v4): restore catch handling for absent object keys (#5937) (#5939)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/catch.test.ts",
+    "packages/zod/src/v4/classic/tests/partial.test.ts",
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/schemas.ts"
+   ],
+   "source_lines": 13,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/catch.test.ts",
+    "packages/zod/src/v4/classic/tests/partial.test.ts",
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "c2be4f819064eed62c7c350a2d399b5faecd15f8",
+   "parent": "1cab69383fcdeae2a366d5e2a2fc4d8fc765d168",
+   "date": "2026-05-04T00:01:17-07:00",
+   "subject": "fix(v4): generalize optin/fallback to transform; restore preprocess on absent keys (#5941)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/catch.test.ts",
+    "packages/zod/src/v4/classic/tests/preprocess.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/classic/schemas.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ],
+   "source_lines": 22,
+   "all_files": [
+    "packages/zod/src/v4/classic/schemas.ts",
+    "packages/zod/src/v4/classic/tests/catch.test.ts",
+    "packages/zod/src/v4/classic/tests/preprocess.test.ts",
+    "packages/zod/src/v4/core/schemas.ts",
+    "wiki/optionality.md"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "fbe8ad1b709460fc45d88fdcb5eca591198de60d",
+   "parent": "1fb56a5c18c27102dbc92260a4007c7732a0ccca",
+   "date": "2026-05-04T09:52:41-07:00",
+   "subject": "fix(v4): allow dynamic `.catch()` under `unrepresentable: \"any\"` (#5273) (#5925)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/json-schema-processors.ts"
+   ],
+   "source_lines": 5,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts",
+    "packages/zod/src/v4/core/json-schema-processors.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "dfd8766bf44943eb0dc136bb87b53f6bde008995",
+   "parent": "fbe8ad1b709460fc45d88fdcb5eca591198de60d",
+   "date": "2026-05-04T10:28:35-07:00",
+   "subject": "fix(v4): break circular import between classic schemas and iso (#5275) (#5926)",
+   "type": "fix",
+   "test_files": [
+    "packages/treeshake/tests/no-circular-imports.test.ts",
+    "packages/zod/src/v4/classic/tests/no-circular-imports.test.ts"
+   ],
+   "source_files": [
+    "packages/treeshake/vitest.config.ts",
+    "packages/zod/src/v4/classic/iso.ts",
+    "packages/zod/src/v4/classic/schemas.ts"
+   ],
+   "source_lines": 160,
+   "all_files": [
+    "packages/treeshake/tests/no-circular-imports.test.ts",
+    "packages/treeshake/vitest.config.ts",
+    "packages/zod/src/v4/classic/iso.ts",
+    "packages/zod/src/v4/classic/schemas.ts",
+    "packages/zod/src/v4/classic/tests/no-circular-imports.test.ts"
+   ]
+  }
+ ]
+}

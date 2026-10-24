@@ -1,0 +1,5160 @@
+{
+ "repo": "fastmcp",
+ "window": "main",
+ "range": [
+  "2026-07-01T00:00:00Z",
+  "2026-10-15T00:00:00Z"
+ ],
+ "drops": {
+  "source_lines_out_of_range": 33,
+  "bot_author": 37,
+  "no_source_change": 30,
+  "no_test_change": 152,
+  "dependency_manifest_or_lock_changed": 14,
+  "revert": 1,
+  "too_many_source_files": 2
+ },
+ "candidates": [
+  {
+   "repo": "fastmcp",
+   "commit": "cccb529f50d7c70644f2757f07eb869b5c62adea",
+   "parent": "0d8844d5a7c73bde7319fcb23ea1c87468c6e423",
+   "date": "2026-07-05T17:05:13-04:00",
+   "subject": "Fix DCR redirect URI validation (#4408)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/auth/oauth_proxy/test_client_registration.py",
+    "tests/server/auth/test_oauth_proxy_redirect_validation.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/models.py",
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/proxy.py",
+    "fastmcp_slim/fastmcp/server/auth/oidc_proxy.py"
+   ],
+   "source_lines": 92,
+   "all_files": [
+    "docs/servers/auth/oauth-proxy.mdx",
+    "docs/servers/auth/oidc-proxy.mdx",
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/models.py",
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/proxy.py",
+    "fastmcp_slim/fastmcp/server/auth/oidc_proxy.py",
+    "tests/server/auth/oauth_proxy/test_client_registration.py",
+    "tests/server/auth/test_oauth_proxy_redirect_validation.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "57a279928d84bb2b016e65975dbf61623a33840b",
+   "parent": "cccb529f50d7c70644f2757f07eb869b5c62adea",
+   "date": "2026-07-05T17:11:08-04:00",
+   "subject": "Protect streamable HTTP from DNS rebinding (#4405)",
+   "type": "other",
+   "test_files": [
+    "tests/server/http/test_http_auth_middleware.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/http.py",
+    "fastmcp_slim/fastmcp/server/mixins/transport.py",
+    "fastmcp_slim/fastmcp/settings.py"
+   ],
+   "source_lines": 237,
+   "all_files": [
+    "docs/deployment/http.mdx",
+    "docs/more/settings.mdx",
+    "fastmcp_slim/fastmcp/server/http.py",
+    "fastmcp_slim/fastmcp/server/mixins/transport.py",
+    "fastmcp_slim/fastmcp/settings.py",
+    "tests/conformance/expected-failures.yml",
+    "tests/server/http/test_http_auth_middleware.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "67527c1f694f2570f2aeb03983d31d76fbb5d5bf",
+   "parent": "57a279928d84bb2b016e65975dbf61623a33840b",
+   "date": "2026-07-05T17:16:10-04:00",
+   "subject": "Block unsafe OAuth redirect schemes (#4419)",
+   "type": "other",
+   "test_files": [
+    "tests/server/auth/oauth_proxy/test_client_registration.py",
+    "tests/server/auth/oauth_proxy/test_oauth_proxy.py",
+    "tests/server/auth/oauth_proxy/test_tokens.py",
+    "tests/server/auth/test_oauth_consent_page.py",
+    "tests/server/auth/test_oauth_proxy_redirect_validation.py",
+    "tests/server/auth/test_redirect_validation.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/consent.py",
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/models.py",
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/proxy.py",
+    "fastmcp_slim/fastmcp/server/auth/oidc_proxy.py",
+    "fastmcp_slim/fastmcp/server/auth/redirect_validation.py"
+   ],
+   "source_lines": 138,
+   "all_files": [
+    "docs/servers/auth/oauth-proxy.mdx",
+    "docs/servers/auth/oidc-proxy.mdx",
+    "docs/servers/auth/remote-oauth.mdx",
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/consent.py",
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/models.py",
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/proxy.py",
+    "fastmcp_slim/fastmcp/server/auth/oidc_proxy.py",
+    "fastmcp_slim/fastmcp/server/auth/redirect_validation.py",
+    "tests/server/auth/oauth_proxy/test_client_registration.py",
+    "tests/server/auth/oauth_proxy/test_oauth_proxy.py",
+    "tests/server/auth/oauth_proxy/test_tokens.py",
+    "tests/server/auth/test_oauth_consent_page.py",
+    "tests/server/auth/test_oauth_proxy_redirect_validation.py",
+    "tests/server/auth/test_redirect_validation.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "c1b0396c0a47945208adab5645f8c35288572263",
+   "parent": "522ed5bb3060f643443d58c349519b8ffdd991b7",
+   "date": "2026-07-05T17:52:57-04:00",
+   "subject": "Block IPv6 transition SSRF bypasses (#4426)",
+   "type": "other",
+   "test_files": [
+    "tests/server/auth/test_ssrf_protection.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/auth/ssrf.py"
+   ],
+   "source_lines": 77,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/auth/ssrf.py",
+    "tests/server/auth/test_ssrf_protection.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "691766b5d0393c3cd1158de2ed4465f3bf57b659",
+   "parent": "47907e07675fb01f4fc895ae7f7f0d29d78108fb",
+   "date": "2026-07-05T19:11:03-04:00",
+   "subject": "[codex] Fix OpenAPI resource template requests (#4407)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/providers/openapi/test_openapi_features.py",
+    "tests/utilities/openapi/test_legacy_compatibility.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/providers/openapi/components.py",
+    "fastmcp_slim/fastmcp/utilities/openapi/schemas.py"
+   ],
+   "source_lines": 75,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/providers/openapi/components.py",
+    "fastmcp_slim/fastmcp/utilities/openapi/schemas.py",
+    "tests/server/providers/openapi/test_openapi_features.py",
+    "tests/utilities/openapi/test_legacy_compatibility.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "023a578279d27e77f91da4e214c9aa8fdf86e277",
+   "parent": "3522a98766faa6c7e8afe4184ce8a9a3c67be703",
+   "date": "2026-07-07T07:48:49-04:00",
+   "subject": "Capture SharedContext for task-enabled Docket servers (#4443)",
+   "type": "other",
+   "test_files": [
+    "tests/server/test_dependencies.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/mixins/lifespan.py"
+   ],
+   "source_lines": 12,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/mixins/lifespan.py",
+    "tests/server/test_dependencies.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "ac78e6f693421edb0fb09ab2dfb3d71e335d28ec",
+   "parent": "023a578279d27e77f91da4e214c9aa8fdf86e277",
+   "date": "2026-07-07T07:49:06-04:00",
+   "subject": "Emit one SERVER span per request and adopt spec-correct error codes (#4445)",
+   "type": "other",
+   "test_files": [
+    "tests/server/telemetry/test_server_tracing.py",
+    "tests/test_exceptions.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/exceptions.py",
+    "fastmcp_slim/fastmcp/server/low_level.py",
+    "fastmcp_slim/fastmcp/server/mixins/mcp_operations.py",
+    "fastmcp_slim/fastmcp/server/telemetry.py"
+   ],
+   "source_lines": 282,
+   "all_files": [
+    "docs/development/v4-notes/change-register.mdx",
+    "fastmcp_slim/fastmcp/exceptions.py",
+    "fastmcp_slim/fastmcp/server/low_level.py",
+    "fastmcp_slim/fastmcp/server/mixins/mcp_operations.py",
+    "fastmcp_slim/fastmcp/server/telemetry.py",
+    "tests/server/telemetry/test_server_tracing.py",
+    "tests/test_exceptions.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "6621024ce4de55d3943b5c1ccfb3920482be25da",
+   "parent": "ac78e6f693421edb0fb09ab2dfb3d71e335d28ec",
+   "date": "2026-07-07T07:49:16-04:00",
+   "subject": "Drive the FastMCP lifespan through the SDK session manager (#4446)",
+   "type": "other",
+   "test_files": [
+    "tests/server/http/test_session_idle_timeout.py",
+    "tests/server/http/test_session_owner_enforcement.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/http.py",
+    "fastmcp_slim/fastmcp/server/mixins/transport.py",
+    "fastmcp_slim/fastmcp/server/server.py",
+    "fastmcp_slim/fastmcp/settings.py"
+   ],
+   "source_lines": 60,
+   "all_files": [
+    "docs/development/v4-notes/change-register.mdx",
+    "docs/more/settings.mdx",
+    "docs/servers/auth/token-verification.mdx",
+    "fastmcp_slim/fastmcp/server/http.py",
+    "fastmcp_slim/fastmcp/server/mixins/transport.py",
+    "fastmcp_slim/fastmcp/server/server.py",
+    "fastmcp_slim/fastmcp/settings.py",
+    "tests/server/http/test_session_idle_timeout.py",
+    "tests/server/http/test_session_owner_enforcement.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "8ba5b89918d9ebcc2b7760f504cf5a682e26d808",
+   "parent": "3c4303886075b5dcefae1c68352772d31bc58c8b",
+   "date": "2026-07-08T09:10:41-04:00",
+   "subject": "Add server-level cache hints (SEP-2549) (#4464)",
+   "type": "feat",
+   "test_files": [
+    "tests/server/test_cache_hints.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/caching.py",
+    "fastmcp_slim/fastmcp/server/server.py"
+   ],
+   "source_lines": 67,
+   "all_files": [
+    "docs/development/v4-notes/change-register.mdx",
+    "docs/servers/server.mdx",
+    "fastmcp_slim/fastmcp/server/caching.py",
+    "fastmcp_slim/fastmcp/server/server.py",
+    "tests/server/test_cache_hints.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "4ad78a60efaa57caa464af8ce61d1f3134c0dc59",
+   "parent": "00a774599498bfae63826b941208e3d930b9462f",
+   "date": "2026-07-08T20:55:56-04:00",
+   "subject": "Forward-port HTTP host guard compatibility (#4474)",
+   "type": "other",
+   "test_files": [
+    "tests/server/http/test_http_auth_middleware.py",
+    "tests/server/test_transport.py",
+    "tests/test_settings.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/http.py",
+    "fastmcp_slim/fastmcp/server/mixins/transport.py",
+    "fastmcp_slim/fastmcp/settings.py"
+   ],
+   "source_lines": 127,
+   "all_files": [
+    "docs/deployment/http.mdx",
+    "docs/more/settings.mdx",
+    "fastmcp_slim/fastmcp/server/http.py",
+    "fastmcp_slim/fastmcp/server/mixins/transport.py",
+    "fastmcp_slim/fastmcp/settings.py",
+    "tests/conformance/expected-failures.yml",
+    "tests/server/http/test_http_auth_middleware.py",
+    "tests/server/test_transport.py",
+    "tests/test_settings.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "9f251bad006ed154d0f5aeeb68cd66c85b4ccb47",
+   "parent": "4ad78a60efaa57caa464af8ce61d1f3134c0dc59",
+   "date": "2026-07-08T20:56:07-04:00",
+   "subject": "Forward-port Hugging Face auth provider (#4475)",
+   "type": "other",
+   "test_files": [
+    "tests/server/auth/providers/test_huggingface.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/auth/providers/huggingface.py"
+   ],
+   "source_lines": 280,
+   "all_files": [
+    "docs/docs.json",
+    "docs/integrations/huggingface.mdx",
+    "examples/auth/huggingface_oauth/README.md",
+    "examples/auth/huggingface_oauth/client.py",
+    "examples/auth/huggingface_oauth/server.py",
+    "fastmcp_slim/fastmcp/server/auth/providers/huggingface.py",
+    "tests/server/auth/providers/test_huggingface.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "1d932cc778a24cc0bf46fc4baad8306d4fed9c4b",
+   "parent": "9f251bad006ed154d0f5aeeb68cd66c85b4ccb47",
+   "date": "2026-07-09T15:29:50-04:00",
+   "subject": "Fix Azure scope fallback (#4469)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/auth/providers/test_azure.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/auth/providers/azure.py"
+   ],
+   "source_lines": 14,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/auth/providers/azure.py",
+    "tests/server/auth/providers/test_azure.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "836ceac30ebdbf9e6ae4ea2a702a45fdd867cb12",
+   "parent": "1d932cc778a24cc0bf46fc4baad8306d4fed9c4b",
+   "date": "2026-07-17T16:41:35-04:00",
+   "subject": "Add KeyValueResponseCacheStore for distributed client response caching (#4479)",
+   "type": "feat",
+   "test_files": [
+    "tests/client/client/test_kv_response_cache.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/client/caching.py"
+   ],
+   "source_lines": 223,
+   "all_files": [
+    "docs/clients/client.mdx",
+    "docs/development/v4-notes/change-register.mdx",
+    "fastmcp_slim/fastmcp/client/caching.py",
+    "tests/client/client/test_kv_response_cache.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "a04f6fd9116933eb5983ce2cabbcba44af8649b6",
+   "parent": "266c129b626d8ac40ac62dd034508970440c788e",
+   "date": "2026-07-17T17:02:48-04:00",
+   "subject": "Add telemetry off-switch and mcp.protocol.version span attribute (#4481)",
+   "type": "feat",
+   "test_files": [
+    "tests/server/telemetry/test_server_tracing.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/telemetry.py",
+    "fastmcp_slim/fastmcp/settings.py",
+    "fastmcp_slim/fastmcp/telemetry.py"
+   ],
+   "source_lines": 96,
+   "all_files": [
+    "docs/development/v4-notes/change-register.mdx",
+    "docs/more/settings.mdx",
+    "docs/servers/telemetry.mdx",
+    "fastmcp_slim/fastmcp/server/telemetry.py",
+    "fastmcp_slim/fastmcp/settings.py",
+    "fastmcp_slim/fastmcp/telemetry.py",
+    "tests/server/telemetry/test_server_tracing.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "291fab87892215d171be410b137bea0aa48e2198",
+   "parent": "a04f6fd9116933eb5983ce2cabbcba44af8649b6",
+   "date": "2026-07-17T17:28:30-04:00",
+   "subject": "fix(server): omit ScalarElicitationType wrapper title from elicitation schemas (#4502)",
+   "type": "fix",
+   "test_files": [
+    "tests/client/test_elicitation.py",
+    "tests/client/test_elicitation_enums.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/elicitation.py"
+   ],
+   "source_lines": 7,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/elicitation.py",
+    "tests/client/test_elicitation.py",
+    "tests/client/test_elicitation_enums.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "1fca15abe6c623edb21afda59e4826a3e5252687",
+   "parent": "291fab87892215d171be410b137bea0aa48e2198",
+   "date": "2026-07-17T17:28:43-04:00",
+   "subject": "Skip unsupported JWKS keys instead of failing the whole key set (#4515) (#4517)",
+   "type": "other",
+   "test_files": [
+    "tests/server/auth/test_jwt_provider.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/auth/providers/jwt.py"
+   ],
+   "source_lines": 29,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/auth/providers/jwt.py",
+    "tests/server/auth/test_jwt_provider.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "6202008cf327389325206a6ef25ff608765253ac",
+   "parent": "1fca15abe6c623edb21afda59e4826a3e5252687",
+   "date": "2026-07-17T17:29:01-04:00",
+   "subject": "Don't mutate the caller's schema in compress_schema (#4492)",
+   "type": "other",
+   "test_files": [
+    "tests/utilities/test_json_schema.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/json_schema.py"
+   ],
+   "source_lines": 5,
+   "all_files": [
+    "fastmcp_slim/fastmcp/utilities/json_schema.py",
+    "tests/utilities/test_json_schema.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "977f02347b0074a1e2c810db8e65fc7e7687efa0",
+   "parent": "6202008cf327389325206a6ef25ff608765253ac",
+   "date": "2026-07-17T17:29:15-04:00",
+   "subject": "Forward upstream instructions through create_proxy (#4512)",
+   "type": "other",
+   "test_files": [
+    "tests/server/providers/proxy/test_proxy_server.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/providers/proxy.py"
+   ],
+   "source_lines": 21,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/providers/proxy.py",
+    "tests/server/providers/proxy/test_proxy_server.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "b623c23183a1ee25bce1db0ab47715eab05b151e",
+   "parent": "977f02347b0074a1e2c810db8e65fc7e7687efa0",
+   "date": "2026-07-17T17:33:57-04:00",
+   "subject": "Serialize deep object query parameters (#4523)",
+   "type": "other",
+   "test_files": [
+    "tests/utilities/openapi/test_director.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/openapi/director.py"
+   ],
+   "source_lines": 12,
+   "all_files": [
+    "fastmcp_slim/fastmcp/utilities/openapi/director.py",
+    "tests/utilities/openapi/test_director.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "ff2fc234b2b011db4fa7f2f45fb6601401df18c2",
+   "parent": "b623c23183a1ee25bce1db0ab47715eab05b151e",
+   "date": "2026-07-17T17:37:12-04:00",
+   "subject": "Trace client task management requests (#4525)",
+   "type": "other",
+   "test_files": [
+    "tests/client/telemetry/test_client_task_tracing.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/client/mixins/task_management.py"
+   ],
+   "source_lines": 150,
+   "all_files": [
+    "docs/servers/telemetry.mdx",
+    "fastmcp_slim/fastmcp/client/mixins/task_management.py",
+    "tests/client/telemetry/test_client_task_tracing.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "918b85f9b2650607c0a4a2a53fdb1059921db071",
+   "parent": "ff2fc234b2b011db4fa7f2f45fb6601401df18c2",
+   "date": "2026-07-17T17:37:28-04:00",
+   "subject": "Reject positional-only tool parameters (#4524)",
+   "type": "other",
+   "test_files": [
+    "tests/tools/tool/test_tool.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/tools/function_parsing.py"
+   ],
+   "source_lines": 10,
+   "all_files": [
+    "fastmcp_slim/fastmcp/tools/function_parsing.py",
+    "tests/tools/tool/test_tool.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "d779414f8ad0997d37d01da2ecca4e31fd4debfb",
+   "parent": "918b85f9b2650607c0a4a2a53fdb1059921db071",
+   "date": "2026-07-17T17:42:48-04:00",
+   "subject": "Screen templated resource parameters for path traversal by default (#4482)",
+   "type": "other",
+   "test_files": [
+    "tests/resources/test_resource_security.py",
+    "tests/server/providers/openapi/test_openapi_features.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/exceptions.py",
+    "fastmcp_slim/fastmcp/resources/__init__.py",
+    "fastmcp_slim/fastmcp/resources/function_resource.py",
+    "fastmcp_slim/fastmcp/resources/security.py",
+    "fastmcp_slim/fastmcp/resources/template.py",
+    "fastmcp_slim/fastmcp/server/providers/fastmcp_provider.py",
+    "fastmcp_slim/fastmcp/server/providers/local_provider/decorators/resources.py",
+    "fastmcp_slim/fastmcp/server/server.py"
+   ],
+   "source_lines": 259,
+   "all_files": [
+    "docs/development/v4-notes/change-register.mdx",
+    "docs/servers/resources.mdx",
+    "fastmcp_slim/fastmcp/exceptions.py",
+    "fastmcp_slim/fastmcp/resources/__init__.py",
+    "fastmcp_slim/fastmcp/resources/function_resource.py",
+    "fastmcp_slim/fastmcp/resources/security.py",
+    "fastmcp_slim/fastmcp/resources/template.py",
+    "fastmcp_slim/fastmcp/server/providers/fastmcp_provider.py",
+    "fastmcp_slim/fastmcp/server/providers/local_provider/decorators/resources.py",
+    "fastmcp_slim/fastmcp/server/server.py",
+    "tests/resources/test_resource_security.py",
+    "tests/server/providers/openapi/test_openapi_features.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "bdb76ef4b2c660d1390533220f74404a20413e74",
+   "parent": "a3ecd1edb1e27ff53b5b5b11cc57dc2b6235cae3",
+   "date": "2026-07-17T17:46:13-04:00",
+   "subject": "Clean up disconnected task sessions (#4519)",
+   "type": "other",
+   "test_files": [
+    "tests/server/tasks/test_context_background_task.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/tasks/context.py"
+   ],
+   "source_lines": 7,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/tasks/context.py",
+    "tests/server/tasks/test_context_background_task.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "66c0270bc1b293a8584574f4592f1559433cc016",
+   "parent": "bdb76ef4b2c660d1390533220f74404a20413e74",
+   "date": "2026-07-17T17:46:53-04:00",
+   "subject": "Stabilize upgraded ty checks (#4526)",
+   "type": "other",
+   "test_files": [
+    "tests/server/auth/oauth_proxy/test_authorization.py",
+    "tests/server/auth/test_cimd.py",
+    "tests/test_mcp_config.py",
+    "tests/utilities/test_components.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/client/mixins/task_management.py",
+    "fastmcp_slim/fastmcp/client/sampling/handlers/google_genai.py",
+    "fastmcp_slim/fastmcp/client/sampling/handlers/openai.py",
+    "fastmcp_slim/fastmcp/server/providers/prefab_synthesis.py",
+    "fastmcp_slim/fastmcp/server/server.py"
+   ],
+   "source_lines": 36,
+   "all_files": [
+    "fastmcp_slim/fastmcp/client/mixins/task_management.py",
+    "fastmcp_slim/fastmcp/client/sampling/handlers/google_genai.py",
+    "fastmcp_slim/fastmcp/client/sampling/handlers/openai.py",
+    "fastmcp_slim/fastmcp/server/providers/prefab_synthesis.py",
+    "fastmcp_slim/fastmcp/server/server.py",
+    "tests/server/auth/oauth_proxy/test_authorization.py",
+    "tests/server/auth/test_cimd.py",
+    "tests/test_mcp_config.py",
+    "tests/utilities/test_components.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "981a69d839ac150fae81d263c335ccf3a92ce027",
+   "parent": "18b5ab5852fb25e9bbd45ea9d94c62bd4a20baf4",
+   "date": "2026-07-18T15:16:27-04:00",
+   "subject": "Handle expired OAuth client registrations (#4520)",
+   "type": "other",
+   "test_files": [
+    "tests/client/auth/test_oauth_client.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/client/auth/oauth.py"
+   ],
+   "source_lines": 29,
+   "all_files": [
+    "fastmcp_slim/fastmcp/client/auth/oauth.py",
+    "tests/client/auth/test_oauth_client.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "16383a64d60ec71aeb0af00971cb397e0664aed9",
+   "parent": "00cab8ba8fc6713ca1aec9eca6722453e3bffe79",
+   "date": "2026-07-18T15:42:20-04:00",
+   "subject": "Preserve component metadata in response cache (#4521)",
+   "type": "other",
+   "test_files": [
+    "tests/server/middleware/test_caching.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/middleware/caching.py"
+   ],
+   "source_lines": 54,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/middleware/caching.py",
+    "tests/server/middleware/test_caching.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "7e077186fcac6ac8145349b48af053777a9c7640",
+   "parent": "16383a64d60ec71aeb0af00971cb397e0664aed9",
+   "date": "2026-07-18T15:45:11-04:00",
+   "subject": "Clean up task sessions on connection exit (#4535)",
+   "type": "other",
+   "test_files": [
+    "tests/server/tasks/test_context_background_task.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/tasks/context.py"
+   ],
+   "source_lines": 32,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/tasks/context.py",
+    "tests/server/tasks/test_context_background_task.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "f018f68bbfe757b1c46895e963eaedfa95de40ff",
+   "parent": "7d76c9d055e387f6b257e6352ef8b0de28bdae12",
+   "date": "2026-07-18T19:46:19-04:00",
+   "subject": "Expose telemetry attributes on span start (#4487)",
+   "type": "other",
+   "test_files": [
+    "tests/server/telemetry/test_sampling_tracing.py",
+    "tests/telemetry/test_span_attributes.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/client/telemetry.py",
+    "fastmcp_slim/fastmcp/server/sampling/run.py",
+    "fastmcp_slim/fastmcp/server/telemetry.py"
+   ],
+   "source_lines": 89,
+   "all_files": [
+    "fastmcp_slim/fastmcp/client/telemetry.py",
+    "fastmcp_slim/fastmcp/server/sampling/run.py",
+    "fastmcp_slim/fastmcp/server/telemetry.py",
+    "tests/server/telemetry/test_sampling_tracing.py",
+    "tests/telemetry/test_span_attributes.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "243f054f657548ae49a7efed5aef0b2a85b52c71",
+   "parent": "998b37f32b02347c52c24b16cdacd5cff447f94a",
+   "date": "2026-07-18T20:53:52-04:00",
+   "subject": "Include scopes in auth challenges (#4527)",
+   "type": "other",
+   "test_files": [
+    "tests/server/auth/providers/test_azure_scopes.py",
+    "tests/server/auth/test_enhanced_error_responses.py",
+    "tests/server/auth/test_multi_auth.py",
+    "tests/server/auth/test_remote_auth_provider.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/auth/auth.py",
+    "fastmcp_slim/fastmcp/server/auth/middleware.py",
+    "fastmcp_slim/fastmcp/server/auth/providers/azure.py",
+    "fastmcp_slim/fastmcp/server/http.py"
+   ],
+   "source_lines": 152,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/auth/auth.py",
+    "fastmcp_slim/fastmcp/server/auth/middleware.py",
+    "fastmcp_slim/fastmcp/server/auth/providers/azure.py",
+    "fastmcp_slim/fastmcp/server/http.py",
+    "tests/server/auth/providers/test_azure_scopes.py",
+    "tests/server/auth/test_enhanced_error_responses.py",
+    "tests/server/auth/test_multi_auth.py",
+    "tests/server/auth/test_remote_auth_provider.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "654335607c512ce8b4993624fce650f70dfdcfe4",
+   "parent": "62d32c6a90ccc6f452a19a88c756707458f4c329",
+   "date": "2026-07-18T21:15:02-04:00",
+   "subject": "Fix-issue-4284 : Add Auth0MCPProvider for Auth0 Auth for MCP (#4411)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/auth/providers/test_auth0_mcp.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/auth/providers/auth0.py"
+   ],
+   "source_lines": 179,
+   "all_files": [
+    "docs/integrations/auth0.mdx",
+    "examples/auth/auth0_mcp/README.md",
+    "examples/auth/auth0_mcp/client.py",
+    "examples/auth/auth0_mcp/server.py",
+    "fastmcp_slim/fastmcp/server/auth/providers/auth0.py",
+    "tests/server/auth/providers/test_auth0_mcp.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "81fada492208af5b765690c69a3ee40542e51744",
+   "parent": "a57f1c8b20d999d6e6752b6430f2e3e89fb322dc",
+   "date": "2026-07-18T21:18:39-04:00",
+   "subject": "Fix typos (#4498)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/middleware/test_caching.py",
+    "tests/utilities/test_tests.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/middleware/caching.py"
+   ],
+   "source_lines": 66,
+   "all_files": [
+    "docs/changelog.mdx",
+    "docs/development/v4-notes/change-register.mdx",
+    "docs/integrations/images/permit/{role_assignement.png => role_assignment.png}",
+    "docs/integrations/permit.mdx",
+    "docs/v2/changelog.mdx",
+    "docs/v2/integrations/images/permit/{role_assignement.png => role_assignment.png}",
+    "docs/v2/integrations/permit.mdx",
+    "fastmcp_slim/fastmcp/server/middleware/caching.py",
+    "tests/server/middleware/test_caching.py",
+    "tests/utilities/test_tests.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "2899ffb6f3323338af7c4e649dd8c6348a1847ed",
+   "parent": "cee327d8f7c44dfa6b551ba9284a95794bff2cfb",
+   "date": "2026-07-18T21:42:52-04:00",
+   "subject": "Fix #4292: SSRF guard breaks OAuth/JWKS fetches behind a corporate HTTP proxy (#4412)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/auth/test_ssrf_protection.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/auth/ssrf.py",
+    "fastmcp_slim/fastmcp/settings.py"
+   ],
+   "source_lines": 196,
+   "all_files": [
+    "docs/more/settings.mdx",
+    "fastmcp_slim/fastmcp/server/auth/ssrf.py",
+    "fastmcp_slim/fastmcp/settings.py",
+    "tests/server/auth/test_ssrf_protection.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "252a29e5e6058f2390dc9e3fee8068325a16534a",
+   "parent": "2899ffb6f3323338af7c4e649dd8c6348a1847ed",
+   "date": "2026-07-19T09:00:04-04:00",
+   "subject": "Preserve telemetry attributes when a sampler does not forward them (#4539)",
+   "type": "other",
+   "test_files": [
+    "tests/server/telemetry/test_sampling_tracing.py",
+    "tests/telemetry/test_span_attributes.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/client/telemetry.py",
+    "fastmcp_slim/fastmcp/server/sampling/run.py",
+    "fastmcp_slim/fastmcp/server/telemetry.py",
+    "fastmcp_slim/fastmcp/telemetry.py"
+   ],
+   "source_lines": 168,
+   "all_files": [
+    "fastmcp_slim/fastmcp/client/telemetry.py",
+    "fastmcp_slim/fastmcp/server/sampling/run.py",
+    "fastmcp_slim/fastmcp/server/telemetry.py",
+    "fastmcp_slim/fastmcp/telemetry.py",
+    "tests/server/telemetry/test_sampling_tracing.py",
+    "tests/telemetry/test_span_attributes.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "67e8448389c5149bb7f71a54323bbd00e3c32b86",
+   "parent": "252a29e5e6058f2390dc9e3fee8068325a16534a",
+   "date": "2026-07-19T09:52:43-04:00",
+   "subject": "[codex] Add OAuthProxy RFC 9207 issuer responses (#4438)",
+   "type": "other",
+   "test_files": [
+    "tests/client/auth/test_oauth_client.py",
+    "tests/client/test_oauth_callback_race.py",
+    "tests/server/auth/oauth_proxy/test_oauth_proxy.py",
+    "tests/server/auth/oauth_proxy/test_tokens.py",
+    "tests/server/auth/test_enhanced_error_responses.py",
+    "tests/server/auth/test_oauth_consent_flow.py",
+    "tests/server/auth/test_redirect_validation.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/client/auth/oauth.py",
+    "fastmcp_slim/fastmcp/client/oauth_callback.py",
+    "fastmcp_slim/fastmcp/server/auth/handlers/authorize.py",
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/consent.py",
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/proxy.py",
+    "fastmcp_slim/fastmcp/server/auth/redirect_validation.py",
+    "fastmcp_slim/fastmcp/utilities/tests.py"
+   ],
+   "source_lines": 208,
+   "all_files": [
+    "fastmcp_slim/fastmcp/client/auth/oauth.py",
+    "fastmcp_slim/fastmcp/client/oauth_callback.py",
+    "fastmcp_slim/fastmcp/server/auth/handlers/authorize.py",
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/consent.py",
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/proxy.py",
+    "fastmcp_slim/fastmcp/server/auth/redirect_validation.py",
+    "fastmcp_slim/fastmcp/utilities/tests.py",
+    "tests/client/auth/test_oauth_client.py",
+    "tests/client/test_oauth_callback_race.py",
+    "tests/server/auth/oauth_proxy/test_oauth_proxy.py",
+    "tests/server/auth/oauth_proxy/test_tokens.py",
+    "tests/server/auth/test_enhanced_error_responses.py",
+    "tests/server/auth/test_oauth_consent_flow.py",
+    "tests/server/auth/test_redirect_validation.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "d3b792261537c1a9d53788ae2a849bb5e39b3474",
+   "parent": "67e8448389c5149bb7f71a54323bbd00e3c32b86",
+   "date": "2026-07-19T14:23:36-04:00",
+   "subject": "Align server component docs (#4260)",
+   "type": "other",
+   "test_files": [
+    "tests/resources/test_resource_template.py",
+    "tests/server/transforms/test_visibility.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/resources/base.py",
+    "fastmcp_slim/fastmcp/resources/template.py",
+    "fastmcp_slim/fastmcp/server/transforms/visibility.py"
+   ],
+   "source_lines": 157,
+   "all_files": [
+    "docs/servers/composition.mdx",
+    "docs/servers/context.mdx",
+    "docs/servers/dependency-injection.mdx",
+    "docs/servers/elicitation.mdx",
+    "docs/servers/middleware.mdx",
+    "docs/servers/pagination.mdx",
+    "docs/servers/progress.mdx",
+    "docs/servers/prompts.mdx",
+    "docs/servers/providers/local.mdx",
+    "docs/servers/providers/overview.mdx",
+    "docs/servers/providers/skills.mdx",
+    "docs/servers/resources.mdx",
+    "docs/servers/server.mdx",
+    "docs/servers/tasks.mdx",
+    "docs/servers/telemetry.mdx",
+    "docs/servers/tools.mdx",
+    "docs/servers/versioning.mdx",
+    "docs/servers/visibility.mdx",
+    "fastmcp_slim/fastmcp/resources/base.py",
+    "fastmcp_slim/fastmcp/resources/template.py",
+    "fastmcp_slim/fastmcp/server/transforms/visibility.py",
+    "tests/resources/test_resource_template.py",
+    "tests/server/transforms/test_visibility.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "b9b1deacb6a08327a68f958e9470d678bee09c36",
+   "parent": "eee5e913342f9f97737ed383a0db3090642bf2ea",
+   "date": "2026-07-19T18:52:04-04:00",
+   "subject": "Speed up the unit test suite, and fix the task-notification race it surfaced (#4550)",
+   "type": "fix",
+   "test_files": [
+    "tests/client/tasks/test_client_task_notifications.py",
+    "tests/client/tasks/test_poll_interval.py",
+    "tests/conftest.py",
+    "tests/contrib/test_component_manager.py",
+    "tests/server/auth/oauth_proxy/test_identity_assertion.py",
+    "tests/server/auth/providers/test_auth0_mcp.py",
+    "tests/server/auth/providers/test_azure.py",
+    "tests/server/auth/providers/test_azure_scopes.py",
+    "tests/server/auth/providers/test_http_client.py",
+    "tests/server/auth/test_cimd_validators.py",
+    "tests/server/auth/test_enhanced_error_responses.py",
+    "tests/server/auth/test_jwt_provider.py",
+    "tests/server/auth/test_jwt_provider_bearer.py",
+    "tests/server/http/test_bearer_auth_backend.py",
+    "tests/server/http/test_http_auth_middleware.py",
+    "tests/test_mcp_config.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/client/tasks.py",
+    "fastmcp_slim/fastmcp/server/tasks/subscriptions.py",
+    "fastmcp_slim/fastmcp/settings.py"
+   ],
+   "source_lines": 183,
+   "all_files": [
+    "docs/more/settings.mdx",
+    "docs/servers/tasks.mdx",
+    "fastmcp_slim/fastmcp/client/tasks.py",
+    "fastmcp_slim/fastmcp/server/tasks/subscriptions.py",
+    "fastmcp_slim/fastmcp/settings.py",
+    "tests/client/tasks/test_client_task_notifications.py",
+    "tests/client/tasks/test_poll_interval.py",
+    "tests/conftest.py",
+    "tests/contrib/test_component_manager.py",
+    "tests/server/auth/oauth_proxy/test_identity_assertion.py",
+    "tests/server/auth/providers/test_auth0_mcp.py",
+    "tests/server/auth/providers/test_azure.py",
+    "tests/server/auth/providers/test_azure_scopes.py",
+    "tests/server/auth/providers/test_http_client.py",
+    "tests/server/auth/test_cimd_validators.py",
+    "tests/server/auth/test_enhanced_error_responses.py",
+    "tests/server/auth/test_jwt_provider.py",
+    "tests/server/auth/test_jwt_provider_bearer.py",
+    "tests/server/http/test_bearer_auth_backend.py",
+    "tests/server/http/test_http_auth_middleware.py",
+    "tests/test_mcp_config.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "7934124fb5bbb6e3fb945e16a1dd11a3a99e8d6c",
+   "parent": "33ed688a8f825c4097ed44f1691a8132ecb60046",
+   "date": "2026-07-20T07:12:45-05:00",
+   "subject": "Make transformed tool required order deterministic (#4564)",
+   "type": "other",
+   "test_files": [
+    "tests/tools/tool_transform/test_tool_transform.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/tools/tool_transform.py"
+   ],
+   "source_lines": 9,
+   "all_files": [
+    "fastmcp_slim/fastmcp/tools/tool_transform.py",
+    "tests/tools/tool_transform/test_tool_transform.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "c8b8911226b5f9063364ccc1d668cc1dc25987d7",
+   "parent": "c33a3c3b29b7307116ed53c049b0819c2650d2f2",
+   "date": "2026-07-20T11:01:30-04:00",
+   "subject": "Stop gather() from creating coroutines it may never schedule (#4559)",
+   "type": "other",
+   "test_files": [
+    "tests/utilities/test_async_utils.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/providers/aggregate.py",
+    "fastmcp_slim/fastmcp/server/providers/base.py",
+    "fastmcp_slim/fastmcp/server/sampling/run.py",
+    "fastmcp_slim/fastmcp/utilities/async_utils.py"
+   ],
+   "source_lines": 97,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/providers/aggregate.py",
+    "fastmcp_slim/fastmcp/server/providers/base.py",
+    "fastmcp_slim/fastmcp/server/sampling/run.py",
+    "fastmcp_slim/fastmcp/utilities/async_utils.py",
+    "tests/utilities/test_async_utils.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "0ba3db1a56271ab59841fa73062c136d5ff428bc",
+   "parent": "effbc568ff91815a897628a0308139c37a343aea",
+   "date": "2026-07-20T12:31:02-04:00",
+   "subject": "Mirror the frontend's protocol era on a proxy's backend connection (#4573)",
+   "type": "other",
+   "test_files": [
+    "tests/server/test_mrtr_guards.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/client/transports/base.py",
+    "fastmcp_slim/fastmcp/client/transports/config.py",
+    "fastmcp_slim/fastmcp/server/providers/proxy.py",
+    "fastmcp_slim/fastmcp/server/server.py"
+   ],
+   "source_lines": 182,
+   "all_files": [
+    "docs/development/v4-notes/change-register.mdx",
+    "docs/servers/providers/proxy.mdx",
+    "fastmcp_slim/fastmcp/client/transports/base.py",
+    "fastmcp_slim/fastmcp/client/transports/config.py",
+    "fastmcp_slim/fastmcp/server/providers/proxy.py",
+    "fastmcp_slim/fastmcp/server/server.py",
+    "tests/server/test_mrtr_guards.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "57bbc9859e23ce479567d9f4f00df46b45120285",
+   "parent": "0ba3db1a56271ab59841fa73062c136d5ff428bc",
+   "date": "2026-07-20T17:52:12-04:00",
+   "subject": "Surface resource, prompt, and proxy errors on the modern protocol era (#4579)",
+   "type": "other",
+   "test_files": [
+    "tests/server/providers/proxy/test_proxy_server.py",
+    "tests/server/test_protocol_eras.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/mixins/mcp_operations.py",
+    "fastmcp_slim/fastmcp/server/providers/proxy.py"
+   ],
+   "source_lines": 108,
+   "all_files": [
+    "docs/development/v4-notes/change-register.mdx",
+    "fastmcp_slim/fastmcp/server/mixins/mcp_operations.py",
+    "fastmcp_slim/fastmcp/server/providers/proxy.py",
+    "tests/server/providers/proxy/test_proxy_server.py",
+    "tests/server/test_protocol_eras.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "7417e974f4df594dd7fbab54253b4fcb8b38eab3",
+   "parent": "611a35861d9bab0586668f2aed33b572abad5ae2",
+   "date": "2026-07-21T12:26:24-04:00",
+   "subject": "Let a server answer argument-completion requests (#4582)",
+   "type": "other",
+   "test_files": [
+    "tests/server/test_completions.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/completions.py",
+    "fastmcp_slim/fastmcp/server/mixins/mcp_operations.py",
+    "fastmcp_slim/fastmcp/server/server.py"
+   ],
+   "source_lines": 232,
+   "all_files": [
+    "docs/development/v4-notes/change-register.mdx",
+    "docs/docs.json",
+    "docs/servers/completions.mdx",
+    "fastmcp_slim/fastmcp/server/completions.py",
+    "fastmcp_slim/fastmcp/server/mixins/mcp_operations.py",
+    "fastmcp_slim/fastmcp/server/server.py",
+    "tests/server/test_completions.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "74b8f1bc1c20ff3a1df7b41bdac7114fe8b5af65",
+   "parent": "16a09f01519363dd4fb12f7bfe9818273ef2a6a1",
+   "date": "2026-07-21T13:04:15-05:00",
+   "subject": "Fix File helper extension handling (#4531)",
+   "type": "fix",
+   "test_files": [
+    "tests/utilities/test_types.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/types.py"
+   ],
+   "source_lines": 7,
+   "all_files": [
+    "fastmcp_slim/fastmcp/utilities/types.py",
+    "tests/utilities/test_types.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "30044c786476cbe121c8dfa9e760795929f45d69",
+   "parent": "d0f1468fce8fba4f6b24bcdba2cab7b05afcb077",
+   "date": "2026-07-21T15:34:09-04:00",
+   "subject": "Fix percent-encoded skill file names unreadable in resources mode (#4590)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/providers/test_skills_provider.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/providers/skills/skill_provider.py"
+   ],
+   "source_lines": 10,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/providers/skills/skill_provider.py",
+    "tests/server/providers/test_skills_provider.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "8efa405833d061bcfd9dcbb962b1975ca57be6af",
+   "parent": "b0d3e653b9c03b9788174d603ad5b5c391579f06",
+   "date": "2026-07-22T13:55:41-05:00",
+   "subject": "Bridge camelCase ToolAnnotations reads (#4597)",
+   "type": "other",
+   "test_files": [
+    "tests/test_compat.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/_compat.py"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    "docs/development/v4-notes/change-register.mdx",
+    "docs/getting-started/upgrading/from-fastmcp-3.mdx",
+    "fastmcp_slim/fastmcp/_compat.py",
+    "tests/test_compat.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "06aa84943c3d7bc4e602677ba83841978c30506c",
+   "parent": "edb54bddf335b34d8c4e21047329ee7e48d76b47",
+   "date": "2026-07-23T15:06:26-05:00",
+   "subject": "Expose era-neutral client server metadata (#4599)",
+   "type": "other",
+   "test_files": [
+    "tests/client/client/test_mode_negotiation.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/client/client.py"
+   ],
+   "source_lines": 36,
+   "all_files": [
+    "docs/clients/client.mdx",
+    "fastmcp_slim/fastmcp/client/client.py",
+    "tests/client/client/test_mode_negotiation.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "99327084d2512dc15f0104d59714cf4850206502",
+   "parent": "06aa84943c3d7bc4e602677ba83841978c30506c",
+   "date": "2026-07-23T15:10:42-05:00",
+   "subject": "Preserve raw CallToolResult returns (#4587)",
+   "type": "other",
+   "test_files": [
+    "tests/tools/tool/test_output_schema.py",
+    "tests/tools/tool/test_results.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/tools/base.py",
+    "fastmcp_slim/fastmcp/tools/function_parsing.py"
+   ],
+   "source_lines": 29,
+   "all_files": [
+    "fastmcp_slim/fastmcp/tools/base.py",
+    "fastmcp_slim/fastmcp/tools/function_parsing.py",
+    "tests/tools/tool/test_output_schema.py",
+    "tests/tools/tool/test_results.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "fbee629ed9a022368831e4b3e30fcb26da7c1b46",
+   "parent": "99327084d2512dc15f0104d59714cf4850206502",
+   "date": "2026-07-23T18:11:18-04:00",
+   "subject": "Advertise only supported token endpoint auth methods in OAuthProxy metadata (#4608)",
+   "type": "other",
+   "test_files": [
+    "tests/server/auth/oauth_proxy/test_client_registration.py",
+    "tests/server/auth/oauth_proxy/test_oauth_proxy.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/proxy.py"
+   ],
+   "source_lines": 39,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/proxy.py",
+    "tests/server/auth/oauth_proxy/test_client_registration.py",
+    "tests/server/auth/oauth_proxy/test_oauth_proxy.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "2f992f71ea734333b8f9207ac0fceb2f15f3ed53",
+   "parent": "37fb0ad803a528950ddead95a60176712d260965",
+   "date": "2026-07-26T13:40:09-04:00",
+   "subject": "Support routable transport headers for gateways (SEP-2243) (#4622)",
+   "type": "other",
+   "test_files": [
+    "tests/server/http/test_routable_headers.py",
+    "tests/server/providers/proxy/test_proxy_server.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/providers/proxy.py"
+   ],
+   "source_lines": 13,
+   "all_files": [
+    "docs/deployment/http.mdx",
+    "fastmcp_slim/fastmcp/server/providers/proxy.py",
+    "tests/server/http/test_routable_headers.py",
+    "tests/server/providers/proxy/test_proxy_server.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "e4a87f2afea87962533634403bb08488877ccf06",
+   "parent": "4ebb3fd5e67eee5aad0bfe564706c94beafc79c1",
+   "date": "2026-07-26T14:15:08-04:00",
+   "subject": "fix : canonical mime type mapping from formats to remove inconsistency #4627 (#4628)",
+   "type": "fix",
+   "test_files": [
+    "tests/utilities/test_types.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/types.py"
+   ],
+   "source_lines": 21,
+   "all_files": [
+    "fastmcp_slim/fastmcp/utilities/types.py",
+    "tests/utilities/test_types.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "b07f9ce9ae2fcf0e378664a2f712c8aa8b09e839",
+   "parent": "e4a87f2afea87962533634403bb08488877ccf06",
+   "date": "2026-07-26T14:24:50-04:00",
+   "subject": "Honor OAuth application_type in DCR (SEP-837) (#4621)",
+   "type": "other",
+   "test_files": [
+    "tests/server/auth/oauth_proxy/test_client_registration.py",
+    "tests/server/auth/test_oauth_proxy_redirect_validation.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/models.py",
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/proxy.py",
+    "fastmcp_slim/fastmcp/server/auth/redirect_validation.py"
+   ],
+   "source_lines": 257,
+   "all_files": [
+    "docs/servers/auth/oauth-proxy.mdx",
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/models.py",
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/proxy.py",
+    "fastmcp_slim/fastmcp/server/auth/redirect_validation.py",
+    "tests/server/auth/oauth_proxy/test_client_registration.py",
+    "tests/server/auth/test_oauth_proxy_redirect_validation.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "2a93404e8cb8790b17a15b2b1c64e98a0f0af60f",
+   "parent": "b07f9ce9ae2fcf0e378664a2f712c8aa8b09e839",
+   "date": "2026-07-26T14:43:41-04:00",
+   "subject": "fix: accept callable roots handlers (#4639)",
+   "type": "fix",
+   "test_files": [
+    "tests/client/test_roots.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/client/roots.py",
+    "fastmcp_slim/fastmcp/server/providers/proxy.py"
+   ],
+   "source_lines": 9,
+   "all_files": [
+    "fastmcp_slim/fastmcp/client/roots.py",
+    "fastmcp_slim/fastmcp/server/providers/proxy.py",
+    "tests/client/test_roots.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "0c1c42f15139cc431850400c25322f1761703e88",
+   "parent": "6c4ba6b420847f7306661dca97c305e5894d675d",
+   "date": "2026-07-27T11:46:03-04:00",
+   "subject": "Bind CIMD assertion audience to the advertised token endpoint (#4659)",
+   "type": "other",
+   "test_files": [
+    "tests/server/auth/oauth_proxy/test_oauth_proxy.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/proxy.py"
+   ],
+   "source_lines": 15,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/proxy.py",
+    "tests/server/auth/oauth_proxy/test_oauth_proxy.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "920cb47778f16aca8113bfdef4103999b3472610",
+   "parent": "0c1c42f15139cc431850400c25322f1761703e88",
+   "date": "2026-07-27T12:36:58-04:00",
+   "subject": "Add require_roles auth check (#4656)",
+   "type": "feat",
+   "test_files": [
+    "tests/server/auth/test_authorization.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/auth/__init__.py",
+    "fastmcp_slim/fastmcp/server/auth/authorization.py",
+    "fastmcp_slim/fastmcp/utilities/authorization.py"
+   ],
+   "source_lines": 93,
+   "all_files": [
+    "docs/servers/authorization.mdx",
+    "fastmcp_slim/fastmcp/server/auth/__init__.py",
+    "fastmcp_slim/fastmcp/server/auth/authorization.py",
+    "fastmcp_slim/fastmcp/utilities/authorization.py",
+    "tests/server/auth/test_authorization.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "95edc1d2f3505a9b61798f4a78c9c9fdd7a0dd9a",
+   "parent": "4e136e60d69d49bd95974a7f832a5b02a3d20420",
+   "date": "2026-07-27T14:33:57-04:00",
+   "subject": "Record effective scopes on the OAuth transaction (#4670)",
+   "type": "other",
+   "test_files": [
+    "tests/server/auth/oauth_proxy/test_authorization.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/proxy.py"
+   ],
+   "source_lines": 10,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/proxy.py",
+    "tests/server/auth/oauth_proxy/test_authorization.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "1550eea886fee8989fbc69a65e42724549625c2e",
+   "parent": "e4ccf06baf13bd26bd00df6011fa99b3fb8674c4",
+   "date": "2026-07-27T14:58:13-04:00",
+   "subject": "Copy schemas iteratively so deep nesting still compresses (#4671)",
+   "type": "other",
+   "test_files": [
+    "tests/utilities/test_json_schema.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/json_schema.py"
+   ],
+   "source_lines": 54,
+   "all_files": [
+    "fastmcp_slim/fastmcp/utilities/json_schema.py",
+    "tests/utilities/test_json_schema.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "794bfe95677900057e4cf7a54c51adc85b9563e7",
+   "parent": "11ee46bf3b4b1e72d5799919646059b2accf07a4",
+   "date": "2026-07-27T15:12:15-04:00",
+   "subject": "Add `valid_scopes` parameter to OIDC proxy valid scopes (#4660)",
+   "type": "feat",
+   "test_files": [
+    "tests/server/auth/test_oidc_proxy.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/auth/oidc_proxy.py"
+   ],
+   "source_lines": 29,
+   "all_files": [
+    "docs/servers/auth/oauth-proxy.mdx",
+    "docs/servers/auth/oidc-proxy.mdx",
+    "fastmcp_slim/fastmcp/server/auth/oidc_proxy.py",
+    "tests/server/auth/test_oidc_proxy.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "c3cbe8b9a37013f7049513d110819ed09b5b841b",
+   "parent": "ffea4d6a3e5a3210a46d03dfb3e6bcd2f94c0fe1",
+   "date": "2026-07-27T15:25:22-04:00",
+   "subject": "Fix OpenAPI allOf reference fields (#4653)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/providers/openapi/test_openapi_features.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/openapi/schemas.py"
+   ],
+   "source_lines": 52,
+   "all_files": [
+    "fastmcp_slim/fastmcp/utilities/openapi/schemas.py",
+    "tests/server/providers/openapi/test_openapi_features.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "75b9f9250443f1808fabe1193a1bf915cf6aef7e",
+   "parent": "c3cbe8b9a37013f7049513d110819ed09b5b841b",
+   "date": "2026-07-27T16:05:29-04:00",
+   "subject": "feat: Add telemetry interop mode for FastMCP (#4046)",
+   "type": "feat",
+   "test_files": [
+    "tests/server/telemetry/test_server_tracing.py",
+    "tests/telemetry/test_interop.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/telemetry.py",
+    "fastmcp_slim/fastmcp/settings.py",
+    "fastmcp_slim/fastmcp/telemetry.py"
+   ],
+   "source_lines": 188,
+   "all_files": [
+    "dev-docs/v4-notes/change-register.md",
+    "dev-docs/v4-notes/feature-program.md",
+    "dev-docs/v4-notes/protocol-2026.md",
+    "docs/more/settings.mdx",
+    "docs/servers/telemetry.mdx",
+    "fastmcp_slim/fastmcp/server/telemetry.py",
+    "fastmcp_slim/fastmcp/settings.py",
+    "fastmcp_slim/fastmcp/telemetry.py",
+    "tests/server/telemetry/test_server_tracing.py",
+    "tests/telemetry/test_interop.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "7674645761bc822facf12fafd2932392ce6548f7",
+   "parent": "75b9f9250443f1808fabe1193a1bf915cf6aef7e",
+   "date": "2026-07-27T16:06:54-04:00",
+   "subject": "Flatten OpenAPI discriminator subtypes into request bodies (#4677)",
+   "type": "other",
+   "test_files": [
+    "tests/server/providers/openapi/test_openapi_discriminator.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/openapi/parser.py",
+    "fastmcp_slim/fastmcp/utilities/openapi/schemas.py"
+   ],
+   "source_lines": 165,
+   "all_files": [
+    "docs/integrations/openapi.mdx",
+    "fastmcp_slim/fastmcp/utilities/openapi/parser.py",
+    "fastmcp_slim/fastmcp/utilities/openapi/schemas.py",
+    "tests/server/providers/openapi/test_openapi_discriminator.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "d6b9daecb191a971eac236be9ea6b784a8c6cc97",
+   "parent": "78c61415b51cb546f3570991b3fc8680a4b13236",
+   "date": "2026-07-28T08:12:17-04:00",
+   "subject": "Read CLI-scanned MCP config files as UTF-8 explicitly (#4690)",
+   "type": "other",
+   "test_files": [
+    "tests/cli/test_discovery.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/cli/discovery.py"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    "fastmcp_slim/fastmcp/cli/discovery.py",
+    "tests/cli/test_discovery.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "81b1e818e5f4f0a58085ca0c1a2c5f9ea64bc557",
+   "parent": "a8b5da9770ce5ba0cd7710d469889409852184f6",
+   "date": "2026-07-28T16:12:38-04:00",
+   "subject": "Apply app visibility where no host can (#4692)",
+   "type": "other",
+   "test_files": [
+    "tests/server/transforms/test_model_visibility_boundary.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/apps/config.py",
+    "fastmcp_slim/fastmcp/server/transforms/catalog.py",
+    "fastmcp_slim/fastmcp/server/transforms/search/base.py"
+   ],
+   "source_lines": 51,
+   "all_files": [
+    "docs/apps/low-level.mdx",
+    "docs/servers/transforms/tool-search.mdx",
+    "fastmcp_slim/fastmcp/apps/config.py",
+    "fastmcp_slim/fastmcp/server/transforms/catalog.py",
+    "fastmcp_slim/fastmcp/server/transforms/search/base.py",
+    "tests/server/transforms/test_model_visibility_boundary.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "baced6281c64b3fefb049beeccef3de919ffb62d",
+   "parent": "5a98ceb5caf0879dc75dc732f86e61db58042c20",
+   "date": "2026-07-28T17:30:20-04:00",
+   "subject": "Always emit a tool title, derived from name when unset (#4694)",
+   "type": "other",
+   "test_files": [
+    "tests/server/transforms/test_search.py",
+    "tests/tools/tool/test_title.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/tools/base.py"
+   ],
+   "source_lines": 27,
+   "all_files": [
+    "docs/servers/tools.mdx",
+    "fastmcp_slim/fastmcp/tools/base.py",
+    "tests/server/transforms/test_search.py",
+    "tests/tools/tool/test_title.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "bc07264529fe108b43ae81d116a15d3e2808d23b",
+   "parent": "bcef61d8064a145a2f32416ec969a351f70bcbe8",
+   "date": "2026-07-30T16:23:33-04:00",
+   "subject": "Fix self-referential connection error causes (#4720)",
+   "type": "fix",
+   "test_files": [
+    "tests/client/auth/test_oauth_client.py",
+    "tests/client/client/test_session.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/client/client.py"
+   ],
+   "source_lines": 5,
+   "all_files": [
+    "fastmcp_slim/fastmcp/client/client.py",
+    "tests/client/auth/test_oauth_client.py",
+    "tests/client/client/test_session.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "c428a08feae9f0dd84db09c20cf1e745069d43d8",
+   "parent": "10b158baf33f5e7f8b4f616f115d54739fe0fa88",
+   "date": "2026-08-02T09:42:26-04:00",
+   "subject": "fix: preserve valid servers during CLI discovery (#4714)",
+   "type": "fix",
+   "test_files": [
+    "tests/cli/test_discovery.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/cli/discovery.py"
+   ],
+   "source_lines": 39,
+   "all_files": [
+    "fastmcp_slim/fastmcp/cli/discovery.py",
+    "tests/cli/test_discovery.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "022547ad8c957753d0b5a09290a4be345d3f01d2",
+   "parent": "34bdd480c91fef4482b184fcc637e574edcfaecd",
+   "date": "2026-08-02T14:56:05-04:00",
+   "subject": "Preserve string-compatible prompt arguments (#4730)",
+   "type": "other",
+   "test_files": [
+    "tests/prompts/test_prompt.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/prompts/function_prompt.py"
+   ],
+   "source_lines": 39,
+   "all_files": [
+    "fastmcp_slim/fastmcp/prompts/function_prompt.py",
+    "tests/prompts/test_prompt.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "886776f5fced4b312154bf770b0662128b23936d",
+   "parent": "d267792653a11faa736ffd0fff073a2f815a3b56",
+   "date": "2026-08-04T15:25:46-04:00",
+   "subject": "Canonicalize response cache arguments (#4753)",
+   "type": "other",
+   "test_files": [
+    "tests/server/middleware/test_caching.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/middleware/caching.py"
+   ],
+   "source_lines": 11,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/middleware/caching.py",
+    "tests/server/middleware/test_caching.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "db92d44ef510eca7d4fbd1c3108a7482d8021ce1",
+   "parent": "886776f5fced4b312154bf770b0662128b23936d",
+   "date": "2026-08-04T17:11:42-04:00",
+   "subject": "Serve empty list results from the response cache (#4738)",
+   "type": "other",
+   "test_files": [
+    "tests/server/middleware/test_caching.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/middleware/caching.py"
+   ],
+   "source_lines": 14,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/middleware/caching.py",
+    "tests/server/middleware/test_caching.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "4f28dceac87cc9e4610c01ffdc0499b4acd7c218",
+   "parent": "db92d44ef510eca7d4fbd1c3108a7482d8021ce1",
+   "date": "2026-08-04T17:15:01-04:00",
+   "subject": "Don't cache error results in ResponseCachingMiddleware (#4705)",
+   "type": "other",
+   "test_files": [
+    "tests/server/middleware/test_caching.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/middleware/caching.py"
+   ],
+   "source_lines": 8,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/middleware/caching.py",
+    "tests/server/middleware/test_caching.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "e4d8ca648a0e8fcf60f958fa4979df61dae4c5c0",
+   "parent": "2c2f98691f3e0b21ed6cc98ad4823d44fa93c5e8",
+   "date": "2026-08-05T10:56:13-04:00",
+   "subject": "Avoid loading MCP and CLI stacks during lightweight imports (#4763)",
+   "type": "other",
+   "test_files": [
+    "tests/server/http/test_startup_imports.py",
+    "tests/test_compat.py",
+    "tests/utilities/test_logging.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/__init__.py",
+    "fastmcp_slim/fastmcp/_compat.py",
+    "fastmcp_slim/fastmcp/_warnings.py",
+    "fastmcp_slim/fastmcp/exceptions.py",
+    "fastmcp_slim/fastmcp/server/mixins/transport.py",
+    "fastmcp_slim/fastmcp/utilities/logging.py"
+   ],
+   "source_lines": 69,
+   "all_files": [
+    "fastmcp_slim/fastmcp/__init__.py",
+    "fastmcp_slim/fastmcp/_compat.py",
+    "fastmcp_slim/fastmcp/_warnings.py",
+    "fastmcp_slim/fastmcp/exceptions.py",
+    "fastmcp_slim/fastmcp/server/mixins/transport.py",
+    "fastmcp_slim/fastmcp/utilities/logging.py",
+    "tests/server/http/test_startup_imports.py",
+    "tests/test_compat.py",
+    "tests/utilities/test_logging.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "959daf232157a5e4dd76e0b82326029c7513cb85",
+   "parent": "8661193411ec0ed16bcf33513e7e5d59b6cab3e3",
+   "date": "2026-08-05T15:46:10-04:00",
+   "subject": "Sanitize forwarded request metadata where the proxy copies it (#4770)",
+   "type": "other",
+   "test_files": [
+    "tests/server/providers/proxy/test_proxy_client.py",
+    "tests/server/providers/proxy/test_proxy_request_meta.py",
+    "tests/server/providers/proxy/test_proxy_server.py",
+    "tests/server/providers/proxy/test_stateful_proxy_client.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/providers/proxy.py"
+   ],
+   "source_lines": 75,
+   "all_files": [
+    "docs/servers/providers/proxy.mdx",
+    "fastmcp_slim/fastmcp/server/providers/proxy.py",
+    "tests/server/providers/proxy/test_proxy_client.py",
+    "tests/server/providers/proxy/test_proxy_request_meta.py",
+    "tests/server/providers/proxy/test_proxy_server.py",
+    "tests/server/providers/proxy/test_stateful_proxy_client.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "875e8e18bd41a81a6614183d7b982a4c79bb1be2",
+   "parent": "959daf232157a5e4dd76e0b82326029c7513cb85",
+   "date": "2026-08-05T18:09:16-04:00",
+   "subject": "Preserve legacy httpx compatibility without importing it (#4766)",
+   "type": "other",
+   "test_files": [
+    "tests/server/providers/openapi/test_comprehensive.py",
+    "tests/server/providers/openapi/test_legacy_client_compat.py",
+    "tests/server/test_legacy_httpx_errors.py",
+    "tests/test_no_legacy_httpx.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/upstream.py",
+    "fastmcp_slim/fastmcp/server/providers/openapi/components.py",
+    "fastmcp_slim/fastmcp/server/providers/openapi/provider.py",
+    "fastmcp_slim/fastmcp/server/server.py",
+    "fastmcp_slim/fastmcp/utilities/exceptions.py"
+   ],
+   "source_lines": 237,
+   "all_files": [
+    "docs/getting-started/upgrading/from-fastmcp-3.mdx",
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/upstream.py",
+    "fastmcp_slim/fastmcp/server/providers/openapi/README.md",
+    "fastmcp_slim/fastmcp/server/providers/openapi/components.py",
+    "fastmcp_slim/fastmcp/server/providers/openapi/provider.py",
+    "fastmcp_slim/fastmcp/server/server.py",
+    "fastmcp_slim/fastmcp/utilities/exceptions.py",
+    "fastmcp_slim/fastmcp/utilities/openapi/README.md",
+    "tests/server/providers/openapi/test_comprehensive.py",
+    "tests/server/providers/openapi/test_legacy_client_compat.py",
+    "tests/server/test_legacy_httpx_errors.py",
+    "tests/test_no_legacy_httpx.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "04f9971120382f50ea563f142d2ad971a846a686",
+   "parent": "803da5319cacf679d75a58a30fe2f069c24a8773",
+   "date": "2026-08-06T19:59:19-04:00",
+   "subject": "Delegate typed tool output serialization to Pydantic (#4771)",
+   "type": "other",
+   "test_files": [
+    "tests/tools/tool/test_output_schema.py",
+    "tests/tools/tool/test_results.py",
+    "tests/tools/tool_transform/test_tool_transform.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/tools/base.py",
+    "fastmcp_slim/fastmcp/tools/function_parsing.py",
+    "fastmcp_slim/fastmcp/tools/function_tool.py",
+    "fastmcp_slim/fastmcp/tools/tool_transform.py"
+   ],
+   "source_lines": 210,
+   "all_files": [
+    "fastmcp_slim/fastmcp/tools/base.py",
+    "fastmcp_slim/fastmcp/tools/function_parsing.py",
+    "fastmcp_slim/fastmcp/tools/function_tool.py",
+    "fastmcp_slim/fastmcp/tools/tool_transform.py",
+    "tests/tools/tool/test_output_schema.py",
+    "tests/tools/tool/test_results.py",
+    "tests/tools/tool_transform/test_tool_transform.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "06fee6d30062adf7c1676a608d71fea4f79c0385",
+   "parent": "706f7d269534f55696afcf26d907e4afea258b0d",
+   "date": "2026-08-06T20:09:36-04:00",
+   "subject": "Serialize the event store's stream list read-modify-write (#4758)",
+   "type": "other",
+   "test_files": [
+    "tests/server/test_event_store.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/event_store.py"
+   ],
+   "source_lines": 55,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/event_store.py",
+    "tests/server/test_event_store.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "6be0ac8e15d35ff8f5121266855bc34c1158c9a1",
+   "parent": "052889a3597fe11fb9fe922fe407ddbfb9341766",
+   "date": "2026-08-11T12:14:34-05:00",
+   "subject": "Fix partial hint resolution on Python 3.14 (#4796)",
+   "type": "fix",
+   "test_files": [
+    "tests/tasks/server/test_task_tools.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/tools/function_tool.py"
+   ],
+   "source_lines": 34,
+   "all_files": [
+    "fastmcp_slim/fastmcp/tools/function_tool.py",
+    "tests/tasks/server/test_task_tools.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "2061bc46c746f609a5cf63f972f04670a24e25bb",
+   "parent": "e108bc539e6bc380ecf82d227cc474adeae88e32",
+   "date": "2026-08-13T12:03:56-04:00",
+   "subject": "fix(openapi): extract parameter-level example and examples (#4793)",
+   "type": "fix",
+   "test_files": [
+    "tests/utilities/openapi/test_parser.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/openapi/parser.py"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    "fastmcp_slim/fastmcp/utilities/openapi/parser.py",
+    "tests/utilities/openapi/test_parser.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "19d9360cc1106c5ff6074742ed4cb7f16b9985bb",
+   "parent": "2061bc46c746f609a5cf63f972f04670a24e25bb",
+   "date": "2026-08-13T15:24:02-04:00",
+   "subject": "Keep earlier consent CSRF tokens valid within a transaction (#4818)",
+   "type": "other",
+   "test_files": [
+    "tests/server/auth/test_oauth_consent_flow.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/consent.py",
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/models.py",
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/proxy.py"
+   ],
+   "source_lines": 295,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/consent.py",
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/models.py",
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/proxy.py",
+    "tests/server/auth/test_oauth_consent_flow.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "822c82c93f0615eb39645ff6164ffb231e0bbb3f",
+   "parent": "19d9360cc1106c5ff6074742ed4cb7f16b9985bb",
+   "date": "2026-08-13T15:59:16-04:00",
+   "subject": "Add audience pinning to GoogleTokenVerifier (#4827)",
+   "type": "feat",
+   "test_files": [
+    "tests/server/auth/providers/test_google.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/auth/providers/github.py",
+    "fastmcp_slim/fastmcp/server/auth/providers/google.py"
+   ],
+   "source_lines": 30,
+   "all_files": [
+    "docs/servers/auth/oauth-proxy.mdx",
+    "fastmcp_slim/fastmcp/server/auth/providers/github.py",
+    "fastmcp_slim/fastmcp/server/auth/providers/google.py",
+    "tests/server/auth/providers/test_google.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "3dd0886156f3e0da19f8ec71861fbf997085cbba",
+   "parent": "822c82c93f0615eb39645ff6164ffb231e0bbb3f",
+   "date": "2026-08-13T16:01:19-04:00",
+   "subject": "Fix StatefulProxyClient reconnection after session failure (#4829)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/providers/proxy/test_stateful_proxy_client.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/providers/proxy.py"
+   ],
+   "source_lines": 10,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/providers/proxy.py",
+    "tests/server/providers/proxy/test_stateful_proxy_client.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "46399056dbd8821006b18bfc793359a7745498f7",
+   "parent": "addb8fa541d74b311dd0fa1bf99c3bf7b904c033",
+   "date": "2026-08-14T13:21:54-04:00",
+   "subject": "Scalekit issuer updates backward compatibility (#4798)",
+   "type": "other",
+   "test_files": [
+    "tests/server/auth/providers/test_scalekit.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/auth/providers/scalekit.py"
+   ],
+   "source_lines": 11,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/auth/providers/scalekit.py",
+    "tests/server/auth/providers/test_scalekit.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "b2025212d8bc2618547d15076a118819e960479a",
+   "parent": "0d86007617876558ddf7119291e0343e4b9398ac",
+   "date": "2026-08-18T12:36:24-04:00",
+   "subject": "Fix proxy forwarding of MCP transport headers (#4853)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/providers/proxy/test_proxy_headers.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/client/dependencies.py",
+    "fastmcp_slim/fastmcp/client/transports/base.py",
+    "fastmcp_slim/fastmcp/client/transports/http.py",
+    "fastmcp_slim/fastmcp/client/transports/sse.py",
+    "fastmcp_slim/fastmcp/server/providers/proxy.py"
+   ],
+   "source_lines": 55,
+   "all_files": [
+    "fastmcp_slim/fastmcp/client/dependencies.py",
+    "fastmcp_slim/fastmcp/client/transports/base.py",
+    "fastmcp_slim/fastmcp/client/transports/http.py",
+    "fastmcp_slim/fastmcp/client/transports/sse.py",
+    "fastmcp_slim/fastmcp/server/providers/proxy.py",
+    "tests/server/providers/proxy/test_proxy_headers.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "92465c7f1fd87e9a47c6319c1ad6f71c8d65a260",
+   "parent": "bfcdfa59ecce41cc957287a866faf2a57ad78f94",
+   "date": "2026-08-18T12:42:34-04:00",
+   "subject": "Exclude Cookie from forwarded HTTP headers (#4843)",
+   "type": "other",
+   "test_files": [
+    "tests/server/http/test_http_dependencies.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/dependencies.py"
+   ],
+   "source_lines": 18,
+   "all_files": [
+    "docs/servers/dependency-injection.mdx",
+    "fastmcp_slim/fastmcp/server/dependencies.py",
+    "tests/server/http/test_http_dependencies.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "258554d93c57d03468776d06956679f696aa7489",
+   "parent": "49ff7f56cd8790ee29b4698be654cbcaa471214a",
+   "date": "2026-08-24T14:14:47-05:00",
+   "subject": "fix: support Unicode tokens in BM25 search (#4889)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/transforms/test_search.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/transforms/search/bm25.py"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/transforms/search/bm25.py",
+    "tests/server/transforms/test_search.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "7ab6442aeb344e062e78152245579ae5fb8d9a8f",
+   "parent": "258554d93c57d03468776d06956679f696aa7489",
+   "date": "2026-08-24T21:09:41-05:00",
+   "subject": "fix: support modern protocol in multi-server clients (#4893)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/test_mrtr_guards.py",
+    "tests/test_mcp_config.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/client/client.py",
+    "fastmcp_slim/fastmcp/client/transports/base.py",
+    "fastmcp_slim/fastmcp/client/transports/config.py",
+    "fastmcp_slim/fastmcp/server/providers/proxy.py"
+   ],
+   "source_lines": 185,
+   "all_files": [
+    "docs/clients/client.mdx",
+    "docs/more/faq.mdx",
+    "fastmcp_slim/fastmcp/client/client.py",
+    "fastmcp_slim/fastmcp/client/transports/base.py",
+    "fastmcp_slim/fastmcp/client/transports/config.py",
+    "fastmcp_slim/fastmcp/server/providers/proxy.py",
+    "tests/server/test_mrtr_guards.py",
+    "tests/test_mcp_config.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "27ffa2c441666fd682b337078b24e2beab3cabb5",
+   "parent": "bbc44b89ac87b085316313ce1f902a030dc1b9d3",
+   "date": "2026-08-26T18:11:13-04:00",
+   "subject": "Bound CIMD cache growth (#4852)",
+   "type": "other",
+   "test_files": [
+    "tests/server/auth/oauth_proxy/test_client_registration.py",
+    "tests/server/auth/test_cimd.py",
+    "tests/server/auth/test_cimd_validators.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/auth/cimd.py",
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/proxy.py"
+   ],
+   "source_lines": 96,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/auth/cimd.py",
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/proxy.py",
+    "tests/server/auth/oauth_proxy/test_client_registration.py",
+    "tests/server/auth/test_cimd.py",
+    "tests/server/auth/test_cimd_validators.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "681dfd1fcaebc2ac3dfaae17bbe094c4ec1d3f4e",
+   "parent": "db8ee6381f7425ef8030354b43ea93bcfaf43aa7",
+   "date": "2026-08-27T18:00:48-05:00",
+   "subject": "fix(middleware): align response limits with output schemas (#4931)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/middleware/test_response_limiting.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/middleware/response_limiting.py"
+   ],
+   "source_lines": 28,
+   "all_files": [
+    "docs/servers/middleware.mdx",
+    "fastmcp_slim/fastmcp/server/middleware/response_limiting.py",
+    "tests/server/middleware/test_response_limiting.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "2a2080c6c787a8171a61365f334233735377ade5",
+   "parent": "681dfd1fcaebc2ac3dfaae17bbe094c4ec1d3f4e",
+   "date": "2026-08-27T21:21:48-05:00",
+   "subject": "add independent client groups (#4904)",
+   "type": "feat",
+   "test_files": [
+    "tests/client/group/test_client_group.py",
+    "tests/server/test_pagination.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/client/group.py",
+    "fastmcp_slim/fastmcp/client/mixins/tools.py"
+   ],
+   "source_lines": 273,
+   "all_files": [
+    "dev-docs/v4-notes/client-groups.md",
+    "docs/clients/client-groups.mdx",
+    "docs/clients/client.mdx",
+    "docs/docs.json",
+    "fastmcp_slim/fastmcp/client/group.py",
+    "fastmcp_slim/fastmcp/client/mixins/tools.py",
+    "tests/client/group/test_client_group.py",
+    "tests/server/test_pagination.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "125717dd55b9e71e313d53f4fc627153d03f6914",
+   "parent": "1f021142978e0861cd910c8df4e8074bc7cf3978",
+   "date": "2026-08-29T17:07:02-05:00",
+   "subject": "Accept any issuer scoped to the Descope project (#4909)",
+   "type": "other",
+   "test_files": [
+    "tests/server/auth/providers/test_descope.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/auth/providers/descope.py",
+    "fastmcp_slim/fastmcp/server/auth/providers/jwt.py"
+   ],
+   "source_lines": 86,
+   "all_files": [
+    "docs/integrations/descope.mdx",
+    "fastmcp_slim/fastmcp/server/auth/providers/descope.py",
+    "fastmcp_slim/fastmcp/server/auth/providers/jwt.py",
+    "tests/server/auth/providers/test_descope.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "977ba66c811728aff1522bca48e8cc86eb2aec15",
+   "parent": "125717dd55b9e71e313d53f4fc627153d03f6914",
+   "date": "2026-08-31T01:23:41-05:00",
+   "subject": "Fix response cache partitioning for versioned components (#4948)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/middleware/test_versioned_caching.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/middleware/caching.py"
+   ],
+   "source_lines": 52,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/middleware/caching.py",
+    "tests/server/middleware/test_versioned_caching.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "3685866cd8a986492d41e85710aeb8c11ca23b57",
+   "parent": "977ba66c811728aff1522bca48e8cc86eb2aec15",
+   "date": "2026-08-31T10:29:08-05:00",
+   "subject": "client: deprecate inferring stdio transports from str, prefer Path (#4941)",
+   "type": "other",
+   "test_files": [
+    "tests/client/client/test_transport.py",
+    "tests/docs/test_upgrade_guide_examples.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/client/transports/inference.py"
+   ],
+   "source_lines": 57,
+   "all_files": [
+    "docs/clients/client-groups.mdx",
+    "docs/clients/client-only-package.mdx",
+    "docs/clients/client.mdx",
+    "docs/clients/logging.mdx",
+    "docs/clients/notifications.mdx",
+    "docs/clients/sampling.mdx",
+    "docs/clients/transports.mdx",
+    "docs/development/tests.mdx",
+    "docs/getting-started/upgrading/from-fastmcp-3.mdx",
+    "docs/integrations/gemini.mdx",
+    "docs/integrations/pydantic-ai.mdx",
+    "docs/servers/composition.mdx",
+    "docs/servers/providers/proxy.mdx",
+    "examples/code_mode/client.py",
+    "examples/prompts_as_tools/client.py",
+    "examples/resources_as_tools/client.py",
+    "examples/search/client_bm25.py",
+    "examples/search/client_regex.py",
+    "fastmcp_slim/fastmcp/client/transports/inference.py",
+    "tests/client/client/test_transport.py",
+    "tests/docs/test_upgrade_guide_examples.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "5c679ba3dcd637b522cc5d98f39d626f0e732470",
+   "parent": "62ef226b62c7ff7f5181e3b12078369111324eb5",
+   "date": "2026-09-01T18:52:11-05:00",
+   "subject": "client: make ClientGroup context reentrant (#4975)",
+   "type": "other",
+   "test_files": [
+    "tests/client/group/test_client_group.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/client/group.py"
+   ],
+   "source_lines": 43,
+   "all_files": [
+    "docs/clients/client-groups.mdx",
+    "fastmcp_slim/fastmcp/client/group.py",
+    "tests/client/group/test_client_group.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "fbe04c7155535032c627e74f952a8f78bec760e0",
+   "parent": "07d7c54cb650610b35a60f182d0fa07f3ca1513c",
+   "date": "2026-09-02T17:55:41-05:00",
+   "subject": "Expose ClientGroup from package root (#4987)",
+   "type": "other",
+   "test_files": [
+    "tests/client/group/test_client_group.py",
+    "tests/client/test_slim_package_boundaries.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/__init__.py"
+   ],
+   "source_lines": 13,
+   "all_files": [
+    "docs/clients/client-groups.mdx",
+    "fastmcp_slim/fastmcp/__init__.py",
+    "tests/client/group/test_client_group.py",
+    "tests/client/test_slim_package_boundaries.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "032b9f63823ee12cdfd835cac15d14b913ba3d60",
+   "parent": "75d50ffb683ba502e86bf833411c46234749270b",
+   "date": "2026-09-04T13:02:02-05:00",
+   "subject": "fix: don't infer an output schema for unconstrained sequences (#4999)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/providers/local_provider_tools/test_output_schema.py",
+    "tests/tools/tool/test_output_schema.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/tools/function_parsing.py"
+   ],
+   "source_lines": 43,
+   "all_files": [
+    "docs/servers/tools.mdx",
+    "fastmcp_slim/fastmcp/tools/function_parsing.py",
+    "tests/server/providers/local_provider_tools/test_output_schema.py",
+    "tests/tools/tool/test_output_schema.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "e68bacca3111857616d67ad42218df386bf4f50e",
+   "parent": "032b9f63823ee12cdfd835cac15d14b913ba3d60",
+   "date": "2026-09-04T16:12:19-05:00",
+   "subject": "perf: avoid duplicate startup for mixed-era backends (#4971)",
+   "type": "refactor",
+   "test_files": [
+    "tests/test_mcp_config.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/client/transports/config.py"
+   ],
+   "source_lines": 96,
+   "all_files": [
+    "fastmcp_slim/fastmcp/client/transports/config.py",
+    "tests/test_mcp_config.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "6236ac1a872ea4312f099d3a42620e12fabd1f60",
+   "parent": "6c2fbe7f1297eebe8daf75ad7672b3ec81829295",
+   "date": "2026-09-04T18:46:54-05:00",
+   "subject": "Clean up unfinished Monty callbacks (#5005)",
+   "type": "other",
+   "test_files": [
+    "tests/experimental/transforms/test_code_mode.py",
+    "tests/experimental/transforms/test_monty_callback_lifecycle.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/experimental/transforms/code_mode.py"
+   ],
+   "source_lines": 35,
+   "all_files": [
+    "fastmcp_slim/fastmcp/experimental/transforms/code_mode.py",
+    "tests/experimental/transforms/test_code_mode.py",
+    "tests/experimental/transforms/test_monty_callback_lifecycle.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "6e0859fb79909e0b8e0b60ac4dce94594d6b0b4d",
+   "parent": "855cb7a6aba902d9fa9e4d6f2dbf4809c85f017c",
+   "date": "2026-09-04T19:08:13-05:00",
+   "subject": "fix task timing field serialization (#5003)",
+   "type": "fix",
+   "test_files": [
+    "tests/tasks/client/test_client_models.py",
+    "tests/tasks/server/test_wire_models.py"
+   ],
+   "source_files": [
+    "fastmcp_tasks/fastmcp_tasks/client_models.py",
+    "fastmcp_tasks/fastmcp_tasks/models.py"
+   ],
+   "source_lines": 8,
+   "all_files": [
+    "fastmcp_tasks/fastmcp_tasks/client_models.py",
+    "fastmcp_tasks/fastmcp_tasks/models.py",
+    "tests/tasks/client/test_client_models.py",
+    "tests/tasks/server/test_wire_models.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "cecd26e1fbec79da2e5ce3bb93cd75aefcea0fa1",
+   "parent": "0796584bb12606721011ac60a4522cafe4f5d497",
+   "date": "2026-09-11T10:41:53-05:00",
+   "subject": "Fix OpenAPI query explode defaults (#5065)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/providers/openapi/test_query_array_defaults.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/openapi/director.py"
+   ],
+   "source_lines": 13,
+   "all_files": [
+    "docs/integrations/openapi.mdx",
+    "fastmcp_slim/fastmcp/utilities/openapi/director.py",
+    "tests/server/providers/openapi/test_query_array_defaults.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "443227165a2b4b873bc4799f37c5e4883a179290",
+   "parent": "0306354646ad6f34113662a093c80017616c81f7",
+   "date": "2026-09-11T11:22:55-05:00",
+   "subject": "fix(openapi): encode JSON scalar request bodies (#5052)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/providers/openapi/test_json_request_bodies.py",
+    "tests/utilities/openapi/test_director.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/openapi/director.py"
+   ],
+   "source_lines": 20,
+   "all_files": [
+    "docs/integrations/openapi.mdx",
+    "fastmcp_slim/fastmcp/utilities/openapi/director.py",
+    "tests/server/providers/openapi/test_json_request_bodies.py",
+    "tests/utilities/openapi/test_director.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "e15fc44bd53cd0fe89de77ac74177ce9facd9c23",
+   "parent": "cc62dcb69d9f2cb669ef5ff696f8bcea1944475b",
+   "date": "2026-09-11T14:25:31-05:00",
+   "subject": "fix(versions): deterministic meta.fastmcp.versions ordering (#4880)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/versioning/test_versioning.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/versions.py"
+   ],
+   "source_lines": 5,
+   "all_files": [
+    "fastmcp_slim/fastmcp/utilities/versions.py",
+    "tests/server/versioning/test_versioning.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "58d903c84b0a3fe7596a15f9810ac138bda713dd",
+   "parent": "e15fc44bd53cd0fe89de77ac74177ce9facd9c23",
+   "date": "2026-09-11T14:25:49-05:00",
+   "subject": "Parse skills frontmatter with yaml.safe_load, falling back to the line parser (#4701)",
+   "type": "other",
+   "test_files": [
+    "tests/server/providers/test_skills_provider.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/providers/skills/_common.py"
+   ],
+   "source_lines": 79,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/providers/skills/_common.py",
+    "tests/server/providers/test_skills_provider.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "784ae75b2d2bd312a57611f8c690bd19019bd14e",
+   "parent": "58d903c84b0a3fe7596a15f9810ac138bda713dd",
+   "date": "2026-09-14T11:48:30-05:00",
+   "subject": "Keep client data out of tool validation warnings (#5106)",
+   "type": "other",
+   "test_files": [
+    "tests/server/test_input_validation.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/server.py"
+   ],
+   "source_lines": 48,
+   "all_files": [
+    "docs/servers/tools.mdx",
+    "fastmcp_slim/fastmcp/server/server.py",
+    "tests/server/test_input_validation.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "ad336a1478b36229cd379e868aea2e586879c7fa",
+   "parent": "784ae75b2d2bd312a57611f8c690bd19019bd14e",
+   "date": "2026-09-14T13:00:57-05:00",
+   "subject": "fix: follow empty pagination cursors in client lists (#5026)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/test_pagination.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/client/mixins/prompts.py",
+    "fastmcp_slim/fastmcp/client/mixins/resources.py",
+    "fastmcp_slim/fastmcp/client/mixins/tools.py"
+   ],
+   "source_lines": 8,
+   "all_files": [
+    "docs/clients/tools.mdx",
+    "fastmcp_slim/fastmcp/client/mixins/prompts.py",
+    "fastmcp_slim/fastmcp/client/mixins/resources.py",
+    "fastmcp_slim/fastmcp/client/mixins/tools.py",
+    "tests/server/test_pagination.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "b43648ac1544f435cfff602b079fc89b18513772",
+   "parent": "ad336a1478b36229cd379e868aea2e586879c7fa",
+   "date": "2026-09-14T13:01:02-05:00",
+   "subject": "fix: reject non-positive upstream token expiry (#4849)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/auth/oauth_proxy/test_nonpositive_expires_in.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/proxy.py"
+   ],
+   "source_lines": 17,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/proxy.py",
+    "tests/server/auth/oauth_proxy/test_nonpositive_expires_in.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "d869ad0eb6aa7deaf1470f24e2f555879676456c",
+   "parent": "f31180e8479a8c9333c49f241a9f4b2a9b3b1d1e",
+   "date": "2026-09-14T14:37:52-05:00",
+   "subject": "fix(server): reject a malformed pagination cursor offset (#5071)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/test_pagination.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/pagination.py"
+   ],
+   "source_lines": 12,
+   "all_files": [
+    "fastmcp_slim/fastmcp/utilities/pagination.py",
+    "tests/server/test_pagination.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "c86b02deca86c42e14a721750671df5b4eaec1f7",
+   "parent": "d869ad0eb6aa7deaf1470f24e2f555879676456c",
+   "date": "2026-09-14T14:37:57-05:00",
+   "subject": "fix(openapi): preserve dictionary request bodies (#5097)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/providers/openapi/test_object_request_bodies.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/openapi/director.py"
+   ],
+   "source_lines": 11,
+   "all_files": [
+    "docs/integrations/openapi.mdx",
+    "fastmcp_slim/fastmcp/utilities/openapi/director.py",
+    "tests/server/providers/openapi/test_object_request_bodies.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "119339e90f804388ea939bcc761fce54e3b1d4e7",
+   "parent": "c86b02deca86c42e14a721750671df5b4eaec1f7",
+   "date": "2026-09-14T14:38:02-05:00",
+   "subject": "Preserve OpenAPI raw body content types (#5093)",
+   "type": "other",
+   "test_files": [
+    "tests/server/providers/openapi/test_raw_request_bodies.py",
+    "tests/utilities/openapi/test_director.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/openapi/director.py"
+   ],
+   "source_lines": 10,
+   "all_files": [
+    "fastmcp_slim/fastmcp/utilities/openapi/director.py",
+    "tests/server/providers/openapi/test_raw_request_bodies.py",
+    "tests/utilities/openapi/test_director.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "e0129eaa6fb3825e2cfc6387cda0e8bcebb3436b",
+   "parent": "258d5ef3d61fc6ad51fc6c3581f5508f39fc36eb",
+   "date": "2026-09-15T12:02:49-05:00",
+   "subject": "fix(openapi): preserve HTTP parameters that match whole-body names (#5113)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/providers/openapi/test_whole_body_parameter_collisions.py",
+    "tests/utilities/openapi/test_schemas.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/openapi/schemas.py"
+   ],
+   "source_lines": 43,
+   "all_files": [
+    "docs/integrations/openapi.mdx",
+    "fastmcp_slim/fastmcp/utilities/openapi/schemas.py",
+    "tests/server/providers/openapi/test_whole_body_parameter_collisions.py",
+    "tests/utilities/openapi/test_schemas.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "f044b9dba4c085e3a5bef4df655f6dbc9c4fda77",
+   "parent": "e0129eaa6fb3825e2cfc6387cda0e8bcebb3436b",
+   "date": "2026-09-15T12:10:32-05:00",
+   "subject": "fix(local-provider): apply transforms in get_tasks (#5117)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/providers/test_local_provider.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/providers/local_provider/local_provider.py"
+   ],
+   "source_lines": 26,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/providers/local_provider/local_provider.py",
+    "tests/server/providers/test_local_provider.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "f21e00dd47b4225a51807e457f8f90df98ff1e5c",
+   "parent": "f044b9dba4c085e3a5bef4df655f6dbc9c4fda77",
+   "date": "2026-09-15T13:18:23-05:00",
+   "subject": "Fix multipart string-array default encoding (#5121)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/providers/openapi/test_multipart_array_defaults.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/openapi/director.py",
+    "fastmcp_slim/fastmcp/utilities/openapi/models.py",
+    "fastmcp_slim/fastmcp/utilities/openapi/parser.py"
+   ],
+   "source_lines": 44,
+   "all_files": [
+    "docs/integrations/openapi.mdx",
+    "fastmcp_slim/fastmcp/utilities/openapi/director.py",
+    "fastmcp_slim/fastmcp/utilities/openapi/models.py",
+    "fastmcp_slim/fastmcp/utilities/openapi/parser.py",
+    "tests/server/providers/openapi/test_multipart_array_defaults.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "053f1289191ca3310102d78d3058f8bee46eda24",
+   "parent": "490049f0f9742922f4af16c937db0b898dc9802b",
+   "date": "2026-09-17T10:18:56-07:00",
+   "subject": "Preserve field-level strict validation in lax mode (#5141)",
+   "type": "other",
+   "test_files": [
+    "tests/server/test_input_validation.py",
+    "tests/tasks/server/test_task_tools.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/tools/function_tool.py",
+    "fastmcp_tasks/fastmcp_tasks/components.py"
+   ],
+   "source_lines": 22,
+   "all_files": [
+    "fastmcp_slim/fastmcp/tools/function_tool.py",
+    "fastmcp_tasks/fastmcp_tasks/components.py",
+    "tests/server/test_input_validation.py",
+    "tests/tasks/server/test_task_tools.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "59c6459c7a1d9ed7a6610b08b612b8399f51eb77",
+   "parent": "004bf15a2ba99f077160993c00a404e1a9da83ea",
+   "date": "2026-09-17T14:53:05-07:00",
+   "subject": "codemode: raise legible errors in the sandbox; render enums and defaults in `get_schema` (#4970)",
+   "type": "other",
+   "test_files": [
+    "tests/experimental/transforms/test_code_mode.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/experimental/transforms/code_mode.py",
+    "fastmcp_slim/fastmcp/server/transforms/search/base.py"
+   ],
+   "source_lines": 128,
+   "all_files": [
+    "docs/servers/transforms/code-mode.mdx",
+    "fastmcp_slim/fastmcp/experimental/transforms/code_mode.py",
+    "fastmcp_slim/fastmcp/server/transforms/search/base.py",
+    "tests/experimental/transforms/test_code_mode.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "9f983e945b96ba19652b0b6757baf06a2d76a7fc",
+   "parent": "59c6459c7a1d9ed7a6610b08b612b8399f51eb77",
+   "date": "2026-09-17T14:59:47-07:00",
+   "subject": "Name nested fields in detailed CodeMode schemas (#5111)",
+   "type": "other",
+   "test_files": [
+    "tests/experimental/transforms/test_code_mode.py",
+    "tests/experimental/transforms/test_code_mode_serialization.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/transforms/search/base.py"
+   ],
+   "source_lines": 74,
+   "all_files": [
+    "docs/servers/transforms/code-mode.mdx",
+    "fastmcp_slim/fastmcp/server/transforms/search/base.py",
+    "tests/experimental/transforms/test_code_mode.py",
+    "tests/experimental/transforms/test_code_mode_serialization.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "3e20bba71abdd85fc53a14d5d6e5b03a1025477a",
+   "parent": "9c35c017cd89e4d50a9f512c8eafde68c301ec70",
+   "date": "2026-09-21T13:02:52-05:00",
+   "subject": "fix(auth): keep Google tokens out of request URLs (#5185)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/auth/providers/test_google.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/auth/providers/google.py"
+   ],
+   "source_lines": 10,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/auth/providers/google.py",
+    "tests/server/auth/providers/test_google.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "83e4bd3365a0b37727a7084c89a99cd61360cff8",
+   "parent": "7e351469332e99c1a4e18247d45c498720e6abae",
+   "date": "2026-09-21T16:39:41-05:00",
+   "subject": "fix(resources): percent-encode URI template literals (RFC 6570 \u00a73.1) (#5167)",
+   "type": "fix",
+   "test_files": [
+    "tests/resources/test_resource_template.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/resources/template.py"
+   ],
+   "source_lines": 39,
+   "all_files": [
+    "fastmcp_slim/fastmcp/resources/template.py",
+    "tests/resources/test_resource_template.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "5e1bff283953015d63a3467bb688419c808140c5",
+   "parent": "83e4bd3365a0b37727a7084c89a99cd61360cff8",
+   "date": "2026-09-21T16:42:32-05:00",
+   "subject": "fix(resources): encode data-backed file names (#5140)",
+   "type": "fix",
+   "test_files": [
+    "tests/utilities/test_types.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/types.py"
+   ],
+   "source_lines": 3,
+   "all_files": [
+    "fastmcp_slim/fastmcp/utilities/types.py",
+    "tests/utilities/test_types.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "c6e09d5360b40eefd70e2c050a94bdbec3c74ff5",
+   "parent": "5a876c4cbeced1059716428b1a9a6af7e3be6600",
+   "date": "2026-09-21T18:04:07-05:00",
+   "subject": "Preserve binary resource contents in response cache (#5181)",
+   "type": "other",
+   "test_files": [
+    "tests/server/middleware/test_caching.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/middleware/caching.py"
+   ],
+   "source_lines": 17,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/middleware/caching.py",
+    "tests/server/middleware/test_caching.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "2a385a215485b1644788cbf551affca03dae41cc",
+   "parent": "779eb44737decc79b4f80bb473ea14a58478ab5e",
+   "date": "2026-09-21T18:13:49-05:00",
+   "subject": "Expose FileSystemProvider discovery failures (#5164)",
+   "type": "other",
+   "test_files": [
+    "tests/fs/test_provider.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/providers/filesystem.py"
+   ],
+   "source_lines": 19,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/providers/filesystem.py",
+    "tests/fs/test_provider.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "aed1cf340ac5a24ce0f6bbc960ccc2b3c6869bb2",
+   "parent": "2a385a215485b1644788cbf551affca03dae41cc",
+   "date": "2026-09-21T18:33:54-05:00",
+   "subject": "Keep shared stdio sessions alive until the last client exits (#5180)",
+   "type": "other",
+   "test_files": [
+    "tests/client/test_stdio.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/client/transports/stdio.py"
+   ],
+   "source_lines": 7,
+   "all_files": [
+    "fastmcp_slim/fastmcp/client/transports/stdio.py",
+    "tests/client/test_stdio.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "345647dafe9e8f70ccc25394da58aa26b0936450",
+   "parent": "bbdde2f84fb5112933f3d84c2f6d216cd0f59fb3",
+   "date": "2026-09-21T21:18:41-05:00",
+   "subject": "fix(transforms): bound Jev search narrowing (#5199)",
+   "type": "fix",
+   "test_files": [
+    "tests/experimental/transforms/test_jev_search.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/experimental/transforms/jev_search.py"
+   ],
+   "source_lines": 13,
+   "all_files": [
+    "docs/servers/transforms/tool-search.mdx",
+    "fastmcp_slim/fastmcp/experimental/transforms/jev_search.py",
+    "tests/experimental/transforms/test_jev_search.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "3820f87b1478951e082c4fc86664cbf5cd35b250",
+   "parent": "3517bc49b9862caa1a0aa60898ddca05dab29a6a",
+   "date": "2026-09-22T10:56:31-05:00",
+   "subject": "fix(auth): cache OIDC discovery configuration (#4861)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/auth/conftest.py",
+    "tests/server/auth/test_oidc_discovery_cache.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/auth/oidc_proxy.py"
+   ],
+   "source_lines": 60,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/auth/oidc_proxy.py",
+    "tests/server/auth/conftest.py",
+    "tests/server/auth/test_oidc_discovery_cache.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "1f9992994eabafa6c4dbfe1974e76cf3a193b1b2",
+   "parent": "9d7afdf8e639fc7a16b77171770547dfaa2eed97",
+   "date": "2026-09-22T12:27:07-05:00",
+   "subject": "fix(resources): support exploded list query parameters (#5206)",
+   "type": "fix",
+   "test_files": [
+    "tests/resources/test_resource_template.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/resources/template.py"
+   ],
+   "source_lines": 140,
+   "all_files": [
+    "docs/servers/resources.mdx",
+    "fastmcp_slim/fastmcp/resources/template.py",
+    "tests/resources/test_resource_template.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "87b5c741a460f4de98a47f7029f6a034738b2c34",
+   "parent": "1f9992994eabafa6c4dbfe1974e76cf3a193b1b2",
+   "date": "2026-09-22T13:18:04-05:00",
+   "subject": "Keep string length and pattern constraints when a format is set (#5208)",
+   "type": "other",
+   "test_files": [
+    "tests/utilities/json_schema_type/test_constraints.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/json_schema_type.py"
+   ],
+   "source_lines": 40,
+   "all_files": [
+    "fastmcp_slim/fastmcp/utilities/json_schema_type.py",
+    "tests/utilities/json_schema_type/test_constraints.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "fab3bfd09eecda33e7a257fd74887705b4da5ebb",
+   "parent": "1e03ce39b1e8455828a0b3af5634e6309b648888",
+   "date": "2026-09-22T13:48:34-05:00",
+   "subject": "fix(openapi): rewrite model references in prefixItems (#5131)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/providers/openapi/test_tuple_schemas.py",
+    "tests/utilities/openapi/test_prefixitems_ref_rewrite.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/openapi/schemas.py"
+   ],
+   "source_lines": 5,
+   "all_files": [
+    "fastmcp_slim/fastmcp/utilities/openapi/schemas.py",
+    "tests/server/providers/openapi/test_tuple_schemas.py",
+    "tests/utilities/openapi/test_prefixitems_ref_rewrite.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "9657674fa872ec261a05475bf361673cef3901c4",
+   "parent": "339e20ff0f17d22e2c3b44f7782e262a23462370",
+   "date": "2026-09-22T15:15:11-05:00",
+   "subject": "json-schema: accept integral float counts like minLength 2.0 (#5214)",
+   "type": "other",
+   "test_files": [
+    "tests/utilities/json_schema_type/test_constraints.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/json_schema_type.py"
+   ],
+   "source_lines": 13,
+   "all_files": [
+    "fastmcp_slim/fastmcp/utilities/json_schema_type.py",
+    "tests/utilities/json_schema_type/test_constraints.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "eb33eee76e43bb8ee8d08289487f6f4d8e4548b6",
+   "parent": "9657674fa872ec261a05475bf361673cef3901c4",
+   "date": "2026-09-22T15:15:16-05:00",
+   "subject": "stdio: stop an unshared subprocess when its session exits under cancellation (#5215)",
+   "type": "other",
+   "test_files": [
+    "tests/client/test_stdio.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/client/transports/stdio.py"
+   ],
+   "source_lines": 10,
+   "all_files": [
+    "fastmcp_slim/fastmcp/client/transports/stdio.py",
+    "tests/client/test_stdio.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "49064826fa25cde3a3c94460ec208c33ec509b68",
+   "parent": "eb33eee76e43bb8ee8d08289487f6f4d8e4548b6",
+   "date": "2026-09-22T15:15:22-05:00",
+   "subject": "resources: match template literals whether they arrive raw or percent-encoded (#5216)",
+   "type": "other",
+   "test_files": [
+    "tests/resources/test_resource_template.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/resources/template.py"
+   ],
+   "source_lines": 34,
+   "all_files": [
+    "fastmcp_slim/fastmcp/resources/template.py",
+    "tests/resources/test_resource_template.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "c68bed0ab29bb06bfc6ef9748cb6a4ddf50ccb44",
+   "parent": "f9f4ac892dd96e2c023eecbdc99567f167eebdc0",
+   "date": "2026-09-22T16:07:20-05:00",
+   "subject": "resources: accept non-exploded list query params as comma-joined values (#5218)",
+   "type": "other",
+   "test_files": [
+    "tests/resources/test_resource_template.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/resources/template.py",
+    "fastmcp_slim/fastmcp/server/providers/fastmcp_provider.py",
+    "fastmcp_slim/fastmcp/server/providers/proxy.py"
+   ],
+   "source_lines": 112,
+   "all_files": [
+    "fastmcp_slim/fastmcp/resources/template.py",
+    "fastmcp_slim/fastmcp/server/providers/fastmcp_provider.py",
+    "fastmcp_slim/fastmcp/server/providers/proxy.py",
+    "tests/resources/test_resource_template.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "944b483ee7ceb95ecc244bf17718f6b94807e423",
+   "parent": "c68bed0ab29bb06bfc6ef9748cb6a4ddf50ccb44",
+   "date": "2026-09-22T16:07:25-05:00",
+   "subject": "stdio: revert shared keep_alive=False sessions (#5180, #5215) (#5219)",
+   "type": "other",
+   "test_files": [
+    "tests/client/test_stdio.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/client/transports/stdio.py"
+   ],
+   "source_lines": 9,
+   "all_files": [
+    "fastmcp_slim/fastmcp/client/transports/stdio.py",
+    "tests/client/test_stdio.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "0f9c74c43453276a3204c5f25868c0921836d88d",
+   "parent": "944b483ee7ceb95ecc244bf17718f6b94807e423",
+   "date": "2026-09-22T16:15:37-05:00",
+   "subject": "search: render non-JSON schema defaults and enums in the markdown serializer (#5220)",
+   "type": "other",
+   "test_files": [
+    "tests/experimental/transforms/test_code_mode_serialization.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/transforms/search/base.py"
+   ],
+   "source_lines": 10,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/transforms/search/base.py",
+    "tests/experimental/transforms/test_code_mode_serialization.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "fc28a165026321a5a52d021aa83829bbba1fc4aa",
+   "parent": "0f9c74c43453276a3204c5f25868c0921836d88d",
+   "date": "2026-09-22T16:28:13-05:00",
+   "subject": "json-schema: tolerate counts larger than any real length (#5221)",
+   "type": "other",
+   "test_files": [
+    "tests/utilities/json_schema_type/test_constraints.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/json_schema_type.py"
+   ],
+   "source_lines": 21,
+   "all_files": [
+    "fastmcp_slim/fastmcp/utilities/json_schema_type.py",
+    "tests/utilities/json_schema_type/test_constraints.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "c6165d9193887d61a9c6ff2f7a50f1ee842ac70d",
+   "parent": "3ca425416ea4678aa4b2876822a9cb301a9f2bd2",
+   "date": "2026-09-22T17:57:18-05:00",
+   "subject": "Release a Client's session hold before any await when a context exits (#5223)",
+   "type": "other",
+   "test_files": [
+    "tests/client/client/test_client.py",
+    "tests/client/group/test_client_group.py",
+    "tests/client/test_stdio.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/client/client.py",
+    "fastmcp_slim/fastmcp/client/group.py"
+   ],
+   "source_lines": 106,
+   "all_files": [
+    "fastmcp_slim/fastmcp/client/client.py",
+    "fastmcp_slim/fastmcp/client/group.py",
+    "tests/client/client/test_client.py",
+    "tests/client/group/test_client_group.py",
+    "tests/client/test_stdio.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "0959c275c1e00ebbbe5a91a46badfc97c43e47d4",
+   "parent": "a031ba98b8933fcd1e6fd996b70d08da7b4b5756",
+   "date": "2026-09-23T13:13:18-05:00",
+   "subject": "completions: answer only references the caller can list (#5240)",
+   "type": "other",
+   "test_files": [
+    "tests/server/test_completions.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/mixins/mcp_operations.py"
+   ],
+   "source_lines": 16,
+   "all_files": [
+    "docs/servers/completions.mdx",
+    "fastmcp_slim/fastmcp/server/mixins/mcp_operations.py",
+    "tests/server/test_completions.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "94c5a21229a60ae79a9f6fdadc05371cfc0c204f",
+   "parent": "15fd008340fbce5f9e514940c04025fa5deb123a",
+   "date": "2026-09-23T15:28:24-05:00",
+   "subject": "completions: check reference visibility through typed list hooks only (#5244)",
+   "type": "other",
+   "test_files": [
+    "tests/server/test_completions.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/mixins/mcp_operations.py"
+   ],
+   "source_lines": 62,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/mixins/mcp_operations.py",
+    "tests/server/test_completions.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "9949d9a646b14ff14d47d492656f1d36b8b773e4",
+   "parent": "83c973400d7b555a6875c0613c7a69ce4a5c8411",
+   "date": "2026-09-23T17:08:40-05:00",
+   "subject": "Fix OAuthProxy upstream refresh token revocation (#5243)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/auth/oauth_proxy/test_tokens.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/proxy.py"
+   ],
+   "source_lines": 31,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/proxy.py",
+    "tests/server/auth/oauth_proxy/test_tokens.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "94c346f0b7e794767db5ac136016b0e725cc1f03",
+   "parent": "9949d9a646b14ff14d47d492656f1d36b8b773e4",
+   "date": "2026-09-23T17:56:35-05:00",
+   "subject": "completions: revert the list-based visibility check (#5240, #5244) (#5250)",
+   "type": "other",
+   "test_files": [
+    "tests/server/test_completions.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/mixins/mcp_operations.py"
+   ],
+   "source_lines": 62,
+   "all_files": [
+    "docs/servers/completions.mdx",
+    "fastmcp_slim/fastmcp/server/mixins/mcp_operations.py",
+    "tests/server/test_completions.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "2af8a6874912727c4e7c6923efbc9f5d882211e3",
+   "parent": "94c346f0b7e794767db5ac136016b0e725cc1f03",
+   "date": "2026-09-23T17:56:39-05:00",
+   "subject": "resources: keep every compiled template pattern cached (#5248)",
+   "type": "other",
+   "test_files": [
+    "tests/resources/test_resource_template.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/resources/template.py"
+   ],
+   "source_lines": 4,
+   "all_files": [
+    "fastmcp_slim/fastmcp/resources/template.py",
+    "tests/resources/test_resource_template.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "80bc24ed33833dfdfd3b4429d078cdb5444f31b8",
+   "parent": "829908247a4faf41944b4be642d6f9e85506a95e",
+   "date": "2026-09-24T09:30:09-05:00",
+   "subject": "resources: keep each template's compiled pattern on the template (#5253)",
+   "type": "other",
+   "test_files": [
+    "tests/resources/test_resource_template.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/resources/template.py",
+    "fastmcp_slim/fastmcp/server/providers/fastmcp_provider.py"
+   ],
+   "source_lines": 46,
+   "all_files": [
+    "fastmcp_slim/fastmcp/resources/template.py",
+    "fastmcp_slim/fastmcp/server/providers/fastmcp_provider.py",
+    "tests/resources/test_resource_template.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "56652209ecabebb33fdb0bb89fd32f2a44c3a134",
+   "parent": "b21a49a1e87ff6cb842204e1e0680481709fc5fe",
+   "date": "2026-09-24T10:06:18-05:00",
+   "subject": "fix(stdio): tolerate a transport whose construction failed in __del__ (#5256)",
+   "type": "fix",
+   "test_files": [
+    "tests/client/test_stdio.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/client/transports/stdio.py"
+   ],
+   "source_lines": 9,
+   "all_files": [
+    "fastmcp_slim/fastmcp/client/transports/stdio.py",
+    "tests/client/test_stdio.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "edc991e4ffb07ba0f83bfe88771a62c1c8aa78f1",
+   "parent": "56652209ecabebb33fdb0bb89fd32f2a44c3a134",
+   "date": "2026-09-24T17:42:48-05:00",
+   "subject": "tasks: register task tools hidden by search and CodeMode (#5262)",
+   "type": "other",
+   "test_files": [
+    "tests/tasks/server/test_task_catalog_transforms.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/providers/base.py",
+    "fastmcp_slim/fastmcp/server/providers/fastmcp_provider.py",
+    "fastmcp_slim/fastmcp/server/providers/local_provider/local_provider.py",
+    "fastmcp_slim/fastmcp/server/providers/wrapped_provider.py",
+    "fastmcp_slim/fastmcp/server/server.py"
+   ],
+   "source_lines": 161,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/providers/base.py",
+    "fastmcp_slim/fastmcp/server/providers/fastmcp_provider.py",
+    "fastmcp_slim/fastmcp/server/providers/local_provider/local_provider.py",
+    "fastmcp_slim/fastmcp/server/providers/wrapped_provider.py",
+    "fastmcp_slim/fastmcp/server/server.py",
+    "tests/tasks/server/test_task_catalog_transforms.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "57fb604cd27f119e0ce48a5be812c7e613ec66e3",
+   "parent": "4375703d50a4dcaea93c577a1917e999056adaaf",
+   "date": "2026-09-25T12:18:35-05:00",
+   "subject": "tasks: run tools called from another tool in the foreground (#5275)",
+   "type": "other",
+   "test_files": [
+    "tests/tasks/server/test_extension.py",
+    "tests/tasks/server/test_task_catalog_transforms.py",
+    "tests/tasks/task_helpers.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/dependencies.py",
+    "fastmcp_slim/fastmcp/server/mixins/mcp_operations.py",
+    "fastmcp_slim/fastmcp/server/server.py",
+    "fastmcp_tasks/fastmcp_tasks/extension.py"
+   ],
+   "source_lines": 109,
+   "all_files": [
+    "docs/servers/tasks.mdx",
+    "fastmcp_slim/fastmcp/server/dependencies.py",
+    "fastmcp_slim/fastmcp/server/mixins/mcp_operations.py",
+    "fastmcp_slim/fastmcp/server/server.py",
+    "fastmcp_tasks/fastmcp_tasks/extension.py",
+    "tests/tasks/server/test_extension.py",
+    "tests/tasks/server/test_task_catalog_transforms.py",
+    "tests/tasks/task_helpers.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "1107e3cdebad3e9b7191247111dde5937c4d0ce5",
+   "parent": "92e44ffcc04b29f960a6c678f44fac226ccc0ea6",
+   "date": "2026-09-26T17:29:17-05:00",
+   "subject": "rate_limiting: default burst capacity to at least 1 (#5293)",
+   "type": "other",
+   "test_files": [
+    "tests/server/middleware/test_rate_limiting.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/middleware/rate_limiting.py"
+   ],
+   "source_lines": 8,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/middleware/rate_limiting.py",
+    "tests/server/middleware/test_rate_limiting.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "b3812683702794c94edc50a53c92da030401e772",
+   "parent": "1107e3cdebad3e9b7191247111dde5937c4d0ce5",
+   "date": "2026-09-26T17:38:30-05:00",
+   "subject": "rate_limiting: deprecate a burst_capacity below 1 (#5296)",
+   "type": "other",
+   "test_files": [
+    "tests/server/middleware/test_rate_limiting.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/middleware/rate_limiting.py"
+   ],
+   "source_lines": 26,
+   "all_files": [
+    "docs/servers/middleware.mdx",
+    "fastmcp_slim/fastmcp/server/middleware/rate_limiting.py",
+    "tests/server/middleware/test_rate_limiting.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "1746b93f05967a3515ad6f3dac37184104ad7439",
+   "parent": "899837ba7cb98e3640f3fbe1b2464ee87446ef3d",
+   "date": "2026-09-26T21:14:22-05:00",
+   "subject": "types: map Image jpg/svg/tif formats to canonical MIME types (#5294)",
+   "type": "other",
+   "test_files": [
+    "tests/utilities/test_types.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/types.py"
+   ],
+   "source_lines": 8,
+   "all_files": [
+    "fastmcp_slim/fastmcp/utilities/types.py",
+    "tests/utilities/test_types.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "c88ccf928fdd50552cdad3a739dc06830c94ce7a",
+   "parent": "f49946db1d09e42791bb797b6566f9f66f374b80",
+   "date": "2026-09-30T11:08:58-04:00",
+   "subject": "fix: validate cached version timestamp types (#5351)",
+   "type": "fix",
+   "test_files": [
+    "tests/utilities/test_version_check.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/version_check.py"
+   ],
+   "source_lines": 12,
+   "all_files": [
+    "fastmcp_slim/fastmcp/utilities/version_check.py",
+    "tests/utilities/test_version_check.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "0e4c8aa3a283fe6c402791404e33f3adc941df49",
+   "parent": "4be308b783fb95b8c69841938de13954409c9bec",
+   "date": "2026-10-02T00:47:25-05:00",
+   "subject": "cli: read MCP and fastmcp.json config files as utf-8 (#5345)",
+   "type": "other",
+   "test_files": [
+    "tests/cli/test_config_encoding.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/cli/cli.py",
+    "fastmcp_slim/fastmcp/cli/client.py",
+    "fastmcp_slim/fastmcp/cli/install/claude_desktop.py",
+    "fastmcp_slim/fastmcp/cli/install/shared.py",
+    "fastmcp_slim/fastmcp/cli/run.py",
+    "fastmcp_slim/fastmcp/utilities/cli.py"
+   ],
+   "source_lines": 14,
+   "all_files": [
+    "fastmcp_slim/fastmcp/cli/cli.py",
+    "fastmcp_slim/fastmcp/cli/client.py",
+    "fastmcp_slim/fastmcp/cli/install/claude_desktop.py",
+    "fastmcp_slim/fastmcp/cli/install/shared.py",
+    "fastmcp_slim/fastmcp/cli/run.py",
+    "fastmcp_slim/fastmcp/utilities/cli.py",
+    "tests/cli/test_config_encoding.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "a0dfe2aca4cfeb46798c4a004294478e4db802a1",
+   "parent": "7c6c2875186b30f491a4144aec0ce4d4e9834dca",
+   "date": "2026-10-02T20:51:00-04:00",
+   "subject": "Fix mounted extension runtime tracking (#5392)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/test_extension_runtime.py",
+    "tests/server/test_provider_extensions.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/mixins/extensions.py",
+    "fastmcp_slim/fastmcp/server/mixins/lifespan.py",
+    "fastmcp_slim/fastmcp/server/providers/aggregate.py",
+    "fastmcp_slim/fastmcp/server/providers/base.py",
+    "fastmcp_slim/fastmcp/server/providers/fastmcp_provider.py",
+    "fastmcp_slim/fastmcp/server/providers/wrapped_provider.py",
+    "fastmcp_slim/fastmcp/server/server.py"
+   ],
+   "source_lines": 161,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/mixins/extensions.py",
+    "fastmcp_slim/fastmcp/server/mixins/lifespan.py",
+    "fastmcp_slim/fastmcp/server/providers/aggregate.py",
+    "fastmcp_slim/fastmcp/server/providers/base.py",
+    "fastmcp_slim/fastmcp/server/providers/fastmcp_provider.py",
+    "fastmcp_slim/fastmcp/server/providers/wrapped_provider.py",
+    "fastmcp_slim/fastmcp/server/server.py",
+    "tests/server/test_extension_runtime.py",
+    "tests/server/test_provider_extensions.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "affd31d52a345c02fe037b2367f4e5bb4100aa28",
+   "parent": "c3b81662d31aa003a3451a7dcc7e41d38f3baef8",
+   "date": "2026-10-03T00:14:16-07:00",
+   "subject": "tools: keep explicit Field(title=...) on parameters in the input schema (#5388)",
+   "type": "other",
+   "test_files": [
+    "tests/tools/tool/test_title.py",
+    "tests/tools/tool/test_tool.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/dependencies.py",
+    "fastmcp_slim/fastmcp/tools/function_parsing.py",
+    "fastmcp_slim/fastmcp/utilities/types.py"
+   ],
+   "source_lines": 52,
+   "all_files": [
+    "docs/servers/tools.mdx",
+    "fastmcp_slim/fastmcp/server/dependencies.py",
+    "fastmcp_slim/fastmcp/tools/function_parsing.py",
+    "fastmcp_slim/fastmcp/utilities/types.py",
+    "tests/tools/tool/test_title.py",
+    "tests/tools/tool/test_tool.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "c9a9b900df36efd9e690b63670fc4b78f164dd7a",
+   "parent": "455c911ba93a0046acd37d916960d40ec53733ed",
+   "date": "2026-10-04T09:06:48-04:00",
+   "subject": "Pass client CLI arguments literally to Windows .cmd wrappers (#5419)",
+   "type": "other",
+   "test_files": [
+    "tests/cli/test_install.py",
+    "tests/cli/test_install_cli_arguments.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/cli/install/claude_code.py",
+    "fastmcp_slim/fastmcp/cli/install/gemini_cli.py",
+    "fastmcp_slim/fastmcp/cli/install/shared.py"
+   ],
+   "source_lines": 134,
+   "all_files": [
+    "fastmcp_slim/fastmcp/cli/install/claude_code.py",
+    "fastmcp_slim/fastmcp/cli/install/gemini_cli.py",
+    "fastmcp_slim/fastmcp/cli/install/shared.py",
+    "tests/cli/test_install.py",
+    "tests/cli/test_install_cli_arguments.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "adfb6a6ed5384895d3b1eaa7a314ea2f30b2663e",
+   "parent": "35bb8b9e078505e1aa798de83d2a09ea94501fb5",
+   "date": "2026-10-04T09:18:07-04:00",
+   "subject": "Avoid repeated traversal of shared tool schema definitions (#5412)",
+   "type": "other",
+   "test_files": [
+    "tests/experimental/transforms/test_code_mode_serialization.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/transforms/search/base.py"
+   ],
+   "source_lines": 55,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/transforms/search/base.py",
+    "tests/experimental/transforms/test_code_mode_serialization.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "1075aeac4a7cd076a6463a56ed74d634ac4c53f1",
+   "parent": "adfb6a6ed5384895d3b1eaa7a314ea2f30b2663e",
+   "date": "2026-10-04T10:04:17-04:00",
+   "subject": "Bound schema nesting before client type conversion (#5434)",
+   "type": "other",
+   "test_files": [
+    "tests/utilities/json_schema_type/test_generated_classes.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/json_schema_type.py"
+   ],
+   "source_lines": 24,
+   "all_files": [
+    "fastmcp_slim/fastmcp/utilities/json_schema_type.py",
+    "tests/utilities/json_schema_type/test_generated_classes.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "d691911998cdd45dadfcbfb58a09b137962249a5",
+   "parent": "f2b965bf73ea0cdba12a73100c9e3a9594d8d76e",
+   "date": "2026-10-04T10:14:34-04:00",
+   "subject": "OpenAPI components send only declared arguments and keep configured headers (#5423)",
+   "type": "other",
+   "test_files": [
+    "tests/client/test_openapi.py",
+    "tests/server/providers/openapi/test_undeclared_arguments.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/providers/openapi/components.py",
+    "fastmcp_slim/fastmcp/utilities/openapi/director.py"
+   ],
+   "source_lines": 136,
+   "all_files": [
+    "docs/integrations/openapi.mdx",
+    "fastmcp_slim/fastmcp/server/providers/openapi/components.py",
+    "fastmcp_slim/fastmcp/utilities/openapi/director.py",
+    "tests/client/test_openapi.py",
+    "tests/server/providers/openapi/test_undeclared_arguments.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "dad8b32eb93f08191a791688510b151427ed95c7",
+   "parent": "d691911998cdd45dadfcbfb58a09b137962249a5",
+   "date": "2026-10-04T10:14:42-04:00",
+   "subject": "Use the server's auth provider for component manager routes (#5425)",
+   "type": "other",
+   "test_files": [
+    "tests/contrib/test_component_manager.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/contrib/component_manager/component_manager.py",
+    "fastmcp_slim/fastmcp/server/http.py"
+   ],
+   "source_lines": 163,
+   "all_files": [
+    "fastmcp_slim/fastmcp/contrib/component_manager/README.md",
+    "fastmcp_slim/fastmcp/contrib/component_manager/component_manager.py",
+    "fastmcp_slim/fastmcp/server/http.py",
+    "tests/contrib/test_component_manager.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "633065580996055cf63201a8ec5dc2c9ae089893",
+   "parent": "dad8b32eb93f08191a791688510b151427ed95c7",
+   "date": "2026-10-04T10:14:50-04:00",
+   "subject": "Apply Host/Origin protection settings to the SSE transport (#5427)",
+   "type": "other",
+   "test_files": [
+    "tests/server/http/test_sse_host_origin_protection.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/http.py",
+    "fastmcp_slim/fastmcp/server/mixins/transport.py"
+   ],
+   "source_lines": 93,
+   "all_files": [
+    "docs/deployment/http.mdx",
+    "docs/more/settings.mdx",
+    "fastmcp_slim/fastmcp/server/http.py",
+    "fastmcp_slim/fastmcp/server/mixins/transport.py",
+    "tests/server/http/test_sse_host_origin_protection.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "a4f656c368526f595d144af2d5279e586dcb8681",
+   "parent": "57ae4baf53d3ed243d73276cec1434d8bdde345a",
+   "date": "2026-10-04T10:34:06-04:00",
+   "subject": "Key cached schema adapters by the normalized schema (#5436)",
+   "type": "other",
+   "test_files": [
+    "tests/utilities/json_schema_type/test_generated_classes.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/json_schema_type.py"
+   ],
+   "source_lines": 9,
+   "all_files": [
+    "fastmcp_slim/fastmcp/utilities/json_schema_type.py",
+    "tests/utilities/json_schema_type/test_generated_classes.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "635db7bde13f88b9de723fe5d04824e8981a4cd4",
+   "parent": "a4f656c368526f595d144af2d5279e586dcb8681",
+   "date": "2026-10-04T10:39:47-04:00",
+   "subject": "Resolve injected tools through the server's tool lookup (#5431)",
+   "type": "other",
+   "test_files": [
+    "tests/server/middleware/test_tool_injection.py",
+    "tests/tasks/server/test_task_middleware.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/middleware/tool_injection.py",
+    "fastmcp_slim/fastmcp/server/server.py"
+   ],
+   "source_lines": 173,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/middleware/tool_injection.py",
+    "fastmcp_slim/fastmcp/server/server.py",
+    "tests/server/middleware/test_tool_injection.py",
+    "tests/tasks/server/test_task_middleware.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "0ac49deec72404a90a0980785f5ca2c00dec4a57",
+   "parent": "6af67f554616560cb7a2f15f73d5894a7399306e",
+   "date": "2026-10-04T11:58:32-04:00",
+   "subject": "Keep referenced body fields when a request body schema adds sibling properties (#5440)",
+   "type": "other",
+   "test_files": [
+    "tests/server/providers/openapi/test_body_ref_siblings.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/openapi/director.py",
+    "fastmcp_slim/fastmcp/utilities/openapi/schemas.py"
+   ],
+   "source_lines": 118,
+   "all_files": [
+    "fastmcp_slim/fastmcp/utilities/openapi/director.py",
+    "fastmcp_slim/fastmcp/utilities/openapi/schemas.py",
+    "tests/server/providers/openapi/test_body_ref_siblings.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "d9b2199afdb6ec0533238675e254c9c1e855524b",
+   "parent": "6dde513746bb2872bdda7b37ca1db26b87b5e279",
+   "date": "2026-10-04T16:43:15-04:00",
+   "subject": "fix!: Qualify MultiAuth client identities (#5455)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/auth/test_auth_source_identities.py",
+    "tests/server/auth/test_multi_auth.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/auth/auth.py"
+   ],
+   "source_lines": 125,
+   "all_files": [
+    "docs/servers/auth/multi-auth.mdx",
+    "fastmcp_slim/fastmcp/server/auth/auth.py",
+    "tests/server/auth/test_auth_source_identities.py",
+    "tests/server/auth/test_multi_auth.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "1aebbb927f5f41d6ae2e0c2236553665384886be",
+   "parent": "d9b2199afdb6ec0533238675e254c9c1e855524b",
+   "date": "2026-10-04T16:43:38-04:00",
+   "subject": "fix: Share JWKS refreshes across key lookups (#5456)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/auth/test_jwks_refresh.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/auth/providers/jwt.py"
+   ],
+   "source_lines": 51,
+   "all_files": [
+    "docs/servers/auth/token-verification.mdx",
+    "fastmcp_slim/fastmcp/server/auth/providers/jwt.py",
+    "tests/server/auth/test_jwks_refresh.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "f98b44d0e3f231a9817a7ef266976050fe8570ca",
+   "parent": "1aebbb927f5f41d6ae2e0c2236553665384886be",
+   "date": "2026-10-04T16:43:47-04:00",
+   "subject": "fix!: Validate OpenAPI path parameter segments (#5457)",
+   "type": "fix",
+   "test_files": [
+    "tests/utilities/openapi/test_director.py",
+    "tests/utilities/openapi/test_path_values.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/openapi/director.py"
+   ],
+   "source_lines": 21,
+   "all_files": [
+    "docs/integrations/openapi.mdx",
+    "fastmcp_slim/fastmcp/utilities/openapi/director.py",
+    "tests/utilities/openapi/test_director.py",
+    "tests/utilities/openapi/test_path_values.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "b5c9b56fda3c72ba17e11107fa7fe6c8258a2a8c",
+   "parent": "61d82ac18bf1b5e9dc08647c18d68cc8f84a9e9a",
+   "date": "2026-10-04T16:44:05-04:00",
+   "subject": "fix!: Resolve skill files within their configured directories (#5459)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/providers/test_skill_main_files.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/providers/skills/directory_provider.py",
+    "fastmcp_slim/fastmcp/server/providers/skills/skill_provider.py"
+   ],
+   "source_lines": 18,
+   "all_files": [
+    "docs/servers/providers/skills.mdx",
+    "fastmcp_slim/fastmcp/server/providers/skills/directory_provider.py",
+    "fastmcp_slim/fastmcp/server/providers/skills/skill_provider.py",
+    "tests/server/providers/test_skill_main_files.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "86c59525fce5535e5b01e60e4dbf42a6327d1bd7",
+   "parent": "b5c9b56fda3c72ba17e11107fa7fe6c8258a2a8c",
+   "date": "2026-10-04T16:44:22-04:00",
+   "subject": "fix: Reuse shared OpenAPI composition members (#5460)",
+   "type": "fix",
+   "test_files": [
+    "tests/utilities/openapi/test_composition_graphs.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/openapi/schemas.py"
+   ],
+   "source_lines": 120,
+   "all_files": [
+    "fastmcp_slim/fastmcp/utilities/openapi/schemas.py",
+    "tests/utilities/openapi/test_composition_graphs.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "7b91b40a38437029b9c044ffe9a88b701ebb392f",
+   "parent": "86c59525fce5535e5b01e60e4dbf42a6327d1bd7",
+   "date": "2026-10-04T16:44:31-04:00",
+   "subject": "enhancement: Configure token introspection audiences (#5461)",
+   "type": "other",
+   "test_files": [
+    "tests/server/auth/providers/test_introspection_audience.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/auth/providers/introspection.py"
+   ],
+   "source_lines": 34,
+   "all_files": [
+    "docs/servers/auth/token-verification.mdx",
+    "fastmcp_slim/fastmcp/server/auth/providers/introspection.py",
+    "tests/server/auth/providers/test_introspection_audience.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "3191f5cd1ed1ee76ca56d3e3c33e88749e2a3cdf",
+   "parent": "7b91b40a38437029b9c044ffe9a88b701ebb392f",
+   "date": "2026-10-04T16:44:40-04:00",
+   "subject": "fix: Make proxy HTTP header forwarding configurable (#5462)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/providers/proxy/test_header_options.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/client/transports/config.py",
+    "fastmcp_slim/fastmcp/server/providers/proxy.py"
+   ],
+   "source_lines": 30,
+   "all_files": [
+    "docs/servers/providers/proxy.mdx",
+    "fastmcp_slim/fastmcp/client/transports/config.py",
+    "fastmcp_slim/fastmcp/server/providers/proxy.py",
+    "tests/server/providers/proxy/test_header_options.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "980f2a9309654d907a0157cfdd17ebdaa6a7538d",
+   "parent": "3191f5cd1ed1ee76ca56d3e3c33e88749e2a3cdf",
+   "date": "2026-10-04T16:44:50-04:00",
+   "subject": "enhancement: Configure upload retention in memory (#5463)",
+   "type": "other",
+   "test_files": [
+    "tests/apps/test_file_upload_retention.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/apps/file_upload.py"
+   ],
+   "source_lines": 102,
+   "all_files": [
+    "docs/apps/providers/file-upload.mdx",
+    "fastmcp_slim/fastmcp/apps/file_upload.py",
+    "tests/apps/test_file_upload_retention.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "1481a96693e50900075643d0c13ed3652f29c472",
+   "parent": "980f2a9309654d907a0157cfdd17ebdaa6a7538d",
+   "date": "2026-10-04T16:45:00-04:00",
+   "subject": "Resolve app tool names against the transformed catalog (#5464)",
+   "type": "other",
+   "test_files": [
+    "tests/server/providers/test_catalog_tool_names.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/providers/base.py"
+   ],
+   "source_lines": 21,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/providers/base.py",
+    "tests/server/providers/test_catalog_tool_names.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "e51b1f4613b1ea03424c4095ef4304e7cd3496b3",
+   "parent": "2eefbcd83e35abb63d7743d48d7d034bdaeb5898",
+   "date": "2026-10-04T19:51:36-04:00",
+   "subject": "fix: keep generator iteration inside dependency lifetime (#5438)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/test_dependencies_advanced.py",
+    "tests/server/test_generator_dependency_lifetime.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/dependencies.py"
+   ],
+   "source_lines": 11,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/dependencies.py",
+    "tests/server/test_dependencies_advanced.py",
+    "tests/server/test_generator_dependency_lifetime.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "8a88ef4eede8fedf0e62418cab872bfec46c6b55",
+   "parent": "e51b1f4613b1ea03424c4095ef4304e7cd3496b3",
+   "date": "2026-10-04T19:51:43-04:00",
+   "subject": "fix(tools): consume sync generators within dispatched invocation (#5376)",
+   "type": "fix",
+   "test_files": [
+    "tests/tools/test_generator_thread_dispatch.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/tools/function_tool.py"
+   ],
+   "source_lines": 18,
+   "all_files": [
+    "fastmcp_slim/fastmcp/tools/function_tool.py",
+    "tests/tools/test_generator_thread_dispatch.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "3e445e0803f064f9704161736ac31380c32af7b1",
+   "parent": "8a88ef4eede8fedf0e62418cab872bfec46c6b55",
+   "date": "2026-10-04T19:51:50-04:00",
+   "subject": "fix(tools): reject results returned after timeout deadlines (#5379)",
+   "type": "fix",
+   "test_files": [
+    "tests/tools/test_tool_timeout.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/tools/function_tool.py"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    "docs/servers/tools.mdx",
+    "fastmcp_slim/fastmcp/tools/function_tool.py",
+    "tests/tools/test_tool_timeout.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "b2b1c441d47b911659b6faa3ee5d2ea5832f37d0",
+   "parent": "3e445e0803f064f9704161736ac31380c32af7b1",
+   "date": "2026-10-04T19:51:57-04:00",
+   "subject": "Fix #5368: Tool.from_tool: a transform_fn that declares ctx: Context fail (#5371)",
+   "type": "fix",
+   "test_files": [
+    "tests/tools/tool_transform/test_tool_transform.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/tools/tool_transform.py"
+   ],
+   "source_lines": 9,
+   "all_files": [
+    "fastmcp_slim/fastmcp/tools/tool_transform.py",
+    "tests/tools/tool_transform/test_tool_transform.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "443a6c98fc19fe8d52365f3e0bd1f9448fbc6bda",
+   "parent": "b2b1c441d47b911659b6faa3ee5d2ea5832f37d0",
+   "date": "2026-10-04T19:52:05-04:00",
+   "subject": "fix(auth): preserve AuthKit issuer identity (#5452)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/auth/providers/test_workos.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/auth/providers/workos.py"
+   ],
+   "source_lines": 14,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/auth/providers/workos.py",
+    "tests/server/auth/providers/test_workos.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "93b491442da7272b4a82d81391b36f92470b39f5",
+   "parent": "443a6c98fc19fe8d52365f3e0bd1f9448fbc6bda",
+   "date": "2026-10-04T19:52:12-04:00",
+   "subject": "fix: advertise resource_metadata only when a route serves it (#5363)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/http/test_http_auth_middleware.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/http.py"
+   ],
+   "source_lines": 37,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/http.py",
+    "tests/server/http/test_http_auth_middleware.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "a4c7f8c6832c3dd2b7e567e0cbb09d99a074f404",
+   "parent": "d57cf34fc4768e5abf812b15eea60a6708ae17b8",
+   "date": "2026-10-04T20:01:53-04:00",
+   "subject": "feat: persist encrypted CLI OAuth tokens (#5405)",
+   "type": "feat",
+   "test_files": [
+    "tests/cli/test_client_commands.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/cli/client.py",
+    "fastmcp_slim/fastmcp/settings.py"
+   ],
+   "source_lines": 82,
+   "all_files": [
+    "docs/cli/overview.mdx",
+    "docs/more/settings.mdx",
+    "fastmcp_slim/fastmcp/cli/client.py",
+    "fastmcp_slim/fastmcp/settings.py",
+    "tests/cli/test_client_commands.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "ff64968a4b1c3468ca5d2b7e80b1c5727d95ee55",
+   "parent": "a4c7f8c6832c3dd2b7e567e0cbb09d99a074f404",
+   "date": "2026-10-04T20:04:36-04:00",
+   "subject": "fix!: Use Pydantic\u2019s regex engine for tool search (#5467)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/transforms/test_search_regex.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/transforms/search/regex.py"
+   ],
+   "source_lines": 29,
+   "all_files": [
+    "docs/servers/transforms/tool-search.mdx",
+    "fastmcp_slim/fastmcp/server/transforms/search/regex.py",
+    "tests/server/transforms/test_search_regex.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "285ec7a3463c8e68b25541ac06f4a81bfc9dd1e8",
+   "parent": "ff64968a4b1c3468ca5d2b7e80b1c5727d95ee55",
+   "date": "2026-10-04T20:17:37-04:00",
+   "subject": "feat(auth): add TokenCache support to GoogleTokenVerifier and GoogleProvider (#5366)",
+   "type": "feat",
+   "test_files": [
+    "tests/server/auth/providers/test_google.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/auth/providers/google.py"
+   ],
+   "source_lines": 28,
+   "all_files": [
+    "docs/integrations/google.mdx",
+    "fastmcp_slim/fastmcp/server/auth/providers/google.py",
+    "tests/server/auth/providers/test_google.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "f3b160b0b07cb8be89996922aa0332d4ed01a19d",
+   "parent": "285ec7a3463c8e68b25541ac06f4a81bfc9dd1e8",
+   "date": "2026-10-04T20:27:25-04:00",
+   "subject": "Keep the original cause when ErrorHandlingMiddleware re-raises an error unchanged (#5344)",
+   "type": "other",
+   "test_files": [
+    "tests/server/middleware/test_error_handling.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/middleware/error_handling.py"
+   ],
+   "source_lines": 5,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/middleware/error_handling.py",
+    "tests/server/middleware/test_error_handling.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "7d89a65ba7de2af7aa2bda32b823ffefed351ebb",
+   "parent": "f3b160b0b07cb8be89996922aa0332d4ed01a19d",
+   "date": "2026-10-04T20:27:55-04:00",
+   "subject": "Resolve ASGIServer.http_client relative URLs against the server origin (#5341)",
+   "type": "other",
+   "test_files": [
+    "tests/utilities/test_asgi_transport.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/tests.py"
+   ],
+   "source_lines": 8,
+   "all_files": [
+    "fastmcp_slim/fastmcp/utilities/tests.py",
+    "tests/utilities/test_asgi_transport.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "f0ed4fb6da40c80400f082decf5897c70382f416",
+   "parent": "7d89a65ba7de2af7aa2bda32b823ffefed351ebb",
+   "date": "2026-10-04T20:28:00-04:00",
+   "subject": "Raise startup failures from run_server_async instead of hanging (#5340)",
+   "type": "other",
+   "test_files": [
+    "tests/utilities/test_tests.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/tests.py"
+   ],
+   "source_lines": 10,
+   "all_files": [
+    "fastmcp_slim/fastmcp/utilities/tests.py",
+    "tests/utilities/test_tests.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "b9a874c4902ce3a31c87e383ee76e571e5c38795",
+   "parent": "f0ed4fb6da40c80400f082decf5897c70382f416",
+   "date": "2026-10-04T20:28:04-04:00",
+   "subject": "Restrict Windows CLI state access without requiring SeSecurityPrivilege (#5312)",
+   "type": "other",
+   "test_files": [
+    "tests/cli/deploy/test_credentials.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/cli/deploy/state.py"
+   ],
+   "source_lines": 5,
+   "all_files": [
+    "fastmcp_slim/fastmcp/cli/deploy/state.py",
+    "tests/cli/deploy/test_credentials.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "a92e6bd5c34304abc968f3013a88e7a0338f7d39",
+   "parent": "b9a874c4902ce3a31c87e383ee76e571e5c38795",
+   "date": "2026-10-04T20:28:08-04:00",
+   "subject": "Advertise the same list_changed capabilities over stdio as other transports (#5311)",
+   "type": "other",
+   "test_files": [
+    "tests/client/test_stdio.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/mixins/transport.py"
+   ],
+   "source_lines": 7,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/mixins/transport.py",
+    "tests/client/test_stdio.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "12d2bcc09305cbc007143d7d60930eded795a6ec",
+   "parent": "a92e6bd5c34304abc968f3013a88e7a0338f7d39",
+   "date": "2026-10-04T20:28:13-04:00",
+   "subject": "Validate responses to dict and nested-list elicitation choices (#5343)",
+   "type": "other",
+   "test_files": [
+    "tests/client/test_elicitation_enums.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/elicitation.py"
+   ],
+   "source_lines": 30,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/elicitation.py",
+    "tests/client/test_elicitation_enums.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "a6f4c722592732a976f4c72c1bff2dfe9099627a",
+   "parent": "12d2bcc09305cbc007143d7d60930eded795a6ec",
+   "date": "2026-10-04T20:28:17-04:00",
+   "subject": "Inline enums shared by several fields in elicitation schemas (#5342)",
+   "type": "other",
+   "test_files": [
+    "tests/client/test_elicitation_enums.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/elicitation.py"
+   ],
+   "source_lines": 23,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/elicitation.py",
+    "tests/client/test_elicitation_enums.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "00a2fba4ccb368d4594eb08a2477c9a98b71f443",
+   "parent": "a6f4c722592732a976f4c72c1bff2dfe9099627a",
+   "date": "2026-10-04T20:29:05-04:00",
+   "subject": "Honor the SDK ElicitResult returned by an elicitation handler (#5339)",
+   "type": "other",
+   "test_files": [
+    "tests/client/client/test_input_required_driver.py",
+    "tests/client/test_elicitation.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/client/elicitation.py"
+   ],
+   "source_lines": 5,
+   "all_files": [
+    "fastmcp_slim/fastmcp/client/elicitation.py",
+    "tests/client/client/test_input_required_driver.py",
+    "tests/client/test_elicitation.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "0f708469ef1d6cae5a6ed1ae17b692cd06a0d63e",
+   "parent": "00a2fba4ccb368d4594eb08a2477c9a98b71f443",
+   "date": "2026-10-04T20:29:09-04:00",
+   "subject": "Look up call_tool output schemas across all tools/list pages (#5338)",
+   "type": "other",
+   "test_files": [
+    "tests/client/client/test_client.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/client/mixins/tools.py"
+   ],
+   "source_lines": 4,
+   "all_files": [
+    "fastmcp_slim/fastmcp/client/mixins/tools.py",
+    "tests/client/client/test_client.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "b2de499dc8ce8bae86fac5bbccd7fefd50fa365a",
+   "parent": "0f708469ef1d6cae5a6ed1ae17b692cd06a0d63e",
+   "date": "2026-10-04T20:29:13-04:00",
+   "subject": "Deduplicate versions in PromptsAsTools and ResourcesAsTools list tools (#5331)",
+   "type": "other",
+   "test_files": [
+    "tests/server/transforms/test_prompts_as_tools.py",
+    "tests/server/transforms/test_resources_as_tools.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/transforms/prompts_as_tools.py",
+    "fastmcp_slim/fastmcp/server/transforms/resources_as_tools.py"
+   ],
+   "source_lines": 16,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/transforms/prompts_as_tools.py",
+    "fastmcp_slim/fastmcp/server/transforms/resources_as_tools.py",
+    "tests/server/transforms/test_prompts_as_tools.py",
+    "tests/server/transforms/test_resources_as_tools.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "589eca2bbb2aeb5d13d8efb96c6961c31cb8189e",
+   "parent": "b2de499dc8ce8bae86fac5bbccd7fefd50fa365a",
+   "date": "2026-10-04T20:29:17-04:00",
+   "subject": "Map File text formats to canonical text MIME types (#5334)",
+   "type": "other",
+   "test_files": [
+    "tests/utilities/test_types.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/types.py"
+   ],
+   "source_lines": 17,
+   "all_files": [
+    "fastmcp_slim/fastmcp/utilities/types.py",
+    "tests/utilities/test_types.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "59d158a1ebe9a730148368717560b852688009fa",
+   "parent": "589eca2bbb2aeb5d13d8efb96c6961c31cb8189e",
+   "date": "2026-10-04T20:29:22-04:00",
+   "subject": "Keep generated OpenAPI component names unique when a suffixed name is taken (#5337)",
+   "type": "other",
+   "test_files": [
+    "tests/server/providers/openapi/test_server.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/providers/openapi/provider.py"
+   ],
+   "source_lines": 13,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/providers/openapi/provider.py",
+    "tests/server/providers/openapi/test_server.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "83cd06b35c6f7aef8bf9632ad8fab9e8b45b0939",
+   "parent": "59d158a1ebe9a730148368717560b852688009fa",
+   "date": "2026-10-04T20:29:26-04:00",
+   "subject": "Keep is_error when ResponseLimitingMiddleware truncates a result (#5309)",
+   "type": "other",
+   "test_files": [
+    "tests/server/middleware/test_response_limiting.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/middleware/response_limiting.py"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/middleware/response_limiting.py",
+    "tests/server/middleware/test_response_limiting.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "fbae4169ecb4a17e8b73dbd0ad45167bc52d74f2",
+   "parent": "6d6aee416823b30ffb9765aafdc31a94df20b5ca",
+   "date": "2026-10-04T20:41:27-04:00",
+   "subject": "Read +json OpenAPI resource responses as JSON text (#5310)",
+   "type": "other",
+   "test_files": [
+    "tests/server/providers/openapi/test_openapi_features.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/providers/openapi/components.py"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/providers/openapi/components.py",
+    "tests/server/providers/openapi/test_openapi_features.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "e21ec0b780409f40f99bcdcffe9135105229155c",
+   "parent": "fbae4169ecb4a17e8b73dbd0ad45167bc52d74f2",
+   "date": "2026-10-04T20:43:59-04:00",
+   "subject": "Preserve provider challenge defaults through MultiAuth (#5454)",
+   "type": "other",
+   "test_files": [
+    "tests/server/auth/test_multi_auth.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/auth/auth.py"
+   ],
+   "source_lines": 21,
+   "all_files": [
+    "docs/servers/auth/oauth-proxy.mdx",
+    "fastmcp_slim/fastmcp/server/auth/auth.py",
+    "tests/server/auth/test_multi_auth.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "dd3c278bb3699bd36345774280a4132bd7800935",
+   "parent": "e21ec0b780409f40f99bcdcffe9135105229155c",
+   "date": "2026-10-04T20:44:38-04:00",
+   "subject": "Write generate-cli output as UTF-8 (#5335)",
+   "type": "other",
+   "test_files": [
+    "tests/cli/test_generate_cli.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/cli/generate.py"
+   ],
+   "source_lines": 4,
+   "all_files": [
+    "fastmcp_slim/fastmcp/cli/generate.py",
+    "tests/cli/test_generate_cli.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "43c54b49f1af057211b83de3e6cbdf1e0a1b7114",
+   "parent": "dd3c278bb3699bd36345774280a4132bd7800935",
+   "date": "2026-10-04T20:46:26-04:00",
+   "subject": "Strip internal visibility meta from prompt results and static resources (#5330)",
+   "type": "other",
+   "test_files": [
+    "tests/prompts/test_prompt.py",
+    "tests/resources/test_resource_template.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/prompts/base.py",
+    "fastmcp_slim/fastmcp/resources/base.py",
+    "fastmcp_slim/fastmcp/resources/types.py",
+    "fastmcp_slim/fastmcp/utilities/components.py"
+   ],
+   "source_lines": 84,
+   "all_files": [
+    "fastmcp_slim/fastmcp/prompts/base.py",
+    "fastmcp_slim/fastmcp/resources/base.py",
+    "fastmcp_slim/fastmcp/resources/types.py",
+    "fastmcp_slim/fastmcp/utilities/components.py",
+    "tests/prompts/test_prompt.py",
+    "tests/resources/test_resource_template.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "a35b88bba365a3aee50dcd084249c5934e2d15ca",
+   "parent": "486a6dcf697d68b214d173f5615de018f8b633da",
+   "date": "2026-10-04T21:08:54-04:00",
+   "subject": "fix(http): preserve the SDK's default session idle timeout (#5229)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/http/test_session_idle_timeout.py",
+    "tests/test_settings.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/http.py",
+    "fastmcp_slim/fastmcp/server/mixins/transport.py",
+    "fastmcp_slim/fastmcp/settings.py"
+   ],
+   "source_lines": 40,
+   "all_files": [
+    "docs/more/settings.mdx",
+    "fastmcp_slim/fastmcp/server/http.py",
+    "fastmcp_slim/fastmcp/server/mixins/transport.py",
+    "fastmcp_slim/fastmcp/settings.py",
+    "tests/server/http/test_session_idle_timeout.py",
+    "tests/test_settings.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "93ad0c9633947c1579973b9d7d7512152f99ad56",
+   "parent": "a35b88bba365a3aee50dcd084249c5934e2d15ca",
+   "date": "2026-10-04T21:08:59-04:00",
+   "subject": "Register browser OAuth clients as public clients (#5231)",
+   "type": "other",
+   "test_files": [
+    "tests/client/auth/test_oauth_static_client.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/client/auth/oauth.py"
+   ],
+   "source_lines": 11,
+   "all_files": [
+    "fastmcp_slim/fastmcp/client/auth/oauth.py",
+    "tests/client/auth/test_oauth_static_client.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "d4aacb2b0585cab3a426e21d6d920913e773c7c2",
+   "parent": "93ad0c9633947c1579973b9d7d7512152f99ad56",
+   "date": "2026-10-04T21:09:04-04:00",
+   "subject": "fix(client): preserve unique JSON arrays (#5270)",
+   "type": "fix",
+   "test_files": [
+    "tests/client/client/test_client.py",
+    "tests/utilities/json_schema_type/test_containers.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/json_schema_type.py"
+   ],
+   "source_lines": 85,
+   "all_files": [
+    "fastmcp_slim/fastmcp/utilities/json_schema_type.py",
+    "tests/client/client/test_client.py",
+    "tests/utilities/json_schema_type/test_containers.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "786a4cb10e83ac8032bbc1e28bbf36b66e8a8e65",
+   "parent": "d4aacb2b0585cab3a426e21d6d920913e773c7c2",
+   "date": "2026-10-04T21:09:09-04:00",
+   "subject": "Keep filesystem reloads serialized during cancellation (#5184)",
+   "type": "other",
+   "test_files": [
+    "tests/fs/test_provider.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/providers/filesystem.py"
+   ],
+   "source_lines": 13,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/providers/filesystem.py",
+    "tests/fs/test_provider.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "cf9d864ffde2141b9c5055bb937abde9b04b201f",
+   "parent": "786a4cb10e83ac8032bbc1e28bbf36b66e8a8e65",
+   "date": "2026-10-04T21:09:14-04:00",
+   "subject": "Treat upstream HTTP errors from OpenAPI tools as HTTP status errors (#5308)",
+   "type": "other",
+   "test_files": [
+    "tests/server/providers/openapi/test_http_errors.py",
+    "tests/server/test_input_validation.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/providers/openapi/components.py",
+    "fastmcp_slim/fastmcp/server/server.py"
+   ],
+   "source_lines": 20,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/providers/openapi/components.py",
+    "fastmcp_slim/fastmcp/server/server.py",
+    "tests/server/providers/openapi/test_http_errors.py",
+    "tests/server/test_input_validation.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "949fea4954a960e56d25a6c297eb5938188b1d09",
+   "parent": "74adff611bac5e93022dd4206f43c1fd6bc95581",
+   "date": "2026-10-04T21:20:52-04:00",
+   "subject": "fix(tools): take partial tool names and docstrings from the wrapped function (#5269)",
+   "type": "fix",
+   "test_files": [
+    "tests/tools/tool/test_tool.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/tools/function_parsing.py"
+   ],
+   "source_lines": 42,
+   "all_files": [
+    "fastmcp_slim/fastmcp/tools/function_parsing.py",
+    "tests/tools/tool/test_tool.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "e9d0ea7ab22a0ed9ab7ec3258113c7a41f8231bb",
+   "parent": "949fea4954a960e56d25a6c297eb5938188b1d09",
+   "date": "2026-10-04T21:20:58-04:00",
+   "subject": "fix(tools): keep structured content for object schemas without explicit type (#5271)",
+   "type": "fix",
+   "test_files": [
+    "tests/tools/tool_transform/test_schemas.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/tools/tool_transform.py"
+   ],
+   "source_lines": 10,
+   "all_files": [
+    "fastmcp_slim/fastmcp/tools/tool_transform.py",
+    "tests/tools/tool_transform/test_schemas.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "32f981cac072cc0cb0a66cd2f6d74b7eaedcf38f",
+   "parent": "e9d0ea7ab22a0ed9ab7ec3258113c7a41f8231bb",
+   "date": "2026-10-04T21:23:04-04:00",
+   "subject": "fix: return current tool schemas from cached BM25 searches (#5153)",
+   "type": "fix",
+   "test_files": [
+    "tests/experimental/transforms/test_code_mode_discovery.py",
+    "tests/server/transforms/test_search.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/transforms/search/bm25.py"
+   ],
+   "source_lines": 15,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/transforms/search/bm25.py",
+    "tests/experimental/transforms/test_code_mode_discovery.py",
+    "tests/server/transforms/test_search.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "9768633c14714b4518f314f0cda7022c6947b025",
+   "parent": "32f981cac072cc0cb0a66cd2f6d74b7eaedcf38f",
+   "date": "2026-10-04T21:23:09-04:00",
+   "subject": "fix(azure): send prompt=select_account to Entra instead of the consent URL (#5162)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/auth/providers/test_azure.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/auth/providers/azure.py"
+   ],
+   "source_lines": 32,
+   "all_files": [
+    "docs/integrations/azure.mdx",
+    "fastmcp_slim/fastmcp/server/auth/providers/azure.py",
+    "tests/server/auth/providers/test_azure.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "b702804e65a2f8e194e479547dd7988e02f5dad0",
+   "parent": "9768633c14714b4518f314f0cda7022c6947b025",
+   "date": "2026-10-04T21:23:15-04:00",
+   "subject": "fix(auth): preserve upstream refresh error semantics (#5011)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/auth/oauth_proxy/test_tokens.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/proxy.py"
+   ],
+   "source_lines": 12,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/proxy.py",
+    "tests/server/auth/oauth_proxy/test_tokens.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "5baeacfe20eca735cb949564b4915f93a622b916",
+   "parent": "b702804e65a2f8e194e479547dd7988e02f5dad0",
+   "date": "2026-10-04T21:44:36-04:00",
+   "subject": "Clean up run_server_async when startup exits early (#5469)",
+   "type": "other",
+   "test_files": [
+    "tests/utilities/test_run_server_async_startup.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/tests.py"
+   ],
+   "source_lines": 44,
+   "all_files": [
+    "fastmcp_slim/fastmcp/utilities/tests.py",
+    "tests/utilities/test_run_server_async_startup.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "09e1a7e08da0c15bc615953365ed599300c06172",
+   "parent": "a419c3b82b90110d7447e06fc86136e2d6816ad0",
+   "date": "2026-10-08T12:25:35-04:00",
+   "subject": "Forward the resources/read result meta through proxies (#5500)",
+   "type": "other",
+   "test_files": [
+    "tests/server/providers/proxy/test_proxy_server.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/providers/proxy.py"
+   ],
+   "source_lines": 30,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/providers/proxy.py",
+    "tests/server/providers/proxy/test_proxy_server.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "f6f13a7fa0961517f8c42dc41cbc0671e809d462",
+   "parent": "09e1a7e08da0c15bc615953365ed599300c06172",
+   "date": "2026-10-08T12:25:41-04:00",
+   "subject": "Fix proxy dropping log messages whose data is not a msg/extra dict (#5501)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/providers/proxy/test_proxy_client.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/providers/proxy.py"
+   ],
+   "source_lines": 10,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/providers/proxy.py",
+    "tests/server/providers/proxy/test_proxy_client.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "db4c97949d494df403257c196c2af4f72d52ac7a",
+   "parent": "58dceda1f7bc45dfe158277abc5fe000f4431e30",
+   "date": "2026-10-08T12:25:55-04:00",
+   "subject": "Treat non-Bearer Authorization schemes as missing authentication (#5503)",
+   "type": "other",
+   "test_files": [
+    "tests/server/auth/test_enhanced_error_responses.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/auth/middleware.py"
+   ],
+   "source_lines": 20,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/auth/middleware.py",
+    "tests/server/auth/test_enhanced_error_responses.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "77b585ae1948be13d6a81cf5d3a02aea209b42fe",
+   "parent": "db4c97949d494df403257c196c2af4f72d52ac7a",
+   "date": "2026-10-08T12:26:03-04:00",
+   "subject": "Reject positional-only parameters in prompts and resource templates (#5505)",
+   "type": "other",
+   "test_files": [
+    "tests/prompts/test_prompt.py",
+    "tests/resources/test_resource_template.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/prompts/function_prompt.py",
+    "fastmcp_slim/fastmcp/resources/template.py"
+   ],
+   "source_lines": 19,
+   "all_files": [
+    "fastmcp_slim/fastmcp/prompts/function_prompt.py",
+    "fastmcp_slim/fastmcp/resources/template.py",
+    "tests/prompts/test_prompt.py",
+    "tests/resources/test_resource_template.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "ca81bbeaf64376b8e53ac65e82ae1797eeaf65fe",
+   "parent": "77b585ae1948be13d6a81cf5d3a02aea209b42fe",
+   "date": "2026-10-08T12:26:10-04:00",
+   "subject": "Carry domain and prefers_border onto the Prefab renderer resource (#5611)",
+   "type": "other",
+   "test_files": [
+    "tests/server/providers/test_prefab_synthesis.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/providers/prefab_synthesis.py"
+   ],
+   "source_lines": 22,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/providers/prefab_synthesis.py",
+    "tests/server/providers/test_prefab_synthesis.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "34ab786037fa325abd4094249a6beeff34480757",
+   "parent": "ca81bbeaf64376b8e53ac65e82ae1797eeaf65fe",
+   "date": "2026-10-08T12:26:17-04:00",
+   "subject": "Keep GenerativeUI CSP on the renderer resource only (#5612)",
+   "type": "other",
+   "test_files": [
+    "tests/apps/test_generative.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/apps/generative.py"
+   ],
+   "source_lines": 3,
+   "all_files": [
+    "fastmcp_slim/fastmcp/apps/generative.py",
+    "tests/apps/test_generative.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "7d44072040bf254ca95463874794a022bd28b6be",
+   "parent": "34ab786037fa325abd4094249a6beeff34480757",
+   "date": "2026-10-08T12:26:24-04:00",
+   "subject": "Keep OpenAPI path segments that contain a colon (#5613)",
+   "type": "other",
+   "test_files": [
+    "tests/utilities/openapi/test_path_values.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/openapi/director.py"
+   ],
+   "source_lines": 7,
+   "all_files": [
+    "fastmcp_slim/fastmcp/utilities/openapi/director.py",
+    "tests/utilities/openapi/test_path_values.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "527e2e7584cc1702ca2c8e5525d297cbaa114506",
+   "parent": "7d44072040bf254ca95463874794a022bd28b6be",
+   "date": "2026-10-08T12:26:51-04:00",
+   "subject": "Print install mcp-json and inspect JSON without Rich wrapping (#5615)",
+   "type": "other",
+   "test_files": [
+    "tests/cli/test_cli.py",
+    "tests/cli/test_install.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/cli/cli.py",
+    "fastmcp_slim/fastmcp/cli/install/mcp_json.py"
+   ],
+   "source_lines": 11,
+   "all_files": [
+    "fastmcp_slim/fastmcp/cli/cli.py",
+    "fastmcp_slim/fastmcp/cli/install/mcp_json.py",
+    "tests/cli/test_cli.py",
+    "tests/cli/test_install.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "5789085df4d6e6ea8e2a2f741372bb9fda50ffc4",
+   "parent": "527e2e7584cc1702ca2c8e5525d297cbaa114506",
+   "date": "2026-10-08T12:26:58-04:00",
+   "subject": "Coerce optional parameters in fastmcp call by their non-null type (#5616)",
+   "type": "other",
+   "test_files": [
+    "tests/cli/test_client_commands.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/cli/client.py"
+   ],
+   "source_lines": 19,
+   "all_files": [
+    "fastmcp_slim/fastmcp/cli/client.py",
+    "tests/cli/test_client_commands.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "237efdfbab40e9475a78117d4b13d54bbd5e00d7",
+   "parent": "5789085df4d6e6ea8e2a2f741372bb9fda50ffc4",
+   "date": "2026-10-08T12:27:06-04:00",
+   "subject": "Return the existing component when an ignored duplicate is added (#5617)",
+   "type": "other",
+   "test_files": [
+    "tests/server/providers/test_local_provider.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/providers/local_provider/decorators/prompts.py",
+    "fastmcp_slim/fastmcp/server/providers/local_provider/decorators/resources.py",
+    "fastmcp_slim/fastmcp/server/providers/local_provider/decorators/tools.py"
+   ],
+   "source_lines": 16,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/providers/local_provider/decorators/prompts.py",
+    "fastmcp_slim/fastmcp/server/providers/local_provider/decorators/resources.py",
+    "fastmcp_slim/fastmcp/server/providers/local_provider/decorators/tools.py",
+    "tests/server/providers/test_local_provider.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "e92d1d75f2bd72b9bd33176ba98eb92cdcab8870",
+   "parent": "237efdfbab40e9475a78117d4b13d54bbd5e00d7",
+   "date": "2026-10-08T12:27:18-04:00",
+   "subject": "Keep a config client's servers connected when a new() clone connects (#5618)",
+   "type": "other",
+   "test_files": [
+    "tests/test_mcp_config.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/client/transports/config.py"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    "fastmcp_slim/fastmcp/client/transports/config.py",
+    "tests/test_mcp_config.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "85844e01d2b780285dcb00e9252db7d43d8cd56b",
+   "parent": "e92d1d75f2bd72b9bd33176ba98eb92cdcab8870",
+   "date": "2026-10-08T12:27:25-04:00",
+   "subject": "Strip discriminator under properties named default, const, enum or examples (#5619)",
+   "type": "other",
+   "test_files": [
+    "tests/utilities/test_json_schema.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/json_schema.py"
+   ],
+   "source_lines": 16,
+   "all_files": [
+    "fastmcp_slim/fastmcp/utilities/json_schema.py",
+    "tests/utilities/test_json_schema.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "8e64209d08383801ffd9912901a5acd5569b117d",
+   "parent": "85844e01d2b780285dcb00e9252db7d43d8cd56b",
+   "date": "2026-10-08T12:27:34-04:00",
+   "subject": "Don't evaluate properties when registering MCPMixin methods (#5620)",
+   "type": "other",
+   "test_files": [
+    "tests/contrib/test_mcp_mixin.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/contrib/mcp_mixin/mcp_mixin.py"
+   ],
+   "source_lines": 21,
+   "all_files": [
+    "fastmcp_slim/fastmcp/contrib/mcp_mixin/mcp_mixin.py",
+    "tests/contrib/test_mcp_mixin.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "35eb89bcd4bfc698fa7819de892606518e7bed28",
+   "parent": "8e64209d08383801ffd9912901a5acd5569b117d",
+   "date": "2026-10-08T12:27:41-04:00",
+   "subject": "Keep a finished task's status when it is cancelled (#5621)",
+   "type": "other",
+   "test_files": [
+    "tests/tasks/server/test_task_methods.py"
+   ],
+   "source_files": [
+    "fastmcp_tasks/fastmcp_tasks/handlers.py"
+   ],
+   "source_lines": 15,
+   "all_files": [
+    "fastmcp_tasks/fastmcp_tasks/handlers.py",
+    "tests/tasks/server/test_task_methods.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "a9a87be6b4f7ff1c4bbbb13b4d67f52dfd2b0eb1",
+   "parent": "35eb89bcd4bfc698fa7819de892606518e7bed28",
+   "date": "2026-10-08T12:27:48-04:00",
+   "subject": "Forward --skip-source to the uv run subprocess in fastmcp run (#5623)",
+   "type": "other",
+   "test_files": [
+    "tests/cli/test_run.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/cli/cli.py"
+   ],
+   "source_lines": 4,
+   "all_files": [
+    "fastmcp_slim/fastmcp/cli/cli.py",
+    "tests/cli/test_run.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "281a8575e45296f41442392496a372953328b215",
+   "parent": "a9a87be6b4f7ff1c4bbbb13b4d67f52dfd2b0eb1",
+   "date": "2026-10-08T12:27:57-04:00",
+   "subject": "Send numeric and boolean OpenAPI raw bodies as text (#5624)",
+   "type": "other",
+   "test_files": [
+    "tests/utilities/openapi/test_director.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/openapi/director.py"
+   ],
+   "source_lines": 11,
+   "all_files": [
+    "fastmcp_slim/fastmcp/utilities/openapi/director.py",
+    "tests/utilities/openapi/test_director.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "2a924aed83761f3f8fa1d71877596e14a0d59857",
+   "parent": "c41c388c0a53127dce9d0bdebdc8d304568d6a8d",
+   "date": "2026-10-08T12:28:11-04:00",
+   "subject": "Escape the server spec and name in the generate-cli header docstring (#5626)",
+   "type": "other",
+   "test_files": [
+    "tests/cli/test_generate_cli.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/cli/generate.py"
+   ],
+   "source_lines": 9,
+   "all_files": [
+    "fastmcp_slim/fastmcp/cli/generate.py",
+    "tests/cli/test_generate_cli.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "8d993b83e95b35deea6d55a08c9867f15baaf3d4",
+   "parent": "b4bb0f04fb7da9a19755158bc01ef91c93b38587",
+   "date": "2026-10-08T12:37:00-04:00",
+   "subject": "Validate strict tool input in JSON mode (#5504)",
+   "type": "other",
+   "test_files": [
+    "tests/server/test_input_validation.py",
+    "tests/tasks/server/test_task_tools.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/tools/function_tool.py",
+    "fastmcp_tasks/fastmcp_tasks/components.py"
+   ],
+   "source_lines": 47,
+   "all_files": [
+    "fastmcp_slim/fastmcp/tools/function_tool.py",
+    "fastmcp_tasks/fastmcp_tasks/components.py",
+    "tests/server/test_input_validation.py",
+    "tests/tasks/server/test_task_tools.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "5e36a960d162a939fcaad4ca9ec82bacadd152db",
+   "parent": "8d993b83e95b35deea6d55a08c9867f15baaf3d4",
+   "date": "2026-10-08T12:42:18-04:00",
+   "subject": "Raise when a required OpenAPI path parameter is missing (#5614)",
+   "type": "other",
+   "test_files": [
+    "tests/utilities/openapi/test_path_values.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/openapi/director.py"
+   ],
+   "source_lines": 14,
+   "all_files": [
+    "fastmcp_slim/fastmcp/utilities/openapi/director.py",
+    "tests/utilities/openapi/test_path_values.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "4a98517c44d98a46d33043691a1cd2a5a880f8f6",
+   "parent": "5e36a960d162a939fcaad4ca9ec82bacadd152db",
+   "date": "2026-10-08T14:34:16-04:00",
+   "subject": "Omit writeOnly properties from OpenAPI tool output schemas (#5336)",
+   "type": "other",
+   "test_files": [
+    "tests/server/providers/openapi/test_write_only_responses.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/openapi/json_schema_converter.py",
+    "fastmcp_slim/fastmcp/utilities/openapi/schemas.py"
+   ],
+   "source_lines": 180,
+   "all_files": [
+    "fastmcp_slim/fastmcp/utilities/openapi/json_schema_converter.py",
+    "fastmcp_slim/fastmcp/utilities/openapi/schemas.py",
+    "tests/server/providers/openapi/test_write_only_responses.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "0d4da5e5639131071af6e41267c548becc5d4c30",
+   "parent": "4a98517c44d98a46d33043691a1cd2a5a880f8f6",
+   "date": "2026-10-08T14:34:30-04:00",
+   "subject": "fix(tasks): keep stored arguments alive with the other per-task keys (#5144)",
+   "type": "fix",
+   "test_files": [
+    "tests/tasks/server/test_task_ttl.py"
+   ],
+   "source_files": [
+    "fastmcp_tasks/fastmcp_tasks/handlers.py",
+    "fastmcp_tasks/fastmcp_tasks/input_store.py"
+   ],
+   "source_lines": 20,
+   "all_files": [
+    "fastmcp_tasks/fastmcp_tasks/handlers.py",
+    "fastmcp_tasks/fastmcp_tasks/input_store.py",
+    "tests/tasks/server/test_task_ttl.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "9d43d6e10090aa8d800f8444dfb6a6d0caaf21ca",
+   "parent": "0d4da5e5639131071af6e41267c548becc5d4c30",
+   "date": "2026-10-08T14:34:56-04:00",
+   "subject": "fix(auth): omit scopes from generic authorization code exchange (#5183)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/auth/oauth_proxy/test_tokens.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/proxy.py"
+   ],
+   "source_lines": 9,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/auth/oauth_proxy/proxy.py",
+    "tests/server/auth/oauth_proxy/test_tokens.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "41df2f2888c92879bd8f80b477da0331a5a557a3",
+   "parent": "9d43d6e10090aa8d800f8444dfb6a6d0caaf21ca",
+   "date": "2026-10-08T14:36:29-04:00",
+   "subject": "Reject missing and unexpected arguments at task submission (#5622)",
+   "type": "other",
+   "test_files": [
+    "tests/tasks/server/test_task_tools.py"
+   ],
+   "source_files": [
+    "fastmcp_tasks/fastmcp_tasks/components.py"
+   ],
+   "source_lines": 56,
+   "all_files": [
+    "fastmcp_tasks/fastmcp_tasks/components.py",
+    "tests/tasks/server/test_task_tools.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "9af97ee0aa64cf3645f3431d9dd7e792fc903b2f",
+   "parent": "41df2f2888c92879bd8f80b477da0331a5a557a3",
+   "date": "2026-10-08T14:37:30-04:00",
+   "subject": "fix(auth): preserve verifier-defined challenge scopes through wrappers (#5478)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/auth/test_auth_provider.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/auth/auth.py"
+   ],
+   "source_lines": 8,
+   "all_files": [
+    "docs/servers/auth/multi-auth.mdx",
+    "fastmcp_slim/fastmcp/server/auth/auth.py",
+    "tests/server/auth/test_auth_provider.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "8b74f53cfefb1accdc8899e7bf556e58e539d134",
+   "parent": "9af97ee0aa64cf3645f3431d9dd7e792fc903b2f",
+   "date": "2026-10-08T14:38:01-04:00",
+   "subject": "fix(server): VersionFilter get_tool/get_resource/get_prompt respect include_unversioned=False (#4949)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/versioning/test_filtering.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/transforms/version_filter.py"
+   ],
+   "source_lines": 28,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/transforms/version_filter.py",
+    "tests/server/versioning/test_filtering.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "2df621e0ead32fbaa43db9a2c27cbbb804262fa6",
+   "parent": "30052f304a089647926dbe02b49320aa19c565af",
+   "date": "2026-10-08T14:47:47-04:00",
+   "subject": "Skip skills whose SKILL.md is not valid UTF-8 during directory discovery (#5497)",
+   "type": "other",
+   "test_files": [
+    "tests/server/providers/test_skills_provider.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/providers/skills/directory_provider.py"
+   ],
+   "source_lines": 8,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/providers/skills/directory_provider.py",
+    "tests/server/providers/test_skills_provider.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "2dd1c319c6328f4bb56f7fbac5bc901992995021",
+   "parent": "2df621e0ead32fbaa43db9a2c27cbbb804262fa6",
+   "date": "2026-10-08T14:48:25-04:00",
+   "subject": "Fix tool body validation errors at the MCP boundary (#5485)",
+   "type": "fix",
+   "test_files": [
+    "tests/apps/test_form.py",
+    "tests/server/test_generator_dependency_lifetime.py",
+    "tests/server/test_input_validation.py",
+    "tests/tools/tool/test_argument_validation.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/tools/function_tool.py"
+   ],
+   "source_lines": 17,
+   "all_files": [
+    "fastmcp_slim/fastmcp/tools/function_tool.py",
+    "tests/apps/test_form.py",
+    "tests/server/test_generator_dependency_lifetime.py",
+    "tests/server/test_input_validation.py",
+    "tests/tools/tool/test_argument_validation.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "50375b50ef8f34fbfe34b3d66d3e90b2b779898e",
+   "parent": "2dd1c319c6328f4bb56f7fbac5bc901992995021",
+   "date": "2026-10-08T14:48:39-04:00",
+   "subject": "Detect client extensions without requiring clientInfo (#5196)",
+   "type": "other",
+   "test_files": [
+    "tests/tasks/server/test_context_background_task.py",
+    "tests/test_apps.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/context.py",
+    "fastmcp_slim/fastmcp/server/low_level.py"
+   ],
+   "source_lines": 30,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/context.py",
+    "fastmcp_slim/fastmcp/server/low_level.py",
+    "tests/tasks/server/test_context_background_task.py",
+    "tests/test_apps.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "f8439a3e9f5f5ce2c24a11fb726d9ee03532d5c9",
+   "parent": "50375b50ef8f34fbfe34b3d66d3e90b2b779898e",
+   "date": "2026-10-08T14:48:44-04:00",
+   "subject": "Propagate child cancellation from gather (#5161)",
+   "type": "other",
+   "test_files": [
+    "tests/client/group/test_client_group.py",
+    "tests/utilities/test_async_utils.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/async_utils.py"
+   ],
+   "source_lines": 7,
+   "all_files": [
+    "fastmcp_slim/fastmcp/utilities/async_utils.py",
+    "tests/client/group/test_client_group.py",
+    "tests/utilities/test_async_utils.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "0921c969ded25159b94fe2ef509b3953f4e3e973",
+   "parent": "f8439a3e9f5f5ce2c24a11fb726d9ee03532d5c9",
+   "date": "2026-10-08T14:48:46-04:00",
+   "subject": "fix(resources): separate URI fragments from query values (#5132)",
+   "type": "fix",
+   "test_files": [
+    "tests/resources/test_resource_template.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/resources/template.py"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    "docs/servers/resources.mdx",
+    "fastmcp_slim/fastmcp/resources/template.py",
+    "tests/resources/test_resource_template.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "aa6aac869d3ad265fad9cd151c56852d38e7ee71",
+   "parent": "0921c969ded25159b94fe2ef509b3953f4e3e973",
+   "date": "2026-10-08T14:48:59-04:00",
+   "subject": "fix: preserve input requests in resource and prompt tools (#5476)",
+   "type": "fix",
+   "test_files": [
+    "tests/server/transforms/test_input_required.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/server/transforms/prompts_as_tools.py",
+    "fastmcp_slim/fastmcp/server/transforms/resources_as_tools.py"
+   ],
+   "source_lines": 14,
+   "all_files": [
+    "fastmcp_slim/fastmcp/server/transforms/prompts_as_tools.py",
+    "fastmcp_slim/fastmcp/server/transforms/resources_as_tools.py",
+    "tests/server/transforms/test_input_required.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "f6cfbf7893ba5f9b8580c9d6881edb8627697023",
+   "parent": "aa6aac869d3ad265fad9cd151c56852d38e7ee71",
+   "date": "2026-10-08T14:49:23-04:00",
+   "subject": "fix(docstrings): don't leak Returns/Raises into description for parameterless functions (#5067)",
+   "type": "fix",
+   "test_files": [
+    "tests/utilities/test_docstring_parsing.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/docstring_parsing.py"
+   ],
+   "source_lines": 20,
+   "all_files": [
+    "docs/servers/tools.mdx",
+    "fastmcp_slim/fastmcp/utilities/docstring_parsing.py",
+    "tests/utilities/test_docstring_parsing.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "1ed0e6d467cf8062485187a94b5171dcf213c59f",
+   "parent": "f6cfbf7893ba5f9b8580c9d6881edb8627697023",
+   "date": "2026-10-08T15:05:40-04:00",
+   "subject": "fix(client): hydrate formatted scalars and positional array items (#5203)",
+   "type": "fix",
+   "test_files": [
+    "tests/client/test_result_hydration.py",
+    "tests/utilities/json_schema_type/test_containers.py",
+    "tests/utilities/json_schema_type/test_formats.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/utilities/json_schema_type.py"
+   ],
+   "source_lines": 26,
+   "all_files": [
+    "fastmcp_slim/fastmcp/utilities/json_schema_type.py",
+    "tests/client/test_result_hydration.py",
+    "tests/utilities/json_schema_type/test_containers.py",
+    "tests/utilities/json_schema_type/test_formats.py"
+   ]
+  },
+  {
+   "repo": "fastmcp",
+   "commit": "9c4a0b9fa1b6a390754fa6f0fce7930366f1a1c4",
+   "parent": "51b618f7d5970d2870dc351081e16600f371291f",
+   "date": "2026-10-08T23:34:20-05:00",
+   "subject": "Convert the component manager's version query param to a VersionSpec (#5575)",
+   "type": "other",
+   "test_files": [
+    "tests/contrib/test_component_manager.py"
+   ],
+   "source_files": [
+    "fastmcp_slim/fastmcp/contrib/component_manager/component_manager.py"
+   ],
+   "source_lines": 7,
+   "all_files": [
+    "fastmcp_slim/fastmcp/contrib/component_manager/component_manager.py",
+    "tests/contrib/test_component_manager.py"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,695 @@
+{
+ "repo": "starlette",
+ "window": "main",
+ "range": [
+  "2026-07-01T00:00:00Z",
+  "2026-10-15T00:00:00Z"
+ ],
+ "drops": {
+  "no_test_change": 51,
+  "source_lines_out_of_range": 8,
+  "dependency_manifest_or_lock_changed": 4,
+  "bot_author": 13,
+  "no_source_change": 3
+ },
+ "candidates": [
+  {
+   "repo": "starlette",
+   "commit": "cb824a1c7d67924fc762bfc12359139892385b18",
+   "parent": "5567e274c8c4a0811fb3bc602c3b6631571b8e80",
+   "date": "2026-08-05T11:19:18+02:00",
+   "subject": "Offload large GZip compression (#3410)",
+   "type": "other",
+   "test_files": [
+    "tests/middleware/test_gzip.py"
+   ],
+   "source_files": [
+    "starlette/middleware/gzip.py"
+   ],
+   "source_lines": 59,
+   "all_files": [
+    "docs/middleware.md",
+    "starlette/middleware/gzip.py",
+    "tests/middleware/test_gzip.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "99b7cc62e0c2cb8d24e5f546b7e34e17496c265e",
+   "parent": "f7525198f08a6cdf5c336ecb0b9c7390142fc058",
+   "date": "2026-08-06T22:33:12+02:00",
+   "subject": "Add `exclude_content_types` parameter to `GZipMiddleware` (#3418)",
+   "type": "feat",
+   "test_files": [
+    "tests/middleware/test_gzip.py"
+   ],
+   "source_files": [
+    "starlette/middleware/gzip.py"
+   ],
+   "source_lines": 30,
+   "all_files": [
+    "docs/middleware.md",
+    "starlette/middleware/gzip.py",
+    "tests/middleware/test_gzip.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "f1dc9b630da61ee14e8b7580921a7d8f55dfa4ff",
+   "parent": "b07b8c61516307c6899ea16c8d2a00eaee3e3f84",
+   "date": "2026-08-07T10:25:20+02:00",
+   "subject": "Expand default excluded content types in `GZipMiddleware` (#3421)",
+   "type": "other",
+   "test_files": [
+    "tests/middleware/test_gzip.py"
+   ],
+   "source_files": [
+    "starlette/middleware/gzip.py"
+   ],
+   "source_lines": 16,
+   "all_files": [
+    "docs/middleware.md",
+    "starlette/middleware/gzip.py",
+    "tests/middleware/test_gzip.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "b07b8c61516307c6899ea16c8d2a00eaee3e3f84",
+   "parent": "d438d397c93c055c068a2f9bd84a2cf2a8c9c7b7",
+   "date": "2026-08-07T10:25:20+02:00",
+   "subject": "Skip compression of partial responses in `GZipMiddleware` (#3420)",
+   "type": "other",
+   "test_files": [
+    "tests/middleware/test_gzip.py"
+   ],
+   "source_files": [
+    "starlette/middleware/gzip.py"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    "docs/middleware.md",
+    "starlette/middleware/gzip.py",
+    "tests/middleware/test_gzip.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "9c500db197859dba4a8db13fa8e7d2c55de8152c",
+   "parent": "78ae82cad482fe66a73fb1217f0a6609b3f998f6",
+   "date": "2026-08-08T12:40:02+02:00",
+   "subject": "Limit `FileResponse` to 100 ranges (#3430)",
+   "type": "other",
+   "test_files": [
+    "tests/test_responses.py"
+   ],
+   "source_files": [
+    "starlette/responses.py"
+   ],
+   "source_lines": 8,
+   "all_files": [
+    "starlette/responses.py",
+    "tests/test_responses.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "38f8999a229610b36f39d11f67d80515a15c6330",
+   "parent": "c41236c03868fb3779a64101f4ea88cd47877e23",
+   "date": "2026-08-08T17:06:25+00:00",
+   "subject": "Add `max_body_size` to `Starlette` and route classes (#3431)",
+   "type": "feat",
+   "test_files": [
+    "tests/middleware/test_body_limit.py",
+    "tests/test_formparsers.py"
+   ],
+   "source_files": [
+    "starlette/applications.py",
+    "starlette/formparsers.py",
+    "starlette/middleware/body_limit.py",
+    "starlette/routing.py"
+   ],
+   "source_lines": 164,
+   "all_files": [
+    "docs/middleware.md",
+    "docs/requests.md",
+    "docs/routing.md",
+    "starlette/applications.py",
+    "starlette/formparsers.py",
+    "starlette/middleware/body_limit.py",
+    "starlette/routing.py",
+    "tests/middleware/test_body_limit.py",
+    "tests/test_formparsers.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "9eea41ad3c26ad21b9bdfe4578c1cdad6c9b9ac2",
+   "parent": "38f8999a229610b36f39d11f67d80515a15c6330",
+   "date": "2026-08-08T17:31:18+00:00",
+   "subject": "Expose `http.response.debug` info via response extensions (#3130)",
+   "type": "other",
+   "test_files": [
+    "tests/test_testclient.py"
+   ],
+   "source_files": [
+    "starlette/testclient.py"
+   ],
+   "source_lines": 17,
+   "all_files": [
+    "docs/testclient.md",
+    "starlette/testclient.py",
+    "tests/test_testclient.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "04d7869c1ec3016fa11f58382a9ac7bc14b46662",
+   "parent": "3b0bc1df1e577ddf675ffcda5193c057018bf806",
+   "date": "2026-08-23T22:24:35+02:00",
+   "subject": "Add `excluded_urls` to `OpenTelemetryMiddleware` (#3463)",
+   "type": "feat",
+   "test_files": [
+    "tests/middleware/test_opentelemetry.py"
+   ],
+   "source_files": [
+    "starlette/middleware/opentelemetry.py"
+   ],
+   "source_lines": 100,
+   "all_files": [
+    "docs/middleware.md",
+    "starlette/middleware/opentelemetry.py",
+    "tests/middleware/test_opentelemetry.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "6ad24bb7809c2d833445d5b1cfb9e95c26260e56",
+   "parent": "04d7869c1ec3016fa11f58382a9ac7bc14b46662",
+   "date": "2026-08-25T15:23:49+02:00",
+   "subject": "Support IPv6 hosts in `TrustedHostMiddleware` (#3471)",
+   "type": "other",
+   "test_files": [
+    "tests/middleware/test_trusted_host.py",
+    "tests/test_testclient.py"
+   ],
+   "source_files": [
+    "starlette/_utils.py",
+    "starlette/datastructures.py",
+    "starlette/middleware/trustedhost.py",
+    "starlette/testclient.py"
+   ],
+   "source_lines": 42,
+   "all_files": [
+    "docs/middleware.md",
+    "starlette/_utils.py",
+    "starlette/datastructures.py",
+    "starlette/middleware/trustedhost.py",
+    "starlette/testclient.py",
+    "tests/middleware/test_trusted_host.py",
+    "tests/test_testclient.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "49e22755cd4495a11277c25f232510e9af56ea84",
+   "parent": "6ad24bb7809c2d833445d5b1cfb9e95c26260e56",
+   "date": "2026-08-26T10:03:04+02:00",
+   "subject": "Reject malformed Host authorities consistently (#3472)",
+   "type": "other",
+   "test_files": [
+    "tests/middleware/test_https_redirect.py",
+    "tests/middleware/test_trusted_host.py",
+    "tests/test_datastructures.py",
+    "tests/test_routing.py"
+   ],
+   "source_files": [
+    "starlette/_utils.py",
+    "starlette/datastructures.py",
+    "starlette/middleware/httpsredirect.py",
+    "starlette/middleware/trustedhost.py",
+    "starlette/routing.py"
+   ],
+   "source_lines": 76,
+   "all_files": [
+    "starlette/_utils.py",
+    "starlette/datastructures.py",
+    "starlette/middleware/httpsredirect.py",
+    "starlette/middleware/trustedhost.py",
+    "starlette/routing.py",
+    "tests/middleware/test_https_redirect.py",
+    "tests/middleware/test_trusted_host.py",
+    "tests/test_datastructures.py",
+    "tests/test_routing.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "d9ed5b0f98fdf081fb138473129b72eb035153a3",
+   "parent": "49e22755cd4495a11277c25f232510e9af56ea84",
+   "date": "2026-08-26T10:29:03+02:00",
+   "subject": "Track session mutations from popitem() and |= (#3436)",
+   "type": "other",
+   "test_files": [
+    "tests/middleware/test_session.py"
+   ],
+   "source_files": [
+    "starlette/middleware/sessions.py"
+   ],
+   "source_lines": 9,
+   "all_files": [
+    "starlette/middleware/sessions.py",
+    "tests/middleware/test_session.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "e7a0b007b601f5e4ff98424333fd2fb794a3f1e6",
+   "parent": "d9ed5b0f98fdf081fb138473129b72eb035153a3",
+   "date": "2026-08-30T06:42:00+00:00",
+   "subject": "Replace RuntimeError with WebSocketDisconnected (#2767)",
+   "type": "other",
+   "test_files": [
+    "tests/test_websockets.py"
+   ],
+   "source_files": [
+    "starlette/websockets.py"
+   ],
+   "source_lines": 16,
+   "all_files": [
+    "starlette/websockets.py",
+    "tests/test_websockets.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "e4bd5981540ee0003deaae69d7f4881f11714b96",
+   "parent": "723de8254c606ac7dbed7b7cf21badb86cc4876c",
+   "date": "2026-08-30T09:38:25+02:00",
+   "subject": "Add support for the QUERY HTTP method (#3489)",
+   "type": "feat",
+   "test_files": [
+    "tests/middleware/test_cors.py",
+    "tests/test_endpoints.py",
+    "tests/test_routing.py",
+    "tests/test_schemas.py"
+   ],
+   "source_files": [
+    "starlette/endpoints.py",
+    "starlette/middleware/cors.py",
+    "starlette/schemas.py"
+   ],
+   "source_lines": 12,
+   "all_files": [
+    "docs/endpoints.md",
+    "starlette/endpoints.py",
+    "starlette/middleware/cors.py",
+    "starlette/schemas.py",
+    "tests/middleware/test_cors.py",
+    "tests/test_endpoints.py",
+    "tests/test_routing.py",
+    "tests/test_schemas.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "39fd0ffac25593fce39466320c9a666957ce8b8c",
+   "parent": "e4bd5981540ee0003deaae69d7f4881f11714b96",
+   "date": "2026-08-30T14:57:43+02:00",
+   "subject": "Return 400 for invalid multipart parser input (#3492)",
+   "type": "other",
+   "test_files": [
+    "tests/test_formparsers.py"
+   ],
+   "source_files": [
+    "starlette/formparsers.py"
+   ],
+   "source_lines": 10,
+   "all_files": [
+    "starlette/formparsers.py",
+    "tests/test_formparsers.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "dee5bb38d6c09b4609823898b9289162922c73b2",
+   "parent": "c55ac67bfc4a8c8733601e9b37d9c2ffe4a29553",
+   "date": "2026-09-05T10:04:54+02:00",
+   "subject": "Support partitioned cookies in SessionMiddleware (#3510)",
+   "type": "other",
+   "test_files": [
+    "tests/middleware/test_session.py"
+   ],
+   "source_files": [
+    "starlette/middleware/sessions.py"
+   ],
+   "source_lines": 3,
+   "all_files": [
+    "docs/middleware.md",
+    "starlette/middleware/sessions.py",
+    "tests/middleware/test_session.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "c9176b57af56eb0f0906e47e0eea95de43bbf38f",
+   "parent": "699dae42f5ee0a90b358d00db9aebe9c67e9283f",
+   "date": "2026-09-05T11:13:41+00:00",
+   "subject": "Vary CORS preflight responses by their request inputs (#3517)",
+   "type": "other",
+   "test_files": [
+    "tests/middleware/test_cors.py"
+   ],
+   "source_files": [
+    "starlette/middleware/cors.py"
+   ],
+   "source_lines": 9,
+   "all_files": [
+    "starlette/middleware/cors.py",
+    "tests/middleware/test_cors.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "699dae42f5ee0a90b358d00db9aebe9c67e9283f",
+   "parent": "22dcce70bda6d6f45eafc144c9bde55c1d1fbb97",
+   "date": "2026-09-05T12:48:43+02:00",
+   "subject": "Include Vary: Origin on all normal CORS responses (#3516)",
+   "type": "other",
+   "test_files": [
+    "tests/middleware/test_cors.py"
+   ],
+   "source_files": [
+    "starlette/middleware/cors.py"
+   ],
+   "source_lines": 19,
+   "all_files": [
+    "starlette/middleware/cors.py",
+    "tests/middleware/test_cors.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "8feafc64083403ff7fb7872248b7165968c91561",
+   "parent": "b4c1d181612ca0738177cff1134237cc1ffd408e",
+   "date": "2026-09-06T12:10:41+00:00",
+   "subject": "Add provider parameters to OpenTelemetryMiddleware (#3520)",
+   "type": "feat",
+   "test_files": [
+    "tests/middleware/test_opentelemetry.py"
+   ],
+   "source_files": [
+    "starlette/middleware/opentelemetry.py"
+   ],
+   "source_lines": 35,
+   "all_files": [
+    "docs/middleware.md",
+    "starlette/middleware/opentelemetry.py",
+    "tests/middleware/test_opentelemetry.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "b4c1d181612ca0738177cff1134237cc1ffd408e",
+   "parent": "0fcaff1d1e1d16a702a06b40d20092cc9d84d4a3",
+   "date": "2026-09-06T13:58:08+02:00",
+   "subject": "Handle empty and absent payloads in `WebSocketEndpoint.decode()` (#3372)",
+   "type": "other",
+   "test_files": [
+    "tests/test_endpoints.py"
+   ],
+   "source_files": [
+    "starlette/endpoints.py"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    "starlette/endpoints.py",
+    "tests/test_endpoints.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "3ebcaf38fbfee636b67b32444aec5b864183906e",
+   "parent": "004250a3f216e524839642a0eca60035e8302f68",
+   "date": "2026-09-06T17:33:19+02:00",
+   "subject": "Run background tasks after the response is sent in `BaseHTTPMiddleware` (#3476)",
+   "type": "other",
+   "test_files": [
+    "tests/middleware/test_base.py"
+   ],
+   "source_files": [
+    "starlette/middleware/base.py"
+   ],
+   "source_lines": 5,
+   "all_files": [
+    "starlette/middleware/base.py",
+    "tests/middleware/test_base.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "fd662b17b9cc41dca32a03509305619643f2dd61",
+   "parent": "41db6a707f2636526847dbda0e5610e732e6b4fc",
+   "date": "2026-09-07T08:10:40+02:00",
+   "subject": "Implement `identity` on `SimpleUser` and `UnauthenticatedUser` (#3271)",
+   "type": "other",
+   "test_files": [
+    "tests/test_authentication.py"
+   ],
+   "source_files": [
+    "starlette/authentication.py"
+   ],
+   "source_lines": 8,
+   "all_files": [
+    "starlette/authentication.py",
+    "tests/test_authentication.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "76fd00f1e293990ea41555946a6b0f58901eaca1",
+   "parent": "f03f65c2f98c592773d691b4d309c68b83e568ef",
+   "date": "2026-09-12T08:21:56+00:00",
+   "subject": "Reject `WebSocket` requests to `StaticFiles` (#3532)",
+   "type": "other",
+   "test_files": [
+    "tests/test_staticfiles.py"
+   ],
+   "source_files": [
+    "starlette/staticfiles.py"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    "starlette/staticfiles.py",
+    "tests/test_staticfiles.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "03f12b7fcf0a3e21a8da648ca0900c79472e9efe",
+   "parent": "76fd00f1e293990ea41555946a6b0f58901eaca1",
+   "date": "2026-09-12T11:04:59+02:00",
+   "subject": "Allow HTTPException to use non-standard status codes (#3545)",
+   "type": "other",
+   "test_files": [
+    "tests/test_exceptions.py"
+   ],
+   "source_files": [
+    "starlette/exceptions.py"
+   ],
+   "source_lines": 4,
+   "all_files": [
+    "docs/exceptions.md",
+    "starlette/exceptions.py",
+    "tests/test_exceptions.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "57de5fa9c2a98089a78d32d560e9b23e62560d5f",
+   "parent": "03f12b7fcf0a3e21a8da648ca0900c79472e9efe",
+   "date": "2026-09-20T08:46:57+02:00",
+   "subject": "Support HTTP response trailers in TestClient (#3563)",
+   "type": "other",
+   "test_files": [
+    "tests/test_testclient.py"
+   ],
+   "source_files": [
+    "starlette/testclient.py"
+   ],
+   "source_lines": 20,
+   "all_files": [
+    "docs/testclient.md",
+    "starlette/testclient.py",
+    "tests/test_testclient.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "4fe55eb2649e74fb01472bad9a1bc54fc3495904",
+   "parent": "1f08daf1627c866a4244418ea6da673d272fc8bb",
+   "date": "2026-09-23T07:11:16+00:00",
+   "subject": "Preserve `FileResponse` status for range requests (#3568)",
+   "type": "other",
+   "test_files": [
+    "tests/test_responses.py"
+   ],
+   "source_files": [
+    "starlette/responses.py"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    "starlette/responses.py",
+    "tests/test_responses.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "2284ff008cef127b5cd48722ed97bc65a45c7568",
+   "parent": "85c3b7434fd6b58596486dbe93cfe605ee358881",
+   "date": "2026-09-27T11:54:34+02:00",
+   "subject": "Stop file transfers when HTTP clients disconnect (#3523)",
+   "type": "other",
+   "test_files": [
+    "tests/test_responses.py"
+   ],
+   "source_files": [
+    "starlette/responses.py"
+   ],
+   "source_lines": 46,
+   "all_files": [
+    "starlette/responses.py",
+    "tests/test_responses.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "6beaa2e39d3381e1d7ddb89d4cc7cbb8c7ac0961",
+   "parent": "ee93d2960b52c4e7c4a7abd40eb50773f7fad01e",
+   "date": "2026-10-03T10:35:57+00:00",
+   "subject": "Preserve response trailers through GZipMiddleware (#3565)",
+   "type": "other",
+   "test_files": [
+    "tests/middleware/test_gzip.py"
+   ],
+   "source_files": [
+    "starlette/middleware/gzip.py"
+   ],
+   "source_lines": 10,
+   "all_files": [
+    "docs/middleware.md",
+    "starlette/middleware/gzip.py",
+    "tests/middleware/test_gzip.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "c67ca4eeef171c679074f4ebc579ee5dbd657aa8",
+   "parent": "04741d073fb6c3ab5fccad08be8ae7aad1f67e91",
+   "date": "2026-10-04T16:14:47-04:00",
+   "subject": "Add HTTP 103 Early Hints support (#3435)",
+   "type": "feat",
+   "test_files": [
+    "tests/middleware/test_base.py",
+    "tests/middleware/test_gzip.py",
+    "tests/test_endpoints.py",
+    "tests/test_requests.py"
+   ],
+   "source_files": [
+    "starlette/endpoints.py",
+    "starlette/middleware/base.py",
+    "starlette/middleware/gzip.py",
+    "starlette/requests.py"
+   ],
+   "source_lines": 27,
+   "all_files": [
+    "docs/early-hints.md",
+    "mkdocs.yml",
+    "starlette/endpoints.py",
+    "starlette/middleware/base.py",
+    "starlette/middleware/gzip.py",
+    "starlette/requests.py",
+    "tests/middleware/test_base.py",
+    "tests/middleware/test_gzip.py",
+    "tests/test_endpoints.py",
+    "tests/test_requests.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "48e657ab0cd17f2cea3c944995f4dce91e4f9c39",
+   "parent": "6beaa2e39d3381e1d7ddb89d4cc7cbb8c7ac0961",
+   "date": "2026-10-04T16:40:59+00:00",
+   "subject": "Resolve multipart charset before parsing fields (#3618)",
+   "type": "other",
+   "test_files": [
+    "tests/test_formparsers.py"
+   ],
+   "source_files": [
+    "starlette/formparsers.py"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    "starlette/formparsers.py",
+    "tests/test_formparsers.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "b2e8750b4aaa183553d32a61cf553bef8d406465",
+   "parent": "48e657ab0cd17f2cea3c944995f4dce91e4f9c39",
+   "date": "2026-10-04T19:31:48+00:00",
+   "subject": "Bracket IPv6 hostnames in `URL.replace()` (#3617)",
+   "type": "other",
+   "test_files": [
+    "tests/test_datastructures.py"
+   ],
+   "source_files": [
+    "starlette/datastructures.py"
+   ],
+   "source_lines": 8,
+   "all_files": [
+    "starlette/datastructures.py",
+    "tests/test_datastructures.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "7cb2f09c1858ea1400afbd355a900ce14d720533",
+   "parent": "c67ca4eeef171c679074f4ebc579ee5dbd657aa8",
+   "date": "2026-10-04T20:17:02+00:00",
+   "subject": "Mark sessions as accessed when popping existing keys (#3186)",
+   "type": "other",
+   "test_files": [
+    "tests/middleware/test_session.py"
+   ],
+   "source_files": [
+    "starlette/middleware/sessions.py"
+   ],
+   "source_lines": 3,
+   "all_files": [
+    "starlette/middleware/sessions.py",
+    "tests/middleware/test_session.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "5b544ced7345d8b2315419ecaded4b52bffe6b76",
+   "parent": "96d5023c55b29224edb8d684868c49f681d079a9",
+   "date": "2026-10-13T07:44:59+00:00",
+   "subject": "Send response start immediately when GZipMiddleware cannot compress (#3631)",
+   "type": "other",
+   "test_files": [
+    "tests/middleware/test_gzip.py"
+   ],
+   "source_files": [
+    "starlette/middleware/gzip.py"
+   ],
+   "source_lines": 7,
+   "all_files": [
+    "starlette/middleware/gzip.py",
+    "tests/middleware/test_gzip.py"
+   ]
+  }
+ ]
+}

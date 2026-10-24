@@ -1,0 +1,1230 @@
+{
+ "repo": "inngest-js",
+ "window": "main",
+ "range": [
+  "2026-07-01T00:00:00Z",
+  "2026-10-15T00:00:00Z"
+ ],
+ "drops": {
+  "source_lines_out_of_range": 11,
+  "bot_author": 17,
+  "dependency_manifest_or_lock_changed": 4,
+  "no_test_change": 8,
+  "no_source_change": 2
+ },
+ "candidates": [
+  {
+   "repo": "inngest-js",
+   "commit": "9b5ea64cfb918729451ee2e32db3fdc89b29e8b1",
+   "parent": "2ae29bffe0a6b3241b8da99638ea224bb0b5f277",
+   "date": "2026-07-01T15:02:30-07:00",
+   "subject": "fix: prevent streaming heartbeat from crashing on disconnect (#1615)",
+   "type": "fix",
+   "test_files": [
+    "packages/inngest/src/helpers/stream.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/InngestCommHandler.ts",
+    "packages/inngest/src/helpers/stream.ts"
+   ],
+   "source_lines": 57,
+   "all_files": [
+    ".changeset/few-carpets-fix.md",
+    "packages/inngest/src/components/InngestCommHandler.ts",
+    "packages/inngest/src/helpers/stream.test.ts",
+    "packages/inngest/src/helpers/stream.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "922e202415b5d100f4f1608d59d953af9c7b8123",
+   "parent": "9b5ea64cfb918729451ee2e32db3fdc89b29e8b1",
+   "date": "2026-07-08T08:41:59-07:00",
+   "subject": "fix: `step.run` output type collapsing to `{}` with multiple middleware (#1618)",
+   "type": "fix",
+   "test_files": [
+    "packages/inngest/src/components/middleware/middleware.test.ts",
+    "packages/inngest/src/helpers/jsonify.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/helpers/jsonify.ts"
+   ],
+   "source_lines": 25,
+   "all_files": [
+    ".changeset/full-dingos-brush.md",
+    "packages/inngest/src/components/middleware/middleware.test.ts",
+    "packages/inngest/src/helpers/jsonify.test.ts",
+    "packages/inngest/src/helpers/jsonify.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "08ef03b9b7a1188c99a3ded1f8439a7591fab317",
+   "parent": "922e202415b5d100f4f1608d59d953af9c7b8123",
+   "date": "2026-07-08T21:30:47+01:00",
+   "subject": "fix: parallel steps hanging when optimizeParallelism is false (#1620)",
+   "type": "fix",
+   "test_files": [
+    "packages/inngest/src/components/optimizedParallelism.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/InngestCommHandler.ts"
+   ],
+   "source_lines": 7,
+   "all_files": [
+    ".changeset/empty-boxes-provide.md",
+    "packages/inngest/src/components/InngestCommHandler.ts",
+    "packages/inngest/src/components/optimizedParallelism.test.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "0706a1f51316e0748b3b24c0e9bca864233e75c0",
+   "parent": "98f1f151187fa7397c36f55a9dfb2cee6138a811",
+   "date": "2026-07-10T12:08:28-07:00",
+   "subject": "fix: step.run not JSON-serializing during checkpointing (#1622)",
+   "type": "fix",
+   "test_files": [
+    "packages/inngest/src/test/integration/checkpointing/stepRunSerialization.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/execution/engine.ts"
+   ],
+   "source_lines": 12,
+   "all_files": [
+    ".changeset/dry-candles-study.md",
+    "packages/inngest/src/components/execution/engine.ts",
+    "packages/inngest/src/test/integration/checkpointing/stepRunSerialization.test.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "7b5907e44f9662cd64c45ede8802d0d2d42dc8c3",
+   "parent": "1b7447afd3dc08b210f9f88d064552c24964f343",
+   "date": "2026-07-15T11:31:01-07:00",
+   "subject": "feat(defers): add support for abort() (#1630)",
+   "type": "feat",
+   "test_files": [
+    "packages/inngest/src/components/execution/engine.test.ts",
+    "packages/inngest/src/test/integration/defer/abort.test.ts",
+    "packages/inngest/src/test/integration/defer/misc.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/execution/InngestExecution.ts",
+    "packages/inngest/src/components/execution/engine.ts",
+    "packages/inngest/src/components/execution/lazyOps.ts",
+    "packages/inngest/src/helpers/functions.ts",
+    "packages/inngest/src/types.ts"
+   ],
+   "source_lines": 95,
+   "all_files": [
+    ".changeset/lovely-parents-sneeze.md",
+    "packages/inngest/src/components/execution/InngestExecution.ts",
+    "packages/inngest/src/components/execution/engine.test.ts",
+    "packages/inngest/src/components/execution/engine.ts",
+    "packages/inngest/src/components/execution/lazyOps.ts",
+    "packages/inngest/src/helpers/functions.ts",
+    "packages/inngest/src/test/integration/defer/abort.test.ts",
+    "packages/inngest/src/test/integration/defer/misc.test.ts",
+    "packages/inngest/src/types.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "baa45bc53fecba1f6fc04b9f4da5963bbab8f365",
+   "parent": "6f4b383d396b5f1deb535a7651b46447199fbe3d",
+   "date": "2026-07-21T07:08:12-07:00",
+   "subject": "internal: add internal sessionPropagation toggle (#1633)",
+   "type": "other",
+   "test_files": [
+    "packages/inngest/src/components/Inngest.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/Inngest.ts",
+    "packages/inngest/src/helpers/consts.ts"
+   ],
+   "source_lines": 38,
+   "all_files": [
+    "packages/inngest/src/components/CLAUDE.md",
+    "packages/inngest/src/components/Inngest.test.ts",
+    "packages/inngest/src/components/Inngest.ts",
+    "packages/inngest/src/helpers/consts.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "106aaaf945c138acdd0f631b33cf83978c104388",
+   "parent": "690c0544ac5742ae7eabe7ba2145f57286cb89cf",
+   "date": "2026-07-27T09:13:03-07:00",
+   "subject": "fix: step.ai.wrap reported as unknown step type to middleware (#1648)",
+   "type": "fix",
+   "test_files": [
+    "packages/inngest/src/components/middleware/utils.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/middleware/utils.ts"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    ".changeset/chubby-streets-sip.md",
+    "packages/inngest/src/components/middleware/utils.test.ts",
+    "packages/inngest/src/components/middleware/utils.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "3cc9a110ad0c686c006cb5baae6e6b2567d93e86",
+   "parent": "106aaaf945c138acdd0f631b33cf83978c104388",
+   "date": "2026-07-27T15:59:22-04:00",
+   "subject": "feat(metadata): Extract AI call latency (#1647)",
+   "type": "feat",
+   "test_files": [
+    "packages/inngest/src/components/execution/otel/aiExtractor.test.ts",
+    "packages/inngest/src/components/execution/otel/metadataProcessor.test.ts",
+    "packages/inngest/src/test/integration/traces/stepMetadata.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/execution/otel/aiExtractor.ts",
+    "packages/inngest/src/components/execution/otel/metadataProcessor.ts"
+   ],
+   "source_lines": 201,
+   "all_files": [
+    ".changeset/all-bushes-raise.md",
+    "packages/inngest/src/components/execution/otel/aiExtractor.test.ts",
+    "packages/inngest/src/components/execution/otel/aiExtractor.ts",
+    "packages/inngest/src/components/execution/otel/metadataProcessor.test.ts",
+    "packages/inngest/src/components/execution/otel/metadataProcessor.ts",
+    "packages/inngest/src/components/execution/otel/testdata/anthropic_otel_traceloop/cache_messages.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/anthropic_otel_traceloop/reasoning_messages.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_langsmith_otel/basic_responses.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_official/embeddings.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_official/params_chat.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_official/stream_chat.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_official/tools_chat.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/basic_responses.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/params_chat.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/stream_chat.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/tools_chat.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/basic_responses.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/params_chat.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/stream_chat.otlp.json.snap",
+    "packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/tools_chat.otlp.json.snap",
+    "packages/inngest/src/test/integration/traces/stepMetadata.test.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "61dca106c1ec31d5abb8f2ce8bc6057bff08bd38",
+   "parent": "593f240fb67fd5bb472e75aabb8d4a8bd6605b35",
+   "date": "2026-07-30T15:55:15-07:00",
+   "subject": "feat: add marker to identify the OTel provider (#1660)",
+   "type": "feat",
+   "test_files": [
+    "packages/otel/tests/providerMarker.test.ts"
+   ],
+   "source_files": [
+    "packages/otel/src/instrument.ts"
+   ],
+   "source_lines": 7,
+   "all_files": [
+    ".changeset/red-fishes-try.md",
+    "packages/otel/src/instrument.ts",
+    "packages/otel/tests/providerMarker.test.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "0bec14eecf31ee74974190bb5675880a96c7f501",
+   "parent": "114f1318a99bdd5a20ba35d0d1c5db1f6e4aa840",
+   "date": "2026-08-03T08:16:56-07:00",
+   "subject": "fix(connect): prevent lease renewals from using a draining connection (#1663)",
+   "type": "fix",
+   "test_files": [
+    "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/connect/strategies/core/requestProcessor.ts"
+   ],
+   "source_lines": 40,
+   "all_files": [
+    ".changeset/calm-leases-renew.md",
+    "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts",
+    "packages/inngest/src/components/connect/strategies/core/requestProcessor.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "3f25b19199cd6336ecf5b79cdf594d884be56ee8",
+   "parent": "0bec14eecf31ee74974190bb5675880a96c7f501",
+   "date": "2026-08-03T11:34:06-07:00",
+   "subject": "fix: sub-second sleep/timeout durations being dropped (#1665)",
+   "type": "fix",
+   "test_files": [
+    "packages/inngest/src/components/InngestStepTools.test.ts",
+    "packages/inngest/src/helpers/strings.test.ts",
+    "packages/inngest/src/test/integration/subSecondDurations.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/InngestFunction.ts",
+    "packages/inngest/src/components/InngestStepTools.ts",
+    "packages/inngest/src/helpers/strings.ts",
+    "packages/inngest/src/types.ts"
+   ],
+   "source_lines": 59,
+   "all_files": [
+    ".changeset/tidy-camels-sleep.md",
+    "packages/inngest/src/components/InngestFunction.ts",
+    "packages/inngest/src/components/InngestStepTools.test.ts",
+    "packages/inngest/src/components/InngestStepTools.ts",
+    "packages/inngest/src/helpers/strings.test.ts",
+    "packages/inngest/src/helpers/strings.ts",
+    "packages/inngest/src/test/integration/subSecondDurations.test.ts",
+    "packages/inngest/src/types.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "3efacc89a69384e4c97a412fa5b1a72d182c2a11",
+   "parent": "6b21dbf7e5c153fbb1f1254f4a93c060ee177170",
+   "date": "2026-08-03T13:53:57-05:00",
+   "subject": "feat(sandbox): optionally wait for running (#1662)",
+   "type": "feat",
+   "test_files": [
+    "packages/inngest/src/components/InngestSandbox.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/InngestSandbox.ts",
+    "packages/inngest/src/components/sandbox/client.ts",
+    "packages/inngest/src/components/sandbox/durable.ts",
+    "packages/inngest/src/components/sandbox/protocol.ts",
+    "packages/inngest/src/components/sandbox/types.ts",
+    "packages/inngest/src/components/sandbox/validation.ts",
+    "packages/inngest/src/experimental.ts"
+   ],
+   "source_lines": 221,
+   "all_files": [
+    "packages/inngest/src/components/InngestSandbox.test.ts",
+    "packages/inngest/src/components/InngestSandbox.ts",
+    "packages/inngest/src/components/sandbox/client.ts",
+    "packages/inngest/src/components/sandbox/durable.ts",
+    "packages/inngest/src/components/sandbox/protocol.ts",
+    "packages/inngest/src/components/sandbox/types.ts",
+    "packages/inngest/src/components/sandbox/validation.ts",
+    "packages/inngest/src/experimental.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "6b21dbf7e5c153fbb1f1254f4a93c060ee177170",
+   "parent": "23ddbc2e9caaa195f5fe20d95261c7298afd1b5e",
+   "date": "2026-08-03T13:53:57-05:00",
+   "subject": "feat(sandbox): reuse active sandboxes by name (#1659)",
+   "type": "feat",
+   "test_files": [
+    "packages/inngest/src/components/InngestSandbox.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/sandbox/client.ts",
+    "packages/inngest/src/components/sandbox/types.ts"
+   ],
+   "source_lines": 20,
+   "all_files": [
+    "packages/inngest/src/components/InngestSandbox.test.ts",
+    "packages/inngest/src/components/sandbox/client.ts",
+    "packages/inngest/src/components/sandbox/types.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "961d28075694c460372ba569caa738e291d1269c",
+   "parent": "fe1b3e4a6fb84600355ccd1aaac99066c9d90b60",
+   "date": "2026-08-03T13:53:58-05:00",
+   "subject": "feat(sandbox): support create environment variables (#1667)",
+   "type": "feat",
+   "test_files": [
+    "packages/inngest/src/components/InngestSandbox.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/sandbox/protocol.ts",
+    "packages/inngest/src/components/sandbox/types.ts",
+    "packages/inngest/src/components/sandbox/validation.ts"
+   ],
+   "source_lines": 153,
+   "all_files": [
+    ".changeset/fuzzy-dingos-build.md",
+    "packages/inngest/src/components/InngestSandbox.test.ts",
+    "packages/inngest/src/components/sandbox/protocol.ts",
+    "packages/inngest/src/components/sandbox/types.ts",
+    "packages/inngest/src/components/sandbox/validation.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "fe1b3e4a6fb84600355ccd1aaac99066c9d90b60",
+   "parent": "3efacc89a69384e4c97a412fa5b1a72d182c2a11",
+   "date": "2026-08-03T13:53:58-05:00",
+   "subject": "fix(sandbox): add actionable operation errors (#1664)",
+   "type": "fix",
+   "test_files": [
+    "packages/inngest/src/components/InngestSandbox.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/sandbox/client.ts"
+   ],
+   "source_lines": 119,
+   "all_files": [
+    "packages/inngest/src/components/InngestSandbox.test.ts",
+    "packages/inngest/src/components/sandbox/client.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "6b0ae370268953627ea3803cc612dfa6171b01c6",
+   "parent": "379a3eef0ac24294cc4bb92a8726548375a29029",
+   "date": "2026-08-05T09:31:21-07:00",
+   "subject": "fix(types): export SendSignalResponse (#1674)",
+   "type": "fix",
+   "test_files": [
+    "packages/inngest/test/composite_project/src/index.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/api/api.ts",
+    "packages/inngest/src/components/Inngest.ts",
+    "packages/inngest/src/components/InngestStepTools.ts",
+    "packages/inngest/src/index.ts",
+    "packages/inngest/src/types.ts"
+   ],
+   "source_lines": 33,
+   "all_files": [
+    ".changeset/busy-drinks-drop.md",
+    "packages/inngest/src/api/api.ts",
+    "packages/inngest/src/components/Inngest.ts",
+    "packages/inngest/src/components/InngestStepTools.ts",
+    "packages/inngest/src/index.ts",
+    "packages/inngest/src/types.ts",
+    "packages/inngest/test/composite_project/src/index.ts",
+    "packages/inngest/test/composite_project/tsconfig.json"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "ec3aab9488f7dc3a0def2b095fdf6068881442d4",
+   "parent": "77fb6c888168b6fe2a62e20e383b157bd62d25ec",
+   "date": "2026-08-05T15:06:29-07:00",
+   "subject": "internal: support null tombstones in sessions (#1637)",
+   "type": "other",
+   "test_files": [
+    "packages/inngest/src/components/Inngest.test.ts",
+    "packages/inngest/src/helpers/sessions.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/helpers/sessions.ts",
+    "packages/inngest/src/index.ts",
+    "packages/inngest/src/types.ts"
+   ],
+   "source_lines": 142,
+   "all_files": [
+    "packages/inngest/src/components/Inngest.test.ts",
+    "packages/inngest/src/helpers/sessions.test.ts",
+    "packages/inngest/src/helpers/sessions.ts",
+    "packages/inngest/src/index.ts",
+    "packages/inngest/src/types.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "77fb6c888168b6fe2a62e20e383b157bd62d25ec",
+   "parent": "bddf9f45a8f869f43198dfe4c750fd429fbf5d89",
+   "date": "2026-08-05T15:06:29-07:00",
+   "subject": "internal: send propagated sessions with step.sendEvent (#1634)",
+   "type": "other",
+   "test_files": [
+    "packages/inngest/src/components/Inngest.test.ts",
+    "packages/inngest/src/components/InngestStepTools.test.ts",
+    "packages/inngest/src/helpers/sessions.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/Inngest.ts",
+    "packages/inngest/src/components/InngestStepTools.ts",
+    "packages/inngest/src/components/execution/engine.ts",
+    "packages/inngest/src/helpers/sessions.ts",
+    "packages/inngest/src/types.ts"
+   ],
+   "source_lines": 234,
+   "all_files": [
+    "packages/inngest/src/components/Inngest.test.ts",
+    "packages/inngest/src/components/Inngest.ts",
+    "packages/inngest/src/components/InngestStepTools.test.ts",
+    "packages/inngest/src/components/InngestStepTools.ts",
+    "packages/inngest/src/components/execution/engine.ts",
+    "packages/inngest/src/helpers/sessions.test.ts",
+    "packages/inngest/src/helpers/sessions.ts",
+    "packages/inngest/src/types.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "7118e20ea5554f3e051c0a08104b92da6c80bb81",
+   "parent": "00a745d345806f9543c9ab9e8d69e499f06120d5",
+   "date": "2026-08-05T15:06:30-07:00",
+   "subject": "internal: inngest.send supports session propagation (#1639)",
+   "type": "other",
+   "test_files": [
+    "packages/inngest/src/components/Inngest.test.ts",
+    "packages/inngest/src/components/execution/engine.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/Inngest.ts"
+   ],
+   "source_lines": 30,
+   "all_files": [
+    "packages/inngest/src/components/Inngest.test.ts",
+    "packages/inngest/src/components/Inngest.ts",
+    "packages/inngest/src/components/execution/engine.test.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "00a745d345806f9543c9ab9e8d69e499f06120d5",
+   "parent": "ec3aab9488f7dc3a0def2b095fdf6068881442d4",
+   "date": "2026-08-05T15:06:30-07:00",
+   "subject": "internal: invoke propagates sessions (#1636)",
+   "type": "other",
+   "test_files": [
+    "packages/inngest/src/components/InngestStepTools.test.ts",
+    "packages/inngest/src/components/execution/engine.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/InngestStepTools.ts",
+    "packages/inngest/src/components/execution/engine.ts"
+   ],
+   "source_lines": 68,
+   "all_files": [
+    "packages/inngest/src/components/InngestStepTools.test.ts",
+    "packages/inngest/src/components/InngestStepTools.ts",
+    "packages/inngest/src/components/execution/engine.test.ts",
+    "packages/inngest/src/components/execution/engine.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "cc1bb0a4531999e66802c7f997ca0223b17a186d",
+   "parent": "aeae58dda29c50bbb53fcdc48245a896b10b4dc0",
+   "date": "2026-08-05T15:06:31-07:00",
+   "subject": "feat: batched events use the intersection of their sessions (#1668)",
+   "type": "feat",
+   "test_files": [
+    "packages/inngest/src/components/execution/engine.test.ts",
+    "packages/inngest/src/helpers/sessions.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/helpers/sessions.ts",
+    "packages/inngest/src/types.ts"
+   ],
+   "source_lines": 110,
+   "all_files": [
+    "packages/inngest/src/components/execution/engine.test.ts",
+    "packages/inngest/src/helpers/sessions.test.ts",
+    "packages/inngest/src/helpers/sessions.ts",
+    "packages/inngest/src/types.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "9ae7a9ad3dfe52aefe543a799b58c9f7764e7ad8",
+   "parent": "c838b982cbbb9caf59031cf09cdf52158c05767b",
+   "date": "2026-08-05T15:25:02-07:00",
+   "subject": "refactor(sessions): share one propagated-sessions stamper (#1681)",
+   "type": "refactor",
+   "test_files": [
+    "packages/inngest/src/components/InngestStepTools.test.ts",
+    "packages/inngest/src/helpers/sessions.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/Inngest.ts",
+    "packages/inngest/src/components/InngestStepTools.ts",
+    "packages/inngest/src/components/execution/engine.ts",
+    "packages/inngest/src/helpers/sessions.ts"
+   ],
+   "source_lines": 142,
+   "all_files": [
+    "packages/inngest/src/components/Inngest.ts",
+    "packages/inngest/src/components/InngestStepTools.test.ts",
+    "packages/inngest/src/components/InngestStepTools.ts",
+    "packages/inngest/src/components/execution/engine.ts",
+    "packages/inngest/src/helpers/sessions.test.ts",
+    "packages/inngest/src/helpers/sessions.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "6a238ee5eff0bd808847550f370b52c12a399bb3",
+   "parent": "9ae7a9ad3dfe52aefe543a799b58c9f7764e7ad8",
+   "date": "2026-08-05T15:55:18-07:00",
+   "subject": "refactor(sessions): reduce casting (#1680)",
+   "type": "refactor",
+   "test_files": [
+    "packages/inngest/src/helpers/sessions.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/helpers/sessions.ts"
+   ],
+   "source_lines": 60,
+   "all_files": [
+    "packages/inngest/src/helpers/sessions.test.ts",
+    "packages/inngest/src/helpers/sessions.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "39aee6f78a65703894ef284d2ac9b127fd3132dd",
+   "parent": "6a238ee5eff0bd808847550f370b52c12a399bb3",
+   "date": "2026-08-05T16:36:05-07:00",
+   "subject": "feat(defer): propagate sessions through defer meta (#1646)",
+   "type": "feat",
+   "test_files": [
+    "packages/inngest/src/components/execution/engine.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/execution/engine.ts",
+    "packages/inngest/src/types.ts"
+   ],
+   "source_lines": 44,
+   "all_files": [
+    ".changeset/thirty-eggs-rule.md",
+    "packages/inngest/src/components/execution/defer.md",
+    "packages/inngest/src/components/execution/engine.test.ts",
+    "packages/inngest/src/components/execution/engine.ts",
+    "packages/inngest/src/types.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "fee6e13f4811ace758e6021c4424a86e44ec4156",
+   "parent": "39aee6f78a65703894ef284d2ac9b127fd3132dd",
+   "date": "2026-08-05T16:43:35-07:00",
+   "subject": "fix(sessions): expose ctx.sessions on the triggers context (#1679)",
+   "type": "fix",
+   "test_files": [
+    "packages/inngest/src/components/triggers/trigger.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/triggers/typeHelpers.ts"
+   ],
+   "source_lines": 12,
+   "all_files": [
+    "packages/inngest/src/components/triggers/trigger.test.ts",
+    "packages/inngest/src/components/triggers/typeHelpers.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "610e739574b972e625878e07a669d4d5991215a8",
+   "parent": "5688058e224586c6efa277c03e9a1586509f3958",
+   "date": "2026-08-07T09:28:33-07:00",
+   "subject": "feat: Sessions Propagation is on by default (#1688)",
+   "type": "feat",
+   "test_files": [
+    "packages/inngest/src/components/Inngest.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/Inngest.ts",
+    "packages/inngest/src/types.ts"
+   ],
+   "source_lines": 5,
+   "all_files": [
+    ".changeset/olive-lions-repeat.md",
+    "packages/inngest/src/components/Inngest.test.ts",
+    "packages/inngest/src/components/Inngest.ts",
+    "packages/inngest/src/components/execution/defer.md",
+    "packages/inngest/src/types.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "282106a59a232baeca9d92bcad74363c359faadc",
+   "parent": "a6f2ecbf727ba2ad413bf522504e14ce28d5827d",
+   "date": "2026-08-11T13:47:41-07:00",
+   "subject": "fix: resolve fnId for function-level middleware via queryStringWithDefaults (#1698)",
+   "type": "fix",
+   "test_files": [
+    "packages/inngest/src/test/integration/middleware/lambdaFunctionLevel.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/InngestCommHandler.ts"
+   ],
+   "source_lines": 5,
+   "all_files": [
+    ".changeset/early-maps-breathe.md",
+    "packages/inngest/src/components/InngestCommHandler.ts",
+    "packages/inngest/src/test/integration/middleware/lambdaFunctionLevel.test.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "ca7dff0eb16e2cd1b848cc6fb03013e897dc246e",
+   "parent": "282106a59a232baeca9d92bcad74363c359faadc",
+   "date": "2026-08-11T19:11:15-05:00",
+   "subject": "fix(sandbox): relax name validation (#1686)",
+   "type": "fix",
+   "test_files": [
+    "packages/inngest/src/components/InngestSandbox.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/sandbox/protocol.ts",
+    "packages/inngest/src/components/sandbox/types.ts",
+    "packages/inngest/src/components/sandbox/validation.ts"
+   ],
+   "source_lines": 39,
+   "all_files": [
+    ".changeset/brave-ulids-smile.md",
+    "packages/inngest/src/components/InngestSandbox.test.ts",
+    "packages/inngest/src/components/sandbox/protocol.ts",
+    "packages/inngest/src/components/sandbox/types.ts",
+    "packages/inngest/src/components/sandbox/validation.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "e72b89c78045b5c2a927d17ff18b43b78161c49f",
+   "parent": "ca7dff0eb16e2cd1b848cc6fb03013e897dc246e",
+   "date": "2026-08-12T15:15:02-07:00",
+   "subject": "fix: prevent ai metadata span retention (#1704)",
+   "type": "fix",
+   "test_files": [
+    "packages/inngest/src/components/execution/engine.test.ts",
+    "packages/inngest/src/components/execution/otel/metadataProcessor.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/execution/engine.ts",
+    "packages/inngest/src/components/execution/otel/metadataProcessor.ts"
+   ],
+   "source_lines": 153,
+   "all_files": [
+    ".changeset/calm-spans-rest.md",
+    "packages/inngest/src/components/execution/engine.test.ts",
+    "packages/inngest/src/components/execution/engine.ts",
+    "packages/inngest/src/components/execution/otel/AGENTS.md",
+    "packages/inngest/src/components/execution/otel/CLAUDE.md",
+    "packages/inngest/src/components/execution/otel/metadataProcessor.md",
+    "packages/inngest/src/components/execution/otel/metadataProcessor.test.ts",
+    "packages/inngest/src/components/execution/otel/metadataProcessor.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "a2cd5b48f724ea2566047a2916a072dc5e7f3049",
+   "parent": "bf41c415939804c8a947d1d14aec22b2c3ea16e8",
+   "date": "2026-08-18T10:59:40-07:00",
+   "subject": "fix: catch invalid propagated sessions with step.invoke and defer (#1693)",
+   "type": "fix",
+   "test_files": [
+    "packages/inngest/src/components/execution/engine.test.ts",
+    "packages/inngest/src/helpers/sessions.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/execution/engine.ts",
+    "packages/inngest/src/helpers/sessions.ts"
+   ],
+   "source_lines": 41,
+   "all_files": [
+    ".changeset/perfect-papayas-call.md",
+    "packages/inngest/src/components/execution/engine.test.ts",
+    "packages/inngest/src/components/execution/engine.ts",
+    "packages/inngest/src/helpers/sessions.test.ts",
+    "packages/inngest/src/helpers/sessions.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "8f5dceb45ffaad28e1193e3d32a5eb6a07f7e79e",
+   "parent": "abc4a63fb8a5d8d1599ee7a3afbeb2b82d9cc875",
+   "date": "2026-08-24T12:17:18-05:00",
+   "subject": "fix(sandbox): return command output as text (#1700)",
+   "type": "fix",
+   "test_files": [
+    "packages/inngest/src/components/InngestSandbox.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/sandbox/client.ts",
+    "packages/inngest/src/components/sandbox/durable.ts",
+    "packages/inngest/src/components/sandbox/types.ts",
+    "packages/inngest/src/components/sandbox/validation.ts"
+   ],
+   "source_lines": 135,
+   "all_files": [
+    ".changeset/calm-sandboxes-speak.md",
+    "packages/inngest/src/components/InngestSandbox.test.ts",
+    "packages/inngest/src/components/sandbox/client.ts",
+    "packages/inngest/src/components/sandbox/durable.ts",
+    "packages/inngest/src/components/sandbox/types.ts",
+    "packages/inngest/src/components/sandbox/validation.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "f4fa1eb84622224eb92feaaa3b6e97f2f79205ee",
+   "parent": "8f5dceb45ffaad28e1193e3d32a5eb6a07f7e79e",
+   "date": "2026-08-24T15:02:30-05:00",
+   "subject": "feat(sandbox): wait for running by default (#1701)",
+   "type": "feat",
+   "test_files": [
+    "packages/inngest/src/components/InngestSandbox.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/sandbox/client.ts",
+    "packages/inngest/src/components/sandbox/protocol.ts",
+    "packages/inngest/src/components/sandbox/types.ts",
+    "packages/inngest/src/components/sandbox/validation.ts"
+   ],
+   "source_lines": 55,
+   "all_files": [
+    ".changeset/calm-sandboxes-wait.md",
+    "packages/inngest/src/components/InngestSandbox.test.ts",
+    "packages/inngest/src/components/sandbox/client.ts",
+    "packages/inngest/src/components/sandbox/protocol.ts",
+    "packages/inngest/src/components/sandbox/types.ts",
+    "packages/inngest/src/components/sandbox/validation.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "dde88e4d8897bcbc8e4521fccf81dd8f8f3e9468",
+   "parent": "f4fa1eb84622224eb92feaaa3b6e97f2f79205ee",
+   "date": "2026-08-26T17:24:17-05:00",
+   "subject": "feat(sandbox): support shell command strings (#1684)",
+   "type": "feat",
+   "test_files": [
+    "packages/inngest/src/components/InngestSandbox.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/InngestSandbox.ts",
+    "packages/inngest/src/components/sandbox/client.ts",
+    "packages/inngest/src/components/sandbox/durable.ts",
+    "packages/inngest/src/components/sandbox/types.ts",
+    "packages/inngest/src/components/sandbox/validation.ts"
+   ],
+   "source_lines": 100,
+   "all_files": [
+    ".changeset/fuzzy-shells-run.md",
+    "packages/inngest/src/components/InngestSandbox.test.ts",
+    "packages/inngest/src/components/InngestSandbox.ts",
+    "packages/inngest/src/components/sandbox/client.ts",
+    "packages/inngest/src/components/sandbox/durable.ts",
+    "packages/inngest/src/components/sandbox/types.ts",
+    "packages/inngest/src/components/sandbox/validation.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "f7c490030838b66a3000917f76b2ad3b03f61a26",
+   "parent": "dde88e4d8897bcbc8e4521fccf81dd8f8f3e9468",
+   "date": "2026-08-27T20:15:34+01:00",
+   "subject": "fix: send environment on signing-key API requests (#1713)",
+   "type": "fix",
+   "test_files": [
+    "packages/inngest/src/api/api.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/api/api.ts",
+    "packages/inngest/src/components/Inngest.ts"
+   ],
+   "source_lines": 20,
+   "all_files": [
+    ".changeset/bright-branches-route.md",
+    "packages/inngest/src/api/api.test.ts",
+    "packages/inngest/src/api/api.ts",
+    "packages/inngest/src/components/Inngest.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "2860327336e9f8fb76651554e27f034eb1d08041",
+   "parent": "a9975874dc9e43139996e74110c5cef9b0580767",
+   "date": "2026-09-02T12:40:10-07:00",
+   "subject": "feat(sandbox): allow non-absolute commands (#1705)",
+   "type": "feat",
+   "test_files": [
+    "packages/inngest/src/components/InngestSandbox.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/sandbox/validation.ts"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    ".changeset/calm-tools-exec.md",
+    "packages/inngest/src/components/InngestSandbox.test.ts",
+    "packages/inngest/src/components/sandbox/validation.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "3b5ddba53c645d8ad5539a5e781ec3fc1bb876b0",
+   "parent": "378130115bfa80f0b8d9e07d1acef0777114f904",
+   "date": "2026-09-04T09:25:53-07:00",
+   "subject": "feat(sandbox): add pause and resume lifecycle (#1683)",
+   "type": "feat",
+   "test_files": [
+    "packages/inngest/src/components/InngestSandbox.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/sandbox/client.ts",
+    "packages/inngest/src/components/sandbox/durable.ts",
+    "packages/inngest/src/components/sandbox/protocol.ts",
+    "packages/inngest/src/components/sandbox/types.ts",
+    "packages/inngest/src/components/sandbox/validation.ts"
+   ],
+   "source_lines": 184,
+   "all_files": [
+    ".changeset/tidy-sandboxes-pause.md",
+    "packages/inngest/src/components/InngestSandbox.test.ts",
+    "packages/inngest/src/components/sandbox/client.ts",
+    "packages/inngest/src/components/sandbox/durable.ts",
+    "packages/inngest/src/components/sandbox/protocol.ts",
+    "packages/inngest/src/components/sandbox/types.ts",
+    "packages/inngest/src/components/sandbox/validation.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "1e539057fb7063d755c99b4c2f65d3d8a1c41e9b",
+   "parent": "872770705074538c8ae6059a05b94a546b6c868c",
+   "date": "2026-09-14T14:00:47-07:00",
+   "subject": "fix(sandbox): handle omitted pagination state (#1722)",
+   "type": "fix",
+   "test_files": [
+    "packages/inngest/src/components/InngestSandbox.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/sandbox/client.ts"
+   ],
+   "source_lines": 8,
+   "all_files": [
+    ".changeset/calm-pandas-list.md",
+    "packages/inngest/src/components/InngestSandbox.test.ts",
+    "packages/inngest/src/components/sandbox/client.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "76015387efa68d04de6f91feac19e7250cd431a7",
+   "parent": "1e539057fb7063d755c99b4c2f65d3d8a1c41e9b",
+   "date": "2026-09-17T16:44:12-07:00",
+   "subject": "feat(sandbox): select launch secrets with name arrays (#1725)",
+   "type": "feat",
+   "test_files": [
+    "packages/inngest/src/components/InngestSandbox.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/sandbox/protocol.ts",
+    "packages/inngest/src/components/sandbox/types.ts",
+    "packages/inngest/src/components/sandbox/validation.ts"
+   ],
+   "source_lines": 60,
+   "all_files": [
+    ".changeset/sandbox-launch-secrets.md",
+    "packages/inngest/src/components/InngestSandbox.test.ts",
+    "packages/inngest/src/components/sandbox/protocol.ts",
+    "packages/inngest/src/components/sandbox/types.ts",
+    "packages/inngest/src/components/sandbox/validation.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "228a928a4825b9b2ba8b20855b7f3ba269a7bee2",
+   "parent": "76015387efa68d04de6f91feac19e7250cd431a7",
+   "date": "2026-09-22T08:44:40-07:00",
+   "subject": "fix: duplicate execution in parallel race mode (#1730)",
+   "type": "fix",
+   "test_files": [
+    "packages/inngest/src/test/helpers.ts",
+    "packages/inngest/src/test/integration/parallel.test.ts",
+    "packages/inngest/src/test/integration/traces/util.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/execution/engine.ts",
+    "packages/test-harness/src/utils.ts"
+   ],
+   "source_lines": 23,
+   "all_files": [
+    ".changeset/long-icons-pretend.md",
+    "packages/inngest/src/components/execution/engine.ts",
+    "packages/inngest/src/test/helpers.ts",
+    "packages/inngest/src/test/integration/parallel.test.ts",
+    "packages/inngest/src/test/integration/traces/util.ts",
+    "packages/test-harness/src/utils.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "269efeafbad87087d716d682c70428d25aa2dcc9",
+   "parent": "197812b9e20d87315998027b0ad810ca8644c4ee",
+   "date": "2026-09-30T18:20:32+01:00",
+   "subject": "fix(sandbox): allow dev requests without an API key (#1728)",
+   "type": "fix",
+   "test_files": [
+    "packages/inngest/src/components/InngestSandbox.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/Inngest.ts",
+    "packages/inngest/src/components/InngestSandbox.ts",
+    "packages/inngest/src/components/sandbox/client.ts",
+    "packages/inngest/src/components/sandbox/durable.ts",
+    "packages/inngest/src/components/sandbox/protocol.ts",
+    "packages/inngest/src/experimental.ts"
+   ],
+   "source_lines": 37,
+   "all_files": [
+    "packages/inngest/src/components/Inngest.ts",
+    "packages/inngest/src/components/InngestSandbox.test.ts",
+    "packages/inngest/src/components/InngestSandbox.ts",
+    "packages/inngest/src/components/sandbox/client.ts",
+    "packages/inngest/src/components/sandbox/durable.ts",
+    "packages/inngest/src/components/sandbox/protocol.ts",
+    "packages/inngest/src/experimental.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "28a0a39e468ccdedce8dc0372c99c78ef0541613",
+   "parent": "269efeafbad87087d716d682c70428d25aa2dcc9",
+   "date": "2026-10-01T16:29:17+01:00",
+   "subject": "Fix unexpected data shapes for some Sandbox calls (#1744)",
+   "type": "fix",
+   "test_files": [
+    "packages/inngest/src/components/InngestSandbox.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/sandbox/client.ts",
+    "packages/inngest/src/components/sandbox/validation.ts"
+   ],
+   "source_lines": 49,
+   "all_files": [
+    ".changeset/sandbox-empty-list-data.md",
+    ".changeset/sandbox-proto3-json.md",
+    "packages/inngest/src/components/InngestSandbox.test.ts",
+    "packages/inngest/src/components/sandbox/client.ts",
+    "packages/inngest/src/components/sandbox/validation.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "1793a5e1d2ffda20ddd0dbde9edc4a7314e4ed1e",
+   "parent": "758de572465f694fc3a6b3ea0ee1433900ff62ab",
+   "date": "2026-10-08T11:17:14-07:00",
+   "subject": "fix(otel): warn once when extended trace export fails (#1754)",
+   "type": "fix",
+   "test_files": [
+    "packages/inngest/src/components/execution/otel/processor.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/execution/otel/processor.ts"
+   ],
+   "source_lines": 15,
+   "all_files": [
+    ".changeset/soft-bobcats-pull.md",
+    "packages/inngest/src/components/execution/otel/processor.test.ts",
+    "packages/inngest/src/components/execution/otel/processor.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "758de572465f694fc3a6b3ea0ee1433900ff62ab",
+   "parent": "3b2f56264d8349152b8bfad6a9afea1f0b92ce85",
+   "date": "2026-10-08T15:55:52+01:00",
+   "subject": "Add ability to name Sandbox snapshots (#1753)",
+   "type": "feat",
+   "test_files": [
+    "packages/inngest/src/components/InngestSandbox.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/sandbox/client.ts",
+    "packages/inngest/src/components/sandbox/durable.ts",
+    "packages/inngest/src/components/sandbox/protocol.ts",
+    "packages/inngest/src/components/sandbox/types.ts",
+    "packages/inngest/src/components/sandbox/validation.ts"
+   ],
+   "source_lines": 91,
+   "all_files": [
+    ".changeset/sandbox-snapshot-names.md",
+    "packages/inngest/src/components/InngestSandbox.test.ts",
+    "packages/inngest/src/components/sandbox/client.ts",
+    "packages/inngest/src/components/sandbox/durable.ts",
+    "packages/inngest/src/components/sandbox/protocol.ts",
+    "packages/inngest/src/components/sandbox/types.ts",
+    "packages/inngest/src/components/sandbox/validation.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "7770605130815f29c0975f3ef6a632399bc2d417",
+   "parent": "1793a5e1d2ffda20ddd0dbde9edc4a7314e4ed1e",
+   "date": "2026-10-08T23:52:45+01:00",
+   "subject": "Friendlier sandbox errors (#1757)",
+   "type": "other",
+   "test_files": [
+    "packages/ci/src/pipeline/pipeline.test.ts",
+    "packages/ci/src/units.test.ts"
+   ],
+   "source_files": [
+    "packages/ci/src/pipeline/job.ts",
+    "packages/ci/src/util.ts"
+   ],
+   "source_lines": 66,
+   "all_files": [
+    ".changeset/ci-fixes.md",
+    "packages/ci/src/pipeline/job.ts",
+    "packages/ci/src/pipeline/pipeline.test.ts",
+    "packages/ci/src/units.test.ts",
+    "packages/ci/src/util.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "a00d53fecbc085a44e2154519e9645a8d5fdaed9",
+   "parent": "7770605130815f29c0975f3ef6a632399bc2d417",
+   "date": "2026-10-09T13:01:47-04:00",
+   "subject": "feat(metadata): Add set & deprecate update (#1763)",
+   "type": "feat",
+   "test_files": [
+    "packages/inngest/src/components/InngestMetadata.test.ts",
+    "packages/inngest/src/components/execution/engine.test.ts",
+    "packages/inngest/src/components/experiment.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/Inngest.ts",
+    "packages/inngest/src/components/InngestGroupTools.ts",
+    "packages/inngest/src/components/InngestMetadata.ts",
+    "packages/inngest/src/components/InngestStepTools.ts",
+    "packages/inngest/src/components/execution/InngestExecution.ts",
+    "packages/inngest/src/components/execution/engine.ts"
+   ],
+   "source_lines": 115,
+   "all_files": [
+    ".changeset/metadata-set.md",
+    "packages/inngest/src/components/Inngest.ts",
+    "packages/inngest/src/components/InngestGroupTools.ts",
+    "packages/inngest/src/components/InngestMetadata.test.ts",
+    "packages/inngest/src/components/InngestMetadata.ts",
+    "packages/inngest/src/components/InngestStepTools.ts",
+    "packages/inngest/src/components/execution/InngestExecution.ts",
+    "packages/inngest/src/components/execution/engine.test.ts",
+    "packages/inngest/src/components/execution/engine.ts",
+    "packages/inngest/src/components/experiment.test.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "714d46a70f57864bc48ab62be511d21c9c8a65b0",
+   "parent": "40d78ec49f9c9155a327574e2075d92508bef43b",
+   "date": "2026-10-13T22:24:34+01:00",
+   "subject": "Add grouping of Sandbox spans (#1770)",
+   "type": "feat",
+   "test_files": [
+    "packages/inngest/src/components/sandbox/trace.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/sandbox/durable.ts"
+   ],
+   "source_lines": 16,
+   "all_files": [
+    ".changeset/sandbox-snapshot-span-kind.md",
+    "packages/inngest/src/components/sandbox/durable.ts",
+    "packages/inngest/src/components/sandbox/trace.test.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "eee1c61e8e69e93ade5d7024553ac2861adf357d",
+   "parent": "24e9b28a32f9516e0ac13faed40c9836a4180391",
+   "date": "2026-10-14T14:29:48+01:00",
+   "subject": "Add `AsyncDisposable` Sandbox creation (#1773)",
+   "type": "feat",
+   "test_files": [
+    "packages/inngest/src/components/sandbox/lifetime.test.ts",
+    "packages/inngest/src/components/sandbox/trace.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/sandbox/durable.ts",
+    "packages/inngest/src/components/sandbox/middleware.ts",
+    "packages/inngest/src/components/sandbox/test-helpers.ts",
+    "packages/inngest/src/components/sandbox/types.ts",
+    "packages/inngest/tsdown.config.ts"
+   ],
+   "source_lines": 148,
+   "all_files": [
+    ".changeset/sandbox-async-dispose.md",
+    "packages/inngest/src/components/sandbox/durable.ts",
+    "packages/inngest/src/components/sandbox/lifetime.test.ts",
+    "packages/inngest/src/components/sandbox/middleware.ts",
+    "packages/inngest/src/components/sandbox/test-helpers.ts",
+    "packages/inngest/src/components/sandbox/trace.test.ts",
+    "packages/inngest/src/components/sandbox/types.ts",
+    "packages/inngest/tsconfig.json",
+    "packages/inngest/tsdown.config.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "4d8cac244705dcb34df4babf746fe3f115ba30e2",
+   "parent": "eee1c61e8e69e93ade5d7024553ac2861adf357d",
+   "date": "2026-10-14T14:29:49+01:00",
+   "subject": "Add `group.sandbox()` (#1774)",
+   "type": "feat",
+   "test_files": [
+    "packages/inngest/src/components/sandbox/group.test.ts",
+    "packages/inngest/src/components/sandbox/lifetime.test.ts",
+    "packages/inngest/src/test/helpers.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/Inngest.ts",
+    "packages/inngest/src/components/InngestSandbox.ts",
+    "packages/inngest/src/components/sandbox/group.ts",
+    "packages/inngest/src/components/sandbox/middleware.ts",
+    "packages/inngest/src/components/sandbox/test-helpers.ts",
+    "packages/inngest/src/experimental.ts",
+    "packages/inngest/src/types.ts"
+   ],
+   "source_lines": 235,
+   "all_files": [
+    ".changeset/sandbox-group-sandbox.md",
+    "packages/inngest/src/components/Inngest.ts",
+    "packages/inngest/src/components/InngestSandbox.ts",
+    "packages/inngest/src/components/sandbox/group.test.ts",
+    "packages/inngest/src/components/sandbox/group.ts",
+    "packages/inngest/src/components/sandbox/lifetime.test.ts",
+    "packages/inngest/src/components/sandbox/middleware.ts",
+    "packages/inngest/src/components/sandbox/test-helpers.ts",
+    "packages/inngest/src/experimental.ts",
+    "packages/inngest/src/test/helpers.ts",
+    "packages/inngest/src/types.ts"
+   ]
+  },
+  {
+   "repo": "inngest-js",
+   "commit": "700c58d96ac50342648d51224715c72dacfb2696",
+   "parent": "4d8cac244705dcb34df4babf746fe3f115ba30e2",
+   "date": "2026-10-14T14:30:24+01:00",
+   "subject": "Allow `ms` and `Temporal.Duration` timeouts for Sandboxes (#1777)",
+   "type": "other",
+   "test_files": [
+    "packages/inngest/src/components/InngestSandbox.test.ts",
+    "packages/inngest/src/helpers/duration.test.ts"
+   ],
+   "source_files": [
+    "packages/inngest/src/components/sandbox/validation.ts",
+    "packages/inngest/src/helpers/duration.ts",
+    "packages/inngest/src/index.ts"
+   ],
+   "source_lines": 110,
+   "all_files": [
+    ".changeset/durations-to-ms.md",
+    "packages/inngest/src/components/InngestSandbox.test.ts",
+    "packages/inngest/src/components/sandbox/validation.ts",
+    "packages/inngest/src/helpers/duration.test.ts",
+    "packages/inngest/src/helpers/duration.ts",
+    "packages/inngest/src/index.ts"
+   ]
+  }
+ ]
+}

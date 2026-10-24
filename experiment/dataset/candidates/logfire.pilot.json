@@ -1,0 +1,523 @@
+{
+ "repo": "logfire",
+ "window": "pilot",
+ "range": [
+  "2026-05-01T00:00:00Z",
+  "2026-07-01T00:00:00Z"
+ ],
+ "drops": {
+  "no_test_change": 41,
+  "bot_author": 2,
+  "no_source_change": 6,
+  "source_lines_out_of_range": 5,
+  "dependency_manifest_or_lock_changed": 8
+ },
+ "candidates": [
+  {
+   "repo": "logfire",
+   "commit": "dbd468697cbbfced851eda635f3cd9900023bb99",
+   "parent": "562dea1a05e23e1c8283fd868bc46e74248bc66d",
+   "date": "2026-05-08T13:08:30+02:00",
+   "subject": "Optionally emit configuration log after `logfire.configure()` (#1904)",
+   "type": "other",
+   "test_files": [
+    "tests/test_configure.py"
+   ],
+   "source_files": [
+    "logfire/_internal/config.py",
+    "logfire/_internal/config_params.py",
+    "logfire/_internal/constants.py",
+    "logfire/_internal/scrubbing.py"
+   ],
+   "source_lines": 81,
+   "all_files": [
+    "logfire/_internal/config.py",
+    "logfire/_internal/config_params.py",
+    "logfire/_internal/constants.py",
+    "logfire/_internal/scrubbing.py",
+    "tests/test_configure.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "bad88b1f0c995208a7f026bd2056a738f5396353",
+   "parent": "dbd468697cbbfced851eda635f3cd9900023bb99",
+   "date": "2026-05-08T13:24:30+02:00",
+   "subject": "Add `logfire.version` to resource attributes (#1911)",
+   "type": "feat",
+   "test_files": [
+    "tests/test_configure.py",
+    "tests/test_otel_logs.py"
+   ],
+   "source_files": [
+    "logfire/_internal/config.py",
+    "logfire/_internal/constants.py",
+    "logfire/_internal/scrubbing.py"
+   ],
+   "source_lines": 9,
+   "all_files": [
+    "logfire/_internal/config.py",
+    "logfire/_internal/constants.py",
+    "logfire/_internal/scrubbing.py",
+    "tests/test_configure.py",
+    "tests/test_otel_logs.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "70c9866c4a298ec2ed4f7f4e9b77607eb410f4da",
+   "parent": "b2bc3086ed1878aab658b8a4443034cfbcb83b54",
+   "date": "2026-05-08T16:11:34+02:00",
+   "subject": "Avoid raising error on `prompt` command without `--project` (#1912)",
+   "type": "other",
+   "test_files": [
+    "tests/test_cli.py"
+   ],
+   "source_files": [
+    "logfire/_internal/cli/prompt.py"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    "logfire/_internal/cli/prompt.py",
+    "tests/test_cli.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "26a5bf18fff5652c55d3e929fd6e0eea4bd5f80d",
+   "parent": "0e79f8b21337808250cf1a5c35935d61d7f1b918",
+   "date": "2026-05-13T13:00:11+02:00",
+   "subject": "feat: surface X-Logfire-Warning header (#1906)",
+   "type": "feat",
+   "test_files": [
+    "tests/test_server_response.py"
+   ],
+   "source_files": [
+    "logfire/_internal/cli/__init__.py",
+    "logfire/_internal/client.py",
+    "logfire/_internal/config.py",
+    "logfire/_internal/server_response.py",
+    "logfire/exceptions.py",
+    "logfire/types.py",
+    "logfire/variables/remote.py"
+   ],
+   "source_lines": 168,
+   "all_files": [
+    "logfire/_internal/cli/__init__.py",
+    "logfire/_internal/client.py",
+    "logfire/_internal/config.py",
+    "logfire/_internal/server_response.py",
+    "logfire/exceptions.py",
+    "logfire/types.py",
+    "logfire/variables/remote.py",
+    "tests/test_server_response.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "737bf500a0cb347e07ed2d12bd2fb944f7f2637a",
+   "parent": "3581f23919103762f66760ee7d243b5c64de01f6",
+   "date": "2026-05-15T08:07:11-06:00",
+   "subject": "Propagate variable version in baggage alongside label (#1927)",
+   "type": "other",
+   "test_files": [
+    "tests/test_variables.py"
+   ],
+   "source_files": [
+    "logfire/variables/abstract.py"
+   ],
+   "source_lines": 23,
+   "all_files": [
+    "logfire/variables/abstract.py",
+    "tests/test_variables.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "6d6fe977e2ad44d2a1ed32a0ecf9163c19839329",
+   "parent": "1b982a7257fe3e545086ebd6d45345c6e252e023",
+   "date": "2026-05-21T10:05:43+00:00",
+   "subject": "chore: Misc cleanup (#1942)",
+   "type": "refactor",
+   "test_files": [
+    "tests/otel_integrations/django_test_project/django_test_site/wsgi.py",
+    "tests/otel_integrations/test_pytest_plugin.py"
+   ],
+   "source_files": [
+    "logfire/_internal/integrations/claude_agent_sdk.py",
+    "logfire/_internal/integrations/pytest.py"
+   ],
+   "source_lines": 43,
+   "all_files": [
+    "AGENTS.md",
+    "logfire/_internal/integrations/claude_agent_sdk.py",
+    "logfire/_internal/integrations/pytest.py",
+    "tests/otel_integrations/django_test_project/django_test_site/wsgi.py",
+    "tests/otel_integrations/test_pytest_plugin.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "2646e7e267839c609c165d9e66d7dfa054a8f67d",
+   "parent": "cff77fc945d9acbb2d66e909b154f8742520ab45",
+   "date": "2026-05-21T12:05:12+00:00",
+   "subject": "Improve pytest traceback regression test (#1946)",
+   "type": "other",
+   "test_files": [
+    "tests/otel_integrations/test_pytest_plugin.py"
+   ],
+   "source_files": [
+    "logfire/_internal/integrations/pytest.py"
+   ],
+   "source_lines": 16,
+   "all_files": [
+    "logfire/_internal/integrations/pytest.py",
+    "tests/otel_integrations/test_pytest_plugin.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "917e15132288bb79bd3c18b960657537960f734a",
+   "parent": "6d6fe977e2ad44d2a1ed32a0ecf9163c19839329",
+   "date": "2026-05-21T12:39:46+02:00",
+   "subject": "Workaround Python `traceback.extract_tb` `StopIteration` bug in pytest instrumentation (#1944)",
+   "type": "other",
+   "test_files": [
+    "tests/otel_integrations/test_pytest_plugin.py"
+   ],
+   "source_files": [
+    "logfire/_internal/integrations/pytest.py"
+   ],
+   "source_lines": 8,
+   "all_files": [
+    "logfire/_internal/integrations/pytest.py",
+    "tests/otel_integrations/test_pytest_plugin.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "1147a16e27958567b18a2df7d7f6fe4a7264a42e",
+   "parent": "21d1187e3928f2e75413ce31000bfd1b97f10a5b",
+   "date": "2026-05-21T16:05:31+00:00",
+   "subject": "Expose ResolvedVariable reason (#1945)",
+   "type": "other",
+   "test_files": [
+    "tests/test_variables.py"
+   ],
+   "source_files": [
+    "logfire/variables/__init__.py",
+    "logfire/variables/abstract.py",
+    "logfire/variables/config.py",
+    "logfire/variables/remote.py",
+    "logfire/variables/variable.py"
+   ],
+   "source_lines": 109,
+   "all_files": [
+    "logfire/variables/__init__.py",
+    "logfire/variables/abstract.py",
+    "logfire/variables/config.py",
+    "logfire/variables/remote.py",
+    "logfire/variables/variable.py",
+    "tests/test_variables.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "a50a7fde1191f684d6c1bb8dbdd64435e93e7014",
+   "parent": "1147a16e27958567b18a2df7d7f6fe4a7264a42e",
+   "date": "2026-05-21T18:39:40+02:00",
+   "subject": "Handle malformed exception tracebacks in core (#1948)",
+   "type": "other",
+   "test_files": [
+    "tests/otel_integrations/test_pytest_plugin.py",
+    "tests/test_exceptions.py"
+   ],
+   "source_files": [
+    "logfire/_internal/integrations/pytest.py",
+    "logfire/_internal/tracer.py",
+    "logfire/_internal/utils.py"
+   ],
+   "source_lines": 60,
+   "all_files": [
+    "logfire/_internal/integrations/pytest.py",
+    "logfire/_internal/tracer.py",
+    "logfire/_internal/utils.py",
+    "tests/otel_integrations/test_pytest_plugin.py",
+    "tests/test_exceptions.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "de4b8e464ac915cd5eb3b3f479825d3ff6836484",
+   "parent": "a065b319b9fca2b66f5c327e9e4f731190f4287a",
+   "date": "2026-05-26T19:44:07+02:00",
+   "subject": "Add `logfire.forward_export_request` and `forward_export_request_starlette` methods (#1974)",
+   "type": "feat",
+   "test_files": [
+    "tests/test_experimental_forwarding.py",
+    "tests/test_logfire_api.py"
+   ],
+   "source_files": [
+    "logfire-api/logfire_api/__init__.py",
+    "logfire/__init__.py",
+    "logfire/_internal/main.py",
+    "logfire/experimental/forwarding.py"
+   ],
+   "source_lines": 141,
+   "all_files": [
+    "logfire-api/logfire_api/__init__.py",
+    "logfire/__init__.py",
+    "logfire/_internal/main.py",
+    "logfire/experimental/forwarding.py",
+    "tests/test_experimental_forwarding.py",
+    "tests/test_logfire_api.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "bf62cde4c25d9e46953198e9a939dda3f3ba8021",
+   "parent": "ab47c9dac0a1f6d93206d891dfa37b1fc8f845c6",
+   "date": "2026-05-28T15:26:25+00:00",
+   "subject": "Fix token pattern to accept organization IDs for API keys (#1980)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_auth.py"
+   ],
+   "source_files": [
+    "logfire/_internal/auth.py"
+   ],
+   "source_lines": 4,
+   "all_files": [
+    "logfire/_internal/auth.py",
+    "tests/test_auth.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "c9847a1c63abed41dc29e907014fb0c9eccaa978",
+   "parent": "3938c55ab9e0762696b7f4af7750916e5fe47729",
+   "date": "2026-06-02T14:27:57+02:00",
+   "subject": "Improve error message suggesting logfire auth (#1989)",
+   "type": "other",
+   "test_files": [
+    "tests/test_auth.py"
+   ],
+   "source_files": [
+    "logfire/_internal/auth.py",
+    "logfire/_internal/config.py"
+   ],
+   "source_lines": 57,
+   "all_files": [
+    "logfire/_internal/auth.py",
+    "logfire/_internal/config.py",
+    "tests/test_auth.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "7e06d102dbe7e9730425850e68874c41e227f470",
+   "parent": "d5ed24ae676c05824469c653d5903de17c4908a5",
+   "date": "2026-06-08T09:57:42+00:00",
+   "subject": "Use parameterized `default_factory` to drop `reportUnknownVariableType` ignores (#1999)",
+   "type": "other",
+   "test_files": [
+    "tests/test_sampling.py"
+   ],
+   "source_files": [
+    "logfire/_internal/config.py",
+    "logfire/_internal/logs.py",
+    "logfire/_internal/metrics.py",
+    "logfire/_internal/tracer.py"
+   ],
+   "source_lines": 18,
+   "all_files": [
+    "logfire/_internal/config.py",
+    "logfire/_internal/logs.py",
+    "logfire/_internal/metrics.py",
+    "logfire/_internal/tracer.py",
+    "tests/test_sampling.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "985d95ac445404de7747b72edb9e9b7ee185f093",
+   "parent": "7e06d102dbe7e9730425850e68874c41e227f470",
+   "date": "2026-06-09T18:12:46+02:00",
+   "subject": "Require configure before lazy remote variables (#2002)",
+   "type": "other",
+   "test_files": [
+    "tests/test_variables.py"
+   ],
+   "source_files": [
+    "logfire/_internal/config.py"
+   ],
+   "source_lines": 12,
+   "all_files": [
+    "docs/reference/advanced/managed-variables/remote.md",
+    "logfire/_internal/config.py",
+    "tests/test_variables.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "57d83c9737a0b5d6fd0caebdcc7e8fd803b2413d",
+   "parent": "0e6e087c61fdc818826dfc46bd6ce27c8339e116",
+   "date": "2026-06-10T12:48:27+02:00",
+   "subject": "Disable console logging for the 'Logfire configured' log (#2007)",
+   "type": "other",
+   "test_files": [
+    "tests/test_configure.py"
+   ],
+   "source_files": [
+    "logfire/_internal/config.py"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    "logfire/_internal/config.py",
+    "tests/test_configure.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "c21585c276c2f3d158347bfdcdeeed6fe73afba5",
+   "parent": "57d83c9737a0b5d6fd0caebdcc7e8fd803b2413d",
+   "date": "2026-06-10T14:36:03+02:00",
+   "subject": "Avoid truncating rich console arguments (#2008)",
+   "type": "other",
+   "test_files": [
+    "tests/test_console_exporter.py"
+   ],
+   "source_files": [
+    "logfire/_internal/exporters/console.py"
+   ],
+   "source_lines": 39,
+   "all_files": [
+    "logfire/_internal/exporters/console.py",
+    "tests/test_console_exporter.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "747548e1b25d4660cfebc5aad5a2738656e7a4e9",
+   "parent": "c21585c276c2f3d158347bfdcdeeed6fe73afba5",
+   "date": "2026-06-10T15:35:16+02:00",
+   "subject": "Handle non-finite floats in JSON encoder (#2009)",
+   "type": "other",
+   "test_files": [
+    "tests/test_json_args.py"
+   ],
+   "source_files": [
+    "logfire/_internal/json_encoder.py",
+    "logfire/_internal/main.py"
+   ],
+   "source_lines": 21,
+   "all_files": [
+    "logfire/_internal/json_encoder.py",
+    "logfire/_internal/main.py",
+    "tests/test_json_args.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "34ee127664acb9975712faa79058213d19e812c2",
+   "parent": "9f0460af8ac4890ea92c72481e1937fcef59e6a2",
+   "date": "2026-06-12T12:59:44+02:00",
+   "subject": "fix: guard None text in Anthropic TextBlock during streaming (#2017)",
+   "type": "fix",
+   "test_files": [
+    "tests/otel_integrations/test_anthropic.py"
+   ],
+   "source_files": [
+    "logfire/_internal/integrations/llm_providers/anthropic.py"
+   ],
+   "source_lines": 11,
+   "all_files": [
+    "logfire/_internal/integrations/llm_providers/anthropic.py",
+    "tests/otel_integrations/test_anthropic.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "6f6487691bf2261799960886c2b5de6624e42022",
+   "parent": "305fe54d096c979da4ed65a13b8cdfd92b45eb85",
+   "date": "2026-06-12T14:27:20-06:00",
+   "subject": "Pre-populate `host.*` and `os.*` resource attributes (#2013)",
+   "type": "other",
+   "test_files": [
+    "tests/test_configure.py",
+    "tests/test_otel_logs.py"
+   ],
+   "source_files": [
+    "logfire/_internal/config.py"
+   ],
+   "source_lines": 36,
+   "all_files": [
+    "logfire/_internal/config.py",
+    "tests/test_configure.py",
+    "tests/test_otel_logs.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "91f5225e6c5b287a70daf2f90517ea743c1e6bf1",
+   "parent": "18c9c79ab9ee0fe4baf917d194e3a60c25b944ab",
+   "date": "2026-06-18T13:49:26+02:00",
+   "subject": "Add `resource_attributes` and `resource_detectors` options to `logfire.configure` (#2012)",
+   "type": "feat",
+   "test_files": [
+    "tests/test_configure.py"
+   ],
+   "source_files": [
+    "logfire/_internal/config.py",
+    "logfire/_internal/config_params.py"
+   ],
+   "source_lines": 282,
+   "all_files": [
+    "docs/guides/web-ui/hosts.md",
+    "docs/integrations/system-metrics.md",
+    "docs/reference/sql.md",
+    "logfire/_internal/config.py",
+    "logfire/_internal/config_params.py",
+    "tests/test_configure.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "3b08489a0ac2846fd7af7d5dbd362b1fb6d2ac71",
+   "parent": "91f5225e6c5b287a70daf2f90517ea743c1e6bf1",
+   "date": "2026-06-19T14:16:09+00:00",
+   "subject": "Mark ambiguous run summary recommendations (#1926)",
+   "type": "other",
+   "test_files": [
+    "tests/test_cli.py"
+   ],
+   "source_files": [
+    "logfire/_internal/cli/run.py"
+   ],
+   "source_lines": 25,
+   "all_files": [
+    "logfire/_internal/cli/run.py",
+    "tests/test_cli.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "ced2fd2cd866784a11b3a8520b9ce0d3989a2c2b",
+   "parent": "3b08489a0ac2846fd7af7d5dbd362b1fb6d2ac71",
+   "date": "2026-06-19T15:12:00+00:00",
+   "subject": "Add proper TypedDict types and TypeAdapter validation to datasets API client (#1724)",
+   "type": "feat",
+   "test_files": [
+    "tests/test_datasets_client.py"
+   ],
+   "source_files": [
+    "logfire/experimental/api_client.py"
+   ],
+   "source_lines": 257,
+   "all_files": [
+    "logfire/experimental/api_client.py",
+    "tests/test_datasets_client.py"
+   ]
+  }
+ ]
+}

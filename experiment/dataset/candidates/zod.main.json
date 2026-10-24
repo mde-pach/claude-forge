@@ -1,0 +1,2720 @@
+{
+ "repo": "zod",
+ "window": "main",
+ "range": [
+  "2026-07-01T00:00:00Z",
+  "2026-10-15T00:00:00Z"
+ ],
+ "drops": {
+  "no_test_change": 153,
+  "revert": 3,
+  "dependency_manifest_or_lock_changed": 5,
+  "source_lines_out_of_range": 17,
+  "too_many_source_files": 5,
+  "no_source_change": 11,
+  "bot_author": 10
+ },
+ "candidates": [
+  {
+   "repo": "zod",
+   "commit": "e6c213ec5dd73fa397b94fdca334d238e289a195",
+   "parent": "573fcb75f7e08e8789cb9a1dbfa3a6128232d4af",
+   "date": "2026-08-08T18:05:54-07:00",
+   "subject": "fix(json-schema): keep __proto__ keys as own properties in schema conversion (#6346)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/from-json-schema.test.ts",
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/classic/from-json-schema.ts",
+    "packages/zod/src/v4/core/json-schema-processors.ts",
+    "packages/zod/src/v4/core/to-json-schema.ts"
+   ],
+   "source_lines": 29,
+   "all_files": [
+    "packages/zod/src/v4/classic/from-json-schema.ts",
+    "packages/zod/src/v4/classic/tests/from-json-schema.test.ts",
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts",
+    "packages/zod/src/v4/core/json-schema-processors.ts",
+    "packages/zod/src/v4/core/to-json-schema.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "f238fbd2d7ff2732b15813b35e650951a9c33b4c",
+   "parent": "e6c213ec5dd73fa397b94fdca334d238e289a195",
+   "date": "2026-08-08T18:12:01-07:00",
+   "subject": "fix: remove exponential backtracking from the emoji regex (#6347)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v3/tests/string.test.ts",
+    "packages/zod/src/v4/classic/tests/continuability.test.ts",
+    "packages/zod/src/v4/classic/tests/datetime.test.ts",
+    "packages/zod/src/v4/classic/tests/redos.test.ts",
+    "packages/zod/src/v4/classic/tests/string.test.ts",
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v3/types.ts",
+    "packages/zod/src/v4/core/regexes.ts"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    "packages/zod/src/v3/tests/string.test.ts",
+    "packages/zod/src/v3/types.ts",
+    "packages/zod/src/v4/classic/tests/continuability.test.ts",
+    "packages/zod/src/v4/classic/tests/datetime.test.ts",
+    "packages/zod/src/v4/classic/tests/redos.test.ts",
+    "packages/zod/src/v4/classic/tests/string.test.ts",
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts",
+    "packages/zod/src/v4/core/regexes.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "ead9fcb310bf65a70427f92ca76545efe954037e",
+   "parent": "c58764c561893728bc7ce39f36dffb94b4b85387",
+   "date": "2026-08-09T11:01:43-07:00",
+   "subject": "fix(v4): write a declared __proto__ key as an own property (#6354)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/object.test.ts",
+    "packages/zod/src/v4/classic/tests/record.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/schemas.ts"
+   ],
+   "source_lines": 45,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/object.test.ts",
+    "packages/zod/src/v4/classic/tests/record.test.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "9c540db809d6f17f8f583d36f2a2564a5681abd9",
+   "parent": "8bb89ea4a0e1878a2d73de921ca459e99086c545",
+   "date": "2026-08-12T11:32:21-07:00",
+   "subject": "fix(v4): re-check the record key after the key schema runs (#6355)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/record.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/schemas.ts"
+   ],
+   "source_lines": 9,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/record.test.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "921649ded188dfd805808120c4c7ebe7260dce1a",
+   "parent": "e7029aa43b848a14d632bb99394a304a7f205bc9",
+   "date": "2026-08-12T11:53:14-07:00",
+   "subject": "fix(v4): formatError and treeifyError handle inherited-name path elements (#6367)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/error-utils.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/errors.ts"
+   ],
+   "source_lines": 34,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/error-utils.test.ts",
+    "packages/zod/src/v4/core/errors.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "e25b68e192778436f5e75de87ca4114b0b15dd48",
+   "parent": "53397351aed547995534abc9a948dc660f656f19",
+   "date": "2026-08-12T12:02:35-07:00",
+   "subject": "perf(v4): let three dead declarations tree-shake under esbuild (#6381)",
+   "type": "refactor",
+   "test_files": [
+    "packages/zod/src/v4/core/tests/treeshake.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/core.ts",
+    "packages/zod/src/v4/core/regexes.ts",
+    "packages/zod/src/v4/core/registries.ts",
+    "packages/zod/src/v4/core/util.ts"
+   ],
+   "source_lines": 23,
+   "all_files": [
+    "packages/zod/src/v4/core/core.ts",
+    "packages/zod/src/v4/core/regexes.ts",
+    "packages/zod/src/v4/core/registries.ts",
+    "packages/zod/src/v4/core/tests/treeshake.test.ts",
+    "packages/zod/src/v4/core/util.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "7708d4471eb2921e89c57ef5ad4785864eeff922",
+   "parent": "8ac9ae5198315a2306629f94f8323e45774a72f5",
+   "date": "2026-08-12T13:12:27-07:00",
+   "subject": "perf(v4): lazy ZodError construction (#6316)",
+   "type": "refactor",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/error.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/classic/errors.ts",
+    "packages/zod/src/v4/core/errors.ts"
+   ],
+   "source_lines": 148,
+   "all_files": [
+    "packages/zod/src/v4/classic/errors.ts",
+    "packages/zod/src/v4/classic/tests/error.test.ts",
+    "packages/zod/src/v4/core/errors.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "d24fb4c3fbde084cf5ad45332970c7856228defa",
+   "parent": "7708d4471eb2921e89c57ef5ad4785864eeff922",
+   "date": "2026-08-12T14:16:12-07:00",
+   "subject": "fix: consistently strip __proto__ from parsed objects (#6386)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v3/tests/intersection.test.ts",
+    "packages/zod/src/v4/classic/tests/discriminated-unions.test.ts",
+    "packages/zod/src/v4/classic/tests/from-json-schema.test.ts",
+    "packages/zod/src/v4/classic/tests/intersection.test.ts",
+    "packages/zod/src/v4/classic/tests/object.test.ts",
+    "packages/zod/src/v4/classic/tests/record.test.ts",
+    "packages/zod/src/v4/mini/tests/index.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v3/types.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ],
+   "source_lines": 95,
+   "all_files": [
+    "packages/zod/src/v3/tests/intersection.test.ts",
+    "packages/zod/src/v3/types.ts",
+    "packages/zod/src/v4/classic/tests/discriminated-unions.test.ts",
+    "packages/zod/src/v4/classic/tests/from-json-schema.test.ts",
+    "packages/zod/src/v4/classic/tests/intersection.test.ts",
+    "packages/zod/src/v4/classic/tests/object.test.ts",
+    "packages/zod/src/v4/classic/tests/record.test.ts",
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/mini/tests/index.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "2715c12e76cf022d7dbdeb5852c09fddfe91a481",
+   "parent": "81d9fc6cf47da97ad4ef2c43de02276fba249790",
+   "date": "2026-08-12T22:34:06-07:00",
+   "subject": "fix(v4): preserve default English locale across tree-shaken bundles (#5959)",
+   "type": "fix",
+   "test_files": [
+    "packages/treeshake/default-locale.test.ts",
+    "packages/zod/src/v4/classic/tests/default-locale.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/classic/external.ts",
+    "packages/zod/src/v4/classic/schemas.ts"
+   ],
+   "source_lines": 16,
+   "all_files": [
+    "packages/treeshake/default-locale.test.ts",
+    "packages/zod/src/v4/classic/external.ts",
+    "packages/zod/src/v4/classic/schemas.ts",
+    "packages/zod/src/v4/classic/tests/default-locale.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "fd0741065d65ca6a83a8eb095d306444002dd2e3",
+   "parent": "2715c12e76cf022d7dbdeb5852c09fddfe91a481",
+   "date": "2026-08-12T22:46:44-07:00",
+   "subject": "feat(json-schema): run `override` before the unrepresentable error (#6391)",
+   "type": "feat",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/json-schema-processors.ts",
+    "packages/zod/src/v4/core/to-json-schema.ts"
+   ],
+   "source_lines": 131,
+   "all_files": [
+    "packages/docs/content/json-schema.mdx",
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts",
+    "packages/zod/src/v4/core/json-schema-processors.ts",
+    "packages/zod/src/v4/core/to-json-schema.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "9d20fdc3c37207fa3fe77c9524a3421f4399cbf6",
+   "parent": "3063993a3317ac8af7a244691b837fce3e53aa96",
+   "date": "2026-08-13T11:08:38-07:00",
+   "subject": "fix(v4): preserve z.preprocess input narrowing (#5967)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/preprocess-types.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/classic/schemas.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ],
+   "source_lines": 27,
+   "all_files": [
+    "packages/zod/src/v4/classic/schemas.ts",
+    "packages/zod/src/v4/classic/tests/preprocess-types.test.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "bd6619c06d72f7829ee6ed14417ef1fd4d90ebcb",
+   "parent": "9d20fdc3c37207fa3fe77c9524a3421f4399cbf6",
+   "date": "2026-08-13T11:44:53-07:00",
+   "subject": "feat(json-schema): accept a function for `unrepresentable` (#6380)",
+   "type": "feat",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/json-schema-generator.ts",
+    "packages/zod/src/v4/core/json-schema-processors.ts",
+    "packages/zod/src/v4/core/to-json-schema.ts"
+   ],
+   "source_lines": 147,
+   "all_files": [
+    "packages/docs/content/json-schema.mdx",
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts",
+    "packages/zod/src/v4/core/json-schema-generator.ts",
+    "packages/zod/src/v4/core/json-schema-processors.ts",
+    "packages/zod/src/v4/core/to-json-schema.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "c8f06d36fc1b56b99c8a12b2a3270394387cb507",
+   "parent": "9a7ecc358b5b9bf9e2a682cf797ae4c14413e5a6",
+   "date": "2026-08-13T13:46:00-07:00",
+   "subject": "fix(v4): clarify infinite number errors (#5906)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/number.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/locales/en.ts"
+   ],
+   "source_lines": 13,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/number.test.ts",
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/locales/en.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "bd18314c6d0e29a7890ecea73e206f8bbca54ec9",
+   "parent": "2a5164f5e753650c0dca74801c6cde38ca7be7d8",
+   "date": "2026-08-13T14:02:47-07:00",
+   "subject": "fix: escape JSON Pointer reserved characters in toJSONSchema $ref (closes #6027) (#6144)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/to-json-schema.ts"
+   ],
+   "source_lines": 10,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts",
+    "packages/zod/src/v4/core/to-json-schema.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "a1904fc238d8bcf1a45806bd73b0b0a8006cf77a",
+   "parent": "bd18314c6d0e29a7890ecea73e206f8bbca54ec9",
+   "date": "2026-08-13T14:06:08-07:00",
+   "subject": "fix(v4): report date origin for numeric min/max bounds (#6129)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/date.test.ts",
+    "packages/zod/src/v4/mini/tests/checks.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/checks.ts"
+   ],
+   "source_lines": 4,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/date.test.ts",
+    "packages/zod/src/v4/core/checks.ts",
+    "packages/zod/src/v4/mini/tests/checks.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "784e5c264284a9424dc7ebdf538ad7bde0c77e4c",
+   "parent": "97edd70a8f0d34ec6f50e8255713d3d49a106e2c",
+   "date": "2026-08-13T17:03:47-07:00",
+   "subject": "fix(v4): let bundlers tree-shake locales out of the default import (#6384)",
+   "type": "fix",
+   "test_files": [
+    "packages/treeshake/locale-treeshake.test.ts"
+   ],
+   "source_files": [
+    "packages/treeshake/zod-default-import.ts",
+    "packages/treeshake/zod-named-import.ts",
+    "packages/zod/src/index.ts",
+    "packages/zod/src/v4/classic/index.ts",
+    "packages/zod/src/v4/index.ts"
+   ],
+   "source_lines": 27,
+   "all_files": [
+    "packages/docs/content/error-customization.mdx",
+    "packages/treeshake/locale-treeshake.test.ts",
+    "packages/treeshake/zod-default-import.ts",
+    "packages/treeshake/zod-named-import.ts",
+    "packages/zod/src/index.ts",
+    "packages/zod/src/v4/classic/index.ts",
+    "packages/zod/src/v4/index.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "a106fbe7ae574cbb7045606e173671aad3eb1cd6",
+   "parent": "e8034ebafe9dcd4be0af6e7b90f324fafaaa0324",
+   "date": "2026-08-13T17:18:03-07:00",
+   "subject": "fix(v4): make fromJSONSchema tuples open-ended by default (#6020)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/from-json-schema.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/classic/from-json-schema.ts"
+   ],
+   "source_lines": 20,
+   "all_files": [
+    "packages/zod/src/v4/classic/from-json-schema.ts",
+    "packages/zod/src/v4/classic/tests/from-json-schema.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "4c27fe87976731e2347b0b9daa8f8d5fc8a19ac8",
+   "parent": "a106fbe7ae574cbb7045606e173671aad3eb1cd6",
+   "date": "2026-08-13T17:18:29-07:00",
+   "subject": "fix(v4): give z.xor() a distinct error when multiple options match (#6376)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/union.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/errors.ts",
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/locales/en.ts"
+   ],
+   "source_lines": 17,
+   "all_files": [
+    "packages/docs/content/api.mdx",
+    "packages/zod/src/v4/classic/tests/union.test.ts",
+    "packages/zod/src/v4/core/errors.ts",
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/locales/en.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "421cc9a507086377f257d76030966371b7b8f1b2",
+   "parent": "4c27fe87976731e2347b0b9daa8f8d5fc8a19ac8",
+   "date": "2026-08-13T17:19:07-07:00",
+   "subject": "fix(json-schema): unescape JSON Pointer tokens when resolving $ref (#6402)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/from-json-schema.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/classic/from-json-schema.ts"
+   ],
+   "source_lines": 8,
+   "all_files": [
+    "packages/zod/src/v4/classic/from-json-schema.ts",
+    "packages/zod/src/v4/classic/tests/from-json-schema.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "611bd762c303f0f1e188fb66e73528118702ca99",
+   "parent": "b53e53ccb3941bd3c8c651b4b1dcf1b5484726b0",
+   "date": "2026-08-13T18:26:39-07:00",
+   "subject": "fix(mini): make merge() take an object schema, matching classic (#6404)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/mini/tests/object.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/util.ts",
+    "packages/zod/src/v4/mini/schemas.ts"
+   ],
+   "source_lines": 14,
+   "all_files": [
+    "packages/zod/src/v4/core/util.ts",
+    "packages/zod/src/v4/mini/schemas.ts",
+    "packages/zod/src/v4/mini/tests/object.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "6074828e5d134c34cd1fac9b067dbee74ecdc314",
+   "parent": "d7b209f3928266a3e5cd7d5f8973fc9047be0791",
+   "date": "2026-08-13T19:31:40-07:00",
+   "subject": "fix(v4): make fromJSONSchema propertyNames compose with the other object keywords (#6411)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/from-json-schema.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/classic/from-json-schema.ts"
+   ],
+   "source_lines": 105,
+   "all_files": [
+    "packages/zod/src/v4/classic/from-json-schema.ts",
+    "packages/zod/src/v4/classic/tests/from-json-schema.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "b899cd17eb77bb82f352bb207eff50fcde9ce93a",
+   "parent": "6074828e5d134c34cd1fac9b067dbee74ecdc314",
+   "date": "2026-08-13T22:16:30-07:00",
+   "subject": "perf(json-schema): make toJSONSchema(registry) linear in registry size (#6408)",
+   "type": "refactor",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/json-schema-generator.ts",
+    "packages/zod/src/v4/core/to-json-schema.ts"
+   ],
+   "source_lines": 58,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts",
+    "packages/zod/src/v4/core/json-schema-generator.ts",
+    "packages/zod/src/v4/core/to-json-schema.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "69be843f4864a6c320fb02a4f58f0e700526553c",
+   "parent": "b899cd17eb77bb82f352bb207eff50fcde9ce93a",
+   "date": "2026-08-13T22:35:56-07:00",
+   "subject": "fix(v4): stop the object JIT fastpass keeping a swallowed issue's value (#6407)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/optional.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/schemas.ts"
+   ],
+   "source_lines": 24,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/optional.test.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "4e1720c80e65a6f2c8d1f9fc9da0ba3a1a4c9d86",
+   "parent": "4cc4053d28fe6879fa360e2780ab52226202904e",
+   "date": "2026-08-13T22:52:19-07:00",
+   "subject": "fix(v4): align record keys and intersection strictness with TypeScript (#6412)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/intersection.test.ts",
+    "packages/zod/src/v4/classic/tests/record.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/schemas.ts"
+   ],
+   "source_lines": 82,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/intersection.test.ts",
+    "packages/zod/src/v4/classic/tests/record.test.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "973b1b44e182ad2eeba50fb57e926c69df67cdb2",
+   "parent": "5e608851fbc7659855e096239e36b9147af8a187",
+   "date": "2026-08-16T14:17:47-07:00",
+   "subject": "fix(v4): strip output-typed catch values from the input JSON Schema (#6409)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/to-json-schema.ts"
+   ],
+   "source_lines": 3,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts",
+    "packages/zod/src/v4/core/to-json-schema.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "78b523f0e81c0f19939cd8ffeb945ebca76d1d2f",
+   "parent": "973b1b44e182ad2eeba50fb57e926c69df67cdb2",
+   "date": "2026-08-16T14:24:52-07:00",
+   "subject": "fix(json-schema): keep preprocess object properties required in input mode (#6133)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/json-schema-processors.ts"
+   ],
+   "source_lines": 20,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts",
+    "packages/zod/src/v4/core/json-schema-processors.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "942bf8cb9a4085e66f785c04b5a9a3ed6877709c",
+   "parent": "78b523f0e81c0f19939cd8ffeb945ebca76d1d2f",
+   "date": "2026-08-16T14:27:24-07:00",
+   "subject": "feat(v4): parse input containing reference cycles (#6387)",
+   "type": "feat",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/cyclic-data.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/classic/schemas.ts",
+    "packages/zod/src/v4/core/index.ts",
+    "packages/zod/src/v4/core/memoizer.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ],
+   "source_lines": 248,
+   "all_files": [
+    "packages/zod/src/v4/classic/schemas.ts",
+    "packages/zod/src/v4/classic/tests/cyclic-data.test.ts",
+    "packages/zod/src/v4/core/index.ts",
+    "packages/zod/src/v4/core/memoizer.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "4d6b5cd3eb36e650fec0586bc085ed7263d43ef4",
+   "parent": "2abc9e0557343863b9429e29b1b8909591d52f62",
+   "date": "2026-08-16T15:17:42-07:00",
+   "subject": "fix(json-schema): route unrepresentable default values through `unrepresentable`",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/json-schema-processors.ts"
+   ],
+   "source_lines": 31,
+   "all_files": [
+    "packages/docs/content/json-schema.mdx",
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts",
+    "packages/zod/src/v4/core/json-schema-processors.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "eb4682c930b9f3a9f4e721c99bfbad615bf1c766",
+   "parent": "4d6b5cd3eb36e650fec0586bc085ed7263d43ef4",
+   "date": "2026-08-16T15:44:29-07:00",
+   "subject": "fix(json-schema): resolve tuple minItems past transform and catch in input mode (#6418)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/json-schema-processors.ts"
+   ],
+   "source_lines": 11,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts",
+    "packages/zod/src/v4/core/json-schema-processors.ts",
+    "wiki/optionality.md"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "79cfedea29912cb40d7373f6643fad57480df966",
+   "parent": "92f47984b7412c6b9510fe6e8c7cf106c4c580f1",
+   "date": "2026-08-16T15:50:33-07:00",
+   "subject": "feat(v4): expose the owning schema on check-originated issues (#6420)",
+   "type": "feat",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/issue-schema.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/errors.ts",
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/core/util.ts"
+   ],
+   "source_lines": 20,
+   "all_files": [
+    "packages/docs/content/error-customization.mdx",
+    "packages/zod/src/v4/classic/tests/issue-schema.test.ts",
+    "packages/zod/src/v4/core/errors.ts",
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/core/util.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "377cd9d7e4fab927a7cf4000b244bffcbe984ed9",
+   "parent": "69b6bb086ff11dc289d9a4e0321a2cbda9246c02",
+   "date": "2026-08-16T16:01:17-07:00",
+   "subject": "feat(locales): add turkmen (tk) locale (#6168)",
+   "type": "feat",
+   "test_files": [
+    "packages/zod/src/v4/core/tests/locales/tk.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/locales/index.ts",
+    "packages/zod/src/v4/locales/tk.ts"
+   ],
+   "source_lines": 110,
+   "all_files": [
+    "packages/docs/content/error-customization.mdx",
+    "packages/zod/jsr.json",
+    "packages/zod/src/v4/core/tests/locales/tk.test.ts",
+    "packages/zod/src/v4/locales/index.ts",
+    "packages/zod/src/v4/locales/tk.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "ba98071c77c242c01a2d8e6d284e4fcfb4bb9a5e",
+   "parent": "234c407d0eec716a31ad5ef47568b49f6832c43f",
+   "date": "2026-08-16T16:43:41-07:00",
+   "subject": "feat: add .exactPartial() to ZodObject (#6065)",
+   "type": "feat",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/detached-methods.test.ts",
+    "packages/zod/src/v4/classic/tests/partial.test.ts",
+    "packages/zod/src/v4/mini/tests/object.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/classic/schemas.ts",
+    "packages/zod/src/v4/core/util.ts",
+    "packages/zod/src/v4/mini/schemas.ts"
+   ],
+   "source_lines": 48,
+   "all_files": [
+    "packages/docs/content/api.mdx",
+    "packages/zod/src/v4/classic/schemas.ts",
+    "packages/zod/src/v4/classic/tests/detached-methods.test.ts",
+    "packages/zod/src/v4/classic/tests/partial.test.ts",
+    "packages/zod/src/v4/core/util.ts",
+    "packages/zod/src/v4/mini/schemas.ts",
+    "packages/zod/src/v4/mini/tests/object.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "07b0c3d89736f37f022be99cc5e38f9572567595",
+   "parent": "ba98071c77c242c01a2d8e6d284e4fcfb4bb9a5e",
+   "date": "2026-08-16T17:08:47-07:00",
+   "subject": "fix: preserve explicit superRefine issue input (#6053)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/index.test.ts",
+    "packages/zod/src/v4/classic/tests/refine.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/classic/schemas.ts",
+    "packages/zod/src/v4/core/api.ts"
+   ],
+   "source_lines": 4,
+   "all_files": [
+    "packages/zod/src/v4/classic/schemas.ts",
+    "packages/zod/src/v4/classic/tests/index.test.ts",
+    "packages/zod/src/v4/classic/tests/refine.test.ts",
+    "packages/zod/src/v4/core/api.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "dc1a40a54a063c90dbaf08d841064d7aa0120ff8",
+   "parent": "0175a043c7dde9238c9984bce4e4c3471a65582c",
+   "date": "2026-08-16T17:22:15-07:00",
+   "subject": "fix(locales): improve french translation (#6120)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/core/tests/locales/fr.test.ts"
+   ],
+   "source_files": [
+    "packages/resolution/src/index.cts",
+    "packages/resolution/src/index.mts",
+    "packages/resolution/src/index.ts",
+    "packages/zod/src/v4/locales/fr.ts"
+   ],
+   "source_lines": 35,
+   "all_files": [
+    "packages/resolution/src/index.cts",
+    "packages/resolution/src/index.mts",
+    "packages/resolution/src/index.ts",
+    "packages/zod/src/v4/core/tests/locales/fr.test.ts",
+    "packages/zod/src/v4/locales/fr.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "45fdeda54fc610261f0d18acaf869f75d568487e",
+   "parent": "e03d8587a16a4c635102b2415bc9dff6ee5f6ecf",
+   "date": "2026-08-16T17:54:27-07:00",
+   "subject": "fix(v4): refine optin into a three-rung ladder, retire the fallback payload flag (#6419)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/lazy.test.ts",
+    "packages/zod/src/v4/classic/tests/optin-ladder.test.ts",
+    "packages/zod/src/v4/classic/tests/optional.test.ts",
+    "packages/zod/src/v4/classic/tests/preprocess-types.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/classic/schemas.ts",
+    "packages/zod/src/v4/core/json-schema-processors.ts",
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/core/util.ts"
+   ],
+   "source_lines": 84,
+   "all_files": [
+    "packages/zod/src/v4/classic/schemas.ts",
+    "packages/zod/src/v4/classic/tests/lazy.test.ts",
+    "packages/zod/src/v4/classic/tests/optin-ladder.test.ts",
+    "packages/zod/src/v4/classic/tests/optional.test.ts",
+    "packages/zod/src/v4/classic/tests/preprocess-types.test.ts",
+    "packages/zod/src/v4/core/json-schema-processors.ts",
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/core/util.ts",
+    "wiki/optionality.md"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "73bacbbb6b83b49b679e141f73f2fd915a514911",
+   "parent": "8f813b1e83bd11b3efcfca7084655fa473742e1e",
+   "date": "2026-08-16T18:02:42-07:00",
+   "subject": "fix(from-json-schema): drop redundant inclusive bound for draft-04 exclusive ranges (#6022)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/from-json-schema.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/classic/from-json-schema.ts"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    "packages/zod/src/v4/classic/from-json-schema.ts",
+    "packages/zod/src/v4/classic/tests/from-json-schema.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "b1077f05f85450cf53108714973bf7c8d9e3c35d",
+   "parent": "ccc1514404929ce5df69f3ceb105a8ddd1ebdc07",
+   "date": "2026-08-16T18:29:41-07:00",
+   "subject": "perf(memory): install derived internals on a per-constructor prototype (#6415)",
+   "type": "refactor",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/lazy.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/core.ts",
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/core/util.ts"
+   ],
+   "source_lines": 153,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/lazy.test.ts",
+    "packages/zod/src/v4/core/core.ts",
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/core/util.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "9f0a3d81221e3ab7c09ca4911ef35b54817869a4",
+   "parent": "604464c306f26b21aa77425b3de97d3467d23ae0",
+   "date": "2026-08-16T20:34:52-07:00",
+   "subject": "fix(core): restore defineLazy semantics lost in the internals move (#6429)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/lazy.test.ts",
+    "packages/zod/src/v4/classic/tests/optin-ladder.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/core.ts",
+    "packages/zod/src/v4/core/util.ts"
+   ],
+   "source_lines": 44,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/lazy.test.ts",
+    "packages/zod/src/v4/classic/tests/optin-ladder.test.ts",
+    "packages/zod/src/v4/core/core.ts",
+    "packages/zod/src/v4/core/util.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "f300476db2942180206a08af2f093534adfbdffa",
+   "parent": "9f0a3d81221e3ab7c09ca4911ef35b54817869a4",
+   "date": "2026-08-17T11:34:25-07:00",
+   "subject": "fix(v4): let a schema's error map cover its own checks' issues (#6426)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/error.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/util.ts"
+   ],
+   "source_lines": 3,
+   "all_files": [
+    "packages/docs/content/error-customization.mdx",
+    "packages/zod/src/v4/classic/tests/error.test.ts",
+    "packages/zod/src/v4/core/util.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "3c9ca1d9bdc3c08939f2aa099158ee552c70ef80",
+   "parent": "e125fd8d0c718622155fde6b4d7aa31bc66e85e8",
+   "date": "2026-08-17T12:02:20-07:00",
+   "subject": "feat(json-schema): emit a root $ref when the root schema has an id (#6029)",
+   "type": "feat",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/to-json-schema.ts"
+   ],
+   "source_lines": 13,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts",
+    "packages/zod/src/v4/core/to-json-schema.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "c9ec89e0025775eabc1528a311ad1c0e8b2051b9",
+   "parent": "3c9ca1d9bdc3c08939f2aa099158ee552c70ef80",
+   "date": "2026-08-19T07:36:41-07:00",
+   "subject": "perf(core): drop the seal and the per-key WeakSet from the lazy internals (#6435)",
+   "type": "refactor",
+   "test_files": [
+    "packages/treeshake/bundle-size.test.ts",
+    "packages/zod/src/v4/classic/tests/lazy.test.ts",
+    "packages/zod/src/v4/classic/tests/optin-ladder.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/core.ts",
+    "packages/zod/src/v4/core/util.ts"
+   ],
+   "source_lines": 70,
+   "all_files": [
+    "packages/treeshake/bundle-size.test.ts",
+    "packages/zod/src/v4/classic/tests/lazy.test.ts",
+    "packages/zod/src/v4/classic/tests/optin-ladder.test.ts",
+    "packages/zod/src/v4/core/core.ts",
+    "packages/zod/src/v4/core/util.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "a38ab4a8699e33593749e971e805beba672941f4",
+   "parent": "c9ec89e0025775eabc1528a311ad1c0e8b2051b9",
+   "date": "2026-08-19T07:37:06-07:00",
+   "subject": "fix(core): an omittable discriminator claims undefined (#6432)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/discriminated-unions.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/compile.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ],
+   "source_lines": 18,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/discriminated-unions.test.ts",
+    "packages/zod/src/v4/core/compile.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "260e5d4bd3f2f1a395fce52d526383ba6181d318",
+   "parent": "11c9268b6025be7f2220ee83a1c3f28238a50b84",
+   "date": "2026-08-19T07:58:31-07:00",
+   "subject": "fix(v4): stop islanding a catch callback, which diverged silently",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/core/tests/compile-differential.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/compile.ts"
+   ],
+   "source_lines": 14,
+   "all_files": [
+    "packages/zod/src/v4/core/compile.ts",
+    "packages/zod/src/v4/core/tests/compile-differential.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "d6ca12ae3e28b40392ec49323edc31a56a05ff3b",
+   "parent": "dc51404b2593b029166fd942319fda769f7ae631",
+   "date": "2026-08-19T08:57:52-07:00",
+   "subject": "fix(v4): infer recursive getter options in discriminatedUnion (#6422)",
+   "type": "fix",
+   "test_files": [
+    "packages/treeshake/bundle-size.test.ts",
+    "packages/zod/src/v4/classic/tests/discriminated-unions.test.ts",
+    "packages/zod/src/v4/classic/tests/recursive-types.test.ts",
+    "packages/zod/src/v4/mini/tests/index.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/classic/schemas.ts",
+    "packages/zod/src/v4/core/api.ts",
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/mini/schemas.ts"
+   ],
+   "source_lines": 45,
+   "all_files": [
+    "packages/treeshake/bundle-size.test.ts",
+    "packages/zod/src/v4/classic/schemas.ts",
+    "packages/zod/src/v4/classic/tests/discriminated-unions.test.ts",
+    "packages/zod/src/v4/classic/tests/recursive-types.test.ts",
+    "packages/zod/src/v4/core/api.ts",
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/mini/schemas.ts",
+    "packages/zod/src/v4/mini/tests/index.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "ca246d267001e2b64d43a5ff02699f1885e06227",
+   "parent": "17d1227ff61ff7c27ea11cd4ce31f84959534c8c",
+   "date": "2026-08-19T09:10:06-07:00",
+   "subject": "fix(v4): drop empty alternation branch from datetime pattern (#6439)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/datetime.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/regexes.ts"
+   ],
+   "source_lines": 3,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/datetime.test.ts",
+    "packages/zod/src/v4/core/regexes.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "0135c85a4831a5a04326c4094888574cf1ae82f5",
+   "parent": "ca246d267001e2b64d43a5ff02699f1885e06227",
+   "date": "2026-08-19T09:16:57-07:00",
+   "subject": "feat(v4): allow passing extra args to apply() (#6337)",
+   "type": "feat",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/apply.test.ts",
+    "packages/zod/src/v4/mini/tests/apply.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/classic/schemas.ts",
+    "packages/zod/src/v4/mini/schemas.ts"
+   ],
+   "source_lines": 12,
+   "all_files": [
+    "packages/docs/content/api.mdx",
+    "packages/zod/src/v4/classic/schemas.ts",
+    "packages/zod/src/v4/classic/tests/apply.test.ts",
+    "packages/zod/src/v4/mini/schemas.ts",
+    "packages/zod/src/v4/mini/tests/apply.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "7785fc82a5247dc65cc27cac8f777f75dfa77f80",
+   "parent": "0135c85a4831a5a04326c4094888574cf1ae82f5",
+   "date": "2026-08-19T10:25:41-07:00",
+   "subject": "feat(v4): add z.getDiscriminatedOption (#5947)",
+   "type": "feat",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/discriminated-unions.test.ts",
+    "packages/zod/src/v4/mini/tests/index.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/classic/external.ts",
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/mini/external.ts"
+   ],
+   "source_lines": 45,
+   "all_files": [
+    "packages/zod/src/v4/classic/external.ts",
+    "packages/zod/src/v4/classic/tests/discriminated-unions.test.ts",
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/mini/external.ts",
+    "packages/zod/src/v4/mini/tests/index.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "87ffeb0f50d21881f64ed8926a5df8df6ff355e2",
+   "parent": "7785fc82a5247dc65cc27cac8f777f75dfa77f80",
+   "date": "2026-08-19T11:53:24-07:00",
+   "subject": "fix(v4): an absent key on the middle rung supplies nothing (#6434)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/optin-ladder.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/compile.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ],
+   "source_lines": 60,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/optin-ladder.test.ts",
+    "packages/zod/src/v4/core/compile.ts",
+    "packages/zod/src/v4/core/schemas.ts",
+    "wiki/optionality.md"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "3c2dee9ed7bb7ff6176a1a4461394ff7795e5165",
+   "parent": "87ffeb0f50d21881f64ed8926a5df8df6ff355e2",
+   "date": "2026-08-19T11:53:42-07:00",
+   "subject": "Add properties checks for instanceof schemas (#5912)",
+   "type": "feat",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/instanceof.test.ts",
+    "packages/zod/src/v4/mini/tests/checks.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/classic/checks.ts",
+    "packages/zod/src/v4/core/api.ts",
+    "packages/zod/src/v4/mini/checks.ts"
+   ],
+   "source_lines": 11,
+   "all_files": [
+    "packages/docs/content/api.mdx",
+    "packages/zod/src/v4/classic/checks.ts",
+    "packages/zod/src/v4/classic/tests/instanceof.test.ts",
+    "packages/zod/src/v4/core/api.ts",
+    "packages/zod/src/v4/mini/checks.ts",
+    "packages/zod/src/v4/mini/tests/checks.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "28e1ebd89d26147bacb164af988da6ed6de738d4",
+   "parent": "060bc9f3ec69bff2849f3cc7c17807b863f503b6",
+   "date": "2026-08-19T13:59:48-07:00",
+   "subject": "fix(v4): measure string length in Unicode code points (#6441)",
+   "type": "fix",
+   "test_files": [
+    "packages/treeshake/bundle-size.test.ts",
+    "packages/zod/src/v4/classic/tests/string.test.ts",
+    "packages/zod/src/v4/core/tests/compile-differential.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/checks.ts",
+    "packages/zod/src/v4/core/compile.ts",
+    "packages/zod/src/v4/core/util.ts"
+   ],
+   "source_lines": 73,
+   "all_files": [
+    "packages/docs/content/api.mdx",
+    "packages/treeshake/bundle-size.test.ts",
+    "packages/zod/src/v4/classic/tests/string.test.ts",
+    "packages/zod/src/v4/core/checks.ts",
+    "packages/zod/src/v4/core/compile.ts",
+    "packages/zod/src/v4/core/tests/compile-differential.test.ts",
+    "packages/zod/src/v4/core/util.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "6c77d0280355c5ea1b221ae7d9aff9f0c8c8d9ac",
+   "parent": "28e1ebd89d26147bacb164af988da6ed6de738d4",
+   "date": "2026-08-19T14:07:16-07:00",
+   "subject": "feat: compact simple anyOf unions to type array in toJSONSchema (#6339)",
+   "type": "feat",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/json-schema.ts",
+    "packages/zod/src/v4/core/to-json-schema.ts"
+   ],
+   "source_lines": 33,
+   "all_files": [
+    "packages/docs/content/json-schema.mdx",
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts",
+    "packages/zod/src/v4/core/json-schema.ts",
+    "packages/zod/src/v4/core/to-json-schema.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "f101d8cada31bd99f2df5d5ce094c95b209b2950",
+   "parent": "2a417097652c522d5f08c4ed9858b9d020517943",
+   "date": "2026-08-19T14:23:58-07:00",
+   "subject": "Preserve callsites in parse stack traces (#5910)",
+   "type": "other",
+   "test_files": [
+    "packages/treeshake/bundle-size.test.ts",
+    "packages/zod/src/v4/classic/tests/error.test.ts"
+   ],
+   "source_files": [
+    "mm.mjs",
+    "packages/zod/src/v4/classic/parse.ts",
+    "packages/zod/src/v4/classic/schemas.ts",
+    "packages/zod/src/v4/core/parse.ts"
+   ],
+   "source_lines": 153,
+   "all_files": [
+    "mm.mjs",
+    "packages/treeshake/bundle-size.test.ts",
+    "packages/zod/src/v4/classic/parse.ts",
+    "packages/zod/src/v4/classic/schemas.ts",
+    "packages/zod/src/v4/classic/tests/error.test.ts",
+    "packages/zod/src/v4/core/parse.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "830ba3147928b69fd80ef8e55341d4fd325b9c71",
+   "parent": "f101d8cada31bd99f2df5d5ce094c95b209b2950",
+   "date": "2026-08-19T14:26:06-07:00",
+   "subject": "fix(v4): validate the address, and return the string that was validated (#6442)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/string.test.ts",
+    "packages/zod/src/v4/core/tests/compile-differential.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/compile.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ],
+   "source_lines": 25,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/string.test.ts",
+    "packages/zod/src/v4/core/compile.ts",
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/core/tests/compile-differential.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "b63db248abfcfeb7e444687815834618cf26a04a",
+   "parent": "463ebb30512e7b244f2dde197c5a188162b7c78a",
+   "date": "2026-08-20T07:27:54-07:00",
+   "subject": "fix(v4): keep a memoized node's cached issues private to the cache (#6443)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/cyclic-data.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/memoizer.ts"
+   ],
+   "source_lines": 11,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/cyclic-data.test.ts",
+    "packages/zod/src/v4/core/memoizer.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "6574e7842b1a030f6987c80c268d713767df8b06",
+   "parent": "937b5d01a143c36bb53591fffb29c44412ac9fef",
+   "date": "2026-08-20T07:42:03-07:00",
+   "subject": "fix(v4): stop catch resurrecting issues an optional already resolved (#6440)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/catch.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/schemas.ts"
+   ],
+   "source_lines": 15,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/catch.test.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "555e5f46fed0e6ba25ecf931eae96f7b980a6650",
+   "parent": "49507f34f05109e3e5fa8585eaf5d40d3ee681d4",
+   "date": "2026-08-20T08:15:26-07:00",
+   "subject": "Add z.toZod helper (#5913)",
+   "type": "feat",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/assignability.test.ts",
+    "packages/zod/src/v4/mini/tests/assignability.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/classic/external.ts",
+    "packages/zod/src/v4/core/index.ts",
+    "packages/zod/src/v4/core/util.ts",
+    "packages/zod/src/v4/mini/external.ts"
+   ],
+   "source_lines": 43,
+   "all_files": [
+    "packages/docs/content/basics.mdx",
+    "packages/zod/src/v4/classic/external.ts",
+    "packages/zod/src/v4/classic/tests/assignability.test.ts",
+    "packages/zod/src/v4/core/index.ts",
+    "packages/zod/src/v4/core/util.ts",
+    "packages/zod/src/v4/mini/external.ts",
+    "packages/zod/src/v4/mini/tests/assignability.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "d4108872383318e67c372eb7316244154ccda19b",
+   "parent": "e516c3baf22615e20934116abebfed6c000222c2",
+   "date": "2026-08-24T10:21:13-07:00",
+   "subject": "fix(v4): correct the date/time format keywords in both JSON Schema directions (#6452)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/from-json-schema.test.ts",
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/classic/from-json-schema.ts",
+    "packages/zod/src/v4/core/json-schema-processors.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ],
+   "source_lines": 21,
+   "all_files": [
+    "packages/docs/content/json-schema.mdx",
+    "packages/zod/src/v4/classic/from-json-schema.ts",
+    "packages/zod/src/v4/classic/tests/from-json-schema.test.ts",
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts",
+    "packages/zod/src/v4/core/json-schema-processors.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "d85472c46e88cebfef454f681b8261b6853a9b4f",
+   "parent": "d4108872383318e67c372eb7316244154ccda19b",
+   "date": "2026-08-24T14:35:43-07:00",
+   "subject": "feat(v4): support declared symbol keys in z.object() (#6448)",
+   "type": "feat",
+   "test_files": [
+    "packages/treeshake/bundle-size.test.ts",
+    "packages/zod/src/v4/classic/tests/object.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/compile.ts",
+    "packages/zod/src/v4/core/json-schema-processors.ts",
+    "packages/zod/src/v4/core/memoizer.ts",
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/core/util.ts"
+   ],
+   "source_lines": 159,
+   "all_files": [
+    "packages/treeshake/bundle-size.test.ts",
+    "packages/zod/src/v4/classic/tests/object.test.ts",
+    "packages/zod/src/v4/core/compile.ts",
+    "packages/zod/src/v4/core/json-schema-processors.ts",
+    "packages/zod/src/v4/core/memoizer.ts",
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/core/util.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "5825605edb86ef27f1e7b1eae832303f15724130",
+   "parent": "d85472c46e88cebfef454f681b8261b6853a9b4f",
+   "date": "2026-08-24T15:31:09-07:00",
+   "subject": "perf(v4): skip the eager stack capture when building a ZodError (#6450)",
+   "type": "refactor",
+   "test_files": [
+    "packages/treeshake/bundle-size.test.ts",
+    "packages/zod/src/v4/classic/tests/error.test.ts",
+    "packages/zod/src/v4/core/tests/compile.test.ts",
+    "packages/zod/src/v4/mini/tests/error.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/core.ts"
+   ],
+   "source_lines": 27,
+   "all_files": [
+    "packages/treeshake/bundle-size.test.ts",
+    "packages/zod/src/v4/classic/tests/error.test.ts",
+    "packages/zod/src/v4/core/core.ts",
+    "packages/zod/src/v4/core/tests/compile.test.ts",
+    "packages/zod/src/v4/mini/tests/error.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "036b39f4d2aed770d894911299f249f06e1beed9",
+   "parent": "5825605edb86ef27f1e7b1eae832303f15724130",
+   "date": "2026-08-24T15:31:47-07:00",
+   "subject": "fix(v4)!: require seconds once a datetime carries a Z or an offset (#6457)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/codec.test.ts",
+    "packages/zod/src/v4/classic/tests/datetime.test.ts",
+    "packages/zod/src/v4/classic/tests/template-literal.test.ts",
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts",
+    "packages/zod/src/v4/mini/tests/codec.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/regexes.ts"
+   ],
+   "source_lines": 12,
+   "all_files": [
+    "packages/docs/content/api.mdx",
+    "packages/zod/src/v4/classic/tests/codec.test.ts",
+    "packages/zod/src/v4/classic/tests/datetime.test.ts",
+    "packages/zod/src/v4/classic/tests/template-literal.test.ts",
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts",
+    "packages/zod/src/v4/core/regexes.ts",
+    "packages/zod/src/v4/mini/tests/codec.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "72a05c4fba24eb36bd4981cb946c22d9606c0afa",
+   "parent": "036b39f4d2aed770d894911299f249f06e1beed9",
+   "date": "2026-08-24T16:41:09-07:00",
+   "subject": "feat(v4): expose stringbool truthy/falsy/case via _zod.bag (#6357)",
+   "type": "feat",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/stringbool.test.ts",
+    "packages/zod/src/v4/mini/tests/index.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/api.ts"
+   ],
+   "source_lines": 4,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/stringbool.test.ts",
+    "packages/zod/src/v4/core/api.ts",
+    "packages/zod/src/v4/mini/tests/index.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "51a1368ad449ba0a4dc6e2822dfcbb5ec891700c",
+   "parent": "a0bfdb39d0c5fdc066189da8e9786ebf4d6f12b1",
+   "date": "2026-08-24T16:46:51-07:00",
+   "subject": "fix(v4): let the includes(position) pattern match at or after the offset (#6024)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/checks.ts"
+   ],
+   "source_lines": 5,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts",
+    "packages/zod/src/v4/core/checks.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "168122fca54452aa30d7261c83df79b703b258d7",
+   "parent": "51a1368ad449ba0a4dc6e2822dfcbb5ec891700c",
+   "date": "2026-08-24T16:59:08-07:00",
+   "subject": "fix(v4): carry a pipe's own checks through z.output",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/in-out.test.ts",
+    "packages/zod/src/v4/mini/tests/codec.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/classic/in-out.ts",
+    "packages/zod/src/v4/mini/in-out.ts"
+   ],
+   "source_lines": 24,
+   "all_files": [
+    "packages/zod/src/v4/classic/in-out.ts",
+    "packages/zod/src/v4/classic/tests/in-out.test.ts",
+    "packages/zod/src/v4/mini/in-out.ts",
+    "packages/zod/src/v4/mini/tests/codec.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "2125d30ce58f66170682d5a50ee4a3e2eac568e3",
+   "parent": "168122fca54452aa30d7261c83df79b703b258d7",
+   "date": "2026-08-24T17:02:37-07:00",
+   "subject": "fix(v4): accept exact decimal multiples in multipleOf (#6223)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/number.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/util.ts"
+   ],
+   "source_lines": 4,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/number.test.ts",
+    "packages/zod/src/v4/core/util.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "53cec2a0d0941a69d8add934ac3a8695fb5fb14c",
+   "parent": "2125d30ce58f66170682d5a50ee4a3e2eac568e3",
+   "date": "2026-08-24T18:16:40-07:00",
+   "subject": "fix(v4): resolve z.input past a preprocess transform",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/in-out.test.ts",
+    "packages/zod/src/v4/mini/tests/codec.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/classic/in-out.ts",
+    "packages/zod/src/v4/mini/in-out.ts"
+   ],
+   "source_lines": 30,
+   "all_files": [
+    "packages/zod/src/v4/classic/in-out.ts",
+    "packages/zod/src/v4/classic/tests/in-out.test.ts",
+    "packages/zod/src/v4/mini/in-out.ts",
+    "packages/zod/src/v4/mini/tests/codec.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "3a49696865f3347a70852b544b0274692a00ad15",
+   "parent": "53cec2a0d0941a69d8add934ac3a8695fb5fb14c",
+   "date": "2026-08-24T18:37:04-07:00",
+   "subject": "fix(v4): make record input keys optional when the value can fill them (#6460)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/record.test.ts",
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/json-schema-processors.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ],
+   "source_lines": 9,
+   "all_files": [
+    "packages/docs/content/api.mdx",
+    "packages/zod/src/v4/classic/tests/record.test.ts",
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts",
+    "packages/zod/src/v4/core/json-schema-processors.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "7c070db92e9b8bb4fa055343b3c9af477b2aae36",
+   "parent": "3a49696865f3347a70852b544b0274692a00ad15",
+   "date": "2026-08-24T19:49:43-07:00",
+   "subject": "feat(v4): expose the function schema on .implement() results (#6267)",
+   "type": "feat",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/function.test.ts",
+    "packages/zod/src/v4/mini/tests/functions.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/schemas.ts"
+   ],
+   "source_lines": 41,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/function.test.ts",
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/mini/tests/functions.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "a825c1b08c1e6ab4de83890bef053960fb8b814e",
+   "parent": "7c070db92e9b8bb4fa055343b3c9af477b2aae36",
+   "date": "2026-08-24T19:51:20-07:00",
+   "subject": "fix(v4): empty enums and literals match nothing (#6459)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/enum.test.ts",
+    "packages/zod/src/v4/classic/tests/literal.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/compile.ts",
+    "packages/zod/src/v4/core/json-schema-processors.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ],
+   "source_lines": 40,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/enum.test.ts",
+    "packages/zod/src/v4/classic/tests/literal.test.ts",
+    "packages/zod/src/v4/core/compile.ts",
+    "packages/zod/src/v4/core/json-schema-processors.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "7cfc012238ca88ff4aa87a22e8fa08f5efb5b63d",
+   "parent": "a825c1b08c1e6ab4de83890bef053960fb8b814e",
+   "date": "2026-08-24T19:54:18-07:00",
+   "subject": "fix(v4): keep a wrapper's stored value only on the side it belongs to",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/in-out.test.ts",
+    "packages/zod/src/v4/mini/tests/codec.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/classic/in-out.ts",
+    "packages/zod/src/v4/core/visit.ts",
+    "packages/zod/src/v4/mini/in-out.ts"
+   ],
+   "source_lines": 34,
+   "all_files": [
+    "packages/zod/src/v4/classic/in-out.ts",
+    "packages/zod/src/v4/classic/tests/in-out.test.ts",
+    "packages/zod/src/v4/core/visit.ts",
+    "packages/zod/src/v4/mini/in-out.ts",
+    "packages/zod/src/v4/mini/tests/codec.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "a87ac3665f90144aecf8860030a59eb45a41a2eb",
+   "parent": "6726c1dd5bf47a39a9b7f22a80df421630b95b9b",
+   "date": "2026-08-24T20:58:01-07:00",
+   "subject": "fix(v4)!: distinguish number and bigint formats at the type level (#6052)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/bigint.test.ts",
+    "packages/zod/src/v4/classic/tests/number.test.ts",
+    "packages/zod/src/v4/mini/tests/number.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/classic/schemas.ts",
+    "packages/zod/src/v4/core/checks.ts",
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/mini/schemas.ts"
+   ],
+   "source_lines": 146,
+   "all_files": [
+    "packages/zod/src/v4/classic/schemas.ts",
+    "packages/zod/src/v4/classic/tests/bigint.test.ts",
+    "packages/zod/src/v4/classic/tests/number.test.ts",
+    "packages/zod/src/v4/core/checks.ts",
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/mini/schemas.ts",
+    "packages/zod/src/v4/mini/tests/number.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "badf0b7894a4f777d41fcd7ed2433e5f8c9c23ea",
+   "parent": "a82593c19b27a637fcde21e50c53cb51cc4e27f8",
+   "date": "2026-08-24T21:03:07-07:00",
+   "subject": "fix(v4): build the catch context from the input that failed (#6192)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/catch.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/schemas.ts"
+   ],
+   "source_lines": 64,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/catch.test.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "7b612b536d8bcb1dd160a705cc2d9a4109cb50b3",
+   "parent": "1c43b7745a47e2a8c46361cf92280a9c03d52797",
+   "date": "2026-08-24T22:09:02-07:00",
+   "subject": "fix(v4): fold an intersection of object schemas into one object (#6461)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/json-schema-processors.ts",
+    "packages/zod/src/v4/core/to-json-schema.ts"
+   ],
+   "source_lines": 123,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts",
+    "packages/zod/src/v4/core/json-schema-processors.ts",
+    "packages/zod/src/v4/core/to-json-schema.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "7ce3e77dfbca80bfa2ab3c73a84e0454570d7158",
+   "parent": "7b612b536d8bcb1dd160a705cc2d9a4109cb50b3",
+   "date": "2026-08-24T22:51:20-07:00",
+   "subject": "fix(v4): run a wrapper's inner schema on its own payload (#6462)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/catch.test.ts",
+    "packages/zod/src/v4/classic/tests/optional.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/schemas.ts"
+   ],
+   "source_lines": 49,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/catch.test.ts",
+    "packages/zod/src/v4/classic/tests/optional.test.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "21a6f0cbd3bef24d47e488a48cc9cb4d0bf97743",
+   "parent": "9d5b20ef6c9dbff29a0fa272de4203201b23aa50",
+   "date": "2026-08-25T16:55:29-07:00",
+   "subject": "feat(v4): let z.nanoid() take a custom length (#4004)",
+   "type": "feat",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/string.test.ts",
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts",
+    "packages/zod/src/v4/mini/tests/string.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/api.ts",
+    "packages/zod/src/v4/core/regexes.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ],
+   "source_lines": 19,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/string.test.ts",
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts",
+    "packages/zod/src/v4/core/api.ts",
+    "packages/zod/src/v4/core/regexes.ts",
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/mini/tests/string.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "97edaf7dc4055935514de69dbd646c2fbe78b0f6",
+   "parent": "21a6f0cbd3bef24d47e488a48cc9cb4d0bf97743",
+   "date": "2026-08-25T17:07:59-07:00",
+   "subject": "fix(v4): don't throw from safeParse on bigint multipleOf(0n) (#6466)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/bigint.test.ts",
+    "packages/zod/src/v4/core/tests/compile.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/checks.ts",
+    "packages/zod/src/v4/core/compile.ts"
+   ],
+   "source_lines": 5,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/bigint.test.ts",
+    "packages/zod/src/v4/core/checks.ts",
+    "packages/zod/src/v4/core/compile.ts",
+    "packages/zod/src/v4/core/tests/compile.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "43f729db4aa0cedff6d6b3261f33f8556b3c7102",
+   "parent": "97edaf7dc4055935514de69dbd646c2fbe78b0f6",
+   "date": "2026-08-25T17:21:48-07:00",
+   "subject": "feat(v4): make a tuple's items optional with .partial() (#6465)",
+   "type": "feat",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/tuple.test.ts",
+    "packages/zod/src/v4/mini/tests/index.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/classic/schemas.ts",
+    "packages/zod/src/v4/mini/schemas.ts"
+   ],
+   "source_lines": 42,
+   "all_files": [
+    "packages/docs/content/api.mdx",
+    "packages/zod/src/v4/classic/schemas.ts",
+    "packages/zod/src/v4/classic/tests/tuple.test.ts",
+    "packages/zod/src/v4/mini/schemas.ts",
+    "packages/zod/src/v4/mini/tests/index.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "8d896186cadb6eac6327f46589eed8f8ca8ef26d",
+   "parent": "43f729db4aa0cedff6d6b3261f33f8556b3c7102",
+   "date": "2026-08-26T17:32:19-07:00",
+   "subject": "fix(v4): stop emitting a multipleOf that JSON Schema rejects (#6468)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/json-schema-processors.ts"
+   ],
+   "source_lines": 15,
+   "all_files": [
+    "packages/docs/content/json-schema.mdx",
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts",
+    "packages/zod/src/v4/core/json-schema-processors.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "37b015017b17420e81e76555066bdfa39c24cdc5",
+   "parent": "749f545233d7035250620b92e4fc1afcc1bc2f99",
+   "date": "2026-08-26T22:36:16-07:00",
+   "subject": "feat(v4): add z.isValid and z.isValidAsync (#6471)",
+   "type": "feat",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/is-valid.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/compile.ts",
+    "packages/zod/src/v4/classic/parse.ts",
+    "packages/zod/src/v4/core/compile.ts",
+    "packages/zod/src/v4/core/parse.ts",
+    "packages/zod/src/v4/mini/parse.ts"
+   ],
+   "source_lines": 62,
+   "all_files": [
+    "packages/docs/content/basics.mdx",
+    "packages/zod/src/compile.ts",
+    "packages/zod/src/v4/classic/parse.ts",
+    "packages/zod/src/v4/classic/tests/is-valid.test.ts",
+    "packages/zod/src/v4/core/compile.ts",
+    "packages/zod/src/v4/core/parse.ts",
+    "packages/zod/src/v4/mini/parse.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "68fb3f1381f7cb1ad3bd786544383f8290422d3b",
+   "parent": "37b015017b17420e81e76555066bdfa39c24cdc5",
+   "date": "2026-08-27T22:26:05-07:00",
+   "subject": "feat(v4): make z.compile() fall back instead of throwing (#6479)",
+   "type": "feat",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/object.test.ts",
+    "packages/zod/src/v4/core/tests/compile-differential.test.ts",
+    "packages/zod/src/v4/core/tests/compile.test.ts"
+   ],
+   "source_files": [
+    "packages/bench/compile-matrix.ts",
+    "packages/zod/src/compile.ts",
+    "packages/zod/src/v4/classic/external.ts",
+    "packages/zod/src/v4/core/compile.ts",
+    "packages/zod/src/v4/mini/external.ts"
+   ],
+   "source_lines": 128,
+   "all_files": [
+    "packages/bench/compile-matrix.ts",
+    "packages/docs/content/compile.mdx",
+    "packages/zod/README.md",
+    "packages/zod/src/compile.ts",
+    "packages/zod/src/v4/classic/external.ts",
+    "packages/zod/src/v4/classic/tests/object.test.ts",
+    "packages/zod/src/v4/core/compile.ts",
+    "packages/zod/src/v4/core/tests/compile-differential.test.ts",
+    "packages/zod/src/v4/core/tests/compile.test.ts",
+    "packages/zod/src/v4/mini/external.ts",
+    "scripts/compile-fuzz.ts",
+    "wiki/compile-plan.md",
+    "wiki/compile.md"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "fb3af01f76d9b249fc3a251eab79e12764b1c7ad",
+   "parent": "62471c9088a048d2cce5d53ed29ece573d1879f6",
+   "date": "2026-08-28T10:13:11-07:00",
+   "subject": "feat(v4): expose the memoizer through z.config() so zod/mini can opt in (#6482)",
+   "type": "feat",
+   "test_files": [
+    "packages/treeshake/bundle-size.test.ts",
+    "packages/zod/src/v4/classic/tests/cyclic-data.test.ts",
+    "packages/zod/src/v4/mini/tests/cyclic-data.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/classic/external.ts",
+    "packages/zod/src/v4/classic/schemas.ts",
+    "packages/zod/src/v4/core/core.ts",
+    "packages/zod/src/v4/core/memoizer.ts",
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/mini/external.ts"
+   ],
+   "source_lines": 266,
+   "all_files": [
+    "packages/docs/content/api.mdx",
+    "packages/treeshake/bundle-size.test.ts",
+    "packages/zod/src/v4/classic/external.ts",
+    "packages/zod/src/v4/classic/schemas.ts",
+    "packages/zod/src/v4/classic/tests/cyclic-data.test.ts",
+    "packages/zod/src/v4/core/core.ts",
+    "packages/zod/src/v4/core/memoizer.ts",
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/mini/external.ts",
+    "packages/zod/src/v4/mini/tests/cyclic-data.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "212b941791e7faae078e17645eb612824fd8f79a",
+   "parent": "d378c42aff6869f0929058a7923cd775880f5c4c",
+   "date": "2026-08-28T12:28:41-07:00",
+   "subject": "fix(v4): let a prototype method getter answer a bare call so vi.spyOn works (#6488)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/detached-methods.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/classic/schemas.ts",
+    "packages/zod/src/v4/core/util.ts"
+   ],
+   "source_lines": 12,
+   "all_files": [
+    "packages/zod/src/v4/classic/schemas.ts",
+    "packages/zod/src/v4/classic/tests/detached-methods.test.ts",
+    "packages/zod/src/v4/core/util.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "eab51ff3592b2d11d863f4ee4d5452f31a3de1b6",
+   "parent": "7e24a24288183ce02554f1ded7775d0650a7b7e6",
+   "date": "2026-08-29T10:15:17-07:00",
+   "subject": "fix(v4): emit record numeric keys as strings in toJSONSchema (#6497)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/json-schema-processors.ts",
+    "packages/zod/src/v4/core/to-json-schema.ts"
+   ],
+   "source_lines": 103,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts",
+    "packages/zod/src/v4/core/json-schema-processors.ts",
+    "packages/zod/src/v4/core/to-json-schema.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "84e416fbf4740527bbc8f319634f4e1b065bb42c",
+   "parent": "1a16102a494b03ce1df7b80b663ae2df465f419e",
+   "date": "2026-08-29T10:33:26-07:00",
+   "subject": "fix(v4): stop the cycle walk from firing a default factory (#6500)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/cyclic-data.test.ts",
+    "packages/zod/src/v4/classic/tests/default.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/memoizer.ts"
+   ],
+   "source_lines": 102,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/cyclic-data.test.ts",
+    "packages/zod/src/v4/classic/tests/default.test.ts",
+    "packages/zod/src/v4/core/memoizer.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "cd4f9a679238a5470620f74c2cc568e8865b3f01",
+   "parent": "43b9bfc5a59167b42c897eb9c74129fc8b4c31e4",
+   "date": "2026-08-29T13:32:03-07:00",
+   "subject": "perf(v4): report Standard Schema issues without constructing a ZodError (#6509)",
+   "type": "refactor",
+   "test_files": [
+    "packages/treeshake/bundle-size.test.ts",
+    "packages/zod/src/v4/classic/tests/standard-schema.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/schemas.ts"
+   ],
+   "source_lines": 13,
+   "all_files": [
+    "packages/treeshake/bundle-size.test.ts",
+    "packages/zod/src/v4/classic/tests/standard-schema.test.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "5ff9566508e6c95873d2648a5bdcc3a371f1b757",
+   "parent": "f412178defd4348872fa581db952f6713677502a",
+   "date": "2026-08-29T14:04:04-07:00",
+   "subject": "Stop re-exporting the compile internals from zod/v4/core (#6511)",
+   "type": "other",
+   "test_files": [
+    "packages/zod/src/v4/core/tests/compile.test.ts"
+   ],
+   "source_files": [
+    "packages/bench/compile-base64-inline-vs-hoist.ts",
+    "packages/bench/compile-codec-direction.ts",
+    "packages/bench/compile-helper-scope.ts",
+    "packages/bench/compile-matrix.ts",
+    "packages/bench/compile-vs-arktype.ts",
+    "packages/bench/compile.ts",
+    "packages/bench/moltar-libs.ts",
+    "packages/zod/src/v4/core/index.ts"
+   ],
+   "source_lines": 58,
+   "all_files": [
+    "biome.jsonc",
+    "packages/bench/compile-base64-inline-vs-hoist.ts",
+    "packages/bench/compile-codec-direction.ts",
+    "packages/bench/compile-helper-scope.ts",
+    "packages/bench/compile-matrix.ts",
+    "packages/bench/compile-vs-arktype.ts",
+    "packages/bench/compile.ts",
+    "packages/bench/moltar-libs.ts",
+    "packages/zod/src/v4/core/index.ts",
+    "packages/zod/src/v4/core/tests/compile.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "319f47f44f40755773a9aa83b6fdaaad1ff01d77",
+   "parent": "08ba069e29d67b2f7b13b98dc9e70b1d99aeab5d",
+   "date": "2026-08-31T10:16:14-07:00",
+   "subject": "Emit a length-aware base64url pattern in toJSONSchema (#6527)",
+   "type": "other",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/string.test.ts",
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/regexes.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ],
+   "source_lines": 9,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/string.test.ts",
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts",
+    "packages/zod/src/v4/core/regexes.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "a2a019a57e4444f61bf677ca79c1352823e2b7c8",
+   "parent": "319f47f44f40755773a9aa83b6fdaaad1ff01d77",
+   "date": "2026-08-31T10:26:12-07:00",
+   "subject": "Accept enum-typed targets in z.toZod (#6528)",
+   "type": "other",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/assignability.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/util.ts"
+   ],
+   "source_lines": 22,
+   "all_files": [
+    "packages/docs/content/basics.mdx",
+    "packages/zod/src/v4/classic/tests/assignability.test.ts",
+    "packages/zod/src/v4/core/util.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "f83ab51129038a2f868ee11dda906ed78ae2e478",
+   "parent": "74f9a6d3f2818f24e6df5394b8b6e60acb176463",
+   "date": "2026-08-31T11:44:33-07:00",
+   "subject": "fix(v4): reject component-only strings from z.emoji() (#6532)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/continuability.test.ts",
+    "packages/zod/src/v4/classic/tests/string.test.ts",
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/regexes.ts"
+   ],
+   "source_lines": 4,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/continuability.test.ts",
+    "packages/zod/src/v4/classic/tests/string.test.ts",
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts",
+    "packages/zod/src/v4/core/regexes.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "68a609ac9b9516e6fe84e3558f17ce16b1032bef",
+   "parent": "0227e53d03b5652be75422b6d10e0dd9bf340f0b",
+   "date": "2026-08-31T11:59:09-07:00",
+   "subject": "Widen literal inputs in property check types (#6520)",
+   "type": "other",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/instanceof.test.ts",
+    "packages/zod/src/v4/mini/tests/checks.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/api.ts",
+    "packages/zod/src/v4/core/util.ts"
+   ],
+   "source_lines": 15,
+   "all_files": [
+    "packages/docs/content/api.mdx",
+    "packages/docs/content/blog/zod-4-5.mdx",
+    "packages/zod/src/v4/classic/tests/instanceof.test.ts",
+    "packages/zod/src/v4/core/api.ts",
+    "packages/zod/src/v4/core/util.ts",
+    "packages/zod/src/v4/mini/tests/checks.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "2ec972ecc5a8af8135ed072d2d5b5363c27bb46f",
+   "parent": "68a609ac9b9516e6fe84e3558f17ce16b1032bef",
+   "date": "2026-08-31T12:07:26-07:00",
+   "subject": "refactor: collapse toZod's enum leaf normalizer to a dummy union (#6533)",
+   "type": "refactor",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/assignability.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/util.ts"
+   ],
+   "source_lines": 8,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/assignability.test.ts",
+    "packages/zod/src/v4/core/util.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "07c43e2a08f67082bd35c158d528d571a36094e0",
+   "parent": "bc1157e717c69168ab0b0d0ace27149f6dc3c138",
+   "date": "2026-08-31T13:01:18-07:00",
+   "subject": "Keep the runtime base64 regexes linear so composed parse paths cannot overflow (#6534)",
+   "type": "other",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/string.test.ts",
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/json-schema-processors.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ],
+   "source_lines": 23,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/string.test.ts",
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts",
+    "packages/zod/src/v4/core/json-schema-processors.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "bec73bea5a8ed19daec15655598fe5501bb797e7",
+   "parent": "07c43e2a08f67082bd35c158d528d571a36094e0",
+   "date": "2026-08-31T13:03:23-07:00",
+   "subject": "perf(v4): build the safeParse error on first read (#6519)",
+   "type": "refactor",
+   "test_files": [
+    "packages/treeshake/bundle-size.test.ts",
+    "packages/zod/src/v4/classic/tests/error.test.ts",
+    "packages/zod/src/v4/classic/tests/issue-schema.test.ts",
+    "packages/zod/src/v4/classic/tests/standard-schema.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/parse.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ],
+   "source_lines": 54,
+   "all_files": [
+    "packages/treeshake/bundle-size.test.ts",
+    "packages/zod/src/v4/classic/tests/error.test.ts",
+    "packages/zod/src/v4/classic/tests/issue-schema.test.ts",
+    "packages/zod/src/v4/classic/tests/standard-schema.test.ts",
+    "packages/zod/src/v4/core/parse.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "bf9902164b5396449540415c2221a24bc9fd0e22",
+   "parent": "bec73bea5a8ed19daec15655598fe5501bb797e7",
+   "date": "2026-08-31T13:45:19-07:00",
+   "subject": "perf: move util.cached's accessor to a prototype (#6537)",
+   "type": "refactor",
+   "test_files": [
+    "packages/zod/src/v4/core/tests/cached.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/core/util.ts"
+   ],
+   "source_lines": 41,
+   "all_files": [
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/core/tests/cached.test.ts",
+    "packages/zod/src/v4/core/util.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "69f2a7ff203e546e3a1350fb9152ace03ba0a6e6",
+   "parent": "bf9902164b5396449540415c2221a24bc9fd0e22",
+   "date": "2026-08-31T13:58:53-07:00",
+   "subject": "Collapse toZod's normalizer and move its docs to the API reference (#6539)",
+   "type": "other",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/assignability.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/util.ts"
+   ],
+   "source_lines": 10,
+   "all_files": [
+    "packages/docs/content/api.mdx",
+    "packages/docs/content/basics.mdx",
+    "packages/zod/src/v4/classic/tests/assignability.test.ts",
+    "packages/zod/src/v4/core/util.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "51caf01038d3339d7b9db94b959482c549aba2e3",
+   "parent": "abfb38977dc28dc9993e3fa6a2ecc2f52a8d0c4c",
+   "date": "2026-08-31T14:09:19-07:00",
+   "subject": "refactor: collapse cachedInternal back into cached (#6540)",
+   "type": "refactor",
+   "test_files": [
+    "packages/zod/src/v4/core/tests/cached.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/core/util.ts"
+   ],
+   "source_lines": 21,
+   "all_files": [
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/core/tests/cached.test.ts",
+    "packages/zod/src/v4/core/util.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "81ded9918fe39d51b232be72f23ba0d5fb6a837e",
+   "parent": "51caf01038d3339d7b9db94b959482c549aba2e3",
+   "date": "2026-08-31T14:47:07-07:00",
+   "subject": "perf: answer z.validate from the compiled fast path on invalid input (#6538)",
+   "type": "refactor",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/validate.test.ts",
+    "packages/zod/src/v4/core/tests/compile.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/compile.ts",
+    "packages/zod/src/v4/core/parse.ts"
+   ],
+   "source_lines": 55,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/validate.test.ts",
+    "packages/zod/src/v4/core/compile.ts",
+    "packages/zod/src/v4/core/parse.ts",
+    "packages/zod/src/v4/core/tests/compile.test.ts",
+    "wiki/compile.md"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "eca96871536603076bdd00b8779b947144133aa4",
+   "parent": "81ded9918fe39d51b232be72f23ba0d5fb6a837e",
+   "date": "2026-08-31T14:47:28-07:00",
+   "subject": "fix(v4): enforce the six JSON Schema keywords fromJSONSchema silently dropped (#6535)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/from-json-schema.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/classic/from-json-schema.ts"
+   ],
+   "source_lines": 271,
+   "all_files": [
+    "packages/zod/src/v4/classic/from-json-schema.ts",
+    "packages/zod/src/v4/classic/tests/from-json-schema.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "18e71c71daff6e79ab8f00a48db252ccb340da1f",
+   "parent": "68aca3dc402c59f5c4e30322e83028389e44b8b5",
+   "date": "2026-08-31T15:44:12-07:00",
+   "subject": "Rename the JSON Schema `process` helper so bundler polyfills cannot collide (#6541)",
+   "type": "other",
+   "test_files": [
+    "packages/zod/src/v4/core/tests/polyfill-collision.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/json-schema-generator.ts",
+    "packages/zod/src/v4/core/json-schema-processors.ts",
+    "packages/zod/src/v4/core/to-json-schema.ts"
+   ],
+   "source_lines": 68,
+   "all_files": [
+    "packages/zod/src/v4/core/json-schema-generator.ts",
+    "packages/zod/src/v4/core/json-schema-processors.ts",
+    "packages/zod/src/v4/core/tests/polyfill-collision.test.ts",
+    "packages/zod/src/v4/core/to-json-schema.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "90269c601aae25499ee87e78a07508564825867f",
+   "parent": "18e71c71daff6e79ab8f00a48db252ccb340da1f",
+   "date": "2026-08-31T16:26:59-07:00",
+   "subject": "Keep a numeric TS enum's reverse-mapping keys out of `.options` (#6542)",
+   "type": "other",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/enum.test.ts",
+    "packages/zod/src/v4/mini/tests/index.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/classic/schemas.ts",
+    "packages/zod/src/v4/mini/schemas.ts"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    "packages/zod/src/v4/classic/schemas.ts",
+    "packages/zod/src/v4/classic/tests/enum.test.ts",
+    "packages/zod/src/v4/mini/schemas.ts",
+    "packages/zod/src/v4/mini/tests/index.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "4d7308828b1a56768741d7cfd6cf476eaead45af",
+   "parent": "90269c601aae25499ee87e78a07508564825867f",
+   "date": "2026-08-31T16:52:56-07:00",
+   "subject": "Release the parsed input once a failing safeParse builds its error (#6543)",
+   "type": "other",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/error.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/parse.ts"
+   ],
+   "source_lines": 10,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/error.test.ts",
+    "packages/zod/src/v4/core/parse.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "62e6624bc72c4882968ac4ea2c4281b1a99a7ad4",
+   "parent": "cafbee4772ef481611fef6f5fb9ed9a1b9597069",
+   "date": "2026-09-01T13:18:21-07:00",
+   "subject": "feat(v4): add .validate() and .validateAsync() to Zod Classic (#6547)",
+   "type": "feat",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/validate.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/classic/schemas.ts"
+   ],
+   "source_lines": 8,
+   "all_files": [
+    "packages/docs/content/basics.mdx",
+    "packages/zod/src/v4/classic/schemas.ts",
+    "packages/zod/src/v4/classic/tests/validate.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "7a00236683c79000dbab0d92f6faf0b7fba39f59",
+   "parent": "5489a532e65ee3f5ab0959ff8a5da346ced96f2a",
+   "date": "2026-09-02T13:45:59-07:00",
+   "subject": "fix(v4): don't let format checks overwrite tighter min/max bounds (#6553)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/bigint.test.ts",
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/checks.ts"
+   ],
+   "source_lines": 14,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/bigint.test.ts",
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts",
+    "packages/zod/src/v4/core/checks.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "741981ffdbc8772cffc38cc4eaf84d5a45fa7384",
+   "parent": "804e0f522747345d6b37581888899be420baa3e9",
+   "date": "2026-09-08T12:33:02-07:00",
+   "subject": "perf(compile): for-in record walk, cheaper issue finalization, and a generative compile differential (#6567)",
+   "type": "refactor",
+   "test_files": [
+    "packages/treeshake/bundle-size.test.ts",
+    "packages/zod/src/v4/classic/tests/error.test.ts",
+    "packages/zod/src/v4/core/tests/compile-generative.test.ts",
+    "packages/zod/src/v4/core/tests/compile.test.ts"
+   ],
+   "source_files": [
+    "packages/bench/error-construction-breakdown.ts",
+    "packages/bench/memory/compiled-slope.ts",
+    "packages/zod/src/v4/core/compile.ts",
+    "packages/zod/src/v4/core/errors.ts",
+    "packages/zod/src/v4/core/util.ts"
+   ],
+   "source_lines": 211,
+   "all_files": [
+    "packages/bench/error-construction-breakdown.ts",
+    "packages/bench/memory/compiled-slope.ts",
+    "packages/treeshake/bundle-size.test.ts",
+    "packages/zod/src/v4/classic/tests/error.test.ts",
+    "packages/zod/src/v4/core/compile.ts",
+    "packages/zod/src/v4/core/errors.ts",
+    "packages/zod/src/v4/core/tests/compile-generative.test.ts",
+    "packages/zod/src/v4/core/tests/compile.test.ts",
+    "packages/zod/src/v4/core/util.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "dcbcf0529ca1e5424541d5d4b58e0a7b79507f51",
+   "parent": "277613a61a11f299d9897ddd88490002a995f746",
+   "date": "2026-09-08T19:18:13-07:00",
+   "subject": "fix(compile): unwind the doc indent when a child generator throws (#6570)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/core/tests/compile.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/doc.ts"
+   ],
+   "source_lines": 8,
+   "all_files": [
+    "packages/zod/src/v4/core/doc.ts",
+    "packages/zod/src/v4/core/tests/compile.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "36f17960d1defca5d0896d9424f4e1059fbbf081",
+   "parent": "22bed613281143efa3815fe26ab666c6c56586af",
+   "date": "2026-09-08T22:12:06-07:00",
+   "subject": "fix(v4): stop the memoizer from pinning a finished parse (#6572)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/cyclic-data.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/memoizer.ts"
+   ],
+   "source_lines": 21,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/cyclic-data.test.ts",
+    "packages/zod/src/v4/core/memoizer.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "213ee75d2ad6e41508587c3fab8246967f006993",
+   "parent": "f9465d4e6497f92fe85ef7118ea64d7f86c28676",
+   "date": "2026-09-09T09:31:49-07:00",
+   "subject": "feat(compile): add z.withParser for externally generated parsers (#6575)",
+   "type": "feat",
+   "test_files": [
+    "packages/zod/src/v4/core/tests/compile.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/classic/external.ts",
+    "packages/zod/src/v4/core/compile.ts",
+    "packages/zod/src/v4/mini/external.ts"
+   ],
+   "source_lines": 114,
+   "all_files": [
+    "packages/zod/src/v4/classic/external.ts",
+    "packages/zod/src/v4/core/compile.ts",
+    "packages/zod/src/v4/core/tests/compile.test.ts",
+    "packages/zod/src/v4/mini/external.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "3b1549922b56ec17c9c47a521963f820930068e1",
+   "parent": "1c51cbe0fe23d09f8d520b31487d50a01588fae5",
+   "date": "2026-09-09T10:53:24-07:00",
+   "subject": "feat(lang): add Tajik (`tg`) locale",
+   "type": "feat",
+   "test_files": [
+    "packages/zod/src/v4/core/tests/locales/tg.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/locales/index.ts",
+    "packages/zod/src/v4/locales/tg.ts"
+   ],
+   "source_lines": 135,
+   "all_files": [
+    "packages/docs/content/error-customization.mdx",
+    "packages/zod/jsr.json",
+    "packages/zod/src/v4/core/tests/locales/tg.test.ts",
+    "packages/zod/src/v4/locales/index.ts",
+    "packages/zod/src/v4/locales/tg.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "dd9c36fa2ddcee79f71d19f9635586c7b65ead86",
+   "parent": "574d480fb443d3fd396efbcb8230f3dfee4a2cd2",
+   "date": "2026-09-09T12:20:01-07:00",
+   "subject": "fix(v4): defer recursive object index inference (#6580)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/recursive-types.test.ts",
+    "packages/zod/src/v4/mini/tests/recursive-types.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/schemas.ts"
+   ],
+   "source_lines": 4,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/recursive-types.test.ts",
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/mini/tests/recursive-types.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "b12aa523e7e2617c4296cccf9b24d6558ed23e95",
+   "parent": "dd9c36fa2ddcee79f71d19f9635586c7b65ead86",
+   "date": "2026-09-09T12:20:34-07:00",
+   "subject": "fix: preserve unique tags with defaulted discriminators (#6582)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/discriminated-unions.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/compile.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ],
+   "source_lines": 64,
+   "all_files": [
+    "packages/docs/content/api.mdx",
+    "packages/zod/src/v4/classic/tests/discriminated-unions.test.ts",
+    "packages/zod/src/v4/core/compile.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "9446b5cc14c5bf137790f1f66abf602044871223",
+   "parent": "0c483c58849fdb6445aea4f54b1bac6b57ab3d22",
+   "date": "2026-09-10T12:36:39-07:00",
+   "subject": "fix: preserve undefined prefault outputs and object keys (#6587)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/prefault.test.ts",
+    "packages/zod/src/v4/mini/tests/index.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/compile.ts",
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/mini/schemas.ts"
+   ],
+   "source_lines": 34,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/prefault.test.ts",
+    "packages/zod/src/v4/core/compile.ts",
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/mini/schemas.ts",
+    "packages/zod/src/v4/mini/tests/index.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "ad32d7512ce4fe4d4b3cfc0d1f3ce93b2e553519",
+   "parent": "12e6272746eb79c9713f4818e85a15231bd368b6",
+   "date": "2026-09-12T12:49:17-07:00",
+   "subject": "perf: reduce validation and schema allocation overhead (#6588)",
+   "type": "refactor",
+   "test_files": [
+    "packages/treeshake/bundle-size.test.ts",
+    "packages/zod/src/v4/classic/tests/instance-footprint.test.ts",
+    "packages/zod/src/v4/classic/tests/number.test.ts",
+    "packages/zod/src/v4/classic/tests/string.test.ts",
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts",
+    "packages/zod/src/v4/core/tests/compile-differential.test.ts",
+    "packages/zod/src/v4/core/tests/compile.test.ts",
+    "packages/zod/src/v4/core/tests/url-no-canparse.test.ts",
+    "packages/zod/src/v4/mini/tests/index.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/api.ts",
+    "packages/zod/src/v4/core/compile.ts",
+    "packages/zod/src/v4/core/core.ts",
+    "packages/zod/src/v4/core/json-schema-processors.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ],
+   "source_lines": 141,
+   "all_files": [
+    "packages/treeshake/bundle-size.test.ts",
+    "packages/zod/src/v4/classic/tests/instance-footprint.test.ts",
+    "packages/zod/src/v4/classic/tests/number.test.ts",
+    "packages/zod/src/v4/classic/tests/string.test.ts",
+    "packages/zod/src/v4/classic/tests/to-json-schema.test.ts",
+    "packages/zod/src/v4/core/api.ts",
+    "packages/zod/src/v4/core/compile.ts",
+    "packages/zod/src/v4/core/core.ts",
+    "packages/zod/src/v4/core/json-schema-processors.ts",
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/core/tests/compile-differential.test.ts",
+    "packages/zod/src/v4/core/tests/compile.test.ts",
+    "packages/zod/src/v4/core/tests/url-no-canparse.test.ts",
+    "packages/zod/src/v4/mini/tests/index.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "56222cd1532c07bcb91b67df529cab4c0a215330",
+   "parent": "de65a5cb39ed22a507fac935788f718fa88d104f",
+   "date": "2026-09-13T11:30:46-07:00",
+   "subject": "feat(instanceof): key the .properties() shape off the instance type (#6600)",
+   "type": "feat",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/properties.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/classic/schemas.ts"
+   ],
+   "source_lines": 3,
+   "all_files": [
+    "packages/zod/src/v4/classic/schemas.ts",
+    "packages/zod/src/v4/classic/tests/properties.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "a0ebf970f2d752e5f58527cd2942ff48be4f46bd",
+   "parent": "a2ba4a67986a3e6b2b131be30084a2f460d9ea67",
+   "date": "2026-10-09T12:50:22-07:00",
+   "subject": "fix(v4): check array, set and map size bounds before parsing elements (#6652)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/array.test.ts",
+    "packages/zod/src/v4/classic/tests/map.test.ts",
+    "packages/zod/src/v4/classic/tests/set.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/compile.ts",
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/core/util.ts"
+   ],
+   "source_lines": 53,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/array.test.ts",
+    "packages/zod/src/v4/classic/tests/map.test.ts",
+    "packages/zod/src/v4/classic/tests/set.test.ts",
+    "packages/zod/src/v4/core/compile.ts",
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/core/util.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "311cd74b2765ff7c7b58add60e37c5a0ea7a1972",
+   "parent": "b500a2ee95134f81d74da7911d7378dd2853d042",
+   "date": "2026-10-13T11:15:15-07:00",
+   "subject": "fix(v4): run a record's key schema on an own __proto__ key (#6660)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/record.test.ts",
+    "packages/zod/src/v4/core/tests/compile.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/compile.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ],
+   "source_lines": 22,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/record.test.ts",
+    "packages/zod/src/v4/core/compile.ts",
+    "packages/zod/src/v4/core/schemas.ts",
+    "packages/zod/src/v4/core/tests/compile.test.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "40a5dba080b065cc430e5b0e64a8058d68c1660d",
+   "parent": "311cd74b2765ff7c7b58add60e37c5a0ea7a1972",
+   "date": "2026-10-13T11:15:57-07:00",
+   "subject": "fix(locales): add Sizable.map to es, fr, he, hr and lt, and check Sizable parity from source (#6661)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/core/tests/locales/he.test.ts",
+    "packages/zod/src/v4/core/tests/locales/parity.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/locales/es.ts",
+    "packages/zod/src/v4/locales/fr.ts",
+    "packages/zod/src/v4/locales/he.ts",
+    "packages/zod/src/v4/locales/hr.ts",
+    "packages/zod/src/v4/locales/lt.ts"
+   ],
+   "source_lines": 33,
+   "all_files": [
+    "packages/zod/src/v4/core/tests/locales/he.test.ts",
+    "packages/zod/src/v4/core/tests/locales/parity.test.ts",
+    "packages/zod/src/v4/locales/es.ts",
+    "packages/zod/src/v4/locales/fr.ts",
+    "packages/zod/src/v4/locales/he.ts",
+    "packages/zod/src/v4/locales/hr.ts",
+    "packages/zod/src/v4/locales/lt.ts"
+   ]
+  },
+  {
+   "repo": "zod",
+   "commit": "680d19f7d1e042e55934209caeb79bc843b94f44",
+   "parent": "40a5dba080b065cc430e5b0e64a8058d68c1660d",
+   "date": "2026-10-13T11:16:28-07:00",
+   "subject": "fix(v4): report a union option that only checks rejected (#6662)",
+   "type": "fix",
+   "test_files": [
+    "packages/zod/src/v4/classic/tests/union.test.ts"
+   ],
+   "source_files": [
+    "packages/zod/src/v4/core/schemas.ts"
+   ],
+   "source_lines": 12,
+   "all_files": [
+    "packages/zod/src/v4/classic/tests/union.test.ts",
+    "packages/zod/src/v4/core/schemas.ts"
+   ]
+  }
+ ]
+}

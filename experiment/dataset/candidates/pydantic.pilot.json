@@ -1,0 +1,287 @@
+{
+ "repo": "pydantic",
+ "window": "pilot",
+ "range": [
+  "2026-05-01T00:00:00Z",
+  "2026-07-01T00:00:00Z"
+ ],
+ "drops": {
+  "bot_author": 19,
+  "no_source_change": 12,
+  "no_test_change": 28,
+  "source_lines_out_of_range": 2,
+  "dependency_manifest_or_lock_changed": 1
+ },
+ "candidates": [
+  {
+   "repo": "pydantic",
+   "commit": "1078a0516b1854708915c0157df5fab059cc453b",
+   "parent": "ff956060c16a4f4b497ac27affd5f9343c83198e",
+   "date": "2026-05-03T16:57:27+02:00",
+   "subject": "Preserve `RootModel` core metadata (#13129)",
+   "type": "other",
+   "test_files": [
+    "tests/test_json_schema.py"
+   ],
+   "source_files": [
+    "pydantic/_internal/_generate_schema.py",
+    "pydantic/json_schema.py"
+   ],
+   "source_lines": 17,
+   "all_files": [
+    "pydantic/_internal/_generate_schema.py",
+    "pydantic/json_schema.py",
+    "tests/test_json_schema.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "f0369e410579ec49d97a9cde6ce0308880d69927",
+   "parent": "ebc4652df990affb79bb3c3db960fb8d2a2b4308",
+   "date": "2026-05-16T12:17:04+02:00",
+   "subject": "Add Mypy plugin workaround for dynamic models defined in functions (#13177)",
+   "type": "feat",
+   "test_files": [
+    "tests/mypy/modules/create_model_var.py",
+    "tests/mypy/outputs/mypy-plugin_ini/create_model_var.py"
+   ],
+   "source_files": [
+    "pydantic/mypy.py"
+   ],
+   "source_lines": 7,
+   "all_files": [
+    "pydantic/mypy.py",
+    "tests/mypy/modules/create_model_var.py",
+    "tests/mypy/outputs/mypy-plugin_ini/create_model_var.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "7c3468c56beb1e04580863fd06e2ca5232763995",
+   "parent": "177d21b0c375d48e2d126763c11f4b76aeab57be",
+   "date": "2026-05-16T12:36:56+00:00",
+   "subject": "Only deepcopy non-updated fields in `model_copy()` (#13087)",
+   "type": "other",
+   "test_files": [
+    "tests/test_construction.py"
+   ],
+   "source_files": [
+    "pydantic/main.py"
+   ],
+   "source_lines": 36,
+   "all_files": [
+    "pydantic/main.py",
+    "tests/test_construction.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "177d21b0c375d48e2d126763c11f4b76aeab57be",
+   "parent": "1a15e6e7a6f15fd31e88c694a296f4a8f0d64fb4",
+   "date": "2026-05-16T13:46:14+02:00",
+   "subject": "Fallback to `create_model()` overload definition when `__base__` is set to a type variable (#13146)",
+   "type": "other",
+   "test_files": [
+    "tests/mypy/modules/create_model_var.py",
+    "tests/mypy/outputs/mypy-plugin_ini/create_model_var.py"
+   ],
+   "source_files": [
+    "pydantic/mypy.py"
+   ],
+   "source_lines": 15,
+   "all_files": [
+    "pydantic/mypy.py",
+    "tests/mypy/modules/create_model_var.py",
+    "tests/mypy/outputs/mypy-plugin_ini/create_model_var.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "5f89299ac68309cdc20e8d74bd72b55607bba280",
+   "parent": "a20c0ee267150c3bb0f82bf05e0806fa65b1e70c",
+   "date": "2026-05-29T16:53:34+00:00",
+   "subject": "Populate `__slots__` from generic class during parameterization (#13243)",
+   "type": "other",
+   "test_files": [
+    "tests/test_generics.py"
+   ],
+   "source_files": [
+    "pydantic/_internal/_generics.py"
+   ],
+   "source_lines": 15,
+   "all_files": [
+    "pydantic/_internal/_generics.py",
+    "tests/test_generics.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "4ec2d8e334dcd79671530235d21110c36d0fc551",
+   "parent": "5f89299ac68309cdc20e8d74bd72b55607bba280",
+   "date": "2026-06-01T09:09:22+02:00",
+   "subject": "Validate falsy `AliasGenerator` outputs (#13248)",
+   "type": "other",
+   "test_files": [
+    "tests/test_aliases.py"
+   ],
+   "source_files": [
+    "pydantic/aliases.py"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    "pydantic/aliases.py",
+    "tests/test_aliases.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "cf50ed2ac36d1ee3ec942ad630af860f295eb3ec",
+   "parent": "1d1eba24f5b8cf7d025ae3528b9992130ba80617",
+   "date": "2026-06-01T10:07:15+02:00",
+   "subject": "Avoid using explicit `Any` in the Mypy plugin (#13196)",
+   "type": "other",
+   "test_files": [
+    "tests/mypy/modules/plugin_no_any_dynamic_alias.py",
+    "tests/mypy/outputs/mypy-plugin-strict-no-any_ini/plugin_no_any_dynamic_alias.py",
+    "tests/mypy/test_mypy.py"
+   ],
+   "source_files": [
+    "pydantic/mypy.py"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    "docs/integrations/mypy.md",
+    "pydantic/mypy.py",
+    "tests/mypy/modules/plugin_no_any_dynamic_alias.py",
+    "tests/mypy/outputs/mypy-plugin-strict-no-any_ini/plugin_no_any_dynamic_alias.py",
+    "tests/mypy/test_mypy.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "ab33bb7bbc62ad44575bde189d6d40a83fcbaab2",
+   "parent": "e01b13b459a2249e804cde549a16a6b96cefaf85",
+   "date": "2026-06-05T11:16:49+02:00",
+   "subject": "Do not resolve recursive `'definitions-ref'` schemas in schema cleaning (#13276)",
+   "type": "other",
+   "test_files": [
+    "tests/test_type_alias_type.py"
+   ],
+   "source_files": [
+    "pydantic/_internal/_generate_schema.py"
+   ],
+   "source_lines": 25,
+   "all_files": [
+    "pydantic/_internal/_generate_schema.py",
+    "tests/test_type_alias_type.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "7974d591c7d22d6667ea9d09831ba9caddcbb373",
+   "parent": "d54b8cc2c5bedb3d6fb37e559d4b53d21c5217f5",
+   "date": "2026-06-16T09:35:04+02:00",
+   "subject": "Warn on unknown config keys in the Mypy plugin (#13149)",
+   "type": "other",
+   "test_files": [
+    "tests/mypy/test_mypy.py"
+   ],
+   "source_files": [
+    "pydantic/mypy.py"
+   ],
+   "source_lines": 10,
+   "all_files": [
+    "pydantic/mypy.py",
+    "tests/mypy/configs/mypy-plugin-unknown-param.ini",
+    "tests/mypy/configs/mypy-plugin-very-strict.ini",
+    "tests/mypy/configs/pyproject-plugin-unknown-param.toml",
+    "tests/mypy/test_mypy.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "8e168dee8afa69f00c775bdf535b25c3287667b1",
+   "parent": "e5307dba1fcf50cc896d04c10de7cd83effc03b5",
+   "date": "2026-06-29T09:11:43+01:00",
+   "subject": "Fix `test_computed_field_deprecated()` test failure (#13362)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_deprecated_fields.py"
+   ],
+   "source_files": [
+    "pydantic/_internal/_model_construction.py"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    "pydantic/_internal/_model_construction.py",
+    "tests/test_deprecated_fields.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "294f757c67c93704d1ed5ab53f1841b88cae8f79",
+   "parent": "8e168dee8afa69f00c775bdf535b25c3287667b1",
+   "date": "2026-06-29T10:31:21+02:00",
+   "subject": "Fix application of nested operators in pipeline API (#13363)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_pipeline.py"
+   ],
+   "source_files": [
+    "pydantic/experimental/pipeline.py"
+   ],
+   "source_lines": 11,
+   "all_files": [
+    "pydantic/experimental/pipeline.py",
+    "tests/test_pipeline.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "92208bf84df18f606df8c69f7043b4cc0673e34c",
+   "parent": "294f757c67c93704d1ed5ab53f1841b88cae8f79",
+   "date": "2026-06-29T11:49:40+02:00",
+   "subject": "Support `Fraction` type in `pydantic-core` (#13339)",
+   "type": "other",
+   "test_files": [
+    "pydantic-core/tests/test_errors.py",
+    "pydantic-core/tests/test_schema_functions.py",
+    "tests/test_types.py",
+    "tests/types/test_fraction.py"
+   ],
+   "source_files": [
+    "pydantic-core/python/pydantic_core/core_schema.py",
+    "pydantic/_internal/_generate_schema.py",
+    "pydantic/_internal/_known_annotated_metadata.py",
+    "pydantic/_internal/_validators.py",
+    "pydantic/json_schema.py"
+   ],
+   "source_lines": 126,
+   "all_files": [
+    "docs/errors/validation_errors.md",
+    "pydantic-core/python/pydantic_core/core_schema.py",
+    "pydantic-core/src/errors/types.rs",
+    "pydantic-core/src/input/input_abstract.rs",
+    "pydantic-core/src/input/input_json.rs",
+    "pydantic-core/src/input/input_python.rs",
+    "pydantic-core/src/input/input_string.rs",
+    "pydantic-core/src/input/shared.rs",
+    "pydantic-core/src/serializers/infer.rs",
+    "pydantic-core/src/serializers/ob_type.rs",
+    "pydantic-core/src/serializers/shared.rs",
+    "pydantic-core/src/serializers/type_serializers/fraction.rs",
+    "pydantic-core/src/serializers/type_serializers/mod.rs",
+    "pydantic-core/src/validators/fraction.rs",
+    "pydantic-core/src/validators/mod.rs",
+    "pydantic-core/tests/test_errors.py",
+    "pydantic-core/tests/test_schema_functions.py",
+    "pydantic/_internal/_generate_schema.py",
+    "pydantic/_internal/_known_annotated_metadata.py",
+    "pydantic/_internal/_validators.py",
+    "pydantic/json_schema.py",
+    "tests/test_types.py",
+    "tests/types/test_fraction.py"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,3318 @@
+{
+ "repo": "better-auth",
+ "window": "pilot",
+ "range": [
+  "2026-05-01T00:00:00Z",
+  "2026-07-01T00:00:00Z"
+ ],
+ "drops": {
+  "no_test_change": 115,
+  "bot_author": 20,
+  "no_source_change": 9,
+  "source_lines_out_of_range": 21,
+  "too_many_source_files": 5,
+  "revert": 1,
+  "dependency_manifest_or_lock_changed": 4
+ },
+ "candidates": [
+  {
+   "repo": "better-auth",
+   "commit": "906b7b34a710d49798e166395da2bcd2be13ef46",
+   "parent": "fe64413ceffae2ba2401ff30eb96d16a7a192068",
+   "date": "2026-05-01T02:13:16+00:00",
+   "subject": "fix(bearer): write one entry per cookie name when merging session token (#9387)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/cookies/cookies.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/cookies/cookie-utils.ts",
+    "packages/better-auth/src/plugins/bearer/index.ts"
+   ],
+   "source_lines": 41,
+   "all_files": [
+    ".changeset/fix-bearer-cookie-parse-mutate-serialize.md",
+    "packages/better-auth/src/cookies/cookie-utils.ts",
+    "packages/better-auth/src/cookies/cookies.test.ts",
+    "packages/better-auth/src/plugins/bearer/index.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "a597ee01ed4e6d85aba5ee9f15100acc578390d9",
+   "parent": "a0087adcb388b4c932ad0b420ec95063ec1d6989",
+   "date": "2026-05-06T03:13:32+00:00",
+   "subject": "fix(organization): cancelPendingInvitationsOnReInvite is unreachable \u2014 re-invite returns 400 (#9452) (#9453)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/organization/organization.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/organization/routes/crud-invites.ts"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    ".changeset/silly-regions-sin.md",
+    "packages/better-auth/src/plugins/organization/organization.test.ts",
+    "packages/better-auth/src/plugins/organization/routes/crud-invites.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "80a655d271dcae5f785a70f13be60f80fb828cf1",
+   "parent": "a597ee01ed4e6d85aba5ee9f15100acc578390d9",
+   "date": "2026-05-06T05:19:54+00:00",
+   "subject": "fix(admin): revalidate useSession after impersonation (#9402)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/admin/admin.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/admin/client.ts"
+   ],
+   "source_lines": 9,
+   "all_files": [
+    ".changeset/funny-forks-listen.md",
+    "packages/better-auth/src/plugins/admin/admin.test.ts",
+    "packages/better-auth/src/plugins/admin/client.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "d427d1dba91db8861d935ca5838f49eb7e617f67",
+   "parent": "80a655d271dcae5f785a70f13be60f80fb828cf1",
+   "date": "2026-05-06T05:20:44+00:00",
+   "subject": "fix(oauth-provider): export declaration helper types (#9406)",
+   "type": "fix",
+   "test_files": [
+    "e2e/smoke/test/fixtures/tsconfig-declaration/src/index.ts",
+    "packages/oauth-provider/src/public-types.test.ts"
+   ],
+   "source_files": [
+    "packages/oauth-provider/src/types/index.ts"
+   ],
+   "source_lines": 4,
+   "all_files": [
+    ".changeset/quick-bears-sip.md",
+    "e2e/smoke/test/fixtures/tsconfig-declaration/src/index.ts",
+    "e2e/smoke/test/fixtures/tsconfig-declaration/tsconfig.json",
+    "packages/oauth-provider/src/public-types.test.ts",
+    "packages/oauth-provider/src/types/index.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "f7bc1c73490d657a8ffa92a58ecfa9d8403d4fda",
+   "parent": "d427d1dba91db8861d935ca5838f49eb7e617f67",
+   "date": "2026-05-06T05:22:28+00:00",
+   "subject": "fix(oauth-provider): index OAuth foreign keys (#9389)",
+   "type": "fix",
+   "test_files": [
+    "packages/oauth-provider/src/schema.test.ts"
+   ],
+   "source_files": [
+    "packages/oauth-provider/src/schema.ts"
+   ],
+   "source_lines": 10,
+   "all_files": [
+    ".changeset/fix-oauth-provider-fk-indexes.md",
+    "packages/oauth-provider/src/schema.test.ts",
+    "packages/oauth-provider/src/schema.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "ddae5817c882ed47961588e795ee194ee64c9e6b",
+   "parent": "f7bc1c73490d657a8ffa92a58ecfa9d8403d4fda",
+   "date": "2026-05-06T05:23:37+00:00",
+   "subject": "fix(passkey): handle autofill ceremony failures (#9429)",
+   "type": "fix",
+   "test_files": [
+    "packages/passkey/src/client.test.ts"
+   ],
+   "source_files": [
+    "packages/passkey/src/client.ts"
+   ],
+   "source_lines": 31,
+   "all_files": [
+    ".changeset/calm-passkeys-report.md",
+    "packages/passkey/src/client.test.ts",
+    "packages/passkey/src/client.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "b2d655c77c7c627ada17456d1de106fdce6fa18e",
+   "parent": "ddae5817c882ed47961588e795ee194ee64c9e6b",
+   "date": "2026-05-06T08:15:02+00:00",
+   "subject": "fix: allow dynamic organization invitation roles (#9437)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/organization/organization.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/organization/routes/crud-invites.ts"
+   ],
+   "source_lines": 15,
+   "all_files": [
+    ".changeset/dynamic-invitation-roles.md",
+    "packages/better-auth/src/plugins/organization/organization.test.ts",
+    "packages/better-auth/src/plugins/organization/routes/crud-invites.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "07b52cbb795ff74fcd3747036eefd0c780cf8d58",
+   "parent": "8d71f42421687a835114fb9807f44e2fa0c8ff14",
+   "date": "2026-05-06T15:36:52+00:00",
+   "subject": "fix(stripe): preserve freeTrial and internal metadata in `getCheckoutSessionParams` merge (#9474)",
+   "type": "fix",
+   "test_files": [
+    "packages/stripe/test/stripe.test.ts"
+   ],
+   "source_files": [
+    "packages/stripe/src/routes.ts"
+   ],
+   "source_lines": 8,
+   "all_files": [
+    ".changeset/fix-stripe-subscription-data-merge.md",
+    "packages/stripe/src/routes.ts",
+    "packages/stripe/test/stripe.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "9f1ef1f7e5500e0b3dbe2a18e25e3519847cd7a9",
+   "parent": "07b52cbb795ff74fcd3747036eefd0c780cf8d58",
+   "date": "2026-05-06T17:36:35+00:00",
+   "subject": "fix(siwe): add getNonce client alias (#9461)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/siwe/siwe.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/siwe/client.ts",
+    "packages/better-auth/src/plugins/siwe/index.ts"
+   ],
+   "source_lines": 86,
+   "all_files": [
+    ".changeset/sour-bears-smile.md",
+    "packages/better-auth/src/plugins/siwe/client.ts",
+    "packages/better-auth/src/plugins/siwe/index.ts",
+    "packages/better-auth/src/plugins/siwe/siwe.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "e44427b37331c6bcf29d553ed2f135a512bcd750",
+   "parent": "9f1ef1f7e5500e0b3dbe2a18e25e3519847cd7a9",
+   "date": "2026-05-06T17:45:32+00:00",
+   "subject": "fix(cli): emit working Kysely init configs (#9455)",
+   "type": "fix",
+   "test_files": [
+    "packages/cli/src/commands/init/utility/database.test.ts",
+    "packages/cli/test/init.test.ts"
+   ],
+   "source_files": [
+    "packages/cli/src/commands/init/configs/databases.config.ts"
+   ],
+   "source_lines": 8,
+   "all_files": [
+    ".changeset/calm-pools-fix.md",
+    "packages/cli/src/commands/init/configs/databases.config.ts",
+    "packages/cli/src/commands/init/utility/database.test.ts",
+    "packages/cli/test/init.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "fc02cedb708e2b5987a177539a903cc35155a426",
+   "parent": "e44427b37331c6bcf29d553ed2f135a512bcd750",
+   "date": "2026-05-06T17:57:15+00:00",
+   "subject": "fix(oauth): reject callbacks missing provider account id (#9456)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/oauth2/link-account.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/api/routes/callback.ts"
+   ],
+   "source_lines": 11,
+   "all_files": [
+    ".changeset/silver-singers-guard.md",
+    "packages/better-auth/src/api/routes/callback.ts",
+    "packages/better-auth/src/oauth2/link-account.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "9a7b51d0d3dfbc6b2697fe5f9edd0bb480bdf89b",
+   "parent": "e71aad3b6d67502cfb770fa8890f3ab58c537114",
+   "date": "2026-05-06T18:17:46+00:00",
+   "subject": "fix(credential): apply enumeration protection when autoSignIn is false (#8839)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/api/routes/sign-up.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/api/routes/sign-up.ts"
+   ],
+   "source_lines": 3,
+   "all_files": [
+    ".changeset/pr-8839.md",
+    "packages/better-auth/src/api/routes/sign-up.test.ts",
+    "packages/better-auth/src/api/routes/sign-up.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "62c40508501f5056dacc9c9da94e4ddf9ada1001",
+   "parent": "9a7b51d0d3dfbc6b2697fe5f9edd0bb480bdf89b",
+   "date": "2026-05-06T18:22:10+00:00",
+   "subject": "fix(api-keys): `api.verifyApiKey` does not check against the configId (#9393)",
+   "type": "fix",
+   "test_files": [
+    "packages/api-key/src/api-key.test.ts"
+   ],
+   "source_files": [
+    "packages/api-key/src/routes/verify-api-key.ts"
+   ],
+   "source_lines": 4,
+   "all_files": [
+    ".changeset/purple-laws-walk.md",
+    "packages/api-key/src/api-key.test.ts",
+    "packages/api-key/src/routes/verify-api-key.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "36ef808c6cedec6eeb9a3a4e6790e0ab46d96ff3",
+   "parent": "62c40508501f5056dacc9c9da94e4ddf9ada1001",
+   "date": "2026-05-06T18:42:13+00:00",
+   "subject": "fix: incorrect email casing across one-tap, email-otp & email-verification (#9369)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/api/routes/email-verification.test.ts",
+    "packages/better-auth/src/api/routes/sign-in.test.ts",
+    "packages/better-auth/src/plugins/organization/organization.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/api/routes/email-verification.ts",
+    "packages/better-auth/src/db/internal-adapter.ts",
+    "packages/better-auth/src/plugins/email-otp/routes.ts",
+    "packages/better-auth/src/plugins/one-tap/index.ts"
+   ],
+   "source_lines": 32,
+   "all_files": [
+    ".changeset/stale-mangos-fold.md",
+    "packages/better-auth/src/api/routes/email-verification.test.ts",
+    "packages/better-auth/src/api/routes/email-verification.ts",
+    "packages/better-auth/src/api/routes/sign-in.test.ts",
+    "packages/better-auth/src/db/internal-adapter.ts",
+    "packages/better-auth/src/plugins/email-otp/routes.ts",
+    "packages/better-auth/src/plugins/one-tap/index.ts",
+    "packages/better-auth/src/plugins/organization/organization.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "51de32e1e81a45f437e82a5e9d51438f3372f511",
+   "parent": "2f9454b62551bd15ab2c2260633c18d7b008f53a",
+   "date": "2026-05-07T04:47:02+00:00",
+   "subject": "fix(stripe): lock library-owned Checkout Session fields against `getCheckoutSessionParams` (#9481)",
+   "type": "fix",
+   "test_files": [
+    "packages/stripe/test/stripe.test.ts"
+   ],
+   "source_files": [
+    "packages/stripe/src/routes.ts"
+   ],
+   "source_lines": 31,
+   "all_files": [
+    ".changeset/fix-stripe-lock-checkout-fields.md",
+    "packages/stripe/src/routes.ts",
+    "packages/stripe/test/stripe.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "e9c978e2af9e61d35f50fd040305cbb8fdda32ba",
+   "parent": "51de32e1e81a45f437e82a5e9d51438f3372f511",
+   "date": "2026-05-07T05:56:00+00:00",
+   "subject": "fix(username): respect callbackURL on sign-in (#9475)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/username/username.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/username/index.ts"
+   ],
+   "source_lines": 21,
+   "all_files": [
+    ".changeset/fix-username-callback-url-redirect.md",
+    "packages/better-auth/src/plugins/username/index.ts",
+    "packages/better-auth/src/plugins/username/username.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "cf591360e72a8d01741618cd61cdeea84cf8398a",
+   "parent": "8c1e91757d91d103c332e90201c39ce5892c37e8",
+   "date": "2026-05-08T06:47:33+00:00",
+   "subject": "fix(organization): re-export field types to prevent TS2742 with additionalFields (#9349)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/organization/organization-client-declaration.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/client/plugins/index.ts"
+   ],
+   "source_lines": 5,
+   "all_files": [
+    ".changeset/rare-sloths-share.md",
+    "packages/better-auth/src/client/plugins/index.ts",
+    "packages/better-auth/src/plugins/organization/organization-client-declaration.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "09f1327acb9c6bbfeb272dc62c7013172cf33153",
+   "parent": "15ff28a957a18df8ecd2aa08d66b94c91ae9a6a4",
+   "date": "2026-05-09T13:50:46+00:00",
+   "subject": "fix(api): prevent duplicate set-cookie on redirect (#9497)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/api/to-auth-endpoints.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/api/to-auth-endpoints.ts"
+   ],
+   "source_lines": 11,
+   "all_files": [
+    ".changeset/fix-api-error-headers-duplicate-set-cookie.md",
+    "packages/better-auth/src/api/to-auth-endpoints.test.ts",
+    "packages/better-auth/src/api/to-auth-endpoints.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "e21d744987476c20a934c79ef226fe6a5f468e22",
+   "parent": "b03998586af6c47b2c9b6cdd556d36416bc71711",
+   "date": "2026-05-11T07:04:16+00:00",
+   "subject": "fix(rate-limit): widen ipv6Subnet type and correct default in docs (#9545)",
+   "type": "fix",
+   "test_files": [
+    "packages/core/src/utils/ip.test.ts"
+   ],
+   "source_files": [
+    "packages/core/src/types/init-options.ts",
+    "packages/core/src/utils/ip.ts"
+   ],
+   "source_lines": 32,
+   "all_files": [
+    ".changeset/widen-ipv6-subnet-type.md",
+    "docs/content/docs/concepts/rate-limit.mdx",
+    "packages/core/src/types/init-options.ts",
+    "packages/core/src/utils/ip.test.ts",
+    "packages/core/src/utils/ip.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "86765f1597378f5c3deed1b80ca91faac0a6bf00",
+   "parent": "eae63a9aff7ea7f6d3af20b1b0f8601789b3c2f7",
+   "date": "2026-05-11T17:04:01+00:00",
+   "subject": "fix(sso): require org admin role to register SSO providers (#9220)",
+   "type": "fix",
+   "test_files": [
+    "packages/sso/src/providers.test.ts"
+   ],
+   "source_files": [
+    "packages/sso/src/routes/providers.ts",
+    "packages/sso/src/routes/sso.ts"
+   ],
+   "source_lines": 23,
+   "all_files": [
+    ".changeset/fix-sso-register-role-check.md",
+    "docs/content/docs/plugins/sso.mdx",
+    "packages/sso/src/providers.test.ts",
+    "packages/sso/src/routes/providers.ts",
+    "packages/sso/src/routes/sso.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "a26333b5fb1a044e76c18385441d3ecc2240ab70",
+   "parent": "86765f1597378f5c3deed1b80ca91faac0a6bf00",
+   "date": "2026-05-11T19:14:18+00:00",
+   "subject": "fix: cleanup sessions when deleting users (#9162)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/db/secondary-storage.test.ts",
+    "packages/better-auth/src/plugins/anonymous/anon.test.ts",
+    "packages/scim/src/scim-users.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/admin/routes.ts",
+    "packages/better-auth/src/plugins/anonymous/error-codes.ts",
+    "packages/better-auth/src/plugins/anonymous/index.ts",
+    "packages/scim/src/routes.ts"
+   ],
+   "source_lines": 30,
+   "all_files": [
+    ".changeset/chatty-streets-play.md",
+    "packages/better-auth/src/db/secondary-storage.test.ts",
+    "packages/better-auth/src/plugins/admin/routes.ts",
+    "packages/better-auth/src/plugins/anonymous/anon.test.ts",
+    "packages/better-auth/src/plugins/anonymous/error-codes.ts",
+    "packages/better-auth/src/plugins/anonymous/index.ts",
+    "packages/scim/src/routes.ts",
+    "packages/scim/src/scim-users.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "99a254a79b59d5a3f5ca2123260118cddb5beed7",
+   "parent": "455efb67b77afa2c58b75886d3b1e6c1dac17beb",
+   "date": "2026-05-12T11:40:18+00:00",
+   "subject": "fix(device-authorization): bind approval to verifier session (#9573)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/device-authorization/device-authorization.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/device-authorization/error-codes.ts",
+    "packages/better-auth/src/plugins/device-authorization/routes.ts"
+   ],
+   "source_lines": 55,
+   "all_files": [
+    ".changeset/device-auth-claim-at-verify.md",
+    "docs/content/docs/plugins/device-authorization.mdx",
+    "packages/better-auth/src/plugins/device-authorization/device-authorization.test.ts",
+    "packages/better-auth/src/plugins/device-authorization/error-codes.ts",
+    "packages/better-auth/src/plugins/device-authorization/routes.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "2f5d91c5bb7d0e22f07533b40c9905ef97e3a9e9",
+   "parent": "99a254a79b59d5a3f5ca2123260118cddb5beed7",
+   "date": "2026-05-12T12:44:41+00:00",
+   "subject": "fix(scim): reject built-in provider id collisions on SCIM token issuance (#9579)",
+   "type": "fix",
+   "test_files": [
+    "packages/scim/src/scim.management.test.ts"
+   ],
+   "source_files": [
+    "packages/scim/src/index.ts",
+    "packages/scim/src/routes.ts"
+   ],
+   "source_lines": 38,
+   "all_files": [
+    ".changeset/fix-scim-provider-ownership-default-on.md",
+    "packages/scim/src/index.ts",
+    "packages/scim/src/routes.ts",
+    "packages/scim/src/scim.management.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "5f09d566a64ac9a0499d9664ce700edbf0630cea",
+   "parent": "2f5d91c5bb7d0e22f07533b40c9905ef97e3a9e9",
+   "date": "2026-05-12T12:50:38+00:00",
+   "subject": "fix(magic-link): consume verification token atomically on verify (#9572)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/magic-link/magic-link.test.ts",
+    "test/unit/magic-link-secondary-storage.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/db/internal-adapter.ts",
+    "packages/better-auth/src/plugins/magic-link/index.ts"
+   ],
+   "source_lines": 59,
+   "all_files": [
+    ".changeset/fix-magic-link-atomic-consume.md",
+    ".cspell/custom-words.txt",
+    "docs/content/docs/plugins/magic-link.mdx",
+    "packages/better-auth/src/db/internal-adapter.ts",
+    "packages/better-auth/src/plugins/magic-link/index.ts",
+    "packages/better-auth/src/plugins/magic-link/magic-link.test.ts",
+    "test/unit/magic-link-secondary-storage.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "1f2ff4215c4affff0b140b0c0a712c0dde35659c",
+   "parent": "5f09d566a64ac9a0499d9664ce700edbf0630cea",
+   "date": "2026-05-12T13:09:27+00:00",
+   "subject": "fix(oidc-provider, mcp): authenticate confidential clients on refresh_token grant (#9576)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/mcp/mcp.test.ts",
+    "packages/better-auth/src/plugins/oidc-provider/oidc.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/mcp/index.ts",
+    "packages/better-auth/src/plugins/oidc-provider/index.ts"
+   ],
+   "source_lines": 233,
+   "all_files": [
+    ".changeset/legacy-oauth-refresh-client-auth.md",
+    "packages/better-auth/src/plugins/mcp/index.ts",
+    "packages/better-auth/src/plugins/mcp/mcp.test.ts",
+    "packages/better-auth/src/plugins/oidc-provider/index.ts",
+    "packages/better-auth/src/plugins/oidc-provider/oidc.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "23094a628f007f801be6d26e5b15dc5fc6fc4eb8",
+   "parent": "1f2ff4215c4affff0b140b0c0a712c0dde35659c",
+   "date": "2026-05-12T13:12:03+00:00",
+   "subject": "fix(organization): default-on `requireEmailVerificationOnInvitation` & extend gate to get/list (#9577)",
+   "type": "fix",
+   "test_files": [
+    "packages/api-key/src/org-api-key.test.ts",
+    "packages/better-auth/src/plugins/organization/organization.test.ts",
+    "packages/better-auth/src/plugins/organization/routes/crud-invites.test.ts",
+    "packages/better-auth/src/plugins/organization/team.test.ts",
+    "packages/stripe/test/seat-based-billing.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/organization/error-codes.ts",
+    "packages/better-auth/src/plugins/organization/routes/crud-invites.ts",
+    "packages/better-auth/src/plugins/organization/types.ts"
+   ],
+   "source_lines": 51,
+   "all_files": [
+    ".changeset/fix-organization-invitation-email-verified-gate.md",
+    "packages/api-key/src/org-api-key.test.ts",
+    "packages/better-auth/src/plugins/organization/error-codes.ts",
+    "packages/better-auth/src/plugins/organization/organization.test.ts",
+    "packages/better-auth/src/plugins/organization/routes/crud-invites.test.ts",
+    "packages/better-auth/src/plugins/organization/routes/crud-invites.ts",
+    "packages/better-auth/src/plugins/organization/team.test.ts",
+    "packages/better-auth/src/plugins/organization/types.ts",
+    "packages/stripe/test/seat-based-billing.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "37f60cb176cb53147da7dfd5ec15afa5b486e81e",
+   "parent": "23094a628f007f801be6d26e5b15dc5fc6fc4eb8",
+   "date": "2026-05-12T13:12:42+00:00",
+   "subject": "fix(sso): validate user-supplied OIDC endpoint URLs at registration and update (#9574)",
+   "type": "fix",
+   "test_files": [
+    "packages/sso/src/oidc.test.ts"
+   ],
+   "source_files": [
+    "packages/sso/src/oidc/discovery.ts",
+    "packages/sso/src/oidc/errors.ts",
+    "packages/sso/src/oidc/index.ts",
+    "packages/sso/src/oidc/types.ts",
+    "packages/sso/src/routes/providers.ts",
+    "packages/sso/src/routes/schemas.ts",
+    "packages/sso/src/routes/sso.ts"
+   ],
+   "source_lines": 153,
+   "all_files": [
+    ".changeset/fix-sso-skip-discovery-ssrf.md",
+    "packages/sso/src/oidc.test.ts",
+    "packages/sso/src/oidc/discovery.ts",
+    "packages/sso/src/oidc/errors.ts",
+    "packages/sso/src/oidc/index.ts",
+    "packages/sso/src/oidc/types.ts",
+    "packages/sso/src/routes/providers.ts",
+    "packages/sso/src/routes/schemas.ts",
+    "packages/sso/src/routes/sso.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "da7e50beee849c59a2ed1ec6b3a38cc6ab9fb563",
+   "parent": "29599d32b51ca670b8b7e3fc88fd898a153f45d9",
+   "date": "2026-05-12T14:20:19+00:00",
+   "subject": "fix(oauth): block OAuth linking to unverified local accounts (#9578)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/oauth2/link-account.test.ts",
+    "packages/better-auth/src/plugins/admin/admin.test.ts",
+    "packages/better-auth/src/plugins/generic-oauth/generic-oauth.test.ts",
+    "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts",
+    "packages/better-auth/src/plugins/mcp/mcp.test.ts",
+    "packages/better-auth/src/plugins/oidc-provider/oidc.test.ts",
+    "packages/better-auth/src/plugins/one-tap/one-tap.test.ts",
+    "packages/oauth-provider/src/oauth.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/oauth2/link-account.ts",
+    "packages/better-auth/src/plugins/one-tap/index.ts",
+    "packages/core/src/types/init-options.ts"
+   ],
+   "source_lines": 43,
+   "all_files": [
+    ".changeset/fix-oauth2-implicit-link-require-local-emailverified.md",
+    "packages/better-auth/src/oauth2/link-account.test.ts",
+    "packages/better-auth/src/oauth2/link-account.ts",
+    "packages/better-auth/src/plugins/admin/admin.test.ts",
+    "packages/better-auth/src/plugins/generic-oauth/generic-oauth.test.ts",
+    "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts",
+    "packages/better-auth/src/plugins/mcp/mcp.test.ts",
+    "packages/better-auth/src/plugins/oidc-provider/oidc.test.ts",
+    "packages/better-auth/src/plugins/one-tap/index.ts",
+    "packages/better-auth/src/plugins/one-tap/one-tap.test.ts",
+    "packages/core/src/types/init-options.ts",
+    "packages/oauth-provider/src/oauth.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "a1c9f3c08e7398e900e099839aa6dcc8d1d0b816",
+   "parent": "b0ef96fd8ec08ebb4d6ad0c0557d4b7855703f10",
+   "date": "2026-05-12T15:17:44+00:00",
+   "subject": "fix(access): preserve exact role statement types (#9507)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/access/access.test.ts",
+    "packages/better-auth/src/plugins/organization/routes/crud-access-control.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/access/access.ts",
+    "packages/better-auth/src/plugins/access/types.ts"
+   ],
+   "source_lines": 67,
+   "all_files": [
+    ".changeset/fix-org-role-statement-types.md",
+    "packages/better-auth/src/plugins/access/access.test.ts",
+    "packages/better-auth/src/plugins/access/access.ts",
+    "packages/better-auth/src/plugins/access/types.ts",
+    "packages/better-auth/src/plugins/organization/routes/crud-access-control.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "699b09a2064dcb7d37046b5a90626c0b6f57af90",
+   "parent": "b4bc65a007784b2eb0efb459e5fa6fd8055d3ec9",
+   "date": "2026-05-12T16:04:54+00:00",
+   "subject": "fix(oidc-provider, mcp): drop \"none\" alg, default plain PKCE off, reject missing PKCE method (#9575)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/mcp/mcp.test.ts",
+    "packages/better-auth/src/plugins/oidc-provider/oidc.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/mcp/authorize.ts",
+    "packages/better-auth/src/plugins/mcp/index.ts",
+    "packages/better-auth/src/plugins/oidc-provider/authorize.ts",
+    "packages/better-auth/src/plugins/oidc-provider/index.ts"
+   ],
+   "source_lines": 156,
+   "all_files": [
+    ".changeset/oidc-pkce-and-alg-none-hardening.md",
+    "packages/better-auth/src/plugins/mcp/authorize.ts",
+    "packages/better-auth/src/plugins/mcp/index.ts",
+    "packages/better-auth/src/plugins/mcp/mcp.test.ts",
+    "packages/better-auth/src/plugins/oidc-provider/authorize.ts",
+    "packages/better-auth/src/plugins/oidc-provider/index.ts",
+    "packages/better-auth/src/plugins/oidc-provider/oidc.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "c6918ecc9e3a75892169415d7f6c95b591b6a52d",
+   "parent": "a1c9f3c08e7398e900e099839aa6dcc8d1d0b816",
+   "date": "2026-05-12T16:36:32+01:00",
+   "subject": "Merge commit from fork",
+   "type": "other",
+   "test_files": [
+    "packages/oauth-provider/src/token.test.ts"
+   ],
+   "source_files": [
+    "packages/memory-adapter/src/memory-adapter.ts",
+    "packages/oauth-provider/src/revoke.ts",
+    "packages/oauth-provider/src/schema.ts",
+    "packages/oauth-provider/src/token.ts"
+   ],
+   "source_lines": 236,
+   "all_files": [
+    ".changeset/fix-oauth-refresh-token-cas.md",
+    "packages/memory-adapter/src/memory-adapter.ts",
+    "packages/oauth-provider/src/revoke.ts",
+    "packages/oauth-provider/src/schema.ts",
+    "packages/oauth-provider/src/token.test.ts",
+    "packages/oauth-provider/src/token.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "b4bc65a007784b2eb0efb459e5fa6fd8055d3ec9",
+   "parent": "c6918ecc9e3a75892169415d7f6c95b591b6a52d",
+   "date": "2026-05-12T16:53:45+01:00",
+   "subject": "Merge commit from fork",
+   "type": "other",
+   "test_files": [
+    "packages/better-auth/src/plugins/mcp/mcp.test.ts",
+    "packages/better-auth/src/plugins/oidc-provider/oidc.test.ts",
+    "packages/oauth-provider/src/token.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/mcp/index.ts",
+    "packages/better-auth/src/plugins/oidc-provider/index.ts",
+    "packages/oauth-provider/src/token.ts"
+   ],
+   "source_lines": 71,
+   "all_files": [
+    ".changeset/fix-oauth-authcode-atomic-consume.md",
+    "packages/better-auth/src/plugins/mcp/index.ts",
+    "packages/better-auth/src/plugins/mcp/mcp.test.ts",
+    "packages/better-auth/src/plugins/oidc-provider/index.ts",
+    "packages/better-auth/src/plugins/oidc-provider/oidc.test.ts",
+    "packages/oauth-provider/src/token.test.ts",
+    "packages/oauth-provider/src/token.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "6b44606b7d596527b59176b7a0cd06ea66df9031",
+   "parent": "f41514ef07cfafc5dbf463bd1500aee6575d88a7",
+   "date": "2026-05-12T18:01:11+00:00",
+   "subject": "fix(username): validate username on admin `createUser` endpoint (#9464)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/admin/admin-username.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/username/index.ts"
+   ],
+   "source_lines": 122,
+   "all_files": [
+    ".changeset/tiny-gifts-stop.md",
+    "packages/better-auth/src/plugins/admin/admin-username.test.ts",
+    "packages/better-auth/src/plugins/username/index.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "7a120724c5c3fdd9d60d59169b32d693e9497fec",
+   "parent": "6290b5c3dbda8439c556400751f9259bdb2adf1e",
+   "date": "2026-05-12T23:59:38+00:00",
+   "subject": "fix(captcha): exempt `/sign-in/email-otp` from captcha enforcement (#9596)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/captcha/captcha.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/captcha/index.ts"
+   ],
+   "source_lines": 7,
+   "all_files": [
+    ".changeset/captcha-exempt-email-otp.md",
+    "packages/better-auth/src/plugins/captcha/captcha.test.ts",
+    "packages/better-auth/src/plugins/captcha/index.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "ad9ad824965cb8385f6f2a921576f2cc58ac2b47",
+   "parent": "95765cfeddcf0d087845f753866bec512271061e",
+   "date": "2026-05-14T13:05:27+00:00",
+   "subject": "fix(email-verification): clone request before passing to sendVerificationEmail callback (#9619)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/api/routes/email-verification.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/api/routes/email-verification.ts",
+    "packages/better-auth/src/api/routes/sign-in.ts",
+    "packages/better-auth/src/api/routes/sign-up.ts"
+   ],
+   "source_lines": 15,
+   "all_files": [
+    ".changeset/green-radios-pull.md",
+    "packages/better-auth/src/api/routes/email-verification.test.ts",
+    "packages/better-auth/src/api/routes/email-verification.ts",
+    "packages/better-auth/src/api/routes/sign-in.ts",
+    "packages/better-auth/src/api/routes/sign-up.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "1b40dac22e0cfddbbb27136fe8067aba154ca91a",
+   "parent": "ad9ad824965cb8385f6f2a921576f2cc58ac2b47",
+   "date": "2026-05-14T15:59:39+00:00",
+   "subject": "fix(cookies): relax Cookie separator and centralize parsing (#9543)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/cookies/cookies.test.ts",
+    "packages/better-auth/src/plugins/two-factor/two-factor.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/cookies/cookie-utils.ts",
+    "packages/better-auth/src/cookies/index.ts",
+    "packages/better-auth/src/cookies/session-store.ts",
+    "packages/better-auth/src/plugins/last-login-method/client.ts",
+    "packages/better-auth/src/test-utils/headers.ts"
+   ],
+   "source_lines": 199,
+   "all_files": [
+    ".changeset/fix-cookie-header-no-space-separator.md",
+    "packages/better-auth/src/cookies/cookie-utils.ts",
+    "packages/better-auth/src/cookies/cookies.test.ts",
+    "packages/better-auth/src/cookies/index.ts",
+    "packages/better-auth/src/cookies/session-store.ts",
+    "packages/better-auth/src/plugins/last-login-method/client.ts",
+    "packages/better-auth/src/plugins/two-factor/two-factor.test.ts",
+    "packages/better-auth/src/test-utils/headers.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "87f5a8fd27faa8534523348a0671e60466b083c0",
+   "parent": "53d4138fc6f751a14e583ba632c88ffe1128387f",
+   "date": "2026-05-15T15:48:25+00:00",
+   "subject": "fix(oauth-provider): return NOT_FOUND when consent update references a missing client (#9600)",
+   "type": "fix",
+   "test_files": [
+    "packages/oauth-provider/src/oauthConsent/endpoints.test.ts"
+   ],
+   "source_files": [
+    "packages/oauth-provider/src/oauthConsent/endpoints.ts"
+   ],
+   "source_lines": 10,
+   "all_files": [
+    ".changeset/oauth-provider-consent-update-checks.md",
+    "packages/oauth-provider/src/oauthConsent/endpoints.test.ts",
+    "packages/oauth-provider/src/oauthConsent/endpoints.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "938efee305c66cdb73e84321523d5db5658e4ed8",
+   "parent": "87f5a8fd27faa8534523348a0671e60466b083c0",
+   "date": "2026-05-15T15:48:59+00:00",
+   "subject": "fix(oauth-provider): preserve colons in Basic Auth client secret (#9601)",
+   "type": "fix",
+   "test_files": [
+    "packages/oauth-provider/src/utils/basic-auth.test.ts"
+   ],
+   "source_files": [
+    "packages/oauth-provider/src/utils/index.ts"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    ".changeset/oauth-provider-basic-auth-secret-colon.md",
+    "packages/oauth-provider/src/utils/basic-auth.test.ts",
+    "packages/oauth-provider/src/utils/index.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "160d132752b2e540cea8f9c2d2c57307b96867a4",
+   "parent": "938efee305c66cdb73e84321523d5db5658e4ed8",
+   "date": "2026-05-16T00:18:06+00:00",
+   "subject": "fix(kysely-adapter): report SQLite tables as non-views in introspector (#9615)",
+   "type": "fix",
+   "test_files": [
+    "packages/kysely-adapter/src/sqlite-introspector.test.ts"
+   ],
+   "source_files": [
+    "packages/kysely-adapter/src/bun-sqlite-dialect.ts",
+    "packages/kysely-adapter/src/node-sqlite-dialect.ts"
+   ],
+   "source_lines": 4,
+   "all_files": [
+    ".changeset/kysely-sqlite-introspector-is-view.md",
+    "packages/kysely-adapter/src/bun-sqlite-dialect.ts",
+    "packages/kysely-adapter/src/node-sqlite-dialect.ts",
+    "packages/kysely-adapter/src/sqlite-introspector.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "c01b2f13216463fc0fc0054b5acdb9559d29d825",
+   "parent": "ab5422f2f8b86cf9aa181e1880972c7d2af7229e",
+   "date": "2026-05-17T16:40:50+00:00",
+   "subject": "fix(two-factor): delete session cookie cache on 2fa response (#9639)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/cookies/cookies.test.ts",
+    "packages/better-auth/src/plugins/two-factor/two-factor.security.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/cookies/index.ts",
+    "packages/better-auth/src/plugins/two-factor/index.ts"
+   ],
+   "source_lines": 75,
+   "all_files": [
+    ".changeset/three-rabbits-wait.md",
+    "packages/better-auth/src/cookies/cookies.test.ts",
+    "packages/better-auth/src/cookies/index.ts",
+    "packages/better-auth/src/plugins/two-factor/index.ts",
+    "packages/better-auth/src/plugins/two-factor/two-factor.security.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "62dabf66780a3dc7270e419886a15c43f3c8d879",
+   "parent": "b56b42a0e7e1f4e9309660b11576813920b20b98",
+   "date": "2026-05-17T21:25:32+00:00",
+   "subject": "fix: harden URL and Stripe escaping (#9661)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/utils/url.test.ts",
+    "packages/stripe/test/utils.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/oauth-proxy/utils.ts",
+    "packages/better-auth/src/utils/url.ts",
+    "packages/stripe/src/utils.ts"
+   ],
+   "source_lines": 24,
+   "all_files": [
+    ".changeset/harden-url-stripe-escaping.md",
+    "packages/better-auth/src/plugins/oauth-proxy/utils.ts",
+    "packages/better-auth/src/utils/url.test.ts",
+    "packages/better-auth/src/utils/url.ts",
+    "packages/stripe/src/utils.ts",
+    "packages/stripe/test/utils.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "9bd53e191cda174c202a07b6d27af73300e6b175",
+   "parent": "e637c7d8ffc63fec8f7a27e0a0384842058a8ca9",
+   "date": "2026-05-18T18:40:03+00:00",
+   "subject": "fix(access): reject empty action lists and continue \"OR\" evaluation on unknown resources (#9603)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/access/access.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/access/access.ts"
+   ],
+   "source_lines": 27,
+   "all_files": [
+    ".changeset/access-authorize-empty-input-and-or-iteration.md",
+    "packages/better-auth/src/plugins/access/access.test.ts",
+    "packages/better-auth/src/plugins/access/access.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "09a1d50a806f1599707ef4e7c47f8a4b8eb20f96",
+   "parent": "9bd53e191cda174c202a07b6d27af73300e6b175",
+   "date": "2026-05-18T18:40:45+00:00",
+   "subject": "fix: tighten `changeEmail` config gate and encode callbackURL (#9614)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/api/routes/update-user.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/api/routes/update-user.ts"
+   ],
+   "source_lines": 19,
+   "all_files": [
+    ".changeset/change-email-callback-url-and-gate.md",
+    "packages/better-auth/src/api/routes/update-user.test.ts",
+    "packages/better-auth/src/api/routes/update-user.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "1d372bbab9117f5a574ecb608b7a5108f1ccbc66",
+   "parent": "09a1d50a806f1599707ef4e7c47f8a4b8eb20f96",
+   "date": "2026-05-18T18:41:32+00:00",
+   "subject": "fix(organization): reject invitation team ids containing a comma (#9616)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/organization/team.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/organization/error-codes.ts",
+    "packages/better-auth/src/plugins/organization/routes/crud-invites.ts"
+   ],
+   "source_lines": 18,
+   "all_files": [
+    ".changeset/organization-invite-reject-comma-team-id.md",
+    "packages/better-auth/src/plugins/organization/error-codes.ts",
+    "packages/better-auth/src/plugins/organization/routes/crud-invites.ts",
+    "packages/better-auth/src/plugins/organization/team.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "a6f144ad0a8ef702969cf49c999ccd073eb1ffa6",
+   "parent": "1d372bbab9117f5a574ecb608b7a5108f1ccbc66",
+   "date": "2026-05-18T18:45:39+00:00",
+   "subject": "fix(client): decode escape sequences in parseJSON quoted strings (#9617)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/client/parser.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/client/parser.ts"
+   ],
+   "source_lines": 9,
+   "all_files": [
+    ".changeset/client-parser-string-escapes.md",
+    "packages/better-auth/src/client/parser.test.ts",
+    "packages/better-auth/src/client/parser.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "f5e29eaf1e57d73a024d12b1bedf4162e5f4a863",
+   "parent": "a6f144ad0a8ef702969cf49c999ccd073eb1ffa6",
+   "date": "2026-05-18T21:44:09+00:00",
+   "subject": "fix(organization): wrap delete cascades in a transaction (#9630)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/organization/organization.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/organization/adapter.ts"
+   ],
+   "source_lines": 138,
+   "all_files": [
+    ".changeset/organization-cascade-transaction.md",
+    "packages/better-auth/src/plugins/organization/adapter.ts",
+    "packages/better-auth/src/plugins/organization/organization.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "dcb2e6d29cf4c986ff8980dab50bcfcb8110a749",
+   "parent": "314ea2887d2b8483420c4c8c10e292664ff8d96e",
+   "date": "2026-05-19T16:35:44+00:00",
+   "subject": "fix(cookies): percent-encode values on Cookie header serialize (#9631)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/cookies/cookies.test.ts",
+    "packages/electron/test/electron.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/cookies/cookie-utils.ts",
+    "packages/better-auth/src/plugins/bearer/index.ts",
+    "packages/electron/src/cookies.ts"
+   ],
+   "source_lines": 72,
+   "all_files": [
+    ".changeset/cookie-serialize-validate.md",
+    "packages/better-auth/src/cookies/cookie-utils.ts",
+    "packages/better-auth/src/cookies/cookies.test.ts",
+    "packages/better-auth/src/plugins/bearer/index.ts",
+    "packages/electron/src/cookies.ts",
+    "packages/electron/test/electron.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "f77060af3a9d1f19f05a26ccf6e56d79bb9db69d",
+   "parent": "dcb2e6d29cf4c986ff8980dab50bcfcb8110a749",
+   "date": "2026-05-19T16:37:55+00:00",
+   "subject": "fix: `consumeVerificationValue` returns null for expired rows (#9624)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/db/internal-adapter.test.ts",
+    "packages/better-auth/src/plugins/magic-link/magic-link.test.ts",
+    "test/unit/magic-link-secondary-storage.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/db/internal-adapter.ts",
+    "packages/better-auth/src/plugins/magic-link/index.ts",
+    "packages/better-auth/src/plugins/mcp/index.ts",
+    "packages/better-auth/src/plugins/oidc-provider/index.ts",
+    "packages/core/src/types/context.ts",
+    "packages/oauth-provider/src/token.ts"
+   ],
+   "source_lines": 186,
+   "all_files": [
+    ".changeset/consume-verification-rejects-expired.md",
+    "packages/better-auth/src/db/internal-adapter.test.ts",
+    "packages/better-auth/src/db/internal-adapter.ts",
+    "packages/better-auth/src/plugins/magic-link/index.ts",
+    "packages/better-auth/src/plugins/magic-link/magic-link.test.ts",
+    "packages/better-auth/src/plugins/mcp/index.ts",
+    "packages/better-auth/src/plugins/oidc-provider/index.ts",
+    "packages/core/src/types/context.ts",
+    "packages/oauth-provider/src/token.ts",
+    "test/unit/magic-link-secondary-storage.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "9d91eb77f5c10779b287f9c8de0495fcb75a425a",
+   "parent": "adc8d7f1aff7bc3c632a069419e5f7e075bc905d",
+   "date": "2026-05-19T16:42:19+00:00",
+   "subject": "fix: `getMigration` field index order (#9691)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/db/get-migration-schema.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/db/get-migration.ts"
+   ],
+   "source_lines": 20,
+   "all_files": [
+    ".changeset/fiery-dots-cheat.md",
+    "packages/better-auth/src/db/get-migration-schema.test.ts",
+    "packages/better-auth/src/db/get-migration.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "276d67fad597ca415a023c10fb5e1165093eebd1",
+   "parent": "9d91eb77f5c10779b287f9c8de0495fcb75a425a",
+   "date": "2026-05-19T17:17:54+00:00",
+   "subject": "fix: build synthetic user safely without including extra fields (#9347)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/api/routes/sign-up.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/api/routes/sign-up.ts",
+    "packages/better-auth/src/db/schema.ts"
+   ],
+   "source_lines": 62,
+   "all_files": [
+    ".changeset/itchy-groups-float.md",
+    "packages/better-auth/src/api/routes/sign-up.test.ts",
+    "packages/better-auth/src/api/routes/sign-up.ts",
+    "packages/better-auth/src/db/schema.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "2d73ffff4470664147e7207336442029c35f12d9",
+   "parent": "04303a92acd6fd3cf9d5f5ab5901255e67526ad3",
+   "date": "2026-05-19T19:27:09+00:00",
+   "subject": "fix(core): respect dynamic baseURL protocol option in getTrustedOrigins (#9644)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/auth/trusted-origins.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/context/helpers.ts"
+   ],
+   "source_lines": 7,
+   "all_files": [
+    ".changeset/lemon-impalas-judge.md",
+    "packages/better-auth/src/auth/trusted-origins.test.ts",
+    "packages/better-auth/src/context/helpers.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "3f8f310a0f2737f65bb4393eefd6b9372b2cb00e",
+   "parent": "4cbc823e694c1adb10ef26cf8294263453a156d3",
+   "date": "2026-05-21T20:12:04+00:00",
+   "subject": "fix(session): preserve real session expiry during stateless cache refresh (#8817)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/api/routes/session-api.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/api/routes/session.ts"
+   ],
+   "source_lines": 4,
+   "all_files": [
+    ".changeset/preserve-session-expiry.md",
+    "packages/better-auth/src/api/routes/session-api.test.ts",
+    "packages/better-auth/src/api/routes/session.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "5626e1b4375aef7735e4f1103035377cbfad755c",
+   "parent": "3f8f310a0f2737f65bb4393eefd6b9372b2cb00e",
+   "date": "2026-05-21T20:17:19+00:00",
+   "subject": "fix: forward session cookie refresh headers (#9667)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/api/routes/session-api.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/api/routes/session.ts"
+   ],
+   "source_lines": 23,
+   "all_files": [
+    ".changeset/forward-session-refresh-headers.md",
+    "packages/better-auth/src/api/routes/session-api.test.ts",
+    "packages/better-auth/src/api/routes/session.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "5190c2658f0827b533e7006e95587317ea8cb0cc",
+   "parent": "5626e1b4375aef7735e4f1103035377cbfad755c",
+   "date": "2026-05-21T22:14:04+00:00",
+   "subject": "fix: fail fast on unsafe MySQL insert returns (#9665)",
+   "type": "fix",
+   "test_files": [
+    "packages/drizzle-adapter/src/drizzle-adapter.test.ts"
+   ],
+   "source_files": [
+    "packages/drizzle-adapter/src/drizzle-adapter.ts",
+    "packages/kysely-adapter/src/kysely-adapter.ts"
+   ],
+   "source_lines": 297,
+   "all_files": [
+    ".changeset/mysql-safe-insert-return.md",
+    "packages/drizzle-adapter/src/drizzle-adapter.test.ts",
+    "packages/drizzle-adapter/src/drizzle-adapter.ts",
+    "packages/kysely-adapter/src/kysely-adapter.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "23dbe1ad0eb79372a674bc0771990c6cc3272a92",
+   "parent": "5190c2658f0827b533e7006e95587317ea8cb0cc",
+   "date": "2026-05-22T00:14:48+00:00",
+   "subject": "fix: redirect hook rejections to errorCallbackURL across auth callback flows (#9702)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/admin/admin.test.ts",
+    "packages/better-auth/src/plugins/generic-oauth/generic-oauth.test.ts",
+    "packages/sso/src/oidc.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/api/routes/callback.ts",
+    "packages/better-auth/src/plugins/admin/admin.ts",
+    "packages/better-auth/src/plugins/generic-oauth/routes.ts",
+    "packages/better-auth/src/plugins/oauth-proxy/index.ts",
+    "packages/better-auth/src/plugins/oauth-proxy/utils.ts",
+    "packages/sso/src/routes/saml-pipeline.ts",
+    "packages/sso/src/routes/sso.ts"
+   ],
+   "source_lines": 237,
+   "all_files": [
+    ".changeset/admin-banned-oauth-error-callback.md",
+    "packages/better-auth/src/api/routes/callback.ts",
+    "packages/better-auth/src/plugins/admin/admin.test.ts",
+    "packages/better-auth/src/plugins/admin/admin.ts",
+    "packages/better-auth/src/plugins/generic-oauth/generic-oauth.test.ts",
+    "packages/better-auth/src/plugins/generic-oauth/routes.ts",
+    "packages/better-auth/src/plugins/oauth-proxy/index.ts",
+    "packages/better-auth/src/plugins/oauth-proxy/utils.ts",
+    "packages/sso/src/oidc.test.ts",
+    "packages/sso/src/routes/saml-pipeline.ts",
+    "packages/sso/src/routes/sso.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "43cc49c640c0d2c27572807a291d318bbcadfd04",
+   "parent": "23dbe1ad0eb79372a674bc0771990c6cc3272a92",
+   "date": "2026-05-22T01:16:56+00:00",
+   "subject": "fix(open-api): emit unique operationIds for multi-method endpoints (#9721)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/open-api/open-api.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/open-api/generator.ts"
+   ],
+   "source_lines": 38,
+   "all_files": [
+    ".changeset/openapi-multi-method-dedupe.md",
+    "packages/better-auth/src/plugins/open-api/__snapshots__/open-api.test.ts.snap",
+    "packages/better-auth/src/plugins/open-api/generator.ts",
+    "packages/better-auth/src/plugins/open-api/open-api.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "f47aa4aa96f7be9898ce25ff5ccd583344786573",
+   "parent": "43cc49c640c0d2c27572807a291d318bbcadfd04",
+   "date": "2026-05-22T02:52:32+00:00",
+   "subject": "fix(sso): url-encode error query value in OIDC callback redirect (#9722)",
+   "type": "fix",
+   "test_files": [
+    "packages/sso/src/oidc.test.ts"
+   ],
+   "source_files": [
+    "packages/sso/src/routes/sso.ts"
+   ],
+   "source_lines": 5,
+   "all_files": [
+    ".changeset/sso-oidc-error-url-encoding.md",
+    "packages/sso/src/oidc.test.ts",
+    "packages/sso/src/routes/sso.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "015f96bc63a90c06a67fbaf80e286b6f6fe1967d",
+   "parent": "f47aa4aa96f7be9898ce25ff5ccd583344786573",
+   "date": "2026-05-22T02:52:48+00:00",
+   "subject": "fix(oauth-proxy): forward `result.error` verbatim in callback redirect (#9723)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/oauth-proxy/oauth-proxy.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/oauth-proxy/index.ts"
+   ],
+   "source_lines": 14,
+   "all_files": [
+    ".changeset/oauth-proxy-forward-error-code.md",
+    "packages/better-auth/src/plugins/oauth-proxy/index.ts",
+    "packages/better-auth/src/plugins/oauth-proxy/oauth-proxy.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "83fa3695e7cc0083ff8531f3a2b4101a2e56deff",
+   "parent": "5aa5682e1874a850afb4b03814f643aba868356c",
+   "date": "2026-05-24T23:40:22+00:00",
+   "subject": "feat(core): add string case conversion utilities (#9727)",
+   "type": "feat",
+   "test_files": [
+    "packages/core/src/utils/string.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/client/proxy.ts",
+    "packages/better-auth/src/plugins/open-api/generator.ts",
+    "packages/cli/src/generators/drizzle.ts",
+    "packages/core/src/utils/string.ts"
+   ],
+   "source_lines": 60,
+   "all_files": [
+    ".changeset/string-case-utils.md",
+    "packages/better-auth/src/client/proxy.ts",
+    "packages/better-auth/src/plugins/open-api/generator.ts",
+    "packages/cli/src/generators/drizzle.ts",
+    "packages/core/src/utils/string.test.ts",
+    "packages/core/src/utils/string.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "8907c7df9cf330f36ded6fa3cd588faf6ca8e568",
+   "parent": "83fa3695e7cc0083ff8531f3a2b4101a2e56deff",
+   "date": "2026-05-24T23:40:52+00:00",
+   "subject": "fix(passkey): consume challenge atomically and propagate inner verify errors (#9622)",
+   "type": "fix",
+   "test_files": [
+    "packages/passkey/src/passkey.test.ts"
+   ],
+   "source_files": [
+    "packages/passkey/src/routes.ts"
+   ],
+   "source_lines": 12,
+   "all_files": [
+    ".changeset/fix-passkey-verify-atomic-and-error.md",
+    "packages/passkey/src/passkey.test.ts",
+    "packages/passkey/src/routes.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "85ca603eecaafa21d4950288b4d58d95c1b5b0b4",
+   "parent": "8907c7df9cf330f36ded6fa3cd588faf6ca8e568",
+   "date": "2026-05-26T14:08:11+00:00",
+   "subject": "fix: drizzle mixed and/or (#9756)",
+   "type": "fix",
+   "test_files": [
+    "e2e/adapter/test/drizzle-adapter/adapter.drizzle.mixed-where.test.ts"
+   ],
+   "source_files": [
+    "packages/drizzle-adapter/src/drizzle-adapter.ts"
+   ],
+   "source_lines": 11,
+   "all_files": [
+    ".changeset/flat-lines-lick.md",
+    "e2e/adapter/test/drizzle-adapter/adapter.drizzle.mixed-where.test.ts",
+    "packages/drizzle-adapter/src/drizzle-adapter.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "7bf5449b11866bd82deafee910619660c153d799",
+   "parent": "6711e43f24d33d87ccab64ee90e56f97065dc24e",
+   "date": "2026-05-27T09:45:02+00:00",
+   "subject": "fix(oauth2): map jose token verification errors (#9655)",
+   "type": "fix",
+   "test_files": [
+    "packages/core/src/oauth2/verify.test.ts"
+   ],
+   "source_files": [
+    "packages/core/src/oauth2/verify.ts"
+   ],
+   "source_lines": 24,
+   "all_files": [
+    ".changeset/verify-access-token-jose-errors.md",
+    "packages/core/src/oauth2/verify.test.ts",
+    "packages/core/src/oauth2/verify.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "8401d11f4386be819807f7f241a0aae5cd20edc1",
+   "parent": "7bf5449b11866bd82deafee910619660c153d799",
+   "date": "2026-05-27T12:38:27+00:00",
+   "subject": "fix(oauth-provider): serve path-prefixed issuer metadata aliases (#9668)",
+   "type": "fix",
+   "test_files": [
+    "packages/oauth-provider/src/metadata.test.ts",
+    "packages/oauth-provider/src/oauth.test.ts",
+    "packages/oauth-provider/src/token.test.ts"
+   ],
+   "source_files": [
+    "packages/oauth-provider/src/client-resource.ts",
+    "packages/oauth-provider/src/metadata.ts",
+    "packages/oauth-provider/src/oauth.ts"
+   ],
+   "source_lines": 133,
+   "all_files": [
+    ".changeset/direct-oauth-metadata-route.md",
+    "packages/oauth-provider/src/client-resource.ts",
+    "packages/oauth-provider/src/metadata.test.ts",
+    "packages/oauth-provider/src/metadata.ts",
+    "packages/oauth-provider/src/oauth.test.ts",
+    "packages/oauth-provider/src/oauth.ts",
+    "packages/oauth-provider/src/token.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "d64174ec86434375cb7e010ee4dfcd031e20c821",
+   "parent": "8401d11f4386be819807f7f241a0aae5cd20edc1",
+   "date": "2026-05-27T13:18:16+00:00",
+   "subject": "fix(oauth-provider): hide DCR endpoint unless enabled (#9448)",
+   "type": "fix",
+   "test_files": [
+    "packages/oauth-provider/src/metadata.test.ts"
+   ],
+   "source_files": [
+    "packages/oauth-provider/src/metadata.ts",
+    "packages/oauth-provider/src/oauth.ts",
+    "packages/oauth-provider/src/types/oauth.ts"
+   ],
+   "source_lines": 14,
+   "all_files": [
+    ".changeset/giant-canyons-report.md",
+    "packages/oauth-provider/src/metadata.test.ts",
+    "packages/oauth-provider/src/metadata.ts",
+    "packages/oauth-provider/src/oauth.ts",
+    "packages/oauth-provider/src/types/oauth.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "a3b0c63de908b9f85d6c1d6c06f89bab16a72ba3",
+   "parent": "33a3632731ab1aa722d82541dc2aff71ba3f2090",
+   "date": "2026-05-28T12:35:09+00:00",
+   "subject": "fix: accept hashed nonces for native iOS sign-in with Apple (#8870)",
+   "type": "fix",
+   "test_files": [
+    "packages/core/src/social-providers/apple.test.ts"
+   ],
+   "source_files": [
+    "packages/core/src/social-providers/apple.ts"
+   ],
+   "source_lines": 20,
+   "all_files": [
+    ".changeset/fix-apple-native-nonce.md",
+    "packages/core/src/social-providers/apple.test.ts",
+    "packages/core/src/social-providers/apple.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "ac96316af3070ba52c9492464305d3206aadc602",
+   "parent": "a3b0c63de908b9f85d6c1d6c06f89bab16a72ba3",
+   "date": "2026-05-28T21:42:16+00:00",
+   "subject": "fix(oauth): forward specific callback error codes via shared redirectOnError (#9788)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/oauth2/state.test.ts",
+    "packages/better-auth/src/plugins/generic-oauth/generic-oauth.test.ts",
+    "packages/better-auth/src/social.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/api/routes/callback.ts",
+    "packages/better-auth/src/oauth2/errors.ts",
+    "packages/better-auth/src/oauth2/link-account.ts",
+    "packages/better-auth/src/oauth2/state.ts",
+    "packages/better-auth/src/plugins/generic-oauth/routes.ts",
+    "packages/better-auth/src/plugins/oauth-proxy/index.ts",
+    "packages/better-auth/src/plugins/oauth-proxy/utils.ts",
+    "packages/better-auth/src/state.ts"
+   ],
+   "source_lines": 183,
+   "all_files": [
+    ".changeset/oauth-callback-error-vocabulary.md",
+    "docs/components/sidebar-content.tsx",
+    "docs/content/docs/reference/errors/index.mdx",
+    "docs/content/docs/reference/errors/please_restart_the_process.mdx",
+    "docs/content/docs/reference/errors/state_invalid.mdx",
+    "packages/better-auth/src/api/routes/callback.ts",
+    "packages/better-auth/src/oauth2/errors.ts",
+    "packages/better-auth/src/oauth2/link-account.ts",
+    "packages/better-auth/src/oauth2/state.test.ts",
+    "packages/better-auth/src/oauth2/state.ts",
+    "packages/better-auth/src/plugins/generic-oauth/generic-oauth.test.ts",
+    "packages/better-auth/src/plugins/generic-oauth/routes.ts",
+    "packages/better-auth/src/plugins/oauth-proxy/index.ts",
+    "packages/better-auth/src/plugins/oauth-proxy/utils.ts",
+    "packages/better-auth/src/social.test.ts",
+    "packages/better-auth/src/state.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "0a7cb7064723d2096e36f44b86c59f7181a8e0c5",
+   "parent": "ac96316af3070ba52c9492464305d3206aadc602",
+   "date": "2026-05-28T23:24:40+00:00",
+   "subject": "fix(oauth): honor per-flow errorCallbackURL when state validation fails (#9789)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/oauth2/state.test.ts",
+    "packages/better-auth/src/social.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/oauth2/state.ts",
+    "packages/better-auth/src/state.ts"
+   ],
+   "source_lines": 18,
+   "all_files": [
+    ".changeset/oauth-error-callback-url-on-state-failure.md",
+    "packages/better-auth/src/oauth2/state.test.ts",
+    "packages/better-auth/src/oauth2/state.ts",
+    "packages/better-auth/src/social.test.ts",
+    "packages/better-auth/src/state.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "c92cd74162cd1750404ab1da10d3fc20ed7d5e04",
+   "parent": "093115e16281d5703cd8bba5e9240c82a3ed38e6",
+   "date": "2026-05-29T08:08:42+00:00",
+   "subject": "fix: URL-encode callbackURL in verify-email links (#9792)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/generic-oauth/generic-oauth.test.ts",
+    "packages/better-auth/src/plugins/username/username.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/oauth2/link-account.ts",
+    "packages/better-auth/src/plugins/username/index.ts"
+   ],
+   "source_lines": 10,
+   "all_files": [
+    ".changeset/encode-verify-email-callback-url.md",
+    "packages/better-auth/src/oauth2/link-account.ts",
+    "packages/better-auth/src/plugins/generic-oauth/generic-oauth.test.ts",
+    "packages/better-auth/src/plugins/username/index.ts",
+    "packages/better-auth/src/plugins/username/username.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "17cd433c66a6ed323b9fda7d4e7db5ad98d8099b",
+   "parent": "c92cd74162cd1750404ab1da10d3fc20ed7d5e04",
+   "date": "2026-05-29T15:06:34+00:00",
+   "subject": "fix(oauth-proxy): missing state-cookie skip for oauth-proxy (#9385)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/oauth-proxy/oauth-proxy.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/oauth-proxy/index.ts",
+    "packages/better-auth/src/state.ts"
+   ],
+   "source_lines": 94,
+   "all_files": [
+    ".changeset/thin-kids-poke.md",
+    "docs/content/docs/plugins/oauth-proxy.mdx",
+    "docs/content/docs/reference/errors/state_mismatch.mdx",
+    "packages/better-auth/src/plugins/oauth-proxy/index.ts",
+    "packages/better-auth/src/plugins/oauth-proxy/oauth-proxy.test.ts",
+    "packages/better-auth/src/state.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "c5b9f93498489888f543e1aa1fc07aae26f73a7f",
+   "parent": "17cd433c66a6ed323b9fda7d4e7db5ad98d8099b",
+   "date": "2026-05-29T20:49:59+00:00",
+   "subject": "fix(generic-oauth): add `accessTokenExpiresIn` for providers that omit `expires_in` (#9799)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/generic-oauth/generic-oauth.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/generic-oauth/index.ts",
+    "packages/better-auth/src/plugins/generic-oauth/routes.ts",
+    "packages/better-auth/src/plugins/generic-oauth/types.ts",
+    "packages/core/src/oauth2/index.ts",
+    "packages/core/src/oauth2/utils.ts"
+   ],
+   "source_lines": 50,
+   "all_files": [
+    ".changeset/oauth-access-token-expires-in.md",
+    "docs/content/docs/plugins/generic-oauth.mdx",
+    "packages/better-auth/src/plugins/generic-oauth/generic-oauth.test.ts",
+    "packages/better-auth/src/plugins/generic-oauth/index.ts",
+    "packages/better-auth/src/plugins/generic-oauth/routes.ts",
+    "packages/better-auth/src/plugins/generic-oauth/types.ts",
+    "packages/core/src/oauth2/index.ts",
+    "packages/core/src/oauth2/utils.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "e131d3ac5ba476cc9cc306e46422c7d2d21f3929",
+   "parent": "c0c574ea50cfb3b9350f666590ad9747bb39ad6f",
+   "date": "2026-05-30T03:14:57+00:00",
+   "subject": "fix(api-key): verify non-default keys when configId is omitted (#9794)",
+   "type": "fix",
+   "test_files": [
+    "packages/api-key/src/api-key.test.ts"
+   ],
+   "source_files": [
+    "packages/api-key/src/index.ts",
+    "packages/api-key/src/routes/verify-api-key.ts"
+   ],
+   "source_lines": 93,
+   "all_files": [
+    ".changeset/curly-pillows-bow.md",
+    "docs/content/docs/plugins/api-key/advanced.mdx",
+    "docs/content/docs/plugins/api-key/index.mdx",
+    "packages/api-key/src/api-key.test.ts",
+    "packages/api-key/src/index.ts",
+    "packages/api-key/src/routes/verify-api-key.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "5f282bd382d694f6834b1d0f8f694f737f223811",
+   "parent": "5ec3e761a3a1e0a67d0c2bfd74d0a77911d8054c",
+   "date": "2026-05-30T11:05:28+01:00",
+   "subject": "fix(account): default `storeStateStrategy` to \"database\" when using `secondaryStorage` (#9591)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/context/create-context.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/context/create-context.ts",
+    "packages/core/src/types/context.ts",
+    "packages/core/src/types/init-options.ts"
+   ],
+   "source_lines": 24,
+   "all_files": [
+    ".changeset/fair-parts-act.md",
+    "docs/content/docs/reference/options.mdx",
+    "packages/better-auth/src/context/create-context.test.ts",
+    "packages/better-auth/src/context/create-context.ts",
+    "packages/core/src/types/context.ts",
+    "packages/core/src/types/init-options.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "e24ddfd13b31e23a0b3c2178077be016de8d7d49",
+   "parent": "d3919dc1a560625d8f09161d64701e257452940f",
+   "date": "2026-05-30T18:24:14+01:00",
+   "subject": "fix(expo): persist large account cookies by chunking device storage (#9815)",
+   "type": "fix",
+   "test_files": [
+    "packages/expo/test/expo.test.ts"
+   ],
+   "source_files": [
+    "packages/expo/src/client.ts"
+   ],
+   "source_lines": 93,
+   "all_files": [
+    ".changeset/expo-large-account-cookie.md",
+    "packages/expo/src/client.ts",
+    "packages/expo/test/expo.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "23d7cbfa793ca69b733f98334bd12962cad61646",
+   "parent": "e24ddfd13b31e23a0b3c2178077be016de8d7d49",
+   "date": "2026-05-30T19:48:38+01:00",
+   "subject": "fix(oauth): apply `updateUserInfoOnLink` in OAuth callback link flow (#8758)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/oauth2/link-account.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/api/routes/account.ts",
+    "packages/better-auth/src/api/routes/callback.ts",
+    "packages/better-auth/src/oauth2/link-account.ts",
+    "packages/better-auth/src/plugins/generic-oauth/routes.ts",
+    "packages/core/src/types/init-options.ts"
+   ],
+   "source_lines": 89,
+   "all_files": [
+    ".changeset/update-user-info-on-link.md",
+    "docs/content/docs/concepts/users-accounts.mdx",
+    "packages/better-auth/src/api/routes/account.ts",
+    "packages/better-auth/src/api/routes/callback.ts",
+    "packages/better-auth/src/oauth2/link-account.test.ts",
+    "packages/better-auth/src/oauth2/link-account.ts",
+    "packages/better-auth/src/plugins/generic-oauth/routes.ts",
+    "packages/core/src/types/init-options.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "5c3e248cbf4f81c2cb540b545baa4a5e69d3b066",
+   "parent": "4c3bbc4e56e5ae4ec4d780daaa71358d663cee06",
+   "date": "2026-05-31T09:00:18+00:00",
+   "subject": "fix(core): throw on non-numeric deleteMany in `consumeOne` fallback (#9831)",
+   "type": "fix",
+   "test_files": [
+    "packages/core/src/db/adapter/factory.test.ts"
+   ],
+   "source_files": [
+    "packages/core/src/db/adapter/factory.ts"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    ".changeset/short-steaks-add.md",
+    "packages/core/src/db/adapter/factory.test.ts",
+    "packages/core/src/db/adapter/factory.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "87c1a0cab274b574592922ccc2454b0bd510a81f",
+   "parent": "be32012ca3507a62371d1baa09cdacd5123a99bf",
+   "date": "2026-05-31T10:58:24+00:00",
+   "subject": "fix(organization): allow null logo on create and update (#9842)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/organization/organization.test.ts",
+    "packages/better-auth/src/plugins/organization/routes/crud-org.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/organization/routes/crud-org.ts",
+    "packages/better-auth/src/plugins/organization/types.ts"
+   ],
+   "source_lines": 12,
+   "all_files": [
+    ".changeset/org-update-clear-logo.md",
+    "packages/better-auth/src/plugins/organization/organization.test.ts",
+    "packages/better-auth/src/plugins/organization/routes/crud-org.test.ts",
+    "packages/better-auth/src/plugins/organization/routes/crud-org.ts",
+    "packages/better-auth/src/plugins/organization/types.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "17ab66c3a4beef72c3a4ac82ce7aca21650e8462",
+   "parent": "87c1a0cab274b574592922ccc2454b0bd510a81f",
+   "date": "2026-05-31T11:02:27+00:00",
+   "subject": "fix(oauth-provider): enforce clientPrivileges on dynamic client registration (#9837)",
+   "type": "fix",
+   "test_files": [
+    "packages/oauth-provider/src/oauthClient/endpoints-privileges.test.ts"
+   ],
+   "source_files": [
+    "packages/oauth-provider/src/oauthClient/endpoints.ts",
+    "packages/oauth-provider/src/oauthClient/index.ts",
+    "packages/oauth-provider/src/oauthClient/privileges.ts",
+    "packages/oauth-provider/src/register.ts"
+   ],
+   "source_lines": 84,
+   "all_files": [
+    ".changeset/oauth-provider-dcr-privilege-gate.md",
+    "packages/oauth-provider/src/oauthClient/endpoints-privileges.test.ts",
+    "packages/oauth-provider/src/oauthClient/endpoints.ts",
+    "packages/oauth-provider/src/oauthClient/index.ts",
+    "packages/oauth-provider/src/oauthClient/privileges.ts",
+    "packages/oauth-provider/src/register.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "be32012ca3507a62371d1baa09cdacd5123a99bf",
+   "parent": "df9e8b2951a4db1da2000dd07d3857943c7ebae0",
+   "date": "2026-05-31T11:38:52+01:00",
+   "subject": "fix(oauth): validate redirect_uri schemes in oidc-provider and mcp (#9838)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/oidc-provider/redirect-uri.test.ts",
+    "packages/core/src/utils/url.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/client/fetch-plugins.ts",
+    "packages/better-auth/src/plugins/mcp/index.ts",
+    "packages/better-auth/src/plugins/oidc-provider/index.ts",
+    "packages/better-auth/src/plugins/one-tap/client.ts",
+    "packages/better-auth/src/plugins/two-factor/client.ts",
+    "packages/core/src/utils/redirect-uri.ts",
+    "packages/core/src/utils/url.ts",
+    "packages/oauth-provider/src/types/zod.ts"
+   ],
+   "source_lines": 166,
+   "all_files": [
+    ".changeset/oauth-redirect-uri-scheme-validation.md",
+    ".cspell/tech-terms.txt",
+    "packages/better-auth/src/client/fetch-plugins.ts",
+    "packages/better-auth/src/plugins/mcp/index.ts",
+    "packages/better-auth/src/plugins/oidc-provider/index.ts",
+    "packages/better-auth/src/plugins/oidc-provider/redirect-uri.test.ts",
+    "packages/better-auth/src/plugins/one-tap/client.ts",
+    "packages/better-auth/src/plugins/two-factor/client.ts",
+    "packages/core/src/utils/redirect-uri.ts",
+    "packages/core/src/utils/url.test.ts",
+    "packages/core/src/utils/url.ts",
+    "packages/oauth-provider/src/types/zod.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "13abc7922b47f800da59ca212d364a64feeec91f",
+   "parent": "a6f38c72ee3423ae80b0595fec3b4a61158c374d",
+   "date": "2026-05-31T13:37:39+01:00",
+   "subject": "fix(core): make redirect-uri validation runtime-safe and reject fragments (#9845)",
+   "type": "fix",
+   "test_files": [
+    "packages/core/src/utils/url.test.ts"
+   ],
+   "source_files": [
+    "packages/core/src/utils/redirect-uri.ts",
+    "packages/core/src/utils/url.ts"
+   ],
+   "source_lines": 22,
+   "all_files": [
+    ".changeset/safe-url-runtime-fragment.md",
+    "packages/core/src/utils/redirect-uri.ts",
+    "packages/core/src/utils/url.test.ts",
+    "packages/core/src/utils/url.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "9d3450ae23e8387d24adfb7bb1cb24cc6965b6e3",
+   "parent": "13abc7922b47f800da59ca212d364a64feeec91f",
+   "date": "2026-06-01T04:05:40+00:00",
+   "subject": "fix(cookies): prefer `__Secure-` cookie in getSessionCookie (#9806)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/cookies/cookies.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/cookies/index.ts"
+   ],
+   "source_lines": 5,
+   "all_files": [
+    ".changeset/session-cookie-secure-prefix.md",
+    "packages/better-auth/src/cookies/cookies.test.ts",
+    "packages/better-auth/src/cookies/index.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "5a2d642bc7d940f4242df9b304818a8653ea2a10",
+   "parent": "840a56a8ce60cfac566dd6079e9f48256798c750",
+   "date": "2026-06-01T06:28:56+00:00",
+   "subject": "fix: accept null for optional fields in generated schema (#9841)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/db/to-zod.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/db/to-zod.ts"
+   ],
+   "source_lines": 10,
+   "all_files": [
+    ".changeset/optional-fields-accept-null.md",
+    "packages/better-auth/src/db/to-zod.test.ts",
+    "packages/better-auth/src/db/to-zod.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "2d9781a83ddc7b51ecffbd7d24c28e4b917e2323",
+   "parent": "5a2d642bc7d940f4242df9b304818a8653ea2a10",
+   "date": "2026-06-02T16:45:44-04:00",
+   "subject": "fix(organization): split invitation verification gates (#9877)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/organization/routes/crud-invites.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/organization/adapter.ts",
+    "packages/better-auth/src/plugins/organization/routes/crud-invites.ts",
+    "packages/better-auth/src/plugins/organization/types.ts"
+   ],
+   "source_lines": 122,
+   "all_files": [
+    ".changeset/fix-organization-invitation-capability-gates.md",
+    "docs/content/docs/plugins/organization.mdx",
+    "packages/better-auth/src/plugins/organization/adapter.ts",
+    "packages/better-auth/src/plugins/organization/routes/crud-invites.test.ts",
+    "packages/better-auth/src/plugins/organization/routes/crud-invites.ts",
+    "packages/better-auth/src/plugins/organization/types.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "1012b690466ccd7078441dbfb406eef166fca805",
+   "parent": "ad60333d1517142d688c61b6ccee14b4c30864ae",
+   "date": "2026-06-03T16:07:47+00:00",
+   "subject": "fix(admin): return USER_NOT_FOUND for missing users before update (#9875)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/admin/admin.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/admin/routes.ts"
+   ],
+   "source_lines": 23,
+   "all_files": [
+    ".changeset/cool-cups-dig.md",
+    "packages/better-auth/src/plugins/admin/admin.test.ts",
+    "packages/better-auth/src/plugins/admin/routes.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "7213d1ac3a62823f798f50a80860f9b2e8bfdb56",
+   "parent": "bff65fd620ac62d72c24c9ed79badf1e31cf1a39",
+   "date": "2026-06-07T14:36:12-07:00",
+   "subject": "test(cli): give the integration-style suite a generous timeout (#9926)",
+   "type": "other",
+   "test_files": [
+    "packages/cli/test/info.test.ts"
+   ],
+   "source_files": [
+    "packages/cli/vitest.config.ts"
+   ],
+   "source_lines": 7,
+   "all_files": [
+    "packages/cli/test/info.test.ts",
+    "packages/cli/vitest.config.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "d23735b1deb3ff7d63330430fc1f0cdf639bd734",
+   "parent": "b0ddfd3433cafac312ee99ec5fb7dbb9a240da35",
+   "date": "2026-06-07T23:22:39+00:00",
+   "subject": "feat(passkey): resolve authenticator name from AAGUID at read time (#9927)",
+   "type": "feat",
+   "test_files": [
+    "packages/passkey/src/authenticator-metadata.test.ts",
+    "packages/passkey/src/passkey.test.ts"
+   ],
+   "source_files": [
+    "packages/passkey/src/authenticator-metadata.ts",
+    "packages/passkey/src/index.ts",
+    "packages/passkey/src/routes.ts",
+    "packages/passkey/src/types.ts"
+   ],
+   "source_lines": 85,
+   "all_files": [
+    ".changeset/passkey-authenticator-name.md",
+    ".cspell/auth-terms.txt",
+    "docs/content/docs/plugins/passkey.mdx",
+    "packages/passkey/src/authenticator-metadata.test.ts",
+    "packages/passkey/src/authenticator-metadata.ts",
+    "packages/passkey/src/index.ts",
+    "packages/passkey/src/passkey.test.ts",
+    "packages/passkey/src/routes.ts",
+    "packages/passkey/src/types.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "5e49c56a9e12a9b6b3fd1202bbc7a2fc97aeeafd",
+   "parent": "2ac00fe4211870da2eb59bacbf3155e5d9c7cbef",
+   "date": "2026-06-09T23:59:09+00:00",
+   "subject": "fix(auth): mark plugin-owned session fields as non-input (#9965)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/api/routes/session-api.test.ts",
+    "packages/better-auth/src/plugins/organization/organization.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/db/schema.ts",
+    "packages/better-auth/src/plugins/admin/schema.ts",
+    "packages/better-auth/src/plugins/organization/organization.ts",
+    "packages/better-auth/src/plugins/organization/schema.ts"
+   ],
+   "source_lines": 13,
+   "all_files": [
+    ".changeset/update-session-authority-fields.md",
+    "packages/better-auth/src/api/routes/session-api.test.ts",
+    "packages/better-auth/src/db/schema.ts",
+    "packages/better-auth/src/plugins/admin/schema.ts",
+    "packages/better-auth/src/plugins/organization/organization.test.ts",
+    "packages/better-auth/src/plugins/organization/organization.ts",
+    "packages/better-auth/src/plugins/organization/schema.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "893cf6cb3f1f2669b39f6ac8d3d49cf830e5732e",
+   "parent": "5e49c56a9e12a9b6b3fd1202bbc7a2fc97aeeafd",
+   "date": "2026-06-10T00:42:45+00:00",
+   "subject": "fix(session): honor server-side session deletion in update-session and token routes (#9967)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/api/routes/account.test.ts",
+    "packages/better-auth/src/api/routes/session-api.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/api/routes/account.ts",
+    "packages/better-auth/src/api/routes/session.ts",
+    "packages/better-auth/src/api/routes/update-session.ts"
+   ],
+   "source_lines": 37,
+   "all_files": [
+    ".changeset/revalidate-session-against-store.md",
+    "packages/better-auth/src/api/routes/account.test.ts",
+    "packages/better-auth/src/api/routes/account.ts",
+    "packages/better-auth/src/api/routes/session-api.test.ts",
+    "packages/better-auth/src/api/routes/session.ts",
+    "packages/better-auth/src/api/routes/update-session.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "87e7aa5e0fd8f19b326beb5bec409a9ed1f245ca",
+   "parent": "893cf6cb3f1f2669b39f6ac8d3d49cf830e5732e",
+   "date": "2026-06-10T01:43:41+00:00",
+   "subject": "fix(api): validate Origin/Referer on cookieless email sign-in and sign-up (#9973)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/api/middlewares/origin-check.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/api/middlewares/origin-check.ts"
+   ],
+   "source_lines": 10,
+   "all_files": [
+    ".changeset/origin-validation-cookieless-first-login.md",
+    ".cspell/tech-terms.txt",
+    "docs/content/docs/reference/security.mdx",
+    "packages/better-auth/src/api/middlewares/origin-check.test.ts",
+    "packages/better-auth/src/api/middlewares/origin-check.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "a6b0295df3d6ced4beb460ef8082ff941facae2f",
+   "parent": "87e7aa5e0fd8f19b326beb5bec409a9ed1f245ca",
+   "date": "2026-06-10T01:58:45+00:00",
+   "subject": "fix(sso): consume SAML AuthnRequest atomically (#9972)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/db/internal-adapter.test.ts",
+    "packages/sso/src/saml.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/db/internal-adapter.ts",
+    "packages/sso/src/routes/saml-pipeline.ts"
+   ],
+   "source_lines": 47,
+   "all_files": [
+    "packages/better-auth/src/db/internal-adapter.test.ts",
+    "packages/better-auth/src/db/internal-adapter.ts",
+    "packages/sso/src/routes/saml-pipeline.ts",
+    "packages/sso/src/saml.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "b803c61fdcfc64be4e26bf6fa10953621f0070cc",
+   "parent": "a11a706ff29ed0862b080fad27f93b40cbc59b4b",
+   "date": "2026-06-10T16:57:24-07:00",
+   "subject": "fix(organization): reject setting unknown or empty roles on `updateMemberRole` (#9962)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/organization/organization.test.ts",
+    "packages/better-auth/src/plugins/organization/routes/crud-members.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/organization/routes/crud-members.ts"
+   ],
+   "source_lines": 54,
+   "all_files": [
+    ".changeset/validate-member-roles.md",
+    ".gitignore",
+    "packages/better-auth/src/plugins/organization/organization.test.ts",
+    "packages/better-auth/src/plugins/organization/routes/crud-members.test.ts",
+    "packages/better-auth/src/plugins/organization/routes/crud-members.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "a11a706ff29ed0862b080fad27f93b40cbc59b4b",
+   "parent": "128bc345724162a381a25cb274bf51d0d5aced85",
+   "date": "2026-06-10T18:58:40+00:00",
+   "subject": "fix(stripe): correct subscription handling and customer linking (#9971)",
+   "type": "fix",
+   "test_files": [
+    "packages/stripe/test/_fixtures.ts",
+    "packages/stripe/test/checkout.test.ts",
+    "packages/stripe/test/customer.test.ts",
+    "packages/stripe/test/stripe-organization.test.ts",
+    "packages/stripe/test/subscription.test.ts"
+   ],
+   "source_files": [
+    "packages/stripe/src/index.ts",
+    "packages/stripe/src/routes.ts"
+   ],
+   "source_lines": 143,
+   "all_files": [
+    ".changeset/stripe-subscription-fixes.md",
+    "packages/stripe/src/index.ts",
+    "packages/stripe/src/routes.ts",
+    "packages/stripe/test/_fixtures.ts",
+    "packages/stripe/test/checkout.test.ts",
+    "packages/stripe/test/customer.test.ts",
+    "packages/stripe/test/stripe-organization.test.ts",
+    "packages/stripe/test/subscription.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "3e99e6c77ef788377a3ddb7abe790c7dc3df1493",
+   "parent": "baeaa00bc2a600c04f746c7cc2a07065b7691dcc",
+   "date": "2026-06-11T05:36:55+00:00",
+   "subject": "fix(admin): create credential account in setUserPassword when missing (#9482)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/admin/admin.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/admin/routes.ts"
+   ],
+   "source_lines": 22,
+   "all_files": [
+    ".changeset/admin-set-password-creates-credential.md",
+    "docs/content/docs/plugins/admin.mdx",
+    "packages/better-auth/src/plugins/admin/admin.test.ts",
+    "packages/better-auth/src/plugins/admin/routes.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "5c289b52bc166be3a36ec3c112b04195dc7621d8",
+   "parent": "8960f5f3bd2f0dccbfb768d69737d8a24d793a9e",
+   "date": "2026-06-11T16:44:11-07:00",
+   "subject": "fix(account): resolve stateless account cookies across instances (#9979)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/api/routes/account.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/api/routes/account.ts",
+    "packages/better-auth/src/api/routes/session.ts",
+    "packages/better-auth/src/context/create-context.ts",
+    "packages/better-auth/src/context/store-capabilities.ts",
+    "packages/better-auth/src/cookies/index.ts"
+   ],
+   "source_lines": 85,
+   "all_files": [
+    ".changeset/stateless-account-cookie-resolution.md",
+    "packages/better-auth/src/api/routes/account.test.ts",
+    "packages/better-auth/src/api/routes/account.ts",
+    "packages/better-auth/src/api/routes/session.ts",
+    "packages/better-auth/src/context/create-context.ts",
+    "packages/better-auth/src/context/store-capabilities.ts",
+    "packages/better-auth/src/cookies/index.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "d3758fb2a35e601a26aa9682d9c9856e45459dda",
+   "parent": "5c289b52bc166be3a36ec3c112b04195dc7621d8",
+   "date": "2026-06-11T16:45:19-07:00",
+   "subject": "fix(expo): on `/linkSocial` include cookie for id token (#9953)",
+   "type": "fix",
+   "test_files": [
+    "packages/expo/test/expo.test.ts"
+   ],
+   "source_files": [
+    "packages/expo/src/client.ts"
+   ],
+   "source_lines": 4,
+   "all_files": [
+    ".changeset/expo-link-social-id-token.md",
+    "packages/expo/src/client.ts",
+    "packages/expo/test/expo.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "59e0ccbedc6c336b1e77f71c62484d654fd2fca3",
+   "parent": "96c78c3e983ab3a2d914780fcc5d66d90537f9ac",
+   "date": "2026-06-11T16:56:45-07:00",
+   "subject": "fix(client): updateSession should infer session additional fields (#9777)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/additional-fields/additional-fields.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/client/path-to-object.ts"
+   ],
+   "source_lines": 13,
+   "all_files": [
+    ".changeset/update-session-additional-fields.md",
+    "packages/better-auth/src/client/path-to-object.ts",
+    "packages/better-auth/src/plugins/additional-fields/additional-fields.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "108aadd25171ffd20ee3a79a2650243a796067aa",
+   "parent": "59e0ccbedc6c336b1e77f71c62484d654fd2fca3",
+   "date": "2026-06-11T16:59:14-07:00",
+   "subject": "fix(cli): update existing prisma field types (#9729)",
+   "type": "fix",
+   "test_files": [
+    "packages/cli/test/generate.test.ts"
+   ],
+   "source_files": [
+    "packages/cli/src/generators/prisma.ts"
+   ],
+   "source_lines": 64,
+   "all_files": [
+    ".changeset/prisma-bigint-existing-field.md",
+    "packages/cli/src/generators/prisma.ts",
+    "packages/cli/test/generate.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "3310ebc4a0c99d10c7fa13fef269db549a479dcd",
+   "parent": "108aadd25171ffd20ee3a79a2650243a796067aa",
+   "date": "2026-06-11T17:01:24-07:00",
+   "subject": "fix(open-api): mark model ids as required (#9704)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/open-api/open-api.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/open-api/generator.ts"
+   ],
+   "source_lines": 10,
+   "all_files": [
+    "packages/better-auth/src/plugins/open-api/__snapshots__/open-api.test.ts.snap",
+    "packages/better-auth/src/plugins/open-api/generator.ts",
+    "packages/better-auth/src/plugins/open-api/open-api.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "e0a768c973f9d9ccd4aee959efcbe1fbcc2e608d",
+   "parent": "3310ebc4a0c99d10c7fa13fef269db549a479dcd",
+   "date": "2026-06-11T17:04:07-07:00",
+   "subject": "refactor(access): flatten `access` plugin role authorization logic (#9677)",
+   "type": "refactor",
+   "test_files": [
+    "packages/better-auth/src/plugins/access/access.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/access/access.ts"
+   ],
+   "source_lines": 152,
+   "all_files": [
+    ".changeset/flatten-role-authorize.md",
+    "packages/better-auth/src/plugins/access/access.test.ts",
+    "packages/better-auth/src/plugins/access/access.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "fdef997eb944d85254816f7a4b2d76c06e9b8ec7",
+   "parent": "73432841493a2d99144786c986ee57c071d816d8",
+   "date": "2026-06-11T19:10:55+00:00",
+   "subject": "fix: harden provider identity validation (One Tap, Microsoft, SSO, WeChat, Reddit) (#10003)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/one-tap/one-tap.test.ts",
+    "packages/better-auth/src/social.test.ts",
+    "packages/core/src/social-providers/microsoft-entra-id.test.ts",
+    "packages/core/src/social-providers/reddit.test.ts",
+    "packages/core/src/social-providers/wechat.test.ts",
+    "packages/sso/src/utils.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/one-tap/index.ts",
+    "packages/core/src/social-providers/microsoft-entra-id.ts",
+    "packages/core/src/social-providers/reddit.ts",
+    "packages/core/src/social-providers/wechat.ts",
+    "packages/sso/src/routes/saml-pipeline.ts",
+    "packages/sso/src/routes/sso.ts",
+    "packages/sso/src/utils.ts"
+   ],
+   "source_lines": 113,
+   "all_files": [
+    ".changeset/microsoft-tenant-restriction.md",
+    ".changeset/one-tap-require-client-id.md",
+    ".changeset/reddit-placeholder-email-domain.md",
+    ".changeset/sso-email-verified-strict.md",
+    ".changeset/wechat-default-email.md",
+    "packages/better-auth/src/plugins/one-tap/index.ts",
+    "packages/better-auth/src/plugins/one-tap/one-tap.test.ts",
+    "packages/better-auth/src/social.test.ts",
+    "packages/core/src/social-providers/microsoft-entra-id.test.ts",
+    "packages/core/src/social-providers/microsoft-entra-id.ts",
+    "packages/core/src/social-providers/reddit.test.ts",
+    "packages/core/src/social-providers/reddit.ts",
+    "packages/core/src/social-providers/wechat.test.ts",
+    "packages/core/src/social-providers/wechat.ts",
+    "packages/sso/src/routes/saml-pipeline.ts",
+    "packages/sso/src/routes/sso.ts",
+    "packages/sso/src/utils.test.ts",
+    "packages/sso/src/utils.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "ed7b6c9ac0fa2bb7f246f552b41046302ef8138c",
+   "parent": "fdef997eb944d85254816f7a4b2d76c06e9b8ec7",
+   "date": "2026-06-11T19:21:34+00:00",
+   "subject": "fix: enforce team capacity, constant-time SCIM tokens, and org-admin SSO domain verification (#10002)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/organization/team.test.ts",
+    "packages/scim/src/scim.management.test.ts",
+    "packages/sso/src/domain-verification.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/organization/adapter.ts",
+    "packages/better-auth/src/plugins/organization/routes/crud-invites.ts",
+    "packages/better-auth/src/plugins/organization/routes/crud-members.ts",
+    "packages/better-auth/src/plugins/organization/routes/crud-team.ts",
+    "packages/scim/src/middlewares.ts",
+    "packages/scim/src/scim-tokens.ts",
+    "packages/sso/src/routes/domain-verification.ts",
+    "packages/sso/src/routes/providers.ts"
+   ],
+   "source_lines": 249,
+   "all_files": [
+    ".changeset/enforce-team-member-limit-direct-add.md",
+    ".changeset/scim-token-constant-time.md",
+    ".changeset/sso-org-admin-domain-verification.md",
+    "packages/better-auth/src/plugins/organization/adapter.ts",
+    "packages/better-auth/src/plugins/organization/routes/crud-invites.ts",
+    "packages/better-auth/src/plugins/organization/routes/crud-members.ts",
+    "packages/better-auth/src/plugins/organization/routes/crud-team.ts",
+    "packages/better-auth/src/plugins/organization/team.test.ts",
+    "packages/scim/src/middlewares.ts",
+    "packages/scim/src/scim-tokens.ts",
+    "packages/scim/src/scim.management.test.ts",
+    "packages/sso/src/domain-verification.test.ts",
+    "packages/sso/src/routes/domain-verification.ts",
+    "packages/sso/src/routes/providers.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "729fd84034d547f37bb8c1c5b8958280c5bdb487",
+   "parent": "b21a5f7f6ca1f63c6b69666a498b4227b15e316c",
+   "date": "2026-06-12T15:17:00+00:00",
+   "subject": "fix(oauth-provider): canonicalize signed OAuth query params (#9941)",
+   "type": "fix",
+   "test_files": [
+    "packages/oauth-provider/src/authorize.test.ts",
+    "packages/oauth-provider/src/signed-query.test.ts"
+   ],
+   "source_files": [
+    "packages/oauth-provider/src/authorize.ts",
+    "packages/oauth-provider/src/client.ts",
+    "packages/oauth-provider/src/signed-query.ts",
+    "packages/oauth-provider/src/utils/index.ts"
+   ],
+   "source_lines": 128,
+   "all_files": [
+    ".changeset/fix-oauth-hmac.md",
+    "docs/content/docs/plugins/oauth-provider.mdx",
+    "packages/oauth-provider/src/authorize.test.ts",
+    "packages/oauth-provider/src/authorize.ts",
+    "packages/oauth-provider/src/client.ts",
+    "packages/oauth-provider/src/signed-query.test.ts",
+    "packages/oauth-provider/src/signed-query.ts",
+    "packages/oauth-provider/src/utils/index.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "7d18175637a0b95a501fde0cf3db080879367a9d",
+   "parent": "04debbff04c2091c52b6b694df9081af2be50681",
+   "date": "2026-06-12T21:49:10+00:00",
+   "subject": "fix: propagate `sendVerificationEmail` errors (#8863)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/api/routes/email-verification.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/api/routes/email-verification.ts"
+   ],
+   "source_lines": 43,
+   "all_files": [
+    ".changeset/young-cups-laugh.md",
+    ".cspell/custom-words.txt",
+    "packages/better-auth/src/api/routes/email-verification.test.ts",
+    "packages/better-auth/src/api/routes/email-verification.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "c1a8a64c146fab20c7ad0076ffdf12eff9adc17a",
+   "parent": "7d18175637a0b95a501fde0cf3db080879367a9d",
+   "date": "2026-06-12T22:24:56+00:00",
+   "subject": "fix(open-api): generate valid OpenAPI schemas for client generators (#9555)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/open-api/open-api.test.ts",
+    "packages/passkey/src/open-api.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/open-api/generator.ts",
+    "packages/passkey/src/routes.ts"
+   ],
+   "source_lines": 203,
+   "all_files": [
+    ".changeset/openapi-schema-fixes.md",
+    ".cspell/company-names.txt",
+    "docs/content/blogs/security-update-june-2026.mdx",
+    "docs/content/docs/plugins/open-api.mdx",
+    "docs/content/docs/reference/security.mdx",
+    "packages/better-auth/src/plugins/open-api/__snapshots__/open-api.test.ts.snap",
+    "packages/better-auth/src/plugins/open-api/generator.ts",
+    "packages/better-auth/src/plugins/open-api/open-api.test.ts",
+    "packages/passkey/src/open-api.test.ts",
+    "packages/passkey/src/routes.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "b4b02660c760fe4c8889d1311a3dbf3165f88d0b",
+   "parent": "c1a8a64c146fab20c7ad0076ffdf12eff9adc17a",
+   "date": "2026-06-12T22:57:37+00:00",
+   "subject": "feat(device-authorization): allow pre-binding device codes to a user (#9995)",
+   "type": "feat",
+   "test_files": [
+    "packages/better-auth/src/plugins/device-authorization/device-authorization.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/device-authorization/routes.ts"
+   ],
+   "source_lines": 8,
+   "all_files": [
+    ".changeset/device-code-user-binding.md",
+    "docs/content/docs/plugins/device-authorization.mdx",
+    "packages/better-auth/src/plugins/device-authorization/device-authorization.test.ts",
+    "packages/better-auth/src/plugins/device-authorization/routes.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "c2f718fcdeec0c1767bb8acd5fefdd3810863b0a",
+   "parent": "581f8271fb911cea2ce74810e086709909457cd3",
+   "date": "2026-06-13T14:53:33+00:00",
+   "subject": "fix: cookie cache fallback lookup (#9348)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/api/routes/cookie-cache-fallback.test.ts",
+    "packages/better-auth/src/api/routes/session-api.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/api/routes/session.ts"
+   ],
+   "source_lines": 12,
+   "all_files": [
+    ".changeset/ten-sites-look.md",
+    "packages/better-auth/src/api/routes/cookie-cache-fallback.test.ts",
+    "packages/better-auth/src/api/routes/session-api.test.ts",
+    "packages/better-auth/src/api/routes/session.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "d6aec123d8cf9f50e357e67c2916010f9f09b561",
+   "parent": "c2f718fcdeec0c1767bb8acd5fefdd3810863b0a",
+   "date": "2026-06-14T00:41:09+00:00",
+   "subject": "fix(cli): serialize array additionalField defaultValue in drizzle generator (#10048)",
+   "type": "fix",
+   "test_files": [
+    "packages/cli/test/generate.test.ts"
+   ],
+   "source_files": [
+    "packages/cli/src/generators/drizzle.ts"
+   ],
+   "source_lines": 13,
+   "all_files": [
+    ".changeset/fresh-icons-fall.md",
+    "packages/cli/src/generators/drizzle.ts",
+    "packages/cli/test/generate.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "840788502a13d6fa4aa4540b930ddb4a99dc1ed6",
+   "parent": "30f6a78129485cd8eec8233b403a384206b7bfb3",
+   "date": "2026-06-15T05:12:13+00:00",
+   "subject": "fix(oauth-popup): filter internal state keys from additionalData (#10067)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/oauth-popup/oauth-popup.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/oauth-popup/index.ts",
+    "packages/better-auth/src/state.ts"
+   ],
+   "source_lines": 19,
+   "all_files": [
+    ".changeset/oauth-popup-internal-state-keys.md",
+    "packages/better-auth/src/plugins/oauth-popup/index.ts",
+    "packages/better-auth/src/plugins/oauth-popup/oauth-popup.test.ts",
+    "packages/better-auth/src/state.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "a787e0b66b368a1af0b4ba17c9750c2839668246",
+   "parent": "d009daedc75d0e61eb69e545a6ab40dd75cf541e",
+   "date": "2026-06-15T06:29:21+00:00",
+   "subject": "fix(core): reuse active transactions (#10070)",
+   "type": "fix",
+   "test_files": [
+    "packages/core/src/context/transaction.test.ts",
+    "packages/core/src/db/adapter/factory.test.ts"
+   ],
+   "source_files": [
+    "packages/core/src/context/transaction.ts",
+    "packages/core/src/db/adapter/factory.ts"
+   ],
+   "source_lines": 75,
+   "all_files": [
+    ".changeset/reentrant-transaction-verification.md",
+    "packages/core/src/context/transaction.test.ts",
+    "packages/core/src/context/transaction.ts",
+    "packages/core/src/db/adapter/factory.test.ts",
+    "packages/core/src/db/adapter/factory.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "08959936d29de8a37d469e42d9077859b643d6b3",
+   "parent": "36f345b1bcd5c83eb16d4d967719d101394a99b0",
+   "date": "2026-06-15T15:05:01+00:00",
+   "subject": "fix(drizzle-adapter): return consumed MySQL rows (#10081)",
+   "type": "fix",
+   "test_files": [
+    "packages/drizzle-adapter/src/drizzle-adapter.test.ts"
+   ],
+   "source_files": [
+    "packages/drizzle-adapter/src/drizzle-adapter.ts",
+    "packages/test-utils/src/adapter/create-test-suite.ts",
+    "packages/test-utils/src/adapter/suites/auth-flow.ts"
+   ],
+   "source_lines": 117,
+   "all_files": [
+    ".changeset/drizzle-mysql-reset-token.md",
+    "packages/drizzle-adapter/src/drizzle-adapter.test.ts",
+    "packages/drizzle-adapter/src/drizzle-adapter.ts",
+    "packages/test-utils/src/adapter/create-test-suite.ts",
+    "packages/test-utils/src/adapter/suites/auth-flow.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "1e697250273aff1e80e8103d296d74eafff61874",
+   "parent": "de4aa52e991f0a56786300af3e0d9ac8331f1996",
+   "date": "2026-06-15T17:06:35-07:00",
+   "subject": "docs: clarify stateless Cognito token refresh (#10092)",
+   "type": "other",
+   "test_files": [
+    "packages/better-auth/src/api/routes/account.test.ts",
+    "packages/better-auth/src/social.test.ts"
+   ],
+   "source_files": [
+    "packages/core/src/types/init-options.ts"
+   ],
+   "source_lines": 8,
+   "all_files": [
+    "docs/content/docs/authentication/cognito.mdx",
+    "docs/content/docs/concepts/session-management.mdx",
+    "docs/content/docs/reference/options.mdx",
+    "packages/better-auth/src/api/routes/account.test.ts",
+    "packages/better-auth/src/social.test.ts",
+    "packages/core/src/types/init-options.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "de4aa52e991f0a56786300af3e0d9ac8331f1996",
+   "parent": "5bd5e1cc73d2c9c38e69011f03038b61a4312a63",
+   "date": "2026-06-15T21:50:03+00:00",
+   "subject": "fix(cookies): chunk session and account cookies near the browser size limit (#10088)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/cookies/cookies.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/cookies/index.ts",
+    "packages/better-auth/src/cookies/session-store.ts"
+   ],
+   "source_lines": 185,
+   "all_files": [
+    ".changeset/chunk-cookies-near-limit.md",
+    "packages/better-auth/src/cookies/cookies.test.ts",
+    "packages/better-auth/src/cookies/index.ts",
+    "packages/better-auth/src/cookies/session-store.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "8ecf23817f5e501bdd8ab63ad5fdf2554ff1dff5",
+   "parent": "930f5341d956bf3075f43758392a5c7f50947104",
+   "date": "2026-06-16T20:40:41+00:00",
+   "subject": "fix(session): cap refresh cookie Max-Age at expiresIn (#9621)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/api/routes/session-api.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/api/routes/session.ts"
+   ],
+   "source_lines": 3,
+   "all_files": [
+    ".changeset/red-islands-prove.md",
+    "packages/better-auth/src/api/routes/session-api.test.ts",
+    "packages/better-auth/src/api/routes/session.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "3965752b5a2ab4507d071f9d18f88b47da9a3a6f",
+   "parent": "8ecf23817f5e501bdd8ab63ad5fdf2554ff1dff5",
+   "date": "2026-06-16T20:51:48+00:00",
+   "subject": "fix(i18n): i18n en fallback and i18n documentation (#9872)",
+   "type": "fix",
+   "test_files": [
+    "packages/i18n/src/i18n.test.ts"
+   ],
+   "source_files": [
+    "packages/i18n/src/index.ts"
+   ],
+   "source_lines": 4,
+   "all_files": [
+    ".changeset/vast-houses-joke.md",
+    "docs/content/docs/plugins/i18n.mdx",
+    "packages/i18n/src/i18n.test.ts",
+    "packages/i18n/src/index.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "21448b1b77681e71e80ae0728d8658c936c18eb8",
+   "parent": "fb11c98930d7a4ed738417e99222f55dcf04d977",
+   "date": "2026-06-18T22:19:18+00:00",
+   "subject": "fix: route account-linking logs through the configured logger (#10121)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/oauth2/link-account.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/oauth2/link-account.ts"
+   ],
+   "source_lines": 10,
+   "all_files": [
+    ".changeset/oauth-account-linking-logger.md",
+    "packages/better-auth/src/oauth2/link-account.test.ts",
+    "packages/better-auth/src/oauth2/link-account.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "461ca6fd2453a2e145fa18a1df543e435e884701",
+   "parent": "6e5f7e656bfe1c92c7427013f96ec0f55e829c76",
+   "date": "2026-06-22T05:16:44+00:00",
+   "subject": "fix(username): only store valid displayUsername fallbacks as usernames (#10182)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/username/username.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/username/index.ts"
+   ],
+   "source_lines": 95,
+   "all_files": [
+    ".changeset/slow-rules-reflect.md",
+    "packages/better-auth/src/plugins/username/index.ts",
+    "packages/better-auth/src/plugins/username/username.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "239bcc836cf39c4fb409a15333be45134f9e9e65",
+   "parent": "e7c8066cf126bb7da9eecc94f4461ebb50933494",
+   "date": "2026-06-23T00:23:56+00:00",
+   "subject": "fix(paypal): bind userinfo subject to verified id token subject (#10192)",
+   "type": "fix",
+   "test_files": [
+    "packages/core/src/social-providers/paypal.test.ts"
+   ],
+   "source_files": [
+    "packages/core/src/social-providers/paypal.ts"
+   ],
+   "source_lines": 23,
+   "all_files": [
+    ".changeset/quiet-paypal-subjects.md",
+    "packages/core/src/social-providers/paypal.test.ts",
+    "packages/core/src/social-providers/paypal.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "570267cd5e782f018933ce3af4f51dbd250bf7de",
+   "parent": "239bcc836cf39c4fb409a15333be45134f9e9e65",
+   "date": "2026-06-24T00:19:25+00:00",
+   "subject": "fix: honor disableMigration on plugin schema tables (#10198)",
+   "type": "fix",
+   "test_files": [
+    "packages/cli/test/generate.test.ts",
+    "packages/core/src/db/test/get-tables.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/db/get-migration.ts",
+    "packages/better-auth/src/db/get-schema.ts",
+    "packages/cli/src/generators/drizzle.ts",
+    "packages/cli/src/generators/prisma.ts",
+    "packages/core/src/db/get-tables.ts"
+   ],
+   "source_lines": 25,
+   "all_files": [
+    ".changeset/skip-disabled-migration-tables.md",
+    "packages/better-auth/src/db/get-migration.ts",
+    "packages/better-auth/src/db/get-schema.ts",
+    "packages/cli/src/generators/drizzle.ts",
+    "packages/cli/src/generators/prisma.ts",
+    "packages/cli/test/generate.test.ts",
+    "packages/core/src/db/get-tables.ts",
+    "packages/core/src/db/test/get-tables.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "b046f9ec112b2cf547efea8dc870a4895602c53b",
+   "parent": "570267cd5e782f018933ce3af4f51dbd250bf7de",
+   "date": "2026-06-24T11:51:11+00:00",
+   "subject": "fix: apply rate limits before plugin requests (#10191)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/captcha/captcha.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/api/index.ts"
+   ],
+   "source_lines": 11,
+   "all_files": [
+    ".changeset/twenty-pears-bake.md",
+    "packages/better-auth/src/api/index.ts",
+    "packages/better-auth/src/plugins/captcha/captcha.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "88409b0078c2bfddcc6503031fff333bfa045cd2",
+   "parent": "b046f9ec112b2cf547efea8dc870a4895602c53b",
+   "date": "2026-06-24T19:41:43+00:00",
+   "subject": "fix(oauth-proxy): reject profile callbacks with missing or expired OAuth state (#10183)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/oauth-proxy/oauth-proxy.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/oauth-proxy/index.ts"
+   ],
+   "source_lines": 29,
+   "all_files": [
+    ".changeset/tender-rivers-serve.md",
+    "packages/better-auth/src/plugins/oauth-proxy/index.ts",
+    "packages/better-auth/src/plugins/oauth-proxy/oauth-proxy.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "5953157acf619bcb8233c91952b1e4072202f055",
+   "parent": "5af69e4b505b42f407e7a4e72fdbb8a83d8a61e9",
+   "date": "2026-06-25T04:55:10+00:00",
+   "subject": "fix: harden forwarded client IP resolution (#10203)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/api/rate-limiter/rate-limiter.test.ts",
+    "packages/core/src/utils/ip.test.ts"
+   ],
+   "source_files": [
+    "packages/api-key/src/utils.ts",
+    "packages/better-auth/src/api/rate-limiter/index.ts",
+    "packages/better-auth/src/context/create-context.ts",
+    "packages/better-auth/src/utils/get-request-ip.ts",
+    "packages/core/src/types/init-options.ts",
+    "packages/core/src/utils/ip.ts"
+   ],
+   "source_lines": 200,
+   "all_files": [
+    ".changeset/trusted-forwarded-ip-chains.md",
+    "docs/content/docs/concepts/rate-limit.mdx",
+    "docs/content/docs/reference/options.mdx",
+    "docs/content/docs/reference/security.mdx",
+    "packages/api-key/src/utils.ts",
+    "packages/better-auth/src/api/rate-limiter/index.ts",
+    "packages/better-auth/src/api/rate-limiter/rate-limiter.test.ts",
+    "packages/better-auth/src/context/create-context.ts",
+    "packages/better-auth/src/utils/get-request-ip.ts",
+    "packages/core/src/types/init-options.ts",
+    "packages/core/src/utils/ip.test.ts",
+    "packages/core/src/utils/ip.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "ae647b4abe5a4d606c326f1ce0ffa2500b5424d1",
+   "parent": "5953157acf619bcb8233c91952b1e4072202f055",
+   "date": "2026-06-25T06:49:09+00:00",
+   "subject": "fix(two-factor): cap verification attempts on TOTP and backup codes (#10210)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/two-factor/two-factor.attempt-cap.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/two-factor/backup-codes/index.ts",
+    "packages/better-auth/src/plugins/two-factor/constant.ts",
+    "packages/better-auth/src/plugins/two-factor/index.ts",
+    "packages/better-auth/src/plugins/two-factor/totp/index.ts",
+    "packages/better-auth/src/plugins/two-factor/verify-two-factor.ts"
+   ],
+   "source_lines": 129,
+   "all_files": [
+    ".changeset/two-factor-verify-attempt-cap.md",
+    "packages/better-auth/src/plugins/two-factor/backup-codes/index.ts",
+    "packages/better-auth/src/plugins/two-factor/constant.ts",
+    "packages/better-auth/src/plugins/two-factor/index.ts",
+    "packages/better-auth/src/plugins/two-factor/totp/index.ts",
+    "packages/better-auth/src/plugins/two-factor/two-factor.attempt-cap.test.ts",
+    "packages/better-auth/src/plugins/two-factor/verify-two-factor.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "29fbcb573261242d8a05b131a9d39c9ae4352b06",
+   "parent": "82cbbd6f1d9ccb1e7ee7fe54a2153c40c13442f3",
+   "date": "2026-06-25T11:21:12-07:00",
+   "subject": "Merge commit from fork",
+   "type": "other",
+   "test_files": [
+    "packages/stripe/test/stripe-organization.test.ts"
+   ],
+   "source_files": [
+    "packages/stripe/src/middleware.ts",
+    "packages/stripe/src/routes.ts"
+   ],
+   "source_lines": 97,
+   "all_files": [
+    ".changeset/stripe-subscription-reference-scope.md",
+    "packages/stripe/src/middleware.ts",
+    "packages/stripe/src/routes.ts",
+    "packages/stripe/test/stripe-organization.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "1bc370aef5c249e82127cb9d35972101087ecde6",
+   "parent": "5f86c3bed7d75ab0d413c6e90013b7937fef3367",
+   "date": "2026-06-26T02:21:45+00:00",
+   "subject": "fix(siwe): reject sign-in when the provided email already belongs to another account (#10228)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/siwe/siwe.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/siwe/index.ts"
+   ],
+   "source_lines": 20,
+   "all_files": [
+    ".changeset/siwe-duplicate-email.md",
+    "docs/content/docs/plugins/siwe.mdx",
+    "packages/better-auth/src/plugins/siwe/index.ts",
+    "packages/better-auth/src/plugins/siwe/siwe.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "1a8b7ccc8397922ec2fb51b10a92a12d58ea65c6",
+   "parent": "1bc370aef5c249e82127cb9d35972101087ecde6",
+   "date": "2026-06-26T02:27:12+00:00",
+   "subject": "fix(sso): restrict SAML SLO POST form action to http(s) schemes (#10225)",
+   "type": "fix",
+   "test_files": [
+    "packages/sso/src/routes/helpers.test.ts"
+   ],
+   "source_files": [
+    "packages/sso/src/routes/helpers.ts"
+   ],
+   "source_lines": 19,
+   "all_files": [
+    ".changeset/sso-saml-slo-form-action-scheme.md",
+    "packages/sso/src/routes/helpers.test.ts",
+    "packages/sso/src/routes/helpers.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "fcabaaffcbe48adcbdcaf876a4f8404c6bf640d4",
+   "parent": "1a8b7ccc8397922ec2fb51b10a92a12d58ea65c6",
+   "date": "2026-06-26T02:49:15+00:00",
+   "subject": "fix(sso): require DNS proof for every domain listed on a provider (#10227)",
+   "type": "fix",
+   "test_files": [
+    "packages/sso/src/domain-verification.test.ts",
+    "packages/sso/src/linking/org-assignment.test.ts",
+    "packages/sso/src/oidc.test.ts",
+    "packages/sso/src/utils.test.ts"
+   ],
+   "source_files": [
+    "packages/sso/src/routes/domain-verification.ts",
+    "packages/sso/src/routes/sso.ts",
+    "packages/sso/src/utils.ts"
+   ],
+   "source_lines": 100,
+   "all_files": [
+    ".changeset/sso-verify-every-listed-domain.md",
+    "docs/content/docs/plugins/sso.mdx",
+    "packages/sso/src/domain-verification.test.ts",
+    "packages/sso/src/linking/org-assignment.test.ts",
+    "packages/sso/src/oidc.test.ts",
+    "packages/sso/src/routes/domain-verification.ts",
+    "packages/sso/src/routes/sso.ts",
+    "packages/sso/src/utils.test.ts",
+    "packages/sso/src/utils.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "7a7a7b311aa8f546bd8d3301e1cbd37a9a5a30f1",
+   "parent": "fcabaaffcbe48adcbdcaf876a4f8404c6bf640d4",
+   "date": "2026-06-26T03:07:21+00:00",
+   "subject": "fix(sso): delete linked account rows when an SSO provider is deleted (#10224)",
+   "type": "fix",
+   "test_files": [
+    "packages/scim/src/scim.management.test.ts",
+    "packages/sso/src/providers.test.ts"
+   ],
+   "source_files": [
+    "packages/scim/src/routes.ts",
+    "packages/sso/src/routes/providers.ts",
+    "packages/sso/src/routes/sso.ts"
+   ],
+   "source_lines": 225,
+   "all_files": [
+    ".changeset/sso-delete-provider-accounts.md",
+    "packages/scim/src/routes.ts",
+    "packages/scim/src/scim.management.test.ts",
+    "packages/sso/src/providers.test.ts",
+    "packages/sso/src/routes/providers.ts",
+    "packages/sso/src/routes/sso.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "816d7f92522518e90d437c2a366d75db56690f86",
+   "parent": "fa1e036ae7bd326920e7d797046d966a440f60bd",
+   "date": "2026-06-26T03:56:20+00:00",
+   "subject": "fix(one-tap): apply configured Google hosted domain (hd) on the callback (#10197)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/one-tap/one-tap.test.ts",
+    "packages/core/src/social-providers/google.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/one-tap/index.ts",
+    "packages/core/src/social-providers/google.ts"
+   ],
+   "source_lines": 154,
+   "all_files": [
+    ".changeset/one-tap-hosted-domain.md",
+    "docs/content/docs/authentication/google.mdx",
+    "docs/content/docs/plugins/one-tap.mdx",
+    "packages/better-auth/src/plugins/one-tap/index.ts",
+    "packages/better-auth/src/plugins/one-tap/one-tap.test.ts",
+    "packages/core/src/social-providers/google.test.ts",
+    "packages/core/src/social-providers/google.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "90d509e0b9f72614170ad7124ae9d3a7a97d7d3a",
+   "parent": "816d7f92522518e90d437c2a366d75db56690f86",
+   "date": "2026-06-26T03:56:39+00:00",
+   "subject": "fix(adapter): fail closed on update misses (#10180)",
+   "type": "fix",
+   "test_files": [
+    "packages/kysely-adapter/src/with-returning-mysql.test.ts",
+    "packages/prisma-adapter/src/prisma-adapter.test.ts"
+   ],
+   "source_files": [
+    "packages/core/src/db/adapter/factory.ts",
+    "packages/core/src/db/adapter/index.ts",
+    "packages/kysely-adapter/src/kysely-adapter.ts",
+    "packages/prisma-adapter/src/prisma-adapter.ts",
+    "packages/test-utils/src/adapter/suites/basic.ts"
+   ],
+   "source_lines": 188,
+   "all_files": [
+    ".changeset/kysely-mysql-update-cas.md",
+    "docs/content/docs/adapters/mysql.mdx",
+    "packages/core/src/db/adapter/factory.ts",
+    "packages/core/src/db/adapter/index.ts",
+    "packages/kysely-adapter/src/kysely-adapter.ts",
+    "packages/kysely-adapter/src/with-returning-mysql.test.ts",
+    "packages/prisma-adapter/src/prisma-adapter.test.ts",
+    "packages/prisma-adapter/src/prisma-adapter.ts",
+    "packages/test-utils/src/adapter/suites/basic.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "b5bec193a56cec2f7b71c84d71dacb632f0b96a0",
+   "parent": "471f81c1ab088368de07383491535c1288fa6543",
+   "date": "2026-06-26T04:06:54+00:00",
+   "subject": "fix(oauth): apply user input rules to provider profiles (#10196)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/oauth2/link-account.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/db/schema.ts",
+    "packages/better-auth/src/oauth2/link-account.ts"
+   ],
+   "source_lines": 79,
+   "all_files": [
+    ".changeset/oauth-provisioning-input-fields.md",
+    "docs/content/docs/concepts/database.mdx",
+    "docs/content/docs/concepts/oauth.mdx",
+    "docs/content/docs/concepts/users-accounts.mdx",
+    "packages/better-auth/src/db/schema.ts",
+    "packages/better-auth/src/oauth2/link-account.test.ts",
+    "packages/better-auth/src/oauth2/link-account.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "882cf9e592d1d305b5b78cadbb10aaeee7acd6dc",
+   "parent": "b5bec193a56cec2f7b71c84d71dacb632f0b96a0",
+   "date": "2026-06-26T04:09:16+00:00",
+   "subject": "fix(admin): use authoritative session reads for authorization (#10187)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/api/routes/session-api.test.ts",
+    "packages/better-auth/src/plugins/admin/admin.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/api/routes/session.ts",
+    "packages/better-auth/src/plugins/admin/routes.ts"
+   ],
+   "source_lines": 36,
+   "all_files": [
+    ".changeset/cold-planets-wait.md",
+    "packages/better-auth/src/api/routes/session-api.test.ts",
+    "packages/better-auth/src/api/routes/session.ts",
+    "packages/better-auth/src/plugins/admin/admin.test.ts",
+    "packages/better-auth/src/plugins/admin/routes.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "8bd43d9d8312fd9ddbfb8fb5c827cf0a0e55132d",
+   "parent": "c06a56d83a40bbaeac12d3a8b8b67e59f92a9110",
+   "date": "2026-06-26T12:28:17+00:00",
+   "subject": "fix(core): refuse redirects on server-side OAuth requests (#10241)",
+   "type": "fix",
+   "test_files": [
+    "packages/core/src/oauth2/reject-redirects.runtime.test.ts",
+    "packages/core/src/oauth2/reject-redirects.server.test.ts",
+    "packages/core/src/oauth2/reject-redirects.test.ts",
+    "packages/core/src/oauth2/validate-token.test.ts"
+   ],
+   "source_files": [
+    "packages/core/src/oauth2/client-credentials-token.ts",
+    "packages/core/src/oauth2/refresh-access-token.ts",
+    "packages/core/src/oauth2/reject-redirects.ts",
+    "packages/core/src/oauth2/validate-authorization-code.ts",
+    "packages/core/src/oauth2/verify.ts"
+   ],
+   "source_lines": 135,
+   "all_files": [
+    ".changeset/oauth-fetch-refuse-redirects.md",
+    "docs/content/docs/reference/security.mdx",
+    "packages/core/src/oauth2/client-credentials-token.ts",
+    "packages/core/src/oauth2/refresh-access-token.ts",
+    "packages/core/src/oauth2/reject-redirects.runtime.test.ts",
+    "packages/core/src/oauth2/reject-redirects.server.test.ts",
+    "packages/core/src/oauth2/reject-redirects.test.ts",
+    "packages/core/src/oauth2/reject-redirects.ts",
+    "packages/core/src/oauth2/validate-authorization-code.ts",
+    "packages/core/src/oauth2/validate-token.test.ts",
+    "packages/core/src/oauth2/verify.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "7c126dcd1aad24468ec37e876545c1d083d8acca",
+   "parent": "8bd43d9d8312fd9ddbfb8fb5c827cf0a0e55132d",
+   "date": "2026-06-26T12:29:00+00:00",
+   "subject": "fix(scim): scope write-path operations and honor the active attribute (#10242)",
+   "type": "fix",
+   "test_files": [
+    "packages/scim/src/scim-users.test.ts",
+    "packages/scim/src/scim.test.ts"
+   ],
+   "source_files": [
+    "packages/scim/src/patch-operations.ts",
+    "packages/scim/src/routes.ts",
+    "packages/scim/src/scim-resources.ts",
+    "packages/scim/src/user-schemas.ts"
+   ],
+   "source_lines": 167,
+   "all_files": [
+    ".changeset/scim-write-path.md",
+    "docs/content/docs/plugins/scim.mdx",
+    "packages/scim/src/patch-operations.ts",
+    "packages/scim/src/routes.ts",
+    "packages/scim/src/scim-resources.ts",
+    "packages/scim/src/scim-users.test.ts",
+    "packages/scim/src/scim.test.ts",
+    "packages/scim/src/user-schemas.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "c06a56d83a40bbaeac12d3a8b8b67e59f92a9110",
+   "parent": "414169d95a88a6e1fac41688bc7011e96feb0d2a",
+   "date": "2026-06-26T13:20:07+01:00",
+   "subject": "fix: revoke unproven credentials on magic-link/email-OTP sign-in (#10239)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/email-otp/email-otp.test.ts",
+    "packages/better-auth/src/plugins/magic-link/magic-link.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/db/index.ts",
+    "packages/better-auth/src/db/revoke-unproven-account-access.ts",
+    "packages/better-auth/src/plugins/email-otp/routes.ts",
+    "packages/better-auth/src/plugins/magic-link/index.ts"
+   ],
+   "source_lines": 46,
+   "all_files": [
+    ".changeset/magic-link-email-otp-credential-revoke.md",
+    ".cspell.jsonc",
+    "docs/content/docs/plugins/email-otp.mdx",
+    "docs/content/docs/plugins/magic-link.mdx",
+    "packages/better-auth/src/db/index.ts",
+    "packages/better-auth/src/db/revoke-unproven-account-access.ts",
+    "packages/better-auth/src/plugins/email-otp/email-otp.test.ts",
+    "packages/better-auth/src/plugins/email-otp/routes.ts",
+    "packages/better-auth/src/plugins/magic-link/index.ts",
+    "packages/better-auth/src/plugins/magic-link/magic-link.test.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "3a035e968e27bfdee1e53ad857e5569090d9f2d1",
+   "parent": "7c126dcd1aad24468ec37e876545c1d083d8acca",
+   "date": "2026-06-26T13:40:00+01:00",
+   "subject": "fix(two-factor): add account-level verification lockout (#10240)",
+   "type": "fix",
+   "test_files": [
+    "packages/better-auth/src/plugins/two-factor/two-factor.account-lockout.test.ts"
+   ],
+   "source_files": [
+    "packages/better-auth/src/plugins/two-factor/backup-codes/index.ts",
+    "packages/better-auth/src/plugins/two-factor/constant.ts",
+    "packages/better-auth/src/plugins/two-factor/error-code.ts",
+    "packages/better-auth/src/plugins/two-factor/otp/index.ts",
+    "packages/better-auth/src/plugins/two-factor/schema.ts",
+    "packages/better-auth/src/plugins/two-factor/totp/index.ts",
+    "packages/better-auth/src/plugins/two-factor/types.ts",
+    "packages/better-auth/src/plugins/two-factor/verify-two-factor.ts"
+   ],
+   "source_lines": 222,
+   "all_files": [
+    ".changeset/two-factor-account-lockout.md",
+    "docs/content/docs/plugins/2fa.mdx",
+    "packages/better-auth/src/plugins/two-factor/backup-codes/index.ts",
+    "packages/better-auth/src/plugins/two-factor/constant.ts",
+    "packages/better-auth/src/plugins/two-factor/error-code.ts",
+    "packages/better-auth/src/plugins/two-factor/otp/index.ts",
+    "packages/better-auth/src/plugins/two-factor/schema.ts",
+    "packages/better-auth/src/plugins/two-factor/totp/index.ts",
+    "packages/better-auth/src/plugins/two-factor/two-factor.account-lockout.test.ts",
+    "packages/better-auth/src/plugins/two-factor/types.ts",
+    "packages/better-auth/src/plugins/two-factor/verify-two-factor.ts",
+    "packages/cli/test/__snapshots__/auth-schema-mysql-number-id.txt",
+    "packages/cli/test/__snapshots__/auth-schema-mysql-uuid.txt",
+    "packages/cli/test/__snapshots__/auth-schema-mysql.txt",
+    "packages/cli/test/__snapshots__/auth-schema-number-id.txt",
+    "packages/cli/test/__snapshots__/auth-schema-pg-uuid.txt",
+    "packages/cli/test/__snapshots__/auth-schema-sqlite-number-id.txt",
+    "packages/cli/test/__snapshots__/auth-schema-sqlite-uuid.txt",
+    "packages/cli/test/__snapshots__/auth-schema-sqlite.txt",
+    "packages/cli/test/__snapshots__/auth-schema.txt",
+    "packages/cli/test/__snapshots__/schema-mongodb.prisma",
+    "packages/cli/test/__snapshots__/schema-mysql-custom.prisma",
+    "packages/cli/test/__snapshots__/schema-mysql.prisma",
+    "packages/cli/test/__snapshots__/schema-numberid.prisma",
+    "packages/cli/test/__snapshots__/schema-uuid.prisma",
+    "packages/cli/test/__snapshots__/schema.prisma"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "930b260cfd402e9f8886719a3ced503b9ceff7f6",
+   "parent": "39c2d59b3447c00a0af3bab534fe7a209e148d8a",
+   "date": "2026-06-26T23:48:10+00:00",
+   "subject": "fix(drizzle-adapter): count affected rows on D1 and postgres-js (#10257)",
+   "type": "fix",
+   "test_files": [
+    "packages/drizzle-adapter/src/drizzle-adapter.test.ts"
+   ],
+   "source_files": [
+    "packages/drizzle-adapter/src/drizzle-adapter.ts"
+   ],
+   "source_lines": 57,
+   "all_files": [
+    ".changeset/drizzle-affected-rows-d1-postgres-js.md",
+    "packages/drizzle-adapter/src/drizzle-adapter.test.ts",
+    "packages/drizzle-adapter/src/drizzle-adapter.ts"
+   ]
+  },
+  {
+   "repo": "better-auth",
+   "commit": "3fedfcb01d0f2a3e653a98a0f7f7891949361b7a",
+   "parent": "930b260cfd402e9f8886719a3ced503b9ceff7f6",
+   "date": "2026-06-26T23:48:19+00:00",
+   "subject": "fix(cli): escape string default values in generated Drizzle schema (#10259)",
+   "type": "fix",
+   "test_files": [
+    "packages/cli/test/generate.test.ts"
+   ],
+   "source_files": [
+    "packages/cli/src/generators/drizzle.ts"
+   ],
+   "source_lines": 4,
+   "all_files": [
+    ".changeset/drizzle-generate-escape-string-default.md",
+    "packages/cli/src/generators/drizzle.ts",
+    "packages/cli/test/generate.test.ts"
+   ]
+  }
+ ]
+}

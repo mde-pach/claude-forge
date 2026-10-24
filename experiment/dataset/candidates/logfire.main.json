@@ -1,0 +1,1423 @@
+{
+ "repo": "logfire",
+ "window": "main",
+ "range": [
+  "2026-07-01T00:00:00Z",
+  "2026-10-15T00:00:00Z"
+ ],
+ "drops": {
+  "no_test_change": 187,
+  "dependency_manifest_or_lock_changed": 22,
+  "no_source_change": 48,
+  "source_lines_out_of_range": 7,
+  "bot_author": 1,
+  "revert": 1
+ },
+ "candidates": [
+  {
+   "repo": "logfire",
+   "commit": "3cb97d520e8c67a166e33fff9d46ad68be71ff46",
+   "parent": "627e3baca4d13b51677f11f65355c0fa4b1dd69a",
+   "date": "2026-07-14T11:34:08+00:00",
+   "subject": "Support OpenAI Responses API content parts (#1981)",
+   "type": "other",
+   "test_files": [
+    "tests/otel_integrations/test_openai.py"
+   ],
+   "source_files": [
+    "logfire/_internal/integrations/llm_providers/openai.py",
+    "logfire/_internal/integrations/llm_providers/semconv.py"
+   ],
+   "source_lines": 87,
+   "all_files": [
+    "logfire/_internal/integrations/llm_providers/openai.py",
+    "logfire/_internal/integrations/llm_providers/semconv.py",
+    "tests/otel_integrations/test_openai.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "45ee846a4a6658dcb5338c7b0a1408ce21e13073",
+   "parent": "3cb97d520e8c67a166e33fff9d46ad68be71ff46",
+   "date": "2026-07-14T11:44:53+00:00",
+   "subject": "fix(logfire-api): support bare @logfire.instrument decorator (#2047)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_logfire_api.py"
+   ],
+   "source_files": [
+    "logfire-api/logfire_api/__init__.py"
+   ],
+   "source_lines": 8,
+   "all_files": [
+    "logfire-api/logfire_api/__init__.py",
+    "tests/test_logfire_api.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "b72c0897695afc06ac475ba4616f164c75493a6e",
+   "parent": "45ee846a4a6658dcb5338c7b0a1408ce21e13073",
+   "date": "2026-07-14T14:38:30+02:00",
+   "subject": "Route managed variables by API key region (#2077)",
+   "type": "other",
+   "test_files": [
+    "tests/conftest.py",
+    "tests/test_configure.py",
+    "tests/test_variables.py"
+   ],
+   "source_files": [
+    "logfire/_internal/config.py"
+   ],
+   "source_lines": 12,
+   "all_files": [
+    "CLAUDE.md",
+    "logfire/_internal/config.py",
+    "tests/conftest.py",
+    "tests/test_configure.py",
+    "tests/test_variables.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "db9859ae70f78c73d5cded41200afdec33e13779",
+   "parent": "b72c0897695afc06ac475ba4616f164c75493a6e",
+   "date": "2026-07-14T17:38:32+02:00",
+   "subject": "Prevent double retrying of ConnectionErrors (#2078)",
+   "type": "other",
+   "test_files": [
+    "tests/exporters/test_otlp_session.py"
+   ],
+   "source_files": [
+    "logfire/_internal/exporters/otlp.py",
+    "logfire/_internal/exporters/quiet_metrics.py"
+   ],
+   "source_lines": 26,
+   "all_files": [
+    "logfire/_internal/exporters/otlp.py",
+    "logfire/_internal/exporters/quiet_metrics.py",
+    "tests/exporters/test_otlp_session.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "5c042df8fa253855117044bec71ff582ebd4d196",
+   "parent": "b830ba04a820d2cc931a01b4aedb26c529a251a6",
+   "date": "2026-07-28T16:17:34+00:00",
+   "subject": "Move managed variable registry onto config (#2034)",
+   "type": "other",
+   "test_files": [
+    "tests/test_push_variables.py",
+    "tests/test_variable_composition.py"
+   ],
+   "source_files": [
+    "logfire/_internal/config.py",
+    "logfire/_internal/main.py"
+   ],
+   "source_lines": 28,
+   "all_files": [
+    "logfire/_internal/config.py",
+    "logfire/_internal/main.py",
+    "tests/test_push_variables.py",
+    "tests/test_variable_composition.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "38297b3a46d064ff5529e7ccfe6db889ce8f76f1",
+   "parent": "56fe5e0379716d788c5071b559d6c312e30e8cb1",
+   "date": "2026-07-31T13:33:24-06:00",
+   "subject": "fix(google-genai): break circular reference in span event body [murmur:logfire-sdk/take-over-pr-review] (#2157)",
+   "type": "fix",
+   "test_files": [
+    "tests/otel_integrations/test_google_genai.py"
+   ],
+   "source_files": [
+    "logfire/_internal/integrations/google_genai.py"
+   ],
+   "source_lines": 39,
+   "all_files": [
+    "logfire/_internal/integrations/google_genai.py",
+    "tests/otel_integrations/test_google_genai.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "56fe5e0379716d788c5071b559d6c312e30e8cb1",
+   "parent": "836cab719947ab02d3000e41cf3791e69a7e36ef",
+   "date": "2026-07-31T18:06:04+00:00",
+   "subject": "Fix three SSE reliability gaps in LogfireRemoteVariableProvider [murmur:platform/logfire-py-variables-sse-hardening] (#2144)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_variables.py"
+   ],
+   "source_files": [
+    "logfire/variables/remote.py"
+   ],
+   "source_lines": 39,
+   "all_files": [
+    "logfire/variables/remote.py",
+    "tests/test_variables.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "f341862f8a4df1e29333f1d56121342cd8429d8d",
+   "parent": "38297b3a46d064ff5529e7ccfe6db889ce8f76f1",
+   "date": "2026-08-01T21:22:36+00:00",
+   "subject": "Log transient variables-refresh failures as warnings, not errors (#2111)",
+   "type": "other",
+   "test_files": [
+    "tests/test_variables.py"
+   ],
+   "source_files": [
+    "logfire/variables/remote.py"
+   ],
+   "source_lines": 91,
+   "all_files": [
+    "logfire/variables/remote.py",
+    "tests/test_variables.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "00758519f429b5686ecc674577a9c32b3bdbc3ad",
+   "parent": "968aef4d48a992b6c818b7633736c02b476610ed",
+   "date": "2026-08-01T21:49:06+00:00",
+   "subject": "Raise an error instead of asserting on unexpected query API responses (#2166)",
+   "type": "other",
+   "test_files": [
+    "tests/test_query_client_errors.py"
+   ],
+   "source_files": [
+    "logfire/experimental/query_client.py",
+    "logfire/query_client.py"
+   ],
+   "source_lines": 17,
+   "all_files": [
+    "logfire-api/logfire_api/experimental/query_client.pyi",
+    "logfire-api/logfire_api/query_client.pyi",
+    "logfire/experimental/query_client.py",
+    "logfire/query_client.py",
+    "tests/test_query_client_errors.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "223a8624065fbc574c2569868612aca7bae3f202",
+   "parent": "48973e69ca7ae5ce725fb6219ebf51b3dbe8711f",
+   "date": "2026-08-02T21:46:42+00:00",
+   "subject": "feat(variables): ETag/conditional GET and silent 304 handling [murmur:platform/logfire-py-variables-sse-hardening] (#2146)",
+   "type": "feat",
+   "test_files": [
+    "tests/test_variables.py"
+   ],
+   "source_files": [
+    "logfire/variables/remote.py"
+   ],
+   "source_lines": 58,
+   "all_files": [
+    "logfire/variables/remote.py",
+    "tests/test_variables.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "e566848991791373a2bd5a078964cd2530eae6c8",
+   "parent": "223a8624065fbc574c2569868612aca7bae3f202",
+   "date": "2026-08-03T12:49:56+00:00",
+   "subject": "Handle evolving user token formats in display (#2182)",
+   "type": "other",
+   "test_files": [
+    "tests/test_auth.py",
+    "tests/test_configure.py"
+   ],
+   "source_files": [
+    "logfire/_internal/auth.py",
+    "logfire/_internal/config.py"
+   ],
+   "source_lines": 16,
+   "all_files": [
+    "logfire/_internal/auth.py",
+    "logfire/_internal/config.py",
+    "tests/test_auth.py",
+    "tests/test_configure.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "3f689314f89eb4534ddb8254d0e78f4184839b93",
+   "parent": "c31bafb2329c383f9c4ce57cdec3188f39e04643",
+   "date": "2026-08-05T10:01:54+00:00",
+   "subject": "Fix metric resource PID after fork (#2189)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_configure.py"
+   ],
+   "source_files": [
+    "logfire/_internal/config.py"
+   ],
+   "source_lines": 72,
+   "all_files": [
+    "logfire/_internal/config.py",
+    "tests/test_configure.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "36267559329c0bbcb1f637852952eb2fe1a42e5e",
+   "parent": "0c98a61973bdeddab182d3c37eef20a6888caab4",
+   "date": "2026-08-05T12:59:33+00:00",
+   "subject": "Fix two races in Claude Agent SDK tool-use hook instrumentation (#2194)",
+   "type": "fix",
+   "test_files": [
+    "tests/otel_integrations/test_claude_agent_sdk.py"
+   ],
+   "source_files": [
+    "logfire/_internal/integrations/claude_agent_sdk.py"
+   ],
+   "source_lines": 43,
+   "all_files": [
+    "logfire/_internal/integrations/claude_agent_sdk.py",
+    "tests/otel_integrations/test_claude_agent_sdk.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "08a8336759792c5d2dc35f29b40479b5ac657b1c",
+   "parent": "5f1fb5f803666ac28ec80d889c26772d4233b43c",
+   "date": "2026-08-06T12:26:29+00:00",
+   "subject": "Parent slow-async-callback spans to the running task (#2209)",
+   "type": "other",
+   "test_files": [
+    "tests/import_used_for_tests/slow_async_callbacks_example.py",
+    "tests/test_slow_async_callbacks.py"
+   ],
+   "source_files": [
+    "logfire/_internal/async_.py"
+   ],
+   "source_lines": 5,
+   "all_files": [
+    "logfire/_internal/async_.py",
+    "tests/import_used_for_tests/slow_async_callbacks_example.py",
+    "tests/test_slow_async_callbacks.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "d9e4fb73f3e7140ff4934bff63ecdc9e294ed05f",
+   "parent": "b5362d8c4fea4ecd834d56566573ae9d6ba3cf56",
+   "date": "2026-08-12T20:02:40+00:00",
+   "subject": "fix(db_statement_summary): bound INSERT summary length like the SELECT path (#2084)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_db_statement_summary.py"
+   ],
+   "source_files": [
+    "logfire/_internal/db_statement_summary.py"
+   ],
+   "source_lines": 5,
+   "all_files": [
+    "logfire/_internal/db_statement_summary.py",
+    "tests/test_db_statement_summary.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "2509186459f3498286062d0ca1ca81e576ace7ec",
+   "parent": "ad7f03424c5d01e6257419c73d508c76afd5ea8b",
+   "date": "2026-08-12T21:45:48+00:00",
+   "subject": "Speed up default scrubbing pattern matching (#2190)",
+   "type": "other",
+   "test_files": [
+    "tests/test_secret_scrubbing.py"
+   ],
+   "source_files": [
+    "logfire/_internal/scrubbing.py"
+   ],
+   "source_lines": 8,
+   "all_files": [
+    "logfire/_internal/scrubbing.py",
+    "tests/test_secret_scrubbing.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "611684226f4fbaa9b5123f9363d45aebd9523d75",
+   "parent": "47574bd820d329f82311cffce2cf7237fab99de8",
+   "date": "2026-08-13T04:15:05+00:00",
+   "subject": "fix(auth,client): add timeout to outbound HTTP session requests (#2217)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_auth.py",
+    "tests/test_client.py"
+   ],
+   "source_files": [
+    "logfire/_internal/auth.py",
+    "logfire/_internal/client.py"
+   ],
+   "source_lines": 19,
+   "all_files": [
+    "logfire/_internal/auth.py",
+    "logfire/_internal/client.py",
+    "tests/test_auth.py",
+    "tests/test_client.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "dfae4d8af12bfc24dcd16d134b14577dc892c77c",
+   "parent": "611684226f4fbaa9b5123f9363d45aebd9523d75",
+   "date": "2026-08-13T04:36:36+00:00",
+   "subject": "Warn when a token's region is unrecognised instead of silently defaulting to US (#2229)",
+   "type": "other",
+   "test_files": [
+    "tests/test_configure.py",
+    "tests/test_variables.py"
+   ],
+   "source_files": [
+    "logfire/_internal/config.py"
+   ],
+   "source_lines": 36,
+   "all_files": [
+    "logfire/_internal/config.py",
+    "tests/test_configure.py",
+    "tests/test_variables.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "ebba82dba59c35aa293c4387227b8ea6c297dd14",
+   "parent": "908f8a36d6791ccf24b17345eed375f59b5f815c",
+   "date": "2026-08-15T12:46:45+00:00",
+   "subject": "fix: keep the data directory gitignored after logfire clean (#2173)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_cli.py"
+   ],
+   "source_files": [
+    "logfire/_internal/utils.py"
+   ],
+   "source_lines": 23,
+   "all_files": [
+    "logfire/_internal/utils.py",
+    "tests/test_cli.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "8d2320b2d4ffdf20db539a431e8f761579078d3c",
+   "parent": "de4dc5c1016a0bfdab8bba9153217df73d44b2c1",
+   "date": "2026-08-18T14:09:36+00:00",
+   "subject": "Add `logfire projects list --json` (#2280)",
+   "type": "feat",
+   "test_files": [
+    "tests/test_cli.py"
+   ],
+   "source_files": [
+    "logfire/_internal/cli/__init__.py"
+   ],
+   "source_lines": 22,
+   "all_files": [
+    "logfire/_internal/cli/__init__.py",
+    "tests/test_cli.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "1ff544ea88b1fce94e45dbc6b7e1f065bfd3d57d",
+   "parent": "8d2320b2d4ffdf20db539a431e8f761579078d3c",
+   "date": "2026-08-18T14:21:08+00:00",
+   "subject": "Warn for unknown token regions outside configuration (#2281)",
+   "type": "other",
+   "test_files": [
+    "tests/test_cli.py",
+    "tests/test_configure.py",
+    "tests/test_query_client.py"
+   ],
+   "source_files": [
+    "logfire/_internal/config.py"
+   ],
+   "source_lines": 12,
+   "all_files": [
+    "CLAUDE.md",
+    "logfire/_internal/config.py",
+    "tests/test_cli.py",
+    "tests/test_configure.py",
+    "tests/test_query_client.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "ed61974e2383faa100ee17537c3dc5c68eb2ffae",
+   "parent": "1ff544ea88b1fce94e45dbc6b7e1f065bfd3d57d",
+   "date": "2026-08-18T14:35:16+00:00",
+   "subject": "Add `system.cpu.load_average.1m` and `system.processes.count` (#2014)",
+   "type": "feat",
+   "test_files": [
+    "tests/otel_integrations/test_system_metrics.py"
+   ],
+   "source_files": [
+    "logfire/_internal/integrations/system_metrics.py"
+   ],
+   "source_lines": 72,
+   "all_files": [
+    "docs/integrations/system-metrics.md",
+    "logfire/_internal/integrations/system_metrics.py",
+    "tests/otel_integrations/test_system_metrics.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "6109bb7eaec605829aaa6606202b672664ecf3ba",
+   "parent": "ed61974e2383faa100ee17537c3dc5c68eb2ffae",
+   "date": "2026-08-18T19:10:34+00:00",
+   "subject": "Let `logfire auth` complete without a TTY (#2275)",
+   "type": "other",
+   "test_files": [
+    "tests/test_cli.py"
+   ],
+   "source_files": [
+    "logfire/_internal/cli/auth.py"
+   ],
+   "source_lines": 60,
+   "all_files": [
+    "logfire/_internal/cli/auth.py",
+    "tests/test_cli.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "ba4d823be2ef11905a7e2b9dfa69176524a2303d",
+   "parent": "98ffb4068c3c2ffb0c3d97e8e80c49003377e564",
+   "date": "2026-08-18T22:06:48+00:00",
+   "subject": "Add `logfire --non-interactive` (#2283)",
+   "type": "feat",
+   "test_files": [
+    "tests/test_cli.py"
+   ],
+   "source_files": [
+    "logfire/_internal/cli/__init__.py",
+    "logfire/_internal/cli/auth.py",
+    "logfire/_internal/cli/gateway.py",
+    "logfire/_internal/config.py",
+    "logfire/_internal/interactive.py"
+   ],
+   "source_lines": 195,
+   "all_files": [
+    "logfire/_internal/cli/__init__.py",
+    "logfire/_internal/cli/auth.py",
+    "logfire/_internal/cli/gateway.py",
+    "logfire/_internal/config.py",
+    "logfire/_internal/interactive.py",
+    "tests/test_cli.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "d1144acca72b51093a387e2f1a417557a45f91d5",
+   "parent": "ad55ce8e9836e7bdbd0213223f0d56d6bb551a25",
+   "date": "2026-08-19T18:37:30+00:00",
+   "subject": "Limit HTTP connection attempts to three seconds (#2282)",
+   "type": "other",
+   "test_files": [
+    "tests/exporters/test_otlp_session.py",
+    "tests/test_client.py"
+   ],
+   "source_files": [
+    "logfire/_internal/client.py",
+    "logfire/_internal/constants.py",
+    "logfire/_internal/exporters/otlp.py"
+   ],
+   "source_lines": 20,
+   "all_files": [
+    "logfire/_internal/client.py",
+    "logfire/_internal/constants.py",
+    "logfire/_internal/exporters/otlp.py",
+    "tests/exporters/test_otlp_session.py",
+    "tests/test_client.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "c5618fa4b5c649c1cd345fb3ebcb8eb0367712d9",
+   "parent": "2d1c22d12bef32b33de456411c2480e7438e0c58",
+   "date": "2026-08-20T11:41:32+00:00",
+   "subject": "Clean up Logfire language docs URLs (#2287)",
+   "type": "other",
+   "test_files": [
+    "tests/test_logfire.py"
+   ],
+   "source_files": [
+    "logfire/_internal/config.py",
+    "logfire/_internal/formatter.py",
+    "logfire/_internal/main.py"
+   ],
+   "source_lines": 10,
+   "all_files": [
+    "README.md",
+    "docs/faq.md",
+    "docs/first-trace.md",
+    "docs/guides/web-ui/metrics-explorer.md",
+    "docs/guides/web-ui/services.md",
+    "docs/how-to-guides/alternative-clients.md",
+    "docs/index.md",
+    "docs/instrument/index.md",
+    "docs/integrations/agent-frameworks/agent-framework-dotnet.md",
+    "docs/integrations/agent-frameworks/genkit-go.md",
+    "docs/integrations/agent-frameworks/langchain-js.md",
+    "docs/integrations/agent-frameworks/llamaindex-ts.md",
+    "docs/integrations/agent-frameworks/mastra.md",
+    "docs/integrations/agent-frameworks/rig.md",
+    "docs/integrations/agent-frameworks/semantic-kernel-dotnet.md",
+    "docs/integrations/agent-frameworks/vercel-ai-sdk.md",
+    "docs/integrations/agent-frameworks/voltagent.md",
+    "docs/integrations/web-frameworks/fastapi.md",
+    "docs/integrations/web-frameworks/starlette.md",
+    "docs/navigation.yml",
+    "docs/reference/examples.md",
+    "logfire-api/logfire_api/_internal/config.pyi",
+    "logfire-api/logfire_api/_internal/main.pyi",
+    "logfire/_internal/config.py",
+    "logfire/_internal/formatter.py",
+    "logfire/_internal/main.py",
+    "tests/test_logfire.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "7d93d4b4abcb8f17eeac8f99b47d26e607119960",
+   "parent": "4a7e5f48aef4be4850d1b99cab77df4ace88e518",
+   "date": "2026-08-20T16:45:04+00:00",
+   "subject": "projects status: work from a saved read token alone (#2296)",
+   "type": "other",
+   "test_files": [
+    "tests/test_cli.py"
+   ],
+   "source_files": [
+    "logfire/_internal/cli/__init__.py"
+   ],
+   "source_lines": 126,
+   "all_files": [
+    "docs/reference/cli.md",
+    "logfire/_internal/cli/__init__.py",
+    "tests/test_cli.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "a8ae2c21edaf0e6c8e2740e837f162e5473f2e17",
+   "parent": "80c463bfb77528face93ec0e743b6097db1953d6",
+   "date": "2026-08-24T03:45:32+00:00",
+   "subject": "Let logfire.configure() finish project setup without a TTY (#2305)",
+   "type": "other",
+   "test_files": [
+    "tests/test_cli.py",
+    "tests/test_configure.py"
+   ],
+   "source_files": [
+    "logfire/_internal/config.py",
+    "logfire/_internal/interactive.py"
+   ],
+   "source_lines": 167,
+   "all_files": [
+    "logfire/_internal/config.py",
+    "logfire/_internal/interactive.py",
+    "tests/test_cli.py",
+    "tests/test_configure.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "569c5404d1fe99e61f6d90fdef00b26716767a94",
+   "parent": "8a662299e4a968e282c74ba47c0e7d6f193f4ea7",
+   "date": "2026-08-27T11:50:05+00:00",
+   "subject": "fix(anthropic): price Bedrock calls under the aws provider (#2162)",
+   "type": "fix",
+   "test_files": [
+    "tests/otel_integrations/test_anthropic_bedrock.py",
+    "tests/otel_integrations/test_openai.py"
+   ],
+   "source_files": [
+    "logfire/_internal/integrations/llm_providers/anthropic.py",
+    "logfire/_internal/integrations/llm_providers/llm_provider.py",
+    "logfire/_internal/integrations/llm_providers/openai.py",
+    "logfire/_internal/integrations/llm_providers/types.py",
+    "logfire/_internal/integrations/llm_providers/usage.py"
+   ],
+   "source_lines": 159,
+   "all_files": [
+    "logfire/_internal/integrations/llm_providers/anthropic.py",
+    "logfire/_internal/integrations/llm_providers/llm_provider.py",
+    "logfire/_internal/integrations/llm_providers/openai.py",
+    "logfire/_internal/integrations/llm_providers/types.py",
+    "logfire/_internal/integrations/llm_providers/usage.py",
+    "tests/otel_integrations/test_anthropic_bedrock.py",
+    "tests/otel_integrations/test_openai.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "26708835626b6e4c152476c4c641a352c1ccc539",
+   "parent": "569c5404d1fe99e61f6d90fdef00b26716767a94",
+   "date": "2026-08-27T12:02:26+00:00",
+   "subject": "Keep tail-sampling buffers until every span in the trace has ended (#2308)",
+   "type": "other",
+   "test_files": [
+    "tests/test_tail_sampling.py"
+   ],
+   "source_files": [
+    "logfire/sampling/_tail_sampling.py"
+   ],
+   "source_lines": 14,
+   "all_files": [
+    "docs/how-to-guides/sampling.md",
+    "logfire/sampling/_tail_sampling.py",
+    "tests/test_tail_sampling.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "87107f48122ada477e1aae26cb735707b4c815b1",
+   "parent": "26708835626b6e4c152476c4c641a352c1ccc539",
+   "date": "2026-08-27T18:04:36+00:00",
+   "subject": "[codex] Fix Pydantic default third-party filtering (#2054)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_pydantic_plugin.py"
+   ],
+   "source_files": [
+    "logfire/_internal/config.py",
+    "logfire/_internal/main.py",
+    "logfire/_internal/stack_info.py",
+    "logfire/integrations/pydantic.py"
+   ],
+   "source_lines": 55,
+   "all_files": [
+    "docs/integrations/pydantic.md",
+    "logfire/_internal/config.py",
+    "logfire/_internal/main.py",
+    "logfire/_internal/stack_info.py",
+    "logfire/integrations/pydantic.py",
+    "tests/test_pydantic_plugin.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "d08f3a71918929e2cf949c0d576ea17976a12c53",
+   "parent": "2420f25c5b2c6132e404a54cdb4383fceffe797e",
+   "date": "2026-08-31T13:21:40+00:00",
+   "subject": "Handle backend 413 responses for span exports (#2338)",
+   "type": "other",
+   "test_files": [
+    "tests/exporters/test_otlp_session.py",
+    "tests/exporters/test_retry_fewer_spans.py"
+   ],
+   "source_files": [
+    "logfire/_internal/exporters/otlp.py"
+   ],
+   "source_lines": 88,
+   "all_files": [
+    "logfire/_internal/exporters/otlp.py",
+    "tests/exporters/test_otlp_session.py",
+    "tests/exporters/test_retry_fewer_spans.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "c9fc1ac3ae6ec2c62ff91025fa66f2bdfe083da8",
+   "parent": "d12dfc5472d713244fca81e218aabcc4241e0e87",
+   "date": "2026-09-02T11:26:20+00:00",
+   "subject": "Skip the Logfire token check inside AWS Lambda (#2345)",
+   "type": "other",
+   "test_files": [
+    "tests/test_configure.py"
+   ],
+   "source_files": [
+    "logfire/_internal/config.py",
+    "logfire/_internal/utils.py"
+   ],
+   "source_lines": 21,
+   "all_files": [
+    "logfire/_internal/config.py",
+    "logfire/_internal/utils.py",
+    "tests/test_configure.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "17ae1ca6dbb454bb48ce7fa0d2dce902e94f73f2",
+   "parent": "14589b71c72214ac2319d0757011e7a8c04f5ba7",
+   "date": "2026-09-04T10:11:54+00:00",
+   "subject": "Record `input_data` on logs produced by `logfire.instrument_pydantic(record='failure')` (#2352)",
+   "type": "other",
+   "test_files": [
+    "tests/test_pydantic_plugin.py"
+   ],
+   "source_files": [
+    "logfire/integrations/pydantic.py"
+   ],
+   "source_lines": 22,
+   "all_files": [
+    "logfire/integrations/pydantic.py",
+    "tests/test_pydantic_plugin.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "f795ab168bc6ba683e81eea29dbcda8ba8bb1083",
+   "parent": "f1c8da6384fea866ac75ed6a1de66b6113eb6f43",
+   "date": "2026-09-04T10:55:10+00:00",
+   "subject": "Remove deprecated CLI --logfire-url option (#2362)",
+   "type": "other",
+   "test_files": [
+    "tests/test_cli.py"
+   ],
+   "source_files": [
+    "logfire/_internal/cli/__init__.py"
+   ],
+   "source_lines": 12,
+   "all_files": [
+    "logfire/_internal/cli/__init__.py",
+    "tests/test_cli.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "c5b723641bb00c760ffba0beef801bf4494d11f8",
+   "parent": "f795ab168bc6ba683e81eea29dbcda8ba8bb1083",
+   "date": "2026-09-04T10:56:32+00:00",
+   "subject": "Remove deprecated Flask exclude_urls argument (#2360)",
+   "type": "other",
+   "test_files": [
+    "tests/otel_integrations/test_flask.py"
+   ],
+   "source_files": [
+    "logfire/_internal/integrations/flask.py"
+   ],
+   "source_lines": 7,
+   "all_files": [
+    "logfire/_internal/integrations/flask.py",
+    "tests/otel_integrations/test_flask.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "7a339b4a92f9745228d0dc0789ef479b11bbbb8f",
+   "parent": "eb46d648688d198fea5dd5516b3e058bb0f84287",
+   "date": "2026-09-04T11:22:45+00:00",
+   "subject": "Remove deprecated configure arguments (#2359)",
+   "type": "other",
+   "test_files": [
+    "tests/test_configure.py",
+    "tests/test_secret_scrubbing.py",
+    "tests/test_tail_sampling.py"
+   ],
+   "source_files": [
+    "logfire/_internal/config.py"
+   ],
+   "source_lines": 115,
+   "all_files": [
+    "logfire/_internal/config.py",
+    "tests/test_configure.py",
+    "tests/test_secret_scrubbing.py",
+    "tests/test_tail_sampling.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "ef6be7c048db1ce39e7c00f54eaa7b8ed2ebb322",
+   "parent": "8eef023ab3cb952c8e3df18158f95528621d5249",
+   "date": "2026-09-04T11:45:36+00:00",
+   "subject": "Default OpenAI and Anthropic instrumentation to new `version=2` (#2363)",
+   "type": "other",
+   "test_files": [
+    "tests/otel_integrations/test_anthropic.py",
+    "tests/otel_integrations/test_openai.py"
+   ],
+   "source_files": [
+    "logfire/_internal/integrations/llm_providers/anthropic.py",
+    "logfire/_internal/integrations/llm_providers/openai.py",
+    "logfire/_internal/integrations/llm_providers/semconv.py",
+    "logfire/_internal/main.py"
+   ],
+   "source_lines": 109,
+   "all_files": [
+    "docs/integrations/llms/anthropic.md",
+    "docs/integrations/llms/openai.md",
+    "logfire-api/logfire_api/_internal/main.pyi",
+    "logfire/_internal/integrations/llm_providers/anthropic.py",
+    "logfire/_internal/integrations/llm_providers/openai.py",
+    "logfire/_internal/integrations/llm_providers/semconv.py",
+    "logfire/_internal/main.py",
+    "tests/otel_integrations/test_anthropic.py",
+    "tests/otel_integrations/test_openai.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "0157bc3713c6d582fa3be0b5827e63476aa27921",
+   "parent": "75f21f25b5f434f5da80939487214c5ed8938ebc",
+   "date": "2026-09-04T12:44:24+00:00",
+   "subject": "Make managed variable pushes strict by default (#2368)",
+   "type": "other",
+   "test_files": [
+    "tests/test_push_variables.py",
+    "tests/test_variables.py"
+   ],
+   "source_files": [
+    "logfire/_internal/main.py",
+    "logfire/variables/abstract.py"
+   ],
+   "source_lines": 24,
+   "all_files": [
+    "docs/reference/advanced/managed-variables/remote.md",
+    "docs/reference/advanced/managed-variables/templates-and-composition.md",
+    "logfire-api/logfire_api/_internal/main.pyi",
+    "logfire-api/logfire_api/variables/abstract.pyi",
+    "logfire/_internal/main.py",
+    "logfire/variables/abstract.py",
+    "tests/test_push_variables.py",
+    "tests/test_variables.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "a02823af4b181a5d9cd35a7d1c7cf81097aa97c3",
+   "parent": "0157bc3713c6d582fa3be0b5827e63476aa27921",
+   "date": "2026-09-04T12:45:34+00:00",
+   "subject": "Report failures from every force_flush pipeline (#2366)",
+   "type": "other",
+   "test_files": [
+    "tests/test_configure.py",
+    "tests/test_logfire_api.py"
+   ],
+   "source_files": [
+    "logfire-api/logfire_api/__init__.py",
+    "logfire/_internal/config.py",
+    "logfire/_internal/main.py"
+   ],
+   "source_lines": 21,
+   "all_files": [
+    "logfire-api/logfire_api/__init__.py",
+    "logfire-api/logfire_api/_internal/config.pyi",
+    "logfire-api/logfire_api/_internal/main.pyi",
+    "logfire/_internal/config.py",
+    "logfire/_internal/main.py",
+    "tests/test_configure.py",
+    "tests/test_logfire_api.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "db2398f7f9c4aae22412b94aa2b1c29c8bee378c",
+   "parent": "a02823af4b181a5d9cd35a7d1c7cf81097aa97c3",
+   "date": "2026-09-04T13:58:59+00:00",
+   "subject": "Preserve OpenAI cost on deduplicated Agents spans (#2346)",
+   "type": "other",
+   "test_files": [
+    "tests/otel_integrations/test_openai_agents.py",
+    "tests/otel_integrations/test_openai_agents_mcp.py"
+   ],
+   "source_files": [
+    "logfire/_internal/integrations/openai_agents.py"
+   ],
+   "source_lines": 33,
+   "all_files": [
+    "logfire/_internal/integrations/openai_agents.py",
+    "tests/otel_integrations/test_openai_agents.py",
+    "tests/otel_integrations/test_openai_agents_mcp.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "25e991fd55f878f6a4c33b0f56c3efdb37614be2",
+   "parent": "7a31449e789ca75f6a622c07ff4001b86c394189",
+   "date": "2026-09-07T09:53:04+00:00",
+   "subject": "fix: require path boundaries for non-user code (#2375)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_stack_info.py"
+   ],
+   "source_files": [
+    "logfire/_internal/stack_info.py"
+   ],
+   "source_lines": 3,
+   "all_files": [
+    "logfire/_internal/stack_info.py",
+    "tests/test_stack_info.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "bb1764921b11efe0cabebff52d681b2f829654b0",
+   "parent": "5905b8e090fa1be4d0f0c521baf206a29c4d09cb",
+   "date": "2026-09-11T09:03:39+00:00",
+   "subject": "Prevent OpenTelemetry logging from deadlocking during flush (#2404)",
+   "type": "other",
+   "test_files": [
+    "tests/test_otel_logs.py"
+   ],
+   "source_files": [
+    "logfire/_internal/logs.py"
+   ],
+   "source_lines": 5,
+   "all_files": [
+    "logfire/_internal/logs.py",
+    "tests/test_otel_logs.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "665a09994f7b093039175794c7f34f1b994a4956",
+   "parent": "243a208d4dfd698e79e9ed07d0507503975fdad0",
+   "date": "2026-09-16T11:57:43+00:00",
+   "subject": "Support console scripts in logfire run (#2427)",
+   "type": "other",
+   "test_files": [
+    "tests/test_cli.py"
+   ],
+   "source_files": [
+    "logfire-sdk/logfire/_internal/cli/run.py"
+   ],
+   "source_lines": 52,
+   "all_files": [
+    "docs/reference/cli.md",
+    "logfire-sdk/logfire/_internal/cli/run.py",
+    "tests/test_cli.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "e9eefb6735e34782baf5c87e66cfd247457d5b8c",
+   "parent": "3b82e4eaafc81db3f69c37c193d960dbdcdf5f96",
+   "date": "2026-09-18T10:20:51-06:00",
+   "subject": "Make `instrument_mcp()` work with mcp 2 / fastmcp 4 (#2439)",
+   "type": "other",
+   "test_files": [
+    "tests/conftest.py",
+    "tests/otel_integrations/test_mcp_v2.py",
+    "tests/otel_integrations/test_mcp_version_detection.py"
+   ],
+   "source_files": [
+    "logfire-sdk/logfire/_internal/integrations/mcp.py",
+    "logfire-sdk/logfire/_internal/main.py"
+   ],
+   "source_lines": 26,
+   "all_files": [
+    ".github/workflows/main.yml",
+    "docs/integrations/llms/mcp.md",
+    "logfire-sdk/logfire/.agents/skills/logfire-instrumentation/references/python/integrations.md",
+    "logfire-sdk/logfire/_internal/integrations/mcp.py",
+    "logfire-sdk/logfire/_internal/main.py",
+    "tests/conftest.py",
+    "tests/otel_integrations/test_mcp_v2.py",
+    "tests/otel_integrations/test_mcp_version_detection.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "39769404c97fd0d4043eae251096a74a2f925815",
+   "parent": "6a431322e795ba2d017b5c6e5abb36b3f85f1cde",
+   "date": "2026-09-23T16:37:56-05:00",
+   "subject": "Enable TCP keepalive and recycle idle connections in Logfire's HTTP sessions (#2309)",
+   "type": "other",
+   "test_files": [
+    "tests/test_http_transport.py"
+   ],
+   "source_files": [
+    "logfire-sdk/logfire/_internal/cli/__init__.py",
+    "logfire-sdk/logfire/_internal/client.py",
+    "logfire-sdk/logfire/_internal/config.py",
+    "logfire-sdk/logfire/_internal/exporters/otlp.py",
+    "logfire-sdk/logfire/_internal/http_transport.py",
+    "logfire-sdk/logfire/variables/remote.py"
+   ],
+   "source_lines": 232,
+   "all_files": [
+    "logfire-sdk/logfire/_internal/cli/__init__.py",
+    "logfire-sdk/logfire/_internal/client.py",
+    "logfire-sdk/logfire/_internal/config.py",
+    "logfire-sdk/logfire/_internal/exporters/otlp.py",
+    "logfire-sdk/logfire/_internal/http_transport.py",
+    "logfire-sdk/logfire/variables/remote.py",
+    "tests/test_http_transport.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "f76dbf5c059583b6b8c27baa69976c6151731490",
+   "parent": "9a4ded2d6032e83e7e95902d7b9f04567a4fe006",
+   "date": "2026-09-24T23:13:22-05:00",
+   "subject": "Configure proxy managers before other threads can use them (#2479)",
+   "type": "other",
+   "test_files": [
+    "tests/test_http_transport.py"
+   ],
+   "source_files": [
+    "logfire-sdk/logfire/_internal/http_transport.py"
+   ],
+   "source_lines": 16,
+   "all_files": [
+    "logfire-sdk/logfire/_internal/http_transport.py",
+    "tests/test_http_transport.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "928df4a9e944b25a3bf2ffc3a9800f9595be6a88",
+   "parent": "2273e1713efe9fb56440b2481831d0a846d79994",
+   "date": "2026-10-05T17:53:29+00:00",
+   "subject": "Allow console attributes without verbose output (#2488)",
+   "type": "other",
+   "test_files": [
+    "tests/test_console_exporter.py"
+   ],
+   "source_files": [
+    "logfire-sdk/logfire/_internal/config.py",
+    "logfire-sdk/logfire/_internal/config_params.py",
+    "logfire-sdk/logfire/_internal/exporters/console.py"
+   ],
+   "source_lines": 26,
+   "all_files": [
+    "logfire-sdk/logfire/_internal/config.py",
+    "logfire-sdk/logfire/_internal/config_params.py",
+    "logfire-sdk/logfire/_internal/exporters/console.py",
+    "tests/test_console_exporter.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "d42d828a96298588f3b3a0e68d9d8bad590de24b",
+   "parent": "928df4a9e944b25a3bf2ffc3a9800f9595be6a88",
+   "date": "2026-10-06T02:50:13+02:00",
+   "subject": "Keep span message in sync with the name after update_name (#2514)",
+   "type": "other",
+   "test_files": [
+    "tests/otel_integrations/test_mcp_v2.py",
+    "tests/test_logfire.py"
+   ],
+   "source_files": [
+    "logfire-sdk/logfire/_internal/tracer.py"
+   ],
+   "source_lines": 12,
+   "all_files": [
+    "logfire-sdk/logfire/_internal/tracer.py",
+    "tests/otel_integrations/test_mcp_v2.py",
+    "tests/test_logfire.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "d6e5910bfb8fb8a34444ceece39c5cbd4dadd3ac",
+   "parent": "d42d828a96298588f3b3a0e68d9d8bad590de24b",
+   "date": "2026-10-06T19:37:59+00:00",
+   "subject": "Expose RFC 9457 problem details on query client errors (#2511)",
+   "type": "other",
+   "test_files": [
+    "tests/test_query_client_errors.py"
+   ],
+   "source_files": [
+    "logfire-sdk/logfire/query_client.py"
+   ],
+   "source_lines": 131,
+   "all_files": [
+    "logfire-api/logfire_api/query_client.pyi",
+    "logfire-sdk/logfire/query_client.py",
+    "tests/test_query_client_errors.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "bae9db2c9926bdde91feae92ba9f423ebe95ed55",
+   "parent": "d6e5910bfb8fb8a34444ceece39c5cbd4dadd3ac",
+   "date": "2026-10-06T21:27:47+00:00",
+   "subject": "Read stable HTTP semconv attributes when building HTTP span messages (#2516)",
+   "type": "other",
+   "test_files": [
+    "tests/otel_integrations/test_elasticsearch.py",
+    "tests/test_logfire.py"
+   ],
+   "source_files": [
+    "logfire-sdk/logfire/_internal/exporters/processor_wrapper.py"
+   ],
+   "source_lines": 35,
+   "all_files": [
+    "logfire-sdk/logfire/_internal/exporters/processor_wrapper.py",
+    "tests/otel_integrations/test_elasticsearch.py",
+    "tests/test_logfire.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "b5ef755b0922fd662c6c236d6c5bd78cbe09e943",
+   "parent": "2c7caa6b86cec444c2cfc494a3dc866366035e61",
+   "date": "2026-10-08T16:47:38+00:00",
+   "subject": "Convert span attribute ints below the int64 minimum to strings (#2502)",
+   "type": "other",
+   "test_files": [
+    "tests/test_logfire.py"
+   ],
+   "source_files": [
+    "logfire-sdk/logfire/_internal/main.py"
+   ],
+   "source_lines": 7,
+   "all_files": [
+    "logfire-sdk/logfire/_internal/main.py",
+    "tests/test_logfire.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "fff13f16d73fe6dbe64a654c9d1150128aafd58a",
+   "parent": "b5ef755b0922fd662c6c236d6c5bd78cbe09e943",
+   "date": "2026-10-08T17:02:30+00:00",
+   "subject": "Respect repr=False when logging attrs fields (#2518)",
+   "type": "other",
+   "test_files": [
+    "tests/test_json_args.py"
+   ],
+   "source_files": [
+    "logfire-sdk/logfire/_internal/json_encoder.py",
+    "logfire-sdk/logfire/_internal/json_schema.py"
+   ],
+   "source_lines": 4,
+   "all_files": [
+    "logfire-sdk/logfire/_internal/json_encoder.py",
+    "logfire-sdk/logfire/_internal/json_schema.py",
+    "tests/test_json_args.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "28fa49646bfb0681c3a0966ffd763c252c613324",
+   "parent": "af222d5453b1cba241e3ee0898d5e9ea50c16b2c",
+   "date": "2026-10-08T17:17:30+00:00",
+   "subject": "Create subprocess with no console windows on windows (#2507)",
+   "type": "other",
+   "test_files": [
+    "tests/test_configure.py"
+   ],
+   "source_files": [
+    "logfire-sdk/logfire/_internal/config.py"
+   ],
+   "source_lines": 11,
+   "all_files": [
+    "logfire-sdk/logfire/_internal/config.py",
+    "tests/test_configure.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "5bd2917be0b94920bb96e485cdf8cd57fc322f0e",
+   "parent": "3f521fd16d8139e807472545190f67471efe3658",
+   "date": "2026-10-08T17:45:15+00:00",
+   "subject": "Fix when logfire tries to access a file that has no permission (#2464)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_configure.py"
+   ],
+   "source_files": [
+    "logfire-sdk/logfire/_internal/config_params.py"
+   ],
+   "source_lines": 8,
+   "all_files": [
+    "logfire-sdk/logfire/_internal/config_params.py",
+    "tests/test_configure.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "650cfd50208f8f8c92daa805023e0fdfee3c4fe0",
+   "parent": "392f85b2452dc62b263fcc772eecd95ccefa8a04",
+   "date": "2026-10-08T18:23:32+00:00",
+   "subject": "fix: do not treat non-retryable DiskRetryer responses as success (#2529)",
+   "type": "fix",
+   "test_files": [
+    "tests/exporters/test_otlp_session.py"
+   ],
+   "source_files": [
+    "logfire-sdk/logfire/_internal/exporters/otlp.py"
+   ],
+   "source_lines": 16,
+   "all_files": [
+    "logfire-sdk/logfire/_internal/exporters/otlp.py",
+    "tests/exporters/test_otlp_session.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "914a18b990cb0f25878bc3347b72f9ce2aaa8d54",
+   "parent": "0396c99ba168c4881b07f143846afba454dcd463",
+   "date": "2026-10-08T19:37:33+00:00",
+   "subject": "fix explicit context for logfire metrics (#2532)",
+   "type": "fix",
+   "test_files": [
+    "tests/otel_integrations/test_starlette.py",
+    "tests/otel_integrations/test_wsgi.py",
+    "tests/test_metrics.py"
+   ],
+   "source_files": [
+    "logfire-sdk/logfire/_internal/metrics.py",
+    "logfire-sdk/logfire/_internal/tracer.py"
+   ],
+   "source_lines": 26,
+   "all_files": [
+    "logfire-sdk/logfire/_internal/metrics.py",
+    "logfire-sdk/logfire/_internal/tracer.py",
+    "tests/otel_integrations/test_starlette.py",
+    "tests/otel_integrations/test_wsgi.py",
+    "tests/test_metrics.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "16a8b97ca166df4223df77c2fd17a38a055799ee",
+   "parent": "84d0554ecdff7d10f7c23b095841d3ff8a9b8466",
+   "date": "2026-10-09T15:17:45+00:00",
+   "subject": "Fix OTLP byte POST retries through Session.request (#2503)",
+   "type": "fix",
+   "test_files": [
+    "tests/exporters/test_otlp_session.py"
+   ],
+   "source_files": [
+    "logfire-sdk/logfire/_internal/exporters/otlp.py"
+   ],
+   "source_lines": 11,
+   "all_files": [
+    "logfire-sdk/logfire/_internal/exporters/otlp.py",
+    "tests/exporters/test_otlp_session.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "e00fed0f6eef1bd6e5b0271b91bdcf9d0a31968c",
+   "parent": "2b4ff40bb7cc0de312cacab439f462501b220727",
+   "date": "2026-10-09T21:45:02+02:00",
+   "subject": "Handle project setup for accounts without organizations (#2469)",
+   "type": "other",
+   "test_files": [
+    "tests/test_cli.py",
+    "tests/test_configure.py"
+   ],
+   "source_files": [
+    "logfire-sdk/logfire/_internal/config.py"
+   ],
+   "source_lines": 21,
+   "all_files": [
+    "logfire-sdk/logfire/_internal/config.py",
+    "tests/test_cli.py",
+    "tests/test_configure.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "827bd3d101e284f0bcb0bea451af55ae70b667a5",
+   "parent": "40c7d44590d6c1294ed8cd4873fa95fbee9b716b",
+   "date": "2026-10-13T13:48:17+00:00",
+   "subject": "Treat `logfire.tags` passed through logging and loguru as log tags (#2550)",
+   "type": "other",
+   "test_files": [
+    "tests/test_loguru.py",
+    "tests/test_stdlib_logging.py"
+   ],
+   "source_files": [
+    "logfire-sdk/logfire/integrations/logging.py"
+   ],
+   "source_lines": 5,
+   "all_files": [
+    "logfire-sdk/logfire/integrations/logging.py",
+    "tests/test_loguru.py",
+    "tests/test_stdlib_logging.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "9ea959b6c76b0e8486352f2d2d2b52e8c3db9f73",
+   "parent": "827bd3d101e284f0bcb0bea451af55ae70b667a5",
+   "date": "2026-10-13T14:00:32+00:00",
+   "subject": "Format range attributes in the console exporter (#2534)",
+   "type": "other",
+   "test_files": [
+    "tests/test_console_exporter.py",
+    "tests/test_json_args_formatting.py"
+   ],
+   "source_files": [
+    "logfire-sdk/logfire/_internal/json_formatter.py",
+    "logfire-sdk/logfire/_internal/json_types.py"
+   ],
+   "source_lines": 15,
+   "all_files": [
+    "logfire-sdk/logfire/_internal/json_formatter.py",
+    "logfire-sdk/logfire/_internal/json_types.py",
+    "tests/test_console_exporter.py",
+    "tests/test_json_args_formatting.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "2c1a5e34301e7afa73e2de1d774c333c05c2db48",
+   "parent": "9ea959b6c76b0e8486352f2d2d2b52e8c3db9f73",
+   "date": "2026-10-13T14:08:25+00:00",
+   "subject": "Clarify CLI account switching and logout scope (#2552)",
+   "type": "other",
+   "test_files": [
+    "tests/test_cli.py"
+   ],
+   "source_files": [
+    "logfire-sdk/logfire/_internal/cli/__init__.py",
+    "logfire-sdk/logfire/_internal/cli/auth.py"
+   ],
+   "source_lines": 14,
+   "all_files": [
+    "docs/reference/cli.md",
+    "logfire-sdk/logfire/_internal/cli/__init__.py",
+    "logfire-sdk/logfire/_internal/cli/auth.py",
+    "tests/test_cli.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "40c7d44590d6c1294ed8cd4873fa95fbee9b716b",
+   "parent": "199cc4df2dec0944015344fae467dba258fbd3a0",
+   "date": "2026-10-13T15:39:33+02:00",
+   "subject": "Scrub OAuth-style token names (access_token, refresh_token, id_token, bearer_token) by default (#2551)",
+   "type": "other",
+   "test_files": [
+    "tests/test_secret_scrubbing.py"
+   ],
+   "source_files": [
+    "logfire-sdk/logfire/_internal/scrubbing.py"
+   ],
+   "source_lines": 4,
+   "all_files": [
+    "docs/how-to-guides/scrubbing.md",
+    "logfire-sdk/logfire/_internal/scrubbing.py",
+    "tests/test_secret_scrubbing.py"
+   ]
+  },
+  {
+   "repo": "logfire",
+   "commit": "a91783ac3dc51a1e321150888f35f12093a2aa2a",
+   "parent": "2c1a5e34301e7afa73e2de1d774c333c05c2db48",
+   "date": "2026-10-13T15:41:04+00:00",
+   "subject": "Record response id and finish reasons for streamed OpenAI and Anthropic calls (#2545)",
+   "type": "other",
+   "test_files": [
+    "tests/otel_integrations/test_anthropic.py",
+    "tests/otel_integrations/test_openai.py"
+   ],
+   "source_files": [
+    "logfire-sdk/logfire/_internal/integrations/llm_providers/anthropic.py",
+    "logfire-sdk/logfire/_internal/integrations/llm_providers/openai.py"
+   ],
+   "source_lines": 10,
+   "all_files": [
+    "logfire-sdk/logfire/_internal/integrations/llm_providers/anthropic.py",
+    "logfire-sdk/logfire/_internal/integrations/llm_providers/openai.py",
+    "tests/otel_integrations/test_anthropic.py",
+    "tests/otel_integrations/test_openai.py"
+   ]
+  }
+ ]
+}

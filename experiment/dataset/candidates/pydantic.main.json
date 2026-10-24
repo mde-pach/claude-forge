@@ -1,0 +1,1598 @@
+{
+ "repo": "pydantic",
+ "window": "main",
+ "range": [
+  "2026-07-01T00:00:00Z",
+  "2026-10-15T00:00:00Z"
+ ],
+ "drops": {
+  "no_test_change": 102,
+  "no_source_change": 29,
+  "revert": 5,
+  "bot_author": 38,
+  "source_lines_out_of_range": 11,
+  "dependency_manifest_or_lock_changed": 8
+ },
+ "candidates": [
+  {
+   "repo": "pydantic",
+   "commit": "85b70e919ec2738efd1d6ee1095dd24477454fbc",
+   "parent": "9dc25d6b97303ad9587051e90584489b16fa54c5",
+   "date": "2026-07-03T07:27:08+00:00",
+   "subject": "Fix type variable substitution in `__pydantic_extra__` (#13391)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_forward_ref.py",
+    "tests/test_main.py"
+   ],
+   "source_files": [
+    "pydantic/_internal/_fields.py",
+    "pydantic/_internal/_model_construction.py"
+   ],
+   "source_lines": 23,
+   "all_files": [
+    "pydantic/_internal/_fields.py",
+    "pydantic/_internal/_model_construction.py",
+    "tests/test_forward_ref.py",
+    "tests/test_main.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "c9688f493b052aece7a0c2947e2af5a068c4304a",
+   "parent": "d21c861cc4f25134ef89d4a2305837d630f3a7fb",
+   "date": "2026-07-04T10:51:58+02:00",
+   "subject": "Cache `ModelPrivateAttr.default_factory_takes_validated_data` property (#13390)",
+   "type": "other",
+   "test_files": [
+    "tests/test_fields.py",
+    "tests/test_internal.py"
+   ],
+   "source_files": [
+    "pydantic/_internal/_fields.py",
+    "pydantic/fields.py"
+   ],
+   "source_lines": 27,
+   "all_files": [
+    "pydantic/_internal/_fields.py",
+    "pydantic/fields.py",
+    "tests/test_fields.py",
+    "tests/test_internal.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "d398a5f601ee33f148bd09b7d117e430d761ee47",
+   "parent": "d6837e273287b3de161c5e6d62615c79224c1b8f",
+   "date": "2026-07-06T08:04:40+00:00",
+   "subject": "Fix `json_schema_extra` dict being dropped when a callable follows it in `Annotated` (#13374)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_json_schema.py"
+   ],
+   "source_files": [
+    "pydantic/fields.py"
+   ],
+   "source_lines": 4,
+   "all_files": [
+    "pydantic/fields.py",
+    "tests/test_json_schema.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "3c93308270804578a5a368d5fe4b661e76a9a8c4",
+   "parent": "f59e929c999e8b2efc7b12fd0bc1685c1a186be3",
+   "date": "2026-07-13T19:55:47+00:00",
+   "subject": "Skip `RootModel.__init__()` in Mypy plugin (#13441)",
+   "type": "other",
+   "test_files": [
+    "tests/mypy/modules/root_models.py",
+    "tests/mypy/outputs/mypy-default_ini/root_models.py",
+    "tests/mypy/outputs/mypy-plugin_ini/root_models.py",
+    "tests/mypy/outputs/pyproject-default_toml/root_models.py"
+   ],
+   "source_files": [
+    "pydantic/mypy.py"
+   ],
+   "source_lines": 11,
+   "all_files": [
+    "pydantic/mypy.py",
+    "tests/mypy/modules/root_models.py",
+    "tests/mypy/outputs/mypy-default_ini/root_models.py",
+    "tests/mypy/outputs/mypy-plugin_ini/root_models.py",
+    "tests/mypy/outputs/pyproject-default_toml/root_models.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "c47bba2cde81aa7d9374119bebea48e435e98627",
+   "parent": "3c93308270804578a5a368d5fe4b661e76a9a8c4",
+   "date": "2026-07-13T20:22:03+00:00",
+   "subject": "Defer placeholders in Mypy plugin (#13442)",
+   "type": "other",
+   "test_files": [
+    "tests/mypy/modules/generics.py"
+   ],
+   "source_files": [
+    "pydantic/mypy.py"
+   ],
+   "source_lines": 8,
+   "all_files": [
+    "pydantic/mypy.py",
+    "tests/mypy/modules/generics.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "92462ee5a5200e8f21825023b83fccb9d4ee63c5",
+   "parent": "220cd3d21c6192eee72ecf8a4d5636f6931fd7f8",
+   "date": "2026-07-16T20:47:51+00:00",
+   "subject": "Sync `RootModel.model_dump()` signature with its parent (#13456)",
+   "type": "other",
+   "test_files": [
+    "tests/test_root_model.py"
+   ],
+   "source_files": [
+    "pydantic/root_model.py"
+   ],
+   "source_lines": 55,
+   "all_files": [
+    "pydantic/root_model.py",
+    "tests/test_root_model.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "bcdee29e0943f0cd1ce9d1da3aeeb2fb87cf0a16",
+   "parent": "2154ed1b52df28fb9124e4a46122569b6da45d2e",
+   "date": "2026-07-16T22:13:57+02:00",
+   "subject": "Make model rebuilding logic thread safe (#13438)",
+   "type": "other",
+   "test_files": [
+    "tests/test_main.py"
+   ],
+   "source_files": [
+    "pydantic/dataclasses.py",
+    "pydantic/main.py"
+   ],
+   "source_lines": 89,
+   "all_files": [
+    "pydantic/dataclasses.py",
+    "pydantic/main.py",
+    "tests/test_main.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "ea09770482bc019d981d4ffb14214286e3c26f13",
+   "parent": "bcdee29e0943f0cd1ce9d1da3aeeb2fb87cf0a16",
+   "date": "2026-07-16T22:22:27+02:00",
+   "subject": "Use versioned docs links in runtime messages (#13418)",
+   "type": "other",
+   "test_files": [
+    "tests/test_migration.py",
+    "tests/test_validators.py"
+   ],
+   "source_files": [
+    "pydantic/_migration.py",
+    "pydantic/main.py"
+   ],
+   "source_lines": 5,
+   "all_files": [
+    "pydantic/_migration.py",
+    "pydantic/main.py",
+    "tests/test_migration.py",
+    "tests/test_validators.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "3ce9b13630b42813ab9ddf5c58fce110541e83a8",
+   "parent": "ea09770482bc019d981d4ffb14214286e3c26f13",
+   "date": "2026-07-16T22:33:23+02:00",
+   "subject": "Fix `Interval` zero bounds silently dropped in pipeline API (#13452)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_pipeline.py"
+   ],
+   "source_files": [
+    "pydantic/experimental/pipeline.py"
+   ],
+   "source_lines": 8,
+   "all_files": [
+    "pydantic/experimental/pipeline.py",
+    "tests/test_pipeline.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "2294b52862478f3ef0fa0afd3cfdc9acba3881b0",
+   "parent": "7c40628e1b941f5f3912643e7e397c469c07ad66",
+   "date": "2026-07-20T08:43:07+00:00",
+   "subject": "Fix type variable substitution in `__pydantic_extra__` with subclasses (#13483)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_main.py"
+   ],
+   "source_files": [
+    "pydantic/_internal/_fields.py"
+   ],
+   "source_lines": 37,
+   "all_files": [
+    "pydantic/_internal/_fields.py",
+    "tests/test_main.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "a187a65467a588ccc00761d80f325b45381ca819",
+   "parent": "c18c773f9b48df16206c9f9c19c2bc1be77dd045",
+   "date": "2026-07-27T09:58:12+02:00",
+   "subject": "Return `NotImplemented` from URL ordering comparisons with foreign types (#13495)",
+   "type": "other",
+   "test_files": [
+    "tests/test_networks.py"
+   ],
+   "source_files": [
+    "pydantic/networks.py"
+   ],
+   "source_lines": 16,
+   "all_files": [
+    "pydantic/networks.py",
+    "tests/test_networks.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "05bc5da8b40540eee8491ec5e81622b36f7db12f",
+   "parent": "a187a65467a588ccc00761d80f325b45381ca819",
+   "date": "2026-07-27T22:43:50+02:00",
+   "subject": "Fix access of annotations in `safe_get_annotations()` in Python <= 3.13 (#13521)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_edge_cases.py"
+   ],
+   "source_files": [
+    "pydantic/_internal/_typing_extra.py"
+   ],
+   "source_lines": 5,
+   "all_files": [
+    "pydantic/_internal/_typing_extra.py",
+    "tests/test_edge_cases.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "60d4c4873e44d587c8d70d7a1c731f7361fe55eb",
+   "parent": "d0ffa0951e47fd7349032e4b2ea9a54dc28fd435",
+   "date": "2026-07-29T10:30:58+01:00",
+   "subject": "Fix application of constraints in pipeline API (#13516)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_pipeline.py"
+   ],
+   "source_files": [
+    "pydantic/experimental/pipeline.py"
+   ],
+   "source_lines": 66,
+   "all_files": [
+    "pydantic/experimental/pipeline.py",
+    "tests/test_pipeline.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "a54529f06204ecb8f940d2506ff66dd1521917c8",
+   "parent": "60d4c4873e44d587c8d70d7a1c731f7361fe55eb",
+   "date": "2026-07-29T10:32:39+01:00",
+   "subject": "Don't error on unhashable generic arguments on generic Pydantic models (#13515)",
+   "type": "other",
+   "test_files": [
+    "tests/test_generics.py"
+   ],
+   "source_files": [
+    "pydantic/_internal/_generics.py"
+   ],
+   "source_lines": 30,
+   "all_files": [
+    "pydantic/_internal/_generics.py",
+    "tests/test_generics.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "35b8d94c1435a3e78fc919cfdb439a1ef85a8d6f",
+   "parent": "a54529f06204ecb8f940d2506ff66dd1521917c8",
+   "date": "2026-07-29T16:06:51+02:00",
+   "subject": "Fix `SecretStr` equality comparison raising `TypeError` on non-ASCII values (#13537)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_types.py"
+   ],
+   "source_files": [
+    "pydantic/types.py"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    "pydantic/types.py",
+    "tests/test_types.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "92c882024cc5b6fd13010b6948cdf36c8f159a36",
+   "parent": "f3a41a2c2c81758ce0e96df8788ed95db042946c",
+   "date": "2026-08-03T14:32:06+02:00",
+   "subject": "Fix serialization of `ValidateAs` (#13487)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_types.py"
+   ],
+   "source_files": [
+    "pydantic/functional_validators.py"
+   ],
+   "source_lines": 23,
+   "all_files": [
+    "pydantic/functional_validators.py",
+    "tests/test_types.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "c4eac98eba19e48fc4414a33f973299b08f3ac55",
+   "parent": "c333d775d49cfa91ab2686d11f9002ea1933ec16",
+   "date": "2026-08-03T19:07:38+00:00",
+   "subject": "Add support for `EllipsisType` (#13484)",
+   "type": "feat",
+   "test_files": [
+    "pydantic-core/tests/test_errors.py",
+    "pydantic-core/tests/test_schema_functions.py",
+    "tests/test_json_schema.py",
+    "tests/types/test_ellipsis.py"
+   ],
+   "source_files": [
+    "pydantic-core/python/pydantic_core/core_schema.py",
+    "pydantic/_internal/_generate_schema.py",
+    "pydantic/json_schema.py"
+   ],
+   "source_lines": 38,
+   "all_files": [
+    "docs/errors/validation_errors.md",
+    "pydantic-core/python/pydantic_core/core_schema.py",
+    "pydantic-core/src/errors/types.rs",
+    "pydantic-core/src/serializers/shared.rs",
+    "pydantic-core/src/serializers/type_serializers/ellipsis.rs",
+    "pydantic-core/src/serializers/type_serializers/mod.rs",
+    "pydantic-core/src/validators/ellipsis.rs",
+    "pydantic-core/src/validators/mod.rs",
+    "pydantic-core/tests/test_errors.py",
+    "pydantic-core/tests/test_schema_functions.py",
+    "pydantic/_internal/_generate_schema.py",
+    "pydantic/json_schema.py",
+    "tests/test_json_schema.py",
+    "tests/types/test_ellipsis.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "17e2ddaffe41a619aaf9c4dc67c0995aa8016af2",
+   "parent": "d4bf6f9dd8496063592d11e3a910a01077bf7680",
+   "date": "2026-08-03T20:31:32+02:00",
+   "subject": "Allow reuse of validators when plugins are set (#13535)",
+   "type": "other",
+   "test_files": [
+    "pydantic-core/tests/test_prebuilt.py",
+    "tests/test_plugins.py"
+   ],
+   "source_files": [
+    "pydantic/plugin/_schema_validator.py"
+   ],
+   "source_lines": 9,
+   "all_files": [
+    "pydantic-core/src/validators/prebuilt.rs",
+    "pydantic-core/tests/test_prebuilt.py",
+    "pydantic/plugin/_schema_validator.py",
+    "tests/test_plugins.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "c333d775d49cfa91ab2686d11f9002ea1933ec16",
+   "parent": "b75fadbaa55d4d700a388f1b67683ef0be0ed540",
+   "date": "2026-08-03T20:54:04+02:00",
+   "subject": "Avoid exponential core schema traversal in `gather_schemas_for_cleaning()` (#13523)",
+   "type": "other",
+   "test_files": [
+    "tests/test_edge_cases.py"
+   ],
+   "source_files": [
+    "pydantic/_internal/_schema_gather.py"
+   ],
+   "source_lines": 40,
+   "all_files": [
+    "pydantic/_internal/_schema_gather.py",
+    "tests/test_edge_cases.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "57d0ad870110765089b6037313e8c4f507b7c4de",
+   "parent": "53b39c38c0628fc75010d24c198cf9bcfbe3698e",
+   "date": "2026-08-05T11:03:22+00:00",
+   "subject": "Raise explicit `TypeError` on invalid `index_key` serialization wrap handler (#13506)",
+   "type": "other",
+   "test_files": [
+    "tests/test_serialize.py"
+   ],
+   "source_files": [
+    "pydantic/functional_serializers.py"
+   ],
+   "source_lines": 49,
+   "all_files": [
+    "pydantic-core/src/serializers/type_serializers/function.rs",
+    "pydantic/functional_serializers.py",
+    "tests/test_serialize.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "53b39c38c0628fc75010d24c198cf9bcfbe3698e",
+   "parent": "98a08d3e4bd2a493bd3a779cd4591e196cdf1334",
+   "date": "2026-08-05T12:48:13+02:00",
+   "subject": "Add a `named-tuple` core schema (#13505)",
+   "type": "feat",
+   "test_files": [
+    "pydantic-core/tests/test_errors.py",
+    "pydantic-core/tests/test_schema_functions.py",
+    "tests/test_json_schema.py",
+    "tests/test_types_namedtuple.py",
+    "tests/types/test_namedtuple.py"
+   ],
+   "source_files": [
+    "pydantic-core/python/pydantic_core/core_schema.py",
+    "pydantic/_internal/_generate_schema.py",
+    "pydantic/_internal/_schema_gather.py",
+    "pydantic/json_schema.py"
+   ],
+   "source_lines": 212,
+   "all_files": [
+    "docs/api/standard_library_types.md",
+    "docs/errors/validation_errors.md",
+    "docs/plugins/conversion_table.py",
+    "pydantic-core/python/pydantic_core/core_schema.py",
+    "pydantic-core/src/errors/types.rs",
+    "pydantic-core/src/serializers/shared.rs",
+    "pydantic-core/src/serializers/type_serializers/mod.rs",
+    "pydantic-core/src/serializers/type_serializers/named_tuple.rs",
+    "pydantic-core/src/validators/mod.rs",
+    "pydantic-core/src/validators/named_tuple.rs",
+    "pydantic-core/tests/test_errors.py",
+    "pydantic-core/tests/test_schema_functions.py",
+    "pydantic/_internal/_generate_schema.py",
+    "pydantic/_internal/_schema_gather.py",
+    "pydantic/json_schema.py",
+    "tests/test_json_schema.py",
+    "tests/test_types_namedtuple.py",
+    "tests/types/test_namedtuple.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "9b4d952c59d64b940a0a2559299aff81243e1ded",
+   "parent": "5922459fcf33d9a8767fd0fd25a982bbf0d7668d",
+   "date": "2026-08-08T09:19:42+00:00",
+   "subject": "Fix support for callable discriminators with PEP 695 type aliases (#13604)",
+   "type": "fix",
+   "test_files": [
+    "tests/types/unions/test_discriminated_union.py"
+   ],
+   "source_files": [
+    "pydantic/_internal/_discriminated_union.py",
+    "pydantic/types.py"
+   ],
+   "source_lines": 39,
+   "all_files": [
+    "pydantic/_internal/_discriminated_union.py",
+    "pydantic/types.py",
+    "tests/types/unions/test_discriminated_union.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "cc13d1b8c978eaf78ed5308329cd41f03ecc3144",
+   "parent": "52fbbfa1dc14a9b1fc40a1e246a3cbf2ce4987d1",
+   "date": "2026-08-11T15:56:15+02:00",
+   "subject": "Fix JSON schema discriminator mapping keys for `bool` discriminators (#13632)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_json_schema.py"
+   ],
+   "source_files": [
+    "pydantic/json_schema.py"
+   ],
+   "source_lines": 4,
+   "all_files": [
+    "pydantic/json_schema.py",
+    "tests/test_json_schema.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "7d8e596aeab128b54d12d9b0e4799ac8d975544e",
+   "parent": "c04e41686b1e4338bd23da9b815c3e5108872631",
+   "date": "2026-08-16T20:22:18+00:00",
+   "subject": "Fix application of other constraints in the pipeline API (#13659)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_pipeline.py"
+   ],
+   "source_files": [
+    "pydantic/experimental/pipeline.py"
+   ],
+   "source_lines": 43,
+   "all_files": [
+    "pydantic/experimental/pipeline.py",
+    "tests/test_pipeline.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "9a8429701a327cb1218517cc43b2c01606938c2f",
+   "parent": "7d8e596aeab128b54d12d9b0e4799ac8d975544e",
+   "date": "2026-08-16T21:01:06+00:00",
+   "subject": "Support bare `None` annotation for discriminated unions (#13667)",
+   "type": "other",
+   "test_files": [
+    "tests/test_json_schema.py"
+   ],
+   "source_files": [
+    "pydantic-core/python/pydantic_core/core_schema.py",
+    "pydantic/_internal/_discriminated_union.py",
+    "pydantic/json_schema.py"
+   ],
+   "source_lines": 104,
+   "all_files": [
+    "pydantic-core/python/pydantic_core/core_schema.py",
+    "pydantic/_internal/_discriminated_union.py",
+    "pydantic/json_schema.py",
+    "tests/test_json_schema.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "6d03f94f7b470729822ce8c88f88cba0c411833a",
+   "parent": "9a8429701a327cb1218517cc43b2c01606938c2f",
+   "date": "2026-08-17T02:21:30+00:00",
+   "subject": "Take `ser_json_temporal` into account when generating JSON Schema (#13665)",
+   "type": "other",
+   "test_files": [
+    "tests/test_json_schema.py"
+   ],
+   "source_files": [
+    "pydantic/json_schema.py"
+   ],
+   "source_lines": 22,
+   "all_files": [
+    "pydantic/json_schema.py",
+    "tests/test_json_schema.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "31edf22f1738165cf220cd185fdf6b05d63f43fc",
+   "parent": "ce84b307de84b1a14638223f68f8866f55c286ad",
+   "date": "2026-08-17T06:53:38+00:00",
+   "subject": "Return `NotImplemented` from URL equality comparisons with foreign types (#13635)",
+   "type": "other",
+   "test_files": [
+    "tests/test_networks.py"
+   ],
+   "source_files": [
+    "pydantic/networks.py"
+   ],
+   "source_lines": 8,
+   "all_files": [
+    "pydantic/networks.py",
+    "tests/test_networks.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "77760be772adda4dc249ba610110cb7c0d81c015",
+   "parent": "99a31fb8d6ab41ce02e99921a6f96d56a5e68bd4",
+   "date": "2026-08-17T12:08:22+02:00",
+   "subject": "Exclude computed fields with `exclude_if` from JSON Schema required fields (#13563)",
+   "type": "other",
+   "test_files": [
+    "tests/test_json_schema.py"
+   ],
+   "source_files": [
+    "pydantic/json_schema.py"
+   ],
+   "source_lines": 4,
+   "all_files": [
+    "pydantic/json_schema.py",
+    "tests/test_json_schema.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "aeeefbeabadc3179ecd3738216a95f61e7f4e0d9",
+   "parent": "f002759018732fc7208d9c9547ab6dd3f8a35e35",
+   "date": "2026-08-17T22:24:24+02:00",
+   "subject": "Use config of `TypeAdapter` in JSON Schema generation (#13676)",
+   "type": "other",
+   "test_files": [
+    "tests/test_type_adapter.py"
+   ],
+   "source_files": [
+    "pydantic/type_adapter.py"
+   ],
+   "source_lines": 5,
+   "all_files": [
+    "pydantic/type_adapter.py",
+    "tests/test_type_adapter.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "41b1a85dd74a9dfcb1398d3423f2769b213df283",
+   "parent": "59af43ad35d6b69534e7d18230ee87189320bac4",
+   "date": "2026-08-18T16:21:57+00:00",
+   "subject": "Allow any `CoreSchema`\u00a0to be used as serialization (#13680)",
+   "type": "other",
+   "test_files": [
+    "pydantic-core/tests/serializers/test_core_schema_as_ser_schema.py",
+    "pydantic-core/tests/test_typing.py",
+    "tests/test_internal.py"
+   ],
+   "source_files": [
+    "pydantic-core/python/pydantic_core/core_schema.py",
+    "pydantic/_internal/_core_utils.py",
+    "pydantic/functional_validators.py",
+    "pydantic/json_schema.py"
+   ],
+   "source_lines": 80,
+   "all_files": [
+    "pydantic-core/python/pydantic_core/core_schema.py",
+    "pydantic-core/src/serializers/shared.rs",
+    "pydantic-core/tests/serializers/test_core_schema_as_ser_schema.py",
+    "pydantic-core/tests/test_typing.py",
+    "pydantic/_internal/_core_utils.py",
+    "pydantic/functional_validators.py",
+    "pydantic/json_schema.py",
+    "tests/test_internal.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "ea8cfc5e02b366a211cb719ffdff7bc880e18667",
+   "parent": "2151025aa51263f3016502b00010b78e4481eaa1",
+   "date": "2026-08-24T11:26:28+02:00",
+   "subject": "Support `populate_by_name` in `@validate_call` (#13691)",
+   "type": "other",
+   "test_files": [
+    "tests/test_experimental_arguments_schema.py",
+    "tests/test_validate_call.py"
+   ],
+   "source_files": [
+    "pydantic/_internal/_generate_schema.py"
+   ],
+   "source_lines": 7,
+   "all_files": [
+    "pydantic/_internal/_generate_schema.py",
+    "tests/test_experimental_arguments_schema.py",
+    "tests/test_validate_call.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "d4e72faf5749257cd7feeb27bc7ca56c423942b6",
+   "parent": "d6e2021f761fc6bd53bd955a9cc3916cc5d0bfe6",
+   "date": "2026-08-26T11:53:15+00:00",
+   "subject": "Reflect `str_min_length` and `str_max_length` config in the JSON schema (#13714)",
+   "type": "other",
+   "test_files": [
+    "tests/test_json_schema.py"
+   ],
+   "source_files": [
+    "pydantic/json_schema.py"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    "pydantic/json_schema.py",
+    "tests/test_json_schema.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "d098ddce8c5ab0c53b89094a3a5e3822fa39da02",
+   "parent": "efec1bb51c7a95813d85f1ef5543b4225013d20e",
+   "date": "2026-08-27T10:06:49+00:00",
+   "subject": "Treat a class attribute set to `None` as existing when assigning with `extra='allow'` (#13718)",
+   "type": "other",
+   "test_files": [
+    "tests/test_main.py"
+   ],
+   "source_files": [
+    "pydantic/main.py"
+   ],
+   "source_lines": 9,
+   "all_files": [
+    "pydantic/main.py",
+    "tests/test_main.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "c5af602863565eac3e1e4e2ed4aafe9ade8fdd3e",
+   "parent": "af0e0a6a3288a22185528cb214ae43e7910999db",
+   "date": "2026-08-27T11:30:08+00:00",
+   "subject": "Allow `dict`, `frozendict` and `frozenset` as `defaultdict` default factories (#13623)",
+   "type": "other",
+   "test_files": [
+    "tests/types/test_defaultdict.py"
+   ],
+   "source_files": [
+    "pydantic/_internal/_validators.py"
+   ],
+   "source_lines": 47,
+   "all_files": [
+    "pydantic/_internal/_validators.py",
+    "tests/types/test_defaultdict.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "af0e0a6a3288a22185528cb214ae43e7910999db",
+   "parent": "a58e639ef7c870293123a37e1a114c55831a809f",
+   "date": "2026-08-27T13:22:58+02:00",
+   "subject": "Add support for `frozendict` type (#13634)",
+   "type": "feat",
+   "test_files": [
+    "pydantic-core/tests/serializers/test_frozendict.py",
+    "pydantic-core/tests/test_build.py",
+    "pydantic-core/tests/test_docstrings.py",
+    "pydantic-core/tests/test_errors.py",
+    "pydantic-core/tests/test_schema_functions.py",
+    "pydantic-core/tests/validators/test_frozendict.py",
+    "tests/types/test_frozendict.py"
+   ],
+   "source_files": [
+    "pydantic-core/python/pydantic_core/core_schema.py",
+    "pydantic/_internal/_generate_schema.py",
+    "pydantic/_internal/_known_annotated_metadata.py",
+    "pydantic/_internal/_schema_gather.py",
+    "pydantic/experimental/pipeline.py",
+    "pydantic/json_schema.py"
+   ],
+   "source_lines": 104,
+   "all_files": [
+    "docs/api/standard_library_types.md",
+    "docs/errors/validation_errors.md",
+    "docs/plugins/conversion_table.py",
+    "pydantic-core/python/pydantic_core/core_schema.py",
+    "pydantic-core/src/common/frozendict.rs",
+    "pydantic-core/src/common/mod.rs",
+    "pydantic-core/src/errors/types.rs",
+    "pydantic-core/src/input/input_abstract.rs",
+    "pydantic-core/src/input/input_json.rs",
+    "pydantic-core/src/input/input_python.rs",
+    "pydantic-core/src/input/input_string.rs",
+    "pydantic-core/src/recursion_guard.rs",
+    "pydantic-core/src/serializers/infer.rs",
+    "pydantic-core/src/serializers/ob_type.rs",
+    "pydantic-core/src/serializers/shared.rs",
+    "pydantic-core/src/serializers/type_serializers/frozendict.rs",
+    "pydantic-core/src/serializers/type_serializers/mod.rs",
+    "pydantic-core/src/validators/frozendict.rs",
+    "pydantic-core/src/validators/mod.rs",
+    "pydantic-core/tests/serializers/test_frozendict.py",
+    "pydantic-core/tests/test_build.py",
+    "pydantic-core/tests/test_docstrings.py",
+    "pydantic-core/tests/test_errors.py",
+    "pydantic-core/tests/test_schema_functions.py",
+    "pydantic-core/tests/validators/test_frozendict.py",
+    "pydantic/_internal/_generate_schema.py",
+    "pydantic/_internal/_known_annotated_metadata.py",
+    "pydantic/_internal/_schema_gather.py",
+    "pydantic/experimental/pipeline.py",
+    "pydantic/json_schema.py",
+    "tests/types/test_frozendict.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "585c9944900af8d36901073c2eef0ce8d508e215",
+   "parent": "a2c935478b7f4d51d6d781d1c95339c8d69c05d0",
+   "date": "2026-08-27T20:02:42+02:00",
+   "subject": "Move schema gathering logic to `pydantic-core` (#13725)",
+   "type": "other",
+   "test_files": [
+    "tests/test_schema_gather.py"
+   ],
+   "source_files": [
+    "pydantic-core/python/pydantic_core/core_schema.py",
+    "pydantic/_internal/_schema_gather.py"
+   ],
+   "source_lines": 237,
+   "all_files": [
+    "pydantic-core/.mypy-stubtest-allowlist",
+    "pydantic-core/README.md",
+    "pydantic-core/python/pydantic_core/{_pydantic_core.pyi => _pydantic_core/__init__.pyi}",
+    "pydantic-core/python/pydantic_core/_pydantic_core/_schema_gather.pyi",
+    "pydantic-core/python/pydantic_core/core_schema.py",
+    "pydantic-core/src/lib.rs",
+    "pydantic-core/src/schema_gather.rs",
+    "pydantic/_internal/_schema_gather.py",
+    "tests/test_schema_gather.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "4bc21c0fa28323c0f3e0be93c9ad114b705029c6",
+   "parent": "ea76250afbb11b163d0833ea80c7a1a83d5b6b37",
+   "date": "2026-08-29T11:30:40+02:00",
+   "subject": "Use the field name in `__signature__` when `validate_by_alias` is`False` (#13730)",
+   "type": "other",
+   "test_files": [
+    "tests/test_dataclasses.py",
+    "tests/test_model_signature.py"
+   ],
+   "source_files": [
+    "pydantic/_internal/_dataclasses.py",
+    "pydantic/_internal/_model_construction.py",
+    "pydantic/_internal/_signature.py"
+   ],
+   "source_lines": 35,
+   "all_files": [
+    "pydantic/_internal/_dataclasses.py",
+    "pydantic/_internal/_model_construction.py",
+    "pydantic/_internal/_signature.py",
+    "tests/test_dataclasses.py",
+    "tests/test_model_signature.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "5283870ccfce82fe3cf7f374ee00df9289f0c9ab",
+   "parent": "f512b087202f58ec90a9d38c9102858567d72440",
+   "date": "2026-09-01T13:29:33+00:00",
+   "subject": "Do not rely on normalization to validate decimals (#13742)",
+   "type": "other",
+   "test_files": [
+    "pydantic-core/tests/validators/test_decimal.py",
+    "tests/test_annotated.py",
+    "tests/test_internal.py"
+   ],
+   "source_files": [
+    "pydantic/_internal/_validators.py"
+   ],
+   "source_lines": 81,
+   "all_files": [
+    "pydantic-core/src/validators/decimal.rs",
+    "pydantic-core/tests/validators/test_decimal.py",
+    "pydantic/_internal/_validators.py",
+    "tests/test_annotated.py",
+    "tests/test_internal.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "27f473c24ed63a475903d8289c84fb81987f04e9",
+   "parent": "1932c9b40d4d6c59bb5e462a666c9566f15c9bab",
+   "date": "2026-09-02T14:16:59+02:00",
+   "subject": "Handle any exception when trying to compute JSON Schema default (#13741)",
+   "type": "other",
+   "test_files": [
+    "tests/test_json_schema.py"
+   ],
+   "source_files": [
+    "pydantic/json_schema.py"
+   ],
+   "source_lines": 16,
+   "all_files": [
+    "pydantic/json_schema.py",
+    "tests/test_json_schema.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "1c8a330acc3077e77da64e3672c7c875fb4c6eaa",
+   "parent": "2261ae19e2e09f792f06613360c83fc829238111",
+   "date": "2026-09-08T21:35:27+02:00",
+   "subject": "Add a `deque` core schema (#13757)",
+   "type": "feat",
+   "test_files": [
+    "pydantic-core/tests/serializers/test_any.py",
+    "pydantic-core/tests/serializers/test_deque.py",
+    "pydantic-core/tests/test_errors.py",
+    "pydantic-core/tests/test_schema_functions.py",
+    "pydantic-core/tests/validators/test_deque.py",
+    "tests/test_validators.py",
+    "tests/types/test_deque.py"
+   ],
+   "source_files": [
+    "pydantic-core/python/pydantic_core/core_schema.py",
+    "pydantic/_internal/_core_utils.py",
+    "pydantic/_internal/_generate_schema.py",
+    "pydantic/_internal/_known_annotated_metadata.py",
+    "pydantic/_internal/_validators.py",
+    "pydantic/json_schema.py"
+   ],
+   "source_lines": 112,
+   "all_files": [
+    "docs/api/standard_library_types.md",
+    "docs/errors/validation_errors.md",
+    "pydantic-core/python/pydantic_core/core_schema.py",
+    "pydantic-core/src/common/deque.rs",
+    "pydantic-core/src/common/mod.rs",
+    "pydantic-core/src/errors/types.rs",
+    "pydantic-core/src/input/input_abstract.rs",
+    "pydantic-core/src/input/input_json.rs",
+    "pydantic-core/src/input/input_python.rs",
+    "pydantic-core/src/input/input_string.rs",
+    "pydantic-core/src/schema_gather.rs",
+    "pydantic-core/src/serializers/infer.rs",
+    "pydantic-core/src/serializers/ob_type.rs",
+    "pydantic-core/src/serializers/shared.rs",
+    "pydantic-core/src/serializers/type_serializers/deque.rs",
+    "pydantic-core/src/serializers/type_serializers/mod.rs",
+    "pydantic-core/src/validators/deque.rs",
+    "pydantic-core/src/validators/list.rs",
+    "pydantic-core/src/validators/mod.rs",
+    "pydantic-core/tests/serializers/test_any.py",
+    "pydantic-core/tests/serializers/test_deque.py",
+    "pydantic-core/tests/test_errors.py",
+    "pydantic-core/tests/test_schema_functions.py",
+    "pydantic-core/tests/validators/test_deque.py",
+    "pydantic/_internal/_core_utils.py",
+    "pydantic/_internal/_generate_schema.py",
+    "pydantic/_internal/_known_annotated_metadata.py",
+    "pydantic/_internal/_validators.py",
+    "pydantic/json_schema.py",
+    "tests/test_validators.py",
+    "tests/types/test_deque.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "e2683e14d3c449cc74cde3efc94bf19f4ee9d95f",
+   "parent": "78a5c4c6e27e18c2bcd18cb56d931d508571ef0d",
+   "date": "2026-09-09T11:42:48+02:00",
+   "subject": "Refactor `Decimal` JSON Schema `pattern` constraint (#13672)",
+   "type": "other",
+   "test_files": [
+    "tests/test_json_schema.py"
+   ],
+   "source_files": [
+    "pydantic/json_schema.py"
+   ],
+   "source_lines": 249,
+   "all_files": [
+    "docs/api/standard_library_types.md",
+    "docs/concepts/json_schema.md",
+    "pydantic/json_schema.py",
+    "tests/test_json_schema.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "831893ed0411d45c20aacae88e067c9c33a89501",
+   "parent": "e2683e14d3c449cc74cde3efc94bf19f4ee9d95f",
+   "date": "2026-09-09T15:58:19+02:00",
+   "subject": "Fix race conditions in freethreaded build (#13785)",
+   "type": "fix",
+   "test_files": [
+    "tests/conftest.py",
+    "tests/test_freethreaded.py"
+   ],
+   "source_files": [
+    "pydantic/_internal/_decorators.py",
+    "pydantic/_internal/_namespace_utils.py",
+    "pydantic/main.py"
+   ],
+   "source_lines": 31,
+   "all_files": [
+    "pydantic/_internal/_decorators.py",
+    "pydantic/_internal/_namespace_utils.py",
+    "pydantic/main.py",
+    "tests/conftest.py",
+    "tests/test_freethreaded.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "45c3fc1acf132fb303421f5fe2ef9e896adc74db",
+   "parent": "2e7a559acf682804f8e148548f7b9a70a7d39cc8",
+   "date": "2026-09-09T22:00:11+02:00",
+   "subject": "Add support for lazy imports (#13776)",
+   "type": "feat",
+   "test_files": [
+    "tests/test_lazy_imports.py"
+   ],
+   "source_files": [
+    "pydantic/_internal/_typing_extra.py"
+   ],
+   "source_lines": 14,
+   "all_files": [
+    "docs/concepts/forward_annotations.md",
+    "docs/concepts/models.md",
+    "docs/examples/cyclic_references.md",
+    "mkdocs.yml",
+    "pydantic/_internal/_typing_extra.py",
+    "tests/test_lazy_imports.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "ba830dc07550dd7a11f167cbf8b8b707712cd88e",
+   "parent": "6312eb1578d89242b63a27f37ff5ba54bf016085",
+   "date": "2026-09-11T09:44:57+02:00",
+   "subject": "Call enum constructors in both validation modes (#13792)",
+   "type": "other",
+   "test_files": [
+    "pydantic-core/tests/test_schema_functions.py",
+    "pydantic-core/tests/validators/test_enums.py",
+    "tests/types/test_enum.py"
+   ],
+   "source_files": [
+    "pydantic-core/python/pydantic_core/core_schema.py",
+    "pydantic/_internal/_generate_schema.py"
+   ],
+   "source_lines": 186,
+   "all_files": [
+    "pydantic-core/python/pydantic_core/core_schema.py",
+    "pydantic-core/src/validators/enum_.rs",
+    "pydantic-core/tests/test_schema_functions.py",
+    "pydantic-core/tests/validators/test_enums.py",
+    "pydantic/_internal/_generate_schema.py",
+    "tests/types/test_enum.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "6b819ee1bb1a77c989cb7727af14109cbdf0767e",
+   "parent": "1abf883f44091ff10915a4767c865b9a583f13cd",
+   "date": "2026-09-17T13:19:17+02:00",
+   "subject": "Add an `ordered-dict` core schema (#13796)",
+   "type": "feat",
+   "test_files": [
+    "pydantic-core/tests/serializers/test_any.py",
+    "pydantic-core/tests/serializers/test_ordered_dict.py",
+    "pydantic-core/tests/test_errors.py",
+    "pydantic-core/tests/test_schema_functions.py",
+    "pydantic-core/tests/validators/test_ordered_dict.py",
+    "tests/types/test_defaultdict.py",
+    "tests/types/test_ordered_dict.py"
+   ],
+   "source_files": [
+    "pydantic-core/python/pydantic_core/core_schema.py",
+    "pydantic/_internal/_generate_schema.py",
+    "pydantic/_internal/_known_annotated_metadata.py",
+    "pydantic/_internal/_validators.py",
+    "pydantic/experimental/pipeline.py",
+    "pydantic/json_schema.py"
+   ],
+   "source_lines": 104,
+   "all_files": [
+    "docs/api/standard_library_types.md",
+    "docs/errors/validation_errors.md",
+    "docs/plugins/conversion_table.py",
+    "pydantic-core/python/pydantic_core/core_schema.py",
+    "pydantic-core/src/common/mod.rs",
+    "pydantic-core/src/common/ordered_dict.rs",
+    "pydantic-core/src/errors/types.rs",
+    "pydantic-core/src/input/input_abstract.rs",
+    "pydantic-core/src/input/input_json.rs",
+    "pydantic-core/src/input/input_python.rs",
+    "pydantic-core/src/input/input_string.rs",
+    "pydantic-core/src/recursion_guard.rs",
+    "pydantic-core/src/schema_gather.rs",
+    "pydantic-core/src/serializers/infer.rs",
+    "pydantic-core/src/serializers/ob_type.rs",
+    "pydantic-core/src/serializers/shared.rs",
+    "pydantic-core/src/serializers/type_serializers/mod.rs",
+    "pydantic-core/src/serializers/type_serializers/ordered_dict.rs",
+    "pydantic-core/src/validators/mod.rs",
+    "pydantic-core/src/validators/ordered_dict.rs",
+    "pydantic-core/tests/serializers/test_any.py",
+    "pydantic-core/tests/serializers/test_ordered_dict.py",
+    "pydantic-core/tests/test_errors.py",
+    "pydantic-core/tests/test_schema_functions.py",
+    "pydantic-core/tests/validators/test_ordered_dict.py",
+    "pydantic/_internal/_generate_schema.py",
+    "pydantic/_internal/_known_annotated_metadata.py",
+    "pydantic/_internal/_validators.py",
+    "pydantic/experimental/pipeline.py",
+    "pydantic/json_schema.py",
+    "tests/types/test_defaultdict.py",
+    "tests/types/test_ordered_dict.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "617abdb1bb95b6a5d7808937cac7ef2fdbe918d9",
+   "parent": "6b819ee1bb1a77c989cb7727af14109cbdf0767e",
+   "date": "2026-09-17T13:57:54+02:00",
+   "subject": "Add a `counter` core schema (#13824)",
+   "type": "feat",
+   "test_files": [
+    "pydantic-core/tests/serializers/test_any.py",
+    "pydantic-core/tests/serializers/test_counter.py",
+    "pydantic-core/tests/test_errors.py",
+    "pydantic-core/tests/test_schema_functions.py",
+    "pydantic-core/tests/validators/test_counter.py",
+    "tests/types/test_counter.py",
+    "tests/types/test_defaultdict.py"
+   ],
+   "source_files": [
+    "pydantic-core/python/pydantic_core/core_schema.py",
+    "pydantic/_internal/_generate_schema.py",
+    "pydantic/_internal/_known_annotated_metadata.py",
+    "pydantic/_internal/_validators.py",
+    "pydantic/experimental/pipeline.py",
+    "pydantic/json_schema.py"
+   ],
+   "source_lines": 104,
+   "all_files": [
+    "docs/api/standard_library_types.md",
+    "docs/errors/validation_errors.md",
+    "docs/plugins/conversion_table.py",
+    "pydantic-core/python/pydantic_core/core_schema.py",
+    "pydantic-core/src/common/counter.rs",
+    "pydantic-core/src/common/mod.rs",
+    "pydantic-core/src/errors/types.rs",
+    "pydantic-core/src/input/input_abstract.rs",
+    "pydantic-core/src/input/input_json.rs",
+    "pydantic-core/src/input/input_python.rs",
+    "pydantic-core/src/input/input_string.rs",
+    "pydantic-core/src/schema_gather.rs",
+    "pydantic-core/src/serializers/infer.rs",
+    "pydantic-core/src/serializers/ob_type.rs",
+    "pydantic-core/src/serializers/shared.rs",
+    "pydantic-core/src/serializers/type_serializers/counter.rs",
+    "pydantic-core/src/serializers/type_serializers/mod.rs",
+    "pydantic-core/src/validators/counter.rs",
+    "pydantic-core/src/validators/mod.rs",
+    "pydantic-core/tests/serializers/test_any.py",
+    "pydantic-core/tests/serializers/test_counter.py",
+    "pydantic-core/tests/test_errors.py",
+    "pydantic-core/tests/test_schema_functions.py",
+    "pydantic-core/tests/validators/test_counter.py",
+    "pydantic/_internal/_generate_schema.py",
+    "pydantic/_internal/_known_annotated_metadata.py",
+    "pydantic/_internal/_validators.py",
+    "pydantic/experimental/pipeline.py",
+    "pydantic/json_schema.py",
+    "tests/types/test_counter.py",
+    "tests/types/test_defaultdict.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "0384c970e37a59b344e75161eb106ea9996378ba",
+   "parent": "915896d163835a57fd7987180087409a3229bd71",
+   "date": "2026-09-23T02:29:52+00:00",
+   "subject": "Catch `OverflowError` during `ByteSize` validation (#13850)",
+   "type": "other",
+   "test_files": [
+    "tests/test_types.py"
+   ],
+   "source_files": [
+    "pydantic/types.py"
+   ],
+   "source_lines": 7,
+   "all_files": [
+    "pydantic/types.py",
+    "tests/test_types.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "dae3788547fa8c7c3c78d28d284d3f669ad8c1d3",
+   "parent": "0384c970e37a59b344e75161eb106ea9996378ba",
+   "date": "2026-09-25T00:29:32+00:00",
+   "subject": "Do not mutate `model_config` attribute (#13825)",
+   "type": "other",
+   "test_files": [
+    "tests/test_config.py",
+    "tests/test_deprecated_validate_arguments.py",
+    "tests/test_model_signature.py"
+   ],
+   "source_files": [
+    "pydantic/_internal/_config.py",
+    "pydantic/_internal/_dataclasses.py",
+    "pydantic/_internal/_model_construction.py",
+    "pydantic/_internal/_signature.py",
+    "pydantic/config.py",
+    "pydantic/deprecated/decorator.py"
+   ],
+   "source_lines": 106,
+   "all_files": [
+    "pydantic/_internal/_config.py",
+    "pydantic/_internal/_dataclasses.py",
+    "pydantic/_internal/_model_construction.py",
+    "pydantic/_internal/_signature.py",
+    "pydantic/config.py",
+    "pydantic/deprecated/decorator.py",
+    "tests/test_config.py",
+    "tests/test_deprecated_validate_arguments.py",
+    "tests/test_model_signature.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "afff1eb7040e568de521d05ebd8b8747f96ad9d9",
+   "parent": "dae7e2065283db4d3d677ebae9d2dc8423131c62",
+   "date": "2026-09-25T03:49:06+02:00",
+   "subject": "Always pop field name and model type stacks during schema generation (#13859)",
+   "type": "other",
+   "test_files": [
+    "tests/test_edge_cases.py"
+   ],
+   "source_files": [
+    "pydantic/_internal/_generate_schema.py"
+   ],
+   "source_lines": 12,
+   "all_files": [
+    "pydantic/_internal/_generate_schema.py",
+    "tests/test_edge_cases.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "65d67541fee3aea55b0dbd9ad31629f005b22f2d",
+   "parent": "a9a0e1d1f7805a1b7cc5b5d42e862594a570cf74",
+   "date": "2026-09-25T21:12:37+02:00",
+   "subject": "Add support for `multiple_of` constraint in `fraction` and `timedelta` core schemas (#13873)",
+   "type": "feat",
+   "test_files": [
+    "tests/types/test_fraction.py",
+    "tests/types/test_timedelta.py"
+   ],
+   "source_files": [
+    "pydantic-core/python/pydantic_core/core_schema.py",
+    "pydantic/_internal/_known_annotated_metadata.py"
+   ],
+   "source_lines": 14,
+   "all_files": [
+    "pydantic-core/python/pydantic_core/core_schema.py",
+    "pydantic-core/src/validators/fraction.rs",
+    "pydantic-core/src/validators/timedelta.rs",
+    "pydantic/_internal/_known_annotated_metadata.py",
+    "tests/types/test_fraction.py",
+    "tests/types/test_timedelta.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "8fb804027c9bde3c96ec8bb14b7b22affdcb6ae4",
+   "parent": "bb6da4cfbb1f559885ea2fa207ec93853bfeac64",
+   "date": "2026-09-29T18:10:35+00:00",
+   "subject": "Respect config in `TypeAdapter.json_schemas()` (#13890)",
+   "type": "other",
+   "test_files": [
+    "tests/test_type_adapter.py"
+   ],
+   "source_files": [
+    "pydantic/json_schema.py",
+    "pydantic/type_adapter.py"
+   ],
+   "source_lines": 26,
+   "all_files": [
+    "pydantic/json_schema.py",
+    "pydantic/type_adapter.py",
+    "tests/test_type_adapter.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "b0cd9d347dc4159043620fde554cbd63d08e3ad5",
+   "parent": "8fb804027c9bde3c96ec8bb14b7b22affdcb6ae4",
+   "date": "2026-09-29T21:09:21+02:00",
+   "subject": "Fix config propagation of stdlib dataclasses and `TypedDict`s in JSON Schema (#13891)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_json_schema.py"
+   ],
+   "source_files": [
+    "pydantic/json_schema.py"
+   ],
+   "source_lines": 13,
+   "all_files": [
+    "pydantic/json_schema.py",
+    "tests/test_json_schema.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "199b6ff8c138566999feccc20717ed73ac1a15db",
+   "parent": "48785824a8071c9a33d4db9d2c0651b78b38cd3c",
+   "date": "2026-09-29T21:19:01+00:00",
+   "subject": "Reject newlines in `NameEmail` validation (#13897)",
+   "type": "other",
+   "test_files": [
+    "tests/test_networks.py"
+   ],
+   "source_files": [
+    "pydantic/networks.py"
+   ],
+   "source_lines": 11,
+   "all_files": [
+    "pydantic/networks.py",
+    "tests/test_networks.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "e3d96620f9384e82f9c659469d61a2ffc61c94cb",
+   "parent": "199b6ff8c138566999feccc20717ed73ac1a15db",
+   "date": "2026-09-29T21:26:04+00:00",
+   "subject": "Propagate `init` and `kw_only=False` from `Field()` to stdlib dataclass fields (#13898)",
+   "type": "other",
+   "test_files": [
+    "tests/test_dataclasses.py"
+   ],
+   "source_files": [
+    "pydantic/_internal/_dataclasses.py",
+    "pydantic/dataclasses.py"
+   ],
+   "source_lines": 30,
+   "all_files": [
+    "pydantic/_internal/_dataclasses.py",
+    "pydantic/dataclasses.py",
+    "tests/test_dataclasses.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "26f7b8a1ad02951962c4073297fa9a2b1ce8d30c",
+   "parent": "e3d96620f9384e82f9c659469d61a2ffc61c94cb",
+   "date": "2026-09-29T21:44:12+00:00",
+   "subject": "Respect propagated extra config in the JSON Schema of stdlib dataclasses (#13899)",
+   "type": "other",
+   "test_files": [
+    "tests/test_json_schema.py"
+   ],
+   "source_files": [
+    "pydantic/json_schema.py"
+   ],
+   "source_lines": 8,
+   "all_files": [
+    "pydantic/json_schema.py",
+    "tests/test_json_schema.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "48785824a8071c9a33d4db9d2c0651b78b38cd3c",
+   "parent": "12418a585cc0a62c1c9d7b9bfc821c56f9928d0a",
+   "date": "2026-09-29T22:17:26+02:00",
+   "subject": "Encode JSON Schema defaults with a consistent configuration (#13893)",
+   "type": "other",
+   "test_files": [
+    "tests/test_json_schema.py"
+   ],
+   "source_files": [
+    "pydantic/json_schema.py"
+   ],
+   "source_lines": 25,
+   "all_files": [
+    "pydantic/json_schema.py",
+    "tests/test_json_schema.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "5bc650bb3b41d8472db480ffcec4b67ee9158104",
+   "parent": "c9ac504d2ab62f7135950ccd7a5c0684be30805f",
+   "date": "2026-09-30T23:47:14+02:00",
+   "subject": "Add `__namespace__` parameter to `create_model()` (#13895)",
+   "type": "feat",
+   "test_files": [
+    "tests/test_create_model.py"
+   ],
+   "source_files": [
+    "pydantic/errors.py",
+    "pydantic/main.py"
+   ],
+   "source_lines": 45,
+   "all_files": [
+    "docs/concepts/models.md",
+    "docs/errors/usage_errors.md",
+    "pydantic/errors.py",
+    "pydantic/main.py",
+    "tests/test_create_model.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "027b5c714791d5f6e86faea4110ef26f4776648c",
+   "parent": "2706d1f6cdd0ca5b941fd5170ecf0254f933e1f6",
+   "date": "2026-10-06T17:14:16+02:00",
+   "subject": "Rebuild incomplete types during serialization inference (#13922)",
+   "type": "other",
+   "test_files": [
+    "tests/test_construction.py",
+    "tests/test_forward_ref.py",
+    "tests/test_serialize_as_any.py"
+   ],
+   "source_files": [
+    "pydantic/_internal/_mock_val_ser.py"
+   ],
+   "source_lines": 33,
+   "all_files": [
+    "pydantic-core/src/lookup_key.rs",
+    "pydantic-core/src/serializers/infer.rs",
+    "pydantic-core/src/serializers/polymorphism_trampoline.rs",
+    "pydantic-core/src/tools.rs",
+    "pydantic/_internal/_mock_val_ser.py",
+    "tests/test_construction.py",
+    "tests/test_forward_ref.py",
+    "tests/test_serialize_as_any.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "68a839f0712c367f17be497b6850ebcb6825d76c",
+   "parent": "eb810eccc508b9fb06c167e9a2027b00ab71dd9c",
+   "date": "2026-10-09T20:34:17+02:00",
+   "subject": "Support `closed` and `extra_items` via inheritance in `TypedDict` (#13967)",
+   "type": "other",
+   "test_files": [
+    "tests/test_types_typeddict.py"
+   ],
+   "source_files": [
+    "pydantic/_internal/_generate_schema.py"
+   ],
+   "source_lines": 43,
+   "all_files": [
+    "pydantic/_internal/_generate_schema.py",
+    "tests/test_types_typeddict.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "0b1dcd0efefbbf4a472779f5d6e0e2006e64a3fe",
+   "parent": "68a839f0712c367f17be497b6850ebcb6825d76c",
+   "date": "2026-10-11T01:29:52+02:00",
+   "subject": "Enforce the `max_digits` whole-digits limit in the Python `Decimal` validator (#13972)",
+   "type": "other",
+   "test_files": [
+    "tests/types/test_decimal.py"
+   ],
+   "source_files": [
+    "pydantic/_internal/_known_annotated_metadata.py",
+    "pydantic/_internal/_validators.py"
+   ],
+   "source_lines": 21,
+   "all_files": [
+    "pydantic/_internal/_known_annotated_metadata.py",
+    "pydantic/_internal/_validators.py",
+    "tests/types/test_decimal.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "3454d6c9442b91b3325c60f10efb3d79b9467487",
+   "parent": "0edb9347fad19f29452037d8fc47331cd2c0a096",
+   "date": "2026-10-11T18:33:29+02:00",
+   "subject": "Support named tuples in `Sequence` validation (#13978)",
+   "type": "other",
+   "test_files": [
+    "tests/types/test_sequence.py"
+   ],
+   "source_files": [
+    "pydantic/_internal/_validators.py"
+   ],
+   "source_lines": 3,
+   "all_files": [
+    "pydantic/_internal/_validators.py",
+    "tests/types/test_sequence.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "141c1e3df86e1b3f4bfe908fb89ac860e8ba7c0c",
+   "parent": "d0d67ea05a9c0af3db47b112a0a24eceeccb77da",
+   "date": "2026-10-11T20:21:14+02:00",
+   "subject": "Fix JSON Schema cache key mismatch with nested `json_schema_mode_override` (#13980)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_json_schema.py"
+   ],
+   "source_files": [
+    "pydantic/json_schema.py"
+   ],
+   "source_lines": 32,
+   "all_files": [
+    "pydantic/json_schema.py",
+    "tests/test_json_schema.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "03de65fc2f44faa4b32e05ce0a5d499cdf38f89b",
+   "parent": "b96a4f8716beb6fafedaca92abc57f1628927e3a",
+   "date": "2026-10-14T10:37:02+00:00",
+   "subject": "Improve performance of `JsonValue` Python serialization (#13995)",
+   "type": "other",
+   "test_files": [
+    "tests/test_types.py"
+   ],
+   "source_files": [
+    "pydantic/types.py"
+   ],
+   "source_lines": 8,
+   "all_files": [
+    "pydantic/types.py",
+    "tests/test_types.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "e1ca33220585e8f745000eff4b067e04fe7d83e9",
+   "parent": "22c4317a5d51d71344275259b4e536c4a90fe53b",
+   "date": "2026-10-14T11:27:20+02:00",
+   "subject": "Fix unpickling of generic classes defined in separate module (#13994)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_forward_ref.py",
+    "tests/test_generics.py"
+   ],
+   "source_files": [
+    "pydantic/_internal/_generics.py"
+   ],
+   "source_lines": 9,
+   "all_files": [
+    "pydantic/_internal/_generics.py",
+    "tests/test_forward_ref.py",
+    "tests/test_generics.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "44d5e1e8fc8198ecd0083a00a05e099aba0423ab",
+   "parent": "900e8991b7bf066a0d44346636c43b371608d8cf",
+   "date": "2026-10-14T14:18:47+00:00",
+   "subject": "Support explicit `by_alias` overriding `validate_by_alias` in validation JSON schemas (#13997)",
+   "type": "other",
+   "test_files": [
+    "tests/test_json_schema.py"
+   ],
+   "source_files": [
+    "pydantic/json_schema.py",
+    "pydantic/main.py",
+    "pydantic/type_adapter.py"
+   ],
+   "source_lines": 44,
+   "all_files": [
+    "pydantic/json_schema.py",
+    "pydantic/main.py",
+    "pydantic/type_adapter.py",
+    "tests/test_json_schema.py"
+   ]
+  },
+  {
+   "repo": "pydantic",
+   "commit": "900e8991b7bf066a0d44346636c43b371608d8cf",
+   "parent": "03de65fc2f44faa4b32e05ce0a5d499cdf38f89b",
+   "date": "2026-10-14T15:58:33+02:00",
+   "subject": "Copy private attributes when making root model shallow copies (#13989)",
+   "type": "other",
+   "test_files": [
+    "tests/test_root_model.py"
+   ],
+   "source_files": [
+    "pydantic/root_model.py"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    "pydantic/root_model.py",
+    "tests/test_root_model.py"
+   ]
+  }
+ ]
+}

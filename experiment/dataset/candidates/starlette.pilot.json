@@ -1,0 +1,162 @@
+{
+ "repo": "starlette",
+ "window": "pilot",
+ "range": [
+  "2026-05-01T00:00:00Z",
+  "2026-07-01T00:00:00Z"
+ ],
+ "drops": {
+  "bot_author": 10,
+  "no_test_change": 24,
+  "dependency_manifest_or_lock_changed": 2,
+  "source_lines_out_of_range": 5,
+  "no_source_change": 3
+ },
+ "candidates": [
+  {
+   "repo": "starlette",
+   "commit": "764dab0dcfb9033d75442d7a359645c9f94648c6",
+   "parent": "19d08115ce56da8d4da2838ecdd9c5882cb2b365",
+   "date": "2026-05-21T18:49:37+02:00",
+   "subject": "Ignore malformed `Host` header when constructing `request.url` (#3279)",
+   "type": "other",
+   "test_files": [
+    "tests/test_datastructures.py"
+   ],
+   "source_files": [
+    "starlette/datastructures.py"
+   ],
+   "source_lines": 14,
+   "all_files": [
+    "starlette/datastructures.py",
+    "tests/test_datastructures.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "e3f972225adb1d84b80dba132f520cc24cb84229",
+   "parent": "348f86dc92fed6e3c0314154e38deec90a6bcabd",
+   "date": "2026-05-23T17:43:29+02:00",
+   "subject": "Only dispatch standard HTTP verbs in `HTTPEndpoint` (#3286)",
+   "type": "other",
+   "test_files": [
+    "tests/test_endpoints.py"
+   ],
+   "source_files": [
+    "starlette/endpoints.py"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    "starlette/endpoints.py",
+    "tests/test_endpoints.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "fd53168a7767b6b55ba5af787fd88f49e33cabc5",
+   "parent": "e3f972225adb1d84b80dba132f520cc24cb84229",
+   "date": "2026-05-23T18:50:03+02:00",
+   "subject": "Reject absolute paths in `StaticFiles.lookup_path` (#3287)",
+   "type": "other",
+   "test_files": [
+    "tests/test_staticfiles.py"
+   ],
+   "source_files": [
+    "starlette/staticfiles.py"
+   ],
+   "source_lines": 3,
+   "all_files": [
+    "starlette/staticfiles.py",
+    "tests/test_staticfiles.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "e6f7ad1ab85efb27ab7910d8007b3f4531f7b083",
+   "parent": "115228fcdca0e0ef5bf4a95a40ddce5a9fced428",
+   "date": "2026-06-10T12:33:02+02:00",
+   "subject": "avoid collapsing exception groups from user code (#2830)",
+   "type": "other",
+   "test_files": [
+    "tests/middleware/test_base.py",
+    "tests/middleware/test_wsgi.py",
+    "tests/test__utils.py"
+   ],
+   "source_files": [
+    "starlette/_utils.py",
+    "starlette/middleware/base.py",
+    "starlette/middleware/wsgi.py",
+    "starlette/responses.py"
+   ],
+   "source_lines": 58,
+   "all_files": [
+    "starlette/_utils.py",
+    "starlette/middleware/base.py",
+    "starlette/middleware/wsgi.py",
+    "starlette/responses.py",
+    "tests/middleware/test_base.py",
+    "tests/middleware/test_wsgi.py",
+    "tests/test__utils.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "167b5850e809f38b27fbfed62d58bf6442855975",
+   "parent": "37309255b4c1b9c381a2d24a1eaf83100984a16a",
+   "date": "2026-06-11T05:52:42+00:00",
+   "subject": "Build `request.url` from structured components (#3326)",
+   "type": "other",
+   "test_files": [
+    "tests/test_datastructures.py"
+   ],
+   "source_files": [
+    "starlette/datastructures.py"
+   ],
+   "source_lines": 20,
+   "all_files": [
+    "starlette/datastructures.py",
+    "tests/test_datastructures.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "dba1c4babc4f99ad2622bb913d87045775dda735",
+   "parent": "45e51dcf99f3a270b0bcec1aec5410b4345863a9",
+   "date": "2026-06-12T11:03:48+02:00",
+   "subject": "Enforce `max_fields` and `max_part_size` in `FormParser` (#3329)",
+   "type": "other",
+   "test_files": [
+    "tests/test_formparsers.py"
+   ],
+   "source_files": [
+    "starlette/formparsers.py",
+    "starlette/requests.py"
+   ],
+   "source_lines": 33,
+   "all_files": [
+    "starlette/formparsers.py",
+    "starlette/requests.py",
+    "tests/test_formparsers.py"
+   ]
+  },
+  {
+   "repo": "starlette",
+   "commit": "25b8e179d8d7ed86769c02f648772dd5fb43dc3c",
+   "parent": "dba1c4babc4f99ad2622bb913d87045775dda735",
+   "date": "2026-06-12T11:16:29+02:00",
+   "subject": "Enforce `FormParser` limits in parser callbacks (#3331)",
+   "type": "other",
+   "test_files": [
+    "tests/test_formparsers.py"
+   ],
+   "source_files": [
+    "starlette/formparsers.py"
+   ],
+   "source_lines": 20,
+   "all_files": [
+    "starlette/formparsers.py",
+    "tests/test_formparsers.py"
+   ]
+  }
+ ]
+}

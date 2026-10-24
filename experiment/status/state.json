@@ -1,0 +1,30 @@
+{
+ "updated": "",
+ "headline": "Building the harness and the dataset. No trial has run yet.",
+ "phases": [
+  {"name": "Design written and pre-registered", "state": "done", "note": "DESIGN.md, DECISIONS.md D1–D11"},
+  {"name": "Repository selection", "state": "done", "note": "41 repos surveyed; top 3 per language by distinct authors: pydantic-ai, fastmcp, logfire, better-auth, zod, inngest-js"},
+  {"name": "Candidate commits (deterministic filter)", "state": "done", "note": "main window 2026-07-01 → 10-15; pilot window 05-01 → 07-01"},
+  {"name": "Images, offline caches, test runners", "state": "running", "note": "two agents: Python repos and TypeScript repos"},
+  {"name": "Execution validation (fail→pass, 3×)", "state": "todo", "note": ""},
+  {"name": "Instructions + independent test audit", "state": "todo", "note": "fresh claude -p context per task"},
+  {"name": "Freeze dataset manifest v1", "state": "todo", "note": ""},
+  {"name": "Pilot (harness end to end)", "state": "todo", "note": "pilot-window tasks only"},
+  {"name": "Full run: 3 replicates × 2 arms", "state": "todo", "note": ""},
+  {"name": "Analysis and REPORT.md", "state": "todo", "note": ""}
+ ],
+ "pins": {"Claude Code": "2.1.310", "Model": "claude-sonnet-5-5", "Forge": "091c0d3 (v0.5.0)", "Permission mode": "bypassPermissions (both arms)"},
+ "dataset": {"repos": [
+   {"repo": "pydantic-ai", "lang": "Python", "candidates": 686, "accepted": null},
+   {"repo": "fastmcp", "lang": "Python", "candidates": 235, "accepted": null},
+   {"repo": "logfire", "lang": "Python", "candidates": 64, "accepted": null},
+   {"repo": "better-auth", "lang": "TypeScript", "candidates": 135, "accepted": null},
+   {"repo": "zod", "lang": "TypeScript", "candidates": 116, "accepted": null},
+   {"repo": "inngest-js", "lang": "TypeScript", "candidates": 49, "accepted": null}
+ ]},
+ "log": [
+  "Docker, nested Claude Code and the auth path verified inside containers",
+  "Internal Docker network + allow-list proxy: agent can reach the Anthropic API only",
+  "Design pre-registered before any data"
+ ]
+}

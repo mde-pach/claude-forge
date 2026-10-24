@@ -1,0 +1,2789 @@
+{
+ "repo": "pydantic-ai",
+ "window": "pilot",
+ "range": [
+  "2026-05-01T00:00:00Z",
+  "2026-07-01T00:00:00Z"
+ ],
+ "drops": {
+  "no_test_change": 99,
+  "source_lines_out_of_range": 26,
+  "no_source_change": 15,
+  "bot_author": 8,
+  "dependency_manifest_or_lock_changed": 17,
+  "revert": 1,
+  "too_many_source_files": 1
+ },
+ "candidates": [
+  {
+   "repo": "pydantic-ai",
+   "commit": "f7ff835cb0f4d342a15a7030839ea343e0d6eaba",
+   "parent": "1f0d8ba1c3a4dea834a9a8acbdd42befb6969d47",
+   "date": "2026-05-01T12:49:59-06:00",
+   "subject": "fix: restore `wrap_validation_errors` on `ToolManager` function-tool methods (#5275)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_capabilities.py",
+    "tests/test_toolsets.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/tool_manager.py"
+   ],
+   "source_lines": 99,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/tool_manager.py",
+    "tests/test_capabilities.py",
+    "tests/test_toolsets.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "1e415a44b03ff2d923ad1c6c20eef1a137986d02",
+   "parent": "51eff3c1d91948b83ddb144eea481784c5948788",
+   "date": "2026-05-01T13:48:27+02:00",
+   "subject": "Use `anyio.run` and `anyio.get_cancelled_exc_class()` in CLI (#5270)",
+   "type": "other",
+   "test_files": [
+    "tests/test_cli.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/_cli/__init__.py"
+   ],
+   "source_lines": 9,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/_cli/__init__.py",
+    "tests/test_cli.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "6f31b81f1dda86a52c217a8ff0cc8709d47fee5f",
+   "parent": "8dc9b80cc4ca9ac0cbe7792e6e4aef4f1b1e8cba",
+   "date": "2026-05-04T18:09:19-06:00",
+   "subject": "feat: typed OTel metadata for code tool call syntax highlighting (#5297)",
+   "type": "feat",
+   "test_files": [
+    "tests/models/test_instrumented.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/_otel_messages.py",
+    "pydantic_ai_slim/pydantic_ai/messages.py",
+    "pydantic_ai_slim/pydantic_ai/models/anthropic.py",
+    "pydantic_ai_slim/pydantic_ai/models/bedrock.py",
+    "pydantic_ai_slim/pydantic_ai/models/google.py",
+    "pydantic_ai_slim/pydantic_ai/models/instrumented.py",
+    "pydantic_ai_slim/pydantic_ai/models/openai.py",
+    "pydantic_ai_slim/pydantic_ai/models/xai.py"
+   ],
+   "source_lines": 116,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/_otel_messages.py",
+    "pydantic_ai_slim/pydantic_ai/messages.py",
+    "pydantic_ai_slim/pydantic_ai/models/anthropic.py",
+    "pydantic_ai_slim/pydantic_ai/models/bedrock.py",
+    "pydantic_ai_slim/pydantic_ai/models/google.py",
+    "pydantic_ai_slim/pydantic_ai/models/instrumented.py",
+    "pydantic_ai_slim/pydantic_ai/models/openai.py",
+    "pydantic_ai_slim/pydantic_ai/models/xai.py",
+    "tests/models/test_instrumented.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "671e305380d204448fb5205dc183d9b0e0fc04a5",
+   "parent": "6f31b81f1dda86a52c217a8ff0cc8709d47fee5f",
+   "date": "2026-05-04T18:31:17-06:00",
+   "subject": "feat: add OpenAI Conversations API state support via `OpenAIResponsesModelSettings.openai_conversation_id` (#5224)",
+   "type": "feat",
+   "test_files": [
+    "tests/json_body_serializer.py",
+    "tests/models/test_openai_responses.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/openai.py"
+   ],
+   "source_lines": 95,
+   "all_files": [
+    "docs/models/openai.md",
+    "pydantic_ai_slim/pydantic_ai/models/openai.py",
+    "tests/json_body_serializer.py",
+    "tests/models/cassettes/test_openai_responses/test_openai_conversation_id_auto_respects_pydantic_ai_conversation_id.yaml",
+    "tests/models/cassettes/test_openai_responses/test_openai_conversation_id_auto_without_history.yaml",
+    "tests/models/cassettes/test_openai_responses/test_openai_conversation_id_explicit_and_auto.yaml",
+    "tests/models/cassettes/test_openai_responses/test_openai_conversation_id_preserves_mismatched_history.yaml",
+    "tests/models/cassettes/test_openai_responses/test_openai_conversation_id_streaming_provider_details.yaml",
+    "tests/models/cassettes/test_openai_responses/test_openai_conversation_id_tool_call_continuation.yaml",
+    "tests/models/test_openai_responses.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "063b442aeae1836f675f0d1701e72a334c1dd26d",
+   "parent": "671e305380d204448fb5205dc183d9b0e0fc04a5",
+   "date": "2026-05-05T12:26:42+02:00",
+   "subject": "fix(evals): preserve Unicode in YAML datasets (#5245)",
+   "type": "fix",
+   "test_files": [
+    "tests/evals/test_dataset.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/agent/spec.py",
+    "pydantic_evals/pydantic_evals/dataset.py"
+   ],
+   "source_lines": 4,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/agent/spec.py",
+    "pydantic_evals/pydantic_evals/dataset.py",
+    "tests/evals/test_dataset.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "4e91659f3e432236ea3eba14c1d34f11b89fed55",
+   "parent": "077a3b1c77d35dd756cb013cab44826593b73a7a",
+   "date": "2026-05-05T15:51:01-06:00",
+   "subject": "Skip empty `ModelResponse` in OpenAI Chat assistant message mapping (#5300)",
+   "type": "other",
+   "test_files": [
+    "tests/models/test_openai.py",
+    "tests/models/test_openrouter.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/openai.py",
+    "pydantic_ai_slim/pydantic_ai/models/openrouter.py"
+   ],
+   "source_lines": 23,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/models/openai.py",
+    "pydantic_ai_slim/pydantic_ai/models/openrouter.py",
+    "tests/models/test_openai.py",
+    "tests/models/test_openrouter.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "30ed7012778178e409f33263c8a9cf823405a6a6",
+   "parent": "549ba0decad8e744833b8d9372447d120fd29e50",
+   "date": "2026-05-06T11:02:49-06:00",
+   "subject": "Fix MCP history replay for empty tool arguments (#5314)",
+   "type": "fix",
+   "test_files": [
+    "tests/models/test_anthropic.py",
+    "tests/models/test_openai_responses.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/anthropic.py",
+    "pydantic_ai_slim/pydantic_ai/models/openai.py"
+   ],
+   "source_lines": 4,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/models/anthropic.py",
+    "pydantic_ai_slim/pydantic_ai/models/openai.py",
+    "tests/models/test_anthropic.py",
+    "tests/models/test_openai_responses.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "09337487c9a99b26a7380c9851b76f8633033fc9",
+   "parent": "ff4c263ba9ed785f4b25f8af118131b48734803a",
+   "date": "2026-05-06T14:25:35-06:00",
+   "subject": "feat(openai): support gpt-image-2 options (#5234)",
+   "type": "feat",
+   "test_files": [
+    "tests/models/test_model_request_parameters.py",
+    "tests/models/test_openai_responses.py",
+    "tests/test_capabilities.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/builtin_tools/__init__.py",
+    "pydantic_ai_slim/pydantic_ai/capabilities/image_generation.py",
+    "pydantic_ai_slim/pydantic_ai/common_tools/image_generation.py",
+    "pydantic_ai_slim/pydantic_ai/models/openai.py"
+   ],
+   "source_lines": 86,
+   "all_files": [
+    "docs/builtin-tools.md",
+    "pydantic_ai_slim/pydantic_ai/builtin_tools/__init__.py",
+    "pydantic_ai_slim/pydantic_ai/capabilities/image_generation.py",
+    "pydantic_ai_slim/pydantic_ai/common_tools/image_generation.py",
+    "pydantic_ai_slim/pydantic_ai/models/openai.py",
+    "tests/models/test_model_request_parameters.py",
+    "tests/models/test_openai_responses.py",
+    "tests/test_capabilities.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "820b4d0276addde62209acdc501af91a393483f4",
+   "parent": "999a2b5fdcfbf30d6472c6d5c9d719c9f4c040fa",
+   "date": "2026-05-06T19:49:35+00:00",
+   "subject": "fix(deepseek): add support for `deepseek-v4-flash` and`deepseek-v4-pro` (#5195)",
+   "type": "fix",
+   "test_files": [
+    "tests/providers/test_deepseek.py",
+    "tests/test_capabilities.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/__init__.py",
+    "pydantic_ai_slim/pydantic_ai/profiles/deepseek.py",
+    "pydantic_ai_slim/pydantic_ai/providers/deepseek.py"
+   ],
+   "source_lines": 18,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/models/__init__.py",
+    "pydantic_ai_slim/pydantic_ai/profiles/deepseek.py",
+    "pydantic_ai_slim/pydantic_ai/providers/deepseek.py",
+    "tests/providers/test_deepseek.py",
+    "tests/test_capabilities.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "f9306286c19e47e9e9ff95ba8ddc7f3629adef2b",
+   "parent": "b83abdf23d2cfe9940a83b51b1ce7abe0fc9b807",
+   "date": "2026-05-07T10:09:38-06:00",
+   "subject": "fix `attempted exit cancel scope in different task` by running MCP session in a dedicated task (#4514)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_mcp.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/mcp.py"
+   ],
+   "source_lines": 228,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/mcp.py",
+    "tests/test_mcp.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "1d693c02b775b58a6127b6e1e65181ff3ef766f6",
+   "parent": "c6ad78ebe615884593ccc2cd58ccac753d3c5e43",
+   "date": "2026-05-07T14:31:33-06:00",
+   "subject": "Populate `for_run` `RunContext` with run_id, conversation_id, and metadata (#5330)",
+   "type": "other",
+   "test_files": [
+    "tests/test_capabilities.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/agent/__init__.py"
+   ],
+   "source_lines": 26,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/agent/__init__.py",
+    "tests/test_capabilities.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "535adc72feb6736242c983608c130e1ed7ec2225",
+   "parent": "1d693c02b775b58a6127b6e1e65181ff3ef766f6",
+   "date": "2026-05-07T15:18:13-06:00",
+   "subject": "fix(evals): guarantee `CaseLifecycle.teardown()` (#5322)",
+   "type": "fix",
+   "test_files": [
+    "tests/evals/test_dataset.py"
+   ],
+   "source_files": [
+    "pydantic_evals/pydantic_evals/dataset.py",
+    "pydantic_evals/pydantic_evals/lifecycle.py"
+   ],
+   "source_lines": 24,
+   "all_files": [
+    "docs/evals/how-to/lifecycle.md",
+    "pydantic_evals/pydantic_evals/dataset.py",
+    "pydantic_evals/pydantic_evals/lifecycle.py",
+    "tests/evals/test_dataset.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "93e8b8335b3d86d56d5f600e063f778b4665ce71",
+   "parent": "f9306286c19e47e9e9ff95ba8ddc7f3629adef2b",
+   "date": "2026-05-07T16:20:50+00:00",
+   "subject": "Add Anthropic task budget support (#5140)",
+   "type": "feat",
+   "test_files": [
+    "tests/models/conftest.py",
+    "tests/models/test_anthropic.py",
+    "tests/test_thinking.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/anthropic.py",
+    "pydantic_ai_slim/pydantic_ai/profiles/anthropic.py"
+   ],
+   "source_lines": 183,
+   "all_files": [
+    "docs/models/anthropic.md",
+    "docs/thinking.md",
+    "pydantic_ai_slim/pydantic_ai/models/anthropic.py",
+    "pydantic_ai_slim/pydantic_ai/profiles/anthropic.py",
+    "tests/models/cassettes/test_anthropic/test_anthropic_task_budget_adds_output_config_and_beta.yaml",
+    "tests/models/cassettes/test_anthropic/test_anthropic_task_budget_coexists_with_effort.yaml",
+    "tests/models/conftest.py",
+    "tests/models/test_anthropic.py",
+    "tests/test_thinking.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "8248872ea147cbddb52f9ddfb3f926a7a44878b6",
+   "parent": "93a61042943d3887c737ba753b908f258e8ea162",
+   "date": "2026-05-08T09:45:17-06:00",
+   "subject": "Drain spawned tasks during agent cancellation (#5341)",
+   "type": "other",
+   "test_files": [
+    "tests/test_agent.py",
+    "tests/test_streaming.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/_agent_graph.py",
+    "pydantic_ai_slim/pydantic_ai/_utils.py",
+    "pydantic_ai_slim/pydantic_ai/agent/__init__.py",
+    "pydantic_ai_slim/pydantic_ai/agent/abstract.py"
+   ],
+   "source_lines": 67,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/_agent_graph.py",
+    "pydantic_ai_slim/pydantic_ai/_utils.py",
+    "pydantic_ai_slim/pydantic_ai/agent/__init__.py",
+    "pydantic_ai_slim/pydantic_ai/agent/abstract.py",
+    "tests/test_agent.py",
+    "tests/test_streaming.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "7a9a1d55a2063f6fc3555047d701a75b274d9e12",
+   "parent": "30670c421862026a150b85f97e86f68861a154ca",
+   "date": "2026-05-11T15:11:11-06:00",
+   "subject": "feat(openai): add `openai_chat_supports_multiple_system_messages` profile flag (#5375)",
+   "type": "feat",
+   "test_files": [
+    "tests/models/test_openai.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/openai.py",
+    "pydantic_ai_slim/pydantic_ai/profiles/openai.py"
+   ],
+   "source_lines": 41,
+   "all_files": [
+    "docs/models/openai.md",
+    "pydantic_ai_slim/pydantic_ai/models/openai.py",
+    "pydantic_ai_slim/pydantic_ai/profiles/openai.py",
+    "tests/models/test_openai.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "06b3a828bd1ddd4833495cc45373c7d7a4e54433",
+   "parent": "766da3908bf3625d94ab3b56b65f16d8498b83ab",
+   "date": "2026-05-12T14:13:20-06:00",
+   "subject": "Restore ability to swap the Bedrock client at runtime (#5392)",
+   "type": "other",
+   "test_files": [
+    "tests/models/test_bedrock.py",
+    "tests/providers/test_bedrock.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/bedrock.py",
+    "pydantic_ai_slim/pydantic_ai/providers/bedrock.py"
+   ],
+   "source_lines": 28,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/models/bedrock.py",
+    "pydantic_ai_slim/pydantic_ai/providers/bedrock.py",
+    "tests/models/test_bedrock.py",
+    "tests/providers/test_bedrock.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "b8dc6040b8cac2f2f0daa0c58b0cba6a224c6b7d",
+   "parent": "6e02f27c5e2c4dcfdb0e6cd8065f8a0ad0a9f296",
+   "date": "2026-05-13T00:33:14+00:00",
+   "subject": "feat: `local=` opt-in for provider-adaptive capability fallback; deprecate auto-fallback (#5331)",
+   "type": "feat",
+   "test_files": [
+    "tests/test_capabilities.py",
+    "tests/test_native_tools_deprecation.py",
+    "tests/typed_agent.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/capabilities/mcp.py",
+    "pydantic_ai_slim/pydantic_ai/capabilities/native_or_local.py",
+    "pydantic_ai_slim/pydantic_ai/capabilities/web_fetch.py",
+    "pydantic_ai_slim/pydantic_ai/capabilities/web_search.py",
+    "pydantic_ai_slim/pydantic_ai/models/__init__.py"
+   ],
+   "source_lines": 173,
+   "all_files": [
+    "docs/agent-spec.md",
+    "docs/capabilities.md",
+    "docs/index.md",
+    "pydantic_ai_slim/pydantic_ai/capabilities/mcp.py",
+    "pydantic_ai_slim/pydantic_ai/capabilities/native_or_local.py",
+    "pydantic_ai_slim/pydantic_ai/capabilities/web_fetch.py",
+    "pydantic_ai_slim/pydantic_ai/capabilities/web_search.py",
+    "pydantic_ai_slim/pydantic_ai/models/__init__.py",
+    "tests/test_capabilities.py",
+    "tests/test_native_tools_deprecation.py",
+    "tests/typed_agent.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "0cae7d86dd01a815e8948ff4d3dca6d81a0cc351",
+   "parent": "b8dc6040b8cac2f2f0daa0c58b0cba6a224c6b7d",
+   "date": "2026-05-13T00:35:15+00:00",
+   "subject": "fix(anthropic): normalize Bedrock model IDs for capability profile lookup (#5395)",
+   "type": "fix",
+   "test_files": [
+    "tests/models/test_anthropic.py",
+    "tests/providers/test_anthropic.py",
+    "tests/providers/test_bedrock.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/anthropic.py",
+    "pydantic_ai_slim/pydantic_ai/providers/_bedrock_model_names.py",
+    "pydantic_ai_slim/pydantic_ai/providers/anthropic.py",
+    "pydantic_ai_slim/pydantic_ai/providers/bedrock.py"
+   ],
+   "source_lines": 199,
+   "all_files": [
+    "docs/models/anthropic.md",
+    "pydantic_ai_slim/pydantic_ai/models/anthropic.py",
+    "pydantic_ai_slim/pydantic_ai/providers/_bedrock_model_names.py",
+    "pydantic_ai_slim/pydantic_ai/providers/anthropic.py",
+    "pydantic_ai_slim/pydantic_ai/providers/bedrock.py",
+    "tests/models/test_anthropic.py",
+    "tests/providers/test_anthropic.py",
+    "tests/providers/test_bedrock.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "b86dcae0aa810f8782ad1818902435a5b6e01483",
+   "parent": "0cae7d86dd01a815e8948ff4d3dca6d81a0cc351",
+   "date": "2026-05-13T00:50:50+00:00",
+   "subject": "fix(vercel_ai): emit `tool-input-(available|error)` on `FunctionToolCallEvent` (#5292)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_vercel_ai.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/ui/vercel_ai/_event_stream.py",
+    "pydantic_ai_slim/pydantic_ai/ui/vercel_ai/response_types.py"
+   ],
+   "source_lines": 110,
+   "all_files": [
+    "docs/ui/vercel-ai.md",
+    "pydantic_ai_slim/pydantic_ai/ui/vercel_ai/_event_stream.py",
+    "pydantic_ai_slim/pydantic_ai/ui/vercel_ai/response_types.py",
+    "tests/test_vercel_ai.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "cf0b9077ea9c34b04ade865404bd56e0e87b1e84",
+   "parent": "c3e941af33bf6d4313c3bf831df198b25ce31496",
+   "date": "2026-05-13T11:33:24-06:00",
+   "subject": "fix: make `current_otel_traceparent` imports eager (unbreak agent runs in Temporal workflows) (#5422)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_tool_search.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/_instrumentation.py"
+   ],
+   "source_lines": 10,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/_instrumentation.py",
+    "tests/test_tool_search.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "14b5669d295bc9bfcba070ac077b8ac35be0c0a5",
+   "parent": "2c4911552bf63197d92441a5b7ca5c8c1ec50d03",
+   "date": "2026-05-13T15:59:48-06:00",
+   "subject": "Add `openai-chat:` prefix and warn on bare `openai:` which will switch to use the Responses API in v2 (#5334)",
+   "type": "feat",
+   "test_files": [
+    "tests/models/test_model.py",
+    "tests/models/test_model_names.py",
+    "tests/models/test_openai.py",
+    "tests/test_capabilities.py",
+    "tests/test_cli.py",
+    "tests/test_examples.py",
+    "tests/test_tool_search.py",
+    "tests/v2/test_openai_prefix_deprecation.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/_cli/__init__.py",
+    "pydantic_ai_slim/pydantic_ai/_cli/web.py",
+    "pydantic_ai_slim/pydantic_ai/models/__init__.py"
+   ],
+   "source_lines": 91,
+   "all_files": [
+    "docs/models/openai.md",
+    "pydantic_ai_slim/pydantic_ai/_cli/__init__.py",
+    "pydantic_ai_slim/pydantic_ai/_cli/web.py",
+    "pydantic_ai_slim/pydantic_ai/models/__init__.py",
+    "tests/cassettes/test_tool_search/{test_tool_search_eval[openai].yaml => test_tool_search_eval[openai-chat].yaml}",
+    "tests/models/test_model.py",
+    "tests/models/test_model_names.py",
+    "tests/models/test_openai.py",
+    "tests/test_capabilities.py",
+    "tests/test_cli.py",
+    "tests/test_examples.py",
+    "tests/test_tool_search.py",
+    "tests/v2/test_openai_prefix_deprecation.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "e152f11f5ff25328b1b5eadcc0c2c5d74c782c7c",
+   "parent": "14b5669d295bc9bfcba070ac077b8ac35be0c0a5",
+   "date": "2026-05-13T16:00:32-06:00",
+   "subject": "Deprecate `AGUIApp`, `Agent.to_ag_ui()`, and `pydantic_ai.ag_ui` shim in favor of `AGUIAdapter` (#5345)",
+   "type": "other",
+   "test_files": [
+    "tests/test_ag_ui.py",
+    "tests/test_native_tools_deprecation.py",
+    "tests/v2/test_ag_ui_deprecations.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/ag_ui.py",
+    "pydantic_ai_slim/pydantic_ai/agent/abstract.py",
+    "pydantic_ai_slim/pydantic_ai/ui/ag_ui/_adapter.py",
+    "pydantic_ai_slim/pydantic_ai/ui/ag_ui/app.py"
+   ],
+   "source_lines": 106,
+   "all_files": [
+    "docs/ui/ag-ui.md",
+    "examples/pydantic_ai_examples/ag_ui/api/agentic_chat.py",
+    "examples/pydantic_ai_examples/ag_ui/api/agentic_generative_ui.py",
+    "examples/pydantic_ai_examples/ag_ui/api/human_in_the_loop.py",
+    "examples/pydantic_ai_examples/ag_ui/api/predictive_state_updates.py",
+    "examples/pydantic_ai_examples/ag_ui/api/shared_state.py",
+    "examples/pydantic_ai_examples/ag_ui/api/tool_based_generative_ui.py",
+    "pydantic_ai_slim/pydantic_ai/ag_ui.py",
+    "pydantic_ai_slim/pydantic_ai/agent/abstract.py",
+    "pydantic_ai_slim/pydantic_ai/ui/ag_ui/_adapter.py",
+    "pydantic_ai_slim/pydantic_ai/ui/ag_ui/app.py",
+    "tests/test_ag_ui.py",
+    "tests/test_native_tools_deprecation.py",
+    "tests/v2/test_ag_ui_deprecations.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "cf8c1461db28d35f8d44ce6866b877ed9fc09d84",
+   "parent": "b7806da2e8e27f972f59f8c188e42e1354d964cf",
+   "date": "2026-05-13T17:26:53-06:00",
+   "subject": "Deprecate `Agent(history_processors=)` in favor of `capabilities=[ProcessHistory(...)]` (#5425)",
+   "type": "other",
+   "test_files": [
+    "tests/test_history_processor.py",
+    "tests/v2/test_history_processors_kwarg_deprecation.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/_utils.py",
+    "pydantic_ai_slim/pydantic_ai/agent/__init__.py"
+   ],
+   "source_lines": 67,
+   "all_files": [
+    "docs/message-history.md",
+    "pydantic_ai_slim/pydantic_ai/.agents/skills/building-pydantic-ai-agents/SKILL.md",
+    "pydantic_ai_slim/pydantic_ai/.agents/skills/building-pydantic-ai-agents/references/ARCHITECTURE.md",
+    "pydantic_ai_slim/pydantic_ai/.agents/skills/building-pydantic-ai-agents/references/INPUT-AND-HISTORY.md",
+    "pydantic_ai_slim/pydantic_ai/_utils.py",
+    "pydantic_ai_slim/pydantic_ai/agent/__init__.py",
+    "tests/test_history_processor.py",
+    "tests/v2/test_history_processors_kwarg_deprecation.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "c3e941af33bf6d4313c3bf831df198b25ce31496",
+   "parent": "35d55f926484af7f0ca51884e9b6d4f69a04b620",
+   "date": "2026-05-13T20:35:03+05:30",
+   "subject": "chore: convert RST docstring syntax to Markdown + pre-commit guard (#5365)",
+   "type": "refactor",
+   "test_files": [
+    "tests/conftest.py",
+    "tests/test_ssrf.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/agent/__init__.py",
+    "pydantic_ai_slim/pydantic_ai/capabilities/hooks.py",
+    "pydantic_ai_slim/pydantic_ai/capabilities/web_fetch.py",
+    "pydantic_ai_slim/pydantic_ai/models/anthropic.py",
+    "pydantic_ai_slim/pydantic_ai/models/openai.py",
+    "pydantic_ai_slim/pydantic_ai/profiles/grok.py",
+    "pydantic_evals/pydantic_evals/online.py"
+   ],
+   "source_lines": 128,
+   "all_files": [
+    ".pre-commit-config.yaml",
+    "pydantic_ai_slim/pydantic_ai/agent/__init__.py",
+    "pydantic_ai_slim/pydantic_ai/capabilities/hooks.py",
+    "pydantic_ai_slim/pydantic_ai/capabilities/web_fetch.py",
+    "pydantic_ai_slim/pydantic_ai/models/anthropic.py",
+    "pydantic_ai_slim/pydantic_ai/models/openai.py",
+    "pydantic_ai_slim/pydantic_ai/profiles/grok.py",
+    "pydantic_evals/pydantic_evals/online.py",
+    "tests/conftest.py",
+    "tests/test_ssrf.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "2c4911552bf63197d92441a5b7ca5c8c1ec50d03",
+   "parent": "6355e2cde115b9c7250723f7f6ad373cd02e0149",
+   "date": "2026-05-13T21:45:14+00:00",
+   "subject": "Deprecate method-style `result.usage()` / `.timestamp()` / `stream.get()` in favor of property-style `result.usage` / `.timestamp` / `stream.response` (#5263)",
+   "type": "other",
+   "test_files": [
+    "tests/models/test_anthropic.py",
+    "tests/models/test_bedrock.py",
+    "tests/models/test_cohere.py",
+    "tests/models/test_gemini.py",
+    "tests/models/test_google.py",
+    "tests/models/test_groq.py",
+    "tests/models/test_huggingface.py",
+    "tests/models/test_mistral.py",
+    "tests/models/test_model_function.py",
+    "tests/models/test_model_test.py",
+    "tests/models/test_openai.py",
+    "tests/models/test_openai_responses.py",
+    "tests/models/test_openrouter.py",
+    "tests/models/test_xai.py",
+    "tests/models/xai/test_search_tools.py",
+    "tests/test_agent.py",
+    "tests/test_direct.py",
+    "tests/test_streaming.py",
+    "tests/test_temporal.py",
+    "tests/test_usage_limits.py",
+    "tests/v2/__init__.py",
+    "tests/v2/test_method_to_property_deprecations.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/_deprecated_callable.py",
+    "pydantic_ai_slim/pydantic_ai/direct.py",
+    "pydantic_ai_slim/pydantic_ai/result.py",
+    "pydantic_ai_slim/pydantic_ai/run.py"
+   ],
+   "source_lines": 252,
+   "all_files": [
+    "docs/agent.md",
+    "docs/models/anthropic.md",
+    "docs/models/bedrock.md",
+    "docs/multi-agent-applications.md",
+    "docs/output.md",
+    "examples/pydantic_ai_examples/chat_app.py",
+    "examples/pydantic_ai_examples/pydantic_model.py",
+    "examples/pydantic_ai_examples/stream_markdown.py",
+    "pydantic_ai_slim/pydantic_ai/.agents/skills/building-pydantic-ai-agents/SKILL.md",
+    "pydantic_ai_slim/pydantic_ai/_deprecated_callable.py",
+    "pydantic_ai_slim/pydantic_ai/direct.py",
+    "pydantic_ai_slim/pydantic_ai/result.py",
+    "pydantic_ai_slim/pydantic_ai/run.py",
+    "tests/models/test_anthropic.py",
+    "tests/models/test_bedrock.py",
+    "tests/models/test_cohere.py",
+    "tests/models/test_gemini.py",
+    "tests/models/test_google.py",
+    "tests/models/test_groq.py",
+    "tests/models/test_huggingface.py",
+    "tests/models/test_mistral.py",
+    "tests/models/test_model_function.py",
+    "tests/models/test_model_test.py",
+    "tests/models/test_openai.py",
+    "tests/models/test_openai_responses.py",
+    "tests/models/test_openrouter.py",
+    "tests/models/test_xai.py",
+    "tests/models/xai/test_search_tools.py",
+    "tests/test_agent.py",
+    "tests/test_direct.py",
+    "tests/test_streaming.py",
+    "tests/test_temporal.py",
+    "tests/test_usage_limits.py",
+    "tests/v2/__init__.py",
+    "tests/v2/test_method_to_property_deprecations.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "875cbb6ffd3f2c253d629ee5ec4635858778774e",
+   "parent": "b6b71825125c7e6562300be5d1ce749db5d40fe1",
+   "date": "2026-05-14T00:23:59+00:00",
+   "subject": "Deprecate `OutlinesModel` and `OutlinesProvider` (#5432)",
+   "type": "other",
+   "test_files": [
+    "tests/conftest.py",
+    "tests/models/test_outlines.py",
+    "tests/providers/test_outlines.py",
+    "tests/providers/test_provider_names.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/outlines.py",
+    "pydantic_ai_slim/pydantic_ai/providers/__init__.py",
+    "pydantic_ai_slim/pydantic_ai/providers/outlines.py"
+   ],
+   "source_lines": 24,
+   "all_files": [
+    "README.md",
+    "docs/index.md",
+    "docs/install.md",
+    "docs/models/outlines.md",
+    "docs/models/overview.md",
+    "pydantic_ai_slim/pydantic_ai/models/outlines.py",
+    "pydantic_ai_slim/pydantic_ai/providers/__init__.py",
+    "pydantic_ai_slim/pydantic_ai/providers/outlines.py",
+    "tests/conftest.py",
+    "tests/models/test_outlines.py",
+    "tests/providers/test_outlines.py",
+    "tests/providers/test_provider_names.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "5578d2225e52654dae489b431880e24df8914e63",
+   "parent": "e9ca1a192230af709896a1620f22fa6cf44f4b61",
+   "date": "2026-05-14T14:34:05-06:00",
+   "subject": "Deprecate `Agent` constructor `prepare_tools=`, `prepare_output_tools=`, `event_stream_handler=` in favor of capabilities (#5335)",
+   "type": "other",
+   "test_files": [
+    "tests/test_ag_ui.py",
+    "tests/test_agent.py",
+    "tests/test_capabilities.py",
+    "tests/test_dbos.py",
+    "tests/test_prefect.py",
+    "tests/test_temporal.py",
+    "tests/test_tools.py",
+    "tests/v2/test_agent_ctor_kwargs_deprecation.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/_utils.py",
+    "pydantic_ai_slim/pydantic_ai/agent/__init__.py",
+    "pydantic_ai_slim/pydantic_ai/capabilities/prepare_tools.py",
+    "pydantic_ai_slim/pydantic_ai/tools.py"
+   ],
+   "source_lines": 184,
+   "all_files": [
+    "docs/capabilities.md",
+    "docs/tools-advanced.md",
+    "pydantic_ai_slim/pydantic_ai/_utils.py",
+    "pydantic_ai_slim/pydantic_ai/agent/__init__.py",
+    "pydantic_ai_slim/pydantic_ai/capabilities/prepare_tools.py",
+    "pydantic_ai_slim/pydantic_ai/tools.py",
+    "tests/test_ag_ui.py",
+    "tests/test_agent.py",
+    "tests/test_capabilities.py",
+    "tests/test_dbos.py",
+    "tests/test_prefect.py",
+    "tests/test_temporal.py",
+    "tests/test_tools.py",
+    "tests/v2/test_agent_ctor_kwargs_deprecation.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "d0f59594ccefd859e74ea2b30b934a9b8c5bfa6e",
+   "parent": "c236d05e3209c1f1a206d9abcbd8b1418dd4e21c",
+   "date": "2026-05-14T17:54:02-06:00",
+   "subject": "fix(openai): respect `openai_system_prompt_role` in `OpenAIResponsesModel` (#5430)",
+   "type": "fix",
+   "test_files": [
+    "tests/models/test_openai_responses.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/openai.py"
+   ],
+   "source_lines": 11,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/models/openai.py",
+    "tests/models/test_openai_responses.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "fbf01fab451876dfc6798f84ba03a4ac9a027cbc",
+   "parent": "c5a0bbaa7e1d2ed19bbf580e0bee0e8720c58ea6",
+   "date": "2026-05-15T08:09:19-06:00",
+   "subject": "feat(evals): add `OnlineEvaluator.run_on_errors` to opt into evaluating failed calls (#5456)",
+   "type": "feat",
+   "test_files": [
+    "tests/evals/test_online.py",
+    "tests/evals/test_online_capability.py"
+   ],
+   "source_files": [
+    "pydantic_evals/pydantic_evals/_task_run.py",
+    "pydantic_evals/pydantic_evals/online.py",
+    "pydantic_evals/pydantic_evals/online_capability.py"
+   ],
+   "source_lines": 155,
+   "all_files": [
+    "clai/README.md",
+    "docs/evals/online-evaluation.md",
+    "pydantic_evals/pydantic_evals/_task_run.py",
+    "pydantic_evals/pydantic_evals/online.py",
+    "pydantic_evals/pydantic_evals/online_capability.py",
+    "tests/evals/test_online.py",
+    "tests/evals/test_online_capability.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "890c07c39e2f69b4619a49ca9ffa7efd58364ab1",
+   "parent": "710fd02f192f1a51eeb458c3a8f0acbf2021a783",
+   "date": "2026-05-15T11:33:15-06:00",
+   "subject": "Set `ModelResponse.state` to `incomplete` while response is still streaming (#5455)",
+   "type": "other",
+   "test_files": [
+    "tests/models/test_fallback.py",
+    "tests/test_streaming.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/messages.py",
+    "pydantic_ai_slim/pydantic_ai/models/__init__.py"
+   ],
+   "source_lines": 34,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/messages.py",
+    "pydantic_ai_slim/pydantic_ai/models/__init__.py",
+    "tests/models/test_fallback.py",
+    "tests/test_streaming.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "33ef15dd2773a51e279a6caa7e829515612a84a4",
+   "parent": "c68c12fa633411b790353f57b449df722a86674c",
+   "date": "2026-05-15T15:32:15-06:00",
+   "subject": "Deprecate `stream_responses()` for `stream_response()`; new singular yields `ModelResponse` instead of `(ModelResponse, is_last)` tuple (#5296)",
+   "type": "other",
+   "test_files": [
+    "tests/models/test_anthropic.py",
+    "tests/models/test_fallback.py",
+    "tests/models/test_google.py",
+    "tests/models/test_openai.py",
+    "tests/models/test_openai_responses.py",
+    "tests/models/test_xai.py",
+    "tests/test_history_processor.py",
+    "tests/test_streaming.py",
+    "tests/v2/test_stream_response_rename.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/messages.py",
+    "pydantic_ai_slim/pydantic_ai/result.py"
+   ],
+   "source_lines": 116,
+   "all_files": [
+    "docs/message-history.md",
+    "docs/models/google.md",
+    "docs/models/huggingface.md",
+    "docs/models/xai.md",
+    "docs/output.md",
+    "pydantic_ai_slim/pydantic_ai/messages.py",
+    "pydantic_ai_slim/pydantic_ai/result.py",
+    "tests/models/test_anthropic.py",
+    "tests/models/test_fallback.py",
+    "tests/models/test_google.py",
+    "tests/models/test_openai.py",
+    "tests/models/test_openai_responses.py",
+    "tests/models/test_xai.py",
+    "tests/test_history_processor.py",
+    "tests/test_streaming.py",
+    "tests/v2/test_stream_response_rename.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "e60a9aa00235680b0e8fd092e4d8598cf383494f",
+   "parent": "33ef15dd2773a51e279a6caa7e829515612a84a4",
+   "date": "2026-05-15T15:39:43-06:00",
+   "subject": "v2 prep: rewrite `docs/graph.md` to use the builder API (#5465)",
+   "type": "other",
+   "test_files": [
+    "tests/graph/test_graph.py",
+    "tests/test_capabilities.py"
+   ],
+   "source_files": [
+    "pydantic_graph/pydantic_graph/graph.py",
+    "pydantic_graph/pydantic_graph/persistence/file.py"
+   ],
+   "source_lines": 10,
+   "all_files": [
+    "docs/agent.md",
+    "docs/api/pydantic_graph/graph.md",
+    "docs/api/pydantic_graph/mermaid.md",
+    "docs/api/pydantic_graph/persistence.md",
+    "docs/graph.md",
+    "mkdocs.yml",
+    "pydantic_graph/README.md",
+    "pydantic_graph/pydantic_graph/graph.py",
+    "pydantic_graph/pydantic_graph/persistence/file.py",
+    "tests/graph/test_graph.py",
+    "tests/test_capabilities.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "2f461ec4346ac3dde1b5a8c686b0a281300c571a",
+   "parent": "f45834640286800e30acf2bffeabca2f3ab53581",
+   "date": "2026-05-18T18:50:34-06:00",
+   "subject": "Add OpenAI Responses input token counting (#3951)",
+   "type": "feat",
+   "test_files": [
+    "tests/models/test_openai_responses.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/openai.py",
+    "pydantic_ai_slim/pydantic_ai/usage.py"
+   ],
+   "source_lines": 241,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/models/openai.py",
+    "pydantic_ai_slim/pydantic_ai/usage.py",
+    "tests/models/cassettes/test_openai_responses/test_responses_count_tokens.yaml",
+    "tests/models/cassettes/test_openai_responses/test_responses_count_tokens_with_tools.yaml",
+    "tests/models/cassettes/test_openai_responses/test_responses_usage_limit_exceeded.yaml",
+    "tests/models/cassettes/test_openai_responses/test_responses_usage_limit_not_exceeded.yaml",
+    "tests/models/test_openai_responses.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "e64d2bf82839a02d4fad98736ff9a87fdb5bf1ca",
+   "parent": "7e6b79f843d288a9e6fdf89d7e11fe7ab3a55450",
+   "date": "2026-05-19T19:04:13-06:00",
+   "subject": "fix: normalize IPv6 transition forms in URL validation (#5528)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_ssrf.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/_ssrf.py"
+   ],
+   "source_lines": 62,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/_ssrf.py",
+    "tests/test_ssrf.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "78a4d8dff8e122a7ea32d69f554aaac40892502f",
+   "parent": "e64d2bf82839a02d4fad98736ff9a87fdb5bf1ca",
+   "date": "2026-05-19T19:11:12-06:00",
+   "subject": "Avoid OpenAI strict schemas with regex lookarounds (#5519)",
+   "type": "other",
+   "test_files": [
+    "tests/models/test_anthropic.py",
+    "tests/models/test_google.py",
+    "tests/models/test_openai.py",
+    "tests/profiles/test_openai.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/profiles/openai.py"
+   ],
+   "source_lines": 19,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/profiles/openai.py",
+    "tests/models/cassettes/test_anthropic/test_anthropic_native_output_decimal_strict.yaml",
+    "tests/models/cassettes/test_google/test_google_decimal_native_output.yaml",
+    "tests/models/cassettes/test_openai/test_openai_responses_native_output_decimal_strict.yaml",
+    "tests/models/test_anthropic.py",
+    "tests/models/test_google.py",
+    "tests/models/test_openai.py",
+    "tests/profiles/test_openai.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "7e6b79f843d288a9e6fdf89d7e11fe7ab3a55450",
+   "parent": "4f09bf07785d1c8360b4f66fa9bd6f8c633c815f",
+   "date": "2026-05-19T19:12:13+00:00",
+   "subject": "Add `gemini-3.5-flash` model (#5527)",
+   "type": "feat",
+   "test_files": [
+    "tests/models/test_google.py",
+    "tests/test_capabilities.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/__init__.py",
+    "pydantic_ai_slim/pydantic_ai/models/google.py"
+   ],
+   "source_lines": 4,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/models/__init__.py",
+    "pydantic_ai_slim/pydantic_ai/models/google.py",
+    "tests/models/cassettes/test_google/test_google_model_gemini_3_5_flash.yaml",
+    "tests/models/test_google.py",
+    "tests/test_capabilities.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "3b0313fe872748e96a7ec8241fe5ace793f44984",
+   "parent": "78a4d8dff8e122a7ea32d69f554aaac40892502f",
+   "date": "2026-05-20T11:03:39-06:00",
+   "subject": "fix: Preserve property type when using `deprecated_callable_property` (like on `AgentRunResult.usage`) (#5529)",
+   "type": "fix",
+   "test_files": [
+    "tests/typed_agent.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/_deprecated_callable.py"
+   ],
+   "source_lines": 38,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/_deprecated_callable.py",
+    "tests/typed_agent.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "e5f6343416c0a0997385af40b6201b62a7812842",
+   "parent": "3b0313fe872748e96a7ec8241fe5ace793f44984",
+   "date": "2026-05-20T11:07:30-06:00",
+   "subject": "Support Bedrock native JSON output + strict tool calls (#4237)",
+   "type": "other",
+   "test_files": [
+    "tests/models/bedrock/__init__.py",
+    "tests/models/bedrock/conftest.py",
+    "tests/models/bedrock/test_native_output.py",
+    "tests/models/bedrock/test_strict_tool_calls.py",
+    "tests/providers/test_bedrock.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/bedrock.py",
+    "pydantic_ai_slim/pydantic_ai/providers/bedrock.py"
+   ],
+   "source_lines": 275,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/models/bedrock.py",
+    "pydantic_ai_slim/pydantic_ai/providers/bedrock.py",
+    "tests/models/bedrock/__init__.py",
+    "tests/models/bedrock/cassettes/test_native_output/test_bedrock_native_output_google.yaml",
+    "tests/models/bedrock/cassettes/test_native_output/test_bedrock_native_output_minimax.yaml",
+    "tests/models/bedrock/cassettes/test_native_output/test_bedrock_native_output_mistral.yaml",
+    "tests/models/bedrock/cassettes/test_native_output/test_bedrock_native_output_nested_objects_without_extra_forbid.yaml",
+    "tests/models/bedrock/cassettes/test_native_output/test_bedrock_native_output_numerical_constraints.yaml",
+    "tests/models/bedrock/cassettes/test_native_output/test_bedrock_native_output_nvidia.yaml",
+    "tests/models/bedrock/cassettes/test_native_output/test_bedrock_native_output_qwen.yaml",
+    "tests/models/bedrock/cassettes/test_native_output/test_bedrock_native_output_stream.yaml",
+    "tests/models/bedrock/cassettes/test_native_output/test_bedrock_native_output_supported_model.yaml",
+    "tests/models/bedrock/cassettes/test_strict_tool_calls/test_bedrock_mixed_strict_tool_run.yaml",
+    "tests/models/bedrock/cassettes/test_strict_tool_calls/test_bedrock_strict_false_tool_with_nested_objects.yaml",
+    "tests/models/bedrock/cassettes/test_strict_tool_calls/test_bedrock_strict_tool_supported_model.yaml",
+    "tests/models/bedrock/cassettes/test_strict_tool_calls/test_bedrock_strict_tool_with_native_output.yaml",
+    "tests/models/bedrock/conftest.py",
+    "tests/models/bedrock/test_native_output.py",
+    "tests/models/bedrock/test_strict_tool_calls.py",
+    "tests/models/cassettes/test_bedrock/test_bedrock_inference_profile_count_tokens.yaml",
+    "tests/providers/test_bedrock.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "8eee0046ddf7026a4d7a34f56d09debb725e115a",
+   "parent": "e5f6343416c0a0997385af40b6201b62a7812842",
+   "date": "2026-05-20T11:52:15-06:00",
+   "subject": "Deprecate `gateway/gemini:` prefix in favor of `gateway/google-cloud:` (#5543)",
+   "type": "other",
+   "test_files": [
+    "tests/models/test_model.py",
+    "tests/providers/test_provider_names.py",
+    "tests/v2/test_google_cloud_split_deprecation.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/providers/gateway.py"
+   ],
+   "source_lines": 7,
+   "all_files": [
+    "docs/.hooks/main.py",
+    "pydantic_ai_slim/pydantic_ai/providers/gateway.py",
+    "tests/models/test_model.py",
+    "tests/providers/test_provider_names.py",
+    "tests/v2/test_google_cloud_split_deprecation.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "e1c2889c0c23df198ee200a2c4f82bd87de30d1d",
+   "parent": "71743fedfa0c67b72b7868c9e857c780b432be3b",
+   "date": "2026-05-20T15:27:22-06:00",
+   "subject": "Deprecate positional construction of evals classes ahead of v2 kw-only flip (#5547)",
+   "type": "other",
+   "test_files": [
+    "tests/evals/test_dataset.py",
+    "tests/evals/test_evaluator_base.py"
+   ],
+   "source_files": [
+    "pydantic_evals/pydantic_evals/_warnings.py",
+    "pydantic_evals/pydantic_evals/dataset.py",
+    "pydantic_evals/pydantic_evals/evaluators/evaluator.py"
+   ],
+   "source_lines": 122,
+   "all_files": [
+    "pydantic_evals/pydantic_evals/_warnings.py",
+    "pydantic_evals/pydantic_evals/dataset.py",
+    "pydantic_evals/pydantic_evals/evaluators/evaluator.py",
+    "tests/evals/test_dataset.py",
+    "tests/evals/test_evaluator_base.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "5f58b22a713b37c866654adaf87050417bbe6701",
+   "parent": "c5ce50bd6f3a7f60657b8cef707d4850b058e3b8",
+   "date": "2026-05-20T18:43:57-06:00",
+   "subject": "Deprecate `evaluation_name` / `evaluator_version` attribute pattern in favor of explicit accessor methods (#5554)",
+   "type": "other",
+   "test_files": [
+    "tests/evals/test_evaluator_base.py",
+    "tests/evals/test_evaluators.py",
+    "tests/test_tool_search.py"
+   ],
+   "source_files": [
+    "pydantic_evals/pydantic_evals/evaluators/_run_evaluator.py",
+    "pydantic_evals/pydantic_evals/evaluators/common.py",
+    "pydantic_evals/pydantic_evals/evaluators/evaluator.py",
+    "pydantic_evals/pydantic_evals/online.py"
+   ],
+   "source_lines": 114,
+   "all_files": [
+    "docs/evals/online-evaluation.md",
+    "pydantic_evals/pydantic_evals/evaluators/_run_evaluator.py",
+    "pydantic_evals/pydantic_evals/evaluators/common.py",
+    "pydantic_evals/pydantic_evals/evaluators/evaluator.py",
+    "pydantic_evals/pydantic_evals/online.py",
+    "tests/evals/test_evaluator_base.py",
+    "tests/evals/test_evaluators.py",
+    "tests/test_tool_search.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "71743fedfa0c67b72b7868c9e857c780b432be3b",
+   "parent": "03e3c8db534927e20a671738716f04042daba8d3",
+   "date": "2026-05-20T21:24:28+00:00",
+   "subject": "v2 prep: Deprecate method-style `StreamedResponse.usage()`; raise on region-less Gateway API keys (#5546)",
+   "type": "other",
+   "test_files": [
+    "tests/models/test_model.py",
+    "tests/providers/test_gateway.py",
+    "tests/test_embeddings.py",
+    "tests/test_examples.py",
+    "tests/test_usage_limits.py",
+    "tests/v2/test_google_cloud_split_deprecation.py",
+    "tests/v2/test_streamed_response_usage_property.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/direct.py",
+    "pydantic_ai_slim/pydantic_ai/models/__init__.py",
+    "pydantic_ai_slim/pydantic_ai/models/wrapper.py",
+    "pydantic_ai_slim/pydantic_ai/providers/gateway.py",
+    "pydantic_ai_slim/pydantic_ai/result.py"
+   ],
+   "source_lines": 30,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/direct.py",
+    "pydantic_ai_slim/pydantic_ai/models/__init__.py",
+    "pydantic_ai_slim/pydantic_ai/models/wrapper.py",
+    "pydantic_ai_slim/pydantic_ai/providers/gateway.py",
+    "pydantic_ai_slim/pydantic_ai/result.py",
+    "tests/models/test_model.py",
+    "tests/providers/test_gateway.py",
+    "tests/test_embeddings.py",
+    "tests/test_examples.py",
+    "tests/test_usage_limits.py",
+    "tests/v2/test_google_cloud_split_deprecation.py",
+    "tests/v2/test_streamed_response_usage_property.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "abffed53a536882b74db26b4b15f80d5e3528d52",
+   "parent": "527a7b554305161907ae14d9fb86c220e926195b",
+   "date": "2026-05-21T12:37:52-06:00",
+   "subject": "Support `top_k` in `GoogleModel`, `AnthropicModel`, and `CohereModel` (#5558)",
+   "type": "other",
+   "test_files": [
+    "tests/models/test_anthropic.py",
+    "tests/models/test_cohere.py",
+    "tests/models/test_google.py",
+    "tests/models/test_model_settings.py",
+    "tests/test_capabilities.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/anthropic.py",
+    "pydantic_ai_slim/pydantic_ai/models/cohere.py",
+    "pydantic_ai_slim/pydantic_ai/models/google.py",
+    "pydantic_ai_slim/pydantic_ai/settings.py"
+   ],
+   "source_lines": 16,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/models/anthropic.py",
+    "pydantic_ai_slim/pydantic_ai/models/cohere.py",
+    "pydantic_ai_slim/pydantic_ai/models/google.py",
+    "pydantic_ai_slim/pydantic_ai/settings.py",
+    "tests/models/cassettes/test_google/test_google_model_top_k.yaml",
+    "tests/models/test_anthropic.py",
+    "tests/models/test_cohere.py",
+    "tests/models/test_google.py",
+    "tests/models/test_model_settings.py",
+    "tests/test_capabilities.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "babc68291a2d90546b46e2a77fd3dbcb361db1e1",
+   "parent": "b7055e08b5bd9d1d13c2274502e560a37cb9dddf",
+   "date": "2026-05-21T13:48:59-06:00",
+   "subject": "Fix thinking being silently dropped for Claude Sonnet 4.6 and Opus 4.6 on Bedrock, and support adaptive thinking efforts (#5326)",
+   "type": "fix",
+   "test_files": [
+    "tests/models/test_bedrock.py",
+    "tests/providers/test_bedrock.py",
+    "tests/test_thinking.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/anthropic.py",
+    "pydantic_ai_slim/pydantic_ai/models/bedrock.py",
+    "pydantic_ai_slim/pydantic_ai/profiles/anthropic.py",
+    "pydantic_ai_slim/pydantic_ai/providers/bedrock.py"
+   ],
+   "source_lines": 103,
+   "all_files": [
+    "docs/thinking.md",
+    "pydantic_ai_slim/pydantic_ai/models/anthropic.py",
+    "pydantic_ai_slim/pydantic_ai/models/bedrock.py",
+    "pydantic_ai_slim/pydantic_ai/profiles/anthropic.py",
+    "pydantic_ai_slim/pydantic_ai/providers/bedrock.py",
+    "tests/models/cassettes/test_bedrock/test_bedrock_model_thinking_part_anthropic_adaptive.yaml",
+    "tests/models/cassettes/test_bedrock/test_bedrock_model_thinking_part_anthropic_adaptive_effort.yaml",
+    "tests/models/cassettes/test_bedrock/test_bedrock_model_thinking_part_anthropic_legacy.yaml",
+    "tests/models/test_bedrock.py",
+    "tests/providers/test_bedrock.py",
+    "tests/test_thinking.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "e75bfe497485702fc3123042295823e55fed6169",
+   "parent": "ee1048b6c9ff65674cc72699ef758b8edd778834",
+   "date": "2026-05-21T15:37:46-06:00",
+   "subject": "Fix mid-conversation `SystemPromptPart`s being incorrectly hoisted into the top-level system prompt on Anthropic, Google, and Bedrock (#5509)",
+   "type": "fix",
+   "test_files": [
+    "tests/models/test_anthropic.py",
+    "tests/models/test_bedrock.py",
+    "tests/models/test_google.py",
+    "tests/models/test_model.py",
+    "tests/models/test_outlines.py",
+    "tests/providers/test_cohere.py",
+    "tests/providers/test_groq.py",
+    "tests/providers/test_huggingface.py",
+    "tests/providers/test_mistral.py",
+    "tests/providers/test_outlines.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/__init__.py",
+    "pydantic_ai_slim/pydantic_ai/profiles/__init__.py",
+    "pydantic_ai_slim/pydantic_ai/profiles/openai.py",
+    "pydantic_ai_slim/pydantic_ai/providers/cohere.py",
+    "pydantic_ai_slim/pydantic_ai/providers/groq.py",
+    "pydantic_ai_slim/pydantic_ai/providers/huggingface.py",
+    "pydantic_ai_slim/pydantic_ai/providers/mistral.py",
+    "pydantic_ai_slim/pydantic_ai/providers/outlines.py"
+   ],
+   "source_lines": 91,
+   "all_files": [
+    "docs/message-history.md",
+    "pydantic_ai_slim/pydantic_ai/models/__init__.py",
+    "pydantic_ai_slim/pydantic_ai/profiles/__init__.py",
+    "pydantic_ai_slim/pydantic_ai/profiles/openai.py",
+    "pydantic_ai_slim/pydantic_ai/providers/cohere.py",
+    "pydantic_ai_slim/pydantic_ai/providers/groq.py",
+    "pydantic_ai_slim/pydantic_ai/providers/huggingface.py",
+    "pydantic_ai_slim/pydantic_ai/providers/mistral.py",
+    "pydantic_ai_slim/pydantic_ai/providers/outlines.py",
+    "tests/models/test_anthropic.py",
+    "tests/models/test_bedrock.py",
+    "tests/models/test_google.py",
+    "tests/models/test_model.py",
+    "tests/models/test_outlines.py",
+    "tests/providers/test_cohere.py",
+    "tests/providers/test_groq.py",
+    "tests/providers/test_huggingface.py",
+    "tests/providers/test_mistral.py",
+    "tests/providers/test_outlines.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "b8835e39b44c3a7d8e647e857ae33eb97aec8e95",
+   "parent": "e75bfe497485702fc3123042295823e55fed6169",
+   "date": "2026-05-21T21:51:10+00:00",
+   "subject": "fix: don't drop single `BaseModel` tool arguments sent in wrapped form when the model uses default `extra='ignore'` (#5560)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_tools.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/_function_schema.py"
+   ],
+   "source_lines": 51,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/_function_schema.py",
+    "tests/test_tools.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "a18c583425a3dce4eb29f23ee711541937a61446",
+   "parent": "9871f756992fdab68fa0b103022a494a5aaf0ebf",
+   "date": "2026-05-22T12:28:34-06:00",
+   "subject": "Don't auto-promote `strict=None` tools to strict mode with Bedrock, and skip `strict` field when `botocore` is too old (#5580)",
+   "type": "other",
+   "test_files": [
+    "tests/models/bedrock/test_strict_tool_calls.py",
+    "tests/providers/test_bedrock.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/bedrock.py",
+    "pydantic_ai_slim/pydantic_ai/providers/bedrock.py"
+   ],
+   "source_lines": 89,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/models/bedrock.py",
+    "pydantic_ai_slim/pydantic_ai/providers/bedrock.py",
+    "tests/models/bedrock/test_strict_tool_calls.py",
+    "tests/providers/test_bedrock.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "130e85b09f164bd7193fc7daddfda8ef1a081945",
+   "parent": "a18c583425a3dce4eb29f23ee711541937a61446",
+   "date": "2026-05-22T12:32:55-06:00",
+   "subject": "fix(bedrock): Disable Opus 4.7 native structured output (#5582)",
+   "type": "fix",
+   "test_files": [
+    "tests/providers/test_bedrock.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/providers/bedrock.py"
+   ],
+   "source_lines": 7,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/providers/bedrock.py",
+    "tests/providers/test_bedrock.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "5ba908d6681fd78c22ad7e623b25d680d547f011",
+   "parent": "130e85b09f164bd7193fc7daddfda8ef1a081945",
+   "date": "2026-05-22T14:31:18-06:00",
+   "subject": "fix(instrumentation): Prevent false positive `variable_instructions` span attribute (#5487)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_logfire.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/capabilities/instrumentation.py"
+   ],
+   "source_lines": 22,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/capabilities/instrumentation.py",
+    "tests/test_logfire.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "35ab0136c41d24efa2e44ce26589900475987c50",
+   "parent": "5ba908d6681fd78c22ad7e623b25d680d547f011",
+   "date": "2026-05-22T14:50:25-06:00",
+   "subject": "Fix: `VercelAIAdapter` now accepts `providerExecuted` / `title` on dynamic-tool message parts (#5474)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_vercel_ai.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/ui/vercel_ai/_adapter.py",
+    "pydantic_ai_slim/pydantic_ai/ui/vercel_ai/request_types.py"
+   ],
+   "source_lines": 46,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/ui/vercel_ai/_adapter.py",
+    "pydantic_ai_slim/pydantic_ai/ui/vercel_ai/request_types.py",
+    "tests/test_vercel_ai.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "d30951d1cd5bf0c794fa08d62283f65ad81ddd0c",
+   "parent": "4e2771c66c2ce618cff4f5d3d80279b87080a42e",
+   "date": "2026-05-22T17:24:20-06:00",
+   "subject": "Normalize trailing dot and case in `WebFetchTool` domain matching (#5592)",
+   "type": "other",
+   "test_files": [
+    "tests/test_ssrf.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/_ssrf.py"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/_ssrf.py",
+    "tests/test_ssrf.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "1add06179ba4de259f7ab977620b697b7209f7e4",
+   "parent": "1d1ecb8680cdf7fa392152a240770e1b5c642374",
+   "date": "2026-05-22T18:35:15-06:00",
+   "subject": "fix: expand IPv6 transition-form handling in URL validation (#5596)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_ssrf.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/_ssrf.py"
+   ],
+   "source_lines": 172,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/_ssrf.py",
+    "tests/test_ssrf.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "5c6aea57b7489e8e71a44b9c9956ccace2754326",
+   "parent": "0123cf065a7a50e75e96a3f9b5cc0f6dd4b414a0",
+   "date": "2026-05-25T19:57:32-05:00",
+   "subject": "fix(ui): Strip `force_download` flag from client-submitted `FileUrl` parts in `UIAdapter.sanitize_messages` (#5571)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_ag_ui.py",
+    "tests/test_capabilities.py",
+    "tests/test_ui.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/ag_ui.py",
+    "pydantic_ai_slim/pydantic_ai/ui/_adapter.py",
+    "pydantic_ai_slim/pydantic_ai/ui/ag_ui/_adapter.py",
+    "pydantic_ai_slim/pydantic_ai/ui/vercel_ai/_adapter.py"
+   ],
+   "source_lines": 232,
+   "all_files": [
+    "docs/input.md",
+    "docs/ui/overview.md",
+    "pydantic_ai_slim/pydantic_ai/ag_ui.py",
+    "pydantic_ai_slim/pydantic_ai/ui/_adapter.py",
+    "pydantic_ai_slim/pydantic_ai/ui/ag_ui/_adapter.py",
+    "pydantic_ai_slim/pydantic_ai/ui/vercel_ai/_adapter.py",
+    "tests/test_ag_ui.py",
+    "tests/test_capabilities.py",
+    "tests/test_ui.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "efd468f3692f9115f58e3233e82065d97d3799f6",
+   "parent": "d55a2115331fb2da9cf1a06e4dd3c971f2d2c046",
+   "date": "2026-05-25T20:30:59-05:00",
+   "subject": "fix(vercel-ai): preserve message metadata roundtrips (#5279)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_vercel_ai.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/ui/__init__.py",
+    "pydantic_ai_slim/pydantic_ai/ui/_messages_builder.py",
+    "pydantic_ai_slim/pydantic_ai/ui/vercel_ai/_adapter.py",
+    "pydantic_ai_slim/pydantic_ai/ui/vercel_ai/_event_stream.py",
+    "pydantic_ai_slim/pydantic_ai/ui/vercel_ai/_utils.py"
+   ],
+   "source_lines": 179,
+   "all_files": [
+    "docs/ui/vercel-ai.md",
+    "pydantic_ai_slim/pydantic_ai/ui/__init__.py",
+    "pydantic_ai_slim/pydantic_ai/ui/_messages_builder.py",
+    "pydantic_ai_slim/pydantic_ai/ui/vercel_ai/_adapter.py",
+    "pydantic_ai_slim/pydantic_ai/ui/vercel_ai/_event_stream.py",
+    "pydantic_ai_slim/pydantic_ai/ui/vercel_ai/_utils.py",
+    "tests/test_vercel_ai.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "aa43e93286dea7baa4d29a5da8c18a3c9634c444",
+   "parent": "efd468f3692f9115f58e3233e82065d97d3799f6",
+   "date": "2026-05-25T21:51:42-05:00",
+   "subject": "Support `anthropic_eager_input_streaming` in `OpenRouterModel` (#5656)",
+   "type": "other",
+   "test_files": [
+    "tests/cassette_utils.py",
+    "tests/models/test_anthropic.py",
+    "tests/models/test_openai.py",
+    "tests/models/test_openrouter.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/openai.py",
+    "pydantic_ai_slim/pydantic_ai/models/openrouter.py"
+   ],
+   "source_lines": 26,
+   "all_files": [
+    "docs/models/openrouter.md",
+    "pydantic_ai_slim/pydantic_ai/models/openai.py",
+    "pydantic_ai_slim/pydantic_ai/models/openrouter.py",
+    "tests/cassette_utils.py",
+    "tests/models/cassettes/test_openrouter/test_eager_input_streaming_sent_to_openrouter[anthropic-disabled].yaml",
+    "tests/models/cassettes/test_openrouter/test_eager_input_streaming_sent_to_openrouter[anthropic-enabled].yaml",
+    "tests/models/cassettes/test_openrouter/test_eager_input_streaming_sent_to_openrouter[non-anthropic-enabled].yaml",
+    "tests/models/test_anthropic.py",
+    "tests/models/test_openai.py",
+    "tests/models/test_openrouter.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "4a119b89c731c4d86a3c3ea2f97dadf822855504",
+   "parent": "b4de8aeeef4044c3b91cc77594f3f9729b80dfcc",
+   "date": "2026-05-26T19:25:37+05:30",
+   "subject": "fix(toolsets): warn when prepare callbacks return `None` (#5188)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_capabilities.py",
+    "tests/test_tools.py",
+    "tests/test_toolsets.py",
+    "tests/v2/test_agent_ctor_kwargs_deprecation.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/_utils.py",
+    "pydantic_ai_slim/pydantic_ai/_warnings.py",
+    "pydantic_ai_slim/pydantic_ai/capabilities/prepare_tools.py",
+    "pydantic_ai_slim/pydantic_ai/toolsets/prepared.py"
+   ],
+   "source_lines": 46,
+   "all_files": [
+    "docs/capabilities.md",
+    "docs/output.md",
+    "docs/tools-advanced.md",
+    "docs/toolsets.md",
+    "pydantic_ai_slim/pydantic_ai/_utils.py",
+    "pydantic_ai_slim/pydantic_ai/_warnings.py",
+    "pydantic_ai_slim/pydantic_ai/capabilities/prepare_tools.py",
+    "pydantic_ai_slim/pydantic_ai/toolsets/prepared.py",
+    "tests/test_capabilities.py",
+    "tests/test_tools.py",
+    "tests/test_toolsets.py",
+    "tests/v2/test_agent_ctor_kwargs_deprecation.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "c93c35fb9591efb485f2f10d4c49a9110258e3f9",
+   "parent": "7a5bec6e9f85c1c75fec39043b412a58f8e96676",
+   "date": "2026-05-27T17:59:42-05:00",
+   "subject": "fix(thinking): forward `thinking=False` on hybrid OpenRouter/xAI/Bedrock routes, align silent-drop with direct routes (#5433)",
+   "type": "fix",
+   "test_files": [
+    "tests/cassette_utils.py",
+    "tests/models/test_anthropic.py",
+    "tests/models/test_bedrock.py",
+    "tests/models/test_openrouter.py",
+    "tests/models/xai/test_search_tools.py",
+    "tests/test_thinking.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/openrouter.py",
+    "pydantic_ai_slim/pydantic_ai/profiles/grok.py",
+    "pydantic_ai_slim/pydantic_ai/providers/bedrock.py",
+    "pydantic_ai_slim/pydantic_ai/providers/openrouter.py"
+   ],
+   "source_lines": 40,
+   "all_files": [
+    "docs/thinking.md",
+    "pydantic_ai_slim/pydantic_ai/models/openrouter.py",
+    "pydantic_ai_slim/pydantic_ai/profiles/grok.py",
+    "pydantic_ai_slim/pydantic_ai/providers/bedrock.py",
+    "pydantic_ai_slim/pydantic_ai/providers/openrouter.py",
+    "tests/cassette_utils.py",
+    "tests/models/cassettes/test_bedrock/test_bedrock_thinking_false_openai_variant_silent_drop.yaml",
+    "tests/models/cassettes/test_bedrock/test_bedrock_thinking_false_qwen_variant_silent_drop.yaml",
+    "tests/models/cassettes/test_bedrock/test_bedrock_thinking_high_openai_variant.yaml",
+    "tests/models/cassettes/test_bedrock/test_bedrock_thinking_high_qwen_variant.yaml",
+    "tests/models/cassettes/test_bedrock/test_bedrock_thinking_true_openai_variant.yaml",
+    "tests/models/cassettes/test_bedrock/test_bedrock_thinking_true_qwen_variant.yaml",
+    "tests/models/cassettes/test_openrouter/test_openrouter_thinking_false_profile_gated_model.yaml",
+    "tests/models/cassettes/test_openrouter/test_openrouter_thinking_false_supports_thinking_model.yaml",
+    "tests/models/cassettes/test_openrouter/test_openrouter_thinking_high_emits_effort_high.yaml",
+    "tests/models/cassettes/test_openrouter/test_openrouter_thinking_true_emits_effort_medium.yaml",
+    "tests/models/test_anthropic.py",
+    "tests/models/test_bedrock.py",
+    "tests/models/test_openrouter.py",
+    "tests/models/xai/test_search_tools.py",
+    "tests/test_thinking.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "5542eee013b1d5aaf77295ecf5f8a9b91401d52b",
+   "parent": "c93c35fb9591efb485f2f10d4c49a9110258e3f9",
+   "date": "2026-05-27T20:10:39-05:00",
+   "subject": "Fix Bedrock single-tool `tool_choice` cache preservation (#5674)",
+   "type": "fix",
+   "test_files": [
+    "tests/cassette_utils.py",
+    "tests/models/bedrock/test_cache.py",
+    "tests/models/test_tool_choice_matrix.py",
+    "tests/models/test_tool_choice_unit.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/bedrock.py"
+   ],
+   "source_lines": 10,
+   "all_files": [
+    "docs/tools-advanced.md",
+    "pydantic_ai_slim/pydantic_ai/models/bedrock.py",
+    "tests/AGENTS.md",
+    "tests/cassette_utils.py",
+    "tests/models/bedrock/cassettes/test_cache/test_bedrock_single_tool_choice_preserves_cache[anthropic].yaml",
+    "tests/models/bedrock/cassettes/test_cache/test_bedrock_single_tool_choice_preserves_cache[nova].yaml",
+    "tests/models/bedrock/test_cache.py",
+    "tests/models/cassettes/test_tool_choice_matrix/test_tool_choice_matrix[list_single-bedrock].yaml",
+    "tests/models/cassettes/test_tool_choice_matrix/test_tool_choice_matrix[none_with_output-bedrock].yaml",
+    "tests/models/test_tool_choice_matrix.py",
+    "tests/models/test_tool_choice_unit.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "953f6c5338350241a61e547b3d3d92b3cc8f293e",
+   "parent": "cff2825fb5534ee4f0ecea6a79ceb0a91c87160c",
+   "date": "2026-06-01T12:35:00+05:30",
+   "subject": "Fix `gateway/` model construction inside a Temporal workflow by passing provider SDKs through the sandbox (#5733)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_temporal.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/durable_exec/temporal/__init__.py"
+   ],
+   "source_lines": 17,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/durable_exec/temporal/__init__.py",
+    "tests/test_temporal.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "48ce280b4e958ab8570adbb9e087311856762311",
+   "parent": "f9f8b951fea0e96659640bb1de432610f826689a",
+   "date": "2026-06-01T23:29:21-05:00",
+   "subject": "Fix `GoogleModelSettings.google_cached_content` so request omits `system_instruction`, `tools`, and `tool_config` (#5681)",
+   "type": "fix",
+   "test_files": [
+    "tests/models/google/test_cache.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/google.py"
+   ],
+   "source_lines": 54,
+   "all_files": [
+    "docs/models/google.md",
+    "pydantic_ai_slim/pydantic_ai/models/google.py",
+    "tests/models/google/cassettes/test_cache/test_google_model_cached_content.yaml",
+    "tests/models/google/test_cache.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "49f62a386041abd6e0d960dd629c3b4fe28eac63",
+   "parent": "60f51471c0763c29ec723473cafb0c8f32e53b06",
+   "date": "2026-06-04T16:47:50-05:00",
+   "subject": "Fix incomplete streamed response when `event_stream_handler` doesn't consume the stream (#5771)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_streaming.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/agent/abstract.py"
+   ],
+   "source_lines": 24,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/agent/abstract.py",
+    "tests/test_streaming.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "ed31bdd64e11ce1475916a398ee3312791ed2d38",
+   "parent": "49f62a386041abd6e0d960dd629c3b4fe28eac63",
+   "date": "2026-06-04T17:02:29-05:00",
+   "subject": "Handle `UploadedFile` consistently with `FileUrl` in UI adapters (#5772)",
+   "type": "other",
+   "test_files": [
+    "tests/test_ag_ui.py",
+    "tests/test_ui.py",
+    "tests/test_vercel_ai.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/ui/_adapter.py",
+    "pydantic_ai_slim/pydantic_ai/ui/ag_ui/_adapter.py",
+    "pydantic_ai_slim/pydantic_ai/ui/vercel_ai/_adapter.py"
+   ],
+   "source_lines": 133,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/ui/_adapter.py",
+    "pydantic_ai_slim/pydantic_ai/ui/ag_ui/_adapter.py",
+    "pydantic_ai_slim/pydantic_ai/ui/vercel_ai/_adapter.py",
+    "tests/test_ag_ui.py",
+    "tests/test_ui.py",
+    "tests/test_vercel_ai.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "78bfaaed27abffecb761973d841608ba8b1edbf6",
+   "parent": "70cb782fdc39c26a2b2123a6eb7e338c0d8f0654",
+   "date": "2026-06-04T18:35:42-05:00",
+   "subject": "Add `api_host` and `timeout` to `XaiProvider` (#5742)",
+   "type": "feat",
+   "test_files": [
+    "tests/providers/test_xai.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/providers/xai.py"
+   ],
+   "source_lines": 25,
+   "all_files": [
+    "docs/models/xai.md",
+    "pydantic_ai_slim/pydantic_ai/providers/xai.py",
+    "tests/providers/test_xai.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "1b42945de65b2816fed3cffa371671a2ac759241",
+   "parent": "78bfaaed27abffecb761973d841608ba8b1edbf6",
+   "date": "2026-06-04T19:51:26-05:00",
+   "subject": "fix(messages): from_data_uri crashes on a valid non-base64 data URI (#5779)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_messages.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/messages.py"
+   ],
+   "source_lines": 5,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/messages.py",
+    "tests/test_messages.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "26808a1d2924495dba935a82014409c36c7dfa1c",
+   "parent": "950aed93d6191e50cadadcc53d509b56ea44ae22",
+   "date": "2026-06-09T10:32:11-05:00",
+   "subject": "fix(anthropic): guard `message=None` Bedrock start events in stream path (#5818)",
+   "type": "fix",
+   "test_files": [
+    "tests/models/test_anthropic.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/anthropic.py"
+   ],
+   "source_lines": 21,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/models/anthropic.py",
+    "tests/models/test_anthropic.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "64b92045354cd0cca7a57131dbfec49ffa715584",
+   "parent": "26808a1d2924495dba935a82014409c36c7dfa1c",
+   "date": "2026-06-09T18:06:47+00:00",
+   "subject": "Fix `AnthropicModel.count_tokens` with native tools (#5704)",
+   "type": "fix",
+   "test_files": [
+    "tests/models/test_anthropic.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/anthropic.py"
+   ],
+   "source_lines": 12,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/models/anthropic.py",
+    "tests/models/cassettes/test_anthropic/test_anthropic_count_tokens_keeps_memory_tool.yaml",
+    "tests/models/cassettes/test_anthropic/test_anthropic_count_tokens_with_native_tools.yaml",
+    "tests/models/test_anthropic.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "7fe66444aedf7d68e1aa6e8699360e1f4e817b81",
+   "parent": "b1d7af90521e26dbf3513db13d490501d8174ada",
+   "date": "2026-06-10T10:35:48-05:00",
+   "subject": "Don't send Gemini `function_calling_config` without function declarations (#5791)",
+   "type": "other",
+   "test_files": [
+    "tests/models/test_tool_choice_matrix.py",
+    "tests/models/test_tool_choice_unit.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/google.py"
+   ],
+   "source_lines": 18,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/models/google.py",
+    "tests/models/cassettes/test_tool_choice_matrix/test_google_native_tool_only_web_search_completes.yaml",
+    "tests/models/test_tool_choice_matrix.py",
+    "tests/models/test_tool_choice_unit.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "cae4e37160b7fcd76ac9e60f74ab338dd51481cf",
+   "parent": "13931c10403f28bba73ce4fcc04eeacf8c82479a",
+   "date": "2026-06-10T13:52:11-05:00",
+   "subject": "fix(openai): map image `UploadedFile` parts to `input_image` (#5809)",
+   "type": "fix",
+   "test_files": [
+    "tests/models/test_multimodal_tool_returns.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/messages.py",
+    "pydantic_ai_slim/pydantic_ai/models/openai.py"
+   ],
+   "source_lines": 41,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/messages.py",
+    "pydantic_ai_slim/pydantic_ai/models/openai.py",
+    "tests/models/cassettes/test_multimodal_tool_returns/test_multimodal_tool_return_matrix[direct-uploaded_file-image-openai_chat].yaml",
+    "tests/models/cassettes/test_multimodal_tool_returns/test_multimodal_tool_return_matrix[direct-uploaded_file-image-openai_responses].yaml",
+    "tests/models/cassettes/test_multimodal_tool_returns/test_multimodal_tool_return_matrix[tool_return_content-uploaded_file-image-openai_chat].yaml",
+    "tests/models/cassettes/test_multimodal_tool_returns/test_multimodal_tool_return_matrix[tool_return_content-uploaded_file-image-openai_responses].yaml",
+    "tests/models/cassettes/test_multimodal_tool_returns/test_vendor_metadata_detail.yaml",
+    "tests/models/test_multimodal_tool_returns.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "a4973543ae99f66c6f534113079c3bb25cbbb62d",
+   "parent": "cae4e37160b7fcd76ac9e60f74ab338dd51481cf",
+   "date": "2026-06-10T19:13:32+00:00",
+   "subject": "Fix unified `thinking` handling for Groq qwen3 and Cerebras `gpt-oss` (#5850)",
+   "type": "fix",
+   "test_files": [
+    "tests/models/test_cerebras.py",
+    "tests/models/test_fallback.py",
+    "tests/models/test_openai_responses.py",
+    "tests/models/xai/test_thinking.py",
+    "tests/providers/test_groq.py",
+    "tests/test_thinking.py",
+    "tests/test_thinking_native_tools.py",
+    "tests/test_thinking_wire_contract.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/groq.py",
+    "pydantic_ai_slim/pydantic_ai/profiles/groq.py",
+    "pydantic_ai_slim/pydantic_ai/providers/cerebras.py",
+    "pydantic_ai_slim/pydantic_ai/providers/groq.py"
+   ],
+   "source_lines": 65,
+   "all_files": [
+    "docs/thinking.md",
+    "pydantic_ai_slim/pydantic_ai/models/groq.py",
+    "pydantic_ai_slim/pydantic_ai/profiles/groq.py",
+    "pydantic_ai_slim/pydantic_ai/providers/cerebras.py",
+    "pydantic_ai_slim/pydantic_ai/providers/groq.py",
+    "tests/cassettes/test_thinking_native_tools/test_thinking_with_native_tool_wire_contract[anthropic].yaml",
+    "tests/cassettes/test_thinking_native_tools/test_thinking_with_native_tool_wire_contract[google].yaml",
+    "tests/cassettes/test_thinking_native_tools/test_thinking_with_native_tool_wire_contract[openai-responses].yaml",
+    "tests/cassettes/test_thinking_wire_contract/test_thinking_disable_wire_contract[cerebras-gpt-oss-always-on].yaml",
+    "tests/cassettes/test_thinking_wire_contract/test_thinking_disable_wire_contract[groq-qwen3-disable-merges-user-extra-body].yaml",
+    "tests/cassettes/test_thinking_wire_contract/test_thinking_disable_wire_contract[groq-qwen3-disable].yaml",
+    "tests/models/cassettes/test_cerebras/test_cerebras_thinking_part_survives_multiturn.yaml",
+    "tests/models/test_cerebras.py",
+    "tests/models/test_fallback.py",
+    "tests/models/test_openai_responses.py",
+    "tests/models/xai/test_thinking.py",
+    "tests/providers/test_groq.py",
+    "tests/test_thinking.py",
+    "tests/test_thinking_native_tools.py",
+    "tests/test_thinking_wire_contract.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "0bfabf63584cd6cdbb14829db1247f78869ba59b",
+   "parent": "2b9d272a0a835991c2eb6b076a8035a63aff2eb0",
+   "date": "2026-06-11T08:33:11-05:00",
+   "subject": "Fix `AnthropicModel.count_tokens` divergence on `ToolSearchTool` replay history (#5855)",
+   "type": "fix",
+   "test_files": [
+    "tests/models/test_anthropic.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/anthropic.py"
+   ],
+   "source_lines": 17,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/models/anthropic.py",
+    "tests/models/cassettes/test_anthropic/test_anthropic_count_tokens_with_tool_search_replay.yaml",
+    "tests/models/test_anthropic.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "2b9d272a0a835991c2eb6b076a8035a63aff2eb0",
+   "parent": "a4973543ae99f66c6f534113079c3bb25cbbb62d",
+   "date": "2026-06-11T11:28:12+02:00",
+   "subject": "Disallow non-finite `Evaluator` outputs (#5863)",
+   "type": "other",
+   "test_files": [
+    "tests/evals/test_dataset.py"
+   ],
+   "source_files": [
+    "pydantic_evals/pydantic_evals/evaluators/_run_evaluator.py",
+    "pydantic_evals/pydantic_evals/evaluators/evaluator.py"
+   ],
+   "source_lines": 14,
+   "all_files": [
+    "pydantic_evals/pydantic_evals/evaluators/_run_evaluator.py",
+    "pydantic_evals/pydantic_evals/evaluators/evaluator.py",
+    "tests/evals/test_dataset.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "514e390ff8c90bd64438c88a04e31420a0b05b1c",
+   "parent": "89c4ef7681ece9364410acfd6c873052f0e6f91f",
+   "date": "2026-06-11T15:17:21-05:00",
+   "subject": "Validate `UploadedFile.provider_name` in tool returns and consolidate the guard into `Model._validate_uploaded_file_provider` (#5860)",
+   "type": "other",
+   "test_files": [
+    "tests/models/test_multimodal_tool_returns.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/__init__.py",
+    "pydantic_ai_slim/pydantic_ai/models/anthropic.py",
+    "pydantic_ai_slim/pydantic_ai/models/bedrock.py",
+    "pydantic_ai_slim/pydantic_ai/models/openai.py",
+    "pydantic_ai_slim/pydantic_ai/models/xai.py"
+   ],
+   "source_lines": 61,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/models/__init__.py",
+    "pydantic_ai_slim/pydantic_ai/models/anthropic.py",
+    "pydantic_ai_slim/pydantic_ai/models/bedrock.py",
+    "pydantic_ai_slim/pydantic_ai/models/openai.py",
+    "pydantic_ai_slim/pydantic_ai/models/xai.py",
+    "tests/models/test_multimodal_tool_returns.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "a6b2dbd68fa46287aa061f2dc726c9fd6cb870d2",
+   "parent": "514e390ff8c90bd64438c88a04e31420a0b05b1c",
+   "date": "2026-06-11T15:17:51-05:00",
+   "subject": "Add `gemini-embedding-2` embedding model (#5887)",
+   "type": "feat",
+   "test_files": [
+    "tests/test_examples.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/embeddings/__init__.py",
+    "pydantic_ai_slim/pydantic_ai/embeddings/google.py"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/embeddings/__init__.py",
+    "pydantic_ai_slim/pydantic_ai/embeddings/google.py",
+    "tests/test_examples.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "89c4ef7681ece9364410acfd6c873052f0e6f91f",
+   "parent": "5965db82c4e10012a8598c14716ea8a88fb411a9",
+   "date": "2026-06-11T17:35:18+00:00",
+   "subject": "Send `reasoning_content` on synthesized tool-call turns for DeepSeek thinking models (#5842)",
+   "type": "other",
+   "test_files": [
+    "tests/models/test_deepseek.py",
+    "tests/models/test_openai.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/openai.py"
+   ],
+   "source_lines": 24,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/models/openai.py",
+    "tests/models/cassettes/test_deepseek/test_deepseek_deferred_capability_with_thinking.yaml",
+    "tests/models/test_deepseek.py",
+    "tests/models/test_openai.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "025f91f65dbc063141ea36305c0f9656c51f4f88",
+   "parent": "a6b2dbd68fa46287aa061f2dc726c9fd6cb870d2",
+   "date": "2026-06-11T19:28:01-05:00",
+   "subject": "Replay Cerebras `zai-glm` reasoning in `<think>` tags and bump to `zai-glm-4.7` (#5891)",
+   "type": "other",
+   "test_files": [
+    "tests/models/test_cerebras.py",
+    "tests/providers/test_cerebras.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/cerebras.py",
+    "pydantic_ai_slim/pydantic_ai/providers/cerebras.py"
+   ],
+   "source_lines": 11,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/models/cerebras.py",
+    "pydantic_ai_slim/pydantic_ai/providers/cerebras.py",
+    "tests/models/cassettes/test_cerebras/test_cerebras_zai_reasoning_replayed_as_think_tags.yaml",
+    "tests/models/test_cerebras.py",
+    "tests/providers/test_cerebras.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "cb6f9c965b0ed05815d18249cbec63a3633ffe17",
+   "parent": "3c98a109cfbb522bd05dff075e3d0a7fdd5b7681",
+   "date": "2026-06-12T10:59:25-05:00",
+   "subject": "Retain dropped usage fields across `GoogleModel` streaming chunks (#5886)",
+   "type": "other",
+   "test_files": [
+    "tests/models/test_google.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/google.py"
+   ],
+   "source_lines": 36,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/models/google.py",
+    "tests/models/test_google.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "0d2fbb47725efa9f7eecb89430b8c9e677eb2fc1",
+   "parent": "30565b5f759b20dc4fd7292384bfd7ff3406b3d9",
+   "date": "2026-06-13T09:30:22-05:00",
+   "subject": "fix(output): validate union `kind` discriminator in text output (#5845)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_agent.py",
+    "tests/test_streaming.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/_output.py"
+   ],
+   "source_lines": 23,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/_output.py",
+    "tests/test_agent.py",
+    "tests/test_streaming.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "e24fea1ea612e8ea70438c8c61fc01e567dfba4a",
+   "parent": "0d2fbb47725efa9f7eecb89430b8c9e677eb2fc1",
+   "date": "2026-06-13T09:31:48-05:00",
+   "subject": "fix(openai): prevent AG-UI stalls during multi-server MCP discovery (#5443)",
+   "type": "fix",
+   "test_files": [
+    "tests/models/test_openai_responses.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/openai.py"
+   ],
+   "source_lines": 13,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/models/openai.py",
+    "tests/models/cassettes/test_openai_responses/test_openai_responses_model_mcp_list_tools_stream_backfills_missing_results.yaml",
+    "tests/models/test_openai_responses.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "f704b0d87f02e9dd2f1dab58eae2ecf72430b341",
+   "parent": "58c0cb8302de1233252d24f599f97590aaee9b05",
+   "date": "2026-06-13T10:48:40-05:00",
+   "subject": "Forward `additionalModelRequestFields` in Bedrock `count_tokens` (#5910)",
+   "type": "other",
+   "test_files": [
+    "tests/models/test_bedrock.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/bedrock.py"
+   ],
+   "source_lines": 22,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/models/bedrock.py",
+    "tests/models/cassettes/test_bedrock/test_bedrock_count_tokens_additional_model_requests_fields.yaml",
+    "tests/models/cassettes/test_bedrock/test_bedrock_count_tokens_tool_config.yaml",
+    "tests/models/test_bedrock.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "ece1690671b3993f493f29e0466d27194d383f16",
+   "parent": "f704b0d87f02e9dd2f1dab58eae2ecf72430b341",
+   "date": "2026-06-13T12:14:55-05:00",
+   "subject": "Fix `MCPToolset(http_client=...)` crash on FastMCP's `follow_redirects` kwarg (#5694)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_mcp_toolset.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/mcp.py"
+   ],
+   "source_lines": 12,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/mcp.py",
+    "tests/test_mcp_toolset.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "fabeacc3af417e81218fb2f4e0e8f812975c24a9",
+   "parent": "d6bd7991693f575168ee20ed0f6c98acc84a5c6b",
+   "date": "2026-06-14T10:58:08-05:00",
+   "subject": "fix(cohere): forward `tool_choice` from `ModelSettings` to v2 chat API (#5833)",
+   "type": "fix",
+   "test_files": [
+    "tests/cassette_utils.py",
+    "tests/models/test_tool_choice_matrix.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/cohere.py"
+   ],
+   "source_lines": 46,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/models/cohere.py",
+    "tests/cassette_utils.py",
+    "tests/models/cassettes/test_tool_choice_matrix/test_tool_choice_matrix[auto-cohere].yaml",
+    "tests/models/cassettes/test_tool_choice_matrix/test_tool_choice_matrix[list_single-cohere].yaml",
+    "tests/models/cassettes/test_tool_choice_matrix/test_tool_choice_matrix[none-cohere].yaml",
+    "tests/models/cassettes/test_tool_choice_matrix/test_tool_choice_matrix[none_with_output-cohere].yaml",
+    "tests/models/cassettes/test_tool_choice_matrix/test_tool_choice_matrix[required-cohere].yaml",
+    "tests/models/cassettes/test_tool_choice_matrix/test_tool_choice_matrix[tools_plus_output-cohere].yaml",
+    "tests/models/test_tool_choice_matrix.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "22fd3f8b79e20b6ab69113ac388f4b3174a31395",
+   "parent": "fabeacc3af417e81218fb2f4e0e8f812975c24a9",
+   "date": "2026-06-15T10:35:44-05:00",
+   "subject": "Route `max_tokens` to `max_completion_tokens` or `max_tokens` via `OpenAIModelProfile` flag (#5926)",
+   "type": "other",
+   "test_files": [
+    "tests/models/test_openai.py",
+    "tests/providers/test_openrouter.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/openai.py",
+    "pydantic_ai_slim/pydantic_ai/profiles/openai.py",
+    "pydantic_ai_slim/pydantic_ai/providers/openrouter.py"
+   ],
+   "source_lines": 17,
+   "all_files": [
+    "docs/models/openai.md",
+    "pydantic_ai_slim/pydantic_ai/models/openai.py",
+    "pydantic_ai_slim/pydantic_ai/profiles/openai.py",
+    "pydantic_ai_slim/pydantic_ai/providers/openrouter.py",
+    "tests/models/cassettes/test_openai/test_max_completion_tokens[gpt-4o-mini].yaml",
+    "tests/models/cassettes/test_openai/test_max_completion_tokens[o3-mini].yaml",
+    "tests/models/test_openai.py",
+    "tests/providers/test_openrouter.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "67856ce21f0a14fd4f9d710818eb1cbb80392d58",
+   "parent": "a7d1d98ec913e72e4decd440f9005bda1f5ac158",
+   "date": "2026-06-15T12:40:55-05:00",
+   "subject": "Forward `top_k` model setting to Bedrock `additionalModelRequestFields` (#5922)",
+   "type": "other",
+   "test_files": [
+    "tests/models/test_bedrock.py",
+    "tests/test_thinking.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/bedrock.py",
+    "pydantic_ai_slim/pydantic_ai/providers/bedrock.py",
+    "pydantic_ai_slim/pydantic_ai/settings.py"
+   ],
+   "source_lines": 46,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/models/bedrock.py",
+    "pydantic_ai_slim/pydantic_ai/providers/bedrock.py",
+    "pydantic_ai_slim/pydantic_ai/settings.py",
+    "tests/models/cassettes/test_bedrock/test_bedrock_top_k_anthropic_variant.yaml",
+    "tests/models/cassettes/test_bedrock/test_bedrock_top_k_nova_variant.yaml",
+    "tests/models/test_bedrock.py",
+    "tests/test_thinking.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "6d79af814fc30c302f19324e79096fab978cb562",
+   "parent": "4c545bd62cdf96a3fd7c548ebd8f1beae2812ee7",
+   "date": "2026-06-15T15:20:28-05:00",
+   "subject": "Cover `GoogleModel.count_tokens` Vertex native-tool path and document the intentional `AnthropicModel` divergence (#5943)",
+   "type": "other",
+   "test_files": [
+    "tests/models/test_google.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/google.py"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/models/google.py",
+    "tests/models/cassettes/test_google/test_google_vertexai_count_tokens_forwards_native_tools.yaml",
+    "tests/models/test_google.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "2661b55323644eeaf56d133fc6fcb1580c6bcdee",
+   "parent": "e356f32cf20fab8fd0c50df7526a43892402b51d",
+   "date": "2026-06-18T10:09:57-05:00",
+   "subject": "Add `google_task` text-prefix conditioning for `gemini-embedding-2` embeddings (#5894)",
+   "type": "feat",
+   "test_files": [
+    "tests/test_embeddings.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/embeddings/google.py"
+   ],
+   "source_lines": 104,
+   "all_files": [
+    "docs/embeddings.md",
+    "pydantic_ai_slim/pydantic_ai/embeddings/google.py",
+    "tests/cassettes/test_embeddings/test_google_task_prefix[asymmetric-document-empty-title].yaml",
+    "tests/cassettes/test_embeddings/test_google_task_prefix[asymmetric-document-no-title].yaml",
+    "tests/cassettes/test_embeddings/test_google_task_prefix[asymmetric-document-with-title].yaml",
+    "tests/cassettes/test_embeddings/test_google_task_prefix[asymmetric-query].yaml",
+    "tests/cassettes/test_embeddings/test_google_task_prefix[default-query].yaml",
+    "tests/cassettes/test_embeddings/test_google_task_prefix[raw-passthrough].yaml",
+    "tests/cassettes/test_embeddings/test_google_task_prefix[symmetric-document-ignores-title].yaml",
+    "tests/cassettes/test_embeddings/test_google_task_prefix[symmetric-query].yaml",
+    "tests/cassettes/test_embeddings/test_google_task_prefix[symmetric-sentence-similarity-ignores-title].yaml",
+    "tests/cassettes/test_embeddings/test_google_task_prefix[task-ignored-on-other-model].yaml",
+    "tests/cassettes/test_embeddings/test_google_task_prefix[task-type-ignored-on-embedding-2].yaml",
+    "tests/cassettes/test_embeddings/test_google_task_prefix_vertex.yaml",
+    "tests/test_embeddings.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "53e06412c50b549ed39ac570e892ae168aaa5f52",
+   "parent": "88fb4e34eb24bb39d08a900bfe5f631d7df49484",
+   "date": "2026-06-22T14:31:12-05:00",
+   "subject": "feat: add `xai_max_turns` to `XaiModelSettings` (#5978)",
+   "type": "feat",
+   "test_files": [
+    "tests/models/test_xai.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/xai.py"
+   ],
+   "source_lines": 14,
+   "all_files": [
+    "docs/models/xai.md",
+    "pydantic_ai_slim/pydantic_ai/models/xai.py",
+    "tests/models/test_xai.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "9b07e5c0e1b039361d547391273e5bd027b2edd0",
+   "parent": "9544f324e07fd69c707587fae80739c6f5132d1f",
+   "date": "2026-06-22T20:43:50-05:00",
+   "subject": "fix(groq): add `groq_reasoning_effort` setting (#5797)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_thinking_wire_contract.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/groq.py"
+   ],
+   "source_lines": 22,
+   "all_files": [
+    "docs/thinking.md",
+    "pydantic_ai_slim/pydantic_ai/models/groq.py",
+    "tests/cassettes/test_thinking_wire_contract/{test_thinking_disable_wire_contract[cerebras-gpt-oss-always-on].yaml => test_reasoning_wire_contract[cerebras-gpt-oss-always-on].yaml}",
+    "tests/cassettes/test_thinking_wire_contract/{test_thinking_disable_wire_contract[groq-qwen3-disable-merges-user-extra-body].yaml => test_reasoning_wire_contract[groq-qwen3-disable-merges-user-extra-body].yaml}",
+    "tests/cassettes/test_thinking_wire_contract/test_reasoning_wire_contract[groq-qwen3-disable-overrides-effort-setting].yaml",
+    "tests/cassettes/test_thinking_wire_contract/{test_thinking_disable_wire_contract[groq-qwen3-disable].yaml => test_reasoning_wire_contract[groq-qwen3-disable].yaml}",
+    "tests/cassettes/test_thinking_wire_contract/test_reasoning_wire_contract[groq-qwen3-effort-setting].yaml",
+    "tests/test_thinking_wire_contract.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "61c71f01b613094f18bc1e91fdd307f78b95ef5d",
+   "parent": "3e83d4c7811f74d391752dc9728ff6f6fb3785ba",
+   "date": "2026-06-23T09:01:37-05:00",
+   "subject": "Emit `reasoning_effort='none'` for Cerebras, deprecate `cerebras_disable_reasoning`, add `cerebras_clear_thinking` (#5897)",
+   "type": "other",
+   "test_files": [
+    "tests/models/test_cerebras.py",
+    "tests/test_thinking.py",
+    "tests/test_thinking_wire_contract.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/cerebras.py"
+   ],
+   "source_lines": 75,
+   "all_files": [
+    "docs/thinking.md",
+    "pydantic_ai_slim/pydantic_ai/models/cerebras.py",
+    "tests/cassettes/test_thinking_wire_contract/test_reasoning_wire_contract[cerebras-zai-clear-thinking].yaml",
+    "tests/models/cassettes/test_cerebras/test_cerebras_disable_reasoning_setting.yaml",
+    "tests/models/test_cerebras.py",
+    "tests/test_thinking.py",
+    "tests/test_thinking_wire_contract.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "45f34af32adacbc72873d193470e0a7964f87786",
+   "parent": "3393292501e9fbc7506919c7cd160b698abaa486",
+   "date": "2026-06-24T16:16:58+05:30",
+   "subject": "Convert `ExceptionGroup`-wrapped tool errors to `ModelRetry` in `MCPToolset` (#6004)",
+   "type": "other",
+   "test_files": [
+    "tests/test_mcp.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/mcp.py"
+   ],
+   "source_lines": 18,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/mcp.py",
+    "tests/test_mcp.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "c26903e5edfb9c0308e9a6696fd3f876c2ff92af",
+   "parent": "92f22d7a80f29f6c9089f87dd45cbb2a92f90266",
+   "date": "2026-06-25T05:27:25+00:00",
+   "subject": "fix: prevent `cancel()` from flipping complete state on finished stream (#5795)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_streaming.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/__init__.py"
+   ],
+   "source_lines": 12,
+   "all_files": [
+    "docs/output.md",
+    "pydantic_ai_slim/pydantic_ai/models/__init__.py",
+    "tests/test_streaming.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "8375fd87eb034dff41cfaf5525d6af26ba5b70d2",
+   "parent": "b099dace12c570cc045909df4b92c38522c6a1ba",
+   "date": "2026-06-25T18:25:07-05:00",
+   "subject": "fix(anthropic): support Bedrock token counting (#5480)",
+   "type": "fix",
+   "test_files": [
+    "tests/models/test_anthropic.py",
+    "tests/models/test_anthropic_bedrock_count_tokens.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/_anthropic_bedrock_count_tokens.py",
+    "pydantic_ai_slim/pydantic_ai/models/anthropic.py"
+   ],
+   "source_lines": 147,
+   "all_files": [
+    "docs/models/anthropic.md",
+    "pydantic_ai_slim/pydantic_ai/models/_anthropic_bedrock_count_tokens.py",
+    "pydantic_ai_slim/pydantic_ai/models/anthropic.py",
+    "tests/models/cassettes/test_anthropic_bedrock_count_tokens/test_anthropic_bedrock_count_tokens_error.yaml",
+    "tests/models/cassettes/test_anthropic_bedrock_count_tokens/test_anthropic_bedrock_count_tokens_real_api.yaml",
+    "tests/models/cassettes/test_anthropic_bedrock_count_tokens/test_anthropic_bedrock_count_tokens_rejects_server_tools.yaml",
+    "tests/models/test_anthropic.py",
+    "tests/models/test_anthropic_bedrock_count_tokens.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "e7820baa42a987daaba4513cbd2347bf7150a8a6",
+   "parent": "8375fd87eb034dff41cfaf5525d6af26ba5b70d2",
+   "date": "2026-06-26T08:29:07+02:00",
+   "subject": "Serialize instrumentation message attributes with `to_json` instead of `json.dumps` (#6045)",
+   "type": "other",
+   "test_files": [
+    "tests/models/test_instrumented.py",
+    "tests/test_logfire.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/_instrumentation.py",
+    "pydantic_ai_slim/pydantic_ai/capabilities/instrumentation.py",
+    "pydantic_ai_slim/pydantic_ai/models/instrumented.py"
+   ],
+   "source_lines": 44,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/_instrumentation.py",
+    "pydantic_ai_slim/pydantic_ai/capabilities/instrumentation.py",
+    "pydantic_ai_slim/pydantic_ai/models/instrumented.py",
+    "tests/models/test_instrumented.py",
+    "tests/test_logfire.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "b2124d007b14f9963481503b86fd7b1647b6c7f6",
+   "parent": "1e8adad9155a3656bb037a844f238a408e6e95f5",
+   "date": "2026-06-27T12:46:11-05:00",
+   "subject": "Add `TypeAdapter` for `EvaluatorContext` (#3373)",
+   "type": "feat",
+   "test_files": [
+    "tests/evals/test_evaluator_context.py"
+   ],
+   "source_files": [
+    "pydantic_evals/pydantic_evals/otel/_errors.py"
+   ],
+   "source_lines": 34,
+   "all_files": [
+    "docs/evals/online-evaluation.md",
+    "pydantic_evals/pydantic_evals/otel/_errors.py",
+    "tests/evals/test_evaluator_context.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "54c37c2cb416757b4376db02c3aae7e500858e69",
+   "parent": "5f3d2d7888a2ac1335dc5cccfb3bafb9ca20d1a5",
+   "date": "2026-06-29T09:19:57-05:00",
+   "subject": "fix(utils): run sync callbacks inline on Pyodide/emscripten by default (#6088)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_utils.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/_utils.py"
+   ],
+   "source_lines": 6,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/_utils.py",
+    "tests/test_utils.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "1668537917e52e991f5f68c3778e4648ac0f4299",
+   "parent": "149c312baa861045877221a038f8cd8b53ce62eb",
+   "date": "2026-06-29T17:00:27-06:00",
+   "subject": "fix(heroku): route model names through family profiles so thinking isn't dropped (#6070)",
+   "type": "fix",
+   "test_files": [
+    "tests/profiles/test_resolution_matrix.py",
+    "tests/providers/test_heroku.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/providers/heroku.py"
+   ],
+   "source_lines": 43,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/providers/heroku.py",
+    "tests/profiles/test_resolution_matrix.py",
+    "tests/providers/test_heroku.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "34ae3b9ab6000132c7a9facf8d2b6298dca362cf",
+   "parent": "1668537917e52e991f5f68c3778e4648ac0f4299",
+   "date": "2026-06-29T17:35:24-06:00",
+   "subject": "Guard `TogetherProvider.model_profile` against model names without a `/` (#6113)",
+   "type": "other",
+   "test_files": [
+    "tests/models/test_model.py",
+    "tests/providers/test_together.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/providers/together.py"
+   ],
+   "source_lines": 7,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/providers/together.py",
+    "tests/models/test_model.py",
+    "tests/providers/test_together.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "a83af580f38c138f4613b9435fd336146065ff87",
+   "parent": "34ae3b9ab6000132c7a9facf8d2b6298dca362cf",
+   "date": "2026-06-29T17:38:10-06:00",
+   "subject": "fix(`GoogleModel`): include `CodeExecutionTool` in `include_server_side_tool_invocations` check (#6052)",
+   "type": "fix",
+   "test_files": [
+    "tests/models/test_tool_choice_unit.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/google.py"
+   ],
+   "source_lines": 10,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/models/google.py",
+    "tests/models/test_tool_choice_unit.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "23535fc08829d70d2dec34a62050bc60394a5062",
+   "parent": "a83af580f38c138f4613b9435fd336146065ff87",
+   "date": "2026-06-29T17:41:21-06:00",
+   "subject": "fix(groq): surface `reasoning_tokens` in usage details (#5986)",
+   "type": "fix",
+   "test_files": [
+    "tests/models/test_groq.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/groq.py"
+   ],
+   "source_lines": 9,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/models/groq.py",
+    "tests/models/test_groq.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "53df1c59b69d1f9df5effdbc75d5fc2edd732949",
+   "parent": "23535fc08829d70d2dec34a62050bc60394a5062",
+   "date": "2026-06-29T19:59:49-06:00",
+   "subject": "Fix map `downstream_join_id` double-firing the join on a non-empty iterable (#6009)",
+   "type": "fix",
+   "test_files": [
+    "tests/graph/builder/test_broadcast_and_spread.py"
+   ],
+   "source_files": [
+    "pydantic_graph/pydantic_graph/graph_builder.py"
+   ],
+   "source_lines": 43,
+   "all_files": [
+    "pydantic_graph/pydantic_graph/graph_builder.py",
+    "tests/graph/builder/test_broadcast_and_spread.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "d4a674d51f5a4108ad73506c41cd4bf788fa9083",
+   "parent": "869921b3be6cde6989da7d8f6d115e55d67214c4",
+   "date": "2026-06-30T14:48:36-05:00",
+   "subject": "fix(ui): round-trip file `vendor_metadata` through Vercel AI & AG-UI adapters (#5790)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_ag_ui.py",
+    "tests/test_vercel_ai.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/ui/ag_ui/_multimodal.py",
+    "pydantic_ai_slim/pydantic_ai/ui/vercel_ai/_adapter.py"
+   ],
+   "source_lines": 94,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/ui/ag_ui/_multimodal.py",
+    "pydantic_ai_slim/pydantic_ai/ui/vercel_ai/_adapter.py",
+    "tests/test_ag_ui.py",
+    "tests/test_vercel_ai.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "1adbdbb2bb8d33b882520ec8e4f3897050476990",
+   "parent": "beaefc07f7c1037ae8a27c84487cb22515749158",
+   "date": "2026-06-30T15:23:53-06:00",
+   "subject": "Allow factory functions as lifecycle arg for `Dataset.evaluate` (#6107)",
+   "type": "other",
+   "test_files": [
+    "tests/evals/test_dataset.py"
+   ],
+   "source_files": [
+    "pydantic_evals/pydantic_evals/dataset.py"
+   ],
+   "source_lines": 18,
+   "all_files": [
+    "pydantic_evals/pydantic_evals/dataset.py",
+    "tests/evals/test_dataset.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "4d6ec807dfa686e5c16fe40236fe7032c02c87cb",
+   "parent": "61a21175ea3f966f70af586a7217ca3917ffa03c",
+   "date": "2026-06-30T15:50:11-06:00",
+   "subject": "fix(heroku): avoid duplicating `/v1` in `base_url` (#6142)",
+   "type": "fix",
+   "test_files": [
+    "tests/providers/test_heroku.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/providers/heroku.py"
+   ],
+   "source_lines": 11,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/providers/heroku.py",
+    "tests/providers/test_heroku.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "2f78decfa017e14c4b2058d01ec67f89ea8aba9c",
+   "parent": "4d6ec807dfa686e5c16fe40236fe7032c02c87cb",
+   "date": "2026-06-30T15:54:06-06:00",
+   "subject": "Fix absolute `schema_path` handling in `Dataset.to_file` (#6143)",
+   "type": "fix",
+   "test_files": [
+    "tests/evals/test_dataset.py"
+   ],
+   "source_files": [
+    "pydantic_evals/pydantic_evals/dataset.py"
+   ],
+   "source_lines": 12,
+   "all_files": [
+    "pydantic_evals/pydantic_evals/dataset.py",
+    "tests/evals/test_dataset.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "61a21175ea3f966f70af586a7217ca3917ffa03c",
+   "parent": "298801682b7649153f6f0824f0d0a00aa3dc18d2",
+   "date": "2026-06-30T16:45:24-05:00",
+   "subject": "feat: Add prompt and completions cost fields to OpenRouter (#4899)",
+   "type": "feat",
+   "test_files": [
+    "tests/models/openrouter/test_cache.py",
+    "tests/models/test_openrouter.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/openrouter.py"
+   ],
+   "source_lines": 7,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/models/openrouter.py",
+    "tests/models/openrouter/test_cache.py",
+    "tests/models/test_openrouter.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "1067bfa2968ea3d32bdf6c46e5a5a23e6c761558",
+   "parent": "2f78decfa017e14c4b2058d01ec67f89ea8aba9c",
+   "date": "2026-06-30T16:58:26-05:00",
+   "subject": "feat: add `retry_options` parameter to `GoogleProvider` (#4966)",
+   "type": "feat",
+   "test_files": [
+    "tests/providers/test_google.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/providers/google.py",
+    "pydantic_ai_slim/pydantic_ai/providers/google_cloud.py"
+   ],
+   "source_lines": 22,
+   "all_files": [
+    "docs/models/google.md",
+    "pydantic_ai_slim/pydantic_ai/providers/google.py",
+    "pydantic_ai_slim/pydantic_ai/providers/google_cloud.py",
+    "tests/providers/test_google.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "a207fe13ba5a6a85fb56cc32ebdb254daecafe1f",
+   "parent": "1067bfa2968ea3d32bdf6c46e5a5a23e6c761558",
+   "date": "2026-06-30T17:20:42-06:00",
+   "subject": "Fix `deps` deserialization in non-streaming Temporal model-request activity (#5900)",
+   "type": "fix",
+   "test_files": [
+    "tests/test_temporal.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/durable_exec/temporal/_model.py"
+   ],
+   "source_lines": 7,
+   "all_files": [
+    "pydantic_ai_slim/pydantic_ai/durable_exec/temporal/_model.py",
+    "tests/test_temporal.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "869921b3be6cde6989da7d8f6d115e55d67214c4",
+   "parent": "bfb3f674239a5827a0f3494b677245a6815c15b9",
+   "date": "2026-06-30T18:28:42+00:00",
+   "subject": "Suppress `ClosedResourceError` when cancelling a graph run mid-send (#6149)",
+   "type": "other",
+   "test_files": [
+    "tests/graph/builder/test_graph_execution.py"
+   ],
+   "source_files": [
+    "pydantic_graph/pydantic_graph/graph_builder.py"
+   ],
+   "source_lines": 13,
+   "all_files": [
+    "pydantic_graph/pydantic_graph/graph_builder.py",
+    "tests/graph/builder/test_graph_execution.py"
+   ]
+  },
+  {
+   "repo": "pydantic-ai",
+   "commit": "beaefc07f7c1037ae8a27c84487cb22515749158",
+   "parent": "d4a674d51f5a4108ad73506c41cd4bf788fa9083",
+   "date": "2026-06-30T21:21:10+00:00",
+   "subject": "Add Claude Sonnet 5 (`claude-sonnet-5`) support (#6161)",
+   "type": "feat",
+   "test_files": [
+    "tests/profiles/test_anthropic.py",
+    "tests/test_capabilities.py"
+   ],
+   "source_files": [
+    "pydantic_ai_slim/pydantic_ai/models/_known_model_names.py",
+    "pydantic_ai_slim/pydantic_ai/models/anthropic.py",
+    "pydantic_ai_slim/pydantic_ai/profiles/anthropic.py"
+   ],
+   "source_lines": 21,
+   "all_files": [
+    "docs/models/anthropic.md",
+    "docs/thinking.md",
+    "pydantic_ai_slim/pydantic_ai/models/_known_model_names.py",
+    "pydantic_ai_slim/pydantic_ai/models/anthropic.py",
+    "pydantic_ai_slim/pydantic_ai/profiles/anthropic.py",
+    "tests/profiles/test_anthropic.py",
+    "tests/test_capabilities.py"
+   ]
+  }
+ ]
+}
