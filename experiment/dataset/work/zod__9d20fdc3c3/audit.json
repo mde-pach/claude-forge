@@ -1,0 +1,10 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/zod/src/v4/classic/tests/preprocess-types.test.ts::ZodPreprocess narrows input from an annotated preprocessor arg",
+   "action": "keep",
+   "reason": "It checks only the public z.input and z.output types for the exact examples given in the instruction, which is observable outcome rather than implementation detail."
+  }
+ ],
+ "edits": []
+}

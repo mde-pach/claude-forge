@@ -1,0 +1,58 @@
+{
+ "task_id": "zod__2715c12e76",
+ "window": "main",
+ "repo": "zod",
+ "commit": "2715c12e76cf022d7dbdeb5852c09fddfe91a481",
+ "parent": "81d9fc6cf47da97ad4ef2c43de02276fba249790",
+ "date": "2026-08-12T22:34:06-07:00",
+ "subject": "fix(v4): preserve default English locale across tree-shaken bundles (#5959)",
+ "type": "fix",
+ "test_files": [
+  "packages/treeshake/default-locale.test.ts",
+  "packages/zod/src/v4/classic/tests/default-locale.test.ts"
+ ],
+ "source_files": [
+  "packages/zod/src/v4/classic/external.ts",
+  "packages/zod/src/v4/classic/schemas.ts"
+ ],
+ "source_lines": 16,
+ "all_files": [
+  "packages/treeshake/default-locale.test.ts",
+  "packages/zod/src/v4/classic/external.ts",
+  "packages/zod/src/v4/classic/schemas.ts",
+  "packages/zod/src/v4/classic/tests/default-locale.test.ts"
+ ],
+ "hidden": [
+  "packages/treeshake/default-locale.test.ts",
+  "packages/zod/src/v4/classic/tests/default-locale.test.ts"
+ ],
+ "deleted": [],
+ "targets": [
+  "packages/treeshake/default-locale.test.ts",
+  "packages/zod/src/v4/classic/tests/default-locale.test.ts"
+ ],
+ "f2p": [
+  "packages/zod/src/v4/classic/tests/default-locale.test.ts::first ZodType construction registers the English default locale"
+ ],
+ "p2p": [
+  "packages/zod/src/v4/classic/tests/default-locale.test.ts::explicit locale set after schema construction overrides default",
+  "packages/zod/src/v4/classic/tests/default-locale.test.ts::explicit locale set before schema construction is preserved"
+ ],
+ "flaky": [],
+ "cost_instruction": 0.0694258,
+ "cost_audit": 0.0650862,
+ "kept_f2p": [
+  "packages/zod/src/v4/classic/tests/default-locale.test.ts::first ZodType construction registers the English default locale"
+ ],
+ "kept_p2p": [
+  "packages/zod/src/v4/classic/tests/default-locale.test.ts::explicit locale set after schema construction overrides default",
+  "packages/zod/src/v4/classic/tests/default-locale.test.ts::explicit locale set before schema construction is preserved"
+ ],
+ "edits_applied": 0,
+ "edits_rejected": [],
+ "dropped": [],
+ "revalidate_bad_f2p": [],
+ "revalidate_bad_p2p": [],
+ "final": "accepted",
+ "reason": null
+}

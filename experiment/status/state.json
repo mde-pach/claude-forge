@@ -1,6 +1,6 @@
 {
  "updated": "",
- "headline": "Pilot under way. The harness works end to end; the pilot has already caught and fixed five harness bugs (CHANGELOG P1\u2013P5). Dataset building: 22+ Python tasks accepted so far.",
+ "headline": "Pilots under way on Python and TypeScript tasks. They have caught 10 harness problems so far (CHANGELOG P1\u2013P10), each fixed and logged. Dataset: pydantic-ai, fastmcp and logfire complete at 10+ accepted; zod, inngest-js and better-auth in progress.",
  "phases": [
   {
    "name": "Design written and pre-registered",
@@ -65,7 +65,7 @@
     "repo": "pydantic-ai",
     "lang": "Python",
     "candidates": 686,
-    "accepted": 3
+    "accepted": 10
    },
    {
     "repo": "fastmcp",
@@ -77,25 +77,25 @@
     "repo": "logfire",
     "lang": "Python",
     "candidates": 64,
-    "accepted": 7
+    "accepted": 15
    },
    {
     "repo": "better-auth",
     "lang": "TypeScript",
     "candidates": 135,
-    "accepted": null
+    "accepted": 0
    },
    {
     "repo": "zod",
     "lang": "TypeScript",
     "candidates": 116,
-    "accepted": null
+    "accepted": 5
    },
    {
     "repo": "inngest-js",
     "lang": "TypeScript",
     "candidates": 49,
-    "accepted": null
+    "accepted": 6
    }
   ]
  },
@@ -111,6 +111,9 @@
   "Pilot P2\u2013P3: PATH inherited from the container; ~/.claude/forge.lock.json counted as Forge-owned",
   "Pilot P4: Forge setup committed after apply, as its Getting started says",
   "Pilot P5: empty final.diff bug (git ownership) fixed, scorer self-test added; pilot re-run from scratch",
-  "Forge is active in its arm: SessionStart, PreToolUse guard, lint feedback after edits, Stop blocks on failing tests"
+  "Forge is active in its arm: SessionStart, PreToolUse guard, lint feedback after edits, Stop blocks on failing tests",
+  "Pilot P7\u2013P10: auth refresh race, disk exhaustion reclassified as infrastructure (5 wrongly rejected candidates restored), .gitignore'd .claude, multi-result cost aggregation",
+  "zod pilot: both arms failed one task on type-level errors; Forge's Stop check blocked 3 times, then handed over",
+  "Scorer self-test passes on Python and TypeScript pilot tasks"
  ]
 }

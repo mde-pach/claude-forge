@@ -1,0 +1,100 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/zod/src/v3/tests/intersection.test.ts::object intersection strips __proto__ from pass-through operands",
+   "action": "keep",
+   "reason": "Checks only the public parse output, using the exact examples given in the instruction."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/discriminated-unions.test.ts::Object.prototype discriminator name: __proto__",
+   "action": "keep",
+   "reason": "Checks only parse success and that the output has no own __proto__, which the instruction specifies."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/from-json-schema.test.ts::required __proto__ property is represented in the shape but stripped during parsing",
+   "action": "keep",
+   "reason": "Checks the public .shape and parse outputs exactly as the instruction describes."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/intersection.test.ts::object intersection strips __proto__ from pass-through operands",
+   "action": "keep",
+   "reason": "Checks only the public parse output, using the examples from the instruction."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/object.test.ts::__proto__ as a declared shape key > an own getter is not evaluated",
+   "action": "keep",
+   "reason": "The instruction says the input getter must not be invoked; the read count comes from a getter on the test's own input, not from a mock of internals."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/object.test.ts::__proto__ as a declared shape key > async",
+   "action": "keep",
+   "reason": "Checks the public output of parseAsync, which the instruction specifies (stripped, Object.prototype)."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/object.test.ts::__proto__ as a declared shape key > declared key is not validated",
+   "action": "keep",
+   "reason": "The instruction says invalid values do not fail; the test checks only the parse output."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/object.test.ts::__proto__ as a declared shape key > jit fastpass",
+   "action": "keep",
+   "reason": "Checks only the parse output in default mode, as the instruction specifies."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/object.test.ts::__proto__ as a declared shape key > jitless",
+   "action": "keep",
+   "reason": "Checks only the parse output with jitless, a mode the instruction names."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/object.test.ts::__proto__ as a declared shape key > pick keeps a declared key",
+   "action": "keep",
+   "reason": "The instruction says the key stays in .shape and survives .pick; the error message checked already existed before the change."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/object.test.ts::__proto__ as a declared shape key > primitive value is stripped",
+   "action": "keep",
+   "reason": "Checks only observable output properties that the instruction specifies."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/object.test.ts::__proto__ as a declared shape key > required, optional, and defaulted declarations are all stripped",
+   "action": "keep",
+   "reason": "The instruction says missing values do not fail and defaults are not applied; the test checks only parse output."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/object.test.ts::__proto__ in object catchall paths > strict accepts but strips a __proto__ key the shape declares",
+   "action": "keep",
+   "reason": "The instruction says .strict() accepts the input and strips the key; the test checks only the public result."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/record.test.ts::__proto__ in a finite key set is stripped",
+   "action": "keep",
+   "reason": "Checks only the record parse output that the instruction specifies."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/record.test.ts::a finite __proto__ key is ignored whether present or missing",
+   "action": "keep",
+   "reason": "The instruction says the key is skipped whether present or missing, with no validation; the test checks only output."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/record.test.ts::partialRecord strips a declared __proto__ key",
+   "action": "keep",
+   "reason": "Checks only public parse results that follow from the instruction."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/record.test.ts::partialRecord strips a declared __proto__ key before transforms",
+   "action": "keep",
+   "reason": "This is the exact transform example the instruction gives, checked through parse output."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/record.test.ts::partialRecord strips a declared __proto__ key in loose mode",
+   "action": "keep",
+   "reason": "The instruction says loose mode does not pass the key through; the test checks only output."
+  },
+  {
+   "id": "packages/zod/src/v4/mini/tests/index.test.ts::z.record",
+   "action": "keep",
+   "reason": "Checks only mini partialRecord parse output, which the instruction specifies."
+  }
+ ],
+ "edits": []
+}

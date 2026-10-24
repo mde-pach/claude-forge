@@ -1,0 +1,76 @@
+$ set -e
+W=/tmp/pnpm-store
+for d in /cache/pnpm/v*; do
+  [ -d "$d" ] || continue
+  v=$(basename "$d"); mkdir -p "$W/$v"
+  for e in "$d"/*; do
+    n=$(basename "$e")
+    if [ "$n" = files ]; then ln -sfn "$e" "$W/$v/files"; else cp -a "$e" "$W/$v/"; fi
+  done
+done
+pnpm install --frozen-lockfile --offline --ignore-scripts --store-dir "$W" --package-import-method copy
+(cd packages/test && pnpm run build)
+(cd packages/inngest && pnpm run pb:version)
+
+Scope: all 11 workspace projects
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +1454
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 1454, reused 0, downloaded 0, added 0
+Progress: resolved 1454, reused 353, downloaded 0, added 0
+Progress: resolved 1454, reused 921, downloaded 0, added 0
+Progress: resolved 1454, reused 1254, downloaded 0, added 0
+Progress: resolved 1454, reused 1418, downloaded 0, added 98
+Progress: resolved 1454, reused 1418, downloaded 0, added 225
+Progress: resolved 1454, reused 1418, downloaded 0, added 360
+Progress: resolved 1454, reused 1418, downloaded 0, added 513
+Progress: resolved 1454, reused 1418, downloaded 0, added 634
+Progress: resolved 1454, reused 1418, downloaded 0, added 734
+Progress: resolved 1454, reused 1418, downloaded 0, added 775
+Progress: resolved 1454, reused 1418, downloaded 0, added 856
+Progress: resolved 1454, reused 1418, downloaded 0, added 910
+Progress: resolved 1454, reused 1418, downloaded 0, added 911
+Progress: resolved 1454, reused 1418, downloaded 0, added 938
+Progress: resolved 1454, reused 1418, downloaded 0, added 939
+Progress: resolved 1454, reused 1418, downloaded 0, added 968
+Progress: resolved 1454, reused 1418, downloaded 0, added 1037
+Progress: resolved 1454, reused 1418, downloaded 0, added 1050
+Progress: resolved 1454, reused 1418, downloaded 0, added 1085
+Progress: resolved 1454, reused 1418, downloaded 0, added 1156
+Progress: resolved 1454, reused 1418, downloaded 0, added 1237
+Progress: resolved 1454, reused 1418, downloaded 0, added 1281
+Progress: resolved 1454, reused 1418, downloaded 0, added 1298
+Progress: resolved 1454, reused 1418, downloaded 0, added 1353
+Progress: resolved 1454, reused 1418, downloaded 0, added 1452
+Progress: resolved 1454, reused 1418, downloaded 0, added 1454, done
+
+devDependencies:
++ @actions/core 1.10.0
++ @actions/exec 1.1.1
++ @actions/github 6.0.0
++ @biomejs/biome 2.1.2
++ @changesets/changelog-github 0.4.8
++ @changesets/cli 2.26.2
++ cross-env 7.0.3
++ vitest 3.2.4
+
+Done in 31.5s using pnpm v10.12.1
+
+> @inngest/test@1.0.0 build /work/packages/test
+> pnpm run build:clean && pnpm run build:tsc
+
+
+> @inngest/test@1.0.0 build:clean /work/packages/test
+> rm -rf ./dist
+
+
+> @inngest/test@1.0.0 build:tsc /work/packages/test
+> tsc --project tsconfig.build.json
+
+
+> inngest@4.2.6 pb:version /work/packages/inngest
+> genversion --semi --double --es6 ./src/version.ts
+
+
+[exit 0 in 47s]

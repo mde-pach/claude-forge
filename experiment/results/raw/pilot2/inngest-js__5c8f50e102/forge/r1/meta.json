@@ -1,0 +1,22 @@
+{
+ "task_id": "inngest-js__5c8f50e102",
+ "repo": "inngest-js",
+ "arm": "forge",
+ "rep": 1,
+ "attempt": 3,
+ "status": "infra_error",
+ "infra_reason": "harness exception: Infra('collecting the agent diff failed: The following paths are ignored by one of your .gitignore files:\\n.claude\\nhint: Use -f if you really want to add them.\\nhint: Turn this message off by running\\nhint: \"git config advice.addIgnoredFile false\"\\n')",
+ "model": "claude-sonnet-5-5",
+ "claude_version": "2.1.310",
+ "forge_commit": "091c0d3cb03e902ddf774fbb302c074553a4c221",
+ "started": 1792882894.3251102,
+ "duration_s": 162.2104594707489,
+ "exit_code": 0,
+ "timed_out": false,
+ "num_turns": 8,
+ "cost_usd_agent": 0.1553902,
+ "result_subtype": "success",
+ "is_error": false,
+ "result_text": "`Temporal.Duration`, `Temporal.Instant` and `Temporal.ZonedDateTime` now work in the timeout fields and in `step.sleep`. The component tests pass, `tsc` shows no errors outside `src/test/`, and Biome is clean after its auto-formatting. I didn't add permanent tests for the new behaviour or run the full suite.\n\nI checked Duration conversion with a throwaway test, now deleted. With the clock fixed at `2026-04-28T12:00:00Z`, `{ months: 1 }` gave `\"4w2d\"` and `{ years: 1 }` gave `\"52w1d\"`. `{ weeks: 1 }` gave `\"1w\"`, and `{ hours: 1, minutes: 30 }` matched `\"1.5 hours\"`.\n\n- **`timeStr`** (`src/helpers/strings.ts`): `Date` is unchanged. Instants and zoned date-times return their ISO instant string. Durations are totalled in milliseconds and formatted like numbers. Calendar units are resolved against the current time in UTC, and I pass `relativeTo` as an ISO string so it works with any Temporal implementation.\n- **Shared type**: I added a `TimeInput` type in `src/helpers/temporal.ts` for all the accepted values.\n- **Step tools**: `waitForEvent`, `waitForSignal`, `invoke` and `cancelOn[].timeout` accept the new types, and the doc comments list them. `invoke` validation accepts the Temporal values and still rejects anything else.\n- **`step.sleep`**: it now calls `timeStr` directly, so the op `name` is the serialised string.\n- **Middleware**: `isTimeStrInput` is renamed `isSleepInput` and also accepts `Temporal.Duration`. The error message is now `Sleep time must be a string, number, Date, or Temporal.Duration`.\n\nBash commands only ran with the sandbox disabled, because bubblewrap couldn't mount `/proc` in this environment.",
+ "finished": 1792883111.4181175
+}

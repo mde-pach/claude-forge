@@ -112,7 +112,13 @@ def parity_ref_check(run_dir, task_id, fp_digest, extra, source=None):
             return True, "reference set"
         ref = json.load(open(p))
         if ref["fingerprint"] != fp_digest:
-            return False, "pre-agent fingerprint differs from the task reference"
+            why = "pre-agent fingerprint differs from the task reference"
+            full = os.path.join(d, f"{task_id}.full.json")
+            if source and os.path.exists(full) and os.path.exists(source):
+                a, b = json.load(open(full)), json.load(open(source))
+                diff = sorted(k for k in set(a) | set(b) if a.get(k) != b.get(k))
+                why += f" ({len(diff)} paths: {diff[:12]})"
+            return False, why
         for k, v in extra.items():
             if ref.get(k) != v:
                 return False, f"{k} differs from the task reference"
@@ -121,7 +127,7 @@ def parity_ref_check(run_dir, task_id, fp_digest, extra, source=None):
 
 def refresh_auth():
     os.makedirs(AUTH_DIR, exist_ok=True)
-    tmp = os.path.join(AUTH_DIR, ".oauth_token.tmp")
+    tmp = os.path.join(AUTH_DIR, f".oauth_token.{os.getpid()}.tmp")
     shutil.copy(AUTH_SRC, tmp)
     os.chown(tmp, 1000, 1000)
     os.chmod(tmp, 0o400)
@@ -165,7 +171,9 @@ def apply_forge(name, env, logs_dir):
             raise classify.Infra(f"forge apply failed ({cmd})")
     root_exec(name, "rm -rf /tmp/forge")
     # Getting started: `git add .forge .claude && git commit -m "Add Forge"` (fixed identity/date, like the initial commit)
-    r = dev_exec(name, "git add .forge .claude && git -c user.name=dev -c user.email=dev@example.com commit -q -m 'Add Forge'",
+    # A repository that gitignores .claude (inngest-js) keeps it untracked: never force-add past its .gitignore.
+    r = dev_exec(name, "git add .forge && { git add .claude 2>/dev/null || true; } && "
+                       "git -c user.name=dev -c user.email=dev@example.com commit -q -m 'Add Forge'",
                  {**env, "GIT_AUTHOR_DATE": "2000-01-01T00:00:00Z", "GIT_COMMITTER_DATE": "2000-01-01T00:00:00Z"})
     out.append(f"$ git add .forge .claude && git commit -m 'Add Forge'\n[exit {r.returncode}]\n{r.stdout}{r.stderr}")
     open(os.path.join(logs_dir, "forge_apply.log"), "w").write("\n".join(out))
@@ -193,7 +201,7 @@ def collect_diff(name, logs_dir):
     """Agent's final change against the starting (root) commit, ignoring Forge-owned paths (gitignore respected).
     Runs as dev: git refuses a repository owned by another user."""
     cmd = ("cd /work && export GIT_INDEX_FILE=/tmp/score.idx && rm -f $GIT_INDEX_FILE && "
-           "git add -A -- . ':(exclude).forge' ':(exclude).claude' && "
+           "git add -A . && "
            "git diff --cached --binary $(git rev-list --max-parents=0 HEAD | tail -1) -- . ':(exclude).forge' ':(exclude).claude'")
     r = subprocess.run(["docker", "exec", "-u", "dev", name, "sh", "-c", cmd], capture_output=True, text=True, timeout=300)
     open(os.path.join(logs_dir, "collect_diff.log"), "w").write(f"exit {r.returncode}\n{r.stderr}")
@@ -210,7 +218,7 @@ def score(task, task_dir, diff_text, logs_dir, name):
         repo_env.materialize(name, task["repo"], task["parent"])
         ok, log = repo_env.install(name, task["repo"])
         if not ok:
-            raise classify.Infra("scoring install failed")
+            raise classify.Infra("scoring install failed")  # the parent installs cleanly by construction (validated)
         changed = [l[6:] for l in diff_text.splitlines() if l.startswith("+++ b/")]
         src_changed = [p for p in changed if re.search(r"\.(py|ts|tsx|mts|cts|js|mjs|cjs)$", p)]
         lint_before = repo_env.lint(name, task["repo"], [p for p in src_changed]) if src_changed else []
@@ -231,7 +239,14 @@ def score(task, task_dir, diff_text, logs_dir, name):
         for rel in task.get("hidden_deleted", []):
             repo_env.exec_(name, f"rm -f '/work/{rel}'")
         targets = task["test_targets"]
-        res = repo_env.run_tests(name, task["repo"], targets, timeout=1200) if applied else {}
+        res = {}
+        if applied:
+            tr = repo_env.run_tests_detailed(name, task["repo"], targets, timeout=1200)
+            open(os.path.join(logs_dir, "score_tests.log"), "w").write(tr.log[-200000:])
+            bad = classify.env_failure(tr.log)
+            if bad:
+                raise classify.Infra(f"scoring test run hit an infrastructure failure: {bad}")
+            res = tr.results
         f2p = {t: res.get(t, "missing") for t in task["f2p"]}
         p2p = {t: res.get(t, "missing") for t in task["p2p"]}
         if applied and not res:
@@ -361,6 +376,10 @@ def main():
         json.dump(tinfo["edits"], open(os.path.join(out, "edits.json"), "w"), indent=1)
         json.dump(tinfo["hooks"], open(os.path.join(out, "forge", "hook_summary.json"), "w"), indent=1)
         infra = classify.agent_infra(tinfo, timed_out, open(os.path.join(out, "agent_stderr.log")).read())
+        if not infra:
+            bad = classify.env_failure(open(tpath, errors="replace").read())
+            if bad:
+                infra = f"disk/memory exhaustion during the agent run: {bad}"
         # copy logs + forge state
         root_exec(name, "cp -r /work/.forge/state /logs/forge_state 2>/dev/null; cp /home/dev/.claude/forge-*.log /logs/ 2>/dev/null; chmod -R a+rX /logs")
         diff_text = collect_diff(name, logs_dir)

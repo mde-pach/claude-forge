@@ -1,0 +1,71 @@
+{
+ "pre_digest": "1dbe65c923903d7246788f0395222710a8ea6a2a12a1f4ae8b3d07a02e786a94",
+ "extra": {
+  "image": "sha256:aea794581af8f48486adfd8371df8952bae6616a51f9f5c20c729b024ee8bdcb",
+  "argv": [
+   "claude",
+   "-p",
+   "--model",
+   "claude-sonnet-5-5",
+   "--permission-mode",
+   "bypassPermissions",
+   "--output-format",
+   "stream-json",
+   "--verbose",
+   "--include-hook-events",
+   "--debug-file",
+   "/logs/debug.log",
+   "--max-budget-usd",
+   "15"
+  ],
+  "env": "085988e600ffc9e9f797d57097a9d8973ca1dd68ec6afba52652053ddd0a738f",
+  "container_env": [
+   "BUN_INSTALL_CACHE_DIR=/opt/forge-cache/bun",
+   "COREPACK_ENABLE_AUTO_PIN=0",
+   "COREPACK_ENABLE_DOWNLOAD_PROMPT=0",
+   "COREPACK_ENABLE_NETWORK=0",
+   "COREPACK_HOME=/opt/corepack",
+   "DEBIAN_FRONTEND=noninteractive",
+   "HOME=/home/dev",
+   "LANG=C.UTF-8",
+   "LC_ALL=C.UTF-8",
+   "PATH=/work/node_modules/.bin:/work/packages/inngest/node_modules/.bin:/opt/node/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+   "UV_CACHE_DIR=/opt/forge-cache/uv",
+   "UV_LINK_MODE=copy",
+   "UV_OFFLINE=1",
+   "UV_PYTHON_DOWNLOADS=never",
+   "UV_PYTHON_INSTALL_DIR=/opt/uv-python",
+   "npm_config_package_import_method=copy",
+   "npm_config_store_dir=/tmp/pnpm-store",
+   "npm_config_update_notifier=false",
+   "pnpm_config_package_import_method=copy",
+   "pnpm_config_store_dir=/tmp/pnpm-store"
+  ],
+  "claude_sha256": "b73676430af12f97316a798b8371f81d640f90a58bdcb8f3ce56a835bb47df56",
+  "limits": [
+   2000000000,
+   6442450944,
+   [
+    "apparmor=unconfined",
+    "seccomp=unconfined"
+   ],
+   [
+    "CAP_SYS_ADMIN"
+   ],
+   "trialnet",
+   [
+    "/cache/bun:False",
+    "/cache/npm:False",
+    "/cache/pnpm:False",
+    "/cache/uv:False",
+    "/etc/ssl/ccr-ca.crt:False",
+    "/home/claude/.claude/remote:False",
+    "/logs:True",
+    "/opt/claude-code/bin/claude:False",
+    "/opt/harness:False"
+   ]
+  ]
+ },
+ "reference": "reference set",
+ "ok": true
+}

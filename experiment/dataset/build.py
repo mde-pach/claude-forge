@@ -25,6 +25,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 EXP = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(EXP, "harness"))
 import repo_env  # noqa: E402
+import classify  # noqa: E402
 
 PINS = json.load(open(os.path.join(EXP, "config", "pins.json")))
 WORK = os.path.join(HERE, "work")
@@ -82,7 +83,11 @@ def hidden_contents(mirror, commit, hidden):
 def run_state(name, repo_id, targets, runs):
     out = []
     for _ in range(runs):
-        out.append(repo_env.run_tests(name, repo_id, targets, timeout=1500))
+        tr = repo_env.run_tests_detailed(name, repo_id, targets, timeout=1500)
+        bad = classify.env_failure(tr.log)
+        if bad:
+            raise RuntimeError(f"infrastructure failure during tests: {bad}")  # never a task decision (rule 5)
+        out.append(tr.results)
     return out
 
 
@@ -118,6 +123,9 @@ def execute(repo_id, cand, hidden_files, deleted, targets, ref_diff, label):
         repo_env.materialize(name, repo_id, cand["parent"])
         ok, log = repo_env.install(name, repo_id)
         if not ok:
+            bad = classify.env_failure(log)
+            if bad:
+                raise RuntimeError(f"infrastructure failure during install: {bad}")
             return {"error": "install_failed", "log": log[-3000:]}
         repo_env.write_files(name, hidden_files)
         for p in deleted:
@@ -126,6 +134,9 @@ def execute(repo_id, cand, hidden_files, deleted, targets, ref_diff, label):
         parent_runs = run_state(name, repo_id, targets, N_RUNS)
         ok, err = apply_patch(name, ref_diff)
         if not ok:
+            alive = subprocess.run(["docker", "inspect", "-f", "{{.State.Running}}", name], capture_output=True, text=True).stdout.strip()
+            if alive != "true":
+                raise RuntimeError("infrastructure failure: validation container is gone")
             return {"error": "reference_patch_failed", "log": err[-3000:]}
         ref_runs = run_state(name, repo_id, targets, N_RUNS)
         return {"parent_runs": parent_runs, "ref_runs": ref_runs, "seconds": time.time() - t0}

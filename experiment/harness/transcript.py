@@ -84,7 +84,12 @@ def parse(path):
         elif t == "rate_limit_event":
             info["rate_limit"] = d.get("rate_limit_info")
         elif t == "result":
-            info.update(has_result=True, num_turns=d.get("num_turns") or 0, cost_usd_agent=d.get("total_cost_usd"),
+            # A session can emit several results (background-task notifications start new turns):
+            # total_cost_usd is cumulative (take the max), num_turns is per result (sum).
+            info["n_results"] = info.get("n_results", 0) + 1
+            turns = (info["num_turns"] if info["has_result"] else 0) + (d.get("num_turns") or 0)
+            cost = max(info["cost_usd_agent"] or 0.0, d.get("total_cost_usd") or 0.0)
+            info.update(has_result=True, num_turns=turns, cost_usd_agent=cost,
                         result_subtype=d.get("subtype"), is_error=d.get("is_error"),
                         result_text=(d.get("result") or "")[:2000] if isinstance(d.get("result"), str) else None,
                         terminal_reason=d.get("terminal_reason"),

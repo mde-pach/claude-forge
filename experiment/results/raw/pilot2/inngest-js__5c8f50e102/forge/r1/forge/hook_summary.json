@@ -1,0 +1,65 @@
+{
+ "active": true,
+ "events": {
+  "SessionStart": 1,
+  "UserPromptSubmit": 1,
+  "PreToolUse": 21,
+  "PostToolUseFailure": 2,
+  "PostToolUse": 12,
+  "Stop": 1
+ },
+ "forge_messages": 5,
+ "blocks": 0,
+ "stop_blocks": 0,
+ "feedback": 3,
+ "nonzero_exit": 0,
+ "by_hook": {
+  "SessionStart:startup": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 3
+  },
+  "UserPromptSubmit": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PreToolUse:Bash": {
+   "runs": 21,
+   "nonzero": 0,
+   "forge_msgs": 2
+  },
+  "PostToolUseFailure:Bash": {
+   "runs": 2,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PostToolUse:Bash": {
+   "runs": 12,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "Stop": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  }
+ },
+ "samples": [
+  {
+   "hook": "SessionStart:startup",
+   "exit": 0,
+   "out": "forge: branch main, 0 changed files\nforge: last commits\n  0e01dae Add Forge\n  3bb3762 initial\nforge: packs github-actions\n"
+  },
+  {
+   "hook": "PreToolUse:Bash",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"forge:safety/ephemeral-exec reviewed by an independent session, nobody being there to answer: The command applies local, git-revertable source edits to the repo (Temporal time-input support) and runs a local typecheck, with no network, secrets, or destructive actions.\"}}\n"
+  },
+  {
+   "hook": "PreToolUse:Bash",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"forge:safety/ephemeral-exec reviewed by an independent session, nobody being there to answer: The command runs the local tsc, vitest and biome checks and creates then deletes a temporary test file inside the repo, with no network access, secrets, publishing or destructive effects.\"}}\n"
+  }
+ ]
+}

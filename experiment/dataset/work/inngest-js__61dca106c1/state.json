@@ -1,0 +1,53 @@
+{
+ "task_id": "inngest-js__61dca106c1",
+ "window": "main",
+ "repo": "inngest-js",
+ "commit": "61dca106c1ec31d5abb8f2ce8bc6057bff08bd38",
+ "parent": "593f240fb67fd5bb472e75aabb8d4a8bd6605b35",
+ "date": "2026-07-30T15:55:15-07:00",
+ "subject": "feat: add marker to identify the OTel provider (#1660)",
+ "type": "feat",
+ "test_files": [
+  "packages/otel/tests/providerMarker.test.ts"
+ ],
+ "source_files": [
+  "packages/otel/src/instrument.ts"
+ ],
+ "source_lines": 7,
+ "all_files": [
+  ".changeset/red-fishes-try.md",
+  "packages/otel/src/instrument.ts",
+  "packages/otel/tests/providerMarker.test.ts"
+ ],
+ "hidden": [
+  "packages/otel/tests/providerMarker.test.ts"
+ ],
+ "deleted": [],
+ "targets": [
+  "packages/otel/tests/providerMarker.test.ts"
+ ],
+ "f2p": [
+  "packages/otel/tests/providerMarker.test.ts::provider marker > marks providers it creates",
+  "packages/otel/tests/providerMarker.test.ts::provider marker > uses the shared global symbol key"
+ ],
+ "p2p": [
+  "packages/otel/tests/providerMarker.test.ts::provider marker > does not mark pre-existing providers"
+ ],
+ "flaky": [],
+ "cost_instruction": 0.0439658,
+ "cost_audit": 0.0471662,
+ "kept_f2p": [
+  "packages/otel/tests/providerMarker.test.ts::provider marker > marks providers it creates",
+  "packages/otel/tests/providerMarker.test.ts::provider marker > uses the shared global symbol key"
+ ],
+ "kept_p2p": [
+  "packages/otel/tests/providerMarker.test.ts::provider marker > does not mark pre-existing providers"
+ ],
+ "edits_applied": 0,
+ "edits_rejected": [],
+ "dropped": [],
+ "revalidate_bad_f2p": [],
+ "revalidate_bad_p2p": [],
+ "final": "accepted",
+ "reason": null
+}

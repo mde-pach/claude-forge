@@ -1,0 +1,38 @@
+{
+ "task_id": "better-auth__906b7b34a7",
+ "window": "pilot",
+ "repo": "better-auth",
+ "commit": "906b7b34a710d49798e166395da2bcd2be13ef46",
+ "parent": "fe64413ceffae2ba2401ff30eb96d16a7a192068",
+ "date": "2026-05-01T02:13:16+00:00",
+ "subject": "fix(bearer): write one entry per cookie name when merging session token (#9387)",
+ "type": "fix",
+ "test_files": [
+  "packages/better-auth/src/cookies/cookies.test.ts"
+ ],
+ "source_files": [
+  "packages/better-auth/src/cookies/cookie-utils.ts",
+  "packages/better-auth/src/plugins/bearer/index.ts"
+ ],
+ "source_lines": 41,
+ "all_files": [
+  ".changeset/fix-bearer-cookie-parse-mutate-serialize.md",
+  "packages/better-auth/src/cookies/cookie-utils.ts",
+  "packages/better-auth/src/cookies/cookies.test.ts",
+  "packages/better-auth/src/plugins/bearer/index.ts"
+ ],
+ "hidden": [
+  "packages/better-auth/src/cookies/cookies.test.ts"
+ ],
+ "deleted": [],
+ "targets": [
+  "packages/better-auth/src/cookies/cookies.test.ts"
+ ],
+ "f2p": [],
+ "p2p": [],
+ "flaky": [
+  "packages/better-auth/src/cookies/cookies.test.ts::src/cookies/cookies.test.ts"
+ ],
+ "final": "rejected",
+ "reason": "no_f2p_test"
+}

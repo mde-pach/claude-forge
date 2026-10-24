@@ -39,3 +39,12 @@ def agent_infra(tinfo, timed_out, stderr):
     if tinfo.get("api_errors", 0) and tinfo.get("num_turns", 0) <= 1 and not tinfo.get("edits", {}).get("total"):
         return "API errors before any work"
     return None
+
+
+ENV_FAIL_RX = re.compile(r"No space left on device|ENOSPC|Disk quota exceeded|Cannot allocate memory|ENOMEM", re.I)
+
+
+def env_failure(text):
+    """Text of a test run, install, build or agent session shows disk or memory exhaustion (infrastructure)."""
+    m = ENV_FAIL_RX.search(text or "")
+    return m.group(0) if m else None

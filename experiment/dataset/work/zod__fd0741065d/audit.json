@@ -1,0 +1,25 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/zod/src/v4/classic/tests/to-json-schema.test.ts::override runs before the unrepresentable error > an override can represent one type while the rest still throw",
+   "action": "keep",
+   "reason": "Asserts only public toJSONSchema output and the exact error message the instruction specifies."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/to-json-schema.test.ts::override runs before the unrepresentable error > applies through nesting, reuse and $defs extraction",
+   "action": "keep",
+   "reason": "Checks the public output and the specified error for the nesting, reuse and $defs cases the instruction requires."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/to-json-schema.test.ts::override runs before the unrepresentable error > applies through wrappers that clone the schema",
+   "action": "keep",
+   "reason": "Checks the public output and the specified errors for the .describe() and z.optional wrapper cases the instruction requires; the _zod.parent mention is only a comment."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/to-json-schema.test.ts::override runs before the unrepresentable error > emits a valid OpenAPI 3.0 schema",
+   "action": "keep",
+   "reason": "Checks the public output for the openapi-3.0 target and validates it with a test helper that already existed."
+  }
+ ],
+ "edits": []
+}

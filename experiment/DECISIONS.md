@@ -72,3 +72,6 @@ A candidate whose parent cannot be installed offline for a deterministic environ
 
 ## D14. Hidden test files include non-code test assets
 The hidden set is every file the commit changes under a test path, of any type: VCR cassettes, snapshots and fixtures, not only `.py`/`.ts` files. Test files the commit deletes are deleted at scoring. Only test *modules* are passed to the runner as targets.
+
+## D15. Committing the Forge setup in repositories that ignore `.claude`
+*Getting started* says to run `git add .forge .claude && git commit -m "Add Forge"`. inngest-js lists `.claude` in its `.gitignore`, so that command fails there. The harness does not force-add past a repository's ignore rules. It commits `.forge`, and commits `.claude` where it is not ignored. Ignored files are invisible to `git status`, so Forge does not count them as changes either way.

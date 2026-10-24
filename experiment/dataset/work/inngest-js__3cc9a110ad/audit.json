@@ -1,0 +1,221 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::FIELD_SPECS > only latencyMs is optional",
+   "action": "keep",
+   "reason": "The instruction explicitly requires `optional` on FIELD_SPECS entries, with latencyMs as the only truthy one."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::aggregate > sums latencyMs across calls",
+   "action": "keep",
+   "reason": "The instruction specifies that aggregate sums latencyMs, with this exact example."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::extractAIMetadataFromSpan > captured OTLP fixtures > anthropic_otel_traceloop/cache_messages.otlp.json",
+   "action": "relax",
+   "reason": "The serialised snapshot pins where latencyMs appears among the keys, which is unspecified formatting, so it is relaxed to an order-insensitive deep-equal against the snapshot."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::extractAIMetadataFromSpan > captured OTLP fixtures > anthropic_otel_traceloop/reasoning_messages.otlp.json",
+   "action": "relax",
+   "reason": "The serialised snapshot pins where latencyMs appears among the keys, which is unspecified formatting, so it is relaxed to an order-insensitive deep-equal against the snapshot."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::extractAIMetadataFromSpan > captured OTLP fixtures > openai_langsmith_otel/basic_responses.otlp.json",
+   "action": "relax",
+   "reason": "The serialised snapshot pins where latencyMs appears among the keys, which is unspecified formatting, so it is relaxed to an order-insensitive deep-equal against the snapshot."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::extractAIMetadataFromSpan > captured OTLP fixtures > openai_otel_official/embeddings.otlp.json",
+   "action": "relax",
+   "reason": "The serialised snapshot pins where latencyMs appears among the keys, which is unspecified formatting, so it is relaxed to an order-insensitive deep-equal against the snapshot."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::extractAIMetadataFromSpan > captured OTLP fixtures > openai_otel_official/params_chat.otlp.json",
+   "action": "relax",
+   "reason": "The serialised snapshot pins where latencyMs appears among the keys, which is unspecified formatting, so it is relaxed to an order-insensitive deep-equal against the snapshot."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::extractAIMetadataFromSpan > captured OTLP fixtures > openai_otel_official/stream_chat.otlp.json",
+   "action": "relax",
+   "reason": "The serialised snapshot pins where latencyMs appears among the keys, which is unspecified formatting, so it is relaxed to an order-insensitive deep-equal against the snapshot."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::extractAIMetadataFromSpan > captured OTLP fixtures > openai_otel_official/tools_chat.otlp.json",
+   "action": "relax",
+   "reason": "The serialised snapshot pins where latencyMs appears among the keys, which is unspecified formatting, so it is relaxed to an order-insensitive deep-equal against the snapshot."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::extractAIMetadataFromSpan > captured OTLP fixtures > openai_otel_traceloop/basic_responses.otlp.json",
+   "action": "relax",
+   "reason": "The serialised snapshot pins where latencyMs appears among the keys, which is unspecified formatting, so it is relaxed to an order-insensitive deep-equal against the snapshot."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::extractAIMetadataFromSpan > captured OTLP fixtures > openai_otel_traceloop/params_chat.otlp.json",
+   "action": "relax",
+   "reason": "The serialised snapshot pins where latencyMs appears among the keys, which is unspecified formatting, so it is relaxed to an order-insensitive deep-equal against the snapshot."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::extractAIMetadataFromSpan > captured OTLP fixtures > openai_otel_traceloop/stream_chat.otlp.json",
+   "action": "relax",
+   "reason": "The serialised snapshot pins where latencyMs appears among the keys, which is unspecified formatting, so it is relaxed to an order-insensitive deep-equal against the snapshot."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::extractAIMetadataFromSpan > captured OTLP fixtures > openai_otel_traceloop/tools_chat.otlp.json",
+   "action": "relax",
+   "reason": "The serialised snapshot pins where latencyMs appears among the keys, which is unspecified formatting, so it is relaxed to an order-insensitive deep-equal against the snapshot."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::extractAIMetadataFromSpan > captured OTLP fixtures > openai_vercel_aisdk/basic_responses.otlp.json",
+   "action": "relax",
+   "reason": "The serialised snapshot pins where latencyMs appears among the keys, which is unspecified formatting, so it is relaxed to an order-insensitive deep-equal against the snapshot."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::extractAIMetadataFromSpan > captured OTLP fixtures > openai_vercel_aisdk/embeddings.otlp.json",
+   "action": "relax",
+   "reason": "The serialised snapshot pins where latencyMs appears among the keys, which is unspecified formatting, so it is relaxed to an order-insensitive deep-equal against the snapshot."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::extractAIMetadataFromSpan > captured OTLP fixtures > openai_vercel_aisdk/params_chat.otlp.json",
+   "action": "relax",
+   "reason": "The serialised snapshot pins where latencyMs appears among the keys, which is unspecified formatting, so it is relaxed to an order-insensitive deep-equal against the snapshot."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::extractAIMetadataFromSpan > captured OTLP fixtures > openai_vercel_aisdk/stream_chat.otlp.json",
+   "action": "relax",
+   "reason": "The serialised snapshot pins where latencyMs appears among the keys, which is unspecified formatting, so it is relaxed to an order-insensitive deep-equal against the snapshot."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::extractAIMetadataFromSpan > captured OTLP fixtures > openai_vercel_aisdk/tools_chat.otlp.json",
+   "action": "relax",
+   "reason": "The serialised snapshot pins where latencyMs appears among the keys, which is unspecified formatting, so it is relaxed to an order-insensitive deep-equal against the snapshot."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::extractAIMetadataFromSpan > coerces quoted-string int64 counts to numbers",
+   "action": "keep",
+   "reason": "It checks the public function's output, and latencyMs 0 for a zero-length span is specified."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::extractAIMetadataFromSpan > drops empty and non-string finish-reason entries",
+   "action": "keep",
+   "reason": "It checks specified attribute behaviour plus latencyMs through the public function."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::extractAIMetadataFromSpan > drops empty-string text fields",
+   "action": "keep",
+   "reason": "The instruction explicitly requires `{}` when every recognised attribute is dropped."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::extractAIMetadataFromSpan > drops finish reasons when the list reduces to nothing",
+   "action": "keep",
+   "reason": "It is an outcome check on the public function, matching the specified rule that otherwise-empty spans yield `{}`."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::extractAIMetadataFromSpan > drops non-numeric values for numeric fields",
+   "action": "keep",
+   "reason": "It is an outcome check on the public function, matching the specified rule that otherwise-empty spans yield `{}`."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::extractAIMetadataFromSpan > drops undefined values",
+   "action": "keep",
+   "reason": "It is an outcome check on the public function, matching the specified rule that otherwise-empty spans yield `{}`."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::extractAIMetadataFromSpan > extracts finish reasons as a list of strings",
+   "action": "keep",
+   "reason": "It checks specified behaviour through the public function."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::extractAIMetadataFromSpan > extracts request parameters",
+   "action": "keep",
+   "reason": "It checks specified behaviour through the public function."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::extractAIMetadataFromSpan > ignores unmapped, content, and sensitive keys",
+   "action": "keep",
+   "reason": "It checks specified behaviour through the public function."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::extractAIMetadataFromSpan > keeps a zero-valued temperature rather than dropping it",
+   "action": "keep",
+   "reason": "It checks specified behaviour through the public function."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::extractAIMetadataFromSpan > latencyMs > computes the span's duration from its start/end time",
+   "action": "keep",
+   "reason": "It is exactly the example given in the instruction."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::extractAIMetadataFromSpan > latencyMs > is never populated on its own, without a recognised gen_ai attribute",
+   "action": "keep",
+   "reason": "The instruction explicitly requires `{}` for a span with no recognised attributes."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::extractAIMetadataFromSpan > maps allowlisted gen_ai keys to canonical fields",
+   "action": "keep",
+   "reason": "It checks specified behaviour through the public function."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::extractAIMetadataFromSpan > operationName > drops an empty gen_ai.operation.name",
+   "action": "keep",
+   "reason": "It checks specified behaviour through the public function."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::extractAIMetadataFromSpan > operationName > reads gen_ai.operation.name",
+   "action": "keep",
+   "reason": "It checks specified behaviour through the public function."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::extractAIMetadataFromSpan > provider > falls back to gen_ai.system when the canonical key is empty",
+   "action": "keep",
+   "reason": "The instruction requires keeping the gen_ai.system fallback, and this tests it through the public function."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::extractAIMetadataFromSpan > provider > prefers gen_ai.provider.name over the deprecated gen_ai.system",
+   "action": "keep",
+   "reason": "The instruction requires keeping the gen_ai.system fallback, and this tests it through the public function."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::extractAIMetadataFromSpan > provider > reads the deprecated gen_ai.system when the canonical key is absent",
+   "action": "keep",
+   "reason": "The instruction requires keeping the gen_ai.system fallback, and this tests it through the public function."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::extractAIMetadataFromSpan > reports only the provider-supplied total; never derives one",
+   "action": "keep",
+   "reason": "It checks existing behaviour that the instruction says stays the same, plus the specified latencyMs."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts::toInngestAIMetadataValues > maps canonical fields onto the server's snake_case schema",
+   "action": "keep",
+   "reason": "The instruction specifies the `latency_ms` key."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/metadataProcessor.test.ts::InngestMetadataSpanProcessor > captures only allowlisted fields; content never reaches the sink",
+   "action": "keep",
+   "reason": "Metadata pushed to the public sink must include latencyMs, as specified, and the test only checks it is a number."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/metadataProcessor.test.ts::InngestMetadataSpanProcessor > pushes AI metadata to the sink when a tracked span ends",
+   "action": "keep",
+   "reason": "Metadata pushed to the public sink must include latencyMs, as specified, and the test only checks it is a number."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/metadataProcessor.test.ts::InngestMetadataSpanProcessor > pushes once per span; aggregation is the sink owner's job",
+   "action": "keep",
+   "reason": "Metadata pushed to the public sink must include latencyMs, as specified, and the test only checks it is a number."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/otel/metadataProcessor.test.ts::InngestMetadataSpanProcessor > tracks descendants transitively, not just direct children",
+   "action": "keep",
+   "reason": "Metadata pushed to the public sink must include latencyMs, as specified, and the test only checks it is a number."
+  }
+ ],
+ "edits": [
+  {
+   "file": "packages/inngest/src/components/execution/otel/aiExtractor.test.ts",
+   "old": "        await expect(\n          `${JSON.stringify(extracted, null, 2)}\\n`,\n        ).toMatchFileSnapshot(snapPath);",
+   "new": "        expect(extracted).toEqual(JSON.parse(readFileSync(snapPath, \"utf8\")));"
+  }
+ ]
+}

@@ -1,0 +1,277 @@
+diff --git a/pydantic_ai_slim/pydantic_ai/_agent_graph.py b/pydantic_ai_slim/pydantic_ai/_agent_graph.py
+index c88ed231..8a25462d 100644
+--- a/pydantic_ai_slim/pydantic_ai/_agent_graph.py
++++ b/pydantic_ai_slim/pydantic_ai/_agent_graph.py
+@@ -158,6 +158,15 @@ class GraphAgentState:
+     pending_messages: list[_enqueue.PendingMessage] = dataclasses.field(default_factory=list[_enqueue.PendingMessage])
+     """Internal: queue used by [`PendingMessageDrainCapability`][pydantic_ai.capabilities._pending_messages.PendingMessageDrainCapability]
+     for messages enqueued via [`enqueue`][pydantic_ai.tools.RunContext.enqueue] or [`AgentRun.enqueue`][pydantic_ai.run.AgentRun.enqueue]."""
++    mcp_tool_defs_cache: dict[str, dict[str, ToolDefinition]] = dataclasses.field(
++        default_factory=dict[str, dict[str, ToolDefinition]]
++    )
++    """Per-run cache of durable-execution MCP toolset tool definitions, keyed by toolset `id`.
++
++    Shared by reference into every `RunContext` this run (see `build_run_context`), where it is
++    exposed as the private `_mcp_tool_defs_cache` field. Recreated per run and reconstructed
++    identically on durable replay/recovery, which is what keeps the Temporal/DBOS MCP wrappers'
++    `get_tools` scheduling replay-deterministic."""
+ 
+     def check_incomplete_tool_call(self) -> None:
+         """Raise `IncompleteToolCall` if the last model response was truncated mid-tool-call."""
+@@ -1492,12 +1501,14 @@ def build_run_context(ctx: GraphRunContext[GraphAgentState, GraphAgentDeps[DepsT
+         loaded_capability_ids=ctx.deps.loaded_capability_ids,
+         discovered_tool_names=ctx.deps.discovered_tool_names,
+         pending_messages=ctx.state.pending_messages,
++        _mcp_tool_defs_cache=ctx.state.mcp_tool_defs_cache,
+     )
+     validation_context = build_validation_context(ctx.deps.validation_context, run_context)
+-    # Only `validation_context` may be passed to `replace`: it shallow-copies, preserving the
+-    # shared identity of `loaded_capability_ids`/`discovered_tool_names` (see the invariant on
+-    # `GraphAgentDeps.loaded_capability_ids`). Never add either set here — forking the object would
+-    # silently break in-step capability loads / tool reveals.
++    # Only `validation_context` may be passed to `replace`: it shallow-copies, preserving the shared
++    # identity of the mutable members passed by reference above — `loaded_capability_ids`,
++    # `discovered_tool_names`, `pending_messages`, `_mcp_tool_defs_cache` (see the invariant on
++    # `GraphAgentDeps.loaded_capability_ids`). Never add any of them as a `replace` kwarg — forking the
++    # object would silently break in-step capability loads / tool reveals / message enqueues / tool-defs caching.
+     run_context = replace(run_context, validation_context=validation_context)
+     return run_context
+ 
+diff --git a/pydantic_ai_slim/pydantic_ai/_run_context.py b/pydantic_ai_slim/pydantic_ai/_run_context.py
+index 5676dc8e..67e9d882 100644
+--- a/pydantic_ai_slim/pydantic_ai/_run_context.py
++++ b/pydantic_ai_slim/pydantic_ai/_run_context.py
+@@ -103,12 +103,24 @@ class RunContext(Generic[RunContextAgentDepsT]):
+     and during agent construction.
+     """
+     pending_messages: list[PendingMessage] | None = field(default=None, repr=False)
+-    """Internal: queue read and mutated by [`PendingMessageDrainCapability`][pydantic_ai.capabilities._pending_messages.PendingMessageDrainCapability].
++    """Queue read and mutated by [`PendingMessageDrainCapability`][pydantic_ai.capabilities._pending_messages.PendingMessageDrainCapability].
+ 
+     Set to the run's live queue during an agent run; `None` in synthetic contexts that aren't
+     backed by a running agent (e.g. the `RunContext` built by `Agent.system_prompt_parts`), where
+     [`enqueue`][pydantic_ai.tools.RunContext.enqueue] would have nowhere to drain to and so raises.
+-    Use [`enqueue`][pydantic_ai.tools.RunContext.enqueue] to add messages — don't append directly.
++    Managed by the framework: read it if useful, but use [`enqueue`][pydantic_ai.tools.RunContext.enqueue]
++    to add messages rather than mutating it directly.
++    """
++
++    _mcp_tool_defs_cache: dict[str, dict[str, ToolDefinition]] = field(default_factory=lambda: {}, repr=False)
++    """Private implementation detail — not part of the public API; do not read or write.
++
++    Per-run cache of MCP tool definitions, keyed by toolset `id`, read and written only by the
++    durable-execution MCP toolset wrappers (Temporal/DBOS) so a toolset's tool definitions are
++    fetched at most once per run rather than before every model request. It lives on the run —
++    recreated for each agent run and reconstructed identically on durable replay/recovery — not on
++    the process-shared toolset instance, so whether a wrapper schedules its `get_tools` activity/step
++    depends only on the run's own history and stays replay-deterministic.
+     """
+ 
+     tool_manager: ToolManager[RunContextAgentDepsT] | None = None
+@@ -132,6 +144,7 @@ class RunContext(Generic[RunContextAgentDepsT]):
+     Seeded during run preparation from message history (`parse_loaded_capabilities`); the
+     `load_capability` tool body adds to it for in-step loads. Use `available_capability_ids`
+     for the full set of currently-active capabilities (auto/always-on plus these).
++    Managed by the framework: safe to read, but don't mutate it directly.
+     """
+ 
+     capability_loaded: bool | None = None
+@@ -147,6 +160,7 @@ class RunContext(Generic[RunContextAgentDepsT]):
+     `ToolSearchToolset.get_tools` reads to decide which deferred tools to make visible this
+     turn. Populated during run preparation from message history. Use `available_tool_names`
+     for the full set of currently-callable tools (always-visible plus these).
++    Managed by the framework: safe to read, but don't mutate it directly.
+     """
+ 
+     @property
+diff --git a/pydantic_ai_slim/pydantic_ai/durable_exec/dbos/_mcp.py b/pydantic_ai_slim/pydantic_ai/durable_exec/dbos/_mcp.py
+index a42ca3f8..d7206acf 100644
+--- a/pydantic_ai_slim/pydantic_ai/durable_exec/dbos/_mcp.py
++++ b/pydantic_ai_slim/pydantic_ai/durable_exec/dbos/_mcp.py
+@@ -81,6 +81,12 @@ class DBOSMCPToolsetBase(WrapperToolset[AgentDepsT], ABC):
+     def tool_for_tool_def(self, tool_def: ToolDefinition) -> ToolsetTool[AgentDepsT]:
+         raise NotImplementedError
+ 
++    @property
++    @abstractmethod
++    def _cache_tools(self) -> bool:
++        """Whether the wrapped MCP server/toolset has tool-definition caching enabled."""
++        raise NotImplementedError
++
+     @property
+     def id(self) -> str | None:
+         return self.wrapped.id
+@@ -100,7 +106,17 @@ class DBOSMCPToolsetBase(WrapperToolset[AgentDepsT], ABC):
+         return self
+ 
+     async def get_tools(self, ctx: RunContext[AgentDepsT]) -> dict[str, ToolsetTool[AgentDepsT]]:
++        # The cache lives on the run (`ctx._mcp_tool_defs_cache`), recreated per run and reconstructed
++        # identically on recovery, so whether the get_tools step is invoked depends only on the
++        # workflow's own progress. Caching on the process-shared instance instead would make that
++        # depend on what earlier runs warmed in the worker, shifting recorded step order on recovery.
++        cache_key = self.id or ''
++        if self._cache_tools and (cached := ctx._mcp_tool_defs_cache.get(cache_key)) is not None:  # pyright: ignore[reportPrivateUsage]
++            return {name: self.tool_for_tool_def(tool_def) for name, tool_def in cached.items()}
++
+         tool_defs = await self._dbos_wrapped_get_tools_step(ctx)
++        if self._cache_tools:
++            ctx._mcp_tool_defs_cache[cache_key] = tool_defs  # pyright: ignore[reportPrivateUsage]
+         return {name: self.tool_for_tool_def(tool_def) for name, tool_def in tool_defs.items()}
+ 
+     async def get_instructions(
+diff --git a/pydantic_ai_slim/pydantic_ai/durable_exec/dbos/_mcp_toolset.py b/pydantic_ai_slim/pydantic_ai/durable_exec/dbos/_mcp_toolset.py
+index 88642719..31b81985 100644
+--- a/pydantic_ai_slim/pydantic_ai/durable_exec/dbos/_mcp_toolset.py
++++ b/pydantic_ai_slim/pydantic_ai/durable_exec/dbos/_mcp_toolset.py
+@@ -2,7 +2,7 @@ from __future__ import annotations
+ 
+ from pydantic_ai import ToolsetTool
+ from pydantic_ai.mcp import MCPToolset
+-from pydantic_ai.tools import AgentDepsT, RunContext, ToolDefinition
++from pydantic_ai.tools import AgentDepsT, ToolDefinition
+ 
+ from ._mcp import DBOSMCPToolsetBase
+ from ._utils import StepConfig
+@@ -11,7 +11,7 @@ from ._utils import StepConfig
+ class DBOSMCPToolset(DBOSMCPToolsetBase[AgentDepsT]):
+     """A wrapper for `MCPToolset` that integrates with DBOS, turning `call_tool` and `get_tools` into DBOS steps.
+ 
+-    Tool definitions are cached across steps to avoid redundant MCP server round-trips,
++    Tool definitions are cached per run (on the run context) to avoid redundant MCP server round-trips,
+     respecting the wrapped toolset's `cache_tools` setting.
+     """
+ 
+@@ -27,24 +27,15 @@ class DBOSMCPToolset(DBOSMCPToolsetBase[AgentDepsT]):
+             step_name_prefix=step_name_prefix,
+             step_config=step_config,
+         )
+-        # Cached across steps to avoid redundant MCP connections per step.
+-        # Not invalidated by `tools/list_changed` notifications — users who need
+-        # dynamic tools during a workflow should set `cache_tools=False`.
+-        self._cached_tool_defs: dict[str, ToolDefinition] | None = None
+ 
+     @property
+     def _toolset(self) -> MCPToolset[AgentDepsT]:
+         assert isinstance(self.wrapped, MCPToolset)
+         return self.wrapped
+ 
++    @property
++    def _cache_tools(self) -> bool:
++        return self._toolset.cache_tools
++
+     def tool_for_tool_def(self, tool_def: ToolDefinition) -> ToolsetTool[AgentDepsT]:
+         return self._toolset.tool_for_tool_def(tool_def)
+-
+-    async def get_tools(self, ctx: RunContext[AgentDepsT]) -> dict[str, ToolsetTool[AgentDepsT]]:
+-        if self._toolset.cache_tools and self._cached_tool_defs is not None:
+-            return {name: self.tool_for_tool_def(td) for name, td in self._cached_tool_defs.items()}
+-
+-        result = await super().get_tools(ctx)
+-        if self._toolset.cache_tools:  # pragma: no branch
+-            self._cached_tool_defs = {name: tool.tool_def for name, tool in result.items()}
+-        return result
+diff --git a/pydantic_ai_slim/pydantic_ai/durable_exec/temporal/__init__.py b/pydantic_ai_slim/pydantic_ai/durable_exec/temporal/__init__.py
+index f39cd41f..036378d5 100644
+--- a/pydantic_ai_slim/pydantic_ai/durable_exec/temporal/__init__.py
++++ b/pydantic_ai_slim/pydantic_ai/durable_exec/temporal/__init__.py
+@@ -66,7 +66,7 @@ def _workflow_runner(runner: WorkflowRunner | None) -> WorkflowRunner:
+         raise ValueError('No WorkflowRunner provided to the Pydantic AI plugin.')  # pragma: no cover
+ 
+     if not isinstance(runner, SandboxedWorkflowRunner):
+-        return runner  # pragma: no cover
++        return runner
+ 
+     return replace(
+         runner,
+diff --git a/pydantic_ai_slim/pydantic_ai/durable_exec/temporal/_mcp.py b/pydantic_ai_slim/pydantic_ai/durable_exec/temporal/_mcp.py
+index e8f800bf..80916e0e 100644
+--- a/pydantic_ai_slim/pydantic_ai/durable_exec/temporal/_mcp.py
++++ b/pydantic_ai_slim/pydantic_ai/durable_exec/temporal/_mcp.py
+@@ -109,6 +109,12 @@ class TemporalMCPToolsetBase(TemporalWrapperToolset[AgentDepsT], ABC):
+     def tool_for_tool_def(self, tool_def: ToolDefinition) -> ToolsetTool[AgentDepsT]:
+         raise NotImplementedError
+ 
++    @property
++    @abstractmethod
++    def _cache_tools(self) -> bool:
++        """Whether the wrapped MCP server/toolset has tool-definition caching enabled."""
++        raise NotImplementedError
++
+     @property
+     def temporal_activities(self) -> list[Callable[..., Any]]:
+         return [self.get_instructions_activity, self.get_tools_activity, self.call_tool_activity]
+@@ -142,6 +148,14 @@ class TemporalMCPToolsetBase(TemporalWrapperToolset[AgentDepsT], ABC):
+         if not workflow.in_workflow():  # pragma: no cover
+             return await super().get_tools(ctx)
+ 
++        # The cache lives on the run (`ctx._mcp_tool_defs_cache`), recreated per run and reconstructed
++        # identically on replay, so the choice to schedule the activity depends only on the workflow's
++        # own history. Caching on the process-shared instance instead would make that choice depend on
++        # what earlier runs warmed in the worker, breaking replay determinism (TMPRL1100).
++        cache_key = self.id or ''
++        if self._cache_tools and (cached := ctx._mcp_tool_defs_cache.get(cache_key)) is not None:  # pyright: ignore[reportPrivateUsage]
++            return {name: self.tool_for_tool_def(tool_def) for name, tool_def in cached.items()}
++
+         serialized_run_context = self.run_context_type.serialize_run_context(ctx)
+         activity_config: ActivityConfig = {'summary': f'get tools: {self.id}', **self.activity_config}
+         tool_defs = await workflow.execute_activity(
+@@ -152,6 +166,8 @@ class TemporalMCPToolsetBase(TemporalWrapperToolset[AgentDepsT], ABC):
+             ],
+             **activity_config,
+         )
++        if self._cache_tools:
++            ctx._mcp_tool_defs_cache[cache_key] = tool_defs  # pyright: ignore[reportPrivateUsage]
+         return {name: self.tool_for_tool_def(tool_def) for name, tool_def in tool_defs.items()}
+ 
+     async def call_tool(
+diff --git a/pydantic_ai_slim/pydantic_ai/durable_exec/temporal/_mcp_toolset.py b/pydantic_ai_slim/pydantic_ai/durable_exec/temporal/_mcp_toolset.py
+index f7dd3342..2ba5340a 100644
+--- a/pydantic_ai_slim/pydantic_ai/durable_exec/temporal/_mcp_toolset.py
++++ b/pydantic_ai_slim/pydantic_ai/durable_exec/temporal/_mcp_toolset.py
+@@ -6,7 +6,7 @@ from temporalio.workflow import ActivityConfig
+ 
+ from pydantic_ai import ToolsetTool
+ from pydantic_ai.mcp import MCPToolset
+-from pydantic_ai.tools import AgentDepsT, RunContext, ToolDefinition
++from pydantic_ai.tools import AgentDepsT, ToolDefinition
+ 
+ if TYPE_CHECKING:
+     from pydantic_ai.agent.abstract import AbstractAgent
+@@ -18,7 +18,7 @@ from ._run_context import TemporalRunContext
+ class TemporalMCPToolset(TemporalMCPToolsetBase[AgentDepsT]):
+     """A wrapper for `MCPToolset` that integrates with Temporal, turning `get_tools` and `call_tool` into activities.
+ 
+-    Tool definitions are cached across activities to avoid redundant MCP server round-trips,
++    Tool definitions are cached per run (on the run context) to avoid redundant MCP server round-trips,
+     respecting the wrapped toolset's `cache_tools` setting.
+     """
+ 
+@@ -42,24 +42,15 @@ class TemporalMCPToolset(TemporalMCPToolsetBase[AgentDepsT]):
+             run_context_type=run_context_type,
+             agent=agent,
+         )
+-        # Cached across activities to avoid redundant MCP connections per activity.
+-        # Not invalidated by `tools/list_changed` notifications — users who need
+-        # dynamic tools during a workflow should set `cache_tools=False`.
+-        self._cached_tool_defs: dict[str, ToolDefinition] | None = None
+ 
+     @property
+     def _toolset(self) -> MCPToolset[AgentDepsT]:
+         assert isinstance(self.wrapped, MCPToolset)
+         return self.wrapped
+ 
++    @property
++    def _cache_tools(self) -> bool:
++        return self._toolset.cache_tools
++
+     def tool_for_tool_def(self, tool_def: ToolDefinition) -> ToolsetTool[AgentDepsT]:
+         return self._toolset.tool_for_tool_def(tool_def)
+-
+-    async def get_tools(self, ctx: RunContext[AgentDepsT]) -> dict[str, ToolsetTool[AgentDepsT]]:
+-        if self._toolset.cache_tools and self._cached_tool_defs is not None:
+-            return {name: self.tool_for_tool_def(td) for name, td in self._cached_tool_defs.items()}
+-
+-        result = await super().get_tools(ctx)
+-        if self._toolset.cache_tools:  # pragma: no branch
+-            self._cached_tool_defs = {name: tool.tool_def for name, tool in result.items()}
+-        return result

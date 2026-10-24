@@ -1,0 +1,30 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/test_ag_ui.py::test_dump_load_roundtrip_file_part[vendor-metadata]",
+   "action": "keep",
+   "reason": "Checks the public dump/load round-trip reproduces the original messages, which the instruction explicitly requires."
+  },
+  {
+   "id": "tests/test_ag_ui.py::test_dump_messages_file_part_with_vendor_metadata",
+   "action": "keep",
+   "reason": "Asserts the ActivityMessage activity_type and the 'vendor_metadata' content key, both specified exactly by the instruction."
+  },
+  {
+   "id": "tests/test_vercel_ai.py::test_adapter_dump_filepart_carries_vendor_metadata_in_provider_metadata",
+   "action": "keep",
+   "reason": "Uses the pre-existing load_provider_metadata helper that the instruction names to read the 'vendor_metadata' entry, as the instruction specifies."
+  },
+  {
+   "id": "tests/test_vercel_ai.py::test_adapter_dump_load_roundtrip_filepart_vendor_metadata",
+   "action": "keep",
+   "reason": "Checks only the public round-trip outcome: the reloaded FilePart.content.vendor_metadata."
+  },
+  {
+   "id": "tests/test_vercel_ai.py::test_adapter_load_filepart_ignores_non_dict_vendor_metadata",
+   "action": "keep",
+   "reason": "Tampers with the existing 'pydantic_ai' provider_metadata wire namespace that load_provider_metadata already used before the change, then checks the specified outcome that vendor_metadata is None."
+  }
+ ],
+ "edits": []
+}

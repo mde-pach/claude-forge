@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 7,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'E'\nimport re\ndef sub(p,a,b,count=0):\n    s=open(p).read()\n    assert a in s,(p,a)\n    s=s.replace(a,b) if not count else s.replace(a,b,count)\n    open(p,'w').write(s)\n\n# temporal helper\nopen('helpers/temporal.ts','a').write('''\n/**\n * Any value accepted by timeout fields: a number of mi",
+  "npx tsc --noEmit -p . 2>&1 | grep -v \"src/test/\" | head; cat > src/tmp.test.ts <<'E'\nimport { Temporal } from \"temporal-polyfill\";\nimport { timeStr } from \"./helpers/strings\";\nimport { test, expect, vi } from \"vitest\";\ntest(\"x\",()=>{vi.useFakeTimers();vi.setSystemTime(new Date(\"2026-04-28T12:00:00Z\""
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

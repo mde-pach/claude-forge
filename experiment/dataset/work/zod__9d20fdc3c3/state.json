@@ -1,0 +1,58 @@
+{
+ "task_id": "zod__9d20fdc3c3",
+ "window": "main",
+ "repo": "zod",
+ "commit": "9d20fdc3c37207fa3fe77c9524a3421f4399cbf6",
+ "parent": "3063993a3317ac8af7a244691b837fce3e53aa96",
+ "date": "2026-08-13T11:08:38-07:00",
+ "subject": "fix(v4): preserve z.preprocess input narrowing (#5967)",
+ "type": "fix",
+ "test_files": [
+  "packages/zod/src/v4/classic/tests/preprocess-types.test.ts"
+ ],
+ "source_files": [
+  "packages/zod/src/v4/classic/schemas.ts",
+  "packages/zod/src/v4/core/schemas.ts"
+ ],
+ "source_lines": 27,
+ "all_files": [
+  "packages/zod/src/v4/classic/schemas.ts",
+  "packages/zod/src/v4/classic/tests/preprocess-types.test.ts",
+  "packages/zod/src/v4/core/schemas.ts"
+ ],
+ "hidden": [
+  "packages/zod/src/v4/classic/tests/preprocess-types.test.ts"
+ ],
+ "deleted": [],
+ "targets": [
+  "packages/zod/src/v4/classic/tests/preprocess-types.test.ts"
+ ],
+ "f2p": [
+  "packages/zod/src/v4/classic/tests/preprocess-types.test.ts::ZodPreprocess narrows input from an annotated preprocessor arg"
+ ],
+ "p2p": [
+  "packages/zod/src/v4/classic/tests/preprocess-types.test.ts::ZodPreprocess input/output inference",
+  "packages/zod/src/v4/classic/tests/preprocess-types.test.ts::ZodPreprocess optin/optout defer to B",
+  "packages/zod/src/v4/classic/tests/preprocess-types.test.ts::ZodPreprocess<B> assignable to ZodPipe<$ZodTransform, B>",
+  "packages/zod/src/v4/classic/tests/preprocess-types.test.ts::narrowed ZodPreprocess still assignable to the bare type"
+ ],
+ "flaky": [],
+ "cost_instruction": 0.0619378,
+ "cost_audit": 0.0578982,
+ "kept_f2p": [
+  "packages/zod/src/v4/classic/tests/preprocess-types.test.ts::ZodPreprocess narrows input from an annotated preprocessor arg"
+ ],
+ "kept_p2p": [
+  "packages/zod/src/v4/classic/tests/preprocess-types.test.ts::ZodPreprocess input/output inference",
+  "packages/zod/src/v4/classic/tests/preprocess-types.test.ts::ZodPreprocess optin/optout defer to B",
+  "packages/zod/src/v4/classic/tests/preprocess-types.test.ts::ZodPreprocess<B> assignable to ZodPipe<$ZodTransform, B>",
+  "packages/zod/src/v4/classic/tests/preprocess-types.test.ts::narrowed ZodPreprocess still assignable to the bare type"
+ ],
+ "edits_applied": 0,
+ "edits_rejected": [],
+ "dropped": [],
+ "revalidate_bad_f2p": [],
+ "revalidate_bad_p2p": [],
+ "final": "accepted",
+ "reason": null
+}

@@ -1,0 +1,68 @@
+{
+ "task_id": "zod__7708d4471e",
+ "window": "main",
+ "repo": "zod",
+ "commit": "7708d4471eb2921e89c57ef5ad4785864eeff922",
+ "parent": "8ac9ae5198315a2306629f94f8323e45774a72f5",
+ "date": "2026-08-12T13:12:27-07:00",
+ "subject": "perf(v4): lazy ZodError construction (#6316)",
+ "type": "refactor",
+ "test_files": [
+  "packages/zod/src/v4/classic/tests/error.test.ts"
+ ],
+ "source_files": [
+  "packages/zod/src/v4/classic/errors.ts",
+  "packages/zod/src/v4/core/errors.ts"
+ ],
+ "source_lines": 148,
+ "all_files": [
+  "packages/zod/src/v4/classic/errors.ts",
+  "packages/zod/src/v4/classic/tests/error.test.ts",
+  "packages/zod/src/v4/core/errors.ts"
+ ],
+ "hidden": [
+  "packages/zod/src/v4/classic/tests/error.test.ts"
+ ],
+ "deleted": [],
+ "targets": [
+  "packages/zod/src/v4/classic/tests/error.test.ts"
+ ],
+ "f2p": [],
+ "p2p": [
+  "packages/zod/src/v4/classic/tests/error.test.ts::array minimum",
+  "packages/zod/src/v4/classic/tests/error.test.ts::bound error map overrides contextual",
+  "packages/zod/src/v4/classic/tests/error.test.ts::custom path",
+  "packages/zod/src/v4/classic/tests/error.test.ts::custom path in custom error map",
+  "packages/zod/src/v4/classic/tests/error.test.ts::default error message",
+  "packages/zod/src/v4/classic/tests/error.test.ts::detect issue with input fallback",
+  "packages/zod/src/v4/classic/tests/error.test.ts::do not allow error and message together",
+  "packages/zod/src/v4/classic/tests/error.test.ts::dont short circuit on continuable errors",
+  "packages/zod/src/v4/classic/tests/error.test.ts::empty string error message",
+  "packages/zod/src/v4/classic/tests/error.test.ts::error creation",
+  "packages/zod/src/v4/classic/tests/error.test.ts::error helpers survive detaching",
+  "packages/zod/src/v4/classic/tests/error.test.ts::error inheritance",
+  "packages/zod/src/v4/classic/tests/error.test.ts::error initializer never installs onto an intrinsic prototype",
+  "packages/zod/src/v4/classic/tests/error.test.ts::error serialization",
+  "packages/zod/src/v4/classic/tests/error.test.ts::formatting",
+  "packages/zod/src/v4/classic/tests/error.test.ts::formatting with nullable and optional fields",
+  "packages/zod/src/v4/classic/tests/error.test.ts::hard coded error  with custom errormap",
+  "packages/zod/src/v4/classic/tests/error.test.ts::inferFlattenedErrors",
+  "packages/zod/src/v4/classic/tests/error.test.ts::literal bigint default error message",
+  "packages/zod/src/v4/classic/tests/error.test.ts::message is lazy but stays own and enumerable",
+  "packages/zod/src/v4/classic/tests/error.test.ts::no abort early on refinements",
+  "packages/zod/src/v4/classic/tests/error.test.ts::override error in refine",
+  "packages/zod/src/v4/classic/tests/error.test.ts::override error in refinement",
+  "packages/zod/src/v4/classic/tests/error.test.ts::refinement fail with params",
+  "packages/zod/src/v4/classic/tests/error.test.ts::root level formatting",
+  "packages/zod/src/v4/classic/tests/error.test.ts::schema-bound error map",
+  "packages/zod/src/v4/classic/tests/error.test.ts::stack trace carries the message and the parse call site",
+  "packages/zod/src/v4/classic/tests/error.test.ts::string error params",
+  "packages/zod/src/v4/classic/tests/error.test.ts::type error with custom error map",
+  "packages/zod/src/v4/classic/tests/error.test.ts::z.config customError "
+ ],
+ "flaky": [
+  "packages/zod/src/v4/classic/tests/error.test.ts::src/v4/classic/tests/error.test.ts"
+ ],
+ "final": "rejected",
+ "reason": "no_f2p_test"
+}

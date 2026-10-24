@@ -1,0 +1,11 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 1,
+ "bash_calls": 6,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'E'\nimport re\nU=\"number | string | Date | Temporal.DurationLike | Temporal.InstantLike | Temporal.ZonedDateTimeLike\"\ndoc_old=re.compile(r\"(\\n(\\s*)\\* )(?:or )?a `Date` object\\.\\n\")\ndef docfix(s):\n    s=s.replace(\"or\\n   * a `Date` object.\",\"or\\n   * a `Date` object, `Temporal.Duration`, `"
+ ],
+ "total": 1,
+ "edit_tool_share": 0.0
+}

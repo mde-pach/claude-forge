@@ -1,0 +1,15 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > Lease extensions > does not fall back to an older connection when its replacement drains",
+   "action": "keep",
+   "reason": "It checks only behaviour the instruction specifies (no extension sent on an older or draining socket during the drain, then an extension with lease-1 on the new connection), and it does so through the existing mock WebSocket boundary without touching any internals."
+  },
+  {
+   "id": "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > Lease extensions > uses new connection after drain",
+   "action": "keep",
+   "reason": "Its assertions (no extension sent on the draining socket, and the next extension on the replacement uses the original lease ID) are outcomes the instruction requires, observed only at the mocked socket boundary."
+  }
+ ],
+ "edits": []
+}
