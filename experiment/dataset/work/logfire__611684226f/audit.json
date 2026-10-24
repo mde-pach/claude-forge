@@ -1,0 +1,15 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/test_auth.py::test_request_device_code_sends_a_timeout",
+   "action": "keep",
+   "reason": "It checks only the public function's return value and the request timeout of 15, both stated in the instruction, and the double (requests_mock) sits at the transport boundary."
+  },
+  {
+   "id": "tests/test_client.py::test_requests_send_a_timeout",
+   "action": "keep",
+   "reason": "It checks only the 30-second timeout on GET/POST/PUT requests through the methods the instruction names (the instruction names `_put_raw` explicitly), with the double at the transport boundary."
+  }
+ ],
+ "edits": []
+}

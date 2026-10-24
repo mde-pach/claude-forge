@@ -1,0 +1,120 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/test_query_client_errors.py::test_info_unexpected_status_code_async",
+   "action": "keep",
+   "reason": "Checks only the named exception type and that the message contains the body text, both required by the instruction, via the existing transport kwarg boundary."
+  },
+  {
+   "id": "tests/test_query_client_errors.py::test_info_unexpected_status_code_sync",
+   "action": "keep",
+   "reason": "Checks only the named exception type and that the message contains the body text, both required by the instruction, via the existing transport kwarg boundary."
+  },
+  {
+   "id": "tests/test_query_client_errors.py::test_query_request_errors_async[400-QueryExecutionError]",
+   "action": "keep",
+   "reason": "Checks the exception type and exc.args == (data,), which the instruction specifies explicitly."
+  },
+  {
+   "id": "tests/test_query_client_errors.py::test_query_request_errors_async[422-QueryRequestError]",
+   "action": "keep",
+   "reason": "Checks the exception type and exc.args == (data,), which the instruction specifies explicitly."
+  },
+  {
+   "id": "tests/test_query_client_errors.py::test_query_request_errors_sync[json-400-QueryExecutionError]",
+   "action": "keep",
+   "reason": "Checks the exception type and the JSON-decoded args that the instruction specifies."
+  },
+  {
+   "id": "tests/test_query_client_errors.py::test_query_request_errors_sync[json-422-QueryRequestError]",
+   "action": "keep",
+   "reason": "Checks the exception type and the JSON-decoded args that the instruction specifies."
+  },
+  {
+   "id": "tests/test_query_client_errors.py::test_query_request_errors_sync[json-content-type-with-parameters-400-QueryExecutionError]",
+   "action": "keep",
+   "reason": "Checks media type matching that ignores case and parameters, which the instruction specifies, using only observable exception args."
+  },
+  {
+   "id": "tests/test_query_client_errors.py::test_query_request_errors_sync[json-content-type-with-parameters-422-QueryRequestError]",
+   "action": "keep",
+   "reason": "Checks media type matching that ignores case and parameters, which the instruction specifies, using only observable exception args."
+  },
+  {
+   "id": "tests/test_query_client_errors.py::test_query_request_errors_sync[text-400-QueryExecutionError]",
+   "action": "keep",
+   "reason": "Checks the specified text-body args behaviour through the public API only."
+  },
+  {
+   "id": "tests/test_query_client_errors.py::test_query_request_errors_sync[text-422-QueryRequestError]",
+   "action": "keep",
+   "reason": "Checks the specified text-body args behaviour through the public API only."
+  },
+  {
+   "id": "tests/test_query_client_errors.py::test_query_unexpected_status_code_async[204]",
+   "action": "keep",
+   "reason": "Checks that the error type is raised and that its message contains the status code and the body, as the instruction requires."
+  },
+  {
+   "id": "tests/test_query_client_errors.py::test_query_unexpected_status_code_async[301]",
+   "action": "keep",
+   "reason": "Checks that the error type is raised and that its message contains the status code and the body, as the instruction requires."
+  },
+  {
+   "id": "tests/test_query_client_errors.py::test_query_unexpected_status_code_async[404]",
+   "action": "keep",
+   "reason": "Checks that the error type is raised and that its message contains the status code and the body, as the instruction requires."
+  },
+  {
+   "id": "tests/test_query_client_errors.py::test_query_unexpected_status_code_async[500]",
+   "action": "keep",
+   "reason": "Checks that the error type is raised and that its message contains the status code and the body, as the instruction requires."
+  },
+  {
+   "id": "tests/test_query_client_errors.py::test_query_unexpected_status_code_async[502]",
+   "action": "keep",
+   "reason": "Checks that the error type is raised and that its message contains the status code and the body, as the instruction requires."
+  },
+  {
+   "id": "tests/test_query_client_errors.py::test_query_unexpected_status_code_async[503]",
+   "action": "keep",
+   "reason": "Checks that the error type is raised and that its message contains the status code and the body, as the instruction requires."
+  },
+  {
+   "id": "tests/test_query_client_errors.py::test_query_unexpected_status_code_sync[204]",
+   "action": "keep",
+   "reason": "Checks that the error type is raised and that its message contains the status code and the body, as the instruction requires."
+  },
+  {
+   "id": "tests/test_query_client_errors.py::test_query_unexpected_status_code_sync[301]",
+   "action": "keep",
+   "reason": "Checks that the error type is raised and that its message contains the status code and the body, as the instruction requires."
+  },
+  {
+   "id": "tests/test_query_client_errors.py::test_query_unexpected_status_code_sync[404]",
+   "action": "keep",
+   "reason": "Checks that the error type is raised and that its message contains the status code and the body, as the instruction requires."
+  },
+  {
+   "id": "tests/test_query_client_errors.py::test_query_unexpected_status_code_sync[500]",
+   "action": "keep",
+   "reason": "Checks that the error type is raised and that its message contains the status code and the body, as the instruction requires."
+  },
+  {
+   "id": "tests/test_query_client_errors.py::test_query_unexpected_status_code_sync[502]",
+   "action": "keep",
+   "reason": "Checks that the error type is raised and that its message contains the status code and the body, as the instruction requires."
+  },
+  {
+   "id": "tests/test_query_client_errors.py::test_query_unexpected_status_code_sync[503]",
+   "action": "keep",
+   "reason": "Checks that the error type is raised and that its message contains the status code and the body, as the instruction requires."
+  },
+  {
+   "id": "tests/test_query_client_errors.py::test_query_unexpected_status_code_with_undecodable_json_body",
+   "action": "keep",
+   "reason": "This is exactly the truncated-JSON example from the instruction, checked only through the exception type and the raw text in the message."
+  }
+ ],
+ "edits": []
+}

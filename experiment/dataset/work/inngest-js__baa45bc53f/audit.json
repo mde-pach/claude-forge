@@ -1,0 +1,30 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/inngest/src/components/Inngest.test.ts::sessionPropagation toggle > `INNGEST_SESSION_PROPAGATION=0` disables propagation",
+   "action": "keep",
+   "reason": "Checks only the getter and env key the instruction names, with an outcome the instruction specifies."
+  },
+  {
+   "id": "packages/inngest/src/components/Inngest.test.ts::sessionPropagation toggle > `INNGEST_SESSION_PROPAGATION=1` enables propagation",
+   "action": "keep",
+   "reason": "Checks only the getter and env key the instruction names, with an outcome the instruction specifies."
+  },
+  {
+   "id": "packages/inngest/src/components/Inngest.test.ts::sessionPropagation toggle > `INNGEST_SESSION_PROPAGATION=false` disables propagation",
+   "action": "keep",
+   "reason": "Checks only the getter and env key the instruction names, with an outcome the instruction specifies."
+  },
+  {
+   "id": "packages/inngest/src/components/Inngest.test.ts::sessionPropagation toggle > `INNGEST_SESSION_PROPAGATION=true` enables propagation",
+   "action": "keep",
+   "reason": "Checks only the getter and env key the instruction names, with an outcome the instruction specifies."
+  },
+  {
+   "id": "packages/inngest/src/components/Inngest.test.ts::sessionPropagation toggle > defaults to false (dark-launch OFF) when env is not set",
+   "action": "keep",
+   "reason": "Checks the default value, which the instruction specifies, through the symbol getter it names."
+  }
+ ],
+ "edits": []
+}

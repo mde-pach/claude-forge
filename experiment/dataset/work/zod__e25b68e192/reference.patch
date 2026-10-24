@@ -1,0 +1,74 @@
+diff --git a/packages/zod/src/v4/core/core.ts b/packages/zod/src/v4/core/core.ts
+index c191fdb..3377ed0 100644
+--- a/packages/zod/src/v4/core/core.ts
++++ b/packages/zod/src/v4/core/core.ts
+@@ -77,7 +77,7 @@ export /*@__NO_SIDE_EFFECTS__*/ function $constructor<T extends ZodTrait, D = T[
+ }
+ 
+ //////////////////////////////   UTILITIES   ///////////////////////////////////////
+-export const $brand: unique symbol = Symbol("zod_brand");
++export const $brand: unique symbol = /*@__PURE__*/ Symbol("zod_brand");
+ export type $brand<T extends string | number | symbol = string | number | symbol> = {
+   [$brand]: { [k in T]: true };
+ };
+diff --git a/packages/zod/src/v4/core/regexes.ts b/packages/zod/src/v4/core/regexes.ts
+index 6331a03..83ffc36 100644
+--- a/packages/zod/src/v4/core/regexes.ts
++++ b/packages/zod/src/v4/core/regexes.ts
+@@ -94,9 +94,16 @@ export const httpProtocol: RegExp = /^https?$/;
+ // E.164: leading digit must be 1-9; total digits (excluding '+') between 7-15
+ export const e164: RegExp = /^\+[1-9]\d{6,14}$/;
+ 
+-// const dateSource = `((\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-((0[13578]|1[02])-(0[1-9]|[12]\\d|3[01])|(0[469]|11)-(0[1-9]|[12]\\d|30)|(02)-(0[1-9]|1\\d|2[0-8])))`;
+ const dateSource = `(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))`;
+-export const date: RegExp = /*@__PURE__*/ new RegExp(`^${dateSource}$`);
++
++/** Anchors a pattern source. The interpolation lives here rather than at the call site because
++ * esbuild will not drop a `@__PURE__` call whose own argument interpolates a variable, but it
++ * will drop `anchor(dateSource)`. Keeping it inline pinned `date` into every bundle. */
++function anchor(source: string): RegExp {
++  return new RegExp(`^${source}$`);
++}
++
++export const date: RegExp = /*@__PURE__*/ anchor(dateSource);
+ 
+ function timeSource(args: { precision?: number | null | undefined }) {
+   const hhmm = `(?:[01]\\d|2[0-3]):[0-5]\\d`;
+diff --git a/packages/zod/src/v4/core/registries.ts b/packages/zod/src/v4/core/registries.ts
+index 6d04ea1..cdd19e7 100644
+--- a/packages/zod/src/v4/core/registries.ts
++++ b/packages/zod/src/v4/core/registries.ts
+@@ -1,9 +1,9 @@
+ import type * as core from "./core.js";
+ import type { $ZodType } from "./schemas.js";
+ 
+-export const $output: unique symbol = Symbol("ZodOutput");
++export const $output: unique symbol = /*@__PURE__*/ Symbol("ZodOutput");
+ export type $output = typeof $output;
+-export const $input: unique symbol = Symbol("ZodInput");
++export const $input: unique symbol = /*@__PURE__*/ Symbol("ZodInput");
+ export type $input = typeof $input;
+ 
+ export type $replace<Meta, S extends $ZodType> = Meta extends $output
+diff --git a/packages/zod/src/v4/core/util.ts b/packages/zod/src/v4/core/util.ts
+index 8738df4..642b28b 100644
+--- a/packages/zod/src/v4/core/util.ts
++++ b/packages/zod/src/v4/core/util.ts
+@@ -585,13 +585,15 @@ export type FromCleanMap<T extends schemas.$ZodLooseShape> = {
+   [k in keyof T as k extends `?${infer K}` ? K : k extends `${infer K}?` ? K : k]: k;
+ };
+ 
+-export const NUMBER_FORMAT_RANGES: Record<checks.$ZodNumberFormats, [number, number]> = {
++// Wrapped in a `@__PURE__` IIFE: esbuild never tree-shakes a top-level initializer that
++// contains a member access on `Number`, so the bare object literal survived into every bundle.
++export const NUMBER_FORMAT_RANGES: Record<checks.$ZodNumberFormats, [number, number]> = /*@__PURE__*/ (() => ({
+   safeint: [Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER],
+   int32: [-2147483648, 2147483647],
+   uint32: [0, 4294967295],
+   float32: [-3.4028234663852886e38, 3.4028234663852886e38],
+   float64: [-Number.MAX_VALUE, Number.MAX_VALUE],
+-};
++}))();
+ 
+ export const BIGINT_FORMAT_RANGES: Record<checks.$ZodBigIntFormats, [bigint, bigint]> = {
+   int64: [/* @__PURE__*/ BigInt("-9223372036854775808"), /* @__PURE__*/ BigInt("9223372036854775807")],

@@ -1,0 +1,30 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/test_history_processor.py::test_history_processor_insert_and_replace_resumed_request_excludes_resumed_request",
+   "action": "keep",
+   "reason": "Asserts only public outcomes (new_messages/all_messages/capture_run_messages equality), matching required behaviour item 2."
+  },
+  {
+   "id": "tests/test_history_processor.py::test_history_processor_mutates_resumed_request_excludes_resumed_request",
+   "action": "keep",
+   "reason": "Checks the public message list and the metadata set by the user-defined processor, which is observable output, matching item 1."
+  },
+  {
+   "id": "tests/test_history_processor.py::test_history_processor_replace_resumed_request_excludes_resumed_request",
+   "action": "keep",
+   "reason": "Checks the messages the model received and new_messages() through the public API, matching item 1 (full replacement)."
+  },
+  {
+   "id": "tests/test_history_processor.py::test_reinject_system_prompt_resumed_tool_loop_excludes_resumed_request",
+   "action": "keep",
+   "reason": "Asserts only new_messages()/all_messages() outcomes in a multi-step run, matching item 3."
+  },
+  {
+   "id": "tests/test_history_processor.py::test_reinject_system_prompt_resuming_without_prompt_excludes_resumed_request",
+   "action": "keep",
+   "reason": "The snapshot covers messages sent to the model through the public FunctionModel boundary (existing ReinjectSystemPrompt behaviour), and the other assertions use only the public API, matching item 1."
+  }
+ ],
+ "edits": []
+}

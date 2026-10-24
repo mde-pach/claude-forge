@@ -1,0 +1,56 @@
+diff --git a/logfire/_internal/auth.py b/logfire/_internal/auth.py
+index 5ac49c6..f90fc2b 100644
+--- a/logfire/_internal/auth.py
++++ b/logfire/_internal/auth.py
+@@ -25,6 +25,7 @@ DEFAULT_FILE = HOME_LOGFIRE / 'default.toml'
+ """File used to store user tokens."""
+ 
+ 
++LOGFIRE_TOKEN_REGION_PATTERN = re.compile(r'^pylf_v[0-9]+_(?P<region>[a-z]+)_')
+ PYDANTIC_LOGFIRE_TOKEN_PATTERN = re.compile(
+     r'^(?P<safe_part>pylf_v(?P<version>[0-9]+)_(?P<region>[a-z]+)_'
+     r'(?:(?P<organization_id>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})_)?)'
+@@ -88,14 +89,18 @@ class UserToken:
+ 
+     def __str__(self) -> str:
+         region = 'us'
+-        if match := PYDANTIC_LOGFIRE_TOKEN_PATTERN.match(self.token):
+-            region = match.group('region')
++        token_match = PYDANTIC_LOGFIRE_TOKEN_PATTERN.match(self.token)
++        region_match = token_match or LOGFIRE_TOKEN_REGION_PATTERN.match(self.token)
++        if region_match:
++            region = region_match.group('region')
+             if region not in REGIONS:
+                 region = 'us'
+ 
+         token_repr = f'{region.upper()} ({self.base_url}) - '
+-        if match:
+-            token_repr += match.group('safe_part') + match.group('token')[:5]
++        if token_match:
++            token_repr += token_match.group('safe_part') + token_match.group('token')[:5]
++        elif region_match:
++            token_repr += self.token[region_match.end() : region_match.end() + 5]
+         else:
+             token_repr += self.token[:5]
+         token_repr += '****'
+diff --git a/logfire/_internal/config.py b/logfire/_internal/config.py
+index de91d96..26b5c4f 100644
+--- a/logfire/_internal/config.py
++++ b/logfire/_internal/config.py
+@@ -62,7 +62,7 @@ from rich.console import Console
+ from rich.prompt import Confirm, Prompt
+ from typing_extensions import Self, Unpack, assert_type
+ 
+-from logfire._internal.auth import REGIONS
++from logfire._internal.auth import LOGFIRE_TOKEN_REGION_PATTERN, REGIONS
+ from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor
+ from logfire._internal.collect_system_info import collect_package_info
+ from logfire.exceptions import LogfireConfigError
+@@ -138,7 +138,6 @@ CREDENTIALS_FILENAME = 'logfire_credentials.json'
+ COMMON_REQUEST_HEADERS = {'User-Agent': f'logfire/{VERSION}'}
+ """Common request headers for requests to the Logfire API."""
+ PROJECT_NAME_PATTERN = r'^[a-z0-9]+(?:-[a-z0-9]+)*$'
+-LOGFIRE_TOKEN_REGION_PATTERN = re.compile(r'^pylf_v[0-9]+_(?P<region>[a-z]+)_')
+ 
+ METRICS_PREFERRED_TEMPORALITY = {
+     Counter: AggregationTemporality.DELTA,

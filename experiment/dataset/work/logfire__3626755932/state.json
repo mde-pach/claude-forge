@@ -1,0 +1,86 @@
+{
+ "task_id": "logfire__3626755932",
+ "window": "main",
+ "repo": "logfire",
+ "commit": "36267559329c0bbcb1f637852952eb2fe1a42e5e",
+ "parent": "0c98a61973bdeddab182d3c37eef20a6888caab4",
+ "date": "2026-08-05T12:59:33+00:00",
+ "subject": "Fix two races in Claude Agent SDK tool-use hook instrumentation (#2194)",
+ "type": "fix",
+ "test_files": [
+  "tests/otel_integrations/test_claude_agent_sdk.py"
+ ],
+ "source_files": [
+  "logfire/_internal/integrations/claude_agent_sdk.py"
+ ],
+ "source_lines": 43,
+ "all_files": [
+  "logfire/_internal/integrations/claude_agent_sdk.py",
+  "tests/otel_integrations/test_claude_agent_sdk.py"
+ ],
+ "hidden": [
+  "tests/otel_integrations/test_claude_agent_sdk.py"
+ ],
+ "deleted": [],
+ "targets": [
+  "tests/otel_integrations/test_claude_agent_sdk.py"
+ ],
+ "f2p": [
+  "tests/otel_integrations/test_claude_agent_sdk.py::test_clear_orphaned_tool_spans",
+  "tests/otel_integrations/test_claude_agent_sdk.py::test_pre_hook_waits_for_tool_announcement",
+  "tests/otel_integrations/test_claude_agent_sdk.py::test_tool_use_conversation_cassette[0.05]",
+  "tests/otel_integrations/test_claude_agent_sdk.py::test_tool_use_conversation_cassette[0]",
+  "tests/otel_integrations/test_claude_agent_sdk.py::test_tool_use_hooks"
+ ],
+ "p2p": [
+  "tests/otel_integrations/test_claude_agent_sdk.py::TestExtractUsage::test_extract_empty",
+  "tests/otel_integrations/test_claude_agent_sdk.py::TestExtractUsage::test_extract_usage",
+  "tests/otel_integrations/test_claude_agent_sdk.py::TestExtractUsage::test_invalid_token_values",
+  "tests/otel_integrations/test_claude_agent_sdk.py::TestExtractUsage::test_non_dict_usage",
+  "tests/otel_integrations/test_claude_agent_sdk.py::TestExtractUsage::test_only_cache_create",
+  "tests/otel_integrations/test_claude_agent_sdk.py::TestExtractUsage::test_only_cache_read",
+  "tests/otel_integrations/test_claude_agent_sdk.py::TestExtractUsage::test_partial_usage",
+  "tests/otel_integrations/test_claude_agent_sdk.py::test_already_instrumented",
+  "tests/otel_integrations/test_claude_agent_sdk.py::test_basic_conversation_cassette",
+  "tests/otel_integrations/test_claude_agent_sdk.py::test_content_blocks_to_output_messages",
+  "tests/otel_integrations/test_claude_agent_sdk.py::test_hook_edge_cases",
+  "tests/otel_integrations/test_claude_agent_sdk.py::test_inject_hooks_no_hooks_attr",
+  "tests/otel_integrations/test_claude_agent_sdk.py::test_inject_hooks_none_hooks",
+  "tests/otel_integrations/test_claude_agent_sdk.py::test_inject_hooks_with_existing_events",
+  "tests/otel_integrations/test_claude_agent_sdk.py::test_pre_hook_announcement_timeout"
+ ],
+ "flaky": [],
+ "cost_instruction": 0.0772938,
+ "cost_audit": 0.1262328,
+ "kept_f2p": [
+  "tests/otel_integrations/test_claude_agent_sdk.py::test_clear_orphaned_tool_spans",
+  "tests/otel_integrations/test_claude_agent_sdk.py::test_pre_hook_waits_for_tool_announcement",
+  "tests/otel_integrations/test_claude_agent_sdk.py::test_tool_use_conversation_cassette[0.05]",
+  "tests/otel_integrations/test_claude_agent_sdk.py::test_tool_use_conversation_cassette[0]",
+  "tests/otel_integrations/test_claude_agent_sdk.py::test_tool_use_hooks"
+ ],
+ "kept_p2p": [
+  "tests/otel_integrations/test_claude_agent_sdk.py::TestExtractUsage::test_extract_empty",
+  "tests/otel_integrations/test_claude_agent_sdk.py::TestExtractUsage::test_extract_usage",
+  "tests/otel_integrations/test_claude_agent_sdk.py::TestExtractUsage::test_invalid_token_values",
+  "tests/otel_integrations/test_claude_agent_sdk.py::TestExtractUsage::test_non_dict_usage",
+  "tests/otel_integrations/test_claude_agent_sdk.py::TestExtractUsage::test_only_cache_create",
+  "tests/otel_integrations/test_claude_agent_sdk.py::TestExtractUsage::test_only_cache_read",
+  "tests/otel_integrations/test_claude_agent_sdk.py::TestExtractUsage::test_partial_usage",
+  "tests/otel_integrations/test_claude_agent_sdk.py::test_already_instrumented",
+  "tests/otel_integrations/test_claude_agent_sdk.py::test_basic_conversation_cassette",
+  "tests/otel_integrations/test_claude_agent_sdk.py::test_content_blocks_to_output_messages",
+  "tests/otel_integrations/test_claude_agent_sdk.py::test_hook_edge_cases",
+  "tests/otel_integrations/test_claude_agent_sdk.py::test_inject_hooks_no_hooks_attr",
+  "tests/otel_integrations/test_claude_agent_sdk.py::test_inject_hooks_none_hooks",
+  "tests/otel_integrations/test_claude_agent_sdk.py::test_inject_hooks_with_existing_events",
+  "tests/otel_integrations/test_claude_agent_sdk.py::test_pre_hook_announcement_timeout"
+ ],
+ "edits_applied": 0,
+ "edits_rejected": [],
+ "dropped": [],
+ "revalidate_bad_f2p": [],
+ "revalidate_bad_p2p": [],
+ "final": "accepted",
+ "reason": null
+}

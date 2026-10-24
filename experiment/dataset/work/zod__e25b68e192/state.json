@@ -1,0 +1,54 @@
+{
+ "task_id": "zod__e25b68e192",
+ "window": "main",
+ "repo": "zod",
+ "commit": "e25b68e192778436f5e75de87ca4114b0b15dd48",
+ "parent": "53397351aed547995534abc9a948dc660f656f19",
+ "date": "2026-08-12T12:02:35-07:00",
+ "subject": "perf(v4): let three dead declarations tree-shake under esbuild (#6381)",
+ "type": "refactor",
+ "test_files": [
+  "packages/zod/src/v4/core/tests/treeshake.test.ts"
+ ],
+ "source_files": [
+  "packages/zod/src/v4/core/core.ts",
+  "packages/zod/src/v4/core/regexes.ts",
+  "packages/zod/src/v4/core/registries.ts",
+  "packages/zod/src/v4/core/util.ts"
+ ],
+ "source_lines": 23,
+ "all_files": [
+  "packages/zod/src/v4/core/core.ts",
+  "packages/zod/src/v4/core/regexes.ts",
+  "packages/zod/src/v4/core/registries.ts",
+  "packages/zod/src/v4/core/tests/treeshake.test.ts",
+  "packages/zod/src/v4/core/util.ts"
+ ],
+ "hidden": [
+  "packages/zod/src/v4/core/tests/treeshake.test.ts"
+ ],
+ "deleted": [],
+ "targets": [
+  "packages/zod/src/v4/core/tests/treeshake.test.ts"
+ ],
+ "f2p": [
+  "packages/zod/src/v4/core/tests/treeshake.test.ts::a minimal classic schema drops the registry symbols",
+  "packages/zod/src/v4/core/tests/treeshake.test.ts::a minimal zod/mini schema drops the declarations it cannot reach"
+ ],
+ "p2p": [],
+ "flaky": [],
+ "cost_instruction": 0.0669778,
+ "cost_audit": 0.0732942,
+ "kept_f2p": [
+  "packages/zod/src/v4/core/tests/treeshake.test.ts::a minimal classic schema drops the registry symbols",
+  "packages/zod/src/v4/core/tests/treeshake.test.ts::a minimal zod/mini schema drops the declarations it cannot reach"
+ ],
+ "kept_p2p": [],
+ "edits_applied": 0,
+ "edits_rejected": [],
+ "dropped": [],
+ "revalidate_bad_f2p": [],
+ "revalidate_bad_p2p": [],
+ "final": "accepted",
+ "reason": null
+}

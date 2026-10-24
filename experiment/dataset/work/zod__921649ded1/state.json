@@ -1,0 +1,72 @@
+{
+ "task_id": "zod__921649ded1",
+ "window": "main",
+ "repo": "zod",
+ "commit": "921649ded188dfd805808120c4c7ebe7260dce1a",
+ "parent": "e7029aa43b848a14d632bb99394a304a7f205bc9",
+ "date": "2026-08-12T11:53:14-07:00",
+ "subject": "fix(v4): formatError and treeifyError handle inherited-name path elements (#6367)",
+ "type": "fix",
+ "test_files": [
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts"
+ ],
+ "source_files": [
+  "packages/zod/src/v4/core/errors.ts"
+ ],
+ "source_lines": 34,
+ "all_files": [
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts",
+  "packages/zod/src/v4/core/errors.ts"
+ ],
+ "hidden": [
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts"
+ ],
+ "deleted": [],
+ "targets": [
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts"
+ ],
+ "f2p": [],
+ "p2p": [
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::.flatten()",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::.format()",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::all errors",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::custom .flatten()",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::custom .format()",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::disc union treeify/format",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::error formatters merge sibling issues under a __proto__ path",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::error formatting leaves Object.prototype untouched for input-derived keys",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::error walkers handle path elements named after inherited methods",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::inheritance",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::regular error",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::update message after adding issues",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::z.flattenError handles Object.prototype property path: %s",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::z.flattenError handles Object.prototype property path: __proto__",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::z.flattenError handles Object.prototype property path: constructor",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::z.flattenError handles Object.prototype property path: hasOwnProperty",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::z.flattenError handles Object.prototype property path: toString",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::z.flattenError handles Object.prototype property path: valueOf",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::z.formatError handles Object.prototype property path: %s",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::z.formatError handles Object.prototype property path: __proto__",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::z.formatError handles Object.prototype property path: constructor",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::z.formatError handles Object.prototype property path: hasOwnProperty",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::z.formatError handles Object.prototype property path: toString",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::z.formatError handles Object.prototype property path: valueOf",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::z.formatError nested union preserves parent path",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::z.prettifyError",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::z.toDotPath",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::z.treeifyError",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::z.treeifyError 2",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::z.treeifyError deeply nested union (4 levels) preserves full path",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::z.treeifyError handles Object.prototype property path: %s",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::z.treeifyError handles Object.prototype property path: __proto__",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::z.treeifyError handles Object.prototype property path: constructor",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::z.treeifyError handles Object.prototype property path: hasOwnProperty",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::z.treeifyError handles Object.prototype property path: toString",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::z.treeifyError handles Object.prototype property path: valueOf",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::z.treeifyError nested union preserves parent path",
+  "packages/zod/src/v4/classic/tests/error-utils.test.ts::z.treeifyError nested union with real schema"
+ ],
+ "flaky": [],
+ "final": "rejected",
+ "reason": "no_f2p_test"
+}

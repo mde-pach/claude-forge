@@ -1,0 +1,10 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/zod/src/v4/classic/tests/record.test.ts::key schema cannot normalize an input key into __proto__",
+   "action": "keep",
+   "reason": "It checks only behaviour the instruction requires, through the public parse/parseAsync API: the prototype stays Object.prototype, Object.keys is empty, no value is written, the async value path is covered, and normal key normalization still works. It does not touch any internals."
+  }
+ ],
+ "edits": []
+}

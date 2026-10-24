@@ -1,0 +1,30 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/zod/src/v4/classic/tests/assignability.test.ts::assignability",
+   "action": "keep",
+   "reason": "The added `satisfies` checks are the type-level assignability the instruction requires: `$ZodPreprocess`, `ZodPreprocess`, `$ZodPipe<$ZodTransform, B>` and `ZodPipe<$ZodTransform, B>`."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/preprocess-types.test.ts::ZodPreprocess optin/optout defer to B",
+   "action": "keep",
+   "reason": "The instruction names the `_zod.optin`/`_zod.optout` types exactly (`\"optional\"` and `\"optional\" | undefined`), so these are specified public outcomes."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/preprocess.test.ts::optional propagates through preprocess inside object",
+   "action": "keep",
+   "reason": "It checks parse results from the instruction's own example and the runtime `optin`/`optout` values the instruction names, all through the public interface."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/preprocess.test.ts::preprocess is a structural subtype of ZodPipe",
+   "action": "keep",
+   "reason": "The instruction explicitly requires `instanceof z.ZodPipe`, `instanceof z.ZodPreprocess` and `_zod.def.type === \"pipe\"`."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/to-json-schema.test.ts::strip output-side examples from input JSON schema for codec",
+   "action": "keep",
+   "reason": "The instruction spells out the exact JSON Schema output for both `io: \"input\"` and `io: \"output\"`, and the snapshot matches it."
+  }
+ ],
+ "edits": []
+}

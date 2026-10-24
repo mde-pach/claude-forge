@@ -1,0 +1,25 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/zod/src/v4/classic/tests/catch.test.ts::enum",
+   "action": "keep",
+   "reason": "Asserts only public parse output for absent/invalid keys, exactly as specified in requirement 2."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/catch.test.ts::native enum",
+   "action": "keep",
+   "reason": "Asserts only public parse output ({ fruit: Fruits.apple }) in normal and jitless modes, as specified in requirement 2."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/partial.test.ts::catch/prefault/default",
+   "action": "keep",
+   "reason": "Snapshot is of public parse output and matches exactly the output given in requirement 3 of the instruction."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/to-json-schema.test.ts::input type",
+   "action": "keep",
+   "reason": "Uses the pre-existing public toJSONSchema output; the only change is removing the catch field from required, as specified in requirement 5."
+  }
+ ],
+ "edits": []
+}

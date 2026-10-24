@@ -1,0 +1,91 @@
+{
+ "task_id": "inngest-js__922e202415",
+ "window": "main",
+ "repo": "inngest-js",
+ "commit": "922e202415b5d100f4f1608d59d953af9c7b8123",
+ "parent": "9b5ea64cfb918729451ee2e32db3fdc89b29e8b1",
+ "date": "2026-07-08T08:41:59-07:00",
+ "subject": "fix: `step.run` output type collapsing to `{}` with multiple middleware (#1618)",
+ "type": "fix",
+ "test_files": [
+  "packages/inngest/src/components/middleware/middleware.test.ts",
+  "packages/inngest/src/helpers/jsonify.test.ts"
+ ],
+ "source_files": [
+  "packages/inngest/src/helpers/jsonify.ts"
+ ],
+ "source_lines": 25,
+ "all_files": [
+  ".changeset/full-dingos-brush.md",
+  "packages/inngest/src/components/middleware/middleware.test.ts",
+  "packages/inngest/src/helpers/jsonify.test.ts",
+  "packages/inngest/src/helpers/jsonify.ts"
+ ],
+ "hidden": [
+  "packages/inngest/src/components/middleware/middleware.test.ts",
+  "packages/inngest/src/helpers/jsonify.test.ts"
+ ],
+ "deleted": [],
+ "targets": [
+  "packages/inngest/src/components/middleware/middleware.test.ts",
+  "packages/inngest/src/helpers/jsonify.test.ts"
+ ],
+ "f2p": [
+  "packages/inngest/src/components/middleware/middleware.test.ts::multiple middleware preserve step.run output with optional properties",
+  "packages/inngest/src/components/middleware/middleware.test.ts::step.invoke preserves optional properties in invoked step.run output",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #1532 > re-applying Jsonify to a mapped type with optional properties is a no-op",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #1532 > re-applying Jsonify to an object with optional properties is a no-op"
+ ],
+ "p2p": [
+  "packages/inngest/src/components/middleware/middleware.test.ts::stepOutputTransform does not affect step.invoke return type",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #513 > appropriately types `string | null` when nested",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #513 > appropriately types `string | null` when unnested",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #537 > nested { name: string; } object is preserved > when nullable",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #537 > nested { name: string; } object is preserved > when union with another object",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #537 > nested { name: string; } object is preserved > when union with another scalar",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #98 > allows mapped types with overrides when nested",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #98 > allows mapped types with overrides when unnested",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > nested > allows `any`",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > nested > allows `unknown`",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > nested > allows number literals",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > nested > allows string literals",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > unnested > allows `any`",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > unnested > allows `unknown`",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > unnested > allows number literals",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > unnested > allows string literals"
+ ],
+ "flaky": [],
+ "cost_instruction": 0.0665578,
+ "cost_audit": 0.0757782,
+ "kept_f2p": [
+  "packages/inngest/src/components/middleware/middleware.test.ts::multiple middleware preserve step.run output with optional properties",
+  "packages/inngest/src/components/middleware/middleware.test.ts::step.invoke preserves optional properties in invoked step.run output",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #1532 > re-applying Jsonify to a mapped type with optional properties is a no-op",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #1532 > re-applying Jsonify to an object with optional properties is a no-op"
+ ],
+ "kept_p2p": [
+  "packages/inngest/src/components/middleware/middleware.test.ts::stepOutputTransform does not affect step.invoke return type",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #513 > appropriately types `string | null` when nested",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #513 > appropriately types `string | null` when unnested",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #537 > nested { name: string; } object is preserved > when nullable",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #537 > nested { name: string; } object is preserved > when union with another object",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #537 > nested { name: string; } object is preserved > when union with another scalar",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #98 > allows mapped types with overrides when nested",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #98 > allows mapped types with overrides when unnested",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > nested > allows `any`",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > nested > allows `unknown`",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > nested > allows number literals",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > nested > allows string literals",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > unnested > allows `any`",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > unnested > allows `unknown`",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > unnested > allows number literals",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > unnested > allows string literals"
+ ],
+ "edits_applied": 0,
+ "edits_rejected": [],
+ "dropped": [],
+ "revalidate_bad_f2p": [],
+ "revalidate_bad_p2p": [],
+ "final": "accepted",
+ "reason": null
+}

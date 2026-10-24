@@ -1,0 +1,282 @@
+diff --git a/.changeset/temporal-types.md b/.changeset/temporal-types.md
+new file mode 100644
+index 0000000..e4d3e85
+--- /dev/null
++++ b/.changeset/temporal-types.md
+@@ -0,0 +1,5 @@
++---
++"inngest": minor
++---
++
++Accept `Temporal.Duration`, `Temporal.Instant`, and `Temporal.ZonedDateTime` (and their `*Like` variants) wherever a timeout or sleep duration is taken: `step.sleep()`, `step.waitForEvent()`, `step.waitForSignal()`, `step.invoke()`, and function-level `cancelOn` timeouts. Durations are treated as relative waits; instants and zoned date-times as absolute deadlines.
+diff --git a/packages/inngest/src/components/InngestStepTools.ts b/packages/inngest/src/components/InngestStepTools.ts
+index 8b2b3db..6547048 100644
+--- a/packages/inngest/src/components/InngestStepTools.ts
++++ b/packages/inngest/src/components/InngestStepTools.ts
+@@ -497,8 +497,6 @@ export const createStepTools = <
+         opts: WaitForSignalOpts,
+       ) => Promise<{ signal: string; data: Jsonify<TData> } | null>
+     >(({ id, name }, opts) => {
+-      // TODO Should support Temporal.DurationLike, Temporal.InstantLike,
+-      // Temporal.ZonedDateTimeLike
+       return {
+         id,
+         mode: StepMode.Async,
+@@ -643,11 +641,18 @@ export const createStepTools = <
+            *
+            * The time to wait can be specified using a `number` of milliseconds,
+            * an `ms`-compatible time string like `"1 hour"`, `"30 mins"`, or
+-           * `"2.5d"`, or a `Date` object.
++           * `"2.5d"`, a `Date`, a `Temporal.Duration` (relative wait), or a
++           * `Temporal.Instant` / `Temporal.ZonedDateTime` (absolute deadline).
+            *
+            * {@link https://npm.im/ms}
+            */
+-          timeout: number | string | Date;
++          timeout:
++            | number
++            | string
++            | Date
++            | Temporal.DurationLike
++            | Temporal.InstantLike
++            | Temporal.ZonedDateTimeLike;
+         } & ExclusiveKeys<{ match?: string; if?: string }, "match", "if">,
+       >(
+         idOrOptions: StepOptionsOrId,
+@@ -790,11 +795,7 @@ export const createStepTools = <
+        * The presence of this operation in the returned stack indicates that the
+        * sleep is over and we should continue execution.
+        */
+-      const msTimeStr: string = timeStr(
+-        Temporal.isTemporalDuration(time)
+-          ? time.total({ unit: "milliseconds" })
+-          : (time as number | string),
+-      );
++      const msTimeStr: string = timeStr(time);
+ 
+       return {
+         id,
+@@ -875,7 +876,25 @@ export const createStepTools = <
+       // Create a discriminated union to operate on based on the input types
+       // available for this tool.
+       const optsSchema = invokePayloadSchema.extend({
+-        timeout: z.union([z.number(), z.string(), z.date()]).optional(),
++        timeout: z
++          .custom<
++            | number
++            | string
++            | Date
++            | Temporal.DurationLike
++            | Temporal.InstantLike
++            | Temporal.ZonedDateTimeLike
++          >(
++            (v) =>
++              typeof v === "number" ||
++              typeof v === "string" ||
++              v instanceof Date ||
++              Temporal.isTemporalDuration(v) ||
++              Temporal.isTemporalInstant(v) ||
++              Temporal.isTemporalZonedDateTime(v),
++            { message: "Invalid timeout" },
++          )
++          .optional(),
+       });
+ 
+       const parsedFnOpts = optsSchema
+@@ -1152,11 +1171,18 @@ type InvocationOpts<TFunction extends InvokeTargetFunctionDefinition> =
+        *
+        * The time to wait can be specified using a `number` of milliseconds, an
+        * `ms`-compatible time string like `"1 hour"`, `"30 mins"`, or `"2.5d"`,
+-       * or a `Date` object.
++       * a `Date`, a `Temporal.Duration` (relative wait), or a `Temporal.Instant`
++       * / `Temporal.ZonedDateTime` (absolute deadline).
+        *
+        * {@link https://npm.im/ms}
+        */
+-      timeout?: number | string | Date;
++      timeout?:
++        | number
++        | string
++        | Date
++        | Temporal.DurationLike
++        | Temporal.InstantLike
++        | Temporal.ZonedDateTimeLike;
+     };
+ 
+ /**
+@@ -1189,12 +1215,19 @@ type WaitForSignalOpts = {
+    * data.
+    *
+    * The time to wait can be specified using a `number` of milliseconds, an
+-   * `ms`-compatible time string like `"1 hour"`, `"30 mins"`, or `"2.5d"`, or
+-   * a `Date` object.
++   * `ms`-compatible time string like `"1 hour"`, `"30 mins"`, or `"2.5d"`, a
++   * `Date`, a `Temporal.Duration` (relative wait), or a `Temporal.Instant` /
++   * `Temporal.ZonedDateTime` (absolute deadline).
+    *
+    * {@link https://npm.im/ms}
+    */
+-  timeout: number | string | Date;
++  timeout:
++    | number
++    | string
++    | Date
++    | Temporal.DurationLike
++    | Temporal.InstantLike
++    | Temporal.ZonedDateTimeLike;
+ 
+   /**
+    * When this `step.waitForSignal()` call is made, choose whether an existing
+diff --git a/packages/inngest/src/components/middleware/manager.ts b/packages/inngest/src/components/middleware/manager.ts
+index c528e39..4f526c7 100644
+--- a/packages/inngest/src/components/middleware/manager.ts
++++ b/packages/inngest/src/components/middleware/manager.ts
+@@ -5,7 +5,7 @@ import type { MemoizedOp } from "../execution/InngestExecution.ts";
+ import type { InngestFunction } from "../InngestFunction.ts";
+ import type { Middleware } from "./middleware.ts";
+ import {
+-  isTimeStrInput,
++  isSleepInput,
+   optsFromStepInput,
+   stepInputFromOpts,
+   stepTypeFromOpCode,
+@@ -146,8 +146,10 @@ export class MiddlewareManager {
+     // already set the name directly.
+     let opName: string | undefined;
+     if (stepType === "sleep" && stepInfo.input !== undefined) {
+-      if (!isTimeStrInput(stepInfo.input[0])) {
+-        throw new Error("Sleep time must be a string, number, or Date");
++      if (!isSleepInput(stepInfo.input[0])) {
++        throw new Error(
++          "Sleep time must be a string, number, Date, or Temporal.Duration",
++        );
+       }
+       opName = timeStr(stepInfo.input[0]);
+     }
+diff --git a/packages/inngest/src/components/middleware/utils.ts b/packages/inngest/src/components/middleware/utils.ts
+index 0a1a7a6..96a31dd 100644
+--- a/packages/inngest/src/components/middleware/utils.ts
++++ b/packages/inngest/src/components/middleware/utils.ts
+@@ -1,3 +1,4 @@
++import { type DurationLike, isTemporalDuration } from "../../helpers/temporal";
+ import { isRecord } from "../../helpers/types";
+ import type { Logger } from "../../middleware/logger";
+ import { type SendEventBaseOutput, StepOpCode } from "../../types";
+@@ -5,13 +6,14 @@ import type { InngestFunction } from "../InngestFunction";
+ import type { Middleware } from "./middleware";
+ import type { ExtractLiteralStrings } from "./types";
+ 
+-export function isTimeStrInput(
++export function isSleepInput(
+   value: unknown,
+-): value is string | number | Date {
++): value is string | number | Date | DurationLike {
+   return (
+     typeof value === "string" ||
+     typeof value === "number" ||
+-    value instanceof Date
++    value instanceof Date ||
++    isTemporalDuration(value)
+   );
+ }
+ 
+diff --git a/packages/inngest/src/helpers/strings.ts b/packages/inngest/src/helpers/strings.ts
+index aece133..8d38e5a 100644
+--- a/packages/inngest/src/helpers/strings.ts
++++ b/packages/inngest/src/helpers/strings.ts
+@@ -1,7 +1,17 @@
+ import hashjs from "hash.js";
+ import { default as safeStringify } from "json-stringify-safe";
+ import ms from "ms";
++import { Temporal } from "temporal-polyfill";
+ import type { TimeStr } from "../types.ts";
++import {
++  type DurationLike,
++  getISOString,
++  type InstantLike,
++  isTemporalDuration,
++  isTemporalInstant,
++  isTemporalZonedDateTime,
++  type ZonedDateTimeLike,
++} from "./temporal.ts";
+ 
+ const { sha256 } = hashjs;
+ 
+@@ -79,22 +89,44 @@ const periods = [
+ /**
+  * Convert a given `Date`, `number`, or `ms`-compatible `string` to a
+  * Inngest sleep-compatible time string (e.g. `"1d"` or `"2h3010s"`).
+- *
+- * Can optionally provide a `now` date to use as the base for the calculation,
+- * otherwise a new date will be created on invocation.
+  */
+ export const timeStr = (
+   /**
+    * The future date to use to convert to a time string.
+    */
+-  input: string | number | Date,
++  input:
++    | string
++    | number
++    | Date
++    | DurationLike
++    | InstantLike
++    | ZonedDateTimeLike,
+ ): string => {
+   if (input instanceof Date) {
+     return input.toISOString();
+   }
+ 
+-  const milliseconds: number =
+-    typeof input === "string" ? ms(input as `${number}`) : input;
++  if (isTemporalInstant(input) || isTemporalZonedDateTime(input)) {
++    return getISOString(input);
++  }
++
++  let milliseconds: number;
++  if (isTemporalDuration(input)) {
++    // `relativeTo` is required for calendar units (months/years/weeks). We
++    // pass it as an ISO string rather than a Temporal object so this works
++    // regardless of which Temporal implementation the user's Duration came
++    // from (temporal-polyfill, @js-temporal/polyfill, native Temporal):
++    // ISO strings are spec-defined and parsed by every implementation;
++    // cross-polyfill object passing is not.
++    milliseconds = input.total({
++      unit: "milliseconds",
++      relativeTo: Temporal.Now.plainDateTimeISO("UTC").toString(),
++    });
++  } else if (typeof input === "string") {
++    milliseconds = ms(input as `${number}`);
++  } else {
++    milliseconds = input as number;
++  }
+ 
+   const [, timeStr] = periods.reduce<[number, string]>(
+     ([num, str], [suffix, period]) => {
+diff --git a/packages/inngest/src/types.ts b/packages/inngest/src/types.ts
+index b3ea224..15e7cf6 100644
+--- a/packages/inngest/src/types.ts
++++ b/packages/inngest/src/types.ts
+@@ -1318,12 +1318,19 @@ export type Cancellation = {
+    * function ends.
+    *
+    * The time to wait can be specified using a `number` of milliseconds, an
+-   * `ms`-compatible time string like `"1 hour"`, `"30 mins"`, or `"2.5d"`, or
+-   * a `Date` object.
++   * `ms`-compatible time string like `"1 hour"`, `"30 mins"`, or `"2.5d"`, a
++   * `Date`, a `Temporal.Duration` (relative wait), or a `Temporal.Instant` /
++   * `Temporal.ZonedDateTime` (absolute deadline).
+    *
+    * {@link https://npm.im/ms}
+    */
+-  timeout?: number | string | Date;
++  timeout?:
++    | number
++    | string
++    | Date
++    | Temporal.DurationLike
++    | Temporal.InstantLike
++    | Temporal.ZonedDateTimeLike;
+ };
+ 
+ /**

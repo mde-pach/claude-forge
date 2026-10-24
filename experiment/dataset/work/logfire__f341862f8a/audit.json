@@ -1,0 +1,70 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/test_variables.py::TestLogfireRemoteVariableProviderErrors::test_transient_failure_with_cached_config_logs_warning",
+   "action": "keep",
+   "reason": "Checks warn kwargs (message, error_type, no _exc_info) that the instruction specifies exactly, using the pre-existing _logfire and _config attributes."
+  },
+  {
+   "id": "tests/test_variables.py::TestLogfireRemoteVariableProviderErrors::test_transient_failure_escalates_after_consecutive_failures",
+   "action": "keep",
+   "reason": "Checks the escalation threshold and the error message keyword, both specified by the instruction."
+  },
+  {
+   "id": "tests/test_variables.py::TestLogfireRemoteVariableProviderErrors::test_auth_failure_logs_error_despite_cached_config",
+   "action": "keep",
+   "reason": "The instruction specifies that a 401 logs an error immediately."
+  },
+  {
+   "id": "tests/test_variables.py::TestLogfireRemoteVariableProviderErrors::test_transient_failure_warns_without_logfire_instance",
+   "action": "keep",
+   "reason": "The RuntimeWarning text and the _consecutive_refresh_failures attribute are both named in the instruction."
+  },
+  {
+   "id": "tests/test_variables.py::TestLogfireRemoteVariableProviderErrors::test_transient_failure_without_cached_config_logs_error",
+   "action": "keep",
+   "reason": "The instruction specifies an error when no config has been cached."
+  },
+  {
+   "id": "tests/test_variables.py::TestLogfireRemoteVariableProviderErrors::test_successful_refresh_resets_failure_counter",
+   "action": "keep",
+   "reason": "The counter attribute and its reset are named in the instruction."
+  },
+  {
+   "id": "tests/test_variables.py::TestLogfireRemoteVariableProviderInstrumentation::test_api_requests_are_not_instrumented",
+   "action": "keep",
+   "reason": "Checks the observable result that no spans are exported, through public instrumentation."
+  },
+  {
+   "id": "tests/test_variables.py::TestLogfireRemoteVariableProviderInstrumentation::test_user_requests_are_still_instrumented",
+   "action": "keep",
+   "reason": "Checks the observable span output for the user's own requests, as the instruction requires."
+  },
+  {
+   "id": "tests/test_variables.py::TestAdditionalEdgeCases::test_format_validation_report_with_many_error_lines",
+   "action": "keep",
+   "reason": "Existing test that fails only because of the import of the named constant."
+  },
+  {
+   "id": "tests/test_variables.py::TestLogfireRemoteVariableProviderErrors::test_handles_unexpected_response",
+   "action": "keep",
+   "reason": "Existing test that fails only because of the import of the named constant."
+  },
+  {
+   "id": "tests/test_variables.py::TestLogfireRemoteVariableProviderErrors::test_handles_validation_error",
+   "action": "keep",
+   "reason": "Existing test that fails only because of the import of the named constant."
+  },
+  {
+   "id": "tests/test_variables.py::TestLogfireRemoteVariableProviderStart::test_error_logged_via_logfire_when_instrumented",
+   "action": "keep",
+   "reason": "Existing test that fails only because of the import of the named constant."
+  },
+  {
+   "id": "tests/test_variables.py::TestLogfireRemoteVariableProvider::test_network_failure_marks_attempted_fetch",
+   "action": "keep",
+   "reason": "Existing test that fails only because of the import of the named constant."
+  }
+ ],
+ "edits": []
+}

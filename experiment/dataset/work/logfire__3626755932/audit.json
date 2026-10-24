@@ -1,0 +1,30 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/otel_integrations/test_claude_agent_sdk.py::test_clear_orphaned_tool_spans",
+   "action": "keep",
+   "reason": "Only adds use of the instruction-named `announced_tool_ids`; its span snapshot uses code attributes that the spec says are captured when the state is created."
+  },
+  {
+   "id": "tests/otel_integrations/test_claude_agent_sdk.py::test_pre_hook_waits_for_tool_announcement",
+   "action": "keep",
+   "reason": "Checks the specified waiting behaviour through the named `pre_tool_use_hook`, `active_tool_spans` and `handle_assistant_message` interfaces."
+  },
+  {
+   "id": "tests/otel_integrations/test_claude_agent_sdk.py::test_tool_use_conversation_cassette[0.05]",
+   "action": "keep",
+   "reason": "Checks the observable outcome the instruction requires: identical spans whatever the consumer speed, with the user's filepath/function on tool spans; line numbers appear only as the placeholder 123."
+  },
+  {
+   "id": "tests/otel_integrations/test_claude_agent_sdk.py::test_tool_use_conversation_cassette[0]",
+   "action": "keep",
+   "reason": "Checks the specified user code attributes on `execute_tool` spans through exported spans, with no internal inspection."
+  },
+  {
+   "id": "tests/otel_integrations/test_claude_agent_sdk.py::test_tool_use_hooks",
+   "action": "keep",
+   "reason": "Only adds use of the instruction-named `announced_tool_ids`; its expected span output follows the specified behaviour."
+  }
+ ],
+ "edits": []
+}

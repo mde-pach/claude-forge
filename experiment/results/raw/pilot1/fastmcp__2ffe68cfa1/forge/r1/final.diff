@@ -1,0 +1,41 @@
+diff --git a/.python-version b/.python-version
+deleted file mode 100644
+index e4fba21..0000000
+--- a/.python-version
++++ /dev/null
+@@ -1 +0,0 @@
+-3.12
+diff --git a/examples/tasks/.envrc b/examples/tasks/.envrc
+deleted file mode 100644
+index 87a7dfe..0000000
+--- a/examples/tasks/.envrc
++++ /dev/null
+@@ -1,10 +0,0 @@
+-# FastMCP Tasks Example Environment Configuration
+-# This file is loaded by direnv (https://direnv.net/) when you cd into this directory
+-# Run `direnv allow` to enable automatic environment loading
+-
+-# Configure Docket backend URL
+-# Use Redis backend (requires docker-compose up)
+-export FASTMCP_DOCKET_URL=redis://localhost:24242/0
+-
+-# Or uncomment to use memory:// for single-process testing
+-# export FASTMCP_DOCKET_URL=memory://
+diff --git a/src/fastmcp/tools/function_tool.py b/src/fastmcp/tools/function_tool.py
+index ffac25c..ac70b71 100644
+--- a/src/fastmcp/tools/function_tool.py
++++ b/src/fastmcp/tools/function_tool.py
+@@ -169,6 +169,13 @@ class FunctionTool(Tool):
+                 "Use metadata alone or individual parameters alone."
+             )
+ 
++        # Honor metadata attached by the standalone @tool decorator when the
++        # caller supplied no configuration of their own
++        if metadata is None and not individual_params_provided:
++            decorator_meta = getattr(fn, "__fastmcp__", None)
++            if isinstance(decorator_meta, ToolMeta):
++                metadata = decorator_meta
++
+         # Build metadata from kwargs if not provided
+         if metadata is None:
+             metadata = ToolMeta(

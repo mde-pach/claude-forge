@@ -1,0 +1,30 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/zod/src/v4/classic/tests/object.test.ts::__proto__ as a declared shape key > async",
+   "action": "keep",
+   "reason": "Checks only the result the instruction specifies (prototype, own property, value, no inherited isAdmin, keys) through public parseAsync."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/object.test.ts::__proto__ as a declared shape key > jit fastpass",
+   "action": "keep",
+   "reason": "Checks only the result the instruction specifies through public parse, with no internal access."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/object.test.ts::__proto__ as a declared shape key > jitless",
+   "action": "keep",
+   "reason": "Uses the existing jitless parse option and checks only the specified output properties."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/object.test.ts::__proto__ as a declared shape key > primitive value is not silently dropped",
+   "action": "keep",
+   "reason": "The instruction explicitly requires primitives to be kept and the prototype left unchanged; the test checks this through public parse."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/record.test.ts::__proto__ in a finite key set becomes an own property",
+   "action": "keep",
+   "reason": "Checks the specified behaviour for finite-key records (enum and literal) using only public parse output and Object.prototype."
+  }
+ ],
+ "edits": []
+}

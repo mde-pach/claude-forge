@@ -1,0 +1,96 @@
+{
+ "task_id": "zod__9c540db809",
+ "window": "main",
+ "repo": "zod",
+ "commit": "9c540db809d6f17f8f583d36f2a2564a5681abd9",
+ "parent": "8bb89ea4a0e1878a2d73de921ca459e99086c545",
+ "date": "2026-08-12T11:32:21-07:00",
+ "subject": "fix(v4): re-check the record key after the key schema runs (#6355)",
+ "type": "fix",
+ "test_files": [
+  "packages/zod/src/v4/classic/tests/record.test.ts"
+ ],
+ "source_files": [
+  "packages/zod/src/v4/core/schemas.ts"
+ ],
+ "source_lines": 9,
+ "all_files": [
+  "packages/zod/src/v4/classic/tests/record.test.ts",
+  "packages/zod/src/v4/core/schemas.ts"
+ ],
+ "hidden": [
+  "packages/zod/src/v4/classic/tests/record.test.ts"
+ ],
+ "deleted": [],
+ "targets": [
+  "packages/zod/src/v4/classic/tests/record.test.ts"
+ ],
+ "f2p": [
+  "packages/zod/src/v4/classic/tests/record.test.ts::key schema cannot normalize an input key into __proto__"
+ ],
+ "p2p": [
+  "packages/zod/src/v4/classic/tests/record.test.ts::__proto__ in a finite key set becomes an own property",
+  "packages/zod/src/v4/classic/tests/record.test.ts::allow undefined values",
+  "packages/zod/src/v4/classic/tests/record.test.ts::applies transforms on the key schema (#5296)",
+  "packages/zod/src/v4/classic/tests/record.test.ts::async parsing",
+  "packages/zod/src/v4/classic/tests/record.test.ts::dont remove undefined values",
+  "packages/zod/src/v4/classic/tests/record.test.ts::enum exhaustiveness",
+  "packages/zod/src/v4/classic/tests/record.test.ts::intersection of loose records",
+  "packages/zod/src/v4/classic/tests/record.test.ts::is not vulnerable to prototype pollution",
+  "packages/zod/src/v4/classic/tests/record.test.ts::key and value getters",
+  "packages/zod/src/v4/classic/tests/record.test.ts::literal exhaustiveness",
+  "packages/zod/src/v4/classic/tests/record.test.ts::looseRecord passes through non-matching keys",
+  "packages/zod/src/v4/classic/tests/record.test.ts::numeric string keys",
+  "packages/zod/src/v4/classic/tests/record.test.ts::object with looseRecord index signature",
+  "packages/zod/src/v4/classic/tests/record.test.ts::partial record",
+  "packages/zod/src/v4/classic/tests/record.test.ts::partialRecord with numeric literal keys",
+  "packages/zod/src/v4/classic/tests/record.test.ts::partialRecord with union of string and numeric literal keys",
+  "packages/zod/src/v4/classic/tests/record.test.ts::partialRecord with z.literal([key, ...])",
+  "packages/zod/src/v4/classic/tests/record.test.ts::pipe exhaustiveness",
+  "packages/zod/src/v4/classic/tests/record.test.ts::string record parse - pass",
+  "packages/zod/src/v4/classic/tests/record.test.ts::surfaces key schema refinement failures as invalid_key",
+  "packages/zod/src/v4/classic/tests/record.test.ts::type inference",
+  "packages/zod/src/v4/classic/tests/record.test.ts::typescript enum exhaustiveness",
+  "packages/zod/src/v4/classic/tests/record.test.ts::union exhaustiveness",
+  "packages/zod/src/v4/classic/tests/record.test.ts::v3-compat single-arg form: z.record(valueType)"
+ ],
+ "flaky": [],
+ "cost_instruction": 0.0508938,
+ "cost_audit": 0.0553702,
+ "kept_f2p": [
+  "packages/zod/src/v4/classic/tests/record.test.ts::key schema cannot normalize an input key into __proto__"
+ ],
+ "kept_p2p": [
+  "packages/zod/src/v4/classic/tests/record.test.ts::__proto__ in a finite key set becomes an own property",
+  "packages/zod/src/v4/classic/tests/record.test.ts::allow undefined values",
+  "packages/zod/src/v4/classic/tests/record.test.ts::applies transforms on the key schema (#5296)",
+  "packages/zod/src/v4/classic/tests/record.test.ts::async parsing",
+  "packages/zod/src/v4/classic/tests/record.test.ts::dont remove undefined values",
+  "packages/zod/src/v4/classic/tests/record.test.ts::enum exhaustiveness",
+  "packages/zod/src/v4/classic/tests/record.test.ts::intersection of loose records",
+  "packages/zod/src/v4/classic/tests/record.test.ts::is not vulnerable to prototype pollution",
+  "packages/zod/src/v4/classic/tests/record.test.ts::key and value getters",
+  "packages/zod/src/v4/classic/tests/record.test.ts::literal exhaustiveness",
+  "packages/zod/src/v4/classic/tests/record.test.ts::looseRecord passes through non-matching keys",
+  "packages/zod/src/v4/classic/tests/record.test.ts::numeric string keys",
+  "packages/zod/src/v4/classic/tests/record.test.ts::object with looseRecord index signature",
+  "packages/zod/src/v4/classic/tests/record.test.ts::partial record",
+  "packages/zod/src/v4/classic/tests/record.test.ts::partialRecord with numeric literal keys",
+  "packages/zod/src/v4/classic/tests/record.test.ts::partialRecord with union of string and numeric literal keys",
+  "packages/zod/src/v4/classic/tests/record.test.ts::partialRecord with z.literal([key, ...])",
+  "packages/zod/src/v4/classic/tests/record.test.ts::pipe exhaustiveness",
+  "packages/zod/src/v4/classic/tests/record.test.ts::string record parse - pass",
+  "packages/zod/src/v4/classic/tests/record.test.ts::surfaces key schema refinement failures as invalid_key",
+  "packages/zod/src/v4/classic/tests/record.test.ts::type inference",
+  "packages/zod/src/v4/classic/tests/record.test.ts::typescript enum exhaustiveness",
+  "packages/zod/src/v4/classic/tests/record.test.ts::union exhaustiveness",
+  "packages/zod/src/v4/classic/tests/record.test.ts::v3-compat single-arg form: z.record(valueType)"
+ ],
+ "edits_applied": 0,
+ "edits_rejected": [],
+ "dropped": [],
+ "revalidate_bad_f2p": [],
+ "revalidate_bad_p2p": [],
+ "final": "accepted",
+ "reason": null
+}

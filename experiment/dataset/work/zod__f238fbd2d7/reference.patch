@@ -1,0 +1,28 @@
+diff --git a/packages/zod/src/v3/types.ts b/packages/zod/src/v3/types.ts
+index f402854..bce1754 100644
+--- a/packages/zod/src/v3/types.ts
++++ b/packages/zod/src/v3/types.ts
+@@ -619,7 +619,7 @@ const emailRegex = /^(?!\.)(?!.*\.\.)([A-Z0-9_'+\-\.]*)[A-Z0-9_+-]@([A-Z0-9][A-Z
+ //   /^[a-z0-9.!#$%&’*+/=?^_`{|}~-]+@[a-z0-9-]+(?:\.[a-z0-9\-]+)*$/i;
+ 
+ // from https://thekevinscott.com/emojis-in-javascript/#writing-a-regular-expression
+-const _emojiRegex = `^(\\p{Extended_Pictographic}|\\p{Emoji_Component})+$`;
++const _emojiRegex = `^[\\p{Extended_Pictographic}\\p{Emoji_Component}]+$`;
+ let emojiRegex: RegExp;
+ 
+ // faster, simpler, safer
+diff --git a/packages/zod/src/v4/core/regexes.ts b/packages/zod/src/v4/core/regexes.ts
+index 7968470..6331a03 100644
+--- a/packages/zod/src/v4/core/regexes.ts
++++ b/packages/zod/src/v4/core/regexes.ts
+@@ -57,7 +57,9 @@ export const browserEmail: RegExp =
+   /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+ // from https://thekevinscott.com/emojis-in-javascript/#writing-a-regular-expression
+ 
+-const _emoji: string = `^(\\p{Extended_Pictographic}|\\p{Emoji_Component})+$`;
++// Single character class, not an alternation: the two properties overlap (U+1F9B0-U+1F9B3),
++// so `(A|B)+` backtracks exponentially on a failed match.
++const _emoji: string = `^[\\p{Extended_Pictographic}\\p{Emoji_Component}]+$`;
+ export function emoji(): RegExp {
+   return new RegExp(_emoji, "u");
+ }

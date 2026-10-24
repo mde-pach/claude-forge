@@ -1,0 +1,39 @@
+{
+ "resolved": true,
+ "patch_applied": true,
+ "f2p": {
+  "tests/tools/test_standalone_decorator.py::TestToolDecorator::test_from_function_preserves_decorator_metadata[from_function0]": "passed",
+  "tests/tools/test_standalone_decorator.py::TestToolDecorator::test_from_function_preserves_decorator_metadata[from_function1]": "passed"
+ },
+ "p2p": {
+  "tests/tools/test_standalone_decorator.py::TestToolDecorator::test_tool_added_to_server": "passed",
+  "tests/tools/test_standalone_decorator.py::TestToolDecorator::test_tool_function_still_callable": "passed",
+  "tests/tools/test_standalone_decorator.py::TestToolDecorator::test_tool_rejects_classmethod_decorator": "passed",
+  "tests/tools/test_standalone_decorator.py::TestToolDecorator::test_tool_with_all_metadata": "passed",
+  "tests/tools/test_standalone_decorator.py::TestToolDecorator::test_tool_with_both_name_args_raises": "passed",
+  "tests/tools/test_standalone_decorator.py::TestToolDecorator::test_tool_with_empty_parens": "passed",
+  "tests/tools/test_standalone_decorator.py::TestToolDecorator::test_tool_with_name_arg": "passed",
+  "tests/tools/test_standalone_decorator.py::TestToolDecorator::test_tool_with_name_kwarg": "passed",
+  "tests/tools/test_standalone_decorator.py::TestToolDecorator::test_tool_without_parens": "passed"
+ },
+ "f2p_frac": 1.0,
+ "p2p_regressions": 0,
+ "lint_new": 0,
+ "diff_lines": 18,
+ "changed_files": [
+  "src/fastmcp/tools/function_tool.py"
+ ],
+ "all_results": {
+  "tests/tools/test_standalone_decorator.py::TestToolDecorator::test_tool_without_parens": "passed",
+  "tests/tools/test_standalone_decorator.py::TestToolDecorator::test_tool_with_empty_parens": "passed",
+  "tests/tools/test_standalone_decorator.py::TestToolDecorator::test_tool_with_name_arg": "passed",
+  "tests/tools/test_standalone_decorator.py::TestToolDecorator::test_tool_with_name_kwarg": "passed",
+  "tests/tools/test_standalone_decorator.py::TestToolDecorator::test_tool_with_all_metadata": "passed",
+  "tests/tools/test_standalone_decorator.py::TestToolDecorator::test_from_function_preserves_decorator_metadata[from_function0]": "passed",
+  "tests/tools/test_standalone_decorator.py::TestToolDecorator::test_from_function_preserves_decorator_metadata[from_function1]": "passed",
+  "tests/tools/test_standalone_decorator.py::TestToolDecorator::test_tool_function_still_callable": "passed",
+  "tests/tools/test_standalone_decorator.py::TestToolDecorator::test_tool_rejects_classmethod_decorator": "passed",
+  "tests/tools/test_standalone_decorator.py::TestToolDecorator::test_tool_with_both_name_args_raises": "passed",
+  "tests/tools/test_standalone_decorator.py::TestToolDecorator::test_tool_added_to_server": "passed"
+ }
+}

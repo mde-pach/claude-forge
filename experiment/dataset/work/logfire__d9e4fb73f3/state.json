@@ -1,0 +1,96 @@
+{
+ "task_id": "logfire__d9e4fb73f3",
+ "window": "main",
+ "repo": "logfire",
+ "commit": "d9e4fb73f3e7140ff4934bff63ecdc9e294ed05f",
+ "parent": "b5362d8c4fea4ecd834d56566573ae9d6ba3cf56",
+ "date": "2026-08-12T20:02:40+00:00",
+ "subject": "fix(db_statement_summary): bound INSERT summary length like the SELECT path (#2084)",
+ "type": "fix",
+ "test_files": [
+  "tests/test_db_statement_summary.py"
+ ],
+ "source_files": [
+  "logfire/_internal/db_statement_summary.py"
+ ],
+ "source_lines": 5,
+ "all_files": [
+  "logfire/_internal/db_statement_summary.py",
+  "tests/test_db_statement_summary.py"
+ ],
+ "hidden": [
+  "tests/test_db_statement_summary.py"
+ ],
+ "deleted": [],
+ "targets": [
+  "tests/test_db_statement_summary.py"
+ ],
+ "f2p": [
+  "tests/test_db_statement_summary.py::test_insert_long_table",
+  "tests/test_db_statement_summary.py::test_insert_long_table_short_values"
+ ],
+ "p2p": [
+  "tests/test_db_statement_summary.py::test_from_long",
+  "tests/test_db_statement_summary.py::test_from_quoted",
+  "tests/test_db_statement_summary.py::test_from_subquery",
+  "tests/test_db_statement_summary.py::test_insert",
+  "tests/test_db_statement_summary.py::test_invalid_sql",
+  "tests/test_db_statement_summary.py::test_limit",
+  "tests/test_db_statement_summary.py::test_long_select",
+  "tests/test_db_statement_summary.py::test_message_different",
+  "tests/test_db_statement_summary.py::test_message_multiword",
+  "tests/test_db_statement_summary.py::test_message_not_in_db_statement",
+  "tests/test_db_statement_summary.py::test_message_same",
+  "tests/test_db_statement_summary.py::test_no_db_statement",
+  "tests/test_db_statement_summary.py::test_ok_after_clean",
+  "tests/test_db_statement_summary.py::test_one_cte",
+  "tests/test_db_statement_summary.py::test_one_cte_long",
+  "tests/test_db_statement_summary.py::test_one_join",
+  "tests/test_db_statement_summary.py::test_one_join_long",
+  "tests/test_db_statement_summary.py::test_query_rewritten",
+  "tests/test_db_statement_summary.py::test_short_db_statement",
+  "tests/test_db_statement_summary.py::test_two_ctes",
+  "tests/test_db_statement_summary.py::test_two_joins",
+  "tests/test_db_statement_summary.py::test_update",
+  "tests/test_db_statement_summary.py::test_where"
+ ],
+ "flaky": [],
+ "cost_instruction": 0.0614658,
+ "cost_audit": 0.0490262,
+ "kept_f2p": [
+  "tests/test_db_statement_summary.py::test_insert_long_table",
+  "tests/test_db_statement_summary.py::test_insert_long_table_short_values"
+ ],
+ "kept_p2p": [
+  "tests/test_db_statement_summary.py::test_from_long",
+  "tests/test_db_statement_summary.py::test_from_quoted",
+  "tests/test_db_statement_summary.py::test_from_subquery",
+  "tests/test_db_statement_summary.py::test_insert",
+  "tests/test_db_statement_summary.py::test_invalid_sql",
+  "tests/test_db_statement_summary.py::test_limit",
+  "tests/test_db_statement_summary.py::test_long_select",
+  "tests/test_db_statement_summary.py::test_message_different",
+  "tests/test_db_statement_summary.py::test_message_multiword",
+  "tests/test_db_statement_summary.py::test_message_not_in_db_statement",
+  "tests/test_db_statement_summary.py::test_message_same",
+  "tests/test_db_statement_summary.py::test_no_db_statement",
+  "tests/test_db_statement_summary.py::test_ok_after_clean",
+  "tests/test_db_statement_summary.py::test_one_cte",
+  "tests/test_db_statement_summary.py::test_one_cte_long",
+  "tests/test_db_statement_summary.py::test_one_join",
+  "tests/test_db_statement_summary.py::test_one_join_long",
+  "tests/test_db_statement_summary.py::test_query_rewritten",
+  "tests/test_db_statement_summary.py::test_short_db_statement",
+  "tests/test_db_statement_summary.py::test_two_ctes",
+  "tests/test_db_statement_summary.py::test_two_joins",
+  "tests/test_db_statement_summary.py::test_update",
+  "tests/test_db_statement_summary.py::test_where"
+ ],
+ "edits_applied": 0,
+ "edits_rejected": [],
+ "dropped": [],
+ "revalidate_bad_f2p": [],
+ "revalidate_bad_p2p": [],
+ "final": "accepted",
+ "reason": null
+}

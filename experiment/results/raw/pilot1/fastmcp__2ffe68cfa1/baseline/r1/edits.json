@@ -1,0 +1,11 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 1,
+ "bash_calls": 4,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/src/fastmcp/tools; python - <<'E'\np='function_tool.py'\ns=open(p).read()\ns=s.replace(\"\"\"        # Build metadata from kwargs if not provided\n        if metadata is None:\n\"\"\",\"\"\"        # Fall back to metadata attached by the @tool decorator\n        if metadata is None and not individual_para"
+ ],
+ "total": 1,
+ "edit_tool_share": 0.0
+}

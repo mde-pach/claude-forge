@@ -1,0 +1,15 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/test_configure.py::test_register_at_fork_resource_updates",
+   "action": "keep",
+   "reason": "It uses the function the instruction names, patches `config_module.os.register_at_fork`/`getpid` the way the instruction says to look them up, relies only on proxy and provider attributes that already existed, and checks only the outcome: exported resources carry the new PID and no-op or suppressed providers cause no error."
+  },
+  {
+   "id": "tests/test_configure.py::test_resource_process_pid_updated_after_fork",
+   "action": "keep",
+   "reason": "It is an end-to-end check after a real fork that span, log and metric resources carry the child's PID; it only grabs OpenTelemetry's own locks to recreate the locks-held-at-fork case the instruction names, and never inspects Logfire internals."
+  }
+ ],
+ "edits": []
+}

@@ -1,0 +1,96 @@
+diff --git a/packages/zod/src/v4/classic/from-json-schema.ts b/packages/zod/src/v4/classic/from-json-schema.ts
+index 7934f33..6cc8490 100644
+--- a/packages/zod/src/v4/classic/from-json-schema.ts
++++ b/packages/zod/src/v4/classic/from-json-schema.ts
+@@ -1,5 +1,6 @@
+ import type * as JSONSchema from "../core/json-schema.js";
+ import { type $ZodRegistry, globalRegistry } from "../core/registries.js";
++import { assignProp } from "../core/util.js";
+ import * as _checks from "./checks.js";
+ import * as _iso from "./iso.js";
+ import * as _schemas from "./schemas.js";
+@@ -378,8 +379,9 @@ function convertBaseSchema(schema: JSONSchema.JSONSchema, ctx: ConversionContext
+       // Convert properties - mark optional ones
+       for (const [key, propSchema] of Object.entries(properties)) {
+         const propZodSchema = convertSchema(propSchema as JSONSchema.JSONSchema, ctx);
+-        // If not in required array, make it optional
+-        shape[key] = requiredSet.has(key) ? propZodSchema : propZodSchema.optional();
++        // If not in required array, make it optional. assignProp so a __proto__
++        // key becomes an own property instead of hitting the inherited setter
++        assignProp(shape, key, requiredSet.has(key) ? propZodSchema : propZodSchema.optional());
+       }
+ 
+       // Handle propertyNames
+@@ -606,7 +608,7 @@ function convertSchema(schema: JSONSchema.JSONSchema | boolean, ctx: ConversionC
+ 
+   for (const key of Object.keys(schema)) {
+     if (!RECOGNIZED_KEYS.has(key)) {
+-      extraMeta[key] = schema[key];
++      assignProp(extraMeta, key, schema[key]);
+     }
+   }
+ 
+diff --git a/packages/zod/src/v4/core/json-schema-processors.ts b/packages/zod/src/v4/core/json-schema-processors.ts
+index 0680fc7..47e3162 100644
+--- a/packages/zod/src/v4/core/json-schema-processors.ts
++++ b/packages/zod/src/v4/core/json-schema-processors.ts
+@@ -12,7 +12,7 @@ import {
+   initializeContext,
+   process,
+ } from "./to-json-schema.js";
+-import { getEnumValues } from "./util.js";
++import { assignProp, getEnumValues } from "./util.js";
+ 
+ const formatMap: Partial<Record<checks.$ZodStringFormats, string | undefined>> = {
+   guid: "uuid",
+@@ -295,10 +295,16 @@ export const objectProcessor: Processor<schemas.$ZodObject> = (schema, ctx, _jso
+   const shape = def.shape;
+ 
+   for (const key in shape) {
+-    json.properties[key] = process(shape[key]!, ctx as any, {
+-      ...params,
+-      path: [...params.path, "properties", key],
+-    });
++    // assignProp so a __proto__ key becomes an own property instead of hitting
++    // the inherited setter on the plain {} we build into
++    assignProp(
++      json.properties,
++      key,
++      process(shape[key]!, ctx as any, {
++        ...params,
++        path: [...params.path, "properties", key],
++      })
++    );
+   }
+ 
+   // required keys
+@@ -648,7 +654,7 @@ export function toJSONSchema(
+     for (const entry of registry._idmap.entries()) {
+       const [key, schema] = entry;
+       extractDefs(ctx as any, schema);
+-      schemas[key] = finalize(ctx as any, schema);
++      assignProp(schemas, key, finalize(ctx as any, schema));
+     }
+ 
+     if (Object.keys(defs).length > 0) {
+diff --git a/packages/zod/src/v4/core/to-json-schema.ts b/packages/zod/src/v4/core/to-json-schema.ts
+index c7c7440..1d4327c 100644
+--- a/packages/zod/src/v4/core/to-json-schema.ts
++++ b/packages/zod/src/v4/core/to-json-schema.ts
+@@ -3,6 +3,7 @@ import type * as JSONSchema from "./json-schema.js";
+ import { type $ZodRegistry, globalRegistry } from "./registries.js";
+ import type * as schemas from "./schemas.js";
+ import type { StandardJSONSchemaV1, StandardSchemaWithJSONProps } from "./standard-schema.js";
++import { assignProp } from "./util.js";
+ 
+ export type Processor<T extends schemas.$ZodType = schemas.$ZodType> = (
+   schema: T,
+@@ -484,7 +485,7 @@ export function finalize<T extends schemas.$ZodType>(
+     const seen = entry[1];
+     if (seen.def && seen.defId) {
+       if (seen.def.id === seen.defId) delete seen.def.id;
+-      defs[seen.defId] = seen.def;
++      assignProp(defs, seen.defId, seen.def);
+     }
+   }
+ 

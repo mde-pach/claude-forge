@@ -1,0 +1,91 @@
+{
+ "task_id": "inngest-js__be675a3d3c",
+ "window": "pilot",
+ "repo": "inngest-js",
+ "commit": "be675a3d3c2a39b415ded8db5e2626e22b941760",
+ "parent": "1f588388a99d3fa09fd745936a0a9db029eb4c98",
+ "date": "2026-05-06T20:48:24-04:00",
+ "subject": "Fix waitForSignal not in middleware StepType union (#1512)",
+ "type": "fix",
+ "test_files": [
+  "packages/inngest/src/components/middleware/utils.test.ts"
+ ],
+ "source_files": [
+  "packages/inngest/src/components/middleware/middleware.ts",
+  "packages/inngest/src/components/middleware/utils.ts"
+ ],
+ "source_lines": 3,
+ "all_files": [
+  ".changeset/itchy-turtles-wonder.md",
+  "packages/inngest/src/components/middleware/middleware.ts",
+  "packages/inngest/src/components/middleware/utils.test.ts",
+  "packages/inngest/src/components/middleware/utils.ts"
+ ],
+ "hidden": [
+  "packages/inngest/src/components/middleware/utils.test.ts"
+ ],
+ "deleted": [],
+ "targets": [
+  "packages/inngest/src/components/middleware/utils.test.ts"
+ ],
+ "f2p": [
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > WaitForSignal returns 'waitForSignal'"
+ ],
+ "p2p": [
+  "packages/inngest/src/components/middleware/utils.test.ts::isSleepInput > accepts string, number, Date, and Temporal.Duration",
+  "packages/inngest/src/components/middleware/utils.test.ts::isSleepInput > rejects an invalid value",
+  "packages/inngest/src/components/middleware/utils.test.ts::optsFromStepInput > returns input[0] for invoke",
+  "packages/inngest/src/components/middleware/utils.test.ts::optsFromStepInput > returns input[0] for waitForEvent",
+  "packages/inngest/src/components/middleware/utils.test.ts::optsFromStepInput > returns undefined for run",
+  "packages/inngest/src/components/middleware/utils.test.ts::optsFromStepInput > returns undefined for sleep",
+  "packages/inngest/src/components/middleware/utils.test.ts::optsFromStepInput > returns undefined when input is undefined",
+  "packages/inngest/src/components/middleware/utils.test.ts::optsFromStepInput > returns undefined when input[0] is not an object",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > AiGateway with type 'step.ai.infer' returns 'ai.infer'",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > AiGateway with type 'step.ai.wrap' returns 'ai.wrap'",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > AiGateway with unknown type returns 'unknown'",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > Gateway returns 'fetch'",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > InvokeFunction returns 'invoke'",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > Sleep returns 'sleep'",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > StepPlanned with type 'step.realtime.publish' returns 'realtime.publish'",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > StepPlanned with type 'step.sendEvent' returns 'sendEvent'",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > StepPlanned with unknown type returns 'unknown'",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > StepPlanned without type returns 'run'",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > WaitForEvent returns 'waitForEvent'",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > unhandled opcode returns 'unknown'"
+ ],
+ "flaky": [],
+ "cost_instruction": 0.0376938,
+ "cost_audit": 0.0623224,
+ "kept_f2p": [
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > WaitForSignal returns 'waitForSignal'"
+ ],
+ "kept_p2p": [
+  "packages/inngest/src/components/middleware/utils.test.ts::isSleepInput > accepts string, number, Date, and Temporal.Duration",
+  "packages/inngest/src/components/middleware/utils.test.ts::isSleepInput > rejects an invalid value",
+  "packages/inngest/src/components/middleware/utils.test.ts::optsFromStepInput > returns input[0] for invoke",
+  "packages/inngest/src/components/middleware/utils.test.ts::optsFromStepInput > returns input[0] for waitForEvent",
+  "packages/inngest/src/components/middleware/utils.test.ts::optsFromStepInput > returns undefined for run",
+  "packages/inngest/src/components/middleware/utils.test.ts::optsFromStepInput > returns undefined for sleep",
+  "packages/inngest/src/components/middleware/utils.test.ts::optsFromStepInput > returns undefined when input is undefined",
+  "packages/inngest/src/components/middleware/utils.test.ts::optsFromStepInput > returns undefined when input[0] is not an object",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > AiGateway with type 'step.ai.infer' returns 'ai.infer'",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > AiGateway with type 'step.ai.wrap' returns 'ai.wrap'",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > AiGateway with unknown type returns 'unknown'",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > Gateway returns 'fetch'",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > InvokeFunction returns 'invoke'",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > Sleep returns 'sleep'",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > StepPlanned with type 'step.realtime.publish' returns 'realtime.publish'",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > StepPlanned with type 'step.sendEvent' returns 'sendEvent'",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > StepPlanned with unknown type returns 'unknown'",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > StepPlanned without type returns 'run'",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > WaitForEvent returns 'waitForEvent'",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > unhandled opcode returns 'unknown'"
+ ],
+ "edits_applied": 0,
+ "edits_rejected": [],
+ "dropped": [],
+ "revalidate_bad_f2p": [],
+ "revalidate_bad_p2p": [],
+ "final": "accepted",
+ "reason": null
+}

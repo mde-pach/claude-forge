@@ -1,0 +1,15 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/test_ag_ui.py::test_dump_messages_preserves_part_order",
+   "action": "keep",
+   "reason": "Uses only the public dump_messages interface and asserts the exact message types, order and contents given in the instruction's expected results."
+  },
+  {
+   "id": "tests/test_ag_ui.py::test_dump_messages_preserves_uploaded_file_order",
+   "action": "keep",
+   "reason": "Uses only the public dump_messages with preserve_file_data=True and asserts the UserMessage/ActivityMessage/UserMessage outcome stated in the instruction."
+  }
+ ],
+ "edits": []
+}

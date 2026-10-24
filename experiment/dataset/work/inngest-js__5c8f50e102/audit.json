@@ -1,0 +1,105 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/inngest/src/components/InngestStepTools.test.ts::invoke > runtime > timeouts > return correct timeout if `Temporal.Duration` `timeout` given",
+   "action": "keep",
+   "reason": "Checks the public op output (`opts.timeout` = \"1m\"), which the instruction specifies."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestStepTools.test.ts::invoke > runtime > timeouts > return correct timeout if `Temporal.Instant` `timeout` given",
+   "action": "keep",
+   "reason": "Checks the public op output equals instant.toString(), as the instruction specifies."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestStepTools.test.ts::sleep > parses month-long Temporal.Duration",
+   "action": "keep",
+   "reason": "The instruction gives this exact example (name \"4w2d\" with time fixed at 2026-04-28T12:00:00Z), and the test checks it through the public step.sleep API."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestStepTools.test.ts::waitForEvent > return TTL if `Temporal.Duration` `timeout` given",
+   "action": "keep",
+   "reason": "Checks the public op output (`opts.timeout` = \"2h\"), which the instruction gives as its example."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestStepTools.test.ts::waitForEvent > return TTL if `Temporal.Instant` `timeout` given",
+   "action": "keep",
+   "reason": "Checks the public op output equals instant.toString(), as the instruction specifies."
+  },
+  {
+   "id": "packages/inngest/src/components/middleware/utils.test.ts::isSleepInput > accepts string, number, Date, and Temporal.Duration",
+   "action": "keep",
+   "reason": "The instruction names isSleepInput, its module path and the values it must accept."
+  },
+  {
+   "id": "packages/inngest/src/components/middleware/utils.test.ts::isSleepInput > rejects an invalid value",
+   "action": "keep",
+   "reason": "The instruction states that isSleepInput({}) must return false."
+  },
+  {
+   "id": "packages/inngest/src/helpers/strings.test.ts::timeStr > Temporal.Duration calendar units are calendar-correct > 1 month from 2026-04-28 = 30 calendar days",
+   "action": "keep",
+   "reason": "The instruction gives this exact example (\"4w2d\") for timeStr, a named interface."
+  },
+  {
+   "id": "packages/inngest/src/helpers/strings.test.ts::timeStr > Temporal.Duration calendar units are calendar-correct > 1 year from 2026-04-28 = 365 calendar days",
+   "action": "keep",
+   "reason": "The instruction gives this exact example (\"52w1d\") for timeStr, a named interface."
+  },
+  {
+   "id": "packages/inngest/src/helpers/strings.test.ts::timeStr > Temporal.Duration matches ms-string equivalents > Duration(${JSON.stringify(duration)}) === ms(\"${ms}\")",
+   "action": "keep",
+   "reason": "This is the parametrised group; it checks the specified rule that a Duration gives the same output as the equivalent ms string, using timeStr."
+  },
+  {
+   "id": "packages/inngest/src/helpers/strings.test.ts::timeStr > Temporal.Duration matches ms-string equivalents > Duration({\"days\":3}) === ms(\"3d\")",
+   "action": "keep",
+   "reason": "Checks the specified rule that a Duration matches its ms-string equivalent, through timeStr's public output."
+  },
+  {
+   "id": "packages/inngest/src/helpers/strings.test.ts::timeStr > Temporal.Duration matches ms-string equivalents > Duration({\"hours\":1,\"minutes\":30}) === ms(\"1.5 hours\")",
+   "action": "keep",
+   "reason": "The instruction gives this exact example."
+  },
+  {
+   "id": "packages/inngest/src/helpers/strings.test.ts::timeStr > Temporal.Duration matches ms-string equivalents > Duration({\"hours\":2}) === ms(\"2h\")",
+   "action": "keep",
+   "reason": "Checks the specified rule that a Duration matches its ms-string equivalent."
+  },
+  {
+   "id": "packages/inngest/src/helpers/strings.test.ts::timeStr > Temporal.Duration matches ms-string equivalents > Duration({\"minutes\":5}) === ms(\"5m\")",
+   "action": "keep",
+   "reason": "Checks the specified rule that a Duration matches its ms-string equivalent."
+  },
+  {
+   "id": "packages/inngest/src/helpers/strings.test.ts::timeStr > Temporal.Duration matches ms-string equivalents > Duration({\"seconds\":30}) === ms(\"30s\")",
+   "action": "keep",
+   "reason": "Checks the specified rule that a Duration matches its ms-string equivalent."
+  },
+  {
+   "id": "packages/inngest/src/helpers/strings.test.ts::timeStr > Temporal.Duration matches ms-string equivalents > Duration({\"weeks\":1}) === ms(\"1w\")",
+   "action": "keep",
+   "reason": "The instruction gives this exact example."
+  },
+  {
+   "id": "packages/inngest/src/helpers/strings.test.ts::timeStr > Temporal.Duration matches ms-string equivalents > Duration({\"weeks\":2}) === ms(\"2w\")",
+   "action": "keep",
+   "reason": "Checks the specified rule that a Duration matches its ms-string equivalent."
+  },
+  {
+   "id": "packages/inngest/src/helpers/strings.test.ts::timeStr > converts a Temporal.Instant to an ISO string",
+   "action": "keep",
+   "reason": "The instruction specifies that the output equals instant.toString()."
+  },
+  {
+   "id": "packages/inngest/src/helpers/strings.test.ts::timeStr > converts a Temporal.ZonedDateTime to an ISO string",
+   "action": "keep",
+   "reason": "The instruction specifies that the output equals zdt.toInstant().toString()."
+  },
+  {
+   "id": "packages/inngest/src/helpers/strings.test.ts::timeStr > converts a balanced Temporal.Duration",
+   "action": "keep",
+   "reason": "The instruction gives this exact example ({ minutes: 1 } becomes \"1m\")."
+  }
+ ],
+ "edits": []
+}

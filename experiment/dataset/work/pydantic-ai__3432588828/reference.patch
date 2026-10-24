@@ -1,0 +1,49 @@
+diff --git a/docs/testing.md b/docs/testing.md
+index 69fbcda6..6a4249b4 100644
+--- a/docs/testing.md
++++ b/docs/testing.md
+@@ -151,6 +151,7 @@ async def test_forecast():
+             ),
+             model_name='test',
+             timestamp=IsNow(tz=timezone.utc),
++            provider_name='test',
+             run_id=IsStr(),
+             conversation_id=IsStr(),
+         ),
+@@ -180,6 +181,7 @@ async def test_forecast():
+             ),
+             model_name='test',
+             timestamp=IsNow(tz=timezone.utc),
++            provider_name='test',
+             run_id=IsStr(),
+             conversation_id=IsStr(),
+         ),
+diff --git a/pydantic_ai_slim/pydantic_ai/models/test.py b/pydantic_ai_slim/pydantic_ai/models/test.py
+index bef73f24..b91b2409 100644
+--- a/pydantic_ai_slim/pydantic_ai/models/test.py
++++ b/pydantic_ai_slim/pydantic_ai/models/test.py
+@@ -126,6 +126,7 @@ class TestModel(Model):
+         self.last_model_request_parameters = model_request_parameters
+         model_response = self._request(messages, model_settings, model_request_parameters)
+         model_response.usage = _estimate_usage([*messages, model_response])
++        model_response.provider_name = self._system
+         return model_response
+ 
+     @asynccontextmanager
+@@ -273,10 +274,14 @@ class TestModel(Model):
+                                 output[part.tool_name] = part.content
+                 if output:
+                     return ModelResponse(
+-                        parts=[TextPart(pydantic_core.to_json(output).decode())], model_name=self._model_name
++                        parts=[TextPart(pydantic_core.to_json(output).decode())],
++                        model_name=self._model_name,
+                     )
+                 else:
+-                    return ModelResponse(parts=[TextPart('success (no tool calls)')], model_name=self._model_name)
++                    return ModelResponse(
++                        parts=[TextPart('success (no tool calls)')],
++                        model_name=self._model_name,
++                    )
+             else:
+                 return ModelResponse(parts=[TextPart(response_text)], model_name=self._model_name)
+         else:

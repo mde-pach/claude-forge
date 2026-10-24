@@ -1,0 +1,30 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/zod/src/v4/classic/tests/from-json-schema.test.ts::required __proto__ property is kept and enforced",
+   "action": "keep",
+   "reason": "Checks only the public parse outcomes that Requirement 1 spells out word for word."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/from-json-schema.test.ts::__proto__ annotation key reaches the registry",
+   "action": "keep",
+   "reason": "Reads the metadata through the public registry and checks that it is an own property with the original value, which the instruction requires."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/to-json-schema.test.ts::__proto__ shape key is emitted as an own property",
+   "action": "keep",
+   "reason": "Checks the public toJSONSchema output (own property, required/properties consistency, the round-tripped literal entry), all of which Requirement 2 specifies."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/to-json-schema.test.ts::__proto__ registry id is emitted as an own entry",
+   "action": "keep",
+   "reason": "Checks the key order of the public schemas map, which Requirement 3 gives explicitly as [\"__proto__\", \"normal\"]."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/to-json-schema.test.ts::__proto__ def id emits a resolvable $ref",
+   "action": "keep",
+   "reason": "Checks the public output: the $ref string named in the instruction and a matching own $defs entry after a JSON round-trip (Requirement 4)."
+  }
+ ],
+ "edits": []
+}

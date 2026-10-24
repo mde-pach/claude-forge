@@ -1,0 +1,11 @@
+{
+ "edit_tool_calls": 1,
+ "shell_edit_calls": 1,
+ "bash_calls": 5,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work && cat > $TMPDIR/t.py <<'E'\nfrom fastmcp.tools import tool\nfrom fastmcp.tools.base import Tool\n@tool(name=\"custom-greet\", version=\"v1\", title=\"T\", description=\"D\", tags={\"a\"}, meta={\"c\": 1})\ndef greet(name: str) -> str:\n    \"\"\"Fb.\"\"\"\n    return name\nt = Tool.from_function(greet)\nprint(t.nam"
+ ],
+ "total": 2,
+ "edit_tool_share": 0.5
+}

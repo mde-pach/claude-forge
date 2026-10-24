@@ -55,7 +55,7 @@ if live:
     last = "".join(
         f'<tr><td>{e(str(t.get("task")))}</td><td>{e(str(t.get("arm")))}</td><td class="n">{t.get("rep")}</td>'
         f'<td>{e(str(t.get("status")))}</td><td>{"✓" if t.get("resolved") else ("✗" if t.get("resolved") is False else "")}</td>'
-        f'<td class="n">{"" if t.get("cost_usd") is None else f"${t["cost_usd"]:.2f}"}</td>'
+        f'<td class="n">{"" if t.get("cost") is None else f"${t["cost"]:.2f}"}</td>'
         f'<td class="n">{"" if t.get("duration_s") is None else f"{t["duration_s"]/60:.1f}m"}</td></tr>'
         for t in live.get("last", []))
     live_html = (f'<div class="arms">{cards}</div><p class="muted">Running now: {live.get("running", 0)}. '

@@ -1,0 +1,87 @@
+{
+ "task_id": "inngest-js__08ef03b9b7",
+ "window": "main",
+ "repo": "inngest-js",
+ "commit": "08ef03b9b7a1188c99a3ded1f8439a7591fab317",
+ "parent": "922e202415b5d100f4f1608d59d953af9c7b8123",
+ "date": "2026-07-08T21:30:47+01:00",
+ "subject": "fix: parallel steps hanging when optimizeParallelism is false (#1620)",
+ "type": "fix",
+ "test_files": [
+  "packages/inngest/src/components/optimizedParallelism.test.ts"
+ ],
+ "source_files": [
+  "packages/inngest/src/components/InngestCommHandler.ts"
+ ],
+ "source_lines": 7,
+ "all_files": [
+  ".changeset/empty-boxes-provide.md",
+  "packages/inngest/src/components/InngestCommHandler.ts",
+  "packages/inngest/src/components/optimizedParallelism.test.ts"
+ ],
+ "hidden": [
+  "packages/inngest/src/components/optimizedParallelism.test.ts"
+ ],
+ "deleted": [],
+ "targets": [
+  "packages/inngest/src/components/optimizedParallelism.test.ts"
+ ],
+ "f2p": [
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > execution version selection > uses V1 with 'opt-out with incoming V2'"
+ ],
+ "p2p": [
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > execution version selection > uses V$expectedVersion with $desc",
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > execution version selection > uses V1 with 'client opt-out'",
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > execution version selection > uses V1 with 'function opt-out'",
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > execution version selection > uses V2 with 'default'",
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > group.parallel() helper > automatically sets parallelMode on steps inside callback",
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > group.parallel() helper > does not affect steps outside the callback",
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > group.parallel() helper > group.parallel() context applies to all steps in callback",
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > group.parallel() helper > works with all step types (sleep, waitForEvent)",
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > parallelMode step option > omits parallelMode from ops when not specified",
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > parallelMode step option > propagates parallelMode even when optimizeParallelism is false",
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > parallelMode step option > propagates parallelMode to step.run ops",
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > parallelMode step option > propagates parallelMode to step.sleep ops",
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > parallelMode step option > propagates parallelMode to step.waitForEvent ops",
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > shouldOptimizeParallelism precedence > returns $expected when function=$fn, client=$client ($desc)",
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > shouldOptimizeParallelism precedence > returns false when function=false, client=true ('function false overrides client true')",
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > shouldOptimizeParallelism precedence > returns false when function=false, client=undefined ('function false wins')",
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > shouldOptimizeParallelism precedence > returns false when function=undefined, client=false ('client false wins')",
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > shouldOptimizeParallelism precedence > returns true when function=true, client=false ('function true overrides client false')",
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > shouldOptimizeParallelism precedence > returns true when function=undefined, client=undefined ('defaults to true')"
+ ],
+ "flaky": [],
+ "cost_instruction": 0.0497298,
+ "cost_audit": 0.078175,
+ "kept_f2p": [
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > execution version selection > uses V1 with 'opt-out with incoming V2'"
+ ],
+ "kept_p2p": [
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > execution version selection > uses V$expectedVersion with $desc",
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > execution version selection > uses V1 with 'client opt-out'",
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > execution version selection > uses V1 with 'function opt-out'",
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > execution version selection > uses V2 with 'default'",
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > group.parallel() helper > automatically sets parallelMode on steps inside callback",
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > group.parallel() helper > does not affect steps outside the callback",
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > group.parallel() helper > group.parallel() context applies to all steps in callback",
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > group.parallel() helper > works with all step types (sleep, waitForEvent)",
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > parallelMode step option > omits parallelMode from ops when not specified",
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > parallelMode step option > propagates parallelMode even when optimizeParallelism is false",
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > parallelMode step option > propagates parallelMode to step.run ops",
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > parallelMode step option > propagates parallelMode to step.sleep ops",
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > parallelMode step option > propagates parallelMode to step.waitForEvent ops",
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > shouldOptimizeParallelism precedence > returns $expected when function=$fn, client=$client ($desc)",
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > shouldOptimizeParallelism precedence > returns false when function=false, client=true ('function false overrides client true')",
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > shouldOptimizeParallelism precedence > returns false when function=false, client=undefined ('function false wins')",
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > shouldOptimizeParallelism precedence > returns false when function=undefined, client=false ('client false wins')",
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > shouldOptimizeParallelism precedence > returns true when function=true, client=false ('function true overrides client false')",
+  "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > shouldOptimizeParallelism precedence > returns true when function=undefined, client=undefined ('defaults to true')"
+ ],
+ "edits_applied": 0,
+ "edits_rejected": [],
+ "dropped": [],
+ "revalidate_bad_f2p": [],
+ "revalidate_bad_p2p": [],
+ "final": "accepted",
+ "reason": null
+}

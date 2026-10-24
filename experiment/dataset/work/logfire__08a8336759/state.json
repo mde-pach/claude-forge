@@ -1,0 +1,49 @@
+{
+ "task_id": "logfire__08a8336759",
+ "window": "main",
+ "repo": "logfire",
+ "commit": "08a8336759792c5d2dc35f29b40479b5ac657b1c",
+ "parent": "5f1fb5f803666ac28ec80d889c26772d4233b43c",
+ "date": "2026-08-06T12:26:29+00:00",
+ "subject": "Parent slow-async-callback spans to the running task (#2209)",
+ "type": "other",
+ "test_files": [
+  "tests/import_used_for_tests/slow_async_callbacks_example.py",
+  "tests/test_slow_async_callbacks.py"
+ ],
+ "source_files": [
+  "logfire/_internal/async_.py"
+ ],
+ "source_lines": 5,
+ "all_files": [
+  "logfire/_internal/async_.py",
+  "tests/import_used_for_tests/slow_async_callbacks_example.py",
+  "tests/test_slow_async_callbacks.py"
+ ],
+ "hidden": [
+  "tests/import_used_for_tests/slow_async_callbacks_example.py",
+  "tests/test_slow_async_callbacks.py"
+ ],
+ "deleted": [],
+ "targets": [
+  "tests/test_slow_async_callbacks.py"
+ ],
+ "f2p": [
+  "tests/test_slow_async_callbacks.py::test_slow_async_callbacks"
+ ],
+ "p2p": [],
+ "flaky": [],
+ "cost_instruction": 0.0719698,
+ "cost_audit": 0.13104680000000002,
+ "kept_f2p": [
+  "tests/test_slow_async_callbacks.py::test_slow_async_callbacks"
+ ],
+ "kept_p2p": [],
+ "edits_applied": 1,
+ "edits_rejected": [],
+ "dropped": [],
+ "revalidate_bad_f2p": [],
+ "revalidate_bad_p2p": [],
+ "final": "accepted",
+ "reason": null
+}

@@ -1,0 +1,53 @@
+{
+ "task_id": "logfire__2509186459",
+ "window": "main",
+ "repo": "logfire",
+ "commit": "2509186459f3498286062d0ca1ca81e576ace7ec",
+ "parent": "ad7f03424c5d01e6257419c73d508c76afd5ea8b",
+ "date": "2026-08-12T21:45:48+00:00",
+ "subject": "Speed up default scrubbing pattern matching (#2190)",
+ "type": "other",
+ "test_files": [
+  "tests/test_secret_scrubbing.py"
+ ],
+ "source_files": [
+  "logfire/_internal/scrubbing.py"
+ ],
+ "source_lines": 8,
+ "all_files": [
+  "logfire/_internal/scrubbing.py",
+  "tests/test_secret_scrubbing.py"
+ ],
+ "hidden": [
+  "tests/test_secret_scrubbing.py"
+ ],
+ "deleted": [],
+ "targets": [
+  "tests/test_secret_scrubbing.py"
+ ],
+ "f2p": [],
+ "p2p": [
+  "tests/test_secret_scrubbing.py::test_default_pattern_start_chars_cover_each_pattern",
+  "tests/test_secret_scrubbing.py::test_default_patterns_match_docs",
+  "tests/test_secret_scrubbing.py::test_disable_scrubbing",
+  "tests/test_secret_scrubbing.py::test_do_not_scrub",
+  "tests/test_secret_scrubbing.py::test_dont_scrub_resource",
+  "tests/test_secret_scrubbing.py::test_fstring_magic_scrubbing",
+  "tests/test_secret_scrubbing.py::test_logfire_token_prefix_scrubbing",
+  "tests/test_secret_scrubbing.py::test_optimized_default_patterns_match_naive_pattern",
+  "tests/test_secret_scrubbing.py::test_optimized_default_patterns_preserve_extra_pattern_order[\\\\d+-123 before password-123]",
+  "tests/test_secret_scrubbing.py::test_optimized_default_patterns_preserve_extra_pattern_order[custom-custom before password-custom]",
+  "tests/test_secret_scrubbing.py::test_optimized_default_patterns_preserve_extra_pattern_order[pass-passwords-password]",
+  "tests/test_secret_scrubbing.py::test_scrub_attribute",
+  "tests/test_secret_scrubbing.py::test_scrub_events",
+  "tests/test_secret_scrubbing.py::test_scrub_log_event_attribute",
+  "tests/test_secret_scrubbing.py::test_scrub_message",
+  "tests/test_secret_scrubbing.py::test_scrubbing_config",
+  "tests/test_secret_scrubbing.py::test_scrubbing_deprecated_args",
+  "tests/test_secret_scrubbing.py::test_scrubbing_deprecated_args_combined_with_new_options",
+  "tests/test_secret_scrubbing.py::test_word_boundaries"
+ ],
+ "flaky": [],
+ "final": "rejected",
+ "reason": "no_f2p_test"
+}

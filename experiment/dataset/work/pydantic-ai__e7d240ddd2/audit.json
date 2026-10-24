@@ -1,0 +1,15 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/test_messages.py::test_binary_image_narrowed_wherever_multimodal_content_is_validated[json]",
+   "action": "keep",
+   "reason": "It checks only the outcome required by the instruction (exact BinaryImage/BinaryContent types and preserved data/media_type) through the pre-existing public ModelMessagesTypeAdapter."
+  },
+  {
+   "id": "tests/test_messages.py::test_binary_image_narrowed_wherever_multimodal_content_is_validated[python]",
+   "action": "keep",
+   "reason": "It checks only the outcome required by the instruction, in Python mode as specified, through the public ModelMessagesTypeAdapter, with no internals inspected."
+  }
+ ],
+ "edits": []
+}

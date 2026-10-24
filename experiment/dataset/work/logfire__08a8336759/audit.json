@@ -1,0 +1,16 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/test_slow_async_callbacks.py::test_slow_async_callbacks",
+   "action": "relax",
+   "reason": "The exported spans (parenting, trace IDs, messages, attributes, scope name) and the restoration of Handle._run are observable outcomes and stay; the check that the patched function has the internal qualname 'log_slow_callbacks.<locals>.patched_run' inspects a private nested function name, so it is removed."
+  }
+ ],
+ "edits": [
+  {
+   "file": "tests/test_slow_async_callbacks.py",
+   "old": "        # Check that the patching is in effect\n        assert Handle._run.__qualname__ == 'log_slow_callbacks.<locals>.patched_run'\n",
+   "new": ""
+  }
+ ]
+}

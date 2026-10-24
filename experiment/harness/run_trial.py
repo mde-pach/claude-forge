@@ -107,6 +107,8 @@ def parity_ref_check(run_dir, task_id, fp_digest, extra, source=None):
         fcntl.flock(lk, fcntl.LOCK_EX)
         if not os.path.exists(p):
             json.dump({"fingerprint": fp_digest, "source": source, **extra}, open(p, "w"), indent=1)
+            if source:
+                shutil.copy(source, os.path.join(d, f"{task_id}.full.json"))
             return True, "reference set"
         ref = json.load(open(p))
         if ref["fingerprint"] != fp_digest:
@@ -352,7 +354,8 @@ def main():
         meta["exit_code"] = p.returncode
         meta["timed_out"] = timed_out
         # background processes the agent left are stopped before collection (same for both arms)
-        root_exec(name, "pkill -KILL -u dev || true")
+        root_exec(name, "for p in $(pgrep -u dev); do c=$(tr '\\0' ' ' < /proc/$p/cmdline 2>/dev/null); "
+                        "case \"$c\" in *docker-init*|'sleep infinity'*) ;; *) kill -KILL $p 2>/dev/null;; esac; done; true")
         tinfo = tparse.parse(tpath)
         meta.update({k: tinfo[k] for k in ("num_turns", "cost_usd_agent", "result_subtype", "is_error", "result_text")})
         json.dump(tinfo["edits"], open(os.path.join(out, "edits.json"), "w"), indent=1)

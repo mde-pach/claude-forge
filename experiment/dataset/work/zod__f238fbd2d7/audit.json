@@ -1,0 +1,25 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/zod/src/v3/tests/string.test.ts::emoji validations",
+   "action": "keep",
+   "reason": "It checks only accept/reject outcomes and the under-100 ms rejection time through the public `z.string().emoji()`, exactly as the instruction specifies."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/continuability.test.ts::continuability",
+   "action": "keep",
+   "reason": "The only changed assertion is the issue `pattern` string, which the instruction gives verbatim; the rest of the snapshot is existing public behaviour."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/redos.test.ts::emoji rejects a backtracking payload in linear time",
+   "action": "keep",
+   "reason": "It checks the public `z.emoji()` rejection outcome and the under-100 ms timing that the instruction explicitly requires."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/to-json-schema.test.ts::toJSONSchema > primitive types",
+   "action": "keep",
+   "reason": "The changed snapshot value is the JSON Schema `pattern`, which the instruction gives verbatim; the rest is existing public output."
+  }
+ ],
+ "edits": []
+}

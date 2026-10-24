@@ -1,0 +1,15 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.AsyncCheckpointing > defer abort lazy ops > immediate abort reports only DeferAbort for the defer",
+   "action": "keep",
+   "reason": "It checks only observable outgoing ops: a single DeferAbort op whose target_hashed_id equals _internals.hashId(id). The instruction names both of these, and createExecution was already used by the existing tests."
+  },
+  {
+   "id": "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.AsyncCheckpointing > defer abort lazy ops > abort noops when the prior defer is not abortable",
+   "action": "keep",
+   "reason": "It uses the priorDefers option that the instruction names, with abortable: false, and asserts the specified outcome that no DeferAbort op is emitted."
+  }
+ ],
+ "edits": []
+}

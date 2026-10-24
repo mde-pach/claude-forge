@@ -1,0 +1,36 @@
+diff --git a/.changeset/itchy-turtles-wonder.md b/.changeset/itchy-turtles-wonder.md
+new file mode 100644
+index 0000000..8b21dc4
+--- /dev/null
++++ b/.changeset/itchy-turtles-wonder.md
+@@ -0,0 +1,5 @@
++---
++"inngest": patch
++---
++
++Fix waitForSignal not in middleware StepType union
+diff --git a/packages/inngest/src/components/middleware/middleware.ts b/packages/inngest/src/components/middleware/middleware.ts
+index 7906d5a..cae6f0e 100644
+--- a/packages/inngest/src/components/middleware/middleware.ts
++++ b/packages/inngest/src/components/middleware/middleware.ts
+@@ -248,6 +248,7 @@ export namespace Middleware {
+     | "sendEvent"
+     | "sleep"
+     | "waitForEvent"
++    | "waitForSignal"
+   >;
+ 
+   export type StepInfo = {
+diff --git a/packages/inngest/src/components/middleware/utils.ts b/packages/inngest/src/components/middleware/utils.ts
+index 96a31dd..9fcf439 100644
+--- a/packages/inngest/src/components/middleware/utils.ts
++++ b/packages/inngest/src/components/middleware/utils.ts
+@@ -117,6 +117,8 @@ export function stepTypeFromOpCode(
+     return "sleep";
+   } else if (op === StepOpCode.WaitForEvent) {
+     return "waitForEvent";
++  } else if (op === StepOpCode.WaitForSignal) {
++    return "waitForSignal";
+   }
+ 
+   logger.warn({ op, type: opts?.type }, "Unknown step type");

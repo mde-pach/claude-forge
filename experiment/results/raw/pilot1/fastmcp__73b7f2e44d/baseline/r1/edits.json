@@ -1,0 +1,13 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 3,
+ "bash_calls": 8,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'E'\nimport re\np='exceptions.py'\ns=open(p).read()\ns=s.replace('from mcp import McpError  # noqa: F401\\n','import logging\\n\\nfrom mcp import McpError  # noqa: F401\\n',1)\ns=s.replace('''    \"\"\"Base error for FastMCP.\"\"\"\n''','''    \"\"\"Base error for FastMCP.\n\n    Args:\n        log_level: Lev",
+  "cd /work && sed -i 's/^from fastmcp.exceptions import FastMCPDeprecationWarning, PromptError/from fastmcp.exceptions import FastMCPDeprecationWarning, FastMCPError, PromptError/' src/fastmcp/prompts/function_prompt.py && uv run pytest -n auto -q tests/prompts tests/server tests/test_exceptions.py 2>",
+  "python3 - <<'E'\np='tests/prompts/test_prompt.py'\ns=open(p).read()\ns=s.replace('''        # Test with invalid JSON - should raise PromptError due to exception handling in render()\n        with pytest.raises(PromptError) as exc_info:\n            await prompt.render(arguments={\"numbers\": \"not valid jso"
+ ],
+ "total": 3,
+ "edit_tool_share": 0.0
+}
