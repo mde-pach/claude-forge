@@ -1,0 +1,10 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/electron/test/electron.test.ts::Electron > /electron/init-oauth-proxy should forward each Set-Cookie from the inner sign-in response as a separate header",
+   "action": "keep",
+   "reason": "The test only checks outcomes the instruction specifies: it calls the named `auth.api.electronInitOAuthProxy` with `asResponse: true`, uses a test double only on the global `fetch` (which the instruction names as the boundary), and asserts the specified count, order and `name=value` prefixes through `getSetCookie()`."
+  }
+ ],
+ "edits": []
+}

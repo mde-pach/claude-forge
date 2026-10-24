@@ -1,0 +1,51 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > makes readiness waiting opt-in on Create",
+   "action": "keep",
+   "reason": "Checks only what the instruction specifies: one POST by default, the unchanged body, no Create re-send, and a GET until RUNNING."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > waitUntilRunning reloads a STARTING sandbox",
+   "action": "keep",
+   "reason": "Checks the public waitUntilRunning result and a single readiness GET, which any correct implementation produces."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > reports terminal startup failure without retrying",
+   "action": "keep",
+   "reason": "The error fields and details asserted are exactly the ones the instruction specifies."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > reports readiness timeout without retrying Create",
+   "action": "relax",
+   "reason": "The exact fetch count at the deadline depends on how the poll loop orders its delay, GET and deadline check, which the instruction leaves open, so that count assertion is removed."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > retries transient readiness reads without redispatching Create",
+   "action": "relax",
+   "reason": "'About once per second' allows the first poll to come after a delay, so fake time is advanced further; the asserted outcome and request methods are unchanged."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::step.sandbox > suspends waitUntilRunning and rehydrates its RUNNING result on replay",
+   "action": "keep",
+   "reason": "Checks the waitUntilRunning step's operation shape and its replay result, both specified by the instruction's durable wire protocol."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::step.sandbox > uses UUID identity and exposes the complete durable lifecycle",
+   "action": "keep",
+   "reason": "The added assertions check runningTimeoutMs and the waitUntilRunning operation shape, both specified in the wire protocol section."
+  }
+ ],
+ "edits": [
+  {
+   "file": "packages/inngest/src/components/InngestSandbox.test.ts",
+   "old": "      await vi.advanceTimersByTimeAsync(1_000);\n\n      await assertion;\n      expect(fetchMock).toHaveBeenCalledTimes(2);",
+   "new": "      await vi.advanceTimersByTimeAsync(1_000);\n\n      await assertion;"
+  },
+  {
+   "file": "packages/inngest/src/components/InngestSandbox.test.ts",
+   "old": "        runningTimeout: \"5s\",\n      });\n      await vi.advanceTimersByTimeAsync(1_000);\n\n      await expect(result).resolves.toMatchObject({",
+   "new": "        runningTimeout: \"5s\",\n      });\n      await vi.advanceTimersByTimeAsync(2_000);\n\n      await expect(result).resolves.toMatchObject({"
+  }
+ ]
+}

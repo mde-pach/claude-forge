@@ -1,0 +1,15 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/zod/src/v4/classic/tests/date.test.ts::date min/max origin with numeric bound",
+   "action": "keep",
+   "reason": "The snapshot matches the exact issue objects, including the message wording, that the instruction specifies, and it is checked only through the public z.date().min/max API."
+  },
+  {
+   "id": "packages/zod/src/v4/mini/tests/checks.test.ts::z.gte/z.lte origin on a date schema with a numeric bound",
+   "action": "keep",
+   "reason": "It asserts only the code and origin the instruction requires, through the public mini check API."
+  }
+ ],
+ "edits": []
+}

@@ -1,0 +1,106 @@
+{
+ "task_id": "zod__c8f06d36fc",
+ "window": "main",
+ "repo": "zod",
+ "commit": "c8f06d36fc1b56b99c8a12b2a3270394387cb507",
+ "parent": "9a7ecc358b5b9bf9e2a682cf797ae4c14413e5a6",
+ "date": "2026-08-13T13:46:00-07:00",
+ "subject": "fix(v4): clarify infinite number errors (#5906)",
+ "type": "fix",
+ "test_files": [
+  "packages/zod/src/v4/classic/tests/number.test.ts"
+ ],
+ "source_files": [
+  "packages/zod/src/v4/core/schemas.ts",
+  "packages/zod/src/v4/locales/en.ts"
+ ],
+ "source_lines": 13,
+ "all_files": [
+  "packages/zod/src/v4/classic/tests/number.test.ts",
+  "packages/zod/src/v4/core/schemas.ts",
+  "packages/zod/src/v4/locales/en.ts"
+ ],
+ "hidden": [
+  "packages/zod/src/v4/classic/tests/number.test.ts"
+ ],
+ "deleted": [],
+ "targets": [
+  "packages/zod/src/v4/classic/tests/number.test.ts"
+ ],
+ "f2p": [
+  "packages/zod/src/v4/classic/tests/number.test.ts::.finite() validation",
+  "packages/zod/src/v4/classic/tests/number.test.ts::Infinity validation"
+ ],
+ "p2p": [
+  "packages/zod/src/v4/classic/tests/number.test.ts::.gt() validation",
+  "packages/zod/src/v4/classic/tests/number.test.ts::.gte() validation",
+  "packages/zod/src/v4/classic/tests/number.test.ts::.int() validation",
+  "packages/zod/src/v4/classic/tests/number.test.ts::.lt() validation",
+  "packages/zod/src/v4/classic/tests/number.test.ts::.lte() validation",
+  "packages/zod/src/v4/classic/tests/number.test.ts::.max() validation",
+  "packages/zod/src/v4/classic/tests/number.test.ts::.min() validation",
+  "packages/zod/src/v4/classic/tests/number.test.ts::.multipleOf() with negative divisor",
+  "packages/zod/src/v4/classic/tests/number.test.ts::.multipleOf() with positive divisor",
+  "packages/zod/src/v4/classic/tests/number.test.ts::.multipleOf() with scientific notation (multi-digit exponents)",
+  "packages/zod/src/v4/classic/tests/number.test.ts::.multipleOf() with small floats / scientific notation (#5792)",
+  "packages/zod/src/v4/classic/tests/number.test.ts::.negative() validation",
+  "packages/zod/src/v4/classic/tests/number.test.ts::.nonnegative() validation",
+  "packages/zod/src/v4/classic/tests/number.test.ts::.nonpositive() validation",
+  "packages/zod/src/v4/classic/tests/number.test.ts::.positive() validation",
+  "packages/zod/src/v4/classic/tests/number.test.ts::.safe() validation",
+  "packages/zod/src/v4/classic/tests/number.test.ts::.step() validation",
+  "packages/zod/src/v4/classic/tests/number.test.ts::NaN validation",
+  "packages/zod/src/v4/classic/tests/number.test.ts::error customization",
+  "packages/zod/src/v4/classic/tests/number.test.ts::finite getter",
+  "packages/zod/src/v4/classic/tests/number.test.ts::int getter",
+  "packages/zod/src/v4/classic/tests/number.test.ts::max value getters",
+  "packages/zod/src/v4/classic/tests/number.test.ts::min value getters",
+  "packages/zod/src/v4/classic/tests/number.test.ts::multipleOf",
+  "packages/zod/src/v4/classic/tests/number.test.ts::negative zero edge case",
+  "packages/zod/src/v4/classic/tests/number.test.ts::string format methods",
+  "packages/zod/src/v4/classic/tests/number.test.ts::z.number() basic validation"
+ ],
+ "flaky": [],
+ "cost_instruction": 0.0456978,
+ "cost_audit": 0.0761178,
+ "kept_f2p": [
+  "packages/zod/src/v4/classic/tests/number.test.ts::.finite() validation",
+  "packages/zod/src/v4/classic/tests/number.test.ts::Infinity validation"
+ ],
+ "kept_p2p": [
+  "packages/zod/src/v4/classic/tests/number.test.ts::.gt() validation",
+  "packages/zod/src/v4/classic/tests/number.test.ts::.gte() validation",
+  "packages/zod/src/v4/classic/tests/number.test.ts::.int() validation",
+  "packages/zod/src/v4/classic/tests/number.test.ts::.lt() validation",
+  "packages/zod/src/v4/classic/tests/number.test.ts::.lte() validation",
+  "packages/zod/src/v4/classic/tests/number.test.ts::.max() validation",
+  "packages/zod/src/v4/classic/tests/number.test.ts::.min() validation",
+  "packages/zod/src/v4/classic/tests/number.test.ts::.multipleOf() with negative divisor",
+  "packages/zod/src/v4/classic/tests/number.test.ts::.multipleOf() with positive divisor",
+  "packages/zod/src/v4/classic/tests/number.test.ts::.multipleOf() with scientific notation (multi-digit exponents)",
+  "packages/zod/src/v4/classic/tests/number.test.ts::.multipleOf() with small floats / scientific notation (#5792)",
+  "packages/zod/src/v4/classic/tests/number.test.ts::.negative() validation",
+  "packages/zod/src/v4/classic/tests/number.test.ts::.nonnegative() validation",
+  "packages/zod/src/v4/classic/tests/number.test.ts::.nonpositive() validation",
+  "packages/zod/src/v4/classic/tests/number.test.ts::.positive() validation",
+  "packages/zod/src/v4/classic/tests/number.test.ts::.safe() validation",
+  "packages/zod/src/v4/classic/tests/number.test.ts::.step() validation",
+  "packages/zod/src/v4/classic/tests/number.test.ts::NaN validation",
+  "packages/zod/src/v4/classic/tests/number.test.ts::error customization",
+  "packages/zod/src/v4/classic/tests/number.test.ts::finite getter",
+  "packages/zod/src/v4/classic/tests/number.test.ts::int getter",
+  "packages/zod/src/v4/classic/tests/number.test.ts::max value getters",
+  "packages/zod/src/v4/classic/tests/number.test.ts::min value getters",
+  "packages/zod/src/v4/classic/tests/number.test.ts::multipleOf",
+  "packages/zod/src/v4/classic/tests/number.test.ts::negative zero edge case",
+  "packages/zod/src/v4/classic/tests/number.test.ts::string format methods",
+  "packages/zod/src/v4/classic/tests/number.test.ts::z.number() basic validation"
+ ],
+ "edits_applied": 0,
+ "edits_rejected": [],
+ "dropped": [],
+ "revalidate_bad_f2p": [],
+ "revalidate_bad_p2p": [],
+ "final": "accepted",
+ "reason": null
+}

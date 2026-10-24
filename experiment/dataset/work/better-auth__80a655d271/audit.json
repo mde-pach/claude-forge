@@ -1,0 +1,10 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/better-auth/src/plugins/admin/admin.test.ts::Admin plugin > should revalidate useSession after admin impersonation",
+   "action": "keep",
+   "reason": "It checks only the outcome the instruction asks for: after impersonateUser, a useSession subscriber gets the impersonated user's id. It uses only public client interfaces (useSession, getSession, admin.impersonateUser) plus test helpers that already existed, and inspects no internals."
+  }
+ ],
+ "edits": []
+}

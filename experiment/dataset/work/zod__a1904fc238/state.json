@@ -1,0 +1,96 @@
+{
+ "task_id": "zod__a1904fc238",
+ "window": "main",
+ "repo": "zod",
+ "commit": "a1904fc238d8bcf1a45806bd73b0b0a8006cf77a",
+ "parent": "bd18314c6d0e29a7890ecea73e206f8bbca54ec9",
+ "date": "2026-08-13T14:06:08-07:00",
+ "subject": "fix(v4): report date origin for numeric min/max bounds (#6129)",
+ "type": "fix",
+ "test_files": [
+  "packages/zod/src/v4/classic/tests/date.test.ts",
+  "packages/zod/src/v4/mini/tests/checks.test.ts"
+ ],
+ "source_files": [
+  "packages/zod/src/v4/core/checks.ts"
+ ],
+ "source_lines": 4,
+ "all_files": [
+  "packages/zod/src/v4/classic/tests/date.test.ts",
+  "packages/zod/src/v4/core/checks.ts",
+  "packages/zod/src/v4/mini/tests/checks.test.ts"
+ ],
+ "hidden": [
+  "packages/zod/src/v4/classic/tests/date.test.ts",
+  "packages/zod/src/v4/mini/tests/checks.test.ts"
+ ],
+ "deleted": [],
+ "targets": [
+  "packages/zod/src/v4/classic/tests/date.test.ts",
+  "packages/zod/src/v4/mini/tests/checks.test.ts"
+ ],
+ "f2p": [
+  "packages/zod/src/v4/classic/tests/date.test.ts::date min/max origin with numeric bound",
+  "packages/zod/src/v4/mini/tests/checks.test.ts::z.gte/z.lte origin on a date schema with a numeric bound"
+ ],
+ "p2p": [
+  "packages/zod/src/v4/classic/tests/date.test.ts::date max",
+  "packages/zod/src/v4/classic/tests/date.test.ts::date min",
+  "packages/zod/src/v4/classic/tests/date.test.ts::min max getters",
+  "packages/zod/src/v4/classic/tests/date.test.ts::passing validations",
+  "packages/zod/src/v4/mini/tests/checks.test.ts::abort early",
+  "packages/zod/src/v4/mini/tests/checks.test.ts::z.endsWith",
+  "packages/zod/src/v4/mini/tests/checks.test.ts::z.gt",
+  "packages/zod/src/v4/mini/tests/checks.test.ts::z.gte",
+  "packages/zod/src/v4/mini/tests/checks.test.ts::z.includes",
+  "packages/zod/src/v4/mini/tests/checks.test.ts::z.length",
+  "packages/zod/src/v4/mini/tests/checks.test.ts::z.lowercase",
+  "packages/zod/src/v4/mini/tests/checks.test.ts::z.lt",
+  "packages/zod/src/v4/mini/tests/checks.test.ts::z.lte",
+  "packages/zod/src/v4/mini/tests/checks.test.ts::z.max",
+  "packages/zod/src/v4/mini/tests/checks.test.ts::z.maxLength",
+  "packages/zod/src/v4/mini/tests/checks.test.ts::z.min",
+  "packages/zod/src/v4/mini/tests/checks.test.ts::z.minLength",
+  "packages/zod/src/v4/mini/tests/checks.test.ts::z.overwrite",
+  "packages/zod/src/v4/mini/tests/checks.test.ts::z.regex",
+  "packages/zod/src/v4/mini/tests/checks.test.ts::z.startsWith",
+  "packages/zod/src/v4/mini/tests/checks.test.ts::z.uppercase"
+ ],
+ "flaky": [],
+ "cost_instruction": 0.0512178,
+ "cost_audit": 0.0589262,
+ "kept_f2p": [
+  "packages/zod/src/v4/classic/tests/date.test.ts::date min/max origin with numeric bound",
+  "packages/zod/src/v4/mini/tests/checks.test.ts::z.gte/z.lte origin on a date schema with a numeric bound"
+ ],
+ "kept_p2p": [
+  "packages/zod/src/v4/classic/tests/date.test.ts::date max",
+  "packages/zod/src/v4/classic/tests/date.test.ts::date min",
+  "packages/zod/src/v4/classic/tests/date.test.ts::min max getters",
+  "packages/zod/src/v4/classic/tests/date.test.ts::passing validations",
+  "packages/zod/src/v4/mini/tests/checks.test.ts::abort early",
+  "packages/zod/src/v4/mini/tests/checks.test.ts::z.endsWith",
+  "packages/zod/src/v4/mini/tests/checks.test.ts::z.gt",
+  "packages/zod/src/v4/mini/tests/checks.test.ts::z.gte",
+  "packages/zod/src/v4/mini/tests/checks.test.ts::z.includes",
+  "packages/zod/src/v4/mini/tests/checks.test.ts::z.length",
+  "packages/zod/src/v4/mini/tests/checks.test.ts::z.lowercase",
+  "packages/zod/src/v4/mini/tests/checks.test.ts::z.lt",
+  "packages/zod/src/v4/mini/tests/checks.test.ts::z.lte",
+  "packages/zod/src/v4/mini/tests/checks.test.ts::z.max",
+  "packages/zod/src/v4/mini/tests/checks.test.ts::z.maxLength",
+  "packages/zod/src/v4/mini/tests/checks.test.ts::z.min",
+  "packages/zod/src/v4/mini/tests/checks.test.ts::z.minLength",
+  "packages/zod/src/v4/mini/tests/checks.test.ts::z.overwrite",
+  "packages/zod/src/v4/mini/tests/checks.test.ts::z.regex",
+  "packages/zod/src/v4/mini/tests/checks.test.ts::z.startsWith",
+  "packages/zod/src/v4/mini/tests/checks.test.ts::z.uppercase"
+ ],
+ "edits_applied": 0,
+ "edits_rejected": [],
+ "dropped": [],
+ "revalidate_bad_f2p": [],
+ "revalidate_bad_p2p": [],
+ "final": "accepted",
+ "reason": null
+}

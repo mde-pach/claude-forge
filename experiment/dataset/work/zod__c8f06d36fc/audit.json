@@ -1,0 +1,15 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/zod/src/v4/classic/tests/number.test.ts::Infinity validation",
+   "action": "keep",
+   "reason": "The snapshot checks only the public issue fields (expected, code, received, path, message), and the instruction gives the exact values for each, so no implementation detail is inspected."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/number.test.ts::.finite() validation",
+   "action": "keep",
+   "reason": "The instruction names the .finite() variant and specifies exactly the received and message values the snapshot asserts, so it checks observable outcome only."
+  }
+ ],
+ "edits": []
+}

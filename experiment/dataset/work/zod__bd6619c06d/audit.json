@@ -1,0 +1,60 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/zod/src/v4/classic/tests/to-json-schema.test.ts::unrepresentable callback > is consulted for every unrepresentable type",
+   "action": "keep",
+   "reason": "Checks only the specified call sites, the once-per-site call and the order, observed through the public handler's zodSchema."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/to-json-schema.test.ts::unrepresentable callback > returned JSON Schema replaces the unrepresentable node",
+   "action": "keep",
+   "reason": "Public output plus the default error message, both specified in the instruction's example."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/to-json-schema.test.ts::unrepresentable callback > `throw` and `undefined` returns produce the default error",
+   "action": "keep",
+   "reason": "The instruction specifies the return semantics and the default messages."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/to-json-schema.test.ts::unrepresentable callback > `any` return matches the string option",
+   "action": "keep",
+   "reason": "Compares two public outputs, which the instruction says must be identical."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/to-json-schema.test.ts::unrepresentable callback > `message` distinguishes sites that share a schema",
+   "action": "keep",
+   "reason": "The literal messages, their order and the 'any' literal behaviour are all specified, and the result is observed through the public output."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/to-json-schema.test.ts::unrepresentable callback > errors thrown by the callback propagate",
+   "action": "keep",
+   "reason": "The instruction specifies that handler errors propagate and gives the path format."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/to-json-schema.test.ts::unrepresentable callback > runs before `override`",
+   "action": "keep",
+   "reason": "The order relative to override is specified, and the test observes it only through the public callbacks."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/to-json-schema.test.ts::unrepresentable callback > a returned schema replaces the whole literal",
+   "action": "keep",
+   "reason": "The instruction specifies whole-literal replacement and the 'any' equivalence, and the test checks public output."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/to-json-schema.test.ts::unrepresentable callback > emits a valid OpenAPI 3.0 schema",
+   "action": "keep",
+   "reason": "The instruction requires valid OpenAPI 3.0 output, and the test checks the final public output."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/to-json-schema.test.ts::unrepresentable callback > the returned schema survives extraction into $defs",
+   "action": "keep",
+   "reason": "The instruction requires the result to survive $defs extraction, and the test checks the final public output."
+  },
+  {
+   "id": "packages/zod/src/v4/classic/tests/to-json-schema.test.ts::unrepresentable callback > applies to dynamic catch values",
+   "action": "keep",
+   "reason": "The instruction gives this exact merge behaviour as its catch example."
+  }
+ ],
+ "edits": []
+}

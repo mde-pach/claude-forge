@@ -1,12 +1,15 @@
 {
  "edit_tool_calls": 0,
- "shell_edit_calls": 2,
- "bash_calls": 7,
+ "shell_edit_calls": 5,
+ "bash_calls": 11,
  "edit_files": [],
  "shell_edit_commands": [
-  "python3 - <<'E'\nimport re\ndef sub(p,a,b,count=0):\n    s=open(p).read()\n    assert a in s,(p,a)\n    s=s.replace(a,b) if not count else s.replace(a,b,count)\n    open(p,'w').write(s)\n\n# temporal helper\nopen('helpers/temporal.ts','a').write('''\n/**\n * Any value accepted by timeout fields: a number of mi",
-  "npx tsc --noEmit -p . 2>&1 | grep -v \"src/test/\" | head; cat > src/tmp.test.ts <<'E'\nimport { Temporal } from \"temporal-polyfill\";\nimport { timeStr } from \"./helpers/strings\";\nimport { test, expect, vi } from \"vitest\";\ntest(\"x\",()=>{vi.useFakeTimers();vi.setSystemTime(new Date(\"2026-04-28T12:00:00Z\""
+  "python3 - <<'E'\nimport re\ndef sub(p,a,b,c=1):\n    s=open(p).read()\n    assert s.count(a)>=1,(p,a)\n    s=s.replace(a,b) if c==0 else s.replace(a,b,c)\n    open(p,'w').write(s)\n\n# strings.ts\nsub('helpers/strings.ts','''  input: string | number | Date,\n): string => {\n  if (input instanceof Date) {\n    r",
+  "python3 - <<'E'\nimport re\nfor p in ['types.ts','components/InngestStepTools.ts']:\n    s=open(p).read()\n    s=re.sub(r\"(\\n(\\s*)\\* )(or a `Date` object\\.|a `Date` object\\.)\", lambda m: m.group(0)[:-len(m.group(3))]+(\"or a `Date` object, or a `Temporal.Duration`, `Temporal.Instant` or\\n\"+m.group(2)+\"* ",
+  "sed -i -E 's/^(\\s*\\* )(.*)(a `Date` object)\\.$/\\1\\2\\3, a `Temporal.Duration`, a\\n\\1`Temporal.Instant`, or a `Temporal.ZonedDateTime`./' types.ts components/InngestStepTools.ts\nsed -i 's/^\\(.*\\)\\(\\* `\"2.5d\"`, or\\) a `Date` object, a/&/' components/InngestStepTools.ts\ncd .. && npx biome check --write ",
+  "cd /work/packages/inngest/src && sed -i -E 's/^(\\s*\\* )(.*)(a `Date` object)\\.$/\\1\\2\\3, a `Temporal.Duration`, a\\n\\1`Temporal.Instant`, or a `Temporal.ZonedDateTime`./' types.ts components/InngestStepTools.ts\npython3 - <<'E'\nT='number | string | Date | Temporal.DurationLike | Temporal.InstantLike | ",
+  "cd /work && python3 - <<'E'\np='packages/inngest/src/components/middleware/manager.ts'\ns=open(p).read()\ns=s.replace('throw new Error(\"Sleep time must be a string, number, Date, or Temporal.Duration\");','''throw new Error(\n          \"Sleep time must be a string, number, Date, or Temporal.Duration\",\n  "
  ],
- "total": 2,
+ "total": 5,
  "edit_tool_share": 0.0
 }

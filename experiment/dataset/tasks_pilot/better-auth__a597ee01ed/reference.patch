@@ -1,0 +1,28 @@
+diff --git a/.changeset/silly-regions-sin.md b/.changeset/silly-regions-sin.md
+new file mode 100644
+index 00000000..4c8751e4
+--- /dev/null
++++ b/.changeset/silly-regions-sin.md
+@@ -0,0 +1,5 @@
++---
++"better-auth": patch
++---
++
++The organization plugin's `cancelPendingInvitationsOnReInvite` option now actually cancels the prior pending invitation when re-inviting the same email. Previously the option had no effect — re-inviting always failed with `USER_IS_ALREADY_INVITED_TO_THIS_ORGANIZATION`
+diff --git a/packages/better-auth/src/plugins/organization/routes/crud-invites.ts b/packages/better-auth/src/plugins/organization/routes/crud-invites.ts
+index a277fb11..0209ac50 100644
+--- a/packages/better-auth/src/plugins/organization/routes/crud-invites.ts
++++ b/packages/better-auth/src/plugins/organization/routes/crud-invites.ts
+@@ -289,7 +289,11 @@ export const createInvitation = <O extends OrganizationOptions>(option: O) => {
+ 				email: email,
+ 				organizationId: organizationId,
+ 			});
+-			if (alreadyInvited.length && !ctx.body.resend) {
++			if (
++				alreadyInvited.length &&
++				!ctx.body.resend &&
++				!ctx.context.orgOptions.cancelPendingInvitationsOnReInvite
++			) {
+ 				throw APIError.from(
+ 					"BAD_REQUEST",
+ 					ORGANIZATION_ERROR_CODES.USER_IS_ALREADY_INVITED_TO_THIS_ORGANIZATION,

@@ -1,0 +1,87 @@
+{
+ "task_id": "inngest-js__0bec14eecf",
+ "window": "main",
+ "repo": "inngest-js",
+ "commit": "0bec14eecf31ee74974190bb5675880a96c7f501",
+ "parent": "114f1318a99bdd5a20ba35d0d1c5db1f6e4aa840",
+ "date": "2026-08-03T08:16:56-07:00",
+ "subject": "fix(connect): prevent lease renewals from using a draining connection (#1663)",
+ "type": "fix",
+ "test_files": [
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts"
+ ],
+ "source_files": [
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.ts"
+ ],
+ "source_lines": 40,
+ "all_files": [
+  ".changeset/calm-leases-renew.md",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.ts"
+ ],
+ "hidden": [
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts"
+ ],
+ "deleted": [],
+ "targets": [
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts"
+ ],
+ "f2p": [
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > Lease extensions > does not fall back to an older connection when its replacement drains",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > Lease extensions > uses new connection after drain"
+ ],
+ "p2p": [
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > 10. Graceful shutdown with in-flight requests > close() waits for in-flight requests to complete",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > 11. Graceful shutdown reconnects if connection dies during in-flight > reconnects during shutdown for heartbeats/lease extensions",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > 12. Graceful shutdown wakes reconcile loop when lease is lost > close() resolves after lease-lost ack clears the last in-flight request",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > 12. Graceful shutdown wakes reconcile loop when lease is lost > late extend-lease ack after lease loss does not resurrect a stale lease",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > 12. Graceful shutdown wakes reconcile loop when lease is lost > late extend-lease ack after request completion does not resurrect a stale lease",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > 12. Graceful shutdown wakes reconcile loop when lease is lost > lease-lost ack also deletes requestMeta (no stale debug-state entry)",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > Lease extensions > WORKER_REQUEST_EXTEND_LEASE sent periodically during execution",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > Lease extensions > continues retrying after ws.send() throws",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > Lease extensions > falls back to original WS when no active connection",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > Lease extensions > lease extension ACK updates lease ID",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > Lease extensions > lease extension ACK without newLeaseId removes lease and logs error",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > Lease extensions > resumes extensions after WebSocket recovers",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > Lease extensions > skips extension when WebSocket is not OPEN",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > Response buffered when no active connection > calls onBufferResponse when connection lost during execution",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > Unknown app name skipped > does not send ACK for unrecognized app name",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > WORKER_REPLY sent after execution > sends reply after handleExecutionRequest completes",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > WORKER_REPLY_ACK dispatched to callback > calls onReplyAck with requestId",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > WORKER_REQUEST_ACK sent on request > sends ACK immediately when executor request received"
+ ],
+ "flaky": [],
+ "kept_f2p": [
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > Lease extensions > does not fall back to an older connection when its replacement drains",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > Lease extensions > uses new connection after drain"
+ ],
+ "kept_p2p": [
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > 10. Graceful shutdown with in-flight requests > close() waits for in-flight requests to complete",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > 11. Graceful shutdown reconnects if connection dies during in-flight > reconnects during shutdown for heartbeats/lease extensions",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > 12. Graceful shutdown wakes reconcile loop when lease is lost > close() resolves after lease-lost ack clears the last in-flight request",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > 12. Graceful shutdown wakes reconcile loop when lease is lost > late extend-lease ack after lease loss does not resurrect a stale lease",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > 12. Graceful shutdown wakes reconcile loop when lease is lost > late extend-lease ack after request completion does not resurrect a stale lease",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > 12. Graceful shutdown wakes reconcile loop when lease is lost > lease-lost ack also deletes requestMeta (no stale debug-state entry)",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > Lease extensions > WORKER_REQUEST_EXTEND_LEASE sent periodically during execution",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > Lease extensions > continues retrying after ws.send() throws",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > Lease extensions > falls back to original WS when no active connection",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > Lease extensions > lease extension ACK updates lease ID",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > Lease extensions > lease extension ACK without newLeaseId removes lease and logs error",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > Lease extensions > resumes extensions after WebSocket recovers",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > Lease extensions > skips extension when WebSocket is not OPEN",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > Response buffered when no active connection > calls onBufferResponse when connection lost during execution",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > Unknown app name skipped > does not send ACK for unrecognized app name",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > WORKER_REPLY sent after execution > sends reply after handleExecutionRequest completes",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > WORKER_REPLY_ACK dispatched to callback > calls onReplyAck with requestId",
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > WORKER_REQUEST_ACK sent on request > sends ACK immediately when executor request received"
+ ],
+ "edits_applied": 0,
+ "edits_rejected": [],
+ "dropped": [],
+ "revalidate_bad_f2p": [],
+ "revalidate_bad_p2p": [
+  "packages/inngest/src/components/connect/strategies/core/requestProcessor.test.ts::ConnectionCore request processing > WORKER_REQUEST_ACK sent on request > sends ACK immediately when executor request received"
+ ],
+ "final": "rejected",
+ "reason": "revalidation_failed"
+}

@@ -1,6 +1,6 @@
 {
  "updated": "",
- "headline": "Pilots under way on Python and TypeScript tasks. They have caught 10 harness problems so far (CHANGELOG P1\u2013P10), each fixed and logged. Dataset: pydantic-ai, fastmcp and logfire complete at 10+ accepted; zod, inngest-js and better-auth in progress.",
+ "headline": "All five Python and TypeScript pilot pairs scored end to end; the better-auth pilot is running. Dataset: 5 of 6 repos have 10+ accepted tasks; better-auth (slow: 6\u201312 min install+build) is building.",
  "phases": [
   {
    "name": "Design written and pre-registered",
@@ -40,7 +40,7 @@
   {
    "name": "Pilot (harness end to end)",
    "state": "running",
-   "note": "fastmcp pilot-window tasks; scorer self-test passes (reference resolved, empty change not)"
+   "note": "fastmcp \u00d72, zod, inngest-js scored in both arms; better-auth running; 12 harness fixes logged"
   },
   {
    "name": "Full run: 3 replicates \u00d7 2 arms",
@@ -89,13 +89,13 @@
     "repo": "zod",
     "lang": "TypeScript",
     "candidates": 116,
-    "accepted": 5
+    "accepted": 13
    },
    {
     "repo": "inngest-js",
     "lang": "TypeScript",
     "candidates": 49,
-    "accepted": 6
+    "accepted": 8
    }
   ]
  },
@@ -114,6 +114,9 @@
   "Forge is active in its arm: SessionStart, PreToolUse guard, lint feedback after edits, Stop blocks on failing tests",
   "Pilot P7\u2013P10: auth refresh race, disk exhaustion reclassified as infrastructure (5 wrongly rejected candidates restored), .gitignore'd .claude, multi-result cost aggregation",
   "zod pilot: both arms failed one task on type-level errors; Forge's Stop check blocked 3 times, then handed over",
-  "Scorer self-test passes on Python and TypeScript pilot tasks"
+  "Scorer self-test passes on Python and TypeScript pilot tasks",
+  "inngest-js pilot: both arms resolved; Forge gave 1 feedback and 1 block",
+  "Observation: Sonnet 5.5 edits files only through Bash (no Edit/Write calls) in every pilot trial, both arms",
+  "Usage-limit utilisation is flat (7-day window 15%); not a constraint"
  ]
 }

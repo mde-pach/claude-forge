@@ -1,0 +1,39 @@
+diff --git a/packages/zod/src/v4/core/schemas.ts b/packages/zod/src/v4/core/schemas.ts
+index 5eee1f8..06ae942 100644
+--- a/packages/zod/src/v4/core/schemas.ts
++++ b/packages/zod/src/v4/core/schemas.ts
+@@ -1196,7 +1196,7 @@ export const $ZodNumber: core.$constructor<$ZodNumber> = /*@__PURE__*/ core.$con
+         ? Number.isNaN(input)
+           ? "NaN"
+           : !Number.isFinite(input)
+-            ? "Infinity"
++            ? String(input)
+             : undefined
+         : undefined;
+ 
+diff --git a/packages/zod/src/v4/locales/en.ts b/packages/zod/src/v4/locales/en.ts
+index 1d12303..83c8540 100644
+--- a/packages/zod/src/v4/locales/en.ts
++++ b/packages/zod/src/v4/locales/en.ts
+@@ -59,12 +59,19 @@ const error: () => errors.$ZodErrorMap = () => {
+     // All other type names omitted - they fall back to raw values via ?? operator
+   };
+ 
++  function getTypeName(type: errors.$ZodInvalidTypeExpected, input?: unknown): string {
++    if (type === "number" && typeof input === "number" && !Number.isFinite(input)) {
++      return String(input);
++    }
++    return TypeDictionary[type] ?? type;
++  }
++
+   return (issue) => {
+     switch (issue.code) {
+       case "invalid_type": {
+-        const expected = TypeDictionary[issue.expected] ?? issue.expected;
++        const expected = getTypeName(issue.expected);
+         const receivedType = util.parsedType(issue.input);
+-        const received = TypeDictionary[receivedType] ?? receivedType;
++        const received = getTypeName(receivedType, issue.input);
+         return `Invalid input: expected ${expected}, received ${received}`;
+       }
+ 

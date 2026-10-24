@@ -1,0 +1,10 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/better-auth/src/plugins/organization/organization.test.ts::cancel pending invitations on re-invite > should cancel pending invitation and create a new one when re-inviting without resend",
+   "action": "keep",
+   "reason": "It checks only outcomes the instruction specifies (no error, pending status, a new id, one pending and one canceled invitation in listInvitations), and it does so through the public client API, so it does not inspect the implementation."
+  }
+ ],
+ "edits": []
+}

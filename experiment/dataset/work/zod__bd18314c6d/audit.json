@@ -1,0 +1,10 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/zod/src/v4/classic/tests/to-json-schema.test.ts::escapes JSON Pointer reserved characters in $ref but not in $defs key",
+   "action": "keep",
+   "reason": "It asserts only the public toJSONSchema output, the $ref string and the $defs keys, and the instruction specifies both values exactly."
+  }
+ ],
+ "edits": []
+}

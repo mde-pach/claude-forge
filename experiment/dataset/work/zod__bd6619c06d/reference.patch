@@ -1,0 +1,385 @@
+diff --git a/packages/docs/content/json-schema.mdx b/packages/docs/content/json-schema.mdx
+index 2efb509..5761a5f 100644
+--- a/packages/docs/content/json-schema.mdx
++++ b/packages/docs/content/json-schema.mdx
+@@ -107,8 +107,16 @@ interface ToJSONSchemaParams {
+ 
+   /** How to handle unrepresentable types.
+    * - `"throw"` — Default. Unrepresentable types throw an error
+-   * - `"any"` — Unrepresentable types become `{}` */
+-  unrepresentable?: "throw" | "any";
++   * - `"any"` — Unrepresentable types become `{}`
++   * - A function — returns the JSON Schema to use, or `"any"`/`"throw"` */
++  unrepresentable?:
++    | "throw"
++    | "any"
++    | ((ctx: {
++        zodSchema: $ZodTypes;
++        path: (string | number)[];
++        message: string;
++      }) => JSONSchema | "throw" | "any" | undefined);
+ 
+   /** How to handle cycles.
+    * - `"ref"` — Default. Cycles will be broken using $defs
+@@ -234,7 +242,30 @@ z.toJSONSchema(z.bigint(), { unrepresentable: "any" });
+ // => {}
+ ```
+ 
+-To represent some of these types but keep the error for the rest, use [`override`](#override) instead. It runs first, and only the types it doesn't handle throw.
++To decide case by case, pass a function instead. It's called for each unrepresentable schema encountered. Return a JSON Schema to use in its place, `"any"`, or `"throw"` (the default when you return nothing).
++
++```ts
++z.toJSONSchema(z.object({ createdAt: z.date(), id: z.bigint() }), {
++  unrepresentable: ({ zodSchema }) =>
++    zodSchema._zod.def.type === "date" ? { type: "string", format: "date-time" } : "throw",
++});
++// => throws Error (BigInt cannot be represented in JSON Schema)
++```
++
++The handler also receives the `path` of the schema and the `message` Zod would have thrown, and any error it throws propagates, so you can report unrepresentable types in your own words.
++
++```ts
++z.toJSONSchema(schema, {
++  unrepresentable: ({ path, message }) => {
++    throw new Error(`${message} (at /${path.join("/")})`);
++  },
++});
++```
++
++Two schemas can share a `zodSchema` but not a `message` — an `undefined` member and a `bigint` member of the same literal both arrive as the literal — so branch on `message` to tell those apart.
++
++Returning a JSON Schema for a literal replaces the whole literal, dropping its representable members: `z.literal(["a", 1n])` becomes just what you returned, and `"a"` is gone. Return `"any"` instead to keep the existing per-value behavior.
++
+ ### `cycles`
+ 
+ How to handle cycles. If a cycle is encountered as `z.toJSONSchema()` traverses the schema, it will be represented using `$ref`. 
+@@ -321,11 +352,12 @@ z.toJSONSchema(mySchema, {
+ });
+ ```
+ 
+-`override` runs before the [`unrepresentable`](#unrepresentable) error is thrown, so you can represent an unrepresentable type here without disabling the error for the others.
++Note that unrepresentable types will throw an `Error` before this function is called. To represent one of them, use [`unrepresentable`](#unrepresentable) — a handler there substitutes a type without disabling the error for the others. Setting `unrepresentable: "any"` alongside `override` also works, but erases every unrepresentable type.
+ 
+ ```ts
+ // support z.date() as ISO datetime strings
+ const result = z.toJSONSchema(z.date(), {
++  unrepresentable: "any",
+   override: (ctx) => {
+     const def = ctx.zodSchema._zod.def;
+     if(def.type ==="date"){
+@@ -336,21 +368,6 @@ const result = z.toJSONSchema(z.date(), {
+ });
+ ```
+ 
+-Any unrepresentable type your `override` doesn't give a JSON Schema still throws. Annotations don't count as handling one — adding a `description` to every schema won't suppress the error.
+-
+-```ts
+-z.toJSONSchema(z.object({ createdAt: z.date(), id: z.bigint() }), {
+-  override: (ctx) => {
+-    const def = ctx.zodSchema._zod.def;
+-    if(def.type ==="date"){
+-      ctx.jsonSchema.type = "string";
+-      ctx.jsonSchema.format = "date-time";
+-    }
+-  },
+-});
+-// => throws Error (BigInt cannot be represented in JSON Schema)
+-```
+-
+ 
+ ## Conversion
+ 
+diff --git a/packages/zod/src/v4/core/json-schema-generator.ts b/packages/zod/src/v4/core/json-schema-generator.ts
+index 9407197..4c258cf 100644
+--- a/packages/zod/src/v4/core/json-schema-generator.ts
++++ b/packages/zod/src/v4/core/json-schema-generator.ts
+@@ -56,8 +56,9 @@ export class JSONSchemaGenerator {
+   get target() {
+     return this.ctx.target;
+   }
++  // annotated so the .d.cts emits an indexed access rather than an inline `import()` of an ESM path
+   /** @deprecated Access via ctx instead */
+-  get unrepresentable() {
++  get unrepresentable(): ToJSONSchemaContext["unrepresentable"] {
+     return this.ctx.unrepresentable;
+   }
+   /** @deprecated Access via ctx instead */
+diff --git a/packages/zod/src/v4/core/json-schema-processors.ts b/packages/zod/src/v4/core/json-schema-processors.ts
+index 5a5c2e8..c8aab8e 100644
+--- a/packages/zod/src/v4/core/json-schema-processors.ts
++++ b/packages/zod/src/v4/core/json-schema-processors.ts
+@@ -100,12 +100,12 @@ export const booleanProcessor: Processor<schemas.$ZodBoolean> = (_schema, _ctx,
+   (json as JSONSchema.BooleanSchema).type = "boolean";
+ };
+ 
+-export const bigintProcessor: Processor<schemas.$ZodBigInt> = (schema, ctx, _json, _params) => {
+-  handleUnrepresentable(schema, ctx, "BigInt cannot be represented in JSON Schema");
++export const bigintProcessor: Processor<schemas.$ZodBigInt> = (schema, ctx, json, params) => {
++  handleUnrepresentable(schema, ctx, json, params, "BigInt cannot be represented in JSON Schema");
+ };
+ 
+-export const symbolProcessor: Processor<schemas.$ZodSymbol> = (schema, ctx, _json, _params) => {
+-  handleUnrepresentable(schema, ctx, "Symbols cannot be represented in JSON Schema");
++export const symbolProcessor: Processor<schemas.$ZodSymbol> = (schema, ctx, json, params) => {
++  handleUnrepresentable(schema, ctx, json, params, "Symbols cannot be represented in JSON Schema");
+ };
+ 
+ export const nullProcessor: Processor<schemas.$ZodNull> = (_schema, ctx, json, _params) => {
+@@ -118,12 +118,12 @@ export const nullProcessor: Processor<schemas.$ZodNull> = (_schema, ctx, json, _
+   }
+ };
+ 
+-export const undefinedProcessor: Processor<schemas.$ZodUndefined> = (schema, ctx, _json, _params) => {
+-  handleUnrepresentable(schema, ctx, "Undefined cannot be represented in JSON Schema");
++export const undefinedProcessor: Processor<schemas.$ZodUndefined> = (schema, ctx, json, params) => {
++  handleUnrepresentable(schema, ctx, json, params, "Undefined cannot be represented in JSON Schema");
+ };
+ 
+-export const voidProcessor: Processor<schemas.$ZodVoid> = (schema, ctx, _json, _params) => {
+-  handleUnrepresentable(schema, ctx, "Void cannot be represented in JSON Schema");
++export const voidProcessor: Processor<schemas.$ZodVoid> = (schema, ctx, json, params) => {
++  handleUnrepresentable(schema, ctx, json, params, "Void cannot be represented in JSON Schema");
+ };
+ 
+ export const neverProcessor: Processor<schemas.$ZodNever> = (_schema, _ctx, json, _params) => {
+@@ -138,8 +138,8 @@ export const unknownProcessor: Processor<schemas.$ZodUnknown> = (_schema, _ctx,
+   // empty schema accepts anything
+ };
+ 
+-export const dateProcessor: Processor<schemas.$ZodDate> = (schema, ctx, _json, _params) => {
+-  handleUnrepresentable(schema, ctx, "Date cannot be represented in JSON Schema");
++export const dateProcessor: Processor<schemas.$ZodDate> = (schema, ctx, json, params) => {
++  handleUnrepresentable(schema, ctx, json, params, "Date cannot be represented in JSON Schema");
+ };
+ 
+ export const enumProcessor: Processor<schemas.$ZodEnum> = (schema, _ctx, json, _params) => {
+@@ -151,14 +151,18 @@ export const enumProcessor: Processor<schemas.$ZodEnum> = (schema, _ctx, json, _
+   json.enum = values;
+ };
+ 
+-export const literalProcessor: Processor<schemas.$ZodLiteral> = (schema, ctx, json, _params) => {
++export const literalProcessor: Processor<schemas.$ZodLiteral> = (schema, ctx, json, params) => {
+   const def = schema._zod.def as schemas.$ZodLiteralDef<any>;
+   const vals: (string | number | boolean | null)[] = [];
+   for (const val of def.values) {
+     if (val === undefined) {
+-      handleUnrepresentable(schema, ctx, "Literal `undefined` cannot be represented in JSON Schema");
++      // a custom schema replaces the whole literal, so there is nothing left to accumulate
++      if (handleUnrepresentable(schema, ctx, json, params, "Literal `undefined` cannot be represented in JSON Schema"))
++        return;
++      // otherwise do not add to vals
+     } else if (typeof val === "bigint") {
+-      handleUnrepresentable(schema, ctx, "BigInt literals cannot be represented in JSON Schema");
++      if (handleUnrepresentable(schema, ctx, json, params, "BigInt literals cannot be represented in JSON Schema"))
++        return;
+       vals.push(Number(val));
+     } else {
+       vals.push(val);
+@@ -183,8 +187,8 @@ export const literalProcessor: Processor<schemas.$ZodLiteral> = (schema, ctx, js
+   }
+ };
+ 
+-export const nanProcessor: Processor<schemas.$ZodNaN> = (schema, ctx, _json, _params) => {
+-  handleUnrepresentable(schema, ctx, "NaN cannot be represented in JSON Schema");
++export const nanProcessor: Processor<schemas.$ZodNaN> = (schema, ctx, json, params) => {
++  handleUnrepresentable(schema, ctx, json, params, "NaN cannot be represented in JSON Schema");
+ };
+ 
+ export const templateLiteralProcessor: Processor<schemas.$ZodTemplateLiteral> = (schema, _ctx, json, _params) => {
+@@ -223,24 +227,24 @@ export const successProcessor: Processor<schemas.$ZodSuccess> = (_schema, _ctx,
+   (json as JSONSchema.BooleanSchema).type = "boolean";
+ };
+ 
+-export const customProcessor: Processor<schemas.$ZodCustom> = (schema, ctx, _json, _params) => {
+-  handleUnrepresentable(schema, ctx, "Custom types cannot be represented in JSON Schema");
++export const customProcessor: Processor<schemas.$ZodCustom> = (schema, ctx, json, params) => {
++  handleUnrepresentable(schema, ctx, json, params, "Custom types cannot be represented in JSON Schema");
+ };
+ 
+-export const functionProcessor: Processor<schemas.$ZodFunction> = (schema, ctx, _json, _params) => {
+-  handleUnrepresentable(schema, ctx, "Function types cannot be represented in JSON Schema");
++export const functionProcessor: Processor<schemas.$ZodFunction> = (schema, ctx, json, params) => {
++  handleUnrepresentable(schema, ctx, json, params, "Function types cannot be represented in JSON Schema");
+ };
+ 
+-export const transformProcessor: Processor<schemas.$ZodTransform> = (schema, ctx, _json, _params) => {
+-  handleUnrepresentable(schema, ctx, "Transforms cannot be represented in JSON Schema");
++export const transformProcessor: Processor<schemas.$ZodTransform> = (schema, ctx, json, params) => {
++  handleUnrepresentable(schema, ctx, json, params, "Transforms cannot be represented in JSON Schema");
+ };
+ 
+-export const mapProcessor: Processor<schemas.$ZodMap> = (schema, ctx, _json, _params) => {
+-  handleUnrepresentable(schema, ctx, "Map cannot be represented in JSON Schema");
++export const mapProcessor: Processor<schemas.$ZodMap> = (schema, ctx, json, params) => {
++  handleUnrepresentable(schema, ctx, json, params, "Map cannot be represented in JSON Schema");
+ };
+ 
+-export const setProcessor: Processor<schemas.$ZodSet> = (schema, ctx, _json, _params) => {
+-  handleUnrepresentable(schema, ctx, "Set cannot be represented in JSON Schema");
++export const setProcessor: Processor<schemas.$ZodSet> = (schema, ctx, json, params) => {
++  handleUnrepresentable(schema, ctx, json, params, "Set cannot be represented in JSON Schema");
+ };
+ 
+ // ==================== COMPOSITE TYPE PROCESSORS ====================
+@@ -496,7 +500,7 @@ export const catchProcessor: Processor<schemas.$ZodCatch> = (schema, ctx, json,
+   try {
+     catchValue = def.catchValue(undefined as any);
+   } catch {
+-    handleUnrepresentable(schema, ctx, "Dynamic catch values are not supported in JSON Schema");
++    handleUnrepresentable(schema, ctx, json, params, "Dynamic catch values are not supported in JSON Schema");
+     return;
+   }
+   json.default = catchValue;
+diff --git a/packages/zod/src/v4/core/to-json-schema.ts b/packages/zod/src/v4/core/to-json-schema.ts
+index 724743e..db7ca4d 100644
+--- a/packages/zod/src/v4/core/to-json-schema.ts
++++ b/packages/zod/src/v4/core/to-json-schema.ts
+@@ -23,6 +23,19 @@ export type Processor<T extends schemas.$ZodType = schemas.$ZodType> = (
+   params: ProcessParams
+ ) => void;
+ 
++/**
++ * Called for each schema that has no JSON Schema equivalent. Return a JSON Schema to use in its
++ * place, `"any"` to fall back to the `unrepresentable: "any"` behavior, or `"throw"`/`undefined` to
++ * throw the default error. Throwing from the handler propagates, so custom errors work too.
++ */
++export type UnrepresentableHandler<T extends schemas.$ZodType = schemas.$ZodType> = (ctx: {
++  zodSchema: T;
++  path: (string | number)[];
++  /** The error Zod would throw. Distinguishes sites that share a `zodSchema`, e.g. an `undefined`
++   *  vs a `bigint` member of the same literal. */
++  message: string;
++}) => JSONSchema.BaseSchema | "throw" | "any" | undefined;
++
+ export interface JSONSchemaGeneratorParams {
+   processors: Record<string, Processor>;
+   /** A registry used to look up metadata for each schema. Any schema with an `id` property will be extracted as a $def.
+@@ -36,8 +49,9 @@ export interface JSONSchemaGeneratorParams {
+   target?: "draft-04" | "draft-07" | "draft-2020-12" | "openapi-3.0" | ({} & string) | undefined;
+   /** How to handle unrepresentable types.
+    * - `"throw"` — Default. Unrepresentable types throw an error
+-   * - `"any"` — Unrepresentable types become `{}` */
+-  unrepresentable?: "throw" | "any";
++   * - `"any"` — Unrepresentable types become `{}`
++   * - A function — called once per unrepresentable schema; see {@link UnrepresentableHandler}. */
++  unrepresentable?: "throw" | "any" | UnrepresentableHandler<schemas.$ZodTypes>;
+   /** Arbitrary custom logic that can be used to modify the generated JSON Schema. */
+   override?: (ctx: {
+     zodSchema: schemas.$ZodTypes;
+@@ -87,8 +101,6 @@ export interface Seen {
+   /** Cycle path */
+   cycle?: (string | number)[] | undefined;
+   isParent?: boolean | undefined;
+-  /** Deferred `unrepresentable: "throw"` error, thrown after `override` gets a chance to handle it */
+-  unrepresentable?: string | undefined;
+   /** Schema to inherit JSON Schema properties from (set by processor for wrappers) */
+   ref?: schemas.$ZodType | null;
+   /** JSON Schema property path for this schema */
+@@ -99,7 +111,8 @@ export interface ToJSONSchemaContext {
+   processors: Record<string, Processor>;
+   metadataRegistry: $ZodRegistry<Record<string, any>>;
+   target: "draft-04" | "draft-07" | "draft-2020-12" | "openapi-3.0" | ({} & string);
+-  unrepresentable: "throw" | "any";
++  // must be schemas.$ZodType to prevent recursive type resolution error
++  unrepresentable: "throw" | "any" | UnrepresentableHandler;
+   override: (ctx: {
+     // must be schemas.$ZodType to prevent recursive type resolution error
+     zodSchema: schemas.$ZodType;
+@@ -139,7 +152,7 @@ export function initializeContext(params: JSONSchemaGeneratorParams): ToJSONSche
+     processors: params.processors ?? {},
+     metadataRegistry: params?.metadata ?? globalRegistry,
+     target,
+-    unrepresentable: params?.unrepresentable ?? "throw",
++    unrepresentable: (params?.unrepresentable as ToJSONSchemaContext["unrepresentable"]) ?? "throw",
+     override: (params?.override as any) ?? (() => {}),
+     io: params?.io ?? "output",
+     counter: 0,
+@@ -150,15 +163,26 @@ export function initializeContext(params: JSONSchemaGeneratorParams): ToJSONSche
+   };
+ }
+ 
+-/** Applies the `unrepresentable` setting at a site with no JSON Schema equivalent. Under `"throw"`
+- * the error is deferred: it is recorded on the seen entry and thrown in `finalize`, but only if
+- * `override` did not give the node a JSON Schema form of its own. */
+-export function handleUnrepresentable(schema: schemas.$ZodType, ctx: ToJSONSchemaContext, message: string): void {
+-  if (ctx.unrepresentable === "throw") {
+-    const seen = ctx.seen.get(schema);
+-    if (seen) seen.unrepresentable = message;
+-    else throw new Error(message);
+-  }
++/**
++ * Applies the `unrepresentable` setting at a site that has no JSON Schema equivalent. Throws
++ * `message` unless the setting (or the handler's return value) says otherwise. Returns `true` if a
++ * custom JSON Schema was written into `json`, in which case the caller must not write its own.
++ */
++export function handleUnrepresentable(
++  schema: schemas.$ZodType,
++  ctx: ToJSONSchemaContext,
++  json: JSONSchema.BaseSchema,
++  params: ProcessParams,
++  message: string
++): boolean {
++  const result =
++    typeof ctx.unrepresentable === "function"
++      ? ctx.unrepresentable({ zodSchema: schema, path: params.path, message })
++      : ctx.unrepresentable;
++  if (result === "any") return false;
++  if (result === undefined || result === "throw") throw new Error(message);
++  Object.assign(json, result);
++  return true;
+ }
+ 
+ export function process<T extends schemas.$ZodType>(
+@@ -381,28 +405,6 @@ export function extractDefs<T extends schemas.$ZodType>(
+   }
+ }
+ 
+-const ANNOTATION_KEYS = /*@__PURE__*/ new Set([
+-  "title",
+-  "description",
+-  "default",
+-  "examples",
+-  "deprecated",
+-  "readOnly",
+-  "writeOnly",
+-  "$comment",
+-  "id",
+-  "$id",
+-  "_prefault",
+-]);
+-
+-function structuralSnapshot(schema: JSONSchema.BaseSchema): string {
+-  const structural: Record<string, unknown> = {};
+-  for (const key in schema) {
+-    if (!ANNOTATION_KEYS.has(key)) structural[key] = schema[key];
+-  }
+-  return JSON.stringify(structural);
+-}
+-
+ export function finalize<T extends schemas.$ZodType>(
+   ctx: ToJSONSchemaContext,
+   schema: T
+@@ -486,23 +488,11 @@ export function finalize<T extends schemas.$ZodType>(
+     }
+ 
+     // execute overrides
+-    // Snapshot the structural (non-annotation) half so we can tell whether `override` actually
+-    // gave this node a JSON Schema form.
+-    const before = seen.unrepresentable !== undefined ? structuralSnapshot(schema) : "";
+-
+     ctx.override({
+       zodSchema: zodSchema as schemas.$ZodTypes,
+       jsonSchema: schema,
+       path: seen.path ?? [],
+     });
+-
+-    // An unrepresentable node survives only if `override` changed something structural about it.
+-    // Annotations don't count, so a blanket `description` override can't silently disable every
+-    // unrepresentable error; and requiring a *change* keeps value-level cases (an `undefined`
+-    // literal member, a dynamic `.catch()`) throwing even though their node already has a form.
+-    if (seen.unrepresentable !== undefined && structuralSnapshot(schema) === before) {
+-      throw new Error(seen.unrepresentable);
+-    }
+   };
+ 
+   for (const entry of [...ctx.seen.entries()].reverse()) {

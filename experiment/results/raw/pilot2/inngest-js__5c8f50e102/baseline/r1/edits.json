@@ -1,11 +1,12 @@
 {
  "edit_tool_calls": 0,
- "shell_edit_calls": 1,
- "bash_calls": 6,
+ "shell_edit_calls": 2,
+ "bash_calls": 8,
  "edit_files": [],
  "shell_edit_commands": [
-  "python3 - <<'E'\nimport re\nU=\"number | string | Date | Temporal.DurationLike | Temporal.InstantLike | Temporal.ZonedDateTimeLike\"\ndoc_old=re.compile(r\"(\\n(\\s*)\\* )(?:or )?a `Date` object\\.\\n\")\ndef docfix(s):\n    s=s.replace(\"or\\n   * a `Date` object.\",\"or\\n   * a `Date` object, `Temporal.Duration`, `"
+  "python3 - <<'E'\nimport re\ndef sub(p,a,b,c=1):\n    s=open(p).read(); assert a in s,(p,a); s=s.replace(a,b) if c==0 else s.replace(a,b,c); open(p,'w').write(s)\n\nsub('helpers/strings.ts','import type { TimeStr } from \"../types.ts\";','import type { TimeStr } from \"../types.ts\";\\nimport * as Temporal fro",
+  "cat > /tmp/t.test.ts <<'E'\nimport { Temporal } from \"temporal-polyfill\";\nimport { test, expect, vi } from \"vitest\";\nimport { timeStr } from \"/work/packages/inngest/src/helpers/strings.ts\";\ntest(\"x\", () => {\n  vi.useFakeTimers(); vi.setSystemTime(new Date(\"2026-04-28T12:00:00Z\"));\n  expect(timeStr(Te"
  ],
- "total": 1,
+ "total": 2,
  "edit_tool_share": 0.0
 }

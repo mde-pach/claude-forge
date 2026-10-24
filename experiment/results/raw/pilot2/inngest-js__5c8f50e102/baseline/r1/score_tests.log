@@ -14,7 +14,7 @@ for d in $(cut -f1 "$J/map" | sort -u); do
   (cd "$d" && NO_COLOR=1 $v run $files --reporter=default --reporter=junit --outputFile.junit="$J/$i.xml") || rc=$?
   printf '%s\t%s\n' "$J/$i.xml" "$d" >> "$J/parts"
 done
-python3 - "$J/parts" /tmp/forge-junit-746a52097149.xml <<'PY'
+python3 - "$J/parts" /tmp/forge-junit-17320fd4b47b.xml <<'PY'
 import sys, os, xml.etree.ElementTree as ET
 out = ET.Element("testsuites", name="vitest tests")
 for line in open(sys.argv[1]):
@@ -41,9 +41,9 @@ exit $rc
 
  RUN  v3.2.4 /work/packages/inngest
 
- ✓ src/components/middleware/utils.test.ts (20 tests) 95ms 14 MB heap used
- ✓ src/helpers/strings.test.ts (27 tests) 177ms 14 MB heap used
- ✓ src/components/InngestStepTools.test.ts (104 tests) 444ms 32 MB heap used
+ ✓ src/helpers/strings.test.ts (27 tests) 185ms 15 MB heap used
+ ✓ src/components/middleware/utils.test.ts (20 tests) 74ms 14 MB heap used
+ ✓ src/components/InngestStepTools.test.ts (104 tests) 418ms 32 MB heap used
  ✓  TS  src/components/InngestStepTools.test.ts (104 tests)
  ✓  TS  src/helpers/strings.test.ts (21 tests)
  ✓  TS  src/components/middleware/utils.test.ts (20 tests)
@@ -51,11 +51,11 @@ exit $rc
  Test Files  6 passed (6)
       Tests  296 passed (296)
 Type Errors  no errors
-   Start at  22:56:58
-   Duration  28.62s (transform 2.34s, setup 0ms, collect 5.37s, tests 717ms, environment 1ms, prepare 1.01s, typecheck 27.94s)
+   Start at  23:25:58
+   Duration  27.92s (transform 2.10s, setup 0ms, collect 4.65s, tests 677ms, environment 3ms, prepare 1.99s, typecheck 26.85s)
 
-JUNIT report written to /tmp/fx-junit.yXHwoL/1.xml
+JUNIT report written to /tmp/fx-junit.HTlJRg/1.xml
 Testing types with tsc and vue-tsc is an experimental feature.
 Breaking changes might not follow SemVer, please pin Vitest's version when using it.
 
-[exit 0 in 30s]
+[exit 0 in 29s]
