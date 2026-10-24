@@ -1,0 +1,19 @@
+# pydantic/logfire. Mirrors `make install` / CI (`uv sync --frozen`, default `dev` group, which
+# includes the logfire-api workspace member) on Python 3.12 (in the CI matrix).
+logfire:
+  url: https://github.com/pydantic/logfire
+  mirror: /work/repos/pydantic__logfire
+  lang: python
+  image: forge-exp/base:v1
+  install: UV_CACHE_DIR=/cache/uv uv sync --frozen --offline --python 3.12
+  warm: UV_CACHE_DIR=/cache/uv uv sync --frozen --python 3.12
+  lockfiles: [uv.lock]
+  path_prepend: /work/.venv/bin
+  test_file_regex: '(^|/)(tests?|testing)/.*\.py$|(^|/)test_[^/]*\.py$|_test\.py$|(^|/)conftest\.py$'
+  test_cmd: >-
+    pytest -p no:cacheprovider -o junit_family=xunit1 --junitxml={junit}
+    --continue-on-collection-errors -q --no-header -rN {targets}
+  lint_cmd: ruff check --no-cache --output-format=json {files}
+  junit_flavor: pytest
+  env:
+    UV_PYTHON: "3.12"

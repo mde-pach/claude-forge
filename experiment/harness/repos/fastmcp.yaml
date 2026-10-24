@@ -1,0 +1,21 @@
+# jlowin/fastmcp. Mirrors CI (.github/actions/setup-uv: `uv sync --locked`, default `dev` group;
+# .python-version 3.12; run-pytest: --inline-snapshot=disable, per-test timeout, markers).
+# integration (needs GitHub secrets/network) and conformance (needs npx + network) are deselected.
+fastmcp:
+  url: https://github.com/jlowin/fastmcp
+  mirror: /work/repos/jlowin__fastmcp
+  lang: python
+  image: forge-exp/base:v1
+  install: UV_CACHE_DIR=/cache/uv uv sync --frozen --offline --python 3.12
+  warm: UV_CACHE_DIR=/cache/uv uv sync --frozen --python 3.12
+  lockfiles: [uv.lock]
+  path_prepend: /work/.venv/bin
+  test_file_regex: '(^|/)(tests?|testing)/.*\.py$|(^|/)test_[^/]*\.py$|_test\.py$|(^|/)conftest\.py$'
+  test_cmd: >-
+    pytest -p no:cacheprovider -o junit_family=xunit1 --junitxml={junit}
+    --continue-on-collection-errors -q --no-header -rN
+    --inline-snapshot=disable --timeout=60 -m "not integration and not conformance" {targets}
+  lint_cmd: ruff check --no-cache --output-format=json {files}
+  junit_flavor: pytest
+  env:
+    UV_PYTHON: "3.12"
