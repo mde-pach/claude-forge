@@ -1,0 +1,62 @@
+{
+ "task_id": "fastmcp__1cfd30840d",
+ "window": "pilot",
+ "repo": "fastmcp",
+ "commit": "1cfd30840d5790e5bf72ac5f4440093164c8a644",
+ "parent": "73b7f2e44dc1b2173d8ea8831f4ae666bf869630",
+ "date": "2026-05-04T12:44:06-04:00",
+ "subject": "fix(openapi): keep blank values in parse_qs (refs #4056) (#4076)",
+ "type": "fix",
+ "test_files": [
+  "tests/utilities/test_tests.py"
+ ],
+ "source_files": [
+  "src/fastmcp/utilities/tests.py"
+ ],
+ "source_lines": 6,
+ "all_files": [
+  "src/fastmcp/utilities/tests.py",
+  "tests/utilities/test_tests.py"
+ ],
+ "hidden": [
+  "tests/utilities/test_tests.py"
+ ],
+ "deleted": [],
+ "targets": [
+  "tests/utilities/test_tests.py"
+ ],
+ "f2p": [
+  "tests/utilities/test_tests.py::TestHeadlessOAuthCallbackHandler::test_callback_preserves_blank_state",
+  "tests/utilities/test_tests.py::TestHeadlessOAuthCallbackHandler::test_callback_uses_blank_error_description_verbatim"
+ ],
+ "p2p": [
+  "tests/utilities/test_tests.py::TestHeadlessOAuthCallbackHandler::test_callback_returns_none_when_state_missing",
+  "tests/utilities/test_tests.py::TestTemporarySettings::test_temporary_settings",
+  "tests/utilities/test_tests.py::TestTransportSetting::test_run_async_explicit_transport_overrides_setting",
+  "tests/utilities/test_tests.py::TestTransportSetting::test_run_async_uses_transport_setting",
+  "tests/utilities/test_tests.py::TestTransportSetting::test_transport_default_is_stdio",
+  "tests/utilities/test_tests.py::TestTransportSetting::test_transport_setting_can_be_changed"
+ ],
+ "flaky": [],
+ "cost_instruction": 0.0488498,
+ "cost_audit": 0.0515342,
+ "kept_f2p": [
+  "tests/utilities/test_tests.py::TestHeadlessOAuthCallbackHandler::test_callback_preserves_blank_state",
+  "tests/utilities/test_tests.py::TestHeadlessOAuthCallbackHandler::test_callback_uses_blank_error_description_verbatim"
+ ],
+ "kept_p2p": [
+  "tests/utilities/test_tests.py::TestHeadlessOAuthCallbackHandler::test_callback_returns_none_when_state_missing",
+  "tests/utilities/test_tests.py::TestTemporarySettings::test_temporary_settings",
+  "tests/utilities/test_tests.py::TestTransportSetting::test_run_async_explicit_transport_overrides_setting",
+  "tests/utilities/test_tests.py::TestTransportSetting::test_run_async_uses_transport_setting",
+  "tests/utilities/test_tests.py::TestTransportSetting::test_transport_default_is_stdio",
+  "tests/utilities/test_tests.py::TestTransportSetting::test_transport_setting_can_be_changed"
+ ],
+ "edits_applied": 0,
+ "edits_rejected": [],
+ "dropped": [],
+ "revalidate_bad_f2p": [],
+ "revalidate_bad_p2p": [],
+ "final": "accepted",
+ "reason": null
+}

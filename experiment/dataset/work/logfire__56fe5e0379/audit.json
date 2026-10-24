@@ -1,0 +1,20 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/test_variables.py::TestSSEHardening::test_sse_had_connected_starts_false",
+   "action": "keep",
+   "reason": "It checks only `_sse_had_connected` and `_force_refresh_event` at construction, and the instruction names both and specifies their initial state."
+  },
+  {
+   "id": "tests/test_variables.py::TestSSEHardening::test_keepalive_line_resets_reconnect_backoff",
+   "action": "keep",
+   "reason": "It drives the existing `_sse_listener`, mocks only the network `Session` at the boundary, records waits via the named `_wait_for_reconnect(delay)`, and asserts the exact sequence 1.0, 2.0, 4.0, 1.0 given in the instruction."
+  },
+  {
+   "id": "tests/test_variables.py::TestSSEHardening::test_worker_scheduled_iteration_bypasses_interval_gate",
+   "action": "keep",
+   "reason": "It runs the existing `_worker` with the named `_worker_awaken.wait` stubbed and asserts that `refresh` gets `force=True`, which the instruction requires explicitly; any call form (keyword or positional) passes."
+  }
+ ],
+ "edits": []
+}

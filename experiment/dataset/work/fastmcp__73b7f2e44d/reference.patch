@@ -1,0 +1,123 @@
+diff --git a/src/fastmcp/exceptions.py b/src/fastmcp/exceptions.py
+index e5e0790..e14d5a1 100644
+--- a/src/fastmcp/exceptions.py
++++ b/src/fastmcp/exceptions.py
+@@ -1,5 +1,7 @@
+ """Custom exceptions for FastMCP."""
+ 
++import logging
++
+ from mcp import McpError  # noqa: F401
+ 
+ 
+@@ -15,6 +17,10 @@ class FastMCPDeprecationWarning(DeprecationWarning):
+ class FastMCPError(Exception):
+     """Base error for FastMCP."""
+ 
++    def __init__(self, *args: object, log_level: int = logging.ERROR) -> None:
++        super().__init__(*args)
++        self.log_level = log_level
++
+ 
+ class ValidationError(FastMCPError):
+     """Error in validating parameters or return values."""
+diff --git a/src/fastmcp/prompts/function_prompt.py b/src/fastmcp/prompts/function_prompt.py
+index 77b38e4..3c4bd2f 100644
+--- a/src/fastmcp/prompts/function_prompt.py
++++ b/src/fastmcp/prompts/function_prompt.py
+@@ -24,7 +24,7 @@ from pydantic.json_schema import SkipJsonSchema
+ 
+ import fastmcp
+ from fastmcp.decorators import resolve_task_config
+-from fastmcp.exceptions import FastMCPDeprecationWarning, PromptError
++from fastmcp.exceptions import FastMCPDeprecationWarning, FastMCPError, PromptError
+ from fastmcp.prompts.base import Prompt, PromptArgument, PromptResult
+ from fastmcp.server.auth.authorization import AuthCheck
+ from fastmcp.server.dependencies import (
+@@ -361,6 +361,8 @@ class FunctionPrompt(Prompt):
+                     result = await result
+ 
+             return self.convert_result(result)
++        except FastMCPError:
++            raise
+         except Exception as e:
+             logger.exception(f"Error rendering prompt {self.name}")
+             raise PromptError(f"Error rendering prompt {self.name!r}: {e}") from e
+diff --git a/src/fastmcp/server/sampling/run.py b/src/fastmcp/server/sampling/run.py
+index 0fe55ef..c45163f 100644
+--- a/src/fastmcp/server/sampling/run.py
++++ b/src/fastmcp/server/sampling/run.py
+@@ -304,7 +304,11 @@ async def execute_tools(
+             )
+         except ToolError as e:
+             # ToolError is the escape hatch - always pass message through
+-            logger.exception(f"Error calling sampling tool '{tool_use.name}'")
++            logger.log(
++                e.log_level,
++                f"Error calling sampling tool '{tool_use.name}'",
++                exc_info=True,
++            )
+             return ToolResultContent(
+                 type="tool_result",
+                 toolUseId=tool_use.id,
+diff --git a/src/fastmcp/server/server.py b/src/fastmcp/server/server.py
+index b039921..993ffd3 100644
+--- a/src/fastmcp/server/server.py
++++ b/src/fastmcp/server/server.py
+@@ -1264,8 +1264,10 @@ class FastMCP(
+                     task_meta = replace(task_meta, fn_key=tool.key)
+                 try:
+                     return await tool._run(arguments or {}, task_meta=task_meta)
+-                except FastMCPError:
+-                    logger.exception(f"Error calling tool {name!r}")
++                except FastMCPError as e:
++                    logger.log(
++                        e.log_level, f"Error calling tool {name!r}", exc_info=True
++                    )
+                     raise
+                 except (ValidationError, PydanticValidationError):
+                     logger.exception(f"Error validating tool {name!r}")
+@@ -1394,7 +1396,14 @@ class FastMCP(
+                         task_meta = replace(task_meta, fn_key=resource.key)
+                     try:
+                         return await resource._read(task_meta=task_meta)
+-                    except (FastMCPError, McpError):
++                    except FastMCPError as e:
++                        logger.log(
++                            e.log_level,
++                            f"Error reading resource {uri!r}",
++                            exc_info=True,
++                        )
++                        raise
++                    except McpError:
+                         logger.exception(f"Error reading resource {uri!r}")
+                         raise
+                     except Exception as e:
+@@ -1433,7 +1442,12 @@ class FastMCP(
+                     task_meta = replace(task_meta, fn_key=template.key)
+                 try:
+                     return await template._read(uri, params, task_meta=task_meta)
+-                except (FastMCPError, McpError):
++                except FastMCPError as e:
++                    logger.log(
++                        e.log_level, f"Error reading resource {uri!r}", exc_info=True
++                    )
++                    raise
++                except McpError:
+                     logger.exception(f"Error reading resource {uri!r}")
+                     raise
+                 except Exception as e:
+@@ -1547,7 +1561,12 @@ class FastMCP(
+                     task_meta = replace(task_meta, fn_key=prompt.key)
+                 try:
+                     return await prompt._render(arguments, task_meta=task_meta)
+-                except (FastMCPError, McpError):
++                except FastMCPError as e:
++                    logger.log(
++                        e.log_level, f"Error rendering prompt {name!r}", exc_info=True
++                    )
++                    raise
++                except McpError:
+                     logger.exception(f"Error rendering prompt {name!r}")
+                     raise
+                 except Exception as e:

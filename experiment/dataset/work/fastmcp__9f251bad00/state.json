@@ -1,0 +1,84 @@
+{
+ "task_id": "fastmcp__9f251bad00",
+ "window": "main",
+ "repo": "fastmcp",
+ "commit": "9f251bad006ed154d0f5aeeb68cd66c85b4ccb47",
+ "parent": "4ad78a60efaa57caa464af8ce61d1f3134c0dc59",
+ "date": "2026-07-08T20:56:07-04:00",
+ "subject": "Forward-port Hugging Face auth provider (#4475)",
+ "type": "other",
+ "test_files": [
+  "tests/server/auth/providers/test_huggingface.py"
+ ],
+ "source_files": [
+  "fastmcp_slim/fastmcp/server/auth/providers/huggingface.py"
+ ],
+ "source_lines": 280,
+ "all_files": [
+  "docs/docs.json",
+  "docs/integrations/huggingface.mdx",
+  "examples/auth/huggingface_oauth/README.md",
+  "examples/auth/huggingface_oauth/client.py",
+  "examples/auth/huggingface_oauth/server.py",
+  "fastmcp_slim/fastmcp/server/auth/providers/huggingface.py",
+  "tests/server/auth/providers/test_huggingface.py"
+ ],
+ "hidden": [
+  "tests/server/auth/providers/test_huggingface.py"
+ ],
+ "deleted": [],
+ "targets": [
+  "tests/server/auth/providers/test_huggingface.py"
+ ],
+ "f2p": [
+  "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceProvider::test_init_defaults",
+  "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceProvider::test_init_with_explicit_params",
+  "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceProvider::test_oauth_endpoints_configured_correctly",
+  "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceProvider::test_public_pkce_app_uses_none_token_auth",
+  "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceProvider::test_uses_upstream_token_response_scopes",
+  "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceProvider::test_valid_scopes_passed_through",
+  "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceTokenVerifier::test_defaults_scopes_when_userinfo_has_no_scope",
+  "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceTokenVerifier::test_invalid_token_returns_none",
+  "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceTokenVerifier::test_missing_required_scope_returns_none",
+  "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceTokenVerifier::test_missing_sub_returns_none",
+  "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceTokenVerifier::test_sends_bearer_token_to_userinfo",
+  "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceTokenVerifier::test_valid_token_with_userinfo_scopes",
+  "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceTokenVerifier::test_valid_token_with_whoami_scopes"
+ ],
+ "p2p": [],
+ "flaky": [],
+ "cost_instruction": 0.1221138,
+ "cost_audit": 0.22775099999999998,
+ "kept_f2p": [
+  "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceProvider::test_init_defaults",
+  "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceProvider::test_init_with_explicit_params",
+  "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceProvider::test_uses_upstream_token_response_scopes",
+  "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceProvider::test_valid_scopes_passed_through",
+  "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceTokenVerifier::test_defaults_scopes_when_userinfo_has_no_scope",
+  "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceTokenVerifier::test_invalid_token_returns_none",
+  "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceTokenVerifier::test_missing_required_scope_returns_none",
+  "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceTokenVerifier::test_missing_sub_returns_none",
+  "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceTokenVerifier::test_sends_bearer_token_to_userinfo",
+  "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceTokenVerifier::test_valid_token_with_userinfo_scopes",
+  "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceTokenVerifier::test_valid_token_with_whoami_scopes"
+ ],
+ "kept_p2p": [],
+ "edits_applied": 2,
+ "edits_rejected": [],
+ "dropped": [
+  {
+   "id": "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceProvider::test_oauth_endpoints_configured_correctly",
+   "action": "drop",
+   "reason": "Every assertion inspects private OAuthProxy attributes (_upstream_*_endpoint)."
+  },
+  {
+   "id": "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceProvider::test_public_pkce_app_uses_none_token_auth",
+   "action": "drop",
+   "reason": "Every assertion inspects private attributes (_upstream_client_secret, _token_endpoint_auth_method)."
+  }
+ ],
+ "revalidate_bad_f2p": [],
+ "revalidate_bad_p2p": [],
+ "final": "accepted",
+ "reason": null
+}

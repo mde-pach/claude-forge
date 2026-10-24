@@ -1,0 +1,52 @@
+{
+ "task_id": "logfire__45ee846a4a",
+ "window": "main",
+ "repo": "logfire",
+ "commit": "45ee846a4a6658dcb5338c7b0a1408ce21e13073",
+ "parent": "3cb97d520e8c67a166e33fff9d46ad68be71ff46",
+ "date": "2026-07-14T11:44:53+00:00",
+ "subject": "fix(logfire-api): support bare @logfire.instrument decorator (#2047)",
+ "type": "fix",
+ "test_files": [
+  "tests/test_logfire_api.py"
+ ],
+ "source_files": [
+  "logfire-api/logfire_api/__init__.py"
+ ],
+ "source_lines": 8,
+ "all_files": [
+  "logfire-api/logfire_api/__init__.py",
+  "tests/test_logfire_api.py"
+ ],
+ "hidden": [
+  "tests/test_logfire_api.py"
+ ],
+ "deleted": [],
+ "targets": [
+  "tests/test_logfire_api.py"
+ ],
+ "f2p": [
+  "tests/test_logfire_api.py::test_runtime[without_logfire]"
+ ],
+ "p2p": [
+  "tests/test_logfire_api.py::test_match_version_on_pyproject",
+  "tests/test_logfire_api.py::test_runtime[with_logfire]"
+ ],
+ "flaky": [],
+ "cost_instruction": 0.0421458,
+ "cost_audit": 0.07732159999999999,
+ "kept_f2p": [
+  "tests/test_logfire_api.py::test_runtime[without_logfire]"
+ ],
+ "kept_p2p": [
+  "tests/test_logfire_api.py::test_match_version_on_pyproject",
+  "tests/test_logfire_api.py::test_runtime[with_logfire]"
+ ],
+ "edits_applied": 0,
+ "edits_rejected": [],
+ "dropped": [],
+ "revalidate_bad_f2p": [],
+ "revalidate_bad_p2p": [],
+ "final": "accepted",
+ "reason": null
+}

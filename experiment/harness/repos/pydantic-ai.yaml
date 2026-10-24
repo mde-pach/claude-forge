@@ -1,17 +1,28 @@
 # pydantic/pydantic-ai. Mirrors `make install` (uv sync --frozen --all-extras --all-packages
-# --group lint --group docs) on Python 3.12, minus the `sentence-transformers` extra, which pulls
-# torch + CUDA (~5 GB per venv); its tests skip. See harness/IMAGES.md.
+# --group lint --group docs) on Python 3.12, minus the heavy local-model extras
+# (sentence-transformers, outlines-*: torch + CUDA ~5 GB per venv, llama.cpp builds); their
+# tests skip. See harness/IMAGES.md.
 pydantic-ai:
   url: https://github.com/pydantic/pydantic-ai
   mirror: /work/repos/pydantic__pydantic-ai
   lang: python
   image: forge-exp/base:v1
+  # Heavy local-model extras (torch + CUDA, llama.cpp source builds) are excluded when the
+  # commit defines them; their tests skip. The list is fixed; only defined extras are passed.
   install: >-
-    UV_CACHE_DIR=/cache/uv uv sync --frozen --offline --python 3.12
-    --all-extras --no-extra sentence-transformers --all-packages --group lint --group docs
+    set -e;
+    if touch /cache/uv/.forge-w 2>/dev/null; then rm -f /cache/uv/.forge-w; else export UV_CACHE_DIR=/opt/forge-cache/uv; uv-cache-overlay /cache/uv; fi;
+    X=""; for e in sentence-transformers outlines-transformers outlines-llamacpp outlines-mlxlm
+    outlines-sglang outlines-vllm-offline; do
+    if grep -qs "^$e = " pyproject.toml */pyproject.toml; then X="$X --no-extra $e"; fi; done;
+    uv sync --frozen --offline --python 3.12 --all-extras $X --all-packages --group lint --group docs
   warm: >-
-    UV_CACHE_DIR=/cache/uv uv sync --frozen --python 3.12
-    --all-extras --no-extra sentence-transformers --all-packages --group lint --group docs
+    set -e;
+    X=""; for e in sentence-transformers outlines-transformers outlines-llamacpp outlines-mlxlm
+    outlines-sglang outlines-vllm-offline; do
+    if grep -qs "^$e = " pyproject.toml */pyproject.toml; then X="$X --no-extra $e"; fi; done;
+    UV_CACHE_DIR=/cache/uv UV_OFFLINE=false
+    uv sync --frozen --python 3.12 --all-extras $X --all-packages --group lint --group docs
   lockfiles: [uv.lock]
   path_prepend: /work/.venv/bin
   test_file_regex: '(^|/)(tests?|testing)/.*\.py$|(^|/)test_[^/]*\.py$|_test\.py$|(^|/)conftest\.py$'
@@ -22,4 +33,6 @@ pydantic-ai:
   junit_flavor: pytest
   env:
     UV_PYTHON: "3.12"
+    # The agent's own uv/uvx (uv run, Forge's uvx tools) use the same warm cache as the install.
+    UV_CACHE_DIR: /cache/uv
     COLUMNS: "150"

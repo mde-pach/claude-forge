@@ -46,7 +46,7 @@ An `acceptEdits` arm would measure the ask-reviewer (see D2), but it needs anoth
 Forge's docs say that headless Claude Code loads the project plugin only in a trusted workspace ("accept the trust dialog once, interactively"). The harness writes the equivalent `hasTrustDialogAccepted: true` entry for the workspace path into `~/.claude.json`, in **both** arms.
 
 ## D9. Starting repository without history
-The agent's workspace is a fresh git repository with a single commit holding the tree of `C^`, the author fixed and the date fixed. Forge relies on git, and so does a normal developer. Upstream history is removed so the fix cannot be read from it. In the Forge arm, `forge apply` runs after that commit, and its files are left uncommitted, so they are visible as Forge-owned paths. Forge's Stop check compares against the turn start, so uncommitted Forge files do not count as agent changes.
+The agent's workspace is a fresh git repository with a single commit holding the tree of `C^`, the author fixed and the date fixed. Forge relies on git, and so does a normal developer. Upstream history is removed so the fix cannot be read from it. In the Forge arm, `forge apply` runs after that commit, and the result is committed as *Getting started* says (`git add .forge .claude && git commit -m "Add Forge"`). The baseline therefore has one commit and the Forge arm two; this is part of applying Forge as documented. The agent's diff is always taken against the root commit, excluding `.forge/` and `.claude/`.
 
 ## D10. Timeouts and budget
 45 min wall clock and `--max-budget-usd 15` per trial, identical across arms. Hitting either limit is a scored outcome: the tree is scored as left. It is not an infrastructure error, because both arms face the same limit and the Forge hooks' own time is part of what is being measured.
@@ -59,3 +59,16 @@ At most 3 attempts. An attempt counts as infrastructure when:
 - the scorer could not run the tests (collection error caused by the environment, not the code).
 
 The classifier is a fixed regular-expression list in `harness/classify.py`. A scoring collection error caused by the agent's code, such as a syntax error, is a fail, not infra.
+
+## D12. Offline package caches (from the image build; details in `harness/IMAGES.md`)
+- **uv cache.** uv cannot use a read-only cache, even offline. Each container gets a throwaway overlay: the shared `/work/cache/uv` is the read-only lower layer and is never written. This is identical in every container.
+- **`UV_OFFLINE=1` in the shared image (both arms).** Forge's hooks run ast-grep through `uvx`. On an offline machine uvx otherwise spends about 6 s per call retrying PyPI before Forge's own offline fallback. That delay is an artefact of our network isolation, not of Forge, so it is removed for both arms.
+- **`UV_CACHE_DIR=/cache/uv` in the agent environment (both arms)**, so that `uv run pytest`, the way these repositories document running tests, works offline.
+- **pydantic-ai: heavy local-model extras are not installed** (sentence-transformers, outlines-*, i.e. torch/CUDA or llama.cpp builds, about 5 GB per environment). Their tests skip at both the parent and the commit, so they can never be F2P. This applies equally to both arms.
+- **Cache warm-up depth.** The first 60 main-window candidates plus 10 pilot candidates are warmed (logfire: 40, the pre-set floor, because of disk). Candidates are processed oldest first, and 10 accepted per repository are expected well within these.
+
+## D13. Dependency install failures during dataset building
+A candidate whose parent cannot be installed offline for a deterministic environmental reason is rejected as `install_failed`, and reported separately from the other reasons. The known example is a pinned package without a wheel for the image's Python, which would need a compiler. This is not a transient infrastructure failure (network, registry, DNS, disk, usage limit), so rule 5 does not apply. Re-running would give the same result. Transient failures, in contrast, leave the candidate unprocessed and are retried, by `build.py`'s exception path.
+
+## D14. Hidden test files include non-code test assets
+The hidden set is every file the commit changes under a test path, of any type: VCR cassettes, snapshots and fixtures, not only `.py`/`.ts` files. Test files the commit deletes are deleted at scoring. Only test *modules* are passed to the runner as targets.

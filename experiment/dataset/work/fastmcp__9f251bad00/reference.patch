@@ -1,0 +1,724 @@
+diff --git a/docs/docs.json b/docs/docs.json
+index ad88f73..fb1d309 100644
+--- a/docs/docs.json
++++ b/docs/docs.json
+@@ -284,6 +284,7 @@
+                       "integrations/eunomia-authorization",
+                       "integrations/github",
+                       "integrations/google",
++                      "integrations/huggingface",
+                       "integrations/keycloak",
+                       "integrations/oci",
+                       "integrations/permit",
+diff --git a/docs/integrations/huggingface.mdx b/docs/integrations/huggingface.mdx
+new file mode 100644
+index 0000000..5579402
+--- /dev/null
++++ b/docs/integrations/huggingface.mdx
+@@ -0,0 +1,304 @@
++---
++title: Hugging Face OAuth 🤝 FastMCP
++sidebarTitle: Hugging Face
++description: Secure your FastMCP server with Hugging Face OAuth
++icon: hugging-face
++iconType: brands
++---
++
++import { VersionBadge } from "/snippets/version-badge.mdx"
++
++<VersionBadge version="3.4.3" />
++
++This guide shows you how to secure your FastMCP server using **Hugging Face OAuth**.
++The `HuggingFaceProvider` uses FastMCP's [OAuth Proxy](/servers/auth/oauth-proxy)
++pattern with Hugging Face's OAuth and OpenID Connect endpoints. It works with
++manually created confidential apps, public PKCE apps, and Client ID Metadata
++Documents (CIMD).
++
++When deploying your MCP server to Hugging Face Spaces, Spaces can create and
++manage the OAuth app for you.
++
++## Configuration
++
++### Prerequisites
++
++Before you begin, you will need:
++
++1. A **[Hugging Face account](https://huggingface.co/join)** with access to create OAuth apps
++2. Your FastMCP server's URL (can be localhost for development, e.g., `http://localhost:8000`)
++
++### Step 1: Create a Hugging Face OAuth app
++
++Create an OAuth app from your [Hugging Face application settings](https://huggingface.co/settings/applications/new).
++For details, see Hugging Face's [OAuth documentation](https://huggingface.co/docs/hub/oauth).
++
++<Steps>
++<Step title="Create the OAuth app">
++    Go to your [Hugging Face application settings](https://huggingface.co/settings/applications/new)
++    and create a new OAuth application.
++
++    Choose a name users will recognize, then configure the redirect URL for
++    your FastMCP server:
++
++    - Development: `http://localhost:8000/auth/callback`
++    - Production: `https://your-domain.com/auth/callback`
++
++    <Warning>
++    The redirect URL must match exactly. The default path is `/auth/callback`,
++    but you can customize it using the `redirect_path` parameter. For
++    production, use HTTPS.
++    </Warning>
++</Step>
++
++<Step title="Save your credentials">
++    After creating the app, save:
++
++    - **Client ID**: The public identifier for your Hugging Face OAuth app
++    - **Client Secret**: The app secret, if you created a confidential app
++
++    <Tip>
++    Store the client secret securely. Never commit it to version control. Use
++    environment variables or a secrets manager in production.
++    </Tip>
++</Step>
++</Steps>
++
++### Step 2: Configure FastMCP
++
++```python server.py
++from fastmcp import FastMCP
++from fastmcp.server.auth.providers.huggingface import HuggingFaceProvider
++
++# The HuggingFaceProvider handles Hugging Face's opaque OAuth access tokens
++# and stores user data in token claims.
++auth_provider = HuggingFaceProvider(
++    client_id="your-huggingface-client-id",        # Your Hugging Face OAuth app client ID
++    client_secret="your-huggingface-client-secret", # Your Hugging Face OAuth app client secret
++    base_url="http://localhost:8000",              # Must match your OAuth configuration
++    required_scopes=["openid", "profile"],         # Default value
++    # redirect_path="/auth/callback"               # Default value, customize if needed
++)
++
++mcp = FastMCP(name="Hugging Face Secured App", auth=auth_provider)
++
++
++# Add a protected tool to test authentication
++@mcp.tool
++async def get_user_info() -> dict:
++    """Returns information about the authenticated Hugging Face user."""
++    from fastmcp.server.dependencies import get_access_token
++
++    token = get_access_token()
++    return {
++        "subject": token.claims.get("sub"),
++        "username": token.claims.get("preferred_username"),
++        "profile": token.claims.get("profile"),
++    }
++```
++
++## Public OAuth apps, DCR, and CIMD
++
++Hugging Face supports public OAuth apps (no client secret). For public apps,
++omit `client_secret` and provide a `jwt_signing_key` so FastMCP can sign its
++own proxy tokens:
++
++```python
++auth_provider = HuggingFaceProvider(
++    client_id="your-public-huggingface-client-id",
++    base_url="http://localhost:8000",
++    jwt_signing_key="replace-with-a-secure-secret",
++)
++```
++
++MCP clients can use Dynamic Client Registration with your FastMCP server. The
++`HuggingFaceProvider` inherits FastMCP's OAuth Proxy behavior, which handles
++client registration locally and forwards authorization to Hugging Face using
++your configured Hugging Face OAuth app. In other words, MCP clients register
++with FastMCP, while FastMCP uses your Hugging Face `client_id` and optional
++`client_secret` for the upstream OAuth flow.
++
++You can also use a Client ID Metadata Document URL as the `client_id` when your
++client metadata is hosted at a stable HTTPS URL:
++
++```python
++auth_provider = HuggingFaceProvider(
++    client_id="https://your-client.example/.well-known/oauth-cimd",
++    base_url="http://localhost:8000",
++    jwt_signing_key="replace-with-a-secure-secret",
++)
++```
++
++## Testing
++
++### Running the Server
++
++Start your server with HTTP transport:
++
++```bash
++fastmcp run server.py --transport http --port 8000
++```
++
++Your server is now running and protected by Hugging Face OAuth authentication.
++
++### Testing with a Client
++
++Create a test client that authenticates with your Hugging Face-protected server:
++
++```python test_client.py
++import asyncio
++from fastmcp import Client
++
++
++async def main():
++    async with Client("http://localhost:8000/mcp", auth="oauth") as client:
++        result = await client.call_tool("get_user_info")
++        print(result)
++
++
++if __name__ == "__main__":
++    asyncio.run(main())
++```
++
++When you run the client for the first time:
++
++1. Your browser will open to Hugging Face's authorization page
++2. Sign in with your Hugging Face account and grant the requested permissions
++3. After authorization, you'll be redirected back
++4. The client receives the token and can make authenticated requests
++
++<Info>
++The client caches tokens locally, so you won't need to re-authenticate for
++subsequent runs unless the token expires or you explicitly clear the cache.
++</Info>
++
++## Hugging Face Spaces
++
++When deploying to [Hugging Face Spaces](https://huggingface.co/docs/hub/spaces-oauth),
++Spaces can create and manage the OAuth app for you. Add OAuth metadata to your
++Space README:
++
++```yaml
++---
++title: FastMCP Hugging Face OAuth
++sdk: docker
++hf_oauth: true
++hf_oauth_expiration_minutes: 480
++hf_oauth_scopes:
++  - email
++  - inference-api
++---
++```
++
++Spaces provide `OAUTH_CLIENT_ID`, `OAUTH_CLIENT_SECRET`, `OAUTH_SCOPES`,
++`OPENID_PROVIDER_URL`, and `SPACE_HOST` environment variables:
++
++```python
++import os
++
++from fastmcp import FastMCP
++from fastmcp.server.auth.providers.huggingface import HuggingFaceProvider
++from fastmcp.utilities.auth import parse_scopes
++
++base_url = f"https://{os.environ['SPACE_HOST']}"
++
++auth_provider = HuggingFaceProvider(
++    client_id=os.environ["OAUTH_CLIENT_ID"],
++    client_secret=os.environ["OAUTH_CLIENT_SECRET"],
++    base_url=base_url,
++    jwt_signing_key=os.environ["JWT_SIGNING_KEY"],
++    required_scopes=parse_scopes(os.environ.get("OAUTH_SCOPES")) or ["openid", "profile"],
++)
++
++mcp = FastMCP(name="Hugging Face Space App", auth=auth_provider)
++```
++
++Set `JWT_SIGNING_KEY` as a Space secret.
++
++## Hugging Face scopes
++
++The default scopes are `openid` and `profile`. Add more scopes when your tools
++need Hub capabilities:
++
++| Scope | Description |
++|-------|-------------|
++| `email` | Access the user's email address |
++| `read-billing` | Know whether the user has a payment method set up |
++| `read-repos` | Read the user's personal repositories |
++| `gated-repos` | Read public gated repositories the user can access |
++| `contribute-repos` | Create repositories and access app-created repositories |
++| `write-repos` | Read and write the user's personal repositories |
++| `manage-repos` | Full repository access, including creation and deletion |
++| `read-collections` | Read the user's personal collections |
++| `write-collections` | Read and write the user's personal collections, including collection creation and deletion |
++| `inference-api` | Use Hugging Face Inference Providers as the user |
++| `jobs` | Run Hugging Face Jobs |
++| `webhooks` | Manage webhooks |
++| `write-discussions` | Open discussions and pull requests, and interact with discussions |
++
++```python
++auth_provider = HuggingFaceProvider(
++    client_id="your-huggingface-client-id",
++    client_secret="your-huggingface-client-secret",
++    base_url="https://your-domain.com",
++    required_scopes=["openid", "profile", "inference-api", "jobs"],
++)
++```
++
++For organization resources, use Hugging Face's normal OAuth organization grant
++flow. If you need a specific organization, pass Hugging Face's `orgIds`
++authorization parameter. The value is the organization ID from the
++`organizations.sub` field in the Hugging Face userinfo response:
++
++```python
++auth_provider = HuggingFaceProvider(
++    client_id="your-huggingface-client-id",
++    client_secret="your-huggingface-client-secret",
++    base_url="https://your-domain.com",
++    extra_authorize_params={"orgIds": "your-org-id"},
++)
++```
++
++## Production Configuration
++
++For production deployments with persistent token management across server
++restarts, configure `jwt_signing_key` and `client_storage`:
++
++```python server.py
++import os
++from cryptography.fernet import Fernet
++from fastmcp import FastMCP
++from fastmcp.server.auth.providers.huggingface import HuggingFaceProvider
++from key_value.aio.stores.redis import RedisStore
++from key_value.aio.wrappers.encryption import FernetEncryptionWrapper
++
++# Production setup with encrypted persistent token storage
++auth_provider = HuggingFaceProvider(
++    client_id="your-huggingface-client-id",
++    client_secret=os.environ["HUGGINGFACE_CLIENT_SECRET"],
++    base_url="https://your-production-domain.com",
++    required_scopes=["openid", "profile", "email"],
++
++    # Production token management
++    jwt_signing_key=os.environ["JWT_SIGNING_KEY"],
++    client_storage=FernetEncryptionWrapper(
++        key_value=RedisStore(
++            host=os.environ["REDIS_HOST"],
++            port=int(os.environ["REDIS_PORT"])
++        ),
++        fernet=Fernet(os.environ["STORAGE_ENCRYPTION_KEY"])
++    )
++)
++
++mcp = FastMCP(name="Production Hugging Face App", auth=auth_provider)
++```
++
++<Note>
++Parameters (`jwt_signing_key` and `client_storage`) work together to ensure
++tokens and client registrations survive server restarts. **Wrap your storage in
++`FernetEncryptionWrapper` to encrypt sensitive OAuth tokens at rest** - without
++it, tokens are stored in plaintext. Store secrets in environment variables and
++use a persistent storage backend like Redis for distributed deployments.
++
++For complete details on these parameters, see the [OAuth Proxy documentation](/servers/auth/oauth-proxy#configuration-parameters).
++</Note>
+diff --git a/examples/auth/huggingface_oauth/README.md b/examples/auth/huggingface_oauth/README.md
+new file mode 100644
+index 0000000..3b84c70
+--- /dev/null
++++ b/examples/auth/huggingface_oauth/README.md
+@@ -0,0 +1,31 @@
++# Hugging FAce OAuth Example
++
++Demonstrates FastMCP server protection with Hugging Face OAuth.
++
++## Setup
++
++1. Create a Hugging Face OAuth App:
++   - Go to Hugging Face Settings > Connected Apps > Create App (`https://huggingface.co/settings/applications/new`)
++   - Set Authorization callback URL to: `http://localhost:8000/auth/callback`
++   - Copy the Client ID and Client Secret
++
++2. Set environment variables:
++
++   ```bash
++   export FASTMCP_SERVER_AUTH_HF_CLIENT_ID="your-client-id"
++   export FASTMCP_SERVER_AUTH_HF_CLIENT_SECRET="your-client-secret"
++   ```
++
++3. Run the server:
++
++   ```bash
++   python server.py
++   ```
++
++4. In another terminal, run the client:
++
++   ```bash
++   python client.py
++   ```
++
++The client will open your browser for Hugging Face authentication.
+diff --git a/examples/auth/huggingface_oauth/client.py b/examples/auth/huggingface_oauth/client.py
+new file mode 100644
+index 0000000..d7f2b76
+--- /dev/null
++++ b/examples/auth/huggingface_oauth/client.py
+@@ -0,0 +1,32 @@
++"""OAuth client example for connecting to FastMCP servers.
++
++This example demonstrates how to connect to an OAuth-protected FastMCP server.
++
++To run:
++    python client.py
++"""
++
++import asyncio
++
++from fastmcp.client import Client
++
++SERVER_URL = "http://localhost:8000/mcp"
++
++
++async def main():
++    try:
++        async with Client(SERVER_URL, auth="oauth") as client:
++            assert await client.ping()
++            print("✅ Successfully authenticated!")
++
++            tools = await client.list_tools()
++            print(f"🔧 Available tools ({len(tools)}):")
++            for tool in tools:
++                print(f"   - {tool.name}: {tool.description}")
++    except Exception as e:
++        print(f"❌ Authentication failed: {e}")
++        raise
++
++
++if __name__ == "__main__":
++    asyncio.run(main())
+diff --git a/examples/auth/huggingface_oauth/server.py b/examples/auth/huggingface_oauth/server.py
+new file mode 100644
+index 0000000..9745eb8
+--- /dev/null
++++ b/examples/auth/huggingface_oauth/server.py
+@@ -0,0 +1,35 @@
++import os
++
++from fastmcp import FastMCP
++from fastmcp.server.auth.providers.huggingface import HuggingFaceProvider
++
++auth_provider = HuggingFaceProvider(
++    # Your Hugging Face OAuth app client ID
++    client_id=os.getenv("FASTMCP_SERVER_AUTH_HF_CLIENT_ID") or "",
++    # Your Hugging Face OAuth app client secret
++    client_secret=os.getenv("FASTMCP_SERVER_AUTH_HF_CLIENT_SECRET") or "",
++    # Must match your OAuth configuration
++    base_url="http://localhost:8000",
++    # Supply jwt_signing_key instead of client_secret for public applications
++    # jwt_signing_key="replace-with-a-secure-secret"
++)
++
++mcp = FastMCP(name="Hugging Face Secured App", auth=auth_provider)
++
++
++# Add a tool to test authentication
++@mcp.tool
++async def get_user_info() -> dict:
++    """Returns information about the authenticated Hugging Face user."""
++    from fastmcp.server.dependencies import get_access_token
++
++    token = get_access_token()
++    return {
++        "subject": token.claims.get("sub"),
++        "username": token.claims.get("preferred_username"),
++        "profile": token.claims.get("profile"),
++    }
++
++
++if __name__ == "__main__":
++    mcp.run(transport="http", port=8000)
+diff --git a/fastmcp_slim/fastmcp/server/auth/providers/huggingface.py b/fastmcp_slim/fastmcp/server/auth/providers/huggingface.py
+new file mode 100644
+index 0000000..b3ca363
+--- /dev/null
++++ b/fastmcp_slim/fastmcp/server/auth/providers/huggingface.py
+@@ -0,0 +1,280 @@
++"""Hugging Face OAuth provider for FastMCP."""
++
++from __future__ import annotations
++
++import contextlib
++from collections.abc import Mapping
++from json import JSONDecodeError
++from typing import Any, Literal
++
++import httpx
++from key_value.aio.protocols import AsyncKeyValue
++from pydantic import AnyHttpUrl
++
++from fastmcp.server.auth import TokenVerifier
++from fastmcp.server.auth.auth import AccessToken
++from fastmcp.server.auth.oauth_proxy import OAuthProxy
++from fastmcp.utilities.auth import parse_scopes
++from fastmcp.utilities.logging import get_logger
++
++logger = get_logger(__name__)
++
++HUGGINGFACE_AUTHORIZATION_ENDPOINT = "https://huggingface.co/oauth/authorize"
++HUGGINGFACE_TOKEN_ENDPOINT = "https://huggingface.co/oauth/token"
++HUGGINGFACE_USERINFO_ENDPOINT = "https://huggingface.co/oauth/userinfo"
++HUGGINGFACE_WHOAMI_ENDPOINT = "https://huggingface.co/api/whoami-v2"
++
++DEFAULT_HUGGINGFACE_SCOPES = ["openid", "profile"]
++
++
++def _extract_scopes(data: Mapping[str, Any]) -> list[str]:
++    scope_value = data.get("scope") or data.get("scopes")
++    if isinstance(scope_value, str):
++        return parse_scopes(scope_value) or []
++    if isinstance(scope_value, list):
++        return [str(scope).strip() for scope in scope_value if str(scope).strip()]
++
++    auth = data.get("auth")
++    if not isinstance(auth, Mapping):
++        return []
++    access_token = auth.get("accessToken")
++    if not isinstance(access_token, Mapping):
++        return []
++
++    nested_scopes = access_token.get("scopes") or access_token.get("scope")
++    if isinstance(nested_scopes, str):
++        return parse_scopes(nested_scopes) or []
++    if isinstance(nested_scopes, list):
++        return [
++            str(scope.get("name") if isinstance(scope, Mapping) else scope).strip()
++            for scope in nested_scopes
++            if str(scope.get("name") if isinstance(scope, Mapping) else scope).strip()
++        ]
++    return []
++
++
++class HuggingFaceTokenVerifier(TokenVerifier):
++    """Token verifier for Hugging Face OAuth access tokens.
++
++    Hugging Face OAuth access tokens are opaque, so validation is performed by
++    calling Hugging Face's userinfo endpoint.
++    """
++
++    def __init__(
++        self,
++        *,
++        required_scopes: list[str] | None = None,
++        timeout_seconds: int = 10,
++        http_client: httpx.AsyncClient | None = None,
++    ):
++        super().__init__(required_scopes=required_scopes)
++        self.timeout_seconds = timeout_seconds
++        self._http_client = http_client
++
++    async def verify_token(self, token: str) -> AccessToken | None:
++        """Verify a Hugging Face OAuth token using the userinfo endpoint."""
++        try:
++            async with (
++                contextlib.nullcontext(self._http_client)
++                if self._http_client is not None
++                else httpx.AsyncClient(timeout=self.timeout_seconds)
++            ) as client:
++                userinfo_response = await client.get(
++                    HUGGINGFACE_USERINFO_ENDPOINT,
++                    headers={
++                        "Authorization": f"Bearer {token}",
++                        "User-Agent": "FastMCP-HuggingFace-OAuth",
++                    },
++                )
++                if userinfo_response.status_code != 200:
++                    logger.debug(
++                        "Hugging Face token verification failed: %d",
++                        userinfo_response.status_code,
++                    )
++                    return None
++
++                userinfo = userinfo_response.json()
++                sub = userinfo.get("sub")
++                if not sub:
++                    logger.debug("Hugging Face userinfo missing 'sub' claim")
++                    return None
++
++                token_scopes = _extract_scopes(userinfo)
++                whoami: dict[str, Any] | None = None
++                if not token_scopes or (
++                    self.required_scopes
++                    and not set(self.required_scopes).issubset(set(token_scopes))
++                ):
++                    whoami = await self._fetch_whoami(client, token)
++                    if whoami:
++                        token_scopes = list(
++                            dict.fromkeys([*token_scopes, *_extract_scopes(whoami)])
++                        )
++
++                if not token_scopes:
++                    token_scopes = list(DEFAULT_HUGGINGFACE_SCOPES)
++
++                if self.required_scopes and not set(self.required_scopes).issubset(
++                    set(token_scopes)
++                ):
++                    logger.debug(
++                        "Hugging Face token missing required scopes. Has %d, needs %d",
++                        len(token_scopes),
++                        len(self.required_scopes),
++                    )
++                    return None
++
++                username = (
++                    userinfo.get("preferred_username")
++                    or userinfo.get("nickname")
++                    or userinfo.get("name")
++                )
++                return AccessToken(
++                    token=token,
++                    client_id=str(sub),
++                    scopes=token_scopes,
++                    expires_at=None,
++                    claims={
++                        "sub": str(sub),
++                        "name": userinfo.get("name"),
++                        "preferred_username": username,
++                        "email": userinfo.get("email"),
++                        "email_verified": userinfo.get("email_verified"),
++                        "profile": userinfo.get("profile"),
++                        "picture": userinfo.get("picture"),
++                        "organizations": userinfo.get("organizations"),
++                        "huggingface_userinfo": userinfo,
++                        "huggingface_whoami": whoami,
++                    },
++                )
++
++        except httpx.RequestError as e:
++            logger.debug("Failed to verify Hugging Face token: %s", e)
++            return None
++        except JSONDecodeError as e:
++            logger.debug("Hugging Face token verification error: %s", e)
++            return None
++
++    async def _fetch_whoami(
++        self, client: httpx.AsyncClient, token: str
++    ) -> dict[str, Any] | None:
++        response = await client.get(
++            HUGGINGFACE_WHOAMI_ENDPOINT,
++            headers={
++                "Authorization": f"Bearer {token}",
++                "User-Agent": "FastMCP-HuggingFace-OAuth",
++            },
++        )
++        if response.status_code != 200:
++            logger.debug("Hugging Face whoami lookup failed: %d", response.status_code)
++            return None
++        return response.json()
++
++
++class HuggingFaceProvider(OAuthProxy):
++    """Complete Hugging Face OAuth provider for FastMCP."""
++
++    def __init__(
++        self,
++        *,
++        client_id: str,
++        client_secret: str | None = None,
++        base_url: AnyHttpUrl | str,
++        resource_base_url: AnyHttpUrl | str | None = None,
++        issuer_url: AnyHttpUrl | str | None = None,
++        redirect_path: str | None = None,
++        required_scopes: list[str] | None = None,
++        valid_scopes: list[str] | None = None,
++        timeout_seconds: int = 10,
++        allowed_client_redirect_uris: list[str] | None = None,
++        client_storage: AsyncKeyValue | None = None,
++        jwt_signing_key: str | bytes | None = None,
++        require_authorization_consent: bool | Literal["remember", "external"] = True,
++        consent_csp_policy: str | None = None,
++        forward_resource: bool = True,
++        fallback_refresh_token_expiry_seconds: int | None = None,
++        fastmcp_access_token_expiry_seconds: int | None = None,
++        token_expiry_threshold_seconds: int = 0,
++        extra_authorize_params: dict[str, str] | None = None,
++        extra_token_params: dict[str, str] | None = None,
++        http_client: httpx.AsyncClient | None = None,
++        enable_cimd: bool = True,
++    ):
++        """Initialize Hugging Face OAuth provider.
++
++        Args:
++            client_id: Hugging Face OAuth app client ID. Public apps and CIMD
++                client IDs are supported.
++            client_secret: Hugging Face OAuth app client secret. Optional for
++                public PKCE apps; when omitted, ``jwt_signing_key`` is required.
++            base_url: Public URL where OAuth endpoints will be accessible.
++            required_scopes: Required Hugging Face scopes. Defaults to
++                ``["openid", "profile"]``.
++            valid_scopes: Scopes clients may request. Defaults to required scopes.
++            extra_authorize_params: Extra authorization parameters, such as
++                ``{"orgIds": "your-org-id"}`` for organization grants.
++        """
++        required_scopes_final = (
++            parse_scopes(required_scopes)
++            if required_scopes is not None
++            else list(DEFAULT_HUGGINGFACE_SCOPES)
++        ) or []
++        valid_scopes_final = parse_scopes(valid_scopes)
++
++        # Do not pass provider-level required_scopes into the verifier here.
++        # Hugging Face's userinfo endpoint validates opaque access tokens and
++        # returns identity claims, but granted scopes are carried reliably in
++        # the upstream token response. OAuthProxy stores those scopes, enforces
++        # provider.required_scopes against FastMCP-issued tokens, and
++        # _uses_alternate_verification() patches the stored upstream scopes
++        # onto the returned AccessToken.
++        token_verifier = HuggingFaceTokenVerifier(
++            timeout_seconds=timeout_seconds,
++            http_client=http_client,
++        )
++
++        super().__init__(
++            upstream_authorization_endpoint=HUGGINGFACE_AUTHORIZATION_ENDPOINT,
++            upstream_token_endpoint=HUGGINGFACE_TOKEN_ENDPOINT,
++            upstream_client_id=client_id,
++            upstream_client_secret=client_secret,
++            token_verifier=token_verifier,
++            base_url=base_url,
++            resource_base_url=resource_base_url,
++            redirect_path=redirect_path,
++            issuer_url=issuer_url or base_url,
++            allowed_client_redirect_uris=allowed_client_redirect_uris,
++            client_storage=client_storage,
++            jwt_signing_key=jwt_signing_key,
++            require_authorization_consent=require_authorization_consent,
++            consent_csp_policy=consent_csp_policy,
++            forward_resource=forward_resource,
++            fallback_refresh_token_expiry_seconds=fallback_refresh_token_expiry_seconds,
++            fastmcp_access_token_expiry_seconds=fastmcp_access_token_expiry_seconds,
++            token_expiry_threshold_seconds=token_expiry_threshold_seconds,
++            extra_authorize_params=extra_authorize_params,
++            extra_token_params=extra_token_params,
++            token_endpoint_auth_method="client_secret_basic"
++            if client_secret
++            else "none",
++            valid_scopes=valid_scopes_final,
++            enable_cimd=enable_cimd,
++        )
++
++        logger.debug(
++            "Initialized Hugging Face OAuth provider for client %s with scopes: %s",
++            client_id,
++            required_scopes_final,
++        )
++
++        self.required_scopes = required_scopes_final
++        self.update_default_scopes(valid_scopes_final or required_scopes_final)
++
++    def _uses_alternate_verification(self) -> bool:
++        """Patch returned token scopes from the upstream token response.
++
++        Hugging Face OAuth access tokens are opaque. The userinfo endpoint
++        validates the token and returns identity claims, but scope information is
++        carried by the token response stored in OAuthProxy's upstream token set.
++        """
++        return True

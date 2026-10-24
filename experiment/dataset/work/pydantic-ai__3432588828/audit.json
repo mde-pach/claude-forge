@@ -1,0 +1,245 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/models/test_model_function.py::test_call_all",
+   "action": "keep",
+   "reason": "Asserts public message history including provider_name='test', which the instruction specifies."
+  },
+  {
+   "id": "tests/models/test_model_test.py::test_custom_output_args",
+   "action": "keep",
+   "reason": "Checks public ModelResponse fields the instruction specifies for custom_output_args responses."
+  },
+  {
+   "id": "tests/models/test_model_test.py::test_custom_output_args_model",
+   "action": "keep",
+   "reason": "Checks public ModelResponse fields the instruction specifies."
+  },
+  {
+   "id": "tests/models/test_model_test.py::test_output_type",
+   "action": "keep",
+   "reason": "Checks the public provider_name on an output-tool response, as specified."
+  },
+  {
+   "id": "tests/models/test_model_test.py::test_response_metadata_consistent_between_run_and_run_stream",
+   "action": "keep",
+   "reason": "Directly encodes the acceptance criterion through the public API."
+  },
+  {
+   "id": "tests/models/test_model_test.py::test_tool_retry",
+   "action": "keep",
+   "reason": "Checks public message history for tool-call and JSON-summary responses, as specified."
+  },
+  {
+   "id": "tests/test_agent.py::TestMultipleToolCalls::test_early_strategy_does_not_apply_to_tool_calls_without_final_tool",
+   "action": "keep",
+   "reason": "Public message-history snapshot with the specified provider_name."
+  },
+  {
+   "id": "tests/test_agent.py::test_binary_content_serializable",
+   "action": "keep",
+   "reason": "Serialised output with 'provider_name': 'test' is explicitly specified."
+  },
+  {
+   "id": "tests/test_agent.py::test_capture_run_messages_tool_agent",
+   "action": "keep",
+   "reason": "Public message-history snapshot with the specified provider_name."
+  },
+  {
+   "id": "tests/test_agent.py::test_double_capture_run_messages",
+   "action": "keep",
+   "reason": "Public message-history snapshot with the specified provider_name."
+  },
+  {
+   "id": "tests/test_agent.py::test_dynamic_false_no_reevaluate",
+   "action": "keep",
+   "reason": "Public message-history snapshot with the specified provider_name."
+  },
+  {
+   "id": "tests/test_agent.py::test_dynamic_true_reevaluate_system_prompt",
+   "action": "keep",
+   "reason": "Public message-history snapshot with the specified provider_name."
+  },
+  {
+   "id": "tests/test_agent.py::test_image_url_serializable",
+   "action": "keep",
+   "reason": "Serialised output with 'provider_name': 'test' is explicitly specified."
+  },
+  {
+   "id": "tests/test_agent.py::test_image_url_serializable_missing_media_type",
+   "action": "keep",
+   "reason": "Serialised output with 'provider_name': 'test' is explicitly specified."
+  },
+  {
+   "id": "tests/test_agent.py::test_instructions_with_message_history",
+   "action": "keep",
+   "reason": "Public message-history snapshot with the specified provider_name."
+  },
+  {
+   "id": "tests/test_agent.py::test_message_history_ending_on_model_response_with_instructions",
+   "action": "keep",
+   "reason": "Public message-history outcome affected only by the specified provider_name."
+  },
+  {
+   "id": "tests/test_agent.py::test_multi_agent_instructions_with_structured_output",
+   "action": "keep",
+   "reason": "Public message-history snapshot with the specified provider_name."
+  },
+  {
+   "id": "tests/test_agent.py::test_nested_capture_run_messages",
+   "action": "keep",
+   "reason": "Public message-history snapshot with the specified provider_name."
+  },
+  {
+   "id": "tests/test_agent.py::test_output_tool_return_content_str_return",
+   "action": "keep",
+   "reason": "Public message-history snapshot with the specified provider_name."
+  },
+  {
+   "id": "tests/test_agent.py::test_prepare_output_tools",
+   "action": "keep",
+   "reason": "Public message-history snapshot with the specified provider_name."
+  },
+  {
+   "id": "tests/test_agent.py::test_run_with_history_ending_on_model_request_and_no_user_prompt",
+   "action": "keep",
+   "reason": "Public message-history snapshot with the specified provider_name."
+  },
+  {
+   "id": "tests/test_agent.py::test_run_with_history_new",
+   "action": "keep",
+   "reason": "Public message-history snapshot with the specified provider_name."
+  },
+  {
+   "id": "tests/test_agent.py::test_run_with_history_new_structured",
+   "action": "keep",
+   "reason": "Public message-history snapshot with the specified provider_name."
+  },
+  {
+   "id": "tests/test_capabilities.py::TestRunWithSpec::test_run_with_spec_model_as_fallback",
+   "action": "keep",
+   "reason": "Public message-history snapshot with the specified provider_name."
+  },
+  {
+   "id": "tests/test_deps.py::test_deps_override",
+   "action": "keep",
+   "reason": "Public message-history snapshot with the specified provider_name."
+  },
+  {
+   "id": "tests/test_deps.py::test_deps_used",
+   "action": "keep",
+   "reason": "Public message-history snapshot with the specified provider_name."
+  },
+  {
+   "id": "tests/test_direct.py::test_model_request",
+   "action": "keep",
+   "reason": "The direct model_request response is explicitly covered by the instruction."
+  },
+  {
+   "id": "tests/test_direct.py::test_model_request_sync",
+   "action": "keep",
+   "reason": "The direct model_request_sync response is explicitly covered by the instruction."
+  },
+  {
+   "id": "tests/test_direct.py::test_model_request_tool_call",
+   "action": "keep",
+   "reason": "The direct model_request tool-call response is explicitly covered by the instruction."
+  },
+  {
+   "id": "tests/test_tools.py::test_args_validator_async",
+   "action": "keep",
+   "reason": "Public message-history snapshot with the specified provider_name."
+  },
+  {
+   "id": "tests/test_tools.py::test_args_validator_success",
+   "action": "keep",
+   "reason": "Public message-history snapshot with the specified provider_name."
+  },
+  {
+   "id": "tests/test_tools.py::test_args_validator_tool_direct",
+   "action": "keep",
+   "reason": "Public message-history snapshot with the specified provider_name."
+  },
+  {
+   "id": "tests/test_tools.py::test_args_validator_tool_plain",
+   "action": "keep",
+   "reason": "Public message-history snapshot with the specified provider_name."
+  },
+  {
+   "id": "tests/test_tools.py::test_args_validator_toolset",
+   "action": "keep",
+   "reason": "Public message-history snapshot with the specified provider_name."
+  },
+  {
+   "id": "tests/test_tools.py::test_retry_tool_until_last_attempt",
+   "action": "keep",
+   "reason": "Public message-history snapshot with the specified provider_name."
+  },
+  {
+   "id": "tests/test_tools.py::test_tool_ctx_agent",
+   "action": "keep",
+   "reason": "Public message-history snapshot with the specified provider_name."
+  },
+  {
+   "id": "tests/test_tools.py::test_tool_ctx_agent_in_output_validator",
+   "action": "keep",
+   "reason": "Public message-history snapshot with the specified provider_name."
+  },
+  {
+   "id": "tests/test_toolsets.py::test_prepare_function_sees_agent_max_retries",
+   "action": "keep",
+   "reason": "Public message-history snapshot with the specified provider_name."
+  },
+  {
+   "id": "tests/test_toolsets.py::test_toolset_max_retries_inherits_from_agent",
+   "action": "keep",
+   "reason": "Public message-history snapshot with the specified provider_name."
+  },
+  {
+   "id": "tests/test_usage_limits.py::test_failed_tool_calls_not_counted",
+   "action": "keep",
+   "reason": "Public message-history snapshot with the specified provider_name."
+  },
+  {
+   "id": "tests/test_usage_limits.py::test_multi_agent_usage_no_incr",
+   "action": "keep",
+   "reason": "Public message-history snapshot with the specified provider_name."
+  },
+  {
+   "id": "tests/test_usage_limits.py::test_multi_agent_usage_sync",
+   "action": "keep",
+   "reason": "Public message-history snapshot with the specified provider_name."
+  },
+  {
+   "id": "tests/test_usage_limits.py::test_output_tool_not_counted",
+   "action": "keep",
+   "reason": "Public message-history snapshot with the specified provider_name."
+  },
+  {
+   "id": "tests/test_usage_limits.py::test_tool_call_limit",
+   "action": "keep",
+   "reason": "Public message-history snapshot with the specified provider_name."
+  },
+  {
+   "id": "tests/test_validation_context.py::test_agent_output_function_with_validation_context",
+   "action": "keep",
+   "reason": "Public message-history snapshot with the specified provider_name."
+  },
+  {
+   "id": "tests/test_validation_context.py::test_agent_output_validator_with_intermediary_deps_change_and_validation_context",
+   "action": "keep",
+   "reason": "Public message-history snapshot with the specified provider_name."
+  },
+  {
+   "id": "tests/test_validation_context.py::test_agent_output_validator_with_validation_context",
+   "action": "keep",
+   "reason": "Public message-history snapshot with the specified provider_name."
+  },
+  {
+   "id": "tests/test_validation_context.py::test_agent_tool_call_with_validation_context",
+   "action": "keep",
+   "reason": "Public message-history snapshot with the specified provider_name."
+  }
+ ],
+ "edits": []
+}

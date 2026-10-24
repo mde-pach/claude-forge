@@ -1,0 +1,190 @@
+{
+ "repo": "logfire",
+ "date": "2026-10-24T20:28:19Z",
+ "limit_main": 40,
+ "limit_pilot": 10,
+ "n_commits": 83,
+ "n_lockfiles": 16,
+ "stopped_low_disk": false,
+ "warmed_keys": [
+  "0334337c5b8f1c3c4010239692ddd905a9d63ee565ffa190f07d0d850edf7fde",
+  "0f1ff88f44d30f1e9a7e6fe46bb730823672a072b825abc201062f509718d25b",
+  "2986c4be1eb6a7bafadeb180b71b11a83bb49341ab2e8846ae6e25501b4eb9c3",
+  "30abb4bc477428b433c16008e26228210bc34a09dce856cfe6d6e25aa153edbf",
+  "6f12ee4c5e70aa50fab4b180279dae8149d41fea522ba71835c1049af9b2d75a",
+  "7a317a6f58cd0914ab880c2abb0f24af79b445296573f3b2667bee89ebe502ea",
+  "7c1ad9794a23fe303d87f5f2b1ee02dab733ca28dad869df4e8dd4796761e0f7",
+  "86e3fcd622208e9abaf275151af276e6e585d7a312f6ed69869c440a4313f035",
+  "920d194c9cb5e6e80128458fc73b10abd01fdda22b910fee8972fc70b1253c1f",
+  "9af797cf078ce9700675a829a4dcedc98415f0b21a2ca320412a1a28607e7801",
+  "9fa45ec363ef7ef03895b838b8a8ddafa633eea2024f37fd2edbbe650e11a392",
+  "b7c9a3d72bbcd7c9fe2873d14deb007861ed86ef6c6a3a521df61466c0dbc028",
+  "c977a21be2c7686635352b058c86339120a33bc020b98e2995673928986deb2e",
+  "e3ae89e39cfe4af42372f3435dc7b395ed9d967416421419804ec6890de04c0e",
+  "e8083ec2c75c4c73ac0de6ff1601bfb922a1e80741465f7d516ef7ff99454100"
+ ],
+ "warm": [
+  {
+   "commit": "562dea1a05e23e1c8283fd868bc46e74248bc66d",
+   "ok": false,
+   "seconds": 7,
+   "log_tail": " Building mysql-connector-python==9.7.0\n      Built logfire @ file:///work\n      Built logfire-api @ file:///work/logfire-api\nerror: Failed to build `mysql-connector-python==9.7.0`\n  cause: The build backend returned an error\n  cause: Call to `setuptools.build_meta.build_wheel` failed (exit status: 1)\n\n         [stdout]\n         running bdist_wheel\n         running build\n         running build_py\n         running build_ext\n\n         [stderr]\n         /cache/uv/builds-v0/.tmpSLxvJ0/lib/python3.12/site-packages/wheel/bdist_wheel.py:4: FutureWarning: The 'wheel' package is no longer the canonical location of the 'bdist_wheel' command, and will be removed in a future release. Please update to setuptools v70.1 or later which contains an integrated version of this command.\n           warn(\n         /cache/uv/builds-v0/.tmpSLxvJ0/lib/python3.12/site-packages/setuptools/dist.py:765: SetuptoolsDeprecationWarning: License classifiers are deprecated.\n         !!\n\n                 ********************************************************************************\n                 Please consider removing the following classifiers in favor of a SPDX license expression:\n\n                 License :: OSI Approved :: GNU General Public License (GPL)\n\n                 See https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license for details.\n                 ********************************************************************************\n\n         !!\n           self._finalize_license_expression()\n         fatal: invalid gitfile format: /cache/uv/sdists-v9/.git\n         WARNING[cpydist]: The '_mysql_connector' C extension will not be built\n         The '_mysql_connector' C extension will not be built\n         error: [Errno 2] No such file or directory: 'gcc'\n\nhint: `mysql-connector-python` (v9.7.0) was included because `logfire:dev` (v4.32.1) depends on `mysql-connector-python`\n\nhint: Build failures usually indicate a problem with the package or the build environment\n"
+  }
+ ],
+ "lock_groups": {
+  "c977a21be2c76866": [
+   "627e3baca4d13b51677f11f65355c0fa4b1dd69a",
+   "3cb97d520e8c67a166e33fff9d46ad68be71ff46",
+   "45ee846a4a6658dcb5338c7b0a1408ce21e13073",
+   "b72c0897695afc06ac475ba4616f164c75493a6e",
+   "db9859ae70f78c73d5cded41200afdec33e13779"
+  ],
+  "e8083ec2c75c4c73": [
+   "b830ba04a820d2cc931a01b4aedb26c529a251a6",
+   "5c042df8fa253855117044bec71ff582ebd4d196"
+  ],
+  "b7c9a3d72bbcd7c9": [
+   "56fe5e0379716d788c5071b559d6c312e30e8cb1",
+   "38297b3a46d064ff5529e7ccfe6db889ce8f76f1",
+   "836cab719947ab02d3000e41cf3791e69a7e36ef",
+   "f341862f8a4df1e29333f1d56121342cd8429d8d",
+   "968aef4d48a992b6c818b7633736c02b476610ed",
+   "00758519f429b5686ecc674577a9c32b3bdbc3ad",
+   "48973e69ca7ae5ce725fb6219ebf51b3dbe8711f",
+   "223a8624065fbc574c2569868612aca7bae3f202",
+   "e566848991791373a2bd5a078964cd2530eae6c8"
+  ],
+  "0f1ff88f44d30f1e": [
+   "c31bafb2329c383f9c4ce57cdec3188f39e04643",
+   "3f689314f89eb4534ddb8254d0e78f4184839b93"
+  ],
+  "2986c4be1eb6a7ba": [
+   "0c98a61973bdeddab182d3c37eef20a6888caab4",
+   "36267559329c0bbcb1f637852952eb2fe1a42e5e",
+   "5f1fb5f803666ac28ec80d889c26772d4233b43c",
+   "08a8336759792c5d2dc35f29b40479b5ac657b1c",
+   "b5362d8c4fea4ecd834d56566573ae9d6ba3cf56",
+   "d9e4fb73f3e7140ff4934bff63ecdc9e294ed05f",
+   "ad7f03424c5d01e6257419c73d508c76afd5ea8b",
+   "2509186459f3498286062d0ca1ca81e576ace7ec",
+   "47574bd820d329f82311cffce2cf7237fab99de8",
+   "611684226f4fbaa9b5123f9363d45aebd9523d75",
+   "dfae4d8af12bfc24dcd16d134b14577dc892c77c"
+  ],
+  "86e3fcd622208e9a": [
+   "908f8a36d6791ccf24b17345eed375f59b5f815c",
+   "ebba82dba59c35aa293c4387227b8ea6c297dd14"
+  ],
+  "9af797cf078ce970": [
+   "de4dc5c1016a0bfdab8bba9153217df73d44b2c1",
+   "8d2320b2d4ffdf20db539a431e8f761579078d3c",
+   "1ff544ea88b1fce94e45dbc6b7e1f065bfd3d57d",
+   "ed61974e2383faa100ee17537c3dc5c68eb2ffae",
+   "6109bb7eaec605829aaa6606202b672664ecf3ba",
+   "98ffb4068c3c2ffb0c3d97e8e80c49003377e564",
+   "ba4d823be2ef11905a7e2b9dfa69176524a2303d",
+   "ad55ce8e9836e7bdbd0213223f0d56d6bb551a25",
+   "d1144acca72b51093a387e2f1a417557a45f91d5",
+   "2d1c22d12bef32b33de456411c2480e7438e0c58",
+   "c5618fa4b5c649c1cd345fb3ebcb8eb0367712d9"
+  ],
+  "920d194c9cb5e6e8": [
+   "4a7e5f48aef4be4850d1b99cab77df4ace88e518",
+   "7d93d4b4abcb8f17eeac8f99b47d26e607119960",
+   "80c463bfb77528face93ec0e743b6097db1953d6",
+   "a8ae2c21edaf0e6c8e2740e837f162e5473f2e17",
+   "8a662299e4a968e282c74ba47c0e7d6f193f4ea7",
+   "569c5404d1fe99e61f6d90fdef00b26716767a94",
+   "26708835626b6e4c152476c4c641a352c1ccc539",
+   "87107f48122ada477e1aae26cb735707b4c815b1"
+  ],
+  "0334337c5b8f1c3c": [
+   "2420f25c5b2c6132e404a54cdb4383fceffe797e",
+   "d08f3a71918929e2cf949c0d576ea17976a12c53"
+  ],
+  "6f12ee4c5e70aa50": [
+   "d12dfc5472d713244fca81e218aabcc4241e0e87",
+   "c9fc1ac3ae6ec2c62ff91025fa66f2bdfe083da8",
+   "14589b71c72214ac2319d0757011e7a8c04f5ba7",
+   "17ae1ca6dbb454bb48ce7fa0d2dce902e94f73f2",
+   "f1c8da6384fea866ac75ed6a1de66b6113eb6f43",
+   "f795ab168bc6ba683e81eea29dbcda8ba8bb1083",
+   "c5b723641bb00c760ffba0beef801bf4494d11f8",
+   "eb46d648688d198fea5dd5516b3e058bb0f84287",
+   "7a339b4a92f9745228d0dc0789ef479b11bbbb8f",
+   "8eef023ab3cb952c8e3df18158f95528621d5249",
+   "ef6be7c048db1ce39e7c00f54eaa7b8ed2ebb322"
+  ],
+  "7c1ad9794a23fe30": [
+   "75f21f25b5f434f5da80939487214c5ed8938ebc",
+   "0157bc3713c6d582fa3be0b5827e63476aa27921",
+   "a02823af4b181a5d9cd35a7d1c7cf81097aa97c3"
+  ],
+  "92bb2187745e3384": [
+   "562dea1a05e23e1c8283fd868bc46e74248bc66d",
+   "dbd468697cbbfced851eda635f3cd9900023bb99",
+   "bad88b1f0c995208a7f026bd2056a738f5396353"
+  ],
+  "e3ae89e39cfe4af4": [
+   "b2bc3086ed1878aab658b8a4443034cfbcb83b54",
+   "70c9866c4a298ec2ed4f7f4e9b77607eb410f4da"
+  ],
+  "9fa45ec363ef7ef0": [
+   "0e79f8b21337808250cf1a5c35935d61d7f1b918",
+   "26a5bf18fff5652c55d3e929fd6e0eea4bd5f80d"
+  ],
+  "7a317a6f58cd0914": [
+   "3581f23919103762f66760ee7d243b5c64de01f6",
+   "737bf500a0cb347e07ed2d12bd2fb944f7f2637a"
+  ],
+  "30abb4bc477428b4": [
+   "1b982a7257fe3e545086ebd6d45345c6e252e023",
+   "6d6fe977e2ad44d2a1ed32a0ecf9163c19839329",
+   "cff77fc945d9acbb2d66e909b154f8742520ab45",
+   "2646e7e267839c609c165d9e66d7dfa054a8f67d",
+   "917e15132288bb79bd3c18b960657537960f734a",
+   "21d1187e3928f2e75413ce31000bfd1b97f10a5b",
+   "1147a16e27958567b18a2df7d7f6fe4a7264a42e",
+   "a50a7fde1191f684d6c1bb8dbdd64435e93e7014"
+  ]
+ },
+ "cache_sizes": {
+  "uv": "8.1G"
+ },
+ "forge_tools": {
+  "ok": true,
+  "out": "ast-grep 0.45.3\nzizmor 1.30.1\n/cache/uv/archive-v0/NNFDxllUqvKcFcdv/bin/hadolint\nsquawk 2.70.0\n"
+ },
+ "verify_offline": {
+  "commit": "627e3baca4d13b51677f11f65355c0fa4b1dd69a",
+  "ok": true,
+  "seconds": 38,
+  "checks": {
+   "uvx -q --from \"ast-grep-cli==0.45.3\" ast-grep --version": {
+    "rc": 0,
+    "out": "ast-grep 0.45.3"
+   },
+   "uvx -q \"zizmor@1.30.1\" --version": {
+    "rc": 0,
+    "out": "zizmor 1.30.1"
+   },
+   "uvx -q --from \"hadolint-bin==2.15.1\" python -c 'import shutil; print(shutil.which(\"hadolint\"))'": {
+    "rc": 0,
+    "out": "/cache/uv/archive-v0/NNFDxllUqvKcFcdv/bin/hadolint"
+   },
+   "uvx -q --from \"squawk-cli==2.70.0\" squawk --version": {
+    "rc": 0,
+    "out": "squawk 2.70.0"
+   },
+   "uv run python -c \"print(0)\"": {
+    "rc": 0,
+    "out": "0"
+   },
+   "git status --porcelain -- uv.lock": {
+    "rc": 0,
+    "out": ""
+   }
+  },
+  "log_tail": "1\n + pydantic-graph==2.5.1\n + pydantic-handlebars==0.2.1\n + pydantic-settings==2.14.2\n + pygments==2.20.0\n + pyjwt==2.13.0\n + pymongo==4.17.0\n + pymysql==1.2.0\n + pyright==1.1.411\n + pytest==9.1.1\n + pytest-asyncio==1.4.0\n + pytest-django==4.12.0\n + pytest-examples==0.0.18\n + pytest-pretty==1.3.0\n + pytest-recording==0.13.4\n + pytest-timeout==2.4.0\n + pytest-xdist==3.8.0\n + python-dateutil==2.9.0.post0\n + python-discovery==1.4.3\n + python-dotenv==1.2.2\n + python-multipart==0.0.32\n + pytokens==0.4.1\n + pyyaml==6.0.3\n + redis==7.4.1\n + referencing==0.37.0\n + regex==2026.6.28\n + requests==2.34.2\n + requests-mock==1.12.1\n + requests-toolbelt==1.0.0\n + rich==15.0.0\n + rpds-py==2026.6.3\n + ruff==0.15.20\n + s3transfer==0.19.0\n + secretstorage==3.5.0\n + setuptools==83.0.0\n + six==1.17.0\n + sniffio==1.3.1\n + sqlalchemy==2.0.51\n + sqlmodel==0.0.39\n + sqlparse==0.5.5\n + sse-starlette==3.4.5\n + starlette==1.3.1\n + structlog==26.1.0\n + surrealdb==2.0.0\n + tenacity==9.1.4\n + testcontainers==4.12.0\n + tiktoken==0.13.0\n + tokenizers==0.23.1\n + tqdm==4.68.3\n + truststore==0.10.4\n + typeguard==4.4.3\n + types-requests==2.33.0.20260518\n + typing-extensions==4.16.0\n + typing-inspection==0.4.2\n + tzdata==2026.2\n + tzlocal==5.4.4\n + urllib3==2.7.0\n + uuid-utils==0.16.2\n + uvicorn==0.50.2\n + vcrpy==8.3.0\n + vine==5.1.0\n + virtualenv==21.5.2\n + wcwidth==0.8.2\n + websockets==15.0.1\n + werkzeug==3.1.8\n + wrapt==2.2.2\n + xxhash==3.8.1\n + yarl==1.24.2\n + zipp==4.1.0\n + zstandard==0.25.0\n\n[exit 0 in 17s]\n"
+ }
+}

@@ -1,0 +1,46 @@
+{
+ "version": "pilot",
+ "created": "2026-10-24T20:43:14Z",
+ "window": "pilot",
+ "per_repo": 2,
+ "pins": {
+  "claude_version": "2.1.310",
+  "claude_sha256": "b73676430af12f97316a798b8371f81d640f90a58bdcb8f3ce56a835bb47df56",
+  "model": "claude-sonnet-5-5",
+  "forge_repo": "https://github.com/mde-pach/claude-forge",
+  "forge_commit": "091c0d3cb03e902ddf774fbb302c074553a4c221",
+  "forge_version": "0.5.0",
+  "forge_pkg_sha256": "5dcac6eda72bfebf7ab9694233b81709ad985536ff9c4ea84a37137d6746d7ad",
+  "dataset_model": "claude-opus-5-5",
+  "trial_timeout_s": 2700,
+  "max_budget_usd": 15,
+  "trial_proxy": "http://172.18.0.1:18888",
+  "replicates": 3,
+  "seed": 20261024
+ },
+ "tasks": [
+  {
+   "task_id": "fastmcp__2ffe68cfa1",
+   "repo": "fastmcp",
+   "sha256": "6f5a21ddebf61ac79c1f3b9f4401dccb60570d30b5d6c4e79d694d7d16d8401f"
+  },
+  {
+   "task_id": "fastmcp__73b7f2e44d",
+   "repo": "fastmcp",
+   "sha256": "5b3a8c6049b6ce479209de15b751fd320eb12914f99eedd878fd37c0fee0b04e"
+  }
+ ],
+ "rejections": {
+  "fastmcp": {}
+ },
+ "audit_totals": {
+  "f2p_before": 6,
+  "f2p_kept": 6,
+  "p2p_before": 120,
+  "p2p_kept": 120,
+  "edits": 0,
+  "edits_rejected": 0,
+  "tasks_audited": 2
+ },
+ "rules_sha256": "70a98ad6d2a22643edc200990b2d082a4bd093c42837f07791bb855fc3431c3f:22a9604210b58105b45463e278591a5037ce10340b4d92c13faa9b321719632c"
+}

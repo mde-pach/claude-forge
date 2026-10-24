@@ -1,0 +1,15 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/utilities/test_tests.py::TestHeadlessOAuthCallbackHandler::test_callback_preserves_blank_state",
+   "action": "keep",
+   "reason": "It checks only the return value of the public callback_handler(), and the only internal it touches is `_stored_response`, which the instruction names and requires."
+  },
+  {
+   "id": "tests/utilities/test_tests.py::TestHeadlessOAuthCallbackHandler::test_callback_uses_blank_error_description_verbatim",
+   "action": "keep",
+   "reason": "It checks that a RuntimeError is raised and that its message ends with \"invalid_request - \", both of which the instruction specifies explicitly."
+  }
+ ],
+ "edits": []
+}

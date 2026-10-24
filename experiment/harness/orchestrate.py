@@ -18,6 +18,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PINS = json.load(open(os.path.join(HERE, "..", "config", "pins.json")))
 MAX_ATTEMPTS = 3
 LOCK = threading.Lock()
+# disk-heavy workspaces (~3 GB each): at most this many concurrent trials per repo
+REPO_CAP = {"better-auth": 1}
+SEMS = {r: threading.Semaphore(n) for r, n in REPO_CAP.items()}
 
 
 def sha_tree(d):
@@ -89,6 +92,7 @@ def main():
                "pins": PINS, "jobs": a.jobs, "reps": a.reps, "started": time.time()},
               open(os.path.join(a.run_dir, f"_run_{int(time.time())}.json"), "w"), indent=1)
     ids = [t["task_id"] for t in man["tasks"]]
+    repo_of = {t["task_id"]: t["repo"] for t in man["tasks"]}
     if a.only:
         ids = [i for i in ids if i in a.only.split(",")]
     order = schedule(ids, a.reps, PINS["seed"])
@@ -108,8 +112,15 @@ def main():
                 stop.set()
                 return
             att = bump_attempt(a.run_dir, key)
-            r = subprocess.run([sys.executable, os.path.join(HERE, "run_trial.py"), os.path.join(a.tasks_dir, t), arm,
+            sem = SEMS.get(repo_of[t])
+            if sem:
+                sem.acquire()
+            try:
+                r = subprocess.run([sys.executable, os.path.join(HERE, "run_trial.py"), os.path.join(a.tasks_dir, t), arm,
                                 str(rep), a.run_dir, "--attempt", str(att)], capture_output=True, text=True)
+            finally:
+                if sem:
+                    sem.release()
             line = (r.stdout.strip().splitlines() or [r.stderr[-500:]])[-1]
             with LOCK:
                 with open(os.path.join(a.run_dir, "_log.jsonl"), "a") as f:

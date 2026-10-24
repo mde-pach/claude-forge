@@ -1,0 +1,91 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/server/auth/oauth_proxy/test_client_registration.py::TestOAuthProxyClientRegistration::test_register_client_rejects_unsafe_redirect_scheme_by_default",
+   "action": "relax",
+   "reason": "RegistrationError is a dataclass-style Exception whose str() only includes positional args, so matching the message text depends on how the engineer constructs it; loosened to a type-only check on the named exception."
+  },
+  {
+   "id": "tests/server/auth/oauth_proxy/test_client_registration.py::TestUpstreamClientIdFallback::test_redirect_uri_allowed_when_no_pattern_restriction",
+   "action": "keep",
+   "reason": "Checks the specified ProxyDCRClient.validate_redirect_uri outcomes (custom scheme accepted, javascript rejected with InvalidRedirectUriError); the private attribute check was already there before the change."
+  },
+  {
+   "id": "tests/server/auth/oauth_proxy/test_oauth_proxy.py::TestIdpCallbackErrorForwarding::test_error_with_unsafe_transaction_redirect_returns_html_error",
+   "action": "keep",
+   "reason": "Checks the specified HTTP outcome (400, no Location, 'Invalid redirect URI' text) through the routes, using the same transaction-store setup the existing tests use."
+  },
+  {
+   "id": "tests/server/auth/oauth_proxy/test_tokens.py::TestOAuthProxyTokenEndpointAuth::test_callback_rejects_unsafe_transaction_redirect",
+   "action": "keep",
+   "reason": "The instruction says no upstream client is created and no token is fetched, and the patched helper and handler are existing interfaces already used by the P2P test test_callback_closes_upstream_oauth_client."
+  },
+  {
+   "id": "tests/server/auth/oauth_proxy/test_tokens.py::TestTokenHandlerErrorTransformation::test_transforms_client_auth_failure_to_invalid_client_401",
+   "action": "drop",
+   "reason": "This test has nothing to do with the instruction, so its F2P status must come from test-ordering side effects rather than the required behavior; when in doubt, drop."
+  },
+  {
+   "id": "tests/server/auth/test_oauth_consent_page.py::TestConsentBindingCookie::test_deny_does_not_redirect_to_unsafe_stored_uri",
+   "action": "keep",
+   "reason": "Checks the specified consent-deny outcome (400, no Location, 'Invalid redirect URI') over HTTP, using existing setup helpers."
+  },
+  {
+   "id": "tests/server/auth/test_oauth_proxy_redirect_validation.py::TestProxyDCRClient::test_default_rejects_unsafe_registered_redirect_scheme",
+   "action": "keep",
+   "reason": "Directly checks the specified behavior that registered unsafe URIs still raise InvalidRedirectUriError."
+  },
+  {
+   "id": "tests/server/auth/test_redirect_validation.py::TestValidateRedirectUri::test_custom_patterns_cannot_allow_unsafe_browser_schemes[data:text/html,<script>alert(1)</script>-data:*]",
+   "action": "keep",
+   "reason": "Checks the public validate_redirect_uri outcome exactly as specified."
+  },
+  {
+   "id": "tests/server/auth/test_redirect_validation.py::TestValidateRedirectUri::test_custom_patterns_cannot_allow_unsafe_browser_schemes[file:///tmp/callback-file:///*]",
+   "action": "keep",
+   "reason": "Checks the public validate_redirect_uri outcome exactly as specified."
+  },
+  {
+   "id": "tests/server/auth/test_redirect_validation.py::TestValidateRedirectUri::test_custom_patterns_cannot_allow_unsafe_browser_schemes[javascript:alert(document.cookie)//-javascript:*]",
+   "action": "keep",
+   "reason": "Checks the public validate_redirect_uri outcome exactly as specified."
+  },
+  {
+   "id": "tests/server/auth/test_redirect_validation.py::TestValidateRedirectUri::test_custom_patterns_cannot_allow_unsafe_browser_schemes[vbscript:msgbox(1)-vbscript:*]",
+   "action": "keep",
+   "reason": "Checks the public validate_redirect_uri outcome exactly as specified."
+  },
+  {
+   "id": "tests/server/auth/test_redirect_validation.py::TestValidateRedirectUri::test_default_rejects_unsafe_browser_schemes[JaVaScRiPt:alert(document.cookie)//]",
+   "action": "keep",
+   "reason": "Checks the specified case-insensitive rejection through the public function."
+  },
+  {
+   "id": "tests/server/auth/test_redirect_validation.py::TestValidateRedirectUri::test_default_rejects_unsafe_browser_schemes[data:text/html,<script>alert(1)</script>]",
+   "action": "keep",
+   "reason": "Checks the public validate_redirect_uri outcome exactly as specified."
+  },
+  {
+   "id": "tests/server/auth/test_redirect_validation.py::TestValidateRedirectUri::test_default_rejects_unsafe_browser_schemes[file:///tmp/callback]",
+   "action": "keep",
+   "reason": "Checks the public validate_redirect_uri outcome exactly as specified."
+  },
+  {
+   "id": "tests/server/auth/test_redirect_validation.py::TestValidateRedirectUri::test_default_rejects_unsafe_browser_schemes[javascript:alert(document.cookie)//]",
+   "action": "keep",
+   "reason": "Checks the public validate_redirect_uri outcome exactly as specified."
+  },
+  {
+   "id": "tests/server/auth/test_redirect_validation.py::TestValidateRedirectUri::test_default_rejects_unsafe_browser_schemes[vbscript:msgbox(1)]",
+   "action": "keep",
+   "reason": "Checks the public validate_redirect_uri outcome exactly as specified."
+  }
+ ],
+ "edits": [
+  {
+   "file": "tests/server/auth/oauth_proxy/test_client_registration.py",
+   "old": "        with pytest.raises(RegistrationError, match=\"invalid_redirect_uri\"):\n            await oauth_proxy.register_client(client_info)",
+   "new": "        with pytest.raises(RegistrationError):\n            await oauth_proxy.register_client(client_info)"
+  }
+ ]
+}

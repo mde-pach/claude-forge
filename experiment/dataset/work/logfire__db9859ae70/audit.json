@@ -1,0 +1,10 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/exporters/test_otlp_session.py::test_connection_error_retries",
+   "action": "keep",
+   "reason": "The test drives the public pipeline (logfire.configure/info/force_flush) and checks the outcomes the acceptance criteria name: no exception, each export queued once, eventual delivery, and the warning format with 1 as the first count; the internals it reaches (exporter._session, retryer, sleep timings) existed before the change, and the instruction leaves them unchanged, so a different correct implementation would still pass."
+  }
+ ],
+ "edits": []
+}

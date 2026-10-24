@@ -34,7 +34,12 @@ SCRATCH = "/work/runs"
 FORGE_OWNED = [re.compile(p) for p in [
     r"^/work/\.forge(/|$)", r"^/work/\.claude(/|$)", r"^/work/\.git/hooks/pre-commit$",
     r"^/home/dev/\.claude/settings\.json$", r"^/home/dev/\.claude/skills/forge-user(/|$)",
-    r"^/home/dev/\.claude/forge-[^/]*$",
+    r"^/home/dev/\.claude/forge[^/]*$",
+]]
+# Paths that only exist once Forge is applied: none may exist before apply, in either arm.
+FORGE_MARKERS = [re.compile(p) for p in [
+    r"^/work/\.forge(/|$)", r"^/work/\.claude/skills/forge-project(/|$)", r"^/work/\.claude/rules/forge-",
+    r"^/home/dev/\.claude/skills/forge-user(/|$)", r"^/home/dev/\.claude/settings\.json$",
 ]]
 # Side effects of running Forge's documented apply (its tool audits run the project's tools / pinned bunx
 # and uvx tools). Allowed, but listed in parity.json.
@@ -74,10 +79,9 @@ def digest(obj):
 
 
 def agent_env(repo):
-    path = ":".join([p for p in [repo.get("path_prepend")] if p] +
-                    ["/usr/local/bin", "/usr/local/sbin", "/usr/sbin", "/usr/bin", "/sbin", "/bin"])
+    # PATH comes from the container (image PATH with the repo's path_prepend, set by repo_env; D5)
     env = {
-        "HOME": "/home/dev", "USER": "dev", "LANG": "C.UTF-8", "TERM": "dumb", "PATH": path,
+        "HOME": "/home/dev", "USER": "dev", "LANG": "C.UTF-8", "TERM": "dumb",
         "HTTPS_PROXY": PINS["trial_proxy"], "https_proxy": PINS["trial_proxy"],
         "NO_PROXY": "localhost,127.0.0.1", "no_proxy": "localhost,127.0.0.1",
         "NODE_EXTRA_CA_CERTS": "/etc/ssl/ccr-ca.crt", "SSL_CERT_FILE": "/etc/ssl/ccr-ca.crt",
@@ -94,7 +98,7 @@ def claude_argv(model):
             "--max-budget-usd", str(PINS["max_budget_usd"])]
 
 
-def parity_ref_check(run_dir, task_id, fp_digest, extra):
+def parity_ref_check(run_dir, task_id, fp_digest, extra, source=None):
     """First prepared trial of a task sets the reference; every later one must match."""
     d = os.path.join(run_dir, "_parity")
     os.makedirs(d, exist_ok=True)
@@ -102,7 +106,7 @@ def parity_ref_check(run_dir, task_id, fp_digest, extra):
     with open(p + ".lock", "w") as lk:
         fcntl.flock(lk, fcntl.LOCK_EX)
         if not os.path.exists(p):
-            json.dump({"fingerprint": fp_digest, **extra}, open(p, "w"), indent=1)
+            json.dump({"fingerprint": fp_digest, "source": source, **extra}, open(p, "w"), indent=1)
             return True, "reference set"
         ref = json.load(open(p))
         if ref["fingerprint"] != fp_digest:
@@ -128,6 +132,7 @@ def prepare(name, task, repo, arm, logs_dir):
     refresh_auth()
     mounts = [(CLAUDE_BIN, CLAUDE_BIN, "ro"), (AUTH_DIR, "/home/claude/.claude/remote", "ro"), (CA, "/etc/ssl/ccr-ca.crt", "ro"),
               (logs_dir, "/logs", "rw"), (HERE, "/opt/harness", "ro")]
+    subprocess.run(["docker", "rm", "-f", name], capture_output=True)
     repo_env.start_container(task["repo"], name, network="trialnet", mounts=mounts, env={}, security_extra=True)
     root_exec(name, "chown dev:dev /logs && install -m 0755 /opt/harness/claude_wrapper.py /usr/local/bin/claude")
     repo_env.materialize(name, task["repo"], task["parent"])
@@ -157,7 +162,13 @@ def apply_forge(name, env, logs_dir):
             open(os.path.join(logs_dir, "forge_apply.log"), "w").write("\n".join(out))
             raise classify.Infra(f"forge apply failed ({cmd})")
     root_exec(name, "rm -rf /tmp/forge")
+    # Getting started: `git add .forge .claude && git commit -m "Add Forge"` (fixed identity/date, like the initial commit)
+    r = dev_exec(name, "git add .forge .claude && git -c user.name=dev -c user.email=dev@example.com commit -q -m 'Add Forge'",
+                 {**env, "GIT_AUTHOR_DATE": "2000-01-01T00:00:00Z", "GIT_COMMITTER_DATE": "2000-01-01T00:00:00Z"})
+    out.append(f"$ git add .forge .claude && git commit -m 'Add Forge'\n[exit {r.returncode}]\n{r.stdout}{r.stderr}")
     open(os.path.join(logs_dir, "forge_apply.log"), "w").write("\n".join(out))
+    if r.returncode:
+        raise classify.Infra("committing the Forge setup failed")
 
 
 def classify_paths(diff_paths):
@@ -177,16 +188,21 @@ def fp_diff(a, b):
 
 
 def collect_diff(name, logs_dir):
-    """Agent's final change against the starting commit, ignoring Forge-owned paths (gitignore respected)."""
-    cmd = ("cd /work && export GIT_INDEX_FILE=/tmp/score.idx && rm -f $GIT_INDEX_FILE && git add -A . "
-           "':(exclude).forge' ':(exclude).claude' >/dev/null 2>&1 && "
+    """Agent's final change against the starting (root) commit, ignoring Forge-owned paths (gitignore respected).
+    Runs as dev: git refuses a repository owned by another user."""
+    cmd = ("cd /work && export GIT_INDEX_FILE=/tmp/score.idx && rm -f $GIT_INDEX_FILE && "
+           "git add -A -- . ':(exclude).forge' ':(exclude).claude' && "
            "git diff --cached --binary $(git rev-list --max-parents=0 HEAD | tail -1) -- . ':(exclude).forge' ':(exclude).claude'")
-    r = root_exec(name, cmd, timeout=300)
+    r = subprocess.run(["docker", "exec", "-u", "dev", name, "sh", "-c", cmd], capture_output=True, text=True, timeout=300)
+    open(os.path.join(logs_dir, "collect_diff.log"), "w").write(f"exit {r.returncode}\n{r.stderr}")
+    if r.returncode != 0:
+        raise classify.Infra("collecting the agent diff failed: " + r.stderr[-500:])
     return r.stdout
 
 
 def score(task, task_dir, diff_text, logs_dir, name):
     """Fresh container, offline: parent tree + install + agent diff + hidden tests -> run kept tests."""
+    subprocess.run(["docker", "rm", "-f", name], capture_output=True)
     repo_env.start_container(task["repo"], name, network="none", mounts=[(HERE, "/opt/harness", "ro")], env={})
     try:
         repo_env.materialize(name, task["repo"], task["parent"])
@@ -274,18 +290,20 @@ def main():
         try:
             prepare(name, task, repo, a.arm, logs_dir)
             fp_pre = fingerprint(name)
+            json.dump(fp_pre, open(os.path.join(out, "fingerprint_pre.json"), "w"))
             insp = json.loads(sh(["docker", "inspect", name]).stdout)[0]
             hc = insp["HostConfig"]
             extra = {"image": insp["Image"], "argv": argv, "env": digest(env),
+                     "container_env": sorted(insp["Config"].get("Env") or []),
                      "claude_sha256": PINS["claude_sha256"],
                      "limits": [hc.get("NanoCpus"), hc.get("Memory"), sorted(hc.get("SecurityOpt") or []),
                                 sorted(hc.get("CapAdd") or []), insp["HostConfig"].get("NetworkMode"),
                                 sorted(m["Destination"] + ":" + str(m.get("RW")) for m in insp.get("Mounts", []))]}
-            owned_pre, _, _ = classify_paths(list(fp_pre))
+            owned_pre = [p for p in fp_pre if any(rx.search(p) for rx in FORGE_MARKERS)]
             parity = {"pre_digest": digest(fp_pre), "extra": extra}
             if owned_pre:
                 raise classify.Parity(f"Forge-owned paths present before apply: {owned_pre[:5]}")
-            ok, why = parity_ref_check(a.run_dir, task["task_id"], digest(fp_pre), extra)
+            ok, why = parity_ref_check(a.run_dir, task["task_id"], digest(fp_pre), extra, source=os.path.join(out, "fingerprint_pre.json"))
             parity["reference"] = why
             if not ok:
                 raise classify.Parity(why)
@@ -347,6 +365,8 @@ def main():
         repo_env.remove(name)
         for f in os.listdir(logs_dir):
             src = os.path.join(logs_dir, f)
+            if os.path.islink(src):
+                continue  # e.g. Claude Code's debug `latest` symlink
             dst = os.path.join(out, "forge" if f.startswith("forge") else "", f)
             (shutil.copytree if os.path.isdir(src) else shutil.copy)(src, dst)
         calls = os.path.join(out, "claude_calls.jsonl")
@@ -376,6 +396,8 @@ def main():
         json.dump(meta, open(os.path.join(out, "meta.json"), "w"), indent=1)
         for n in (name, sname):
             subprocess.run(["docker", "rm", "-f", n], capture_output=True)
+        if meta.get("status") != "scored" and os.path.isdir(logs_dir):
+            shutil.copytree(logs_dir, os.path.join(out, "_logs"), dirs_exist_ok=True, symlinks=True)
         shutil.rmtree(os.path.join(SCRATCH, tag), ignore_errors=True)
         print(json.dumps({k: meta.get(k) for k in ("task_id", "arm", "rep", "status", "infra_reason", "cost_usd",
                                                     "duration_s")}))

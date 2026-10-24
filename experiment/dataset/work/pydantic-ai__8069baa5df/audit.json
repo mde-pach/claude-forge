@@ -1,0 +1,10 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/models/test_bedrock.py::test_bedrock_empty_list_tool_result_uses_non_empty_content_block",
+   "action": "keep",
+   "reason": "It calls `_map_messages`, which is private, but that method existed before the change and several P2P tests already use it the same way. The instruction places the fix in how BedrockConverseModel maps messages, and the asserted outputs are exactly the dicts the instruction gives for both content modes."
+  }
+ ],
+ "edits": []
+}

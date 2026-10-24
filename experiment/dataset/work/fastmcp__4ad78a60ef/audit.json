@@ -1,0 +1,95 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPHostOriginProtection::test_auto_allows_configured_origin_without_trusted_host_boundary",
+   "action": "keep",
+   "reason": "Checks only the response status from HostOriginGuardMiddleware with the instruction-named mode/allowed_origins arguments, as the specified behaviour requires."
+  },
+  {
+   "id": "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPHostOriginProtection::test_auto_allows_public_host_when_server_scope_is_ambiguous",
+   "action": "keep",
+   "reason": "Checks only the status for auto mode when server=None, which the instruction says skips Host and Origin validation."
+  },
+  {
+   "id": "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPHostOriginProtection::test_auto_rejects_same_origin_fallback_without_trusted_host_boundary",
+   "action": "keep",
+   "reason": "This is exactly the 403 example in the instruction, checked through the public middleware interface."
+  },
+  {
+   "id": "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPHostOriginProtection::test_auto_rejects_untrusted_host_when_server_scope_is_loopback",
+   "action": "keep",
+   "reason": "Checks the specified 421 status when the scope server is loopback in auto mode, using only public interfaces."
+  },
+  {
+   "id": "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPHostOriginProtection::test_default_allows_untrusted_host_for_compatibility",
+   "action": "keep",
+   "reason": "Checks the specified default (False, no guard even with allowed_hosts) through the observable HTTP response."
+  },
+  {
+   "id": "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPHostOriginProtection::test_strict_rejects_public_host_when_server_scope_is_ambiguous",
+   "action": "keep",
+   "reason": "Checks the specified behaviour that strict mode always validates Host, by response status only."
+  },
+  {
+   "id": "tests/server/test_transport.py::test_format_host_for_url[0.0.0.0-0.0.0.0]",
+   "action": "keep",
+   "reason": "Pre-existing helper test; it fails before the change only because the file imports the new helper, which the instruction names."
+  },
+  {
+   "id": "tests/server/test_transport.py::test_format_host_for_url[127.0.0.1-127.0.0.1]",
+   "action": "keep",
+   "reason": "Pre-existing helper test; it fails before the change only because the file imports the new helper, which the instruction names."
+  },
+  {
+   "id": "tests/server/test_transport.py::test_format_host_for_url[::-[::]]",
+   "action": "keep",
+   "reason": "Pre-existing helper test; it fails before the change only because the file imports the new helper, which the instruction names."
+  },
+  {
+   "id": "tests/server/test_transport.py::test_format_host_for_url[::1-[::1]]",
+   "action": "keep",
+   "reason": "Pre-existing helper test; it fails before the change only because the file imports the new helper, which the instruction names."
+  },
+  {
+   "id": "tests/server/test_transport.py::test_format_host_for_url[[::1]-[::1]]",
+   "action": "keep",
+   "reason": "Pre-existing helper test; it fails before the change only because the file imports the new helper, which the instruction names."
+  },
+  {
+   "id": "tests/server/test_transport.py::test_format_host_for_url[fe80::1-[fe80::1]]",
+   "action": "keep",
+   "reason": "Pre-existing helper test; it fails before the change only because the file imports the new helper, which the instruction names."
+  },
+  {
+   "id": "tests/server/test_transport.py::test_format_host_for_url[localhost-localhost]",
+   "action": "keep",
+   "reason": "Pre-existing helper test; it fails before the change only because the file imports the new helper, which the instruction names."
+  },
+  {
+   "id": "tests/server/test_transport.py::test_resolve_allowed_hosts_for_run_merges_configured_hosts_with_loopback_host",
+   "action": "keep",
+   "reason": "The instruction names _resolve_allowed_hosts_for_run with its signature and specifies this exact merge result."
+  },
+  {
+   "id": "tests/server/test_transport.py::test_resolve_allowed_hosts_for_run_preserves_configured_hosts_when_disabled",
+   "action": "keep",
+   "reason": "The instruction names this helper and specifies that it returns configured_allowed_hosts when protection is not auto."
+  },
+  {
+   "id": "tests/server/test_transport.py::test_resolve_allowed_hosts_for_run_preserves_explicit_hosts",
+   "action": "keep",
+   "reason": "The instruction names this helper and specifies that an explicit allowed_hosts is returned unchanged."
+  },
+  {
+   "id": "tests/test_settings.py::test_http_host_origin_protection_defaults_to_false",
+   "action": "keep",
+   "reason": "The instruction specifies that the default is False."
+  },
+  {
+   "id": "tests/test_settings.py::test_http_host_origin_protection_env_var[auto-auto]",
+   "action": "keep",
+   "reason": "The instruction specifies that the env var parses \"auto\" to \"auto\"."
+  }
+ ],
+ "edits": []
+}

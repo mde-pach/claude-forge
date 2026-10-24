@@ -96,5 +96,15 @@ RUN --mount=type=secret,id=ca,target=/run/secrets/ca,uid=1000 \
  && bunx -p "@ast-grep/cli@${AST_GREP_VERSION}" ast-grep --version \
  && bunx -p "squawk-cli@${SQUAWK_VERSION}" squawk --version
 
+# uv cannot use the read-only /cache/uv directly; install commands first mirror it into the
+# writable $UV_CACHE_DIR as a symlink farm (see the script).
+COPY --chmod=0755 bin/uv-cache-overlay /usr/local/bin/uv-cache-overlay
+
+# Containers run offline (network none / trialnet). Without this, every uvx call that
+# misses its cached tool environment (e.g. a project venv's python first on PATH) first
+# retries PyPI for ~6 s before Forge's own `--offline` fallback; UV_OFFLINE makes uv use
+# the warm cache directly. Same in both arms. warm_cache.py overrides it (UV_OFFLINE=false).
+ENV UV_OFFLINE=1
+
 WORKDIR /work
 CMD ["sleep", "infinity"]

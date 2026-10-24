@@ -1,0 +1,90 @@
+{
+ "task_id": "fastmcp__8ba5b89918",
+ "window": "main",
+ "repo": "fastmcp",
+ "commit": "8ba5b89918d9ebcc2b7760f504cf5a682e26d808",
+ "parent": "3c4303886075b5dcefae1c68352772d31bc58c8b",
+ "date": "2026-07-08T09:10:41-04:00",
+ "subject": "Add server-level cache hints (SEP-2549) (#4464)",
+ "type": "feat",
+ "test_files": [
+  "tests/server/test_cache_hints.py"
+ ],
+ "source_files": [
+  "fastmcp_slim/fastmcp/server/caching.py",
+  "fastmcp_slim/fastmcp/server/server.py"
+ ],
+ "source_lines": 67,
+ "all_files": [
+  "docs/development/v4-notes/change-register.mdx",
+  "docs/servers/server.mdx",
+  "fastmcp_slim/fastmcp/server/caching.py",
+  "fastmcp_slim/fastmcp/server/server.py",
+  "tests/server/test_cache_hints.py"
+ ],
+ "hidden": [
+  "tests/server/test_cache_hints.py"
+ ],
+ "deleted": [],
+ "targets": [
+  "tests/server/test_cache_hints.py"
+ ],
+ "f2p": [
+  "tests/server/test_cache_hints.py::TestBuildCacheHints::test_covers_every_cacheable_method",
+  "tests/server/test_cache_hints.py::TestBuildCacheHints::test_non_positive_ttl_rejected[-1]",
+  "tests/server/test_cache_hints.py::TestBuildCacheHints::test_non_positive_ttl_rejected[0]",
+  "tests/server/test_cache_hints.py::TestBuildCacheHints::test_none_when_no_hint_set",
+  "tests/server/test_cache_hints.py::TestBuildCacheHints::test_scope_defaults_to_private",
+  "tests/server/test_cache_hints.py::TestBuildCacheHints::test_scope_without_ttl_rejected[private]",
+  "tests/server/test_cache_hints.py::TestBuildCacheHints::test_scope_without_ttl_rejected[public]",
+  "tests/server/test_cache_hints.py::TestBuildCacheHints::test_seconds_converted_to_ms",
+  "tests/server/test_cache_hints.py::TestConstructorValidation::test_no_cache_params_is_valid",
+  "tests/server/test_cache_hints.py::TestConstructorValidation::test_non_positive_ttl_raises[-5]",
+  "tests/server/test_cache_hints.py::TestConstructorValidation::test_non_positive_ttl_raises[0]",
+  "tests/server/test_cache_hints.py::TestConstructorValidation::test_scope_without_ttl_raises",
+  "tests/server/test_cache_hints.py::TestEndToEndInterop::test_hinted_list_tools_served_from_cache",
+  "tests/server/test_cache_hints.py::TestEndToEndInterop::test_hinted_read_resource_carries_cacheable_fields",
+  "tests/server/test_cache_hints.py::TestEndToEndInterop::test_private_scope_respected",
+  "tests/server/test_cache_hints.py::TestEndToEndInterop::test_unhinted_server_not_cached",
+  "tests/server/test_cache_hints.py::TestServerEmitsHints::test_prompts_list_carries_hint",
+  "tests/server/test_cache_hints.py::TestServerEmitsHints::test_resource_templates_list_carries_hint",
+  "tests/server/test_cache_hints.py::TestServerEmitsHints::test_resources_list_and_read_carry_hint",
+  "tests/server/test_cache_hints.py::TestServerEmitsHints::test_scope_defaults_to_private",
+  "tests/server/test_cache_hints.py::TestServerEmitsHints::test_tools_list_carries_hint"
+ ],
+ "p2p": [],
+ "flaky": [],
+ "cost_instruction": 0.0843018,
+ "cost_audit": 0.1374782,
+ "kept_f2p": [
+  "tests/server/test_cache_hints.py::TestBuildCacheHints::test_covers_every_cacheable_method",
+  "tests/server/test_cache_hints.py::TestBuildCacheHints::test_non_positive_ttl_rejected[-1]",
+  "tests/server/test_cache_hints.py::TestBuildCacheHints::test_non_positive_ttl_rejected[0]",
+  "tests/server/test_cache_hints.py::TestBuildCacheHints::test_none_when_no_hint_set",
+  "tests/server/test_cache_hints.py::TestBuildCacheHints::test_scope_defaults_to_private",
+  "tests/server/test_cache_hints.py::TestBuildCacheHints::test_scope_without_ttl_rejected[private]",
+  "tests/server/test_cache_hints.py::TestBuildCacheHints::test_scope_without_ttl_rejected[public]",
+  "tests/server/test_cache_hints.py::TestBuildCacheHints::test_seconds_converted_to_ms",
+  "tests/server/test_cache_hints.py::TestConstructorValidation::test_no_cache_params_is_valid",
+  "tests/server/test_cache_hints.py::TestConstructorValidation::test_non_positive_ttl_raises[-5]",
+  "tests/server/test_cache_hints.py::TestConstructorValidation::test_non_positive_ttl_raises[0]",
+  "tests/server/test_cache_hints.py::TestConstructorValidation::test_scope_without_ttl_raises",
+  "tests/server/test_cache_hints.py::TestEndToEndInterop::test_hinted_list_tools_served_from_cache",
+  "tests/server/test_cache_hints.py::TestEndToEndInterop::test_hinted_read_resource_carries_cacheable_fields",
+  "tests/server/test_cache_hints.py::TestEndToEndInterop::test_private_scope_respected",
+  "tests/server/test_cache_hints.py::TestEndToEndInterop::test_unhinted_server_not_cached",
+  "tests/server/test_cache_hints.py::TestServerEmitsHints::test_prompts_list_carries_hint",
+  "tests/server/test_cache_hints.py::TestServerEmitsHints::test_resource_templates_list_carries_hint",
+  "tests/server/test_cache_hints.py::TestServerEmitsHints::test_resources_list_and_read_carry_hint",
+  "tests/server/test_cache_hints.py::TestServerEmitsHints::test_scope_defaults_to_private",
+  "tests/server/test_cache_hints.py::TestServerEmitsHints::test_tools_list_carries_hint"
+ ],
+ "kept_p2p": [],
+ "edits_applied": 0,
+ "edits_rejected": [],
+ "dropped": [],
+ "revalidate_bad_f2p": [],
+ "revalidate_bad_p2p": [],
+ "final": "accepted",
+ "reason": null
+}

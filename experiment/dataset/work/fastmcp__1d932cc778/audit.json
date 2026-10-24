@@ -1,0 +1,15 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/server/auth/providers/test_azure.py::TestAzureProvider::test_prepare_scopes_for_token_exchange_falls_back_to_required_scopes",
+   "action": "keep",
+   "reason": "It calls the method the instruction names and checks the exact list the instruction's example specifies, `[\"api://my-api/read\", \"offline_access\"]`."
+  },
+  {
+   "id": "tests/server/auth/providers/test_azure.py::TestAzureProvider::test_prepare_scopes_for_upstream_refresh_empty_scopes_falls_back_to_required",
+   "action": "keep",
+   "reason": "It calls the method the instruction names and checks only what the instruction's example states: the three scopes, no `User.Read`, and length 3."
+  }
+ ],
+ "edits": []
+}

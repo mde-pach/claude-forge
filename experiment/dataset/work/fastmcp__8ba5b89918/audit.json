@@ -1,0 +1,110 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/server/test_cache_hints.py::TestBuildCacheHints::test_covers_every_cacheable_method",
+   "action": "keep",
+   "reason": "It checks the specified key set (CACHEABLE_METHODS) of the public helper the instruction names."
+  },
+  {
+   "id": "tests/server/test_cache_hints.py::TestBuildCacheHints::test_non_positive_ttl_rejected[-1]",
+   "action": "keep",
+   "reason": "The ValueError and the message substring are both specified in the instruction."
+  },
+  {
+   "id": "tests/server/test_cache_hints.py::TestBuildCacheHints::test_non_positive_ttl_rejected[0]",
+   "action": "keep",
+   "reason": "The ValueError and the message substring are both specified in the instruction."
+  },
+  {
+   "id": "tests/server/test_cache_hints.py::TestBuildCacheHints::test_none_when_no_hint_set",
+   "action": "keep",
+   "reason": "The instruction specifies the None return value."
+  },
+  {
+   "id": "tests/server/test_cache_hints.py::TestBuildCacheHints::test_scope_defaults_to_private",
+   "action": "keep",
+   "reason": "The instruction specifies the default scope of \"private\", read through the public CacheHint attributes."
+  },
+  {
+   "id": "tests/server/test_cache_hints.py::TestBuildCacheHints::test_scope_without_ttl_rejected[private]",
+   "action": "keep",
+   "reason": "The ValueError and the message substring are both specified in the instruction."
+  },
+  {
+   "id": "tests/server/test_cache_hints.py::TestBuildCacheHints::test_scope_without_ttl_rejected[public]",
+   "action": "keep",
+   "reason": "The ValueError and the message substring are both specified in the instruction."
+  },
+  {
+   "id": "tests/server/test_cache_hints.py::TestBuildCacheHints::test_seconds_converted_to_ms",
+   "action": "keep",
+   "reason": "The instruction specifies the ttl_ms conversion and the scope, read through the SDK CacheHint's public fields."
+  },
+  {
+   "id": "tests/server/test_cache_hints.py::TestConstructorValidation::test_no_cache_params_is_valid",
+   "action": "keep",
+   "reason": "It only checks the public constructor behaviour."
+  },
+  {
+   "id": "tests/server/test_cache_hints.py::TestConstructorValidation::test_non_positive_ttl_raises[-5]",
+   "action": "keep",
+   "reason": "The instruction specifies this constructor ValueError and its message substring."
+  },
+  {
+   "id": "tests/server/test_cache_hints.py::TestConstructorValidation::test_non_positive_ttl_raises[0]",
+   "action": "keep",
+   "reason": "The instruction specifies this constructor ValueError and its message substring."
+  },
+  {
+   "id": "tests/server/test_cache_hints.py::TestConstructorValidation::test_scope_without_ttl_raises",
+   "action": "keep",
+   "reason": "The instruction specifies this constructor ValueError and its message substring."
+  },
+  {
+   "id": "tests/server/test_cache_hints.py::TestEndToEndInterop::test_hinted_list_tools_served_from_cache",
+   "action": "keep",
+   "reason": "The spy wraps the pre-existing client session API, not the server internals, and checks the outcome the instruction specifies (no second wire request)."
+  },
+  {
+   "id": "tests/server/test_cache_hints.py::TestEndToEndInterop::test_hinted_read_resource_carries_cacheable_fields",
+   "action": "keep",
+   "reason": "It checks the wire result fields the instruction specifies, through the existing client session."
+  },
+  {
+   "id": "tests/server/test_cache_hints.py::TestEndToEndInterop::test_private_scope_respected",
+   "action": "keep",
+   "reason": "It checks the wire result fields through the public client."
+  },
+  {
+   "id": "tests/server/test_cache_hints.py::TestEndToEndInterop::test_unhinted_server_not_cached",
+   "action": "keep",
+   "reason": "The instruction explicitly specifies this outcome, and the spy wraps only the pre-existing client API."
+  },
+  {
+   "id": "tests/server/test_cache_hints.py::TestServerEmitsHints::test_prompts_list_carries_hint",
+   "action": "keep",
+   "reason": "It checks the specified wire fields through the existing client session."
+  },
+  {
+   "id": "tests/server/test_cache_hints.py::TestServerEmitsHints::test_resource_templates_list_carries_hint",
+   "action": "keep",
+   "reason": "It checks the specified wire fields through the existing client session."
+  },
+  {
+   "id": "tests/server/test_cache_hints.py::TestServerEmitsHints::test_resources_list_and_read_carry_hint",
+   "action": "keep",
+   "reason": "It checks the specified wire fields through the existing client session."
+  },
+  {
+   "id": "tests/server/test_cache_hints.py::TestServerEmitsHints::test_scope_defaults_to_private",
+   "action": "keep",
+   "reason": "It checks the specified default scope on the wire."
+  },
+  {
+   "id": "tests/server/test_cache_hints.py::TestServerEmitsHints::test_tools_list_carries_hint",
+   "action": "keep",
+   "reason": "It checks the specified wire fields through the existing client session."
+  }
+ ],
+ "edits": []
+}

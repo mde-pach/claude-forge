@@ -1,0 +1,65 @@
+{
+ "task_id": "fastmcp__6621024ce4",
+ "window": "main",
+ "repo": "fastmcp",
+ "commit": "6621024ce4de55d3943b5c1ccfb3920482be25da",
+ "parent": "ac78e6f693421edb0fb09ab2dfb3d71e335d28ec",
+ "date": "2026-07-07T07:49:16-04:00",
+ "subject": "Drive the FastMCP lifespan through the SDK session manager (#4446)",
+ "type": "other",
+ "test_files": [
+  "tests/server/http/test_session_idle_timeout.py",
+  "tests/server/http/test_session_owner_enforcement.py"
+ ],
+ "source_files": [
+  "fastmcp_slim/fastmcp/server/http.py",
+  "fastmcp_slim/fastmcp/server/mixins/transport.py",
+  "fastmcp_slim/fastmcp/server/server.py",
+  "fastmcp_slim/fastmcp/settings.py"
+ ],
+ "source_lines": 60,
+ "all_files": [
+  "docs/development/v4-notes/change-register.mdx",
+  "docs/more/settings.mdx",
+  "docs/servers/auth/token-verification.mdx",
+  "fastmcp_slim/fastmcp/server/http.py",
+  "fastmcp_slim/fastmcp/server/mixins/transport.py",
+  "fastmcp_slim/fastmcp/server/server.py",
+  "fastmcp_slim/fastmcp/settings.py",
+  "tests/server/http/test_session_idle_timeout.py",
+  "tests/server/http/test_session_owner_enforcement.py"
+ ],
+ "hidden": [
+  "tests/server/http/test_session_idle_timeout.py",
+  "tests/server/http/test_session_owner_enforcement.py"
+ ],
+ "deleted": [],
+ "targets": [
+  "tests/server/http/test_session_idle_timeout.py",
+  "tests/server/http/test_session_owner_enforcement.py"
+ ],
+ "f2p": [
+  "tests/server/http/test_session_idle_timeout.py::test_idle_session_is_terminated_after_timeout"
+ ],
+ "p2p": [
+  "tests/server/http/test_session_owner_enforcement.py::test_session_reuse_with_creating_credential_succeeds",
+  "tests/server/http/test_session_owner_enforcement.py::test_session_reuse_with_different_credential_returns_404"
+ ],
+ "flaky": [],
+ "cost_instruction": 0.0858618,
+ "cost_audit": 0.1234476,
+ "kept_f2p": [
+  "tests/server/http/test_session_idle_timeout.py::test_idle_session_is_terminated_after_timeout"
+ ],
+ "kept_p2p": [
+  "tests/server/http/test_session_owner_enforcement.py::test_session_reuse_with_creating_credential_succeeds",
+  "tests/server/http/test_session_owner_enforcement.py::test_session_reuse_with_different_credential_returns_404"
+ ],
+ "edits_applied": 2,
+ "edits_rejected": [],
+ "dropped": [],
+ "revalidate_bad_f2p": [],
+ "revalidate_bad_p2p": [],
+ "final": "accepted",
+ "reason": null
+}

@@ -1,0 +1,80 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/client/client/test_kv_response_cache.py::TestAllowlist::test_allowlist_matches_cacheable_methods",
+   "action": "keep",
+   "reason": "The instruction names CACHEABLE_RESULT_MODELS and lists its exact key set."
+  },
+  {
+   "id": "tests/client/client/test_kv_response_cache.py::TestAllowlist::test_unknown_type_tag_is_a_miss",
+   "action": "keep",
+   "reason": "It uses only _CacheEnvelope, _adapter.put and _string_key, which the instruction names explicitly, and it checks the specified miss behaviour."
+  },
+  {
+   "id": "tests/client/client/test_kv_response_cache.py::TestClear::test_clear_empties_and_keeps_collection_usable",
+   "action": "keep",
+   "reason": "It checks only the outcome of the public get/set/clear calls, which the instruction specifies."
+  },
+  {
+   "id": "tests/client/client/test_kv_response_cache.py::TestClear::test_clear_scoped_to_own_collection",
+   "action": "keep",
+   "reason": "The instruction specifies that clear is scoped to its own collection, and the test observes this through the public constructor and get/set."
+  },
+  {
+   "id": "tests/client/client/test_kv_response_cache.py::TestDistributedSharing::test_distinct_partitions_do_not_share",
+   "action": "keep",
+   "reason": "It is an end-to-end check through the public Client, and the double replaces only the session, the boundary the instruction names."
+  },
+  {
+   "id": "tests/client/client/test_kv_response_cache.py::TestDistributedSharing::test_second_client_serves_first_clients_cache",
+   "action": "keep",
+   "reason": "The instruction specifies serving from the cache 'without calling the session', and the spy sits on the public session boundary."
+  },
+  {
+   "id": "tests/client/client/test_kv_response_cache.py::TestFastMCPConstruction::test_custom_store_builds_cache",
+   "action": "keep",
+   "reason": "_response_cache is an attribute of Client that already existed before the change and that the task does not alter, and the instruction says the client builds a response cache."
+  },
+  {
+   "id": "tests/client/client/test_kv_response_cache.py::TestFastMCPConstruction::test_custom_store_without_partition_raises",
+   "action": "keep",
+   "reason": "The instruction quotes this error substring as one the store must keep."
+  },
+  {
+   "id": "tests/client/client/test_kv_response_cache.py::TestFastMCPConstruction::test_custom_store_without_target_id_raises",
+   "action": "keep",
+   "reason": "The instruction quotes this error substring as one the store must keep."
+  },
+  {
+   "id": "tests/client/client/test_kv_response_cache.py::TestPartitionIsolation::test_method_and_params_key_isolate",
+   "action": "keep",
+   "reason": "It checks the specified no-collision behaviour only through public get/set."
+  },
+  {
+   "id": "tests/client/client/test_kv_response_cache.py::TestPartitionIsolation::test_two_partitions_do_not_bleed",
+   "action": "keep",
+   "reason": "It checks the specified partition isolation only through public get/set."
+  },
+  {
+   "id": "tests/client/client/test_kv_response_cache.py::TestRoundTrip::test_delete_removes_entry",
+   "action": "keep",
+   "reason": "It checks the specified delete behaviour through the public API."
+  },
+  {
+   "id": "tests/client/client/test_kv_response_cache.py::TestRoundTrip::test_get_miss_returns_none",
+   "action": "keep",
+   "reason": "The instruction specifies that a miss returns None."
+  },
+  {
+   "id": "tests/client/client/test_kv_response_cache.py::TestRoundTrip::test_private_scope_roundtrips",
+   "action": "keep",
+   "reason": "The instruction specifies that scope is preserved."
+  },
+  {
+   "id": "tests/client/client/test_kv_response_cache.py::TestRoundTrip::test_set_get_reconstructs_model",
+   "action": "keep",
+   "reason": "The instruction specifies that get reconstructs the original model class, equal to the original, with scope preserved."
+  }
+ ],
+ "edits": []
+}

@@ -1,0 +1,25 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/client/client/test_error_handling.py::TestLogLevel::test_prompt_error_with_custom_log_level",
+   "action": "keep",
+   "reason": "Checks the public log_level kwarg, the specified 'Error rendering prompt' log message at the right level, and what the client sees; all observable and stated in the instruction."
+  },
+  {
+   "id": "tests/client/client/test_error_handling.py::TestLogLevel::test_resource_error_with_custom_log_level",
+   "action": "keep",
+   "reason": "Checks the specified 'Error reading resource' message at WARNING and not at ERROR, plus the client-visible error text; all named in the instruction."
+  },
+  {
+   "id": "tests/client/client/test_error_handling.py::TestLogLevel::test_sampling_tool_error_with_custom_log_level",
+   "action": "keep",
+   "reason": "Uses the execute_tools/SamplingTool interface the instruction names and checks the specified 'Error calling sampling tool' message level and the returned result."
+  },
+  {
+   "id": "tests/client/client/test_error_handling.py::TestLogLevel::test_tool_error_with_custom_log_level",
+   "action": "keep",
+   "reason": "Checks the specified 'Error calling tool' message at WARNING and not at ERROR, plus the client isError result; all observable outcomes stated in the instruction."
+  }
+ ],
+ "edits": []
+}

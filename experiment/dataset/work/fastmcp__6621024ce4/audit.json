@@ -1,0 +1,21 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/server/http/test_session_idle_timeout.py::test_idle_session_is_terminated_after_timeout",
+   "action": "relax",
+   "reason": "The asserts on the SDK's private `_server_instances` map inspect internal state, so I removed them; the polling loop stays only as a bounded wait, and the observable outcome (an expired session id returns 404) is still checked."
+  }
+ ],
+ "edits": [
+  {
+   "file": "tests/server/http/test_session_idle_timeout.py",
+   "old": "        assert sm is not None\n        assert session_id in sm._server_instances\n",
+   "new": "        assert sm is not None\n"
+  },
+  {
+   "file": "tests/server/http/test_session_idle_timeout.py",
+   "old": "            time.sleep(0.05)\n\n        assert session_id not in sm._server_instances\n",
+   "new": "            time.sleep(0.05)\n"
+  }
+ ]
+}

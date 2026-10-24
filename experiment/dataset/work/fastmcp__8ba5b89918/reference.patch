@@ -1,0 +1,169 @@
+diff --git a/docs/development/v4-notes/change-register.mdx b/docs/development/v4-notes/change-register.mdx
+index e8f6416..6476d96 100644
+--- a/docs/development/v4-notes/change-register.mdx
++++ b/docs/development/v4-notes/change-register.mdx
+@@ -283,6 +283,12 @@ On a `2026-07-28` connection the degradation error used to differ by feature: `c
+ 
+ *Verify:* `tests/server/test_protocol_eras.py` (`test_elicit_sample_degradation_message_is_clear_on_modern`, now a real test), `server/context.py` (era gates).
+ 
++### Server-level cache hints (SEP-2549) — New (opt-in feature)
++
++A FastMCP server can emit SEP-2549 freshness hints so a caching client (`fastmcp.Client(cache=...)`) may reuse a response without a wire round-trip. Two constructor params carry it: `FastMCP(cache_ttl=300, cache_scope="public")`, where `cache_ttl` is in seconds and `cache_scope` is `"public"` or `"private"` (default `"private"` when a TTL is set). The hint is uniform by construction — one server-level value applies to every SDK-cacheable method (`tools/list`, `prompts/list`, `resources/list`, `resources/templates/list`, `resources/read`, and `server/discover`) with no per-component surface and no aggregation. FastMCP does not hand-set the wire fields: it passes the hint through to the SDK low-level `Server(cache_hints=...)`, whose runner fills `ttlMs`/`cacheScope` on every cacheable result via `apply_cache_hint`, leaving any field a handler set explicitly untouched. `cache_ttl` must be positive, and a `cache_scope` without a `cache_ttl` is rejected at construction (a scope alone does not enable caching, since the client gates on the TTL's presence). Absent both params, no hint is emitted. Honoring is modern-only (the SDK client reads hints only at `2026-07-28`) and opt-in on the client, so a hinted server is inert unless the client passes `cache=`.
++
++*Verify:* `fastmcp_slim/fastmcp/server/caching.py` (`build_cache_hints`), `fastmcp_slim/fastmcp/server/server.py` (constructor params passed to `LowLevelServer(cache_hints=...)`), `tests/server/test_cache_hints.py` (unit validation + end-to-end interop with `fastmcp.Client(cache=True)`).
++
+ ### The xfail register — Known gap
+ 
+ Roughly forty `xfail` markers across the test tree (concentrated in `tests/server/tasks/`, `tests/client/tasks/`, and `test_protocol_eras.py`) are the built-in beta tracker: each names the SDK gap it waits on. They are enumerated and mapped to sdk-feedback findings on the [Known Gaps](/development/v4-notes/known-gaps) page.
+diff --git a/docs/servers/server.mdx b/docs/servers/server.mdx
+index 65befc5..9f6374a 100644
+--- a/docs/servers/server.mdx
++++ b/docs/servers/server.mdx
+@@ -201,6 +201,14 @@ These parameters tune how the server processes requests and communicates with cl
+ <ParamField body="dereference_schemas" type="bool" default="True">
+   Automatically dereference `$ref` pointers in JSON schemas generated from complex Pydantic models. Most clients require flat schemas without `$ref`, so this should usually stay enabled
+ </ParamField>
++
++<ParamField body="cache_ttl" type="int | None" default="None">
++  How long, in seconds, a client may treat this server's cacheable responses as fresh (SEP-2549). When set, the hint applies uniformly to `tools/list`, `prompts/list`, `resources/list`, `resources/templates/list`, and `resources/read`. Clients must opt into caching to honor it — see [Response caching](/clients/client#response-caching). Must be a positive integer
++</ParamField>
++
++<ParamField body="cache_scope" type='Literal["public", "private"] | None' default="None">
++  Whether a cached response may be shared across authorization contexts (`"public"`) or reused only within the one that produced it (`"private"`, the default when a `cache_ttl` is set). Requires `cache_ttl`
++</ParamField>
+ </Card>
+ 
+ ### Handlers and Storage
+@@ -222,6 +230,27 @@ These parameters provide custom handlers for MCP capabilities and persistent sto
+ </Card>
+ 
+ 
++## Response Caching
++
++<VersionBadge version="4.0.0" />
++
++A server whose listings and resource reads change slowly can tell clients how long they may reuse a response before fetching it again (SEP-2549). Set `cache_ttl` (seconds) on the server, and the hint is attached uniformly to every cacheable response — `tools/list`, `prompts/list`, `resources/list`, `resources/templates/list`, and `resources/read`.
++
++```python
++from fastmcp import FastMCP
++
++mcp = FastMCP("Weather", cache_ttl=300, cache_scope="public")
++
++@mcp.tool
++def forecast(city: str) -> str:
++    return f"Sunny in {city}"
++```
++
++`cache_scope` controls whether a cached response may be shared across authorization contexts (`"public"`) or reused only within the one that produced it (`"private"`, the default when a TTL is set). A `cache_scope` without a `cache_ttl` does not enable caching and raises at construction.
++
++The hint is inert on its own: a client only reuses a response if it opts into caching and negotiates the modern protocol. See [Response caching](/clients/client#response-caching) for the client side.
++
++
+ ## Tag-Based Filtering
+ 
+ <VersionBadge version="2.8.0" />
+diff --git a/fastmcp_slim/fastmcp/server/caching.py b/fastmcp_slim/fastmcp/server/caching.py
+new file mode 100644
+index 0000000..a5ae177
+--- /dev/null
++++ b/fastmcp_slim/fastmcp/server/caching.py
+@@ -0,0 +1,58 @@
++"""Server-level cache hints for FastMCP (SEP-2549).
++
++A FastMCP server opts every SDK-cacheable result it emits into client-side
++caching by setting `cache_ttl` (seconds) and, optionally, `cache_scope` on the
++`FastMCP` constructor. The hint is uniform by construction: one server-level
++value applies to `tools/list`, `prompts/list`, `resources/list`,
++`resources/templates/list`, `resources/read`, and `server/discover` alike — no
++per-component surface and no aggregation.
++
++FastMCP does not hand-set the wire fields. It passes the hint through to the SDK
++low-level `Server(cache_hints=...)`, whose runner fills `ttlMs`/`cacheScope` on
++every cacheable result via `apply_cache_hint`, leaving any field a handler set
++explicitly untouched. Honoring is modern-only and opt-in on the client: a hinted
++server is inert unless the client passes `cache=` and negotiates `2026-07-28`.
++"""
++
++from __future__ import annotations
++
++from typing import Literal, get_args
++
++from mcp.server.caching import CacheHint
++from mcp_types.methods import CacheableMethod
++
++CacheScope = Literal["public", "private"]
++"""Whether a cached result may be shared across authorization contexts
++(`"public"`) or reused only within the one that produced it (`"private"`)."""
++
++
++def build_cache_hints(
++    cache_ttl: int | None,
++    cache_scope: CacheScope | None,
++) -> dict[CacheableMethod, CacheHint] | None:
++    """Build the per-method `CacheHint` map for the SDK low-level server.
++
++    `cache_ttl` is in seconds and is converted to the wire's milliseconds. When
++    `cache_ttl` is `None` the server emits no hint, so its wire output is
++    identical to a server that never set one; a `cache_scope` given without a
++    `cache_ttl` is meaningless (the client gates caching on the presence of a
++    TTL) and is rejected rather than silently ignored.
++
++    Returns `None` when no hint is set, or a map applying the same hint to every
++    SDK-cacheable method otherwise.
++
++    Raises:
++        ValueError: If `cache_ttl` is not positive, or if `cache_scope` is set
++            without `cache_ttl`.
++    """
++    if cache_ttl is None:
++        if cache_scope is not None:
++            raise ValueError(
++                "cache_scope requires cache_ttl; a scope without a TTL does not "
++                "enable caching"
++            )
++        return None
++    if cache_ttl <= 0:
++        raise ValueError(f"cache_ttl must be a positive integer, got {cache_ttl}")
++    hint = CacheHint(ttl_ms=cache_ttl * 1000, scope=cache_scope or "private")
++    return dict.fromkeys(get_args(CacheableMethod), hint)
+diff --git a/fastmcp_slim/fastmcp/server/server.py b/fastmcp_slim/fastmcp/server/server.py
+index 7f30073..aea64f1 100644
+--- a/fastmcp_slim/fastmcp/server/server.py
++++ b/fastmcp_slim/fastmcp/server/server.py
+@@ -59,6 +59,7 @@ from fastmcp.prompts.function_prompt import FunctionPrompt
+ from fastmcp.resources.base import Resource, ResourceResult
+ from fastmcp.resources.template import ResourceTemplate
+ from fastmcp.server.auth import AuthCheck, AuthContext, AuthProvider, run_auth_checks
++from fastmcp.server.caching import build_cache_hints
+ from fastmcp.server.lifespan import Lifespan
+ from fastmcp.server.low_level import LowLevelServer
+ from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
+@@ -329,6 +330,8 @@ class FastMCP(
+         dereference_schemas: bool = True,
+         strict_input_validation: bool | None = None,
+         list_page_size: int | None = None,
++        cache_ttl: int | None = None,
++        cache_scope: Literal["public", "private"] | None = None,
+         tasks: bool | None = None,
+         session_state_store: AsyncKeyValue | None = None,
+         sampling_handler: SamplingHandler | None = None,
+@@ -387,6 +390,11 @@ class FastMCP(
+             raise ValueError("list_page_size must be a positive integer")
+         self._list_page_size: int | None = list_page_size
+ 
++        # Server-level SEP-2549 cache hints, applied uniformly to every
++        # SDK-cacheable result by the low-level server's runner (raises on
++        # invalid ttl/scope).
++        cache_hints = build_cache_hints(cache_ttl, cache_scope)
++
+         # Handle Lifespan instances (they're callable) or regular lifespan functions
+         if lifespan is not None:
+             self._lifespan: LifespanCallable[LifespanResultT] = cast(
+@@ -415,6 +423,7 @@ class FastMCP(
+             website_url=website_url,
+             icons=icons,
+             lifespan=_lifespan_proxy(fastmcp_server=self),
++            cache_hints=cache_hints,
+         )
+ 
+         self.auth: AuthProvider | None = auth

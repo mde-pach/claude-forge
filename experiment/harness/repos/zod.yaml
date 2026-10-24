@@ -1,0 +1,56 @@
+# colinhacks/zod. pnpm 10.12.1 workspace (packages/*), vitest 4 with a root `projects` config,
+# Biome 1.9. Mirrors CI (.github/workflows/test.yml: `pnpm install`, then `pnpm test` = `vitest
+# run` at the root). No build step: the vitest config resolves `zod` through the `@zod/source`
+# export condition (packages/zod/src), so tests always run against the source in the tree.
+# The repo's own vitest config is kept as is, including `typecheck.enabled: true` (tsc
+# type-checks *.test.ts; type-level assertions are part of the suite). With typecheck each test
+# is reported twice in JUnit (runtime + type check, same id); repo_env merges them worst-wins.
+# See harness/IMAGES_TS.md for the judgement calls.
+zod:
+  url: https://github.com/colinhacks/zod
+  mirror: /work/repos/colinhacks__zod
+  lang: typescript
+  image: forge-exp/zod:v1
+  lockfiles: [pnpm-lock.yaml, pnpm-workspace.yaml, package.json]
+  install_timeout: 1800
+  warm: >-
+    set -e;
+    if [ -n "${NODE_EXTRA_CA_CERTS:-}" ]; then export npm_config_cafile="$NODE_EXTRA_CA_CERTS" pnpm_config_cafile="$NODE_EXTRA_CA_CERTS"; fi;
+    HUSKY=0 pnpm install --frozen-lockfile --store-dir /cache/pnpm --package-import-method copy
+  # Same writable store view as better-auth (see IMAGES_TS.md). HUSKY=0: the root `prepare`
+  # script (husky) would otherwise set core.hooksPath and install git hooks.
+  install: |
+    set -e
+    W=/tmp/pnpm-store
+    for d in /cache/pnpm/v*; do
+      [ -d "$d" ] || continue
+      v=$(basename "$d"); mkdir -p "$W/$v"
+      for e in "$d"/*; do
+        n=$(basename "$e")
+        if [ "$n" = files ]; then ln -sfn "$e" "$W/$v/files"; else cp -a "$e" "$W/$v/"; fi
+      done
+    done
+    HUSKY=0 pnpm install --frozen-lockfile --offline --store-dir "$W" --package-import-method copy
+    find .git/hooks -type f ! -name '*.sample' -delete
+    git config --unset core.hooksPath || true
+    # fumadocs-mdx output of the packages/docs postinstall is not deterministic (parity
+    # fingerprint); docs are neither built nor tested here.
+    rm -rf packages/docs/.source
+  path_prepend: /work/node_modules/.bin
+  test_file_regex: '(^|/)(tests?|__tests__|testing)/|(^|/)test_[^/]*\.py$|_test\.py$|(^|/)conftest\.py$|\.(test|spec)\.(m?[jt]sx?|cts)$'
+  test_cmd: >-
+    cd /work && NO_COLOR=1 vitest run {targets}
+    --reporter=default --reporter=junit --outputFile.junit={junit}
+  # Only files that still exist are linted (a deleted file would otherwise yield a biome
+  # internalError/io "finding"); with no file left, biome is not run (it would lint the repo).
+  lint_cmd: |
+    set --
+    for f in {files}; do [ -f "$f" ] && set -- "$@" "$f"; done
+    [ $# -eq 0 ] && { echo '{"diagnostics":[]}'; exit 0; }
+    biome lint --reporter=json --no-errors-on-unmatched --files-ignore-unknown=true "$@"
+  junit_flavor: vitest
+  env:
+    pnpm_config_store_dir: /tmp/pnpm-store
+    npm_config_store_dir: /tmp/pnpm-store
+    pnpm_config_package_import_method: copy
+    npm_config_package_import_method: copy

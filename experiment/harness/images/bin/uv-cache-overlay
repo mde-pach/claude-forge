@@ -1,0 +1,24 @@
+#!/bin/sh
+# uv-cache-overlay [SRC] [DST]: make a read-only uv cache SRC (default /cache/uv) usable by
+# mirroring it into the writable uv cache DST (default $UV_CACHE_DIR) as a symlink farm:
+# real directories, every file a symlink into SRC (`cp -as`, one process, no data copied).
+# uv cannot use a read-only cache directly (it creates lock files inside the cache), so
+# trial containers mount /cache/uv read-only and run this before `uv sync --offline`.
+# uv's own lock files (`*.lock` outside archive-v*/git-v*, `.lock` everywhere) are not linked:
+# uv creates writable ones. builds-v* (scratch) is skipped. Existing DST files are kept.
+set -eu
+src=${1:-/cache/uv}
+dst=${2:-${UV_CACHE_DIR:?UV_CACHE_DIR is not set}}
+[ -d "$src" ] || { echo "uv-cache-overlay: $src missing, nothing to do" >&2; exit 0; }
+mkdir -p "$dst"
+for d in "$src"/*/; do
+  [ -d "$d" ] || continue
+  d=${d%/}; b=${d##*/}
+  case "$b" in builds-v*) continue ;; esac
+  mkdir -p "$dst/$b"
+  cp -as -n "$d/." "$dst/$b/" 2>/dev/null || cp -as -n "$d/." "$dst/$b/"
+  case "$b" in
+    archive-v*|git-v*) find "$dst/$b" -type l -name .lock -delete ;;
+    *) find "$dst/$b" -type l -name '*.lock' -delete ;;
+  esac
+done

@@ -1,0 +1,58 @@
+{
+ "task_id": "logfire__38297b3a46",
+ "window": "main",
+ "repo": "logfire",
+ "commit": "38297b3a46d064ff5529e7ccfe6db889ce8f76f1",
+ "parent": "56fe5e0379716d788c5071b559d6c312e30e8cb1",
+ "date": "2026-07-31T13:33:24-06:00",
+ "subject": "fix(google-genai): break circular reference in span event body [murmur:logfire-sdk/take-over-pr-review] (#2157)",
+ "type": "fix",
+ "test_files": [
+  "tests/otel_integrations/test_google_genai.py"
+ ],
+ "source_files": [
+  "logfire/_internal/integrations/google_genai.py"
+ ],
+ "source_lines": 39,
+ "all_files": [
+  "logfire/_internal/integrations/google_genai.py",
+  "tests/otel_integrations/test_google_genai.py"
+ ],
+ "hidden": [
+  "tests/otel_integrations/test_google_genai.py"
+ ],
+ "deleted": [],
+ "targets": [
+  "tests/otel_integrations/test_google_genai.py"
+ ],
+ "f2p": [
+  "tests/otel_integrations/test_google_genai.py::test_span_event_logger_with_circular_reference"
+ ],
+ "p2p": [
+  "tests/otel_integrations/test_google_genai.py::test_instrument_google_genai",
+  "tests/otel_integrations/test_google_genai.py::test_instrument_google_genai_no_content",
+  "tests/otel_integrations/test_google_genai.py::test_instrument_google_genai_response_schema",
+  "tests/otel_integrations/test_google_genai.py::test_missing_opentelemetry_dependency",
+  "tests/otel_integrations/test_google_genai.py::test_span_event_logger_with_none_parts"
+ ],
+ "flaky": [],
+ "cost_instruction": 0.0640978,
+ "cost_audit": 0.0648302,
+ "kept_f2p": [
+  "tests/otel_integrations/test_google_genai.py::test_span_event_logger_with_circular_reference"
+ ],
+ "kept_p2p": [
+  "tests/otel_integrations/test_google_genai.py::test_instrument_google_genai",
+  "tests/otel_integrations/test_google_genai.py::test_instrument_google_genai_no_content",
+  "tests/otel_integrations/test_google_genai.py::test_instrument_google_genai_response_schema",
+  "tests/otel_integrations/test_google_genai.py::test_missing_opentelemetry_dependency",
+  "tests/otel_integrations/test_google_genai.py::test_span_event_logger_with_none_parts"
+ ],
+ "edits_applied": 0,
+ "edits_rejected": [],
+ "dropped": [],
+ "revalidate_bad_f2p": [],
+ "revalidate_bad_p2p": [],
+ "final": "accepted",
+ "reason": null
+}

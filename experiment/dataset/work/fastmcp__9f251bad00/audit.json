@@ -1,0 +1,81 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceProvider::test_init_with_explicit_params",
+   "action": "relax",
+   "reason": "Assertions on private OAuthProxy attributes (_upstream_client_id/_upstream_client_secret) are removed, and the public base_url check is kept."
+  },
+  {
+   "id": "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceProvider::test_init_defaults",
+   "action": "relax",
+   "reason": "Checks on private _redirect_path and _token_validator are removed, and the public required_scopes default named in the instruction is kept."
+  },
+  {
+   "id": "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceProvider::test_oauth_endpoints_configured_correctly",
+   "action": "drop",
+   "reason": "Every assertion inspects private OAuthProxy attributes (_upstream_*_endpoint)."
+  },
+  {
+   "id": "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceProvider::test_public_pkce_app_uses_none_token_auth",
+   "action": "drop",
+   "reason": "Every assertion inspects private attributes (_upstream_client_secret, _token_endpoint_auth_method)."
+  },
+  {
+   "id": "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceProvider::test_uses_upstream_token_response_scopes",
+   "action": "keep",
+   "reason": "The instruction names _uses_alternate_verification() returning True, so this is part of the specified interface."
+  },
+  {
+   "id": "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceProvider::test_valid_scopes_passed_through",
+   "action": "keep",
+   "reason": "It checks the public client_registration_options.valid_scopes, as the instruction specifies."
+  },
+  {
+   "id": "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceTokenVerifier::test_defaults_scopes_when_userinfo_has_no_scope",
+   "action": "keep",
+   "reason": "HTTP is mocked at the boundary, and the test checks the specified default-scope outcome."
+  },
+  {
+   "id": "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceTokenVerifier::test_invalid_token_returns_none",
+   "action": "keep",
+   "reason": "A non-200 userinfo response must return None, as specified; HTTP is mocked at the boundary."
+  },
+  {
+   "id": "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceTokenVerifier::test_missing_required_scope_returns_none",
+   "action": "keep",
+   "reason": "It checks the specified whoami fallback and required-scope enforcement through the public verify_token."
+  },
+  {
+   "id": "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceTokenVerifier::test_missing_sub_returns_none",
+   "action": "keep",
+   "reason": "A missing sub must return None, as specified."
+  },
+  {
+   "id": "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceTokenVerifier::test_sends_bearer_token_to_userinfo",
+   "action": "keep",
+   "reason": "The Bearer header on the userinfo request is explicitly specified and is observed at the HTTP boundary."
+  },
+  {
+   "id": "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceTokenVerifier::test_valid_token_with_userinfo_scopes",
+   "action": "keep",
+   "reason": "It checks the specified scope splitting, client_id and claims through the public result."
+  },
+  {
+   "id": "tests/server/auth/providers/test_huggingface.py::TestHuggingFaceTokenVerifier::test_valid_token_with_whoami_scopes",
+   "action": "keep",
+   "reason": "It checks the specified whoami merge order and the huggingface_whoami claim."
+  }
+ ],
+ "edits": [
+  {
+   "file": "tests/server/auth/providers/test_huggingface.py",
+   "old": "        assert provider._upstream_client_id == \"hf-client-id\"\n        assert provider._upstream_client_secret is not None\n        assert provider._upstream_client_secret.get_secret_value() == \"hf-client-secret\"\n",
+   "new": ""
+  },
+  {
+   "file": "tests/server/auth/providers/test_huggingface.py",
+   "old": "        assert provider._redirect_path == \"/auth/callback\"\n        assert provider.required_scopes == DEFAULT_HUGGINGFACE_SCOPES\n        assert provider._token_validator.required_scopes == []\n",
+   "new": "        assert provider.required_scopes == DEFAULT_HUGGINGFACE_SCOPES\n"
+  }
+ ]
+}

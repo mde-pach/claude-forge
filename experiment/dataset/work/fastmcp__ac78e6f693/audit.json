@@ -1,0 +1,65 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/server/telemetry/test_server_tracing.py::TestSeamServerSpan::test_set_logging_level_emits_seam_span",
+   "action": "keep",
+   "reason": "Checks the span name (the method name) and the mcp.method.name and fastmcp.server.name attributes through a real Client request, all of which the instruction specifies."
+  },
+  {
+   "id": "tests/server/telemetry/test_server_tracing.py::TestSingleServerSpan::test_tool_call_emits_single_server_span",
+   "action": "keep",
+   "reason": "Checks for exactly one SERVER span with the rich name and the component attributes the instruction names, observed through the public Client and the span exporter."
+  },
+  {
+   "id": "tests/test_exceptions.py::TestToMcpError::test_custom_default_code",
+   "action": "keep",
+   "reason": "Uses the public to_mcp_error with its default_code parameter, both of which the instruction specifies."
+  },
+  {
+   "id": "tests/test_exceptions.py::TestToMcpError::test_default_code_for_unmapped_errors[exc0]",
+   "action": "keep",
+   "reason": "The instruction specifies that unmapped exceptions such as ResourceError map to default_code (INTERNAL_ERROR)."
+  },
+  {
+   "id": "tests/test_exceptions.py::TestToMcpError::test_default_code_for_unmapped_errors[exc1]",
+   "action": "keep",
+   "reason": "The instruction specifies that PromptError maps to default_code (INTERNAL_ERROR)."
+  },
+  {
+   "id": "tests/test_exceptions.py::TestToMcpError::test_default_code_for_unmapped_errors[exc2]",
+   "action": "keep",
+   "reason": "The instruction specifies that ToolError maps to default_code (INTERNAL_ERROR)."
+  },
+  {
+   "id": "tests/test_exceptions.py::TestToMcpError::test_existing_mcp_error_passes_through",
+   "action": "keep",
+   "reason": "The instruction specifies that an MCPError is returned unchanged as the same object."
+  },
+  {
+   "id": "tests/test_exceptions.py::TestToMcpError::test_invalid_params_mapping[exc0]",
+   "action": "keep",
+   "reason": "The instruction specifies that NotFoundError maps to INVALID_PARAMS and that the message equals str(exc)."
+  },
+  {
+   "id": "tests/test_exceptions.py::TestToMcpError::test_invalid_params_mapping[exc1]",
+   "action": "keep",
+   "reason": "The instruction specifies that DisabledError maps to INVALID_PARAMS and that the message equals str(exc)."
+  },
+  {
+   "id": "tests/test_exceptions.py::TestToMcpError::test_invalid_params_mapping[exc2]",
+   "action": "keep",
+   "reason": "The instruction specifies that ValidationError maps to INVALID_PARAMS and that the message equals str(exc)."
+  },
+  {
+   "id": "tests/test_exceptions.py::TestWireErrorCodes::test_prompt_not_found_uses_invalid_params",
+   "action": "keep",
+   "reason": "The wire code INVALID_PARAMS and the 'Unknown prompt' message substring are both specified, and the test observes them through the public Client."
+  },
+  {
+   "id": "tests/test_exceptions.py::TestWireErrorCodes::test_resource_not_found_uses_invalid_params",
+   "action": "keep",
+   "reason": "The wire code INVALID_PARAMS and the 'Resource not found' message substring are both specified, and the test observes them through the public Client."
+  }
+ ],
+ "edits": []
+}

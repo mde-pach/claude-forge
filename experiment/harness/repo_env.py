@@ -23,6 +23,9 @@ Optional yaml keys beyond the contract (all have defaults):
   warm: "<sh>"                      online install used by warm_cache.py to fill /work/cache
   install_timeout: seconds          default 1800
   lockfiles: [paths]                files whose content keys the dependency set (warm_cache)
+  cache_overlay: [kinds]            caches mounted as a per-container overlay (writable view,
+                                    shared lower layer never modified); default [uv] for python,
+                                    [] otherwise. Other caches are plain read-only binds.
 
 CLI (smoke test):
   python3 harness/repo_env.py smoke <repo_id> <commit> <test_file...> [--overlay-from <commit>]
@@ -35,6 +38,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -52,6 +56,7 @@ except ImportError:  # pragma: no cover
 HARNESS = Path(__file__).resolve().parent
 REPOS_DIR = HARNESS / "repos"
 HOST_CACHE = Path("/work/cache")
+OVERLAY_ROOT = Path("/work/runs/cache-overlay")
 CACHE_KINDS = ("uv", "pnpm", "npm", "bun", "pip")
 WORKDIR = "/work"
 DEV_UID = "1000"
@@ -125,8 +130,10 @@ def start_container(repo_id: str, name: str, *, network: str = "none",
                     env: dict[str, str] | None = None, security_extra: bool = False) -> str:
     """Start `sleep infinity` as uid 1000 in /work. Returns the container name.
 
-    Host caches /work/cache/<x> are mounted read-only at /cache/<x> unless `mounts` already
-    targets that path (warm-up mounts them rw).
+    Host caches /work/cache/<x> are mounted at /cache/<x> unless `mounts` already targets that
+    path (warm-up mounts them rw): kinds in yaml `cache_overlay` (default [uv] for python) as a
+    per-container overlay whose lower layer is the shared cache (never modified), the others as
+    read-only binds. Always pair with remove(name), which also deletes the overlay.
     """
     if network not in ("none", "trialnet", "bridge"):
         raise ValueError(f"network must be none|trialnet|bridge, got {network!r}")
@@ -140,9 +147,17 @@ def start_container(repo_id: str, name: str, *, network: str = "none",
             "--network", network]
     if security_extra:
         args += SECURITY_EXTRA
+    overlay = set(cfg.get("cache_overlay", ["uv"] if cfg.get("lang") == "python" else []))
     for kind in CACHE_KINDS:
         host = HOST_CACHE / kind
-        if host.is_dir() and f"/cache/{kind}" not in targets:
+        if not host.is_dir() or f"/cache/{kind}" in targets:
+            continue
+        if kind in overlay:
+            # The shared cache is the read-only lower layer of a per-container overlay: the
+            # container sees a writable /cache/<kind> (uv needs to create lock files), its
+            # writes go to a private upper dir, and /work/cache/<kind> is never modified.
+            args += ["--mount", f"type=volume,src={_overlay_volume(name, kind, host)},dst=/cache/{kind}"]
+        else:
             args += ["--mount", f"type=bind,src={host},dst=/cache/{kind},readonly"]
     for host, ctr, mode in mounts:
         if mode not in ("ro", "rw"):
@@ -159,6 +174,7 @@ def start_container(repo_id: str, name: str, *, network: str = "none",
     args += [image, "sleep", "infinity"]
     r = subprocess.run(args, capture_output=True, text=True)
     if r.returncode != 0:
+        remove(name)
         raise RuntimeError(f"docker run failed ({r.returncode}): {r.stderr.strip()}")
     return name
 
@@ -190,8 +206,31 @@ def exec_(name: str, cmd, user: str = "dev", timeout: float | None = None,
     return r
 
 
+def _overlay_volume(name: str, kind: str, lower: Path) -> str:
+    base = OVERLAY_ROOT / name / kind
+    shutil.rmtree(base, ignore_errors=True)
+    (base / "upper").mkdir(parents=True)
+    (base / "work").mkdir()
+    os.chown(base / "upper", int(DEV_UID), int(DEV_GID))
+    vol = f"{name}-cache-{kind}"
+    subprocess.run(["docker", "volume", "rm", "-f", vol], capture_output=True)
+    r = subprocess.run(["docker", "volume", "create", "--label", LABEL, "--label", f"forge-exp.container={name}",
+                        "--driver", "local", "--opt", "type=overlay", "--opt", "device=overlay",
+                        "--opt", f"o=lowerdir={lower},upperdir={base / 'upper'},workdir={base / 'work'}", vol],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        raise RuntimeError(f"overlay volume for {lower} failed: {r.stderr.strip()}")
+    return vol
+
+
 def remove(name: str) -> None:
+    """Remove the container, its cache overlay volumes and their upper dirs."""
     subprocess.run(["docker", "rm", "-f", "-v", name], capture_output=True)
+    vols = subprocess.run(["docker", "volume", "ls", "-q", "--filter", f"label=forge-exp.container={name}"],
+                          capture_output=True, text=True).stdout.split()
+    if vols:
+        subprocess.run(["docker", "volume", "rm", "-f", *vols], capture_output=True)
+    shutil.rmtree(OVERLAY_ROOT / name, ignore_errors=True)
 
 
 # --------------------------------------------------------------------------- workspace

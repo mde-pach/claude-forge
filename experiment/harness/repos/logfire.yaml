@@ -5,8 +5,12 @@ logfire:
   mirror: /work/repos/pydantic__logfire
   lang: python
   image: forge-exp/base:v1
-  install: UV_CACHE_DIR=/cache/uv uv sync --frozen --offline --python 3.12
-  warm: UV_CACHE_DIR=/cache/uv uv sync --frozen --python 3.12
+  # /cache/uv is a per-container overlay (writable view; repo_env.start_container); fall back to
+  # a symlink farm into the image cache when it is a plain read-only bind.
+  install: >-
+    set -e; if touch /cache/uv/.forge-w 2>/dev/null; then rm -f /cache/uv/.forge-w; else export UV_CACHE_DIR=/opt/forge-cache/uv; uv-cache-overlay /cache/uv; fi;
+    uv sync --frozen --offline --python 3.12
+  warm: UV_CACHE_DIR=/cache/uv UV_OFFLINE=false uv sync --frozen --python 3.12
   lockfiles: [uv.lock]
   path_prepend: /work/.venv/bin
   test_file_regex: '(^|/)(tests?|testing)/.*\.py$|(^|/)test_[^/]*\.py$|_test\.py$|(^|/)conftest\.py$'
@@ -17,3 +21,5 @@ logfire:
   junit_flavor: pytest
   env:
     UV_PYTHON: "3.12"
+    # The agent's own uv/uvx (uv run, Forge's uvx tools) use the same warm cache as the install.
+    UV_CACHE_DIR: /cache/uv

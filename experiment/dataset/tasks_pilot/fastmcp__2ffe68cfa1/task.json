@@ -1,0 +1,41 @@
+{
+ "task_id": "fastmcp__2ffe68cfa1",
+ "repo": "fastmcp",
+ "commit": "2ffe68cfa196a09cfe877bf00f4de4644fc96dd8",
+ "parent": "f5dea2a17c4cd579260af0be24b7c80f08059aed",
+ "date": "2026-05-04T12:22:31-04:00",
+ "subject": "fix: preserve tool decorator metadata (#4072)",
+ "type": "fix",
+ "source_files": [
+  "src/fastmcp/tools/function_tool.py"
+ ],
+ "test_files": [
+  "tests/tools/test_standalone_decorator.py"
+ ],
+ "hidden_deleted": [],
+ "test_targets": [
+  "tests/tools/test_standalone_decorator.py"
+ ],
+ "f2p": [
+  "tests/tools/test_standalone_decorator.py::TestToolDecorator::test_from_function_preserves_decorator_metadata[from_function0]",
+  "tests/tools/test_standalone_decorator.py::TestToolDecorator::test_from_function_preserves_decorator_metadata[from_function1]"
+ ],
+ "p2p": [
+  "tests/tools/test_standalone_decorator.py::TestToolDecorator::test_tool_added_to_server",
+  "tests/tools/test_standalone_decorator.py::TestToolDecorator::test_tool_function_still_callable",
+  "tests/tools/test_standalone_decorator.py::TestToolDecorator::test_tool_rejects_classmethod_decorator",
+  "tests/tools/test_standalone_decorator.py::TestToolDecorator::test_tool_with_all_metadata",
+  "tests/tools/test_standalone_decorator.py::TestToolDecorator::test_tool_with_both_name_args_raises",
+  "tests/tools/test_standalone_decorator.py::TestToolDecorator::test_tool_with_empty_parens",
+  "tests/tools/test_standalone_decorator.py::TestToolDecorator::test_tool_with_name_arg",
+  "tests/tools/test_standalone_decorator.py::TestToolDecorator::test_tool_with_name_kwarg",
+  "tests/tools/test_standalone_decorator.py::TestToolDecorator::test_tool_without_parens"
+ ],
+ "audit": {
+  "dropped": [],
+  "edits_applied": 0,
+  "f2p_before": 2,
+  "p2p_before": 9,
+  "flaky_excluded": []
+ }
+}

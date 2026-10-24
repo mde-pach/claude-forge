@@ -1,0 +1,15 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/tools/test_standalone_decorator.py::TestToolDecorator::test_from_function_preserves_decorator_metadata[from_function0]",
+   "action": "keep",
+   "reason": "It asserts only the public tool attributes (name, version, title, description, tags, meta) that the instruction requires for Tool.from_function."
+  },
+  {
+   "id": "tests/tools/test_standalone_decorator.py::TestToolDecorator::test_from_function_preserves_decorator_metadata[from_function1]",
+   "action": "keep",
+   "reason": "It asserts only the public tool attributes that the instruction requires for FunctionTool.from_function."
+  }
+ ],
+ "edits": []
+}

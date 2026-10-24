@@ -1,0 +1,85 @@
+# better-auth/better-auth. pnpm workspace (pnpm 10.30/11.x via corepack, lockfile v9), vitest 4 with
+# a root `projects` config, Biome 2.4. Mirrors CI (.github/workflows/ci.yml) and CONTRIBUTING.md:
+# `pnpm install --frozen-lockfile`, `pnpm build` (turbo, tsdown), then vitest run from the root
+# (`pnpm vitest <path> --run`). The build is required: packages import each other through
+# package exports that point at dist/ (the root `ssr.resolve.conditions: [dev-source]` is not
+# inherited by the vitest projects; without dist, imports such as `@better-auth/core/api` fail).
+# test_cmd re-runs the (turbo-cached) build for the targeted packages and their workspace
+# dependencies first, exactly like CI's `turbo test` (dependsOn ^build, build), so the code under
+# test is always the code in the tree (parent, reference or agent), never a stale dist.
+# See harness/IMAGES_TS.md for every judgement call (store view, git hooks, turbo cache/logs).
+better-auth:
+  url: https://github.com/better-auth/better-auth
+  mirror: /work/repos/better-auth__better-auth
+  lang: typescript
+  image: forge-exp/better-auth:v1
+  lockfiles: [pnpm-lock.yaml, pnpm-workspace.yaml, package.json]
+  install_timeout: 2400
+  # Online install for warm_cache.py: fills /cache/pnpm (rw) incl. the side-effects cache of
+  # allowed builds (better-sqlite3, prisma engines, esbuild, ...). Scripts run as upstream.
+  warm: >-
+    set -e;
+    if [ -n "${NODE_EXTRA_CA_CERTS:-}" ]; then export npm_config_cafile="$NODE_EXTRA_CA_CERTS" pnpm_config_cafile="$NODE_EXTRA_CA_CERTS"; fi;
+    pnpm install --frozen-lockfile --store-dir /cache/pnpm --package-import-method copy
+  # Offline install. /cache/pnpm is read-only and pnpm 11 opens its store index (SQLite
+  # index.db) read-write, so a writable store *view* is built in /tmp/pnpm-store: the content
+  # directory `files/` is a symlink to the read-only cache, the small metadata is copied.
+  # Then: frozen offline install, remove git hooks installed by lifecycle scripts (lefthook),
+  # build all packages (= `pnpm build`), drop turbo's per-package logs (they contain timings)
+  # and the other non-deterministic by-products listed below.
+  install: |
+    set -e
+    W=/tmp/pnpm-store
+    for d in /cache/pnpm/v*; do
+      [ -d "$d" ] || continue
+      v=$(basename "$d"); mkdir -p "$W/$v"
+      for e in "$d"/*; do
+        n=$(basename "$e")
+        if [ "$n" = files ]; then ln -sfn "$e" "$W/$v/files"; else cp -a "$e" "$W/$v/"; fi
+      done
+    done
+    pnpm install --frozen-lockfile --offline --store-dir "$W" --package-import-method copy
+    find .git/hooks -type f ! -name '*.sample' -delete
+    git config --unset core.hooksPath || true
+    turbo run build --filter='./packages/*' --output-logs=errors-only
+    rm -rf .turbo packages/*/.turbo
+    # Non-deterministic by-products (would break the parity fingerprint): fumadocs-mdx output of
+    # the docs postinstall (docs are not built or tested here), turbo's telemetry id, and the
+    # Prisma checkpoint-client signature.
+    rm -rf docs/.source "$HOME/.config/turborepo" "$HOME/.cache/checkpoint-nodejs"
+  path_prepend: /work/node_modules/.bin
+  test_file_regex: '(^|/)(tests?|__tests__|testing)/|(^|/)test_[^/]*\.py$|_test\.py$|(^|/)conftest\.py$|\.(test|spec)\.(m?[jt]sx?|cts)$'
+  # {targets}: repo-relative files. For each, the nearest directory with a package.json is the
+  # workspace package; turbo rebuilds those packages and their dependencies (cache hits when
+  # unchanged). A failed build is reported and no tests are run (no junit -> all requested ids
+  # are "not run"), since tests would otherwise import a stale dist.
+  test_cmd: |
+    cd /work
+    pk=""
+    for t in {targets}; do
+      d=$(dirname "$t")
+      while [ "$d" != "." ] && [ "$d" != "/" ] && [ ! -f "$d/package.json" ]; do d=$(dirname "$d"); done
+      [ "$d" = "." ] || [ "$d" = "/" ] || pk="$pk --filter=./$d"
+    done
+    if [ -n "$pk" ]; then
+      turbo run build $pk --output-logs=errors-only || { echo "[forge-exp] workspace build failed; tests not run"; exit 3; }
+    fi
+    NO_COLOR=1 vitest run {targets} --reporter=default --reporter=junit --outputFile.junit={junit}
+  # Only files that still exist are linted (a deleted file would otherwise yield a biome
+  # internalError/io "finding"); with no file left, biome is not run (it would lint the repo).
+  lint_cmd: |
+    set --
+    for f in {files}; do [ -f "$f" ] && set -- "$@" "$f"; done
+    [ $# -eq 0 ] && { echo '{"diagnostics":[]}'; exit 0; }
+    biome lint --reporter=json --no-errors-on-unmatched --files-ignore-unknown=true "$@"
+  junit_flavor: vitest
+  env:
+    pnpm_config_store_dir: /tmp/pnpm-store
+    npm_config_store_dir: /tmp/pnpm-store
+    pnpm_config_package_import_method: copy
+    npm_config_package_import_method: copy
+    TURBO_CACHE_DIR: /tmp/turbo-cache
+    TURBO_TELEMETRY_DISABLED: "1"
+    TURBO_NO_UPDATE_NOTIFIER: "1"
+    DO_NOT_TRACK: "1"
+    CHECKPOINT_DISABLE: "1"

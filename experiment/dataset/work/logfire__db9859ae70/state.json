@@ -1,0 +1,60 @@
+{
+ "task_id": "logfire__db9859ae70",
+ "window": "main",
+ "repo": "logfire",
+ "commit": "db9859ae70f78c73d5cded41200afdec33e13779",
+ "parent": "b72c0897695afc06ac475ba4616f164c75493a6e",
+ "date": "2026-07-14T17:38:32+02:00",
+ "subject": "Prevent double retrying of ConnectionErrors (#2078)",
+ "type": "other",
+ "test_files": [
+  "tests/exporters/test_otlp_session.py"
+ ],
+ "source_files": [
+  "logfire/_internal/exporters/otlp.py",
+  "logfire/_internal/exporters/quiet_metrics.py"
+ ],
+ "source_lines": 26,
+ "all_files": [
+  "logfire/_internal/exporters/otlp.py",
+  "logfire/_internal/exporters/quiet_metrics.py",
+  "tests/exporters/test_otlp_session.py"
+ ],
+ "hidden": [
+  "tests/exporters/test_otlp_session.py"
+ ],
+ "deleted": [],
+ "targets": [
+  "tests/exporters/test_otlp_session.py"
+ ],
+ "f2p": [
+  "tests/exporters/test_otlp_session.py::test_connection_error_retries"
+ ],
+ "p2p": [
+  "tests/exporters/test_otlp_session.py::test_cleanup_disk_retryers_skips_dead_weakrefs",
+  "tests/exporters/test_otlp_session.py::test_disk_retryer_add_task_after_close_does_nothing",
+  "tests/exporters/test_otlp_session.py::test_disk_retryer_cleanup_after_logfire_shutdown",
+  "tests/exporters/test_otlp_session.py::test_disk_retryer_close_during_retry",
+  "tests/exporters/test_otlp_session.py::test_max_body_size_bytes"
+ ],
+ "flaky": [],
+ "cost_instruction": 0.07129379999999999,
+ "cost_audit": 0.1083046,
+ "kept_f2p": [
+  "tests/exporters/test_otlp_session.py::test_connection_error_retries"
+ ],
+ "kept_p2p": [
+  "tests/exporters/test_otlp_session.py::test_cleanup_disk_retryers_skips_dead_weakrefs",
+  "tests/exporters/test_otlp_session.py::test_disk_retryer_add_task_after_close_does_nothing",
+  "tests/exporters/test_otlp_session.py::test_disk_retryer_cleanup_after_logfire_shutdown",
+  "tests/exporters/test_otlp_session.py::test_disk_retryer_close_during_retry",
+  "tests/exporters/test_otlp_session.py::test_max_body_size_bytes"
+ ],
+ "edits_applied": 0,
+ "edits_rejected": [],
+ "dropped": [],
+ "revalidate_bad_f2p": [],
+ "revalidate_bad_p2p": [],
+ "final": "accepted",
+ "reason": null
+}
