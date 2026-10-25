@@ -1191,6 +1191,107 @@ forge_untested_change() {
   printf 'You changed behaviour in %s without adding or updating a test; add a test that fails without your change, or say why none is needed.\n' "$_fu_list"
 }
 
+# forge_changed_ids: the public identifiers whose definition the change added,
+# removed or edited, one per line, from the removed and added lines of the
+# in-scope files ($FORGE_FILES and the deleted ones it names): Python def, class,
+# annotated names (parameters, fields) and module-level assignments; TypeScript
+# and JavaScript exported declarations, optional properties (name?:), typed
+# members (name: T;) and methods with a modifier. A definition whose line only
+# moved does not count. Private (_x), short (< 4) and common names are dropped.
+forge_changed_ids() {
+  { printf '%s\n' "$FORGE_FILES"; cat "$FORGE_TMP/deleted"; } | while IFS= read -r _ci_f; do
+    printf '%s\n' "$_ci_f" | grep -Eq -- "$FORGE_TEST_PATH_ERE" && continue
+    case $_ci_f in *.py|*.pyi) _ci_py=1 ;; *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) _ci_py=0 ;; *) continue ;; esac
+    forge_diff_lines "$_ci_f" | sed "s/^/$_ci_py/"
+  done | awk '
+    function keep(id) {
+      if (length(id) < 4 || id ~ /^_/ || (id in stop)) return
+      ids[id] = 1
+    }
+    function def(id, sign, text) { keep(id); if (id in ids) { if (sign == "-") M[id SUBSEP text] = 1; else P[id SUBSEP text] = 1 } }
+    function ident(s) { sub(/^[^A-Za-z_$]*/, "", s); match(s, /^[A-Za-z_$][A-Za-z0-9_$]*/); return substr(s, 1, RLENGTH) }
+    BEGIN {
+      n = split("self cls this args kwargs props options opts config settings params param value values data name type kind keys item items result results error errors message path file files input output default index count size text body request response context event callback handler children model state status client server string number boolean object array true false none null undefined return async await const function class export import from init main test start stop update create delete call load save open close read write parse format info debug warn logger user node tree root parent child source target mode level headers method query schema field fields label title description content length list dict tuple bool float bytes json None True False Exception ValueError TypeError KeyError RuntimeError else elif while with pass yield raise assert except finally lambda global nonlocal case break continue Args Returns Raises Yields Example Examples Note Notes Attributes", w, " ")
+      for (i = 1; i <= n; i++) stop[w[i]] = 1
+    }
+    {
+      py = substr($0, 1, 1); sign = substr($0, 2, 1); line = substr($0, 3)
+      t = line; gsub(/^[ \t]+|[ \t\r]+$/, "", t)
+      if (t == "") next
+      if (py == 1) {
+        if (t ~ /^#/) next
+        if (t ~ /^(async[ \t]+)?def[ \t]/) {
+          s = t; sub(/^(async[ \t]+)?def[ \t]+/, "", s); def(ident(s), sign, t)
+          if (i = index(s, "(")) {
+            s = substr(s, i + 1); m = split(s, a, ",")
+            for (j = 1; j <= m; j++) { p = a[j]; sub(/^[ \t*]+/, "", p); if (p ~ /^[A-Za-z_][A-Za-z0-9_]*[ \t]*[:=,)]?/) def(ident(p), sign, t) }
+          }
+        } else if (t ~ /^class[ \t]/) { s = t; sub(/^class[ \t]+/, "", s); def(ident(s), sign, t) }
+        else if (t ~ /^[A-Za-z_][A-Za-z0-9_]*[ \t]*:[ \t]*[^ \t=]/) {
+          r = t; sub(/^[A-Za-z_][A-Za-z0-9_]*[ \t]*:[ \t]*/, "", r)
+          if (r ~ /=/ || r ~ /^[A-Za-z_][A-Za-z0-9_.]*(\[.*)?([ \t]*\|[ \t]*[^ \t]+)*[ \t]*,?$/) def(ident(t), sign, t)
+        }
+        else if (line ~ /^[A-Za-z_][A-Za-z0-9_]*[ \t]*=[^=]/) def(ident(line), sign, t)
+      } else {
+        if (t ~ /^(\/\/|\/\*|\*)/) next
+        if (t ~ /^export[ \t]/) {
+          s = t; sub(/^export[ \t]+((default|declare|abstract|async)[ \t]+)*/, "", s)
+          if (s ~ /^(function\*?|class|const|let|var|type|interface|enum|namespace)[ \t]/) { sub(/^[a-z]+\*?[ \t]+/, "", s); def(ident(s), sign, t) }
+        } else if (t ~ /^(readonly[ \t]+)?[A-Za-z_$][A-Za-z0-9_$]*\?[ \t]*:/ || t ~ /^(readonly[ \t]+)?[A-Za-z_$][A-Za-z0-9_$]*[ \t]*:.*;$/) {
+          s = t; sub(/^readonly[ \t]+/, "", s); def(ident(s), sign, t)
+        } else if (t ~ /^((public|static|async|get|set|override)[ \t]+)+[A-Za-z_$][A-Za-z0-9_$]*[ \t]*[(<]/) {
+          s = t; sub(/^((public|static|async|get|set|override)[ \t]+)+/, "", s); def(ident(s), sign, t)
+        }
+      }
+    }
+    END {
+      for (k in M) if (!(k in P)) { split(k, x, SUBSEP); out[x[1]] = 1 }
+      for (k in P) if (!(k in M)) { split(k, x, SUBSEP); out[x[1]] = 1 }
+      for (id in out) print id
+    }' | sort
+}
+
+# forge_doc_files: documentation in the repository (tracked or not ignored):
+# Markdown, MDX and reStructuredText under a docs/ or doc/ directory, and README files.
+FORGE_DOC_ERE='(^|/)(docs?/(.*/)?[^/]*\.(md|mdx|rst)|README[^/]*)$'
+
+# forge_docs_mentions: when no documentation file changed in the change, the
+# lines of the documentation that mention an identifier the change defined
+# differently (forge_changed_ids): up to 5 "path:line identifier" lines. A name
+# with an underscore or a capital inside counts anywhere; a plain word only in a
+# code span or a fenced block.
+forge_docs_mentions() {
+  grep -Eq -- "$FORGE_DOC_ERE" "$FORGE_TMP/changed" && return 0
+  forge_changed_ids > "$FORGE_TMP/doc.ids"
+  [ -s "$FORGE_TMP/doc.ids" ] || return 0
+  git ls-files --cached --others --exclude-standard 2>/dev/null | grep -E -- "$FORGE_DOC_ERE" | while IFS= read -r _dm_f; do
+    [ -f "$_dm_f" ] && grep -qF -f "$FORGE_TMP/doc.ids" "$_dm_f" 2>/dev/null && printf '%s\n' "$_dm_f"
+  done > "$FORGE_TMP/doc.files"
+  [ -s "$FORGE_TMP/doc.files" ] || return 0
+  # shellcheck disable=SC2046
+  awk '
+    function word(s, id,   i, b, a) {
+      while (i = index(s, id)) {
+        b = substr(s, i - 1, 1); a = substr(s, i + length(id), 1)
+        if ((i == 1 || b !~ /[A-Za-z0-9_$]/) && a !~ /[A-Za-z0-9_$]/) return 1
+        s = substr(s, i + length(id))
+      }
+      return 0
+    }
+    function spans(s,   n, p, i, out) { n = split(s, p, "`"); out = ""; for (i = 2; i <= n; i += 2) out = out " " p[i]; return out }
+    FILENAME == ARGV[1] { ids[++nid] = $0; plain[nid] = ($0 !~ /_/ && $0 !~ /.[A-Z]/); next }
+    FNR == 1 { fence = 0 }
+    /^[ \t]*(```|~~~)/ { fence = !fence; next }
+    {
+      code = fence ? $0 : spans($0)
+      for (j = 1; j <= nid; j++)
+        if (word(plain[j] ? code : $0, ids[j])) { print FILENAME ":" FNR " " ids[j]; break }
+    }' "$FORGE_TMP/doc.ids" $(cat "$FORGE_TMP/doc.files") > "$FORGE_TMP/doc.hits"
+  [ -s "$FORGE_TMP/doc.hits" ] || return 0
+  printf 'These docs mention identifiers you changed; check they still describe the behaviour:\n'
+  awk 'NR <= 5 { print "  - " $0 } END { if (NR > 5) print "  (and " NR - 5 " more)" }' "$FORGE_TMP/doc.hits"
+}
+
 # forge_py_public <file>: the public names of a Python module, one per line: the
 # entries of __all__ when it has one, else its top-level def and class names
 # without a leading underscore.
@@ -2629,6 +2730,107 @@ forge_untested_change() {
   [ "$_fu_n" -gt 0 ] || return 0
   [ "$_fu_n" -gt 3 ] && _fu_list="$_fu_list and $((_fu_n - 3)) more"
   printf 'You changed behaviour in %s without adding or updating a test; add a test that fails without your change, or say why none is needed.\n' "$_fu_list"
+}
+
+# forge_changed_ids: the public identifiers whose definition the change added,
+# removed or edited, one per line, from the removed and added lines of the
+# in-scope files ($FORGE_FILES and the deleted ones it names): Python def, class,
+# annotated names (parameters, fields) and module-level assignments; TypeScript
+# and JavaScript exported declarations, optional properties (name?:), typed
+# members (name: T;) and methods with a modifier. A definition whose line only
+# moved does not count. Private (_x), short (< 4) and common names are dropped.
+forge_changed_ids() {
+  { printf '%s\n' "$FORGE_FILES"; cat "$FORGE_TMP/deleted"; } | while IFS= read -r _ci_f; do
+    printf '%s\n' "$_ci_f" | grep -Eq -- "$FORGE_TEST_PATH_ERE" && continue
+    case $_ci_f in *.py|*.pyi) _ci_py=1 ;; *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) _ci_py=0 ;; *) continue ;; esac
+    forge_diff_lines "$_ci_f" | sed "s/^/$_ci_py/"
+  done | awk '
+    function keep(id) {
+      if (length(id) < 4 || id ~ /^_/ || (id in stop)) return
+      ids[id] = 1
+    }
+    function def(id, sign, text) { keep(id); if (id in ids) { if (sign == "-") M[id SUBSEP text] = 1; else P[id SUBSEP text] = 1 } }
+    function ident(s) { sub(/^[^A-Za-z_$]*/, "", s); match(s, /^[A-Za-z_$][A-Za-z0-9_$]*/); return substr(s, 1, RLENGTH) }
+    BEGIN {
+      n = split("self cls this args kwargs props options opts config settings params param value values data name type kind keys item items result results error errors message path file files input output default index count size text body request response context event callback handler children model state status client server string number boolean object array true false none null undefined return async await const function class export import from init main test start stop update create delete call load save open close read write parse format info debug warn logger user node tree root parent child source target mode level headers method query schema field fields label title description content length list dict tuple bool float bytes json None True False Exception ValueError TypeError KeyError RuntimeError else elif while with pass yield raise assert except finally lambda global nonlocal case break continue Args Returns Raises Yields Example Examples Note Notes Attributes", w, " ")
+      for (i = 1; i <= n; i++) stop[w[i]] = 1
+    }
+    {
+      py = substr($0, 1, 1); sign = substr($0, 2, 1); line = substr($0, 3)
+      t = line; gsub(/^[ \t]+|[ \t\r]+$/, "", t)
+      if (t == "") next
+      if (py == 1) {
+        if (t ~ /^#/) next
+        if (t ~ /^(async[ \t]+)?def[ \t]/) {
+          s = t; sub(/^(async[ \t]+)?def[ \t]+/, "", s); def(ident(s), sign, t)
+          if (i = index(s, "(")) {
+            s = substr(s, i + 1); m = split(s, a, ",")
+            for (j = 1; j <= m; j++) { p = a[j]; sub(/^[ \t*]+/, "", p); if (p ~ /^[A-Za-z_][A-Za-z0-9_]*[ \t]*[:=,)]?/) def(ident(p), sign, t) }
+          }
+        } else if (t ~ /^class[ \t]/) { s = t; sub(/^class[ \t]+/, "", s); def(ident(s), sign, t) }
+        else if (t ~ /^[A-Za-z_][A-Za-z0-9_]*[ \t]*:[ \t]*[^ \t=]/) {
+          r = t; sub(/^[A-Za-z_][A-Za-z0-9_]*[ \t]*:[ \t]*/, "", r)
+          if (r ~ /=/ || r ~ /^[A-Za-z_][A-Za-z0-9_.]*(\[.*)?([ \t]*\|[ \t]*[^ \t]+)*[ \t]*,?$/) def(ident(t), sign, t)
+        }
+        else if (line ~ /^[A-Za-z_][A-Za-z0-9_]*[ \t]*=[^=]/) def(ident(line), sign, t)
+      } else {
+        if (t ~ /^(\/\/|\/\*|\*)/) next
+        if (t ~ /^export[ \t]/) {
+          s = t; sub(/^export[ \t]+((default|declare|abstract|async)[ \t]+)*/, "", s)
+          if (s ~ /^(function\*?|class|const|let|var|type|interface|enum|namespace)[ \t]/) { sub(/^[a-z]+\*?[ \t]+/, "", s); def(ident(s), sign, t) }
+        } else if (t ~ /^(readonly[ \t]+)?[A-Za-z_$][A-Za-z0-9_$]*\?[ \t]*:/ || t ~ /^(readonly[ \t]+)?[A-Za-z_$][A-Za-z0-9_$]*[ \t]*:.*;$/) {
+          s = t; sub(/^readonly[ \t]+/, "", s); def(ident(s), sign, t)
+        } else if (t ~ /^((public|static|async|get|set|override)[ \t]+)+[A-Za-z_$][A-Za-z0-9_$]*[ \t]*[(<]/) {
+          s = t; sub(/^((public|static|async|get|set|override)[ \t]+)+/, "", s); def(ident(s), sign, t)
+        }
+      }
+    }
+    END {
+      for (k in M) if (!(k in P)) { split(k, x, SUBSEP); out[x[1]] = 1 }
+      for (k in P) if (!(k in M)) { split(k, x, SUBSEP); out[x[1]] = 1 }
+      for (id in out) print id
+    }' | sort
+}
+
+# forge_doc_files: documentation in the repository (tracked or not ignored):
+# Markdown, MDX and reStructuredText under a docs/ or doc/ directory, and README files.
+FORGE_DOC_ERE='(^|/)(docs?/(.*/)?[^/]*\.(md|mdx|rst)|README[^/]*)$'
+
+# forge_docs_mentions: when no documentation file changed in the change, the
+# lines of the documentation that mention an identifier the change defined
+# differently (forge_changed_ids): up to 5 "path:line identifier" lines. A name
+# with an underscore or a capital inside counts anywhere; a plain word only in a
+# code span or a fenced block.
+forge_docs_mentions() {
+  grep -Eq -- "$FORGE_DOC_ERE" "$FORGE_TMP/changed" && return 0
+  forge_changed_ids > "$FORGE_TMP/doc.ids"
+  [ -s "$FORGE_TMP/doc.ids" ] || return 0
+  git ls-files --cached --others --exclude-standard 2>/dev/null | grep -E -- "$FORGE_DOC_ERE" | while IFS= read -r _dm_f; do
+    [ -f "$_dm_f" ] && grep -qF -f "$FORGE_TMP/doc.ids" "$_dm_f" 2>/dev/null && printf '%s\n' "$_dm_f"
+  done > "$FORGE_TMP/doc.files"
+  [ -s "$FORGE_TMP/doc.files" ] || return 0
+  # shellcheck disable=SC2046
+  awk '
+    function word(s, id,   i, b, a) {
+      while (i = index(s, id)) {
+        b = substr(s, i - 1, 1); a = substr(s, i + length(id), 1)
+        if ((i == 1 || b !~ /[A-Za-z0-9_$]/) && a !~ /[A-Za-z0-9_$]/) return 1
+        s = substr(s, i + length(id))
+      }
+      return 0
+    }
+    function spans(s,   n, p, i, out) { n = split(s, p, "`"); out = ""; for (i = 2; i <= n; i += 2) out = out " " p[i]; return out }
+    FILENAME == ARGV[1] { ids[++nid] = $0; plain[nid] = ($0 !~ /_/ && $0 !~ /.[A-Z]/); next }
+    FNR == 1 { fence = 0 }
+    /^[ \t]*(```|~~~)/ { fence = !fence; next }
+    {
+      code = fence ? $0 : spans($0)
+      for (j = 1; j <= nid; j++)
+        if (word(plain[j] ? code : $0, ids[j])) { print FILENAME ":" FNR " " ids[j]; break }
+    }' "$FORGE_TMP/doc.ids" $(cat "$FORGE_TMP/doc.files") > "$FORGE_TMP/doc.hits"
+  [ -s "$FORGE_TMP/doc.hits" ] || return 0
+  printf 'These docs mention identifiers you changed; check they still describe the behaviour:\n'
+  awk 'NR <= 5 { print "  - " $0 } END { if (NR > 5) print "  (and " NR - 5 " more)" }' "$FORGE_TMP/doc.hits"
 }
 
 # forge_py_public <file>: the public names of a Python module, one per line: the
@@ -4104,6 +4306,107 @@ forge_untested_change() {
   [ "$_fu_n" -gt 0 ] || return 0
   [ "$_fu_n" -gt 3 ] && _fu_list="$_fu_list and $((_fu_n - 3)) more"
   printf 'You changed behaviour in %s without adding or updating a test; add a test that fails without your change, or say why none is needed.\n' "$_fu_list"
+}
+
+# forge_changed_ids: the public identifiers whose definition the change added,
+# removed or edited, one per line, from the removed and added lines of the
+# in-scope files ($FORGE_FILES and the deleted ones it names): Python def, class,
+# annotated names (parameters, fields) and module-level assignments; TypeScript
+# and JavaScript exported declarations, optional properties (name?:), typed
+# members (name: T;) and methods with a modifier. A definition whose line only
+# moved does not count. Private (_x), short (< 4) and common names are dropped.
+forge_changed_ids() {
+  { printf '%s\n' "$FORGE_FILES"; cat "$FORGE_TMP/deleted"; } | while IFS= read -r _ci_f; do
+    printf '%s\n' "$_ci_f" | grep -Eq -- "$FORGE_TEST_PATH_ERE" && continue
+    case $_ci_f in *.py|*.pyi) _ci_py=1 ;; *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) _ci_py=0 ;; *) continue ;; esac
+    forge_diff_lines "$_ci_f" | sed "s/^/$_ci_py/"
+  done | awk '
+    function keep(id) {
+      if (length(id) < 4 || id ~ /^_/ || (id in stop)) return
+      ids[id] = 1
+    }
+    function def(id, sign, text) { keep(id); if (id in ids) { if (sign == "-") M[id SUBSEP text] = 1; else P[id SUBSEP text] = 1 } }
+    function ident(s) { sub(/^[^A-Za-z_$]*/, "", s); match(s, /^[A-Za-z_$][A-Za-z0-9_$]*/); return substr(s, 1, RLENGTH) }
+    BEGIN {
+      n = split("self cls this args kwargs props options opts config settings params param value values data name type kind keys item items result results error errors message path file files input output default index count size text body request response context event callback handler children model state status client server string number boolean object array true false none null undefined return async await const function class export import from init main test start stop update create delete call load save open close read write parse format info debug warn logger user node tree root parent child source target mode level headers method query schema field fields label title description content length list dict tuple bool float bytes json None True False Exception ValueError TypeError KeyError RuntimeError else elif while with pass yield raise assert except finally lambda global nonlocal case break continue Args Returns Raises Yields Example Examples Note Notes Attributes", w, " ")
+      for (i = 1; i <= n; i++) stop[w[i]] = 1
+    }
+    {
+      py = substr($0, 1, 1); sign = substr($0, 2, 1); line = substr($0, 3)
+      t = line; gsub(/^[ \t]+|[ \t\r]+$/, "", t)
+      if (t == "") next
+      if (py == 1) {
+        if (t ~ /^#/) next
+        if (t ~ /^(async[ \t]+)?def[ \t]/) {
+          s = t; sub(/^(async[ \t]+)?def[ \t]+/, "", s); def(ident(s), sign, t)
+          if (i = index(s, "(")) {
+            s = substr(s, i + 1); m = split(s, a, ",")
+            for (j = 1; j <= m; j++) { p = a[j]; sub(/^[ \t*]+/, "", p); if (p ~ /^[A-Za-z_][A-Za-z0-9_]*[ \t]*[:=,)]?/) def(ident(p), sign, t) }
+          }
+        } else if (t ~ /^class[ \t]/) { s = t; sub(/^class[ \t]+/, "", s); def(ident(s), sign, t) }
+        else if (t ~ /^[A-Za-z_][A-Za-z0-9_]*[ \t]*:[ \t]*[^ \t=]/) {
+          r = t; sub(/^[A-Za-z_][A-Za-z0-9_]*[ \t]*:[ \t]*/, "", r)
+          if (r ~ /=/ || r ~ /^[A-Za-z_][A-Za-z0-9_.]*(\[.*)?([ \t]*\|[ \t]*[^ \t]+)*[ \t]*,?$/) def(ident(t), sign, t)
+        }
+        else if (line ~ /^[A-Za-z_][A-Za-z0-9_]*[ \t]*=[^=]/) def(ident(line), sign, t)
+      } else {
+        if (t ~ /^(\/\/|\/\*|\*)/) next
+        if (t ~ /^export[ \t]/) {
+          s = t; sub(/^export[ \t]+((default|declare|abstract|async)[ \t]+)*/, "", s)
+          if (s ~ /^(function\*?|class|const|let|var|type|interface|enum|namespace)[ \t]/) { sub(/^[a-z]+\*?[ \t]+/, "", s); def(ident(s), sign, t) }
+        } else if (t ~ /^(readonly[ \t]+)?[A-Za-z_$][A-Za-z0-9_$]*\?[ \t]*:/ || t ~ /^(readonly[ \t]+)?[A-Za-z_$][A-Za-z0-9_$]*[ \t]*:.*;$/) {
+          s = t; sub(/^readonly[ \t]+/, "", s); def(ident(s), sign, t)
+        } else if (t ~ /^((public|static|async|get|set|override)[ \t]+)+[A-Za-z_$][A-Za-z0-9_$]*[ \t]*[(<]/) {
+          s = t; sub(/^((public|static|async|get|set|override)[ \t]+)+/, "", s); def(ident(s), sign, t)
+        }
+      }
+    }
+    END {
+      for (k in M) if (!(k in P)) { split(k, x, SUBSEP); out[x[1]] = 1 }
+      for (k in P) if (!(k in M)) { split(k, x, SUBSEP); out[x[1]] = 1 }
+      for (id in out) print id
+    }' | sort
+}
+
+# forge_doc_files: documentation in the repository (tracked or not ignored):
+# Markdown, MDX and reStructuredText under a docs/ or doc/ directory, and README files.
+FORGE_DOC_ERE='(^|/)(docs?/(.*/)?[^/]*\.(md|mdx|rst)|README[^/]*)$'
+
+# forge_docs_mentions: when no documentation file changed in the change, the
+# lines of the documentation that mention an identifier the change defined
+# differently (forge_changed_ids): up to 5 "path:line identifier" lines. A name
+# with an underscore or a capital inside counts anywhere; a plain word only in a
+# code span or a fenced block.
+forge_docs_mentions() {
+  grep -Eq -- "$FORGE_DOC_ERE" "$FORGE_TMP/changed" && return 0
+  forge_changed_ids > "$FORGE_TMP/doc.ids"
+  [ -s "$FORGE_TMP/doc.ids" ] || return 0
+  git ls-files --cached --others --exclude-standard 2>/dev/null | grep -E -- "$FORGE_DOC_ERE" | while IFS= read -r _dm_f; do
+    [ -f "$_dm_f" ] && grep -qF -f "$FORGE_TMP/doc.ids" "$_dm_f" 2>/dev/null && printf '%s\n' "$_dm_f"
+  done > "$FORGE_TMP/doc.files"
+  [ -s "$FORGE_TMP/doc.files" ] || return 0
+  # shellcheck disable=SC2046
+  awk '
+    function word(s, id,   i, b, a) {
+      while (i = index(s, id)) {
+        b = substr(s, i - 1, 1); a = substr(s, i + length(id), 1)
+        if ((i == 1 || b !~ /[A-Za-z0-9_$]/) && a !~ /[A-Za-z0-9_$]/) return 1
+        s = substr(s, i + length(id))
+      }
+      return 0
+    }
+    function spans(s,   n, p, i, out) { n = split(s, p, "`"); out = ""; for (i = 2; i <= n; i += 2) out = out " " p[i]; return out }
+    FILENAME == ARGV[1] { ids[++nid] = $0; plain[nid] = ($0 !~ /_/ && $0 !~ /.[A-Z]/); next }
+    FNR == 1 { fence = 0 }
+    /^[ \t]*(```|~~~)/ { fence = !fence; next }
+    {
+      code = fence ? $0 : spans($0)
+      for (j = 1; j <= nid; j++)
+        if (word(plain[j] ? code : $0, ids[j])) { print FILENAME ":" FNR " " ids[j]; break }
+    }' "$FORGE_TMP/doc.ids" $(cat "$FORGE_TMP/doc.files") > "$FORGE_TMP/doc.hits"
+  [ -s "$FORGE_TMP/doc.hits" ] || return 0
+  printf 'These docs mention identifiers you changed; check they still describe the behaviour:\n'
+  awk 'NR <= 5 { print "  - " $0 } END { if (NR > 5) print "  (and " NR - 5 " more)" }' "$FORGE_TMP/doc.hits"
 }
 
 # forge_py_public <file>: the public names of a Python module, one per line: the
@@ -6507,6 +6810,107 @@ forge_untested_change() {
   printf 'You changed behaviour in %s without adding or updating a test; add a test that fails without your change, or say why none is needed.\n' "$_fu_list"
 }
 
+# forge_changed_ids: the public identifiers whose definition the change added,
+# removed or edited, one per line, from the removed and added lines of the
+# in-scope files ($FORGE_FILES and the deleted ones it names): Python def, class,
+# annotated names (parameters, fields) and module-level assignments; TypeScript
+# and JavaScript exported declarations, optional properties (name?:), typed
+# members (name: T;) and methods with a modifier. A definition whose line only
+# moved does not count. Private (_x), short (< 4) and common names are dropped.
+forge_changed_ids() {
+  { printf '%s\n' "$FORGE_FILES"; cat "$FORGE_TMP/deleted"; } | while IFS= read -r _ci_f; do
+    printf '%s\n' "$_ci_f" | grep -Eq -- "$FORGE_TEST_PATH_ERE" && continue
+    case $_ci_f in *.py|*.pyi) _ci_py=1 ;; *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) _ci_py=0 ;; *) continue ;; esac
+    forge_diff_lines "$_ci_f" | sed "s/^/$_ci_py/"
+  done | awk '
+    function keep(id) {
+      if (length(id) < 4 || id ~ /^_/ || (id in stop)) return
+      ids[id] = 1
+    }
+    function def(id, sign, text) { keep(id); if (id in ids) { if (sign == "-") M[id SUBSEP text] = 1; else P[id SUBSEP text] = 1 } }
+    function ident(s) { sub(/^[^A-Za-z_$]*/, "", s); match(s, /^[A-Za-z_$][A-Za-z0-9_$]*/); return substr(s, 1, RLENGTH) }
+    BEGIN {
+      n = split("self cls this args kwargs props options opts config settings params param value values data name type kind keys item items result results error errors message path file files input output default index count size text body request response context event callback handler children model state status client server string number boolean object array true false none null undefined return async await const function class export import from init main test start stop update create delete call load save open close read write parse format info debug warn logger user node tree root parent child source target mode level headers method query schema field fields label title description content length list dict tuple bool float bytes json None True False Exception ValueError TypeError KeyError RuntimeError else elif while with pass yield raise assert except finally lambda global nonlocal case break continue Args Returns Raises Yields Example Examples Note Notes Attributes", w, " ")
+      for (i = 1; i <= n; i++) stop[w[i]] = 1
+    }
+    {
+      py = substr($0, 1, 1); sign = substr($0, 2, 1); line = substr($0, 3)
+      t = line; gsub(/^[ \t]+|[ \t\r]+$/, "", t)
+      if (t == "") next
+      if (py == 1) {
+        if (t ~ /^#/) next
+        if (t ~ /^(async[ \t]+)?def[ \t]/) {
+          s = t; sub(/^(async[ \t]+)?def[ \t]+/, "", s); def(ident(s), sign, t)
+          if (i = index(s, "(")) {
+            s = substr(s, i + 1); m = split(s, a, ",")
+            for (j = 1; j <= m; j++) { p = a[j]; sub(/^[ \t*]+/, "", p); if (p ~ /^[A-Za-z_][A-Za-z0-9_]*[ \t]*[:=,)]?/) def(ident(p), sign, t) }
+          }
+        } else if (t ~ /^class[ \t]/) { s = t; sub(/^class[ \t]+/, "", s); def(ident(s), sign, t) }
+        else if (t ~ /^[A-Za-z_][A-Za-z0-9_]*[ \t]*:[ \t]*[^ \t=]/) {
+          r = t; sub(/^[A-Za-z_][A-Za-z0-9_]*[ \t]*:[ \t]*/, "", r)
+          if (r ~ /=/ || r ~ /^[A-Za-z_][A-Za-z0-9_.]*(\[.*)?([ \t]*\|[ \t]*[^ \t]+)*[ \t]*,?$/) def(ident(t), sign, t)
+        }
+        else if (line ~ /^[A-Za-z_][A-Za-z0-9_]*[ \t]*=[^=]/) def(ident(line), sign, t)
+      } else {
+        if (t ~ /^(\/\/|\/\*|\*)/) next
+        if (t ~ /^export[ \t]/) {
+          s = t; sub(/^export[ \t]+((default|declare|abstract|async)[ \t]+)*/, "", s)
+          if (s ~ /^(function\*?|class|const|let|var|type|interface|enum|namespace)[ \t]/) { sub(/^[a-z]+\*?[ \t]+/, "", s); def(ident(s), sign, t) }
+        } else if (t ~ /^(readonly[ \t]+)?[A-Za-z_$][A-Za-z0-9_$]*\?[ \t]*:/ || t ~ /^(readonly[ \t]+)?[A-Za-z_$][A-Za-z0-9_$]*[ \t]*:.*;$/) {
+          s = t; sub(/^readonly[ \t]+/, "", s); def(ident(s), sign, t)
+        } else if (t ~ /^((public|static|async|get|set|override)[ \t]+)+[A-Za-z_$][A-Za-z0-9_$]*[ \t]*[(<]/) {
+          s = t; sub(/^((public|static|async|get|set|override)[ \t]+)+/, "", s); def(ident(s), sign, t)
+        }
+      }
+    }
+    END {
+      for (k in M) if (!(k in P)) { split(k, x, SUBSEP); out[x[1]] = 1 }
+      for (k in P) if (!(k in M)) { split(k, x, SUBSEP); out[x[1]] = 1 }
+      for (id in out) print id
+    }' | sort
+}
+
+# forge_doc_files: documentation in the repository (tracked or not ignored):
+# Markdown, MDX and reStructuredText under a docs/ or doc/ directory, and README files.
+FORGE_DOC_ERE='(^|/)(docs?/(.*/)?[^/]*\.(md|mdx|rst)|README[^/]*)$'
+
+# forge_docs_mentions: when no documentation file changed in the change, the
+# lines of the documentation that mention an identifier the change defined
+# differently (forge_changed_ids): up to 5 "path:line identifier" lines. A name
+# with an underscore or a capital inside counts anywhere; a plain word only in a
+# code span or a fenced block.
+forge_docs_mentions() {
+  grep -Eq -- "$FORGE_DOC_ERE" "$FORGE_TMP/changed" && return 0
+  forge_changed_ids > "$FORGE_TMP/doc.ids"
+  [ -s "$FORGE_TMP/doc.ids" ] || return 0
+  git ls-files --cached --others --exclude-standard 2>/dev/null | grep -E -- "$FORGE_DOC_ERE" | while IFS= read -r _dm_f; do
+    [ -f "$_dm_f" ] && grep -qF -f "$FORGE_TMP/doc.ids" "$_dm_f" 2>/dev/null && printf '%s\n' "$_dm_f"
+  done > "$FORGE_TMP/doc.files"
+  [ -s "$FORGE_TMP/doc.files" ] || return 0
+  # shellcheck disable=SC2046
+  awk '
+    function word(s, id,   i, b, a) {
+      while (i = index(s, id)) {
+        b = substr(s, i - 1, 1); a = substr(s, i + length(id), 1)
+        if ((i == 1 || b !~ /[A-Za-z0-9_$]/) && a !~ /[A-Za-z0-9_$]/) return 1
+        s = substr(s, i + length(id))
+      }
+      return 0
+    }
+    function spans(s,   n, p, i, out) { n = split(s, p, "`"); out = ""; for (i = 2; i <= n; i += 2) out = out " " p[i]; return out }
+    FILENAME == ARGV[1] { ids[++nid] = $0; plain[nid] = ($0 !~ /_/ && $0 !~ /.[A-Z]/); next }
+    FNR == 1 { fence = 0 }
+    /^[ \t]*(```|~~~)/ { fence = !fence; next }
+    {
+      code = fence ? $0 : spans($0)
+      for (j = 1; j <= nid; j++)
+        if (word(plain[j] ? code : $0, ids[j])) { print FILENAME ":" FNR " " ids[j]; break }
+    }' "$FORGE_TMP/doc.ids" $(cat "$FORGE_TMP/doc.files") > "$FORGE_TMP/doc.hits"
+  [ -s "$FORGE_TMP/doc.hits" ] || return 0
+  printf 'These docs mention identifiers you changed; check they still describe the behaviour:\n'
+  awk 'NR <= 5 { print "  - " $0 } END { if (NR > 5) print "  (and " NR - 5 " more)" }' "$FORGE_TMP/doc.hits"
+}
+
 # forge_py_public <file>: the public names of a Python module, one per line: the
 # entries of __all__ when it has one, else its top-level def and class names
 # without a leading underscore.
@@ -7759,12 +8163,12 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "abda384154c0c859546b6aa0e79a6a1a8c4cead27ff82e014fc69de843294b74",
     ".claude/skills/forge-project/scripts/guard.sh": "33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d",
     ".claude/skills/forge-project/scripts/lib.sh": "1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "c9bba0e4b6f4d90f8a71708efac1dbb46fdbdc2eba5c174a8c23858bb0ce3ecc",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "238510b98a35f4508485ef5162597e5b911b5a2605221ff2c94450727b275fdf",
     ".claude/skills/forge-project/scripts/review.sh": "9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac",
-    ".claude/skills/forge-project/scripts/session-start.sh": "1bd4caf06bee8cb379a7a8134929bf5e429fb451091768107f5b452fc56a4915",
+    ".claude/skills/forge-project/scripts/session-start.sh": "58d2ea5ba0054753c81d90fe238221f1631513822943d9fb8dbb976203be7d87",
     ".claude/skills/forge-project/scripts/stop.sh": "f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173",
     ".claude/skills/forge-project/scripts/turn-start.sh": "a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "2ab339c8c55b3f487669ff46d92c179d5a45f45691281305248717513f9d3fdc",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "1cd7dc962559dd72839afdec2af5ad95af4a4121ea861f1f6169f76c13c87ac5",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml": "69a94f1a0b16aa08bcf758af3e3dc269266cdd808aba1a4289b4c58c7f969700",
     ".forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml": "1589382e5e0b5cae841a8f47dae9f2b3a8583a4bb1074ceb858d882e648e9b49",
@@ -7799,7 +8203,7 @@ exit "$fail"
     ".forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml": "4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0",
     ".forge/ast-grep/rules/python/sqlalchemy/no-text-fstring.yml": "04c44c9e215449d46b10540e86e999ec1d6383d8c3a849855fe73cb456668fca",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "0b8a1d11c86e959c9dc81a3cf157b95af6fa5150258b579da7be209e3136e32f",
+    ".forge/check.sh": "c94b168da432e69d8aaaeaa3108f82a84cd002ffa4b2f9db6a4d3e93b75f20ab",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -7854,12 +8258,12 @@ d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills
 abda384154c0c859546b6aa0e79a6a1a8c4cead27ff82e014fc69de843294b74  .claude/skills/forge-project/scripts/guard.rules
 33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d  .claude/skills/forge-project/scripts/guard.sh
 1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a  .claude/skills/forge-project/scripts/lib.sh
-c9bba0e4b6f4d90f8a71708efac1dbb46fdbdc2eba5c174a8c23858bb0ce3ecc  .claude/skills/forge-project/scripts/post-edit.sh
+238510b98a35f4508485ef5162597e5b911b5a2605221ff2c94450727b275fdf  .claude/skills/forge-project/scripts/post-edit.sh
 9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac  .claude/skills/forge-project/scripts/review.sh
-1bd4caf06bee8cb379a7a8134929bf5e429fb451091768107f5b452fc56a4915  .claude/skills/forge-project/scripts/session-start.sh
+58d2ea5ba0054753c81d90fe238221f1631513822943d9fb8dbb976203be7d87  .claude/skills/forge-project/scripts/session-start.sh
 f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173  .claude/skills/forge-project/scripts/stop.sh
 a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c  .claude/skills/forge-project/scripts/turn-start.sh
-2ab339c8c55b3f487669ff46d92c179d5a45f45691281305248717513f9d3fdc  .claude/skills/forge-project/scripts/typecheck.sh
+1cd7dc962559dd72839afdec2af5ad95af4a4121ea861f1f6169f76c13c87ac5  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 69a94f1a0b16aa08bcf758af3e3dc269266cdd808aba1a4289b4c58c7f969700  .forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml
 1589382e5e0b5cae841a8f47dae9f2b3a8583a4bb1074ceb858d882e648e9b49  .forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml
@@ -7894,7 +8298,7 @@ e1a15384665afb7aae24664c55f4d81523622a6ef117385b17f806bc30cd3c3f  .forge/ast-gre
 4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0  .forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml
 04c44c9e215449d46b10540e86e999ec1d6383d8c3a849855fe73cb456668fca  .forge/ast-grep/rules/python/sqlalchemy/no-text-fstring.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-0b8a1d11c86e959c9dc81a3cf157b95af6fa5150258b579da7be209e3136e32f  .forge/check.sh
+c94b168da432e69d8aaaeaa3108f82a84cd002ffa4b2f9db6a4d3e93b75f20ab  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

@@ -1,0 +1,30 @@
+id: docs/changed-identifiers
+description: When a turn changes the definition of a public name (a function, class, exported declaration, option or parameter) that the docs mention, and changes no doc, the mentions are shown; advisory, it blocks Stop once per turn.
+scope: {language: any, files: ["**/*.{py,pyi,ts,tsx,mts,cts,js,jsx,mjs,cjs}", "!**/test_*.py", "!**/*_test.py", "!**/conftest.py", "!**/tests/**", "!**/*.test.*", "!**/*.spec.*", "!**/__tests__/**", "!e2e/**"]}
+enforce:
+  - {target: check, stage: lint, run: "forge_advise forge_docs_mentions"}
+examples:
+  match:
+    - head:
+        src/schema.ts: "export interface Params {\n  unrepresentable?: \"throw\" | \"any\";\n}\n"
+        docs/json-schema.mdx: "# JSON Schema\n\nSet `unrepresentable` to `\"any\"` to turn unsupported types into `{}`.\n"
+      files: {src/schema.ts: "export interface Params {\n  unrepresentable?: \"throw\" | \"any\" | ((ctx: Ctx) => Schema);\n}\n"}
+    - head:
+        app/settings.py: "class Settings:\n    http_timeout: float = 30\n"
+        README.md: "# App\n\nRequests time out after http_timeout seconds.\n"
+      files: {app/settings.py: "class Settings:\n    request_timeout: float = 30\n"}
+  no_match:
+    - head:
+        src/schema.ts: "export interface Params {\n  unrepresentable?: \"throw\" | \"any\";\n}\n"
+        docs/json-schema.mdx: "# JSON Schema\n\nSet `unrepresentable` to `\"any\"` to turn unsupported types into `{}`.\n"
+      files:
+        src/schema.ts: "export interface Params {\n  unrepresentable?: \"throw\" | \"any\" | ((ctx: Ctx) => Schema);\n}\n"
+        docs/json-schema.mdx: "# JSON Schema\n\nSet `unrepresentable` to `\"any\"`, or to a function returning the schema to use.\n"
+    - head:
+        app/settings.py: "class Settings:\n    timeout: float = 30\n"
+        README.md: "# App\n\nThe timeout is generous.\n"
+      files: {app/settings.py: "class Settings:\n    timeout: float = 60\n"}
+    - head:
+        src/cart.ts: "export function total(xs: number[]) {\n  return xs.reduce((a, b) => a + b, 0);\n}\n"
+        README.md: "# Cart\n\nCall `total` with the prices.\n"
+      files: {src/cart.ts: "export function total(xs: number[]) {\n  return xs.reduce((a, b) => a + b, 1);\n}\n"}
