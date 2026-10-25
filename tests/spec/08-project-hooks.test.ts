@@ -611,6 +611,25 @@ describe("test edits", () => {
     T,
   );
 
+  test(
+    "changed test support code (a fake, fixture or helper in a test file or conftest.py) is reported once at Stop, naming it, then accepted",
+    () => {
+      const withMock = "class MockLogfire:\n    def __init__(self):\n        self._variables = {}\n\n\n" + BEFORE;
+      head = git(repo, "rev-parse", "HEAD").stdout.trim();
+      put(repo, TEST, withMock);
+      git(repo, "add", TEST);
+      git(repo, "commit", "-qm", "tests", "--no-verify");
+      hook("turn-start.sh", { session_id: "s-te6", hook_event_name: "UserPromptSubmit", prompt: "Move _variables to _config." });
+      put(repo, TEST, withMock.replace("self._variables", "self._config"));
+      const first = JSON.parse(hook("stop.sh", { session_id: "s-te6" }).stdout).reason;
+      expect(first).toContain("tests/test_cart.py: test support `MockLogfire` was changed");
+      expect(first).toContain("Keep that interface in production (e.g. a property alias for a moved attribute) unless the task removes it");
+      expect(hook("stop.sh", { session_id: "s-te6" }).stdout).not.toContain("MockLogfire");
+      finish();
+    },
+    T,
+  );
+
   /** @rule python/pytest/run */
   test(
     "a test file edited during the turn is recorded, and Stop runs it with the related tests even when the edit was reverted since",

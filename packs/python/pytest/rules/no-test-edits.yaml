@@ -1,7 +1,7 @@
 id: python/pytest/no-test-edits
-description: Changing what a test that existed at the start of the turn asserts (its asserts or parametrize decorators), or removing it, needs approval; new tests and setup-only changes are fine. Edits ask when made, unapproved changes are blocked at Stop.
+description: Changing what a test that existed at the start of the turn asserts (its asserts or parametrize decorators), or removing it, needs approval; new tests and setup-only changes are fine. Edits ask when made, unapproved changes are blocked at Stop. Changed test support code (fakes, mocks, fixtures, helpers, conftest.py) is reported once.
 review: "Is this change to existing tests required by the user's request (the request changes the behaviour these tests assert, so they must assert the new behaviour), or does it weaken or remove tests to make the code pass? Allow only the first."
-scope: {language: python, files: ["**/test_*.py", "**/*_test.py"]}
+scope: {language: python, files: ["**/test_*.py", "**/*_test.py", "**/conftest.py"]}
 enforce:
   - {target: check, stage: lint, run: "forge_test_edits"}
 examples:
@@ -12,6 +12,10 @@ examples:
       files: {tests/test_cart.py: "import pytest\n\n\n@pytest.mark.parametrize(\"items, want\", [([1], 2)])\ndef test_total(items, want):\n    assert total(items) == want\n"}
     - head: {tests/test_cart.py: "class TestCart:\n    def test_empty(self):\n        assert total([]) == 0\n"}
       files: {tests/test_cart.py: "class TestCart:\n    pass\n"}
+    - head: {tests/test_push.py: "class MockLogfire:\n    def __init__(self):\n        self._variables = {}\n\n\ndef test_push():\n    assert push(MockLogfire()) == 0\n"}
+      files: {tests/test_push.py: "class MockLogfire:\n    def __init__(self):\n        self._config = {}\n\n\ndef test_push():\n    assert push(MockLogfire()) == 0\n"}
+    - head: {tests/conftest.py: "import pytest\n\n\n@pytest.fixture\ndef user():\n    return {\"name\": \"ada\"}\n"}
+      files: {tests/conftest.py: "import pytest\n"}
   no_match:
     - head: {tests/test_cart.py: "def test_total():\n    assert total([40, 60]) == 100\n"}
       files: {tests/test_cart.py: "def test_total():\n    assert total([40, 60]) == 100\n\n\ndef test_empty():\n    assert total([]) == 0\n"}

@@ -87,6 +87,7 @@ forge_test_blocks "$FORGE_TMP/v" "$FORGE_TMP/list" > "$FORGE_TMP/blocks" || exit
 # tests present at the start of the turn and now, removed or whose checks change
 awk -F '\t' -v f="$file" '
   { v = $1; sub(/\/.*/, "", v) }
+  $2 ~ /^support:/ { next }
   v == "base" { base[$2] = 1; next }
   v == "before" { then[$2] = $4; next }
   v == "after" { now[$2] = $4 }
