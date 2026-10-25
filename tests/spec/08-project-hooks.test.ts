@@ -1128,7 +1128,7 @@ describe("Stop", () => {
   );
 
   /**
-   * Advisory checks (§10.6) report something Claude may have a reason to leave as
+   * Advisory checks (§10.7) report something Claude may have a reason to leave as
    * it is: they block Stop once, and the next Stop of the same turn passes.
    */
   /** @rule python/pytest/untested-change */
