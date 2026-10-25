@@ -1,0 +1,10 @@
+id: typescript/drizzle/no-push
+description: drizzle-kit push changes the database without a migration; it needs confirmation (it is for prototyping, never for a shared or production database).
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: ask
+    pattern: '(^|[^A-Za-z0-9_-])drizzle-kit[[:space:]]+push([[:space:];&|)]|$)'
+examples:
+  match: ["bunx drizzle-kit push", "npx drizzle-kit push --force", "drizzle-kit push && bun dev"]
+  no_match: ["bunx drizzle-kit generate", "bunx drizzle-kit migrate", "bunx drizzle-kit studio"]

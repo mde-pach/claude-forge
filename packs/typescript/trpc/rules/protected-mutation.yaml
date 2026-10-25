@@ -1,0 +1,22 @@
+id: typescript/trpc/protected-mutation
+description: A tRPC mutation is built on an authorizing procedure, not directly on publicProcedure, baseProcedure, procedure or t.procedure. Public mutations (sign-up, webhooks) and other procedure names are handled with a local rule of the same id (see the pack page).
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      has:
+        field: function
+        kind: member_expression
+        all:
+          - has: {field: property, regex: "^mutation$"}
+          - has: {field: object, regex: "^(publicProcedure|baseProcedure|procedure|t\\.procedure)([^A-Za-z0-9_$]|$)"}
+examples:
+  match:
+    - "export const appRouter = router({\n  deletePost: publicProcedure.input(z.object({ id: z.string() })).mutation(({ input }) => db.post.delete({ where: { id: input.id } })),\n});\n"
+    - "export const create = t.procedure.mutation(() => db.team.create());"
+    - "export const deleteDocument = procedure.input(ZDeleteDocumentSchema).mutation(async ({ input }) => deleteDocument(input.id));"
+  no_match:
+    - "export const appRouter = router({\n  deletePost: protectedProcedure.input(z.object({ id: z.string() })).mutation(({ ctx, input }) => db.post.delete({ where: { id: input.id, authorId: ctx.user.id } })),\n  list: publicProcedure.query(() => db.post.findMany()),\n});\n"
+    - "const m = useMutation(trpc.post.create.mutationOptions());"

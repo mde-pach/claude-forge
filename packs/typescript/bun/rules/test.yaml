@@ -1,0 +1,9 @@
+id: typescript/bun/test
+description: Tests that import from bun:test pass (bun test on those files).
+scope: {language: typescript}
+enforce:
+  - target: check
+    stage: test
+    run: |
+      _bt=$(git grep -lE "from[[:space:]]*['\"]bun:test['\"]" -- '*.test.*' '*_test.*' '*.spec.*' '*_spec.*' | sed 's|^|./|')
+      [ -z "$_bt" ] || bun test $_bt

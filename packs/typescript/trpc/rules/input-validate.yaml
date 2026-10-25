@@ -1,0 +1,29 @@
+id: typescript/trpc/input-validate
+description: A procedure's .input() validates. No .input(z.any()), .input(z.unknown()) or a function that only casts its argument.
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      all:
+        - has: {field: function, kind: member_expression, has: {field: property, regex: "^input$"}}
+        - has:
+            field: arguments
+            has:
+              nthChild: 1
+              any:
+                - {pattern: "z.any()"}
+                - {pattern: "z.unknown()"}
+                - {pattern: "($V) => $V as $T"}
+                - {pattern: "($V: $A) => $V as $T"}
+                - {pattern: "($V: $T) => $V"}
+examples:
+  match:
+    - "export const update = protectedProcedure.input(z.any()).mutation(({ input }) => db.post.update(input));"
+    - "export const byId = publicProcedure.input((raw) => raw as { id: string }).query(({ input }) => db.post.find(input.id));"
+    - "export const rename = protectedProcedure.input((v: { name: string }) => v).mutation(({ input }) => rename(input.name));"
+  no_match:
+    - "export const byId = publicProcedure.input(z.object({ id: z.string().uuid() })).query(({ input }) => db.post.find(input.id));"
+    - "export const byId = publicProcedure.input((v: unknown) => { if (typeof v === \"string\") return v; throw new Error(\"id\"); }).query(({ input }) => find(input));"
+    - "const el = form.input(\"name\");"

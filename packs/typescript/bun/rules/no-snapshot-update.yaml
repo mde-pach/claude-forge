@@ -1,0 +1,10 @@
+id: typescript/bun/no-snapshot-update
+description: Updating bun test snapshots (-u, --update-snapshots) needs confirmation; the snapshots are part of the reviewed expectations.
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: ask
+    pattern: '(^|[^A-Za-z0-9_-])bun[[:space:]]+test[^|;&]*[[:space:]](-u|--update-snapshots)([[:space:]=;&|)]|$)'
+examples:
+  match: ["bun test -u", "bun test src/cart.test.ts --update-snapshots"]
+  no_match: ["bun test", "bun test --bail", "bun run test -- --coverage"]

@@ -1,0 +1,6 @@
+id: typescript/drizzle
+description: Drizzle ORM schema, drizzle-kit migrations and raw SQL.
+level: project
+detect:
+  files_any: ["drizzle.config.*"]
+  deps_any: [{ecosystem: npm, name: drizzle-orm}, {ecosystem: npm, name: drizzle-kit}]

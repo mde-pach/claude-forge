@@ -1,0 +1,18 @@
+id: typescript/drizzle/migration-lint
+description: With the postgresql dialect, new migrations in the out folder do not break the running app during a deploy (no column or table renames, type changes, new required columns or DROP DATABASE); Squawk lints the SQL.
+scope: {language: any, files: ["**/*.sql"]}
+enforce:
+  - target: check
+    stage: migration
+    run: forge_drizzle_squawk
+    changed_run: "forge_drizzle_squawk {files}"
+    when_changed: ["**/*.sql"]
+examples:
+  match:
+    - head: {drizzle.config.ts: "import { defineConfig } from \"drizzle-kit\";\n\nexport default defineConfig({\n  dialect: \"postgresql\",\n  schema: \"./src/db/schema.ts\",\n  out: \"./drizzle\",\n  dbCredentials: { url: process.env.DATABASE_URL! },\n});\n", src/db/schema.ts: "import { pgTable, serial, text } from \"drizzle-orm/pg-core\";\n\nexport const users = pgTable(\"users\", {\n  id: serial(\"id\").primaryKey(),\n  email: text(\"email\").notNull(),\n});\n", drizzle/meta/_journal.json: "{\"version\": \"7\", \"dialect\": \"postgresql\", \"entries\": [{\"idx\": 0, \"tag\": \"0000_init\"}]}\n", drizzle/0000_init.sql: "CREATE TABLE \"users\" (\n\t\"id\" serial PRIMARY KEY NOT NULL,\n\t\"email\" text NOT NULL\n);\n"}
+      files: {drizzle/0001_rename.sql: "ALTER TABLE \"users\" RENAME COLUMN \"email\" TO \"mail\";\n"}
+  no_match:
+    - head: {drizzle.config.ts: "import { defineConfig } from \"drizzle-kit\";\n\nexport default defineConfig({\n  dialect: \"postgresql\",\n  schema: \"./src/db/schema.ts\",\n  out: \"./drizzle\",\n  dbCredentials: { url: process.env.DATABASE_URL! },\n});\n", src/db/schema.ts: "import { pgTable, serial, text } from \"drizzle-orm/pg-core\";\n\nexport const users = pgTable(\"users\", {\n  id: serial(\"id\").primaryKey(),\n  email: text(\"email\").notNull(),\n});\n", drizzle/meta/_journal.json: "{\"version\": \"7\", \"dialect\": \"postgresql\", \"entries\": [{\"idx\": 0, \"tag\": \"0000_init\"}]}\n", drizzle/0000_init.sql: "CREATE TABLE \"users\" (\n\t\"id\" serial PRIMARY KEY NOT NULL,\n\t\"email\" text NOT NULL\n);\n"}
+      files: {drizzle/0001_phone.sql: "ALTER TABLE \"users\" ADD COLUMN \"phone\" text;\n"}
+    - head: {drizzle.config.ts: "import { defineConfig } from \"drizzle-kit\";\n\nexport default defineConfig({ dialect: \"sqlite\", schema: \"./src/db/schema.ts\" });\n"}
+      files: {drizzle/0001_rename.sql: "ALTER TABLE `users` RENAME COLUMN `email` TO `mail`;\n"}

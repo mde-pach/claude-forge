@@ -12,7 +12,11 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { applied, commitAll, ensureTools, forge, git, hasBun, hasUv, linkTools, linkTs5, put, sampleRepo, sh, TOOL_VERSIONS, TOOLS_CACHE } from "../helpers";
+import { applied, commitAll, ensureTools, forge, git, hasBun, hasUv, linkTools, linkTs5, put, ROOT, sampleRepo, sh, TOOL_VERSIONS, TOOLS_CACHE } from "../helpers";
+import { loadPacks } from "../../src/packs";
+import { checkTools, renderChecks } from "../../src/render";
+import { runCheckExample } from "../../src/selftest";
+import type { CheckTarget } from "../../src/types";
 
 const T = 180_000;
 const hasRuff = sh("sh", ["-c", "command -v ruff"]).status === 0;
@@ -1226,4 +1230,26 @@ describe("advisory checks block once per turn", () => {
     },
     T,
   );
+});
+
+describe("project tools whose name is not a shell function name", () => {
+  const rule = loadPacks(join(ROOT, "packs")).get("typescript/vue")!.rules.find((r) => r.id === "typescript/vue/typecheck")!;
+  const target = rule.enforce[0] as CheckTarget;
+  const example = rule.examples!.match![0]!;
+
+  /**
+   * POSIX sh (dash) rejects "-" in a function name, so vue-tsc gets no wrapper
+   * function: the check runs it as `forge_exec_tool vue-tsc`, which still
+   * resolves the project's own binary and reports it missing.
+   * @rule typescript/vue/typecheck
+   */
+  test("vue-tsc is run through forge_exec_tool, is a tool of the check, and is reported skipped when the project does not have it", () => {
+    expect(checkTools(target)).toEqual(["vue-tsc"]);
+    expect(renderChecks([{ rule, target }])).not.toContain("vue-tsc()");
+    expect(runCheckExample(rule, target, example, "match", [])).toEqual({ outcome: "skip", detail: "vue-tsc not available" });
+    const bin = mkdtempSync(join(tmpdir(), "forge-vue-tsc-"));
+    writeFileSync(join(bin, "vue-tsc"), "#!/bin/sh\nprintf 'src/Counter.vue(2,7): error TS2322: Type string is not assignable to type number.\\n'\nexit 2\n");
+    chmodSync(join(bin, "vue-tsc"), 0o755);
+    expect(runCheckExample(rule, target, example, "match", [bin]).outcome).toBe("pass");
+  });
 });

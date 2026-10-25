@@ -22,7 +22,7 @@ export function renderLib(): string {
 
 /** Project tools resolved through `tool <name>` (audited tools first). */
 export const AUDITED_TOOLS = ["biome", "ruff", "basedpyright", "tsc"] as const;
-export const PROJECT_TOOLS = [...AUDITED_TOOLS, "alembic", "pytest", "prisma", "vitest", "playwright", "astro", "python"] as const;
+export const PROJECT_TOOLS = [...AUDITED_TOOLS, "alembic", "pytest", "prisma", "vitest", "playwright", "astro", "python", "vue-tsc"] as const;
 /** System runtimes, checked with `command -v`. */
 export const SYSTEM_TOOLS = ["uv", "uvx", "bun", "docker"] as const;
 
@@ -146,7 +146,8 @@ function renderGreps(greps: ActiveGrep[]): string[] {
 export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = []): string {
   const used = new Set(checks.flatMap((c) => checkTools(c.target)));
   const out: string[] = ["# ---- generated checks"];
-  const wrappers = PROJECT_TOOLS.filter((t) => used.has(t));
+  // a POSIX shell function name has no "-": such tools are run as `forge_exec_tool <name>`
+  const wrappers = PROJECT_TOOLS.filter((t) => used.has(t) && !t.includes("-"));
   if (wrappers.length) {
     out.push("# Project tools used in check commands, resolved through tool().");
     for (const t of wrappers) out.push(`${t}() { forge_exec_tool ${t} "$@"; }`);

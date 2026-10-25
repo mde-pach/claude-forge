@@ -128,6 +128,9 @@ export const TOOL_VERSIONS = {
   // migration linting (Alembic renders SQL offline; the async template needs greenlet)
   alembic: "1.20.0",
   sqlalchemy: "2.1.5",
+  // typescript/vue/typecheck (vue-tsc runs on the JavaScript TypeScript 5 API, not tsc 7)
+  "vue-tsc": "3.3.13",
+  typescriptForVue: "5.9.3",
 };
 export const TOOLS_CACHE = join(tmpdir(), "forge-tools-v2");
 export const hasBun = sh("sh", ["-c", "command -v bun"]).status === 0;
@@ -154,6 +157,18 @@ export function ensureTools(): void {
       r = sh("uv", ["pip", "install", "-q", "--python", join(TOOLS_CACHE, ".venv/bin/python"), `ruff==${TOOL_VERSIONS.ruff}`, `basedpyright==${TOOL_VERSIONS.basedpyright}`]);
     if (r.status !== 0) throw new Error(`uv install failed: ${r.stderr}`);
   }
+}
+
+/** Installs vue-tsc (TOOL_VERSIONS["vue-tsc"]) with its TypeScript in its own cache directory; returns its bin directory. */
+export function ensureVueTools(): string {
+  const dir = join(TOOLS_CACHE, "vue");
+  if (hasBun && !existsSync(join(dir, "node_modules/vue-tsc/package.json"))) {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "package.json"), '{"name":"tools-vue","private":true}');
+    const r = sh("bun", ["add", "-d", `vue-tsc@${TOOL_VERSIONS["vue-tsc"]}`, `typescript@${TOOL_VERSIONS.typescriptForVue}`], { cwd: dir });
+    if (r.status !== 0) throw new Error(`bun add failed: ${r.stderr}`);
+  }
+  return join(dir, "node_modules", ".bin");
 }
 
 /** Installs the real tsc 5.x (TOOL_VERSIONS.typescript5) in its own cache directory. */

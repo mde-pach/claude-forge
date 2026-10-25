@@ -636,7 +636,7 @@ basedpyright() { forge_exec_tool basedpyright "$@"; }
 alembic() { forge_exec_tool alembic "$@"; }
 pytest() { forge_exec_tool pytest "$@"; }
 python() { forge_exec_tool python "$@"; }
-FORGE_NCHECKS=16
+FORGE_NCHECKS=11
 
 # 1. python/config-ratchet
 forge_check_meta_1() {
@@ -653,11 +653,11 @@ forge_check_run_1() {
 forge_ratchet python ratchet.py
 }
 
-# 2. python/env-example
+# 2. python/format
 forge_check_meta_2() {
-  c_id='python/env-example'; c_stage=lint; c_tools=''
+  c_id='python/format'; c_stage=format; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=1; c_files=1; c_fix=0
 }
 forge_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -665,14 +665,17 @@ forge_scope_2() {
 }
 forge_when_2() { return 1; }
 forge_check_run_2() {
-forge_env_example py
+ruff format --check .
+}
+forge_check_changed_2() {
+ruff format $FORGE_FILES
 }
 
-# 3. python/format
+# 3. python/lint
 forge_check_meta_3() {
-  c_id='python/format'; c_stage=format; c_tools='ruff'
+  c_id='python/lint'; c_stage=lint; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=1
 }
 forge_scope_3() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -680,220 +683,138 @@ forge_scope_3() {
 }
 forge_when_3() { return 1; }
 forge_check_run_3() {
-ruff format --check .
+ruff check .
 }
 forge_check_changed_3() {
-ruff format $FORGE_FILES
+ruff check --output-format concise $FORGE_FILES
+}
+forge_check_fix_3() {
+ruff check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise $FORGE_FILES
 }
 
-# 4. python/lint
+# 4. python/pytest/no-test-edits
 forge_check_meta_4() {
-  c_id='python/lint'; c_stage=lint; c_tools='ruff'
+  c_id='python/pytest/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=1
+  c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_4() {
+  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_4() { return 1; }
 forge_check_run_4() {
-ruff check .
-}
-forge_check_changed_4() {
-ruff check --output-format concise $FORGE_FILES
-}
-forge_check_fix_4() {
-ruff check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise $FORGE_FILES
+forge_test_edits
 }
 
-# 5. python/pytest/no-test-edits
+# 5. python/pytest/run
 forge_check_meta_5() {
-  c_id='python/pytest/no-test-edits'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
+  c_when=0; c_localdb=0; c_timeout=300
+  c_changed=1; c_files=1; c_fix=0
 }
 forge_scope_5() {
-  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_5() { return 1; }
 forge_check_run_5() {
-forge_test_edits
+pytest -q
+}
+forge_check_changed_5() {
+if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
 }
 
-# 6. python/pytest/run
+# 6. python/sqlalchemy/alembic/check
 forge_check_meta_6() {
-  c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
-  c_when=0; c_localdb=0; c_timeout=300
-  c_changed=1; c_files=1; c_fix=0
+  c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=1; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_6() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_6() { return 1; }
+forge_when_6() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
 forge_check_run_6() {
-pytest -q
-}
-forge_check_changed_6() {
-if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
-}
-
-# 7. python/sqlalchemy/alembic/check
-forge_check_meta_7() {
-  c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=1; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
-}
-forge_scope_7() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_7() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_7() {
 alembic check
 }
 
-# 8. python/sqlalchemy/alembic/data-migration-downgrade
-forge_check_meta_8() {
-  c_id='python/sqlalchemy/alembic/data-migration-downgrade'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+# 7. python/sqlalchemy/alembic/migration-lint
+forge_check_meta_7() {
+  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=1; c_files=1; c_fix=0
 }
-forge_scope_8() {
+forge_scope_7() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_8() { return 1; }
-forge_check_run_8() {
-forge_alembic_data_downgrade
+forge_when_7() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_7() {
+forge_squawk_alembic $(alembic heads | forge_alembic_files)
+}
+forge_check_changed_7() {
+forge_squawk_alembic $FORGE_FILES
 }
 
-# 9. python/sqlalchemy/alembic/fk-index
+# 8. python/sqlalchemy/alembic/single-head
+forge_check_meta_8() {
+  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
+}
+forge_scope_8() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_8() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_8() {
+test "$(alembic heads | wc -l)" -le 1
+}
+
+# 9. python/typecheck
 forge_check_meta_9() {
-  c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_9() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_9() { return 1; }
 forge_check_run_9() {
-forge_alembic_fk_index
-}
-
-# 10. python/sqlalchemy/alembic/migration-lint
-forge_check_meta_10() {
-  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
-}
-forge_scope_10() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_10() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_10() {
-forge_squawk_alembic $(alembic heads | forge_alembic_files)
-}
-forge_check_changed_10() {
-forge_squawk_alembic $FORGE_FILES
-}
-
-# 11. python/sqlalchemy/alembic/model-registered
-forge_check_meta_11() {
-  c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
-}
-forge_scope_11() {
-  case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_11() { return 1; }
-forge_check_run_11() {
-forge_models_registered
-}
-
-# 12. python/sqlalchemy/alembic/single-head
-forge_check_meta_12() {
-  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
-}
-forge_scope_12() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_12() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_12() {
-test "$(alembic heads | wc -l)" -le 1
-}
-
-# 13. python/sqlalchemy/alembic/sqlite-batch
-forge_check_meta_13() {
-  c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
-}
-forge_scope_13() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_13() { return 1; }
-forge_check_run_13() {
-forge_alembic_batch
-}
-
-# 14. python/typecheck
-forge_check_meta_14() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
-}
-forge_scope_14() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_14() { return 1; }
-forge_check_run_14() {
 basedpyright
 }
 
-# 15. python/uv/exclude-newer
-forge_check_meta_15() {
+# 10. python/uv/exclude-newer
+forge_check_meta_10() {
   c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_15() {
+forge_scope_10() {
   return 0
 }
-forge_when_15() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
-forge_check_run_15() {
+forge_when_10() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
+forge_check_run_10() {
 forge_uv_cooldown
 }
 
-# 16. python/uv/lock-sync
-forge_check_meta_16() {
+# 11. python/uv/lock-sync
+forge_check_meta_11() {
   c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_16() {
+forge_scope_11() {
   return 0
 }
-forge_when_16() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
-forge_check_run_16() {
+forge_when_11() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_check_run_11() {
 uv lock --check
 }
 
@@ -1643,333 +1564,245 @@ forge_squawk_alembic() {
   return "$_fs_rc"
 }
 
-# ---- How applications use SQLAlchemy and Alembic (python/sqlalchemy/alembic rules).
-# Each prints "path:line: message" (lint findings, attributed to added lines).
-
-# forge_alembic_targets: the revision files to examine: the in-scope changed ones
-# ($FORGE_FILES), else (--all) the head revisions' (no file names them as a
-# down_revision), so revisions written before a rule was adopted do not fail CI.
-forge_alembic_targets() {
-  if [ -n "$FORGE_FILES" ]; then
-    printf '%s\n' "$FORGE_FILES" | grep -E '^alembic/versions/.*\.py$'
-    return 0
-  fi
-  find alembic/versions -name '*.py' 2>/dev/null | sort > "$FORGE_TMP/alembic.revs"
-  [ -s "$FORGE_TMP/alembic.revs" ] || return 0
-  # shellcheck disable=SC2046
+# Drizzle: drizzle.config.* names the schema files (`schema`: a path, a glob, a
+# directory or an array of them), the migrations folder (`out`, default ./drizzle)
+# and the `dialect`. forge_drizzle_config writes "key<TAB>value" lines (one per
+# schema entry, ./ removed) to $FORGE_TMP/drizzle.config; fails without a config.
+forge_drizzle_config() {
+  FORGE_DZ_CONFIG=''
+  for _dz_f in drizzle.config.ts drizzle.config.mts drizzle.config.cts drizzle.config.js drizzle.config.mjs drizzle.config.cjs drizzle.config.json; do
+    if [ -f "$_dz_f" ]; then FORGE_DZ_CONFIG=$_dz_f; break; fi
+  done
+  [ -n "$FORGE_DZ_CONFIG" ] || return 1
   awk '
-    function ids(s,   out) {
-      out = ""
-      while (match(s, /["\047][^"\047]+["\047]/)) { out = out " " substr(s, RSTART + 1, RLENGTH - 2); s = substr(s, RSTART + RLENGTH) }
-      return out
+    { s = s $0 "\n" }
+    function val(key,   re, v) {
+      re = "[^A-Za-z0-9_$]\"?" key "\"?[[:space:]]*:[[:space:]]*(\\[[^]]*\\]|\"[^\"]*\"|\047[^\047]*\047|`[^`]*`)"
+      if (!match(s, re)) return ""
+      v = substr(s, RSTART, RLENGTH); sub(/^[^:]*:[[:space:]]*/, "", v); return v
     }
-    /^revision[^=]*=/ { r = $0; sub(/^[^=]*=/, "", r); split(ids(r), a, " "); if (a[1] != "") rev[FILENAME] = a[1] }
-    /^down_revision[^=]*=/ { d = $0; sub(/^[^=]*=/, "", d); n = split(ids(d), a, " "); for (i = 1; i <= n; i++) down[a[i]] = 1 }
-    END { for (f in rev) if (!(rev[f] in down)) print f }' $(cat "$FORGE_TMP/alembic.revs") | sort
+    function emit(key, v,   q) {
+      while (match(v, /"[^"]*"|\047[^\047]*\047|`[^`]*`/)) {
+        q = substr(v, RSTART + 1, RLENGTH - 2); v = substr(v, RSTART + RLENGTH)
+        sub(/^\.\//, "", q); sub(/\/+$/, "", q)
+        if (q != "") print key "\t" q
+      }
+    }
+    END {
+      # drop comments, outside strings
+      t = ""; q = ""; n = length(s)
+      for (i = 1; i <= n; i++) {
+        c = substr(s, i, 1); d = substr(s, i, 2)
+        if (q != "") { t = t c; if (c == "\\") { t = t substr(s, ++i, 1) } else if (c == q) q = ""; continue }
+        if (d == "//") { while (i <= n && substr(s, i, 1) != "\n") i++; t = t " "; continue }
+        if (d == "/*") { i += 2; while (i <= n && substr(s, i, 2) != "*/") i++; i++; t = t " "; continue }
+        if (c == "\"" || c == "\047" || c == "`") q = c
+        t = t (c == "\n" ? " " : c)
+      }
+      s = t
+      gsub(/migrations[[:space:]]*:[[:space:]]*\{[^}]*\}/, "", s)
+      s = " " s
+      o = val("out"); if (o == "") print "out\tdrizzle"; else emit("out", o)
+      emit("dialect", val("dialect")); emit("schema", val("schema"))
+    }' "$FORGE_DZ_CONFIG" > "$FORGE_TMP/drizzle.config"
 }
 
-# forge_alembic_sqlite: the project also runs its migrations on SQLite: alembic/env.py
-# sets render_as_batch=True, or alembic.ini's sqlalchemy.url is a sqlite URL.
-forge_alembic_sqlite() {
-  grep -qE '^[^#]*render_as_batch[[:space:]]*=[[:space:]]*True' alembic/env.py 2>/dev/null \
-    || grep -qE '^[[:space:]]*sqlalchemy\.url[[:space:]]*=[[:space:]]*sqlite' alembic.ini 2>/dev/null
-}
+# forge_drizzle_get <key>: the first value of <key> from forge_drizzle_config.
+forge_drizzle_get() { awk -F '\t' -v k="$1" '$1 == k { print $2; exit }' "$FORGE_TMP/drizzle.config"; }
 
-# forge_alembic_batch: on such a project, operations SQLite cannot run as ALTER TABLE
-# (alter_column, drop_column, constraints) go through op.batch_alter_table(), which
-# recreates the table there. Operations under an `if` on the dialect are left alone.
-forge_alembic_batch() {
-  forge_alembic_sqlite || return 0
-  _ab_rc=0
-  forge_alembic_targets > "$FORGE_TMP/alembic.targets"
-  while IFS= read -r _ab_f; do
-    [ -f "$_ab_f" ] || continue
-    awk -v f="$_ab_f" '
-      { line = $0; sub(/\r$/, "", line) }
-      line ~ /^[ \t]*(#|$)/ { next }
-      {
-        ind = match(line, /[^ \t]/) - 1
-        if (skip != "") {
-          if (ind > skip + 0) next
-          if (ind == skip + 0 && line ~ /^[ \t]*(elif|else)[ \t:]/) next
-          skip = ""
-        }
-        if (line ~ /^[ \t]*(if|elif)[ \t].*(dialect|sqlite|postgres|mysql)/) { skip = ind ""; next }
-        if (match(line, /(^|[^A-Za-z0-9_.])op\.(alter_column|drop_column|create_foreign_key|drop_constraint|create_unique_constraint|create_check_constraint|create_primary_key)\(/)) {
-          op = substr(line, RSTART, RLENGTH - 1); sub(/^[^o]*op\./, "", op)
-          print f ":" NR ": op." op "() outside op.batch_alter_table(): SQLite cannot ALTER a table this way, and this project runs its migrations on SQLite too (render_as_batch=True or a sqlite URL). Use: with op.batch_alter_table(\"<table>\") as batch_op: batch_op." op "(...)"
-          bad = 1
-        }
-      }
-      END { exit bad }' "$_ab_f" || _ab_rc=1
-  done < "$FORGE_TMP/alembic.targets"
-  return "$_ab_rc"
-}
-
-# forge_alembic_fk_index: in each revision's upgrade(), a column that gets a foreign key
-# (sa.Column(..., sa.ForeignKey(...)), sa.ForeignKeyConstraint([...]),
-# op.create_foreign_key(..., [...], ...)) also leads an index: op.create_index,
-# index=True, a primary key or unique constraint, or CREATE INDEX. PostgreSQL does not
-# index referencing columns; skipped when the database URL is MySQL (which does).
-forge_alembic_fk_index() {
-  case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
-  _ai_rc=0
-  forge_alembic_targets > "$FORGE_TMP/alembic.targets"
-  while IFS= read -r _ai_f; do
-    [ -f "$_ai_f" ] || continue
-    awk -v f="$_ai_f" '
-      # the position of the bracket closing the one at p (strings skipped)
-      function close_of(s, p,   d, c, q, i, n) {
-        d = 0; q = ""; n = length(s)
-        for (i = p; i <= n; i++) {
-          c = substr(s, i, 1)
-          if (q != "") { if (c == "\\") i++; else if (c == q) q = ""; continue }
-          if (c == "\"" || c == "\047") q = c
-          else if (c == "(" || c == "[") d++
-          else if (c == ")" || c == "]") { d--; if (d == 0) return i }
-        }
-        return n
-      }
-      function strs(t, all,   out) {
-        out = ""
-        while (match(t, /["\047][^"\047]*["\047]/)) {
-          out = out (out == "" ? "" : SUBSEP) substr(t, RSTART + 1, RLENGTH - 2); t = substr(t, RSTART + RLENGTH)
-          if (!all) break
-        }
-        return out
-      }
-      function first_list(t,   p) { p = index(t, "["); if (!p) return ""; t = substr(t, p); return substr(t, 1, close_of(t, 1)) }
-      function line_of(p,   k) { for (k = nl; k > 1 && start[k] > p; k--) ; return first + k - 1 }
-      function cover(list,   n, a, i) { n = split(list, a, SUBSEP); for (i = 1; i <= n; i++) cov[tolower(a[i])] = 1 }
-      { line = $0; sub(/\r$/, "", line) }
-      /^def[ \t]+upgrade[ \t]*\(/ { on = 1; first = NR + 1; next }
-      on && line ~ /^[^ \t#]/ { on = 0 }
-      on {
-        if (line ~ /^[ \t]*#/) line = ""
-        nl++; start[nl] = length(s) + 1; s = s line "\n"
-      }
-      END {
-        rest = s; off = 0
-        while (match(rest, /(^|[^A-Za-z0-9_])(Column|ForeignKeyConstraint|create_foreign_key|create_index|PrimaryKeyConstraint|UniqueConstraint|Index)\(/)) {
-          name = substr(rest, RSTART, RLENGTH - 1); sub(/^[^A-Za-z]/, "", name)
-          po = off + RSTART + RLENGTH - 1
-          pc = close_of(s, po); args = substr(s, po + 1, pc - po - 1)
-          if (name == "Column") {
-            if (args ~ /^[ \t\n]*["\047]/) {
-              col = tolower(strs(args, 0))
-              if (args ~ /(^|[^A-Za-z0-9_])ForeignKey\(/ && !(col in fk)) { fk[col] = line_of(po); order[++nfk] = col }
-              if (args ~ /(index|primary_key|unique)[ \t]*=[ \t]*True/) cov[col] = 1
-            }
-          } else if (name == "ForeignKeyConstraint" || name == "create_foreign_key") {
-            col = tolower(strs(first_list(args), 0))
-            if (col != "" && !(col in fk)) { fk[col] = line_of(po); order[++nfk] = col }
-          } else if (name == "create_index") cover(strs(first_list(args), 0))
-          else cover(strs(args, 1))
-          off = po; rest = substr(s, po + 1)
-        }
-        u = toupper(s)
-        while (match(u, /CREATE[ \t\n]+(UNIQUE[ \t\n]+)?INDEX[^(]*\([ \t\n]*/)) {
-          t = substr(u, RSTART + RLENGTH); sub(/[^A-Z0-9_"].*$/, "", t); gsub(/"/, "", t)
-          cov[tolower(t)] = 1; u = substr(u, RSTART + RLENGTH)
-        }
-        for (i = 1; i <= nfk; i++) {
-          col = order[i]
-          if (col in cov) continue
-          print f ":" fk[col] ": foreign key column \"" col "\" gets no index in this revision; PostgreSQL does not index referencing columns, so joins on it and deletes of the referenced rows scan the table. Add op.create_index(..., [\"" col "\"]) (index=True on the model mapped_column, then autogenerate)."
-          bad = 1
-        }
-        exit bad
-      }' "$_ai_f" || _ai_rc=1
-  done < "$FORGE_TMP/alembic.targets"
-  return "$_ai_rc"
-}
-
-# forge_alembic_tested: some test file mentions Alembic (pytest-alembic, alembic.command, ...).
-forge_alembic_tested() {
-  git ls-files -co --exclude-standard -- '*test_*.py' '*_test.py' '*conftest.py' 2>/dev/null | while IFS= read -r _at_f; do
-    [ -f "$_at_f" ] && grep -lE '(pytest_alembic|alembic_runner|from alembic|import alembic|alembic\.(command|config))' "$_at_f"
-  done | grep -q .
-}
-
-# forge_alembic_data_downgrade: a revision whose upgrade() changes rows (UPDATE, INSERT,
-# DELETE through execute(), sa.update/insert/delete, op.bulk_insert, an ORM Session) has a
-# downgrade() that does something (reverts, or raises to say it cannot), unless the
-# project tests its migrations. A downgrade that only passes reports success and leaves the data.
-forge_alembic_data_downgrade() {
-  forge_alembic_targets > "$FORGE_TMP/alembic.targets"
-  : > "$FORGE_TMP/alembic.data"
-  while IFS= read -r _ad_f; do
-    [ -f "$_ad_f" ] || continue
-    awk -v f="$_ad_f" '
-      { line = $0; sub(/\r$/, "", line) }
-      /^def[ \t]+upgrade[ \t]*\(/ { sec = "up"; next }
-      /^def[ \t]+downgrade[ \t]*\(/ { sec = "down"; dl = NR; next }
-      line ~ /^[^ \t#]/ { sec = ""; next }
-      sec == "up" && line !~ /^[ \t]*#/ { up = up line "\n" }
-      sec == "down" {
-        t = line; sub(/^[ \t]+/, "", t); sub(/[ \t]+$/, "", t)
-        if (indoc) { if (index(t, q)) indoc = 0; next }
-        if (t == "" || t ~ /^#/ || t == "pass" || t == "...") next
-        if (t ~ /^("""|\047\047\047)/) { q = substr(t, 1, 3); if (!index(substr(t, 4), q)) indoc = 1; next }
-        if (t ~ /^["\047]/) next
-        real = 1
-      }
-      END {
-        u = toupper(up)
-        data = (up ~ /execute\(/ && (u ~ /(^|[^A-Z_])UPDATE[ \t\n]+[^ \t\n]+[ \t\n]+SET[ \t\n]/ || u ~ /INSERT[ \t\n]+INTO[ \t\n]/ || u ~ /DELETE[ \t\n]+FROM[ \t\n]/)) \
-          || up ~ /(^|[^A-Za-z0-9_.])(sa\.)?(update|insert|delete)\([A-Za-z_]/ || up ~ /\.(update|insert|delete)\(\)/ \
-          || up ~ /op\.bulk_insert\(/ || up ~ /(^|[^A-Za-z0-9_])Session\(/
-        if (data && !real) print f ":" (dl ? dl : 1) ": upgrade() changes data but downgrade() does nothing, so alembic downgrade reports success and leaves the rows changed. Write the inverse, raise an error that says the revision cannot be reverted, or test the migrations (pytest-alembic)."
-      }' "$_ad_f" >> "$FORGE_TMP/alembic.data"
-  done < "$FORGE_TMP/alembic.targets"
-  [ -s "$FORGE_TMP/alembic.data" ] || return 0
-  forge_alembic_tested && return 0
-  cat "$FORGE_TMP/alembic.data"
+# forge_drizzle_is_schema <path>: succeeds when <path> is one of the configured schema
+# entries, matches one as a glob, or sits under one as a directory.
+forge_drizzle_is_schema() {
+  while IFS="$(printf '\t')" read -r _ds_k _ds_v; do
+    [ "$_ds_k" = schema ] || continue
+    _ds_g=$(printf '%s' "$_ds_v" | sed 's/\*\*/*/g')
+    # shellcheck disable=SC2254
+    case $1 in "$_ds_v"|"$_ds_v"/*|$_ds_g) return 0 ;; esac
+  done < "$FORGE_TMP/drizzle.config"
   return 1
 }
 
-# forge_mentions <file> <name>: <name> appears as a word in <file>, outside comment lines.
-forge_mentions() {
-  grep -v '^[[:space:]]*#' "$1" 2>/dev/null | grep -qE "(^|[^A-Za-z0-9_])$2([^A-Za-z0-9_]|\$)"
-}
-
-# forge_models_registered: a module of a models package that maps a table (a class with
-# __tablename__) is imported by the package's __init__.py when that file is the registry
-# (it imports other modules of the package that map tables), or by alembic/env.py:
-# Base.metadata, which autogenerate and alembic check compare, knows only imported models.
-forge_models_registered() {
-  if [ -n "$FORGE_FILES" ]; then printf '%s\n' "$FORGE_FILES"
-  else git ls-files -co --exclude-standard -- 'models/*.py' '*/models/*.py' 2>/dev/null; fi > "$FORGE_TMP/models.files"
-  _mr_rc=0
-  while IFS= read -r _mr_f; do
-    case ${_mr_f##*/} in __init__.py|conftest.py|test_*) continue ;; *.py) ;; *) continue ;; esac
-    [ -f "$_mr_f" ] || continue
-    _mr_d=$(dirname "$_mr_f")
-    _mr_m=$(basename "$_mr_f" .py)
-    [ -f "$_mr_d/__init__.py" ] || continue
-    awk '
-      /^class[ \t]+[A-Za-z_]/ { c = $0; sub(/^class[ \t]+/, "", c); sub(/[^A-Za-z0-9_].*$/, "", c); cl = NR; next }
-      /^[^ \t#\r]/ { c = "" }
-      c != "" && /^[ \t]+__tablename__[ \t]*[:=]/ { print cl "\t" c; c = "" }' "$_mr_f" > "$FORGE_TMP/models.classes"
-    [ -s "$FORGE_TMP/models.classes" ] || continue
-    forge_mentions "$_mr_d/__init__.py" "$_mr_m" && continue
-    forge_mentions alembic/env.py "$_mr_m" && continue
-    # the registry: __init__.py imports another module of the package that maps a table
-    _mr_reg=''
-    for _mr_x in $(awk '
-      /^[ \t]*from[ \t]+\.[ \t]+import[ \t]/ { s = $0; sub(/^.*import[ \t]+/, "", s); gsub(/[(),]/, " ", s); n = split(s, a, /[ \t]+/); for (i = 1; i <= n; i++) if (a[i] != "as") print a[i]; next }
-      /^[ \t]*from[ \t]+[A-Za-z0-9_.]+[ \t]+import/ { s = $0; sub(/^[ \t]*from[ \t]+/, "", s); sub(/[ \t].*$/, "", s); sub(/^.*\./, "", s); print s; next }
-      /^[ \t]*import[ \t]+[A-Za-z0-9_.]+/ { s = $0; sub(/^[ \t]*import[ \t]+/, "", s); sub(/[ \t,].*$/, "", s); sub(/^.*\./, "", s); print s }' "$_mr_d/__init__.py"); do
-      [ "$_mr_x" != "$_mr_m" ] && [ -f "$_mr_d/$_mr_x.py" ] && grep -q '__tablename__' "$_mr_d/$_mr_x.py" && { _mr_reg=1; break; }
-    done
-    [ -n "$_mr_reg" ] || continue
-    while IFS='	' read -r _mr_l _mr_c; do
-      printf '%s:%s: model %s is not imported by %s/__init__.py, which imports the other models: Base.metadata will not have its table, so autogenerate writes no migration for it and alembic check passes. Import it there.\n' "$_mr_f" "$_mr_l" "$_mr_c" "$_mr_d"
-    done < "$FORGE_TMP/models.classes"
-    _mr_rc=1
-  done < "$FORGE_TMP/models.files"
-  return "$_mr_rc"
-}
-
-# ---- Settings kept in sync with .env templates (python/env-example, typescript/env-example).
-
-# forge_env_fields_py <file>: "line<TAB>VAR<TAB>required<TAB>class" for each field of a
-# pydantic-settings BaseSettings subclass (env_prefix, alias, case_sensitive applied;
-# required = no default). Fields with AliasChoices / AliasPath are left out.
-forge_env_fields_py() {
+# forge_drizzle_tables <file>: the file without what does not reach the database
+# (blank lines, comments, imports, type exports, relations()/defineRelations() calls).
+forge_drizzle_tables() {
   awk '
-    function cls_of(l,   c) { c = l; sub(/^class[ \t]+/, "", c); sub(/[^A-Za-z0-9_].*$/, "", c); return c }
-    { line = $0; sub(/\r$/, "", line) }
-    line ~ /^class[ \t]/ { cls = (line ~ /\(.*BaseSettings.*\)[ \t]*:/) ? cls_of(line) : ""; body = ""; next }
-    line ~ /^[^ \t#]/ { cls = ""; next }
-    cls == "" || line ~ /^[ \t]*(#|$)/ { next }
-    {
-      ind = match(line, /[^ \t]/) - 1
-      if (body == "") body = ind
-    }
-    FNR == NR {
-      if (match(line, /env_prefix[ \t]*=[ \t]*["\047][^"\047]*["\047]/)) { p = substr(line, RSTART, RLENGTH); sub(/^[^"\047]*["\047]/, "", p); sub(/["\047]$/, "", p); pre[cls] = p }
-      if (line ~ /case_sensitive[ \t]*=[ \t]*True/) cs[cls] = 1
+    inc { if (/\*\//) inc = 0; next }
+    /^[[:space:]]*\/\*/ { if (!/\*\//) inc = 1; next }
+    /^[[:space:]]*(\/\/|$)/ { next }
+    /^[[:space:]]*(import[[:space:]{*]|export[[:space:]]+(type|interface)[[:space:]]|export[[:space:]]*\*)/ { next }
+    depth == 0 && /(^|[^A-Za-z0-9_$])(defineRelations|relations)[[:space:]]*\(/ { inrel = 1 }
+    inrel {
+      t = $0; o = gsub(/\(/, "", t); t = $0; c = gsub(/\)/, "", t); depth += o - c
+      if (depth <= 0) { depth = 0; inrel = 0 }
       next
     }
-    ind == body && line ~ /^[ \t]*[A-Za-z_][A-Za-z0-9_]*[ \t]*:/ {
-      name = line; sub(/^[ \t]*/, "", name); sub(/[ \t]*:.*$/, "", name)
-      rest = line; sub(/^[^:]*:/, "", rest)
-      if (name == "model_config" || rest ~ /ClassVar|AliasChoices|AliasPath/) next
-      key = pre[cls] name
-      if (match(rest, /(validation_alias|alias)[ \t]*=[ \t]*["\047][^"\047]+["\047]/)) { key = substr(rest, RSTART, RLENGTH); sub(/^[^"\047]*["\047]/, "", key); sub(/["\047]$/, "", key) }
-      if (!cs[cls]) key = toupper(key)
-      req = 1
-      if (match(rest, /[ \t]=([ \t]|$)/)) {
-        v = substr(rest, RSTART + RLENGTH); sub(/^[ \t]+/, "", v)
-        req = 0
-        if (v ~ /^([A-Za-z_]+\.)?Field\(/) {
-          sub(/^[^(]*\([ \t]*/, "", v)
-          if (v ~ /^(\.\.\.|\))/) req = 1
-          else if (v ~ /^[a-z_]+[ \t]*=/ && v !~ /default(_factory)?[ \t]*=/) req = 1
-        }
-      }
-      print FNR "\t" key "\t" req "\t" cls
-    }' "$1" "$1"
+    { sub(/^[[:space:]]+/, ""); sub(/[[:space:]]+$/, ""); print }' "$1" 2>/dev/null
 }
 
-# forge_env_fields_ts <file>: the same for the keys of a Zod env schema (t3-env
-# createEnv, or z.object(...) parsed from process.env): UPPER_CASE keys whose value is a
-# z. chain on the same line; required = no .default(), .optional() or .catch().
-forge_env_fields_ts() {
-  awk '
-    match($0, /^[ \t]*["\047]?[A-Z][A-Z0-9_]*["\047]?[ \t]*:[ \t]*z\./) {
-      k = $0; sub(/^[ \t]*["\047]?/, "", k); sub(/[^A-Z0-9_].*$/, "", k)
-      print FNR "\t" k "\t" ($0 ~ /\.(default|optional|catch)\(/ ? 0 : 1) "\tenv"
-    }' "$1"
-}
-
-# forge_env_example <py|ts>: Stop and pre-commit, not --all. A settings field or env schema
-# key added in the change appears in the .env template of the nearest directory that has
-# one (.env.example, .env.template, .env.sample, .env.dist, .env.<name>.example): always
-# when it has no default, and also with a default when the template already lists at
-# least half of that class's variables. A template that lists none of them is not about it.
-forge_env_example() {
-  [ "$mode" = --all ] && return 0
-  _ee_rc=0
-  printf '%s\n' "$FORGE_FILES" > "$FORGE_TMP/env.files"
-  while IFS= read -r _ee_f; do
-    [ -f "$_ee_f" ] || continue
-    case $1 in
-      py) grep -q 'BaseSettings' "$_ee_f" || continue ;;
-      ts) grep -qE 'createEnv\(|process\.env' "$_ee_f" && grep -q 'z\.' "$_ee_f" || continue ;;
+# forge_drizzle_migration_present: a change to a schema file that reaches the database
+# comes with a generated migration in the out folder: the SQL plus meta/_journal.json and
+# a meta/*_snapshot.json (drizzle-kit 0.x), or <out>/<name>/migration.sql and its
+# snapshot.json (drizzle-kit 1.x). Not with --all (no change to compare).
+forge_drizzle_migration_present() {
+  [ "$mode" != --all ] || return 0
+  forge_drizzle_config || return 0
+  grep -q "^schema$(printf '\t')" "$FORGE_TMP/drizzle.config" || {
+    printf 'forge:%s skipped: no schema path found in %s\n' "$c_id" "$FORGE_DZ_CONFIG"; return 0; }
+  _dm_out=$(forge_drizzle_get out)
+  : > "$FORGE_TMP/dz.schema"
+  while IFS= read -r _dm_f; do
+    forge_drizzle_is_schema "$_dm_f" || continue
+    forge_drizzle_tables "$_dm_f" > "$FORGE_TMP/dz.now"
+    forge_drizzle_tables "$FORGE_TMP/base/$_dm_f" > "$FORGE_TMP/dz.then"
+    cmp -s "$FORGE_TMP/dz.now" "$FORGE_TMP/dz.then" || printf '%s\n' "$_dm_f" >> "$FORGE_TMP/dz.schema"
+  done < "$FORGE_TMP/changed"
+  [ -s "$FORGE_TMP/dz.schema" ] || return 0
+  _dm_sql=0; _dm_journal=0; _dm_snap=0
+  while IFS= read -r _dm_f; do
+    case $_dm_f in
+      "$_dm_out"/meta/_journal.json) _dm_journal=1 ;;
+      "$_dm_out"/meta/*_snapshot.json|"$_dm_out"/*/snapshot.json) _dm_snap=1 ;;
+      "$_dm_out"/*/migration.sql) _dm_sql=1; _dm_journal=1 ;;
+      "$_dm_out"/*.sql) _dm_sql=1 ;;
     esac
-    _ee_d=$(dirname "$_ee_f")
-    while :; do
-      _ee_t=$(ls -A "$_ee_d" 2>/dev/null | grep -E '^\.env(\.[A-Za-z0-9_-]+)?\.(example|template|sample|dist)$')
-      [ -n "$_ee_t" ] || [ "$_ee_d" = . ] && break
-      _ee_d=$(dirname "$_ee_d")
+  done < "$FORGE_TMP/existing"
+  # drizzle-kit 1.x keeps no journal: a <name>/migration.sql stands in for it
+  [ "$_dm_sql" = 1 ] && [ "$_dm_journal" = 1 ] && [ "$_dm_snap" = 1 ] && return 0
+  while IFS= read -r _dm_f; do
+    printf '%s: the Drizzle schema changed, but %s/ has no new migration with its journal and snapshot\n' "$_dm_f" "$_dm_out"
+  done < "$FORGE_TMP/dz.schema"
+  printf 'Generate it (drizzle-kit generate) and keep the SQL, meta/_journal.json and the snapshot together; never write them by hand.\n'
+  return 1
+}
+
+# forge_drizzle_applied: migrations (SQL and snapshots in the out folder) that exist in
+# the base are not modified or deleted; a change goes in a new migration.
+forge_drizzle_applied() {
+  [ "$mode" != --all ] || return 0
+  forge_drizzle_config || return 0
+  _da_out=$(forge_drizzle_get out)
+  _da_rc=0
+  while IFS= read -r _da_f; do
+    case $_da_f in
+      "$_da_out"/*.sql|"$_da_out"/meta/*_snapshot.json|"$_da_out"/*/snapshot.json)
+        if [ -f "$_da_f" ]; then _da_what=modified; else _da_what=deleted; fi
+        printf '%s: an existing migration was %s; generate a new migration instead (drizzle-kit generate)\n' "$_da_f" "$_da_what"
+        _da_rc=1 ;;
+    esac
+  done < "$FORGE_TMP/inbase"
+  return "$_da_rc"
+}
+
+# forge_drizzle_squawk [files]: Squawk (§13.1) on the changed SQL of the out folder
+# when the dialect is postgresql; with no files (--since, --all), on the newest migration.
+forge_drizzle_squawk() {
+  forge_drizzle_config || return 0
+  [ "$(forge_drizzle_get dialect)" = postgresql ] || return 0
+  _dq_out=$(forge_drizzle_get out)
+  if [ "$#" -eq 0 ]; then
+    set -- $(git ls-files -- "$_dq_out/*.sql" | sort | tail -n 1)
+  else
+    for _dq_f in "$@"; do
+      shift
+      case $_dq_f in "$_dq_out"/*.sql) set -- "$@" "$_dq_f" ;; esac
     done
-    [ -n "$_ee_t" ] || continue
-    _ee_names=''
-    : > "$FORGE_TMP/env.keys"
-    for _ee_x in $_ee_t; do
-      [ "$_ee_d" = . ] && _ee_p=$_ee_x || _ee_p="$_ee_d/$_ee_x"
-      _ee_names="${_ee_names:+$_ee_names, }$_ee_p"
-      sed -n -E 's/^[[:space:]]*(export[[:space:]]+)?#?[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=.*/\2/p' "$_ee_p" >> "$FORGE_TMP/env.keys"
-    done
-    "forge_env_fields_$1" "$_ee_f" > "$FORGE_TMP/env.fields"
-    awk -F '\t' -v f="$_ee_f" -v t="$_ee_names" '
-      function found(k,   h) { if (k in have) return 1; for (h in have) if (index(h, k "_") == 1) return 1; return 0 }
-      FILENAME == ARGV[1] { have[toupper($0)] = 1; next }
-      { n++; ln[n] = $1; key[n] = $2; rq[n] = $3; g[n] = $4; tot[$4]++; if (found(toupper($2))) got[$4]++ }
+  fi
+  forge_squawk_files "$@"
+}
+
+# forge_vue_vfor_keys <files>: in the templates of .vue files, each element with v-for
+# (not <template>) also binds a key (:key, v-bind:key). Prints "path:line: ..." per element
+# (the line of its v-for). Comments, <script> and <style> are skipped; quotes are respected.
+forge_vue_vfor_keys() {
+  _vk_rc=0
+  for _vk_f in "$@"; do
+    case $_vk_f in *.vue) ;; *) continue ;; esac
+    [ -f "$_vk_f" ] || continue
+    awk -v f="$_vk_f" '
+      { s = s $0 "\n" }
       END {
-        for (j = 1; j <= n; j++) {
-          if (!got[g[j]] || found(toupper(key[j]))) continue
-          if (rq[j] || got[g[j]] * 2 >= tot[g[j]]) {
-            print f ":" ln[j] ": " key[j] " is not in " t "; add it there (a placeholder value is fine) so the next person to set up the project knows it exists"
-            bad = 1
+        n = length(s); ln = 1; skip = ""
+        for (i = 1; i <= n; i++) {
+          c = substr(s, i, 1)
+          if (c == "\n") { ln++; continue }
+          if (c != "<") continue
+          if (substr(s, i, 4) == "<!--") {
+            j = index(substr(s, i + 4), "-->"); if (!j) break
+            t = substr(s, i, j + 6); ln += gsub(/\n/, "", t); i += j + 5; continue
           }
+          if (!match(substr(s, i + 1, 1), /[A-Za-z\/]/)) continue
+          # one tag, quotes respected
+          start = ln; q = ""; tag = ""
+          for (i++; i <= n; i++) {
+            c = substr(s, i, 1)
+            if (c == "\n") ln++
+            if (q != "") { if (c == q) q = ""; tag = tag c; continue }
+            if (c == "\"" || c == "\047") q = c
+            else if (c == ">") break
+            tag = tag c
+          }
+          name = tag; sub(/[[:space:]].*$/, "", name); if (length(name) > 1) sub(/\/$/, "", name); shown = name; name = tolower(name)
+          if (skip != "") { if (name == "/" skip) skip = ""; continue }
+          if ((name == "script" || name == "style") && tag !~ /\/$/) { skip = name; continue }
+          tag = " " tag
+          if (name == "template" || tag !~ /[[:space:]]v-for[[:space:]]*=/) continue
+          if (tag ~ /[[:space:]](:key|v-bind:key)[[:space:]]*=/) continue
+          match(tag, /[[:space:]]v-for[[:space:]]*=/); pre = substr(tag, 1, RSTART)
+          printf "%s:%d: <%s> has v-for without :key\n", f, start + gsub(/\n/, "", pre), shown
+          bad = 1
         }
         exit bad
-      }' "$FORGE_TMP/env.keys" "$FORGE_TMP/env.fields" || _ee_rc=1
-  done < "$FORGE_TMP/env.files"
-  return "$_ee_rc"
+      }' "$_vk_f" || _vk_rc=1
+  done
+  return "$_vk_rc"
+}
+
+# OpenAPI clients generated by openapi-typescript, orval or @hey-api/openapi-ts: their
+# files say so in their header, and a package.json script runs the generator.
+FORGE_OPENAPI_MARK='auto-generated by (openapi-typescript|@hey-api/openapi-ts)|generated by orval'
+FORGE_OPENAPI_GEN='"[^"]+"[[:space:]]*:[[:space:]]*"[^"]*(openapi-typescript|orval|openapi-ts)'
+
+# forge_openapi_spec <path>: an OpenAPI or Swagger document (JSON or YAML with an
+# openapi / swagger version near its top).
+forge_openapi_spec() {
+  case $1 in *.json|*.yaml|*.yml) ;; *) return 1 ;; esac
+  [ -f "$1" ] && head -c 4096 "$1" | grep -qE "[\"']?(openapi|swagger)[\"']?[[:space:]]*:[[:space:]]*[\"']?[0-9]"
+}
+
+# forge_openapi_generated <path>: a file whose header says one of the generators wrote it.
+forge_openapi_generated() { [ -f "$1" ] && head -n 15 "$1" | grep -qiE "$FORGE_OPENAPI_MARK"; }
+
+# forge_openapi_sync regenerate | hand-edits: compares the changed OpenAPI documents with
+# the changed generated files. regenerate: a changed document needs a changed generated
+# file. hand-edits: a changed generated file needs a changed document or generator config
+# (package.json, orval.config.*, openapi-ts.config.*, redocly.*), when the repository
+# tracks a document (a client generated from a URL is not checked). Not with --all.
+forge_openapi_sync() {
+  [ "$mode" != --all ] || return 0
+  _os_pkgs=$(git ls-files -- package.json '*/package.json')
+  [ -n "$_os_pkgs" ] || return 0
+  # shellcheck disable=SC2086
+  _os_script=$(grep -hoE "$FORGE_OPENAPI_GEN" $_os_pkgs 2>/dev/null | head -n 1 | cut -d '"' -f 2)
+  [ -n "$_os_script" ] || return 0
+  forge_filter forge_openapi_spec < "$FORGE_TMP/existing" > "$FORGE_TMP/openapi.specs"
+  forge_filter forge_openapi_generated < "$FORGE_TMP/existing" > "$FORGE_TMP/openapi.generated"
+  case $1 in
+    regenerate)
+      [ -s "$FORGE_TMP/openapi.specs" ] && [ ! -s "$FORGE_TMP/openapi.generated" ] || return 0
+      while IFS= read -r _os_f; do
+        printf '%s: the OpenAPI document changed, but no generated client file did\n' "$_os_f"
+      done < "$FORGE_TMP/openapi.specs"
+      printf 'Regenerate the client (the "%s" script) and keep both changes together.\n' "$_os_script" ;;
+    hand-edits)
+      [ -s "$FORGE_TMP/openapi.generated" ] && [ ! -s "$FORGE_TMP/openapi.specs" ] || return 0
+      grep -qE '(^|/)(package\.json|orval\.config\.[a-z]+|openapi-ts\.config\.[a-z]+|redocly\.[a-z]+)$' "$FORGE_TMP/existing" && return 0
+      [ -n "$(git ls-files -- '*.json' '*.yaml' '*.yml' | forge_filter forge_openapi_spec | head -n 1)" ] || return 0
+      while IFS= read -r _os_f; do
+        printf '%s: generated from the OpenAPI document (its header says so), but neither the document nor the generator config changed\n' "$_os_f"
+      done < "$FORGE_TMP/openapi.generated"
+      printf 'Change the OpenAPI document (or the server it is generated from), then regenerate with the "%s" script; never edit generated files by hand.\n' "$_os_script" ;;
+  esac
+  return 1
 }
 
 # forge_related_py_tests <files>: changed test files plus tests/**/test_<module>.py
@@ -2229,7 +2062,7 @@ forge_required_tools() {
   done | awk 'NF && !seen[$0]++'
 }
 
-FORGE_FORBID='python/fastapi/cors-credentials-wildcard|python/fastapi/no-on-event|python/no-stub|python/pydantic/v2-api|python/pytest/no-tautological-assert|python/pytest/no-test-env-branch|python/sqlalchemy/async-expire-on-commit|python/sqlalchemy/fk-index|python/sqlalchemy/mapped-column|python/sqlalchemy/no-backref|python/sqlalchemy/no-declarative-base|python/sqlalchemy/no-query-api|python/sqlalchemy/no-raw-execute|python/sqlalchemy/no-text-fstring'
+FORGE_FORBID='python/fastapi/cors-credentials-wildcard|python/fastapi/no-on-event|python/no-stub|python/pydantic/v2-api|python/pytest/no-tautological-assert|python/pytest/no-test-env-branch|python/sqlalchemy/async-expire-on-commit|python/sqlalchemy/mapped-column|python/sqlalchemy/no-backref|python/sqlalchemy/no-declarative-base|python/sqlalchemy/no-query-api|python/sqlalchemy/no-raw-execute|python/sqlalchemy/no-text-fstring'
 
 # the lines added to each file during the turn (base: the turn snapshot, else HEAD)
 mode=--changed
@@ -2319,7 +2152,7 @@ basedpyright() { forge_exec_tool basedpyright "$@"; }
 alembic() { forge_exec_tool alembic "$@"; }
 pytest() { forge_exec_tool pytest "$@"; }
 python() { forge_exec_tool python "$@"; }
-FORGE_NCHECKS=16
+FORGE_NCHECKS=11
 
 # 1. python/config-ratchet
 forge_check_meta_1() {
@@ -2336,11 +2169,11 @@ forge_check_run_1() {
 forge_ratchet python ratchet.py
 }
 
-# 2. python/env-example
+# 2. python/format
 forge_check_meta_2() {
-  c_id='python/env-example'; c_stage=lint; c_tools=''
+  c_id='python/format'; c_stage=format; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=1; c_files=1; c_fix=0
 }
 forge_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -2348,14 +2181,17 @@ forge_scope_2() {
 }
 forge_when_2() { return 1; }
 forge_check_run_2() {
-forge_env_example py
+ruff format --check .
+}
+forge_check_changed_2() {
+ruff format $FORGE_FILES
 }
 
-# 3. python/format
+# 3. python/lint
 forge_check_meta_3() {
-  c_id='python/format'; c_stage=format; c_tools='ruff'
+  c_id='python/lint'; c_stage=lint; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=1
 }
 forge_scope_3() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -2363,220 +2199,138 @@ forge_scope_3() {
 }
 forge_when_3() { return 1; }
 forge_check_run_3() {
-ruff format --check .
+ruff check .
 }
 forge_check_changed_3() {
-ruff format $FORGE_FILES
+ruff check --output-format concise $FORGE_FILES
+}
+forge_check_fix_3() {
+ruff check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise $FORGE_FILES
 }
 
-# 4. python/lint
+# 4. python/pytest/no-test-edits
 forge_check_meta_4() {
-  c_id='python/lint'; c_stage=lint; c_tools='ruff'
+  c_id='python/pytest/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=1
+  c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_4() {
+  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_4() { return 1; }
 forge_check_run_4() {
-ruff check .
-}
-forge_check_changed_4() {
-ruff check --output-format concise $FORGE_FILES
-}
-forge_check_fix_4() {
-ruff check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise $FORGE_FILES
+forge_test_edits
 }
 
-# 5. python/pytest/no-test-edits
+# 5. python/pytest/run
 forge_check_meta_5() {
-  c_id='python/pytest/no-test-edits'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
+  c_when=0; c_localdb=0; c_timeout=300
+  c_changed=1; c_files=1; c_fix=0
 }
 forge_scope_5() {
-  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_5() { return 1; }
 forge_check_run_5() {
-forge_test_edits
+pytest -q
+}
+forge_check_changed_5() {
+if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
 }
 
-# 6. python/pytest/run
+# 6. python/sqlalchemy/alembic/check
 forge_check_meta_6() {
-  c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
-  c_when=0; c_localdb=0; c_timeout=300
-  c_changed=1; c_files=1; c_fix=0
+  c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=1; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_6() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_6() { return 1; }
+forge_when_6() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
 forge_check_run_6() {
-pytest -q
-}
-forge_check_changed_6() {
-if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
-}
-
-# 7. python/sqlalchemy/alembic/check
-forge_check_meta_7() {
-  c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=1; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
-}
-forge_scope_7() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_7() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_7() {
 alembic check
 }
 
-# 8. python/sqlalchemy/alembic/data-migration-downgrade
-forge_check_meta_8() {
-  c_id='python/sqlalchemy/alembic/data-migration-downgrade'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+# 7. python/sqlalchemy/alembic/migration-lint
+forge_check_meta_7() {
+  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=1; c_files=1; c_fix=0
 }
-forge_scope_8() {
+forge_scope_7() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_8() { return 1; }
-forge_check_run_8() {
-forge_alembic_data_downgrade
+forge_when_7() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_7() {
+forge_squawk_alembic $(alembic heads | forge_alembic_files)
+}
+forge_check_changed_7() {
+forge_squawk_alembic $FORGE_FILES
 }
 
-# 9. python/sqlalchemy/alembic/fk-index
+# 8. python/sqlalchemy/alembic/single-head
+forge_check_meta_8() {
+  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
+}
+forge_scope_8() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_8() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_8() {
+test "$(alembic heads | wc -l)" -le 1
+}
+
+# 9. python/typecheck
 forge_check_meta_9() {
-  c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_9() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_9() { return 1; }
 forge_check_run_9() {
-forge_alembic_fk_index
-}
-
-# 10. python/sqlalchemy/alembic/migration-lint
-forge_check_meta_10() {
-  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
-}
-forge_scope_10() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_10() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_10() {
-forge_squawk_alembic $(alembic heads | forge_alembic_files)
-}
-forge_check_changed_10() {
-forge_squawk_alembic $FORGE_FILES
-}
-
-# 11. python/sqlalchemy/alembic/model-registered
-forge_check_meta_11() {
-  c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
-}
-forge_scope_11() {
-  case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_11() { return 1; }
-forge_check_run_11() {
-forge_models_registered
-}
-
-# 12. python/sqlalchemy/alembic/single-head
-forge_check_meta_12() {
-  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
-}
-forge_scope_12() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_12() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_12() {
-test "$(alembic heads | wc -l)" -le 1
-}
-
-# 13. python/sqlalchemy/alembic/sqlite-batch
-forge_check_meta_13() {
-  c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
-}
-forge_scope_13() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_13() { return 1; }
-forge_check_run_13() {
-forge_alembic_batch
-}
-
-# 14. python/typecheck
-forge_check_meta_14() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
-}
-forge_scope_14() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_14() { return 1; }
-forge_check_run_14() {
 basedpyright
 }
 
-# 15. python/uv/exclude-newer
-forge_check_meta_15() {
+# 10. python/uv/exclude-newer
+forge_check_meta_10() {
   c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_15() {
+forge_scope_10() {
   return 0
 }
-forge_when_15() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
-forge_check_run_15() {
+forge_when_10() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
+forge_check_run_10() {
 forge_uv_cooldown
 }
 
-# 16. python/uv/lock-sync
-forge_check_meta_16() {
+# 11. python/uv/lock-sync
+forge_check_meta_11() {
   c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_16() {
+forge_scope_11() {
   return 0
 }
-forge_when_16() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
-forge_check_run_16() {
+forge_when_11() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_check_run_11() {
 uv lock --check
 }
 
@@ -3326,333 +3080,245 @@ forge_squawk_alembic() {
   return "$_fs_rc"
 }
 
-# ---- How applications use SQLAlchemy and Alembic (python/sqlalchemy/alembic rules).
-# Each prints "path:line: message" (lint findings, attributed to added lines).
-
-# forge_alembic_targets: the revision files to examine: the in-scope changed ones
-# ($FORGE_FILES), else (--all) the head revisions' (no file names them as a
-# down_revision), so revisions written before a rule was adopted do not fail CI.
-forge_alembic_targets() {
-  if [ -n "$FORGE_FILES" ]; then
-    printf '%s\n' "$FORGE_FILES" | grep -E '^alembic/versions/.*\.py$'
-    return 0
-  fi
-  find alembic/versions -name '*.py' 2>/dev/null | sort > "$FORGE_TMP/alembic.revs"
-  [ -s "$FORGE_TMP/alembic.revs" ] || return 0
-  # shellcheck disable=SC2046
+# Drizzle: drizzle.config.* names the schema files (`schema`: a path, a glob, a
+# directory or an array of them), the migrations folder (`out`, default ./drizzle)
+# and the `dialect`. forge_drizzle_config writes "key<TAB>value" lines (one per
+# schema entry, ./ removed) to $FORGE_TMP/drizzle.config; fails without a config.
+forge_drizzle_config() {
+  FORGE_DZ_CONFIG=''
+  for _dz_f in drizzle.config.ts drizzle.config.mts drizzle.config.cts drizzle.config.js drizzle.config.mjs drizzle.config.cjs drizzle.config.json; do
+    if [ -f "$_dz_f" ]; then FORGE_DZ_CONFIG=$_dz_f; break; fi
+  done
+  [ -n "$FORGE_DZ_CONFIG" ] || return 1
   awk '
-    function ids(s,   out) {
-      out = ""
-      while (match(s, /["\047][^"\047]+["\047]/)) { out = out " " substr(s, RSTART + 1, RLENGTH - 2); s = substr(s, RSTART + RLENGTH) }
-      return out
+    { s = s $0 "\n" }
+    function val(key,   re, v) {
+      re = "[^A-Za-z0-9_$]\"?" key "\"?[[:space:]]*:[[:space:]]*(\\[[^]]*\\]|\"[^\"]*\"|\047[^\047]*\047|`[^`]*`)"
+      if (!match(s, re)) return ""
+      v = substr(s, RSTART, RLENGTH); sub(/^[^:]*:[[:space:]]*/, "", v); return v
     }
-    /^revision[^=]*=/ { r = $0; sub(/^[^=]*=/, "", r); split(ids(r), a, " "); if (a[1] != "") rev[FILENAME] = a[1] }
-    /^down_revision[^=]*=/ { d = $0; sub(/^[^=]*=/, "", d); n = split(ids(d), a, " "); for (i = 1; i <= n; i++) down[a[i]] = 1 }
-    END { for (f in rev) if (!(rev[f] in down)) print f }' $(cat "$FORGE_TMP/alembic.revs") | sort
+    function emit(key, v,   q) {
+      while (match(v, /"[^"]*"|\047[^\047]*\047|`[^`]*`/)) {
+        q = substr(v, RSTART + 1, RLENGTH - 2); v = substr(v, RSTART + RLENGTH)
+        sub(/^\.\//, "", q); sub(/\/+$/, "", q)
+        if (q != "") print key "\t" q
+      }
+    }
+    END {
+      # drop comments, outside strings
+      t = ""; q = ""; n = length(s)
+      for (i = 1; i <= n; i++) {
+        c = substr(s, i, 1); d = substr(s, i, 2)
+        if (q != "") { t = t c; if (c == "\\") { t = t substr(s, ++i, 1) } else if (c == q) q = ""; continue }
+        if (d == "//") { while (i <= n && substr(s, i, 1) != "\n") i++; t = t " "; continue }
+        if (d == "/*") { i += 2; while (i <= n && substr(s, i, 2) != "*/") i++; i++; t = t " "; continue }
+        if (c == "\"" || c == "\047" || c == "`") q = c
+        t = t (c == "\n" ? " " : c)
+      }
+      s = t
+      gsub(/migrations[[:space:]]*:[[:space:]]*\{[^}]*\}/, "", s)
+      s = " " s
+      o = val("out"); if (o == "") print "out\tdrizzle"; else emit("out", o)
+      emit("dialect", val("dialect")); emit("schema", val("schema"))
+    }' "$FORGE_DZ_CONFIG" > "$FORGE_TMP/drizzle.config"
 }
 
-# forge_alembic_sqlite: the project also runs its migrations on SQLite: alembic/env.py
-# sets render_as_batch=True, or alembic.ini's sqlalchemy.url is a sqlite URL.
-forge_alembic_sqlite() {
-  grep -qE '^[^#]*render_as_batch[[:space:]]*=[[:space:]]*True' alembic/env.py 2>/dev/null \
-    || grep -qE '^[[:space:]]*sqlalchemy\.url[[:space:]]*=[[:space:]]*sqlite' alembic.ini 2>/dev/null
-}
+# forge_drizzle_get <key>: the first value of <key> from forge_drizzle_config.
+forge_drizzle_get() { awk -F '\t' -v k="$1" '$1 == k { print $2; exit }' "$FORGE_TMP/drizzle.config"; }
 
-# forge_alembic_batch: on such a project, operations SQLite cannot run as ALTER TABLE
-# (alter_column, drop_column, constraints) go through op.batch_alter_table(), which
-# recreates the table there. Operations under an `if` on the dialect are left alone.
-forge_alembic_batch() {
-  forge_alembic_sqlite || return 0
-  _ab_rc=0
-  forge_alembic_targets > "$FORGE_TMP/alembic.targets"
-  while IFS= read -r _ab_f; do
-    [ -f "$_ab_f" ] || continue
-    awk -v f="$_ab_f" '
-      { line = $0; sub(/\r$/, "", line) }
-      line ~ /^[ \t]*(#|$)/ { next }
-      {
-        ind = match(line, /[^ \t]/) - 1
-        if (skip != "") {
-          if (ind > skip + 0) next
-          if (ind == skip + 0 && line ~ /^[ \t]*(elif|else)[ \t:]/) next
-          skip = ""
-        }
-        if (line ~ /^[ \t]*(if|elif)[ \t].*(dialect|sqlite|postgres|mysql)/) { skip = ind ""; next }
-        if (match(line, /(^|[^A-Za-z0-9_.])op\.(alter_column|drop_column|create_foreign_key|drop_constraint|create_unique_constraint|create_check_constraint|create_primary_key)\(/)) {
-          op = substr(line, RSTART, RLENGTH - 1); sub(/^[^o]*op\./, "", op)
-          print f ":" NR ": op." op "() outside op.batch_alter_table(): SQLite cannot ALTER a table this way, and this project runs its migrations on SQLite too (render_as_batch=True or a sqlite URL). Use: with op.batch_alter_table(\"<table>\") as batch_op: batch_op." op "(...)"
-          bad = 1
-        }
-      }
-      END { exit bad }' "$_ab_f" || _ab_rc=1
-  done < "$FORGE_TMP/alembic.targets"
-  return "$_ab_rc"
-}
-
-# forge_alembic_fk_index: in each revision's upgrade(), a column that gets a foreign key
-# (sa.Column(..., sa.ForeignKey(...)), sa.ForeignKeyConstraint([...]),
-# op.create_foreign_key(..., [...], ...)) also leads an index: op.create_index,
-# index=True, a primary key or unique constraint, or CREATE INDEX. PostgreSQL does not
-# index referencing columns; skipped when the database URL is MySQL (which does).
-forge_alembic_fk_index() {
-  case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
-  _ai_rc=0
-  forge_alembic_targets > "$FORGE_TMP/alembic.targets"
-  while IFS= read -r _ai_f; do
-    [ -f "$_ai_f" ] || continue
-    awk -v f="$_ai_f" '
-      # the position of the bracket closing the one at p (strings skipped)
-      function close_of(s, p,   d, c, q, i, n) {
-        d = 0; q = ""; n = length(s)
-        for (i = p; i <= n; i++) {
-          c = substr(s, i, 1)
-          if (q != "") { if (c == "\\") i++; else if (c == q) q = ""; continue }
-          if (c == "\"" || c == "\047") q = c
-          else if (c == "(" || c == "[") d++
-          else if (c == ")" || c == "]") { d--; if (d == 0) return i }
-        }
-        return n
-      }
-      function strs(t, all,   out) {
-        out = ""
-        while (match(t, /["\047][^"\047]*["\047]/)) {
-          out = out (out == "" ? "" : SUBSEP) substr(t, RSTART + 1, RLENGTH - 2); t = substr(t, RSTART + RLENGTH)
-          if (!all) break
-        }
-        return out
-      }
-      function first_list(t,   p) { p = index(t, "["); if (!p) return ""; t = substr(t, p); return substr(t, 1, close_of(t, 1)) }
-      function line_of(p,   k) { for (k = nl; k > 1 && start[k] > p; k--) ; return first + k - 1 }
-      function cover(list,   n, a, i) { n = split(list, a, SUBSEP); for (i = 1; i <= n; i++) cov[tolower(a[i])] = 1 }
-      { line = $0; sub(/\r$/, "", line) }
-      /^def[ \t]+upgrade[ \t]*\(/ { on = 1; first = NR + 1; next }
-      on && line ~ /^[^ \t#]/ { on = 0 }
-      on {
-        if (line ~ /^[ \t]*#/) line = ""
-        nl++; start[nl] = length(s) + 1; s = s line "\n"
-      }
-      END {
-        rest = s; off = 0
-        while (match(rest, /(^|[^A-Za-z0-9_])(Column|ForeignKeyConstraint|create_foreign_key|create_index|PrimaryKeyConstraint|UniqueConstraint|Index)\(/)) {
-          name = substr(rest, RSTART, RLENGTH - 1); sub(/^[^A-Za-z]/, "", name)
-          po = off + RSTART + RLENGTH - 1
-          pc = close_of(s, po); args = substr(s, po + 1, pc - po - 1)
-          if (name == "Column") {
-            if (args ~ /^[ \t\n]*["\047]/) {
-              col = tolower(strs(args, 0))
-              if (args ~ /(^|[^A-Za-z0-9_])ForeignKey\(/ && !(col in fk)) { fk[col] = line_of(po); order[++nfk] = col }
-              if (args ~ /(index|primary_key|unique)[ \t]*=[ \t]*True/) cov[col] = 1
-            }
-          } else if (name == "ForeignKeyConstraint" || name == "create_foreign_key") {
-            col = tolower(strs(first_list(args), 0))
-            if (col != "" && !(col in fk)) { fk[col] = line_of(po); order[++nfk] = col }
-          } else if (name == "create_index") cover(strs(first_list(args), 0))
-          else cover(strs(args, 1))
-          off = po; rest = substr(s, po + 1)
-        }
-        u = toupper(s)
-        while (match(u, /CREATE[ \t\n]+(UNIQUE[ \t\n]+)?INDEX[^(]*\([ \t\n]*/)) {
-          t = substr(u, RSTART + RLENGTH); sub(/[^A-Z0-9_"].*$/, "", t); gsub(/"/, "", t)
-          cov[tolower(t)] = 1; u = substr(u, RSTART + RLENGTH)
-        }
-        for (i = 1; i <= nfk; i++) {
-          col = order[i]
-          if (col in cov) continue
-          print f ":" fk[col] ": foreign key column \"" col "\" gets no index in this revision; PostgreSQL does not index referencing columns, so joins on it and deletes of the referenced rows scan the table. Add op.create_index(..., [\"" col "\"]) (index=True on the model mapped_column, then autogenerate)."
-          bad = 1
-        }
-        exit bad
-      }' "$_ai_f" || _ai_rc=1
-  done < "$FORGE_TMP/alembic.targets"
-  return "$_ai_rc"
-}
-
-# forge_alembic_tested: some test file mentions Alembic (pytest-alembic, alembic.command, ...).
-forge_alembic_tested() {
-  git ls-files -co --exclude-standard -- '*test_*.py' '*_test.py' '*conftest.py' 2>/dev/null | while IFS= read -r _at_f; do
-    [ -f "$_at_f" ] && grep -lE '(pytest_alembic|alembic_runner|from alembic|import alembic|alembic\.(command|config))' "$_at_f"
-  done | grep -q .
-}
-
-# forge_alembic_data_downgrade: a revision whose upgrade() changes rows (UPDATE, INSERT,
-# DELETE through execute(), sa.update/insert/delete, op.bulk_insert, an ORM Session) has a
-# downgrade() that does something (reverts, or raises to say it cannot), unless the
-# project tests its migrations. A downgrade that only passes reports success and leaves the data.
-forge_alembic_data_downgrade() {
-  forge_alembic_targets > "$FORGE_TMP/alembic.targets"
-  : > "$FORGE_TMP/alembic.data"
-  while IFS= read -r _ad_f; do
-    [ -f "$_ad_f" ] || continue
-    awk -v f="$_ad_f" '
-      { line = $0; sub(/\r$/, "", line) }
-      /^def[ \t]+upgrade[ \t]*\(/ { sec = "up"; next }
-      /^def[ \t]+downgrade[ \t]*\(/ { sec = "down"; dl = NR; next }
-      line ~ /^[^ \t#]/ { sec = ""; next }
-      sec == "up" && line !~ /^[ \t]*#/ { up = up line "\n" }
-      sec == "down" {
-        t = line; sub(/^[ \t]+/, "", t); sub(/[ \t]+$/, "", t)
-        if (indoc) { if (index(t, q)) indoc = 0; next }
-        if (t == "" || t ~ /^#/ || t == "pass" || t == "...") next
-        if (t ~ /^("""|\047\047\047)/) { q = substr(t, 1, 3); if (!index(substr(t, 4), q)) indoc = 1; next }
-        if (t ~ /^["\047]/) next
-        real = 1
-      }
-      END {
-        u = toupper(up)
-        data = (up ~ /execute\(/ && (u ~ /(^|[^A-Z_])UPDATE[ \t\n]+[^ \t\n]+[ \t\n]+SET[ \t\n]/ || u ~ /INSERT[ \t\n]+INTO[ \t\n]/ || u ~ /DELETE[ \t\n]+FROM[ \t\n]/)) \
-          || up ~ /(^|[^A-Za-z0-9_.])(sa\.)?(update|insert|delete)\([A-Za-z_]/ || up ~ /\.(update|insert|delete)\(\)/ \
-          || up ~ /op\.bulk_insert\(/ || up ~ /(^|[^A-Za-z0-9_])Session\(/
-        if (data && !real) print f ":" (dl ? dl : 1) ": upgrade() changes data but downgrade() does nothing, so alembic downgrade reports success and leaves the rows changed. Write the inverse, raise an error that says the revision cannot be reverted, or test the migrations (pytest-alembic)."
-      }' "$_ad_f" >> "$FORGE_TMP/alembic.data"
-  done < "$FORGE_TMP/alembic.targets"
-  [ -s "$FORGE_TMP/alembic.data" ] || return 0
-  forge_alembic_tested && return 0
-  cat "$FORGE_TMP/alembic.data"
+# forge_drizzle_is_schema <path>: succeeds when <path> is one of the configured schema
+# entries, matches one as a glob, or sits under one as a directory.
+forge_drizzle_is_schema() {
+  while IFS="$(printf '\t')" read -r _ds_k _ds_v; do
+    [ "$_ds_k" = schema ] || continue
+    _ds_g=$(printf '%s' "$_ds_v" | sed 's/\*\*/*/g')
+    # shellcheck disable=SC2254
+    case $1 in "$_ds_v"|"$_ds_v"/*|$_ds_g) return 0 ;; esac
+  done < "$FORGE_TMP/drizzle.config"
   return 1
 }
 
-# forge_mentions <file> <name>: <name> appears as a word in <file>, outside comment lines.
-forge_mentions() {
-  grep -v '^[[:space:]]*#' "$1" 2>/dev/null | grep -qE "(^|[^A-Za-z0-9_])$2([^A-Za-z0-9_]|\$)"
-}
-
-# forge_models_registered: a module of a models package that maps a table (a class with
-# __tablename__) is imported by the package's __init__.py when that file is the registry
-# (it imports other modules of the package that map tables), or by alembic/env.py:
-# Base.metadata, which autogenerate and alembic check compare, knows only imported models.
-forge_models_registered() {
-  if [ -n "$FORGE_FILES" ]; then printf '%s\n' "$FORGE_FILES"
-  else git ls-files -co --exclude-standard -- 'models/*.py' '*/models/*.py' 2>/dev/null; fi > "$FORGE_TMP/models.files"
-  _mr_rc=0
-  while IFS= read -r _mr_f; do
-    case ${_mr_f##*/} in __init__.py|conftest.py|test_*) continue ;; *.py) ;; *) continue ;; esac
-    [ -f "$_mr_f" ] || continue
-    _mr_d=$(dirname "$_mr_f")
-    _mr_m=$(basename "$_mr_f" .py)
-    [ -f "$_mr_d/__init__.py" ] || continue
-    awk '
-      /^class[ \t]+[A-Za-z_]/ { c = $0; sub(/^class[ \t]+/, "", c); sub(/[^A-Za-z0-9_].*$/, "", c); cl = NR; next }
-      /^[^ \t#\r]/ { c = "" }
-      c != "" && /^[ \t]+__tablename__[ \t]*[:=]/ { print cl "\t" c; c = "" }' "$_mr_f" > "$FORGE_TMP/models.classes"
-    [ -s "$FORGE_TMP/models.classes" ] || continue
-    forge_mentions "$_mr_d/__init__.py" "$_mr_m" && continue
-    forge_mentions alembic/env.py "$_mr_m" && continue
-    # the registry: __init__.py imports another module of the package that maps a table
-    _mr_reg=''
-    for _mr_x in $(awk '
-      /^[ \t]*from[ \t]+\.[ \t]+import[ \t]/ { s = $0; sub(/^.*import[ \t]+/, "", s); gsub(/[(),]/, " ", s); n = split(s, a, /[ \t]+/); for (i = 1; i <= n; i++) if (a[i] != "as") print a[i]; next }
-      /^[ \t]*from[ \t]+[A-Za-z0-9_.]+[ \t]+import/ { s = $0; sub(/^[ \t]*from[ \t]+/, "", s); sub(/[ \t].*$/, "", s); sub(/^.*\./, "", s); print s; next }
-      /^[ \t]*import[ \t]+[A-Za-z0-9_.]+/ { s = $0; sub(/^[ \t]*import[ \t]+/, "", s); sub(/[ \t,].*$/, "", s); sub(/^.*\./, "", s); print s }' "$_mr_d/__init__.py"); do
-      [ "$_mr_x" != "$_mr_m" ] && [ -f "$_mr_d/$_mr_x.py" ] && grep -q '__tablename__' "$_mr_d/$_mr_x.py" && { _mr_reg=1; break; }
-    done
-    [ -n "$_mr_reg" ] || continue
-    while IFS='	' read -r _mr_l _mr_c; do
-      printf '%s:%s: model %s is not imported by %s/__init__.py, which imports the other models: Base.metadata will not have its table, so autogenerate writes no migration for it and alembic check passes. Import it there.\n' "$_mr_f" "$_mr_l" "$_mr_c" "$_mr_d"
-    done < "$FORGE_TMP/models.classes"
-    _mr_rc=1
-  done < "$FORGE_TMP/models.files"
-  return "$_mr_rc"
-}
-
-# ---- Settings kept in sync with .env templates (python/env-example, typescript/env-example).
-
-# forge_env_fields_py <file>: "line<TAB>VAR<TAB>required<TAB>class" for each field of a
-# pydantic-settings BaseSettings subclass (env_prefix, alias, case_sensitive applied;
-# required = no default). Fields with AliasChoices / AliasPath are left out.
-forge_env_fields_py() {
+# forge_drizzle_tables <file>: the file without what does not reach the database
+# (blank lines, comments, imports, type exports, relations()/defineRelations() calls).
+forge_drizzle_tables() {
   awk '
-    function cls_of(l,   c) { c = l; sub(/^class[ \t]+/, "", c); sub(/[^A-Za-z0-9_].*$/, "", c); return c }
-    { line = $0; sub(/\r$/, "", line) }
-    line ~ /^class[ \t]/ { cls = (line ~ /\(.*BaseSettings.*\)[ \t]*:/) ? cls_of(line) : ""; body = ""; next }
-    line ~ /^[^ \t#]/ { cls = ""; next }
-    cls == "" || line ~ /^[ \t]*(#|$)/ { next }
-    {
-      ind = match(line, /[^ \t]/) - 1
-      if (body == "") body = ind
-    }
-    FNR == NR {
-      if (match(line, /env_prefix[ \t]*=[ \t]*["\047][^"\047]*["\047]/)) { p = substr(line, RSTART, RLENGTH); sub(/^[^"\047]*["\047]/, "", p); sub(/["\047]$/, "", p); pre[cls] = p }
-      if (line ~ /case_sensitive[ \t]*=[ \t]*True/) cs[cls] = 1
+    inc { if (/\*\//) inc = 0; next }
+    /^[[:space:]]*\/\*/ { if (!/\*\//) inc = 1; next }
+    /^[[:space:]]*(\/\/|$)/ { next }
+    /^[[:space:]]*(import[[:space:]{*]|export[[:space:]]+(type|interface)[[:space:]]|export[[:space:]]*\*)/ { next }
+    depth == 0 && /(^|[^A-Za-z0-9_$])(defineRelations|relations)[[:space:]]*\(/ { inrel = 1 }
+    inrel {
+      t = $0; o = gsub(/\(/, "", t); t = $0; c = gsub(/\)/, "", t); depth += o - c
+      if (depth <= 0) { depth = 0; inrel = 0 }
       next
     }
-    ind == body && line ~ /^[ \t]*[A-Za-z_][A-Za-z0-9_]*[ \t]*:/ {
-      name = line; sub(/^[ \t]*/, "", name); sub(/[ \t]*:.*$/, "", name)
-      rest = line; sub(/^[^:]*:/, "", rest)
-      if (name == "model_config" || rest ~ /ClassVar|AliasChoices|AliasPath/) next
-      key = pre[cls] name
-      if (match(rest, /(validation_alias|alias)[ \t]*=[ \t]*["\047][^"\047]+["\047]/)) { key = substr(rest, RSTART, RLENGTH); sub(/^[^"\047]*["\047]/, "", key); sub(/["\047]$/, "", key) }
-      if (!cs[cls]) key = toupper(key)
-      req = 1
-      if (match(rest, /[ \t]=([ \t]|$)/)) {
-        v = substr(rest, RSTART + RLENGTH); sub(/^[ \t]+/, "", v)
-        req = 0
-        if (v ~ /^([A-Za-z_]+\.)?Field\(/) {
-          sub(/^[^(]*\([ \t]*/, "", v)
-          if (v ~ /^(\.\.\.|\))/) req = 1
-          else if (v ~ /^[a-z_]+[ \t]*=/ && v !~ /default(_factory)?[ \t]*=/) req = 1
-        }
-      }
-      print FNR "\t" key "\t" req "\t" cls
-    }' "$1" "$1"
+    { sub(/^[[:space:]]+/, ""); sub(/[[:space:]]+$/, ""); print }' "$1" 2>/dev/null
 }
 
-# forge_env_fields_ts <file>: the same for the keys of a Zod env schema (t3-env
-# createEnv, or z.object(...) parsed from process.env): UPPER_CASE keys whose value is a
-# z. chain on the same line; required = no .default(), .optional() or .catch().
-forge_env_fields_ts() {
-  awk '
-    match($0, /^[ \t]*["\047]?[A-Z][A-Z0-9_]*["\047]?[ \t]*:[ \t]*z\./) {
-      k = $0; sub(/^[ \t]*["\047]?/, "", k); sub(/[^A-Z0-9_].*$/, "", k)
-      print FNR "\t" k "\t" ($0 ~ /\.(default|optional|catch)\(/ ? 0 : 1) "\tenv"
-    }' "$1"
-}
-
-# forge_env_example <py|ts>: Stop and pre-commit, not --all. A settings field or env schema
-# key added in the change appears in the .env template of the nearest directory that has
-# one (.env.example, .env.template, .env.sample, .env.dist, .env.<name>.example): always
-# when it has no default, and also with a default when the template already lists at
-# least half of that class's variables. A template that lists none of them is not about it.
-forge_env_example() {
-  [ "$mode" = --all ] && return 0
-  _ee_rc=0
-  printf '%s\n' "$FORGE_FILES" > "$FORGE_TMP/env.files"
-  while IFS= read -r _ee_f; do
-    [ -f "$_ee_f" ] || continue
-    case $1 in
-      py) grep -q 'BaseSettings' "$_ee_f" || continue ;;
-      ts) grep -qE 'createEnv\(|process\.env' "$_ee_f" && grep -q 'z\.' "$_ee_f" || continue ;;
+# forge_drizzle_migration_present: a change to a schema file that reaches the database
+# comes with a generated migration in the out folder: the SQL plus meta/_journal.json and
+# a meta/*_snapshot.json (drizzle-kit 0.x), or <out>/<name>/migration.sql and its
+# snapshot.json (drizzle-kit 1.x). Not with --all (no change to compare).
+forge_drizzle_migration_present() {
+  [ "$mode" != --all ] || return 0
+  forge_drizzle_config || return 0
+  grep -q "^schema$(printf '\t')" "$FORGE_TMP/drizzle.config" || {
+    printf 'forge:%s skipped: no schema path found in %s\n' "$c_id" "$FORGE_DZ_CONFIG"; return 0; }
+  _dm_out=$(forge_drizzle_get out)
+  : > "$FORGE_TMP/dz.schema"
+  while IFS= read -r _dm_f; do
+    forge_drizzle_is_schema "$_dm_f" || continue
+    forge_drizzle_tables "$_dm_f" > "$FORGE_TMP/dz.now"
+    forge_drizzle_tables "$FORGE_TMP/base/$_dm_f" > "$FORGE_TMP/dz.then"
+    cmp -s "$FORGE_TMP/dz.now" "$FORGE_TMP/dz.then" || printf '%s\n' "$_dm_f" >> "$FORGE_TMP/dz.schema"
+  done < "$FORGE_TMP/changed"
+  [ -s "$FORGE_TMP/dz.schema" ] || return 0
+  _dm_sql=0; _dm_journal=0; _dm_snap=0
+  while IFS= read -r _dm_f; do
+    case $_dm_f in
+      "$_dm_out"/meta/_journal.json) _dm_journal=1 ;;
+      "$_dm_out"/meta/*_snapshot.json|"$_dm_out"/*/snapshot.json) _dm_snap=1 ;;
+      "$_dm_out"/*/migration.sql) _dm_sql=1; _dm_journal=1 ;;
+      "$_dm_out"/*.sql) _dm_sql=1 ;;
     esac
-    _ee_d=$(dirname "$_ee_f")
-    while :; do
-      _ee_t=$(ls -A "$_ee_d" 2>/dev/null | grep -E '^\.env(\.[A-Za-z0-9_-]+)?\.(example|template|sample|dist)$')
-      [ -n "$_ee_t" ] || [ "$_ee_d" = . ] && break
-      _ee_d=$(dirname "$_ee_d")
+  done < "$FORGE_TMP/existing"
+  # drizzle-kit 1.x keeps no journal: a <name>/migration.sql stands in for it
+  [ "$_dm_sql" = 1 ] && [ "$_dm_journal" = 1 ] && [ "$_dm_snap" = 1 ] && return 0
+  while IFS= read -r _dm_f; do
+    printf '%s: the Drizzle schema changed, but %s/ has no new migration with its journal and snapshot\n' "$_dm_f" "$_dm_out"
+  done < "$FORGE_TMP/dz.schema"
+  printf 'Generate it (drizzle-kit generate) and keep the SQL, meta/_journal.json and the snapshot together; never write them by hand.\n'
+  return 1
+}
+
+# forge_drizzle_applied: migrations (SQL and snapshots in the out folder) that exist in
+# the base are not modified or deleted; a change goes in a new migration.
+forge_drizzle_applied() {
+  [ "$mode" != --all ] || return 0
+  forge_drizzle_config || return 0
+  _da_out=$(forge_drizzle_get out)
+  _da_rc=0
+  while IFS= read -r _da_f; do
+    case $_da_f in
+      "$_da_out"/*.sql|"$_da_out"/meta/*_snapshot.json|"$_da_out"/*/snapshot.json)
+        if [ -f "$_da_f" ]; then _da_what=modified; else _da_what=deleted; fi
+        printf '%s: an existing migration was %s; generate a new migration instead (drizzle-kit generate)\n' "$_da_f" "$_da_what"
+        _da_rc=1 ;;
+    esac
+  done < "$FORGE_TMP/inbase"
+  return "$_da_rc"
+}
+
+# forge_drizzle_squawk [files]: Squawk (§13.1) on the changed SQL of the out folder
+# when the dialect is postgresql; with no files (--since, --all), on the newest migration.
+forge_drizzle_squawk() {
+  forge_drizzle_config || return 0
+  [ "$(forge_drizzle_get dialect)" = postgresql ] || return 0
+  _dq_out=$(forge_drizzle_get out)
+  if [ "$#" -eq 0 ]; then
+    set -- $(git ls-files -- "$_dq_out/*.sql" | sort | tail -n 1)
+  else
+    for _dq_f in "$@"; do
+      shift
+      case $_dq_f in "$_dq_out"/*.sql) set -- "$@" "$_dq_f" ;; esac
     done
-    [ -n "$_ee_t" ] || continue
-    _ee_names=''
-    : > "$FORGE_TMP/env.keys"
-    for _ee_x in $_ee_t; do
-      [ "$_ee_d" = . ] && _ee_p=$_ee_x || _ee_p="$_ee_d/$_ee_x"
-      _ee_names="${_ee_names:+$_ee_names, }$_ee_p"
-      sed -n -E 's/^[[:space:]]*(export[[:space:]]+)?#?[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=.*/\2/p' "$_ee_p" >> "$FORGE_TMP/env.keys"
-    done
-    "forge_env_fields_$1" "$_ee_f" > "$FORGE_TMP/env.fields"
-    awk -F '\t' -v f="$_ee_f" -v t="$_ee_names" '
-      function found(k,   h) { if (k in have) return 1; for (h in have) if (index(h, k "_") == 1) return 1; return 0 }
-      FILENAME == ARGV[1] { have[toupper($0)] = 1; next }
-      { n++; ln[n] = $1; key[n] = $2; rq[n] = $3; g[n] = $4; tot[$4]++; if (found(toupper($2))) got[$4]++ }
+  fi
+  forge_squawk_files "$@"
+}
+
+# forge_vue_vfor_keys <files>: in the templates of .vue files, each element with v-for
+# (not <template>) also binds a key (:key, v-bind:key). Prints "path:line: ..." per element
+# (the line of its v-for). Comments, <script> and <style> are skipped; quotes are respected.
+forge_vue_vfor_keys() {
+  _vk_rc=0
+  for _vk_f in "$@"; do
+    case $_vk_f in *.vue) ;; *) continue ;; esac
+    [ -f "$_vk_f" ] || continue
+    awk -v f="$_vk_f" '
+      { s = s $0 "\n" }
       END {
-        for (j = 1; j <= n; j++) {
-          if (!got[g[j]] || found(toupper(key[j]))) continue
-          if (rq[j] || got[g[j]] * 2 >= tot[g[j]]) {
-            print f ":" ln[j] ": " key[j] " is not in " t "; add it there (a placeholder value is fine) so the next person to set up the project knows it exists"
-            bad = 1
+        n = length(s); ln = 1; skip = ""
+        for (i = 1; i <= n; i++) {
+          c = substr(s, i, 1)
+          if (c == "\n") { ln++; continue }
+          if (c != "<") continue
+          if (substr(s, i, 4) == "<!--") {
+            j = index(substr(s, i + 4), "-->"); if (!j) break
+            t = substr(s, i, j + 6); ln += gsub(/\n/, "", t); i += j + 5; continue
           }
+          if (!match(substr(s, i + 1, 1), /[A-Za-z\/]/)) continue
+          # one tag, quotes respected
+          start = ln; q = ""; tag = ""
+          for (i++; i <= n; i++) {
+            c = substr(s, i, 1)
+            if (c == "\n") ln++
+            if (q != "") { if (c == q) q = ""; tag = tag c; continue }
+            if (c == "\"" || c == "\047") q = c
+            else if (c == ">") break
+            tag = tag c
+          }
+          name = tag; sub(/[[:space:]].*$/, "", name); if (length(name) > 1) sub(/\/$/, "", name); shown = name; name = tolower(name)
+          if (skip != "") { if (name == "/" skip) skip = ""; continue }
+          if ((name == "script" || name == "style") && tag !~ /\/$/) { skip = name; continue }
+          tag = " " tag
+          if (name == "template" || tag !~ /[[:space:]]v-for[[:space:]]*=/) continue
+          if (tag ~ /[[:space:]](:key|v-bind:key)[[:space:]]*=/) continue
+          match(tag, /[[:space:]]v-for[[:space:]]*=/); pre = substr(tag, 1, RSTART)
+          printf "%s:%d: <%s> has v-for without :key\n", f, start + gsub(/\n/, "", pre), shown
+          bad = 1
         }
         exit bad
-      }' "$FORGE_TMP/env.keys" "$FORGE_TMP/env.fields" || _ee_rc=1
-  done < "$FORGE_TMP/env.files"
-  return "$_ee_rc"
+      }' "$_vk_f" || _vk_rc=1
+  done
+  return "$_vk_rc"
+}
+
+# OpenAPI clients generated by openapi-typescript, orval or @hey-api/openapi-ts: their
+# files say so in their header, and a package.json script runs the generator.
+FORGE_OPENAPI_MARK='auto-generated by (openapi-typescript|@hey-api/openapi-ts)|generated by orval'
+FORGE_OPENAPI_GEN='"[^"]+"[[:space:]]*:[[:space:]]*"[^"]*(openapi-typescript|orval|openapi-ts)'
+
+# forge_openapi_spec <path>: an OpenAPI or Swagger document (JSON or YAML with an
+# openapi / swagger version near its top).
+forge_openapi_spec() {
+  case $1 in *.json|*.yaml|*.yml) ;; *) return 1 ;; esac
+  [ -f "$1" ] && head -c 4096 "$1" | grep -qE "[\"']?(openapi|swagger)[\"']?[[:space:]]*:[[:space:]]*[\"']?[0-9]"
+}
+
+# forge_openapi_generated <path>: a file whose header says one of the generators wrote it.
+forge_openapi_generated() { [ -f "$1" ] && head -n 15 "$1" | grep -qiE "$FORGE_OPENAPI_MARK"; }
+
+# forge_openapi_sync regenerate | hand-edits: compares the changed OpenAPI documents with
+# the changed generated files. regenerate: a changed document needs a changed generated
+# file. hand-edits: a changed generated file needs a changed document or generator config
+# (package.json, orval.config.*, openapi-ts.config.*, redocly.*), when the repository
+# tracks a document (a client generated from a URL is not checked). Not with --all.
+forge_openapi_sync() {
+  [ "$mode" != --all ] || return 0
+  _os_pkgs=$(git ls-files -- package.json '*/package.json')
+  [ -n "$_os_pkgs" ] || return 0
+  # shellcheck disable=SC2086
+  _os_script=$(grep -hoE "$FORGE_OPENAPI_GEN" $_os_pkgs 2>/dev/null | head -n 1 | cut -d '"' -f 2)
+  [ -n "$_os_script" ] || return 0
+  forge_filter forge_openapi_spec < "$FORGE_TMP/existing" > "$FORGE_TMP/openapi.specs"
+  forge_filter forge_openapi_generated < "$FORGE_TMP/existing" > "$FORGE_TMP/openapi.generated"
+  case $1 in
+    regenerate)
+      [ -s "$FORGE_TMP/openapi.specs" ] && [ ! -s "$FORGE_TMP/openapi.generated" ] || return 0
+      while IFS= read -r _os_f; do
+        printf '%s: the OpenAPI document changed, but no generated client file did\n' "$_os_f"
+      done < "$FORGE_TMP/openapi.specs"
+      printf 'Regenerate the client (the "%s" script) and keep both changes together.\n' "$_os_script" ;;
+    hand-edits)
+      [ -s "$FORGE_TMP/openapi.generated" ] && [ ! -s "$FORGE_TMP/openapi.specs" ] || return 0
+      grep -qE '(^|/)(package\.json|orval\.config\.[a-z]+|openapi-ts\.config\.[a-z]+|redocly\.[a-z]+)$' "$FORGE_TMP/existing" && return 0
+      [ -n "$(git ls-files -- '*.json' '*.yaml' '*.yml' | forge_filter forge_openapi_spec | head -n 1)" ] || return 0
+      while IFS= read -r _os_f; do
+        printf '%s: generated from the OpenAPI document (its header says so), but neither the document nor the generator config changed\n' "$_os_f"
+      done < "$FORGE_TMP/openapi.generated"
+      printf 'Change the OpenAPI document (or the server it is generated from), then regenerate with the "%s" script; never edit generated files by hand.\n' "$_os_script" ;;
+  esac
+  return 1
 }
 
 # forge_related_py_tests <files>: changed test files plus tests/**/test_<module>.py
@@ -4037,7 +3703,7 @@ basedpyright() { forge_exec_tool basedpyright "$@"; }
 alembic() { forge_exec_tool alembic "$@"; }
 pytest() { forge_exec_tool pytest "$@"; }
 python() { forge_exec_tool python "$@"; }
-FORGE_NCHECKS=16
+FORGE_NCHECKS=11
 
 # 1. python/config-ratchet
 forge_check_meta_1() {
@@ -4054,11 +3720,11 @@ forge_check_run_1() {
 forge_ratchet python ratchet.py
 }
 
-# 2. python/env-example
+# 2. python/format
 forge_check_meta_2() {
-  c_id='python/env-example'; c_stage=lint; c_tools=''
+  c_id='python/format'; c_stage=format; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=1; c_files=1; c_fix=0
 }
 forge_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -4066,14 +3732,17 @@ forge_scope_2() {
 }
 forge_when_2() { return 1; }
 forge_check_run_2() {
-forge_env_example py
+ruff format --check .
+}
+forge_check_changed_2() {
+ruff format $FORGE_FILES
 }
 
-# 3. python/format
+# 3. python/lint
 forge_check_meta_3() {
-  c_id='python/format'; c_stage=format; c_tools='ruff'
+  c_id='python/lint'; c_stage=lint; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=1
 }
 forge_scope_3() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -4081,220 +3750,138 @@ forge_scope_3() {
 }
 forge_when_3() { return 1; }
 forge_check_run_3() {
-ruff format --check .
+ruff check .
 }
 forge_check_changed_3() {
-ruff format $FORGE_FILES
+ruff check --output-format concise $FORGE_FILES
+}
+forge_check_fix_3() {
+ruff check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise $FORGE_FILES
 }
 
-# 4. python/lint
+# 4. python/pytest/no-test-edits
 forge_check_meta_4() {
-  c_id='python/lint'; c_stage=lint; c_tools='ruff'
+  c_id='python/pytest/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=1
+  c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_4() {
+  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_4() { return 1; }
 forge_check_run_4() {
-ruff check .
-}
-forge_check_changed_4() {
-ruff check --output-format concise $FORGE_FILES
-}
-forge_check_fix_4() {
-ruff check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise $FORGE_FILES
+forge_test_edits
 }
 
-# 5. python/pytest/no-test-edits
+# 5. python/pytest/run
 forge_check_meta_5() {
-  c_id='python/pytest/no-test-edits'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
+  c_when=0; c_localdb=0; c_timeout=300
+  c_changed=1; c_files=1; c_fix=0
 }
 forge_scope_5() {
-  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_5() { return 1; }
 forge_check_run_5() {
-forge_test_edits
+pytest -q
+}
+forge_check_changed_5() {
+if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
 }
 
-# 6. python/pytest/run
+# 6. python/sqlalchemy/alembic/check
 forge_check_meta_6() {
-  c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
-  c_when=0; c_localdb=0; c_timeout=300
-  c_changed=1; c_files=1; c_fix=0
+  c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=1; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_6() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_6() { return 1; }
+forge_when_6() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
 forge_check_run_6() {
-pytest -q
-}
-forge_check_changed_6() {
-if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
-}
-
-# 7. python/sqlalchemy/alembic/check
-forge_check_meta_7() {
-  c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=1; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
-}
-forge_scope_7() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_7() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_7() {
 alembic check
 }
 
-# 8. python/sqlalchemy/alembic/data-migration-downgrade
-forge_check_meta_8() {
-  c_id='python/sqlalchemy/alembic/data-migration-downgrade'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+# 7. python/sqlalchemy/alembic/migration-lint
+forge_check_meta_7() {
+  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=1; c_files=1; c_fix=0
 }
-forge_scope_8() {
+forge_scope_7() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_8() { return 1; }
-forge_check_run_8() {
-forge_alembic_data_downgrade
+forge_when_7() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_7() {
+forge_squawk_alembic $(alembic heads | forge_alembic_files)
+}
+forge_check_changed_7() {
+forge_squawk_alembic $FORGE_FILES
 }
 
-# 9. python/sqlalchemy/alembic/fk-index
+# 8. python/sqlalchemy/alembic/single-head
+forge_check_meta_8() {
+  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
+}
+forge_scope_8() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_8() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_8() {
+test "$(alembic heads | wc -l)" -le 1
+}
+
+# 9. python/typecheck
 forge_check_meta_9() {
-  c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_9() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_9() { return 1; }
 forge_check_run_9() {
-forge_alembic_fk_index
-}
-
-# 10. python/sqlalchemy/alembic/migration-lint
-forge_check_meta_10() {
-  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
-}
-forge_scope_10() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_10() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_10() {
-forge_squawk_alembic $(alembic heads | forge_alembic_files)
-}
-forge_check_changed_10() {
-forge_squawk_alembic $FORGE_FILES
-}
-
-# 11. python/sqlalchemy/alembic/model-registered
-forge_check_meta_11() {
-  c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
-}
-forge_scope_11() {
-  case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_11() { return 1; }
-forge_check_run_11() {
-forge_models_registered
-}
-
-# 12. python/sqlalchemy/alembic/single-head
-forge_check_meta_12() {
-  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
-}
-forge_scope_12() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_12() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_12() {
-test "$(alembic heads | wc -l)" -le 1
-}
-
-# 13. python/sqlalchemy/alembic/sqlite-batch
-forge_check_meta_13() {
-  c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
-}
-forge_scope_13() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_13() { return 1; }
-forge_check_run_13() {
-forge_alembic_batch
-}
-
-# 14. python/typecheck
-forge_check_meta_14() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
-}
-forge_scope_14() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_14() { return 1; }
-forge_check_run_14() {
 basedpyright
 }
 
-# 15. python/uv/exclude-newer
-forge_check_meta_15() {
+# 10. python/uv/exclude-newer
+forge_check_meta_10() {
   c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_15() {
+forge_scope_10() {
   return 0
 }
-forge_when_15() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
-forge_check_run_15() {
+forge_when_10() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
+forge_check_run_10() {
 forge_uv_cooldown
 }
 
-# 16. python/uv/lock-sync
-forge_check_meta_16() {
+# 11. python/uv/lock-sync
+forge_check_meta_11() {
   c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_16() {
+forge_scope_11() {
   return 0
 }
-forge_when_16() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
-forge_check_run_16() {
+forge_when_11() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_check_run_11() {
 uv lock --check
 }
 
@@ -5044,333 +4631,245 @@ forge_squawk_alembic() {
   return "$_fs_rc"
 }
 
-# ---- How applications use SQLAlchemy and Alembic (python/sqlalchemy/alembic rules).
-# Each prints "path:line: message" (lint findings, attributed to added lines).
-
-# forge_alembic_targets: the revision files to examine: the in-scope changed ones
-# ($FORGE_FILES), else (--all) the head revisions' (no file names them as a
-# down_revision), so revisions written before a rule was adopted do not fail CI.
-forge_alembic_targets() {
-  if [ -n "$FORGE_FILES" ]; then
-    printf '%s\n' "$FORGE_FILES" | grep -E '^alembic/versions/.*\.py$'
-    return 0
-  fi
-  find alembic/versions -name '*.py' 2>/dev/null | sort > "$FORGE_TMP/alembic.revs"
-  [ -s "$FORGE_TMP/alembic.revs" ] || return 0
-  # shellcheck disable=SC2046
+# Drizzle: drizzle.config.* names the schema files (`schema`: a path, a glob, a
+# directory or an array of them), the migrations folder (`out`, default ./drizzle)
+# and the `dialect`. forge_drizzle_config writes "key<TAB>value" lines (one per
+# schema entry, ./ removed) to $FORGE_TMP/drizzle.config; fails without a config.
+forge_drizzle_config() {
+  FORGE_DZ_CONFIG=''
+  for _dz_f in drizzle.config.ts drizzle.config.mts drizzle.config.cts drizzle.config.js drizzle.config.mjs drizzle.config.cjs drizzle.config.json; do
+    if [ -f "$_dz_f" ]; then FORGE_DZ_CONFIG=$_dz_f; break; fi
+  done
+  [ -n "$FORGE_DZ_CONFIG" ] || return 1
   awk '
-    function ids(s,   out) {
-      out = ""
-      while (match(s, /["\047][^"\047]+["\047]/)) { out = out " " substr(s, RSTART + 1, RLENGTH - 2); s = substr(s, RSTART + RLENGTH) }
-      return out
+    { s = s $0 "\n" }
+    function val(key,   re, v) {
+      re = "[^A-Za-z0-9_$]\"?" key "\"?[[:space:]]*:[[:space:]]*(\\[[^]]*\\]|\"[^\"]*\"|\047[^\047]*\047|`[^`]*`)"
+      if (!match(s, re)) return ""
+      v = substr(s, RSTART, RLENGTH); sub(/^[^:]*:[[:space:]]*/, "", v); return v
     }
-    /^revision[^=]*=/ { r = $0; sub(/^[^=]*=/, "", r); split(ids(r), a, " "); if (a[1] != "") rev[FILENAME] = a[1] }
-    /^down_revision[^=]*=/ { d = $0; sub(/^[^=]*=/, "", d); n = split(ids(d), a, " "); for (i = 1; i <= n; i++) down[a[i]] = 1 }
-    END { for (f in rev) if (!(rev[f] in down)) print f }' $(cat "$FORGE_TMP/alembic.revs") | sort
+    function emit(key, v,   q) {
+      while (match(v, /"[^"]*"|\047[^\047]*\047|`[^`]*`/)) {
+        q = substr(v, RSTART + 1, RLENGTH - 2); v = substr(v, RSTART + RLENGTH)
+        sub(/^\.\//, "", q); sub(/\/+$/, "", q)
+        if (q != "") print key "\t" q
+      }
+    }
+    END {
+      # drop comments, outside strings
+      t = ""; q = ""; n = length(s)
+      for (i = 1; i <= n; i++) {
+        c = substr(s, i, 1); d = substr(s, i, 2)
+        if (q != "") { t = t c; if (c == "\\") { t = t substr(s, ++i, 1) } else if (c == q) q = ""; continue }
+        if (d == "//") { while (i <= n && substr(s, i, 1) != "\n") i++; t = t " "; continue }
+        if (d == "/*") { i += 2; while (i <= n && substr(s, i, 2) != "*/") i++; i++; t = t " "; continue }
+        if (c == "\"" || c == "\047" || c == "`") q = c
+        t = t (c == "\n" ? " " : c)
+      }
+      s = t
+      gsub(/migrations[[:space:]]*:[[:space:]]*\{[^}]*\}/, "", s)
+      s = " " s
+      o = val("out"); if (o == "") print "out\tdrizzle"; else emit("out", o)
+      emit("dialect", val("dialect")); emit("schema", val("schema"))
+    }' "$FORGE_DZ_CONFIG" > "$FORGE_TMP/drizzle.config"
 }
 
-# forge_alembic_sqlite: the project also runs its migrations on SQLite: alembic/env.py
-# sets render_as_batch=True, or alembic.ini's sqlalchemy.url is a sqlite URL.
-forge_alembic_sqlite() {
-  grep -qE '^[^#]*render_as_batch[[:space:]]*=[[:space:]]*True' alembic/env.py 2>/dev/null \
-    || grep -qE '^[[:space:]]*sqlalchemy\.url[[:space:]]*=[[:space:]]*sqlite' alembic.ini 2>/dev/null
-}
+# forge_drizzle_get <key>: the first value of <key> from forge_drizzle_config.
+forge_drizzle_get() { awk -F '\t' -v k="$1" '$1 == k { print $2; exit }' "$FORGE_TMP/drizzle.config"; }
 
-# forge_alembic_batch: on such a project, operations SQLite cannot run as ALTER TABLE
-# (alter_column, drop_column, constraints) go through op.batch_alter_table(), which
-# recreates the table there. Operations under an `if` on the dialect are left alone.
-forge_alembic_batch() {
-  forge_alembic_sqlite || return 0
-  _ab_rc=0
-  forge_alembic_targets > "$FORGE_TMP/alembic.targets"
-  while IFS= read -r _ab_f; do
-    [ -f "$_ab_f" ] || continue
-    awk -v f="$_ab_f" '
-      { line = $0; sub(/\r$/, "", line) }
-      line ~ /^[ \t]*(#|$)/ { next }
-      {
-        ind = match(line, /[^ \t]/) - 1
-        if (skip != "") {
-          if (ind > skip + 0) next
-          if (ind == skip + 0 && line ~ /^[ \t]*(elif|else)[ \t:]/) next
-          skip = ""
-        }
-        if (line ~ /^[ \t]*(if|elif)[ \t].*(dialect|sqlite|postgres|mysql)/) { skip = ind ""; next }
-        if (match(line, /(^|[^A-Za-z0-9_.])op\.(alter_column|drop_column|create_foreign_key|drop_constraint|create_unique_constraint|create_check_constraint|create_primary_key)\(/)) {
-          op = substr(line, RSTART, RLENGTH - 1); sub(/^[^o]*op\./, "", op)
-          print f ":" NR ": op." op "() outside op.batch_alter_table(): SQLite cannot ALTER a table this way, and this project runs its migrations on SQLite too (render_as_batch=True or a sqlite URL). Use: with op.batch_alter_table(\"<table>\") as batch_op: batch_op." op "(...)"
-          bad = 1
-        }
-      }
-      END { exit bad }' "$_ab_f" || _ab_rc=1
-  done < "$FORGE_TMP/alembic.targets"
-  return "$_ab_rc"
-}
-
-# forge_alembic_fk_index: in each revision's upgrade(), a column that gets a foreign key
-# (sa.Column(..., sa.ForeignKey(...)), sa.ForeignKeyConstraint([...]),
-# op.create_foreign_key(..., [...], ...)) also leads an index: op.create_index,
-# index=True, a primary key or unique constraint, or CREATE INDEX. PostgreSQL does not
-# index referencing columns; skipped when the database URL is MySQL (which does).
-forge_alembic_fk_index() {
-  case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
-  _ai_rc=0
-  forge_alembic_targets > "$FORGE_TMP/alembic.targets"
-  while IFS= read -r _ai_f; do
-    [ -f "$_ai_f" ] || continue
-    awk -v f="$_ai_f" '
-      # the position of the bracket closing the one at p (strings skipped)
-      function close_of(s, p,   d, c, q, i, n) {
-        d = 0; q = ""; n = length(s)
-        for (i = p; i <= n; i++) {
-          c = substr(s, i, 1)
-          if (q != "") { if (c == "\\") i++; else if (c == q) q = ""; continue }
-          if (c == "\"" || c == "\047") q = c
-          else if (c == "(" || c == "[") d++
-          else if (c == ")" || c == "]") { d--; if (d == 0) return i }
-        }
-        return n
-      }
-      function strs(t, all,   out) {
-        out = ""
-        while (match(t, /["\047][^"\047]*["\047]/)) {
-          out = out (out == "" ? "" : SUBSEP) substr(t, RSTART + 1, RLENGTH - 2); t = substr(t, RSTART + RLENGTH)
-          if (!all) break
-        }
-        return out
-      }
-      function first_list(t,   p) { p = index(t, "["); if (!p) return ""; t = substr(t, p); return substr(t, 1, close_of(t, 1)) }
-      function line_of(p,   k) { for (k = nl; k > 1 && start[k] > p; k--) ; return first + k - 1 }
-      function cover(list,   n, a, i) { n = split(list, a, SUBSEP); for (i = 1; i <= n; i++) cov[tolower(a[i])] = 1 }
-      { line = $0; sub(/\r$/, "", line) }
-      /^def[ \t]+upgrade[ \t]*\(/ { on = 1; first = NR + 1; next }
-      on && line ~ /^[^ \t#]/ { on = 0 }
-      on {
-        if (line ~ /^[ \t]*#/) line = ""
-        nl++; start[nl] = length(s) + 1; s = s line "\n"
-      }
-      END {
-        rest = s; off = 0
-        while (match(rest, /(^|[^A-Za-z0-9_])(Column|ForeignKeyConstraint|create_foreign_key|create_index|PrimaryKeyConstraint|UniqueConstraint|Index)\(/)) {
-          name = substr(rest, RSTART, RLENGTH - 1); sub(/^[^A-Za-z]/, "", name)
-          po = off + RSTART + RLENGTH - 1
-          pc = close_of(s, po); args = substr(s, po + 1, pc - po - 1)
-          if (name == "Column") {
-            if (args ~ /^[ \t\n]*["\047]/) {
-              col = tolower(strs(args, 0))
-              if (args ~ /(^|[^A-Za-z0-9_])ForeignKey\(/ && !(col in fk)) { fk[col] = line_of(po); order[++nfk] = col }
-              if (args ~ /(index|primary_key|unique)[ \t]*=[ \t]*True/) cov[col] = 1
-            }
-          } else if (name == "ForeignKeyConstraint" || name == "create_foreign_key") {
-            col = tolower(strs(first_list(args), 0))
-            if (col != "" && !(col in fk)) { fk[col] = line_of(po); order[++nfk] = col }
-          } else if (name == "create_index") cover(strs(first_list(args), 0))
-          else cover(strs(args, 1))
-          off = po; rest = substr(s, po + 1)
-        }
-        u = toupper(s)
-        while (match(u, /CREATE[ \t\n]+(UNIQUE[ \t\n]+)?INDEX[^(]*\([ \t\n]*/)) {
-          t = substr(u, RSTART + RLENGTH); sub(/[^A-Z0-9_"].*$/, "", t); gsub(/"/, "", t)
-          cov[tolower(t)] = 1; u = substr(u, RSTART + RLENGTH)
-        }
-        for (i = 1; i <= nfk; i++) {
-          col = order[i]
-          if (col in cov) continue
-          print f ":" fk[col] ": foreign key column \"" col "\" gets no index in this revision; PostgreSQL does not index referencing columns, so joins on it and deletes of the referenced rows scan the table. Add op.create_index(..., [\"" col "\"]) (index=True on the model mapped_column, then autogenerate)."
-          bad = 1
-        }
-        exit bad
-      }' "$_ai_f" || _ai_rc=1
-  done < "$FORGE_TMP/alembic.targets"
-  return "$_ai_rc"
-}
-
-# forge_alembic_tested: some test file mentions Alembic (pytest-alembic, alembic.command, ...).
-forge_alembic_tested() {
-  git ls-files -co --exclude-standard -- '*test_*.py' '*_test.py' '*conftest.py' 2>/dev/null | while IFS= read -r _at_f; do
-    [ -f "$_at_f" ] && grep -lE '(pytest_alembic|alembic_runner|from alembic|import alembic|alembic\.(command|config))' "$_at_f"
-  done | grep -q .
-}
-
-# forge_alembic_data_downgrade: a revision whose upgrade() changes rows (UPDATE, INSERT,
-# DELETE through execute(), sa.update/insert/delete, op.bulk_insert, an ORM Session) has a
-# downgrade() that does something (reverts, or raises to say it cannot), unless the
-# project tests its migrations. A downgrade that only passes reports success and leaves the data.
-forge_alembic_data_downgrade() {
-  forge_alembic_targets > "$FORGE_TMP/alembic.targets"
-  : > "$FORGE_TMP/alembic.data"
-  while IFS= read -r _ad_f; do
-    [ -f "$_ad_f" ] || continue
-    awk -v f="$_ad_f" '
-      { line = $0; sub(/\r$/, "", line) }
-      /^def[ \t]+upgrade[ \t]*\(/ { sec = "up"; next }
-      /^def[ \t]+downgrade[ \t]*\(/ { sec = "down"; dl = NR; next }
-      line ~ /^[^ \t#]/ { sec = ""; next }
-      sec == "up" && line !~ /^[ \t]*#/ { up = up line "\n" }
-      sec == "down" {
-        t = line; sub(/^[ \t]+/, "", t); sub(/[ \t]+$/, "", t)
-        if (indoc) { if (index(t, q)) indoc = 0; next }
-        if (t == "" || t ~ /^#/ || t == "pass" || t == "...") next
-        if (t ~ /^("""|\047\047\047)/) { q = substr(t, 1, 3); if (!index(substr(t, 4), q)) indoc = 1; next }
-        if (t ~ /^["\047]/) next
-        real = 1
-      }
-      END {
-        u = toupper(up)
-        data = (up ~ /execute\(/ && (u ~ /(^|[^A-Z_])UPDATE[ \t\n]+[^ \t\n]+[ \t\n]+SET[ \t\n]/ || u ~ /INSERT[ \t\n]+INTO[ \t\n]/ || u ~ /DELETE[ \t\n]+FROM[ \t\n]/)) \
-          || up ~ /(^|[^A-Za-z0-9_.])(sa\.)?(update|insert|delete)\([A-Za-z_]/ || up ~ /\.(update|insert|delete)\(\)/ \
-          || up ~ /op\.bulk_insert\(/ || up ~ /(^|[^A-Za-z0-9_])Session\(/
-        if (data && !real) print f ":" (dl ? dl : 1) ": upgrade() changes data but downgrade() does nothing, so alembic downgrade reports success and leaves the rows changed. Write the inverse, raise an error that says the revision cannot be reverted, or test the migrations (pytest-alembic)."
-      }' "$_ad_f" >> "$FORGE_TMP/alembic.data"
-  done < "$FORGE_TMP/alembic.targets"
-  [ -s "$FORGE_TMP/alembic.data" ] || return 0
-  forge_alembic_tested && return 0
-  cat "$FORGE_TMP/alembic.data"
+# forge_drizzle_is_schema <path>: succeeds when <path> is one of the configured schema
+# entries, matches one as a glob, or sits under one as a directory.
+forge_drizzle_is_schema() {
+  while IFS="$(printf '\t')" read -r _ds_k _ds_v; do
+    [ "$_ds_k" = schema ] || continue
+    _ds_g=$(printf '%s' "$_ds_v" | sed 's/\*\*/*/g')
+    # shellcheck disable=SC2254
+    case $1 in "$_ds_v"|"$_ds_v"/*|$_ds_g) return 0 ;; esac
+  done < "$FORGE_TMP/drizzle.config"
   return 1
 }
 
-# forge_mentions <file> <name>: <name> appears as a word in <file>, outside comment lines.
-forge_mentions() {
-  grep -v '^[[:space:]]*#' "$1" 2>/dev/null | grep -qE "(^|[^A-Za-z0-9_])$2([^A-Za-z0-9_]|\$)"
-}
-
-# forge_models_registered: a module of a models package that maps a table (a class with
-# __tablename__) is imported by the package's __init__.py when that file is the registry
-# (it imports other modules of the package that map tables), or by alembic/env.py:
-# Base.metadata, which autogenerate and alembic check compare, knows only imported models.
-forge_models_registered() {
-  if [ -n "$FORGE_FILES" ]; then printf '%s\n' "$FORGE_FILES"
-  else git ls-files -co --exclude-standard -- 'models/*.py' '*/models/*.py' 2>/dev/null; fi > "$FORGE_TMP/models.files"
-  _mr_rc=0
-  while IFS= read -r _mr_f; do
-    case ${_mr_f##*/} in __init__.py|conftest.py|test_*) continue ;; *.py) ;; *) continue ;; esac
-    [ -f "$_mr_f" ] || continue
-    _mr_d=$(dirname "$_mr_f")
-    _mr_m=$(basename "$_mr_f" .py)
-    [ -f "$_mr_d/__init__.py" ] || continue
-    awk '
-      /^class[ \t]+[A-Za-z_]/ { c = $0; sub(/^class[ \t]+/, "", c); sub(/[^A-Za-z0-9_].*$/, "", c); cl = NR; next }
-      /^[^ \t#\r]/ { c = "" }
-      c != "" && /^[ \t]+__tablename__[ \t]*[:=]/ { print cl "\t" c; c = "" }' "$_mr_f" > "$FORGE_TMP/models.classes"
-    [ -s "$FORGE_TMP/models.classes" ] || continue
-    forge_mentions "$_mr_d/__init__.py" "$_mr_m" && continue
-    forge_mentions alembic/env.py "$_mr_m" && continue
-    # the registry: __init__.py imports another module of the package that maps a table
-    _mr_reg=''
-    for _mr_x in $(awk '
-      /^[ \t]*from[ \t]+\.[ \t]+import[ \t]/ { s = $0; sub(/^.*import[ \t]+/, "", s); gsub(/[(),]/, " ", s); n = split(s, a, /[ \t]+/); for (i = 1; i <= n; i++) if (a[i] != "as") print a[i]; next }
-      /^[ \t]*from[ \t]+[A-Za-z0-9_.]+[ \t]+import/ { s = $0; sub(/^[ \t]*from[ \t]+/, "", s); sub(/[ \t].*$/, "", s); sub(/^.*\./, "", s); print s; next }
-      /^[ \t]*import[ \t]+[A-Za-z0-9_.]+/ { s = $0; sub(/^[ \t]*import[ \t]+/, "", s); sub(/[ \t,].*$/, "", s); sub(/^.*\./, "", s); print s }' "$_mr_d/__init__.py"); do
-      [ "$_mr_x" != "$_mr_m" ] && [ -f "$_mr_d/$_mr_x.py" ] && grep -q '__tablename__' "$_mr_d/$_mr_x.py" && { _mr_reg=1; break; }
-    done
-    [ -n "$_mr_reg" ] || continue
-    while IFS='	' read -r _mr_l _mr_c; do
-      printf '%s:%s: model %s is not imported by %s/__init__.py, which imports the other models: Base.metadata will not have its table, so autogenerate writes no migration for it and alembic check passes. Import it there.\n' "$_mr_f" "$_mr_l" "$_mr_c" "$_mr_d"
-    done < "$FORGE_TMP/models.classes"
-    _mr_rc=1
-  done < "$FORGE_TMP/models.files"
-  return "$_mr_rc"
-}
-
-# ---- Settings kept in sync with .env templates (python/env-example, typescript/env-example).
-
-# forge_env_fields_py <file>: "line<TAB>VAR<TAB>required<TAB>class" for each field of a
-# pydantic-settings BaseSettings subclass (env_prefix, alias, case_sensitive applied;
-# required = no default). Fields with AliasChoices / AliasPath are left out.
-forge_env_fields_py() {
+# forge_drizzle_tables <file>: the file without what does not reach the database
+# (blank lines, comments, imports, type exports, relations()/defineRelations() calls).
+forge_drizzle_tables() {
   awk '
-    function cls_of(l,   c) { c = l; sub(/^class[ \t]+/, "", c); sub(/[^A-Za-z0-9_].*$/, "", c); return c }
-    { line = $0; sub(/\r$/, "", line) }
-    line ~ /^class[ \t]/ { cls = (line ~ /\(.*BaseSettings.*\)[ \t]*:/) ? cls_of(line) : ""; body = ""; next }
-    line ~ /^[^ \t#]/ { cls = ""; next }
-    cls == "" || line ~ /^[ \t]*(#|$)/ { next }
-    {
-      ind = match(line, /[^ \t]/) - 1
-      if (body == "") body = ind
-    }
-    FNR == NR {
-      if (match(line, /env_prefix[ \t]*=[ \t]*["\047][^"\047]*["\047]/)) { p = substr(line, RSTART, RLENGTH); sub(/^[^"\047]*["\047]/, "", p); sub(/["\047]$/, "", p); pre[cls] = p }
-      if (line ~ /case_sensitive[ \t]*=[ \t]*True/) cs[cls] = 1
+    inc { if (/\*\//) inc = 0; next }
+    /^[[:space:]]*\/\*/ { if (!/\*\//) inc = 1; next }
+    /^[[:space:]]*(\/\/|$)/ { next }
+    /^[[:space:]]*(import[[:space:]{*]|export[[:space:]]+(type|interface)[[:space:]]|export[[:space:]]*\*)/ { next }
+    depth == 0 && /(^|[^A-Za-z0-9_$])(defineRelations|relations)[[:space:]]*\(/ { inrel = 1 }
+    inrel {
+      t = $0; o = gsub(/\(/, "", t); t = $0; c = gsub(/\)/, "", t); depth += o - c
+      if (depth <= 0) { depth = 0; inrel = 0 }
       next
     }
-    ind == body && line ~ /^[ \t]*[A-Za-z_][A-Za-z0-9_]*[ \t]*:/ {
-      name = line; sub(/^[ \t]*/, "", name); sub(/[ \t]*:.*$/, "", name)
-      rest = line; sub(/^[^:]*:/, "", rest)
-      if (name == "model_config" || rest ~ /ClassVar|AliasChoices|AliasPath/) next
-      key = pre[cls] name
-      if (match(rest, /(validation_alias|alias)[ \t]*=[ \t]*["\047][^"\047]+["\047]/)) { key = substr(rest, RSTART, RLENGTH); sub(/^[^"\047]*["\047]/, "", key); sub(/["\047]$/, "", key) }
-      if (!cs[cls]) key = toupper(key)
-      req = 1
-      if (match(rest, /[ \t]=([ \t]|$)/)) {
-        v = substr(rest, RSTART + RLENGTH); sub(/^[ \t]+/, "", v)
-        req = 0
-        if (v ~ /^([A-Za-z_]+\.)?Field\(/) {
-          sub(/^[^(]*\([ \t]*/, "", v)
-          if (v ~ /^(\.\.\.|\))/) req = 1
-          else if (v ~ /^[a-z_]+[ \t]*=/ && v !~ /default(_factory)?[ \t]*=/) req = 1
-        }
-      }
-      print FNR "\t" key "\t" req "\t" cls
-    }' "$1" "$1"
+    { sub(/^[[:space:]]+/, ""); sub(/[[:space:]]+$/, ""); print }' "$1" 2>/dev/null
 }
 
-# forge_env_fields_ts <file>: the same for the keys of a Zod env schema (t3-env
-# createEnv, or z.object(...) parsed from process.env): UPPER_CASE keys whose value is a
-# z. chain on the same line; required = no .default(), .optional() or .catch().
-forge_env_fields_ts() {
-  awk '
-    match($0, /^[ \t]*["\047]?[A-Z][A-Z0-9_]*["\047]?[ \t]*:[ \t]*z\./) {
-      k = $0; sub(/^[ \t]*["\047]?/, "", k); sub(/[^A-Z0-9_].*$/, "", k)
-      print FNR "\t" k "\t" ($0 ~ /\.(default|optional|catch)\(/ ? 0 : 1) "\tenv"
-    }' "$1"
-}
-
-# forge_env_example <py|ts>: Stop and pre-commit, not --all. A settings field or env schema
-# key added in the change appears in the .env template of the nearest directory that has
-# one (.env.example, .env.template, .env.sample, .env.dist, .env.<name>.example): always
-# when it has no default, and also with a default when the template already lists at
-# least half of that class's variables. A template that lists none of them is not about it.
-forge_env_example() {
-  [ "$mode" = --all ] && return 0
-  _ee_rc=0
-  printf '%s\n' "$FORGE_FILES" > "$FORGE_TMP/env.files"
-  while IFS= read -r _ee_f; do
-    [ -f "$_ee_f" ] || continue
-    case $1 in
-      py) grep -q 'BaseSettings' "$_ee_f" || continue ;;
-      ts) grep -qE 'createEnv\(|process\.env' "$_ee_f" && grep -q 'z\.' "$_ee_f" || continue ;;
+# forge_drizzle_migration_present: a change to a schema file that reaches the database
+# comes with a generated migration in the out folder: the SQL plus meta/_journal.json and
+# a meta/*_snapshot.json (drizzle-kit 0.x), or <out>/<name>/migration.sql and its
+# snapshot.json (drizzle-kit 1.x). Not with --all (no change to compare).
+forge_drizzle_migration_present() {
+  [ "$mode" != --all ] || return 0
+  forge_drizzle_config || return 0
+  grep -q "^schema$(printf '\t')" "$FORGE_TMP/drizzle.config" || {
+    printf 'forge:%s skipped: no schema path found in %s\n' "$c_id" "$FORGE_DZ_CONFIG"; return 0; }
+  _dm_out=$(forge_drizzle_get out)
+  : > "$FORGE_TMP/dz.schema"
+  while IFS= read -r _dm_f; do
+    forge_drizzle_is_schema "$_dm_f" || continue
+    forge_drizzle_tables "$_dm_f" > "$FORGE_TMP/dz.now"
+    forge_drizzle_tables "$FORGE_TMP/base/$_dm_f" > "$FORGE_TMP/dz.then"
+    cmp -s "$FORGE_TMP/dz.now" "$FORGE_TMP/dz.then" || printf '%s\n' "$_dm_f" >> "$FORGE_TMP/dz.schema"
+  done < "$FORGE_TMP/changed"
+  [ -s "$FORGE_TMP/dz.schema" ] || return 0
+  _dm_sql=0; _dm_journal=0; _dm_snap=0
+  while IFS= read -r _dm_f; do
+    case $_dm_f in
+      "$_dm_out"/meta/_journal.json) _dm_journal=1 ;;
+      "$_dm_out"/meta/*_snapshot.json|"$_dm_out"/*/snapshot.json) _dm_snap=1 ;;
+      "$_dm_out"/*/migration.sql) _dm_sql=1; _dm_journal=1 ;;
+      "$_dm_out"/*.sql) _dm_sql=1 ;;
     esac
-    _ee_d=$(dirname "$_ee_f")
-    while :; do
-      _ee_t=$(ls -A "$_ee_d" 2>/dev/null | grep -E '^\.env(\.[A-Za-z0-9_-]+)?\.(example|template|sample|dist)$')
-      [ -n "$_ee_t" ] || [ "$_ee_d" = . ] && break
-      _ee_d=$(dirname "$_ee_d")
+  done < "$FORGE_TMP/existing"
+  # drizzle-kit 1.x keeps no journal: a <name>/migration.sql stands in for it
+  [ "$_dm_sql" = 1 ] && [ "$_dm_journal" = 1 ] && [ "$_dm_snap" = 1 ] && return 0
+  while IFS= read -r _dm_f; do
+    printf '%s: the Drizzle schema changed, but %s/ has no new migration with its journal and snapshot\n' "$_dm_f" "$_dm_out"
+  done < "$FORGE_TMP/dz.schema"
+  printf 'Generate it (drizzle-kit generate) and keep the SQL, meta/_journal.json and the snapshot together; never write them by hand.\n'
+  return 1
+}
+
+# forge_drizzle_applied: migrations (SQL and snapshots in the out folder) that exist in
+# the base are not modified or deleted; a change goes in a new migration.
+forge_drizzle_applied() {
+  [ "$mode" != --all ] || return 0
+  forge_drizzle_config || return 0
+  _da_out=$(forge_drizzle_get out)
+  _da_rc=0
+  while IFS= read -r _da_f; do
+    case $_da_f in
+      "$_da_out"/*.sql|"$_da_out"/meta/*_snapshot.json|"$_da_out"/*/snapshot.json)
+        if [ -f "$_da_f" ]; then _da_what=modified; else _da_what=deleted; fi
+        printf '%s: an existing migration was %s; generate a new migration instead (drizzle-kit generate)\n' "$_da_f" "$_da_what"
+        _da_rc=1 ;;
+    esac
+  done < "$FORGE_TMP/inbase"
+  return "$_da_rc"
+}
+
+# forge_drizzle_squawk [files]: Squawk (§13.1) on the changed SQL of the out folder
+# when the dialect is postgresql; with no files (--since, --all), on the newest migration.
+forge_drizzle_squawk() {
+  forge_drizzle_config || return 0
+  [ "$(forge_drizzle_get dialect)" = postgresql ] || return 0
+  _dq_out=$(forge_drizzle_get out)
+  if [ "$#" -eq 0 ]; then
+    set -- $(git ls-files -- "$_dq_out/*.sql" | sort | tail -n 1)
+  else
+    for _dq_f in "$@"; do
+      shift
+      case $_dq_f in "$_dq_out"/*.sql) set -- "$@" "$_dq_f" ;; esac
     done
-    [ -n "$_ee_t" ] || continue
-    _ee_names=''
-    : > "$FORGE_TMP/env.keys"
-    for _ee_x in $_ee_t; do
-      [ "$_ee_d" = . ] && _ee_p=$_ee_x || _ee_p="$_ee_d/$_ee_x"
-      _ee_names="${_ee_names:+$_ee_names, }$_ee_p"
-      sed -n -E 's/^[[:space:]]*(export[[:space:]]+)?#?[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=.*/\2/p' "$_ee_p" >> "$FORGE_TMP/env.keys"
-    done
-    "forge_env_fields_$1" "$_ee_f" > "$FORGE_TMP/env.fields"
-    awk -F '\t' -v f="$_ee_f" -v t="$_ee_names" '
-      function found(k,   h) { if (k in have) return 1; for (h in have) if (index(h, k "_") == 1) return 1; return 0 }
-      FILENAME == ARGV[1] { have[toupper($0)] = 1; next }
-      { n++; ln[n] = $1; key[n] = $2; rq[n] = $3; g[n] = $4; tot[$4]++; if (found(toupper($2))) got[$4]++ }
+  fi
+  forge_squawk_files "$@"
+}
+
+# forge_vue_vfor_keys <files>: in the templates of .vue files, each element with v-for
+# (not <template>) also binds a key (:key, v-bind:key). Prints "path:line: ..." per element
+# (the line of its v-for). Comments, <script> and <style> are skipped; quotes are respected.
+forge_vue_vfor_keys() {
+  _vk_rc=0
+  for _vk_f in "$@"; do
+    case $_vk_f in *.vue) ;; *) continue ;; esac
+    [ -f "$_vk_f" ] || continue
+    awk -v f="$_vk_f" '
+      { s = s $0 "\n" }
       END {
-        for (j = 1; j <= n; j++) {
-          if (!got[g[j]] || found(toupper(key[j]))) continue
-          if (rq[j] || got[g[j]] * 2 >= tot[g[j]]) {
-            print f ":" ln[j] ": " key[j] " is not in " t "; add it there (a placeholder value is fine) so the next person to set up the project knows it exists"
-            bad = 1
+        n = length(s); ln = 1; skip = ""
+        for (i = 1; i <= n; i++) {
+          c = substr(s, i, 1)
+          if (c == "\n") { ln++; continue }
+          if (c != "<") continue
+          if (substr(s, i, 4) == "<!--") {
+            j = index(substr(s, i + 4), "-->"); if (!j) break
+            t = substr(s, i, j + 6); ln += gsub(/\n/, "", t); i += j + 5; continue
           }
+          if (!match(substr(s, i + 1, 1), /[A-Za-z\/]/)) continue
+          # one tag, quotes respected
+          start = ln; q = ""; tag = ""
+          for (i++; i <= n; i++) {
+            c = substr(s, i, 1)
+            if (c == "\n") ln++
+            if (q != "") { if (c == q) q = ""; tag = tag c; continue }
+            if (c == "\"" || c == "\047") q = c
+            else if (c == ">") break
+            tag = tag c
+          }
+          name = tag; sub(/[[:space:]].*$/, "", name); if (length(name) > 1) sub(/\/$/, "", name); shown = name; name = tolower(name)
+          if (skip != "") { if (name == "/" skip) skip = ""; continue }
+          if ((name == "script" || name == "style") && tag !~ /\/$/) { skip = name; continue }
+          tag = " " tag
+          if (name == "template" || tag !~ /[[:space:]]v-for[[:space:]]*=/) continue
+          if (tag ~ /[[:space:]](:key|v-bind:key)[[:space:]]*=/) continue
+          match(tag, /[[:space:]]v-for[[:space:]]*=/); pre = substr(tag, 1, RSTART)
+          printf "%s:%d: <%s> has v-for without :key\n", f, start + gsub(/\n/, "", pre), shown
+          bad = 1
         }
         exit bad
-      }' "$FORGE_TMP/env.keys" "$FORGE_TMP/env.fields" || _ee_rc=1
-  done < "$FORGE_TMP/env.files"
-  return "$_ee_rc"
+      }' "$_vk_f" || _vk_rc=1
+  done
+  return "$_vk_rc"
+}
+
+# OpenAPI clients generated by openapi-typescript, orval or @hey-api/openapi-ts: their
+# files say so in their header, and a package.json script runs the generator.
+FORGE_OPENAPI_MARK='auto-generated by (openapi-typescript|@hey-api/openapi-ts)|generated by orval'
+FORGE_OPENAPI_GEN='"[^"]+"[[:space:]]*:[[:space:]]*"[^"]*(openapi-typescript|orval|openapi-ts)'
+
+# forge_openapi_spec <path>: an OpenAPI or Swagger document (JSON or YAML with an
+# openapi / swagger version near its top).
+forge_openapi_spec() {
+  case $1 in *.json|*.yaml|*.yml) ;; *) return 1 ;; esac
+  [ -f "$1" ] && head -c 4096 "$1" | grep -qE "[\"']?(openapi|swagger)[\"']?[[:space:]]*:[[:space:]]*[\"']?[0-9]"
+}
+
+# forge_openapi_generated <path>: a file whose header says one of the generators wrote it.
+forge_openapi_generated() { [ -f "$1" ] && head -n 15 "$1" | grep -qiE "$FORGE_OPENAPI_MARK"; }
+
+# forge_openapi_sync regenerate | hand-edits: compares the changed OpenAPI documents with
+# the changed generated files. regenerate: a changed document needs a changed generated
+# file. hand-edits: a changed generated file needs a changed document or generator config
+# (package.json, orval.config.*, openapi-ts.config.*, redocly.*), when the repository
+# tracks a document (a client generated from a URL is not checked). Not with --all.
+forge_openapi_sync() {
+  [ "$mode" != --all ] || return 0
+  _os_pkgs=$(git ls-files -- package.json '*/package.json')
+  [ -n "$_os_pkgs" ] || return 0
+  # shellcheck disable=SC2086
+  _os_script=$(grep -hoE "$FORGE_OPENAPI_GEN" $_os_pkgs 2>/dev/null | head -n 1 | cut -d '"' -f 2)
+  [ -n "$_os_script" ] || return 0
+  forge_filter forge_openapi_spec < "$FORGE_TMP/existing" > "$FORGE_TMP/openapi.specs"
+  forge_filter forge_openapi_generated < "$FORGE_TMP/existing" > "$FORGE_TMP/openapi.generated"
+  case $1 in
+    regenerate)
+      [ -s "$FORGE_TMP/openapi.specs" ] && [ ! -s "$FORGE_TMP/openapi.generated" ] || return 0
+      while IFS= read -r _os_f; do
+        printf '%s: the OpenAPI document changed, but no generated client file did\n' "$_os_f"
+      done < "$FORGE_TMP/openapi.specs"
+      printf 'Regenerate the client (the "%s" script) and keep both changes together.\n' "$_os_script" ;;
+    hand-edits)
+      [ -s "$FORGE_TMP/openapi.generated" ] && [ ! -s "$FORGE_TMP/openapi.specs" ] || return 0
+      grep -qE '(^|/)(package\.json|orval\.config\.[a-z]+|openapi-ts\.config\.[a-z]+|redocly\.[a-z]+)$' "$FORGE_TMP/existing" && return 0
+      [ -n "$(git ls-files -- '*.json' '*.yaml' '*.yml' | forge_filter forge_openapi_spec | head -n 1)" ] || return 0
+      while IFS= read -r _os_f; do
+        printf '%s: generated from the OpenAPI document (its header says so), but neither the document nor the generator config changed\n' "$_os_f"
+      done < "$FORGE_TMP/openapi.generated"
+      printf 'Change the OpenAPI document (or the server it is generated from), then regenerate with the "%s" script; never edit generated files by hand.\n' "$_os_script" ;;
+  esac
+  return 1
 }
 
 # forge_related_py_tests <files>: changed test files plus tests/**/test_<module>.py
@@ -5908,42 +5407,6 @@ invalid:
 
     Session = sa.async_sessionmaker(engine, expire_on_commit=True)
 
-===== .forge/ast-grep/rule-tests/python-sqlalchemy-fk-index-test.yml
-id: python/sqlalchemy/fk-index
-valid:
-  - |
-    class Post(Base):
-        __tablename__ = "posts"
-        author_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
-  - |
-    class Profile(Base):
-        __tablename__ = "profiles"
-        user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True)
-  - |
-    class PostTag(Base):
-        __tablename__ = "post_tags"
-        post_id: Mapped[int] = mapped_column(ForeignKey("posts.id"), primary_key=True)
-  - |
-    class Post(Base):
-        __tablename__ = "posts"
-        __table_args__ = (Index("ix_posts_author_created", "author_id", "created_at"),)
-        author_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
-  - |
-    class Post(Base):
-        __tablename__ = "posts"
-        author_id: Mapped[int] = mapped_column(nullable=False)
-invalid:
-  - |
-    class Post(Base):
-        __tablename__ = "posts"
-        author_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
-  - |
-    class Post(Base):
-        __tablename__ = "posts"
-        org_id: Mapped[UUID] = mapped_column(Uuid, sa.ForeignKey("orgs.id"), nullable=False)
-  - |
-    tags = Table("post_tags", Base.metadata, Column("post_id", ForeignKey("posts.id")))
-
 ===== .forge/ast-grep/rule-tests/python-sqlalchemy-mapped-column-test.yml
 id: python/sqlalchemy/mapped-column
 valid:
@@ -6245,47 +5708,6 @@ rule:
       has:
         kind: keyword_argument
         regex: ^expire_on_commit\s*=\s*False$
-
-===== .forge/ast-grep/rules/python/sqlalchemy/fk-index.yml
-# Generated by forge from python/sqlalchemy/fk-index (mode: forbid).
-id: python/sqlalchemy/fk-index
-language: Python
-severity: error
-message: "forge:python/sqlalchemy/fk-index A foreign key column is indexed (index=True, unique=True, primary_key=True, or an Index in __table_args__): PostgreSQL does not index referencing columns, so joins on it and deletes of the referenced rows scan the table."
-rule:
-  kind: call
-  all:
-    - has:
-        field: function
-        regex: ^((sa|sqlalchemy|orm)\.)?(mapped_column|Column)$
-    - has:
-        field: arguments
-        has:
-          kind: call
-          has:
-            field: function
-            regex: ^((sa|sqlalchemy)\.)?ForeignKey$
-    - not:
-        has:
-          field: arguments
-          has:
-            kind: keyword_argument
-            regex: ^(index|unique|primary_key)\s*=\s*True$
-    - not:
-        inside:
-          stopBy: end
-          any:
-            - kind: class_definition
-            - kind: call
-              has:
-                field: function
-                regex: ^((sa|sqlalchemy)\.)?Table$
-          has:
-            stopBy: end
-            kind: call
-            has:
-              field: function
-              regex: ^((sa|sqlalchemy)\.)?(Index|UniqueConstraint|PrimaryKeyConstraint)$
 
 ===== .forge/ast-grep/rules/python/sqlalchemy/mapped-column.yml
 # Generated by forge from python/sqlalchemy/mapped-column (mode: forbid).
@@ -6758,7 +6180,7 @@ basedpyright() { forge_exec_tool basedpyright "$@"; }
 alembic() { forge_exec_tool alembic "$@"; }
 pytest() { forge_exec_tool pytest "$@"; }
 python() { forge_exec_tool python "$@"; }
-FORGE_NCHECKS=16
+FORGE_NCHECKS=11
 
 # 1. python/config-ratchet
 forge_check_meta_1() {
@@ -6775,11 +6197,11 @@ forge_check_run_1() {
 forge_ratchet python ratchet.py
 }
 
-# 2. python/env-example
+# 2. python/format
 forge_check_meta_2() {
-  c_id='python/env-example'; c_stage=lint; c_tools=''
+  c_id='python/format'; c_stage=format; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=1; c_files=1; c_fix=0
 }
 forge_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -6787,14 +6209,17 @@ forge_scope_2() {
 }
 forge_when_2() { return 1; }
 forge_check_run_2() {
-forge_env_example py
+ruff format --check .
+}
+forge_check_changed_2() {
+ruff format $FORGE_FILES
 }
 
-# 3. python/format
+# 3. python/lint
 forge_check_meta_3() {
-  c_id='python/format'; c_stage=format; c_tools='ruff'
+  c_id='python/lint'; c_stage=lint; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=1
 }
 forge_scope_3() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -6802,220 +6227,138 @@ forge_scope_3() {
 }
 forge_when_3() { return 1; }
 forge_check_run_3() {
-ruff format --check .
+ruff check .
 }
 forge_check_changed_3() {
-ruff format $FORGE_FILES
+ruff check --output-format concise $FORGE_FILES
+}
+forge_check_fix_3() {
+ruff check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise $FORGE_FILES
 }
 
-# 4. python/lint
+# 4. python/pytest/no-test-edits
 forge_check_meta_4() {
-  c_id='python/lint'; c_stage=lint; c_tools='ruff'
+  c_id='python/pytest/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=1
+  c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_4() {
+  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_4() { return 1; }
 forge_check_run_4() {
-ruff check .
-}
-forge_check_changed_4() {
-ruff check --output-format concise $FORGE_FILES
-}
-forge_check_fix_4() {
-ruff check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise $FORGE_FILES
+forge_test_edits
 }
 
-# 5. python/pytest/no-test-edits
+# 5. python/pytest/run
 forge_check_meta_5() {
-  c_id='python/pytest/no-test-edits'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
+  c_when=0; c_localdb=0; c_timeout=300
+  c_changed=1; c_files=1; c_fix=0
 }
 forge_scope_5() {
-  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_5() { return 1; }
 forge_check_run_5() {
-forge_test_edits
+pytest -q
+}
+forge_check_changed_5() {
+if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
 }
 
-# 6. python/pytest/run
+# 6. python/sqlalchemy/alembic/check
 forge_check_meta_6() {
-  c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
-  c_when=0; c_localdb=0; c_timeout=300
-  c_changed=1; c_files=1; c_fix=0
+  c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=1; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_6() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_6() { return 1; }
+forge_when_6() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
 forge_check_run_6() {
-pytest -q
-}
-forge_check_changed_6() {
-if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
-}
-
-# 7. python/sqlalchemy/alembic/check
-forge_check_meta_7() {
-  c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=1; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
-}
-forge_scope_7() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_7() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_7() {
 alembic check
 }
 
-# 8. python/sqlalchemy/alembic/data-migration-downgrade
-forge_check_meta_8() {
-  c_id='python/sqlalchemy/alembic/data-migration-downgrade'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+# 7. python/sqlalchemy/alembic/migration-lint
+forge_check_meta_7() {
+  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=1; c_files=1; c_fix=0
 }
-forge_scope_8() {
+forge_scope_7() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_8() { return 1; }
-forge_check_run_8() {
-forge_alembic_data_downgrade
+forge_when_7() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_7() {
+forge_squawk_alembic $(alembic heads | forge_alembic_files)
+}
+forge_check_changed_7() {
+forge_squawk_alembic $FORGE_FILES
 }
 
-# 9. python/sqlalchemy/alembic/fk-index
+# 8. python/sqlalchemy/alembic/single-head
+forge_check_meta_8() {
+  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
+}
+forge_scope_8() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_8() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_8() {
+test "$(alembic heads | wc -l)" -le 1
+}
+
+# 9. python/typecheck
 forge_check_meta_9() {
-  c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_9() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_9() { return 1; }
 forge_check_run_9() {
-forge_alembic_fk_index
-}
-
-# 10. python/sqlalchemy/alembic/migration-lint
-forge_check_meta_10() {
-  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
-}
-forge_scope_10() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_10() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_10() {
-forge_squawk_alembic $(alembic heads | forge_alembic_files)
-}
-forge_check_changed_10() {
-forge_squawk_alembic $FORGE_FILES
-}
-
-# 11. python/sqlalchemy/alembic/model-registered
-forge_check_meta_11() {
-  c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
-}
-forge_scope_11() {
-  case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_11() { return 1; }
-forge_check_run_11() {
-forge_models_registered
-}
-
-# 12. python/sqlalchemy/alembic/single-head
-forge_check_meta_12() {
-  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
-}
-forge_scope_12() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_12() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_12() {
-test "$(alembic heads | wc -l)" -le 1
-}
-
-# 13. python/sqlalchemy/alembic/sqlite-batch
-forge_check_meta_13() {
-  c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
-}
-forge_scope_13() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_13() { return 1; }
-forge_check_run_13() {
-forge_alembic_batch
-}
-
-# 14. python/typecheck
-forge_check_meta_14() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
-}
-forge_scope_14() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_14() { return 1; }
-forge_check_run_14() {
 basedpyright
 }
 
-# 15. python/uv/exclude-newer
-forge_check_meta_15() {
+# 10. python/uv/exclude-newer
+forge_check_meta_10() {
   c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_15() {
+forge_scope_10() {
   return 0
 }
-forge_when_15() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
-forge_check_run_15() {
+forge_when_10() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
+forge_check_run_10() {
 forge_uv_cooldown
 }
 
-# 16. python/uv/lock-sync
-forge_check_meta_16() {
+# 11. python/uv/lock-sync
+forge_check_meta_11() {
   c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_16() {
+forge_scope_11() {
   return 0
 }
-forge_when_16() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
-forge_check_run_16() {
+forge_when_11() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_check_run_11() {
 uv lock --check
 }
 
@@ -7765,333 +7108,245 @@ forge_squawk_alembic() {
   return "$_fs_rc"
 }
 
-# ---- How applications use SQLAlchemy and Alembic (python/sqlalchemy/alembic rules).
-# Each prints "path:line: message" (lint findings, attributed to added lines).
-
-# forge_alembic_targets: the revision files to examine: the in-scope changed ones
-# ($FORGE_FILES), else (--all) the head revisions' (no file names them as a
-# down_revision), so revisions written before a rule was adopted do not fail CI.
-forge_alembic_targets() {
-  if [ -n "$FORGE_FILES" ]; then
-    printf '%s\n' "$FORGE_FILES" | grep -E '^alembic/versions/.*\.py$'
-    return 0
-  fi
-  find alembic/versions -name '*.py' 2>/dev/null | sort > "$FORGE_TMP/alembic.revs"
-  [ -s "$FORGE_TMP/alembic.revs" ] || return 0
-  # shellcheck disable=SC2046
+# Drizzle: drizzle.config.* names the schema files (`schema`: a path, a glob, a
+# directory or an array of them), the migrations folder (`out`, default ./drizzle)
+# and the `dialect`. forge_drizzle_config writes "key<TAB>value" lines (one per
+# schema entry, ./ removed) to $FORGE_TMP/drizzle.config; fails without a config.
+forge_drizzle_config() {
+  FORGE_DZ_CONFIG=''
+  for _dz_f in drizzle.config.ts drizzle.config.mts drizzle.config.cts drizzle.config.js drizzle.config.mjs drizzle.config.cjs drizzle.config.json; do
+    if [ -f "$_dz_f" ]; then FORGE_DZ_CONFIG=$_dz_f; break; fi
+  done
+  [ -n "$FORGE_DZ_CONFIG" ] || return 1
   awk '
-    function ids(s,   out) {
-      out = ""
-      while (match(s, /["\047][^"\047]+["\047]/)) { out = out " " substr(s, RSTART + 1, RLENGTH - 2); s = substr(s, RSTART + RLENGTH) }
-      return out
+    { s = s $0 "\n" }
+    function val(key,   re, v) {
+      re = "[^A-Za-z0-9_$]\"?" key "\"?[[:space:]]*:[[:space:]]*(\\[[^]]*\\]|\"[^\"]*\"|\047[^\047]*\047|`[^`]*`)"
+      if (!match(s, re)) return ""
+      v = substr(s, RSTART, RLENGTH); sub(/^[^:]*:[[:space:]]*/, "", v); return v
     }
-    /^revision[^=]*=/ { r = $0; sub(/^[^=]*=/, "", r); split(ids(r), a, " "); if (a[1] != "") rev[FILENAME] = a[1] }
-    /^down_revision[^=]*=/ { d = $0; sub(/^[^=]*=/, "", d); n = split(ids(d), a, " "); for (i = 1; i <= n; i++) down[a[i]] = 1 }
-    END { for (f in rev) if (!(rev[f] in down)) print f }' $(cat "$FORGE_TMP/alembic.revs") | sort
+    function emit(key, v,   q) {
+      while (match(v, /"[^"]*"|\047[^\047]*\047|`[^`]*`/)) {
+        q = substr(v, RSTART + 1, RLENGTH - 2); v = substr(v, RSTART + RLENGTH)
+        sub(/^\.\//, "", q); sub(/\/+$/, "", q)
+        if (q != "") print key "\t" q
+      }
+    }
+    END {
+      # drop comments, outside strings
+      t = ""; q = ""; n = length(s)
+      for (i = 1; i <= n; i++) {
+        c = substr(s, i, 1); d = substr(s, i, 2)
+        if (q != "") { t = t c; if (c == "\\") { t = t substr(s, ++i, 1) } else if (c == q) q = ""; continue }
+        if (d == "//") { while (i <= n && substr(s, i, 1) != "\n") i++; t = t " "; continue }
+        if (d == "/*") { i += 2; while (i <= n && substr(s, i, 2) != "*/") i++; i++; t = t " "; continue }
+        if (c == "\"" || c == "\047" || c == "`") q = c
+        t = t (c == "\n" ? " " : c)
+      }
+      s = t
+      gsub(/migrations[[:space:]]*:[[:space:]]*\{[^}]*\}/, "", s)
+      s = " " s
+      o = val("out"); if (o == "") print "out\tdrizzle"; else emit("out", o)
+      emit("dialect", val("dialect")); emit("schema", val("schema"))
+    }' "$FORGE_DZ_CONFIG" > "$FORGE_TMP/drizzle.config"
 }
 
-# forge_alembic_sqlite: the project also runs its migrations on SQLite: alembic/env.py
-# sets render_as_batch=True, or alembic.ini's sqlalchemy.url is a sqlite URL.
-forge_alembic_sqlite() {
-  grep -qE '^[^#]*render_as_batch[[:space:]]*=[[:space:]]*True' alembic/env.py 2>/dev/null \
-    || grep -qE '^[[:space:]]*sqlalchemy\.url[[:space:]]*=[[:space:]]*sqlite' alembic.ini 2>/dev/null
-}
+# forge_drizzle_get <key>: the first value of <key> from forge_drizzle_config.
+forge_drizzle_get() { awk -F '\t' -v k="$1" '$1 == k { print $2; exit }' "$FORGE_TMP/drizzle.config"; }
 
-# forge_alembic_batch: on such a project, operations SQLite cannot run as ALTER TABLE
-# (alter_column, drop_column, constraints) go through op.batch_alter_table(), which
-# recreates the table there. Operations under an `if` on the dialect are left alone.
-forge_alembic_batch() {
-  forge_alembic_sqlite || return 0
-  _ab_rc=0
-  forge_alembic_targets > "$FORGE_TMP/alembic.targets"
-  while IFS= read -r _ab_f; do
-    [ -f "$_ab_f" ] || continue
-    awk -v f="$_ab_f" '
-      { line = $0; sub(/\r$/, "", line) }
-      line ~ /^[ \t]*(#|$)/ { next }
-      {
-        ind = match(line, /[^ \t]/) - 1
-        if (skip != "") {
-          if (ind > skip + 0) next
-          if (ind == skip + 0 && line ~ /^[ \t]*(elif|else)[ \t:]/) next
-          skip = ""
-        }
-        if (line ~ /^[ \t]*(if|elif)[ \t].*(dialect|sqlite|postgres|mysql)/) { skip = ind ""; next }
-        if (match(line, /(^|[^A-Za-z0-9_.])op\.(alter_column|drop_column|create_foreign_key|drop_constraint|create_unique_constraint|create_check_constraint|create_primary_key)\(/)) {
-          op = substr(line, RSTART, RLENGTH - 1); sub(/^[^o]*op\./, "", op)
-          print f ":" NR ": op." op "() outside op.batch_alter_table(): SQLite cannot ALTER a table this way, and this project runs its migrations on SQLite too (render_as_batch=True or a sqlite URL). Use: with op.batch_alter_table(\"<table>\") as batch_op: batch_op." op "(...)"
-          bad = 1
-        }
-      }
-      END { exit bad }' "$_ab_f" || _ab_rc=1
-  done < "$FORGE_TMP/alembic.targets"
-  return "$_ab_rc"
-}
-
-# forge_alembic_fk_index: in each revision's upgrade(), a column that gets a foreign key
-# (sa.Column(..., sa.ForeignKey(...)), sa.ForeignKeyConstraint([...]),
-# op.create_foreign_key(..., [...], ...)) also leads an index: op.create_index,
-# index=True, a primary key or unique constraint, or CREATE INDEX. PostgreSQL does not
-# index referencing columns; skipped when the database URL is MySQL (which does).
-forge_alembic_fk_index() {
-  case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
-  _ai_rc=0
-  forge_alembic_targets > "$FORGE_TMP/alembic.targets"
-  while IFS= read -r _ai_f; do
-    [ -f "$_ai_f" ] || continue
-    awk -v f="$_ai_f" '
-      # the position of the bracket closing the one at p (strings skipped)
-      function close_of(s, p,   d, c, q, i, n) {
-        d = 0; q = ""; n = length(s)
-        for (i = p; i <= n; i++) {
-          c = substr(s, i, 1)
-          if (q != "") { if (c == "\\") i++; else if (c == q) q = ""; continue }
-          if (c == "\"" || c == "\047") q = c
-          else if (c == "(" || c == "[") d++
-          else if (c == ")" || c == "]") { d--; if (d == 0) return i }
-        }
-        return n
-      }
-      function strs(t, all,   out) {
-        out = ""
-        while (match(t, /["\047][^"\047]*["\047]/)) {
-          out = out (out == "" ? "" : SUBSEP) substr(t, RSTART + 1, RLENGTH - 2); t = substr(t, RSTART + RLENGTH)
-          if (!all) break
-        }
-        return out
-      }
-      function first_list(t,   p) { p = index(t, "["); if (!p) return ""; t = substr(t, p); return substr(t, 1, close_of(t, 1)) }
-      function line_of(p,   k) { for (k = nl; k > 1 && start[k] > p; k--) ; return first + k - 1 }
-      function cover(list,   n, a, i) { n = split(list, a, SUBSEP); for (i = 1; i <= n; i++) cov[tolower(a[i])] = 1 }
-      { line = $0; sub(/\r$/, "", line) }
-      /^def[ \t]+upgrade[ \t]*\(/ { on = 1; first = NR + 1; next }
-      on && line ~ /^[^ \t#]/ { on = 0 }
-      on {
-        if (line ~ /^[ \t]*#/) line = ""
-        nl++; start[nl] = length(s) + 1; s = s line "\n"
-      }
-      END {
-        rest = s; off = 0
-        while (match(rest, /(^|[^A-Za-z0-9_])(Column|ForeignKeyConstraint|create_foreign_key|create_index|PrimaryKeyConstraint|UniqueConstraint|Index)\(/)) {
-          name = substr(rest, RSTART, RLENGTH - 1); sub(/^[^A-Za-z]/, "", name)
-          po = off + RSTART + RLENGTH - 1
-          pc = close_of(s, po); args = substr(s, po + 1, pc - po - 1)
-          if (name == "Column") {
-            if (args ~ /^[ \t\n]*["\047]/) {
-              col = tolower(strs(args, 0))
-              if (args ~ /(^|[^A-Za-z0-9_])ForeignKey\(/ && !(col in fk)) { fk[col] = line_of(po); order[++nfk] = col }
-              if (args ~ /(index|primary_key|unique)[ \t]*=[ \t]*True/) cov[col] = 1
-            }
-          } else if (name == "ForeignKeyConstraint" || name == "create_foreign_key") {
-            col = tolower(strs(first_list(args), 0))
-            if (col != "" && !(col in fk)) { fk[col] = line_of(po); order[++nfk] = col }
-          } else if (name == "create_index") cover(strs(first_list(args), 0))
-          else cover(strs(args, 1))
-          off = po; rest = substr(s, po + 1)
-        }
-        u = toupper(s)
-        while (match(u, /CREATE[ \t\n]+(UNIQUE[ \t\n]+)?INDEX[^(]*\([ \t\n]*/)) {
-          t = substr(u, RSTART + RLENGTH); sub(/[^A-Z0-9_"].*$/, "", t); gsub(/"/, "", t)
-          cov[tolower(t)] = 1; u = substr(u, RSTART + RLENGTH)
-        }
-        for (i = 1; i <= nfk; i++) {
-          col = order[i]
-          if (col in cov) continue
-          print f ":" fk[col] ": foreign key column \"" col "\" gets no index in this revision; PostgreSQL does not index referencing columns, so joins on it and deletes of the referenced rows scan the table. Add op.create_index(..., [\"" col "\"]) (index=True on the model mapped_column, then autogenerate)."
-          bad = 1
-        }
-        exit bad
-      }' "$_ai_f" || _ai_rc=1
-  done < "$FORGE_TMP/alembic.targets"
-  return "$_ai_rc"
-}
-
-# forge_alembic_tested: some test file mentions Alembic (pytest-alembic, alembic.command, ...).
-forge_alembic_tested() {
-  git ls-files -co --exclude-standard -- '*test_*.py' '*_test.py' '*conftest.py' 2>/dev/null | while IFS= read -r _at_f; do
-    [ -f "$_at_f" ] && grep -lE '(pytest_alembic|alembic_runner|from alembic|import alembic|alembic\.(command|config))' "$_at_f"
-  done | grep -q .
-}
-
-# forge_alembic_data_downgrade: a revision whose upgrade() changes rows (UPDATE, INSERT,
-# DELETE through execute(), sa.update/insert/delete, op.bulk_insert, an ORM Session) has a
-# downgrade() that does something (reverts, or raises to say it cannot), unless the
-# project tests its migrations. A downgrade that only passes reports success and leaves the data.
-forge_alembic_data_downgrade() {
-  forge_alembic_targets > "$FORGE_TMP/alembic.targets"
-  : > "$FORGE_TMP/alembic.data"
-  while IFS= read -r _ad_f; do
-    [ -f "$_ad_f" ] || continue
-    awk -v f="$_ad_f" '
-      { line = $0; sub(/\r$/, "", line) }
-      /^def[ \t]+upgrade[ \t]*\(/ { sec = "up"; next }
-      /^def[ \t]+downgrade[ \t]*\(/ { sec = "down"; dl = NR; next }
-      line ~ /^[^ \t#]/ { sec = ""; next }
-      sec == "up" && line !~ /^[ \t]*#/ { up = up line "\n" }
-      sec == "down" {
-        t = line; sub(/^[ \t]+/, "", t); sub(/[ \t]+$/, "", t)
-        if (indoc) { if (index(t, q)) indoc = 0; next }
-        if (t == "" || t ~ /^#/ || t == "pass" || t == "...") next
-        if (t ~ /^("""|\047\047\047)/) { q = substr(t, 1, 3); if (!index(substr(t, 4), q)) indoc = 1; next }
-        if (t ~ /^["\047]/) next
-        real = 1
-      }
-      END {
-        u = toupper(up)
-        data = (up ~ /execute\(/ && (u ~ /(^|[^A-Z_])UPDATE[ \t\n]+[^ \t\n]+[ \t\n]+SET[ \t\n]/ || u ~ /INSERT[ \t\n]+INTO[ \t\n]/ || u ~ /DELETE[ \t\n]+FROM[ \t\n]/)) \
-          || up ~ /(^|[^A-Za-z0-9_.])(sa\.)?(update|insert|delete)\([A-Za-z_]/ || up ~ /\.(update|insert|delete)\(\)/ \
-          || up ~ /op\.bulk_insert\(/ || up ~ /(^|[^A-Za-z0-9_])Session\(/
-        if (data && !real) print f ":" (dl ? dl : 1) ": upgrade() changes data but downgrade() does nothing, so alembic downgrade reports success and leaves the rows changed. Write the inverse, raise an error that says the revision cannot be reverted, or test the migrations (pytest-alembic)."
-      }' "$_ad_f" >> "$FORGE_TMP/alembic.data"
-  done < "$FORGE_TMP/alembic.targets"
-  [ -s "$FORGE_TMP/alembic.data" ] || return 0
-  forge_alembic_tested && return 0
-  cat "$FORGE_TMP/alembic.data"
+# forge_drizzle_is_schema <path>: succeeds when <path> is one of the configured schema
+# entries, matches one as a glob, or sits under one as a directory.
+forge_drizzle_is_schema() {
+  while IFS="$(printf '\t')" read -r _ds_k _ds_v; do
+    [ "$_ds_k" = schema ] || continue
+    _ds_g=$(printf '%s' "$_ds_v" | sed 's/\*\*/*/g')
+    # shellcheck disable=SC2254
+    case $1 in "$_ds_v"|"$_ds_v"/*|$_ds_g) return 0 ;; esac
+  done < "$FORGE_TMP/drizzle.config"
   return 1
 }
 
-# forge_mentions <file> <name>: <name> appears as a word in <file>, outside comment lines.
-forge_mentions() {
-  grep -v '^[[:space:]]*#' "$1" 2>/dev/null | grep -qE "(^|[^A-Za-z0-9_])$2([^A-Za-z0-9_]|\$)"
-}
-
-# forge_models_registered: a module of a models package that maps a table (a class with
-# __tablename__) is imported by the package's __init__.py when that file is the registry
-# (it imports other modules of the package that map tables), or by alembic/env.py:
-# Base.metadata, which autogenerate and alembic check compare, knows only imported models.
-forge_models_registered() {
-  if [ -n "$FORGE_FILES" ]; then printf '%s\n' "$FORGE_FILES"
-  else git ls-files -co --exclude-standard -- 'models/*.py' '*/models/*.py' 2>/dev/null; fi > "$FORGE_TMP/models.files"
-  _mr_rc=0
-  while IFS= read -r _mr_f; do
-    case ${_mr_f##*/} in __init__.py|conftest.py|test_*) continue ;; *.py) ;; *) continue ;; esac
-    [ -f "$_mr_f" ] || continue
-    _mr_d=$(dirname "$_mr_f")
-    _mr_m=$(basename "$_mr_f" .py)
-    [ -f "$_mr_d/__init__.py" ] || continue
-    awk '
-      /^class[ \t]+[A-Za-z_]/ { c = $0; sub(/^class[ \t]+/, "", c); sub(/[^A-Za-z0-9_].*$/, "", c); cl = NR; next }
-      /^[^ \t#\r]/ { c = "" }
-      c != "" && /^[ \t]+__tablename__[ \t]*[:=]/ { print cl "\t" c; c = "" }' "$_mr_f" > "$FORGE_TMP/models.classes"
-    [ -s "$FORGE_TMP/models.classes" ] || continue
-    forge_mentions "$_mr_d/__init__.py" "$_mr_m" && continue
-    forge_mentions alembic/env.py "$_mr_m" && continue
-    # the registry: __init__.py imports another module of the package that maps a table
-    _mr_reg=''
-    for _mr_x in $(awk '
-      /^[ \t]*from[ \t]+\.[ \t]+import[ \t]/ { s = $0; sub(/^.*import[ \t]+/, "", s); gsub(/[(),]/, " ", s); n = split(s, a, /[ \t]+/); for (i = 1; i <= n; i++) if (a[i] != "as") print a[i]; next }
-      /^[ \t]*from[ \t]+[A-Za-z0-9_.]+[ \t]+import/ { s = $0; sub(/^[ \t]*from[ \t]+/, "", s); sub(/[ \t].*$/, "", s); sub(/^.*\./, "", s); print s; next }
-      /^[ \t]*import[ \t]+[A-Za-z0-9_.]+/ { s = $0; sub(/^[ \t]*import[ \t]+/, "", s); sub(/[ \t,].*$/, "", s); sub(/^.*\./, "", s); print s }' "$_mr_d/__init__.py"); do
-      [ "$_mr_x" != "$_mr_m" ] && [ -f "$_mr_d/$_mr_x.py" ] && grep -q '__tablename__' "$_mr_d/$_mr_x.py" && { _mr_reg=1; break; }
-    done
-    [ -n "$_mr_reg" ] || continue
-    while IFS='	' read -r _mr_l _mr_c; do
-      printf '%s:%s: model %s is not imported by %s/__init__.py, which imports the other models: Base.metadata will not have its table, so autogenerate writes no migration for it and alembic check passes. Import it there.\n' "$_mr_f" "$_mr_l" "$_mr_c" "$_mr_d"
-    done < "$FORGE_TMP/models.classes"
-    _mr_rc=1
-  done < "$FORGE_TMP/models.files"
-  return "$_mr_rc"
-}
-
-# ---- Settings kept in sync with .env templates (python/env-example, typescript/env-example).
-
-# forge_env_fields_py <file>: "line<TAB>VAR<TAB>required<TAB>class" for each field of a
-# pydantic-settings BaseSettings subclass (env_prefix, alias, case_sensitive applied;
-# required = no default). Fields with AliasChoices / AliasPath are left out.
-forge_env_fields_py() {
+# forge_drizzle_tables <file>: the file without what does not reach the database
+# (blank lines, comments, imports, type exports, relations()/defineRelations() calls).
+forge_drizzle_tables() {
   awk '
-    function cls_of(l,   c) { c = l; sub(/^class[ \t]+/, "", c); sub(/[^A-Za-z0-9_].*$/, "", c); return c }
-    { line = $0; sub(/\r$/, "", line) }
-    line ~ /^class[ \t]/ { cls = (line ~ /\(.*BaseSettings.*\)[ \t]*:/) ? cls_of(line) : ""; body = ""; next }
-    line ~ /^[^ \t#]/ { cls = ""; next }
-    cls == "" || line ~ /^[ \t]*(#|$)/ { next }
-    {
-      ind = match(line, /[^ \t]/) - 1
-      if (body == "") body = ind
-    }
-    FNR == NR {
-      if (match(line, /env_prefix[ \t]*=[ \t]*["\047][^"\047]*["\047]/)) { p = substr(line, RSTART, RLENGTH); sub(/^[^"\047]*["\047]/, "", p); sub(/["\047]$/, "", p); pre[cls] = p }
-      if (line ~ /case_sensitive[ \t]*=[ \t]*True/) cs[cls] = 1
+    inc { if (/\*\//) inc = 0; next }
+    /^[[:space:]]*\/\*/ { if (!/\*\//) inc = 1; next }
+    /^[[:space:]]*(\/\/|$)/ { next }
+    /^[[:space:]]*(import[[:space:]{*]|export[[:space:]]+(type|interface)[[:space:]]|export[[:space:]]*\*)/ { next }
+    depth == 0 && /(^|[^A-Za-z0-9_$])(defineRelations|relations)[[:space:]]*\(/ { inrel = 1 }
+    inrel {
+      t = $0; o = gsub(/\(/, "", t); t = $0; c = gsub(/\)/, "", t); depth += o - c
+      if (depth <= 0) { depth = 0; inrel = 0 }
       next
     }
-    ind == body && line ~ /^[ \t]*[A-Za-z_][A-Za-z0-9_]*[ \t]*:/ {
-      name = line; sub(/^[ \t]*/, "", name); sub(/[ \t]*:.*$/, "", name)
-      rest = line; sub(/^[^:]*:/, "", rest)
-      if (name == "model_config" || rest ~ /ClassVar|AliasChoices|AliasPath/) next
-      key = pre[cls] name
-      if (match(rest, /(validation_alias|alias)[ \t]*=[ \t]*["\047][^"\047]+["\047]/)) { key = substr(rest, RSTART, RLENGTH); sub(/^[^"\047]*["\047]/, "", key); sub(/["\047]$/, "", key) }
-      if (!cs[cls]) key = toupper(key)
-      req = 1
-      if (match(rest, /[ \t]=([ \t]|$)/)) {
-        v = substr(rest, RSTART + RLENGTH); sub(/^[ \t]+/, "", v)
-        req = 0
-        if (v ~ /^([A-Za-z_]+\.)?Field\(/) {
-          sub(/^[^(]*\([ \t]*/, "", v)
-          if (v ~ /^(\.\.\.|\))/) req = 1
-          else if (v ~ /^[a-z_]+[ \t]*=/ && v !~ /default(_factory)?[ \t]*=/) req = 1
-        }
-      }
-      print FNR "\t" key "\t" req "\t" cls
-    }' "$1" "$1"
+    { sub(/^[[:space:]]+/, ""); sub(/[[:space:]]+$/, ""); print }' "$1" 2>/dev/null
 }
 
-# forge_env_fields_ts <file>: the same for the keys of a Zod env schema (t3-env
-# createEnv, or z.object(...) parsed from process.env): UPPER_CASE keys whose value is a
-# z. chain on the same line; required = no .default(), .optional() or .catch().
-forge_env_fields_ts() {
-  awk '
-    match($0, /^[ \t]*["\047]?[A-Z][A-Z0-9_]*["\047]?[ \t]*:[ \t]*z\./) {
-      k = $0; sub(/^[ \t]*["\047]?/, "", k); sub(/[^A-Z0-9_].*$/, "", k)
-      print FNR "\t" k "\t" ($0 ~ /\.(default|optional|catch)\(/ ? 0 : 1) "\tenv"
-    }' "$1"
-}
-
-# forge_env_example <py|ts>: Stop and pre-commit, not --all. A settings field or env schema
-# key added in the change appears in the .env template of the nearest directory that has
-# one (.env.example, .env.template, .env.sample, .env.dist, .env.<name>.example): always
-# when it has no default, and also with a default when the template already lists at
-# least half of that class's variables. A template that lists none of them is not about it.
-forge_env_example() {
-  [ "$mode" = --all ] && return 0
-  _ee_rc=0
-  printf '%s\n' "$FORGE_FILES" > "$FORGE_TMP/env.files"
-  while IFS= read -r _ee_f; do
-    [ -f "$_ee_f" ] || continue
-    case $1 in
-      py) grep -q 'BaseSettings' "$_ee_f" || continue ;;
-      ts) grep -qE 'createEnv\(|process\.env' "$_ee_f" && grep -q 'z\.' "$_ee_f" || continue ;;
+# forge_drizzle_migration_present: a change to a schema file that reaches the database
+# comes with a generated migration in the out folder: the SQL plus meta/_journal.json and
+# a meta/*_snapshot.json (drizzle-kit 0.x), or <out>/<name>/migration.sql and its
+# snapshot.json (drizzle-kit 1.x). Not with --all (no change to compare).
+forge_drizzle_migration_present() {
+  [ "$mode" != --all ] || return 0
+  forge_drizzle_config || return 0
+  grep -q "^schema$(printf '\t')" "$FORGE_TMP/drizzle.config" || {
+    printf 'forge:%s skipped: no schema path found in %s\n' "$c_id" "$FORGE_DZ_CONFIG"; return 0; }
+  _dm_out=$(forge_drizzle_get out)
+  : > "$FORGE_TMP/dz.schema"
+  while IFS= read -r _dm_f; do
+    forge_drizzle_is_schema "$_dm_f" || continue
+    forge_drizzle_tables "$_dm_f" > "$FORGE_TMP/dz.now"
+    forge_drizzle_tables "$FORGE_TMP/base/$_dm_f" > "$FORGE_TMP/dz.then"
+    cmp -s "$FORGE_TMP/dz.now" "$FORGE_TMP/dz.then" || printf '%s\n' "$_dm_f" >> "$FORGE_TMP/dz.schema"
+  done < "$FORGE_TMP/changed"
+  [ -s "$FORGE_TMP/dz.schema" ] || return 0
+  _dm_sql=0; _dm_journal=0; _dm_snap=0
+  while IFS= read -r _dm_f; do
+    case $_dm_f in
+      "$_dm_out"/meta/_journal.json) _dm_journal=1 ;;
+      "$_dm_out"/meta/*_snapshot.json|"$_dm_out"/*/snapshot.json) _dm_snap=1 ;;
+      "$_dm_out"/*/migration.sql) _dm_sql=1; _dm_journal=1 ;;
+      "$_dm_out"/*.sql) _dm_sql=1 ;;
     esac
-    _ee_d=$(dirname "$_ee_f")
-    while :; do
-      _ee_t=$(ls -A "$_ee_d" 2>/dev/null | grep -E '^\.env(\.[A-Za-z0-9_-]+)?\.(example|template|sample|dist)$')
-      [ -n "$_ee_t" ] || [ "$_ee_d" = . ] && break
-      _ee_d=$(dirname "$_ee_d")
+  done < "$FORGE_TMP/existing"
+  # drizzle-kit 1.x keeps no journal: a <name>/migration.sql stands in for it
+  [ "$_dm_sql" = 1 ] && [ "$_dm_journal" = 1 ] && [ "$_dm_snap" = 1 ] && return 0
+  while IFS= read -r _dm_f; do
+    printf '%s: the Drizzle schema changed, but %s/ has no new migration with its journal and snapshot\n' "$_dm_f" "$_dm_out"
+  done < "$FORGE_TMP/dz.schema"
+  printf 'Generate it (drizzle-kit generate) and keep the SQL, meta/_journal.json and the snapshot together; never write them by hand.\n'
+  return 1
+}
+
+# forge_drizzle_applied: migrations (SQL and snapshots in the out folder) that exist in
+# the base are not modified or deleted; a change goes in a new migration.
+forge_drizzle_applied() {
+  [ "$mode" != --all ] || return 0
+  forge_drizzle_config || return 0
+  _da_out=$(forge_drizzle_get out)
+  _da_rc=0
+  while IFS= read -r _da_f; do
+    case $_da_f in
+      "$_da_out"/*.sql|"$_da_out"/meta/*_snapshot.json|"$_da_out"/*/snapshot.json)
+        if [ -f "$_da_f" ]; then _da_what=modified; else _da_what=deleted; fi
+        printf '%s: an existing migration was %s; generate a new migration instead (drizzle-kit generate)\n' "$_da_f" "$_da_what"
+        _da_rc=1 ;;
+    esac
+  done < "$FORGE_TMP/inbase"
+  return "$_da_rc"
+}
+
+# forge_drizzle_squawk [files]: Squawk (§13.1) on the changed SQL of the out folder
+# when the dialect is postgresql; with no files (--since, --all), on the newest migration.
+forge_drizzle_squawk() {
+  forge_drizzle_config || return 0
+  [ "$(forge_drizzle_get dialect)" = postgresql ] || return 0
+  _dq_out=$(forge_drizzle_get out)
+  if [ "$#" -eq 0 ]; then
+    set -- $(git ls-files -- "$_dq_out/*.sql" | sort | tail -n 1)
+  else
+    for _dq_f in "$@"; do
+      shift
+      case $_dq_f in "$_dq_out"/*.sql) set -- "$@" "$_dq_f" ;; esac
     done
-    [ -n "$_ee_t" ] || continue
-    _ee_names=''
-    : > "$FORGE_TMP/env.keys"
-    for _ee_x in $_ee_t; do
-      [ "$_ee_d" = . ] && _ee_p=$_ee_x || _ee_p="$_ee_d/$_ee_x"
-      _ee_names="${_ee_names:+$_ee_names, }$_ee_p"
-      sed -n -E 's/^[[:space:]]*(export[[:space:]]+)?#?[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=.*/\2/p' "$_ee_p" >> "$FORGE_TMP/env.keys"
-    done
-    "forge_env_fields_$1" "$_ee_f" > "$FORGE_TMP/env.fields"
-    awk -F '\t' -v f="$_ee_f" -v t="$_ee_names" '
-      function found(k,   h) { if (k in have) return 1; for (h in have) if (index(h, k "_") == 1) return 1; return 0 }
-      FILENAME == ARGV[1] { have[toupper($0)] = 1; next }
-      { n++; ln[n] = $1; key[n] = $2; rq[n] = $3; g[n] = $4; tot[$4]++; if (found(toupper($2))) got[$4]++ }
+  fi
+  forge_squawk_files "$@"
+}
+
+# forge_vue_vfor_keys <files>: in the templates of .vue files, each element with v-for
+# (not <template>) also binds a key (:key, v-bind:key). Prints "path:line: ..." per element
+# (the line of its v-for). Comments, <script> and <style> are skipped; quotes are respected.
+forge_vue_vfor_keys() {
+  _vk_rc=0
+  for _vk_f in "$@"; do
+    case $_vk_f in *.vue) ;; *) continue ;; esac
+    [ -f "$_vk_f" ] || continue
+    awk -v f="$_vk_f" '
+      { s = s $0 "\n" }
       END {
-        for (j = 1; j <= n; j++) {
-          if (!got[g[j]] || found(toupper(key[j]))) continue
-          if (rq[j] || got[g[j]] * 2 >= tot[g[j]]) {
-            print f ":" ln[j] ": " key[j] " is not in " t "; add it there (a placeholder value is fine) so the next person to set up the project knows it exists"
-            bad = 1
+        n = length(s); ln = 1; skip = ""
+        for (i = 1; i <= n; i++) {
+          c = substr(s, i, 1)
+          if (c == "\n") { ln++; continue }
+          if (c != "<") continue
+          if (substr(s, i, 4) == "<!--") {
+            j = index(substr(s, i + 4), "-->"); if (!j) break
+            t = substr(s, i, j + 6); ln += gsub(/\n/, "", t); i += j + 5; continue
           }
+          if (!match(substr(s, i + 1, 1), /[A-Za-z\/]/)) continue
+          # one tag, quotes respected
+          start = ln; q = ""; tag = ""
+          for (i++; i <= n; i++) {
+            c = substr(s, i, 1)
+            if (c == "\n") ln++
+            if (q != "") { if (c == q) q = ""; tag = tag c; continue }
+            if (c == "\"" || c == "\047") q = c
+            else if (c == ">") break
+            tag = tag c
+          }
+          name = tag; sub(/[[:space:]].*$/, "", name); if (length(name) > 1) sub(/\/$/, "", name); shown = name; name = tolower(name)
+          if (skip != "") { if (name == "/" skip) skip = ""; continue }
+          if ((name == "script" || name == "style") && tag !~ /\/$/) { skip = name; continue }
+          tag = " " tag
+          if (name == "template" || tag !~ /[[:space:]]v-for[[:space:]]*=/) continue
+          if (tag ~ /[[:space:]](:key|v-bind:key)[[:space:]]*=/) continue
+          match(tag, /[[:space:]]v-for[[:space:]]*=/); pre = substr(tag, 1, RSTART)
+          printf "%s:%d: <%s> has v-for without :key\n", f, start + gsub(/\n/, "", pre), shown
+          bad = 1
         }
         exit bad
-      }' "$FORGE_TMP/env.keys" "$FORGE_TMP/env.fields" || _ee_rc=1
-  done < "$FORGE_TMP/env.files"
-  return "$_ee_rc"
+      }' "$_vk_f" || _vk_rc=1
+  done
+  return "$_vk_rc"
+}
+
+# OpenAPI clients generated by openapi-typescript, orval or @hey-api/openapi-ts: their
+# files say so in their header, and a package.json script runs the generator.
+FORGE_OPENAPI_MARK='auto-generated by (openapi-typescript|@hey-api/openapi-ts)|generated by orval'
+FORGE_OPENAPI_GEN='"[^"]+"[[:space:]]*:[[:space:]]*"[^"]*(openapi-typescript|orval|openapi-ts)'
+
+# forge_openapi_spec <path>: an OpenAPI or Swagger document (JSON or YAML with an
+# openapi / swagger version near its top).
+forge_openapi_spec() {
+  case $1 in *.json|*.yaml|*.yml) ;; *) return 1 ;; esac
+  [ -f "$1" ] && head -c 4096 "$1" | grep -qE "[\"']?(openapi|swagger)[\"']?[[:space:]]*:[[:space:]]*[\"']?[0-9]"
+}
+
+# forge_openapi_generated <path>: a file whose header says one of the generators wrote it.
+forge_openapi_generated() { [ -f "$1" ] && head -n 15 "$1" | grep -qiE "$FORGE_OPENAPI_MARK"; }
+
+# forge_openapi_sync regenerate | hand-edits: compares the changed OpenAPI documents with
+# the changed generated files. regenerate: a changed document needs a changed generated
+# file. hand-edits: a changed generated file needs a changed document or generator config
+# (package.json, orval.config.*, openapi-ts.config.*, redocly.*), when the repository
+# tracks a document (a client generated from a URL is not checked). Not with --all.
+forge_openapi_sync() {
+  [ "$mode" != --all ] || return 0
+  _os_pkgs=$(git ls-files -- package.json '*/package.json')
+  [ -n "$_os_pkgs" ] || return 0
+  # shellcheck disable=SC2086
+  _os_script=$(grep -hoE "$FORGE_OPENAPI_GEN" $_os_pkgs 2>/dev/null | head -n 1 | cut -d '"' -f 2)
+  [ -n "$_os_script" ] || return 0
+  forge_filter forge_openapi_spec < "$FORGE_TMP/existing" > "$FORGE_TMP/openapi.specs"
+  forge_filter forge_openapi_generated < "$FORGE_TMP/existing" > "$FORGE_TMP/openapi.generated"
+  case $1 in
+    regenerate)
+      [ -s "$FORGE_TMP/openapi.specs" ] && [ ! -s "$FORGE_TMP/openapi.generated" ] || return 0
+      while IFS= read -r _os_f; do
+        printf '%s: the OpenAPI document changed, but no generated client file did\n' "$_os_f"
+      done < "$FORGE_TMP/openapi.specs"
+      printf 'Regenerate the client (the "%s" script) and keep both changes together.\n' "$_os_script" ;;
+    hand-edits)
+      [ -s "$FORGE_TMP/openapi.generated" ] && [ ! -s "$FORGE_TMP/openapi.specs" ] || return 0
+      grep -qE '(^|/)(package\.json|orval\.config\.[a-z]+|openapi-ts\.config\.[a-z]+|redocly\.[a-z]+)$' "$FORGE_TMP/existing" && return 0
+      [ -n "$(git ls-files -- '*.json' '*.yaml' '*.yml' | forge_filter forge_openapi_spec | head -n 1)" ] || return 0
+      while IFS= read -r _os_f; do
+        printf '%s: generated from the OpenAPI document (its header says so), but neither the document nor the generator config changed\n' "$_os_f"
+      done < "$FORGE_TMP/openapi.generated"
+      printf 'Change the OpenAPI document (or the server it is generated from), then regenerate with the "%s" script; never edit generated files by hand.\n' "$_os_script" ;;
+  esac
+  return 1
 }
 
 # forge_related_py_tests <files>: changed test files plus tests/**/test_<module>.py
@@ -8573,7 +7828,7 @@ except Exception as e:  # never report a crash as a loosened setting
 FORGE_SCRIPT_END
 }
 
-FORGE_FORBID='python/fastapi/cors-credentials-wildcard|python/fastapi/no-on-event|python/no-stub|python/pydantic/v2-api|python/pytest/no-tautological-assert|python/pytest/no-test-env-branch|python/sqlalchemy/async-expire-on-commit|python/sqlalchemy/fk-index|python/sqlalchemy/mapped-column|python/sqlalchemy/no-backref|python/sqlalchemy/no-declarative-base|python/sqlalchemy/no-query-api|python/sqlalchemy/no-raw-execute|python/sqlalchemy/no-text-fstring'
+FORGE_FORBID='python/fastapi/cors-credentials-wildcard|python/fastapi/no-on-event|python/no-stub|python/pydantic/v2-api|python/pytest/no-tautological-assert|python/pytest/no-test-env-branch|python/sqlalchemy/async-expire-on-commit|python/sqlalchemy/mapped-column|python/sqlalchemy/no-backref|python/sqlalchemy/no-declarative-base|python/sqlalchemy/no-query-api|python/sqlalchemy/no-raw-execute|python/sqlalchemy/no-text-fstring'
 FORGE_NO_INCREASE='python/pytest/no-mock-increase|python/pytest/no-new-skip'
 FORGE_NO_DECREASE='python/pytest/no-fewer-asserts'
 
@@ -8734,7 +7989,6 @@ exit "$fail"
     "python/aware-datetime": "34edbcba3e80528562da1cc94eaf4c50305b8749f03027d6b653546eb64bd5dc",
     "python/config-files": "da9ccbb03a788a9d5ef6c200d2fb71befbf02bf9a51d68cb623a258f15d1d8fe",
     "python/config-ratchet": "f52f4a9010b8e8f25fd8a37629712e683c61ccc162748669e29967b5869ce599",
-    "python/env-example": "c4597314420b3777fb4b0e819ea37c3d0187c175afcb6e63f00176bab4fff4cd",
     "python/fastapi/annotated-depends": "74fc0e4e89bf389aa7377ee0ab2d47d29257c9d063592ab8156b1f3f9dca7f38",
     "python/fastapi/cors-credentials-wildcard": "1ff2c42562d1d01479da9e3f2bea4be08ad42b140de7d6dae3b80ef4d277d84c",
     "python/fastapi/no-on-event": "b271f0c2fcd5a098e169a20049f3734d1e74c555ef94815f85965c0f89dd13b7",
@@ -8778,16 +8032,11 @@ exit "$fail"
     "python/pytest/no-test-env-branch": "9d251f32eedb18ac7d819e8b6cf6a4450b14b5eead1f43c544e1fbf995a9e7aa",
     "python/pytest/run": "6c44f8c8897a1237212af2d20a60f49aeff777ab85ceb52f7f31ffb6774aaa87",
     "python/sqlalchemy/alembic/check": "20302f517e19991c41d1ab5de4a979a8aae9c8149b9b88ec44e87775c56ffc0c",
-    "python/sqlalchemy/alembic/data-migration-downgrade": "8fb52fa9c59854af35349e5a5d96f043029fae9eff7ba94091c1e3b6247e2dc9",
     "python/sqlalchemy/alembic/downgrade": "ae44bcbf5f4e2bcc2bf5905ad69c1799335cd535c42c395baba1184b3a56247a",
-    "python/sqlalchemy/alembic/fk-index": "117f49230570eb00a96c07edc42bf6747406587981f03ec51757cd5912d41ed9",
     "python/sqlalchemy/alembic/migration-lint": "2ac77a340c31cd459a710f2f48c425efbf32db6fbaac006352dc50d1a24a31c6",
-    "python/sqlalchemy/alembic/model-registered": "9bf9e4138717c73c3958b80129243d7332f1fdb53b5c35ad19939a5182568521",
     "python/sqlalchemy/alembic/no-downgrade-base": "64399d2ccfb81a42cd95eb0d187143e4694829edeabe8d1005e930e9a6b7030b",
     "python/sqlalchemy/alembic/single-head": "dc936810ec4da1923a67833e0a5ce4ee5a45a0413637dad35aec38273c71309d",
-    "python/sqlalchemy/alembic/sqlite-batch": "39d6b7ae40f9ee7589eae96f2832df4277f30242254d2e126f756da319dd947b",
     "python/sqlalchemy/async-expire-on-commit": "6fce73f809a395ca43afda54db104f1352d624589698ec0f91bab90a9848054b",
-    "python/sqlalchemy/fk-index": "a6771ece4823d8ad60672185941720a0f505535585c362c9c3c71f982d61a073",
     "python/sqlalchemy/mapped-column": "6427c117e9e210af344a1a9f48361832151670ca25bd382d47fbfc60fe896112",
     "python/sqlalchemy/no-backref": "dcbee3478c89bcb1ece428ca1259e7bac091ed43c6c8e4da75787c4c06a258f4",
     "python/sqlalchemy/no-declarative-base": "10b289e5cc6d65882309cf305285e365372000cb1f1c37ac6649b13d43929852",
@@ -8812,12 +8061,12 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "abda384154c0c859546b6aa0e79a6a1a8c4cead27ff82e014fc69de843294b74",
     ".claude/skills/forge-project/scripts/guard.sh": "33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d",
     ".claude/skills/forge-project/scripts/lib.sh": "1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "cd3f53431a1fb4edf37cfb3852ebf0f61c51109c05fc63d1aab8a072c95e13b4",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "1cbb0f9932c97c6e9518f3122cf850b74b9516fd4e14a81b2c141130d9724b9c",
     ".claude/skills/forge-project/scripts/review.sh": "9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac",
-    ".claude/skills/forge-project/scripts/session-start.sh": "2d41a26eebb7e13342cbde9c989caa4a647d96e1936d7464f6e4366666f1799b",
+    ".claude/skills/forge-project/scripts/session-start.sh": "24eadbfc2adb2b45a5af406fc9072dd9ac48e38a8123dd0c1b8a0bc123973a3d",
     ".claude/skills/forge-project/scripts/stop.sh": "f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173",
     ".claude/skills/forge-project/scripts/turn-start.sh": "a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "af41bbaa4663c2fa2203f8140acbe73eaafe2744ec987e05b0ffc05d890659c6",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "4e2b49243ccc67b078f7c5fa323b10ae3d35b5b2fd88987dbf94be4ecec85ed4",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml": "69a94f1a0b16aa08bcf758af3e3dc269266cdd808aba1a4289b4c58c7f969700",
     ".forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml": "1589382e5e0b5cae841a8f47dae9f2b3a8583a4bb1074ceb858d882e648e9b49",
@@ -8829,7 +8078,6 @@ exit "$fail"
     ".forge/ast-grep/rule-tests/python-pytest-no-tautological-assert-test.yml": "96cfb1aacfb5a86d5c235bd2a619a8ec518697943eefd02a6088d3486b9bc255",
     ".forge/ast-grep/rule-tests/python-pytest-no-test-env-branch-test.yml": "b6b6511eb85b39a21fbfa8473e4c6c0b3a247493989c35b12ff669f142ba4ea9",
     ".forge/ast-grep/rule-tests/python-sqlalchemy-async-expire-on-commit-test.yml": "b0949d9f9be5bd6c2ca2d8c383c74d1379e2abd0dd75ce9f0e669a462638abef",
-    ".forge/ast-grep/rule-tests/python-sqlalchemy-fk-index-test.yml": "c4ebad5e12beaa84aa7a2e95baf45b53cd84490d28f108b18911e25890d4aa45",
     ".forge/ast-grep/rule-tests/python-sqlalchemy-mapped-column-test.yml": "5e88453376b1a27b0f6616dc5980226ab0dfb537778763ba31d6448e4045a448",
     ".forge/ast-grep/rule-tests/python-sqlalchemy-no-backref-test.yml": "11bc076c2bb5996c604661efcb8b63c92b5452a42620ff6bee23c8abff645c0a",
     ".forge/ast-grep/rule-tests/python-sqlalchemy-no-declarative-base-test.yml": "4b93be91c7de1f3e2da242f86fd8a55dd79f4b4b629fe15163f656e62ac18892",
@@ -8846,7 +8094,6 @@ exit "$fail"
     ".forge/ast-grep/rules/python/pytest/no-tautological-assert.yml": "7de47e969bf4614418e4b8b5ebec4e2aed80b2dceb35b6f29d406d39de54b0a0",
     ".forge/ast-grep/rules/python/pytest/no-test-env-branch.yml": "8876a2eb9e568b666a50631bc5629de93ec3a7804fed41f2e90507017f64ba13",
     ".forge/ast-grep/rules/python/sqlalchemy/async-expire-on-commit.yml": "637fca3fce2ffff8d64e094b4e9b168cc9bc8fcdcc6496efc30cbc127161ccac",
-    ".forge/ast-grep/rules/python/sqlalchemy/fk-index.yml": "b99b9820485eb64a7692b5c7472af76c9e4c45042e1c165ee06133b1d45d9020",
     ".forge/ast-grep/rules/python/sqlalchemy/mapped-column.yml": "e1a15384665afb7aae24664c55f4d81523622a6ef117385b17f806bc30cd3c3f",
     ".forge/ast-grep/rules/python/sqlalchemy/no-backref.yml": "13b73b70944eb1efd7c182f38a1832a0f639b622778db9c53c050c8f07511bcb",
     ".forge/ast-grep/rules/python/sqlalchemy/no-declarative-base.yml": "781d607290d560e8852c307a0e21211408c06731043ef0af7b44655f39f64d01",
@@ -8854,7 +8101,7 @@ exit "$fail"
     ".forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml": "4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0",
     ".forge/ast-grep/rules/python/sqlalchemy/no-text-fstring.yml": "04c44c9e215449d46b10540e86e999ec1d6383d8c3a849855fe73cb456668fca",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "d2fdcff8b6b43fca7c4eed85fb7bbdc991e927c9b7b1beebd5b2bacd4169314c",
+    ".forge/check.sh": "82e0719d8c90ded02ae6a85fd1c910c4d9354147af63db6bbd34d707a924ca8e",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -8909,12 +8156,12 @@ d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills
 abda384154c0c859546b6aa0e79a6a1a8c4cead27ff82e014fc69de843294b74  .claude/skills/forge-project/scripts/guard.rules
 33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d  .claude/skills/forge-project/scripts/guard.sh
 1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a  .claude/skills/forge-project/scripts/lib.sh
-cd3f53431a1fb4edf37cfb3852ebf0f61c51109c05fc63d1aab8a072c95e13b4  .claude/skills/forge-project/scripts/post-edit.sh
+1cbb0f9932c97c6e9518f3122cf850b74b9516fd4e14a81b2c141130d9724b9c  .claude/skills/forge-project/scripts/post-edit.sh
 9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac  .claude/skills/forge-project/scripts/review.sh
-2d41a26eebb7e13342cbde9c989caa4a647d96e1936d7464f6e4366666f1799b  .claude/skills/forge-project/scripts/session-start.sh
+24eadbfc2adb2b45a5af406fc9072dd9ac48e38a8123dd0c1b8a0bc123973a3d  .claude/skills/forge-project/scripts/session-start.sh
 f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173  .claude/skills/forge-project/scripts/stop.sh
 a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c  .claude/skills/forge-project/scripts/turn-start.sh
-af41bbaa4663c2fa2203f8140acbe73eaafe2744ec987e05b0ffc05d890659c6  .claude/skills/forge-project/scripts/typecheck.sh
+4e2b49243ccc67b078f7c5fa323b10ae3d35b5b2fd88987dbf94be4ecec85ed4  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 69a94f1a0b16aa08bcf758af3e3dc269266cdd808aba1a4289b4c58c7f969700  .forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml
 1589382e5e0b5cae841a8f47dae9f2b3a8583a4bb1074ceb858d882e648e9b49  .forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml
@@ -8926,7 +8173,6 @@ b95df53ce8a46a7d734c1841b72bd815cfcfdb68664019fa60b0dc4983dafd6c  .forge/ast-gre
 96cfb1aacfb5a86d5c235bd2a619a8ec518697943eefd02a6088d3486b9bc255  .forge/ast-grep/rule-tests/python-pytest-no-tautological-assert-test.yml
 b6b6511eb85b39a21fbfa8473e4c6c0b3a247493989c35b12ff669f142ba4ea9  .forge/ast-grep/rule-tests/python-pytest-no-test-env-branch-test.yml
 b0949d9f9be5bd6c2ca2d8c383c74d1379e2abd0dd75ce9f0e669a462638abef  .forge/ast-grep/rule-tests/python-sqlalchemy-async-expire-on-commit-test.yml
-c4ebad5e12beaa84aa7a2e95baf45b53cd84490d28f108b18911e25890d4aa45  .forge/ast-grep/rule-tests/python-sqlalchemy-fk-index-test.yml
 5e88453376b1a27b0f6616dc5980226ab0dfb537778763ba31d6448e4045a448  .forge/ast-grep/rule-tests/python-sqlalchemy-mapped-column-test.yml
 11bc076c2bb5996c604661efcb8b63c92b5452a42620ff6bee23c8abff645c0a  .forge/ast-grep/rule-tests/python-sqlalchemy-no-backref-test.yml
 4b93be91c7de1f3e2da242f86fd8a55dd79f4b4b629fe15163f656e62ac18892  .forge/ast-grep/rule-tests/python-sqlalchemy-no-declarative-base-test.yml
@@ -8943,7 +8189,6 @@ bed8cf569ef38351011aa0ce3f2d2ca9427cf26e06e2c8516f0f56569bfe6c88  .forge/ast-gre
 7de47e969bf4614418e4b8b5ebec4e2aed80b2dceb35b6f29d406d39de54b0a0  .forge/ast-grep/rules/python/pytest/no-tautological-assert.yml
 8876a2eb9e568b666a50631bc5629de93ec3a7804fed41f2e90507017f64ba13  .forge/ast-grep/rules/python/pytest/no-test-env-branch.yml
 637fca3fce2ffff8d64e094b4e9b168cc9bc8fcdcc6496efc30cbc127161ccac  .forge/ast-grep/rules/python/sqlalchemy/async-expire-on-commit.yml
-b99b9820485eb64a7692b5c7472af76c9e4c45042e1c165ee06133b1d45d9020  .forge/ast-grep/rules/python/sqlalchemy/fk-index.yml
 e1a15384665afb7aae24664c55f4d81523622a6ef117385b17f806bc30cd3c3f  .forge/ast-grep/rules/python/sqlalchemy/mapped-column.yml
 13b73b70944eb1efd7c182f38a1832a0f639b622778db9c53c050c8f07511bcb  .forge/ast-grep/rules/python/sqlalchemy/no-backref.yml
 781d607290d560e8852c307a0e21211408c06731043ef0af7b44655f39f64d01  .forge/ast-grep/rules/python/sqlalchemy/no-declarative-base.yml
@@ -8951,7 +8196,7 @@ e1a15384665afb7aae24664c55f4d81523622a6ef117385b17f806bc30cd3c3f  .forge/ast-gre
 4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0  .forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml
 04c44c9e215449d46b10540e86e999ec1d6383d8c3a849855fe73cb456668fca  .forge/ast-grep/rules/python/sqlalchemy/no-text-fstring.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-d2fdcff8b6b43fca7c4eed85fb7bbdc991e927c9b7b1beebd5b2bacd4169314c  .forge/check.sh
+82e0719d8c90ded02ae6a85fd1c910c4d9354147af63db6bbd34d707a924ca8e  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

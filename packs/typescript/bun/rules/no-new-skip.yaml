@@ -1,0 +1,20 @@
+id: typescript/bun/no-new-skip
+description: Tests that import from bun:test are not skipped, made conditional, marked failing or todo, or focused with .only.
+scope: {language: typescript, files: ["**/*.test.*", "**/*_test.*", "**/*.spec.*", "**/*_spec.*", "!e2e/**"]}
+enforce:
+  - target: ast-grep
+    mode: no-increase
+    rule:
+      kind: member_expression
+      regex: "^(it|test|describe)\\.(skip|todo|only|failing|if|skipIf|todoIf)$"
+      inside: {stopBy: end, kind: program, has: {kind: import_statement, has: {field: source, regex: "^[\"']bun:test[\"']$"}}}
+examples:
+  match:
+    - "import { expect, test } from \"bun:test\";\n\ntest.skip(\"totals\", () => {\n  expect(total([1])).toBe(1);\n});\n"
+    - "import { test } from \"bun:test\";\n\ntest.todo(\"refunds\");\n"
+    - "import { describe } from \"bun:test\";\n\ndescribe.if(process.platform !== \"win32\")(\"paths\", () => {});\n"
+    - "import { expect, test } from \"bun:test\";\n\ntest.failing(\"rounds\", () => {\n  expect(round(1.5)).toBe(2);\n});\n"
+    - "import { test } from \"bun:test\";\n\ntest.skipIf(ci)(\"slow\", () => {});\n"
+  no_match:
+    - "import { expect, test } from \"bun:test\";\n\ntest(\"totals\", () => {\n  expect(total([1])).toBe(1);\n});\n"
+    - "import { it } from \"vitest\";\n\nit.skip(\"vitest owns this file\", () => {});\n"

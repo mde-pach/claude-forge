@@ -650,6 +650,14 @@ context.md: tests assert behaviour, never weakened; "When the task changes behav
 | `typescript/bun/no-other-pm` | `guard` ask: `npm install`, `npm i`, `npm ci`, `pnpm`, `yarn` |
 | `typescript/bun/release-age` | `check` lint: `forge_bun_cooldown`: `bunfig.toml` `[install] minimumReleaseAge` ≥ 259200; `when_changed`: `bunfig.toml`, `package.json`, `bun.lock` |
 | `typescript/bun/trusted-deps` | `check` lint: `forge_trusted_deps`: no `trustedDependencies` entry added to a `package.json` since the base (with `bun`) |
+| `typescript/bun/test` | `check` test: `bun test` on the tracked test files that import from `bun:test` (nothing when there are none, so a Vitest suite is not run by Bun) |
+| `typescript/bun/no-new-skip` | `ast-grep` no-increase on test files (`*.test.*`, `*_test.*`, `*.spec.*`, `*_spec.*`) importing `bun:test`: `it`/`test`/`describe` `.skip`, `.todo`, `.only`, `.failing`, `.if`, `.skipIf`, `.todoIf` |
+| `typescript/bun/no-fewer-expects` | `ast-grep` no-decrease on the same files: `expect($$$)` |
+| `typescript/bun/no-mock-increase` | `ast-grep` no-increase on the same files: `mock(…)`, `mock.module(…)`, `spyOn(…)`, `jest.fn/mock/spyOn`, `vi.fn/mock/spyOn` |
+| `typescript/bun/no-test-edits` | `check` lint: `forge_test_edits` on the in-scope files that import `bun:test` (§10.5) |
+| `typescript/bun/no-snapshot-update` | `guard` ask: `bun test` with `-u` or `--update-snapshots` |
+
+context.md: `bun:test` tests run with `bun test`, what the integrity rules reject in them, and "If an existing test looks wrong, stop and ask; never edit it to make the code pass."
 
 ### typescript/nextjs
 
@@ -779,6 +787,83 @@ Detected by `**/docs/**/*.{md,mdx,rst}`, `**/doc/**/*.{md,mdx,rst}`, `README*`, 
 | Rule | Targets |
 |---|---|
 | `docs/changed-identifiers` | `check` lint, advisory (§10.7): `forge_docs_mentions` on non-test Python, TypeScript and JavaScript files |
+
+### typescript/drizzle
+
+Detected by `drizzle.config.*` or the `drizzle-orm` / `drizzle-kit` dependency. The checks read `schema`, `out` (default `./drizzle`) and `dialect` from `drizzle.config.*` (string values, arrays, globs and directories; values computed at run time are not read).
+
+| Rule | Targets |
+|---|---|
+| `typescript/drizzle/migration-present` | `check` migration: `forge_drizzle_migration_present`: a changed schema file whose content reaching the database changed (blank lines, comments, imports, type exports, `relations()` / `defineRelations()` calls aside) needs, among the changed files, a `.sql` in `out` plus `meta/_journal.json` and a `meta/*_snapshot.json`, or (drizzle-kit 1.x) `<out>/<name>/migration.sql` and a `snapshot.json`; not with `--all` |
+| `typescript/drizzle/applied-migrations` | `check` migration: `forge_drizzle_applied`: no `.sql` or snapshot in `out` that exists in the base is modified or deleted |
+| `typescript/drizzle/migration-lint` | `check` migration: with `dialect: "postgresql"`, changed `.sql` files in `out` linted with Squawk (§13.1); `--all`: the newest one; `when_changed: [**/*.sql]` |
+| `typescript/drizzle/meta-files` | `permission` deny: `Edit(**/meta/_journal.json)`, `Edit(**/meta/*_snapshot.json)` |
+| `typescript/drizzle/no-push` | `guard` ask: `drizzle-kit push` |
+| `typescript/drizzle/no-sql-raw` | `ast-grep` forbid: `sql.raw(…)` whose argument is a template with `${}` or a `+` concatenation |
+
+context.md: schema, `out` and `dialect` in `drizzle.config.*`; `drizzle-kit generate` after a schema change, its files committed together and never written by hand; applied migrations are not edited; `push` needs confirmation; the `sql` tag binds values.
+
+### typescript/trpc
+
+| Rule | Targets |
+|---|---|
+| `typescript/trpc/input-validate` | `ast-grep` forbid: `.input(…)` whose argument is `z.any()`, `z.unknown()`, `(v) => v as T` or `(v: T) => v` |
+| `typescript/trpc/protected-mutation` | `ast-grep` forbid: `.mutation(…)` on a chain that starts at `publicProcedure`, `baseProcedure`, `procedure` or `t.procedure`. Public mutations and other base names are handled with a local rule of the same id (§5.3) |
+| `typescript/trpc/trpc-error` | `ast-grep` forbid: `throw new Error(…)` inside the resolver of `.query` / `.mutation` / `.subscription` on a chain that starts at `*Procedure`, `procedure` or `t.procedure` |
+
+context.md: `.input(<schema>)` and what is rejected; mutations on an authorizing procedure; `TRPCError` with a `code` in procedures.
+
+### typescript/hono
+
+| Rule | Targets |
+|---|---|
+| `typescript/hono/validate-input` | `ast-grep` forbid, in files importing `hono`, `hono/*` or `@hono/*`: `$C.req.json()`, `.parseBody()`, `.formData()`, `.query()`, `.queries()` (validator middleware and `c.req.valid()` instead; `c.req.param()` is not checked) |
+| `typescript/hono/cors-credentials-wildcard` | `ast-grep` forbid: `cors({…})` with `credentials: true` and `origin: "*"` or `origin: (o) => o` |
+
+context.md: `zValidator` / `validator()` middleware and `c.req.valid()`; which raw reads are rejected; `cors()` with credentials names its origins.
+
+### typescript/react-router
+
+Detected by `@react-router/dev >= 7` (framework mode).
+
+| Rule | Targets |
+|---|---|
+| `typescript/react-router/action-validate` | `ast-grep` forbid in `app/**`, `src/app/**`: an exported `action` (function or `const`) that calls `.formData()` or `.json()` without a call to `parse`, `safeParse`, `parseAsync`, `safeParseAsync`, `parseWithZod`, `parseWithValibot`, `parseWithYup` or `getValidatedFormData` (as a function or a method) |
+| `typescript/react-router/action-auth` | `ast-grep` forbid in the same files: an exported `action` without a call to `auth`, `getSession`, `getServerSession`, `getCurrentUser`, `currentUser`, `getUser`, `getUserId`, `requireUser`, `requireUserId`, `requireAuth`, `requireSession`, `requireAdmin`, `verifySession`, `validateRequest`, `getAuth` or `isAuthenticated` (as a function or a method). Public actions and other helper names are handled with a local rule of the same id (§5.3) |
+
+context.md: route module `loader` / `action` with `Route.*Args` types; actions validate what they read and check who is calling; `data()` and `redirect()`.
+
+### typescript/vue
+
+Detected by `vue >= 3`. ESLint (`eslint-plugin-vue`) is not audited: `tool` targets are Biome, ruff, basedpyright and tsc; the `.vue` rules are `check` and `grep` targets instead.
+
+| Rule | Targets |
+|---|---|
+| `typescript/vue/typecheck` | `check` typecheck: `forge_exec_tool vue-tsc --noEmit` (`--build` when `tsconfig.json` has `references`); skipped while a Nuxt `tsconfig.json` points at a missing `.nuxt/`. A tool whose name has a `-` gets no wrapper function (not a POSIX function name) and is run as `forge_exec_tool <name>` |
+| `typescript/vue/v-for-key` | `check` lint: `forge_vue_vfor_keys`: in `.vue` templates (comments, `<script>`, `<style>` skipped; quotes respected), an element other than `<template>` with `v-for` and no `:key` / `v-bind:key`, reported at the `v-for` line |
+| `typescript/vue/no-v-html` | `grep` forbid in `**/*.vue`: `v-html=`, `:innerHTML=`, `v-bind:innerHTML=` |
+
+context.md: `<script setup lang="ts">`, `vue-tsc` for `.vue` types, `:key` with `v-for`, no `v-html`, eslint-plugin-vue not run by Forge.
+
+### typescript/vue/nuxt
+
+| Rule | Targets |
+|---|---|
+| `typescript/vue/nuxt/server-validate` | `ast-grep` forbid in `server/**`: `readBody(…)`, `getQuery(…)`, `getRouterParams(…)` (h3's `readValidatedBody`, `getValidatedQuery`, `getValidatedRouterParams` instead) |
+| `typescript/vue/nuxt/no-public-secret` | `ast-grep` forbid in `nuxt.config.*`: a key under `runtimeConfig.public` whose name contains `secret`, `private`, `password`, `service_role` / `serviceRole` or `database_url` / `databaseUrl` (any case) |
+
+context.md: validated h3 readers in server routes; `runtimeConfig.public` reaches the browser; `vue-tsc` after `nuxt prepare`.
+
+### typescript/openapi
+
+Detected by `openapi-typescript`, `orval` or `@hey-api/openapi-ts`. Both checks run only outside `--all`, and only when a tracked `package.json` has a script that runs one of the generators. An OpenAPI document is a changed `.json` / `.yaml` / `.yml` file with an `openapi:` or `swagger:` version in its first 4 KiB; a generated file is one whose first 15 lines say `auto-generated by openapi-typescript`, `auto-generated by @hey-api/openapi-ts` or `Generated by orval` (other generators' "do not edit" headers do not count).
+
+| Rule | Targets |
+|---|---|
+| `typescript/openapi/regenerate` | `check` lint: `forge_openapi_sync regenerate`: a changed OpenAPI document and no changed generated file fail |
+| `typescript/openapi/no-generated-edits` | `check` lint: `forge_openapi_sync hand-edits`: a changed generated file fails when no OpenAPI document, `package.json`, `orval.config.*`, `openapi-ts.config.*` or `redocly.*` changed, and the repository tracks an OpenAPI document |
+
+context.md: the client comes from the document through a generator script; the two change together, generated files are never edited by hand.
 
 ### github-actions
 

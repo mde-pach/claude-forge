@@ -1572,6 +1572,247 @@ forge_env_example() {
   return "$_ee_rc"
 }
 
+# Drizzle: drizzle.config.* names the schema files (`schema`: a path, a glob, a
+# directory or an array of them), the migrations folder (`out`, default ./drizzle)
+# and the `dialect`. forge_drizzle_config writes "key<TAB>value" lines (one per
+# schema entry, ./ removed) to $FORGE_TMP/drizzle.config; fails without a config.
+forge_drizzle_config() {
+  FORGE_DZ_CONFIG=''
+  for _dz_f in drizzle.config.ts drizzle.config.mts drizzle.config.cts drizzle.config.js drizzle.config.mjs drizzle.config.cjs drizzle.config.json; do
+    if [ -f "$_dz_f" ]; then FORGE_DZ_CONFIG=$_dz_f; break; fi
+  done
+  [ -n "$FORGE_DZ_CONFIG" ] || return 1
+  awk '
+    { s = s $0 "\n" }
+    function val(key,   re, v) {
+      re = "[^A-Za-z0-9_$]\"?" key "\"?[[:space:]]*:[[:space:]]*(\\[[^]]*\\]|\"[^\"]*\"|\047[^\047]*\047|`[^`]*`)"
+      if (!match(s, re)) return ""
+      v = substr(s, RSTART, RLENGTH); sub(/^[^:]*:[[:space:]]*/, "", v); return v
+    }
+    function emit(key, v,   q) {
+      while (match(v, /"[^"]*"|\047[^\047]*\047|`[^`]*`/)) {
+        q = substr(v, RSTART + 1, RLENGTH - 2); v = substr(v, RSTART + RLENGTH)
+        sub(/^\.\//, "", q); sub(/\/+$/, "", q)
+        if (q != "") print key "\t" q
+      }
+    }
+    END {
+      # drop comments, outside strings
+      t = ""; q = ""; n = length(s)
+      for (i = 1; i <= n; i++) {
+        c = substr(s, i, 1); d = substr(s, i, 2)
+        if (q != "") { t = t c; if (c == "\\") { t = t substr(s, ++i, 1) } else if (c == q) q = ""; continue }
+        if (d == "//") { while (i <= n && substr(s, i, 1) != "\n") i++; t = t " "; continue }
+        if (d == "/*") { i += 2; while (i <= n && substr(s, i, 2) != "*/") i++; i++; t = t " "; continue }
+        if (c == "\"" || c == "\047" || c == "`") q = c
+        t = t (c == "\n" ? " " : c)
+      }
+      s = t
+      gsub(/migrations[[:space:]]*:[[:space:]]*\{[^}]*\}/, "", s)
+      s = " " s
+      o = val("out"); if (o == "") print "out\tdrizzle"; else emit("out", o)
+      emit("dialect", val("dialect")); emit("schema", val("schema"))
+    }' "$FORGE_DZ_CONFIG" > "$FORGE_TMP/drizzle.config"
+}
+
+# forge_drizzle_get <key>: the first value of <key> from forge_drizzle_config.
+forge_drizzle_get() { awk -F '\t' -v k="$1" '$1 == k { print $2; exit }' "$FORGE_TMP/drizzle.config"; }
+
+# forge_drizzle_is_schema <path>: succeeds when <path> is one of the configured schema
+# entries, matches one as a glob, or sits under one as a directory.
+forge_drizzle_is_schema() {
+  while IFS="$(printf '\t')" read -r _ds_k _ds_v; do
+    [ "$_ds_k" = schema ] || continue
+    _ds_g=$(printf '%s' "$_ds_v" | sed 's/\*\*/*/g')
+    # shellcheck disable=SC2254
+    case $1 in "$_ds_v"|"$_ds_v"/*|$_ds_g) return 0 ;; esac
+  done < "$FORGE_TMP/drizzle.config"
+  return 1
+}
+
+# forge_drizzle_tables <file>: the file without what does not reach the database
+# (blank lines, comments, imports, type exports, relations()/defineRelations() calls).
+forge_drizzle_tables() {
+  awk '
+    inc { if (/\*\//) inc = 0; next }
+    /^[[:space:]]*\/\*/ { if (!/\*\//) inc = 1; next }
+    /^[[:space:]]*(\/\/|$)/ { next }
+    /^[[:space:]]*(import[[:space:]{*]|export[[:space:]]+(type|interface)[[:space:]]|export[[:space:]]*\*)/ { next }
+    depth == 0 && /(^|[^A-Za-z0-9_$])(defineRelations|relations)[[:space:]]*\(/ { inrel = 1 }
+    inrel {
+      t = $0; o = gsub(/\(/, "", t); t = $0; c = gsub(/\)/, "", t); depth += o - c
+      if (depth <= 0) { depth = 0; inrel = 0 }
+      next
+    }
+    { sub(/^[[:space:]]+/, ""); sub(/[[:space:]]+$/, ""); print }' "$1" 2>/dev/null
+}
+
+# forge_drizzle_migration_present: a change to a schema file that reaches the database
+# comes with a generated migration in the out folder: the SQL plus meta/_journal.json and
+# a meta/*_snapshot.json (drizzle-kit 0.x), or <out>/<name>/migration.sql and its
+# snapshot.json (drizzle-kit 1.x). Not with --all (no change to compare).
+forge_drizzle_migration_present() {
+  [ "$mode" != --all ] || return 0
+  forge_drizzle_config || return 0
+  grep -q "^schema$(printf '\t')" "$FORGE_TMP/drizzle.config" || {
+    printf 'forge:%s skipped: no schema path found in %s\n' "$c_id" "$FORGE_DZ_CONFIG"; return 0; }
+  _dm_out=$(forge_drizzle_get out)
+  : > "$FORGE_TMP/dz.schema"
+  while IFS= read -r _dm_f; do
+    forge_drizzle_is_schema "$_dm_f" || continue
+    forge_drizzle_tables "$_dm_f" > "$FORGE_TMP/dz.now"
+    forge_drizzle_tables "$FORGE_TMP/base/$_dm_f" > "$FORGE_TMP/dz.then"
+    cmp -s "$FORGE_TMP/dz.now" "$FORGE_TMP/dz.then" || printf '%s\n' "$_dm_f" >> "$FORGE_TMP/dz.schema"
+  done < "$FORGE_TMP/changed"
+  [ -s "$FORGE_TMP/dz.schema" ] || return 0
+  _dm_sql=0; _dm_journal=0; _dm_snap=0
+  while IFS= read -r _dm_f; do
+    case $_dm_f in
+      "$_dm_out"/meta/_journal.json) _dm_journal=1 ;;
+      "$_dm_out"/meta/*_snapshot.json|"$_dm_out"/*/snapshot.json) _dm_snap=1 ;;
+      "$_dm_out"/*/migration.sql) _dm_sql=1; _dm_journal=1 ;;
+      "$_dm_out"/*.sql) _dm_sql=1 ;;
+    esac
+  done < "$FORGE_TMP/existing"
+  # drizzle-kit 1.x keeps no journal: a <name>/migration.sql stands in for it
+  [ "$_dm_sql" = 1 ] && [ "$_dm_journal" = 1 ] && [ "$_dm_snap" = 1 ] && return 0
+  while IFS= read -r _dm_f; do
+    printf '%s: the Drizzle schema changed, but %s/ has no new migration with its journal and snapshot\n' "$_dm_f" "$_dm_out"
+  done < "$FORGE_TMP/dz.schema"
+  printf 'Generate it (drizzle-kit generate) and keep the SQL, meta/_journal.json and the snapshot together; never write them by hand.\n'
+  return 1
+}
+
+# forge_drizzle_applied: migrations (SQL and snapshots in the out folder) that exist in
+# the base are not modified or deleted; a change goes in a new migration.
+forge_drizzle_applied() {
+  [ "$mode" != --all ] || return 0
+  forge_drizzle_config || return 0
+  _da_out=$(forge_drizzle_get out)
+  _da_rc=0
+  while IFS= read -r _da_f; do
+    case $_da_f in
+      "$_da_out"/*.sql|"$_da_out"/meta/*_snapshot.json|"$_da_out"/*/snapshot.json)
+        if [ -f "$_da_f" ]; then _da_what=modified; else _da_what=deleted; fi
+        printf '%s: an existing migration was %s; generate a new migration instead (drizzle-kit generate)\n' "$_da_f" "$_da_what"
+        _da_rc=1 ;;
+    esac
+  done < "$FORGE_TMP/inbase"
+  return "$_da_rc"
+}
+
+# forge_drizzle_squawk [files]: Squawk (§13.1) on the changed SQL of the out folder
+# when the dialect is postgresql; with no files (--since, --all), on the newest migration.
+forge_drizzle_squawk() {
+  forge_drizzle_config || return 0
+  [ "$(forge_drizzle_get dialect)" = postgresql ] || return 0
+  _dq_out=$(forge_drizzle_get out)
+  if [ "$#" -eq 0 ]; then
+    set -- $(git ls-files -- "$_dq_out/*.sql" | sort | tail -n 1)
+  else
+    for _dq_f in "$@"; do
+      shift
+      case $_dq_f in "$_dq_out"/*.sql) set -- "$@" "$_dq_f" ;; esac
+    done
+  fi
+  forge_squawk_files "$@"
+}
+
+# forge_vue_vfor_keys <files>: in the templates of .vue files, each element with v-for
+# (not <template>) also binds a key (:key, v-bind:key). Prints "path:line: ..." per element
+# (the line of its v-for). Comments, <script> and <style> are skipped; quotes are respected.
+forge_vue_vfor_keys() {
+  _vk_rc=0
+  for _vk_f in "$@"; do
+    case $_vk_f in *.vue) ;; *) continue ;; esac
+    [ -f "$_vk_f" ] || continue
+    awk -v f="$_vk_f" '
+      { s = s $0 "\n" }
+      END {
+        n = length(s); ln = 1; skip = ""
+        for (i = 1; i <= n; i++) {
+          c = substr(s, i, 1)
+          if (c == "\n") { ln++; continue }
+          if (c != "<") continue
+          if (substr(s, i, 4) == "<!--") {
+            j = index(substr(s, i + 4), "-->"); if (!j) break
+            t = substr(s, i, j + 6); ln += gsub(/\n/, "", t); i += j + 5; continue
+          }
+          if (!match(substr(s, i + 1, 1), /[A-Za-z\/]/)) continue
+          # one tag, quotes respected
+          start = ln; q = ""; tag = ""
+          for (i++; i <= n; i++) {
+            c = substr(s, i, 1)
+            if (c == "\n") ln++
+            if (q != "") { if (c == q) q = ""; tag = tag c; continue }
+            if (c == "\"" || c == "\047") q = c
+            else if (c == ">") break
+            tag = tag c
+          }
+          name = tag; sub(/[[:space:]].*$/, "", name); if (length(name) > 1) sub(/\/$/, "", name); shown = name; name = tolower(name)
+          if (skip != "") { if (name == "/" skip) skip = ""; continue }
+          if ((name == "script" || name == "style") && tag !~ /\/$/) { skip = name; continue }
+          tag = " " tag
+          if (name == "template" || tag !~ /[[:space:]]v-for[[:space:]]*=/) continue
+          if (tag ~ /[[:space:]](:key|v-bind:key)[[:space:]]*=/) continue
+          match(tag, /[[:space:]]v-for[[:space:]]*=/); pre = substr(tag, 1, RSTART)
+          printf "%s:%d: <%s> has v-for without :key\n", f, start + gsub(/\n/, "", pre), shown
+          bad = 1
+        }
+        exit bad
+      }' "$_vk_f" || _vk_rc=1
+  done
+  return "$_vk_rc"
+}
+
+# OpenAPI clients generated by openapi-typescript, orval or @hey-api/openapi-ts: their
+# files say so in their header, and a package.json script runs the generator.
+FORGE_OPENAPI_MARK='auto-generated by (openapi-typescript|@hey-api/openapi-ts)|generated by orval'
+FORGE_OPENAPI_GEN='"[^"]+"[[:space:]]*:[[:space:]]*"[^"]*(openapi-typescript|orval|openapi-ts)'
+
+# forge_openapi_spec <path>: an OpenAPI or Swagger document (JSON or YAML with an
+# openapi / swagger version near its top).
+forge_openapi_spec() {
+  case $1 in *.json|*.yaml|*.yml) ;; *) return 1 ;; esac
+  [ -f "$1" ] && head -c 4096 "$1" | grep -qE "[\"']?(openapi|swagger)[\"']?[[:space:]]*:[[:space:]]*[\"']?[0-9]"
+}
+
+# forge_openapi_generated <path>: a file whose header says one of the generators wrote it.
+forge_openapi_generated() { [ -f "$1" ] && head -n 15 "$1" | grep -qiE "$FORGE_OPENAPI_MARK"; }
+
+# forge_openapi_sync regenerate | hand-edits: compares the changed OpenAPI documents with
+# the changed generated files. regenerate: a changed document needs a changed generated
+# file. hand-edits: a changed generated file needs a changed document or generator config
+# (package.json, orval.config.*, openapi-ts.config.*, redocly.*), when the repository
+# tracks a document (a client generated from a URL is not checked). Not with --all.
+forge_openapi_sync() {
+  [ "$mode" != --all ] || return 0
+  _os_pkgs=$(git ls-files -- package.json '*/package.json')
+  [ -n "$_os_pkgs" ] || return 0
+  # shellcheck disable=SC2086
+  _os_script=$(grep -hoE "$FORGE_OPENAPI_GEN" $_os_pkgs 2>/dev/null | head -n 1 | cut -d '"' -f 2)
+  [ -n "$_os_script" ] || return 0
+  forge_filter forge_openapi_spec < "$FORGE_TMP/existing" > "$FORGE_TMP/openapi.specs"
+  forge_filter forge_openapi_generated < "$FORGE_TMP/existing" > "$FORGE_TMP/openapi.generated"
+  case $1 in
+    regenerate)
+      [ -s "$FORGE_TMP/openapi.specs" ] && [ ! -s "$FORGE_TMP/openapi.generated" ] || return 0
+      while IFS= read -r _os_f; do
+        printf '%s: the OpenAPI document changed, but no generated client file did\n' "$_os_f"
+      done < "$FORGE_TMP/openapi.specs"
+      printf 'Regenerate the client (the "%s" script) and keep both changes together.\n' "$_os_script" ;;
+    hand-edits)
+      [ -s "$FORGE_TMP/openapi.generated" ] && [ ! -s "$FORGE_TMP/openapi.specs" ] || return 0
+      grep -qE '(^|/)(package\.json|orval\.config\.[a-z]+|openapi-ts\.config\.[a-z]+|redocly\.[a-z]+)$' "$FORGE_TMP/existing" && return 0
+      [ -n "$(git ls-files -- '*.json' '*.yaml' '*.yml' | forge_filter forge_openapi_spec | head -n 1)" ] || return 0
+      while IFS= read -r _os_f; do
+        printf '%s: generated from the OpenAPI document (its header says so), but neither the document nor the generator config changed\n' "$_os_f"
+      done < "$FORGE_TMP/openapi.generated"
+      printf 'Change the OpenAPI document (or the server it is generated from), then regenerate with the "%s" script; never edit generated files by hand.\n' "$_os_script" ;;
+  esac
+  return 1
+}
+
 # forge_related_py_tests <files>: changed test files plus tests/**/test_<module>.py
 # for each changed module, one per line; at Stop, also the test files edited during
 # the turn (<snapshot>/touched, by test-edit.sh), even when the edit was reverted.

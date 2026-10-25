@@ -1,0 +1,16 @@
+id: typescript/vue/nuxt/server-validate
+description: Nuxt server handlers read input with readValidatedBody, getValidatedQuery or getValidatedRouterParams and a schema, not readBody, getQuery or getRouterParams.
+scope: {language: typescript, files: ["server/**"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      has: {field: function, regex: "^(readBody|getQuery|getRouterParams)$"}
+examples:
+  match:
+    - "export default defineEventHandler(async (event) => {\n  const body = await readBody(event);\n  return db.recipe.create({ data: body });\n});\n"
+    - "export default defineEventHandler((event) => {\n  const { page } = getQuery(event);\n  return listRecipes(Number(page));\n});\n"
+  no_match:
+    - "import { z } from \"zod\";\n\nconst Recipe = z.object({ name: z.string().min(1) });\n\nexport default defineEventHandler(async (event) => {\n  const body = await readValidatedBody(event, Recipe.parse);\n  return db.recipe.create({ data: body });\n});\n"
+    - "export default defineEventHandler(async (event) => {\n  const { page } = await getValidatedQuery(event, z.object({ page: z.coerce.number() }).parse);\n  return listRecipes(page);\n});\n"
