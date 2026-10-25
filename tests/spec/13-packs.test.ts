@@ -120,6 +120,18 @@ describe("forge test catches broken packs", () => {
   const guardRule = (match: string, noMatch: string) =>
     `id: demo/g\ndescription: Demo guard.\nscope: {language: any}\nenforce: [{target: guard, decision: deny, pattern: "rm[[:space:]]+-rf"}]\nexamples: {match: [${JSON.stringify(match)}], no_match: [${JSON.stringify(noMatch)}]}\n`;
 
+  /** Fields that only mean something with certain others are rejected elsewhere, rather than silently doing nothing. */
+  test.each([
+    ["rerun outside a test check", "enforce: [{target: check, stage: lint, run: 'ruff check .', rerun: 'pytest {files}'}]", "/enforce/0/stage must be equal to constant"],
+    ["format_stdin outside a format or lint check", "enforce: [{target: check, stage: typecheck, run: 'tsc', format_stdin: 'biome format --stdin-file-path={file}'}]", "/enforce/0/stage must be equal to one of the allowed values"],
+    ["review without a guard ask or the test-edit check", "enforce: [{target: guard, decision: deny, pattern: x}]\nreview: Is this fine?", "/enforce must contain at least 1 valid item"],
+    ["the ephemeral-exec guard check with decision deny", "enforce: [{target: guard, decision: deny, pattern: npx, check: ephemeral-exec}]", "/enforce/0/decision must be equal to constant"],
+    ["a project tool with a '-' run directly, not through forge_exec_tool", "enforce: [{target: check, stage: typecheck, run: 'vue-tsc --noEmit'}]", 'run vue-tsc as "forge_exec_tool vue-tsc"'],
+  ])("a rule with %s is rejected", (_what, body, message) => {
+    const dir = packsWith({ "demo/rules/x.yaml": `id: demo/x\ndescription: X.\nscope: {language: any}\n${body}\n` });
+    expect(() => loadPacks(dir)).toThrow(message);
+  });
+
   test("a correct pack passes", () => {
     expect(selfTest(packsWith({ "demo/rules/g.yaml": guardRule("rm -rf x", "rm x") })).failures).toEqual([]);
   });

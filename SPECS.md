@@ -171,7 +171,7 @@ Every rule blocks, except an `ast-grep` target in `advise` mode (§6.2), for heu
 | `tool` | `tool: biome \| ruff \| basedpyright \| tsc`, `expects` (diagnostic code or rule name), `snippet` (config to show when unsatisfied) | audited | §11 |
 | `ast-grep` | `rule` (ast-grep rule object), `mode: forbid \| no-increase \| no-decrease \| advise` | owned | `.forge/ast-grep/rules/<rule-id>.yml` |
 | `permission` | `decision: deny \| ask`, `rule` (permission rule string) | appended | settings `permissions` |
-| `guard` | `decision: deny \| ask`, `pattern` (POSIX ERE against the JSON-escaped command), `check` (optional: a built-in guard check, `ephemeral-exec`, that decides when `pattern` matches) | owned | `guard.rules` (§9.2) |
+| `guard` | `decision: deny \| ask`, `pattern` (POSIX ERE against the JSON-escaped command), `check` (optional, `decision: ask` only: a built-in guard check, `ephemeral-exec`, that decides when `pattern` matches) | owned | `guard.rules` (§9.2) |
 | `sandbox` | `path`, `value` | appended, user only | `~/.claude/settings.json` `sandbox` |
 | `check` | `stage: format \| lint \| typecheck \| migration \| test`, `run`, `changed_run` (optional, `{files}`), `fix_run` (optional, lint only, `{files}`: safe fixes applied after an edit, §8.1), `format_stdin` (optional, format or lint, `{file}`: the formatter as a filter, formatting stdin as if it were `{file}`; formats base copies for added lines, §10.1), `rerun` (optional, test only, `{files}`: runs only the given test files, §10.6), `when_changed` (optional), `requires_local_db` (optional, boolean) | owned | `.forge/check.sh` (§10) |
 | `grep` | `pattern` (POSIX ERE, matched line by line), `mode: forbid \| no-increase \| no-decrease`, `ignore_case` (optional) | owned | `.forge/check.sh` (§10): counts are matching lines per file |
@@ -181,6 +181,8 @@ ast-grep and grep modes:
 - `no-increase`: more matches than in the base in a changed file fails.
 - `no-decrease`: fewer matches than in the base in a changed file fails.
 - `advise` (ast-grep only): a match on a line added during the turn is reported after the edit (PostToolUse feedback, like `forbid`); Stop, the pre-commit hook and CI do not run it.
+
+The schema rejects fields that would do nothing: `rerun` outside stage `test`, `format_stdin` outside `format` / `lint`, `check` on a guard with `decision: deny`, and `review` on a rule with neither a guard `ask` nor the test-edit check (`run: forge_test_edits`). A project tool whose name has a `-` (`vue-tsc`) has no wrapper function, so a check runs it as `forge_exec_tool <name>`; a rule running it directly is rejected when packs and local rules load.
 
 A `grep` target is for text that is not code ast-grep parses: comments, configuration, `.astro` files.
 

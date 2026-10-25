@@ -5,6 +5,7 @@ import { parse as parseJsonc } from "jsonc-parser/lib/esm/main.js";
 import { parse as parseToml } from "smol-toml";
 import { parse as parseYaml } from "yaml";
 import { parseStrictYaml } from "./yaml.js";
+import { directDashedTools } from "./render.js";
 import { validate } from "./schemas.js";
 import { sha256 } from "./util.js";
 import type { DepSpec, GuardExample, Pack, ProjectConfig, Rule } from "./types.js";
@@ -24,6 +25,10 @@ export function loadRuleFile(file: string, origin: Rule["origin"]): Rule {
   const data = parseStrictYaml(text, file) as Record<string, unknown>;
   validate("rule", data, file);
   const rule = data as unknown as Rule;
+  for (const t of rule.enforce)
+    if (t.target === "check")
+      for (const cmd of [t.run, t.changed_run, t.fix_run, t.format_stdin, t.rerun])
+        for (const tool of directDashedTools(cmd ?? "")) throw new Error(`${file}: invalid rule: run ${tool} as "forge_exec_tool ${tool}" (a name with "-" has no wrapper function, so it would not be the project's own)`);
   return { ...rule, file, hash: sha256(text), origin, pack: rule.id.slice(0, rule.id.lastIndexOf("/")) };
 }
 

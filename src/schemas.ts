@@ -112,6 +112,9 @@ const target = {
           pattern: { type: "string", minLength: 1, pattern: "^[^\\t\\n]+$" },
           check: { enum: ["ephemeral-exec"] },
         },
+        // a built-in check decides which matching commands to ask about: a deny would refuse them all
+        if: { required: ["check"] },
+        then: { properties: { decision: { const: "ask" } } },
       },
     },
     {
@@ -143,6 +146,11 @@ const target = {
           requires_local_db: { type: "boolean" },
           timeout: { type: "integer", minimum: 1, maximum: 600 },
         },
+        allOf: [
+          // rerun re-runs failing tests (§10.6); format_stdin formats base copies (§10.1)
+          { if: { required: ["rerun"] }, then: { properties: { stage: { const: "test" } } } },
+          { if: { required: ["format_stdin"] }, then: { properties: { stage: { enum: ["format", "lint"] } } } },
+        ],
       },
     },
   ],
@@ -164,6 +172,20 @@ export const ruleSchema = {
   type: "object",
   additionalProperties: false,
   required: ["id", "description", "scope", "enforce"],
+  // review is the question for an ask nobody can answer (§9.3): a guard ask, or the test-edit check's ask
+  if: { required: ["review"] },
+  then: {
+    properties: {
+      enforce: {
+        contains: {
+          anyOf: [
+            { properties: { target: { const: "guard" }, decision: { const: "ask" } }, required: ["decision"] },
+            { properties: { target: { const: "check" }, run: { pattern: "^\\s*forge_test_edits\\s*$" } }, required: ["run"] },
+          ],
+        },
+      },
+    },
+  },
   properties: {
     id: { type: "string", pattern: RULE_ID },
     description: { type: "string", minLength: 1, pattern: "^[^\\n\\t]+$" },

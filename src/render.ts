@@ -42,6 +42,20 @@ export function toolsInCommand(cmd: string): string[] {
   return found.sort((a, b) => a.at - b.at).map((f) => f.tool);
 }
 
+/**
+ * Project tools whose name has a "-" (no POSIX shell function can wrap them) that a
+ * command runs directly instead of as `forge_exec_tool <name>`: run directly, they
+ * would be whatever is on PATH, not the project's own.
+ */
+export function directDashedTools(cmd: string): string[] {
+  const out = new Set<string>();
+  for (const tool of PROJECT_TOOLS.filter((t) => t.includes("-"))) {
+    const re = new RegExp(`(^|[\\s;&|(\`]|\\$\\()${tool.replace(/[.-]/g, "\\$&")}(?=$|[\\s;&|)\`])`, "g");
+    for (const m of cmd.matchAll(re)) if (!/\bforge_exec_tool\s+$/.test(cmd.slice(0, m.index! + m[1]!.length))) out.add(tool);
+  }
+  return [...out];
+}
+
 export function checkTools(t: CheckTarget): string[] {
   const commands = [t.run, t.changed_run ?? "", t.fix_run ?? "", t.format_stdin ?? "", t.rerun ?? ""];
   const helpers = HELPER_TOOLS.filter(([re]) => commands.some((c) => re.test(c))).map(([, tool]) => tool);
