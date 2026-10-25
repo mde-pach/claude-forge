@@ -1,0 +1,38 @@
+id: python/env-example
+description: "A pydantic-settings field added to a BaseSettings class is listed in the .env template next to it (.env.example, .env.template, .env.sample, .env.dist, .env.<name>.example): always when it has no default, and also with a default when the template already lists at least half of the class's variables. Checked at Stop and pre-commit."
+scope: {language: python}
+enforce:
+  - {target: check, stage: lint, run: "forge_env_example py"}
+examples:
+  match:
+    - head:
+        .env.example: "DATABASE_URL=postgresql+asyncpg://app:app@localhost/app\n"
+        app/config.py: "from pydantic_settings import BaseSettings\n\n\nclass Settings(BaseSettings):\n    database_url: str\n    debug: bool = False\n"
+      files:
+        app/config.py: "from pydantic_settings import BaseSettings\n\n\nclass Settings(BaseSettings):\n    database_url: str\n    stripe_secret_key: str\n    debug: bool = False\n"
+    - head:
+        server/.env.template: "POLAR_DATABASE_URL=\nPOLAR_DEBUG=false\n"
+        server/polar/config.py: "from pydantic_settings import BaseSettings, SettingsConfigDict\n\n\nclass Settings(BaseSettings):\n    model_config = SettingsConfigDict(env_prefix=\"polar_\")\n\n    database_url: str = \"\"\n    debug: bool = False\n"
+      files:
+        server/polar/config.py: "from pydantic_settings import BaseSettings, SettingsConfigDict\n\n\nclass Settings(BaseSettings):\n    model_config = SettingsConfigDict(env_prefix=\"polar_\")\n\n    database_url: str = \"\"\n    debug: bool = False\n    s3_bucket: str = Field(default=\"files\")\n"
+  no_match:
+    - head:
+        .env.example: "DATABASE_URL=postgresql+asyncpg://app:app@localhost/app\n"
+        app/config.py: "from pydantic_settings import BaseSettings\n\n\nclass Settings(BaseSettings):\n    database_url: str\n    debug: bool = False\n"
+      files:
+        .env.example: "DATABASE_URL=postgresql+asyncpg://app:app@localhost/app\n# STRIPE_SECRET_KEY=sk_test_...\n"
+        app/config.py: "from pydantic_settings import BaseSettings\n\n\nclass Settings(BaseSettings):\n    database_url: str\n    stripe_secret_key: str\n    debug: bool = False\n"
+    # a default, and the template lists only the required variables
+    - head:
+        .env.example: "DATABASE_URL=\n"
+        app/config.py: "from pydantic_settings import BaseSettings\n\n\nclass Settings(BaseSettings):\n    database_url: str\n    debug: bool = False\n    log_level: str = \"INFO\"\n"
+      files:
+        app/config.py: "from pydantic_settings import BaseSettings\n\n\nclass Settings(BaseSettings):\n    database_url: str\n    debug: bool = False\n    log_level: str = \"INFO\"\n    page_size: int = 50\n"
+    # no template
+    - files:
+        app/config.py: "from pydantic_settings import BaseSettings\n\n\nclass Settings(BaseSettings):\n    database_url: str\n"
+    # a plain Pydantic model is not settings
+    - head:
+        .env.example: "DATABASE_URL=\n"
+      files:
+        app/schemas.py: "from pydantic import BaseModel\n\n\nclass User(BaseModel):\n    email: str\n"

@@ -1,0 +1,20 @@
+id: python/sqlalchemy/alembic/sqlite-batch
+description: "When migrations also run on SQLite (render_as_batch=True in alembic/env.py, or a sqlite URL in alembic.ini), alter_column, drop_column and constraint operations go through op.batch_alter_table(): SQLite's ALTER TABLE cannot run them."
+scope: {language: python, files: ["alembic/versions/**"]}
+enforce:
+  - {target: check, stage: lint, run: "forge_alembic_batch"}
+examples:
+  match:
+    - head: {alembic/env.py: "context.configure(connection=connection, target_metadata=target_metadata, render_as_batch=True)\n"}
+      files: {alembic/versions/0002_nick.py: "revision = \"0002\"\ndown_revision = \"0001\"\n\n\ndef upgrade() -> None:\n    op.alter_column(\"users\", \"nick\", nullable=False)\n\n\ndef downgrade() -> None:\n    op.alter_column(\"users\", \"nick\", nullable=True)\n"}
+    - head: {alembic.ini: "[alembic]\nscript_location = alembic\nsqlalchemy.url = sqlite:///app.db\n"}
+      files: {alembic/versions/0002_drop.py: "revision = \"0002\"\ndown_revision = \"0001\"\n\n\ndef upgrade() -> None:\n    op.drop_column(\"users\", \"legacy\")\n"}
+  no_match:
+    - head: {alembic/env.py: "context.configure(connection=connection, target_metadata=target_metadata, render_as_batch=True)\n"}
+      files: {alembic/versions/0002_nick.py: "revision = \"0002\"\ndown_revision = \"0001\"\n\n\ndef upgrade() -> None:\n    op.add_column(\"users\", sa.Column(\"nick\", sa.Text(), nullable=True))\n    with op.batch_alter_table(\"users\") as batch_op:\n        batch_op.alter_column(\"name\", nullable=False)\n\n\ndef downgrade() -> None:\n    with op.batch_alter_table(\"users\") as batch_op:\n        batch_op.drop_column(\"nick\")\n"}
+    # dialect-specific code is left alone
+    - head: {alembic/env.py: "context.configure(connection=connection, target_metadata=target_metadata, render_as_batch=True)\n"}
+      files: {alembic/versions/0002_fk.py: "revision = \"0002\"\ndown_revision = \"0001\"\n\n\ndef upgrade() -> None:\n    if op.get_bind().dialect.name == \"postgresql\":\n        op.drop_constraint(\"fk_old\", \"users\")\n    else:\n        op.create_foreign_key(\"fk_new\", \"users\", \"teams\", [\"team_id\"], [\"id\"])\n    op.create_index(\"ix_users_team_id\", \"users\", [\"team_id\"])\n"}
+    # PostgreSQL only
+    - head: {alembic/env.py: "context.configure(connection=connection, target_metadata=target_metadata)\n"}
+      files: {alembic/versions/0002_nick.py: "revision = \"0002\"\ndown_revision = \"0001\"\n\n\ndef upgrade() -> None:\n    op.alter_column(\"users\", \"nick\", nullable=False)\n"}
