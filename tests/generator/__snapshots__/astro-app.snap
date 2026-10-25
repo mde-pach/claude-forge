@@ -2566,23 +2566,23 @@ forge_alembic_fk_index() {
   return "$_ai_rc"
 }
 
-# forge_alembic_tested: some test file mentions Alembic (pytest-alembic, alembic.command, ...).
-forge_alembic_tested() {
-  git ls-files -co --exclude-standard -- '*test_*.py' '*_test.py' '*conftest.py' 2>/dev/null | while IFS= read -r _at_f; do
-    [ -f "$_at_f" ] && grep -lE '(pytest_alembic|alembic_runner|from alembic|import alembic|alembic\.(command|config))' "$_at_f"
-  done | grep -q .
-}
-
 # forge_alembic_data_downgrade: a revision whose upgrade() changes rows (UPDATE, INSERT,
 # DELETE through execute(), sa.update/insert/delete, op.bulk_insert, an ORM Session) has a
-# downgrade() that does something (reverts, or raises to say it cannot), unless the
-# project tests its migrations. A downgrade that only passes reports success and leaves the data.
+# downgrade() that changes rows the same ways (the inverse) or raises (it cannot be
+# reverted). A downgrade that only passes, prints or alters the schema reports success
+# and leaves the data. Run as advice (forge_advise): Claude may say why not.
 forge_alembic_data_downgrade() {
   forge_alembic_targets > "$FORGE_TMP/alembic.targets"
   : > "$FORGE_TMP/alembic.data"
   while IFS= read -r _ad_f; do
     [ -f "$_ad_f" ] || continue
     awk -v f="$_ad_f" '
+      function changes_rows(t,   u) {
+        u = toupper(t)
+        return (t ~ /execute\(/ && (u ~ /(^|[^A-Z_])UPDATE[ \t\n]+[^ \t\n]+[ \t\n]+SET[ \t\n]/ || u ~ /INSERT[ \t\n]+INTO[ \t\n]/ || u ~ /DELETE[ \t\n]+FROM[ \t\n]/)) \
+          || t ~ /(^|[^A-Za-z0-9_.])(sa\.)?(update|insert|delete)\([A-Za-z_]/ || t ~ /\.(update|insert|delete)\(\)/ \
+          || t ~ /op\.bulk_insert\(/ || t ~ /(^|[^A-Za-z0-9_])Session\(/
+      }
       { line = $0; sub(/\r$/, "", line) }
       /^def[ \t]+upgrade[ \t]*\(/ { sec = "up"; next }
       /^def[ \t]+downgrade[ \t]*\(/ { sec = "down"; dl = NR; next }
@@ -2591,21 +2591,17 @@ forge_alembic_data_downgrade() {
       sec == "down" {
         t = line; sub(/^[ \t]+/, "", t); sub(/[ \t]+$/, "", t)
         if (indoc) { if (index(t, q)) indoc = 0; next }
-        if (t == "" || t ~ /^#/ || t == "pass" || t == "...") next
+        if (t == "" || t ~ /^#/) next
         if (t ~ /^("""|\047\047\047)/) { q = substr(t, 1, 3); if (!index(substr(t, 4), q)) indoc = 1; next }
-        if (t ~ /^["\047]/) next
-        real = 1
+        if (t ~ /^raise([ \t(]|$)/) raises = 1
+        down = down line "\n"
       }
       END {
-        u = toupper(up)
-        data = (up ~ /execute\(/ && (u ~ /(^|[^A-Z_])UPDATE[ \t\n]+[^ \t\n]+[ \t\n]+SET[ \t\n]/ || u ~ /INSERT[ \t\n]+INTO[ \t\n]/ || u ~ /DELETE[ \t\n]+FROM[ \t\n]/)) \
-          || up ~ /(^|[^A-Za-z0-9_.])(sa\.)?(update|insert|delete)\([A-Za-z_]/ || up ~ /\.(update|insert|delete)\(\)/ \
-          || up ~ /op\.bulk_insert\(/ || up ~ /(^|[^A-Za-z0-9_])Session\(/
-        if (data && !real) print f ":" (dl ? dl : 1) ": upgrade() changes data but downgrade() does nothing, so alembic downgrade reports success and leaves the rows changed. Write the inverse, raise an error that says the revision cannot be reverted, or test the migrations (pytest-alembic)."
+        if (changes_rows(up) && !raises && !changes_rows(down))
+          print f ":" (dl ? dl : 1) ": upgrade() changes rows but downgrade() neither changes them back (op.execute with UPDATE/INSERT/DELETE, sa.update/insert/delete, op.bulk_insert) nor raises, so alembic downgrade reports success and leaves the rows changed. Write the inverse, or raise an error that says the revision cannot be reverted."
       }' "$_ad_f" >> "$FORGE_TMP/alembic.data"
   done < "$FORGE_TMP/alembic.targets"
   [ -s "$FORGE_TMP/alembic.data" ] || return 0
-  forge_alembic_tested && return 0
   cat "$FORGE_TMP/alembic.data"
   return 1
 }
@@ -5340,23 +5336,23 @@ forge_alembic_fk_index() {
   return "$_ai_rc"
 }
 
-# forge_alembic_tested: some test file mentions Alembic (pytest-alembic, alembic.command, ...).
-forge_alembic_tested() {
-  git ls-files -co --exclude-standard -- '*test_*.py' '*_test.py' '*conftest.py' 2>/dev/null | while IFS= read -r _at_f; do
-    [ -f "$_at_f" ] && grep -lE '(pytest_alembic|alembic_runner|from alembic|import alembic|alembic\.(command|config))' "$_at_f"
-  done | grep -q .
-}
-
 # forge_alembic_data_downgrade: a revision whose upgrade() changes rows (UPDATE, INSERT,
 # DELETE through execute(), sa.update/insert/delete, op.bulk_insert, an ORM Session) has a
-# downgrade() that does something (reverts, or raises to say it cannot), unless the
-# project tests its migrations. A downgrade that only passes reports success and leaves the data.
+# downgrade() that changes rows the same ways (the inverse) or raises (it cannot be
+# reverted). A downgrade that only passes, prints or alters the schema reports success
+# and leaves the data. Run as advice (forge_advise): Claude may say why not.
 forge_alembic_data_downgrade() {
   forge_alembic_targets > "$FORGE_TMP/alembic.targets"
   : > "$FORGE_TMP/alembic.data"
   while IFS= read -r _ad_f; do
     [ -f "$_ad_f" ] || continue
     awk -v f="$_ad_f" '
+      function changes_rows(t,   u) {
+        u = toupper(t)
+        return (t ~ /execute\(/ && (u ~ /(^|[^A-Z_])UPDATE[ \t\n]+[^ \t\n]+[ \t\n]+SET[ \t\n]/ || u ~ /INSERT[ \t\n]+INTO[ \t\n]/ || u ~ /DELETE[ \t\n]+FROM[ \t\n]/)) \
+          || t ~ /(^|[^A-Za-z0-9_.])(sa\.)?(update|insert|delete)\([A-Za-z_]/ || t ~ /\.(update|insert|delete)\(\)/ \
+          || t ~ /op\.bulk_insert\(/ || t ~ /(^|[^A-Za-z0-9_])Session\(/
+      }
       { line = $0; sub(/\r$/, "", line) }
       /^def[ \t]+upgrade[ \t]*\(/ { sec = "up"; next }
       /^def[ \t]+downgrade[ \t]*\(/ { sec = "down"; dl = NR; next }
@@ -5365,21 +5361,17 @@ forge_alembic_data_downgrade() {
       sec == "down" {
         t = line; sub(/^[ \t]+/, "", t); sub(/[ \t]+$/, "", t)
         if (indoc) { if (index(t, q)) indoc = 0; next }
-        if (t == "" || t ~ /^#/ || t == "pass" || t == "...") next
+        if (t == "" || t ~ /^#/) next
         if (t ~ /^("""|\047\047\047)/) { q = substr(t, 1, 3); if (!index(substr(t, 4), q)) indoc = 1; next }
-        if (t ~ /^["\047]/) next
-        real = 1
+        if (t ~ /^raise([ \t(]|$)/) raises = 1
+        down = down line "\n"
       }
       END {
-        u = toupper(up)
-        data = (up ~ /execute\(/ && (u ~ /(^|[^A-Z_])UPDATE[ \t\n]+[^ \t\n]+[ \t\n]+SET[ \t\n]/ || u ~ /INSERT[ \t\n]+INTO[ \t\n]/ || u ~ /DELETE[ \t\n]+FROM[ \t\n]/)) \
-          || up ~ /(^|[^A-Za-z0-9_.])(sa\.)?(update|insert|delete)\([A-Za-z_]/ || up ~ /\.(update|insert|delete)\(\)/ \
-          || up ~ /op\.bulk_insert\(/ || up ~ /(^|[^A-Za-z0-9_])Session\(/
-        if (data && !real) print f ":" (dl ? dl : 1) ": upgrade() changes data but downgrade() does nothing, so alembic downgrade reports success and leaves the rows changed. Write the inverse, raise an error that says the revision cannot be reverted, or test the migrations (pytest-alembic)."
+        if (changes_rows(up) && !raises && !changes_rows(down))
+          print f ":" (dl ? dl : 1) ": upgrade() changes rows but downgrade() neither changes them back (op.execute with UPDATE/INSERT/DELETE, sa.update/insert/delete, op.bulk_insert) nor raises, so alembic downgrade reports success and leaves the rows changed. Write the inverse, or raise an error that says the revision cannot be reverted."
       }' "$_ad_f" >> "$FORGE_TMP/alembic.data"
   done < "$FORGE_TMP/alembic.targets"
   [ -s "$FORGE_TMP/alembic.data" ] || return 0
-  forge_alembic_tested && return 0
   cat "$FORGE_TMP/alembic.data"
   return 1
 }
@@ -8130,23 +8122,23 @@ forge_alembic_fk_index() {
   return "$_ai_rc"
 }
 
-# forge_alembic_tested: some test file mentions Alembic (pytest-alembic, alembic.command, ...).
-forge_alembic_tested() {
-  git ls-files -co --exclude-standard -- '*test_*.py' '*_test.py' '*conftest.py' 2>/dev/null | while IFS= read -r _at_f; do
-    [ -f "$_at_f" ] && grep -lE '(pytest_alembic|alembic_runner|from alembic|import alembic|alembic\.(command|config))' "$_at_f"
-  done | grep -q .
-}
-
 # forge_alembic_data_downgrade: a revision whose upgrade() changes rows (UPDATE, INSERT,
 # DELETE through execute(), sa.update/insert/delete, op.bulk_insert, an ORM Session) has a
-# downgrade() that does something (reverts, or raises to say it cannot), unless the
-# project tests its migrations. A downgrade that only passes reports success and leaves the data.
+# downgrade() that changes rows the same ways (the inverse) or raises (it cannot be
+# reverted). A downgrade that only passes, prints or alters the schema reports success
+# and leaves the data. Run as advice (forge_advise): Claude may say why not.
 forge_alembic_data_downgrade() {
   forge_alembic_targets > "$FORGE_TMP/alembic.targets"
   : > "$FORGE_TMP/alembic.data"
   while IFS= read -r _ad_f; do
     [ -f "$_ad_f" ] || continue
     awk -v f="$_ad_f" '
+      function changes_rows(t,   u) {
+        u = toupper(t)
+        return (t ~ /execute\(/ && (u ~ /(^|[^A-Z_])UPDATE[ \t\n]+[^ \t\n]+[ \t\n]+SET[ \t\n]/ || u ~ /INSERT[ \t\n]+INTO[ \t\n]/ || u ~ /DELETE[ \t\n]+FROM[ \t\n]/)) \
+          || t ~ /(^|[^A-Za-z0-9_.])(sa\.)?(update|insert|delete)\([A-Za-z_]/ || t ~ /\.(update|insert|delete)\(\)/ \
+          || t ~ /op\.bulk_insert\(/ || t ~ /(^|[^A-Za-z0-9_])Session\(/
+      }
       { line = $0; sub(/\r$/, "", line) }
       /^def[ \t]+upgrade[ \t]*\(/ { sec = "up"; next }
       /^def[ \t]+downgrade[ \t]*\(/ { sec = "down"; dl = NR; next }
@@ -8155,21 +8147,17 @@ forge_alembic_data_downgrade() {
       sec == "down" {
         t = line; sub(/^[ \t]+/, "", t); sub(/[ \t]+$/, "", t)
         if (indoc) { if (index(t, q)) indoc = 0; next }
-        if (t == "" || t ~ /^#/ || t == "pass" || t == "...") next
+        if (t == "" || t ~ /^#/) next
         if (t ~ /^("""|\047\047\047)/) { q = substr(t, 1, 3); if (!index(substr(t, 4), q)) indoc = 1; next }
-        if (t ~ /^["\047]/) next
-        real = 1
+        if (t ~ /^raise([ \t(]|$)/) raises = 1
+        down = down line "\n"
       }
       END {
-        u = toupper(up)
-        data = (up ~ /execute\(/ && (u ~ /(^|[^A-Z_])UPDATE[ \t\n]+[^ \t\n]+[ \t\n]+SET[ \t\n]/ || u ~ /INSERT[ \t\n]+INTO[ \t\n]/ || u ~ /DELETE[ \t\n]+FROM[ \t\n]/)) \
-          || up ~ /(^|[^A-Za-z0-9_.])(sa\.)?(update|insert|delete)\([A-Za-z_]/ || up ~ /\.(update|insert|delete)\(\)/ \
-          || up ~ /op\.bulk_insert\(/ || up ~ /(^|[^A-Za-z0-9_])Session\(/
-        if (data && !real) print f ":" (dl ? dl : 1) ": upgrade() changes data but downgrade() does nothing, so alembic downgrade reports success and leaves the rows changed. Write the inverse, raise an error that says the revision cannot be reverted, or test the migrations (pytest-alembic)."
+        if (changes_rows(up) && !raises && !changes_rows(down))
+          print f ":" (dl ? dl : 1) ": upgrade() changes rows but downgrade() neither changes them back (op.execute with UPDATE/INSERT/DELETE, sa.update/insert/delete, op.bulk_insert) nor raises, so alembic downgrade reports success and leaves the rows changed. Write the inverse, or raise an error that says the revision cannot be reverted."
       }' "$_ad_f" >> "$FORGE_TMP/alembic.data"
   done < "$FORGE_TMP/alembic.targets"
   [ -s "$FORGE_TMP/alembic.data" ] || return 0
-  forge_alembic_tested && return 0
   cat "$FORGE_TMP/alembic.data"
   return 1
 }
@@ -10943,23 +10931,23 @@ forge_alembic_fk_index() {
   return "$_ai_rc"
 }
 
-# forge_alembic_tested: some test file mentions Alembic (pytest-alembic, alembic.command, ...).
-forge_alembic_tested() {
-  git ls-files -co --exclude-standard -- '*test_*.py' '*_test.py' '*conftest.py' 2>/dev/null | while IFS= read -r _at_f; do
-    [ -f "$_at_f" ] && grep -lE '(pytest_alembic|alembic_runner|from alembic|import alembic|alembic\.(command|config))' "$_at_f"
-  done | grep -q .
-}
-
 # forge_alembic_data_downgrade: a revision whose upgrade() changes rows (UPDATE, INSERT,
 # DELETE through execute(), sa.update/insert/delete, op.bulk_insert, an ORM Session) has a
-# downgrade() that does something (reverts, or raises to say it cannot), unless the
-# project tests its migrations. A downgrade that only passes reports success and leaves the data.
+# downgrade() that changes rows the same ways (the inverse) or raises (it cannot be
+# reverted). A downgrade that only passes, prints or alters the schema reports success
+# and leaves the data. Run as advice (forge_advise): Claude may say why not.
 forge_alembic_data_downgrade() {
   forge_alembic_targets > "$FORGE_TMP/alembic.targets"
   : > "$FORGE_TMP/alembic.data"
   while IFS= read -r _ad_f; do
     [ -f "$_ad_f" ] || continue
     awk -v f="$_ad_f" '
+      function changes_rows(t,   u) {
+        u = toupper(t)
+        return (t ~ /execute\(/ && (u ~ /(^|[^A-Z_])UPDATE[ \t\n]+[^ \t\n]+[ \t\n]+SET[ \t\n]/ || u ~ /INSERT[ \t\n]+INTO[ \t\n]/ || u ~ /DELETE[ \t\n]+FROM[ \t\n]/)) \
+          || t ~ /(^|[^A-Za-z0-9_.])(sa\.)?(update|insert|delete)\([A-Za-z_]/ || t ~ /\.(update|insert|delete)\(\)/ \
+          || t ~ /op\.bulk_insert\(/ || t ~ /(^|[^A-Za-z0-9_])Session\(/
+      }
       { line = $0; sub(/\r$/, "", line) }
       /^def[ \t]+upgrade[ \t]*\(/ { sec = "up"; next }
       /^def[ \t]+downgrade[ \t]*\(/ { sec = "down"; dl = NR; next }
@@ -10968,21 +10956,17 @@ forge_alembic_data_downgrade() {
       sec == "down" {
         t = line; sub(/^[ \t]+/, "", t); sub(/[ \t]+$/, "", t)
         if (indoc) { if (index(t, q)) indoc = 0; next }
-        if (t == "" || t ~ /^#/ || t == "pass" || t == "...") next
+        if (t == "" || t ~ /^#/) next
         if (t ~ /^("""|\047\047\047)/) { q = substr(t, 1, 3); if (!index(substr(t, 4), q)) indoc = 1; next }
-        if (t ~ /^["\047]/) next
-        real = 1
+        if (t ~ /^raise([ \t(]|$)/) raises = 1
+        down = down line "\n"
       }
       END {
-        u = toupper(up)
-        data = (up ~ /execute\(/ && (u ~ /(^|[^A-Z_])UPDATE[ \t\n]+[^ \t\n]+[ \t\n]+SET[ \t\n]/ || u ~ /INSERT[ \t\n]+INTO[ \t\n]/ || u ~ /DELETE[ \t\n]+FROM[ \t\n]/)) \
-          || up ~ /(^|[^A-Za-z0-9_.])(sa\.)?(update|insert|delete)\([A-Za-z_]/ || up ~ /\.(update|insert|delete)\(\)/ \
-          || up ~ /op\.bulk_insert\(/ || up ~ /(^|[^A-Za-z0-9_])Session\(/
-        if (data && !real) print f ":" (dl ? dl : 1) ": upgrade() changes data but downgrade() does nothing, so alembic downgrade reports success and leaves the rows changed. Write the inverse, raise an error that says the revision cannot be reverted, or test the migrations (pytest-alembic)."
+        if (changes_rows(up) && !raises && !changes_rows(down))
+          print f ":" (dl ? dl : 1) ": upgrade() changes rows but downgrade() neither changes them back (op.execute with UPDATE/INSERT/DELETE, sa.update/insert/delete, op.bulk_insert) nor raises, so alembic downgrade reports success and leaves the rows changed. Write the inverse, or raise an error that says the revision cannot be reverted."
       }' "$_ad_f" >> "$FORGE_TMP/alembic.data"
   done < "$FORGE_TMP/alembic.targets"
   [ -s "$FORGE_TMP/alembic.data" ] || return 0
-  forge_alembic_tested && return 0
   cat "$FORGE_TMP/alembic.data"
   return 1
 }
@@ -14473,23 +14457,23 @@ forge_alembic_fk_index() {
   return "$_ai_rc"
 }
 
-# forge_alembic_tested: some test file mentions Alembic (pytest-alembic, alembic.command, ...).
-forge_alembic_tested() {
-  git ls-files -co --exclude-standard -- '*test_*.py' '*_test.py' '*conftest.py' 2>/dev/null | while IFS= read -r _at_f; do
-    [ -f "$_at_f" ] && grep -lE '(pytest_alembic|alembic_runner|from alembic|import alembic|alembic\.(command|config))' "$_at_f"
-  done | grep -q .
-}
-
 # forge_alembic_data_downgrade: a revision whose upgrade() changes rows (UPDATE, INSERT,
 # DELETE through execute(), sa.update/insert/delete, op.bulk_insert, an ORM Session) has a
-# downgrade() that does something (reverts, or raises to say it cannot), unless the
-# project tests its migrations. A downgrade that only passes reports success and leaves the data.
+# downgrade() that changes rows the same ways (the inverse) or raises (it cannot be
+# reverted). A downgrade that only passes, prints or alters the schema reports success
+# and leaves the data. Run as advice (forge_advise): Claude may say why not.
 forge_alembic_data_downgrade() {
   forge_alembic_targets > "$FORGE_TMP/alembic.targets"
   : > "$FORGE_TMP/alembic.data"
   while IFS= read -r _ad_f; do
     [ -f "$_ad_f" ] || continue
     awk -v f="$_ad_f" '
+      function changes_rows(t,   u) {
+        u = toupper(t)
+        return (t ~ /execute\(/ && (u ~ /(^|[^A-Z_])UPDATE[ \t\n]+[^ \t\n]+[ \t\n]+SET[ \t\n]/ || u ~ /INSERT[ \t\n]+INTO[ \t\n]/ || u ~ /DELETE[ \t\n]+FROM[ \t\n]/)) \
+          || t ~ /(^|[^A-Za-z0-9_.])(sa\.)?(update|insert|delete)\([A-Za-z_]/ || t ~ /\.(update|insert|delete)\(\)/ \
+          || t ~ /op\.bulk_insert\(/ || t ~ /(^|[^A-Za-z0-9_])Session\(/
+      }
       { line = $0; sub(/\r$/, "", line) }
       /^def[ \t]+upgrade[ \t]*\(/ { sec = "up"; next }
       /^def[ \t]+downgrade[ \t]*\(/ { sec = "down"; dl = NR; next }
@@ -14498,21 +14482,17 @@ forge_alembic_data_downgrade() {
       sec == "down" {
         t = line; sub(/^[ \t]+/, "", t); sub(/[ \t]+$/, "", t)
         if (indoc) { if (index(t, q)) indoc = 0; next }
-        if (t == "" || t ~ /^#/ || t == "pass" || t == "...") next
+        if (t == "" || t ~ /^#/) next
         if (t ~ /^("""|\047\047\047)/) { q = substr(t, 1, 3); if (!index(substr(t, 4), q)) indoc = 1; next }
-        if (t ~ /^["\047]/) next
-        real = 1
+        if (t ~ /^raise([ \t(]|$)/) raises = 1
+        down = down line "\n"
       }
       END {
-        u = toupper(up)
-        data = (up ~ /execute\(/ && (u ~ /(^|[^A-Z_])UPDATE[ \t\n]+[^ \t\n]+[ \t\n]+SET[ \t\n]/ || u ~ /INSERT[ \t\n]+INTO[ \t\n]/ || u ~ /DELETE[ \t\n]+FROM[ \t\n]/)) \
-          || up ~ /(^|[^A-Za-z0-9_.])(sa\.)?(update|insert|delete)\([A-Za-z_]/ || up ~ /\.(update|insert|delete)\(\)/ \
-          || up ~ /op\.bulk_insert\(/ || up ~ /(^|[^A-Za-z0-9_])Session\(/
-        if (data && !real) print f ":" (dl ? dl : 1) ": upgrade() changes data but downgrade() does nothing, so alembic downgrade reports success and leaves the rows changed. Write the inverse, raise an error that says the revision cannot be reverted, or test the migrations (pytest-alembic)."
+        if (changes_rows(up) && !raises && !changes_rows(down))
+          print f ":" (dl ? dl : 1) ": upgrade() changes rows but downgrade() neither changes them back (op.execute with UPDATE/INSERT/DELETE, sa.update/insert/delete, op.bulk_insert) nor raises, so alembic downgrade reports success and leaves the rows changed. Write the inverse, or raise an error that says the revision cannot be reverted."
       }' "$_ad_f" >> "$FORGE_TMP/alembic.data"
   done < "$FORGE_TMP/alembic.targets"
   [ -s "$FORGE_TMP/alembic.data" ] || return 0
-  forge_alembic_tested && return 0
   cat "$FORGE_TMP/alembic.data"
   return 1
 }
@@ -15835,13 +15815,13 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "cc4a889eb0483cbc1ccca0dfff9bdb83a1707a5d5f3739d4c5e725ab5bcc1648",
     ".claude/skills/forge-project/scripts/guard.sh": "e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca",
     ".claude/skills/forge-project/scripts/lib.sh": "462727c0187a948cfaefd1fac315bc87063203968e3df6d12ca68c839fbdf4a3",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "09f50b45e0b7860f74df49e3a4101db60002af45730e324d6e8e310e4e34ba4b",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "fe8cbc900c3b69c0da0731511d50e8ee2c75731f97ee8ea4a2c3e71fe43ba052",
     ".claude/skills/forge-project/scripts/review.sh": "889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726",
-    ".claude/skills/forge-project/scripts/session-start.sh": "7d25b880ff39807608a021ee1fe6c04d95cc52fe488b0d29402817f5d7434ae1",
+    ".claude/skills/forge-project/scripts/session-start.sh": "47168738589f3b384a4c49f5ab2b81fc142a2fa38964cb6dac85f58f5cbb956e",
     ".claude/skills/forge-project/scripts/stop.sh": "10316d9cd59fea152c6f8fbf0ab70abf547514bf67a2c85f3e6b405554a71fad",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "54199a4103b215195507fe8743f3a7c942707d266ca343558f8afd10451e35fe",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "b07ec7b401c3cf90295b6302e8b0e2f4f97053f6ab407a4d05fd486fe531b43d",
     ".claude/skills/forge-project/scripts/turn-start.sh": "fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "7b096deb4c2b7be2f8e6d9f8122fcc20f2a273b82981d99dfb2e8663afe77e33",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "0efecc4813a95f776d32a734d27f754dddad09c1d58a52f2f90866b39971f490",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-bun-no-fewer-expects-test.yml": "bd5df50793070bba7b87b0f623ac58ed4599e0ba6f8d731fc0da4b28a0335ec8",
     ".forge/ast-grep/rule-tests/typescript-bun-no-mock-increase-test.yml": "cf28a1a131538f6ff9cb7cd9468d9338d29c52d6abe02dccf7785696f5c847b8",
@@ -15864,7 +15844,7 @@ exit "$fail"
     ".forge/ast-grep/rules/typescript/react/use-action-state.yml": "17b6fc5e510df3154be12c72a584d8bfb31034b577774718a8c50516b2b15a81",
     ".forge/ast-grep/rules/typescript/ts-expect-error-reason.yml": "b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "3d3e0300c47e69941301af17e68833c4a57e6ee95e8401b2ae5a46ac8f3ac07c",
+    ".forge/check.sh": "ab13c6c9f9d4c8a2ddf50c9acd1a67e47a5da298272e89642e7bf5e86dcecbcd",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -15918,13 +15898,13 @@ d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills
 cc4a889eb0483cbc1ccca0dfff9bdb83a1707a5d5f3739d4c5e725ab5bcc1648  .claude/skills/forge-project/scripts/guard.rules
 e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca  .claude/skills/forge-project/scripts/guard.sh
 462727c0187a948cfaefd1fac315bc87063203968e3df6d12ca68c839fbdf4a3  .claude/skills/forge-project/scripts/lib.sh
-09f50b45e0b7860f74df49e3a4101db60002af45730e324d6e8e310e4e34ba4b  .claude/skills/forge-project/scripts/post-edit.sh
+fe8cbc900c3b69c0da0731511d50e8ee2c75731f97ee8ea4a2c3e71fe43ba052  .claude/skills/forge-project/scripts/post-edit.sh
 889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726  .claude/skills/forge-project/scripts/review.sh
-7d25b880ff39807608a021ee1fe6c04d95cc52fe488b0d29402817f5d7434ae1  .claude/skills/forge-project/scripts/session-start.sh
+47168738589f3b384a4c49f5ab2b81fc142a2fa38964cb6dac85f58f5cbb956e  .claude/skills/forge-project/scripts/session-start.sh
 10316d9cd59fea152c6f8fbf0ab70abf547514bf67a2c85f3e6b405554a71fad  .claude/skills/forge-project/scripts/stop.sh
-54199a4103b215195507fe8743f3a7c942707d266ca343558f8afd10451e35fe  .claude/skills/forge-project/scripts/test-edit.sh
+b07ec7b401c3cf90295b6302e8b0e2f4f97053f6ab407a4d05fd486fe531b43d  .claude/skills/forge-project/scripts/test-edit.sh
 fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3  .claude/skills/forge-project/scripts/turn-start.sh
-7b096deb4c2b7be2f8e6d9f8122fcc20f2a273b82981d99dfb2e8663afe77e33  .claude/skills/forge-project/scripts/typecheck.sh
+0efecc4813a95f776d32a734d27f754dddad09c1d58a52f2f90866b39971f490  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 bd5df50793070bba7b87b0f623ac58ed4599e0ba6f8d731fc0da4b28a0335ec8  .forge/ast-grep/rule-tests/typescript-bun-no-fewer-expects-test.yml
 cf28a1a131538f6ff9cb7cd9468d9338d29c52d6abe02dccf7785696f5c847b8  .forge/ast-grep/rule-tests/typescript-bun-no-mock-increase-test.yml
@@ -15947,7 +15927,7 @@ aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21  .forge/ast-gre
 17b6fc5e510df3154be12c72a584d8bfb31034b577774718a8c50516b2b15a81  .forge/ast-grep/rules/typescript/react/use-action-state.yml
 b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad  .forge/ast-grep/rules/typescript/ts-expect-error-reason.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-3d3e0300c47e69941301af17e68833c4a57e6ee95e8401b2ae5a46ac8f3ac07c  .forge/check.sh
+ab13c6c9f9d4c8a2ddf50c9acd1a67e47a5da298272e89642e7bf5e86dcecbcd  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh
