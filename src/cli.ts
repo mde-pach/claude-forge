@@ -7,7 +7,7 @@ import { MANIFEST_PATH, readLock, renderLock, renderManifest } from "./lock.js";
 import { loadLocalRules, loadPacks } from "./packs.js";
 import { plan, readProjectInputs, type Plan } from "./plan.js";
 import { blockHash, CHECK, hasBlock, hookManager, insertBlock, managerInactive, onlyForge, preCommitPath, removeBlock, runsForgeCheck } from "./precommit.js";
-import { selfTest } from "./selftest.js";
+import { localSelfTest, testSummary } from "./selftest.js";
 import { addEntries, conflictingScalars, entryKey, hasEntry, removeEntries } from "./settings.js";
 import { CLAUDE_CODE_MIN, FORGE_VERSION, compareVersions, gitToplevel, lineDiff, ownedHash, packageRoot, run } from "./util.js";
 import type { Level, Lock, LockBlock, SettingsEntry } from "./types.js";
@@ -660,15 +660,18 @@ function cmdExplain(id: string | undefined, flags: Flags): number {
   return 0;
 }
 
+/** forge test: the project's local rules (.forge/rules); the bundled packs are tested by `bun run test:packs`. */
 function cmdTest(): number {
   const top = gitToplevel(process.cwd());
-  const r = selfTest(packsDir(), top);
+  if (!top) throw new ForgeError("forge: not inside a git repository (forge test checks the rules in .forge/rules)");
+  const r = localSelfTest(top);
+  if (!r.counts.rules && !r.failures.length) {
+    out("forge: no local rules in .forge/rules; nothing to test");
+    return 0;
+  }
   for (const n of r.notes) out(`forge: ${n}`);
   for (const f of r.failures) err(`forge:test ${f}`);
-  const c = r.counts;
-  out(
-    `forge: ${c.packs} packs, ${c.rules} rules; ast-grep ${c.astgrep}, guard ${c.guard}, permission ${c.permission}, grep ${c.grep}, check ${c.check}, context ${c.context}: ${r.failures.length ? `${r.failures.length} failure(s)` : "all passed"}`,
-  );
+  out(`forge: ${testSummary(r.counts, `${r.counts.rules} local rule(s)`)}: ${r.failures.length ? `${r.failures.length} failure(s)` : "all passed"}`);
   return r.failures.length ? 1 : 0;
 }
 

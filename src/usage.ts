@@ -9,7 +9,7 @@ Usage:
   forge diff [--user]                show what apply would change (exit 1 if anything differs)
   forge status [--user] [--json]     packs, rules (active / enforced), audits, drift, missing tools
   forge explain <rule-id>            a rule, where it is enforced here, and its audit
-  forge test                         validate packs and run every rule's examples
+  forge test                         validate this repository's local rules (.forge/rules) and run their examples
   forge remove [--user]              delete owned files and the settings entries forge added
 
 Options: --force (overwrite drifted files), --dry-run (print the diff, write nothing),

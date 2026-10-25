@@ -1,6 +1,6 @@
 ---
 title: Writing packs
-description: The pack tree, the rule file, and forge test.
+description: The pack tree, the rule file, and the pack self-test (bun run test:packs).
 ---
 
 import Spec from "../../../components/Spec.astro";
@@ -52,7 +52,7 @@ A pack can also be detected as a library (`detect: {library_any: [pypi]}` or `[n
 
 ## Examples are tests
 
-`forge test` validates every pack and rule against the schemas and runs every example. Each rule's result appears on its pack page.
+`bun run test:packs` (from a clone of Forge) validates every pack and rule against the schemas and runs every example; `bun run test:packs <dir>` does the same for another packs directory. The spec suite runs it in CI, and each rule's result appears on its pack page. (`forge test`, the published command, checks a project's local rules only.)
 
 A `check` rule's examples are **fixtures**: files written into a temporary repository, which `check.sh` (holding only that check) then examines as Stop would. `head` files are committed first; `files` are the change:
 
@@ -67,7 +67,7 @@ examples:
 
 Only checks that need a whole project (test and migration runs, `astro check`, lock-file checks) may go without examples. An example whose tool is not installed is reported skipped, never passed.
 
-`forge test` cannot run a `tool` target: that needs the tool. The test suite does it instead, with the pinned Biome, TypeScript, ruff and basedpyright: for each `tool` target, the rule's examples must make the audit satisfied when the project's config reports the expected diagnostic as an error, and unsatisfied when that diagnostic is off. Every `match` example must therefore trigger every `tool` target of its rule; put all the variants a rule covers into each `match` example when the rule has several targets.
+The self-test cannot run a `tool` target: that needs the tool. The test suite does it instead, with the pinned Biome, TypeScript, ruff and basedpyright: for each `tool` target, the rule's examples must make the audit satisfied when the project's config reports the expected diagnostic as an error, and unsatisfied when that diagnostic is off. Every `match` example must therefore trigger every `tool` target of its rule; put all the variants a rule covers into each `match` example when the rule has several targets.
 
 <Spec file="13-packs" top />
 <Spec file="13-packs" describe="forge test catches broken packs" />

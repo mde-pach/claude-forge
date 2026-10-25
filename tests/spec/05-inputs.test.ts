@@ -193,6 +193,67 @@ examples:
     T,
   );
 
+  /**
+   * `forge test` checks the project's own rules: those of `.forge/rules` (a local
+   * rule replacing a pack rule is tested as written). The bundled packs are proved
+   * by Forge's own test suite (`bun run test:packs`), so they are not run here.
+   */
+  describe("forge test", () => {
+    const guard = (match: string) =>
+      `id: local/no-force-push\ndescription: No force push.\nscope: {language: any}\nenforce: [{target: guard, decision: deny, pattern: "git push.*--force"}]\nexamples: {match: [${JSON.stringify(match)}], no_match: ["git push"]}\n`;
+
+    test(
+      "runs the examples of the local rules only, and passes when they behave as declared",
+      () => {
+        const repo = sampleRepo("eslint-app");
+        put(repo, ".forge/rules/no-force-push.yaml", guard("git push --force"));
+        const r = forge(["test"], repo);
+        expect(r.status).toBe(0);
+        expect(r.stdout).toContain("forge: 1 local rule(s); ast-grep 0, guard 1, permission 0, grep 0, check 0, context 0: all passed");
+        expect(r.stdout).not.toContain("packs");
+      },
+      T,
+    );
+
+    test(
+      "fails, naming the rule, when a local rule's example does not behave as declared",
+      () => {
+        const repo = sampleRepo("eslint-app");
+        put(repo, ".forge/rules/no-force-push.yaml", guard("git push -f"));
+        const r = forge(["test"], repo);
+        expect(r.status).toBe(1);
+        expect(r.stderr).toContain('forge:test local/no-force-push [sh]: expected deny for "git push -f", got nothing');
+      },
+      T,
+    );
+
+    test(
+      "a local rule replacing a pack rule is tested as written",
+      () => {
+        const repo = sampleRepo("eslint-app");
+        put(repo, ".forge/rules/no-ts-ignore.yaml", stricter.replace("// @ts-nocheck", "// fine"));
+        const r = forge(["test"], repo);
+        expect(r.status).toBe(1);
+        expect(r.stderr).toContain("typescript/no-ts-ignore");
+      },
+      T,
+    );
+
+    test(
+      "without local rules there is nothing to test; outside a repository it is an error",
+      () => {
+        const repo = sampleRepo("eslint-app");
+        const r = forge(["test"], repo);
+        expect(r.status).toBe(0);
+        expect(r.stdout).toBe("forge: no local rules in .forge/rules; nothing to test\n");
+        const outside = forge(["test"], mkdtempSync(join(tmpdir(), "forge-norepo-")));
+        expect(outside.status).toBe(1);
+        expect(outside.stderr).toContain("not inside a git repository");
+      },
+      T,
+    );
+  });
+
   test(
     "forge.yaml and .forge/rules are inputs: apply never rewrites them, and Claude must ask to edit them",
     () => {

@@ -53,7 +53,7 @@ Every requirement uses MUST / MUST NOT. Anything not described here is out of sc
 | `forge diff [--user]` | Show what `apply` would change. Exit 1 if anything differs. |
 | `forge status [--user] [--json]` | Active packs; rules as `Rules: <n> active, <m> enforced, <k> not enforced (<count> <reason>, …)` then each rule with where it is enforced; disabled rules with reasons; audit results with snippets; drift; missing tools. A rule is enforced when at least one of its targets acts here: a satisfied audit, an ast-grep rule, a permission, guard, sandbox or grep target, or a check whose tools are installed. Reasons: `ruff codes not selected`, `Biome rules not at error`, `basedpyright rules not at error`, `tsc options not set` (unsatisfied audits), `<tool> not configured`, `<tool> not installed`. Missing tools are what the generated scripts' `forge_missing_tools` prints (the SessionStart hook reports the same list). `--json` prints all of it as one object: `counts`, `rules` (`id`, `enforced`, `by`, `not_enforced`), `audits`, `missing_tools`, `packs`, `disabled`, `drift`. |
 | `forge explain <rule-id>` | The rule file, where it is enforced in this project, and its audit result. |
-| `forge test` | Validate packs and rules against the schemas; run every rule's examples (§12.1). |
+| `forge test` | Inside a git repository: validate the project's local rules (`.forge/rules/`; a local rule replacing a pack rule is tested as written) against the schema and run their examples (§14.1). No local rules: prints that there is nothing to test, exit 0. The bundled packs are not run: they are proved by Forge's own test suite. |
 | `forge remove [--user]` | Delete every owned file and exactly the settings entries recorded in the lock. |
 
 - Every writing command accepts `--dry-run` (prints the `diff` output, writes nothing).
@@ -996,7 +996,9 @@ context.md: `compose.yaml` + `compose.override.yaml`, healthchecks with `conditi
 
 The test suite in `tests/spec/` is the executable form of this specification: one file per section (`@spec <number> · <title>` header), one requirement per test title. The documentation site renders those files with the JUnit results of the CI run (`bun run test:report` → `test-results/<platform>.xml`) and fails to build if a result cannot be placed on a test.
 
-### 14.1 `forge test`
+### 14.1 `forge test` and `bun run test:packs`
+
+The same checks run on two sets of rules: `forge test` on a project's local rules (`.forge/rules/`), and the development entry point `bun run test:packs [packs-dir]` (`scripts/test-packs.ts`, not part of the published CLI; the spec suite and CI run it through `tests/spec/13-packs`) on every bundled pack and rule.
 
 - Every pack and rule validates against its schema.
 - ast-grep targets compile to `rule-tests/*.yml` (`valid` = `no_match`, `invalid` = `match`) and pass `ast-grep test --skip-snapshot-tests`. The number of loaded rules equals the number of rule files.
@@ -1004,7 +1006,7 @@ The test suite in `tests/spec/` is the executable form of this specification: on
 - Every grep target: `grep -E` matches a line of each `match` example and no line of a `no_match` example.
 - The `hadolint-bin` wheel's binary for this platform has the upstream release's sha256 (when a rule uses hadolint and uvx is available).
 - Every check target: each example runs in a temporary git repository holding the fixture's `head` files (committed), a `.forge/check.sh` generated with only that check, then the fixture's `files` written and staged, as a turn that started at the `head` fixture. `check.sh` runs as Stop runs it (`--turn`; `format` checks, which fix files at Stop, as CI runs them: `--all`). A `match` example fails the check (`forge:<id> failed`), a `no_match` example passes. Project tools come from the current project's `node_modules/.bin` and `.venv/bin`, then `PATH`; an example whose tool is not found is reported skipped, never passed.
-- Every `context.md` ≤ 10 lines.
+- Every `context.md` ≤ 10 lines (packs only).
 
 ### 14.2 Generator
 
