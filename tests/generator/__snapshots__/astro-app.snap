@@ -9509,9 +9509,14 @@ FORGE_INPUT=$(cat)
 # --sdk-url, which requires it) on the command line of an ancestor process. Every edit
 # would then wait for a whole-project typecheck; the Stop check runs it once instead.
 # FORGE_EDIT_TYPECHECK=always runs it anyway, never skips it everywhere.
+# The ancestors do not change within a session: the answer is kept in
+# <state>/<session>.rewake (up to 12 ps pairs per edit otherwise, on macOS).
 forge_rewake_blocks() {
   case ${FORGE_EDIT_TYPECHECK:-auto} in always) return 1 ;; never) return 0 ;; esac
   [ "${CLAUDE_CODE_ENTRYPOINT:-}" = sdk-cli ] || return 1
+  _rw_c=$FORGE_STATE/$(session_id).rewake
+  case $(cat "$_rw_c" 2>/dev/null) in blocks) return 0 ;; runs) return 1 ;; esac
+  forge_state_dir || _rw_c=/dev/null
   _rw_p=$PPID
   _rw_n=0
   while [ -n "$_rw_p" ] && [ "$_rw_p" -gt 1 ] 2>/dev/null && [ "$_rw_n" -lt 12 ]; do
@@ -9522,15 +9527,16 @@ forge_rewake_blocks() {
       _rw_a=$(ps -o args= -p "$_rw_p" 2>/dev/null)
       _rw_pp=$(ps -o ppid= -p "$_rw_p" 2>/dev/null | tr -d ' ')
     fi
-    case " $_rw_a " in *' --input-format stream-json '*|*' --input-format=stream-json '*|*' --sdk-url'*) return 1 ;; esac
+    case " $_rw_a " in *' --input-format stream-json '*|*' --input-format=stream-json '*|*' --sdk-url'*) printf 'runs\n' > "$_rw_c"; return 1 ;; esac
     _rw_p=$_rw_pp
     _rw_n=$((_rw_n + 1))
   done
+  printf 'blocks\n' > "$_rw_c"
   return 0
 }
+repo_root || exit 0
 forge_rewake_blocks && exit 0
 
-repo_root || exit 0
 if [ "$(json_get tool_name)" = Bash ]; then
   # post-edit.sh (run alongside) writes the files the command changed
   key=$(bash_key) || exit 0
@@ -16442,7 +16448,7 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/stop.sh": "0adfa608a9bbcc166b30c6009e1b21e986d12b49283beff2230177455e03a5a0",
     ".claude/skills/forge-project/scripts/test-edit.sh": "bb5eea5a2e1c6b7664ca16d2aa31c9d6c1c5f57d49151f83e76dec361c6736dd",
     ".claude/skills/forge-project/scripts/turn-start.sh": "3d6bbb9aed56181032c9e7c05ba1c20e8080ca104e831a193b42a825e3a12531",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "d52736c25b10332555381af823f527f4b32812338dfeb84bcaf913758bebe343",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "358b12c5b1fc2a04055891316fc861e86f9e6856a276b47f1ae027bdfad5218f",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-bun-no-fewer-expects-test.yml": "bd5df50793070bba7b87b0f623ac58ed4599e0ba6f8d731fc0da4b28a0335ec8",
     ".forge/ast-grep/rule-tests/typescript-bun-no-mock-increase-test.yml": "cf28a1a131538f6ff9cb7cd9468d9338d29c52d6abe02dccf7785696f5c847b8",
@@ -16529,7 +16535,7 @@ b90b7f1e90d9babef35b45c050a16c484c9ba8cc2dc8745c7b2cacec80d44bfb  .claude/skills
 0adfa608a9bbcc166b30c6009e1b21e986d12b49283beff2230177455e03a5a0  .claude/skills/forge-project/scripts/stop.sh
 bb5eea5a2e1c6b7664ca16d2aa31c9d6c1c5f57d49151f83e76dec361c6736dd  .claude/skills/forge-project/scripts/test-edit.sh
 3d6bbb9aed56181032c9e7c05ba1c20e8080ca104e831a193b42a825e3a12531  .claude/skills/forge-project/scripts/turn-start.sh
-d52736c25b10332555381af823f527f4b32812338dfeb84bcaf913758bebe343  .claude/skills/forge-project/scripts/typecheck.sh
+358b12c5b1fc2a04055891316fc861e86f9e6856a276b47f1ae027bdfad5218f  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 bd5df50793070bba7b87b0f623ac58ed4599e0ba6f8d731fc0da4b28a0335ec8  .forge/ast-grep/rule-tests/typescript-bun-no-fewer-expects-test.yml
 cf28a1a131538f6ff9cb7cd9468d9338d29c52d6abe02dccf7785696f5c847b8  .forge/ast-grep/rule-tests/typescript-bun-no-mock-increase-test.yml

@@ -18,9 +18,14 @@ FORGE_INPUT=$(cat)
 # --sdk-url, which requires it) on the command line of an ancestor process. Every edit
 # would then wait for a whole-project typecheck; the Stop check runs it once instead.
 # FORGE_EDIT_TYPECHECK=always runs it anyway, never skips it everywhere.
+# The ancestors do not change within a session: the answer is kept in
+# <state>/<session>.rewake (up to 12 ps pairs per edit otherwise, on macOS).
 forge_rewake_blocks() {
   case ${FORGE_EDIT_TYPECHECK:-auto} in always) return 1 ;; never) return 0 ;; esac
   [ "${CLAUDE_CODE_ENTRYPOINT:-}" = sdk-cli ] || return 1
+  _rw_c=$FORGE_STATE/$(session_id).rewake
+  case $(cat "$_rw_c" 2>/dev/null) in blocks) return 0 ;; runs) return 1 ;; esac
+  forge_state_dir || _rw_c=/dev/null
   _rw_p=$PPID
   _rw_n=0
   while [ -n "$_rw_p" ] && [ "$_rw_p" -gt 1 ] 2>/dev/null && [ "$_rw_n" -lt 12 ]; do
@@ -31,15 +36,16 @@ forge_rewake_blocks() {
       _rw_a=$(ps -o args= -p "$_rw_p" 2>/dev/null)
       _rw_pp=$(ps -o ppid= -p "$_rw_p" 2>/dev/null | tr -d ' ')
     fi
-    case " $_rw_a " in *' --input-format stream-json '*|*' --input-format=stream-json '*|*' --sdk-url'*) return 1 ;; esac
+    case " $_rw_a " in *' --input-format stream-json '*|*' --input-format=stream-json '*|*' --sdk-url'*) printf 'runs\n' > "$_rw_c"; return 1 ;; esac
     _rw_p=$_rw_pp
     _rw_n=$((_rw_n + 1))
   done
+  printf 'blocks\n' > "$_rw_c"
   return 0
 }
+repo_root || exit 0
 forge_rewake_blocks && exit 0
 
-repo_root || exit 0
 if [ "$(json_get tool_name)" = Bash ]; then
   # post-edit.sh (run alongside) writes the files the command changed
   key=$(bash_key) || exit 0

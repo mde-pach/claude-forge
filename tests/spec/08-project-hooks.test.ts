@@ -672,14 +672,25 @@ describe("PostToolUse", () => {
       put(repo, "app/main.py", readFileSync(join(repo, "app/main.py"), "utf8") + '\nBROKEN: int = "no"\n');
       const input = join(mkdtempSync(join(tmpdir(), "forge-in-")), "in.json");
       writeFileSync(input, hookJson({ cwd: repo, ...edit("app/main.py") }));
-      const run = (env: Record<string, string>, ...args: string[]) =>
-        sh("sh", ["-c", 'sh "$0" < "$1"; exit $?', join(SCRIPTS, "typecheck.sh"), input, ...args], { cwd: repo, env: { FORGE_EDIT_TYPECHECK: "", ...env } });
+      // each run is a session of its own unless the session's answer is kept
+      const rewake = join(stateDir(repo), "test.rewake");
+      const run = (env: Record<string, string>, ...args: string[]) => {
+        if (!env.KEEP) rmSync(rewake, { force: true });
+        return sh("sh", ["-c", 'sh "$0" < "$1"; exit $?', join(SCRIPTS, "typecheck.sh"), input, ...args], { cwd: repo, env: { FORGE_EDIT_TYPECHECK: "", ...env } });
+      };
       const headless = run({ CLAUDE_CODE_ENTRYPOINT: "sdk-cli" });
       expect(headless.status).toBe(0);
       expect(headless.stderr).toBe("");
       expect(run({ CLAUDE_CODE_ENTRYPOINT: "sdk-cli" }, "--input-format", "stream-json").status).toBe(2);
       expect(run({ CLAUDE_CODE_ENTRYPOINT: "sdk-cli", FORGE_EDIT_TYPECHECK: "always" }).status).toBe(2);
       expect(run({ CLAUDE_CODE_ENTRYPOINT: "cli" }).status).toBe(2);
+      // the ancestors are looked up once per session (session "test" here), then the answer is reused
+      expect(run({ CLAUDE_CODE_ENTRYPOINT: "sdk-cli" }, "--input-format", "stream-json").status).toBe(2);
+      expect(readFileSync(rewake, "utf8")).toBe("runs\n");
+      expect(run({ CLAUDE_CODE_ENTRYPOINT: "sdk-cli", KEEP: "1" }).status).toBe(2);
+      writeFileSync(rewake, "blocks\n");
+      expect(run({ CLAUDE_CODE_ENTRYPOINT: "sdk-cli", KEEP: "1" }, "--input-format", "stream-json").status).toBe(0);
+      rmSync(rewake);
       rmSync(join(repo, ".venv/bin/basedpyright"));
       reset();
     },
