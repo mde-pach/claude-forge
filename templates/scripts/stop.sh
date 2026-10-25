@@ -3,6 +3,8 @@
 # turn (--turn, against the snapshot taken by turn-start.sh), or on every
 # uncommitted change when there is no snapshot (--changed); hands over after 3 blocks.
 # A tree that failed is not checked again: the same reason is given until it changes.
+# Tests that fail at the start of the turn too block once with what to do; on the same
+# tree again the stop is allowed and the user is told they could not be verified.
 dir=$(cd "$(dirname "$0")" && pwd)
 FORGE_INPUT=$(cat)
 . "$dir/lib.sh"
@@ -27,6 +29,25 @@ else
 fi
 [ "$hash" = "$(cat "$passed" 2>/dev/null)" ] && exit 0
 
+# Only tests that also fail at the start of the turn, and the agent stopped again
+# without changing anything: allowed, and the user is told what was not verified.
+if [ "$hash" = "$(cat "$failed" 2>/dev/null)" ] && [ -s "$failed.unverified" ]; then
+  msg=$(awk -F '\t' '
+    $1 == "test" { t[++n] = substr($0, 6) } $1 == "env" { e[++m] = $2 }
+    END {
+      printf "forge: %d test(s) could not be verified: they fail with and without Claude'"'"'s change", n
+      if (m) { printf ", and their errors look environmental: "; for (i = 1; i <= m; i++) printf "%s%s", (i > 1 ? "; " : ""), e[i] }
+      printf ". Not verified: "
+      for (i = 1; i <= n && i <= 10; i++) printf "%s%s", (i > 1 ? "; " : ""), t[i]
+      if (n > 10) printf "; and %d more", n - 10
+      printf ". Run them once the environment is set up."
+    }' "$failed.unverified" | json_escape)
+  printf '%s\n' "$hash" > "$passed"
+  rm -f "$counter" "$failed" "$failed.reason" "$failed.unverified"
+  printf '{"systemMessage":"%s"}\n' "$msg"
+  exit 0
+fi
+
 count=$(cat "$counter" 2>/dev/null)
 case $count in ''|*[!0-9]*) count=0 ;; esac
 if [ "$count" -ge 3 ]; then
@@ -50,12 +71,16 @@ if [ "$hash" = "$(cat "$failed" 2>/dev/null)" ] && [ -f "$failed.reason" ]; then
   block 'forge: nothing changed in the working tree since this check failed, so it was not run again (it runs again once a file changes):'
 fi
 
-out=$(sh .forge/check.sh "$@" 2>&1)
-if [ $? -eq 0 ]; then
+rm -f "$failed.unverified"
+out=$(FORGE_UNVERIFIED=$failed.unverified sh .forge/check.sh "$@" 2>&1)
+rc=$?
+if [ "$rc" -eq 0 ]; then
   now_tree > "$passed"
-  rm -f "$counter" "$failed" "$failed.reason"
+  rm -f "$counter" "$failed" "$failed.reason" "$failed.unverified"
   exit 0
 fi
+# exit 3: the only failures are tests that fail at the start of the turn too
+[ "$rc" -eq 3 ] || rm -f "$failed.unverified"
 # the failures first, then the "skipped" and "ok for" notes; at most 40 lines and
 # 6000 characters, so the reason stays short when Claude Code shows it
 printf '%s\n' "$out" \

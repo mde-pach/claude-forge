@@ -63,6 +63,8 @@ export interface CheckTarget {
   changed_run?: string;
   /** Lint checks: safe fixes applied to an edited file before it is linted ({files}). */
   fix_run?: string;
+  /** Test checks: runs only the given test files ({files}); Stop re-runs failing tests with it at the start of the turn. */
+  rerun?: string;
   when_changed?: string[];
   requires_local_db?: boolean;
   timeout?: number;

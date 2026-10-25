@@ -8,7 +8,7 @@
  * JSON; ast-grep runs through `bunx` or `uvx`.
  */
 import { beforeAll, describe, expect, test } from "bun:test";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { applied, commitAll, ensureTools, forge, git, hasBun, hasUv, hookJson, linkTools, put, sampleRepo, sh, TOOLS_CACHE } from "../helpers";
@@ -615,17 +615,25 @@ describe("Stop", () => {
     "the block reason puts the failure before the skipped and ok notes, and keeps at most 40 lines",
     () => {
       rmSync(join(repo, ".venv/bin/basedpyright"), { force: true });
-      stubTool("pytest", 'i=0; while [ $i -lt 60 ]; do echo "tests/test_main.py:1: PytestWarning: noise $i"; i=$((i + 1)); done; echo "FAILED tests/test_main.py::test_health - assert 500 == 200"; exit 1');
-      hook("turn-start.sh", { session_id: "t-12" });
-      put(repo, "app/main.py", 'async def health() -> dict[str, str]:\n    return {"status": "ok"}\n');
-      const reason: string = JSON.parse(hook("stop.sh", { session_id: "t-12" }).stdout).reason;
-      const lines = reason.split("\n");
-      expect(lines.length).toBeLessThanOrEqual(40);
-      expect(lines.slice(0, 2)).toEqual(["forge:python/pytest/run failed", "FAILED tests/test_main.py::test_health - assert 500 == 200"]);
-      expect(reason).toContain("PytestWarning: noise 0");
-      expect(lines.at(-1)).toBe("forge:python/typecheck skipped: basedpyright not installed");
-      rmSync(join(repo, ".venv/bin/pytest"));
-      reset();
+      // fails only with the turn's change: at the start of the turn the test passed
+      stubTool("pytest", 'i=0; while [ $i -lt 60 ]; do echo "tests/test_main.py:1: PytestWarning: noise $i"; i=$((i + 1)); done; grep -q turn-change app/main.py || exit 0; echo "FAILED tests/test_main.py::test_health - assert 500 == 200"; exit 1');
+      try {
+        hook("turn-start.sh", { session_id: "t-12" });
+        put(repo, "app/main.py", 'async def health() -> dict[str, str]:\n    return {"status": "ok"}  # turn-change\n');
+        const reason: string = JSON.parse(hook("stop.sh", { session_id: "t-12" }).stdout).reason;
+        const lines = reason.split("\n");
+        expect(lines.length).toBeLessThanOrEqual(40);
+        expect(lines.slice(0, 3)).toEqual([
+          "forge:python/pytest/run failed: 1 failing test(s) passed at the start of the turn:",
+          "  tests/test_main.py::test_health",
+          "FAILED tests/test_main.py::test_health - assert 500 == 200",
+        ]);
+        expect(reason).toContain("PytestWarning: noise 0");
+        expect(lines.at(-1)).toBe("forge:python/typecheck skipped: basedpyright not installed");
+      } finally {
+        rmSync(join(repo, ".venv/bin/pytest"));
+        reset();
+      }
     },
     T,
   );
@@ -641,25 +649,29 @@ describe("Stop", () => {
     () => {
       const runs = join(repo, ".venv", "runs");
       rmSync(runs, { force: true });
-      stubTool("pytest", `echo run >> "${runs}"; echo "FAILED tests/test_main.py::test_health - assert 500 == 200"; exit 1`);
-      hook("turn-start.sh", { session_id: "t-13" });
-      put(repo, "app/main.py", 'async def health() -> dict[str, str]:\n    return {"status": "ok"}\n');
-      const first: string = JSON.parse(hook("stop.sh", { session_id: "t-13" }).stdout).reason;
-      expect(first).toContain("FAILED tests/test_main.py::test_health");
-      for (let i = 0; i < 2; i++) {
-        const t0 = performance.now();
-        const again = JSON.parse(hook("stop.sh", { session_id: "t-13" }).stdout);
-        expect(performance.now() - t0).toBeLessThan(1500);
-        expect(again.reason).toBe(`forge: nothing changed in the working tree since this check failed, so it was not run again (it runs again once a file changes):\n${first}`);
+      // each Stop that runs the check runs pytest twice: now, and at the start of the turn
+      stubTool("pytest", `echo run >> "${runs}"; grep -q turn-change app/main.py || exit 0; echo "FAILED tests/test_main.py::test_health - assert 500 == 200"; exit 1`);
+      try {
+        hook("turn-start.sh", { session_id: "t-13" });
+        put(repo, "app/main.py", 'async def health() -> dict[str, str]:\n    return {"status": "ok"}  # turn-change\n');
+        const first: string = JSON.parse(hook("stop.sh", { session_id: "t-13" }).stdout).reason;
+        expect(first).toContain("FAILED tests/test_main.py::test_health");
+        for (let i = 0; i < 2; i++) {
+          const t0 = performance.now();
+          const again = JSON.parse(hook("stop.sh", { session_id: "t-13" }).stdout);
+          expect(performance.now() - t0).toBeLessThan(1500);
+          expect(again.reason).toBe(`forge: nothing changed in the working tree since this check failed, so it was not run again (it runs again once a file changes):\n${first}`);
+        }
+        expect(readFileSync(runs, "utf8")).toBe("run\nrun\n");
+        expect(JSON.parse(hook("stop.sh", { session_id: "t-13" }).stdout).systemMessage).toContain("Handing over");
+        put(repo, "app/main.py", 'async def health() -> dict[str, str]:\n    return {"status": "fine"}  # turn-change\n');
+        expect(JSON.parse(hook("stop.sh", { session_id: "t-13" }).stdout).reason).toBe(first);
+        expect(readFileSync(runs, "utf8")).toBe("run\nrun\nrun\nrun\n");
+      } finally {
+        rmSync(join(repo, ".venv/bin/pytest"));
+        rmSync(runs, { force: true });
+        reset();
       }
-      expect(readFileSync(runs, "utf8")).toBe("run\n");
-      expect(JSON.parse(hook("stop.sh", { session_id: "t-13" }).stdout).systemMessage).toContain("Handing over");
-      put(repo, "app/main.py", 'async def health() -> dict[str, str]:\n    return {"status": "fine"}\n');
-      expect(JSON.parse(hook("stop.sh", { session_id: "t-13" }).stdout).reason).toBe(first);
-      expect(readFileSync(runs, "utf8")).toBe("run\nrun\n");
-      rmSync(join(repo, ".venv/bin/pytest"));
-      rmSync(runs);
-      reset();
     },
     T,
   );
@@ -760,6 +772,100 @@ test(
   },
   T,
 );
+
+/**
+ * In better-auth every Stop was blocked by tests that also failed before the
+ * change: the container had no Postgres (`ECONNREFUSED 127.0.0.1:5432`) and no
+ * network (`EAI_AGAIN`). These tests put a stand-in pytest in the sample's
+ * `.venv` that logs where it ran, with which files, and whether it saw the
+ * turn's change.
+ */
+/** @rule python/pytest/run */
+describe("failing tests at the start of the turn", () => {
+  const log = () => join(repo, ".venv", "pytest.log");
+  const db = 'echo "E   ConnectionRefusedError: connect ECONNREFUSED 127.0.0.1:5432"; echo "FAILED tests/test_main.py::test_db - ConnectionRefusedError: connect ECONNREFUSED 127.0.0.1:5432"';
+  function pytest(body: string) {
+    rmSync(log(), { force: true });
+    stubTool("pytest", `printf '%s|%s|%s\\n' "$(pwd)" "$*" "$(grep -c turn-change app/main.py)" >> "${log()}"; ${body}; exit 1`);
+  }
+  const change = () => put(repo, "app/main.py", 'async def health() -> dict[str, str]:\n    return {"status": "ok"}  # turn-change\n');
+  const runs = () => readFileSync(log(), "utf8").trimEnd().split("\n").map((l) => l.split("|"));
+
+  test(
+    "only the failing test files are run again, in a copy of the tree as it was at the start of the turn; the working tree, index, stash and worktrees are left alone",
+    () => {
+      pytest(db);
+      try {
+        put(repo, "app/wip.py", "X = 1\n");
+        git(repo, "add", "app/wip.py");
+        hook("turn-start.sh", { session_id: "p-1" });
+        change();
+        const status = git(repo, "status", "--porcelain").stdout;
+        hook("stop.sh", { session_id: "p-1" });
+        const [now, base] = runs();
+        expect(now).toEqual([realpathSync(repo), "-q tests/test_main.py", "1"]);
+        expect(base![0]).not.toBe(realpathSync(repo));
+        expect(base!.slice(1)).toEqual(["-q tests/test_main.py", "0"]);
+        expect(git(repo, "status", "--porcelain").stdout).toBe(status);
+        expect(readFileSync(join(repo, "app/main.py"), "utf8")).toContain("turn-change");
+        expect(git(repo, "stash", "list").stdout).toBe("");
+        expect(git(repo, "worktree", "list").stdout.trim().split("\n").length).toBe(1);
+        expect(existsSync(base![0]!)).toBe(false);
+      } finally {
+        rmSync(join(repo, ".venv/bin/pytest"));
+        reset();
+      }
+    },
+    T,
+  );
+
+  test(
+    "when every failing test also fails at the start of the turn, Stop blocks once naming them, their environmental errors and what to do; stopping again on the same tree is allowed, and the user is told what could not be verified",
+    () => {
+      pytest(db);
+      try {
+        hook("turn-start.sh", { session_id: "p-2" });
+        change();
+        const reason: string = JSON.parse(hook("stop.sh", { session_id: "p-2" }).stdout).reason;
+        expect(reason).toStartWith(
+          "forge:python/pytest/run 1 failing test(s) also fail at the start of the turn (re-run there), so this change did not cause them, but it is not verified by them either:\n  tests/test_main.py::test_db\nTheir errors look environmental:\n  Postgres refused the connection at 127.0.0.1:5432 (ECONNREFUSED)\n",
+        );
+        expect(reason).toContain("If that is not possible, stop again without changing files");
+        const again = JSON.parse(hook("stop.sh", { session_id: "p-2" }).stdout);
+        expect(again.decision).toBeUndefined();
+        expect(again.systemMessage).toBe(
+          "forge: 1 test(s) could not be verified: they fail with and without Claude's change, and their errors look environmental: Postgres refused the connection at 127.0.0.1:5432 (ECONNREFUSED). Not verified: python/pytest/run tests/test_main.py::test_db. Run them once the environment is set up.",
+        );
+        expect(runs().length).toBe(2);
+        expect(hook("stop.sh", { session_id: "p-2" }).stdout).toBe("");
+      } finally {
+        rmSync(join(repo, ".venv/bin/pytest"));
+        reset();
+      }
+    },
+    T,
+  );
+
+  test(
+    "a test that passed at the start of the turn and fails now blocks as usual, named first; the ones failing before too are counted, not blamed",
+    () => {
+      pytest(`${db}; if grep -q turn-change app/main.py; then echo "FAILED tests/test_main.py::test_health - assert 500 == 200"; fi`);
+      try {
+        hook("turn-start.sh", { session_id: "p-3" });
+        change();
+        const reason: string = JSON.parse(hook("stop.sh", { session_id: "p-3" }).stdout).reason;
+        expect(reason).toStartWith(
+          "forge:python/pytest/run failed: 1 failing test(s) passed at the start of the turn:\n  tests/test_main.py::test_health\n(1 other failing test(s) also fail at the start of the turn: not caused by this change)\n",
+        );
+        expect(JSON.parse(hook("stop.sh", { session_id: "p-3" }).stdout).reason).toStartWith("forge: nothing changed in the working tree");
+      } finally {
+        rmSync(join(repo, ".venv/bin/pytest"));
+        reset();
+      }
+    },
+    T,
+  );
+});
 
 /**
  * Errors that were already in files Claude did not touch are not Claude's: the

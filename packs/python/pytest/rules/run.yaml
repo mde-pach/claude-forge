@@ -6,4 +6,5 @@ enforce:
     stage: test
     run: "pytest -q"
     changed_run: 'if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests {files}); [ "$#" -eq 0 ] || pytest -q "$@"; fi'
+    rerun: "pytest -q {files}"
     timeout: 300

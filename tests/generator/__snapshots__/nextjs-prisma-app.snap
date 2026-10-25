@@ -631,7 +631,7 @@ repo_root || exit 0
 IFS='
 '
 FORGE_TMP=$(mktemp -d "${TMPDIR:-/tmp}/forge-edit.XXXXXX") || exit 0
-trap 'rm -rf "$FORGE_TMP"' EXIT HUP INT TERM
+trap 'rm -rf "$FORGE_TMP"' EXIT; trap 'exit 143' HUP INT TERM
 : > "$FORGE_TMP/report"
 
 if [ "$(json_get tool_name)" = Bash ]; then
@@ -679,7 +679,7 @@ FORGE_NCHECKS=18
 forge_check_meta_1() {
   c_id='typescript/bun/lock-sync'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_1() {
   return 0
@@ -693,7 +693,7 @@ bun install --frozen-lockfile
 forge_check_meta_2() {
   c_id='typescript/bun/release-age'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_2() {
   return 0
@@ -707,7 +707,7 @@ forge_bun_cooldown
 forge_check_meta_3() {
   c_id='typescript/bun/trusted-deps'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_3() {
   return 0
@@ -721,7 +721,7 @@ forge_trusted_deps
 forge_check_meta_4() {
   c_id='typescript/config-ratchet'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_4() {
   case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) ;; *) return 1 ;; esac
@@ -736,7 +736,7 @@ forge_ratchet bun ratchet.mjs
 forge_check_meta_5() {
   c_id='typescript/format-lint'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=1
+  c_changed=1; c_files=1; c_fix=1; c_rerun=0
 }
 forge_scope_5() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -757,7 +757,7 @@ biome check --write --formatter-enabled=false --skip=correctness/noUnusedImports
 forge_check_meta_6() {
   c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_6() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
@@ -772,7 +772,7 @@ forge_check_run_6() {
 forge_check_meta_7() {
   c_id='typescript/no-unused-suppressions'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_rerun=0
 }
 forge_scope_7() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -790,7 +790,7 @@ forge_check_changed_7() {
 forge_check_meta_8() {
   c_id='typescript/playwright/axe'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_8() {
   return 0
@@ -804,7 +804,7 @@ forge_check_run_8() {
 forge_check_meta_9() {
   c_id='typescript/playwright/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_9() {
   case $1 in e2e/*) ;; *) return 1 ;; esac
@@ -820,7 +820,7 @@ forge_test_edits
 forge_check_meta_10() {
   c_id='typescript/playwright/run'; c_stage=test; c_tools='playwright'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_10() {
   return 0
@@ -834,7 +834,7 @@ playwright test --reporter=line
 forge_check_meta_11() {
   c_id='typescript/prisma/client-generator'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_11() {
   return 0
@@ -848,7 +848,7 @@ forge_check_run_11() {
 forge_check_meta_12() {
   c_id='typescript/prisma/migration-lint'; c_stage=migration; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_rerun=0
 }
 forge_scope_12() {
   case $1 in prisma/migrations/migration.sql|prisma/migrations/*/migration.sql) ;; *) return 1 ;; esac
@@ -866,7 +866,7 @@ forge_squawk_files $FORGE_FILES
 forge_check_meta_13() {
   c_id='typescript/prisma/migration-present'; c_stage=migration; c_tools='prisma'
   c_when=1; c_localdb=1; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_13() {
   return 0
@@ -880,7 +880,7 @@ if ! grep -q shadowDatabaseUrl prisma.config.ts 2>/dev/null; then echo "forge:ty
 forge_check_meta_14() {
   c_id='typescript/prisma/validate'; c_stage=migration; c_tools='prisma'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_14() {
   return 0
@@ -894,7 +894,7 @@ prisma validate
 forge_check_meta_15() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_15() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -909,7 +909,7 @@ tsc --noEmit -p tsconfig.json
 forge_check_meta_16() {
   c_id='typescript/vitest/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_16() {
   case $1 in e2e/*) return 1 ;; esac
@@ -926,7 +926,7 @@ forge_test_edits
 forge_check_meta_17() {
   c_id='typescript/vitest/no-workspace-file'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_17() {
   return 0
@@ -939,8 +939,8 @@ forge_check_run_17() {
 # 18. typescript/vitest/run
 forge_check_meta_18() {
   c_id='typescript/vitest/run'; c_stage=test; c_tools='vitest'
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=0; c_fix=0
+  c_when=0; c_localdb=0; c_timeout=300
+  c_changed=1; c_files=0; c_fix=0; c_rerun=1
 }
 forge_scope_18() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -952,6 +952,9 @@ vitest run
 }
 forge_check_changed_18() {
 vitest run --changed
+}
+forge_check_rerun_18() {
+vitest run $FORGE_FILES
 }
 
 FORGE_NGREPS=2
@@ -1717,23 +1720,72 @@ forge_related_py_tests() {
   done | sort -u
 }
 
-# forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out.
+# forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out; 124 when
+# it ran past <timeout> seconds and was stopped.
 forge_exec_check() {
   set -f
   if [ -n "$2" ]; then
+    rm -f "$FORGE_TMP/timedout"
     "$1" > "$FORGE_TMP/out" 2>&1 &
     _fe_pid=$!
-    ( sleep "$2"; printf 'forge: timed out after %ss\n' "$2" >> "$FORGE_TMP/out"; forge_kill_tree "$_fe_pid" ) >/dev/null 2>&1 &
+    ( sleep "$2"; : > "$FORGE_TMP/timedout"; printf 'forge: timed out after %ss\n' "$2" >> "$FORGE_TMP/out"; forge_kill_tree "$_fe_pid" ) >/dev/null 2>&1 &
     _fe_watch=$!
     wait "$_fe_pid" 2>/dev/null
     _fe_rc=$?
     forge_kill_tree "$_fe_watch"
+    if [ -f "$FORGE_TMP/timedout" ]; then rm -f "$FORGE_TMP/timedout"; _fe_rc=124; fi
   else
     ( "$1" ) > "$FORGE_TMP/out" 2>&1 < /dev/null
     _fe_rc=$?
   fi
   set +f
   return "$_fe_rc"
+}
+
+# forge_excerpt <n>: at most <n> lines of a failed run's output (stdin), the failure
+# first. When the whole output fits it is printed as is. Otherwise: its summary lines
+# (vitest "Test Files … failed" and "Tests … failed", pytest's short summary "FAILED …"
+# and "ERROR …" and its "=== … failed … ===" line, "forge: timed out"), then its
+# failure details (each vitest "FAIL" line with the error lines of its block and the
+# first stack frame outside node_modules; pytest "____ test ____" headers, "E " lines
+# and "path:line: Error" locations); when the output has neither, the lines that
+# mention an error or a failure (not warnings). Then the rest of the output in order
+# (warnings included) while <n> allows, and "… (<k> more lines)" for what is left out.
+forge_excerpt() {
+  awk -v n="$1" '
+    BEGIN { esc = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
+    { l = $0; gsub(esc, "", l); if (length(l) > 300) l = substr(l, 1, 297) "..."; line[NR] = l }
+    function key(i, c) { if (!(i in cls)) { cls[i] = c; nk[c]++ } }
+    END {
+      if (NR <= n) { for (i = 1; i <= NR; i++) print line[i]; exit }
+      blk = 0; e = 0
+      for (i = 1; i <= NR; i++) {
+        l = line[i]
+        if (l ~ /^forge: timed out/ || l ~ /^ *Test Files .*failed/ || l ~ /^ *Tests .*failed/ || l ~ /^(FAILED|ERROR) / || l ~ /^=+ .*([0-9]+ (failed|errors?)).* =+$/) { key(i, 1); blk = 0; continue }
+        if (l ~ /^ *FAIL  /) { key(i, 2); blk = 1; nb = 0; frame = 0; continue }
+        if (blk) {
+          if (index(l, "⎯")) { blk = 0; continue }
+          if (l ~ /^ *[0-9]*\|/ || l ~ /^ *$/) continue
+          if (nb < 5 && (nb == 0 || l ~ /Error|Caused by|[Ee]xpected|Received|^ *[-+] / || index(l, "→"))) { key(i, 2); nb++; continue }
+          if (!frame && index(l, "❯") && l !~ /node_modules/) { key(i, 2); frame = 1 }
+          continue
+        }
+        if (l ~ /^_{3,} .* _{3,}$/) { key(i, 2); e = 0; continue }
+        if (l ~ /^E   / && e < 4) { key(i, 2); e++; continue }
+        if (l ~ /^[^ :]+\.py:[0-9]+: [A-Za-z]*(Error|Exception)/) { key(i, 2); continue }
+      }
+      if (!nk[1] && !nk[2])
+        for (i = 1; i <= NR; i++)
+          if (line[i] ~ /[Ee]rror|ERROR|FAIL|[Ff]ail(ed|ure)|[Pp]anic|Traceback|[Rr]efused/ && !(line[i] ~ /[Ww]arn/ && line[i] !~ /[Ee]rror/)) key(i, 3)
+      shown = 0; sep = 0
+      for (c = 1; c <= 3; c++)
+        for (i = 1; i <= NR && shown < n - 1; i++)
+          if ((i in cls) && cls[i] == c) { print line[i]; shown++ }
+      if (shown && shown < n - 2) { print "--- output:"; sep = 1 }
+      for (i = 1; i <= NR && shown + sep < n - 1; i++)
+        if (!(i in cls)) { print line[i]; shown++ }
+      if (NR > shown) printf "... (%d more lines)\n", NR - shown
+    }'
 }
 
 # forge_diagnostics <output> <file|line> [print]: sorts the error diagnostics of a
@@ -1744,13 +1796,16 @@ forge_exec_check() {
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "none" when no line names a file. With
-# "print", prints the lines that count instead.
+# "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
+# tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
   awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
+      gsub(ansi, "", line)
       if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -1809,10 +1864,14 @@ forge_run_check() {
   case $mode in --changed|--turn)
     if [ "$c_changed" = 1 ] && [ -n "$FORGE_FILES" ]; then _fc_fn=forge_check_changed_$1; _fc_whole=0; fi ;;
   esac
-  if forge_exec_check "$_fc_fn" "$c_timeout"; then
-    grep '^forge:' "$FORGE_TMP/out"
-    return 0
-  fi
+  forge_exec_check "$_fc_fn" "$c_timeout"
+  case $? in
+    0) grep '^forge:' "$FORGE_TMP/out"; return 0 ;;
+    124)
+      printf 'forge:%s failed: timed out after %ss and was stopped (a hung test, or a service that never answers?); its output until then:\n' "$c_id" "$c_timeout"
+      grep -v '^forge: timed out after' "$FORGE_TMP/out" | forge_excerpt 15
+      return 1 ;;
+  esac
   # outside --all, only errors in the change count (§10.1 step 5)
   _fc_level=$(forge_attribute_level "$c_stage" "$_fc_whole")
   if [ "$mode" != --all ] && [ -n "$_fc_level" ]; then
@@ -1830,9 +1889,150 @@ forge_run_check() {
         return 1 ;;
     esac
   fi
+  # Stop: failing tests are re-run at the start of the turn (§10.6)
+  if [ "$c_stage" = test ] && [ "$mode" = --turn ] && [ "$c_rerun" = 1 ]; then
+    forge_test_compare "$1"
+    return
+  fi
   printf 'forge:%s failed\n' "$c_id"
-  first_lines 15 < "$FORGE_TMP/out"
+  if [ "$c_stage" = test ]; then forge_excerpt 25; else forge_excerpt 15; fi < "$FORGE_TMP/out"
   return 1
+}
+
+# ---- failing tests compared with the start of the turn (Stop, §10.6)
+
+# forge_failed_tests: the failing tests a run reports (stdin), one id per line:
+# Vitest "FAIL  [|project| ]<file> > <describe> > <test>" (a file that failed to
+# load: "<file>"), pytest's short summary "FAILED <node id>" and "ERROR <node id>".
+forge_failed_tests() {
+  awk 'BEGIN { esc = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
+    { gsub(esc, "") }
+    /^ *FAIL  / { t = $0; sub(/^ *FAIL +/, "", t); sub(/ \[ .* \]$/, "", t) }
+    /^(FAILED|ERROR) [^ ]/ { t = $0; sub(/^[A-Z]+ /, "", t); sub(/ - .*$/, "", t) }
+    t != "" { sub(/[[:space:]]+$/, "", t); print t; t = "" }' | LC_ALL=C sort -u
+}
+
+# forge_test_files: the test file of each id on stdin (Vitest: relative to its
+# project, which a Vitest filter matches as part of the path), one per line.
+forge_test_files() {
+  sed -e 's/^|[^|]*| //' -e 's/ > .*$//' -e 's/::.*$//' | LC_ALL=C sort -u
+}
+
+# forge_env_errors: the errors in a run's output (stdin) that point at the
+# environment rather than the code (a connection refused, a failed DNS lookup, a
+# timeout), as short phrases, at most 5.
+forge_env_errors() {
+  awk 'BEGIN { svc["5432"] = "Postgres"; svc["3306"] = "MySQL"; svc["6379"] = "Redis"; svc["27017"] = "MongoDB"
+           svc["1433"] = "SQL Server"; svc["9200"] = "Elasticsearch"; svc["5672"] = "RabbitMQ"; svc["11211"] = "Memcached" }
+    /^forge: timed out/ || /^(FAILED|ERROR) / { next }
+    {
+      p = ""
+      if (match($0, /ECONNREFUSED [^ ,;)]+:[0-9]+/)) {
+        a = substr($0, RSTART + 13, RLENGTH - 13); port = a; sub(/.*:/, "", port)
+        p = ((port in svc) ? svc[port] : "a service") " refused the connection at " a " (ECONNREFUSED)"
+      } else if (match($0, /port [0-9]+ failed: Connection refused/)) {
+        port = substr($0, RSTART + 5); sub(/ .*/, "", port)
+        p = ((port in svc) ? svc[port] : "a service") " refused the connection on port " port
+      } else if (match($0, /(EAI_AGAIN|ENOTFOUND) [^ ,;)'"'"'"]+/)) {
+        h = substr($0, RSTART, RLENGTH); c = h; sub(/ .*/, "", c); sub(/^[^ ]+ /, "", h)
+        p = "DNS lookup for " h " failed (" c "): no network?"
+      } else if ($0 ~ /[Cc]onnection refused|ECONNRESET|ETIMEDOUT|EHOSTUNREACH|ENETUNREACH|getaddrinfo|[Cc]ould not connect|[Tt]imed out|[Tt]imeout of [0-9]+ ?ms|Name or service not known|Temporary failure in name resolution/) {
+        p = $0; gsub(/^[[:space:]]+|[[:space:]]+$/, "", p)
+        if (length(p) > 160) p = substr(p, 1, 157) "..."
+      }
+      if (p != "" && !(p in seen)) { seen[p] = 1; if (++k <= 5) print p }
+    }'
+}
+
+# forge_base_tree <dir>: the project as it was at the start of the turn, in <dir>:
+# the files git sees now (tracked and untracked, not ignored), with this turn's
+# changes undone from $FORGE_TMP/base (files added during the turn left out), and
+# every ignored path (dependencies, build output, .env) a link to the real one.
+# The repository, its index, its stash and its working tree are not touched.
+forge_base_tree() {
+  mkdir -p "$1" || return 1
+  git ls-files --cached --others --exclude-standard 2>/dev/null | while IFS= read -r _bt_f; do
+    if [ -f "$_bt_f" ] || [ -L "$_bt_f" ]; then printf '%s\n' "$_bt_f"; fi
+  done > "$FORGE_TMP/base-tree.files"
+  tar -cf - -T "$FORGE_TMP/base-tree.files" 2>/dev/null | ( cd "$1" && tar -xf - ) || return 1
+  while IFS= read -r _bt_f; do
+    rm -f "$1/$_bt_f"
+    if [ -f "$FORGE_TMP/base/$_bt_f" ]; then mkdir -p "$1/$(dirname "$_bt_f")" && cp "$FORGE_TMP/base/$_bt_f" "$1/$_bt_f"; fi
+  done < "$FORGE_TMP/changed"
+  git ls-files --others --ignored --exclude-standard --directory 2>/dev/null | while IFS= read -r _bt_f; do
+    _bt_f=${_bt_f%/}
+    case $_bt_f in ''|.forge/state|.forge/state/*) continue ;; esac
+    if [ -e "$1/$_bt_f" ] || [ -L "$1/$_bt_f" ]; then continue; fi
+    mkdir -p "$1/$(dirname "$_bt_f")" && ln -s "$FORGE_ROOT/$_bt_f" "$1/$_bt_f"
+  done
+  return 0
+}
+
+# forge_rerun_in_base: the rerun form of check $_fb_n on $FORGE_FILES, in the base tree.
+forge_rerun_in_base() { cd "$FORGE_TMP/base-tree" && "forge_check_rerun_$_fb_n"; }
+
+# forge_test_compare <n>: test check <n> failed under --turn ($FORGE_TMP/out). Its
+# failing test files are run again in the tree as it was at the start of the turn
+# and the failing tests compared. A test failing now that passed then (or could not
+# be compared) is a new failure: return 1, new failures first. When every failing
+# test also fails then: return 3, with the tests, the errors that look environmental
+# and what to do; they are also appended to $FORGE_UNVERIFIED for the Stop hook
+# ("test<TAB><check> <id>", "env<TAB><phrase>").
+forge_test_compare() {
+  cp "$FORGE_TMP/out" "$FORGE_TMP/test.now"
+  forge_failed_tests < "$FORGE_TMP/test.now" > "$FORGE_TMP/failing.now"
+  rm -rf "$FORGE_TMP/base-tree"
+  if [ ! -s "$FORGE_TMP/failing.now" ] || ! forge_base_tree "$FORGE_TMP/base-tree"; then
+    printf 'forge:%s failed\n' "$c_id"
+    forge_excerpt 25 < "$FORGE_TMP/test.now"
+    return 1
+  fi
+  FORGE_FILES=$(forge_test_files < "$FORGE_TMP/failing.now")
+  _fb_n=$1
+  forge_exec_check forge_rerun_in_base "$c_timeout"
+  forge_failed_tests < "$FORGE_TMP/out" > "$FORGE_TMP/failing.base"
+  rm -rf "$FORGE_TMP/base-tree"
+  if [ -s "$FORGE_TMP/failing.base" ]; then
+    grep -vxF -f "$FORGE_TMP/failing.base" "$FORGE_TMP/failing.now" > "$FORGE_TMP/failing.new"
+    grep -xF -f "$FORGE_TMP/failing.base" "$FORGE_TMP/failing.now" > "$FORGE_TMP/failing.old"
+  else
+    cp "$FORGE_TMP/failing.now" "$FORGE_TMP/failing.new"
+    : > "$FORGE_TMP/failing.old"
+  fi
+  _ft_new=$(awk 'END { print NR }' "$FORGE_TMP/failing.new")
+  _ft_old=$(awk 'END { print NR }' "$FORGE_TMP/failing.old")
+  if [ "$_ft_new" -gt 0 ]; then
+    printf 'forge:%s failed: %s failing test(s) passed at the start of the turn:\n' "$c_id" "$_ft_new"
+    first_lines 8 < "$FORGE_TMP/failing.new" | sed 's/^/  /'
+    [ "$_ft_old" -eq 0 ] || printf '(%s other failing test(s) also fail at the start of the turn: not caused by this change)\n' "$_ft_old"
+    forge_excerpt 20 < "$FORGE_TMP/test.now"
+    return 1
+  fi
+  forge_env_errors < "$FORGE_TMP/test.now" > "$FORGE_TMP/env"
+  printf 'forge:%s %s failing test(s) also fail at the start of the turn (re-run there), so this change did not cause them, but it is not verified by them either:\n' "$c_id" "$_ft_old"
+  first_lines 8 < "$FORGE_TMP/failing.old" | sed 's/^/  /'
+  _ft_compose=''
+  for _ft_f in compose.yaml compose.yml docker-compose.yml docker-compose.yaml; do
+    if [ -f "$_ft_f" ]; then _ft_compose=$_ft_f; break; fi
+  done
+  if [ -s "$FORGE_TMP/env" ]; then
+    printf 'Their errors look environmental:\n'
+    sed 's/^/  /' "$FORGE_TMP/env"
+    if [ -n "$_ft_compose" ]; then
+      printf 'Set up what they need (e.g. docker compose up -d with %s) and run them again. ' "$_ft_compose"
+    else
+      printf 'Set up what they need (the services, the network) and run them again. '
+    fi
+  else
+    printf 'Check whether they relate to the task: fix them if so, and run them again. '
+  fi
+  printf 'If that is not possible, stop again without changing files: the stop is then allowed and the user is told these tests could not be verified.\n'
+  forge_excerpt 12 < "$FORGE_TMP/test.now"
+  if [ -n "${FORGE_UNVERIFIED:-}" ]; then
+    sed "s|^|test	$c_id |" "$FORGE_TMP/failing.old" >> "$FORGE_UNVERIFIED"
+    sed 's/^/env	/' "$FORGE_TMP/env" >> "$FORGE_UNVERIFIED"
+  fi
+  return 3
 }
 
 # forge_run_stage <stage>: every check of <stage>; fails if one fails.
@@ -1842,11 +2042,16 @@ forge_run_stage() {
   while [ "$_fs_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fs_i"
     if [ "$c_stage" = "$1" ]; then
-      forge_run_check "$_fs_i" || _fs_rc=1
+      forge_run_check "$_fs_i"
+      case $? in
+        0) ;;
+        3) [ "$_fs_rc" -ne 0 ] || _fs_rc=3 ;;
+        *) _fs_rc=1 ;;
+      esac
     fi
     _fs_i=$((_fs_i + 1))
   done
-  [ "$_fs_rc" -eq 0 ] || fail=1
+  [ "$_fs_rc" -eq 0 ] || fail=$_fs_rc
   return "$_fs_rc"
 }
 
@@ -2050,7 +2255,7 @@ FORGE_NCHECKS=18
 forge_check_meta_1() {
   c_id='typescript/bun/lock-sync'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_1() {
   return 0
@@ -2064,7 +2269,7 @@ bun install --frozen-lockfile
 forge_check_meta_2() {
   c_id='typescript/bun/release-age'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_2() {
   return 0
@@ -2078,7 +2283,7 @@ forge_bun_cooldown
 forge_check_meta_3() {
   c_id='typescript/bun/trusted-deps'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_3() {
   return 0
@@ -2092,7 +2297,7 @@ forge_trusted_deps
 forge_check_meta_4() {
   c_id='typescript/config-ratchet'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_4() {
   case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) ;; *) return 1 ;; esac
@@ -2107,7 +2312,7 @@ forge_ratchet bun ratchet.mjs
 forge_check_meta_5() {
   c_id='typescript/format-lint'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=1
+  c_changed=1; c_files=1; c_fix=1; c_rerun=0
 }
 forge_scope_5() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -2128,7 +2333,7 @@ biome check --write --formatter-enabled=false --skip=correctness/noUnusedImports
 forge_check_meta_6() {
   c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_6() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
@@ -2143,7 +2348,7 @@ forge_check_run_6() {
 forge_check_meta_7() {
   c_id='typescript/no-unused-suppressions'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_rerun=0
 }
 forge_scope_7() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -2161,7 +2366,7 @@ forge_check_changed_7() {
 forge_check_meta_8() {
   c_id='typescript/playwright/axe'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_8() {
   return 0
@@ -2175,7 +2380,7 @@ forge_check_run_8() {
 forge_check_meta_9() {
   c_id='typescript/playwright/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_9() {
   case $1 in e2e/*) ;; *) return 1 ;; esac
@@ -2191,7 +2396,7 @@ forge_test_edits
 forge_check_meta_10() {
   c_id='typescript/playwright/run'; c_stage=test; c_tools='playwright'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_10() {
   return 0
@@ -2205,7 +2410,7 @@ playwright test --reporter=line
 forge_check_meta_11() {
   c_id='typescript/prisma/client-generator'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_11() {
   return 0
@@ -2219,7 +2424,7 @@ forge_check_run_11() {
 forge_check_meta_12() {
   c_id='typescript/prisma/migration-lint'; c_stage=migration; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_rerun=0
 }
 forge_scope_12() {
   case $1 in prisma/migrations/migration.sql|prisma/migrations/*/migration.sql) ;; *) return 1 ;; esac
@@ -2237,7 +2442,7 @@ forge_squawk_files $FORGE_FILES
 forge_check_meta_13() {
   c_id='typescript/prisma/migration-present'; c_stage=migration; c_tools='prisma'
   c_when=1; c_localdb=1; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_13() {
   return 0
@@ -2251,7 +2456,7 @@ if ! grep -q shadowDatabaseUrl prisma.config.ts 2>/dev/null; then echo "forge:ty
 forge_check_meta_14() {
   c_id='typescript/prisma/validate'; c_stage=migration; c_tools='prisma'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_14() {
   return 0
@@ -2265,7 +2470,7 @@ prisma validate
 forge_check_meta_15() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_15() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -2280,7 +2485,7 @@ tsc --noEmit -p tsconfig.json
 forge_check_meta_16() {
   c_id='typescript/vitest/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_16() {
   case $1 in e2e/*) return 1 ;; esac
@@ -2297,7 +2502,7 @@ forge_test_edits
 forge_check_meta_17() {
   c_id='typescript/vitest/no-workspace-file'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_17() {
   return 0
@@ -2310,8 +2515,8 @@ forge_check_run_17() {
 # 18. typescript/vitest/run
 forge_check_meta_18() {
   c_id='typescript/vitest/run'; c_stage=test; c_tools='vitest'
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=0; c_fix=0
+  c_when=0; c_localdb=0; c_timeout=300
+  c_changed=1; c_files=0; c_fix=0; c_rerun=1
 }
 forge_scope_18() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -2323,6 +2528,9 @@ vitest run
 }
 forge_check_changed_18() {
 vitest run --changed
+}
+forge_check_rerun_18() {
+vitest run $FORGE_FILES
 }
 
 FORGE_NGREPS=2
@@ -3088,23 +3296,72 @@ forge_related_py_tests() {
   done | sort -u
 }
 
-# forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out.
+# forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out; 124 when
+# it ran past <timeout> seconds and was stopped.
 forge_exec_check() {
   set -f
   if [ -n "$2" ]; then
+    rm -f "$FORGE_TMP/timedout"
     "$1" > "$FORGE_TMP/out" 2>&1 &
     _fe_pid=$!
-    ( sleep "$2"; printf 'forge: timed out after %ss\n' "$2" >> "$FORGE_TMP/out"; forge_kill_tree "$_fe_pid" ) >/dev/null 2>&1 &
+    ( sleep "$2"; : > "$FORGE_TMP/timedout"; printf 'forge: timed out after %ss\n' "$2" >> "$FORGE_TMP/out"; forge_kill_tree "$_fe_pid" ) >/dev/null 2>&1 &
     _fe_watch=$!
     wait "$_fe_pid" 2>/dev/null
     _fe_rc=$?
     forge_kill_tree "$_fe_watch"
+    if [ -f "$FORGE_TMP/timedout" ]; then rm -f "$FORGE_TMP/timedout"; _fe_rc=124; fi
   else
     ( "$1" ) > "$FORGE_TMP/out" 2>&1 < /dev/null
     _fe_rc=$?
   fi
   set +f
   return "$_fe_rc"
+}
+
+# forge_excerpt <n>: at most <n> lines of a failed run's output (stdin), the failure
+# first. When the whole output fits it is printed as is. Otherwise: its summary lines
+# (vitest "Test Files … failed" and "Tests … failed", pytest's short summary "FAILED …"
+# and "ERROR …" and its "=== … failed … ===" line, "forge: timed out"), then its
+# failure details (each vitest "FAIL" line with the error lines of its block and the
+# first stack frame outside node_modules; pytest "____ test ____" headers, "E " lines
+# and "path:line: Error" locations); when the output has neither, the lines that
+# mention an error or a failure (not warnings). Then the rest of the output in order
+# (warnings included) while <n> allows, and "… (<k> more lines)" for what is left out.
+forge_excerpt() {
+  awk -v n="$1" '
+    BEGIN { esc = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
+    { l = $0; gsub(esc, "", l); if (length(l) > 300) l = substr(l, 1, 297) "..."; line[NR] = l }
+    function key(i, c) { if (!(i in cls)) { cls[i] = c; nk[c]++ } }
+    END {
+      if (NR <= n) { for (i = 1; i <= NR; i++) print line[i]; exit }
+      blk = 0; e = 0
+      for (i = 1; i <= NR; i++) {
+        l = line[i]
+        if (l ~ /^forge: timed out/ || l ~ /^ *Test Files .*failed/ || l ~ /^ *Tests .*failed/ || l ~ /^(FAILED|ERROR) / || l ~ /^=+ .*([0-9]+ (failed|errors?)).* =+$/) { key(i, 1); blk = 0; continue }
+        if (l ~ /^ *FAIL  /) { key(i, 2); blk = 1; nb = 0; frame = 0; continue }
+        if (blk) {
+          if (index(l, "⎯")) { blk = 0; continue }
+          if (l ~ /^ *[0-9]*\|/ || l ~ /^ *$/) continue
+          if (nb < 5 && (nb == 0 || l ~ /Error|Caused by|[Ee]xpected|Received|^ *[-+] / || index(l, "→"))) { key(i, 2); nb++; continue }
+          if (!frame && index(l, "❯") && l !~ /node_modules/) { key(i, 2); frame = 1 }
+          continue
+        }
+        if (l ~ /^_{3,} .* _{3,}$/) { key(i, 2); e = 0; continue }
+        if (l ~ /^E   / && e < 4) { key(i, 2); e++; continue }
+        if (l ~ /^[^ :]+\.py:[0-9]+: [A-Za-z]*(Error|Exception)/) { key(i, 2); continue }
+      }
+      if (!nk[1] && !nk[2])
+        for (i = 1; i <= NR; i++)
+          if (line[i] ~ /[Ee]rror|ERROR|FAIL|[Ff]ail(ed|ure)|[Pp]anic|Traceback|[Rr]efused/ && !(line[i] ~ /[Ww]arn/ && line[i] !~ /[Ee]rror/)) key(i, 3)
+      shown = 0; sep = 0
+      for (c = 1; c <= 3; c++)
+        for (i = 1; i <= NR && shown < n - 1; i++)
+          if ((i in cls) && cls[i] == c) { print line[i]; shown++ }
+      if (shown && shown < n - 2) { print "--- output:"; sep = 1 }
+      for (i = 1; i <= NR && shown + sep < n - 1; i++)
+        if (!(i in cls)) { print line[i]; shown++ }
+      if (NR > shown) printf "... (%d more lines)\n", NR - shown
+    }'
 }
 
 # forge_diagnostics <output> <file|line> [print]: sorts the error diagnostics of a
@@ -3115,13 +3372,16 @@ forge_exec_check() {
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "none" when no line names a file. With
-# "print", prints the lines that count instead.
+# "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
+# tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
   awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
+      gsub(ansi, "", line)
       if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -3180,10 +3440,14 @@ forge_run_check() {
   case $mode in --changed|--turn)
     if [ "$c_changed" = 1 ] && [ -n "$FORGE_FILES" ]; then _fc_fn=forge_check_changed_$1; _fc_whole=0; fi ;;
   esac
-  if forge_exec_check "$_fc_fn" "$c_timeout"; then
-    grep '^forge:' "$FORGE_TMP/out"
-    return 0
-  fi
+  forge_exec_check "$_fc_fn" "$c_timeout"
+  case $? in
+    0) grep '^forge:' "$FORGE_TMP/out"; return 0 ;;
+    124)
+      printf 'forge:%s failed: timed out after %ss and was stopped (a hung test, or a service that never answers?); its output until then:\n' "$c_id" "$c_timeout"
+      grep -v '^forge: timed out after' "$FORGE_TMP/out" | forge_excerpt 15
+      return 1 ;;
+  esac
   # outside --all, only errors in the change count (§10.1 step 5)
   _fc_level=$(forge_attribute_level "$c_stage" "$_fc_whole")
   if [ "$mode" != --all ] && [ -n "$_fc_level" ]; then
@@ -3201,9 +3465,150 @@ forge_run_check() {
         return 1 ;;
     esac
   fi
+  # Stop: failing tests are re-run at the start of the turn (§10.6)
+  if [ "$c_stage" = test ] && [ "$mode" = --turn ] && [ "$c_rerun" = 1 ]; then
+    forge_test_compare "$1"
+    return
+  fi
   printf 'forge:%s failed\n' "$c_id"
-  first_lines 15 < "$FORGE_TMP/out"
+  if [ "$c_stage" = test ]; then forge_excerpt 25; else forge_excerpt 15; fi < "$FORGE_TMP/out"
   return 1
+}
+
+# ---- failing tests compared with the start of the turn (Stop, §10.6)
+
+# forge_failed_tests: the failing tests a run reports (stdin), one id per line:
+# Vitest "FAIL  [|project| ]<file> > <describe> > <test>" (a file that failed to
+# load: "<file>"), pytest's short summary "FAILED <node id>" and "ERROR <node id>".
+forge_failed_tests() {
+  awk 'BEGIN { esc = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
+    { gsub(esc, "") }
+    /^ *FAIL  / { t = $0; sub(/^ *FAIL +/, "", t); sub(/ \[ .* \]$/, "", t) }
+    /^(FAILED|ERROR) [^ ]/ { t = $0; sub(/^[A-Z]+ /, "", t); sub(/ - .*$/, "", t) }
+    t != "" { sub(/[[:space:]]+$/, "", t); print t; t = "" }' | LC_ALL=C sort -u
+}
+
+# forge_test_files: the test file of each id on stdin (Vitest: relative to its
+# project, which a Vitest filter matches as part of the path), one per line.
+forge_test_files() {
+  sed -e 's/^|[^|]*| //' -e 's/ > .*$//' -e 's/::.*$//' | LC_ALL=C sort -u
+}
+
+# forge_env_errors: the errors in a run's output (stdin) that point at the
+# environment rather than the code (a connection refused, a failed DNS lookup, a
+# timeout), as short phrases, at most 5.
+forge_env_errors() {
+  awk 'BEGIN { svc["5432"] = "Postgres"; svc["3306"] = "MySQL"; svc["6379"] = "Redis"; svc["27017"] = "MongoDB"
+           svc["1433"] = "SQL Server"; svc["9200"] = "Elasticsearch"; svc["5672"] = "RabbitMQ"; svc["11211"] = "Memcached" }
+    /^forge: timed out/ || /^(FAILED|ERROR) / { next }
+    {
+      p = ""
+      if (match($0, /ECONNREFUSED [^ ,;)]+:[0-9]+/)) {
+        a = substr($0, RSTART + 13, RLENGTH - 13); port = a; sub(/.*:/, "", port)
+        p = ((port in svc) ? svc[port] : "a service") " refused the connection at " a " (ECONNREFUSED)"
+      } else if (match($0, /port [0-9]+ failed: Connection refused/)) {
+        port = substr($0, RSTART + 5); sub(/ .*/, "", port)
+        p = ((port in svc) ? svc[port] : "a service") " refused the connection on port " port
+      } else if (match($0, /(EAI_AGAIN|ENOTFOUND) [^ ,;)'"'"'"]+/)) {
+        h = substr($0, RSTART, RLENGTH); c = h; sub(/ .*/, "", c); sub(/^[^ ]+ /, "", h)
+        p = "DNS lookup for " h " failed (" c "): no network?"
+      } else if ($0 ~ /[Cc]onnection refused|ECONNRESET|ETIMEDOUT|EHOSTUNREACH|ENETUNREACH|getaddrinfo|[Cc]ould not connect|[Tt]imed out|[Tt]imeout of [0-9]+ ?ms|Name or service not known|Temporary failure in name resolution/) {
+        p = $0; gsub(/^[[:space:]]+|[[:space:]]+$/, "", p)
+        if (length(p) > 160) p = substr(p, 1, 157) "..."
+      }
+      if (p != "" && !(p in seen)) { seen[p] = 1; if (++k <= 5) print p }
+    }'
+}
+
+# forge_base_tree <dir>: the project as it was at the start of the turn, in <dir>:
+# the files git sees now (tracked and untracked, not ignored), with this turn's
+# changes undone from $FORGE_TMP/base (files added during the turn left out), and
+# every ignored path (dependencies, build output, .env) a link to the real one.
+# The repository, its index, its stash and its working tree are not touched.
+forge_base_tree() {
+  mkdir -p "$1" || return 1
+  git ls-files --cached --others --exclude-standard 2>/dev/null | while IFS= read -r _bt_f; do
+    if [ -f "$_bt_f" ] || [ -L "$_bt_f" ]; then printf '%s\n' "$_bt_f"; fi
+  done > "$FORGE_TMP/base-tree.files"
+  tar -cf - -T "$FORGE_TMP/base-tree.files" 2>/dev/null | ( cd "$1" && tar -xf - ) || return 1
+  while IFS= read -r _bt_f; do
+    rm -f "$1/$_bt_f"
+    if [ -f "$FORGE_TMP/base/$_bt_f" ]; then mkdir -p "$1/$(dirname "$_bt_f")" && cp "$FORGE_TMP/base/$_bt_f" "$1/$_bt_f"; fi
+  done < "$FORGE_TMP/changed"
+  git ls-files --others --ignored --exclude-standard --directory 2>/dev/null | while IFS= read -r _bt_f; do
+    _bt_f=${_bt_f%/}
+    case $_bt_f in ''|.forge/state|.forge/state/*) continue ;; esac
+    if [ -e "$1/$_bt_f" ] || [ -L "$1/$_bt_f" ]; then continue; fi
+    mkdir -p "$1/$(dirname "$_bt_f")" && ln -s "$FORGE_ROOT/$_bt_f" "$1/$_bt_f"
+  done
+  return 0
+}
+
+# forge_rerun_in_base: the rerun form of check $_fb_n on $FORGE_FILES, in the base tree.
+forge_rerun_in_base() { cd "$FORGE_TMP/base-tree" && "forge_check_rerun_$_fb_n"; }
+
+# forge_test_compare <n>: test check <n> failed under --turn ($FORGE_TMP/out). Its
+# failing test files are run again in the tree as it was at the start of the turn
+# and the failing tests compared. A test failing now that passed then (or could not
+# be compared) is a new failure: return 1, new failures first. When every failing
+# test also fails then: return 3, with the tests, the errors that look environmental
+# and what to do; they are also appended to $FORGE_UNVERIFIED for the Stop hook
+# ("test<TAB><check> <id>", "env<TAB><phrase>").
+forge_test_compare() {
+  cp "$FORGE_TMP/out" "$FORGE_TMP/test.now"
+  forge_failed_tests < "$FORGE_TMP/test.now" > "$FORGE_TMP/failing.now"
+  rm -rf "$FORGE_TMP/base-tree"
+  if [ ! -s "$FORGE_TMP/failing.now" ] || ! forge_base_tree "$FORGE_TMP/base-tree"; then
+    printf 'forge:%s failed\n' "$c_id"
+    forge_excerpt 25 < "$FORGE_TMP/test.now"
+    return 1
+  fi
+  FORGE_FILES=$(forge_test_files < "$FORGE_TMP/failing.now")
+  _fb_n=$1
+  forge_exec_check forge_rerun_in_base "$c_timeout"
+  forge_failed_tests < "$FORGE_TMP/out" > "$FORGE_TMP/failing.base"
+  rm -rf "$FORGE_TMP/base-tree"
+  if [ -s "$FORGE_TMP/failing.base" ]; then
+    grep -vxF -f "$FORGE_TMP/failing.base" "$FORGE_TMP/failing.now" > "$FORGE_TMP/failing.new"
+    grep -xF -f "$FORGE_TMP/failing.base" "$FORGE_TMP/failing.now" > "$FORGE_TMP/failing.old"
+  else
+    cp "$FORGE_TMP/failing.now" "$FORGE_TMP/failing.new"
+    : > "$FORGE_TMP/failing.old"
+  fi
+  _ft_new=$(awk 'END { print NR }' "$FORGE_TMP/failing.new")
+  _ft_old=$(awk 'END { print NR }' "$FORGE_TMP/failing.old")
+  if [ "$_ft_new" -gt 0 ]; then
+    printf 'forge:%s failed: %s failing test(s) passed at the start of the turn:\n' "$c_id" "$_ft_new"
+    first_lines 8 < "$FORGE_TMP/failing.new" | sed 's/^/  /'
+    [ "$_ft_old" -eq 0 ] || printf '(%s other failing test(s) also fail at the start of the turn: not caused by this change)\n' "$_ft_old"
+    forge_excerpt 20 < "$FORGE_TMP/test.now"
+    return 1
+  fi
+  forge_env_errors < "$FORGE_TMP/test.now" > "$FORGE_TMP/env"
+  printf 'forge:%s %s failing test(s) also fail at the start of the turn (re-run there), so this change did not cause them, but it is not verified by them either:\n' "$c_id" "$_ft_old"
+  first_lines 8 < "$FORGE_TMP/failing.old" | sed 's/^/  /'
+  _ft_compose=''
+  for _ft_f in compose.yaml compose.yml docker-compose.yml docker-compose.yaml; do
+    if [ -f "$_ft_f" ]; then _ft_compose=$_ft_f; break; fi
+  done
+  if [ -s "$FORGE_TMP/env" ]; then
+    printf 'Their errors look environmental:\n'
+    sed 's/^/  /' "$FORGE_TMP/env"
+    if [ -n "$_ft_compose" ]; then
+      printf 'Set up what they need (e.g. docker compose up -d with %s) and run them again. ' "$_ft_compose"
+    else
+      printf 'Set up what they need (the services, the network) and run them again. '
+    fi
+  else
+    printf 'Check whether they relate to the task: fix them if so, and run them again. '
+  fi
+  printf 'If that is not possible, stop again without changing files: the stop is then allowed and the user is told these tests could not be verified.\n'
+  forge_excerpt 12 < "$FORGE_TMP/test.now"
+  if [ -n "${FORGE_UNVERIFIED:-}" ]; then
+    sed "s|^|test	$c_id |" "$FORGE_TMP/failing.old" >> "$FORGE_UNVERIFIED"
+    sed 's/^/env	/' "$FORGE_TMP/env" >> "$FORGE_UNVERIFIED"
+  fi
+  return 3
 }
 
 # forge_run_stage <stage>: every check of <stage>; fails if one fails.
@@ -3213,11 +3618,16 @@ forge_run_stage() {
   while [ "$_fs_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fs_i"
     if [ "$c_stage" = "$1" ]; then
-      forge_run_check "$_fs_i" || _fs_rc=1
+      forge_run_check "$_fs_i"
+      case $? in
+        0) ;;
+        3) [ "$_fs_rc" -ne 0 ] || _fs_rc=3 ;;
+        *) _fs_rc=1 ;;
+      esac
     fi
     _fs_i=$((_fs_i + 1))
   done
-  [ "$_fs_rc" -eq 0 ] || fail=1
+  [ "$_fs_rc" -eq 0 ] || fail=$_fs_rc
   return "$_fs_rc"
 }
 
@@ -3355,6 +3765,9 @@ exit 0
 # Generated by forge. Stop hook: runs .forge/check.sh on what changed during this
 # turn (--turn, against the snapshot taken by turn-start.sh), or on every
 # uncommitted change when there is no snapshot (--changed); hands over after 3 blocks.
+# A tree that failed is not checked again: the same reason is given until it changes.
+# Tests that fail at the start of the turn too block once with what to do; on the same
+# tree again the stop is allowed and the user is told they could not be verified.
 dir=$(cd "$(dirname "$0")" && pwd)
 FORGE_INPUT=$(cat)
 . "$dir/lib.sh"
@@ -3369,13 +3782,34 @@ if [ -f "$snap/head" ]; then
   # unchanged since the prompt (same tree, same HEAD): whatever is dirty is not this turn's work
   [ "$hash" = "$(cat "$snap/tree" 2>/dev/null)" ] && [ "$(git rev-parse -q --verify HEAD 2>/dev/null)" = "$(cat "$snap/head")" ] && exit 0
   passed=$snap/pass
+  failed=$snap/fail
   hash="$hash $(git rev-parse -q --verify HEAD 2>/dev/null)"
   set -- --turn "$snap"
 else
   passed=.forge/state/last-pass
+  failed=.forge/state/last-fail
   set -- --changed
 fi
 [ "$hash" = "$(cat "$passed" 2>/dev/null)" ] && exit 0
+
+# Only tests that also fail at the start of the turn, and the agent stopped again
+# without changing anything: allowed, and the user is told what was not verified.
+if [ "$hash" = "$(cat "$failed" 2>/dev/null)" ] && [ -s "$failed.unverified" ]; then
+  msg=$(awk -F '\t' '
+    $1 == "test" { t[++n] = substr($0, 6) } $1 == "env" { e[++m] = $2 }
+    END {
+      printf "forge: %d test(s) could not be verified: they fail with and without Claude'"'"'s change", n
+      if (m) { printf ", and their errors look environmental: "; for (i = 1; i <= m; i++) printf "%s%s", (i > 1 ? "; " : ""), e[i] }
+      printf ". Not verified: "
+      for (i = 1; i <= n && i <= 10; i++) printf "%s%s", (i > 1 ? "; " : ""), t[i]
+      if (n > 10) printf "; and %d more", n - 10
+      printf ". Run them once the environment is set up."
+    }' "$failed.unverified" | json_escape)
+  printf '%s\n' "$hash" > "$passed"
+  rm -f "$counter" "$failed" "$failed.reason" "$failed.unverified"
+  printf '{"systemMessage":"%s"}\n' "$msg"
+  exit 0
+fi
 
 count=$(cat "$counter" 2>/dev/null)
 case $count in ''|*[!0-9]*) count=0 ;; esac
@@ -3385,17 +3819,38 @@ if [ "$count" -ge 3 ]; then
   exit 0
 fi
 
-out=$(sh .forge/check.sh "$@" 2>&1)
-if [ $? -eq 0 ]; then
-  # after formatters ran: the tree as it is now passed
-  if [ -f "$snap/head" ]; then printf '%s %s\n' "$(tree_hash)" "$(git rev-parse -q --verify HEAD 2>/dev/null)"; else tree_hash; fi > "$passed"
-  rm -f "$counter"
+# the tree as it is now (after formatters ran)
+now_tree() { if [ -f "$snap/head" ]; then printf '%s %s\n' "$(tree_hash)" "$(git rev-parse -q --verify HEAD 2>/dev/null)"; else tree_hash; fi; }
+# block [<first line>]: blocks with the reason in $failed.reason
+block() {
+  printf '%s\n' "$((count + 1))" > "$counter"
+  printf '{"decision":"block","reason":"%s"}\n' "$({ [ -z "${1:-}" ] || printf '%s\n' "$1"; cat "$failed.reason"; } | json_escape)"
+  exit 0
+}
+
+# Same tree as the last failed check: the checks give the same result on the same
+# tree, so it is given again without re-running them (a test suite can take minutes).
+if [ "$hash" = "$(cat "$failed" 2>/dev/null)" ] && [ -f "$failed.reason" ]; then
+  block 'forge: nothing changed in the working tree since this check failed, so it was not run again (it runs again once a file changes):'
+fi
+
+rm -f "$failed.unverified"
+out=$(FORGE_UNVERIFIED=$failed.unverified sh .forge/check.sh "$@" 2>&1)
+rc=$?
+if [ "$rc" -eq 0 ]; then
+  now_tree > "$passed"
+  rm -f "$counter" "$failed" "$failed.reason" "$failed.unverified"
   exit 0
 fi
-printf '%s\n' "$((count + 1))" > "$counter"
-reason=$(printf '%s\n' "$out" | first_lines 20 | json_escape)
-printf '{"decision":"block","reason":"%s"}\n' "$reason"
-exit 0
+# exit 3: the only failures are tests that fail at the start of the turn too
+[ "$rc" -eq 3 ] || rm -f "$failed.unverified"
+# the failures first, then the "skipped" and "ok for" notes; at most 40 lines and
+# 6000 characters, so the reason stays short when Claude Code shows it
+printf '%s\n' "$out" \
+  | awk '/^forge:[^ ]+ (skipped:|ok for )/ { note[++k] = $0; next } { print } END { for (i = 1; i <= k; i++) print note[i] }' \
+  | awk '{ c += length($0) + 1 } NR <= 40 && c <= 6000' > "$failed.reason"
+now_tree > "$failed"
+block
 
 ===== .claude/skills/forge-project/scripts/turn-start.sh
 #!/bin/sh
@@ -3456,7 +3911,7 @@ FORGE_NCHECKS=18
 forge_check_meta_1() {
   c_id='typescript/bun/lock-sync'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_1() {
   return 0
@@ -3470,7 +3925,7 @@ bun install --frozen-lockfile
 forge_check_meta_2() {
   c_id='typescript/bun/release-age'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_2() {
   return 0
@@ -3484,7 +3939,7 @@ forge_bun_cooldown
 forge_check_meta_3() {
   c_id='typescript/bun/trusted-deps'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_3() {
   return 0
@@ -3498,7 +3953,7 @@ forge_trusted_deps
 forge_check_meta_4() {
   c_id='typescript/config-ratchet'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_4() {
   case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) ;; *) return 1 ;; esac
@@ -3513,7 +3968,7 @@ forge_ratchet bun ratchet.mjs
 forge_check_meta_5() {
   c_id='typescript/format-lint'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=1
+  c_changed=1; c_files=1; c_fix=1; c_rerun=0
 }
 forge_scope_5() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -3534,7 +3989,7 @@ biome check --write --formatter-enabled=false --skip=correctness/noUnusedImports
 forge_check_meta_6() {
   c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_6() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
@@ -3549,7 +4004,7 @@ forge_check_run_6() {
 forge_check_meta_7() {
   c_id='typescript/no-unused-suppressions'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_rerun=0
 }
 forge_scope_7() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -3567,7 +4022,7 @@ forge_check_changed_7() {
 forge_check_meta_8() {
   c_id='typescript/playwright/axe'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_8() {
   return 0
@@ -3581,7 +4036,7 @@ forge_check_run_8() {
 forge_check_meta_9() {
   c_id='typescript/playwright/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_9() {
   case $1 in e2e/*) ;; *) return 1 ;; esac
@@ -3597,7 +4052,7 @@ forge_test_edits
 forge_check_meta_10() {
   c_id='typescript/playwright/run'; c_stage=test; c_tools='playwright'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_10() {
   return 0
@@ -3611,7 +4066,7 @@ playwright test --reporter=line
 forge_check_meta_11() {
   c_id='typescript/prisma/client-generator'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_11() {
   return 0
@@ -3625,7 +4080,7 @@ forge_check_run_11() {
 forge_check_meta_12() {
   c_id='typescript/prisma/migration-lint'; c_stage=migration; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_rerun=0
 }
 forge_scope_12() {
   case $1 in prisma/migrations/migration.sql|prisma/migrations/*/migration.sql) ;; *) return 1 ;; esac
@@ -3643,7 +4098,7 @@ forge_squawk_files $FORGE_FILES
 forge_check_meta_13() {
   c_id='typescript/prisma/migration-present'; c_stage=migration; c_tools='prisma'
   c_when=1; c_localdb=1; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_13() {
   return 0
@@ -3657,7 +4112,7 @@ if ! grep -q shadowDatabaseUrl prisma.config.ts 2>/dev/null; then echo "forge:ty
 forge_check_meta_14() {
   c_id='typescript/prisma/validate'; c_stage=migration; c_tools='prisma'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_14() {
   return 0
@@ -3671,7 +4126,7 @@ prisma validate
 forge_check_meta_15() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_15() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -3686,7 +4141,7 @@ tsc --noEmit -p tsconfig.json
 forge_check_meta_16() {
   c_id='typescript/vitest/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_16() {
   case $1 in e2e/*) return 1 ;; esac
@@ -3703,7 +4158,7 @@ forge_test_edits
 forge_check_meta_17() {
   c_id='typescript/vitest/no-workspace-file'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_17() {
   return 0
@@ -3716,8 +4171,8 @@ forge_check_run_17() {
 # 18. typescript/vitest/run
 forge_check_meta_18() {
   c_id='typescript/vitest/run'; c_stage=test; c_tools='vitest'
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=0; c_fix=0
+  c_when=0; c_localdb=0; c_timeout=300
+  c_changed=1; c_files=0; c_fix=0; c_rerun=1
 }
 forge_scope_18() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -3729,6 +4184,9 @@ vitest run
 }
 forge_check_changed_18() {
 vitest run --changed
+}
+forge_check_rerun_18() {
+vitest run $FORGE_FILES
 }
 
 FORGE_NGREPS=2
@@ -4494,23 +4952,72 @@ forge_related_py_tests() {
   done | sort -u
 }
 
-# forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out.
+# forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out; 124 when
+# it ran past <timeout> seconds and was stopped.
 forge_exec_check() {
   set -f
   if [ -n "$2" ]; then
+    rm -f "$FORGE_TMP/timedout"
     "$1" > "$FORGE_TMP/out" 2>&1 &
     _fe_pid=$!
-    ( sleep "$2"; printf 'forge: timed out after %ss\n' "$2" >> "$FORGE_TMP/out"; forge_kill_tree "$_fe_pid" ) >/dev/null 2>&1 &
+    ( sleep "$2"; : > "$FORGE_TMP/timedout"; printf 'forge: timed out after %ss\n' "$2" >> "$FORGE_TMP/out"; forge_kill_tree "$_fe_pid" ) >/dev/null 2>&1 &
     _fe_watch=$!
     wait "$_fe_pid" 2>/dev/null
     _fe_rc=$?
     forge_kill_tree "$_fe_watch"
+    if [ -f "$FORGE_TMP/timedout" ]; then rm -f "$FORGE_TMP/timedout"; _fe_rc=124; fi
   else
     ( "$1" ) > "$FORGE_TMP/out" 2>&1 < /dev/null
     _fe_rc=$?
   fi
   set +f
   return "$_fe_rc"
+}
+
+# forge_excerpt <n>: at most <n> lines of a failed run's output (stdin), the failure
+# first. When the whole output fits it is printed as is. Otherwise: its summary lines
+# (vitest "Test Files … failed" and "Tests … failed", pytest's short summary "FAILED …"
+# and "ERROR …" and its "=== … failed … ===" line, "forge: timed out"), then its
+# failure details (each vitest "FAIL" line with the error lines of its block and the
+# first stack frame outside node_modules; pytest "____ test ____" headers, "E " lines
+# and "path:line: Error" locations); when the output has neither, the lines that
+# mention an error or a failure (not warnings). Then the rest of the output in order
+# (warnings included) while <n> allows, and "… (<k> more lines)" for what is left out.
+forge_excerpt() {
+  awk -v n="$1" '
+    BEGIN { esc = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
+    { l = $0; gsub(esc, "", l); if (length(l) > 300) l = substr(l, 1, 297) "..."; line[NR] = l }
+    function key(i, c) { if (!(i in cls)) { cls[i] = c; nk[c]++ } }
+    END {
+      if (NR <= n) { for (i = 1; i <= NR; i++) print line[i]; exit }
+      blk = 0; e = 0
+      for (i = 1; i <= NR; i++) {
+        l = line[i]
+        if (l ~ /^forge: timed out/ || l ~ /^ *Test Files .*failed/ || l ~ /^ *Tests .*failed/ || l ~ /^(FAILED|ERROR) / || l ~ /^=+ .*([0-9]+ (failed|errors?)).* =+$/) { key(i, 1); blk = 0; continue }
+        if (l ~ /^ *FAIL  /) { key(i, 2); blk = 1; nb = 0; frame = 0; continue }
+        if (blk) {
+          if (index(l, "⎯")) { blk = 0; continue }
+          if (l ~ /^ *[0-9]*\|/ || l ~ /^ *$/) continue
+          if (nb < 5 && (nb == 0 || l ~ /Error|Caused by|[Ee]xpected|Received|^ *[-+] / || index(l, "→"))) { key(i, 2); nb++; continue }
+          if (!frame && index(l, "❯") && l !~ /node_modules/) { key(i, 2); frame = 1 }
+          continue
+        }
+        if (l ~ /^_{3,} .* _{3,}$/) { key(i, 2); e = 0; continue }
+        if (l ~ /^E   / && e < 4) { key(i, 2); e++; continue }
+        if (l ~ /^[^ :]+\.py:[0-9]+: [A-Za-z]*(Error|Exception)/) { key(i, 2); continue }
+      }
+      if (!nk[1] && !nk[2])
+        for (i = 1; i <= NR; i++)
+          if (line[i] ~ /[Ee]rror|ERROR|FAIL|[Ff]ail(ed|ure)|[Pp]anic|Traceback|[Rr]efused/ && !(line[i] ~ /[Ww]arn/ && line[i] !~ /[Ee]rror/)) key(i, 3)
+      shown = 0; sep = 0
+      for (c = 1; c <= 3; c++)
+        for (i = 1; i <= NR && shown < n - 1; i++)
+          if ((i in cls) && cls[i] == c) { print line[i]; shown++ }
+      if (shown && shown < n - 2) { print "--- output:"; sep = 1 }
+      for (i = 1; i <= NR && shown + sep < n - 1; i++)
+        if (!(i in cls)) { print line[i]; shown++ }
+      if (NR > shown) printf "... (%d more lines)\n", NR - shown
+    }'
 }
 
 # forge_diagnostics <output> <file|line> [print]: sorts the error diagnostics of a
@@ -4521,13 +5028,16 @@ forge_exec_check() {
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "none" when no line names a file. With
-# "print", prints the lines that count instead.
+# "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
+# tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
   awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
+      gsub(ansi, "", line)
       if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -4586,10 +5096,14 @@ forge_run_check() {
   case $mode in --changed|--turn)
     if [ "$c_changed" = 1 ] && [ -n "$FORGE_FILES" ]; then _fc_fn=forge_check_changed_$1; _fc_whole=0; fi ;;
   esac
-  if forge_exec_check "$_fc_fn" "$c_timeout"; then
-    grep '^forge:' "$FORGE_TMP/out"
-    return 0
-  fi
+  forge_exec_check "$_fc_fn" "$c_timeout"
+  case $? in
+    0) grep '^forge:' "$FORGE_TMP/out"; return 0 ;;
+    124)
+      printf 'forge:%s failed: timed out after %ss and was stopped (a hung test, or a service that never answers?); its output until then:\n' "$c_id" "$c_timeout"
+      grep -v '^forge: timed out after' "$FORGE_TMP/out" | forge_excerpt 15
+      return 1 ;;
+  esac
   # outside --all, only errors in the change count (§10.1 step 5)
   _fc_level=$(forge_attribute_level "$c_stage" "$_fc_whole")
   if [ "$mode" != --all ] && [ -n "$_fc_level" ]; then
@@ -4607,9 +5121,150 @@ forge_run_check() {
         return 1 ;;
     esac
   fi
+  # Stop: failing tests are re-run at the start of the turn (§10.6)
+  if [ "$c_stage" = test ] && [ "$mode" = --turn ] && [ "$c_rerun" = 1 ]; then
+    forge_test_compare "$1"
+    return
+  fi
   printf 'forge:%s failed\n' "$c_id"
-  first_lines 15 < "$FORGE_TMP/out"
+  if [ "$c_stage" = test ]; then forge_excerpt 25; else forge_excerpt 15; fi < "$FORGE_TMP/out"
   return 1
+}
+
+# ---- failing tests compared with the start of the turn (Stop, §10.6)
+
+# forge_failed_tests: the failing tests a run reports (stdin), one id per line:
+# Vitest "FAIL  [|project| ]<file> > <describe> > <test>" (a file that failed to
+# load: "<file>"), pytest's short summary "FAILED <node id>" and "ERROR <node id>".
+forge_failed_tests() {
+  awk 'BEGIN { esc = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
+    { gsub(esc, "") }
+    /^ *FAIL  / { t = $0; sub(/^ *FAIL +/, "", t); sub(/ \[ .* \]$/, "", t) }
+    /^(FAILED|ERROR) [^ ]/ { t = $0; sub(/^[A-Z]+ /, "", t); sub(/ - .*$/, "", t) }
+    t != "" { sub(/[[:space:]]+$/, "", t); print t; t = "" }' | LC_ALL=C sort -u
+}
+
+# forge_test_files: the test file of each id on stdin (Vitest: relative to its
+# project, which a Vitest filter matches as part of the path), one per line.
+forge_test_files() {
+  sed -e 's/^|[^|]*| //' -e 's/ > .*$//' -e 's/::.*$//' | LC_ALL=C sort -u
+}
+
+# forge_env_errors: the errors in a run's output (stdin) that point at the
+# environment rather than the code (a connection refused, a failed DNS lookup, a
+# timeout), as short phrases, at most 5.
+forge_env_errors() {
+  awk 'BEGIN { svc["5432"] = "Postgres"; svc["3306"] = "MySQL"; svc["6379"] = "Redis"; svc["27017"] = "MongoDB"
+           svc["1433"] = "SQL Server"; svc["9200"] = "Elasticsearch"; svc["5672"] = "RabbitMQ"; svc["11211"] = "Memcached" }
+    /^forge: timed out/ || /^(FAILED|ERROR) / { next }
+    {
+      p = ""
+      if (match($0, /ECONNREFUSED [^ ,;)]+:[0-9]+/)) {
+        a = substr($0, RSTART + 13, RLENGTH - 13); port = a; sub(/.*:/, "", port)
+        p = ((port in svc) ? svc[port] : "a service") " refused the connection at " a " (ECONNREFUSED)"
+      } else if (match($0, /port [0-9]+ failed: Connection refused/)) {
+        port = substr($0, RSTART + 5); sub(/ .*/, "", port)
+        p = ((port in svc) ? svc[port] : "a service") " refused the connection on port " port
+      } else if (match($0, /(EAI_AGAIN|ENOTFOUND) [^ ,;)'"'"'"]+/)) {
+        h = substr($0, RSTART, RLENGTH); c = h; sub(/ .*/, "", c); sub(/^[^ ]+ /, "", h)
+        p = "DNS lookup for " h " failed (" c "): no network?"
+      } else if ($0 ~ /[Cc]onnection refused|ECONNRESET|ETIMEDOUT|EHOSTUNREACH|ENETUNREACH|getaddrinfo|[Cc]ould not connect|[Tt]imed out|[Tt]imeout of [0-9]+ ?ms|Name or service not known|Temporary failure in name resolution/) {
+        p = $0; gsub(/^[[:space:]]+|[[:space:]]+$/, "", p)
+        if (length(p) > 160) p = substr(p, 1, 157) "..."
+      }
+      if (p != "" && !(p in seen)) { seen[p] = 1; if (++k <= 5) print p }
+    }'
+}
+
+# forge_base_tree <dir>: the project as it was at the start of the turn, in <dir>:
+# the files git sees now (tracked and untracked, not ignored), with this turn's
+# changes undone from $FORGE_TMP/base (files added during the turn left out), and
+# every ignored path (dependencies, build output, .env) a link to the real one.
+# The repository, its index, its stash and its working tree are not touched.
+forge_base_tree() {
+  mkdir -p "$1" || return 1
+  git ls-files --cached --others --exclude-standard 2>/dev/null | while IFS= read -r _bt_f; do
+    if [ -f "$_bt_f" ] || [ -L "$_bt_f" ]; then printf '%s\n' "$_bt_f"; fi
+  done > "$FORGE_TMP/base-tree.files"
+  tar -cf - -T "$FORGE_TMP/base-tree.files" 2>/dev/null | ( cd "$1" && tar -xf - ) || return 1
+  while IFS= read -r _bt_f; do
+    rm -f "$1/$_bt_f"
+    if [ -f "$FORGE_TMP/base/$_bt_f" ]; then mkdir -p "$1/$(dirname "$_bt_f")" && cp "$FORGE_TMP/base/$_bt_f" "$1/$_bt_f"; fi
+  done < "$FORGE_TMP/changed"
+  git ls-files --others --ignored --exclude-standard --directory 2>/dev/null | while IFS= read -r _bt_f; do
+    _bt_f=${_bt_f%/}
+    case $_bt_f in ''|.forge/state|.forge/state/*) continue ;; esac
+    if [ -e "$1/$_bt_f" ] || [ -L "$1/$_bt_f" ]; then continue; fi
+    mkdir -p "$1/$(dirname "$_bt_f")" && ln -s "$FORGE_ROOT/$_bt_f" "$1/$_bt_f"
+  done
+  return 0
+}
+
+# forge_rerun_in_base: the rerun form of check $_fb_n on $FORGE_FILES, in the base tree.
+forge_rerun_in_base() { cd "$FORGE_TMP/base-tree" && "forge_check_rerun_$_fb_n"; }
+
+# forge_test_compare <n>: test check <n> failed under --turn ($FORGE_TMP/out). Its
+# failing test files are run again in the tree as it was at the start of the turn
+# and the failing tests compared. A test failing now that passed then (or could not
+# be compared) is a new failure: return 1, new failures first. When every failing
+# test also fails then: return 3, with the tests, the errors that look environmental
+# and what to do; they are also appended to $FORGE_UNVERIFIED for the Stop hook
+# ("test<TAB><check> <id>", "env<TAB><phrase>").
+forge_test_compare() {
+  cp "$FORGE_TMP/out" "$FORGE_TMP/test.now"
+  forge_failed_tests < "$FORGE_TMP/test.now" > "$FORGE_TMP/failing.now"
+  rm -rf "$FORGE_TMP/base-tree"
+  if [ ! -s "$FORGE_TMP/failing.now" ] || ! forge_base_tree "$FORGE_TMP/base-tree"; then
+    printf 'forge:%s failed\n' "$c_id"
+    forge_excerpt 25 < "$FORGE_TMP/test.now"
+    return 1
+  fi
+  FORGE_FILES=$(forge_test_files < "$FORGE_TMP/failing.now")
+  _fb_n=$1
+  forge_exec_check forge_rerun_in_base "$c_timeout"
+  forge_failed_tests < "$FORGE_TMP/out" > "$FORGE_TMP/failing.base"
+  rm -rf "$FORGE_TMP/base-tree"
+  if [ -s "$FORGE_TMP/failing.base" ]; then
+    grep -vxF -f "$FORGE_TMP/failing.base" "$FORGE_TMP/failing.now" > "$FORGE_TMP/failing.new"
+    grep -xF -f "$FORGE_TMP/failing.base" "$FORGE_TMP/failing.now" > "$FORGE_TMP/failing.old"
+  else
+    cp "$FORGE_TMP/failing.now" "$FORGE_TMP/failing.new"
+    : > "$FORGE_TMP/failing.old"
+  fi
+  _ft_new=$(awk 'END { print NR }' "$FORGE_TMP/failing.new")
+  _ft_old=$(awk 'END { print NR }' "$FORGE_TMP/failing.old")
+  if [ "$_ft_new" -gt 0 ]; then
+    printf 'forge:%s failed: %s failing test(s) passed at the start of the turn:\n' "$c_id" "$_ft_new"
+    first_lines 8 < "$FORGE_TMP/failing.new" | sed 's/^/  /'
+    [ "$_ft_old" -eq 0 ] || printf '(%s other failing test(s) also fail at the start of the turn: not caused by this change)\n' "$_ft_old"
+    forge_excerpt 20 < "$FORGE_TMP/test.now"
+    return 1
+  fi
+  forge_env_errors < "$FORGE_TMP/test.now" > "$FORGE_TMP/env"
+  printf 'forge:%s %s failing test(s) also fail at the start of the turn (re-run there), so this change did not cause them, but it is not verified by them either:\n' "$c_id" "$_ft_old"
+  first_lines 8 < "$FORGE_TMP/failing.old" | sed 's/^/  /'
+  _ft_compose=''
+  for _ft_f in compose.yaml compose.yml docker-compose.yml docker-compose.yaml; do
+    if [ -f "$_ft_f" ]; then _ft_compose=$_ft_f; break; fi
+  done
+  if [ -s "$FORGE_TMP/env" ]; then
+    printf 'Their errors look environmental:\n'
+    sed 's/^/  /' "$FORGE_TMP/env"
+    if [ -n "$_ft_compose" ]; then
+      printf 'Set up what they need (e.g. docker compose up -d with %s) and run them again. ' "$_ft_compose"
+    else
+      printf 'Set up what they need (the services, the network) and run them again. '
+    fi
+  else
+    printf 'Check whether they relate to the task: fix them if so, and run them again. '
+  fi
+  printf 'If that is not possible, stop again without changing files: the stop is then allowed and the user is told these tests could not be verified.\n'
+  forge_excerpt 12 < "$FORGE_TMP/test.now"
+  if [ -n "${FORGE_UNVERIFIED:-}" ]; then
+    sed "s|^|test	$c_id |" "$FORGE_TMP/failing.old" >> "$FORGE_UNVERIFIED"
+    sed 's/^/env	/' "$FORGE_TMP/env" >> "$FORGE_UNVERIFIED"
+  fi
+  return 3
 }
 
 # forge_run_stage <stage>: every check of <stage>; fails if one fails.
@@ -4619,11 +5274,16 @@ forge_run_stage() {
   while [ "$_fs_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fs_i"
     if [ "$c_stage" = "$1" ]; then
-      forge_run_check "$_fs_i" || _fs_rc=1
+      forge_run_check "$_fs_i"
+      case $? in
+        0) ;;
+        3) [ "$_fs_rc" -ne 0 ] || _fs_rc=3 ;;
+        *) _fs_rc=1 ;;
+      esac
     fi
     _fs_i=$((_fs_i + 1))
   done
-  [ "$_fs_rc" -eq 0 ] || fail=1
+  [ "$_fs_rc" -eq 0 ] || fail=$_fs_rc
   return "$_fs_rc"
 }
 
@@ -4753,7 +5413,7 @@ if ! mkdir "$lock" 2>/dev/null; then
 fi
 printf '%s\n' "$$" > "$lock/pid"
 FORGE_TMP=$(mktemp -d "${TMPDIR:-/tmp}/forge-tc.XXXXXX") || { rm -rf "$lock"; exit 0; }
-trap 'rm -rf "$FORGE_TMP" "$lock"' EXIT HUP INT TERM
+trap 'rm -rf "$FORGE_TMP" "$lock"' EXIT; trap 'exit 143' HUP INT TERM
 
 # the changed set, as the Stop hook computes it: what changed during this turn
 # (the turn snapshot), or every uncommitted change before the first prompt
@@ -5874,7 +6534,7 @@ FORGE_ROOT=$(pwd)
 IFS='
 '
 FORGE_TMP=$(mktemp -d "${TMPDIR:-/tmp}/forge-check.XXXXXX") || exit 2
-trap 'rm -rf "$FORGE_TMP"' EXIT HUP INT TERM
+trap 'rm -rf "$FORGE_TMP"' EXIT; trap 'exit 143' HUP INT TERM
 
 # Generated by forge. Shared helpers for hook scripts. POSIX sh only.
 FORGE_AST_GREP_VERSION="0.45.3"
@@ -6227,7 +6887,7 @@ FORGE_NCHECKS=18
 forge_check_meta_1() {
   c_id='typescript/bun/lock-sync'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_1() {
   return 0
@@ -6241,7 +6901,7 @@ bun install --frozen-lockfile
 forge_check_meta_2() {
   c_id='typescript/bun/release-age'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_2() {
   return 0
@@ -6255,7 +6915,7 @@ forge_bun_cooldown
 forge_check_meta_3() {
   c_id='typescript/bun/trusted-deps'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_3() {
   return 0
@@ -6269,7 +6929,7 @@ forge_trusted_deps
 forge_check_meta_4() {
   c_id='typescript/config-ratchet'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_4() {
   case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) ;; *) return 1 ;; esac
@@ -6284,7 +6944,7 @@ forge_ratchet bun ratchet.mjs
 forge_check_meta_5() {
   c_id='typescript/format-lint'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=1
+  c_changed=1; c_files=1; c_fix=1; c_rerun=0
 }
 forge_scope_5() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -6305,7 +6965,7 @@ biome check --write --formatter-enabled=false --skip=correctness/noUnusedImports
 forge_check_meta_6() {
   c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_6() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
@@ -6320,7 +6980,7 @@ forge_check_run_6() {
 forge_check_meta_7() {
   c_id='typescript/no-unused-suppressions'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_rerun=0
 }
 forge_scope_7() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -6338,7 +6998,7 @@ forge_check_changed_7() {
 forge_check_meta_8() {
   c_id='typescript/playwright/axe'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_8() {
   return 0
@@ -6352,7 +7012,7 @@ forge_check_run_8() {
 forge_check_meta_9() {
   c_id='typescript/playwright/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_9() {
   case $1 in e2e/*) ;; *) return 1 ;; esac
@@ -6368,7 +7028,7 @@ forge_test_edits
 forge_check_meta_10() {
   c_id='typescript/playwright/run'; c_stage=test; c_tools='playwright'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_10() {
   return 0
@@ -6382,7 +7042,7 @@ playwright test --reporter=line
 forge_check_meta_11() {
   c_id='typescript/prisma/client-generator'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_11() {
   return 0
@@ -6396,7 +7056,7 @@ forge_check_run_11() {
 forge_check_meta_12() {
   c_id='typescript/prisma/migration-lint'; c_stage=migration; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_rerun=0
 }
 forge_scope_12() {
   case $1 in prisma/migrations/migration.sql|prisma/migrations/*/migration.sql) ;; *) return 1 ;; esac
@@ -6414,7 +7074,7 @@ forge_squawk_files $FORGE_FILES
 forge_check_meta_13() {
   c_id='typescript/prisma/migration-present'; c_stage=migration; c_tools='prisma'
   c_when=1; c_localdb=1; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_13() {
   return 0
@@ -6428,7 +7088,7 @@ if ! grep -q shadowDatabaseUrl prisma.config.ts 2>/dev/null; then echo "forge:ty
 forge_check_meta_14() {
   c_id='typescript/prisma/validate'; c_stage=migration; c_tools='prisma'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_14() {
   return 0
@@ -6442,7 +7102,7 @@ prisma validate
 forge_check_meta_15() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_15() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -6457,7 +7117,7 @@ tsc --noEmit -p tsconfig.json
 forge_check_meta_16() {
   c_id='typescript/vitest/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_16() {
   case $1 in e2e/*) return 1 ;; esac
@@ -6474,7 +7134,7 @@ forge_test_edits
 forge_check_meta_17() {
   c_id='typescript/vitest/no-workspace-file'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_rerun=0
 }
 forge_scope_17() {
   return 0
@@ -6487,8 +7147,8 @@ forge_check_run_17() {
 # 18. typescript/vitest/run
 forge_check_meta_18() {
   c_id='typescript/vitest/run'; c_stage=test; c_tools='vitest'
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=0; c_fix=0
+  c_when=0; c_localdb=0; c_timeout=300
+  c_changed=1; c_files=0; c_fix=0; c_rerun=1
 }
 forge_scope_18() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -6500,6 +7160,9 @@ vitest run
 }
 forge_check_changed_18() {
 vitest run --changed
+}
+forge_check_rerun_18() {
+vitest run $FORGE_FILES
 }
 
 FORGE_NGREPS=2
@@ -7265,23 +7928,72 @@ forge_related_py_tests() {
   done | sort -u
 }
 
-# forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out.
+# forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out; 124 when
+# it ran past <timeout> seconds and was stopped.
 forge_exec_check() {
   set -f
   if [ -n "$2" ]; then
+    rm -f "$FORGE_TMP/timedout"
     "$1" > "$FORGE_TMP/out" 2>&1 &
     _fe_pid=$!
-    ( sleep "$2"; printf 'forge: timed out after %ss\n' "$2" >> "$FORGE_TMP/out"; forge_kill_tree "$_fe_pid" ) >/dev/null 2>&1 &
+    ( sleep "$2"; : > "$FORGE_TMP/timedout"; printf 'forge: timed out after %ss\n' "$2" >> "$FORGE_TMP/out"; forge_kill_tree "$_fe_pid" ) >/dev/null 2>&1 &
     _fe_watch=$!
     wait "$_fe_pid" 2>/dev/null
     _fe_rc=$?
     forge_kill_tree "$_fe_watch"
+    if [ -f "$FORGE_TMP/timedout" ]; then rm -f "$FORGE_TMP/timedout"; _fe_rc=124; fi
   else
     ( "$1" ) > "$FORGE_TMP/out" 2>&1 < /dev/null
     _fe_rc=$?
   fi
   set +f
   return "$_fe_rc"
+}
+
+# forge_excerpt <n>: at most <n> lines of a failed run's output (stdin), the failure
+# first. When the whole output fits it is printed as is. Otherwise: its summary lines
+# (vitest "Test Files … failed" and "Tests … failed", pytest's short summary "FAILED …"
+# and "ERROR …" and its "=== … failed … ===" line, "forge: timed out"), then its
+# failure details (each vitest "FAIL" line with the error lines of its block and the
+# first stack frame outside node_modules; pytest "____ test ____" headers, "E " lines
+# and "path:line: Error" locations); when the output has neither, the lines that
+# mention an error or a failure (not warnings). Then the rest of the output in order
+# (warnings included) while <n> allows, and "… (<k> more lines)" for what is left out.
+forge_excerpt() {
+  awk -v n="$1" '
+    BEGIN { esc = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
+    { l = $0; gsub(esc, "", l); if (length(l) > 300) l = substr(l, 1, 297) "..."; line[NR] = l }
+    function key(i, c) { if (!(i in cls)) { cls[i] = c; nk[c]++ } }
+    END {
+      if (NR <= n) { for (i = 1; i <= NR; i++) print line[i]; exit }
+      blk = 0; e = 0
+      for (i = 1; i <= NR; i++) {
+        l = line[i]
+        if (l ~ /^forge: timed out/ || l ~ /^ *Test Files .*failed/ || l ~ /^ *Tests .*failed/ || l ~ /^(FAILED|ERROR) / || l ~ /^=+ .*([0-9]+ (failed|errors?)).* =+$/) { key(i, 1); blk = 0; continue }
+        if (l ~ /^ *FAIL  /) { key(i, 2); blk = 1; nb = 0; frame = 0; continue }
+        if (blk) {
+          if (index(l, "⎯")) { blk = 0; continue }
+          if (l ~ /^ *[0-9]*\|/ || l ~ /^ *$/) continue
+          if (nb < 5 && (nb == 0 || l ~ /Error|Caused by|[Ee]xpected|Received|^ *[-+] / || index(l, "→"))) { key(i, 2); nb++; continue }
+          if (!frame && index(l, "❯") && l !~ /node_modules/) { key(i, 2); frame = 1 }
+          continue
+        }
+        if (l ~ /^_{3,} .* _{3,}$/) { key(i, 2); e = 0; continue }
+        if (l ~ /^E   / && e < 4) { key(i, 2); e++; continue }
+        if (l ~ /^[^ :]+\.py:[0-9]+: [A-Za-z]*(Error|Exception)/) { key(i, 2); continue }
+      }
+      if (!nk[1] && !nk[2])
+        for (i = 1; i <= NR; i++)
+          if (line[i] ~ /[Ee]rror|ERROR|FAIL|[Ff]ail(ed|ure)|[Pp]anic|Traceback|[Rr]efused/ && !(line[i] ~ /[Ww]arn/ && line[i] !~ /[Ee]rror/)) key(i, 3)
+      shown = 0; sep = 0
+      for (c = 1; c <= 3; c++)
+        for (i = 1; i <= NR && shown < n - 1; i++)
+          if ((i in cls) && cls[i] == c) { print line[i]; shown++ }
+      if (shown && shown < n - 2) { print "--- output:"; sep = 1 }
+      for (i = 1; i <= NR && shown + sep < n - 1; i++)
+        if (!(i in cls)) { print line[i]; shown++ }
+      if (NR > shown) printf "... (%d more lines)\n", NR - shown
+    }'
 }
 
 # forge_diagnostics <output> <file|line> [print]: sorts the error diagnostics of a
@@ -7292,13 +8004,16 @@ forge_exec_check() {
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "none" when no line names a file. With
-# "print", prints the lines that count instead.
+# "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
+# tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
   awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
+      gsub(ansi, "", line)
       if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -7357,10 +8072,14 @@ forge_run_check() {
   case $mode in --changed|--turn)
     if [ "$c_changed" = 1 ] && [ -n "$FORGE_FILES" ]; then _fc_fn=forge_check_changed_$1; _fc_whole=0; fi ;;
   esac
-  if forge_exec_check "$_fc_fn" "$c_timeout"; then
-    grep '^forge:' "$FORGE_TMP/out"
-    return 0
-  fi
+  forge_exec_check "$_fc_fn" "$c_timeout"
+  case $? in
+    0) grep '^forge:' "$FORGE_TMP/out"; return 0 ;;
+    124)
+      printf 'forge:%s failed: timed out after %ss and was stopped (a hung test, or a service that never answers?); its output until then:\n' "$c_id" "$c_timeout"
+      grep -v '^forge: timed out after' "$FORGE_TMP/out" | forge_excerpt 15
+      return 1 ;;
+  esac
   # outside --all, only errors in the change count (§10.1 step 5)
   _fc_level=$(forge_attribute_level "$c_stage" "$_fc_whole")
   if [ "$mode" != --all ] && [ -n "$_fc_level" ]; then
@@ -7378,9 +8097,150 @@ forge_run_check() {
         return 1 ;;
     esac
   fi
+  # Stop: failing tests are re-run at the start of the turn (§10.6)
+  if [ "$c_stage" = test ] && [ "$mode" = --turn ] && [ "$c_rerun" = 1 ]; then
+    forge_test_compare "$1"
+    return
+  fi
   printf 'forge:%s failed\n' "$c_id"
-  first_lines 15 < "$FORGE_TMP/out"
+  if [ "$c_stage" = test ]; then forge_excerpt 25; else forge_excerpt 15; fi < "$FORGE_TMP/out"
   return 1
+}
+
+# ---- failing tests compared with the start of the turn (Stop, §10.6)
+
+# forge_failed_tests: the failing tests a run reports (stdin), one id per line:
+# Vitest "FAIL  [|project| ]<file> > <describe> > <test>" (a file that failed to
+# load: "<file>"), pytest's short summary "FAILED <node id>" and "ERROR <node id>".
+forge_failed_tests() {
+  awk 'BEGIN { esc = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
+    { gsub(esc, "") }
+    /^ *FAIL  / { t = $0; sub(/^ *FAIL +/, "", t); sub(/ \[ .* \]$/, "", t) }
+    /^(FAILED|ERROR) [^ ]/ { t = $0; sub(/^[A-Z]+ /, "", t); sub(/ - .*$/, "", t) }
+    t != "" { sub(/[[:space:]]+$/, "", t); print t; t = "" }' | LC_ALL=C sort -u
+}
+
+# forge_test_files: the test file of each id on stdin (Vitest: relative to its
+# project, which a Vitest filter matches as part of the path), one per line.
+forge_test_files() {
+  sed -e 's/^|[^|]*| //' -e 's/ > .*$//' -e 's/::.*$//' | LC_ALL=C sort -u
+}
+
+# forge_env_errors: the errors in a run's output (stdin) that point at the
+# environment rather than the code (a connection refused, a failed DNS lookup, a
+# timeout), as short phrases, at most 5.
+forge_env_errors() {
+  awk 'BEGIN { svc["5432"] = "Postgres"; svc["3306"] = "MySQL"; svc["6379"] = "Redis"; svc["27017"] = "MongoDB"
+           svc["1433"] = "SQL Server"; svc["9200"] = "Elasticsearch"; svc["5672"] = "RabbitMQ"; svc["11211"] = "Memcached" }
+    /^forge: timed out/ || /^(FAILED|ERROR) / { next }
+    {
+      p = ""
+      if (match($0, /ECONNREFUSED [^ ,;)]+:[0-9]+/)) {
+        a = substr($0, RSTART + 13, RLENGTH - 13); port = a; sub(/.*:/, "", port)
+        p = ((port in svc) ? svc[port] : "a service") " refused the connection at " a " (ECONNREFUSED)"
+      } else if (match($0, /port [0-9]+ failed: Connection refused/)) {
+        port = substr($0, RSTART + 5); sub(/ .*/, "", port)
+        p = ((port in svc) ? svc[port] : "a service") " refused the connection on port " port
+      } else if (match($0, /(EAI_AGAIN|ENOTFOUND) [^ ,;)'"'"'"]+/)) {
+        h = substr($0, RSTART, RLENGTH); c = h; sub(/ .*/, "", c); sub(/^[^ ]+ /, "", h)
+        p = "DNS lookup for " h " failed (" c "): no network?"
+      } else if ($0 ~ /[Cc]onnection refused|ECONNRESET|ETIMEDOUT|EHOSTUNREACH|ENETUNREACH|getaddrinfo|[Cc]ould not connect|[Tt]imed out|[Tt]imeout of [0-9]+ ?ms|Name or service not known|Temporary failure in name resolution/) {
+        p = $0; gsub(/^[[:space:]]+|[[:space:]]+$/, "", p)
+        if (length(p) > 160) p = substr(p, 1, 157) "..."
+      }
+      if (p != "" && !(p in seen)) { seen[p] = 1; if (++k <= 5) print p }
+    }'
+}
+
+# forge_base_tree <dir>: the project as it was at the start of the turn, in <dir>:
+# the files git sees now (tracked and untracked, not ignored), with this turn's
+# changes undone from $FORGE_TMP/base (files added during the turn left out), and
+# every ignored path (dependencies, build output, .env) a link to the real one.
+# The repository, its index, its stash and its working tree are not touched.
+forge_base_tree() {
+  mkdir -p "$1" || return 1
+  git ls-files --cached --others --exclude-standard 2>/dev/null | while IFS= read -r _bt_f; do
+    if [ -f "$_bt_f" ] || [ -L "$_bt_f" ]; then printf '%s\n' "$_bt_f"; fi
+  done > "$FORGE_TMP/base-tree.files"
+  tar -cf - -T "$FORGE_TMP/base-tree.files" 2>/dev/null | ( cd "$1" && tar -xf - ) || return 1
+  while IFS= read -r _bt_f; do
+    rm -f "$1/$_bt_f"
+    if [ -f "$FORGE_TMP/base/$_bt_f" ]; then mkdir -p "$1/$(dirname "$_bt_f")" && cp "$FORGE_TMP/base/$_bt_f" "$1/$_bt_f"; fi
+  done < "$FORGE_TMP/changed"
+  git ls-files --others --ignored --exclude-standard --directory 2>/dev/null | while IFS= read -r _bt_f; do
+    _bt_f=${_bt_f%/}
+    case $_bt_f in ''|.forge/state|.forge/state/*) continue ;; esac
+    if [ -e "$1/$_bt_f" ] || [ -L "$1/$_bt_f" ]; then continue; fi
+    mkdir -p "$1/$(dirname "$_bt_f")" && ln -s "$FORGE_ROOT/$_bt_f" "$1/$_bt_f"
+  done
+  return 0
+}
+
+# forge_rerun_in_base: the rerun form of check $_fb_n on $FORGE_FILES, in the base tree.
+forge_rerun_in_base() { cd "$FORGE_TMP/base-tree" && "forge_check_rerun_$_fb_n"; }
+
+# forge_test_compare <n>: test check <n> failed under --turn ($FORGE_TMP/out). Its
+# failing test files are run again in the tree as it was at the start of the turn
+# and the failing tests compared. A test failing now that passed then (or could not
+# be compared) is a new failure: return 1, new failures first. When every failing
+# test also fails then: return 3, with the tests, the errors that look environmental
+# and what to do; they are also appended to $FORGE_UNVERIFIED for the Stop hook
+# ("test<TAB><check> <id>", "env<TAB><phrase>").
+forge_test_compare() {
+  cp "$FORGE_TMP/out" "$FORGE_TMP/test.now"
+  forge_failed_tests < "$FORGE_TMP/test.now" > "$FORGE_TMP/failing.now"
+  rm -rf "$FORGE_TMP/base-tree"
+  if [ ! -s "$FORGE_TMP/failing.now" ] || ! forge_base_tree "$FORGE_TMP/base-tree"; then
+    printf 'forge:%s failed\n' "$c_id"
+    forge_excerpt 25 < "$FORGE_TMP/test.now"
+    return 1
+  fi
+  FORGE_FILES=$(forge_test_files < "$FORGE_TMP/failing.now")
+  _fb_n=$1
+  forge_exec_check forge_rerun_in_base "$c_timeout"
+  forge_failed_tests < "$FORGE_TMP/out" > "$FORGE_TMP/failing.base"
+  rm -rf "$FORGE_TMP/base-tree"
+  if [ -s "$FORGE_TMP/failing.base" ]; then
+    grep -vxF -f "$FORGE_TMP/failing.base" "$FORGE_TMP/failing.now" > "$FORGE_TMP/failing.new"
+    grep -xF -f "$FORGE_TMP/failing.base" "$FORGE_TMP/failing.now" > "$FORGE_TMP/failing.old"
+  else
+    cp "$FORGE_TMP/failing.now" "$FORGE_TMP/failing.new"
+    : > "$FORGE_TMP/failing.old"
+  fi
+  _ft_new=$(awk 'END { print NR }' "$FORGE_TMP/failing.new")
+  _ft_old=$(awk 'END { print NR }' "$FORGE_TMP/failing.old")
+  if [ "$_ft_new" -gt 0 ]; then
+    printf 'forge:%s failed: %s failing test(s) passed at the start of the turn:\n' "$c_id" "$_ft_new"
+    first_lines 8 < "$FORGE_TMP/failing.new" | sed 's/^/  /'
+    [ "$_ft_old" -eq 0 ] || printf '(%s other failing test(s) also fail at the start of the turn: not caused by this change)\n' "$_ft_old"
+    forge_excerpt 20 < "$FORGE_TMP/test.now"
+    return 1
+  fi
+  forge_env_errors < "$FORGE_TMP/test.now" > "$FORGE_TMP/env"
+  printf 'forge:%s %s failing test(s) also fail at the start of the turn (re-run there), so this change did not cause them, but it is not verified by them either:\n' "$c_id" "$_ft_old"
+  first_lines 8 < "$FORGE_TMP/failing.old" | sed 's/^/  /'
+  _ft_compose=''
+  for _ft_f in compose.yaml compose.yml docker-compose.yml docker-compose.yaml; do
+    if [ -f "$_ft_f" ]; then _ft_compose=$_ft_f; break; fi
+  done
+  if [ -s "$FORGE_TMP/env" ]; then
+    printf 'Their errors look environmental:\n'
+    sed 's/^/  /' "$FORGE_TMP/env"
+    if [ -n "$_ft_compose" ]; then
+      printf 'Set up what they need (e.g. docker compose up -d with %s) and run them again. ' "$_ft_compose"
+    else
+      printf 'Set up what they need (the services, the network) and run them again. '
+    fi
+  else
+    printf 'Check whether they relate to the task: fix them if so, and run them again. '
+  fi
+  printf 'If that is not possible, stop again without changing files: the stop is then allowed and the user is told these tests could not be verified.\n'
+  forge_excerpt 12 < "$FORGE_TMP/test.now"
+  if [ -n "${FORGE_UNVERIFIED:-}" ]; then
+    sed "s|^|test	$c_id |" "$FORGE_TMP/failing.old" >> "$FORGE_UNVERIFIED"
+    sed 's/^/env	/' "$FORGE_TMP/env" >> "$FORGE_UNVERIFIED"
+  fi
+  return 3
 }
 
 # forge_run_stage <stage>: every check of <stage>; fails if one fails.
@@ -7390,11 +8250,16 @@ forge_run_stage() {
   while [ "$_fs_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fs_i"
     if [ "$c_stage" = "$1" ]; then
-      forge_run_check "$_fs_i" || _fs_rc=1
+      forge_run_check "$_fs_i"
+      case $? in
+        0) ;;
+        3) [ "$_fs_rc" -ne 0 ] || _fs_rc=3 ;;
+        *) _fs_rc=1 ;;
+      esac
     fi
     _fs_i=$((_fs_i + 1))
   done
-  [ "$_fs_rc" -eq 0 ] || fail=1
+  [ "$_fs_rc" -eq 0 ] || fail=$_fs_rc
   return "$_fs_rc"
 }
 
@@ -7882,7 +8747,7 @@ exit "$fail"
     "typescript/vitest/no-test-edits": "9b5aca5939539cf95f191c42ac638390aa5cbebde093f287bfec810b7f12c12c",
     "typescript/vitest/no-test-env-branch": "9df6b921e06f85f5b55fcc438225f5d662d3b2998807a1e977705973af5c33fb",
     "typescript/vitest/no-workspace-file": "239ef7e6cb5e8cf05438582b554b786c681c8a162bafb3d3cb0e033aab96948a",
-    "typescript/vitest/run": "cd06867566fd56985916f117a24b4d4ea30bb204c4ffe12169bdf08a696f423d",
+    "typescript/vitest/run": "b40ed7dc07ba4276d9f8e40dc353b627d6067a14812d2dad1636240f5d47d300",
     "typescript/zod/error-param": "98f91bc633e6bf49f35ef19f18911ca916f9a8dd6e31fbe09f7083c5b68c086c",
     "typescript/zod/v4-string-formats": "2a810c89da216a17bd340b34c932f213b62d48b3b6c7dbf52ad0f427c4bef286"
   },
@@ -7901,12 +8766,12 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "d660d521eb000121521ebe466d5dc93771432139ae59b8d03789bbdadc142ab1",
     ".claude/skills/forge-project/scripts/guard.sh": "33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d",
     ".claude/skills/forge-project/scripts/lib.sh": "1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "3b12e379ea9b0ccca11ae8b3bea43b5aa5cdbbee9d23290f73564d09e01f17a1",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "6668190427bd15ca1c71477b6e52221b310ad61458d402a97fc399e34efe3f98",
     ".claude/skills/forge-project/scripts/review.sh": "9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac",
-    ".claude/skills/forge-project/scripts/session-start.sh": "8ecb02d4b469a3b31ee6dcd5d3be2b0607e92509fc745043d71d1c0f76cdb112",
-    ".claude/skills/forge-project/scripts/stop.sh": "f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173",
+    ".claude/skills/forge-project/scripts/session-start.sh": "91a217b3a43c7d276487ace6ca9f179f62cf3bd6fc183ed78e9b0b9d9b7e4af6",
+    ".claude/skills/forge-project/scripts/stop.sh": "9745439f3a19c5b22e1c42291293ef244dd06924929cd3891932ddf878fc9125",
     ".claude/skills/forge-project/scripts/turn-start.sh": "a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "6cc39ae3cd7d3a025e6937337e696305fa58b43ae02561815c88d047a6842960",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "2d287b916c62512d2f6e76902c4fadb7a7a20a1d3af5bbd4893dff335b39c20c",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-nextjs-no-legacy-image-config-test.yml": "9d723e3c62b5697de0fa5ab80b735c3cef23225a07c81425c492cd8827faf06d",
     ".forge/ast-grep/rule-tests/typescript-nextjs-no-next-router-test.yml": "5da1551f9fa49969cdbfb6ef3ba847589327a2d7430a3cdc79f3637fc81586f1",
@@ -7969,7 +8834,7 @@ exit "$fail"
     ".forge/ast-grep/rules/typescript/zod/error-param.yml": "88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a",
     ".forge/ast-grep/rules/typescript/zod/v4-string-formats.yml": "a7503c000f128a4718f29b0122170295972560de99263354d6ed0db1a8cb099c",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "5d549b1873d866acc228b20abfb9d3ecc444564523a2a598af7fd9ac2a044a08",
+    ".forge/check.sh": "7f3fa1ae7ac4052fb2304a2db2f6daab1db8a4db967c555a4bcae7678466d3f8",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -8036,12 +8901,12 @@ d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills
 d660d521eb000121521ebe466d5dc93771432139ae59b8d03789bbdadc142ab1  .claude/skills/forge-project/scripts/guard.rules
 33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d  .claude/skills/forge-project/scripts/guard.sh
 1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a  .claude/skills/forge-project/scripts/lib.sh
-3b12e379ea9b0ccca11ae8b3bea43b5aa5cdbbee9d23290f73564d09e01f17a1  .claude/skills/forge-project/scripts/post-edit.sh
+6668190427bd15ca1c71477b6e52221b310ad61458d402a97fc399e34efe3f98  .claude/skills/forge-project/scripts/post-edit.sh
 9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac  .claude/skills/forge-project/scripts/review.sh
-8ecb02d4b469a3b31ee6dcd5d3be2b0607e92509fc745043d71d1c0f76cdb112  .claude/skills/forge-project/scripts/session-start.sh
-f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173  .claude/skills/forge-project/scripts/stop.sh
+91a217b3a43c7d276487ace6ca9f179f62cf3bd6fc183ed78e9b0b9d9b7e4af6  .claude/skills/forge-project/scripts/session-start.sh
+9745439f3a19c5b22e1c42291293ef244dd06924929cd3891932ddf878fc9125  .claude/skills/forge-project/scripts/stop.sh
 a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c  .claude/skills/forge-project/scripts/turn-start.sh
-6cc39ae3cd7d3a025e6937337e696305fa58b43ae02561815c88d047a6842960  .claude/skills/forge-project/scripts/typecheck.sh
+2d287b916c62512d2f6e76902c4fadb7a7a20a1d3af5bbd4893dff335b39c20c  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 9d723e3c62b5697de0fa5ab80b735c3cef23225a07c81425c492cd8827faf06d  .forge/ast-grep/rule-tests/typescript-nextjs-no-legacy-image-config-test.yml
 5da1551f9fa49969cdbfb6ef3ba847589327a2d7430a3cdc79f3637fc81586f1  .forge/ast-grep/rule-tests/typescript-nextjs-no-next-router-test.yml
@@ -8104,7 +8969,7 @@ d3c41a3915d84b21e86e9212a06ad14c52bf2f9bcefb7c5ca433200cc3ec44fb  .forge/ast-gre
 88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a  .forge/ast-grep/rules/typescript/zod/error-param.yml
 a7503c000f128a4718f29b0122170295972560de99263354d6ed0db1a8cb099c  .forge/ast-grep/rules/typescript/zod/v4-string-formats.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-5d549b1873d866acc228b20abfb9d3ecc444564523a2a598af7fd9ac2a044a08  .forge/check.sh
+7f3fa1ae7ac4052fb2304a2db2f6daab1db8a4db967c555a4bcae7678466d3f8  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

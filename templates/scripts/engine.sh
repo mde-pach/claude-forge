@@ -899,9 +899,150 @@ forge_run_check() {
         return 1 ;;
     esac
   fi
+  # Stop: failing tests are re-run at the start of the turn (§10.6)
+  if [ "$c_stage" = test ] && [ "$mode" = --turn ] && [ "$c_rerun" = 1 ]; then
+    forge_test_compare "$1"
+    return
+  fi
   printf 'forge:%s failed\n' "$c_id"
   if [ "$c_stage" = test ]; then forge_excerpt 25; else forge_excerpt 15; fi < "$FORGE_TMP/out"
   return 1
+}
+
+# ---- failing tests compared with the start of the turn (Stop, §10.6)
+
+# forge_failed_tests: the failing tests a run reports (stdin), one id per line:
+# Vitest "FAIL  [|project| ]<file> > <describe> > <test>" (a file that failed to
+# load: "<file>"), pytest's short summary "FAILED <node id>" and "ERROR <node id>".
+forge_failed_tests() {
+  awk 'BEGIN { esc = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
+    { gsub(esc, "") }
+    /^ *FAIL  / { t = $0; sub(/^ *FAIL +/, "", t); sub(/ \[ .* \]$/, "", t) }
+    /^(FAILED|ERROR) [^ ]/ { t = $0; sub(/^[A-Z]+ /, "", t); sub(/ - .*$/, "", t) }
+    t != "" { sub(/[[:space:]]+$/, "", t); print t; t = "" }' | LC_ALL=C sort -u
+}
+
+# forge_test_files: the test file of each id on stdin (Vitest: relative to its
+# project, which a Vitest filter matches as part of the path), one per line.
+forge_test_files() {
+  sed -e 's/^|[^|]*| //' -e 's/ > .*$//' -e 's/::.*$//' | LC_ALL=C sort -u
+}
+
+# forge_env_errors: the errors in a run's output (stdin) that point at the
+# environment rather than the code (a connection refused, a failed DNS lookup, a
+# timeout), as short phrases, at most 5.
+forge_env_errors() {
+  awk 'BEGIN { svc["5432"] = "Postgres"; svc["3306"] = "MySQL"; svc["6379"] = "Redis"; svc["27017"] = "MongoDB"
+           svc["1433"] = "SQL Server"; svc["9200"] = "Elasticsearch"; svc["5672"] = "RabbitMQ"; svc["11211"] = "Memcached" }
+    /^forge: timed out/ || /^(FAILED|ERROR) / { next }
+    {
+      p = ""
+      if (match($0, /ECONNREFUSED [^ ,;)]+:[0-9]+/)) {
+        a = substr($0, RSTART + 13, RLENGTH - 13); port = a; sub(/.*:/, "", port)
+        p = ((port in svc) ? svc[port] : "a service") " refused the connection at " a " (ECONNREFUSED)"
+      } else if (match($0, /port [0-9]+ failed: Connection refused/)) {
+        port = substr($0, RSTART + 5); sub(/ .*/, "", port)
+        p = ((port in svc) ? svc[port] : "a service") " refused the connection on port " port
+      } else if (match($0, /(EAI_AGAIN|ENOTFOUND) [^ ,;)'"'"'"]+/)) {
+        h = substr($0, RSTART, RLENGTH); c = h; sub(/ .*/, "", c); sub(/^[^ ]+ /, "", h)
+        p = "DNS lookup for " h " failed (" c "): no network?"
+      } else if ($0 ~ /[Cc]onnection refused|ECONNRESET|ETIMEDOUT|EHOSTUNREACH|ENETUNREACH|getaddrinfo|[Cc]ould not connect|[Tt]imed out|[Tt]imeout of [0-9]+ ?ms|Name or service not known|Temporary failure in name resolution/) {
+        p = $0; gsub(/^[[:space:]]+|[[:space:]]+$/, "", p)
+        if (length(p) > 160) p = substr(p, 1, 157) "..."
+      }
+      if (p != "" && !(p in seen)) { seen[p] = 1; if (++k <= 5) print p }
+    }'
+}
+
+# forge_base_tree <dir>: the project as it was at the start of the turn, in <dir>:
+# the files git sees now (tracked and untracked, not ignored), with this turn's
+# changes undone from $FORGE_TMP/base (files added during the turn left out), and
+# every ignored path (dependencies, build output, .env) a link to the real one.
+# The repository, its index, its stash and its working tree are not touched.
+forge_base_tree() {
+  mkdir -p "$1" || return 1
+  git ls-files --cached --others --exclude-standard 2>/dev/null | while IFS= read -r _bt_f; do
+    if [ -f "$_bt_f" ] || [ -L "$_bt_f" ]; then printf '%s\n' "$_bt_f"; fi
+  done > "$FORGE_TMP/base-tree.files"
+  tar -cf - -T "$FORGE_TMP/base-tree.files" 2>/dev/null | ( cd "$1" && tar -xf - ) || return 1
+  while IFS= read -r _bt_f; do
+    rm -f "$1/$_bt_f"
+    if [ -f "$FORGE_TMP/base/$_bt_f" ]; then mkdir -p "$1/$(dirname "$_bt_f")" && cp "$FORGE_TMP/base/$_bt_f" "$1/$_bt_f"; fi
+  done < "$FORGE_TMP/changed"
+  git ls-files --others --ignored --exclude-standard --directory 2>/dev/null | while IFS= read -r _bt_f; do
+    _bt_f=${_bt_f%/}
+    case $_bt_f in ''|.forge/state|.forge/state/*) continue ;; esac
+    if [ -e "$1/$_bt_f" ] || [ -L "$1/$_bt_f" ]; then continue; fi
+    mkdir -p "$1/$(dirname "$_bt_f")" && ln -s "$FORGE_ROOT/$_bt_f" "$1/$_bt_f"
+  done
+  return 0
+}
+
+# forge_rerun_in_base: the rerun form of check $_fb_n on $FORGE_FILES, in the base tree.
+forge_rerun_in_base() { cd "$FORGE_TMP/base-tree" && "forge_check_rerun_$_fb_n"; }
+
+# forge_test_compare <n>: test check <n> failed under --turn ($FORGE_TMP/out). Its
+# failing test files are run again in the tree as it was at the start of the turn
+# and the failing tests compared. A test failing now that passed then (or could not
+# be compared) is a new failure: return 1, new failures first. When every failing
+# test also fails then: return 3, with the tests, the errors that look environmental
+# and what to do; they are also appended to $FORGE_UNVERIFIED for the Stop hook
+# ("test<TAB><check> <id>", "env<TAB><phrase>").
+forge_test_compare() {
+  cp "$FORGE_TMP/out" "$FORGE_TMP/test.now"
+  forge_failed_tests < "$FORGE_TMP/test.now" > "$FORGE_TMP/failing.now"
+  rm -rf "$FORGE_TMP/base-tree"
+  if [ ! -s "$FORGE_TMP/failing.now" ] || ! forge_base_tree "$FORGE_TMP/base-tree"; then
+    printf 'forge:%s failed\n' "$c_id"
+    forge_excerpt 25 < "$FORGE_TMP/test.now"
+    return 1
+  fi
+  FORGE_FILES=$(forge_test_files < "$FORGE_TMP/failing.now")
+  _fb_n=$1
+  forge_exec_check forge_rerun_in_base "$c_timeout"
+  forge_failed_tests < "$FORGE_TMP/out" > "$FORGE_TMP/failing.base"
+  rm -rf "$FORGE_TMP/base-tree"
+  if [ -s "$FORGE_TMP/failing.base" ]; then
+    grep -vxF -f "$FORGE_TMP/failing.base" "$FORGE_TMP/failing.now" > "$FORGE_TMP/failing.new"
+    grep -xF -f "$FORGE_TMP/failing.base" "$FORGE_TMP/failing.now" > "$FORGE_TMP/failing.old"
+  else
+    cp "$FORGE_TMP/failing.now" "$FORGE_TMP/failing.new"
+    : > "$FORGE_TMP/failing.old"
+  fi
+  _ft_new=$(awk 'END { print NR }' "$FORGE_TMP/failing.new")
+  _ft_old=$(awk 'END { print NR }' "$FORGE_TMP/failing.old")
+  if [ "$_ft_new" -gt 0 ]; then
+    printf 'forge:%s failed: %s failing test(s) passed at the start of the turn:\n' "$c_id" "$_ft_new"
+    first_lines 8 < "$FORGE_TMP/failing.new" | sed 's/^/  /'
+    [ "$_ft_old" -eq 0 ] || printf '(%s other failing test(s) also fail at the start of the turn: not caused by this change)\n' "$_ft_old"
+    forge_excerpt 20 < "$FORGE_TMP/test.now"
+    return 1
+  fi
+  forge_env_errors < "$FORGE_TMP/test.now" > "$FORGE_TMP/env"
+  printf 'forge:%s %s failing test(s) also fail at the start of the turn (re-run there), so this change did not cause them, but it is not verified by them either:\n' "$c_id" "$_ft_old"
+  first_lines 8 < "$FORGE_TMP/failing.old" | sed 's/^/  /'
+  _ft_compose=''
+  for _ft_f in compose.yaml compose.yml docker-compose.yml docker-compose.yaml; do
+    if [ -f "$_ft_f" ]; then _ft_compose=$_ft_f; break; fi
+  done
+  if [ -s "$FORGE_TMP/env" ]; then
+    printf 'Their errors look environmental:\n'
+    sed 's/^/  /' "$FORGE_TMP/env"
+    if [ -n "$_ft_compose" ]; then
+      printf 'Set up what they need (e.g. docker compose up -d with %s) and run them again. ' "$_ft_compose"
+    else
+      printf 'Set up what they need (the services, the network) and run them again. '
+    fi
+  else
+    printf 'Check whether they relate to the task: fix them if so, and run them again. '
+  fi
+  printf 'If that is not possible, stop again without changing files: the stop is then allowed and the user is told these tests could not be verified.\n'
+  forge_excerpt 12 < "$FORGE_TMP/test.now"
+  if [ -n "${FORGE_UNVERIFIED:-}" ]; then
+    sed "s|^|test	$c_id |" "$FORGE_TMP/failing.old" >> "$FORGE_UNVERIFIED"
+    sed 's/^/env	/' "$FORGE_TMP/env" >> "$FORGE_UNVERIFIED"
+  fi
+  return 3
 }
 
 # forge_run_stage <stage>: every check of <stage>; fails if one fails.
@@ -911,11 +1052,16 @@ forge_run_stage() {
   while [ "$_fs_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fs_i"
     if [ "$c_stage" = "$1" ]; then
-      forge_run_check "$_fs_i" || _fs_rc=1
+      forge_run_check "$_fs_i"
+      case $? in
+        0) ;;
+        3) [ "$_fs_rc" -ne 0 ] || _fs_rc=3 ;;
+        *) _fs_rc=1 ;;
+      esac
     fi
     _fs_i=$((_fs_i + 1))
   done
-  [ "$_fs_rc" -eq 0 ] || fail=1
+  [ "$_fs_rc" -eq 0 ] || fail=$_fs_rc
   return "$_fs_rc"
 }
 

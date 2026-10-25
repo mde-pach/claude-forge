@@ -272,6 +272,44 @@ forge_run_check 1`,
     },
     T,
   );
+
+  /** @rule typescript/vitest/run python/pytest/run */
+  test(
+    "failing tests are read from Vitest (with workspace projects) and pytest output, with the files to run again; refused connections, failed DNS lookups and timeouts are named as environmental",
+    () => {
+      const out = `${VITEST_OUT}
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |@better-auth/api-key| src/api-key.test.ts [ src/api-key.test.ts ]
+Error: connect ECONNREFUSED 127.0.0.1:5432
+Caused by: Error: getaddrinfo EAI_AGAIN accounts.google.com
+${PYTEST_OUT}
+E   psycopg.OperationalError: connection to server at "127.0.0.1", port 6379 failed: Connection refused
+ERROR tests/test_cache.py::test_get - TimeoutError
+`;
+      const r = engine(`printf '%s\\n' "$OUT" | forge_failed_tests > "$FORGE_TMP/ids"; cat "$FORGE_TMP/ids"; echo; forge_test_files < "$FORGE_TMP/ids"; echo; printf '%s\\n' "$OUT" | forge_env_errors`, { OUT: out });
+      expect(r.stdout).toBe(
+        [
+          "tests/test_cache.py::test_get",
+          "tests/test_db.py::test_db",
+          "|@better-auth/api-key| src/api-key.test.ts",
+          "|better-auth| src/plugins/oauth-proxy/oauth-proxy.test.ts > oauth-proxy > should work with database mode",
+          "",
+          "src/api-key.test.ts",
+          "src/plugins/oauth-proxy/oauth-proxy.test.ts",
+          "tests/test_cache.py",
+          "tests/test_db.py",
+          "",
+          "Postgres refused the connection at 127.0.0.1:5432 (ECONNREFUSED)",
+          "DNS lookup for accounts.google.com failed (EAI_AGAIN): no network?",
+          "E       psycopg.OperationalError: connection refused",
+          "Redis refused the connection on port 6379",
+          "",
+        ].join("\n"),
+      );
+    },
+    T,
+  );
 });
 
 const WARN = "(node:5155) ExperimentalWarning: SQLite is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\n";
