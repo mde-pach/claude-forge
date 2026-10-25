@@ -3074,13 +3074,24 @@ forge_in_dirs() {
 }
 
 # forge_prefix_paths <dir>: stdin with the relative paths that start a diagnostic
-# (the forms forge_diagnostics reads) prefixed with <dir>/; "../" is resolved.
+# (the forms forge_diagnostics reads) or name a failing test (Vitest "FAIL  [|project| ]<file>",
+# pytest "FAILED <file>::…" and "ERROR <file>", as forge_failed_tests reads them)
+# prefixed with <dir>/; "../" is resolved.
 forge_prefix_paths() {
   awk -v d="$1/" '
     BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     {
       line = $0
       gsub(ansi, "", line)
+      if (match(line, /^[[:space:]]*FAIL +(\|[^|]*\| )?/) || match(line, /^(FAILED|ERROR) /)) {
+        lead = substr(line, 1, RLENGTH); rest = substr(line, RLENGTH + 1)
+        if (rest !~ /^\// && rest ~ /^[^[:space:]]+\.[A-Za-z]+( |::|$)/) {
+          p = d rest
+          while (sub(/(^|\/)[^\/.][^\/]*\/\.\.\//, "/", p)) sub(/^\//, "", p)
+          print lead p
+          next
+        }
+      }
       match(line, /^[[:space:]]*(-->[[:space:]]*)?(Would reformat: )?/)
       lead = substr(line, 1, RLENGTH); rest = substr(line, RLENGTH + 1)
       if (rest !~ /^\// && (rest ~ /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+| format )/ || lead ~ /Would reformat: $/)) {
@@ -5861,13 +5872,24 @@ forge_in_dirs() {
 }
 
 # forge_prefix_paths <dir>: stdin with the relative paths that start a diagnostic
-# (the forms forge_diagnostics reads) prefixed with <dir>/; "../" is resolved.
+# (the forms forge_diagnostics reads) or name a failing test (Vitest "FAIL  [|project| ]<file>",
+# pytest "FAILED <file>::…" and "ERROR <file>", as forge_failed_tests reads them)
+# prefixed with <dir>/; "../" is resolved.
 forge_prefix_paths() {
   awk -v d="$1/" '
     BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     {
       line = $0
       gsub(ansi, "", line)
+      if (match(line, /^[[:space:]]*FAIL +(\|[^|]*\| )?/) || match(line, /^(FAILED|ERROR) /)) {
+        lead = substr(line, 1, RLENGTH); rest = substr(line, RLENGTH + 1)
+        if (rest !~ /^\// && rest ~ /^[^[:space:]]+\.[A-Za-z]+( |::|$)/) {
+          p = d rest
+          while (sub(/(^|\/)[^\/.][^\/]*\/\.\.\//, "/", p)) sub(/^\//, "", p)
+          print lead p
+          next
+        }
+      }
       match(line, /^[[:space:]]*(-->[[:space:]]*)?(Would reformat: )?/)
       lead = substr(line, 1, RLENGTH); rest = substr(line, RLENGTH + 1)
       if (rest !~ /^\// && (rest ~ /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+| format )/ || lead ~ /Would reformat: $/)) {
@@ -8664,13 +8686,24 @@ forge_in_dirs() {
 }
 
 # forge_prefix_paths <dir>: stdin with the relative paths that start a diagnostic
-# (the forms forge_diagnostics reads) prefixed with <dir>/; "../" is resolved.
+# (the forms forge_diagnostics reads) or name a failing test (Vitest "FAIL  [|project| ]<file>",
+# pytest "FAILED <file>::…" and "ERROR <file>", as forge_failed_tests reads them)
+# prefixed with <dir>/; "../" is resolved.
 forge_prefix_paths() {
   awk -v d="$1/" '
     BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     {
       line = $0
       gsub(ansi, "", line)
+      if (match(line, /^[[:space:]]*FAIL +(\|[^|]*\| )?/) || match(line, /^(FAILED|ERROR) /)) {
+        lead = substr(line, 1, RLENGTH); rest = substr(line, RLENGTH + 1)
+        if (rest !~ /^\// && rest ~ /^[^[:space:]]+\.[A-Za-z]+( |::|$)/) {
+          p = d rest
+          while (sub(/(^|\/)[^\/.][^\/]*\/\.\.\//, "/", p)) sub(/^\//, "", p)
+          print lead p
+          next
+        }
+      }
       match(line, /^[[:space:]]*(-->[[:space:]]*)?(Would reformat: )?/)
       lead = substr(line, 1, RLENGTH); rest = substr(line, RLENGTH + 1)
       if (rest !~ /^\// && (rest ~ /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+| format )/ || lead ~ /Would reformat: $/)) {
@@ -11490,13 +11523,24 @@ forge_in_dirs() {
 }
 
 # forge_prefix_paths <dir>: stdin with the relative paths that start a diagnostic
-# (the forms forge_diagnostics reads) prefixed with <dir>/; "../" is resolved.
+# (the forms forge_diagnostics reads) or name a failing test (Vitest "FAIL  [|project| ]<file>",
+# pytest "FAILED <file>::…" and "ERROR <file>", as forge_failed_tests reads them)
+# prefixed with <dir>/; "../" is resolved.
 forge_prefix_paths() {
   awk -v d="$1/" '
     BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     {
       line = $0
       gsub(ansi, "", line)
+      if (match(line, /^[[:space:]]*FAIL +(\|[^|]*\| )?/) || match(line, /^(FAILED|ERROR) /)) {
+        lead = substr(line, 1, RLENGTH); rest = substr(line, RLENGTH + 1)
+        if (rest !~ /^\// && rest ~ /^[^[:space:]]+\.[A-Za-z]+( |::|$)/) {
+          p = d rest
+          while (sub(/(^|\/)[^\/.][^\/]*\/\.\.\//, "/", p)) sub(/^\//, "", p)
+          print lead p
+          next
+        }
+      }
       match(line, /^[[:space:]]*(-->[[:space:]]*)?(Would reformat: )?/)
       lead = substr(line, 1, RLENGTH); rest = substr(line, RLENGTH + 1)
       if (rest !~ /^\// && (rest ~ /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+| format )/ || lead ~ /Would reformat: $/)) {
@@ -15283,13 +15327,24 @@ forge_in_dirs() {
 }
 
 # forge_prefix_paths <dir>: stdin with the relative paths that start a diagnostic
-# (the forms forge_diagnostics reads) prefixed with <dir>/; "../" is resolved.
+# (the forms forge_diagnostics reads) or name a failing test (Vitest "FAIL  [|project| ]<file>",
+# pytest "FAILED <file>::…" and "ERROR <file>", as forge_failed_tests reads them)
+# prefixed with <dir>/; "../" is resolved.
 forge_prefix_paths() {
   awk -v d="$1/" '
     BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     {
       line = $0
       gsub(ansi, "", line)
+      if (match(line, /^[[:space:]]*FAIL +(\|[^|]*\| )?/) || match(line, /^(FAILED|ERROR) /)) {
+        lead = substr(line, 1, RLENGTH); rest = substr(line, RLENGTH + 1)
+        if (rest !~ /^\// && rest ~ /^[^[:space:]]+\.[A-Za-z]+( |::|$)/) {
+          p = d rest
+          while (sub(/(^|\/)[^\/.][^\/]*\/\.\.\//, "/", p)) sub(/^\//, "", p)
+          print lead p
+          next
+        }
+      }
       match(line, /^[[:space:]]*(-->[[:space:]]*)?(Would reformat: )?/)
       lead = substr(line, 1, RLENGTH); rest = substr(line, RLENGTH + 1)
       if (rest !~ /^\// && (rest ~ /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+| format )/ || lead ~ /Would reformat: $/)) {
@@ -16163,13 +16218,13 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "cc4a889eb0483cbc1ccca0dfff9bdb83a1707a5d5f3739d4c5e725ab5bcc1648",
     ".claude/skills/forge-project/scripts/guard.sh": "e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca",
     ".claude/skills/forge-project/scripts/lib.sh": "7754f516e6aac8caa42b9c2b016ec52975c4842c977e31ec16d1ada9d77f87c7",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "281c3c5fe20e8699c696bc5d7a0d288636d13b435a57523e1889583b0dea07cf",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "7c9d70729fac07fa25188a6fff462360f5f3e0974d303553ba2629bf943309f5",
     ".claude/skills/forge-project/scripts/review.sh": "889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726",
-    ".claude/skills/forge-project/scripts/session-start.sh": "0e2ebd2aace5de33c486d6a2666ea88f619fb4137ad8f4cf2cdd03a851abaf37",
+    ".claude/skills/forge-project/scripts/session-start.sh": "bf8a3f1d5ef974d4a04e0fd281ca7293e4668c2d2588bc2c5c8583b4a5cfa66e",
     ".claude/skills/forge-project/scripts/stop.sh": "10316d9cd59fea152c6f8fbf0ab70abf547514bf67a2c85f3e6b405554a71fad",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "c4eea20d92ea46806a94f2866c9f5dc192849eee9121dc08826247943175d551",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "d3eb0c9d219d1cdb56e3f01bf08df17deb917439545edb05dff59f4b685eeae5",
     ".claude/skills/forge-project/scripts/turn-start.sh": "fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "de1d7231feaea03232dc3d57426b559f364284bcdba23c375b3e109e04bf5795",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "0cc3fbe63fa288e91d846502c7ae8e31b329a3a9dd4648e49f5876f1819844dc",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-bun-no-fewer-expects-test.yml": "bd5df50793070bba7b87b0f623ac58ed4599e0ba6f8d731fc0da4b28a0335ec8",
     ".forge/ast-grep/rule-tests/typescript-bun-no-mock-increase-test.yml": "cf28a1a131538f6ff9cb7cd9468d9338d29c52d6abe02dccf7785696f5c847b8",
@@ -16196,7 +16251,7 @@ exit "$fail"
     ".forge/ast-grep/rules/typescript/react/use-action-state.yml": "17b6fc5e510df3154be12c72a584d8bfb31034b577774718a8c50516b2b15a81",
     ".forge/ast-grep/rules/typescript/ts-expect-error-reason.yml": "b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "43fc8786a84a9db1387d6268a92b2733124575bd45211136e00231bd3b95abcf",
+    ".forge/check.sh": "e77173be6ded34254c82b93b1453df56f248616f6cb014266c24f00147af7700",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -16250,13 +16305,13 @@ d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills
 cc4a889eb0483cbc1ccca0dfff9bdb83a1707a5d5f3739d4c5e725ab5bcc1648  .claude/skills/forge-project/scripts/guard.rules
 e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca  .claude/skills/forge-project/scripts/guard.sh
 7754f516e6aac8caa42b9c2b016ec52975c4842c977e31ec16d1ada9d77f87c7  .claude/skills/forge-project/scripts/lib.sh
-281c3c5fe20e8699c696bc5d7a0d288636d13b435a57523e1889583b0dea07cf  .claude/skills/forge-project/scripts/post-edit.sh
+7c9d70729fac07fa25188a6fff462360f5f3e0974d303553ba2629bf943309f5  .claude/skills/forge-project/scripts/post-edit.sh
 889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726  .claude/skills/forge-project/scripts/review.sh
-0e2ebd2aace5de33c486d6a2666ea88f619fb4137ad8f4cf2cdd03a851abaf37  .claude/skills/forge-project/scripts/session-start.sh
+bf8a3f1d5ef974d4a04e0fd281ca7293e4668c2d2588bc2c5c8583b4a5cfa66e  .claude/skills/forge-project/scripts/session-start.sh
 10316d9cd59fea152c6f8fbf0ab70abf547514bf67a2c85f3e6b405554a71fad  .claude/skills/forge-project/scripts/stop.sh
-c4eea20d92ea46806a94f2866c9f5dc192849eee9121dc08826247943175d551  .claude/skills/forge-project/scripts/test-edit.sh
+d3eb0c9d219d1cdb56e3f01bf08df17deb917439545edb05dff59f4b685eeae5  .claude/skills/forge-project/scripts/test-edit.sh
 fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3  .claude/skills/forge-project/scripts/turn-start.sh
-de1d7231feaea03232dc3d57426b559f364284bcdba23c375b3e109e04bf5795  .claude/skills/forge-project/scripts/typecheck.sh
+0cc3fbe63fa288e91d846502c7ae8e31b329a3a9dd4648e49f5876f1819844dc  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 bd5df50793070bba7b87b0f623ac58ed4599e0ba6f8d731fc0da4b28a0335ec8  .forge/ast-grep/rule-tests/typescript-bun-no-fewer-expects-test.yml
 cf28a1a131538f6ff9cb7cd9468d9338d29c52d6abe02dccf7785696f5c847b8  .forge/ast-grep/rule-tests/typescript-bun-no-mock-increase-test.yml
@@ -16283,7 +16338,7 @@ aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21  .forge/ast-gre
 17b6fc5e510df3154be12c72a584d8bfb31034b577774718a8c50516b2b15a81  .forge/ast-grep/rules/typescript/react/use-action-state.yml
 b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad  .forge/ast-grep/rules/typescript/ts-expect-error-reason.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-43fc8786a84a9db1387d6268a92b2733124575bd45211136e00231bd3b95abcf  .forge/check.sh
+e77173be6ded34254c82b93b1453df56f248616f6cb014266c24f00147af7700  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

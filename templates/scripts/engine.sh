@@ -1891,13 +1891,24 @@ forge_in_dirs() {
 }
 
 # forge_prefix_paths <dir>: stdin with the relative paths that start a diagnostic
-# (the forms forge_diagnostics reads) prefixed with <dir>/; "../" is resolved.
+# (the forms forge_diagnostics reads) or name a failing test (Vitest "FAIL  [|project| ]<file>",
+# pytest "FAILED <file>::…" and "ERROR <file>", as forge_failed_tests reads them)
+# prefixed with <dir>/; "../" is resolved.
 forge_prefix_paths() {
   awk -v d="$1/" '
     BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     {
       line = $0
       gsub(ansi, "", line)
+      if (match(line, /^[[:space:]]*FAIL +(\|[^|]*\| )?/) || match(line, /^(FAILED|ERROR) /)) {
+        lead = substr(line, 1, RLENGTH); rest = substr(line, RLENGTH + 1)
+        if (rest !~ /^\// && rest ~ /^[^[:space:]]+\.[A-Za-z]+( |::|$)/) {
+          p = d rest
+          while (sub(/(^|\/)[^\/.][^\/]*\/\.\.\//, "/", p)) sub(/^\//, "", p)
+          print lead p
+          next
+        }
+      }
       match(line, /^[[:space:]]*(-->[[:space:]]*)?(Would reformat: )?/)
       lead = substr(line, 1, RLENGTH); rest = substr(line, RLENGTH + 1)
       if (rest !~ /^\// && (rest ~ /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+| format )/ || lead ~ /Would reformat: $/)) {

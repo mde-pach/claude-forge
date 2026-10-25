@@ -723,6 +723,62 @@ describe("workspace packages", () => {
 });
 
 /**
+ * In a workspace, Vitest runs in each package and names its test files relative
+ * to that package. Under `--turn` its failing tests are compared with the start
+ * of the turn (§10.6) like anywhere else: the ids are made repository paths, the
+ * re-run selects them in the package, and its results are compared by the same ids.
+ * A stand-in `vitest` in the package logs where it ran and with which arguments.
+ */
+/** @rule typescript/vitest/run */
+describe("failing tests at the start of the turn in a workspace package", () => {
+  function wsRepo(body: string): { repo: string; log: string; turn: () => ReturnType<typeof sh> } {
+    const r = sampleRepo("pnpm-workspace-app");
+    put(r, "packages/core/src/index.test.ts", 'import { expect, it } from "vitest";\nimport { greet } from "./index.js";\n\nit("greets", () => {\n  expect(greet("a")).toBe("Hello, a");\n});\n');
+    commitAll(r, "test");
+    expect(forge(["apply", "--yes"], r).status).toBe(0);
+    commitAll(r, "forge");
+    const log = join(r, "vitest.log");
+    const bin = join(r, "packages/core/node_modules/.bin");
+    mkdirSync(bin, { recursive: true });
+    writeFileSync(join(bin, "vitest"), `#!/bin/sh\nprintf '%s|%s\\n' "$(pwd)" "$*" >> "${log}"\n${body}\n`);
+    chmodSync(join(bin, "vitest"), 0o755);
+    const snap = ".forge/state/t.turn";
+    put(r, `${snap}/head`, git(r, "rev-parse", "HEAD").stdout);
+    put(r, `${snap}/tree`, "\n");
+    put(r, `${snap}/dirty`, "");
+    put(r, "packages/core/src/index.ts", "export const greet = (name: string): string => `Hi, ${name}`; // turn-change\n");
+    return { repo: r, log, turn: () => sh("sh", [".forge/check.sh", "--turn", snap], { cwd: r }) };
+  }
+  const fail = 'echo " FAIL  src/index.test.ts > greets"; echo "Error: connect ECONNREFUSED 127.0.0.1:5432"; exit 1';
+
+  test(
+    "a test of a package that also fails at the start of the turn is re-run in that package of the copy, under its repository path, and counted as already failing",
+    () => {
+      const { repo: r, log, turn } = wsRepo(fail);
+      const out = turn();
+      expect(out.stdout).toContain(
+        "forge:typescript/vitest/run 1 failing test(s) also fail at the start of the turn (re-run there), so this change did not cause them, but it is not verified by them either:\n  packages/core/src/index.test.ts > greets\n",
+      );
+      const runs = readFileSync(log, "utf8").trimEnd().split("\n").map((l) => l.split("|"));
+      expect(runs.length).toBe(2);
+      expect(runs[1]![0]).not.toStartWith(r);
+      expect(runs[1]![0]).toEndWith("/packages/core");
+      expect(runs[1]![1]).toBe("run src/index.test.ts");
+    },
+    T,
+  );
+
+  test(
+    "a test of a package that passed at the start of the turn is a new failure, named by its repository path",
+    () => {
+      const { turn } = wsRepo(`grep -q turn-change src/index.ts || exit 0; ${fail}`);
+      expect(turn().stdout).toContain("forge:typescript/vitest/run failed: 1 failing test(s) passed at the start of the turn:\n  packages/core/src/index.test.ts > greets\n");
+    },
+    T,
+  );
+});
+
+/**
  * Outside `--all`, a forbid rule or a lint finding counts only on a line the
  * change added (`git diff -U0` against the base; an edited line counts, moved code
  * counts, a new file counts fully): code that was already there is not this
