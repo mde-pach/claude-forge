@@ -1,0 +1,15 @@
+id: safety/lockfile-hand-edit
+description: "Lock files are not edited by hand: an Edit or Write of pnpm-lock.yaml, package-lock.json, yarn.lock, bun.lock, uv.lock, poetry.lock or Cargo.lock needs confirmation. Change the manifest and run the package manager (bun install, pnpm install, uv lock, cargo update -p …) instead."
+scope: {language: any}
+enforce:
+  - {target: permission, decision: ask, rule: "Edit(**/pnpm-lock.yaml)"}
+  - {target: permission, decision: ask, rule: "Edit(**/package-lock.json)"}
+  - {target: permission, decision: ask, rule: "Edit(**/npm-shrinkwrap.json)"}
+  - {target: permission, decision: ask, rule: "Edit(**/yarn.lock)"}
+  - {target: permission, decision: ask, rule: "Edit(**/bun.lock)"}
+  - {target: permission, decision: ask, rule: "Edit(**/uv.lock)"}
+  - {target: permission, decision: ask, rule: "Edit(**/poetry.lock)"}
+  - {target: permission, decision: ask, rule: "Edit(**/Cargo.lock)"}
+examples:
+  match: ["Edit(pnpm-lock.yaml)", "Edit(packages/web/package-lock.json)", "Edit(yarn.lock)", "Edit(bun.lock)", "Edit(uv.lock)", "Edit(poetry.lock)", "Edit(crates/Cargo.lock)"]
+  no_match: ["Edit(package.json)", "Edit(pyproject.toml)", "Edit(docs/pnpm-lock.yaml.md)", "Read(pnpm-lock.yaml)"]

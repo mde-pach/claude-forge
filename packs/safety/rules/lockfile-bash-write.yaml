@@ -1,0 +1,33 @@
+id: safety/lockfile-bash-write
+description: "Lock files are not rewritten through Bash (sed -i, perl -i, a redirect or tee into them, a Python, Node or Bun script that writes them). Change the manifest and run the package manager (bun install, pnpm install, uv lock, cargo update -p …) instead."
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: deny
+    pattern: '(^|[^A-Za-z0-9_-])(sed|perl)[[:space:]]([^;&|]*[[:space:]])?(-[A-Za-z]*i|--in-place)[^;&|]*(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?|uv\.lock|poetry\.lock|Cargo\.lock)([^A-Za-z0-9_.-]|$)'
+  - target: guard
+    decision: deny
+    pattern: '(>|(^|[^A-Za-z0-9_-])tee[[:space:]]([^;&|]*[[:space:]])?)[[:space:]]*(\\?["''])?([^[:space:];&|<>"'']*/)?(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?|uv\.lock|poetry\.lock|Cargo\.lock)([^A-Za-z0-9_.-]|$)'
+  - target: guard
+    decision: deny
+    pattern: '(^|[^A-Za-z0-9_-])(python[0-9.]*|node|bun|deno|ruby)[[:space:]].*((pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?|uv\.lock|poetry\.lock|Cargo\.lock).*(\.write\(|write_text|writeFile|Bun\.write|[(,][[:space:]]*\\?["'']w[+b]?\\?["''])|(\.write\(|write_text|writeFile|Bun\.write|[(,][[:space:]]*\\?["'']w[+b]?\\?["'']).*(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?|uv\.lock|poetry\.lock|Cargo\.lock))'
+examples:
+  match:
+    - "sed -i 's/0.25.4/0.25.5/' pnpm-lock.yaml"
+    - "sed -i.bak -e 's/x/y/' packages/web/package-lock.json"
+    - "perl -pi -e 's/1.2.3/1.2.4/' uv.lock"
+    - "cat lock.tmp > pnpm-lock.yaml"
+    - "printf 'x' >> yarn.lock"
+    - "jq '.packages' package-lock.json | tee package-lock.json"
+    - "python3 - <<'EOF'\np='/work/pnpm-lock.yaml'\ns=open(p).read()\ns=s.replace('packages/zod: {}', 'packages/zod:')\nopen(p,'w').write(s)\nEOF"
+    - "python -c \"import pathlib; pathlib.Path('uv.lock').write_text(new)\""
+    - "node -e \"fs.writeFileSync('bun.lock', out)\""
+  no_match:
+    - "pnpm install"
+    - "uv lock"
+    - "cat pnpm-lock.yaml"
+    - "grep -n esbuild pnpm-lock.yaml"
+    - "sed -n '300,330p' pnpm-lock.yaml"
+    - "git diff pnpm-lock.yaml > /tmp/lock.diff"
+    - "python3 -c \"print(open('uv.lock').read()[:200])\""
+    - "sed -i 's/a/b/' package.json"
