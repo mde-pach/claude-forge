@@ -1310,6 +1310,77 @@ forge_untested_change() {
   printf 'You changed behaviour in %s without adding or updating a test; add a test that fails without your change, or say why none is needed.\n' "$_fu_list"
 }
 
+# forge_py_public <file>: the public names of a Python module, one per line: the
+# entries of __all__ when it has one, else its top-level def and class names
+# without a leading underscore.
+forge_py_public() {
+  awk '
+    /^__all__[ \t]*(:[^=]*)?\+?=/ { all = 1; inall = 1 }
+    inall {
+      s = $0
+      while (match(s, /["\047][A-Za-z_][A-Za-z0-9_]*["\047]/)) { a[substr(s, RSTART + 1, RLENGTH - 2)] = 1; s = substr(s, RSTART + RLENGTH) }
+      if ($0 ~ /[\])]/) inall = 0
+      next
+    }
+    /^(async[ \t]+)?def[ \t]+[A-Za-z]/ || /^class[ \t]+[A-Za-z]/ {
+      s = $0; sub(/^(async[ \t]+)?(def|class)[ \t]+/, "", s); match(s, /^[A-Za-z0-9_]+/); d[substr(s, 1, RLENGTH)] = 1
+    }
+    END { if (all) { for (k in a) print k } else for (k in d) print k }' "$1" 2>/dev/null | sort -u
+}
+
+# forge_py_module <path>: the module path inside its top-level package
+# ("experimental/query_client" for logfire/experimental/query_client.py and for
+# logfire-api/logfire_api/experimental/query_client.pyi): directories with an
+# __init__.py or __init__.pyi count as packages, the topmost one is dropped.
+forge_py_module() {
+  _pm_d=$(dirname "$1"); _pm_m=$(basename "$1"); _pm_m=${_pm_m%.py}; _pm_m=${_pm_m%.pyi}
+  _pm_top=''
+  while [ "$_pm_d" != . ] && [ "$_pm_d" != / ] && { [ -f "$_pm_d/__init__.py" ] || [ -f "$_pm_d/__init__.pyi" ]; }; do
+    [ -n "$_pm_top" ] && _pm_m="$_pm_top/$_pm_m"
+    _pm_top=$(basename "$_pm_d"); _pm_d=$(dirname "$_pm_d")
+  done
+  printf '%s\n' "$_pm_m"
+}
+
+# forge_stub_sync: for each changed module ($FORGE_FILES) that gained public names
+# (forge_py_public, compared with the base), each .pyi stub in the repository with
+# the same module path (forge_py_module) must mention every new name.
+forge_stub_sync() {
+  git ls-files --cached --others --exclude-standard -- '*.pyi' 2>/dev/null | while IFS= read -r _ss_s; do
+    [ -f "$_ss_s" ] && printf '%s\t%s\n' "$(forge_py_module "$_ss_s")" "$_ss_s"
+  done > "$FORGE_TMP/stubs"
+  [ -s "$FORGE_TMP/stubs" ] || return 0
+  for _ss_f in $FORGE_FILES; do
+    case $_ss_f in *.py) ;; *) continue ;; esac
+    _ss_mod=$(forge_py_module "$_ss_f")
+    awk -F '\t' -v m="$_ss_mod" '$1 == m { print $2 }' "$FORGE_TMP/stubs" > "$FORGE_TMP/stubs.for"
+    [ -s "$FORGE_TMP/stubs.for" ] || continue
+    forge_py_public "$_ss_f" > "$FORGE_TMP/names.now"
+    : > "$FORGE_TMP/names.then"
+    if [ -f "$FORGE_TMP/base/$_ss_f" ]; then
+      { forge_py_public "$FORGE_TMP/base/$_ss_f"
+        awk '/^(async[ \t]+)?(def|class)[ \t]+[A-Za-z_]/ { s = $0; sub(/^(async[ \t]+)?(def|class)[ \t]+/, "", s); match(s, /^[A-Za-z0-9_]+/); print substr(s, 1, RLENGTH) }' "$FORGE_TMP/base/$_ss_f"
+      } | sort -u > "$FORGE_TMP/names.then"
+    fi
+    grep -vxF -f "$FORGE_TMP/names.then" "$FORGE_TMP/names.now" > "$FORGE_TMP/names.new"
+    [ -s "$FORGE_TMP/names.new" ] || continue
+    while IFS= read -r _ss_s; do
+      _ss_miss=''
+      while IFS= read -r _ss_n; do
+        awk -v id="$_ss_n" '
+          { s = $0
+            while (i = index(s, id)) {
+              b = substr(s, i - 1, 1); a = substr(s, i + length(id), 1)
+              if ((i == 1 || b !~ /[A-Za-z0-9_]/) && a !~ /[A-Za-z0-9_]/) { f = 1; exit }
+              s = substr(s, i + length(id))
+            } }
+          END { exit !f }' "$_ss_s" || _ss_miss="${_ss_miss:+$_ss_miss, }$_ss_n"
+      done < "$FORGE_TMP/names.new"
+      [ -n "$_ss_miss" ] && printf 'The stub %s does not have %s, new in %s; add it there too.\n' "$_ss_s" "$_ss_miss" "$_ss_f"
+    done < "$FORGE_TMP/stubs.for"
+  done
+}
+
 # forge_toml_get <file> <section> <key>: the value of <key> in [<section>] ("" for
 # the top level), quotes and comments removed; nothing when absent. One-line values only.
 forge_toml_get() {
@@ -2759,6 +2830,77 @@ forge_untested_change() {
   [ "$_fu_n" -gt 0 ] || return 0
   [ "$_fu_n" -gt 3 ] && _fu_list="$_fu_list and $((_fu_n - 3)) more"
   printf 'You changed behaviour in %s without adding or updating a test; add a test that fails without your change, or say why none is needed.\n' "$_fu_list"
+}
+
+# forge_py_public <file>: the public names of a Python module, one per line: the
+# entries of __all__ when it has one, else its top-level def and class names
+# without a leading underscore.
+forge_py_public() {
+  awk '
+    /^__all__[ \t]*(:[^=]*)?\+?=/ { all = 1; inall = 1 }
+    inall {
+      s = $0
+      while (match(s, /["\047][A-Za-z_][A-Za-z0-9_]*["\047]/)) { a[substr(s, RSTART + 1, RLENGTH - 2)] = 1; s = substr(s, RSTART + RLENGTH) }
+      if ($0 ~ /[\])]/) inall = 0
+      next
+    }
+    /^(async[ \t]+)?def[ \t]+[A-Za-z]/ || /^class[ \t]+[A-Za-z]/ {
+      s = $0; sub(/^(async[ \t]+)?(def|class)[ \t]+/, "", s); match(s, /^[A-Za-z0-9_]+/); d[substr(s, 1, RLENGTH)] = 1
+    }
+    END { if (all) { for (k in a) print k } else for (k in d) print k }' "$1" 2>/dev/null | sort -u
+}
+
+# forge_py_module <path>: the module path inside its top-level package
+# ("experimental/query_client" for logfire/experimental/query_client.py and for
+# logfire-api/logfire_api/experimental/query_client.pyi): directories with an
+# __init__.py or __init__.pyi count as packages, the topmost one is dropped.
+forge_py_module() {
+  _pm_d=$(dirname "$1"); _pm_m=$(basename "$1"); _pm_m=${_pm_m%.py}; _pm_m=${_pm_m%.pyi}
+  _pm_top=''
+  while [ "$_pm_d" != . ] && [ "$_pm_d" != / ] && { [ -f "$_pm_d/__init__.py" ] || [ -f "$_pm_d/__init__.pyi" ]; }; do
+    [ -n "$_pm_top" ] && _pm_m="$_pm_top/$_pm_m"
+    _pm_top=$(basename "$_pm_d"); _pm_d=$(dirname "$_pm_d")
+  done
+  printf '%s\n' "$_pm_m"
+}
+
+# forge_stub_sync: for each changed module ($FORGE_FILES) that gained public names
+# (forge_py_public, compared with the base), each .pyi stub in the repository with
+# the same module path (forge_py_module) must mention every new name.
+forge_stub_sync() {
+  git ls-files --cached --others --exclude-standard -- '*.pyi' 2>/dev/null | while IFS= read -r _ss_s; do
+    [ -f "$_ss_s" ] && printf '%s\t%s\n' "$(forge_py_module "$_ss_s")" "$_ss_s"
+  done > "$FORGE_TMP/stubs"
+  [ -s "$FORGE_TMP/stubs" ] || return 0
+  for _ss_f in $FORGE_FILES; do
+    case $_ss_f in *.py) ;; *) continue ;; esac
+    _ss_mod=$(forge_py_module "$_ss_f")
+    awk -F '\t' -v m="$_ss_mod" '$1 == m { print $2 }' "$FORGE_TMP/stubs" > "$FORGE_TMP/stubs.for"
+    [ -s "$FORGE_TMP/stubs.for" ] || continue
+    forge_py_public "$_ss_f" > "$FORGE_TMP/names.now"
+    : > "$FORGE_TMP/names.then"
+    if [ -f "$FORGE_TMP/base/$_ss_f" ]; then
+      { forge_py_public "$FORGE_TMP/base/$_ss_f"
+        awk '/^(async[ \t]+)?(def|class)[ \t]+[A-Za-z_]/ { s = $0; sub(/^(async[ \t]+)?(def|class)[ \t]+/, "", s); match(s, /^[A-Za-z0-9_]+/); print substr(s, 1, RLENGTH) }' "$FORGE_TMP/base/$_ss_f"
+      } | sort -u > "$FORGE_TMP/names.then"
+    fi
+    grep -vxF -f "$FORGE_TMP/names.then" "$FORGE_TMP/names.now" > "$FORGE_TMP/names.new"
+    [ -s "$FORGE_TMP/names.new" ] || continue
+    while IFS= read -r _ss_s; do
+      _ss_miss=''
+      while IFS= read -r _ss_n; do
+        awk -v id="$_ss_n" '
+          { s = $0
+            while (i = index(s, id)) {
+              b = substr(s, i - 1, 1); a = substr(s, i + length(id), 1)
+              if ((i == 1 || b !~ /[A-Za-z0-9_]/) && a !~ /[A-Za-z0-9_]/) { f = 1; exit }
+              s = substr(s, i + length(id))
+            } }
+          END { exit !f }' "$_ss_s" || _ss_miss="${_ss_miss:+$_ss_miss, }$_ss_n"
+      done < "$FORGE_TMP/names.new"
+      [ -n "$_ss_miss" ] && printf 'The stub %s does not have %s, new in %s; add it there too.\n' "$_ss_s" "$_ss_miss" "$_ss_f"
+    done < "$FORGE_TMP/stubs.for"
+  done
 }
 
 # forge_toml_get <file> <section> <key>: the value of <key> in [<section>] ("" for
@@ -4245,6 +4387,77 @@ forge_untested_change() {
   [ "$_fu_n" -gt 0 ] || return 0
   [ "$_fu_n" -gt 3 ] && _fu_list="$_fu_list and $((_fu_n - 3)) more"
   printf 'You changed behaviour in %s without adding or updating a test; add a test that fails without your change, or say why none is needed.\n' "$_fu_list"
+}
+
+# forge_py_public <file>: the public names of a Python module, one per line: the
+# entries of __all__ when it has one, else its top-level def and class names
+# without a leading underscore.
+forge_py_public() {
+  awk '
+    /^__all__[ \t]*(:[^=]*)?\+?=/ { all = 1; inall = 1 }
+    inall {
+      s = $0
+      while (match(s, /["\047][A-Za-z_][A-Za-z0-9_]*["\047]/)) { a[substr(s, RSTART + 1, RLENGTH - 2)] = 1; s = substr(s, RSTART + RLENGTH) }
+      if ($0 ~ /[\])]/) inall = 0
+      next
+    }
+    /^(async[ \t]+)?def[ \t]+[A-Za-z]/ || /^class[ \t]+[A-Za-z]/ {
+      s = $0; sub(/^(async[ \t]+)?(def|class)[ \t]+/, "", s); match(s, /^[A-Za-z0-9_]+/); d[substr(s, 1, RLENGTH)] = 1
+    }
+    END { if (all) { for (k in a) print k } else for (k in d) print k }' "$1" 2>/dev/null | sort -u
+}
+
+# forge_py_module <path>: the module path inside its top-level package
+# ("experimental/query_client" for logfire/experimental/query_client.py and for
+# logfire-api/logfire_api/experimental/query_client.pyi): directories with an
+# __init__.py or __init__.pyi count as packages, the topmost one is dropped.
+forge_py_module() {
+  _pm_d=$(dirname "$1"); _pm_m=$(basename "$1"); _pm_m=${_pm_m%.py}; _pm_m=${_pm_m%.pyi}
+  _pm_top=''
+  while [ "$_pm_d" != . ] && [ "$_pm_d" != / ] && { [ -f "$_pm_d/__init__.py" ] || [ -f "$_pm_d/__init__.pyi" ]; }; do
+    [ -n "$_pm_top" ] && _pm_m="$_pm_top/$_pm_m"
+    _pm_top=$(basename "$_pm_d"); _pm_d=$(dirname "$_pm_d")
+  done
+  printf '%s\n' "$_pm_m"
+}
+
+# forge_stub_sync: for each changed module ($FORGE_FILES) that gained public names
+# (forge_py_public, compared with the base), each .pyi stub in the repository with
+# the same module path (forge_py_module) must mention every new name.
+forge_stub_sync() {
+  git ls-files --cached --others --exclude-standard -- '*.pyi' 2>/dev/null | while IFS= read -r _ss_s; do
+    [ -f "$_ss_s" ] && printf '%s\t%s\n' "$(forge_py_module "$_ss_s")" "$_ss_s"
+  done > "$FORGE_TMP/stubs"
+  [ -s "$FORGE_TMP/stubs" ] || return 0
+  for _ss_f in $FORGE_FILES; do
+    case $_ss_f in *.py) ;; *) continue ;; esac
+    _ss_mod=$(forge_py_module "$_ss_f")
+    awk -F '\t' -v m="$_ss_mod" '$1 == m { print $2 }' "$FORGE_TMP/stubs" > "$FORGE_TMP/stubs.for"
+    [ -s "$FORGE_TMP/stubs.for" ] || continue
+    forge_py_public "$_ss_f" > "$FORGE_TMP/names.now"
+    : > "$FORGE_TMP/names.then"
+    if [ -f "$FORGE_TMP/base/$_ss_f" ]; then
+      { forge_py_public "$FORGE_TMP/base/$_ss_f"
+        awk '/^(async[ \t]+)?(def|class)[ \t]+[A-Za-z_]/ { s = $0; sub(/^(async[ \t]+)?(def|class)[ \t]+/, "", s); match(s, /^[A-Za-z0-9_]+/); print substr(s, 1, RLENGTH) }' "$FORGE_TMP/base/$_ss_f"
+      } | sort -u > "$FORGE_TMP/names.then"
+    fi
+    grep -vxF -f "$FORGE_TMP/names.then" "$FORGE_TMP/names.now" > "$FORGE_TMP/names.new"
+    [ -s "$FORGE_TMP/names.new" ] || continue
+    while IFS= read -r _ss_s; do
+      _ss_miss=''
+      while IFS= read -r _ss_n; do
+        awk -v id="$_ss_n" '
+          { s = $0
+            while (i = index(s, id)) {
+              b = substr(s, i - 1, 1); a = substr(s, i + length(id), 1)
+              if ((i == 1 || b !~ /[A-Za-z0-9_]/) && a !~ /[A-Za-z0-9_]/) { f = 1; exit }
+              s = substr(s, i + length(id))
+            } }
+          END { exit !f }' "$_ss_s" || _ss_miss="${_ss_miss:+$_ss_miss, }$_ss_n"
+      done < "$FORGE_TMP/names.new"
+      [ -n "$_ss_miss" ] && printf 'The stub %s does not have %s, new in %s; add it there too.\n' "$_ss_s" "$_ss_miss" "$_ss_f"
+    done < "$FORGE_TMP/stubs.for"
+  done
 }
 
 # forge_toml_get <file> <section> <key>: the value of <key> in [<section>] ("" for
@@ -7098,6 +7311,77 @@ forge_untested_change() {
   printf 'You changed behaviour in %s without adding or updating a test; add a test that fails without your change, or say why none is needed.\n' "$_fu_list"
 }
 
+# forge_py_public <file>: the public names of a Python module, one per line: the
+# entries of __all__ when it has one, else its top-level def and class names
+# without a leading underscore.
+forge_py_public() {
+  awk '
+    /^__all__[ \t]*(:[^=]*)?\+?=/ { all = 1; inall = 1 }
+    inall {
+      s = $0
+      while (match(s, /["\047][A-Za-z_][A-Za-z0-9_]*["\047]/)) { a[substr(s, RSTART + 1, RLENGTH - 2)] = 1; s = substr(s, RSTART + RLENGTH) }
+      if ($0 ~ /[\])]/) inall = 0
+      next
+    }
+    /^(async[ \t]+)?def[ \t]+[A-Za-z]/ || /^class[ \t]+[A-Za-z]/ {
+      s = $0; sub(/^(async[ \t]+)?(def|class)[ \t]+/, "", s); match(s, /^[A-Za-z0-9_]+/); d[substr(s, 1, RLENGTH)] = 1
+    }
+    END { if (all) { for (k in a) print k } else for (k in d) print k }' "$1" 2>/dev/null | sort -u
+}
+
+# forge_py_module <path>: the module path inside its top-level package
+# ("experimental/query_client" for logfire/experimental/query_client.py and for
+# logfire-api/logfire_api/experimental/query_client.pyi): directories with an
+# __init__.py or __init__.pyi count as packages, the topmost one is dropped.
+forge_py_module() {
+  _pm_d=$(dirname "$1"); _pm_m=$(basename "$1"); _pm_m=${_pm_m%.py}; _pm_m=${_pm_m%.pyi}
+  _pm_top=''
+  while [ "$_pm_d" != . ] && [ "$_pm_d" != / ] && { [ -f "$_pm_d/__init__.py" ] || [ -f "$_pm_d/__init__.pyi" ]; }; do
+    [ -n "$_pm_top" ] && _pm_m="$_pm_top/$_pm_m"
+    _pm_top=$(basename "$_pm_d"); _pm_d=$(dirname "$_pm_d")
+  done
+  printf '%s\n' "$_pm_m"
+}
+
+# forge_stub_sync: for each changed module ($FORGE_FILES) that gained public names
+# (forge_py_public, compared with the base), each .pyi stub in the repository with
+# the same module path (forge_py_module) must mention every new name.
+forge_stub_sync() {
+  git ls-files --cached --others --exclude-standard -- '*.pyi' 2>/dev/null | while IFS= read -r _ss_s; do
+    [ -f "$_ss_s" ] && printf '%s\t%s\n' "$(forge_py_module "$_ss_s")" "$_ss_s"
+  done > "$FORGE_TMP/stubs"
+  [ -s "$FORGE_TMP/stubs" ] || return 0
+  for _ss_f in $FORGE_FILES; do
+    case $_ss_f in *.py) ;; *) continue ;; esac
+    _ss_mod=$(forge_py_module "$_ss_f")
+    awk -F '\t' -v m="$_ss_mod" '$1 == m { print $2 }' "$FORGE_TMP/stubs" > "$FORGE_TMP/stubs.for"
+    [ -s "$FORGE_TMP/stubs.for" ] || continue
+    forge_py_public "$_ss_f" > "$FORGE_TMP/names.now"
+    : > "$FORGE_TMP/names.then"
+    if [ -f "$FORGE_TMP/base/$_ss_f" ]; then
+      { forge_py_public "$FORGE_TMP/base/$_ss_f"
+        awk '/^(async[ \t]+)?(def|class)[ \t]+[A-Za-z_]/ { s = $0; sub(/^(async[ \t]+)?(def|class)[ \t]+/, "", s); match(s, /^[A-Za-z0-9_]+/); print substr(s, 1, RLENGTH) }' "$FORGE_TMP/base/$_ss_f"
+      } | sort -u > "$FORGE_TMP/names.then"
+    fi
+    grep -vxF -f "$FORGE_TMP/names.then" "$FORGE_TMP/names.now" > "$FORGE_TMP/names.new"
+    [ -s "$FORGE_TMP/names.new" ] || continue
+    while IFS= read -r _ss_s; do
+      _ss_miss=''
+      while IFS= read -r _ss_n; do
+        awk -v id="$_ss_n" '
+          { s = $0
+            while (i = index(s, id)) {
+              b = substr(s, i - 1, 1); a = substr(s, i + length(id), 1)
+              if ((i == 1 || b !~ /[A-Za-z0-9_]/) && a !~ /[A-Za-z0-9_]/) { f = 1; exit }
+              s = substr(s, i + length(id))
+            } }
+          END { exit !f }' "$_ss_s" || _ss_miss="${_ss_miss:+$_ss_miss, }$_ss_n"
+      done < "$FORGE_TMP/names.new"
+      [ -n "$_ss_miss" ] && printf 'The stub %s does not have %s, new in %s; add it there too.\n' "$_ss_s" "$_ss_miss" "$_ss_f"
+    done < "$FORGE_TMP/stubs.for"
+  done
+}
+
 # forge_toml_get <file> <section> <key>: the value of <key> in [<section>] ("" for
 # the top level), quotes and comments removed; nothing when absent. One-line values only.
 forge_toml_get() {
@@ -8222,12 +8506,12 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "d660d521eb000121521ebe466d5dc93771432139ae59b8d03789bbdadc142ab1",
     ".claude/skills/forge-project/scripts/guard.sh": "33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d",
     ".claude/skills/forge-project/scripts/lib.sh": "1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "90d481a7d965a6a0df54be1ad301fd813486177cb8ae081ee1d07e59a0e5103f",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "6f14e684dc0d69600136077090132f96c73335f2786cd4717210ff2174e9b519",
     ".claude/skills/forge-project/scripts/review.sh": "9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac",
-    ".claude/skills/forge-project/scripts/session-start.sh": "4c289950b84ebbb8010310db75205ba6c6eceb2e468e545dbb9723b3bd384209",
+    ".claude/skills/forge-project/scripts/session-start.sh": "83188cbaaa089eca9e1bf66a9609cb1abe8b0a2646629bbc6a88ae72f2048ca5",
     ".claude/skills/forge-project/scripts/stop.sh": "f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173",
     ".claude/skills/forge-project/scripts/turn-start.sh": "a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "8646b3fb2bea1b5c685b8f4500fd198609eced4dffc05778e7c6ee5b7656dd63",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "ede1bf09628323c00030d2ad2dfdc69da47d5c7db51ea7f1bef778db475dc99e",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-nextjs-no-legacy-image-config-test.yml": "9d723e3c62b5697de0fa5ab80b735c3cef23225a07c81425c492cd8827faf06d",
     ".forge/ast-grep/rule-tests/typescript-nextjs-no-next-router-test.yml": "5da1551f9fa49969cdbfb6ef3ba847589327a2d7430a3cdc79f3637fc81586f1",
@@ -8290,7 +8574,7 @@ exit "$fail"
     ".forge/ast-grep/rules/typescript/zod/error-param.yml": "88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a",
     ".forge/ast-grep/rules/typescript/zod/v4-string-formats.yml": "a7503c000f128a4718f29b0122170295972560de99263354d6ed0db1a8cb099c",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "206b24484d2079eb6680c186edc177a556ebb2de7de237ab3f77505332977dfe",
+    ".forge/check.sh": "c66343e7b6bb4714ec2a603421603b509c128b5e6d869c55e751c5c2ded13330",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -8357,12 +8641,12 @@ d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills
 d660d521eb000121521ebe466d5dc93771432139ae59b8d03789bbdadc142ab1  .claude/skills/forge-project/scripts/guard.rules
 33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d  .claude/skills/forge-project/scripts/guard.sh
 1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a  .claude/skills/forge-project/scripts/lib.sh
-90d481a7d965a6a0df54be1ad301fd813486177cb8ae081ee1d07e59a0e5103f  .claude/skills/forge-project/scripts/post-edit.sh
+6f14e684dc0d69600136077090132f96c73335f2786cd4717210ff2174e9b519  .claude/skills/forge-project/scripts/post-edit.sh
 9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac  .claude/skills/forge-project/scripts/review.sh
-4c289950b84ebbb8010310db75205ba6c6eceb2e468e545dbb9723b3bd384209  .claude/skills/forge-project/scripts/session-start.sh
+83188cbaaa089eca9e1bf66a9609cb1abe8b0a2646629bbc6a88ae72f2048ca5  .claude/skills/forge-project/scripts/session-start.sh
 f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173  .claude/skills/forge-project/scripts/stop.sh
 a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c  .claude/skills/forge-project/scripts/turn-start.sh
-8646b3fb2bea1b5c685b8f4500fd198609eced4dffc05778e7c6ee5b7656dd63  .claude/skills/forge-project/scripts/typecheck.sh
+ede1bf09628323c00030d2ad2dfdc69da47d5c7db51ea7f1bef778db475dc99e  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 9d723e3c62b5697de0fa5ab80b735c3cef23225a07c81425c492cd8827faf06d  .forge/ast-grep/rule-tests/typescript-nextjs-no-legacy-image-config-test.yml
 5da1551f9fa49969cdbfb6ef3ba847589327a2d7430a3cdc79f3637fc81586f1  .forge/ast-grep/rule-tests/typescript-nextjs-no-next-router-test.yml
@@ -8425,7 +8709,7 @@ d3c41a3915d84b21e86e9212a06ad14c52bf2f9bcefb7c5ca433200cc3ec44fb  .forge/ast-gre
 88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a  .forge/ast-grep/rules/typescript/zod/error-param.yml
 a7503c000f128a4718f29b0122170295972560de99263354d6ed0db1a8cb099c  .forge/ast-grep/rules/typescript/zod/v4-string-formats.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-206b24484d2079eb6680c186edc177a556ebb2de7de237ab3f77505332977dfe  .forge/check.sh
+c66343e7b6bb4714ec2a603421603b509c128b5e6d869c55e751c5c2ded13330  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

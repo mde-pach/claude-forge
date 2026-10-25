@@ -378,6 +378,7 @@ Some checks report what Claude may have a good reason to leave as it is. A `chec
 | Helper | Prints |
 |---|---|
 | `forge_untested_change` | when the change has a code line (not blank, not only a comment) added or removed in an in-scope file and no existing file matching `FORGE_TEST_PATH_ERE` (pytest, Vitest and Playwright test paths) changed: "You changed behaviour in <files, up to 3> without adding or updating a test; add a test that fails without your change, or say why none is needed." |
+| `forge_stub_sync` | for each changed `*.py` module that gained public names (the entries of `__all__` when it has one, else top-level `def` / `class` names without `_`; compared with the base's names) and each `.pyi` in the repository with the same module path inside its top-level package (packages are directories with `__init__.py` or `__init__.pyi`: `logfire/experimental/query_client.py` ↔ `logfire-api/logfire_api/experimental/query_client.pyi`), the new names the stub does not mention: "The stub <pyi> does not have <names>, new in <py>; add it there too." |
 
 ## 11. Audit of tool targets
 
@@ -477,6 +478,7 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `python/no-unsafe-yaml` | `tool` ruff `S506` |
 | `python/jinja-autoescape` | `tool` ruff `S701` |
 | `python/no-stub` | `ast-grep` forbid, not in `*.pyi` or migrations: a function whose body is only `pass` / `...` (docstrings and comments aside), or `raise NotImplementedError`, outside `@abstractmethod`, `@overload` and `Protocol` / `ABC` classes |
+| `python/stub-sync` | `check` lint, advisory (§10.6): `forge_stub_sync` on `*.py` |
 | `python/no-placeholder-comment` | `grep` forbid (case-insensitive): comments such as `TODO: implement`, "in a real implementation", "placeholder logic", "stub for now" |
 
 context.md: uv and `.venv/bin`, basedpyright; no blocking calls in `async def`; ignore comments name their rule.
