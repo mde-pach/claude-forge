@@ -1,0 +1,46 @@
+id: python/celery/task-model-arg
+description: "Tasks take ids, not ORM model instances: the instance is serialized when the task is queued and is stale (or unserializable) when it runs; re-fetch it in the task. Flags a task parameter annotated with a class imported from a models module, and self or a receiver's instance passed to .delay(), .apply_async(), .s() or .si() from a model class or a @receiver handler."
+scope: {language: python, files: ["!**/tests/**", "!**/test_*.py"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        - kind: typed_parameter
+          all:
+            - has: {field: type, has: {kind: identifier, pattern: $T}}
+            - inside: {kind: parameters, stopBy: neighbor, inside: {kind: function_definition, stopBy: neighbor, inside: {kind: decorated_definition, stopBy: neighbor, has: {kind: decorator, regex: "^@([A-Za-z_][A-Za-z0-9_]*\\.)*(shared_task|task)\\b"}}}}
+            - inside:
+                kind: module
+                stopBy: end
+                has:
+                  kind: import_from_statement
+                  all:
+                    - has: {field: module_name, regex: "(^|\\.)models$"}
+                    - has:
+                        any:
+                          - {kind: dotted_name, has: {kind: identifier, pattern: $T}, regex: "^[A-Za-z_0-9]+$"}
+                          - {kind: aliased_import, has: {field: alias, pattern: $T}}
+        - kind: identifier
+          regex: "^(self|instance)$"
+          all:
+            - any:
+                - inside: {kind: argument_list, stopBy: neighbor, inside: {kind: call, stopBy: neighbor, has: {field: function, regex: "\\.(delay|apply_async|s|si|signature)$"}}}
+                - inside: {any: [{kind: tuple}, {kind: list}], stopBy: neighbor, inside: {kind: argument_list, stopBy: neighbor, inside: {kind: call, stopBy: neighbor, has: {field: function, regex: "\\.(apply_async|signature)$"}}}}
+            - any:
+                - all:
+                    - regex: "^self$"
+                    - inside: {kind: class_definition, stopBy: end, has: {field: superclasses, regex: "Model\\b"}}
+                - all:
+                    - regex: "^instance$"
+                    - inside: {kind: decorated_definition, stopBy: end, has: {kind: decorator, regex: "^@([A-Za-z_.]*\\.)?receiver\\("}}
+examples:
+  match:
+    - "from celery import shared_task\n\nfrom shop.models import Customer, Order\n\n\n@shared_task\ndef send_receipt(order: Order) -> None:\n    mail(order.customer.email)\n"
+    - "from .models import Invoice as Inv\n\n\n@app.task(bind=True)\ndef bill(self, invoice: Inv) -> None:\n    charge(invoice)\n"
+    - "class Order(models.Model):\n    def save(self, *args, **kwargs):\n        super().save(*args, **kwargs)\n        send_receipt.delay(self)\n"
+    - "@receiver(post_save, sender=Order)\ndef queued(sender, instance, created, **kwargs):\n    send_receipt.apply_async((instance,), countdown=5)\n"
+  no_match:
+    - "from celery import shared_task\n\nfrom shop.models import Order\n\n\n@shared_task\ndef send_receipt(order_id: int) -> None:\n    order = Order.objects.get(pk=order_id)\n    mail(order.customer.email)\n"
+    - "class Order(models.Model):\n    def save(self, *args, **kwargs):\n        super().save(*args, **kwargs)\n        transaction.on_commit(lambda: send_receipt.delay(self.pk))\n"
+    - "from shop.models import Order\n\n\ndef total(order: Order) -> int:\n    return order.amount\n"

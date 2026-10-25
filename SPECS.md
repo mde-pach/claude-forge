@@ -598,6 +598,18 @@ Detected by `djangorestframework` (pypi).
 
 context.md: explicit serializer fields and `read_only_fields`; permission defaults; ask before opening a write endpoint.
 
+### python/celery
+
+Detected by `celery` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/celery/task-model-arg` | `ast-grep` forbid: a `@shared_task` / `@<app>.task` parameter annotated with a class imported from a `models` module; `self` passed to `.delay()`, `.apply_async()`, `.s()`, `.si()` inside a class whose bases name a `Model`; `instance` passed to them inside a `@receiver` handler |
+| `python/celery/bounded-retries` | `ast-grep` forbid: `max_retries=None`, `"max_retries": None` |
+| `python/celery/no-result-get-in-task` | `ast-grep` forbid: inside a task, `.get()`, `.wait()`, `.join()` on `.delay()` / `.apply_async()` / `AsyncResult()` results (directly or through a variable of the function) or on a called `group` / `chord` / `chain`; `disable_sync_subtasks=False` anywhere |
+
+context.md: ids as arguments, idempotent tasks queued from `transaction.on_commit()`, bounded retries, no waiting on results inside tasks.
+
 ### python/library
 
 Detected by `library_any: [pypi]` (§13.4).
