@@ -295,6 +295,10 @@ tool() {
     printf 'node_modules/.bin/%s' "$1"
   elif [ -x ".venv/bin/$1" ]; then
     printf '.venv/bin/%s' "$1"
+  elif [ -n "${FORGE_WS_ROOT:-}" ] && [ "$FORGE_WS_ROOT" != "$(pwd)" ]; then
+    # in a workspace package: the root's install (hoisted by bun, npm and Yarn; uv's .venv)
+    _tw=$(cd "$FORGE_WS_ROOT" && FORGE_WS_ROOT='' tool "$1")
+    case $_tw in ''|bun\ *) printf '%s' "$_tw" ;; *) printf '%s/%s' "$FORGE_WS_ROOT" "$_tw" ;; esac
   fi
 }
 
@@ -642,7 +646,7 @@ FORGE_NCHECKS=11
 forge_check_meta_1() {
   c_id='python/config-ratchet'; c_stage=lint; c_tools='python'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_dirs=''
 }
 forge_scope_1() {
   case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) ;; *) return 1 ;; esac
@@ -657,7 +661,7 @@ forge_ratchet python ratchet.py
 forge_check_meta_2() {
   c_id='python/format'; c_stage=format; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_dirs=''
 }
 forge_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -675,7 +679,7 @@ ruff format $FORGE_FILES
 forge_check_meta_3() {
   c_id='python/lint'; c_stage=lint; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=1
+  c_changed=1; c_files=1; c_fix=1; c_dirs=''
 }
 forge_scope_3() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -696,7 +700,7 @@ ruff check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise
 forge_check_meta_4() {
   c_id='python/pytest/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_dirs=''
 }
 forge_scope_4() {
   case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py) ;; *) return 1 ;; esac
@@ -712,7 +716,7 @@ forge_test_edits
 forge_check_meta_5() {
   c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
   c_when=0; c_localdb=0; c_timeout=300
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_dirs=''
 }
 forge_scope_5() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -730,7 +734,7 @@ if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q 
 forge_check_meta_6() {
   c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=1; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_dirs=''
 }
 forge_scope_6() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -745,7 +749,7 @@ alembic check
 forge_check_meta_7() {
   c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_dirs=''
 }
 forge_scope_7() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
@@ -764,7 +768,7 @@ forge_squawk_alembic $FORGE_FILES
 forge_check_meta_8() {
   c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_dirs=''
 }
 forge_scope_8() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -779,7 +783,7 @@ test "$(alembic heads | wc -l)" -le 1
 forge_check_meta_9() {
   c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_dirs=''
 }
 forge_scope_9() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -794,7 +798,7 @@ basedpyright
 forge_check_meta_10() {
   c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_dirs=''
 }
 forge_scope_10() {
   return 0
@@ -808,7 +812,7 @@ forge_uv_cooldown
 forge_check_meta_11() {
   c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_dirs=''
 }
 forge_scope_11() {
   return 0
@@ -1429,20 +1433,27 @@ forge_exec_tool() {
   "$@"
 }
 
-# forge_has_tool <name>: system runtimes (uv, bun) via PATH, others via tool().
+# forge_has_tool <name>[@<dir>]: system runtimes (uv, bun) via PATH, others via tool()
+# (in workspace package <dir> when given).
 forge_has_tool() {
   case $1 in
+    *@*) ( _fh_root=$(pwd); cd "${1#*@}" 2>/dev/null && FORGE_WS_ROOT=$_fh_root forge_has_tool "${1%%@*}" ) ;;
     uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
 
-# forge_missing_tool: prints the first tool of $c_tools that is absent.
+# forge_missing_tool: prints the first tool of $c_tools that is absent (in a package
+# of $c_dirs: "<tool> (<dir>)").
 forge_missing_tool() {
   _fm_ifs=$IFS
   IFS=' '
   for _fm_t in $c_tools; do
-    if ! forge_has_tool "$_fm_t"; then IFS=$_fm_ifs; printf '%s' "$_fm_t"; return 0; fi
+    if [ -n "${c_dirs:-}" ]; then
+      for _fm_d in $c_dirs; do
+        if ! forge_has_tool "$_fm_t@$_fm_d"; then IFS=$_fm_ifs; printf '%s (%s)' "$_fm_t" "$_fm_d"; return 0; fi
+      done
+    elif ! forge_has_tool "$_fm_t"; then IFS=$_fm_ifs; printf '%s' "$_fm_t"; return 0; fi
   done
   IFS=$_fm_ifs
   return 1
@@ -1581,6 +1592,53 @@ forge_related_py_tests() {
   done | sort -u
 }
 
+# forge_in_dirs <fn> <files|all>: runs <fn> in each workspace package of $c_dirs, with
+# FORGE_WS_ROOT set (tool() falls back to the root's install). "files": only in packages
+# holding files of $FORGE_FILES, given to <fn> relative to the package. Relative paths
+# in the output are made relative to the repository again, so diagnostics are
+# attributed as at the root. Fails if <fn> fails in one package.
+forge_in_dirs() {
+  _fd_root=$(pwd)
+  _fd_rc=0
+  _fd_files=$FORGE_FILES
+  _fd_ifs=$IFS
+  IFS=' '
+  set -- "$1" "$2" $c_dirs
+  IFS=$_fd_ifs
+  _fd_fn=$1
+  _fd_form=$2
+  shift 2
+  for _fd_dir; do
+    FORGE_FILES=$_fd_files
+    if [ "$_fd_form" = files ]; then
+      FORGE_FILES=$(printf '%s\n' "$_fd_files" | awk -v p="$_fd_dir/" 'index($0, p) == 1 { print substr($0, length(p) + 1) }')
+      [ -n "$FORGE_FILES" ] || continue
+    fi
+    ( cd "$_fd_dir" && FORGE_WS_ROOT=$_fd_root && "$_fd_fn" ) > "$FORGE_TMP/dir.out" 2>&1 < /dev/null || _fd_rc=1
+    forge_prefix_paths "$_fd_dir" < "$FORGE_TMP/dir.out"
+  done
+  FORGE_FILES=$_fd_files
+  return "$_fd_rc"
+}
+
+# forge_prefix_paths <dir>: stdin with the relative paths that start a diagnostic
+# (the forms forge_diagnostics reads) prefixed with <dir>/; "../" is resolved.
+forge_prefix_paths() {
+  awk -v d="$1/" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
+    {
+      line = $0
+      gsub(ansi, "", line)
+      match(line, /^[[:space:]]*(-->[[:space:]]*)?(Would reformat: )?/)
+      lead = substr(line, 1, RLENGTH); rest = substr(line, RLENGTH + 1)
+      if (rest !~ /^\// && (rest ~ /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+| format )/ || lead ~ /Would reformat: $/)) {
+        p = d rest
+        while (sub(/(^|\/)[^\/.][^\/]*\/\.\.\//, "/", p)) sub(/^\//, "", p)
+        print lead p
+      } else print $0
+    }'
+}
+
 # forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out.
 forge_exec_check() {
   set -f
@@ -1608,13 +1666,16 @@ forge_exec_check() {
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "none" when no line names a file. With
-# "print", prints the lines that count instead.
+# "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
+# tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
   awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
+      gsub(ansi, "", line)
       if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -1800,7 +1861,8 @@ forge_typecheck() {
 forge_missing_tools() {
   _mt=''
   for _mt_t in $(forge_required_tools); do
-    forge_has_tool "$_mt_t" || _mt="${_mt:+$_mt, }$_mt_t"
+    case $_mt_t in *@*) _mt_n="${_mt_t%%@*} (${_mt_t#*@})" ;; *) _mt_n=$_mt_t ;; esac
+    forge_has_tool "$_mt_t" || _mt="${_mt:+$_mt, }$_mt_n"
   done
   if ! command -v bunx >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then
     _mt="${_mt:+$_mt, }bunx or uvx (ast-grep)"
@@ -1808,12 +1870,12 @@ forge_missing_tools() {
   printf '%s' "$_mt"
 }
 
-# forge_required_tools: every tool the checks use, one per line.
+# forge_required_tools: every tool the checks use, one per line (<tool>@<dir> in a workspace package).
 forge_required_tools() {
   _fq_i=1
   while [ "$_fq_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fq_i"
-    printf '%s\n' "$c_tools" | tr ' ' '\n'
+    printf '%s\n' "$c_tools" | tr ' ' '\n' | awk -v d="$c_dirs" 'NF { if (d == "") print; else { n = split(d, ds, " "); for (i = 1; i <= n; i++) print $0 "@" ds[i] } }'
     _fq_i=$((_fq_i + 1))
   done | awk 'NF && !seen[$0]++'
 }
@@ -1914,7 +1976,7 @@ FORGE_NCHECKS=11
 forge_check_meta_1() {
   c_id='python/config-ratchet'; c_stage=lint; c_tools='python'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_dirs=''
 }
 forge_scope_1() {
   case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) ;; *) return 1 ;; esac
@@ -1929,7 +1991,7 @@ forge_ratchet python ratchet.py
 forge_check_meta_2() {
   c_id='python/format'; c_stage=format; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_dirs=''
 }
 forge_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -1947,7 +2009,7 @@ ruff format $FORGE_FILES
 forge_check_meta_3() {
   c_id='python/lint'; c_stage=lint; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=1
+  c_changed=1; c_files=1; c_fix=1; c_dirs=''
 }
 forge_scope_3() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -1968,7 +2030,7 @@ ruff check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise
 forge_check_meta_4() {
   c_id='python/pytest/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_dirs=''
 }
 forge_scope_4() {
   case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py) ;; *) return 1 ;; esac
@@ -1984,7 +2046,7 @@ forge_test_edits
 forge_check_meta_5() {
   c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
   c_when=0; c_localdb=0; c_timeout=300
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_dirs=''
 }
 forge_scope_5() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -2002,7 +2064,7 @@ if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q 
 forge_check_meta_6() {
   c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=1; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_dirs=''
 }
 forge_scope_6() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -2017,7 +2079,7 @@ alembic check
 forge_check_meta_7() {
   c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_dirs=''
 }
 forge_scope_7() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
@@ -2036,7 +2098,7 @@ forge_squawk_alembic $FORGE_FILES
 forge_check_meta_8() {
   c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_dirs=''
 }
 forge_scope_8() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -2051,7 +2113,7 @@ test "$(alembic heads | wc -l)" -le 1
 forge_check_meta_9() {
   c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_dirs=''
 }
 forge_scope_9() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -2066,7 +2128,7 @@ basedpyright
 forge_check_meta_10() {
   c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_dirs=''
 }
 forge_scope_10() {
   return 0
@@ -2080,7 +2142,7 @@ forge_uv_cooldown
 forge_check_meta_11() {
   c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_dirs=''
 }
 forge_scope_11() {
   return 0
@@ -2701,20 +2763,27 @@ forge_exec_tool() {
   "$@"
 }
 
-# forge_has_tool <name>: system runtimes (uv, bun) via PATH, others via tool().
+# forge_has_tool <name>[@<dir>]: system runtimes (uv, bun) via PATH, others via tool()
+# (in workspace package <dir> when given).
 forge_has_tool() {
   case $1 in
+    *@*) ( _fh_root=$(pwd); cd "${1#*@}" 2>/dev/null && FORGE_WS_ROOT=$_fh_root forge_has_tool "${1%%@*}" ) ;;
     uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
 
-# forge_missing_tool: prints the first tool of $c_tools that is absent.
+# forge_missing_tool: prints the first tool of $c_tools that is absent (in a package
+# of $c_dirs: "<tool> (<dir>)").
 forge_missing_tool() {
   _fm_ifs=$IFS
   IFS=' '
   for _fm_t in $c_tools; do
-    if ! forge_has_tool "$_fm_t"; then IFS=$_fm_ifs; printf '%s' "$_fm_t"; return 0; fi
+    if [ -n "${c_dirs:-}" ]; then
+      for _fm_d in $c_dirs; do
+        if ! forge_has_tool "$_fm_t@$_fm_d"; then IFS=$_fm_ifs; printf '%s (%s)' "$_fm_t" "$_fm_d"; return 0; fi
+      done
+    elif ! forge_has_tool "$_fm_t"; then IFS=$_fm_ifs; printf '%s' "$_fm_t"; return 0; fi
   done
   IFS=$_fm_ifs
   return 1
@@ -2853,6 +2922,53 @@ forge_related_py_tests() {
   done | sort -u
 }
 
+# forge_in_dirs <fn> <files|all>: runs <fn> in each workspace package of $c_dirs, with
+# FORGE_WS_ROOT set (tool() falls back to the root's install). "files": only in packages
+# holding files of $FORGE_FILES, given to <fn> relative to the package. Relative paths
+# in the output are made relative to the repository again, so diagnostics are
+# attributed as at the root. Fails if <fn> fails in one package.
+forge_in_dirs() {
+  _fd_root=$(pwd)
+  _fd_rc=0
+  _fd_files=$FORGE_FILES
+  _fd_ifs=$IFS
+  IFS=' '
+  set -- "$1" "$2" $c_dirs
+  IFS=$_fd_ifs
+  _fd_fn=$1
+  _fd_form=$2
+  shift 2
+  for _fd_dir; do
+    FORGE_FILES=$_fd_files
+    if [ "$_fd_form" = files ]; then
+      FORGE_FILES=$(printf '%s\n' "$_fd_files" | awk -v p="$_fd_dir/" 'index($0, p) == 1 { print substr($0, length(p) + 1) }')
+      [ -n "$FORGE_FILES" ] || continue
+    fi
+    ( cd "$_fd_dir" && FORGE_WS_ROOT=$_fd_root && "$_fd_fn" ) > "$FORGE_TMP/dir.out" 2>&1 < /dev/null || _fd_rc=1
+    forge_prefix_paths "$_fd_dir" < "$FORGE_TMP/dir.out"
+  done
+  FORGE_FILES=$_fd_files
+  return "$_fd_rc"
+}
+
+# forge_prefix_paths <dir>: stdin with the relative paths that start a diagnostic
+# (the forms forge_diagnostics reads) prefixed with <dir>/; "../" is resolved.
+forge_prefix_paths() {
+  awk -v d="$1/" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
+    {
+      line = $0
+      gsub(ansi, "", line)
+      match(line, /^[[:space:]]*(-->[[:space:]]*)?(Would reformat: )?/)
+      lead = substr(line, 1, RLENGTH); rest = substr(line, RLENGTH + 1)
+      if (rest !~ /^\// && (rest ~ /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+| format )/ || lead ~ /Would reformat: $/)) {
+        p = d rest
+        while (sub(/(^|\/)[^\/.][^\/]*\/\.\.\//, "/", p)) sub(/^\//, "", p)
+        print lead p
+      } else print $0
+    }'
+}
+
 # forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out.
 forge_exec_check() {
   set -f
@@ -2880,13 +2996,16 @@ forge_exec_check() {
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "none" when no line names a file. With
-# "print", prints the lines that count instead.
+# "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
+# tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
   awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
+      gsub(ansi, "", line)
       if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -3072,7 +3191,8 @@ forge_typecheck() {
 forge_missing_tools() {
   _mt=''
   for _mt_t in $(forge_required_tools); do
-    forge_has_tool "$_mt_t" || _mt="${_mt:+$_mt, }$_mt_t"
+    case $_mt_t in *@*) _mt_n="${_mt_t%%@*} (${_mt_t#*@})" ;; *) _mt_n=$_mt_t ;; esac
+    forge_has_tool "$_mt_t" || _mt="${_mt:+$_mt, }$_mt_n"
   done
   if ! command -v bunx >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then
     _mt="${_mt:+$_mt, }bunx or uvx (ast-grep)"
@@ -3080,12 +3200,12 @@ forge_missing_tools() {
   printf '%s' "$_mt"
 }
 
-# forge_required_tools: every tool the checks use, one per line.
+# forge_required_tools: every tool the checks use, one per line (<tool>@<dir> in a workspace package).
 forge_required_tools() {
   _fq_i=1
   while [ "$_fq_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fq_i"
-    printf '%s\n' "$c_tools" | tr ' ' '\n'
+    printf '%s\n' "$c_tools" | tr ' ' '\n' | awk -v d="$c_dirs" 'NF { if (d == "") print; else { n = split(d, ds, " "); for (i = 1; i <= n; i++) print $0 "@" ds[i] } }'
     _fq_i=$((_fq_i + 1))
   done | awk 'NF && !seen[$0]++'
 }
@@ -3221,7 +3341,7 @@ FORGE_NCHECKS=11
 forge_check_meta_1() {
   c_id='python/config-ratchet'; c_stage=lint; c_tools='python'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_dirs=''
 }
 forge_scope_1() {
   case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) ;; *) return 1 ;; esac
@@ -3236,7 +3356,7 @@ forge_ratchet python ratchet.py
 forge_check_meta_2() {
   c_id='python/format'; c_stage=format; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_dirs=''
 }
 forge_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -3254,7 +3374,7 @@ ruff format $FORGE_FILES
 forge_check_meta_3() {
   c_id='python/lint'; c_stage=lint; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=1
+  c_changed=1; c_files=1; c_fix=1; c_dirs=''
 }
 forge_scope_3() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -3275,7 +3395,7 @@ ruff check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise
 forge_check_meta_4() {
   c_id='python/pytest/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_dirs=''
 }
 forge_scope_4() {
   case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py) ;; *) return 1 ;; esac
@@ -3291,7 +3411,7 @@ forge_test_edits
 forge_check_meta_5() {
   c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
   c_when=0; c_localdb=0; c_timeout=300
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_dirs=''
 }
 forge_scope_5() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -3309,7 +3429,7 @@ if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q 
 forge_check_meta_6() {
   c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=1; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_dirs=''
 }
 forge_scope_6() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -3324,7 +3444,7 @@ alembic check
 forge_check_meta_7() {
   c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_dirs=''
 }
 forge_scope_7() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
@@ -3343,7 +3463,7 @@ forge_squawk_alembic $FORGE_FILES
 forge_check_meta_8() {
   c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_dirs=''
 }
 forge_scope_8() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -3358,7 +3478,7 @@ test "$(alembic heads | wc -l)" -le 1
 forge_check_meta_9() {
   c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_dirs=''
 }
 forge_scope_9() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -3373,7 +3493,7 @@ basedpyright
 forge_check_meta_10() {
   c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_dirs=''
 }
 forge_scope_10() {
   return 0
@@ -3387,7 +3507,7 @@ forge_uv_cooldown
 forge_check_meta_11() {
   c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_dirs=''
 }
 forge_scope_11() {
   return 0
@@ -4008,20 +4128,27 @@ forge_exec_tool() {
   "$@"
 }
 
-# forge_has_tool <name>: system runtimes (uv, bun) via PATH, others via tool().
+# forge_has_tool <name>[@<dir>]: system runtimes (uv, bun) via PATH, others via tool()
+# (in workspace package <dir> when given).
 forge_has_tool() {
   case $1 in
+    *@*) ( _fh_root=$(pwd); cd "${1#*@}" 2>/dev/null && FORGE_WS_ROOT=$_fh_root forge_has_tool "${1%%@*}" ) ;;
     uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
 
-# forge_missing_tool: prints the first tool of $c_tools that is absent.
+# forge_missing_tool: prints the first tool of $c_tools that is absent (in a package
+# of $c_dirs: "<tool> (<dir>)").
 forge_missing_tool() {
   _fm_ifs=$IFS
   IFS=' '
   for _fm_t in $c_tools; do
-    if ! forge_has_tool "$_fm_t"; then IFS=$_fm_ifs; printf '%s' "$_fm_t"; return 0; fi
+    if [ -n "${c_dirs:-}" ]; then
+      for _fm_d in $c_dirs; do
+        if ! forge_has_tool "$_fm_t@$_fm_d"; then IFS=$_fm_ifs; printf '%s (%s)' "$_fm_t" "$_fm_d"; return 0; fi
+      done
+    elif ! forge_has_tool "$_fm_t"; then IFS=$_fm_ifs; printf '%s' "$_fm_t"; return 0; fi
   done
   IFS=$_fm_ifs
   return 1
@@ -4160,6 +4287,53 @@ forge_related_py_tests() {
   done | sort -u
 }
 
+# forge_in_dirs <fn> <files|all>: runs <fn> in each workspace package of $c_dirs, with
+# FORGE_WS_ROOT set (tool() falls back to the root's install). "files": only in packages
+# holding files of $FORGE_FILES, given to <fn> relative to the package. Relative paths
+# in the output are made relative to the repository again, so diagnostics are
+# attributed as at the root. Fails if <fn> fails in one package.
+forge_in_dirs() {
+  _fd_root=$(pwd)
+  _fd_rc=0
+  _fd_files=$FORGE_FILES
+  _fd_ifs=$IFS
+  IFS=' '
+  set -- "$1" "$2" $c_dirs
+  IFS=$_fd_ifs
+  _fd_fn=$1
+  _fd_form=$2
+  shift 2
+  for _fd_dir; do
+    FORGE_FILES=$_fd_files
+    if [ "$_fd_form" = files ]; then
+      FORGE_FILES=$(printf '%s\n' "$_fd_files" | awk -v p="$_fd_dir/" 'index($0, p) == 1 { print substr($0, length(p) + 1) }')
+      [ -n "$FORGE_FILES" ] || continue
+    fi
+    ( cd "$_fd_dir" && FORGE_WS_ROOT=$_fd_root && "$_fd_fn" ) > "$FORGE_TMP/dir.out" 2>&1 < /dev/null || _fd_rc=1
+    forge_prefix_paths "$_fd_dir" < "$FORGE_TMP/dir.out"
+  done
+  FORGE_FILES=$_fd_files
+  return "$_fd_rc"
+}
+
+# forge_prefix_paths <dir>: stdin with the relative paths that start a diagnostic
+# (the forms forge_diagnostics reads) prefixed with <dir>/; "../" is resolved.
+forge_prefix_paths() {
+  awk -v d="$1/" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
+    {
+      line = $0
+      gsub(ansi, "", line)
+      match(line, /^[[:space:]]*(-->[[:space:]]*)?(Would reformat: )?/)
+      lead = substr(line, 1, RLENGTH); rest = substr(line, RLENGTH + 1)
+      if (rest !~ /^\// && (rest ~ /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+| format )/ || lead ~ /Would reformat: $/)) {
+        p = d rest
+        while (sub(/(^|\/)[^\/.][^\/]*\/\.\.\//, "/", p)) sub(/^\//, "", p)
+        print lead p
+      } else print $0
+    }'
+}
+
 # forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out.
 forge_exec_check() {
   set -f
@@ -4187,13 +4361,16 @@ forge_exec_check() {
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "none" when no line names a file. With
-# "print", prints the lines that count instead.
+# "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
+# tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
   awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
+      gsub(ansi, "", line)
       if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -4379,7 +4556,8 @@ forge_typecheck() {
 forge_missing_tools() {
   _mt=''
   for _mt_t in $(forge_required_tools); do
-    forge_has_tool "$_mt_t" || _mt="${_mt:+$_mt, }$_mt_t"
+    case $_mt_t in *@*) _mt_n="${_mt_t%%@*} (${_mt_t#*@})" ;; *) _mt_n=$_mt_t ;; esac
+    forge_has_tool "$_mt_t" || _mt="${_mt:+$_mt, }$_mt_n"
   done
   if ! command -v bunx >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then
     _mt="${_mt:+$_mt, }bunx or uvx (ast-grep)"
@@ -4387,12 +4565,12 @@ forge_missing_tools() {
   printf '%s' "$_mt"
 }
 
-# forge_required_tools: every tool the checks use, one per line.
+# forge_required_tools: every tool the checks use, one per line (<tool>@<dir> in a workspace package).
 forge_required_tools() {
   _fq_i=1
   while [ "$_fq_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fq_i"
-    printf '%s\n' "$c_tools" | tr ' ' '\n'
+    printf '%s\n' "$c_tools" | tr ' ' '\n' | awk -v d="$c_dirs" 'NF { if (d == "") print; else { n = split(d, ds, " "); for (i = 1; i <= n; i++) print $0 "@" ds[i] } }'
     _fq_i=$((_fq_i + 1))
   done | awk 'NF && !seen[$0]++'
 }
@@ -5159,6 +5337,10 @@ tool() {
     printf 'node_modules/.bin/%s' "$1"
   elif [ -x ".venv/bin/$1" ]; then
     printf '.venv/bin/%s' "$1"
+  elif [ -n "${FORGE_WS_ROOT:-}" ] && [ "$FORGE_WS_ROOT" != "$(pwd)" ]; then
+    # in a workspace package: the root's install (hoisted by bun, npm and Yarn; uv's .venv)
+    _tw=$(cd "$FORGE_WS_ROOT" && FORGE_WS_ROOT='' tool "$1")
+    case $_tw in ''|bun\ *) printf '%s' "$_tw" ;; *) printf '%s/%s' "$FORGE_WS_ROOT" "$_tw" ;; esac
   fi
 }
 
@@ -5454,7 +5636,7 @@ FORGE_NCHECKS=11
 forge_check_meta_1() {
   c_id='python/config-ratchet'; c_stage=lint; c_tools='python'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_dirs=''
 }
 forge_scope_1() {
   case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) ;; *) return 1 ;; esac
@@ -5469,7 +5651,7 @@ forge_ratchet python ratchet.py
 forge_check_meta_2() {
   c_id='python/format'; c_stage=format; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_dirs=''
 }
 forge_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -5487,7 +5669,7 @@ ruff format $FORGE_FILES
 forge_check_meta_3() {
   c_id='python/lint'; c_stage=lint; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=1
+  c_changed=1; c_files=1; c_fix=1; c_dirs=''
 }
 forge_scope_3() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -5508,7 +5690,7 @@ ruff check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise
 forge_check_meta_4() {
   c_id='python/pytest/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_dirs=''
 }
 forge_scope_4() {
   case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py) ;; *) return 1 ;; esac
@@ -5524,7 +5706,7 @@ forge_test_edits
 forge_check_meta_5() {
   c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
   c_when=0; c_localdb=0; c_timeout=300
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_dirs=''
 }
 forge_scope_5() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -5542,7 +5724,7 @@ if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q 
 forge_check_meta_6() {
   c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=1; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_dirs=''
 }
 forge_scope_6() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -5557,7 +5739,7 @@ alembic check
 forge_check_meta_7() {
   c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_dirs=''
 }
 forge_scope_7() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
@@ -5576,7 +5758,7 @@ forge_squawk_alembic $FORGE_FILES
 forge_check_meta_8() {
   c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_dirs=''
 }
 forge_scope_8() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -5591,7 +5773,7 @@ test "$(alembic heads | wc -l)" -le 1
 forge_check_meta_9() {
   c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_dirs=''
 }
 forge_scope_9() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -5606,7 +5788,7 @@ basedpyright
 forge_check_meta_10() {
   c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_dirs=''
 }
 forge_scope_10() {
   return 0
@@ -5620,7 +5802,7 @@ forge_uv_cooldown
 forge_check_meta_11() {
   c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_dirs=''
 }
 forge_scope_11() {
   return 0
@@ -6241,20 +6423,27 @@ forge_exec_tool() {
   "$@"
 }
 
-# forge_has_tool <name>: system runtimes (uv, bun) via PATH, others via tool().
+# forge_has_tool <name>[@<dir>]: system runtimes (uv, bun) via PATH, others via tool()
+# (in workspace package <dir> when given).
 forge_has_tool() {
   case $1 in
+    *@*) ( _fh_root=$(pwd); cd "${1#*@}" 2>/dev/null && FORGE_WS_ROOT=$_fh_root forge_has_tool "${1%%@*}" ) ;;
     uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
 
-# forge_missing_tool: prints the first tool of $c_tools that is absent.
+# forge_missing_tool: prints the first tool of $c_tools that is absent (in a package
+# of $c_dirs: "<tool> (<dir>)").
 forge_missing_tool() {
   _fm_ifs=$IFS
   IFS=' '
   for _fm_t in $c_tools; do
-    if ! forge_has_tool "$_fm_t"; then IFS=$_fm_ifs; printf '%s' "$_fm_t"; return 0; fi
+    if [ -n "${c_dirs:-}" ]; then
+      for _fm_d in $c_dirs; do
+        if ! forge_has_tool "$_fm_t@$_fm_d"; then IFS=$_fm_ifs; printf '%s (%s)' "$_fm_t" "$_fm_d"; return 0; fi
+      done
+    elif ! forge_has_tool "$_fm_t"; then IFS=$_fm_ifs; printf '%s' "$_fm_t"; return 0; fi
   done
   IFS=$_fm_ifs
   return 1
@@ -6393,6 +6582,53 @@ forge_related_py_tests() {
   done | sort -u
 }
 
+# forge_in_dirs <fn> <files|all>: runs <fn> in each workspace package of $c_dirs, with
+# FORGE_WS_ROOT set (tool() falls back to the root's install). "files": only in packages
+# holding files of $FORGE_FILES, given to <fn> relative to the package. Relative paths
+# in the output are made relative to the repository again, so diagnostics are
+# attributed as at the root. Fails if <fn> fails in one package.
+forge_in_dirs() {
+  _fd_root=$(pwd)
+  _fd_rc=0
+  _fd_files=$FORGE_FILES
+  _fd_ifs=$IFS
+  IFS=' '
+  set -- "$1" "$2" $c_dirs
+  IFS=$_fd_ifs
+  _fd_fn=$1
+  _fd_form=$2
+  shift 2
+  for _fd_dir; do
+    FORGE_FILES=$_fd_files
+    if [ "$_fd_form" = files ]; then
+      FORGE_FILES=$(printf '%s\n' "$_fd_files" | awk -v p="$_fd_dir/" 'index($0, p) == 1 { print substr($0, length(p) + 1) }')
+      [ -n "$FORGE_FILES" ] || continue
+    fi
+    ( cd "$_fd_dir" && FORGE_WS_ROOT=$_fd_root && "$_fd_fn" ) > "$FORGE_TMP/dir.out" 2>&1 < /dev/null || _fd_rc=1
+    forge_prefix_paths "$_fd_dir" < "$FORGE_TMP/dir.out"
+  done
+  FORGE_FILES=$_fd_files
+  return "$_fd_rc"
+}
+
+# forge_prefix_paths <dir>: stdin with the relative paths that start a diagnostic
+# (the forms forge_diagnostics reads) prefixed with <dir>/; "../" is resolved.
+forge_prefix_paths() {
+  awk -v d="$1/" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
+    {
+      line = $0
+      gsub(ansi, "", line)
+      match(line, /^[[:space:]]*(-->[[:space:]]*)?(Would reformat: )?/)
+      lead = substr(line, 1, RLENGTH); rest = substr(line, RLENGTH + 1)
+      if (rest !~ /^\// && (rest ~ /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+| format )/ || lead ~ /Would reformat: $/)) {
+        p = d rest
+        while (sub(/(^|\/)[^\/.][^\/]*\/\.\.\//, "/", p)) sub(/^\//, "", p)
+        print lead p
+      } else print $0
+    }'
+}
+
 # forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out.
 forge_exec_check() {
   set -f
@@ -6420,13 +6656,16 @@ forge_exec_check() {
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "none" when no line names a file. With
-# "print", prints the lines that count instead.
+# "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
+# tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
   awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
+      gsub(ansi, "", line)
       if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -6612,7 +6851,8 @@ forge_typecheck() {
 forge_missing_tools() {
   _mt=''
   for _mt_t in $(forge_required_tools); do
-    forge_has_tool "$_mt_t" || _mt="${_mt:+$_mt, }$_mt_t"
+    case $_mt_t in *@*) _mt_n="${_mt_t%%@*} (${_mt_t#*@})" ;; *) _mt_n=$_mt_t ;; esac
+    forge_has_tool "$_mt_t" || _mt="${_mt:+$_mt, }$_mt_n"
   done
   if ! command -v bunx >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then
     _mt="${_mt:+$_mt, }bunx or uvx (ast-grep)"
@@ -6620,12 +6860,12 @@ forge_missing_tools() {
   printf '%s' "$_mt"
 }
 
-# forge_required_tools: every tool the checks use, one per line.
+# forge_required_tools: every tool the checks use, one per line (<tool>@<dir> in a workspace package).
 forge_required_tools() {
   _fq_i=1
   while [ "$_fq_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fq_i"
-    printf '%s\n' "$c_tools" | tr ' ' '\n'
+    printf '%s\n' "$c_tools" | tr ' ' '\n' | awk -v d="$c_dirs" 'NF { if (d == "") print; else { n = split(d, ds, " "); for (i = 1; i <= n; i++) print $0 "@" ds[i] } }'
     _fq_i=$((_fq_i + 1))
   done | awk 'NF && !seen[$0]++'
 }
@@ -7084,13 +7324,13 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/bash-snapshot.sh": "d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8",
     ".claude/skills/forge-project/scripts/guard.rules": "abda384154c0c859546b6aa0e79a6a1a8c4cead27ff82e014fc69de843294b74",
     ".claude/skills/forge-project/scripts/guard.sh": "33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d",
-    ".claude/skills/forge-project/scripts/lib.sh": "1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "54a033730dffff5acd1d2bae2cc86818e3109382b4c512b2d7f14ef5fb83a8ae",
+    ".claude/skills/forge-project/scripts/lib.sh": "3c6d8293b26cbc5e9b5ef601b88b58dc82428b3f4220cb040f1313076c1b3c4a",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "6c45a28329cb3a71b44fb0b5f6c8f5b77d6664a2ebd208159b6c7ad95c385685",
     ".claude/skills/forge-project/scripts/review.sh": "9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac",
-    ".claude/skills/forge-project/scripts/session-start.sh": "ffdbd14991203a7de4a69968abc47ea334e0146fae8f94ee9f3372ed9513967a",
+    ".claude/skills/forge-project/scripts/session-start.sh": "3b32c652ea8844280598948e666472ca4ac4df0efb3ecb151e14180bbf751b6e",
     ".claude/skills/forge-project/scripts/stop.sh": "f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173",
     ".claude/skills/forge-project/scripts/turn-start.sh": "a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "246ebdc30739c7a216e3acace9acfea79fc844a957c7450be6a601b368c7bf3f",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "73bdf540f7053833fa3f27042964e5f32114b3566511cbf4efc8ff4c93757ffb",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml": "69a94f1a0b16aa08bcf758af3e3dc269266cdd808aba1a4289b4c58c7f969700",
     ".forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml": "1589382e5e0b5cae841a8f47dae9f2b3a8583a4bb1074ceb858d882e648e9b49",
@@ -7125,7 +7365,7 @@ exit "$fail"
     ".forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml": "4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0",
     ".forge/ast-grep/rules/python/sqlalchemy/no-text-fstring.yml": "04c44c9e215449d46b10540e86e999ec1d6383d8c3a849855fe73cb456668fca",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "eef45dcd3608fd020057c62f8008e4049281a07834a2d7947f1168da31ad610b",
+    ".forge/check.sh": "8f8fab97925943dbf3c0fb141ff476b55bb8ace502e63908f933755228407163",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -7179,13 +7419,13 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills/forge-project/scripts/bash-snapshot.sh
 abda384154c0c859546b6aa0e79a6a1a8c4cead27ff82e014fc69de843294b74  .claude/skills/forge-project/scripts/guard.rules
 33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d  .claude/skills/forge-project/scripts/guard.sh
-1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a  .claude/skills/forge-project/scripts/lib.sh
-54a033730dffff5acd1d2bae2cc86818e3109382b4c512b2d7f14ef5fb83a8ae  .claude/skills/forge-project/scripts/post-edit.sh
+3c6d8293b26cbc5e9b5ef601b88b58dc82428b3f4220cb040f1313076c1b3c4a  .claude/skills/forge-project/scripts/lib.sh
+6c45a28329cb3a71b44fb0b5f6c8f5b77d6664a2ebd208159b6c7ad95c385685  .claude/skills/forge-project/scripts/post-edit.sh
 9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac  .claude/skills/forge-project/scripts/review.sh
-ffdbd14991203a7de4a69968abc47ea334e0146fae8f94ee9f3372ed9513967a  .claude/skills/forge-project/scripts/session-start.sh
+3b32c652ea8844280598948e666472ca4ac4df0efb3ecb151e14180bbf751b6e  .claude/skills/forge-project/scripts/session-start.sh
 f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173  .claude/skills/forge-project/scripts/stop.sh
 a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c  .claude/skills/forge-project/scripts/turn-start.sh
-246ebdc30739c7a216e3acace9acfea79fc844a957c7450be6a601b368c7bf3f  .claude/skills/forge-project/scripts/typecheck.sh
+73bdf540f7053833fa3f27042964e5f32114b3566511cbf4efc8ff4c93757ffb  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 69a94f1a0b16aa08bcf758af3e3dc269266cdd808aba1a4289b4c58c7f969700  .forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml
 1589382e5e0b5cae841a8f47dae9f2b3a8583a4bb1074ceb858d882e648e9b49  .forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml
@@ -7220,7 +7460,7 @@ e1a15384665afb7aae24664c55f4d81523622a6ef117385b17f806bc30cd3c3f  .forge/ast-gre
 4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0  .forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml
 04c44c9e215449d46b10540e86e999ec1d6383d8c3a849855fe73cb456668fca  .forge/ast-grep/rules/python/sqlalchemy/no-text-fstring.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-eef45dcd3608fd020057c62f8008e4049281a07834a2d7947f1168da31ad610b  .forge/check.sh
+8f8fab97925943dbf3c0fb141ff476b55bb8ace502e63908f933755228407163  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

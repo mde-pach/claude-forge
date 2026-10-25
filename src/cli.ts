@@ -332,7 +332,7 @@ function cmdApply(flags: Flags): number {
   const changed = ch.writes.length + ch.deletes.length + ch.settings.length;
   out(changed ? `forge: applied (${ch.writes.length} written, ${ch.deletes.length} deleted, ${ch.settings.length} settings file(s) updated)` : "forge: up to date");
   if (ctx.level === "project") {
-    const audits = auditRules(ctx.base, ctx.plan.active);
+    const audits = auditRules(ctx.base, ctx.plan.active, (t) => ctx.plan.toolDirs[t]);
     for (const a of audits.filter((x) => x.status === "unsatisfied")) out(formatAudit(a));
     if (!existsSync(join(ctx.base, preCommitPath(ctx.base))) && !ctx.plan.files.has(preCommitPath(ctx.base))) out(preCommitHint(ctx.base));
   }
@@ -425,7 +425,8 @@ const UNSATISFIED: Record<string, string> = {
 
 /** Whether each active rule is actually enforced in this project, and why not. */
 function enforcement(ctx: Ctx, audits: AuditResult[], missing: string[]): Enforcement[] {
-  const absent = new Set(missing);
+  // "tsc (packages/app)": missing in a workspace package
+  const absent = new Set(missing.map((m) => m.replace(/ \(.*\)$/, "")));
   return ctx.plan.active.map((st) => {
     const by: string[] = [];
     const not: string[] = [];
@@ -463,7 +464,7 @@ function enforcementSummary(rules: Enforcement[]): string {
 function cmdStatus(flags: Flags): number {
   const ctx = context(flags);
   const p = ctx.plan;
-  const audits = ctx.level === "project" ? auditRules(ctx.base, p.active) : [];
+  const audits = ctx.level === "project" ? auditRules(ctx.base, p.active, (t) => p.toolDirs[t]) : [];
   const missing = missingTools(ctx);
   const rules = enforcement(ctx, audits, missing);
   if (flags.json) {
@@ -568,7 +569,7 @@ function cmdExplain(id: string | undefined, flags: Flags): number {
     for (const e of st.enforced) out(`  ${e}`);
     for (const n of st.notEnforced) out(`  ${n}`);
     if (!st.enforced.length) out("  nowhere");
-    if (ctx.level === "project") for (const t of st.audits) out(formatAudit(auditTarget(ctx.base, st.rule, t)));
+    if (ctx.level === "project") for (const t of st.audits) out(formatAudit(auditTarget(join(ctx.base, ctx.plan.toolDirs[t.tool]), st.rule, t, ctx.base)));
   }
   return 0;
 }

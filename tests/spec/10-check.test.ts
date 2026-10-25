@@ -380,6 +380,72 @@ describe("errors in unchanged files", () => {
 
 
 /**
+ * In a monorepo whose TypeScript config lives in a workspace package
+ * (`packages/core/tsconfig.json`, `biome.json`), the checks run in that package,
+ * with the tools installed there (pnpm) or hoisted to the root (npm, Yarn, Bun).
+ * Diagnostics name repository paths, so they are attributed as at the root.
+ */
+describe("workspace packages", () => {
+  /** The pnpm workspace sample with a type error committed in packages/core/src/legacy.ts; tools in the package or at the root. */
+  function workspaceRepo(tools: "package" | "root"): string {
+    ensureTools();
+    const r = sampleRepo("pnpm-workspace-app");
+    linkTools(tools === "package" ? join(r, "packages/core") : r, "node");
+    put(r, "packages/core/src/legacy.ts", 'export const legacy: number = "oops";\n');
+    commitAll(r, "legacy");
+    expect(forge(["apply", "--yes"], r).status).toBe(0);
+    commitAll(r, "forge");
+    return r;
+  }
+
+  /** @rule typescript/typecheck */
+  test.if(hasBun)(
+    "the type check runs in the package: an error in a changed file fails with its repository path, one in an unchanged file does not block",
+    () => {
+      const r = workspaceRepo("package");
+      put(r, "packages/core/src/ok.ts", "export const ok: number = 1;\n");
+      const ok = sh("sh", [".forge/check.sh", "--changed"], { cwd: r });
+      expect(ok.stdout).toContain("forge:typescript/typecheck ok for the changed files (errors remain in unchanged files");
+      expect(ok.stdout).not.toContain("tsc (packages/core) not installed");
+      put(r, "packages/core/src/ok.ts", 'export const ok: number = "no";\n');
+      const bad = sh("sh", [".forge/check.sh", "--changed"], { cwd: r });
+      expect(bad.status).toBe(1);
+      expect(bad.stdout).toContain("forge:typescript/typecheck failed\npackages/core/src/ok.ts(1,14): error TS2322");
+      expect(bad.stdout).not.toContain("legacy.ts");
+    },
+    T,
+  );
+
+  /** @rule typescript/format-lint */
+  test.if(hasBun)(
+    "Biome runs in the package with its config, on the changed files, and its findings name repository paths",
+    () => {
+      const r = workspaceRepo("package");
+      put(r, "packages/core/src/ok.ts", "export const ok: any = 1;\n");
+      const c = sh("sh", [".forge/check.sh", "--changed"], { cwd: r });
+      expect(c.status).toBe(1);
+      expect(c.stdout).toContain("forge:typescript/format-lint failed\npackages/core/src/ok.ts:1:18 lint/suspicious/noExplicitAny");
+    },
+    T,
+  );
+
+  /** @rule typescript/typecheck */
+  test.if(hasBun)(
+    "tools hoisted to the root's node_modules are used in the package",
+    () => {
+      const r = workspaceRepo("root");
+      put(r, "packages/core/src/ok.ts", 'export const ok: number = "no";\n');
+      const c = sh("sh", [".forge/check.sh", "--changed"], { cwd: r });
+      expect(c.stdout).toContain("forge:typescript/typecheck failed\npackages/core/src/ok.ts(1,14): error TS2322");
+      const status = forge(["status"], r).stdout;
+      expect(status).not.toContain("tsc (packages/core)");
+      expect(status).not.toContain("biome (packages/core)");
+    },
+    T,
+  );
+});
+
+/**
  * Outside `--all`, a forbid rule or a lint finding counts only on a line the
  * change added (`git diff -U0` against the base; an edited line counts, moved code
  * counts, a new file counts fully): code that was already there is not this

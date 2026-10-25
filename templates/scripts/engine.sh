@@ -578,20 +578,27 @@ forge_exec_tool() {
   "$@"
 }
 
-# forge_has_tool <name>: system runtimes (uv, bun) via PATH, others via tool().
+# forge_has_tool <name>[@<dir>]: system runtimes (uv, bun) via PATH, others via tool()
+# (in workspace package <dir> when given).
 forge_has_tool() {
   case $1 in
+    *@*) ( _fh_root=$(pwd); cd "${1#*@}" 2>/dev/null && FORGE_WS_ROOT=$_fh_root forge_has_tool "${1%%@*}" ) ;;
     uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
 
-# forge_missing_tool: prints the first tool of $c_tools that is absent.
+# forge_missing_tool: prints the first tool of $c_tools that is absent (in a package
+# of $c_dirs: "<tool> (<dir>)").
 forge_missing_tool() {
   _fm_ifs=$IFS
   IFS=' '
   for _fm_t in $c_tools; do
-    if ! forge_has_tool "$_fm_t"; then IFS=$_fm_ifs; printf '%s' "$_fm_t"; return 0; fi
+    if [ -n "${c_dirs:-}" ]; then
+      for _fm_d in $c_dirs; do
+        if ! forge_has_tool "$_fm_t@$_fm_d"; then IFS=$_fm_ifs; printf '%s (%s)' "$_fm_t" "$_fm_d"; return 0; fi
+      done
+    elif ! forge_has_tool "$_fm_t"; then IFS=$_fm_ifs; printf '%s' "$_fm_t"; return 0; fi
   done
   IFS=$_fm_ifs
   return 1
@@ -728,6 +735,53 @@ forge_related_py_tests() {
       *) [ -d tests ] && find tests -type f -name "test_${_fr_b%.py}.py" 2>/dev/null ;;
     esac
   done | sort -u
+}
+
+# forge_in_dirs <fn> <files|all>: runs <fn> in each workspace package of $c_dirs, with
+# FORGE_WS_ROOT set (tool() falls back to the root's install). "files": only in packages
+# holding files of $FORGE_FILES, given to <fn> relative to the package. Relative paths
+# in the output are made relative to the repository again, so diagnostics are
+# attributed as at the root. Fails if <fn> fails in one package.
+forge_in_dirs() {
+  _fd_root=$(pwd)
+  _fd_rc=0
+  _fd_files=$FORGE_FILES
+  _fd_ifs=$IFS
+  IFS=' '
+  set -- "$1" "$2" $c_dirs
+  IFS=$_fd_ifs
+  _fd_fn=$1
+  _fd_form=$2
+  shift 2
+  for _fd_dir; do
+    FORGE_FILES=$_fd_files
+    if [ "$_fd_form" = files ]; then
+      FORGE_FILES=$(printf '%s\n' "$_fd_files" | awk -v p="$_fd_dir/" 'index($0, p) == 1 { print substr($0, length(p) + 1) }')
+      [ -n "$FORGE_FILES" ] || continue
+    fi
+    ( cd "$_fd_dir" && FORGE_WS_ROOT=$_fd_root && "$_fd_fn" ) > "$FORGE_TMP/dir.out" 2>&1 < /dev/null || _fd_rc=1
+    forge_prefix_paths "$_fd_dir" < "$FORGE_TMP/dir.out"
+  done
+  FORGE_FILES=$_fd_files
+  return "$_fd_rc"
+}
+
+# forge_prefix_paths <dir>: stdin with the relative paths that start a diagnostic
+# (the forms forge_diagnostics reads) prefixed with <dir>/; "../" is resolved.
+forge_prefix_paths() {
+  awk -v d="$1/" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
+    {
+      line = $0
+      gsub(ansi, "", line)
+      match(line, /^[[:space:]]*(-->[[:space:]]*)?(Would reformat: )?/)
+      lead = substr(line, 1, RLENGTH); rest = substr(line, RLENGTH + 1)
+      if (rest !~ /^\// && (rest ~ /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+| format )/ || lead ~ /Would reformat: $/)) {
+        p = d rest
+        while (sub(/(^|\/)[^\/.][^\/]*\/\.\.\//, "/", p)) sub(/^\//, "", p)
+        print lead p
+      } else print $0
+    }'
 }
 
 # forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out.
@@ -952,7 +1006,8 @@ forge_typecheck() {
 forge_missing_tools() {
   _mt=''
   for _mt_t in $(forge_required_tools); do
-    forge_has_tool "$_mt_t" || _mt="${_mt:+$_mt, }$_mt_t"
+    case $_mt_t in *@*) _mt_n="${_mt_t%%@*} (${_mt_t#*@})" ;; *) _mt_n=$_mt_t ;; esac
+    forge_has_tool "$_mt_t" || _mt="${_mt:+$_mt, }$_mt_n"
   done
   if ! command -v bunx >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then
     _mt="${_mt:+$_mt, }bunx or uvx (ast-grep)"
@@ -960,12 +1015,12 @@ forge_missing_tools() {
   printf '%s' "$_mt"
 }
 
-# forge_required_tools: every tool the checks use, one per line.
+# forge_required_tools: every tool the checks use, one per line (<tool>@<dir> in a workspace package).
 forge_required_tools() {
   _fq_i=1
   while [ "$_fq_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fq_i"
-    printf '%s\n' "$c_tools" | tr ' ' '\n'
+    printf '%s\n' "$c_tools" | tr ' ' '\n' | awk -v d="$c_dirs" 'NF { if (d == "") print; else { n = split(d, ds, " "); for (i = 1; i <= n; i++) print $0 "@" ds[i] } }'
     _fq_i=$((_fq_i + 1))
   done | awk 'NF && !seen[$0]++'
 }

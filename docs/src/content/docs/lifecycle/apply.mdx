@@ -18,6 +18,12 @@ Packs are a tree: language, then package, then sub-package. See any [pack page](
 
 <Spec file="05-inputs" describe="the pack tree" />
 
+### Monorepos
+
+In a workspace (pnpm, npm, Yarn, Bun or uv), detection also reads each workspace package: its manifest, its dependencies and its files. A check whose tool is configured in a package rather than at the root runs in that package.
+
+<Spec file="05-inputs" describe="workspaces" />
+
 ## What each rule becomes
 
 <Spec file="06-rules" />

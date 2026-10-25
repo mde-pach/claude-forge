@@ -68,6 +68,11 @@ Everything in §3–§14 is implemented. §14.1–§14.3 and everything else lis
 15. **A sandbox that cannot start (R8).** `sandboxProblem` in `cli.ts`: on Linux, with `sandbox.enabled` in the plan, `apply --user` and `status --user` probe bubblewrap (with `--proc /proc`, as Claude Code's sandbox mounts one: Docker's masked `/proc` let the probe pass while the real sandbox failed with "Can't mount proc"; the remedy names `--security-opt systempaths=unconfined`) and say what is wrong and the two ways out. Checked here with a real `bwrap` (works in this container) and, in the tests, a stand-in `bwrap` that fails like Docker's default profile.
 16. **Failed Bash commands are checked too.** A Bash command that fails or is interrupted fires PostToolUseFailure, not PostToolUse (verified live on 2.1.308: `error`, `is_interrupt` in the input; `additionalContext` and `asyncRewake` honoured). post-edit.sh and typecheck.sh are wired there with matcher `Bash` (a failed Edit or Write changes nothing), so partial writes are checked and the snapshot is consumed; post-edit.sh answers with the event name it received.
 
+**Fixes from the Docker experiment on real repositories (forge/fix-cli):**
+
+1. Sandbox probe with `--proc /proc` (item 15 above).
+2. **Workspaces (§5.1).** `readProjectFacts` (`src/packs.ts`) reads workspace packages (`workspaceDirs`: pnpm, package.json `workspaces`, uv members, else `packages/*`); `ProjectFacts` keeps the merged view plus `root` and `workspaces`. `toolPlaces` / `checkPlace` (`src/plan.ts`) decide where each check runs; `ActiveCheck.dirs` renders `c_dirs` and `forge_check_*_<n>() { forge_in_dirs …_dir <form>; }` (`engine.sh`: `forge_in_dirs`, `forge_prefix_paths`; `forge_has_tool tool@dir`; `lib.sh` `tool()` falls back to `$FORGE_WS_ROOT`). Sample `tests/generator/pnpm-workspace-app` (inngest-js layout: config only in `packages/core`). Limits in SPECS §5.1.
+
 ## Remaining
 
 1. **Run the E2E harness** (`tests/e2e/README.md`) in a real container; expect to tune a few regexes and prompts on the first real run.

@@ -16,7 +16,7 @@ import { join } from "node:path";
 import { lineage, loadPacks } from "../../src/packs";
 import { plan, readProjectInputs } from "../../src/plan";
 import { parseStrictYaml } from "../../src/yaml";
-import { applied, forge, put, ROOT, sampleRepo } from "../helpers";
+import { applied, forge, put, ROOT, sampleRepo, sh } from "../helpers";
 
 const T = 120_000;
 const PACKS = loadPacks(join(ROOT, "packs"));
@@ -205,6 +205,55 @@ examples:
     },
     T,
   );
+});
+
+/**
+ * In a monorepo the project's config often lives in workspace packages
+ * (`packages/app/tsconfig.json`, its own `package.json`), not at the root.
+ * Detection also looks inside the packages a workspace declares, and checks run
+ * where their tool is configured.
+ */
+describe("workspaces", () => {
+  /** A repository from files, its plan. */
+  function planOf(files: Record<string, string>) {
+    const repo = mkdtempSync(join(tmpdir(), "forge-ws-"));
+    for (const [rel, text] of Object.entries(files)) put(repo, rel, text);
+    sh("git", ["init", "-q"], { cwd: repo });
+    return plan({ level: "project", base: repo, packs: PACKS, ...readProjectInputs(repo) });
+  }
+  const TS = { "tsconfig.json": "{}\n", "package.json": '{"name": "app", "devDependencies": {"vitest": "4.0.8"}}\n' };
+  const inDir = (dir: string, files: Record<string, string>) => Object.fromEntries(Object.entries(files).map(([k, v]) => [`${dir}/${k}`, v]));
+
+  test("packs are detected inside the packages of pnpm-workspace.yaml, with their dependencies", () => {
+    const p = planOf({ "package.json": '{"name": "mono", "private": true}\n', "pnpm-workspace.yaml": "packages:\n  - 'libs/*'\n", ...inDir("libs/core", TS) });
+    expect(p.packs.map((x) => x.id)).toEqual(["typescript", "typescript/vitest"]);
+  });
+
+  test("package.json workspaces (npm, Yarn, Bun) and uv workspace members declare packages too; excluded ones are not read", () => {
+    const npm = planOf({ "package.json": '{"name": "mono", "workspaces": ["apps/*"]}\n', ...inDir("apps/web", TS), ...inDir("other/x", { "package.json": '{"dependencies": {"zod": "4.0.0"}}\n' }) });
+    expect(npm.packs.map((x) => x.id)).toEqual(["typescript", "typescript/vitest"]);
+    const yarn = planOf({ "package.json": '{"name": "mono", "workspaces": {"packages": ["apps/*"]}}\n', ...inDir("apps/web", TS) });
+    expect(yarn.packs.map((x) => x.id)).toContain("typescript");
+    const uv = planOf({
+      "pyproject.toml": '[project]\nname = "mono"\n\n[tool.uv.workspace]\nmembers = ["services/*"]\nexclude = ["services/old"]\n',
+      "services/api/pyproject.toml": '[project]\nname = "api"\ndependencies = ["fastapi>=0.115"]\n',
+      "services/old/pyproject.toml": '[project]\nname = "old"\ndependencies = ["pytest>=8"]\n',
+    });
+    expect(uv.packs.map((x) => x.id)).toEqual(["python", "python/fastapi", "python/pydantic"]);
+  });
+
+  test("without a workspace declaration, packages/* are read", () => {
+    expect(planOf(inDir("packages/lib", TS)).packs.map((x) => x.id)).toEqual(["typescript", "typescript/vitest"]);
+  });
+
+  test("a check whose tool is configured in a package runs there; at the root, as before, when the root configures it", () => {
+    const ws = planOf({ "package.json": '{"name": "mono"}\n', "pnpm-workspace.yaml": "packages: [packages/*]\n", ...inDir("packages/a", TS), ...inDir("packages/b", TS) });
+    const typecheck = ws.active.find((s) => s.rule.id === "typescript/typecheck")!;
+    expect(typecheck.enforced).toEqual(["check typecheck: tsc --noEmit -p tsconfig.json (in packages/a, packages/b)"]);
+    expect(ws.files.get(".forge/check.sh")).toContain("c_dirs='packages/a packages/b'");
+    const root = planOf({ ...TS, "pnpm-workspace.yaml": "packages: [packages/*]\n", ...inDir("packages/a", TS) });
+    expect(root.active.find((s) => s.rule.id === "typescript/typecheck")!.enforced).toEqual(["check typecheck: tsc --noEmit -p tsconfig.json"]);
+  });
 });
 
 describe("strict YAML", () => {
