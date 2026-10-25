@@ -895,8 +895,8 @@ context.md: `<script setup lang="ts">`, `vue-tsc` for `.vue` types, `:key` with 
 
 | Rule | Targets |
 |---|---|
-| `typescript/vue/nuxt/server-validate` | `ast-grep` forbid in `server/**`: `readBody(…)`, `getQuery(…)`, `getRouterParams(…)` (h3's `readValidatedBody`, `getValidatedQuery`, `getValidatedRouterParams` instead) |
-| `typescript/vue/nuxt/no-public-secret` | `ast-grep` forbid in `nuxt.config.*`: a key under `runtimeConfig.public` whose name contains `secret`, `private`, `password`, `service_role` / `serviceRole` or `database_url` / `databaseUrl` (any case) |
+| `typescript/vue/nuxt/server-validate` | `ast-grep` forbid in `server/**`: `readBody(…)`, `readFormData(…)`, `readMultipartFormData(…)`, `getQuery(…)`, `getRouterParams(…)`, `getRouterParam(…)` (h3's `readValidatedBody`, `getValidatedQuery`, `getValidatedRouterParams` instead), unless the call (or its `await`) is passed straight to `X.parse` / `safeParse` / `parseAsync` / `safeParseAsync` (not on `JSON`, `Date`, `Number`, `URL`) |
+| `typescript/vue/nuxt/no-public-secret` | `ast-grep` forbid in `nuxt.config.*`: a key under `runtimeConfig.public` whose name contains `secret`, `private`, `password` / `passwd`, `credential`, `token`, `api_key` / `apiKey`, `access_key`, `auth_key`, `service_role`, `dsn` or `database_url` (case-insensitive), unless it also says `publishable`, `public`, `anon` or `site_key` |
 
 context.md: validated h3 readers in server routes; `runtimeConfig.public` reaches the browser; `vue-tsc` after `nuxt prepare`.
 
