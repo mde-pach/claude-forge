@@ -674,16 +674,16 @@ forge_sha256() {
 tree_hash() {
   {
     if git rev-parse --verify -q HEAD >/dev/null; then git diff HEAD --binary 2>/dev/null; else git diff --cached --binary 2>/dev/null; fi
-    git ls-files --others --exclude-standard 2>/dev/null | while IFS= read -r _th_f; do
+    git ls-files -z --others --exclude-standard 2>/dev/null | tr '\000' '\n' | while IFS= read -r _th_f; do
       printf '%s ' "$_th_f"; git hash-object -- "$_th_f" 2>/dev/null || printf '\n'
     done
   } | forge_sha256
 }
 
-# status_paths: changed paths (staged, unstaged, untracked; renames as delete + add), one per line.
+# status_paths: changed paths (staged, unstaged, untracked; renames as delete + add),
+# one per line, as they are (-z: git quotes non-ASCII names otherwise).
 status_paths() {
-  git status --porcelain --no-renames --untracked-files=all 2>/dev/null \
-    | sed -e 's/^...//' -e 's/^"\(.*\)"$/\1/'
+  git status --porcelain -z --no-renames --untracked-files=all 2>/dev/null | tr '\000' '\n' | sed 's/^...//'
 }
 
 # snapshot <dir>: the working tree at the start of a turn, for the Stop hook:
@@ -1459,12 +1459,12 @@ forge_change_set() {
   case $mode in
     --turn)
       { status_paths; cut -f 1 "$FORGE_SNAP/dirty" 2>/dev/null
-        [ -n "$FORGE_BASE_REV" ] && git diff --name-only --no-renames "$FORGE_BASE_REV" HEAD 2>/dev/null
+        [ -n "$FORGE_BASE_REV" ] && git diff --name-only -z --no-renames "$FORGE_BASE_REV" HEAD 2>/dev/null | tr '\000' '\n'
       } | sort -u | while IFS= read -r _cs_f; do
         [ -n "$_cs_f" ] && [ "$(now_hash "$_cs_f")" != "$(base_hash "$_cs_f")" ] && printf '%s\n' "$_cs_f"
       done ;;
     --since)
-      { git diff --name-only --no-renames "$FORGE_BASE_REV" 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null; } | sort -u ;;
+      { git diff --name-only -z --no-renames "$FORGE_BASE_REV" 2>/dev/null; git ls-files -z --others --exclude-standard 2>/dev/null; } | tr '\000' '\n' | sort -u ;;
     *) status_paths | sort -u ;;
   esac > "$FORGE_TMP/changed"
   : > "$FORGE_TMP/existing"; : > "$FORGE_TMP/deleted"; : > "$FORGE_TMP/inbase"; : > "$FORGE_TMP/added"
@@ -3573,7 +3573,7 @@ forge_env_errors() {
 # The repository, its index, its stash and its working tree are not touched.
 forge_base_tree() {
   mkdir -p "$1" || return 1
-  git ls-files --cached --others --exclude-standard 2>/dev/null | while IFS= read -r _bt_f; do
+  git ls-files -z --cached --others --exclude-standard 2>/dev/null | tr '\000' '\n' | while IFS= read -r _bt_f; do
     if [ -f "$_bt_f" ] || [ -L "$_bt_f" ]; then printf '%s\n' "$_bt_f"; fi
   done > "$FORGE_TMP/base-tree.files"
   tar -cf - -T "$FORGE_TMP/base-tree.files" 2>/dev/null | ( cd "$1" && tar -xf - ) || return 1
@@ -3581,7 +3581,7 @@ forge_base_tree() {
     rm -f "$1/$_bt_f"
     if [ -f "$FORGE_TMP/base/$_bt_f" ]; then mkdir -p "$1/$(dirname "$_bt_f")" && cp "$FORGE_TMP/base/$_bt_f" "$1/$_bt_f"; fi
   done < "$FORGE_TMP/changed"
-  git ls-files --others --ignored --exclude-standard --directory 2>/dev/null | while IFS= read -r _bt_f; do
+  git ls-files -z --others --ignored --exclude-standard --directory 2>/dev/null | tr '\000' '\n' | while IFS= read -r _bt_f; do
     _bt_f=${_bt_f%/}
     case $_bt_f in ''|.forge/state|.forge/state/*) continue ;; esac
     if [ -e "$1/$_bt_f" ] || [ -L "$1/$_bt_f" ]; then continue; fi
@@ -4450,12 +4450,12 @@ forge_change_set() {
   case $mode in
     --turn)
       { status_paths; cut -f 1 "$FORGE_SNAP/dirty" 2>/dev/null
-        [ -n "$FORGE_BASE_REV" ] && git diff --name-only --no-renames "$FORGE_BASE_REV" HEAD 2>/dev/null
+        [ -n "$FORGE_BASE_REV" ] && git diff --name-only -z --no-renames "$FORGE_BASE_REV" HEAD 2>/dev/null | tr '\000' '\n'
       } | sort -u | while IFS= read -r _cs_f; do
         [ -n "$_cs_f" ] && [ "$(now_hash "$_cs_f")" != "$(base_hash "$_cs_f")" ] && printf '%s\n' "$_cs_f"
       done ;;
     --since)
-      { git diff --name-only --no-renames "$FORGE_BASE_REV" 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null; } | sort -u ;;
+      { git diff --name-only -z --no-renames "$FORGE_BASE_REV" 2>/dev/null; git ls-files -z --others --exclude-standard 2>/dev/null; } | tr '\000' '\n' | sort -u ;;
     *) status_paths | sort -u ;;
   esac > "$FORGE_TMP/changed"
   : > "$FORGE_TMP/existing"; : > "$FORGE_TMP/deleted"; : > "$FORGE_TMP/inbase"; : > "$FORGE_TMP/added"
@@ -6564,7 +6564,7 @@ forge_env_errors() {
 # The repository, its index, its stash and its working tree are not touched.
 forge_base_tree() {
   mkdir -p "$1" || return 1
-  git ls-files --cached --others --exclude-standard 2>/dev/null | while IFS= read -r _bt_f; do
+  git ls-files -z --cached --others --exclude-standard 2>/dev/null | tr '\000' '\n' | while IFS= read -r _bt_f; do
     if [ -f "$_bt_f" ] || [ -L "$_bt_f" ]; then printf '%s\n' "$_bt_f"; fi
   done > "$FORGE_TMP/base-tree.files"
   tar -cf - -T "$FORGE_TMP/base-tree.files" 2>/dev/null | ( cd "$1" && tar -xf - ) || return 1
@@ -6572,7 +6572,7 @@ forge_base_tree() {
     rm -f "$1/$_bt_f"
     if [ -f "$FORGE_TMP/base/$_bt_f" ]; then mkdir -p "$1/$(dirname "$_bt_f")" && cp "$FORGE_TMP/base/$_bt_f" "$1/$_bt_f"; fi
   done < "$FORGE_TMP/changed"
-  git ls-files --others --ignored --exclude-standard --directory 2>/dev/null | while IFS= read -r _bt_f; do
+  git ls-files -z --others --ignored --exclude-standard --directory 2>/dev/null | tr '\000' '\n' | while IFS= read -r _bt_f; do
     _bt_f=${_bt_f%/}
     case $_bt_f in ''|.forge/state|.forge/state/*) continue ;; esac
     if [ -e "$1/$_bt_f" ] || [ -L "$1/$_bt_f" ]; then continue; fi
@@ -7457,12 +7457,12 @@ forge_change_set() {
   case $mode in
     --turn)
       { status_paths; cut -f 1 "$FORGE_SNAP/dirty" 2>/dev/null
-        [ -n "$FORGE_BASE_REV" ] && git diff --name-only --no-renames "$FORGE_BASE_REV" HEAD 2>/dev/null
+        [ -n "$FORGE_BASE_REV" ] && git diff --name-only -z --no-renames "$FORGE_BASE_REV" HEAD 2>/dev/null | tr '\000' '\n'
       } | sort -u | while IFS= read -r _cs_f; do
         [ -n "$_cs_f" ] && [ "$(now_hash "$_cs_f")" != "$(base_hash "$_cs_f")" ] && printf '%s\n' "$_cs_f"
       done ;;
     --since)
-      { git diff --name-only --no-renames "$FORGE_BASE_REV" 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null; } | sort -u ;;
+      { git diff --name-only -z --no-renames "$FORGE_BASE_REV" 2>/dev/null; git ls-files -z --others --exclude-standard 2>/dev/null; } | tr '\000' '\n' | sort -u ;;
     *) status_paths | sort -u ;;
   esac > "$FORGE_TMP/changed"
   : > "$FORGE_TMP/existing"; : > "$FORGE_TMP/deleted"; : > "$FORGE_TMP/inbase"; : > "$FORGE_TMP/added"
@@ -9571,7 +9571,7 @@ forge_env_errors() {
 # The repository, its index, its stash and its working tree are not touched.
 forge_base_tree() {
   mkdir -p "$1" || return 1
-  git ls-files --cached --others --exclude-standard 2>/dev/null | while IFS= read -r _bt_f; do
+  git ls-files -z --cached --others --exclude-standard 2>/dev/null | tr '\000' '\n' | while IFS= read -r _bt_f; do
     if [ -f "$_bt_f" ] || [ -L "$_bt_f" ]; then printf '%s\n' "$_bt_f"; fi
   done > "$FORGE_TMP/base-tree.files"
   tar -cf - -T "$FORGE_TMP/base-tree.files" 2>/dev/null | ( cd "$1" && tar -xf - ) || return 1
@@ -9579,7 +9579,7 @@ forge_base_tree() {
     rm -f "$1/$_bt_f"
     if [ -f "$FORGE_TMP/base/$_bt_f" ]; then mkdir -p "$1/$(dirname "$_bt_f")" && cp "$FORGE_TMP/base/$_bt_f" "$1/$_bt_f"; fi
   done < "$FORGE_TMP/changed"
-  git ls-files --others --ignored --exclude-standard --directory 2>/dev/null | while IFS= read -r _bt_f; do
+  git ls-files -z --others --ignored --exclude-standard --directory 2>/dev/null | tr '\000' '\n' | while IFS= read -r _bt_f; do
     _bt_f=${_bt_f%/}
     case $_bt_f in ''|.forge/state|.forge/state/*) continue ;; esac
     if [ -e "$1/$_bt_f" ] || [ -L "$1/$_bt_f" ]; then continue; fi
@@ -10489,12 +10489,12 @@ forge_change_set() {
   case $mode in
     --turn)
       { status_paths; cut -f 1 "$FORGE_SNAP/dirty" 2>/dev/null
-        [ -n "$FORGE_BASE_REV" ] && git diff --name-only --no-renames "$FORGE_BASE_REV" HEAD 2>/dev/null
+        [ -n "$FORGE_BASE_REV" ] && git diff --name-only -z --no-renames "$FORGE_BASE_REV" HEAD 2>/dev/null | tr '\000' '\n'
       } | sort -u | while IFS= read -r _cs_f; do
         [ -n "$_cs_f" ] && [ "$(now_hash "$_cs_f")" != "$(base_hash "$_cs_f")" ] && printf '%s\n' "$_cs_f"
       done ;;
     --since)
-      { git diff --name-only --no-renames "$FORGE_BASE_REV" 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null; } | sort -u ;;
+      { git diff --name-only -z --no-renames "$FORGE_BASE_REV" 2>/dev/null; git ls-files -z --others --exclude-standard 2>/dev/null; } | tr '\000' '\n' | sort -u ;;
     *) status_paths | sort -u ;;
   esac > "$FORGE_TMP/changed"
   : > "$FORGE_TMP/existing"; : > "$FORGE_TMP/deleted"; : > "$FORGE_TMP/inbase"; : > "$FORGE_TMP/added"
@@ -12603,7 +12603,7 @@ forge_env_errors() {
 # The repository, its index, its stash and its working tree are not touched.
 forge_base_tree() {
   mkdir -p "$1" || return 1
-  git ls-files --cached --others --exclude-standard 2>/dev/null | while IFS= read -r _bt_f; do
+  git ls-files -z --cached --others --exclude-standard 2>/dev/null | tr '\000' '\n' | while IFS= read -r _bt_f; do
     if [ -f "$_bt_f" ] || [ -L "$_bt_f" ]; then printf '%s\n' "$_bt_f"; fi
   done > "$FORGE_TMP/base-tree.files"
   tar -cf - -T "$FORGE_TMP/base-tree.files" 2>/dev/null | ( cd "$1" && tar -xf - ) || return 1
@@ -12611,7 +12611,7 @@ forge_base_tree() {
     rm -f "$1/$_bt_f"
     if [ -f "$FORGE_TMP/base/$_bt_f" ]; then mkdir -p "$1/$(dirname "$_bt_f")" && cp "$FORGE_TMP/base/$_bt_f" "$1/$_bt_f"; fi
   done < "$FORGE_TMP/changed"
-  git ls-files --others --ignored --exclude-standard --directory 2>/dev/null | while IFS= read -r _bt_f; do
+  git ls-files -z --others --ignored --exclude-standard --directory 2>/dev/null | tr '\000' '\n' | while IFS= read -r _bt_f; do
     _bt_f=${_bt_f%/}
     case $_bt_f in ''|.forge/state|.forge/state/*) continue ;; esac
     if [ -e "$1/$_bt_f" ] || [ -L "$1/$_bt_f" ]; then continue; fi
@@ -14459,16 +14459,16 @@ forge_sha256() {
 tree_hash() {
   {
     if git rev-parse --verify -q HEAD >/dev/null; then git diff HEAD --binary 2>/dev/null; else git diff --cached --binary 2>/dev/null; fi
-    git ls-files --others --exclude-standard 2>/dev/null | while IFS= read -r _th_f; do
+    git ls-files -z --others --exclude-standard 2>/dev/null | tr '\000' '\n' | while IFS= read -r _th_f; do
       printf '%s ' "$_th_f"; git hash-object -- "$_th_f" 2>/dev/null || printf '\n'
     done
   } | forge_sha256
 }
 
-# status_paths: changed paths (staged, unstaged, untracked; renames as delete + add), one per line.
+# status_paths: changed paths (staged, unstaged, untracked; renames as delete + add),
+# one per line, as they are (-z: git quotes non-ASCII names otherwise).
 status_paths() {
-  git status --porcelain --no-renames --untracked-files=all 2>/dev/null \
-    | sed -e 's/^...//' -e 's/^"\(.*\)"$/\1/'
+  git status --porcelain -z --no-renames --untracked-files=all 2>/dev/null | tr '\000' '\n' | sed 's/^...//'
 }
 
 # snapshot <dir>: the working tree at the start of a turn, for the Stop hook:
@@ -15191,12 +15191,12 @@ forge_change_set() {
   case $mode in
     --turn)
       { status_paths; cut -f 1 "$FORGE_SNAP/dirty" 2>/dev/null
-        [ -n "$FORGE_BASE_REV" ] && git diff --name-only --no-renames "$FORGE_BASE_REV" HEAD 2>/dev/null
+        [ -n "$FORGE_BASE_REV" ] && git diff --name-only -z --no-renames "$FORGE_BASE_REV" HEAD 2>/dev/null | tr '\000' '\n'
       } | sort -u | while IFS= read -r _cs_f; do
         [ -n "$_cs_f" ] && [ "$(now_hash "$_cs_f")" != "$(base_hash "$_cs_f")" ] && printf '%s\n' "$_cs_f"
       done ;;
     --since)
-      { git diff --name-only --no-renames "$FORGE_BASE_REV" 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null; } | sort -u ;;
+      { git diff --name-only -z --no-renames "$FORGE_BASE_REV" 2>/dev/null; git ls-files -z --others --exclude-standard 2>/dev/null; } | tr '\000' '\n' | sort -u ;;
     *) status_paths | sort -u ;;
   esac > "$FORGE_TMP/changed"
   : > "$FORGE_TMP/existing"; : > "$FORGE_TMP/deleted"; : > "$FORGE_TMP/inbase"; : > "$FORGE_TMP/added"
@@ -17305,7 +17305,7 @@ forge_env_errors() {
 # The repository, its index, its stash and its working tree are not touched.
 forge_base_tree() {
   mkdir -p "$1" || return 1
-  git ls-files --cached --others --exclude-standard 2>/dev/null | while IFS= read -r _bt_f; do
+  git ls-files -z --cached --others --exclude-standard 2>/dev/null | tr '\000' '\n' | while IFS= read -r _bt_f; do
     if [ -f "$_bt_f" ] || [ -L "$_bt_f" ]; then printf '%s\n' "$_bt_f"; fi
   done > "$FORGE_TMP/base-tree.files"
   tar -cf - -T "$FORGE_TMP/base-tree.files" 2>/dev/null | ( cd "$1" && tar -xf - ) || return 1
@@ -17313,7 +17313,7 @@ forge_base_tree() {
     rm -f "$1/$_bt_f"
     if [ -f "$FORGE_TMP/base/$_bt_f" ]; then mkdir -p "$1/$(dirname "$_bt_f")" && cp "$FORGE_TMP/base/$_bt_f" "$1/$_bt_f"; fi
   done < "$FORGE_TMP/changed"
-  git ls-files --others --ignored --exclude-standard --directory 2>/dev/null | while IFS= read -r _bt_f; do
+  git ls-files -z --others --ignored --exclude-standard --directory 2>/dev/null | tr '\000' '\n' | while IFS= read -r _bt_f; do
     _bt_f=${_bt_f%/}
     case $_bt_f in ''|.forge/state|.forge/state/*) continue ;; esac
     if [ -e "$1/$_bt_f" ] || [ -L "$1/$_bt_f" ]; then continue; fi
@@ -17721,7 +17721,7 @@ FORGE_NO_DECREASE='typescript/bun/no-fewer-expects|typescript/vitest/no-fewer-ex
 # The change: changed, existing, deleted, base/, inbase and added in $FORGE_TMP.
 forge_change_set || exit 1
 if [ "$mode" = --all ]; then
-  git ls-files --cached --others --exclude-standard 2>/dev/null | sort -u > "$FORGE_TMP/scope"
+  git ls-files -z --cached --others --exclude-standard 2>/dev/null | tr '\000' '\n' | sort -u > "$FORGE_TMP/scope"
   : > "$FORGE_TMP/scope.tmp"
   while read -r f; do [ -f "$f" ] && printf '%s\n' "$f" >> "$FORGE_TMP/scope.tmp"; done < "$FORGE_TMP/scope"
   mv "$FORGE_TMP/scope.tmp" "$FORGE_TMP/scope"
@@ -17980,14 +17980,14 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/bash-snapshot.sh": "d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8",
     ".claude/skills/forge-project/scripts/guard.rules": "d0a502f51f51609d7e5e9cd6f39a8ce165c656ee1c1b7a607105a536962058eb",
     ".claude/skills/forge-project/scripts/guard.sh": "e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca",
-    ".claude/skills/forge-project/scripts/lib.sh": "2b5ec1d05e73550a6f47d6842934f7566d49a4db8ca3866bcba424abab5d9bb8",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "83bffb4d3db9a8e76fc9ee047d8d78a41a5df1ddc0577dc36213f7e41afab81c",
+    ".claude/skills/forge-project/scripts/lib.sh": "7754f516e6aac8caa42b9c2b016ec52975c4842c977e31ec16d1ada9d77f87c7",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "e44f3f62bc1bd9cff6a9bf7d28156b30441121c3958155032eba37809425c0b3",
     ".claude/skills/forge-project/scripts/review.sh": "889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726",
-    ".claude/skills/forge-project/scripts/session-start.sh": "be10afe1c384cc977ef5ff93aa5a4886f05543aaa2b30f2d702d39fc9da5c4cd",
+    ".claude/skills/forge-project/scripts/session-start.sh": "7b78179ea73975659b09d937ce416ad093371356aee8704936d7947e91fa244e",
     ".claude/skills/forge-project/scripts/stop.sh": "10316d9cd59fea152c6f8fbf0ab70abf547514bf67a2c85f3e6b405554a71fad",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "458240ffb63ec71dd2ccaca659321f8e390606c8950d920fa4785e2078a6f691",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "a088ba128b8b1229a309fc771a3711188f2983f7442b5b148ea180ec3407573c",
     ".claude/skills/forge-project/scripts/turn-start.sh": "fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "0a679bd1a0ff04eb18fa94dd7751d849f1241a7bfe963b7fa8dc97fccf842975",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "4e8a9352363630744cc5dd1f704627ee107412f054d305acfc72d90ffb76c026",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-bun-no-fewer-expects-test.yml": "bd5df50793070bba7b87b0f623ac58ed4599e0ba6f8d731fc0da4b28a0335ec8",
     ".forge/ast-grep/rule-tests/typescript-bun-no-mock-increase-test.yml": "cf28a1a131538f6ff9cb7cd9468d9338d29c52d6abe02dccf7785696f5c847b8",
@@ -18058,7 +18058,7 @@ exit "$fail"
     ".forge/ast-grep/rules/typescript/zod/error-param.yml": "88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a",
     ".forge/ast-grep/rules/typescript/zod/v4-string-formats.yml": "a7503c000f128a4718f29b0122170295972560de99263354d6ed0db1a8cb099c",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "ee6053af8cabe6fb6c6b8c906fd96a5215d095d9f6a9a5af861735d07d04b517",
+    ".forge/check.sh": "2816557da8cf757c0c4035fca524ff366cb53eda03f9e34b8ebadd0e57c4ee25",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -18125,14 +18125,14 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills/forge-project/scripts/bash-snapshot.sh
 d0a502f51f51609d7e5e9cd6f39a8ce165c656ee1c1b7a607105a536962058eb  .claude/skills/forge-project/scripts/guard.rules
 e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca  .claude/skills/forge-project/scripts/guard.sh
-2b5ec1d05e73550a6f47d6842934f7566d49a4db8ca3866bcba424abab5d9bb8  .claude/skills/forge-project/scripts/lib.sh
-83bffb4d3db9a8e76fc9ee047d8d78a41a5df1ddc0577dc36213f7e41afab81c  .claude/skills/forge-project/scripts/post-edit.sh
+7754f516e6aac8caa42b9c2b016ec52975c4842c977e31ec16d1ada9d77f87c7  .claude/skills/forge-project/scripts/lib.sh
+e44f3f62bc1bd9cff6a9bf7d28156b30441121c3958155032eba37809425c0b3  .claude/skills/forge-project/scripts/post-edit.sh
 889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726  .claude/skills/forge-project/scripts/review.sh
-be10afe1c384cc977ef5ff93aa5a4886f05543aaa2b30f2d702d39fc9da5c4cd  .claude/skills/forge-project/scripts/session-start.sh
+7b78179ea73975659b09d937ce416ad093371356aee8704936d7947e91fa244e  .claude/skills/forge-project/scripts/session-start.sh
 10316d9cd59fea152c6f8fbf0ab70abf547514bf67a2c85f3e6b405554a71fad  .claude/skills/forge-project/scripts/stop.sh
-458240ffb63ec71dd2ccaca659321f8e390606c8950d920fa4785e2078a6f691  .claude/skills/forge-project/scripts/test-edit.sh
+a088ba128b8b1229a309fc771a3711188f2983f7442b5b148ea180ec3407573c  .claude/skills/forge-project/scripts/test-edit.sh
 fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3  .claude/skills/forge-project/scripts/turn-start.sh
-0a679bd1a0ff04eb18fa94dd7751d849f1241a7bfe963b7fa8dc97fccf842975  .claude/skills/forge-project/scripts/typecheck.sh
+4e8a9352363630744cc5dd1f704627ee107412f054d305acfc72d90ffb76c026  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 bd5df50793070bba7b87b0f623ac58ed4599e0ba6f8d731fc0da4b28a0335ec8  .forge/ast-grep/rule-tests/typescript-bun-no-fewer-expects-test.yml
 cf28a1a131538f6ff9cb7cd9468d9338d29c52d6abe02dccf7785696f5c847b8  .forge/ast-grep/rule-tests/typescript-bun-no-mock-increase-test.yml
@@ -18203,7 +18203,7 @@ d3c41a3915d84b21e86e9212a06ad14c52bf2f9bcefb7c5ca433200cc3ec44fb  .forge/ast-gre
 88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a  .forge/ast-grep/rules/typescript/zod/error-param.yml
 a7503c000f128a4718f29b0122170295972560de99263354d6ed0db1a8cb099c  .forge/ast-grep/rules/typescript/zod/v4-string-formats.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-ee6053af8cabe6fb6c6b8c906fd96a5215d095d9f6a9a5af861735d07d04b517  .forge/check.sh
+2816557da8cf757c0c4035fca524ff366cb53eda03f9e34b8ebadd0e57c4ee25  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

@@ -983,6 +983,19 @@ describe("Stop", () => {
     T,
   );
 
+  /** @rule python/sqlalchemy/no-query-api */
+  test(
+    "a file whose name is not ASCII is part of the turn's change: Stop checks it like any other",
+    () => {
+      hook("turn-start.sh", { session_id: "t-utf8" });
+      put(repo, "app/café.py", "def f(session):\n    return session.query(1)\n");
+      const reason = JSON.parse(hook("stop.sh", { session_id: "t-utf8" }).stdout).reason;
+      expect(reason).toContain("forge:python/sqlalchemy/no-query-api app/café.py:2:12");
+      reset();
+    },
+    T,
+  );
+
   test(
     "a commit made during the turn is still part of the turn",
     () => {
@@ -1213,6 +1226,61 @@ describe("failing tests at the start of the turn", () => {
         );
         expect(runs().length).toBe(2);
         expect(hook("stop.sh", { session_id: "p-2" }).stdout).toBe("");
+      } finally {
+        rmSync(join(repo, ".venv/bin/pytest"));
+        reset();
+      }
+    },
+    T,
+  );
+
+  test(
+    "a test file whose name is not ASCII is in the copy of the tree at the start of the turn",
+    () => {
+      const head = git(repo, "rev-parse", "HEAD").stdout.trim();
+      put(repo, "tests/test_café.py", "def test_db() -> None:\n    assert True\n");
+      git(repo, "add", "-A");
+      git(repo, "commit", "-qm", "café", "--no-verify");
+      pytest('[ -f tests/test_café.py ] && echo "FAILED tests/test_café.py::test_db - ConnectionRefusedError: connect ECONNREFUSED 127.0.0.1:5432"');
+      try {
+        hook("turn-start.sh", { session_id: "p-utf8" });
+        change();
+        const reason: string = JSON.parse(hook("stop.sh", { session_id: "p-utf8" }).stdout).reason;
+        expect(reason).toStartWith("forge:python/pytest/run 1 failing test(s) also fail at the start of the turn (re-run there)");
+        expect(reason).toContain("  tests/test_café.py::test_db\n");
+      } finally {
+        rmSync(join(repo, ".venv/bin/pytest"));
+        git(repo, "reset", "-q", "--hard", head);
+        reset();
+      }
+    },
+    T,
+  );
+
+  test(
+    "after the comparison, the output excerpt is at most 20 lines under new failures and 12 under failures that were already there",
+    () => {
+      const noise = 'i=0; while [ $i -lt 60 ]; do echo "noise $i"; i=$((i + 1)); done';
+      const excerpt = (reason: string) => {
+        const lines = reason.split("\n");
+        const from = lines.findIndex((l) => l === "noise 0" || l.startsWith("FAILED "));
+        const to = lines.findIndex((l, i) => i > from && l.startsWith("... ("));
+        return lines.slice(from, to + 1);
+      };
+      pytest(`${noise}; if grep -q turn-change app/main.py; then echo "FAILED tests/test_main.py::test_health - assert 500 == 200"; fi`);
+      try {
+        hook("turn-start.sh", { session_id: "p-x1" });
+        change();
+        const fresh = excerpt(JSON.parse(hook("stop.sh", { session_id: "p-x1" }).stdout).reason);
+        expect(fresh[0]).toBe("FAILED tests/test_main.py::test_health - assert 500 == 200");
+        expect(fresh.length).toBe(20);
+        reset();
+        pytest(`${noise}; ${db}`);
+        hook("turn-start.sh", { session_id: "p-x2" });
+        change();
+        const old = excerpt(JSON.parse(hook("stop.sh", { session_id: "p-x2" }).stdout).reason);
+        expect(old[0]).toStartWith("FAILED tests/test_main.py::test_db");
+        expect(old.length).toBe(12);
       } finally {
         rmSync(join(repo, ".venv/bin/pytest"));
         reset();
