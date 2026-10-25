@@ -32,6 +32,7 @@ These are this project's defaults. When the task or the user explicitly asks for
 Python project managed with uv. Tools run from `.venv/bin`. Type checking: basedpyright.
 Inside `async def`, the checks reject blocking calls that ruff's ASYNC210, ASYNC230 and ASYNC251 detect (sync HTTP clients, `open()`, `time.sleep`).
 Ignore comments name their rule (`# pyright: ignore[ruleName]`), and a changed file may not gain suppression comments.
+Before writing a utility, search the codebase for an existing helper (warn-once and logging helpers, `utils` functions) and reuse it instead of adding a near-duplicate.
 
 ===== .claude/settings.json
 {
@@ -7622,7 +7623,7 @@ exit "$fail"
     ".claude/rules/forge-python-pytest.md": "c44b8d211f665eb018bf3e8f375e5006d04dae400f28e50e1103837b549aa6cf",
     ".claude/rules/forge-python-sqlalchemy-alembic.md": "f16da5b69615b1b19ec5997c9f3d54c1b9de2fa09fea0e085ef1ce99f6b6980d",
     ".claude/rules/forge-python-sqlalchemy.md": "5f6196f04c027b1e056e5378adcd2dcf112ea9b1e4160cb1fb7e6b8974b54a69",
-    ".claude/rules/forge-python.md": "abdc89b63568d6ec94837deb55306633b3d76d55f5434a4995124278e6befb15",
+    ".claude/rules/forge-python.md": "7a536c4dd6092df1e8527675372b86fe47afce33d4e7293709406a379350f00f",
     ".claude/skills/forge-project/.claude-plugin/plugin.json": "c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2",
     ".claude/skills/forge-project/hooks/hooks.json": "2aa1ba3beed2c0f4c0dfa99ee106d9fe85cfb2f3897a1da95b3d9a6aad7f84bd",
     ".claude/skills/forge-project/scripts/bash-snapshot.sh": "d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8",
@@ -7717,7 +7718,7 @@ exit "$fail"
 c44b8d211f665eb018bf3e8f375e5006d04dae400f28e50e1103837b549aa6cf  .claude/rules/forge-python-pytest.md
 f16da5b69615b1b19ec5997c9f3d54c1b9de2fa09fea0e085ef1ce99f6b6980d  .claude/rules/forge-python-sqlalchemy-alembic.md
 5f6196f04c027b1e056e5378adcd2dcf112ea9b1e4160cb1fb7e6b8974b54a69  .claude/rules/forge-python-sqlalchemy.md
-abdc89b63568d6ec94837deb55306633b3d76d55f5434a4995124278e6befb15  .claude/rules/forge-python.md
+7a536c4dd6092df1e8527675372b86fe47afce33d4e7293709406a379350f00f  .claude/rules/forge-python.md
 c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills/forge-project/.claude-plugin/plugin.json
 2aa1ba3beed2c0f4c0dfa99ee106d9fe85cfb2f3897a1da95b3d9a6aad7f84bd  .claude/skills/forge-project/hooks/hooks.json
 d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills/forge-project/scripts/bash-snapshot.sh

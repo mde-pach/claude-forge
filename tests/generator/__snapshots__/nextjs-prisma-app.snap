@@ -63,6 +63,7 @@ These are this project's defaults. When the task or the user explicitly asks for
 TypeScript, strict. Bun is the runtime and package manager.
 TypeScript 6 deprecates `baseUrl`, `moduleResolution: "node10"`, `target: "es5"` and `esModuleInterop: false`, and TypeScript 7 removes them: migrate them; `ignoreDeprecations` in a tsconfig is rejected.
 `!` non-null assertions and `as unknown as T` are rejected: narrow with a check, or parse with a schema.
+Before writing a utility, search the codebase for an existing helper (warn-once and logging helpers, `util.*` functions such as an existing property setter) and reuse it instead of adding a near-duplicate.
 
 ===== .claude/settings.json
 {
@@ -8664,7 +8665,7 @@ exit "$fail"
     ".claude/rules/forge-typescript-react.md": "ae5f638883028fa1744f332b050e244ce57713ad2cc28ab5f8ee259f0088eb20",
     ".claude/rules/forge-typescript-vitest.md": "079892578a4e06a375e61bb9bef8e098b8336ac6ee02f9ea4b605615f68fb0f2",
     ".claude/rules/forge-typescript-zod.md": "a5e2685c59231ba3ce5e994b28fa8dfd5e5e7946275ef3236334776e61329db7",
-    ".claude/rules/forge-typescript.md": "adae3b7189e1b913fd0dbeb10f127fed7bde5b738f9889ddcff7f4a5a647b3a0",
+    ".claude/rules/forge-typescript.md": "48f463a8e59348509f4f2096fb2b61b294b079410555e21d7a0b4ed6767c131d",
     ".claude/skills/forge-project/.claude-plugin/plugin.json": "c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2",
     ".claude/skills/forge-project/hooks/hooks.json": "2aa1ba3beed2c0f4c0dfa99ee106d9fe85cfb2f3897a1da95b3d9a6aad7f84bd",
     ".claude/skills/forge-project/scripts/bash-snapshot.sh": "d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8",
@@ -8801,7 +8802,7 @@ bdcd46247bbeef5fb8b2f874dfe478cc2c606c432a16e9ac6fdf1b8a1ff08aaa  .claude/rules/
 ae5f638883028fa1744f332b050e244ce57713ad2cc28ab5f8ee259f0088eb20  .claude/rules/forge-typescript-react.md
 079892578a4e06a375e61bb9bef8e098b8336ac6ee02f9ea4b605615f68fb0f2  .claude/rules/forge-typescript-vitest.md
 a5e2685c59231ba3ce5e994b28fa8dfd5e5e7946275ef3236334776e61329db7  .claude/rules/forge-typescript-zod.md
-adae3b7189e1b913fd0dbeb10f127fed7bde5b738f9889ddcff7f4a5a647b3a0  .claude/rules/forge-typescript.md
+48f463a8e59348509f4f2096fb2b61b294b079410555e21d7a0b4ed6767c131d  .claude/rules/forge-typescript.md
 c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills/forge-project/.claude-plugin/plugin.json
 2aa1ba3beed2c0f4c0dfa99ee106d9fe85cfb2f3897a1da95b3d9a6aad7f84bd  .claude/skills/forge-project/hooks/hooks.json
 d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills/forge-project/scripts/bash-snapshot.sh
