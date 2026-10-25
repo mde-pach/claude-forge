@@ -346,9 +346,10 @@ A check with a `timeout` (seconds) that runs past it is stopped with its process
 1. With a snapshot: if `tree_hash` and `HEAD` equal the snapshot's, the tree did not change during the turn: exit 0. The change is then what differs from the snapshot, commits made during the turn included; the user's own uncommitted work from before the turn is not part of it. Without a snapshot (no prompt seen yet, e.g. the first Stop after `forge apply`), the change is every uncommitted file (`--changed`).
 2. If the tree (and, with a snapshot, `HEAD`) equals the last passing one (`<snapshot>/pass`, else `.forge/state/last-pass`), exit 0.
 3. If the block counter is ≥ 3: reset it, print `{"systemMessage":"forge: check failed 3 times. Handing over to you."}`, exit 0.
-4. Run `check.sh --turn <snapshot>` (or `--changed`).
-5. Pass: record the tree as passing, reset the counter, print nothing.
-6. Fail: increment the counter, print `{"decision":"block","reason":"<check output>"}`: the failing checks first, then the `skipped` and `ok for` notes, at most 40 lines and 6000 characters.
+4. If the tree (and, with a snapshot, `HEAD`) equals the last failing one (`<snapshot>/fail`, else `.forge/state/last-fail`), the check is not run again: increment the counter and block with `forge: nothing changed in the working tree since this check failed, so it was not run again (it runs again once a file changes):` followed by the stored reason (`<…>/fail.reason`). The checks give the same result on the same tree, and a test suite can take minutes; the repeated block still counts toward step 3, so the agent gets the same chance to respond as before, at no cost.
+5. Run `check.sh --turn <snapshot>` (or `--changed`).
+6. Pass: record the tree as passing, forget the failing one, reset the counter, print nothing.
+7. Fail: record the tree (as it is after the check, formatters included) and the reason as failing, increment the counter, print `{"decision":"block","reason":"<check output>"}`: the failing checks first, then the `skipped` and `ok for` notes, at most 40 lines and 6000 characters.
 
 ### 10.3 Pre-commit and CI
 

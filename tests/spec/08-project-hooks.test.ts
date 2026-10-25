@@ -630,6 +630,40 @@ describe("Stop", () => {
     T,
   );
 
+  /**
+   * In better-auth a Stop check took about 300 s, and the agent often answered
+   * a block without changing anything: the same suite ran again on the same
+   * tree (about 2,250 s in the experiment).
+   */
+  /** @rule python/pytest/run */
+  test(
+    "a tree that failed is not checked again: the same reason comes back at once, still counting toward the hand-over, until a file changes",
+    () => {
+      const runs = join(repo, ".venv", "runs");
+      rmSync(runs, { force: true });
+      stubTool("pytest", `echo run >> "${runs}"; echo "FAILED tests/test_main.py::test_health - assert 500 == 200"; exit 1`);
+      hook("turn-start.sh", { session_id: "t-13" });
+      put(repo, "app/main.py", 'async def health() -> dict[str, str]:\n    return {"status": "ok"}\n');
+      const first: string = JSON.parse(hook("stop.sh", { session_id: "t-13" }).stdout).reason;
+      expect(first).toContain("FAILED tests/test_main.py::test_health");
+      for (let i = 0; i < 2; i++) {
+        const t0 = performance.now();
+        const again = JSON.parse(hook("stop.sh", { session_id: "t-13" }).stdout);
+        expect(performance.now() - t0).toBeLessThan(1500);
+        expect(again.reason).toBe(`forge: nothing changed in the working tree since this check failed, so it was not run again (it runs again once a file changes):\n${first}`);
+      }
+      expect(readFileSync(runs, "utf8")).toBe("run\n");
+      expect(JSON.parse(hook("stop.sh", { session_id: "t-13" }).stdout).systemMessage).toContain("Handing over");
+      put(repo, "app/main.py", 'async def health() -> dict[str, str]:\n    return {"status": "fine"}\n');
+      expect(JSON.parse(hook("stop.sh", { session_id: "t-13" }).stdout).reason).toBe(first);
+      expect(readFileSync(runs, "utf8")).toBe("run\nrun\n");
+      rmSync(join(repo, ".venv/bin/pytest"));
+      rmSync(runs);
+      reset();
+    },
+    T,
+  );
+
   test(
     "a commit made during the turn is still part of the turn",
     () => {
