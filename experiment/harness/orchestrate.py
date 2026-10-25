@@ -137,9 +137,35 @@ def main():
                 else:
                     time.sleep(30)
 
-    with ThreadPoolExecutor(a.jobs) as ex:
-        list(ex.map(work, order))
+    # Workers take the earliest pending item whose repo has a free slot (REPO_CAP), so a capped repo
+    # never blocks the others (head-of-line). Order stays replicate-major up to that skipping.
+    pending = list(order)
+    busy = {}
+    plock = threading.Lock()
 
+    def worker():
+        while not stop.is_set():
+            item = None
+            with plock:
+                for i, it in enumerate(pending):
+                    r = repo_of[it[0]]
+                    if busy.get(r, 0) < REPO_CAP.get(r, 10 ** 6):
+                        item = pending.pop(i)
+                        busy[r] = busy.get(r, 0) + 1
+                        break
+                if item is None and not pending:
+                    return
+            if item is None:
+                time.sleep(10)
+                continue
+            try:
+                work(item)
+            finally:
+                with plock:
+                    busy[repo_of[item[0]]] -= 1
 
-if __name__ == "__main__":
-    main()
+    threads = [threading.Thread(target=worker) for _ in range(a.jobs)]
+    for th in threads:
+        th.start()
+    for th in threads:
+        th.join()
