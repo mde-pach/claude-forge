@@ -1,5 +1,5 @@
 id: typescript/vitest/snapshot-stale
-description: "Output-producing code changed but its snapshots did not: a source file whose added lines hold a string or an object key, imported by a test that uses toMatchSnapshot, toMatchFileSnapshot, toMatchInlineSnapshot or golden files (testdata/), while no .snap, __snapshots__ or testdata file changed in the turn. Run the snapshot tests with inputs that exercise the new output and update them. Checked at Stop; it blocks once per turn, then accepts."
+description: "Output-producing code changed but its snapshots did not: a source file whose added lines hold a string literal in an expression or an object literal key (not an import, a type annotation, an interface or a type alias), imported by a test that uses toMatchSnapshot, toMatchFileSnapshot, toMatchInlineSnapshot or golden files (testdata/), while no .snap, __snapshots__ or testdata file changed in the turn. Run the snapshot tests with inputs that exercise the new output and update them. Checked at Stop; it blocks once per turn, then accepts."
 scope: {language: typescript, files: ["!**/*.test.*", "!**/*.spec.*", "!**/__tests__/**", "!e2e/**", "!**/*.d.ts"]}
 enforce:
   - {target: check, stage: lint, run: "forge_snapshot_stale"}
@@ -36,3 +36,9 @@ examples:
         src/__snapshots__/format.test.ts.snap: "exports[`retries 1`] = `2`;\n"
       files:
         src/format.ts: "export function retries(n: number) {\n  return n + 2;\n}\n"
+    - head:
+        src/format.ts: "export interface Span {\n  name: string;\n}\n\nexport function describeSpan(span: Span) {\n  return { name: span.name };\n}\n"
+        src/format.test.ts: "import { expect, it } from \"vitest\";\nimport { describeSpan } from \"./format.ts\";\n\nit(\"describes a span\", () => {\n  expect(describeSpan({ name: \"chat\" })).toMatchSnapshot();\n});\n"
+        src/__snapshots__/format.test.ts.snap: "exports[`describes a span 1`] = `\n{\n  \"name\": \"chat\",\n}\n`;\n"
+      files:
+        src/format.ts: "import type { Kind } from \"./kind\";\n\nexport interface Span {\n  name: string;\n  kind?: Kind;\n  mode: \"a\" | \"b\";\n}\n\nexport function describeSpan(span: Span, _opts?: { verbose: boolean }) {\n  return { name: span.name };\n}\n"

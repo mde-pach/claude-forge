@@ -41,7 +41,7 @@ In `dontAsk` mode asks stay denied (you chose that). `FORGE_REVIEW_MODEL` picks 
 
 ### Edits to existing tests
 
-An Edit or Write that changes what a test asserts (its `assert` statements or parametrize decorators; its `expect` statements or `.each` table), or removes it, when the test existed at the start of the turn, asks first: the change is right when the task changes the behaviour the test asserts, and wrong when it only makes failing code pass. In an autonomous run an independent reviewer answers, given your request for the turn. New tests and setup-only changes do not ask. An edit that ran was approved; a change nobody approved (made through Bash, say) is blocked at Stop. A changed fake, fixture or helper in a test file (or `conftest.py`) is reported once at Stop: test doubles encode the interface callers rely on, so production usually keeps it (a property alias for a moved attribute).
+An Edit or Write that changes a test (anything in it, formatting aside: its assertions, but also its input data, `.each` table or an early `return`), or removes it, when the test existed at the start of the turn, asks first: the change is right when the task changes the behaviour the test asserts, and wrong when it only makes failing code pass. In an autonomous run an independent reviewer answers, given your request for the turn. New tests do not ask. An edit that ran was approved; a change nobody approved (made through Bash, say) is blocked at Stop. A changed fake, fixture or helper in a test file (or `conftest.py`) is reported once at Stop: test doubles encode the interface callers rely on, so production usually keeps it (a property alias for a moved attribute).
 
 <Spec file="08-project-hooks" describe="test edits" />
 

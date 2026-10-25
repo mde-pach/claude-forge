@@ -1,5 +1,5 @@
 id: typescript/trpc/input-validate
-description: A procedure's .input() validates. No .input(z.any()), .input(z.unknown()) or a function that only casts its argument.
+description: A procedure's .input() validates. No .input(z.any()), .input(z.unknown()), .input(z.custom<T>()) without a check, .input(z.record(..., z.any())) or a function that only casts its argument.
 scope: {language: typescript}
 enforce:
   - target: ast-grep
@@ -18,12 +18,19 @@ enforce:
                 - {pattern: "($V) => $V as $T"}
                 - {pattern: "($V: $A) => $V as $T"}
                 - {pattern: "($V: $T) => $V"}
+                # z.custom() without a check accepts anything; a record of any is a cast too
+                - {kind: call_expression, all: [{has: {field: function, regex: "^z\\.custom$"}}, {has: {field: arguments, regex: "^\\(\\s*\\)$"}}]}
+                - {kind: call_expression, all: [{has: {field: function, regex: "^z\\.record$"}}, {has: {field: arguments, has: {any: [{pattern: "z.any()"}, {pattern: "z.unknown()"}]}}}]}
 examples:
   match:
     - "export const update = protectedProcedure.input(z.any()).mutation(({ input }) => db.post.update(input));"
     - "export const byId = publicProcedure.input((raw) => raw as { id: string }).query(({ input }) => db.post.find(input.id));"
     - "export const rename = protectedProcedure.input((v: { name: string }) => v).mutation(({ input }) => rename(input.name));"
+    - "export const u = protectedProcedure.input(z.record(z.string(), z.any())).mutation(({ input }) => db.x.update(input));"
+    - "export const u = protectedProcedure.input(z.custom<Foo>()).mutation(({ input }) => db.x.update(input));"
   no_match:
     - "export const byId = publicProcedure.input(z.object({ id: z.string().uuid() })).query(({ input }) => db.post.find(input.id));"
     - "export const byId = publicProcedure.input((v: unknown) => { if (typeof v === \"string\") return v; throw new Error(\"id\"); }).query(({ input }) => find(input));"
     - "const el = form.input(\"name\");"
+    - "export const u = protectedProcedure.input(z.custom<Foo>((v) => isFoo(v))).mutation(({ input }) => db.x.update(input));"
+    - "export const u = protectedProcedure.input(z.record(z.string(), z.number())).mutation(({ input }) => db.x.update(input));"

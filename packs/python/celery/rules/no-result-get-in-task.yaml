@@ -30,12 +30,43 @@ enforce:
                               all:
                                 - has: {field: left, pattern: $R}
                                 - has: {field: right, kind: call, has: {field: function, regex: "\\.(delay|apply_async)$|(^|\\.)AsyncResult$"}}
+                    # a loop or comprehension variable over results: [r.get() for r in rs], for r in rs
+                    - all:
+                        - {kind: identifier, pattern: $R}
+                        - inside:
+                            stopBy: end
+                            any:
+                              - {kind: for_statement, matches: forge-over-results}
+                              - any: [{kind: list_comprehension}, {kind: generator_expression}, {kind: set_comprehension}]
+                                has: {kind: for_in_clause, matches: forge-over-results}
+    utils:
+      forge-over-results:
+        all:
+          - has: {field: left, pattern: $R}
+          - has:
+              field: right
+              any:
+                - {has: {stopBy: end, kind: call, has: {field: function, regex: "\\.(delay|apply_async)$"}}}
+                - all:
+                    - {kind: identifier, pattern: $L}
+                    - inside:
+                        kind: function_definition
+                        stopBy: end
+                        has:
+                          stopBy: end
+                          kind: assignment
+                          all:
+                            - has: {field: left, pattern: $L}
+                            - has: {field: right, has: {stopBy: end, kind: call, has: {field: function, regex: "\\.(delay|apply_async)$"}}}
 examples:
   match:
     - "@shared_task\ndef report(ids: list[int]) -> int:\n    result = count_rows.delay(ids)\n    return result.get(timeout=10)\n"
     - "@app.task\ndef report(ids: list[int]) -> list[int]:\n    return group(count_rows.s(i) for i in ids)().get()\n"
     - "def wait_for(task_id: str) -> object:\n    return AsyncResult(task_id).get(disable_sync_subtasks=False)\n"
+    - "@shared_task\ndef report(ids: list[int]) -> list[int]:\n    rs = [count_rows.delay(i) for i in ids]\n    return [r.get() for r in rs]\n"
+    - "@shared_task\ndef report(ids: list[int]) -> None:\n    for r in [count_rows.delay(i) for i in ids]:\n        r.get()\n"
   no_match:
     - "@shared_task\ndef report(ids: list[int]) -> None:\n    chord(count_rows.s(i) for i in ids)(summarize.s())\n"
     - "@shared_task\ndef report(options: dict[str, int]) -> int:\n    return options.get(\"limit\", 10)\n"
     - "def view(request, ids):\n    return count_rows.delay(ids).get(timeout=5)\n"
+    - "@shared_task\ndef report(rows: list[dict[str, int]]) -> list[int]:\n    return [r.get(\"n\", 0) for r in rows]\n"

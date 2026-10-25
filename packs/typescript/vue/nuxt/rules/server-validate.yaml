@@ -1,16 +1,23 @@
 id: typescript/vue/nuxt/server-validate
-description: Nuxt server handlers read input with readValidatedBody, getValidatedQuery or getValidatedRouterParams and a schema, not readBody, getQuery or getRouterParams.
+description: "Nuxt server handlers read input with readValidatedBody, getValidatedQuery or getValidatedRouterParams and a schema, or pass the read straight to a schema (Schema.parse(await readBody(event)), safeParse, parseAsync); not readBody, readFormData, readMultipartFormData, getQuery, getRouterParams or getRouterParam whose result is used unvalidated."
 scope: {language: typescript, files: ["server/**"]}
 enforce:
   - target: ast-grep
     mode: forbid
     rule:
       kind: call_expression
-      has: {field: function, regex: "^(readBody|getQuery|getRouterParams)$"}
+      has: {field: function, regex: "^(readBody|readFormData|readMultipartFormData|getQuery|getRouterParams|getRouterParam)$"}
+      not:
+        any:
+          - inside: {kind: arguments, stopBy: neighbor, inside: {kind: call_expression, stopBy: neighbor, has: {field: function, kind: member_expression, all: [{has: {field: property, regex: "^(parse|safeParse|parseAsync|safeParseAsync)$"}}, {not: {has: {field: object, regex: "^(JSON|Date|Number|URL)$"}}}]}}}
+          - inside: {kind: await_expression, stopBy: neighbor, inside: {kind: arguments, stopBy: neighbor, inside: {kind: call_expression, stopBy: neighbor, has: {field: function, kind: member_expression, all: [{has: {field: property, regex: "^(parse|safeParse|parseAsync|safeParseAsync)$"}}, {not: {has: {field: object, regex: "^(JSON|Date|Number|URL)$"}}}]}}}}
 examples:
   match:
     - "export default defineEventHandler(async (event) => {\n  const body = await readBody(event);\n  return db.recipe.create({ data: body });\n});\n"
     - "export default defineEventHandler((event) => {\n  const { page } = getQuery(event);\n  return listRecipes(Number(page));\n});\n"
+    - "export default defineEventHandler(async (event) => {\n  const id = getRouterParam(event, \"id\");\n  const f = await readFormData(event);\n  return db.recipe.update({ where: { id }, data: Object.fromEntries(f) });\n});\n"
+    - "export default defineEventHandler(async (event) => {\n  const at = Date.parse(await readBody(event));\n  return db.recipe.create({ data: { at } });\n});\n"
   no_match:
     - "import { z } from \"zod\";\n\nconst Recipe = z.object({ name: z.string().min(1) });\n\nexport default defineEventHandler(async (event) => {\n  const body = await readValidatedBody(event, Recipe.parse);\n  return db.recipe.create({ data: body });\n});\n"
     - "export default defineEventHandler(async (event) => {\n  const { page } = await getValidatedQuery(event, z.object({ page: z.coerce.number() }).parse);\n  return listRecipes(page);\n});\n"
+    - "export default defineEventHandler(async (event) => {\n  const b = Recipe.parse(await readBody(event));\n  return b;\n});\n"

@@ -2,18 +2,24 @@
 # deprecation (run by .forge/check.sh with the project's own Python). Usage:
 #   python public_api.py <forge-tmp>
 # For each changed module whose base copy has a literal __all__: a name that left
-# __all__ (or whose module was deleted) must still be importable with a warning, i.e.
-# a def/class/assignment of that name using DeprecationWarning, FutureWarning or
-# @deprecated, or a module __getattr__ naming it in a module that warns. A major
-# version bump of [project] version in pyproject.toml allows removals.
+# __all__ (or whose module was deleted) must still be importable with a warning, read
+# from the syntax tree: a def/class of that name decorated with @deprecated
+# (typing_extensions or warnings) or whose body calls warnings.warn(...,
+# DeprecationWarning | FutureWarning | PendingDeprecationWarning or a subclass); an
+# alias of that name wrapped in deprecated(...)(...); or a module __getattr__ that
+# names it and warns that way. A function of the project that warns that way counts
+# when the shim calls it or decorates with it. A word in a docstring or a comment does
+# not count. A major version bump does not allow a removal by itself: an intended
+# removal is accepted in forge.yaml.
 # Exit 0: nothing found; 1: findings printed ("path:0 message").
 import ast
 import os
 import re
+import subprocess
 import sys
 
 TMP = sys.argv[1]
-WARNS = re.compile(r"DeprecationWarning|FutureWarning|PendingDeprecationWarning|\bdeprecated\b")
+CATEGORIES = {"DeprecationWarning", "FutureWarning", "PendingDeprecationWarning"}
 SKIP = re.compile(r"(^|/)(tests?/|test_[^/]*$|[^/]*_test\.py$|conftest\.py$|migrations/)")
 
 
@@ -69,36 +75,156 @@ def parse(text):
         return None
 
 
+def dotted(node):
+    """a.b.c for a Name/Attribute chain, else None."""
+    parts = []
+    while isinstance(node, ast.Attribute):
+        parts.append(node.attr)
+        node = node.value
+    if isinstance(node, ast.Name):
+        parts.append(node.id)
+        return ".".join(reversed(parts))
+    return None
+
+
+class Index:
+    """What warns in the project: deprecation warning classes, functions that warn."""
+
+    def __init__(self):
+        self.categories = set(CATEGORIES)
+        self.warners = set()
+        self.trees = []
+        try:
+            out = subprocess.run(["git", "ls-files", "-co", "--exclude-standard", "*.py"], capture_output=True, text=True, check=False).stdout
+        except OSError:
+            out = ""
+        for path in out.splitlines()[:5000]:
+            tree = parse(read(path))
+            if tree is not None:
+                self.trees.append(tree)
+        changed = True
+        while changed:
+            changed = False
+            for tree in self.trees:
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.ClassDef) and node.name not in self.categories:
+                        if any((dotted(b) or "").split(".")[-1] in self.categories for b in node.bases):
+                            self.categories.add(node.name)
+                            changed = True
+        changed = True
+        while changed:
+            changed = False
+            for tree in self.trees:
+                for node in ast.walk(tree):
+                    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name not in self.warners:
+                        if self.warns(node):
+                            self.warners.add(node.name)
+                            changed = True
+
+    def category(self, node, func):
+        name = (dotted(node) or "").split(".")[-1]
+        if name in self.categories:
+            return True
+        # a parameter of the enclosing function whose default is a deprecation category
+        if func is not None and isinstance(node, ast.Name):
+            args = func.args
+            pos = args.posonlyargs + args.args
+            for a, d in zip(pos[len(pos) - len(args.defaults):], args.defaults):
+                if a.arg == node.id and (dotted(d) or "").split(".")[-1] in self.categories:
+                    return True
+            for a, d in zip(args.kwonlyargs, args.kw_defaults):
+                if a.arg == node.id and d is not None and (dotted(d) or "").split(".")[-1] in self.categories:
+                    return True
+        return False
+
+    def is_deprecated_decorator(self, node):
+        target = node.func if isinstance(node, ast.Call) else node
+        name = dotted(target) or ""
+        if name in ("deprecated", "typing_extensions.deprecated", "warnings.deprecated", "deprecation.deprecated"):
+            return True
+        return name.split(".")[-1] in self.warners
+
+    def warn_call(self, node, func):
+        if not isinstance(node, ast.Call):
+            return False
+        name = dotted(node.func) or ""
+        if name in ("warnings.warn", "warn", "warnings.warn_explicit", "warn_explicit"):
+            cat = node.args[1] if len(node.args) > 1 else None
+            for kw in node.keywords:
+                if kw.arg == "category":
+                    cat = kw.value
+            # warn(DeprecationWarning("...")): the category is the message's class
+            msg = node.args[0] if node.args else None
+            if cat is None and isinstance(msg, ast.Call) and self.category(msg.func, func):
+                return True
+            return cat is not None and self.category(cat, func)
+        if name.split(".")[-1] in self.warners:
+            return True
+        # deprecated("...")(target): an alias wrapped by the decorator
+        return isinstance(node.func, ast.Call) and self.is_deprecated_decorator(node.func)
+
+    def warns(self, node):
+        """node (a def, a class, an expression) warns with a deprecation category."""
+        func = node if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) else None
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            if any(self.is_deprecated_decorator(d) for d in node.decorator_list):
+                return True
+        if isinstance(node, ast.ClassDef):
+            # a class warns when it is created or subclassed
+            hooks = ("__init__", "__new__", "__init_subclass__", "__post_init__")
+            return any(isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef)) and m.name in hooks and self.warns(m) for m in node.body)
+        for sub in ast.walk(node):
+            inner = sub if isinstance(sub, (ast.FunctionDef, ast.AsyncFunctionDef)) else func
+            if isinstance(sub, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and sub is not node:
+                if any(self.is_deprecated_decorator(d) for d in sub.decorator_list):
+                    return True
+            if self.warn_call(sub, inner):
+                return True
+        return False
+
+
+INDEX = None
+
+
+def index():
+    global INDEX
+    if INDEX is None:
+        INDEX = Index()
+    return INDEX
+
+
+def names_string(node, name):
+    return any(isinstance(n, ast.Constant) and n.value == name for n in ast.walk(node))
+
+
 def shimmed(tree, text, name):
+    ix = index()
     for node in tree.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and node.name == name:
-            if WARNS.search(ast.get_source_segment(text, node) or ""):
-                return True
-            if any(WARNS.search(ast.get_source_segment(text, d) or "") for d in node.decorator_list):
+            if ix.warns(node):
                 return True
         if isinstance(node, (ast.Assign, ast.AnnAssign)):
             targets = node.targets if isinstance(node, ast.Assign) else [node.target]
             if any(isinstance(t, ast.Name) and t.id == name for t in targets) and node.value is not None:
-                if WARNS.search(ast.get_source_segment(text, node.value) or ""):
+                if ix.warns(node.value):
                     return True
-    has_getattr = any(isinstance(n, ast.FunctionDef) and n.name == "__getattr__" for n in tree.body)
-    quoted = re.search(r"[\"']" + re.escape(name) + r"[\"']", text)
-    return bool(has_getattr and quoted and WARNS.search(text))
-
-
-def major(text):
-    if not text:
-        return None
-    m = re.search(r"(?ms)^\[project\][^\[]*?^version\s*=\s*[\"'](\d+)", text)
-    return int(m.group(1)) if m else None
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef) and node.name == "__getattr__" and ix.warns(node):
+            # the name is in __getattr__ itself, or in a module-level table it reads
+            if names_string(node, name):
+                return True
+            read_names = {n.id for n in ast.walk(node) if isinstance(n, ast.Name)}
+            for other in tree.body:
+                if isinstance(other, (ast.Assign, ast.AnnAssign)):
+                    targets = other.targets if isinstance(other, ast.Assign) else [other.target]
+                    if any(isinstance(t, ast.Name) and t.id in read_names for t in targets) and other.value is not None and names_string(other.value, name):
+                        return True
+    return False
 
 
 def main():
     changed = lines("changed")
     inbase = set(lines("inbase"))
-    before, after = major(read(os.path.join(TMP, "base", "pyproject.toml"))), major(read("pyproject.toml"))
-    if before is not None and after is not None and after > before:
-        return 0
     found = []
     for path in changed:
         if not path.endswith(".py") or SKIP.search(path) or path not in inbase:
@@ -111,7 +237,7 @@ def main():
         if text is None:
             gone = sorted(n for n in base_all if not n.startswith("_"))
             if gone:
-                found.append(f"{path}:0 the module was deleted, with public names {', '.join(gone)} in its __all__: keep it, re-exporting them with a DeprecationWarning, or bump the major version")
+                found.append(f"{path}:0 the module was deleted, with public names {', '.join(gone)} in its __all__: keep it, re-exporting them with a DeprecationWarning; a removal intended for a major version is accepted in forge.yaml (accept)")
             continue
         tree = parse(text)
         now_all = dunder_all(tree) if tree else None
@@ -119,7 +245,7 @@ def main():
             continue
         for name in sorted(base_all - now_all):
             if not shimmed(tree, text, name):
-                found.append(f"{path}:0 {name} left __all__ without a deprecation: keep it importable with warnings.warn(..., DeprecationWarning, stacklevel=2) (a module __getattr__, or @typing_extensions.deprecated on a wrapper), or bump the major version")
+                found.append(f"{path}:0 {name} left __all__ without a deprecation: keep it importable with warnings.warn(..., DeprecationWarning, stacklevel=2) (a module __getattr__, or @typing_extensions.deprecated on a wrapper); a removal intended for a major version is accepted in forge.yaml (accept)")
     for f in found:
         print(f)
     return 1 if found else 0

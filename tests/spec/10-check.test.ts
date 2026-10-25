@@ -1297,7 +1297,7 @@ describe("advisory checks block once per turn", () => {
       const first = turn();
       expect(first.status).toBe(1);
       expect(first.stdout).toContain("forge:typescript/lockfile-updated failed");
-      expect(first.stdout).toContain("package.json: dependencies esbuild 0.25.5 added, but bun.lock did not change");
+      expect(first.stdout).toContain("package.json: dependencies esbuild 0.25.5 added, but bun.lock has no changed line for it");
       const second = turn();
       expect(second.stdout).toContain("forge:typescript/lockfile-updated accepted: reported once this turn");
       expect(second.stdout).not.toContain("forge:typescript/lockfile-updated failed");

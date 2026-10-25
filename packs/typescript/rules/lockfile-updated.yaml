@@ -1,5 +1,5 @@
 id: typescript/lockfile-updated
-description: "A package.json whose dependencies, devDependencies or optionalDependencies changed comes with a changed lock file (pnpm-lock.yaml, package-lock.json, yarn.lock or bun.lock, when the project has one): run the package manager to update it. At Stop it blocks once per turn, then accepts."
+description: "A package.json whose dependencies, devDependencies or optionalDependencies changed comes with a lock file (pnpm-lock.yaml, package-lock.json, yarn.lock or bun.lock, when the project has one) whose changed lines name each changed dependency: run the package manager to update it. A lock change that names none of them (a blank line) does not count. bun.lock is left to typescript/bun/lock-sync (bun install --frozen-lockfile) when that rule is active. At Stop it blocks once per turn, then accepts."
 scope: {language: any}
 enforce:
   - {target: check, stage: lint, run: "forge_lockfile_updated", when_changed: ["**/package.json"]}
@@ -7,12 +7,14 @@ examples:
   match:
     - head: {package.json: "{\"name\": \"shop\", \"private\": true}\n", pnpm-lock.yaml: "lockfileVersion: '9.0'\n", packages/zod/package.json: "{\n  \"name\": \"zod\",\n  \"devDependencies\": {}\n}\n"}
       files: {packages/zod/package.json: "{\n  \"name\": \"zod\",\n  \"devDependencies\": {\n    \"esbuild\": \"^0.25.5\"\n  }\n}\n"}
+    - head: {package.json: "{\"name\": \"shop\", \"dependencies\": {\"zod\": \"4.0.0\"}}\n", pnpm-lock.yaml: "lockfileVersion: '9.0'\n\npackages:\n\n  zod@4.0.0:\n    resolution: {integrity: sha512-a}\n"}
+      files: {package.json: "{\"name\": \"shop\", \"dependencies\": {\"zod\": \"4.1.0\"}}\n", pnpm-lock.yaml: "lockfileVersion: '9.0'\n\npackages:\n\n  zod@4.0.0:\n    resolution: {integrity: sha512-a}\n\n"}
     - head: {package.json: "{\"name\": \"shop\", \"dependencies\": {\"zod\": \"4.0.0\"}}\n", bun.lock: "{\"lockfileVersion\": 1}\n"}
-      files: {package.json: "{\"name\": \"shop\", \"dependencies\": {\"zod\": \"4.1.0\"}}\n"}
+      files: {package.json: "{\"name\": \"shop\", \"dependencies\": {\"zod\": \"4.1.0\"}}\n", bun.lock: "{\"lockfileVersion\": 1}\n\n"}
   no_match:
-    - head: {package.json: "{\"name\": \"shop\", \"dependencies\": {\"zod\": \"4.0.0\"}}\n", bun.lock: "{\"lockfileVersion\": 1, \"zod\": \"4.0.0\"}\n"}
-      files: {package.json: "{\"name\": \"shop\", \"dependencies\": {\"zod\": \"4.1.0\"}}\n", bun.lock: "{\"lockfileVersion\": 1, \"zod\": \"4.1.0\"}\n"}
-    - head: {package.json: "{\"name\": \"shop\", \"version\": \"1.0.0\", \"dependencies\": {\"zod\": \"4.0.0\"}}\n", bun.lock: "{\"lockfileVersion\": 1}\n"}
+    - head: {package.json: "{\"name\": \"shop\", \"dependencies\": {\"zod\": \"4.0.0\"}}\n", pnpm-lock.yaml: "lockfileVersion: '9.0'\n\npackages:\n\n  zod@4.0.0:\n    resolution: {integrity: sha512-a}\n"}
+      files: {package.json: "{\"name\": \"shop\", \"dependencies\": {\"zod\": \"4.1.0\"}}\n", pnpm-lock.yaml: "lockfileVersion: '9.0'\n\npackages:\n\n  zod@4.1.0:\n    resolution: {integrity: sha512-b}\n"}
+    - head: {package.json: "{\"name\": \"shop\", \"version\": \"1.0.0\", \"dependencies\": {\"zod\": \"4.0.0\"}}\n", package-lock.json: "{\"lockfileVersion\": 3}\n"}
       files: {package.json: "{\n  \"name\": \"shop\",\n  \"version\": \"1.1.0\",\n  \"scripts\": {\"test\": \"vitest run\"},\n  \"dependencies\": {\n    \"zod\": \"4.0.0\"\n  }\n}\n"}
     - head: {package.json: "{\"name\": \"shop\", \"dependencies\": {}}\n"}
       files: {package.json: "{\"name\": \"shop\", \"dependencies\": {\"zod\": \"4.1.0\"}}\n"}

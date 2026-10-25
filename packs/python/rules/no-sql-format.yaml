@@ -10,5 +10,7 @@ examples:
   match:
     - "def find(name: str) -> str:\n    return f\"SELECT * FROM users WHERE name = '{name}'\"\n"
     - "def find(name: str) -> str:\n    return \"DELETE FROM users WHERE name = '%s'\" % name\n"
+    - "def find(cursor, uid: int) -> None:\n    sql = f\"SELECT * FROM t WHERE id = {uid}\"\n    cursor.execute(sql)\n"
   no_match:
     - "QUERY = \"SELECT * FROM users WHERE name = :name\"\n"
+    - "def find(cursor, uid: int) -> None:\n    sql = \"SELECT * FROM t WHERE id = %s\"\n    cursor.execute(sql, [uid])\n"

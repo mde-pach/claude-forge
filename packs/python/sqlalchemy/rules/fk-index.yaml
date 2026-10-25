@@ -1,28 +1,28 @@
 id: python/sqlalchemy/fk-index
-description: "A foreign key column is indexed (index=True, unique=True, primary_key=True, or an Index in __table_args__): PostgreSQL does not index referencing columns, so joins on it and deletes of the referenced rows scan the table."
+description: "Advice, once per turn at Stop: a foreign key column the turn adds to a model or Table() gets an index that leads with it (index=True, unique=True, the first primary key column, or an Index / UniqueConstraint / PrimaryKeyConstraint whose first column it is). PostgreSQL and SQLite do not index referencing columns, and PostgreSQL's documentation calls such an index often a good idea (joins, deletes of the referenced rows), not a requirement. Skipped when the database URL is MySQL or MariaDB, which index foreign keys themselves."
 scope: {language: python}
 enforce:
-  - target: ast-grep
-    mode: forbid
-    rule:
-      kind: call
-      all:
-        - has: {field: function, regex: "^((sa|sqlalchemy|orm)\\.)?(mapped_column|Column)$"}
-        - has: {field: arguments, has: {kind: call, has: {field: function, regex: "^((sa|sqlalchemy)\\.)?ForeignKey$"}}}
-        - not: {has: {field: arguments, has: {kind: keyword_argument, regex: "^(index|unique|primary_key)\\s*=\\s*True$"}}}
-        - not:
-            inside:
-              stopBy: end
-              any: [{kind: class_definition}, {kind: call, has: {field: function, regex: "^((sa|sqlalchemy)\\.)?Table$"}}]
-              has: {stopBy: end, kind: call, has: {field: function, regex: "^((sa|sqlalchemy)\\.)?(Index|UniqueConstraint|PrimaryKeyConstraint)$"}}
+  - target: check
+    stage: lint
+    run: |
+      case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
+      forge_advise forge_helper python fk_index.py
 examples:
   match:
-    - "class Post(Base):\n    __tablename__ = \"posts\"\n    author_id: Mapped[int] = mapped_column(ForeignKey(\"users.id\", ondelete=\"CASCADE\"))\n"
-    - "class Post(Base):\n    __tablename__ = \"posts\"\n    org_id: Mapped[UUID] = mapped_column(Uuid, sa.ForeignKey(\"orgs.id\"), nullable=False)\n"
-    - "tags = Table(\"post_tags\", Base.metadata, Column(\"post_id\", ForeignKey(\"posts.id\")))\n"
+    - files: {app/models.py: "class Post(Base):\n    __tablename__ = \"posts\"\n    author_id: Mapped[int] = mapped_column(ForeignKey(\"users.id\", ondelete=\"CASCADE\"))\n"}
+    - files: {app/models.py: "class Post(Base):\n    __tablename__ = \"posts\"\n    org_id: Mapped[UUID] = mapped_column(Uuid, sa.ForeignKey(\"orgs.id\"), nullable=False)\n"}
+    - files: {app/models.py: "tags = Table(\"post_tags\", Base.metadata, Column(\"post_id\", ForeignKey(\"posts.id\")))\n"}
+    - files: {app/models.py: "class Post(Base):\n    __tablename__ = \"posts\"\n    __table_args__ = (Index(\"ix_posts_created\", \"created_at\"),)\n    author_id: Mapped[int] = mapped_column(ForeignKey(\"users.id\"))\n    editor_id: Mapped[int] = mapped_column(ForeignKey(\"users.id\"))\n"}
+    - files: {app/models.py: "class Post(Base):\n    __tablename__ = \"posts\"\n    __table_args__ = (Index(\"ix_posts_created_author\", \"created_at\", \"author_id\"),)\n    author_id: Mapped[int] = mapped_column(ForeignKey(\"users.id\"))\n"}
+    - files: {app/models.py: "class Membership(Base):\n    __tablename__ = \"memberships\"\n    user_id: Mapped[int] = mapped_column(ForeignKey(\"users.id\"), primary_key=True)\n    group_id: Mapped[int] = mapped_column(ForeignKey(\"groups.id\"), primary_key=True)\n"}
   no_match:
-    - "class Post(Base):\n    __tablename__ = \"posts\"\n    author_id: Mapped[int] = mapped_column(ForeignKey(\"users.id\"), index=True)\n"
-    - "class Profile(Base):\n    __tablename__ = \"profiles\"\n    user_id: Mapped[int] = mapped_column(ForeignKey(\"users.id\"), unique=True)\n"
-    - "class PostTag(Base):\n    __tablename__ = \"post_tags\"\n    post_id: Mapped[int] = mapped_column(ForeignKey(\"posts.id\"), primary_key=True)\n"
-    - "class Post(Base):\n    __tablename__ = \"posts\"\n    __table_args__ = (Index(\"ix_posts_author_created\", \"author_id\", \"created_at\"),)\n    author_id: Mapped[int] = mapped_column(ForeignKey(\"users.id\"))\n"
-    - "class Post(Base):\n    __tablename__ = \"posts\"\n    author_id: Mapped[int] = mapped_column(nullable=False)\n"
+    - files: {app/models.py: "class Post(Base):\n    __tablename__ = \"posts\"\n    author_id: Mapped[int] = mapped_column(ForeignKey(\"users.id\"), index=True)\n"}
+    - files: {app/models.py: "class Profile(Base):\n    __tablename__ = \"profiles\"\n    user_id: Mapped[int] = mapped_column(ForeignKey(\"users.id\"), unique=True)\n"}
+    - files: {app/models.py: "class PostTag(Base):\n    __tablename__ = \"post_tags\"\n    post_id: Mapped[int] = mapped_column(ForeignKey(\"posts.id\"), primary_key=True)\n"}
+    - files: {app/models.py: "class Post(Base):\n    __tablename__ = \"posts\"\n    __table_args__ = (Index(\"ix_posts_author_created\", \"author_id\", \"created_at\"),)\n    author_id: Mapped[int] = mapped_column(ForeignKey(\"users.id\"))\n"}
+    - files: {app/models.py: "class Post(Base):\n    __tablename__ = \"posts\"\n    author_id: Mapped[int] = mapped_column(nullable=False)\n"}
+    - head: {app/models.py: "class Post(Base):\n    __tablename__ = \"posts\"\n    author_id: Mapped[int] = mapped_column(ForeignKey(\"users.id\"))\n"}
+      files: {app/models.py: "class Post(Base):\n    __tablename__ = \"posts\"\n    author_id: Mapped[int] = mapped_column(ForeignKey(\"users.id\"))\n    title: Mapped[str]\n"}
+    - files:
+        .env: "DATABASE_URL=mysql+pymysql://app@localhost/app\n"
+        app/models.py: "class Post(Base):\n    __tablename__ = \"posts\"\n    author_id: Mapped[int] = mapped_column(ForeignKey(\"users.id\"))\n"

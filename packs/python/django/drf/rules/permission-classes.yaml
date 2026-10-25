@@ -1,5 +1,5 @@
 id: python/django/drf/permission-classes
-description: "Unless settings set REST_FRAMEWORK DEFAULT_PERMISSION_CLASSES to something other than AllowAny (DRF's default is AllowAny), a view that subclasses a DRF APIView, generic view or viewset directly sets permission_classes (or get_permissions), and an @api_view function has @permission_classes. Views on a project base class are not checked."
+description: "Unless the settings Django runs with (DJANGO_SETTINGS_MODULE from manage.py, wsgi.py or asgi.py, star imports followed) set REST_FRAMEWORK DEFAULT_PERMISSION_CLASSES to a non-empty list without AllowAny (DRF's default is AllowAny), a class inheriting a DRF APIView, generic view or viewset, directly or through the project's own classes and mixins, gets a non-empty permission_classes (or get_permissions) from itself or a project ancestor, and an @api_view function has @permission_classes. permission_classes = [] declares nothing; a base class outside the repository is not followed."
 scope: {language: python, files: ["!**/migrations/**", "!**/tests/**", "!**/test_*.py"]}
 enforce:
   - target: check
@@ -9,9 +9,26 @@ enforce:
 examples:
   match:
     - files: {shop/views.py: "from rest_framework import viewsets\nfrom rest_framework.decorators import api_view\nfrom rest_framework.response import Response\n\nfrom .models import Order\nfrom .serializers import OrderSerializer\n\n\nclass OrderViewSet(viewsets.ModelViewSet):\n    queryset = Order.objects.all()\n    serializer_class = OrderSerializer\n\n\n@api_view([\"POST\"])\ndef refund(request, pk):\n    return Response(status=204)\n"}
+    - files: {shop/views.py: "from rest_framework import viewsets\n\n\nclass LoggingMixin:\n    def initial(self, request, *args, **kwargs):\n        super().initial(request, *args, **kwargs)\n\n\nclass OrderViewSet(LoggingMixin, viewsets.ModelViewSet):\n    queryset = Order.objects.all()\n"}
+    - files: {shop/views.py: "from rest_framework import viewsets\n\n\nclass OrderViewSet(viewsets.ModelViewSet):\n    queryset = Order.objects.all()\n    permission_classes = []\n"}
+    - files:
+        manage.py: "import os\nimport sys\n\nif __name__ == \"__main__\":\n    os.environ.setdefault(\"DJANGO_SETTINGS_MODULE\", \"proj.settings\")\n    from django.core.management import execute_from_command_line\n\n    execute_from_command_line(sys.argv)\n"
+        proj/settings.py: "INSTALLED_APPS = [\"rest_framework\"]\n"
+        tests/settings_test.py: "REST_FRAMEWORK = {\"DEFAULT_PERMISSION_CLASSES\": [\"rest_framework.permissions.IsAuthenticated\"]}\n"
+        shop/views.py: "from rest_framework import viewsets\n\nfrom .models import Order\n\n\nclass OrderViewSet(viewsets.ModelViewSet):\n    queryset = Order.objects.all()\n"
+    - files:
+        core/views.py: "from rest_framework import viewsets\n\n\nclass TenantViewSet(viewsets.ModelViewSet):\n    def get_queryset(self):\n        return super().get_queryset().filter(tenant=self.request.tenant)\n"
+        shop/views.py: "from core.views import TenantViewSet\n\n\nclass OrderViewSet(TenantViewSet):\n    queryset = Order.objects.all()\n"
   no_match:
     - files: {shop/views.py: "from rest_framework import permissions, viewsets\nfrom rest_framework.decorators import api_view, permission_classes\nfrom rest_framework.response import Response\n\nfrom .models import Order\nfrom .serializers import OrderSerializer\n\n\nclass OrderViewSet(viewsets.ModelViewSet):\n    queryset = Order.objects.all()\n    serializer_class = OrderSerializer\n    permission_classes = [permissions.IsAuthenticated]\n\n\n@api_view([\"POST\"])\n@permission_classes([permissions.IsAdminUser])\ndef refund(request, pk):\n    return Response(status=204)\n"}
     - files:
         proj/settings.py: "REST_FRAMEWORK = {\n    \"DEFAULT_PERMISSION_CLASSES\": [\"rest_framework.permissions.IsAuthenticated\"],\n}\n"
         shop/views.py: "from rest_framework import viewsets\n\nfrom .models import Order\nfrom .serializers import OrderSerializer\n\n\nclass OrderViewSet(viewsets.ModelViewSet):\n    queryset = Order.objects.all()\n    serializer_class = OrderSerializer\n"
     - files: {shop/views.py: "from rest_framework import viewsets\n\nfrom core.views import TenantViewSet\n\nfrom .models import Order\n\n\nclass OrderViewSet(TenantViewSet):\n    queryset = Order.objects.all()\n"}
+    - files: {shop/views.py: "from rest_framework import viewsets\nfrom rest_framework.permissions import IsAuthenticated\n\n\nclass AuthMixin:\n    permission_classes = [IsAuthenticated]\n\n\nclass OrderViewSet(AuthMixin, viewsets.ModelViewSet):\n    queryset = Order.objects.all()\n"}
+    - files:
+        manage.py: "import os\nimport sys\n\nif __name__ == \"__main__\":\n    os.environ.setdefault(\"DJANGO_SETTINGS_MODULE\", \"proj.settings.dev\")\n    from django.core.management import execute_from_command_line\n\n    execute_from_command_line(sys.argv)\n"
+        proj/settings/__init__.py: ""
+        proj/settings/base.py: "REST_FRAMEWORK = {\"DEFAULT_PERMISSION_CLASSES\": [\"rest_framework.permissions.IsAuthenticated\"]}\n"
+        proj/settings/dev.py: "from .base import *  # noqa: F403\n\nDEBUG = True\n"
+        shop/views.py: "from rest_framework import viewsets\n\nfrom .models import Order\n\n\nclass OrderViewSet(viewsets.ModelViewSet):\n    queryset = Order.objects.all()\n"

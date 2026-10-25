@@ -401,14 +401,14 @@ A finding whose exact line appears in `forge.yaml` (an `accept` entry) is not re
 
 ### 10.5 Test integrity
 
-Claude may add tests, including in existing test files, and change a test's setup; changing what a test that existed at the start of the turn checks, or removing it, needs approval. Sometimes the task requires it (it reverses the behaviour a test asserts), sometimes it only makes failing code pass; the user, or a reviewer given the user's request, tells them apart.
+Claude may add tests, including in existing test files; changing a test that existed at the start of the turn (its setup and input data included), or removing it, needs approval. Sometimes the task requires it (it reverses the behaviour a test asserts), sometimes it only makes failing code pass; the user, or a reviewer given the user's request, tells them apart.
 
-- **Tests.** With ast-grep (`--inline-rules`, the pinned version): pytest `test*` functions and methods with their decorators, keyed by enclosing classes and name; Vitest and Playwright `test(…)` / `it(…)` calls (any modifier: `.only`, `.skip`, `.each(…)`, …; not `test.describe`, `test.step` or hooks), keyed by the enclosing `describe` / `test.describe` names and the test name (`#2` for a repeated name). What a test **checks**: its `assert` statements and decorators (pytest), its `expect(…)` statements and `.each(…)` table (Vitest, Playwright), whitespace aside, attributed to the innermost test. A test is **changed** when what it checks differs, **removed** when it is gone; any other edit (setup, fixtures, arguments) is not a change.
+- **Tests.** With ast-grep (`--inline-rules`, the pinned version): pytest `test*` functions and methods with their decorators, keyed by enclosing classes and name; Vitest and Playwright `test(…)` / `it(…)` calls (any modifier: `.only`, `.skip`, `.each(…)`, …; not `test.describe`, `test.step` or hooks), keyed by the enclosing `describe` / `test.describe` names and the test name (`#2` for a repeated name). A test's **fingerprint** is its whole text (decorators, `.each(…)` table, setup, input data, control flow such as an early `return` or an `if False:` around asserts, and assertions) with whitespace, semicolons and trailing commas removed and `'` read as `"`, so reformatting is not a change. A test is **changed** when its fingerprint differs, **removed** when it is gone; a test whose key is new (an added test) is free.
 - **When the edit is made** (`test-edit.sh`, PreToolUse `Edit|Write`, files in the scope of an active `no-test-edits` rule): the file at the start of the turn (the turn snapshot, else `HEAD`), now, and after the edit (Write: `content`; Edit: `old_string` replaced by `new_string`, once or with `replace_all`) are compared. When a test present at the start of the turn and now is changed or removed by the edit, the hook asks: `permissionDecisionReason` `forge:<rule-id> This edit changes what tests that existed before this turn assert, or removes them: <path> "<key>" (changed|removed), …. That is right when the task changes the behaviour they assert; otherwise it weakens the tests to make the code pass.` The tests are recorded in `<snapshot>/tests-pending/<tool_use_id>`. When nobody can answer (§9.3), `review.sh pre` answers with the rule's `review` question and the user's request for the turn (`<state>/<session_id>.prompt`, first 8000 bytes; not the conversation).
 - **Approval.** On PostToolUse `Edit|Write` the call ran, so it was approved (by the user, the reviewer, or a permission mode): its pending tests move to `<snapshot>/tests-approved`. The turn's snapshot holds them, so they last one turn.
-- **At Stop**, the engine helper `forge_test_edits` (`--turn` only) compares each in-scope file present in the base with the base and prints `<path>: test "<key>" was changed` or `… was removed` for each test changed or removed and not approved during the turn (a change made through Bash, say). The check then fails with: "These tests existed before this turn and their assertions changed without approval. Restore them. If the task requires the change (it changes the behaviour they assert), make it with Edit or Write: Forge then asks for approval (the user, or a reviewer given the request)." Pre-commit and CI do not run it: a human edits tests on purpose. It complements `no-fewer-asserts`, `no-fewer-expects` and `no-new-skip`, which miss a changed expected value.
+- **At Stop**, the engine helper `forge_test_edits` (`--turn` only) compares each in-scope file present in the base with the base and prints `<path>: test "<key>" was changed` or `… was removed` for each test changed or removed and not approved during the turn (a change made through Bash, say). The check then fails with: "These tests existed before this turn and were changed without approval. Restore them. If the task requires the change (it changes the behaviour they assert), make it with Edit or Write: Forge then asks for approval (the user, or a reviewer given the request)." Pre-commit and CI do not run it: a human edits tests on purpose. It complements `no-fewer-asserts`, `no-fewer-expects` and `no-new-skip`, which miss a changed expected value.
 - **Test support code.** Top-level functions and classes not named `test*` / `Test*` in the rule's files (fakes, mocks, fixtures, helpers; pytest's scope includes `conftest.py`), and, in Vitest's, top-level declarations and `vi.mock` / `vi.doMock` calls (its scope adds `__mocks__/**`, `test-utils.*`, `test-helpers.*`, `vitest.setup.*`), keyed `support:<name>`. One present in the base and changed (text, whitespace aside) or removed prints `<path>: test support `<name>` was changed|removed` and fails the check with: "Test doubles, fixtures and helpers encode the interface the code's callers rely on. Keep that interface in production (e.g. a property alias for a moved attribute) unless the task removes it; if it does, carry on: this is reported once." Each one is reported once per turn (`<snapshot>/support-reported`); the next Stop accepts it. Edits to it do not ask.
-- **Limits.** An approval covers the test by key for the rest of the turn, so a later Bash change to the same test is not seen. A setup change can still change what is tested (another input with the same assertion).
+- **Limits.** An approval covers the test by key for the rest of the turn, so a later Bash change to the same test is not seen. A change outside the test (a module-level constant or a fixture it uses) is not a change to the test; changed fixtures and helpers are test support code, reported once. Renaming a test reads as a removal plus an addition, so it asks.
 
 ### 10.6 Failing tests at the start of the turn
 
@@ -488,7 +488,7 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `safety/docker-volumes` | `guard` deny: `docker compose down` / `docker-compose down` with `-v` or `--volumes`, `docker volume rm`, `docker volume prune`, `docker system prune --volumes` |
 | `safety/package-add` | `permission` ask: `Bash(bun add:*)`, `Bash(uv add:*)` (hallucinated package names, slopsquatting) |
 | `safety/lockfile-hand-edit` | `permission` ask: `Edit(**/pnpm-lock.yaml)`, `Edit(**/package-lock.json)`, `Edit(**/npm-shrinkwrap.json)`, `Edit(**/yarn.lock)`, `Edit(**/bun.lock)`, `Edit(**/uv.lock)`, `Edit(**/poetry.lock)`, `Edit(**/Cargo.lock)` (the package manager writes lock files) |
-| `safety/lockfile-bash-write` | `guard` deny: the same lock files rewritten through Bash: `sed -i` / `perl -i`, a `>` / `>>` redirect or `tee` into one, a `python` / `node` / `bun` / `deno` / `ruby` command naming one and writing (`.write(`, `write_text`, `writeFile`, `Bun.write`, `open(…, 'w')`) |
+| `safety/lockfile-bash-write` | `guard` ask (`review`: is it a hand rewrite of a lock file the request asks for): the same lock files rewritten through Bash: `sed -i` / `perl -i` (`-0pi` included), a `>` / `>>` redirect or `tee` into one, `cp` / `mv` / `install` / `rsync` with one as the last argument, `dd of=`, `truncate`, a `python` / `node` / `bun` / `deno` / `ruby` command naming one and writing (`.write(`, `write_text`, `writeFile`, `Bun.write`, an `open(…, 'w')` mode) |
 | `safety/prisma-ai-consent` | `guard` deny: any command containing `PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION` (only the user gives that consent) |
 | `safety/terraform-destroy` | `guard` ask: `terraform` / `tofu` `destroy`, `apply … -auto-approve` |
 | `safety/git-stash-drop` | `guard` ask: `git stash drop` (`git stash clear` is denied by `git-history-rewrite`) |
@@ -539,7 +539,6 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `python/stub-sync` | `check` lint, advisory (§10.7): `forge_stub_sync` on `*.py` |
 | `python/no-placeholder-comment` | `grep` forbid (case-insensitive): comments such as `TODO: implement`, "in a real implementation", "placeholder logic", "stub for now" |
 | `python/env-example` | `check` lint: `forge_env_example py`, not with `--all`: a field added to a pydantic-settings `BaseSettings` class (`env_prefix`, `alias`, `case_sensitive` applied) appears in the nearest directory's `.env.example`, `.env.template`, `.env.sample`, `.env.dist` or `.env.<name>.example` (a `# KEY=` line counts): always without a default, also with one when the template lists at least half of the class's variables; a template listing none of them is not about that class |
-| `python/no-secret-logging` | `ast-grep` forbid, not in tests, management commands, `scripts/**`, `cli.py`: a name, attribute or header like `token`, `secret`, `password`, `api_key`, `secret_key`, `private_key`, `access_key`, `authorization`, `credentials` (not `max_tokens`, `has_token`, `next_page_token`, `password_hash`) passed to a logger method, `print()` or a raised exception: as an argument, in an f-string, with `+`, as a keyword or `extra` dict value |
 
 context.md: uv and `.venv/bin`, basedpyright; no blocking calls in `async def`; ignore comments name their rule; search for an existing helper (warn-once, logging, utils) before writing one.
 
@@ -565,7 +564,6 @@ context.md: uv and `.venv/bin`, basedpyright; no blocking calls in `async def`; 
 | `typescript/no-new-suppressions` | `grep` no-increase: `biome-ignore` (every form), `@ts-expect-error` (suppression budget; `@ts-ignore` and `@ts-nocheck` are forbidden outright) |
 | `typescript/no-empty-block` | `tool` biome `lint/suspicious/noEmptyBlockStatements` |
 | `typescript/no-swallowed-catch` | `ast-grep` forbid: a `catch` that neither throws nor uses its error; `.catch(() => {})`, `.catch(() => undefined)`, `.catch(() => null)` |
-| `typescript/no-latch-before-optional-call` | `ast-grep` forbid: a once-flag set before an optional call in its guard: `if (!$F) { $F = true; … $X?.$M(…) … }`, or `if ($F) return; $F = true; … $X?.$M(…)` (the flag is consumed when `$X` is absent) |
 | `typescript/no-console` | `tool` biome `lint/suspicious/noConsole` (snippet allows `warn` and `error`) |
 | `typescript/no-unused` | `tool` biome `lint/correctness/noUnusedImports`, `lint/correctness/noUnusedVariables` |
 | `typescript/no-secrets` | `tool` biome `lint/security/noSecrets` (snippet: error, `entropyThreshold` 50, off for tests and generated files) |
@@ -574,9 +572,8 @@ context.md: uv and `.venv/bin`, basedpyright; no blocking calls in `async def`; 
 | `typescript/no-placeholder-comment` | `grep` forbid (case-insensitive): the Python list, after `//`, `/*` or `*` |
 | `typescript/config-files` | `permission` ask: `Edit(**/biome.json)`, `Edit(**/biome.jsonc)`, `Edit(**/tsconfig*.json)` |
 | `typescript/config-ratchet` | `check` lint: `forge_ratchet bun ratchet.mjs` (§10.4), `when_changed`: Biome, tsconfig and `package.json` files |
-| `typescript/lockfile-updated` | `check` lint: `forge_lockfile_updated`: a `package.json` whose `dependencies`, `devDependencies` or `optionalDependencies` changed since the base comes with a changed lock file (`pnpm-lock.yaml`, `package-lock.json`, `npm-shrinkwrap.json`, `yarn.lock`, `bun.lock`) when one exists next to it or at the root; `when_changed: [**/package.json]`. At Stop it blocks once per turn, then prints `accepted` and passes (`forge_once`: the package manager may not run here); pre-commit and CI always fail. (`python/uv/lock-sync` covers `pyproject.toml`.) |
+| `typescript/lockfile-updated` | `check` lint: `forge_lockfile_updated`: a `package.json` whose `dependencies`, `devDependencies` or `optionalDependencies` changed since the base needs its lock file (`pnpm-lock.yaml`, `package-lock.json`, `npm-shrinkwrap.json`, `yarn.lock`, `bun.lock`; next to it, else at the root) to have a changed line naming each changed dependency; `bun.lock` is skipped when `typescript/bun/lock-sync` is active (`forge_check_active`); blocks once per turn (`forge_once`) |
 | `typescript/env-example` | `check` lint: `forge_env_example ts`, as `python/env-example` for the UPPER_CASE keys of a Zod env schema (t3-env `createEnv`, or `z.object(…)` with `process.env`) whose value is a `z.` chain; a key with `.default()`, `.optional()` or `.catch()` counts as having a default |
-| `typescript/no-secret-logging` | `ast-grep` forbid, not in tests, `e2e/**`, `scripts/**`: the Python list in camelCase too (`accessToken`, `apiKey`, `clientSecret`; not `maxTokens`, `hasToken`, `passwordHash`) passed to `console.*`, a logger's methods or a thrown error: as an argument, in a template literal, with `+`, as an object property |
 
 context.md: strict TypeScript and Bun; TypeScript 6 deprecations are migrated, never silenced with `ignoreDeprecations`; no `!` or `as unknown as`; search for an existing helper (warn-once, logging, `util.*`) before writing one.
 
@@ -609,7 +606,7 @@ context.md: "FastAPI. Dependencies use `Annotated[T, Depends(...)]`. Startup and
 | `python/sqlalchemy/no-raw-execute` | `ast-grep` forbid: `$X.execute("$$$")` with a string literal |
 | `python/sqlalchemy/async-expire-on-commit` | `ast-grep` forbid: `async_sessionmaker(…)` without `expire_on_commit=False` |
 | `python/sqlalchemy/no-text-fstring` | `ast-grep` forbid: `text()` whose SQL is an f-string, `.format()`, `%` or `+` concatenation |
-| `python/sqlalchemy/fk-index` | `ast-grep` forbid: `mapped_column(…)` or `Column(…)` with a `ForeignKey(…)` argument and no `index=True`, `unique=True` or `primary_key=True`, unless its class or `Table(…)` declares an `Index`, `UniqueConstraint` or `PrimaryKeyConstraint` |
+| `python/sqlalchemy/fk-index` | `check` lint, advisory (§10.7): `forge_advise forge_helper python fk_index.py` (§13.4), skipped for a MySQL / MariaDB `forge_db_url` |
 
 context.md: SQLAlchemy 2.0 async models, queries and sessions; no lazy loading in async sessions (`selectinload()`, `lazy="raise"`); values reach `text()` as bound parameters, with f-strings, `.format()`, `%`, `+` in `text()` and literal strings in `.execute()` rejected, and statements that cannot take parameters (`SET`, `SET LOCAL`) free to embed a validated value.
 
@@ -623,9 +620,9 @@ context.md: SQLAlchemy 2.0 async models, queries and sessions; no lazy loading i
 | `python/sqlalchemy/alembic/downgrade` | `guard` ask: `alembic downgrade`, `alembic stamp` |
 | `python/sqlalchemy/alembic/migration-lint` | `check` migration: each changed revision's upgrade rendered offline (`alembic upgrade <down_revision>:<revision> --sql`) and linted with Squawk (§13.1); `--all`: the head revision; merge revisions are skipped; `when_changed: [alembic/versions/**]` |
 | `python/sqlalchemy/alembic/model-registered` | `check` lint on `**/models/**`: `forge_models_registered`: a module of a models package with a mapped class (`__tablename__`) is named in the package's `__init__.py` when that file imports other table modules of the package (the registry), or in `alembic/env.py`; otherwise `Base.metadata` lacks the table and `alembic check` passes without its migration |
-| `python/sqlalchemy/alembic/fk-index` | `check` lint on `alembic/versions/**`: `forge_alembic_fk_index`: in `upgrade()`, each column given a foreign key (`sa.Column(…, sa.ForeignKey(…))`, `sa.ForeignKeyConstraint([…])`, `op.create_foreign_key(…, […], …)`) leads an `op.create_index`, or has `index=True`, a primary key, a unique constraint or a `CREATE INDEX`; skipped for a MySQL database URL |
+| `python/sqlalchemy/alembic/fk-index` | `check` lint on `alembic/versions/**`, advisory (§10.7): `forge_advise forge_alembic_fk_index`: in `upgrade()`, each column given a foreign key (`sa.Column(…, sa.ForeignKey(…))`, `sa.ForeignKeyConstraint([…])`, `op.create_foreign_key(…, […], …)`) is the first column of an `op.create_index`, `sa.Index`, primary key or unique constraint or `CREATE INDEX`, or has `index=True`, `unique=True` or `primary_key=True`; skipped for a MySQL / MariaDB database URL |
 | `python/sqlalchemy/alembic/sqlite-batch` | `check` lint on `alembic/versions/**`: `forge_alembic_batch`: when `alembic/env.py` sets `render_as_batch=True` or `alembic.ini` has a sqlite URL, no `op.alter_column`, `op.drop_column`, `op.create_foreign_key`, `op.drop_constraint`, `op.create_unique_constraint`, `op.create_check_constraint`, `op.create_primary_key` outside `op.batch_alter_table()`, except under an `if` on the dialect |
-| `python/sqlalchemy/alembic/data-migration-downgrade` | `check` lint on `alembic/versions/**`: `forge_alembic_data_downgrade`: an `upgrade()` that changes rows (`UPDATE … SET`, `INSERT INTO`, `DELETE FROM` with `execute(`, `sa.update/insert/delete(`, `.update()`, `op.bulk_insert`, `Session(`) has a `downgrade()` that is more than `pass`, `...` and a docstring, unless a test file mentions Alembic (`pytest_alembic`, `alembic.command`, …) |
+| `python/sqlalchemy/alembic/data-migration-downgrade` | `check` lint on `alembic/versions/**`, advisory (§10.7): `forge_advise forge_alembic_data_downgrade`: an `upgrade()` that changes rows (`UPDATE … SET`, `INSERT INTO`, `DELETE FROM` with `execute(`, `sa.update/insert/delete(…)`, `.update()/.insert()/.delete()`, `op.bulk_insert(`, `Session(`) has a `downgrade()` that changes rows the same ways or has a `raise` statement; reported at the `downgrade` line |
 
 The migration `check` lint rules above examine the changed revisions, and with `--all` only the head revisions. A required column added without a default (`op.add_column(…, nullable=False)` without `server_default`) is already caught by `migration-lint` (Squawk `adding-required-field`, §13.1).
 
@@ -649,7 +646,7 @@ context.md: "Pydantic v2: `model_validate`, `model_dump`, `model_config = Config
 | `python/pytest/no-test-env-branch` | `ast-grep` forbid on non-test files: `PYTEST_CURRENT_TEST` lookups, `"pytest" in sys.modules` |
 | `python/pytest/no-blind-raises` | `tool` ruff `B017` |
 | `python/pytest/no-tautological-assert` | `ast-grep` forbid on test files: `assert` on a literal (`True`, a number, a string), `assert $X == $X`, `assert $X is $X` |
-| `python/pytest/no-mock-increase` | `ast-grep` no-increase on test files: calls to `patch`, `patch.object`, `patch.dict`, `MagicMock`, `AsyncMock`, `Mock` (bare, `mock.`, `unittest.mock.` or `mocker.`), `monkeypatch.setattr` |
+| `python/pytest/no-mock-increase` | `ast-grep` no-increase on test files: calls to `patch`, `patch.object`, `patch.dict`, `patch.multiple`, `Mock`, `MagicMock`, `AsyncMock`, `NonCallableMock`, `create_autospec` (bare, `mock.`, `unittest.mock.`, or through an alias: `from unittest.mock import patch as p`, `import unittest.mock as um`, `from unittest import mock as m`), and `mocker.patch*`, `mocker.spy`, `mocker.stub`, `mocker.Mock*`; `monkeypatch` is not counted (pytest's way to set configuration) |
 | `python/pytest/no-test-edits` | `check` lint: `forge_test_edits` on `**/test_*.py`, `**/*_test.py`, `**/conftest.py`; edits ask (§10.5); `review`: is the change required by the user's request, or does it weaken the tests |
 | `python/pytest/untested-change` | `check` lint, advisory (§10.7): `forge_untested_change` on non-test `*.py` (not migrations) |
 
@@ -662,7 +659,7 @@ Detected by `django` (pypi) or a `manage.py` at the root or one level down.
 | Rule | Targets |
 |---|---|
 | `python/django/makemigrations` | `check` migration: the shallowest tracked `manage.py`, `python <manage.py> makemigrations --check --dry-run --no-input` (no database needed: Django only warns when it cannot check the migration history); fails on "Migrations for", any other failure (settings that need an environment variable, a missing module) prints `skipped:` with the error's last line; `when_changed`: models, migrations, settings; timeout 120 s |
-| `python/django/no-raw-sql-format` | `ast-grep` forbid, not in migrations: `.raw()`, `.execute()`, `.executemany()`, `RawSQL()` whose SQL is an f-string, `.format()`, `%` or `+`; `.extra()` with `select`, `where`, `tables` or `order_by` |
+| `python/django/no-raw-sql-format` | `tool` ruff `S610` (`.extra()` with a non-literal `select` / `where` / `tables` / …), `S611` (`RawSQL()` with non-literal SQL); SQL strings built with an f-string, `.format()`, `%` or `+` (also through a variable) are `python/no-sql-format` (`S608`) |
 | `python/django/flake8-django` | `tool` ruff `DJ001`, `DJ003`, `DJ006`, `DJ007`, `DJ013` |
 
 context.md: migrations generated and committed with model changes; SQL parameters; `select_related()` / `prefetch_related()` against N+1; `transaction.atomic()` and `transaction.on_commit()`.
@@ -673,7 +670,7 @@ Detected by `djangorestframework` (pypi).
 
 | Rule | Targets |
 |---|---|
-| `python/django/drf/permission-classes` | `check` lint: `forge_helper python drf_permissions.py` (§13.4): unless a tracked module sets `DEFAULT_PERMISSION_CLASSES` to something other than `AllowAny`, a class whose bases are all DRF views, viewsets or model mixins sets `permission_classes` or `get_permissions`, and an `@api_view` function has `@permission_classes`; findings on the class or function line |
+| `python/django/drf/permission-classes` | `check` lint: `forge_helper python drf_permissions.py` (§13.4): unless the settings module Django runs with (`DJANGO_SETTINGS_MODULE` set in `manage.py`, `wsgi.py` or `asgi.py`, star imports followed; else a `settings.py` / `settings/` outside tests) sets `DEFAULT_PERMISSION_CLASSES` to a non-empty list without `AllowAny`, a class inheriting a DRF view or viewset (directly or through project classes and mixins of any kind) gets a non-empty `permission_classes` or `get_permissions` from itself or a project ancestor, and an `@api_view` function has `@permission_classes`; `permission_classes = []` declares nothing; findings on the class or function line |
 | `python/django/drf/serializer-fields` | `ast-grep` forbid: `fields = "__all__"` in the `Meta` of a class whose bases name a `Serializer` |
 | `python/django/drf/no-allowany-write` | `ast-grep` forbid: `permission_classes` naming `AllowAny` in a `ModelViewSet`, a Create/Update/Destroy generic view or model mixin, or a class with `post`/`put`/`patch`/`delete`/`create`/`update`/`partial_update`/`destroy`; `@permission_classes([AllowAny])` on an `@api_view` with a write method; `AllowAny` as `DEFAULT_PERMISSION_CLASSES` |
 
@@ -685,9 +682,8 @@ Detected by `celery` (pypi).
 
 | Rule | Targets |
 |---|---|
-| `python/celery/task-model-arg` | `ast-grep` forbid: a `@shared_task` / `@<app>.task` parameter annotated with a class imported from a `models` module; `self` passed to `.delay()`, `.apply_async()`, `.s()`, `.si()` inside a class whose bases name a `Model`; `instance` passed to them inside a `@receiver` handler |
-| `python/celery/bounded-retries` | `ast-grep` forbid: `max_retries=None`, `"max_retries": None` |
-| `python/celery/no-result-get-in-task` | `ast-grep` forbid: inside a task, `.get()`, `.wait()`, `.join()` on `.delay()` / `.apply_async()` / `AsyncResult()` results (directly or through a variable of the function) or on a called `group` / `chord` / `chain`; `disable_sync_subtasks=False` anywhere |
+| `python/celery/bounded-retries` | `ast-grep` forbid: `max_retries=None` in a `shared_task(…)` / `<x>.task(…)` call or a `.retry()`, `.apply_async()`, `.signature()`, `.set()` call; `"max_retries": None` inside `retry_kwargs=`; a `max_retries = None` class attribute of a class whose bases name `Task` |
+| `python/celery/no-result-get-in-task` | `ast-grep` forbid: inside a task, `.get()`, `.wait()`, `.join()` on `.delay()` / `.apply_async()` / `AsyncResult()` results (directly, through a variable of the function, or as the variable of a `for` loop or comprehension over them) or on a called `group` / `chord` / `chain`; `disable_sync_subtasks=False` anywhere |
 
 context.md: ids as arguments, idempotent tasks queued from `transaction.on_commit()`, bounded retries, no waiting on results inside tasks.
 
@@ -708,10 +704,9 @@ Detected by `library_any: [npm]` (§13.4).
 
 | Rule | Targets |
 |---|---|
-| `typescript/library/barrel-exports` | `check` lint: `forge_helper bun public_api.mjs barrel` (§13.4); `changed_run` with `{files}` |
 | `typescript/library/deprecation-shim` | `check` lint: `forge_helper bun public_api.mjs removed` (§13.4), `when_changed`: TypeScript and JavaScript files, `package.json` |
 
-context.md: entry points are the public API; listed re-exports stay complete; renamed exports stay as `@deprecated` aliases until a major version.
+context.md: entry points are the public API; renamed exports stay as `@deprecated` aliases until a major version.
 
 ### typescript/bun
 
@@ -724,7 +719,7 @@ context.md: entry points are the public API; listed re-exports stay complete; re
 | `typescript/bun/test` | `check` test: `bun test` on the tracked test files that import from `bun:test` (nothing when there are none, so a Vitest suite is not run by Bun) |
 | `typescript/bun/no-new-skip` | `ast-grep` no-increase on test files (`*.test.*`, `*_test.*`, `*.spec.*`, `*_spec.*`) importing `bun:test`: `it`/`test`/`describe` `.skip`, `.todo`, `.only`, `.failing`, `.if`, `.skipIf`, `.todoIf` |
 | `typescript/bun/no-fewer-expects` | `ast-grep` no-decrease on the same files: `expect($$$)` |
-| `typescript/bun/no-mock-increase` | `ast-grep` no-increase on the same files: `mock(…)`, `mock.module(…)`, `spyOn(…)`, `jest.fn/mock/spyOn`, `vi.fn/mock/spyOn` |
+| `typescript/bun/no-mock-increase` | `ast-grep` no-increase on the same files: `mock(…)`, `mock.module(…)`, `spyOn(…)` (also under an import alias), `jest.fn/mock/spyOn`, `vi.fn/mock/spyOn` |
 | `typescript/bun/no-test-edits` | `check` lint: `forge_test_edits` on the in-scope files that import `bun:test` (§10.5) |
 | `typescript/bun/no-snapshot-update` | `guard` ask: `bun test` with `-u` or `--update-snapshots` |
 
@@ -796,8 +791,8 @@ context.md: "React components in Astro render to static HTML; they become intera
 | `typescript/prisma/no-raw-unsafe` | `ast-grep` forbid: `$C.$queryRawUnsafe($$$)`, `$C.$executeRawUnsafe($$$)` |
 | `typescript/prisma/client-generator` | `check` lint: no `provider = "prisma-client-js"` in tracked `*.prisma` files, `when_changed: [**/*.prisma]` |
 | `typescript/prisma/migration-lint` | `check` migration: changed `prisma/migrations/*/migration.sql` linted with Squawk (§13.1); `--all`: the newest migration; `when_changed: [prisma/migrations/**]` |
-| `typescript/prisma/no-network-in-transaction` | `ast-grep` forbid: `fetch` / `axios` / `got` / `ky` / `ofetch` calls (and their methods) and calls on `stripe`, `resend`, `openai`, `anthropic`, `twilio`, `sgMail`, `postmark` inside a function passed to `….$transaction(…)` |
-| `typescript/prisma/destructive-migration` | `check` migration: `DROP COLUMN` / `DROP TABLE` lines (not `--` comments; not a SQLite redefinition, where `RENAME TO` gives the table back) in the changed `prisma/migrations/*/migration.sql` (`--all`: the newest), printed `file:line: <statement>`; a line found in `forge.yaml` (an `accept` entry) passes; `when_changed: [prisma/migrations/**]` |
+| `typescript/prisma/no-network-in-transaction` | `ast-grep` forbid: inside a function passed to `.$transaction(…)`, a call to the global `fetch` / `globalThis.fetch` / `$fetch`, or to a name (or a method of a name) imported from `axios`, `got`, `ky`, `ofetch`, `node-fetch` or `undici` |
+| `typescript/prisma/destructive-migration` | `check` migration: `DROP COLUMN` / `DROP TABLE` statements (not `--` or `/* */` comments) in the changed `prisma/migrations/*/migration.sql` (`--all`: the newest), read by `forge_prisma_drops`, which follows each table's columns through every `migration.sql`: a SQLite redefinition (`CREATE TABLE "new_X"`, `DROP TABLE "X"`, `RENAME TO "X"`) is reported only for the columns `new_X` lacks (`… (redefinition drops column "C")`), and not when no earlier migration creates `X`; printed `file:line: <statement>`; a line found in `forge.yaml` (an `accept` entry) passes; `when_changed: [prisma/migrations/**]` |
 
 context.md: Prisma 7: `prisma-client` generator with `output`, driver adapters, `prisma.config.ts` (no automatic `.env`), `prisma db seed`, `$extends` (no `$use`), tagged `$queryRaw` only; no network calls in interactive transactions; migrations with schema changes (not under db push); drops accepted in `forge.yaml`.
 
@@ -815,10 +810,10 @@ context.md: Prisma 7: `prisma-client` generator with `output`, driver adapters, 
 | `typescript/vitest/no-pass-with-no-tests` | `guard` ask: `vitest … --passWithNoTests` |
 | `typescript/vitest/config-file` | `permission` ask: `Edit(**/vitest.config.*)` |
 
-| `typescript/vitest/no-mock-increase` | `ast-grep` no-increase on test files: `vi.mock`, `vi.doMock`, `vi.spyOn`, `vi.fn` calls |
+| `typescript/vitest/no-mock-increase` | `ast-grep` no-increase on test files: `vi.mock`, `vi.doMock`, `vi.spyOn`, `vi.fn` calls, also through `import { vi as <alias> }`; `vi.stubEnv` / `vi.stubGlobal` are not counted |
 | `typescript/vitest/no-test-edits` | `check` lint: `forge_test_edits` on `**/*.test.*`, `**/*.spec.*`, `**/__tests__/**`, `**/__mocks__/**`, `**/test-utils.*`, `**/test-helpers.*`, `**/vitest.setup.*`, not `e2e/**`; edits ask (§10.5); `review` as pytest's |
 | `typescript/vitest/untested-change` | `check` lint, advisory (§10.7): `forge_untested_change` on non-test TypeScript and JavaScript files (not `*.d.ts`, `*.config.*`, `e2e/**`) |
-| `typescript/vitest/snapshot-stale` | `check` lint, advisory (§10.7, `forge_once`): `forge_snapshot_stale`, Stop only (`--turn`): a changed non-test source file whose added lines hold a string or an object key, imported directly (relative import) by a test that uses `toMatchSnapshot`, `toMatchFileSnapshot`, `toMatchInlineSnapshot` or golden files (`testdata/`, `golden`), while no `.snap`, `__snapshots__/`, `testdata/` or golden file changed in the turn (a test using only inline snapshots counts as updated when it changed). It blocks once per turn, then prints `accepted` and passes (`forge_once`) |
+| `typescript/vitest/snapshot-stale` | `check` lint, advisory (§10.7, `forge_once`): `forge_snapshot_stale`, Stop only (`--turn`): a changed non-test source file whose added lines hold a string or template literal in an expression (not an import or export source, a type annotation, a literal type, an interface or a type alias) or an object literal key (`pair`, shorthand property; ast-grep, `FORGE_SNAP_VALUES`), imported directly (relative import) by a test that uses `toMatchSnapshot`, `toMatchFileSnapshot`, `toMatchInlineSnapshot` or golden files (`testdata/`, `golden`), while no `.snap`, `__snapshots__/`, `testdata/` or golden file changed in the turn (a test using only inline snapshots counts as updated when it changed). It blocks once per turn, then prints `accepted` and passes (`forge_once`) |
 
 context.md: Vitest 4 `test.projects` and `maxWorkers`; assertions are never weakened to make a test pass; "When the task changes behaviour an existing test asserts, update that test in place with Edit or Write (keep its name; Forge asks for approval) and say so in your summary. Otherwise never edit an existing test to make the code pass."
 
@@ -866,7 +861,7 @@ Detected by `drizzle.config.*` or the `drizzle-orm` / `drizzle-kit` dependency. 
 | `typescript/drizzle/migration-lint` | `check` migration: with `dialect: "postgresql"`, changed `.sql` files in `out` linted with Squawk (§13.1); `--all`: the newest one; `when_changed: [**/*.sql]` |
 | `typescript/drizzle/meta-files` | `permission` deny: `Edit(**/meta/_journal.json)`, `Edit(**/meta/*_snapshot.json)` |
 | `typescript/drizzle/no-push` | `guard` ask: `drizzle-kit push` |
-| `typescript/drizzle/no-sql-raw` | `ast-grep` forbid: `sql.raw(…)` whose argument is a template with `${}` or a `+` concatenation |
+| `typescript/drizzle/no-sql-raw` | `ast-grep` forbid: `sql.raw(…)` (or `<alias>.raw(…)` with `import { sql as <alias> } from "drizzle-orm"`) whose argument is a template with `${}` or a `+` concatenation, or a variable declared from one in an enclosing block or the module |
 
 context.md: schema, `out` and `dialect` in `drizzle.config.*`; `drizzle-kit generate` after a schema change, its files committed together and never written by hand; applied migrations are not edited; `push` needs confirmation; the `sql` tag binds values.
 
@@ -874,8 +869,8 @@ context.md: schema, `out` and `dialect` in `drizzle.config.*`; `drizzle-kit gene
 
 | Rule | Targets |
 |---|---|
-| `typescript/trpc/input-validate` | `ast-grep` forbid: `.input(…)` whose argument is `z.any()`, `z.unknown()`, `(v) => v as T` or `(v: T) => v` |
-| `typescript/trpc/trpc-error` | `ast-grep` forbid: `throw new Error(…)` inside the resolver of `.query` / `.mutation` / `.subscription` on a chain that starts at `*Procedure`, `procedure` or `t.procedure` |
+| `typescript/trpc/input-validate` | `ast-grep` forbid: `.input(…)` whose argument is `z.any()`, `z.unknown()`, `z.custom()` / `z.custom<T>()` without a check, `z.record(…)` of `z.any()` / `z.unknown()`, `(v) => v as T` or `(v: T) => v` |
+| `typescript/trpc/trpc-error` | `ast-grep` forbid: `throw new Error(…)` or `throw Error(…)` inside a function passed as the first argument of `.query()`, `.mutation()` or `.subscription()`, in a file importing `@trpc/server` or when that function destructures `ctx` or `input`; not inside a `try` block |
 
 context.md: `.input(<schema>)` and what is rejected; `TRPCError` with a `code` in procedures.
 
@@ -883,8 +878,8 @@ context.md: `.input(<schema>)` and what is rejected; `TRPCError` with a `code` i
 
 | Rule | Targets |
 |---|---|
-| `typescript/hono/validate-input` | `ast-grep` forbid, in files importing `hono`, `hono/*` or `@hono/*`: `$C.req.json()`, `.parseBody()`, `.formData()`, `.query()`, `.queries()` (validator middleware and `c.req.valid()` instead; `c.req.param()` is not checked) |
-| `typescript/hono/cors-credentials-wildcard` | `ast-grep` forbid: `cors({…})` with `credentials: true` and `origin: "*"` or `origin: (o) => o` |
+| `typescript/hono/validate-input` | `ast-grep` forbid, in files importing `hono`, `hono/*` or `@hono/*`: `.json()`, `.parseBody()`, `.formData()`, `.query()`, `.queries()` on `$C.req` or on a `req` destructured from the handler's parameter (`({ req })`, `({ req: r })`), unless the call (or its `await`) is passed straight to `X.parse` / `safeParse` / `parseAsync` / `safeParseAsync` (not on `JSON`, `Date`, …) or as the second argument of `parse(Schema, …)` / `v.parse(…)`; `c.req.param()` is not checked |
+| `typescript/hono/cors-credentials-wildcard` | `ast-grep` forbid: `cors({…})` with `credentials: true` and `origin: "*"` or an `origin` function that returns its first parameter (as its body, with a `??` / `||` fallback, or in a `return`) |
 
 context.md: `zValidator` / `validator()` middleware and `c.req.valid()`; which raw reads are rejected; `cors()` with credentials names its origins.
 
@@ -912,8 +907,8 @@ context.md: `<script setup lang="ts">`, `vue-tsc` for `.vue` types, `:key` with 
 
 | Rule | Targets |
 |---|---|
-| `typescript/vue/nuxt/server-validate` | `ast-grep` forbid in `server/**`: `readBody(…)`, `getQuery(…)`, `getRouterParams(…)` (h3's `readValidatedBody`, `getValidatedQuery`, `getValidatedRouterParams` instead) |
-| `typescript/vue/nuxt/no-public-secret` | `ast-grep` forbid in `nuxt.config.*`: a key under `runtimeConfig.public` whose name contains `secret`, `private`, `password`, `service_role` / `serviceRole` or `database_url` / `databaseUrl` (any case) |
+| `typescript/vue/nuxt/server-validate` | `ast-grep` forbid in `server/**`: `readBody(…)`, `readFormData(…)`, `readMultipartFormData(…)`, `getQuery(…)`, `getRouterParams(…)`, `getRouterParam(…)` (h3's `readValidatedBody`, `getValidatedQuery`, `getValidatedRouterParams` instead), unless the call (or its `await`) is passed straight to `X.parse` / `safeParse` / `parseAsync` / `safeParseAsync` (not on `JSON`, `Date`, `Number`, `URL`) |
+| `typescript/vue/nuxt/no-public-secret` | `ast-grep` forbid in `nuxt.config.*`: a key under `runtimeConfig.public` whose name contains `secret`, `private`, `password` / `passwd`, `credential`, `token`, `api_key` / `apiKey`, `access_key`, `auth_key`, `service_role`, `dsn` or `database_url` (case-insensitive), unless it also says `publishable`, `public`, `anon` or `site_key` |
 
 context.md: validated h3 readers in server routes; `runtimeConfig.public` reaches the browser; `vue-tsc` after `nuxt prepare`.
 
@@ -924,7 +919,7 @@ Detected by `openapi-typescript`, `orval` or `@hey-api/openapi-ts`. Both checks 
 | Rule | Targets |
 |---|---|
 | `typescript/openapi/regenerate` | `check` lint: `forge_openapi_sync regenerate`: a changed OpenAPI document and no changed generated file fail |
-| `typescript/openapi/no-generated-edits` | `check` lint: `forge_openapi_sync hand-edits`: a changed generated file fails when no OpenAPI document, `package.json`, `orval.config.*`, `openapi-ts.config.*` or `redocly.*` changed, and the repository tracks an OpenAPI document |
+| `typescript/openapi/no-generated-edits` | `check` lint: `forge_openapi_sync hand-edits`: a changed generated file fails when no OpenAPI document, `orval.config.*`, `openapi-ts.config.*` or `redocly.*` changed, nor a `package.json` line naming the generator (its script or dependency version), and the repository tracks an OpenAPI document |
 
 context.md: the client comes from the document through a generator script; the two change together, generated files are never edited by hand.
 
@@ -994,9 +989,9 @@ context.md: `compose.yaml` + `compose.override.yaml`, healthchecks with `conditi
 `forge_helper <runtime> <script> [args]` runs a script embedded in `check.sh` (like the ratchet's) with the project's `python` or `bun`, as `<script> <FORGE_TMP> [args]`, where the change set (`changed`, `inbase`, `base/`) is; findings are `path:line message` (line 0: the file as a whole), attributed like lint diagnostics; a finding line found in `forge.yaml` is accepted; exit 3 prints `skipped:`.
 
 - `drf_permissions.py`: §13 `python/django/drf/permission-classes`.
-- `public_api.py`: for each changed module whose base copy has a literal `__all__`, each name that left it, or every name of a deleted module, must still be defined with a deprecation: a `def` / `class` / assignment of that name mentioning `DeprecationWarning`, `FutureWarning` or `deprecated`, or a module `__getattr__` in a module that warns and names it. A major bump of `[project] version` allows removals.
-- `public_api.mjs removed`: the names the package's entry points (`exports`, `main`, `module`, `types`, with `dist/`, `lib/`, `build/`, … mapped to `src/` and `.js` / `.d.ts` to the source file; `export *` followed through relative modules) export in the base are still exported, unless the `package.json` major version went up. Reported at line 0 of the module that declared the name.
-- `public_api.mjs barrel`: a changed module whose names an entry point re-exports by list (`export { a, b } from "./m"`), and not with `export *`, has no new export missing from that list. Reported at the declaration's line.
+- `fk_index.py`: §13 `python/sqlalchemy/fk-index`: in each changed `.py` file outside `versions/`, the foreign key columns (a `ForeignKey(…)` argument of `mapped_column` / `Column`, a `ForeignKeyConstraint` in `__table_args__`; per class or `Table(…)`) not in the base copy that no index leads with: `index=True` / `unique=True`, the first `primary_key=True` column, or the first column of an `Index` (after its name), `UniqueConstraint` or `PrimaryKeyConstraint`. Reported at the column's line.
+- `public_api.py`: for each changed module whose base copy has a literal `__all__`, each name that left it, or every name of a deleted module, must still be defined with a deprecation, read from the syntax tree: a `def` of that name decorated with `@deprecated` (`typing_extensions`, `warnings`) or calling `warnings.warn(…, DeprecationWarning | FutureWarning | PendingDeprecationWarning)` (or a subclass defined in the project, or a category parameter defaulting to one); a `class` with that decorator or such a call in `__init__` / `__new__` / `__init_subclass__` / `__post_init__`; an alias `name = deprecated(…)(…)`; or a module `__getattr__` that warns that way and names it (or reads a module-level table naming it). A project function that warns that way counts when the shim calls it or decorates with it. The word in a docstring or a comment does not count. A major version bump does not allow a removal by itself (the agent could make it): an intended removal is accepted in `forge.yaml`, which asks.
+- `public_api.mjs removed`: the names the package's entry points (`exports`, `main`, `module`, `types`, with `dist/`, `lib/`, `build/`, … mapped to `src/` and `.js` / `.d.ts` to the source file; `export *` followed through relative modules) export in the base are still exported, a major version bump included (an intended removal is accepted in `forge.yaml`); reported at line 0 of the module that declared the name. A name that became an alias of another exported name (`export const old = renamed`, `export { renamed as old }`; it was not one in the base) needs a `/** … @deprecated … */` JSDoc block right before its export statement or specifier.
 
 ## 14. Acceptance tests
 

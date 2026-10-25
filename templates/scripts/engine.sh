@@ -240,11 +240,10 @@ forge_helper() {
 }
 
 # Test blocks, for forge_test_edits: pytest test functions (with their decorators)
-# and classes; Vitest/Playwright test and it calls, and the describe calls around them;
-# what a test checks (forge-test-check): assert statements and decorators (pytest
-# parametrize), expect statements and .each tables; test support code
-# (forge-test-support): top-level functions and classes not named test* / Test*
-# (fixtures, fakes, mocks, helpers), top-level declarations and vi.mock calls.
+# and classes; Vitest/Playwright test and it calls (with their .each tables), and the
+# describe calls around them; test support code (forge-test-support): top-level
+# functions and classes not named test* / Test* (fixtures, fakes, mocks, helpers),
+# top-level declarations and vi.mock calls.
 FORGE_TEST_BLOCKS='id: forge-test-support
 language: Python
 rule:
@@ -266,17 +265,7 @@ rule:
         - any: [{kind: function_declaration}, {kind: class_declaration}, {kind: lexical_declaration}, {kind: variable_declaration}]
         - any: [{inside: {kind: program, stopBy: neighbor}}, {inside: {kind: export_statement, stopBy: neighbor, inside: {kind: program, stopBy: neighbor}}}]
     - {kind: expression_statement, regex: "^vi[.](do)?[mM]ock[(]", inside: {kind: program, stopBy: neighbor}}
----
-id: forge-test-check
-language: Python
-rule: {any: [{kind: assert_statement}, {kind: decorator}]}
----
-id: forge-test-check
-language: Tsx
-rule:
-  any:
-    - {kind: expression_statement, regex: "^(await\\s+)?expect\\b"}
-    - {kind: call_expression, regex: "^(test|it)\\b[^(]*[.]each[(]", inside: {kind: call_expression, field: function, stopBy: neighbor}}
+
 ---
 id: forge-test
 language: Python
@@ -307,11 +296,13 @@ constraints:
   F: {regex: "^(describe|suite|test[.]describe)([.(]|$)"}
   NAME: {any: [{kind: string}, {kind: template_string}]}'
 
-# forge_test_blocks <dir> <file-list>: "file<TAB>key<TAB>body<TAB>checks" per test of
+# forge_test_blocks <dir> <file-list>: "file<TAB>key<TAB>body<TAB>print" per test of
 # the listed files under <dir>; key = enclosing classes or describe names, then the
 # test name (" #2" for a repeated one); body = the test's text without whitespace;
-# checks = its assertions and parametrization (forge-test-check), without whitespace.
-# Test support code is listed too, keyed "support:<name>", with checks = its body.
+# print = its fingerprint: the whole test (decorators, .each table, setup, input data,
+# control flow and assertions) without whitespace, semicolons and trailing commas, with
+# ' read as ", so formatting is not a change. Test support code is listed too, keyed
+# "support:<name>", with the same fingerprint.
 forge_test_blocks() {
   set -f
   # shellcheck disable=SC2046
@@ -344,13 +335,14 @@ forge_test_blocks() {
         else nm = substr(t, 1, 40)
       }
       N[n] = nm; gsub(/[[:space:]]/, "", t); T[n] = t
+      p = t; gsub(/;/, "", p); gsub(sprintf("%c", 39), "\"", p); gsub(/,[)]/, ")", p); gsub(/,[]]/, "]", p); gsub(/,[}]/, "}", p); P[n] = p
     }
     END {
       for (a = 1; a <= n; a++) {
         if (R[a] == "forge-test-support") {
           key = "support:" N[a]
           if (++seen[F[a] "\t" key] > 1) key = key " #" seen[F[a] "\t" key]
-          print F[a] "\t" key "\t" T[a] "\t" T[a]
+          print F[a] "\t" key "\t" T[a] "\t" P[a]
           continue
         }
         if (R[a] != "forge-test") continue
@@ -364,24 +356,16 @@ forge_test_blocks() {
         for (j = 1; j <= m; j++) key = key cn[j] " > "
         key = key N[a]
         if (++seen[F[a] "\t" key] > 1) key = key " #" seen[F[a] "\t" key]
-        sig = ""
-        for (b = 1; b <= n; b++) {
-          if (R[b] != "forge-test-check" || F[b] != F[a] || S[b] < S[a] || E[b] > E[a]) continue
-          inner = 1
-          for (c = 1; c <= n; c++)
-            if (c != a && R[c] == "forge-test" && F[c] == F[a] && S[c] <= S[b] && E[b] <= E[c] && S[a] <= S[c] && E[c] <= E[a] && E[c] - S[c] < E[a] - S[a]) { inner = 0; break }
-          if (inner) sig = sig T[b] "|"
-        }
-        print F[a] "\t" key "\t" T[a] "\t" sig
+        print F[a] "\t" key "\t" T[a] "\t" P[a]
       }
     }' "$FORGE_TMP/blocks.json"
 }
 
 # forge_test_edits: Stop only (--turn). Each test of the in-scope files ($FORGE_FILES)
-# that existed at the start of the turn must keep its assertions and parametrization
-# (whitespace aside) and still be present, unless an Edit or Write changing it was
+# that existed at the start of the turn must keep its whole text (its fingerprint:
+# formatting aside) and still be present, unless an Edit or Write changing it was
 # approved during the turn (<snapshot>/tests-approved, written by test-edit.sh); new
-# tests and setup-only changes are fine. Test support code (fakes, fixtures, helpers)
+# tests are fine. Test support code (fakes, fixtures, helpers)
 # changed or removed is reported once per turn (<snapshot>/support-reported): it
 # encodes the interface callers rely on.
 forge_test_edits() {
@@ -415,7 +399,7 @@ forge_test_edits() {
   _te_rc=0
   if grep -q '^T' "$FORGE_TMP/tests.edits"; then
     sed -n 's/^T	//p' "$FORGE_TMP/tests.edits"
-    printf 'These tests existed before this turn and their assertions changed without approval. Restore them. If the task requires the change (it changes the behaviour they assert), make it with Edit or Write: Forge then asks for approval (the user, or a reviewer given the request).\n'
+    printf 'These tests existed before this turn and were changed without approval. Restore them. If the task requires the change (it changes the behaviour they assert), make it with Edit or Write: Forge then asks for approval (the user, or a reviewer given the request).\n'
     _te_rc=1
   fi
   # test support code: reported once per turn, then accepted
@@ -673,8 +657,26 @@ forge_stub_sync() {
   done
 }
 
+# Output values, for forge_snapshot_stale: string and template literals in expressions
+# (not import / export sources, type annotations, interfaces or type aliases), and the
+# keys of object literals (pair, shorthand property).
+FORGE_SNAP_VALUES='id: forge-snap-str
+language: Tsx
+rule:
+  any: [{kind: string}, {kind: template_string}]
+  not:
+    inside:
+      stopBy: end
+      any: [{kind: import_statement}, {kind: export_statement, has: {field: source, kind: string}}, {kind: type_annotation}, {kind: literal_type}, {kind: interface_declaration}, {kind: type_alias_declaration}, {kind: type_arguments}]
+---
+id: forge-snap-key
+language: Tsx
+rule:
+  any: [{kind: pair}, {kind: shorthand_property_identifier}]
+  inside: {kind: object, stopBy: neighbor}'
+
 # forge_snapshot_stale: Stop only (--turn). A changed source file ($FORGE_FILES) whose
-# added lines hold a string or an object key, imported directly (relative import) by a
+# added lines hold a string literal in an expression or an object literal key, imported directly (relative import) by a
 # test that compares output with snapshots or golden files (toMatchSnapshot,
 # toMatchFileSnapshot, toMatchInlineSnapshot, testdata/, golden), while no .snap,
 # __snapshots__, testdata or golden file changed in the turn. A test that uses only
@@ -683,12 +685,34 @@ forge_snapshot_stale() {
   [ "$mode" = --turn ] || return 0
   grep -qE '\.snap$|(^|/)(__snapshots__|testdata|golden|__golden__)/|\.golden(\.|$)' "$FORGE_TMP/changed" && return 0
   : > "$FORGE_TMP/snap.src"
+  : > "$FORGE_TMP/snap.cand"
   for _ss_f in $FORGE_FILES; do
-    awk -F '\t' -v f="$_ss_f" '$1 == f { print $2 }' "$FORGE_TMP/added" > "$FORGE_TMP/snap.lines"
-    [ -s "$FORGE_TMP/snap.lines" ] || continue
-    awk 'NR == FNR { if ($0 == "*") all = 1; want[$0] = 1; next } all || (FNR in want)' "$FORGE_TMP/snap.lines" "$_ss_f" \
-      | grep -qE "[\"'\`]|[A-Za-z_\$][A-Za-z0-9_\$]*[?]?[[:space:]]*:" && printf '%s\n' "$_ss_f" >> "$FORGE_TMP/snap.src"
+    [ -f "$_ss_f" ] && awk -F '\t' -v f="$_ss_f" '$1 == f { found = 1; exit } END { exit !found }' "$FORGE_TMP/added" \
+      && printf '%s\n' "$_ss_f" >> "$FORGE_TMP/snap.cand"
   done
+  [ -s "$FORGE_TMP/snap.cand" ] || return 0
+  # output values on added lines: string literals in expressions and object literal keys
+  # (not imports, type annotations, interfaces or type aliases)
+  set -f
+  # shellcheck disable=SC2046
+  astgrep scan -c "$FORGE_ROOT/.forge/ast-grep/sgconfig.yml" --inline-rules "$FORGE_SNAP_VALUES" --filter '^forge-snap' --json=stream $(cat "$FORGE_TMP/snap.cand") > "$FORGE_TMP/snap.json"
+  _ss_rc=$?
+  set +f
+  [ "$_ss_rc" -le 1 ] || { printf 'forge:%s skipped: ast-grep unavailable\n' "$c_id"; return 0; }
+  awk '
+    function str(s, key,   i, out, c) {
+      i = index(s, "\"" key "\":\""); if (!i) return ""
+      s = substr(s, i + length(key) + 4); out = ""
+      while (length(s)) { c = substr(s, 1, 1); if (c == "\"") break; if (c == "\\") { out = out substr(s, 1, 2); s = substr(s, 3); continue } out = out c; s = substr(s, 2) }
+      return out
+    }
+    function num(s, key,   i) { i = index(s, "\"" key "\":{\"line\":"); return i ? substr(s, i + length(key) + 11) + 1 : 0 }
+    FILENAME == ARGV[1] { split($0, p, "\t"); if (p[2] == "*") all[p[1]] = 1; else want[p[1] "\t" p[2]] = 1; next }
+    {
+      f = str($0, "file"); a = num($0, "start"); b = num($0, "end")
+      if (str($0, "ruleId") == "forge-snap-key") b = a
+      for (l = a; l <= b; l++) if ((f in all) || ((f "\t" l) in want)) { if (!seen[f]++) print f; break }
+    }' "$FORGE_TMP/added" "$FORGE_TMP/snap.json" > "$FORGE_TMP/snap.src"
   [ -s "$FORGE_TMP/snap.src" ] || return 0
   git grep --untracked -lE 'toMatch(File|Inline)?Snapshot\(|testdata|golden' -- '*.test.*' '*.spec.*' '*/__tests__/*' > "$FORGE_TMP/snap.tests" 2>/dev/null
   : > "$FORGE_TMP/snap.imports"
@@ -863,11 +887,27 @@ forge_pkg_deps() {
     }' "$1" | sort
 }
 
+# forge_check_active <rule-id>: the rule has a check in this check.sh.
+forge_check_active() {
+  (
+    _ca_i=1
+    while [ "$_ca_i" -le "${FORGE_NCHECKS:-0}" ]; do
+      forge_check_meta_"$_ca_i"
+      [ "$c_id" = "$1" ] && exit 0
+      _ca_i=$((_ca_i + 1))
+    done
+    exit 1
+  )
+}
+
 # forge_lockfile_updated: a package.json whose dependencies changed since the base
-# needs a changed lock file, when the project has one (next to it or at the root).
-# Blocks once per turn (forge_once): the package manager may not be able to run here.
+# needs a lock file whose changed lines name each changed dependency (added, removed or
+# re-versioned), when the project has a pnpm, npm or Yarn lock file (next to it or at
+# the root); a lock change that names none (a new blank line) does not count. bun.lock
+# is left to typescript/bun/lock-sync (bun install --frozen-lockfile) when that check is
+# active. Blocks once per
+# turn (forge_once): the package manager may not be able to run here.
 forge_lockfile_updated() {
-  grep -qE '(^|/)(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?)$' "$FORGE_TMP/changed" && return 0
   _lu_rc=0
   while IFS= read -r _lu_f; do
     case $_lu_f in package.json|*/package.json) ;; *) continue ;; esac
@@ -875,21 +915,31 @@ forge_lockfile_updated() {
     _lu_lock=''
     _lu_ifs=$IFS; IFS=' '
     for _lu_l in $FORGE_JS_LOCKS; do
-      if [ -f "$_lu_l" ] || [ -f "$(dirname "$_lu_f")/$_lu_l" ]; then _lu_lock=$_lu_l; break; fi
+      if [ -f "$(dirname "$_lu_f")/$_lu_l" ]; then _lu_lock=$(dirname "$_lu_f")/$_lu_l; break; fi
+      if [ -f "$_lu_l" ]; then _lu_lock=$_lu_l; break; fi
     done
     IFS=$_lu_ifs
-    [ -n "$_lu_lock" ] || continue
+    _lu_lock=${_lu_lock#./}
+    case $_lu_lock in
+      '') continue ;;
+      bun.lock|bun.lockb|*/bun.lock|*/bun.lockb) forge_check_active typescript/bun/lock-sync && continue ;;
+    esac
     forge_pkg_deps "$FORGE_TMP/base/$_lu_f" > "$FORGE_TMP/deps.then"
     forge_pkg_deps "$_lu_f" > "$FORGE_TMP/deps.now"
     cmp -s "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" && continue
-    _lu_what=$(awk -F '\t' '
-      FILENAME == ARGV[1] { then[$1 " " $2] = $3; next }
-      { now[$1 " " $2] = $3 }
+    forge_diff_lines "$_lu_lock" > "$FORGE_TMP/lock.diff"
+    awk -F '\t' '
+      FILENAME == ARGV[1] { then[$1 " " $2] = $3; name[$1 " " $2] = $2; next }
+      FILENAME == ARGV[2] { now[$1 " " $2] = $3; name[$1 " " $2] = $2; next }
+      { diff = diff "\n" $0 }
       END {
-        for (k in now) if (!(k in then)) print k " " now[k] " added"; else if (then[k] != now[k]) print k " " then[k] " -> " now[k]
-        for (k in then) if (!(k in now)) print k " removed"
-      }' "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" | sort | head -n 5 | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')
-    printf '%s: %s, but %s did not change\n' "$_lu_f" "$_lu_what" "$_lu_lock"
+        for (k in now) if (!(k in then)) w[k] = k " " now[k] " added"; else if (then[k] != now[k]) w[k] = k " " then[k] " -> " now[k]
+        for (k in then) if (!(k in now)) w[k] = k " removed"
+        for (k in w) if (!index(diff, name[k])) print w[k]
+      }' "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" "$FORGE_TMP/lock.diff" | sort > "$FORGE_TMP/deps.missing"
+    [ -s "$FORGE_TMP/deps.missing" ] || continue
+    _lu_what=$(head -n 5 "$FORGE_TMP/deps.missing" | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')
+    printf '%s: %s, but %s has no changed line for it\n' "$_lu_f" "$_lu_what" "$_lu_lock"
     _lu_rc=1
   done < "$FORGE_TMP/existing"
   [ "$_lu_rc" = 0 ] && return 0
@@ -1344,9 +1394,11 @@ forge_alembic_batch() {
 
 # forge_alembic_fk_index: in each revision's upgrade(), a column that gets a foreign key
 # (sa.Column(..., sa.ForeignKey(...)), sa.ForeignKeyConstraint([...]),
-# op.create_foreign_key(..., [...], ...)) also leads an index: op.create_index,
-# index=True, a primary key or unique constraint, or CREATE INDEX. PostgreSQL does not
-# index referencing columns; skipped when the database URL is MySQL (which does).
+# op.create_foreign_key(..., [...], ...)) also leads an index: the first column of an
+# op.create_index, sa.Index, primary key or unique constraint, index=True, unique=True or
+# primary_key=True on the column, or the first column of a CREATE INDEX. PostgreSQL does
+# not index referencing columns; skipped when the database URL is MySQL (which does).
+# Run as advice (forge_advise): such an index is often a good idea, not a requirement.
 forge_alembic_fk_index() {
   case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
   _ai_rc=0
@@ -1400,7 +1452,8 @@ forge_alembic_fk_index() {
             col = tolower(strs(first_list(args), 0))
             if (col != "" && !(col in fk)) { fk[col] = line_of(po); order[++nfk] = col }
           } else if (name == "create_index") cover(strs(first_list(args), 0))
-          else cover(strs(args, 1))
+          else if (name == "Index") { split(strs(args, 1), ia, SUBSEP); cover(ia[2]) }
+          else cover(strs(args, 0))
           off = po; rest = substr(s, po + 1)
         }
         u = toupper(s)
@@ -1411,7 +1464,7 @@ forge_alembic_fk_index() {
         for (i = 1; i <= nfk; i++) {
           col = order[i]
           if (col in cov) continue
-          print f ":" fk[col] ": foreign key column \"" col "\" gets no index in this revision; PostgreSQL does not index referencing columns, so joins on it and deletes of the referenced rows scan the table. Add op.create_index(..., [\"" col "\"]) (index=True on the model mapped_column, then autogenerate)."
+          print f ":" fk[col] ": foreign key column \"" col "\" gets no index that leads with it in this revision; PostgreSQL and SQLite do not index referencing columns, so joins on it and deletes of the referenced rows scan the table. If it is queried or the parent rows are deleted, add op.create_index(..., [\"" col "\"]) (index=True on the model mapped_column, then autogenerate); otherwise say why not."
           bad = 1
         }
         exit bad
@@ -1420,23 +1473,23 @@ forge_alembic_fk_index() {
   return "$_ai_rc"
 }
 
-# forge_alembic_tested: some test file mentions Alembic (pytest-alembic, alembic.command, ...).
-forge_alembic_tested() {
-  git ls-files -co --exclude-standard -- '*test_*.py' '*_test.py' '*conftest.py' 2>/dev/null | while IFS= read -r _at_f; do
-    [ -f "$_at_f" ] && grep -lE '(pytest_alembic|alembic_runner|from alembic|import alembic|alembic\.(command|config))' "$_at_f"
-  done | grep -q .
-}
-
 # forge_alembic_data_downgrade: a revision whose upgrade() changes rows (UPDATE, INSERT,
 # DELETE through execute(), sa.update/insert/delete, op.bulk_insert, an ORM Session) has a
-# downgrade() that does something (reverts, or raises to say it cannot), unless the
-# project tests its migrations. A downgrade that only passes reports success and leaves the data.
+# downgrade() that changes rows the same ways (the inverse) or raises (it cannot be
+# reverted). A downgrade that only passes, prints or alters the schema reports success
+# and leaves the data. Run as advice (forge_advise): Claude may say why not.
 forge_alembic_data_downgrade() {
   forge_alembic_targets > "$FORGE_TMP/alembic.targets"
   : > "$FORGE_TMP/alembic.data"
   while IFS= read -r _ad_f; do
     [ -f "$_ad_f" ] || continue
     awk -v f="$_ad_f" '
+      function changes_rows(t,   u) {
+        u = toupper(t)
+        return (t ~ /execute\(/ && (u ~ /(^|[^A-Z_])UPDATE[ \t\n]+[^ \t\n]+[ \t\n]+SET[ \t\n]/ || u ~ /INSERT[ \t\n]+INTO[ \t\n]/ || u ~ /DELETE[ \t\n]+FROM[ \t\n]/)) \
+          || t ~ /(^|[^A-Za-z0-9_.])(sa\.)?(update|insert|delete)\([A-Za-z_]/ || t ~ /\.(update|insert|delete)\(\)/ \
+          || t ~ /op\.bulk_insert\(/ || t ~ /(^|[^A-Za-z0-9_])Session\(/
+      }
       { line = $0; sub(/\r$/, "", line) }
       /^def[ \t]+upgrade[ \t]*\(/ { sec = "up"; next }
       /^def[ \t]+downgrade[ \t]*\(/ { sec = "down"; dl = NR; next }
@@ -1445,21 +1498,17 @@ forge_alembic_data_downgrade() {
       sec == "down" {
         t = line; sub(/^[ \t]+/, "", t); sub(/[ \t]+$/, "", t)
         if (indoc) { if (index(t, q)) indoc = 0; next }
-        if (t == "" || t ~ /^#/ || t == "pass" || t == "...") next
+        if (t == "" || t ~ /^#/) next
         if (t ~ /^("""|\047\047\047)/) { q = substr(t, 1, 3); if (!index(substr(t, 4), q)) indoc = 1; next }
-        if (t ~ /^["\047]/) next
-        real = 1
+        if (t ~ /^raise([ \t(]|$)/) raises = 1
+        down = down line "\n"
       }
       END {
-        u = toupper(up)
-        data = (up ~ /execute\(/ && (u ~ /(^|[^A-Z_])UPDATE[ \t\n]+[^ \t\n]+[ \t\n]+SET[ \t\n]/ || u ~ /INSERT[ \t\n]+INTO[ \t\n]/ || u ~ /DELETE[ \t\n]+FROM[ \t\n]/)) \
-          || up ~ /(^|[^A-Za-z0-9_.])(sa\.)?(update|insert|delete)\([A-Za-z_]/ || up ~ /\.(update|insert|delete)\(\)/ \
-          || up ~ /op\.bulk_insert\(/ || up ~ /(^|[^A-Za-z0-9_])Session\(/
-        if (data && !real) print f ":" (dl ? dl : 1) ": upgrade() changes data but downgrade() does nothing, so alembic downgrade reports success and leaves the rows changed. Write the inverse, raise an error that says the revision cannot be reverted, or test the migrations (pytest-alembic)."
+        if (changes_rows(up) && !raises && !changes_rows(down))
+          print f ":" (dl ? dl : 1) ": upgrade() changes rows but downgrade() neither changes them back (op.execute with UPDATE/INSERT/DELETE, sa.update/insert/delete, op.bulk_insert) nor raises, so alembic downgrade reports success and leaves the rows changed. Write the inverse, or raise an error that says the revision cannot be reverted."
       }' "$_ad_f" >> "$FORGE_TMP/alembic.data"
   done < "$FORGE_TMP/alembic.targets"
   [ -s "$FORGE_TMP/alembic.data" ] || return 0
-  forge_alembic_tested && return 0
   cat "$FORGE_TMP/alembic.data"
   return 1
 }
@@ -1606,6 +1655,97 @@ forge_env_example() {
       }' "$FORGE_TMP/env.keys" "$FORGE_TMP/env.fields" || _ee_rc=1
   done < "$FORGE_TMP/env.files"
   return "$_ee_rc"
+}
+
+# forge_prisma_drops <file>...: "<file>:<line>: <statement>" for each DROP COLUMN or DROP
+# TABLE in the given Prisma migrations. Every migration.sql (sorted) is read to follow
+# the tables' columns (CREATE TABLE, ADD / DROP / RENAME COLUMN), so a SQLite table
+# redefinition (CREATE TABLE "new_X" ..., DROP TABLE "X", ALTER TABLE "new_X" RENAME
+# TO "X") is a drop only of the columns "new_X" lacks: "... (redefinition drops column
+# "C")". A redefined table that no earlier migration creates is not reported.
+forge_prisma_drops() {
+  printf '%s\n' "$@" > "$FORGE_TMP/prisma.targets"
+  { git ls-files -co --exclude-standard -- 'prisma/migrations/*/migration.sql' 2>/dev/null; printf '%s\n' "$@"; } \
+    | sort -u > "$FORGE_TMP/prisma.history"
+  set -f
+  # shellcheck disable=SC2046
+  awk '
+    function unq(t) { gsub(/[";`[:space:]]/, "", t); return t }
+    function name_after(u, re,   t) { t = u; sub(re, "", t); sub(/[[:space:](].*$/, "", t); return unq(t) }
+    # the column names of a CREATE TABLE body: the first identifier of each top-level item
+    function columns(stmt,   p, body, d, i, c, item, out, n, name) {
+      p = index(stmt, "("); if (!p) return ""
+      body = substr(stmt, p + 1); d = 0; item = ""; out = ""
+      for (i = 1; i <= length(body); i++) {
+        c = substr(body, i, 1)
+        if (c == "(") d++
+        if (c == ")") { if (d == 0) break; d-- }
+        if (c == "," && d == 0) { out = out item_col(item); item = ""; continue }
+        item = item c
+      }
+      return out item_col(item)
+    }
+    function item_col(item,   t) {
+      t = item; sub(/^[[:space:]]+/, "", t)
+      if (toupper(t) ~ /^(CONSTRAINT|PRIMARY|FOREIGN|UNIQUE|CHECK|KEY|INDEX)([^A-Z_]|$)/) return ""
+      if (!match(t, /^("[^"]+"|`[^`]+`|[A-Za-z_][A-Za-z0-9_]*)/)) return ""
+      return SUBSEP unq(substr(t, RSTART, RLENGTH))
+    }
+    function has_col(list, c) { return index(list SUBSEP, SUBSEP c SUBSEP) > 0 }
+    function del_col(list, c,   x) { x = list SUBSEP; sub(SUBSEP c SUBSEP, SUBSEP, x); return substr(x, 1, length(x) - 1) }
+    function statement(f, line, stmt,   u, t, c, n, a, i, old, gone) {
+      u = toupper(stmt)
+      if (u ~ /^[[:space:]]*CREATE[[:space:]]+TABLE/) { t = name_after(u, "^[[:space:]]*CREATE[[:space:]]+TABLE[[:space:]]+(IF[[:space:]]+NOT[[:space:]]+EXISTS[[:space:]]+)?"); cols[t] = toupper(columns(stmt)); return }
+      if (u ~ /^[[:space:]]*ALTER[[:space:]]+TABLE/) {
+        t = name_after(u, "^[[:space:]]*ALTER[[:space:]]+TABLE[[:space:]]+(ONLY[[:space:]]+)?(IF[[:space:]]+EXISTS[[:space:]]+)?")
+        if (u ~ /RENAME[[:space:]]+TO[[:space:]]/) {
+          n = name_after(u, ".*RENAME[[:space:]]+TO[[:space:]]+")
+          if ((f SUBSEP n) in dropped) {
+            old = dropped[f SUBSEP n]; gone = ""
+            c = split(substr(old, 2), a, SUBSEP)
+            for (i = 1; i <= c; i++) if (!has_col(cols[t], a[i])) gone = gone (gone == "" ? "" : ", ") "\"" a[i] "\""
+            if (f in target && gone != "") print f ":" dline[f SUBSEP n] ": " dtext[f SUBSEP n] " (redefinition drops column " gone ")"
+            delete dropped[f SUBSEP n]; delete pend[f SUBSEP n]
+          }
+          cols[n] = cols[t]; return
+        }
+        if (u ~ /RENAME[[:space:]]+COLUMN/) { a[1] = name_after(u, ".*RENAME[[:space:]]+COLUMN[[:space:]]+"); a[2] = name_after(u, ".*[[:space:]]TO[[:space:]]+"); cols[t] = del_col(cols[t], a[1]) SUBSEP a[2]; return }
+        while (match(u, /ADD[[:space:]]+(COLUMN[[:space:]]+)?("[^"]+"|[A-Z_][A-Z0-9_]*)/)) { c = substr(u, RSTART, RLENGTH); sub(/^ADD[[:space:]]+(COLUMN[[:space:]]+)?/, "", c); c = unq(c); if (c !~ /^(CONSTRAINT|PRIMARY|FOREIGN|UNIQUE|CHECK)$/) cols[t] = cols[t] SUBSEP c; u = substr(u, RSTART + RLENGTH) }
+        u = toupper(stmt)
+        while (match(u, /DROP[[:space:]]+COLUMN[[:space:]]+(IF[[:space:]]+EXISTS[[:space:]]+)?("[^"]+"|[A-Z_][A-Z0-9_]*)/)) { c = substr(u, RSTART, RLENGTH); sub(/^DROP[[:space:]]+COLUMN[[:space:]]+(IF[[:space:]]+EXISTS[[:space:]]+)?/, "", c); cols[t] = del_col(cols[t], unq(c)); u = substr(u, RSTART + RLENGTH) }
+        if (f in target && toupper(stmt) ~ /DROP[[:space:]]+COLUMN/) print f ":" line ": " text
+        return
+      }
+      if (u ~ /^[[:space:]]*DROP[[:space:]]+TABLE/) {
+        t = name_after(u, "^[[:space:]]*DROP[[:space:]]+TABLE[[:space:]]+(IF[[:space:]]+EXISTS[[:space:]]+)?")
+        # a redefinition renames "new_<t>" to <t> later in the same file
+        # (its old columns unknown, without the earlier migrations: not reported)
+        if (("NEW_" t) in cols) { if (t in cols) { dropped[f SUBSEP t] = cols[t]; dline[f SUBSEP t] = line; dtext[f SUBSEP t] = text; pend[f SUBSEP t] = 1 } }
+        else if (f in target) print f ":" line ": " text
+        delete cols[t]
+      }
+    }
+    FNR == 1 {
+      for (k in pend) { split(k, kk, SUBSEP); if ((k in dropped) && (kk[1] in target)) print kk[1] ":" dline[k] ": " dtext[k]; delete pend[k]; delete dropped[k] }
+      f = FILENAME; stmt = ""; incomment = 0
+    }
+    FILENAME == ARGV[1] { target[$0] = 1; next }
+    FILENAME == ARGV[2] { next }
+    {
+      l = $0
+      if (incomment) { if (index(l, "*/")) { incomment = 0; l = substr(l, index(l, "*/") + 2) } else next }
+      if (l ~ /^[[:space:]]*\/\*/ && !index(l, "*/")) { incomment = 1; next }
+      if (l ~ /^[[:space:]]*--/) next
+      if (stmt == "" && l ~ /^[[:space:]]*$/) next
+      if (stmt == "") { sline = FNR; text = l; sub(/^[[:space:]]+/, "", text) }
+      stmt = stmt " " l
+      if (index(l, ";")) { statement(f, sline, stmt); stmt = "" }
+    }
+    END { for (k in pend) { split(k, kk, SUBSEP); if ((k in dropped) && (kk[1] in target)) print kk[1] ":" dline[k] ": " dtext[k] } }
+  ' "$FORGE_TMP/prisma.targets" /dev/null $(cat "$FORGE_TMP/prisma.history")
+  _pd_rc=$?
+  set +f
+  return "$_pd_rc"
 }
 
 # Drizzle: drizzle.config.* names the schema files (`schema`: a path, a glob, a
@@ -1805,6 +1945,16 @@ forge_vue_vfor_keys() {
 # files say so in their header, and a package.json script runs the generator.
 FORGE_OPENAPI_MARK='auto-generated by (openapi-typescript|@hey-api/openapi-ts)|generated by orval'
 FORGE_OPENAPI_GEN='"[^"]+"[[:space:]]*:[[:space:]]*"[^"]*(openapi-typescript|orval|openapi-ts)'
+# forge_openapi_pairs: the "key": "value" pairs of a package.json on stdin that drive the
+# generator (a script running it, its dependency version), one per line, whitespace aside.
+forge_openapi_pairs() {
+  awk '{ t = t $0 " " } END {
+    while (match(t, /"[^"]*"[[:space:]]*:[[:space:]]*"[^"]*"/)) {
+      p = substr(t, RSTART, RLENGTH); t = substr(t, RSTART + RLENGTH)
+      if (p ~ /(openapi-typescript|orval|openapi-ts)/) { gsub(/[[:space:]]+/, " ", p); print p }
+    }
+  }'
+}
 
 # forge_openapi_spec <path>: an OpenAPI or Swagger document (JSON or YAML with an
 # openapi / swagger version near its top).
@@ -1819,7 +1969,8 @@ forge_openapi_generated() { [ -f "$1" ] && head -n 15 "$1" | grep -qiE "$FORGE_O
 # forge_openapi_sync regenerate | hand-edits: compares the changed OpenAPI documents with
 # the changed generated files. regenerate: a changed document needs a changed generated
 # file. hand-edits: a changed generated file needs a changed document or generator config
-# (package.json, orval.config.*, openapi-ts.config.*, redocly.*), when the repository
+# (orval.config.*, openapi-ts.config.*, redocly.*, or a package.json line naming the
+# generator: its script or its dependency version), when the repository
 # tracks a document (a client generated from a URL is not checked). Not with --all.
 forge_openapi_sync() {
   [ "$mode" != --all ] || return 0
@@ -1839,7 +1990,14 @@ forge_openapi_sync() {
       printf 'Regenerate the client (the "%s" script) and keep both changes together.\n' "$_os_script" ;;
     hand-edits)
       [ -s "$FORGE_TMP/openapi.generated" ] && [ ! -s "$FORGE_TMP/openapi.specs" ] || return 0
-      grep -qE '(^|/)(package\.json|orval\.config\.[a-z]+|openapi-ts\.config\.[a-z]+|redocly\.[a-z]+)$' "$FORGE_TMP/existing" && return 0
+      grep -qE '(^|/)(orval\.config\.[a-z]+|openapi-ts\.config\.[a-z]+|redocly\.[a-z]+)$' "$FORGE_TMP/existing" && return 0
+      # a package.json counts when its generator lines (script, dependency) changed
+      while IFS= read -r _os_p; do
+        case $_os_p in package.json|*/package.json) ;; *) continue ;; esac
+        forge_openapi_pairs < "$_os_p" > "$FORGE_TMP/openapi.now" 2>/dev/null
+        forge_openapi_pairs < "$FORGE_TMP/base/$_os_p" > "$FORGE_TMP/openapi.then" 2>/dev/null
+        cmp -s "$FORGE_TMP/openapi.now" "$FORGE_TMP/openapi.then" || return 0
+      done < "$FORGE_TMP/existing"
       [ -n "$(git ls-files -- '*.json' '*.yaml' '*.yml' | forge_filter forge_openapi_spec | head -n 1)" ] || return 0
       while IFS= read -r _os_f; do
         printf '%s: generated from the OpenAPI document (its header says so), but neither the document nor the generator config changed\n' "$_os_f"

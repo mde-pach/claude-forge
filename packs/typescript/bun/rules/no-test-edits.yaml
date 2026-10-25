@@ -1,5 +1,5 @@
 id: typescript/bun/no-test-edits
-description: Tests in bun:test files that existed at the start of the turn are not changed or removed by Claude (new tests are fine); checked at Stop.
+description: Tests in bun:test files that existed at the start of the turn are not changed (anything in them, formatting aside) or removed by Claude; adding tests is fine. Checked at Stop.
 scope: {language: typescript, files: ["**/*.test.*", "**/*_test.*", "**/*.spec.*", "**/*_spec.*", "!e2e/**"]}
 enforce:
   - target: check
@@ -13,6 +13,8 @@ examples:
       files: {src/cart.test.ts: "import { expect, test } from \"bun:test\";\n\ntest(\"totals\", () => {\n  expect(total([40, 60])).toBe(90);\n});\n"}
     - head: {src/cart.test.ts: "import { describe, expect, it } from \"bun:test\";\n\ndescribe(\"cart\", () => {\n  it(\"is empty\", () => {\n    expect(total([])).toBe(0);\n  });\n});\n"}
       files: {src/cart.test.ts: "import { describe } from \"bun:test\";\n\ndescribe(\"cart\", () => {});\n"}
+    - head: {src/cart.test.ts: "import { expect, test } from \"bun:test\";\n\ntest(\"totals\", () => {\n  const items = [40, 60];\n  expect(total(items)).toBe(100);\n});\n"}
+      files: {src/cart.test.ts: "import { expect, test } from \"bun:test\";\n\ntest(\"totals\", () => {\n  const items = [40, 60];\n  if (items.length > 9) expect(total(items)).toBe(100);\n});\n"}
   no_match:
     - head: {src/cart.test.ts: "import { expect, test } from \"bun:test\";\n\ntest(\"totals\", () => {\n  expect(total([40, 60])).toBe(100);\n});\n"}
       files: {src/cart.test.ts: "import { expect, test } from \"bun:test\";\n\ntest(\"totals\", () => {\n  expect(total([40, 60])).toBe(100);\n});\n\ntest(\"is empty\", () => {\n  expect(total([])).toBe(0);\n});\n"}

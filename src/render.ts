@@ -273,6 +273,7 @@ const HELPER_SCRIPTS: { name: string; template: string }[] = [
   { name: "drf_permissions.py", template: "drf_permissions.py" },
   { name: "public_api.py", template: "public_api.py" },
   { name: "public_api.mjs", template: "public_api.mjs" },
+  { name: "fk_index.py", template: "fk_index.py" },
 ];
 
 /** forge_script_<name>() functions for the helper scripts the checks use. */

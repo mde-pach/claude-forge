@@ -1,3 +1,3 @@
 This project is a library: its public API is what `__all__` lists in its public modules (and what `__init__.py` re-exports).
 A new public function or class in a module with `__all__` is added to `__all__` (unlisted public names increasing is rejected), or named with a leading underscore.
-A public name is not removed or renamed outright: it stays importable and warns (`warnings.warn(..., DeprecationWarning, stacklevel=2)`, `typing_extensions.deprecated`), until a major version; a name leaving `__all__` without that is rejected at Stop.
+A public name is not removed or renamed outright: it stays importable and warns (`warnings.warn(..., DeprecationWarning, stacklevel=2)`, `typing_extensions.deprecated`), until a major version (where the removal is accepted in `forge.yaml`); a name leaving `__all__` without such a warning call or decorator (a docstring saying "deprecated" is not one) is rejected at Stop.

@@ -1,17 +1,31 @@
 id: typescript/bun/no-mock-increase
-description: A bun:test file may not gain mocks (mock(), mock.module(), spyOn(), jest.fn / vi.fn); test through the real code or a fake at the boundary.
+description: A bun:test file may not gain mocks (mock(), mock.module(), spyOn(), jest.fn / vi.fn, also through an import alias such as import { mock as m }); test through the real code or a fake at the boundary.
 scope: {language: typescript, files: ["**/*.test.*", "**/*_test.*", "**/*.spec.*", "**/*_spec.*", "!e2e/**"]}
 enforce:
   - target: ast-grep
     mode: no-increase
     rule:
       kind: call_expression
-      has: {field: function, regex: "^(mock|mock\\.module|spyOn|jest\\.(fn|mock|spyOn)|vi\\.(fn|mock|spyOn))$"}
       inside: {stopBy: end, kind: program, has: {kind: import_statement, has: {field: source, regex: "^[\"']bun:test[\"']$"}}}
+      any:
+        - has: {field: function, regex: "^(mock|mock\\.module|spyOn|jest\\.(fn|mock|spyOn)|vi\\.(fn|mock|spyOn))$"}
+        - all:
+            - any:
+                - has: {field: function, kind: identifier, pattern: $F}
+                - has: {field: function, kind: member_expression, all: [{has: {field: object, kind: identifier, pattern: $F}}, {has: {field: property, regex: "^module$"}}]}
+            - inside:
+                kind: program
+                stopBy: end
+                has:
+                  kind: import_statement
+                  all:
+                    - has: {field: source, regex: "^[\"']bun:test[\"']$"}
+                    - has: {stopBy: end, kind: import_specifier, all: [{has: {field: name, regex: "^(mock|spyOn)$"}}, {has: {field: alias, pattern: $F}}]}
 examples:
   match:
     - "import { mock, test } from \"bun:test\";\n\nmock.module(\"./billing\", () => ({ charge: () => true }));\n"
     - "import { expect, mock, test } from \"bun:test\";\n\ntest(\"charges\", () => {\n  const pay = mock(() => true);\n  charge(pay);\n  expect(pay).toHaveBeenCalled();\n});\n"
     - "import { spyOn, test } from \"bun:test\";\n\ntest(\"logs\", () => {\n  spyOn(console, \"log\");\n});\n"
+    - "import { mock as m, test } from \"bun:test\";\n\nm.module(\"./billing\", () => ({ charge: () => true }));\n"
   no_match:
     - "import { expect, test } from \"bun:test\";\n\ntest(\"charges\", () => {\n  const gateway = new FakeGateway();\n  charge(gateway);\n  expect(gateway.charged).toBe(1);\n});\n"
