@@ -1,0 +1,23 @@
+id: typescript/hono/validate-input
+description: Hono handlers read the body and query through a validator middleware (zValidator, validator) and c.req.valid(), not c.req.json(), parseBody(), formData(), query() or queries().
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      has:
+        field: function
+        kind: member_expression
+        all:
+          - has: {field: property, regex: "^(json|parseBody|formData|query|queries)$"}
+          - has: {field: object, kind: member_expression, has: {field: property, regex: "^req$"}}
+      inside: {stopBy: end, kind: program, has: {kind: import_statement, has: {field: source, regex: "^[\"'](hono(/[^\"']*)?|@hono/[^\"']+)[\"']$"}}}
+examples:
+  match:
+    - "import { Hono } from \"hono\";\n\nconst app = new Hono();\n\napp.post(\"/posts\", async (c) => {\n  const body = await c.req.json();\n  return c.json(await db.post.create({ data: body }), 201);\n});\n"
+    - "import type { Context } from \"hono\";\n\nexport async function search(c: Context) {\n  const q = c.req.query(\"q\");\n  return c.json(await find(q));\n}\n"
+  no_match:
+    - "import { Hono } from \"hono\";\nimport { zValidator } from \"@hono/zod-validator\";\nimport { z } from \"zod\";\n\nconst app = new Hono();\n\napp.post(\"/posts\", zValidator(\"json\", z.object({ title: z.string() })), async (c) => {\n  const body = c.req.valid(\"json\");\n  return c.json(await db.post.create({ data: body }), 201);\n});\n"
+    - "import { Hono } from \"hono\";\n\nconst app = new Hono();\n\napp.get(\"/posts/:id\", (c) => c.json(find(c.req.param(\"id\"))));\n"
+    - "export async function handler(c: { req: { json(): Promise<unknown> } }) {\n  return c.req.json();\n}\n"

@@ -730,6 +730,15 @@ context.md: schema, `out` and `dialect` in `drizzle.config.*`; `drizzle-kit gene
 
 context.md: `.input(<schema>)` and what is rejected; mutations on an authorizing procedure; `TRPCError` with a `code` in procedures.
 
+### typescript/hono
+
+| Rule | Targets |
+|---|---|
+| `typescript/hono/validate-input` | `ast-grep` forbid, in files importing `hono`, `hono/*` or `@hono/*`: `$C.req.json()`, `.parseBody()`, `.formData()`, `.query()`, `.queries()` (validator middleware and `c.req.valid()` instead; `c.req.param()` is not checked) |
+| `typescript/hono/cors-credentials-wildcard` | `ast-grep` forbid: `cors({…})` with `credentials: true` and `origin: "*"` or `origin: (o) => o` |
+
+context.md: `zValidator` / `validator()` middleware and `c.req.valid()`; which raw reads are rejected; `cors()` with credentials names its origins.
+
 ### github-actions
 
 Detected by `.github/workflows/*.yml` or `*.yaml`.
