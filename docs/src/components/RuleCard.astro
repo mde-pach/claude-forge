@@ -56,7 +56,7 @@ const oneLiners = [...(rule.examples?.match ?? []), ...(rule.examples?.no_match 
 const verdict = (() => {
   const t = rule.enforce.find((x) => x.target !== "tool") ?? rule.enforce[0]!;
   if (t.target === "guard" || t.target === "permission") return t.decision === "deny" ? "denied" : "asks you first";
-  if (t.target === "ast-grep" || t.target === "grep") return t.mode === "forbid" ? "flagged" : t.mode === "no-increase" ? "counted: may not increase" : "counted: may not decrease";
+  if (t.target === "ast-grep" || t.target === "grep") return t.mode === "forbid" ? "flagged" : t.mode === "advise" ? "flagged (advice)" : t.mode === "no-increase" ? "counted: may not increase" : "counted: may not decrease";
   if (t.target === "tool") return `reported by ${t.tool}`;
   return "fails";
 })();
@@ -64,6 +64,7 @@ const MODE: Record<string, string> = {
   forbid: "A match on an added line fails (any match, in CI with --all).",
   "no-increase": "A changed file may not have more matches than in the base (the start of the turn, HEAD, or the merge base).",
   "no-decrease": "A changed file may not have fewer matches than in the base (the start of the turn, HEAD, or the merge base).",
+  advise: "A match on a line added during the turn is reported to Claude after the edit; it never fails Stop, a commit or CI.",
 };
 ---
 

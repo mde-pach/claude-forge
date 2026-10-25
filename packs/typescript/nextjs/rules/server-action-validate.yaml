@@ -1,16 +1,14 @@
 id: typescript/nextjs/server-action-validate
-description: An exported Server Action (in a 'use server' file) or a POST, PUT, PATCH or DELETE route handler that takes input validates it with a schema (.parse or .safeParse) before using it.
+description: An exported Server Action (in a 'use server' file) that takes input validates it with a schema (.parse or .safeParse) before using it. Route handlers are covered by route-handler-validate.
 scope: {language: typescript}
 enforce:
   - target: ast-grep
     mode: forbid
     rule:
       kind: export_statement
-      any:
-        - all:
-            - inside: {kind: program, has: {kind: expression_statement, regex: "^[\"']use server[\"'];?$"}}
-            - has: {kind: function_declaration, regex: "^async\\b", has: {field: parameters, has: {any: [{kind: required_parameter}, {kind: optional_parameter}]}}}
-        - has: {kind: function_declaration, has: {field: name, regex: "^(POST|PUT|PATCH|DELETE)$"}}
+      all:
+        - inside: {kind: program, has: {kind: expression_statement, regex: "^[\"']use server[\"'];?$"}}
+        - has: {kind: function_declaration, regex: "^async\\b", has: {field: parameters, has: {any: [{kind: required_parameter}, {kind: optional_parameter}]}}}
       not:
         has:
           stopBy: end
@@ -19,8 +17,7 @@ enforce:
 examples:
   match:
     - "\"use server\";\n\nexport async function addToCart(productId: string, quantity: number) {\n  await db.cartItem.create({ data: { productId, quantity } });\n}\n"
-    - "export async function POST(request: Request) {\n  const body = await request.json();\n  await db.order.create({ data: body });\n  return Response.json({ ok: true });\n}\n"
   no_match:
     - "\"use server\";\n\nimport { z } from \"zod\";\n\nconst AddToCart = z.object({ productId: z.string(), quantity: z.number().int().positive() });\n\nexport async function addToCart(input: unknown) {\n  const { productId, quantity } = AddToCart.parse(input);\n  await db.cartItem.create({ data: { productId, quantity } });\n}\n"
     - "\"use server\";\n\nexport async function signOut() {\n  await session.destroy();\n}\n"
-    - "export async function GET(request: Request) {\n  return Response.json(await db.product.findMany());\n}\n"
+    - "export async function POST(request: Request) {\n  const body = await request.json();\n  return Response.json(await createOrder(body));\n}\n"

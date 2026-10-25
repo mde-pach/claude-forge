@@ -1,16 +1,14 @@
 id: typescript/nextjs/server-action-auth
-description: An exported Server Action (in a 'use server' file) or a POST, PUT, PATCH or DELETE route handler checks who is calling (auth(), getSession(), currentUser(), requireUser(), verifySession(), ...). Public endpoints are excluded through a local rule (see the pack page).
+description: An exported Server Action (in a 'use server' file) checks who is calling (auth(), getSession(), currentUser(), requireUser(), verifySession(), ...). Route handlers are covered by route-handler-auth. Public actions are excluded through a local rule (see the pack page).
 scope: {language: typescript}
 enforce:
   - target: ast-grep
     mode: forbid
     rule:
       kind: export_statement
-      any:
-        - all:
-            - inside: {kind: program, has: {kind: expression_statement, regex: "^[\"']use server[\"'];?$"}}
-            - has: {kind: function_declaration, regex: "^async\\b"}
-        - has: {kind: function_declaration, has: {field: name, regex: "^(POST|PUT|PATCH|DELETE)$"}}
+      all:
+        - inside: {kind: program, has: {kind: expression_statement, regex: "^[\"']use server[\"'];?$"}}
+        - has: {kind: function_declaration, regex: "^async\\b"}
       not:
         has:
           stopBy: end
@@ -19,8 +17,6 @@ enforce:
 examples:
   match:
     - "\"use server\";\n\nexport async function deleteOrder(id: string) {\n  await db.order.delete({ where: { id } });\n}\n"
-    - "export async function PATCH(request: Request) {\n  await db.product.update({ where: { id: \"1\" }, data: await request.json() });\n  return Response.json({ ok: true });\n}\n"
   no_match:
     - "\"use server\";\n\nimport { auth } from \"@/auth\";\n\nexport async function deleteOrder(id: string) {\n  const session = await auth();\n  if (!session) throw new Error(\"Unauthorized\");\n  await db.order.delete({ where: { id, userId: session.user.id } });\n}\n"
-    - "import { headers } from \"next/headers\";\n\nexport async function POST(request: Request) {\n  const session = await betterAuth.api.getSession({ headers: await headers() });\n  if (!session) return new Response(null, { status: 401 });\n  return Response.json({ ok: true });\n}\n"
-    - "export async function GET() {\n  return Response.json(await db.product.findMany());\n}\n"
+    - "export async function PATCH(request: Request) {\n  await db.product.update({ where: { id: \"1\" }, data: Product.parse(await request.json()) });\n  return Response.json({ ok: true });\n}\n"

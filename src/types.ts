@@ -3,7 +3,7 @@ export type Language = "python" | "typescript" | "tsx" | "yaml" | "any";
 export type Decision = "deny" | "ask";
 export type Stage = "format" | "lint" | "typecheck" | "migration" | "test";
 export type ToolName = "biome" | "ruff" | "basedpyright" | "tsc";
-export type AstGrepMode = "forbid" | "no-increase" | "no-decrease";
+export type AstGrepMode = "forbid" | "no-increase" | "no-decrease" | "advise";
 
 export interface DepSpec {
   ecosystem: "pypi" | "npm";

@@ -543,6 +543,25 @@ describe("PostToolUse", () => {
     T,
   );
 
+  /**
+   * `advise` rules are heuristics: their matches come back after the edit like
+   * `forbid` matches, but `check.sh` (Stop, pre-commit, CI) does not run them.
+   */
+  /** @rule python/no-ssrf */
+  test(
+    "an advise rule's match is returned after the edit, and check.sh does not fail on it",
+    () => {
+      put(repo, "app/preview.py", 'import httpx\nfrom fastapi import APIRouter\n\nrouter = APIRouter()\n\n\n@router.get("/preview")\nasync def preview(url: str) -> str:\n    return httpx.get(url).text\n');
+      const out = JSON.parse(hook("post-edit.sh", edit("app/preview.py")).stdout).hookSpecificOutput;
+      expect(out.additionalContext).toContain("forge:python/no-ssrf app/preview.py:9:12");
+      expect(readFileSync(join(repo, ".forge/ast-grep/rules/python/no-ssrf.yml"), "utf8")).toContain("severity: warning");
+      const r = sh("sh", [".forge/check.sh", "--all"], { cwd: repo });
+      expect(r.stdout + r.stderr).not.toContain("python/no-ssrf");
+      reset();
+    },
+    T,
+  );
+
   test(
     "post-edit prints nothing when the file is clean",
     () => {

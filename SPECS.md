@@ -160,14 +160,14 @@ A `guard` example is a command string or `{command, files}`: the command runs fr
 
 Paths are relative, without `..`. Every rule has examples, except a `check` target that runs the project's tests (stage `test`), its migrations (stage `migration`), `astro check` or a lock-file check (`uv`, `bun`): those need a whole project, and their examples are optional.
 
-Every rule blocks. A rule you don't want is disabled with a reason.
+Every rule blocks, except an `ast-grep` target in `advise` mode (§6.2), for heuristics whose matches need judgement. A rule you don't want is disabled with a reason.
 
 ### 6.2 Targets
 
 | Target | Fields | Category | Effect |
 |---|---|---|---|
 | `tool` | `tool: biome \| ruff \| basedpyright \| tsc`, `expects` (diagnostic code or rule name), `snippet` (config to show when unsatisfied) | audited | §11 |
-| `ast-grep` | `rule` (ast-grep rule object), `mode: forbid \| no-increase \| no-decrease` | owned | `.forge/ast-grep/rules/<rule-id>.yml` |
+| `ast-grep` | `rule` (ast-grep rule object), `mode: forbid \| no-increase \| no-decrease \| advise` | owned | `.forge/ast-grep/rules/<rule-id>.yml` |
 | `permission` | `decision: deny \| ask`, `rule` (permission rule string) | appended | settings `permissions` |
 | `guard` | `decision: deny \| ask`, `pattern` (POSIX ERE against the JSON-escaped command), `check` (optional: a built-in guard check, `ephemeral-exec`, that decides when `pattern` matches) | owned | `guard.rules` (§9.2) |
 | `sandbox` | `path`, `value` | appended, user only | `~/.claude/settings.json` `sandbox` |
@@ -178,6 +178,7 @@ ast-grep and grep modes:
 - `forbid`: a match on an added line of a changed file fails (§10.1); with `--all`, any match.
 - `no-increase`: more matches than in the base in a changed file fails.
 - `no-decrease`: fewer matches than in the base in a changed file fails.
+- `advise` (ast-grep only): a match on a line added during the turn is reported after the edit (PostToolUse feedback, like `forbid`); Stop, the pre-commit hook and CI do not run it.
 
 A `grep` target is for text that is not code ast-grep parses: comments, configuration, `.astro` files.
 
@@ -524,8 +525,9 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `python/no-stub` | `ast-grep` forbid, not in `*.pyi` or migrations: a function whose body is only `pass` / `...` (docstrings and comments aside), or `raise NotImplementedError`, outside `@abstractmethod`, `@overload` and `Protocol` / `ABC` classes |
 | `python/stub-sync` | `check` lint, advisory (§10.7): `forge_stub_sync` on `*.py` |
 | `python/no-placeholder-comment` | `grep` forbid (case-insensitive): comments such as `TODO: implement`, "in a real implementation", "placeholder logic", "stub for now" |
+| `python/no-ssrf` | `ast-grep` advise: in a function decorated `@<x>.get/post/put/patch/delete/api_route/route/websocket(…)`, a `requests` / `httpx` / `client` / `http_client` / `async_client` request or `urlopen` whose first positional argument or `url=` is a parameter (not `Depends` / `Security`), an attribute, item or `.query_params.get()` of one, `str()` of one, or an f-string starting with one; not when the function calls `*allowed_url*`, `*safe_host*`, `validate_url`, `check_domain`, … or names an `ALLOWED_HOSTS`-style set |
 
-context.md: uv and `.venv/bin`, basedpyright; no blocking calls in `async def`; ignore comments name their rule; search for an existing helper (warn-once, logging, utils) before writing one.
+context.md: uv and `.venv/bin`, basedpyright; no blocking calls in `async def`; ignore comments name their rule; search for an existing helper (warn-once, logging, utils) before writing one; request-derived URLs are allow-listed (advice).
 
 ### typescript
 
@@ -556,11 +558,12 @@ context.md: uv and `.venv/bin`, basedpyright; no blocking calls in `async def`; 
 | `typescript/no-unused-suppressions` | `check` lint: `biome lint` output has no `suppressions/unused` diagnostic (Biome reports it only as a warning, and no setting raises it) |
 | `typescript/no-stub` | `ast-grep` forbid, not in `*.d.ts`: a `throw` whose message starts with "Not implemented", "unimplemented" or "TODO"; a named function or method (not a constructor) whose body is empty or only comments |
 | `typescript/no-placeholder-comment` | `grep` forbid (case-insensitive): the Python list, after `//`, `/*` or `*` |
+| `typescript/no-ssrf` | `ast-grep` advise: `fetch` / `axios` / `got` / `ky` / `ofetch` (and their `.get`, `.post`, … methods) whose first argument contains `searchParams.get()` / `formData.get()`, `req.json()` / `req.formData()`, Express `req.query` / `req.body` / `req.params`, or is a variable declared from one in an enclosing function (or a `'use server'` export's parameter), unless it starts with a literal `https://host` or `${process.env.…}`, or the function calls an `isAllowedUrl` / `assertSafeUrl` / `validateUrl`-style helper or names an `ALLOWED_HOSTS`-style set |
 | `typescript/config-files` | `permission` ask: `Edit(**/biome.json)`, `Edit(**/biome.jsonc)`, `Edit(**/tsconfig*.json)` |
 | `typescript/config-ratchet` | `check` lint: `forge_ratchet bun ratchet.mjs` (§10.4), `when_changed`: Biome, tsconfig and `package.json` files |
 | `typescript/lockfile-updated` | `check` lint: `forge_lockfile_updated`: a `package.json` whose `dependencies`, `devDependencies` or `optionalDependencies` changed since the base comes with a changed lock file (`pnpm-lock.yaml`, `package-lock.json`, `npm-shrinkwrap.json`, `yarn.lock`, `bun.lock`) when one exists next to it or at the root; `when_changed: [**/package.json]`. At Stop it blocks once per turn, then prints `accepted` and passes (`forge_once`: the package manager may not run here); pre-commit and CI always fail. (`python/uv/lock-sync` covers `pyproject.toml`.) |
 
-context.md: strict TypeScript and Bun; TypeScript 6 deprecations are migrated, never silenced with `ignoreDeprecations`; no `!` or `as unknown as`; search for an existing helper (warn-once, logging, `util.*`) before writing one.
+context.md: strict TypeScript and Bun; TypeScript 6 deprecations are migrated, never silenced with `ignoreDeprecations`; no `!` or `as unknown as`; search for an existing helper (warn-once, logging, `util.*`) before writing one; request-derived URLs are allow-listed (advice).
 
 ### python/uv
 
@@ -648,11 +651,13 @@ context.md: tests assert behaviour, never weakened; "When the task changes behav
 | `typescript/nextjs/proxy-not-middleware` | `ast-grep` forbid: any code in `middleware.ts` / `src/middleware.ts` (file renamed to `proxy.ts` in Next.js 16) |
 | `typescript/nextjs/revalidate-tag-profile` | `ast-grep` forbid: `revalidateTag($A)` with one argument |
 | `typescript/nextjs/no-legacy-image-config` | `ast-grep` forbid: imports of `next/legacy/image`; a `domains` key inside `images` |
-| `typescript/nextjs/server-action-validate` | `ast-grep` forbid: an exported async function with parameters in a `'use server'` file, or an exported `POST` / `PUT` / `PATCH` / `DELETE` function, without a `.parse` / `.safeParse` / `.parseAsync` / `.safeParseAsync` call |
+| `typescript/nextjs/server-action-validate` | `ast-grep` forbid: an exported async function with parameters in a `'use server'` file without a `.parse` / `.safeParse` / `.parseAsync` / `.safeParseAsync` call |
 | `typescript/nextjs/server-action-auth` | `ast-grep` forbid: the same functions without a call to `auth`, `getSession`, `getServerSession`, `getCurrentUser`, `currentUser`, `getUser`, `requireUser`, `requireAuth`, `requireSession`, `verifySession`, `validateRequest` or `getAuth` (as a function or a method). Another helper name, or a public endpoint, is handled with a local rule of the same id (§5.3) |
 | `typescript/nextjs/no-public-secret-env` | `ast-grep` forbid: `process.env.NEXT_PUBLIC_*` names containing `SECRET`, `PRIVATE`, `PASSWORD`, `SERVICE_ROLE` or `DATABASE_URL` |
+| `typescript/nextjs/route-handler-validate` | `ast-grep` forbid in `**/app/**/route.{ts,js}`: `req.json()` / `req.formData()` (`req` or `request`), `….searchParams` or a destructured `searchParams` inside an exported `GET`…`OPTIONS` handler (function or `const`) without a `.parse` / `.safeParse` / `.parseAsync` / `.safeParseAsync` / `.validate` / `.decode` call (not `JSON.parse`) or a bare `parse(…)` / `safeParse(…)` |
+| `typescript/nextjs/route-handler-auth` | `ast-grep` advise in `**/app/**/route.{ts,js}`: the name of an exported `POST` / `PUT` / `PATCH` / `DELETE` handler whose export has no call to the `server-action-auth` helpers, `verify…` or `constructEvent`, no `with(Auth\|Session\|User\|Workspace\|Admin\|…)…(…)` wrapper and no `process.env.*SECRET*` / `*TOKEN*` / `*API_KEY*` |
 
-context.md: Next.js 16 App Router: async request APIs, Server Components by default, `proxy.ts`, `revalidateTag(tag, profile)` / `updateTag(tag)`, `images.remotePatterns`, no `next lint`, Server Actions validate input and check authorization, no secrets in `NEXT_PUBLIC_`.
+context.md: Next.js 16 App Router: async request APIs, Server Components by default, `proxy.ts`, `revalidateTag(tag, profile)` / `updateTag(tag)`, `images.remotePatterns`, no `next lint`, Server Actions validate input and check authorization, route handlers parse their input (auth is advice), no secrets in `NEXT_PUBLIC_`.
 
 ### typescript/nextjs/react
 
@@ -699,7 +704,7 @@ context.md: "React components in Astro render to static HTML; they become intera
 | Rule | Targets |
 |---|---|
 | `typescript/prisma/validate` | `check` migration: `run: prisma validate`, `when_changed: [prisma/schema.prisma]` |
-| `typescript/prisma/migration-present` | `check` migration: `run: prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code`, `when_changed: [prisma/schema.prisma]`, `requires_local_db: true`; skipped with a message if `prisma.config.ts` has no `shadowDatabaseUrl` |
+| `typescript/prisma/migration-present` | `check` migration: `run: prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code`, `when_changed: [prisma/schema.prisma]`, `requires_local_db: true`; skipped with a message if `prisma.config.ts` has no `shadowDatabaseUrl`; passes in a db push workflow (no `prisma/migrations` directory and `prisma db push` in `package.json`) |
 | `typescript/prisma/no-reset` | `guard` deny: `prisma migrate reset`, `prisma db push --force-reset`, `prisma db push --accept-data-loss` |
 | `typescript/prisma/db-push` | `guard` ask: `prisma db push`, `prisma migrate deploy`, `prisma db execute` |
 | `typescript/prisma/generated-client-import` | `ast-grep` forbid: `import $$$ from "@prisma/client"` |
@@ -707,8 +712,10 @@ context.md: "React components in Astro render to static HTML; they become intera
 | `typescript/prisma/no-raw-unsafe` | `ast-grep` forbid: `$C.$queryRawUnsafe($$$)`, `$C.$executeRawUnsafe($$$)` |
 | `typescript/prisma/client-generator` | `check` lint: no `provider = "prisma-client-js"` in tracked `*.prisma` files, `when_changed: [**/*.prisma]` |
 | `typescript/prisma/migration-lint` | `check` migration: changed `prisma/migrations/*/migration.sql` linted with Squawk (§13.1); `--all`: the newest migration; `when_changed: [prisma/migrations/**]` |
+| `typescript/prisma/no-network-in-transaction` | `ast-grep` forbid: `fetch` / `axios` / `got` / `ky` / `ofetch` calls (and their methods) and calls on `stripe`, `resend`, `openai`, `anthropic`, `twilio`, `sgMail`, `postmark` inside a function passed to `….$transaction(…)` |
+| `typescript/prisma/destructive-migration` | `check` migration: `DROP COLUMN` / `DROP TABLE` lines (not `--` comments; not a SQLite redefinition, where `RENAME TO` gives the table back) in the changed `prisma/migrations/*/migration.sql` (`--all`: the newest), printed `file:line: <statement>`; a line found in `forge.yaml` (an `accept` entry) passes; `when_changed: [prisma/migrations/**]` |
 
-context.md: Prisma 7: `prisma-client` generator with `output`, driver adapters, `prisma.config.ts` (no automatic `.env`), `prisma db seed`, `$extends` (no `$use`), tagged `$queryRaw` only.
+context.md: Prisma 7: `prisma-client` generator with `output`, driver adapters, `prisma.config.ts` (no automatic `.env`), `prisma db seed`, `$extends` (no `$use`), tagged `$queryRaw` only; no network calls in interactive transactions; migrations with schema changes (not under db push); drops accepted in `forge.yaml`.
 
 ### typescript/vitest
 

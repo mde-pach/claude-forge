@@ -1,0 +1,66 @@
+# Next.js: "treat Route Handlers like public API endpoints" and verify the caller
+# (https://nextjs.org/docs/app/guides/authentication, https://nextjs.org/docs/app/guides/data-security).
+# Advice, not a block: route handlers often host public endpoints (sign-up, OAuth
+# callbacks, tracking). Another helper or wrapper name is a local rule with the same id.
+id: typescript/nextjs/route-handler-auth
+description: A new POST, PUT, PATCH or DELETE App Router route handler checks who is calling (auth(), getSession(), currentUser(), ..., an auth wrapper such as withAuth()/withWorkspace(), a webhook signature check such as constructEvent()/verify...(), or a *SECRET*/*TOKEN* env var compared to a header).
+scope: {language: typescript, files: ["**/app/**/route.ts", "**/app/**/route.js"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: identifier
+      regex: "^(POST|PUT|PATCH|DELETE)$"
+      any:
+        - inside: {kind: function_declaration, field: name, inside: {matches: unchecked-export}}
+        - inside: {kind: variable_declarator, field: name, inside: {kind: lexical_declaration, inside: {matches: unchecked-export}}}
+    utils:
+      checks-caller:
+        any:
+          - kind: call_expression
+            has: {field: function, regex: "(^|\\.)(auth|getSession|getServerSession|getCurrentUser|currentUser|getUser|requireUser|requireAuth|requireSession|verifySession|validateRequest|getAuth|verify[A-Za-z]*|constructEvent(Async)?)$"}
+          - kind: call_expression
+            has: {field: function, kind: identifier, regex: "^with(Auth|Authentication|Session|User|Workspace|Admin|Account|EmailAccount|Org|Organization|Team|ApiKey|Permissions?)[A-Za-z]*$"}
+          - kind: member_expression
+            regex: "^process\\.env\\.[A-Z0-9_]*(SECRET|TOKEN|API_KEY)[A-Z0-9_]*$"
+      unchecked-export:
+        kind: export_statement
+        not: {has: {stopBy: end, matches: checks-caller}}
+examples:
+  match:
+    - |
+      export async function POST(request: Request) {
+        await db.order.create({ data: Order.parse(await request.json()) });
+        return Response.json({ ok: true });
+      }
+    - |
+      export const DELETE = withError(async () => {
+        await db.post.deleteMany();
+        return new Response(null, { status: 204 });
+      });
+  no_match:
+    - |
+      import { auth } from "@/auth";
+
+      export async function POST(request: Request) {
+        const session = await auth();
+        if (!session) return new Response(null, { status: 401 });
+        return Response.json(await createPost(session.user.id, Post.parse(await request.json())));
+      }
+    - |
+      export const PATCH = withWorkspace(async ({ req, workspace }) => Response.json(await rename(workspace, await req.json())));
+    - |
+      export async function POST(req: Request) {
+        const event = stripe.webhooks.constructEvent(await req.text(), req.headers.get("stripe-signature") ?? "", secret);
+        return Response.json({ received: event.id });
+      }
+    - |
+      export async function DELETE(req: Request) {
+        if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) return new Response(null, { status: 401 });
+        await purgeExpired();
+        return new Response(null, { status: 204 });
+      }
+    - |
+      export async function GET() {
+        return Response.json(await db.product.findMany());
+      }

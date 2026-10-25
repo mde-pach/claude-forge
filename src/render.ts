@@ -293,7 +293,7 @@ export function renderAstGrepRule(rule: Rule, target: AstGrepTarget): string {
   const doc: Record<string, unknown> = {
     id: rule.id,
     language: astGrepLanguage(rule.scope.language),
-    severity: "error",
+    severity: target.mode === "advise" ? "warning" : "error",
     message: `forge:${rule.id} ${rule.description}`,
   };
   if (include.length) doc.files = include;
