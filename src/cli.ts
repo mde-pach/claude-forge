@@ -2,7 +2,7 @@ import { chmodSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rm
 import { homedir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { checkTools, renderLib } from "./render.js";
-import { auditRules, auditTarget, projectBinary, type AuditResult } from "./audit.js";
+import { auditRules, projectBinary, type AuditResult } from "./audit.js";
 import { MANIFEST_PATH, readLock, renderLock, renderManifest } from "./lock.js";
 import { loadLocalRules, loadPacks } from "./packs.js";
 import { plan, readProjectInputs, type Plan } from "./plan.js";
@@ -448,7 +448,7 @@ function cmdDiff(flags: Flags): number {
 }
 
 function formatAudit(a: AuditResult): string {
-  const head = `forge:${a.rule} ${a.tool} ${a.expects}: ${a.status}`;
+  const head = `forge:${a.rule} ${a.tool} ${a.expects}${a.dir ? ` (in ${a.dir})` : ""}: ${a.status}`;
   if (a.status === "satisfied") return head;
   const lines = [head + (a.detail ? ` (${a.detail})` : "")];
   if (a.snippet) lines.push(`  add to the ${a.tool} config: ${a.snippet}`);
@@ -509,10 +509,14 @@ function enforcement(ctx: Ctx, audits: AuditResult[], missing: string[]): Enforc
   return ctx.plan.active.map((st) => {
     const by: string[] = [];
     const not: string[] = [];
-    for (const a of audits.filter((x) => x.rule === st.rule.id)) {
-      if (a.status === "satisfied") by.push(`${a.tool} ${a.expects}`);
-      else if (a.status === "unsatisfied") not.push(UNSATISFIED[a.tool]!);
-      else not.push(/not installed/.test(a.detail ?? "") ? `${a.tool} not installed` : `${a.tool} audit skipped`);
+    // audited in several packages: enforced by the tool only where every package's config enforces it
+    const mine = audits.filter((x) => x.rule === st.rule.id);
+    for (const tool of new Set(mine.map((a) => a.tool))) {
+      const each = mine.filter((a) => a.tool === tool);
+      const bad = each.find((a) => a.status !== "satisfied");
+      if (!bad) by.push(`${tool} ${each[0]!.expects}`);
+      else if (bad.status === "unsatisfied") not.push(UNSATISFIED[tool]!);
+      else not.push(/not installed/.test(bad.detail ?? "") ? `${tool} not installed` : `${tool} audit skipped`);
     }
     for (const n of st.notEnforced) not.push(n.replace(/^not enforced here: /, ""));
     if (st.astgrep) by.push(`ast-grep ${st.astgrep.mode}`);
@@ -651,7 +655,7 @@ function cmdExplain(id: string | undefined, flags: Flags): number {
     for (const e of st.enforced) out(`  ${e}`);
     for (const n of st.notEnforced) out(`  ${n}`);
     if (!st.enforced.length) out("  nowhere");
-    if (ctx.level === "project") for (const t of st.audits) out(formatAudit(auditTarget(join(ctx.base, ctx.plan.toolDirs[t.tool]), st.rule, t, ctx.base)));
+    if (ctx.level === "project") for (const a of auditRules(ctx.base, [st], (t) => ctx.plan.toolDirs[t])) out(formatAudit(a));
   }
   return 0;
 }

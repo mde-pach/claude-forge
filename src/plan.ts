@@ -66,8 +66,8 @@ export interface Plan {
   deprecated: { id: string; replaced_by: string }[];
   warnings: string[];
   tools: Record<AuditedTool, boolean>;
-  /** Where each audited tool's audit runs: "" (the root) or the workspace package that configures it. */
-  toolDirs: Record<AuditedTool, string>;
+  /** Where each audited tool's audits run: "" (the root) and/or every workspace package that configures it. */
+  toolDirs: Record<AuditedTool, string[]>;
   /** Project level: the checks fragment the hook scripts share (forge status runs its forge_missing_tools). */
   checksFragment?: string;
 }
@@ -214,7 +214,7 @@ export function plan(opts: PlanOptions): Plan {
   const { packs, removed } = activePacks(opts, warnings);
   const places = level === "project" && opts.facts ? toolPlaces(base, opts.facts) : undefined;
   const tools = Object.fromEntries(AUDITED_TOOLS.map((t) => [t, (places?.[t].length ?? 0) > 0])) as Record<AuditedTool, boolean>;
-  const toolDirs = Object.fromEntries(AUDITED_TOOLS.map((t) => [t, places?.[t][0] ?? ""])) as Record<AuditedTool, string>;
+  const toolDirs = Object.fromEntries(AUDITED_TOOLS.map((t) => [t, places?.[t].length ? places[t] : [""]])) as Record<AuditedTool, string[]>;
   const workspaces = level === "project" ? (opts.facts?.workspaces ?? []) : [];
 
   /**
