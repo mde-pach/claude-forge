@@ -526,11 +526,10 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `python/no-stub` | `ast-grep` forbid, not in `*.pyi` or migrations: a function whose body is only `pass` / `...` (docstrings and comments aside), or `raise NotImplementedError`, outside `@abstractmethod`, `@overload` and `Protocol` / `ABC` classes |
 | `python/stub-sync` | `check` lint, advisory (§10.7): `forge_stub_sync` on `*.py` |
 | `python/no-placeholder-comment` | `grep` forbid (case-insensitive): comments such as `TODO: implement`, "in a real implementation", "placeholder logic", "stub for now" |
-| `python/no-ssrf` | `ast-grep` advise: in a function decorated `@<x>.get/post/put/patch/delete/api_route/route/websocket(…)`, a `requests` / `httpx` / `client` / `http_client` / `async_client` request or `urlopen` whose first positional argument or `url=` is a parameter (not `Depends` / `Security`), an attribute, item or `.query_params.get()` of one, `str()` of one, or an f-string starting with one; not when the function calls `*allowed_url*`, `*safe_host*`, `validate_url`, `check_domain`, … or names an `ALLOWED_HOSTS`-style set |
 | `python/env-example` | `check` lint: `forge_env_example py`, not with `--all`: a field added to a pydantic-settings `BaseSettings` class (`env_prefix`, `alias`, `case_sensitive` applied) appears in the nearest directory's `.env.example`, `.env.template`, `.env.sample`, `.env.dist` or `.env.<name>.example` (a `# KEY=` line counts): always without a default, also with one when the template lists at least half of the class's variables; a template listing none of them is not about that class |
 | `python/no-secret-logging` | `ast-grep` forbid, not in tests, management commands, `scripts/**`, `cli.py`: a name, attribute or header like `token`, `secret`, `password`, `api_key`, `secret_key`, `private_key`, `access_key`, `authorization`, `credentials` (not `max_tokens`, `has_token`, `next_page_token`, `password_hash`) passed to a logger method, `print()` or a raised exception: as an argument, in an f-string, with `+`, as a keyword or `extra` dict value |
 
-context.md: uv and `.venv/bin`, basedpyright; no blocking calls in `async def`; ignore comments name their rule; search for an existing helper (warn-once, logging, utils) before writing one; request-derived URLs are allow-listed (advice).
+context.md: uv and `.venv/bin`, basedpyright; no blocking calls in `async def`; ignore comments name their rule; search for an existing helper (warn-once, logging, utils) before writing one.
 
 ### typescript
 
@@ -561,14 +560,13 @@ context.md: uv and `.venv/bin`, basedpyright; no blocking calls in `async def`; 
 | `typescript/no-unused-suppressions` | `check` lint: `biome lint` output has no `suppressions/unused` diagnostic (Biome reports it only as a warning, and no setting raises it) |
 | `typescript/no-stub` | `ast-grep` forbid, not in `*.d.ts`: a `throw` whose message starts with "Not implemented", "unimplemented" or "TODO"; a named function or method (not a constructor) whose body is empty or only comments |
 | `typescript/no-placeholder-comment` | `grep` forbid (case-insensitive): the Python list, after `//`, `/*` or `*` |
-| `typescript/no-ssrf` | `ast-grep` advise: `fetch` / `axios` / `got` / `ky` / `ofetch` (and their `.get`, `.post`, … methods) whose first argument contains `searchParams.get()` / `formData.get()`, `req.json()` / `req.formData()`, Express `req.query` / `req.body` / `req.params`, or is a variable declared from one in an enclosing function (or a `'use server'` export's parameter), unless it starts with a literal `https://host` or `${process.env.…}`, or the function calls an `isAllowedUrl` / `assertSafeUrl` / `validateUrl`-style helper or names an `ALLOWED_HOSTS`-style set |
 | `typescript/config-files` | `permission` ask: `Edit(**/biome.json)`, `Edit(**/biome.jsonc)`, `Edit(**/tsconfig*.json)` |
 | `typescript/config-ratchet` | `check` lint: `forge_ratchet bun ratchet.mjs` (§10.4), `when_changed`: Biome, tsconfig and `package.json` files |
 | `typescript/lockfile-updated` | `check` lint: `forge_lockfile_updated`: a `package.json` whose `dependencies`, `devDependencies` or `optionalDependencies` changed since the base comes with a changed lock file (`pnpm-lock.yaml`, `package-lock.json`, `npm-shrinkwrap.json`, `yarn.lock`, `bun.lock`) when one exists next to it or at the root; `when_changed: [**/package.json]`. At Stop it blocks once per turn, then prints `accepted` and passes (`forge_once`: the package manager may not run here); pre-commit and CI always fail. (`python/uv/lock-sync` covers `pyproject.toml`.) |
 | `typescript/env-example` | `check` lint: `forge_env_example ts`, as `python/env-example` for the UPPER_CASE keys of a Zod env schema (t3-env `createEnv`, or `z.object(…)` with `process.env`) whose value is a `z.` chain; a key with `.default()`, `.optional()` or `.catch()` counts as having a default |
 | `typescript/no-secret-logging` | `ast-grep` forbid, not in tests, `e2e/**`, `scripts/**`: the Python list in camelCase too (`accessToken`, `apiKey`, `clientSecret`; not `maxTokens`, `hasToken`, `passwordHash`) passed to `console.*`, a logger's methods or a thrown error: as an argument, in a template literal, with `+`, as an object property |
 
-context.md: strict TypeScript and Bun; TypeScript 6 deprecations are migrated, never silenced with `ignoreDeprecations`; no `!` or `as unknown as`; search for an existing helper (warn-once, logging, `util.*`) before writing one; request-derived URLs are allow-listed (advice).
+context.md: strict TypeScript and Bun; TypeScript 6 deprecations are migrated, never silenced with `ignoreDeprecations`; no `!` or `as unknown as`; search for an existing helper (warn-once, logging, `util.*`) before writing one.
 
 ### python/uv
 
@@ -729,13 +727,9 @@ context.md: `bun:test` tests run with `bun test`, what the integrity rules rejec
 | `typescript/nextjs/proxy-not-middleware` | `ast-grep` forbid: any code in `middleware.ts` / `src/middleware.ts` (file renamed to `proxy.ts` in Next.js 16) |
 | `typescript/nextjs/revalidate-tag-profile` | `ast-grep` forbid: `revalidateTag($A)` with one argument |
 | `typescript/nextjs/no-legacy-image-config` | `ast-grep` forbid: imports of `next/legacy/image`; a `domains` key inside `images` |
-| `typescript/nextjs/server-action-validate` | `ast-grep` forbid: an exported async function with parameters in a `'use server'` file without a `.parse` / `.safeParse` / `.parseAsync` / `.safeParseAsync` call |
-| `typescript/nextjs/server-action-auth` | `ast-grep` forbid: the same functions without a call to `auth`, `getSession`, `getServerSession`, `getCurrentUser`, `currentUser`, `getUser`, `requireUser`, `requireAuth`, `requireSession`, `verifySession`, `validateRequest` or `getAuth` (as a function or a method). Another helper name, or a public endpoint, is handled with a local rule of the same id (§5.3) |
 | `typescript/nextjs/no-public-secret-env` | `ast-grep` forbid: `process.env.NEXT_PUBLIC_*` names containing `SECRET`, `PRIVATE`, `PASSWORD`, `SERVICE_ROLE` or `DATABASE_URL` |
-| `typescript/nextjs/route-handler-validate` | `ast-grep` forbid in `**/app/**/route.{ts,js}`: `req.json()` / `req.formData()` (`req` or `request`), `….searchParams` or a destructured `searchParams` inside an exported `GET`…`OPTIONS` handler (function or `const`) without a `.parse` / `.safeParse` / `.parseAsync` / `.safeParseAsync` / `.validate` / `.decode` call (not `JSON.parse`) or a bare `parse(…)` / `safeParse(…)` |
-| `typescript/nextjs/route-handler-auth` | `ast-grep` advise in `**/app/**/route.{ts,js}`: the name of an exported `POST` / `PUT` / `PATCH` / `DELETE` handler whose export has no call to the `server-action-auth` helpers, `verify…` or `constructEvent`, no `with(Auth\|Session\|User\|Workspace\|Admin\|…)…(…)` wrapper and no `process.env.*SECRET*` / `*TOKEN*` / `*API_KEY*` |
 
-context.md: Next.js 16 App Router: async request APIs, Server Components by default, `proxy.ts`, `revalidateTag(tag, profile)` / `updateTag(tag)`, `images.remotePatterns`, no `next lint`, Server Actions validate input and check authorization, route handlers parse their input (auth is advice), no secrets in `NEXT_PUBLIC_`.
+context.md: Next.js 16 App Router: async request APIs, Server Components by default, `proxy.ts`, `revalidateTag(tag, profile)` / `updateTag(tag)`, `images.remotePatterns`, no `next lint`, Server Actions and route handlers are public endpoints (guidance only: validating input and checking the caller cannot be decided from syntax, so no rule checks it), no secrets in `NEXT_PUBLIC_`.
 
 ### typescript/nextjs/react
 
@@ -869,10 +863,9 @@ context.md: schema, `out` and `dialect` in `drizzle.config.*`; `drizzle-kit gene
 | Rule | Targets |
 |---|---|
 | `typescript/trpc/input-validate` | `ast-grep` forbid: `.input(…)` whose argument is `z.any()`, `z.unknown()`, `(v) => v as T` or `(v: T) => v` |
-| `typescript/trpc/protected-mutation` | `ast-grep` forbid: `.mutation(…)` on a chain that starts at `publicProcedure`, `baseProcedure`, `procedure` or `t.procedure`. Public mutations and other base names are handled with a local rule of the same id (§5.3) |
 | `typescript/trpc/trpc-error` | `ast-grep` forbid: `throw new Error(…)` inside the resolver of `.query` / `.mutation` / `.subscription` on a chain that starts at `*Procedure`, `procedure` or `t.procedure` |
 
-context.md: `.input(<schema>)` and what is rejected; mutations on an authorizing procedure; `TRPCError` with a `code` in procedures.
+context.md: `.input(<schema>)` and what is rejected; `TRPCError` with a `code` in procedures.
 
 ### typescript/hono
 
@@ -887,12 +880,9 @@ context.md: `zValidator` / `validator()` middleware and `c.req.valid()`; which r
 
 Detected by `@react-router/dev >= 7` (framework mode).
 
-| Rule | Targets |
-|---|---|
-| `typescript/react-router/action-validate` | `ast-grep` forbid in `app/**`, `src/app/**`: an exported `action` (function or `const`) that calls `.formData()` or `.json()` without a call to `parse`, `safeParse`, `parseAsync`, `safeParseAsync`, `parseWithZod`, `parseWithValibot`, `parseWithYup` or `getValidatedFormData` (as a function or a method) |
-| `typescript/react-router/action-auth` | `ast-grep` forbid in the same files: an exported `action` without a call to `auth`, `getSession`, `getServerSession`, `getCurrentUser`, `currentUser`, `getUser`, `getUserId`, `requireUser`, `requireUserId`, `requireAuth`, `requireSession`, `requireAdmin`, `verifySession`, `validateRequest`, `getAuth` or `isAuthenticated` (as a function or a method). Public actions and other helper names are handled with a local rule of the same id (§5.3) |
+No rules: whether an action validates its input and checks the caller cannot be decided from syntax (rules that guessed it from helper names were removed).
 
-context.md: route module `loader` / `action` with `Route.*Args` types; actions validate what they read and check who is calling; `data()` and `redirect()`.
+context.md: route module `loader` / `action` with `Route.*Args` types; actions are public endpoints (guidance, not checked); `data()` and `redirect()`.
 
 ### typescript/vue
 

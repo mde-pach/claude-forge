@@ -20,8 +20,7 @@ Request interception lives in `proxy.ts` (not `middleware.ts`).
 `revalidateTag(tag, "max")` takes a cacheLife profile; `updateTag(tag)` in a Server Action gives read-your-writes.
 Remote images are allowed with `images.remotePatterns`.
 `next lint` no longer exists and `next build` does not lint; lint runs through Biome.
-Server Actions are public POST endpoints. An exported async function in a `'use server'` file that takes input calls a schema's `.parse()` / `.safeParse()` and an auth helper (`auth()`, `getSession()`, `currentUser()`, ...); both are checked.
-Route handlers (`app/**/route.ts`) are public too: one that reads `req.json()`, `req.formData()` or `searchParams` parses it with a schema in the handler (checked); a POST, PUT, PATCH or DELETE handler without an auth helper, auth wrapper (`withAuth(...)`) or signature check gets advice.
+Server Actions and route handlers (`app/**/route.ts`) are public endpoints: validate their input with a schema and check who is calling (not checked by Forge).
 `NEXT_PUBLIC_` variables are inlined into the browser bundle; one named like `*SECRET*`, `*PRIVATE*`, `*PASSWORD*`, `*SERVICE_ROLE*` or `*DATABASE_URL*` is rejected.
 
 ===== .claude/rules/forge-typescript-playwright.md
@@ -74,7 +73,6 @@ TypeScript, strict. Bun is the runtime and package manager.
 TypeScript 6 deprecates `baseUrl`, `moduleResolution: "node10"`, `target: "es5"` and `esModuleInterop: false`, and TypeScript 7 removes them: migrate them; `ignoreDeprecations` in a tsconfig is rejected.
 `!` non-null assertions and `as unknown as T` are rejected: narrow with a check, or parse with a schema.
 Before writing a utility, search the codebase for an existing helper (warn-once and logging helpers, `util.*` functions such as an existing property setter) and reuse it instead of adding a near-duplicate.
-Server code that fetches a URL taken from the request (searchParams, the body, form data, a Server Action argument) checks the host against an allow-list first (`isAllowedUrl()`, `ALLOWED_HOSTS`); a miss gets advice, not a block.
 
 ===== .claude/settings.json
 {
@@ -3826,7 +3824,7 @@ forge_required_tools() {
   done | awk 'NF && !seen[$0]++'
 }
 
-FORGE_FORBID='typescript/nextjs/no-legacy-image-config|typescript/nextjs/no-next-router|typescript/nextjs/no-pages-data|typescript/nextjs/no-public-secret-env|typescript/nextjs/proxy-not-middleware|typescript/nextjs/react/client-hooks|typescript/nextjs/react/no-server-in-client|typescript/nextjs/revalidate-tag-profile|typescript/nextjs/route-handler-validate|typescript/nextjs/server-action-auth|typescript/nextjs/server-action-validate|typescript/no-double-assertion|typescript/no-latch-before-optional-call|typescript/no-secret-logging|typescript/no-stub|typescript/no-swallowed-catch|typescript/no-ts-nocheck|typescript/playwright/locators|typescript/playwright/no-wait-for-timeout|typescript/prisma/generated-client-import|typescript/prisma/no-middleware|typescript/prisma/no-network-in-transaction|typescript/prisma/no-raw-unsafe|typescript/react/no-prop-types|typescript/react/use-action-state|typescript/ts-expect-error-reason|typescript/vitest/no-tautological-expect|typescript/vitest/no-test-env-branch|typescript/zod/error-param|typescript/zod/v4-string-formats|typescript/nextjs/route-handler-auth|typescript/no-ssrf'
+FORGE_FORBID='typescript/nextjs/no-legacy-image-config|typescript/nextjs/no-next-router|typescript/nextjs/no-pages-data|typescript/nextjs/no-public-secret-env|typescript/nextjs/proxy-not-middleware|typescript/nextjs/react/client-hooks|typescript/nextjs/react/no-server-in-client|typescript/nextjs/revalidate-tag-profile|typescript/no-double-assertion|typescript/no-latch-before-optional-call|typescript/no-secret-logging|typescript/no-stub|typescript/no-swallowed-catch|typescript/no-ts-nocheck|typescript/playwright/locators|typescript/playwright/no-wait-for-timeout|typescript/prisma/generated-client-import|typescript/prisma/no-middleware|typescript/prisma/no-network-in-transaction|typescript/prisma/no-raw-unsafe|typescript/react/no-prop-types|typescript/react/use-action-state|typescript/ts-expect-error-reason|typescript/vitest/no-tautological-expect|typescript/vitest/no-test-env-branch|typescript/zod/error-param|typescript/zod/v4-string-formats'
 
 # the lines added to each file during the turn (base: the turn snapshot, else HEAD)
 mode=--changed
@@ -13117,156 +13115,6 @@ invalid:
   - revalidateTag("posts");
   - revalidateTag(`post-${id}`);
 
-===== .forge/ast-grep/rule-tests/typescript-nextjs-route-handler-auth-test.yml
-id: typescript/nextjs/route-handler-auth
-valid:
-  - |
-    import { auth } from "@/auth";
-
-    export async function POST(request: Request) {
-      const session = await auth();
-      if (!session) return new Response(null, { status: 401 });
-      return Response.json(await createPost(session.user.id, Post.parse(await request.json())));
-    }
-  - |
-    export const PATCH = withWorkspace(async ({ req, workspace }) => Response.json(await rename(workspace, await req.json())));
-  - |
-    export async function POST(req: Request) {
-      const event = stripe.webhooks.constructEvent(await req.text(), req.headers.get("stripe-signature") ?? "", secret);
-      return Response.json({ received: event.id });
-    }
-  - |
-    export async function DELETE(req: Request) {
-      if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) return new Response(null, { status: 401 });
-      await purgeExpired();
-      return new Response(null, { status: 204 });
-    }
-  - |
-    export async function GET() {
-      return Response.json(await db.product.findMany());
-    }
-invalid:
-  - |
-    export async function POST(request: Request) {
-      await db.order.create({ data: Order.parse(await request.json()) });
-      return Response.json({ ok: true });
-    }
-  - |
-    export const DELETE = withError(async () => {
-      await db.post.deleteMany();
-      return new Response(null, { status: 204 });
-    });
-
-===== .forge/ast-grep/rule-tests/typescript-nextjs-route-handler-validate-test.yml
-id: typescript/nextjs/route-handler-validate
-valid:
-  - |
-    import { z } from "zod";
-
-    const Order = z.object({ productId: z.string(), quantity: z.number().int().positive() });
-
-    export async function POST(request: Request) {
-      const order = Order.parse(await request.json());
-      await db.order.create({ data: order });
-      return Response.json({ ok: true });
-    }
-  - |
-    export const GET = withWorkspace(async ({ searchParams }) => {
-      const { domain } = getLinksQuerySchema.parse(searchParams);
-      return Response.json(await getLinks(domain));
-    });
-  - |
-    export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-      const { id } = await params;
-      await db.post.delete({ where: { id } });
-      return new Response(null, { status: 204 });
-    }
-  - |
-    import * as v from "valibot";
-
-    export async function PUT(req: Request) {
-      const result = v.safeParse(Profile, await req.json());
-      if (!result.success) return Response.json(result.issues, { status: 400 });
-      return Response.json(await save(result.output));
-    }
-invalid:
-  - |
-    export async function POST(request: Request) {
-      const body = await request.json();
-      await db.order.create({ data: body });
-      return Response.json({ ok: true });
-    }
-  - |
-    export const GET = async (req: NextRequest) => {
-      const page = Number(req.nextUrl.searchParams.get("page"));
-      return Response.json(await db.post.findMany({ skip: page * 10 }));
-    };
-  - |
-    export const PATCH = withAuth(async (req: Request) => {
-      const raw = JSON.parse(await req.text());
-      const form = await req.formData();
-      return Response.json({ raw, name: form.get("name") });
-    });
-
-===== .forge/ast-grep/rule-tests/typescript-nextjs-server-action-auth-test.yml
-id: typescript/nextjs/server-action-auth
-valid:
-  - |
-    "use server";
-
-    import { auth } from "@/auth";
-
-    export async function deleteOrder(id: string) {
-      const session = await auth();
-      if (!session) throw new Error("Unauthorized");
-      await db.order.delete({ where: { id, userId: session.user.id } });
-    }
-  - |
-    export async function PATCH(request: Request) {
-      await db.product.update({ where: { id: "1" }, data: Product.parse(await request.json()) });
-      return Response.json({ ok: true });
-    }
-invalid:
-  - |
-    "use server";
-
-    export async function deleteOrder(id: string) {
-      await db.order.delete({ where: { id } });
-    }
-
-===== .forge/ast-grep/rule-tests/typescript-nextjs-server-action-validate-test.yml
-id: typescript/nextjs/server-action-validate
-valid:
-  - |
-    "use server";
-
-    import { z } from "zod";
-
-    const AddToCart = z.object({ productId: z.string(), quantity: z.number().int().positive() });
-
-    export async function addToCart(input: unknown) {
-      const { productId, quantity } = AddToCart.parse(input);
-      await db.cartItem.create({ data: { productId, quantity } });
-    }
-  - |
-    "use server";
-
-    export async function signOut() {
-      await session.destroy();
-    }
-  - |
-    export async function POST(request: Request) {
-      const body = await request.json();
-      return Response.json(await createOrder(body));
-    }
-invalid:
-  - |
-    "use server";
-
-    export async function addToCart(productId: string, quantity: number) {
-      await db.cartItem.create({ data: { productId, quantity } });
-    }
-
 ===== .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
 id: typescript/no-double-assertion
 valid:
@@ -13386,55 +13234,6 @@ invalid:
     }
   - |
     console.log(process.env.STRIPE_SECRET_KEY);
-
-===== .forge/ast-grep/rule-tests/typescript-no-ssrf-test.yml
-id: typescript/no-ssrf
-valid:
-  - |
-    export async function GET(req: NextRequest) {
-      const q = req.nextUrl.searchParams.get("q");
-      const a = await fetch(`https://api.example.com/search?q=${q}`);
-      const b = await fetch(`${process.env.SEARCH_URL}/search?q=${q}`);
-      return Response.json({ a: await a.json(), b: await b.json() });
-    }
-  - |
-    const ALLOWED_HOSTS = new Set(["images.example.com"]);
-
-    export async function POST(request: Request) {
-      const { url } = await request.json();
-      if (!ALLOWED_HOSTS.has(new URL(url).host)) return new Response(null, { status: 400 });
-      return new Response((await fetch(url)).body);
-    }
-  - |
-    export async function getStatus(url: string) {
-      const res = await fetch(url);
-      return res.status;
-    }
-invalid:
-  - |
-    export async function GET(req: NextRequest) {
-      const url = req.nextUrl.searchParams.get("url");
-      const res = await fetch(url!);
-      return new Response(res.body);
-    }
-  - |
-    export async function POST(request: Request) {
-      const { callbackUrl } = await request.json();
-      await fetch(callbackUrl, { method: "POST" });
-      return Response.json({ ok: true });
-    }
-  - |
-    "use server";
-
-    export async function importFeed(feedUrl: string) {
-      const res = await fetch(feedUrl);
-      return res.text();
-    }
-  - |
-    app.get("/proxy", async (req, res) => {
-      const upstream = await axios.get(req.query.url as string);
-      res.send(upstream.data);
-    });
 
 ===== .forge/ast-grep/rule-tests/typescript-no-stub-test.yml
 id: typescript/no-stub
@@ -13965,180 +13764,6 @@ message: forge:typescript/nextjs/revalidate-tag-profile revalidateTag takes a ca
 rule:
   pattern: revalidateTag($A)
 
-===== .forge/ast-grep/rules/typescript/nextjs/route-handler-auth.yml
-# Generated by forge from typescript/nextjs/route-handler-auth (mode: advise).
-id: typescript/nextjs/route-handler-auth
-language: Tsx
-severity: warning
-message: forge:typescript/nextjs/route-handler-auth A new POST, PUT, PATCH or DELETE App Router route handler checks who is calling (auth(), getSession(), currentUser(), ..., an auth wrapper such as withAuth()/withWorkspace(), a webhook signature check such as constructEvent()/verify...(), or a *SECRET*/*TOKEN* env var compared to a header).
-files:
-  - "**/app/**/route.ts"
-  - "**/app/**/route.js"
-rule:
-  kind: identifier
-  regex: ^(POST|PUT|PATCH|DELETE)$
-  any:
-    - inside:
-        kind: function_declaration
-        field: name
-        inside:
-          matches: unchecked-export
-    - inside:
-        kind: variable_declarator
-        field: name
-        inside:
-          kind: lexical_declaration
-          inside:
-            matches: unchecked-export
-utils:
-  checks-caller:
-    any:
-      - kind: call_expression
-        has:
-          field: function
-          regex: (^|\.)(auth|getSession|getServerSession|getCurrentUser|currentUser|getUser|requireUser|requireAuth|requireSession|verifySession|validateRequest|getAuth|verify[A-Za-z]*|constructEvent(Async)?)$
-      - kind: call_expression
-        has:
-          field: function
-          kind: identifier
-          regex: ^with(Auth|Authentication|Session|User|Workspace|Admin|Account|EmailAccount|Org|Organization|Team|ApiKey|Permissions?)[A-Za-z]*$
-      - kind: member_expression
-        regex: ^process\.env\.[A-Z0-9_]*(SECRET|TOKEN|API_KEY)[A-Z0-9_]*$
-  unchecked-export:
-    kind: export_statement
-    not:
-      has:
-        stopBy: end
-        matches: checks-caller
-
-===== .forge/ast-grep/rules/typescript/nextjs/route-handler-validate.yml
-# Generated by forge from typescript/nextjs/route-handler-validate (mode: forbid).
-id: typescript/nextjs/route-handler-validate
-language: Tsx
-severity: error
-message: forge:typescript/nextjs/route-handler-validate An App Router route handler (app/**/route.ts) that reads the request body (req.json(), req.formData()) or searchParams validates it with a schema (.parse, .safeParse, valibot's parse(), ...) in the same handler.
-files:
-  - "**/app/**/route.ts"
-  - "**/app/**/route.js"
-rule:
-  any:
-    - kind: call_expression
-      has:
-        field: function
-        kind: member_expression
-        all:
-          - has:
-              field: object
-              regex: ^(req|request)$
-          - has:
-              field: property
-              regex: ^(json|formData)$
-    - kind: member_expression
-      has:
-        field: property
-        regex: ^searchParams$
-    - kind: shorthand_property_identifier_pattern
-      regex: ^searchParams$
-  inside:
-    stopBy: end
-    matches: handler
-    not:
-      has:
-        stopBy: end
-        matches: schema-call
-utils:
-  handler:
-    kind: export_statement
-    any:
-      - has:
-          kind: function_declaration
-          has:
-            field: name
-            regex: ^(GET|HEAD|POST|PUT|PATCH|DELETE|OPTIONS)$
-      - has:
-          kind: lexical_declaration
-          has:
-            kind: variable_declarator
-            has:
-              field: name
-              regex: ^(GET|HEAD|POST|PUT|PATCH|DELETE|OPTIONS)$
-  schema-call:
-    kind: call_expression
-    any:
-      - has:
-          field: function
-          kind: member_expression
-          has:
-            field: property
-            regex: ^(parse|safeParse|parseAsync|safeParseAsync|validate|validateSync|decode|decodeUnknown)$
-          not:
-            has:
-              field: object
-              regex: ^JSON$
-      - has:
-          field: function
-          kind: identifier
-          regex: ^(parse|safeParse|parseAsync|safeParseAsync)$
-
-===== .forge/ast-grep/rules/typescript/nextjs/server-action-auth.yml
-# Generated by forge from typescript/nextjs/server-action-auth (mode: forbid).
-id: typescript/nextjs/server-action-auth
-language: Tsx
-severity: error
-message: forge:typescript/nextjs/server-action-auth An exported Server Action (in a 'use server' file) checks who is calling (auth(), getSession(), currentUser(), requireUser(), verifySession(), ...). Route handlers are covered by route-handler-auth. Public actions are excluded through a local rule (see the pack page).
-rule:
-  kind: export_statement
-  all:
-    - inside:
-        kind: program
-        has:
-          kind: expression_statement
-          regex: ^["']use server["'];?$
-    - has:
-        kind: function_declaration
-        regex: ^async\b
-  not:
-    has:
-      stopBy: end
-      kind: call_expression
-      has:
-        field: function
-        regex: (^|\.)(auth|getSession|getServerSession|getCurrentUser|currentUser|getUser|requireUser|requireAuth|requireSession|verifySession|validateRequest|getAuth)$
-
-===== .forge/ast-grep/rules/typescript/nextjs/server-action-validate.yml
-# Generated by forge from typescript/nextjs/server-action-validate (mode: forbid).
-id: typescript/nextjs/server-action-validate
-language: Tsx
-severity: error
-message: forge:typescript/nextjs/server-action-validate An exported Server Action (in a 'use server' file) that takes input validates it with a schema (.parse or .safeParse) before using it. Route handlers are covered by route-handler-validate.
-rule:
-  kind: export_statement
-  all:
-    - inside:
-        kind: program
-        has:
-          kind: expression_statement
-          regex: ^["']use server["'];?$
-    - has:
-        kind: function_declaration
-        regex: ^async\b
-        has:
-          field: parameters
-          has:
-            any:
-              - kind: required_parameter
-              - kind: optional_parameter
-  not:
-    has:
-      stopBy: end
-      kind: call_expression
-      has:
-        field: function
-        kind: member_expression
-        has:
-          field: property
-          regex: ^(parse|safeParse|parseAsync|safeParseAsync)$
-
 ===== .forge/ast-grep/rules/typescript/no-double-assertion.yml
 # Generated by forge from typescript/no-double-assertion (mode: forbid).
 id: typescript/no-double-assertion
@@ -14279,169 +13904,6 @@ utils:
         inside:
           kind: throw_statement
           stopBy: neighbor
-
-===== .forge/ast-grep/rules/typescript/no-ssrf.yml
-# Generated by forge from typescript/no-ssrf (mode: advise).
-id: typescript/no-ssrf
-language: Tsx
-severity: warning
-message: forge:typescript/no-ssrf Server code does not fetch (fetch, axios, got, ky, ofetch) a URL taken from the request (searchParams, the body, form data, a Server Action argument) unless an allow-list helper (isAllowedUrl, assertSafeUrl, validateUrl, ...) or an ALLOWED_HOSTS-style set is used in the same function.
-rule:
-  kind: call_expression
-  all:
-    - has:
-        field: function
-        regex: ^(fetch|axios|got|ky|ofetch|\$fetch|(axios|got|ky|ofetch)\.(get|post|put|patch|delete|head|request))$
-    - has:
-        field: arguments
-        has:
-          nthChild: 1
-          matches: tainted
-  not:
-    inside:
-      stopBy: end
-      any:
-        - kind: function_declaration
-        - kind: arrow_function
-        - kind: function_expression
-        - kind: method_definition
-      has:
-        stopBy: end
-        any:
-          - kind: call_expression
-            has:
-              field: function
-              regex: (?i)(allowed|safe|validate|check|assert)_?(url|host|domain|origin)
-          - kind: identifier
-            regex: (?i)^(allowed|allow_?list|whitelist|trusted)_?(hosts?|domains?|urls?|origins?)$
-utils:
-  source:
-    any:
-      - kind: call_expression
-        has:
-          field: function
-          kind: member_expression
-          all:
-            - has:
-                field: property
-                regex: ^get(All)?$
-            - has:
-                field: object
-                regex: (^|\.)(searchParams|formData)$
-      - kind: call_expression
-        has:
-          field: function
-          kind: member_expression
-          all:
-            - has:
-                field: property
-                regex: ^(json|formData)$
-            - has:
-                field: object
-                regex: ^(req|request)$
-      - kind: member_expression
-        has:
-          field: object
-          regex: ^(req|request)\.(query|body|params)$
-  has-source:
-    any:
-      - matches: source
-      - has:
-          stopBy: end
-          matches: source
-  bound:
-    inside:
-      stopBy: end
-      any:
-        - any:
-            - kind: function_declaration
-            - kind: arrow_function
-            - kind: function_expression
-            - kind: method_definition
-          has:
-            stopBy: end
-            kind: variable_declarator
-            any:
-              - all:
-                  - has:
-                      field: name
-                      kind: identifier
-                      pattern: $U
-                  - has:
-                      field: value
-                      matches: has-source
-              - all:
-                  - has:
-                      field: name
-                      kind: object_pattern
-                      has:
-                        stopBy: end
-                        kind: shorthand_property_identifier_pattern
-                        pattern: $U
-                  - has:
-                      field: value
-                      matches: has-source
-        - kind: export_statement
-          inside:
-            kind: program
-            has:
-              kind: expression_statement
-              regex: ^["']use server["'];?$
-          has:
-            kind: function_declaration
-            has:
-              field: parameters
-              has:
-                any:
-                  - kind: required_parameter
-                  - kind: optional_parameter
-                has:
-                  field: pattern
-                  pattern: $U
-  fixed-host:
-    any:
-      - regex: ^["'`]https?://[A-Za-z0-9.-]+
-      - regex: ^`\$\{(process\.)?env\.
-      - kind: binary_expression
-        has:
-          field: left
-          stopBy:
-            not:
-              kind: binary_expression
-          regex: ^(["'`]https?://[A-Za-z0-9.-]+|(process\.)?env\.)
-  tainted:
-    not:
-      matches: fixed-host
-    any:
-      - all:
-          - kind: identifier
-            pattern: $U
-          - matches: bound
-      - all:
-          - any:
-              - kind: non_null_expression
-              - kind: as_expression
-              - kind: parenthesized_expression
-          - has:
-              kind: identifier
-              pattern: $U
-          - matches: bound
-      - all:
-          - kind: member_expression
-            has:
-              field: object
-              kind: identifier
-              pattern: $U
-          - matches: bound
-      - all:
-          - kind: new_expression
-            has:
-              field: arguments
-              has:
-                kind: identifier
-                pattern: $U
-          - matches: bound
-      - matches: has-source
 
 ===== .forge/ast-grep/rules/typescript/no-stub.yml
 # Generated by forge from typescript/no-stub (mode: forbid).
@@ -18229,7 +17691,7 @@ process.exit(findings.length ? 1 : 0);
 FORGE_SCRIPT_END
 }
 
-FORGE_FORBID='typescript/nextjs/no-legacy-image-config|typescript/nextjs/no-next-router|typescript/nextjs/no-pages-data|typescript/nextjs/no-public-secret-env|typescript/nextjs/proxy-not-middleware|typescript/nextjs/react/client-hooks|typescript/nextjs/react/no-server-in-client|typescript/nextjs/revalidate-tag-profile|typescript/nextjs/route-handler-validate|typescript/nextjs/server-action-auth|typescript/nextjs/server-action-validate|typescript/no-double-assertion|typescript/no-latch-before-optional-call|typescript/no-secret-logging|typescript/no-stub|typescript/no-swallowed-catch|typescript/no-ts-nocheck|typescript/playwright/locators|typescript/playwright/no-wait-for-timeout|typescript/prisma/generated-client-import|typescript/prisma/no-middleware|typescript/prisma/no-network-in-transaction|typescript/prisma/no-raw-unsafe|typescript/react/no-prop-types|typescript/react/use-action-state|typescript/ts-expect-error-reason|typescript/vitest/no-tautological-expect|typescript/vitest/no-test-env-branch|typescript/zod/error-param|typescript/zod/v4-string-formats'
+FORGE_FORBID='typescript/nextjs/no-legacy-image-config|typescript/nextjs/no-next-router|typescript/nextjs/no-pages-data|typescript/nextjs/no-public-secret-env|typescript/nextjs/proxy-not-middleware|typescript/nextjs/react/client-hooks|typescript/nextjs/react/no-server-in-client|typescript/nextjs/revalidate-tag-profile|typescript/no-double-assertion|typescript/no-latch-before-optional-call|typescript/no-secret-logging|typescript/no-stub|typescript/no-swallowed-catch|typescript/no-ts-nocheck|typescript/playwright/locators|typescript/playwright/no-wait-for-timeout|typescript/prisma/generated-client-import|typescript/prisma/no-middleware|typescript/prisma/no-network-in-transaction|typescript/prisma/no-raw-unsafe|typescript/react/no-prop-types|typescript/react/use-action-state|typescript/ts-expect-error-reason|typescript/vitest/no-tautological-expect|typescript/vitest/no-test-env-branch|typescript/zod/error-param|typescript/zod/v4-string-formats'
 FORGE_NO_INCREASE='typescript/bun/no-mock-increase|typescript/bun/no-new-skip|typescript/playwright/no-new-skip|typescript/vitest/no-mock-increase|typescript/vitest/no-new-skip'
 FORGE_NO_DECREASE='typescript/bun/no-fewer-expects|typescript/vitest/no-fewer-expects'
 
@@ -18412,10 +17874,6 @@ exit "$fail"
     "typescript/nextjs/react/client-hooks": "a5eea520cac5df94a521491b676d69d68dc846a8a289f3d1c306b5977c2eedb6",
     "typescript/nextjs/react/no-server-in-client": "5de2679ac303f0c0b1fc030713f0cbe4581d2af7e38bf389b3b68b1819aba2da",
     "typescript/nextjs/revalidate-tag-profile": "493bbc01d9566347829e9ea78c93e047a6f692868c5f099b6c142c8d9cb9cb37",
-    "typescript/nextjs/route-handler-auth": "1a722ea4bd4aa5af0623a7f790cd003b10a81c0351edcec76199053ec8f3599d",
-    "typescript/nextjs/route-handler-validate": "f8d2208ed1f91d17e0e8791a9f682a4785ca73d74ea4b065edb75f0a7392b7f8",
-    "typescript/nextjs/server-action-auth": "9e5331256b7f552d1eec986c5007d523aa11dfb90f28cc1a2410f3b5a5322591",
-    "typescript/nextjs/server-action-validate": "70f123141181ff7866cffcac978b5398c60442c3287ebd09f94fa4a1e0dbeace",
     "typescript/no-console": "304966850351b07590c05fb22ae0125d1976179b3cd7abc0bc0dd7e82039ada5",
     "typescript/no-double-assertion": "2c5b17cd8daa6bd598b4aa79b30259626c86e6a3afd00630a3a4a2918316ce80",
     "typescript/no-empty-block": "e615b8d48575392c885e65f5b5e69cfaba918ae070473fb229086fe36501a31f",
@@ -18430,7 +17888,6 @@ exit "$fail"
     "typescript/no-placeholder-comment": "940fb140d959d26ffe50ae2978f2efbf8b3e44891a2b7fa0e0156f4752c7fb47",
     "typescript/no-secret-logging": "482dfec8ac1f0f2765aca794e173ba1a679d87563973b7fb4671acc84108c521",
     "typescript/no-secrets": "94ad67cd60030c667e22aa4c097abbb17675fdeb5cf944ffb69a6cde2aab365c",
-    "typescript/no-ssrf": "953c783fe0013e435bf7fa48014946e2cf945b4a9e4fd796942fe9a07b9b773c",
     "typescript/no-stub": "c0b7945c7b23df7621388872772f9185161a99ca57a0ea316f969a41972840a8",
     "typescript/no-swallowed-catch": "80a3b4c0071c2d325aefdd8e158b950847eca9159276eb6ab126f21e26015de4",
     "typescript/no-ts-ignore": "afe518e61003a905fe90ca0548a0c472bc26a897d64cb5509ee1b3534297beee",
@@ -18489,20 +17946,20 @@ exit "$fail"
   "files": {
     ".claude/rules/forge-typescript-bun.md": "56d2518521d7559dc4d52e8bc5e96b82e97026bdb48f5281fe9450e0f01e1d53",
     ".claude/rules/forge-typescript-nextjs-react.md": "2e3462b5d3b2ae7ca170af39cf82bab25bbf97a1dc41f937dcd43239740f2736",
-    ".claude/rules/forge-typescript-nextjs.md": "1c1d23dc9950a4785cff2fe7c12d35fba4b5966c2565663772928fe80e399452",
+    ".claude/rules/forge-typescript-nextjs.md": "96a99679c5ddb348fe571a68648c3f7722351fe90d1e12f7d15e3c081953d42a",
     ".claude/rules/forge-typescript-playwright.md": "460ee4a08c77b6c6509a681765f299c2116dd996a79a5040d1516645d8e47663",
     ".claude/rules/forge-typescript-prisma.md": "cce1dfd5d025fe8c2b0f67a4317eb20c54405836de1f766f6693a99097ddf471",
     ".claude/rules/forge-typescript-react.md": "ae5f638883028fa1744f332b050e244ce57713ad2cc28ab5f8ee259f0088eb20",
     ".claude/rules/forge-typescript-vitest.md": "0c60275a6586d66aa3d3ab871383af8cc874c5e849d10646d8940031768cd606",
     ".claude/rules/forge-typescript-zod.md": "a5e2685c59231ba3ce5e994b28fa8dfd5e5e7946275ef3236334776e61329db7",
-    ".claude/rules/forge-typescript.md": "9fb39d6c19135a7d83958a7ee2141acc6809cec1c8964d26dd084cfb60ac7323",
+    ".claude/rules/forge-typescript.md": "48f463a8e59348509f4f2096fb2b61b294b079410555e21d7a0b4ed6767c131d",
     ".claude/skills/forge-project/.claude-plugin/plugin.json": "c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2",
     ".claude/skills/forge-project/hooks/hooks.json": "32657a3f5c57c5641c15cb8a0581c8a3d9590b73b31fd57d35f5b8a0bdddb6e8",
     ".claude/skills/forge-project/scripts/bash-snapshot.sh": "d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8",
     ".claude/skills/forge-project/scripts/guard.rules": "d0a502f51f51609d7e5e9cd6f39a8ce165c656ee1c1b7a607105a536962058eb",
     ".claude/skills/forge-project/scripts/guard.sh": "e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca",
     ".claude/skills/forge-project/scripts/lib.sh": "462727c0187a948cfaefd1fac315bc87063203968e3df6d12ca68c839fbdf4a3",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "305e61b795872df2e0d292924f3e470d2c840dd364d4a29e18026740f3b3a1bc",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "83bffb4d3db9a8e76fc9ee047d8d78a41a5df1ddc0577dc36213f7e41afab81c",
     ".claude/skills/forge-project/scripts/review.sh": "889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726",
     ".claude/skills/forge-project/scripts/session-start.sh": "be10afe1c384cc977ef5ff93aa5a4886f05543aaa2b30f2d702d39fc9da5c4cd",
     ".claude/skills/forge-project/scripts/stop.sh": "10316d9cd59fea152c6f8fbf0ab70abf547514bf67a2c85f3e6b405554a71fad",
@@ -18521,14 +17978,9 @@ exit "$fail"
     ".forge/ast-grep/rule-tests/typescript-nextjs-react-client-hooks-test.yml": "7c405f311ed47f0b1f33bf3a179f600f612babccd820c3067b2305f98fc19db6",
     ".forge/ast-grep/rule-tests/typescript-nextjs-react-no-server-in-client-test.yml": "d961ad163fef43f625286d82ef70180d240b753eb0b600073751e4f511d98c68",
     ".forge/ast-grep/rule-tests/typescript-nextjs-revalidate-tag-profile-test.yml": "82a873549d13a28bd75fe0ec7f7c225c9a0480525e385aa5c9c3c96d15fc0e68",
-    ".forge/ast-grep/rule-tests/typescript-nextjs-route-handler-auth-test.yml": "085fe9118642802c516fd0ebd649bb4468c0da016b078623415f63023f88a3e2",
-    ".forge/ast-grep/rule-tests/typescript-nextjs-route-handler-validate-test.yml": "61346c659872409c331d2e19a1f9aad875ada7cef7992f146866625f992e086a",
-    ".forge/ast-grep/rule-tests/typescript-nextjs-server-action-auth-test.yml": "758790dee248cc48251380dc22c81ee190d9341abbe107188ee24c630710e294",
-    ".forge/ast-grep/rule-tests/typescript-nextjs-server-action-validate-test.yml": "8f607e2657b42c71d036f8647aebbf903448fb1bc0325f4264431e3702b458b5",
     ".forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml": "c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20",
     ".forge/ast-grep/rule-tests/typescript-no-latch-before-optional-call-test.yml": "c86f87d695b414c91cf90a528067e558a5ce93dbf38c8d9f90d1e7aec886b743",
     ".forge/ast-grep/rule-tests/typescript-no-secret-logging-test.yml": "892ec40621c9bd2663c9898c9434ac2891245cc3da326fffe7d7de3a6ef9c923",
-    ".forge/ast-grep/rule-tests/typescript-no-ssrf-test.yml": "1078f213cf2e0221c3ab0f8b232bd403cc1416fe13ca5dc856be98af1065287f",
     ".forge/ast-grep/rule-tests/typescript-no-stub-test.yml": "b02e7e21f6bd597fe4b3d577b3a2cc6dfee9741674cc1cc99285e22ef90a2778",
     ".forge/ast-grep/rule-tests/typescript-no-swallowed-catch-test.yml": "fb2f02c2bcf9562ed49731349520cde2d48d2f3b3557d2174b5e2e856d6c8e48",
     ".forge/ast-grep/rule-tests/typescript-no-ts-nocheck-test.yml": "c15f604d5317f942de32470aeaff16702116a64d283347c9a9825056b4dbe69e",
@@ -18560,14 +18012,9 @@ exit "$fail"
     ".forge/ast-grep/rules/typescript/nextjs/react/client-hooks.yml": "45f618471917a7ea16b4f12797c8b23b764c14b48ac34e2296840c8af78bc0dd",
     ".forge/ast-grep/rules/typescript/nextjs/react/no-server-in-client.yml": "bb96a57b3d86ff82cceefb7a13e7e17a3996071931386bd40fce989878f9e2de",
     ".forge/ast-grep/rules/typescript/nextjs/revalidate-tag-profile.yml": "cacc0230a82fede425f3e83c4535f49229b9e831f40766fb416f7a2974fc14bd",
-    ".forge/ast-grep/rules/typescript/nextjs/route-handler-auth.yml": "da106bf1fbb9be50307767942e07463fc14011fd90b5d5c4bfbf78363cf751b6",
-    ".forge/ast-grep/rules/typescript/nextjs/route-handler-validate.yml": "731e38b76bca3cb92f9449e0171f5dcf1f4f95fa942b9e7fbec38479d4b1c8fe",
-    ".forge/ast-grep/rules/typescript/nextjs/server-action-auth.yml": "5c7c5edd345238de697265eff2ea6895cf6619284a87c00235a8c69e6d19fb5c",
-    ".forge/ast-grep/rules/typescript/nextjs/server-action-validate.yml": "b44d0533caa75137dc1f5faa17f871fc48047b91e51595a5a5a63cb6b5b57c15",
     ".forge/ast-grep/rules/typescript/no-double-assertion.yml": "c0b8c6e7a7a09608b63f8c9367afb4ac22fb1daa93c79c967373efdab597a48c",
     ".forge/ast-grep/rules/typescript/no-latch-before-optional-call.yml": "9414562604c76184c19ca04490da4eb9d1126f41355169eb9d76962eb60c3c41",
     ".forge/ast-grep/rules/typescript/no-secret-logging.yml": "eeac044a194027ca862ec69fe23d17a2811e46da3a763eeed7246f7ca67a0c47",
-    ".forge/ast-grep/rules/typescript/no-ssrf.yml": "7f6a2c696984dbca1318b47b37e1b9f76a11c1271ea7117383fc55e586d7a87f",
     ".forge/ast-grep/rules/typescript/no-stub.yml": "b21497e3335f2271e6ca5874817957d18c640e7d787cfe76a72ef390ab62d634",
     ".forge/ast-grep/rules/typescript/no-swallowed-catch.yml": "4bd8569b39e21928852fafeaee02ce9d2ff35726699f91b3f50a6ebf57843bd6",
     ".forge/ast-grep/rules/typescript/no-ts-nocheck.yml": "aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21",
@@ -18589,7 +18036,7 @@ exit "$fail"
     ".forge/ast-grep/rules/typescript/zod/error-param.yml": "88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a",
     ".forge/ast-grep/rules/typescript/zod/v4-string-formats.yml": "a7503c000f128a4718f29b0122170295972560de99263354d6ed0db1a8cb099c",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "b6e9e90c849fef3164d30d46462167b4cfd5be32f0524dcd48fcac877d07d25c",
+    ".forge/check.sh": "0b0820cbefe1176af90939b55bc800f546ec52b75b7d14e38adfbcde938abf31",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -18644,20 +18091,20 @@ exit "$fail"
 ===== .forge/manifest.sha256
 56d2518521d7559dc4d52e8bc5e96b82e97026bdb48f5281fe9450e0f01e1d53  .claude/rules/forge-typescript-bun.md
 2e3462b5d3b2ae7ca170af39cf82bab25bbf97a1dc41f937dcd43239740f2736  .claude/rules/forge-typescript-nextjs-react.md
-1c1d23dc9950a4785cff2fe7c12d35fba4b5966c2565663772928fe80e399452  .claude/rules/forge-typescript-nextjs.md
+96a99679c5ddb348fe571a68648c3f7722351fe90d1e12f7d15e3c081953d42a  .claude/rules/forge-typescript-nextjs.md
 460ee4a08c77b6c6509a681765f299c2116dd996a79a5040d1516645d8e47663  .claude/rules/forge-typescript-playwright.md
 cce1dfd5d025fe8c2b0f67a4317eb20c54405836de1f766f6693a99097ddf471  .claude/rules/forge-typescript-prisma.md
 ae5f638883028fa1744f332b050e244ce57713ad2cc28ab5f8ee259f0088eb20  .claude/rules/forge-typescript-react.md
 0c60275a6586d66aa3d3ab871383af8cc874c5e849d10646d8940031768cd606  .claude/rules/forge-typescript-vitest.md
 a5e2685c59231ba3ce5e994b28fa8dfd5e5e7946275ef3236334776e61329db7  .claude/rules/forge-typescript-zod.md
-9fb39d6c19135a7d83958a7ee2141acc6809cec1c8964d26dd084cfb60ac7323  .claude/rules/forge-typescript.md
+48f463a8e59348509f4f2096fb2b61b294b079410555e21d7a0b4ed6767c131d  .claude/rules/forge-typescript.md
 c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills/forge-project/.claude-plugin/plugin.json
 32657a3f5c57c5641c15cb8a0581c8a3d9590b73b31fd57d35f5b8a0bdddb6e8  .claude/skills/forge-project/hooks/hooks.json
 d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills/forge-project/scripts/bash-snapshot.sh
 d0a502f51f51609d7e5e9cd6f39a8ce165c656ee1c1b7a607105a536962058eb  .claude/skills/forge-project/scripts/guard.rules
 e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca  .claude/skills/forge-project/scripts/guard.sh
 462727c0187a948cfaefd1fac315bc87063203968e3df6d12ca68c839fbdf4a3  .claude/skills/forge-project/scripts/lib.sh
-305e61b795872df2e0d292924f3e470d2c840dd364d4a29e18026740f3b3a1bc  .claude/skills/forge-project/scripts/post-edit.sh
+83bffb4d3db9a8e76fc9ee047d8d78a41a5df1ddc0577dc36213f7e41afab81c  .claude/skills/forge-project/scripts/post-edit.sh
 889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726  .claude/skills/forge-project/scripts/review.sh
 be10afe1c384cc977ef5ff93aa5a4886f05543aaa2b30f2d702d39fc9da5c4cd  .claude/skills/forge-project/scripts/session-start.sh
 10316d9cd59fea152c6f8fbf0ab70abf547514bf67a2c85f3e6b405554a71fad  .claude/skills/forge-project/scripts/stop.sh
@@ -18676,14 +18123,9 @@ d2c1565050d4c9260d1fcf98bae6a781ceb3a6f2e72c1db475ac459818bd450a  .forge/ast-gre
 7c405f311ed47f0b1f33bf3a179f600f612babccd820c3067b2305f98fc19db6  .forge/ast-grep/rule-tests/typescript-nextjs-react-client-hooks-test.yml
 d961ad163fef43f625286d82ef70180d240b753eb0b600073751e4f511d98c68  .forge/ast-grep/rule-tests/typescript-nextjs-react-no-server-in-client-test.yml
 82a873549d13a28bd75fe0ec7f7c225c9a0480525e385aa5c9c3c96d15fc0e68  .forge/ast-grep/rule-tests/typescript-nextjs-revalidate-tag-profile-test.yml
-085fe9118642802c516fd0ebd649bb4468c0da016b078623415f63023f88a3e2  .forge/ast-grep/rule-tests/typescript-nextjs-route-handler-auth-test.yml
-61346c659872409c331d2e19a1f9aad875ada7cef7992f146866625f992e086a  .forge/ast-grep/rule-tests/typescript-nextjs-route-handler-validate-test.yml
-758790dee248cc48251380dc22c81ee190d9341abbe107188ee24c630710e294  .forge/ast-grep/rule-tests/typescript-nextjs-server-action-auth-test.yml
-8f607e2657b42c71d036f8647aebbf903448fb1bc0325f4264431e3702b458b5  .forge/ast-grep/rule-tests/typescript-nextjs-server-action-validate-test.yml
 c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20  .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
 c86f87d695b414c91cf90a528067e558a5ce93dbf38c8d9f90d1e7aec886b743  .forge/ast-grep/rule-tests/typescript-no-latch-before-optional-call-test.yml
 892ec40621c9bd2663c9898c9434ac2891245cc3da326fffe7d7de3a6ef9c923  .forge/ast-grep/rule-tests/typescript-no-secret-logging-test.yml
-1078f213cf2e0221c3ab0f8b232bd403cc1416fe13ca5dc856be98af1065287f  .forge/ast-grep/rule-tests/typescript-no-ssrf-test.yml
 b02e7e21f6bd597fe4b3d577b3a2cc6dfee9741674cc1cc99285e22ef90a2778  .forge/ast-grep/rule-tests/typescript-no-stub-test.yml
 fb2f02c2bcf9562ed49731349520cde2d48d2f3b3557d2174b5e2e856d6c8e48  .forge/ast-grep/rule-tests/typescript-no-swallowed-catch-test.yml
 c15f604d5317f942de32470aeaff16702116a64d283347c9a9825056b4dbe69e  .forge/ast-grep/rule-tests/typescript-no-ts-nocheck-test.yml
@@ -18715,14 +18157,9 @@ c189e6db00b706044708a2c5fc1e5fe8698213059fabf7d6d4f549eb57a759fb  .forge/ast-gre
 45f618471917a7ea16b4f12797c8b23b764c14b48ac34e2296840c8af78bc0dd  .forge/ast-grep/rules/typescript/nextjs/react/client-hooks.yml
 bb96a57b3d86ff82cceefb7a13e7e17a3996071931386bd40fce989878f9e2de  .forge/ast-grep/rules/typescript/nextjs/react/no-server-in-client.yml
 cacc0230a82fede425f3e83c4535f49229b9e831f40766fb416f7a2974fc14bd  .forge/ast-grep/rules/typescript/nextjs/revalidate-tag-profile.yml
-da106bf1fbb9be50307767942e07463fc14011fd90b5d5c4bfbf78363cf751b6  .forge/ast-grep/rules/typescript/nextjs/route-handler-auth.yml
-731e38b76bca3cb92f9449e0171f5dcf1f4f95fa942b9e7fbec38479d4b1c8fe  .forge/ast-grep/rules/typescript/nextjs/route-handler-validate.yml
-5c7c5edd345238de697265eff2ea6895cf6619284a87c00235a8c69e6d19fb5c  .forge/ast-grep/rules/typescript/nextjs/server-action-auth.yml
-b44d0533caa75137dc1f5faa17f871fc48047b91e51595a5a5a63cb6b5b57c15  .forge/ast-grep/rules/typescript/nextjs/server-action-validate.yml
 c0b8c6e7a7a09608b63f8c9367afb4ac22fb1daa93c79c967373efdab597a48c  .forge/ast-grep/rules/typescript/no-double-assertion.yml
 9414562604c76184c19ca04490da4eb9d1126f41355169eb9d76962eb60c3c41  .forge/ast-grep/rules/typescript/no-latch-before-optional-call.yml
 eeac044a194027ca862ec69fe23d17a2811e46da3a763eeed7246f7ca67a0c47  .forge/ast-grep/rules/typescript/no-secret-logging.yml
-7f6a2c696984dbca1318b47b37e1b9f76a11c1271ea7117383fc55e586d7a87f  .forge/ast-grep/rules/typescript/no-ssrf.yml
 b21497e3335f2271e6ca5874817957d18c640e7d787cfe76a72ef390ab62d634  .forge/ast-grep/rules/typescript/no-stub.yml
 4bd8569b39e21928852fafeaee02ce9d2ff35726699f91b3f50a6ebf57843bd6  .forge/ast-grep/rules/typescript/no-swallowed-catch.yml
 aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21  .forge/ast-grep/rules/typescript/no-ts-nocheck.yml
@@ -18744,7 +18181,7 @@ d3c41a3915d84b21e86e9212a06ad14c52bf2f9bcefb7c5ca433200cc3ec44fb  .forge/ast-gre
 88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a  .forge/ast-grep/rules/typescript/zod/error-param.yml
 a7503c000f128a4718f29b0122170295972560de99263354d6ed0db1a8cb099c  .forge/ast-grep/rules/typescript/zod/v4-string-formats.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-b6e9e90c849fef3164d30d46462167b4cfd5be32f0524dcd48fcac877d07d25c  .forge/check.sh
+0b0820cbefe1176af90939b55bc800f546ec52b75b7d14e38adfbcde938abf31  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

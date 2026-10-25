@@ -545,19 +545,38 @@ describe("PostToolUse", () => {
 
   /**
    * `advise` rules are heuristics: their matches come back after the edit like
-   * `forbid` matches, but `check.sh` (Stop, pre-commit, CI) does not run them.
+   * `forbid` matches, but `check.sh` (Stop, pre-commit, CI) does not run them. No
+   * pack rule uses the mode now, so a project-local rule exercises it.
    */
-  /** @rule python/no-ssrf */
   test(
     "an advise rule's match is returned after the edit, and check.sh does not fail on it",
     () => {
-      put(repo, "app/preview.py", 'import httpx\nfrom fastapi import APIRouter\n\nrouter = APIRouter()\n\n\n@router.get("/preview")\nasync def preview(url: str) -> str:\n    return httpx.get(url).text\n');
-      const out = JSON.parse(hook("post-edit.sh", edit("app/preview.py")).stdout).hookSpecificOutput;
-      expect(out.additionalContext).toContain("forge:python/no-ssrf app/preview.py:9:12");
-      expect(readFileSync(join(repo, ".forge/ast-grep/rules/python/no-ssrf.yml"), "utf8")).toContain("severity: warning");
-      const r = sh("sh", [".forge/check.sh", "--all"], { cwd: repo });
-      expect(r.stdout + r.stderr).not.toContain("python/no-ssrf");
-      reset();
+      put(repo, ".forge/rules/demo-advise.yaml", [
+        "id: local/demo-advise",
+        "description: Calls to httpx.get get advice.",
+        "scope: {language: python}",
+        "enforce:",
+        "  - target: ast-grep",
+        "    mode: advise",
+        "    rule: {pattern: httpx.get($U)}",
+        "examples:",
+        "  match: ['httpx.get(url)']",
+        "  no_match: ['httpx.post(url)']",
+        "",
+      ].join("\n"));
+      try {
+        expect(forge(["apply", "--yes"], repo).status).toBe(0);
+        put(repo, "app/preview.py", "import httpx\n\n\ndef preview(url: str) -> str:\n    return httpx.get(url).text\n");
+        const out = JSON.parse(hook("post-edit.sh", edit("app/preview.py")).stdout).hookSpecificOutput;
+        expect(out.additionalContext).toContain("forge:local/demo-advise app/preview.py:5:12");
+        expect(readFileSync(join(repo, ".forge/ast-grep/rules/local/demo-advise.yml"), "utf8")).toContain("severity: warning");
+        const r = sh("sh", [".forge/check.sh", "--all"], { cwd: repo });
+        expect(r.stdout + r.stderr).not.toContain("local/demo-advise");
+      } finally {
+        rmSync(join(repo, ".forge/rules/demo-advise.yaml"), { force: true });
+        expect(forge(["apply", "--yes"], repo).status).toBe(0);
+        reset();
+      }
     },
     T,
   );
