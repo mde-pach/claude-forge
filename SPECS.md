@@ -350,7 +350,11 @@ Runs in order, stops at the first failing step, prints `forge:<rule-id>` lines:
 
 ### 10.3 Pre-commit and CI
 
-- `forge apply` offers to create `.git/hooks/pre-commit` (running `sh .forge/check.sh --changed`) only if no hook manager is present (`.husky/`, `lefthook.yml`, `.pre-commit-config.yaml`, `core.hooksPath` set) and the file does not exist. Otherwise `forge status` prints the line to add to the existing manager.
+- `forge apply` offers (interactively, or with `--yes`) the commit-time check `sh .forge/check.sh --changed`:
+  - without a hook manager, as `.git/hooks/pre-commit`, if that file does not exist (an existing hook is never touched);
+  - with a hook manager, as a block between `# forge: begin (forge remove deletes this block)` and `# forge: end` in its config: `.pre-commit-config.yaml` gets a `repo: local` entry appended to `repos` (`id: forge-check`, `name: forge check`, `entry: sh .forge/check.sh --changed`, `language: system`, `pass_filenames: false`); `lefthook.yml` (`.yaml`, `.lefthook.yml`) a `forge-check` command under `pre-commit: commands:`; `.husky/pre-commit`, or `<core.hooksPath>/pre-commit` inside the repository, the line `sh .forge/check.sh --changed || exit 1` before the first top-level `exec`/`exit`, else at the end (the file is created when missing). A YAML config is edited only when the result parses to the original plus Forge's entry; Forge leaves a config it cannot edit safely (an inline `repos: []`, lefthook `jobs`, a hooks path outside the repository) to the user. A config that already mentions `.forge/check.sh` is not edited.
+- The block is recorded in the lock's `blocks` (§12): `apply` adds it back when it is missing, `status` reports it missing or modified, `remove` deletes it (and a file Forge created, when nothing else is left).
+- `apply` and `status` say clearly when commits are not checked (`Pre-commit: NOT INSTALLED, so commits are not checked. To install: …`); `status --json` has `pre_commit: {installed, file?, forge?}`.
 - `forge status` prints the CI steps: `sh .forge/check.sh --since origin/<default branch>` for pull requests (the checkout needs the base branch's history: `fetch-depth: 0`), and `sh .forge/check.sh --all` for the default branch. The default branch is `origin/HEAD`, else `main`.
 
 ### 10.4 Config ratchet
@@ -397,6 +401,7 @@ Audits run during `forge apply` and `forge status`, never in hooks.
 
 - `diff` and `status` report owned files whose hash differs, appended entries that are missing, and rules whose source changed since the last apply.
 - `remove` deletes listed files and removes exactly the listed settings entries.
+- **`blocks`** (present only when there is one): `[{file, kind, created, hash}]`, Forge's marked block in a hook manager's file (§10.3); `hash` is the sha256 of the block's lines, indentation removed.
 - **Owned-file hashes** are sha256 of the content, except for `.json` files, which are hashed with spaces, tabs, CR and LF removed: a formatter reflowing Forge's JSON is not drift, any other change is. A file whose owned hash matches is not rewritten by `apply`. The lock is compared as JSON (formatting ignored).
 - **`.forge/manifest.sha256`** (project level) repeats the owned-file hashes of `.forge/` and `.claude/` as `<sha256>  <path>` lines (sha256sum format) for `check.sh`. Non-JSON lines verify with `sha256sum -c`; JSON lines need the whitespace-stripped content, so `check.sh` hashes each file itself (`sha256sum`, `shasum -a 256` or `openssl`). The manifest and the lock do not hash themselves; `remove` deletes both.
 - **Formatting.** During `apply`, the JSON files Forge generates (plugin manifest, `hooks.json`, the lock, and a `.claude/settings.json` that Forge creates) are formatted with the project's own Biome when installed (`biome format --stdin-file-path`), so the project's `biome ci .` passes. An existing settings file keeps its own indentation for appended entries. Project-owned files are never formatted.
