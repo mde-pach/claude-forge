@@ -1,0 +1,17 @@
+id: python/pytest/untested-change
+description: A turn that changes application code also adds or updates a test, or says why none is needed; advisory, it blocks Stop once per turn.
+scope: {language: python, files: ["**/*.py", "!**/test_*.py", "!**/*_test.py", "!**/conftest.py", "!**/tests/**", "!**/migrations/**", "!**/alembic/versions/**"]}
+enforce:
+  - {target: check, stage: lint, run: "forge_advise forge_untested_change"}
+examples:
+  match:
+    - head: {app/cart.py: "def total(xs):\n    return sum(xs)\n", tests/test_cart.py: "from app.cart import total\n\n\ndef test_total():\n    assert total([1, 2]) == 3\n"}
+      files: {app/cart.py: "def total(xs):\n    return sum(xs) * 2\n"}
+    - files: {app/discount.py: "def discount(price):\n    return price * 0.9\n"}
+  no_match:
+    - head: {app/cart.py: "def total(xs):\n    return sum(xs)\n", tests/test_cart.py: "from app.cart import total\n\n\ndef test_total():\n    assert total([1, 2]) == 3\n"}
+      files:
+        app/cart.py: "def total(xs):\n    return sum(xs) * 2\n"
+        tests/test_cart.py: "from app.cart import total\n\n\ndef test_total():\n    assert total([1, 2]) == 3\n\n\ndef test_double():\n    assert total([2]) == 4\n"
+    - head: {app/cart.py: "def total(xs):\n    return sum(xs)\n"}
+      files: {app/cart.py: "# Totals of a cart.\ndef total(xs):\n    return sum(xs)\n"}

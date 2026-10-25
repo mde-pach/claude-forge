@@ -636,7 +636,7 @@ basedpyright() { forge_exec_tool basedpyright "$@"; }
 alembic() { forge_exec_tool alembic "$@"; }
 pytest() { forge_exec_tool pytest "$@"; }
 python() { forge_exec_tool python "$@"; }
-FORGE_NCHECKS=11
+FORGE_NCHECKS=12
 
 # 1. python/config-ratchet
 forge_check_meta_1() {
@@ -726,95 +726,112 @@ forge_check_changed_5() {
 if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
 }
 
-# 6. python/sqlalchemy/alembic/check
+# 6. python/pytest/untested-change
 forge_check_meta_6() {
+  c_id='python/pytest/untested-change'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
+}
+forge_scope_6() {
+  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py|tests/*|*/tests/*|migrations/*|*/migrations/*|alembic/versions/*|*/alembic/versions/*) return 1 ;; esac
+  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_6() { return 1; }
+forge_check_run_6() {
+forge_advise forge_untested_change
+}
+
+# 7. python/sqlalchemy/alembic/check
+forge_check_meta_7() {
   c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=1; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_6() {
+forge_scope_7() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_6() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_6() {
+forge_when_7() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_7() {
 alembic check
 }
 
-# 7. python/sqlalchemy/alembic/migration-lint
-forge_check_meta_7() {
+# 8. python/sqlalchemy/alembic/migration-lint
+forge_check_meta_8() {
   c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1; c_fix=0
 }
-forge_scope_7() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_7() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_7() {
-forge_squawk_alembic $(alembic heads | forge_alembic_files)
-}
-forge_check_changed_7() {
-forge_squawk_alembic $FORGE_FILES
-}
-
-# 8. python/sqlalchemy/alembic/single-head
-forge_check_meta_8() {
-  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
-}
 forge_scope_8() {
+  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_8() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
 forge_check_run_8() {
-test "$(alembic heads | wc -l)" -le 1
+forge_squawk_alembic $(alembic heads | forge_alembic_files)
+}
+forge_check_changed_8() {
+forge_squawk_alembic $FORGE_FILES
 }
 
-# 9. python/typecheck
+# 9. python/sqlalchemy/alembic/single-head
 forge_check_meta_9() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
-  c_when=0; c_localdb=0; c_timeout=''
+  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_9() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_9() { return 1; }
+forge_when_9() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
 forge_check_run_9() {
-basedpyright
+test "$(alembic heads | wc -l)" -le 1
 }
 
-# 10. python/uv/exclude-newer
+# 10. python/typecheck
 forge_check_meta_10() {
-  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
-  c_when=1; c_localdb=0; c_timeout=''
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
+  c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_10() {
-  return 0
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
 }
-forge_when_10() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
+forge_when_10() { return 1; }
 forge_check_run_10() {
-forge_uv_cooldown
+basedpyright
 }
 
-# 11. python/uv/lock-sync
+# 11. python/uv/exclude-newer
 forge_check_meta_11() {
-  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_11() {
   return 0
 }
-forge_when_11() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_when_11() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
 forge_check_run_11() {
+forge_uv_cooldown
+}
+
+# 12. python/uv/lock-sync
+forge_check_meta_12() {
+  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
+}
+forge_scope_12() {
+  return 0
+}
+forge_when_12() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_check_run_12() {
 uv lock --check
 }
 
@@ -1095,6 +1112,67 @@ forge_test_edits() {
   cat "$FORGE_TMP/tests.edits"
   printf 'Tests that existed before this turn are not edited to make the code pass. Restore them; if one looks wrong, stop and ask the user.\n'
   return 1
+}
+
+# ---- advisory checks (§10.6): feedback that blocks Stop once per turn
+
+# forge_advise <helper> [args]: Stop only (--turn). Runs <helper>; when it prints
+# advice, prints it and fails, and marks the rule in the turn snapshot
+# (<snapshot>/advised/<rule>), so the next Stop of the same turn runs nothing and
+# passes: Claude acts on the advice or says why it does not apply. A new prompt
+# (a new snapshot) re-arms it. Pre-commit and CI never run advisory checks.
+forge_advise() {
+  [ "$mode" = --turn ] && [ -n "$FORGE_SNAP" ] || return 0
+  _fa_mark="$FORGE_SNAP/advised/$(printf '%s' "$c_id" | tr -c 'A-Za-z0-9_-' '_')"
+  [ -f "$_fa_mark" ] && return 0
+  "$@" > "$FORGE_TMP/advice" 2>/dev/null
+  [ -s "$FORGE_TMP/advice" ] || return 0
+  mkdir -p "$FORGE_SNAP/advised" && : > "$_fa_mark"
+  cat "$FORGE_TMP/advice"
+  return 1
+}
+
+# Test files of the packs' conventions (pytest, Vitest, Playwright), as a POSIX ERE.
+FORGE_TEST_PATH_ERE='(^|/)(tests?|__tests__|e2e)/|(^|/)(test_[^/]*|[^/]*_test|conftest)\.py$|\.(test|spec)\.[^/]*$'
+
+# forge_diff_lines <path>: "-<text>" / "+<text>" for each line removed or added
+# since the base ($FORGE_TMP/base/<path>; a file new or deleted in the change
+# counts fully).
+forge_diff_lines() {
+  _fd_old=$FORGE_TMP/base/$1; [ -f "$_fd_old" ] || _fd_old=/dev/null
+  _fd_new=$1; [ -f "$_fd_new" ] || _fd_new=/dev/null
+  git diff --no-index --no-ext-diff --no-textconv --no-color -U0 -- "$_fd_old" "$_fd_new" 2>/dev/null \
+    | awk '/^@@/ { h = 1; next } h && /^[-+]/'
+}
+
+# forge_code_changed <path>: succeeds when a removed or added line of <path> is
+# code: not blank, not only a comment (#, //, /* … */ lines).
+forge_code_changed() {
+  _cc_py=''
+  case $1 in *.py|*.pyi) _cc_py=1 ;; esac
+  forge_diff_lines "$1" | awk -v py="$_cc_py" '
+    { t = substr($0, 2); gsub(/^[ \t]+|[ \t\r]+$/, "", t)
+      if (t == "") next
+      if (py && t ~ /^#/) next
+      if (!py && (t ~ /^\/\// || t ~ /^\/\*/ || t ~ /^\*/)) next
+      found = 1; exit }
+    END { exit !found }'
+}
+
+# forge_untested_change [<test-path-ERE>]: when the turn changed code (not only
+# comments or blank lines) in the in-scope files ($FORGE_FILES) and no file
+# matching <test-path-ERE> (default FORGE_TEST_PATH_ERE) was added or changed, says so.
+forge_untested_change() {
+  grep -Eq -- "${1:-$FORGE_TEST_PATH_ERE}" "$FORGE_TMP/existing" && return 0
+  _fu_n=0; _fu_list=''
+  for _fu_f in $FORGE_FILES; do
+    forge_code_changed "$_fu_f" || continue
+    _fu_n=$((_fu_n + 1))
+    [ "$_fu_n" -le 3 ] && _fu_list="${_fu_list:+$_fu_list, }$_fu_f"
+  done
+  [ "$_fu_n" -gt 0 ] || return 0
+  [ "$_fu_n" -gt 3 ] && _fu_list="$_fu_list and $((_fu_n - 3)) more"
+  printf 'You changed behaviour in %s without adding or updating a test; add a test that fails without your change, or say why none is needed.\n' "$_fu_list"
 }
 
 # forge_toml_get <file> <section> <key>: the value of <key> in [<section>] ("" for
@@ -1608,13 +1686,16 @@ forge_exec_check() {
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "none" when no line names a file. With
-# "print", prints the lines that count instead.
+# "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
+# tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
   awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
+      gsub(ansi, "", line)
       if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -1908,7 +1989,7 @@ basedpyright() { forge_exec_tool basedpyright "$@"; }
 alembic() { forge_exec_tool alembic "$@"; }
 pytest() { forge_exec_tool pytest "$@"; }
 python() { forge_exec_tool python "$@"; }
-FORGE_NCHECKS=11
+FORGE_NCHECKS=12
 
 # 1. python/config-ratchet
 forge_check_meta_1() {
@@ -1998,95 +2079,112 @@ forge_check_changed_5() {
 if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
 }
 
-# 6. python/sqlalchemy/alembic/check
+# 6. python/pytest/untested-change
 forge_check_meta_6() {
+  c_id='python/pytest/untested-change'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
+}
+forge_scope_6() {
+  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py|tests/*|*/tests/*|migrations/*|*/migrations/*|alembic/versions/*|*/alembic/versions/*) return 1 ;; esac
+  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_6() { return 1; }
+forge_check_run_6() {
+forge_advise forge_untested_change
+}
+
+# 7. python/sqlalchemy/alembic/check
+forge_check_meta_7() {
   c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=1; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_6() {
+forge_scope_7() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_6() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_6() {
+forge_when_7() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_7() {
 alembic check
 }
 
-# 7. python/sqlalchemy/alembic/migration-lint
-forge_check_meta_7() {
+# 8. python/sqlalchemy/alembic/migration-lint
+forge_check_meta_8() {
   c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1; c_fix=0
 }
-forge_scope_7() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_7() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_7() {
-forge_squawk_alembic $(alembic heads | forge_alembic_files)
-}
-forge_check_changed_7() {
-forge_squawk_alembic $FORGE_FILES
-}
-
-# 8. python/sqlalchemy/alembic/single-head
-forge_check_meta_8() {
-  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
-}
 forge_scope_8() {
+  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_8() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
 forge_check_run_8() {
-test "$(alembic heads | wc -l)" -le 1
+forge_squawk_alembic $(alembic heads | forge_alembic_files)
+}
+forge_check_changed_8() {
+forge_squawk_alembic $FORGE_FILES
 }
 
-# 9. python/typecheck
+# 9. python/sqlalchemy/alembic/single-head
 forge_check_meta_9() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
-  c_when=0; c_localdb=0; c_timeout=''
+  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_9() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_9() { return 1; }
+forge_when_9() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
 forge_check_run_9() {
-basedpyright
+test "$(alembic heads | wc -l)" -le 1
 }
 
-# 10. python/uv/exclude-newer
+# 10. python/typecheck
 forge_check_meta_10() {
-  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
-  c_when=1; c_localdb=0; c_timeout=''
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
+  c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_10() {
-  return 0
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
 }
-forge_when_10() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
+forge_when_10() { return 1; }
 forge_check_run_10() {
-forge_uv_cooldown
+basedpyright
 }
 
-# 11. python/uv/lock-sync
+# 11. python/uv/exclude-newer
 forge_check_meta_11() {
-  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_11() {
   return 0
 }
-forge_when_11() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_when_11() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
 forge_check_run_11() {
+forge_uv_cooldown
+}
+
+# 12. python/uv/lock-sync
+forge_check_meta_12() {
+  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
+}
+forge_scope_12() {
+  return 0
+}
+forge_when_12() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_check_run_12() {
 uv lock --check
 }
 
@@ -2367,6 +2465,67 @@ forge_test_edits() {
   cat "$FORGE_TMP/tests.edits"
   printf 'Tests that existed before this turn are not edited to make the code pass. Restore them; if one looks wrong, stop and ask the user.\n'
   return 1
+}
+
+# ---- advisory checks (§10.6): feedback that blocks Stop once per turn
+
+# forge_advise <helper> [args]: Stop only (--turn). Runs <helper>; when it prints
+# advice, prints it and fails, and marks the rule in the turn snapshot
+# (<snapshot>/advised/<rule>), so the next Stop of the same turn runs nothing and
+# passes: Claude acts on the advice or says why it does not apply. A new prompt
+# (a new snapshot) re-arms it. Pre-commit and CI never run advisory checks.
+forge_advise() {
+  [ "$mode" = --turn ] && [ -n "$FORGE_SNAP" ] || return 0
+  _fa_mark="$FORGE_SNAP/advised/$(printf '%s' "$c_id" | tr -c 'A-Za-z0-9_-' '_')"
+  [ -f "$_fa_mark" ] && return 0
+  "$@" > "$FORGE_TMP/advice" 2>/dev/null
+  [ -s "$FORGE_TMP/advice" ] || return 0
+  mkdir -p "$FORGE_SNAP/advised" && : > "$_fa_mark"
+  cat "$FORGE_TMP/advice"
+  return 1
+}
+
+# Test files of the packs' conventions (pytest, Vitest, Playwright), as a POSIX ERE.
+FORGE_TEST_PATH_ERE='(^|/)(tests?|__tests__|e2e)/|(^|/)(test_[^/]*|[^/]*_test|conftest)\.py$|\.(test|spec)\.[^/]*$'
+
+# forge_diff_lines <path>: "-<text>" / "+<text>" for each line removed or added
+# since the base ($FORGE_TMP/base/<path>; a file new or deleted in the change
+# counts fully).
+forge_diff_lines() {
+  _fd_old=$FORGE_TMP/base/$1; [ -f "$_fd_old" ] || _fd_old=/dev/null
+  _fd_new=$1; [ -f "$_fd_new" ] || _fd_new=/dev/null
+  git diff --no-index --no-ext-diff --no-textconv --no-color -U0 -- "$_fd_old" "$_fd_new" 2>/dev/null \
+    | awk '/^@@/ { h = 1; next } h && /^[-+]/'
+}
+
+# forge_code_changed <path>: succeeds when a removed or added line of <path> is
+# code: not blank, not only a comment (#, //, /* … */ lines).
+forge_code_changed() {
+  _cc_py=''
+  case $1 in *.py|*.pyi) _cc_py=1 ;; esac
+  forge_diff_lines "$1" | awk -v py="$_cc_py" '
+    { t = substr($0, 2); gsub(/^[ \t]+|[ \t\r]+$/, "", t)
+      if (t == "") next
+      if (py && t ~ /^#/) next
+      if (!py && (t ~ /^\/\// || t ~ /^\/\*/ || t ~ /^\*/)) next
+      found = 1; exit }
+    END { exit !found }'
+}
+
+# forge_untested_change [<test-path-ERE>]: when the turn changed code (not only
+# comments or blank lines) in the in-scope files ($FORGE_FILES) and no file
+# matching <test-path-ERE> (default FORGE_TEST_PATH_ERE) was added or changed, says so.
+forge_untested_change() {
+  grep -Eq -- "${1:-$FORGE_TEST_PATH_ERE}" "$FORGE_TMP/existing" && return 0
+  _fu_n=0; _fu_list=''
+  for _fu_f in $FORGE_FILES; do
+    forge_code_changed "$_fu_f" || continue
+    _fu_n=$((_fu_n + 1))
+    [ "$_fu_n" -le 3 ] && _fu_list="${_fu_list:+$_fu_list, }$_fu_f"
+  done
+  [ "$_fu_n" -gt 0 ] || return 0
+  [ "$_fu_n" -gt 3 ] && _fu_list="$_fu_list and $((_fu_n - 3)) more"
+  printf 'You changed behaviour in %s without adding or updating a test; add a test that fails without your change, or say why none is needed.\n' "$_fu_list"
 }
 
 # forge_toml_get <file> <section> <key>: the value of <key> in [<section>] ("" for
@@ -2880,13 +3039,16 @@ forge_exec_check() {
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "none" when no line names a file. With
-# "print", prints the lines that count instead.
+# "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
+# tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
   awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
+      gsub(ansi, "", line)
       if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -3215,7 +3377,7 @@ basedpyright() { forge_exec_tool basedpyright "$@"; }
 alembic() { forge_exec_tool alembic "$@"; }
 pytest() { forge_exec_tool pytest "$@"; }
 python() { forge_exec_tool python "$@"; }
-FORGE_NCHECKS=11
+FORGE_NCHECKS=12
 
 # 1. python/config-ratchet
 forge_check_meta_1() {
@@ -3305,95 +3467,112 @@ forge_check_changed_5() {
 if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
 }
 
-# 6. python/sqlalchemy/alembic/check
+# 6. python/pytest/untested-change
 forge_check_meta_6() {
+  c_id='python/pytest/untested-change'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
+}
+forge_scope_6() {
+  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py|tests/*|*/tests/*|migrations/*|*/migrations/*|alembic/versions/*|*/alembic/versions/*) return 1 ;; esac
+  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_6() { return 1; }
+forge_check_run_6() {
+forge_advise forge_untested_change
+}
+
+# 7. python/sqlalchemy/alembic/check
+forge_check_meta_7() {
   c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=1; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_6() {
+forge_scope_7() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_6() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_6() {
+forge_when_7() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_7() {
 alembic check
 }
 
-# 7. python/sqlalchemy/alembic/migration-lint
-forge_check_meta_7() {
+# 8. python/sqlalchemy/alembic/migration-lint
+forge_check_meta_8() {
   c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1; c_fix=0
 }
-forge_scope_7() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_7() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_7() {
-forge_squawk_alembic $(alembic heads | forge_alembic_files)
-}
-forge_check_changed_7() {
-forge_squawk_alembic $FORGE_FILES
-}
-
-# 8. python/sqlalchemy/alembic/single-head
-forge_check_meta_8() {
-  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
-}
 forge_scope_8() {
+  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_8() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
 forge_check_run_8() {
-test "$(alembic heads | wc -l)" -le 1
+forge_squawk_alembic $(alembic heads | forge_alembic_files)
+}
+forge_check_changed_8() {
+forge_squawk_alembic $FORGE_FILES
 }
 
-# 9. python/typecheck
+# 9. python/sqlalchemy/alembic/single-head
 forge_check_meta_9() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
-  c_when=0; c_localdb=0; c_timeout=''
+  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_9() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_9() { return 1; }
+forge_when_9() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
 forge_check_run_9() {
-basedpyright
+test "$(alembic heads | wc -l)" -le 1
 }
 
-# 10. python/uv/exclude-newer
+# 10. python/typecheck
 forge_check_meta_10() {
-  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
-  c_when=1; c_localdb=0; c_timeout=''
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
+  c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_10() {
-  return 0
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
 }
-forge_when_10() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
+forge_when_10() { return 1; }
 forge_check_run_10() {
-forge_uv_cooldown
+basedpyright
 }
 
-# 11. python/uv/lock-sync
+# 11. python/uv/exclude-newer
 forge_check_meta_11() {
-  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_11() {
   return 0
 }
-forge_when_11() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_when_11() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
 forge_check_run_11() {
+forge_uv_cooldown
+}
+
+# 12. python/uv/lock-sync
+forge_check_meta_12() {
+  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
+}
+forge_scope_12() {
+  return 0
+}
+forge_when_12() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_check_run_12() {
 uv lock --check
 }
 
@@ -3674,6 +3853,67 @@ forge_test_edits() {
   cat "$FORGE_TMP/tests.edits"
   printf 'Tests that existed before this turn are not edited to make the code pass. Restore them; if one looks wrong, stop and ask the user.\n'
   return 1
+}
+
+# ---- advisory checks (§10.6): feedback that blocks Stop once per turn
+
+# forge_advise <helper> [args]: Stop only (--turn). Runs <helper>; when it prints
+# advice, prints it and fails, and marks the rule in the turn snapshot
+# (<snapshot>/advised/<rule>), so the next Stop of the same turn runs nothing and
+# passes: Claude acts on the advice or says why it does not apply. A new prompt
+# (a new snapshot) re-arms it. Pre-commit and CI never run advisory checks.
+forge_advise() {
+  [ "$mode" = --turn ] && [ -n "$FORGE_SNAP" ] || return 0
+  _fa_mark="$FORGE_SNAP/advised/$(printf '%s' "$c_id" | tr -c 'A-Za-z0-9_-' '_')"
+  [ -f "$_fa_mark" ] && return 0
+  "$@" > "$FORGE_TMP/advice" 2>/dev/null
+  [ -s "$FORGE_TMP/advice" ] || return 0
+  mkdir -p "$FORGE_SNAP/advised" && : > "$_fa_mark"
+  cat "$FORGE_TMP/advice"
+  return 1
+}
+
+# Test files of the packs' conventions (pytest, Vitest, Playwright), as a POSIX ERE.
+FORGE_TEST_PATH_ERE='(^|/)(tests?|__tests__|e2e)/|(^|/)(test_[^/]*|[^/]*_test|conftest)\.py$|\.(test|spec)\.[^/]*$'
+
+# forge_diff_lines <path>: "-<text>" / "+<text>" for each line removed or added
+# since the base ($FORGE_TMP/base/<path>; a file new or deleted in the change
+# counts fully).
+forge_diff_lines() {
+  _fd_old=$FORGE_TMP/base/$1; [ -f "$_fd_old" ] || _fd_old=/dev/null
+  _fd_new=$1; [ -f "$_fd_new" ] || _fd_new=/dev/null
+  git diff --no-index --no-ext-diff --no-textconv --no-color -U0 -- "$_fd_old" "$_fd_new" 2>/dev/null \
+    | awk '/^@@/ { h = 1; next } h && /^[-+]/'
+}
+
+# forge_code_changed <path>: succeeds when a removed or added line of <path> is
+# code: not blank, not only a comment (#, //, /* … */ lines).
+forge_code_changed() {
+  _cc_py=''
+  case $1 in *.py|*.pyi) _cc_py=1 ;; esac
+  forge_diff_lines "$1" | awk -v py="$_cc_py" '
+    { t = substr($0, 2); gsub(/^[ \t]+|[ \t\r]+$/, "", t)
+      if (t == "") next
+      if (py && t ~ /^#/) next
+      if (!py && (t ~ /^\/\// || t ~ /^\/\*/ || t ~ /^\*/)) next
+      found = 1; exit }
+    END { exit !found }'
+}
+
+# forge_untested_change [<test-path-ERE>]: when the turn changed code (not only
+# comments or blank lines) in the in-scope files ($FORGE_FILES) and no file
+# matching <test-path-ERE> (default FORGE_TEST_PATH_ERE) was added or changed, says so.
+forge_untested_change() {
+  grep -Eq -- "${1:-$FORGE_TEST_PATH_ERE}" "$FORGE_TMP/existing" && return 0
+  _fu_n=0; _fu_list=''
+  for _fu_f in $FORGE_FILES; do
+    forge_code_changed "$_fu_f" || continue
+    _fu_n=$((_fu_n + 1))
+    [ "$_fu_n" -le 3 ] && _fu_list="${_fu_list:+$_fu_list, }$_fu_f"
+  done
+  [ "$_fu_n" -gt 0 ] || return 0
+  [ "$_fu_n" -gt 3 ] && _fu_list="$_fu_list and $((_fu_n - 3)) more"
+  printf 'You changed behaviour in %s without adding or updating a test; add a test that fails without your change, or say why none is needed.\n' "$_fu_list"
 }
 
 # forge_toml_get <file> <section> <key>: the value of <key> in [<section>] ("" for
@@ -4187,13 +4427,16 @@ forge_exec_check() {
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "none" when no line names a file. With
-# "print", prints the lines that count instead.
+# "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
+# tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
   awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
+      gsub(ansi, "", line)
       if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -5448,7 +5691,7 @@ basedpyright() { forge_exec_tool basedpyright "$@"; }
 alembic() { forge_exec_tool alembic "$@"; }
 pytest() { forge_exec_tool pytest "$@"; }
 python() { forge_exec_tool python "$@"; }
-FORGE_NCHECKS=11
+FORGE_NCHECKS=12
 
 # 1. python/config-ratchet
 forge_check_meta_1() {
@@ -5538,95 +5781,112 @@ forge_check_changed_5() {
 if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
 }
 
-# 6. python/sqlalchemy/alembic/check
+# 6. python/pytest/untested-change
 forge_check_meta_6() {
+  c_id='python/pytest/untested-change'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
+}
+forge_scope_6() {
+  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py|tests/*|*/tests/*|migrations/*|*/migrations/*|alembic/versions/*|*/alembic/versions/*) return 1 ;; esac
+  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_6() { return 1; }
+forge_check_run_6() {
+forge_advise forge_untested_change
+}
+
+# 7. python/sqlalchemy/alembic/check
+forge_check_meta_7() {
   c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=1; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_6() {
+forge_scope_7() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_6() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_6() {
+forge_when_7() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_7() {
 alembic check
 }
 
-# 7. python/sqlalchemy/alembic/migration-lint
-forge_check_meta_7() {
+# 8. python/sqlalchemy/alembic/migration-lint
+forge_check_meta_8() {
   c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1; c_fix=0
 }
-forge_scope_7() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_7() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_7() {
-forge_squawk_alembic $(alembic heads | forge_alembic_files)
-}
-forge_check_changed_7() {
-forge_squawk_alembic $FORGE_FILES
-}
-
-# 8. python/sqlalchemy/alembic/single-head
-forge_check_meta_8() {
-  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
-}
 forge_scope_8() {
+  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_8() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
 forge_check_run_8() {
-test "$(alembic heads | wc -l)" -le 1
+forge_squawk_alembic $(alembic heads | forge_alembic_files)
+}
+forge_check_changed_8() {
+forge_squawk_alembic $FORGE_FILES
 }
 
-# 9. python/typecheck
+# 9. python/sqlalchemy/alembic/single-head
 forge_check_meta_9() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
-  c_when=0; c_localdb=0; c_timeout=''
+  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_9() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_9() { return 1; }
+forge_when_9() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
 forge_check_run_9() {
-basedpyright
+test "$(alembic heads | wc -l)" -le 1
 }
 
-# 10. python/uv/exclude-newer
+# 10. python/typecheck
 forge_check_meta_10() {
-  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
-  c_when=1; c_localdb=0; c_timeout=''
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
+  c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_10() {
-  return 0
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
 }
-forge_when_10() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
+forge_when_10() { return 1; }
 forge_check_run_10() {
-forge_uv_cooldown
+basedpyright
 }
 
-# 11. python/uv/lock-sync
+# 11. python/uv/exclude-newer
 forge_check_meta_11() {
-  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_11() {
   return 0
 }
-forge_when_11() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_when_11() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
 forge_check_run_11() {
+forge_uv_cooldown
+}
+
+# 12. python/uv/lock-sync
+forge_check_meta_12() {
+  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
+}
+forge_scope_12() {
+  return 0
+}
+forge_when_12() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_check_run_12() {
 uv lock --check
 }
 
@@ -5907,6 +6167,67 @@ forge_test_edits() {
   cat "$FORGE_TMP/tests.edits"
   printf 'Tests that existed before this turn are not edited to make the code pass. Restore them; if one looks wrong, stop and ask the user.\n'
   return 1
+}
+
+# ---- advisory checks (§10.6): feedback that blocks Stop once per turn
+
+# forge_advise <helper> [args]: Stop only (--turn). Runs <helper>; when it prints
+# advice, prints it and fails, and marks the rule in the turn snapshot
+# (<snapshot>/advised/<rule>), so the next Stop of the same turn runs nothing and
+# passes: Claude acts on the advice or says why it does not apply. A new prompt
+# (a new snapshot) re-arms it. Pre-commit and CI never run advisory checks.
+forge_advise() {
+  [ "$mode" = --turn ] && [ -n "$FORGE_SNAP" ] || return 0
+  _fa_mark="$FORGE_SNAP/advised/$(printf '%s' "$c_id" | tr -c 'A-Za-z0-9_-' '_')"
+  [ -f "$_fa_mark" ] && return 0
+  "$@" > "$FORGE_TMP/advice" 2>/dev/null
+  [ -s "$FORGE_TMP/advice" ] || return 0
+  mkdir -p "$FORGE_SNAP/advised" && : > "$_fa_mark"
+  cat "$FORGE_TMP/advice"
+  return 1
+}
+
+# Test files of the packs' conventions (pytest, Vitest, Playwright), as a POSIX ERE.
+FORGE_TEST_PATH_ERE='(^|/)(tests?|__tests__|e2e)/|(^|/)(test_[^/]*|[^/]*_test|conftest)\.py$|\.(test|spec)\.[^/]*$'
+
+# forge_diff_lines <path>: "-<text>" / "+<text>" for each line removed or added
+# since the base ($FORGE_TMP/base/<path>; a file new or deleted in the change
+# counts fully).
+forge_diff_lines() {
+  _fd_old=$FORGE_TMP/base/$1; [ -f "$_fd_old" ] || _fd_old=/dev/null
+  _fd_new=$1; [ -f "$_fd_new" ] || _fd_new=/dev/null
+  git diff --no-index --no-ext-diff --no-textconv --no-color -U0 -- "$_fd_old" "$_fd_new" 2>/dev/null \
+    | awk '/^@@/ { h = 1; next } h && /^[-+]/'
+}
+
+# forge_code_changed <path>: succeeds when a removed or added line of <path> is
+# code: not blank, not only a comment (#, //, /* … */ lines).
+forge_code_changed() {
+  _cc_py=''
+  case $1 in *.py|*.pyi) _cc_py=1 ;; esac
+  forge_diff_lines "$1" | awk -v py="$_cc_py" '
+    { t = substr($0, 2); gsub(/^[ \t]+|[ \t\r]+$/, "", t)
+      if (t == "") next
+      if (py && t ~ /^#/) next
+      if (!py && (t ~ /^\/\// || t ~ /^\/\*/ || t ~ /^\*/)) next
+      found = 1; exit }
+    END { exit !found }'
+}
+
+# forge_untested_change [<test-path-ERE>]: when the turn changed code (not only
+# comments or blank lines) in the in-scope files ($FORGE_FILES) and no file
+# matching <test-path-ERE> (default FORGE_TEST_PATH_ERE) was added or changed, says so.
+forge_untested_change() {
+  grep -Eq -- "${1:-$FORGE_TEST_PATH_ERE}" "$FORGE_TMP/existing" && return 0
+  _fu_n=0; _fu_list=''
+  for _fu_f in $FORGE_FILES; do
+    forge_code_changed "$_fu_f" || continue
+    _fu_n=$((_fu_n + 1))
+    [ "$_fu_n" -le 3 ] && _fu_list="${_fu_list:+$_fu_list, }$_fu_f"
+  done
+  [ "$_fu_n" -gt 0 ] || return 0
+  [ "$_fu_n" -gt 3 ] && _fu_list="$_fu_list and $((_fu_n - 3)) more"
+  printf 'You changed behaviour in %s without adding or updating a test; add a test that fails without your change, or say why none is needed.\n' "$_fu_list"
 }
 
 # forge_toml_get <file> <section> <key>: the value of <key> in [<section>] ("" for
@@ -6420,13 +6741,16 @@ forge_exec_check() {
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "none" when no line names a file. With
-# "print", prints the lines that count instead.
+# "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
+# tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
   awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
+      gsub(ansi, "", line)
       if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -7055,6 +7379,7 @@ exit "$fail"
     "python/pytest/no-test-edits": "09690b8fc5fcc78fd2b41374ea872c27695e3c052bcd166eb82f08ece1ba9c63",
     "python/pytest/no-test-env-branch": "9d251f32eedb18ac7d819e8b6cf6a4450b14b5eead1f43c544e1fbf995a9e7aa",
     "python/pytest/run": "6c44f8c8897a1237212af2d20a60f49aeff777ab85ceb52f7f31ffb6774aaa87",
+    "python/pytest/untested-change": "001b26a918f3eb428cd4996addab633cac381b1736a440a45787741b1a5cb483",
     "python/sqlalchemy/alembic/check": "20302f517e19991c41d1ab5de4a979a8aae9c8149b9b88ec44e87775c56ffc0c",
     "python/sqlalchemy/alembic/downgrade": "ae44bcbf5f4e2bcc2bf5905ad69c1799335cd535c42c395baba1184b3a56247a",
     "python/sqlalchemy/alembic/migration-lint": "2ac77a340c31cd459a710f2f48c425efbf32db6fbaac006352dc50d1a24a31c6",
@@ -7085,12 +7410,12 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "abda384154c0c859546b6aa0e79a6a1a8c4cead27ff82e014fc69de843294b74",
     ".claude/skills/forge-project/scripts/guard.sh": "33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d",
     ".claude/skills/forge-project/scripts/lib.sh": "1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "54a033730dffff5acd1d2bae2cc86818e3109382b4c512b2d7f14ef5fb83a8ae",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "75677f591e4aaac4b81ef9e19ffbdc4d452ce405dde5fff28c7a18b7b91d329e",
     ".claude/skills/forge-project/scripts/review.sh": "9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac",
-    ".claude/skills/forge-project/scripts/session-start.sh": "ffdbd14991203a7de4a69968abc47ea334e0146fae8f94ee9f3372ed9513967a",
+    ".claude/skills/forge-project/scripts/session-start.sh": "00f1fcb30b5ad59e39def5d84bd6ba7d7815e191f76114b9e8d588ae8178f9a7",
     ".claude/skills/forge-project/scripts/stop.sh": "f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173",
     ".claude/skills/forge-project/scripts/turn-start.sh": "a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "246ebdc30739c7a216e3acace9acfea79fc844a957c7450be6a601b368c7bf3f",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "1e46f6336cfacb3ca963f47457250efa5e6eb5dc3f13809c9a09785cafe56a5d",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml": "69a94f1a0b16aa08bcf758af3e3dc269266cdd808aba1a4289b4c58c7f969700",
     ".forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml": "1589382e5e0b5cae841a8f47dae9f2b3a8583a4bb1074ceb858d882e648e9b49",
@@ -7125,7 +7450,7 @@ exit "$fail"
     ".forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml": "4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0",
     ".forge/ast-grep/rules/python/sqlalchemy/no-text-fstring.yml": "04c44c9e215449d46b10540e86e999ec1d6383d8c3a849855fe73cb456668fca",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "eef45dcd3608fd020057c62f8008e4049281a07834a2d7947f1168da31ad610b",
+    ".forge/check.sh": "368572972109699eb935bfa651555148f5fe39abe9d786b69080c43bbe6dac4f",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -7180,12 +7505,12 @@ d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills
 abda384154c0c859546b6aa0e79a6a1a8c4cead27ff82e014fc69de843294b74  .claude/skills/forge-project/scripts/guard.rules
 33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d  .claude/skills/forge-project/scripts/guard.sh
 1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a  .claude/skills/forge-project/scripts/lib.sh
-54a033730dffff5acd1d2bae2cc86818e3109382b4c512b2d7f14ef5fb83a8ae  .claude/skills/forge-project/scripts/post-edit.sh
+75677f591e4aaac4b81ef9e19ffbdc4d452ce405dde5fff28c7a18b7b91d329e  .claude/skills/forge-project/scripts/post-edit.sh
 9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac  .claude/skills/forge-project/scripts/review.sh
-ffdbd14991203a7de4a69968abc47ea334e0146fae8f94ee9f3372ed9513967a  .claude/skills/forge-project/scripts/session-start.sh
+00f1fcb30b5ad59e39def5d84bd6ba7d7815e191f76114b9e8d588ae8178f9a7  .claude/skills/forge-project/scripts/session-start.sh
 f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173  .claude/skills/forge-project/scripts/stop.sh
 a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c  .claude/skills/forge-project/scripts/turn-start.sh
-246ebdc30739c7a216e3acace9acfea79fc844a957c7450be6a601b368c7bf3f  .claude/skills/forge-project/scripts/typecheck.sh
+1e46f6336cfacb3ca963f47457250efa5e6eb5dc3f13809c9a09785cafe56a5d  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 69a94f1a0b16aa08bcf758af3e3dc269266cdd808aba1a4289b4c58c7f969700  .forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml
 1589382e5e0b5cae841a8f47dae9f2b3a8583a4bb1074ceb858d882e648e9b49  .forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml
@@ -7220,7 +7545,7 @@ e1a15384665afb7aae24664c55f4d81523622a6ef117385b17f806bc30cd3c3f  .forge/ast-gre
 4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0  .forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml
 04c44c9e215449d46b10540e86e999ec1d6383d8c3a849855fe73cb456668fca  .forge/ast-grep/rules/python/sqlalchemy/no-text-fstring.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-eef45dcd3608fd020057c62f8008e4049281a07834a2d7947f1168da31ad610b  .forge/check.sh
+368572972109699eb935bfa651555148f5fe39abe9d786b69080c43bbe6dac4f  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

@@ -371,6 +371,14 @@ A finding whose exact line appears in `forge.yaml` (an `accept` entry) is not re
 
 The engine helper `forge_test_edits` acts only at Stop (`--turn`): Claude may add tests, including in existing test files, but may not change or remove a test that existed at the start of the turn. For each in-scope file present in the base, it lists the tests at the start of the turn and now with ast-grep (`--inline-rules`, the pinned version): pytest `test*` functions and methods with their decorators, keyed by enclosing classes and name; Vitest and Playwright `test(…)` / `it(…)` calls (any modifier: `.only`, `.skip`, `.each(…)`, …; not `test.describe`, `test.step` or hooks), keyed by the enclosing `describe` / `test.describe` names and the test name (`#2` for a repeated name). A test whose text differs, whitespace aside, prints `<path>: test "<key>" was changed`; one that is gone prints `… was removed`. The check then fails with: "Tests that existed before this turn are not edited to make the code pass. Restore them; if one looks wrong, stop and ask the user." Pre-commit and CI do not run it: a human edits tests on purpose. It complements `no-fewer-asserts`, `no-fewer-expects` and `no-new-skip`, which miss a changed expected value.
 
+### 10.6 Advisory checks
+
+Some checks report what Claude may have a good reason to leave as it is. A `check` whose `run` is `forge_advise <helper> [args]` is **advisory**: it acts only at Stop (`--turn`); when `<helper>` prints something, the check fails with that output and writes the marker `<snapshot>/advised/<rule-id with / as _>`, and while the marker exists the check passes without running. The next Stop of the same turn therefore passes, whether or not Claude acted on the advice (it is expected to act, or to say why not); the next prompt's snapshot re-arms it. Pre-commit and CI do not run advisory checks.
+
+| Helper | Prints |
+|---|---|
+| `forge_untested_change` | when the change has a code line (not blank, not only a comment) added or removed in an in-scope file and no existing file matching `FORGE_TEST_PATH_ERE` (pytest, Vitest and Playwright test paths) changed: "You changed behaviour in <files, up to 3> without adding or updating a test; add a test that fails without your change, or say why none is needed." |
+
 ## 11. Audit of tool targets
 
 For each `tool` target of an active rule:
@@ -570,6 +578,7 @@ context.md: "Pydantic v2: `model_validate`, `model_dump`, `model_config = Config
 | `python/pytest/no-tautological-assert` | `ast-grep` forbid on test files: `assert` on a literal (`True`, a number, a string), `assert $X == $X`, `assert $X is $X` |
 | `python/pytest/no-mock-increase` | `ast-grep` no-increase on test files: calls to `patch`, `patch.object`, `patch.dict`, `MagicMock`, `AsyncMock`, `Mock` (bare, `mock.`, `unittest.mock.` or `mocker.`) |
 | `python/pytest/no-test-edits` | `check` lint: `forge_test_edits` on `**/test_*.py`, `**/*_test.py` (§10.5) |
+| `python/pytest/untested-change` | `check` lint, advisory (§10.6): `forge_untested_change` on non-test `*.py` (not migrations) |
 
 context.md: tests assert behaviour, never weakened; "If an existing test looks wrong, stop and ask; never edit it to make the code pass."
 
@@ -669,6 +678,7 @@ context.md: Prisma 7: `prisma-client` generator with `output`, driver adapters, 
 
 | `typescript/vitest/no-mock-increase` | `ast-grep` no-increase on test files: `vi.mock`, `vi.doMock`, `vi.spyOn`, `vi.fn` calls |
 | `typescript/vitest/no-test-edits` | `check` lint: `forge_test_edits` on `**/*.test.*`, `**/*.spec.*`, `**/__tests__/**`, not `e2e/**` (§10.5) |
+| `typescript/vitest/untested-change` | `check` lint, advisory (§10.6): `forge_untested_change` on non-test TypeScript and JavaScript files (not `*.d.ts`, `*.config.*`, `e2e/**`) |
 
 context.md: Vitest 4 `test.projects` and `maxWorkers`; assertions are never weakened to make a test pass; "If an existing test looks wrong, stop and ask; never edit it to make the code pass."
 

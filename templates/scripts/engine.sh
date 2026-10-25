@@ -250,6 +250,67 @@ forge_test_edits() {
   return 1
 }
 
+# ---- advisory checks (§10.6): feedback that blocks Stop once per turn
+
+# forge_advise <helper> [args]: Stop only (--turn). Runs <helper>; when it prints
+# advice, prints it and fails, and marks the rule in the turn snapshot
+# (<snapshot>/advised/<rule>), so the next Stop of the same turn runs nothing and
+# passes: Claude acts on the advice or says why it does not apply. A new prompt
+# (a new snapshot) re-arms it. Pre-commit and CI never run advisory checks.
+forge_advise() {
+  [ "$mode" = --turn ] && [ -n "$FORGE_SNAP" ] || return 0
+  _fa_mark="$FORGE_SNAP/advised/$(printf '%s' "$c_id" | tr -c 'A-Za-z0-9_-' '_')"
+  [ -f "$_fa_mark" ] && return 0
+  "$@" > "$FORGE_TMP/advice" 2>/dev/null
+  [ -s "$FORGE_TMP/advice" ] || return 0
+  mkdir -p "$FORGE_SNAP/advised" && : > "$_fa_mark"
+  cat "$FORGE_TMP/advice"
+  return 1
+}
+
+# Test files of the packs' conventions (pytest, Vitest, Playwright), as a POSIX ERE.
+FORGE_TEST_PATH_ERE='(^|/)(tests?|__tests__|e2e)/|(^|/)(test_[^/]*|[^/]*_test|conftest)\.py$|\.(test|spec)\.[^/]*$'
+
+# forge_diff_lines <path>: "-<text>" / "+<text>" for each line removed or added
+# since the base ($FORGE_TMP/base/<path>; a file new or deleted in the change
+# counts fully).
+forge_diff_lines() {
+  _fd_old=$FORGE_TMP/base/$1; [ -f "$_fd_old" ] || _fd_old=/dev/null
+  _fd_new=$1; [ -f "$_fd_new" ] || _fd_new=/dev/null
+  git diff --no-index --no-ext-diff --no-textconv --no-color -U0 -- "$_fd_old" "$_fd_new" 2>/dev/null \
+    | awk '/^@@/ { h = 1; next } h && /^[-+]/'
+}
+
+# forge_code_changed <path>: succeeds when a removed or added line of <path> is
+# code: not blank, not only a comment (#, //, /* … */ lines).
+forge_code_changed() {
+  _cc_py=''
+  case $1 in *.py|*.pyi) _cc_py=1 ;; esac
+  forge_diff_lines "$1" | awk -v py="$_cc_py" '
+    { t = substr($0, 2); gsub(/^[ \t]+|[ \t\r]+$/, "", t)
+      if (t == "") next
+      if (py && t ~ /^#/) next
+      if (!py && (t ~ /^\/\// || t ~ /^\/\*/ || t ~ /^\*/)) next
+      found = 1; exit }
+    END { exit !found }'
+}
+
+# forge_untested_change [<test-path-ERE>]: when the turn changed code (not only
+# comments or blank lines) in the in-scope files ($FORGE_FILES) and no file
+# matching <test-path-ERE> (default FORGE_TEST_PATH_ERE) was added or changed, says so.
+forge_untested_change() {
+  grep -Eq -- "${1:-$FORGE_TEST_PATH_ERE}" "$FORGE_TMP/existing" && return 0
+  _fu_n=0; _fu_list=''
+  for _fu_f in $FORGE_FILES; do
+    forge_code_changed "$_fu_f" || continue
+    _fu_n=$((_fu_n + 1))
+    [ "$_fu_n" -le 3 ] && _fu_list="${_fu_list:+$_fu_list, }$_fu_f"
+  done
+  [ "$_fu_n" -gt 0 ] || return 0
+  [ "$_fu_n" -gt 3 ] && _fu_list="$_fu_list and $((_fu_n - 3)) more"
+  printf 'You changed behaviour in %s without adding or updating a test; add a test that fails without your change, or say why none is needed.\n' "$_fu_list"
+}
+
 # forge_toml_get <file> <section> <key>: the value of <key> in [<section>] ("" for
 # the top level), quotes and comments removed; nothing when absent. One-line values only.
 forge_toml_get() {
