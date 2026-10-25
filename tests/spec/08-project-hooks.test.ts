@@ -1104,6 +1104,27 @@ describe("Stop", () => {
     T,
   );
 
+  /**
+   * The diff against the base and the one against the formatted base can align a
+   * repeated line differently: Claude duplicating an existing line is added as the
+   * first copy in one and as the second in the other. Such a line still counts.
+   * @rule python/format python/no-placeholder-comment
+   */
+  test(
+    "a line Claude duplicated in a file the formatter also rewrote is still an added line",
+    () => {
+      put(repo, "app/rate.py", "A  = 1\nRATE = 0.2  # placeholder value\n");
+      hook("turn-start.sh", { session_id: "t-fmt3" });
+      put(repo, "app/rate.py", "A = 1\nRATE = 0.2  # placeholder value\nRATE = 0.2  # placeholder value\n");
+      addTest();
+      const ctx = JSON.parse(hook("post-edit.sh", { session_id: "t-fmt3", ...edit("app/rate.py") }).stdout).hookSpecificOutput.additionalContext;
+      expect(ctx).toMatch(/forge:python\/no-placeholder-comment app\/rate\.py:[23] /);
+      expect(hook("stop.sh", { session_id: "t-fmt3" }).stdout).toContain("forge:python/no-placeholder-comment app/rate.py:");
+      reset();
+    },
+    T,
+  );
+
   /** @rule python/typecheck */
   test.if(hasUv)(
     "typecheck wakes Claude only for errors in files changed during the turn",

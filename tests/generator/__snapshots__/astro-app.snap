@@ -1393,13 +1393,26 @@ forge_format_base() {
 # base copy formatted like <path> (forge_format_copy), so a whole-file format of an
 # unformatted file does not make its untouched lines Claude's. Without a formatter
 # (none in scope, tool absent, it fails on the base), the plain added_lines.
+# The two diffs may align repeated lines differently (a duplicated line is added as
+# the first copy in one and the second in the other), so a line added against the
+# base also counts when its text is that of a line added against the formatted base
+# not matched by number (each such line counted once).
 forge_added_lines() {
   added_lines "$1" "$2" > "$FORGE_TMP/al.raw"
   if [ ! -f "$2" ] || [ ! -s "$FORGE_TMP/al.raw" ] || [ "${FORGE_PLAIN_ADDED:-0}" = 1 ] || ! forge_format_base "$1" "$2" "$FORGE_TMP/al.base" || cmp -s "$2" "$FORGE_TMP/al.base"; then
     cat "$FORGE_TMP/al.raw"
   else
     added_lines "$1" "$FORGE_TMP/al.base" > "$FORGE_TMP/al.fmt"
-    awk 'FILENAME == ARGV[1] { k[$0] = 1; next } $0 in k' "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.raw"
+    awk -F '\t' '
+      FILENAME == ARGV[1] { fmt[$2] = 1; next }
+      FILENAME == ARGV[2] { raw[++n] = $0; num[n] = $2; next }
+      { text[FNR] = $0 }
+      END {
+        for (l in fmt) if (l in text) left[text[l]]++
+        for (i = 1; i <= n; i++) if (num[i] in fmt) { keep[i] = 1; left[text[num[i]]]-- }
+        for (i = 1; i <= n; i++) if (!(i in keep) && left[text[num[i]]] > 0) { keep[i] = 1; left[text[num[i]]]-- }
+        for (i = 1; i <= n; i++) if (i in keep) print raw[i]
+      }' "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.raw" "./$1"
   fi
   rm -f "$FORGE_TMP/al.raw" "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.base"
   return 0
@@ -4198,13 +4211,26 @@ forge_format_base() {
 # base copy formatted like <path> (forge_format_copy), so a whole-file format of an
 # unformatted file does not make its untouched lines Claude's. Without a formatter
 # (none in scope, tool absent, it fails on the base), the plain added_lines.
+# The two diffs may align repeated lines differently (a duplicated line is added as
+# the first copy in one and the second in the other), so a line added against the
+# base also counts when its text is that of a line added against the formatted base
+# not matched by number (each such line counted once).
 forge_added_lines() {
   added_lines "$1" "$2" > "$FORGE_TMP/al.raw"
   if [ ! -f "$2" ] || [ ! -s "$FORGE_TMP/al.raw" ] || [ "${FORGE_PLAIN_ADDED:-0}" = 1 ] || ! forge_format_base "$1" "$2" "$FORGE_TMP/al.base" || cmp -s "$2" "$FORGE_TMP/al.base"; then
     cat "$FORGE_TMP/al.raw"
   else
     added_lines "$1" "$FORGE_TMP/al.base" > "$FORGE_TMP/al.fmt"
-    awk 'FILENAME == ARGV[1] { k[$0] = 1; next } $0 in k' "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.raw"
+    awk -F '\t' '
+      FILENAME == ARGV[1] { fmt[$2] = 1; next }
+      FILENAME == ARGV[2] { raw[++n] = $0; num[n] = $2; next }
+      { text[FNR] = $0 }
+      END {
+        for (l in fmt) if (l in text) left[text[l]]++
+        for (i = 1; i <= n; i++) if (num[i] in fmt) { keep[i] = 1; left[text[num[i]]]-- }
+        for (i = 1; i <= n; i++) if (!(i in keep) && left[text[num[i]]] > 0) { keep[i] = 1; left[text[num[i]]]-- }
+        for (i = 1; i <= n; i++) if (i in keep) print raw[i]
+      }' "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.raw" "./$1"
   fi
   rm -f "$FORGE_TMP/al.raw" "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.base"
   return 0
@@ -7017,13 +7043,26 @@ forge_format_base() {
 # base copy formatted like <path> (forge_format_copy), so a whole-file format of an
 # unformatted file does not make its untouched lines Claude's. Without a formatter
 # (none in scope, tool absent, it fails on the base), the plain added_lines.
+# The two diffs may align repeated lines differently (a duplicated line is added as
+# the first copy in one and the second in the other), so a line added against the
+# base also counts when its text is that of a line added against the formatted base
+# not matched by number (each such line counted once).
 forge_added_lines() {
   added_lines "$1" "$2" > "$FORGE_TMP/al.raw"
   if [ ! -f "$2" ] || [ ! -s "$FORGE_TMP/al.raw" ] || [ "${FORGE_PLAIN_ADDED:-0}" = 1 ] || ! forge_format_base "$1" "$2" "$FORGE_TMP/al.base" || cmp -s "$2" "$FORGE_TMP/al.base"; then
     cat "$FORGE_TMP/al.raw"
   else
     added_lines "$1" "$FORGE_TMP/al.base" > "$FORGE_TMP/al.fmt"
-    awk 'FILENAME == ARGV[1] { k[$0] = 1; next } $0 in k' "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.raw"
+    awk -F '\t' '
+      FILENAME == ARGV[1] { fmt[$2] = 1; next }
+      FILENAME == ARGV[2] { raw[++n] = $0; num[n] = $2; next }
+      { text[FNR] = $0 }
+      END {
+        for (l in fmt) if (l in text) left[text[l]]++
+        for (i = 1; i <= n; i++) if (num[i] in fmt) { keep[i] = 1; left[text[num[i]]]-- }
+        for (i = 1; i <= n; i++) if (!(i in keep) && left[text[num[i]]] > 0) { keep[i] = 1; left[text[num[i]]]-- }
+        for (i = 1; i <= n; i++) if (i in keep) print raw[i]
+      }' "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.raw" "./$1"
   fi
   rm -f "$FORGE_TMP/al.raw" "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.base"
   return 0
@@ -9860,13 +9899,26 @@ forge_format_base() {
 # base copy formatted like <path> (forge_format_copy), so a whole-file format of an
 # unformatted file does not make its untouched lines Claude's. Without a formatter
 # (none in scope, tool absent, it fails on the base), the plain added_lines.
+# The two diffs may align repeated lines differently (a duplicated line is added as
+# the first copy in one and the second in the other), so a line added against the
+# base also counts when its text is that of a line added against the formatted base
+# not matched by number (each such line counted once).
 forge_added_lines() {
   added_lines "$1" "$2" > "$FORGE_TMP/al.raw"
   if [ ! -f "$2" ] || [ ! -s "$FORGE_TMP/al.raw" ] || [ "${FORGE_PLAIN_ADDED:-0}" = 1 ] || ! forge_format_base "$1" "$2" "$FORGE_TMP/al.base" || cmp -s "$2" "$FORGE_TMP/al.base"; then
     cat "$FORGE_TMP/al.raw"
   else
     added_lines "$1" "$FORGE_TMP/al.base" > "$FORGE_TMP/al.fmt"
-    awk 'FILENAME == ARGV[1] { k[$0] = 1; next } $0 in k' "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.raw"
+    awk -F '\t' '
+      FILENAME == ARGV[1] { fmt[$2] = 1; next }
+      FILENAME == ARGV[2] { raw[++n] = $0; num[n] = $2; next }
+      { text[FNR] = $0 }
+      END {
+        for (l in fmt) if (l in text) left[text[l]]++
+        for (i = 1; i <= n; i++) if (num[i] in fmt) { keep[i] = 1; left[text[num[i]]]-- }
+        for (i = 1; i <= n; i++) if (!(i in keep) && left[text[num[i]]] > 0) { keep[i] = 1; left[text[num[i]]]-- }
+        for (i = 1; i <= n; i++) if (i in keep) print raw[i]
+      }' "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.raw" "./$1"
   fi
   rm -f "$FORGE_TMP/al.raw" "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.base"
   return 0
@@ -13674,13 +13726,26 @@ forge_format_base() {
 # base copy formatted like <path> (forge_format_copy), so a whole-file format of an
 # unformatted file does not make its untouched lines Claude's. Without a formatter
 # (none in scope, tool absent, it fails on the base), the plain added_lines.
+# The two diffs may align repeated lines differently (a duplicated line is added as
+# the first copy in one and the second in the other), so a line added against the
+# base also counts when its text is that of a line added against the formatted base
+# not matched by number (each such line counted once).
 forge_added_lines() {
   added_lines "$1" "$2" > "$FORGE_TMP/al.raw"
   if [ ! -f "$2" ] || [ ! -s "$FORGE_TMP/al.raw" ] || [ "${FORGE_PLAIN_ADDED:-0}" = 1 ] || ! forge_format_base "$1" "$2" "$FORGE_TMP/al.base" || cmp -s "$2" "$FORGE_TMP/al.base"; then
     cat "$FORGE_TMP/al.raw"
   else
     added_lines "$1" "$FORGE_TMP/al.base" > "$FORGE_TMP/al.fmt"
-    awk 'FILENAME == ARGV[1] { k[$0] = 1; next } $0 in k' "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.raw"
+    awk -F '\t' '
+      FILENAME == ARGV[1] { fmt[$2] = 1; next }
+      FILENAME == ARGV[2] { raw[++n] = $0; num[n] = $2; next }
+      { text[FNR] = $0 }
+      END {
+        for (l in fmt) if (l in text) left[text[l]]++
+        for (i = 1; i <= n; i++) if (num[i] in fmt) { keep[i] = 1; left[text[num[i]]]-- }
+        for (i = 1; i <= n; i++) if (!(i in keep) && left[text[num[i]]] > 0) { keep[i] = 1; left[text[num[i]]]-- }
+        for (i = 1; i <= n; i++) if (i in keep) print raw[i]
+      }' "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.raw" "./$1"
   fi
   rm -f "$FORGE_TMP/al.raw" "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.base"
   return 0
@@ -16367,13 +16432,13 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "cc4a889eb0483cbc1ccca0dfff9bdb83a1707a5d5f3739d4c5e725ab5bcc1648",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
     ".claude/skills/forge-project/scripts/lib.sh": "c68e88cee33407a544446c0dab82e648fe28645fd2ffec56feb1f38c294698d1",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "abf1c3b287d99f925283f8a59deb196921199fbe1394a51ba2558acff87e9972",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "7e1a4779bd8f312545e6500c4f98f58e0a97787cdf7afe634692f579bede2a50",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
-    ".claude/skills/forge-project/scripts/session-start.sh": "e1c650750d2d86770d01d384d0b227090c053b43adaa28d91a62e2b901591460",
+    ".claude/skills/forge-project/scripts/session-start.sh": "b90b7f1e90d9babef35b45c050a16c484c9ba8cc2dc8745c7b2cacec80d44bfb",
     ".claude/skills/forge-project/scripts/stop.sh": "0adfa608a9bbcc166b30c6009e1b21e986d12b49283beff2230177455e03a5a0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "4dd77a69974a3138b12ce9823362cbf0201fb7db336c26611380042f4255df4d",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "91d544eec9800f9141ecd99d925b65fa0454ee9d236c030eb8dbd17b33e59af4",
     ".claude/skills/forge-project/scripts/turn-start.sh": "3d6bbb9aed56181032c9e7c05ba1c20e8080ca104e831a193b42a825e3a12531",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "30286577cbc613477e72bbd3cd07de7af2833dc78472087757460aca581b2d5a",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "b96d926e75fa536eb14825bcb71fd8e4d5d5d254ca94226ac7569cfecedf83f8",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-bun-no-fewer-expects-test.yml": "bd5df50793070bba7b87b0f623ac58ed4599e0ba6f8d731fc0da4b28a0335ec8",
     ".forge/ast-grep/rule-tests/typescript-bun-no-mock-increase-test.yml": "cf28a1a131538f6ff9cb7cd9468d9338d29c52d6abe02dccf7785696f5c847b8",
@@ -16400,7 +16465,7 @@ exit "$fail"
     ".forge/ast-grep/rules/typescript/react/use-action-state.yml": "17b6fc5e510df3154be12c72a584d8bfb31034b577774718a8c50516b2b15a81",
     ".forge/ast-grep/rules/typescript/ts-expect-error-reason.yml": "b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "098ab81829d52e7a296415c231bf48774accf5204a19231b2b7d48f0aebfa62b",
+    ".forge/check.sh": "3bb2eae833805aebdbb6aacaa172313a91b23750dd321e13998053ed2cf6beb3",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -16454,13 +16519,13 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 cc4a889eb0483cbc1ccca0dfff9bdb83a1707a5d5f3739d4c5e725ab5bcc1648  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
 c68e88cee33407a544446c0dab82e648fe28645fd2ffec56feb1f38c294698d1  .claude/skills/forge-project/scripts/lib.sh
-abf1c3b287d99f925283f8a59deb196921199fbe1394a51ba2558acff87e9972  .claude/skills/forge-project/scripts/post-edit.sh
+7e1a4779bd8f312545e6500c4f98f58e0a97787cdf7afe634692f579bede2a50  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
-e1c650750d2d86770d01d384d0b227090c053b43adaa28d91a62e2b901591460  .claude/skills/forge-project/scripts/session-start.sh
+b90b7f1e90d9babef35b45c050a16c484c9ba8cc2dc8745c7b2cacec80d44bfb  .claude/skills/forge-project/scripts/session-start.sh
 0adfa608a9bbcc166b30c6009e1b21e986d12b49283beff2230177455e03a5a0  .claude/skills/forge-project/scripts/stop.sh
-4dd77a69974a3138b12ce9823362cbf0201fb7db336c26611380042f4255df4d  .claude/skills/forge-project/scripts/test-edit.sh
+91d544eec9800f9141ecd99d925b65fa0454ee9d236c030eb8dbd17b33e59af4  .claude/skills/forge-project/scripts/test-edit.sh
 3d6bbb9aed56181032c9e7c05ba1c20e8080ca104e831a193b42a825e3a12531  .claude/skills/forge-project/scripts/turn-start.sh
-30286577cbc613477e72bbd3cd07de7af2833dc78472087757460aca581b2d5a  .claude/skills/forge-project/scripts/typecheck.sh
+b96d926e75fa536eb14825bcb71fd8e4d5d5d254ca94226ac7569cfecedf83f8  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 bd5df50793070bba7b87b0f623ac58ed4599e0ba6f8d731fc0da4b28a0335ec8  .forge/ast-grep/rule-tests/typescript-bun-no-fewer-expects-test.yml
 cf28a1a131538f6ff9cb7cd9468d9338d29c52d6abe02dccf7785696f5c847b8  .forge/ast-grep/rule-tests/typescript-bun-no-mock-increase-test.yml
@@ -16487,7 +16552,7 @@ aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21  .forge/ast-gre
 17b6fc5e510df3154be12c72a584d8bfb31034b577774718a8c50516b2b15a81  .forge/ast-grep/rules/typescript/react/use-action-state.yml
 b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad  .forge/ast-grep/rules/typescript/ts-expect-error-reason.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-098ab81829d52e7a296415c231bf48774accf5204a19231b2b7d48f0aebfa62b  .forge/check.sh
+3bb2eae833805aebdbb6aacaa172313a91b23750dd321e13998053ed2cf6beb3  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

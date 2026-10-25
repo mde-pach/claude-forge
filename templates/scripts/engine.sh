@@ -98,13 +98,26 @@ forge_format_base() {
 # base copy formatted like <path> (forge_format_copy), so a whole-file format of an
 # unformatted file does not make its untouched lines Claude's. Without a formatter
 # (none in scope, tool absent, it fails on the base), the plain added_lines.
+# The two diffs may align repeated lines differently (a duplicated line is added as
+# the first copy in one and the second in the other), so a line added against the
+# base also counts when its text is that of a line added against the formatted base
+# not matched by number (each such line counted once).
 forge_added_lines() {
   added_lines "$1" "$2" > "$FORGE_TMP/al.raw"
   if [ ! -f "$2" ] || [ ! -s "$FORGE_TMP/al.raw" ] || [ "${FORGE_PLAIN_ADDED:-0}" = 1 ] || ! forge_format_base "$1" "$2" "$FORGE_TMP/al.base" || cmp -s "$2" "$FORGE_TMP/al.base"; then
     cat "$FORGE_TMP/al.raw"
   else
     added_lines "$1" "$FORGE_TMP/al.base" > "$FORGE_TMP/al.fmt"
-    awk 'FILENAME == ARGV[1] { k[$0] = 1; next } $0 in k' "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.raw"
+    awk -F '\t' '
+      FILENAME == ARGV[1] { fmt[$2] = 1; next }
+      FILENAME == ARGV[2] { raw[++n] = $0; num[n] = $2; next }
+      { text[FNR] = $0 }
+      END {
+        for (l in fmt) if (l in text) left[text[l]]++
+        for (i = 1; i <= n; i++) if (num[i] in fmt) { keep[i] = 1; left[text[num[i]]]-- }
+        for (i = 1; i <= n; i++) if (!(i in keep) && left[text[num[i]]] > 0) { keep[i] = 1; left[text[num[i]]]-- }
+        for (i = 1; i <= n; i++) if (i in keep) print raw[i]
+      }' "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.raw" "./$1"
   fi
   rm -f "$FORGE_TMP/al.raw" "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.base"
   return 0
