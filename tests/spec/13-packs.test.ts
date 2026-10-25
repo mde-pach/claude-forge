@@ -11,7 +11,7 @@
  * this site show the same results.
  */
 import { beforeAll, describe, expect, test } from "bun:test";
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadPacks } from "../../src/packs";
@@ -82,15 +82,18 @@ test(
 
 /**
  * `prisma db push` projects (no `prisma/migrations`, a `db push` script) have no
- * migration history to compare the schema with. Here a stand-in `prisma` fails as
- * `migrate diff --from-migrations` does on a missing directory.
+ * migration history to compare the schema with. Here a stand-in `prisma` logs its
+ * arguments and fails as `migrate diff --from-migrations` does on a missing
+ * directory: the db push workflow must not call it, the migrate workflow must.
  */
 /** @rule typescript/prisma/migration-present */
 test("prisma migration-present passes in a db push workflow and still runs migrate diff in a migrate workflow", () => {
   const rule = rules.find((r) => r.id === "typescript/prisma/migration-present")!;
   const bin = mkdtempSync(join(tmpdir(), "forge-prisma-stub-"));
   try {
-    writeFileSync(join(bin, "prisma"), "#!/bin/sh\necho 'Error: Could not find the migrations directory' >&2\nexit 1\n");
+    const log = join(bin, "calls");
+    writeFileSync(join(bin, "prisma"), `#!/bin/sh\nprintf '%s\\n' "$*" >> "${log}"\necho 'Error: Could not find the migrations directory' >&2\nexit 1\n`);
+    const calls = () => (existsSync(log) ? readFileSync(log, "utf8") : "");
     chmodSync(join(bin, "prisma"), 0o755);
     const target = rule.enforce[0] as CheckTarget;
     const schema = { "prisma/schema.prisma": "model User {\n  id Int @id\n}\n" };
@@ -98,11 +101,13 @@ test("prisma migration-present passes in a db push workflow and still runs migra
     const env = { ".env": "DATABASE_URL=postgresql://app@localhost:5432/app\n" };
     const push = { head: { ...schema, ...env, "package.json": '{"scripts": {"db:push": "prisma db push"}}\n' }, ...changed };
     expect(runCheckExample(rule, target, push, "no_match", [bin])).toEqual({ outcome: "pass", detail: "" });
+    expect(calls()).toBe("");
     const migrate = {
       head: { ...schema, ...env, "package.json": '{"scripts": {"migrate": "prisma migrate dev"}}\n', "prisma.config.ts": "export default { datasource: { shadowDatabaseUrl: env('SHADOW_DATABASE_URL') } };\n", "prisma/migrations/20261020000000_init/migration.sql": "CREATE TABLE \"User\" (\"id\" INTEGER NOT NULL);\n" },
       ...changed,
     };
     expect(runCheckExample(rule, target, migrate, "match", [bin])).toEqual({ outcome: "pass", detail: "" });
+    expect(calls()).toBe("migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code\n");
   } finally {
     rmSync(bin, { recursive: true, force: true });
   }

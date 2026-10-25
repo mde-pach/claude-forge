@@ -53,7 +53,8 @@ function cmd(command: string, which: "--all" | "--changed"): string {
 function checkEvents(rule: Rule, t: CheckTarget): LifecycleEvent[] {
   if (/\bforge_test_edits\b/.test(t.run))
     return [
-      { step: "stop", effect: "blocks", text: "A test that existed at the start of the turn and was changed or removed blocks Stop; new tests are fine." },
+      { step: "tool", effect: "asks", text: "An Edit or Write that changes what a test that existed at the start of the turn asserts, or removes it, asks first (nobody being there, an independent reviewer answers, given the turn's request); new tests and setup-only changes are fine." },
+      { step: "stop", effect: "blocks", text: "Such a change nobody approved (made through Bash, for instance) blocks Stop; an approved edit does not. Changed test support code is reported once." },
       { step: "commit", effect: "inactive", text: "Not checked: a human edits tests on purpose." },
       { step: "ci", effect: "inactive", text: "Not checked: a human edits tests on purpose." },
     ];

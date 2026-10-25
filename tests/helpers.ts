@@ -138,7 +138,25 @@ export const TOOLS_CACHE = join(tmpdir(), "forge-tools-v2");
 export const hasBun = sh("sh", ["-c", "command -v bun"]).status === 0;
 export const hasUv = sh("sh", ["-c", "command -v uv"]).status === 0;
 
-/** Installs Biome, TypeScript and React's types (bun), ruff and basedpyright (uv), and Alembic (uv, own venv) once into TOOLS_CACHE. */
+/**
+ * The Python of every cached tools venv. Pinned, so the suite does not depend on
+ * whichever interpreter uv finds first: the python/config-ratchet helper reads
+ * TOML with tomllib (3.11+), and a cache built with 3.10 failed those checks.
+ */
+export const TOOLS_PYTHON = "3.12";
+
+/** Creates <dir> with Python TOOLS_PYTHON and installs <pkgs>, unless it has <probe> and that Python already; a venv on another Python is rebuilt. */
+function ensureVenv(dir: string, probe: string, pkgs: string[]): void {
+  const cfg = join(dir, "pyvenv.cfg");
+  const pinned = new RegExp(`^version(_info)? = ${TOOLS_PYTHON.replace(".", "\\.")}\\.`, "m");
+  if (existsSync(join(dir, probe)) && existsSync(cfg) && pinned.test(readFileSync(cfg, "utf8"))) return;
+  rmSync(dir, { recursive: true, force: true });
+  let r = sh("uv", ["venv", "-q", "--python", TOOLS_PYTHON, dir]);
+  if (r.status === 0) r = sh("uv", ["pip", "install", "-q", "--python", join(dir, "bin/python"), ...pkgs]);
+  if (r.status !== 0) throw new Error(`uv install failed: ${r.stderr}`);
+}
+
+/** Installs Biome, TypeScript and React's types (bun), ruff and basedpyright (uv), and Alembic and Django (uv, own venvs) once into TOOLS_CACHE. */
 export function ensureTools(): void {
   mkdirSync(TOOLS_CACHE, { recursive: true });
   if (hasBun && !existsSync(join(TOOLS_CACHE, "node_modules/@types/react/package.json"))) {
@@ -147,23 +165,10 @@ export function ensureTools(): void {
     const r = sh("bun", ["add", "-d", ...pkgs.map((p) => `${p}@${TOOL_VERSIONS[p === "@biomejs/biome" ? "biome" : p]}`)], { cwd: TOOLS_CACHE });
     if (r.status !== 0) throw new Error(`bun add failed: ${r.stderr}`);
   }
-  if (hasUv && !existsSync(join(TOOLS_CACHE, ".venv-alembic/bin/alembic"))) {
-    let r = sh("uv", ["venv", "-q", join(TOOLS_CACHE, ".venv-alembic")]);
-    if (r.status === 0)
-      r = sh("uv", ["pip", "install", "-q", "--python", join(TOOLS_CACHE, ".venv-alembic/bin/python"), `alembic==${TOOL_VERSIONS.alembic}`, `sqlalchemy[asyncio]==${TOOL_VERSIONS.sqlalchemy}`]);
-    if (r.status !== 0) throw new Error(`uv install failed: ${r.stderr}`);
-  }
-  if (hasUv && !existsSync(join(TOOLS_CACHE, ".venv-django/bin/django-admin"))) {
-    let r = sh("uv", ["venv", "-q", "--allow-existing", join(TOOLS_CACHE, ".venv-django")]);
-    if (r.status === 0) r = sh("uv", ["pip", "install", "-q", "--python", join(TOOLS_CACHE, ".venv-django/bin/python"), `django==${TOOL_VERSIONS.django}`]);
-    if (r.status !== 0) throw new Error(`uv install failed: ${r.stderr}`);
-  }
-  if (hasUv && !existsSync(join(TOOLS_CACHE, ".venv/bin/basedpyright"))) {
-    let r = sh("uv", ["venv", "-q", join(TOOLS_CACHE, ".venv")]);
-    if (r.status === 0)
-      r = sh("uv", ["pip", "install", "-q", "--python", join(TOOLS_CACHE, ".venv/bin/python"), `ruff==${TOOL_VERSIONS.ruff}`, `basedpyright==${TOOL_VERSIONS.basedpyright}`]);
-    if (r.status !== 0) throw new Error(`uv install failed: ${r.stderr}`);
-  }
+  if (!hasUv) return;
+  ensureVenv(join(TOOLS_CACHE, ".venv-alembic"), "bin/alembic", [`alembic==${TOOL_VERSIONS.alembic}`, `sqlalchemy[asyncio]==${TOOL_VERSIONS.sqlalchemy}`]);
+  ensureVenv(join(TOOLS_CACHE, ".venv-django"), "bin/django-admin", [`django==${TOOL_VERSIONS.django}`]);
+  ensureVenv(join(TOOLS_CACHE, ".venv"), "bin/basedpyright", [`ruff==${TOOL_VERSIONS.ruff}`, `basedpyright==${TOOL_VERSIONS.basedpyright}`]);
 }
 
 /** Installs vue-tsc (TOOL_VERSIONS["vue-tsc"]) with its TypeScript in its own cache directory; returns its bin directory. */

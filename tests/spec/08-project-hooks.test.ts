@@ -7,7 +7,7 @@
  * run the generated scripts on the sample FastAPI repository with real hook
  * JSON; ast-grep runs through `bunx` or `uvx`.
  */
-import { beforeAll, describe, expect, test } from "bun:test";
+import { afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -22,22 +22,66 @@ function hook(script: string, fields: Record<string, unknown>, env: Record<strin
   // an interactive session unless a test says otherwise (the suite may itself run under claude -p)
   return sh("sh", [join(SCRIPTS, script)], { cwd, input: hookJson({ cwd, ...fields }), env: { CLAUDE_CODE_ENTRYPOINT: "cli", ...env } });
 }
+/**
+ * Back to the committed tree, without what the hooks left: untracked files and
+ * the ignored ones (.forge/state/ with its last-pass, last-fail and turn
+ * snapshots, caches), all but the .venv the tests put tools in. Runs after
+ * every test, so no test depends on what an earlier one left, failed or not.
+ */
 function reset() {
+  if (!repo) return;
   git(repo, "reset", "-q", "--hard");
-  git(repo, "clean", "-qfd", "-e", ".venv");
+  git(repo, "clean", "-qfdx", "-e", ".venv");
 }
-/** Links the real basedpyright (TOOL_VERSIONS.basedpyright) into the repository's .venv. */
-function realBasedpyright() {
+afterEach(reset);
+/** Runs <fn> with the real basedpyright (TOOL_VERSIONS.basedpyright) linked into the repository's .venv, removed afterwards. */
+function withRealBasedpyright(fn: () => void) {
   ensureTools();
   const p = join(repo, ".venv", "bin", "basedpyright");
   rmSync(p, { force: true });
   symlinkSync(join(TOOLS_CACHE, ".venv", "bin", "basedpyright"), p);
+  try {
+    fn();
+  } finally {
+    rmSync(p, { force: true });
+  }
 }
 /** A stand-in for a project tool in the repository's .venv. */
 function stubTool(name: string, body: string) {
   const p = join(repo, ".venv", "bin", name);
   writeFileSync(p, `#!/bin/sh\n${body}\n`);
   chmodSync(p, 0o755);
+}
+/** Runs <fn> with a stand-in for a project tool in the repository's .venv, removed afterwards. */
+function withStub(name: string, body: string, fn: () => void) {
+  stubTool(name, body);
+  try {
+    fn();
+  } finally {
+    rmSync(join(repo, ".venv", "bin", name), { force: true });
+  }
+}
+/**
+ * A basedpyright that takes a second, then reports a type error in app/main.py,
+ * for the tests of when typecheck.sh runs (its lock, headless sessions), where
+ * the tool's own output is not under test. They need no uv, and do not depend on
+ * how the real one judges the sample: basedpyright 1.40 exits 1 on the sample's
+ * two warnings (recommended mode fails on warnings).
+ */
+const FAILING_TYPECHECK = 'sleep 1; echo "app/main.py:1:1 - error: stand-in type error"; exit 1';
+/** Runs <fn> with the repository's .venv/bin/ruff replaced by a wrapper around the real one (<body> runs first), restored afterwards. */
+function withRuffWrapper(body: string, fn: () => void) {
+  const real = join(repo, ".venv/bin/ruff");
+  const target = sh("sh", ["-c", `readlink "${real}"`]).stdout.trim();
+  rmSync(real);
+  writeFileSync(real, `#!/bin/sh\n${body}\nexec "${target}" "$@"\n`);
+  chmodSync(real, 0o755);
+  try {
+    fn();
+  } finally {
+    rmSync(real);
+    symlinkSync(target, real);
+  }
 }
 /** A test added with a clean change, so the change is not "untested" (python/pytest/untested-change). */
 const OK_TEST = "def test_ok() -> None:\n    assert 1 + 1 == 2\n";
@@ -304,28 +348,26 @@ describe("files changed by Bash", () => {
   /** @rule python/sqlalchemy/no-query-api python/typecheck */
   test.if(hasUv)(
     "a Bash command that fails or is interrupted after writing files is checked like one that succeeded (PostToolUseFailure)",
-    () => {
-      realBasedpyright();
-      const failed = (id: string, extra: Record<string, unknown> = {}) =>
-        bash(id, { hook_event_name: "PostToolUseFailure", error: "Exit code 3", is_interrupt: false, ...extra });
-      hook("bash-snapshot.sh", bash("toolu_f1"));
-      put(repo, "app/partial_a.py", "def f(session):\n    return session.query(1)\n");
-      put(repo, "app/partial_b.py", 'X: int = "no"\n');
-      const out = JSON.parse(hook("post-edit.sh", failed("toolu_f1")).stdout).hookSpecificOutput;
-      expect(out.hookEventName).toBe("PostToolUseFailure");
-      expect(out.additionalContext).toContain("forge:python/sqlalchemy/no-query-api app/partial_a.py:2:12");
-      const r = hook("typecheck.sh", failed("toolu_f1"));
-      expect(r.status).toBe(2);
-      expect(r.stderr).toContain("app/partial_b.py:1:10 - error: Type \"Literal['no']\" is not assignable to declared type \"int\"");
-      expect(readdirSync(join(repo, ".forge/state/bash")).filter((f) => f.startsWith("toolu_f1"))).toEqual([]);
-      hook("bash-snapshot.sh", bash("toolu_f2"));
-      put(repo, "app/interrupted.py", "def g(session):\n    return session.query(2)\n");
-      expect(JSON.parse(hook("post-edit.sh", failed("toolu_f2", { error: "Interrupted", is_interrupt: true })).stdout).hookSpecificOutput.additionalContext).toContain(
-        "app/interrupted.py:2:12",
-      );
-      rmSync(join(repo, ".venv/bin/basedpyright"));
-      reset();
-    },
+    () =>
+      withRealBasedpyright(() => {
+        const failed = (id: string, extra: Record<string, unknown> = {}) =>
+          bash(id, { hook_event_name: "PostToolUseFailure", error: "Exit code 3", is_interrupt: false, ...extra });
+        hook("bash-snapshot.sh", bash("toolu_f1"));
+        put(repo, "app/partial_a.py", "def f(session):\n    return session.query(1)\n");
+        put(repo, "app/partial_b.py", 'X: int = "no"\n');
+        const out = JSON.parse(hook("post-edit.sh", failed("toolu_f1")).stdout).hookSpecificOutput;
+        expect(out.hookEventName).toBe("PostToolUseFailure");
+        expect(out.additionalContext).toContain("forge:python/sqlalchemy/no-query-api app/partial_a.py:2:12");
+        const r = hook("typecheck.sh", failed("toolu_f1"));
+        expect(r.status).toBe(2);
+        expect(r.stderr).toContain("app/partial_b.py:1:10 - error: Type \"Literal['no']\" is not assignable to declared type \"int\"");
+        expect(readdirSync(join(repo, ".forge/state/bash")).filter((f) => f.startsWith("toolu_f1"))).toEqual([]);
+        hook("bash-snapshot.sh", bash("toolu_f2"));
+        put(repo, "app/interrupted.py", "def g(session):\n    return session.query(2)\n");
+        expect(JSON.parse(hook("post-edit.sh", failed("toolu_f2", { error: "Interrupted", is_interrupt: true })).stdout).hookSpecificOutput.additionalContext).toContain(
+          "app/interrupted.py:2:12",
+        );
+      }),
     T,
   );
 
@@ -338,29 +380,23 @@ describe("files changed by Bash", () => {
   test(
     "after a Bash command that changed several files, each tool runs once on all of them, and each file's findings are reported",
     () => {
-      const real = join(repo, ".venv/bin/ruff");
-      const target = sh("sh", ["-c", `readlink "${real}"`]).stdout.trim();
       const log = join(mkdtempSync(join(tmpdir(), "forge-ruff-")), "calls");
-      rmSync(real);
-      writeFileSync(real, `#!/bin/sh\nprintf '%s\\n' "$*" >> "${log}"\nexec "${target}" "$@"\n`);
-      chmodSync(real, 0o755);
-      hook("bash-snapshot.sh", bash("toolu_m1"));
-      put(repo, "app/m1.py", "import os\n\ndef f(session):\n    return session.query(1)\n");
-      put(repo, "app/m2.py", "import sys\n\ndef g(session):\n    return session.query(2)\n");
-      const ctx = JSON.parse(hook("post-edit.sh", bash("toolu_m1")).stdout).hookSpecificOutput.additionalContext;
-      expect(ctx).toContain("forge:python/sqlalchemy/no-query-api app/m1.py:5:12");
-      expect(ctx).toContain("forge:python/sqlalchemy/no-query-api app/m2.py:5:12");
-      expect(ctx).toContain("app/m1.py:1:8: F401");
-      expect(ctx).toContain("app/m2.py:1:8: F401");
-      const calls = readFileSync(log, "utf8").trim().split("\n");
-      expect(calls).toEqual([
-        "format app/m1.py app/m2.py",
-        "check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise app/m1.py app/m2.py",
-        "check --output-format concise app/m1.py app/m2.py",
-      ]);
-      rmSync(real);
-      symlinkSync(target, real);
-      reset();
+      withRuffWrapper(`printf '%s\\n' "$*" >> "${log}"`, () => {
+        hook("bash-snapshot.sh", bash("toolu_m1"));
+        put(repo, "app/m1.py", "import os\n\ndef f(session):\n    return session.query(1)\n");
+        put(repo, "app/m2.py", "import sys\n\ndef g(session):\n    return session.query(2)\n");
+        const ctx = JSON.parse(hook("post-edit.sh", bash("toolu_m1")).stdout).hookSpecificOutput.additionalContext;
+        expect(ctx).toContain("forge:python/sqlalchemy/no-query-api app/m1.py:5:12");
+        expect(ctx).toContain("forge:python/sqlalchemy/no-query-api app/m2.py:5:12");
+        expect(ctx).toContain("app/m1.py:1:8: F401");
+        expect(ctx).toContain("app/m2.py:1:8: F401");
+        const calls = readFileSync(log, "utf8").trim().split("\n");
+        expect(calls).toEqual([
+          "format app/m1.py app/m2.py",
+          "check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise app/m1.py app/m2.py",
+          "check --output-format concise app/m1.py app/m2.py",
+        ]);
+      });
     },
     T,
   );
@@ -368,21 +404,15 @@ describe("files changed by Bash", () => {
   /** @rule python/sqlalchemy/no-query-api */
   test(
     "checks still running after FORGE_EDIT_BUDGET seconds are stopped, and Claude gets what was found with a note",
-    () => {
-      const real = join(repo, ".venv/bin/ruff");
-      const target = sh("sh", ["-c", `readlink "${real}"`]).stdout.trim();
-      rmSync(real);
-      writeFileSync(real, `#!/bin/sh\ncase "$*" in "check --output-format"*) sleep 30 ;; esac\nexec "${target}" "$@"\n`);
-      chmodSync(real, 0o755);
-      put(repo, "app/slow.py", "X = 1\n");
-      const started = Date.now();
-      const r = hook("post-edit.sh", edit("app/slow.py"), { FORGE_EDIT_BUDGET: "2" });
-      expect(Date.now() - started).toBeLessThan(15_000);
-      expect(JSON.parse(r.stdout).hookSpecificOutput.additionalContext).toContain("forge: the checks after this edit stopped after 2s");
-      rmSync(real);
-      symlinkSync(target, real);
-      reset();
-    },
+    () =>
+      withRuffWrapper('case "$*" in "check --output-format"*) sleep 60 ;; esac', () => {
+        put(repo, "app/slow.py", "X = 1\n");
+        const started = Date.now();
+        const r = hook("post-edit.sh", edit("app/slow.py"), { FORGE_EDIT_BUDGET: "2" });
+        // a hook that waited for the slow lint would take its whole 60 s: anything less means it was stopped
+        expect(Date.now() - started).toBeLessThan(60_000);
+        expect(JSON.parse(r.stdout).hookSpecificOutput.additionalContext).toContain("forge: the checks after this edit stopped after 2s");
+      }),
     T,
   );
 
@@ -401,19 +431,17 @@ describe("files changed by Bash", () => {
   /** @rule python/typecheck */
   test.if(hasUv)(
     "typecheck.sh runs when a Bash command changed a file in a typecheck's scope, using the list post-edit.sh wrote",
-    () => {
-      realBasedpyright();
-      hook("bash-snapshot.sh", bash("toolu_b5"));
-      put(repo, "app/typed.py", 'X: int = "no"\n');
-      hook("post-edit.sh", bash("toolu_b5"));
-      const r = hook("typecheck.sh", bash("toolu_b5"));
-      expect(r.status).toBe(2);
-      expect(r.stderr).toContain("forge:python/typecheck");
-      expect(r.stderr).toContain("app/typed.py:1:10 - error: Type \"Literal['no']\" is not assignable to declared type \"int\"");
-      expect(existsSync(join(repo, ".forge/state/bash/toolu_b5.files"))).toBe(false);
-      rmSync(join(repo, ".venv/bin/basedpyright"));
-      reset();
-    },
+    () =>
+      withRealBasedpyright(() => {
+        hook("bash-snapshot.sh", bash("toolu_b5"));
+        put(repo, "app/typed.py", 'X: int = "no"\n');
+        hook("post-edit.sh", bash("toolu_b5"));
+        const r = hook("typecheck.sh", bash("toolu_b5"));
+        expect(r.status).toBe(2);
+        expect(r.stderr).toContain("forge:python/typecheck");
+        expect(r.stderr).toContain("app/typed.py:1:10 - error: Type \"Literal['no']\" is not assignable to declared type \"int\"");
+        expect(existsSync(join(repo, ".forge/state/bash/toolu_b5.files"))).toBe(false);
+      }),
     T,
   );
 
@@ -592,21 +620,19 @@ describe("PostToolUse", () => {
   );
 
   /** @rule python/typecheck */
-  test.if(hasUv)(
+  test(
     "typecheck reports errors with exit 2 on stderr, and skips while another run holds the lock",
-    () => {
-      realBasedpyright();
-      put(repo, "app/main.py", readFileSync(join(repo, "app/main.py"), "utf8") + '\nBROKEN: int = "no"\n');
-      const input = join(mkdtempSync(join(tmpdir(), "forge-in-")), "in.json");
-      writeFileSync(input, hookJson({ cwd: repo, ...edit("app/main.py") }));
-      const r = sh("sh", ["-c", `sh ${SCRIPTS}/typecheck.sh <"$1" & sleep 0.3; sh ${SCRIPTS}/typecheck.sh <"$1"; echo "second=$?"; wait $!; echo "first=$?"`, "x", input], { cwd: repo });
-      expect(r.stdout).toContain("second=0");
-      expect(r.stdout).toContain("first=2");
-      expect(r.stderr).toContain("forge:python/typecheck");
-      expect(existsSync(join(repo, ".forge/state/typecheck.lock"))).toBe(false);
-      rmSync(join(repo, ".venv/bin/basedpyright"));
-      reset();
-    },
+    () =>
+      withStub("basedpyright", FAILING_TYPECHECK, () => {
+        put(repo, "app/main.py", readFileSync(join(repo, "app/main.py"), "utf8") + '\nBROKEN: int = "no"\n');
+        const input = join(mkdtempSync(join(tmpdir(), "forge-in-")), "in.json");
+        writeFileSync(input, hookJson({ cwd: repo, ...edit("app/main.py") }));
+        const r = sh("sh", ["-c", `sh ${SCRIPTS}/typecheck.sh <"$1" & sleep 0.3; sh ${SCRIPTS}/typecheck.sh <"$1"; echo "second=$?"; wait $!; echo "first=$?"`, "x", input], { cwd: repo });
+        expect(r.stdout).toContain("second=0");
+        expect(r.stdout).toContain("first=2");
+        expect(r.stderr).toContain("forge:python/typecheck\napp/main.py:1:1 - error: stand-in type error");
+        expect(existsSync(join(repo, ".forge/state/typecheck.lock"))).toBe(false);
+      }),
     T,
   );
 
@@ -617,38 +643,38 @@ describe("PostToolUse", () => {
    * typecheck.sh exits at once and the Stop check runs the typecheck once.
    * @rule python/typecheck
    */
-  test.if(hasUv)(
+  test(
     "under claude -p with a prompt (entrypoint sdk-cli, no streaming input) typecheck.sh does not run, leaving the typecheck to Stop; with --input-format stream-json, or FORGE_EDIT_TYPECHECK=always, it runs",
-    () => {
-      realBasedpyright();
-      put(repo, "app/main.py", readFileSync(join(repo, "app/main.py"), "utf8") + '\nBROKEN: int = "no"\n');
-      const input = join(mkdtempSync(join(tmpdir(), "forge-in-")), "in.json");
-      writeFileSync(input, hookJson({ cwd: repo, ...edit("app/main.py") }));
-      const run = (env: Record<string, string>, ...args: string[]) =>
-        sh("sh", ["-c", 'sh "$0" < "$1"; exit $?', join(SCRIPTS, "typecheck.sh"), input, ...args], { cwd: repo, env: { FORGE_EDIT_TYPECHECK: "", ...env } });
-      const headless = run({ CLAUDE_CODE_ENTRYPOINT: "sdk-cli" });
-      expect(headless.status).toBe(0);
-      expect(headless.stderr).toBe("");
-      expect(run({ CLAUDE_CODE_ENTRYPOINT: "sdk-cli" }, "--input-format", "stream-json").status).toBe(2);
-      expect(run({ CLAUDE_CODE_ENTRYPOINT: "sdk-cli", FORGE_EDIT_TYPECHECK: "always" }).status).toBe(2);
-      expect(run({ CLAUDE_CODE_ENTRYPOINT: "cli" }).status).toBe(2);
-      rmSync(join(repo, ".venv/bin/basedpyright"));
-      reset();
-    },
+    () =>
+      withStub("basedpyright", FAILING_TYPECHECK, () => {
+        put(repo, "app/main.py", readFileSync(join(repo, "app/main.py"), "utf8") + '\nBROKEN: int = "no"\n');
+        const input = join(mkdtempSync(join(tmpdir(), "forge-in-")), "in.json");
+        writeFileSync(input, hookJson({ cwd: repo, ...edit("app/main.py") }));
+        const run = (env: Record<string, string>, ...args: string[]) =>
+          sh("sh", ["-c", 'sh "$0" < "$1"; exit $?', join(SCRIPTS, "typecheck.sh"), input, ...args], { cwd: repo, env: { FORGE_EDIT_TYPECHECK: "", ...env } });
+        const headless = run({ CLAUDE_CODE_ENTRYPOINT: "sdk-cli" });
+        expect(headless.status).toBe(0);
+        expect(headless.stderr).toBe("");
+        expect(run({ CLAUDE_CODE_ENTRYPOINT: "sdk-cli" }, "--input-format", "stream-json").status).toBe(2);
+        expect(run({ CLAUDE_CODE_ENTRYPOINT: "sdk-cli", FORGE_EDIT_TYPECHECK: "always" }).status).toBe(2);
+        expect(run({ CLAUDE_CODE_ENTRYPOINT: "cli" }).status).toBe(2);
+      }),
     T,
   );
 
-  test.if(hasUv)(
+  test(
     "typecheck takes over a lock whose process is gone",
-    () => {
-      realBasedpyright();
-      mkdirSync(join(repo, ".forge/state/typecheck.lock"), { recursive: true });
-      writeFileSync(join(repo, ".forge/state/typecheck.lock/pid"), "999999\n");
-      expect(hook("typecheck.sh", edit("app/main.py")).status).toBe(0);
-      expect(existsSync(join(repo, ".forge/state/typecheck.lock"))).toBe(false);
-      rmSync(join(repo, ".venv/bin/basedpyright"));
-      reset();
-    },
+    () =>
+      withStub("basedpyright", FAILING_TYPECHECK, () => {
+        put(repo, "app/main.py", readFileSync(join(repo, "app/main.py"), "utf8") + "\nX = 1\n");
+        mkdirSync(join(repo, ".forge/state/typecheck.lock"), { recursive: true });
+        writeFileSync(join(repo, ".forge/state/typecheck.lock/pid"), "999999\n");
+        // it ran (a skipped typecheck exits 0 silently) and released the lock
+        const r = hook("typecheck.sh", edit("app/main.py"));
+        expect(r.status).toBe(2);
+        expect(r.stderr).toContain("app/main.py:1:1 - error: stand-in type error");
+        expect(existsSync(join(repo, ".forge/state/typecheck.lock"))).toBe(false);
+      }),
     T,
   );
 });
@@ -803,11 +829,24 @@ describe("Stop", () => {
   test(
     "stop remembers a passing tree and does not run the check again until it changes",
     () => {
+      put(repo, "app/ok.py", "X = 1\n");
+      put(repo, "tests/test_ok.py", OK_TEST);
       expect(hook("stop.sh", { session_id: "s-2" }).stdout).toBe("");
       expect(existsSync(join(repo, ".forge/state/last-pass"))).toBe(true);
-      const t0 = performance.now();
-      expect(hook("stop.sh", { session_id: "s-2" }).stdout).toBe("");
-      expect(performance.now() - t0).toBeLessThan(1000);
+      // a pytest that fails, put in .venv (ignored: the tree is the same): the check would now fail if it ran
+      const runs = join(repo, ".venv", "runs");
+      withStub("pytest", `echo run >> "${runs}"; echo "FAILED tests/test_ok.py::test_ok"; exit 1`, () => {
+        try {
+          expect(hook("stop.sh", { session_id: "s-2" }).stdout).toBe("");
+          expect(existsSync(runs)).toBe(false);
+          put(repo, "app/ok.py", "X = 2\n");
+          expect(JSON.parse(hook("stop.sh", { session_id: "s-2" }).stdout).reason).toContain("FAILED tests/test_ok.py::test_ok");
+          expect(existsSync(runs)).toBe(true);
+        } finally {
+          rmSync(runs, { force: true });
+        }
+      });
+      reset();
       // within a turn, the pass is remembered in the turn's snapshot
       hook("turn-start.sh", { session_id: "s-2" });
       put(repo, "app/ok.py", "X = 1\n");
@@ -919,7 +958,6 @@ describe("Stop", () => {
   test(
     "the block reason puts the failure before the skipped and ok notes, and keeps at most 40 lines",
     () => {
-      rmSync(join(repo, ".venv/bin/basedpyright"), { force: true });
       // fails only with the turn's change: at the start of the turn the test passed
       stubTool("pytest", 'i=0; while [ $i -lt 60 ]; do echo "tests/test_main.py:1: PytestWarning: noise $i"; i=$((i + 1)); done; grep -q turn-change app/main.py || exit 0; echo "FAILED tests/test_main.py::test_health - assert 500 == 200"; exit 1');
       try {
@@ -963,10 +1001,9 @@ describe("Stop", () => {
         addTest();
         const first: string = JSON.parse(hook("stop.sh", { session_id: "t-13" }).stdout).reason;
         expect(first).toContain("FAILED tests/test_main.py::test_health");
+        // given again without running anything: the stand-in counts its runs
         for (let i = 0; i < 2; i++) {
-          const t0 = performance.now();
           const again = JSON.parse(hook("stop.sh", { session_id: "t-13" }).stdout);
-          expect(performance.now() - t0).toBeLessThan(1500);
           expect(again.reason).toBe(`forge: nothing changed in the working tree since this check failed, so it was not run again (it runs again once a file changes):\n${first}`);
         }
         expect(readFileSync(runs, "utf8")).toBe("run\nrun\n");
@@ -1024,7 +1061,6 @@ describe("Stop", () => {
   test(
     "a line only the formatter changed is not an added line: an untouched stub reformatted after an edit blocks neither post-edit nor Stop, while a new stub does",
     () => {
-      rmSync(join(repo, ".venv/bin/basedpyright"), { force: true }); // left behind by a failed typecheck test
       const before = "class Span:\n    def set_attribute(self, key: str) -> None: ... # pragma: no cover\n\n    def end(self) -> int:\n        return 1\n";
       put(repo, "app/span.py", before);
       hook("turn-start.sh", { session_id: "t-fmt" });
@@ -1059,18 +1095,16 @@ describe("Stop", () => {
   /** @rule python/typecheck */
   test.if(hasUv)(
     "typecheck wakes Claude only for errors in files changed during the turn",
-    () => {
-      realBasedpyright();
-      put(repo, "app/wip.py", 'X: int = "no"\n');
-      hook("turn-start.sh", { session_id: "t-10" });
-      // the turn changes a file with no type error (the sample's main.py has a real one: fastapi is not installed here)
-      put(repo, "app/clean.py", "Y: int = 1\n");
-      const r = hook("typecheck.sh", { session_id: "t-10", ...edit("app/clean.py") });
-      expect(r.status).toBe(0);
-      expect(r.stderr).toBe("");
-      rmSync(join(repo, ".venv/bin/basedpyright"));
-      reset();
-    },
+    () =>
+      withRealBasedpyright(() => {
+        put(repo, "app/wip.py", 'X: int = "no"\n');
+        hook("turn-start.sh", { session_id: "t-10" });
+        // the turn changes a file with no type error (the sample's main.py has a real one: fastapi is not installed here)
+        put(repo, "app/clean.py", "Y: int = 1\n");
+        const r = hook("typecheck.sh", { session_id: "t-10", ...edit("app/clean.py") });
+        expect(r.status).toBe(0);
+        expect(r.stderr).toBe("");
+      }),
     T,
   );
 
@@ -1094,22 +1128,22 @@ describe("Stop", () => {
   );
 
   /**
-   * Advisory checks (§10.6) report something Claude may have a reason to leave as
+   * Advisory checks (§10.7) report something Claude may have a reason to leave as
    * it is: they block Stop once, and the next Stop of the same turn passes.
    */
   /** @rule python/pytest/untested-change */
   test(
     "an advisory check blocks Stop once per turn: the next Stop of the same turn passes, a new prompt re-arms it, pre-commit does not run it",
     () => {
-      hook("turn-start.sh", { session_id: "t-12" });
+      hook("turn-start.sh", { session_id: "t-14" });
       put(repo, "app/ok.py", "X = 1\n");
-      const reason = JSON.parse(hook("stop.sh", { session_id: "t-12" }).stdout).reason;
+      const reason = JSON.parse(hook("stop.sh", { session_id: "t-14" }).stdout).reason;
       expect(reason).toContain("forge:python/pytest/untested-change failed\nYou changed behaviour in app/ok.py without adding or updating a test");
-      expect(hook("stop.sh", { session_id: "t-12" }).stdout).toBe("");
+      expect(hook("stop.sh", { session_id: "t-14" }).stdout).toBe("");
       expect(sh("sh", [".forge/check.sh", "--changed"], { cwd: repo }).stdout).not.toContain("untested-change");
-      hook("turn-start.sh", { session_id: "t-12" });
+      hook("turn-start.sh", { session_id: "t-14" });
       put(repo, "app/ok.py", "X = 2\n");
-      expect(JSON.parse(hook("stop.sh", { session_id: "t-12" }).stdout).reason).toContain("forge:python/pytest/untested-change failed");
+      expect(JSON.parse(hook("stop.sh", { session_id: "t-14" }).stdout).reason).toContain("forge:python/pytest/untested-change failed");
       reset();
     },
     T,
