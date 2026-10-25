@@ -13,7 +13,7 @@ import { describe, expect, test } from "bun:test";
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { lineage, loadPacks } from "../../src/packs";
+import { detectAnywhere, lineage, loadPacks, readProjectFacts, workspaceDirs } from "../../src/packs";
 import { plan, readProjectInputs } from "../../src/plan";
 import { renderLib } from "../../src/render";
 import { parseStrictYaml } from "../../src/yaml";
@@ -276,8 +276,33 @@ describe("workspaces", () => {
     expect(vue.active.find((s) => s.rule.id === "typescript/vue/no-v-html")!.enforced).toEqual(["grep forbid (.forge/check.sh) (in packages/web)"]);
   });
 
-  test("without a workspace declaration, packages/* are read", () => {
-    expect(planOf(inDir("packages/lib", TS)).packs.map((x) => x.id)).toEqual(["typescript", "typescript/vitest"]);
+  test("lerna.json declares packages (packages/* by default); without any declaration the repository has no workspace packages", () => {
+    expect(planOf({ "lerna.json": "{}\n", ...inDir("packages/lib", TS) }).packs.map((x) => x.id)).toEqual(["typescript", "typescript/vitest"]);
+    expect(planOf({ "lerna.json": '{"packages": ["modules/*"]}\n', ...inDir("modules/lib", TS) }).packs.map((x) => x.id)).toEqual(["typescript", "typescript/vitest"]);
+    expect(planOf({ "pyproject.toml": '[project]\nname = "app"\n', ...inDir("packages/lib", TS) }).packs.map((x) => x.id)).toEqual(["python"]);
+  });
+
+  test("an exclusion like !**/test/** also excludes a package directory named test", () => {
+    const files = ["packages/test/package.json", "packages/core/package.json"];
+    const repo = mkdtempSync(join(tmpdir(), "forge-ws-"));
+    put(repo, "pnpm-workspace.yaml", "packages: ['packages/*', '!**/test/**']\n");
+    expect(workspaceDirs(repo, files)).toEqual(["packages/core"]);
+  });
+
+  /** 1,500 packages of 200 files: detection reads the file list once, not once per package. */
+  test("detection on a large monorepo takes well under a few seconds", () => {
+    const files = ["package.json"];
+    for (let i = 1; i <= 1500; i++) {
+      files.push(`packages/p${i}/package.json`);
+      for (let j = 0; j < 200; j++) files.push(`packages/p${i}/src/f${j}.ts`);
+    }
+    const repo = mkdtempSync(join(tmpdir(), "forge-big-"));
+    put(repo, "package.json", '{"name": "r", "private": true, "workspaces": ["packages/*"]}\n');
+    const t = performance.now();
+    const facts = readProjectFacts(repo, () => files);
+    for (const p of PACKS.values()) detectAnywhere(p, facts);
+    expect(facts.workspaces.length).toBe(1500);
+    expect(performance.now() - t).toBeLessThan(3000);
   });
 
   /** @rule typescript/vue/typecheck */

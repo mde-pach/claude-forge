@@ -259,25 +259,48 @@ export function workspaceDirs(repo: string, files: string[]): string[] {
   const uv = existsSync(join(repo, "pyproject.toml")) ? readTomlFile(join(repo, "pyproject.toml"))?.tool?.uv?.workspace : undefined;
   add(uv?.members);
   if (Array.isArray(uv?.exclude)) for (const g of uv.exclude) if (typeof g === "string") exclude.push(g.replace(/^\.\//, "").replace(/\/+$/, ""));
-  if (!include.length) include.push("packages/*");
+  // Lerna declares its packages in lerna.json (default packages/*); without any declaration the repository has none
+  const lerna = existsSync(join(repo, "lerna.json")) ? readJson(join(repo, "lerna.json")) : undefined;
+  if (lerna) add(Array.isArray(lerna.packages) ? lerna.packages : ["packages/*"]);
   const dirs = new Set<string>();
   for (const f of files) {
     const m = /^(.+)\/(?:package\.json|pyproject\.toml)$/.exec(f);
     // check.sh lists package directories in a word list: names with spaces or quotes are left out
     if (!m || /(^|\/)node_modules\//.test(f) || !/^[A-Za-z0-9._@+\/-]+$/.test(m[1]!)) continue;
     const dir = m[1]!;
-    if (include.some((g) => globMatch(g, dir)) && !exclude.some((g) => globMatch(g, dir))) dirs.add(dir);
+    // an exclusion like "**/test/**" also excludes the test directory itself
+    if (include.some((g) => globMatch(g, dir)) && !exclude.some((g) => globMatch(g, dir) || globMatch(g, dir + "/"))) dirs.add(dir);
   }
   return [...dirs].sort();
+}
+
+/**
+ * Each file under the workspace packages holding it (nested packages: each of them), relative
+ * to the package, and under "" the files outside every package; one pass over the file list.
+ */
+function filesByPackage(files: string[], dirs: string[]): Map<string, string[]> {
+  const out = new Map<string, string[]>([["", []], ...dirs.map((d): [string, string[]] => [d, []])]);
+  const set = new Set(dirs);
+  for (const f of files) {
+    let inPackage = false;
+    for (let i = f.indexOf("/"); i > 0; i = f.indexOf("/", i + 1)) {
+      const d = f.slice(0, i);
+      if (set.has(d)) {
+        out.get(d)!.push(f.slice(i + 1));
+        inPackage = true;
+      }
+    }
+    if (!inPackage) out.get("")!.push(f);
+  }
+  return out;
 }
 
 export function readProjectFacts(repo: string, listFiles: () => string[]): ProjectFacts {
   const files = listFiles();
   const wsDirs = workspaceDirs(repo, files);
+  const own = filesByPackage(files, wsDirs);
   // a manage.py makes its own package a Django site (the root: one outside the workspace packages)
-  const managePy = files.filter((f) => f === "manage.py" || f.endsWith("/manage.py"));
-  const under = (dir: string, f: string) => f.startsWith(dir + "/");
-  const hasManagePy = (dir: string) => managePy.some((f) => (dir ? under(dir, f) : !wsDirs.some((d) => under(d, f))));
+  const hasManagePy = (dir: string) => own.get(dir)!.some((f) => f === "manage.py" || f.endsWith("/manage.py"));
   const published = publishSignals(repo, files);
   const { npm, pypi, library } = readDeps(repo, true, hasManagePy(""), published);
   const bunLock = join(repo, "bun.lock");
@@ -307,9 +330,18 @@ export function readProjectFacts(repo: string, listFiles: () => string[]): Proje
   };
   resolve({ npm, pypi });
   // the root's files are those outside the workspace packages: a file belongs to its package
-  const matcher = (prefix: string) => {
-    const mine = prefix ? files.filter((f) => f.startsWith(prefix + "/")).map((f) => f.slice(prefix.length + 1)) : files.filter((f) => !wsDirs.some((d) => under(d, f)));
-    return (glob: string) => mine.some((f) => globMatch(glob, f));
+  const matcher = (dir: string) => {
+    const mine = own.get(dir)!;
+    const seen = new Map<string, boolean>();
+    return (glob: string) => {
+      let hit = seen.get(glob);
+      if (hit === undefined) {
+        const re = globToRegExp(glob);
+        hit = mine.some((f) => re.test(f));
+        seen.set(glob, hit);
+      }
+      return hit;
+    };
   };
   const root: DepFacts = { npm, pypi, library, files: matcher("") };
   const workspaces: WorkspaceFacts[] = wsDirs.map((dir) => {
@@ -357,10 +389,16 @@ export function detectPack(pack: Pack, facts: DepFacts): boolean {
 
 const globCache = new Map<string, RegExp>();
 
-/** Glob to RegExp: `**` spans directories, `*` and `?` stay within one segment, `{a,b}` alternation. */
+/** Glob to RegExp: `**` spans directories, `*` and `?` stay within one segment, `{a,b}` alternation (nested, and holding any of these). */
 export function globToRegExp(glob: string): RegExp {
   let re = globCache.get(glob);
   if (re) return re;
+  re = new RegExp(`^${globSource(glob)}$`);
+  globCache.set(glob, re);
+  return re;
+}
+
+function globSource(glob: string): string {
   let out = "";
   for (let i = 0; i < glob.length; i++) {
     const c = glob[i]!;
@@ -374,18 +412,30 @@ export function globToRegExp(glob: string): RegExp {
       } else out += "[^/]*";
     } else if (c === "?") out += "[^/]";
     else if (c === "{") {
-      const end = glob.indexOf("}", i);
-      out += `(?:${glob
-        .slice(i + 1, end)
-        .split(",")
-        .map((s) => s.replace(/[.+^$()|[\]\\]/g, "\\$&").replace(/\*/g, "[^/]*"))
-        .join("|")})`;
+      // the matching brace, and the alternatives split at depth 0
+      const alts: string[] = [];
+      let depth = 0;
+      let start = i + 1;
+      let end = -1;
+      for (let k = i + 1; k < glob.length && end < 0; k++) {
+        if (glob[k] === "{") depth++;
+        else if (glob[k] === "}" && depth > 0) depth--;
+        else if (glob[k] === "}") end = k;
+        else if (glob[k] === "," && depth === 0) {
+          alts.push(glob.slice(start, k));
+          start = k + 1;
+        }
+      }
+      if (end < 0) {
+        out += "\\{";
+        continue;
+      }
+      alts.push(glob.slice(start, end));
+      out += `(?:${alts.map(globSource).join("|")})`;
       i = end;
     } else out += c.replace(/[.+^$()|[\]\\]/g, "\\$&");
   }
-  re = new RegExp(`^${out}$`);
-  globCache.set(glob, re);
-  return re;
+  return out;
 }
 
 export function globMatch(glob: string, path: string): boolean {
