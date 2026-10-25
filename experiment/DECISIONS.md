@@ -98,3 +98,10 @@ better-auth's development setup starts 10 database services with docker-compose:
 - Each trial now checks, before the agent starts, that bubblewrap can start a sandbox that mounts `/proc` (both arms). It also records `sandbox_failures` and `sandbox_bypass_calls` from the transcript.
 - The full pre-registered design (same frozen dataset v1, same arms, same 3 replicates, same analysis) runs again as **Run B** in `results/raw/main_b/`. Run B is the primary result.
 - Nothing else changes. No Run A outcome was used to change anything. The flaw was found by reading a transcript for the new trial-detail view, and Run A's interim outcomes were nearly identical between the arms.
+
+## D18. A third arm, `forge-fixed`, on the tasks affected by F1 (requested by the user)
+The user asked for the F1 bug (FINDINGS.md) to be fixed in Forge with a test, and for the affected trials to be re-run. This overrides the original rule "don't modify Forge", for this arm only.
+- **The fix.** Commit `d3008b6`: `forge_diagnostics` strips ANSI colour sequences before attributing diagnostics. Its spec test runs the real tsc 5.5.4 with `"pretty": true`, and fails without the fix (`tests/spec/10-check.test.ts`). The project-hooks tests now run the real basedpyright instead of a stand-in.
+- **The primary comparison is unchanged.** Run B's `forge` arm keeps the pinned Forge `091c0d3`, so the primary result still measures Forge as shipped.
+- **The additional arm.** `forge-fixed` (package sha256 `2fd6ef91…`) runs on the affected tasks: all 10 zod tasks × 3 replicates, the only repository whose tsc colours its output (zod's `.configs/tsconfig.base.json` sets `"pretty": true`). Results go to `results/raw/main_b_fixed/`. It is compared with Run B's baseline and forge arms on the same tasks, as a secondary analysis. Everything else is identical: image, container settings, model, CLI and parity check.
+- **No other repository is affected by F1.** A diagnostic stays attributable when the tool does not colour it: ruff, basedpyright, Biome, and tsc 5.x without `pretty`.

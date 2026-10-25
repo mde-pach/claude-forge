@@ -26,7 +26,8 @@ CLAUDE_BIN = "/opt/claude-code/bin/claude"
 AUTH_SRC = "/home/claude/.claude/remote/.oauth_token"
 AUTH_DIR = "/work/auth/remote"  # per-run copy readable by uid 1000, refreshed before each trial
 CA = "/root/.ccr/ca-bundle.crt"
-FORGE_PKG = "/work/forge-pkg.tar"
+FORGE_PKG = "/work/forge-pkg.tar"  # pinned Forge (arm "forge")
+FORGE_PKG_FIXED = "/work/forge-pkg-fixed.tar"  # Forge with the F1 fix (arm "forge-fixed", DECISIONS D18)
 TIMEOUT_S = PINS["trial_timeout_s"]
 SCRATCH = "/work/runs"
 
@@ -160,8 +161,8 @@ def prepare(name, task, repo, arm, logs_dir):
     root_exec(name, "cat > /home/dev/.claude.json && chown dev:dev /home/dev/.claude.json", input_=json.dumps(cfg))
 
 
-def apply_forge(name, env, logs_dir):
-    with open(FORGE_PKG, "rb") as f:
+def apply_forge(name, env, logs_dir, pkg=FORGE_PKG):
+    with open(pkg, "rb") as f:
         r = subprocess.run(["docker", "exec", "-i", "-u", "root", name, "sh", "-c",
                             "mkdir -p /tmp/forge && tar -xf - -C /tmp/forge && chown -R dev:dev /tmp/forge"],
                            stdin=f, capture_output=True, text=True)
@@ -286,7 +287,7 @@ def score(task, task_dir, diff_text, logs_dir, name):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("task_dir")
-    ap.add_argument("arm", choices=["baseline", "forge"])
+    ap.add_argument("arm", choices=["baseline", "forge", "forge-fixed"])
     ap.add_argument("rep", type=int)
     ap.add_argument("run_dir")
     ap.add_argument("--attempt", type=int, default=1)
@@ -306,7 +307,8 @@ def main():
     name, sname = "trial-" + tag, "score-" + tag
     meta = {"task_id": task["task_id"], "repo": task["repo"], "arm": a.arm, "rep": a.rep, "attempt": a.attempt,
             "status": None, "infra_reason": None, "model": PINS["model"], "claude_version": PINS["claude_version"],
-            "forge_commit": PINS["forge_commit"], "started": time.time()}
+            "forge_commit": PINS["forge_fixed_commit"] if a.arm == "forge-fixed" else PINS["forge_commit"],
+            "started": time.time()}
     env = agent_env(repo)
     argv = claude_argv(PINS["model"])
     try:
@@ -330,8 +332,8 @@ def main():
             parity["reference"] = why
             if not ok:
                 raise classify.Parity(why)
-            if a.arm == "forge":
-                apply_forge(name, env, logs_dir)
+            if a.arm in ("forge", "forge-fixed"):
+                apply_forge(name, env, logs_dir, FORGE_PKG_FIXED if a.arm == "forge-fixed" else FORGE_PKG)
                 fp_post = fingerprint(name)
                 owned, side, other = classify_paths(fp_diff(fp_pre, fp_post))
                 parity.update({"forge_owned_changed": owned, "forge_side_effects": side, "unexpected": other})

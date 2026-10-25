@@ -32,6 +32,9 @@ def sha_tree(d):
     return h.hexdigest()
 
 
+ARMS = ("baseline", "forge")
+
+
 def schedule(task_ids, reps, seed):
     """Replicate-major order; tasks shuffled per replicate; arm order per (task, rep) by coin flip."""
     order = []
@@ -40,7 +43,7 @@ def schedule(task_ids, reps, seed):
         ts = sorted(task_ids)
         rng.shuffle(ts)
         for t in ts:
-            arms = ["baseline", "forge"]
+            arms = list(ARMS)
             if rng.random() < 0.5:
                 arms.reverse()
             order += [(t, arm, rep) for arm in arms]
@@ -80,6 +83,7 @@ def main():
     ap.add_argument("--jobs", type=int, default=4)
     ap.add_argument("--reps", type=int, default=PINS["replicates"])
     ap.add_argument("--only", default="")
+    ap.add_argument("--arms", default="baseline,forge", help="comma list; forge-fixed is the D18 arm")
     a = ap.parse_args()
     man = json.load(open(a.manifest))
     # the frozen dataset must be unchanged
@@ -95,6 +99,8 @@ def main():
     repo_of = {t["task_id"]: t["repo"] for t in man["tasks"]}
     if a.only:
         ids = [i for i in ids if i in a.only.split(",")]
+    global ARMS
+    ARMS = tuple(a.arms.split(","))
     order = schedule(ids, a.reps, PINS["seed"])
     stop = threading.Event()
 
