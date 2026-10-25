@@ -12498,6 +12498,18 @@ valid:
     def test_charge(fake_gateway) -> None:
         charge(gateway=fake_gateway)
         assert fake_gateway.charged == 1
+  - |
+    def test_debug(monkeypatch) -> None:
+        monkeypatch.setattr(settings, "DEBUG", True)
+        monkeypatch.setitem(app.config, "TESTING", True)
+        assert debug_page().status_code == 200
+  - |
+    from requests import Session as S
+
+
+    def test_session() -> None:
+        s = S()
+        assert s.patch is not None
 invalid:
   - |
     from unittest.mock import patch
@@ -12518,9 +12530,45 @@ invalid:
         mocker.patch.object(Billing, "pay")
         charge()
   - |
-    def test_charge(monkeypatch) -> None:
-        monkeypatch.setattr(billing, "pay", lambda: None)
+    from unittest.mock import patch as p
+
+
+    def test_charge() -> None:
+        with p("app.billing.stripe"):
+            charge()
+  - |
+    import unittest.mock as um
+
+
+    def test_charge() -> None:
+        with um.patch.object(Billing, "pay"):
+            charge()
+  - |
+    from unittest import mock as m
+
+
+    def test_charge() -> None:
+        gateway = m.MagicMock()
+        charge(gateway)
+  - |
+    from unittest.mock import create_autospec
+
+
+    def test_charge() -> None:
+        gateway = create_autospec(Gateway)
+        charge(gateway)
+  - |
+    from unittest.mock import patch
+
+
+    def test_charge() -> None:
+        with patch.multiple("app.billing", pay=None, refund=None):
+            charge()
+  - |
+    def test_charge(mocker) -> None:
+        spy = mocker.spy(billing, "pay")
         charge()
+        assert spy.call_count == 1
 
 ===== .forge/ast-grep/rule-tests/python-pytest-no-new-skip-test.yml
 id: python/pytest/no-new-skip
@@ -12811,16 +12859,85 @@ rule:
 id: python/pytest/no-mock-increase
 language: Python
 severity: error
-message: forge:python/pytest/no-mock-increase A test file may not gain mocks (patch, patch.object, MagicMock, AsyncMock, monkeypatch.setattr); test through the real code or a fake at the boundary.
+message: "forge:python/pytest/no-mock-increase A test file may not gain mocks: unittest.mock's patch (patch.object, patch.dict, patch.multiple), Mock, MagicMock, AsyncMock, NonCallableMock, create_autospec, under their names or an import alias (from unittest.mock import patch as p, import unittest.mock as um), and pytest-mock's mocker.patch*, mocker.spy, mocker.stub and mocker.Mock*; test through the real code or a fake at the boundary. monkeypatch (setattr, setenv, setitem) is not counted: it is pytest's way to set configuration for a test."
 files:
   - "**/test_*.py"
   - "**/*_test.py"
   - "**/conftest.py"
 rule:
   kind: call
-  has:
-    field: function
-    regex: ^(((unittest\.)?mock\.|mocker\.)?(patch|patch\.object|patch\.dict|MagicMock|AsyncMock|Mock)|monkeypatch\.setattr)$
+  any:
+    - has:
+        field: function
+        regex: ^(((unittest\.)?mock\.)?(patch(\.object|\.dict|\.multiple)?|Mock|MagicMock|AsyncMock|NonCallableMock|NonCallableMagicMock|create_autospec)|mocker\.(patch(\.object|\.dict|\.multiple)?|spy|stub|async_stub|Mock|MagicMock|AsyncMock|NonCallableMock|create_autospec))$
+    - all:
+        - has:
+            field: function
+            kind: identifier
+            pattern: $F
+        - inside:
+            kind: module
+            stopBy: end
+            has:
+              kind: import_from_statement
+              all:
+                - has:
+                    field: module_name
+                    regex: ^(unittest\.)?mock$
+                - has:
+                    kind: aliased_import
+                    all:
+                      - has:
+                          field: name
+                          regex: ^(patch|Mock|MagicMock|AsyncMock|NonCallableMock|NonCallableMagicMock|create_autospec)$
+                      - has:
+                          field: alias
+                          pattern: $F
+    - all:
+        - has:
+            field: function
+            kind: attribute
+            regex: ^[A-Za-z_][A-Za-z0-9_]*\.(patch(\.object|\.dict|\.multiple)?|Mock|MagicMock|AsyncMock|NonCallableMock|NonCallableMagicMock|create_autospec)$
+            any:
+              - has:
+                  field: object
+                  kind: identifier
+                  pattern: $M
+              - has:
+                  field: object
+                  has:
+                    field: object
+                    kind: identifier
+                    pattern: $M
+        - inside:
+            kind: module
+            stopBy: end
+            has:
+              any:
+                - kind: import_statement
+                  has:
+                    kind: aliased_import
+                    all:
+                      - has:
+                          field: name
+                          regex: ^(unittest\.)?mock$
+                      - has:
+                          field: alias
+                          pattern: $M
+                - kind: import_from_statement
+                  all:
+                    - has:
+                        field: module_name
+                        regex: ^unittest$
+                    - has:
+                        kind: aliased_import
+                        all:
+                          - has:
+                              field: name
+                              regex: ^mock$
+                          - has:
+                              field: alias
+                              pattern: $M
 
 ===== .forge/ast-grep/rules/python/pytest/no-new-skip.yml
 # Generated by forge from python/pytest/no-new-skip (mode: no-increase).
@@ -16736,7 +16853,7 @@ exit "$fail"
     "python/pydantic/v2-api": "530f46e310f2bd30f6347d75b3a2243922cb5aeef921df69c2314e399473e4eb",
     "python/pytest/no-blind-raises": "5e4380936ff598117305786c79894401af219e7a4e3514aa1bfbf603228b3277",
     "python/pytest/no-fewer-asserts": "3fa20da5240c91db137cfaad8d04235b2c15fc7bc40d772682edc2618c74cb4f",
-    "python/pytest/no-mock-increase": "545fda5c30eadaaf787516cd0b223b47d831ae9654c7936d1e44d930c4d43027",
+    "python/pytest/no-mock-increase": "581e817cf8c273db97466114eca7fc2df36a999e9963bea0e54c7916f084637e",
     "python/pytest/no-new-skip": "622053f8e74b1be32ce8517667af5acd7e695150a44641d46224e7f523165ffe",
     "python/pytest/no-tautological-assert": "2842d4fd3c1adbace9a3cb54d1d7e484452bda967f076f53579db34e9fbbd189",
     "python/pytest/no-test-edits": "eb5da7f485e8aecf731031044ef620ce1907b2b034c5867cdc9516bdd62f2917",
@@ -16792,7 +16909,7 @@ exit "$fail"
     ".forge/ast-grep/rule-tests/python-no-stub-test.yml": "caa135cd54c3f53d5d2fbb85c518a2e94d263fd9a4860a63d224c7187432275b",
     ".forge/ast-grep/rule-tests/python-pydantic-v2-api-test.yml": "190345231426a2518af45845d7e40c71d9a4cc0f68b656a91b17fb10156c4f0c",
     ".forge/ast-grep/rule-tests/python-pytest-no-fewer-asserts-test.yml": "09250fc39904625fa6b9fbf8e680592026afa92b309bb44978ceced953e85443",
-    ".forge/ast-grep/rule-tests/python-pytest-no-mock-increase-test.yml": "bdcecbe09c26b3ed57c9fe587884a50f476a85b964cec2309cc49293c0cab13d",
+    ".forge/ast-grep/rule-tests/python-pytest-no-mock-increase-test.yml": "66adc9b375c0fe1f6fe6554d9679e0ffbe286bad6d5f8879c0d894c8837e3cf1",
     ".forge/ast-grep/rule-tests/python-pytest-no-new-skip-test.yml": "90b83caced6f255771a83c90da08e127fc52f2a1340d1749b81440a896d960f5",
     ".forge/ast-grep/rule-tests/python-pytest-no-tautological-assert-test.yml": "96cfb1aacfb5a86d5c235bd2a619a8ec518697943eefd02a6088d3486b9bc255",
     ".forge/ast-grep/rule-tests/python-pytest-no-test-env-branch-test.yml": "b6b6511eb85b39a21fbfa8473e4c6c0b3a247493989c35b12ff669f142ba4ea9",
@@ -16808,7 +16925,7 @@ exit "$fail"
     ".forge/ast-grep/rules/python/no-stub.yml": "0660a06b80fa4e3cccbc89f496275e8f093b873632d1d93ecb48e4315d987bbf",
     ".forge/ast-grep/rules/python/pydantic/v2-api.yml": "0285c193f340cfebcfd12ac21c1b8a21b96bea3970e1cbd8dd48aca0b1af5776",
     ".forge/ast-grep/rules/python/pytest/no-fewer-asserts.yml": "6a5651b8e53b3fcd6d075650f3e52439916dde0d825bba80f5db0c5a9f3e1363",
-    ".forge/ast-grep/rules/python/pytest/no-mock-increase.yml": "a1d87a192db3f5794040135eaea5217d6d253ea47198315d980afb884b1a7692",
+    ".forge/ast-grep/rules/python/pytest/no-mock-increase.yml": "7263cfd0177902c44c2e9cf3836d2447260580371e0d7b75b556888a62ab8c30",
     ".forge/ast-grep/rules/python/pytest/no-new-skip.yml": "882b64b10b0c388c6bb23fdc688690f8bf530c0f57fee012254572dbf7afe422",
     ".forge/ast-grep/rules/python/pytest/no-tautological-assert.yml": "7de47e969bf4614418e4b8b5ebec4e2aed80b2dceb35b6f29d406d39de54b0a0",
     ".forge/ast-grep/rules/python/pytest/no-test-env-branch.yml": "8876a2eb9e568b666a50631bc5629de93ec3a7804fed41f2e90507017f64ba13",
@@ -16888,7 +17005,7 @@ fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3  .claude/skills
 caa135cd54c3f53d5d2fbb85c518a2e94d263fd9a4860a63d224c7187432275b  .forge/ast-grep/rule-tests/python-no-stub-test.yml
 190345231426a2518af45845d7e40c71d9a4cc0f68b656a91b17fb10156c4f0c  .forge/ast-grep/rule-tests/python-pydantic-v2-api-test.yml
 09250fc39904625fa6b9fbf8e680592026afa92b309bb44978ceced953e85443  .forge/ast-grep/rule-tests/python-pytest-no-fewer-asserts-test.yml
-bdcecbe09c26b3ed57c9fe587884a50f476a85b964cec2309cc49293c0cab13d  .forge/ast-grep/rule-tests/python-pytest-no-mock-increase-test.yml
+66adc9b375c0fe1f6fe6554d9679e0ffbe286bad6d5f8879c0d894c8837e3cf1  .forge/ast-grep/rule-tests/python-pytest-no-mock-increase-test.yml
 90b83caced6f255771a83c90da08e127fc52f2a1340d1749b81440a896d960f5  .forge/ast-grep/rule-tests/python-pytest-no-new-skip-test.yml
 96cfb1aacfb5a86d5c235bd2a619a8ec518697943eefd02a6088d3486b9bc255  .forge/ast-grep/rule-tests/python-pytest-no-tautological-assert-test.yml
 b6b6511eb85b39a21fbfa8473e4c6c0b3a247493989c35b12ff669f142ba4ea9  .forge/ast-grep/rule-tests/python-pytest-no-test-env-branch-test.yml
@@ -16904,7 +17021,7 @@ b6ad70dac48994e60453edd07d73a3669d26b21954b227be8177a7a98426baa0  .forge/ast-gre
 0660a06b80fa4e3cccbc89f496275e8f093b873632d1d93ecb48e4315d987bbf  .forge/ast-grep/rules/python/no-stub.yml
 0285c193f340cfebcfd12ac21c1b8a21b96bea3970e1cbd8dd48aca0b1af5776  .forge/ast-grep/rules/python/pydantic/v2-api.yml
 6a5651b8e53b3fcd6d075650f3e52439916dde0d825bba80f5db0c5a9f3e1363  .forge/ast-grep/rules/python/pytest/no-fewer-asserts.yml
-a1d87a192db3f5794040135eaea5217d6d253ea47198315d980afb884b1a7692  .forge/ast-grep/rules/python/pytest/no-mock-increase.yml
+7263cfd0177902c44c2e9cf3836d2447260580371e0d7b75b556888a62ab8c30  .forge/ast-grep/rules/python/pytest/no-mock-increase.yml
 882b64b10b0c388c6bb23fdc688690f8bf530c0f57fee012254572dbf7afe422  .forge/ast-grep/rules/python/pytest/no-new-skip.yml
 7de47e969bf4614418e4b8b5ebec4e2aed80b2dceb35b6f29d406d39de54b0a0  .forge/ast-grep/rules/python/pytest/no-tautological-assert.yml
 8876a2eb9e568b666a50631bc5629de93ec3a7804fed41f2e90507017f64ba13  .forge/ast-grep/rules/python/pytest/no-test-env-branch.yml
