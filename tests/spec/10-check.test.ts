@@ -15,7 +15,9 @@ import { join } from "node:path";
 import { applied, commitAll, ensureTools, forge, git, hasBun, hasUv, linkTools, linkTs5, put, ROOT, sampleRepo, sh, TOOL_VERSIONS, TOOLS_CACHE } from "../helpers";
 import { loadPacks } from "../../src/packs";
 import { checkTools, renderChecks } from "../../src/render";
+import { insertBlock, removeBlock } from "../../src/precommit";
 import { runCheckExample } from "../../src/selftest";
+import { parse as parseYaml } from "yaml";
 import type { CheckTarget } from "../../src/types";
 
 const T = 180_000;
@@ -490,6 +492,59 @@ describe("pre-commit", () => {
     },
     T,
   );
+
+  test(
+    "remove leaves a block whose end marker was deleted (and the user's lines after it), and exits 1",
+    () => {
+      const r = sampleRepo("eslint-app");
+      put(r, ".husky/pre-commit", "npx lint-staged\n");
+      commitAll(r, "manager");
+      expect(forge(["apply", "--yes"], r).status).toBe(0);
+      const broken = readFileSync(join(r, ".husky/pre-commit"), "utf8").replace("# forge: end\n", "") + "echo important\n";
+      put(r, ".husky/pre-commit", broken);
+      const rm = forge(["remove", "--yes"], r);
+      expect(rm.status).toBe(1);
+      expect(rm.stderr).toContain("forge: .husky/pre-commit: forge's pre-commit block cannot be removed safely");
+      expect(readFileSync(join(r, ".husky/pre-commit"), "utf8")).toBe(broken);
+    },
+    T,
+  );
+
+  /**
+   * In a config Forge created, its block holds the parent keys (`repos:`,
+   * `pre-commit:` / `commands:`); entries the user added below the block belong
+   * to them, so remove keeps those keys. A removal that would change anything
+   * else in a YAML config is refused.
+   */
+  test.each([
+    ["pre-commit", "- repo: https://github.com/astral-sh/ruff-pre-commit\n  rev: v0.6.0\n  hooks:\n    - id: ruff\n", { repos: [{ repo: "https://github.com/astral-sh/ruff-pre-commit", rev: "v0.6.0", hooks: [{ id: "ruff" }] }] }],
+    ["lefthook", "    lint:\n      run: eslint\n", { "pre-commit": { commands: { lint: { run: "eslint" } } } }],
+  ] as const)("%s: entries added under the parent keys Forge created survive remove", (kind, added, expected) => {
+    const created = insertBlock(kind, undefined)!;
+    const after = removeBlock(kind, created + added);
+    expect(after).toBeDefined();
+    expect(parseYaml(after!)).toEqual(expected);
+    expect(removeBlock(kind, created)!.trim()).toBe("");
+    // an entry added inside the block cannot be removed with it
+    const inside = created.replace("# forge: end", "    - id: mine\n# forge: end");
+    if (kind === "pre-commit") expect(removeBlock(kind, inside)).toBeUndefined();
+  });
+
+  test("a shell hook gets the check before the first exec/exit at the top level, not one inside an if, case or function", () => {
+    const at = (text: string) => insertBlock("husky", text)!.split("\n").indexOf("sh .forge/check.sh --changed || exit 1");
+    expect(at("if [ -n \"$CI\" ]; then\nexit 0\nfi\nnpx lint-staged\n")).toBe(5);
+    expect(at("case $1 in\n  x) exit 0 ;;\nesac\nf() {\nexit 1\n}\nexec npx lint-staged\n")).toBe(7);
+    expect(at("echo 'if you see this'\nexit 0\n")).toBe(2);
+  });
+
+  test("a CRLF config keeps CRLF line ends, and remove restores it exactly", () => {
+    const text = "repos:\r\n  - repo: local\r\n    hooks:\r\n      - id: a\r\n        name: a\r\n        entry: a\r\n        language: system\r\n";
+    const after = insertBlock("pre-commit", text)!;
+    expect(after.replace(/\r\n/g, "")).not.toContain("\n");
+    expect(removeBlock("pre-commit", after)).toBe(text);
+    const hook = "npx lint-staged\r\n";
+    expect(removeBlock("husky", insertBlock("husky", hook)!)).toBe(hook);
+  });
 
   test(
     "an existing pre-commit hook is never touched, by apply or by remove",

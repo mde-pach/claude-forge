@@ -659,12 +659,16 @@ function cmdRemove(flags: Flags): number {
   const files = Object.keys(lock.files).filter((f) => existsSync(join(base, f)));
   // Forge's blocks in hook managers' files: removed; a file Forge created goes when nothing else is left
   const blocks: { block: LockBlock; before: string; after?: string }[] = [];
+  const stuck: string[] = [];
   for (const b of lock.blocks) {
     const before = readText(join(base, b.file));
     if (before === undefined || !hasBlock(before)) continue;
-    const after = removeBlock(before);
-    blocks.push({ block: b, before, after: b.created && onlyForge(after) ? undefined : after });
+    const after = removeBlock(b.kind, before);
+    if (after === undefined) stuck.push(b.file);
+    else blocks.push({ block: b, before, after: b.created && onlyForge(after) ? undefined : after });
   }
+  // a block whose markers were edited, or whose removal would change the rest of the config, is left to the user
+  for (const f of stuck) err(`forge: ${f}: forge's pre-commit block cannot be removed safely (its begin/end markers were changed, or entries were added inside it); remove the lines between "# forge: begin" and "# forge: end" yourself`);
   if (flags.dryRun) {
     for (const f of [...files, lockPath, ...(level === "project" && existsSync(join(base, MANIFEST_PATH)) ? [MANIFEST_PATH] : [])]) out(`--- ${f} (deleted)`);
     for (const [file, s] of settings) process.stdout.write(lineDiff(s.before, s.after ?? "", s.after === undefined ? `${file} (deleted)` : file));
@@ -702,7 +706,7 @@ function cmdRemove(flags: Flags): number {
   out(
     `forge: removed ${files.length} file(s) and ${lock.settings.length} settings entr${lock.settings.length === 1 ? "y" : "ies"}${blocks.length ? `, and the pre-commit block from ${blocks.map((b) => b.block.file).join(", ")}` : ""}`,
   );
-  return 0;
+  return stuck.length ? 1 : 0;
 }
 
 function cmdInit(flags: Flags): number {
