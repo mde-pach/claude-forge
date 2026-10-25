@@ -1,0 +1,35 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/inngest/src/components/InngestStepTools.test.ts::sleep > rounds sub-second number of milliseconds up to 1s",
+   "action": "keep",
+   "reason": "The instruction names this outcome (an op with name \"1s\") and the test checks it through the public step API."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestStepTools.test.ts::waitForEvent > round sub-second number `timeout` up to 1s",
+   "action": "keep",
+   "reason": "The instruction names this outcome (opts.timeout of \"1s\") and the test checks it through the public step API."
+  },
+  {
+   "id": "packages/inngest/src/helpers/strings.test.ts::timeStr > sub-second durations > fractional sub-second durations also round up to 1s",
+   "action": "keep",
+   "reason": "The instruction names timeStr and gives 999.6 and 0.4 \u2192 \"1s\" as required outputs."
+  },
+  {
+   "id": "packages/inngest/src/helpers/strings.test.ts::timeStr > sub-second durations > never returns an empty string for durations of at least 1ms",
+   "action": "keep",
+   "reason": "The instruction explicitly requires that a positive duration of at least 1 ms never produces \"\", which is observable from timeStr."
+  },
+  {
+   "id": "packages/inngest/src/helpers/strings.test.ts::timeStr > sub-second durations > rounds sub-second values up to 1s instead of dropping them",
+   "action": "keep",
+   "reason": "The instruction lists these exact inputs and outputs for the named timeStr helper."
+  },
+  {
+   "id": "packages/inngest/src/helpers/strings.test.ts::timeStr > sub-second durations > warns once per process when a logger is given and the clamp fires",
+   "action": "keep",
+   "reason": "The logger is a boundary double passed through the parameter the instruction specifies, and the warn arguments, the 'round up to 1s' phrase and the once-only behaviour are all specified."
+  }
+ ],
+ "edits": []
+}

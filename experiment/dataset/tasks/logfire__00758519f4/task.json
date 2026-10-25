@@ -1,0 +1,53 @@
+{
+ "task_id": "logfire__00758519f4",
+ "repo": "logfire",
+ "commit": "00758519f429b5686ecc674577a9c32b3bdbc3ad",
+ "parent": "968aef4d48a992b6c818b7633736c02b476610ed",
+ "date": "2026-08-01T21:49:06+00:00",
+ "subject": "Raise an error instead of asserting on unexpected query API responses (#2166)",
+ "type": "other",
+ "source_files": [
+  "logfire/experimental/query_client.py",
+  "logfire/query_client.py"
+ ],
+ "test_files": [
+  "tests/test_query_client_errors.py"
+ ],
+ "hidden_deleted": [],
+ "test_targets": [
+  "tests/test_query_client_errors.py"
+ ],
+ "f2p": [
+  "tests/test_query_client_errors.py::test_info_unexpected_status_code_async",
+  "tests/test_query_client_errors.py::test_info_unexpected_status_code_sync",
+  "tests/test_query_client_errors.py::test_query_request_errors_async[400-QueryExecutionError]",
+  "tests/test_query_client_errors.py::test_query_request_errors_async[422-QueryRequestError]",
+  "tests/test_query_client_errors.py::test_query_request_errors_sync[json-400-QueryExecutionError]",
+  "tests/test_query_client_errors.py::test_query_request_errors_sync[json-422-QueryRequestError]",
+  "tests/test_query_client_errors.py::test_query_request_errors_sync[json-content-type-with-parameters-400-QueryExecutionError]",
+  "tests/test_query_client_errors.py::test_query_request_errors_sync[json-content-type-with-parameters-422-QueryRequestError]",
+  "tests/test_query_client_errors.py::test_query_request_errors_sync[text-400-QueryExecutionError]",
+  "tests/test_query_client_errors.py::test_query_request_errors_sync[text-422-QueryRequestError]",
+  "tests/test_query_client_errors.py::test_query_unexpected_status_code_async[204]",
+  "tests/test_query_client_errors.py::test_query_unexpected_status_code_async[301]",
+  "tests/test_query_client_errors.py::test_query_unexpected_status_code_async[404]",
+  "tests/test_query_client_errors.py::test_query_unexpected_status_code_async[500]",
+  "tests/test_query_client_errors.py::test_query_unexpected_status_code_async[502]",
+  "tests/test_query_client_errors.py::test_query_unexpected_status_code_async[503]",
+  "tests/test_query_client_errors.py::test_query_unexpected_status_code_sync[204]",
+  "tests/test_query_client_errors.py::test_query_unexpected_status_code_sync[301]",
+  "tests/test_query_client_errors.py::test_query_unexpected_status_code_sync[404]",
+  "tests/test_query_client_errors.py::test_query_unexpected_status_code_sync[500]",
+  "tests/test_query_client_errors.py::test_query_unexpected_status_code_sync[502]",
+  "tests/test_query_client_errors.py::test_query_unexpected_status_code_sync[503]",
+  "tests/test_query_client_errors.py::test_query_unexpected_status_code_with_undecodable_json_body"
+ ],
+ "p2p": [],
+ "audit": {
+  "dropped": [],
+  "edits_applied": 0,
+  "f2p_before": 23,
+  "p2p_before": 0,
+  "flaky_excluded": []
+ }
+}

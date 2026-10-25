@@ -1,0 +1,15 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/otel_integrations/test_openai.py::test_input_to_events_responses_api_content_parts",
+   "action": "keep",
+   "reason": "Asserts only the public input_to_events output, and every expected event follows the first-match rules and literals ('[file_data]', '[file]', unknown event shape) that the instruction specifies."
+  },
+  {
+   "id": "tests/otel_integrations/test_openai.py::test_convert_responses_inputs_multimodal_content_parts",
+   "action": "keep",
+   "reason": "Asserts only the public convert_responses_inputs_to_semconv output, and each converted part (uri/blob/file, modality, extra keys dropped, unchanged when unmatched) is exactly what the instruction specifies."
+  }
+ ],
+ "edits": []
+}

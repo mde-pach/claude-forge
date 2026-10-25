@@ -1,0 +1,79 @@
+diff --git a/logfire-api/logfire_api/experimental/query_client.pyi b/logfire-api/logfire_api/experimental/query_client.pyi
+index 15bca14..6fa868c 100644
+--- a/logfire-api/logfire_api/experimental/query_client.pyi
++++ b/logfire-api/logfire_api/experimental/query_client.pyi
+@@ -18,6 +18,8 @@ class QueryRequestError(RuntimeError):
+     """Raised when the query request is invalid."""
+ class InfoRequestError(RuntimeError):
+     """Raised when the request for read token info fails because of unavailable information."""
++class UnexpectedResponseError(RuntimeError):
++    """Raised when the API responds with an unexpected status code, such as a `5xx` server error."""
+ 
+ class ReadTokenInfo(TypedDict, total=False):
+     """Information about the read token."""
+diff --git a/logfire-api/logfire_api/query_client.pyi b/logfire-api/logfire_api/query_client.pyi
+index a412033..be95336 100644
+--- a/logfire-api/logfire_api/query_client.pyi
++++ b/logfire-api/logfire_api/query_client.pyi
+@@ -1,3 +1,3 @@
+-from .experimental.query_client import AsyncLogfireQueryClient as AsyncLogfireQueryClient, ColumnData as ColumnData, ColumnDetails as ColumnDetails, InfoRequestError as InfoRequestError, LogfireQueryClient as LogfireQueryClient, QueryExecutionError as QueryExecutionError, QueryRequestError as QueryRequestError, QueryResults as QueryResults, ReadTokenInfo as ReadTokenInfo, RowQueryResults as RowQueryResults
++from .experimental.query_client import AsyncLogfireQueryClient as AsyncLogfireQueryClient, ColumnData as ColumnData, ColumnDetails as ColumnDetails, InfoRequestError as InfoRequestError, LogfireQueryClient as LogfireQueryClient, QueryExecutionError as QueryExecutionError, QueryRequestError as QueryRequestError, QueryResults as QueryResults, ReadTokenInfo as ReadTokenInfo, RowQueryResults as RowQueryResults, UnexpectedResponseError as UnexpectedResponseError
+ 
+-__all__ = ['QueryExecutionError', 'QueryRequestError', 'InfoRequestError', 'ReadTokenInfo', 'ColumnDetails', 'ColumnData', 'QueryResults', 'RowQueryResults', 'LogfireQueryClient', 'AsyncLogfireQueryClient']
++__all__ = ['QueryExecutionError', 'QueryRequestError', 'InfoRequestError', 'UnexpectedResponseError', 'ReadTokenInfo', 'ColumnDetails', 'ColumnData', 'QueryResults', 'RowQueryResults', 'LogfireQueryClient', 'AsyncLogfireQueryClient']
+diff --git a/logfire/experimental/query_client.py b/logfire/experimental/query_client.py
+index 9209440..c1b1554 100644
+--- a/logfire/experimental/query_client.py
++++ b/logfire/experimental/query_client.py
+@@ -47,6 +47,12 @@ class InfoRequestError(RuntimeError):
+     pass
+ 
+ 
++class UnexpectedResponseError(RuntimeError):
++    """Raised when the API responds with an unexpected status code, such as a `5xx` server error."""
++
++    pass
++
++
+ class ReadTokenInfo(TypedDict, total=False):
+     """Information about the read token."""
+ 
+@@ -196,13 +202,16 @@ class _BaseLogfireQueryClient(Generic[T]):
+         # we assume text/plain if not set.
+         content_type = response.headers.get('content-type', 'text/plain')
+         media_type = content_type.split(';', 1)[0].strip().lower()
+-        if response.status_code == 400:  # pragma: no cover
++        if response.status_code == 400:
+             data = response.json() if media_type == 'application/json' else response.text
+             raise QueryExecutionError(data)
+-        if response.status_code == 422:  # pragma: no cover
++        if response.status_code == 422:
+             data = response.json() if media_type == 'application/json' else response.text
+             raise QueryRequestError(data)
+-        assert response.status_code == 200, response.content
++        if response.status_code != 200:
++            # Unlike the statuses above, an unexpected response (e.g. a `5xx`, or an error page from a
++            # proxy) isn't guaranteed to have a well-formed body, so don't try to decode it as JSON.
++            raise UnexpectedResponseError(f'Unexpected response status code {response.status_code}: {response.text!r}')
+ 
+ 
+ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
+diff --git a/logfire/query_client.py b/logfire/query_client.py
+index d06b1eb..f812014 100644
+--- a/logfire/query_client.py
++++ b/logfire/query_client.py
+@@ -10,12 +10,14 @@ from .experimental.query_client import (
+     QueryResults,
+     ReadTokenInfo,
+     RowQueryResults,
++    UnexpectedResponseError,
+ )
+ 
+ __all__ = [
+     'QueryExecutionError',
+     'QueryRequestError',
+     'InfoRequestError',
++    'UnexpectedResponseError',
+     'ReadTokenInfo',
+     'ColumnDetails',
+     'ColumnData',

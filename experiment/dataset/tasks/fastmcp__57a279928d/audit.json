@@ -1,0 +1,50 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPHostOriginProtection::test_allows_configured_host_and_origin",
+   "action": "keep",
+   "reason": "Uses only the public create_streamable_http_app parameters and checks the specified 200 status and that a session header comes back."
+  },
+  {
+   "id": "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPHostOriginProtection::test_allows_configured_loopback_origin_for_public_host",
+   "action": "keep",
+   "reason": "Checks the specified allowed_origins override for a loopback origin through the public interface; only status and session header are observed."
+  },
+  {
+   "id": "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPHostOriginProtection::test_allows_same_request_origin",
+   "action": "keep",
+   "reason": "Checks the specified same-origin acceptance with default port 443 through the public interface."
+  },
+  {
+   "id": "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPHostOriginProtection::test_can_disable_host_origin_protection",
+   "action": "keep",
+   "reason": "Checks the specified host_origin_protection=False behaviour by its outcome only."
+  },
+  {
+   "id": "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPHostOriginProtection::test_rejects_loopback_origin_for_public_host",
+   "action": "keep",
+   "reason": "Checks the specified 403 for a loopback origin against a non-loopback Host, observing only status and headers."
+  },
+  {
+   "id": "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPHostOriginProtection::test_rejects_same_host_different_origin[http://mcp.example.com]",
+   "action": "keep",
+   "reason": "Checks the specified rule that a different scheme is rejected with 403, observing only the outcome."
+  },
+  {
+   "id": "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPHostOriginProtection::test_rejects_same_host_different_origin[https://mcp.example.com:3000]",
+   "action": "keep",
+   "reason": "Checks the specified rule that a different port is rejected with 403, observing only the outcome."
+  },
+  {
+   "id": "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPHostOriginProtection::test_rejects_untrusted_host_before_session_initialization",
+   "action": "keep",
+   "reason": "Checks the specified 421 status and that no session header is returned, with no inspection of internals."
+  },
+  {
+   "id": "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPHostOriginProtection::test_rejects_untrusted_origin_before_session_initialization",
+   "action": "keep",
+   "reason": "Checks the specified 403 status and that no session header is returned, with no inspection of internals."
+  }
+ ],
+ "edits": []
+}

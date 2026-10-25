@@ -1,0 +1,33 @@
+{
+ "task_id": "inngest-js__61dca106c1",
+ "repo": "inngest-js",
+ "commit": "61dca106c1ec31d5abb8f2ce8bc6057bff08bd38",
+ "parent": "593f240fb67fd5bb472e75aabb8d4a8bd6605b35",
+ "date": "2026-07-30T15:55:15-07:00",
+ "subject": "feat: add marker to identify the OTel provider (#1660)",
+ "type": "feat",
+ "source_files": [
+  "packages/otel/src/instrument.ts"
+ ],
+ "test_files": [
+  "packages/otel/tests/providerMarker.test.ts"
+ ],
+ "hidden_deleted": [],
+ "test_targets": [
+  "packages/otel/tests/providerMarker.test.ts"
+ ],
+ "f2p": [
+  "packages/otel/tests/providerMarker.test.ts::provider marker > marks providers it creates",
+  "packages/otel/tests/providerMarker.test.ts::provider marker > uses the shared global symbol key"
+ ],
+ "p2p": [
+  "packages/otel/tests/providerMarker.test.ts::provider marker > does not mark pre-existing providers"
+ ],
+ "audit": {
+  "dropped": [],
+  "edits_applied": 0,
+  "f2p_before": 2,
+  "p2p_before": 1,
+  "flaky_excluded": []
+ }
+}

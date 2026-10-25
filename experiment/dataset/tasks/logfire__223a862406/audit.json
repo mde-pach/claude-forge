@@ -1,0 +1,50 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/test_variables.py::TestSSEHardening::test_200_without_etag_clears_stale_etag",
+   "action": "keep",
+   "reason": "Checks `_etag` being cleared when a 200 has no ETag; the instruction names `_etag` and specifies this."
+  },
+  {
+   "id": "tests/test_variables.py::TestSSEHardening::test_304_does_not_trip_error_logging",
+   "action": "keep",
+   "reason": "Only checks that a 304 emits no warnings, which the instruction requires."
+  },
+  {
+   "id": "tests/test_variables.py::TestSSEHardening::test_304_keeps_config_and_updates_last_fetched_at",
+   "action": "keep",
+   "reason": "Checks the instruction-named `_config` identity and `_last_fetched_at` update, plus no calls to the existing error logger `_log_error`, as the instruction specifies."
+  },
+  {
+   "id": "tests/test_variables.py::TestSSEHardening::test_304_resets_consecutive_failure_counter",
+   "action": "keep",
+   "reason": "The instruction explicitly says a 304 resets `_consecutive_refresh_failures` to 0."
+  },
+  {
+   "id": "tests/test_variables.py::TestSSEHardening::test_etag_not_stored_after_invalid_200",
+   "action": "keep",
+   "reason": "The instruction specifies that a malformed 200 leaves `_etag` unchanged; the rest checks only the request flow and that no warnings are raised."
+  },
+  {
+   "id": "tests/test_variables.py::TestSSEHardening::test_etag_stored_from_200_response",
+   "action": "keep",
+   "reason": "The instruction specifies that `_etag` starts as None and is set from the 200's ETag header."
+  },
+  {
+   "id": "tests/test_variables.py::TestSSEHardening::test_if_none_match_sent_when_etag_known",
+   "action": "keep",
+   "reason": "Checks the If-None-Match header seen at the HTTP boundary, as the instruction specifies."
+  },
+  {
+   "id": "tests/test_variables.py::TestSSEHardening::test_no_etag_header_leaves_etag_none",
+   "action": "keep",
+   "reason": "The instruction specifies `_etag` is None when the response has no ETag header."
+  },
+  {
+   "id": "tests/test_variables.py::TestSSEHardening::test_worker_schedules_follow_up_after_forced_refresh",
+   "action": "keep",
+   "reason": "Uses only instruction-named members (`_worker`, `_force_refresh_event`, `_worker_awaken`, `_shutdown`, `_followup_refresh_at`) and checks the specified deadline of about monotonic()+2s."
+  }
+ ],
+ "edits": []
+}

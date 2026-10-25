@@ -1,0 +1,15 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/better-auth/src/api/routes/session-api.test.ts::get-session cache headers > sets Cache-Control: no-store on authenticated GET /get-session responses",
+   "action": "keep",
+   "reason": "It checks only status, body and the cache-control header through the public handler, which is exactly what the instruction specifies."
+  },
+  {
+   "id": "packages/better-auth/src/api/routes/session-api.test.ts::get-session cache headers > sets Cache-Control: no-store on unauthenticated GET /get-session responses",
+   "action": "keep",
+   "reason": "It checks the instruction's stated behaviour (200, null body, no-store) through the public handler, with no internals involved."
+  }
+ ],
+ "edits": []
+}

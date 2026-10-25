@@ -1,0 +1,258 @@
+# Import this anyio backend early to prevent weird bug caused by concurrent calls to ast.parse
+from __future__ import annotations
+
+import os
+import sys
+import unittest.mock
+from pathlib import Path
+from typing import Any
+
+import anyio._backends._asyncio  # noqa  # type: ignore
+import pytest
+from inline_snapshot.plugin import Builder, Import, customize
+from opentelemetry import trace
+from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
+from opentelemetry.sdk.metrics.export import InMemoryMetricReader
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.id_generator import IdGenerator
+
+import logfire
+from logfire import configure
+from logfire._internal.config import METRICS_PREFERRED_TEMPORALITY
+from logfire._internal.exporters.test import TestLogExporter
+from logfire.integrations.pydantic import set_pydantic_plugin_config
+from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
+
+# Emit both new and old semantic convention attribute names
+os.environ['OTEL_SEMCONV_STABILITY_OPT_IN'] = 'http/dup'
+
+# Ensure that these variables in the environment don't interfere
+os.environ['LOGFIRE_TOKEN'] = ''
+os.environ['LOGFIRE_API_KEY'] = ''
+os.environ.pop('LOGFIRE_BASE_URL', None)
+os.environ.setdefault('OPENAI_API_KEY', 'foo')
+os.environ.setdefault('ANTHROPIC_API_KEY', os.environ.get('TEST_ANTHROPIC_API_KEY', 'foo'))
+os.environ.pop('OPENAI_BASE_URL', None)
+os.environ.pop('ANTHROPIC_BASE_URL', None)
+os.environ.pop('LOGFIRE_EMIT_CONFIGURATION_SPAN', None)
+
+# https://github.com/openai/openai-python/issues/2644
+sys.modules['openai.resources.evals'] = unittest.mock.MagicMock()
+
+try:
+    from agents.tracing import get_trace_provider
+
+    get_trace_provider().shutdown()
+    get_trace_provider().set_processors([])
+except (ImportError, UserWarning):
+    # On pydantic <2.10, openai-agents 0.14+ emits a `model_info` protected-namespace
+    # UserWarning during class construction that gets promoted to an exception by
+    # `filterwarnings=error`. Test modules that need the agents API guard themselves
+    # with `pytest.importorskip`, which silences warnings inside its own catch_warnings.
+    pass
+
+logfire.configure(send_to_logfire=False)
+
+try:
+    # This is just a simple way to perform this once.
+    # There are multiple tests that use it and we don't currently have a way to uninstrument.
+    logfire.instrument_mcp()
+except ImportError:
+    pass
+
+
+@pytest.fixture(scope='session', autouse=True)
+def anyio_backend():
+    return 'asyncio'
+
+
+@pytest.fixture(autouse=True)
+def reset_pydantic_plugin_config():
+    set_pydantic_plugin_config(None)
+
+
+@pytest.fixture
+def id_generator() -> IncrementalIdGenerator:
+    return IncrementalIdGenerator()
+
+
+@pytest.fixture
+def time_generator() -> TimeGenerator:
+    return TimeGenerator()
+
+
+@pytest.fixture
+def exporter() -> TestExporter:
+    return TestExporter()
+
+
+@pytest.fixture
+def metrics_reader() -> InMemoryMetricReader:
+    return InMemoryMetricReader(preferred_temporality=METRICS_PREFERRED_TEMPORALITY)
+
+
+@pytest.fixture
+def logs_exporter(time_generator: TimeGenerator) -> TestLogExporter:
+    return TestLogExporter(time_generator)
+
+
+@pytest.fixture
+def config_kwargs(
+    exporter: TestExporter,
+    logs_exporter: TestLogExporter,
+    id_generator: IdGenerator,
+    time_generator: TimeGenerator,
+) -> dict[str, Any]:
+    """
+    Use this when you want to `logfire.configure()` with a variation of the default configuration.
+
+    Note that this doesn't set `additional_metric_readers` because `metrics_reader` can't be used twice.
+    """
+    return dict(
+        send_to_logfire=False,
+        console=False,
+        advanced=logfire.AdvancedOptions(
+            id_generator=id_generator,
+            ns_timestamp_generator=time_generator,
+            log_record_processors=[SimpleLogRecordProcessor(logs_exporter)],
+        ),
+        additional_span_processors=[SimpleSpanProcessor(exporter)],
+        # Ensure that inspect_arguments doesn't break things even in versions where it's off by default
+        inspect_arguments=True,
+        distributed_tracing=True,
+        add_baggage_to_attributes=False,
+    )
+
+
+@pytest.fixture(autouse=True)
+def config(config_kwargs: dict[str, Any], metrics_reader: InMemoryMetricReader) -> None:
+    logfire.variables_clear()
+    configure(
+        **config_kwargs,
+        metrics=logfire.MetricsOptions(
+            additional_readers=[metrics_reader],
+            collect_in_spans=True,
+        ),
+    )
+    # sanity check: there are no active spans
+    # if there are, it means that some test forgot to close them
+    # which may mess with other tests
+    span = trace.get_current_span()
+    assert span is trace.INVALID_SPAN
+
+
+@pytest.fixture(autouse=True)
+def clear_pydantic_plugins_cache():
+    """Clear any existing Pydantic plugins."""
+    from pydantic.plugin import _loader
+
+    assert _loader._loading_plugins is False  # type: ignore
+    _loader._plugins = None  # type: ignore
+
+
+@pytest.fixture
+def tmp_dir_cwd(tmp_path: Path):
+    """Change the working directory to a temporary directory."""
+    cwd = os.getcwd()
+    os.chdir(tmp_path)
+    try:
+        yield tmp_path
+    finally:
+        os.chdir(cwd)
+
+
+@pytest.fixture
+def default_credentials(tmp_path: Path) -> Path:
+    auth_file = tmp_path / 'default.toml'
+    auth_file.write_text(
+        """
+        [tokens."https://logfire-us.pydantic.dev"]
+        token = "pylf_v1_us_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W"
+        expiration = "2099-12-31T23:59:59"
+        """
+    )
+    return auth_file
+
+
+@pytest.fixture
+def expired_credentials(tmp_path: Path) -> Path:
+    auth_file = tmp_path / 'default.toml'
+    auth_file.write_text(
+        """
+        [tokens."https://logfire-us.pydantic.dev"]
+        token = "pylf_v1_us_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W"
+        expiration = "1970-01-01T00:00:00"
+        """
+    )
+    return auth_file
+
+
+@pytest.fixture
+def multiple_credentials(tmp_path: Path) -> Path:
+    auth_file = tmp_path / 'default.toml'
+    auth_file.write_text(
+        """
+        [tokens."https://logfire-us.pydantic.dev"]
+        token = "pylf_v1_us_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W"
+        expiration = "2099-12-31T23:59:59"
+        [tokens."https://logfire-eu.pydantic.dev"]
+        token = "pylf_v1_eu_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W"
+        expiration = "2099-12-31T23:59:59"
+        """
+    )
+    return auth_file
+
+
+SENSITIVE_HEADERS = [
+    # All sensitive headers should be lower case as
+    # that's how they are presented by VCR.
+    'authorization',
+    'cookie',
+    'set-cookie',
+    'x-goog-api-key',
+    'openai-organization',
+    'openai-project',
+    'x-api-key',
+    'x-request-id',
+    'cf-ray',
+]
+
+
+def scrub_headers(response: dict[str, Any]) -> dict[str, Any]:
+    """Remove sensitive headers from the response.
+
+    Parameters:
+        response: The response dictionary to scrub.
+
+    Returns:
+        The scrubbed response dictionary with sensitive headers removed.
+    """
+    response['headers'] = {k: v for k, v in response.get('headers', {}).items() if k.lower() not in SENSITIVE_HEADERS}
+
+    return response
+
+
+@pytest.fixture(scope='module')
+def vcr_config() -> dict[str, Any]:
+    return {
+        'filter_headers': SENSITIVE_HEADERS,
+        'before_record_response': scrub_headers,
+    }
+
+
+@customize
+def logfire_handler(value: Any, builder: Builder, local_vars: dict[str, Any], global_vars: dict[str, Any]) -> Any:
+    all_vars = {**global_vars, **local_vars}
+    for var in ['redis_port', 'HANDLER_NAME', 'code_function']:
+        if var in all_vars and all_vars[var] == value:
+            return builder.create_code(var)
+
+    for attr in ['started_at', 'ended_at']:
+        if 's' in local_vars and hasattr(var := local_vars['s'], attr) and getattr(var, attr) == value:
+            return builder.create_code(f's.{attr}')
+
+    if value == os.getcwd():
+        return builder.create_code('os.getcwd()', imports=[Import('os')])
+
+    if value == sys.version:
+        return builder.create_code('sys.version', imports=[Import('sys')])

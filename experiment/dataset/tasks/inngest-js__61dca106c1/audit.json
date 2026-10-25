@@ -1,0 +1,15 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/otel/tests/providerMarker.test.ts::provider marker > uses the shared global symbol key",
+   "action": "keep",
+   "reason": "It checks the exported `providerMarker` value, and the instruction names both that export and its exact value."
+  },
+  {
+   "id": "packages/otel/tests/providerMarker.test.ts::provider marker > marks providers it creates",
+   "action": "keep",
+   "reason": "It checks the value `true` and the non-enumerable flag on the unwrapped delegate, and the instruction specifies both through the public `trace` API."
+  }
+ ],
+ "edits": []
+}

@@ -1,0 +1,110 @@
+diff --git a/.changeset/chilly-clowns-taste.md b/.changeset/chilly-clowns-taste.md
+new file mode 100644
+index 00000000..aedfb54e
+--- /dev/null
++++ b/.changeset/chilly-clowns-taste.md
+@@ -0,0 +1,5 @@
++---
++"better-auth": patch
++---
++
++Fixes silent foreign-key and adapter-join misrouting when a user remaps a built-in model name to a string that collides with another schema key
+diff --git a/.cspell/custom-words.txt b/.cspell/custom-words.txt
+index b7e192e6..1520199f 100644
+--- a/.cspell/custom-words.txt
++++ b/.cspell/custom-words.txt
+@@ -25,3 +25,4 @@ Abdulrazzaq
+ rethrowing
+ upvote
+ dedupe
++misrouting
+\ No newline at end of file
+diff --git a/packages/core/src/db/adapter/get-default-model-name.ts b/packages/core/src/db/adapter/get-default-model-name.ts
+index 6fbb893e..539c6761 100644
+--- a/packages/core/src/db/adapter/get-default-model-name.ts
++++ b/packages/core/src/db/adapter/get-default-model-name.ts
+@@ -20,26 +20,33 @@ export const initGetDefaultModelName = ({
+ 	 * 3. Using this function helps us get the actual model name based on the user's defined custom modelName.
+ 	 */
+ 	const getDefaultModelName = (model: string) => {
++		// Resolve a model string (either a schema key or a user-defined
++		// `modelName`) back to its canonical schema key.
++		//
++		// Prefer a `modelName` match over a schema-key match. When a user
++		// remaps a built-in table (e.g. `user.modelName = "account"`), the
++		// string `"account"` is both an alias for the user table and the
++		// schema key of the OAuth account table. The user's explicit
++		// `modelName` choice must win, otherwise references and adapter
++		// joins silently resolve to the wrong table.
++		// @see https://github.com/better-auth/better-auth/issues/8111
++		const resolve = (candidate: string): string | undefined => {
++			const byModelName = Object.entries(schema).find(
++				([_, f]) => f.modelName === candidate,
++			)?.[0];
++			if (byModelName) return byModelName;
++			return schema[candidate] ? candidate : undefined;
++		};
++
+ 		// It's possible this `model` could had applied `usePlural`.
+ 		// Thus we'll try the search but without the trailing `s`.
+ 		if (usePlural && model.charAt(model.length - 1) === "s") {
+ 			const pluralessModel = model.slice(0, -1);
+-			let m = schema[pluralessModel] ? pluralessModel : undefined;
+-			if (!m) {
+-				m = Object.entries(schema).find(
+-					([_, f]) => f.modelName === pluralessModel,
+-				)?.[0];
+-			}
+-
+-			if (m) {
+-				return m;
+-			}
++			const m = resolve(pluralessModel);
++			if (m) return m;
+ 		}
+ 
+-		let m = schema[model] ? model : undefined;
+-		if (!m) {
+-			m = Object.entries(schema).find(([_, f]) => f.modelName === model)?.[0];
+-		}
++		const m = resolve(model);
+ 
+ 		if (!m) {
+ 			throw new BetterAuthError(`Model "${model}" not found in schema`);
+diff --git a/packages/core/src/db/get-tables.ts b/packages/core/src/db/get-tables.ts
+index 5573e00e..33d9c09b 100644
+--- a/packages/core/src/db/get-tables.ts
++++ b/packages/core/src/db/get-tables.ts
+@@ -142,7 +142,18 @@ export const getAuthTables = (
+ 					type: "string",
+ 					fieldName: options.session?.fields?.userId || "userId",
+ 					references: {
+-						model: options.user?.modelName || "user",
++						// Use the canonical user schema key here rather than
++						// `options.user.modelName`. Downstream consumers (e.g.
++						// `getSchema`, `getMigrations`, and the runtime adapter
++						// resolvers) treat `references.model` as a schema key
++						// and look it up via `tables[references.model]` /
++						// `getDefaultModelName`. Writing the modelName alias
++						// here would collide when a user picks a modelName that
++						// matches another schema key (for example
++						// `user.modelName = "account"`), causing the FK to
++						// resolve to the wrong table.
++						// @see https://github.com/better-auth/better-auth/issues/8111
++						model: "user",
+ 						field: "id",
+ 						onDelete: "cascade",
+ 					},
+@@ -225,7 +236,11 @@ export const getAuthTables = (
+ 				userId: {
+ 					type: "string",
+ 					references: {
+-						model: options.user?.modelName || "user",
++						// See note on `session.userId.references.model` above:
++						// always use the canonical user schema key so the FK
++						// target survives `user.modelName` aliasing.
++						// @see https://github.com/better-auth/better-auth/issues/8111
++						model: "user",
+ 						field: "id",
+ 						onDelete: "cascade",
+ 					},

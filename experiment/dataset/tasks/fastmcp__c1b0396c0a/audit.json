@@ -1,0 +1,70 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/server/auth/test_ssrf_protection.py::TestIsIPAllowed::test_ipv6_transition_blocked_if_embedded_ipv4_blocked[ipv4-compatible-cgnat]",
+   "action": "keep",
+   "reason": "Asserts only the return value of the public is_ip_allowed for an IPv4-compatible form the instruction requires to be blocked."
+  },
+  {
+   "id": "tests/server/auth/test_ssrf_protection.py::TestIsIPAllowed::test_ipv6_transition_blocked_if_embedded_ipv4_blocked[ipv4-compatible-link-local]",
+   "action": "keep",
+   "reason": "Asserts only the return value of the public is_ip_allowed for an IPv4-compatible form the instruction requires to be blocked."
+  },
+  {
+   "id": "tests/server/auth/test_ssrf_protection.py::TestIsIPAllowed::test_ipv6_transition_blocked_if_embedded_ipv4_blocked[ipv4-compatible-loopback]",
+   "action": "keep",
+   "reason": "Asserts only the return value of the public is_ip_allowed for an IPv4-compatible form the instruction requires to be blocked."
+  },
+  {
+   "id": "tests/server/auth/test_ssrf_protection.py::TestIsIPAllowed::test_ipv6_transition_blocked_if_embedded_ipv4_blocked[ipv4-compatible-private]",
+   "action": "keep",
+   "reason": "Asserts only the return value of the public is_ip_allowed for an example the instruction lists explicitly."
+  },
+  {
+   "id": "tests/server/auth/test_ssrf_protection.py::TestIsIPAllowed::test_ipv6_transition_blocked_if_embedded_ipv4_blocked[ipv4-translated-cgnat]",
+   "action": "keep",
+   "reason": "Asserts only the return value of the public is_ip_allowed for an IPv4-translated form the instruction requires to be blocked."
+  },
+  {
+   "id": "tests/server/auth/test_ssrf_protection.py::TestIsIPAllowed::test_ipv6_transition_blocked_if_embedded_ipv4_blocked[ipv4-translated-link-local]",
+   "action": "keep",
+   "reason": "Asserts only the return value of the public is_ip_allowed for an IPv4-translated form the instruction requires to be blocked."
+  },
+  {
+   "id": "tests/server/auth/test_ssrf_protection.py::TestIsIPAllowed::test_ipv6_transition_blocked_if_embedded_ipv4_blocked[ipv4-translated-loopback]",
+   "action": "keep",
+   "reason": "Asserts only the return value of the public is_ip_allowed for an example the instruction lists explicitly."
+  },
+  {
+   "id": "tests/server/auth/test_ssrf_protection.py::TestIsIPAllowed::test_ipv6_transition_blocked_if_embedded_ipv4_blocked[ipv4-translated-private]",
+   "action": "keep",
+   "reason": "Asserts only the return value of the public is_ip_allowed for an IPv4-translated form the instruction requires to be blocked."
+  },
+  {
+   "id": "tests/server/auth/test_ssrf_protection.py::TestIsIPAllowed::test_ipv6_transition_blocked_if_embedded_ipv4_blocked[isatap-link-local]",
+   "action": "keep",
+   "reason": "Asserts only the return value of the public is_ip_allowed for an ISATAP example the instruction lists explicitly."
+  },
+  {
+   "id": "tests/server/auth/test_ssrf_protection.py::TestIsIPAllowed::test_ipv6_transition_blocked_if_embedded_ipv4_blocked[isatap-private]",
+   "action": "keep",
+   "reason": "Asserts only the return value of the public is_ip_allowed for an ISATAP example the instruction lists explicitly."
+  },
+  {
+   "id": "tests/server/auth/test_ssrf_protection.py::TestValidateURL::test_ipv6_transition_private_ip_rejected[ipv4-compatible]",
+   "action": "keep",
+   "reason": "Patches the pre-existing public resolve_hostname at the unit's boundary and checks for SSRFError with the 'blocked IP' wording the instruction specifies."
+  },
+  {
+   "id": "tests/server/auth/test_ssrf_protection.py::TestValidateURL::test_ipv6_transition_private_ip_rejected[ipv4-translated]",
+   "action": "keep",
+   "reason": "Patches the pre-existing public resolve_hostname at the unit's boundary and checks for SSRFError with the 'blocked IP' wording the instruction specifies."
+  },
+  {
+   "id": "tests/server/auth/test_ssrf_protection.py::TestValidateURL::test_ipv6_transition_private_ip_rejected[isatap]",
+   "action": "keep",
+   "reason": "Patches the pre-existing public resolve_hostname at the unit's boundary and checks for SSRFError with the 'blocked IP' wording the instruction specifies."
+  }
+ ],
+ "edits": []
+}

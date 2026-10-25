@@ -1,0 +1,20 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > createMcpAuthClient > exposes the WWW-Authenticate challenge on CORS 401 responses",
+   "action": "keep",
+   "reason": "It checks only the observable status and headers of the public handler's Response, with the exact values the instruction specifies."
+  },
+  {
+   "id": "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > middleware > should reject requests without auth header",
+   "action": "keep",
+   "reason": "The mock response is a boundary double with the set/get shape the instruction specifies, and the asserted header values (including the 'set-auth-token, WWW-Authenticate' merge) are given verbatim in the instruction."
+  },
+  {
+   "id": "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > middleware > should return 401 for invalid token via middleware",
+   "action": "keep",
+   "reason": "It asserts only the headers applied through res.set on a boundary mock, and the instruction specifies those values exactly (allow-origin equal to the authURL origin, expose headers exactly 'WWW-Authenticate')."
+  }
+ ],
+ "edits": []
+}

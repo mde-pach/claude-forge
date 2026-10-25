@@ -1,0 +1,77 @@
+{
+ "task_id": "better-auth__6f3ba45639",
+ "repo": "better-auth",
+ "commit": "6f3ba45639579da152b69e8e5342e02f28288670",
+ "parent": "0b964a3e3c509cd55a26c67eaee9d60d1230edd3",
+ "date": "2026-07-07T17:31:29+00:00",
+ "subject": "fix: stub SvelteKit's explicit-environment-variables modules (#10221)",
+ "type": "fix",
+ "source_files": [
+  "packages/cli/src/utils/sveltekit-virtual-modules.ts"
+ ],
+ "test_files": [
+  "packages/cli/test/get-config.test.ts"
+ ],
+ "hidden_deleted": [],
+ "test_targets": [
+  "packages/cli/test/get-config.test.ts"
+ ],
+ "f2p": [
+  "packages/cli/test/get-config.test.ts::SvelteKit virtual modules and Vite asset imports (user-reported scenarios) > resolves arbitrary $app/env/private and $app/env/public imports"
+ ],
+ "p2p": [
+  "packages/cli/test/get-config.test.ts::SvelteKit virtual modules and Vite asset imports (user-reported scenarios) > filters $env/dynamic by public/private prefix",
+  "packages/cli/test/get-config.test.ts::SvelteKit virtual modules and Vite asset imports (user-reported scenarios) > resolves $app/environment imports in a SvelteKit project",
+  "packages/cli/test/get-config.test.ts::SvelteKit virtual modules and Vite asset imports (user-reported scenarios) > resolves $app/stores with store-shaped exports",
+  "packages/cli/test/get-config.test.ts::SvelteKit virtual modules and Vite asset imports (user-reported scenarios) > resolves Vite ?inline query imports reached through a custom kit.alias",
+  "packages/cli/test/get-config.test.ts::SvelteKit virtual modules and Vite asset imports (user-reported scenarios) > resolves Vite ?raw query imports of a relative asset",
+  "packages/cli/test/get-config.test.ts::SvelteKit virtual modules and Vite asset imports (user-reported scenarios) > resolves Vite ?worker and .wasm?init imports",
+  "packages/cli/test/get-config.test.ts::SvelteKit virtual modules and Vite asset imports (user-reported scenarios) > resolves plain asset and side-effect stylesheet imports",
+  "packages/cli/test/get-config.test.ts::SvelteKit virtual modules and Vite asset imports (user-reported scenarios) > resolves the $app/env alias surface",
+  "packages/cli/test/get-config.test.ts::SvelteKit virtual modules and Vite asset imports (user-reported scenarios) > resolves the full $app/paths and $app/server export surface",
+  "packages/cli/test/get-config.test.ts::getConfig > should error with invalid alias",
+  "packages/cli/test/get-config.test.ts::getConfig > should handle circular references in tsconfig files",
+  "packages/cli/test/get-config.test.ts::getConfig > should handle missing referenced tsconfig files gracefully",
+  "packages/cli/test/get-config.test.ts::getConfig > should handle mixed directory and file references",
+  "packages/cli/test/get-config.test.ts::getConfig > should let child paths override parent paths from extends",
+  "packages/cli/test/get-config.test.ts::getConfig > should load configs importing cloudflare class and proxy exports",
+  "packages/cli/test/get-config.test.ts::getConfig > should load configs importing cloudflare workers",
+  "packages/cli/test/get-config.test.ts::getConfig > should resolve SvelteKit $lib/server imports correctly",
+  "packages/cli/test/get-config.test.ts::getConfig > should resolve direct alias",
+  "packages/cli/test/get-config.test.ts::getConfig > should resolve direct alias with relative path",
+  "packages/cli/test/get-config.test.ts::getConfig > should resolve direct tsconfig file references",
+  "packages/cli/test/get-config.test.ts::getConfig > should resolve export default auth",
+  "packages/cli/test/get-config.test.ts::getConfig > should resolve export default auth with named export",
+  "packages/cli/test/get-config.test.ts::getConfig > should resolve export default with inline betterAuth call",
+  "packages/cli/test/get-config.test.ts::getConfig > should resolve extended tsconfig paths relative to the extended file's directory",
+  "packages/cli/test/get-config.test.ts::getConfig > should resolve js config",
+  "packages/cli/test/get-config.test.ts::getConfig > should resolve path aliases from chained extends",
+  "packages/cli/test/get-config.test.ts::getConfig > should resolve path aliases from extended tsconfig",
+  "packages/cli/test/get-config.test.ts::getConfig > should resolve path aliases from referenced tsconfig files",
+  "packages/cli/test/get-config.test.ts::getConfig > should resolve resolver type alias",
+  "packages/cli/test/get-config.test.ts::getConfig > should resolve resolver type alias with relative path",
+  "packages/cli/test/get-config.test.ts::getConfig > should resolve with relative import",
+  "packages/cli/test/get-config.test.ts::tsconfig paths resolution (user-reported scenarios) > captures multi-segment star when the import specifier spans `/`",
+  "packages/cli/test/get-config.test.ts::tsconfig paths resolution (user-reported scenarios) > falls through to the next substitution when the first does not exist on disk",
+  "packages/cli/test/get-config.test.ts::tsconfig paths resolution (user-reported scenarios) > picks the first substitution candidate in declaration order when multiple exist",
+  "packages/cli/test/get-config.test.ts::tsconfig paths resolution (user-reported scenarios) > resolves $lib imports in an extends setup with default and namespace forms",
+  "packages/cli/test/get-config.test.ts::tsconfig paths resolution (user-reported scenarios) > resolves $lib imports when SvelteKit lives in a monorepo subdirectory",
+  "packages/cli/test/get-config.test.ts::tsconfig paths resolution (user-reported scenarios) > resolves aliased files ending in '.cjs'",
+  "packages/cli/test/get-config.test.ts::tsconfig paths resolution (user-reported scenarios) > resolves aliased files ending in '.cts'",
+  "packages/cli/test/get-config.test.ts::tsconfig paths resolution (user-reported scenarios) > resolves aliased files ending in '.js'",
+  "packages/cli/test/get-config.test.ts::tsconfig paths resolution (user-reported scenarios) > resolves aliased files ending in '.jsx'",
+  "packages/cli/test/get-config.test.ts::tsconfig paths resolution (user-reported scenarios) > resolves aliased files ending in '.mjs'",
+  "packages/cli/test/get-config.test.ts::tsconfig paths resolution (user-reported scenarios) > resolves aliased files ending in '.mts'",
+  "packages/cli/test/get-config.test.ts::tsconfig paths resolution (user-reported scenarios) > resolves aliased files ending in '.ts'",
+  "packages/cli/test/get-config.test.ts::tsconfig paths resolution (user-reported scenarios) > resolves aliased files ending in '.tsx'",
+  "packages/cli/test/get-config.test.ts::tsconfig paths resolution (user-reported scenarios) > resolves mid-path wildcard substitutions across multiple sibling packages",
+  "packages/cli/test/get-config.test.ts::tsconfig paths resolution (user-reported scenarios) > rewrites aliased specifiers across import, re-export, and dynamic import AST nodes"
+ ],
+ "audit": {
+  "dropped": [],
+  "edits_applied": 0,
+  "f2p_before": 1,
+  "p2p_before": 46,
+  "flaky_excluded": []
+ }
+}

@@ -1,0 +1,25 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/test_push_variables.py::test_with_settings_shares_registered_variables",
+   "action": "keep",
+   "reason": "It checks the outcome only, through the public var()/with_settings()/variables_get() API, and the instruction specifies list equality in registration order."
+  },
+  {
+   "id": "tests/test_push_variables.py::test_with_settings_duplicate_variable_names_conflict",
+   "action": "keep",
+   "reason": "It checks for a ValueError whose message contains the exact substring the instruction requires, using only the public API."
+  },
+  {
+   "id": "tests/test_push_variables.py::test_variables_clear_clears_with_settings_siblings",
+   "action": "keep",
+   "reason": "It checks behaviour the instruction specifies (variables_get() returns [] on every sibling after clear), using only the public API."
+  },
+  {
+   "id": "tests/test_variable_composition.py::TestCompositionIntegration::test_code_default_reference_across_with_settings_siblings",
+   "action": "keep",
+   "reason": "It mirrors the instruction's example exactly (value 'Hello World' and a single composed_from entry), using only the public API."
+  }
+ ],
+ "edits": []
+}

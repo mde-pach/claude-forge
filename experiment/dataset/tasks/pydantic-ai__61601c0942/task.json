@@ -1,0 +1,69 @@
+{
+ "task_id": "pydantic-ai__61601c0942",
+ "repo": "pydantic-ai",
+ "commit": "61601c0942962553069d6a934dc40c9af8e679a8",
+ "parent": "8069baa5df2d520e8d94b04f24499a07657a8834",
+ "date": "2026-07-01T10:03:06+00:00",
+ "subject": "fix(huggingface): don't silently drop file content in tool returns (#5881)",
+ "type": "fix",
+ "source_files": [
+  "pydantic_ai_slim/pydantic_ai/models/huggingface.py"
+ ],
+ "test_files": [
+  "tests/models/test_huggingface.py"
+ ],
+ "hidden_deleted": [],
+ "test_targets": [
+  "tests/models/test_huggingface.py"
+ ],
+ "f2p": [
+  "tests/models/test_huggingface.py::test_unsupported_media_type_in_tool_return_is_not_silently_dropped"
+ ],
+ "p2p": [
+  "tests/models/test_huggingface.py::test_cache_point_filtering",
+  "tests/models/test_huggingface.py::test_hf_model_instructions",
+  "tests/models/test_huggingface.py::test_hf_model_thinking_part",
+  "tests/models/test_huggingface.py::test_hf_model_thinking_part_iter",
+  "tests/models/test_huggingface.py::test_huggingface_client_property_delegates_to_provider",
+  "tests/models/test_huggingface.py::test_huggingface_close_stream_only_suppresses_async_generator_race[asynchronous generator is already running-False]",
+  "tests/models/test_huggingface.py::test_huggingface_close_stream_only_suppresses_async_generator_race[boom-True]",
+  "tests/models/test_huggingface.py::test_image_as_binary_content_input",
+  "tests/models/test_huggingface.py::test_image_url_input",
+  "tests/models/test_huggingface.py::test_map_user_prompt_with_text_content",
+  "tests/models/test_huggingface.py::test_max_completion_tokens",
+  "tests/models/test_huggingface.py::test_model_status_error",
+  "tests/models/test_huggingface.py::test_multiple_stream_calls",
+  "tests/models/test_huggingface.py::test_no_delta",
+  "tests/models/test_huggingface.py::test_process_response_no_created_timestamp",
+  "tests/models/test_huggingface.py::test_request_simple_usage",
+  "tests/models/test_huggingface.py::test_request_structured_response",
+  "tests/models/test_huggingface.py::test_request_tool_call",
+  "tests/models/test_huggingface.py::test_retry_prompt_without_tool_name",
+  "tests/models/test_huggingface.py::test_simple_completion",
+  "tests/models/test_huggingface.py::test_stream_cancel",
+  "tests/models/test_huggingface.py::test_stream_completion",
+  "tests/models/test_huggingface.py::test_stream_structured",
+  "tests/models/test_huggingface.py::test_stream_structured_finish_reason",
+  "tests/models/test_huggingface.py::test_stream_text",
+  "tests/models/test_huggingface.py::test_stream_text_finish_reason",
+  "tests/models/test_huggingface.py::test_system_property",
+  "tests/models/test_huggingface.py::test_thinking_part_in_history",
+  "tests/models/test_huggingface.py::test_unsupported_media_types[content_item0-AudioUrl is not supported for Hugging Face]",
+  "tests/models/test_huggingface.py::test_unsupported_media_types[content_item1-DocumentUrl is not supported for Hugging Face]",
+  "tests/models/test_huggingface.py::test_unsupported_media_types[content_item2-VideoUrl is not supported for Hugging Face]",
+  "tests/models/test_huggingface.py::test_unsupported_media_types[content_item3-UploadedFile is not supported for Hugging Face]"
+ ],
+ "audit": {
+  "dropped": [
+   {
+    "id": "tests/models/test_huggingface.py::test_image_tool_return_is_forwarded_as_user_message",
+    "action": "drop",
+    "reason": "It calls the private method model._map_user_message, which the instruction does not name, and the rule says to drop tests that use private names."
+   }
+  ],
+  "edits_applied": 0,
+  "f2p_before": 2,
+  "p2p_before": 32,
+  "flaky_excluded": []
+ }
+}

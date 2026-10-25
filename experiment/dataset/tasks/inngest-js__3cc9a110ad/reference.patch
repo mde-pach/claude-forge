@@ -1,0 +1,554 @@
+diff --git a/.changeset/all-bushes-raise.md b/.changeset/all-bushes-raise.md
+new file mode 100644
+index 0000000..e7b0f76
+--- /dev/null
++++ b/.changeset/all-bushes-raise.md
+@@ -0,0 +1,5 @@
++---
++"inngest": minor
++---
++
++feat(metadata): Extract AI call latency
+diff --git a/packages/inngest/src/components/execution/otel/aiExtractor.ts b/packages/inngest/src/components/execution/otel/aiExtractor.ts
+index 285ac14..56e241a 100644
+--- a/packages/inngest/src/components/execution/otel/aiExtractor.ts
++++ b/packages/inngest/src/components/execution/otel/aiExtractor.ts
+@@ -1,4 +1,5 @@
+ import type { Attributes } from "@opentelemetry/api";
++import type { ReadableSpan } from "@opentelemetry/sdk-trace-base";
+ 
+ /**
+  * Canonical AI metadata extracted from a span's OpenTelemetry GenAI semantic
+@@ -74,9 +75,12 @@ export interface AIMetadata {
+   presencePenalty?: number;
+   /** Sampling seed requested, when the emitter reports it. */
+   seed?: number;
++
++  // Span-derived metadata (summed). These are not reported by the provider, but are derived from the span itself.
++  // They are stored raw as the emitter reports them.
++  latencyMs?: number; // The latency of the request in milliseconds.
+ }
+ 
+-type ValueType = "text" | "number" | "stringList";
+ type MergeStrategy = "replace" | "sum";
+ 
+ /**
+@@ -100,56 +104,88 @@ type TextField = FieldsWithValue<string>;
+ type NumberField = FieldsWithValue<number>;
+ type StringListField = FieldsWithValue<string[]>;
+ 
+-interface BaseFieldSpec {
+-  /** The canonical (preferred) source `gen_ai.*` attribute key. */
+-  source: string;
++interface FieldSpecBase {
+   /**
+-   * Deprecated source keys to read when {@link BaseFieldSpec.source} is absent
+-   * or carries no usable value, in descending precedence. The preferred
+-   * {@link BaseFieldSpec.source} always wins when it supplies a value; these are
+-   * only consulted as fallbacks.
++   * When true, this field's `compute` only runs once at least one
++   * non-optional field has already produced a value for the same span (see
++   * {@link extractAIMetadataFromSpan}). Marks fields whose value is defined
++   * for virtually any span regardless of whether it's AI-related (e.g.
++   * `latencyMs`, derived from span timing that every span has), so a lone
++   * optional field can't make an unrelated span look like it carries AI
++   * metadata.
+    */
+-  fallbackSources?: readonly string[];
+-  valueType: ValueType;
++  optional?: boolean;
+   merge: MergeStrategy;
+ }
+ 
+-interface TextFieldSpec extends BaseFieldSpec {
++interface TextFieldSpec extends FieldSpecBase {
+   /** The canonical {@link AIMetadata} field this populates. */
+   field: TextField;
+   valueType: "text";
+   merge: "replace";
++  /** Derives this field's value from the span. */
++  compute: (span: ReadableSpan) => string | undefined;
+ }
+ 
+-interface NumberFieldSpec extends BaseFieldSpec {
++interface NumberFieldSpec extends FieldSpecBase {
+   /** The canonical {@link AIMetadata} field this populates. */
+   field: NumberField;
+   valueType: "number";
++  /** Derives this field's value from the span. */
++  compute: (span: ReadableSpan) => number | undefined;
+ }
+ 
+-interface StringListFieldSpec extends BaseFieldSpec {
++interface StringListFieldSpec extends FieldSpecBase {
+   /** The canonical {@link AIMetadata} field this populates. */
+   field: StringListField;
+   valueType: "stringList";
+   merge: "replace";
++  /** Derives this field's value from the span. */
++  compute: (span: ReadableSpan) => string[] | undefined;
+ }
+ 
+ type FieldSpec = TextFieldSpec | NumberFieldSpec | StringListFieldSpec;
+ 
++/**
++ * Reads the first source (the canonical key, then any fallbacks in order)
++ * that yields a non-empty value, coercing non-string attribute values to
++ * text.
++ */
++function readTextAttribute(
++  attributes: Attributes,
++  sources: readonly string[],
++): string | undefined {
++  for (const source of sources) {
++    const value = attributes[source];
++    if (value === undefined) {
++      continue;
++    }
++
++    const text = typeof value === "string" ? value : String(value);
++    if (text !== "") {
++      return text;
++    }
++  }
++
++  return undefined;
++}
++
++/** A field read out of one of the span's `gen_ai.*` attributes, as text. */
+ function textField(
+   field: TextField,
+   source: string,
+   fallbackSources?: readonly string[],
+ ): TextFieldSpec {
++  const sources = [source, ...(fallbackSources ?? [])];
+   return {
+     field,
+-    source,
+-    fallbackSources,
+     valueType: "text",
+     merge: "replace",
++    compute: (span) => readTextAttribute(span.attributes, sources),
+   };
+ }
+ 
++/** A field read out of one of the span's `gen_ai.*` attributes, as a number. */
+ function numberField(
+   field: NumberField,
+   source: string,
+@@ -157,21 +193,44 @@ function numberField(
+ ): NumberFieldSpec {
+   return {
+     field,
+-    source,
+     valueType: "number",
+     merge,
++    compute: (span) => parseNumericAttribute(span.attributes[source]),
+   };
+ }
+ 
++/**
++ * A field read out of one of the span's `gen_ai.*` attributes, as a list of
++ * strings.
++ */
+ function stringListField(
+   field: StringListField,
+   source: string,
+ ): StringListFieldSpec {
+   return {
+     field,
+-    source,
+     valueType: "stringList",
+     merge: "replace",
++    compute: (span) => parseStringListAttribute(span.attributes[source]),
++  };
++}
++
++/**
++ * A field derived from the span itself via custom logic (e.g. timing, kind,
++ * status), rather than a direct attribute read.
++ */
++function computedNumberField(
++  field: NumberField,
++  merge: MergeStrategy,
++  compute: (span: ReadableSpan) => number | undefined,
++  optional?: boolean,
++): NumberFieldSpec {
++  return {
++    field,
++    valueType: "number",
++    merge,
++    compute,
++    optional,
+   };
+ }
+ 
+@@ -216,6 +275,20 @@ export const FIELD_SPECS = [
+   ),
+   numberField("presencePenalty", "gen_ai.request.presence_penalty", "replace"),
+   numberField("seed", "gen_ai.request.seed", "replace"),
++
++  // Span-derived metadata. Not reported by the provider, but computed from the
++  // span's own start/end time. Marked optional: it resolves for virtually any
++  // span, so it must not by itself make an unrelated span look AI-related.
++  computedNumberField(
++    "latencyMs",
++    "sum",
++    (span) => {
++      const startMs = span.startTime[0] * 1000 + span.startTime[1] / 1e6;
++      const endMs = span.endTime[0] * 1000 + span.endTime[1] / 1e6;
++      return endMs - startMs;
++    },
++    true,
++  ),
+ ] as const satisfies readonly FieldSpec[];
+ 
+ function parseNumericAttribute(value: unknown): number | undefined {
+@@ -245,55 +318,62 @@ function parseStringListAttribute(value: unknown): string[] | undefined {
+ }
+ 
+ /**
+- * Extracts {@link AIMetadata} from a span's attributes.
++ * Extracts {@link AIMetadata} from a span.
+  *
+- * Only the allowlisted {@link FIELD_SPECS} are read. Every other attribute is
+- * ignored. Numeric fields accept numbers and quoted numeric strings and are
+- * otherwise dropped, as OTLP/JSON may encode int64 as a quoted string. Text
+- * fields are dropped when empty. String-list fields keep only non-empty string
+- * entries and are dropped when none remain.
++ * Only the allowlisted {@link FIELD_SPECS} are read; every other attribute or
++ * span field is ignored. Each spec derives its value from the span via its
++ * `compute` function — most read a `gen_ai.*` attribute (numeric fields
++ * accept numbers and quoted numeric strings, as OTLP/JSON may encode int64 as
++ * a quoted string; text and string-list fields are dropped when empty), but a
++ * field can define arbitrary custom logic instead (e.g. `latencyMs`, derived
++ * from the span's start/end time).
+  *
+- * Returns an empty object for spans carrying no recognised `gen_ai.*`
+- * attributes.
++ * Fields marked {@link FieldSpecBase.optional} only run once at least one
++ * non-optional field has already produced a value, so a span carrying no
++ * recognised `gen_ai.*` attributes still yields an empty object rather than
++ * picking up e.g. `latencyMs` on its own.
+  *
+- * @param attributes - The span attributes, as exposed by
+- * `ReadableSpan.attributes`.
++ * @param span - The span, as exposed by the OTel SDK's `ReadableSpan`.
+  */
+-export const extractAIMetadataFromAttributes = (
+-  attributes: Attributes,
+-): AIMetadata => {
++export const extractAIMetadataFromSpan = (span: ReadableSpan): AIMetadata => {
+   const metadata: AIMetadata = {};
+ 
++  const applySpec = (spec: FieldSpec): void => {
++    if (spec.valueType === "text") {
++      const text = spec.compute(span);
++      if (text !== undefined && text !== "") {
++        metadata[spec.field] = text;
++      }
++    } else if (spec.valueType === "stringList") {
++      const list = spec.compute(span);
++      if (list !== undefined && list.length > 0) {
++        metadata[spec.field] = list;
++      }
++    } else {
++      const num = spec.compute(span);
++      if (num !== undefined && Number.isFinite(num)) {
++        metadata[spec.field] = num;
++      }
++    }
++  };
++
+   for (const spec of FIELD_SPECS) {
+-    // Read the canonical key first, then any deprecated fallbacks in order,
+-    // taking the first that yields a usable value.
+-    const sources = [spec.source, ...(spec.fallbackSources ?? [])];
++    if (!spec.optional) {
++      applySpec(spec);
++    }
++  }
+ 
+-    for (const source of sources) {
+-      const value = attributes[source];
+-      if (value === undefined) {
+-        continue;
+-      }
++  // No non-optional field matched, so this isn't a span we recognise as
++  // AI-related. Skip optional fields entirely rather than let one (e.g.
++  // latencyMs, which resolves for virtually every span) make an unrelated
++  // span look like it carries AI metadata.
++  if (Object.keys(metadata).length === 0) {
++    return metadata;
++  }
+ 
+-      if (spec.valueType === "text") {
+-        const text = typeof value === "string" ? value : String(value);
+-        if (text !== "") {
+-          metadata[spec.field] = text;
+-          break;
+-        }
+-      } else if (spec.valueType === "stringList") {
+-        const list = parseStringListAttribute(value);
+-        if (list !== undefined) {
+-          metadata[spec.field] = list;
+-          break;
+-        }
+-      } else {
+-        const num = parseNumericAttribute(value);
+-        if (num !== undefined) {
+-          metadata[spec.field] = num;
+-          break;
+-        }
+-      }
++  for (const spec of FIELD_SPECS) {
++    if (spec.optional) {
++      applySpec(spec);
+     }
+   }
+ 
+diff --git a/packages/inngest/src/components/execution/otel/metadataProcessor.ts b/packages/inngest/src/components/execution/otel/metadataProcessor.ts
+index 2946c01..8e778e7 100644
+--- a/packages/inngest/src/components/execution/otel/metadataProcessor.ts
++++ b/packages/inngest/src/components/execution/otel/metadataProcessor.ts
+@@ -5,10 +5,7 @@ import type {
+ } from "@opentelemetry/sdk-trace-base";
+ import Debug from "debug";
+ import { isRecord } from "../../../helpers/types.ts";
+-import {
+-  type AIMetadata,
+-  extractAIMetadataFromAttributes,
+-} from "./aiExtractor.ts";
++import { type AIMetadata, extractAIMetadataFromSpan } from "./aiExtractor.ts";
+ import { debugPrefix } from "./consts.ts";
+ 
+ const processorDevDebug = Debug(`${debugPrefix}:InngestMetadataSpanProcessor`);
+@@ -277,7 +274,7 @@ export class InngestMetadataSpanProcessor implements SpanProcessor {
+         return;
+       }
+ 
+-      const aiMetadata = extractAIMetadataFromAttributes(span.attributes);
++      const aiMetadata = extractAIMetadataFromSpan(span);
+       if (Object.keys(aiMetadata).length === 0) {
+         return;
+       }
+diff --git a/packages/inngest/src/components/execution/otel/testdata/anthropic_otel_traceloop/cache_messages.otlp.json.snap b/packages/inngest/src/components/execution/otel/testdata/anthropic_otel_traceloop/cache_messages.otlp.json.snap
+index 0681deb..db0c66f 100644
+--- a/packages/inngest/src/components/execution/otel/testdata/anthropic_otel_traceloop/cache_messages.otlp.json.snap
++++ b/packages/inngest/src/components/execution/otel/testdata/anthropic_otel_traceloop/cache_messages.otlp.json.snap
+@@ -14,7 +14,8 @@
+       "totalTokens": 17,
+       "cacheReadTokens": 0,
+       "cacheCreationTokens": 2463,
+-      "maxTokens": 16
++      "maxTokens": 16,
++      "latencyMs": 1224.886962890625
+     }
+   },
+   {
+@@ -32,7 +33,8 @@
+       "totalTokens": 7,
+       "cacheReadTokens": 2463,
+       "cacheCreationTokens": 10,
+-      "maxTokens": 16
++      "maxTokens": 16,
++      "latencyMs": 1118.367919921875
+     }
+   }
+ ]
+diff --git a/packages/inngest/src/components/execution/otel/testdata/anthropic_otel_traceloop/reasoning_messages.otlp.json.snap b/packages/inngest/src/components/execution/otel/testdata/anthropic_otel_traceloop/reasoning_messages.otlp.json.snap
+index 742ed7a..2adbb6e 100644
+--- a/packages/inngest/src/components/execution/otel/testdata/anthropic_otel_traceloop/reasoning_messages.otlp.json.snap
++++ b/packages/inngest/src/components/execution/otel/testdata/anthropic_otel_traceloop/reasoning_messages.otlp.json.snap
+@@ -14,7 +14,8 @@
+       "totalTokens": 502,
+       "cacheReadTokens": 0,
+       "cacheCreationTokens": 0,
+-      "maxTokens": 4096
++      "maxTokens": 4096,
++      "latencyMs": 6643.09375
+     }
+   }
+ ]
+diff --git a/packages/inngest/src/components/execution/otel/testdata/openai_langsmith_otel/basic_responses.otlp.json.snap b/packages/inngest/src/components/execution/otel/testdata/openai_langsmith_otel/basic_responses.otlp.json.snap
+index 7a86b9b..997f29d 100644
+--- a/packages/inngest/src/components/execution/otel/testdata/openai_langsmith_otel/basic_responses.otlp.json.snap
++++ b/packages/inngest/src/components/execution/otel/testdata/openai_langsmith_otel/basic_responses.otlp.json.snap
+@@ -9,7 +9,8 @@
+       "responseId": "resp_0b898006b71f980e006a30976c7ae8819a9f9dfe79dd711f39",
+       "inputTokens": 17,
+       "outputTokens": 46,
+-      "totalTokens": 63
++      "totalTokens": 63,
++      "latencyMs": 794
+     }
+   }
+ ]
+diff --git a/packages/inngest/src/components/execution/otel/testdata/openai_otel_official/embeddings.otlp.json.snap b/packages/inngest/src/components/execution/otel/testdata/openai_otel_official/embeddings.otlp.json.snap
+index d233c6e..790a096 100644
+--- a/packages/inngest/src/components/execution/otel/testdata/openai_otel_official/embeddings.otlp.json.snap
++++ b/packages/inngest/src/components/execution/otel/testdata/openai_otel_official/embeddings.otlp.json.snap
+@@ -6,7 +6,8 @@
+       "responseModel": "text-embedding-3-small",
+       "provider": "openai",
+       "operationName": "embeddings",
+-      "inputTokens": 10
++      "inputTokens": 10,
++      "latencyMs": 393.735107421875
+     }
+   }
+ ]
+diff --git a/packages/inngest/src/components/execution/otel/testdata/openai_otel_official/params_chat.otlp.json.snap b/packages/inngest/src/components/execution/otel/testdata/openai_otel_official/params_chat.otlp.json.snap
+index 67a56b7..7caf090 100644
+--- a/packages/inngest/src/components/execution/otel/testdata/openai_otel_official/params_chat.otlp.json.snap
++++ b/packages/inngest/src/components/execution/otel/testdata/openai_otel_official/params_chat.otlp.json.snap
+@@ -16,7 +16,8 @@
+       "topP": 0.9,
+       "maxTokens": 64,
+       "frequencyPenalty": 0.2,
+-      "presencePenalty": 0.1
++      "presencePenalty": 0.1,
++      "latencyMs": 1286.23828125
+     }
+   }
+ ]
+diff --git a/packages/inngest/src/components/execution/otel/testdata/openai_otel_official/stream_chat.otlp.json.snap b/packages/inngest/src/components/execution/otel/testdata/openai_otel_official/stream_chat.otlp.json.snap
+index 376b294..fcb764f 100644
+--- a/packages/inngest/src/components/execution/otel/testdata/openai_otel_official/stream_chat.otlp.json.snap
++++ b/packages/inngest/src/components/execution/otel/testdata/openai_otel_official/stream_chat.otlp.json.snap
+@@ -11,7 +11,8 @@
+         "stop"
+       ],
+       "inputTokens": 11,
+-      "outputTokens": 10
++      "outputTokens": 10,
++      "latencyMs": 592.650146484375
+     }
+   }
+ ]
+diff --git a/packages/inngest/src/components/execution/otel/testdata/openai_otel_official/tools_chat.otlp.json.snap b/packages/inngest/src/components/execution/otel/testdata/openai_otel_official/tools_chat.otlp.json.snap
+index 39b633f..c2fb064 100644
+--- a/packages/inngest/src/components/execution/otel/testdata/openai_otel_official/tools_chat.otlp.json.snap
++++ b/packages/inngest/src/components/execution/otel/testdata/openai_otel_official/tools_chat.otlp.json.snap
+@@ -11,7 +11,8 @@
+         "tool_calls"
+       ],
+       "inputTokens": 56,
+-      "outputTokens": 30
++      "outputTokens": 30,
++      "latencyMs": 984.809814453125
+     }
+   }
+ ]
+diff --git a/packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/basic_responses.otlp.json.snap b/packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/basic_responses.otlp.json.snap
+index 2038e62..efa1338 100644
+--- a/packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/basic_responses.otlp.json.snap
++++ b/packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/basic_responses.otlp.json.snap
+@@ -12,7 +12,8 @@
+       ],
+       "inputTokens": 17,
+       "outputTokens": 43,
+-      "totalTokens": 60
++      "totalTokens": 60,
++      "latencyMs": 1115.421142578125
+     }
+   }
+ ]
+diff --git a/packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/params_chat.otlp.json.snap b/packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/params_chat.otlp.json.snap
+index 64fe687..e00d670 100644
+--- a/packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/params_chat.otlp.json.snap
++++ b/packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/params_chat.otlp.json.snap
+@@ -17,7 +17,8 @@
+       "topP": 0.9,
+       "maxTokens": 64,
+       "frequencyPenalty": 0.2,
+-      "presencePenalty": 0.1
++      "presencePenalty": 0.1,
++      "latencyMs": 680.310302734375
+     }
+   }
+ ]
+diff --git a/packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/stream_chat.otlp.json.snap b/packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/stream_chat.otlp.json.snap
+index e6a5276..109f307 100644
+--- a/packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/stream_chat.otlp.json.snap
++++ b/packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/stream_chat.otlp.json.snap
+@@ -9,7 +9,8 @@
+       "responseId": "chatcmpl-DrBrdQ2FLoMqEewTueUxqUnAaRTTA",
+       "finishReasons": [
+         "stop"
+-      ]
++      ],
++      "latencyMs": 263.97802734375
+     }
+   }
+ ]
+diff --git a/packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/tools_chat.otlp.json.snap b/packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/tools_chat.otlp.json.snap
+index 96a56a3..add3a79 100644
+--- a/packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/tools_chat.otlp.json.snap
++++ b/packages/inngest/src/components/execution/otel/testdata/openai_otel_traceloop/tools_chat.otlp.json.snap
+@@ -12,7 +12,8 @@
+       ],
+       "inputTokens": 56,
+       "outputTokens": 14,
+-      "totalTokens": 70
++      "totalTokens": 70,
++      "latencyMs": 711.927001953125
+     }
+   }
+ ]
+diff --git a/packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/basic_responses.otlp.json.snap b/packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/basic_responses.otlp.json.snap
+index 6388200..c85fc43 100644
+--- a/packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/basic_responses.otlp.json.snap
++++ b/packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/basic_responses.otlp.json.snap
+@@ -10,7 +10,8 @@
+         "stop"
+       ],
+       "inputTokens": 17,
+-      "outputTokens": 40
++      "outputTokens": 40,
++      "latencyMs": 944.0263671875
+     }
+   },
+   {
+diff --git a/packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/params_chat.otlp.json.snap b/packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/params_chat.otlp.json.snap
+index d1262d6..6fe7363 100644
+--- a/packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/params_chat.otlp.json.snap
++++ b/packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/params_chat.otlp.json.snap
+@@ -15,7 +15,8 @@
+       "topP": 0.9,
+       "maxTokens": 64,
+       "frequencyPenalty": 0.2,
+-      "presencePenalty": 0.1
++      "presencePenalty": 0.1,
++      "latencyMs": 434.149169921875
+     }
+   },
+   {
+diff --git a/packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/stream_chat.otlp.json.snap b/packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/stream_chat.otlp.json.snap
+index 69e81dd..1086b13 100644
+--- a/packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/stream_chat.otlp.json.snap
++++ b/packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/stream_chat.otlp.json.snap
+@@ -10,7 +10,8 @@
+         "stop"
+       ],
+       "inputTokens": 11,
+-      "outputTokens": 14
++      "outputTokens": 14,
++      "latencyMs": 283.82470703125
+     }
+   },
+   {
+diff --git a/packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/tools_chat.otlp.json.snap b/packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/tools_chat.otlp.json.snap
+index 08817b2..b3b3b09 100644
+--- a/packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/tools_chat.otlp.json.snap
++++ b/packages/inngest/src/components/execution/otel/testdata/openai_vercel_aisdk/tools_chat.otlp.json.snap
+@@ -10,7 +10,8 @@
+         "tool-calls"
+       ],
+       "inputTokens": 56,
+-      "outputTokens": 30
++      "outputTokens": 30,
++      "latencyMs": 575.1591796875
+     }
+   },
+   {

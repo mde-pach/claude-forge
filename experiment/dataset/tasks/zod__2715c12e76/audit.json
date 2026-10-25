@@ -1,0 +1,10 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/zod/src/v4/classic/tests/default-locale.test.ts::first ZodType construction registers the English default locale",
+   "action": "keep",
+   "reason": "It only checks behaviour the instruction spells out through public interfaces: after `z.config({ localeError: undefined })`, `localeError` is undefined, constructing `z.enum` makes it defined, and the English message matches the stated wording exactly."
+  }
+ ],
+ "edits": []
+}

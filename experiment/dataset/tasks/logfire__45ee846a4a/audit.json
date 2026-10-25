@@ -1,0 +1,10 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/test_logfire_api.py::test_runtime[without_logfire]",
+   "action": "keep",
+   "reason": "The added assertions only check observable outcomes the instruction specifies (the bare `@logfire_api.instrument` returns a function that gives 'ok' and keeps its `__name__`), through the public interface, with no internals inspected."
+  }
+ ],
+ "edits": []
+}

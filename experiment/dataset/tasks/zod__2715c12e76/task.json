@@ -1,0 +1,36 @@
+{
+ "task_id": "zod__2715c12e76",
+ "repo": "zod",
+ "commit": "2715c12e76cf022d7dbdeb5852c09fddfe91a481",
+ "parent": "81d9fc6cf47da97ad4ef2c43de02276fba249790",
+ "date": "2026-08-12T22:34:06-07:00",
+ "subject": "fix(v4): preserve default English locale across tree-shaken bundles (#5959)",
+ "type": "fix",
+ "source_files": [
+  "packages/zod/src/v4/classic/external.ts",
+  "packages/zod/src/v4/classic/schemas.ts"
+ ],
+ "test_files": [
+  "packages/treeshake/default-locale.test.ts",
+  "packages/zod/src/v4/classic/tests/default-locale.test.ts"
+ ],
+ "hidden_deleted": [],
+ "test_targets": [
+  "packages/treeshake/default-locale.test.ts",
+  "packages/zod/src/v4/classic/tests/default-locale.test.ts"
+ ],
+ "f2p": [
+  "packages/zod/src/v4/classic/tests/default-locale.test.ts::first ZodType construction registers the English default locale"
+ ],
+ "p2p": [
+  "packages/zod/src/v4/classic/tests/default-locale.test.ts::explicit locale set after schema construction overrides default",
+  "packages/zod/src/v4/classic/tests/default-locale.test.ts::explicit locale set before schema construction is preserved"
+ ],
+ "audit": {
+  "dropped": [],
+  "edits_applied": 0,
+  "f2p_before": 1,
+  "p2p_before": 2,
+  "flaky_excluded": []
+ }
+}

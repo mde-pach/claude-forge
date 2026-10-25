@@ -1,0 +1,10 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/otel_integrations/test_google_genai.py::test_span_event_logger_with_circular_reference",
+   "action": "keep",
+   "reason": "The test calls only `SpanEventLogger.emit`, which the instruction names, and checks only the exported span events against the output the instruction specifies, using IsStr() for the back-edge strings whose text is unspecified, so it inspects no internals."
+  }
+ ],
+ "edits": []
+}

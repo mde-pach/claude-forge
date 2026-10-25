@@ -1,0 +1,15 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/models/test_huggingface.py::test_unsupported_media_type_in_tool_return_is_not_silently_dropped",
+   "action": "keep",
+   "reason": "It goes through the public agent.run interface and checks the NotImplementedError type and message that the instruction specifies."
+  },
+  {
+   "id": "tests/models/test_huggingface.py::test_image_tool_return_is_forwarded_as_user_message",
+   "action": "drop",
+   "reason": "It calls the private method model._map_user_message, which the instruction does not name, and the rule says to drop tests that use private names."
+  }
+ ],
+ "edits": []
+}

@@ -1,0 +1,10 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/server/test_dependencies.py::TestSharedDependencies::test_shared_resolves_on_task_capable_server",
+   "action": "keep",
+   "reason": "It uses only public interfaces (FastMCP, Client, Shared, is_docket_available), and it asserts only outcomes the instruction states explicitly (text \"value\" on each call, factory invoked exactly once), so no implementation details are inspected."
+  }
+ ],
+ "edits": []
+}

@@ -1,0 +1,15 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/test_dbos.py::test_dbos_mcptoolset_returns_cached_tool_defs",
+   "action": "keep",
+   "reason": "It uses only the `_mcp_tool_defs_cache` field, keyed by toolset id, and the manual pre-population case, all named in the interface, plus a module path that existed before the change."
+  },
+  {
+   "id": "tests/test_dbos.py::test_dbos_mcp_get_tools_recorded_independently_per_run",
+   "action": "keep",
+   "reason": "It asserts the observable DBOS step sequence (exactly one `<agent>__mcp_server__<id>.get_tools` step, placed first, per run), which the instruction specifies explicitly."
+  }
+ ],
+ "edits": []
+}

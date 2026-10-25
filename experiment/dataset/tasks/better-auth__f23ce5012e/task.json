@@ -1,0 +1,65 @@
+{
+ "task_id": "better-auth__f23ce5012e",
+ "repo": "better-auth",
+ "commit": "f23ce5012ea47fac1a69b1dad203dfdef3830fd0",
+ "parent": "f59a0ee7895a024ddd4c5c387344173888e17be4",
+ "date": "2026-07-10T01:02:04+00:00",
+ "subject": "feat(last-login-method): `beforeStoreCookie` option for GDPR compliance (#5753)",
+ "type": "feat",
+ "source_files": [
+  "packages/better-auth/src/plugins/last-login-method/index.ts"
+ ],
+ "test_files": [
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts"
+ ],
+ "hidden_deleted": [],
+ "test_targets": [
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts"
+ ],
+ "f2p": [
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > beforeStoreCookie hook > should NOT set cookie when beforeStoreCookie returns Promise<false>",
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > beforeStoreCookie hook > should NOT set cookie when beforeStoreCookie returns a rejected promise",
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > beforeStoreCookie hook > should NOT set cookie when beforeStoreCookie returns false",
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > beforeStoreCookie hook > should NOT set cookie when beforeStoreCookie throws an error",
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > beforeStoreCookie hook > should conditionally set cookie based on login method",
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > beforeStoreCookie hook > should handle dynamic consent changes between logins",
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > beforeStoreCookie hook > should handle falsy return values correctly",
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > beforeStoreCookie hook > should receive correct context and lastUsedLoginMethod parameters"
+ ],
+ "p2p": [
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > beforeStoreCookie hook > should allow different behavior for different login methods",
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > beforeStoreCookie hook > should combine beforeStoreCookie with storeInDatabase correctly",
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > beforeStoreCookie hook > should conditionally set cookie based on context properties",
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > beforeStoreCookie hook > should handle async operations in beforeStoreCookie",
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > beforeStoreCookie hook > should handle complex GDPR consent logic",
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > beforeStoreCookie hook > should handle truthy return values correctly",
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > beforeStoreCookie hook > should set cookie when beforeStoreCookie is undefined (default behavior)",
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > beforeStoreCookie hook > should set cookie when beforeStoreCookie returns Promise<true>",
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > beforeStoreCookie hook > should set cookie when beforeStoreCookie returns true",
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > beforeStoreCookie hook > should work correctly with custom cookie name",
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > beforeStoreCookie hook > should work correctly with sign-up flow",
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > should NOT set the last login method cookie on failed OAuth callback",
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > should NOT set the last login method cookie on failed authentication",
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > should clear cross-subdomain cookies by including the domain attribute",
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > should handle multiple set-cookie headers correctly",
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > should ignore missing path in after hooks",
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > should ignore missing path in database hooks",
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > should normalize missing path for custom resolver in database hooks",
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > should set the last login method cookie",
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > should set the last login method cookie for magic-link",
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > should set the last login method cookie for siwe",
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > should set the last login method for generic OAuth provider with /oauth2/callback/:providerId",
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > should set the last login method for magic-link in the database",
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > should set the last login method for siwe in the database",
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > should set the last login method in the database",
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > should update the last login method in the database on subsequent logins",
+  "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > should update the last login method in the database on subsequent logins with email and OAuth"
+ ],
+ "audit": {
+  "dropped": [],
+  "edits_applied": 0,
+  "f2p_before": 8,
+  "p2p_before": 27,
+  "flaky_excluded": []
+ }
+}

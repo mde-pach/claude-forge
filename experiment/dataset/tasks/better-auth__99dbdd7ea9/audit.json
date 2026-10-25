@@ -1,0 +1,10 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/cli/test/generate.test.ts::generate > should not emit duplicate unique indexes for unique indexed fields",
+   "action": "keep",
+   "reason": "It asserts only on output of the public generateDrizzleSchema, and the instruction spells out the exact expected string and the forbidden substrings, so nothing internal is checked."
+  }
+ ],
+ "edits": []
+}

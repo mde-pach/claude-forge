@@ -1,0 +1,10 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/test_tool_search.py::test_openai_discovered_tool_without_native_tool_search_omits_defer_loading",
+   "action": "keep",
+   "reason": "It mocks only the OpenAI client, which is the unit's boundary, and asserts exactly the wire-payload outcome the instruction spells out: no 'tool_search' entry, and get_weather present without a defer_loading key."
+  }
+ ],
+ "edits": []
+}

@@ -1,0 +1,34 @@
+{
+ "task_id": "zod__e25b68e192",
+ "repo": "zod",
+ "commit": "e25b68e192778436f5e75de87ca4114b0b15dd48",
+ "parent": "53397351aed547995534abc9a948dc660f656f19",
+ "date": "2026-08-12T12:02:35-07:00",
+ "subject": "perf(v4): let three dead declarations tree-shake under esbuild (#6381)",
+ "type": "refactor",
+ "source_files": [
+  "packages/zod/src/v4/core/core.ts",
+  "packages/zod/src/v4/core/regexes.ts",
+  "packages/zod/src/v4/core/registries.ts",
+  "packages/zod/src/v4/core/util.ts"
+ ],
+ "test_files": [
+  "packages/zod/src/v4/core/tests/treeshake.test.ts"
+ ],
+ "hidden_deleted": [],
+ "test_targets": [
+  "packages/zod/src/v4/core/tests/treeshake.test.ts"
+ ],
+ "f2p": [
+  "packages/zod/src/v4/core/tests/treeshake.test.ts::a minimal classic schema drops the registry symbols",
+  "packages/zod/src/v4/core/tests/treeshake.test.ts::a minimal zod/mini schema drops the declarations it cannot reach"
+ ],
+ "p2p": [],
+ "audit": {
+  "dropped": [],
+  "edits_applied": 0,
+  "f2p_before": 2,
+  "p2p_before": 0,
+  "flaky_excluded": []
+ }
+}

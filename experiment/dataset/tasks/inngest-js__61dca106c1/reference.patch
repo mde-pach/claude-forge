@@ -1,0 +1,36 @@
+diff --git a/.changeset/red-fishes-try.md b/.changeset/red-fishes-try.md
+new file mode 100644
+index 0000000..9b4fc45
+--- /dev/null
++++ b/.changeset/red-fishes-try.md
+@@ -0,0 +1,5 @@
++---
++"@inngest/otel": patch
++---
++
++feat: add marker to identify the OTel provider
+diff --git a/packages/otel/src/instrument.ts b/packages/otel/src/instrument.ts
+index 1d7b607..5561750 100644
+--- a/packages/otel/src/instrument.ts
++++ b/packages/otel/src/instrument.ts
+@@ -12,6 +12,8 @@ import { type MaybeError, toError } from "./types.ts";
+ 
+ const debug = Debug("inngest:otel:instrumentTracing");
+ 
++export const providerMarker = Symbol.for("inngest.otel.provider");
++
+ let isTraceInstrumentationHookRegistered = false;
+ let isTraceInstrumentationStarted = false;
+ 
+@@ -101,6 +103,11 @@ function ensureTraceProvider(): MaybeError<void> {
+       return;
+     }
+ 
++    Object.defineProperty(provider, providerMarker, {
++      value: true,
++      enumerable: false,
++    });
++
+     context.setGlobalContextManager(
+       new AsyncLocalStorageContextManager().enable(),
+     );

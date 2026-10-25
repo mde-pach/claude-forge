@@ -1,0 +1,25 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/inngest/src/components/middleware/middleware.test.ts::multiple middleware preserve step.run output with optional properties",
+   "action": "keep",
+   "reason": "It asserts only the public step.run result types: media is not any, media is exactly { mediaId: string; label?: string }[], and mediaId is string. The instruction requires each of these with two middleware registered."
+  },
+  {
+   "id": "packages/inngest/src/components/middleware/middleware.test.ts::step.invoke preserves optional properties in invoked step.run output",
+   "action": "keep",
+   "reason": "It checks only the public step.invoke result type (media is not any, mediaId is string), which the instruction requires word for word."
+  },
+  {
+   "id": "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #1532 > re-applying Jsonify to a mapped type with optional properties is a no-op",
+   "action": "keep",
+   "reason": "It tests the exported Jsonify type for the index-signature case the instruction names (Jsonify<Jsonify<T>> equals Jsonify<T>, and items[number].id is string), with no internals involved."
+  },
+  {
+   "id": "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #1532 > re-applying Jsonify to an object with optional properties is a no-op",
+   "action": "keep",
+   "reason": "It tests the exported Jsonify type at its public import path: re-applying it must be a no-op and property access must keep the correct types, exactly as the instruction requires."
+  }
+ ],
+ "edits": []
+}

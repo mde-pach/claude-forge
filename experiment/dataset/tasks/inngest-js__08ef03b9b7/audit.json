@@ -1,0 +1,10 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/inngest/src/components/optimizedParallelism.test.ts::EXE-1135: Default to optimized parallelism > execution version selection > uses V1 with 'opt-out with incoming V2'",
+   "action": "keep",
+   "reason": "It checks only the x-inngest-req-version header named in the instruction, through the existing public InngestCommHandler and handler interfaces, so it tests the outcome and not how the code does it."
+  }
+ ],
+ "edits": []
+}

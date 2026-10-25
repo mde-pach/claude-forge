@@ -1,0 +1,32 @@
+{
+ "task_id": "inngest-js__9b5ea64cfb",
+ "repo": "inngest-js",
+ "commit": "9b5ea64cfb918729451ee2e32db3fdc89b29e8b1",
+ "parent": "2ae29bffe0a6b3241b8da99638ea224bb0b5f277",
+ "date": "2026-07-01T15:02:30-07:00",
+ "subject": "fix: prevent streaming heartbeat from crashing on disconnect (#1615)",
+ "type": "fix",
+ "source_files": [
+  "packages/inngest/src/components/InngestCommHandler.ts",
+  "packages/inngest/src/helpers/stream.ts"
+ ],
+ "test_files": [
+  "packages/inngest/src/helpers/stream.test.ts"
+ ],
+ "hidden_deleted": [],
+ "test_targets": [
+  "packages/inngest/src/helpers/stream.test.ts"
+ ],
+ "f2p": [
+  "packages/inngest/src/helpers/stream.test.ts::createStream > finalize does not reject after the consumer cancels the stream",
+  "packages/inngest/src/helpers/stream.test.ts::createStream > heartbeat does not throw after the consumer cancels the stream"
+ ],
+ "p2p": [],
+ "audit": {
+  "dropped": [],
+  "edits_applied": 0,
+  "f2p_before": 2,
+  "p2p_before": 0,
+  "flaky_excluded": []
+ }
+}

@@ -1,0 +1,1461 @@
+import type { Mock } from "vitest";
+import { literal } from "zod/v3";
+import { envKeys, headerKeys } from "../helpers/consts.ts";
+import type { IsAny, IsEqual } from "../helpers/types.ts";
+import {
+  type EventPayload,
+  type GetFunctionInput,
+  type GetFunctionOutput,
+  type GetStepTools,
+  Inngest,
+  Middleware,
+  referenceFunction,
+} from "../index.ts";
+import type { Logger } from "../middleware/logger.ts";
+import { createClient, nodeVersion } from "../test/helpers.ts";
+import type { SendEventResponse } from "../types.ts";
+import { sessionPropagationSymbol } from "./Inngest.ts";
+import type { createStepTools } from "./InngestStepTools.ts";
+
+const testEvent: EventPayload = {
+  name: "test",
+  data: {},
+  ts: 1688139903724,
+};
+
+const testEventKey = "foo-bar-baz-test";
+
+describe("new Inngest()", () => {
+  describe("mode", () => {
+    const createTestClient = ({
+      env,
+      opts,
+    }: {
+      env?: Record<string, string>;
+      opts?: Omit<ConstructorParameters<typeof Inngest>[0], "id">;
+    } = {}): Inngest.Any => {
+      let ogKeys: Record<string, string | undefined> = {};
+
+      if (env) {
+        ogKeys = Object.keys(env).reduce<Record<string, string | undefined>>(
+          (acc, key) => {
+            acc[key] = process.env[key];
+            process.env[key] = env[key];
+            return acc;
+          },
+          {},
+        );
+      }
+
+      const inngest = new Inngest({ id: "test", ...opts });
+
+      if (env) {
+        // biome-ignore lint/complexity/noForEach: intentional
+        Object.keys(ogKeys).forEach((key) => {
+          process.env[key] = ogKeys[key];
+        });
+      }
+
+      return inngest;
+    };
+
+    test("should default to cloud mode", () => {
+      const inngest = createTestClient();
+      expect(inngest.mode === "cloud").toBe(true);
+    });
+
+    test("`isDev: true` sets dev mode", () => {
+      const inngest = createTestClient({ opts: { isDev: true } });
+      expect(inngest.mode === "dev").toBe(true);
+    });
+
+    test("`isDev: false` sets cloud mode", () => {
+      const inngest = createTestClient({ opts: { isDev: false } });
+      expect(inngest.mode === "cloud").toBe(true);
+    });
+
+    test("`INNGEST_DEV=1` sets dev mode", () => {
+      const inngest = createTestClient({
+        env: { [envKeys.InngestDevMode]: "1" },
+      });
+      expect(inngest.mode === "dev").toBe(true);
+    });
+
+    test("`INNGEST_DEV=true` sets dev mode", () => {
+      const inngest = createTestClient({
+        env: { [envKeys.InngestDevMode]: "true" },
+      });
+      expect(inngest.mode === "dev").toBe(true);
+    });
+
+    test("`INNGEST_DEV=false` sets cloud mode", () => {
+      const inngest = createTestClient({
+        env: { [envKeys.InngestDevMode]: "false" },
+      });
+      expect(inngest.mode === "cloud").toBe(true);
+    });
+
+    test("`INNGEST_DEV=0` sets cloud mode", () => {
+      const inngest = createTestClient({
+        env: { [envKeys.InngestDevMode]: "0" },
+      });
+      expect(inngest.mode === "cloud").toBe(true);
+    });
+
+    test("`isDev` overwrites `INNGEST_DEV`", () => {
+      const inngest = createTestClient({
+        env: { [envKeys.InngestDevMode]: "1" },
+        opts: { isDev: false },
+      });
+      expect(inngest.mode === "cloud").toBe(true);
+    });
+
+    test("`INNGEST_DEV=URL` sets dev mode with custom URL", () => {
+      const inngest = createTestClient({
+        env: { [envKeys.InngestDevMode]: "http://localhost:3000" },
+      });
+      expect(inngest.mode === "dev").toBe(true);
+      expect(inngest.explicitDevUrl?.href).toBe("http://localhost:3000/");
+    });
+
+    test("`INNGEST_DEV=host:port` without scheme sets dev mode and assumes http://", () => {
+      const inngest = createTestClient({
+        env: { [envKeys.InngestDevMode]: "0.0.0.0:8288" },
+      });
+      expect(inngest.mode === "dev").toBe(true);
+      expect(inngest.explicitDevUrl?.href).toBe("http://0.0.0.0:8288/");
+    });
+
+    test("`INNGEST_DEV=localhost:port` without scheme sets dev mode and assumes http://", () => {
+      const inngest = createTestClient({
+        env: { [envKeys.InngestDevMode]: "localhost:9000" },
+      });
+      expect(inngest.mode === "dev").toBe(true);
+      expect(inngest.explicitDevUrl?.href).toBe("http://localhost:9000/");
+    });
+
+    test("`INNGEST_DEV=host:port` uses the URL for apiBaseUrl and eventBaseUrl", () => {
+      const inngest = createTestClient({
+        env: { [envKeys.InngestDevMode]: "0.0.0.0:8288" },
+      });
+      expect(inngest.apiBaseUrl).toBe("http://0.0.0.0:8288/");
+      expect(inngest.eventBaseUrl).toBe("http://0.0.0.0:8288/");
+    });
+  });
+});
+
+describe("send", () => {
+  describe("runtime", () => {
+    const originalProcessEnv = process.env;
+    const originalFetch = global.fetch;
+
+    const setFetch = ({
+      status = 200,
+      ids,
+      error,
+    }: Partial<SendEventResponse> = {}) => {
+      return vi.fn((_url: string, opts: { body: string }) => {
+        const json = error
+          ? {
+              error,
+            }
+          : {
+              status,
+              ids:
+                ids ??
+                (JSON.parse(opts.body) as EventPayload[]).map(() => "test-id"),
+            };
+
+        return Promise.resolve({
+          status,
+          json: () => {
+            return Promise.resolve(json);
+          },
+          text: () => {
+            return Promise.resolve(JSON.stringify(json));
+          },
+        });
+      }) as unknown as typeof fetch;
+    };
+
+    beforeAll(() => {
+      Object.defineProperties(global, {
+        fetch: {
+          value: setFetch(),
+          configurable: true,
+        },
+      });
+    });
+
+    beforeEach(() => {
+      (global.fetch as Mock).mockClear();
+      process.env = { ...originalProcessEnv };
+    });
+
+    afterAll(() => {
+      Object.defineProperties(global, {
+        fetch: {
+          value: originalFetch,
+          configurable: true,
+        },
+      });
+
+      process.env = originalProcessEnv;
+    });
+
+    test("should fail to send if event key not specified at instantiation", async () => {
+      // Will only throw this error in prod
+      process.env.CONTEXT = "production";
+
+      const inngest = createClient({ id: "test" });
+
+      await expect(() => inngest.send(testEvent)).rejects.toThrowError(
+        "Failed to send event",
+      );
+    });
+
+    test("should succeed in dev mode without event key", async () => {
+      const inngest = createClient({
+        id: "test",
+        isDev: true,
+      });
+
+      await expect(
+        inngest.send({ name: "test", data: {} }),
+      ).resolves.toMatchObject({
+        ids: Array(1).fill(expect.any(String)),
+      });
+    });
+
+    test("should succeed if event key specified at instantiation", async () => {
+      const inngest = createClient({ id: "test", eventKey: testEventKey });
+
+      await expect(inngest.send(testEvent)).resolves.toMatchObject({
+        ids: Array(1).fill(expect.any(String)),
+      });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining(`/e/${testEventKey}`),
+        expect.objectContaining({
+          method: "POST",
+
+          body: expect.stringMatching(
+            new RegExp(JSON.stringify(testEvent).slice(1, -1)),
+          ),
+        }),
+      );
+    });
+
+    test("should succeed if event key specified in env", async () => {
+      process.env[envKeys.InngestEventKey] = testEventKey;
+      const inngest = createClient({ id: "test" });
+
+      await expect(inngest.send(testEvent)).resolves.toMatchObject({
+        ids: Array(1).fill(expect.any(String)),
+      });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining(`/e/${testEventKey}`),
+        expect.objectContaining({
+          method: "POST",
+
+          body: expect.stringMatching(
+            new RegExp(JSON.stringify(testEvent).slice(1, -1)),
+          ),
+        }),
+      );
+    });
+
+    test("should succeed if event key given at runtime", async () => {
+      const inngest = createClient({ id: "test" });
+      inngest.setEnvVars({ [envKeys.InngestEventKey]: testEventKey });
+
+      await expect(inngest.send(testEvent)).resolves.toMatchObject({
+        ids: Array(1).fill(expect.any(String)),
+      });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining(`/e/${testEventKey}`),
+        expect.objectContaining({
+          method: "POST",
+
+          body: expect.stringMatching(
+            new RegExp(JSON.stringify(testEvent).slice(1, -1)),
+          ),
+        }),
+      );
+    });
+
+    test("should succeed if an empty list of payloads is given", async () => {
+      const inngest = createClient({ id: "test", eventKey: testEventKey });
+
+      await expect(inngest.send([])).resolves.toMatchObject({
+        ids: Array(0).fill(expect.any(String)),
+      });
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    test("should send env:foo if explicitly set in client", async () => {
+      const inngest = createClient({
+        id: "test",
+        eventKey: testEventKey,
+        env: "foo",
+      });
+
+      await expect(inngest.send(testEvent)).resolves.toMatchObject({
+        ids: Array(1).fill(expect.any(String)),
+      });
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining(`/e/${testEventKey}`),
+        expect.objectContaining({
+          method: "POST",
+
+          headers: expect.objectContaining({
+            [headerKeys.Environment]: "foo",
+          }),
+        }),
+      );
+    });
+
+    test("should send env:foo if explicitly set in send call", async () => {
+      const inngest = createClient({ id: "test", eventKey: testEventKey });
+
+      await expect(
+        inngest.send(testEvent, { env: "foo" }),
+      ).resolves.toMatchObject({
+        ids: Array(1).fill(expect.any(String)),
+      });
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining(`/e/${testEventKey}`),
+        expect.objectContaining({
+          method: "POST",
+
+          headers: expect.objectContaining({
+            [headerKeys.Environment]: "foo",
+          }),
+        }),
+      );
+    });
+
+    test("should send env:foo if set in INNGEST_ENV", async () => {
+      process.env[envKeys.InngestEnvironment] = "foo";
+
+      const inngest = createClient({
+        id: "test",
+        eventKey: testEventKey,
+      });
+
+      await expect(inngest.send(testEvent)).resolves.toMatchObject({
+        ids: Array(1).fill(expect.any(String)),
+      });
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining(`/e/${testEventKey}`),
+        expect.objectContaining({
+          method: "POST",
+
+          headers: expect.objectContaining({
+            [headerKeys.Environment]: "foo",
+          }),
+        }),
+      );
+    });
+
+    test("should send explicit env:foo over env var if set in env and client", async () => {
+      process.env[envKeys.InngestEnvironment] = "bar";
+
+      const inngest = createClient({
+        id: "test",
+        eventKey: testEventKey,
+        env: "foo",
+      });
+
+      await expect(inngest.send(testEvent)).resolves.toMatchObject({
+        ids: Array(1).fill(expect.any(String)),
+      });
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining(`/e/${testEventKey}`),
+        expect.objectContaining({
+          method: "POST",
+
+          headers: expect.objectContaining({
+            [headerKeys.Environment]: "foo",
+          }),
+        }),
+      );
+    });
+
+    test("should send env:foo if set in platform env key", async () => {
+      process.env[envKeys.VercelBranch] = "foo";
+
+      const inngest = createClient({
+        id: "test",
+        eventKey: testEventKey,
+      });
+
+      await expect(inngest.send(testEvent)).resolves.toMatchObject({
+        ids: Array(1).fill(expect.any(String)),
+      });
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining(`/e/${testEventKey}`),
+        expect.objectContaining({
+          method: "POST",
+
+          headers: expect.objectContaining({
+            [headerKeys.Environment]: "foo",
+          }),
+        }),
+      );
+    });
+
+    test("should send explicit env:foo over env var and client if set in send call", async () => {
+      process.env[envKeys.InngestEnvironment] = "bar";
+
+      const inngest = createClient({
+        id: "test",
+        eventKey: testEventKey,
+        env: "baz",
+      });
+
+      await expect(
+        inngest.send(testEvent, { env: "foo" }),
+      ).resolves.toMatchObject({
+        ids: Array(1).fill(expect.any(String)),
+      });
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining(`/e/${testEventKey}`),
+        expect.objectContaining({
+          method: "POST",
+
+          headers: expect.objectContaining({
+            [headerKeys.Environment]: "foo",
+          }),
+        }),
+      );
+    });
+
+    test("should insert `ts` timestamp ", async () => {
+      const inngest = createClient({ id: "test", eventKey: testEventKey });
+
+      const testEventWithoutTs = {
+        name: "test.without.ts",
+        data: {},
+      };
+
+      const mockedFetch = vi.mocked(global.fetch);
+
+      await expect(inngest.send(testEventWithoutTs)).resolves.toMatchObject({
+        ids: Array(1).fill(expect.any(String)),
+      });
+
+      expect(mockedFetch).toHaveBeenCalledTimes(1);
+      expect(mockedFetch.mock.calls[0]).toHaveLength(2);
+      expect(typeof mockedFetch.mock.calls[0]?.[1]?.body).toBe("string");
+      // biome-ignore lint/suspicious/noExplicitAny: intentional
+      const body: Array<Record<string, any>> = JSON.parse(
+        mockedFetch.mock.calls[0]?.[1]?.body as string,
+      );
+      expect(body).toHaveLength(1);
+      expect(body[0]).toEqual(
+        expect.objectContaining({
+          ...testEventWithoutTs,
+
+          ts: expect.any(Number),
+        }),
+      );
+    });
+
+    test("should insert blank `data` if none given", async () => {
+      const inngest = createClient({ id: "test", eventKey: testEventKey });
+
+      const testEventWithoutData = {
+        name: "test.without.data",
+      };
+
+      const mockedFetch = vi.mocked(global.fetch);
+
+      await expect(inngest.send(testEventWithoutData)).resolves.toMatchObject({
+        ids: Array(1).fill(expect.any(String)),
+      });
+
+      expect(mockedFetch).toHaveBeenCalledTimes(1);
+      expect(mockedFetch.mock.calls[0]).toHaveLength(2);
+      expect(typeof mockedFetch.mock.calls[0]?.[1]?.body).toBe("string");
+      // biome-ignore lint/suspicious/noExplicitAny: intentional
+      const body: Array<Record<string, any>> = JSON.parse(
+        mockedFetch.mock.calls[0]?.[1]?.body as string,
+      );
+      expect(body).toHaveLength(1);
+      expect(body[0]).toEqual(
+        expect.objectContaining({
+          ...testEventWithoutData,
+          data: {},
+        }),
+      );
+    });
+
+    test("should normalize event sessions before sending", async () => {
+      const inngest = createClient({ id: "test", eventKey: testEventKey });
+
+      const mockedFetch = vi.mocked(global.fetch);
+
+      await expect(
+        inngest.send({
+          name: "test.sessions",
+          data: {},
+          meta: {
+            sessions: {
+              conversation_id: "conversation_1234",
+              model: "gpt-4.1",
+              priority: 1,
+            },
+          },
+        }),
+      ).resolves.toMatchObject({
+        ids: Array(1).fill(expect.any(String)),
+      });
+
+      const body: Array<Record<string, unknown>> = JSON.parse(
+        mockedFetch.mock.calls[0]?.[1]?.body as string,
+      );
+
+      expect((body[0]?.meta as Record<string, unknown>)?.sessions).toEqual({
+        conversation_id: "conversation_1234",
+        model: "gpt-4.1",
+        priority: "1",
+      });
+    });
+
+    test("should keep special object keys like __proto__ as session keys", async () => {
+      const inngest = createClient({ id: "test", eventKey: testEventKey });
+
+      const mockedFetch = vi.mocked(global.fetch);
+
+      await expect(
+        inngest.send({
+          name: "test.sessions",
+          data: {},
+          meta: {
+            sessions: JSON.parse('{"__proto__": "conversation_1234"}'),
+          },
+        }),
+      ).resolves.toMatchObject({
+        ids: Array(1).fill(expect.any(String)),
+      });
+
+      const body: Array<Record<string, unknown>> = JSON.parse(
+        mockedFetch.mock.calls[0]?.[1]?.body as string,
+      );
+
+      expect(
+        Object.entries(
+          (body[0]?.meta as Record<string, unknown>)?.sessions as object,
+        ),
+      ).toEqual([["__proto__", "conversation_1234"]]);
+    });
+
+    test("should reject empty event session names", async () => {
+      const inngest = createClient({ id: "test", eventKey: testEventKey });
+
+      await expect(
+        inngest.send({
+          name: "test.sessions",
+          data: {},
+          meta: { sessions: { "": "conversation_1234" } },
+        }),
+      ).rejects.toThrowError("Event session keys cannot be empty");
+    });
+
+    test("should reject event session values with unsupported runtime types", async () => {
+      const inngest = createClient({ id: "test", eventKey: testEventKey });
+
+      await expect(
+        inngest.send({
+          name: "test.sessions",
+          data: {},
+          meta: {
+            sessions: { conversation_id: null } as unknown as Record<
+              string,
+              string
+            >,
+          },
+        }),
+      ).rejects.toThrowError(
+        'Event session "conversation_id" must be a string or number',
+      );
+    });
+
+    test("should reject boolean event session values", async () => {
+      const inngest = createClient({ id: "test", eventKey: testEventKey });
+
+      await expect(
+        inngest.send({
+          name: "test.sessions",
+          // Booleans are low-cardinality labels, not session IDs.
+          meta: {
+            sessions: { active: true } as unknown as Record<string, string>,
+          },
+        }),
+      ).rejects.toThrowError(
+        'Event session "active" must be a string or number',
+      );
+    });
+
+    test("should reject non-finite event session numbers", async () => {
+      const inngest = createClient({ id: "test", eventKey: testEventKey });
+
+      await expect(
+        inngest.send({
+          name: "test.sessions",
+          data: {},
+          meta: { sessions: { conversation_id: Number.NaN } },
+        }),
+      ).rejects.toThrowError(
+        'Event session "conversation_id" must be a finite number',
+      );
+    });
+
+    if (nodeVersion?.major && nodeVersion.major >= 19) {
+      test("should use seed header for idempotency ID if none given", async () => {
+        const inngest = createClient({ id: "test", eventKey: testEventKey });
+
+        const testEventWithoutId = {
+          name: "test.without.id",
+          data: {},
+        };
+
+        const mockedFetch = vi.mocked(global.fetch);
+
+        await expect(inngest.send(testEventWithoutId)).resolves.toMatchObject({
+          ids: Array(1).fill(expect.any(String)),
+        });
+
+        expect(mockedFetch).toHaveBeenCalledTimes(1);
+        expect(mockedFetch.mock.calls[0]).toHaveLength(2);
+
+        const reqHeaders = mockedFetch.mock.calls[0]?.[1]?.headers as Record<
+          string,
+          string
+        >;
+        expect(reqHeaders).toBeDefined();
+        expect(typeof reqHeaders).toBe("object");
+
+        expect(reqHeaders[headerKeys.EventIdSeed]).toBeDefined();
+        expect(typeof reqHeaders[headerKeys.EventIdSeed]).toBe("string");
+        expect(reqHeaders[headerKeys.EventIdSeed]).toBeTruthy();
+      });
+    }
+
+    test("should allow middleware to mutate input", async () => {
+      const inngest = createClient({
+        id: "test",
+        eventKey: testEventKey,
+        middleware: [
+          class extends Middleware.BaseMiddleware {
+            readonly id = "test";
+            override transformSendEvent(
+              arg: Middleware.TransformSendEventArgs,
+            ) {
+              return {
+                ...arg,
+                events: arg.events.map((payload) => ({
+                  ...payload,
+                  data: {
+                    ...payload.data,
+                    bar: true,
+                  },
+                })),
+              };
+            }
+          },
+        ],
+      });
+
+      await expect(
+        inngest.send({ ...testEvent, data: { foo: true } }),
+      ).resolves.toMatchObject({
+        ids: Array(1).fill(expect.any(String)),
+      });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining(`/e/${testEventKey}`),
+        expect.objectContaining({
+          method: "POST",
+
+          body: expect.stringMatching(
+            new RegExp(
+              JSON.stringify({
+                ...testEvent,
+                data: { foo: true, bar: true },
+              }).slice(1, -1),
+            ),
+          ),
+        }),
+      );
+    });
+
+    test("should allow middleware to mutate output", async () => {
+      const inngest = createClient({
+        id: "test",
+        eventKey: testEventKey,
+        middleware: [
+          class extends Middleware.BaseMiddleware {
+            readonly id = "test";
+            override async wrapSendEvent({
+              next,
+            }: Middleware.WrapSendEventArgs) {
+              const result = await next();
+              return {
+                ids: result.ids.map((id) => `${id}-bar`),
+              };
+            }
+          },
+        ],
+      });
+
+      await expect(inngest.send(testEvent)).resolves.toMatchObject({
+        ids: Array(1).fill(expect.stringMatching(/-bar$/)),
+      });
+    });
+
+    test("should return error from Inngest if parsed", () => {
+      const inngest = createClient({
+        id: "test",
+        eventKey: testEventKey,
+        fetch: setFetch({ status: 400, error: "Test Error" }),
+      });
+
+      return expect(inngest.send(testEvent)).rejects.toThrowError("Test Error");
+    });
+
+    test("should return error from Inngest if parsed even for 200", () => {
+      const inngest = createClient({
+        id: "test",
+        eventKey: testEventKey,
+        fetch: setFetch({ status: 200, error: "Test Error" }),
+      });
+
+      return expect(inngest.send(testEvent)).rejects.toThrowError("Test Error");
+    });
+
+    test("should return error if bad status code with no error string", () => {
+      const inngest = createClient({
+        id: "test",
+        eventKey: testEventKey,
+        fetch: setFetch({ status: 400 }),
+      });
+
+      return expect(inngest.send(testEvent)).rejects.toThrowError(
+        "Cannot process event payload",
+      );
+    });
+
+    test("should return unknown error from response text if very bad status code", () => {
+      const inngest = createClient({
+        id: "test",
+        eventKey: testEventKey,
+        fetch: setFetch({ status: 600 }),
+      });
+
+      return expect(inngest.send(testEvent)).rejects.toThrowError("600");
+    });
+  });
+
+  describe("types", () => {
+    describe("no custom types", () => {
+      const inngest = createClient({ id: "test", eventKey: testEventKey });
+
+      test.todo("disallows sending invalid fields");
+
+      test.todo(
+        "disallows sending invalid fields when sending multiple events",
+      );
+
+      test("allows sending a single event with an object", () => {
+        const _fn = () => inngest.send({ name: "anything", data: "foo" });
+      });
+
+      test("allows sending multiple events", () => {
+        const _fn = () =>
+          inngest.send([
+            { name: "anything", data: "foo" },
+            { name: "anything", data: "foo" },
+            { name: "anythingelse" },
+          ]);
+      });
+
+      test("allows setting an ID for an event", () => {
+        const _fn = () =>
+          inngest.send({ name: "anything", data: "foo", id: "test" });
+      });
+
+      test("allows setting sessions for an event", () => {
+        const _fn = () =>
+          inngest.send({
+            name: "anything",
+            data: "foo",
+            meta: {
+              sessions: { conversation_id: "conversation_1234", priority: 1 },
+            },
+          });
+      });
+    });
+  });
+});
+
+describe("createFunction", () => {
+  test("throws if handler is not a function (v3-style 3-arg call)", () => {
+    const inngest = createClient({ id: "test" });
+
+    expect(() => {
+      // Simulate v3 signature: `createFunction(config, trigger, handler)`
+      // The trigger object lands in the handler parameter.
+      inngest.createFunction(
+        { id: "fn-1" },
+        { event: "event-1" },
+        // @ts-expect-error - Intentional
+        async () => {},
+      );
+    }).toThrow(
+      `"createFunction" expected a handler function as the second argument`,
+    );
+  });
+
+  describe("types", () => {
+    describe("function input", () => {
+      const inngest = createClient({ id: "test" });
+
+      test("has attempt number", () => {
+        inngest.createFunction(
+          {
+            id: "test",
+            triggers: [{ event: "test" }],
+            onFailure: ({ attempt }) => {
+              assertType<number>(attempt);
+            },
+          },
+          ({ attempt }) => {
+            assertType<number>(attempt);
+          },
+        );
+      });
+    });
+
+    describe("no custom types", () => {
+      const inngest = createClient({ id: "test" });
+
+      test("allows name to be an object", () => {
+        inngest.createFunction(
+          { id: "test", triggers: [{ event: "test" }] },
+          ({ event }) => {
+            assertType<string>(event.name);
+            // biome-ignore lint/suspicious/noExplicitAny: intentional test for untyped event data
+            assertType<IsEqual<typeof event.data, Record<string, any>>>(true);
+          },
+        );
+      });
+
+      test("types received event meta sessions as strings", () => {
+        inngest.createFunction(
+          { id: "test", triggers: [{ event: "test" }] },
+          ({ event }) => {
+            assertType<
+              IsEqual<
+                typeof event.meta,
+                { sessions?: Record<string, string> } | undefined
+              >
+            >(true);
+          },
+        );
+      });
+
+      test("name as an object must contain a name property", () => {
+        inngest.createFunction(
+          // @ts-expect-error Must contain name property
+          { foo: "bar", triggers: [{ event: "test" }] },
+          ({ event }) => {
+            assertType<string>(event.name);
+            // biome-ignore lint/suspicious/noExplicitAny: intentional test for untyped event data
+            assertType<IsEqual<typeof event.data, Record<string, any>>>(true);
+          },
+        );
+      });
+
+      test("allows trigger to be an object with an event property", () => {
+        inngest.createFunction(
+          { id: "test", triggers: [{ event: "test" }] },
+          ({ event }) => {
+            assertType<string>(event.name);
+            // biome-ignore lint/suspicious/noExplicitAny: intentional test for untyped event data
+            assertType<IsEqual<typeof event.data, Record<string, any>>>(true);
+          },
+        );
+      });
+
+      test("allows trigger to be an object with a cron property", () => {
+        inngest.createFunction(
+          { id: "test", triggers: [{ cron: "test" }] },
+          ({ event }) => {
+            assertType<string>(event.name);
+            // Cron triggers have empty data, and invoked events also have empty data (without schema)
+            assertType<IsEqual<typeof event.data, {} | { cron: string }>>(true);
+          },
+        );
+      });
+
+      test("disallows trigger with unknown properties", () => {
+        inngest.createFunction(
+          // @ts-expect-error Unknown property
+          { id: "test", triggers: [{ foo: "bar" }] },
+          ({ event }) => {
+            assertType<string>(event.name);
+            assertType<{}>(event.data);
+          },
+        );
+      });
+
+      test("disallows trigger with both event and cron properties", () => {
+        inngest.createFunction(
+          // @ts-expect-error Both event and cron
+          { id: "test", triggers: [{ event: "test", cron: "test" }] },
+          ({ event }) => {
+            assertType<string>(event.name);
+            assertType<{}>(event.data);
+          },
+        );
+      });
+    });
+  });
+});
+
+describe("setEnvVars", () => {
+  test("mode is mutable after construction", () => {
+    const inngest = createClient({ id: "test" });
+    expect(inngest.mode).toBe("cloud");
+
+    inngest.setEnvVars({ [envKeys.InngestDevMode]: "1" });
+
+    // Mode changed by INNGEST_DEV=1
+    expect(inngest.mode).toBe("dev");
+  });
+
+  test("updates event key from env", () => {
+    const inngest = createClient({ id: "test" });
+    expect(inngest["eventKey"]).toBe(undefined);
+
+    inngest.setEnvVars({ [envKeys.InngestEventKey]: "new-key" });
+    expect(inngest["eventKey"]).toBe("new-key");
+  });
+
+  test("setEnvVars without event key preserves existing key", () => {
+    const inngest = createClient({ id: "test", eventKey: "my-key" });
+    inngest.setEnvVars({ SOME_OTHER_VAR: "value" });
+    expect(inngest["eventKey"]).toBe("my-key");
+  });
+
+  test("options eventKey takes priority over env", () => {
+    const inngest = createClient({ id: "test", eventKey: "options-key" });
+    inngest.setEnvVars({ [envKeys.InngestEventKey]: "env-key" });
+    expect(inngest["eventKey"]).toBe("options-key");
+  });
+});
+
+describe("eventKeySet", () => {
+  test("returns false when no key set", () => {
+    const inngest = createClient({ id: "test" });
+    expect(inngest["eventKeySet"]()).toBe(false);
+  });
+
+  test("returns true when key is set via options", () => {
+    const inngest = createClient({ id: "test", eventKey: "my-key" });
+    expect(inngest["eventKeySet"]()).toBe(true);
+  });
+
+  test("returns true when key is set via env", () => {
+    const inngest = createClient({ id: "test" });
+    inngest.setEnvVars({ [envKeys.InngestEventKey]: "my-key" });
+    expect(inngest["eventKeySet"]()).toBe(true);
+  });
+});
+
+describe("URL configuration", () => {
+  test("defaults to cloud URLs", () => {
+    const inngest = createClient({ id: "test" });
+    expect(inngest.apiBaseUrl).toBe("https://api.inngest.com/");
+    expect(inngest.eventBaseUrl).toBe("https://inn.gs/");
+  });
+
+  test("isDev: true uses dev server URL", () => {
+    const inngest = createClient({ id: "test", isDev: true });
+    expect(inngest.apiBaseUrl).toBe("http://localhost:8288/");
+    expect(inngest.eventBaseUrl).toBe("http://localhost:8288/");
+  });
+
+  test("INNGEST_BASE_URL sets both URLs", () => {
+    const inngest = createClient({ id: "test" });
+    inngest.setEnvVars({ [envKeys.InngestBaseUrl]: "http://custom:8000/" });
+
+    expect(inngest.apiBaseUrl).toBe("http://custom:8000/");
+    expect(inngest.eventBaseUrl).toBe("http://custom:8000/");
+  });
+
+  test("INNGEST_API_BASE_URL sets only API URL", () => {
+    const inngest = createClient({ id: "test" });
+    inngest.setEnvVars({
+      [envKeys.InngestApiBaseUrl]: "http://api-only:8000/",
+    });
+
+    expect(inngest.apiBaseUrl).toBe("http://api-only:8000/");
+    expect(inngest.eventBaseUrl).toBe("https://inn.gs/"); // unchanged
+  });
+
+  test("INNGEST_EVENT_API_BASE_URL sets only event URL", () => {
+    const inngest = createClient({ id: "test" });
+    inngest.setEnvVars({
+      [envKeys.InngestEventApiBaseUrl]: "http://event-only:8000/",
+    });
+
+    expect(inngest.apiBaseUrl).toBe("https://api.inngest.com/"); // unchanged
+    expect(inngest.eventBaseUrl).toBe("http://event-only:8000/");
+  });
+
+  test("specific URL env vars override INNGEST_BASE_URL", () => {
+    const inngest = createClient({ id: "test" });
+    inngest.setEnvVars({
+      [envKeys.InngestBaseUrl]: "http://base:8000/",
+      [envKeys.InngestApiBaseUrl]: "http://api-specific:9000/",
+      [envKeys.InngestEventApiBaseUrl]: "http://event-specific:9001/",
+    });
+
+    expect(inngest.apiBaseUrl).toBe("http://api-specific:9000/");
+    expect(inngest.eventBaseUrl).toBe("http://event-specific:9001/");
+  });
+
+  test("options.baseUrl overrides all env vars", () => {
+    const inngest = createClient({
+      id: "test",
+      baseUrl: "http://option:7000/",
+    });
+    inngest.setEnvVars({
+      [envKeys.InngestBaseUrl]: "http://base:8000/",
+      [envKeys.InngestApiBaseUrl]: "http://api:9000/",
+      [envKeys.InngestEventApiBaseUrl]: "http://event:9001/",
+    });
+
+    expect(inngest.apiBaseUrl).toBe("http://option:7000/");
+    expect(inngest.eventBaseUrl).toBe("http://option:7000/");
+  });
+});
+
+describe("helper types", () => {
+  const inngest = new Inngest({
+    id: "test",
+    middleware: [
+      class extends Middleware.BaseMiddleware {
+        readonly id = "test";
+        override transformFunctionInput(
+          arg: Middleware.TransformFunctionInputArgs,
+        ) {
+          return {
+            ...arg,
+            ctx: {
+              ...arg.ctx,
+              foo: "bar" as const,
+            },
+          };
+        }
+      },
+    ],
+  });
+
+  describe("type GetFunctionInput", () => {
+    type T0 = GetFunctionInput<typeof inngest>;
+
+    test("returns event typing", () => {
+      type Expected = string;
+      type Actual = T0["event"]["name"];
+      assertType<IsEqual<Expected, Actual>>(true);
+    });
+
+    test("returns built-in middleware typing", () => {
+      type Expected = Logger;
+      type Actual = T0["logger"];
+      assertType<IsEqual<Expected, Actual>>(true);
+    });
+
+    test("returns custom middleware typing", () => {
+      type Expected = "bar";
+      type Actual = T0["foo"];
+      assertType<IsEqual<Expected, Actual>>(true);
+    });
+
+    test("has all step tooling", () => {
+      type Expected = keyof ReturnType<typeof createStepTools>;
+      type Actual = keyof T0["step"];
+      assertType<IsEqual<Expected, Actual>>(true);
+    });
+  });
+
+  describe("type GetFunctionOutput", () => {
+    test("returns output of an async `InngestFunction`", () => {
+      const fn = inngest.createFunction(
+        { id: "test", triggers: [{ event: "foo" }] },
+
+        async () => {
+          return "foo" as const;
+        },
+      );
+
+      type Expected = "foo";
+      type Actual = GetFunctionOutput<typeof fn>;
+      assertType<IsEqual<Expected, Actual>>(true);
+    });
+
+    test("returns output of a sync `InngestFunction`", () => {
+      const fn = inngest.createFunction(
+        { id: "test", triggers: [{ event: "foo" }] },
+        () => {
+          return "foo" as const;
+        },
+      );
+
+      type Expected = "foo";
+      type Actual = GetFunctionOutput<typeof fn>;
+      assertType<IsEqual<Expected, Actual>>(true);
+    });
+
+    test("returns output of an `InngestFunctionReference` to an async `InngestFunction`", () => {
+      const fn = inngest.createFunction(
+        { id: "test", triggers: [{ event: "foo" }] },
+
+        async () => {
+          return "foo" as const;
+        },
+      );
+
+      const ref = referenceFunction<typeof fn>({ functionId: "test" });
+
+      type Expected = "foo";
+      type Actual = GetFunctionOutput<typeof ref>;
+      assertType<IsEqual<Expected, Actual>>(true);
+    });
+
+    test("returns output of an `InngestFunctionReference` to a sync `InngestFunction`", () => {
+      const fn = inngest.createFunction(
+        { id: "test", triggers: [{ event: "foo" }] },
+        () => {
+          return "foo" as const;
+        },
+      );
+
+      const ref = referenceFunction<typeof fn>({ functionId: "test" });
+
+      type Expected = "foo";
+      type Actual = GetFunctionOutput<typeof ref>;
+      assertType<IsEqual<Expected, Actual>>(true);
+    });
+
+    test("returns output of an `InngestFunctionReference` with `schemas`", () => {
+      const ref = referenceFunction({
+        functionId: "test",
+        schemas: { return: literal("foo") },
+      });
+
+      type Expected = "foo";
+      type Actual = GetFunctionOutput<typeof ref>;
+
+      assertType<IsEqual<Expected, Actual>>(true);
+    });
+
+    test("applies functionOutputTransform from client middleware", () => {
+      // A custom transform that preserves Date instead of Jsonify-ing to string
+      interface PreserveDate extends Middleware.StaticTransform {
+        Out: this["In"] extends Date ? Date : this["In"];
+      }
+
+      class DateMiddleware extends Middleware.BaseMiddleware {
+        readonly id = "test";
+        declare functionOutputTransform: PreserveDate;
+      }
+
+      const mwClient = new Inngest({
+        id: "test",
+        middleware: [DateMiddleware],
+      });
+
+      const fn = mwClient.createFunction(
+        { id: "test", triggers: [{ event: "foo" }] },
+        async () => {
+          return new Date() as Date;
+        },
+      );
+
+      // With the middleware, Date should be preserved (not turned into string)
+      type Actual = GetFunctionOutput<typeof fn>;
+      assertType<IsEqual<Actual, Date>>(true);
+    });
+
+    test("falls back to Jsonify when no middleware declares functionOutputTransform", () => {
+      const fn = inngest.createFunction(
+        { id: "test", triggers: [{ event: "foo" }] },
+        async () => {
+          return { date: new Date(), value: "hello" as const };
+        },
+      );
+
+      // Date becomes string via Jsonify, string literal preserved
+      type Actual = GetFunctionOutput<typeof fn>;
+      assertType<IsEqual<Actual, { date: string; value: "hello" }>>(true);
+    });
+  });
+
+  describe("type GetStepTools", () => {
+    type T0 = GetStepTools<typeof inngest>;
+
+    test("has all tooling", () => {
+      type Expected = keyof ReturnType<typeof createStepTools>;
+      type Actual = keyof T0;
+      assertType<IsEqual<Expected, Actual>>(true);
+    });
+  });
+});
+
+describe("endpointProxy", () => {
+  // Helper to create mock adapters with consistent shape
+  // biome-ignore lint/suspicious/noExplicitAny: test helper
+  const createMockAdapter = (createProxyHandler?: () => any) => {
+    const adapter = Object.assign(() => {}, {
+      [Symbol.toStringTag]: "Inngest.EndpointAdapter" as const,
+      withOptions: () => adapter,
+      ...(createProxyHandler && { createProxyHandler }),
+    });
+    return adapter;
+  };
+
+  test("throws error when no endpoint adapter is configured", () => {
+    const inngest = createClient({ id: "test" });
+
+    expect(() => inngest.endpointProxy()).toThrow(
+      "No endpoint adapter configured for this Inngest client.",
+    );
+  });
+
+  test("throws error when adapter does not support proxy handlers", () => {
+    const inngest = createClient({
+      id: "test",
+      endpointAdapter: createMockAdapter(),
+    });
+
+    expect(() => inngest.endpointProxy()).toThrow(
+      "The configured endpoint adapter does not support proxy handlers.",
+    );
+  });
+
+  test("returns proxy handler when adapter supports it", () => {
+    const mockProxyHandler = () => Promise.resolve(new Response());
+
+    const inngest = createClient({
+      id: "test",
+      endpointAdapter: createMockAdapter(() => mockProxyHandler),
+    });
+
+    expect(inngest.endpointProxy()).toBe(mockProxyHandler);
+  });
+
+  test("passes client to createProxyHandler", () => {
+    const createProxyHandler = vi.fn().mockReturnValue(() => {});
+
+    const inngest = createClient({
+      id: "test",
+      endpointAdapter: createMockAdapter(createProxyHandler),
+    });
+
+    inngest.endpointProxy();
+
+    expect(createProxyHandler).toHaveBeenCalledWith({ client: inngest });
+  });
+});
+
+describe("inngest.realtime.publish", () => {
+  test("publishes to the realtime API", async () => {
+    const { realtime } = await import("../index.ts");
+    const { z } = await import("zod/v3");
+
+    const ch = realtime.channel({
+      name: "test",
+      topics: {
+        status: { schema: z.object({ message: z.string() }) },
+      },
+    });
+
+    const inngest = createClient({ id: "test", isDev: true });
+    const publishSpy = vi
+      .spyOn(inngest["inngestApi"], "publish")
+      .mockResolvedValue({ ok: true, value: undefined });
+
+    await inngest.realtime.publish(ch.status, { message: "hello" });
+
+    expect(publishSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channel: "test",
+        topics: ["status"],
+      }),
+      { message: "hello" },
+    );
+  });
+
+  test("validates data against the topic schema", async () => {
+    const { realtime } = await import("../index.ts");
+    const { z } = await import("zod/v3");
+
+    const ch = realtime.channel({
+      name: "test",
+      topics: {
+        status: { schema: z.object({ message: z.string() }) },
+      },
+    });
+
+    const inngest = createClient({ id: "test", isDev: true });
+
+    await expect(
+      // @ts-expect-error intentional invalid payload for runtime validation
+      inngest.realtime.publish(ch.status, { message: 123 }),
+    ).rejects.toThrow("Schema validation failed");
+  });
+
+  test("throws if the publish API returns an error", async () => {
+    const { realtime } = await import("../index.ts");
+    const { z } = await import("zod/v3");
+
+    const ch = realtime.channel({
+      name: "test",
+      topics: {
+        status: { schema: z.object({ message: z.string() }) },
+      },
+    });
+
+    const inngest = createClient({ id: "test", isDev: true });
+    vi.spyOn(inngest["inngestApi"], "publish").mockResolvedValue({
+      ok: false,
+      error: { error: "Nope", status: 500 },
+    });
+
+    await expect(
+      inngest.realtime.publish(ch.status, { message: "hello" }),
+    ).rejects.toThrow("Failed to publish to realtime: Nope");
+  });
+
+  test("staticSchema topics skip runtime validation (passthrough)", async () => {
+    const { realtime, staticSchema } = await import("../index.ts");
+
+    const ch = realtime.channel({
+      name: "test",
+      topics: {
+        tokens: { schema: staticSchema<{ token: string }>() },
+      },
+    });
+
+    const inngest = createClient({ id: "test", isDev: true });
+    const publishSpy = vi
+      .spyOn(inngest["inngestApi"], "publish")
+      .mockResolvedValue({ ok: true, value: undefined });
+
+    //
+    // staticSchema's validate is a passthrough — it never returns issues,
+    // so invalid data at runtime is not rejected.
+    // @ts-expect-error intentional invalid payload to demonstrate passthrough
+    await inngest.realtime.publish(ch.tokens, { token: 999 });
+
+    expect(publishSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channel: "test",
+        topics: ["tokens"],
+      }),
+      { token: 999 },
+    );
+  });
+
+  test("zod schema topics reject invalid data at runtime", async () => {
+    const { realtime } = await import("../index.ts");
+    const { z } = await import("zod/v3");
+
+    const ch = realtime.channel({
+      name: "test",
+      topics: {
+        status: { schema: z.object({ message: z.string() }) },
+      },
+    });
+
+    const inngest = createClient({ id: "test", isDev: true });
+    vi.spyOn(inngest["inngestApi"], "publish").mockResolvedValue({
+      ok: true,
+      value: undefined,
+    });
+
+    //
+    // Zod schema validates at runtime — invalid data throws.
+    await expect(
+      // @ts-expect-error intentional invalid payload
+      inngest.realtime.publish(ch.status, { message: 999 }),
+    ).rejects.toThrow("Schema validation failed");
+  });
+});
+
+describe("sessionPropagation toggle", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  // Session propagation is resolved from the `INNGEST_SESSION_PROPAGATION` env
+  // var (there's no public/internal client option yet — that arrives with
+  // client-side configuration). `env` is applied via `vi.stubEnv` and
+  // automatically restored after each test by `vi.unstubAllEnvs`, so there's no
+  // env-var bleed between tests.
+  const createWithSessionPropagation = ({
+    env,
+  }: {
+    env?: Record<string, string>;
+  } = {}): Inngest.Any => {
+    const opts = { id: "test" } as ConstructorParameters<typeof Inngest>[0];
+
+    if (env) {
+      for (const [key, value] of Object.entries(env)) {
+        vi.stubEnv(key, value);
+      }
+    }
+
+    return new Inngest(opts);
+  };
+
+  test("defaults to false (dark-launch OFF) when env is not set", () => {
+    const inngest = createWithSessionPropagation();
+    expect(inngest[sessionPropagationSymbol]).toBe(false);
+  });
+
+  test("`INNGEST_SESSION_PROPAGATION=true` enables propagation", () => {
+    const inngest = createWithSessionPropagation({
+      env: { [envKeys.InngestSessionPropagation]: "true" },
+    });
+    expect(inngest[sessionPropagationSymbol]).toBe(true);
+  });
+
+  test("`INNGEST_SESSION_PROPAGATION=1` enables propagation", () => {
+    const inngest = createWithSessionPropagation({
+      env: { [envKeys.InngestSessionPropagation]: "1" },
+    });
+    expect(inngest[sessionPropagationSymbol]).toBe(true);
+  });
+
+  test("`INNGEST_SESSION_PROPAGATION=false` disables propagation", () => {
+    const inngest = createWithSessionPropagation({
+      env: { [envKeys.InngestSessionPropagation]: "false" },
+    });
+    expect(inngest[sessionPropagationSymbol]).toBe(false);
+  });
+
+  test("`INNGEST_SESSION_PROPAGATION=0` disables propagation", () => {
+    const inngest = createWithSessionPropagation({
+      env: { [envKeys.InngestSessionPropagation]: "0" },
+    });
+    expect(inngest[sessionPropagationSymbol]).toBe(false);
+  });
+});

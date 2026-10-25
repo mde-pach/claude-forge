@@ -1,0 +1,213 @@
+diff --git a/.changeset/swift-cows-join.md b/.changeset/swift-cows-join.md
+new file mode 100644
+index 00000000..ca2d3f48
+--- /dev/null
++++ b/.changeset/swift-cows-join.md
+@@ -0,0 +1,5 @@
++---
++"better-auth": patch
++---
++
++feat(last-login-method): beforeStoreCookie option for GDPR compliance
+diff --git a/.cspell/third-party.txt b/.cspell/third-party.txt
+index 891060a7..e9ab2943 100644
+--- a/.cspell/third-party.txt
++++ b/.cspell/third-party.txt
+@@ -46,4 +46,6 @@ encoredev
+ korthout
+ esac
+ elif
++anthropics
++nextjs
+ 
+diff --git a/docs/content/docs/concepts/hooks.mdx b/docs/content/docs/concepts/hooks.mdx
+index 43b20e37..488e1d81 100644
+--- a/docs/content/docs/concepts/hooks.mdx
++++ b/docs/content/docs/concepts/hooks.mdx
+@@ -118,7 +118,7 @@ export const auth = betterAuth({
+ ```
+ 
+ <Callout>
+-Each hook (`before` / `after`) takes a single middleware function, not an array. To run logic for different endpoints, branch on `ctx.path` inside that single function.
++  Each hook (`before` / `after`) takes a single middleware function, not an array. To run logic for different endpoints, branch on `ctx.path` inside that single function.
+ </Callout>
+ 
+ ## Ctx
+diff --git a/docs/content/docs/integrations/nuxt.mdx b/docs/content/docs/integrations/nuxt.mdx
+index 08b151f2..d0468e08 100644
+--- a/docs/content/docs/integrations/nuxt.mdx
++++ b/docs/content/docs/integrations/nuxt.mdx
+@@ -152,6 +152,7 @@ export default defineNuxtConfig({
+ ## Resources & examples
+ 
+ {/* cspell:disable */}
++
+ * [`nuxt-modules/better-auth`](https://github.com/nuxt-modules/better-auth)
+ * [`atinux/nuxthub-better-auth`](https://github.com/atinux/nuxthub-better-auth)
+ * [`leamsigc/nuxt-better-auth-drizzle`](https://github.com/leamsigc/nuxt-better-auth-drizzle)
+diff --git a/docs/content/docs/plugins/last-login-method.mdx b/docs/content/docs/plugins/last-login-method.mdx
+index 2c97e3cb..a749f00b 100644
+--- a/docs/content/docs/plugins/last-login-method.mdx
++++ b/docs/content/docs/plugins/last-login-method.mdx
+@@ -255,6 +255,14 @@ export const auth = betterAuth({
+                 return null
+             },
+             
++            // GDPR compliance hook
++            beforeStoreCookie: async (ctx, lastUsedLoginMethod) => {
++                // Check if user has given consent for non-essential cookies
++                // Return false to prevent cookie storage
++                const hasConsent = await checkUserCookieConsent(ctx)
++                return hasConsent
++            },
++            
+             // Schema customization (when storeInDatabase is true)
+             schema: {
+                 user: {
+@@ -282,6 +290,14 @@ export const auth = betterAuth({
+ * Whether to store the last login method in the database
+ * Default: `false`
+ * When enabled, adds a `lastLoginMethod` field to the user table
++* To store the method only in the database (no cookie), combine with `beforeStoreCookie: () => false`:
++
++```ts title="auth.ts"
++lastLoginMethod({
++    storeInDatabase: true,
++    beforeStoreCookie: () => false, // never set the non-essential cookie
++})
++```
+ 
+ **customResolveMethod**: `(ctx: GenericEndpointContext) => string | null`
+ 
+@@ -289,6 +305,32 @@ export const auth = betterAuth({
+ * Return `null` to use the default resolution logic
+ * Useful for custom OAuth providers or authentication flows
+ 
++**beforeStoreCookie**: `(ctx: GenericEndpointContext, lastUsedLoginMethod: string) => Promise<boolean> | boolean`
++
++* Hook function that runs before storing the last login method cookie
++* Return `true` to allow the cookie to be set, `false` to prevent it
++* Useful for GDPR compliance or other regulations where cookie storage requires user consent
++* If the function throws an error, the cookie will not be set (error is logged but doesn't break authentication)
++* **Example**: Check user consent before storing the cookie
++
++```ts title="auth.ts"
++import { betterAuth } from "better-auth"
++import { lastLoginMethod } from "better-auth/plugins"
++
++export const auth = betterAuth({
++    plugins: [
++        lastLoginMethod({
++            beforeStoreCookie: async (ctx, lastUsedLoginMethod) => {
++                // Check if user has given consent for non-essential cookies
++                // This is important for GDPR compliance
++                const hasConsent = await checkUserCookieConsent(ctx)
++                return hasConsent
++            }
++        })
++    ]
++})
++```
++
+ **schema**: `object`
+ 
+ * Customize database field names when `storeInDatabase` is enabled
+@@ -364,6 +406,44 @@ export const authClient = createAuthClient({
+ })
+ ```
+ 
++## GDPR Compliance
++
++The last login method cookie is considered a non-essential cookie under GDPR regulations.
++To comply with GDPR and similar privacy laws, you should only store this cookie if the user has given explicit consent.
++
++The `beforeStoreCookie` hook allows you to implement consent checks before storing the cookie:
++
++```ts title="auth.ts"
++import { betterAuth } from "better-auth"
++import { lastLoginMethod } from "better-auth/plugins"
++
++export const auth = betterAuth({
++    plugins: [
++        lastLoginMethod({
++            beforeStoreCookie: async (ctx, lastUsedLoginMethod) => {
++                // Example 1: Check consent from session or database
++                const session = await getSessionFromCtx(ctx)
++                if (session?.user) {
++                    // custom function which hits your database to check if the user has given consent
++                    const userConsent = await checkUserConsent(session.user.id)
++                    return userConsent?.allowsNonEssentialCookies ?? false
++                }
++
++                // Example 2: Check consent from request headers (cookie banner)
++                // parseConsentCookie should return false/null/undefined when no consent is present
++                const consentCookie = ctx.request?.headers?.get("cookie")
++                const hasConsent = parseConsentCookie(consentCookie)
++                return !!hasConsent
++            }
++        })
++    ]
++})
++```
++
++<Callout type="warn">
++  When `beforeStoreCookie` returns `false` or throws an error, the cookie will not be set. Authentication will still succeed normally - only the cookie storage is prevented.
++</Callout>
++
+ ## Advanced Examples
+ 
+ ### Custom Provider Tracking
+diff --git a/packages/better-auth/src/plugins/last-login-method/index.ts b/packages/better-auth/src/plugins/last-login-method/index.ts
+index ae335d5f..9a8c5ea6 100644
+--- a/packages/better-auth/src/plugins/last-login-method/index.ts
++++ b/packages/better-auth/src/plugins/last-login-method/index.ts
+@@ -39,6 +39,20 @@ export interface LastLoginMethodOptions {
+ 	 * @default false
+ 	 */
+ 	storeInDatabase?: boolean | undefined;
++	/**
++	 * A hook to run before the last login method is stored in the cookie.
++	 * Useful if you are required to follow GDPR or other regulations to ensure that you're allowed to store the last login method in the cookie.
++	 *
++	 * @param ctx - The context from the hook
++	 * @param lastUsedLoginMethod - The last login method
++	 * @returns `true` to store the cookie, `false` to skip storing it (authentication continues either way)
++	 */
++	beforeStoreCookie?:
++		| ((
++				ctx: GenericEndpointContext,
++				lastUsedLoginMethod: string,
++		  ) => Promise<boolean> | boolean)
++		| undefined;
+ 	/**
+ 	 * Custom schema for the plugin
+ 	 * @default undefined
+@@ -168,6 +182,28 @@ export const lastLoginMethod = <O extends LastLoginMethodOptions>(
+ 									httpOnly: false, // Override: plugin cookies are not httpOnly
+ 								};
+ 
++								let isPermitted = true;
++								if (config.beforeStoreCookie) {
++									try {
++										isPermitted = await config.beforeStoreCookie(
++											ctx,
++											lastUsedLoginMethod,
++										);
++									} catch (error) {
++										// If beforeStoreCookie throws an error, don't set the cookie
++										// Log the error but don't break the authentication flow
++										if (ctx.context.logger) {
++											ctx.context.logger.error?.(
++												"[LastLoginMethod] Error in beforeStoreCookie hook",
++												error,
++											);
++										}
++										isPermitted = false;
++									}
++								}
++
++								if (!isPermitted) return;
++
+ 								ctx.setCookie(
+ 									config.cookieName,
+ 									lastUsedLoginMethod,

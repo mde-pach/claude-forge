@@ -1,0 +1,91 @@
+{
+ "task_id": "better-auth__8f2dedd893",
+ "window": "main",
+ "repo": "better-auth",
+ "commit": "8f2dedd89301da9fb52c1a64df6a9683f9be55fd",
+ "parent": "3bf0e4981e025ba9af684013a27b0102a04f7c56",
+ "date": "2026-07-08T23:17:41+00:00",
+ "subject": "fix(mcp): expose remote auth challenge headers (#10290)",
+ "type": "fix",
+ "test_files": [
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts"
+ ],
+ "source_files": [
+  "packages/better-auth/src/plugins/mcp/client/index.ts"
+ ],
+ "source_lines": 68,
+ "all_files": [
+  ".changeset/mcp-cors-401.md",
+  "packages/better-auth/src/plugins/mcp/client/index.ts",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts"
+ ],
+ "hidden": [
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts"
+ ],
+ "deleted": [],
+ "targets": [
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts"
+ ],
+ "f2p": [
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > createMcpAuthClient > exposes the WWW-Authenticate challenge on CORS 401 responses",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > middleware > should reject requests without auth header",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > middleware > should return 401 for invalid token via middleware"
+ ],
+ "p2p": [
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > createMcpAuthClient > should allow custom CORS origins",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > createMcpAuthClient > should create a client with correct authURL",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > createMcpAuthClient > should handle OPTIONS requests for CORS",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > createMcpAuthClient > should normalize trailing slash",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > createMcpAuthClient > should return 401 from handler for invalid token",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > createMcpAuthClient > should return 401 from handler for missing auth header",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > createMcpAuthClient > should return null for invalid tokens",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > createMcpAuthClient > should return null for network errors in verifyToken",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > createMcpAuthClient > should use authURL origin as default CORS origin",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > discoveryHandler > should proxy OAuth discovery metadata",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > happy path - verifyToken + handler with valid session > should pass session to handler for authenticated requests",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > happy path - verifyToken + handler with valid session > should return session for a valid token",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > happy path - verifyToken + handler with valid session > should set mcpSession on req via middleware for valid token",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > mcpAuthMcpUse adapter > should create an mcp-use compatible provider",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > mcpAuthMcpUse adapter > should extract default user info from payload",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > mcpAuthMcpUse adapter > should reject invalid tokens via verifyToken",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > mcpAuthMcpUse adapter > should support custom getUserInfo",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > mcpAuthMcpUse adapter > should throw for missing authURL",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > protectedResourceHandler > should return protected resource metadata"
+ ],
+ "flaky": [],
+ "cost_instruction": 0.0708458,
+ "cost_audit": 0.11205860000000001,
+ "kept_f2p": [
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > createMcpAuthClient > exposes the WWW-Authenticate challenge on CORS 401 responses",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > middleware > should reject requests without auth header",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > middleware > should return 401 for invalid token via middleware"
+ ],
+ "kept_p2p": [
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > createMcpAuthClient > should allow custom CORS origins",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > createMcpAuthClient > should create a client with correct authURL",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > createMcpAuthClient > should handle OPTIONS requests for CORS",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > createMcpAuthClient > should normalize trailing slash",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > createMcpAuthClient > should return 401 from handler for invalid token",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > createMcpAuthClient > should return 401 from handler for missing auth header",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > createMcpAuthClient > should return null for invalid tokens",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > createMcpAuthClient > should return null for network errors in verifyToken",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > createMcpAuthClient > should use authURL origin as default CORS origin",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > discoveryHandler > should proxy OAuth discovery metadata",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > happy path - verifyToken + handler with valid session > should pass session to handler for authenticated requests",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > happy path - verifyToken + handler with valid session > should return session for a valid token",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > happy path - verifyToken + handler with valid session > should set mcpSession on req via middleware for valid token",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > mcpAuthMcpUse adapter > should create an mcp-use compatible provider",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > mcpAuthMcpUse adapter > should extract default user info from payload",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > mcpAuthMcpUse adapter > should reject invalid tokens via verifyToken",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > mcpAuthMcpUse adapter > should support custom getUserInfo",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > mcpAuthMcpUse adapter > should throw for missing authURL",
+  "packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts::mcp-client > protectedResourceHandler > should return protected resource metadata"
+ ],
+ "edits_applied": 0,
+ "edits_rejected": [],
+ "dropped": [],
+ "revalidate_bad_f2p": [],
+ "revalidate_bad_p2p": [],
+ "final": "accepted",
+ "reason": null
+}

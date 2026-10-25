@@ -1,0 +1,15 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/inngest/src/helpers/stream.test.ts::createStream > heartbeat does not throw after the consumer cancels the stream",
+   "action": "keep",
+   "reason": "Uses only the public createStream API and stream.cancel(), and checks the specified outcome (advancing timers does not throw) without looking at internals."
+  },
+  {
+   "id": "packages/inngest/src/helpers/stream.test.ts::createStream > finalize does not reject after the consumer cancels the stream",
+   "action": "keep",
+   "reason": "Uses only the public createStream/finalize API and checks the specified outcome (no unhandled rejection after cancel), with no internal mocks or wording checks."
+  }
+ ],
+ "edits": []
+}

@@ -1,0 +1,25 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/test_messages.py::test_every_multimodal_type_rehydrates_as_tool_return_content",
+   "action": "keep",
+   "reason": "Checks only public round-trip outcomes (exact class rehydration via ModelMessagesTypeAdapter and the public MULTI_MODAL_CONTENT_TYPES), as requirement 1 specifies; the private name appears only in a failure message."
+  },
+  {
+   "id": "tests/test_messages.py::test_tool_return_part_binary_content_round_trip[dict-with-nested-binary]",
+   "action": "keep",
+   "reason": "Asserts equality after the public validate_json and validate_python round trips for dict-nested BinaryContent, exactly as the instruction specifies."
+  },
+  {
+   "id": "tests/test_messages.py::test_tool_return_part_binary_content_round_trip[list-with-binary]",
+   "action": "keep",
+   "reason": "Asserts equality after the public round trips for list-nested BinaryContent, as required by the instruction."
+  },
+  {
+   "id": "tests/test_messages.py::test_tool_return_part_binary_content_round_trip[scalar]",
+   "action": "keep",
+   "reason": "Asserts equality after the public round trips for scalar non-image BinaryContent, as required by the instruction."
+  }
+ ],
+ "edits": []
+}

@@ -1,0 +1,35 @@
+diff --git a/.changeset/chubby-streets-sip.md b/.changeset/chubby-streets-sip.md
+new file mode 100644
+index 0000000..dcc53b4
+--- /dev/null
++++ b/.changeset/chubby-streets-sip.md
+@@ -0,0 +1,5 @@
++---
++"inngest": patch
++---
++
++Fix errant `step.ai.wrap` warning
+diff --git a/packages/inngest/src/components/middleware/utils.ts b/packages/inngest/src/components/middleware/utils.ts
+index 9fcf439..3bfc35a 100644
+--- a/packages/inngest/src/components/middleware/utils.ts
++++ b/packages/inngest/src/components/middleware/utils.ts
+@@ -93,9 +93,6 @@ export function stepTypeFromOpCode(
+     if (opts?.type === "step.ai.infer") {
+       return "ai.infer";
+     }
+-    if (opts?.type === "step.ai.wrap") {
+-      return "ai.wrap";
+-    }
+   } else if (op === StepOpCode.Gateway) {
+     return "fetch";
+   } else if (op === StepOpCode.InvokeFunction) {
+@@ -104,6 +101,9 @@ export function stepTypeFromOpCode(
+     if (opts?.type === undefined) {
+       return "run";
+     }
++    if (opts?.type === "step.ai.wrap") {
++      return "ai.wrap";
++    }
+     if (opts?.type === "step.sendEvent") {
+       return "sendEvent";
+     }

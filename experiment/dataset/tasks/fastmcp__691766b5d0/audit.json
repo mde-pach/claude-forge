@@ -1,0 +1,20 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/server/providers/openapi/test_openapi_features.py::TestResourceTemplateRequestBuilding::test_resource_template_encodes_matched_path_params",
+   "action": "keep",
+   "reason": "It is an end-to-end check through the public Client/OpenAPIProvider interface, and it asserts the exact upstream URL that the instruction specifies."
+  },
+  {
+   "id": "tests/server/providers/openapi/test_openapi_features.py::TestResourceTemplateRequestBuilding::test_resource_template_ignores_unmatched_query_string",
+   "action": "keep",
+   "reason": "It observes only the outgoing request URL through a MockTransport, which sits at the boundary, and that URL is exactly the one the instruction specifies."
+  },
+  {
+   "id": "tests/utilities/openapi/test_legacy_compatibility.py::TestSchemaGeneration::test_non_body_parameter_collision_handling",
+   "action": "keep",
+   "reason": "The instruction names `_combine_schemas_and_map_params` explicitly and spells out the expected properties, the required list and the param_map entries this test asserts."
+  }
+ ],
+ "edits": []
+}

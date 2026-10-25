@@ -1,0 +1,25 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/cli/test/get-config.test.ts::getConfig > should recover when the config imports its own not-yet-generated --output file",
+   "action": "keep",
+   "reason": "It checks only outcomes the instruction specifies through the public getConfig interface: the config loads, the placeholder exists and its content is empty."
+  },
+  {
+   "id": "packages/cli/test/get-config.test.ts::getConfig > should remove the placeholder file it created if the retry fails for an unrelated reason",
+   "action": "keep",
+   "reason": "The instruction requires removing the placeholder and rethrowing the retry error with its message unchanged (e.g. `Cannot find module './other'`), so both the message regex and the file-absence check are specified outcomes."
+  },
+  {
+   "id": "packages/cli/test/get-config.test.ts::getConfig > should resolve a relative outputPath against the getConfig cwd, not process.cwd()",
+   "action": "keep",
+   "reason": "The instruction requires resolving a relative outputPath against cwd and never process.cwd(); the test checks this only through the placeholder's location on disk, which is observable."
+  },
+  {
+   "id": "packages/core/src/db/test/get-default-model-name.test.ts::initGetDefaultModelName > user.modelName collision with account schema key > resolves a schema key to itself even when a modelName collides with it",
+   "action": "keep",
+   "reason": "The instruction gives this exact case: resolving \"account\" must return \"account\", and the test checks it through the public function."
+  }
+ ],
+ "edits": []
+}

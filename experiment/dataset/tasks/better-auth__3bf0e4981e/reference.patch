@@ -1,0 +1,117 @@
+diff --git a/.changeset/org-delete-hooks-ctx.md b/.changeset/org-delete-hooks-ctx.md
+new file mode 100644
+index 00000000..5d4247ab
+--- /dev/null
++++ b/.changeset/org-delete-hooks-ctx.md
+@@ -0,0 +1,6 @@
++---
++"better-auth": patch
++"@better-auth/stripe": patch
++---
++
++Pass the endpoint context as the second argument to `beforeDeleteOrganization` and `afterDeleteOrganization` hooks in the organization plugin, matching the signature shown in the docs and the existing `databaseHooks` pattern. The Stripe plugin's `beforeDeleteOrganization` wrapper now forwards the context to user-supplied hooks instead of dropping it.
+diff --git a/docs/content/docs/plugins/organization.mdx b/docs/content/docs/plugins/organization.mdx
+index 00db6a81..50791efa 100644
+--- a/docs/content/docs/plugins/organization.mdx
++++ b/docs/content/docs/plugins/organization.mdx
+@@ -819,10 +819,11 @@ const auth = betterAuth({
+     organization({
+       disableOrganizationDeletion: true, //to disable it altogether
+       organizationHooks: {
+-        beforeDeleteOrganization: async (data, request) => {
++        beforeDeleteOrganization: async (data, ctx) => {
+           // a callback to run before deleting org
++          // `ctx` is the endpoint context (e.g. `ctx?.request`)
+         },
+-        afterDeleteOrganization: async (data, request) => {
++        afterDeleteOrganization: async (data, ctx) => {
+           // a callback to run after deleting org
+         },
+       },
+diff --git a/packages/better-auth/src/plugins/organization/routes/crud-org.ts b/packages/better-auth/src/plugins/organization/routes/crud-org.ts
+index dc43770c..b1be64e7 100644
+--- a/packages/better-auth/src/plugins/organization/routes/crud-org.ts
++++ b/packages/better-auth/src/plugins/organization/routes/crud-org.ts
+@@ -605,17 +605,23 @@ export const deleteOrganization = <O extends OrganizationOptions>(
+ 				throw APIError.fromStatus("BAD_REQUEST");
+ 			}
+ 			if (options?.organizationHooks?.beforeDeleteOrganization) {
+-				await options.organizationHooks.beforeDeleteOrganization({
+-					organization: org,
+-					user: session.user,
+-				});
++				await options.organizationHooks.beforeDeleteOrganization(
++					{
++						organization: org,
++						user: session.user,
++					},
++					ctx,
++				);
+ 			}
+ 			await adapter.deleteOrganization(organizationId);
+ 			if (options?.organizationHooks?.afterDeleteOrganization) {
+-				await options.organizationHooks.afterDeleteOrganization({
+-					organization: org,
+-					user: session.user,
+-				});
++				await options.organizationHooks.afterDeleteOrganization(
++					{
++						organization: org,
++						user: session.user,
++					},
++					ctx,
++				);
+ 			}
+ 			return ctx.json(org);
+ 		},
+diff --git a/packages/better-auth/src/plugins/organization/types.ts b/packages/better-auth/src/plugins/organization/types.ts
+index e33dc87b..457ecffc 100644
+--- a/packages/better-auth/src/plugins/organization/types.ts
++++ b/packages/better-auth/src/plugins/organization/types.ts
+@@ -461,17 +461,23 @@ export interface OrganizationOptions {
+ 				/**
+ 				 * A callback that runs before the organization is deleted
+ 				 */
+-				beforeDeleteOrganization?: (data: {
+-					organization: Organization & Record<string, any>;
+-					user: User & Record<string, any>;
+-				}) => Promise<void>;
++				beforeDeleteOrganization?: (
++					data: {
++						organization: Organization & Record<string, any>;
++						user: User & Record<string, any>;
++					},
++					ctx?: GenericEndpointContext,
++				) => Promise<void>;
+ 				/**
+ 				 * A callback that runs after the organization is deleted
+ 				 */
+-				afterDeleteOrganization?: (data: {
+-					organization: Organization & Record<string, any>;
+-					user: User & Record<string, any>;
+-				}) => Promise<void>;
++				afterDeleteOrganization?: (
++					data: {
++						organization: Organization & Record<string, any>;
++						user: User & Record<string, any>;
++					},
++					ctx?: GenericEndpointContext,
++				) => Promise<void>;
+ 				/**
+ 				 * Member hooks
+ 				 */
+diff --git a/packages/stripe/src/index.ts b/packages/stripe/src/index.ts
+index 9fa6e3a0..cd5b3d1e 100644
+--- a/packages/stripe/src/index.ts
++++ b/packages/stripe/src/index.ts
+@@ -262,8 +262,8 @@ export const stripe = <O extends StripeOptions>(options: O) => {
+ 							}
+ 						: afterUpdateStripeOrg,
+ 					beforeDeleteOrganization: existingHooks.beforeDeleteOrganization
+-						? async (data) => {
+-								await existingHooks.beforeDeleteOrganization!(data);
++						? async (data, ctx) => {
++								await existingHooks.beforeDeleteOrganization!(data, ctx);
+ 								await beforeDeleteStripeOrg(data);
+ 							}
+ 						: beforeDeleteStripeOrg,

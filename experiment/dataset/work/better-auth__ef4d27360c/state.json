@@ -1,0 +1,105 @@
+{
+ "task_id": "better-auth__ef4d27360c",
+ "window": "main",
+ "repo": "better-auth",
+ "commit": "ef4d27360cec8a0bc11a94e135ea4a3dd32b1969",
+ "parent": "03dc5a046f536994950800ea557b8e2e2e0cdfdd",
+ "date": "2026-07-08T21:49:11+00:00",
+ "subject": "fix(auth): handle request clone failures in callbacks (#10336)",
+ "type": "fix",
+ "test_files": [
+  "packages/better-auth/src/api/routes/email-verification.test.ts",
+  "packages/better-auth/src/utils/request.test.ts"
+ ],
+ "source_files": [
+  "packages/better-auth/src/api/routes/email-verification.ts",
+  "packages/better-auth/src/api/routes/sign-in.ts",
+  "packages/better-auth/src/api/routes/sign-up.ts",
+  "packages/better-auth/src/utils/request.ts"
+ ],
+ "source_lines": 36,
+ "all_files": [
+  ".changeset/fix-request-clone-callbacks.md",
+  "packages/better-auth/src/api/routes/email-verification.test.ts",
+  "packages/better-auth/src/api/routes/email-verification.ts",
+  "packages/better-auth/src/api/routes/sign-in.ts",
+  "packages/better-auth/src/api/routes/sign-up.ts",
+  "packages/better-auth/src/utils/request.test.ts",
+  "packages/better-auth/src/utils/request.ts"
+ ],
+ "hidden": [
+  "packages/better-auth/src/api/routes/email-verification.test.ts",
+  "packages/better-auth/src/utils/request.test.ts"
+ ],
+ "deleted": [],
+ "targets": [
+  "packages/better-auth/src/api/routes/email-verification.test.ts",
+  "packages/better-auth/src/utils/request.test.ts"
+ ],
+ "f2p": [
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification - Request body consumption bug > should not fail sign-up when callback request cloning throws",
+  "packages/better-auth/src/utils/request.test.ts::safeCloneRequest > returns a bodyless request when cloning throws"
+ ],
+ "p2p": [
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification - Request body consumption bug > should not throw 'body already consumed' error when sendVerificationEmail callback reads the request",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification - Request body consumption bug > should not throw 'body already consumed' error when sendVerificationEmail is called during sign-in",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification - Request body consumption bug > should not throw 'body already consumed' error when sendVerificationEmail is called during sign-up",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification - Timing-safe unauthenticated path > should enforce a constant-time floor for both existing and non-existing emails",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification - Timing-safe unauthenticated path > should still surface errors from sendVerificationEmail after the minimum delay",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification > should call afterEmailVerification callback when email is verified",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification > should call beforeEmailVerification callback when email is verified",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification > should not send verification email when a third party requests for an already verified user",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification > should preserve encoded characters in callback URL",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification > should properly encode callbackURL with query parameters when sending verification email",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification > should redirect to callback",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification > should return APIError status when sendVerificationEmail throws (e.g. rate limit)",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification > should send a verification email if verification is required and user is not verified",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification > should send a verification email when enabled",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification > should sign after verification",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification > should use custom expiresIn",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification > should verify email",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification Secondary Storage > should call hooks when verifying email change (change-email-verification)",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification Secondary Storage > should change email",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification Secondary Storage > should handle email case insensitivity when sending verification email while signed in",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification Secondary Storage > should set emailVerified on all sessions",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification Secondary Storage > should verify email"
+ ],
+ "flaky": [],
+ "cost_instruction": 0.0626618,
+ "cost_audit": 0.0896782,
+ "kept_f2p": [
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification - Request body consumption bug > should not fail sign-up when callback request cloning throws",
+  "packages/better-auth/src/utils/request.test.ts::safeCloneRequest > returns a bodyless request when cloning throws"
+ ],
+ "kept_p2p": [
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification - Request body consumption bug > should not throw 'body already consumed' error when sendVerificationEmail callback reads the request",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification - Request body consumption bug > should not throw 'body already consumed' error when sendVerificationEmail is called during sign-in",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification - Request body consumption bug > should not throw 'body already consumed' error when sendVerificationEmail is called during sign-up",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification - Timing-safe unauthenticated path > should enforce a constant-time floor for both existing and non-existing emails",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification - Timing-safe unauthenticated path > should still surface errors from sendVerificationEmail after the minimum delay",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification > should call afterEmailVerification callback when email is verified",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification > should call beforeEmailVerification callback when email is verified",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification > should not send verification email when a third party requests for an already verified user",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification > should preserve encoded characters in callback URL",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification > should properly encode callbackURL with query parameters when sending verification email",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification > should redirect to callback",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification > should return APIError status when sendVerificationEmail throws (e.g. rate limit)",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification > should send a verification email if verification is required and user is not verified",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification > should send a verification email when enabled",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification > should sign after verification",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification > should use custom expiresIn",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification > should verify email",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification Secondary Storage > should call hooks when verifying email change (change-email-verification)",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification Secondary Storage > should change email",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification Secondary Storage > should handle email case insensitivity when sending verification email while signed in",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification Secondary Storage > should set emailVerified on all sessions",
+  "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification Secondary Storage > should verify email"
+ ],
+ "edits_applied": 0,
+ "edits_rejected": [],
+ "dropped": [],
+ "revalidate_bad_f2p": [],
+ "revalidate_bad_p2p": [],
+ "final": "accepted",
+ "reason": null
+}

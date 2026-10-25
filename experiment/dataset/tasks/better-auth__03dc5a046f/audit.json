@@ -1,0 +1,20 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/core/src/db/test/get-default-model-name.test.ts::initGetDefaultModelName > user.modelName collision with account schema key > resolves the user's modelName alias to the user schema key",
+   "action": "keep",
+   "reason": "It calls the public resolver the instruction names and checks the result the instruction gives, `\"account\"` \u2192 `\"user\"`, so it tests the outcome only."
+  },
+  {
+   "id": "packages/core/src/db/test/get-tables.test.ts::getAuthTables > user.modelName collision with account schema key > should point account.userId at the user table when user.modelName='account' and account.modelName='identity'",
+   "action": "keep",
+   "reason": "It checks only that `tables[ref.model]` is the user table, with `modelName` \"account\" and an `email` field, which is exactly what the instruction requires of `getAuthTables`."
+  },
+  {
+   "id": "packages/core/src/db/test/get-tables.test.ts::getAuthTables > user.modelName collision with account schema key > should point session.userId at the user table when user.modelName='account' and account.modelName='identity'",
+   "action": "keep",
+   "reason": "It checks only the observable schema output the instruction specifies for the session `userId` reference, through the public `getAuthTables`."
+  }
+ ],
+ "edits": []
+}

@@ -1,0 +1,235 @@
+diff --git a/.changeset/lovely-parents-sneeze.md b/.changeset/lovely-parents-sneeze.md
+new file mode 100644
+index 0000000..5b9321d
+--- /dev/null
++++ b/.changeset/lovely-parents-sneeze.md
+@@ -0,0 +1,5 @@
++---
++"inngest": minor
++---
++
++Added support for aborting deferred runs via defer().abort()
+diff --git a/packages/inngest/src/components/execution/InngestExecution.ts b/packages/inngest/src/components/execution/InngestExecution.ts
+index a81d618..e4e12e9 100644
+--- a/packages/inngest/src/components/execution/InngestExecution.ts
++++ b/packages/inngest/src/components/execution/InngestExecution.ts
+@@ -123,7 +123,7 @@ export interface InngestExecutionOptions {
+    * tracks which ones it has already received so the SDK can avoid
+    * re-emitting them on replay.
+    */
+-  priorDefers?: Record<string, unknown>;
++  priorDefers?: Record<string, { abortable?: boolean }>;
+ 
+   stepCompletionOrder: string[];
+   stepMode: StepMode;
+diff --git a/packages/inngest/src/components/execution/engine.ts b/packages/inngest/src/components/execution/engine.ts
+index 19d343a..a6b044a 100644
+--- a/packages/inngest/src/components/execution/engine.ts
++++ b/packages/inngest/src/components/execution/engine.ts
+@@ -44,6 +44,7 @@ import {
+   type APIStepPayload,
+   type Context,
+   type DeferFn,
++  type DeferHandle,
+   type EventPayload,
+   type FailureEventArgs,
+   type Handler,
+@@ -2672,6 +2673,7 @@ class InngestExecutionEngine
+     return (idOrOptions, { function: deferFn, data, experiment }) => {
+       const log = this.options.client[internalLoggerSymbol];
+       const runId = this.fnArg.runId;
++      const noopHandle: DeferHandle = { abort: () => {} };
+ 
+       try {
+         if (!isDeferredFunction(deferFn)) {
+@@ -2679,11 +2681,13 @@ class InngestExecutionEngine
+             { runId },
+             "defer skipped: function not created via createDefer",
+           );
+-          return;
++          return noopHandle;
+         }
+ 
+         const { schema } = deferFn;
+         const deferFnSlug = deferFn.id(this.options.client.id);
++        const stepOptions = getStepOptions(idOrOptions);
++        const hashedId = _internals.hashId(stepOptions.id);
+ 
+         let input: unknown = data;
+         if (schema) {
+@@ -2693,14 +2697,14 @@ class InngestExecutionEngine
+               { runId },
+               "defer() requires a synchronous schema validator. The defer call was skipped.",
+             );
+-            return;
++            return noopHandle;
+           }
+           if (result.issues) {
+             log.error(
+               { runId, issues: result.issues },
+               "defer skipped: schema validation failed",
+             );
+-            return;
++            return noopHandle;
+           }
+           input = result.value ?? data;
+         }
+@@ -2713,7 +2717,7 @@ class InngestExecutionEngine
+             : input;
+ 
+         void stepHandler({
+-          args: [idOrOptions, finalInput],
++          args: [stepOptions, finalInput],
+           matchOp: (stepOptions, inputArg) => ({
+             id: stepOptions.id,
+             mode: StepMode.Sync,
+@@ -2726,10 +2730,53 @@ class InngestExecutionEngine
+         }).catch((err: unknown) => {
+           log.error({ runId, err }, "defer skipped: unexpected error");
+         });
++
++        return {
++          abort: () => {
++            try {
++              if (this.state.priorDefers[hashedId]?.abortable === false) {
++                return;
++              }
++
++              const abortId = `${hashedId}:abort`;
++              if (this.state.lazyOps.hasId(_internals.hashId(abortId))) {
++                return;
++              }
++
++              void stepHandler({
++                args: [{ id: abortId, name: stepOptions.name }, null],
++                matchOp: (abortStepOptions) => ({
++                  id: abortStepOptions.id,
++                  mode: StepMode.Sync,
++                  op: StepOpCode.DeferAbort,
++                  name: stepOptions.name ?? stepOptions.id,
++                  displayName: stepOptions.name ?? stepOptions.id,
++                  opts: {
++                    target_hashed_id: hashedId,
++                    fn_slug: deferFnSlug,
++                    id: stepOptions.id,
++                  },
++                  userland: { id: stepOptions.id },
++                }),
++              }).catch((err: unknown) => {
++                log.error(
++                  { runId, err },
++                  "defer abort skipped: unexpected error",
++                );
++              });
++            } catch (err) {
++              log.error(
++                { runId, err },
++                "defer abort skipped: unexpected error",
++              );
++            }
++          },
++        };
+       } catch (err) {
+         // Fire-and-forget: a misbehaving schema validator, malformed args, or
+         // any other unexpected throw must not derail the surrounding handler.
+         log.error({ runId, err }, "defer skipped: unexpected error");
++        return noopHandle;
+       }
+     };
+   }
+@@ -3084,7 +3131,7 @@ export interface ExecutionState {
+    * normal steps (they have no result), so this lives separately from
+    * `stepState`.
+    */
+-  priorDefers: Record<string, unknown>;
++  priorDefers: Record<string, { abortable?: boolean }>;
+ 
+   /**
+    * The number of steps we expect to fulfil based on the state passed from the
+diff --git a/packages/inngest/src/components/execution/lazyOps.ts b/packages/inngest/src/components/execution/lazyOps.ts
+index 400d414..69697f9 100644
+--- a/packages/inngest/src/components/execution/lazyOps.ts
++++ b/packages/inngest/src/components/execution/lazyOps.ts
+@@ -1,4 +1,4 @@
+-import { type OutgoingOp, StepMode } from "../../types.ts";
++import { type OutgoingOp, StepMode, StepOpCode } from "../../types.ts";
+ import type { MatchOpFn, StepToolOptions } from "../InngestStepTools.ts";
+ 
+ /**
+@@ -49,6 +49,17 @@ export class LazyOps {
+    * Buffer an op for later shipment.
+    */
+   push(op: OutgoingOp): void {
++    if (op.op === StepOpCode.DeferAbort) {
++      // If there's a matching DeferAdd op, remove it. We don't want to report
++      // the same defer with DeferAdd and DeferAbort in the same request.
++      this.buffer = this.buffer.filter((buffered) => {
++        return !(
++          buffered.op === StepOpCode.DeferAdd &&
++          buffered.id === op.opts?.target_hashed_id
++        );
++      });
++    }
++
+     this.buffer.push(op);
+     this.pushedIds.add(op.id);
+   }
+diff --git a/packages/inngest/src/helpers/functions.ts b/packages/inngest/src/helpers/functions.ts
+index b57dc31..87067e0 100644
+--- a/packages/inngest/src/helpers/functions.ts
++++ b/packages/inngest/src/helpers/functions.ts
+@@ -151,7 +151,10 @@ export const parseFnData = (
+           event: z.record(z.any()),
+           events: z.array(z.record(z.any())).default([]),
+           steps: stepSchema,
+-          defers: z.record(z.unknown()).optional().default({}),
++          defers: z
++            .record(z.object({ abortable: z.boolean().optional() }))
++            .optional()
++            .default({}),
+           ctx: z
+             .object({
+               run_id: z.string(),
+diff --git a/packages/inngest/src/types.ts b/packages/inngest/src/types.ts
+index d0a1004..77a5b53 100644
+--- a/packages/inngest/src/types.ts
++++ b/packages/inngest/src/types.ts
+@@ -508,6 +508,20 @@ export type WithInvocation<T extends EventPayload> = Simplify<
+   { name: T["name"] | `${internalEvents.FunctionInvoked}` } & Omit<T, "name">
+ >;
+ 
++/**
++ * EXPERIMENTAL: This API is not yet stable and may change in the future without
++ * a major version bump.
++ *
++ * Handle returned by `defer(...)`, scoped to that call's deferred run.
++ */
++export type DeferHandle = {
++  /**
++   * Cancel the deferred run. Sync and fire-and-forget. If the executor marks
++   * the defer as no longer abortable, this is a no-op.
++   */
++  abort: () => void;
++};
++
+ /**
+  * EXPERIMENTAL: This API is not yet stable and may change in the future without
+  * a major version bump.
+@@ -517,7 +531,7 @@ export type WithInvocation<T extends EventPayload> = Simplify<
+  * `defer(id, { function, data })` emits a `DeferAdd` opcode that triggers the
+  * referenced defer function (created via `createDefer`) with `data` validated
+  * against the function's schema. The data type is inferred from the function's
+- * schema.
++ * schema. Returns a {@link DeferHandle} that can cancel the deferred run.
+  */
+ export type DeferFn = <TFn extends DeferredFunction.Any>(
+   id: string,
+@@ -532,7 +546,7 @@ export type DeferFn = <TFn extends DeferredFunction.Any>(
+     /** Attribute the deferred scorer's result to this experiment variant. */
+     experiment?: ExperimentRef;
+   },
+-) => void;
++) => DeferHandle;
+ 
+ /**
+  * A replay-stable handle to a selected experiment variant, returned by

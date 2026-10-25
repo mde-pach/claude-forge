@@ -1,0 +1,10 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/better-auth/src/plugins/organization/organization.test.ts::organization delete hooks receive endpoint context > passes endpoint context to beforeDeleteOrganization and afterDeleteOrganization",
+   "action": "keep",
+   "reason": "It checks only behaviour the instruction requires through the public hook API: when deletion goes through auth.handler, ctx is defined and ctx.request is populated."
+  }
+ ],
+ "edits": []
+}

@@ -1,0 +1,15 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/better-auth/src/api/routes/email-verification.test.ts::Email Verification - Request body consumption bug > should not fail sign-up when callback request cloning throws",
+   "action": "keep",
+   "reason": "It only checks what the instruction specifies (status 200, and the callback gets a POST request with the original URL and an empty body), and its only test double is the platform Request.prototype.clone, which is at the boundary."
+  },
+  {
+   "id": "packages/better-auth/src/utils/request.test.ts::safeCloneRequest > returns a bodyless request when cloning throws",
+   "action": "keep",
+   "reason": "It tests the public helper at the path the instruction names and asserts only the fallback properties the instruction specifies (new object, same method and URL, empty text())."
+  }
+ ],
+ "edits": []
+}

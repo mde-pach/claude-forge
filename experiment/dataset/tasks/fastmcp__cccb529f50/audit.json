@@ -1,0 +1,20 @@
+{
+ "verdicts": [
+  {
+   "id": "tests/server/auth/oauth_proxy/test_client_registration.py::TestOAuthProxyClientRegistration::test_dcr_client_rejects_unregistered_redirect_uri",
+   "action": "keep",
+   "reason": "It uses only the public register_client, get_client and validate_redirect_uri methods, and it checks the specified error type and the loopback-port behaviour."
+  },
+  {
+   "id": "tests/server/auth/test_oauth_proxy_redirect_validation.py::TestProxyDCRClient::test_default_uses_exact_registered_external_redirect_uri",
+   "action": "keep",
+   "reason": "It asserts the exact-match behaviour that the instruction specifies, using the same examples (port :8443 and a different host), through the public validate_redirect_uri."
+  },
+  {
+   "id": "tests/server/auth/test_oauth_proxy_redirect_validation.py::TestProxyDCRClient::test_default_uses_registered_redirect_uris_with_loopback_port_flexibility",
+   "action": "keep",
+   "reason": "It asserts the loopback rules that the instruction lays out, with its exact examples, and checks only the exception type through the public interface."
+  }
+ ],
+ "edits": []
+}

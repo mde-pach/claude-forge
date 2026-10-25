@@ -1,0 +1,45 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > beforeStoreCookie hook > should NOT set cookie when beforeStoreCookie returns Promise<false>",
+   "action": "keep",
+   "reason": "Checks only the observable cookie absence for a promise resolving to false, as the instruction specifies."
+  },
+  {
+   "id": "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > beforeStoreCookie hook > should NOT set cookie when beforeStoreCookie returns a rejected promise",
+   "action": "keep",
+   "reason": "Checks that no cookie or Set-Cookie header appears on rejection, which the instruction specifies; the logger is not inspected."
+  },
+  {
+   "id": "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > beforeStoreCookie hook > should NOT set cookie when beforeStoreCookie returns false",
+   "action": "keep",
+   "reason": "Checks only the observable cookie absence through the public client."
+  },
+  {
+   "id": "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > beforeStoreCookie hook > should NOT set cookie when beforeStoreCookie throws an error",
+   "action": "keep",
+   "reason": "Checks that no cookie or Set-Cookie header appears when the hook throws, which the instruction specifies; no internals are checked."
+  },
+  {
+   "id": "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > beforeStoreCookie hook > should conditionally set cookie based on login method",
+   "action": "keep",
+   "reason": "Checks the cookie outcome for email and google flows, using the method names the instruction names."
+  },
+  {
+   "id": "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > beforeStoreCookie hook > should handle dynamic consent changes between logins",
+   "action": "keep",
+   "reason": "Checks the per-login evaluation the instruction requires, using only cookie outcomes."
+  },
+  {
+   "id": "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > beforeStoreCookie hook > should handle falsy return values correctly",
+   "action": "keep",
+   "reason": "The instruction explicitly says 0 is falsy and must block the cookie; the check is outcome-only."
+  },
+  {
+   "id": "packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts::lastLoginMethod > beforeStoreCookie hook > should receive correct context and lastUsedLoginMethod parameters",
+   "action": "keep",
+   "reason": "The instruction explicitly specifies ctx.path '/sign-in/email' and method 'email' as the hook arguments."
+  }
+ ],
+ "edits": []
+}

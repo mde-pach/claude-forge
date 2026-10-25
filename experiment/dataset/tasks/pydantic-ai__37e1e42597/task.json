@@ -1,0 +1,65 @@
+{
+ "task_id": "pydantic-ai__37e1e42597",
+ "repo": "pydantic-ai",
+ "commit": "37e1e4259793e8c44240b41a372e85f21a75167e",
+ "parent": "e7d240ddd2b19bf85d4af1572a35a1ea074a92d3",
+ "date": "2026-07-01T17:40:21-06:00",
+ "subject": "fix: track `new_messages()` boundary by position so a rebuilt resumed request isn't leaked (#6034)",
+ "type": "fix",
+ "source_files": [
+  "pydantic_ai_slim/pydantic_ai/_agent_graph.py",
+  "pydantic_ai_slim/pydantic_ai/agent/__init__.py"
+ ],
+ "test_files": [
+  "tests/test_history_processor.py"
+ ],
+ "hidden_deleted": [],
+ "test_targets": [
+  "tests/test_history_processor.py"
+ ],
+ "f2p": [
+  "tests/test_history_processor.py::test_history_processor_insert_and_replace_resumed_request_excludes_resumed_request",
+  "tests/test_history_processor.py::test_history_processor_mutates_resumed_request_excludes_resumed_request",
+  "tests/test_history_processor.py::test_history_processor_replace_resumed_request_excludes_resumed_request",
+  "tests/test_history_processor.py::test_reinject_system_prompt_resumed_tool_loop_excludes_resumed_request",
+  "tests/test_history_processor.py::test_reinject_system_prompt_resuming_without_prompt_excludes_resumed_request"
+ ],
+ "p2p": [
+  "tests/test_history_processor.py::test_async_history_processor",
+  "tests/test_history_processor.py::test_callable_class_history_processor_no_op",
+  "tests/test_history_processor.py::test_callable_class_history_processor_with_ctx_no_op",
+  "tests/test_history_processor.py::test_history_processor_deepcopy_resuming_without_prompt",
+  "tests/test_history_processor.py::test_history_processor_empty_history",
+  "tests/test_history_processor.py::test_history_processor_history_ending_in_response",
+  "tests/test_history_processor.py::test_history_processor_injects_into_new_stream",
+  "tests/test_history_processor.py::test_history_processor_injects_without_run_id_before_current_run",
+  "tests/test_history_processor.py::test_history_processor_messages_sent_to_provider",
+  "tests/test_history_processor.py::test_history_processor_mixed_signatures",
+  "tests/test_history_processor.py::test_history_processor_no_op",
+  "tests/test_history_processor.py::test_history_processor_on_streamed_run",
+  "tests/test_history_processor.py::test_history_processor_overrides_run_id_uses_response_as_new_messages",
+  "tests/test_history_processor.py::test_history_processor_rebuild_resuming_without_prompt",
+  "tests/test_history_processor.py::test_history_processor_removes_message_after_resumed_request_excludes_resumed_request",
+  "tests/test_history_processor.py::test_history_processor_reorder_old_new",
+  "tests/test_history_processor.py::test_history_processor_replace_messages",
+  "tests/test_history_processor.py::test_history_processor_resuming_without_prompt",
+  "tests/test_history_processor.py::test_history_processor_run_replaces_message_history",
+  "tests/test_history_processor.py::test_history_processor_streaming_replaces_message_history",
+  "tests/test_history_processor.py::test_history_processor_truncation_during_resumed_tool_loop_keeps_run_messages",
+  "tests/test_history_processor.py::test_history_processor_with_context",
+  "tests/test_history_processor.py::test_history_processor_with_context_async",
+  "tests/test_history_processor.py::test_multiple_history_processors",
+  "tests/test_history_processor.py::test_new_messages_index_during_iter_with_pruning",
+  "tests/test_history_processor.py::test_new_messages_index_during_iter_with_pruning_and_history",
+  "tests/test_history_processor.py::test_resuming_without_prompt_excludes_request_with_different_run_id",
+  "tests/test_history_processor.py::test_resuming_without_prompt_with_tool_calls_excludes_resumed_request",
+  "tests/test_history_processor.py::test_takes_ctx_returns_false_for_untyped_processor"
+ ],
+ "audit": {
+  "dropped": [],
+  "edits_applied": 0,
+  "f2p_before": 5,
+  "p2p_before": 29,
+  "flaky_excluded": []
+ }
+}

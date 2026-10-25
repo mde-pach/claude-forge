@@ -1,0 +1,15 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/zod/src/v4/core/tests/treeshake.test.ts::a minimal zod/mini schema drops the declarations it cannot reach",
+   "action": "keep",
+   "reason": "It checks only observable bundle output (contains `boolean`, no `zod_brand`/`MAX_SAFE_INTEGER`/`02-29`) using exactly the esbuild settings and public entrypoint the instruction names; the custom messages only label failures and assert nothing."
+  },
+  {
+   "id": "packages/zod/src/v4/core/tests/treeshake.test.ts::a minimal classic schema drops the registry symbols",
+   "action": "keep",
+   "reason": "It asserts only the outcome the instruction specifies (classic bundle contains `boolean` but neither `ZodOutput` nor `ZodInput`) through the existing public entrypoint, without inspecting internals."
+  }
+ ],
+ "edits": []
+}

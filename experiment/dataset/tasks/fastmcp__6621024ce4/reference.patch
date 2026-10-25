@@ -1,0 +1,184 @@
+diff --git a/docs/development/v4-notes/change-register.mdx b/docs/development/v4-notes/change-register.mdx
+index 4e0a6f5..fb02536 100644
+--- a/docs/development/v4-notes/change-register.mdx
++++ b/docs/development/v4-notes/change-register.mdx
+@@ -285,6 +285,14 @@ FastMCP retains hardening that is not yet upstream and does not remove it during
+ 
+ ### Retained OAuth / DCR hardening — Absorbed
+ 
+-FastMCP keeps its own DCR redirect-URI hardening (PRs #4419, #4408) regardless of the SDK's validation, which still accepts unsafe `javascript:`/`data:` redirect schemes at the model level (sdk-feedback #4). The streamable-HTTP DNS-rebinding protection above is a second retained security surface. When HTTP convergence lands in v4, FastMCP would additionally *inherit* the SDK's session-owner credential enforcement — a security gain it lacks today (see [Feature Program](/development/v4-notes/feature-program)).
++FastMCP keeps its own DCR redirect-URI hardening (PRs #4419, #4408) regardless of the SDK's validation, which still accepts unsafe `javascript:`/`data:` redirect schemes at the model level (sdk-feedback #4). The streamable-HTTP DNS-rebinding protection above is a second retained security surface.
+ 
+ *Verify:* recent commits `67527c1f` (block unsafe OAuth redirect schemes), `57a27992` (DNS rebinding), `cccb529f` (DCR redirect URI validation) on `main`.
++
++### Session-owner credential enforcement — Absorbed (security gain)
++
++A streamable-HTTP session is now bound to the credential that created it. Once the session manager owns the server lifecycle (its `run()` drives FastMCP's lifespan through `_lifespan_proxy`), the SDK's `_session_owners` map is populated on session creation and checked on every subsequent request: a request that presents a *different* credential for an existing `Mcp-Session-Id` is answered with 404, exactly as if the session did not exist. This closes a gap where a leaked session id was usable by any bearer — before this, any valid token could drive someone else's session. Identity is the `(client_id, issuer, subject)` triple the token verifier supplies; components it does not populate degrade out of the comparison.
++
++The enforcement is the SDK's, but it only activates on FastMCP's stateful HTTP path because FastMCP lets the manager enter the lifespan (see HTTP → Lifespan reconciliation above). No configuration is required.
++
++*Verify:* `tests/server/http/test_session_owner_enforcement.py` (create with token A → reuse with token B → 404; reuse with token A → 200); SDK `streamable_http_manager.py` `_session_owners`.
+diff --git a/docs/more/settings.mdx b/docs/more/settings.mdx
+index cd3ba02..b212211 100644
+--- a/docs/more/settings.mdx
++++ b/docs/more/settings.mdx
+@@ -46,6 +46,7 @@ These control how the server listens when running with an HTTP transport.
+ | `FASTMCP_HTTP_HOST_ORIGIN_PROTECTION` | `bool` | `true` | Validate `Host` and browser `Origin` headers for Streamable HTTP requests. |
+ | `FASTMCP_HTTP_ALLOWED_HOSTS` | `list[str] \| null` | `null` | Additional trusted hostnames for Streamable HTTP requests. Use a JSON array, such as `["mcp.example.com"]`. |
+ | `FASTMCP_HTTP_ALLOWED_ORIGINS` | `list[str] \| null` | `null` | Browser origins trusted by the Streamable HTTP request guard. Configure CORS separately for cross-origin browser reads. Use a JSON array, such as `["https://app.example.com"]`. |
++| `FASTMCP_HTTP_SESSION_IDLE_TIMEOUT` | `float \| null` | `null` | Seconds a Streamable HTTP session may remain idle before it is terminated. The deadline resets on every request. When `null`, sessions never expire from inactivity. Not supported in stateless mode. |
+ | `FASTMCP_DEBUG` | `bool` | `false` | Enable debug mode. |
+ 
+ ## Error Handling
+diff --git a/docs/servers/auth/token-verification.mdx b/docs/servers/auth/token-verification.mdx
+index a914613..7e38d9a 100644
+--- a/docs/servers/auth/token-verification.mdx
++++ b/docs/servers/auth/token-verification.mdx
+@@ -41,6 +41,8 @@ Token validation must address several security requirements: signature verificat
+ 
+ The challenge in MCP environments is that clients need to obtain valid tokens before making requests, but the MCP protocol doesn't provide built-in discovery mechanisms for token endpoints. Clients must obtain tokens through separate channels or prior configuration.
+ 
++On the streamable-HTTP transport, each session is additionally bound to the credential that created it: a request that presents a different credential for an existing `Mcp-Session-Id` is rejected with a 404, exactly as if the session did not exist. A leaked session id is therefore useless without the original credential. Session identity is the `(client_id, issuer, subject)` triple your verifier populates.
++
+ 
+ ## TokenVerifier Class
+ 
+diff --git a/fastmcp_slim/fastmcp/server/http.py b/fastmcp_slim/fastmcp/server/http.py
+index b96bcdd..9611fad 100644
+--- a/fastmcp_slim/fastmcp/server/http.py
++++ b/fastmcp_slim/fastmcp/server/http.py
+@@ -496,6 +496,7 @@ def create_streamable_http_app(
+     host_origin_protection: bool = True,
+     allowed_hosts: Sequence[str] | None = None,
+     allowed_origins: Sequence[str] | None = None,
++    session_idle_timeout: float | None = None,
+ ) -> StarletteWithLifespan:
+     """Return an instance of the StreamableHTTP server app.
+ 
+@@ -518,6 +519,10 @@ def create_streamable_http_app(
+         allowed_origins: Additional browser origins trusted by the request guard.
+             Configure CORS separately when browser JavaScript must read
+             cross-origin responses.
++        session_idle_timeout: Maximum time in seconds a session may remain idle
++            before it is terminated. The deadline is pushed forward on every
++            request. When None, sessions never expire from inactivity. Not
++            supported in stateless mode.
+ 
+     Returns:
+         A Starlette application with StreamableHTTP support
+@@ -599,6 +604,7 @@ def create_streamable_http_app(
+             retry_interval=retry_interval,
+             json_response=json_response,
+             stateless=stateless_http,
++            session_idle_timeout=session_idle_timeout,
+             # FastMCP owns DNS-rebinding protection via HostOriginGuardMiddleware,
+             # which is more expressive and already the documented surface. Always
+             # disable the SDK's own protection so the two layers don't
+@@ -607,10 +613,11 @@ def create_streamable_http_app(
+                 enable_dns_rebinding_protection=False
+             ),
+         )
+-        async with (
+-            server._lifespan_manager(),
+-            streamable_http_app.session_manager.run(),
+-        ):
++        # The session manager's `run()` enters `server._mcp_server.lifespan`
++        # (our `_lifespan_proxy`), which now drives `server._lifespan_manager()`.
++        # Entering it here too would double-stack the same lifespan, so we let
++        # the manager own the single entry.
++        async with streamable_http_app.session_manager.run():
+             try:
+                 yield
+             finally:
+diff --git a/fastmcp_slim/fastmcp/server/mixins/transport.py b/fastmcp_slim/fastmcp/server/mixins/transport.py
+index 7218330..8938aac 100644
+--- a/fastmcp_slim/fastmcp/server/mixins/transport.py
++++ b/fastmcp_slim/fastmcp/server/mixins/transport.py
+@@ -347,6 +347,7 @@ class TransportMixin:
+         host_origin_protection: bool | None = None,
+         allowed_hosts: list[str] | None = None,
+         allowed_origins: list[str] | None = None,
++        session_idle_timeout: float | None = None,
+     ) -> StarletteWithLifespan:
+         """Create a Starlette app using the specified HTTP transport.
+ 
+@@ -369,6 +370,9 @@ class TransportMixin:
+             allowed_origins: Additional browser origins trusted by the request guard.
+                 Configure CORS separately when browser JavaScript must read
+                 cross-origin responses.
++            session_idle_timeout: Maximum time in seconds a streamable-HTTP
++                session may remain idle before it is terminated. When None,
++                falls back to the ``http_session_idle_timeout`` setting.
+ 
+         Returns:
+             A Starlette application configured with the specified transport
+@@ -410,6 +414,11 @@ class TransportMixin:
+                     if allowed_origins is not None
+                     else fastmcp.settings.http_allowed_origins
+                 ),
++                session_idle_timeout=(
++                    session_idle_timeout
++                    if session_idle_timeout is not None
++                    else fastmcp.settings.http_session_idle_timeout
++                ),
+             )
+         elif transport == "sse":
+             return create_sse_app(
+diff --git a/fastmcp_slim/fastmcp/server/server.py b/fastmcp_slim/fastmcp/server/server.py
+index ed1f81c..dc64c44 100644
+--- a/fastmcp_slim/fastmcp/server/server.py
++++ b/fastmcp_slim/fastmcp/server/server.py
+@@ -289,17 +289,16 @@ def _lifespan_proxy(
+     async def wrap(
+         low_level_server: LowLevelServer[LifespanResultT],
+     ) -> AsyncIterator[LifespanResultT]:
+-        if fastmcp_server._lifespan is default_lifespan:
+-            yield {}  # ty:ignore[invalid-yield]
+-            return
+-
+-        if not fastmcp_server._lifespan_result_set:
+-            raise RuntimeError(
+-                "FastMCP server has a lifespan defined but no lifespan result is set, which means the server's context manager was not entered. "
+-                " Are you running the server in a way that supports lifespans? If so, please file an issue at https://github.com/PrefectHQ/fastmcp/issues."
+-            )
+-
+-        yield fastmcp_server._lifespan_result  # ty:ignore[invalid-yield]
++        # Drive the FastMCP lifespan rather than merely reading it back. The
++        # SDK enters this proxy exactly once per manager/server run (via
++        # ``StreamableHTTPSessionManager.run`` → ``app.lifespan(app)`` or
++        # ``Server.run`` → ``self.lifespan(self)``) and reuses the yielded
++        # state for every session. ``_lifespan_manager`` is ref-counted, so
++        # when an outer caller (``run_http_async``/``run_stdio_async``) has
++        # already entered it, this nested entry reuses the existing result
++        # instead of re-running setup.
++        async with fastmcp_server._lifespan_manager():
++            yield fastmcp_server._lifespan_result  # ty:ignore[invalid-yield]
+ 
+     return wrap
+ 
+diff --git a/fastmcp_slim/fastmcp/settings.py b/fastmcp_slim/fastmcp/settings.py
+index 9709f9e..03a61f0 100644
+--- a/fastmcp_slim/fastmcp/settings.py
++++ b/fastmcp_slim/fastmcp/settings.py
+@@ -339,6 +339,21 @@ class Settings(BaseSettings):
+     http_host_origin_protection: bool = True
+     http_allowed_hosts: list[str] | None = None
+     http_allowed_origins: list[str] | None = None
++    http_session_idle_timeout: Annotated[
++        float | None,
++        Field(
++            description=inspect.cleandoc(
++                """
++                Maximum time in seconds a streamable-HTTP session may remain
++                idle before it is terminated. A session's deadline is pushed
++                forward on every request. When None (default), sessions never
++                expire from inactivity. Not supported in stateless HTTP mode.
++                Must be a positive number of seconds when set.
++                """
++            ),
++            gt=0,
++        ),
++    ] = None
+ 
+     mounted_components_raise_on_load_error: Annotated[
+         bool,
