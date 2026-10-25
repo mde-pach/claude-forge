@@ -9,6 +9,47 @@
     "scope",
     "enforce"
   ],
+  "if": {
+    "required": [
+      "review"
+    ]
+  },
+  "then": {
+    "properties": {
+      "enforce": {
+        "contains": {
+          "anyOf": [
+            {
+              "properties": {
+                "target": {
+                  "const": "guard"
+                },
+                "decision": {
+                  "const": "ask"
+                }
+              },
+              "required": [
+                "decision"
+              ]
+            },
+            {
+              "properties": {
+                "target": {
+                  "const": "check"
+                },
+                "run": {
+                  "pattern": "^\\s*forge_test_edits\\s*$"
+                }
+              },
+              "required": [
+                "run"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  },
   "properties": {
     "id": {
       "type": "string",
@@ -235,6 +276,18 @@
                     "ephemeral-exec"
                   ]
                 }
+              },
+              "if": {
+                "required": [
+                  "check"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "decision": {
+                    "const": "ask"
+                  }
+                }
               }
             }
           },
@@ -326,7 +379,40 @@
                   "minimum": 1,
                   "maximum": 600
                 }
-              }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "required": [
+                      "rerun"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "stage": {
+                        "const": "test"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "required": [
+                      "format_stdin"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "stage": {
+                        "enum": [
+                          "format",
+                          "lint"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
             }
           }
         ]

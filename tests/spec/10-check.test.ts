@@ -412,12 +412,12 @@ describe("pre-commit", () => {
     ["lefthook.yml", "pre-commit:\n  commands:\n    lint:\n      run: npm run lint\n", "run: sh .forge/check.sh --changed"],
     [".husky/pre-commit", "npx lint-staged\n", "sh .forge/check.sh --changed || exit 1"],
   ])(
-    "with %s, apply --yes adds the check as a marked block, once; status shows it; remove takes it out",
+    "with %s, apply --pre-commit adds the check as a marked block, once; status shows it; remove takes it out",
     (file, mine, line) => {
       const r = sampleRepo("eslint-app");
       put(r, file, mine);
       commitAll(r, "manager");
-      expect(forge(["apply", "--yes"], r).status).toBe(0);
+      expect(forge(["apply", "--yes", "--pre-commit"], r).status).toBe(0);
       expect(forge(["apply", "--yes"], r).stdout).toContain("forge: up to date");
       const text = readFileSync(join(r, file), "utf8");
       expect(text.split(line).length).toBe(2);
@@ -437,7 +437,7 @@ describe("pre-commit", () => {
     () => {
       const r = sampleRepo("eslint-app");
       git(r, "config", "core.hooksPath", "githooks");
-      expect(forge(["apply", "--yes"], r).status).toBe(0);
+      expect(forge(["apply", "--yes", "--pre-commit"], r).status).toBe(0);
       expect(existsSync(join(r, ".git/hooks/pre-commit"))).toBe(false);
       expect(readFileSync(join(r, "githooks/pre-commit"), "utf8")).toContain("sh .forge/check.sh --changed || exit 1");
       commitAll(r, "forge");
@@ -455,7 +455,7 @@ describe("pre-commit", () => {
     () => {
       const r = sampleRepo("eslint-app");
       put(r, "lefthook.yml", "pre-push:\n  commands:\n    t:\n      run: x\n");
-      expect(forge(["apply", "--yes"], r).status).toBe(0);
+      expect(forge(["apply", "--yes", "--pre-commit"], r).status).toBe(0);
       put(r, "lefthook.yml", "pre-push:\n  commands:\n    t:\n      run: x\n");
       const st = forge(["status"], r).stdout;
       expect(st).toContain("lefthook.yml: forge's pre-commit block is missing (apply adds it back)");
@@ -471,7 +471,7 @@ describe("pre-commit", () => {
     () => {
       const r = sampleRepo("eslint-app");
       put(r, "lefthook.yml", "pre-commit:\n  jobs:\n    - run: npm run lint\n");
-      const a = forge(["apply", "--yes"], r);
+      const a = forge(["apply", "--yes", "--pre-commit"], r);
       expect(readFileSync(join(r, "lefthook.yml"), "utf8")).toBe("pre-commit:\n  jobs:\n    - run: npm run lint\n");
       expect(a.stdout).toContain('forge: pre-commit: not installed, so commits are not checked; add "sh .forge/check.sh --changed" to lefthook.yml');
       expect(forge(["status"], r).stdout).toContain('Pre-commit: NOT INSTALLED, so commits are not checked. To install: add "sh .forge/check.sh --changed" to lefthook.yml');
@@ -493,13 +493,33 @@ describe("pre-commit", () => {
     T,
   );
 
+  /**
+   * A hook manager's config is the team's file, usually tracked: `--yes` (scripts,
+   * CI) confirms settings changes and creates `.git/hooks/pre-commit`, but only
+   * `--pre-commit` (or a yes at the prompt) edits the manager's config.
+   */
+  test(
+    "apply --yes alone leaves a hook manager's config as it is, and says how to add the check",
+    () => {
+      const r = sampleRepo("eslint-app");
+      put(r, ".husky/pre-commit", "npx lint-staged\n");
+      commitAll(r, "manager");
+      const a = forge(["apply", "--yes"], r);
+      expect(a.status).toBe(0);
+      expect(readFileSync(join(r, ".husky/pre-commit"), "utf8")).toBe("npx lint-staged\n");
+      expect(a.stdout).toContain('forge: pre-commit: not installed, so commits are not checked; run forge apply interactively (or with --pre-commit) to add "sh .forge/check.sh --changed" to .husky/pre-commit');
+      expect(git(r, "status", "--porcelain", ".husky").stdout).toBe("");
+    },
+    T,
+  );
+
   test(
     "remove leaves a block whose end marker was deleted (and the user's lines after it), and exits 1",
     () => {
       const r = sampleRepo("eslint-app");
       put(r, ".husky/pre-commit", "npx lint-staged\n");
       commitAll(r, "manager");
-      expect(forge(["apply", "--yes"], r).status).toBe(0);
+      expect(forge(["apply", "--yes", "--pre-commit"], r).status).toBe(0);
       const broken = readFileSync(join(r, ".husky/pre-commit"), "utf8").replace("# forge: end\n", "") + "echo important\n";
       put(r, ".husky/pre-commit", broken);
       const rm = forge(["remove", "--yes"], r);

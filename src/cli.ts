@@ -29,6 +29,8 @@ interface Flags {
   dryRun: boolean;
   yes: boolean;
   json: boolean;
+  /** Consent to add the commit-time check to a hook manager's (tracked) config. */
+  preCommit: boolean;
 }
 
 
@@ -156,21 +158,23 @@ function offerPreCommit(ctx: Ctx): boolean {
   if (ctx.level !== "project" || ctx.flags.dryRun) return false;
   const p = preCommitPath(ctx.base);
   if (ctx.plan.files.has(p) || ctx.blocks.length) return false;
-  if (!ctx.flags.yes && !process.stdin.isTTY) return false;
+  if (!ctx.flags.yes && !ctx.flags.preCommit && !process.stdin.isTTY) return false;
   const m = hookManager(ctx.base);
   if (!m) {
     if (existsSync(join(ctx.base, p))) return false;
-    if (!confirm(`forge: create ${p} running "${CHECK}"?`, ctx.flags)) return false;
+    if (!confirm(`forge: create ${p} running "${CHECK}"?`, { ...ctx.flags, yes: ctx.flags.yes || ctx.flags.preCommit })) return false;
     ctx.plan.files.set(p, PRE_COMMIT);
     return true;
   }
   if (!m.file) return false;
+  // the manager's config is the team's, usually tracked: --yes alone (scripts, CI) does not edit it
+  if (!ctx.flags.preCommit && !process.stdin.isTTY) return false;
   const before = readText(join(ctx.base, m.file));
   if (before !== undefined && runsForgeCheck(before)) return false;
   const after = insertBlock(m.kind, before);
   if (after === undefined) return false;
   process.stdout.write(lineDiff(before ?? "", after, before === undefined ? `${m.file} (new)` : m.file));
-  if (!confirm(`forge: add "${CHECK}" to ${m.file} (${m.name})?`, ctx.flags)) return false;
+  if (!ctx.flags.preCommit && !confirm(`forge: add "${CHECK}" to ${m.file} (${m.name})?`, { ...ctx.flags, yes: false })) return false;
   ctx.blocks.push({ file: m.file, kind: m.kind, created: before === undefined, hash: blockHash(after)! });
   return true;
 }
@@ -437,7 +441,7 @@ function preCommitHint(base: string): string {
   if (!m && existsSync(join(base, pc))) return `add "${CHECK}" to ${pc} (forge does not touch an existing hook)`;
   if (!m) return `run forge apply interactively (or with --yes) to create ${pc}, or add "${CHECK}" to your hook manager`;
   if (!m.file || insertBlock(m.kind, readText(join(base, m.file))) === undefined) return `add "${CHECK}" to ${m.name}`;
-  return `run forge apply interactively (or with --yes) to add "${CHECK}" to ${m.file}, or add it yourself`;
+  return `run forge apply interactively (or with --pre-commit) to add "${CHECK}" to ${m.file}, or add it yourself`;
 }
 
 /**
@@ -739,7 +743,7 @@ function cmdInit(flags: Flags): number {
 // ---------------------------------------------------------------- main
 
 export function main(argv: string[]): number {
-  const flags: Flags = { user: false, local: false, force: false, dryRun: false, yes: false, json: false };
+  const flags: Flags = { user: false, local: false, force: false, dryRun: false, yes: false, json: false, preCommit: false };
   const args: string[] = [];
   for (const a of argv) {
     if (a === "--user") flags.user = true;
@@ -748,6 +752,7 @@ export function main(argv: string[]): number {
     else if (a === "--dry-run") flags.dryRun = true;
     else if (a === "--yes" || a === "-y") flags.yes = true;
     else if (a === "--json") flags.json = true;
+    else if (a === "--pre-commit") flags.preCommit = true;
     else if (a === "--help" || a === "-h") args.unshift("help");
     else if (a === "--version" || a === "-v") args.unshift("version");
     else if (a.startsWith("-")) throw new ForgeError(`forge: unknown option ${a}\n\n${USAGE}`, 2);

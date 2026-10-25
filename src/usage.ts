@@ -13,4 +13,6 @@ Usage:
   forge remove [--user]              delete owned files and the settings entries forge added
 
 Options: --force (overwrite drifted files), --dry-run (print the diff, write nothing),
-         --yes (confirm settings changes non-interactively)`;
+         --yes (confirm settings changes and create .git/hooks/pre-commit non-interactively),
+         --pre-commit (add the commit-time check to a hook manager's config: .pre-commit-config.yaml,
+         lefthook.yml, .husky/pre-commit, core.hooksPath; --yes alone does not edit those files)`;

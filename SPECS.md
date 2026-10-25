@@ -59,6 +59,7 @@ Every requirement uses MUST / MUST NOT. Anything not described here is out of sc
 - Every writing command accepts `--dry-run` (prints the `diff` output, writes nothing).
 - `apply` is idempotent. If an owned file's hash differs from the lock, `apply` stops and prints the diff unless `--force` is given.
 - Writes to a shared settings file are shown as a diff and require `y` confirmation (`--yes` for non-interactive use).
+- `apply --pre-commit` consents to adding the commit-time check to a hook manager's config (§10.3); `--yes` does not, because that file is the team's and usually tracked (a script or CI job running `apply --yes` must not edit it).
 
 ## 4. Ownership
 
@@ -67,7 +68,8 @@ Every requirement uses MUST / MUST NOT. Anything not described here is out of sc
 | **Owned** | `.forge/**`, `.claude/skills/forge-project/**`, `.claude/rules/forge-*.md`; user level: `~/.claude/skills/forge-user/**`, `~/.claude/forge.lock.json` | Regenerates; hashes recorded in the lock |
 | **Appended** | `.claude/settings.json` (or `.claude/settings.local.json` with `--local`); `~/.claude/settings.json` | Adds entries only, with consent; each entry recorded in the lock; never changes or removes entries it did not add |
 | **Audited** | `biome.json`, `tsconfig.json`, `pyproject.toml`, `package.json`, dependencies | Reads and tests behavior (§11); never writes |
-| **Untouched** | `CLAUDE.md`, other `.claude/rules/*`, other `.claude/skills/*`, git config, `.git/hooks/*` (except §10.3), `.husky/`, `lefthook.yml`, `.pre-commit-config.yaml`, CI files | Nothing |
+| **Marked block** | a hook manager's config: `.pre-commit-config.yaml`, `lefthook.yml` (`.yaml`, `.lefthook.yml`), `.husky/pre-commit`, `<core.hooksPath>/pre-commit` (§10.3) | Adds one block between markers, only with `--pre-commit` or a yes at the prompt (never with `--yes` alone); recorded in the lock's `blocks`; `remove` takes it out; never changes the rest of the file |
+| **Untouched** | `CLAUDE.md`, other `.claude/rules/*`, other `.claude/skills/*`, git config, `.git/hooks/*` (except `.git/hooks/pre-commit`, §10.3), the rest of the hook managers' files, CI files | Nothing |
 
 `forge init` is the only command that creates audited files, and only when they don't exist.
 
@@ -370,9 +372,9 @@ A check with a `timeout` (seconds) that runs past it is stopped with its process
 
 ### 10.3 Pre-commit and CI
 
-- `forge apply` offers (interactively, or with `--yes`) the commit-time check `sh .forge/check.sh --changed`:
-  - without a hook manager, as `.git/hooks/pre-commit`, if that file does not exist (an existing hook is never touched);
-  - with a hook manager, as a block between `# forge: begin (forge remove deletes this block)` and `# forge: end` in its config: `.pre-commit-config.yaml` gets a `repo: local` entry appended to `repos` (`id: forge-check`, `name: forge check`, `entry: sh .forge/check.sh --changed`, `language: system`, `pass_filenames: false`); `lefthook.yml` (`.yaml`, `.lefthook.yml`) a `forge-check` command under `pre-commit: commands:`; `.husky/pre-commit`, or `<core.hooksPath>/pre-commit` inside the repository, the line `sh .forge/check.sh --changed || exit 1` before the first top-level `exec`/`exit` (not one inside an `if`, `case`, loop, group or function), else at the end (the file is created when missing). A CRLF file keeps CRLF line ends. A YAML config is edited only when the result parses to the original plus Forge's entry; Forge leaves a config it cannot edit safely (an inline `repos: []`, lefthook `jobs`, a hooks path outside the repository) to the user. A config that already mentions `.forge/check.sh` is not edited.
+- `forge apply` offers the commit-time check `sh .forge/check.sh --changed`:
+  - without a hook manager, as `.git/hooks/pre-commit` (local to the clone), if that file does not exist (an existing hook is never touched): interactively, or with `--yes` or `--pre-commit`;
+  - with a hook manager, interactively or with `--pre-commit` (not `--yes` alone), as a block between `# forge: begin (forge remove deletes this block)` and `# forge: end` in its config: `.pre-commit-config.yaml` gets a `repo: local` entry appended to `repos` (`id: forge-check`, `name: forge check`, `entry: sh .forge/check.sh --changed`, `language: system`, `pass_filenames: false`); `lefthook.yml` (`.yaml`, `.lefthook.yml`) a `forge-check` command under `pre-commit: commands:`; `.husky/pre-commit`, or `<core.hooksPath>/pre-commit` inside the repository, the line `sh .forge/check.sh --changed || exit 1` before the first top-level `exec`/`exit` (not one inside an `if`, `case`, loop, group or function), else at the end (the file is created when missing). A CRLF file keeps CRLF line ends. A YAML config is edited only when the result parses to the original plus Forge's entry; Forge leaves a config it cannot edit safely (an inline `repos: []`, lefthook `jobs`, a hooks path outside the repository) to the user. A config that already mentions `.forge/check.sh` is not edited.
 - The block is recorded in the lock's `blocks` (§12): `apply` adds it back when it is missing, `status` reports it missing or modified, `remove` deletes it (and a file Forge created, when nothing else is left). In a config Forge created, the block holds the parent keys (`repos:`, `pre-commit:` / `commands:`); `remove` keeps them when the user has added entries under them. `remove` leaves the block to the user, and exits 1, when its markers are not one begin line followed by one end line, or when a YAML config without it would not parse to the original minus Forge's entry.
 - `apply` and `status` say clearly when commits are not checked (`Pre-commit: NOT INSTALLED, so commits are not checked. To install: …`); `status --json` has `pre_commit: {installed, file?, forge?}`.
 - `forge status` prints the CI steps: `sh .forge/check.sh --since origin/<default branch>` for pull requests (the checkout needs the base branch's history: `fetch-depth: 0`), and `sh .forge/check.sh --all` for the default branch. The default branch is `origin/HEAD`, else `main`.
