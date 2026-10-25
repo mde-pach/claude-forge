@@ -416,8 +416,8 @@ forge_test_edits() {
     done
     printf 'Test doubles, fixtures and helpers encode the interface the code'"'"'s callers rely on. Keep that interface in production (e.g. a property alias for a moved attribute) unless the task removes it; if it does, carry on: this is reported once.\n'
     cat "$FORGE_TMP/support.new" >> "$_te_seen" 2>/dev/null
-    # reported once: the same tree checked again gives another result, so Stop must not replay it
-    [ -z "${FORGE_ONCE:-}" ] || : > "$FORGE_ONCE"
+    # alone, it is advice (§10.7): the next Stop accepts it
+    [ "$_te_rc" = 1 ] || : > "$(forge_advised_mark)"
     _te_rc=1
   fi
   return "$_te_rc"
@@ -438,9 +438,7 @@ forge_advise() {
   [ -s "$FORGE_TMP/advice" ] || return 0
   mkdir -p "$FORGE_SNAP/advised" && : > "$_fa_mark"
   # advice does not stop the later steps (forge_run_stage): the tests still run
-  : > "$FORGE_TMP/advised.$(basename "$_fa_mark")"
-  # given once: Stop must not replay it on the same tree (§10.2 step 5)
-  [ -z "${FORGE_ONCE:-}" ] || : > "$FORGE_ONCE"
+  : > "$(forge_advised_mark)"
   cat "$FORGE_TMP/advice"
   return 1
 }
@@ -810,9 +808,8 @@ forge_once() {
     return 0
   fi
   : > "$_fo_m" 2>/dev/null
-  # as advice (§10.7): Stop does not replay it on the same tree, and the steps after it still run
-  [ -z "${FORGE_ONCE:-}" ] || : > "$FORGE_ONCE"
-  : > "$FORGE_TMP/advised.$(printf '%s' "$c_id" | tr -c 'A-Za-z0-9_-' '_')"
+  # as advice (§10.7): the steps after it still run
+  : > "$(forge_advised_mark)"
   return 1
 }
 
@@ -2093,6 +2090,12 @@ forge_run_check() {
       grep -v '^forge: timed out after' "$FORGE_TMP/out" | forge_excerpt 15
       return 1 ;;
   esac
+  # advice (§10.7) is shown as the check gave it, never attributed
+  if [ -f "$(forge_advised_mark)" ]; then
+    printf 'forge:%s failed\n' "$c_id"
+    forge_excerpt 15 < "$FORGE_TMP/out"
+    return 1
+  fi
   # outside --all, only errors in the change count (§10.1 step 5)
   _fc_level=$(forge_attribute_level "$c_stage" "$_fc_whole")
   if [ "$mode" != --all ] && [ -n "$_fc_level" ]; then
@@ -2427,18 +2430,27 @@ forge_test_compare() {
   return 3
 }
 
-# forge_run_stage <stage>: every check of <stage>; fails if one fails.
+# forge_advised_mark: the file that marks check $c_id as having given advice in this
+# run (§10.7): its failure is advice, not a failing check.
+forge_advised_mark() { printf '%s/advised.%s' "$FORGE_TMP" "$(printf '%s' "$c_id" | tr -c 'A-Za-z0-9_-' '_')"; }
+
+# forge_run_stage <stage>: every check of <stage>; fails if one fails. The output of
+# a check that gave advice goes to $FORGE_TMP/advice.out, printed at the end.
 forge_run_stage() {
   _fs_i=1
   _fs_rc=0
   while [ "$_fs_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fs_i"
     if [ "$c_stage" = "$1" ]; then
-      forge_run_check "$_fs_i"
+      forge_run_check "$_fs_i" > "$FORGE_TMP/check.out"
       case $? in
-        0) ;;
-        3) [ "$_fs_rc" -ne 0 ] || _fs_rc=3 ;;
-        *) if [ -f "$FORGE_TMP/advised.$(printf '%s' "$c_id" | tr -c 'A-Za-z0-9_-' '_')" ]; then advised=1; else _fs_rc=1; fi ;;
+        0) cat "$FORGE_TMP/check.out" ;;
+        3) cat "$FORGE_TMP/check.out"; [ "$_fs_rc" -ne 0 ] || _fs_rc=3 ;;
+        *)
+          # advice goes after every real failure (check.sh prints it last)
+          if [ -f "$(forge_advised_mark)" ]; then cat "$FORGE_TMP/check.out" >> "$FORGE_TMP/advice.out"; advised=1
+          else cat "$FORGE_TMP/check.out"; _fs_rc=1
+          fi ;;
       esac
     fi
     _fs_i=$((_fs_i + 1))

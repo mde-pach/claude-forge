@@ -1319,7 +1319,7 @@ describe("advisory checks block once per turn", () => {
       const pkg = readFileSync(join(r, "package.json"), "utf8");
       put(r, "package.json", pkg.replace('"zod": "4.1.12"', '"zod": "4.1.12", "esbuild": "0.25.5"'));
       const first = turn();
-      expect(first.status).toBe(1);
+      expect(first.status).toBe(4); // advice only (§10.7)
       expect(first.stdout).toContain("forge:typescript/lockfile-updated failed");
       expect(first.stdout).toContain("package.json: dependencies esbuild 0.25.5 added, but bun.lock did not change");
       const second = turn();
@@ -1341,7 +1341,7 @@ describe("advisory checks block once per turn", () => {
       put(r, ".forge/state/t.turn/head", git(r, "rev-parse", "HEAD").stdout);
       put(r, "src/span.ts", 'export const span = (name: string) => ({ name, kind: "llm" });\n');
       const first = turn();
-      expect(first.status).toBe(1);
+      expect(first.status).toBe(4); // advice only (§10.7)
       expect(first.stdout).toContain("forge:typescript/vitest/snapshot-stale failed");
       expect(first.stdout).toContain("src/span.ts: imported by src/span.test.ts, which compares output with snapshots or golden files");
       expect(turn().stdout).toContain("forge:typescript/vitest/snapshot-stale accepted: reported once this turn");

@@ -173,7 +173,9 @@ forge_forbid() {
   return 0
 }
 
-forge_step() { [ "$fail" -eq 0 ] || exit 1; "$@"; }
+# forge_end <status>: advice (§10.7) last, after every failing check, then exit.
+forge_end() { [ ! -s "$FORGE_TMP/advice.out" ] || cat "$FORGE_TMP/advice.out"; exit "$1"; }
+forge_step() { [ "$fail" -eq 0 ] || forge_end "$fail"; "$@"; }
 
 forge_step forge_integrity
 forge_step forge_applied_migrations
@@ -184,6 +186,6 @@ forge_step forge_run_stage lint
 forge_step forge_run_stage typecheck
 forge_step forge_run_stage migration
 forge_step forge_run_stage test
-# advice (§10.7) fails the run without stopping the steps after it
-[ "$fail" -ne 0 ] || [ "${advised:-0}" -eq 0 ] || fail=1
-exit "$fail"
+# advice (§10.7) does not stop the steps after it; when it is the only failure, exit 4
+[ "$fail" -ne 0 ] || [ "${advised:-0}" -eq 0 ] || fail=4
+forge_end "$fail"
