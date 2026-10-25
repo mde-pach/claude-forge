@@ -526,11 +526,22 @@ json_get() {
     }'
 }
 
-# json_escape: stdin -> JSON string body (no surrounding quotes).
+# json_escape: stdin -> JSON string body (no surrounding quotes). Carriage returns
+# are dropped; every other control character is escaped (\t, \n, \u00XX): one
+# left raw makes the whole JSON invalid.
 json_escape() {
-  awk 'BEGIN { ORS = "" } {
+  awk 'BEGIN {
+    ORS = ""
+    for (c = 1; c < 32; c++) if (c != 9 && c != 10 && c != 13) { ch = sprintf("%c", c); ctl[ch] = sprintf("\\u%04x", c); re = re ch }
+    re = "[" re "]"
+  }
+  {
     gsub(/\\/, "\\\\"); gsub(/"/, "\\\""); gsub(/\t/, "\\t"); gsub(/\r/, "")
-    gsub(/\033/, "\\u001b")
+    if ($0 ~ re) {
+      s = ""; n = length($0)
+      for (i = 1; i <= n; i++) { ch = substr($0, i, 1); s = s ((ch in ctl) ? ctl[ch] : ch) }
+      $0 = s
+    }
     if (NR > 1) printf "\\n"
     printf "%s", $0
   }'
@@ -12777,11 +12788,22 @@ json_get() {
     }'
 }
 
-# json_escape: stdin -> JSON string body (no surrounding quotes).
+# json_escape: stdin -> JSON string body (no surrounding quotes). Carriage returns
+# are dropped; every other control character is escaped (\t, \n, \u00XX): one
+# left raw makes the whole JSON invalid.
 json_escape() {
-  awk 'BEGIN { ORS = "" } {
+  awk 'BEGIN {
+    ORS = ""
+    for (c = 1; c < 32; c++) if (c != 9 && c != 10 && c != 13) { ch = sprintf("%c", c); ctl[ch] = sprintf("\\u%04x", c); re = re ch }
+    re = "[" re "]"
+  }
+  {
     gsub(/\\/, "\\\\"); gsub(/"/, "\\\""); gsub(/\t/, "\\t"); gsub(/\r/, "")
-    gsub(/\033/, "\\u001b")
+    if ($0 ~ re) {
+      s = ""; n = length($0)
+      for (i = 1; i <= n; i++) { ch = substr($0, i, 1); s = s ((ch in ctl) ? ctl[ch] : ch) }
+      $0 = s
+    }
     if (NR > 1) printf "\\n"
     printf "%s", $0
   }'
@@ -16140,7 +16162,7 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/bash-snapshot.sh": "d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8",
     ".claude/skills/forge-project/scripts/guard.rules": "cc4a889eb0483cbc1ccca0dfff9bdb83a1707a5d5f3739d4c5e725ab5bcc1648",
     ".claude/skills/forge-project/scripts/guard.sh": "e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca",
-    ".claude/skills/forge-project/scripts/lib.sh": "462727c0187a948cfaefd1fac315bc87063203968e3df6d12ca68c839fbdf4a3",
+    ".claude/skills/forge-project/scripts/lib.sh": "2b5ec1d05e73550a6f47d6842934f7566d49a4db8ca3866bcba424abab5d9bb8",
     ".claude/skills/forge-project/scripts/post-edit.sh": "0ae3e7978bf861c560768c372599d24e4197aba9772333daad2d271a682af52b",
     ".claude/skills/forge-project/scripts/review.sh": "889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726",
     ".claude/skills/forge-project/scripts/session-start.sh": "6e73be4389c1cc19b5b0f20b1ad62d428e65a1109e4746f558265f841f7c6e12",
@@ -16174,7 +16196,7 @@ exit "$fail"
     ".forge/ast-grep/rules/typescript/react/use-action-state.yml": "17b6fc5e510df3154be12c72a584d8bfb31034b577774718a8c50516b2b15a81",
     ".forge/ast-grep/rules/typescript/ts-expect-error-reason.yml": "b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "273f0ba42fe9a07fe06e6ed56c20b2efdf52de5dda44911e262d19cbc56d0086",
+    ".forge/check.sh": "9b7bc18dc7b3c2f5fe295020b5df2d9814a22ae0cbba06d7a73c2fa4553beffe",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -16227,7 +16249,7 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills/forge-project/scripts/bash-snapshot.sh
 cc4a889eb0483cbc1ccca0dfff9bdb83a1707a5d5f3739d4c5e725ab5bcc1648  .claude/skills/forge-project/scripts/guard.rules
 e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca  .claude/skills/forge-project/scripts/guard.sh
-462727c0187a948cfaefd1fac315bc87063203968e3df6d12ca68c839fbdf4a3  .claude/skills/forge-project/scripts/lib.sh
+2b5ec1d05e73550a6f47d6842934f7566d49a4db8ca3866bcba424abab5d9bb8  .claude/skills/forge-project/scripts/lib.sh
 0ae3e7978bf861c560768c372599d24e4197aba9772333daad2d271a682af52b  .claude/skills/forge-project/scripts/post-edit.sh
 889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726  .claude/skills/forge-project/scripts/review.sh
 6e73be4389c1cc19b5b0f20b1ad62d428e65a1109e4746f558265f841f7c6e12  .claude/skills/forge-project/scripts/session-start.sh
@@ -16261,7 +16283,7 @@ aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21  .forge/ast-gre
 17b6fc5e510df3154be12c72a584d8bfb31034b577774718a8c50516b2b15a81  .forge/ast-grep/rules/typescript/react/use-action-state.yml
 b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad  .forge/ast-grep/rules/typescript/ts-expect-error-reason.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-273f0ba42fe9a07fe06e6ed56c20b2efdf52de5dda44911e262d19cbc56d0086  .forge/check.sh
+9b7bc18dc7b3c2f5fe295020b5df2d9814a22ae0cbba06d7a73c2fa4553beffe  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

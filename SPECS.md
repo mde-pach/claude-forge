@@ -294,7 +294,7 @@ Not covered: writes by a `run_in_background` command after it returns, and anyth
 ### 9.1 `lib.sh`
 
 - `json_get <key>`: extracts a top-level or `tool_input` string value from stdin JSON with `grep -oE` and `sed`, unescaping `\"` and `\\`.
-- `json_escape`: escapes `\`, `"`, tab and newlines with `awk` for embedding output in JSON.
+- `json_escape`: escapes `\`, `"`, tab, newlines and every other control character (`\u00XX`; carriage returns are dropped) with `awk` for embedding output in JSON: one raw control character makes the whole hook output invalid, and a Stop block is then lost.
 - `tool <name>`: in a `bun.lock` repo, `bun run --bun <name>` if `node_modules/.bin/<name>` exists; in a `uv.lock` repo, `.venv/bin/<name>` if it exists; otherwise prints nothing (tool absent).
 - `astgrep`: `bunx @ast-grep/cli@<pinned> ast-grep` in a `bun.lock` repo, otherwise `uvx --from ast-grep-cli==<pinned> ast-grep`; on network failure, retries with `uvx --offline`. Always invoked as `ast-grep`, never `sg`.
 - Only POSIX features: `[[:space:]]` (no `\s`, `\b`, `-P`), `printf '%s'` (no `echo` for data), no `sed -i`.

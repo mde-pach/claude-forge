@@ -32,11 +32,22 @@ json_get() {
     }'
 }
 
-# json_escape: stdin -> JSON string body (no surrounding quotes).
+# json_escape: stdin -> JSON string body (no surrounding quotes). Carriage returns
+# are dropped; every other control character is escaped (\t, \n, \u00XX): one
+# left raw makes the whole JSON invalid.
 json_escape() {
-  awk 'BEGIN { ORS = "" } {
+  awk 'BEGIN {
+    ORS = ""
+    for (c = 1; c < 32; c++) if (c != 9 && c != 10 && c != 13) { ch = sprintf("%c", c); ctl[ch] = sprintf("\\u%04x", c); re = re ch }
+    re = "[" re "]"
+  }
+  {
     gsub(/\\/, "\\\\"); gsub(/"/, "\\\""); gsub(/\t/, "\\t"); gsub(/\r/, "")
-    gsub(/\033/, "\\u001b")
+    if ($0 ~ re) {
+      s = ""; n = length($0)
+      for (i = 1; i <= n; i++) { ch = substr($0, i, 1); s = s ((ch in ctl) ? ctl[ch] : ch) }
+      $0 = s
+    }
     if (NR > 1) printf "\\n"
     printf "%s", $0
   }'

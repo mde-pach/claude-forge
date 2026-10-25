@@ -40,10 +40,11 @@ describe.each(shells.map((s) => [s.name, s.argv] as const))("lib.sh on %s", (_na
     expect(libRun([...argv], JSON.stringify({ tool_input: { command: 'echo "x"' } }), "json_get command raw")).toBe('echo \\"x\\"');
   });
 
-  test("json_escape makes any text safe to embed in a JSON string", () => {
-    const text = 'say "hi"\\\n\tnext\u001b[0m';
+  test("json_escape makes any text safe to embed in a JSON string: quotes, backslashes, tabs, newlines and every other control character (carriage returns dropped)", () => {
+    const controls = Array.from({ length: 31 }, (_, i) => String.fromCharCode(i + 1)).filter((c) => c !== "\n" && c !== "\r").join("");
+    const text = `say "hi"\\\n\tnext\u001b[0m bell\u0007 back\b ${controls} end\r\nlast`;
     const out = libRun([...argv], text, 'printf "%s" "$FORGE_INPUT" | json_escape');
-    expect(JSON.parse(`"${out}"`)).toBe(text.replace("\u001b", "\u001b"));
+    expect(JSON.parse(`"${out}"`)).toBe(text.replaceAll("\r", ""));
   });
 
   test("tool resolves the project's own binary: .venv/bin in a uv repo, bun run in a bun repo, nothing when absent", () => {
