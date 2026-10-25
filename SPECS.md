@@ -655,8 +655,9 @@ context.md: "React components in Astro render to static HTML; they become intera
 | `typescript/prisma/no-raw-unsafe` | `ast-grep` forbid: `$C.$queryRawUnsafe($$$)`, `$C.$executeRawUnsafe($$$)` |
 | `typescript/prisma/client-generator` | `check` lint: no `provider = "prisma-client-js"` in tracked `*.prisma` files, `when_changed: [**/*.prisma]` |
 | `typescript/prisma/migration-lint` | `check` migration: changed `prisma/migrations/*/migration.sql` linted with Squawk (§13.1); `--all`: the newest migration; `when_changed: [prisma/migrations/**]` |
+| `typescript/prisma/no-network-in-transaction` | `ast-grep` forbid: `fetch` / `axios` / `got` / `ky` / `ofetch` calls (and their methods) and calls on `stripe`, `resend`, `openai`, `anthropic`, `twilio`, `sgMail`, `postmark` inside a function passed to `….$transaction(…)` |
 
-context.md: Prisma 7: `prisma-client` generator with `output`, driver adapters, `prisma.config.ts` (no automatic `.env`), `prisma db seed`, `$extends` (no `$use`), tagged `$queryRaw` only.
+context.md: Prisma 7: `prisma-client` generator with `output`, driver adapters, `prisma.config.ts` (no automatic `.env`), `prisma db seed`, `$extends` (no `$use`), tagged `$queryRaw` only; no network calls in interactive transactions.
 
 ### typescript/vitest
 

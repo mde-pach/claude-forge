@@ -3,3 +3,4 @@ SQL databases connect through a driver adapter (e.g. `@prisma/adapter-pg`) passe
 CLI configuration and the connection URL live in `prisma.config.ts`; `.env` is not loaded automatically.
 `prisma migrate dev` does not seed: run `prisma db seed`. Query hooks use Client Extensions (`$extends`; `$use` is removed).
 Raw SQL uses the tagged `$queryRaw` / `$executeRaw` forms; the `Unsafe` variants are rejected.
+`$transaction(async (tx) => …)` callbacks make no `fetch`/axios/SDK calls (rejected): call them before or after the transaction.

@@ -1,0 +1,48 @@
+# Prisma: "Try to avoid performing network requests and executing slow queries inside
+# your interactive transactions" — the transaction holds a connection and its locks
+# until the callback returns, and a timeout rolls it back
+# (https://www.prisma.io/docs/orm/prisma-client/queries/transactions#interactive-transactions).
+# Only well-known HTTP clients and SDKs are matched (not every await), so this blocks.
+id: typescript/prisma/no-network-in-transaction
+description: An interactive transaction callback ($transaction(async (tx) => ...)) makes no network calls (fetch, axios, got, ky, ofetch, or the stripe, resend, openai, anthropic, twilio, sgMail, postmark SDK clients); call them before or after the transaction.
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      has:
+        field: function
+        regex: "^(fetch|axios|got|ky|ofetch|\\$fetch|(axios|got|ky|ofetch)\\.(get|post|put|patch|delete|head|request)|(stripe|resend|openai|anthropic|twilio|sgMail|postmark)\\.[A-Za-z0-9_.]+)$"
+      inside:
+        stopBy: end
+        any: [{kind: arrow_function}, {kind: function_expression}]
+        inside:
+          kind: arguments
+          inside: {kind: call_expression, has: {field: function, regex: "\\.\\$transaction$"}}
+examples:
+  match:
+    - |
+      await prisma.$transaction(async (tx) => {
+        const order = await tx.order.create({ data });
+        await fetch("https://hooks.example.com/orders", { method: "POST", body: JSON.stringify(order) });
+      });
+    - |
+      await prisma.$transaction(async (tx) => {
+        const order = await tx.order.create({ data });
+        await stripe.paymentIntents.create({ amount: order.total, currency: "eur" });
+      });
+    - |
+      await db.$transaction(async function (tx) {
+        await Promise.all(items.map(async (item) => axios.post(syncUrl, item)));
+      });
+  no_match:
+    - |
+      const order = await prisma.$transaction(async (tx) => {
+        const created = await tx.order.create({ data });
+        await tx.stock.update({ where: { id: data.productId }, data: { count: { decrement: 1 } } });
+        return created;
+      });
+      await fetch("https://hooks.example.com/orders", { method: "POST", body: JSON.stringify(order) });
+    - |
+      await prisma.$transaction([prisma.audit.create({ data }), prisma.post.delete({ where: { id } })]);
