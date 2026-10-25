@@ -405,11 +405,12 @@ describe("files changed by Bash", () => {
   test(
     "checks still running after FORGE_EDIT_BUDGET seconds are stopped, and Claude gets what was found with a note",
     () =>
-      withRuffWrapper('case "$*" in "check --output-format"*) sleep 30 ;; esac', () => {
+      withRuffWrapper('case "$*" in "check --output-format"*) sleep 60 ;; esac', () => {
         put(repo, "app/slow.py", "X = 1\n");
         const started = Date.now();
         const r = hook("post-edit.sh", edit("app/slow.py"), { FORGE_EDIT_BUDGET: "2" });
-        expect(Date.now() - started).toBeLessThan(15_000);
+        // a hook that waited for the slow lint would take its whole 60 s: anything less means it was stopped
+        expect(Date.now() - started).toBeLessThan(60_000);
         expect(JSON.parse(r.stdout).hookSpecificOutput.additionalContext).toContain("forge: the checks after this edit stopped after 2s");
       }),
     T,
@@ -828,11 +829,24 @@ describe("Stop", () => {
   test(
     "stop remembers a passing tree and does not run the check again until it changes",
     () => {
+      put(repo, "app/ok.py", "X = 1\n");
+      put(repo, "tests/test_ok.py", OK_TEST);
       expect(hook("stop.sh", { session_id: "s-2" }).stdout).toBe("");
       expect(existsSync(join(repo, ".forge/state/last-pass"))).toBe(true);
-      const t0 = performance.now();
-      expect(hook("stop.sh", { session_id: "s-2" }).stdout).toBe("");
-      expect(performance.now() - t0).toBeLessThan(1000);
+      // a pytest that fails, put in .venv (ignored: the tree is the same): the check would now fail if it ran
+      const runs = join(repo, ".venv", "runs");
+      withStub("pytest", `echo run >> "${runs}"; echo "FAILED tests/test_ok.py::test_ok"; exit 1`, () => {
+        try {
+          expect(hook("stop.sh", { session_id: "s-2" }).stdout).toBe("");
+          expect(existsSync(runs)).toBe(false);
+          put(repo, "app/ok.py", "X = 2\n");
+          expect(JSON.parse(hook("stop.sh", { session_id: "s-2" }).stdout).reason).toContain("FAILED tests/test_ok.py::test_ok");
+          expect(existsSync(runs)).toBe(true);
+        } finally {
+          rmSync(runs, { force: true });
+        }
+      });
+      reset();
       // within a turn, the pass is remembered in the turn's snapshot
       hook("turn-start.sh", { session_id: "s-2" });
       put(repo, "app/ok.py", "X = 1\n");
@@ -987,10 +1001,9 @@ describe("Stop", () => {
         addTest();
         const first: string = JSON.parse(hook("stop.sh", { session_id: "t-13" }).stdout).reason;
         expect(first).toContain("FAILED tests/test_main.py::test_health");
+        // given again without running anything: the stand-in counts its runs
         for (let i = 0; i < 2; i++) {
-          const t0 = performance.now();
           const again = JSON.parse(hook("stop.sh", { session_id: "t-13" }).stdout);
-          expect(performance.now() - t0).toBeLessThan(1500);
           expect(again.reason).toBe(`forge: nothing changed in the working tree since this check failed, so it was not run again (it runs again once a file changes):\n${first}`);
         }
         expect(readFileSync(runs, "utf8")).toBe("run\nrun\n");

@@ -196,14 +196,16 @@ describe("steps", () => {
     "a terminated check.sh exits at once (143) instead of carrying on without its temporary directory",
     async () => {
       const started = join(repo, ".venv", "started");
-      stub("pytest", `: > "${started}"; sleep 5; echo late; exit 1`);
+      // outside the repository: the stand-in's sleep outlives the test
+      const finished = join(mkdtempSync(join(tmpdir(), "forge-term-")), "finished");
+      stub("pytest", `: > "${started}"; sleep 10; : > "${finished}"; echo late; exit 1`);
       put(repo, "app/main.py", 'async def health() -> dict[str, str]:\n    return {"status": "ok"}\n');
       const p = Bun.spawn(["sh", ".forge/check.sh", "--changed"], { cwd: repo, stdout: "pipe", stderr: "pipe" });
       for (let i = 0; i < 600 && !existsSync(started); i++) await Bun.sleep(100);
-      const t0 = performance.now();
       p.kill("SIGTERM");
       expect(await p.exited).toBe(143);
-      expect(performance.now() - t0).toBeLessThan(3000);
+      // it did not wait for the running test to finish
+      expect(existsSync(finished)).toBe(false);
       const stderr = await new Response(p.stderr).text();
       const stdout = await new Response(p.stdout).text();
       expect(stderr + stdout).not.toMatch(/nonexistent|No such file|cannot (create|open)/);
