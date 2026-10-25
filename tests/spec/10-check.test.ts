@@ -182,7 +182,186 @@ describe("steps", () => {
     },
     T,
   );
+
+  /**
+   * Claude Code ends a hook that runs past its timeout with SIGTERM. A shell
+   * trap that only cleaned up let the script carry on without its temporary
+   * directory, and Claude saw "cannot create …: Directory nonexistent".
+   */
+  test(
+    "a terminated check.sh exits at once (143) instead of carrying on without its temporary directory",
+    async () => {
+      const started = join(repo, ".venv", "started");
+      stub("pytest", `: > "${started}"; sleep 5; echo late; exit 1`);
+      put(repo, "app/main.py", 'async def health() -> dict[str, str]:\n    return {"status": "ok"}\n');
+      const p = Bun.spawn(["sh", ".forge/check.sh", "--changed"], { cwd: repo, stdout: "pipe", stderr: "pipe" });
+      for (let i = 0; i < 600 && !existsSync(started); i++) await Bun.sleep(100);
+      const t0 = performance.now();
+      p.kill("SIGTERM");
+      expect(await p.exited).toBe(143);
+      expect(performance.now() - t0).toBeLessThan(3000);
+      const stderr = await new Response(p.stderr).text();
+      const stdout = await new Response(p.stdout).text();
+      expect(stderr + stdout).not.toMatch(/nonexistent|No such file|cannot (create|open)/);
+      expect(stdout).not.toContain("forge:python/pytest/run failed");
+      unlinkSync(join(repo, ".venv/bin/pytest"));
+      unlinkSync(started);
+      reset();
+    },
+    T,
+  );
+
+  /** @rule python/pytest/run typescript/vitest/run */
+  test(
+    "a test run has a 300 s timeout; one that runs past its timeout is stopped and fails saying so first, then its output until then",
+    () => {
+      for (const rule of ["python/pytest/run", "typescript/vitest/run"]) {
+        expect(readFileSync(join(import.meta.dir, `../../packs/${rule.replace("/run", "")}/rules/run.yaml`), "utf8")).toMatch(/timeout: 300\b/);
+      }
+      const r = engine(
+        `mode=--all; forge_check_meta_1() { c_id=x/run; c_stage=test; c_tools=''; c_when=0; c_localdb=0; c_timeout=1; c_changed=0; c_files=0; c_fix=0; }
+forge_check_run_1() { echo "collected 3 items"; sleep 5; echo finished; }
+forge_run_check 1; echo "rc=$?"`,
+      );
+      expect(r.stdout).toStartWith("forge:x/run failed: timed out after 1s and was stopped");
+      expect(r.stdout).toContain("collected 3 items\nrc=1");
+      expect(r.stdout).not.toContain("finished");
+    },
+    T,
+  );
+
+  /**
+   * Seen in better-auth: the first lines of a Vitest run were all Node's
+   * `ExperimentalWarning: SQLite` notes, so the block reason never showed which
+   * test failed or why (`ECONNREFUSED 127.0.0.1:5432`). Warnings are kept, after
+   * the failure.
+   */
+  /** @rule typescript/vitest/run python/pytest/run */
+  test.each([
+    ["Vitest", VITEST_OUT, ["      Tests  1 failed | 27 passed (28)", " FAIL  |better-auth| src/plugins/oauth-proxy/oauth-proxy.test.ts > oauth-proxy > should work with database mode", "Error: connect ECONNREFUSED 127.0.0.1:5432", " ❯ getPostgres src/test-utils/test-instance.ts:68:4"]],
+    ["pytest", PYTEST_OUT, ["FAILED tests/test_db.py::test_db - psycopg.OperationalError: connection refused", "E       psycopg.OperationalError: connection refused", "tests/test_db.py:5: OperationalError"]],
+  ])(
+    "a failing %s run shows the failure first (summary, failing tests and their errors), then the rest of its output, warnings included, within 25 lines",
+    (_name, output, failure) => {
+      const r = engine(
+        `mode=--changed; forge_check_meta_1() { c_id=x/run; c_stage=test; c_tools=''; c_when=1; c_localdb=0; c_timeout=''; c_changed=0; c_files=0; c_fix=0; }
+forge_when_1() { return 0; }; forge_scope_1() { return 0; }; printf 'x\\n' > "$FORGE_TMP/changed"; : > "$FORGE_TMP/existing"
+forge_check_run_1() { printf '%s\\n' "$OUT"; return 1; }
+forge_run_check 1`,
+        { OUT: output },
+      );
+      const lines = r.stdout.trimEnd().split("\n");
+      expect(lines[0]).toBe("forge:x/run failed");
+      expect(lines.length).toBeLessThanOrEqual(26);
+      const head = lines.slice(1, failure.length + 3).join("\n");
+      for (const l of failure) expect(head).toContain(l);
+      expect(r.stdout).toContain("--- output:\n");
+      expect(r.stdout).toMatch(/(Experimental|Pytest)Warning/);
+      expect(lines.at(-1)).toMatch(/^\.\.\. \(\d+ more lines\)$/);
+    },
+    T,
+  );
+
+  test(
+    "output that fits is shown as it is; otherwise, without a known test format, the lines naming an error or a failure come first",
+    () => {
+      const r = engine(
+        `printf 'a\\nb\\n' | forge_excerpt 5; i=0; while [ $i -lt 30 ]; do echo "progress $i: Warning: slow"; i=$((i + 1)); done > "$FORGE_TMP/o"; echo "fatal: Error: boom" >> "$FORGE_TMP/o"; forge_excerpt 5 < "$FORGE_TMP/o"`,
+      );
+      expect(r.stdout).toBe("a\nb\nfatal: Error: boom\n--- output:\nprogress 0: Warning: slow\nprogress 1: Warning: slow\n... (28 more lines)\n");
+    },
+    T,
+  );
+
+  /** @rule typescript/vitest/run python/pytest/run */
+  test(
+    "failing tests are read from Vitest (with workspace projects) and pytest output, with the files to run again; refused connections, failed DNS lookups and timeouts are named as environmental",
+    () => {
+      const out = `${VITEST_OUT}
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |@better-auth/api-key| src/api-key.test.ts [ src/api-key.test.ts ]
+Error: connect ECONNREFUSED 127.0.0.1:5432
+Caused by: Error: getaddrinfo EAI_AGAIN accounts.google.com
+${PYTEST_OUT}
+E   psycopg.OperationalError: connection to server at "127.0.0.1", port 6379 failed: Connection refused
+ERROR tests/test_cache.py::test_get - TimeoutError
+`;
+      const r = engine(`printf '%s\\n' "$OUT" | forge_failed_tests > "$FORGE_TMP/ids"; cat "$FORGE_TMP/ids"; echo; forge_test_files < "$FORGE_TMP/ids"; echo; printf '%s\\n' "$OUT" | forge_env_errors`, { OUT: out });
+      expect(r.stdout).toBe(
+        [
+          "tests/test_cache.py::test_get",
+          "tests/test_db.py::test_db",
+          "|@better-auth/api-key| src/api-key.test.ts",
+          "|better-auth| src/plugins/oauth-proxy/oauth-proxy.test.ts > oauth-proxy > should work with database mode",
+          "",
+          "src/api-key.test.ts",
+          "src/plugins/oauth-proxy/oauth-proxy.test.ts",
+          "tests/test_cache.py",
+          "tests/test_db.py",
+          "",
+          "Postgres refused the connection at 127.0.0.1:5432 (ECONNREFUSED)",
+          "DNS lookup for accounts.google.com failed (EAI_AGAIN): no network?",
+          "E       psycopg.OperationalError: connection refused",
+          "Redis refused the connection on port 6379",
+          "",
+        ].join("\n"),
+      );
+    },
+    T,
+  );
 });
+
+const WARN = "(node:5155) ExperimentalWarning: SQLite is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\n";
+const VITEST_OUT = `
+ RUN  v4.1.5 /work
+
+${WARN.repeat(15)} ❯ |better-auth| src/plugins/oauth-proxy/oauth-proxy.test.ts (28 tests | 1 failed) 5487ms
+       × should work with database mode 50ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |better-auth| src/plugins/oauth-proxy/oauth-proxy.test.ts > oauth-proxy > should work with database mode
+Error: connect ECONNREFUSED 127.0.0.1:5432
+ ❯ ../../node_modules/.pnpm/pg-pool@3.12.0_pg@8.19.0/node_modules/pg-pool/index.js:45:11
+ ❯ getPostgres src/test-utils/test-instance.ts:68:4
+     66|   });
+     67|   if (postgresSchema) {
+     68|    await pool.query(
+       |    ^
+ ❯ getTestInstance src/test-utils/test-instance.ts:122:13
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 40 passed (41)
+      Tests  1 failed | 27 passed (28)
+   Start at  05:50:05
+   Duration  9.99s
+`;
+const PYTEST_OUT = `============================= test session starts ==============================
+collected 3 items
+
+${"tests/test_db.py:1: PytestWarning: something is deprecated\n".repeat(25)}
+=================================== FAILURES ===================================
+___________________________________ test_db ____________________________________
+
+    def test_db():
+>       conn = psycopg.connect("postgresql://localhost:5432/app")
+E       psycopg.OperationalError: connection refused
+
+tests/test_db.py:5: OperationalError
+=========================== short test summary info ============================
+FAILED tests/test_db.py::test_db - psycopg.OperationalError: connection refused
+========================= 1 failed, 2 passed in 0.12s ==========================
+`;
+
+/** Runs a snippet with lib.sh and engine.sh loaded, as check.sh has them, in a fresh temporary directory. */
+function engine(snippet: string, env: Record<string, string> = {}, cwd = repo) {
+  const dir = join(import.meta.dir, "../../templates/scripts");
+  const tmp = mkdtempSync(join(tmpdir(), "forge-engine-"));
+  return sh("sh", ["-c", `IFS='\n'\nFORGE_TMP=${tmp}\n${readFileSync(join(dir, "lib.sh"), "utf8")}\n${readFileSync(join(dir, "engine.sh"), "utf8")}\n${snippet}`], { cwd, env });
+}
 
 describe("local database detection", () => {
   test.each([

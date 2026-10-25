@@ -70,6 +70,8 @@ export interface CheckTarget {
   fix_run?: string;
   /** The formatter as a filter: formats stdin as if it were {file}, prints the result. Formats base copies, so formatting is not counted as added lines. */
   format_stdin?: string;
+  /** Test checks: runs only the given test files ({files}); Stop re-runs failing tests with it at the start of the turn. */
+  rerun?: string;
   when_changed?: string[];
   requires_local_db?: boolean;
   timeout?: number;

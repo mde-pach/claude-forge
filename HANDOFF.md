@@ -80,6 +80,8 @@ Everything in §3–§14 is implemented. §14.1–§14.3 and everything else lis
 2. **Workspaces (§5.1).** `readProjectFacts` (`src/packs.ts`) reads workspace packages (`workspaceDirs`: pnpm, package.json `workspaces`, uv members, else `packages/*`); `ProjectFacts` keeps the merged view plus `root` and `workspaces`. `toolPlaces` / `checkPlace` (`src/plan.ts`) decide where each check runs; `ActiveCheck.dirs` renders `c_dirs` and `forge_check_*_<n>() { forge_in_dirs …_dir <form>; }` (`engine.sh`: `forge_in_dirs`, `forge_prefix_paths`; `forge_has_tool tool@dir`; `lib.sh` `tool()` falls back to `$FORGE_WS_ROOT`). Sample `tests/generator/pnpm-workspace-app` (inngest-js layout: config only in `packages/core`). Limits in SPECS §5.1.
 3. **Pre-commit with hook managers (§10.3).** `src/precommit.ts`: `hookManager`, `insertBlock` / `removeBlock` (marked block, YAML results verified by parsing: original + Forge's entry, else left to the user), lock `blocks`. `apply --yes` (or a confirmation) adds the block; `status` prints `Pre-commit: NOT INSTALLED, so commits are not checked …` and `pre_commit` in `--json`.
 
+**Stop fixes from the experiment (October 2026)**, one commit each: hooks exit 143 on SIGTERM instead of carrying on without their temp directory; `vitest/run` has a 300 s timeout and a timed-out run says so first; block reasons show the failure first (`forge_excerpt`: Vitest/pytest summaries and failure blocks, then the rest, warnings kept; Stop: 40 lines / 6000 chars); Stop remembers a failing tree (`<snapshot>/fail`, `fail.reason`) and repeats the reason without re-running; failing tests are re-run at the start of the turn (`rerun` field on test checks, `forge_test_compare`, §10.6): only new failures block, and pre-existing ones block once with their environmental errors, then are reported to the user (`systemMessage`) on a repeated Stop.
+
 ## Remaining
 
 1. **Run the E2E harness** (`tests/e2e/README.md`) in a real container; expect to tune a few regexes and prompts on the first real run.
@@ -112,7 +114,7 @@ Everything in §3–§14 is implemented. §14.1–§14.3 and everything else lis
 - **guard.rules format.** It has a 4th tab-separated column holding the rule description, used for `permissionDecisionReason`.
 - **TypeScript parsing.** `scope.language: typescript` compiles to ast-grep `language: Tsx`, with `languageGlobs: {tsx: ["*.ts","*.mts","*.cts"]}` in sgconfig. One rule file then covers `.ts` and `.tsx`.
 - **Exclusion globs.** `scope.files` entries starting with `!` become ast-grep `ignores`. They are needed for "non-test files" rules.
-- **Check timeouts.** `check` targets accept an optional `timeout` (seconds), used by `pytest/run` (300 s).
+- **Check timeouts.** `check` targets accept an optional `timeout` (seconds), used by `pytest/run` and `vitest/run` (300 s). A run stopped by its timeout fails with `forge:<id> failed: timed out after <n>s …` as its first line.
 - **check.sh is self-contained.** It inlines lib.sh so CI does not depend on `.claude/`.
 - **Built-in check ids.** `forge/integrity`, `forge/applied-migration`, `forge/deleted-test`, `forge/ast-grep`, `forge/since`.
 - **Suppression budget, ratchet and test integrity are pack rules, not built-ins.** The task asked for "built-in" checks with their own ids; as pack rules (a `grep` target, and check targets calling engine helpers) they get ids, examples, docs pages and `disable` for free. 1.4–1.6 share engine and renderer changes, so they are one commit.

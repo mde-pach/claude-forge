@@ -34,6 +34,14 @@ In a monorepo whose tool config lives in a workspace package, the checks run in 
 
 <Spec file="10-check" describe="workspace packages" />
 
+## Tests that were already failing
+
+When the tests fail at Stop, Forge runs the failing test files again in a copy of the project as it was at the start of the turn (your working tree, index and stash are left alone). A test that passed then and fails now blocks as usual. When every failing test also failed then — typically because the machine has no database or no network — Claude is told once which tests, which errors look environmental (`Postgres refused the connection at 127.0.0.1:5432`), and to set up what they need (e.g. `docker compose up -d`) and run them again. If it cannot, it stops again without changing anything: the stop is allowed, and you get a message listing the tests that could not be verified and why.
+
+A tree that failed is not checked again: if Claude stops again without changing a file, it gets the same result at once instead of another full test run, and the block still counts toward the hand-over.
+
+<Spec file="08-project-hooks" describe="failing tests at the start of the turn" />
+
 ## Local databases
 
 Migration checks that need a database run only when it is local.

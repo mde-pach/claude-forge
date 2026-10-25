@@ -81,7 +81,7 @@ if ! mkdir "$lock" 2>/dev/null; then
 fi
 printf '%s\n' "$$" > "$lock/pid"
 FORGE_TMP=$(mktemp -d "${TMPDIR:-/tmp}/forge-tc.XXXXXX") || { rm -rf "$lock"; exit 0; }
-trap 'rm -rf "$FORGE_TMP" "$lock"' EXIT HUP INT TERM
+trap 'rm -rf "$FORGE_TMP" "$lock"' EXIT; trap 'exit 143' HUP INT TERM
 
 # the changed set, as the Stop hook computes it: what changed during this turn
 # (the turn snapshot), or every uncommitted change before the first prompt

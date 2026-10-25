@@ -43,7 +43,7 @@ export function toolsInCommand(cmd: string): string[] {
 }
 
 export function checkTools(t: CheckTarget): string[] {
-  const commands = [t.run, t.changed_run ?? "", t.fix_run ?? "", t.format_stdin ?? ""];
+  const commands = [t.run, t.changed_run ?? "", t.fix_run ?? "", t.format_stdin ?? "", t.rerun ?? ""];
   const helpers = HELPER_TOOLS.filter(([re]) => commands.some((c) => re.test(c))).map(([, tool]) => tool);
   return [...new Set([...commands.flatMap(toolsInCommand), ...helpers])];
 }
@@ -166,7 +166,7 @@ export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = []): s
       `forge_check_meta_${n}() {`,
       `  c_id=${shQuote(rule.id)}; c_stage=${target.stage}; c_tools=${shQuote(tools.join(" "))}`,
       `  c_when=${target.when_changed ? 1 : 0}; c_localdb=${target.requires_local_db ? 1 : 0}; c_timeout=${target.timeout ?? "''"}`,
-      `  c_changed=${changed ? 1 : 0}; c_files=${changed && target.changed_run!.includes("{files}") ? 1 : 0}; c_fix=${target.fix_run ? 1 : 0}; c_fmt=${target.format_stdin ? 1 : 0}; c_dirs=${shQuote(dirs?.join(" ") ?? "")}`,
+      `  c_changed=${changed ? 1 : 0}; c_files=${changed && target.changed_run!.includes("{files}") ? 1 : 0}; c_fix=${target.fix_run ? 1 : 0}; c_fmt=${target.format_stdin ? 1 : 0}; c_rerun=${target.rerun ? 1 : 0}; c_dirs=${shQuote(dirs?.join(" ") ?? "")}`,
       "}",
       scopeFunction(`forge_scope_${n}`, rule, dirs),
       when
@@ -177,6 +177,7 @@ export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = []): s
     if (changed) out.push(...body(`forge_check_changed_${n}`, target.changed_run!.replaceAll("{files}", "$FORGE_FILES"), target.changed_run!.includes("{files}") ? "files" : "all"));
     if (target.fix_run) out.push(...body(`forge_check_fix_${n}`, target.fix_run.replaceAll("{files}", "$FORGE_FILES"), "files"));
     if (target.format_stdin) out.push(`forge_check_fmt_${n}() {`, target.format_stdin.replaceAll("{file}", '"$FORGE_FILE"'), "}");
+    if (target.rerun) out.push(...body(`forge_check_rerun_${n}`, target.rerun.replaceAll("{files}", "$FORGE_FILES"), "files"));
   });
   out.push("", ...renderGreps(greps));
   out.push("# ---- end of generated checks", "", fill(template("engine.sh"), {
