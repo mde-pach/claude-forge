@@ -127,7 +127,7 @@ accept:                     # config-ratchet findings accepted on purpose (§10.
     reason: string          # required
 ```
 
-`<repo>/.forge/rules/<name>.yaml`: project-local rules. A local rule whose `id` equals a pack rule's `id` replaces it entirely. `forge.yaml` and `.forge/rules/` are inputs, not owned output: `apply` never rewrites them, but they are behind permission `ask` (§8.2).
+`<repo>/.forge/rules/<name>.yaml`: project-local rules. A local rule whose `id` equals a pack rule's `id` replaces it entirely. `forge.yaml` and `.forge/rules/` are inputs, not owned output: `apply` never rewrites them, but they are behind permission `ask` (§8.3).
 
 ## 6. Rules
 
@@ -259,16 +259,16 @@ All scripts are POSIX `sh`. They read file paths and the working directory from 
 | SessionStart | `startup\|resume\|clear\|compact` | `session-start.sh` | sync | 10 s | ≤ 20 lines: branch, number of changed files and first 10 paths, last 5 commits (`%h %s`, ≤ 72 chars), active packs, missing tools (once). |
 | UserPromptSubmit | — | `turn-start.sh` | sync | 10 s | Snapshots the tree at the start of the turn, resets the Stop block counter (§10.2) and saves the prompt to `.forge/state/<session_id>.prompt` (for a review of test edits, §10.5). Prints nothing. |
 | PreToolUse | `Bash` | `guard.sh` | sync | 180 s | Project `guard` rules. `onFailure: "block"`. An ask nobody can answer is reviewed (§9.3). |
-| PreToolUse | `Bash` | `bash-snapshot.sh` | sync | 15 s | Snapshots the working tree for the files the command changes (§8.4). Prints nothing. |
+| PreToolUse | `Bash` | `bash-snapshot.sh` | sync | 15 s | Snapshots the working tree for the files the command changes (§8.2). Prints nothing. |
 | PreToolUse | `Edit\|Write` | `test-edit.sh` | sync | 180 s | Asks before an edit changes or removes a test that existed at the start of the turn (§10.5); reviewed when nobody can answer (§9.3). |
 | PermissionRequest | — | `review.sh` | sync | 180 s | §9.3. Defers to the user-level `review.sh` when it exists. |
-| PostToolUse | `Edit\|Write\|Bash` | `post-edit.sh` | sync | 60 s | On the edited file (Bash: the files the command changed, §8.4): format silently; apply the `fix_run` safe fixes of in-scope lint checks, and when they changed the file add `forge: auto-fixed <codes> in <file>; re-read it before editing it again` (codes from ruff's `--show-fixes`, per file, else "safe lint fixes"); lint it (a lint `changed_run` that writes, like Biome's `check --write`, applies its safe fixes in the same run: a change beyond what `format_stdin` explains adds the same line); run ast-grep `forbid` rules on it. Each tool runs once with all the files in its scope. Added lines are computed after these writes. The checks get `FORGE_EDIT_BUDGET` seconds (45, under the 60 s timeout); past it they are stopped and the findings so far are returned after `forge: the checks after this edit stopped after <n>s; findings so far are below, and the Stop check covers the rest.` Findings on lines added during the turn (against the turn snapshot; before the first prompt, against `HEAD`) → JSON `{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"…"}}`, ≤ 20 lines, diagnostics for these files only. Nothing on success. |
+| PostToolUse | `Edit\|Write\|Bash` | `post-edit.sh` | sync | 60 s | On the edited file (Bash: the files the command changed, §8.2): format silently; apply the `fix_run` safe fixes of in-scope lint checks, and when they changed the file add `forge: auto-fixed <codes> in <file>; re-read it before editing it again` (codes from ruff's `--show-fixes`, per file, else "safe lint fixes"); lint it (a lint `changed_run` that writes, like Biome's `check --write`, applies its safe fixes in the same run: a change beyond what `format_stdin` explains adds the same line); run ast-grep `forbid` rules on it. Each tool runs once with all the files in its scope. Added lines are computed after these writes. The checks get `FORGE_EDIT_BUDGET` seconds (45, under the 60 s timeout); past it they are stopped and the findings so far are returned after `forge: the checks after this edit stopped after <n>s; findings so far are below, and the Stop check covers the rest.` Findings on lines added during the turn (against the turn snapshot; before the first prompt, against `HEAD`) → JSON `{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"…"}}`, ≤ 20 lines, diagnostics for these files only. Nothing on success. |
 | PostToolUse | `Edit\|Write` | `test-edit.sh` | sync | 10 s | The call ran, so its test edits were approved: they go to `<snapshot>/tests-approved`; the file goes to `<snapshot>/touched` (§10.5). Prints nothing. |
 | PostToolUse | `Edit\|Write\|Bash` | `typecheck.sh` | `asyncRewake: true` | 300 s | Project typecheck, when the edited file (Bash: a file the command changed) is in a typecheck's scope. Errors in files changed during the turn (the Stop hook's change set, §10.2) → exit 2, stderr ≤ 20 lines, those files' diagnostics only; errors only in other files → silent. Skips if one is already running (lock in `.forge/state/`). Does not run where Claude Code would wait for it: Claude Code runs an `asyncRewake` hook in the background only in an interactive session or with streaming input, so under `claude -p "<prompt>"` (`CLAUDE_CODE_ENTRYPOINT=sdk-cli` and no ancestor process with `--input-format stream-json` or `--sdk-url`) it exits 0 at once and the Stop check runs the typecheck; `FORGE_EDIT_TYPECHECK=always` runs it anyway, `never` skips it everywhere. |
 | PostToolUseFailure | `Bash` | `post-edit.sh`, `typecheck.sh` | as above | as above | The same two hooks for a Bash command that fails or is interrupted: it may have changed files before stopping (a script that writes three files then fails on the fourth). Same checks and output, with `hookEventName` `PostToolUseFailure`. A failed Edit or Write changes nothing, so they are not matched. |
 | Stop | — | `stop.sh` | sync | 600 s | §10.2. |
 
-### 8.4 Files changed by Bash
+### 8.2 Files changed by Bash
 
 Agents also change files through Bash (heredocs, `sed -i`, `cat >`, `git apply`), so the per-edit checks also follow Bash commands:
 
@@ -279,11 +279,11 @@ Agents also change files through Bash (heredocs, `sed -i`, `cat >`, `git apply`)
 
 Not covered: writes by a `run_in_background` command after it returns, and anything outside the repository; the Stop check still sees them.
 
-### 8.2 Permissions appended
+### 8.3 Permissions appended
 
 `ask`: `Edit(.forge/**)`, `Edit(forge.yaml)`, `Edit(.claude/skills/forge-project/**)`, `Edit(.claude/rules/forge-*.md)`, plus `permission` targets of active project packs.
 
-### 8.3 Context
+### 8.4 Context
 
 - Each active pack with a `context.md` produces `.claude/rules/forge-<pack-id>.md` (`/` replaced by `-`): one line, "These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.", a blank line, then the same content; no `paths:` frontmatter.
 - `context.md` is ≤ 10 lines, written as facts. A line never claims more than the checks enforce: a requirement names what is rejected, scoped as the check is ("`text()` with an f-string is rejected", not "SQL is always constant"), and leaves room for what the check allows.
