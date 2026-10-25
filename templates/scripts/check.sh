@@ -19,7 +19,7 @@ FORGE_ROOT=$(pwd)
 IFS='
 '
 FORGE_TMP=$(mktemp -d "${TMPDIR:-/tmp}/forge-check.XXXXXX") || exit 2
-trap 'rm -rf "$FORGE_TMP"' EXIT HUP INT TERM
+trap 'rm -rf "$FORGE_TMP"' EXIT; trap 'exit 143' HUP INT TERM
 
 @@LIB@@
 

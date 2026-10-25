@@ -14,7 +14,7 @@ repo_root || exit 0
 IFS='
 '
 FORGE_TMP=$(mktemp -d "${TMPDIR:-/tmp}/forge-edit.XXXXXX") || exit 0
-trap 'rm -rf "$FORGE_TMP"' EXIT HUP INT TERM
+trap 'rm -rf "$FORGE_TMP"' EXIT; trap 'exit 143' HUP INT TERM
 : > "$FORGE_TMP/report"
 
 if [ "$(json_get tool_name)" = Bash ]; then

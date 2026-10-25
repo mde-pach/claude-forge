@@ -182,6 +182,34 @@ describe("steps", () => {
     },
     T,
   );
+
+  /**
+   * Claude Code ends a hook that runs past its timeout with SIGTERM. A shell
+   * trap that only cleaned up let the script carry on without its temporary
+   * directory, and Claude saw "cannot create …: Directory nonexistent".
+   */
+  test(
+    "a terminated check.sh exits at once (143) instead of carrying on without its temporary directory",
+    async () => {
+      const started = join(repo, ".venv", "started");
+      stub("pytest", `: > "${started}"; sleep 5; echo late; exit 1`);
+      put(repo, "app/main.py", 'async def health() -> dict[str, str]:\n    return {"status": "ok"}\n');
+      const p = Bun.spawn(["sh", ".forge/check.sh", "--changed"], { cwd: repo, stdout: "pipe", stderr: "pipe" });
+      for (let i = 0; i < 600 && !existsSync(started); i++) await Bun.sleep(100);
+      const t0 = performance.now();
+      p.kill("SIGTERM");
+      expect(await p.exited).toBe(143);
+      expect(performance.now() - t0).toBeLessThan(3000);
+      const stderr = await new Response(p.stderr).text();
+      const stdout = await new Response(p.stdout).text();
+      expect(stderr + stdout).not.toMatch(/nonexistent|No such file|cannot (create|open)/);
+      expect(stdout).not.toContain("forge:python/pytest/run failed");
+      unlinkSync(join(repo, ".venv/bin/pytest"));
+      unlinkSync(started);
+      reset();
+    },
+    T,
+  );
 });
 
 describe("local database detection", () => {
