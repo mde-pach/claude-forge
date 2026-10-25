@@ -834,11 +834,27 @@ forge_pkg_deps() {
     }' "$1" | sort
 }
 
+# forge_check_active <rule-id>: the rule has a check in this check.sh.
+forge_check_active() {
+  (
+    _ca_i=1
+    while [ "$_ca_i" -le "${FORGE_NCHECKS:-0}" ]; do
+      forge_check_meta_"$_ca_i"
+      [ "$c_id" = "$1" ] && exit 0
+      _ca_i=$((_ca_i + 1))
+    done
+    exit 1
+  )
+}
+
 # forge_lockfile_updated: a package.json whose dependencies changed since the base
-# needs a changed lock file, when the project has one (next to it or at the root).
-# Blocks once per turn (forge_once): the package manager may not be able to run here.
+# needs a lock file whose changed lines name each changed dependency (added, removed or
+# re-versioned), when the project has a pnpm, npm or Yarn lock file (next to it or at
+# the root); a lock change that names none (a new blank line) does not count. bun.lock
+# is left to typescript/bun/lock-sync (bun install --frozen-lockfile) when that check is
+# active. Blocks once per
+# turn (forge_once): the package manager may not be able to run here.
 forge_lockfile_updated() {
-  grep -qE '(^|/)(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?)$' "$FORGE_TMP/changed" && return 0
   _lu_rc=0
   while IFS= read -r _lu_f; do
     case $_lu_f in package.json|*/package.json) ;; *) continue ;; esac
@@ -846,21 +862,31 @@ forge_lockfile_updated() {
     _lu_lock=''
     _lu_ifs=$IFS; IFS=' '
     for _lu_l in $FORGE_JS_LOCKS; do
-      if [ -f "$_lu_l" ] || [ -f "$(dirname "$_lu_f")/$_lu_l" ]; then _lu_lock=$_lu_l; break; fi
+      if [ -f "$(dirname "$_lu_f")/$_lu_l" ]; then _lu_lock=$(dirname "$_lu_f")/$_lu_l; break; fi
+      if [ -f "$_lu_l" ]; then _lu_lock=$_lu_l; break; fi
     done
     IFS=$_lu_ifs
-    [ -n "$_lu_lock" ] || continue
+    _lu_lock=${_lu_lock#./}
+    case $_lu_lock in
+      '') continue ;;
+      bun.lock|bun.lockb|*/bun.lock|*/bun.lockb) forge_check_active typescript/bun/lock-sync && continue ;;
+    esac
     forge_pkg_deps "$FORGE_TMP/base/$_lu_f" > "$FORGE_TMP/deps.then"
     forge_pkg_deps "$_lu_f" > "$FORGE_TMP/deps.now"
     cmp -s "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" && continue
-    _lu_what=$(awk -F '\t' '
-      FILENAME == ARGV[1] { then[$1 " " $2] = $3; next }
-      { now[$1 " " $2] = $3 }
+    forge_diff_lines "$_lu_lock" > "$FORGE_TMP/lock.diff"
+    awk -F '\t' '
+      FILENAME == ARGV[1] { then[$1 " " $2] = $3; name[$1 " " $2] = $2; next }
+      FILENAME == ARGV[2] { now[$1 " " $2] = $3; name[$1 " " $2] = $2; next }
+      { diff = diff "\n" $0 }
       END {
-        for (k in now) if (!(k in then)) print k " " now[k] " added"; else if (then[k] != now[k]) print k " " then[k] " -> " now[k]
-        for (k in then) if (!(k in now)) print k " removed"
-      }' "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" | sort | head -n 5 | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')
-    printf '%s: %s, but %s did not change\n' "$_lu_f" "$_lu_what" "$_lu_lock"
+        for (k in now) if (!(k in then)) w[k] = k " " now[k] " added"; else if (then[k] != now[k]) w[k] = k " " then[k] " -> " now[k]
+        for (k in then) if (!(k in now)) w[k] = k " removed"
+        for (k in w) if (!index(diff, name[k])) print w[k]
+      }' "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" "$FORGE_TMP/lock.diff" | sort > "$FORGE_TMP/deps.missing"
+    [ -s "$FORGE_TMP/deps.missing" ] || continue
+    _lu_what=$(head -n 5 "$FORGE_TMP/deps.missing" | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')
+    printf '%s: %s, but %s has no changed line for it\n' "$_lu_f" "$_lu_what" "$_lu_lock"
     _lu_rc=1
   done < "$FORGE_TMP/existing"
   [ "$_lu_rc" = 0 ] && return 0

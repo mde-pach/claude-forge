@@ -2002,11 +2002,27 @@ forge_pkg_deps() {
     }' "$1" | sort
 }
 
+# forge_check_active <rule-id>: the rule has a check in this check.sh.
+forge_check_active() {
+  (
+    _ca_i=1
+    while [ "$_ca_i" -le "${FORGE_NCHECKS:-0}" ]; do
+      forge_check_meta_"$_ca_i"
+      [ "$c_id" = "$1" ] && exit 0
+      _ca_i=$((_ca_i + 1))
+    done
+    exit 1
+  )
+}
+
 # forge_lockfile_updated: a package.json whose dependencies changed since the base
-# needs a changed lock file, when the project has one (next to it or at the root).
-# Blocks once per turn (forge_once): the package manager may not be able to run here.
+# needs a lock file whose changed lines name each changed dependency (added, removed or
+# re-versioned), when the project has a pnpm, npm or Yarn lock file (next to it or at
+# the root); a lock change that names none (a new blank line) does not count. bun.lock
+# is left to typescript/bun/lock-sync (bun install --frozen-lockfile) when that check is
+# active. Blocks once per
+# turn (forge_once): the package manager may not be able to run here.
 forge_lockfile_updated() {
-  grep -qE '(^|/)(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?)$' "$FORGE_TMP/changed" && return 0
   _lu_rc=0
   while IFS= read -r _lu_f; do
     case $_lu_f in package.json|*/package.json) ;; *) continue ;; esac
@@ -2014,21 +2030,31 @@ forge_lockfile_updated() {
     _lu_lock=''
     _lu_ifs=$IFS; IFS=' '
     for _lu_l in $FORGE_JS_LOCKS; do
-      if [ -f "$_lu_l" ] || [ -f "$(dirname "$_lu_f")/$_lu_l" ]; then _lu_lock=$_lu_l; break; fi
+      if [ -f "$(dirname "$_lu_f")/$_lu_l" ]; then _lu_lock=$(dirname "$_lu_f")/$_lu_l; break; fi
+      if [ -f "$_lu_l" ]; then _lu_lock=$_lu_l; break; fi
     done
     IFS=$_lu_ifs
-    [ -n "$_lu_lock" ] || continue
+    _lu_lock=${_lu_lock#./}
+    case $_lu_lock in
+      '') continue ;;
+      bun.lock|bun.lockb|*/bun.lock|*/bun.lockb) forge_check_active typescript/bun/lock-sync && continue ;;
+    esac
     forge_pkg_deps "$FORGE_TMP/base/$_lu_f" > "$FORGE_TMP/deps.then"
     forge_pkg_deps "$_lu_f" > "$FORGE_TMP/deps.now"
     cmp -s "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" && continue
-    _lu_what=$(awk -F '\t' '
-      FILENAME == ARGV[1] { then[$1 " " $2] = $3; next }
-      { now[$1 " " $2] = $3 }
+    forge_diff_lines "$_lu_lock" > "$FORGE_TMP/lock.diff"
+    awk -F '\t' '
+      FILENAME == ARGV[1] { then[$1 " " $2] = $3; name[$1 " " $2] = $2; next }
+      FILENAME == ARGV[2] { now[$1 " " $2] = $3; name[$1 " " $2] = $2; next }
+      { diff = diff "\n" $0 }
       END {
-        for (k in now) if (!(k in then)) print k " " now[k] " added"; else if (then[k] != now[k]) print k " " then[k] " -> " now[k]
-        for (k in then) if (!(k in now)) print k " removed"
-      }' "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" | sort | head -n 5 | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')
-    printf '%s: %s, but %s did not change\n' "$_lu_f" "$_lu_what" "$_lu_lock"
+        for (k in now) if (!(k in then)) w[k] = k " " now[k] " added"; else if (then[k] != now[k]) w[k] = k " " then[k] " -> " now[k]
+        for (k in then) if (!(k in now)) w[k] = k " removed"
+        for (k in w) if (!index(diff, name[k])) print w[k]
+      }' "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" "$FORGE_TMP/lock.diff" | sort > "$FORGE_TMP/deps.missing"
+    [ -s "$FORGE_TMP/deps.missing" ] || continue
+    _lu_what=$(head -n 5 "$FORGE_TMP/deps.missing" | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')
+    printf '%s: %s, but %s has no changed line for it\n' "$_lu_f" "$_lu_what" "$_lu_lock"
     _lu_rc=1
   done < "$FORGE_TMP/existing"
   [ "$_lu_rc" = 0 ] && return 0
@@ -4881,11 +4907,27 @@ forge_pkg_deps() {
     }' "$1" | sort
 }
 
+# forge_check_active <rule-id>: the rule has a check in this check.sh.
+forge_check_active() {
+  (
+    _ca_i=1
+    while [ "$_ca_i" -le "${FORGE_NCHECKS:-0}" ]; do
+      forge_check_meta_"$_ca_i"
+      [ "$c_id" = "$1" ] && exit 0
+      _ca_i=$((_ca_i + 1))
+    done
+    exit 1
+  )
+}
+
 # forge_lockfile_updated: a package.json whose dependencies changed since the base
-# needs a changed lock file, when the project has one (next to it or at the root).
-# Blocks once per turn (forge_once): the package manager may not be able to run here.
+# needs a lock file whose changed lines name each changed dependency (added, removed or
+# re-versioned), when the project has a pnpm, npm or Yarn lock file (next to it or at
+# the root); a lock change that names none (a new blank line) does not count. bun.lock
+# is left to typescript/bun/lock-sync (bun install --frozen-lockfile) when that check is
+# active. Blocks once per
+# turn (forge_once): the package manager may not be able to run here.
 forge_lockfile_updated() {
-  grep -qE '(^|/)(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?)$' "$FORGE_TMP/changed" && return 0
   _lu_rc=0
   while IFS= read -r _lu_f; do
     case $_lu_f in package.json|*/package.json) ;; *) continue ;; esac
@@ -4893,21 +4935,31 @@ forge_lockfile_updated() {
     _lu_lock=''
     _lu_ifs=$IFS; IFS=' '
     for _lu_l in $FORGE_JS_LOCKS; do
-      if [ -f "$_lu_l" ] || [ -f "$(dirname "$_lu_f")/$_lu_l" ]; then _lu_lock=$_lu_l; break; fi
+      if [ -f "$(dirname "$_lu_f")/$_lu_l" ]; then _lu_lock=$(dirname "$_lu_f")/$_lu_l; break; fi
+      if [ -f "$_lu_l" ]; then _lu_lock=$_lu_l; break; fi
     done
     IFS=$_lu_ifs
-    [ -n "$_lu_lock" ] || continue
+    _lu_lock=${_lu_lock#./}
+    case $_lu_lock in
+      '') continue ;;
+      bun.lock|bun.lockb|*/bun.lock|*/bun.lockb) forge_check_active typescript/bun/lock-sync && continue ;;
+    esac
     forge_pkg_deps "$FORGE_TMP/base/$_lu_f" > "$FORGE_TMP/deps.then"
     forge_pkg_deps "$_lu_f" > "$FORGE_TMP/deps.now"
     cmp -s "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" && continue
-    _lu_what=$(awk -F '\t' '
-      FILENAME == ARGV[1] { then[$1 " " $2] = $3; next }
-      { now[$1 " " $2] = $3 }
+    forge_diff_lines "$_lu_lock" > "$FORGE_TMP/lock.diff"
+    awk -F '\t' '
+      FILENAME == ARGV[1] { then[$1 " " $2] = $3; name[$1 " " $2] = $2; next }
+      FILENAME == ARGV[2] { now[$1 " " $2] = $3; name[$1 " " $2] = $2; next }
+      { diff = diff "\n" $0 }
       END {
-        for (k in now) if (!(k in then)) print k " " now[k] " added"; else if (then[k] != now[k]) print k " " then[k] " -> " now[k]
-        for (k in then) if (!(k in now)) print k " removed"
-      }' "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" | sort | head -n 5 | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')
-    printf '%s: %s, but %s did not change\n' "$_lu_f" "$_lu_what" "$_lu_lock"
+        for (k in now) if (!(k in then)) w[k] = k " " now[k] " added"; else if (then[k] != now[k]) w[k] = k " " then[k] " -> " now[k]
+        for (k in then) if (!(k in now)) w[k] = k " removed"
+        for (k in w) if (!index(diff, name[k])) print w[k]
+      }' "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" "$FORGE_TMP/lock.diff" | sort > "$FORGE_TMP/deps.missing"
+    [ -s "$FORGE_TMP/deps.missing" ] || continue
+    _lu_what=$(head -n 5 "$FORGE_TMP/deps.missing" | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')
+    printf '%s: %s, but %s has no changed line for it\n' "$_lu_f" "$_lu_what" "$_lu_lock"
     _lu_rc=1
   done < "$FORGE_TMP/existing"
   [ "$_lu_rc" = 0 ] && return 0
@@ -7776,11 +7828,27 @@ forge_pkg_deps() {
     }' "$1" | sort
 }
 
+# forge_check_active <rule-id>: the rule has a check in this check.sh.
+forge_check_active() {
+  (
+    _ca_i=1
+    while [ "$_ca_i" -le "${FORGE_NCHECKS:-0}" ]; do
+      forge_check_meta_"$_ca_i"
+      [ "$c_id" = "$1" ] && exit 0
+      _ca_i=$((_ca_i + 1))
+    done
+    exit 1
+  )
+}
+
 # forge_lockfile_updated: a package.json whose dependencies changed since the base
-# needs a changed lock file, when the project has one (next to it or at the root).
-# Blocks once per turn (forge_once): the package manager may not be able to run here.
+# needs a lock file whose changed lines name each changed dependency (added, removed or
+# re-versioned), when the project has a pnpm, npm or Yarn lock file (next to it or at
+# the root); a lock change that names none (a new blank line) does not count. bun.lock
+# is left to typescript/bun/lock-sync (bun install --frozen-lockfile) when that check is
+# active. Blocks once per
+# turn (forge_once): the package manager may not be able to run here.
 forge_lockfile_updated() {
-  grep -qE '(^|/)(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?)$' "$FORGE_TMP/changed" && return 0
   _lu_rc=0
   while IFS= read -r _lu_f; do
     case $_lu_f in package.json|*/package.json) ;; *) continue ;; esac
@@ -7788,21 +7856,31 @@ forge_lockfile_updated() {
     _lu_lock=''
     _lu_ifs=$IFS; IFS=' '
     for _lu_l in $FORGE_JS_LOCKS; do
-      if [ -f "$_lu_l" ] || [ -f "$(dirname "$_lu_f")/$_lu_l" ]; then _lu_lock=$_lu_l; break; fi
+      if [ -f "$(dirname "$_lu_f")/$_lu_l" ]; then _lu_lock=$(dirname "$_lu_f")/$_lu_l; break; fi
+      if [ -f "$_lu_l" ]; then _lu_lock=$_lu_l; break; fi
     done
     IFS=$_lu_ifs
-    [ -n "$_lu_lock" ] || continue
+    _lu_lock=${_lu_lock#./}
+    case $_lu_lock in
+      '') continue ;;
+      bun.lock|bun.lockb|*/bun.lock|*/bun.lockb) forge_check_active typescript/bun/lock-sync && continue ;;
+    esac
     forge_pkg_deps "$FORGE_TMP/base/$_lu_f" > "$FORGE_TMP/deps.then"
     forge_pkg_deps "$_lu_f" > "$FORGE_TMP/deps.now"
     cmp -s "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" && continue
-    _lu_what=$(awk -F '\t' '
-      FILENAME == ARGV[1] { then[$1 " " $2] = $3; next }
-      { now[$1 " " $2] = $3 }
+    forge_diff_lines "$_lu_lock" > "$FORGE_TMP/lock.diff"
+    awk -F '\t' '
+      FILENAME == ARGV[1] { then[$1 " " $2] = $3; name[$1 " " $2] = $2; next }
+      FILENAME == ARGV[2] { now[$1 " " $2] = $3; name[$1 " " $2] = $2; next }
+      { diff = diff "\n" $0 }
       END {
-        for (k in now) if (!(k in then)) print k " " now[k] " added"; else if (then[k] != now[k]) print k " " then[k] " -> " now[k]
-        for (k in then) if (!(k in now)) print k " removed"
-      }' "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" | sort | head -n 5 | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')
-    printf '%s: %s, but %s did not change\n' "$_lu_f" "$_lu_what" "$_lu_lock"
+        for (k in now) if (!(k in then)) w[k] = k " " now[k] " added"; else if (then[k] != now[k]) w[k] = k " " then[k] " -> " now[k]
+        for (k in then) if (!(k in now)) w[k] = k " removed"
+        for (k in w) if (!index(diff, name[k])) print w[k]
+      }' "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" "$FORGE_TMP/lock.diff" | sort > "$FORGE_TMP/deps.missing"
+    [ -s "$FORGE_TMP/deps.missing" ] || continue
+    _lu_what=$(head -n 5 "$FORGE_TMP/deps.missing" | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')
+    printf '%s: %s, but %s has no changed line for it\n' "$_lu_f" "$_lu_what" "$_lu_lock"
     _lu_rc=1
   done < "$FORGE_TMP/existing"
   [ "$_lu_rc" = 0 ] && return 0
@@ -10694,11 +10772,27 @@ forge_pkg_deps() {
     }' "$1" | sort
 }
 
+# forge_check_active <rule-id>: the rule has a check in this check.sh.
+forge_check_active() {
+  (
+    _ca_i=1
+    while [ "$_ca_i" -le "${FORGE_NCHECKS:-0}" ]; do
+      forge_check_meta_"$_ca_i"
+      [ "$c_id" = "$1" ] && exit 0
+      _ca_i=$((_ca_i + 1))
+    done
+    exit 1
+  )
+}
+
 # forge_lockfile_updated: a package.json whose dependencies changed since the base
-# needs a changed lock file, when the project has one (next to it or at the root).
-# Blocks once per turn (forge_once): the package manager may not be able to run here.
+# needs a lock file whose changed lines name each changed dependency (added, removed or
+# re-versioned), when the project has a pnpm, npm or Yarn lock file (next to it or at
+# the root); a lock change that names none (a new blank line) does not count. bun.lock
+# is left to typescript/bun/lock-sync (bun install --frozen-lockfile) when that check is
+# active. Blocks once per
+# turn (forge_once): the package manager may not be able to run here.
 forge_lockfile_updated() {
-  grep -qE '(^|/)(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?)$' "$FORGE_TMP/changed" && return 0
   _lu_rc=0
   while IFS= read -r _lu_f; do
     case $_lu_f in package.json|*/package.json) ;; *) continue ;; esac
@@ -10706,21 +10800,31 @@ forge_lockfile_updated() {
     _lu_lock=''
     _lu_ifs=$IFS; IFS=' '
     for _lu_l in $FORGE_JS_LOCKS; do
-      if [ -f "$_lu_l" ] || [ -f "$(dirname "$_lu_f")/$_lu_l" ]; then _lu_lock=$_lu_l; break; fi
+      if [ -f "$(dirname "$_lu_f")/$_lu_l" ]; then _lu_lock=$(dirname "$_lu_f")/$_lu_l; break; fi
+      if [ -f "$_lu_l" ]; then _lu_lock=$_lu_l; break; fi
     done
     IFS=$_lu_ifs
-    [ -n "$_lu_lock" ] || continue
+    _lu_lock=${_lu_lock#./}
+    case $_lu_lock in
+      '') continue ;;
+      bun.lock|bun.lockb|*/bun.lock|*/bun.lockb) forge_check_active typescript/bun/lock-sync && continue ;;
+    esac
     forge_pkg_deps "$FORGE_TMP/base/$_lu_f" > "$FORGE_TMP/deps.then"
     forge_pkg_deps "$_lu_f" > "$FORGE_TMP/deps.now"
     cmp -s "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" && continue
-    _lu_what=$(awk -F '\t' '
-      FILENAME == ARGV[1] { then[$1 " " $2] = $3; next }
-      { now[$1 " " $2] = $3 }
+    forge_diff_lines "$_lu_lock" > "$FORGE_TMP/lock.diff"
+    awk -F '\t' '
+      FILENAME == ARGV[1] { then[$1 " " $2] = $3; name[$1 " " $2] = $2; next }
+      FILENAME == ARGV[2] { now[$1 " " $2] = $3; name[$1 " " $2] = $2; next }
+      { diff = diff "\n" $0 }
       END {
-        for (k in now) if (!(k in then)) print k " " now[k] " added"; else if (then[k] != now[k]) print k " " then[k] " -> " now[k]
-        for (k in then) if (!(k in now)) print k " removed"
-      }' "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" | sort | head -n 5 | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')
-    printf '%s: %s, but %s did not change\n' "$_lu_f" "$_lu_what" "$_lu_lock"
+        for (k in now) if (!(k in then)) w[k] = k " " now[k] " added"; else if (then[k] != now[k]) w[k] = k " " then[k] " -> " now[k]
+        for (k in then) if (!(k in now)) w[k] = k " removed"
+        for (k in w) if (!index(diff, name[k])) print w[k]
+      }' "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" "$FORGE_TMP/lock.diff" | sort > "$FORGE_TMP/deps.missing"
+    [ -s "$FORGE_TMP/deps.missing" ] || continue
+    _lu_what=$(head -n 5 "$FORGE_TMP/deps.missing" | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')
+    printf '%s: %s, but %s has no changed line for it\n' "$_lu_f" "$_lu_what" "$_lu_lock"
     _lu_rc=1
   done < "$FORGE_TMP/existing"
   [ "$_lu_rc" = 0 ] && return 0
@@ -14370,11 +14474,27 @@ forge_pkg_deps() {
     }' "$1" | sort
 }
 
+# forge_check_active <rule-id>: the rule has a check in this check.sh.
+forge_check_active() {
+  (
+    _ca_i=1
+    while [ "$_ca_i" -le "${FORGE_NCHECKS:-0}" ]; do
+      forge_check_meta_"$_ca_i"
+      [ "$c_id" = "$1" ] && exit 0
+      _ca_i=$((_ca_i + 1))
+    done
+    exit 1
+  )
+}
+
 # forge_lockfile_updated: a package.json whose dependencies changed since the base
-# needs a changed lock file, when the project has one (next to it or at the root).
-# Blocks once per turn (forge_once): the package manager may not be able to run here.
+# needs a lock file whose changed lines name each changed dependency (added, removed or
+# re-versioned), when the project has a pnpm, npm or Yarn lock file (next to it or at
+# the root); a lock change that names none (a new blank line) does not count. bun.lock
+# is left to typescript/bun/lock-sync (bun install --frozen-lockfile) when that check is
+# active. Blocks once per
+# turn (forge_once): the package manager may not be able to run here.
 forge_lockfile_updated() {
-  grep -qE '(^|/)(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?)$' "$FORGE_TMP/changed" && return 0
   _lu_rc=0
   while IFS= read -r _lu_f; do
     case $_lu_f in package.json|*/package.json) ;; *) continue ;; esac
@@ -14382,21 +14502,31 @@ forge_lockfile_updated() {
     _lu_lock=''
     _lu_ifs=$IFS; IFS=' '
     for _lu_l in $FORGE_JS_LOCKS; do
-      if [ -f "$_lu_l" ] || [ -f "$(dirname "$_lu_f")/$_lu_l" ]; then _lu_lock=$_lu_l; break; fi
+      if [ -f "$(dirname "$_lu_f")/$_lu_l" ]; then _lu_lock=$(dirname "$_lu_f")/$_lu_l; break; fi
+      if [ -f "$_lu_l" ]; then _lu_lock=$_lu_l; break; fi
     done
     IFS=$_lu_ifs
-    [ -n "$_lu_lock" ] || continue
+    _lu_lock=${_lu_lock#./}
+    case $_lu_lock in
+      '') continue ;;
+      bun.lock|bun.lockb|*/bun.lock|*/bun.lockb) forge_check_active typescript/bun/lock-sync && continue ;;
+    esac
     forge_pkg_deps "$FORGE_TMP/base/$_lu_f" > "$FORGE_TMP/deps.then"
     forge_pkg_deps "$_lu_f" > "$FORGE_TMP/deps.now"
     cmp -s "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" && continue
-    _lu_what=$(awk -F '\t' '
-      FILENAME == ARGV[1] { then[$1 " " $2] = $3; next }
-      { now[$1 " " $2] = $3 }
+    forge_diff_lines "$_lu_lock" > "$FORGE_TMP/lock.diff"
+    awk -F '\t' '
+      FILENAME == ARGV[1] { then[$1 " " $2] = $3; name[$1 " " $2] = $2; next }
+      FILENAME == ARGV[2] { now[$1 " " $2] = $3; name[$1 " " $2] = $2; next }
+      { diff = diff "\n" $0 }
       END {
-        for (k in now) if (!(k in then)) print k " " now[k] " added"; else if (then[k] != now[k]) print k " " then[k] " -> " now[k]
-        for (k in then) if (!(k in now)) print k " removed"
-      }' "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" | sort | head -n 5 | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')
-    printf '%s: %s, but %s did not change\n' "$_lu_f" "$_lu_what" "$_lu_lock"
+        for (k in now) if (!(k in then)) w[k] = k " " now[k] " added"; else if (then[k] != now[k]) w[k] = k " " then[k] " -> " now[k]
+        for (k in then) if (!(k in now)) w[k] = k " removed"
+        for (k in w) if (!index(diff, name[k])) print w[k]
+      }' "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" "$FORGE_TMP/lock.diff" | sort > "$FORGE_TMP/deps.missing"
+    [ -s "$FORGE_TMP/deps.missing" ] || continue
+    _lu_what=$(head -n 5 "$FORGE_TMP/deps.missing" | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')
+    printf '%s: %s, but %s has no changed line for it\n' "$_lu_f" "$_lu_what" "$_lu_lock"
     _lu_rc=1
   done < "$FORGE_TMP/existing"
   [ "$_lu_rc" = 0 ] && return 0
@@ -16355,7 +16485,7 @@ exit "$fail"
     "typescript/config-ratchet": "b0ff3b6c064f691984e217acc0388d0900b1a2a1d1ee493935badb41a8a45022",
     "typescript/env-example": "7eab3b03486670f6274d4db65487ccaaf7f2b1fddd39c86a13469cdf46d2140c",
     "typescript/format-lint": "18f0059c55bc0fd6acbd5c7a92fb06989649cd07e9981e421d898991e39aed7b",
-    "typescript/lockfile-updated": "fdf939f434594c3d209c302bbd1c34f331eefbdc3b15f168574c56104f5f3664",
+    "typescript/lockfile-updated": "d76f25d46242cfa491cf10baf74b819d658d5948df0fb89ea500d58ae24a12e3",
     "typescript/no-console": "304966850351b07590c05fb22ae0125d1976179b3cd7abc0bc0dd7e82039ada5",
     "typescript/no-double-assertion": "2c5b17cd8daa6bd598b4aa79b30259626c86e6a3afd00630a3a4a2918316ce80",
     "typescript/no-empty-block": "e615b8d48575392c885e65f5b5e69cfaba918ae070473fb229086fe36501a31f",
@@ -16401,13 +16531,13 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "cc4a889eb0483cbc1ccca0dfff9bdb83a1707a5d5f3739d4c5e725ab5bcc1648",
     ".claude/skills/forge-project/scripts/guard.sh": "e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca",
     ".claude/skills/forge-project/scripts/lib.sh": "462727c0187a948cfaefd1fac315bc87063203968e3df6d12ca68c839fbdf4a3",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "0fd14bae6b38a65e07ebcdc37a42dca6bda8fc0772ce83571c04d29c4f5bb449",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "e87e3b3f09a3c3f2418dff0a2a78fb4e0c2814bc07298070bdd4f49ab2721bea",
     ".claude/skills/forge-project/scripts/review.sh": "889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726",
-    ".claude/skills/forge-project/scripts/session-start.sh": "e7d0860524e4d480d69bd9b342b0c7c3d7bbefc77f3bdef4a7d2a796f065fca3",
+    ".claude/skills/forge-project/scripts/session-start.sh": "4b4c8fa6940aaaaa2065db9a1fb9247ce548d28550165db9159ac8a74bace1be",
     ".claude/skills/forge-project/scripts/stop.sh": "10316d9cd59fea152c6f8fbf0ab70abf547514bf67a2c85f3e6b405554a71fad",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "239d99adcf8617b4e6c4743d14a8acde67629271cab67b5986a67763bcf1d798",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "9e0a622e7ca7298ff989184d7041d7de8d769bb52d922d661c4d5d32bab9dd0d",
     ".claude/skills/forge-project/scripts/turn-start.sh": "fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "c693424cb7587ba4f1486a568127b15292bf596404eff1020779a824302c03de",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "14c80ccd6d7d141c371a6f031b59750883eef3b89032fa3ad991286cf90eccbd",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-bun-no-fewer-expects-test.yml": "bd5df50793070bba7b87b0f623ac58ed4599e0ba6f8d731fc0da4b28a0335ec8",
     ".forge/ast-grep/rule-tests/typescript-bun-no-mock-increase-test.yml": "2916d521378a79dbddd4e3a5822e04b4c3e5fad9262a65e019095f58bbfe0310",
@@ -16430,7 +16560,7 @@ exit "$fail"
     ".forge/ast-grep/rules/typescript/react/use-action-state.yml": "17b6fc5e510df3154be12c72a584d8bfb31034b577774718a8c50516b2b15a81",
     ".forge/ast-grep/rules/typescript/ts-expect-error-reason.yml": "b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "7c97eb80de8cc2e5b20467679e6fc2c98ba57fa2acf6244a11ab819a203a833b",
+    ".forge/check.sh": "d83cb9decd58f4c0ef5eac62fba2eb58ab7a72537ac50b03d5252ce6c074eb25",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -16484,13 +16614,13 @@ d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills
 cc4a889eb0483cbc1ccca0dfff9bdb83a1707a5d5f3739d4c5e725ab5bcc1648  .claude/skills/forge-project/scripts/guard.rules
 e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca  .claude/skills/forge-project/scripts/guard.sh
 462727c0187a948cfaefd1fac315bc87063203968e3df6d12ca68c839fbdf4a3  .claude/skills/forge-project/scripts/lib.sh
-0fd14bae6b38a65e07ebcdc37a42dca6bda8fc0772ce83571c04d29c4f5bb449  .claude/skills/forge-project/scripts/post-edit.sh
+e87e3b3f09a3c3f2418dff0a2a78fb4e0c2814bc07298070bdd4f49ab2721bea  .claude/skills/forge-project/scripts/post-edit.sh
 889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726  .claude/skills/forge-project/scripts/review.sh
-e7d0860524e4d480d69bd9b342b0c7c3d7bbefc77f3bdef4a7d2a796f065fca3  .claude/skills/forge-project/scripts/session-start.sh
+4b4c8fa6940aaaaa2065db9a1fb9247ce548d28550165db9159ac8a74bace1be  .claude/skills/forge-project/scripts/session-start.sh
 10316d9cd59fea152c6f8fbf0ab70abf547514bf67a2c85f3e6b405554a71fad  .claude/skills/forge-project/scripts/stop.sh
-239d99adcf8617b4e6c4743d14a8acde67629271cab67b5986a67763bcf1d798  .claude/skills/forge-project/scripts/test-edit.sh
+9e0a622e7ca7298ff989184d7041d7de8d769bb52d922d661c4d5d32bab9dd0d  .claude/skills/forge-project/scripts/test-edit.sh
 fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3  .claude/skills/forge-project/scripts/turn-start.sh
-c693424cb7587ba4f1486a568127b15292bf596404eff1020779a824302c03de  .claude/skills/forge-project/scripts/typecheck.sh
+14c80ccd6d7d141c371a6f031b59750883eef3b89032fa3ad991286cf90eccbd  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 bd5df50793070bba7b87b0f623ac58ed4599e0ba6f8d731fc0da4b28a0335ec8  .forge/ast-grep/rule-tests/typescript-bun-no-fewer-expects-test.yml
 2916d521378a79dbddd4e3a5822e04b4c3e5fad9262a65e019095f58bbfe0310  .forge/ast-grep/rule-tests/typescript-bun-no-mock-increase-test.yml
@@ -16513,7 +16643,7 @@ aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21  .forge/ast-gre
 17b6fc5e510df3154be12c72a584d8bfb31034b577774718a8c50516b2b15a81  .forge/ast-grep/rules/typescript/react/use-action-state.yml
 b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad  .forge/ast-grep/rules/typescript/ts-expect-error-reason.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-7c97eb80de8cc2e5b20467679e6fc2c98ba57fa2acf6244a11ab819a203a833b  .forge/check.sh
+d83cb9decd58f4c0ef5eac62fba2eb58ab7a72537ac50b03d5252ce6c074eb25  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh
