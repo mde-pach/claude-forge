@@ -1,0 +1,17 @@
+id: typescript/bun/no-mock-increase
+description: A bun:test file may not gain mocks (mock(), mock.module(), spyOn(), jest.fn / vi.fn); test through the real code or a fake at the boundary.
+scope: {language: typescript, files: ["**/*.test.*", "**/*_test.*", "**/*.spec.*", "**/*_spec.*", "!e2e/**"]}
+enforce:
+  - target: ast-grep
+    mode: no-increase
+    rule:
+      kind: call_expression
+      has: {field: function, regex: "^(mock|mock\\.module|spyOn|jest\\.(fn|mock|spyOn)|vi\\.(fn|mock|spyOn))$"}
+      inside: {stopBy: end, kind: program, has: {kind: import_statement, has: {field: source, regex: "^[\"']bun:test[\"']$"}}}
+examples:
+  match:
+    - "import { mock, test } from \"bun:test\";\n\nmock.module(\"./billing\", () => ({ charge: () => true }));\n"
+    - "import { expect, mock, test } from \"bun:test\";\n\ntest(\"charges\", () => {\n  const pay = mock(() => true);\n  charge(pay);\n  expect(pay).toHaveBeenCalled();\n});\n"
+    - "import { spyOn, test } from \"bun:test\";\n\ntest(\"logs\", () => {\n  spyOn(console, \"log\");\n});\n"
+  no_match:
+    - "import { expect, test } from \"bun:test\";\n\ntest(\"charges\", () => {\n  const gateway = new FakeGateway();\n  charge(gateway);\n  expect(gateway.charged).toBe(1);\n});\n"

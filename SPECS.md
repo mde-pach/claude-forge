@@ -581,6 +581,14 @@ context.md: tests assert behaviour, never weakened; "If an existing test looks w
 | `typescript/bun/no-other-pm` | `guard` ask: `npm install`, `npm i`, `npm ci`, `pnpm`, `yarn` |
 | `typescript/bun/release-age` | `check` lint: `forge_bun_cooldown`: `bunfig.toml` `[install] minimumReleaseAge` ≥ 259200; `when_changed`: `bunfig.toml`, `package.json`, `bun.lock` |
 | `typescript/bun/trusted-deps` | `check` lint: `forge_trusted_deps`: no `trustedDependencies` entry added to a `package.json` since the base (with `bun`) |
+| `typescript/bun/test` | `check` test: `bun test` on the tracked test files that import from `bun:test` (nothing when there are none, so a Vitest suite is not run by Bun) |
+| `typescript/bun/no-new-skip` | `ast-grep` no-increase on test files (`*.test.*`, `*_test.*`, `*.spec.*`, `*_spec.*`) importing `bun:test`: `it`/`test`/`describe` `.skip`, `.todo`, `.only`, `.failing`, `.if`, `.skipIf`, `.todoIf` |
+| `typescript/bun/no-fewer-expects` | `ast-grep` no-decrease on the same files: `expect($$$)` |
+| `typescript/bun/no-mock-increase` | `ast-grep` no-increase on the same files: `mock(…)`, `mock.module(…)`, `spyOn(…)`, `jest.fn/mock/spyOn`, `vi.fn/mock/spyOn` |
+| `typescript/bun/no-test-edits` | `check` lint: `forge_test_edits` on the in-scope files that import `bun:test` (§10.5) |
+| `typescript/bun/no-snapshot-update` | `guard` ask: `bun test` with `-u` or `--update-snapshots` |
+
+context.md: `bun:test` tests run with `bun test`, what the integrity rules reject in them, and "If an existing test looks wrong, stop and ask; never edit it to make the code pass."
 
 ### typescript/nextjs
 
