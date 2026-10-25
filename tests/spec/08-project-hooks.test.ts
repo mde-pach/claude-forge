@@ -11,6 +11,7 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { renderChecks } from "../../src/render";
 import { applied, commitAll, ensureTools, forge, git, hasBun, hasUv, hookJson, linkTools, put, sampleRepo, sh, TOOLS_CACHE } from "../helpers";
 
 const T = 180_000;
@@ -43,7 +44,7 @@ beforeAll(() => {
 }, T);
 
 test(
-  "hooks.json wires SessionStart, UserPromptSubmit, PreToolUse(Bash) twice, PermissionRequest, PostToolUse(Edit|Write|Bash) twice, PostToolUseFailure(Bash) twice and Stop, with the specified timeouts",
+  "hooks.json wires SessionStart, UserPromptSubmit, PreToolUse(Bash) twice and PreToolUse(Edit|Write), PermissionRequest, PostToolUse(Edit|Write|Bash) twice and PostToolUse(Edit|Write), PostToolUseFailure(Bash) twice and Stop, with the specified timeouts",
   () => {
     const hooks = JSON.parse(readFileSync(join(repo, ".claude/skills/forge-project/hooks/hooks.json"), "utf8")).hooks;
     expect(hooks.SessionStart[0]).toMatchObject({ matcher: "startup|resume|clear|compact", hooks: [{ timeout: 10 }] });
@@ -52,7 +53,9 @@ test(
     expect(hooks.PreToolUse[1]).toMatchObject({ matcher: "Bash", hooks: [{ command: 'sh "${CLAUDE_PLUGIN_ROOT}/scripts/bash-snapshot.sh"', timeout: 15 }] });
     expect(hooks.PermissionRequest[0]).toMatchObject({ hooks: [{ command: 'sh "${CLAUDE_PLUGIN_ROOT}/scripts/review.sh"', timeout: 180 }] });
     expect(hooks.PostToolUse[0].matcher).toBe("Edit|Write|Bash");
+    expect(hooks.PreToolUse[2]).toMatchObject({ matcher: "Edit|Write", hooks: [{ command: 'sh "${CLAUDE_PLUGIN_ROOT}/scripts/test-edit.sh"', timeout: 180 }] });
     expect(hooks.PostToolUse[0].hooks).toMatchObject([{ timeout: 60 }, { timeout: 300, asyncRewake: true }]);
+    expect(hooks.PostToolUse[1]).toMatchObject({ matcher: "Edit|Write", hooks: [{ command: 'sh "${CLAUDE_PLUGIN_ROOT}/scripts/test-edit.sh"', timeout: 10 }] });
     expect(hooks.PostToolUseFailure[0].matcher).toBe("Bash");
     expect(hooks.PostToolUseFailure[0].hooks).toEqual(hooks.PostToolUse[0].hooks);
     expect(hooks.Stop[0].hooks).toMatchObject([{ timeout: 600 }]);
@@ -107,8 +110,10 @@ describe("asks nobody can answer", () => {
     chmodSync(join(bin, "claude"), 0o755);
   }, T);
   const log = () => join(bin, "log");
-  function run(script: string, fields: Record<string, unknown>, env: Record<string, string>) {
+  /** Runs a hook script; verdicts cached by an earlier test are dropped unless `keepCache`. */
+  function run(script: string, fields: Record<string, unknown>, env: Record<string, string>, keepCache = false) {
     rmSync(log(), { force: true });
+    if (!keepCache) rmSync(join(ts, ".forge/state/review-cache"), { force: true });
     return sh("sh", [join(SCRIPTS, script)], {
       cwd: ts,
       input: hookJson({ cwd: ts, permission_mode: "default", ...fields }),
@@ -157,6 +162,45 @@ describe("asks nobody can answer", () => {
       expect(call).toContain('Input: {"command":"npm install left-pad"}');
       expect(call).toContain("Forge flagged it with rule typescript/bun/no-other-pm.");
       expect(call).not.toContain("/secret/transcript.jsonl");
+    },
+    T,
+  );
+
+  /** @rule safety/ephemeral-exec */
+  test(
+    "the reviewer of a rule's ask judges only that rule's concern: its description, the check's finding and the rule's review question, not the rest of the command",
+    () => {
+      const g = mkdtempSync(join(tmpdir(), "forge-guard-review-"));
+      for (const f of ["guard.sh", "review.sh", "lib.sh"]) writeFileSync(join(g, f), readFileSync(join(ts, SCRIPTS, f)));
+      writeFileSync(
+        join(g, "guard.rules"),
+        "safety/ephemeral-exec\task\tnpx\tPackages fetched on the fly.\tephemeral-exec\tIs that exact package legitimate?\n",
+      );
+      rmSync(log(), { force: true });
+      const out = sh("sh", [join(g, "guard.sh")], {
+        cwd: ts,
+        input: hookJson({ cwd: ts, session_id: "s-review", permission_mode: "default", hook_event_name: "PreToolUse", tool_name: "Bash", tool_input: { command: "git stash && npx some-typo; git stash pop" } }),
+        env: { PATH: `${bin}:${process.env.PATH}`, FAKE_LOG: log(), FAKE_REASON: "unknown name", FAKE_DECISION: "deny", CLAUDE_CODE_ENTRYPOINT: "sdk-cli", FORGE_ASK_REVIEW: "", FORGE_REVIEWER: "" },
+      }).stdout;
+      expect(decision(out).permissionDecision).toBe("deny");
+      const call = readFileSync(log(), "utf8");
+      expect(call).toContain("Forge flagged it with rule safety/ephemeral-exec. The concern of that rule: Packages fetched on the fly. Here: some-typo is not installed where the command runs");
+      expect(call).toContain("The question you answer: Is that exact package legitimate?");
+      expect(call).toContain("Judge only that question. The rest of the action is not under review");
+    },
+    T,
+  );
+
+  test(
+    "a verdict is reused for the same rule and input (whitespace aside) within a session",
+    () => {
+      const first = { ...npm, session_id: "s-cache", tool_input: { command: "npm install  left-pad" } };
+      expect(decision(run("guard.sh", first, { FAKE_DECISION: "deny", FAKE_REASON: "Bun project" }).stdout).permissionDecision).toBe("deny");
+      expect(existsSync(log())).toBe(true);
+      const again = run("guard.sh", { ...first, tool_input: { command: "npm install left-pad" } }, { FAKE_DECISION: "allow" }, true);
+      expect(decision(again.stdout).permissionDecision).toBe("deny");
+      expect(existsSync(log())).toBe(false);
+      expect(decision(run("guard.sh", { ...first, session_id: "s-other" }, { FAKE_DECISION: "allow" }, true).stdout).permissionDecision).toBe("allow");
     },
     T,
   );
@@ -556,6 +600,136 @@ describe("PostToolUse", () => {
       expect(existsSync(join(repo, ".forge/state/typecheck.lock"))).toBe(false);
       rmSync(join(repo, ".venv/bin/basedpyright"));
       reset();
+    },
+    T,
+  );
+});
+
+/**
+ * An edit that changes what a test asserts, or removes it, when the test existed
+ * at the start of the turn, is a real ask (test-edit.sh, PreToolUse Edit|Write):
+ * in an interactive session the user sees it; nobody being there, an independent
+ * reviewer answers it, given the user's request for the turn. An edit that ran
+ * was approved, and the Stop check does not block on it; a change nobody approved
+ * (e.g. through Bash) is still blocked at Stop.
+ */
+describe("test edits", () => {
+  const TEST = "tests/test_cart.py";
+  const BEFORE = "def test_total():\n    items = [40, 60]\n    assert sum(items) == 100\n";
+  const human = { CLAUDE_CODE_ENTRYPOINT: "cli", FORGE_ASK_REVIEW: "", FORGE_REVIEWER: "" };
+  function call(session: string, event: string, tool: "Edit" | "Write", input: Record<string, unknown>, env: Record<string, string> = human, id = "tu-1") {
+    return hook("test-edit.sh", { session_id: session, hook_event_name: event, tool_name: tool, tool_use_id: id, tool_input: { file_path: join(repo, TEST), ...input } }, env).stdout;
+  }
+  const ask = (out: string) => (out ? JSON.parse(out).hookSpecificOutput : undefined);
+  let head = "";
+  function start(session: string, prompt = "Fix the totals.") {
+    head = git(repo, "rev-parse", "HEAD").stdout.trim();
+    put(repo, TEST, BEFORE);
+    git(repo, "add", TEST);
+    git(repo, "commit", "-qm", "tests", "--no-verify");
+    hook("turn-start.sh", { session_id: session, hook_event_name: "UserPromptSubmit", prompt });
+  }
+  function finish() {
+    git(repo, "reset", "-q", "--hard", head);
+    reset();
+  }
+
+  /** @rule python/pytest/no-test-edits */
+  test(
+    "an Edit or Write changing the assertions of a test that existed at the start of the turn, or removing it, asks and names the test; new tests and setup-only changes do not",
+    () => {
+      start("s-te1");
+      const changed = ask(call("s-te1", "PreToolUse", "Edit", { old_string: "== 100", new_string: "== 90", replace_all: false }));
+      expect(changed.permissionDecision).toBe("ask");
+      expect(changed.permissionDecisionReason).toStartWith("forge:python/pytest/no-test-edits This edit changes what tests that existed before this turn assert");
+      expect(changed.permissionDecisionReason).toContain('tests/test_cart.py "test_total" (changed)');
+      expect(call("s-te1", "PreToolUse", "Edit", { old_string: "items = [40, 60]", new_string: "items = list((40, 60))" })).toBe("");
+      expect(call("s-te1", "PreToolUse", "Write", { content: BEFORE + "\n\ndef test_empty():\n    assert sum([]) == 0\n" })).toBe("");
+      expect(ask(call("s-te1", "PreToolUse", "Write", { content: "def test_other():\n    assert True\n" })).permissionDecisionReason).toContain('"test_total" (removed)');
+      // a test added during this turn is Claude's own: changing it asks nothing
+      put(repo, TEST, BEFORE + "\n\ndef test_new():\n    assert sum([1]) == 1\n");
+      expect(call("s-te1", "PreToolUse", "Edit", { old_string: "sum([1]) == 1", new_string: "sum([1]) == 2" })).toBe("");
+      finish();
+    },
+    T,
+  );
+
+  test(
+    "nobody being there, the reviewer answers whether the change is required by the user's request for the turn, which turn-start.sh saved",
+    () => {
+      const bin = mkdtempSync(join(tmpdir(), "forge-fake-claude-"));
+      writeFileSync(join(bin, "claude"), '#!/bin/sh\nfor a in "$@"; do printf "ARG:%s\\n" "$a"; done > "$FAKE_LOG"\nprintf \'{"structured_output":{"decision":"allow","reason":"the request reverses the total"}}\\n\'\n');
+      chmodSync(join(bin, "claude"), 0o755);
+      const log = join(bin, "log");
+      start("s-te2", "Totals now exclude the 10 EUR fee: update the behaviour and its tests.");
+      expect(readFileSync(join(repo, ".forge/state/s-te2.prompt"), "utf8")).toBe("Totals now exclude the 10 EUR fee: update the behaviour and its tests.");
+      const out = ask(
+        call("s-te2", "PreToolUse", "Edit", { old_string: "== 100", new_string: "== 90" }, { PATH: `${bin}:${process.env.PATH}`, FAKE_LOG: log, CLAUDE_CODE_ENTRYPOINT: "sdk-cli", FORGE_ASK_REVIEW: "", FORGE_REVIEWER: "" }),
+      );
+      expect(out.permissionDecision).toBe("allow");
+      const prompt = readFileSync(log, "utf8");
+      expect(prompt).toContain("<request>\nTotals now exclude the 10 EUR fee: update the behaviour and its tests.\n</request>");
+      expect(prompt).toContain("The question you answer: Is this change to existing tests required by the user's request");
+      finish();
+    },
+    T,
+  );
+
+  test(
+    "an edit that ran (PostToolUse) was approved: Stop does not block on it, and still blocks a change nobody approved",
+    () => {
+      start("s-te3");
+      expect(ask(call("s-te3", "PreToolUse", "Edit", { old_string: "== 100", new_string: "== 90" }, human, "tu-ok")).permissionDecision).toBe("ask");
+      put(repo, TEST, BEFORE.replace("== 100", "== 90"));
+      call("s-te3", "PostToolUse", "Edit", { old_string: "== 100", new_string: "== 90" }, human, "tu-ok");
+      expect(readFileSync(join(repo, ".forge/state/s-te3.turn/tests-approved"), "utf8")).toBe("tests/test_cart.py\ttest_total\n");
+      const stop = (session: string) => hook("stop.sh", { session_id: session }).stdout;
+      expect(stop("s-te3")).not.toContain("no-test-edits");
+      // the same change in a new turn, made without asking (e.g. through Bash)
+      put(repo, TEST, BEFORE);
+      hook("turn-start.sh", { session_id: "s-te4", hook_event_name: "UserPromptSubmit", prompt: "x" });
+      put(repo, TEST, BEFORE.replace("== 100", "== 90"));
+      const blocked = JSON.parse(stop("s-te4")).reason;
+      expect(blocked).toContain('tests/test_cart.py: test "test_total" was changed');
+      expect(blocked).toContain("make it with Edit or Write: Forge then asks for approval");
+      finish();
+    },
+    T,
+  );
+
+  test(
+    "changed test support code (a fake, fixture or helper in a test file or conftest.py) is reported once at Stop, naming it, then accepted",
+    () => {
+      const withMock = "class MockLogfire:\n    def __init__(self):\n        self._variables = {}\n\n\n" + BEFORE;
+      head = git(repo, "rev-parse", "HEAD").stdout.trim();
+      put(repo, TEST, withMock);
+      git(repo, "add", TEST);
+      git(repo, "commit", "-qm", "tests", "--no-verify");
+      hook("turn-start.sh", { session_id: "s-te6", hook_event_name: "UserPromptSubmit", prompt: "Move _variables to _config." });
+      put(repo, TEST, withMock.replace("self._variables", "self._config"));
+      const first = JSON.parse(hook("stop.sh", { session_id: "s-te6" }).stdout).reason;
+      expect(first).toContain("tests/test_cart.py: test support `MockLogfire` was changed");
+      expect(first).toContain("Keep that interface in production (e.g. a property alias for a moved attribute) unless the task removes it");
+      expect(hook("stop.sh", { session_id: "s-te6" }).stdout).not.toContain("MockLogfire");
+      finish();
+    },
+    T,
+  );
+
+  /** @rule python/pytest/run */
+  test(
+    "a test file edited during the turn is recorded, and Stop runs it with the related tests even when the edit was reverted since",
+    () => {
+      start("s-te5");
+      call("s-te5", "PostToolUse", "Edit", { old_string: "== 100", new_string: "== 90" }, human, "tu-rev");
+      expect(readFileSync(join(repo, ".forge/state/s-te5.turn/touched"), "utf8")).toBe("tests/test_cart.py\n");
+      const engine = join(mkdtempSync(join(tmpdir(), "forge-engine-")), "engine.sh");
+      writeFileSync(engine, renderChecks([]));
+      const related = (mode: string) =>
+        sh("sh", ["-c", `. "$1"; mode=$2; FORGE_ARG=.forge/state/s-te5.turn; forge_related_py_tests app/main.py`, "x", engine, mode], { cwd: repo }).stdout;
+      expect(related("--turn")).toContain("tests/test_cart.py\n");
+      expect(related("--changed")).not.toContain("tests/test_cart.py");
+      finish();
     },
     T,
   );

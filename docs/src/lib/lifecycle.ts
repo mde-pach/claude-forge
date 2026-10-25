@@ -140,7 +140,9 @@ function targetEvents(rule: Rule, t: Target): LifecycleEvent[] {
           step: "tool",
           via: "guard",
           effect: t.decision === "deny" ? "blocks" : "asks",
-          text: `The PreToolUse guard ${t.decision === "deny" ? "denies" : "asks you before"} any Bash command matching the pattern below.`,
+          text: t.check
+            ? `The PreToolUse guard ${t.decision === "deny" ? "denies" : "asks you before"} a Bash command its ${code(t.check)} check flags (the pattern below only pre-filters).`
+            : `The PreToolUse guard ${t.decision === "deny" ? "denies" : "asks you before"} any Bash command matching the pattern below.`,
         },
       ];
     case "sandbox":

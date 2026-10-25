@@ -45,7 +45,7 @@ examples:
   no_match: [ … ]    # must not — include the near misses
 ```
 
-Targets, in order of preference: `tool` (your linter or type checker, audited), `ast-grep` (Python, TypeScript or YAML, by `scope.language`), `grep` (a POSIX regex per line, for comments, config text and `.astro` files), `permission`, `sandbox`, `guard`, `check`. The [lifecycle](../../lifecycle/) of a rule follows from its targets, and every rule's page shows it.
+Targets, in order of preference: `tool` (your linter or type checker, audited), `ast-grep` (Python, TypeScript or YAML, by `scope.language`), `grep` (a POSIX regex per line, for comments, config text and `.astro` files), `permission`, `sandbox`, `guard`, `check`. A `guard` target is a regex on the command, or a pre-filter regex plus a built-in `check` that parses the command (`ephemeral-exec` looks for the tool in `node_modules/.bin` or `.venv/bin`); its examples can then be `{command, files}`, run from a directory holding those files. A rule that asks can carry `review:`, the one question an independent reviewer answers in autonomous runs (it judges only that concern, not the rest of the command). The [lifecycle](../../lifecycle/) of a rule follows from its targets, and every rule's page shows it.
 
 A `check` can call the engine's helpers instead of a project tool: `forge_ratchet`, `forge_test_edits`, `forge_hadolint`, `forge_zizmor`, `forge_squawk_files`, … (in `templates/scripts/engine.sh`). A `run` string never calls `exit`: it is a shell function body, and its last command's status is the result.
 

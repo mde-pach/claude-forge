@@ -3,8 +3,9 @@
  *
  * Hook scripts share `lib.sh` and are POSIX `sh` only: `[[:space:]]`, never
  * `\s`, `\b` or `grep -P`; `printf '%s'` for data; no `sed -i`. The guard reads
- * `guard.rules` (tab-separated: id, decision, POSIX ERE, description) and
- * answers the first `deny`, else the first `ask`. These tests run on every
+ * `guard.rules` (tab-separated: id, decision, POSIX ERE, description, and an
+ * optional check) and answers the first `deny`, else the first `ask`; a rule
+ * with a check applies only when its guard.sh check flags the parsed command. These tests run on every
  * shell available: `sh`, `dash`, `bash --posix` (as macOS's bash 3.2) and
  * BusyBox.
  */
@@ -14,7 +15,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { renderGuardRules, renderLib, template } from "../../src/render";
-import { availableShells, guardDecision, hookInput } from "../../src/selftest";
+import { availableShells, guardDecision, guardExampleDir, hookInput } from "../../src/selftest";
 import type { Rule } from "../../src/types";
 
 const shells = availableShells();
@@ -81,6 +82,31 @@ describe("guard.sh", () => {
       hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: "forge:t/no-force No force push." },
     });
   });
+
+  test.each(shells.map((s) => [s.name, s.argv] as const))(
+    "on %s, a rule with a check is a candidate when its pattern matches; the check decides, and a later rule can still answer",
+    (_n, argv) => {
+      const d = mkdtempSync(join(tmpdir(), "forge-guard-check-"));
+      writeFileSync(join(d, "guard.sh"), template("guard.sh"));
+      writeFileSync(
+        join(d, "guard.rules"),
+        renderGuardRules(
+          [
+            { rule: rule("t/fetch", "Fetched packages need a look."), target: { target: "guard", decision: "ask", pattern: "npx", check: "ephemeral-exec" } },
+            { rule: rule("t/any-npx", "Any npx."), target: { target: "guard", decision: "ask", pattern: "npx[[:space:]]+cowsay" } },
+          ],
+          "/",
+        ),
+      );
+      const cwd = guardExampleDir({ "node_modules/.bin/tsc": "" });
+      expect(guardDecision([...argv], d, "npx tsc --noEmit", cwd)).toBe("");
+      expect(guardDecision([...argv], d, "npx cowsay", cwd)).toBe("ask");
+      const r = spawnSync(argv[0]!, [...argv.slice(1), join(d, "guard.sh")], { input: hookInput("npx some-typo", cwd), encoding: "utf8", env: { ...process.env, FORGE_ASK_REVIEW: "never" } });
+      expect(JSON.parse(r.stdout).hookSpecificOutput.permissionDecisionReason).toBe(
+        `forge:t/fetch Fetched packages need a look. Here: some-typo is not installed where the command runs: no node_modules/.bin/some-typo from ${cwd} up to the repository root, so npx would fetch it from a registry and run it.`,
+      );
+    },
+  );
 
   test("a missing guard.sh makes the hook command fail, which onFailure: block turns into a blocked call", () => {
     expect(spawnSync("sh", [join(dir, "missing.sh")], { input: hookInput("ls") }).status).not.toBe(0);

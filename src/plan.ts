@@ -18,6 +18,7 @@ import {
   renderLib,
   renderPlugin,
   renderSgConfig,
+  renderTestRules,
   template,
   type ActiveCheck,
   type ActiveGrep,
@@ -360,6 +361,7 @@ export function plan(opts: PlanOptions): Plan {
     files.set(`${root}/scripts/post-edit.sh`, fill(template("post-edit.sh"), { CHECKS: fragment, FORBID: ids("forbid") }));
     files.set(`${root}/scripts/typecheck.sh`, fill(template("typecheck.sh"), { CHECKS: fragment }));
     files.set(`${root}/scripts/stop.sh`, template("stop.sh"));
+    files.set(`${root}/scripts/test-edit.sh`, fill(template("test-edit.sh"), { CHECKS: fragment, TEST_RULES: renderTestRules(checks) }));
     files.set(`${root}/scripts/turn-start.sh`, template("turn-start.sh"));
     for (const p of packs) {
       const ctx = opts.packs.get(p.id)!.context;

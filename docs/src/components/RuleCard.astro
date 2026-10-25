@@ -39,7 +39,9 @@ const group = (xs: Example[] = []): { code: string; lang: string; title?: string
   return [
     ...(single.length ? [{ code: single.join("\n"), lang }] : []),
     ...xs.flatMap((x) =>
-      typeof x !== "string"
+      typeof x !== "string" && "command" in x
+        ? [{ code: x.command, lang, title: x.files ? `with ${Object.keys(x.files).join(", ")}` : undefined }]
+        : typeof x !== "string"
         ? [
             ...Object.entries(x.head ?? {}).map(([p, code]) => ({ code, lang: fileLang(p), title: `${p} (at HEAD)` })),
             ...Object.entries(x.files).map(([p, code]) => ({ code, lang: fileLang(p), title: x.head && p in x.head ? `${p} (changed)` : p })),

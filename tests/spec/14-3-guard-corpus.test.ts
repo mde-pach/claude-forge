@@ -5,7 +5,9 @@
  * must and must not trigger, on every available shell. Accepted misses:
  * commands hidden behind variables, `eval` of built strings, encodings other
  * than `base64 -d | sh`. The guard is a tripwire; permissions and the sandbox
- * are the protection boundary.
+ * are the protection boundary. The commands run from a repository whose
+ * `node_modules/.bin` holds `tsc` and `vitest`, and that has a `packages/app`
+ * directory.
  */
 import { describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
@@ -14,7 +16,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadPacks } from "../../src/packs";
 import { renderGuardRules, template, type ActiveGuard } from "../../src/render";
-import { availableShells, guardDecision, hookInput } from "../../src/selftest";
+import { availableShells, guardDecision, guardExampleDir, hookInput } from "../../src/selftest";
 import { ROOT } from "../helpers";
 import type { GuardTarget } from "../../src/types";
 
@@ -25,6 +27,7 @@ const guards: ActiveGuard[] = [...loadPacks(join(ROOT, "packs")).values()]
 const dir = mkdtempSync(join(tmpdir(), "forge-guard-corpus-"));
 writeFileSync(join(dir, "guard.sh"), template("guard.sh"));
 writeFileSync(join(dir, "guard.rules"), renderGuardRules(guards, ROOT));
+const project = guardExampleDir({ "node_modules/.bin/tsc": "", "node_modules/.bin/vitest": "", "packages/app/src/a.test.ts": "" });
 
 const MUST_TRIGGER: [string, "deny" | "ask"][] = [
   ["rm -rf /", "deny"],
@@ -47,15 +50,25 @@ const MUST_TRIGGER: [string, "deny" | "ask"][] = [
   ["npm install lodash", "ask"],
   ["pip install requests", "ask"],
   ["git push --force-with-lease", "ask"],
+  ["npx some-unknown-tool", "ask"],
 ];
-const MUST_NOT_TRIGGER = ["rm -rf node_modules", "git checkout -b feat", "git push", 'git commit -m "fix --no-verify typo"', "cat .env.example", "git log --stat"];
+const MUST_NOT_TRIGGER = [
+  "rm -rf node_modules",
+  "git checkout -b feat",
+  "git push",
+  'git commit -m "fix --no-verify typo"',
+  "cat .env.example",
+  "git log --stat",
+  "npx tsc --noEmit -p tsconfig.json",
+  "cd packages/app && npx vitest run src/a.test.ts",
+];
 
 describe.each(availableShells().map((s) => [s.name, s.argv] as const))("on %s", (_name, argv) => {
   test.each(MUST_TRIGGER)("%s → %s", (cmd, decision) => {
-    expect(guardDecision([...argv], dir, cmd)).toBe(decision);
+    expect(guardDecision([...argv], dir, cmd, project)).toBe(decision);
   });
   test.each(MUST_NOT_TRIGGER.map((c) => [c]))("%s → nothing", (cmd) => {
-    expect(guardDecision([...argv], dir, cmd)).toBe("");
+    expect(guardDecision([...argv], dir, cmd, project)).toBe("");
   });
 });
 

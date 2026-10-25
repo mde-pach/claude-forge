@@ -231,23 +231,42 @@ forge_json_object() {
     }'
 }
 
-# forge_review <tool> <tool-input-json> <rule>: runs the reviewer, a fresh `claude -p`
-# that sees only the action (tool, input, the Forge rule that asked, the repository
-# path), may read the repository (Read, Grep, Glob, nothing else) and runs without
-# hooks, MCP servers or settings. Prints "allow<TAB>reason" or "deny<TAB>reason";
-# fails when claude is missing or gives no verdict (the ask then stays unanswered).
+# forge_review <tool> <tool-input-json> [<rule> <concern> <question> [<request>]]: runs
+# the reviewer, a fresh `claude -p` that sees only the action (tool, input, the
+# repository path) and, for a rule's ask, that rule's concern and the one question
+# to answer (and, when given, the user's request for the turn; never the
+# conversation). It may read the repository (Read, Grep, Glob, nothing else) and
+# runs without hooks, MCP servers or settings. Prints "allow<TAB>reason" or
+# "deny<TAB>reason"; fails when claude is missing or gives no verdict (the ask then
+# stays unanswered).
 forge_review() {
   command -v claude >/dev/null 2>&1 || return 1
-  _rv_why=''
-  [ -n "$3" ] && _rv_why="
-Forge flagged it with rule $3."
+  if [ -n "${3:-}" ]; then
+    _rv_concern=''
+    [ -n "${4:-}" ] && _rv_concern=" The concern of that rule: $4"
+    _rv_q=${5:-}
+    [ -n "$_rv_q" ] || _rv_q='Is this action, as far as that concern goes, normal work on this repository and safe to run unattended?'
+    _rv_req=''
+    [ -n "${6:-}" ] && _rv_req="
+
+The user's request for this turn (what the agent was asked to do; not the conversation):
+<request>
+$6
+</request>"
+    _rv_task="Forge flagged it with rule $3.$_rv_concern
+The question you answer: $_rv_q$_rv_req
+
+Judge only that question. The rest of the action is not under review: other commands or changes in it are covered by their own rules and permissions, and are no reason to deny. Allow when the answer clearly clears the concern; deny when it does not, or when you cannot tell."
+  else
+    _rv_task="Allow it only if it is clearly within normal work on this repository and safe to run unattended. Deny anything irreversible or destructive (deleting data or history, force pushes, dropping databases), anything that publishes, deploys or pushes outside this machine, anything that reads or sends secrets, installs packages you cannot verify, weakens security, permissions, tests or tool configuration, or runs code fetched from the internet. When in doubt, deny."
+  fi
   _rv_prompt="You are reviewing one action that an autonomous coding agent wants to take. Nobody is available to approve it, so you decide in the user's place, as a careful senior developer who sees only this action would.
 
 Repository: $(pwd)
 Tool: $1
-Input: $2$_rv_why
+Input: $2
 
-You do not see the agent's conversation or its reasons, on purpose: judge the action itself. You may read files in the repository to understand it. Allow it only if it is clearly within normal work on this repository and safe to run unattended. Deny anything irreversible or destructive (deleting data or history, force pushes, dropping databases), anything that publishes, deploys or pushes outside this machine, anything that reads or sends secrets, installs packages you cannot verify, weakens security, permissions, tests or tool configuration, or runs code fetched from the internet. When in doubt, deny. Give the reason in one sentence."
+You do not see the agent's conversation or its reasons, on purpose: judge the action itself. You may read files in the repository to understand it. $_rv_task Give the reason in one sentence."
   _rv_schema='{"type":"object","properties":{"decision":{"type":"string","enum":["allow","deny"]},"reason":{"type":"string"}},"required":["decision","reason"],"additionalProperties":false}'
   _rv_out=$(FORGE_REVIEWER=1 claude -p "$_rv_prompt" --output-format json --json-schema "$_rv_schema" \
     --tools Read,Grep,Glob --allowedTools Read,Grep,Glob --permission-mode dontAsk --max-turns "${FORGE_REVIEW_MAX_TURNS:-12}" \
@@ -260,13 +279,22 @@ You do not see the agent's conversation or its reasons, on purpose: judge the ac
   case $_rv_d in allow|deny) printf '%s\t%s' "$_rv_d" "${_rv_r:-no reason given}" ;; *) return 1 ;; esac
 }
 
+# forge_review_state: where reviews are logged and cached: .forge/state in a Forge
+# project, else ~/.claude.
+forge_review_state() {
+  if _rs_top=$(cd "$(json_get cwd)" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null) && [ -d "$_rs_top/.forge" ] \
+    && mkdir -p "$_rs_top/.forge/state" 2>/dev/null; then
+    printf '%s/.forge/state' "$_rs_top"
+  else
+    printf '%s/.claude' "$HOME"
+  fi
+}
+
 # forge_review_log <decision> <tool> <input> <reason>: one line per review in
 # .forge/state/reviews.log (in a Forge project) or ~/.claude/forge-reviews.log.
 forge_review_log() {
-  _rl_f="$HOME/.claude/forge-reviews.log"
-  if _rl_top=$(cd "$(json_get cwd)" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null) && [ -d "$_rl_top/.forge" ]; then
-    mkdir -p "$_rl_top/.forge/state" 2>/dev/null && _rl_f="$_rl_top/.forge/state/reviews.log"
-  fi
+  _rl_f=$(forge_review_state)
+  case $_rl_f in */.forge/state) _rl_f=$_rl_f/reviews.log ;; *) _rl_f=$_rl_f/forge-reviews.log ;; esac
   printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$(session_id)" "$1" "$2" "$(printf '%s' "$3" | tr '\t\n' '  ')" "$4" >> "$_rl_f" 2>/dev/null
   return 0
 }

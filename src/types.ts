@@ -46,10 +46,15 @@ export interface PermissionTarget {
   decision: Decision;
   rule: string;
 }
+/** Built-in guard checks (guard_check_<name> in guard.sh): they decide on the parsed command. */
+export type GuardCheck = "ephemeral-exec";
 export interface GuardTarget {
   target: "guard";
   decision: Decision;
+  /** POSIX ERE on the JSON-escaped command; with `check`, a pre-filter. */
   pattern: string;
+  /** A built-in check that decides when `pattern` matches. */
+  check?: GuardCheck;
 }
 export interface SandboxTarget {
   target: "sandbox";
@@ -84,7 +89,12 @@ export type Target = ToolTarget | AstGrepTarget | PermissionTarget | GuardTarget
  * A fixture (check rules only) is a set of files: `head` is committed first,
  * then `files` are written on top as the change being checked.
  */
-export type Example = string | ExampleFixture;
+export type Example = string | ExampleFixture | GuardExample;
+/** A guard example run in a directory holding `files` (e.g. node_modules/.bin/<tool>), its cwd. */
+export interface GuardExample {
+  command: string;
+  files?: Record<string, string>;
+}
 export interface ExampleFixture {
   files: Record<string, string>;
   head?: Record<string, string>;
@@ -97,6 +107,8 @@ export interface Rule {
   enforce: Target[];
   examples?: { match?: Example[]; no_match?: Example[] };
   deprecated?: { replaced_by: string };
+  /** For an ask: the one question an independent reviewer answers when nobody can (§9.3). */
+  review?: string;
   /** Absolute path of the rule file. */
   file: string;
   /** sha256 of the rule file content. */
