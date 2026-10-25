@@ -11,6 +11,7 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { renderChecks } from "../../src/render";
 import { applied, commitAll, ensureTools, forge, git, hasBun, hasUv, hookJson, linkTools, put, sampleRepo, sh, TOOLS_CACHE } from "../helpers";
 
 const T = 180_000;
@@ -605,6 +606,24 @@ describe("test edits", () => {
       const blocked = JSON.parse(stop("s-te4")).reason;
       expect(blocked).toContain('tests/test_cart.py: test "test_total" was changed');
       expect(blocked).toContain("make it with Edit or Write: Forge then asks for approval");
+      finish();
+    },
+    T,
+  );
+
+  /** @rule python/pytest/run */
+  test(
+    "a test file edited during the turn is recorded, and Stop runs it with the related tests even when the edit was reverted since",
+    () => {
+      start("s-te5");
+      call("s-te5", "PostToolUse", "Edit", { old_string: "== 100", new_string: "== 90" }, human, "tu-rev");
+      expect(readFileSync(join(repo, ".forge/state/s-te5.turn/touched"), "utf8")).toBe("tests/test_cart.py\n");
+      const engine = join(mkdtempSync(join(tmpdir(), "forge-engine-")), "engine.sh");
+      writeFileSync(engine, renderChecks([]));
+      const related = (mode: string) =>
+        sh("sh", ["-c", `. "$1"; mode=$2; FORGE_ARG=.forge/state/s-te5.turn; forge_related_py_tests app/main.py`, "x", engine, mode], { cwd: repo }).stdout;
+      expect(related("--turn")).toContain("tests/test_cart.py\n");
+      expect(related("--changed")).not.toContain("tests/test_cart.py");
       finish();
     },
     T,

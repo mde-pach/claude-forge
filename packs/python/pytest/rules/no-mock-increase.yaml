@@ -1,5 +1,5 @@
 id: python/pytest/no-mock-increase
-description: A test file may not gain mocks (patch, patch.object, MagicMock, AsyncMock); test through the real code or a fake at the boundary.
+description: A test file may not gain mocks (patch, patch.object, MagicMock, AsyncMock, monkeypatch.setattr); test through the real code or a fake at the boundary.
 scope: {language: python, files: ["**/test_*.py", "**/*_test.py", "**/conftest.py"]}
 enforce:
   - target: ast-grep
@@ -8,12 +8,14 @@ enforce:
       kind: call
       has:
         field: function
-        regex: "^((unittest\\.)?mock\\.|mocker\\.)?(patch|patch\\.object|patch\\.dict|MagicMock|AsyncMock|Mock)$"
+        regex: "^(((unittest\\.)?mock\\.|mocker\\.)?(patch|patch\\.object|patch\\.dict|MagicMock|AsyncMock|Mock)|monkeypatch\\.setattr)$"
 examples:
   match:
     - "from unittest.mock import patch\n\n\n@patch(\"app.billing.stripe\")\ndef test_charge(stripe) -> None:\n    charge()\n"
     - "from unittest.mock import AsyncMock\n\n\nasync def test_send() -> None:\n    client = AsyncMock()\n    await send(client)\n"
     - "def test_charge(mocker) -> None:\n    mocker.patch.object(Billing, \"pay\")\n    charge()\n"
+    - "def test_charge(monkeypatch) -> None:\n    monkeypatch.setattr(billing, \"pay\", lambda: None)\n    charge()\n"
   no_match:
     - "def test_update(client) -> None:\n    r = client.patch(\"/items/1\", json={\"name\": \"x\"})\n    assert r.status_code == 200\n"
+    - "def test_env(monkeypatch) -> None:\n    monkeypatch.setenv(\"TZ\", \"UTC\")\n    assert tz() == \"UTC\"\n"
     - "def test_charge(fake_gateway) -> None:\n    charge(gateway=fake_gateway)\n    assert fake_gateway.charged == 1\n"

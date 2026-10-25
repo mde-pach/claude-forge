@@ -1873,8 +1873,15 @@ forge_squawk_alembic() {
 }
 
 # forge_related_py_tests <files>: changed test files plus tests/**/test_<module>.py
-# for each changed module, one per line.
+# for each changed module, one per line; at Stop, also the test files edited during
+# the turn (<snapshot>/touched, by test-edit.sh), even when the edit was reverted.
 forge_related_py_tests() {
+  {
+  if [ "${mode:-}" = --turn ] && [ -f "$FORGE_ARG/touched" ]; then
+    while IFS= read -r _fr_f; do
+      case ${_fr_f##*/} in test_*.py|*_test.py) [ -f "$_fr_f" ] && printf '%s\n' "$_fr_f" ;; esac
+    done < "$FORGE_ARG/touched"
+  fi
   for _fr_f in "$@"; do
     case $_fr_f in
       *.py) ;;
@@ -1886,7 +1893,8 @@ forge_related_py_tests() {
       __init__.py|conftest.py) ;;
       *) [ -d tests ] && find tests -type f -name "test_${_fr_b%.py}.py" 2>/dev/null ;;
     esac
-  done | sort -u
+  done
+  } | sort -u
 }
 
 # forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out.
@@ -3195,8 +3203,15 @@ forge_squawk_alembic() {
 }
 
 # forge_related_py_tests <files>: changed test files plus tests/**/test_<module>.py
-# for each changed module, one per line.
+# for each changed module, one per line; at Stop, also the test files edited during
+# the turn (<snapshot>/touched, by test-edit.sh), even when the edit was reverted.
 forge_related_py_tests() {
+  {
+  if [ "${mode:-}" = --turn ] && [ -f "$FORGE_ARG/touched" ]; then
+    while IFS= read -r _fr_f; do
+      case ${_fr_f##*/} in test_*.py|*_test.py) [ -f "$_fr_f" ] && printf '%s\n' "$_fr_f" ;; esac
+    done < "$FORGE_ARG/touched"
+  fi
   for _fr_f in "$@"; do
     case $_fr_f in
       *.py) ;;
@@ -3208,7 +3223,8 @@ forge_related_py_tests() {
       __init__.py|conftest.py) ;;
       *) [ -d tests ] && find tests -type f -name "test_${_fr_b%.py}.py" 2>/dev/null ;;
     esac
-  done | sort -u
+  done
+  } | sort -u
 }
 
 # forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out.
@@ -4513,8 +4529,15 @@ forge_squawk_alembic() {
 }
 
 # forge_related_py_tests <files>: changed test files plus tests/**/test_<module>.py
-# for each changed module, one per line.
+# for each changed module, one per line; at Stop, also the test files edited during
+# the turn (<snapshot>/touched, by test-edit.sh), even when the edit was reverted.
 forge_related_py_tests() {
+  {
+  if [ "${mode:-}" = --turn ] && [ -f "$FORGE_ARG/touched" ]; then
+    while IFS= read -r _fr_f; do
+      case ${_fr_f##*/} in test_*.py|*_test.py) [ -f "$_fr_f" ] && printf '%s\n' "$_fr_f" ;; esac
+    done < "$FORGE_ARG/touched"
+  fi
   for _fr_f in "$@"; do
     case $_fr_f in
       *.py) ;;
@@ -4526,7 +4549,8 @@ forge_related_py_tests() {
       __init__.py|conftest.py) ;;
       *) [ -d tests ] && find tests -type f -name "test_${_fr_b%.py}.py" 2>/dev/null ;;
     esac
-  done | sort -u
+  done
+  } | sort -u
 }
 
 # forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out.
@@ -5872,8 +5896,15 @@ forge_squawk_alembic() {
 }
 
 # forge_related_py_tests <files>: changed test files plus tests/**/test_<module>.py
-# for each changed module, one per line.
+# for each changed module, one per line; at Stop, also the test files edited during
+# the turn (<snapshot>/touched, by test-edit.sh), even when the edit was reverted.
 forge_related_py_tests() {
+  {
+  if [ "${mode:-}" = --turn ] && [ -f "$FORGE_ARG/touched" ]; then
+    while IFS= read -r _fr_f; do
+      case ${_fr_f##*/} in test_*.py|*_test.py) [ -f "$_fr_f" ] && printf '%s\n' "$_fr_f" ;; esac
+    done < "$FORGE_ARG/touched"
+  fi
   for _fr_f in "$@"; do
     case $_fr_f in
       *.py) ;;
@@ -5885,7 +5916,8 @@ forge_related_py_tests() {
       __init__.py|conftest.py) ;;
       *) [ -d tests ] && find tests -type f -name "test_${_fr_b%.py}.py" 2>/dev/null ;;
     esac
-  done | sort -u
+  done
+  } | sort -u
 }
 
 # forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out.
@@ -6296,6 +6328,10 @@ valid:
         r = client.patch("/items/1", json={"name": "x"})
         assert r.status_code == 200
   - |
+    def test_env(monkeypatch) -> None:
+        monkeypatch.setenv("TZ", "UTC")
+        assert tz() == "UTC"
+  - |
     def test_charge(fake_gateway) -> None:
         charge(gateway=fake_gateway)
         assert fake_gateway.charged == 1
@@ -6317,6 +6353,10 @@ invalid:
   - |
     def test_charge(mocker) -> None:
         mocker.patch.object(Billing, "pay")
+        charge()
+  - |
+    def test_charge(monkeypatch) -> None:
+        monkeypatch.setattr(billing, "pay", lambda: None)
         charge()
 
 ===== .forge/ast-grep/rule-tests/python-pytest-no-new-skip-test.yml
@@ -6608,7 +6648,7 @@ rule:
 id: python/pytest/no-mock-increase
 language: Python
 severity: error
-message: forge:python/pytest/no-mock-increase A test file may not gain mocks (patch, patch.object, MagicMock, AsyncMock); test through the real code or a fake at the boundary.
+message: forge:python/pytest/no-mock-increase A test file may not gain mocks (patch, patch.object, MagicMock, AsyncMock, monkeypatch.setattr); test through the real code or a fake at the boundary.
 files:
   - "**/test_*.py"
   - "**/*_test.py"
@@ -6617,7 +6657,7 @@ rule:
   kind: call
   has:
     field: function
-    regex: ^((unittest\.)?mock\.|mocker\.)?(patch|patch\.object|patch\.dict|MagicMock|AsyncMock|Mock)$
+    regex: ^(((unittest\.)?mock\.|mocker\.)?(patch|patch\.object|patch\.dict|MagicMock|AsyncMock|Mock)|monkeypatch\.setattr)$
 
 ===== .forge/ast-grep/rules/python/pytest/no-new-skip.yml
 # Generated by forge from python/pytest/no-new-skip (mode: no-increase).
@@ -8164,8 +8204,15 @@ forge_squawk_alembic() {
 }
 
 # forge_related_py_tests <files>: changed test files plus tests/**/test_<module>.py
-# for each changed module, one per line.
+# for each changed module, one per line; at Stop, also the test files edited during
+# the turn (<snapshot>/touched, by test-edit.sh), even when the edit was reverted.
 forge_related_py_tests() {
+  {
+  if [ "${mode:-}" = --turn ] && [ -f "$FORGE_ARG/touched" ]; then
+    while IFS= read -r _fr_f; do
+      case ${_fr_f##*/} in test_*.py|*_test.py) [ -f "$_fr_f" ] && printf '%s\n' "$_fr_f" ;; esac
+    done < "$FORGE_ARG/touched"
+  fi
   for _fr_f in "$@"; do
     case $_fr_f in
       *.py) ;;
@@ -8177,7 +8224,8 @@ forge_related_py_tests() {
       __init__.py|conftest.py) ;;
       *) [ -d tests ] && find tests -type f -name "test_${_fr_b%.py}.py" 2>/dev/null ;;
     esac
-  done | sort -u
+  done
+  } | sort -u
 }
 
 # forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out.
@@ -8839,7 +8887,7 @@ exit "$fail"
     "python/pydantic/v2-api": "530f46e310f2bd30f6347d75b3a2243922cb5aeef921df69c2314e399473e4eb",
     "python/pytest/no-blind-raises": "5e4380936ff598117305786c79894401af219e7a4e3514aa1bfbf603228b3277",
     "python/pytest/no-fewer-asserts": "3fa20da5240c91db137cfaad8d04235b2c15fc7bc40d772682edc2618c74cb4f",
-    "python/pytest/no-mock-increase": "51b8fb426abdfa05400c3ee5d7cfb7c4a454552c6b9b7e43caaed8a62980edcc",
+    "python/pytest/no-mock-increase": "545fda5c30eadaaf787516cd0b223b47d831ae9654c7936d1e44d930c4d43027",
     "python/pytest/no-new-skip": "622053f8e74b1be32ce8517667af5acd7e695150a44641d46224e7f523165ffe",
     "python/pytest/no-tautological-assert": "2842d4fd3c1adbace9a3cb54d1d7e484452bda967f076f53579db34e9fbbd189",
     "python/pytest/no-test-edits": "56e93fc8f721726a0517adec55f9ee3afbe3aa3267b02a2f47667cd3e3b57588",
@@ -8875,20 +8923,20 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "a3bb50a3648137c8e0c7cda3d1cb07050fcb36f990e50b8b2b7f46b78e363f20",
     ".claude/skills/forge-project/scripts/guard.sh": "e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca",
     ".claude/skills/forge-project/scripts/lib.sh": "3d4f97208cdf61a9ac95ef40b4f9eb8504d028abde4db487780aa36768199c6b",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "f6ed035ac77440622571ac864d19de11dfab663ae9e3748a9904148838a4ba8e",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "fe1b1c33ae7403dec85785bd05686b3015ff4656714062ce2a27230a49479a76",
     ".claude/skills/forge-project/scripts/review.sh": "889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726",
-    ".claude/skills/forge-project/scripts/session-start.sh": "60c5a581bf595c6f12cea1632662dff5d91748084065eeb8e06c9c9bc6372638",
+    ".claude/skills/forge-project/scripts/session-start.sh": "e525f83ff250c323754cd7d5b32d5b8c8582b50f75fd65ad993b86d8c8bf3b21",
     ".claude/skills/forge-project/scripts/stop.sh": "f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "3cf8405b2d33fabae886950676df7f4fc6eb5d78e974fd8484b850470e5dfbe6",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "ed7a728cebc3f4b1f8608f7f7e5efe7272556e313bd01d289b8ec1eabe1db8bb",
     ".claude/skills/forge-project/scripts/turn-start.sh": "fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "84eb45248c05524ccdd8b992f403dac8ab891748b2941f9d1c1fcb0214c73d3a",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "f69b26494b99e58d68bc823b56fd736a9aec25535b722ed63a7c8a450d989dcb",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml": "69a94f1a0b16aa08bcf758af3e3dc269266cdd808aba1a4289b4c58c7f969700",
     ".forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml": "1589382e5e0b5cae841a8f47dae9f2b3a8583a4bb1074ceb858d882e648e9b49",
     ".forge/ast-grep/rule-tests/python-no-stub-test.yml": "caa135cd54c3f53d5d2fbb85c518a2e94d263fd9a4860a63d224c7187432275b",
     ".forge/ast-grep/rule-tests/python-pydantic-v2-api-test.yml": "190345231426a2518af45845d7e40c71d9a4cc0f68b656a91b17fb10156c4f0c",
     ".forge/ast-grep/rule-tests/python-pytest-no-fewer-asserts-test.yml": "09250fc39904625fa6b9fbf8e680592026afa92b309bb44978ceced953e85443",
-    ".forge/ast-grep/rule-tests/python-pytest-no-mock-increase-test.yml": "b95df53ce8a46a7d734c1841b72bd815cfcfdb68664019fa60b0dc4983dafd6c",
+    ".forge/ast-grep/rule-tests/python-pytest-no-mock-increase-test.yml": "bdcecbe09c26b3ed57c9fe587884a50f476a85b964cec2309cc49293c0cab13d",
     ".forge/ast-grep/rule-tests/python-pytest-no-new-skip-test.yml": "90b83caced6f255771a83c90da08e127fc52f2a1340d1749b81440a896d960f5",
     ".forge/ast-grep/rule-tests/python-pytest-no-tautological-assert-test.yml": "96cfb1aacfb5a86d5c235bd2a619a8ec518697943eefd02a6088d3486b9bc255",
     ".forge/ast-grep/rule-tests/python-pytest-no-test-env-branch-test.yml": "b6b6511eb85b39a21fbfa8473e4c6c0b3a247493989c35b12ff669f142ba4ea9",
@@ -8904,7 +8952,7 @@ exit "$fail"
     ".forge/ast-grep/rules/python/no-stub.yml": "0660a06b80fa4e3cccbc89f496275e8f093b873632d1d93ecb48e4315d987bbf",
     ".forge/ast-grep/rules/python/pydantic/v2-api.yml": "0285c193f340cfebcfd12ac21c1b8a21b96bea3970e1cbd8dd48aca0b1af5776",
     ".forge/ast-grep/rules/python/pytest/no-fewer-asserts.yml": "6a5651b8e53b3fcd6d075650f3e52439916dde0d825bba80f5db0c5a9f3e1363",
-    ".forge/ast-grep/rules/python/pytest/no-mock-increase.yml": "bed8cf569ef38351011aa0ce3f2d2ca9427cf26e06e2c8516f0f56569bfe6c88",
+    ".forge/ast-grep/rules/python/pytest/no-mock-increase.yml": "a1d87a192db3f5794040135eaea5217d6d253ea47198315d980afb884b1a7692",
     ".forge/ast-grep/rules/python/pytest/no-new-skip.yml": "882b64b10b0c388c6bb23fdc688690f8bf530c0f57fee012254572dbf7afe422",
     ".forge/ast-grep/rules/python/pytest/no-tautological-assert.yml": "7de47e969bf4614418e4b8b5ebec4e2aed80b2dceb35b6f29d406d39de54b0a0",
     ".forge/ast-grep/rules/python/pytest/no-test-env-branch.yml": "8876a2eb9e568b666a50631bc5629de93ec3a7804fed41f2e90507017f64ba13",
@@ -8916,7 +8964,7 @@ exit "$fail"
     ".forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml": "4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0",
     ".forge/ast-grep/rules/python/sqlalchemy/no-text-fstring.yml": "04c44c9e215449d46b10540e86e999ec1d6383d8c3a849855fe73cb456668fca",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "e0d299d8fcfed93368e7a252e1e49affa1d02e9e5fd1131d6e337aabfa415b1d",
+    ".forge/check.sh": "8f785debbd886bc838bcd755ed2fc257d6468ce2f4f9b59c443d96cb2bfd0c34",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -8971,20 +9019,20 @@ d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills
 a3bb50a3648137c8e0c7cda3d1cb07050fcb36f990e50b8b2b7f46b78e363f20  .claude/skills/forge-project/scripts/guard.rules
 e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca  .claude/skills/forge-project/scripts/guard.sh
 3d4f97208cdf61a9ac95ef40b4f9eb8504d028abde4db487780aa36768199c6b  .claude/skills/forge-project/scripts/lib.sh
-f6ed035ac77440622571ac864d19de11dfab663ae9e3748a9904148838a4ba8e  .claude/skills/forge-project/scripts/post-edit.sh
+fe1b1c33ae7403dec85785bd05686b3015ff4656714062ce2a27230a49479a76  .claude/skills/forge-project/scripts/post-edit.sh
 889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726  .claude/skills/forge-project/scripts/review.sh
-60c5a581bf595c6f12cea1632662dff5d91748084065eeb8e06c9c9bc6372638  .claude/skills/forge-project/scripts/session-start.sh
+e525f83ff250c323754cd7d5b32d5b8c8582b50f75fd65ad993b86d8c8bf3b21  .claude/skills/forge-project/scripts/session-start.sh
 f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173  .claude/skills/forge-project/scripts/stop.sh
-3cf8405b2d33fabae886950676df7f4fc6eb5d78e974fd8484b850470e5dfbe6  .claude/skills/forge-project/scripts/test-edit.sh
+ed7a728cebc3f4b1f8608f7f7e5efe7272556e313bd01d289b8ec1eabe1db8bb  .claude/skills/forge-project/scripts/test-edit.sh
 fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3  .claude/skills/forge-project/scripts/turn-start.sh
-84eb45248c05524ccdd8b992f403dac8ab891748b2941f9d1c1fcb0214c73d3a  .claude/skills/forge-project/scripts/typecheck.sh
+f69b26494b99e58d68bc823b56fd736a9aec25535b722ed63a7c8a450d989dcb  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 69a94f1a0b16aa08bcf758af3e3dc269266cdd808aba1a4289b4c58c7f969700  .forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml
 1589382e5e0b5cae841a8f47dae9f2b3a8583a4bb1074ceb858d882e648e9b49  .forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml
 caa135cd54c3f53d5d2fbb85c518a2e94d263fd9a4860a63d224c7187432275b  .forge/ast-grep/rule-tests/python-no-stub-test.yml
 190345231426a2518af45845d7e40c71d9a4cc0f68b656a91b17fb10156c4f0c  .forge/ast-grep/rule-tests/python-pydantic-v2-api-test.yml
 09250fc39904625fa6b9fbf8e680592026afa92b309bb44978ceced953e85443  .forge/ast-grep/rule-tests/python-pytest-no-fewer-asserts-test.yml
-b95df53ce8a46a7d734c1841b72bd815cfcfdb68664019fa60b0dc4983dafd6c  .forge/ast-grep/rule-tests/python-pytest-no-mock-increase-test.yml
+bdcecbe09c26b3ed57c9fe587884a50f476a85b964cec2309cc49293c0cab13d  .forge/ast-grep/rule-tests/python-pytest-no-mock-increase-test.yml
 90b83caced6f255771a83c90da08e127fc52f2a1340d1749b81440a896d960f5  .forge/ast-grep/rule-tests/python-pytest-no-new-skip-test.yml
 96cfb1aacfb5a86d5c235bd2a619a8ec518697943eefd02a6088d3486b9bc255  .forge/ast-grep/rule-tests/python-pytest-no-tautological-assert-test.yml
 b6b6511eb85b39a21fbfa8473e4c6c0b3a247493989c35b12ff669f142ba4ea9  .forge/ast-grep/rule-tests/python-pytest-no-test-env-branch-test.yml
@@ -9000,7 +9048,7 @@ b6ad70dac48994e60453edd07d73a3669d26b21954b227be8177a7a98426baa0  .forge/ast-gre
 0660a06b80fa4e3cccbc89f496275e8f093b873632d1d93ecb48e4315d987bbf  .forge/ast-grep/rules/python/no-stub.yml
 0285c193f340cfebcfd12ac21c1b8a21b96bea3970e1cbd8dd48aca0b1af5776  .forge/ast-grep/rules/python/pydantic/v2-api.yml
 6a5651b8e53b3fcd6d075650f3e52439916dde0d825bba80f5db0c5a9f3e1363  .forge/ast-grep/rules/python/pytest/no-fewer-asserts.yml
-bed8cf569ef38351011aa0ce3f2d2ca9427cf26e06e2c8516f0f56569bfe6c88  .forge/ast-grep/rules/python/pytest/no-mock-increase.yml
+a1d87a192db3f5794040135eaea5217d6d253ea47198315d980afb884b1a7692  .forge/ast-grep/rules/python/pytest/no-mock-increase.yml
 882b64b10b0c388c6bb23fdc688690f8bf530c0f57fee012254572dbf7afe422  .forge/ast-grep/rules/python/pytest/no-new-skip.yml
 7de47e969bf4614418e4b8b5ebec4e2aed80b2dceb35b6f29d406d39de54b0a0  .forge/ast-grep/rules/python/pytest/no-tautological-assert.yml
 8876a2eb9e568b666a50631bc5629de93ec3a7804fed41f2e90507017f64ba13  .forge/ast-grep/rules/python/pytest/no-test-env-branch.yml
@@ -9012,7 +9060,7 @@ e1a15384665afb7aae24664c55f4d81523622a6ef117385b17f806bc30cd3c3f  .forge/ast-gre
 4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0  .forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml
 04c44c9e215449d46b10540e86e999ec1d6383d8c3a849855fe73cb456668fca  .forge/ast-grep/rules/python/sqlalchemy/no-text-fstring.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-e0d299d8fcfed93368e7a252e1e49affa1d02e9e5fd1131d6e337aabfa415b1d  .forge/check.sh
+8f785debbd886bc838bcd755ed2fc257d6468ce2f4f9b59c443d96cb2bfd0c34  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

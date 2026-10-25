@@ -2009,8 +2009,15 @@ forge_squawk_alembic() {
 }
 
 # forge_related_py_tests <files>: changed test files plus tests/**/test_<module>.py
-# for each changed module, one per line.
+# for each changed module, one per line; at Stop, also the test files edited during
+# the turn (<snapshot>/touched, by test-edit.sh), even when the edit was reverted.
 forge_related_py_tests() {
+  {
+  if [ "${mode:-}" = --turn ] && [ -f "$FORGE_ARG/touched" ]; then
+    while IFS= read -r _fr_f; do
+      case ${_fr_f##*/} in test_*.py|*_test.py) [ -f "$_fr_f" ] && printf '%s\n' "$_fr_f" ;; esac
+    done < "$FORGE_ARG/touched"
+  fi
   for _fr_f in "$@"; do
     case $_fr_f in
       *.py) ;;
@@ -2022,7 +2029,8 @@ forge_related_py_tests() {
       __init__.py|conftest.py) ;;
       *) [ -d tests ] && find tests -type f -name "test_${_fr_b%.py}.py" 2>/dev/null ;;
     esac
-  done | sort -u
+  done
+  } | sort -u
 }
 
 # forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out.
@@ -3430,8 +3438,15 @@ forge_squawk_alembic() {
 }
 
 # forge_related_py_tests <files>: changed test files plus tests/**/test_<module>.py
-# for each changed module, one per line.
+# for each changed module, one per line; at Stop, also the test files edited during
+# the turn (<snapshot>/touched, by test-edit.sh), even when the edit was reverted.
 forge_related_py_tests() {
+  {
+  if [ "${mode:-}" = --turn ] && [ -f "$FORGE_ARG/touched" ]; then
+    while IFS= read -r _fr_f; do
+      case ${_fr_f##*/} in test_*.py|*_test.py) [ -f "$_fr_f" ] && printf '%s\n' "$_fr_f" ;; esac
+    done < "$FORGE_ARG/touched"
+  fi
   for _fr_f in "$@"; do
     case $_fr_f in
       *.py) ;;
@@ -3443,7 +3458,8 @@ forge_related_py_tests() {
       __init__.py|conftest.py) ;;
       *) [ -d tests ] && find tests -type f -name "test_${_fr_b%.py}.py" 2>/dev/null ;;
     esac
-  done | sort -u
+  done
+  } | sort -u
 }
 
 # forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out.
@@ -4847,8 +4863,15 @@ forge_squawk_alembic() {
 }
 
 # forge_related_py_tests <files>: changed test files plus tests/**/test_<module>.py
-# for each changed module, one per line.
+# for each changed module, one per line; at Stop, also the test files edited during
+# the turn (<snapshot>/touched, by test-edit.sh), even when the edit was reverted.
 forge_related_py_tests() {
+  {
+  if [ "${mode:-}" = --turn ] && [ -f "$FORGE_ARG/touched" ]; then
+    while IFS= read -r _fr_f; do
+      case ${_fr_f##*/} in test_*.py|*_test.py) [ -f "$_fr_f" ] && printf '%s\n' "$_fr_f" ;; esac
+    done < "$FORGE_ARG/touched"
+  fi
   for _fr_f in "$@"; do
     case $_fr_f in
       *.py) ;;
@@ -4860,7 +4883,8 @@ forge_related_py_tests() {
       __init__.py|conftest.py) ;;
       *) [ -d tests ] && find tests -type f -name "test_${_fr_b%.py}.py" 2>/dev/null ;;
     esac
-  done | sort -u
+  done
+  } | sort -u
 }
 
 # forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out.
@@ -6306,8 +6330,15 @@ forge_squawk_alembic() {
 }
 
 # forge_related_py_tests <files>: changed test files plus tests/**/test_<module>.py
-# for each changed module, one per line.
+# for each changed module, one per line; at Stop, also the test files edited during
+# the turn (<snapshot>/touched, by test-edit.sh), even when the edit was reverted.
 forge_related_py_tests() {
+  {
+  if [ "${mode:-}" = --turn ] && [ -f "$FORGE_ARG/touched" ]; then
+    while IFS= read -r _fr_f; do
+      case ${_fr_f##*/} in test_*.py|*_test.py) [ -f "$_fr_f" ] && printf '%s\n' "$_fr_f" ;; esac
+    done < "$FORGE_ARG/touched"
+  fi
   for _fr_f in "$@"; do
     case $_fr_f in
       *.py) ;;
@@ -6319,7 +6350,8 @@ forge_related_py_tests() {
       __init__.py|conftest.py) ;;
       *) [ -d tests ] && find tests -type f -name "test_${_fr_b%.py}.py" 2>/dev/null ;;
     esac
-  done | sort -u
+  done
+  } | sort -u
 }
 
 # forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out.
@@ -9136,8 +9168,15 @@ forge_squawk_alembic() {
 }
 
 # forge_related_py_tests <files>: changed test files plus tests/**/test_<module>.py
-# for each changed module, one per line.
+# for each changed module, one per line; at Stop, also the test files edited during
+# the turn (<snapshot>/touched, by test-edit.sh), even when the edit was reverted.
 forge_related_py_tests() {
+  {
+  if [ "${mode:-}" = --turn ] && [ -f "$FORGE_ARG/touched" ]; then
+    while IFS= read -r _fr_f; do
+      case ${_fr_f##*/} in test_*.py|*_test.py) [ -f "$_fr_f" ] && printf '%s\n' "$_fr_f" ;; esac
+    done < "$FORGE_ARG/touched"
+  fi
   for _fr_f in "$@"; do
     case $_fr_f in
       *.py) ;;
@@ -9149,7 +9188,8 @@ forge_related_py_tests() {
       __init__.py|conftest.py) ;;
       *) [ -d tests ] && find tests -type f -name "test_${_fr_b%.py}.py" 2>/dev/null ;;
     esac
-  done | sort -u
+  done
+  } | sort -u
 }
 
 # forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out.
@@ -9791,13 +9831,13 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "41a1b43e744ea13d84abd37c90686c0bcbc1f0707212d3d5a3b2f4b20bf2a877",
     ".claude/skills/forge-project/scripts/guard.sh": "e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca",
     ".claude/skills/forge-project/scripts/lib.sh": "3d4f97208cdf61a9ac95ef40b4f9eb8504d028abde4db487780aa36768199c6b",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "fa6780c5f808d19b0dd31bdd79d9e53bbb19f1cf2de35e13259fe7315aa02952",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "075aef1ace57c8aae3dfcff1401f74c44ac7a095f4df84d47988a911ef273fa7",
     ".claude/skills/forge-project/scripts/review.sh": "889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726",
-    ".claude/skills/forge-project/scripts/session-start.sh": "e88170ef4cb46ad79ac1ec5af068d6eb1df8165b41bea74f9b6f47a2d837581a",
+    ".claude/skills/forge-project/scripts/session-start.sh": "ff4b3db8a9400766e7c5de7695f14013c032ada27e87773b6e62117c1a86547d",
     ".claude/skills/forge-project/scripts/stop.sh": "f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "2b7241dc023a2741e821b5713c4e58a16fd627cc07d4ebae6a0f7bb5e7e59800",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "447b4747e0a65fcfa98783e17575a605f8f47d6fbc49f489b3c0f464918a1f66",
     ".claude/skills/forge-project/scripts/turn-start.sh": "fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "ee47cdeec82c464229b14bb73cce4e56f7d6c6fdf48d528bc9e881effeb702e1",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "32e494b93cc696486505b3afe00fd53a33f79deae84ac20ac30b96e996d018a3",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-nextjs-no-legacy-image-config-test.yml": "9d723e3c62b5697de0fa5ab80b735c3cef23225a07c81425c492cd8827faf06d",
     ".forge/ast-grep/rule-tests/typescript-nextjs-no-next-router-test.yml": "5da1551f9fa49969cdbfb6ef3ba847589327a2d7430a3cdc79f3637fc81586f1",
@@ -9860,7 +9900,7 @@ exit "$fail"
     ".forge/ast-grep/rules/typescript/zod/error-param.yml": "88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a",
     ".forge/ast-grep/rules/typescript/zod/v4-string-formats.yml": "a7503c000f128a4718f29b0122170295972560de99263354d6ed0db1a8cb099c",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "2811d950a4d0a49300c70a44af819202cede42b2406f1e53dd3effc61b07fe96",
+    ".forge/check.sh": "3ec4f0fecb75958e2f442150d02e7ef17368323a6dbe697f58b1a5f2ae3e11ee",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -9927,13 +9967,13 @@ d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills
 41a1b43e744ea13d84abd37c90686c0bcbc1f0707212d3d5a3b2f4b20bf2a877  .claude/skills/forge-project/scripts/guard.rules
 e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca  .claude/skills/forge-project/scripts/guard.sh
 3d4f97208cdf61a9ac95ef40b4f9eb8504d028abde4db487780aa36768199c6b  .claude/skills/forge-project/scripts/lib.sh
-fa6780c5f808d19b0dd31bdd79d9e53bbb19f1cf2de35e13259fe7315aa02952  .claude/skills/forge-project/scripts/post-edit.sh
+075aef1ace57c8aae3dfcff1401f74c44ac7a095f4df84d47988a911ef273fa7  .claude/skills/forge-project/scripts/post-edit.sh
 889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726  .claude/skills/forge-project/scripts/review.sh
-e88170ef4cb46ad79ac1ec5af068d6eb1df8165b41bea74f9b6f47a2d837581a  .claude/skills/forge-project/scripts/session-start.sh
+ff4b3db8a9400766e7c5de7695f14013c032ada27e87773b6e62117c1a86547d  .claude/skills/forge-project/scripts/session-start.sh
 f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173  .claude/skills/forge-project/scripts/stop.sh
-2b7241dc023a2741e821b5713c4e58a16fd627cc07d4ebae6a0f7bb5e7e59800  .claude/skills/forge-project/scripts/test-edit.sh
+447b4747e0a65fcfa98783e17575a605f8f47d6fbc49f489b3c0f464918a1f66  .claude/skills/forge-project/scripts/test-edit.sh
 fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3  .claude/skills/forge-project/scripts/turn-start.sh
-ee47cdeec82c464229b14bb73cce4e56f7d6c6fdf48d528bc9e881effeb702e1  .claude/skills/forge-project/scripts/typecheck.sh
+32e494b93cc696486505b3afe00fd53a33f79deae84ac20ac30b96e996d018a3  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 9d723e3c62b5697de0fa5ab80b735c3cef23225a07c81425c492cd8827faf06d  .forge/ast-grep/rule-tests/typescript-nextjs-no-legacy-image-config-test.yml
 5da1551f9fa49969cdbfb6ef3ba847589327a2d7430a3cdc79f3637fc81586f1  .forge/ast-grep/rule-tests/typescript-nextjs-no-next-router-test.yml
@@ -9996,7 +10036,7 @@ d3c41a3915d84b21e86e9212a06ad14c52bf2f9bcefb7c5ca433200cc3ec44fb  .forge/ast-gre
 88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a  .forge/ast-grep/rules/typescript/zod/error-param.yml
 a7503c000f128a4718f29b0122170295972560de99263354d6ed0db1a8cb099c  .forge/ast-grep/rules/typescript/zod/v4-string-formats.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-2811d950a4d0a49300c70a44af819202cede42b2406f1e53dd3effc61b07fe96  .forge/check.sh
+3ec4f0fecb75958e2f442150d02e7ef17368323a6dbe697f58b1a5f2ae3e11ee  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh
