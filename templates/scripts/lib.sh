@@ -84,12 +84,28 @@ astgrep() {
 # first_lines <n>: keep the first n lines of stdin.
 first_lines() { awk -v n="$1" 'NR <= n'; }
 
-# repo_root: cd to the git repository containing the hook's cwd.
+# repo_root: cd to the git repository containing the hook's cwd; sets FORGE_STATE.
 repo_root() {
   _cwd=$(json_get cwd)
   [ -n "$_cwd" ] && cd "$_cwd" 2>/dev/null || return 1
   _top=$(git rev-parse --show-toplevel 2>/dev/null) || return 1
   cd "$_top" || return 1
+  FORGE_STATE=$(forge_state_of "$(pwd -P)")
+}
+
+# forge_state_of <repository root>: where the hooks keep this repository's state
+# (turn snapshots, Stop results, the saved prompt, review verdicts, Bash snapshots):
+# outside the repository, so that the agent's own Bash commands (sandboxed to the
+# repository) cannot forge it: $FORGE_STATE_HOME (default ~/.claude/forge-state)
+# /<first 16 hex of the sha256 of the root's physical path>.
+forge_state_of() {
+  printf '%s/%s' "${FORGE_STATE_HOME:-$HOME/.claude/forge-state}" "$(printf '%s' "$1" | forge_sha256 | cut -c 1-16)"
+}
+
+# forge_state_dir: creates $FORGE_STATE (readable by the user only); fails when it cannot.
+forge_state_dir() {
+  [ -n "${FORGE_STATE:-}" ] || return 1
+  [ -d "$FORGE_STATE" ] || (umask 077 && mkdir -p "$FORGE_STATE") 2>/dev/null
 }
 
 # rel_path <path>: <path> relative to the current directory (the repository
@@ -192,7 +208,7 @@ added_lines() {
 }
 
 # turn_dir: the turn snapshot of this session (written by turn-start.sh).
-turn_dir() { printf '.forge/state/%s.turn' "$(session_id)"; }
+turn_dir() { printf '%s/%s.turn' "$FORGE_STATE" "$(session_id)"; }
 
 # ---- reviews of permission asks nobody can answer (review.sh)
 
@@ -279,22 +295,22 @@ You do not see the agent's conversation or its reasons, on purpose: judge the ac
   case $_rv_d in allow|deny) printf '%s\t%s' "$_rv_d" "${_rv_r:-no reason given}" ;; *) return 1 ;; esac
 }
 
-# forge_review_state: where reviews are logged and cached: .forge/state in a Forge
-# project, else ~/.claude.
+# forge_review_state: where reviews are logged and cached: the repository's state
+# directory (forge_state_of) in a Forge project, else ~/.claude.
 forge_review_state() {
-  if _rs_top=$(cd "$(json_get cwd)" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null) && [ -d "$_rs_top/.forge" ] \
-    && mkdir -p "$_rs_top/.forge/state" 2>/dev/null; then
-    printf '%s/.forge/state' "$_rs_top"
+  if _rs_top=$(cd "$(json_get cwd)" 2>/dev/null && cd "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null && pwd -P) \
+    && [ -d "$_rs_top/.forge" ] && FORGE_STATE=$(forge_state_of "$_rs_top") && forge_state_dir; then
+    printf '%s' "$FORGE_STATE"
   else
     printf '%s/.claude' "$HOME"
   fi
 }
 
 # forge_review_log <decision> <tool> <input> <reason>: one line per review in
-# .forge/state/reviews.log (in a Forge project) or ~/.claude/forge-reviews.log.
+# reviews.log in the state directory (in a Forge project) or ~/.claude/forge-reviews.log.
 forge_review_log() {
   _rl_f=$(forge_review_state)
-  case $_rl_f in */.forge/state) _rl_f=$_rl_f/reviews.log ;; *) _rl_f=$_rl_f/forge-reviews.log ;; esac
+  case $_rl_f in "$HOME/.claude") _rl_f=$_rl_f/forge-reviews.log ;; *) _rl_f=$_rl_f/reviews.log ;; esac
   printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$(session_id)" "$1" "$2" "$(printf '%s' "$3" | tr '\t\n' '  ')" "$4" >> "$_rl_f" 2>/dev/null
   return 0
 }
@@ -310,7 +326,7 @@ forge_kill_tree() {
 # ---- files changed by a Bash command (bash-snapshot.sh, post-edit.sh, typecheck.sh)
 
 # bash_state: where Bash-command snapshots live; bash_key: this tool call's id, file-name safe.
-bash_state() { printf '.forge/state/bash'; }
+bash_state() { printf '%s/bash' "$FORGE_STATE"; }
 bash_key() {
   _bk=$(json_get tool_use_id | tr -c 'A-Za-z0-9_-' '_')
   [ -n "$_bk" ] && printf '%s' "$_bk"

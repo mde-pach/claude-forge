@@ -775,6 +775,9 @@ describe("workspace packages", () => {
       const ok = sh("sh", [".forge/check.sh", "--changed"], { cwd: r });
       expect(ok.stdout).toContain("forge:typescript/typecheck ok for the changed files (errors remain in unchanged files");
       expect(ok.stdout).not.toContain("tsc (packages/core) not installed");
+      // tsc's build info goes to the root's .forge/state/, one file per package, never into the package
+      expect(existsSync(join(r, ".forge/state/packages-core.tsc.tsbuildinfo"))).toBe(true);
+      expect(git(r, "status", "--porcelain", "--untracked-files=all").stdout.trim()).toBe("?? packages/core/src/ok.ts");
       put(r, "packages/core/src/ok.ts", 'export const ok: number = "no";\n');
       const bad = sh("sh", [".forge/check.sh", "--changed"], { cwd: r });
       expect(bad.status).toBe(1);
@@ -793,6 +796,7 @@ describe("workspace packages", () => {
       const c = sh("sh", [".forge/check.sh", "--changed"], { cwd: r });
       expect(c.status).toBe(1);
       expect(c.stdout).toContain("forge:typescript/format-lint failed\npackages/core/src/ok.ts:1:18 lint/suspicious/noExplicitAny");
+      expect(git(r, "status", "--porcelain", "--untracked-files=all").stdout.trim()).toBe("?? packages/core/src/ok.ts");
     },
     T,
   );
@@ -805,6 +809,7 @@ describe("workspace packages", () => {
       put(r, "packages/core/src/ok.ts", 'export const ok: number = "no";\n');
       const c = sh("sh", [".forge/check.sh", "--changed"], { cwd: r });
       expect(c.stdout).toContain("forge:typescript/typecheck failed\npackages/core/src/ok.ts(1,14): error TS2322");
+      expect(git(r, "status", "--porcelain", "--untracked-files=all").stdout.trim()).toBe("?? packages/core/src/ok.ts");
       const status = forge(["status"], r).stdout;
       expect(status).not.toContain("tsc (packages/core)");
       expect(status).not.toContain("biome (packages/core)");

@@ -8,11 +8,11 @@
  * JSON; ast-grep runs through `bunx` or `uvx`.
  */
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { renderChecks } from "../../src/render";
-import { applied, commitAll, ensureTools, forge, git, hasBun, hasUv, hookJson, linkTools, put, sampleRepo, sh, TOOLS_CACHE } from "../helpers";
+import { applied, commitAll, ensureTools, forge, git, hasBun, hasUv, hookJson, linkTools, put, sampleRepo, sh, stateDir, TOOLS_CACHE } from "../helpers";
 
 const T = 180_000;
 const SCRIPTS = ".claude/skills/forge-project/scripts";
@@ -23,15 +23,17 @@ function hook(script: string, fields: Record<string, unknown>, env: Record<strin
   return sh("sh", [join(SCRIPTS, script)], { cwd, input: hookJson({ cwd, ...fields }), env: { CLAUDE_CODE_ENTRYPOINT: "cli", ...env } });
 }
 /**
- * Back to the committed tree, without what the hooks left: untracked files and
- * the ignored ones (.forge/state/ with its last-pass, last-fail and turn
- * snapshots, caches), all but the .venv the tests put tools in. Runs after
- * every test, so no test depends on what an earlier one left, failed or not.
+ * Back to the committed tree, without what the hooks left: untracked files, the
+ * ignored ones (.forge/state/ tool caches), all but the .venv the tests put tools
+ * in, and the hook state outside the repository (stateDir: last-pass, last-fail,
+ * turn snapshots, review cache). Runs after every test, so no test depends on
+ * what an earlier one left, failed or not.
  */
 function reset() {
   if (!repo) return;
   git(repo, "reset", "-q", "--hard");
   git(repo, "clean", "-qfdx", "-e", ".venv");
+  rmSync(stateDir(repo), { recursive: true, force: true });
 }
 afterEach(reset);
 /** Runs <fn> with the real basedpyright (TOOL_VERSIONS.basedpyright) linked into the repository's .venv, removed afterwards. */
@@ -137,7 +139,7 @@ describe("SessionStart", () => {
   test(
     "missing tools are reported once, not at every session start",
     () => {
-      rmSync(join(repo, ".forge/state/missing-tools"), { force: true });
+      rmSync(join(stateDir(repo), "missing-tools"), { force: true });
       expect(hook("session-start.sh", { source: "startup" }).stdout).toContain("forge: missing tools");
       expect(hook("session-start.sh", { source: "compact" }).stdout).not.toContain("missing tools");
     },
@@ -167,7 +169,7 @@ describe("asks nobody can answer", () => {
   /** Runs a hook script; verdicts cached by an earlier test are dropped unless `keepCache`. */
   function run(script: string, fields: Record<string, unknown>, env: Record<string, string>, keepCache = false) {
     rmSync(log(), { force: true });
-    if (!keepCache) rmSync(join(ts, ".forge/state/review-cache"), { force: true });
+    if (!keepCache) rmSync(join(stateDir(ts), "review-cache"), { force: true });
     return sh("sh", [join(SCRIPTS, script)], {
       cwd: ts,
       input: hookJson({ cwd: ts, permission_mode: "default", ...fields }),
@@ -187,7 +189,7 @@ describe("asks nobody can answer", () => {
       const no = decision(run("guard.sh", npm, { FAKE_DECISION: "deny", FAKE_REASON: "Bun project", CLAUDE_CODE_ENTRYPOINT: "sdk-ts" }).stdout);
       expect(no.permissionDecision).toBe("deny");
       expect(no.permissionDecisionReason).toContain("nobody being there to answer: Bun project");
-      expect(readFileSync(join(ts, ".forge/state/reviews.log"), "utf8")).toContain("\tdeny\tBash\t");
+      expect(readFileSync(join(stateDir(ts), "reviews.log"), "utf8")).toContain("\tdeny\tBash\t");
     },
     T,
   );
@@ -259,6 +261,54 @@ describe("asks nobody can answer", () => {
     T,
   );
 
+  test(
+    "a verdict on a test edit is not reused once the request for the turn changed",
+    () => {
+      const edit = { hook_event_name: "PreToolUse", session_id: "s-req", tool_name: "Edit", tool_input: { file_path: join(ts, "a.test.ts"), old_string: "1", new_string: "2" } };
+      const pre = (request: string, d: string, keep: boolean) => {
+        rmSync(log(), { force: true });
+        if (!keep) rmSync(join(stateDir(ts), "review-cache"), { force: true });
+        return decision(
+          sh("sh", [join(SCRIPTS, "review.sh"), "pre", "typescript/vitest/no-test-edits", "changes a test", "Is it required?", request], {
+            cwd: ts,
+            input: hookJson({ cwd: ts, permission_mode: "default", ...edit }),
+            env: { PATH: `${bin}:${process.env.PATH}`, FAKE_LOG: log(), FAKE_REASON: "r", FAKE_DECISION: d, CLAUDE_CODE_ENTRYPOINT: "sdk-cli", FORGE_ASK_REVIEW: "", FORGE_REVIEWER: "" },
+          }).stdout,
+        ).permissionDecision;
+      };
+      expect(pre("Totals exclude the fee now: update the tests.", "allow", false)).toBe("allow");
+      expect(pre("Totals exclude the fee now: update the tests.", "deny", true)).toBe("allow");
+      expect(existsSync(log())).toBe(false);
+      expect(pre("Fix the failing build.", "deny", true)).toBe("deny");
+      expect(existsSync(log())).toBe(true);
+    },
+    T,
+  );
+
+  /** @rule safety/forge-state */
+  test(
+    "the hooks' state (review verdicts and log, the saved request, turn snapshots) lives outside the repository, readable by the user only, so the agent's Bash cannot forge it",
+    () => {
+      rmSync(join(ts, ".forge/state"), { recursive: true, force: true });
+      rmSync(stateDir(ts), { recursive: true, force: true });
+      run("turn-start.sh", { hook_event_name: "UserPromptSubmit", session_id: "s-state", prompt: "Add a cart total." }, {});
+      run("guard.sh", { ...npm, session_id: "s-state" }, { FAKE_DECISION: "deny" });
+      expect(readFileSync(join(stateDir(ts), "s-state.prompt"), "utf8")).toBe("Add a cart total.");
+      expect(existsSync(join(stateDir(ts), "s-state.turn/head"))).toBe(true);
+      expect(readFileSync(join(stateDir(ts), "review-cache"), "utf8")).toContain("s-state\t");
+      expect(readFileSync(join(stateDir(ts), "reviews.log"), "utf8")).toContain("\tdeny\tBash\t");
+      expect(statSync(stateDir(ts)).mode & 0o077).toBe(0);
+      expect(existsSync(join(ts, ".forge/state"))).toBe(false);
+      // a verdict planted where the cache used to be is not read
+      mkdirSync(join(ts, ".forge/state"), { recursive: true });
+      writeFileSync(join(ts, ".forge/state/review-cache"), readFileSync(join(stateDir(ts), "review-cache"), "utf8").replace("\tdeny\t", "\tallow\t"));
+      rmSync(join(stateDir(ts), "review-cache"));
+      expect(decision(run("guard.sh", { ...npm, session_id: "s-state" }, { FAKE_DECISION: "deny" }, true).stdout).permissionDecision).toBe("deny");
+      rmSync(join(ts, ".forge/state"), { recursive: true, force: true });
+    },
+    T,
+  );
+
   test.each([
     ["an interactive session (entrypoint cli): the usual prompt", { CLAUDE_CODE_ENTRYPOINT: "cli" }, {}],
     ["FORGE_ASK_REVIEW=never", { FORGE_ASK_REVIEW: "never" }, {}],
@@ -324,7 +374,7 @@ describe("files changed by Bash", () => {
       expect(out.additionalContext).toContain("forge:python/sqlalchemy/no-query-api app/via_bash.py:2:12");
       expect(readFileSync(join(repo, ".git/index")).equals(index)).toBe(true);
       expect(objects()).toBe(before);
-      expect(existsSync(join(repo, ".forge/state/bash/objects"))).toBe(false);
+      expect(existsSync(join(stateDir(repo), "bash/objects"))).toBe(false);
       reset();
     },
     T,
@@ -361,7 +411,7 @@ describe("files changed by Bash", () => {
         const r = hook("typecheck.sh", failed("toolu_f1"));
         expect(r.status).toBe(2);
         expect(r.stderr).toContain("app/partial_b.py:1:10 - error: Type \"Literal['no']\" is not assignable to declared type \"int\"");
-        expect(readdirSync(join(repo, ".forge/state/bash")).filter((f) => f.startsWith("toolu_f1"))).toEqual([]);
+        expect(readdirSync(join(stateDir(repo), "bash")).filter((f) => f.startsWith("toolu_f1"))).toEqual([]);
         hook("bash-snapshot.sh", bash("toolu_f2"));
         put(repo, "app/interrupted.py", "def g(session):\n    return session.query(2)\n");
         expect(JSON.parse(hook("post-edit.sh", failed("toolu_f2", { error: "Interrupted", is_interrupt: true })).stdout).hookSpecificOutput.additionalContext).toContain(
@@ -440,7 +490,7 @@ describe("files changed by Bash", () => {
         expect(r.status).toBe(2);
         expect(r.stderr).toContain("forge:python/typecheck");
         expect(r.stderr).toContain("app/typed.py:1:10 - error: Type \"Literal['no']\" is not assignable to declared type \"int\"");
-        expect(existsSync(join(repo, ".forge/state/bash/toolu_b5.files"))).toBe(false);
+        expect(existsSync(join(stateDir(repo), "bash/toolu_b5.files"))).toBe(false);
       }),
     T,
   );
@@ -448,13 +498,13 @@ describe("files changed by Bash", () => {
   test(
     "snapshots of commands that never finished (denied by the guard) are cleaned: older than a day, or beyond the 50 newest",
     () => {
-      mkdirSync(join(repo, ".forge/state/bash"), { recursive: true });
-      for (let i = 0; i < 60; i++) writeFileSync(join(repo, `.forge/state/bash/stale${i}.tree`), "x\n");
+      mkdirSync(join(stateDir(repo), "bash"), { recursive: true });
+      for (let i = 0; i < 60; i++) writeFileSync(join(stateDir(repo), `bash/stale${i}.tree`), "x\n");
       hook("bash-snapshot.sh", bash("toolu_b6"));
-      const left = readdirSync(join(repo, ".forge/state/bash")).filter((f) => f.endsWith(".tree"));
+      const left = readdirSync(join(stateDir(repo), "bash")).filter((f) => f.endsWith(".tree"));
       expect(left.length).toBeLessThanOrEqual(51);
       expect(left).toContain("toolu_b6.tree");
-      rmSync(join(repo, ".forge/state/bash"), { recursive: true, force: true });
+      rmSync(join(stateDir(repo), "bash"), { recursive: true, force: true });
     },
     T,
   );
@@ -462,13 +512,13 @@ describe("files changed by Bash", () => {
   test(
     "when the tree is too large to snapshot in time, the change is left to Stop, with a note given once",
     () => {
-      mkdirSync(join(repo, ".forge/state/bash"), { recursive: true });
-      rmSync(join(repo, ".forge/state/bash/snapshot-skipped"), { force: true });
-      writeFileSync(join(repo, ".forge/state/bash/toolu_b7.tree"), "skipped\n");
+      mkdirSync(join(stateDir(repo), "bash"), { recursive: true });
+      rmSync(join(stateDir(repo), "bash/snapshot-skipped"), { force: true });
+      writeFileSync(join(stateDir(repo), "bash/toolu_b7.tree"), "skipped\n");
       expect(JSON.parse(hook("post-edit.sh", bash("toolu_b7")).stdout).hookSpecificOutput.additionalContext).toContain("the Stop check still covers them");
-      writeFileSync(join(repo, ".forge/state/bash/toolu_b8.tree"), "skipped\n");
+      writeFileSync(join(stateDir(repo), "bash/toolu_b8.tree"), "skipped\n");
       expect(hook("post-edit.sh", bash("toolu_b8")).stdout).toBe("");
-      rmSync(join(repo, ".forge/state/bash"), { recursive: true, force: true });
+      rmSync(join(stateDir(repo), "bash"), { recursive: true, force: true });
     },
     T,
   );
@@ -631,7 +681,7 @@ describe("PostToolUse", () => {
         expect(r.stdout).toContain("second=0");
         expect(r.stdout).toContain("first=2");
         expect(r.stderr).toContain("forge:python/typecheck\napp/main.py:1:1 - error: stand-in type error");
-        expect(existsSync(join(repo, ".forge/state/typecheck.lock"))).toBe(false);
+        expect(existsSync(join(stateDir(repo), "typecheck.lock"))).toBe(false);
       }),
     T,
   );
@@ -650,14 +700,25 @@ describe("PostToolUse", () => {
         put(repo, "app/main.py", readFileSync(join(repo, "app/main.py"), "utf8") + '\nBROKEN: int = "no"\n');
         const input = join(mkdtempSync(join(tmpdir(), "forge-in-")), "in.json");
         writeFileSync(input, hookJson({ cwd: repo, ...edit("app/main.py") }));
-        const run = (env: Record<string, string>, ...args: string[]) =>
-          sh("sh", ["-c", 'sh "$0" < "$1"; exit $?', join(SCRIPTS, "typecheck.sh"), input, ...args], { cwd: repo, env: { FORGE_EDIT_TYPECHECK: "", ...env } });
+        // each run is a session of its own unless the session's answer is kept
+        const rewake = join(stateDir(repo), "test.rewake");
+        const run = (env: Record<string, string>, ...args: string[]) => {
+          if (!env.KEEP) rmSync(rewake, { force: true });
+          return sh("sh", ["-c", 'sh "$0" < "$1"; exit $?', join(SCRIPTS, "typecheck.sh"), input, ...args], { cwd: repo, env: { FORGE_EDIT_TYPECHECK: "", ...env } });
+        };
         const headless = run({ CLAUDE_CODE_ENTRYPOINT: "sdk-cli" });
         expect(headless.status).toBe(0);
         expect(headless.stderr).toBe("");
         expect(run({ CLAUDE_CODE_ENTRYPOINT: "sdk-cli" }, "--input-format", "stream-json").status).toBe(2);
         expect(run({ CLAUDE_CODE_ENTRYPOINT: "sdk-cli", FORGE_EDIT_TYPECHECK: "always" }).status).toBe(2);
         expect(run({ CLAUDE_CODE_ENTRYPOINT: "cli" }).status).toBe(2);
+        // the ancestors are looked up once per session (session "test" here), then the answer is reused
+        expect(run({ CLAUDE_CODE_ENTRYPOINT: "sdk-cli" }, "--input-format", "stream-json").status).toBe(2);
+        expect(readFileSync(rewake, "utf8")).toBe("runs\n");
+        expect(run({ CLAUDE_CODE_ENTRYPOINT: "sdk-cli", KEEP: "1" }).status).toBe(2);
+        writeFileSync(rewake, "blocks\n");
+        expect(run({ CLAUDE_CODE_ENTRYPOINT: "sdk-cli", KEEP: "1" }, "--input-format", "stream-json").status).toBe(0);
+        rmSync(rewake);
       }),
     T,
   );
@@ -667,14 +728,30 @@ describe("PostToolUse", () => {
     () =>
       withStub("basedpyright", FAILING_TYPECHECK, () => {
         put(repo, "app/main.py", readFileSync(join(repo, "app/main.py"), "utf8") + "\nX = 1\n");
-        mkdirSync(join(repo, ".forge/state/typecheck.lock"), { recursive: true });
-        writeFileSync(join(repo, ".forge/state/typecheck.lock/pid"), "999999\n");
+        mkdirSync(join(stateDir(repo), "typecheck.lock"), { recursive: true });
+        writeFileSync(join(stateDir(repo), "typecheck.lock/pid"), "999999\n");
         // it ran (a skipped typecheck exits 0 silently) and released the lock
         const r = hook("typecheck.sh", edit("app/main.py"));
         expect(r.status).toBe(2);
         expect(r.stderr).toContain("app/main.py:1:1 - error: stand-in type error");
-        expect(existsSync(join(repo, ".forge/state/typecheck.lock"))).toBe(false);
+        expect(existsSync(join(stateDir(repo), "typecheck.lock"))).toBe(false);
       }),
+    T,
+  );
+
+  test(
+    "a lock whose pid is not written yet belongs to a typecheck that just started: it is kept, and taken over only once it is a minute old",
+    () => {
+      const lock = join(stateDir(repo), "typecheck.lock");
+      mkdirSync(lock, { recursive: true });
+      expect(hook("typecheck.sh", edit("app/main.py")).status).toBe(0);
+      expect(existsSync(lock)).toBe(true);
+      const old = new Date(Date.now() - 5 * 60_000);
+      utimesSync(lock, old, old);
+      hook("typecheck.sh", edit("app/main.py"));
+      expect(existsSync(lock)).toBe(false);
+      reset();
+    },
     T,
   );
 });
@@ -728,6 +805,23 @@ describe("test edits", () => {
     T,
   );
 
+  /** @rule python/pytest/no-test-edits */
+  test(
+    "a test file whose name holds = (test_rate=fee.py) is read as a file, so changing its test asks too",
+    () => {
+      const t = "test_rate=fee.py";
+      head = git(repo, "rev-parse", "HEAD").stdout.trim();
+      put(repo, t, BEFORE);
+      git(repo, "add", t);
+      git(repo, "commit", "-qm", "tests", "--no-verify");
+      hook("turn-start.sh", { session_id: "s-eq", hook_event_name: "UserPromptSubmit", prompt: "Fix it." });
+      const out = hook("test-edit.sh", { session_id: "s-eq", hook_event_name: "PreToolUse", tool_name: "Edit", tool_use_id: "tu-eq", tool_input: { file_path: join(repo, t), old_string: "== 100", new_string: "== 90" } }, human).stdout;
+      expect(ask(out).permissionDecisionReason).toContain('test_rate=fee.py "test_total" (changed)');
+      finish();
+    },
+    T,
+  );
+
   test(
     "nobody being there, the reviewer answers whether the change is required by the user's request for the turn, which turn-start.sh saved",
     () => {
@@ -736,7 +830,7 @@ describe("test edits", () => {
       chmodSync(join(bin, "claude"), 0o755);
       const log = join(bin, "log");
       start("s-te2", "Totals now exclude the 10 EUR fee: update the behaviour and its tests.");
-      expect(readFileSync(join(repo, ".forge/state/s-te2.prompt"), "utf8")).toBe("Totals now exclude the 10 EUR fee: update the behaviour and its tests.");
+      expect(readFileSync(join(stateDir(repo), "s-te2.prompt"), "utf8")).toBe("Totals now exclude the 10 EUR fee: update the behaviour and its tests.");
       const out = ask(
         call("s-te2", "PreToolUse", "Edit", { old_string: "== 100", new_string: "== 90" }, { PATH: `${bin}:${process.env.PATH}`, FAKE_LOG: log, CLAUDE_CODE_ENTRYPOINT: "sdk-cli", FORGE_ASK_REVIEW: "", FORGE_REVIEWER: "" }),
       );
@@ -756,7 +850,7 @@ describe("test edits", () => {
       expect(ask(call("s-te3", "PreToolUse", "Edit", { old_string: "== 100", new_string: "== 90" }, human, "tu-ok")).permissionDecision).toBe("ask");
       put(repo, TEST, BEFORE.replace("== 100", "== 90"));
       call("s-te3", "PostToolUse", "Edit", { old_string: "== 100", new_string: "== 90" }, human, "tu-ok");
-      expect(readFileSync(join(repo, ".forge/state/s-te3.turn/tests-approved"), "utf8")).toBe("tests/test_cart.py\ttest_total\n");
+      expect(readFileSync(join(stateDir(repo), "s-te3.turn/tests-approved"), "utf8")).toBe("tests/test_cart.py\ttest_total\n");
       const stop = (session: string) => hook("stop.sh", { session_id: session }).stdout;
       expect(stop("s-te3")).not.toContain("no-test-edits");
       // the same change in a new turn, made without asking (e.g. through Bash)
@@ -796,11 +890,11 @@ describe("test edits", () => {
     () => {
       start("s-te5");
       call("s-te5", "PostToolUse", "Edit", { old_string: "== 100", new_string: "== 90" }, human, "tu-rev");
-      expect(readFileSync(join(repo, ".forge/state/s-te5.turn/touched"), "utf8")).toBe("tests/test_cart.py\n");
+      expect(readFileSync(join(stateDir(repo), "s-te5.turn/touched"), "utf8")).toBe("tests/test_cart.py\n");
       const engine = join(mkdtempSync(join(tmpdir(), "forge-engine-")), "engine.sh");
       writeFileSync(engine, renderChecks([]));
       const related = (mode: string) =>
-        sh("sh", ["-c", `. "$1"; mode=$2; FORGE_ARG=.forge/state/s-te5.turn; forge_related_py_tests app/main.py`, "x", engine, mode], { cwd: repo }).stdout;
+        sh("sh", ["-c", `. "$1"; mode=$2; FORGE_ARG=$3; forge_related_py_tests app/main.py`, "x", engine, mode, join(stateDir(repo), "s-te5.turn")], { cwd: repo }).stdout;
       expect(related("--turn")).toContain("tests/test_cart.py\n");
       expect(related("--changed")).not.toContain("tests/test_cart.py");
       finish();
@@ -832,7 +926,7 @@ describe("Stop", () => {
       put(repo, "app/ok.py", "X = 1\n");
       put(repo, "tests/test_ok.py", OK_TEST);
       expect(hook("stop.sh", { session_id: "s-2" }).stdout).toBe("");
-      expect(existsSync(join(repo, ".forge/state/last-pass"))).toBe(true);
+      expect(existsSync(join(stateDir(repo), "last-pass"))).toBe(true);
       // a pytest that fails, put in .venv (ignored: the tree is the same): the check would now fail if it ran
       const runs = join(repo, ".venv", "runs");
       withStub("pytest", `echo run >> "${runs}"; echo "FAILED tests/test_ok.py::test_ok"; exit 1`, () => {
@@ -852,7 +946,7 @@ describe("Stop", () => {
       put(repo, "app/ok.py", "X = 1\n");
       put(repo, "tests/test_ok.py", OK_TEST);
       expect(hook("stop.sh", { session_id: "s-2" }).stdout).toBe("");
-      expect(existsSync(join(repo, ".forge/state/s-2.turn/pass"))).toBe(true);
+      expect(existsSync(join(stateDir(repo), "s-2.turn/pass"))).toBe(true);
       reset();
     },
     T,
@@ -885,7 +979,7 @@ describe("Stop", () => {
   test(
     "without a turn-start snapshot (e.g. the first Stop after forge apply) the check runs on every changed file, as before",
     () => {
-      rmSync(join(repo, ".forge/state/t-3.turn"), { recursive: true, force: true });
+      rmSync(join(stateDir(repo), "t-3.turn"), { recursive: true, force: true });
       put(repo, "app/wip.py", "def f(session):\n    return session.query(1)\n");
       expect(JSON.parse(hook("stop.sh", { session_id: "t-3" }).stdout).decision).toBe("block");
       reset();
@@ -912,7 +1006,7 @@ describe("Stop", () => {
     () => {
       put(repo, "app/wip.py", "X = 1\n");
       hook("turn-start.sh", { session_id: "t-5" });
-      const snap = join(repo, ".forge/state/t-5.turn");
+      const snap = join(stateDir(repo), "t-5.turn");
       expect(readFileSync(join(snap, "head"), "utf8").trim()).toBe(git(repo, "rev-parse", "HEAD").stdout.trim());
       expect(readFileSync(join(snap, "dirty"), "utf8")).toBe(`app/wip.py\t${git(repo, "hash-object", "app/wip.py").stdout.trim()}\n`);
       expect(readFileSync(join(snap, "files/app/wip.py"), "utf8")).toBe("X = 1\n");
@@ -1087,6 +1181,27 @@ describe("Stop", () => {
       put(repo, "app/span2.py", "class Span:\n    def set_attribute(self) -> None: ... # pragma: no cover\n\nX = 1\n");
       const ctx = JSON.parse(hook("post-edit.sh", { session_id: "t-fmt2", ...edit("app/span2.py") }).stdout).hookSpecificOutput.additionalContext;
       expect(ctx).toContain("forge:python/no-stub app/span2.py:2:");
+      reset();
+    },
+    T,
+  );
+
+  /**
+   * The diff against the base and the one against the formatted base can align a
+   * repeated line differently: Claude duplicating an existing line is added as the
+   * first copy in one and as the second in the other. Such a line still counts.
+   * @rule python/format python/no-placeholder-comment
+   */
+  test(
+    "a line Claude duplicated in a file the formatter also rewrote is still an added line",
+    () => {
+      put(repo, "app/rate.py", "A  = 1\nRATE = 0.2  # placeholder value\n");
+      hook("turn-start.sh", { session_id: "t-fmt3" });
+      put(repo, "app/rate.py", "A = 1\nRATE = 0.2  # placeholder value\nRATE = 0.2  # placeholder value\n");
+      addTest();
+      const ctx = JSON.parse(hook("post-edit.sh", { session_id: "t-fmt3", ...edit("app/rate.py") }).stdout).hookSpecificOutput.additionalContext;
+      expect(ctx).toMatch(/forge:python\/no-placeholder-comment app\/rate\.py:[23] /);
+      expect(hook("stop.sh", { session_id: "t-fmt3" }).stdout).toContain("forge:python/no-placeholder-comment app/rate.py:");
       reset();
     },
     T,

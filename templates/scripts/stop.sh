@@ -11,9 +11,9 @@ FORGE_INPUT=$(cat)
 . "$dir/lib.sh"
 repo_root || exit 0
 [ -f .forge/check.sh ] || { printf '{"decision":"block","reason":"forge:forge/integrity .forge/check.sh is missing (run forge apply)"}\n'; exit 0; }
-mkdir -p .forge/state 2>/dev/null
+forge_state_dir
 
-counter=.forge/state/$(session_id).blocks
+counter=$FORGE_STATE/$(session_id).blocks
 snap=$(turn_dir)
 hash=$(tree_hash)
 if [ -f "$snap/head" ]; then
@@ -24,8 +24,8 @@ if [ -f "$snap/head" ]; then
   hash="$hash $(git rev-parse -q --verify HEAD 2>/dev/null)"
   set -- --turn "$snap"
 else
-  passed=.forge/state/last-pass
-  failed=.forge/state/last-fail
+  passed=$FORGE_STATE/last-pass
+  failed=$FORGE_STATE/last-fail
   set -- --changed
 fi
 [ "$hash" = "$(cat "$passed" 2>/dev/null)" ] && exit 0

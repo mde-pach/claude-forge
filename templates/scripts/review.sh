@@ -26,13 +26,15 @@ if [ "$event" = permission ] && [ "$(basename "$(dirname "$dir")")" = forge-proj
 
 tool=$(json_get tool_name)
 input=$(printf '%s' "$FORGE_INPUT" | forge_json_object tool_input)
-# the same rule on the same input (whitespace aside) gets the same verdict within a session
+# the same rule on the same input (whitespace aside), with the same concern and the same
+# request for the turn, gets the same verdict within a session (an approval given for
+# one request is not reused once the user asks for something else)
 key=''
 verdict=''
 if [ "$event" = pre ]; then
-  key=$(printf '%s\t%s' "$why" "$input" | tr -s ' \t\n' '   ' | forge_sha256)
+  key=$(printf '%s\t%s\t%s\t%s' "$why" "$input" "$concern" "$request" | tr -s ' \t\n' '   ' | forge_sha256)
   cache=$(forge_review_state)
-  case $cache in */.forge/state) cache=$cache/review-cache ;; *) cache=$cache/forge-review-cache ;; esac
+  case $cache in "$HOME/.claude") cache=$cache/forge-review-cache ;; *) cache=$cache/review-cache ;; esac
   verdict=$(awk -F '\t' -v s="$(session_id)" -v k="$key" '$1 == s && $2 == k { v = $3 "\t" $4 } END { if (v != "") print v; else exit 1 }' "$cache" 2>/dev/null) \
     || verdict=''
 fi

@@ -23,11 +23,11 @@ fi
 printf 'forge: packs @@PACKS@@\n'
 
 missing=$(forge_missing_tools)
-state=.forge/state/missing-tools
+state=$FORGE_STATE/missing-tools
 if [ -n "$missing" ]; then
   if [ "$missing" != "$(cat "$state" 2>/dev/null)" ]; then
     printf 'forge: missing tools (checks using them are skipped): %s\n' "$missing"
-    mkdir -p .forge/state 2>/dev/null && printf '%s\n' "$missing" > "$state"
+    forge_state_dir && printf '%s\n' "$missing" > "$state"
   fi
 else
   rm -f "$state" 2>/dev/null
