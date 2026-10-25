@@ -87,6 +87,7 @@ requires: [pack-id]         # other branches only; the parent is implied
 detect:                     # omitted for user-level packs
   files_any: [glob]
   deps_any: [{ecosystem: pypi | npm, name: string, version: semver-range}]
+  library_any: [pypi | npm]  # the project is a library published there (§13.4)
 ```
 
 - A root pack is active when detected; a child pack is active when its parent is active **and** it is detected.
@@ -527,6 +528,7 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `python/no-placeholder-comment` | `grep` forbid (case-insensitive): comments such as `TODO: implement`, "in a real implementation", "placeholder logic", "stub for now" |
 | `python/no-ssrf` | `ast-grep` advise: in a function decorated `@<x>.get/post/put/patch/delete/api_route/route/websocket(…)`, a `requests` / `httpx` / `client` / `http_client` / `async_client` request or `urlopen` whose first positional argument or `url=` is a parameter (not `Depends` / `Security`), an attribute, item or `.query_params.get()` of one, `str()` of one, or an f-string starting with one; not when the function calls `*allowed_url*`, `*safe_host*`, `validate_url`, `check_domain`, … or names an `ALLOWED_HOSTS`-style set |
 | `python/env-example` | `check` lint: `forge_env_example py`, not with `--all`: a field added to a pydantic-settings `BaseSettings` class (`env_prefix`, `alias`, `case_sensitive` applied) appears in the nearest directory's `.env.example`, `.env.template`, `.env.sample`, `.env.dist` or `.env.<name>.example` (a `# KEY=` line counts): always without a default, also with one when the template lists at least half of the class's variables; a template listing none of them is not about that class |
+| `python/no-secret-logging` | `ast-grep` forbid, not in tests, management commands, `scripts/**`, `cli.py`: a name, attribute or header like `token`, `secret`, `password`, `api_key`, `secret_key`, `private_key`, `access_key`, `authorization`, `credentials` (not `max_tokens`, `has_token`, `next_page_token`, `password_hash`) passed to a logger method, `print()` or a raised exception: as an argument, in an f-string, with `+`, as a keyword or `extra` dict value |
 
 context.md: uv and `.venv/bin`, basedpyright; no blocking calls in `async def`; ignore comments name their rule; search for an existing helper (warn-once, logging, utils) before writing one; request-derived URLs are allow-listed (advice).
 
@@ -564,6 +566,7 @@ context.md: uv and `.venv/bin`, basedpyright; no blocking calls in `async def`; 
 | `typescript/config-ratchet` | `check` lint: `forge_ratchet bun ratchet.mjs` (§10.4), `when_changed`: Biome, tsconfig and `package.json` files |
 | `typescript/lockfile-updated` | `check` lint: `forge_lockfile_updated`: a `package.json` whose `dependencies`, `devDependencies` or `optionalDependencies` changed since the base comes with a changed lock file (`pnpm-lock.yaml`, `package-lock.json`, `npm-shrinkwrap.json`, `yarn.lock`, `bun.lock`) when one exists next to it or at the root; `when_changed: [**/package.json]`. At Stop it blocks once per turn, then prints `accepted` and passes (`forge_once`: the package manager may not run here); pre-commit and CI always fail. (`python/uv/lock-sync` covers `pyproject.toml`.) |
 | `typescript/env-example` | `check` lint: `forge_env_example ts`, as `python/env-example` for the UPPER_CASE keys of a Zod env schema (t3-env `createEnv`, or `z.object(…)` with `process.env`) whose value is a `z.` chain; a key with `.default()`, `.optional()` or `.catch()` counts as having a default |
+| `typescript/no-secret-logging` | `ast-grep` forbid, not in tests, `e2e/**`, `scripts/**`: the Python list in camelCase too (`accessToken`, `apiKey`, `clientSecret`; not `maxTokens`, `hasToken`, `passwordHash`) passed to `console.*`, a logger's methods or a thrown error: as an argument, in a template literal, with `+`, as an object property |
 
 context.md: strict TypeScript and Bun; TypeScript 6 deprecations are migrated, never silenced with `ignoreDeprecations`; no `!` or `as unknown as`; search for an existing helper (warn-once, logging, `util.*`) before writing one; request-derived URLs are allow-listed (advice).
 
@@ -641,6 +644,64 @@ context.md: "Pydantic v2: `model_validate`, `model_dump`, `model_config = Config
 | `python/pytest/untested-change` | `check` lint, advisory (§10.7): `forge_untested_change` on non-test `*.py` (not migrations) |
 
 context.md: tests assert behaviour, never weakened; "When the task changes behaviour an existing test asserts, update that test in place with Edit or Write (keep its name; Forge asks for approval) and say so in your summary. Otherwise never edit an existing test to make the code pass."
+
+### python/django
+
+Detected by `django` (pypi) or a `manage.py` at the root or one level down.
+
+| Rule | Targets |
+|---|---|
+| `python/django/makemigrations` | `check` migration: the shallowest tracked `manage.py`, `python <manage.py> makemigrations --check --dry-run --no-input` (no database needed: Django only warns when it cannot check the migration history); fails on "Migrations for", any other failure (settings that need an environment variable, a missing module) prints `skipped:` with the error's last line; `when_changed`: models, migrations, settings; timeout 120 s |
+| `python/django/no-raw-sql-format` | `ast-grep` forbid, not in migrations: `.raw()`, `.execute()`, `.executemany()`, `RawSQL()` whose SQL is an f-string, `.format()`, `%` or `+`; `.extra()` with `select`, `where`, `tables` or `order_by` |
+| `python/django/flake8-django` | `tool` ruff `DJ001`, `DJ003`, `DJ006`, `DJ007`, `DJ013` |
+
+context.md: migrations generated and committed with model changes; SQL parameters; `select_related()` / `prefetch_related()` against N+1; `transaction.atomic()` and `transaction.on_commit()`.
+
+### python/django/drf
+
+Detected by `djangorestframework` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/django/drf/permission-classes` | `check` lint: `forge_helper python drf_permissions.py` (§13.4): unless a tracked module sets `DEFAULT_PERMISSION_CLASSES` to something other than `AllowAny`, a class whose bases are all DRF views, viewsets or model mixins sets `permission_classes` or `get_permissions`, and an `@api_view` function has `@permission_classes`; findings on the class or function line |
+| `python/django/drf/serializer-fields` | `ast-grep` forbid: `fields = "__all__"` in the `Meta` of a class whose bases name a `Serializer` |
+| `python/django/drf/no-allowany-write` | `ast-grep` forbid: `permission_classes` naming `AllowAny` in a `ModelViewSet`, a Create/Update/Destroy generic view or model mixin, or a class with `post`/`put`/`patch`/`delete`/`create`/`update`/`partial_update`/`destroy`; `@permission_classes([AllowAny])` on an `@api_view` with a write method; `AllowAny` as `DEFAULT_PERMISSION_CLASSES` |
+
+context.md: explicit serializer fields and `read_only_fields`; permission defaults; ask before opening a write endpoint.
+
+### python/celery
+
+Detected by `celery` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/celery/task-model-arg` | `ast-grep` forbid: a `@shared_task` / `@<app>.task` parameter annotated with a class imported from a `models` module; `self` passed to `.delay()`, `.apply_async()`, `.s()`, `.si()` inside a class whose bases name a `Model`; `instance` passed to them inside a `@receiver` handler |
+| `python/celery/bounded-retries` | `ast-grep` forbid: `max_retries=None`, `"max_retries": None` |
+| `python/celery/no-result-get-in-task` | `ast-grep` forbid: inside a task, `.get()`, `.wait()`, `.join()` on `.delay()` / `.apply_async()` / `AsyncResult()` results (directly or through a variable of the function) or on a called `group` / `chord` / `chain`; `disable_sync_subtasks=False` anywhere |
+
+context.md: ids as arguments, idempotent tasks queued from `transaction.on_commit()`, bounded retries, no waiting on results inside tasks.
+
+### python/library
+
+Detected by `library_any: [pypi]` (§13.4).
+
+| Rule | Targets |
+|---|---|
+| `python/library/all-exports` | `ast-grep` no-increase, not in tests: in a module with `__all__`, top-level function and class names without a leading underscore that `__all__` does not list |
+| `python/library/deprecation-shim` | `check` lint: `forge_helper python public_api.py` (§13.4), `when_changed`: `**/*.py`, `pyproject.toml` |
+
+context.md: `__all__` is the public API; removals and renames warn with `DeprecationWarning` until a major version.
+
+### typescript/library
+
+Detected by `library_any: [npm]` (§13.4).
+
+| Rule | Targets |
+|---|---|
+| `typescript/library/barrel-exports` | `check` lint: `forge_helper bun public_api.mjs barrel` (§13.4); `changed_run` with `{files}` |
+| `typescript/library/deprecation-shim` | `check` lint: `forge_helper bun public_api.mjs removed` (§13.4), `when_changed`: TypeScript and JavaScript files, `package.json` |
+
+context.md: entry points are the public API; listed re-exports stay complete; renamed exports stay as `@deprecated` aliases until a major version.
 
 ### typescript/bun
 
@@ -923,6 +984,17 @@ context.md: `compose.yaml` + `compose.override.yaml`, healthchecks with `conditi
 ### 13.3 hadolint
 
 `forge_hadolint <code>…` runs hadolint (pinned, from the `hadolint-bin` wheel through `uvx --from hadolint-bin==<pin>`) once per `check.sh` run on the Dockerfiles of the change, shared by the hadolint rules. Before running it, it hashes the binary and compares it with the upstream release's sha256 for the platform (embedded in Forge); a mismatch, an unknown platform, or no uvx prints `forge:<id> skipped: …` and does not block. It runs with `-c <file containing "ignored: []">` (the project's `.hadolint.yaml` ignores do not apply), `--disable-ignore-pragma` (inline `# hadolint ignore=` comments do not apply; a rule is disabled in `forge.yaml`), `--no-fail --no-color -f tty`; lines `path:line CODE level: message` of the named codes print as `path:line CODE: message`. `forge test` also checks the wheel's binary against the upstream checksum.
+
+### 13.4 Libraries and project-run helpers
+
+`detect.library_any` activates a pack when the project publishes a library to that ecosystem. **pypi:** `pyproject.toml` has `[project] name` and a `[build-system]` table (`uv init --lib`; `uv init` makes an application without one), no `[project.scripts]` or `[project.gui-scripts]` (`uv init --package`: a packaged application), no `Private ::` classifier, and the repository has no `manage.py`. **npm:** `package.json` is not `"private": true`, has a `name`, and has `exports`, or `main` / `module` together with `types`, `typings` or `files` (`main` alone is `npm init`'s default). A library that ships a CLI script is not detected; add the pack in `forge.yaml`.
+
+`forge_helper <runtime> <script> [args]` runs a script embedded in `check.sh` (like the ratchet's) with the project's `python` or `bun`, as `<script> <FORGE_TMP> [args]`, where the change set (`changed`, `inbase`, `base/`) is; findings are `path:line message` (line 0: the file as a whole), attributed like lint diagnostics; a finding line found in `forge.yaml` is accepted; exit 3 prints `skipped:`.
+
+- `drf_permissions.py`: §13 `python/django/drf/permission-classes`.
+- `public_api.py`: for each changed module whose base copy has a literal `__all__`, each name that left it, or every name of a deleted module, must still be defined with a deprecation: a `def` / `class` / assignment of that name mentioning `DeprecationWarning`, `FutureWarning` or `deprecated`, or a module `__getattr__` in a module that warns and names it. A major bump of `[project] version` allows removals.
+- `public_api.mjs removed`: the names the package's entry points (`exports`, `main`, `module`, `types`, with `dist/`, `lib/`, `build/`, … mapped to `src/` and `.js` / `.d.ts` to the source file; `export *` followed through relative modules) export in the base are still exported, unless the `package.json` major version went up. Reported at line 0 of the module that declared the name.
+- `public_api.mjs barrel`: a changed module whose names an entry point re-exports by list (`export { a, b } from "./m"`), and not with `export *`, has no new export missing from that list. Reported at the declaration's line.
 
 ## 14. Acceptance tests
 

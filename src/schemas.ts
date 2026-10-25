@@ -35,6 +35,8 @@ export const packSchema = {
             },
           },
         },
+        /** The project is a library published to that ecosystem (packs.ts, isPyLibrary / isNpmLibrary). */
+        library_any: { type: "array", items: { enum: ["pypi", "npm"] }, uniqueItems: true },
       },
     },
   },

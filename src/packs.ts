@@ -114,6 +114,8 @@ export interface DepFacts {
   npm: Map<string, string>;
   pypi: Map<string, string>;
   files: (glob: string) => boolean;
+  /** Ecosystems the project publishes a library to (see isPyLibrary, isNpmLibrary). */
+  library: Set<"pypi" | "npm">;
 }
 
 /** A workspace package: its directory (relative to the repository) and its own facts, globs relative to it. */
@@ -129,6 +131,30 @@ export interface WorkspaceFacts extends DepFacts {
 export interface ProjectFacts extends DepFacts {
   root: DepFacts;
   workspaces: WorkspaceFacts[];
+}
+
+/**
+ * A Python library: pyproject.toml names the project and declares a build backend
+ * (uv init --lib; an application from uv init has no [build-system]), ships no
+ * console or GUI scripts (uv init --package: a packaged application), is not marked
+ * "Private :: Do Not Upload", and the repository has no manage.py (a Django site).
+ */
+export function isPyLibrary(toml: Record<string, any>, hasManagePy: boolean): boolean {
+  const project = toml.project;
+  if (!project || typeof project.name !== "string" || !toml["build-system"]) return false;
+  if (project.scripts || project["gui-scripts"] || hasManagePy) return false;
+  return !(project.classifiers ?? []).some((c: unknown) => typeof c === "string" && c.startsWith("Private ::"));
+}
+
+/**
+ * An npm library: package.json is not "private": true, has a name, and declares what
+ * it exports: "exports", or "main" / "module" together with "types", "typings" or
+ * "files" ("main" alone is npm init's default, also in applications).
+ */
+export function isNpmLibrary(pkg: Record<string, unknown>): boolean {
+  if (pkg.private === true || typeof pkg.name !== "string") return false;
+  if (pkg.exports !== undefined) return true;
+  return (pkg.main !== undefined || pkg.module !== undefined) && (pkg.types !== undefined || pkg.typings !== undefined || pkg.files !== undefined);
 }
 
 function normPy(name: string): string {
@@ -152,14 +178,16 @@ function readTomlFile(file: string): Record<string, any> | undefined {
 }
 
 /** Dependencies declared by the package.json and pyproject.toml in dir (the root's must parse; a package's may not). */
-function readDeps(dir: string, strict: boolean): { npm: Map<string, string>; pypi: Map<string, string> } {
+function readDeps(dir: string, strict: boolean, hasManagePy = false): Omit<DepFacts, "files"> {
   const npm = new Map<string, string>();
   const pypi = new Map<string, string>();
+  const library = new Set<"pypi" | "npm">();
   const read = <T>(file: string, parse: (f: string) => T | undefined, raw: (t: string) => T) =>
     !existsSync(file) ? undefined : strict ? raw(readFileSync(file, "utf8")) : parse(file);
   const pkg = read(join(dir, "package.json"), readJson, (t) => JSON.parse(t) as Record<string, any>);
   for (const key of ["dependencies", "devDependencies", "optionalDependencies", "peerDependencies"])
     for (const [name, range] of Object.entries<unknown>(pkg?.[key] ?? {})) if (typeof range === "string") npm.set(name, versionFromRange(range));
+  if (pkg && isNpmLibrary(pkg)) library.add("npm");
   const toml = read(join(dir, "pyproject.toml"), readTomlFile, (t) => parseToml(t) as Record<string, any>);
   if (toml) {
     const reqs: string[] = [
@@ -174,8 +202,9 @@ function readDeps(dir: string, strict: boolean): { npm: Map<string, string>; pyp
       const m = /^\s*([A-Za-z0-9][A-Za-z0-9._-]*)\s*(?:\[[^\]]*\])?\s*(.*)$/.exec(req);
       if (m) pypi.set(normPy(m[1]!), versionFromPep440(m[2]!));
     }
+    if (isPyLibrary(toml, hasManagePy)) library.add("pypi");
   }
-  return { npm, pypi };
+  return { npm, pypi, library };
 }
 
 /**
@@ -218,7 +247,9 @@ export function workspaceDirs(repo: string, files: string[]): string[] {
 }
 
 export function readProjectFacts(repo: string, listFiles: () => string[]): ProjectFacts {
-  const { npm, pypi } = readDeps(repo, true);
+  const files = listFiles();
+  const hasManagePy = files.some((f) => f === "manage.py" || f.endsWith("/manage.py"));
+  const { npm, pypi, library } = readDeps(repo, true, hasManagePy);
   const bunLock = join(repo, "bun.lock");
   const lockNpm = new Map<string, string>();
   if (existsSync(bunLock)) {
@@ -245,13 +276,15 @@ export function readProjectFacts(repo: string, listFiles: () => string[]): Proje
     return deps;
   };
   resolve({ npm, pypi });
-  const files = listFiles();
   const matcher = (prefix: string) => {
     const mine = prefix ? files.filter((f) => f.startsWith(prefix + "/")).map((f) => f.slice(prefix.length + 1)) : files;
     return (glob: string) => mine.some((f) => globMatch(glob, f));
   };
-  const root: DepFacts = { npm, pypi, files: matcher("") };
-  const workspaces: WorkspaceFacts[] = workspaceDirs(repo, files).map((dir) => ({ dir, ...resolve(readDeps(join(repo, dir), false)), files: matcher(dir) }));
+  const root: DepFacts = { npm, pypi, library, files: matcher("") };
+  const workspaces: WorkspaceFacts[] = workspaceDirs(repo, files).map((dir) => {
+    const d = readDeps(join(repo, dir), false, hasManagePy);
+    return { dir, ...resolve(d), library: d.library, files: matcher(dir) };
+  });
   const merged = <T>(pick: (d: DepFacts) => Map<string, T>) => {
     const m = new Map<string, T>();
     for (const d of [...workspaces].reverse()) for (const [k, v] of pick(d)) m.set(k, v);
@@ -261,6 +294,8 @@ export function readProjectFacts(repo: string, listFiles: () => string[]): Proje
   return {
     npm: merged((d) => d.npm),
     pypi: merged((d) => d.pypi),
+    // a library published from the root or from any workspace package
+    library: new Set([...library, ...workspaces.flatMap((w) => [...w.library])]),
     files: (glob) => root.files(glob) || workspaces.some((w) => w.files(glob)),
     root,
     workspaces,
@@ -291,7 +326,8 @@ export function detectPack(pack: Pack, facts: DepFacts): boolean {
   if (!pack.detect) return false;
   return (
     (pack.detect.files_any ?? []).some((g) => facts.files(g)) ||
-    (pack.detect.deps_any ?? []).some((d) => depMatches(facts, d))
+    (pack.detect.deps_any ?? []).some((d) => depMatches(facts, d)) ||
+    (pack.detect.library_any ?? []).some((e) => facts.library.has(e))
   );
 }
 

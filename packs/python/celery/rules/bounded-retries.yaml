@@ -1,0 +1,20 @@
+id: python/celery/bounded-retries
+description: "Retries are bounded: no max_retries=None (retry forever) in a task's options, retry_kwargs or self.retry(). Use autoretry_for with max_retries and retry_backoff, or self.retry() with Celery's default of 3."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        - kind: keyword_argument
+          regex: "^max_retries[[:space:]]*=[[:space:]]*None$"
+        - kind: pair
+          regex: "^[\"']max_retries[\"'][[:space:]]*:[[:space:]]*None$"
+examples:
+  match:
+    - "@shared_task(bind=True, autoretry_for=(IOError,), max_retries=None)\ndef fetch(self, url_id: int) -> None:\n    download(url_id)\n"
+    - "@shared_task(bind=True)\ndef fetch(self, url_id: int) -> None:\n    try:\n        download(url_id)\n    except IOError as exc:\n        raise self.retry(exc=exc, max_retries=None)\n"
+    - "@app.task(autoretry_for=(IOError,), retry_kwargs={\"max_retries\": None})\ndef fetch(url_id: int) -> None:\n    download(url_id)\n"
+  no_match:
+    - "@shared_task(bind=True, autoretry_for=(IOError,), max_retries=5, retry_backoff=True)\ndef fetch(self, url_id: int) -> None:\n    download(url_id)\n"
+    - "@shared_task(bind=True)\ndef fetch(self, url_id: int) -> None:\n    try:\n        download(url_id)\n    except IOError as exc:\n        raise self.retry(exc=exc, countdown=60)\n"

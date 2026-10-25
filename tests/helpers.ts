@@ -131,6 +131,8 @@ export const TOOL_VERSIONS = {
   // typescript/vue/typecheck (vue-tsc runs on the JavaScript TypeScript 5 API, not tsc 7)
   "vue-tsc": "3.3.13",
   typescriptForVue: "5.9.3",
+  // python/django/makemigrations runs the project's manage.py (5.2 LTS: Python 3.10+)
+  django: "5.2.18",
 };
 export const TOOLS_CACHE = join(tmpdir(), "forge-tools-v2");
 export const hasBun = sh("sh", ["-c", "command -v bun"]).status === 0;
@@ -149,6 +151,11 @@ export function ensureTools(): void {
     let r = sh("uv", ["venv", "-q", join(TOOLS_CACHE, ".venv-alembic")]);
     if (r.status === 0)
       r = sh("uv", ["pip", "install", "-q", "--python", join(TOOLS_CACHE, ".venv-alembic/bin/python"), `alembic==${TOOL_VERSIONS.alembic}`, `sqlalchemy[asyncio]==${TOOL_VERSIONS.sqlalchemy}`]);
+    if (r.status !== 0) throw new Error(`uv install failed: ${r.stderr}`);
+  }
+  if (hasUv && !existsSync(join(TOOLS_CACHE, ".venv-django/bin/django-admin"))) {
+    let r = sh("uv", ["venv", "-q", "--allow-existing", join(TOOLS_CACHE, ".venv-django")]);
+    if (r.status === 0) r = sh("uv", ["pip", "install", "-q", "--python", join(TOOLS_CACHE, ".venv-django/bin/python"), `django==${TOOL_VERSIONS.django}`]);
     if (r.status !== 0) throw new Error(`uv install failed: ${r.stderr}`);
   }
   if (hasUv && !existsSync(join(TOOLS_CACHE, ".venv/bin/basedpyright"))) {
@@ -203,8 +210,9 @@ export function linkTs5(repo: string): void {
  * real directory: tools are linked, but React and its types are copied, because Biome does not
  * resolve types through symlinks (it would not see React's @deprecated tags).
  */
-export function linkTools(repo: string, kind: "node" | "python" | "alembic"): void {
+export function linkTools(repo: string, kind: "node" | "python" | "alembic" | "django"): void {
   if (kind === "python") symlinkSync(join(TOOLS_CACHE, ".venv"), join(repo, ".venv"));
+  else if (kind === "django") symlinkSync(join(TOOLS_CACHE, ".venv-django"), join(repo, ".venv"));
   else if (kind === "alembic") symlinkSync(join(TOOLS_CACHE, ".venv-alembic"), join(repo, ".venv"));
   else {
     const from = join(TOOLS_CACHE, "node_modules");
