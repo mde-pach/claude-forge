@@ -169,3 +169,7 @@ def main():
         th.start()
     for th in threads:
         th.join()
+
+
+if __name__ == "__main__":
+    main()
