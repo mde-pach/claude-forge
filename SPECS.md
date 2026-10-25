@@ -475,6 +475,8 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `safety/sql-destructive` | `guard` deny: `psql` with `DROP TABLE`, `DROP DATABASE`, `DROP SCHEMA`, `TRUNCATE` |
 | `safety/docker-volumes` | `guard` deny: `docker compose down` / `docker-compose down` with `-v` or `--volumes`, `docker volume rm`, `docker volume prune`, `docker system prune --volumes` |
 | `safety/package-add` | `permission` ask: `Bash(bun add:*)`, `Bash(uv add:*)` (hallucinated package names, slopsquatting) |
+| `safety/lockfile-hand-edit` | `permission` ask: `Edit(**/pnpm-lock.yaml)`, `Edit(**/package-lock.json)`, `Edit(**/npm-shrinkwrap.json)`, `Edit(**/yarn.lock)`, `Edit(**/bun.lock)`, `Edit(**/uv.lock)`, `Edit(**/poetry.lock)`, `Edit(**/Cargo.lock)` (the package manager writes lock files) |
+| `safety/lockfile-bash-write` | `guard` deny: the same lock files rewritten through Bash: `sed -i` / `perl -i`, a `>` / `>>` redirect or `tee` into one, a `python` / `node` / `bun` / `deno` / `ruby` command naming one and writing (`.write(`, `write_text`, `writeFile`, `Bun.write`, `open(…, 'w')`) |
 | `safety/prisma-ai-consent` | `guard` deny: any command containing `PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION` (only the user gives that consent) |
 | `safety/terraform-destroy` | `guard` ask: `terraform` / `tofu` `destroy`, `apply … -auto-approve` |
 | `safety/git-stash-drop` | `guard` ask: `git stash drop` (`git stash clear` is denied by `git-history-rewrite`) |
@@ -523,7 +525,7 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `python/stub-sync` | `check` lint, advisory (§10.7): `forge_stub_sync` on `*.py` |
 | `python/no-placeholder-comment` | `grep` forbid (case-insensitive): comments such as `TODO: implement`, "in a real implementation", "placeholder logic", "stub for now" |
 
-context.md: uv and `.venv/bin`, basedpyright; no blocking calls in `async def`; ignore comments name their rule.
+context.md: uv and `.venv/bin`, basedpyright; no blocking calls in `async def`; ignore comments name their rule; search for an existing helper (warn-once, logging, utils) before writing one.
 
 ### typescript
 
@@ -547,6 +549,7 @@ context.md: uv and `.venv/bin`, basedpyright; no blocking calls in `async def`; 
 | `typescript/no-new-suppressions` | `grep` no-increase: `biome-ignore` (every form), `@ts-expect-error` (suppression budget; `@ts-ignore` and `@ts-nocheck` are forbidden outright) |
 | `typescript/no-empty-block` | `tool` biome `lint/suspicious/noEmptyBlockStatements` |
 | `typescript/no-swallowed-catch` | `ast-grep` forbid: a `catch` that neither throws nor uses its error; `.catch(() => {})`, `.catch(() => undefined)`, `.catch(() => null)` |
+| `typescript/no-latch-before-optional-call` | `ast-grep` forbid: a once-flag set before an optional call in its guard: `if (!$F) { $F = true; … $X?.$M(…) … }`, or `if ($F) return; $F = true; … $X?.$M(…)` (the flag is consumed when `$X` is absent) |
 | `typescript/no-console` | `tool` biome `lint/suspicious/noConsole` (snippet allows `warn` and `error`) |
 | `typescript/no-unused` | `tool` biome `lint/correctness/noUnusedImports`, `lint/correctness/noUnusedVariables` |
 | `typescript/no-secrets` | `tool` biome `lint/security/noSecrets` (snippet: error, `entropyThreshold` 50, off for tests and generated files) |
@@ -555,8 +558,9 @@ context.md: uv and `.venv/bin`, basedpyright; no blocking calls in `async def`; 
 | `typescript/no-placeholder-comment` | `grep` forbid (case-insensitive): the Python list, after `//`, `/*` or `*` |
 | `typescript/config-files` | `permission` ask: `Edit(**/biome.json)`, `Edit(**/biome.jsonc)`, `Edit(**/tsconfig*.json)` |
 | `typescript/config-ratchet` | `check` lint: `forge_ratchet bun ratchet.mjs` (§10.4), `when_changed`: Biome, tsconfig and `package.json` files |
+| `typescript/lockfile-updated` | `check` lint: `forge_lockfile_updated`: a `package.json` whose `dependencies`, `devDependencies` or `optionalDependencies` changed since the base comes with a changed lock file (`pnpm-lock.yaml`, `package-lock.json`, `npm-shrinkwrap.json`, `yarn.lock`, `bun.lock`) when one exists next to it or at the root; `when_changed: [**/package.json]`. At Stop it blocks once per turn, then prints `accepted` and passes (`forge_once`: the package manager may not run here); pre-commit and CI always fail. (`python/uv/lock-sync` covers `pyproject.toml`.) |
 
-context.md: strict TypeScript and Bun; TypeScript 6 deprecations are migrated, never silenced with `ignoreDeprecations`; no `!` or `as unknown as`.
+context.md: strict TypeScript and Bun; TypeScript 6 deprecations are migrated, never silenced with `ignoreDeprecations`; no `!` or `as unknown as`; search for an existing helper (warn-once, logging, `util.*`) before writing one.
 
 ### python/uv
 
@@ -723,6 +727,7 @@ context.md: Prisma 7: `prisma-client` generator with `output`, driver adapters, 
 | `typescript/vitest/no-mock-increase` | `ast-grep` no-increase on test files: `vi.mock`, `vi.doMock`, `vi.spyOn`, `vi.fn` calls |
 | `typescript/vitest/no-test-edits` | `check` lint: `forge_test_edits` on `**/*.test.*`, `**/*.spec.*`, `**/__tests__/**`, `**/__mocks__/**`, `**/test-utils.*`, `**/test-helpers.*`, `**/vitest.setup.*`, not `e2e/**`; edits ask (§10.5); `review` as pytest's |
 | `typescript/vitest/untested-change` | `check` lint, advisory (§10.7): `forge_untested_change` on non-test TypeScript and JavaScript files (not `*.d.ts`, `*.config.*`, `e2e/**`) |
+| `typescript/vitest/snapshot-stale` | `check` lint, advisory (§10.7, `forge_once`): `forge_snapshot_stale`, Stop only (`--turn`): a changed non-test source file whose added lines hold a string or an object key, imported directly (relative import) by a test that uses `toMatchSnapshot`, `toMatchFileSnapshot`, `toMatchInlineSnapshot` or golden files (`testdata/`, `golden`), while no `.snap`, `__snapshots__/`, `testdata/` or golden file changed in the turn (a test using only inline snapshots counts as updated when it changed). It blocks once per turn, then prints `accepted` and passes (`forge_once`) |
 
 context.md: Vitest 4 `test.projects` and `maxWorkers`; assertions are never weakened to make a test pass; "When the task changes behaviour an existing test asserts, update that test in place with Edit or Write (keep its name; Forge asks for approval) and say so in your summary. Otherwise never edit an existing test to make the code pass."
 

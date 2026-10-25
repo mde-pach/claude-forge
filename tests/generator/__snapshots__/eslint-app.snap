@@ -4,6 +4,7 @@ These are this project's defaults. When the task or the user explicitly asks for
 TypeScript, strict. Bun is the runtime and package manager.
 TypeScript 6 deprecates `baseUrl`, `moduleResolution: "node10"`, `target: "es5"` and `esModuleInterop: false`, and TypeScript 7 removes them: migrate them; `ignoreDeprecations` in a tsconfig is rejected.
 `!` non-null assertions and `as unknown as T` are rejected: narrow with a check, or parse with a schema.
+Before writing a utility, search the codebase for an existing helper (warn-once and logging helpers, `util.*` functions such as an existing property setter) and reuse it instead of adding a near-duplicate.
 
 ===== .claude/settings.json
 {
@@ -886,7 +887,7 @@ fi
 # ---- generated checks
 # Project tools used in check commands, resolved through tool().
 tsc() { forge_exec_tool tsc "$@"; }
-FORGE_NCHECKS=3
+FORGE_NCHECKS=4
 
 # 1. typescript/config-ratchet
 forge_check_meta_1() {
@@ -903,33 +904,47 @@ forge_check_run_1() {
 forge_ratchet bun ratchet.mjs
 }
 
-# 2. typescript/no-ignore-deprecations
+# 2. typescript/lockfile-updated
 forge_check_meta_2() {
-  c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
+  c_id='typescript/lockfile-updated'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_2() {
+  return 0
+}
+forge_when_2() { case $1 in package.json|*/package.json) return 0 ;; esac; return 1; }
+forge_check_run_2() {
+forge_lockfile_updated
+}
+
+# 3. typescript/no-ignore-deprecations
+forge_check_meta_3() {
+  c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+}
+forge_scope_3() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_2() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
-forge_check_run_2() {
+forge_when_3() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
+forge_check_run_3() {
 ! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')
 }
 
-# 3. typescript/typecheck
-forge_check_meta_3() {
+# 4. typescript/typecheck
+forge_check_meta_4() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
-forge_scope_3() {
+forge_scope_4() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_3() { return 1; }
-forge_check_run_3() {
+forge_when_4() { return 1; }
+forge_check_run_4() {
 tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile .forge/state/tsc.tsbuildinfo
 }
 
@@ -1599,6 +1614,56 @@ forge_stub_sync() {
   done
 }
 
+# forge_snapshot_stale: Stop only (--turn). A changed source file ($FORGE_FILES) whose
+# added lines hold a string or an object key, imported directly (relative import) by a
+# test that compares output with snapshots or golden files (toMatchSnapshot,
+# toMatchFileSnapshot, toMatchInlineSnapshot, testdata/, golden), while no .snap,
+# __snapshots__, testdata or golden file changed in the turn. A test that uses only
+# inline snapshots counts as updated when it changed. Blocks once per turn (forge_once).
+forge_snapshot_stale() {
+  [ "$mode" = --turn ] || return 0
+  grep -qE '\.snap$|(^|/)(__snapshots__|testdata|golden|__golden__)/|\.golden(\.|$)' "$FORGE_TMP/changed" && return 0
+  : > "$FORGE_TMP/snap.src"
+  for _ss_f in $FORGE_FILES; do
+    awk -F '\t' -v f="$_ss_f" '$1 == f { print $2 }' "$FORGE_TMP/added" > "$FORGE_TMP/snap.lines"
+    [ -s "$FORGE_TMP/snap.lines" ] || continue
+    awk 'NR == FNR { if ($0 == "*") all = 1; want[$0] = 1; next } all || (FNR in want)' "$FORGE_TMP/snap.lines" "$_ss_f" \
+      | grep -qE "[\"'\`]|[A-Za-z_\$][A-Za-z0-9_\$]*[?]?[[:space:]]*:" && printf '%s\n' "$_ss_f" >> "$FORGE_TMP/snap.src"
+  done
+  [ -s "$FORGE_TMP/snap.src" ] || return 0
+  git grep --untracked -lE 'toMatch(File|Inline)?Snapshot\(|testdata|golden' -- '*.test.*' '*.spec.*' '*/__tests__/*' > "$FORGE_TMP/snap.tests" 2>/dev/null
+  : > "$FORGE_TMP/snap.imports"
+  while IFS= read -r _ss_t; do
+    [ -f "$_ss_t" ] || continue
+    if grep -qxF "$_ss_t" "$FORGE_TMP/changed" && ! grep -qE 'toMatch(File)?Snapshot\(|testdata|golden' "$_ss_t"; then continue; fi
+    sed -n -E "s/.*(from|require\(|import\()[[:space:]]*[\"'](\.[^\"']*)[\"'].*/\2/p" "$_ss_t" \
+      | awk -v t="$_ss_t" '{ print t "\t" $0 }' >> "$FORGE_TMP/snap.imports"
+  done < "$FORGE_TMP/snap.tests"
+  awk -F '\t' '
+    function stem(p) { sub(/\.(d\.)?[cm]?[jt]sx?$/, "", p); return p }
+    function norm(p,   n, a, i, o, k) {
+      n = split(p, a, "/"); k = 0
+      for (i = 1; i <= n; i++) {
+        if (a[i] == "" || a[i] == ".") continue
+        if (a[i] == ".." && k > 0) { k--; continue }
+        o[++k] = a[i]
+      }
+      p = ""; for (i = 1; i <= k; i++) p = p (i > 1 ? "/" : "") o[i]
+      return p
+    }
+    FILENAME == ARGV[1] { src[stem($0)] = $0; next }
+    {
+      d = $1; if (d ~ /\//) sub(/\/[^\/]*$/, "", d); else d = "."
+      s = stem(norm(d "/" $2))
+      f = (s in src) ? src[s] : ((s "/index") in src) ? src[s "/index"] : ""
+      if (f != "" && !seen[f "\t" $1]++) print f ": imported by " $1 ", which compares output with snapshots or golden files"
+    }' "$FORGE_TMP/snap.src" "$FORGE_TMP/snap.imports" | sort | head -n 10 > "$FORGE_TMP/snap.out"
+  [ -s "$FORGE_TMP/snap.out" ] || return 0
+  cat "$FORGE_TMP/snap.out"
+  printf 'Output-producing code changed but its snapshots did not: run the snapshot tests with inputs that exercise the new output and update them (snapshot updates still go through no-snapshot-update).\n'
+  forge_once
+}
+
 # forge_toml_get <file> <section> <key>: the value of <key> in [<section>] ("" for
 # the top level), quotes and comments removed; nothing when absent. One-line values only.
 forge_toml_get() {
@@ -1685,6 +1750,92 @@ forge_trusted_deps() {
     fi
   done < "$FORGE_TMP/existing"
   return "$_td_rc"
+}
+
+# forge_once: for advisory checks. At Stop (--turn) a check that calls it after a
+# finding blocks once per turn: the first call records the finding in the turn
+# snapshot and fails; a later call in the same turn prints "accepted" and passes.
+# In other modes (pre-commit, CI) it always fails.
+forge_once() {
+  [ "$mode" = --turn ] && [ -n "$FORGE_SNAP" ] || return 1
+  _fo_m="$FORGE_SNAP/once.$(printf '%s' "$c_id" | tr -c 'A-Za-z0-9_.-' '_')"
+  if [ -f "$_fo_m" ]; then
+    printf 'forge:%s accepted: reported once this turn\n' "$c_id"
+    return 0
+  fi
+  : > "$_fo_m" 2>/dev/null
+  # as advice (§10.7): Stop does not replay it on the same tree, and the steps after it still run
+  [ -z "${FORGE_ONCE:-}" ] || : > "$FORGE_ONCE"
+  : > "$FORGE_TMP/advised.$(printf '%s' "$c_id" | tr -c 'A-Za-z0-9_-' '_')"
+  return 1
+}
+
+FORGE_JS_LOCKS='pnpm-lock.yaml package-lock.json npm-shrinkwrap.json yarn.lock bun.lock bun.lockb'
+
+# forge_pkg_deps <package.json>: "section<TAB>name<TAB>spec" for each entry of
+# dependencies, devDependencies and optionalDependencies (what lock files record;
+# pnpm's lock does not record peerDependencies), sorted.
+forge_pkg_deps() {
+  [ -f "$1" ] || return 0
+  awk '
+    { buf = buf $0 "\n" }
+    END {
+      n = length(buf); depth = 0; top = ""; key = ""; i = 1
+      while (i <= n) {
+        c = substr(buf, i, 1)
+        if (c == "\"") {
+          j = i + 1; s = ""
+          while (j <= n) {
+            d = substr(buf, j, 1)
+            if (d == "\\") { s = s substr(buf, j, 2); j += 2; continue }
+            if (d == "\"") break
+            s = s d; j++
+          }
+          i = j + 1; k = i
+          while (k <= n && substr(buf, k, 1) ~ /[ \t\r\n]/) k++
+          if (substr(buf, k, 1) == ":") { key = s; if (depth == 1) top = s; i = k + 1; continue }
+          if (depth == 2 && top ~ /^(dependencies|devDependencies|optionalDependencies)$/) print top "\t" key "\t" s
+          continue
+        }
+        if (c == "{" || c == "[") depth++
+        else if (c == "}" || c == "]") depth--
+        i++
+      }
+    }' "$1" | sort
+}
+
+# forge_lockfile_updated: a package.json whose dependencies changed since the base
+# needs a changed lock file, when the project has one (next to it or at the root).
+# Blocks once per turn (forge_once): the package manager may not be able to run here.
+forge_lockfile_updated() {
+  grep -qE '(^|/)(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?)$' "$FORGE_TMP/changed" && return 0
+  _lu_rc=0
+  while IFS= read -r _lu_f; do
+    case $_lu_f in package.json|*/package.json) ;; *) continue ;; esac
+    case /$_lu_f in */node_modules/*) continue ;; esac
+    _lu_lock=''
+    _lu_ifs=$IFS; IFS=' '
+    for _lu_l in $FORGE_JS_LOCKS; do
+      if [ -f "$_lu_l" ] || [ -f "$(dirname "$_lu_f")/$_lu_l" ]; then _lu_lock=$_lu_l; break; fi
+    done
+    IFS=$_lu_ifs
+    [ -n "$_lu_lock" ] || continue
+    forge_pkg_deps "$FORGE_TMP/base/$_lu_f" > "$FORGE_TMP/deps.then"
+    forge_pkg_deps "$_lu_f" > "$FORGE_TMP/deps.now"
+    cmp -s "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" && continue
+    _lu_what=$(awk -F '\t' '
+      FILENAME == ARGV[1] { then[$1 " " $2] = $3; next }
+      { now[$1 " " $2] = $3 }
+      END {
+        for (k in now) if (!(k in then)) print k " " now[k] " added"; else if (then[k] != now[k]) print k " " then[k] " -> " now[k]
+        for (k in then) if (!(k in now)) print k " removed"
+      }' "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" | sort | head -n 5 | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')
+    printf '%s: %s, but %s did not change\n' "$_lu_f" "$_lu_what" "$_lu_lock"
+    _lu_rc=1
+  done < "$FORGE_TMP/existing"
+  [ "$_lu_rc" = 0 ] && return 0
+  printf 'Run the package manager (bun install, pnpm install, npm install, yarn) to update the lock file; it is not edited by hand. If it cannot run here, tell the user.\n'
+  forge_once
 }
 
 # GitHub Actions workflows: pinned zizmor (through uvx), offline audits only, inline
@@ -2638,7 +2789,7 @@ forge_required_tools() {
   done | awk 'NF && !seen[$0]++'
 }
 
-FORGE_FORBID='typescript/no-double-assertion|typescript/no-eval|typescript/no-explicit-any|typescript/no-focused-tests|typescript/no-non-null-assertion|typescript/no-stub|typescript/no-swallowed-catch|typescript/no-ts-ignore|typescript/no-ts-nocheck|typescript/ts-expect-error-reason'
+FORGE_FORBID='typescript/no-double-assertion|typescript/no-eval|typescript/no-explicit-any|typescript/no-focused-tests|typescript/no-latch-before-optional-call|typescript/no-non-null-assertion|typescript/no-stub|typescript/no-swallowed-catch|typescript/no-ts-ignore|typescript/no-ts-nocheck|typescript/ts-expect-error-reason'
 
 # the lines added to each file during the turn (base: the turn snapshot, else HEAD)
 mode=--changed
@@ -2770,7 +2921,7 @@ IFS='
 # ---- generated checks
 # Project tools used in check commands, resolved through tool().
 tsc() { forge_exec_tool tsc "$@"; }
-FORGE_NCHECKS=3
+FORGE_NCHECKS=4
 
 # 1. typescript/config-ratchet
 forge_check_meta_1() {
@@ -2787,33 +2938,47 @@ forge_check_run_1() {
 forge_ratchet bun ratchet.mjs
 }
 
-# 2. typescript/no-ignore-deprecations
+# 2. typescript/lockfile-updated
 forge_check_meta_2() {
-  c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
+  c_id='typescript/lockfile-updated'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_2() {
+  return 0
+}
+forge_when_2() { case $1 in package.json|*/package.json) return 0 ;; esac; return 1; }
+forge_check_run_2() {
+forge_lockfile_updated
+}
+
+# 3. typescript/no-ignore-deprecations
+forge_check_meta_3() {
+  c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+}
+forge_scope_3() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_2() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
-forge_check_run_2() {
+forge_when_3() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
+forge_check_run_3() {
 ! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')
 }
 
-# 3. typescript/typecheck
-forge_check_meta_3() {
+# 4. typescript/typecheck
+forge_check_meta_4() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
-forge_scope_3() {
+forge_scope_4() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_3() { return 1; }
-forge_check_run_3() {
+forge_when_4() { return 1; }
+forge_check_run_4() {
 tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile .forge/state/tsc.tsbuildinfo
 }
 
@@ -3483,6 +3648,56 @@ forge_stub_sync() {
   done
 }
 
+# forge_snapshot_stale: Stop only (--turn). A changed source file ($FORGE_FILES) whose
+# added lines hold a string or an object key, imported directly (relative import) by a
+# test that compares output with snapshots or golden files (toMatchSnapshot,
+# toMatchFileSnapshot, toMatchInlineSnapshot, testdata/, golden), while no .snap,
+# __snapshots__, testdata or golden file changed in the turn. A test that uses only
+# inline snapshots counts as updated when it changed. Blocks once per turn (forge_once).
+forge_snapshot_stale() {
+  [ "$mode" = --turn ] || return 0
+  grep -qE '\.snap$|(^|/)(__snapshots__|testdata|golden|__golden__)/|\.golden(\.|$)' "$FORGE_TMP/changed" && return 0
+  : > "$FORGE_TMP/snap.src"
+  for _ss_f in $FORGE_FILES; do
+    awk -F '\t' -v f="$_ss_f" '$1 == f { print $2 }' "$FORGE_TMP/added" > "$FORGE_TMP/snap.lines"
+    [ -s "$FORGE_TMP/snap.lines" ] || continue
+    awk 'NR == FNR { if ($0 == "*") all = 1; want[$0] = 1; next } all || (FNR in want)' "$FORGE_TMP/snap.lines" "$_ss_f" \
+      | grep -qE "[\"'\`]|[A-Za-z_\$][A-Za-z0-9_\$]*[?]?[[:space:]]*:" && printf '%s\n' "$_ss_f" >> "$FORGE_TMP/snap.src"
+  done
+  [ -s "$FORGE_TMP/snap.src" ] || return 0
+  git grep --untracked -lE 'toMatch(File|Inline)?Snapshot\(|testdata|golden' -- '*.test.*' '*.spec.*' '*/__tests__/*' > "$FORGE_TMP/snap.tests" 2>/dev/null
+  : > "$FORGE_TMP/snap.imports"
+  while IFS= read -r _ss_t; do
+    [ -f "$_ss_t" ] || continue
+    if grep -qxF "$_ss_t" "$FORGE_TMP/changed" && ! grep -qE 'toMatch(File)?Snapshot\(|testdata|golden' "$_ss_t"; then continue; fi
+    sed -n -E "s/.*(from|require\(|import\()[[:space:]]*[\"'](\.[^\"']*)[\"'].*/\2/p" "$_ss_t" \
+      | awk -v t="$_ss_t" '{ print t "\t" $0 }' >> "$FORGE_TMP/snap.imports"
+  done < "$FORGE_TMP/snap.tests"
+  awk -F '\t' '
+    function stem(p) { sub(/\.(d\.)?[cm]?[jt]sx?$/, "", p); return p }
+    function norm(p,   n, a, i, o, k) {
+      n = split(p, a, "/"); k = 0
+      for (i = 1; i <= n; i++) {
+        if (a[i] == "" || a[i] == ".") continue
+        if (a[i] == ".." && k > 0) { k--; continue }
+        o[++k] = a[i]
+      }
+      p = ""; for (i = 1; i <= k; i++) p = p (i > 1 ? "/" : "") o[i]
+      return p
+    }
+    FILENAME == ARGV[1] { src[stem($0)] = $0; next }
+    {
+      d = $1; if (d ~ /\//) sub(/\/[^\/]*$/, "", d); else d = "."
+      s = stem(norm(d "/" $2))
+      f = (s in src) ? src[s] : ((s "/index") in src) ? src[s "/index"] : ""
+      if (f != "" && !seen[f "\t" $1]++) print f ": imported by " $1 ", which compares output with snapshots or golden files"
+    }' "$FORGE_TMP/snap.src" "$FORGE_TMP/snap.imports" | sort | head -n 10 > "$FORGE_TMP/snap.out"
+  [ -s "$FORGE_TMP/snap.out" ] || return 0
+  cat "$FORGE_TMP/snap.out"
+  printf 'Output-producing code changed but its snapshots did not: run the snapshot tests with inputs that exercise the new output and update them (snapshot updates still go through no-snapshot-update).\n'
+  forge_once
+}
+
 # forge_toml_get <file> <section> <key>: the value of <key> in [<section>] ("" for
 # the top level), quotes and comments removed; nothing when absent. One-line values only.
 forge_toml_get() {
@@ -3569,6 +3784,92 @@ forge_trusted_deps() {
     fi
   done < "$FORGE_TMP/existing"
   return "$_td_rc"
+}
+
+# forge_once: for advisory checks. At Stop (--turn) a check that calls it after a
+# finding blocks once per turn: the first call records the finding in the turn
+# snapshot and fails; a later call in the same turn prints "accepted" and passes.
+# In other modes (pre-commit, CI) it always fails.
+forge_once() {
+  [ "$mode" = --turn ] && [ -n "$FORGE_SNAP" ] || return 1
+  _fo_m="$FORGE_SNAP/once.$(printf '%s' "$c_id" | tr -c 'A-Za-z0-9_.-' '_')"
+  if [ -f "$_fo_m" ]; then
+    printf 'forge:%s accepted: reported once this turn\n' "$c_id"
+    return 0
+  fi
+  : > "$_fo_m" 2>/dev/null
+  # as advice (§10.7): Stop does not replay it on the same tree, and the steps after it still run
+  [ -z "${FORGE_ONCE:-}" ] || : > "$FORGE_ONCE"
+  : > "$FORGE_TMP/advised.$(printf '%s' "$c_id" | tr -c 'A-Za-z0-9_-' '_')"
+  return 1
+}
+
+FORGE_JS_LOCKS='pnpm-lock.yaml package-lock.json npm-shrinkwrap.json yarn.lock bun.lock bun.lockb'
+
+# forge_pkg_deps <package.json>: "section<TAB>name<TAB>spec" for each entry of
+# dependencies, devDependencies and optionalDependencies (what lock files record;
+# pnpm's lock does not record peerDependencies), sorted.
+forge_pkg_deps() {
+  [ -f "$1" ] || return 0
+  awk '
+    { buf = buf $0 "\n" }
+    END {
+      n = length(buf); depth = 0; top = ""; key = ""; i = 1
+      while (i <= n) {
+        c = substr(buf, i, 1)
+        if (c == "\"") {
+          j = i + 1; s = ""
+          while (j <= n) {
+            d = substr(buf, j, 1)
+            if (d == "\\") { s = s substr(buf, j, 2); j += 2; continue }
+            if (d == "\"") break
+            s = s d; j++
+          }
+          i = j + 1; k = i
+          while (k <= n && substr(buf, k, 1) ~ /[ \t\r\n]/) k++
+          if (substr(buf, k, 1) == ":") { key = s; if (depth == 1) top = s; i = k + 1; continue }
+          if (depth == 2 && top ~ /^(dependencies|devDependencies|optionalDependencies)$/) print top "\t" key "\t" s
+          continue
+        }
+        if (c == "{" || c == "[") depth++
+        else if (c == "}" || c == "]") depth--
+        i++
+      }
+    }' "$1" | sort
+}
+
+# forge_lockfile_updated: a package.json whose dependencies changed since the base
+# needs a changed lock file, when the project has one (next to it or at the root).
+# Blocks once per turn (forge_once): the package manager may not be able to run here.
+forge_lockfile_updated() {
+  grep -qE '(^|/)(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?)$' "$FORGE_TMP/changed" && return 0
+  _lu_rc=0
+  while IFS= read -r _lu_f; do
+    case $_lu_f in package.json|*/package.json) ;; *) continue ;; esac
+    case /$_lu_f in */node_modules/*) continue ;; esac
+    _lu_lock=''
+    _lu_ifs=$IFS; IFS=' '
+    for _lu_l in $FORGE_JS_LOCKS; do
+      if [ -f "$_lu_l" ] || [ -f "$(dirname "$_lu_f")/$_lu_l" ]; then _lu_lock=$_lu_l; break; fi
+    done
+    IFS=$_lu_ifs
+    [ -n "$_lu_lock" ] || continue
+    forge_pkg_deps "$FORGE_TMP/base/$_lu_f" > "$FORGE_TMP/deps.then"
+    forge_pkg_deps "$_lu_f" > "$FORGE_TMP/deps.now"
+    cmp -s "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" && continue
+    _lu_what=$(awk -F '\t' '
+      FILENAME == ARGV[1] { then[$1 " " $2] = $3; next }
+      { now[$1 " " $2] = $3 }
+      END {
+        for (k in now) if (!(k in then)) print k " " now[k] " added"; else if (then[k] != now[k]) print k " " then[k] " -> " now[k]
+        for (k in then) if (!(k in now)) print k " removed"
+      }' "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" | sort | head -n 5 | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')
+    printf '%s: %s, but %s did not change\n' "$_lu_f" "$_lu_what" "$_lu_lock"
+    _lu_rc=1
+  done < "$FORGE_TMP/existing"
+  [ "$_lu_rc" = 0 ] && return 0
+  printf 'Run the package manager (bun install, pnpm install, npm install, yarn) to update the lock file; it is not edited by hand. If it cannot run here, tell the user.\n'
+  forge_once
 }
 
 # GitHub Actions workflows: pinned zizmor (through uvx), offline audits only, inline
@@ -4670,7 +4971,7 @@ IFS='
 # ---- generated checks
 # Project tools used in check commands, resolved through tool().
 tsc() { forge_exec_tool tsc "$@"; }
-FORGE_NCHECKS=3
+FORGE_NCHECKS=4
 
 # 1. typescript/config-ratchet
 forge_check_meta_1() {
@@ -4687,33 +4988,47 @@ forge_check_run_1() {
 forge_ratchet bun ratchet.mjs
 }
 
-# 2. typescript/no-ignore-deprecations
+# 2. typescript/lockfile-updated
 forge_check_meta_2() {
-  c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
+  c_id='typescript/lockfile-updated'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_2() {
+  return 0
+}
+forge_when_2() { case $1 in package.json|*/package.json) return 0 ;; esac; return 1; }
+forge_check_run_2() {
+forge_lockfile_updated
+}
+
+# 3. typescript/no-ignore-deprecations
+forge_check_meta_3() {
+  c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+}
+forge_scope_3() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_2() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
-forge_check_run_2() {
+forge_when_3() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
+forge_check_run_3() {
 ! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')
 }
 
-# 3. typescript/typecheck
-forge_check_meta_3() {
+# 4. typescript/typecheck
+forge_check_meta_4() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
-forge_scope_3() {
+forge_scope_4() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_3() { return 1; }
-forge_check_run_3() {
+forge_when_4() { return 1; }
+forge_check_run_4() {
 tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile .forge/state/tsc.tsbuildinfo
 }
 
@@ -5383,6 +5698,56 @@ forge_stub_sync() {
   done
 }
 
+# forge_snapshot_stale: Stop only (--turn). A changed source file ($FORGE_FILES) whose
+# added lines hold a string or an object key, imported directly (relative import) by a
+# test that compares output with snapshots or golden files (toMatchSnapshot,
+# toMatchFileSnapshot, toMatchInlineSnapshot, testdata/, golden), while no .snap,
+# __snapshots__, testdata or golden file changed in the turn. A test that uses only
+# inline snapshots counts as updated when it changed. Blocks once per turn (forge_once).
+forge_snapshot_stale() {
+  [ "$mode" = --turn ] || return 0
+  grep -qE '\.snap$|(^|/)(__snapshots__|testdata|golden|__golden__)/|\.golden(\.|$)' "$FORGE_TMP/changed" && return 0
+  : > "$FORGE_TMP/snap.src"
+  for _ss_f in $FORGE_FILES; do
+    awk -F '\t' -v f="$_ss_f" '$1 == f { print $2 }' "$FORGE_TMP/added" > "$FORGE_TMP/snap.lines"
+    [ -s "$FORGE_TMP/snap.lines" ] || continue
+    awk 'NR == FNR { if ($0 == "*") all = 1; want[$0] = 1; next } all || (FNR in want)' "$FORGE_TMP/snap.lines" "$_ss_f" \
+      | grep -qE "[\"'\`]|[A-Za-z_\$][A-Za-z0-9_\$]*[?]?[[:space:]]*:" && printf '%s\n' "$_ss_f" >> "$FORGE_TMP/snap.src"
+  done
+  [ -s "$FORGE_TMP/snap.src" ] || return 0
+  git grep --untracked -lE 'toMatch(File|Inline)?Snapshot\(|testdata|golden' -- '*.test.*' '*.spec.*' '*/__tests__/*' > "$FORGE_TMP/snap.tests" 2>/dev/null
+  : > "$FORGE_TMP/snap.imports"
+  while IFS= read -r _ss_t; do
+    [ -f "$_ss_t" ] || continue
+    if grep -qxF "$_ss_t" "$FORGE_TMP/changed" && ! grep -qE 'toMatch(File)?Snapshot\(|testdata|golden' "$_ss_t"; then continue; fi
+    sed -n -E "s/.*(from|require\(|import\()[[:space:]]*[\"'](\.[^\"']*)[\"'].*/\2/p" "$_ss_t" \
+      | awk -v t="$_ss_t" '{ print t "\t" $0 }' >> "$FORGE_TMP/snap.imports"
+  done < "$FORGE_TMP/snap.tests"
+  awk -F '\t' '
+    function stem(p) { sub(/\.(d\.)?[cm]?[jt]sx?$/, "", p); return p }
+    function norm(p,   n, a, i, o, k) {
+      n = split(p, a, "/"); k = 0
+      for (i = 1; i <= n; i++) {
+        if (a[i] == "" || a[i] == ".") continue
+        if (a[i] == ".." && k > 0) { k--; continue }
+        o[++k] = a[i]
+      }
+      p = ""; for (i = 1; i <= k; i++) p = p (i > 1 ? "/" : "") o[i]
+      return p
+    }
+    FILENAME == ARGV[1] { src[stem($0)] = $0; next }
+    {
+      d = $1; if (d ~ /\//) sub(/\/[^\/]*$/, "", d); else d = "."
+      s = stem(norm(d "/" $2))
+      f = (s in src) ? src[s] : ((s "/index") in src) ? src[s "/index"] : ""
+      if (f != "" && !seen[f "\t" $1]++) print f ": imported by " $1 ", which compares output with snapshots or golden files"
+    }' "$FORGE_TMP/snap.src" "$FORGE_TMP/snap.imports" | sort | head -n 10 > "$FORGE_TMP/snap.out"
+  [ -s "$FORGE_TMP/snap.out" ] || return 0
+  cat "$FORGE_TMP/snap.out"
+  printf 'Output-producing code changed but its snapshots did not: run the snapshot tests with inputs that exercise the new output and update them (snapshot updates still go through no-snapshot-update).\n'
+  forge_once
+}
+
 # forge_toml_get <file> <section> <key>: the value of <key> in [<section>] ("" for
 # the top level), quotes and comments removed; nothing when absent. One-line values only.
 forge_toml_get() {
@@ -5469,6 +5834,92 @@ forge_trusted_deps() {
     fi
   done < "$FORGE_TMP/existing"
   return "$_td_rc"
+}
+
+# forge_once: for advisory checks. At Stop (--turn) a check that calls it after a
+# finding blocks once per turn: the first call records the finding in the turn
+# snapshot and fails; a later call in the same turn prints "accepted" and passes.
+# In other modes (pre-commit, CI) it always fails.
+forge_once() {
+  [ "$mode" = --turn ] && [ -n "$FORGE_SNAP" ] || return 1
+  _fo_m="$FORGE_SNAP/once.$(printf '%s' "$c_id" | tr -c 'A-Za-z0-9_.-' '_')"
+  if [ -f "$_fo_m" ]; then
+    printf 'forge:%s accepted: reported once this turn\n' "$c_id"
+    return 0
+  fi
+  : > "$_fo_m" 2>/dev/null
+  # as advice (§10.7): Stop does not replay it on the same tree, and the steps after it still run
+  [ -z "${FORGE_ONCE:-}" ] || : > "$FORGE_ONCE"
+  : > "$FORGE_TMP/advised.$(printf '%s' "$c_id" | tr -c 'A-Za-z0-9_-' '_')"
+  return 1
+}
+
+FORGE_JS_LOCKS='pnpm-lock.yaml package-lock.json npm-shrinkwrap.json yarn.lock bun.lock bun.lockb'
+
+# forge_pkg_deps <package.json>: "section<TAB>name<TAB>spec" for each entry of
+# dependencies, devDependencies and optionalDependencies (what lock files record;
+# pnpm's lock does not record peerDependencies), sorted.
+forge_pkg_deps() {
+  [ -f "$1" ] || return 0
+  awk '
+    { buf = buf $0 "\n" }
+    END {
+      n = length(buf); depth = 0; top = ""; key = ""; i = 1
+      while (i <= n) {
+        c = substr(buf, i, 1)
+        if (c == "\"") {
+          j = i + 1; s = ""
+          while (j <= n) {
+            d = substr(buf, j, 1)
+            if (d == "\\") { s = s substr(buf, j, 2); j += 2; continue }
+            if (d == "\"") break
+            s = s d; j++
+          }
+          i = j + 1; k = i
+          while (k <= n && substr(buf, k, 1) ~ /[ \t\r\n]/) k++
+          if (substr(buf, k, 1) == ":") { key = s; if (depth == 1) top = s; i = k + 1; continue }
+          if (depth == 2 && top ~ /^(dependencies|devDependencies|optionalDependencies)$/) print top "\t" key "\t" s
+          continue
+        }
+        if (c == "{" || c == "[") depth++
+        else if (c == "}" || c == "]") depth--
+        i++
+      }
+    }' "$1" | sort
+}
+
+# forge_lockfile_updated: a package.json whose dependencies changed since the base
+# needs a changed lock file, when the project has one (next to it or at the root).
+# Blocks once per turn (forge_once): the package manager may not be able to run here.
+forge_lockfile_updated() {
+  grep -qE '(^|/)(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?)$' "$FORGE_TMP/changed" && return 0
+  _lu_rc=0
+  while IFS= read -r _lu_f; do
+    case $_lu_f in package.json|*/package.json) ;; *) continue ;; esac
+    case /$_lu_f in */node_modules/*) continue ;; esac
+    _lu_lock=''
+    _lu_ifs=$IFS; IFS=' '
+    for _lu_l in $FORGE_JS_LOCKS; do
+      if [ -f "$_lu_l" ] || [ -f "$(dirname "$_lu_f")/$_lu_l" ]; then _lu_lock=$_lu_l; break; fi
+    done
+    IFS=$_lu_ifs
+    [ -n "$_lu_lock" ] || continue
+    forge_pkg_deps "$FORGE_TMP/base/$_lu_f" > "$FORGE_TMP/deps.then"
+    forge_pkg_deps "$_lu_f" > "$FORGE_TMP/deps.now"
+    cmp -s "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" && continue
+    _lu_what=$(awk -F '\t' '
+      FILENAME == ARGV[1] { then[$1 " " $2] = $3; next }
+      { now[$1 " " $2] = $3 }
+      END {
+        for (k in now) if (!(k in then)) print k " " now[k] " added"; else if (then[k] != now[k]) print k " " then[k] " -> " now[k]
+        for (k in then) if (!(k in now)) print k " removed"
+      }' "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" | sort | head -n 5 | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')
+    printf '%s: %s, but %s did not change\n' "$_lu_f" "$_lu_what" "$_lu_lock"
+    _lu_rc=1
+  done < "$FORGE_TMP/existing"
+  [ "$_lu_rc" = 0 ] && return 0
+  printf 'Run the package manager (bun install, pnpm install, npm install, yarn) to update the lock file; it is not edited by hand. If it cannot run here, tell the user.\n'
+  forge_once
 }
 
 # GitHub Actions workflows: pinned zizmor (through uvx), offline audits only, inline
@@ -6593,7 +7044,7 @@ IFS='
 # ---- generated checks
 # Project tools used in check commands, resolved through tool().
 tsc() { forge_exec_tool tsc "$@"; }
-FORGE_NCHECKS=3
+FORGE_NCHECKS=4
 
 # 1. typescript/config-ratchet
 forge_check_meta_1() {
@@ -6610,33 +7061,47 @@ forge_check_run_1() {
 forge_ratchet bun ratchet.mjs
 }
 
-# 2. typescript/no-ignore-deprecations
+# 2. typescript/lockfile-updated
 forge_check_meta_2() {
-  c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
+  c_id='typescript/lockfile-updated'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_2() {
+  return 0
+}
+forge_when_2() { case $1 in package.json|*/package.json) return 0 ;; esac; return 1; }
+forge_check_run_2() {
+forge_lockfile_updated
+}
+
+# 3. typescript/no-ignore-deprecations
+forge_check_meta_3() {
+  c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+}
+forge_scope_3() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_2() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
-forge_check_run_2() {
+forge_when_3() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
+forge_check_run_3() {
 ! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')
 }
 
-# 3. typescript/typecheck
-forge_check_meta_3() {
+# 4. typescript/typecheck
+forge_check_meta_4() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
-forge_scope_3() {
+forge_scope_4() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_3() { return 1; }
-forge_check_run_3() {
+forge_when_4() { return 1; }
+forge_check_run_4() {
 tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile .forge/state/tsc.tsbuildinfo
 }
 
@@ -7306,6 +7771,56 @@ forge_stub_sync() {
   done
 }
 
+# forge_snapshot_stale: Stop only (--turn). A changed source file ($FORGE_FILES) whose
+# added lines hold a string or an object key, imported directly (relative import) by a
+# test that compares output with snapshots or golden files (toMatchSnapshot,
+# toMatchFileSnapshot, toMatchInlineSnapshot, testdata/, golden), while no .snap,
+# __snapshots__, testdata or golden file changed in the turn. A test that uses only
+# inline snapshots counts as updated when it changed. Blocks once per turn (forge_once).
+forge_snapshot_stale() {
+  [ "$mode" = --turn ] || return 0
+  grep -qE '\.snap$|(^|/)(__snapshots__|testdata|golden|__golden__)/|\.golden(\.|$)' "$FORGE_TMP/changed" && return 0
+  : > "$FORGE_TMP/snap.src"
+  for _ss_f in $FORGE_FILES; do
+    awk -F '\t' -v f="$_ss_f" '$1 == f { print $2 }' "$FORGE_TMP/added" > "$FORGE_TMP/snap.lines"
+    [ -s "$FORGE_TMP/snap.lines" ] || continue
+    awk 'NR == FNR { if ($0 == "*") all = 1; want[$0] = 1; next } all || (FNR in want)' "$FORGE_TMP/snap.lines" "$_ss_f" \
+      | grep -qE "[\"'\`]|[A-Za-z_\$][A-Za-z0-9_\$]*[?]?[[:space:]]*:" && printf '%s\n' "$_ss_f" >> "$FORGE_TMP/snap.src"
+  done
+  [ -s "$FORGE_TMP/snap.src" ] || return 0
+  git grep --untracked -lE 'toMatch(File|Inline)?Snapshot\(|testdata|golden' -- '*.test.*' '*.spec.*' '*/__tests__/*' > "$FORGE_TMP/snap.tests" 2>/dev/null
+  : > "$FORGE_TMP/snap.imports"
+  while IFS= read -r _ss_t; do
+    [ -f "$_ss_t" ] || continue
+    if grep -qxF "$_ss_t" "$FORGE_TMP/changed" && ! grep -qE 'toMatch(File)?Snapshot\(|testdata|golden' "$_ss_t"; then continue; fi
+    sed -n -E "s/.*(from|require\(|import\()[[:space:]]*[\"'](\.[^\"']*)[\"'].*/\2/p" "$_ss_t" \
+      | awk -v t="$_ss_t" '{ print t "\t" $0 }' >> "$FORGE_TMP/snap.imports"
+  done < "$FORGE_TMP/snap.tests"
+  awk -F '\t' '
+    function stem(p) { sub(/\.(d\.)?[cm]?[jt]sx?$/, "", p); return p }
+    function norm(p,   n, a, i, o, k) {
+      n = split(p, a, "/"); k = 0
+      for (i = 1; i <= n; i++) {
+        if (a[i] == "" || a[i] == ".") continue
+        if (a[i] == ".." && k > 0) { k--; continue }
+        o[++k] = a[i]
+      }
+      p = ""; for (i = 1; i <= k; i++) p = p (i > 1 ? "/" : "") o[i]
+      return p
+    }
+    FILENAME == ARGV[1] { src[stem($0)] = $0; next }
+    {
+      d = $1; if (d ~ /\//) sub(/\/[^\/]*$/, "", d); else d = "."
+      s = stem(norm(d "/" $2))
+      f = (s in src) ? src[s] : ((s "/index") in src) ? src[s "/index"] : ""
+      if (f != "" && !seen[f "\t" $1]++) print f ": imported by " $1 ", which compares output with snapshots or golden files"
+    }' "$FORGE_TMP/snap.src" "$FORGE_TMP/snap.imports" | sort | head -n 10 > "$FORGE_TMP/snap.out"
+  [ -s "$FORGE_TMP/snap.out" ] || return 0
+  cat "$FORGE_TMP/snap.out"
+  printf 'Output-producing code changed but its snapshots did not: run the snapshot tests with inputs that exercise the new output and update them (snapshot updates still go through no-snapshot-update).\n'
+  forge_once
+}
+
 # forge_toml_get <file> <section> <key>: the value of <key> in [<section>] ("" for
 # the top level), quotes and comments removed; nothing when absent. One-line values only.
 forge_toml_get() {
@@ -7392,6 +7907,92 @@ forge_trusted_deps() {
     fi
   done < "$FORGE_TMP/existing"
   return "$_td_rc"
+}
+
+# forge_once: for advisory checks. At Stop (--turn) a check that calls it after a
+# finding blocks once per turn: the first call records the finding in the turn
+# snapshot and fails; a later call in the same turn prints "accepted" and passes.
+# In other modes (pre-commit, CI) it always fails.
+forge_once() {
+  [ "$mode" = --turn ] && [ -n "$FORGE_SNAP" ] || return 1
+  _fo_m="$FORGE_SNAP/once.$(printf '%s' "$c_id" | tr -c 'A-Za-z0-9_.-' '_')"
+  if [ -f "$_fo_m" ]; then
+    printf 'forge:%s accepted: reported once this turn\n' "$c_id"
+    return 0
+  fi
+  : > "$_fo_m" 2>/dev/null
+  # as advice (§10.7): Stop does not replay it on the same tree, and the steps after it still run
+  [ -z "${FORGE_ONCE:-}" ] || : > "$FORGE_ONCE"
+  : > "$FORGE_TMP/advised.$(printf '%s' "$c_id" | tr -c 'A-Za-z0-9_-' '_')"
+  return 1
+}
+
+FORGE_JS_LOCKS='pnpm-lock.yaml package-lock.json npm-shrinkwrap.json yarn.lock bun.lock bun.lockb'
+
+# forge_pkg_deps <package.json>: "section<TAB>name<TAB>spec" for each entry of
+# dependencies, devDependencies and optionalDependencies (what lock files record;
+# pnpm's lock does not record peerDependencies), sorted.
+forge_pkg_deps() {
+  [ -f "$1" ] || return 0
+  awk '
+    { buf = buf $0 "\n" }
+    END {
+      n = length(buf); depth = 0; top = ""; key = ""; i = 1
+      while (i <= n) {
+        c = substr(buf, i, 1)
+        if (c == "\"") {
+          j = i + 1; s = ""
+          while (j <= n) {
+            d = substr(buf, j, 1)
+            if (d == "\\") { s = s substr(buf, j, 2); j += 2; continue }
+            if (d == "\"") break
+            s = s d; j++
+          }
+          i = j + 1; k = i
+          while (k <= n && substr(buf, k, 1) ~ /[ \t\r\n]/) k++
+          if (substr(buf, k, 1) == ":") { key = s; if (depth == 1) top = s; i = k + 1; continue }
+          if (depth == 2 && top ~ /^(dependencies|devDependencies|optionalDependencies)$/) print top "\t" key "\t" s
+          continue
+        }
+        if (c == "{" || c == "[") depth++
+        else if (c == "}" || c == "]") depth--
+        i++
+      }
+    }' "$1" | sort
+}
+
+# forge_lockfile_updated: a package.json whose dependencies changed since the base
+# needs a changed lock file, when the project has one (next to it or at the root).
+# Blocks once per turn (forge_once): the package manager may not be able to run here.
+forge_lockfile_updated() {
+  grep -qE '(^|/)(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?)$' "$FORGE_TMP/changed" && return 0
+  _lu_rc=0
+  while IFS= read -r _lu_f; do
+    case $_lu_f in package.json|*/package.json) ;; *) continue ;; esac
+    case /$_lu_f in */node_modules/*) continue ;; esac
+    _lu_lock=''
+    _lu_ifs=$IFS; IFS=' '
+    for _lu_l in $FORGE_JS_LOCKS; do
+      if [ -f "$_lu_l" ] || [ -f "$(dirname "$_lu_f")/$_lu_l" ]; then _lu_lock=$_lu_l; break; fi
+    done
+    IFS=$_lu_ifs
+    [ -n "$_lu_lock" ] || continue
+    forge_pkg_deps "$FORGE_TMP/base/$_lu_f" > "$FORGE_TMP/deps.then"
+    forge_pkg_deps "$_lu_f" > "$FORGE_TMP/deps.now"
+    cmp -s "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" && continue
+    _lu_what=$(awk -F '\t' '
+      FILENAME == ARGV[1] { then[$1 " " $2] = $3; next }
+      { now[$1 " " $2] = $3 }
+      END {
+        for (k in now) if (!(k in then)) print k " " now[k] " added"; else if (then[k] != now[k]) print k " " then[k] " -> " now[k]
+        for (k in then) if (!(k in now)) print k " removed"
+      }' "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" | sort | head -n 5 | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')
+    printf '%s: %s, but %s did not change\n' "$_lu_f" "$_lu_what" "$_lu_lock"
+    _lu_rc=1
+  done < "$FORGE_TMP/existing"
+  [ "$_lu_rc" = 0 ] && return 0
+  printf 'Run the package manager (bun install, pnpm install, npm install, yarn) to update the lock file; it is not edited by hand. If it cannot run here, tell the user.\n'
+  forge_once
 }
 
 # GitHub Actions workflows: pinned zizmor (through uvx), offline audits only, inline
@@ -8432,6 +9033,71 @@ invalid:
   - |
     test.describe.only("y", () => {});
 
+===== .forge/ast-grep/rule-tests/typescript-no-latch-before-optional-call-test.yml
+id: typescript/no-latch-before-optional-call
+valid:
+  - |
+    let hasWarnedSubSecond = false;
+
+    export function clamp(ms: number, logger?: Logger): number {
+      if (!hasWarnedSubSecond && logger) {
+        hasWarnedSubSecond = true;
+        logger.warn({ ms }, "durations under 1s round up to 1s");
+      }
+      return Math.max(ms, 1000);
+    }
+  - |
+    let hasWarnedSubSecond = false;
+
+    export function clamp(ms: number, logger?: Logger): number {
+      if (!hasWarnedSubSecond) {
+        hasWarnedSubSecond = true;
+        console.warn("durations under 1s round up to 1s");
+      }
+      return Math.max(ms, 1000);
+    }
+  - |
+    export function clamp(ms: number, logger?: Logger): number {
+      if (logger) {
+        warnOnce(logger, "sub-second", { ms }, "durations under 1s round up to 1s");
+      }
+      return Math.max(ms, 1000);
+    }
+  - |
+    let started = false;
+
+    export function start(onStart?: () => void): void {
+      if (started) return;
+      started = true;
+      run();
+    }
+invalid:
+  - |
+    let hasWarnedSubSecond = false;
+
+    export function clamp(ms: number, logger?: Logger): number {
+      if (ms > 0 && ms < 1000) {
+        if (!hasWarnedSubSecond) {
+          hasWarnedSubSecond = true;
+          logger?.warn({ ms }, "durations under 1s round up to 1s");
+        }
+        return 1000;
+      }
+      return ms;
+    }
+  - |
+    export class Client {
+      private warned = false;
+
+      constructor(private readonly logger?: Logger) {}
+
+      deprecated(): void {
+        if (this.warned) return;
+        this.warned = true;
+        this.logger?.warn("deprecated() will be removed in v5");
+      }
+    }
+
 ===== .forge/ast-grep/rule-tests/typescript-no-non-null-assertion-test.yml
 id: typescript/no-non-null-assertion
 valid:
@@ -8643,6 +9309,44 @@ rule:
     field: function
     kind: member_expression
     regex: ^(it|test|describe)(\.describe)?\.only$
+
+===== .forge/ast-grep/rules/typescript/no-latch-before-optional-call.yml
+# Generated by forge from typescript/no-latch-before-optional-call (mode: forbid).
+id: typescript/no-latch-before-optional-call
+language: Tsx
+severity: error
+message: "forge:typescript/no-latch-before-optional-call A once-flag is set before an optional call in its guard (if (!warned) { warned = true; logger?.warn(…) }): the flag is consumed even when the receiver is absent, so the call never happens once it is there. Check the receiver first (if (!warned && logger)), or use the project's existing warn-once helper."
+rule:
+  all:
+    - kind: expression_statement
+    - has:
+        pattern: $F = true
+        stopBy: neighbor
+    - precedes:
+        stopBy: end
+        has:
+          pattern: $X?.$M($$$)
+          stopBy: end
+    - any:
+        - inside:
+            kind: statement_block
+            stopBy: neighbor
+            inside:
+              kind: if_statement
+              stopBy: neighbor
+              has:
+                field: condition
+                pattern: (!$F)
+        - follows:
+            stopBy: end
+            all:
+              - kind: if_statement
+              - has:
+                  field: condition
+                  pattern: ($F)
+              - has:
+                  field: consequence
+                  regex: ^(\{\s*)?return\b
 
 ===== .forge/ast-grep/rules/typescript/no-non-null-assertion.yml
 # Generated by forge from typescript/no-non-null-assertion (mode: forbid).
@@ -9152,7 +9856,7 @@ bash_cleanup() {
 # ---- generated checks
 # Project tools used in check commands, resolved through tool().
 tsc() { forge_exec_tool tsc "$@"; }
-FORGE_NCHECKS=3
+FORGE_NCHECKS=4
 
 # 1. typescript/config-ratchet
 forge_check_meta_1() {
@@ -9169,33 +9873,47 @@ forge_check_run_1() {
 forge_ratchet bun ratchet.mjs
 }
 
-# 2. typescript/no-ignore-deprecations
+# 2. typescript/lockfile-updated
 forge_check_meta_2() {
-  c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
+  c_id='typescript/lockfile-updated'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_2() {
+  return 0
+}
+forge_when_2() { case $1 in package.json|*/package.json) return 0 ;; esac; return 1; }
+forge_check_run_2() {
+forge_lockfile_updated
+}
+
+# 3. typescript/no-ignore-deprecations
+forge_check_meta_3() {
+  c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+}
+forge_scope_3() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_2() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
-forge_check_run_2() {
+forge_when_3() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
+forge_check_run_3() {
 ! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')
 }
 
-# 3. typescript/typecheck
-forge_check_meta_3() {
+# 4. typescript/typecheck
+forge_check_meta_4() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
-forge_scope_3() {
+forge_scope_4() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_3() { return 1; }
-forge_check_run_3() {
+forge_when_4() { return 1; }
+forge_check_run_4() {
 tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile .forge/state/tsc.tsbuildinfo
 }
 
@@ -9865,6 +10583,56 @@ forge_stub_sync() {
   done
 }
 
+# forge_snapshot_stale: Stop only (--turn). A changed source file ($FORGE_FILES) whose
+# added lines hold a string or an object key, imported directly (relative import) by a
+# test that compares output with snapshots or golden files (toMatchSnapshot,
+# toMatchFileSnapshot, toMatchInlineSnapshot, testdata/, golden), while no .snap,
+# __snapshots__, testdata or golden file changed in the turn. A test that uses only
+# inline snapshots counts as updated when it changed. Blocks once per turn (forge_once).
+forge_snapshot_stale() {
+  [ "$mode" = --turn ] || return 0
+  grep -qE '\.snap$|(^|/)(__snapshots__|testdata|golden|__golden__)/|\.golden(\.|$)' "$FORGE_TMP/changed" && return 0
+  : > "$FORGE_TMP/snap.src"
+  for _ss_f in $FORGE_FILES; do
+    awk -F '\t' -v f="$_ss_f" '$1 == f { print $2 }' "$FORGE_TMP/added" > "$FORGE_TMP/snap.lines"
+    [ -s "$FORGE_TMP/snap.lines" ] || continue
+    awk 'NR == FNR { if ($0 == "*") all = 1; want[$0] = 1; next } all || (FNR in want)' "$FORGE_TMP/snap.lines" "$_ss_f" \
+      | grep -qE "[\"'\`]|[A-Za-z_\$][A-Za-z0-9_\$]*[?]?[[:space:]]*:" && printf '%s\n' "$_ss_f" >> "$FORGE_TMP/snap.src"
+  done
+  [ -s "$FORGE_TMP/snap.src" ] || return 0
+  git grep --untracked -lE 'toMatch(File|Inline)?Snapshot\(|testdata|golden' -- '*.test.*' '*.spec.*' '*/__tests__/*' > "$FORGE_TMP/snap.tests" 2>/dev/null
+  : > "$FORGE_TMP/snap.imports"
+  while IFS= read -r _ss_t; do
+    [ -f "$_ss_t" ] || continue
+    if grep -qxF "$_ss_t" "$FORGE_TMP/changed" && ! grep -qE 'toMatch(File)?Snapshot\(|testdata|golden' "$_ss_t"; then continue; fi
+    sed -n -E "s/.*(from|require\(|import\()[[:space:]]*[\"'](\.[^\"']*)[\"'].*/\2/p" "$_ss_t" \
+      | awk -v t="$_ss_t" '{ print t "\t" $0 }' >> "$FORGE_TMP/snap.imports"
+  done < "$FORGE_TMP/snap.tests"
+  awk -F '\t' '
+    function stem(p) { sub(/\.(d\.)?[cm]?[jt]sx?$/, "", p); return p }
+    function norm(p,   n, a, i, o, k) {
+      n = split(p, a, "/"); k = 0
+      for (i = 1; i <= n; i++) {
+        if (a[i] == "" || a[i] == ".") continue
+        if (a[i] == ".." && k > 0) { k--; continue }
+        o[++k] = a[i]
+      }
+      p = ""; for (i = 1; i <= k; i++) p = p (i > 1 ? "/" : "") o[i]
+      return p
+    }
+    FILENAME == ARGV[1] { src[stem($0)] = $0; next }
+    {
+      d = $1; if (d ~ /\//) sub(/\/[^\/]*$/, "", d); else d = "."
+      s = stem(norm(d "/" $2))
+      f = (s in src) ? src[s] : ((s "/index") in src) ? src[s "/index"] : ""
+      if (f != "" && !seen[f "\t" $1]++) print f ": imported by " $1 ", which compares output with snapshots or golden files"
+    }' "$FORGE_TMP/snap.src" "$FORGE_TMP/snap.imports" | sort | head -n 10 > "$FORGE_TMP/snap.out"
+  [ -s "$FORGE_TMP/snap.out" ] || return 0
+  cat "$FORGE_TMP/snap.out"
+  printf 'Output-producing code changed but its snapshots did not: run the snapshot tests with inputs that exercise the new output and update them (snapshot updates still go through no-snapshot-update).\n'
+  forge_once
+}
+
 # forge_toml_get <file> <section> <key>: the value of <key> in [<section>] ("" for
 # the top level), quotes and comments removed; nothing when absent. One-line values only.
 forge_toml_get() {
@@ -9951,6 +10719,92 @@ forge_trusted_deps() {
     fi
   done < "$FORGE_TMP/existing"
   return "$_td_rc"
+}
+
+# forge_once: for advisory checks. At Stop (--turn) a check that calls it after a
+# finding blocks once per turn: the first call records the finding in the turn
+# snapshot and fails; a later call in the same turn prints "accepted" and passes.
+# In other modes (pre-commit, CI) it always fails.
+forge_once() {
+  [ "$mode" = --turn ] && [ -n "$FORGE_SNAP" ] || return 1
+  _fo_m="$FORGE_SNAP/once.$(printf '%s' "$c_id" | tr -c 'A-Za-z0-9_.-' '_')"
+  if [ -f "$_fo_m" ]; then
+    printf 'forge:%s accepted: reported once this turn\n' "$c_id"
+    return 0
+  fi
+  : > "$_fo_m" 2>/dev/null
+  # as advice (§10.7): Stop does not replay it on the same tree, and the steps after it still run
+  [ -z "${FORGE_ONCE:-}" ] || : > "$FORGE_ONCE"
+  : > "$FORGE_TMP/advised.$(printf '%s' "$c_id" | tr -c 'A-Za-z0-9_-' '_')"
+  return 1
+}
+
+FORGE_JS_LOCKS='pnpm-lock.yaml package-lock.json npm-shrinkwrap.json yarn.lock bun.lock bun.lockb'
+
+# forge_pkg_deps <package.json>: "section<TAB>name<TAB>spec" for each entry of
+# dependencies, devDependencies and optionalDependencies (what lock files record;
+# pnpm's lock does not record peerDependencies), sorted.
+forge_pkg_deps() {
+  [ -f "$1" ] || return 0
+  awk '
+    { buf = buf $0 "\n" }
+    END {
+      n = length(buf); depth = 0; top = ""; key = ""; i = 1
+      while (i <= n) {
+        c = substr(buf, i, 1)
+        if (c == "\"") {
+          j = i + 1; s = ""
+          while (j <= n) {
+            d = substr(buf, j, 1)
+            if (d == "\\") { s = s substr(buf, j, 2); j += 2; continue }
+            if (d == "\"") break
+            s = s d; j++
+          }
+          i = j + 1; k = i
+          while (k <= n && substr(buf, k, 1) ~ /[ \t\r\n]/) k++
+          if (substr(buf, k, 1) == ":") { key = s; if (depth == 1) top = s; i = k + 1; continue }
+          if (depth == 2 && top ~ /^(dependencies|devDependencies|optionalDependencies)$/) print top "\t" key "\t" s
+          continue
+        }
+        if (c == "{" || c == "[") depth++
+        else if (c == "}" || c == "]") depth--
+        i++
+      }
+    }' "$1" | sort
+}
+
+# forge_lockfile_updated: a package.json whose dependencies changed since the base
+# needs a changed lock file, when the project has one (next to it or at the root).
+# Blocks once per turn (forge_once): the package manager may not be able to run here.
+forge_lockfile_updated() {
+  grep -qE '(^|/)(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?)$' "$FORGE_TMP/changed" && return 0
+  _lu_rc=0
+  while IFS= read -r _lu_f; do
+    case $_lu_f in package.json|*/package.json) ;; *) continue ;; esac
+    case /$_lu_f in */node_modules/*) continue ;; esac
+    _lu_lock=''
+    _lu_ifs=$IFS; IFS=' '
+    for _lu_l in $FORGE_JS_LOCKS; do
+      if [ -f "$_lu_l" ] || [ -f "$(dirname "$_lu_f")/$_lu_l" ]; then _lu_lock=$_lu_l; break; fi
+    done
+    IFS=$_lu_ifs
+    [ -n "$_lu_lock" ] || continue
+    forge_pkg_deps "$FORGE_TMP/base/$_lu_f" > "$FORGE_TMP/deps.then"
+    forge_pkg_deps "$_lu_f" > "$FORGE_TMP/deps.now"
+    cmp -s "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" && continue
+    _lu_what=$(awk -F '\t' '
+      FILENAME == ARGV[1] { then[$1 " " $2] = $3; next }
+      { now[$1 " " $2] = $3 }
+      END {
+        for (k in now) if (!(k in then)) print k " " now[k] " added"; else if (then[k] != now[k]) print k " " then[k] " -> " now[k]
+        for (k in then) if (!(k in now)) print k " removed"
+      }' "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" | sort | head -n 5 | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')
+    printf '%s: %s, but %s did not change\n' "$_lu_f" "$_lu_what" "$_lu_lock"
+    _lu_rc=1
+  done < "$FORGE_TMP/existing"
+  [ "$_lu_rc" = 0 ] && return 0
+  printf 'Run the package manager (bun install, pnpm install, npm install, yarn) to update the lock file; it is not edited by hand. If it cannot run here, tell the user.\n'
+  forge_once
 }
 
 # GitHub Actions workflows: pinned zizmor (through uvx), offline audits only, inline
@@ -11050,7 +11904,7 @@ process.exit(findings.length ? 1 : 0);
 FORGE_SCRIPT_END
 }
 
-FORGE_FORBID='typescript/no-double-assertion|typescript/no-eval|typescript/no-explicit-any|typescript/no-focused-tests|typescript/no-non-null-assertion|typescript/no-stub|typescript/no-swallowed-catch|typescript/no-ts-ignore|typescript/no-ts-nocheck|typescript/ts-expect-error-reason'
+FORGE_FORBID='typescript/no-double-assertion|typescript/no-eval|typescript/no-explicit-any|typescript/no-focused-tests|typescript/no-latch-before-optional-call|typescript/no-non-null-assertion|typescript/no-stub|typescript/no-swallowed-catch|typescript/no-ts-ignore|typescript/no-ts-nocheck|typescript/ts-expect-error-reason'
 FORGE_NO_INCREASE=''
 FORGE_NO_DECREASE=''
 
@@ -11213,6 +12067,7 @@ exit "$fail"
     "typescript/config-files": "77940ff304752f88c143dedc5911b0961de9e16b68e10758a273cfc049505413",
     "typescript/config-ratchet": "b0ff3b6c064f691984e217acc0388d0900b1a2a1d1ee493935badb41a8a45022",
     "typescript/format-lint": "18f0059c55bc0fd6acbd5c7a92fb06989649cd07e9981e421d898991e39aed7b",
+    "typescript/lockfile-updated": "fdf939f434594c3d209c302bbd1c34f331eefbdc3b15f168574c56104f5f3664",
     "typescript/no-console": "304966850351b07590c05fb22ae0125d1976179b3cd7abc0bc0dd7e82039ada5",
     "typescript/no-double-assertion": "2c5b17cd8daa6bd598b4aa79b30259626c86e6a3afd00630a3a4a2918316ce80",
     "typescript/no-empty-block": "e615b8d48575392c885e65f5b5e69cfaba918ae070473fb229086fe36501a31f",
@@ -11221,6 +12076,7 @@ exit "$fail"
     "typescript/no-focused-tests": "0c7614dd6db46bbe6d9a19b58cf8130638128e786cd1dc912e58203ecc72a87b",
     "typescript/no-ignore-deprecations": "63044c1f4bd2f841800843fa17b4db5a29e5d8cc32053591a25622f15902c888",
     "typescript/no-implicit-any": "7ac25a953e4d6df85abee5379ea5496788f5d15776ae37623ceff5ebcc034108",
+    "typescript/no-latch-before-optional-call": "b0006561501550041b6131be348103c246c8dc268fd634cd9589e021d11583f9",
     "typescript/no-new-suppressions": "b49b319f832234670b6d55d259add6b912cd7e49e81fd2143917e7b64976dfed",
     "typescript/no-non-null-assertion": "24bf5fb3547ff36667d3886eaebc706fc21a387a18d2f5789156220e65462ce2",
     "typescript/no-placeholder-comment": "940fb140d959d26ffe50ae2978f2efbf8b3e44891a2b7fa0e0156f4752c7fb47",
@@ -11238,25 +12094,26 @@ exit "$fail"
     "typescript/unchecked-index": "c8a32a9a463d933695100cbee6ec896fc7bb41bad7d252871fd371ae78801755"
   },
   "files": {
-    ".claude/rules/forge-typescript.md": "adae3b7189e1b913fd0dbeb10f127fed7bde5b738f9889ddcff7f4a5a647b3a0",
+    ".claude/rules/forge-typescript.md": "48f463a8e59348509f4f2096fb2b61b294b079410555e21d7a0b4ed6767c131d",
     ".claude/skills/forge-project/.claude-plugin/plugin.json": "c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2",
     ".claude/skills/forge-project/hooks/hooks.json": "32657a3f5c57c5641c15cb8a0581c8a3d9590b73b31fd57d35f5b8a0bdddb6e8",
     ".claude/skills/forge-project/scripts/bash-snapshot.sh": "d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8",
     ".claude/skills/forge-project/scripts/guard.rules": "ff61a19974ccfc38fe6771978c9f9fe21253d4132eff8af9f06b112607965a00",
     ".claude/skills/forge-project/scripts/guard.sh": "e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca",
     ".claude/skills/forge-project/scripts/lib.sh": "462727c0187a948cfaefd1fac315bc87063203968e3df6d12ca68c839fbdf4a3",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "8d0e96e9060176f7e9ab36a7da5f9f06f5da5ee205c5465a33c8c7608812aa7d",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "c910e7348d8472031bca0291783b27ef246d24a5519d308aa6bc3a32337b81d2",
     ".claude/skills/forge-project/scripts/review.sh": "889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726",
-    ".claude/skills/forge-project/scripts/session-start.sh": "d93964fc996c9848237bfbf8124d543a5193ca624548ccd6426d72c197799746",
+    ".claude/skills/forge-project/scripts/session-start.sh": "1c343f6044d5b8ae3a524c5c7aa5775ac0076fb3189d68eccc96b05b54b62b8c",
     ".claude/skills/forge-project/scripts/stop.sh": "10316d9cd59fea152c6f8fbf0ab70abf547514bf67a2c85f3e6b405554a71fad",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "5e9a5f9bbeac0282a44e59c7d1c7ae581e124f975ebe1a07b5b3e2b48de6f88c",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "5b8f2d2170d041dd8e3a84dfff4e4cc5aef07f7841f3789a9699269f205e417f",
     ".claude/skills/forge-project/scripts/turn-start.sh": "fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "e8a22b1c93347da63b0ead4c40ef950756a85224c925f8661ee2dc25a5387262",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "4ebff6172f740f831523e0bbc902e98e91214b37a698715a85520a0f9453835b",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml": "c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20",
     ".forge/ast-grep/rule-tests/typescript-no-eval-test.yml": "3716e00219b28a0974a07a56e1d264bb478b35a6ef38d5c13740a9080b09516e",
     ".forge/ast-grep/rule-tests/typescript-no-explicit-any-test.yml": "eceb8781d7730e333b1d6fa7756eef0fa73a06b755c63def1048f3e781afcc83",
     ".forge/ast-grep/rule-tests/typescript-no-focused-tests-test.yml": "15fbc38ad50f9c7bd1c2eb86d3d1a3822a89dd3264aba34d9bd61cc08929c93d",
+    ".forge/ast-grep/rule-tests/typescript-no-latch-before-optional-call-test.yml": "c86f87d695b414c91cf90a528067e558a5ce93dbf38c8d9f90d1e7aec886b743",
     ".forge/ast-grep/rule-tests/typescript-no-non-null-assertion-test.yml": "af83eb23d31462a3adc9e8e3a6120e08c8b424814d2838333457276d998c04b0",
     ".forge/ast-grep/rule-tests/typescript-no-stub-test.yml": "b02e7e21f6bd597fe4b3d577b3a2cc6dfee9741674cc1cc99285e22ef90a2778",
     ".forge/ast-grep/rule-tests/typescript-no-swallowed-catch-test.yml": "fb2f02c2bcf9562ed49731349520cde2d48d2f3b3557d2174b5e2e856d6c8e48",
@@ -11267,6 +12124,7 @@ exit "$fail"
     ".forge/ast-grep/rules/typescript/no-eval.yml": "4530f075a8c35fa0da1643e3ca66309bfe73e45e911a39fd07afbc58a9125718",
     ".forge/ast-grep/rules/typescript/no-explicit-any.yml": "b8d70ef96cab3b10d6555cd162baeb3e8862def634698e805f3873261c44b21a",
     ".forge/ast-grep/rules/typescript/no-focused-tests.yml": "9c4c108fba7ed1ed8f96508aa0d5410c7cebbf90c09f7d078997182dd890e51e",
+    ".forge/ast-grep/rules/typescript/no-latch-before-optional-call.yml": "9414562604c76184c19ca04490da4eb9d1126f41355169eb9d76962eb60c3c41",
     ".forge/ast-grep/rules/typescript/no-non-null-assertion.yml": "360266100827f2fc04116b4a840bff6376ad173bfd074d98570dc76897a52cac",
     ".forge/ast-grep/rules/typescript/no-stub.yml": "b21497e3335f2271e6ca5874817957d18c640e7d787cfe76a72ef390ab62d634",
     ".forge/ast-grep/rules/typescript/no-swallowed-catch.yml": "4bd8569b39e21928852fafeaee02ce9d2ff35726699f91b3f50a6ebf57843bd6",
@@ -11274,7 +12132,7 @@ exit "$fail"
     ".forge/ast-grep/rules/typescript/no-ts-nocheck.yml": "aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21",
     ".forge/ast-grep/rules/typescript/ts-expect-error-reason.yml": "b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "9a74e315d018997fa95f31ef41ee2acf4db5466ce254b0412afa7af03a540594",
+    ".forge/check.sh": "5e12a422288d583589b350cf986583819740db68ab24e0f19f223f07b7a0abc6",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -11317,25 +12175,26 @@ exit "$fail"
 }
 
 ===== .forge/manifest.sha256
-adae3b7189e1b913fd0dbeb10f127fed7bde5b738f9889ddcff7f4a5a647b3a0  .claude/rules/forge-typescript.md
+48f463a8e59348509f4f2096fb2b61b294b079410555e21d7a0b4ed6767c131d  .claude/rules/forge-typescript.md
 c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills/forge-project/.claude-plugin/plugin.json
 32657a3f5c57c5641c15cb8a0581c8a3d9590b73b31fd57d35f5b8a0bdddb6e8  .claude/skills/forge-project/hooks/hooks.json
 d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills/forge-project/scripts/bash-snapshot.sh
 ff61a19974ccfc38fe6771978c9f9fe21253d4132eff8af9f06b112607965a00  .claude/skills/forge-project/scripts/guard.rules
 e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca  .claude/skills/forge-project/scripts/guard.sh
 462727c0187a948cfaefd1fac315bc87063203968e3df6d12ca68c839fbdf4a3  .claude/skills/forge-project/scripts/lib.sh
-8d0e96e9060176f7e9ab36a7da5f9f06f5da5ee205c5465a33c8c7608812aa7d  .claude/skills/forge-project/scripts/post-edit.sh
+c910e7348d8472031bca0291783b27ef246d24a5519d308aa6bc3a32337b81d2  .claude/skills/forge-project/scripts/post-edit.sh
 889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726  .claude/skills/forge-project/scripts/review.sh
-d93964fc996c9848237bfbf8124d543a5193ca624548ccd6426d72c197799746  .claude/skills/forge-project/scripts/session-start.sh
+1c343f6044d5b8ae3a524c5c7aa5775ac0076fb3189d68eccc96b05b54b62b8c  .claude/skills/forge-project/scripts/session-start.sh
 10316d9cd59fea152c6f8fbf0ab70abf547514bf67a2c85f3e6b405554a71fad  .claude/skills/forge-project/scripts/stop.sh
-5e9a5f9bbeac0282a44e59c7d1c7ae581e124f975ebe1a07b5b3e2b48de6f88c  .claude/skills/forge-project/scripts/test-edit.sh
+5b8f2d2170d041dd8e3a84dfff4e4cc5aef07f7841f3789a9699269f205e417f  .claude/skills/forge-project/scripts/test-edit.sh
 fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3  .claude/skills/forge-project/scripts/turn-start.sh
-e8a22b1c93347da63b0ead4c40ef950756a85224c925f8661ee2dc25a5387262  .claude/skills/forge-project/scripts/typecheck.sh
+4ebff6172f740f831523e0bbc902e98e91214b37a698715a85520a0f9453835b  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20  .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
 3716e00219b28a0974a07a56e1d264bb478b35a6ef38d5c13740a9080b09516e  .forge/ast-grep/rule-tests/typescript-no-eval-test.yml
 eceb8781d7730e333b1d6fa7756eef0fa73a06b755c63def1048f3e781afcc83  .forge/ast-grep/rule-tests/typescript-no-explicit-any-test.yml
 15fbc38ad50f9c7bd1c2eb86d3d1a3822a89dd3264aba34d9bd61cc08929c93d  .forge/ast-grep/rule-tests/typescript-no-focused-tests-test.yml
+c86f87d695b414c91cf90a528067e558a5ce93dbf38c8d9f90d1e7aec886b743  .forge/ast-grep/rule-tests/typescript-no-latch-before-optional-call-test.yml
 af83eb23d31462a3adc9e8e3a6120e08c8b424814d2838333457276d998c04b0  .forge/ast-grep/rule-tests/typescript-no-non-null-assertion-test.yml
 b02e7e21f6bd597fe4b3d577b3a2cc6dfee9741674cc1cc99285e22ef90a2778  .forge/ast-grep/rule-tests/typescript-no-stub-test.yml
 fb2f02c2bcf9562ed49731349520cde2d48d2f3b3557d2174b5e2e856d6c8e48  .forge/ast-grep/rule-tests/typescript-no-swallowed-catch-test.yml
@@ -11346,6 +12205,7 @@ c0b8c6e7a7a09608b63f8c9367afb4ac22fb1daa93c79c967373efdab597a48c  .forge/ast-gre
 4530f075a8c35fa0da1643e3ca66309bfe73e45e911a39fd07afbc58a9125718  .forge/ast-grep/rules/typescript/no-eval.yml
 b8d70ef96cab3b10d6555cd162baeb3e8862def634698e805f3873261c44b21a  .forge/ast-grep/rules/typescript/no-explicit-any.yml
 9c4c108fba7ed1ed8f96508aa0d5410c7cebbf90c09f7d078997182dd890e51e  .forge/ast-grep/rules/typescript/no-focused-tests.yml
+9414562604c76184c19ca04490da4eb9d1126f41355169eb9d76962eb60c3c41  .forge/ast-grep/rules/typescript/no-latch-before-optional-call.yml
 360266100827f2fc04116b4a840bff6376ad173bfd074d98570dc76897a52cac  .forge/ast-grep/rules/typescript/no-non-null-assertion.yml
 b21497e3335f2271e6ca5874817957d18c640e7d787cfe76a72ef390ab62d634  .forge/ast-grep/rules/typescript/no-stub.yml
 4bd8569b39e21928852fafeaee02ce9d2ff35726699f91b3f50a6ebf57843bd6  .forge/ast-grep/rules/typescript/no-swallowed-catch.yml
@@ -11353,7 +12213,7 @@ b21497e3335f2271e6ca5874817957d18c640e7d787cfe76a72ef390ab62d634  .forge/ast-gre
 aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21  .forge/ast-grep/rules/typescript/no-ts-nocheck.yml
 b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad  .forge/ast-grep/rules/typescript/ts-expect-error-reason.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-9a74e315d018997fa95f31ef41ee2acf4db5466ce254b0412afa7af03a540594  .forge/check.sh
+5e12a422288d583589b350cf986583819740db68ab24e0f19f223f07b7a0abc6  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

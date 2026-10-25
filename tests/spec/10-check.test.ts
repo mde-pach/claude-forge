@@ -1171,3 +1171,59 @@ ALTER TABLE "Post" ADD CONSTRAINT "Post_authorId_fkey" FOREIGN KEY ("authorId") 
     T,
   );
 });
+
+describe("advisory checks block once per turn", () => {
+  /** An applied Next.js repository with only the lint stage's tool-free checks left to run, and a turn snapshot at HEAD. */
+  function turnRepo(disable: string[]): { repo: string; turn: () => ReturnType<typeof sh> } {
+    const r = sampleRepo("nextjs-prisma-app");
+    put(r, "forge.yaml", `forge: "0.5"\ndisable:\n${disable.map((id) => `  - {id: ${id}, reason: test}\n`).join("")}`);
+    commitAll(r, "forge.yaml");
+    expect(forge(["apply", "--yes"], r).status).toBe(0);
+    commitAll(r, "forge");
+    const snap = ".forge/state/t.turn";
+    put(r, `${snap}/head`, git(r, "rev-parse", "HEAD").stdout);
+    put(r, `${snap}/tree`, "\n");
+    put(r, `${snap}/dirty`, "");
+    return { repo: r, turn: () => sh("sh", [".forge/check.sh", "--turn", snap], { cwd: r }) };
+  }
+
+  /** @rule typescript/lockfile-updated */
+  test(
+    "a dependency added to package.json without a lock-file change blocks the first Stop of the turn and is accepted at the next; pre-commit always fails",
+    () => {
+      const { repo: r, turn } = turnRepo(["typescript/bun/lock-sync", "typescript/bun/release-age", "typescript/bun/trusted-deps", "typescript/config-ratchet"]);
+      const pkg = readFileSync(join(r, "package.json"), "utf8");
+      put(r, "package.json", pkg.replace('"zod": "4.1.12"', '"zod": "4.1.12", "esbuild": "0.25.5"'));
+      const first = turn();
+      expect(first.status).toBe(1);
+      expect(first.stdout).toContain("forge:typescript/lockfile-updated failed");
+      expect(first.stdout).toContain("package.json: dependencies esbuild 0.25.5 added, but bun.lock did not change");
+      const second = turn();
+      expect(second.stdout).toContain("forge:typescript/lockfile-updated accepted: reported once this turn");
+      expect(second.stdout).not.toContain("forge:typescript/lockfile-updated failed");
+      expect(sh("sh", [".forge/check.sh", "--changed"], { cwd: r }).stdout).toContain("forge:typescript/lockfile-updated failed");
+    },
+    T,
+  );
+  /** @rule typescript/vitest/snapshot-stale */
+  test(
+    "a change to output that a snapshot test imports, without a snapshot change, blocks the first Stop of the turn and is accepted at the next",
+    () => {
+      const { repo: r, turn } = turnRepo(["typescript/bun/lock-sync", "typescript/config-ratchet"]);
+      put(r, "src/span.ts", "export const span = (name: string) => ({ name });\n");
+      put(r, "src/span.test.ts", 'import { expect, it } from "vitest";\nimport { span } from "./span.js";\n\nit("span", () => {\n  expect(span("a")).toMatchSnapshot();\n});\n');
+      put(r, "src/__snapshots__/span.test.ts.snap", "exports[`span 1`] = `{}`;\n");
+      commitAll(r, "span");
+      put(r, ".forge/state/t.turn/head", git(r, "rev-parse", "HEAD").stdout);
+      put(r, "src/span.ts", 'export const span = (name: string) => ({ name, kind: "llm" });\n');
+      const first = turn();
+      expect(first.status).toBe(1);
+      expect(first.stdout).toContain("forge:typescript/vitest/snapshot-stale failed");
+      expect(first.stdout).toContain("src/span.ts: imported by src/span.test.ts, which compares output with snapshots or golden files");
+      expect(turn().stdout).toContain("forge:typescript/vitest/snapshot-stale accepted: reported once this turn");
+      // pre-commit and CI do not run it: a human updates snapshots on purpose
+      expect(sh("sh", [".forge/check.sh", "--changed"], { cwd: r }).stdout).not.toContain("forge:typescript/vitest/snapshot-stale");
+    },
+    T,
+  );
+});

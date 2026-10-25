@@ -637,6 +637,56 @@ forge_stub_sync() {
   done
 }
 
+# forge_snapshot_stale: Stop only (--turn). A changed source file ($FORGE_FILES) whose
+# added lines hold a string or an object key, imported directly (relative import) by a
+# test that compares output with snapshots or golden files (toMatchSnapshot,
+# toMatchFileSnapshot, toMatchInlineSnapshot, testdata/, golden), while no .snap,
+# __snapshots__, testdata or golden file changed in the turn. A test that uses only
+# inline snapshots counts as updated when it changed. Blocks once per turn (forge_once).
+forge_snapshot_stale() {
+  [ "$mode" = --turn ] || return 0
+  grep -qE '\.snap$|(^|/)(__snapshots__|testdata|golden|__golden__)/|\.golden(\.|$)' "$FORGE_TMP/changed" && return 0
+  : > "$FORGE_TMP/snap.src"
+  for _ss_f in $FORGE_FILES; do
+    awk -F '\t' -v f="$_ss_f" '$1 == f { print $2 }' "$FORGE_TMP/added" > "$FORGE_TMP/snap.lines"
+    [ -s "$FORGE_TMP/snap.lines" ] || continue
+    awk 'NR == FNR { if ($0 == "*") all = 1; want[$0] = 1; next } all || (FNR in want)' "$FORGE_TMP/snap.lines" "$_ss_f" \
+      | grep -qE "[\"'\`]|[A-Za-z_\$][A-Za-z0-9_\$]*[?]?[[:space:]]*:" && printf '%s\n' "$_ss_f" >> "$FORGE_TMP/snap.src"
+  done
+  [ -s "$FORGE_TMP/snap.src" ] || return 0
+  git grep --untracked -lE 'toMatch(File|Inline)?Snapshot\(|testdata|golden' -- '*.test.*' '*.spec.*' '*/__tests__/*' > "$FORGE_TMP/snap.tests" 2>/dev/null
+  : > "$FORGE_TMP/snap.imports"
+  while IFS= read -r _ss_t; do
+    [ -f "$_ss_t" ] || continue
+    if grep -qxF "$_ss_t" "$FORGE_TMP/changed" && ! grep -qE 'toMatch(File)?Snapshot\(|testdata|golden' "$_ss_t"; then continue; fi
+    sed -n -E "s/.*(from|require\(|import\()[[:space:]]*[\"'](\.[^\"']*)[\"'].*/\2/p" "$_ss_t" \
+      | awk -v t="$_ss_t" '{ print t "\t" $0 }' >> "$FORGE_TMP/snap.imports"
+  done < "$FORGE_TMP/snap.tests"
+  awk -F '\t' '
+    function stem(p) { sub(/\.(d\.)?[cm]?[jt]sx?$/, "", p); return p }
+    function norm(p,   n, a, i, o, k) {
+      n = split(p, a, "/"); k = 0
+      for (i = 1; i <= n; i++) {
+        if (a[i] == "" || a[i] == ".") continue
+        if (a[i] == ".." && k > 0) { k--; continue }
+        o[++k] = a[i]
+      }
+      p = ""; for (i = 1; i <= k; i++) p = p (i > 1 ? "/" : "") o[i]
+      return p
+    }
+    FILENAME == ARGV[1] { src[stem($0)] = $0; next }
+    {
+      d = $1; if (d ~ /\//) sub(/\/[^\/]*$/, "", d); else d = "."
+      s = stem(norm(d "/" $2))
+      f = (s in src) ? src[s] : ((s "/index") in src) ? src[s "/index"] : ""
+      if (f != "" && !seen[f "\t" $1]++) print f ": imported by " $1 ", which compares output with snapshots or golden files"
+    }' "$FORGE_TMP/snap.src" "$FORGE_TMP/snap.imports" | sort | head -n 10 > "$FORGE_TMP/snap.out"
+  [ -s "$FORGE_TMP/snap.out" ] || return 0
+  cat "$FORGE_TMP/snap.out"
+  printf 'Output-producing code changed but its snapshots did not: run the snapshot tests with inputs that exercise the new output and update them (snapshot updates still go through no-snapshot-update).\n'
+  forge_once
+}
+
 # forge_toml_get <file> <section> <key>: the value of <key> in [<section>] ("" for
 # the top level), quotes and comments removed; nothing when absent. One-line values only.
 forge_toml_get() {
@@ -723,6 +773,92 @@ forge_trusted_deps() {
     fi
   done < "$FORGE_TMP/existing"
   return "$_td_rc"
+}
+
+# forge_once: for advisory checks. At Stop (--turn) a check that calls it after a
+# finding blocks once per turn: the first call records the finding in the turn
+# snapshot and fails; a later call in the same turn prints "accepted" and passes.
+# In other modes (pre-commit, CI) it always fails.
+forge_once() {
+  [ "$mode" = --turn ] && [ -n "$FORGE_SNAP" ] || return 1
+  _fo_m="$FORGE_SNAP/once.$(printf '%s' "$c_id" | tr -c 'A-Za-z0-9_.-' '_')"
+  if [ -f "$_fo_m" ]; then
+    printf 'forge:%s accepted: reported once this turn\n' "$c_id"
+    return 0
+  fi
+  : > "$_fo_m" 2>/dev/null
+  # as advice (§10.7): Stop does not replay it on the same tree, and the steps after it still run
+  [ -z "${FORGE_ONCE:-}" ] || : > "$FORGE_ONCE"
+  : > "$FORGE_TMP/advised.$(printf '%s' "$c_id" | tr -c 'A-Za-z0-9_-' '_')"
+  return 1
+}
+
+FORGE_JS_LOCKS='pnpm-lock.yaml package-lock.json npm-shrinkwrap.json yarn.lock bun.lock bun.lockb'
+
+# forge_pkg_deps <package.json>: "section<TAB>name<TAB>spec" for each entry of
+# dependencies, devDependencies and optionalDependencies (what lock files record;
+# pnpm's lock does not record peerDependencies), sorted.
+forge_pkg_deps() {
+  [ -f "$1" ] || return 0
+  awk '
+    { buf = buf $0 "\n" }
+    END {
+      n = length(buf); depth = 0; top = ""; key = ""; i = 1
+      while (i <= n) {
+        c = substr(buf, i, 1)
+        if (c == "\"") {
+          j = i + 1; s = ""
+          while (j <= n) {
+            d = substr(buf, j, 1)
+            if (d == "\\") { s = s substr(buf, j, 2); j += 2; continue }
+            if (d == "\"") break
+            s = s d; j++
+          }
+          i = j + 1; k = i
+          while (k <= n && substr(buf, k, 1) ~ /[ \t\r\n]/) k++
+          if (substr(buf, k, 1) == ":") { key = s; if (depth == 1) top = s; i = k + 1; continue }
+          if (depth == 2 && top ~ /^(dependencies|devDependencies|optionalDependencies)$/) print top "\t" key "\t" s
+          continue
+        }
+        if (c == "{" || c == "[") depth++
+        else if (c == "}" || c == "]") depth--
+        i++
+      }
+    }' "$1" | sort
+}
+
+# forge_lockfile_updated: a package.json whose dependencies changed since the base
+# needs a changed lock file, when the project has one (next to it or at the root).
+# Blocks once per turn (forge_once): the package manager may not be able to run here.
+forge_lockfile_updated() {
+  grep -qE '(^|/)(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?)$' "$FORGE_TMP/changed" && return 0
+  _lu_rc=0
+  while IFS= read -r _lu_f; do
+    case $_lu_f in package.json|*/package.json) ;; *) continue ;; esac
+    case /$_lu_f in */node_modules/*) continue ;; esac
+    _lu_lock=''
+    _lu_ifs=$IFS; IFS=' '
+    for _lu_l in $FORGE_JS_LOCKS; do
+      if [ -f "$_lu_l" ] || [ -f "$(dirname "$_lu_f")/$_lu_l" ]; then _lu_lock=$_lu_l; break; fi
+    done
+    IFS=$_lu_ifs
+    [ -n "$_lu_lock" ] || continue
+    forge_pkg_deps "$FORGE_TMP/base/$_lu_f" > "$FORGE_TMP/deps.then"
+    forge_pkg_deps "$_lu_f" > "$FORGE_TMP/deps.now"
+    cmp -s "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" && continue
+    _lu_what=$(awk -F '\t' '
+      FILENAME == ARGV[1] { then[$1 " " $2] = $3; next }
+      { now[$1 " " $2] = $3 }
+      END {
+        for (k in now) if (!(k in then)) print k " " now[k] " added"; else if (then[k] != now[k]) print k " " then[k] " -> " now[k]
+        for (k in then) if (!(k in now)) print k " removed"
+      }' "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" | sort | head -n 5 | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')
+    printf '%s: %s, but %s did not change\n' "$_lu_f" "$_lu_what" "$_lu_lock"
+    _lu_rc=1
+  done < "$FORGE_TMP/existing"
+  [ "$_lu_rc" = 0 ] && return 0
+  printf 'Run the package manager (bun install, pnpm install, npm install, yarn) to update the lock file; it is not edited by hand. If it cannot run here, tell the user.\n'
+  forge_once
 }
 
 # GitHub Actions workflows: pinned zizmor (through uvx), offline audits only, inline

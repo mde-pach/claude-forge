@@ -1,0 +1,36 @@
+id: typescript/no-latch-before-optional-call
+description: "A once-flag is set before an optional call in its guard (if (!warned) { warned = true; logger?.warn(…) }): the flag is consumed even when the receiver is absent, so the call never happens once it is there. Check the receiver first (if (!warned && logger)), or use the project's existing warn-once helper."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      all:
+        - kind: expression_statement
+        - has: {pattern: "$F = true", stopBy: neighbor}
+        - precedes:
+            stopBy: end
+            has: {pattern: "$X?.$M($$$)", stopBy: end}
+        - any:
+            - inside:
+                kind: statement_block
+                stopBy: neighbor
+                inside:
+                  kind: if_statement
+                  stopBy: neighbor
+                  has: {field: condition, pattern: "(!$F)"}
+            - follows:
+                stopBy: end
+                all:
+                  - kind: if_statement
+                  - has: {field: condition, pattern: "($F)"}
+                  - has: {field: consequence, regex: "^(\\{\\s*)?return\\b"}
+examples:
+  match:
+    - "let hasWarnedSubSecond = false;\n\nexport function clamp(ms: number, logger?: Logger): number {\n  if (ms > 0 && ms < 1000) {\n    if (!hasWarnedSubSecond) {\n      hasWarnedSubSecond = true;\n      logger?.warn({ ms }, \"durations under 1s round up to 1s\");\n    }\n    return 1000;\n  }\n  return ms;\n}\n"
+    - "export class Client {\n  private warned = false;\n\n  constructor(private readonly logger?: Logger) {}\n\n  deprecated(): void {\n    if (this.warned) return;\n    this.warned = true;\n    this.logger?.warn(\"deprecated() will be removed in v5\");\n  }\n}\n"
+  no_match:
+    - "let hasWarnedSubSecond = false;\n\nexport function clamp(ms: number, logger?: Logger): number {\n  if (!hasWarnedSubSecond && logger) {\n    hasWarnedSubSecond = true;\n    logger.warn({ ms }, \"durations under 1s round up to 1s\");\n  }\n  return Math.max(ms, 1000);\n}\n"
+    - "let hasWarnedSubSecond = false;\n\nexport function clamp(ms: number, logger?: Logger): number {\n  if (!hasWarnedSubSecond) {\n    hasWarnedSubSecond = true;\n    console.warn(\"durations under 1s round up to 1s\");\n  }\n  return Math.max(ms, 1000);\n}\n"
+    - "export function clamp(ms: number, logger?: Logger): number {\n  if (logger) {\n    warnOnce(logger, \"sub-second\", { ms }, \"durations under 1s round up to 1s\");\n  }\n  return Math.max(ms, 1000);\n}\n"
+    - "let started = false;\n\nexport function start(onStart?: () => void): void {\n  if (started) return;\n  started = true;\n  run();\n}\n"
