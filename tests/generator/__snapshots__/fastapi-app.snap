@@ -1608,13 +1608,16 @@ forge_exec_check() {
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "none" when no line names a file. With
-# "print", prints the lines that count instead.
+# "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
+# tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
   awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
+      gsub(ansi, "", line)
       if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -1818,7 +1821,7 @@ forge_required_tools() {
   done | awk 'NF && !seen[$0]++'
 }
 
-FORGE_FORBID='python/fastapi/cors-credentials-wildcard|python/fastapi/no-on-event|python/no-stub|python/pydantic/v2-api|python/pytest/no-tautological-assert|python/pytest/no-test-env-branch|python/sqlalchemy/async-expire-on-commit|python/sqlalchemy/mapped-column|python/sqlalchemy/no-backref|python/sqlalchemy/no-declarative-base|python/sqlalchemy/no-query-api|python/sqlalchemy/no-raw-execute|python/sqlalchemy/no-text-fstring'
+FORGE_FORBID='python/fastapi/cors-credentials-wildcard|python/fastapi/no-on-event|python/no-stub|python/pydantic/v2-api|python/pytest/no-tautological-assert|python/pytest/no-test-env-branch|python/sqlalchemy/async-expire-on-commit|python/sqlalchemy/fk-index|python/sqlalchemy/mapped-column|python/sqlalchemy/no-backref|python/sqlalchemy/no-declarative-base|python/sqlalchemy/no-query-api|python/sqlalchemy/no-raw-execute|python/sqlalchemy/no-text-fstring'
 
 # the lines added to each file during the turn (base: the turn snapshot, else HEAD)
 mode=--changed
@@ -2880,13 +2883,16 @@ forge_exec_check() {
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "none" when no line names a file. With
-# "print", prints the lines that count instead.
+# "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
+# tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
   awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
+      gsub(ansi, "", line)
       if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -4187,13 +4193,16 @@ forge_exec_check() {
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "none" when no line names a file. With
-# "print", prints the lines that count instead.
+# "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
+# tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
   awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
+      gsub(ansi, "", line)
       if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -4675,6 +4684,42 @@ invalid:
 
     Session = sa.async_sessionmaker(engine, expire_on_commit=True)
 
+===== .forge/ast-grep/rule-tests/python-sqlalchemy-fk-index-test.yml
+id: python/sqlalchemy/fk-index
+valid:
+  - |
+    class Post(Base):
+        __tablename__ = "posts"
+        author_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+  - |
+    class Profile(Base):
+        __tablename__ = "profiles"
+        user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True)
+  - |
+    class PostTag(Base):
+        __tablename__ = "post_tags"
+        post_id: Mapped[int] = mapped_column(ForeignKey("posts.id"), primary_key=True)
+  - |
+    class Post(Base):
+        __tablename__ = "posts"
+        __table_args__ = (Index("ix_posts_author_created", "author_id", "created_at"),)
+        author_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+  - |
+    class Post(Base):
+        __tablename__ = "posts"
+        author_id: Mapped[int] = mapped_column(nullable=False)
+invalid:
+  - |
+    class Post(Base):
+        __tablename__ = "posts"
+        author_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+  - |
+    class Post(Base):
+        __tablename__ = "posts"
+        org_id: Mapped[UUID] = mapped_column(Uuid, sa.ForeignKey("orgs.id"), nullable=False)
+  - |
+    tags = Table("post_tags", Base.metadata, Column("post_id", ForeignKey("posts.id")))
+
 ===== .forge/ast-grep/rule-tests/python-sqlalchemy-mapped-column-test.yml
 id: python/sqlalchemy/mapped-column
 valid:
@@ -4976,6 +5021,47 @@ rule:
       has:
         kind: keyword_argument
         regex: ^expire_on_commit\s*=\s*False$
+
+===== .forge/ast-grep/rules/python/sqlalchemy/fk-index.yml
+# Generated by forge from python/sqlalchemy/fk-index (mode: forbid).
+id: python/sqlalchemy/fk-index
+language: Python
+severity: error
+message: "forge:python/sqlalchemy/fk-index A foreign key column is indexed (index=True, unique=True, primary_key=True, or an Index in __table_args__): PostgreSQL does not index referencing columns, so joins on it and deletes of the referenced rows scan the table."
+rule:
+  kind: call
+  all:
+    - has:
+        field: function
+        regex: ^((sa|sqlalchemy|orm)\.)?(mapped_column|Column)$
+    - has:
+        field: arguments
+        has:
+          kind: call
+          has:
+            field: function
+            regex: ^((sa|sqlalchemy)\.)?ForeignKey$
+    - not:
+        has:
+          field: arguments
+          has:
+            kind: keyword_argument
+            regex: ^(index|unique|primary_key)\s*=\s*True$
+    - not:
+        inside:
+          stopBy: end
+          any:
+            - kind: class_definition
+            - kind: call
+              has:
+                field: function
+                regex: ^((sa|sqlalchemy)\.)?Table$
+          has:
+            stopBy: end
+            kind: call
+            has:
+              field: function
+              regex: ^((sa|sqlalchemy)\.)?(Index|UniqueConstraint|PrimaryKeyConstraint)$
 
 ===== .forge/ast-grep/rules/python/sqlalchemy/mapped-column.yml
 # Generated by forge from python/sqlalchemy/mapped-column (mode: forbid).
@@ -6420,13 +6506,16 @@ forge_exec_check() {
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "none" when no line names a file. With
-# "print", prints the lines that count instead.
+# "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
+# tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
   awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
+      gsub(ansi, "", line)
       if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -6852,7 +6941,7 @@ except Exception as e:  # never report a crash as a loosened setting
 FORGE_SCRIPT_END
 }
 
-FORGE_FORBID='python/fastapi/cors-credentials-wildcard|python/fastapi/no-on-event|python/no-stub|python/pydantic/v2-api|python/pytest/no-tautological-assert|python/pytest/no-test-env-branch|python/sqlalchemy/async-expire-on-commit|python/sqlalchemy/mapped-column|python/sqlalchemy/no-backref|python/sqlalchemy/no-declarative-base|python/sqlalchemy/no-query-api|python/sqlalchemy/no-raw-execute|python/sqlalchemy/no-text-fstring'
+FORGE_FORBID='python/fastapi/cors-credentials-wildcard|python/fastapi/no-on-event|python/no-stub|python/pydantic/v2-api|python/pytest/no-tautological-assert|python/pytest/no-test-env-branch|python/sqlalchemy/async-expire-on-commit|python/sqlalchemy/fk-index|python/sqlalchemy/mapped-column|python/sqlalchemy/no-backref|python/sqlalchemy/no-declarative-base|python/sqlalchemy/no-query-api|python/sqlalchemy/no-raw-execute|python/sqlalchemy/no-text-fstring'
 FORGE_NO_INCREASE='python/pytest/no-mock-increase|python/pytest/no-new-skip'
 FORGE_NO_DECREASE='python/pytest/no-fewer-asserts'
 
@@ -7061,6 +7150,7 @@ exit "$fail"
     "python/sqlalchemy/alembic/no-downgrade-base": "64399d2ccfb81a42cd95eb0d187143e4694829edeabe8d1005e930e9a6b7030b",
     "python/sqlalchemy/alembic/single-head": "dc936810ec4da1923a67833e0a5ce4ee5a45a0413637dad35aec38273c71309d",
     "python/sqlalchemy/async-expire-on-commit": "6fce73f809a395ca43afda54db104f1352d624589698ec0f91bab90a9848054b",
+    "python/sqlalchemy/fk-index": "a6771ece4823d8ad60672185941720a0f505535585c362c9c3c71f982d61a073",
     "python/sqlalchemy/mapped-column": "6427c117e9e210af344a1a9f48361832151670ca25bd382d47fbfc60fe896112",
     "python/sqlalchemy/no-backref": "dcbee3478c89bcb1ece428ca1259e7bac091ed43c6c8e4da75787c4c06a258f4",
     "python/sqlalchemy/no-declarative-base": "10b289e5cc6d65882309cf305285e365372000cb1f1c37ac6649b13d43929852",
@@ -7085,12 +7175,12 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "abda384154c0c859546b6aa0e79a6a1a8c4cead27ff82e014fc69de843294b74",
     ".claude/skills/forge-project/scripts/guard.sh": "33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d",
     ".claude/skills/forge-project/scripts/lib.sh": "1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "54a033730dffff5acd1d2bae2cc86818e3109382b4c512b2d7f14ef5fb83a8ae",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "67f149280e75776a257ab9ee157d76a981b169571086476647134983d51e1b9d",
     ".claude/skills/forge-project/scripts/review.sh": "9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac",
-    ".claude/skills/forge-project/scripts/session-start.sh": "ffdbd14991203a7de4a69968abc47ea334e0146fae8f94ee9f3372ed9513967a",
+    ".claude/skills/forge-project/scripts/session-start.sh": "fbf5aa3395aca1808f1a38882c89fb25c2662b786e1faa7de3e7e5dc79224bc6",
     ".claude/skills/forge-project/scripts/stop.sh": "f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173",
     ".claude/skills/forge-project/scripts/turn-start.sh": "a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "246ebdc30739c7a216e3acace9acfea79fc844a957c7450be6a601b368c7bf3f",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "4cbab9ca246f60b8a20d6a1dfad7e51716912b919e676f441a7b0929bf7f939c",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml": "69a94f1a0b16aa08bcf758af3e3dc269266cdd808aba1a4289b4c58c7f969700",
     ".forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml": "1589382e5e0b5cae841a8f47dae9f2b3a8583a4bb1074ceb858d882e648e9b49",
@@ -7102,6 +7192,7 @@ exit "$fail"
     ".forge/ast-grep/rule-tests/python-pytest-no-tautological-assert-test.yml": "96cfb1aacfb5a86d5c235bd2a619a8ec518697943eefd02a6088d3486b9bc255",
     ".forge/ast-grep/rule-tests/python-pytest-no-test-env-branch-test.yml": "b6b6511eb85b39a21fbfa8473e4c6c0b3a247493989c35b12ff669f142ba4ea9",
     ".forge/ast-grep/rule-tests/python-sqlalchemy-async-expire-on-commit-test.yml": "b0949d9f9be5bd6c2ca2d8c383c74d1379e2abd0dd75ce9f0e669a462638abef",
+    ".forge/ast-grep/rule-tests/python-sqlalchemy-fk-index-test.yml": "c4ebad5e12beaa84aa7a2e95baf45b53cd84490d28f108b18911e25890d4aa45",
     ".forge/ast-grep/rule-tests/python-sqlalchemy-mapped-column-test.yml": "5e88453376b1a27b0f6616dc5980226ab0dfb537778763ba31d6448e4045a448",
     ".forge/ast-grep/rule-tests/python-sqlalchemy-no-backref-test.yml": "11bc076c2bb5996c604661efcb8b63c92b5452a42620ff6bee23c8abff645c0a",
     ".forge/ast-grep/rule-tests/python-sqlalchemy-no-declarative-base-test.yml": "4b93be91c7de1f3e2da242f86fd8a55dd79f4b4b629fe15163f656e62ac18892",
@@ -7118,6 +7209,7 @@ exit "$fail"
     ".forge/ast-grep/rules/python/pytest/no-tautological-assert.yml": "7de47e969bf4614418e4b8b5ebec4e2aed80b2dceb35b6f29d406d39de54b0a0",
     ".forge/ast-grep/rules/python/pytest/no-test-env-branch.yml": "8876a2eb9e568b666a50631bc5629de93ec3a7804fed41f2e90507017f64ba13",
     ".forge/ast-grep/rules/python/sqlalchemy/async-expire-on-commit.yml": "637fca3fce2ffff8d64e094b4e9b168cc9bc8fcdcc6496efc30cbc127161ccac",
+    ".forge/ast-grep/rules/python/sqlalchemy/fk-index.yml": "b99b9820485eb64a7692b5c7472af76c9e4c45042e1c165ee06133b1d45d9020",
     ".forge/ast-grep/rules/python/sqlalchemy/mapped-column.yml": "e1a15384665afb7aae24664c55f4d81523622a6ef117385b17f806bc30cd3c3f",
     ".forge/ast-grep/rules/python/sqlalchemy/no-backref.yml": "13b73b70944eb1efd7c182f38a1832a0f639b622778db9c53c050c8f07511bcb",
     ".forge/ast-grep/rules/python/sqlalchemy/no-declarative-base.yml": "781d607290d560e8852c307a0e21211408c06731043ef0af7b44655f39f64d01",
@@ -7125,7 +7217,7 @@ exit "$fail"
     ".forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml": "4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0",
     ".forge/ast-grep/rules/python/sqlalchemy/no-text-fstring.yml": "04c44c9e215449d46b10540e86e999ec1d6383d8c3a849855fe73cb456668fca",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "eef45dcd3608fd020057c62f8008e4049281a07834a2d7947f1168da31ad610b",
+    ".forge/check.sh": "9d493b4283b9f04896dc44eb7d2ad6100952ebdfd7aa48736512bb65b3d9abee",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -7180,12 +7272,12 @@ d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills
 abda384154c0c859546b6aa0e79a6a1a8c4cead27ff82e014fc69de843294b74  .claude/skills/forge-project/scripts/guard.rules
 33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d  .claude/skills/forge-project/scripts/guard.sh
 1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a  .claude/skills/forge-project/scripts/lib.sh
-54a033730dffff5acd1d2bae2cc86818e3109382b4c512b2d7f14ef5fb83a8ae  .claude/skills/forge-project/scripts/post-edit.sh
+67f149280e75776a257ab9ee157d76a981b169571086476647134983d51e1b9d  .claude/skills/forge-project/scripts/post-edit.sh
 9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac  .claude/skills/forge-project/scripts/review.sh
-ffdbd14991203a7de4a69968abc47ea334e0146fae8f94ee9f3372ed9513967a  .claude/skills/forge-project/scripts/session-start.sh
+fbf5aa3395aca1808f1a38882c89fb25c2662b786e1faa7de3e7e5dc79224bc6  .claude/skills/forge-project/scripts/session-start.sh
 f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173  .claude/skills/forge-project/scripts/stop.sh
 a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c  .claude/skills/forge-project/scripts/turn-start.sh
-246ebdc30739c7a216e3acace9acfea79fc844a957c7450be6a601b368c7bf3f  .claude/skills/forge-project/scripts/typecheck.sh
+4cbab9ca246f60b8a20d6a1dfad7e51716912b919e676f441a7b0929bf7f939c  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 69a94f1a0b16aa08bcf758af3e3dc269266cdd808aba1a4289b4c58c7f969700  .forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml
 1589382e5e0b5cae841a8f47dae9f2b3a8583a4bb1074ceb858d882e648e9b49  .forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml
@@ -7197,6 +7289,7 @@ b95df53ce8a46a7d734c1841b72bd815cfcfdb68664019fa60b0dc4983dafd6c  .forge/ast-gre
 96cfb1aacfb5a86d5c235bd2a619a8ec518697943eefd02a6088d3486b9bc255  .forge/ast-grep/rule-tests/python-pytest-no-tautological-assert-test.yml
 b6b6511eb85b39a21fbfa8473e4c6c0b3a247493989c35b12ff669f142ba4ea9  .forge/ast-grep/rule-tests/python-pytest-no-test-env-branch-test.yml
 b0949d9f9be5bd6c2ca2d8c383c74d1379e2abd0dd75ce9f0e669a462638abef  .forge/ast-grep/rule-tests/python-sqlalchemy-async-expire-on-commit-test.yml
+c4ebad5e12beaa84aa7a2e95baf45b53cd84490d28f108b18911e25890d4aa45  .forge/ast-grep/rule-tests/python-sqlalchemy-fk-index-test.yml
 5e88453376b1a27b0f6616dc5980226ab0dfb537778763ba31d6448e4045a448  .forge/ast-grep/rule-tests/python-sqlalchemy-mapped-column-test.yml
 11bc076c2bb5996c604661efcb8b63c92b5452a42620ff6bee23c8abff645c0a  .forge/ast-grep/rule-tests/python-sqlalchemy-no-backref-test.yml
 4b93be91c7de1f3e2da242f86fd8a55dd79f4b4b629fe15163f656e62ac18892  .forge/ast-grep/rule-tests/python-sqlalchemy-no-declarative-base-test.yml
@@ -7213,6 +7306,7 @@ bed8cf569ef38351011aa0ce3f2d2ca9427cf26e06e2c8516f0f56569bfe6c88  .forge/ast-gre
 7de47e969bf4614418e4b8b5ebec4e2aed80b2dceb35b6f29d406d39de54b0a0  .forge/ast-grep/rules/python/pytest/no-tautological-assert.yml
 8876a2eb9e568b666a50631bc5629de93ec3a7804fed41f2e90507017f64ba13  .forge/ast-grep/rules/python/pytest/no-test-env-branch.yml
 637fca3fce2ffff8d64e094b4e9b168cc9bc8fcdcc6496efc30cbc127161ccac  .forge/ast-grep/rules/python/sqlalchemy/async-expire-on-commit.yml
+b99b9820485eb64a7692b5c7472af76c9e4c45042e1c165ee06133b1d45d9020  .forge/ast-grep/rules/python/sqlalchemy/fk-index.yml
 e1a15384665afb7aae24664c55f4d81523622a6ef117385b17f806bc30cd3c3f  .forge/ast-grep/rules/python/sqlalchemy/mapped-column.yml
 13b73b70944eb1efd7c182f38a1832a0f639b622778db9c53c050c8f07511bcb  .forge/ast-grep/rules/python/sqlalchemy/no-backref.yml
 781d607290d560e8852c307a0e21211408c06731043ef0af7b44655f39f64d01  .forge/ast-grep/rules/python/sqlalchemy/no-declarative-base.yml
@@ -7220,7 +7314,7 @@ e1a15384665afb7aae24664c55f4d81523622a6ef117385b17f806bc30cd3c3f  .forge/ast-gre
 4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0  .forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml
 04c44c9e215449d46b10540e86e999ec1d6383d8c3a849855fe73cb456668fca  .forge/ast-grep/rules/python/sqlalchemy/no-text-fstring.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-eef45dcd3608fd020057c62f8008e4049281a07834a2d7947f1168da31ad610b  .forge/check.sh
+9d493b4283b9f04896dc44eb7d2ad6100952ebdfd7aa48736512bb65b3d9abee  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

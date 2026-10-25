@@ -1,0 +1,28 @@
+id: python/sqlalchemy/fk-index
+description: "A foreign key column is indexed (index=True, unique=True, primary_key=True, or an Index in __table_args__): PostgreSQL does not index referencing columns, so joins on it and deletes of the referenced rows scan the table."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call
+      all:
+        - has: {field: function, regex: "^((sa|sqlalchemy|orm)\\.)?(mapped_column|Column)$"}
+        - has: {field: arguments, has: {kind: call, has: {field: function, regex: "^((sa|sqlalchemy)\\.)?ForeignKey$"}}}
+        - not: {has: {field: arguments, has: {kind: keyword_argument, regex: "^(index|unique|primary_key)\\s*=\\s*True$"}}}
+        - not:
+            inside:
+              stopBy: end
+              any: [{kind: class_definition}, {kind: call, has: {field: function, regex: "^((sa|sqlalchemy)\\.)?Table$"}}]
+              has: {stopBy: end, kind: call, has: {field: function, regex: "^((sa|sqlalchemy)\\.)?(Index|UniqueConstraint|PrimaryKeyConstraint)$"}}
+examples:
+  match:
+    - "class Post(Base):\n    __tablename__ = \"posts\"\n    author_id: Mapped[int] = mapped_column(ForeignKey(\"users.id\", ondelete=\"CASCADE\"))\n"
+    - "class Post(Base):\n    __tablename__ = \"posts\"\n    org_id: Mapped[UUID] = mapped_column(Uuid, sa.ForeignKey(\"orgs.id\"), nullable=False)\n"
+    - "tags = Table(\"post_tags\", Base.metadata, Column(\"post_id\", ForeignKey(\"posts.id\")))\n"
+  no_match:
+    - "class Post(Base):\n    __tablename__ = \"posts\"\n    author_id: Mapped[int] = mapped_column(ForeignKey(\"users.id\"), index=True)\n"
+    - "class Profile(Base):\n    __tablename__ = \"profiles\"\n    user_id: Mapped[int] = mapped_column(ForeignKey(\"users.id\"), unique=True)\n"
+    - "class PostTag(Base):\n    __tablename__ = \"post_tags\"\n    post_id: Mapped[int] = mapped_column(ForeignKey(\"posts.id\"), primary_key=True)\n"
+    - "class Post(Base):\n    __tablename__ = \"posts\"\n    __table_args__ = (Index(\"ix_posts_author_created\", \"author_id\", \"created_at\"),)\n    author_id: Mapped[int] = mapped_column(ForeignKey(\"users.id\"))\n"
+    - "class Post(Base):\n    __tablename__ = \"posts\"\n    author_id: Mapped[int] = mapped_column(nullable=False)\n"
