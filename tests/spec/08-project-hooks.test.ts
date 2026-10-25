@@ -41,6 +41,8 @@ function stubTool(name: string, body: string) {
 }
 /** A test added with a clean change, so the change is not "untested" (python/pytest/untested-change). */
 const OK_TEST = "def test_ok() -> None:\n    assert 1 + 1 == 2\n";
+/** Adds a test to tests/test_main.py, so a change made with it is not "untested" (python/pytest/untested-change). */
+const addTest = () => put(repo, "tests/test_main.py", `${readFileSync(join(repo, "tests/test_main.py"), "utf8")}\n\ndef test_turn_ok() -> None:\n    assert 1 + 1 == 2\n`);
 const edit = (rel: string) => ({ tool_name: "Edit", tool_input: { file_path: join(repo, rel) } });
 
 beforeAll(() => {
@@ -885,6 +887,7 @@ describe("Stop", () => {
       try {
         hook("turn-start.sh", { session_id: "t-12" });
         put(repo, "app/main.py", 'async def health() -> dict[str, str]:\n    return {"status": "ok"}  # turn-change\n');
+        addTest();
         const reason: string = JSON.parse(hook("stop.sh", { session_id: "t-12" }).stdout).reason;
         const lines = reason.split("\n");
         expect(lines.length).toBeLessThanOrEqual(40);
@@ -919,6 +922,7 @@ describe("Stop", () => {
       try {
         hook("turn-start.sh", { session_id: "t-13" });
         put(repo, "app/main.py", 'async def health() -> dict[str, str]:\n    return {"status": "ok"}  # turn-change\n');
+        addTest();
         const first: string = JSON.parse(hook("stop.sh", { session_id: "t-13" }).stdout).reason;
         expect(first).toContain("FAILED tests/test_main.py::test_health");
         for (let i = 0; i < 2; i++) {
@@ -987,6 +991,7 @@ describe("Stop", () => {
       put(repo, "app/span.py", before);
       hook("turn-start.sh", { session_id: "t-fmt" });
       put(repo, "app/span.py", before.replace("return 1", "return 2"));
+      addTest();
       expect(hook("post-edit.sh", { session_id: "t-fmt", ...edit("app/span.py") }).stdout).toBe("");
       expect(readFileSync(join(repo, "app/span.py"), "utf8")).toContain("...  # pragma: no cover");
       expect(hook("stop.sh", { session_id: "t-fmt" }).stdout).toBe("");
@@ -1117,7 +1122,10 @@ describe("failing tests at the start of the turn", () => {
     rmSync(log(), { force: true });
     stubTool("pytest", `printf '%s|%s|%s\\n' "$(pwd)" "$*" "$(grep -c turn-change app/main.py)" >> "${log()}"; ${body}; exit 1`);
   }
-  const change = () => put(repo, "app/main.py", 'async def health() -> dict[str, str]:\n    return {"status": "ok"}  # turn-change\n');
+  const change = () => {
+    put(repo, "app/main.py", 'async def health() -> dict[str, str]:\n    return {"status": "ok"}  # turn-change\n');
+    addTest();
+  };
   const runs = () => readFileSync(log(), "utf8").trimEnd().split("\n").map((l) => l.split("|"));
 
   test(
