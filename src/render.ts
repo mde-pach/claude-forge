@@ -86,8 +86,17 @@ function casePatterns(globs: string[]): string {
   return [...new Set(globs.flatMap(globToCase))].join("|");
 }
 
-function scopeFunction(name: string, rule: Rule): string {
-  const files = rule.scope.files ?? [];
+/**
+ * A rule's scope as a shell function on repository paths. With dirs (workspace
+ * packages), the scope's globs are relative to each package.
+ */
+function scopeFunction(name: string, rule: Rule, dirs?: string[]): string {
+  let files = rule.scope.files ?? [];
+  if (dirs) {
+    const inDirs = (g: string) => dirs.map((d) => `${d}/${g}`);
+    const include = files.filter((g) => !g.startsWith("!"));
+    files = [...(include.length ? include : ["**"]).flatMap(inDirs), ...files.filter((g) => g.startsWith("!")).flatMap((g) => inDirs(g.slice(1)).map((x) => "!" + x))];
+  }
   const exclude = files.filter((g) => g.startsWith("!")).map((g) => g.slice(1));
   const include = files.filter((g) => !g.startsWith("!"));
   const lang = LANGUAGE_CASE[rule.scope.language];
@@ -105,6 +114,8 @@ function scopeFunction(name: string, rule: Rule): string {
 export interface ActiveCheck {
   rule: Rule;
   target: CheckTarget;
+  /** Workspace packages to run in (repository-relative); absent: the root. */
+  dirs?: string[];
 }
 export interface ActiveGrep {
   rule: Rule;
@@ -141,28 +152,30 @@ export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = []): s
     for (const t of wrappers) out.push(`${t}() { forge_exec_tool ${t} "$@"; }`);
   }
   out.push(`FORGE_NCHECKS=${checks.length}`);
-  checks.forEach(({ rule, target }, i) => {
+  checks.forEach(({ rule, target, dirs }, i) => {
     const n = i + 1;
     const tools = checkTools(target);
     const changed = target.changed_run !== undefined;
+    // in workspace packages: each command runs in every package through forge_in_dirs
+    const body = (fn: string, cmd: string, form: "files" | "all") =>
+      dirs ? [`${fn}() { forge_in_dirs ${fn}_dir ${form}; }`, `${fn}_dir() {`, cmd, "}"] : [`${fn}() {`, cmd, "}"];
+    const when = dirs ? target.when_changed?.flatMap((g) => dirs.map((d) => `${d}/${g}`)) : target.when_changed;
     out.push(
       "",
       `# ${n}. ${rule.id}`,
       `forge_check_meta_${n}() {`,
       `  c_id=${shQuote(rule.id)}; c_stage=${target.stage}; c_tools=${shQuote(tools.join(" "))}`,
       `  c_when=${target.when_changed ? 1 : 0}; c_localdb=${target.requires_local_db ? 1 : 0}; c_timeout=${target.timeout ?? "''"}`,
-      `  c_changed=${changed ? 1 : 0}; c_files=${changed && target.changed_run!.includes("{files}") ? 1 : 0}; c_fix=${target.fix_run ? 1 : 0}; c_fmt=${target.format_stdin ? 1 : 0}`,
+      `  c_changed=${changed ? 1 : 0}; c_files=${changed && target.changed_run!.includes("{files}") ? 1 : 0}; c_fix=${target.fix_run ? 1 : 0}; c_fmt=${target.format_stdin ? 1 : 0}; c_dirs=${shQuote(dirs?.join(" ") ?? "")}`,
       "}",
-      scopeFunction(`forge_scope_${n}`, rule),
-      target.when_changed
-        ? `forge_when_${n}() { case $1 in ${casePatterns(target.when_changed)}) return 0 ;; esac; return 1; }`
+      scopeFunction(`forge_scope_${n}`, rule, dirs),
+      when
+        ? `forge_when_${n}() { case $1 in ${casePatterns(when)}) return 0 ;; esac; return 1; }`
         : `forge_when_${n}() { return 1; }`,
-      `forge_check_run_${n}() {`,
-      target.run,
-      "}",
+      ...body(`forge_check_run_${n}`, target.run, "all"),
     );
-    if (changed) out.push(`forge_check_changed_${n}() {`, target.changed_run!.replaceAll("{files}", "$FORGE_FILES"), "}");
-    if (target.fix_run) out.push(`forge_check_fix_${n}() {`, target.fix_run.replaceAll("{files}", "$FORGE_FILES"), "}");
+    if (changed) out.push(...body(`forge_check_changed_${n}`, target.changed_run!.replaceAll("{files}", "$FORGE_FILES"), target.changed_run!.includes("{files}") ? "files" : "all"));
+    if (target.fix_run) out.push(...body(`forge_check_fix_${n}`, target.fix_run.replaceAll("{files}", "$FORGE_FILES"), "files"));
     if (target.format_stdin) out.push(`forge_check_fmt_${n}() {`, target.format_stdin.replaceAll("{file}", '"$FORGE_FILE"'), "}");
   });
   out.push("", ...renderGreps(greps));

@@ -1,9 +1,10 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parse as parseToml } from "smol-toml";
-import { detectPack, lineage, loadLocalRules, loadProjectConfig, readProjectFacts, type ProjectFacts } from "./packs.js";
+import { detectPack, lineage, loadLocalRules, loadProjectConfig, readProjectFacts, type DepFacts, type ProjectFacts } from "./packs.js";
 import {
   AUDITED_TOOLS,
+  PROJECT_TOOLS,
   astGrepRulePath,
   astGrepTestPath,
   checkTools,
@@ -23,7 +24,7 @@ import {
   type ActiveGuard,
 } from "./render.js";
 import { listRepoFiles } from "./util.js";
-import type { AstGrepTarget, Level, Pack, ProjectConfig, Rule, SettingsEntry, ToolName, ToolTarget } from "./types.js";
+import type { AstGrepTarget, CheckTarget, Level, Pack, ProjectConfig, Rule, SettingsEntry, ToolName, ToolTarget } from "./types.js";
 
 export type AuditedTool = (typeof AUDITED_TOOLS)[number];
 
@@ -64,6 +65,8 @@ export interface Plan {
   deprecated: { id: string; replaced_by: string }[];
   warnings: string[];
   tools: Record<AuditedTool, boolean>;
+  /** Where each audited tool's audit runs: "" (the root) or the workspace package that configures it. */
+  toolDirs: Record<AuditedTool, string>;
   /** Project level: the checks fragment the hook scripts share (forge status runs its forge_missing_tools). */
   checksFragment?: string;
 }
@@ -91,8 +94,8 @@ export function readProjectInputs(repo: string): Pick<PlanOptions, "config" | "l
 
 // ---------------------------------------------------------------- tool presence (static)
 
-function readPyproject(repo: string): Record<string, any> {
-  const f = join(repo, "pyproject.toml");
+function readPyproject(dir: string): Record<string, any> {
+  const f = join(dir, "pyproject.toml");
   if (!existsSync(f)) return {};
   try {
     return parseToml(readFileSync(f, "utf8")) as Record<string, any>;
@@ -101,16 +104,42 @@ function readPyproject(repo: string): Record<string, any> {
   }
 }
 
-/** Whether each audited tool is configured or depended on by the project. */
-export function staticTools(repo: string, facts: ProjectFacts): Record<AuditedTool, boolean> {
-  const has = (f: string) => existsSync(join(repo, f));
-  const py = readPyproject(repo);
+/** Whether each audited tool has a config file in dir, and whether its package depends on the tool. */
+function toolsIn(dir: string, deps: DepFacts): Record<AuditedTool, { config: boolean; dep: boolean }> {
+  const has = (f: string) => existsSync(join(dir, f));
+  const py = readPyproject(dir);
   return {
-    biome: has("biome.json") || has("biome.jsonc") || facts.npm.has("@biomejs/biome"),
-    ruff: has("ruff.toml") || has(".ruff.toml") || py.tool?.ruff !== undefined || facts.pypi.has("ruff"),
-    basedpyright: facts.pypi.has("basedpyright") || py.tool?.basedpyright !== undefined || has("pyrightconfig.json"),
-    tsc: has("tsconfig.json") || facts.npm.has("typescript"),
+    biome: { config: has("biome.json") || has("biome.jsonc"), dep: deps.npm.has("@biomejs/biome") },
+    ruff: { config: has("ruff.toml") || has(".ruff.toml") || py.tool?.ruff !== undefined, dep: deps.pypi.has("ruff") },
+    basedpyright: { config: py.tool?.basedpyright !== undefined || has("pyrightconfig.json"), dep: deps.pypi.has("basedpyright") },
+    tsc: { config: has("tsconfig.json"), dep: deps.npm.has("typescript") },
   };
+}
+
+/**
+ * Where each audited tool is configured or depended on: "" for the root, else
+ * workspace package directories. A root that only depends on a tool does not
+ * count when a workspace package has the tool's config file (the config is
+ * there, and so is where the tool must run).
+ */
+export function toolPlaces(repo: string, facts: ProjectFacts): Record<AuditedTool, string[]> {
+  const root = toolsIn(repo, facts.root);
+  const ws = facts.workspaces.map((w) => ({ dir: w.dir, tools: toolsIn(join(repo, w.dir), w) }));
+  const out = {} as Record<AuditedTool, string[]>;
+  for (const t of AUDITED_TOOLS) {
+    const atRoot = root[t].config || (root[t].dep && !ws.some((w) => w.tools[t].config));
+    out[t] = [...(atRoot ? [""] : []), ...ws.filter((w) => w.tools[t].config || w.tools[t].dep).map((w) => w.dir)];
+  }
+  return out;
+}
+
+/**
+ * Checks that may run inside workspace packages: those that run a project tool
+ * (which reads its config from the working directory) and no engine helper
+ * (helpers work on repository paths: ratchet, migrations, Docker).
+ */
+function perPackage(t: CheckTarget): boolean {
+  return !/\bforge_[a-z_]+/.test([t.run, t.changed_run ?? "", t.fix_run ?? ""].join("\n")) && checkTools(t).some((x) => (PROJECT_TOOLS as readonly string[]).includes(x));
 }
 
 // ---------------------------------------------------------------- active packs
@@ -176,10 +205,28 @@ export function plan(opts: PlanOptions): Plan {
   const { level, base } = opts;
   const warnings: string[] = [];
   const { packs, removed } = activePacks(opts, warnings);
-  const tools =
-    level === "project" && opts.facts
-      ? staticTools(base, opts.facts)
-      : ({ biome: false, ruff: false, basedpyright: false, tsc: false } as Record<AuditedTool, boolean>);
+  const places = level === "project" && opts.facts ? toolPlaces(base, opts.facts) : undefined;
+  const tools = Object.fromEntries(AUDITED_TOOLS.map((t) => [t, (places?.[t].length ?? 0) > 0])) as Record<AuditedTool, boolean>;
+  const toolDirs = Object.fromEntries(AUDITED_TOOLS.map((t) => [t, places?.[t][0] ?? ""])) as Record<AuditedTool, string>;
+  const workspaces = level === "project" ? (opts.facts?.workspaces ?? []) : [];
+
+  /**
+   * Where a check runs: at the root (dirs undefined) when its pack is there and the
+   * root configures its audited tools; otherwise in each workspace package that has
+   * its pack (or any package, for a pack active at the root) and configures them.
+   */
+  const checkPlace = (rule: Rule, t: CheckTarget): { dirs?: string[]; absent: string[] } => {
+    const audited = checkTools(t).filter((x): x is AuditedTool => (AUDITED_TOOLS as readonly string[]).includes(x));
+    const absent = audited.filter((x) => !tools[x]);
+    if (absent.length || !places || !opts.facts || !workspaces.length || !perPackage(t)) return { absent };
+    const pack = opts.packs.get(rule.pack);
+    const atRoot = !pack || packs.find((p) => p.id === rule.pack)?.why !== "detected" || detectPack(pack, opts.facts.root);
+    if (atRoot && audited.every((x) => places[x].includes(""))) return { absent: [] };
+    const dirs = workspaces
+      .filter((w) => (atRoot || detectPack(pack!, w)) && audited.every((x) => places[x].includes(w.dir)))
+      .map((w) => w.dir);
+    return dirs.length ? { dirs, absent: [] } : { absent: audited };
+  };
 
   // rules: pack rules of active packs, replaced by local rules with the same id
   const byId = new Map<string, Rule>();
@@ -264,11 +311,11 @@ export function plan(opts: PlanOptions): Plan {
           warnings.push(`${rule.id}: check targets are project-level only`);
           continue;
         }
-        const absent = checkTools(t).filter((x): x is AuditedTool => (AUDITED_TOOLS as readonly string[]).includes(x) && !tools[x as AuditedTool]);
+        const { dirs, absent } = checkPlace(rule, t);
         if (absent.length) st.notEnforced.push(`not enforced here: ${absent.join(", ")} not configured`);
         else {
-          checks.push({ rule, target: t });
-          st.enforced.push(`check ${t.stage}: ${t.run}`);
+          checks.push({ rule, target: t, ...(dirs ? { dirs } : {}) });
+          st.enforced.push(`check ${t.stage}: ${t.run}${dirs ? ` (in ${dirs.join(", ")})` : ""}`);
         }
       }
     }
@@ -350,6 +397,7 @@ export function plan(opts: PlanOptions): Plan {
     deprecated,
     warnings,
     tools,
+    toolDirs,
     checksFragment,
   };
 }

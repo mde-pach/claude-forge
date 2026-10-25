@@ -28,6 +28,12 @@ A whole-project type check blocks only for errors in files that are part of the 
 <Spec file="10-check" describe="errors in unchanged files" />
 <Spec file="08-project-hooks" describe="errors in unchanged files" />
 
+## Workspace packages
+
+In a monorepo whose tool config lives in a workspace package, the checks run in that package, with the tools installed there or hoisted to the root; their diagnostics are read back as repository paths.
+
+<Spec file="10-check" describe="workspace packages" />
+
 ## Local databases
 
 Migration checks that need a database run only when it is local.

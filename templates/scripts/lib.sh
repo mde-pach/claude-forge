@@ -54,6 +54,10 @@ tool() {
     printf 'node_modules/.bin/%s' "$1"
   elif [ -x ".venv/bin/$1" ]; then
     printf '.venv/bin/%s' "$1"
+  elif [ -n "${FORGE_WS_ROOT:-}" ] && [ "$FORGE_WS_ROOT" != "$(pwd)" ]; then
+    # in a workspace package: the root's install (hoisted by bun, npm and Yarn; uv's .venv)
+    _tw=$(cd "$FORGE_WS_ROOT" && FORGE_WS_ROOT='' tool "$1")
+    case $_tw in ''|bun\ *) printf '%s' "$_tw" ;; *) printf '%s/%s' "$FORGE_WS_ROOT" "$_tw" ;; esac
   fi
 }
 

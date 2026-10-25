@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { CLAUDE_CODE_MIN, FORGE_VERSION } from "./util.js";
-import type { Lock, SettingsEntry } from "./types.js";
+import type { Lock, LockBlock, SettingsEntry } from "./types.js";
 
 export function readLock(base: string, lockPath: string): Lock | undefined {
   const f = join(base, lockPath);
@@ -13,18 +13,20 @@ export function readLock(base: string, lockPath: string): Lock | undefined {
     rules: data.rules ?? {},
     files: data.files ?? {},
     settings: data.settings ?? [],
+    blocks: data.blocks ?? [],
   };
 }
 
 /** The lock, read by the CLI only (check.sh reads .forge/manifest.sha256). The lock does not hash itself. */
-export function renderLock(rules: Record<string, string>, files: Record<string, string>, settings: SettingsEntry[]): string {
+export function renderLock(rules: Record<string, string>, files: Record<string, string>, settings: SettingsEntry[], blocks: LockBlock[] = []): string {
   const sorted = (o: Record<string, string>) => Object.fromEntries(Object.entries(o).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
-  const lock: Lock = {
+  const lock: Omit<Lock, "blocks"> & { blocks?: LockBlock[] } = {
     forge_version: FORGE_VERSION,
     claude_code_min: CLAUDE_CODE_MIN,
     rules: sorted(rules),
     files: sorted(files),
     settings,
+    ...(blocks.length ? { blocks } : {}),
   };
   return JSON.stringify(lock, null, 2) + "\n";
 }

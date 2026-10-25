@@ -217,27 +217,93 @@ describe("pre-commit", () => {
     T,
   );
 
-  test.each([[".husky"], ["lefthook.yml"], [".pre-commit-config.yaml"]])(
-    "with %s present no hook is created and status prints the line to add",
-    (manager) => {
+  /**
+   * With a hook manager, Forge adds its check to the manager's config as a block
+   * between `# forge: begin` and `# forge: end`, recorded in the lock's `blocks`:
+   * the rest of the file is left as it was, and `remove` takes the block out.
+   */
+  test.each([
+    [".pre-commit-config.yaml", "repos:\n  - repo: https://github.com/astral-sh/ruff-pre-commit\n    rev: v0.6.0\n    hooks:\n      - id: ruff\n", "entry: sh .forge/check.sh --changed"],
+    ["lefthook.yml", "pre-commit:\n  commands:\n    lint:\n      run: npm run lint\n", "run: sh .forge/check.sh --changed"],
+    [".husky/pre-commit", "npx lint-staged\n", "sh .forge/check.sh --changed || exit 1"],
+  ])(
+    "with %s, apply --yes adds the check as a marked block, once; status shows it; remove takes it out",
+    (file, mine, line) => {
       const r = sampleRepo("eslint-app");
-      if (manager === ".husky") mkdirSync(join(r, ".husky"));
-      else put(r, manager, "# hooks\n");
+      put(r, file, mine);
+      commitAll(r, "manager");
       expect(forge(["apply", "--yes"], r).status).toBe(0);
+      expect(forge(["apply", "--yes"], r).stdout).toContain("forge: up to date");
+      const text = readFileSync(join(r, file), "utf8");
+      expect(text.split(line).length).toBe(2);
+      expect(text).toContain("# forge: begin (forge remove deletes this block)");
+      expect(text.replace(/[ \t]*# forge: begin[^]*# forge: end\n/, "")).toBe(mine);
       expect(existsSync(join(r, ".git/hooks/pre-commit"))).toBe(false);
-      expect(forge(["status"], r).stdout).toContain(`add "sh .forge/check.sh --changed" to ${manager}`);
+      expect(JSON.parse(readFileSync(join(r, ".forge/forge.lock.json"), "utf8")).blocks).toEqual([expect.objectContaining({ file, created: false })]);
+      expect(forge(["status"], r).stdout).toContain(`Pre-commit: ${file} (forge)`);
+      expect(forge(["remove", "--yes"], r).status).toBe(0);
+      expect(git(r, "status", "--porcelain", "--untracked-files=all").stdout).toBe("");
     },
     T,
   );
 
   test(
-    "with core.hooksPath set no hook is created",
+    "with core.hooksPath in the repository, the check goes into its pre-commit hook, which then blocks a bad commit",
     () => {
       const r = sampleRepo("eslint-app");
       git(r, "config", "core.hooksPath", "githooks");
       expect(forge(["apply", "--yes"], r).status).toBe(0);
       expect(existsSync(join(r, ".git/hooks/pre-commit"))).toBe(false);
-      expect(forge(["status"], r).stdout).toContain("core.hooksPath (githooks)");
+      expect(readFileSync(join(r, "githooks/pre-commit"), "utf8")).toContain("sh .forge/check.sh --changed || exit 1");
+      commitAll(r, "forge");
+      put(r, "src/bad.ts", "export const x = 1 as any;\n");
+      git(r, "add", "-A");
+      const c = git(r, "commit", "-qm", "bad");
+      expect(c.status).not.toBe(0);
+      expect(c.stdout + c.stderr).toContain("forge:typescript/no-explicit-any src/bad.ts");
+    },
+    T,
+  );
+
+  test(
+    "a block the user deleted is reported by status and added back by apply",
+    () => {
+      const r = sampleRepo("eslint-app");
+      put(r, "lefthook.yml", "pre-push:\n  commands:\n    t:\n      run: x\n");
+      expect(forge(["apply", "--yes"], r).status).toBe(0);
+      put(r, "lefthook.yml", "pre-push:\n  commands:\n    t:\n      run: x\n");
+      const st = forge(["status"], r).stdout;
+      expect(st).toContain("lefthook.yml: forge's pre-commit block is missing (apply adds it back)");
+      expect(st).toContain("Pre-commit: NOT INSTALLED, so commits are not checked");
+      expect(forge(["apply", "--yes"], r).status).toBe(0);
+      expect(readFileSync(join(r, "lefthook.yml"), "utf8")).toContain("run: sh .forge/check.sh --changed");
+    },
+    T,
+  );
+
+  test(
+    "a config Forge cannot edit safely (lefthook jobs) is left alone, and apply and status warn that commits are not checked",
+    () => {
+      const r = sampleRepo("eslint-app");
+      put(r, "lefthook.yml", "pre-commit:\n  jobs:\n    - run: npm run lint\n");
+      const a = forge(["apply", "--yes"], r);
+      expect(readFileSync(join(r, "lefthook.yml"), "utf8")).toBe("pre-commit:\n  jobs:\n    - run: npm run lint\n");
+      expect(a.stdout).toContain('forge: pre-commit: not installed, so commits are not checked; add "sh .forge/check.sh --changed" to lefthook.yml');
+      expect(forge(["status"], r).stdout).toContain('Pre-commit: NOT INSTALLED, so commits are not checked. To install: add "sh .forge/check.sh --changed" to lefthook.yml');
+      expect(JSON.parse(forge(["status", "--json"], r).stdout).pre_commit).toEqual({ installed: false });
+    },
+    T,
+  );
+
+  test(
+    "a hook manager that already runs .forge/check.sh counts as installed, and is not edited",
+    () => {
+      const r = sampleRepo("eslint-app");
+      const mine = "pre-commit:\n  commands:\n    forge:\n      run: sh .forge/check.sh --changed\n";
+      put(r, "lefthook.yml", mine);
+      expect(forge(["apply", "--yes"], r).status).toBe(0);
+      expect(readFileSync(join(r, "lefthook.yml"), "utf8")).toBe(mine);
+      expect(forge(["status"], r).stdout).toContain("Pre-commit: lefthook.yml\n");
     },
     T,
   );
@@ -250,6 +316,7 @@ describe("pre-commit", () => {
       expect(forge(["apply", "--yes"], r).status).toBe(0);
       expect(forge(["remove", "--yes"], r).status).toBe(0);
       expect(readFileSync(join(r, ".git/hooks/pre-commit"), "utf8")).toBe("#!/bin/sh\necho mine\n");
+      expect(forge(["status"], r).stdout).toContain('Pre-commit: NOT INSTALLED, so commits are not checked. To install: add "sh .forge/check.sh --changed" to .git/hooks/pre-commit');
     },
     T,
   );
@@ -405,6 +472,72 @@ describe("errors in unchanged files", () => {
   );
 });
 
+
+/**
+ * In a monorepo whose TypeScript config lives in a workspace package
+ * (`packages/core/tsconfig.json`, `biome.json`), the checks run in that package,
+ * with the tools installed there (pnpm) or hoisted to the root (npm, Yarn, Bun).
+ * Diagnostics name repository paths, so they are attributed as at the root.
+ */
+describe("workspace packages", () => {
+  /** The pnpm workspace sample with a type error committed in packages/core/src/legacy.ts; tools in the package or at the root. */
+  function workspaceRepo(tools: "package" | "root"): string {
+    ensureTools();
+    const r = sampleRepo("pnpm-workspace-app");
+    linkTools(tools === "package" ? join(r, "packages/core") : r, "node");
+    put(r, "packages/core/src/legacy.ts", 'export const legacy: number = "oops";\n');
+    commitAll(r, "legacy");
+    expect(forge(["apply", "--yes"], r).status).toBe(0);
+    commitAll(r, "forge");
+    return r;
+  }
+
+  /** @rule typescript/typecheck */
+  test.if(hasBun)(
+    "the type check runs in the package: an error in a changed file fails with its repository path, one in an unchanged file does not block",
+    () => {
+      const r = workspaceRepo("package");
+      put(r, "packages/core/src/ok.ts", "export const ok: number = 1;\n");
+      const ok = sh("sh", [".forge/check.sh", "--changed"], { cwd: r });
+      expect(ok.stdout).toContain("forge:typescript/typecheck ok for the changed files (errors remain in unchanged files");
+      expect(ok.stdout).not.toContain("tsc (packages/core) not installed");
+      put(r, "packages/core/src/ok.ts", 'export const ok: number = "no";\n');
+      const bad = sh("sh", [".forge/check.sh", "--changed"], { cwd: r });
+      expect(bad.status).toBe(1);
+      expect(bad.stdout).toContain("forge:typescript/typecheck failed\npackages/core/src/ok.ts(1,14): error TS2322");
+      expect(bad.stdout).not.toContain("legacy.ts");
+    },
+    T,
+  );
+
+  /** @rule typescript/format-lint */
+  test.if(hasBun)(
+    "Biome runs in the package with its config, on the changed files, and its findings name repository paths",
+    () => {
+      const r = workspaceRepo("package");
+      put(r, "packages/core/src/ok.ts", "export const ok: any = 1;\n");
+      const c = sh("sh", [".forge/check.sh", "--changed"], { cwd: r });
+      expect(c.status).toBe(1);
+      expect(c.stdout).toContain("forge:typescript/format-lint failed\npackages/core/src/ok.ts:1:18 lint/suspicious/noExplicitAny");
+    },
+    T,
+  );
+
+  /** @rule typescript/typecheck */
+  test.if(hasBun)(
+    "tools hoisted to the root's node_modules are used in the package",
+    () => {
+      const r = workspaceRepo("root");
+      put(r, "packages/core/src/ok.ts", 'export const ok: number = "no";\n');
+      const c = sh("sh", [".forge/check.sh", "--changed"], { cwd: r });
+      expect(c.stdout).toContain("forge:typescript/typecheck failed\npackages/core/src/ok.ts(1,14): error TS2322");
+      const status = forge(["status"], r).stdout;
+      expect(status).not.toContain("tsc (packages/core)");
+      expect(status).not.toContain("biome (packages/core)");
+    },
+    T,
+  );
+});
 
 /**
  * Outside `--all`, a forbid rule or a lint finding counts only on a line the

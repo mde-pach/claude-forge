@@ -127,9 +127,10 @@ export function verdict(tool: ToolTarget["tool"], expects: string, r: ToolRun): 
 }
 
 /** §11: every match example fails the tool's run on the expected diagnostic; no no_match example reports it. */
-export function auditTarget(repo: string, rule: Rule, t: ToolTarget): AuditResult {
+export function auditTarget(repo: string, rule: Rule, t: ToolTarget, root = repo): AuditResult {
   const base = { rule: rule.id, tool: t.tool, expects: t.expects };
-  const bin = projectBinary(repo, t.tool);
+  // in a workspace package, the tool may be installed at the root (hoisted)
+  const bin = projectBinary(repo, t.tool) ?? projectBinary(root, t.tool);
   if (!bin) return { ...base, status: "skipped", detail: `${t.tool} is configured but not installed (node_modules/.bin or .venv/bin)` };
   const match = codeExamples(rule, "match");
   const noMatch = codeExamples(rule, "no_match");
@@ -169,6 +170,7 @@ function firstLine(s: string): string {
   return l.length > 60 ? l.slice(0, 57) + "..." : l;
 }
 
-export function auditRules(repo: string, items: { rule: Rule; audits: ToolTarget[] }[]): AuditResult[] {
-  return items.flatMap(({ rule, audits }) => audits.map((t) => auditTarget(repo, rule, t)));
+/** Audits every tool target; dirOf gives where a tool is configured (a workspace package, relative to repo). */
+export function auditRules(repo: string, items: { rule: Rule; audits: ToolTarget[] }[], dirOf: (tool: ToolTarget["tool"]) => string = () => ""): AuditResult[] {
+  return items.flatMap(({ rule, audits }) => audits.map((t) => auditTarget(join(repo, dirOf(t.tool)), rule, t, repo)));
 }

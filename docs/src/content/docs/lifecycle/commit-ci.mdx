@@ -7,7 +7,7 @@ import Spec from "../../../components/Spec.astro";
 
 ## Pre-commit
 
-`forge apply` offers a `.git/hooks/pre-commit` running `sh .forge/check.sh --changed`, unless another hook manager is in charge; then `forge status` prints the line to add to it.
+`forge apply` offers to run `sh .forge/check.sh --changed` before each commit. Without a hook manager it creates `.git/hooks/pre-commit`. With one (pre-commit, lefthook, husky, or `core.hooksPath`), it adds the check to the manager's config as a block between `# forge: begin` and `# forge: end`, and leaves the rest of the file as it was; `forge remove` takes the block out. When the check is not installed, `forge apply` and `forge status` say that commits are not checked, and how to install it.
 
 <Spec file="10-check" describe="pre-commit" />
 

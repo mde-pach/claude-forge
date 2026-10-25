@@ -127,4 +127,16 @@ export interface Lock {
   rules: Record<string, string>;
   files: Record<string, string>;
   settings: SettingsEntry[];
+  /** Blocks Forge added to files it does not own (a hook manager's config); written only when there is one. */
+  blocks: LockBlock[];
+}
+
+/** Forge's marked block in a file it does not own: the pre-commit check in a hook manager (§10.3). */
+export interface LockBlock {
+  file: string;
+  kind: "pre-commit" | "husky" | "lefthook" | "hooks";
+  /** Forge created the file: remove deletes it when nothing else is left. */
+  created: boolean;
+  /** blockHash() of the block as written. */
+  hash: string;
 }

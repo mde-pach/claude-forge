@@ -6,10 +6,11 @@ import { auditRules, auditTarget, projectBinary, type AuditResult } from "./audi
 import { MANIFEST_PATH, readLock, renderLock, renderManifest } from "./lock.js";
 import { loadLocalRules, loadPacks } from "./packs.js";
 import { plan, readProjectInputs, type Plan } from "./plan.js";
+import { blockHash, CHECK, hasBlock, hookManager, insertBlock, onlyForge, removeBlock, runsForgeCheck } from "./precommit.js";
 import { selfTest } from "./selftest.js";
 import { addEntries, conflictingScalars, entryKey, hasEntry, removeEntries } from "./settings.js";
 import { CLAUDE_CODE_MIN, FORGE_VERSION, compareVersions, gitToplevel, lineDiff, ownedHash, packageRoot, run } from "./util.js";
-import type { Level, Lock, SettingsEntry } from "./types.js";
+import type { Level, Lock, LockBlock, SettingsEntry } from "./types.js";
 import { USAGE } from "./usage.js";
 
 class ForgeError extends Error {
@@ -90,6 +91,8 @@ interface Ctx {
   plan: Plan;
   lock?: Lock;
   flags: Flags;
+  /** Forge's blocks in hook managers' files: those of the lock, plus one apply adds. */
+  blocks: LockBlock[];
 }
 
 function packsDir(): string {
@@ -107,7 +110,8 @@ function context(flags: Flags): Ctx {
   }
   const packs = loadPacks(packsDir());
   const p = plan({ level, base, packs, local: flags.local, ...(level === "project" ? readProjectInputs(base) : {}) });
-  const ctx: Ctx = { level, base, plan: p, lock: readLock(base, p.lockPath), flags };
+  const lock = readLock(base, p.lockPath);
+  const ctx: Ctx = { level, base, plan: p, lock, flags, blocks: level === "project" ? [...(lock?.blocks ?? [])] : [] };
   addPreCommit(ctx);
   if (level === "project") for (const [path, text] of p.files) if (path.endsWith(".json")) p.files.set(path, formatJson(base, path, text));
   return ctx;
@@ -134,13 +138,6 @@ function preCommitPath(base: string): string {
   return relative(base, join(base, r.stdout.trim() || ".git/hooks/pre-commit"));
 }
 
-/** A hook manager in use, or undefined. */
-function hookManager(base: string): string | undefined {
-  for (const f of [".husky", "lefthook.yml", "lefthook.yaml", ".lefthook.yml", ".pre-commit-config.yaml"]) if (existsSync(join(base, f))) return f;
-  const hp = run("git", ["config", "core.hooksPath"], { cwd: base }).stdout.trim();
-  return hp ? `core.hooksPath (${hp})` : undefined;
-}
-
 /** Keeps a pre-commit hook forge created earlier in the plan. */
 function addPreCommit(ctx: Ctx): void {
   if (ctx.level !== "project") return;
@@ -148,14 +145,42 @@ function addPreCommit(ctx: Ctx): void {
   if (ctx.lock?.files[p] !== undefined) ctx.plan.files.set(p, PRE_COMMIT);
 }
 
+/**
+ * Offers the commit-time check: Forge's own .git/hooks/pre-commit, or, with a hook
+ * manager, a marked block in its config (owned through the lock's blocks).
+ */
 function offerPreCommit(ctx: Ctx): boolean {
   if (ctx.level !== "project" || ctx.flags.dryRun) return false;
   const p = preCommitPath(ctx.base);
-  if (ctx.plan.files.has(p) || hookManager(ctx.base) || existsSync(join(ctx.base, p))) return false;
+  if (ctx.plan.files.has(p) || ctx.blocks.length) return false;
   if (!ctx.flags.yes && !process.stdin.isTTY) return false;
-  if (!confirm(`forge: create ${p} running "sh .forge/check.sh --changed"?`, ctx.flags)) return false;
-  ctx.plan.files.set(p, PRE_COMMIT);
+  const m = hookManager(ctx.base);
+  if (!m) {
+    if (existsSync(join(ctx.base, p))) return false;
+    if (!confirm(`forge: create ${p} running "${CHECK}"?`, ctx.flags)) return false;
+    ctx.plan.files.set(p, PRE_COMMIT);
+    return true;
+  }
+  if (!m.file) return false;
+  const before = readText(join(ctx.base, m.file));
+  if (before !== undefined && runsForgeCheck(before)) return false;
+  const after = insertBlock(m.kind, before);
+  if (after === undefined) return false;
+  process.stdout.write(lineDiff(before ?? "", after, before === undefined ? `${m.file} (new)` : m.file));
+  if (!confirm(`forge: add "${CHECK}" to ${m.file} (${m.name})?`, ctx.flags)) return false;
+  ctx.blocks.push({ file: m.file, kind: m.kind, created: before === undefined, hash: blockHash(after)! });
   return true;
+}
+
+/** Where commits are checked: Forge's hook or block (forge), or the user's own line; undefined when they are not. */
+function preCommitInstalled(ctx: Ctx): { file: string; forge: boolean } | undefined {
+  const pc = preCommitPath(ctx.base);
+  if (ctx.lock?.files[pc] !== undefined && existsSync(join(ctx.base, pc))) return { file: pc, forge: true };
+  for (const b of ctx.lock?.blocks ?? []) if (hasBlock(readText(join(ctx.base, b.file)) ?? "")) return { file: b.file, forge: true };
+  const m = hookManager(ctx.base);
+  const own = m?.file ?? (m ? undefined : pc);
+  if (own && runsForgeCheck(readText(join(ctx.base, own)) ?? "")) return { file: own, forge: false };
+  return undefined;
 }
 
 // ---------------------------------------------------------------- changes
@@ -166,6 +191,10 @@ interface Changes {
   drift: string[];
   conflicts: string[];
   settings: { file: string; before: string; after?: string; shared: boolean }[];
+  /** Forge's pre-commit block re-added to a hook manager's file (apply adds back a missing block). */
+  blocks: { path: string; before?: string; after: string; created: boolean }[];
+  /** Hook manager files whose Forge block was edited (left as is). */
+  blockDrift: string[];
   lockSettings: SettingsEntry[];
   missingEntries: SettingsEntry[];
   rulesChanged: string[];
@@ -178,7 +207,7 @@ interface Changes {
 
 function computeChanges(ctx: Ctx): Changes {
   const { base, plan: p, lock } = ctx;
-  const ch: Changes = { writes: [], deletes: [], drift: [], conflicts: [], settings: [], lockSettings: [], missingEntries: [], rulesChanged: [], overridden: [], lockText: "" };
+  const ch: Changes = { writes: [], deletes: [], drift: [], conflicts: [], settings: [], blocks: [], blockDrift: [], lockSettings: [], missingEntries: [], rulesChanged: [], overridden: [], lockText: "" };
   const owned = lock?.files ?? {};
   for (const [path, after] of p.files) {
     const before = readText(join(base, path));
@@ -235,10 +264,21 @@ function computeChanges(ctx: Ctx): Changes {
   const order = new Map(p.settings.map((e, i) => [entryKey(e), i]));
   ch.lockSettings = kept.sort((a, b) => (order.get(entryKey(a)) ?? 0) - (order.get(entryKey(b)) ?? 0));
 
+  for (const b of ctx.blocks) {
+    const before = readText(join(base, b.file));
+    if (before !== undefined && hasBlock(before)) {
+      if (blockHash(before) !== b.hash) ch.blockDrift.push(b.file);
+      continue;
+    }
+    const after = insertBlock(b.kind, before);
+    if (after === undefined) ch.overridden.push(`${b.file}: forge's pre-commit block cannot be added back (add "${CHECK}" yourself)`);
+    else ch.blocks.push({ path: b.file, before, after, created: before === undefined });
+  }
+
   for (const [id, hash] of Object.entries(lock?.rules ?? {})) if (p.rules[id] !== undefined && p.rules[id] !== hash) ch.rulesChanged.push(id);
   const hashes: Record<string, string> = {};
   for (const [path, text] of p.files) hashes[path] = ownedHash(path, text);
-  ch.lockText = renderLock(p.rules, hashes, ch.lockSettings);
+  ch.lockText = renderLock(p.rules, hashes, ch.lockSettings, ctx.blocks);
   if (ctx.level === "project") {
     ch.lockText = formatJson(base, p.lockPath, ch.lockText);
     ch.manifestText = renderManifest(hashes);
@@ -254,6 +294,10 @@ function printDiff(ctx: Ctx, ch: Changes, opts: { withLock: boolean }): boolean 
   }
   for (const d of ch.deletes) {
     out(`--- ${d} (deleted)`);
+    any = true;
+  }
+  for (const b of ch.blocks) {
+    process.stdout.write(lineDiff(b.before ?? "", b.after, b.before === undefined ? `${b.path} (new)` : b.path));
     any = true;
   }
   for (const s of ch.settings) {
@@ -317,6 +361,10 @@ function cmdApply(flags: Flags): number {
   if (offerPreCommit(ctx)) ch = computeChanges(ctx);
 
   for (const w of ch.writes) writeText(join(ctx.base, w.path), w.after);
+  for (const b of ch.blocks) {
+    writeText(join(ctx.base, b.path), b.after);
+    if (b.created && !/\.ya?ml$/.test(b.path)) chmodSync(join(ctx.base, b.path), 0o755);
+  }
   for (const d of ch.deletes) {
     rmSync(join(ctx.base, d), { force: true });
     pruneDirs(dirname(join(ctx.base, d)), ctx.base);
@@ -329,12 +377,12 @@ function cmdApply(flags: Flags): number {
   if (ch.manifestText !== undefined) writeText(join(ctx.base, MANIFEST_PATH), ch.manifestText);
 
   for (const o of ch.overridden) err(`forge: ${o}`);
-  const changed = ch.writes.length + ch.deletes.length + ch.settings.length;
-  out(changed ? `forge: applied (${ch.writes.length} written, ${ch.deletes.length} deleted, ${ch.settings.length} settings file(s) updated)` : "forge: up to date");
+  const changed = ch.writes.length + ch.deletes.length + ch.settings.length + ch.blocks.length;
+  out(changed ? `forge: applied (${ch.writes.length + ch.blocks.length} written, ${ch.deletes.length} deleted, ${ch.settings.length} settings file(s) updated)` : "forge: up to date");
   if (ctx.level === "project") {
-    const audits = auditRules(ctx.base, ctx.plan.active);
+    const audits = auditRules(ctx.base, ctx.plan.active, (t) => ctx.plan.toolDirs[t]);
     for (const a of audits.filter((x) => x.status === "unsatisfied")) out(formatAudit(a));
-    if (!existsSync(join(ctx.base, preCommitPath(ctx.base))) && !ctx.plan.files.has(preCommitPath(ctx.base))) out(preCommitHint(ctx.base));
+    if (!preCommitInstalled(ctx)) out(`forge: pre-commit: not installed, so commits are not checked; ${preCommitHint(ctx.base)}`);
   }
   const sandbox = sandboxProblem(ctx);
   if (sandbox) out(sandbox);
@@ -344,8 +392,10 @@ function cmdApply(flags: Flags): number {
 /**
  * When the setup enables Claude Code's sandbox on Linux, whether bubblewrap can
  * start it here: a container with Docker's default seccomp/AppArmor profile cannot
- * create namespaces ("Operation not permitted"). Returns the message to print, or
- * undefined when the sandbox can run (or is not Linux's to check).
+ * create namespaces ("Operation not permitted"), and one with a masked /proc cannot
+ * mount a new proc, which Claude Code's sandbox does (so the probe passes --proc).
+ * Returns the message to print, or undefined when the sandbox can run (or is not
+ * Linux's to check).
  */
 function sandboxProblem(ctx: Ctx): string | undefined {
   if (process.platform !== "linux") return undefined;
@@ -355,10 +405,10 @@ function sandboxProblem(ctx: Ctx): string | undefined {
   const tools = ["bwrap", "socat"].filter((c) => !has(c));
   if (tools.length)
     return `forge: sandbox: Claude Code's sandbox needs ${tools.join(" and ")} on Linux (apt install bubblewrap socat, or your distribution's packages), ${off}.`;
-  const r = run("bwrap", ["--ro-bind", "/", "/", "--dev", "/dev", "--unshare-all", "--die-with-parent", "true"]);
+  const r = run("bwrap", ["--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc", "--unshare-all", "--die-with-parent", "true"]);
   if (r.status === 0) return undefined;
   const why = (r.stderr || r.stdout).trim().split("\n")[0] || `exit ${r.status}`;
-  return `forge: sandbox: Claude Code's sandbox cannot start here: bubblewrap failed (${why}). In a container with Docker's default seccomp/AppArmor profile, namespaces are not allowed. Run the container with what bubblewrap needs (e.g. --security-opt seccomp=unconfined --security-opt apparmor=unconfined, or --cap-add SYS_ADMIN), ${off}.`;
+  return `forge: sandbox: Claude Code's sandbox cannot start here: bubblewrap failed (${why}). In a container with Docker's default seccomp/AppArmor profile, namespaces are not allowed and /proc is masked. Run the container with what bubblewrap needs (e.g. --security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt systempaths=unconfined, or --cap-add SYS_ADMIN), ${off}.`;
 }
 
 function cmdDiff(flags: Flags): number {
@@ -377,11 +427,14 @@ function formatAudit(a: AuditResult): string {
   return lines.join("\n");
 }
 
+/** How to install the commit-time check. */
 function preCommitHint(base: string): string {
   const m = hookManager(base);
-  return m
-    ? `forge: pre-commit: add "sh .forge/check.sh --changed" to ${m}`
-    : `forge: pre-commit: run forge apply interactively (or with --yes) to create ${preCommitPath(base)}, or add "sh .forge/check.sh --changed" to your hook manager`;
+  const pc = preCommitPath(base);
+  if (!m && existsSync(join(base, pc))) return `add "${CHECK}" to ${pc} (forge does not touch an existing hook)`;
+  if (!m) return `run forge apply interactively (or with --yes) to create ${pc}, or add "${CHECK}" to your hook manager`;
+  if (!m.file || insertBlock(m.kind, readText(join(base, m.file))) === undefined) return `add "${CHECK}" to ${m.name}`;
+  return `run forge apply interactively (or with --yes) to add "${CHECK}" to ${m.file}, or add it yourself`;
 }
 
 /**
@@ -423,7 +476,8 @@ const UNSATISFIED: Record<string, string> = {
 
 /** Whether each active rule is actually enforced in this project, and why not. */
 function enforcement(ctx: Ctx, audits: AuditResult[], missing: string[]): Enforcement[] {
-  const absent = new Set(missing);
+  // "tsc (packages/app)": missing in a workspace package
+  const absent = new Set(missing.map((m) => m.replace(/ \(.*\)$/, "")));
   return ctx.plan.active.map((st) => {
     const by: string[] = [];
     const not: string[] = [];
@@ -461,7 +515,7 @@ function enforcementSummary(rules: Enforcement[]): string {
 function cmdStatus(flags: Flags): number {
   const ctx = context(flags);
   const p = ctx.plan;
-  const audits = ctx.level === "project" ? auditRules(ctx.base, p.active) : [];
+  const audits = ctx.level === "project" ? auditRules(ctx.base, p.active, (t) => p.toolDirs[t]) : [];
   const missing = missingTools(ctx);
   const rules = enforcement(ctx, audits, missing);
   if (flags.json) {
@@ -481,7 +535,8 @@ function cmdStatus(flags: Flags): number {
           deprecated: p.deprecated,
           audits,
           missing_tools: missing,
-          drift: [...ch.drift, ...ch.conflicts],
+          pre_commit: ctx.level === "project" ? { installed: preCommitInstalled(ctx) !== undefined, ...preCommitInstalled(ctx) } : undefined,
+          drift: [...ch.drift, ...ch.conflicts, ...ch.blockDrift],
           warnings: p.warnings,
         },
         null,
@@ -522,6 +577,8 @@ function cmdStatus(flags: Flags): number {
   const drift = [...ch.drift.map((d) => `${d} modified since the last apply`), ...ch.conflicts.map((c) => `${c} is not a forge file`)];
   for (const id of ch.rulesChanged) drift.push(`rule ${id} changed since the last apply`);
   for (const e of ch.missingEntries) drift.push(`${e.file}: missing ${e.path} ${JSON.stringify(e.value)}`);
+  for (const f of ch.blockDrift) drift.push(`${f}: forge's pre-commit block modified since the last apply`);
+  for (const b of ch.blocks) drift.push(`${b.path}: forge's pre-commit block is missing (apply adds it back)`);
   drift.push(...ch.overridden);
   if (ctx.lock && (ch.writes.length || ch.deletes.length)) drift.push(`${ch.writes.length + ch.deletes.length} file(s) differ from what apply would write (forge diff)`);
   out(drift.length ? "Drift:\n" + drift.map((d) => `  ${d}`).join("\n") : "Drift: none");
@@ -530,8 +587,8 @@ function cmdStatus(flags: Flags): number {
   out(missing.length ? "Missing tools:\n" + missing.map((m) => `  ${m}`).join("\n") : "Missing tools: none");
   if (ctx.level === "project") {
     out("");
-    const pc = preCommitPath(ctx.base);
-    out(ctx.lock?.files[pc] !== undefined ? `Pre-commit: ${pc} (forge)` : preCommitHint(ctx.base));
+    const installed = preCommitInstalled(ctx);
+    out(installed ? `Pre-commit: ${installed.file}${installed.forge ? " (forge)" : ""}` : `Pre-commit: NOT INSTALLED, so commits are not checked. To install: ${preCommitHint(ctx.base)}`);
     out(`CI step, pull requests: sh .forge/check.sh --since origin/${defaultBranch(ctx.base)}`);
     out("CI step, the default branch: sh .forge/check.sh --all");
     if (p.packs.some((pk) => pk.id === "docker"))
@@ -566,7 +623,7 @@ function cmdExplain(id: string | undefined, flags: Flags): number {
     for (const e of st.enforced) out(`  ${e}`);
     for (const n of st.notEnforced) out(`  ${n}`);
     if (!st.enforced.length) out("  nowhere");
-    if (ctx.level === "project") for (const t of st.audits) out(formatAudit(auditTarget(ctx.base, st.rule, t)));
+    if (ctx.level === "project") for (const t of st.audits) out(formatAudit(auditTarget(join(ctx.base, ctx.plan.toolDirs[t.tool]), st.rule, t, ctx.base)));
   }
   return 0;
 }
@@ -597,9 +654,18 @@ function cmdRemove(flags: Flags): number {
     settings.set(file, { before, after: removeEntries(before, lock.settings.filter((e) => e.file === file)) });
   }
   const files = Object.keys(lock.files).filter((f) => existsSync(join(base, f)));
+  // Forge's blocks in hook managers' files: removed; a file Forge created goes when nothing else is left
+  const blocks: { block: LockBlock; before: string; after?: string }[] = [];
+  for (const b of lock.blocks) {
+    const before = readText(join(base, b.file));
+    if (before === undefined || !hasBlock(before)) continue;
+    const after = removeBlock(before);
+    blocks.push({ block: b, before, after: b.created && onlyForge(after) ? undefined : after });
+  }
   if (flags.dryRun) {
     for (const f of [...files, lockPath, ...(level === "project" && existsSync(join(base, MANIFEST_PATH)) ? [MANIFEST_PATH] : [])]) out(`--- ${f} (deleted)`);
     for (const [file, s] of settings) process.stdout.write(lineDiff(s.before, s.after ?? "", s.after === undefined ? `${file} (deleted)` : file));
+    for (const b of blocks) process.stdout.write(lineDiff(b.before, b.after ?? "", b.after === undefined ? `${b.block.file} (deleted)` : b.block.file));
     return 0;
   }
   for (const [file, s] of settings) {
@@ -618,6 +684,11 @@ function cmdRemove(flags: Flags): number {
     else writeText(join(base, file), s.after);
     pruneDirs(dirname(join(base, file)), base);
   }
+  for (const { block, before, after } of blocks) {
+    if (blockHash(before) !== block.hash) err(`forge: ${block.file}: forge's pre-commit block was modified since the last apply; removing it anyway`);
+    if (after === undefined) rmSync(join(base, block.file), { force: true });
+    else writeFileSync(join(base, block.file), after);
+  }
   rmSync(join(base, lockPath), { force: true });
   if (level === "project") rmSync(join(base, MANIFEST_PATH), { force: true });
   if (level === "project") {
@@ -625,7 +696,9 @@ function cmdRemove(flags: Flags): number {
     pruneDirs(join(base, ".forge"), base);
   }
   pruneDirs(dirname(join(base, lockPath)), base);
-  out(`forge: removed ${files.length} file(s) and ${lock.settings.length} settings entr${lock.settings.length === 1 ? "y" : "ies"}`);
+  out(
+    `forge: removed ${files.length} file(s) and ${lock.settings.length} settings entr${lock.settings.length === 1 ? "y" : "ies"}${blocks.length ? `, and the pre-commit block from ${blocks.map((b) => b.block.file).join(", ")}` : ""}`,
+  );
   return 0;
 }
 

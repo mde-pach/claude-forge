@@ -292,6 +292,10 @@ tool() {
     printf 'node_modules/.bin/%s' "$1"
   elif [ -x ".venv/bin/$1" ]; then
     printf '.venv/bin/%s' "$1"
+  elif [ -n "${FORGE_WS_ROOT:-}" ] && [ "$FORGE_WS_ROOT" != "$(pwd)" ]; then
+    # in a workspace package: the root's install (hoisted by bun, npm and Yarn; uv's .venv)
+    _tw=$(cd "$FORGE_WS_ROOT" && FORGE_WS_ROOT='' tool "$1")
+    case $_tw in ''|bun\ *) printf '%s' "$_tw" ;; *) printf '%s/%s' "$FORGE_WS_ROOT" "$_tw" ;; esac
   fi
 }
 
@@ -636,7 +640,7 @@ FORGE_NCHECKS=13
 forge_check_meta_1() {
   c_id='docker/compose/config-valid'; c_stage=lint; c_tools='docker'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_1() {
   case $1 in compose*.yml|*/compose*.yml|compose*.yaml|*/compose*.yaml|docker-compose*.yml|*/docker-compose*.yml|docker-compose*.yaml|*/docker-compose*.yaml) ;; *) return 1 ;; esac
@@ -651,7 +655,7 @@ forge_check_run_1() {
 forge_check_meta_2() {
   c_id='docker/compose/env-not-committed'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_2() {
   return 0
@@ -665,7 +669,7 @@ forge_check_run_2() {
 forge_check_meta_3() {
   c_id='docker/copy-not-add'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_3() {
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
@@ -680,7 +684,7 @@ forge_hadolint DL3020
 forge_check_meta_4() {
   c_id='docker/dockerignore'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_4() {
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
@@ -695,7 +699,7 @@ forge_docker_ignore
 forge_check_meta_5() {
   c_id='docker/exec-form'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_5() {
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
@@ -710,7 +714,7 @@ forge_hadolint DL3025
 forge_check_meta_6() {
   c_id='docker/locked-install'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_6() {
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
@@ -725,7 +729,7 @@ forge_docker_locked
 forge_check_meta_7() {
   c_id='docker/no-secret-arg-env'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_7() {
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
@@ -740,7 +744,7 @@ forge_docker_secrets
 forge_check_meta_8() {
   c_id='docker/non-root-user'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_8() {
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
@@ -755,7 +759,7 @@ forge_docker_nonroot
 forge_check_meta_9() {
   c_id='docker/pin-base-image'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_9() {
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
@@ -770,7 +774,7 @@ forge_hadolint DL3006 DL3007
 forge_check_meta_10() {
   c_id='docker/pipefail'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_10() {
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
@@ -785,7 +789,7 @@ forge_hadolint DL4006
 forge_check_meta_11() {
   c_id='docker/workdir'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_11() {
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
@@ -800,7 +804,7 @@ forge_hadolint DL3045
 forge_check_meta_12() {
   c_id='github-actions/zizmor'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_12() {
   case $1 in .github/workflows/*.yml|.github/workflows/*.yaml|.github/actions/action.yml|.github/actions/*/action.yml|.github/actions/action.yaml|.github/actions/*/action.yaml|action.yml|action.yaml) ;; *) return 1 ;; esac
@@ -815,7 +819,7 @@ forge_zizmor unpinned-uses template-injection dangerous-triggers excessive-permi
 forge_check_meta_13() {
   c_id='python/config-ratchet'; c_stage=lint; c_tools='python'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_13() {
   case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) ;; *) return 1 ;; esac
@@ -1498,20 +1502,27 @@ forge_exec_tool() {
   "$@"
 }
 
-# forge_has_tool <name>: system runtimes (uv, bun) via PATH, others via tool().
+# forge_has_tool <name>[@<dir>]: system runtimes (uv, bun) via PATH, others via tool()
+# (in workspace package <dir> when given).
 forge_has_tool() {
   case $1 in
+    *@*) ( _fh_root=$(pwd); cd "${1#*@}" 2>/dev/null && FORGE_WS_ROOT=$_fh_root forge_has_tool "${1%%@*}" ) ;;
     uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
 
-# forge_missing_tool: prints the first tool of $c_tools that is absent.
+# forge_missing_tool: prints the first tool of $c_tools that is absent (in a package
+# of $c_dirs: "<tool> (<dir>)").
 forge_missing_tool() {
   _fm_ifs=$IFS
   IFS=' '
   for _fm_t in $c_tools; do
-    if ! forge_has_tool "$_fm_t"; then IFS=$_fm_ifs; printf '%s' "$_fm_t"; return 0; fi
+    if [ -n "${c_dirs:-}" ]; then
+      for _fm_d in $c_dirs; do
+        if ! forge_has_tool "$_fm_t@$_fm_d"; then IFS=$_fm_ifs; printf '%s (%s)' "$_fm_t" "$_fm_d"; return 0; fi
+      done
+    elif ! forge_has_tool "$_fm_t"; then IFS=$_fm_ifs; printf '%s' "$_fm_t"; return 0; fi
   done
   IFS=$_fm_ifs
   return 1
@@ -1648,6 +1659,53 @@ forge_related_py_tests() {
       *) [ -d tests ] && find tests -type f -name "test_${_fr_b%.py}.py" 2>/dev/null ;;
     esac
   done | sort -u
+}
+
+# forge_in_dirs <fn> <files|all>: runs <fn> in each workspace package of $c_dirs, with
+# FORGE_WS_ROOT set (tool() falls back to the root's install). "files": only in packages
+# holding files of $FORGE_FILES, given to <fn> relative to the package. Relative paths
+# in the output are made relative to the repository again, so diagnostics are
+# attributed as at the root. Fails if <fn> fails in one package.
+forge_in_dirs() {
+  _fd_root=$(pwd)
+  _fd_rc=0
+  _fd_files=$FORGE_FILES
+  _fd_ifs=$IFS
+  IFS=' '
+  set -- "$1" "$2" $c_dirs
+  IFS=$_fd_ifs
+  _fd_fn=$1
+  _fd_form=$2
+  shift 2
+  for _fd_dir; do
+    FORGE_FILES=$_fd_files
+    if [ "$_fd_form" = files ]; then
+      FORGE_FILES=$(printf '%s\n' "$_fd_files" | awk -v p="$_fd_dir/" 'index($0, p) == 1 { print substr($0, length(p) + 1) }')
+      [ -n "$FORGE_FILES" ] || continue
+    fi
+    ( cd "$_fd_dir" && FORGE_WS_ROOT=$_fd_root && "$_fd_fn" ) > "$FORGE_TMP/dir.out" 2>&1 < /dev/null || _fd_rc=1
+    forge_prefix_paths "$_fd_dir" < "$FORGE_TMP/dir.out"
+  done
+  FORGE_FILES=$_fd_files
+  return "$_fd_rc"
+}
+
+# forge_prefix_paths <dir>: stdin with the relative paths that start a diagnostic
+# (the forms forge_diagnostics reads) prefixed with <dir>/; "../" is resolved.
+forge_prefix_paths() {
+  awk -v d="$1/" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
+    {
+      line = $0
+      gsub(ansi, "", line)
+      match(line, /^[[:space:]]*(-->[[:space:]]*)?(Would reformat: )?/)
+      lead = substr(line, 1, RLENGTH); rest = substr(line, RLENGTH + 1)
+      if (rest !~ /^\// && (rest ~ /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+| format )/ || lead ~ /Would reformat: $/)) {
+        p = d rest
+        while (sub(/(^|\/)[^\/.][^\/]*\/\.\.\//, "/", p)) sub(/^\//, "", p)
+        print lead p
+      } else print $0
+    }'
 }
 
 # forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out.
@@ -1925,7 +1983,8 @@ forge_typecheck() {
 forge_missing_tools() {
   _mt=''
   for _mt_t in $(forge_required_tools); do
-    forge_has_tool "$_mt_t" || _mt="${_mt:+$_mt, }$_mt_t"
+    case $_mt_t in *@*) _mt_n="${_mt_t%%@*} (${_mt_t#*@})" ;; *) _mt_n=$_mt_t ;; esac
+    forge_has_tool "$_mt_t" || _mt="${_mt:+$_mt, }$_mt_n"
   done
   if ! command -v bunx >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then
     _mt="${_mt:+$_mt, }bunx or uvx (ast-grep)"
@@ -1933,12 +1992,12 @@ forge_missing_tools() {
   printf '%s' "$_mt"
 }
 
-# forge_required_tools: every tool the checks use, one per line.
+# forge_required_tools: every tool the checks use, one per line (<tool>@<dir> in a workspace package).
 forge_required_tools() {
   _fq_i=1
   while [ "$_fq_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fq_i"
-    printf '%s\n' "$c_tools" | tr ' ' '\n'
+    printf '%s\n' "$c_tools" | tr ' ' '\n' | awk -v d="$c_dirs" 'NF { if (d == "") print; else { n = split(d, ds, " "); for (i = 1; i <= n; i++) print $0 "@" ds[i] } }'
     _fq_i=$((_fq_i + 1))
   done | awk 'NF && !seen[$0]++'
 }
@@ -2062,7 +2121,7 @@ FORGE_NCHECKS=13
 forge_check_meta_1() {
   c_id='docker/compose/config-valid'; c_stage=lint; c_tools='docker'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_1() {
   case $1 in compose*.yml|*/compose*.yml|compose*.yaml|*/compose*.yaml|docker-compose*.yml|*/docker-compose*.yml|docker-compose*.yaml|*/docker-compose*.yaml) ;; *) return 1 ;; esac
@@ -2077,7 +2136,7 @@ forge_check_run_1() {
 forge_check_meta_2() {
   c_id='docker/compose/env-not-committed'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_2() {
   return 0
@@ -2091,7 +2150,7 @@ forge_check_run_2() {
 forge_check_meta_3() {
   c_id='docker/copy-not-add'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_3() {
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
@@ -2106,7 +2165,7 @@ forge_hadolint DL3020
 forge_check_meta_4() {
   c_id='docker/dockerignore'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_4() {
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
@@ -2121,7 +2180,7 @@ forge_docker_ignore
 forge_check_meta_5() {
   c_id='docker/exec-form'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_5() {
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
@@ -2136,7 +2195,7 @@ forge_hadolint DL3025
 forge_check_meta_6() {
   c_id='docker/locked-install'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_6() {
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
@@ -2151,7 +2210,7 @@ forge_docker_locked
 forge_check_meta_7() {
   c_id='docker/no-secret-arg-env'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_7() {
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
@@ -2166,7 +2225,7 @@ forge_docker_secrets
 forge_check_meta_8() {
   c_id='docker/non-root-user'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_8() {
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
@@ -2181,7 +2240,7 @@ forge_docker_nonroot
 forge_check_meta_9() {
   c_id='docker/pin-base-image'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_9() {
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
@@ -2196,7 +2255,7 @@ forge_hadolint DL3006 DL3007
 forge_check_meta_10() {
   c_id='docker/pipefail'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_10() {
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
@@ -2211,7 +2270,7 @@ forge_hadolint DL4006
 forge_check_meta_11() {
   c_id='docker/workdir'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_11() {
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
@@ -2226,7 +2285,7 @@ forge_hadolint DL3045
 forge_check_meta_12() {
   c_id='github-actions/zizmor'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_12() {
   case $1 in .github/workflows/*.yml|.github/workflows/*.yaml|.github/actions/action.yml|.github/actions/*/action.yml|.github/actions/action.yaml|.github/actions/*/action.yaml|action.yml|action.yaml) ;; *) return 1 ;; esac
@@ -2241,7 +2300,7 @@ forge_zizmor unpinned-uses template-injection dangerous-triggers excessive-permi
 forge_check_meta_13() {
   c_id='python/config-ratchet'; c_stage=lint; c_tools='python'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_13() {
   case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) ;; *) return 1 ;; esac
@@ -2924,20 +2983,27 @@ forge_exec_tool() {
   "$@"
 }
 
-# forge_has_tool <name>: system runtimes (uv, bun) via PATH, others via tool().
+# forge_has_tool <name>[@<dir>]: system runtimes (uv, bun) via PATH, others via tool()
+# (in workspace package <dir> when given).
 forge_has_tool() {
   case $1 in
+    *@*) ( _fh_root=$(pwd); cd "${1#*@}" 2>/dev/null && FORGE_WS_ROOT=$_fh_root forge_has_tool "${1%%@*}" ) ;;
     uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
 
-# forge_missing_tool: prints the first tool of $c_tools that is absent.
+# forge_missing_tool: prints the first tool of $c_tools that is absent (in a package
+# of $c_dirs: "<tool> (<dir>)").
 forge_missing_tool() {
   _fm_ifs=$IFS
   IFS=' '
   for _fm_t in $c_tools; do
-    if ! forge_has_tool "$_fm_t"; then IFS=$_fm_ifs; printf '%s' "$_fm_t"; return 0; fi
+    if [ -n "${c_dirs:-}" ]; then
+      for _fm_d in $c_dirs; do
+        if ! forge_has_tool "$_fm_t@$_fm_d"; then IFS=$_fm_ifs; printf '%s (%s)' "$_fm_t" "$_fm_d"; return 0; fi
+      done
+    elif ! forge_has_tool "$_fm_t"; then IFS=$_fm_ifs; printf '%s' "$_fm_t"; return 0; fi
   done
   IFS=$_fm_ifs
   return 1
@@ -3074,6 +3140,53 @@ forge_related_py_tests() {
       *) [ -d tests ] && find tests -type f -name "test_${_fr_b%.py}.py" 2>/dev/null ;;
     esac
   done | sort -u
+}
+
+# forge_in_dirs <fn> <files|all>: runs <fn> in each workspace package of $c_dirs, with
+# FORGE_WS_ROOT set (tool() falls back to the root's install). "files": only in packages
+# holding files of $FORGE_FILES, given to <fn> relative to the package. Relative paths
+# in the output are made relative to the repository again, so diagnostics are
+# attributed as at the root. Fails if <fn> fails in one package.
+forge_in_dirs() {
+  _fd_root=$(pwd)
+  _fd_rc=0
+  _fd_files=$FORGE_FILES
+  _fd_ifs=$IFS
+  IFS=' '
+  set -- "$1" "$2" $c_dirs
+  IFS=$_fd_ifs
+  _fd_fn=$1
+  _fd_form=$2
+  shift 2
+  for _fd_dir; do
+    FORGE_FILES=$_fd_files
+    if [ "$_fd_form" = files ]; then
+      FORGE_FILES=$(printf '%s\n' "$_fd_files" | awk -v p="$_fd_dir/" 'index($0, p) == 1 { print substr($0, length(p) + 1) }')
+      [ -n "$FORGE_FILES" ] || continue
+    fi
+    ( cd "$_fd_dir" && FORGE_WS_ROOT=$_fd_root && "$_fd_fn" ) > "$FORGE_TMP/dir.out" 2>&1 < /dev/null || _fd_rc=1
+    forge_prefix_paths "$_fd_dir" < "$FORGE_TMP/dir.out"
+  done
+  FORGE_FILES=$_fd_files
+  return "$_fd_rc"
+}
+
+# forge_prefix_paths <dir>: stdin with the relative paths that start a diagnostic
+# (the forms forge_diagnostics reads) prefixed with <dir>/; "../" is resolved.
+forge_prefix_paths() {
+  awk -v d="$1/" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
+    {
+      line = $0
+      gsub(ansi, "", line)
+      match(line, /^[[:space:]]*(-->[[:space:]]*)?(Would reformat: )?/)
+      lead = substr(line, 1, RLENGTH); rest = substr(line, RLENGTH + 1)
+      if (rest !~ /^\// && (rest ~ /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+| format )/ || lead ~ /Would reformat: $/)) {
+        p = d rest
+        while (sub(/(^|\/)[^\/.][^\/]*\/\.\.\//, "/", p)) sub(/^\//, "", p)
+        print lead p
+      } else print $0
+    }'
 }
 
 # forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out.
@@ -3351,7 +3464,8 @@ forge_typecheck() {
 forge_missing_tools() {
   _mt=''
   for _mt_t in $(forge_required_tools); do
-    forge_has_tool "$_mt_t" || _mt="${_mt:+$_mt, }$_mt_t"
+    case $_mt_t in *@*) _mt_n="${_mt_t%%@*} (${_mt_t#*@})" ;; *) _mt_n=$_mt_t ;; esac
+    forge_has_tool "$_mt_t" || _mt="${_mt:+$_mt, }$_mt_n"
   done
   if ! command -v bunx >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then
     _mt="${_mt:+$_mt, }bunx or uvx (ast-grep)"
@@ -3359,12 +3473,12 @@ forge_missing_tools() {
   printf '%s' "$_mt"
 }
 
-# forge_required_tools: every tool the checks use, one per line.
+# forge_required_tools: every tool the checks use, one per line (<tool>@<dir> in a workspace package).
 forge_required_tools() {
   _fq_i=1
   while [ "$_fq_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fq_i"
-    printf '%s\n' "$c_tools" | tr ' ' '\n'
+    printf '%s\n' "$c_tools" | tr ' ' '\n' | awk -v d="$c_dirs" 'NF { if (d == "") print; else { n = split(d, ds, " "); for (i = 1; i <= n; i++) print $0 "@" ds[i] } }'
     _fq_i=$((_fq_i + 1))
   done | awk 'NF && !seen[$0]++'
 }
@@ -3525,7 +3639,7 @@ FORGE_NCHECKS=13
 forge_check_meta_1() {
   c_id='docker/compose/config-valid'; c_stage=lint; c_tools='docker'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_1() {
   case $1 in compose*.yml|*/compose*.yml|compose*.yaml|*/compose*.yaml|docker-compose*.yml|*/docker-compose*.yml|docker-compose*.yaml|*/docker-compose*.yaml) ;; *) return 1 ;; esac
@@ -3540,7 +3654,7 @@ forge_check_run_1() {
 forge_check_meta_2() {
   c_id='docker/compose/env-not-committed'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_2() {
   return 0
@@ -3554,7 +3668,7 @@ forge_check_run_2() {
 forge_check_meta_3() {
   c_id='docker/copy-not-add'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_3() {
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
@@ -3569,7 +3683,7 @@ forge_hadolint DL3020
 forge_check_meta_4() {
   c_id='docker/dockerignore'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_4() {
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
@@ -3584,7 +3698,7 @@ forge_docker_ignore
 forge_check_meta_5() {
   c_id='docker/exec-form'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_5() {
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
@@ -3599,7 +3713,7 @@ forge_hadolint DL3025
 forge_check_meta_6() {
   c_id='docker/locked-install'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_6() {
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
@@ -3614,7 +3728,7 @@ forge_docker_locked
 forge_check_meta_7() {
   c_id='docker/no-secret-arg-env'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_7() {
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
@@ -3629,7 +3743,7 @@ forge_docker_secrets
 forge_check_meta_8() {
   c_id='docker/non-root-user'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_8() {
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
@@ -3644,7 +3758,7 @@ forge_docker_nonroot
 forge_check_meta_9() {
   c_id='docker/pin-base-image'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_9() {
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
@@ -3659,7 +3773,7 @@ forge_hadolint DL3006 DL3007
 forge_check_meta_10() {
   c_id='docker/pipefail'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_10() {
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
@@ -3674,7 +3788,7 @@ forge_hadolint DL4006
 forge_check_meta_11() {
   c_id='docker/workdir'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_11() {
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
@@ -3689,7 +3803,7 @@ forge_hadolint DL3045
 forge_check_meta_12() {
   c_id='github-actions/zizmor'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_12() {
   case $1 in .github/workflows/*.yml|.github/workflows/*.yaml|.github/actions/action.yml|.github/actions/*/action.yml|.github/actions/action.yaml|.github/actions/*/action.yaml|action.yml|action.yaml) ;; *) return 1 ;; esac
@@ -3704,7 +3818,7 @@ forge_zizmor unpinned-uses template-injection dangerous-triggers excessive-permi
 forge_check_meta_13() {
   c_id='python/config-ratchet'; c_stage=lint; c_tools='python'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_13() {
   case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) ;; *) return 1 ;; esac
@@ -4387,20 +4501,27 @@ forge_exec_tool() {
   "$@"
 }
 
-# forge_has_tool <name>: system runtimes (uv, bun) via PATH, others via tool().
+# forge_has_tool <name>[@<dir>]: system runtimes (uv, bun) via PATH, others via tool()
+# (in workspace package <dir> when given).
 forge_has_tool() {
   case $1 in
+    *@*) ( _fh_root=$(pwd); cd "${1#*@}" 2>/dev/null && FORGE_WS_ROOT=$_fh_root forge_has_tool "${1%%@*}" ) ;;
     uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
 
-# forge_missing_tool: prints the first tool of $c_tools that is absent.
+# forge_missing_tool: prints the first tool of $c_tools that is absent (in a package
+# of $c_dirs: "<tool> (<dir>)").
 forge_missing_tool() {
   _fm_ifs=$IFS
   IFS=' '
   for _fm_t in $c_tools; do
-    if ! forge_has_tool "$_fm_t"; then IFS=$_fm_ifs; printf '%s' "$_fm_t"; return 0; fi
+    if [ -n "${c_dirs:-}" ]; then
+      for _fm_d in $c_dirs; do
+        if ! forge_has_tool "$_fm_t@$_fm_d"; then IFS=$_fm_ifs; printf '%s (%s)' "$_fm_t" "$_fm_d"; return 0; fi
+      done
+    elif ! forge_has_tool "$_fm_t"; then IFS=$_fm_ifs; printf '%s' "$_fm_t"; return 0; fi
   done
   IFS=$_fm_ifs
   return 1
@@ -4537,6 +4658,53 @@ forge_related_py_tests() {
       *) [ -d tests ] && find tests -type f -name "test_${_fr_b%.py}.py" 2>/dev/null ;;
     esac
   done | sort -u
+}
+
+# forge_in_dirs <fn> <files|all>: runs <fn> in each workspace package of $c_dirs, with
+# FORGE_WS_ROOT set (tool() falls back to the root's install). "files": only in packages
+# holding files of $FORGE_FILES, given to <fn> relative to the package. Relative paths
+# in the output are made relative to the repository again, so diagnostics are
+# attributed as at the root. Fails if <fn> fails in one package.
+forge_in_dirs() {
+  _fd_root=$(pwd)
+  _fd_rc=0
+  _fd_files=$FORGE_FILES
+  _fd_ifs=$IFS
+  IFS=' '
+  set -- "$1" "$2" $c_dirs
+  IFS=$_fd_ifs
+  _fd_fn=$1
+  _fd_form=$2
+  shift 2
+  for _fd_dir; do
+    FORGE_FILES=$_fd_files
+    if [ "$_fd_form" = files ]; then
+      FORGE_FILES=$(printf '%s\n' "$_fd_files" | awk -v p="$_fd_dir/" 'index($0, p) == 1 { print substr($0, length(p) + 1) }')
+      [ -n "$FORGE_FILES" ] || continue
+    fi
+    ( cd "$_fd_dir" && FORGE_WS_ROOT=$_fd_root && "$_fd_fn" ) > "$FORGE_TMP/dir.out" 2>&1 < /dev/null || _fd_rc=1
+    forge_prefix_paths "$_fd_dir" < "$FORGE_TMP/dir.out"
+  done
+  FORGE_FILES=$_fd_files
+  return "$_fd_rc"
+}
+
+# forge_prefix_paths <dir>: stdin with the relative paths that start a diagnostic
+# (the forms forge_diagnostics reads) prefixed with <dir>/; "../" is resolved.
+forge_prefix_paths() {
+  awk -v d="$1/" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
+    {
+      line = $0
+      gsub(ansi, "", line)
+      match(line, /^[[:space:]]*(-->[[:space:]]*)?(Would reformat: )?/)
+      lead = substr(line, 1, RLENGTH); rest = substr(line, RLENGTH + 1)
+      if (rest !~ /^\// && (rest ~ /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+| format )/ || lead ~ /Would reformat: $/)) {
+        p = d rest
+        while (sub(/(^|\/)[^\/.][^\/]*\/\.\.\//, "/", p)) sub(/^\//, "", p)
+        print lead p
+      } else print $0
+    }'
 }
 
 # forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out.
@@ -4814,7 +4982,8 @@ forge_typecheck() {
 forge_missing_tools() {
   _mt=''
   for _mt_t in $(forge_required_tools); do
-    forge_has_tool "$_mt_t" || _mt="${_mt:+$_mt, }$_mt_t"
+    case $_mt_t in *@*) _mt_n="${_mt_t%%@*} (${_mt_t#*@})" ;; *) _mt_n=$_mt_t ;; esac
+    forge_has_tool "$_mt_t" || _mt="${_mt:+$_mt, }$_mt_n"
   done
   if ! command -v bunx >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then
     _mt="${_mt:+$_mt, }bunx or uvx (ast-grep)"
@@ -4822,12 +4991,12 @@ forge_missing_tools() {
   printf '%s' "$_mt"
 }
 
-# forge_required_tools: every tool the checks use, one per line.
+# forge_required_tools: every tool the checks use, one per line (<tool>@<dir> in a workspace package).
 forge_required_tools() {
   _fq_i=1
   while [ "$_fq_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fq_i"
-    printf '%s\n' "$c_tools" | tr ' ' '\n'
+    printf '%s\n' "$c_tools" | tr ' ' '\n' | awk -v d="$c_dirs" 'NF { if (d == "") print; else { n = split(d, ds, " "); for (i = 1; i <= n; i++) print $0 "@" ds[i] } }'
     _fq_i=$((_fq_i + 1))
   done | awk 'NF && !seen[$0]++'
 }
@@ -5548,6 +5717,10 @@ tool() {
     printf 'node_modules/.bin/%s' "$1"
   elif [ -x ".venv/bin/$1" ]; then
     printf '.venv/bin/%s' "$1"
+  elif [ -n "${FORGE_WS_ROOT:-}" ] && [ "$FORGE_WS_ROOT" != "$(pwd)" ]; then
+    # in a workspace package: the root's install (hoisted by bun, npm and Yarn; uv's .venv)
+    _tw=$(cd "$FORGE_WS_ROOT" && FORGE_WS_ROOT='' tool "$1")
+    case $_tw in ''|bun\ *) printf '%s' "$_tw" ;; *) printf '%s/%s' "$FORGE_WS_ROOT" "$_tw" ;; esac
   fi
 }
 
@@ -5839,7 +6012,7 @@ FORGE_NCHECKS=13
 forge_check_meta_1() {
   c_id='docker/compose/config-valid'; c_stage=lint; c_tools='docker'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_1() {
   case $1 in compose*.yml|*/compose*.yml|compose*.yaml|*/compose*.yaml|docker-compose*.yml|*/docker-compose*.yml|docker-compose*.yaml|*/docker-compose*.yaml) ;; *) return 1 ;; esac
@@ -5854,7 +6027,7 @@ forge_check_run_1() {
 forge_check_meta_2() {
   c_id='docker/compose/env-not-committed'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_2() {
   return 0
@@ -5868,7 +6041,7 @@ forge_check_run_2() {
 forge_check_meta_3() {
   c_id='docker/copy-not-add'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_3() {
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
@@ -5883,7 +6056,7 @@ forge_hadolint DL3020
 forge_check_meta_4() {
   c_id='docker/dockerignore'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_4() {
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
@@ -5898,7 +6071,7 @@ forge_docker_ignore
 forge_check_meta_5() {
   c_id='docker/exec-form'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_5() {
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
@@ -5913,7 +6086,7 @@ forge_hadolint DL3025
 forge_check_meta_6() {
   c_id='docker/locked-install'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_6() {
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
@@ -5928,7 +6101,7 @@ forge_docker_locked
 forge_check_meta_7() {
   c_id='docker/no-secret-arg-env'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_7() {
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
@@ -5943,7 +6116,7 @@ forge_docker_secrets
 forge_check_meta_8() {
   c_id='docker/non-root-user'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_8() {
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
@@ -5958,7 +6131,7 @@ forge_docker_nonroot
 forge_check_meta_9() {
   c_id='docker/pin-base-image'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_9() {
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
@@ -5973,7 +6146,7 @@ forge_hadolint DL3006 DL3007
 forge_check_meta_10() {
   c_id='docker/pipefail'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_10() {
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
@@ -5988,7 +6161,7 @@ forge_hadolint DL4006
 forge_check_meta_11() {
   c_id='docker/workdir'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_11() {
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
@@ -6003,7 +6176,7 @@ forge_hadolint DL3045
 forge_check_meta_12() {
   c_id='github-actions/zizmor'; c_stage=lint; c_tools='uvx'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_12() {
   case $1 in .github/workflows/*.yml|.github/workflows/*.yaml|.github/actions/action.yml|.github/actions/*/action.yml|.github/actions/action.yaml|.github/actions/*/action.yaml|action.yml|action.yaml) ;; *) return 1 ;; esac
@@ -6018,7 +6191,7 @@ forge_zizmor unpinned-uses template-injection dangerous-triggers excessive-permi
 forge_check_meta_13() {
   c_id='python/config-ratchet'; c_stage=lint; c_tools='python'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_dirs=''
 }
 forge_scope_13() {
   case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) ;; *) return 1 ;; esac
@@ -6701,20 +6874,27 @@ forge_exec_tool() {
   "$@"
 }
 
-# forge_has_tool <name>: system runtimes (uv, bun) via PATH, others via tool().
+# forge_has_tool <name>[@<dir>]: system runtimes (uv, bun) via PATH, others via tool()
+# (in workspace package <dir> when given).
 forge_has_tool() {
   case $1 in
+    *@*) ( _fh_root=$(pwd); cd "${1#*@}" 2>/dev/null && FORGE_WS_ROOT=$_fh_root forge_has_tool "${1%%@*}" ) ;;
     uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
 
-# forge_missing_tool: prints the first tool of $c_tools that is absent.
+# forge_missing_tool: prints the first tool of $c_tools that is absent (in a package
+# of $c_dirs: "<tool> (<dir>)").
 forge_missing_tool() {
   _fm_ifs=$IFS
   IFS=' '
   for _fm_t in $c_tools; do
-    if ! forge_has_tool "$_fm_t"; then IFS=$_fm_ifs; printf '%s' "$_fm_t"; return 0; fi
+    if [ -n "${c_dirs:-}" ]; then
+      for _fm_d in $c_dirs; do
+        if ! forge_has_tool "$_fm_t@$_fm_d"; then IFS=$_fm_ifs; printf '%s (%s)' "$_fm_t" "$_fm_d"; return 0; fi
+      done
+    elif ! forge_has_tool "$_fm_t"; then IFS=$_fm_ifs; printf '%s' "$_fm_t"; return 0; fi
   done
   IFS=$_fm_ifs
   return 1
@@ -6851,6 +7031,53 @@ forge_related_py_tests() {
       *) [ -d tests ] && find tests -type f -name "test_${_fr_b%.py}.py" 2>/dev/null ;;
     esac
   done | sort -u
+}
+
+# forge_in_dirs <fn> <files|all>: runs <fn> in each workspace package of $c_dirs, with
+# FORGE_WS_ROOT set (tool() falls back to the root's install). "files": only in packages
+# holding files of $FORGE_FILES, given to <fn> relative to the package. Relative paths
+# in the output are made relative to the repository again, so diagnostics are
+# attributed as at the root. Fails if <fn> fails in one package.
+forge_in_dirs() {
+  _fd_root=$(pwd)
+  _fd_rc=0
+  _fd_files=$FORGE_FILES
+  _fd_ifs=$IFS
+  IFS=' '
+  set -- "$1" "$2" $c_dirs
+  IFS=$_fd_ifs
+  _fd_fn=$1
+  _fd_form=$2
+  shift 2
+  for _fd_dir; do
+    FORGE_FILES=$_fd_files
+    if [ "$_fd_form" = files ]; then
+      FORGE_FILES=$(printf '%s\n' "$_fd_files" | awk -v p="$_fd_dir/" 'index($0, p) == 1 { print substr($0, length(p) + 1) }')
+      [ -n "$FORGE_FILES" ] || continue
+    fi
+    ( cd "$_fd_dir" && FORGE_WS_ROOT=$_fd_root && "$_fd_fn" ) > "$FORGE_TMP/dir.out" 2>&1 < /dev/null || _fd_rc=1
+    forge_prefix_paths "$_fd_dir" < "$FORGE_TMP/dir.out"
+  done
+  FORGE_FILES=$_fd_files
+  return "$_fd_rc"
+}
+
+# forge_prefix_paths <dir>: stdin with the relative paths that start a diagnostic
+# (the forms forge_diagnostics reads) prefixed with <dir>/; "../" is resolved.
+forge_prefix_paths() {
+  awk -v d="$1/" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
+    {
+      line = $0
+      gsub(ansi, "", line)
+      match(line, /^[[:space:]]*(-->[[:space:]]*)?(Would reformat: )?/)
+      lead = substr(line, 1, RLENGTH); rest = substr(line, RLENGTH + 1)
+      if (rest !~ /^\// && (rest ~ /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+| format )/ || lead ~ /Would reformat: $/)) {
+        p = d rest
+        while (sub(/(^|\/)[^\/.][^\/]*\/\.\.\//, "/", p)) sub(/^\//, "", p)
+        print lead p
+      } else print $0
+    }'
 }
 
 # forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out.
@@ -7128,7 +7355,8 @@ forge_typecheck() {
 forge_missing_tools() {
   _mt=''
   for _mt_t in $(forge_required_tools); do
-    forge_has_tool "$_mt_t" || _mt="${_mt:+$_mt, }$_mt_t"
+    case $_mt_t in *@*) _mt_n="${_mt_t%%@*} (${_mt_t#*@})" ;; *) _mt_n=$_mt_t ;; esac
+    forge_has_tool "$_mt_t" || _mt="${_mt:+$_mt, }$_mt_n"
   done
   if ! command -v bunx >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then
     _mt="${_mt:+$_mt, }bunx or uvx (ast-grep)"
@@ -7136,12 +7364,12 @@ forge_missing_tools() {
   printf '%s' "$_mt"
 }
 
-# forge_required_tools: every tool the checks use, one per line.
+# forge_required_tools: every tool the checks use, one per line (<tool>@<dir> in a workspace package).
 forge_required_tools() {
   _fq_i=1
   while [ "$_fq_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fq_i"
-    printf '%s\n' "$c_tools" | tr ' ' '\n'
+    printf '%s\n' "$c_tools" | tr ' ' '\n' | awk -v d="$c_dirs" 'NF { if (d == "") print; else { n = split(d, ds, " "); for (i = 1; i <= n; i++) print $0 "@" ds[i] } }'
     _fq_i=$((_fq_i + 1))
   done | awk 'NF && !seen[$0]++'
 }
@@ -7591,13 +7819,13 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/bash-snapshot.sh": "d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8",
     ".claude/skills/forge-project/scripts/guard.rules": "52a6f9fbaa079816551227307122ce0c0e20ba65ba3cc93e09e2d4d187f3e246",
     ".claude/skills/forge-project/scripts/guard.sh": "33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d",
-    ".claude/skills/forge-project/scripts/lib.sh": "1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "767afcc177caacc9b5ce84ae19cbac011364b40c033402c01d0f3f44fa347ad7",
+    ".claude/skills/forge-project/scripts/lib.sh": "3c6d8293b26cbc5e9b5ef601b88b58dc82428b3f4220cb040f1313076c1b3c4a",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "41db9542d4a1a6dccc48d7b2302627a842dd2954a7f0e0f0a46e35dfa95ae197",
     ".claude/skills/forge-project/scripts/review.sh": "9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac",
-    ".claude/skills/forge-project/scripts/session-start.sh": "75cdf28acd0acb804be5f818c9fcb634b9ff6d336a961e0a6ea8c7f967ab73c4",
+    ".claude/skills/forge-project/scripts/session-start.sh": "60e51b5d286851e6cc24c937aff2cf47e0e664a4897319faec466143d88bb853",
     ".claude/skills/forge-project/scripts/stop.sh": "f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173",
     ".claude/skills/forge-project/scripts/turn-start.sh": "a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "c1fb42b6a6a4b69b57a7b5cd4f650fd1330d9223530faee9c80bdbe655fe5b11",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "e91fe97cbd76361cd35db8c3639cb26a7b4553dc38d55aac8d8cf4d8cd38c287",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/docker-compose-datastore-loopback-test.yml": "75507971edac1d4a2eca04e6bceb8a942429c0987372010b39ad0b7f126b55e9",
     ".forge/ast-grep/rule-tests/docker-compose-healthy-depends-test.yml": "bcd21e7f9112e5f0d44c9f5c9779824661b2f1dc40448323100787f342c4b7a8",
@@ -7618,7 +7846,7 @@ exit "$fail"
     ".forge/ast-grep/rules/docker/compose/pinned-images.yml": "026540d386ff8d8bd6f4f1951063c2fcd5cb8a96d8c7184f97e0887e3241c01a",
     ".forge/ast-grep/rules/python/no-stub.yml": "0660a06b80fa4e3cccbc89f496275e8f093b873632d1d93ecb48e4315d987bbf",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "4229a92c9d63b45abb41523aba56da121a57bf847bfa830070cbec4bd35bd67e",
+    ".forge/check.sh": "a2f33a6dde7ee9679dbbb2bb8b2795aafc92f62ec6b8b65ecf7321b3bfb947ea",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -7670,13 +7898,13 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills/forge-project/scripts/bash-snapshot.sh
 52a6f9fbaa079816551227307122ce0c0e20ba65ba3cc93e09e2d4d187f3e246  .claude/skills/forge-project/scripts/guard.rules
 33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d  .claude/skills/forge-project/scripts/guard.sh
-1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a  .claude/skills/forge-project/scripts/lib.sh
-767afcc177caacc9b5ce84ae19cbac011364b40c033402c01d0f3f44fa347ad7  .claude/skills/forge-project/scripts/post-edit.sh
+3c6d8293b26cbc5e9b5ef601b88b58dc82428b3f4220cb040f1313076c1b3c4a  .claude/skills/forge-project/scripts/lib.sh
+41db9542d4a1a6dccc48d7b2302627a842dd2954a7f0e0f0a46e35dfa95ae197  .claude/skills/forge-project/scripts/post-edit.sh
 9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac  .claude/skills/forge-project/scripts/review.sh
-75cdf28acd0acb804be5f818c9fcb634b9ff6d336a961e0a6ea8c7f967ab73c4  .claude/skills/forge-project/scripts/session-start.sh
+60e51b5d286851e6cc24c937aff2cf47e0e664a4897319faec466143d88bb853  .claude/skills/forge-project/scripts/session-start.sh
 f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173  .claude/skills/forge-project/scripts/stop.sh
 a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c  .claude/skills/forge-project/scripts/turn-start.sh
-c1fb42b6a6a4b69b57a7b5cd4f650fd1330d9223530faee9c80bdbe655fe5b11  .claude/skills/forge-project/scripts/typecheck.sh
+e91fe97cbd76361cd35db8c3639cb26a7b4553dc38d55aac8d8cf4d8cd38c287  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 75507971edac1d4a2eca04e6bceb8a942429c0987372010b39ad0b7f126b55e9  .forge/ast-grep/rule-tests/docker-compose-datastore-loopback-test.yml
 bcd21e7f9112e5f0d44c9f5c9779824661b2f1dc40448323100787f342c4b7a8  .forge/ast-grep/rule-tests/docker-compose-healthy-depends-test.yml
@@ -7697,7 +7925,7 @@ e4fd92858db90ac12b535496548f182e453e83bc9cb24f53a102ab7fc98cd67b  .forge/ast-gre
 026540d386ff8d8bd6f4f1951063c2fcd5cb8a96d8c7184f97e0887e3241c01a  .forge/ast-grep/rules/docker/compose/pinned-images.yml
 0660a06b80fa4e3cccbc89f496275e8f093b873632d1d93ecb48e4315d987bbf  .forge/ast-grep/rules/python/no-stub.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-4229a92c9d63b45abb41523aba56da121a57bf847bfa830070cbec4bd35bd67e  .forge/check.sh
+a2f33a6dde7ee9679dbbb2bb8b2795aafc92f62ec6b8b65ecf7321b3bfb947ea  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh
