@@ -1,0 +1,136 @@
+# Server-side request forgery: a server must not fetch a URL the client chose without
+# an allow-list (OWASP SSRF Prevention Cheat Sheet,
+# https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html).
+# Heuristic, so advice: request input is an endpoint parameter (FastAPI query, path and
+# body parameters; not Depends()/Security()) or an attribute, item or query_params lookup
+# on one; the URL is the first positional argument or url=. A fixed host
+# (f"https://api.example.com/{id}") is not flagged. Another allow-list helper name is a
+# local rule with the same id.
+id: python/no-ssrf
+description: A web endpoint (@app.get/post/..., @router.*, @app.route) does not pass a URL taken from the request to requests, httpx or urlopen unless an allow-list helper (is_allowed_url, validate_url, check_host, ...) or an ALLOWED_HOSTS-style set is used in the same function.
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: call
+      all:
+        - has: {field: function, regex: "^((requests|httpx|client|http_client|async_client|urllib\\.request)\\.(get|post|put|patch|delete|head|options|request|stream|urlopen)|urlopen)$"}
+        - has:
+            field: arguments
+            has:
+              any:
+                - {not: {kind: keyword_argument}, matches: tainted}
+                - {kind: keyword_argument, all: [{has: {field: name, regex: "^url$"}}, {has: {field: value, matches: tainted}}]}
+      inside:
+        stopBy: end
+        kind: function_definition
+        inside: {kind: decorated_definition, has: {kind: decorator, regex: "^@[A-Za-z_][A-Za-z0-9_.]*\\.(get|post|put|patch|delete|api_route|route|websocket)\\("}}
+        has:
+          field: parameters
+          has:
+            any:
+              - {kind: identifier, pattern: $P}
+              - {kind: typed_parameter, has: {kind: identifier, pattern: $P}, not: {has: {stopBy: end, kind: identifier, regex: "^(Depends|Security)$"}}}
+              - {kind: default_parameter, has: {field: name, pattern: $P}, not: {has: {stopBy: end, kind: identifier, regex: "^(Depends|Security)$"}}}
+              - {kind: typed_default_parameter, has: {field: name, pattern: $P}, not: {has: {stopBy: end, kind: identifier, regex: "^(Depends|Security)$"}}}
+        not:
+          has:
+            stopBy: end
+            any:
+              - {kind: call, has: {field: function, regex: "(allowed|safe|validate|check)_(url|host|domain)"}}
+              - {kind: identifier, regex: "^(?i)(allowed|allow_?list|whitelist|trusted)_?(hosts?|domains?|urls?|origins?)$"}
+    utils:
+      tainted:
+        any:
+          - {kind: identifier, pattern: $P}
+          - {kind: attribute, has: {field: object, pattern: $P}}
+          - {kind: attribute, has: {field: object, kind: attribute, has: {field: object, pattern: $P}}}
+          - {kind: subscript, has: {field: value, any: [{kind: identifier, pattern: $P}, {kind: attribute, has: {field: object, pattern: $P}}]}}
+          - {kind: call, has: {field: function, kind: attribute, has: {field: object, kind: attribute, has: {field: object, pattern: $P}}}}
+          - {kind: call, all: [{has: {field: function, regex: "^str$"}}, {has: {field: arguments, has: {pattern: $P}}}]}
+          - {kind: string, has: {kind: interpolation, nthChild: 2, has: {field: expression, any: [{pattern: $P}, {kind: attribute, has: {field: object, pattern: $P}}]}}}
+examples:
+  match:
+    - |
+      import httpx
+      from fastapi import APIRouter
+
+      router = APIRouter()
+
+
+      @router.get("/preview")
+      async def preview(url: str) -> str:
+          async with httpx.AsyncClient() as client:
+              response = await client.get(url)
+          return response.text
+    - |
+      import requests
+      from fastapi import FastAPI
+      from pydantic import BaseModel
+
+      app = FastAPI()
+
+
+      class Webhook(BaseModel):
+          target: str
+
+
+      @app.post("/webhooks/test")
+      def test_webhook(hook: Webhook) -> int:
+          return requests.post(hook.target, json={"ping": True}, timeout=5).status_code
+    - |
+      import httpx
+      from fastapi import APIRouter, Request
+
+      router = APIRouter()
+
+
+      @router.get("/image")
+      async def image(request: Request) -> bytes:
+          return httpx.get(request.query_params["src"]).content
+  no_match:
+    - |
+      import httpx
+      from fastapi import APIRouter
+
+      router = APIRouter()
+
+
+      @router.get("/search")
+      async def search(q: str, item_id: int) -> dict:
+          httpx.get("https://api.example.com/search", params={"q": q})
+          return httpx.get(f"https://api.example.com/items/{item_id}").json()
+    - |
+      from typing import Annotated
+
+      import httpx
+      from fastapi import APIRouter, Depends
+
+      router = APIRouter()
+
+
+      @router.post("/notify")
+      async def notify(settings: Annotated[Settings, Depends(get_settings)]) -> None:
+          httpx.post(settings.webhook_url, json={})
+    - |
+      from urllib.parse import urlparse
+
+      import httpx
+      from fastapi import APIRouter, HTTPException
+
+      router = APIRouter()
+      ALLOWED_HOSTS = {"images.example.com"}
+
+
+      @router.get("/preview")
+      async def preview(url: str) -> str:
+          if urlparse(url).hostname not in ALLOWED_HOSTS:
+              raise HTTPException(status_code=400)
+          return httpx.get(url).text
+    - |
+      import httpx
+
+
+      def fetch_status(url: str) -> int:
+          return httpx.get(url).status_code

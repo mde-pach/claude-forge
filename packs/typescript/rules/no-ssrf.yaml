@@ -1,0 +1,115 @@
+# Server-side request forgery: a server must not fetch a URL the client chose without
+# an allow-list (OWASP SSRF Prevention Cheat Sheet,
+# https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html;
+# Next.js data security: Server Actions and Route Handlers take untrusted input,
+# https://nextjs.org/docs/app/guides/data-security).
+# Heuristic, so advice. Request input: searchParams/formData .get(), req.json(),
+# req.formData() (req or request), Express req.query/body/params, the parameters of a
+# 'use server' export, and variables declared from them in an enclosing function.
+# A fixed host (`https://api.example.com/${id}`, `${process.env.API}/…`) is not
+# flagged. Another allow-list helper name is a local rule with the same id.
+id: typescript/no-ssrf
+description: Server code does not fetch (fetch, axios, got, ky, ofetch) a URL taken from the request (searchParams, the body, form data, a Server Action argument) unless an allow-list helper (isAllowedUrl, assertSafeUrl, validateUrl, ...) or an ALLOWED_HOSTS-style set is used in the same function.
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: call_expression
+      all:
+        - has: {field: function, regex: "^(fetch|axios|got|ky|ofetch|\\$fetch|(axios|got|ky|ofetch)\\.(get|post|put|patch|delete|head|request))$"}
+        - has: {field: arguments, has: {nthChild: 1, matches: tainted}}
+      not:
+        inside:
+          stopBy: end
+          any: [{kind: function_declaration}, {kind: arrow_function}, {kind: function_expression}, {kind: method_definition}]
+          has:
+            stopBy: end
+            any:
+              - {kind: call_expression, has: {field: function, regex: "(?i)(allowed|safe|validate|check|assert)_?(url|host|domain|origin)"}}
+              - {kind: identifier, regex: "(?i)^(allowed|allow_?list|whitelist|trusted)_?(hosts?|domains?|urls?|origins?)$"}
+    utils:
+      source:
+        any:
+          - {kind: call_expression, has: {field: function, kind: member_expression, all: [{has: {field: property, regex: "^get(All)?$"}}, {has: {field: object, regex: "(^|\\.)(searchParams|formData)$"}}]}}
+          - {kind: call_expression, has: {field: function, kind: member_expression, all: [{has: {field: property, regex: "^(json|formData)$"}}, {has: {field: object, regex: "^(req|request)$"}}]}}
+          - {kind: member_expression, has: {field: object, regex: "^(req|request)\\.(query|body|params)$"}}
+      has-source:
+        any:
+          - matches: source
+          - has: {stopBy: end, matches: source}
+      bound:
+        inside:
+          stopBy: end
+          any:
+            - any: [{kind: function_declaration}, {kind: arrow_function}, {kind: function_expression}, {kind: method_definition}]
+              has:
+                stopBy: end
+                kind: variable_declarator
+                any:
+                  - all: [{has: {field: name, kind: identifier, pattern: $U}}, {has: {field: value, matches: has-source}}]
+                  - all: [{has: {field: name, kind: object_pattern, has: {stopBy: end, kind: shorthand_property_identifier_pattern, pattern: $U}}}, {has: {field: value, matches: has-source}}]
+            - kind: export_statement
+              inside: {kind: program, has: {kind: expression_statement, regex: "^[\"']use server[\"'];?$"}}
+              has: {kind: function_declaration, has: {field: parameters, has: {any: [{kind: required_parameter}, {kind: optional_parameter}], has: {field: pattern, pattern: $U}}}}
+      fixed-host:
+        any:
+          - regex: "^[\"'`]https?://[A-Za-z0-9.-]+"
+          - regex: "^`\\$\\{(process\\.)?env\\."
+          - kind: binary_expression
+            has: {field: left, stopBy: {not: {kind: binary_expression}}, regex: "^([\"'`]https?://[A-Za-z0-9.-]+|(process\\.)?env\\.)"}
+      tainted:
+        not: {matches: fixed-host}
+        any:
+          - all: [{kind: identifier, pattern: $U}, {matches: bound}]
+          - all: [{any: [{kind: non_null_expression}, {kind: as_expression}, {kind: parenthesized_expression}]}, {has: {kind: identifier, pattern: $U}}, {matches: bound}]
+          - all: [{kind: member_expression, has: {field: object, kind: identifier, pattern: $U}}, {matches: bound}]
+          - all: [{kind: new_expression, has: {field: arguments, has: {kind: identifier, pattern: $U}}}, {matches: bound}]
+          - matches: has-source
+examples:
+  match:
+    - |
+      export async function GET(req: NextRequest) {
+        const url = req.nextUrl.searchParams.get("url");
+        const res = await fetch(url!);
+        return new Response(res.body);
+      }
+    - |
+      export async function POST(request: Request) {
+        const { callbackUrl } = await request.json();
+        await fetch(callbackUrl, { method: "POST" });
+        return Response.json({ ok: true });
+      }
+    - |
+      "use server";
+
+      export async function importFeed(feedUrl: string) {
+        const res = await fetch(feedUrl);
+        return res.text();
+      }
+    - |
+      app.get("/proxy", async (req, res) => {
+        const upstream = await axios.get(req.query.url as string);
+        res.send(upstream.data);
+      });
+  no_match:
+    - |
+      export async function GET(req: NextRequest) {
+        const q = req.nextUrl.searchParams.get("q");
+        const a = await fetch(`https://api.example.com/search?q=${q}`);
+        const b = await fetch(`${process.env.SEARCH_URL}/search?q=${q}`);
+        return Response.json({ a: await a.json(), b: await b.json() });
+      }
+    - |
+      const ALLOWED_HOSTS = new Set(["images.example.com"]);
+
+      export async function POST(request: Request) {
+        const { url } = await request.json();
+        if (!ALLOWED_HOSTS.has(new URL(url).host)) return new Response(null, { status: 400 });
+        return new Response((await fetch(url)).body);
+      }
+    - |
+      export async function getStatus(url: string) {
+        const res = await fetch(url);
+        return res.status;
+      }

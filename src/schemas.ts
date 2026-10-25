@@ -67,7 +67,7 @@ const target = {
         required: ["mode", "rule"],
         properties: {
           target: true,
-          mode: { enum: ["forbid", "no-increase", "no-decrease"] },
+          mode: { enum: ["forbid", "no-increase", "no-decrease", "advise"] },
           rule: { type: "object", minProperties: 1 },
           constraints: { type: "object" },
           utils: { type: "object" },

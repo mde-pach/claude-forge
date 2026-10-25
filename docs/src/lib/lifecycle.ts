@@ -110,6 +110,8 @@ function targetEvents(rule: Rule, t: Target): LifecycleEvent[] {
     case "grep": {
       const condition = t.target === "ast-grep" && toolTargets.length ? `without ${toolTargets.map((x) => x.tool).join(" or ")}` : undefined;
       const scope = `a changed ${scopeNoun(rule)}`;
+      if (t.mode === "advise")
+        return [{ step: "edit" as const, effect: "feedback" as const, text: "Matches on lines added during the turn go back to Claude with file:line:column, as advice: Stop, commits and CI do not fail on them.", condition }];
       if (t.mode === "forbid")
         return [
           { step: "edit", effect: "feedback", text: "Matches on lines added during the turn go back to Claude with file:line:column." },

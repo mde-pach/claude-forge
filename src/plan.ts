@@ -310,7 +310,7 @@ export function plan(opts: PlanOptions): Plan {
     files.set(`${root}/scripts/review.sh`, template("review.sh"));
     files.set(`${root}/scripts/session-start.sh`, fill(template("session-start.sh"), { CHECKS: fragment, PACKS: packs.map((p) => p.id).join(", ") || "none" }));
     files.set(`${root}/scripts/bash-snapshot.sh`, template("bash-snapshot.sh"));
-    files.set(`${root}/scripts/post-edit.sh`, fill(template("post-edit.sh"), { CHECKS: fragment, FORBID: ids("forbid") }));
+    files.set(`${root}/scripts/post-edit.sh`, fill(template("post-edit.sh"), { CHECKS: fragment, FORBID: [ids("forbid"), ids("advise")].filter(Boolean).join("|") }));
     files.set(`${root}/scripts/typecheck.sh`, fill(template("typecheck.sh"), { CHECKS: fragment }));
     files.set(`${root}/scripts/stop.sh`, template("stop.sh"));
     files.set(`${root}/scripts/turn-start.sh`, template("turn-start.sh"));

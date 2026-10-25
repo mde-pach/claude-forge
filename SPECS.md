@@ -155,14 +155,14 @@ An example is a string (code, written to a file inside the rule's scope) or, for
 
 Paths are relative, without `..`. Every rule has examples, except a `check` target that runs the project's tests (stage `test`), its migrations (stage `migration`), `astro check` or a lock-file check (`uv`, `bun`): those need a whole project, and their examples are optional.
 
-Every rule blocks. A rule you don't want is disabled with a reason.
+Every rule blocks, except an `ast-grep` target in `advise` mode (§6.2), for heuristics whose matches need judgement. A rule you don't want is disabled with a reason.
 
 ### 6.2 Targets
 
 | Target | Fields | Category | Effect |
 |---|---|---|---|
 | `tool` | `tool: biome \| ruff \| basedpyright \| tsc`, `expects` (diagnostic code or rule name), `snippet` (config to show when unsatisfied) | audited | §11 |
-| `ast-grep` | `rule` (ast-grep rule object), `mode: forbid \| no-increase \| no-decrease` | owned | `.forge/ast-grep/rules/<rule-id>.yml` |
+| `ast-grep` | `rule` (ast-grep rule object), `mode: forbid \| no-increase \| no-decrease \| advise` | owned | `.forge/ast-grep/rules/<rule-id>.yml` |
 | `permission` | `decision: deny \| ask`, `rule` (permission rule string) | appended | settings `permissions` |
 | `guard` | `decision: deny \| ask`, `pattern` (POSIX ERE against the JSON-escaped command) | owned | `guard.rules` (§9.2) |
 | `sandbox` | `path`, `value` | appended, user only | `~/.claude/settings.json` `sandbox` |
@@ -173,6 +173,7 @@ ast-grep and grep modes:
 - `forbid`: a match on an added line of a changed file fails (§10.1); with `--all`, any match.
 - `no-increase`: more matches than in the base in a changed file fails.
 - `no-decrease`: fewer matches than in the base in a changed file fails.
+- `advise` (ast-grep only): a match on a line added during the turn is reported after the edit (PostToolUse feedback, like `forbid`); Stop, the pre-commit hook and CI do not run it.
 
 A `grep` target is for text that is not code ast-grep parses: comments, configuration, `.astro` files.
 
@@ -470,8 +471,9 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `python/jinja-autoescape` | `tool` ruff `S701` |
 | `python/no-stub` | `ast-grep` forbid, not in `*.pyi` or migrations: a function whose body is only `pass` / `...` (docstrings and comments aside), or `raise NotImplementedError`, outside `@abstractmethod`, `@overload` and `Protocol` / `ABC` classes |
 | `python/no-placeholder-comment` | `grep` forbid (case-insensitive): comments such as `TODO: implement`, "in a real implementation", "placeholder logic", "stub for now" |
+| `python/no-ssrf` | `ast-grep` advise: in a function decorated `@<x>.get/post/put/patch/delete/api_route/route/websocket(…)`, a `requests` / `httpx` / `client` / `http_client` / `async_client` request or `urlopen` whose first positional argument or `url=` is a parameter (not `Depends` / `Security`), an attribute, item or `.query_params.get()` of one, `str()` of one, or an f-string starting with one; not when the function calls `*allowed_url*`, `*safe_host*`, `validate_url`, `check_domain`, … or names an `ALLOWED_HOSTS`-style set |
 
-context.md: uv and `.venv/bin`, basedpyright; no blocking calls in `async def`; ignore comments name their rule.
+context.md: uv and `.venv/bin`, basedpyright; no blocking calls in `async def`; ignore comments name their rule; request-derived URLs are allow-listed (advice).
 
 ### typescript
 
@@ -501,10 +503,11 @@ context.md: uv and `.venv/bin`, basedpyright; no blocking calls in `async def`; 
 | `typescript/no-unused-suppressions` | `check` lint: `biome lint` output has no `suppressions/unused` diagnostic (Biome reports it only as a warning, and no setting raises it) |
 | `typescript/no-stub` | `ast-grep` forbid, not in `*.d.ts`: a `throw` whose message starts with "Not implemented", "unimplemented" or "TODO"; a named function or method (not a constructor) whose body is empty or only comments |
 | `typescript/no-placeholder-comment` | `grep` forbid (case-insensitive): the Python list, after `//`, `/*` or `*` |
+| `typescript/no-ssrf` | `ast-grep` advise: `fetch` / `axios` / `got` / `ky` / `ofetch` (and their `.get`, `.post`, … methods) whose first argument contains `searchParams.get()` / `formData.get()`, `req.json()` / `req.formData()`, Express `req.query` / `req.body` / `req.params`, or is a variable declared from one in an enclosing function (or a `'use server'` export's parameter), unless it starts with a literal `https://host` or `${process.env.…}`, or the function calls an `isAllowedUrl` / `assertSafeUrl` / `validateUrl`-style helper or names an `ALLOWED_HOSTS`-style set |
 | `typescript/config-files` | `permission` ask: `Edit(**/biome.json)`, `Edit(**/biome.jsonc)`, `Edit(**/tsconfig*.json)` |
 | `typescript/config-ratchet` | `check` lint: `forge_ratchet bun ratchet.mjs` (§10.4), `when_changed`: Biome, tsconfig and `package.json` files |
 
-context.md: strict TypeScript and Bun; TypeScript 6 deprecations are migrated, never silenced with `ignoreDeprecations`; no `!` or `as unknown as`.
+context.md: strict TypeScript and Bun; TypeScript 6 deprecations are migrated, never silenced with `ignoreDeprecations`; no `!` or `as unknown as`; request-derived URLs are allow-listed (advice).
 
 ### python/uv
 
