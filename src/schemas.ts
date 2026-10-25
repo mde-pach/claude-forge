@@ -108,6 +108,7 @@ const target = {
           target: true,
           decision: { enum: ["deny", "ask"] },
           pattern: { type: "string", minLength: 1, pattern: "^[^\\t\\n]+$" },
+          check: { enum: ["ephemeral-exec"] },
         },
       },
     },
@@ -149,6 +150,7 @@ const example = {
   oneOf: [
     { type: "string" },
     { type: "object", additionalProperties: false, required: ["files"], properties: { files, head: files } },
+    { type: "object", additionalProperties: false, required: ["command"], properties: { command: { type: "string", minLength: 1 }, files } },
   ],
 } as const;
 

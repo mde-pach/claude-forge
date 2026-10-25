@@ -228,6 +228,11 @@
                   "type": "string",
                   "minLength": 1,
                   "pattern": "^[^\\t\\n]+$"
+                },
+                "check": {
+                  "enum": [
+                    "ephemeral-exec"
+                  ]
                 }
               }
             }
@@ -355,6 +360,29 @@
                     }
                   }
                 }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "command"
+                ],
+                "properties": {
+                  "command": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "files": {
+                    "type": "object",
+                    "minProperties": 1,
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "propertyNames": {
+                      "pattern": "^(?!/)(?!(.*/)?\\.\\.(/|$)).*[^/]$"
+                    }
+                  }
+                }
               }
             ]
           }
@@ -384,6 +412,29 @@
                     }
                   },
                   "head": {
+                    "type": "object",
+                    "minProperties": 1,
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "propertyNames": {
+                      "pattern": "^(?!/)(?!(.*/)?\\.\\.(/|$)).*[^/]$"
+                    }
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "command"
+                ],
+                "properties": {
+                  "command": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "files": {
                     "type": "object",
                     "minProperties": 1,
                     "additionalProperties": {

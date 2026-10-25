@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
 import { examplePath } from "./audit.js";
-import { codeExamples, globMatch, loadPacks, loadLocalRules } from "./packs.js";
+import { codeExamples, globMatch, guardExamples, loadPacks, loadLocalRules } from "./packs.js";
 import {
   astGrepRulePath,
   astGrepTestPath,
@@ -36,19 +36,19 @@ export function astGrepCommand(): string[] | undefined {
 
 // ---------------------------------------------------------------- guard
 
-export function hookInput(command: string): string {
+export function hookInput(command: string, cwd = "/"): string {
   return JSON.stringify({
     session_id: "forge-test",
-    cwd: "/",
+    cwd,
     hook_event_name: "PreToolUse",
     tool_name: "Bash",
     tool_input: { command, description: "test" },
   });
 }
 
-/** Runs guard.sh from <dir> under <shell> (argv) on <command>; returns "deny" | "ask" | "" (or "error: …"). */
-export function guardDecision(shell: string[], dir: string, command: string): string {
-  const r = run(shell[0]!, [...shell.slice(1), join(dir, "guard.sh")], { input: hookInput(command) });
+/** Runs guard.sh from <dir> under <shell> (argv) on <command> (from <cwd>); returns "deny" | "ask" | "" (or "error: …"). */
+export function guardDecision(shell: string[], dir: string, command: string, cwd = "/"): string {
+  const r = run(shell[0]!, [...shell.slice(1), join(dir, "guard.sh")], { input: hookInput(command, cwd) });
   if (r.status !== 0) return `error: exit ${r.status} ${r.stderr.trim()}`;
   if (!r.stdout.trim()) return "";
   try {
@@ -57,6 +57,20 @@ export function guardDecision(shell: string[], dir: string, command: string): st
   } catch {
     return `error: not JSON: ${r.stdout.trim()}`;
   }
+}
+
+/**
+ * A directory to run a guard example from: a repository root (it holds .git)
+ * with the example's files, executable (node_modules/.bin/<tool>, .venv/bin/<tool>).
+ */
+export function guardExampleDir(files: Record<string, string> = {}): string {
+  const dir = mkdtempSync(join(tmpdir(), "forge-guard-ex-"));
+  mkdirSync(join(dir, ".git"));
+  for (const [rel, text] of Object.entries(files)) {
+    mkdirSync(dirname(join(dir, rel)), { recursive: true });
+    writeFileSync(join(dir, rel), text, { mode: 0o755 });
+  }
+  return dir;
 }
 
 /** sh, dash, bash (POSIX mode, stands in for macOS bash 3.2) and BusyBox, as available. */
@@ -136,7 +150,9 @@ function writeFiles(dir: string, files: Record<string, string>): void {
 
 /** The example as a fixture: a string is written to a file inside the rule's scope. */
 export function exampleFixture(rule: Rule, ex: Example): ExampleFixture {
-  return typeof ex === "string" ? { files: { [examplePath(rule, "example")]: ex } } : ex;
+  if (typeof ex === "string") return { files: { [examplePath(rule, "example")]: ex } };
+  if ("command" in ex) throw new Error(`${rule.id}: a command example is for guard rules only`);
+  return ex;
 }
 
 export interface CheckExampleResult {
@@ -244,8 +260,11 @@ export function selfTest(packsDir: string, repo?: string, opts: { toolBins?: str
     );
     if (needsExamples && !(r.examples?.match?.length && r.examples?.no_match?.length))
       failures.push(`${r.id}: needs match and no_match examples`);
-    const fixtures = [...(r.examples?.match ?? []), ...(r.examples?.no_match ?? [])].some((e) => typeof e !== "string");
-    if (fixtures && r.enforce.some((t) => t.target !== "check")) failures.push(`${r.id}: fixture examples (files) are for check rules only`);
+    const all = [...(r.examples?.match ?? []), ...(r.examples?.no_match ?? [])];
+    if (all.some((e) => typeof e !== "string" && !("command" in e)) && r.enforce.some((t) => t.target !== "check"))
+      failures.push(`${r.id}: fixture examples (files) are for check rules only`);
+    if (all.some((e) => typeof e !== "string" && "command" in e) && r.enforce.some((t) => t.target !== "guard"))
+      failures.push(`${r.id}: command examples are for guard rules only`);
   }
 
   // ast-grep rule-tests
@@ -301,16 +320,20 @@ export function selfTest(packsDir: string, repo?: string, opts: { toolBins?: str
         const targets = r.enforce.filter((t): t is GuardTarget => t.target === "guard");
         writeFileSync(join(dir, "guard.rules"), renderGuardRules(targets.map((target) => ({ rule: r, target })), "/"));
         const decision = targets.some((t) => t.decision === "deny") ? "deny" : "ask";
-        for (const sh of shells) {
-          for (const ex of codeExamples(r, "match")) {
-            const got = guardDecision(sh.argv, dir, ex);
-            if (got !== decision) failures.push(`${r.id} [${sh.name}]: expected ${decision} for ${JSON.stringify(ex)}, got ${got || "nothing"}`);
+        for (const kind of ["match", "no_match"] as const)
+          for (const ex of guardExamples(r, kind)) {
+            const cwd = guardExampleDir(ex.files);
+            try {
+              for (const sh of shells) {
+                const got = guardDecision(sh.argv, dir, ex.command, cwd);
+                const want = kind === "match" ? decision : "";
+                if (got !== want)
+                  failures.push(`${r.id} [${sh.name}]: expected ${want || "nothing"} for ${JSON.stringify(ex.command)}${ex.files ? ` with ${Object.keys(ex.files).join(", ")}` : ""}, got ${got || "nothing"}`);
+              }
+            } finally {
+              rmSync(cwd, { recursive: true, force: true });
+            }
           }
-          for (const ex of codeExamples(r, "no_match")) {
-            const got = guardDecision(sh.argv, dir, ex);
-            if (got !== "") failures.push(`${r.id} [${sh.name}]: expected nothing for ${JSON.stringify(ex)}, got ${got}`);
-          }
-        }
       }
     } finally {
       rmSync(dir, { recursive: true, force: true });
