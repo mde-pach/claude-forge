@@ -471,6 +471,7 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `python/jinja-autoescape` | `tool` ruff `S701` |
 | `python/no-stub` | `ast-grep` forbid, not in `*.pyi` or migrations: a function whose body is only `pass` / `...` (docstrings and comments aside), or `raise NotImplementedError`, outside `@abstractmethod`, `@overload` and `Protocol` / `ABC` classes |
 | `python/no-placeholder-comment` | `grep` forbid (case-insensitive): comments such as `TODO: implement`, "in a real implementation", "placeholder logic", "stub for now" |
+| `python/no-secret-logging` | `ast-grep` forbid, not in tests, management commands, `scripts/**`, `cli.py`: a name, attribute or header like `token`, `secret`, `password`, `api_key`, `secret_key`, `private_key`, `access_key`, `authorization`, `credentials` (not `max_tokens`, `has_token`, `next_page_token`, `password_hash`) passed to a logger method, `print()` or a raised exception: as an argument, in an f-string, with `+`, as a keyword or `extra` dict value |
 
 context.md: uv and `.venv/bin`, basedpyright; no blocking calls in `async def`; ignore comments name their rule.
 
@@ -504,6 +505,7 @@ context.md: uv and `.venv/bin`, basedpyright; no blocking calls in `async def`; 
 | `typescript/no-placeholder-comment` | `grep` forbid (case-insensitive): the Python list, after `//`, `/*` or `*` |
 | `typescript/config-files` | `permission` ask: `Edit(**/biome.json)`, `Edit(**/biome.jsonc)`, `Edit(**/tsconfig*.json)` |
 | `typescript/config-ratchet` | `check` lint: `forge_ratchet bun ratchet.mjs` (§10.4), `when_changed`: Biome, tsconfig and `package.json` files |
+| `typescript/no-secret-logging` | `ast-grep` forbid, not in tests, `e2e/**`, `scripts/**`: the Python list in camelCase too (`accessToken`, `apiKey`, `clientSecret`; not `maxTokens`, `hasToken`, `passwordHash`) passed to `console.*`, a logger's methods or a thrown error: as an argument, in a template literal, with `+`, as an object property |
 
 context.md: strict TypeScript and Bun; TypeScript 6 deprecations are migrated, never silenced with `ignoreDeprecations`; no `!` or `as unknown as`.
 
