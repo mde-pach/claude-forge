@@ -907,7 +907,7 @@ Detected by `openapi-typescript`, `orval` or `@hey-api/openapi-ts`. Both checks 
 | Rule | Targets |
 |---|---|
 | `typescript/openapi/regenerate` | `check` lint: `forge_openapi_sync regenerate`: a changed OpenAPI document and no changed generated file fail |
-| `typescript/openapi/no-generated-edits` | `check` lint: `forge_openapi_sync hand-edits`: a changed generated file fails when no OpenAPI document, `package.json`, `orval.config.*`, `openapi-ts.config.*` or `redocly.*` changed, and the repository tracks an OpenAPI document |
+| `typescript/openapi/no-generated-edits` | `check` lint: `forge_openapi_sync hand-edits`: a changed generated file fails when no OpenAPI document, `orval.config.*`, `openapi-ts.config.*` or `redocly.*` changed, nor a `package.json` line naming the generator (its script or dependency version), and the repository tracks an OpenAPI document |
 
 context.md: the client comes from the document through a generator script; the two change together, generated files are never edited by hand.
 
