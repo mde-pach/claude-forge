@@ -12,7 +12,7 @@ Pydantic v2: `model_validate`, `model_dump`, `model_config = ConfigDict(...)`, `
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
 
 pytest. Tests assert behaviour: never weaken, remove or skip an assertion to make a test pass.
-If an existing test looks wrong, stop and ask; never edit it to make the code pass.
+When the task changes behaviour an existing test asserts, update that test in place with Edit or Write (keep its name; Forge asks for approval) and say so in your summary. Otherwise never edit an existing test to make the code pass.
 
 ===== .claude/rules/forge-python-sqlalchemy-alembic.md
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
@@ -8913,7 +8913,7 @@ exit "$fail"
   "files": {
     ".claude/rules/forge-python-fastapi.md": "034ae6ae486c1c3657732c602c5e411ae2dad337d994de55231005807a8b40df",
     ".claude/rules/forge-python-pydantic.md": "814dc766e022a4439f6b24578b90d34027f49f6e23ed46ee3b6d64519bfe9d07",
-    ".claude/rules/forge-python-pytest.md": "c44b8d211f665eb018bf3e8f375e5006d04dae400f28e50e1103837b549aa6cf",
+    ".claude/rules/forge-python-pytest.md": "bd0b0ff93d58820d159a875d54f2993d77f965e1f23e98212049517f3415924a",
     ".claude/rules/forge-python-sqlalchemy-alembic.md": "f16da5b69615b1b19ec5997c9f3d54c1b9de2fa09fea0e085ef1ce99f6b6980d",
     ".claude/rules/forge-python-sqlalchemy.md": "5f6196f04c027b1e056e5378adcd2dcf112ea9b1e4160cb1fb7e6b8974b54a69",
     ".claude/rules/forge-python.md": "abdc89b63568d6ec94837deb55306633b3d76d55f5434a4995124278e6befb15",
@@ -9009,7 +9009,7 @@ exit "$fail"
 ===== .forge/manifest.sha256
 034ae6ae486c1c3657732c602c5e411ae2dad337d994de55231005807a8b40df  .claude/rules/forge-python-fastapi.md
 814dc766e022a4439f6b24578b90d34027f49f6e23ed46ee3b6d64519bfe9d07  .claude/rules/forge-python-pydantic.md
-c44b8d211f665eb018bf3e8f375e5006d04dae400f28e50e1103837b549aa6cf  .claude/rules/forge-python-pytest.md
+bd0b0ff93d58820d159a875d54f2993d77f965e1f23e98212049517f3415924a  .claude/rules/forge-python-pytest.md
 f16da5b69615b1b19ec5997c9f3d54c1b9de2fa09fea0e085ef1ce99f6b6980d  .claude/rules/forge-python-sqlalchemy-alembic.md
 5f6196f04c027b1e056e5378adcd2dcf112ea9b1e4160cb1fb7e6b8974b54a69  .claude/rules/forge-python-sqlalchemy.md
 abdc89b63568d6ec94837deb55306633b3d76d55f5434a4995124278e6befb15  .claude/rules/forge-python.md

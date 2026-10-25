@@ -586,7 +586,7 @@ context.md: "Pydantic v2: `model_validate`, `model_dump`, `model_config = Config
 | `python/pytest/no-mock-increase` | `ast-grep` no-increase on test files: calls to `patch`, `patch.object`, `patch.dict`, `MagicMock`, `AsyncMock`, `Mock` (bare, `mock.`, `unittest.mock.` or `mocker.`), `monkeypatch.setattr` |
 | `python/pytest/no-test-edits` | `check` lint: `forge_test_edits` on `**/test_*.py`, `**/*_test.py`; edits ask (§10.5); `review`: is the change required by the user's request, or does it weaken the tests |
 
-context.md: tests assert behaviour, never weakened; "If an existing test looks wrong, stop and ask; never edit it to make the code pass."
+context.md: tests assert behaviour, never weakened; "When the task changes behaviour an existing test asserts, update that test in place with Edit or Write (keep its name; Forge asks for approval) and say so in your summary. Otherwise never edit an existing test to make the code pass."
 
 ### typescript/bun
 
@@ -685,7 +685,7 @@ context.md: Prisma 7: `prisma-client` generator with `output`, driver adapters, 
 | `typescript/vitest/no-mock-increase` | `ast-grep` no-increase on test files: `vi.mock`, `vi.doMock`, `vi.spyOn`, `vi.fn` calls |
 | `typescript/vitest/no-test-edits` | `check` lint: `forge_test_edits` on `**/*.test.*`, `**/*.spec.*`, `**/__tests__/**`, not `e2e/**`; edits ask (§10.5); `review` as pytest's |
 
-context.md: Vitest 4 `test.projects` and `maxWorkers`; assertions are never weakened to make a test pass; "If an existing test looks wrong, stop and ask; never edit it to make the code pass."
+context.md: Vitest 4 `test.projects` and `maxWorkers`; assertions are never weakened to make a test pass; "When the task changes behaviour an existing test asserts, update that test in place with Edit or Write (keep its name; Forge asks for approval) and say so in your summary. Otherwise never edit an existing test to make the code pass."
 
 ### typescript/playwright
 
@@ -701,7 +701,7 @@ context.md: Vitest 4 `test.projects` and `maxWorkers`; assertions are never weak
 | `typescript/playwright/axe` | `check` lint: when `package.json` names `@axe-core/playwright`, a tracked `e2e/*` or `*.spec.*` file uses `AxeBuilder` |
 | `typescript/playwright/no-test-edits` | `check` lint: `forge_test_edits` on `e2e/**`; edits ask (§10.5); `review` as pytest's |
 
-context.md: locators (`getByRole`, `getByLabel`, `getByText`, `getByTestId`) and web-first assertions; never `waitForTimeout`; `@axe-core/playwright` for accessibility scans; "If an existing test looks wrong, stop and ask; never edit it to make the code pass."
+context.md: locators (`getByRole`, `getByLabel`, `getByText`, `getByTestId`) and web-first assertions; never `waitForTimeout`; `@axe-core/playwright` for accessibility scans; "When the task changes behaviour an existing test asserts, update that test in place with Edit or Write (keep its name; Forge asks for approval) and say so in your summary. Otherwise never edit an existing test to make the code pass."
 
 ### typescript/zod
 
