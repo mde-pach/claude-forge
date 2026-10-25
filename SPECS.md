@@ -671,7 +671,7 @@ Detected by `celery` (pypi).
 | Rule | Targets |
 |---|---|
 | `python/celery/bounded-retries` | `ast-grep` forbid: `max_retries=None` in a `shared_task(…)` / `<x>.task(…)` call or a `.retry()`, `.apply_async()`, `.signature()`, `.set()` call; `"max_retries": None` inside `retry_kwargs=`; a `max_retries = None` class attribute of a class whose bases name `Task` |
-| `python/celery/no-result-get-in-task` | `ast-grep` forbid: inside a task, `.get()`, `.wait()`, `.join()` on `.delay()` / `.apply_async()` / `AsyncResult()` results (directly or through a variable of the function) or on a called `group` / `chord` / `chain`; `disable_sync_subtasks=False` anywhere |
+| `python/celery/no-result-get-in-task` | `ast-grep` forbid: inside a task, `.get()`, `.wait()`, `.join()` on `.delay()` / `.apply_async()` / `AsyncResult()` results (directly, through a variable of the function, or as the variable of a `for` loop or comprehension over them) or on a called `group` / `chord` / `chain`; `disable_sync_subtasks=False` anywhere |
 
 context.md: ids as arguments, idempotent tasks queued from `transaction.on_commit()`, bounded retries, no waiting on results inside tasks.
 
