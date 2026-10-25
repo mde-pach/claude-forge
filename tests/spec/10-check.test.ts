@@ -9,7 +9,7 @@
  * files.
  */
 import { beforeAll, describe, expect, test } from "bun:test";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { applied, commitAll, ensureTools, forge, git, hasBun, hasUv, linkTools, linkTs5, put, ROOT, sampleRepo, sh, TOOL_VERSIONS, TOOLS_CACHE } from "../helpers";
@@ -526,6 +526,35 @@ test(
  * turn. `--all` (CI) still fails on any error.
  */
 describe("errors in unchanged files", () => {
+  /**
+   * basedpyright in its "recommended" mode exits 1 on warnings alone (an unused
+   * parameter, an unannotated `__tablename__` in a file nobody touched): warnings
+   * do not count (§10.1), so a run that reports nothing else passes.
+   * @rule python/typecheck
+   */
+  test(
+    "a typecheck that exits non-zero with warnings only passes outside --all, with a note; one with an error in a changed file still fails",
+    () => {
+      // basedpyright prints real paths
+      const root = realpathSync(repo);
+      const warn = (f: string) => `echo "${root}/${f}"; echo "  ${root}/${f}:7:20 - warning: \\"app\\" is not accessed (reportUnusedParameter)"`;
+      stub("basedpyright", `${warn("app/main.py")}; ${warn("app/new.py")}; echo "0 errors, 2 warnings, 0 notes"; exit 1`);
+      try {
+        put(repo, "app/new.py", "X = 1\n");
+        const ok = check();
+        expect(ok.stdout).not.toContain("forge:python/typecheck failed");
+        expect(ok.stdout).toContain("forge:python/typecheck ok for the changed files (only warnings)");
+        stub("basedpyright", `${warn("app/main.py")}; echo "  ${root}/app/new.py:1:5 - error: Type mismatch"; echo "1 error, 1 warning, 0 notes"; exit 1`);
+        const bad = check();
+        expect(bad.stdout).toContain(`forge:python/typecheck failed\n  ${root}/app/new.py:1:5 - error: Type mismatch`);
+      } finally {
+        unlinkSync(join(repo, ".venv/bin/basedpyright"));
+        reset();
+      }
+    },
+    T,
+  );
+
   /** A TypeScript repository with a type error committed in src/legacy.ts. */
   function legacyRepo(): string {
     ensureTools();

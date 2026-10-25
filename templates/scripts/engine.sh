@@ -1994,7 +1994,8 @@ forge_excerpt() {
 # lines are ignored). A diagnostic counts when it names a file of $FORGE_TMP/changed
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
-# they name only other files or lines, "none" when no line names a file. With
+# they name only other files or lines, "warnings" when the output has warnings and no
+# error at all (a tool that exits non-zero on warnings), "none" when no line names a file. With
 # "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
 # tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
@@ -2005,7 +2006,8 @@ forge_diagnostics() {
     {
       line = $0
       gsub(ansi, "", line)
-      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
+      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) { warned = 1; next }
+      if (line ~ /[Ee]rror/ && line !~ /(^|[^0-9])0 errors?([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
       if (match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) {
@@ -2023,7 +2025,7 @@ forge_diagnostics() {
       else counts = (p in ch)
       if (counts) { hit = 1; if (mode == "print") print $0 }
     }
-    END { if (mode != "print") print (hit ? "changed" : named ? "other" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
+    END { if (mode != "print") print (hit ? "changed" : named ? "other" : (warned && !erred) ? "warnings" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
 }
 
 # forge_attribute_level <stage> <whole-project run: 1|0>: how a failed check's
@@ -2080,6 +2082,11 @@ forge_run_check() {
           printf 'forge:%s ok for the added lines (findings remain on lines this change did not add: sh .forge/check.sh --all)\n' "$c_id"
         else
           printf 'forge:%s ok for the changed files (errors remain in unchanged files: sh .forge/check.sh --all)\n' "$c_id"
+        fi
+        return 0 ;;
+      warnings)
+        if [ "$_fc_level" = line ]; then printf 'forge:%s ok for the added lines (only warnings)\n' "$c_id"
+        else printf 'forge:%s ok for the changed files (only warnings)\n' "$c_id"
         fi
         return 0 ;;
       changed)
@@ -2456,7 +2463,7 @@ forge_file_report() {
     _fr_what=none
     [ -n "$_fr_level" ] && _fr_what=$(forge_diagnostics "$_fr_out" "$_fr_level")
     case $_fr_what in
-      other) ;;
+      other|warnings) ;;
       changed)
         printf 'forge:%s\n' "$c_id"
         forge_diagnostics "$_fr_out" "$_fr_level" print | first_lines 15
@@ -2535,7 +2542,7 @@ forge_typecheck() {
       if ! forge_exec_check "forge_check_run_$_ft_i" "$c_timeout"; then
         # only errors in changed files wake Claude
         case $(forge_diagnostics "$FORGE_TMP/out" file) in
-          other) ;;
+          other|warnings) ;;
           changed)
             printf 'forge:%s\n' "$c_id"
             forge_diagnostics "$FORGE_TMP/out" file print | first_lines 19

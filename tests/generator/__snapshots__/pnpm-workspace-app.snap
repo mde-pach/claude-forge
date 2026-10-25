@@ -3148,7 +3148,8 @@ forge_excerpt() {
 # lines are ignored). A diagnostic counts when it names a file of $FORGE_TMP/changed
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
-# they name only other files or lines, "none" when no line names a file. With
+# they name only other files or lines, "warnings" when the output has warnings and no
+# error at all (a tool that exits non-zero on warnings), "none" when no line names a file. With
 # "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
 # tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
@@ -3159,7 +3160,8 @@ forge_diagnostics() {
     {
       line = $0
       gsub(ansi, "", line)
-      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
+      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) { warned = 1; next }
+      if (line ~ /[Ee]rror/ && line !~ /(^|[^0-9])0 errors?([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
       if (match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) {
@@ -3177,7 +3179,7 @@ forge_diagnostics() {
       else counts = (p in ch)
       if (counts) { hit = 1; if (mode == "print") print $0 }
     }
-    END { if (mode != "print") print (hit ? "changed" : named ? "other" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
+    END { if (mode != "print") print (hit ? "changed" : named ? "other" : (warned && !erred) ? "warnings" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
 }
 
 # forge_attribute_level <stage> <whole-project run: 1|0>: how a failed check's
@@ -3234,6 +3236,11 @@ forge_run_check() {
           printf 'forge:%s ok for the added lines (findings remain on lines this change did not add: sh .forge/check.sh --all)\n' "$c_id"
         else
           printf 'forge:%s ok for the changed files (errors remain in unchanged files: sh .forge/check.sh --all)\n' "$c_id"
+        fi
+        return 0 ;;
+      warnings)
+        if [ "$_fc_level" = line ]; then printf 'forge:%s ok for the added lines (only warnings)\n' "$c_id"
+        else printf 'forge:%s ok for the changed files (only warnings)\n' "$c_id"
         fi
         return 0 ;;
       changed)
@@ -3610,7 +3617,7 @@ forge_file_report() {
     _fr_what=none
     [ -n "$_fr_level" ] && _fr_what=$(forge_diagnostics "$_fr_out" "$_fr_level")
     case $_fr_what in
-      other) ;;
+      other|warnings) ;;
       changed)
         printf 'forge:%s\n' "$c_id"
         forge_diagnostics "$_fr_out" "$_fr_level" print | first_lines 15
@@ -3689,7 +3696,7 @@ forge_typecheck() {
       if ! forge_exec_check "forge_check_run_$_ft_i" "$c_timeout"; then
         # only errors in changed files wake Claude
         case $(forge_diagnostics "$FORGE_TMP/out" file) in
-          other) ;;
+          other|warnings) ;;
           changed)
             printf 'forge:%s\n' "$c_id"
             forge_diagnostics "$FORGE_TMP/out" file print | first_lines 19
@@ -6102,7 +6109,8 @@ forge_excerpt() {
 # lines are ignored). A diagnostic counts when it names a file of $FORGE_TMP/changed
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
-# they name only other files or lines, "none" when no line names a file. With
+# they name only other files or lines, "warnings" when the output has warnings and no
+# error at all (a tool that exits non-zero on warnings), "none" when no line names a file. With
 # "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
 # tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
@@ -6113,7 +6121,8 @@ forge_diagnostics() {
     {
       line = $0
       gsub(ansi, "", line)
-      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
+      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) { warned = 1; next }
+      if (line ~ /[Ee]rror/ && line !~ /(^|[^0-9])0 errors?([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
       if (match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) {
@@ -6131,7 +6140,7 @@ forge_diagnostics() {
       else counts = (p in ch)
       if (counts) { hit = 1; if (mode == "print") print $0 }
     }
-    END { if (mode != "print") print (hit ? "changed" : named ? "other" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
+    END { if (mode != "print") print (hit ? "changed" : named ? "other" : (warned && !erred) ? "warnings" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
 }
 
 # forge_attribute_level <stage> <whole-project run: 1|0>: how a failed check's
@@ -6188,6 +6197,11 @@ forge_run_check() {
           printf 'forge:%s ok for the added lines (findings remain on lines this change did not add: sh .forge/check.sh --all)\n' "$c_id"
         else
           printf 'forge:%s ok for the changed files (errors remain in unchanged files: sh .forge/check.sh --all)\n' "$c_id"
+        fi
+        return 0 ;;
+      warnings)
+        if [ "$_fc_level" = line ]; then printf 'forge:%s ok for the added lines (only warnings)\n' "$c_id"
+        else printf 'forge:%s ok for the changed files (only warnings)\n' "$c_id"
         fi
         return 0 ;;
       changed)
@@ -6564,7 +6578,7 @@ forge_file_report() {
     _fr_what=none
     [ -n "$_fr_level" ] && _fr_what=$(forge_diagnostics "$_fr_out" "$_fr_level")
     case $_fr_what in
-      other) ;;
+      other|warnings) ;;
       changed)
         printf 'forge:%s\n' "$c_id"
         forge_diagnostics "$_fr_out" "$_fr_level" print | first_lines 15
@@ -6643,7 +6657,7 @@ forge_typecheck() {
       if ! forge_exec_check "forge_check_run_$_ft_i" "$c_timeout"; then
         # only errors in changed files wake Claude
         case $(forge_diagnostics "$FORGE_TMP/out" file) in
-          other) ;;
+          other|warnings) ;;
           changed)
             printf 'forge:%s\n' "$c_id"
             forge_diagnostics "$FORGE_TMP/out" file print | first_lines 19
@@ -9072,7 +9086,8 @@ forge_excerpt() {
 # lines are ignored). A diagnostic counts when it names a file of $FORGE_TMP/changed
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
-# they name only other files or lines, "none" when no line names a file. With
+# they name only other files or lines, "warnings" when the output has warnings and no
+# error at all (a tool that exits non-zero on warnings), "none" when no line names a file. With
 # "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
 # tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
@@ -9083,7 +9098,8 @@ forge_diagnostics() {
     {
       line = $0
       gsub(ansi, "", line)
-      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
+      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) { warned = 1; next }
+      if (line ~ /[Ee]rror/ && line !~ /(^|[^0-9])0 errors?([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
       if (match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) {
@@ -9101,7 +9117,7 @@ forge_diagnostics() {
       else counts = (p in ch)
       if (counts) { hit = 1; if (mode == "print") print $0 }
     }
-    END { if (mode != "print") print (hit ? "changed" : named ? "other" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
+    END { if (mode != "print") print (hit ? "changed" : named ? "other" : (warned && !erred) ? "warnings" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
 }
 
 # forge_attribute_level <stage> <whole-project run: 1|0>: how a failed check's
@@ -9158,6 +9174,11 @@ forge_run_check() {
           printf 'forge:%s ok for the added lines (findings remain on lines this change did not add: sh .forge/check.sh --all)\n' "$c_id"
         else
           printf 'forge:%s ok for the changed files (errors remain in unchanged files: sh .forge/check.sh --all)\n' "$c_id"
+        fi
+        return 0 ;;
+      warnings)
+        if [ "$_fc_level" = line ]; then printf 'forge:%s ok for the added lines (only warnings)\n' "$c_id"
+        else printf 'forge:%s ok for the changed files (only warnings)\n' "$c_id"
         fi
         return 0 ;;
       changed)
@@ -9534,7 +9555,7 @@ forge_file_report() {
     _fr_what=none
     [ -n "$_fr_level" ] && _fr_what=$(forge_diagnostics "$_fr_out" "$_fr_level")
     case $_fr_what in
-      other) ;;
+      other|warnings) ;;
       changed)
         printf 'forge:%s\n' "$c_id"
         forge_diagnostics "$_fr_out" "$_fr_level" print | first_lines 15
@@ -9613,7 +9634,7 @@ forge_typecheck() {
       if ! forge_exec_check "forge_check_run_$_ft_i" "$c_timeout"; then
         # only errors in changed files wake Claude
         case $(forge_diagnostics "$FORGE_TMP/out" file) in
-          other) ;;
+          other|warnings) ;;
           changed)
             printf 'forge:%s\n' "$c_id"
             forge_diagnostics "$FORGE_TMP/out" file print | first_lines 19
@@ -12066,7 +12087,8 @@ forge_excerpt() {
 # lines are ignored). A diagnostic counts when it names a file of $FORGE_TMP/changed
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
-# they name only other files or lines, "none" when no line names a file. With
+# they name only other files or lines, "warnings" when the output has warnings and no
+# error at all (a tool that exits non-zero on warnings), "none" when no line names a file. With
 # "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
 # tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
@@ -12077,7 +12099,8 @@ forge_diagnostics() {
     {
       line = $0
       gsub(ansi, "", line)
-      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
+      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) { warned = 1; next }
+      if (line ~ /[Ee]rror/ && line !~ /(^|[^0-9])0 errors?([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
       if (match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) {
@@ -12095,7 +12118,7 @@ forge_diagnostics() {
       else counts = (p in ch)
       if (counts) { hit = 1; if (mode == "print") print $0 }
     }
-    END { if (mode != "print") print (hit ? "changed" : named ? "other" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
+    END { if (mode != "print") print (hit ? "changed" : named ? "other" : (warned && !erred) ? "warnings" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
 }
 
 # forge_attribute_level <stage> <whole-project run: 1|0>: how a failed check's
@@ -12152,6 +12175,11 @@ forge_run_check() {
           printf 'forge:%s ok for the added lines (findings remain on lines this change did not add: sh .forge/check.sh --all)\n' "$c_id"
         else
           printf 'forge:%s ok for the changed files (errors remain in unchanged files: sh .forge/check.sh --all)\n' "$c_id"
+        fi
+        return 0 ;;
+      warnings)
+        if [ "$_fc_level" = line ]; then printf 'forge:%s ok for the added lines (only warnings)\n' "$c_id"
+        else printf 'forge:%s ok for the changed files (only warnings)\n' "$c_id"
         fi
         return 0 ;;
       changed)
@@ -12528,7 +12556,7 @@ forge_file_report() {
     _fr_what=none
     [ -n "$_fr_level" ] && _fr_what=$(forge_diagnostics "$_fr_out" "$_fr_level")
     case $_fr_what in
-      other) ;;
+      other|warnings) ;;
       changed)
         printf 'forge:%s\n' "$c_id"
         forge_diagnostics "$_fr_out" "$_fr_level" print | first_lines 15
@@ -12607,7 +12635,7 @@ forge_typecheck() {
       if ! forge_exec_check "forge_check_run_$_ft_i" "$c_timeout"; then
         # only errors in changed files wake Claude
         case $(forge_diagnostics "$FORGE_TMP/out" file) in
-          other) ;;
+          other|warnings) ;;
           changed)
             printf 'forge:%s\n' "$c_id"
             forge_diagnostics "$FORGE_TMP/out" file print | first_lines 19
@@ -15985,7 +16013,8 @@ forge_excerpt() {
 # lines are ignored). A diagnostic counts when it names a file of $FORGE_TMP/changed
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
-# they name only other files or lines, "none" when no line names a file. With
+# they name only other files or lines, "warnings" when the output has warnings and no
+# error at all (a tool that exits non-zero on warnings), "none" when no line names a file. With
 # "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
 # tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
@@ -15996,7 +16025,8 @@ forge_diagnostics() {
     {
       line = $0
       gsub(ansi, "", line)
-      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
+      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) { warned = 1; next }
+      if (line ~ /[Ee]rror/ && line !~ /(^|[^0-9])0 errors?([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
       if (match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) {
@@ -16014,7 +16044,7 @@ forge_diagnostics() {
       else counts = (p in ch)
       if (counts) { hit = 1; if (mode == "print") print $0 }
     }
-    END { if (mode != "print") print (hit ? "changed" : named ? "other" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
+    END { if (mode != "print") print (hit ? "changed" : named ? "other" : (warned && !erred) ? "warnings" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
 }
 
 # forge_attribute_level <stage> <whole-project run: 1|0>: how a failed check's
@@ -16071,6 +16101,11 @@ forge_run_check() {
           printf 'forge:%s ok for the added lines (findings remain on lines this change did not add: sh .forge/check.sh --all)\n' "$c_id"
         else
           printf 'forge:%s ok for the changed files (errors remain in unchanged files: sh .forge/check.sh --all)\n' "$c_id"
+        fi
+        return 0 ;;
+      warnings)
+        if [ "$_fc_level" = line ]; then printf 'forge:%s ok for the added lines (only warnings)\n' "$c_id"
+        else printf 'forge:%s ok for the changed files (only warnings)\n' "$c_id"
         fi
         return 0 ;;
       changed)
@@ -16447,7 +16482,7 @@ forge_file_report() {
     _fr_what=none
     [ -n "$_fr_level" ] && _fr_what=$(forge_diagnostics "$_fr_out" "$_fr_level")
     case $_fr_what in
-      other) ;;
+      other|warnings) ;;
       changed)
         printf 'forge:%s\n' "$c_id"
         forge_diagnostics "$_fr_out" "$_fr_level" print | first_lines 15
@@ -16526,7 +16561,7 @@ forge_typecheck() {
       if ! forge_exec_check "forge_check_run_$_ft_i" "$c_timeout"; then
         # only errors in changed files wake Claude
         case $(forge_diagnostics "$FORGE_TMP/out" file) in
-          other) ;;
+          other|warnings) ;;
           changed)
             printf 'forge:%s\n' "$c_id"
             forge_diagnostics "$FORGE_TMP/out" file print | first_lines 19
@@ -16926,13 +16961,13 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "bf28e2c1752c202d3ac96c33fdabe8ae4ff659765ddafe45b4777368573aa186",
     ".claude/skills/forge-project/scripts/guard.sh": "e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca",
     ".claude/skills/forge-project/scripts/lib.sh": "7754f516e6aac8caa42b9c2b016ec52975c4842c977e31ec16d1ada9d77f87c7",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "9953defd311494e878d83c9fb2f3a58191806aa33fee997ee61e52f7167ae601",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "bce12c890925895beb1a64798c6800458afb23ca5bc2ffc5a7c5ca53b8bb3f87",
     ".claude/skills/forge-project/scripts/review.sh": "889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726",
-    ".claude/skills/forge-project/scripts/session-start.sh": "7a55cb438779bf71c7b1e270974c2db6163afa5386b448c428c5294dab6a3bda",
+    ".claude/skills/forge-project/scripts/session-start.sh": "3b1cecbd865d2fd948cfd08e60a6ded8b94c785fdc1fce332c1c5ba7a493dd7e",
     ".claude/skills/forge-project/scripts/stop.sh": "10316d9cd59fea152c6f8fbf0ab70abf547514bf67a2c85f3e6b405554a71fad",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "3021ddf2bedfce4216ffc78d29ba8e017763a919e3b39b558e37ff5c7ab051dc",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "c368898944dfd7b4bbaf0f2dd1feadf301bd8544401d6623ffd256b0138250b8",
     ".claude/skills/forge-project/scripts/turn-start.sh": "fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "be2080f37c58f183add2195899a5d5b496dad82a3a18b647e4f6b7e6be03a7cf",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "f1afe926f832cb53d85c1a7637f274cd663e26843d599c7a98f4ae12c7b10971",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml": "c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20",
     ".forge/ast-grep/rule-tests/typescript-no-latch-before-optional-call-test.yml": "c86f87d695b414c91cf90a528067e558a5ce93dbf38c8d9f90d1e7aec886b743",
@@ -16959,7 +16994,7 @@ exit "$fail"
     ".forge/ast-grep/rules/typescript/vitest/no-tautological-expect.yml": "35497c3d5cc2bfdc45837edfa133f8320134101d9a869cebdcebcc9b8e685521",
     ".forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml": "d3c41a3915d84b21e86e9212a06ad14c52bf2f9bcefb7c5ca433200cc3ec44fb",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "ee862edb7faa7798160e48632ee404b0b064a6ff0e57fdc67e325000e83f2350",
+    ".forge/check.sh": "8581a60f4e096e8f46807d296967bab40029bbe773a9d86aaf5eee1508e721a4",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -17015,13 +17050,13 @@ d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills
 bf28e2c1752c202d3ac96c33fdabe8ae4ff659765ddafe45b4777368573aa186  .claude/skills/forge-project/scripts/guard.rules
 e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca  .claude/skills/forge-project/scripts/guard.sh
 7754f516e6aac8caa42b9c2b016ec52975c4842c977e31ec16d1ada9d77f87c7  .claude/skills/forge-project/scripts/lib.sh
-9953defd311494e878d83c9fb2f3a58191806aa33fee997ee61e52f7167ae601  .claude/skills/forge-project/scripts/post-edit.sh
+bce12c890925895beb1a64798c6800458afb23ca5bc2ffc5a7c5ca53b8bb3f87  .claude/skills/forge-project/scripts/post-edit.sh
 889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726  .claude/skills/forge-project/scripts/review.sh
-7a55cb438779bf71c7b1e270974c2db6163afa5386b448c428c5294dab6a3bda  .claude/skills/forge-project/scripts/session-start.sh
+3b1cecbd865d2fd948cfd08e60a6ded8b94c785fdc1fce332c1c5ba7a493dd7e  .claude/skills/forge-project/scripts/session-start.sh
 10316d9cd59fea152c6f8fbf0ab70abf547514bf67a2c85f3e6b405554a71fad  .claude/skills/forge-project/scripts/stop.sh
-3021ddf2bedfce4216ffc78d29ba8e017763a919e3b39b558e37ff5c7ab051dc  .claude/skills/forge-project/scripts/test-edit.sh
+c368898944dfd7b4bbaf0f2dd1feadf301bd8544401d6623ffd256b0138250b8  .claude/skills/forge-project/scripts/test-edit.sh
 fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3  .claude/skills/forge-project/scripts/turn-start.sh
-be2080f37c58f183add2195899a5d5b496dad82a3a18b647e4f6b7e6be03a7cf  .claude/skills/forge-project/scripts/typecheck.sh
+f1afe926f832cb53d85c1a7637f274cd663e26843d599c7a98f4ae12c7b10971  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20  .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
 c86f87d695b414c91cf90a528067e558a5ce93dbf38c8d9f90d1e7aec886b743  .forge/ast-grep/rule-tests/typescript-no-latch-before-optional-call-test.yml
@@ -17048,7 +17083,7 @@ ea54564f283a2f3c832fecfd6f4d55c6243ce9922ddf524c48ee5a43738c1472  .forge/ast-gre
 35497c3d5cc2bfdc45837edfa133f8320134101d9a869cebdcebcc9b8e685521  .forge/ast-grep/rules/typescript/vitest/no-tautological-expect.yml
 d3c41a3915d84b21e86e9212a06ad14c52bf2f9bcefb7c5ca433200cc3ec44fb  .forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-ee862edb7faa7798160e48632ee404b0b064a6ff0e57fdc67e325000e83f2350  .forge/check.sh
+8581a60f4e096e8f46807d296967bab40029bbe773a9d86aaf5eee1508e721a4  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh
