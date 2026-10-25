@@ -344,8 +344,10 @@ function cmdApply(flags: Flags): number {
 /**
  * When the setup enables Claude Code's sandbox on Linux, whether bubblewrap can
  * start it here: a container with Docker's default seccomp/AppArmor profile cannot
- * create namespaces ("Operation not permitted"). Returns the message to print, or
- * undefined when the sandbox can run (or is not Linux's to check).
+ * create namespaces ("Operation not permitted"), and one with a masked /proc cannot
+ * mount a new proc, which Claude Code's sandbox does (so the probe passes --proc).
+ * Returns the message to print, or undefined when the sandbox can run (or is not
+ * Linux's to check).
  */
 function sandboxProblem(ctx: Ctx): string | undefined {
   if (process.platform !== "linux") return undefined;
@@ -355,10 +357,10 @@ function sandboxProblem(ctx: Ctx): string | undefined {
   const tools = ["bwrap", "socat"].filter((c) => !has(c));
   if (tools.length)
     return `forge: sandbox: Claude Code's sandbox needs ${tools.join(" and ")} on Linux (apt install bubblewrap socat, or your distribution's packages), ${off}.`;
-  const r = run("bwrap", ["--ro-bind", "/", "/", "--dev", "/dev", "--unshare-all", "--die-with-parent", "true"]);
+  const r = run("bwrap", ["--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc", "--unshare-all", "--die-with-parent", "true"]);
   if (r.status === 0) return undefined;
   const why = (r.stderr || r.stdout).trim().split("\n")[0] || `exit ${r.status}`;
-  return `forge: sandbox: Claude Code's sandbox cannot start here: bubblewrap failed (${why}). In a container with Docker's default seccomp/AppArmor profile, namespaces are not allowed. Run the container with what bubblewrap needs (e.g. --security-opt seccomp=unconfined --security-opt apparmor=unconfined, or --cap-add SYS_ADMIN), ${off}.`;
+  return `forge: sandbox: Claude Code's sandbox cannot start here: bubblewrap failed (${why}). In a container with Docker's default seccomp/AppArmor profile, namespaces are not allowed and /proc is masked. Run the container with what bubblewrap needs (e.g. --security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt systempaths=unconfined, or --cap-add SYS_ADMIN), ${off}.`;
 }
 
 function cmdDiff(flags: Flags): number {

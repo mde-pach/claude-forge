@@ -148,6 +148,25 @@ describe.if(process.platform === "linux")("a sandbox that cannot start", () => {
     T,
   );
 
+  /**
+   * Docker masks /proc: bubblewrap creates the namespaces but cannot mount a new
+   * proc, which Claude Code's sandbox does. The stand-in fails only with --proc.
+   */
+  /** @rule safety/sandbox */
+  test(
+    "the probe mounts /proc like Claude Code's sandbox, so a container with a masked /proc is reported with systempaths=unconfined",
+    () => {
+      const { env } = home();
+      const bin = fakeBin(
+        "#!/bin/sh\nfor a; do [ \"$a\" = --proc ] && { echo \"bwrap: Can't mount proc on /newroot/proc: Operation not permitted\" >&2; exit 1; }; done\nexit 0\n",
+      );
+      const a = forge(["apply", "--user", "--yes"], "/", { ...env, PATH: `${bin}:${env.PATH ?? process.env.PATH}` });
+      expect(a.stdout).toContain("bubblewrap failed (bwrap: Can't mount proc on /newroot/proc: Operation not permitted)");
+      expect(a.stdout).toContain("--security-opt systempaths=unconfined");
+    },
+    T,
+  );
+
   /** @rule safety/sandbox */
   test(
     "when bubblewrap works, nothing is said",
