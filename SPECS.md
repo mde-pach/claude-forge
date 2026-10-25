@@ -849,7 +849,7 @@ Detected by `drizzle.config.*` or the `drizzle-orm` / `drizzle-kit` dependency. 
 | `typescript/drizzle/migration-lint` | `check` migration: with `dialect: "postgresql"`, changed `.sql` files in `out` linted with Squawk (§13.1); `--all`: the newest one; `when_changed: [**/*.sql]` |
 | `typescript/drizzle/meta-files` | `permission` deny: `Edit(**/meta/_journal.json)`, `Edit(**/meta/*_snapshot.json)` |
 | `typescript/drizzle/no-push` | `guard` ask: `drizzle-kit push` |
-| `typescript/drizzle/no-sql-raw` | `ast-grep` forbid: `sql.raw(…)` whose argument is a template with `${}` or a `+` concatenation |
+| `typescript/drizzle/no-sql-raw` | `ast-grep` forbid: `sql.raw(…)` (or `<alias>.raw(…)` with `import { sql as <alias> } from "drizzle-orm"`) whose argument is a template with `${}` or a `+` concatenation, or a variable declared from one in an enclosing block or the module |
 
 context.md: schema, `out` and `dialect` in `drizzle.config.*`; `drizzle-kit generate` after a schema change, its files committed together and never written by hand; applied migrations are not edited; `push` needs confirmation; the `sql` tag binds values.
 
@@ -857,7 +857,7 @@ context.md: schema, `out` and `dialect` in `drizzle.config.*`; `drizzle-kit gene
 
 | Rule | Targets |
 |---|---|
-| `typescript/trpc/input-validate` | `ast-grep` forbid: `.input(…)` whose argument is `z.any()`, `z.unknown()`, `(v) => v as T` or `(v: T) => v` |
+| `typescript/trpc/input-validate` | `ast-grep` forbid: `.input(…)` whose argument is `z.any()`, `z.unknown()`, `z.custom()` / `z.custom<T>()` without a check, `z.record(…)` of `z.any()` / `z.unknown()`, `(v) => v as T` or `(v: T) => v` |
 | `typescript/trpc/trpc-error` | `ast-grep` forbid: `throw new Error(…)` or `throw Error(…)` inside a function passed as the first argument of `.query()`, `.mutation()` or `.subscription()`, in a file importing `@trpc/server` or when that function destructures `ctx` or `input`; not inside a `try` block |
 
 context.md: `.input(<schema>)` and what is rejected; `TRPCError` with a `code` in procedures.
