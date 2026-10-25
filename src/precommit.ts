@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { isAbsolute, join, relative } from "node:path";
+import { isAbsolute, join, relative, resolve } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { parse as parseYaml } from "yaml";
 import { run, sha256 } from "./util.js";
@@ -18,6 +18,12 @@ export interface HookManager {
   name: string;
   /** The file Forge adds its block to (relative to the repository); undefined when it cannot (core.hooksPath outside the repository). */
   file?: string;
+}
+
+/** Git's pre-commit hook, relative to the repository (outside it in a linked worktree, whose hooks are the main repository's). */
+export function preCommitPath(base: string): string {
+  const r = run("git", ["rev-parse", "--git-path", "hooks/pre-commit"], { cwd: base });
+  return relative(base, resolve(base, r.stdout.trim() || ".git/hooks/pre-commit"));
 }
 
 /** A hook manager in use, or undefined. */

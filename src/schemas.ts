@@ -236,11 +236,55 @@ export const projectConfigSchema = {
   },
 } as const;
 
+const SHA256 = "^[0-9a-f]{64}$";
+
+/**
+ * The lock (§12). Its paths are checked further by lock.ts (relative, inside the
+ * repository, and only where Forge writes): `remove` deletes and `apply` writes them.
+ */
+export const lockSchema = {
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  $id: "forge:lock",
+  type: "object",
+  additionalProperties: false,
+  required: ["forge_version", "claude_code_min", "rules", "files", "settings"],
+  properties: {
+    forge_version: { type: "string" },
+    claude_code_min: { type: "string" },
+    rules: { type: "object", propertyNames: { pattern: RULE_ID }, additionalProperties: { type: "string", pattern: SHA256 } },
+    files: { type: "object", propertyNames: { minLength: 1 }, additionalProperties: { type: "string", pattern: SHA256 } },
+    settings: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["file", "path", "value"],
+        properties: { file: { type: "string", minLength: 1 }, path: { type: "string", minLength: 1 }, value: true },
+      },
+    },
+    blocks: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["file", "kind", "created", "hash"],
+        properties: {
+          file: { type: "string", minLength: 1 },
+          kind: { enum: ["pre-commit", "husky", "lefthook", "hooks"] },
+          created: { type: "boolean" },
+          hash: { type: "string", pattern: SHA256 },
+        },
+      },
+    },
+  },
+} as const;
+
 const ajv = new Ajv2020({ allErrors: true, strict: true, strictRequired: false, strictTypes: false, allowUnionTypes: true });
 const validators = {
   pack: ajv.compile(packSchema),
   rule: ajv.compile(ruleSchema),
   project: ajv.compile(projectConfigSchema),
+  lock: ajv.compile(lockSchema),
 };
 
 export function validate(kind: keyof typeof validators, data: unknown, source: string): void {
