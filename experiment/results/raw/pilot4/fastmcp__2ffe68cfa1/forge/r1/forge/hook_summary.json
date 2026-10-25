@@ -1,0 +1,59 @@
+{
+ "active": true,
+ "events": {
+  "SessionStart": 2,
+  "UserPromptSubmit": 2,
+  "PreToolUse": 21,
+  "PostToolUse": 18,
+  "Stop": 1
+ },
+ "forge_messages": 5,
+ "blocks": 0,
+ "stop_blocks": 0,
+ "feedback": 2,
+ "nonzero_exit": 0,
+ "by_hook": {
+  "SessionStart:startup": {
+   "runs": 2,
+   "nonzero": 0,
+   "forge_msgs": 4
+  },
+  "UserPromptSubmit": {
+   "runs": 2,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PreToolUse:Bash": {
+   "runs": 21,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PostToolUse:Bash": {
+   "runs": 14,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PostToolUse:Edit": {
+   "runs": 4,
+   "nonzero": 0,
+   "forge_msgs": 1
+  },
+  "Stop": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  }
+ },
+ "samples": [
+  {
+   "hook": "SessionStart:startup",
+   "exit": 0,
+   "out": "forge: branch main, 0 changed files\nforge: last commits\n  98b86c7 Add Forge\n  02cb067 initial\nforge: packs docker, docker/compose, github-actions, python, python/fastapi, python/pydantic, python/pytest, python/uv\nforge: missing tools (checks using them are skipped): docker\n"
+  },
+  {
+   "hook": "PostToolUse:Edit",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"forge:python/lint\\nsrc/fastmcp/tools/function_tool.py:175:30: F821 Undefined name `get_fastmcp_meta`\"}}\n"
+  }
+ ]
+}

@@ -1,0 +1,5 @@
+$ pytest -p no:cacheprovider -o junit_family=xunit1 --junitxml=/tmp/forge-junit-6fcf37d8ef71.xml --continue-on-collection-errors -q --no-header -rN --inline-snapshot=disable --timeout=60 -m "not integration and not conformance" tests/tools/test_standalone_decorator.py
+...........                                                              [100%]
+11 passed in 0.13s
+
+[exit 0 in 9s]

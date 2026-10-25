@@ -1,0 +1,50 @@
+diff --git a/.python-version b/.python-version
+deleted file mode 100644
+index e4fba21..0000000
+--- a/.python-version
++++ /dev/null
+@@ -1 +0,0 @@
+-3.12
+diff --git a/examples/tasks/.envrc b/examples/tasks/.envrc
+deleted file mode 100644
+index 87a7dfe..0000000
+--- a/examples/tasks/.envrc
++++ /dev/null
+@@ -1,10 +0,0 @@
+-# FastMCP Tasks Example Environment Configuration
+-# This file is loaded by direnv (https://direnv.net/) when you cd into this directory
+-# Run `direnv allow` to enable automatic environment loading
+-
+-# Configure Docket backend URL
+-# Use Redis backend (requires docker-compose up)
+-export FASTMCP_DOCKET_URL=redis://localhost:24242/0
+-
+-# Or uncomment to use memory:// for single-process testing
+-# export FASTMCP_DOCKET_URL=memory://
+diff --git a/src/fastmcp/tools/function_tool.py b/src/fastmcp/tools/function_tool.py
+index ffac25c..c058e0e 100644
+--- a/src/fastmcp/tools/function_tool.py
++++ b/src/fastmcp/tools/function_tool.py
+@@ -24,7 +24,7 @@ from pydantic import Field
+ from pydantic.json_schema import SkipJsonSchema
+ 
+ import fastmcp
+-from fastmcp.decorators import resolve_task_config
++from fastmcp.decorators import get_fastmcp_meta, resolve_task_config
+ from fastmcp.exceptions import FastMCPDeprecationWarning
+ from fastmcp.server.auth.authorization import AuthCheck
+ from fastmcp.server.dependencies import without_injected_parameters
+@@ -169,6 +169,13 @@ class FunctionTool(Tool):
+                 "Use metadata alone or individual parameters alone."
+             )
+ 
++        # Use metadata attached by the standalone @tool decorator when the
++        # caller supplied no explicit configuration
++        if metadata is None and not individual_params_provided:
++            decorator_meta = get_fastmcp_meta(fn)
++            if isinstance(decorator_meta, ToolMeta):
++                metadata = decorator_meta
++
+         # Build metadata from kwargs if not provided
+         if metadata is None:
+             metadata = ToolMeta(

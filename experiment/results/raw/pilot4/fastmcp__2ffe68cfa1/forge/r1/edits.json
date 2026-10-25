@@ -1,0 +1,13 @@
+{
+ "edit_tool_calls": 2,
+ "shell_edit_calls": 1,
+ "bash_calls": 8,
+ "edit_files": [
+  "/work/src/fastmcp/tools/function_tool.py"
+ ],
+ "shell_edit_commands": [
+  "cd /work; cat > $TMPDIR/t.py <<'E'\nfrom fastmcp.tools import tool\nfrom fastmcp.tools.base import Tool\n@tool(name=\"custom-greet\",version=\"v1\",title=\"G\",description=\"Greets\",tags={\"a\"},meta={\"c\":1})\ndef greet(name: str) -> str:\n    \"\"\"Fallback.\"\"\"\n    return name\nt=Tool.from_function(greet); print(t.n"
+ ],
+ "total": 3,
+ "edit_tool_share": 0.6666666666666666
+}
