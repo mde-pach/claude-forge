@@ -1,0 +1,12 @@
+id: typescript/drizzle/applied-migrations
+description: Migrations already in the base (SQL and snapshots in the drizzle.config out folder) are not modified or deleted; a change goes in a new migration.
+scope: {language: any}
+enforce:
+  - {target: check, stage: migration, run: forge_drizzle_applied}
+examples:
+  match:
+    - head: {drizzle.config.ts: "import { defineConfig } from \"drizzle-kit\";\n\nexport default defineConfig({\n  dialect: \"postgresql\",\n  schema: \"./src/db/schema.ts\",\n  out: \"./drizzle\",\n  dbCredentials: { url: process.env.DATABASE_URL! },\n});\n", src/db/schema.ts: "import { pgTable, serial, text } from \"drizzle-orm/pg-core\";\n\nexport const users = pgTable(\"users\", {\n  id: serial(\"id\").primaryKey(),\n  email: text(\"email\").notNull(),\n});\n", drizzle/meta/_journal.json: "{\"version\": \"7\", \"dialect\": \"postgresql\", \"entries\": [{\"idx\": 0, \"tag\": \"0000_init\"}]}\n", drizzle/0000_init.sql: "CREATE TABLE \"users\" (\n\t\"id\" serial PRIMARY KEY NOT NULL,\n\t\"email\" text NOT NULL\n);\n"}
+      files: {drizzle/0000_init.sql: "CREATE TABLE \"users\" (\n\t\"id\" serial PRIMARY KEY NOT NULL,\n\t\"email\" text NOT NULL,\n\t\"phone\" text\n);\n"}
+  no_match:
+    - head: {drizzle.config.ts: "import { defineConfig } from \"drizzle-kit\";\n\nexport default defineConfig({\n  dialect: \"postgresql\",\n  schema: \"./src/db/schema.ts\",\n  out: \"./drizzle\",\n  dbCredentials: { url: process.env.DATABASE_URL! },\n});\n", src/db/schema.ts: "import { pgTable, serial, text } from \"drizzle-orm/pg-core\";\n\nexport const users = pgTable(\"users\", {\n  id: serial(\"id\").primaryKey(),\n  email: text(\"email\").notNull(),\n});\n", drizzle/meta/_journal.json: "{\"version\": \"7\", \"dialect\": \"postgresql\", \"entries\": [{\"idx\": 0, \"tag\": \"0000_init\"}]}\n", drizzle/0000_init.sql: "CREATE TABLE \"users\" (\n\t\"id\" serial PRIMARY KEY NOT NULL,\n\t\"email\" text NOT NULL\n);\n"}
+      files: {src/db/schema.ts: "import { pgTable, serial, text } from \"drizzle-orm/pg-core\";\n\nexport const users = pgTable(\"users\", {\n  id: serial(\"id\").primaryKey(),\n  email: text(\"email\").notNull(),\n  phone: text(\"phone\"),\n});\n", drizzle/0001_phone.sql: "ALTER TABLE \"users\" ADD COLUMN \"phone\" text;\n", drizzle/meta/_journal.json: "{\"version\": \"7\", \"dialect\": \"postgresql\", \"entries\": [{\"idx\": 0, \"tag\": \"0000_init\"}, {\"idx\": 1, \"tag\": \"0001_phone\"}]}\n", drizzle/meta/0001_snapshot.json: "{\"id\": \"b\", \"prevId\": \"a\"}\n"}

@@ -1,0 +1,20 @@
+id: typescript/drizzle/no-sql-raw
+description: No sql.raw() built from a template with ${} or a concatenation; the sql`...` tag binds values as parameters (sql.identifier() for names).
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      all:
+        - has: {field: function, regex: "^sql\\.raw$"}
+        - has:
+            field: arguments
+            has:
+              nthChild: 1
+              any:
+                - {kind: template_string, has: {kind: template_substitution}}
+                - {kind: binary_expression, regex: "\\+"}
+examples:
+  match: ["await db.execute(sql.raw(`SELECT * FROM users WHERE email = '${email}'`));", "const order = sql.raw(\"ORDER BY \" + column);"]
+  no_match: ["await db.execute(sql`SELECT * FROM users WHERE email = ${email}`);", "const now = sql.raw(\"now()\");", "const by = sql`ORDER BY ${sql.identifier(column)}`;"]

@@ -713,6 +713,152 @@ forge_squawk_alembic() {
   return "$_fs_rc"
 }
 
+# Drizzle: drizzle.config.* names the schema files (`schema`: a path, a glob, a
+# directory or an array of them), the migrations folder (`out`, default ./drizzle)
+# and the `dialect`. forge_drizzle_config writes "key<TAB>value" lines (one per
+# schema entry, ./ removed) to $FORGE_TMP/drizzle.config; fails without a config.
+forge_drizzle_config() {
+  FORGE_DZ_CONFIG=''
+  for _dz_f in drizzle.config.ts drizzle.config.mts drizzle.config.cts drizzle.config.js drizzle.config.mjs drizzle.config.cjs drizzle.config.json; do
+    if [ -f "$_dz_f" ]; then FORGE_DZ_CONFIG=$_dz_f; break; fi
+  done
+  [ -n "$FORGE_DZ_CONFIG" ] || return 1
+  awk '
+    { s = s $0 "\n" }
+    function val(key,   re, v) {
+      re = "[^A-Za-z0-9_$]\"?" key "\"?[[:space:]]*:[[:space:]]*(\\[[^]]*\\]|\"[^\"]*\"|\047[^\047]*\047|`[^`]*`)"
+      if (!match(s, re)) return ""
+      v = substr(s, RSTART, RLENGTH); sub(/^[^:]*:[[:space:]]*/, "", v); return v
+    }
+    function emit(key, v,   q) {
+      while (match(v, /"[^"]*"|\047[^\047]*\047|`[^`]*`/)) {
+        q = substr(v, RSTART + 1, RLENGTH - 2); v = substr(v, RSTART + RLENGTH)
+        sub(/^\.\//, "", q); sub(/\/+$/, "", q)
+        if (q != "") print key "\t" q
+      }
+    }
+    END {
+      # drop comments, outside strings
+      t = ""; q = ""; n = length(s)
+      for (i = 1; i <= n; i++) {
+        c = substr(s, i, 1); d = substr(s, i, 2)
+        if (q != "") { t = t c; if (c == "\\") { t = t substr(s, ++i, 1) } else if (c == q) q = ""; continue }
+        if (d == "//") { while (i <= n && substr(s, i, 1) != "\n") i++; t = t " "; continue }
+        if (d == "/*") { i += 2; while (i <= n && substr(s, i, 2) != "*/") i++; i++; t = t " "; continue }
+        if (c == "\"" || c == "\047" || c == "`") q = c
+        t = t (c == "\n" ? " " : c)
+      }
+      s = t
+      gsub(/migrations[[:space:]]*:[[:space:]]*\{[^}]*\}/, "", s)
+      s = " " s
+      o = val("out"); if (o == "") print "out\tdrizzle"; else emit("out", o)
+      emit("dialect", val("dialect")); emit("schema", val("schema"))
+    }' "$FORGE_DZ_CONFIG" > "$FORGE_TMP/drizzle.config"
+}
+
+# forge_drizzle_get <key>: the first value of <key> from forge_drizzle_config.
+forge_drizzle_get() { awk -F '\t' -v k="$1" '$1 == k { print $2; exit }' "$FORGE_TMP/drizzle.config"; }
+
+# forge_drizzle_is_schema <path>: succeeds when <path> is one of the configured schema
+# entries, matches one as a glob, or sits under one as a directory.
+forge_drizzle_is_schema() {
+  while IFS="$(printf '\t')" read -r _ds_k _ds_v; do
+    [ "$_ds_k" = schema ] || continue
+    _ds_g=$(printf '%s' "$_ds_v" | sed 's/\*\*/*/g')
+    # shellcheck disable=SC2254
+    case $1 in "$_ds_v"|"$_ds_v"/*|$_ds_g) return 0 ;; esac
+  done < "$FORGE_TMP/drizzle.config"
+  return 1
+}
+
+# forge_drizzle_tables <file>: the file without what does not reach the database
+# (blank lines, comments, imports, type exports, relations()/defineRelations() calls).
+forge_drizzle_tables() {
+  awk '
+    inc { if (/\*\//) inc = 0; next }
+    /^[[:space:]]*\/\*/ { if (!/\*\//) inc = 1; next }
+    /^[[:space:]]*(\/\/|$)/ { next }
+    /^[[:space:]]*(import[[:space:]{*]|export[[:space:]]+(type|interface)[[:space:]]|export[[:space:]]*\*)/ { next }
+    depth == 0 && /(^|[^A-Za-z0-9_$])(defineRelations|relations)[[:space:]]*\(/ { inrel = 1 }
+    inrel {
+      t = $0; o = gsub(/\(/, "", t); t = $0; c = gsub(/\)/, "", t); depth += o - c
+      if (depth <= 0) { depth = 0; inrel = 0 }
+      next
+    }
+    { sub(/^[[:space:]]+/, ""); sub(/[[:space:]]+$/, ""); print }' "$1" 2>/dev/null
+}
+
+# forge_drizzle_migration_present: a change to a schema file that reaches the database
+# comes with a generated migration in the out folder: the SQL plus meta/_journal.json and
+# a meta/*_snapshot.json (drizzle-kit 0.x), or <out>/<name>/migration.sql and its
+# snapshot.json (drizzle-kit 1.x). Not with --all (no change to compare).
+forge_drizzle_migration_present() {
+  [ "$mode" != --all ] || return 0
+  forge_drizzle_config || return 0
+  grep -q "^schema$(printf '\t')" "$FORGE_TMP/drizzle.config" || {
+    printf 'forge:%s skipped: no schema path found in %s\n' "$c_id" "$FORGE_DZ_CONFIG"; return 0; }
+  _dm_out=$(forge_drizzle_get out)
+  : > "$FORGE_TMP/dz.schema"
+  while IFS= read -r _dm_f; do
+    forge_drizzle_is_schema "$_dm_f" || continue
+    forge_drizzle_tables "$_dm_f" > "$FORGE_TMP/dz.now"
+    forge_drizzle_tables "$FORGE_TMP/base/$_dm_f" > "$FORGE_TMP/dz.then"
+    cmp -s "$FORGE_TMP/dz.now" "$FORGE_TMP/dz.then" || printf '%s\n' "$_dm_f" >> "$FORGE_TMP/dz.schema"
+  done < "$FORGE_TMP/changed"
+  [ -s "$FORGE_TMP/dz.schema" ] || return 0
+  _dm_sql=0; _dm_journal=0; _dm_snap=0
+  while IFS= read -r _dm_f; do
+    case $_dm_f in
+      "$_dm_out"/meta/_journal.json) _dm_journal=1 ;;
+      "$_dm_out"/meta/*_snapshot.json|"$_dm_out"/*/snapshot.json) _dm_snap=1 ;;
+      "$_dm_out"/*/migration.sql) _dm_sql=1; _dm_journal=1 ;;
+      "$_dm_out"/*.sql) _dm_sql=1 ;;
+    esac
+  done < "$FORGE_TMP/existing"
+  # drizzle-kit 1.x keeps no journal: a <name>/migration.sql stands in for it
+  [ "$_dm_sql" = 1 ] && [ "$_dm_journal" = 1 ] && [ "$_dm_snap" = 1 ] && return 0
+  while IFS= read -r _dm_f; do
+    printf '%s: the Drizzle schema changed, but %s/ has no new migration with its journal and snapshot\n' "$_dm_f" "$_dm_out"
+  done < "$FORGE_TMP/dz.schema"
+  printf 'Generate it (drizzle-kit generate) and keep the SQL, meta/_journal.json and the snapshot together; never write them by hand.\n'
+  return 1
+}
+
+# forge_drizzle_applied: migrations (SQL and snapshots in the out folder) that exist in
+# the base are not modified or deleted; a change goes in a new migration.
+forge_drizzle_applied() {
+  [ "$mode" != --all ] || return 0
+  forge_drizzle_config || return 0
+  _da_out=$(forge_drizzle_get out)
+  _da_rc=0
+  while IFS= read -r _da_f; do
+    case $_da_f in
+      "$_da_out"/*.sql|"$_da_out"/meta/*_snapshot.json|"$_da_out"/*/snapshot.json)
+        if [ -f "$_da_f" ]; then _da_what=modified; else _da_what=deleted; fi
+        printf '%s: an existing migration was %s; generate a new migration instead (drizzle-kit generate)\n' "$_da_f" "$_da_what"
+        _da_rc=1 ;;
+    esac
+  done < "$FORGE_TMP/inbase"
+  return "$_da_rc"
+}
+
+# forge_drizzle_squawk [files]: Squawk (§13.1) on the changed SQL of the out folder
+# when the dialect is postgresql; with no files (--since, --all), on the newest migration.
+forge_drizzle_squawk() {
+  forge_drizzle_config || return 0
+  [ "$(forge_drizzle_get dialect)" = postgresql ] || return 0
+  _dq_out=$(forge_drizzle_get out)
+  if [ "$#" -eq 0 ]; then
+    set -- $(git ls-files -- "$_dq_out/*.sql" | sort | tail -n 1)
+  else
+    for _dq_f in "$@"; do
+      shift
+      case $_dq_f in "$_dq_out"/*.sql) set -- "$@" "$_dq_f" ;; esac
+    done
+  fi
+  forge_squawk_files "$@"
+}
+
 # forge_related_py_tests <files>: changed test files plus tests/**/test_<module>.py
 # for each changed module, one per line.
 forge_related_py_tests() {

@@ -705,6 +705,21 @@ context.md: locators (`getByRole`, `getByLabel`, `getByText`, `getByTestId`) and
 
 context.md: Zod at boundaries with `z.infer`; Zod 4 top-level formats, the single `error` parameter, `z.strictObject` / `z.looseObject`, `error.issues`, `z.treeifyError`.
 
+### typescript/drizzle
+
+Detected by `drizzle.config.*` or the `drizzle-orm` / `drizzle-kit` dependency. The checks read `schema`, `out` (default `./drizzle`) and `dialect` from `drizzle.config.*` (string values, arrays, globs and directories; values computed at run time are not read).
+
+| Rule | Targets |
+|---|---|
+| `typescript/drizzle/migration-present` | `check` migration: `forge_drizzle_migration_present`: a changed schema file whose content reaching the database changed (blank lines, comments, imports, type exports, `relations()` / `defineRelations()` calls aside) needs, among the changed files, a `.sql` in `out` plus `meta/_journal.json` and a `meta/*_snapshot.json`, or (drizzle-kit 1.x) `<out>/<name>/migration.sql` and a `snapshot.json`; not with `--all` |
+| `typescript/drizzle/applied-migrations` | `check` migration: `forge_drizzle_applied`: no `.sql` or snapshot in `out` that exists in the base is modified or deleted |
+| `typescript/drizzle/migration-lint` | `check` migration: with `dialect: "postgresql"`, changed `.sql` files in `out` linted with Squawk (§13.1); `--all`: the newest one; `when_changed: [**/*.sql]` |
+| `typescript/drizzle/meta-files` | `permission` deny: `Edit(**/meta/_journal.json)`, `Edit(**/meta/*_snapshot.json)` |
+| `typescript/drizzle/no-push` | `guard` ask: `drizzle-kit push` |
+| `typescript/drizzle/no-sql-raw` | `ast-grep` forbid: `sql.raw(…)` whose argument is a template with `${}` or a `+` concatenation |
+
+context.md: schema, `out` and `dialect` in `drizzle.config.*`; `drizzle-kit generate` after a schema change, its files committed together and never written by hand; applied migrations are not edited; `push` needs confirmation; the `sql` tag binds values.
+
 ### github-actions
 
 Detected by `.github/workflows/*.yml` or `*.yaml`.
