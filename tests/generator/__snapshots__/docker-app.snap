@@ -1398,11 +1398,10 @@ forge_helper() {
 }
 
 # Test blocks, for forge_test_edits: pytest test functions (with their decorators)
-# and classes; Vitest/Playwright test and it calls, and the describe calls around them;
-# what a test checks (forge-test-check): assert statements and decorators (pytest
-# parametrize), expect statements and .each tables; test support code
-# (forge-test-support): top-level functions and classes not named test* / Test*
-# (fixtures, fakes, mocks, helpers), top-level declarations and vi.mock calls.
+# and classes; Vitest/Playwright test and it calls (with their .each tables), and the
+# describe calls around them; test support code (forge-test-support): top-level
+# functions and classes not named test* / Test* (fixtures, fakes, mocks, helpers),
+# top-level declarations and vi.mock calls.
 FORGE_TEST_BLOCKS='id: forge-test-support
 language: Python
 rule:
@@ -1424,17 +1423,7 @@ rule:
         - any: [{kind: function_declaration}, {kind: class_declaration}, {kind: lexical_declaration}, {kind: variable_declaration}]
         - any: [{inside: {kind: program, stopBy: neighbor}}, {inside: {kind: export_statement, stopBy: neighbor, inside: {kind: program, stopBy: neighbor}}}]
     - {kind: expression_statement, regex: "^vi[.](do)?[mM]ock[(]", inside: {kind: program, stopBy: neighbor}}
----
-id: forge-test-check
-language: Python
-rule: {any: [{kind: assert_statement}, {kind: decorator}]}
----
-id: forge-test-check
-language: Tsx
-rule:
-  any:
-    - {kind: expression_statement, regex: "^(await\\s+)?expect\\b"}
-    - {kind: call_expression, regex: "^(test|it)\\b[^(]*[.]each[(]", inside: {kind: call_expression, field: function, stopBy: neighbor}}
+
 ---
 id: forge-test
 language: Python
@@ -1465,11 +1454,13 @@ constraints:
   F: {regex: "^(describe|suite|test[.]describe)([.(]|$)"}
   NAME: {any: [{kind: string}, {kind: template_string}]}'
 
-# forge_test_blocks <dir> <file-list>: "file<TAB>key<TAB>body<TAB>checks" per test of
+# forge_test_blocks <dir> <file-list>: "file<TAB>key<TAB>body<TAB>print" per test of
 # the listed files under <dir>; key = enclosing classes or describe names, then the
 # test name (" #2" for a repeated one); body = the test's text without whitespace;
-# checks = its assertions and parametrization (forge-test-check), without whitespace.
-# Test support code is listed too, keyed "support:<name>", with checks = its body.
+# print = its fingerprint: the whole test (decorators, .each table, setup, input data,
+# control flow and assertions) without whitespace, semicolons and trailing commas, with
+# ' read as ", so formatting is not a change. Test support code is listed too, keyed
+# "support:<name>", with the same fingerprint.
 forge_test_blocks() {
   set -f
   # shellcheck disable=SC2046
@@ -1502,13 +1493,14 @@ forge_test_blocks() {
         else nm = substr(t, 1, 40)
       }
       N[n] = nm; gsub(/[[:space:]]/, "", t); T[n] = t
+      p = t; gsub(/;/, "", p); gsub(sprintf("%c", 39), "\"", p); gsub(/,[)]/, ")", p); gsub(/,[]]/, "]", p); gsub(/,[}]/, "}", p); P[n] = p
     }
     END {
       for (a = 1; a <= n; a++) {
         if (R[a] == "forge-test-support") {
           key = "support:" N[a]
           if (++seen[F[a] "\t" key] > 1) key = key " #" seen[F[a] "\t" key]
-          print F[a] "\t" key "\t" T[a] "\t" T[a]
+          print F[a] "\t" key "\t" T[a] "\t" P[a]
           continue
         }
         if (R[a] != "forge-test") continue
@@ -1522,24 +1514,16 @@ forge_test_blocks() {
         for (j = 1; j <= m; j++) key = key cn[j] " > "
         key = key N[a]
         if (++seen[F[a] "\t" key] > 1) key = key " #" seen[F[a] "\t" key]
-        sig = ""
-        for (b = 1; b <= n; b++) {
-          if (R[b] != "forge-test-check" || F[b] != F[a] || S[b] < S[a] || E[b] > E[a]) continue
-          inner = 1
-          for (c = 1; c <= n; c++)
-            if (c != a && R[c] == "forge-test" && F[c] == F[a] && S[c] <= S[b] && E[b] <= E[c] && S[a] <= S[c] && E[c] <= E[a] && E[c] - S[c] < E[a] - S[a]) { inner = 0; break }
-          if (inner) sig = sig T[b] "|"
-        }
-        print F[a] "\t" key "\t" T[a] "\t" sig
+        print F[a] "\t" key "\t" T[a] "\t" P[a]
       }
     }' "$FORGE_TMP/blocks.json"
 }
 
 # forge_test_edits: Stop only (--turn). Each test of the in-scope files ($FORGE_FILES)
-# that existed at the start of the turn must keep its assertions and parametrization
-# (whitespace aside) and still be present, unless an Edit or Write changing it was
+# that existed at the start of the turn must keep its whole text (its fingerprint:
+# formatting aside) and still be present, unless an Edit or Write changing it was
 # approved during the turn (<snapshot>/tests-approved, written by test-edit.sh); new
-# tests and setup-only changes are fine. Test support code (fakes, fixtures, helpers)
+# tests are fine. Test support code (fakes, fixtures, helpers)
 # changed or removed is reported once per turn (<snapshot>/support-reported): it
 # encodes the interface callers rely on.
 forge_test_edits() {
@@ -1573,7 +1557,7 @@ forge_test_edits() {
   _te_rc=0
   if grep -q '^T' "$FORGE_TMP/tests.edits"; then
     sed -n 's/^T	//p' "$FORGE_TMP/tests.edits"
-    printf 'These tests existed before this turn and their assertions changed without approval. Restore them. If the task requires the change (it changes the behaviour they assert), make it with Edit or Write: Forge then asks for approval (the user, or a reviewer given the request).\n'
+    printf 'These tests existed before this turn and were changed without approval. Restore them. If the task requires the change (it changes the behaviour they assert), make it with Edit or Write: Forge then asks for approval (the user, or a reviewer given the request).\n'
     _te_rc=1
   fi
   # test support code: reported once per turn, then accepted
@@ -4191,11 +4175,10 @@ forge_helper() {
 }
 
 # Test blocks, for forge_test_edits: pytest test functions (with their decorators)
-# and classes; Vitest/Playwright test and it calls, and the describe calls around them;
-# what a test checks (forge-test-check): assert statements and decorators (pytest
-# parametrize), expect statements and .each tables; test support code
-# (forge-test-support): top-level functions and classes not named test* / Test*
-# (fixtures, fakes, mocks, helpers), top-level declarations and vi.mock calls.
+# and classes; Vitest/Playwright test and it calls (with their .each tables), and the
+# describe calls around them; test support code (forge-test-support): top-level
+# functions and classes not named test* / Test* (fixtures, fakes, mocks, helpers),
+# top-level declarations and vi.mock calls.
 FORGE_TEST_BLOCKS='id: forge-test-support
 language: Python
 rule:
@@ -4217,17 +4200,7 @@ rule:
         - any: [{kind: function_declaration}, {kind: class_declaration}, {kind: lexical_declaration}, {kind: variable_declaration}]
         - any: [{inside: {kind: program, stopBy: neighbor}}, {inside: {kind: export_statement, stopBy: neighbor, inside: {kind: program, stopBy: neighbor}}}]
     - {kind: expression_statement, regex: "^vi[.](do)?[mM]ock[(]", inside: {kind: program, stopBy: neighbor}}
----
-id: forge-test-check
-language: Python
-rule: {any: [{kind: assert_statement}, {kind: decorator}]}
----
-id: forge-test-check
-language: Tsx
-rule:
-  any:
-    - {kind: expression_statement, regex: "^(await\\s+)?expect\\b"}
-    - {kind: call_expression, regex: "^(test|it)\\b[^(]*[.]each[(]", inside: {kind: call_expression, field: function, stopBy: neighbor}}
+
 ---
 id: forge-test
 language: Python
@@ -4258,11 +4231,13 @@ constraints:
   F: {regex: "^(describe|suite|test[.]describe)([.(]|$)"}
   NAME: {any: [{kind: string}, {kind: template_string}]}'
 
-# forge_test_blocks <dir> <file-list>: "file<TAB>key<TAB>body<TAB>checks" per test of
+# forge_test_blocks <dir> <file-list>: "file<TAB>key<TAB>body<TAB>print" per test of
 # the listed files under <dir>; key = enclosing classes or describe names, then the
 # test name (" #2" for a repeated one); body = the test's text without whitespace;
-# checks = its assertions and parametrization (forge-test-check), without whitespace.
-# Test support code is listed too, keyed "support:<name>", with checks = its body.
+# print = its fingerprint: the whole test (decorators, .each table, setup, input data,
+# control flow and assertions) without whitespace, semicolons and trailing commas, with
+# ' read as ", so formatting is not a change. Test support code is listed too, keyed
+# "support:<name>", with the same fingerprint.
 forge_test_blocks() {
   set -f
   # shellcheck disable=SC2046
@@ -4295,13 +4270,14 @@ forge_test_blocks() {
         else nm = substr(t, 1, 40)
       }
       N[n] = nm; gsub(/[[:space:]]/, "", t); T[n] = t
+      p = t; gsub(/;/, "", p); gsub(sprintf("%c", 39), "\"", p); gsub(/,[)]/, ")", p); gsub(/,[]]/, "]", p); gsub(/,[}]/, "}", p); P[n] = p
     }
     END {
       for (a = 1; a <= n; a++) {
         if (R[a] == "forge-test-support") {
           key = "support:" N[a]
           if (++seen[F[a] "\t" key] > 1) key = key " #" seen[F[a] "\t" key]
-          print F[a] "\t" key "\t" T[a] "\t" T[a]
+          print F[a] "\t" key "\t" T[a] "\t" P[a]
           continue
         }
         if (R[a] != "forge-test") continue
@@ -4315,24 +4291,16 @@ forge_test_blocks() {
         for (j = 1; j <= m; j++) key = key cn[j] " > "
         key = key N[a]
         if (++seen[F[a] "\t" key] > 1) key = key " #" seen[F[a] "\t" key]
-        sig = ""
-        for (b = 1; b <= n; b++) {
-          if (R[b] != "forge-test-check" || F[b] != F[a] || S[b] < S[a] || E[b] > E[a]) continue
-          inner = 1
-          for (c = 1; c <= n; c++)
-            if (c != a && R[c] == "forge-test" && F[c] == F[a] && S[c] <= S[b] && E[b] <= E[c] && S[a] <= S[c] && E[c] <= E[a] && E[c] - S[c] < E[a] - S[a]) { inner = 0; break }
-          if (inner) sig = sig T[b] "|"
-        }
-        print F[a] "\t" key "\t" T[a] "\t" sig
+        print F[a] "\t" key "\t" T[a] "\t" P[a]
       }
     }' "$FORGE_TMP/blocks.json"
 }
 
 # forge_test_edits: Stop only (--turn). Each test of the in-scope files ($FORGE_FILES)
-# that existed at the start of the turn must keep its assertions and parametrization
-# (whitespace aside) and still be present, unless an Edit or Write changing it was
+# that existed at the start of the turn must keep its whole text (its fingerprint:
+# formatting aside) and still be present, unless an Edit or Write changing it was
 # approved during the turn (<snapshot>/tests-approved, written by test-edit.sh); new
-# tests and setup-only changes are fine. Test support code (fakes, fixtures, helpers)
+# tests are fine. Test support code (fakes, fixtures, helpers)
 # changed or removed is reported once per turn (<snapshot>/support-reported): it
 # encodes the interface callers rely on.
 forge_test_edits() {
@@ -4366,7 +4334,7 @@ forge_test_edits() {
   _te_rc=0
   if grep -q '^T' "$FORGE_TMP/tests.edits"; then
     sed -n 's/^T	//p' "$FORGE_TMP/tests.edits"
-    printf 'These tests existed before this turn and their assertions changed without approval. Restore them. If the task requires the change (it changes the behaviour they assert), make it with Edit or Write: Forge then asks for approval (the user, or a reviewer given the request).\n'
+    printf 'These tests existed before this turn and were changed without approval. Restore them. If the task requires the change (it changes the behaviour they assert), make it with Edit or Write: Forge then asks for approval (the user, or a reviewer given the request).\n'
     _te_rc=1
   fi
   # test support code: reported once per turn, then accepted
@@ -7000,11 +6968,10 @@ forge_helper() {
 }
 
 # Test blocks, for forge_test_edits: pytest test functions (with their decorators)
-# and classes; Vitest/Playwright test and it calls, and the describe calls around them;
-# what a test checks (forge-test-check): assert statements and decorators (pytest
-# parametrize), expect statements and .each tables; test support code
-# (forge-test-support): top-level functions and classes not named test* / Test*
-# (fixtures, fakes, mocks, helpers), top-level declarations and vi.mock calls.
+# and classes; Vitest/Playwright test and it calls (with their .each tables), and the
+# describe calls around them; test support code (forge-test-support): top-level
+# functions and classes not named test* / Test* (fixtures, fakes, mocks, helpers),
+# top-level declarations and vi.mock calls.
 FORGE_TEST_BLOCKS='id: forge-test-support
 language: Python
 rule:
@@ -7026,17 +6993,7 @@ rule:
         - any: [{kind: function_declaration}, {kind: class_declaration}, {kind: lexical_declaration}, {kind: variable_declaration}]
         - any: [{inside: {kind: program, stopBy: neighbor}}, {inside: {kind: export_statement, stopBy: neighbor, inside: {kind: program, stopBy: neighbor}}}]
     - {kind: expression_statement, regex: "^vi[.](do)?[mM]ock[(]", inside: {kind: program, stopBy: neighbor}}
----
-id: forge-test-check
-language: Python
-rule: {any: [{kind: assert_statement}, {kind: decorator}]}
----
-id: forge-test-check
-language: Tsx
-rule:
-  any:
-    - {kind: expression_statement, regex: "^(await\\s+)?expect\\b"}
-    - {kind: call_expression, regex: "^(test|it)\\b[^(]*[.]each[(]", inside: {kind: call_expression, field: function, stopBy: neighbor}}
+
 ---
 id: forge-test
 language: Python
@@ -7067,11 +7024,13 @@ constraints:
   F: {regex: "^(describe|suite|test[.]describe)([.(]|$)"}
   NAME: {any: [{kind: string}, {kind: template_string}]}'
 
-# forge_test_blocks <dir> <file-list>: "file<TAB>key<TAB>body<TAB>checks" per test of
+# forge_test_blocks <dir> <file-list>: "file<TAB>key<TAB>body<TAB>print" per test of
 # the listed files under <dir>; key = enclosing classes or describe names, then the
 # test name (" #2" for a repeated one); body = the test's text without whitespace;
-# checks = its assertions and parametrization (forge-test-check), without whitespace.
-# Test support code is listed too, keyed "support:<name>", with checks = its body.
+# print = its fingerprint: the whole test (decorators, .each table, setup, input data,
+# control flow and assertions) without whitespace, semicolons and trailing commas, with
+# ' read as ", so formatting is not a change. Test support code is listed too, keyed
+# "support:<name>", with the same fingerprint.
 forge_test_blocks() {
   set -f
   # shellcheck disable=SC2046
@@ -7104,13 +7063,14 @@ forge_test_blocks() {
         else nm = substr(t, 1, 40)
       }
       N[n] = nm; gsub(/[[:space:]]/, "", t); T[n] = t
+      p = t; gsub(/;/, "", p); gsub(sprintf("%c", 39), "\"", p); gsub(/,[)]/, ")", p); gsub(/,[]]/, "]", p); gsub(/,[}]/, "}", p); P[n] = p
     }
     END {
       for (a = 1; a <= n; a++) {
         if (R[a] == "forge-test-support") {
           key = "support:" N[a]
           if (++seen[F[a] "\t" key] > 1) key = key " #" seen[F[a] "\t" key]
-          print F[a] "\t" key "\t" T[a] "\t" T[a]
+          print F[a] "\t" key "\t" T[a] "\t" P[a]
           continue
         }
         if (R[a] != "forge-test") continue
@@ -7124,24 +7084,16 @@ forge_test_blocks() {
         for (j = 1; j <= m; j++) key = key cn[j] " > "
         key = key N[a]
         if (++seen[F[a] "\t" key] > 1) key = key " #" seen[F[a] "\t" key]
-        sig = ""
-        for (b = 1; b <= n; b++) {
-          if (R[b] != "forge-test-check" || F[b] != F[a] || S[b] < S[a] || E[b] > E[a]) continue
-          inner = 1
-          for (c = 1; c <= n; c++)
-            if (c != a && R[c] == "forge-test" && F[c] == F[a] && S[c] <= S[b] && E[b] <= E[c] && S[a] <= S[c] && E[c] <= E[a] && E[c] - S[c] < E[a] - S[a]) { inner = 0; break }
-          if (inner) sig = sig T[b] "|"
-        }
-        print F[a] "\t" key "\t" T[a] "\t" sig
+        print F[a] "\t" key "\t" T[a] "\t" P[a]
       }
     }' "$FORGE_TMP/blocks.json"
 }
 
 # forge_test_edits: Stop only (--turn). Each test of the in-scope files ($FORGE_FILES)
-# that existed at the start of the turn must keep its assertions and parametrization
-# (whitespace aside) and still be present, unless an Edit or Write changing it was
+# that existed at the start of the turn must keep its whole text (its fingerprint:
+# formatting aside) and still be present, unless an Edit or Write changing it was
 # approved during the turn (<snapshot>/tests-approved, written by test-edit.sh); new
-# tests and setup-only changes are fine. Test support code (fakes, fixtures, helpers)
+# tests are fine. Test support code (fakes, fixtures, helpers)
 # changed or removed is reported once per turn (<snapshot>/support-reported): it
 # encodes the interface callers rely on.
 forge_test_edits() {
@@ -7175,7 +7127,7 @@ forge_test_edits() {
   _te_rc=0
   if grep -q '^T' "$FORGE_TMP/tests.edits"; then
     sed -n 's/^T	//p' "$FORGE_TMP/tests.edits"
-    printf 'These tests existed before this turn and their assertions changed without approval. Restore them. If the task requires the change (it changes the behaviour they assert), make it with Edit or Write: Forge then asks for approval (the user, or a reviewer given the request).\n'
+    printf 'These tests existed before this turn and were changed without approval. Restore them. If the task requires the change (it changes the behaviour they assert), make it with Edit or Write: Forge then asks for approval (the user, or a reviewer given the request).\n'
     _te_rc=1
   fi
   # test support code: reported once per turn, then accepted
@@ -9832,11 +9784,10 @@ forge_helper() {
 }
 
 # Test blocks, for forge_test_edits: pytest test functions (with their decorators)
-# and classes; Vitest/Playwright test and it calls, and the describe calls around them;
-# what a test checks (forge-test-check): assert statements and decorators (pytest
-# parametrize), expect statements and .each tables; test support code
-# (forge-test-support): top-level functions and classes not named test* / Test*
-# (fixtures, fakes, mocks, helpers), top-level declarations and vi.mock calls.
+# and classes; Vitest/Playwright test and it calls (with their .each tables), and the
+# describe calls around them; test support code (forge-test-support): top-level
+# functions and classes not named test* / Test* (fixtures, fakes, mocks, helpers),
+# top-level declarations and vi.mock calls.
 FORGE_TEST_BLOCKS='id: forge-test-support
 language: Python
 rule:
@@ -9858,17 +9809,7 @@ rule:
         - any: [{kind: function_declaration}, {kind: class_declaration}, {kind: lexical_declaration}, {kind: variable_declaration}]
         - any: [{inside: {kind: program, stopBy: neighbor}}, {inside: {kind: export_statement, stopBy: neighbor, inside: {kind: program, stopBy: neighbor}}}]
     - {kind: expression_statement, regex: "^vi[.](do)?[mM]ock[(]", inside: {kind: program, stopBy: neighbor}}
----
-id: forge-test-check
-language: Python
-rule: {any: [{kind: assert_statement}, {kind: decorator}]}
----
-id: forge-test-check
-language: Tsx
-rule:
-  any:
-    - {kind: expression_statement, regex: "^(await\\s+)?expect\\b"}
-    - {kind: call_expression, regex: "^(test|it)\\b[^(]*[.]each[(]", inside: {kind: call_expression, field: function, stopBy: neighbor}}
+
 ---
 id: forge-test
 language: Python
@@ -9899,11 +9840,13 @@ constraints:
   F: {regex: "^(describe|suite|test[.]describe)([.(]|$)"}
   NAME: {any: [{kind: string}, {kind: template_string}]}'
 
-# forge_test_blocks <dir> <file-list>: "file<TAB>key<TAB>body<TAB>checks" per test of
+# forge_test_blocks <dir> <file-list>: "file<TAB>key<TAB>body<TAB>print" per test of
 # the listed files under <dir>; key = enclosing classes or describe names, then the
 # test name (" #2" for a repeated one); body = the test's text without whitespace;
-# checks = its assertions and parametrization (forge-test-check), without whitespace.
-# Test support code is listed too, keyed "support:<name>", with checks = its body.
+# print = its fingerprint: the whole test (decorators, .each table, setup, input data,
+# control flow and assertions) without whitespace, semicolons and trailing commas, with
+# ' read as ", so formatting is not a change. Test support code is listed too, keyed
+# "support:<name>", with the same fingerprint.
 forge_test_blocks() {
   set -f
   # shellcheck disable=SC2046
@@ -9936,13 +9879,14 @@ forge_test_blocks() {
         else nm = substr(t, 1, 40)
       }
       N[n] = nm; gsub(/[[:space:]]/, "", t); T[n] = t
+      p = t; gsub(/;/, "", p); gsub(sprintf("%c", 39), "\"", p); gsub(/,[)]/, ")", p); gsub(/,[]]/, "]", p); gsub(/,[}]/, "}", p); P[n] = p
     }
     END {
       for (a = 1; a <= n; a++) {
         if (R[a] == "forge-test-support") {
           key = "support:" N[a]
           if (++seen[F[a] "\t" key] > 1) key = key " #" seen[F[a] "\t" key]
-          print F[a] "\t" key "\t" T[a] "\t" T[a]
+          print F[a] "\t" key "\t" T[a] "\t" P[a]
           continue
         }
         if (R[a] != "forge-test") continue
@@ -9956,24 +9900,16 @@ forge_test_blocks() {
         for (j = 1; j <= m; j++) key = key cn[j] " > "
         key = key N[a]
         if (++seen[F[a] "\t" key] > 1) key = key " #" seen[F[a] "\t" key]
-        sig = ""
-        for (b = 1; b <= n; b++) {
-          if (R[b] != "forge-test-check" || F[b] != F[a] || S[b] < S[a] || E[b] > E[a]) continue
-          inner = 1
-          for (c = 1; c <= n; c++)
-            if (c != a && R[c] == "forge-test" && F[c] == F[a] && S[c] <= S[b] && E[b] <= E[c] && S[a] <= S[c] && E[c] <= E[a] && E[c] - S[c] < E[a] - S[a]) { inner = 0; break }
-          if (inner) sig = sig T[b] "|"
-        }
-        print F[a] "\t" key "\t" T[a] "\t" sig
+        print F[a] "\t" key "\t" T[a] "\t" P[a]
       }
     }' "$FORGE_TMP/blocks.json"
 }
 
 # forge_test_edits: Stop only (--turn). Each test of the in-scope files ($FORGE_FILES)
-# that existed at the start of the turn must keep its assertions and parametrization
-# (whitespace aside) and still be present, unless an Edit or Write changing it was
+# that existed at the start of the turn must keep its whole text (its fingerprint:
+# formatting aside) and still be present, unless an Edit or Write changing it was
 # approved during the turn (<snapshot>/tests-approved, written by test-edit.sh); new
-# tests and setup-only changes are fine. Test support code (fakes, fixtures, helpers)
+# tests are fine. Test support code (fakes, fixtures, helpers)
 # changed or removed is reported once per turn (<snapshot>/support-reported): it
 # encodes the interface callers rely on.
 forge_test_edits() {
@@ -10007,7 +9943,7 @@ forge_test_edits() {
   _te_rc=0
   if grep -q '^T' "$FORGE_TMP/tests.edits"; then
     sed -n 's/^T	//p' "$FORGE_TMP/tests.edits"
-    printf 'These tests existed before this turn and their assertions changed without approval. Restore them. If the task requires the change (it changes the behaviour they assert), make it with Edit or Write: Forge then asks for approval (the user, or a reviewer given the request).\n'
+    printf 'These tests existed before this turn and were changed without approval. Restore them. If the task requires the change (it changes the behaviour they assert), make it with Edit or Write: Forge then asks for approval (the user, or a reviewer given the request).\n'
     _te_rc=1
   fi
   # test support code: reported once per turn, then accepted
@@ -13526,11 +13462,10 @@ forge_helper() {
 }
 
 # Test blocks, for forge_test_edits: pytest test functions (with their decorators)
-# and classes; Vitest/Playwright test and it calls, and the describe calls around them;
-# what a test checks (forge-test-check): assert statements and decorators (pytest
-# parametrize), expect statements and .each tables; test support code
-# (forge-test-support): top-level functions and classes not named test* / Test*
-# (fixtures, fakes, mocks, helpers), top-level declarations and vi.mock calls.
+# and classes; Vitest/Playwright test and it calls (with their .each tables), and the
+# describe calls around them; test support code (forge-test-support): top-level
+# functions and classes not named test* / Test* (fixtures, fakes, mocks, helpers),
+# top-level declarations and vi.mock calls.
 FORGE_TEST_BLOCKS='id: forge-test-support
 language: Python
 rule:
@@ -13552,17 +13487,7 @@ rule:
         - any: [{kind: function_declaration}, {kind: class_declaration}, {kind: lexical_declaration}, {kind: variable_declaration}]
         - any: [{inside: {kind: program, stopBy: neighbor}}, {inside: {kind: export_statement, stopBy: neighbor, inside: {kind: program, stopBy: neighbor}}}]
     - {kind: expression_statement, regex: "^vi[.](do)?[mM]ock[(]", inside: {kind: program, stopBy: neighbor}}
----
-id: forge-test-check
-language: Python
-rule: {any: [{kind: assert_statement}, {kind: decorator}]}
----
-id: forge-test-check
-language: Tsx
-rule:
-  any:
-    - {kind: expression_statement, regex: "^(await\\s+)?expect\\b"}
-    - {kind: call_expression, regex: "^(test|it)\\b[^(]*[.]each[(]", inside: {kind: call_expression, field: function, stopBy: neighbor}}
+
 ---
 id: forge-test
 language: Python
@@ -13593,11 +13518,13 @@ constraints:
   F: {regex: "^(describe|suite|test[.]describe)([.(]|$)"}
   NAME: {any: [{kind: string}, {kind: template_string}]}'
 
-# forge_test_blocks <dir> <file-list>: "file<TAB>key<TAB>body<TAB>checks" per test of
+# forge_test_blocks <dir> <file-list>: "file<TAB>key<TAB>body<TAB>print" per test of
 # the listed files under <dir>; key = enclosing classes or describe names, then the
 # test name (" #2" for a repeated one); body = the test's text without whitespace;
-# checks = its assertions and parametrization (forge-test-check), without whitespace.
-# Test support code is listed too, keyed "support:<name>", with checks = its body.
+# print = its fingerprint: the whole test (decorators, .each table, setup, input data,
+# control flow and assertions) without whitespace, semicolons and trailing commas, with
+# ' read as ", so formatting is not a change. Test support code is listed too, keyed
+# "support:<name>", with the same fingerprint.
 forge_test_blocks() {
   set -f
   # shellcheck disable=SC2046
@@ -13630,13 +13557,14 @@ forge_test_blocks() {
         else nm = substr(t, 1, 40)
       }
       N[n] = nm; gsub(/[[:space:]]/, "", t); T[n] = t
+      p = t; gsub(/;/, "", p); gsub(sprintf("%c", 39), "\"", p); gsub(/,[)]/, ")", p); gsub(/,[]]/, "]", p); gsub(/,[}]/, "}", p); P[n] = p
     }
     END {
       for (a = 1; a <= n; a++) {
         if (R[a] == "forge-test-support") {
           key = "support:" N[a]
           if (++seen[F[a] "\t" key] > 1) key = key " #" seen[F[a] "\t" key]
-          print F[a] "\t" key "\t" T[a] "\t" T[a]
+          print F[a] "\t" key "\t" T[a] "\t" P[a]
           continue
         }
         if (R[a] != "forge-test") continue
@@ -13650,24 +13578,16 @@ forge_test_blocks() {
         for (j = 1; j <= m; j++) key = key cn[j] " > "
         key = key N[a]
         if (++seen[F[a] "\t" key] > 1) key = key " #" seen[F[a] "\t" key]
-        sig = ""
-        for (b = 1; b <= n; b++) {
-          if (R[b] != "forge-test-check" || F[b] != F[a] || S[b] < S[a] || E[b] > E[a]) continue
-          inner = 1
-          for (c = 1; c <= n; c++)
-            if (c != a && R[c] == "forge-test" && F[c] == F[a] && S[c] <= S[b] && E[b] <= E[c] && S[a] <= S[c] && E[c] <= E[a] && E[c] - S[c] < E[a] - S[a]) { inner = 0; break }
-          if (inner) sig = sig T[b] "|"
-        }
-        print F[a] "\t" key "\t" T[a] "\t" sig
+        print F[a] "\t" key "\t" T[a] "\t" P[a]
       }
     }' "$FORGE_TMP/blocks.json"
 }
 
 # forge_test_edits: Stop only (--turn). Each test of the in-scope files ($FORGE_FILES)
-# that existed at the start of the turn must keep its assertions and parametrization
-# (whitespace aside) and still be present, unless an Edit or Write changing it was
+# that existed at the start of the turn must keep its whole text (its fingerprint:
+# formatting aside) and still be present, unless an Edit or Write changing it was
 # approved during the turn (<snapshot>/tests-approved, written by test-edit.sh); new
-# tests and setup-only changes are fine. Test support code (fakes, fixtures, helpers)
+# tests are fine. Test support code (fakes, fixtures, helpers)
 # changed or removed is reported once per turn (<snapshot>/support-reported): it
 # encodes the interface callers rely on.
 forge_test_edits() {
@@ -13701,7 +13621,7 @@ forge_test_edits() {
   _te_rc=0
   if grep -q '^T' "$FORGE_TMP/tests.edits"; then
     sed -n 's/^T	//p' "$FORGE_TMP/tests.edits"
-    printf 'These tests existed before this turn and their assertions changed without approval. Restore them. If the task requires the change (it changes the behaviour they assert), make it with Edit or Write: Forge then asks for approval (the user, or a reviewer given the request).\n'
+    printf 'These tests existed before this turn and were changed without approval. Restore them. If the task requires the change (it changes the behaviour they assert), make it with Edit or Write: Forge then asks for approval (the user, or a reviewer given the request).\n'
     _te_rc=1
   fi
   # test support code: reported once per turn, then accepted
@@ -16154,13 +16074,13 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "ff61a19974ccfc38fe6771978c9f9fe21253d4132eff8af9f06b112607965a00",
     ".claude/skills/forge-project/scripts/guard.sh": "e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca",
     ".claude/skills/forge-project/scripts/lib.sh": "462727c0187a948cfaefd1fac315bc87063203968e3df6d12ca68c839fbdf4a3",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "1724eaf80446575fc90b19afef850f5394e2a7bdd38b967bbe19221719c0da72",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "247c3629c81a2ff62045b70d4fa20b9b0b2a69270d039206cffb045b0f3c4b71",
     ".claude/skills/forge-project/scripts/review.sh": "889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726",
-    ".claude/skills/forge-project/scripts/session-start.sh": "e739801704319a2c8bed752b8f5ed89974e3dbfd6a0eafa843128c6ad0789b5f",
+    ".claude/skills/forge-project/scripts/session-start.sh": "a401303f5110625c66b5af766f8a7c5b53ca614febbd9b4234146c2bcd659590",
     ".claude/skills/forge-project/scripts/stop.sh": "10316d9cd59fea152c6f8fbf0ab70abf547514bf67a2c85f3e6b405554a71fad",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "668f6395bfcc183f79643ad42b7e51d4b46ab79d7da84401b9c90ab19b0b4ad3",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "c02cfeeb3b08d4f69031f6b239df704aaee8503b6ef61d53de2ff455a24796a8",
     ".claude/skills/forge-project/scripts/turn-start.sh": "fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "03c49f2901f9718d53077eb4fa9c5acfd9aa1eb5c8a57edc3077a43b19a25331",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "81654bb8b45ff5106ae4b9a902fe5272de1641cb3047d3e83b904ab2580f34e7",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/docker-compose-datastore-loopback-test.yml": "75507971edac1d4a2eca04e6bceb8a942429c0987372010b39ad0b7f126b55e9",
     ".forge/ast-grep/rule-tests/docker-compose-healthy-depends-test.yml": "bcd21e7f9112e5f0d44c9f5c9779824661b2f1dc40448323100787f342c4b7a8",
@@ -16181,7 +16101,7 @@ exit "$fail"
     ".forge/ast-grep/rules/docker/compose/pinned-images.yml": "026540d386ff8d8bd6f4f1951063c2fcd5cb8a96d8c7184f97e0887e3241c01a",
     ".forge/ast-grep/rules/python/no-stub.yml": "0660a06b80fa4e3cccbc89f496275e8f093b873632d1d93ecb48e4315d987bbf",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "c4ba13be816a5aed752eba6a7c03a47607fc57fd14d9f4f4371a2a50388c1bc5",
+    ".forge/check.sh": "a9a636b1096774f8789f8935f4791f7bd91129115819825c3d0ac9c7d4727205",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -16234,13 +16154,13 @@ d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills
 ff61a19974ccfc38fe6771978c9f9fe21253d4132eff8af9f06b112607965a00  .claude/skills/forge-project/scripts/guard.rules
 e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca  .claude/skills/forge-project/scripts/guard.sh
 462727c0187a948cfaefd1fac315bc87063203968e3df6d12ca68c839fbdf4a3  .claude/skills/forge-project/scripts/lib.sh
-1724eaf80446575fc90b19afef850f5394e2a7bdd38b967bbe19221719c0da72  .claude/skills/forge-project/scripts/post-edit.sh
+247c3629c81a2ff62045b70d4fa20b9b0b2a69270d039206cffb045b0f3c4b71  .claude/skills/forge-project/scripts/post-edit.sh
 889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726  .claude/skills/forge-project/scripts/review.sh
-e739801704319a2c8bed752b8f5ed89974e3dbfd6a0eafa843128c6ad0789b5f  .claude/skills/forge-project/scripts/session-start.sh
+a401303f5110625c66b5af766f8a7c5b53ca614febbd9b4234146c2bcd659590  .claude/skills/forge-project/scripts/session-start.sh
 10316d9cd59fea152c6f8fbf0ab70abf547514bf67a2c85f3e6b405554a71fad  .claude/skills/forge-project/scripts/stop.sh
-668f6395bfcc183f79643ad42b7e51d4b46ab79d7da84401b9c90ab19b0b4ad3  .claude/skills/forge-project/scripts/test-edit.sh
+c02cfeeb3b08d4f69031f6b239df704aaee8503b6ef61d53de2ff455a24796a8  .claude/skills/forge-project/scripts/test-edit.sh
 fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3  .claude/skills/forge-project/scripts/turn-start.sh
-03c49f2901f9718d53077eb4fa9c5acfd9aa1eb5c8a57edc3077a43b19a25331  .claude/skills/forge-project/scripts/typecheck.sh
+81654bb8b45ff5106ae4b9a902fe5272de1641cb3047d3e83b904ab2580f34e7  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 75507971edac1d4a2eca04e6bceb8a942429c0987372010b39ad0b7f126b55e9  .forge/ast-grep/rule-tests/docker-compose-datastore-loopback-test.yml
 bcd21e7f9112e5f0d44c9f5c9779824661b2f1dc40448323100787f342c4b7a8  .forge/ast-grep/rule-tests/docker-compose-healthy-depends-test.yml
@@ -16261,7 +16181,7 @@ e4fd92858db90ac12b535496548f182e453e83bc9cb24f53a102ab7fc98cd67b  .forge/ast-gre
 026540d386ff8d8bd6f4f1951063c2fcd5cb8a96d8c7184f97e0887e3241c01a  .forge/ast-grep/rules/docker/compose/pinned-images.yml
 0660a06b80fa4e3cccbc89f496275e8f093b873632d1d93ecb48e4315d987bbf  .forge/ast-grep/rules/python/no-stub.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-c4ba13be816a5aed752eba6a7c03a47607fc57fd14d9f4f4371a2a50388c1bc5  .forge/check.sh
+a9a636b1096774f8789f8935f4791f7bd91129115819825c3d0ac9c7d4727205  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

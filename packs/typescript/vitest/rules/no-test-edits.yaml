@@ -1,5 +1,5 @@
 id: typescript/vitest/no-test-edits
-description: Changing what a test that existed at the start of the turn asserts (its expect statements or .each table), or removing it, needs approval; new tests and setup-only changes are fine. Edits ask when made, unapproved changes are blocked at Stop. Changed test support code (helpers, vi.mock factories, __mocks__, test utils) is reported once.
+description: Changing a test that existed at the start of the turn (anything in it, formatting aside, input data, .each tables and control flow included), or removing it, needs approval; adding tests is fine. Edits ask when made, unapproved changes are blocked at Stop. Changed test support code (helpers, vi.mock factories, __mocks__, test utils) is reported once.
 review: "Is this change to existing tests required by the user's request (the request changes the behaviour these tests assert, so they must assert the new behaviour), or does it weaken or remove tests to make the code pass? Allow only the first."
 scope: {language: typescript, files: ["**/*.test.*", "**/*.spec.*", "**/__tests__/**", "**/__mocks__/**", "**/test-utils.*", "**/test-helpers.*", "**/vitest.setup.*", "!e2e/**"]}
 enforce:
@@ -12,8 +12,14 @@ examples:
       files: {src/cart.test.ts: "import { describe } from \"vitest\";\n\ndescribe(\"cart\", () => {});\n"}
     - head: {src/cart.test.ts: "import { expect, it, vi } from \"vitest\";\n\nvi.mock(\"./db\", () => ({ load: () => [40, 60] }));\n\nit(\"totals\", () => {\n  expect(total()).toBe(100);\n});\n"}
       files: {src/cart.test.ts: "import { expect, it, vi } from \"vitest\";\n\nvi.mock(\"./db\", () => ({ fetchAll: () => [40, 60] }));\n\nit(\"totals\", () => {\n  expect(total()).toBe(100);\n});\n"}
+    - head: {src/cart.test.ts: "import { expect, it } from \"vitest\";\n\nit(\"totals\", () => {\n  const items = [40, 60];\n  expect(total(items)).toBe(100);\n});\n"}
+      files: {src/cart.test.ts: "import { expect, it } from \"vitest\";\n\nit(\"totals\", () => {\n  const items = [50, 50];\n  expect(total(items)).toBe(100);\n});\n"}
+    - head: {src/cart.test.ts: "import { expect, it } from \"vitest\";\n\nit(\"totals\", () => {\n  expect(total([40, 60])).toBe(100);\n});\n"}
+      files: {src/cart.test.ts: "import { expect, it } from \"vitest\";\n\nit(\"totals\", () => {\n  if (false) {\n    expect(total([40, 60])).toBe(100);\n  }\n});\n"}
+    - head: {src/cart.test.ts: "import { expect, it } from \"vitest\";\n\nit(\"totals\", () => {\n  expect(total([40, 60])).toBe(100);\n});\n"}
+      files: {src/cart.test.ts: "import { expect, it } from \"vitest\";\n\nit(\"totals\", () => {\n  return;\n  expect(total([40, 60])).toBe(100);\n});\n"}
   no_match:
     - head: {src/cart.test.ts: "import { expect, it } from \"vitest\";\n\nit(\"totals\", () => {\n  expect(total([40, 60])).toBe(100);\n});\n"}
       files: {src/cart.test.ts: "import { expect, it } from \"vitest\";\n\nit(\"totals\", () => {\n  expect(total([40, 60])).toBe(100);\n});\n\nit(\"is empty\", () => {\n  expect(total([])).toBe(0);\n});\n"}
-    - head: {src/cart.test.ts: "import { expect, it } from \"vitest\";\n\nit(\"totals\", () => {\n  const items = [40, 60];\n  expect(total(items)).toBe(100);\n});\n"}
-      files: {src/cart.test.ts: "import { expect, it } from \"vitest\";\n\nit(\"totals\", () => {\n  const items = makeItems([40, 60]);\n  expect(total(items)).toBe(100);\n});\n"}
+    - head: {src/cart.test.ts: "import { expect, it } from \"vitest\";\n\nit(\"totals\", () => {\n  expect(total([40, 60])).toBe(100);\n});\n"}
+      files: {src/cart.test.ts: "import { expect, it } from \"vitest\";\n\nit('totals', () => {\n  expect(total([40, 60,])).toBe(100)\n});\n"}

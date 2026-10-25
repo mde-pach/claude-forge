@@ -684,14 +684,15 @@ describe("test edits", () => {
 
   /** @rule python/pytest/no-test-edits */
   test(
-    "an Edit or Write changing the assertions of a test that existed at the start of the turn, or removing it, asks and names the test; new tests and setup-only changes do not",
+    "an Edit or Write changing a test that existed at the start of the turn (its assertions, its input data), or removing it, asks and names the test; new tests and reformatting do not",
     () => {
       start("s-te1");
       const changed = ask(call("s-te1", "PreToolUse", "Edit", { old_string: "== 100", new_string: "== 90", replace_all: false }));
       expect(changed.permissionDecision).toBe("ask");
       expect(changed.permissionDecisionReason).toStartWith("forge:python/pytest/no-test-edits This edit changes what tests that existed before this turn assert");
       expect(changed.permissionDecisionReason).toContain('tests/test_cart.py "test_total" (changed)');
-      expect(call("s-te1", "PreToolUse", "Edit", { old_string: "items = [40, 60]", new_string: "items = list((40, 60))" })).toBe("");
+      expect(ask(call("s-te1", "PreToolUse", "Edit", { old_string: "items = [40, 60]", new_string: "items = [50, 50]" })).permissionDecisionReason).toContain('"test_total" (changed)');
+      expect(call("s-te1", "PreToolUse", "Edit", { old_string: "items = [40, 60]", new_string: "items = [40, 60,]" })).toBe("");
       expect(call("s-te1", "PreToolUse", "Write", { content: BEFORE + "\n\ndef test_empty():\n    assert sum([]) == 0\n" })).toBe("");
       expect(ask(call("s-te1", "PreToolUse", "Write", { content: "def test_other():\n    assert True\n" })).permissionDecisionReason).toContain('"test_total" (removed)');
       // a test added during this turn is Claude's own: changing it asks nothing

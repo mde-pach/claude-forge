@@ -1,5 +1,5 @@
 id: typescript/playwright/no-test-edits
-description: Changing what an end-to-end test that existed at the start of the turn asserts (its expect statements or .each table), or removing it, needs approval; new tests and setup-only changes are fine. Edits ask when made, unapproved changes are blocked at Stop.
+description: Changing an end-to-end test that existed at the start of the turn (anything in it, formatting aside, the pages it visits and its control flow included), or removing it, needs approval; adding tests is fine. Edits ask when made, unapproved changes are blocked at Stop.
 review: "Is this change to existing tests required by the user's request (the request changes the behaviour these tests assert, so they must assert the new behaviour), or does it weaken or remove tests to make the code pass? Allow only the first."
 scope: {language: typescript, files: ["e2e/**"]}
 enforce:
@@ -8,6 +8,8 @@ examples:
   match:
     - head: {e2e/home.spec.ts: "import { expect, test } from \"@playwright/test\";\n\ntest.describe(\"home\", () => {\n  test(\"has a title\", async ({ page }) => {\n    await page.goto(\"/\");\n    await expect(page).toHaveTitle(/Shop/);\n  });\n});\n"}
       files: {e2e/home.spec.ts: "import { expect, test } from \"@playwright/test\";\n\ntest.describe(\"home\", () => {\n  test(\"has a title\", async ({ page }) => {\n    await page.goto(\"/\");\n    await expect(page).toHaveTitle(/.*/);\n  });\n});\n"}
+    - head: {e2e/home.spec.ts: "import { expect, test } from \"@playwright/test\";\n\ntest(\"has a title\", async ({ page }) => {\n  await page.goto(\"/\");\n  await expect(page).toHaveTitle(/Shop/);\n});\n"}
+      files: {e2e/home.spec.ts: "import { expect, test } from \"@playwright/test\";\n\ntest(\"has a title\", async ({ page }) => {\n  await page.goto(\"/about\");\n  await expect(page).toHaveTitle(/Shop/);\n});\n"}
   no_match:
     - head: {e2e/home.spec.ts: "import { expect, test } from \"@playwright/test\";\n\ntest(\"has a title\", async ({ page }) => {\n  await page.goto(\"/\");\n  await expect(page).toHaveTitle(/Shop/);\n});\n"}
       files: {e2e/home.spec.ts: "import { expect, test } from \"@playwright/test\";\n\ntest(\"has a title\", async ({ page }) => {\n  await page.goto(\"/\");\n  await expect(page).toHaveTitle(/Shop/);\n});\n\ntest(\"lists products\", async ({ page }) => {\n  await page.goto(\"/products\");\n  await expect(page.getByRole(\"listitem\")).not.toHaveCount(0);\n});\n"}
