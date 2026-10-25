@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 
@@ -117,6 +117,9 @@ export function commitAll(repo: string, message = "commit"): void {
 export const TOOL_VERSIONS = {
   biome: "2.5.15",
   typescript: "7.0.2",
+  // tsc 5.x colours diagnostics even when piped, when the tsconfig sets "pretty": true
+  // (tsc 7 does not); diagnostics attribution must read that format too.
+  typescript5: "5.5.4",
   ruff: "0.17.1",
   basedpyright: "1.40.2",
   // types that Biome reads to report deprecated imports
@@ -151,6 +154,33 @@ export function ensureTools(): void {
       r = sh("uv", ["pip", "install", "-q", "--python", join(TOOLS_CACHE, ".venv/bin/python"), `ruff==${TOOL_VERSIONS.ruff}`, `basedpyright==${TOOL_VERSIONS.basedpyright}`]);
     if (r.status !== 0) throw new Error(`uv install failed: ${r.stderr}`);
   }
+}
+
+/** Installs the real tsc 5.x (TOOL_VERSIONS.typescript5) in its own cache directory. */
+export function ensureTs5(): string {
+  const dir = join(TOOLS_CACHE, "ts5");
+  if (!existsSync(join(dir, "node_modules/typescript/package.json"))) {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "package.json"), '{"name":"tools-ts5","private":true}');
+    const r = sh("bun", ["add", "-d", `typescript@${TOOL_VERSIONS.typescript5}`], { cwd: dir });
+    if (r.status !== 0) throw new Error(`bun add failed: ${r.stderr}`);
+  }
+  return dir;
+}
+
+/** After linkTools(repo, "node"): makes the repository's `tsc` the real tsc 5.x. */
+export function linkTs5(repo: string): void {
+  const ts5 = join(ensureTs5(), "node_modules");
+  const nm = join(repo, "node_modules");
+  rmSync(join(nm, "typescript"), { recursive: true, force: true });
+  symlinkSync(join(ts5, "typescript"), join(nm, "typescript"));
+  const sharedBin = join(TOOLS_CACHE, "node_modules", ".bin");
+  rmSync(join(nm, ".bin"), { recursive: true, force: true });
+  mkdirSync(join(nm, ".bin"));
+  for (const entry of readdirSync(sharedBin)) {
+    if (entry !== "tsc" && entry !== "tsserver") symlinkSync(join(sharedBin, entry), join(nm, ".bin", entry));
+  }
+  symlinkSync(join(ts5, "typescript", "bin", "tsc"), join(nm, ".bin", "tsc"));
 }
 
 /**

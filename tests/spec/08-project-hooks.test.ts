@@ -11,7 +11,7 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { applied, commitAll, ensureTools, forge, git, hasBun, hasUv, hookJson, linkTools, put, sampleRepo, sh } from "../helpers";
+import { applied, commitAll, ensureTools, forge, git, hasBun, hasUv, hookJson, linkTools, put, sampleRepo, sh, TOOLS_CACHE } from "../helpers";
 
 const T = 180_000;
 const SCRIPTS = ".claude/skills/forge-project/scripts";
@@ -24,10 +24,12 @@ function reset() {
   git(repo, "reset", "-q", "--hard");
   git(repo, "clean", "-qfd", "-e", ".venv");
 }
-function stub(name: string, body: string) {
-  const p = join(repo, ".venv", "bin", name);
-  writeFileSync(p, `#!/bin/sh\n${body}\n`);
-  chmodSync(p, 0o755);
+/** Links the real basedpyright (TOOL_VERSIONS.basedpyright) into the repository's .venv. */
+function realBasedpyright() {
+  ensureTools();
+  const p = join(repo, ".venv", "bin", "basedpyright");
+  rmSync(p, { force: true });
+  symlinkSync(join(TOOLS_CACHE, ".venv", "bin", "basedpyright"), p);
 }
 const edit = (rel: string) => ({ tool_name: "Edit", tool_input: { file_path: join(repo, rel) } });
 
@@ -245,21 +247,21 @@ describe("files changed by Bash", () => {
   );
 
   /** @rule python/sqlalchemy/no-query-api python/typecheck */
-  test(
+  test.if(hasUv)(
     "a Bash command that fails or is interrupted after writing files is checked like one that succeeded (PostToolUseFailure)",
     () => {
-      stub("basedpyright", 'echo "app/partial_b.py:1:1 - error: nope"; exit 1');
+      realBasedpyright();
       const failed = (id: string, extra: Record<string, unknown> = {}) =>
         bash(id, { hook_event_name: "PostToolUseFailure", error: "Exit code 3", is_interrupt: false, ...extra });
       hook("bash-snapshot.sh", bash("toolu_f1"));
       put(repo, "app/partial_a.py", "def f(session):\n    return session.query(1)\n");
-      put(repo, "app/partial_b.py", "X: int = 1\n");
+      put(repo, "app/partial_b.py", 'X: int = "no"\n');
       const out = JSON.parse(hook("post-edit.sh", failed("toolu_f1")).stdout).hookSpecificOutput;
       expect(out.hookEventName).toBe("PostToolUseFailure");
       expect(out.additionalContext).toContain("forge:python/sqlalchemy/no-query-api app/partial_a.py:2:12");
       const r = hook("typecheck.sh", failed("toolu_f1"));
       expect(r.status).toBe(2);
-      expect(r.stderr).toContain("app/partial_b.py:1:1 - error: nope");
+      expect(r.stderr).toContain("app/partial_b.py:1:10 - error: Type \"Literal['no']\" is not assignable to declared type \"int\"");
       expect(readdirSync(join(repo, ".forge/state/bash")).filter((f) => f.startsWith("toolu_f1"))).toEqual([]);
       hook("bash-snapshot.sh", bash("toolu_f2"));
       put(repo, "app/interrupted.py", "def g(session):\n    return session.query(2)\n");
@@ -285,16 +287,17 @@ describe("files changed by Bash", () => {
   );
 
   /** @rule python/typecheck */
-  test(
+  test.if(hasUv)(
     "typecheck.sh runs when a Bash command changed a file in a typecheck's scope, using the list post-edit.sh wrote",
     () => {
-      stub("basedpyright", 'echo "app/typed.py:1:1 - error: nope"; exit 1');
+      realBasedpyright();
       hook("bash-snapshot.sh", bash("toolu_b5"));
-      put(repo, "app/typed.py", "X: int = 1\n");
+      put(repo, "app/typed.py", 'X: int = "no"\n');
       hook("post-edit.sh", bash("toolu_b5"));
       const r = hook("typecheck.sh", bash("toolu_b5"));
       expect(r.status).toBe(2);
-      expect(r.stderr).toContain("forge:python/typecheck\napp/typed.py:1:1 - error: nope");
+      expect(r.stderr).toContain("forge:python/typecheck");
+      expect(r.stderr).toContain("app/typed.py:1:10 - error: Type \"Literal['no']\" is not assignable to declared type \"int\"");
       expect(existsSync(join(repo, ".forge/state/bash/toolu_b5.files"))).toBe(false);
       rmSync(join(repo, ".venv/bin/basedpyright"));
       reset();
@@ -439,11 +442,11 @@ describe("PostToolUse", () => {
   );
 
   /** @rule python/typecheck */
-  test(
+  test.if(hasUv)(
     "typecheck reports errors with exit 2 on stderr, and skips while another run holds the lock",
     () => {
-      stub("basedpyright", 'sleep 1; echo "app/main.py:1:1 - error: nope"; exit 1');
-      put(repo, "app/main.py", readFileSync(join(repo, "app/main.py"), "utf8") + "\n# edited\n");
+      realBasedpyright();
+      put(repo, "app/main.py", readFileSync(join(repo, "app/main.py"), "utf8") + '\nBROKEN: int = "no"\n');
       const input = join(mkdtempSync(join(tmpdir(), "forge-in-")), "in.json");
       writeFileSync(input, hookJson({ cwd: repo, ...edit("app/main.py") }));
       const r = sh("sh", ["-c", `sh ${SCRIPTS}/typecheck.sh <"$1" & sleep 0.3; sh ${SCRIPTS}/typecheck.sh <"$1"; echo "second=$?"; wait $!; echo "first=$?"`, "x", input], { cwd: repo });
@@ -457,10 +460,10 @@ describe("PostToolUse", () => {
     T,
   );
 
-  test(
+  test.if(hasUv)(
     "typecheck takes over a lock whose process is gone",
     () => {
-      stub("basedpyright", "exit 0");
+      realBasedpyright();
       mkdirSync(join(repo, ".forge/state/typecheck.lock"), { recursive: true });
       writeFileSync(join(repo, ".forge/state/typecheck.lock/pid"), "999999\n");
       expect(hook("typecheck.sh", edit("app/main.py")).status).toBe(0);
@@ -632,14 +635,15 @@ describe("Stop", () => {
   );
 
   /** @rule python/typecheck */
-  test(
+  test.if(hasUv)(
     "typecheck wakes Claude only for errors in files changed during the turn",
     () => {
-      stub("basedpyright", 'echo "app/wip.py:1:1 - error: nope"; exit 1');
-      put(repo, "app/wip.py", "X = 1\n");
+      realBasedpyright();
+      put(repo, "app/wip.py", 'X: int = "no"\n');
       hook("turn-start.sh", { session_id: "t-10" });
-      put(repo, "app/main.py", readFileSync(join(repo, "app/main.py"), "utf8") + "\n# edited\n");
-      const r = hook("typecheck.sh", { session_id: "t-10", ...edit("app/main.py") });
+      // the turn changes a file with no type error (the sample's main.py has a real one: fastapi is not installed here)
+      put(repo, "app/clean.py", "Y: int = 1\n");
+      const r = hook("typecheck.sh", { session_id: "t-10", ...edit("app/clean.py") });
       expect(r.status).toBe(0);
       expect(r.stderr).toBe("");
       rmSync(join(repo, ".venv/bin/basedpyright"));
