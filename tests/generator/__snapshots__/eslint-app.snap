@@ -601,7 +601,7 @@ fi
 # ---- generated checks
 # Project tools used in check commands, resolved through tool().
 tsc() { forge_exec_tool tsc "$@"; }
-FORGE_NCHECKS=3
+FORGE_NCHECKS=4
 
 # 1. typescript/config-ratchet
 forge_check_meta_1() {
@@ -618,33 +618,48 @@ forge_check_run_1() {
 forge_ratchet bun ratchet.mjs
 }
 
-# 2. typescript/no-ignore-deprecations
+# 2. typescript/env-example
 forge_check_meta_2() {
+  c_id='typescript/env-example'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
+}
+forge_scope_2() {
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+forge_when_2() { return 1; }
+forge_check_run_2() {
+forge_env_example ts
+}
+
+# 3. typescript/no-ignore-deprecations
+forge_check_meta_3() {
   c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_2() {
+forge_scope_3() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_2() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
-forge_check_run_2() {
+forge_when_3() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
+forge_check_run_3() {
 ! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')
 }
 
-# 3. typescript/typecheck
-forge_check_meta_3() {
+# 4. typescript/typecheck
+forge_check_meta_4() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_3() {
+forge_scope_4() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_3() { return 1; }
-forge_check_run_3() {
+forge_when_4() { return 1; }
+forge_check_run_4() {
 tsc --noEmit -p tsconfig.json
 }
 
@@ -1620,6 +1635,107 @@ forge_models_registered() {
     _mr_rc=1
   done < "$FORGE_TMP/models.files"
   return "$_mr_rc"
+}
+
+# ---- Settings kept in sync with .env templates (python/env-example, typescript/env-example).
+
+# forge_env_fields_py <file>: "line<TAB>VAR<TAB>required<TAB>class" for each field of a
+# pydantic-settings BaseSettings subclass (env_prefix, alias, case_sensitive applied;
+# required = no default). Fields with AliasChoices / AliasPath are left out.
+forge_env_fields_py() {
+  awk '
+    function cls_of(l,   c) { c = l; sub(/^class[ \t]+/, "", c); sub(/[^A-Za-z0-9_].*$/, "", c); return c }
+    { line = $0; sub(/\r$/, "", line) }
+    line ~ /^class[ \t]/ { cls = (line ~ /\(.*BaseSettings.*\)[ \t]*:/) ? cls_of(line) : ""; body = ""; next }
+    line ~ /^[^ \t#]/ { cls = ""; next }
+    cls == "" || line ~ /^[ \t]*(#|$)/ { next }
+    {
+      ind = match(line, /[^ \t]/) - 1
+      if (body == "") body = ind
+    }
+    FNR == NR {
+      if (match(line, /env_prefix[ \t]*=[ \t]*["\047][^"\047]*["\047]/)) { p = substr(line, RSTART, RLENGTH); sub(/^[^"\047]*["\047]/, "", p); sub(/["\047]$/, "", p); pre[cls] = p }
+      if (line ~ /case_sensitive[ \t]*=[ \t]*True/) cs[cls] = 1
+      next
+    }
+    ind == body && line ~ /^[ \t]*[A-Za-z_][A-Za-z0-9_]*[ \t]*:/ {
+      name = line; sub(/^[ \t]*/, "", name); sub(/[ \t]*:.*$/, "", name)
+      rest = line; sub(/^[^:]*:/, "", rest)
+      if (name == "model_config" || rest ~ /ClassVar|AliasChoices|AliasPath/) next
+      key = pre[cls] name
+      if (match(rest, /(validation_alias|alias)[ \t]*=[ \t]*["\047][^"\047]+["\047]/)) { key = substr(rest, RSTART, RLENGTH); sub(/^[^"\047]*["\047]/, "", key); sub(/["\047]$/, "", key) }
+      if (!cs[cls]) key = toupper(key)
+      req = 1
+      if (match(rest, /[ \t]=([ \t]|$)/)) {
+        v = substr(rest, RSTART + RLENGTH); sub(/^[ \t]+/, "", v)
+        req = 0
+        if (v ~ /^([A-Za-z_]+\.)?Field\(/) {
+          sub(/^[^(]*\([ \t]*/, "", v)
+          if (v ~ /^(\.\.\.|\))/) req = 1
+          else if (v ~ /^[a-z_]+[ \t]*=/ && v !~ /default(_factory)?[ \t]*=/) req = 1
+        }
+      }
+      print FNR "\t" key "\t" req "\t" cls
+    }' "$1" "$1"
+}
+
+# forge_env_fields_ts <file>: the same for the keys of a Zod env schema (t3-env
+# createEnv, or z.object(...) parsed from process.env): UPPER_CASE keys whose value is a
+# z. chain on the same line; required = no .default(), .optional() or .catch().
+forge_env_fields_ts() {
+  awk '
+    match($0, /^[ \t]*["\047]?[A-Z][A-Z0-9_]*["\047]?[ \t]*:[ \t]*z\./) {
+      k = $0; sub(/^[ \t]*["\047]?/, "", k); sub(/[^A-Z0-9_].*$/, "", k)
+      print FNR "\t" k "\t" ($0 ~ /\.(default|optional|catch)\(/ ? 0 : 1) "\tenv"
+    }' "$1"
+}
+
+# forge_env_example <py|ts>: Stop and pre-commit, not --all. A settings field or env schema
+# key added in the change appears in the .env template of the nearest directory that has
+# one (.env.example, .env.template, .env.sample, .env.dist, .env.<name>.example): always
+# when it has no default, and also with a default when the template already lists at
+# least half of that class's variables. A template that lists none of them is not about it.
+forge_env_example() {
+  [ "$mode" = --all ] && return 0
+  _ee_rc=0
+  printf '%s\n' "$FORGE_FILES" > "$FORGE_TMP/env.files"
+  while IFS= read -r _ee_f; do
+    [ -f "$_ee_f" ] || continue
+    case $1 in
+      py) grep -q 'BaseSettings' "$_ee_f" || continue ;;
+      ts) grep -qE 'createEnv\(|process\.env' "$_ee_f" && grep -q 'z\.' "$_ee_f" || continue ;;
+    esac
+    _ee_d=$(dirname "$_ee_f")
+    while :; do
+      _ee_t=$(ls -A "$_ee_d" 2>/dev/null | grep -E '^\.env(\.[A-Za-z0-9_-]+)?\.(example|template|sample|dist)$')
+      [ -n "$_ee_t" ] || [ "$_ee_d" = . ] && break
+      _ee_d=$(dirname "$_ee_d")
+    done
+    [ -n "$_ee_t" ] || continue
+    _ee_names=''
+    : > "$FORGE_TMP/env.keys"
+    for _ee_x in $_ee_t; do
+      [ "$_ee_d" = . ] && _ee_p=$_ee_x || _ee_p="$_ee_d/$_ee_x"
+      _ee_names="${_ee_names:+$_ee_names, }$_ee_p"
+      sed -n -E 's/^[[:space:]]*(export[[:space:]]+)?#?[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=.*/\2/p' "$_ee_p" >> "$FORGE_TMP/env.keys"
+    done
+    "forge_env_fields_$1" "$_ee_f" > "$FORGE_TMP/env.fields"
+    awk -F '\t' -v f="$_ee_f" -v t="$_ee_names" '
+      function found(k,   h) { if (k in have) return 1; for (h in have) if (index(h, k "_") == 1) return 1; return 0 }
+      FILENAME == ARGV[1] { have[toupper($0)] = 1; next }
+      { n++; ln[n] = $1; key[n] = $2; rq[n] = $3; g[n] = $4; tot[$4]++; if (found(toupper($2))) got[$4]++ }
+      END {
+        for (j = 1; j <= n; j++) {
+          if (!got[g[j]] || found(toupper(key[j]))) continue
+          if (rq[j] || got[g[j]] * 2 >= tot[g[j]]) {
+            print f ":" ln[j] ": " key[j] " is not in " t "; add it there (a placeholder value is fine) so the next person to set up the project knows it exists"
+            bad = 1
+          }
+        }
+        exit bad
+      }' "$FORGE_TMP/env.keys" "$FORGE_TMP/env.fields" || _ee_rc=1
+  done < "$FORGE_TMP/env.files"
+  return "$_ee_rc"
 }
 
 # forge_related_py_tests <files>: changed test files plus tests/**/test_<module>.py
@@ -1965,7 +2081,7 @@ IFS='
 # ---- generated checks
 # Project tools used in check commands, resolved through tool().
 tsc() { forge_exec_tool tsc "$@"; }
-FORGE_NCHECKS=3
+FORGE_NCHECKS=4
 
 # 1. typescript/config-ratchet
 forge_check_meta_1() {
@@ -1982,33 +2098,48 @@ forge_check_run_1() {
 forge_ratchet bun ratchet.mjs
 }
 
-# 2. typescript/no-ignore-deprecations
+# 2. typescript/env-example
 forge_check_meta_2() {
+  c_id='typescript/env-example'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
+}
+forge_scope_2() {
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+forge_when_2() { return 1; }
+forge_check_run_2() {
+forge_env_example ts
+}
+
+# 3. typescript/no-ignore-deprecations
+forge_check_meta_3() {
   c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_2() {
+forge_scope_3() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_2() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
-forge_check_run_2() {
+forge_when_3() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
+forge_check_run_3() {
 ! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')
 }
 
-# 3. typescript/typecheck
-forge_check_meta_3() {
+# 4. typescript/typecheck
+forge_check_meta_4() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_3() {
+forge_scope_4() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_3() { return 1; }
-forge_check_run_3() {
+forge_when_4() { return 1; }
+forge_check_run_4() {
 tsc --noEmit -p tsconfig.json
 }
 
@@ -2984,6 +3115,107 @@ forge_models_registered() {
     _mr_rc=1
   done < "$FORGE_TMP/models.files"
   return "$_mr_rc"
+}
+
+# ---- Settings kept in sync with .env templates (python/env-example, typescript/env-example).
+
+# forge_env_fields_py <file>: "line<TAB>VAR<TAB>required<TAB>class" for each field of a
+# pydantic-settings BaseSettings subclass (env_prefix, alias, case_sensitive applied;
+# required = no default). Fields with AliasChoices / AliasPath are left out.
+forge_env_fields_py() {
+  awk '
+    function cls_of(l,   c) { c = l; sub(/^class[ \t]+/, "", c); sub(/[^A-Za-z0-9_].*$/, "", c); return c }
+    { line = $0; sub(/\r$/, "", line) }
+    line ~ /^class[ \t]/ { cls = (line ~ /\(.*BaseSettings.*\)[ \t]*:/) ? cls_of(line) : ""; body = ""; next }
+    line ~ /^[^ \t#]/ { cls = ""; next }
+    cls == "" || line ~ /^[ \t]*(#|$)/ { next }
+    {
+      ind = match(line, /[^ \t]/) - 1
+      if (body == "") body = ind
+    }
+    FNR == NR {
+      if (match(line, /env_prefix[ \t]*=[ \t]*["\047][^"\047]*["\047]/)) { p = substr(line, RSTART, RLENGTH); sub(/^[^"\047]*["\047]/, "", p); sub(/["\047]$/, "", p); pre[cls] = p }
+      if (line ~ /case_sensitive[ \t]*=[ \t]*True/) cs[cls] = 1
+      next
+    }
+    ind == body && line ~ /^[ \t]*[A-Za-z_][A-Za-z0-9_]*[ \t]*:/ {
+      name = line; sub(/^[ \t]*/, "", name); sub(/[ \t]*:.*$/, "", name)
+      rest = line; sub(/^[^:]*:/, "", rest)
+      if (name == "model_config" || rest ~ /ClassVar|AliasChoices|AliasPath/) next
+      key = pre[cls] name
+      if (match(rest, /(validation_alias|alias)[ \t]*=[ \t]*["\047][^"\047]+["\047]/)) { key = substr(rest, RSTART, RLENGTH); sub(/^[^"\047]*["\047]/, "", key); sub(/["\047]$/, "", key) }
+      if (!cs[cls]) key = toupper(key)
+      req = 1
+      if (match(rest, /[ \t]=([ \t]|$)/)) {
+        v = substr(rest, RSTART + RLENGTH); sub(/^[ \t]+/, "", v)
+        req = 0
+        if (v ~ /^([A-Za-z_]+\.)?Field\(/) {
+          sub(/^[^(]*\([ \t]*/, "", v)
+          if (v ~ /^(\.\.\.|\))/) req = 1
+          else if (v ~ /^[a-z_]+[ \t]*=/ && v !~ /default(_factory)?[ \t]*=/) req = 1
+        }
+      }
+      print FNR "\t" key "\t" req "\t" cls
+    }' "$1" "$1"
+}
+
+# forge_env_fields_ts <file>: the same for the keys of a Zod env schema (t3-env
+# createEnv, or z.object(...) parsed from process.env): UPPER_CASE keys whose value is a
+# z. chain on the same line; required = no .default(), .optional() or .catch().
+forge_env_fields_ts() {
+  awk '
+    match($0, /^[ \t]*["\047]?[A-Z][A-Z0-9_]*["\047]?[ \t]*:[ \t]*z\./) {
+      k = $0; sub(/^[ \t]*["\047]?/, "", k); sub(/[^A-Z0-9_].*$/, "", k)
+      print FNR "\t" k "\t" ($0 ~ /\.(default|optional|catch)\(/ ? 0 : 1) "\tenv"
+    }' "$1"
+}
+
+# forge_env_example <py|ts>: Stop and pre-commit, not --all. A settings field or env schema
+# key added in the change appears in the .env template of the nearest directory that has
+# one (.env.example, .env.template, .env.sample, .env.dist, .env.<name>.example): always
+# when it has no default, and also with a default when the template already lists at
+# least half of that class's variables. A template that lists none of them is not about it.
+forge_env_example() {
+  [ "$mode" = --all ] && return 0
+  _ee_rc=0
+  printf '%s\n' "$FORGE_FILES" > "$FORGE_TMP/env.files"
+  while IFS= read -r _ee_f; do
+    [ -f "$_ee_f" ] || continue
+    case $1 in
+      py) grep -q 'BaseSettings' "$_ee_f" || continue ;;
+      ts) grep -qE 'createEnv\(|process\.env' "$_ee_f" && grep -q 'z\.' "$_ee_f" || continue ;;
+    esac
+    _ee_d=$(dirname "$_ee_f")
+    while :; do
+      _ee_t=$(ls -A "$_ee_d" 2>/dev/null | grep -E '^\.env(\.[A-Za-z0-9_-]+)?\.(example|template|sample|dist)$')
+      [ -n "$_ee_t" ] || [ "$_ee_d" = . ] && break
+      _ee_d=$(dirname "$_ee_d")
+    done
+    [ -n "$_ee_t" ] || continue
+    _ee_names=''
+    : > "$FORGE_TMP/env.keys"
+    for _ee_x in $_ee_t; do
+      [ "$_ee_d" = . ] && _ee_p=$_ee_x || _ee_p="$_ee_d/$_ee_x"
+      _ee_names="${_ee_names:+$_ee_names, }$_ee_p"
+      sed -n -E 's/^[[:space:]]*(export[[:space:]]+)?#?[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=.*/\2/p' "$_ee_p" >> "$FORGE_TMP/env.keys"
+    done
+    "forge_env_fields_$1" "$_ee_f" > "$FORGE_TMP/env.fields"
+    awk -F '\t' -v f="$_ee_f" -v t="$_ee_names" '
+      function found(k,   h) { if (k in have) return 1; for (h in have) if (index(h, k "_") == 1) return 1; return 0 }
+      FILENAME == ARGV[1] { have[toupper($0)] = 1; next }
+      { n++; ln[n] = $1; key[n] = $2; rq[n] = $3; g[n] = $4; tot[$4]++; if (found(toupper($2))) got[$4]++ }
+      END {
+        for (j = 1; j <= n; j++) {
+          if (!got[g[j]] || found(toupper(key[j]))) continue
+          if (rq[j] || got[g[j]] * 2 >= tot[g[j]]) {
+            print f ":" ln[j] ": " key[j] " is not in " t "; add it there (a placeholder value is fine) so the next person to set up the project knows it exists"
+            bad = 1
+          }
+        }
+        exit bad
+      }' "$FORGE_TMP/env.keys" "$FORGE_TMP/env.fields" || _ee_rc=1
+  done < "$FORGE_TMP/env.files"
+  return "$_ee_rc"
 }
 
 # forge_related_py_tests <files>: changed test files plus tests/**/test_<module>.py
@@ -3364,7 +3596,7 @@ IFS='
 # ---- generated checks
 # Project tools used in check commands, resolved through tool().
 tsc() { forge_exec_tool tsc "$@"; }
-FORGE_NCHECKS=3
+FORGE_NCHECKS=4
 
 # 1. typescript/config-ratchet
 forge_check_meta_1() {
@@ -3381,33 +3613,48 @@ forge_check_run_1() {
 forge_ratchet bun ratchet.mjs
 }
 
-# 2. typescript/no-ignore-deprecations
+# 2. typescript/env-example
 forge_check_meta_2() {
+  c_id='typescript/env-example'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
+}
+forge_scope_2() {
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+forge_when_2() { return 1; }
+forge_check_run_2() {
+forge_env_example ts
+}
+
+# 3. typescript/no-ignore-deprecations
+forge_check_meta_3() {
   c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_2() {
+forge_scope_3() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_2() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
-forge_check_run_2() {
+forge_when_3() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
+forge_check_run_3() {
 ! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')
 }
 
-# 3. typescript/typecheck
-forge_check_meta_3() {
+# 4. typescript/typecheck
+forge_check_meta_4() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_3() {
+forge_scope_4() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_3() { return 1; }
-forge_check_run_3() {
+forge_when_4() { return 1; }
+forge_check_run_4() {
 tsc --noEmit -p tsconfig.json
 }
 
@@ -4383,6 +4630,107 @@ forge_models_registered() {
     _mr_rc=1
   done < "$FORGE_TMP/models.files"
   return "$_mr_rc"
+}
+
+# ---- Settings kept in sync with .env templates (python/env-example, typescript/env-example).
+
+# forge_env_fields_py <file>: "line<TAB>VAR<TAB>required<TAB>class" for each field of a
+# pydantic-settings BaseSettings subclass (env_prefix, alias, case_sensitive applied;
+# required = no default). Fields with AliasChoices / AliasPath are left out.
+forge_env_fields_py() {
+  awk '
+    function cls_of(l,   c) { c = l; sub(/^class[ \t]+/, "", c); sub(/[^A-Za-z0-9_].*$/, "", c); return c }
+    { line = $0; sub(/\r$/, "", line) }
+    line ~ /^class[ \t]/ { cls = (line ~ /\(.*BaseSettings.*\)[ \t]*:/) ? cls_of(line) : ""; body = ""; next }
+    line ~ /^[^ \t#]/ { cls = ""; next }
+    cls == "" || line ~ /^[ \t]*(#|$)/ { next }
+    {
+      ind = match(line, /[^ \t]/) - 1
+      if (body == "") body = ind
+    }
+    FNR == NR {
+      if (match(line, /env_prefix[ \t]*=[ \t]*["\047][^"\047]*["\047]/)) { p = substr(line, RSTART, RLENGTH); sub(/^[^"\047]*["\047]/, "", p); sub(/["\047]$/, "", p); pre[cls] = p }
+      if (line ~ /case_sensitive[ \t]*=[ \t]*True/) cs[cls] = 1
+      next
+    }
+    ind == body && line ~ /^[ \t]*[A-Za-z_][A-Za-z0-9_]*[ \t]*:/ {
+      name = line; sub(/^[ \t]*/, "", name); sub(/[ \t]*:.*$/, "", name)
+      rest = line; sub(/^[^:]*:/, "", rest)
+      if (name == "model_config" || rest ~ /ClassVar|AliasChoices|AliasPath/) next
+      key = pre[cls] name
+      if (match(rest, /(validation_alias|alias)[ \t]*=[ \t]*["\047][^"\047]+["\047]/)) { key = substr(rest, RSTART, RLENGTH); sub(/^[^"\047]*["\047]/, "", key); sub(/["\047]$/, "", key) }
+      if (!cs[cls]) key = toupper(key)
+      req = 1
+      if (match(rest, /[ \t]=([ \t]|$)/)) {
+        v = substr(rest, RSTART + RLENGTH); sub(/^[ \t]+/, "", v)
+        req = 0
+        if (v ~ /^([A-Za-z_]+\.)?Field\(/) {
+          sub(/^[^(]*\([ \t]*/, "", v)
+          if (v ~ /^(\.\.\.|\))/) req = 1
+          else if (v ~ /^[a-z_]+[ \t]*=/ && v !~ /default(_factory)?[ \t]*=/) req = 1
+        }
+      }
+      print FNR "\t" key "\t" req "\t" cls
+    }' "$1" "$1"
+}
+
+# forge_env_fields_ts <file>: the same for the keys of a Zod env schema (t3-env
+# createEnv, or z.object(...) parsed from process.env): UPPER_CASE keys whose value is a
+# z. chain on the same line; required = no .default(), .optional() or .catch().
+forge_env_fields_ts() {
+  awk '
+    match($0, /^[ \t]*["\047]?[A-Z][A-Z0-9_]*["\047]?[ \t]*:[ \t]*z\./) {
+      k = $0; sub(/^[ \t]*["\047]?/, "", k); sub(/[^A-Z0-9_].*$/, "", k)
+      print FNR "\t" k "\t" ($0 ~ /\.(default|optional|catch)\(/ ? 0 : 1) "\tenv"
+    }' "$1"
+}
+
+# forge_env_example <py|ts>: Stop and pre-commit, not --all. A settings field or env schema
+# key added in the change appears in the .env template of the nearest directory that has
+# one (.env.example, .env.template, .env.sample, .env.dist, .env.<name>.example): always
+# when it has no default, and also with a default when the template already lists at
+# least half of that class's variables. A template that lists none of them is not about it.
+forge_env_example() {
+  [ "$mode" = --all ] && return 0
+  _ee_rc=0
+  printf '%s\n' "$FORGE_FILES" > "$FORGE_TMP/env.files"
+  while IFS= read -r _ee_f; do
+    [ -f "$_ee_f" ] || continue
+    case $1 in
+      py) grep -q 'BaseSettings' "$_ee_f" || continue ;;
+      ts) grep -qE 'createEnv\(|process\.env' "$_ee_f" && grep -q 'z\.' "$_ee_f" || continue ;;
+    esac
+    _ee_d=$(dirname "$_ee_f")
+    while :; do
+      _ee_t=$(ls -A "$_ee_d" 2>/dev/null | grep -E '^\.env(\.[A-Za-z0-9_-]+)?\.(example|template|sample|dist)$')
+      [ -n "$_ee_t" ] || [ "$_ee_d" = . ] && break
+      _ee_d=$(dirname "$_ee_d")
+    done
+    [ -n "$_ee_t" ] || continue
+    _ee_names=''
+    : > "$FORGE_TMP/env.keys"
+    for _ee_x in $_ee_t; do
+      [ "$_ee_d" = . ] && _ee_p=$_ee_x || _ee_p="$_ee_d/$_ee_x"
+      _ee_names="${_ee_names:+$_ee_names, }$_ee_p"
+      sed -n -E 's/^[[:space:]]*(export[[:space:]]+)?#?[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=.*/\2/p' "$_ee_p" >> "$FORGE_TMP/env.keys"
+    done
+    "forge_env_fields_$1" "$_ee_f" > "$FORGE_TMP/env.fields"
+    awk -F '\t' -v f="$_ee_f" -v t="$_ee_names" '
+      function found(k,   h) { if (k in have) return 1; for (h in have) if (index(h, k "_") == 1) return 1; return 0 }
+      FILENAME == ARGV[1] { have[toupper($0)] = 1; next }
+      { n++; ln[n] = $1; key[n] = $2; rq[n] = $3; g[n] = $4; tot[$4]++; if (found(toupper($2))) got[$4]++ }
+      END {
+        for (j = 1; j <= n; j++) {
+          if (!got[g[j]] || found(toupper(key[j]))) continue
+          if (rq[j] || got[g[j]] * 2 >= tot[g[j]]) {
+            print f ":" ln[j] ": " key[j] " is not in " t "; add it there (a placeholder value is fine) so the next person to set up the project knows it exists"
+            bad = 1
+          }
+        }
+        exit bad
+      }' "$FORGE_TMP/env.keys" "$FORGE_TMP/env.fields" || _ee_rc=1
+  done < "$FORGE_TMP/env.files"
+  return "$_ee_rc"
 }
 
 # forge_related_py_tests <files>: changed test files plus tests/**/test_<module>.py
@@ -5416,7 +5764,7 @@ bash_cleanup() {
 # ---- generated checks
 # Project tools used in check commands, resolved through tool().
 tsc() { forge_exec_tool tsc "$@"; }
-FORGE_NCHECKS=3
+FORGE_NCHECKS=4
 
 # 1. typescript/config-ratchet
 forge_check_meta_1() {
@@ -5433,33 +5781,48 @@ forge_check_run_1() {
 forge_ratchet bun ratchet.mjs
 }
 
-# 2. typescript/no-ignore-deprecations
+# 2. typescript/env-example
 forge_check_meta_2() {
+  c_id='typescript/env-example'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
+}
+forge_scope_2() {
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+forge_when_2() { return 1; }
+forge_check_run_2() {
+forge_env_example ts
+}
+
+# 3. typescript/no-ignore-deprecations
+forge_check_meta_3() {
   c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_2() {
+forge_scope_3() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_2() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
-forge_check_run_2() {
+forge_when_3() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
+forge_check_run_3() {
 ! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')
 }
 
-# 3. typescript/typecheck
-forge_check_meta_3() {
+# 4. typescript/typecheck
+forge_check_meta_4() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_3() {
+forge_scope_4() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_3() { return 1; }
-forge_check_run_3() {
+forge_when_4() { return 1; }
+forge_check_run_4() {
 tsc --noEmit -p tsconfig.json
 }
 
@@ -6437,6 +6800,107 @@ forge_models_registered() {
   return "$_mr_rc"
 }
 
+# ---- Settings kept in sync with .env templates (python/env-example, typescript/env-example).
+
+# forge_env_fields_py <file>: "line<TAB>VAR<TAB>required<TAB>class" for each field of a
+# pydantic-settings BaseSettings subclass (env_prefix, alias, case_sensitive applied;
+# required = no default). Fields with AliasChoices / AliasPath are left out.
+forge_env_fields_py() {
+  awk '
+    function cls_of(l,   c) { c = l; sub(/^class[ \t]+/, "", c); sub(/[^A-Za-z0-9_].*$/, "", c); return c }
+    { line = $0; sub(/\r$/, "", line) }
+    line ~ /^class[ \t]/ { cls = (line ~ /\(.*BaseSettings.*\)[ \t]*:/) ? cls_of(line) : ""; body = ""; next }
+    line ~ /^[^ \t#]/ { cls = ""; next }
+    cls == "" || line ~ /^[ \t]*(#|$)/ { next }
+    {
+      ind = match(line, /[^ \t]/) - 1
+      if (body == "") body = ind
+    }
+    FNR == NR {
+      if (match(line, /env_prefix[ \t]*=[ \t]*["\047][^"\047]*["\047]/)) { p = substr(line, RSTART, RLENGTH); sub(/^[^"\047]*["\047]/, "", p); sub(/["\047]$/, "", p); pre[cls] = p }
+      if (line ~ /case_sensitive[ \t]*=[ \t]*True/) cs[cls] = 1
+      next
+    }
+    ind == body && line ~ /^[ \t]*[A-Za-z_][A-Za-z0-9_]*[ \t]*:/ {
+      name = line; sub(/^[ \t]*/, "", name); sub(/[ \t]*:.*$/, "", name)
+      rest = line; sub(/^[^:]*:/, "", rest)
+      if (name == "model_config" || rest ~ /ClassVar|AliasChoices|AliasPath/) next
+      key = pre[cls] name
+      if (match(rest, /(validation_alias|alias)[ \t]*=[ \t]*["\047][^"\047]+["\047]/)) { key = substr(rest, RSTART, RLENGTH); sub(/^[^"\047]*["\047]/, "", key); sub(/["\047]$/, "", key) }
+      if (!cs[cls]) key = toupper(key)
+      req = 1
+      if (match(rest, /[ \t]=([ \t]|$)/)) {
+        v = substr(rest, RSTART + RLENGTH); sub(/^[ \t]+/, "", v)
+        req = 0
+        if (v ~ /^([A-Za-z_]+\.)?Field\(/) {
+          sub(/^[^(]*\([ \t]*/, "", v)
+          if (v ~ /^(\.\.\.|\))/) req = 1
+          else if (v ~ /^[a-z_]+[ \t]*=/ && v !~ /default(_factory)?[ \t]*=/) req = 1
+        }
+      }
+      print FNR "\t" key "\t" req "\t" cls
+    }' "$1" "$1"
+}
+
+# forge_env_fields_ts <file>: the same for the keys of a Zod env schema (t3-env
+# createEnv, or z.object(...) parsed from process.env): UPPER_CASE keys whose value is a
+# z. chain on the same line; required = no .default(), .optional() or .catch().
+forge_env_fields_ts() {
+  awk '
+    match($0, /^[ \t]*["\047]?[A-Z][A-Z0-9_]*["\047]?[ \t]*:[ \t]*z\./) {
+      k = $0; sub(/^[ \t]*["\047]?/, "", k); sub(/[^A-Z0-9_].*$/, "", k)
+      print FNR "\t" k "\t" ($0 ~ /\.(default|optional|catch)\(/ ? 0 : 1) "\tenv"
+    }' "$1"
+}
+
+# forge_env_example <py|ts>: Stop and pre-commit, not --all. A settings field or env schema
+# key added in the change appears in the .env template of the nearest directory that has
+# one (.env.example, .env.template, .env.sample, .env.dist, .env.<name>.example): always
+# when it has no default, and also with a default when the template already lists at
+# least half of that class's variables. A template that lists none of them is not about it.
+forge_env_example() {
+  [ "$mode" = --all ] && return 0
+  _ee_rc=0
+  printf '%s\n' "$FORGE_FILES" > "$FORGE_TMP/env.files"
+  while IFS= read -r _ee_f; do
+    [ -f "$_ee_f" ] || continue
+    case $1 in
+      py) grep -q 'BaseSettings' "$_ee_f" || continue ;;
+      ts) grep -qE 'createEnv\(|process\.env' "$_ee_f" && grep -q 'z\.' "$_ee_f" || continue ;;
+    esac
+    _ee_d=$(dirname "$_ee_f")
+    while :; do
+      _ee_t=$(ls -A "$_ee_d" 2>/dev/null | grep -E '^\.env(\.[A-Za-z0-9_-]+)?\.(example|template|sample|dist)$')
+      [ -n "$_ee_t" ] || [ "$_ee_d" = . ] && break
+      _ee_d=$(dirname "$_ee_d")
+    done
+    [ -n "$_ee_t" ] || continue
+    _ee_names=''
+    : > "$FORGE_TMP/env.keys"
+    for _ee_x in $_ee_t; do
+      [ "$_ee_d" = . ] && _ee_p=$_ee_x || _ee_p="$_ee_d/$_ee_x"
+      _ee_names="${_ee_names:+$_ee_names, }$_ee_p"
+      sed -n -E 's/^[[:space:]]*(export[[:space:]]+)?#?[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=.*/\2/p' "$_ee_p" >> "$FORGE_TMP/env.keys"
+    done
+    "forge_env_fields_$1" "$_ee_f" > "$FORGE_TMP/env.fields"
+    awk -F '\t' -v f="$_ee_f" -v t="$_ee_names" '
+      function found(k,   h) { if (k in have) return 1; for (h in have) if (index(h, k "_") == 1) return 1; return 0 }
+      FILENAME == ARGV[1] { have[toupper($0)] = 1; next }
+      { n++; ln[n] = $1; key[n] = $2; rq[n] = $3; g[n] = $4; tot[$4]++; if (found(toupper($2))) got[$4]++ }
+      END {
+        for (j = 1; j <= n; j++) {
+          if (!got[g[j]] || found(toupper(key[j]))) continue
+          if (rq[j] || got[g[j]] * 2 >= tot[g[j]]) {
+            print f ":" ln[j] ": " key[j] " is not in " t "; add it there (a placeholder value is fine) so the next person to set up the project knows it exists"
+            bad = 1
+          }
+        }
+        exit bad
+      }' "$FORGE_TMP/env.keys" "$FORGE_TMP/env.fields" || _ee_rc=1
+  done < "$FORGE_TMP/env.files"
+  return "$_ee_rc"
+}
+
 # forge_related_py_tests <files>: changed test files plus tests/**/test_<module>.py
 # for each changed module, one per line.
 forge_related_py_tests() {
@@ -7000,6 +7464,7 @@ exit "$fail"
   "rules": {
     "typescript/config-files": "77940ff304752f88c143dedc5911b0961de9e16b68e10758a273cfc049505413",
     "typescript/config-ratchet": "b0ff3b6c064f691984e217acc0388d0900b1a2a1d1ee493935badb41a8a45022",
+    "typescript/env-example": "7eab3b03486670f6274d4db65487ccaaf7f2b1fddd39c86a13469cdf46d2140c",
     "typescript/format-lint": "873b5ec532051f0356d5a00590c714b3256104929a42c4d0fa4bdd1672ef295b",
     "typescript/no-console": "304966850351b07590c05fb22ae0125d1976179b3cd7abc0bc0dd7e82039ada5",
     "typescript/no-double-assertion": "2c5b17cd8daa6bd598b4aa79b30259626c86e6a3afd00630a3a4a2918316ce80",
@@ -7033,12 +7498,12 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "52a6f9fbaa079816551227307122ce0c0e20ba65ba3cc93e09e2d4d187f3e246",
     ".claude/skills/forge-project/scripts/guard.sh": "33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d",
     ".claude/skills/forge-project/scripts/lib.sh": "1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "4c8157bcd14a3a55626ca6b071699d99639e78b88cd4d2bd3173731b861fc063",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "42e2f52d031abbc4d28b2b81a7080177397125eb00f9fec25a5c6d7f8549729d",
     ".claude/skills/forge-project/scripts/review.sh": "9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac",
-    ".claude/skills/forge-project/scripts/session-start.sh": "eef816a706bbdf0840298cf0217d7a8b9c5d9a259b392ba878dbc42f27e6311e",
+    ".claude/skills/forge-project/scripts/session-start.sh": "6cdc75e69dd0c4c600c66a73432d4b6295b17d3d0d3e5208f121b07700cc9193",
     ".claude/skills/forge-project/scripts/stop.sh": "f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173",
     ".claude/skills/forge-project/scripts/turn-start.sh": "a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "8c66272dc8d9f3e5a95ddbd64e4c23ce49c09b58d6f17941c43b72d3dc39d3f9",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "6eda808509fb8ab1fac5192dfdf70ea7726615bc90afc6a3b31400fc148a43a8",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml": "c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20",
     ".forge/ast-grep/rule-tests/typescript-no-eval-test.yml": "3716e00219b28a0974a07a56e1d264bb478b35a6ef38d5c13740a9080b09516e",
@@ -7061,7 +7526,7 @@ exit "$fail"
     ".forge/ast-grep/rules/typescript/no-ts-nocheck.yml": "aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21",
     ".forge/ast-grep/rules/typescript/ts-expect-error-reason.yml": "b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "5fade424ae29dbef1cb343374829441d8fbc0b7515e28695e3903bb7fc31b764",
+    ".forge/check.sh": "d3e9153b10c651806d66e307c4de27e615f5b631a1512474dca4f84750345cbb",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -7111,12 +7576,12 @@ d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills
 52a6f9fbaa079816551227307122ce0c0e20ba65ba3cc93e09e2d4d187f3e246  .claude/skills/forge-project/scripts/guard.rules
 33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d  .claude/skills/forge-project/scripts/guard.sh
 1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a  .claude/skills/forge-project/scripts/lib.sh
-4c8157bcd14a3a55626ca6b071699d99639e78b88cd4d2bd3173731b861fc063  .claude/skills/forge-project/scripts/post-edit.sh
+42e2f52d031abbc4d28b2b81a7080177397125eb00f9fec25a5c6d7f8549729d  .claude/skills/forge-project/scripts/post-edit.sh
 9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac  .claude/skills/forge-project/scripts/review.sh
-eef816a706bbdf0840298cf0217d7a8b9c5d9a259b392ba878dbc42f27e6311e  .claude/skills/forge-project/scripts/session-start.sh
+6cdc75e69dd0c4c600c66a73432d4b6295b17d3d0d3e5208f121b07700cc9193  .claude/skills/forge-project/scripts/session-start.sh
 f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173  .claude/skills/forge-project/scripts/stop.sh
 a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c  .claude/skills/forge-project/scripts/turn-start.sh
-8c66272dc8d9f3e5a95ddbd64e4c23ce49c09b58d6f17941c43b72d3dc39d3f9  .claude/skills/forge-project/scripts/typecheck.sh
+6eda808509fb8ab1fac5192dfdf70ea7726615bc90afc6a3b31400fc148a43a8  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20  .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
 3716e00219b28a0974a07a56e1d264bb478b35a6ef38d5c13740a9080b09516e  .forge/ast-grep/rule-tests/typescript-no-eval-test.yml
@@ -7139,7 +7604,7 @@ b21497e3335f2271e6ca5874817957d18c640e7d787cfe76a72ef390ab62d634  .forge/ast-gre
 aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21  .forge/ast-grep/rules/typescript/no-ts-nocheck.yml
 b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad  .forge/ast-grep/rules/typescript/ts-expect-error-reason.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-5fade424ae29dbef1cb343374829441d8fbc0b7515e28695e3903bb7fc31b764  .forge/check.sh
+d3e9153b10c651806d66e307c4de27e615f5b631a1512474dca4f84750345cbb  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

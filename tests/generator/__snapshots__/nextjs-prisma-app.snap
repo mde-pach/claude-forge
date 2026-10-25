@@ -673,7 +673,7 @@ tsc() { forge_exec_tool tsc "$@"; }
 prisma() { forge_exec_tool prisma "$@"; }
 vitest() { forge_exec_tool vitest "$@"; }
 playwright() { forge_exec_tool playwright "$@"; }
-FORGE_NCHECKS=18
+FORGE_NCHECKS=19
 
 # 1. typescript/bun/lock-sync
 forge_check_meta_1() {
@@ -732,11 +732,11 @@ forge_check_run_4() {
 forge_ratchet bun ratchet.mjs
 }
 
-# 5. typescript/format-lint
+# 5. typescript/env-example
 forge_check_meta_5() {
-  c_id='typescript/format-lint'; c_stage=lint; c_tools='biome'
+  c_id='typescript/env-example'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=1
+  c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_5() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -744,142 +744,143 @@ forge_scope_5() {
 }
 forge_when_5() { return 1; }
 forge_check_run_5() {
+forge_env_example ts
+}
+
+# 6. typescript/format-lint
+forge_check_meta_6() {
+  c_id='typescript/format-lint'; c_stage=lint; c_tools='biome'
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=1; c_files=1; c_fix=1
+}
+forge_scope_6() {
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+forge_when_6() { return 1; }
+forge_check_run_6() {
 biome ci .
 }
-forge_check_changed_5() {
+forge_check_changed_6() {
 biome check --write --no-errors-on-unmatched $FORGE_FILES
 }
-forge_check_fix_5() {
+forge_check_fix_6() {
 biome check --write --formatter-enabled=false --skip=correctness/noUnusedImports --skip=correctness/noUnusedVariables --no-errors-on-unmatched $FORGE_FILES
 }
 
-# 6. typescript/no-ignore-deprecations
-forge_check_meta_6() {
+# 7. typescript/no-ignore-deprecations
+forge_check_meta_7() {
   c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_6() {
+forge_scope_7() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_6() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
-forge_check_run_6() {
+forge_when_7() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
+forge_check_run_7() {
 ! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')
 }
 
-# 7. typescript/no-unused-suppressions
-forge_check_meta_7() {
+# 8. typescript/no-unused-suppressions
+forge_check_meta_8() {
   c_id='typescript/no-unused-suppressions'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1; c_fix=0
 }
-forge_scope_7() {
+forge_scope_8() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_7() { return 1; }
-forge_check_run_7() {
+forge_when_8() { return 1; }
+forge_check_run_8() {
 ! biome lint --colors=off --max-diagnostics=none . 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
 }
-forge_check_changed_7() {
+forge_check_changed_8() {
 ! biome lint --colors=off --max-diagnostics=none --no-errors-on-unmatched $FORGE_FILES 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
 }
 
-# 8. typescript/playwright/axe
-forge_check_meta_8() {
+# 9. typescript/playwright/axe
+forge_check_meta_9() {
   c_id='typescript/playwright/axe'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_8() {
+forge_scope_9() {
   return 0
 }
-forge_when_8() { case $1 in package.json|e2e/*|*.spec.*|*/*.spec.*) return 0 ;; esac; return 1; }
-forge_check_run_8() {
+forge_when_9() { case $1 in package.json|e2e/*|*.spec.*|*/*.spec.*) return 0 ;; esac; return 1; }
+forge_check_run_9() {
 ! grep -q '"@axe-core/playwright"' package.json 2>/dev/null || git ls-files -z -- 'e2e/*' '*.spec.*' | xargs -0 grep -l AxeBuilder /dev/null | grep -q . || { echo 'package.json depends on @axe-core/playwright but no e2e test uses AxeBuilder'; false; }
 }
 
-# 9. typescript/playwright/no-test-edits
-forge_check_meta_9() {
+# 10. typescript/playwright/no-test-edits
+forge_check_meta_10() {
   c_id='typescript/playwright/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_9() {
+forge_scope_10() {
   case $1 in e2e/*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_9() { return 1; }
-forge_check_run_9() {
+forge_when_10() { return 1; }
+forge_check_run_10() {
 forge_test_edits
 }
 
-# 10. typescript/playwright/run
-forge_check_meta_10() {
-  c_id='typescript/playwright/run'; c_stage=test; c_tools='playwright'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
-}
-forge_scope_10() {
-  return 0
-}
-forge_when_10() { case $1 in e2e/*|playwright.config.*) return 0 ;; esac; return 1; }
-forge_check_run_10() {
-playwright test --reporter=line
-}
-
-# 11. typescript/prisma/client-generator
+# 11. typescript/playwright/run
 forge_check_meta_11() {
-  c_id='typescript/prisma/client-generator'; c_stage=lint; c_tools=''
+  c_id='typescript/playwright/run'; c_stage=test; c_tools='playwright'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_11() {
   return 0
 }
-forge_when_11() { case $1 in *.prisma|*/*.prisma) return 0 ;; esac; return 1; }
+forge_when_11() { case $1 in e2e/*|playwright.config.*) return 0 ;; esac; return 1; }
 forge_check_run_11() {
+playwright test --reporter=line
+}
+
+# 12. typescript/prisma/client-generator
+forge_check_meta_12() {
+  c_id='typescript/prisma/client-generator'; c_stage=lint; c_tools=''
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
+}
+forge_scope_12() {
+  return 0
+}
+forge_when_12() { case $1 in *.prisma|*/*.prisma) return 0 ;; esac; return 1; }
+forge_check_run_12() {
 ! grep -nE 'provider[[:space:]]*=[[:space:]]*"prisma-client-js"' /dev/null $(git ls-files '*.prisma')
 }
 
-# 12. typescript/prisma/migration-lint
-forge_check_meta_12() {
+# 13. typescript/prisma/migration-lint
+forge_check_meta_13() {
   c_id='typescript/prisma/migration-lint'; c_stage=migration; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1; c_fix=0
 }
-forge_scope_12() {
+forge_scope_13() {
   case $1 in prisma/migrations/migration.sql|prisma/migrations/*/migration.sql) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_12() { case $1 in prisma/migrations/*) return 0 ;; esac; return 1; }
-forge_check_run_12() {
+forge_when_13() { case $1 in prisma/migrations/*) return 0 ;; esac; return 1; }
+forge_check_run_13() {
 forge_squawk_files $(git ls-files 'prisma/migrations/*/migration.sql' | sort | tail -n 1)
 }
-forge_check_changed_12() {
+forge_check_changed_13() {
 forge_squawk_files $FORGE_FILES
 }
 
-# 13. typescript/prisma/migration-present
-forge_check_meta_13() {
+# 14. typescript/prisma/migration-present
+forge_check_meta_14() {
   c_id='typescript/prisma/migration-present'; c_stage=migration; c_tools='prisma'
   c_when=1; c_localdb=1; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
-}
-forge_scope_13() {
-  return 0
-}
-forge_when_13() { case $1 in prisma/schema.prisma) return 0 ;; esac; return 1; }
-forge_check_run_13() {
-if ! grep -q shadowDatabaseUrl prisma.config.ts 2>/dev/null; then echo "forge:typescript/prisma/migration-present skipped: no shadowDatabaseUrl in prisma.config.ts"; else prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code; fi
-}
-
-# 14. typescript/prisma/validate
-forge_check_meta_14() {
-  c_id='typescript/prisma/validate'; c_stage=migration; c_tools='prisma'
-  c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_14() {
@@ -887,70 +888,84 @@ forge_scope_14() {
 }
 forge_when_14() { case $1 in prisma/schema.prisma) return 0 ;; esac; return 1; }
 forge_check_run_14() {
+if ! grep -q shadowDatabaseUrl prisma.config.ts 2>/dev/null; then echo "forge:typescript/prisma/migration-present skipped: no shadowDatabaseUrl in prisma.config.ts"; else prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code; fi
+}
+
+# 15. typescript/prisma/validate
+forge_check_meta_15() {
+  c_id='typescript/prisma/validate'; c_stage=migration; c_tools='prisma'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
+}
+forge_scope_15() {
+  return 0
+}
+forge_when_15() { case $1 in prisma/schema.prisma) return 0 ;; esac; return 1; }
+forge_check_run_15() {
 prisma validate
 }
 
-# 15. typescript/typecheck
-forge_check_meta_15() {
+# 16. typescript/typecheck
+forge_check_meta_16() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_15() {
-  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
-  return 1
-}
-forge_when_15() { return 1; }
-forge_check_run_15() {
-tsc --noEmit -p tsconfig.json
-}
-
-# 16. typescript/vitest/no-test-edits
-forge_check_meta_16() {
-  c_id='typescript/vitest/no-test-edits'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
-}
 forge_scope_16() {
-  case $1 in e2e/*) return 1 ;; esac
-  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
 forge_when_16() { return 1; }
 forge_check_run_16() {
+tsc --noEmit -p tsconfig.json
+}
+
+# 17. typescript/vitest/no-test-edits
+forge_check_meta_17() {
+  c_id='typescript/vitest/no-test-edits'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
+}
+forge_scope_17() {
+  case $1 in e2e/*) return 1 ;; esac
+  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*) ;; *) return 1 ;; esac
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+forge_when_17() { return 1; }
+forge_check_run_17() {
 forge_test_edits
 }
 
-# 17. typescript/vitest/no-workspace-file
-forge_check_meta_17() {
+# 18. typescript/vitest/no-workspace-file
+forge_check_meta_18() {
   c_id='typescript/vitest/no-workspace-file'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_17() {
+forge_scope_18() {
   return 0
 }
-forge_when_17() { case $1 in vitest.*) return 0 ;; esac; return 1; }
-forge_check_run_17() {
+forge_when_18() { case $1 in vitest.*) return 0 ;; esac; return 1; }
+forge_check_run_18() {
 ! git ls-files 'vitest.workspace.*' | grep .
 }
 
-# 18. typescript/vitest/run
-forge_check_meta_18() {
+# 19. typescript/vitest/run
+forge_check_meta_19() {
   c_id='typescript/vitest/run'; c_stage=test; c_tools='vitest'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=1; c_files=0; c_fix=0
 }
-forge_scope_18() {
+forge_scope_19() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_18() { return 1; }
-forge_check_run_18() {
+forge_when_19() { return 1; }
+forge_check_run_19() {
 vitest run
 }
-forge_check_changed_18() {
+forge_check_changed_19() {
 vitest run --changed
 }
 
@@ -1926,6 +1941,107 @@ forge_models_registered() {
     _mr_rc=1
   done < "$FORGE_TMP/models.files"
   return "$_mr_rc"
+}
+
+# ---- Settings kept in sync with .env templates (python/env-example, typescript/env-example).
+
+# forge_env_fields_py <file>: "line<TAB>VAR<TAB>required<TAB>class" for each field of a
+# pydantic-settings BaseSettings subclass (env_prefix, alias, case_sensitive applied;
+# required = no default). Fields with AliasChoices / AliasPath are left out.
+forge_env_fields_py() {
+  awk '
+    function cls_of(l,   c) { c = l; sub(/^class[ \t]+/, "", c); sub(/[^A-Za-z0-9_].*$/, "", c); return c }
+    { line = $0; sub(/\r$/, "", line) }
+    line ~ /^class[ \t]/ { cls = (line ~ /\(.*BaseSettings.*\)[ \t]*:/) ? cls_of(line) : ""; body = ""; next }
+    line ~ /^[^ \t#]/ { cls = ""; next }
+    cls == "" || line ~ /^[ \t]*(#|$)/ { next }
+    {
+      ind = match(line, /[^ \t]/) - 1
+      if (body == "") body = ind
+    }
+    FNR == NR {
+      if (match(line, /env_prefix[ \t]*=[ \t]*["\047][^"\047]*["\047]/)) { p = substr(line, RSTART, RLENGTH); sub(/^[^"\047]*["\047]/, "", p); sub(/["\047]$/, "", p); pre[cls] = p }
+      if (line ~ /case_sensitive[ \t]*=[ \t]*True/) cs[cls] = 1
+      next
+    }
+    ind == body && line ~ /^[ \t]*[A-Za-z_][A-Za-z0-9_]*[ \t]*:/ {
+      name = line; sub(/^[ \t]*/, "", name); sub(/[ \t]*:.*$/, "", name)
+      rest = line; sub(/^[^:]*:/, "", rest)
+      if (name == "model_config" || rest ~ /ClassVar|AliasChoices|AliasPath/) next
+      key = pre[cls] name
+      if (match(rest, /(validation_alias|alias)[ \t]*=[ \t]*["\047][^"\047]+["\047]/)) { key = substr(rest, RSTART, RLENGTH); sub(/^[^"\047]*["\047]/, "", key); sub(/["\047]$/, "", key) }
+      if (!cs[cls]) key = toupper(key)
+      req = 1
+      if (match(rest, /[ \t]=([ \t]|$)/)) {
+        v = substr(rest, RSTART + RLENGTH); sub(/^[ \t]+/, "", v)
+        req = 0
+        if (v ~ /^([A-Za-z_]+\.)?Field\(/) {
+          sub(/^[^(]*\([ \t]*/, "", v)
+          if (v ~ /^(\.\.\.|\))/) req = 1
+          else if (v ~ /^[a-z_]+[ \t]*=/ && v !~ /default(_factory)?[ \t]*=/) req = 1
+        }
+      }
+      print FNR "\t" key "\t" req "\t" cls
+    }' "$1" "$1"
+}
+
+# forge_env_fields_ts <file>: the same for the keys of a Zod env schema (t3-env
+# createEnv, or z.object(...) parsed from process.env): UPPER_CASE keys whose value is a
+# z. chain on the same line; required = no .default(), .optional() or .catch().
+forge_env_fields_ts() {
+  awk '
+    match($0, /^[ \t]*["\047]?[A-Z][A-Z0-9_]*["\047]?[ \t]*:[ \t]*z\./) {
+      k = $0; sub(/^[ \t]*["\047]?/, "", k); sub(/[^A-Z0-9_].*$/, "", k)
+      print FNR "\t" k "\t" ($0 ~ /\.(default|optional|catch)\(/ ? 0 : 1) "\tenv"
+    }' "$1"
+}
+
+# forge_env_example <py|ts>: Stop and pre-commit, not --all. A settings field or env schema
+# key added in the change appears in the .env template of the nearest directory that has
+# one (.env.example, .env.template, .env.sample, .env.dist, .env.<name>.example): always
+# when it has no default, and also with a default when the template already lists at
+# least half of that class's variables. A template that lists none of them is not about it.
+forge_env_example() {
+  [ "$mode" = --all ] && return 0
+  _ee_rc=0
+  printf '%s\n' "$FORGE_FILES" > "$FORGE_TMP/env.files"
+  while IFS= read -r _ee_f; do
+    [ -f "$_ee_f" ] || continue
+    case $1 in
+      py) grep -q 'BaseSettings' "$_ee_f" || continue ;;
+      ts) grep -qE 'createEnv\(|process\.env' "$_ee_f" && grep -q 'z\.' "$_ee_f" || continue ;;
+    esac
+    _ee_d=$(dirname "$_ee_f")
+    while :; do
+      _ee_t=$(ls -A "$_ee_d" 2>/dev/null | grep -E '^\.env(\.[A-Za-z0-9_-]+)?\.(example|template|sample|dist)$')
+      [ -n "$_ee_t" ] || [ "$_ee_d" = . ] && break
+      _ee_d=$(dirname "$_ee_d")
+    done
+    [ -n "$_ee_t" ] || continue
+    _ee_names=''
+    : > "$FORGE_TMP/env.keys"
+    for _ee_x in $_ee_t; do
+      [ "$_ee_d" = . ] && _ee_p=$_ee_x || _ee_p="$_ee_d/$_ee_x"
+      _ee_names="${_ee_names:+$_ee_names, }$_ee_p"
+      sed -n -E 's/^[[:space:]]*(export[[:space:]]+)?#?[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=.*/\2/p' "$_ee_p" >> "$FORGE_TMP/env.keys"
+    done
+    "forge_env_fields_$1" "$_ee_f" > "$FORGE_TMP/env.fields"
+    awk -F '\t' -v f="$_ee_f" -v t="$_ee_names" '
+      function found(k,   h) { if (k in have) return 1; for (h in have) if (index(h, k "_") == 1) return 1; return 0 }
+      FILENAME == ARGV[1] { have[toupper($0)] = 1; next }
+      { n++; ln[n] = $1; key[n] = $2; rq[n] = $3; g[n] = $4; tot[$4]++; if (found(toupper($2))) got[$4]++ }
+      END {
+        for (j = 1; j <= n; j++) {
+          if (!got[g[j]] || found(toupper(key[j]))) continue
+          if (rq[j] || got[g[j]] * 2 >= tot[g[j]]) {
+            print f ":" ln[j] ": " key[j] " is not in " t "; add it there (a placeholder value is fine) so the next person to set up the project knows it exists"
+            bad = 1
+          }
+        }
+        exit bad
+      }' "$FORGE_TMP/env.keys" "$FORGE_TMP/env.fields" || _ee_rc=1
+  done < "$FORGE_TMP/env.files"
+  return "$_ee_rc"
 }
 
 # forge_related_py_tests <files>: changed test files plus tests/**/test_<module>.py
@@ -2275,7 +2391,7 @@ tsc() { forge_exec_tool tsc "$@"; }
 prisma() { forge_exec_tool prisma "$@"; }
 vitest() { forge_exec_tool vitest "$@"; }
 playwright() { forge_exec_tool playwright "$@"; }
-FORGE_NCHECKS=18
+FORGE_NCHECKS=19
 
 # 1. typescript/bun/lock-sync
 forge_check_meta_1() {
@@ -2334,11 +2450,11 @@ forge_check_run_4() {
 forge_ratchet bun ratchet.mjs
 }
 
-# 5. typescript/format-lint
+# 5. typescript/env-example
 forge_check_meta_5() {
-  c_id='typescript/format-lint'; c_stage=lint; c_tools='biome'
+  c_id='typescript/env-example'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=1
+  c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_5() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -2346,142 +2462,143 @@ forge_scope_5() {
 }
 forge_when_5() { return 1; }
 forge_check_run_5() {
+forge_env_example ts
+}
+
+# 6. typescript/format-lint
+forge_check_meta_6() {
+  c_id='typescript/format-lint'; c_stage=lint; c_tools='biome'
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=1; c_files=1; c_fix=1
+}
+forge_scope_6() {
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+forge_when_6() { return 1; }
+forge_check_run_6() {
 biome ci .
 }
-forge_check_changed_5() {
+forge_check_changed_6() {
 biome check --write --no-errors-on-unmatched $FORGE_FILES
 }
-forge_check_fix_5() {
+forge_check_fix_6() {
 biome check --write --formatter-enabled=false --skip=correctness/noUnusedImports --skip=correctness/noUnusedVariables --no-errors-on-unmatched $FORGE_FILES
 }
 
-# 6. typescript/no-ignore-deprecations
-forge_check_meta_6() {
+# 7. typescript/no-ignore-deprecations
+forge_check_meta_7() {
   c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_6() {
+forge_scope_7() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_6() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
-forge_check_run_6() {
+forge_when_7() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
+forge_check_run_7() {
 ! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')
 }
 
-# 7. typescript/no-unused-suppressions
-forge_check_meta_7() {
+# 8. typescript/no-unused-suppressions
+forge_check_meta_8() {
   c_id='typescript/no-unused-suppressions'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1; c_fix=0
 }
-forge_scope_7() {
+forge_scope_8() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_7() { return 1; }
-forge_check_run_7() {
+forge_when_8() { return 1; }
+forge_check_run_8() {
 ! biome lint --colors=off --max-diagnostics=none . 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
 }
-forge_check_changed_7() {
+forge_check_changed_8() {
 ! biome lint --colors=off --max-diagnostics=none --no-errors-on-unmatched $FORGE_FILES 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
 }
 
-# 8. typescript/playwright/axe
-forge_check_meta_8() {
+# 9. typescript/playwright/axe
+forge_check_meta_9() {
   c_id='typescript/playwright/axe'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_8() {
+forge_scope_9() {
   return 0
 }
-forge_when_8() { case $1 in package.json|e2e/*|*.spec.*|*/*.spec.*) return 0 ;; esac; return 1; }
-forge_check_run_8() {
+forge_when_9() { case $1 in package.json|e2e/*|*.spec.*|*/*.spec.*) return 0 ;; esac; return 1; }
+forge_check_run_9() {
 ! grep -q '"@axe-core/playwright"' package.json 2>/dev/null || git ls-files -z -- 'e2e/*' '*.spec.*' | xargs -0 grep -l AxeBuilder /dev/null | grep -q . || { echo 'package.json depends on @axe-core/playwright but no e2e test uses AxeBuilder'; false; }
 }
 
-# 9. typescript/playwright/no-test-edits
-forge_check_meta_9() {
+# 10. typescript/playwright/no-test-edits
+forge_check_meta_10() {
   c_id='typescript/playwright/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_9() {
+forge_scope_10() {
   case $1 in e2e/*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_9() { return 1; }
-forge_check_run_9() {
+forge_when_10() { return 1; }
+forge_check_run_10() {
 forge_test_edits
 }
 
-# 10. typescript/playwright/run
-forge_check_meta_10() {
-  c_id='typescript/playwright/run'; c_stage=test; c_tools='playwright'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
-}
-forge_scope_10() {
-  return 0
-}
-forge_when_10() { case $1 in e2e/*|playwright.config.*) return 0 ;; esac; return 1; }
-forge_check_run_10() {
-playwright test --reporter=line
-}
-
-# 11. typescript/prisma/client-generator
+# 11. typescript/playwright/run
 forge_check_meta_11() {
-  c_id='typescript/prisma/client-generator'; c_stage=lint; c_tools=''
+  c_id='typescript/playwright/run'; c_stage=test; c_tools='playwright'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_11() {
   return 0
 }
-forge_when_11() { case $1 in *.prisma|*/*.prisma) return 0 ;; esac; return 1; }
+forge_when_11() { case $1 in e2e/*|playwright.config.*) return 0 ;; esac; return 1; }
 forge_check_run_11() {
+playwright test --reporter=line
+}
+
+# 12. typescript/prisma/client-generator
+forge_check_meta_12() {
+  c_id='typescript/prisma/client-generator'; c_stage=lint; c_tools=''
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
+}
+forge_scope_12() {
+  return 0
+}
+forge_when_12() { case $1 in *.prisma|*/*.prisma) return 0 ;; esac; return 1; }
+forge_check_run_12() {
 ! grep -nE 'provider[[:space:]]*=[[:space:]]*"prisma-client-js"' /dev/null $(git ls-files '*.prisma')
 }
 
-# 12. typescript/prisma/migration-lint
-forge_check_meta_12() {
+# 13. typescript/prisma/migration-lint
+forge_check_meta_13() {
   c_id='typescript/prisma/migration-lint'; c_stage=migration; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1; c_fix=0
 }
-forge_scope_12() {
+forge_scope_13() {
   case $1 in prisma/migrations/migration.sql|prisma/migrations/*/migration.sql) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_12() { case $1 in prisma/migrations/*) return 0 ;; esac; return 1; }
-forge_check_run_12() {
+forge_when_13() { case $1 in prisma/migrations/*) return 0 ;; esac; return 1; }
+forge_check_run_13() {
 forge_squawk_files $(git ls-files 'prisma/migrations/*/migration.sql' | sort | tail -n 1)
 }
-forge_check_changed_12() {
+forge_check_changed_13() {
 forge_squawk_files $FORGE_FILES
 }
 
-# 13. typescript/prisma/migration-present
-forge_check_meta_13() {
+# 14. typescript/prisma/migration-present
+forge_check_meta_14() {
   c_id='typescript/prisma/migration-present'; c_stage=migration; c_tools='prisma'
   c_when=1; c_localdb=1; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
-}
-forge_scope_13() {
-  return 0
-}
-forge_when_13() { case $1 in prisma/schema.prisma) return 0 ;; esac; return 1; }
-forge_check_run_13() {
-if ! grep -q shadowDatabaseUrl prisma.config.ts 2>/dev/null; then echo "forge:typescript/prisma/migration-present skipped: no shadowDatabaseUrl in prisma.config.ts"; else prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code; fi
-}
-
-# 14. typescript/prisma/validate
-forge_check_meta_14() {
-  c_id='typescript/prisma/validate'; c_stage=migration; c_tools='prisma'
-  c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_14() {
@@ -2489,70 +2606,84 @@ forge_scope_14() {
 }
 forge_when_14() { case $1 in prisma/schema.prisma) return 0 ;; esac; return 1; }
 forge_check_run_14() {
+if ! grep -q shadowDatabaseUrl prisma.config.ts 2>/dev/null; then echo "forge:typescript/prisma/migration-present skipped: no shadowDatabaseUrl in prisma.config.ts"; else prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code; fi
+}
+
+# 15. typescript/prisma/validate
+forge_check_meta_15() {
+  c_id='typescript/prisma/validate'; c_stage=migration; c_tools='prisma'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
+}
+forge_scope_15() {
+  return 0
+}
+forge_when_15() { case $1 in prisma/schema.prisma) return 0 ;; esac; return 1; }
+forge_check_run_15() {
 prisma validate
 }
 
-# 15. typescript/typecheck
-forge_check_meta_15() {
+# 16. typescript/typecheck
+forge_check_meta_16() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_15() {
-  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
-  return 1
-}
-forge_when_15() { return 1; }
-forge_check_run_15() {
-tsc --noEmit -p tsconfig.json
-}
-
-# 16. typescript/vitest/no-test-edits
-forge_check_meta_16() {
-  c_id='typescript/vitest/no-test-edits'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
-}
 forge_scope_16() {
-  case $1 in e2e/*) return 1 ;; esac
-  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
 forge_when_16() { return 1; }
 forge_check_run_16() {
+tsc --noEmit -p tsconfig.json
+}
+
+# 17. typescript/vitest/no-test-edits
+forge_check_meta_17() {
+  c_id='typescript/vitest/no-test-edits'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
+}
+forge_scope_17() {
+  case $1 in e2e/*) return 1 ;; esac
+  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*) ;; *) return 1 ;; esac
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+forge_when_17() { return 1; }
+forge_check_run_17() {
 forge_test_edits
 }
 
-# 17. typescript/vitest/no-workspace-file
-forge_check_meta_17() {
+# 18. typescript/vitest/no-workspace-file
+forge_check_meta_18() {
   c_id='typescript/vitest/no-workspace-file'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_17() {
+forge_scope_18() {
   return 0
 }
-forge_when_17() { case $1 in vitest.*) return 0 ;; esac; return 1; }
-forge_check_run_17() {
+forge_when_18() { case $1 in vitest.*) return 0 ;; esac; return 1; }
+forge_check_run_18() {
 ! git ls-files 'vitest.workspace.*' | grep .
 }
 
-# 18. typescript/vitest/run
-forge_check_meta_18() {
+# 19. typescript/vitest/run
+forge_check_meta_19() {
   c_id='typescript/vitest/run'; c_stage=test; c_tools='vitest'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=1; c_files=0; c_fix=0
 }
-forge_scope_18() {
+forge_scope_19() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_18() { return 1; }
-forge_check_run_18() {
+forge_when_19() { return 1; }
+forge_check_run_19() {
 vitest run
 }
-forge_check_changed_18() {
+forge_check_changed_19() {
 vitest run --changed
 }
 
@@ -3528,6 +3659,107 @@ forge_models_registered() {
     _mr_rc=1
   done < "$FORGE_TMP/models.files"
   return "$_mr_rc"
+}
+
+# ---- Settings kept in sync with .env templates (python/env-example, typescript/env-example).
+
+# forge_env_fields_py <file>: "line<TAB>VAR<TAB>required<TAB>class" for each field of a
+# pydantic-settings BaseSettings subclass (env_prefix, alias, case_sensitive applied;
+# required = no default). Fields with AliasChoices / AliasPath are left out.
+forge_env_fields_py() {
+  awk '
+    function cls_of(l,   c) { c = l; sub(/^class[ \t]+/, "", c); sub(/[^A-Za-z0-9_].*$/, "", c); return c }
+    { line = $0; sub(/\r$/, "", line) }
+    line ~ /^class[ \t]/ { cls = (line ~ /\(.*BaseSettings.*\)[ \t]*:/) ? cls_of(line) : ""; body = ""; next }
+    line ~ /^[^ \t#]/ { cls = ""; next }
+    cls == "" || line ~ /^[ \t]*(#|$)/ { next }
+    {
+      ind = match(line, /[^ \t]/) - 1
+      if (body == "") body = ind
+    }
+    FNR == NR {
+      if (match(line, /env_prefix[ \t]*=[ \t]*["\047][^"\047]*["\047]/)) { p = substr(line, RSTART, RLENGTH); sub(/^[^"\047]*["\047]/, "", p); sub(/["\047]$/, "", p); pre[cls] = p }
+      if (line ~ /case_sensitive[ \t]*=[ \t]*True/) cs[cls] = 1
+      next
+    }
+    ind == body && line ~ /^[ \t]*[A-Za-z_][A-Za-z0-9_]*[ \t]*:/ {
+      name = line; sub(/^[ \t]*/, "", name); sub(/[ \t]*:.*$/, "", name)
+      rest = line; sub(/^[^:]*:/, "", rest)
+      if (name == "model_config" || rest ~ /ClassVar|AliasChoices|AliasPath/) next
+      key = pre[cls] name
+      if (match(rest, /(validation_alias|alias)[ \t]*=[ \t]*["\047][^"\047]+["\047]/)) { key = substr(rest, RSTART, RLENGTH); sub(/^[^"\047]*["\047]/, "", key); sub(/["\047]$/, "", key) }
+      if (!cs[cls]) key = toupper(key)
+      req = 1
+      if (match(rest, /[ \t]=([ \t]|$)/)) {
+        v = substr(rest, RSTART + RLENGTH); sub(/^[ \t]+/, "", v)
+        req = 0
+        if (v ~ /^([A-Za-z_]+\.)?Field\(/) {
+          sub(/^[^(]*\([ \t]*/, "", v)
+          if (v ~ /^(\.\.\.|\))/) req = 1
+          else if (v ~ /^[a-z_]+[ \t]*=/ && v !~ /default(_factory)?[ \t]*=/) req = 1
+        }
+      }
+      print FNR "\t" key "\t" req "\t" cls
+    }' "$1" "$1"
+}
+
+# forge_env_fields_ts <file>: the same for the keys of a Zod env schema (t3-env
+# createEnv, or z.object(...) parsed from process.env): UPPER_CASE keys whose value is a
+# z. chain on the same line; required = no .default(), .optional() or .catch().
+forge_env_fields_ts() {
+  awk '
+    match($0, /^[ \t]*["\047]?[A-Z][A-Z0-9_]*["\047]?[ \t]*:[ \t]*z\./) {
+      k = $0; sub(/^[ \t]*["\047]?/, "", k); sub(/[^A-Z0-9_].*$/, "", k)
+      print FNR "\t" k "\t" ($0 ~ /\.(default|optional|catch)\(/ ? 0 : 1) "\tenv"
+    }' "$1"
+}
+
+# forge_env_example <py|ts>: Stop and pre-commit, not --all. A settings field or env schema
+# key added in the change appears in the .env template of the nearest directory that has
+# one (.env.example, .env.template, .env.sample, .env.dist, .env.<name>.example): always
+# when it has no default, and also with a default when the template already lists at
+# least half of that class's variables. A template that lists none of them is not about it.
+forge_env_example() {
+  [ "$mode" = --all ] && return 0
+  _ee_rc=0
+  printf '%s\n' "$FORGE_FILES" > "$FORGE_TMP/env.files"
+  while IFS= read -r _ee_f; do
+    [ -f "$_ee_f" ] || continue
+    case $1 in
+      py) grep -q 'BaseSettings' "$_ee_f" || continue ;;
+      ts) grep -qE 'createEnv\(|process\.env' "$_ee_f" && grep -q 'z\.' "$_ee_f" || continue ;;
+    esac
+    _ee_d=$(dirname "$_ee_f")
+    while :; do
+      _ee_t=$(ls -A "$_ee_d" 2>/dev/null | grep -E '^\.env(\.[A-Za-z0-9_-]+)?\.(example|template|sample|dist)$')
+      [ -n "$_ee_t" ] || [ "$_ee_d" = . ] && break
+      _ee_d=$(dirname "$_ee_d")
+    done
+    [ -n "$_ee_t" ] || continue
+    _ee_names=''
+    : > "$FORGE_TMP/env.keys"
+    for _ee_x in $_ee_t; do
+      [ "$_ee_d" = . ] && _ee_p=$_ee_x || _ee_p="$_ee_d/$_ee_x"
+      _ee_names="${_ee_names:+$_ee_names, }$_ee_p"
+      sed -n -E 's/^[[:space:]]*(export[[:space:]]+)?#?[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=.*/\2/p' "$_ee_p" >> "$FORGE_TMP/env.keys"
+    done
+    "forge_env_fields_$1" "$_ee_f" > "$FORGE_TMP/env.fields"
+    awk -F '\t' -v f="$_ee_f" -v t="$_ee_names" '
+      function found(k,   h) { if (k in have) return 1; for (h in have) if (index(h, k "_") == 1) return 1; return 0 }
+      FILENAME == ARGV[1] { have[toupper($0)] = 1; next }
+      { n++; ln[n] = $1; key[n] = $2; rq[n] = $3; g[n] = $4; tot[$4]++; if (found(toupper($2))) got[$4]++ }
+      END {
+        for (j = 1; j <= n; j++) {
+          if (!got[g[j]] || found(toupper(key[j]))) continue
+          if (rq[j] || got[g[j]] * 2 >= tot[g[j]]) {
+            print f ":" ln[j] ": " key[j] " is not in " t "; add it there (a placeholder value is fine) so the next person to set up the project knows it exists"
+            bad = 1
+          }
+        }
+        exit bad
+      }' "$FORGE_TMP/env.keys" "$FORGE_TMP/env.fields" || _ee_rc=1
+  done < "$FORGE_TMP/env.files"
+  return "$_ee_rc"
 }
 
 # forge_related_py_tests <files>: changed test files plus tests/**/test_<module>.py
@@ -3912,7 +4144,7 @@ tsc() { forge_exec_tool tsc "$@"; }
 prisma() { forge_exec_tool prisma "$@"; }
 vitest() { forge_exec_tool vitest "$@"; }
 playwright() { forge_exec_tool playwright "$@"; }
-FORGE_NCHECKS=18
+FORGE_NCHECKS=19
 
 # 1. typescript/bun/lock-sync
 forge_check_meta_1() {
@@ -3971,11 +4203,11 @@ forge_check_run_4() {
 forge_ratchet bun ratchet.mjs
 }
 
-# 5. typescript/format-lint
+# 5. typescript/env-example
 forge_check_meta_5() {
-  c_id='typescript/format-lint'; c_stage=lint; c_tools='biome'
+  c_id='typescript/env-example'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=1
+  c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_5() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -3983,142 +4215,143 @@ forge_scope_5() {
 }
 forge_when_5() { return 1; }
 forge_check_run_5() {
+forge_env_example ts
+}
+
+# 6. typescript/format-lint
+forge_check_meta_6() {
+  c_id='typescript/format-lint'; c_stage=lint; c_tools='biome'
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=1; c_files=1; c_fix=1
+}
+forge_scope_6() {
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+forge_when_6() { return 1; }
+forge_check_run_6() {
 biome ci .
 }
-forge_check_changed_5() {
+forge_check_changed_6() {
 biome check --write --no-errors-on-unmatched $FORGE_FILES
 }
-forge_check_fix_5() {
+forge_check_fix_6() {
 biome check --write --formatter-enabled=false --skip=correctness/noUnusedImports --skip=correctness/noUnusedVariables --no-errors-on-unmatched $FORGE_FILES
 }
 
-# 6. typescript/no-ignore-deprecations
-forge_check_meta_6() {
+# 7. typescript/no-ignore-deprecations
+forge_check_meta_7() {
   c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_6() {
+forge_scope_7() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_6() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
-forge_check_run_6() {
+forge_when_7() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
+forge_check_run_7() {
 ! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')
 }
 
-# 7. typescript/no-unused-suppressions
-forge_check_meta_7() {
+# 8. typescript/no-unused-suppressions
+forge_check_meta_8() {
   c_id='typescript/no-unused-suppressions'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1; c_fix=0
 }
-forge_scope_7() {
+forge_scope_8() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_7() { return 1; }
-forge_check_run_7() {
+forge_when_8() { return 1; }
+forge_check_run_8() {
 ! biome lint --colors=off --max-diagnostics=none . 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
 }
-forge_check_changed_7() {
+forge_check_changed_8() {
 ! biome lint --colors=off --max-diagnostics=none --no-errors-on-unmatched $FORGE_FILES 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
 }
 
-# 8. typescript/playwright/axe
-forge_check_meta_8() {
+# 9. typescript/playwright/axe
+forge_check_meta_9() {
   c_id='typescript/playwright/axe'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_8() {
+forge_scope_9() {
   return 0
 }
-forge_when_8() { case $1 in package.json|e2e/*|*.spec.*|*/*.spec.*) return 0 ;; esac; return 1; }
-forge_check_run_8() {
+forge_when_9() { case $1 in package.json|e2e/*|*.spec.*|*/*.spec.*) return 0 ;; esac; return 1; }
+forge_check_run_9() {
 ! grep -q '"@axe-core/playwright"' package.json 2>/dev/null || git ls-files -z -- 'e2e/*' '*.spec.*' | xargs -0 grep -l AxeBuilder /dev/null | grep -q . || { echo 'package.json depends on @axe-core/playwright but no e2e test uses AxeBuilder'; false; }
 }
 
-# 9. typescript/playwright/no-test-edits
-forge_check_meta_9() {
+# 10. typescript/playwright/no-test-edits
+forge_check_meta_10() {
   c_id='typescript/playwright/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_9() {
+forge_scope_10() {
   case $1 in e2e/*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_9() { return 1; }
-forge_check_run_9() {
+forge_when_10() { return 1; }
+forge_check_run_10() {
 forge_test_edits
 }
 
-# 10. typescript/playwright/run
-forge_check_meta_10() {
-  c_id='typescript/playwright/run'; c_stage=test; c_tools='playwright'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
-}
-forge_scope_10() {
-  return 0
-}
-forge_when_10() { case $1 in e2e/*|playwright.config.*) return 0 ;; esac; return 1; }
-forge_check_run_10() {
-playwright test --reporter=line
-}
-
-# 11. typescript/prisma/client-generator
+# 11. typescript/playwright/run
 forge_check_meta_11() {
-  c_id='typescript/prisma/client-generator'; c_stage=lint; c_tools=''
+  c_id='typescript/playwright/run'; c_stage=test; c_tools='playwright'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_11() {
   return 0
 }
-forge_when_11() { case $1 in *.prisma|*/*.prisma) return 0 ;; esac; return 1; }
+forge_when_11() { case $1 in e2e/*|playwright.config.*) return 0 ;; esac; return 1; }
 forge_check_run_11() {
+playwright test --reporter=line
+}
+
+# 12. typescript/prisma/client-generator
+forge_check_meta_12() {
+  c_id='typescript/prisma/client-generator'; c_stage=lint; c_tools=''
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
+}
+forge_scope_12() {
+  return 0
+}
+forge_when_12() { case $1 in *.prisma|*/*.prisma) return 0 ;; esac; return 1; }
+forge_check_run_12() {
 ! grep -nE 'provider[[:space:]]*=[[:space:]]*"prisma-client-js"' /dev/null $(git ls-files '*.prisma')
 }
 
-# 12. typescript/prisma/migration-lint
-forge_check_meta_12() {
+# 13. typescript/prisma/migration-lint
+forge_check_meta_13() {
   c_id='typescript/prisma/migration-lint'; c_stage=migration; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1; c_fix=0
 }
-forge_scope_12() {
+forge_scope_13() {
   case $1 in prisma/migrations/migration.sql|prisma/migrations/*/migration.sql) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_12() { case $1 in prisma/migrations/*) return 0 ;; esac; return 1; }
-forge_check_run_12() {
+forge_when_13() { case $1 in prisma/migrations/*) return 0 ;; esac; return 1; }
+forge_check_run_13() {
 forge_squawk_files $(git ls-files 'prisma/migrations/*/migration.sql' | sort | tail -n 1)
 }
-forge_check_changed_12() {
+forge_check_changed_13() {
 forge_squawk_files $FORGE_FILES
 }
 
-# 13. typescript/prisma/migration-present
-forge_check_meta_13() {
+# 14. typescript/prisma/migration-present
+forge_check_meta_14() {
   c_id='typescript/prisma/migration-present'; c_stage=migration; c_tools='prisma'
   c_when=1; c_localdb=1; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
-}
-forge_scope_13() {
-  return 0
-}
-forge_when_13() { case $1 in prisma/schema.prisma) return 0 ;; esac; return 1; }
-forge_check_run_13() {
-if ! grep -q shadowDatabaseUrl prisma.config.ts 2>/dev/null; then echo "forge:typescript/prisma/migration-present skipped: no shadowDatabaseUrl in prisma.config.ts"; else prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code; fi
-}
-
-# 14. typescript/prisma/validate
-forge_check_meta_14() {
-  c_id='typescript/prisma/validate'; c_stage=migration; c_tools='prisma'
-  c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_14() {
@@ -4126,70 +4359,84 @@ forge_scope_14() {
 }
 forge_when_14() { case $1 in prisma/schema.prisma) return 0 ;; esac; return 1; }
 forge_check_run_14() {
+if ! grep -q shadowDatabaseUrl prisma.config.ts 2>/dev/null; then echo "forge:typescript/prisma/migration-present skipped: no shadowDatabaseUrl in prisma.config.ts"; else prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code; fi
+}
+
+# 15. typescript/prisma/validate
+forge_check_meta_15() {
+  c_id='typescript/prisma/validate'; c_stage=migration; c_tools='prisma'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
+}
+forge_scope_15() {
+  return 0
+}
+forge_when_15() { case $1 in prisma/schema.prisma) return 0 ;; esac; return 1; }
+forge_check_run_15() {
 prisma validate
 }
 
-# 15. typescript/typecheck
-forge_check_meta_15() {
+# 16. typescript/typecheck
+forge_check_meta_16() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_15() {
-  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
-  return 1
-}
-forge_when_15() { return 1; }
-forge_check_run_15() {
-tsc --noEmit -p tsconfig.json
-}
-
-# 16. typescript/vitest/no-test-edits
-forge_check_meta_16() {
-  c_id='typescript/vitest/no-test-edits'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
-}
 forge_scope_16() {
-  case $1 in e2e/*) return 1 ;; esac
-  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
 forge_when_16() { return 1; }
 forge_check_run_16() {
+tsc --noEmit -p tsconfig.json
+}
+
+# 17. typescript/vitest/no-test-edits
+forge_check_meta_17() {
+  c_id='typescript/vitest/no-test-edits'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
+}
+forge_scope_17() {
+  case $1 in e2e/*) return 1 ;; esac
+  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*) ;; *) return 1 ;; esac
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+forge_when_17() { return 1; }
+forge_check_run_17() {
 forge_test_edits
 }
 
-# 17. typescript/vitest/no-workspace-file
-forge_check_meta_17() {
+# 18. typescript/vitest/no-workspace-file
+forge_check_meta_18() {
   c_id='typescript/vitest/no-workspace-file'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_17() {
+forge_scope_18() {
   return 0
 }
-forge_when_17() { case $1 in vitest.*) return 0 ;; esac; return 1; }
-forge_check_run_17() {
+forge_when_18() { case $1 in vitest.*) return 0 ;; esac; return 1; }
+forge_check_run_18() {
 ! git ls-files 'vitest.workspace.*' | grep .
 }
 
-# 18. typescript/vitest/run
-forge_check_meta_18() {
+# 19. typescript/vitest/run
+forge_check_meta_19() {
   c_id='typescript/vitest/run'; c_stage=test; c_tools='vitest'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=1; c_files=0; c_fix=0
 }
-forge_scope_18() {
+forge_scope_19() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_18() { return 1; }
-forge_check_run_18() {
+forge_when_19() { return 1; }
+forge_check_run_19() {
 vitest run
 }
-forge_check_changed_18() {
+forge_check_changed_19() {
 vitest run --changed
 }
 
@@ -5165,6 +5412,107 @@ forge_models_registered() {
     _mr_rc=1
   done < "$FORGE_TMP/models.files"
   return "$_mr_rc"
+}
+
+# ---- Settings kept in sync with .env templates (python/env-example, typescript/env-example).
+
+# forge_env_fields_py <file>: "line<TAB>VAR<TAB>required<TAB>class" for each field of a
+# pydantic-settings BaseSettings subclass (env_prefix, alias, case_sensitive applied;
+# required = no default). Fields with AliasChoices / AliasPath are left out.
+forge_env_fields_py() {
+  awk '
+    function cls_of(l,   c) { c = l; sub(/^class[ \t]+/, "", c); sub(/[^A-Za-z0-9_].*$/, "", c); return c }
+    { line = $0; sub(/\r$/, "", line) }
+    line ~ /^class[ \t]/ { cls = (line ~ /\(.*BaseSettings.*\)[ \t]*:/) ? cls_of(line) : ""; body = ""; next }
+    line ~ /^[^ \t#]/ { cls = ""; next }
+    cls == "" || line ~ /^[ \t]*(#|$)/ { next }
+    {
+      ind = match(line, /[^ \t]/) - 1
+      if (body == "") body = ind
+    }
+    FNR == NR {
+      if (match(line, /env_prefix[ \t]*=[ \t]*["\047][^"\047]*["\047]/)) { p = substr(line, RSTART, RLENGTH); sub(/^[^"\047]*["\047]/, "", p); sub(/["\047]$/, "", p); pre[cls] = p }
+      if (line ~ /case_sensitive[ \t]*=[ \t]*True/) cs[cls] = 1
+      next
+    }
+    ind == body && line ~ /^[ \t]*[A-Za-z_][A-Za-z0-9_]*[ \t]*:/ {
+      name = line; sub(/^[ \t]*/, "", name); sub(/[ \t]*:.*$/, "", name)
+      rest = line; sub(/^[^:]*:/, "", rest)
+      if (name == "model_config" || rest ~ /ClassVar|AliasChoices|AliasPath/) next
+      key = pre[cls] name
+      if (match(rest, /(validation_alias|alias)[ \t]*=[ \t]*["\047][^"\047]+["\047]/)) { key = substr(rest, RSTART, RLENGTH); sub(/^[^"\047]*["\047]/, "", key); sub(/["\047]$/, "", key) }
+      if (!cs[cls]) key = toupper(key)
+      req = 1
+      if (match(rest, /[ \t]=([ \t]|$)/)) {
+        v = substr(rest, RSTART + RLENGTH); sub(/^[ \t]+/, "", v)
+        req = 0
+        if (v ~ /^([A-Za-z_]+\.)?Field\(/) {
+          sub(/^[^(]*\([ \t]*/, "", v)
+          if (v ~ /^(\.\.\.|\))/) req = 1
+          else if (v ~ /^[a-z_]+[ \t]*=/ && v !~ /default(_factory)?[ \t]*=/) req = 1
+        }
+      }
+      print FNR "\t" key "\t" req "\t" cls
+    }' "$1" "$1"
+}
+
+# forge_env_fields_ts <file>: the same for the keys of a Zod env schema (t3-env
+# createEnv, or z.object(...) parsed from process.env): UPPER_CASE keys whose value is a
+# z. chain on the same line; required = no .default(), .optional() or .catch().
+forge_env_fields_ts() {
+  awk '
+    match($0, /^[ \t]*["\047]?[A-Z][A-Z0-9_]*["\047]?[ \t]*:[ \t]*z\./) {
+      k = $0; sub(/^[ \t]*["\047]?/, "", k); sub(/[^A-Z0-9_].*$/, "", k)
+      print FNR "\t" k "\t" ($0 ~ /\.(default|optional|catch)\(/ ? 0 : 1) "\tenv"
+    }' "$1"
+}
+
+# forge_env_example <py|ts>: Stop and pre-commit, not --all. A settings field or env schema
+# key added in the change appears in the .env template of the nearest directory that has
+# one (.env.example, .env.template, .env.sample, .env.dist, .env.<name>.example): always
+# when it has no default, and also with a default when the template already lists at
+# least half of that class's variables. A template that lists none of them is not about it.
+forge_env_example() {
+  [ "$mode" = --all ] && return 0
+  _ee_rc=0
+  printf '%s\n' "$FORGE_FILES" > "$FORGE_TMP/env.files"
+  while IFS= read -r _ee_f; do
+    [ -f "$_ee_f" ] || continue
+    case $1 in
+      py) grep -q 'BaseSettings' "$_ee_f" || continue ;;
+      ts) grep -qE 'createEnv\(|process\.env' "$_ee_f" && grep -q 'z\.' "$_ee_f" || continue ;;
+    esac
+    _ee_d=$(dirname "$_ee_f")
+    while :; do
+      _ee_t=$(ls -A "$_ee_d" 2>/dev/null | grep -E '^\.env(\.[A-Za-z0-9_-]+)?\.(example|template|sample|dist)$')
+      [ -n "$_ee_t" ] || [ "$_ee_d" = . ] && break
+      _ee_d=$(dirname "$_ee_d")
+    done
+    [ -n "$_ee_t" ] || continue
+    _ee_names=''
+    : > "$FORGE_TMP/env.keys"
+    for _ee_x in $_ee_t; do
+      [ "$_ee_d" = . ] && _ee_p=$_ee_x || _ee_p="$_ee_d/$_ee_x"
+      _ee_names="${_ee_names:+$_ee_names, }$_ee_p"
+      sed -n -E 's/^[[:space:]]*(export[[:space:]]+)?#?[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=.*/\2/p' "$_ee_p" >> "$FORGE_TMP/env.keys"
+    done
+    "forge_env_fields_$1" "$_ee_f" > "$FORGE_TMP/env.fields"
+    awk -F '\t' -v f="$_ee_f" -v t="$_ee_names" '
+      function found(k,   h) { if (k in have) return 1; for (h in have) if (index(h, k "_") == 1) return 1; return 0 }
+      FILENAME == ARGV[1] { have[toupper($0)] = 1; next }
+      { n++; ln[n] = $1; key[n] = $2; rq[n] = $3; g[n] = $4; tot[$4]++; if (found(toupper($2))) got[$4]++ }
+      END {
+        for (j = 1; j <= n; j++) {
+          if (!got[g[j]] || found(toupper(key[j]))) continue
+          if (rq[j] || got[g[j]] * 2 >= tot[g[j]]) {
+            print f ":" ln[j] ": " key[j] " is not in " t "; add it there (a placeholder value is fine) so the next person to set up the project knows it exists"
+            bad = 1
+          }
+        }
+        exit bad
+      }' "$FORGE_TMP/env.keys" "$FORGE_TMP/env.fields" || _ee_rc=1
+  done < "$FORGE_TMP/env.files"
+  return "$_ee_rc"
 }
 
 # forge_related_py_tests <files>: changed test files plus tests/**/test_<module>.py
@@ -6914,7 +7262,7 @@ tsc() { forge_exec_tool tsc "$@"; }
 prisma() { forge_exec_tool prisma "$@"; }
 vitest() { forge_exec_tool vitest "$@"; }
 playwright() { forge_exec_tool playwright "$@"; }
-FORGE_NCHECKS=18
+FORGE_NCHECKS=19
 
 # 1. typescript/bun/lock-sync
 forge_check_meta_1() {
@@ -6973,11 +7321,11 @@ forge_check_run_4() {
 forge_ratchet bun ratchet.mjs
 }
 
-# 5. typescript/format-lint
+# 5. typescript/env-example
 forge_check_meta_5() {
-  c_id='typescript/format-lint'; c_stage=lint; c_tools='biome'
+  c_id='typescript/env-example'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=1
+  c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_5() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -6985,142 +7333,143 @@ forge_scope_5() {
 }
 forge_when_5() { return 1; }
 forge_check_run_5() {
+forge_env_example ts
+}
+
+# 6. typescript/format-lint
+forge_check_meta_6() {
+  c_id='typescript/format-lint'; c_stage=lint; c_tools='biome'
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=1; c_files=1; c_fix=1
+}
+forge_scope_6() {
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+forge_when_6() { return 1; }
+forge_check_run_6() {
 biome ci .
 }
-forge_check_changed_5() {
+forge_check_changed_6() {
 biome check --write --no-errors-on-unmatched $FORGE_FILES
 }
-forge_check_fix_5() {
+forge_check_fix_6() {
 biome check --write --formatter-enabled=false --skip=correctness/noUnusedImports --skip=correctness/noUnusedVariables --no-errors-on-unmatched $FORGE_FILES
 }
 
-# 6. typescript/no-ignore-deprecations
-forge_check_meta_6() {
+# 7. typescript/no-ignore-deprecations
+forge_check_meta_7() {
   c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_6() {
+forge_scope_7() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_6() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
-forge_check_run_6() {
+forge_when_7() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
+forge_check_run_7() {
 ! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')
 }
 
-# 7. typescript/no-unused-suppressions
-forge_check_meta_7() {
+# 8. typescript/no-unused-suppressions
+forge_check_meta_8() {
   c_id='typescript/no-unused-suppressions'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1; c_fix=0
 }
-forge_scope_7() {
+forge_scope_8() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_7() { return 1; }
-forge_check_run_7() {
+forge_when_8() { return 1; }
+forge_check_run_8() {
 ! biome lint --colors=off --max-diagnostics=none . 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
 }
-forge_check_changed_7() {
+forge_check_changed_8() {
 ! biome lint --colors=off --max-diagnostics=none --no-errors-on-unmatched $FORGE_FILES 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
 }
 
-# 8. typescript/playwright/axe
-forge_check_meta_8() {
+# 9. typescript/playwright/axe
+forge_check_meta_9() {
   c_id='typescript/playwright/axe'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_8() {
+forge_scope_9() {
   return 0
 }
-forge_when_8() { case $1 in package.json|e2e/*|*.spec.*|*/*.spec.*) return 0 ;; esac; return 1; }
-forge_check_run_8() {
+forge_when_9() { case $1 in package.json|e2e/*|*.spec.*|*/*.spec.*) return 0 ;; esac; return 1; }
+forge_check_run_9() {
 ! grep -q '"@axe-core/playwright"' package.json 2>/dev/null || git ls-files -z -- 'e2e/*' '*.spec.*' | xargs -0 grep -l AxeBuilder /dev/null | grep -q . || { echo 'package.json depends on @axe-core/playwright but no e2e test uses AxeBuilder'; false; }
 }
 
-# 9. typescript/playwright/no-test-edits
-forge_check_meta_9() {
+# 10. typescript/playwright/no-test-edits
+forge_check_meta_10() {
   c_id='typescript/playwright/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_9() {
+forge_scope_10() {
   case $1 in e2e/*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_9() { return 1; }
-forge_check_run_9() {
+forge_when_10() { return 1; }
+forge_check_run_10() {
 forge_test_edits
 }
 
-# 10. typescript/playwright/run
-forge_check_meta_10() {
-  c_id='typescript/playwright/run'; c_stage=test; c_tools='playwright'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
-}
-forge_scope_10() {
-  return 0
-}
-forge_when_10() { case $1 in e2e/*|playwright.config.*) return 0 ;; esac; return 1; }
-forge_check_run_10() {
-playwright test --reporter=line
-}
-
-# 11. typescript/prisma/client-generator
+# 11. typescript/playwright/run
 forge_check_meta_11() {
-  c_id='typescript/prisma/client-generator'; c_stage=lint; c_tools=''
+  c_id='typescript/playwright/run'; c_stage=test; c_tools='playwright'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_11() {
   return 0
 }
-forge_when_11() { case $1 in *.prisma|*/*.prisma) return 0 ;; esac; return 1; }
+forge_when_11() { case $1 in e2e/*|playwright.config.*) return 0 ;; esac; return 1; }
 forge_check_run_11() {
+playwright test --reporter=line
+}
+
+# 12. typescript/prisma/client-generator
+forge_check_meta_12() {
+  c_id='typescript/prisma/client-generator'; c_stage=lint; c_tools=''
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
+}
+forge_scope_12() {
+  return 0
+}
+forge_when_12() { case $1 in *.prisma|*/*.prisma) return 0 ;; esac; return 1; }
+forge_check_run_12() {
 ! grep -nE 'provider[[:space:]]*=[[:space:]]*"prisma-client-js"' /dev/null $(git ls-files '*.prisma')
 }
 
-# 12. typescript/prisma/migration-lint
-forge_check_meta_12() {
+# 13. typescript/prisma/migration-lint
+forge_check_meta_13() {
   c_id='typescript/prisma/migration-lint'; c_stage=migration; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1; c_fix=0
 }
-forge_scope_12() {
+forge_scope_13() {
   case $1 in prisma/migrations/migration.sql|prisma/migrations/*/migration.sql) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_12() { case $1 in prisma/migrations/*) return 0 ;; esac; return 1; }
-forge_check_run_12() {
+forge_when_13() { case $1 in prisma/migrations/*) return 0 ;; esac; return 1; }
+forge_check_run_13() {
 forge_squawk_files $(git ls-files 'prisma/migrations/*/migration.sql' | sort | tail -n 1)
 }
-forge_check_changed_12() {
+forge_check_changed_13() {
 forge_squawk_files $FORGE_FILES
 }
 
-# 13. typescript/prisma/migration-present
-forge_check_meta_13() {
+# 14. typescript/prisma/migration-present
+forge_check_meta_14() {
   c_id='typescript/prisma/migration-present'; c_stage=migration; c_tools='prisma'
   c_when=1; c_localdb=1; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
-}
-forge_scope_13() {
-  return 0
-}
-forge_when_13() { case $1 in prisma/schema.prisma) return 0 ;; esac; return 1; }
-forge_check_run_13() {
-if ! grep -q shadowDatabaseUrl prisma.config.ts 2>/dev/null; then echo "forge:typescript/prisma/migration-present skipped: no shadowDatabaseUrl in prisma.config.ts"; else prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code; fi
-}
-
-# 14. typescript/prisma/validate
-forge_check_meta_14() {
-  c_id='typescript/prisma/validate'; c_stage=migration; c_tools='prisma'
-  c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_14() {
@@ -7128,70 +7477,84 @@ forge_scope_14() {
 }
 forge_when_14() { case $1 in prisma/schema.prisma) return 0 ;; esac; return 1; }
 forge_check_run_14() {
+if ! grep -q shadowDatabaseUrl prisma.config.ts 2>/dev/null; then echo "forge:typescript/prisma/migration-present skipped: no shadowDatabaseUrl in prisma.config.ts"; else prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code; fi
+}
+
+# 15. typescript/prisma/validate
+forge_check_meta_15() {
+  c_id='typescript/prisma/validate'; c_stage=migration; c_tools='prisma'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
+}
+forge_scope_15() {
+  return 0
+}
+forge_when_15() { case $1 in prisma/schema.prisma) return 0 ;; esac; return 1; }
+forge_check_run_15() {
 prisma validate
 }
 
-# 15. typescript/typecheck
-forge_check_meta_15() {
+# 16. typescript/typecheck
+forge_check_meta_16() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_15() {
-  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
-  return 1
-}
-forge_when_15() { return 1; }
-forge_check_run_15() {
-tsc --noEmit -p tsconfig.json
-}
-
-# 16. typescript/vitest/no-test-edits
-forge_check_meta_16() {
-  c_id='typescript/vitest/no-test-edits'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
-}
 forge_scope_16() {
-  case $1 in e2e/*) return 1 ;; esac
-  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
 forge_when_16() { return 1; }
 forge_check_run_16() {
+tsc --noEmit -p tsconfig.json
+}
+
+# 17. typescript/vitest/no-test-edits
+forge_check_meta_17() {
+  c_id='typescript/vitest/no-test-edits'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
+}
+forge_scope_17() {
+  case $1 in e2e/*) return 1 ;; esac
+  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*) ;; *) return 1 ;; esac
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+forge_when_17() { return 1; }
+forge_check_run_17() {
 forge_test_edits
 }
 
-# 17. typescript/vitest/no-workspace-file
-forge_check_meta_17() {
+# 18. typescript/vitest/no-workspace-file
+forge_check_meta_18() {
   c_id='typescript/vitest/no-workspace-file'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_17() {
+forge_scope_18() {
   return 0
 }
-forge_when_17() { case $1 in vitest.*) return 0 ;; esac; return 1; }
-forge_check_run_17() {
+forge_when_18() { case $1 in vitest.*) return 0 ;; esac; return 1; }
+forge_check_run_18() {
 ! git ls-files 'vitest.workspace.*' | grep .
 }
 
-# 18. typescript/vitest/run
-forge_check_meta_18() {
+# 19. typescript/vitest/run
+forge_check_meta_19() {
   c_id='typescript/vitest/run'; c_stage=test; c_tools='vitest'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=1; c_files=0; c_fix=0
 }
-forge_scope_18() {
+forge_scope_19() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_18() { return 1; }
-forge_check_run_18() {
+forge_when_19() { return 1; }
+forge_check_run_19() {
 vitest run
 }
-forge_check_changed_18() {
+forge_check_changed_19() {
 vitest run --changed
 }
 
@@ -8169,6 +8532,107 @@ forge_models_registered() {
   return "$_mr_rc"
 }
 
+# ---- Settings kept in sync with .env templates (python/env-example, typescript/env-example).
+
+# forge_env_fields_py <file>: "line<TAB>VAR<TAB>required<TAB>class" for each field of a
+# pydantic-settings BaseSettings subclass (env_prefix, alias, case_sensitive applied;
+# required = no default). Fields with AliasChoices / AliasPath are left out.
+forge_env_fields_py() {
+  awk '
+    function cls_of(l,   c) { c = l; sub(/^class[ \t]+/, "", c); sub(/[^A-Za-z0-9_].*$/, "", c); return c }
+    { line = $0; sub(/\r$/, "", line) }
+    line ~ /^class[ \t]/ { cls = (line ~ /\(.*BaseSettings.*\)[ \t]*:/) ? cls_of(line) : ""; body = ""; next }
+    line ~ /^[^ \t#]/ { cls = ""; next }
+    cls == "" || line ~ /^[ \t]*(#|$)/ { next }
+    {
+      ind = match(line, /[^ \t]/) - 1
+      if (body == "") body = ind
+    }
+    FNR == NR {
+      if (match(line, /env_prefix[ \t]*=[ \t]*["\047][^"\047]*["\047]/)) { p = substr(line, RSTART, RLENGTH); sub(/^[^"\047]*["\047]/, "", p); sub(/["\047]$/, "", p); pre[cls] = p }
+      if (line ~ /case_sensitive[ \t]*=[ \t]*True/) cs[cls] = 1
+      next
+    }
+    ind == body && line ~ /^[ \t]*[A-Za-z_][A-Za-z0-9_]*[ \t]*:/ {
+      name = line; sub(/^[ \t]*/, "", name); sub(/[ \t]*:.*$/, "", name)
+      rest = line; sub(/^[^:]*:/, "", rest)
+      if (name == "model_config" || rest ~ /ClassVar|AliasChoices|AliasPath/) next
+      key = pre[cls] name
+      if (match(rest, /(validation_alias|alias)[ \t]*=[ \t]*["\047][^"\047]+["\047]/)) { key = substr(rest, RSTART, RLENGTH); sub(/^[^"\047]*["\047]/, "", key); sub(/["\047]$/, "", key) }
+      if (!cs[cls]) key = toupper(key)
+      req = 1
+      if (match(rest, /[ \t]=([ \t]|$)/)) {
+        v = substr(rest, RSTART + RLENGTH); sub(/^[ \t]+/, "", v)
+        req = 0
+        if (v ~ /^([A-Za-z_]+\.)?Field\(/) {
+          sub(/^[^(]*\([ \t]*/, "", v)
+          if (v ~ /^(\.\.\.|\))/) req = 1
+          else if (v ~ /^[a-z_]+[ \t]*=/ && v !~ /default(_factory)?[ \t]*=/) req = 1
+        }
+      }
+      print FNR "\t" key "\t" req "\t" cls
+    }' "$1" "$1"
+}
+
+# forge_env_fields_ts <file>: the same for the keys of a Zod env schema (t3-env
+# createEnv, or z.object(...) parsed from process.env): UPPER_CASE keys whose value is a
+# z. chain on the same line; required = no .default(), .optional() or .catch().
+forge_env_fields_ts() {
+  awk '
+    match($0, /^[ \t]*["\047]?[A-Z][A-Z0-9_]*["\047]?[ \t]*:[ \t]*z\./) {
+      k = $0; sub(/^[ \t]*["\047]?/, "", k); sub(/[^A-Z0-9_].*$/, "", k)
+      print FNR "\t" k "\t" ($0 ~ /\.(default|optional|catch)\(/ ? 0 : 1) "\tenv"
+    }' "$1"
+}
+
+# forge_env_example <py|ts>: Stop and pre-commit, not --all. A settings field or env schema
+# key added in the change appears in the .env template of the nearest directory that has
+# one (.env.example, .env.template, .env.sample, .env.dist, .env.<name>.example): always
+# when it has no default, and also with a default when the template already lists at
+# least half of that class's variables. A template that lists none of them is not about it.
+forge_env_example() {
+  [ "$mode" = --all ] && return 0
+  _ee_rc=0
+  printf '%s\n' "$FORGE_FILES" > "$FORGE_TMP/env.files"
+  while IFS= read -r _ee_f; do
+    [ -f "$_ee_f" ] || continue
+    case $1 in
+      py) grep -q 'BaseSettings' "$_ee_f" || continue ;;
+      ts) grep -qE 'createEnv\(|process\.env' "$_ee_f" && grep -q 'z\.' "$_ee_f" || continue ;;
+    esac
+    _ee_d=$(dirname "$_ee_f")
+    while :; do
+      _ee_t=$(ls -A "$_ee_d" 2>/dev/null | grep -E '^\.env(\.[A-Za-z0-9_-]+)?\.(example|template|sample|dist)$')
+      [ -n "$_ee_t" ] || [ "$_ee_d" = . ] && break
+      _ee_d=$(dirname "$_ee_d")
+    done
+    [ -n "$_ee_t" ] || continue
+    _ee_names=''
+    : > "$FORGE_TMP/env.keys"
+    for _ee_x in $_ee_t; do
+      [ "$_ee_d" = . ] && _ee_p=$_ee_x || _ee_p="$_ee_d/$_ee_x"
+      _ee_names="${_ee_names:+$_ee_names, }$_ee_p"
+      sed -n -E 's/^[[:space:]]*(export[[:space:]]+)?#?[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=.*/\2/p' "$_ee_p" >> "$FORGE_TMP/env.keys"
+    done
+    "forge_env_fields_$1" "$_ee_f" > "$FORGE_TMP/env.fields"
+    awk -F '\t' -v f="$_ee_f" -v t="$_ee_names" '
+      function found(k,   h) { if (k in have) return 1; for (h in have) if (index(h, k "_") == 1) return 1; return 0 }
+      FILENAME == ARGV[1] { have[toupper($0)] = 1; next }
+      { n++; ln[n] = $1; key[n] = $2; rq[n] = $3; g[n] = $4; tot[$4]++; if (found(toupper($2))) got[$4]++ }
+      END {
+        for (j = 1; j <= n; j++) {
+          if (!got[g[j]] || found(toupper(key[j]))) continue
+          if (rq[j] || got[g[j]] * 2 >= tot[g[j]]) {
+            print f ":" ln[j] ": " key[j] " is not in " t "; add it there (a placeholder value is fine) so the next person to set up the project knows it exists"
+            bad = 1
+          }
+        }
+        exit bad
+      }' "$FORGE_TMP/env.keys" "$FORGE_TMP/env.fields" || _ee_rc=1
+  done < "$FORGE_TMP/env.files"
+  return "$_ee_rc"
+}
+
 # forge_related_py_tests <files>: changed test files plus tests/**/test_<module>.py
 # for each changed module, one per line.
 forge_related_py_tests() {
@@ -8736,6 +9200,7 @@ exit "$fail"
     "typescript/bun/trusted-deps": "a23199c6bb088f245f833db63f304fdc1c8f304167257caab8125af55bbda732",
     "typescript/config-files": "77940ff304752f88c143dedc5911b0961de9e16b68e10758a273cfc049505413",
     "typescript/config-ratchet": "b0ff3b6c064f691984e217acc0388d0900b1a2a1d1ee493935badb41a8a45022",
+    "typescript/env-example": "7eab3b03486670f6274d4db65487ccaaf7f2b1fddd39c86a13469cdf46d2140c",
     "typescript/format-lint": "873b5ec532051f0356d5a00590c714b3256104929a42c4d0fa4bdd1672ef295b",
     "typescript/nextjs/no-legacy-image-config": "3fe00293c75da57b6623c1880c86eadb54aa9fce686ac52ffc1720780763fec7",
     "typescript/nextjs/no-next-router": "e935af017296ba5db9752bf63ad22bea52eb27816f357b18532a1052590d14ea",
@@ -8825,12 +9290,12 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "d660d521eb000121521ebe466d5dc93771432139ae59b8d03789bbdadc142ab1",
     ".claude/skills/forge-project/scripts/guard.sh": "33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d",
     ".claude/skills/forge-project/scripts/lib.sh": "1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "cfc1bf52b6dec0f2056b35e84410f51cb96382a3bbea032002fbf485d8c30b2e",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "6ad8dc27e4c32aa670e9ce9d002857765ce25ce71196b4dbb5187b1cfa0d7ed3",
     ".claude/skills/forge-project/scripts/review.sh": "9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac",
-    ".claude/skills/forge-project/scripts/session-start.sh": "340749499b33859e84e41f3831bc3e0512cea7ffa22597c6e21baf6f61b80fb4",
+    ".claude/skills/forge-project/scripts/session-start.sh": "98bb038c83e8d7370d5871de2be82a0431dc5745044ae5a2fb64e4b5dfa500b1",
     ".claude/skills/forge-project/scripts/stop.sh": "f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173",
     ".claude/skills/forge-project/scripts/turn-start.sh": "a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "c45d737c2a33c025af7d6034fb9af5482091011e46121b21a85a6033ce0a458a",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "9f816093598614ebdd2a9a75954fd22f7aebef718a221ea187b4e0a6895fcb0a",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-nextjs-no-legacy-image-config-test.yml": "9d723e3c62b5697de0fa5ab80b735c3cef23225a07c81425c492cd8827faf06d",
     ".forge/ast-grep/rule-tests/typescript-nextjs-no-next-router-test.yml": "5da1551f9fa49969cdbfb6ef3ba847589327a2d7430a3cdc79f3637fc81586f1",
@@ -8893,7 +9358,7 @@ exit "$fail"
     ".forge/ast-grep/rules/typescript/zod/error-param.yml": "88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a",
     ".forge/ast-grep/rules/typescript/zod/v4-string-formats.yml": "a7503c000f128a4718f29b0122170295972560de99263354d6ed0db1a8cb099c",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "df10e045bc40f961715cca461043f9bfd071f230991ccc81076150f44afd8405",
+    ".forge/check.sh": "2637f7113fd46195798a28dcb034b2243a83778175fabe703f8ebfc67f138b12",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -8960,12 +9425,12 @@ d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills
 d660d521eb000121521ebe466d5dc93771432139ae59b8d03789bbdadc142ab1  .claude/skills/forge-project/scripts/guard.rules
 33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d  .claude/skills/forge-project/scripts/guard.sh
 1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a  .claude/skills/forge-project/scripts/lib.sh
-cfc1bf52b6dec0f2056b35e84410f51cb96382a3bbea032002fbf485d8c30b2e  .claude/skills/forge-project/scripts/post-edit.sh
+6ad8dc27e4c32aa670e9ce9d002857765ce25ce71196b4dbb5187b1cfa0d7ed3  .claude/skills/forge-project/scripts/post-edit.sh
 9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac  .claude/skills/forge-project/scripts/review.sh
-340749499b33859e84e41f3831bc3e0512cea7ffa22597c6e21baf6f61b80fb4  .claude/skills/forge-project/scripts/session-start.sh
+98bb038c83e8d7370d5871de2be82a0431dc5745044ae5a2fb64e4b5dfa500b1  .claude/skills/forge-project/scripts/session-start.sh
 f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173  .claude/skills/forge-project/scripts/stop.sh
 a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c  .claude/skills/forge-project/scripts/turn-start.sh
-c45d737c2a33c025af7d6034fb9af5482091011e46121b21a85a6033ce0a458a  .claude/skills/forge-project/scripts/typecheck.sh
+9f816093598614ebdd2a9a75954fd22f7aebef718a221ea187b4e0a6895fcb0a  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 9d723e3c62b5697de0fa5ab80b735c3cef23225a07c81425c492cd8827faf06d  .forge/ast-grep/rule-tests/typescript-nextjs-no-legacy-image-config-test.yml
 5da1551f9fa49969cdbfb6ef3ba847589327a2d7430a3cdc79f3637fc81586f1  .forge/ast-grep/rule-tests/typescript-nextjs-no-next-router-test.yml
@@ -9028,7 +9493,7 @@ d3c41a3915d84b21e86e9212a06ad14c52bf2f9bcefb7c5ca433200cc3ec44fb  .forge/ast-gre
 88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a  .forge/ast-grep/rules/typescript/zod/error-param.yml
 a7503c000f128a4718f29b0122170295972560de99263354d6ed0db1a8cb099c  .forge/ast-grep/rules/typescript/zod/v4-string-formats.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-df10e045bc40f961715cca461043f9bfd071f230991ccc81076150f44afd8405  .forge/check.sh
+2637f7113fd46195798a28dcb034b2243a83778175fabe703f8ebfc67f138b12  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh
