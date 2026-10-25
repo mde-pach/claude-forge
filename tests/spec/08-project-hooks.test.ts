@@ -39,6 +39,8 @@ function stubTool(name: string, body: string) {
   writeFileSync(p, `#!/bin/sh\n${body}\n`);
   chmodSync(p, 0o755);
 }
+/** A test added with a clean change, so the change is not "untested" (python/pytest/untested-change). */
+const OK_TEST = "def test_ok() -> None:\n    assert 1 + 1 == 2\n";
 const edit = (rel: string) => ({ tool_name: "Edit", tool_input: { file_path: join(repo, rel) } });
 
 beforeAll(() => {
@@ -769,6 +771,7 @@ describe("Stop", () => {
       // within a turn, the pass is remembered in the turn's snapshot
       hook("turn-start.sh", { session_id: "s-2" });
       put(repo, "app/ok.py", "X = 1\n");
+      put(repo, "tests/test_ok.py", OK_TEST);
       expect(hook("stop.sh", { session_id: "s-2" }).stdout).toBe("");
       expect(existsSync(join(repo, ".forge/state/s-2.turn/pass"))).toBe(true);
       reset();
@@ -846,6 +849,7 @@ describe("Stop", () => {
       put(repo, "app/wip.py", "def f(session):\n    return session.query(1)\n");
       hook("turn-start.sh", { session_id: "t-6" });
       put(repo, "app/ok.py", "X = 1\n");
+      put(repo, "tests/test_ok.py", OK_TEST);
       expect(hook("stop.sh", { session_id: "t-6" }).stdout).toBe("");
       reset();
     },
@@ -859,6 +863,7 @@ describe("Stop", () => {
       put(repo, "app/wip.py", "def f(session):\n    return session.query(1)\n");
       hook("turn-start.sh", { session_id: "t-7" });
       put(repo, "app/wip.py", "def f(session):\n    return session.query(1)\n\n\nX = 1\n");
+      put(repo, "tests/test_wip.py", OK_TEST);
       expect(hook("stop.sh", { session_id: "t-7" }).stdout).toBe("");
       hook("turn-start.sh", { session_id: "t-7" });
       put(repo, "app/wip.py", "def f(session):\n    return session.query(1)\n\n\ndef g(session):\n    return session.query(2)\n");
@@ -1040,6 +1045,28 @@ describe("Stop", () => {
       const reason = JSON.parse(hook("stop.sh", { session_id: "t-11" }).stdout).reason;
       expect(reason).toContain('forge:python/pytest/no-test-edits failed\ntests/test_main.py: test "test_health" was changed');
       expect(sh("sh", [".forge/check.sh", "--changed"], { cwd: repo }).stdout).not.toContain("no-test-edits");
+      reset();
+    },
+    T,
+  );
+
+  /**
+   * Advisory checks (§10.6) report something Claude may have a reason to leave as
+   * it is: they block Stop once, and the next Stop of the same turn passes.
+   */
+  /** @rule python/pytest/untested-change */
+  test(
+    "an advisory check blocks Stop once per turn: the next Stop of the same turn passes, a new prompt re-arms it, pre-commit does not run it",
+    () => {
+      hook("turn-start.sh", { session_id: "t-12" });
+      put(repo, "app/ok.py", "X = 1\n");
+      const reason = JSON.parse(hook("stop.sh", { session_id: "t-12" }).stdout).reason;
+      expect(reason).toContain("forge:python/pytest/untested-change failed\nYou changed behaviour in app/ok.py without adding or updating a test");
+      expect(hook("stop.sh", { session_id: "t-12" }).stdout).toBe("");
+      expect(sh("sh", [".forge/check.sh", "--changed"], { cwd: repo }).stdout).not.toContain("untested-change");
+      hook("turn-start.sh", { session_id: "t-12" });
+      put(repo, "app/ok.py", "X = 2\n");
+      expect(JSON.parse(hook("stop.sh", { session_id: "t-12" }).stdout).reason).toContain("forge:python/pytest/untested-change failed");
       reset();
     },
     T,

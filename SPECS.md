@@ -75,7 +75,7 @@ Every requirement uses MUST / MUST NOT. Anything not described here is out of sc
 
 ### 5.1 Packs
 
-Packs form a tree: **language first, then package, then sub-package** (`typescript` → `typescript/nextjs` → `typescript/nextjs/react`). The same package can appear under several parents with different rules (`typescript/nextjs/react`, `typescript/astro/react`). User-level packs that are not tied to a language (`safety`) are roots of their own.
+Packs form a tree: **language first, then package, then sub-package** (`typescript` → `typescript/nextjs` → `typescript/nextjs/react`). The same package can appear under several parents with different rules (`typescript/nextjs/react`, `typescript/astro/react`). Packs that are not tied to a language are roots of their own: `safety` (user level), `docs` (project level).
 
 `packs/<path>/pack.yaml`:
 
@@ -411,6 +411,16 @@ Under `--turn` (Stop), a failing `test` check with a `rerun` form is compared wi
 
 The first such Stop always blocks: the agent learns that the environment, not its change, keeps the tests from verifying it, and gets one chance to fix that.
 
+### 10.7 Advisory checks
+
+Some checks report what Claude may have a good reason to leave as it is. A `check` whose `run` is `forge_advise <helper> [args]` is **advisory**: it acts only at Stop (`--turn`); when `<helper>` prints something, the check fails with that output and writes the marker `<snapshot>/advised/<rule-id with / as _>`, and while the marker exists the check passes without running. The next Stop of the same turn therefore passes, whether or not Claude acted on the advice (it is expected to act, or to say why not); the next prompt's snapshot re-arms it. Pre-commit and CI do not run advisory checks. The check also creates `$FORGE_ONCE` (§10.2 step 5), so Stop does not replay that failure on the same tree. Advice does not stop the steps after it (§10.1): the later stages still run, and check.sh exits 1 at the end when advice was the only failure.
+
+| Helper | Prints |
+|---|---|
+| `forge_untested_change` | when the change has a code line (not blank, not only a comment) added or removed in an in-scope file and no existing file matching `FORGE_TEST_PATH_ERE` (pytest, Vitest and Playwright test paths) changed: "You changed behaviour in <files, up to 3> without adding or updating a test; add a test that fails without your change, or say why none is needed." |
+| `forge_stub_sync` | for each changed `*.py` module that gained public names (the entries of `__all__` when it has one, else top-level `def` / `class` names without `_`; compared with the base's names) and each `.pyi` in the repository with the same module path inside its top-level package (packages are directories with `__init__.py` or `__init__.pyi`: `logfire/experimental/query_client.py` ↔ `logfire-api/logfire_api/experimental/query_client.pyi`), the new names the stub does not mention: "The stub <pyi> does not have <names>, new in <py>; add it there too." |
+| `forge_docs_mentions` | when no documentation file changed (Markdown, MDX or reStructuredText under a `docs/` or `doc/` directory, and `README*`): the public names whose definition the change added, removed or edited on a removed or added line of an in-scope file (Python `def`, `class`, annotated names and parameters, module-level assignments; TypeScript and JavaScript `export` declarations, optional properties `name?:`, typed members `name: T;`, methods with a modifier; a line that only moved does not count; names starting with `_`, shorter than 4 characters or on a stop list of common words are dropped), then the documentation lines mentioning one (as a whole word; a name without `_` or an inner capital only in a code span or a fenced block): "These docs mention identifiers you changed; check they still describe the behaviour:" and up to 5 `path:line name` lines. |
+
 ## 11. Audit of tool targets
 
 For each `tool` target of an active rule:
@@ -510,6 +520,7 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `python/no-unsafe-yaml` | `tool` ruff `S506` |
 | `python/jinja-autoescape` | `tool` ruff `S701` |
 | `python/no-stub` | `ast-grep` forbid, not in `*.pyi` or migrations: a function whose body is only `pass` / `...` (docstrings and comments aside), or `raise NotImplementedError`, outside `@abstractmethod`, `@overload` and `Protocol` / `ABC` classes |
+| `python/stub-sync` | `check` lint, advisory (§10.7): `forge_stub_sync` on `*.py` |
 | `python/no-placeholder-comment` | `grep` forbid (case-insensitive): comments such as `TODO: implement`, "in a real implementation", "placeholder logic", "stub for now" |
 
 context.md: uv and `.venv/bin`, basedpyright; no blocking calls in `async def`; ignore comments name their rule.
@@ -611,6 +622,7 @@ context.md: "Pydantic v2: `model_validate`, `model_dump`, `model_config = Config
 | `python/pytest/no-tautological-assert` | `ast-grep` forbid on test files: `assert` on a literal (`True`, a number, a string), `assert $X == $X`, `assert $X is $X` |
 | `python/pytest/no-mock-increase` | `ast-grep` no-increase on test files: calls to `patch`, `patch.object`, `patch.dict`, `MagicMock`, `AsyncMock`, `Mock` (bare, `mock.`, `unittest.mock.` or `mocker.`), `monkeypatch.setattr` |
 | `python/pytest/no-test-edits` | `check` lint: `forge_test_edits` on `**/test_*.py`, `**/*_test.py`, `**/conftest.py`; edits ask (§10.5); `review`: is the change required by the user's request, or does it weaken the tests |
+| `python/pytest/untested-change` | `check` lint, advisory (§10.7): `forge_untested_change` on non-test `*.py` (not migrations) |
 
 context.md: tests assert behaviour, never weakened; "When the task changes behaviour an existing test asserts, update that test in place with Edit or Write (keep its name; Forge asks for approval) and say so in your summary. Otherwise never edit an existing test to make the code pass."
 
@@ -710,6 +722,7 @@ context.md: Prisma 7: `prisma-client` generator with `output`, driver adapters, 
 
 | `typescript/vitest/no-mock-increase` | `ast-grep` no-increase on test files: `vi.mock`, `vi.doMock`, `vi.spyOn`, `vi.fn` calls |
 | `typescript/vitest/no-test-edits` | `check` lint: `forge_test_edits` on `**/*.test.*`, `**/*.spec.*`, `**/__tests__/**`, `**/__mocks__/**`, `**/test-utils.*`, `**/test-helpers.*`, `**/vitest.setup.*`, not `e2e/**`; edits ask (§10.5); `review` as pytest's |
+| `typescript/vitest/untested-change` | `check` lint, advisory (§10.7): `forge_untested_change` on non-test TypeScript and JavaScript files (not `*.d.ts`, `*.config.*`, `e2e/**`) |
 
 context.md: Vitest 4 `test.projects` and `maxWorkers`; assertions are never weakened to make a test pass; "When the task changes behaviour an existing test asserts, update that test in place with Edit or Write (keep its name; Forge asks for approval) and say so in your summary. Otherwise never edit an existing test to make the code pass."
 
@@ -737,6 +750,14 @@ context.md: locators (`getByRole`, `getByLabel`, `getByText`, `getByTestId`) and
 | `typescript/zod/error-param` | `ast-grep` forbid: a `message`, `required_error`, `invalid_type_error` or `errorMap` key in an object passed to a call on a `z.` chain |
 
 context.md: Zod at boundaries with `z.infer`; Zod 4 top-level formats, the single `error` parameter, `z.strictObject` / `z.looseObject`, `error.issues`, `z.treeifyError`.
+
+### docs
+
+Detected by `**/docs/**/*.{md,mdx,rst}`, `**/doc/**/*.{md,mdx,rst}`, `README*`, `packages/*/README*`. Not tied to a language: it reads Python, TypeScript and JavaScript sources.
+
+| Rule | Targets |
+|---|---|
+| `docs/changed-identifiers` | `check` lint, advisory (§10.7): `forge_docs_mentions` on non-test Python, TypeScript and JavaScript files |
 
 ### github-actions
 

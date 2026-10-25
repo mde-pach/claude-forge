@@ -179,4 +179,6 @@ forge_step forge_run_stage lint
 forge_step forge_run_stage typecheck
 forge_step forge_run_stage migration
 forge_step forge_run_stage test
+# advice (§10.7) fails the run without stopping the steps after it
+[ "$fail" -ne 0 ] || [ "${advised:-0}" -eq 0 ] || fail=1
 exit "$fail"

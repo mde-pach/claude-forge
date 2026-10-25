@@ -57,6 +57,12 @@ function checkEvents(rule: Rule, t: CheckTarget): LifecycleEvent[] {
       { step: "commit", effect: "inactive", text: "Not checked: a human edits tests on purpose." },
       { step: "ci", effect: "inactive", text: "Not checked: a human edits tests on purpose." },
     ];
+  if (/\bforge_advise\b/.test(t.run))
+    return [
+      { step: "stop", effect: "blocks", text: `Advisory: when the turn changed a ${scopeNoun(rule)} and the check finds something, it blocks Stop once; the next Stop of the same turn passes, so Claude acts on it or says why it does not apply.` },
+      { step: "commit", effect: "inactive", text: "Not checked: the advice is for Claude's turn." },
+      { step: "ci", effect: "inactive", text: "Not checked: the advice is for Claude's turn." },
+    ];
   const files = t.changed_run?.includes("{files}");
   const changedCmd = t.changed_run ? cmd(t.changed_run, "--changed") : cmd(t.run, "--all");
   const trigger = t.when_changed ? `when ${t.when_changed.map(code).join(" or ")} changed` : `when the change includes a ${scopeNoun(rule)}`;

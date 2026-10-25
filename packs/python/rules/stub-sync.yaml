@@ -1,0 +1,33 @@
+id: python/stub-sync
+description: A public name a turn adds to a module (in __all__, or a top-level def or class) also goes into each .pyi stub that mirrors that module elsewhere in the repository; advisory, it blocks Stop once per turn.
+scope: {language: python, files: ["**/*.py"]}
+enforce:
+  - {target: check, stage: lint, run: "forge_advise forge_stub_sync"}
+examples:
+  match:
+    - head:
+        app/__init__.py: ""
+        app/client.py: "class QueryError(RuntimeError):\n    pass\n"
+        app-api/app_api/__init__.pyi: ""
+        app-api/app_api/client.pyi: "class QueryError(RuntimeError): ...\n"
+      files: {app/client.py: "class QueryError(RuntimeError):\n    pass\n\n\nclass UnexpectedResponseError(RuntimeError):\n    pass\n"}
+    - head:
+        app/__init__.py: "from .client import QueryError\n\n__all__ = [\"QueryError\"]\n"
+        app/client.py: "class QueryError(RuntimeError):\n    pass\n\n\nclass UnexpectedResponseError(RuntimeError):\n    pass\n"
+        app-api/app_api/__init__.pyi: "from .client import QueryError as QueryError\n\n__all__ = ['QueryError']\n"
+      files: {app/__init__.py: "from .client import QueryError, UnexpectedResponseError\n\n__all__ = [\n    \"QueryError\",\n    \"UnexpectedResponseError\",\n]\n"}
+  no_match:
+    - head:
+        app/__init__.py: ""
+        app/client.py: "class QueryError(RuntimeError):\n    pass\n"
+        app-api/app_api/__init__.pyi: ""
+        app-api/app_api/client.pyi: "class QueryError(RuntimeError): ...\n"
+      files:
+        app/client.py: "class QueryError(RuntimeError):\n    pass\n\n\nclass UnexpectedResponseError(RuntimeError):\n    pass\n"
+        app-api/app_api/client.pyi: "class QueryError(RuntimeError): ...\nclass UnexpectedResponseError(RuntimeError): ...\n"
+    - head:
+        app/__init__.py: ""
+        app/client.py: "class QueryError(RuntimeError):\n    pass\n"
+        app-api/app_api/__init__.pyi: ""
+        app-api/app_api/client.pyi: "class QueryError(RuntimeError): ...\n"
+      files: {app/client.py: "class QueryError(RuntimeError):\n    pass\n\n\ndef _retry(n):\n    return n + 1\n"}

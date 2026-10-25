@@ -400,6 +400,243 @@ forge_test_edits() {
   return "$_te_rc"
 }
 
+# ---- advisory checks (§10.7): feedback that blocks Stop once per turn
+
+# forge_advise <helper> [args]: Stop only (--turn). Runs <helper>; when it prints
+# advice, prints it and fails, and marks the rule in the turn snapshot
+# (<snapshot>/advised/<rule>), so the next Stop of the same turn runs nothing and
+# passes: Claude acts on the advice or says why it does not apply. A new prompt
+# (a new snapshot) re-arms it. Pre-commit and CI never run advisory checks.
+forge_advise() {
+  [ "$mode" = --turn ] && [ -n "$FORGE_SNAP" ] || return 0
+  _fa_mark="$FORGE_SNAP/advised/$(printf '%s' "$c_id" | tr -c 'A-Za-z0-9_-' '_')"
+  [ -f "$_fa_mark" ] && return 0
+  "$@" > "$FORGE_TMP/advice" 2>/dev/null
+  [ -s "$FORGE_TMP/advice" ] || return 0
+  mkdir -p "$FORGE_SNAP/advised" && : > "$_fa_mark"
+  # advice does not stop the later steps (forge_run_stage): the tests still run
+  : > "$FORGE_TMP/advised.$(basename "$_fa_mark")"
+  # given once: Stop must not replay it on the same tree (§10.2 step 5)
+  [ -z "${FORGE_ONCE:-}" ] || : > "$FORGE_ONCE"
+  cat "$FORGE_TMP/advice"
+  return 1
+}
+
+# Test files of the packs' conventions (pytest, Vitest, Playwright), as a POSIX ERE.
+FORGE_TEST_PATH_ERE='(^|/)(tests?|__tests__|e2e)/|(^|/)(test_[^/]*|[^/]*_test|conftest)\.py$|\.(test|spec)\.[^/]*$'
+
+# forge_diff_lines <path>: "-<text>" / "+<text>" for each line removed or added
+# since the base ($FORGE_TMP/base/<path>; a file new or deleted in the change
+# counts fully).
+forge_diff_lines() {
+  _fd_old=$FORGE_TMP/base/$1; [ -f "$_fd_old" ] || _fd_old=/dev/null
+  _fd_new=$1; [ -f "$_fd_new" ] || _fd_new=/dev/null
+  git diff --no-index --no-ext-diff --no-textconv --no-color -U0 -- "$_fd_old" "$_fd_new" 2>/dev/null \
+    | awk '/^@@/ { h = 1; next } h && /^[-+]/'
+}
+
+# forge_code_changed <path>: succeeds when a removed or added line of <path> is
+# code: not blank, not only a comment (#, //, /* … */ lines).
+forge_code_changed() {
+  _cc_py=''
+  case $1 in *.py|*.pyi) _cc_py=1 ;; esac
+  forge_diff_lines "$1" | awk -v py="$_cc_py" '
+    { t = substr($0, 2); gsub(/^[ \t]+|[ \t\r]+$/, "", t)
+      if (t == "") next
+      if (py && t ~ /^#/) next
+      if (!py && (t ~ /^\/\// || t ~ /^\/\*/ || t ~ /^\*/)) next
+      found = 1; exit }
+    END { exit !found }'
+}
+
+# forge_untested_change [<test-path-ERE>]: when the turn changed code (not only
+# comments or blank lines) in the in-scope files ($FORGE_FILES) and no file
+# matching <test-path-ERE> (default FORGE_TEST_PATH_ERE) was added or changed, says so.
+forge_untested_change() {
+  grep -Eq -- "${1:-$FORGE_TEST_PATH_ERE}" "$FORGE_TMP/existing" && return 0
+  _fu_n=0; _fu_list=''
+  for _fu_f in $FORGE_FILES; do
+    forge_code_changed "$_fu_f" || continue
+    _fu_n=$((_fu_n + 1))
+    [ "$_fu_n" -le 3 ] && _fu_list="${_fu_list:+$_fu_list, }$_fu_f"
+  done
+  [ "$_fu_n" -gt 0 ] || return 0
+  [ "$_fu_n" -gt 3 ] && _fu_list="$_fu_list and $((_fu_n - 3)) more"
+  printf 'You changed behaviour in %s without adding or updating a test; add a test that fails without your change, or say why none is needed.\n' "$_fu_list"
+}
+
+# forge_changed_ids: the public identifiers whose definition the change added,
+# removed or edited, one per line, from the removed and added lines of the
+# in-scope files ($FORGE_FILES and the deleted ones it names): Python def, class,
+# annotated names (parameters, fields) and module-level assignments; TypeScript
+# and JavaScript exported declarations, optional properties (name?:), typed
+# members (name: T;) and methods with a modifier. A definition whose line only
+# moved does not count. Private (_x), short (< 4) and common names are dropped.
+forge_changed_ids() {
+  { printf '%s\n' "$FORGE_FILES"; cat "$FORGE_TMP/deleted"; } | while IFS= read -r _ci_f; do
+    printf '%s\n' "$_ci_f" | grep -Eq -- "$FORGE_TEST_PATH_ERE" && continue
+    case $_ci_f in *.py|*.pyi) _ci_py=1 ;; *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) _ci_py=0 ;; *) continue ;; esac
+    forge_diff_lines "$_ci_f" | sed "s/^/$_ci_py/"
+  done | awk '
+    function keep(id) {
+      if (length(id) < 4 || id ~ /^_/ || (id in stop)) return
+      ids[id] = 1
+    }
+    function def(id, sign, text) { keep(id); if (id in ids) { if (sign == "-") M[id SUBSEP text] = 1; else P[id SUBSEP text] = 1 } }
+    function ident(s) { sub(/^[^A-Za-z_$]*/, "", s); match(s, /^[A-Za-z_$][A-Za-z0-9_$]*/); return substr(s, 1, RLENGTH) }
+    BEGIN {
+      n = split("self cls this args kwargs props options opts config settings params param value values data name type kind keys item items result results error errors message path file files input output default index count size text body request response context event callback handler children model state status client server string number boolean object array true false none null undefined return async await const function class export import from init main test start stop update create delete call load save open close read write parse format info debug warn logger user node tree root parent child source target mode level headers method query schema field fields label title description content length list dict tuple bool float bytes json None True False Exception ValueError TypeError KeyError RuntimeError else elif while with pass yield raise assert except finally lambda global nonlocal case break continue Args Returns Raises Yields Example Examples Note Notes Attributes", w, " ")
+      for (i = 1; i <= n; i++) stop[w[i]] = 1
+    }
+    {
+      py = substr($0, 1, 1); sign = substr($0, 2, 1); line = substr($0, 3)
+      t = line; gsub(/^[ \t]+|[ \t\r]+$/, "", t)
+      if (t == "") next
+      if (py == 1) {
+        if (t ~ /^#/) next
+        if (t ~ /^(async[ \t]+)?def[ \t]/) {
+          s = t; sub(/^(async[ \t]+)?def[ \t]+/, "", s); def(ident(s), sign, t)
+          if (i = index(s, "(")) {
+            s = substr(s, i + 1); m = split(s, a, ",")
+            for (j = 1; j <= m; j++) { p = a[j]; sub(/^[ \t*]+/, "", p); if (p ~ /^[A-Za-z_][A-Za-z0-9_]*[ \t]*[:=,)]?/) def(ident(p), sign, t) }
+          }
+        } else if (t ~ /^class[ \t]/) { s = t; sub(/^class[ \t]+/, "", s); def(ident(s), sign, t) }
+        else if (t ~ /^[A-Za-z_][A-Za-z0-9_]*[ \t]*:[ \t]*[^ \t=]/) {
+          r = t; sub(/^[A-Za-z_][A-Za-z0-9_]*[ \t]*:[ \t]*/, "", r)
+          if (r ~ /=/ || r ~ /^[A-Za-z_][A-Za-z0-9_.]*(\[.*)?([ \t]*\|[ \t]*[^ \t]+)*[ \t]*,?$/) def(ident(t), sign, t)
+        }
+        else if (line ~ /^[A-Za-z_][A-Za-z0-9_]*[ \t]*=[^=]/) def(ident(line), sign, t)
+      } else {
+        if (t ~ /^(\/\/|\/\*|\*)/) next
+        if (t ~ /^export[ \t]/) {
+          s = t; sub(/^export[ \t]+((default|declare|abstract|async)[ \t]+)*/, "", s)
+          if (s ~ /^(function\*?|class|const|let|var|type|interface|enum|namespace)[ \t]/) { sub(/^[a-z]+\*?[ \t]+/, "", s); def(ident(s), sign, t) }
+        } else if (t ~ /^(readonly[ \t]+)?[A-Za-z_$][A-Za-z0-9_$]*\?[ \t]*:/ || t ~ /^(readonly[ \t]+)?[A-Za-z_$][A-Za-z0-9_$]*[ \t]*:.*;$/) {
+          s = t; sub(/^readonly[ \t]+/, "", s); def(ident(s), sign, t)
+        } else if (t ~ /^((public|static|async|get|set|override)[ \t]+)+[A-Za-z_$][A-Za-z0-9_$]*[ \t]*[(<]/) {
+          s = t; sub(/^((public|static|async|get|set|override)[ \t]+)+/, "", s); def(ident(s), sign, t)
+        }
+      }
+    }
+    END {
+      for (k in M) if (!(k in P)) { split(k, x, SUBSEP); out[x[1]] = 1 }
+      for (k in P) if (!(k in M)) { split(k, x, SUBSEP); out[x[1]] = 1 }
+      for (id in out) print id
+    }' | sort
+}
+
+# forge_doc_files: documentation in the repository (tracked or not ignored):
+# Markdown, MDX and reStructuredText under a docs/ or doc/ directory, and README files.
+FORGE_DOC_ERE='(^|/)(docs?/(.*/)?[^/]*\.(md|mdx|rst)|README[^/]*)$'
+
+# forge_docs_mentions: when no documentation file changed in the change, the
+# lines of the documentation that mention an identifier the change defined
+# differently (forge_changed_ids): up to 5 "path:line identifier" lines. A name
+# with an underscore or a capital inside counts anywhere; a plain word only in a
+# code span or a fenced block.
+forge_docs_mentions() {
+  grep -Eq -- "$FORGE_DOC_ERE" "$FORGE_TMP/changed" && return 0
+  forge_changed_ids > "$FORGE_TMP/doc.ids"
+  [ -s "$FORGE_TMP/doc.ids" ] || return 0
+  git ls-files --cached --others --exclude-standard 2>/dev/null | grep -E -- "$FORGE_DOC_ERE" | while IFS= read -r _dm_f; do
+    [ -f "$_dm_f" ] && grep -qF -f "$FORGE_TMP/doc.ids" "$_dm_f" 2>/dev/null && printf '%s\n' "$_dm_f"
+  done > "$FORGE_TMP/doc.files"
+  [ -s "$FORGE_TMP/doc.files" ] || return 0
+  # shellcheck disable=SC2046
+  awk '
+    function word(s, id,   i, b, a) {
+      while (i = index(s, id)) {
+        b = substr(s, i - 1, 1); a = substr(s, i + length(id), 1)
+        if ((i == 1 || b !~ /[A-Za-z0-9_$]/) && a !~ /[A-Za-z0-9_$]/) return 1
+        s = substr(s, i + length(id))
+      }
+      return 0
+    }
+    function spans(s,   n, p, i, out) { n = split(s, p, "`"); out = ""; for (i = 2; i <= n; i += 2) out = out " " p[i]; return out }
+    FILENAME == ARGV[1] { ids[++nid] = $0; plain[nid] = ($0 !~ /_/ && $0 !~ /.[A-Z]/); next }
+    FNR == 1 { fence = 0 }
+    /^[ \t]*(```|~~~)/ { fence = !fence; next }
+    {
+      code = fence ? $0 : spans($0)
+      for (j = 1; j <= nid; j++)
+        if (word(plain[j] ? code : $0, ids[j])) { print FILENAME ":" FNR " " ids[j]; break }
+    }' "$FORGE_TMP/doc.ids" $(cat "$FORGE_TMP/doc.files") > "$FORGE_TMP/doc.hits"
+  [ -s "$FORGE_TMP/doc.hits" ] || return 0
+  printf 'These docs mention identifiers you changed; check they still describe the behaviour:\n'
+  awk 'NR <= 5 { print "  - " $0 } END { if (NR > 5) print "  (and " NR - 5 " more)" }' "$FORGE_TMP/doc.hits"
+}
+
+# forge_py_public <file>: the public names of a Python module, one per line: the
+# entries of __all__ when it has one, else its top-level def and class names
+# without a leading underscore.
+forge_py_public() {
+  awk '
+    /^__all__[ \t]*(:[^=]*)?\+?=/ { all = 1; inall = 1 }
+    inall {
+      s = $0
+      while (match(s, /["\047][A-Za-z_][A-Za-z0-9_]*["\047]/)) { a[substr(s, RSTART + 1, RLENGTH - 2)] = 1; s = substr(s, RSTART + RLENGTH) }
+      if ($0 ~ /[\])]/) inall = 0
+      next
+    }
+    /^(async[ \t]+)?def[ \t]+[A-Za-z]/ || /^class[ \t]+[A-Za-z]/ {
+      s = $0; sub(/^(async[ \t]+)?(def|class)[ \t]+/, "", s); match(s, /^[A-Za-z0-9_]+/); d[substr(s, 1, RLENGTH)] = 1
+    }
+    END { if (all) { for (k in a) print k } else for (k in d) print k }' "$1" 2>/dev/null | sort -u
+}
+
+# forge_py_module <path>: the module path inside its top-level package
+# ("experimental/query_client" for logfire/experimental/query_client.py and for
+# logfire-api/logfire_api/experimental/query_client.pyi): directories with an
+# __init__.py or __init__.pyi count as packages, the topmost one is dropped.
+forge_py_module() {
+  _pm_d=$(dirname "$1"); _pm_m=$(basename "$1"); _pm_m=${_pm_m%.py}; _pm_m=${_pm_m%.pyi}
+  _pm_top=''
+  while [ "$_pm_d" != . ] && [ "$_pm_d" != / ] && { [ -f "$_pm_d/__init__.py" ] || [ -f "$_pm_d/__init__.pyi" ]; }; do
+    [ -n "$_pm_top" ] && _pm_m="$_pm_top/$_pm_m"
+    _pm_top=$(basename "$_pm_d"); _pm_d=$(dirname "$_pm_d")
+  done
+  printf '%s\n' "$_pm_m"
+}
+
+# forge_stub_sync: for each changed module ($FORGE_FILES) that gained public names
+# (forge_py_public, compared with the base), each .pyi stub in the repository with
+# the same module path (forge_py_module) must mention every new name.
+forge_stub_sync() {
+  git ls-files --cached --others --exclude-standard -- '*.pyi' 2>/dev/null | while IFS= read -r _ss_s; do
+    [ -f "$_ss_s" ] && printf '%s\t%s\n' "$(forge_py_module "$_ss_s")" "$_ss_s"
+  done > "$FORGE_TMP/stubs"
+  [ -s "$FORGE_TMP/stubs" ] || return 0
+  for _ss_f in $FORGE_FILES; do
+    case $_ss_f in *.py) ;; *) continue ;; esac
+    _ss_mod=$(forge_py_module "$_ss_f")
+    awk -F '\t' -v m="$_ss_mod" '$1 == m { print $2 }' "$FORGE_TMP/stubs" > "$FORGE_TMP/stubs.for"
+    [ -s "$FORGE_TMP/stubs.for" ] || continue
+    forge_py_public "$_ss_f" > "$FORGE_TMP/names.now"
+    : > "$FORGE_TMP/names.then"
+    if [ -f "$FORGE_TMP/base/$_ss_f" ]; then
+      { forge_py_public "$FORGE_TMP/base/$_ss_f"
+        awk '/^(async[ \t]+)?(def|class)[ \t]+[A-Za-z_]/ { s = $0; sub(/^(async[ \t]+)?(def|class)[ \t]+/, "", s); match(s, /^[A-Za-z0-9_]+/); print substr(s, 1, RLENGTH) }' "$FORGE_TMP/base/$_ss_f"
+      } | sort -u > "$FORGE_TMP/names.then"
+    fi
+    grep -vxF -f "$FORGE_TMP/names.then" "$FORGE_TMP/names.now" > "$FORGE_TMP/names.new"
+    [ -s "$FORGE_TMP/names.new" ] || continue
+    while IFS= read -r _ss_s; do
+      _ss_miss=''
+      while IFS= read -r _ss_n; do
+        awk -v id="$_ss_n" '
+          { s = $0
+            while (i = index(s, id)) {
+              b = substr(s, i - 1, 1); a = substr(s, i + length(id), 1)
+              if ((i == 1 || b !~ /[A-Za-z0-9_]/) && a !~ /[A-Za-z0-9_]/) { f = 1; exit }
+              s = substr(s, i + length(id))
+            } }
+          END { exit !f }' "$_ss_s" || _ss_miss="${_ss_miss:+$_ss_miss, }$_ss_n"
+      done < "$FORGE_TMP/names.new"
+      [ -n "$_ss_miss" ] && printf 'The stub %s does not have %s, new in %s; add it there too.\n' "$_ss_s" "$_ss_miss" "$_ss_f"
+    done < "$FORGE_TMP/stubs.for"
+  done
+}
+
 # forge_toml_get <file> <section> <key>: the value of <key> in [<section>] ("" for
 # the top level), quotes and comments removed; nothing when absent. One-line values only.
 forge_toml_get() {
@@ -1268,7 +1505,7 @@ forge_run_stage() {
       case $? in
         0) ;;
         3) [ "$_fs_rc" -ne 0 ] || _fs_rc=3 ;;
-        *) _fs_rc=1 ;;
+        *) if [ -f "$FORGE_TMP/advised.$(printf '%s' "$c_id" | tr -c 'A-Za-z0-9_-' '_')" ]; then advised=1; else _fs_rc=1; fi ;;
       esac
     fi
     _fs_i=$((_fs_i + 1))
