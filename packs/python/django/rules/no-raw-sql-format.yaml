@@ -1,39 +1,20 @@
 id: python/django/no-raw-sql-format
-description: "SQL passed to .raw(), cursor.execute(), executemany() or RawSQL() is a constant with %s placeholders and params, never built with an f-string, .format(), % or +; and no QuerySet.extra(select=/where=/tables=/order_by=), which Django documents as a last resort (use annotate(), filter() with expressions, or RawSQL with params)."
+description: "QuerySet.extra() and RawSQL() take no SQL built at run time (ruff S610, S611): pass constant SQL with %s placeholders and params, or use annotate() and filter() with expressions. SQL strings built with f-strings, .format(), % or + anywhere, a variable passed to .raw() or cursor.execute() included, are python/no-sql-format (ruff S608)."
 scope: {language: python, files: ["!**/migrations/**"]}
 enforce:
-  - target: ast-grep
-    mode: forbid
-    rule:
-      any:
-        - kind: call
-          all:
-            - has: {field: function, regex: "(^|\\.)(raw|execute|executemany)$|(^|\\.)RawSQL$"}
-            - has:
-                field: arguments
-                has:
-                  nthChild: 1
-                  any:
-                    - {kind: string, has: {kind: interpolation}}
-                    - {kind: call, has: {field: function, kind: attribute, has: {field: object, kind: string}, regex: "\\.format$"}}
-                    - {kind: binary_operator, all: [{has: {field: operator, regex: "^%$"}}, {has: {field: left, kind: string}}]}
-                    - kind: binary_operator
-                      has: {field: operator, regex: "^\\+$"}
-                      any: [{has: {field: left, kind: string}}, {has: {field: right, kind: string}}]
-        - kind: call
-          all:
-            - has: {field: function, kind: attribute, regex: "\\.extra$"}
-            - has: {field: arguments, has: {kind: keyword_argument, has: {field: name, regex: "^(select|where|tables|order_by)$"}}}
+  - target: tool
+    tool: ruff
+    expects: S610
+    snippet: '[tool.ruff.lint] extend-select = ["S608", "S610", "S611"]'
+  - target: tool
+    tool: ruff
+    expects: S611
+    snippet: '[tool.ruff.lint] extend-select = ["S608", "S610", "S611"]'
 examples:
   match:
-    - "def find(uid: int):\n    return User.objects.raw(f\"SELECT * FROM auth_user WHERE id = {uid}\")\n"
-    - "def bump(cursor, col: str) -> None:\n    cursor.execute(\"UPDATE stats SET n = n + 1 WHERE name = '%s'\" % col)\n"
-    - "def tagged(qs, tag: str):\n    return qs.extra(where=[\"tag = '\" + tag + \"'\"])\n"
-    - "def ordered(qs):\n    return qs.extra(select={\"is_recent\": \"pub_date > '2006-01-01'\"})\n"
-    - "def col(name: str):\n    return RawSQL(\"SELECT {} FROM t\".format(name), [])\n"
+    - "from django.db.models.expressions import RawSQL\n\n\ndef tagged(qs, where: str, column: str):\n    return qs.extra(where=[where]).annotate(v=RawSQL(column, []))\n"
+    - "from django.db.models.expressions import RawSQL\n\n\ndef tagged(qs, tag: str, name: str):\n    clause = \"tag = '\" + tag + \"'\"\n    return qs.extra(where=[clause]).annotate(v=RawSQL(\"SELECT {} FROM t\".format(name), []))\n"
   no_match:
-    - "def find(uid: int):\n    return User.objects.raw(\"SELECT * FROM auth_user WHERE id = %s\", [uid])\n"
-    - "def bump(cursor, col: str) -> None:\n    cursor.execute(\"UPDATE stats SET n = n + 1 WHERE name = %s\", [col])\n"
-    - "def run(cursor, sql: str, params: list[object]) -> None:\n    cursor.execute(sql, params)\n"
-    - "logger.info(\"saved\", extra={\"id\": 1})\n"
-    - "def recent(qs):\n    return qs.annotate(is_recent=RawSQL(\"pub_date > %s\", [CUTOFF]))\n"
+    - "from django.db.models.expressions import RawSQL\n\nCUTOFF = \"2006-01-01\"\n\n\ndef recent(qs):\n    return qs.annotate(is_recent=RawSQL(\"pub_date > %s\", [CUTOFF]))\n"
+    - "def published(qs):\n    return qs.extra(where=[\"published = true\"])\n"
+    - "import logging\n\nlogging.getLogger(__name__).info(\"saved\", extra={\"id\": 1})\n"
