@@ -71,7 +71,8 @@ describe("YAML", () => {
       put(repo, "compose.yml", "services:\n  db:\n    image: postgres:latest\n");
       expect(sh("sh", [".forge/check.sh", "--changed"], { cwd: repo }).stdout).toContain("forge:local/no-latest compose.yml:3:5");
     },
-    T,
+    // forge test runs every pack's examples (check fixtures included), over two minutes here
+    300_000,
   );
 });
 
