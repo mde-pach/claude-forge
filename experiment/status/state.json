@@ -1,6 +1,6 @@
 {
  "updated": "",
- "headline": "Pilots done on all 6 repos (10 trials, all scored, parity held). Waiting on the last better-auth tasks before freezing dataset v1 and starting the main run (360 trials).",
+ "headline": "Main run in progress: 60 frozen tasks \u00d7 2 arms \u00d7 3 replicates = 360 trials, 3 at a time. Interim rates below are not the analysis, which uses only complete replicates.",
  "phases": [
   {
    "name": "Design written and pre-registered",
@@ -24,18 +24,18 @@
   },
   {
    "name": "Execution validation (fail\u2192pass, 3\u00d7)",
-   "state": "running",
-   "note": "Python repos well along; zod and inngest-js started; better-auth after (disk)"
+   "state": "done",
+   "note": "every candidate up to each repo\u2019s 10th accepted processed in date order"
   },
   {
    "name": "Instructions + independent test audit",
-   "state": "running",
-   "note": "claude-opus-5-5, fresh context per task; auditor sees the instruction, tests, reference and repo"
+   "state": "done",
+   "note": "audit: 674 of 676 F2P and all 5,734 P2P tests kept; 6 assertions relaxed"
   },
   {
    "name": "Freeze dataset manifest v1",
-   "state": "todo",
-   "note": ""
+   "state": "done",
+   "note": "manifest.v1.json: 60 tasks (31 fix, 19 other, 9 feat, 1 refactor); sha256 checked by every run"
   },
   {
    "name": "Pilot (harness end to end)",
@@ -44,8 +44,8 @@
   },
   {
    "name": "Full run: 3 replicates \u00d7 2 arms",
-   "state": "todo",
-   "note": ""
+   "state": "running",
+   "note": "started 2026-10-25; est. ~20 h"
   },
   {
    "name": "Analysis and REPORT.md",
@@ -71,25 +71,25 @@
     "repo": "fastmcp",
     "lang": "Python",
     "candidates": 235,
-    "accepted": 12
+    "accepted": 10
    },
    {
     "repo": "logfire",
     "lang": "Python",
     "candidates": 64,
-    "accepted": 15
+    "accepted": 10
    },
    {
     "repo": "better-auth",
     "lang": "TypeScript",
     "candidates": 135,
-    "accepted": 6
+    "accepted": 10
    },
    {
     "repo": "zod",
     "lang": "TypeScript",
     "candidates": 116,
-    "accepted": 13
+    "accepted": 10
    },
    {
     "repo": "inngest-js",
@@ -120,6 +120,8 @@
   "Usage-limit utilisation is flat (7-day window 15%); not a constraint",
   "better-auth pilot: both arms resolved; Forge's Stop check hit database-backed tests (no DB in the container) and blocked 3 times, 34 min vs 17 min wall",
   "Pre-registered (D16): sensitivity analysis without better-auth, and Stop blocks per repo",
-  "P13: uv's uv_cache.json timestamp made prep non-deterministic; excluded; determinism verified on 6 repos"
+  "P13: uv's uv_cache.json timestamp made prep non-deterministic; excluded; determinism verified on 6 repos",
+  "Dataset v1 frozen: 60 tasks; scorer self-test passed on one main task per repo",
+  "Main run started"
  ]
 }

@@ -51,7 +51,7 @@ if live:
         cards += (f'<div class="arm {arm}"><h3>{arm}</h3>'
                   f'<div class="big">{"—" if rate is None else f"{rate*100:.1f}%"}</div>'
                   f'<div class="sub">resolved, {a.get("scored", 0)} scored of {a.get("total", "?")}</div>'
-                  f'<div class="sub">infra errors {a.get("infra_error", 0)} · cost ${a.get("cost_usd", 0):.2f}</div></div>')
+                  f'<div class="sub">infra errors {a.get("infra_errors", 0)} · cost ${a.get("cost_usd", 0):.2f}</div></div>')
     last = "".join(
         f'<tr><td>{e(str(t.get("task")))}</td><td>{e(str(t.get("arm")))}</td><td class="n">{t.get("rep")}</td>'
         f'<td>{e(str(t.get("status")))}</td><td>{"✓" if t.get("resolved") else ("✗" if t.get("resolved") is False else "")}</td>'
