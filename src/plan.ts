@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parse as parseToml } from "smol-toml";
-import { detectPack, lineage, loadLocalRules, loadProjectConfig, readProjectFacts, type DepFacts, type ProjectFacts } from "./packs.js";
+import { detectAnywhere, detectPack, lineage, loadLocalRules, loadProjectConfig, readProjectFacts, type DepFacts, type ProjectFacts } from "./packs.js";
 import {
   AUDITED_TOOLS,
   PROJECT_TOOLS,
@@ -176,7 +176,7 @@ function activePacks(opts: PlanOptions, warnings: string[]): { packs: PackStatus
     changed = false;
     for (const p of all) {
       if (p.level !== "project" || why.has(p.id)) continue;
-      if ((p.parent === undefined || why.has(p.parent)) && opts.facts && detectPack(p, opts.facts)) changed = activate(p.id, "detected") || changed;
+      if ((p.parent === undefined || why.has(p.parent)) && opts.facts && detectAnywhere(p, opts.facts)) changed = activate(p.id, "detected") || changed;
     }
     for (const id of [...why.keys()])
       for (const req of opts.packs.get(id)!.requires)
@@ -222,15 +222,25 @@ export function plan(opts: PlanOptions): Plan {
    * root configures its audited tools; otherwise in each workspace package that has
    * its pack (or any package, for a pack active at the root) and configures them.
    */
+  /**
+   * The workspace packages where a pack was detected, or undefined when it applies to
+   * the whole repository (detected at the root, added in forge.yaml, required, a
+   * parent of an added pack, or a local rule's pack outside the tree).
+   */
+  const packDirs = (id: string): string[] | undefined => {
+    const pack = opts.packs.get(id);
+    if (!pack || !opts.facts || !workspaces.length || packs.find((p) => p.id === id)?.why !== "detected" || detectPack(pack, opts.facts.root)) return undefined;
+    return workspaces.filter((w) => detectPack(pack, w)).map((w) => w.dir);
+  };
+
   const checkPlace = (rule: Rule, t: CheckTarget): { dirs?: string[]; absent: string[] } => {
     const audited = checkTools(t).filter((x): x is AuditedTool => (AUDITED_TOOLS as readonly string[]).includes(x));
     const absent = audited.filter((x) => !tools[x]);
     if (absent.length || !places || !opts.facts || !workspaces.length || !perPackage(t)) return { absent };
-    const pack = opts.packs.get(rule.pack);
-    const atRoot = !pack || packs.find((p) => p.id === rule.pack)?.why !== "detected" || detectPack(pack, opts.facts.root);
-    if (atRoot && audited.every((x) => places[x].includes(""))) return { absent: [] };
+    const where = packDirs(rule.pack);
+    if (!where && audited.every((x) => places[x].includes(""))) return { absent: [] };
     const dirs = workspaces
-      .filter((w) => (atRoot || detectPack(pack!, w)) && audited.every((x) => places[x].includes(w.dir)))
+      .filter((w) => (!where || where.includes(w.dir)) && audited.every((x) => places[x].includes(w.dir)))
       .map((w) => w.dir);
     return dirs.length ? { dirs, absent: [] } : { absent: audited };
   };
@@ -266,7 +276,7 @@ export function plan(opts: PlanOptions): Plan {
   const guards: ActiveGuard[] = [];
   const settings: DesiredEntry[] = [];
   const settingsFile = level === "user" ? ".claude/settings.json" : opts.local ? ".claude/settings.local.json" : ".claude/settings.json";
-  const astgrep: { rule: Rule; target: AstGrepTarget }[] = [];
+  const astgrep: { rule: Rule; target: AstGrepTarget; dirs?: string[] }[] = [];
   const present = (t: ToolName) => tools[t];
 
   for (const rule of rulesSorted) {
@@ -284,9 +294,10 @@ export function plan(opts: PlanOptions): Plan {
     if (ast && (toolTargets.length === 0 || !toolTargets.some((t) => present(t.tool)))) {
       if (level === "user") warnings.push(`${rule.id}: ast-grep targets are project-level only`);
       else {
+        const dirs = packDirs(rule.pack);
         st.astgrep = ast;
-        astgrep.push({ rule, target: ast });
-        st.enforced.push(`ast-grep ${ast.mode} (.forge/ast-grep/${astGrepRulePath(rule.id)})`);
+        astgrep.push({ rule, target: ast, ...(dirs ? { dirs } : {}) });
+        st.enforced.push(`ast-grep ${ast.mode} (.forge/ast-grep/${astGrepRulePath(rule.id)})${dirs ? ` (in ${dirs.join(", ")})` : ""}`);
         st.notEnforced = [];
       }
     }
@@ -311,8 +322,9 @@ export function plan(opts: PlanOptions): Plan {
           warnings.push(`${rule.id}: grep targets are project-level only`);
           continue;
         }
-        greps.push({ rule, target: t });
-        st.enforced.push(`grep ${t.mode} (.forge/check.sh)`);
+        const dirs = packDirs(rule.pack);
+        greps.push({ rule, target: t, ...(dirs ? { dirs } : {}) });
+        st.enforced.push(`grep ${t.mode} (.forge/check.sh)${dirs ? ` (in ${dirs.join(", ")})` : ""}`);
       } else if (t.target === "check") {
         if (level === "user") {
           warnings.push(`${rule.id}: check targets are project-level only`);
@@ -376,8 +388,8 @@ export function plan(opts: PlanOptions): Plan {
     files.set(".forge/check.sh", renderCheckScript(checks, { forbid: ids("forbid"), noIncrease: ids("no-increase"), noDecrease: ids("no-decrease") }, greps));
     files.set(".forge/.gitignore", "state/\n");
     files.set(".forge/ast-grep/sgconfig.yml", renderSgConfig());
-    for (const { rule, target } of astgrep) {
-      files.set(`.forge/ast-grep/${astGrepRulePath(rule.id)}`, renderAstGrepRule(rule, target));
+    for (const { rule, target, dirs } of astgrep) {
+      files.set(`.forge/ast-grep/${astGrepRulePath(rule.id)}`, renderAstGrepRule(rule, target, dirs));
       if (rule.examples?.match?.length || rule.examples?.no_match?.length)
         files.set(`.forge/ast-grep/${astGrepTestPath(rule.id)}`, renderAstGrepTest(rule));
     }

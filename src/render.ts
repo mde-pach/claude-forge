@@ -90,13 +90,16 @@ function casePatterns(globs: string[]): string {
  * A rule's scope as a shell function on repository paths. With dirs (workspace
  * packages), the scope's globs are relative to each package.
  */
+/** A rule's scope globs, relative to each workspace package of dirs (the whole package when the rule has no include glob). */
+export function scopeInDirs(files: string[], dirs?: string[]): string[] {
+  if (!dirs) return files;
+  const inDirs = (g: string) => dirs.map((d) => `${d}/${g}`);
+  const include = files.filter((g) => !g.startsWith("!"));
+  return [...(include.length ? include : ["**"]).flatMap(inDirs), ...files.filter((g) => g.startsWith("!")).flatMap((g) => inDirs(g.slice(1)).map((x) => "!" + x))];
+}
+
 function scopeFunction(name: string, rule: Rule, dirs?: string[]): string {
-  let files = rule.scope.files ?? [];
-  if (dirs) {
-    const inDirs = (g: string) => dirs.map((d) => `${d}/${g}`);
-    const include = files.filter((g) => !g.startsWith("!"));
-    files = [...(include.length ? include : ["**"]).flatMap(inDirs), ...files.filter((g) => g.startsWith("!")).flatMap((g) => inDirs(g.slice(1)).map((x) => "!" + x))];
-  }
+  const files = scopeInDirs(rule.scope.files ?? [], dirs);
   const exclude = files.filter((g) => g.startsWith("!")).map((g) => g.slice(1));
   const include = files.filter((g) => !g.startsWith("!"));
   const lang = LANGUAGE_CASE[rule.scope.language];
@@ -120,13 +123,15 @@ export interface ActiveCheck {
 export interface ActiveGrep {
   rule: Rule;
   target: GrepTarget;
+  /** Workspace packages its pack was detected in; absent: the whole repository. */
+  dirs?: string[];
 }
 
 /** The grep rules: forge_grep_meta_<n> (g_id g_mode g_pattern g_desc) and forge_grep_scope_<n>. */
 function renderGreps(greps: ActiveGrep[]): string[] {
   const ids = (mode: GrepTarget["mode"]) => greps.filter((g) => g.target.mode === mode).map((g) => g.rule.id).join("|");
   const out = [`FORGE_NGREPS=${greps.length}`, `FORGE_GREP_NO_INCREASE='${ids("no-increase")}'`, `FORGE_GREP_NO_DECREASE='${ids("no-decrease")}'`];
-  greps.forEach(({ rule, target }, i) => {
+  greps.forEach(({ rule, target, dirs }, i) => {
     const n = i + 1;
     out.push(
       "",
@@ -136,7 +141,7 @@ function renderGreps(greps: ActiveGrep[]): string[] {
       `  g_pattern=${shQuote(target.pattern)}`,
       `  g_desc=${shQuote(rule.description)}`,
       "}",
-      scopeFunction(`forge_grep_scope_${n}`, rule),
+      scopeFunction(`forge_grep_scope_${n}`, rule, dirs),
     );
   });
   return out;
@@ -314,8 +319,9 @@ export function astGrepTestPath(id: string): string {
   return `rule-tests/${id.replaceAll("/", "-")}-test.yml`;
 }
 
-export function renderAstGrepRule(rule: Rule, target: AstGrepTarget): string {
-  const files = rule.scope.files ?? [];
+/** An ast-grep rule file; with dirs (the workspace packages its pack was detected in), its globs are relative to them. */
+export function renderAstGrepRule(rule: Rule, target: AstGrepTarget, dirs?: string[]): string {
+  const files = scopeInDirs(rule.scope.files ?? [], dirs);
   const include = files.filter((g) => !g.startsWith("!"));
   const ignores = files.filter((g) => g.startsWith("!")).map((g) => g.slice(1));
   const doc: Record<string, unknown> = {

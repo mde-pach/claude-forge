@@ -124,11 +124,11 @@ export interface WorkspaceFacts extends DepFacts {
 }
 
 /**
- * What detection sees: the root's dependencies and files merged with those of
- * the workspace packages (a glob matches at the root or inside a package), plus
- * the root alone and each package alone, to decide where checks run.
+ * What detection sees: the root and each workspace package, each with its own
+ * dependencies (never merged: next@14 in one package and next@16 in another are
+ * two facts) and files. A pack is detected when it is detected in one of them.
  */
-export interface ProjectFacts extends DepFacts {
+export interface ProjectFacts {
   root: DepFacts;
   workspaces: WorkspaceFacts[];
 }
@@ -306,8 +306,9 @@ export function readProjectFacts(repo: string, listFiles: () => string[]): Proje
     return deps;
   };
   resolve({ npm, pypi });
+  // the root's files are those outside the workspace packages: a file belongs to its package
   const matcher = (prefix: string) => {
-    const mine = prefix ? files.filter((f) => f.startsWith(prefix + "/")).map((f) => f.slice(prefix.length + 1)) : files;
+    const mine = prefix ? files.filter((f) => f.startsWith(prefix + "/")).map((f) => f.slice(prefix.length + 1)) : files.filter((f) => !wsDirs.some((d) => under(d, f)));
     return (glob: string) => mine.some((f) => globMatch(glob, f));
   };
   const root: DepFacts = { npm, pypi, library, files: matcher("") };
@@ -315,21 +316,7 @@ export function readProjectFacts(repo: string, listFiles: () => string[]): Proje
     const d = readDeps(join(repo, dir), false, hasManagePy(dir), published);
     return { dir, ...resolve(d), library: d.library, files: matcher(dir) };
   });
-  const merged = <T>(pick: (d: DepFacts) => Map<string, T>) => {
-    const m = new Map<string, T>();
-    for (const d of [...workspaces].reverse()) for (const [k, v] of pick(d)) m.set(k, v);
-    for (const [k, v] of pick(root)) m.set(k, v); // the root's version wins
-    return m;
-  };
-  return {
-    npm: merged((d) => d.npm),
-    pypi: merged((d) => d.pypi),
-    // a library published from the root or from any workspace package
-    library: new Set([...library, ...workspaces.flatMap((w) => [...w.library])]),
-    files: (glob) => root.files(glob) || workspaces.some((w) => w.files(glob)),
-    root,
-    workspaces,
-  };
+  return { root, workspaces };
 }
 
 function versionFromRange(range: string): string {
@@ -350,6 +337,11 @@ function depMatches(facts: DepFacts, dep: DepSpec): boolean {
   const v = coerce(map.get(name)!)?.version;
   // An unknown version (e.g. "workspace:*", git URL) is accepted.
   return !v || satisfies(v, dep.version, { includePrerelease: true });
+}
+
+/** Whether the pack is detected at the root or in a workspace package (each judged on its own facts). */
+export function detectAnywhere(pack: Pack, facts: ProjectFacts): boolean {
+  return detectPack(pack, facts.root) || facts.workspaces.some((w) => detectPack(pack, w));
 }
 
 export function detectPack(pack: Pack, facts: DepFacts): boolean {

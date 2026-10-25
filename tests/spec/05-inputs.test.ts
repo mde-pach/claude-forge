@@ -243,6 +243,39 @@ describe("workspaces", () => {
     expect(uv.packs.map((x) => x.id)).toEqual(["python", "python/fastapi", "python/pydantic"]);
   });
 
+  test("each package is detected on its own dependencies: next@14 at the root and next@16 in a package activates typescript/nextjs (>=16)", () => {
+    const p = planOf({
+      "package.json": '{"name": "mono", "private": true, "workspaces": ["apps/*"], "dependencies": {"next": "14.2.0"}}\n',
+      "tsconfig.json": "{}\n",
+      "apps/old/package.json": '{"name": "old", "dependencies": {"next": "14.2.0"}}\n',
+      "apps/new/package.json": '{"name": "new", "dependencies": {"next": "16.0.0"}}\n',
+    });
+    expect(p.packs.map((x) => x.id)).toContain("typescript/nextjs");
+  });
+
+  /**
+   * A pack detected only in some packages scopes its ast-grep rule files and grep
+   * rules to those packages (as its checks run there); its guard, permission and
+   * context entries still apply to the whole repository.
+   */
+  test("a pack detected only in some packages scopes its ast-grep and grep rules to them", () => {
+    const p = planOf({
+      "pyproject.toml": '[project]\nname = "mono"\n\n[tool.uv.workspace]\nmembers = ["services/*"]\n',
+      "services/api/pyproject.toml": '[project]\nname = "api"\ndependencies = ["fastapi>=0.115"]\n',
+      "services/worker/pyproject.toml": '[project]\nname = "worker"\ndependencies = []\n',
+    });
+    const rule = parseStrictYaml(p.files.get(".forge/ast-grep/rules/python/fastapi/cors-credentials-wildcard.yml")!, "rule") as { files?: string[] };
+    expect(rule.files).toEqual(["services/api/**"]);
+    // python itself is detected at the root: its rules stay repository-wide
+    expect((parseStrictYaml(p.files.get(".forge/ast-grep/rules/python/no-stub.yml")!, "rule") as { files?: string[] }).files).toBeUndefined();
+    const vue = planOf({
+      "package.json": '{"name": "mono", "private": true, "workspaces": ["packages/*"]}\n',
+      "packages/web/package.json": '{"name": "web", "dependencies": {"vue": "^3.4.0"}, "devDependencies": {"typescript": "^5.4.0"}}\n',
+      "packages/lib/package.json": '{"name": "lib", "devDependencies": {"typescript": "^5.4.0"}}\n',
+    });
+    expect(vue.active.find((s) => s.rule.id === "typescript/vue/no-v-html")!.enforced).toEqual(["grep forbid (.forge/check.sh) (in packages/web)"]);
+  });
+
   test("without a workspace declaration, packages/* are read", () => {
     expect(planOf(inDir("packages/lib", TS)).packs.map((x) => x.id)).toEqual(["typescript", "typescript/vitest"]);
   });

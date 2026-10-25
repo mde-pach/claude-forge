@@ -1129,6 +1129,7 @@ forge_grep_meta_1() {
   g_desc='No new suppression comments (biome-ignore in any form, @ts-expect-error); a changed file may not have more than it had. Fix the finding instead.'
 }
 forge_grep_scope_1() {
+  case $1 in packages/core/*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
@@ -1140,6 +1141,7 @@ forge_grep_meta_2() {
   g_desc='No placeholder comments on added lines ("TODO implement", "in a real implementation", "placeholder logic"); write the code or say what is missing.'
 }
 forge_grep_scope_2() {
+  case $1 in packages/core/*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
@@ -3916,6 +3918,7 @@ forge_grep_meta_1() {
   g_desc='No new suppression comments (biome-ignore in any form, @ts-expect-error); a changed file may not have more than it had. Fix the finding instead.'
 }
 forge_grep_scope_1() {
+  case $1 in packages/core/*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
@@ -3927,6 +3930,7 @@ forge_grep_meta_2() {
   g_desc='No placeholder comments on added lines ("TODO implement", "in a real implementation", "placeholder logic"); write the code or say what is missing.'
 }
 forge_grep_scope_2() {
+  case $1 in packages/core/*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
@@ -6719,6 +6723,7 @@ forge_grep_meta_1() {
   g_desc='No new suppression comments (biome-ignore in any form, @ts-expect-error); a changed file may not have more than it had. Fix the finding instead.'
 }
 forge_grep_scope_1() {
+  case $1 in packages/core/*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
@@ -6730,6 +6735,7 @@ forge_grep_meta_2() {
   g_desc='No placeholder comments on added lines ("TODO implement", "in a real implementation", "placeholder logic"); write the code or say what is missing.'
 }
 forge_grep_scope_2() {
+  case $1 in packages/core/*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
@@ -9546,6 +9552,7 @@ forge_grep_meta_1() {
   g_desc='No new suppression comments (biome-ignore in any form, @ts-expect-error); a changed file may not have more than it had. Fix the finding instead.'
 }
 forge_grep_scope_1() {
+  case $1 in packages/core/*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
@@ -9557,6 +9564,7 @@ forge_grep_meta_2() {
   g_desc='No placeholder comments on added lines ("TODO implement", "in a real implementation", "placeholder logic"); write the code or say what is missing.'
 }
 forge_grep_scope_2() {
+  case $1 in packages/core/*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
@@ -12317,6 +12325,8 @@ id: typescript/no-double-assertion
 language: Tsx
 severity: error
 message: forge:typescript/no-double-assertion No double type assertions (x as unknown as T). Parse with a schema or narrow with a type guard.
+files:
+  - packages/core/**
 rule:
   any:
     - pattern: $X as unknown as $T
@@ -12328,6 +12338,8 @@ id: typescript/no-latch-before-optional-call
 language: Tsx
 severity: error
 message: "forge:typescript/no-latch-before-optional-call A once-flag is set before an optional call in its guard (if (!warned) { warned = true; logger?.warn(…) }): the flag is consumed even when the receiver is absent, so the call never happens once it is there. Check the receiver first (if (!warned && logger)), or use the project's existing warn-once helper."
+files:
+  - packages/core/**
 rule:
   all:
     - kind: expression_statement
@@ -12366,12 +12378,14 @@ id: typescript/no-secret-logging
 language: Tsx
 severity: error
 message: "forge:typescript/no-secret-logging No secret in a log line or thrown error: a variable, property or header named like a token, secret, password, API key, private or access key, authorization or credentials, passed to console.*, a logger's methods or a thrown error (directly, in a template literal, with +, or as an object property) is rejected. Log an id or a masked value instead; a name such as maxTokens, hasToken, passwordHash or nextPageToken is not a secret."
+files:
+  - packages/core/**
 ignores:
-  - "**/*.test.*"
-  - "**/*.spec.*"
-  - "**/__tests__/**"
-  - e2e/**
-  - scripts/**
+  - packages/core/**/*.test.*
+  - packages/core/**/*.spec.*
+  - packages/core/**/__tests__/**
+  - packages/core/e2e/**
+  - packages/core/scripts/**
 rule:
   matches: secret-name
   any:
@@ -12458,8 +12472,10 @@ id: typescript/no-stub
 language: Tsx
 severity: error
 message: forge:typescript/no-stub No stub left behind. A throw of "Not implemented" (or "TODO", "unimplemented"), or a named function or method with an empty body, is a stub; overload signatures, interfaces and constructors with parameter properties are not.
+files:
+  - packages/core/**
 ignores:
-  - "**/*.d.ts"
+  - packages/core/**/*.d.ts
 rule:
   any:
     - kind: throw_statement
@@ -12486,6 +12502,8 @@ id: typescript/no-swallowed-catch
 language: Tsx
 severity: error
 message: forge:typescript/no-swallowed-catch A catch block rethrows or uses the error it caught; .catch(() => {}) is not allowed either. Handle the error, log it, or let it propagate.
+files:
+  - packages/core/**
 rule:
   any:
     - kind: catch_clause
@@ -12522,6 +12540,8 @@ id: typescript/no-ts-nocheck
 language: Tsx
 severity: error
 message: forge:typescript/no-ts-nocheck No @ts-nocheck. It turns off type checking for the whole file.
+files:
+  - packages/core/**
 rule:
   kind: comment
   regex: ^(//|/\*)[[:space:]]*@ts-nocheck
@@ -12532,6 +12552,8 @@ id: typescript/ts-expect-error-reason
 language: Tsx
 severity: error
 message: forge:typescript/ts-expect-error-reason Every @ts-expect-error says why, after the directive.
+files:
+  - packages/core/**
 rule:
   kind: comment
   regex: ^(//|/\*)[[:space:]]*@ts-expect-error[[:space:]]*(\*/)?$
@@ -12543,11 +12565,11 @@ language: Tsx
 severity: error
 message: forge:typescript/vitest/no-fewer-expects Assertions are not removed from tests.
 files:
-  - "**/*.test.*"
-  - "**/*.spec.*"
-  - "**/__tests__/**"
+  - packages/core/**/*.test.*
+  - packages/core/**/*.spec.*
+  - packages/core/**/__tests__/**
 ignores:
-  - e2e/**
+  - packages/core/e2e/**
 rule:
   pattern: expect($$$)
 
@@ -12558,11 +12580,11 @@ language: Tsx
 severity: error
 message: forge:typescript/vitest/no-mock-increase A test file may not gain mocks (vi.mock, vi.spyOn, vi.fn); test through the real code or a fake at the boundary.
 files:
-  - "**/*.test.*"
-  - "**/*.spec.*"
-  - "**/__tests__/**"
+  - packages/core/**/*.test.*
+  - packages/core/**/*.spec.*
+  - packages/core/**/__tests__/**
 ignores:
-  - e2e/**
+  - packages/core/e2e/**
 rule:
   kind: call_expression
   has:
@@ -12576,11 +12598,11 @@ language: Tsx
 severity: error
 message: forge:typescript/vitest/no-new-skip Tests are not skipped, made conditional, left as todo or focused with .only.
 files:
-  - "**/*.test.*"
-  - "**/*.spec.*"
-  - "**/__tests__/**"
+  - packages/core/**/*.test.*
+  - packages/core/**/*.spec.*
+  - packages/core/**/__tests__/**
 ignores:
-  - e2e/**
+  - packages/core/e2e/**
 rule:
   any:
     - pattern: it.skip
@@ -12600,11 +12622,11 @@ language: Tsx
 severity: error
 message: forge:typescript/vitest/no-tautological-expect Assertions test something. No expect() on a literal, such as expect(true).toBe(true).
 files:
-  - "**/*.test.*"
-  - "**/*.spec.*"
-  - "**/__tests__/**"
+  - packages/core/**/*.test.*
+  - packages/core/**/*.spec.*
+  - packages/core/**/__tests__/**
 ignores:
-  - e2e/**
+  - packages/core/e2e/**
 rule:
   kind: call_expression
   has:
@@ -12636,14 +12658,14 @@ language: Tsx
 severity: error
 message: forge:typescript/vitest/no-test-env-branch Application code does not branch on whether it runs under Vitest.
 files:
-  - "**/*"
+  - packages/core/**/*
 ignores:
-  - "**/*.test.*"
-  - "**/*.spec.*"
-  - "**/__tests__/**"
-  - e2e/**
-  - vitest.config.*
-  - vitest.setup.*
+  - packages/core/**/*.test.*
+  - packages/core/**/*.spec.*
+  - packages/core/**/__tests__/**
+  - packages/core/e2e/**
+  - packages/core/vitest.config.*
+  - packages/core/vitest.setup.*
 rule:
   any:
     - pattern: process.env.VITEST
@@ -13287,6 +13309,7 @@ forge_grep_meta_1() {
   g_desc='No new suppression comments (biome-ignore in any form, @ts-expect-error); a changed file may not have more than it had. Fix the finding instead.'
 }
 forge_grep_scope_1() {
+  case $1 in packages/core/*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
@@ -13298,6 +13321,7 @@ forge_grep_meta_2() {
   g_desc='No placeholder comments on added lines ("TODO implement", "in a real implementation", "placeholder logic"); write the code or say what is missing.'
 }
 forge_grep_scope_2() {
+  case $1 in packages/core/*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
@@ -16069,13 +16093,13 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "bf28e2c1752c202d3ac96c33fdabe8ae4ff659765ddafe45b4777368573aa186",
     ".claude/skills/forge-project/scripts/guard.sh": "e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca",
     ".claude/skills/forge-project/scripts/lib.sh": "462727c0187a948cfaefd1fac315bc87063203968e3df6d12ca68c839fbdf4a3",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "7066635b81dd6069e336b59b0cee0cd6f4e6864091e21ad7c178feebcbb3f26c",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "72176fe461d6c023fc0bd9974bf5dfced6bbae91c57b464d3e1cf1b56c450f57",
     ".claude/skills/forge-project/scripts/review.sh": "889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726",
-    ".claude/skills/forge-project/scripts/session-start.sh": "912cecccaf059331106a69b248d347c17e688a67199d603ec4e44f1147e97b07",
+    ".claude/skills/forge-project/scripts/session-start.sh": "0ec462bb1c0c3d2f07efc47d1557eee3cd6990a147c03004363927cd44a9ce3e",
     ".claude/skills/forge-project/scripts/stop.sh": "10316d9cd59fea152c6f8fbf0ab70abf547514bf67a2c85f3e6b405554a71fad",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "cd9fb9cde93e42f5d859b5ad360a57356ad975f9b22c768076be941361a0a79e",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "922e845fb6e78c95caf15553763a623d01c1915632e04e4006892813e140cf76",
     ".claude/skills/forge-project/scripts/turn-start.sh": "fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "731ef914c1f2d8b3e074da5e844171f74047b1b8fd3328abf2c9b3383d891a86",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "75d1b06141baefe12372277a9e66c62d2bf16c26d1c7742a7158695467e7552e",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml": "c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20",
     ".forge/ast-grep/rule-tests/typescript-no-latch-before-optional-call-test.yml": "c86f87d695b414c91cf90a528067e558a5ce93dbf38c8d9f90d1e7aec886b743",
@@ -16089,20 +16113,20 @@ exit "$fail"
     ".forge/ast-grep/rule-tests/typescript-vitest-no-new-skip-test.yml": "98efafe5c4731640c4e4fa728d1711359c677a62a582b8da3efe611d00beea4d",
     ".forge/ast-grep/rule-tests/typescript-vitest-no-tautological-expect-test.yml": "3d4d3dbd6f33aca3e8927619a223dd0a4b56012f4f896fad27ac301743bf849e",
     ".forge/ast-grep/rule-tests/typescript-vitest-no-test-env-branch-test.yml": "72dcb1355a54b0a7a880206f4567d94c18f8eaaf6d2dc7d1ab0a9414981250c8",
-    ".forge/ast-grep/rules/typescript/no-double-assertion.yml": "c0b8c6e7a7a09608b63f8c9367afb4ac22fb1daa93c79c967373efdab597a48c",
-    ".forge/ast-grep/rules/typescript/no-latch-before-optional-call.yml": "9414562604c76184c19ca04490da4eb9d1126f41355169eb9d76962eb60c3c41",
-    ".forge/ast-grep/rules/typescript/no-secret-logging.yml": "eeac044a194027ca862ec69fe23d17a2811e46da3a763eeed7246f7ca67a0c47",
-    ".forge/ast-grep/rules/typescript/no-stub.yml": "b21497e3335f2271e6ca5874817957d18c640e7d787cfe76a72ef390ab62d634",
-    ".forge/ast-grep/rules/typescript/no-swallowed-catch.yml": "4bd8569b39e21928852fafeaee02ce9d2ff35726699f91b3f50a6ebf57843bd6",
-    ".forge/ast-grep/rules/typescript/no-ts-nocheck.yml": "aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21",
-    ".forge/ast-grep/rules/typescript/ts-expect-error-reason.yml": "b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad",
-    ".forge/ast-grep/rules/typescript/vitest/no-fewer-expects.yml": "eb97cf87f7d0754f025a3afb9e1a97ac145789684524424f720d96ce1e8b98b2",
-    ".forge/ast-grep/rules/typescript/vitest/no-mock-increase.yml": "e2f8095dc537cf51d0f68098b0b5865941660d4c0048b1532d638979092e9933",
-    ".forge/ast-grep/rules/typescript/vitest/no-new-skip.yml": "ea54564f283a2f3c832fecfd6f4d55c6243ce9922ddf524c48ee5a43738c1472",
-    ".forge/ast-grep/rules/typescript/vitest/no-tautological-expect.yml": "35497c3d5cc2bfdc45837edfa133f8320134101d9a869cebdcebcc9b8e685521",
-    ".forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml": "d3c41a3915d84b21e86e9212a06ad14c52bf2f9bcefb7c5ca433200cc3ec44fb",
+    ".forge/ast-grep/rules/typescript/no-double-assertion.yml": "17ef002e2a714727a90c74a4e2a9db61b67b9836c305b4b1be9d329e32356811",
+    ".forge/ast-grep/rules/typescript/no-latch-before-optional-call.yml": "fa26d3d4d02e623a4c3d0a22884092011dbcb0032f628fdbdc0654578415d61d",
+    ".forge/ast-grep/rules/typescript/no-secret-logging.yml": "995dad1f76bce98b4a905d4deffe3a9386bd39059bf254f49a2ef4fd782cdfc2",
+    ".forge/ast-grep/rules/typescript/no-stub.yml": "f8dba947b34da88e7281041544990f7d044f8c5b6cccc40f9b861dd3ddbf05ec",
+    ".forge/ast-grep/rules/typescript/no-swallowed-catch.yml": "d2b0db54e2b1bb003bf0ff65fab7ee2ffb954b5e276c50ace0d53a821b446abd",
+    ".forge/ast-grep/rules/typescript/no-ts-nocheck.yml": "74472d69d008e5928d289522b7cd04d96ef908fc5c646a9796206e04304b47c4",
+    ".forge/ast-grep/rules/typescript/ts-expect-error-reason.yml": "db9df1c23a73e64e692caa2aa1014e5987a298613dddc37c9113fcfaf28796c3",
+    ".forge/ast-grep/rules/typescript/vitest/no-fewer-expects.yml": "6905a9f02e0e3988cef7ad2f79d48ec94896d76423d4042335d820fd7eec811c",
+    ".forge/ast-grep/rules/typescript/vitest/no-mock-increase.yml": "1995a4906a7b64a647c6752a18261b2f72797587dfda86929357d031a964f1f2",
+    ".forge/ast-grep/rules/typescript/vitest/no-new-skip.yml": "6128c8d7d103b28b11f90bf8f3c6977499c483449c1186af43db524f78645644",
+    ".forge/ast-grep/rules/typescript/vitest/no-tautological-expect.yml": "ec546003dd3fc5a92950f126fc5ffad8599f20b6dd83a0954151758b3481fe8c",
+    ".forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml": "240f482cc1062537b49330dd8577e1c128edb7ef60478a042dab716d79c87b42",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "a7a5843c7d4fdd95bafb84a5fdb270f0db7127de13179608e3bcd7ec19321b81",
+    ".forge/check.sh": "6813780ae5fdb90174886570624d5ea8a3f05797f60578f14671ee4bedd849db",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -16158,13 +16182,13 @@ d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills
 bf28e2c1752c202d3ac96c33fdabe8ae4ff659765ddafe45b4777368573aa186  .claude/skills/forge-project/scripts/guard.rules
 e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca  .claude/skills/forge-project/scripts/guard.sh
 462727c0187a948cfaefd1fac315bc87063203968e3df6d12ca68c839fbdf4a3  .claude/skills/forge-project/scripts/lib.sh
-7066635b81dd6069e336b59b0cee0cd6f4e6864091e21ad7c178feebcbb3f26c  .claude/skills/forge-project/scripts/post-edit.sh
+72176fe461d6c023fc0bd9974bf5dfced6bbae91c57b464d3e1cf1b56c450f57  .claude/skills/forge-project/scripts/post-edit.sh
 889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726  .claude/skills/forge-project/scripts/review.sh
-912cecccaf059331106a69b248d347c17e688a67199d603ec4e44f1147e97b07  .claude/skills/forge-project/scripts/session-start.sh
+0ec462bb1c0c3d2f07efc47d1557eee3cd6990a147c03004363927cd44a9ce3e  .claude/skills/forge-project/scripts/session-start.sh
 10316d9cd59fea152c6f8fbf0ab70abf547514bf67a2c85f3e6b405554a71fad  .claude/skills/forge-project/scripts/stop.sh
-cd9fb9cde93e42f5d859b5ad360a57356ad975f9b22c768076be941361a0a79e  .claude/skills/forge-project/scripts/test-edit.sh
+922e845fb6e78c95caf15553763a623d01c1915632e04e4006892813e140cf76  .claude/skills/forge-project/scripts/test-edit.sh
 fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3  .claude/skills/forge-project/scripts/turn-start.sh
-731ef914c1f2d8b3e074da5e844171f74047b1b8fd3328abf2c9b3383d891a86  .claude/skills/forge-project/scripts/typecheck.sh
+75d1b06141baefe12372277a9e66c62d2bf16c26d1c7742a7158695467e7552e  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20  .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
 c86f87d695b414c91cf90a528067e558a5ce93dbf38c8d9f90d1e7aec886b743  .forge/ast-grep/rule-tests/typescript-no-latch-before-optional-call-test.yml
@@ -16178,20 +16202,20 @@ d77f32d57e40b3a67b9e1d64c12ed6a324c1f8f23d2518967b37aabbd74010cd  .forge/ast-gre
 98efafe5c4731640c4e4fa728d1711359c677a62a582b8da3efe611d00beea4d  .forge/ast-grep/rule-tests/typescript-vitest-no-new-skip-test.yml
 3d4d3dbd6f33aca3e8927619a223dd0a4b56012f4f896fad27ac301743bf849e  .forge/ast-grep/rule-tests/typescript-vitest-no-tautological-expect-test.yml
 72dcb1355a54b0a7a880206f4567d94c18f8eaaf6d2dc7d1ab0a9414981250c8  .forge/ast-grep/rule-tests/typescript-vitest-no-test-env-branch-test.yml
-c0b8c6e7a7a09608b63f8c9367afb4ac22fb1daa93c79c967373efdab597a48c  .forge/ast-grep/rules/typescript/no-double-assertion.yml
-9414562604c76184c19ca04490da4eb9d1126f41355169eb9d76962eb60c3c41  .forge/ast-grep/rules/typescript/no-latch-before-optional-call.yml
-eeac044a194027ca862ec69fe23d17a2811e46da3a763eeed7246f7ca67a0c47  .forge/ast-grep/rules/typescript/no-secret-logging.yml
-b21497e3335f2271e6ca5874817957d18c640e7d787cfe76a72ef390ab62d634  .forge/ast-grep/rules/typescript/no-stub.yml
-4bd8569b39e21928852fafeaee02ce9d2ff35726699f91b3f50a6ebf57843bd6  .forge/ast-grep/rules/typescript/no-swallowed-catch.yml
-aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21  .forge/ast-grep/rules/typescript/no-ts-nocheck.yml
-b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad  .forge/ast-grep/rules/typescript/ts-expect-error-reason.yml
-eb97cf87f7d0754f025a3afb9e1a97ac145789684524424f720d96ce1e8b98b2  .forge/ast-grep/rules/typescript/vitest/no-fewer-expects.yml
-e2f8095dc537cf51d0f68098b0b5865941660d4c0048b1532d638979092e9933  .forge/ast-grep/rules/typescript/vitest/no-mock-increase.yml
-ea54564f283a2f3c832fecfd6f4d55c6243ce9922ddf524c48ee5a43738c1472  .forge/ast-grep/rules/typescript/vitest/no-new-skip.yml
-35497c3d5cc2bfdc45837edfa133f8320134101d9a869cebdcebcc9b8e685521  .forge/ast-grep/rules/typescript/vitest/no-tautological-expect.yml
-d3c41a3915d84b21e86e9212a06ad14c52bf2f9bcefb7c5ca433200cc3ec44fb  .forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml
+17ef002e2a714727a90c74a4e2a9db61b67b9836c305b4b1be9d329e32356811  .forge/ast-grep/rules/typescript/no-double-assertion.yml
+fa26d3d4d02e623a4c3d0a22884092011dbcb0032f628fdbdc0654578415d61d  .forge/ast-grep/rules/typescript/no-latch-before-optional-call.yml
+995dad1f76bce98b4a905d4deffe3a9386bd39059bf254f49a2ef4fd782cdfc2  .forge/ast-grep/rules/typescript/no-secret-logging.yml
+f8dba947b34da88e7281041544990f7d044f8c5b6cccc40f9b861dd3ddbf05ec  .forge/ast-grep/rules/typescript/no-stub.yml
+d2b0db54e2b1bb003bf0ff65fab7ee2ffb954b5e276c50ace0d53a821b446abd  .forge/ast-grep/rules/typescript/no-swallowed-catch.yml
+74472d69d008e5928d289522b7cd04d96ef908fc5c646a9796206e04304b47c4  .forge/ast-grep/rules/typescript/no-ts-nocheck.yml
+db9df1c23a73e64e692caa2aa1014e5987a298613dddc37c9113fcfaf28796c3  .forge/ast-grep/rules/typescript/ts-expect-error-reason.yml
+6905a9f02e0e3988cef7ad2f79d48ec94896d76423d4042335d820fd7eec811c  .forge/ast-grep/rules/typescript/vitest/no-fewer-expects.yml
+1995a4906a7b64a647c6752a18261b2f72797587dfda86929357d031a964f1f2  .forge/ast-grep/rules/typescript/vitest/no-mock-increase.yml
+6128c8d7d103b28b11f90bf8f3c6977499c483449c1186af43db524f78645644  .forge/ast-grep/rules/typescript/vitest/no-new-skip.yml
+ec546003dd3fc5a92950f126fc5ffad8599f20b6dd83a0954151758b3481fe8c  .forge/ast-grep/rules/typescript/vitest/no-tautological-expect.yml
+240f482cc1062537b49330dd8577e1c128edb7ef60478a042dab716d79c87b42  .forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-a7a5843c7d4fdd95bafb84a5fdb270f0db7127de13179608e3bcd7ec19321b81  .forge/check.sh
+6813780ae5fdb90174886570624d5ea8a3f05797f60578f14671ee4bedd849db  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh
