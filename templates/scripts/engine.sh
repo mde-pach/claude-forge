@@ -338,6 +338,89 @@ forge_trusted_deps() {
   return "$_td_rc"
 }
 
+# forge_once: for advisory checks. At Stop (--turn) a check that calls it after a
+# finding blocks once per turn: the first call records the finding in the turn
+# snapshot and fails; a later call in the same turn prints "accepted" and passes.
+# In other modes (pre-commit, CI) it always fails.
+forge_once() {
+  [ "$mode" = --turn ] && [ -n "$FORGE_SNAP" ] || return 1
+  _fo_m="$FORGE_SNAP/once.$(printf '%s' "$c_id" | tr -c 'A-Za-z0-9_.-' '_')"
+  if [ -f "$_fo_m" ]; then
+    printf 'forge:%s accepted: reported once this turn\n' "$c_id"
+    return 0
+  fi
+  : > "$_fo_m" 2>/dev/null
+  return 1
+}
+
+FORGE_JS_LOCKS='pnpm-lock.yaml package-lock.json npm-shrinkwrap.json yarn.lock bun.lock bun.lockb'
+
+# forge_pkg_deps <package.json>: "section<TAB>name<TAB>spec" for each entry of
+# dependencies, devDependencies and optionalDependencies (what lock files record;
+# pnpm's lock does not record peerDependencies), sorted.
+forge_pkg_deps() {
+  [ -f "$1" ] || return 0
+  awk '
+    { buf = buf $0 "\n" }
+    END {
+      n = length(buf); depth = 0; top = ""; key = ""; i = 1
+      while (i <= n) {
+        c = substr(buf, i, 1)
+        if (c == "\"") {
+          j = i + 1; s = ""
+          while (j <= n) {
+            d = substr(buf, j, 1)
+            if (d == "\\") { s = s substr(buf, j, 2); j += 2; continue }
+            if (d == "\"") break
+            s = s d; j++
+          }
+          i = j + 1; k = i
+          while (k <= n && substr(buf, k, 1) ~ /[ \t\r\n]/) k++
+          if (substr(buf, k, 1) == ":") { key = s; if (depth == 1) top = s; i = k + 1; continue }
+          if (depth == 2 && top ~ /^(dependencies|devDependencies|optionalDependencies)$/) print top "\t" key "\t" s
+          continue
+        }
+        if (c == "{" || c == "[") depth++
+        else if (c == "}" || c == "]") depth--
+        i++
+      }
+    }' "$1" | sort
+}
+
+# forge_lockfile_updated: a package.json whose dependencies changed since the base
+# needs a changed lock file, when the project has one (next to it or at the root).
+# Blocks once per turn (forge_once): the package manager may not be able to run here.
+forge_lockfile_updated() {
+  grep -qE '(^|/)(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?)$' "$FORGE_TMP/changed" && return 0
+  _lu_rc=0
+  while IFS= read -r _lu_f; do
+    case $_lu_f in package.json|*/package.json) ;; *) continue ;; esac
+    case /$_lu_f in */node_modules/*) continue ;; esac
+    _lu_lock=''
+    _lu_ifs=$IFS; IFS=' '
+    for _lu_l in $FORGE_JS_LOCKS; do
+      if [ -f "$_lu_l" ] || [ -f "$(dirname "$_lu_f")/$_lu_l" ]; then _lu_lock=$_lu_l; break; fi
+    done
+    IFS=$_lu_ifs
+    [ -n "$_lu_lock" ] || continue
+    forge_pkg_deps "$FORGE_TMP/base/$_lu_f" > "$FORGE_TMP/deps.then"
+    forge_pkg_deps "$_lu_f" > "$FORGE_TMP/deps.now"
+    cmp -s "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" && continue
+    _lu_what=$(awk -F '\t' '
+      FILENAME == ARGV[1] { then[$1 " " $2] = $3; next }
+      { now[$1 " " $2] = $3 }
+      END {
+        for (k in now) if (!(k in then)) print k " " now[k] " added"; else if (then[k] != now[k]) print k " " then[k] " -> " now[k]
+        for (k in then) if (!(k in now)) print k " removed"
+      }' "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" | sort | head -n 5 | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')
+    printf '%s: %s, but %s did not change\n' "$_lu_f" "$_lu_what" "$_lu_lock"
+    _lu_rc=1
+  done < "$FORGE_TMP/existing"
+  [ "$_lu_rc" = 0 ] && return 0
+  printf 'Run the package manager (bun install, pnpm install, npm install, yarn) to update the lock file; it is not edited by hand. If it cannot run here, tell the user.\n'
+  forge_once
+}
+
 # GitHub Actions workflows: pinned zizmor (through uvx), offline audits only, inline
 # ignore comments and ignore rules not honoured (disabling goes through forge.yaml).
 FORGE_ZIZMOR_VERSION="@@ZIZMOR_VERSION@@"

@@ -601,7 +601,7 @@ fi
 # ---- generated checks
 # Project tools used in check commands, resolved through tool().
 tsc() { forge_exec_tool tsc "$@"; }
-FORGE_NCHECKS=3
+FORGE_NCHECKS=4
 
 # 1. typescript/config-ratchet
 forge_check_meta_1() {
@@ -618,33 +618,47 @@ forge_check_run_1() {
 forge_ratchet bun ratchet.mjs
 }
 
-# 2. typescript/no-ignore-deprecations
+# 2. typescript/lockfile-updated
 forge_check_meta_2() {
-  c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
+  c_id='typescript/lockfile-updated'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_2() {
+  return 0
+}
+forge_when_2() { case $1 in package.json|*/package.json) return 0 ;; esac; return 1; }
+forge_check_run_2() {
+forge_lockfile_updated
+}
+
+# 3. typescript/no-ignore-deprecations
+forge_check_meta_3() {
+  c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
+}
+forge_scope_3() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_2() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
-forge_check_run_2() {
+forge_when_3() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
+forge_check_run_3() {
 ! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')
 }
 
-# 3. typescript/typecheck
-forge_check_meta_3() {
+# 4. typescript/typecheck
+forge_check_meta_4() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_3() {
+forge_scope_4() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_3() { return 1; }
-forge_check_run_3() {
+forge_when_4() { return 1; }
+forge_check_run_4() {
 tsc --noEmit -p tsconfig.json
 }
 
@@ -1013,6 +1027,89 @@ forge_trusted_deps() {
     fi
   done < "$FORGE_TMP/existing"
   return "$_td_rc"
+}
+
+# forge_once: for advisory checks. At Stop (--turn) a check that calls it after a
+# finding blocks once per turn: the first call records the finding in the turn
+# snapshot and fails; a later call in the same turn prints "accepted" and passes.
+# In other modes (pre-commit, CI) it always fails.
+forge_once() {
+  [ "$mode" = --turn ] && [ -n "$FORGE_SNAP" ] || return 1
+  _fo_m="$FORGE_SNAP/once.$(printf '%s' "$c_id" | tr -c 'A-Za-z0-9_.-' '_')"
+  if [ -f "$_fo_m" ]; then
+    printf 'forge:%s accepted: reported once this turn\n' "$c_id"
+    return 0
+  fi
+  : > "$_fo_m" 2>/dev/null
+  return 1
+}
+
+FORGE_JS_LOCKS='pnpm-lock.yaml package-lock.json npm-shrinkwrap.json yarn.lock bun.lock bun.lockb'
+
+# forge_pkg_deps <package.json>: "section<TAB>name<TAB>spec" for each entry of
+# dependencies, devDependencies and optionalDependencies (what lock files record;
+# pnpm's lock does not record peerDependencies), sorted.
+forge_pkg_deps() {
+  [ -f "$1" ] || return 0
+  awk '
+    { buf = buf $0 "\n" }
+    END {
+      n = length(buf); depth = 0; top = ""; key = ""; i = 1
+      while (i <= n) {
+        c = substr(buf, i, 1)
+        if (c == "\"") {
+          j = i + 1; s = ""
+          while (j <= n) {
+            d = substr(buf, j, 1)
+            if (d == "\\") { s = s substr(buf, j, 2); j += 2; continue }
+            if (d == "\"") break
+            s = s d; j++
+          }
+          i = j + 1; k = i
+          while (k <= n && substr(buf, k, 1) ~ /[ \t\r\n]/) k++
+          if (substr(buf, k, 1) == ":") { key = s; if (depth == 1) top = s; i = k + 1; continue }
+          if (depth == 2 && top ~ /^(dependencies|devDependencies|optionalDependencies)$/) print top "\t" key "\t" s
+          continue
+        }
+        if (c == "{" || c == "[") depth++
+        else if (c == "}" || c == "]") depth--
+        i++
+      }
+    }' "$1" | sort
+}
+
+# forge_lockfile_updated: a package.json whose dependencies changed since the base
+# needs a changed lock file, when the project has one (next to it or at the root).
+# Blocks once per turn (forge_once): the package manager may not be able to run here.
+forge_lockfile_updated() {
+  grep -qE '(^|/)(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?)$' "$FORGE_TMP/changed" && return 0
+  _lu_rc=0
+  while IFS= read -r _lu_f; do
+    case $_lu_f in package.json|*/package.json) ;; *) continue ;; esac
+    case /$_lu_f in */node_modules/*) continue ;; esac
+    _lu_lock=''
+    _lu_ifs=$IFS; IFS=' '
+    for _lu_l in $FORGE_JS_LOCKS; do
+      if [ -f "$_lu_l" ] || [ -f "$(dirname "$_lu_f")/$_lu_l" ]; then _lu_lock=$_lu_l; break; fi
+    done
+    IFS=$_lu_ifs
+    [ -n "$_lu_lock" ] || continue
+    forge_pkg_deps "$FORGE_TMP/base/$_lu_f" > "$FORGE_TMP/deps.then"
+    forge_pkg_deps "$_lu_f" > "$FORGE_TMP/deps.now"
+    cmp -s "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" && continue
+    _lu_what=$(awk -F '\t' '
+      FILENAME == ARGV[1] { then[$1 " " $2] = $3; next }
+      { now[$1 " " $2] = $3 }
+      END {
+        for (k in now) if (!(k in then)) print k " " now[k] " added"; else if (then[k] != now[k]) print k " " then[k] " -> " now[k]
+        for (k in then) if (!(k in now)) print k " removed"
+      }' "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" | sort | head -n 5 | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')
+    printf '%s: %s, but %s did not change\n' "$_lu_f" "$_lu_what" "$_lu_lock"
+    _lu_rc=1
+  done < "$FORGE_TMP/existing"
+  [ "$_lu_rc" = 0 ] && return 0
+  printf 'Run the package manager (bun install, pnpm install, npm install, yarn) to update the lock file; it is not edited by hand. If it cannot run here, tell the user.\n'
+  forge_once
 }
 
 # GitHub Actions workflows: pinned zizmor (through uvx), offline audits only, inline
@@ -1737,7 +1834,7 @@ IFS='
 # ---- generated checks
 # Project tools used in check commands, resolved through tool().
 tsc() { forge_exec_tool tsc "$@"; }
-FORGE_NCHECKS=3
+FORGE_NCHECKS=4
 
 # 1. typescript/config-ratchet
 forge_check_meta_1() {
@@ -1754,33 +1851,47 @@ forge_check_run_1() {
 forge_ratchet bun ratchet.mjs
 }
 
-# 2. typescript/no-ignore-deprecations
+# 2. typescript/lockfile-updated
 forge_check_meta_2() {
-  c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
+  c_id='typescript/lockfile-updated'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_2() {
+  return 0
+}
+forge_when_2() { case $1 in package.json|*/package.json) return 0 ;; esac; return 1; }
+forge_check_run_2() {
+forge_lockfile_updated
+}
+
+# 3. typescript/no-ignore-deprecations
+forge_check_meta_3() {
+  c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
+}
+forge_scope_3() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_2() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
-forge_check_run_2() {
+forge_when_3() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
+forge_check_run_3() {
 ! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')
 }
 
-# 3. typescript/typecheck
-forge_check_meta_3() {
+# 4. typescript/typecheck
+forge_check_meta_4() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_3() {
+forge_scope_4() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_3() { return 1; }
-forge_check_run_3() {
+forge_when_4() { return 1; }
+forge_check_run_4() {
 tsc --noEmit -p tsconfig.json
 }
 
@@ -2149,6 +2260,89 @@ forge_trusted_deps() {
     fi
   done < "$FORGE_TMP/existing"
   return "$_td_rc"
+}
+
+# forge_once: for advisory checks. At Stop (--turn) a check that calls it after a
+# finding blocks once per turn: the first call records the finding in the turn
+# snapshot and fails; a later call in the same turn prints "accepted" and passes.
+# In other modes (pre-commit, CI) it always fails.
+forge_once() {
+  [ "$mode" = --turn ] && [ -n "$FORGE_SNAP" ] || return 1
+  _fo_m="$FORGE_SNAP/once.$(printf '%s' "$c_id" | tr -c 'A-Za-z0-9_.-' '_')"
+  if [ -f "$_fo_m" ]; then
+    printf 'forge:%s accepted: reported once this turn\n' "$c_id"
+    return 0
+  fi
+  : > "$_fo_m" 2>/dev/null
+  return 1
+}
+
+FORGE_JS_LOCKS='pnpm-lock.yaml package-lock.json npm-shrinkwrap.json yarn.lock bun.lock bun.lockb'
+
+# forge_pkg_deps <package.json>: "section<TAB>name<TAB>spec" for each entry of
+# dependencies, devDependencies and optionalDependencies (what lock files record;
+# pnpm's lock does not record peerDependencies), sorted.
+forge_pkg_deps() {
+  [ -f "$1" ] || return 0
+  awk '
+    { buf = buf $0 "\n" }
+    END {
+      n = length(buf); depth = 0; top = ""; key = ""; i = 1
+      while (i <= n) {
+        c = substr(buf, i, 1)
+        if (c == "\"") {
+          j = i + 1; s = ""
+          while (j <= n) {
+            d = substr(buf, j, 1)
+            if (d == "\\") { s = s substr(buf, j, 2); j += 2; continue }
+            if (d == "\"") break
+            s = s d; j++
+          }
+          i = j + 1; k = i
+          while (k <= n && substr(buf, k, 1) ~ /[ \t\r\n]/) k++
+          if (substr(buf, k, 1) == ":") { key = s; if (depth == 1) top = s; i = k + 1; continue }
+          if (depth == 2 && top ~ /^(dependencies|devDependencies|optionalDependencies)$/) print top "\t" key "\t" s
+          continue
+        }
+        if (c == "{" || c == "[") depth++
+        else if (c == "}" || c == "]") depth--
+        i++
+      }
+    }' "$1" | sort
+}
+
+# forge_lockfile_updated: a package.json whose dependencies changed since the base
+# needs a changed lock file, when the project has one (next to it or at the root).
+# Blocks once per turn (forge_once): the package manager may not be able to run here.
+forge_lockfile_updated() {
+  grep -qE '(^|/)(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?)$' "$FORGE_TMP/changed" && return 0
+  _lu_rc=0
+  while IFS= read -r _lu_f; do
+    case $_lu_f in package.json|*/package.json) ;; *) continue ;; esac
+    case /$_lu_f in */node_modules/*) continue ;; esac
+    _lu_lock=''
+    _lu_ifs=$IFS; IFS=' '
+    for _lu_l in $FORGE_JS_LOCKS; do
+      if [ -f "$_lu_l" ] || [ -f "$(dirname "$_lu_f")/$_lu_l" ]; then _lu_lock=$_lu_l; break; fi
+    done
+    IFS=$_lu_ifs
+    [ -n "$_lu_lock" ] || continue
+    forge_pkg_deps "$FORGE_TMP/base/$_lu_f" > "$FORGE_TMP/deps.then"
+    forge_pkg_deps "$_lu_f" > "$FORGE_TMP/deps.now"
+    cmp -s "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" && continue
+    _lu_what=$(awk -F '\t' '
+      FILENAME == ARGV[1] { then[$1 " " $2] = $3; next }
+      { now[$1 " " $2] = $3 }
+      END {
+        for (k in now) if (!(k in then)) print k " " now[k] " added"; else if (then[k] != now[k]) print k " " then[k] " -> " now[k]
+        for (k in then) if (!(k in now)) print k " removed"
+      }' "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" | sort | head -n 5 | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')
+    printf '%s: %s, but %s did not change\n' "$_lu_f" "$_lu_what" "$_lu_lock"
+    _lu_rc=1
+  done < "$FORGE_TMP/existing"
+  [ "$_lu_rc" = 0 ] && return 0
+  printf 'Run the package manager (bun install, pnpm install, npm install, yarn) to update the lock file; it is not edited by hand. If it cannot run here, tell the user.\n'
+  forge_once
 }
 
 # GitHub Actions workflows: pinned zizmor (through uvx), offline audits only, inline
@@ -2908,7 +3102,7 @@ IFS='
 # ---- generated checks
 # Project tools used in check commands, resolved through tool().
 tsc() { forge_exec_tool tsc "$@"; }
-FORGE_NCHECKS=3
+FORGE_NCHECKS=4
 
 # 1. typescript/config-ratchet
 forge_check_meta_1() {
@@ -2925,33 +3119,47 @@ forge_check_run_1() {
 forge_ratchet bun ratchet.mjs
 }
 
-# 2. typescript/no-ignore-deprecations
+# 2. typescript/lockfile-updated
 forge_check_meta_2() {
-  c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
+  c_id='typescript/lockfile-updated'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_2() {
+  return 0
+}
+forge_when_2() { case $1 in package.json|*/package.json) return 0 ;; esac; return 1; }
+forge_check_run_2() {
+forge_lockfile_updated
+}
+
+# 3. typescript/no-ignore-deprecations
+forge_check_meta_3() {
+  c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
+}
+forge_scope_3() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_2() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
-forge_check_run_2() {
+forge_when_3() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
+forge_check_run_3() {
 ! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')
 }
 
-# 3. typescript/typecheck
-forge_check_meta_3() {
+# 4. typescript/typecheck
+forge_check_meta_4() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_3() {
+forge_scope_4() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_3() { return 1; }
-forge_check_run_3() {
+forge_when_4() { return 1; }
+forge_check_run_4() {
 tsc --noEmit -p tsconfig.json
 }
 
@@ -3320,6 +3528,89 @@ forge_trusted_deps() {
     fi
   done < "$FORGE_TMP/existing"
   return "$_td_rc"
+}
+
+# forge_once: for advisory checks. At Stop (--turn) a check that calls it after a
+# finding blocks once per turn: the first call records the finding in the turn
+# snapshot and fails; a later call in the same turn prints "accepted" and passes.
+# In other modes (pre-commit, CI) it always fails.
+forge_once() {
+  [ "$mode" = --turn ] && [ -n "$FORGE_SNAP" ] || return 1
+  _fo_m="$FORGE_SNAP/once.$(printf '%s' "$c_id" | tr -c 'A-Za-z0-9_.-' '_')"
+  if [ -f "$_fo_m" ]; then
+    printf 'forge:%s accepted: reported once this turn\n' "$c_id"
+    return 0
+  fi
+  : > "$_fo_m" 2>/dev/null
+  return 1
+}
+
+FORGE_JS_LOCKS='pnpm-lock.yaml package-lock.json npm-shrinkwrap.json yarn.lock bun.lock bun.lockb'
+
+# forge_pkg_deps <package.json>: "section<TAB>name<TAB>spec" for each entry of
+# dependencies, devDependencies and optionalDependencies (what lock files record;
+# pnpm's lock does not record peerDependencies), sorted.
+forge_pkg_deps() {
+  [ -f "$1" ] || return 0
+  awk '
+    { buf = buf $0 "\n" }
+    END {
+      n = length(buf); depth = 0; top = ""; key = ""; i = 1
+      while (i <= n) {
+        c = substr(buf, i, 1)
+        if (c == "\"") {
+          j = i + 1; s = ""
+          while (j <= n) {
+            d = substr(buf, j, 1)
+            if (d == "\\") { s = s substr(buf, j, 2); j += 2; continue }
+            if (d == "\"") break
+            s = s d; j++
+          }
+          i = j + 1; k = i
+          while (k <= n && substr(buf, k, 1) ~ /[ \t\r\n]/) k++
+          if (substr(buf, k, 1) == ":") { key = s; if (depth == 1) top = s; i = k + 1; continue }
+          if (depth == 2 && top ~ /^(dependencies|devDependencies|optionalDependencies)$/) print top "\t" key "\t" s
+          continue
+        }
+        if (c == "{" || c == "[") depth++
+        else if (c == "}" || c == "]") depth--
+        i++
+      }
+    }' "$1" | sort
+}
+
+# forge_lockfile_updated: a package.json whose dependencies changed since the base
+# needs a changed lock file, when the project has one (next to it or at the root).
+# Blocks once per turn (forge_once): the package manager may not be able to run here.
+forge_lockfile_updated() {
+  grep -qE '(^|/)(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?)$' "$FORGE_TMP/changed" && return 0
+  _lu_rc=0
+  while IFS= read -r _lu_f; do
+    case $_lu_f in package.json|*/package.json) ;; *) continue ;; esac
+    case /$_lu_f in */node_modules/*) continue ;; esac
+    _lu_lock=''
+    _lu_ifs=$IFS; IFS=' '
+    for _lu_l in $FORGE_JS_LOCKS; do
+      if [ -f "$_lu_l" ] || [ -f "$(dirname "$_lu_f")/$_lu_l" ]; then _lu_lock=$_lu_l; break; fi
+    done
+    IFS=$_lu_ifs
+    [ -n "$_lu_lock" ] || continue
+    forge_pkg_deps "$FORGE_TMP/base/$_lu_f" > "$FORGE_TMP/deps.then"
+    forge_pkg_deps "$_lu_f" > "$FORGE_TMP/deps.now"
+    cmp -s "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" && continue
+    _lu_what=$(awk -F '\t' '
+      FILENAME == ARGV[1] { then[$1 " " $2] = $3; next }
+      { now[$1 " " $2] = $3 }
+      END {
+        for (k in now) if (!(k in then)) print k " " now[k] " added"; else if (then[k] != now[k]) print k " " then[k] " -> " now[k]
+        for (k in then) if (!(k in now)) print k " removed"
+      }' "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" | sort | head -n 5 | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')
+    printf '%s: %s, but %s did not change\n' "$_lu_f" "$_lu_what" "$_lu_lock"
+    _lu_rc=1
+  done < "$FORGE_TMP/existing"
+  [ "$_lu_rc" = 0 ] && return 0
+  printf 'Run the package manager (bun install, pnpm install, npm install, yarn) to update the lock file; it is not edited by hand. If it cannot run here, tell the user.\n'
+  forge_once
 }
 
 # GitHub Actions workflows: pinned zizmor (through uvx), offline audits only, inline
@@ -4835,7 +5126,7 @@ bash_cleanup() {
 # ---- generated checks
 # Project tools used in check commands, resolved through tool().
 tsc() { forge_exec_tool tsc "$@"; }
-FORGE_NCHECKS=3
+FORGE_NCHECKS=4
 
 # 1. typescript/config-ratchet
 forge_check_meta_1() {
@@ -4852,33 +5143,47 @@ forge_check_run_1() {
 forge_ratchet bun ratchet.mjs
 }
 
-# 2. typescript/no-ignore-deprecations
+# 2. typescript/lockfile-updated
 forge_check_meta_2() {
-  c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
+  c_id='typescript/lockfile-updated'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
 forge_scope_2() {
+  return 0
+}
+forge_when_2() { case $1 in package.json|*/package.json) return 0 ;; esac; return 1; }
+forge_check_run_2() {
+forge_lockfile_updated
+}
+
+# 3. typescript/no-ignore-deprecations
+forge_check_meta_3() {
+  c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
+}
+forge_scope_3() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_2() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
-forge_check_run_2() {
+forge_when_3() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
+forge_check_run_3() {
 ! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')
 }
 
-# 3. typescript/typecheck
-forge_check_meta_3() {
+# 4. typescript/typecheck
+forge_check_meta_4() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0
 }
-forge_scope_3() {
+forge_scope_4() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_3() { return 1; }
-forge_check_run_3() {
+forge_when_4() { return 1; }
+forge_check_run_4() {
 tsc --noEmit -p tsconfig.json
 }
 
@@ -5247,6 +5552,89 @@ forge_trusted_deps() {
     fi
   done < "$FORGE_TMP/existing"
   return "$_td_rc"
+}
+
+# forge_once: for advisory checks. At Stop (--turn) a check that calls it after a
+# finding blocks once per turn: the first call records the finding in the turn
+# snapshot and fails; a later call in the same turn prints "accepted" and passes.
+# In other modes (pre-commit, CI) it always fails.
+forge_once() {
+  [ "$mode" = --turn ] && [ -n "$FORGE_SNAP" ] || return 1
+  _fo_m="$FORGE_SNAP/once.$(printf '%s' "$c_id" | tr -c 'A-Za-z0-9_.-' '_')"
+  if [ -f "$_fo_m" ]; then
+    printf 'forge:%s accepted: reported once this turn\n' "$c_id"
+    return 0
+  fi
+  : > "$_fo_m" 2>/dev/null
+  return 1
+}
+
+FORGE_JS_LOCKS='pnpm-lock.yaml package-lock.json npm-shrinkwrap.json yarn.lock bun.lock bun.lockb'
+
+# forge_pkg_deps <package.json>: "section<TAB>name<TAB>spec" for each entry of
+# dependencies, devDependencies and optionalDependencies (what lock files record;
+# pnpm's lock does not record peerDependencies), sorted.
+forge_pkg_deps() {
+  [ -f "$1" ] || return 0
+  awk '
+    { buf = buf $0 "\n" }
+    END {
+      n = length(buf); depth = 0; top = ""; key = ""; i = 1
+      while (i <= n) {
+        c = substr(buf, i, 1)
+        if (c == "\"") {
+          j = i + 1; s = ""
+          while (j <= n) {
+            d = substr(buf, j, 1)
+            if (d == "\\") { s = s substr(buf, j, 2); j += 2; continue }
+            if (d == "\"") break
+            s = s d; j++
+          }
+          i = j + 1; k = i
+          while (k <= n && substr(buf, k, 1) ~ /[ \t\r\n]/) k++
+          if (substr(buf, k, 1) == ":") { key = s; if (depth == 1) top = s; i = k + 1; continue }
+          if (depth == 2 && top ~ /^(dependencies|devDependencies|optionalDependencies)$/) print top "\t" key "\t" s
+          continue
+        }
+        if (c == "{" || c == "[") depth++
+        else if (c == "}" || c == "]") depth--
+        i++
+      }
+    }' "$1" | sort
+}
+
+# forge_lockfile_updated: a package.json whose dependencies changed since the base
+# needs a changed lock file, when the project has one (next to it or at the root).
+# Blocks once per turn (forge_once): the package manager may not be able to run here.
+forge_lockfile_updated() {
+  grep -qE '(^|/)(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?)$' "$FORGE_TMP/changed" && return 0
+  _lu_rc=0
+  while IFS= read -r _lu_f; do
+    case $_lu_f in package.json|*/package.json) ;; *) continue ;; esac
+    case /$_lu_f in */node_modules/*) continue ;; esac
+    _lu_lock=''
+    _lu_ifs=$IFS; IFS=' '
+    for _lu_l in $FORGE_JS_LOCKS; do
+      if [ -f "$_lu_l" ] || [ -f "$(dirname "$_lu_f")/$_lu_l" ]; then _lu_lock=$_lu_l; break; fi
+    done
+    IFS=$_lu_ifs
+    [ -n "$_lu_lock" ] || continue
+    forge_pkg_deps "$FORGE_TMP/base/$_lu_f" > "$FORGE_TMP/deps.then"
+    forge_pkg_deps "$_lu_f" > "$FORGE_TMP/deps.now"
+    cmp -s "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" && continue
+    _lu_what=$(awk -F '\t' '
+      FILENAME == ARGV[1] { then[$1 " " $2] = $3; next }
+      { now[$1 " " $2] = $3 }
+      END {
+        for (k in now) if (!(k in then)) print k " " now[k] " added"; else if (then[k] != now[k]) print k " " then[k] " -> " now[k]
+        for (k in then) if (!(k in now)) print k " removed"
+      }' "$FORGE_TMP/deps.then" "$FORGE_TMP/deps.now" | sort | head -n 5 | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')
+    printf '%s: %s, but %s did not change\n' "$_lu_f" "$_lu_what" "$_lu_lock"
+    _lu_rc=1
+  done < "$FORGE_TMP/existing"
+  [ "$_lu_rc" = 0 ] && return 0
+  printf 'Run the package manager (bun install, pnpm install, npm install, yarn) to update the lock file; it is not edited by hand. If it cannot run here, tell the user.\n'
+  forge_once
 }
 
 # GitHub Actions workflows: pinned zizmor (through uvx), offline audits only, inline
@@ -6192,6 +6580,7 @@ exit "$fail"
     "typescript/config-files": "77940ff304752f88c143dedc5911b0961de9e16b68e10758a273cfc049505413",
     "typescript/config-ratchet": "b0ff3b6c064f691984e217acc0388d0900b1a2a1d1ee493935badb41a8a45022",
     "typescript/format-lint": "873b5ec532051f0356d5a00590c714b3256104929a42c4d0fa4bdd1672ef295b",
+    "typescript/lockfile-updated": "fdf939f434594c3d209c302bbd1c34f331eefbdc3b15f168574c56104f5f3664",
     "typescript/no-console": "304966850351b07590c05fb22ae0125d1976179b3cd7abc0bc0dd7e82039ada5",
     "typescript/no-double-assertion": "2c5b17cd8daa6bd598b4aa79b30259626c86e6a3afd00630a3a4a2918316ce80",
     "typescript/no-empty-block": "e615b8d48575392c885e65f5b5e69cfaba918ae070473fb229086fe36501a31f",
@@ -6225,12 +6614,12 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "52a6f9fbaa079816551227307122ce0c0e20ba65ba3cc93e09e2d4d187f3e246",
     ".claude/skills/forge-project/scripts/guard.sh": "33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d",
     ".claude/skills/forge-project/scripts/lib.sh": "1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "3345c08ae1e3dd07cc3233b2794daf2a9357ab1a862efcbc5e6d2d8167554c81",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "85a499aa239062207e7f1357512442e0a61e49a7e3a56e3ce1cb3ca72074b76f",
     ".claude/skills/forge-project/scripts/review.sh": "9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac",
-    ".claude/skills/forge-project/scripts/session-start.sh": "79deffcf1e068007d6981327dacf4c5bd6a9131614b80887cacdfe8c75ddcfde",
+    ".claude/skills/forge-project/scripts/session-start.sh": "50e1e7c93769664b5a357d46d65ce301b38734f826fc6f3bcf5f6f43315646f1",
     ".claude/skills/forge-project/scripts/stop.sh": "f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173",
     ".claude/skills/forge-project/scripts/turn-start.sh": "a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "3a6fc6d7b4c85069dc9d700ebcbc2f77a28d1187aa1b5b8fb159e701a9dd1f28",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "ae0a1ac0dc982f31155150e83f893dba89bc9f471c218f591655b1ee6010c9c7",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml": "c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20",
     ".forge/ast-grep/rule-tests/typescript-no-eval-test.yml": "3716e00219b28a0974a07a56e1d264bb478b35a6ef38d5c13740a9080b09516e",
@@ -6255,7 +6644,7 @@ exit "$fail"
     ".forge/ast-grep/rules/typescript/no-ts-nocheck.yml": "aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21",
     ".forge/ast-grep/rules/typescript/ts-expect-error-reason.yml": "b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "137f421156465696eac0ce09d46620ad40c5d59219085cf7e46a50997dd8acd1",
+    ".forge/check.sh": "66bc7e96f005880bf6ff596a65d8011ae4334dfa9b80feacbbe742ef91aa4645",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -6305,12 +6694,12 @@ d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills
 52a6f9fbaa079816551227307122ce0c0e20ba65ba3cc93e09e2d4d187f3e246  .claude/skills/forge-project/scripts/guard.rules
 33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d  .claude/skills/forge-project/scripts/guard.sh
 1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a  .claude/skills/forge-project/scripts/lib.sh
-3345c08ae1e3dd07cc3233b2794daf2a9357ab1a862efcbc5e6d2d8167554c81  .claude/skills/forge-project/scripts/post-edit.sh
+85a499aa239062207e7f1357512442e0a61e49a7e3a56e3ce1cb3ca72074b76f  .claude/skills/forge-project/scripts/post-edit.sh
 9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac  .claude/skills/forge-project/scripts/review.sh
-79deffcf1e068007d6981327dacf4c5bd6a9131614b80887cacdfe8c75ddcfde  .claude/skills/forge-project/scripts/session-start.sh
+50e1e7c93769664b5a357d46d65ce301b38734f826fc6f3bcf5f6f43315646f1  .claude/skills/forge-project/scripts/session-start.sh
 f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173  .claude/skills/forge-project/scripts/stop.sh
 a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c  .claude/skills/forge-project/scripts/turn-start.sh
-3a6fc6d7b4c85069dc9d700ebcbc2f77a28d1187aa1b5b8fb159e701a9dd1f28  .claude/skills/forge-project/scripts/typecheck.sh
+ae0a1ac0dc982f31155150e83f893dba89bc9f471c218f591655b1ee6010c9c7  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20  .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
 3716e00219b28a0974a07a56e1d264bb478b35a6ef38d5c13740a9080b09516e  .forge/ast-grep/rule-tests/typescript-no-eval-test.yml
@@ -6335,7 +6724,7 @@ b21497e3335f2271e6ca5874817957d18c640e7d787cfe76a72ef390ab62d634  .forge/ast-gre
 aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21  .forge/ast-grep/rules/typescript/no-ts-nocheck.yml
 b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad  .forge/ast-grep/rules/typescript/ts-expect-error-reason.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-137f421156465696eac0ce09d46620ad40c5d59219085cf7e46a50997dd8acd1  .forge/check.sh
+66bc7e96f005880bf6ff596a65d8011ae4334dfa9b80feacbbe742ef91aa4645  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh
