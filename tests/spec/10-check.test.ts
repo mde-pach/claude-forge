@@ -354,6 +354,33 @@ describe("errors in unchanged files", () => {
     T,
   );
 
+  /**
+   * tsc runs with `--pretty false` (plain diagnostics whatever the tsconfig says) and
+   * `--incremental`, its build info kept in `.forge/state/` (ignored by git): a
+   * project's own `tsBuildInfoFile`, or a composite project's build info used by
+   * `tsc -b`, is never written.
+   */
+  /** @rule typescript/typecheck */
+  test.if(hasBun)(
+    "tsc runs incrementally with plain output, its build info under .forge/state/ and never in the project, also for a composite project",
+    () => {
+      const r = legacyRepo();
+      linkTs5(r);
+      put(r, "tsconfig.json", '{"compilerOptions": {"target": "ES2022", "module": "ESNext", "strict": true, "composite": true, "outDir": "out", "pretty": true}, "include": ["src"]}\n');
+      commitAll(r, "composite");
+      put(r, "src/ok.ts", 'export const ok: number = "no";\n');
+      const first = sh("sh", [".forge/check.sh", "--changed"], { cwd: r });
+      expect(first.stdout).toContain("forge:typescript/typecheck failed\nsrc/ok.ts(1,14): error TS2322");
+      expect(first.stdout).not.toContain("\u001b[");
+      expect(existsSync(join(r, ".forge/state/tsc.tsbuildinfo"))).toBe(true);
+      expect(existsSync(join(r, "out"))).toBe(false);
+      expect(git(r, "status", "--porcelain").stdout.trim()).toBe("?? src/ok.ts");
+      const second = sh("sh", [".forge/check.sh", "--changed"], { cwd: r });
+      expect(second.stdout).toBe(first.stdout);
+    },
+    T,
+  );
+
   test.if(hasUv)(
     "the same holds for a lint check run on the whole project",
     () => {

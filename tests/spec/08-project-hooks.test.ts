@@ -18,7 +18,8 @@ const SCRIPTS = ".claude/skills/forge-project/scripts";
 let repo = "";
 
 function hook(script: string, fields: Record<string, unknown>, env: Record<string, string> = {}, cwd = repo) {
-  return sh("sh", [join(SCRIPTS, script)], { cwd, input: hookJson({ cwd, ...fields }), env });
+  // an interactive session unless a test says otherwise (the suite may itself run under claude -p)
+  return sh("sh", [join(SCRIPTS, script)], { cwd, input: hookJson({ cwd, ...fields }), env: { CLAUDE_CODE_ENTRYPOINT: "cli", ...env } });
 }
 function reset() {
   git(repo, "reset", "-q", "--hard");
@@ -454,6 +455,34 @@ describe("PostToolUse", () => {
       expect(r.stdout).toContain("first=2");
       expect(r.stderr).toContain("forge:python/typecheck");
       expect(existsSync(join(repo, ".forge/state/typecheck.lock"))).toBe(false);
+      rmSync(join(repo, ".venv/bin/basedpyright"));
+      reset();
+    },
+    T,
+  );
+
+  /**
+   * Claude Code runs an `asyncRewake` hook in the background only in an interactive
+   * session or with streaming input; under `claude -p "<prompt>"` it waits for it, so
+   * every edit would wait for a whole-project typecheck (32–64 s per edit in zod). There
+   * typecheck.sh exits at once and the Stop check runs the typecheck once.
+   * @rule python/typecheck
+   */
+  test.if(hasUv)(
+    "under claude -p with a prompt (entrypoint sdk-cli, no streaming input) typecheck.sh does not run, leaving the typecheck to Stop; with --input-format stream-json, or FORGE_EDIT_TYPECHECK=always, it runs",
+    () => {
+      realBasedpyright();
+      put(repo, "app/main.py", readFileSync(join(repo, "app/main.py"), "utf8") + '\nBROKEN: int = "no"\n');
+      const input = join(mkdtempSync(join(tmpdir(), "forge-in-")), "in.json");
+      writeFileSync(input, hookJson({ cwd: repo, ...edit("app/main.py") }));
+      const run = (env: Record<string, string>, ...args: string[]) =>
+        sh("sh", ["-c", 'sh "$0" < "$1"; exit $?', join(SCRIPTS, "typecheck.sh"), input, ...args], { cwd: repo, env: { FORGE_EDIT_TYPECHECK: "", ...env } });
+      const headless = run({ CLAUDE_CODE_ENTRYPOINT: "sdk-cli" });
+      expect(headless.status).toBe(0);
+      expect(headless.stderr).toBe("");
+      expect(run({ CLAUDE_CODE_ENTRYPOINT: "sdk-cli" }, "--input-format", "stream-json").status).toBe(2);
+      expect(run({ CLAUDE_CODE_ENTRYPOINT: "sdk-cli", FORGE_EDIT_TYPECHECK: "always" }).status).toBe(2);
+      expect(run({ CLAUDE_CODE_ENTRYPOINT: "cli" }).status).toBe(2);
       rmSync(join(repo, ".venv/bin/basedpyright"));
       reset();
     },

@@ -3297,9 +3297,38 @@ exit 0
 # Errors in files changed during the turn: exit 2 with <= 20 lines on stderr;
 # errors only in other files are not Claude's and stay silent. Skips if a typecheck is already
 # running (lock directory in .forge/state/, taken over when its pid is gone).
+# Skipped where Claude Code would run it in the foreground (forge_rewake_blocks).
 dir=$(cd "$(dirname "$0")" && pwd)
 FORGE_INPUT=$(cat)
 . "$dir/lib.sh"
+
+# forge_rewake_blocks: succeeds when Claude Code runs this asyncRewake hook in the
+# foreground, i.e. a non-interactive session without streaming input: claude -p with a
+# prompt (CLAUDE_CODE_ENTRYPOINT sdk-cli) and no --input-format stream-json (nor
+# --sdk-url, which requires it) on the command line of an ancestor process. Every edit
+# would then wait for a whole-project typecheck; the Stop check runs it once instead.
+# FORGE_EDIT_TYPECHECK=always runs it anyway, never skips it everywhere.
+forge_rewake_blocks() {
+  case ${FORGE_EDIT_TYPECHECK:-auto} in always) return 1 ;; never) return 0 ;; esac
+  [ "${CLAUDE_CODE_ENTRYPOINT:-}" = sdk-cli ] || return 1
+  _rw_p=$PPID
+  _rw_n=0
+  while [ -n "$_rw_p" ] && [ "$_rw_p" -gt 1 ] 2>/dev/null && [ "$_rw_n" -lt 12 ]; do
+    if [ -r "/proc/$_rw_p/cmdline" ]; then
+      _rw_a=$(tr '\000' ' ' < "/proc/$_rw_p/cmdline" 2>/dev/null)
+      _rw_pp=$(awk '$1 == "PPid:" { print $2 }' "/proc/$_rw_p/status" 2>/dev/null)
+    else
+      _rw_a=$(ps -o args= -p "$_rw_p" 2>/dev/null)
+      _rw_pp=$(ps -o ppid= -p "$_rw_p" 2>/dev/null | tr -d ' ')
+    fi
+    case " $_rw_a " in *' --input-format stream-json '*|*' --input-format=stream-json '*|*' --sdk-url'*) return 1 ;; esac
+    _rw_p=$_rw_pp
+    _rw_n=$((_rw_n + 1))
+  done
+  return 0
+}
+forge_rewake_blocks && exit 0
+
 repo_root || exit 0
 if [ "$(json_get tool_name)" = Bash ]; then
   # post-edit.sh (run alongside) writes the files the command changed
@@ -7260,7 +7289,7 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/session-start.sh": "dfe7d4e6a15d0ffcb0c7e7085a3118a4e7502916a5c8ee35ff8bc357c4892457",
     ".claude/skills/forge-project/scripts/stop.sh": "f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173",
     ".claude/skills/forge-project/scripts/turn-start.sh": "a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "c2eac8f169d5543f808fa728df2e59569737d95d477d945e7b79305dd1c08ae2",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "0a17064401f422425ada950736acebf5fa7e77f4975c7d517d2da658a9dc07e5",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/docker-compose-datastore-loopback-test.yml": "75507971edac1d4a2eca04e6bceb8a942429c0987372010b39ad0b7f126b55e9",
     ".forge/ast-grep/rule-tests/docker-compose-healthy-depends-test.yml": "bcd21e7f9112e5f0d44c9f5c9779824661b2f1dc40448323100787f342c4b7a8",
@@ -7339,7 +7368,7 @@ d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills
 dfe7d4e6a15d0ffcb0c7e7085a3118a4e7502916a5c8ee35ff8bc357c4892457  .claude/skills/forge-project/scripts/session-start.sh
 f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173  .claude/skills/forge-project/scripts/stop.sh
 a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c  .claude/skills/forge-project/scripts/turn-start.sh
-c2eac8f169d5543f808fa728df2e59569737d95d477d945e7b79305dd1c08ae2  .claude/skills/forge-project/scripts/typecheck.sh
+0a17064401f422425ada950736acebf5fa7e77f4975c7d517d2da658a9dc07e5  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 75507971edac1d4a2eca04e6bceb8a942429c0987372010b39ad0b7f126b55e9  .forge/ast-grep/rule-tests/docker-compose-datastore-loopback-test.yml
 bcd21e7f9112e5f0d44c9f5c9779824661b2f1dc40448323100787f342c4b7a8  .forge/ast-grep/rule-tests/docker-compose-healthy-depends-test.yml

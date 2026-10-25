@@ -905,7 +905,7 @@ forge_scope_15() {
 }
 forge_when_15() { return 1; }
 forge_check_run_15() {
-tsc --noEmit -p tsconfig.json
+tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile .forge/state/tsc.tsbuildinfo
 }
 
 # 16. typescript/vitest/no-test-edits
@@ -2326,7 +2326,7 @@ forge_scope_15() {
 }
 forge_when_15() { return 1; }
 forge_check_run_15() {
-tsc --noEmit -p tsconfig.json
+tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile .forge/state/tsc.tsbuildinfo
 }
 
 # 16. typescript/vitest/no-test-edits
@@ -3521,9 +3521,38 @@ exit 0
 # Errors in files changed during the turn: exit 2 with <= 20 lines on stderr;
 # errors only in other files are not Claude's and stay silent. Skips if a typecheck is already
 # running (lock directory in .forge/state/, taken over when its pid is gone).
+# Skipped where Claude Code would run it in the foreground (forge_rewake_blocks).
 dir=$(cd "$(dirname "$0")" && pwd)
 FORGE_INPUT=$(cat)
 . "$dir/lib.sh"
+
+# forge_rewake_blocks: succeeds when Claude Code runs this asyncRewake hook in the
+# foreground, i.e. a non-interactive session without streaming input: claude -p with a
+# prompt (CLAUDE_CODE_ENTRYPOINT sdk-cli) and no --input-format stream-json (nor
+# --sdk-url, which requires it) on the command line of an ancestor process. Every edit
+# would then wait for a whole-project typecheck; the Stop check runs it once instead.
+# FORGE_EDIT_TYPECHECK=always runs it anyway, never skips it everywhere.
+forge_rewake_blocks() {
+  case ${FORGE_EDIT_TYPECHECK:-auto} in always) return 1 ;; never) return 0 ;; esac
+  [ "${CLAUDE_CODE_ENTRYPOINT:-}" = sdk-cli ] || return 1
+  _rw_p=$PPID
+  _rw_n=0
+  while [ -n "$_rw_p" ] && [ "$_rw_p" -gt 1 ] 2>/dev/null && [ "$_rw_n" -lt 12 ]; do
+    if [ -r "/proc/$_rw_p/cmdline" ]; then
+      _rw_a=$(tr '\000' ' ' < "/proc/$_rw_p/cmdline" 2>/dev/null)
+      _rw_pp=$(awk '$1 == "PPid:" { print $2 }' "/proc/$_rw_p/status" 2>/dev/null)
+    else
+      _rw_a=$(ps -o args= -p "$_rw_p" 2>/dev/null)
+      _rw_pp=$(ps -o ppid= -p "$_rw_p" 2>/dev/null | tr -d ' ')
+    fi
+    case " $_rw_a " in *' --input-format stream-json '*|*' --input-format=stream-json '*|*' --sdk-url'*) return 1 ;; esac
+    _rw_p=$_rw_pp
+    _rw_n=$((_rw_n + 1))
+  done
+  return 0
+}
+forge_rewake_blocks && exit 0
+
 repo_root || exit 0
 if [ "$(json_get tool_name)" = Bash ]; then
   # post-edit.sh (run alongside) writes the files the command changed
@@ -3782,7 +3811,7 @@ forge_scope_15() {
 }
 forge_when_15() { return 1; }
 forge_check_run_15() {
-tsc --noEmit -p tsconfig.json
+tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile .forge/state/tsc.tsbuildinfo
 }
 
 # 16. typescript/vitest/no-test-edits
@@ -6604,7 +6633,7 @@ forge_scope_15() {
 }
 forge_when_15() { return 1; }
 forge_check_run_15() {
-tsc --noEmit -p tsconfig.json
+tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile .forge/state/tsc.tsbuildinfo
 }
 
 # 16. typescript/vitest/no-test-edits
@@ -8071,7 +8100,7 @@ exit "$fail"
     "typescript/strict-function-types": "7c8945ced7b73b7738f9a5bf3eb864c5cdb35c1eb55b7c3ad606b1db3b6a8263",
     "typescript/strict-null-checks": "1249d522c4e1a26bf6d951e14a7e9b3033d1be96ebf68d9cc93b0e8df9940df6",
     "typescript/ts-expect-error-reason": "2d40d771a013778c75bc79c0e3965b3ecc94aea938e6db87ba92d2bee63ddf90",
-    "typescript/typecheck": "5e8eec493d06838a4149b63db1ae70d370b72e90b37f334332d491d06c40d332",
+    "typescript/typecheck": "646f188bc96ed7b527c94c0923aa7649210bf509232b49f267b7feb673139b42",
     "typescript/unchecked-index": "c8a32a9a463d933695100cbee6ec896fc7bb41bad7d252871fd371ae78801755",
     "typescript/vitest/config-file": "abe466390dd426b11ccbd6526a81a8a6ea3a720e06604c84ec0ca0d8c51dd3dd",
     "typescript/vitest/no-fewer-expects": "8f6ef8c18f355e6f87742658e5bddb47ae364a35ee3e601db827eff23b17328e",
@@ -8102,12 +8131,12 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "d660d521eb000121521ebe466d5dc93771432139ae59b8d03789bbdadc142ab1",
     ".claude/skills/forge-project/scripts/guard.sh": "33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d",
     ".claude/skills/forge-project/scripts/lib.sh": "1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "3ffe8dac69b2ccb22188bdd8a0134dd28e74ae741a06055ef80a01e10d34fa49",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "9b3d0607663e8d799ac9d270acfd53251bcfd0cc29334df6141d58679f4902a7",
     ".claude/skills/forge-project/scripts/review.sh": "9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac",
-    ".claude/skills/forge-project/scripts/session-start.sh": "485f3487ee828ae97cc1dfce460f095d3a142ab6bbb8e9289d4361f85a00c8d8",
+    ".claude/skills/forge-project/scripts/session-start.sh": "a3965bad747c417b6419cfcd25f48c60e76ce9c807e74fef9bd2b77dc3bcb675",
     ".claude/skills/forge-project/scripts/stop.sh": "f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173",
     ".claude/skills/forge-project/scripts/turn-start.sh": "a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "c9669981894d7414bdb09ad0c3bf2d6627bb65237053b4b20f48b1f559304c80",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "a8c8d17d2796d3d04c8e4a70cfbc44f0b6c174f7f31a9b917eddbc2139c94b3a",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-nextjs-no-legacy-image-config-test.yml": "9d723e3c62b5697de0fa5ab80b735c3cef23225a07c81425c492cd8827faf06d",
     ".forge/ast-grep/rule-tests/typescript-nextjs-no-next-router-test.yml": "5da1551f9fa49969cdbfb6ef3ba847589327a2d7430a3cdc79f3637fc81586f1",
@@ -8170,7 +8199,7 @@ exit "$fail"
     ".forge/ast-grep/rules/typescript/zod/error-param.yml": "88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a",
     ".forge/ast-grep/rules/typescript/zod/v4-string-formats.yml": "a7503c000f128a4718f29b0122170295972560de99263354d6ed0db1a8cb099c",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "f2d49e350e4cdfdcdd596b71fe523205613a208f3d1994fa7fea1b40f803f733",
+    ".forge/check.sh": "fc7001a1942c95822dbce634a8d592467c2fd612338a7f991db13edc1643e3d6",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -8237,12 +8266,12 @@ d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills
 d660d521eb000121521ebe466d5dc93771432139ae59b8d03789bbdadc142ab1  .claude/skills/forge-project/scripts/guard.rules
 33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d  .claude/skills/forge-project/scripts/guard.sh
 1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a  .claude/skills/forge-project/scripts/lib.sh
-3ffe8dac69b2ccb22188bdd8a0134dd28e74ae741a06055ef80a01e10d34fa49  .claude/skills/forge-project/scripts/post-edit.sh
+9b3d0607663e8d799ac9d270acfd53251bcfd0cc29334df6141d58679f4902a7  .claude/skills/forge-project/scripts/post-edit.sh
 9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac  .claude/skills/forge-project/scripts/review.sh
-485f3487ee828ae97cc1dfce460f095d3a142ab6bbb8e9289d4361f85a00c8d8  .claude/skills/forge-project/scripts/session-start.sh
+a3965bad747c417b6419cfcd25f48c60e76ce9c807e74fef9bd2b77dc3bcb675  .claude/skills/forge-project/scripts/session-start.sh
 f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173  .claude/skills/forge-project/scripts/stop.sh
 a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c  .claude/skills/forge-project/scripts/turn-start.sh
-c9669981894d7414bdb09ad0c3bf2d6627bb65237053b4b20f48b1f559304c80  .claude/skills/forge-project/scripts/typecheck.sh
+a8c8d17d2796d3d04c8e4a70cfbc44f0b6c174f7f31a9b917eddbc2139c94b3a  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 9d723e3c62b5697de0fa5ab80b735c3cef23225a07c81425c492cd8827faf06d  .forge/ast-grep/rule-tests/typescript-nextjs-no-legacy-image-config-test.yml
 5da1551f9fa49969cdbfb6ef3ba847589327a2d7430a3cdc79f3637fc81586f1  .forge/ast-grep/rule-tests/typescript-nextjs-no-next-router-test.yml
@@ -8305,7 +8334,7 @@ d3c41a3915d84b21e86e9212a06ad14c52bf2f9bcefb7c5ca433200cc3ec44fb  .forge/ast-gre
 88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a  .forge/ast-grep/rules/typescript/zod/error-param.yml
 a7503c000f128a4718f29b0122170295972560de99263354d6ed0db1a8cb099c  .forge/ast-grep/rules/typescript/zod/v4-string-formats.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-f2d49e350e4cdfdcdd596b71fe523205613a208f3d1994fa7fea1b40f803f733  .forge/check.sh
+fc7001a1942c95822dbce634a8d592467c2fd612338a7f991db13edc1643e3d6  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

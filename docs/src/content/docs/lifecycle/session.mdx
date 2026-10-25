@@ -39,7 +39,7 @@ In `dontAsk` mode asks stay denied (you chose that). `FORGE_REVIEW_MODEL` picks 
 
 ## After an edit
 
-After an `Edit` or `Write` (or a Bash command that changes files, below), `post-edit.sh` formats the file silently, lints it and runs the ast-grep `forbid` rules on it; findings go back to Claude as context. `typecheck.sh` runs the project type check in the background and wakes Claude when it fails.
+After an `Edit` or `Write` (or a Bash command that changes files, below), `post-edit.sh` formats the file silently, lints it and runs the ast-grep `forbid` rules on it; findings go back to Claude as context. `typecheck.sh` runs the project type check in the background and wakes Claude when it fails. Claude Code runs it in the background only in an interactive session or with streaming input (the Agent SDK, `--input-format stream-json`); under `claude -p "<prompt>"` it would wait for it after every edit (32 to 64 s per edit in a large TypeScript repository), so there `typecheck.sh` steps aside and the Stop check runs the type check once per turn. `FORGE_EDIT_TYPECHECK=always` runs it after every edit anyway; `never` never does. tsc runs incrementally, with its build info in `.forge/state/`.
 
 <Spec file="08-project-hooks" describe="PostToolUse" />
 
