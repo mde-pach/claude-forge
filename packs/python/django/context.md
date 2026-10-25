@@ -1,0 +1,4 @@
+Django. A model change comes with its migration: `python manage.py makemigrations`, then review and commit the file; `makemigrations --check --dry-run` finding something to generate is rejected at Stop. Committed migrations are not edited.
+SQL in `.raw()`, `cursor.execute()` and `RawSQL()` takes `%s` placeholders and a params list: an f-string, `.format()`, `%` or `+` there is rejected, and so is `QuerySet.extra(select=/where=/tables=/order_by=)`.
+List views, serializers and templates that touch related objects load them with `select_related()` (foreign keys, one-to-one) or `prefetch_related()` (many-to-many, reverse relations); a query per row (N+1) is the usual slowdown.
+Several writes that must succeed or fail together run inside `transaction.atomic()`; work that must see the committed rows (tasks, emails) goes in `transaction.on_commit()`.

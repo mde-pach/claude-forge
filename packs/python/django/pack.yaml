@@ -1,0 +1,6 @@
+id: python/django
+description: Django models, migrations and ORM queries.
+level: project
+detect:
+  files_any: [manage.py, "*/manage.py"]
+  deps_any: [{ecosystem: pypi, name: django}]

@@ -1,0 +1,29 @@
+id: python/django/flake8-django
+description: "ruff's flake8-django checks: no null=True on string fields (DJ001), no locals() as template context (DJ003), ModelForm lists its fields instead of exclude or \"__all__\" (DJ006, DJ007: new model fields would become editable), @receiver is the outermost decorator (DJ013: otherwise the handler is not connected)."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: DJ001
+    snippet: '[tool.ruff.lint] extend-select = ["DJ001", "DJ003", "DJ006", "DJ007", "DJ013"]'
+  - target: tool
+    tool: ruff
+    expects: DJ003
+    snippet: '[tool.ruff.lint] extend-select = ["DJ001", "DJ003", "DJ006", "DJ007", "DJ013"]'
+  - target: tool
+    tool: ruff
+    expects: DJ006
+    snippet: '[tool.ruff.lint] extend-select = ["DJ001", "DJ003", "DJ006", "DJ007", "DJ013"]'
+  - target: tool
+    tool: ruff
+    expects: DJ007
+    snippet: '[tool.ruff.lint] extend-select = ["DJ001", "DJ003", "DJ006", "DJ007", "DJ013"]'
+  - target: tool
+    tool: ruff
+    expects: DJ013
+    snippet: '[tool.ruff.lint] extend-select = ["DJ001", "DJ003", "DJ006", "DJ007", "DJ013"]'
+examples:
+  match:
+    - "from django import forms\nfrom django.db import models, transaction\nfrom django.db.models.signals import post_save\nfrom django.dispatch import receiver\nfrom django.shortcuts import render\n\n\nclass Article(models.Model):\n    title = models.CharField(max_length=200, null=True)\n\n\nclass ArticleForm(forms.ModelForm):\n    class Meta:\n        model = Article\n        fields = \"__all__\"\n\n\nclass ArticleTitleForm(forms.ModelForm):\n    class Meta:\n        model = Article\n        exclude = [\"title\"]\n\n\ndef index(request):\n    articles = Article.objects.all()\n    return render(request, \"index.html\", locals())\n\n\n@transaction.atomic\n@receiver(post_save, sender=Article)\ndef on_save(sender, **kwargs):\n    pass\n"
+  no_match:
+    - "from django import forms\nfrom django.db import models, transaction\nfrom django.db.models.signals import post_save\nfrom django.dispatch import receiver\nfrom django.shortcuts import render\n\n\nclass Article(models.Model):\n    title = models.CharField(max_length=200, blank=True, default=\"\")\n\n\nclass ArticleForm(forms.ModelForm):\n    class Meta:\n        model = Article\n        fields = [\"title\"]\n\n\ndef index(request):\n    articles = Article.objects.all()\n    return render(request, \"index.html\", {\"articles\": articles})\n\n\n@receiver(post_save, sender=Article)\n@transaction.atomic\ndef on_save(sender, **kwargs):\n    pass\n"

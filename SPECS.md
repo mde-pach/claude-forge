@@ -574,6 +574,18 @@ context.md: "Pydantic v2: `model_validate`, `model_dump`, `model_config = Config
 
 context.md: tests assert behaviour, never weakened; "If an existing test looks wrong, stop and ask; never edit it to make the code pass."
 
+### python/django
+
+Detected by `django` (pypi) or a `manage.py` at the root or one level down.
+
+| Rule | Targets |
+|---|---|
+| `python/django/makemigrations` | `check` migration: the shallowest tracked `manage.py`, `python <manage.py> makemigrations --check --dry-run --no-input` (no database needed: Django only warns when it cannot check the migration history); fails on "Migrations for", any other failure (settings that need an environment variable, a missing module) prints `skipped:` with the error's last line; `when_changed`: models, migrations, settings; timeout 120 s |
+| `python/django/no-raw-sql-format` | `ast-grep` forbid, not in migrations: `.raw()`, `.execute()`, `.executemany()`, `RawSQL()` whose SQL is an f-string, `.format()`, `%` or `+`; `.extra()` with `select`, `where`, `tables` or `order_by` |
+| `python/django/flake8-django` | `tool` ruff `DJ001`, `DJ003`, `DJ006`, `DJ007`, `DJ013` |
+
+context.md: migrations generated and committed with model changes; SQL parameters; `select_related()` / `prefetch_related()` against N+1; `transaction.atomic()` and `transaction.on_commit()`.
+
 ### python/library
 
 Detected by `library_any: [pypi]` (§13.4).
