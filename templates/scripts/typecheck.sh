@@ -5,7 +5,7 @@
 # post-edit.sh) is in a typecheck's scope.
 # Errors in files changed during the turn: exit 2 with <= 20 lines on stderr;
 # errors only in other files are not Claude's and stay silent. Skips if a typecheck is already
-# running (lock directory in .forge/state/, taken over when its pid is gone).
+# running (lock directory in the state directory, taken over when its pid is gone).
 # Skipped where Claude Code would run it in the foreground (forge_rewake_blocks).
 dir=$(cd "$(dirname "$0")" && pwd)
 FORGE_INPUT=$(cat)
@@ -71,8 +71,8 @@ for _tc_f in $files; do
 done
 [ -n "$file" ] || exit 0
 
-mkdir -p .forge/state 2>/dev/null || exit 0
-lock=.forge/state/typecheck.lock
+forge_state_dir || exit 0
+lock=$FORGE_STATE/typecheck.lock
 if ! mkdir "$lock" 2>/dev/null; then
   pid=$(cat "$lock/pid" 2>/dev/null)
   if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then exit 0; fi

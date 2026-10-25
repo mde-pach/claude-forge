@@ -109,7 +109,7 @@ reason=$(printf 'forge:%s %s' "$t_id" "$concern" | json_escape)
 out=$(printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":"%s"}}' "$reason")
 if forge_review_wanted && [ -f "$dir/review.sh" ]; then
   request=''
-  [ -f ".forge/state/$(session_id).prompt" ] && request=$(head -c 8000 ".forge/state/$(session_id).prompt")
+  [ -f "$FORGE_STATE/$(session_id).prompt" ] && request=$(head -c 8000 "$FORGE_STATE/$(session_id).prompt")
   reviewed=$(printf '%s' "$FORGE_INPUT" | sh "$dir/review.sh" pre "$t_id" "$concern" "$t_review" "${request:-(not recorded)}")
   [ -n "$reviewed" ] && out=$reviewed
 fi
