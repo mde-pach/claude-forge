@@ -752,6 +752,52 @@ forge_exec_check() {
   return "$_fe_rc"
 }
 
+# forge_excerpt <n>: at most <n> lines of a failed run's output (stdin), the failure
+# first. When the whole output fits it is printed as is. Otherwise: its summary lines
+# (vitest "Test Files … failed" and "Tests … failed", pytest's short summary "FAILED …"
+# and "ERROR …" and its "=== … failed … ===" line, "forge: timed out"), then its
+# failure details (each vitest "FAIL" line with the error lines of its block and the
+# first stack frame outside node_modules; pytest "____ test ____" headers, "E " lines
+# and "path:line: Error" locations); when the output has neither, the lines that
+# mention an error or a failure (not warnings). Then the rest of the output in order
+# (warnings included) while <n> allows, and "… (<k> more lines)" for what is left out.
+forge_excerpt() {
+  awk -v n="$1" '
+    BEGIN { esc = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
+    { l = $0; gsub(esc, "", l); if (length(l) > 300) l = substr(l, 1, 297) "..."; line[NR] = l }
+    function key(i, c) { if (!(i in cls)) { cls[i] = c; nk[c]++ } }
+    END {
+      if (NR <= n) { for (i = 1; i <= NR; i++) print line[i]; exit }
+      blk = 0; e = 0
+      for (i = 1; i <= NR; i++) {
+        l = line[i]
+        if (l ~ /^forge: timed out/ || l ~ /^ *Test Files .*failed/ || l ~ /^ *Tests .*failed/ || l ~ /^(FAILED|ERROR) / || l ~ /^=+ .*([0-9]+ (failed|errors?)).* =+$/) { key(i, 1); blk = 0; continue }
+        if (l ~ /^ *FAIL  /) { key(i, 2); blk = 1; nb = 0; frame = 0; continue }
+        if (blk) {
+          if (index(l, "⎯")) { blk = 0; continue }
+          if (l ~ /^ *[0-9]*\|/ || l ~ /^ *$/) continue
+          if (nb < 5 && (nb == 0 || l ~ /Error|Caused by|[Ee]xpected|Received|^ *[-+] / || index(l, "→"))) { key(i, 2); nb++; continue }
+          if (!frame && index(l, "❯") && l !~ /node_modules/) { key(i, 2); frame = 1 }
+          continue
+        }
+        if (l ~ /^_{3,} .* _{3,}$/) { key(i, 2); e = 0; continue }
+        if (l ~ /^E   / && e < 4) { key(i, 2); e++; continue }
+        if (l ~ /^[^ :]+\.py:[0-9]+: [A-Za-z]*(Error|Exception)/) { key(i, 2); continue }
+      }
+      if (!nk[1] && !nk[2])
+        for (i = 1; i <= NR; i++)
+          if (line[i] ~ /[Ee]rror|ERROR|FAIL|[Ff]ail(ed|ure)|[Pp]anic|Traceback|[Rr]efused/ && !(line[i] ~ /[Ww]arn/ && line[i] !~ /[Ee]rror/)) key(i, 3)
+      shown = 0; sep = 0
+      for (c = 1; c <= 3; c++)
+        for (i = 1; i <= NR && shown < n - 1; i++)
+          if ((i in cls) && cls[i] == c) { print line[i]; shown++ }
+      if (shown && shown < n - 2) { print "--- output:"; sep = 1 }
+      for (i = 1; i <= NR && shown + sep < n - 1; i++)
+        if (!(i in cls)) { print line[i]; shown++ }
+      if (NR > shown) printf "... (%d more lines)\n", NR - shown
+    }'
+}
+
 # forge_diagnostics <output> <file|line> [print]: sorts the error diagnostics of a
 # failed run by what they name (tsc "path(l,c)", "path:l:c" from Python and JS
 # linters, "--> path:l:c"; "Would reformat: path" and Biome's "path format" name a
@@ -833,7 +879,7 @@ forge_run_check() {
     0) grep '^forge:' "$FORGE_TMP/out"; return 0 ;;
     124)
       printf 'forge:%s failed: timed out after %ss and was stopped (a hung test, or a service that never answers?); its output until then:\n' "$c_id" "$c_timeout"
-      grep -v '^forge: timed out after' "$FORGE_TMP/out" | first_lines 15
+      grep -v '^forge: timed out after' "$FORGE_TMP/out" | forge_excerpt 15
       return 1 ;;
   esac
   # outside --all, only errors in the change count (§10.1 step 5)
@@ -854,7 +900,7 @@ forge_run_check() {
     esac
   fi
   printf 'forge:%s failed\n' "$c_id"
-  first_lines 15 < "$FORGE_TMP/out"
+  if [ "$c_stage" = test ]; then forge_excerpt 25; else forge_excerpt 15; fi < "$FORGE_TMP/out"
   return 1
 }
 

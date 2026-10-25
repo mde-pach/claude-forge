@@ -40,6 +40,10 @@ if [ $? -eq 0 ]; then
   exit 0
 fi
 printf '%s\n' "$((count + 1))" > "$counter"
-reason=$(printf '%s\n' "$out" | first_lines 20 | json_escape)
+# the failures first, then the "skipped" and "ok for" notes; at most 40 lines and
+# 6000 characters, so the reason stays short when Claude Code shows it
+reason=$(printf '%s\n' "$out" \
+  | awk '/^forge:[^ ]+ (skipped:|ok for )/ { note[++k] = $0; next } { print } END { for (i = 1; i <= k; i++) print note[i] }' \
+  | awk '{ c += length($0) + 1 } NR <= 40 && c <= 6000' | json_escape)
 printf '{"decision":"block","reason":"%s"}\n' "$reason"
 exit 0

@@ -334,6 +334,8 @@ Runs in order, stops at the first failing step, prints `forge:<rule-id>` lines:
 6. **Migration checks:** `check` targets of stage `migration`, only if a `when_changed` path changed and, when `requires_local_db` is set, the configured database host is `localhost`, `127.0.0.1`, `::1` or a Unix socket. Otherwise print `forge:<rule-id> skipped: no local database` and continue.
 7. **Tests:** `check` targets of stage `test` (`changed_run` with `--changed`).
 
+**Failure output.** A check whose output is not attributed (tests, migrations, a crash) prints `forge:<rule-id> failed` and an excerpt of at most 15 lines (25 for tests), the failure first: output that fits is shown as it is; otherwise its summary lines (Vitest `Test Files … failed` / `Tests … failed`, pytest's short summary `FAILED …` / `ERROR …` and `=== … failed … ===`), then the failure details (each Vitest `FAIL` line with the error lines of its block and its first stack frame outside `node_modules`; pytest's `____ test ____` headers, `E ` lines and `path:line: Error` locations), or, in output of no known format, the lines naming an error or a failure (not warnings); then `--- output:` and the rest of the output in order, warnings included, as far as the budget allows, and `... (<k> more lines)`.
+
 A check with a `timeout` (seconds) that runs past it is stopped with its process tree and fails with `forge:<rule-id> failed: timed out after <n>s and was stopped …` first, then its output until then.
 
 ### 10.2 Stop hook (`stop.sh`)
@@ -346,7 +348,7 @@ A check with a `timeout` (seconds) that runs past it is stopped with its process
 3. If the block counter is ≥ 3: reset it, print `{"systemMessage":"forge: check failed 3 times. Handing over to you."}`, exit 0.
 4. Run `check.sh --turn <snapshot>` (or `--changed`).
 5. Pass: record the tree as passing, reset the counter, print nothing.
-6. Fail: increment the counter, print `{"decision":"block","reason":"<check output, ≤ 20 lines>"}`.
+6. Fail: increment the counter, print `{"decision":"block","reason":"<check output>"}`: the failing checks first, then the `skipped` and `ok for` notes, at most 40 lines and 6000 characters.
 
 ### 10.3 Pre-commit and CI
 

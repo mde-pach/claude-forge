@@ -31,6 +31,12 @@ function realBasedpyright() {
   rmSync(p, { force: true });
   symlinkSync(join(TOOLS_CACHE, ".venv", "bin", "basedpyright"), p);
 }
+/** A stand-in for a project tool in the repository's .venv. */
+function stubTool(name: string, body: string) {
+  const p = join(repo, ".venv", "bin", name);
+  writeFileSync(p, `#!/bin/sh\n${body}\n`);
+  chmodSync(p, 0o755);
+}
 const edit = (rel: string) => ({ tool_name: "Edit", tool_input: { file_path: join(repo, rel) } });
 
 beforeAll(() => {
@@ -599,6 +605,26 @@ describe("Stop", () => {
       const reason = JSON.parse(hook("stop.sh", { session_id: "t-7" }).stdout).reason;
       expect(reason).toContain("forge:python/sqlalchemy/no-query-api app/wip.py:6:12");
       expect(reason).not.toContain("app/wip.py:2:12");
+      reset();
+    },
+    T,
+  );
+
+  /** @rule python/pytest/run */
+  test(
+    "the block reason puts the failure before the skipped and ok notes, and keeps at most 40 lines",
+    () => {
+      rmSync(join(repo, ".venv/bin/basedpyright"), { force: true });
+      stubTool("pytest", 'i=0; while [ $i -lt 60 ]; do echo "tests/test_main.py:1: PytestWarning: noise $i"; i=$((i + 1)); done; echo "FAILED tests/test_main.py::test_health - assert 500 == 200"; exit 1');
+      hook("turn-start.sh", { session_id: "t-12" });
+      put(repo, "app/main.py", 'async def health() -> dict[str, str]:\n    return {"status": "ok"}\n');
+      const reason: string = JSON.parse(hook("stop.sh", { session_id: "t-12" }).stdout).reason;
+      const lines = reason.split("\n");
+      expect(lines.length).toBeLessThanOrEqual(40);
+      expect(lines.slice(0, 2)).toEqual(["forge:python/pytest/run failed", "FAILED tests/test_main.py::test_health - assert 500 == 200"]);
+      expect(reason).toContain("PytestWarning: noise 0");
+      expect(lines.at(-1)).toBe("forge:python/typecheck skipped: basedpyright not installed");
+      rmSync(join(repo, ".venv/bin/pytest"));
       reset();
     },
     T,
