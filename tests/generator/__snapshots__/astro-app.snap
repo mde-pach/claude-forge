@@ -3682,11 +3682,13 @@ if [ "$event" = permission ] && [ "$(basename "$(dirname "$dir")")" = forge-proj
 
 tool=$(json_get tool_name)
 input=$(printf '%s' "$FORGE_INPUT" | forge_json_object tool_input)
-# the same rule on the same input (whitespace aside) gets the same verdict within a session
+# the same rule on the same input (whitespace aside), with the same concern and the same
+# request for the turn, gets the same verdict within a session (an approval given for
+# one request is not reused once the user asks for something else)
 key=''
 verdict=''
 if [ "$event" = pre ]; then
-  key=$(printf '%s\t%s' "$why" "$input" | tr -s ' \t\n' '   ' | forge_sha256)
+  key=$(printf '%s\t%s\t%s\t%s' "$why" "$input" "$concern" "$request" | tr -s ' \t\n' '   ' | forge_sha256)
   cache=$(forge_review_state)
   case $cache in "$HOME/.claude") cache=$cache/forge-review-cache ;; *) cache=$cache/review-cache ;; esac
   verdict=$(awk -F '\t' -v s="$(session_id)" -v k="$key" '$1 == s && $2 == k { v = $3 "\t" $4 } END { if (v != "") print v; else exit 1 }' "$cache" 2>/dev/null) \
@@ -16175,7 +16177,7 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.sh": "e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca",
     ".claude/skills/forge-project/scripts/lib.sh": "c68e88cee33407a544446c0dab82e648fe28645fd2ffec56feb1f38c294698d1",
     ".claude/skills/forge-project/scripts/post-edit.sh": "0ae3e7978bf861c560768c372599d24e4197aba9772333daad2d271a682af52b",
-    ".claude/skills/forge-project/scripts/review.sh": "163964800c32c3120083ebdfc8bf7f0477cc7d16dc16ac7d810113cb3e3547e2",
+    ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
     ".claude/skills/forge-project/scripts/session-start.sh": "9c3504f87ad1a28a28a38c1ae6850e9b3a3ff0762f1de5eecd2e16e0d8caa922",
     ".claude/skills/forge-project/scripts/stop.sh": "0adfa608a9bbcc166b30c6009e1b21e986d12b49283beff2230177455e03a5a0",
     ".claude/skills/forge-project/scripts/test-edit.sh": "dd6873ec97546e46b9800e6d8a91e0318e893fcb7fa473723cf52e728b00b516",
@@ -16262,7 +16264,7 @@ cc4a889eb0483cbc1ccca0dfff9bdb83a1707a5d5f3739d4c5e725ab5bcc1648  .claude/skills
 e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca  .claude/skills/forge-project/scripts/guard.sh
 c68e88cee33407a544446c0dab82e648fe28645fd2ffec56feb1f38c294698d1  .claude/skills/forge-project/scripts/lib.sh
 0ae3e7978bf861c560768c372599d24e4197aba9772333daad2d271a682af52b  .claude/skills/forge-project/scripts/post-edit.sh
-163964800c32c3120083ebdfc8bf7f0477cc7d16dc16ac7d810113cb3e3547e2  .claude/skills/forge-project/scripts/review.sh
+25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
 9c3504f87ad1a28a28a38c1ae6850e9b3a3ff0762f1de5eecd2e16e0d8caa922  .claude/skills/forge-project/scripts/session-start.sh
 0adfa608a9bbcc166b30c6009e1b21e986d12b49283beff2230177455e03a5a0  .claude/skills/forge-project/scripts/stop.sh
 dd6873ec97546e46b9800e6d8a91e0318e893fcb7fa473723cf52e728b00b516  .claude/skills/forge-project/scripts/test-edit.sh

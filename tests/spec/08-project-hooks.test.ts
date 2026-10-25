@@ -215,6 +215,30 @@ describe("asks nobody can answer", () => {
     T,
   );
 
+  test(
+    "a verdict on a test edit is not reused once the request for the turn changed",
+    () => {
+      const edit = { hook_event_name: "PreToolUse", session_id: "s-req", tool_name: "Edit", tool_input: { file_path: join(ts, "a.test.ts"), old_string: "1", new_string: "2" } };
+      const pre = (request: string, d: string, keep: boolean) => {
+        rmSync(log(), { force: true });
+        if (!keep) rmSync(join(stateDir(ts), "review-cache"), { force: true });
+        return decision(
+          sh("sh", [join(SCRIPTS, "review.sh"), "pre", "typescript/vitest/no-test-edits", "changes a test", "Is it required?", request], {
+            cwd: ts,
+            input: hookJson({ cwd: ts, permission_mode: "default", ...edit }),
+            env: { PATH: `${bin}:${process.env.PATH}`, FAKE_LOG: log(), FAKE_REASON: "r", FAKE_DECISION: d, CLAUDE_CODE_ENTRYPOINT: "sdk-cli", FORGE_ASK_REVIEW: "", FORGE_REVIEWER: "" },
+          }).stdout,
+        ).permissionDecision;
+      };
+      expect(pre("Totals exclude the fee now: update the tests.", "allow", false)).toBe("allow");
+      expect(pre("Totals exclude the fee now: update the tests.", "deny", true)).toBe("allow");
+      expect(existsSync(log())).toBe(false);
+      expect(pre("Fix the failing build.", "deny", true)).toBe("deny");
+      expect(existsSync(log())).toBe(true);
+    },
+    T,
+  );
+
   /** @rule safety/forge-state */
   test(
     "the hooks' state (review verdicts and log, the saved request, turn snapshots) lives outside the repository, readable by the user only, so the agent's Bash cannot forge it",
