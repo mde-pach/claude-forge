@@ -2,8 +2,9 @@
 // bun). Usage:
 //   bun public_api.mjs <forge-tmp> removed           names exported by the package's
 //       entry points (package.json exports, main, module, types) in the base are still
-//       exported, unless the major version was bumped; a renamed export stays as a
-//       /** @deprecated */ alias.
+//       exported, a major version bump included (an intended removal is accepted in
+//       forge.yaml); a name that became an alias of another export (renamed) carries a
+//       /** @deprecated */ JSDoc comment.
 // Exit 0: nothing found; 1: findings printed ("path:line message").
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, normalize } from "node:path";
@@ -54,10 +55,14 @@ function resolve(from, spec) {
   return null;
 }
 
-const strip = (t) => t.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " ")).replace(/(^|[^:"'`\\])\/\/[^\n]*/g, "$1");
+// comments blanked, positions kept
+const strip = (t) => t.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " ")).replace(/(^|[^:"'`\\])(\/\/[^\n]*)/g, (_m, p, c) => p + " ".repeat(c.length));
 const lineOf = (text, index) => text.slice(0, index).split("\n").length;
 
-/** name -> {file, line, via}: exports of a module; `export *` followed through relative modules. */
+/** name -> {file, line, at, spec, of, via}: exports of a module; `export *` followed through
+ * relative modules. at: the offset of the export statement (spec: of the specifier in
+ * braces); of: the name it re-exports
+ * under another name (`export { a as b }`, `export const b = a`). */
 function exportsOf(file, read, seen = new Set()) {
   const out = new Map();
   if (seen.has(file)) return out;
@@ -66,14 +71,22 @@ function exportsOf(file, read, seen = new Set()) {
   if (raw === null) return out;
   const text = strip(raw);
   const decl = /\bexport\s+(?:default\s+)?(?:declare\s+)?(?:abstract\s+)?(?:async\s+)?(?:function\*?|class|const|let|var|enum|interface|type|namespace)\s+([A-Za-z_$][\w$]*)/g;
-  for (const m of text.matchAll(decl)) if (!out.has(m[1])) out.set(m[1], { file, line: lineOf(text, m.index) });
+  for (const m of text.matchAll(decl)) {
+    if (out.has(m[1])) continue;
+    const rest = text.slice(m.index + m[0].length).split("\n")[0];
+    const rhs = /\b(const|let|var)\s+[\w$]+$/.test(m[0]) ? /^\s*(?::[^=]+)?=\s*([A-Za-z_$][\w$]*)\s*;?\s*$/.exec(rest)?.[1] : undefined;
+    out.set(m[1], { file, line: lineOf(text, m.index), at: m.index, of: rhs });
+  }
   for (const m of text.matchAll(/\bexport\s+default\b/g)) if (!out.has("default")) out.set("default", { file, line: lineOf(text, m.index) });
   for (const m of text.matchAll(/\bexport\s+(?:type\s+)?\{([^}]*)\}(?:\s*from\s*["']([^"']+)["'])?/g)) {
+    let off = m.index + m[0].indexOf("{") + 1;
     for (const part of m[1].split(",")) {
+      const spec = off + part.length - part.trimStart().length;
+      off += part.length + 1;
       const p = part.trim().replace(/^type\s+/, "");
       if (!p) continue;
-      const name = p.split(/\s+as\s+/).pop().trim();
-      if (!out.has(name)) out.set(name, { file, line: lineOf(text, m.index), via: m[2] ? resolve(file, m[2]) : null });
+      const [local, name = local] = p.split(/\s+as\s+/).map((x) => x.trim());
+      if (!out.has(name)) out.set(name, { file, line: lineOf(text, m.index), at: m.index, spec, of: local !== name && name !== "default" ? local : undefined, via: m[2] ? resolve(file, m[2]) : null });
     }
   }
   for (const m of text.matchAll(/\bexport\s+\*\s+as\s+([A-Za-z_$][\w$]*)\s+from/g)) if (!out.has(m[1])) out.set(m[1], { file, line: lineOf(text, m.index) });
@@ -85,10 +98,13 @@ function exportsOf(file, read, seen = new Set()) {
   return out;
 }
 
-function major(text) {
-  const v = json(text ?? "")?.version;
-  const m = typeof v === "string" ? /^(\d+)\./.exec(v) : null;
-  return m ? Number(m[1]) : null;
+/** A JSDoc block right before offset `at` of `file` (now) that has @deprecated. */
+function deprecatedDoc(file, at) {
+  const raw = readNow(file) ?? "";
+  const before = raw.slice(0, at).replace(/\s+$/, "");
+  if (!before.endsWith("*/")) return false;
+  const open = before.lastIndexOf("/**");
+  return open >= 0 && /@deprecated\b/.test(before.slice(open));
 }
 
 const pkgText = readNow("package.json");
@@ -97,16 +113,17 @@ if (!pkg) process.exit(0);
 const found = [];
 
 if (mode === "removed") {
-  const before = major(readBase("package.json"));
-  const after = major(pkgText);
-  if (!(before !== null && after !== null && after > before)) {
-    const basePkg = json(readBase("package.json") ?? "") ?? pkg;
-    for (const entry of entries(basePkg)) {
-      const was = exportsOf(entry, readBase);
-      const now = exportsOf(entry, readNow);
-      for (const [name, info] of was) {
-        if (now.has(name) || SKIP.test(info.file)) continue;
-        found.push(`${info.file}:0 ${name} was exported by the package entry ${entry} and is gone: keep it exported as a /** @deprecated Use <new name> */ alias, or bump the major version`);
+  const basePkg = json(readBase("package.json") ?? "") ?? pkg;
+  for (const entry of entries(basePkg)) {
+    const was = exportsOf(entry, readBase);
+    const now = exportsOf(entry, readNow);
+    for (const [name, info] of was) {
+      if (SKIP.test(info.file)) continue;
+      const cur = now.get(name);
+      if (!cur) {
+        found.push(`${info.file}:0 ${name} was exported by the package entry ${entry} and is gone: keep it exported as a /** @deprecated Use <new name> */ alias; a removal intended for a major version is accepted in forge.yaml (accept)`);
+      } else if (cur.of && now.has(cur.of) && !(info.of && was.has(info.of)) && !deprecatedDoc(cur.file, cur.at) && !(cur.spec && deprecatedDoc(cur.file, cur.spec))) {
+        found.push(`${cur.file}:${cur.line} ${name} is now an alias of another export: mark it /** @deprecated Use <new name> */ so its users see the rename`);
       }
     }
   }

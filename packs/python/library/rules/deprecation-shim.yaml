@@ -1,5 +1,5 @@
 id: python/library/deprecation-shim
-description: "A name that a module's __all__ listed in the base and no longer lists (removed or renamed), or a deleted module that had __all__, keeps working with a deprecation: a def, class or alias of that name that uses DeprecationWarning, FutureWarning or @deprecated, or a module __getattr__ that names it and warns. A major version bump of [project] version allows the removal; an accepted removal goes in forge.yaml (accept)."
+description: "A name that a module's __all__ listed in the base and no longer lists (removed or renamed), or a deleted module that had __all__, keeps working with a deprecation, read from the syntax tree: a def or class of that name decorated with @deprecated (typing_extensions, warnings) or calling warnings.warn with DeprecationWarning, FutureWarning, PendingDeprecationWarning or a subclass (directly or through a project function that does), an alias wrapped in deprecated(...)(...), or a module __getattr__ that names it and warns that way. The word \"deprecated\" in a docstring or comment does not count. A major version bump does not allow a removal by itself: an intended removal is accepted in forge.yaml (accept)."
 scope: {language: python, files: ["!**/tests/**", "!**/test_*.py", "!**/conftest.py"]}
 enforce:
   - target: check
@@ -10,10 +10,24 @@ examples:
   match:
     - head: {src/acme/client.py: "__all__ = [\"connect\", \"Client\"]\n\n\nclass Client:\n    pass\n\n\ndef connect() -> Client:\n    return Client()\n"}
       files: {src/acme/client.py: "__all__ = [\"open_client\", \"Client\"]\n\n\nclass Client:\n    pass\n\n\ndef open_client() -> Client:\n    return Client()\n"}
+    - head: {src/acme/client.py: "__all__ = [\"connect\"]\n\n\ndef connect() -> None:\n    pass\n"}
+      files: {src/acme/client.py: "__all__ = [\"open_client\"]\n\n\ndef open_client() -> None:\n    pass\n\n\ndef connect() -> None:\n    \"\"\"This is deprecated.\"\"\"\n    return open_client()\n"}
+    - head: {src/acme/client.py: "__all__ = [\"connect\"]\n\n\ndef connect() -> None:\n    pass\n"}
+      files: {src/acme/client.py: "import warnings\n\n__all__ = [\"open_client\"]\n\n\ndef open_client() -> None:\n    pass\n\n\ndef connect() -> None:\n    # DeprecationWarning: use open_client\n    warnings.warn(\"connect is going away\", UserWarning, stacklevel=2)\n    return open_client()\n"}
+    - head: {src/acme/client.py: "__all__ = [\"connect\"]\n\n\ndef connect() -> None:\n    pass\n"}
+      files: {src/acme/client.py: "__all__ = [\"open_client\"]\n\n\ndef open_client() -> None:\n    pass\n\n\ndef __getattr__(name: str) -> object:\n    if name == \"connect\":  # deprecated alias\n        return open_client\n    raise AttributeError(name)\n"}
+    - head: {pyproject.toml: "[project]\nname = \"acme\"\nversion = \"1.4.0\"\n", src/acme/client.py: "__all__ = [\"connect\"]\n\n\ndef connect() -> None:\n    pass\n"}
+      files: {pyproject.toml: "[project]\nname = \"acme\"\nversion = \"2.0.0\"\n", src/acme/client.py: "__all__ = [\"open_client\"]\n\n\ndef open_client() -> None:\n    pass\n"}
   no_match:
     - head: {src/acme/client.py: "__all__ = [\"connect\", \"Client\"]\n\n\nclass Client:\n    pass\n\n\ndef connect() -> Client:\n    return Client()\n"}
       files: {src/acme/client.py: "import warnings\n\n__all__ = [\"open_client\", \"Client\"]\n\n\nclass Client:\n    pass\n\n\ndef open_client() -> Client:\n    return Client()\n\n\ndef __getattr__(name: str) -> object:\n    if name == \"connect\":\n        warnings.warn(\"connect() is deprecated, use open_client()\", DeprecationWarning, stacklevel=2)\n        return open_client\n    raise AttributeError(name)\n"}
     - head: {src/acme/client.py: "__all__ = [\"connect\"]\n\n\ndef connect() -> None:\n    pass\n"}
       files: {src/acme/client.py: "from typing_extensions import deprecated\n\n__all__ = [\"open_client\"]\n\n\ndef open_client() -> None:\n    pass\n\n\n@deprecated(\"Use open_client()\")\ndef connect() -> None:\n    open_client()\n"}
-    - head: {pyproject.toml: "[project]\nname = \"acme\"\nversion = \"1.4.0\"\n", src/acme/client.py: "__all__ = [\"connect\"]\n\n\ndef connect() -> None:\n    pass\n"}
-      files: {pyproject.toml: "[project]\nname = \"acme\"\nversion = \"2.0.0\"\n", src/acme/client.py: "__all__ = [\"open_client\"]\n\n\ndef open_client() -> None:\n    pass\n"}
+    - head: {src/acme/client.py: "__all__ = [\"connect\"]\n\n\ndef connect() -> None:\n    pass\n"}
+      files: {src/acme/_compat.py: "import warnings\n\n\nclass AcmeDeprecationWarning(DeprecationWarning):\n    pass\n\n\ndef warn_renamed(old: str, new: str) -> None:\n    warnings.warn(f\"{old} is deprecated, use {new}\", AcmeDeprecationWarning, stacklevel=3)\n", src/acme/client.py: "from acme._compat import warn_renamed\n\n__all__ = [\"open_client\"]\n\n\ndef open_client() -> None:\n    pass\n\n\ndef connect() -> None:\n    warn_renamed(\"connect\", \"open_client\")\n    open_client()\n"}
+    - head: {src/acme/client.py: "__all__ = [\"connect\"]\n\n\ndef connect() -> None:\n    pass\n"}
+      files: {src/acme/client.py: "from typing_extensions import deprecated\n\n__all__ = [\"open_client\"]\n\n\ndef open_client() -> None:\n    pass\n\n\nconnect = deprecated(\"Use open_client()\")(open_client)\n"}
+    - head: {src/acme/client.py: "__all__ = [\"Client\"]\n\n\nclass Client:\n    pass\n"}
+      files: {src/acme/client.py: "import warnings\n\n__all__ = [\"AcmeClient\"]\n\n\nclass AcmeClient:\n    pass\n\n\nclass Client(AcmeClient):\n    def __init__(self) -> None:\n        warnings.warn(\"Client is renamed AcmeClient\", category=FutureWarning, stacklevel=2)\n        super().__init__()\n"}
+    - head: {src/acme/client.py: "__all__ = [\"connect\"]\n\n\ndef connect() -> None:\n    pass\n"}
+      files: {forge.yaml: "forge: \"0.5\"\naccept:\n  - rule: python/library/deprecation-shim\n    change: \"src/acme/client.py:0 connect left __all__ without a deprecation: keep it importable with warnings.warn(..., DeprecationWarning, stacklevel=2) (a module __getattr__, or @typing_extensions.deprecated on a wrapper); a removal intended for a major version is accepted in forge.yaml (accept)\"\n    reason: removed in 2.0\n", src/acme/client.py: "__all__ = [\"open_client\"]\n\n\ndef open_client() -> None:\n    pass\n"}
