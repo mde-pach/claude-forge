@@ -1315,9 +1315,11 @@ forge_alembic_batch() {
 
 # forge_alembic_fk_index: in each revision's upgrade(), a column that gets a foreign key
 # (sa.Column(..., sa.ForeignKey(...)), sa.ForeignKeyConstraint([...]),
-# op.create_foreign_key(..., [...], ...)) also leads an index: op.create_index,
-# index=True, a primary key or unique constraint, or CREATE INDEX. PostgreSQL does not
-# index referencing columns; skipped when the database URL is MySQL (which does).
+# op.create_foreign_key(..., [...], ...)) also leads an index: the first column of an
+# op.create_index, sa.Index, primary key or unique constraint, index=True, unique=True or
+# primary_key=True on the column, or the first column of a CREATE INDEX. PostgreSQL does
+# not index referencing columns; skipped when the database URL is MySQL (which does).
+# Run as advice (forge_advise): such an index is often a good idea, not a requirement.
 forge_alembic_fk_index() {
   case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
   _ai_rc=0
@@ -1371,7 +1373,8 @@ forge_alembic_fk_index() {
             col = tolower(strs(first_list(args), 0))
             if (col != "" && !(col in fk)) { fk[col] = line_of(po); order[++nfk] = col }
           } else if (name == "create_index") cover(strs(first_list(args), 0))
-          else cover(strs(args, 1))
+          else if (name == "Index") { split(strs(args, 1), ia, SUBSEP); cover(ia[2]) }
+          else cover(strs(args, 0))
           off = po; rest = substr(s, po + 1)
         }
         u = toupper(s)
@@ -1382,7 +1385,7 @@ forge_alembic_fk_index() {
         for (i = 1; i <= nfk; i++) {
           col = order[i]
           if (col in cov) continue
-          print f ":" fk[col] ": foreign key column \"" col "\" gets no index in this revision; PostgreSQL does not index referencing columns, so joins on it and deletes of the referenced rows scan the table. Add op.create_index(..., [\"" col "\"]) (index=True on the model mapped_column, then autogenerate)."
+          print f ":" fk[col] ": foreign key column \"" col "\" gets no index that leads with it in this revision; PostgreSQL and SQLite do not index referencing columns, so joins on it and deletes of the referenced rows scan the table. If it is queried or the parent rows are deleted, add op.create_index(..., [\"" col "\"]) (index=True on the model mapped_column, then autogenerate); otherwise say why not."
           bad = 1
         }
         exit bad
