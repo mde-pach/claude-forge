@@ -209,13 +209,18 @@ input=$(cat)
 
 # guard_check_ephemeral_exec: succeeds, printing why, when the command runs a package
 # launcher (npx, bunx, bun x, npm exec, pnpm dlx, pnpx, yarn dlx, uvx, uv tool run,
-# pipx run) on something it would fetch from a registry: always for pnpm/yarn dlx
-# and pipx run; for the others, a package option (--package, --from, --with, ...), a
-# version or URL spec, or a command not installed where it runs (node_modules/.bin
-# or .venv/bin, from that directory up to the repository root). Only options before
-# the command name belong to the launcher (npx tsc -p tsconfig.json is tsc's -p).
-# Compound commands are split on ;, &&, ||, |, &, newlines and subshells; cd is
-# followed; heredoc bodies and quoted text are not commands; sh -c '...' is parsed.
+# pipx run, deno run npm:/jsr:/URL, and the create / init forms that run an
+# initializer package) on something it would fetch from a registry: always for
+# pnpm/yarn dlx and create, and pipx run; for the others, a package option
+# (--package, --from, --with, ...), a version or URL spec, or a command not installed
+# where it runs (node_modules/.bin or .venv/bin, from that directory up to the
+# repository root). Only options before the command name belong to the launcher (npx
+# tsc -p tsconfig.json is tsc's -p); a package manager's options before its
+# subcommand (npm --yes exec) and a wrapper's options with their arguments (nice -n
+# 5, sudo -u bob, timeout -s KILL 5) are skipped. Compound commands are split on ;,
+# &&, ||, |, &, newlines and subshells; cd is followed; heredoc bodies and quoted
+# text are not commands; sh -c '...', eval, env -S and find -exec are parsed; a
+# command name expanded at run time ($N) is flagged, since it cannot be followed.
 guard_check_ephemeral_exec() {
   _ge_found=$(printf '%s' "$input" | awk -v home="${HOME:-}" '
     function jstr(buf, key,   s, n, i, c, d, out, h, v, k) {
@@ -248,12 +253,13 @@ guard_check_ephemeral_exec() {
       for (i = 1; i <= m; i++) out = out "/" st[i]
       return out == "" ? "/" : out
     }
-    function chdir(t) {
-      if (D == "?") return "?"
+    function chdir(t) { return chdirb(D, t) }
+    function chdirb(base, t) {
+      if (base == "?") return "?"
       if (t == "" || t == "~") return home == "" ? "?" : home
       if (t == "-" || t ~ /[$`*?]/) return "?"
       if (t ~ /^~\//) { if (home == "") return "?"; t = home substr(t, 2) }
-      if (t !~ /^\//) t = D "/" t
+      if (t !~ /^\//) t = base "/" t
       return norm(t)
     }
     function endword() {
@@ -321,35 +327,135 @@ guard_check_ephemeral_exec() {
       }
       endseg()
     }
-    # seg: one simple command, in W[1..nw]
-    function seg(   k, x, b, j, sub_s, saved) {
-      k = 1
+    # words <from> <to>: W[from..to] joined with spaces (what eval runs)
+    function words(a, b,   out) {
+      out = ""
+      for (; a <= b; a++) out = out (out == "" ? "" : " ") W[a]
+      return out
+    }
+    # wrapopt <wrapper> <option>: 1 when the wrapper option takes the next word as
+    # its argument, 2 when that argument is a directory the command then runs in
+    function wrapopt(b, o) {
+      if (b == "sudo") return o ~ /^(-D|--chdir)$/ ? 2 : o ~ /^(-[ugpCrtUhRT]|--(user|group|prompt|close-from|role|type|other-user|host|command-timeout))$/
+      if (b == "doas") return o ~ /^-[uC]$/
+      if (b == "env") return o ~ /^(-C|--chdir)$/ ? 2 : o ~ /^(-u|--unset|-P)$/
+      if (b == "nice") return o ~ /^(-n|--adjustment)$/
+      if (b == "ionice") return o ~ /^-[cnp]$/
+      if (b == "timeout") return o ~ /^(-s|--signal|-k|--kill-after)$/
+      if (b == "time") return o ~ /^(-f|--format|-o|--output)$/
+      if (b == "exec") return o == "-a"
+      if (b == "xargs") return o ~ /^(-[IiLnPsdEeaJR]|--(arg-file|max-args|max-procs|max-chars|delimiter|eof|replace|max-lines))$/
+      if (b == "stdbuf") return o ~ /^-[ioe]$/
+      return 0
+    }
+    # pmopt <manager> <option>: as wrapopt, for a package manager option before its subcommand
+    function pmopt(b, o) {
+      if (b == "npm") return o == "--prefix" ? 2 : o ~ /^(-w|--workspace|--registry|--cache|--userconfig|--globalconfig|--loglevel)$/
+      if (b == "pnpm") return o ~ /^(-C|--dir)$/ ? 2 : o ~ /^(-F|--filter|--reporter|--loglevel|--workspace-concurrency)$/
+      if (b == "yarn") return o == "--cwd" ? 2 : 0
+      if (b == "bun") return o == "--cwd" ? 2 : o ~ /^(-c|--config|--env-file|-r|--preload)$/
+      return 0
+    }
+    # seg: one simple command, in W[1..nw]; LD is the directory it runs in
+    function seg(   k, x, b, j, o, t, sub_s, saved) {
+      k = 1; LD = D
       while (k <= nw) {
         x = W[k]
         if (x ~ /^[A-Za-z_][A-Za-z0-9_]*=/) { k++; continue }
-        if (x ~ /^(sudo|env|time|nohup|nice|exec|command|builtin|xargs|stdbuf)$/) { k++; while (k <= nw && W[k] ~ /^-/) k++; continue }
-        if (x == "timeout") { k++; while (k <= nw && W[k] ~ /^-/) k++; k++; continue }
-        break
+        b = x; sub(/.*\//, "", b)
+        if (b !~ /^(sudo|doas|env|time|nohup|nice|ionice|exec|command|builtin|xargs|stdbuf|timeout)$/) break
+        for (k++; k <= nw && W[k] ~ /^-./; k++) {
+          o = W[k]
+          if (o == "--") { k++; break }
+          # env -S "<command>" splits its argument into a command
+          if (b == "env" && (o == "-S" || o == "--split-string")) { sub_s = words(k + 1, nw); nw = 0; parse(sub_s); return }
+          if (b == "env" && o ~ /^(-S.|--split-string=)/) { sub(/^(-S|--split-string=)/, "", o); sub_s = o " " words(k + 1, nw); nw = 0; parse(sub_s); return }
+          t = wrapopt(b, o)
+          if (t == 2) LD = chdirb(LD, W[k + 1])
+          else if ((b == "sudo" && o ~ /^(-D.|--chdir=)/) || (b == "env" && o ~ /^(-C.|--chdir=)/)) { sub(/^(-D|-C|--chdir=)/, "", o); LD = chdirb(LD, o) }
+          if (t) k++
+        }
+        if (b == "timeout") k++
       }
       if (k > nw) return
-      b = W[k]; sub(/.*\//, "", b)
+      b = W[k]
+      # a command name expanded when the command runs (N=npx; $N cowsay) cannot be followed
+      if (b ~ /[$`]/) { print "remote\tthe command name " b " is expanded when the command runs, so Forge cannot check what it runs"; return }
+      sub(/.*\//, "", b)
       if (b == "cd" || b == "pushd") { D = chdir(k < nw ? W[k + 1] : ""); return }
+      if (b == "eval") { sub_s = words(k + 1, nw); nw = 0; parse(sub_s); return }
       if (b ~ /^(sh|bash|zsh|dash|ksh)$/) {
         for (j = k + 1; j < nw; j++)
           if (W[j] ~ /^-[a-z]*c[a-z]*$/) { sub_s = W[j + 1]; saved = D; nw = 0; parse(sub_s); D = saved; return }
         return
       }
-      if (b == "npx" || b == "bunx") launcher(k + 1, b, "node")
-      else if (b == "pnpx") launcher(k + 1, b, "dlx")
-      else if (b == "bun" && W[k + 1] == "x") launcher(k + 2, "bun x", "node")
-      else if (b == "npm" && (W[k + 1] == "exec" || W[k + 1] == "x")) launcher(k + 2, "npm exec", "npm")
-      else if ((b == "pnpm" || b == "yarn") && W[k + 1] == "dlx") launcher(k + 2, b " dlx", "dlx")
-      else if (b == "pipx" && W[k + 1] == "run") launcher(k + 2, "pipx run", "dlx")
-      else if (b == "uvx") launcher(k + 1, b, "uv")
-      else if (b == "uv" && W[k + 1] == "tool" && W[k + 2] == "run") launcher(k + 3, "uv tool run", "uv")
+      if (b == "find") {
+        # each -exec / -execdir / -ok / -okdir runs a command, up to ; or +
+        sub_s = ""
+        for (j = k + 1; j <= nw; j++) {
+          if (W[j] !~ /^-(exec|execdir|ok|okdir)$/) continue
+          for (o = j + 1; o <= nw && W[o] != ";" && W[o] != "+"; o++) ;
+          sub_s = sub_s words(j + 1, o - 1) "\n"; j = o
+        }
+        saved = D; nw = 0; parse(sub_s); D = saved
+        return
+      }
+      if (b == "npx" || b == "bunx") { launcher(k + 1, b, "node"); return }
+      if (b == "pnpx") { launcher(k + 1, b, "dlx"); return }
+      if (b == "uvx") { launcher(k + 1, b, "uv"); return }
+      if (b == "uv" && W[k + 1] == "tool" && W[k + 2] == "run") { launcher(k + 3, "uv tool run", "uv"); return }
+      if (b == "pipx" && W[k + 1] == "run") { launcher(k + 2, "pipx run", "dlx"); return }
+      if (b == "deno") { deno(k + 1); return }
+      if (b !~ /^(npm|pnpm|yarn|bun)$/) return
+      # options of the package manager itself come before its subcommand (npm --yes exec, bun --bun x)
+      for (j = k + 1; j <= nw && W[j] ~ /^-./; j++) {
+        t = pmopt(b, W[j])
+        if (t == 2) LD = chdirb(LD, W[j + 1])
+        else if (W[j] ~ /^--(prefix|dir|cwd)=/) { o = W[j]; sub(/^[^=]*=/, "", o); LD = chdirb(LD, o) }
+        if (t) j++
+      }
+      x = W[j]
+      if (b == "npm" && (x == "exec" || x == "x")) launcher(j + 1, "npm exec", "npm")
+      else if (b == "bun" && x == "x") launcher(j + 1, "bun x", "node")
+      else if ((b == "pnpm" || b == "yarn") && x == "dlx") launcher(j + 1, b " dlx", "dlx")
+      # create / init forms run the initializer package create-<name>: npm and bun
+      # through their exec launcher (installed copy first), pnpm and yarn through dlx
+      else if (x == "create" || (b == "npm" && (x == "init" || x == "innit"))) initializer(j + 1, b " " x, b)
+    }
+    # initializer <j> <name> <manager>: <manager> create|init <initializer> (npm init
+    # without one only writes package.json)
+    function initializer(j, name, pm,   o, x, v) {
+      for (; j <= nw; j++) {
+        o = W[j]
+        if (o == "--") { j++; break }
+        if (o !~ /^-./) break
+        if (o ~ /^(-w|--workspace|--scope|--init-module)$/) j++
+      }
+      if (j > nw) return
+      x = W[j]
+      if (pm == "bun" && x ~ /^[.\/~]/) return
+      if (pm == "bun" && x ~ /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/) { print "remote\t" name " " x " fetches the template from GitHub and runs it"; return }
+      v = ""
+      if (match(x, /.@/)) { v = substr(x, RSTART + 1); x = substr(x, 1, RSTART) }
+      if (x ~ /^@[^\/]+$/) x = x "/create"
+      else if (x ~ /^@[^\/]+\//) { o = x; sub(/\/.*/, "", o); sub(/^@[^\/]+\//, "", x); x = o "/create-" x }
+      else x = "create-" x
+      if (pm == "pnpm" || pm == "yarn") { print "remote\t" name " fetches " x " from a registry and runs it"; return }
+      classify(x v, name, "node")
+    }
+    # deno <j>: deno run|x|serve with an npm:, jsr: or URL module fetches it
+    function deno(j,   o) {
+      if (W[j] != "run" && W[j] != "x" && W[j] != "serve") return
+      for (j++; j <= nw; j++) {
+        o = W[j]
+        if (o == "--") { j++; break }
+        if (o !~ /^-./) break
+        if (o ~ /^(-c|--config|--import-map|--lock|--cert|--location|--seed|--ext|--env-file|--inspect|--watch)$/ && W[j + 1] !~ /^-/) j++
+      }
+      if (j <= nw && W[j] ~ /^(npm:|jsr:|https?:)/) print "remote\tdeno " W[j] " fetches the module from a registry and runs it"
     }
     # launcher: the options before the command name belong to the launcher (npm exec
-    # also parses its own options after the name, unless -- comes first)
+    # also parses its own options after the name, up to --, unless -- comes first)
     function launcher(j, name, kind,   o, pkg, dd, cmd) {
       pkg = ""; dd = 0
       for (; j <= nw; j++) {
@@ -368,17 +474,22 @@ guard_check_ephemeral_exec() {
       }
       cmd = j <= nw ? W[j] : ""
       if (kind == "npm" && !dd)
-        for (o = j + 1; o <= nw; o++) if (W[o] ~ /^(-p|--package|-c|--call)(=|$)/) pkg = W[o]
+        for (o = j + 1; o <= nw && W[o] != "--"; o++) if (W[o] ~ /^(-p|--package|-c|--call)(=|$)/) pkg = W[o]
       if (kind == "dlx") { print "remote\t" name " fetches " (cmd == "" ? "a package" : cmd) " from a registry and runs it"; return }
       if (pkg != "") { sub(/=.*/, "", pkg); print "remote\t" name " " pkg " fetches a package from a registry and runs it"; return }
       if (cmd == "") return
+      classify(cmd, name, kind)
+    }
+    # classify <spec> <launcher> <kind>: a bare name is looked up where the command
+    # runs (LD); a version, URL or repository spec is fetched
+    function classify(cmd, name, kind) {
       if (kind == "uv") {
-        if (cmd ~ /^[A-Za-z0-9._-]+$/) print "py\t" D "\t" cmd "\t" name
+        if (cmd ~ /^[A-Za-z0-9._-]+$/) print "py\t" LD "\t" cmd "\t" name
         else print "remote\t" name " " cmd " names a version or source that is fetched from a registry"
         return
       }
       if (cmd ~ /^[.\/~]/) return
-      if (cmd ~ /^@[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/ || cmd ~ /^[A-Za-z0-9._-]+$/) print "node\t" D "\t" cmd "\t" name
+      if (cmd ~ /^@[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/ || cmd ~ /^[A-Za-z0-9._-]+$/) print "node\t" LD "\t" cmd "\t" name
       else print "remote\t" name " " cmd " names a version, URL or repository that is fetched from a registry"
     }
     { buf = buf $0 "\n" }
@@ -16062,7 +16173,7 @@ exit "$fail"
     ".claude/skills/forge-project/hooks/hooks.json": "32657a3f5c57c5641c15cb8a0581c8a3d9590b73b31fd57d35f5b8a0bdddb6e8",
     ".claude/skills/forge-project/scripts/bash-snapshot.sh": "29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e",
     ".claude/skills/forge-project/scripts/guard.rules": "bf28e2c1752c202d3ac96c33fdabe8ae4ff659765ddafe45b4777368573aa186",
-    ".claude/skills/forge-project/scripts/guard.sh": "e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca",
+    ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
     ".claude/skills/forge-project/scripts/lib.sh": "c68e88cee33407a544446c0dab82e648fe28645fd2ffec56feb1f38c294698d1",
     ".claude/skills/forge-project/scripts/post-edit.sh": "7f19ea0dda570e8ec8b9c294ae20b56db3064fa05de172b91b43c5340854a6d2",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
@@ -16151,7 +16262,7 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 32657a3f5c57c5641c15cb8a0581c8a3d9590b73b31fd57d35f5b8a0bdddb6e8  .claude/skills/forge-project/hooks/hooks.json
 29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e  .claude/skills/forge-project/scripts/bash-snapshot.sh
 bf28e2c1752c202d3ac96c33fdabe8ae4ff659765ddafe45b4777368573aa186  .claude/skills/forge-project/scripts/guard.rules
-e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca  .claude/skills/forge-project/scripts/guard.sh
+31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
 c68e88cee33407a544446c0dab82e648fe28645fd2ffec56feb1f38c294698d1  .claude/skills/forge-project/scripts/lib.sh
 7f19ea0dda570e8ec8b9c294ae20b56db3064fa05de172b91b43c5340854a6d2  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh

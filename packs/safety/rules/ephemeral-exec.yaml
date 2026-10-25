@@ -1,12 +1,12 @@
 id: safety/ephemeral-exec
-description: Claude asks before running a package fetched from a registry on the fly (pnpm dlx, pipx run, a launcher given --package or name@version, or npx / bunx / uvx on a command not installed in the project); a typo or a hijacked name runs someone else's code. Tools installed in the project (npx tsc, bunx prisma) run as usual.
+description: Claude asks before running a package fetched from a registry on the fly (pnpm dlx, pipx run, a launcher given --package or name@version, npx / bunx / uvx on a command not installed in the project, deno run npm:…, and create / init forms whose create-<name> initializer is not installed); a typo or a hijacked name runs someone else's code. Tools installed in the project (npx tsc, bunx prisma) run as usual.
 scope: {language: any}
 review: "This command would fetch a package from a registry and run it (the rule's finding names it): is that exact package a well-known, legitimate one that this work plausibly needs, spelled right? Deny a name you cannot place, a likely typo or a lookalike of a known package."
 enforce:
   - target: guard
     decision: ask
     # a pre-filter: the check parses the command (launcher options, compound commands, cd, heredocs) and looks for the tool in node_modules/.bin or .venv/bin
-    pattern: '(npx|pnpx|bunx|bun[[:space:]]+x|dlx|npm[[:space:]]+(exec|x)|uvx|uv[[:space:]]+tool|pipx)'
+    pattern: '(npx|pnpx|bunx|dlx|uvx|uv[[:space:]]+tool|pipx|deno[[:space:]]|(npm|pnpm|yarn|bun)[[:space:]](.*[[:space:]])?(exec|x|create|init|innit)([[:space:]]|$))'
     check: ephemeral-exec
 examples:
   match:
@@ -27,6 +27,22 @@ examples:
     - {command: "git stash && npx tsc --noEmit; git stash pop", files: {packages/app/node_modules/.bin/tsc: ""}}
     - "sh -c 'npx cowsay hi'"
     - "echo ok\nnpx some-unknown-tool"
+    - "npm --yes exec cowsay"
+    - "npm -y x cowsay"
+    - "bun --bun x cowsay"
+    - "nice -n 5 npx cowsay"
+    - "timeout -s KILL 5 npx cowsay"
+    - "sudo -u bob npx cowsay"
+    - "eval \"npx cowsay\""
+    - "env -S 'npx cowsay'"
+    - "N=npx; $N cowsay"
+    - "find . -exec npx cowsay {} \\;"
+    - "deno run npm:cowsay"
+    - {command: "npm create vite@latest app", files: {node_modules/.bin/create-vite: ""}}
+    - "npm init vite app"
+    - {command: "pnpm create vite", files: {node_modules/.bin/create-vite: ""}}
+    - "yarn create vite"
+    - "bun create vite"
   no_match:
     - {command: "bunx prisma generate", files: {node_modules/.bin/prisma: ""}}
     - {command: "bunx vitest run", files: {node_modules/.bin/vitest: ""}}
@@ -38,6 +54,15 @@ examples:
     - {command: "npx @biomejs/biome check src", files: {node_modules/@biomejs/biome/package.json: "{}"}}
     - {command: "uvx ruff check", files: {.venv/bin/ruff: ""}}
     - {command: "python3 - <<'EOF'\nimport subprocess\nsubprocess.run(['npx', 'cowsay'])\nnpx cowsay hi\nEOF\nnpx tsc --noEmit", files: {node_modules/.bin/tsc: ""}}
+    - {command: "npm --yes exec cowsay", files: {node_modules/.bin/cowsay: ""}}
+    - {command: "nice -n 5 npx cowsay", files: {node_modules/.bin/cowsay: ""}}
+    - {command: "sudo -u bob npx cowsay", files: {node_modules/.bin/cowsay: ""}}
+    - {command: "find . -exec npx cowsay {} +", files: {node_modules/.bin/cowsay: ""}}
+    - {command: "npm exec cowsay -- --package=x", files: {node_modules/.bin/cowsay: ""}}
+    - {command: "npm init vite app", files: {node_modules/.bin/create-vite: ""}}
+    - {command: "bun create vite", files: {node_modules/.bin/create-vite: ""}}
+    - "npm init -y"
+    - "deno run main.ts"
     - "bun run test"
     - "uv run pytest"
     - "bun add -d zod"

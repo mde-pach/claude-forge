@@ -3,8 +3,9 @@
  *
  * All guard rules of all packs together, against the corpus of commands that
  * must and must not trigger, on every available shell. Accepted misses:
- * commands hidden behind variables, `eval` of built strings, encodings other
- * than `base64 -d | sh`. The guard is a tripwire; permissions and the sandbox
+ * commands hidden behind variables (a command name expanded at run time is
+ * asked about by safety/ephemeral-exec, which cannot follow it), `eval` of
+ * strings built at run time, encodings other than `base64 -d | sh`. The guard is a tripwire; permissions and the sandbox
  * are the protection boundary. The commands run from a repository whose
  * `node_modules/.bin` holds `tsc` and `vitest`, and that has a `packages/app`
  * directory.
@@ -51,6 +52,25 @@ const MUST_TRIGGER: [string, "deny" | "ask"][] = [
   ["pip install requests", "ask"],
   ["git push --force-with-lease", "ask"],
   ["npx some-unknown-tool", "ask"],
+  // launcher options before the subcommand, wrappers with option arguments, eval, find -exec
+  ["npm --yes exec cowsay", "ask"],
+  ["npm -y x cowsay", "ask"],
+  ["bun --bun x cowsay", "ask"],
+  ["nice -n 5 npx cowsay", "ask"],
+  ["timeout -s KILL 5 npx cowsay", "ask"],
+  ["sudo -u bob npx cowsay", "ask"],
+  ['eval "npx cowsay"', "ask"],
+  ["env -S 'npx cowsay'", "ask"],
+  ["N=npx; $N cowsay", "ask"],
+  ["find . -exec npx cowsay {} \\;", "ask"],
+  ["find . -name '*.txt' -exec npx cowsay {} +", "ask"],
+  ["deno run npm:cowsay", "ask"],
+  // create / init run an initializer package (create-<name>)
+  ["npm create vite@latest app", "ask"],
+  ["npm init vite app", "ask"],
+  ["pnpm create vite", "ask"],
+  ["yarn create vite", "ask"],
+  ["bun create vite", "ask"],
 ];
 const MUST_NOT_TRIGGER = [
   "rm -rf node_modules",
@@ -61,6 +81,15 @@ const MUST_NOT_TRIGGER = [
   "git log --stat",
   "npx tsc --noEmit -p tsconfig.json",
   "cd packages/app && npx vitest run src/a.test.ts",
+  "npm --yes exec tsc -- --noEmit",
+  "bun --bun x tsc --noEmit",
+  "nice -n 5 npx tsc --noEmit",
+  "timeout -s KILL 60 npx vitest run",
+  'eval "npx tsc --noEmit"',
+  "find packages -name '*.ts' -exec npx tsc --noEmit {} +",
+  "npm exec tsc -- --package=x",
+  "npm init -y",
+  "deno run main.ts",
 ];
 
 describe.each(availableShells().map((s) => [s.name, s.argv] as const))("on %s", (_name, argv) => {
