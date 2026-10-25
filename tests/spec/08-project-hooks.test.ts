@@ -8,7 +8,7 @@
  * JSON; ast-grep runs through `bunx` or `uvx`.
  */
 import { beforeAll, describe, expect, test } from "bun:test";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { renderChecks } from "../../src/render";
@@ -695,6 +695,22 @@ describe("PostToolUse", () => {
       expect(hook("typecheck.sh", edit("app/main.py")).status).toBe(0);
       expect(existsSync(join(stateDir(repo), "typecheck.lock"))).toBe(false);
       rmSync(join(repo, ".venv/bin/basedpyright"));
+      reset();
+    },
+    T,
+  );
+
+  test(
+    "a lock whose pid is not written yet belongs to a typecheck that just started: it is kept, and taken over only once it is a minute old",
+    () => {
+      const lock = join(stateDir(repo), "typecheck.lock");
+      mkdirSync(lock, { recursive: true });
+      expect(hook("typecheck.sh", edit("app/main.py")).status).toBe(0);
+      expect(existsSync(lock)).toBe(true);
+      const old = new Date(Date.now() - 5 * 60_000);
+      utimesSync(lock, old, old);
+      hook("typecheck.sh", edit("app/main.py"));
+      expect(existsSync(lock)).toBe(false);
       reset();
     },
     T,

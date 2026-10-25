@@ -9452,7 +9452,8 @@ exit 0
 # post-edit.sh) is in a typecheck's scope.
 # Errors in files changed during the turn: exit 2 with <= 20 lines on stderr;
 # errors only in other files are not Claude's and stay silent. Skips if a typecheck is already
-# running (lock directory in the state directory, taken over when its pid is gone).
+# running (lock directory in the state directory, taken over when its pid is gone,
+# or when it has had no pid for a minute).
 # Skipped where Claude Code would run it in the foreground (forge_rewake_blocks).
 dir=$(cd "$(dirname "$0")" && pwd)
 FORGE_INPUT=$(cat)
@@ -12200,6 +12201,9 @@ lock=$FORGE_STATE/typecheck.lock
 if ! mkdir "$lock" 2>/dev/null; then
   pid=$(cat "$lock/pid" 2>/dev/null)
   if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then exit 0; fi
+  # no pid yet: its owner is between mkdir and writing it, unless the lock is a
+  # minute old (that owner died there)
+  if [ -z "$pid" ] && [ -z "$(find "$lock" -prune -mmin +1 2>/dev/null)" ]; then exit 0; fi
   rm -rf "$lock"
   mkdir "$lock" 2>/dev/null || exit 0
 fi
@@ -16326,7 +16330,7 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/stop.sh": "0adfa608a9bbcc166b30c6009e1b21e986d12b49283beff2230177455e03a5a0",
     ".claude/skills/forge-project/scripts/test-edit.sh": "c73be6a058fc0a16c728362ed93fea0cd75dbb7d9b82b650f0b421cff3332d9a",
     ".claude/skills/forge-project/scripts/turn-start.sh": "3d6bbb9aed56181032c9e7c05ba1c20e8080ca104e831a193b42a825e3a12531",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "2f96dd930075bca47798dda98ebbf5b9e585936ef93bccea18346d45ee7841b0",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "e666cf2d5e0941b8d153a80d0c49ad91503664e16ea4fd43d566721ec36733f9",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml": "c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20",
     ".forge/ast-grep/rule-tests/typescript-no-latch-before-optional-call-test.yml": "c86f87d695b414c91cf90a528067e558a5ce93dbf38c8d9f90d1e7aec886b743",
@@ -16415,7 +16419,7 @@ ee5ec200b5335e694bc0f6f59520dc483e50627805c813c383a350cd1913108c  .claude/skills
 0adfa608a9bbcc166b30c6009e1b21e986d12b49283beff2230177455e03a5a0  .claude/skills/forge-project/scripts/stop.sh
 c73be6a058fc0a16c728362ed93fea0cd75dbb7d9b82b650f0b421cff3332d9a  .claude/skills/forge-project/scripts/test-edit.sh
 3d6bbb9aed56181032c9e7c05ba1c20e8080ca104e831a193b42a825e3a12531  .claude/skills/forge-project/scripts/turn-start.sh
-2f96dd930075bca47798dda98ebbf5b9e585936ef93bccea18346d45ee7841b0  .claude/skills/forge-project/scripts/typecheck.sh
+e666cf2d5e0941b8d153a80d0c49ad91503664e16ea4fd43d566721ec36733f9  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20  .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
 c86f87d695b414c91cf90a528067e558a5ce93dbf38c8d9f90d1e7aec886b743  .forge/ast-grep/rule-tests/typescript-no-latch-before-optional-call-test.yml

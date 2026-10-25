@@ -9511,7 +9511,8 @@ exit 0
 # post-edit.sh) is in a typecheck's scope.
 # Errors in files changed during the turn: exit 2 with <= 20 lines on stderr;
 # errors only in other files are not Claude's and stay silent. Skips if a typecheck is already
-# running (lock directory in the state directory, taken over when its pid is gone).
+# running (lock directory in the state directory, taken over when its pid is gone,
+# or when it has had no pid for a minute).
 # Skipped where Claude Code would run it in the foreground (forge_rewake_blocks).
 dir=$(cd "$(dirname "$0")" && pwd)
 FORGE_INPUT=$(cat)
@@ -12273,6 +12274,9 @@ lock=$FORGE_STATE/typecheck.lock
 if ! mkdir "$lock" 2>/dev/null; then
   pid=$(cat "$lock/pid" 2>/dev/null)
   if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then exit 0; fi
+  # no pid yet: its owner is between mkdir and writing it, unless the lock is a
+  # minute old (that owner died there)
+  if [ -z "$pid" ] && [ -z "$(find "$lock" -prune -mmin +1 2>/dev/null)" ]; then exit 0; fi
   rm -rf "$lock"
   mkdir "$lock" 2>/dev/null || exit 0
 fi
@@ -16592,7 +16596,7 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/stop.sh": "0adfa608a9bbcc166b30c6009e1b21e986d12b49283beff2230177455e03a5a0",
     ".claude/skills/forge-project/scripts/test-edit.sh": "089f254bea0d1dba753967055e1bd2cd8b1e0b7d73c86b8bf54c57bb153d5159",
     ".claude/skills/forge-project/scripts/turn-start.sh": "3d6bbb9aed56181032c9e7c05ba1c20e8080ca104e831a193b42a825e3a12531",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "1ab92d58143c8ae6af324f1803fbe7ad3e2c73381c472d3fc61ee8fd83c056a4",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "825ca9ea8a7116375d7fb865d98bbf8a7a881adb46dad58dafebc93f8c1ac08a",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/docker-compose-datastore-loopback-test.yml": "75507971edac1d4a2eca04e6bceb8a942429c0987372010b39ad0b7f126b55e9",
     ".forge/ast-grep/rule-tests/docker-compose-healthy-depends-test.yml": "bcd21e7f9112e5f0d44c9f5c9779824661b2f1dc40448323100787f342c4b7a8",
@@ -16674,7 +16678,7 @@ feae656542cbae71237df9a4e8039d2d84f0c597af30261f6b25f97e1a2ba5a1  .claude/skills
 0adfa608a9bbcc166b30c6009e1b21e986d12b49283beff2230177455e03a5a0  .claude/skills/forge-project/scripts/stop.sh
 089f254bea0d1dba753967055e1bd2cd8b1e0b7d73c86b8bf54c57bb153d5159  .claude/skills/forge-project/scripts/test-edit.sh
 3d6bbb9aed56181032c9e7c05ba1c20e8080ca104e831a193b42a825e3a12531  .claude/skills/forge-project/scripts/turn-start.sh
-1ab92d58143c8ae6af324f1803fbe7ad3e2c73381c472d3fc61ee8fd83c056a4  .claude/skills/forge-project/scripts/typecheck.sh
+825ca9ea8a7116375d7fb865d98bbf8a7a881adb46dad58dafebc93f8c1ac08a  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 75507971edac1d4a2eca04e6bceb8a942429c0987372010b39ad0b7f126b55e9  .forge/ast-grep/rule-tests/docker-compose-datastore-loopback-test.yml
 bcd21e7f9112e5f0d44c9f5c9779824661b2f1dc40448323100787f342c4b7a8  .forge/ast-grep/rule-tests/docker-compose-healthy-depends-test.yml

@@ -10157,7 +10157,8 @@ exit 0
 # post-edit.sh) is in a typecheck's scope.
 # Errors in files changed during the turn: exit 2 with <= 20 lines on stderr;
 # errors only in other files are not Claude's and stay silent. Skips if a typecheck is already
-# running (lock directory in the state directory, taken over when its pid is gone).
+# running (lock directory in the state directory, taken over when its pid is gone,
+# or when it has had no pid for a minute).
 # Skipped where Claude Code would run it in the foreground (forge_rewake_blocks).
 dir=$(cd "$(dirname "$0")" && pwd)
 FORGE_INPUT=$(cat)
@@ -13117,6 +13118,9 @@ lock=$FORGE_STATE/typecheck.lock
 if ! mkdir "$lock" 2>/dev/null; then
   pid=$(cat "$lock/pid" 2>/dev/null)
   if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then exit 0; fi
+  # no pid yet: its owner is between mkdir and writing it, unless the lock is a
+  # minute old (that owner died there)
+  if [ -z "$pid" ] && [ -z "$(find "$lock" -prune -mmin +1 2>/dev/null)" ]; then exit 0; fi
   rm -rf "$lock"
   mkdir "$lock" 2>/dev/null || exit 0
 fi
@@ -18256,7 +18260,7 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/stop.sh": "0adfa608a9bbcc166b30c6009e1b21e986d12b49283beff2230177455e03a5a0",
     ".claude/skills/forge-project/scripts/test-edit.sh": "11f81e9de0720738430f9dee878a66dec37adc8e3f117383547dc65ccdc716d5",
     ".claude/skills/forge-project/scripts/turn-start.sh": "3d6bbb9aed56181032c9e7c05ba1c20e8080ca104e831a193b42a825e3a12531",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "d0cba8ba79853782f903578c8b20ca78375937ecd1c8a003779397801ef8287a",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "a15cd1e87f7310f358e683b1acab8f706af5a4f9e29bc41e78ebb1907ced8a11",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-bun-no-fewer-expects-test.yml": "bd5df50793070bba7b87b0f623ac58ed4599e0ba6f8d731fc0da4b28a0335ec8",
     ".forge/ast-grep/rule-tests/typescript-bun-no-mock-increase-test.yml": "cf28a1a131538f6ff9cb7cd9468d9338d29c52d6abe02dccf7785696f5c847b8",
@@ -18401,7 +18405,7 @@ b18288ec0aaa48e5985cd1978adf9a30d9408c28aa37c00945a8bfb5a6fda93f  .claude/skills
 0adfa608a9bbcc166b30c6009e1b21e986d12b49283beff2230177455e03a5a0  .claude/skills/forge-project/scripts/stop.sh
 11f81e9de0720738430f9dee878a66dec37adc8e3f117383547dc65ccdc716d5  .claude/skills/forge-project/scripts/test-edit.sh
 3d6bbb9aed56181032c9e7c05ba1c20e8080ca104e831a193b42a825e3a12531  .claude/skills/forge-project/scripts/turn-start.sh
-d0cba8ba79853782f903578c8b20ca78375937ecd1c8a003779397801ef8287a  .claude/skills/forge-project/scripts/typecheck.sh
+a15cd1e87f7310f358e683b1acab8f706af5a4f9e29bc41e78ebb1907ced8a11  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 bd5df50793070bba7b87b0f623ac58ed4599e0ba6f8d731fc0da4b28a0335ec8  .forge/ast-grep/rule-tests/typescript-bun-no-fewer-expects-test.yml
 cf28a1a131538f6ff9cb7cd9468d9338d29c52d6abe02dccf7785696f5c847b8  .forge/ast-grep/rule-tests/typescript-bun-no-mock-increase-test.yml
