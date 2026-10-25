@@ -3579,30 +3579,177 @@ forge_env_errors() {
 
 # forge_base_tree <dir>: the project as it was at the start of the turn, in <dir>:
 # the files git sees now (tracked and untracked, not ignored), with this turn's
-# changes undone from $FORGE_TMP/base (files added during the turn left out), and
-# every ignored path (dependencies, build output, .env) a link to the real one.
+# changes undone from $FORGE_TMP/base (files added during the turn left out). Of the
+# ignored paths: Python virtual environments are linked, with the project's own code
+# they import (editable installs) taken from the copy (PYTHONPATH in
+# $FORGE_TMP/base-tree.pythonpath); each node_modules directory is rebuilt from
+# links to its packages, a link to a package of the repository (a workspace package,
+# a file: dependency) pointing to that package in the copy, and test-run caches
+# (.vite, .vitest, .cache) left out; caches and reports that test runs rewrite
+# (__pycache__, .pytest_cache, coverage, …) are left out; everything else (.env, a
+# SQLite file, dist/) is copied, so a test run there never writes the user's files.
+# Fails, with the reason in $FORGE_TMP/base-tree.why, when the copy cannot be
+# isolated: what Python would import from the working tree instead of the copy, or
+# ignored files over FORGE_BASE_COPY_KB (262144) to copy.
 # The repository, its index, its stash and its working tree are not touched.
 forge_base_tree() {
   mkdir -p "$1" || return 1
+  _bt_root=$(pwd -P)
+  : > "$FORGE_TMP/base-tree.why"; : > "$FORGE_TMP/base-tree.pythonpath"; : > "$FORGE_TMP/base-tree.venvs"; : > "$FORGE_TMP/base-tree.copy"
   git ls-files -z --cached --others --exclude-standard 2>/dev/null | tr '\000' '\n' | while IFS= read -r _bt_f; do
-    if [ -f "$_bt_f" ] || [ -L "$_bt_f" ]; then printf '%s\n' "$_bt_f"; fi
+    if [ -f "$_bt_f" ] || [ -L "$_bt_f" ]; then printf './%s\n' "$_bt_f"; fi
   done > "$FORGE_TMP/base-tree.files"
   tar -cf - -T "$FORGE_TMP/base-tree.files" 2>/dev/null | ( cd "$1" && tar -xf - ) || return 1
   while IFS= read -r _bt_f; do
     rm -f "$1/$_bt_f"
     if [ -f "$FORGE_TMP/base/$_bt_f" ]; then mkdir -p "$1/$(dirname "$_bt_f")" && cp "$FORGE_TMP/base/$_bt_f" "$1/$_bt_f"; fi
   done < "$FORGE_TMP/changed"
-  git ls-files -z --others --ignored --exclude-standard --directory 2>/dev/null | tr '\000' '\n' | while IFS= read -r _bt_f; do
+  git ls-files -z --others --ignored --exclude-standard --directory 2>/dev/null | tr '\000' '\n' > "$FORGE_TMP/base-tree.ignored"
+  while IFS= read -r _bt_f; do
     _bt_f=${_bt_f%/}
     case $_bt_f in ''|.forge/state|.forge/state/*) continue ;; esac
     if [ -e "$1/$_bt_f" ] || [ -L "$1/$_bt_f" ]; then continue; fi
-    mkdir -p "$1/$(dirname "$_bt_f")" && ln -s "$FORGE_ROOT/$_bt_f" "$1/$_bt_f"
+    case ${_bt_f##*/} in
+      __pycache__|.pytest_cache|.mypy_cache|.ruff_cache|.hypothesis|.coverage|.coverage.*|coverage|htmlcov|.nyc_output|.vite|.vitest|.turbo|.eslintcache|*.tsbuildinfo) continue ;;
+    esac
+    mkdir -p "$1/$(dirname "$_bt_f")" || return 1
+    if [ -d "$_bt_f" ] && [ -f "$_bt_f/pyvenv.cfg" ]; then
+      ln -s "$_bt_root/$_bt_f" "$1/$_bt_f" && printf '%s\n' "$_bt_f" >> "$FORGE_TMP/base-tree.venvs"
+    elif [ "${_bt_f##*/}" = node_modules ] && [ -d "$_bt_f" ]; then
+      forge_base_modules "$_bt_f" "$1" || return 1
+    else
+      printf '%s\n' "$_bt_f" >> "$FORGE_TMP/base-tree.copy"
+    fi
+  done < "$FORGE_TMP/base-tree.ignored"
+  if [ -s "$FORGE_TMP/base-tree.copy" ]; then
+    _bt_kb=$(while IFS= read -r _bt_f; do du -sk "$_bt_f" 2>/dev/null; done < "$FORGE_TMP/base-tree.copy" | awk '{ s += $1 } END { print s + 0 }')
+    if [ "$_bt_kb" -gt "${FORGE_BASE_COPY_KB:-262144}" ]; then
+      printf 'the files git ignores here (%s KiB, e.g. %s) are too large to copy' "$_bt_kb" "$(head -n 1 "$FORGE_TMP/base-tree.copy")" > "$FORGE_TMP/base-tree.why"
+      return 1
+    fi
+    while IFS= read -r _bt_f; do cp -RP "$_bt_f" "$1/$_bt_f" 2>/dev/null; done < "$FORGE_TMP/base-tree.copy"
+  fi
+  [ -s "$FORGE_TMP/base-tree.venvs" ] || return 0
+  forge_base_python "$1"
+}
+
+# forge_base_modules <node_modules path> <base dir>: <base dir>/<path> as a directory
+# of links to the packages of <path>; a package that is a link into the repository
+# outside node_modules (a workspace package) is linked to its copy in <base dir>.
+forge_base_modules() {
+  mkdir -p "$2/$1" || return 1
+  for _bm_e in "$1"/* "$1"/.[!.]* "$1"/..?*; do
+    [ -e "$_bm_e" ] || [ -L "$_bm_e" ] || continue
+    case ${_bm_e##*/} in .vite|.vitest|.cache) continue ;; esac
+    if [ -d "$_bm_e" ] && [ ! -L "$_bm_e" ]; then
+      case ${_bm_e##*/} in
+        @*)
+          mkdir -p "$2/$_bm_e" || return 1
+          for _bm_s in "$_bm_e"/*; do
+            [ -e "$_bm_s" ] || [ -L "$_bm_s" ] || continue
+            forge_base_link "$_bm_s" "$2" || return 1
+          done
+          continue ;;
+      esac
+    fi
+    forge_base_link "$_bm_e" "$2" || return 1
   done
+}
+
+# forge_base_link <path> <base dir>: <base dir>/<path> a link to <path> in the working
+# tree, or, when <path> is a link to a directory of the repository outside
+# node_modules, to that directory in <base dir>.
+forge_base_link() {
+  _bl_to=$_bt_root/$1
+  if [ -L "$1" ] && [ -d "$1" ]; then
+    _bl_real=$(cd -P "$1" 2>/dev/null && pwd -P)
+    case $_bl_real/ in
+      "$_bt_root"/*)
+        _bl_rel=${_bl_real#"$_bt_root"/}
+        case /$_bl_rel/ in */node_modules/*) ;; *) _bl_to=$2/$_bl_rel ;; esac ;;
+    esac
+  fi
+  ln -s "$_bl_to" "$2/$1"
+}
+
+# FORGE_PY_LEAKS: run by a virtual environment's python as <script> <root> <venv>: the
+# first project modules (packages with __init__.py, modules) on its path or in its
+# editable-install finders that resolve under <root> (outside <venv>), not elsewhere.
+FORGE_PY_LEAKS='import importlib.util, os, sys
+root, venv = os.path.realpath(sys.argv[1]), os.path.realpath(sys.argv[2])
+def real(p):
+    p = os.path.realpath(p)
+    return (p == root or p.startswith(root + os.sep)) and not (p == venv or p.startswith(venv + os.sep))
+names = set()
+for p in sys.path:
+    if p and os.path.isdir(p) and real(p):
+        for e in os.listdir(p):
+            if e.endswith(".py") and e[:-3].isidentifier(): names.add(e[:-3])
+            elif e.isidentifier() and os.path.isfile(os.path.join(p, e, "__init__.py")): names.add(e)
+for m in list(sys.modules.values()):
+    mapping = getattr(m, "MAPPING", None)
+    if (getattr(m, "__name__", "") or "").startswith("__editable__") and isinstance(mapping, dict):
+        names.update(k for k, v in mapping.items() if isinstance(v, str) and real(v))
+leak = []
+for n in sorted(x for x in names if not x.startswith("__")):
+    try:
+        s = importlib.util.find_spec(n)
+    except Exception:
+        continue
+    if s is None: continue
+    where = s.origin if s.origin not in (None, "namespace", "built-in", "frozen") else next(iter(s.submodule_search_locations or []), None)
+    if where and real(where): leak.append(n)
+print(" ".join(leak[:5]))
+'
+
+# forge_base_python <base dir>: for each virtual environment of
+# $FORGE_TMP/base-tree.venvs, the repository paths its .pth files and editable-install
+# finders (__editable___*_finder.py MAPPING) add become their copies in <base dir>,
+# first on PYTHONPATH ($FORGE_TMP/base-tree.pythonpath). Then the environment's
+# python, run in <base dir> with that PYTHONPATH, checks that every module it could
+# import from the working tree resolves to the copy; fails (base-tree.why) otherwise.
+forge_base_python() {
+  while IFS= read -r _bp_v; do
+    for _bp_s in "$_bp_v"/lib/python*/site-packages "$_bp_v"/lib64/python*/site-packages; do
+      [ -d "$_bp_s" ] || continue
+      for _bp_p in "$_bp_s"/*.pth; do
+        [ -f "$_bp_p" ] && grep -v -e '^import[[:space:]]' -e '^#' "$_bp_p"
+      done
+      for _bp_p in "$_bp_s"/__editable__*finder.py; do
+        [ -f "$_bp_p" ] && grep -E '^MAPPING' "$_bp_p" | grep -oE "'/[^']+'|\"/[^\"]+\"" | tr -d "'\"" | while IFS= read -r _bp_m; do dirname "$_bp_m"; done
+      done
+    done
+  done < "$FORGE_TMP/base-tree.venvs" | while IFS= read -r _bp_p; do
+    _bp_p=${_bp_p%/}
+    for _bp_r in "$_bt_root" "$FORGE_ROOT"; do
+      case $_bp_p/ in "$_bp_r"/*) _bp_rel=${_bp_p#"$_bp_r"}; printf '%s%s\n' "$1" "$_bp_rel"; break ;; esac
+    done
+  done | awk '!seen[$0]++' > "$FORGE_TMP/base-tree.pythonpath"
+  _bp_pp=$(awk 'NR > 1 { printf ":" } { printf "%s", $0 }' "$FORGE_TMP/base-tree.pythonpath")
+  while IFS= read -r _bp_v; do
+    [ -x "$_bp_v/bin/python" ] || continue
+    _bp_vr=$(cd -P "$_bp_v" && pwd -P)
+    if ! _bp_leak=$(cd "$1" && PYTHONPATH=$_bp_pp${PYTHONPATH:+:$PYTHONPATH} "$_bt_root/$_bp_v/bin/python" -c "$FORGE_PY_LEAKS" "$_bt_root" "$_bp_vr" 2>/dev/null); then
+      printf 'could not check which code %s/bin/python imports' "$_bp_v" > "$FORGE_TMP/base-tree.why"
+      return 1
+    fi
+    if [ -n "$_bp_leak" ]; then
+      printf '%s/bin/python imports %s from the working tree, not from the copy' "$_bp_v" "$_bp_leak" > "$FORGE_TMP/base-tree.why"
+      return 1
+    fi
+  done < "$FORGE_TMP/base-tree.venvs"
   return 0
 }
 
 # forge_rerun_in_base: the rerun form of check $_fb_n on $FORGE_FILES, in the base tree.
-forge_rerun_in_base() { cd "$FORGE_TMP/base-tree" && "forge_check_rerun_$_fb_n"; }
+forge_rerun_in_base() {
+  cd "$FORGE_TMP/base-tree" || return 1
+  if [ -s "$FORGE_TMP/base-tree.pythonpath" ]; then
+    PYTHONPATH=$(awk 'NR > 1 { printf ":" } { printf "%s", $0 }' "$FORGE_TMP/base-tree.pythonpath")${PYTHONPATH:+:$PYTHONPATH}
+    export PYTHONPATH
+  fi
+  "forge_check_rerun_$_fb_n"
+}
 
 # forge_test_compare <n>: test check <n> failed under --turn ($FORGE_TMP/out). Its
 # failing test files are run again in the tree as it was at the start of the turn
@@ -3614,17 +3761,34 @@ forge_rerun_in_base() { cd "$FORGE_TMP/base-tree" && "forge_check_rerun_$_fb_n";
 forge_test_compare() {
   cp "$FORGE_TMP/out" "$FORGE_TMP/test.now"
   forge_failed_tests < "$FORGE_TMP/test.now" > "$FORGE_TMP/failing.now"
-  rm -rf "$FORGE_TMP/base-tree"
-  if [ ! -s "$FORGE_TMP/failing.now" ] || ! forge_base_tree "$FORGE_TMP/base-tree"; then
+  if [ ! -s "$FORGE_TMP/failing.now" ]; then
     printf 'forge:%s failed\n' "$c_id"
     forge_excerpt 25 < "$FORGE_TMP/test.now"
     return 1
   fi
-  FORGE_FILES=$(forge_test_files < "$FORGE_TMP/failing.now")
-  _fb_n=$1
-  forge_exec_check forge_rerun_in_base "$c_timeout"
-  forge_failed_tests < "$FORGE_TMP/out" > "$FORGE_TMP/failing.base"
   rm -rf "$FORGE_TMP/base-tree"
+  _ft_why=''
+  if ! forge_base_tree "$FORGE_TMP/base-tree"; then
+    _ft_why=$(cat "$FORGE_TMP/base-tree.why" 2>/dev/null)
+    [ -n "$_ft_why" ] || _ft_why='the copy of the tree could not be made'
+  else
+    FORGE_FILES=$(forge_test_files < "$FORGE_TMP/failing.now")
+    _fb_n=$1
+    forge_exec_check forge_rerun_in_base "$c_timeout"
+    _ft_rc=$?
+    forge_failed_tests < "$FORGE_TMP/out" > "$FORGE_TMP/failing.base"
+    if [ "$_ft_rc" -eq 124 ]; then _ft_why="the re-run there was stopped after ${c_timeout}s"
+    elif [ "$_ft_rc" -ne 0 ] && [ ! -s "$FORGE_TMP/failing.base" ]; then _ft_why='the re-run there failed without naming a failing test'
+    fi
+  fi
+  rm -rf "$FORGE_TMP/base-tree"
+  # not comparable: every failing test counts as new (never excused on a guess)
+  if [ -n "$_ft_why" ]; then
+    printf 'forge:%s failed: %s failing test(s); comparison with the start of the turn was not possible (%s), so they count as new:\n' "$c_id" "$(awk 'END { print NR }' "$FORGE_TMP/failing.now")" "$_ft_why"
+    first_lines 8 < "$FORGE_TMP/failing.now" | sed 's/^/  /'
+    forge_excerpt 20 < "$FORGE_TMP/test.now"
+    return 1
+  fi
   if [ -s "$FORGE_TMP/failing.base" ]; then
     grep -vxF -f "$FORGE_TMP/failing.base" "$FORGE_TMP/failing.now" > "$FORGE_TMP/failing.new"
     grep -xF -f "$FORGE_TMP/failing.base" "$FORGE_TMP/failing.now" > "$FORGE_TMP/failing.old"
@@ -6581,30 +6745,177 @@ forge_env_errors() {
 
 # forge_base_tree <dir>: the project as it was at the start of the turn, in <dir>:
 # the files git sees now (tracked and untracked, not ignored), with this turn's
-# changes undone from $FORGE_TMP/base (files added during the turn left out), and
-# every ignored path (dependencies, build output, .env) a link to the real one.
+# changes undone from $FORGE_TMP/base (files added during the turn left out). Of the
+# ignored paths: Python virtual environments are linked, with the project's own code
+# they import (editable installs) taken from the copy (PYTHONPATH in
+# $FORGE_TMP/base-tree.pythonpath); each node_modules directory is rebuilt from
+# links to its packages, a link to a package of the repository (a workspace package,
+# a file: dependency) pointing to that package in the copy, and test-run caches
+# (.vite, .vitest, .cache) left out; caches and reports that test runs rewrite
+# (__pycache__, .pytest_cache, coverage, …) are left out; everything else (.env, a
+# SQLite file, dist/) is copied, so a test run there never writes the user's files.
+# Fails, with the reason in $FORGE_TMP/base-tree.why, when the copy cannot be
+# isolated: what Python would import from the working tree instead of the copy, or
+# ignored files over FORGE_BASE_COPY_KB (262144) to copy.
 # The repository, its index, its stash and its working tree are not touched.
 forge_base_tree() {
   mkdir -p "$1" || return 1
+  _bt_root=$(pwd -P)
+  : > "$FORGE_TMP/base-tree.why"; : > "$FORGE_TMP/base-tree.pythonpath"; : > "$FORGE_TMP/base-tree.venvs"; : > "$FORGE_TMP/base-tree.copy"
   git ls-files -z --cached --others --exclude-standard 2>/dev/null | tr '\000' '\n' | while IFS= read -r _bt_f; do
-    if [ -f "$_bt_f" ] || [ -L "$_bt_f" ]; then printf '%s\n' "$_bt_f"; fi
+    if [ -f "$_bt_f" ] || [ -L "$_bt_f" ]; then printf './%s\n' "$_bt_f"; fi
   done > "$FORGE_TMP/base-tree.files"
   tar -cf - -T "$FORGE_TMP/base-tree.files" 2>/dev/null | ( cd "$1" && tar -xf - ) || return 1
   while IFS= read -r _bt_f; do
     rm -f "$1/$_bt_f"
     if [ -f "$FORGE_TMP/base/$_bt_f" ]; then mkdir -p "$1/$(dirname "$_bt_f")" && cp "$FORGE_TMP/base/$_bt_f" "$1/$_bt_f"; fi
   done < "$FORGE_TMP/changed"
-  git ls-files -z --others --ignored --exclude-standard --directory 2>/dev/null | tr '\000' '\n' | while IFS= read -r _bt_f; do
+  git ls-files -z --others --ignored --exclude-standard --directory 2>/dev/null | tr '\000' '\n' > "$FORGE_TMP/base-tree.ignored"
+  while IFS= read -r _bt_f; do
     _bt_f=${_bt_f%/}
     case $_bt_f in ''|.forge/state|.forge/state/*) continue ;; esac
     if [ -e "$1/$_bt_f" ] || [ -L "$1/$_bt_f" ]; then continue; fi
-    mkdir -p "$1/$(dirname "$_bt_f")" && ln -s "$FORGE_ROOT/$_bt_f" "$1/$_bt_f"
+    case ${_bt_f##*/} in
+      __pycache__|.pytest_cache|.mypy_cache|.ruff_cache|.hypothesis|.coverage|.coverage.*|coverage|htmlcov|.nyc_output|.vite|.vitest|.turbo|.eslintcache|*.tsbuildinfo) continue ;;
+    esac
+    mkdir -p "$1/$(dirname "$_bt_f")" || return 1
+    if [ -d "$_bt_f" ] && [ -f "$_bt_f/pyvenv.cfg" ]; then
+      ln -s "$_bt_root/$_bt_f" "$1/$_bt_f" && printf '%s\n' "$_bt_f" >> "$FORGE_TMP/base-tree.venvs"
+    elif [ "${_bt_f##*/}" = node_modules ] && [ -d "$_bt_f" ]; then
+      forge_base_modules "$_bt_f" "$1" || return 1
+    else
+      printf '%s\n' "$_bt_f" >> "$FORGE_TMP/base-tree.copy"
+    fi
+  done < "$FORGE_TMP/base-tree.ignored"
+  if [ -s "$FORGE_TMP/base-tree.copy" ]; then
+    _bt_kb=$(while IFS= read -r _bt_f; do du -sk "$_bt_f" 2>/dev/null; done < "$FORGE_TMP/base-tree.copy" | awk '{ s += $1 } END { print s + 0 }')
+    if [ "$_bt_kb" -gt "${FORGE_BASE_COPY_KB:-262144}" ]; then
+      printf 'the files git ignores here (%s KiB, e.g. %s) are too large to copy' "$_bt_kb" "$(head -n 1 "$FORGE_TMP/base-tree.copy")" > "$FORGE_TMP/base-tree.why"
+      return 1
+    fi
+    while IFS= read -r _bt_f; do cp -RP "$_bt_f" "$1/$_bt_f" 2>/dev/null; done < "$FORGE_TMP/base-tree.copy"
+  fi
+  [ -s "$FORGE_TMP/base-tree.venvs" ] || return 0
+  forge_base_python "$1"
+}
+
+# forge_base_modules <node_modules path> <base dir>: <base dir>/<path> as a directory
+# of links to the packages of <path>; a package that is a link into the repository
+# outside node_modules (a workspace package) is linked to its copy in <base dir>.
+forge_base_modules() {
+  mkdir -p "$2/$1" || return 1
+  for _bm_e in "$1"/* "$1"/.[!.]* "$1"/..?*; do
+    [ -e "$_bm_e" ] || [ -L "$_bm_e" ] || continue
+    case ${_bm_e##*/} in .vite|.vitest|.cache) continue ;; esac
+    if [ -d "$_bm_e" ] && [ ! -L "$_bm_e" ]; then
+      case ${_bm_e##*/} in
+        @*)
+          mkdir -p "$2/$_bm_e" || return 1
+          for _bm_s in "$_bm_e"/*; do
+            [ -e "$_bm_s" ] || [ -L "$_bm_s" ] || continue
+            forge_base_link "$_bm_s" "$2" || return 1
+          done
+          continue ;;
+      esac
+    fi
+    forge_base_link "$_bm_e" "$2" || return 1
   done
+}
+
+# forge_base_link <path> <base dir>: <base dir>/<path> a link to <path> in the working
+# tree, or, when <path> is a link to a directory of the repository outside
+# node_modules, to that directory in <base dir>.
+forge_base_link() {
+  _bl_to=$_bt_root/$1
+  if [ -L "$1" ] && [ -d "$1" ]; then
+    _bl_real=$(cd -P "$1" 2>/dev/null && pwd -P)
+    case $_bl_real/ in
+      "$_bt_root"/*)
+        _bl_rel=${_bl_real#"$_bt_root"/}
+        case /$_bl_rel/ in */node_modules/*) ;; *) _bl_to=$2/$_bl_rel ;; esac ;;
+    esac
+  fi
+  ln -s "$_bl_to" "$2/$1"
+}
+
+# FORGE_PY_LEAKS: run by a virtual environment's python as <script> <root> <venv>: the
+# first project modules (packages with __init__.py, modules) on its path or in its
+# editable-install finders that resolve under <root> (outside <venv>), not elsewhere.
+FORGE_PY_LEAKS='import importlib.util, os, sys
+root, venv = os.path.realpath(sys.argv[1]), os.path.realpath(sys.argv[2])
+def real(p):
+    p = os.path.realpath(p)
+    return (p == root or p.startswith(root + os.sep)) and not (p == venv or p.startswith(venv + os.sep))
+names = set()
+for p in sys.path:
+    if p and os.path.isdir(p) and real(p):
+        for e in os.listdir(p):
+            if e.endswith(".py") and e[:-3].isidentifier(): names.add(e[:-3])
+            elif e.isidentifier() and os.path.isfile(os.path.join(p, e, "__init__.py")): names.add(e)
+for m in list(sys.modules.values()):
+    mapping = getattr(m, "MAPPING", None)
+    if (getattr(m, "__name__", "") or "").startswith("__editable__") and isinstance(mapping, dict):
+        names.update(k for k, v in mapping.items() if isinstance(v, str) and real(v))
+leak = []
+for n in sorted(x for x in names if not x.startswith("__")):
+    try:
+        s = importlib.util.find_spec(n)
+    except Exception:
+        continue
+    if s is None: continue
+    where = s.origin if s.origin not in (None, "namespace", "built-in", "frozen") else next(iter(s.submodule_search_locations or []), None)
+    if where and real(where): leak.append(n)
+print(" ".join(leak[:5]))
+'
+
+# forge_base_python <base dir>: for each virtual environment of
+# $FORGE_TMP/base-tree.venvs, the repository paths its .pth files and editable-install
+# finders (__editable___*_finder.py MAPPING) add become their copies in <base dir>,
+# first on PYTHONPATH ($FORGE_TMP/base-tree.pythonpath). Then the environment's
+# python, run in <base dir> with that PYTHONPATH, checks that every module it could
+# import from the working tree resolves to the copy; fails (base-tree.why) otherwise.
+forge_base_python() {
+  while IFS= read -r _bp_v; do
+    for _bp_s in "$_bp_v"/lib/python*/site-packages "$_bp_v"/lib64/python*/site-packages; do
+      [ -d "$_bp_s" ] || continue
+      for _bp_p in "$_bp_s"/*.pth; do
+        [ -f "$_bp_p" ] && grep -v -e '^import[[:space:]]' -e '^#' "$_bp_p"
+      done
+      for _bp_p in "$_bp_s"/__editable__*finder.py; do
+        [ -f "$_bp_p" ] && grep -E '^MAPPING' "$_bp_p" | grep -oE "'/[^']+'|\"/[^\"]+\"" | tr -d "'\"" | while IFS= read -r _bp_m; do dirname "$_bp_m"; done
+      done
+    done
+  done < "$FORGE_TMP/base-tree.venvs" | while IFS= read -r _bp_p; do
+    _bp_p=${_bp_p%/}
+    for _bp_r in "$_bt_root" "$FORGE_ROOT"; do
+      case $_bp_p/ in "$_bp_r"/*) _bp_rel=${_bp_p#"$_bp_r"}; printf '%s%s\n' "$1" "$_bp_rel"; break ;; esac
+    done
+  done | awk '!seen[$0]++' > "$FORGE_TMP/base-tree.pythonpath"
+  _bp_pp=$(awk 'NR > 1 { printf ":" } { printf "%s", $0 }' "$FORGE_TMP/base-tree.pythonpath")
+  while IFS= read -r _bp_v; do
+    [ -x "$_bp_v/bin/python" ] || continue
+    _bp_vr=$(cd -P "$_bp_v" && pwd -P)
+    if ! _bp_leak=$(cd "$1" && PYTHONPATH=$_bp_pp${PYTHONPATH:+:$PYTHONPATH} "$_bt_root/$_bp_v/bin/python" -c "$FORGE_PY_LEAKS" "$_bt_root" "$_bp_vr" 2>/dev/null); then
+      printf 'could not check which code %s/bin/python imports' "$_bp_v" > "$FORGE_TMP/base-tree.why"
+      return 1
+    fi
+    if [ -n "$_bp_leak" ]; then
+      printf '%s/bin/python imports %s from the working tree, not from the copy' "$_bp_v" "$_bp_leak" > "$FORGE_TMP/base-tree.why"
+      return 1
+    fi
+  done < "$FORGE_TMP/base-tree.venvs"
   return 0
 }
 
 # forge_rerun_in_base: the rerun form of check $_fb_n on $FORGE_FILES, in the base tree.
-forge_rerun_in_base() { cd "$FORGE_TMP/base-tree" && "forge_check_rerun_$_fb_n"; }
+forge_rerun_in_base() {
+  cd "$FORGE_TMP/base-tree" || return 1
+  if [ -s "$FORGE_TMP/base-tree.pythonpath" ]; then
+    PYTHONPATH=$(awk 'NR > 1 { printf ":" } { printf "%s", $0 }' "$FORGE_TMP/base-tree.pythonpath")${PYTHONPATH:+:$PYTHONPATH}
+    export PYTHONPATH
+  fi
+  "forge_check_rerun_$_fb_n"
+}
 
 # forge_test_compare <n>: test check <n> failed under --turn ($FORGE_TMP/out). Its
 # failing test files are run again in the tree as it was at the start of the turn
@@ -6616,17 +6927,34 @@ forge_rerun_in_base() { cd "$FORGE_TMP/base-tree" && "forge_check_rerun_$_fb_n";
 forge_test_compare() {
   cp "$FORGE_TMP/out" "$FORGE_TMP/test.now"
   forge_failed_tests < "$FORGE_TMP/test.now" > "$FORGE_TMP/failing.now"
-  rm -rf "$FORGE_TMP/base-tree"
-  if [ ! -s "$FORGE_TMP/failing.now" ] || ! forge_base_tree "$FORGE_TMP/base-tree"; then
+  if [ ! -s "$FORGE_TMP/failing.now" ]; then
     printf 'forge:%s failed\n' "$c_id"
     forge_excerpt 25 < "$FORGE_TMP/test.now"
     return 1
   fi
-  FORGE_FILES=$(forge_test_files < "$FORGE_TMP/failing.now")
-  _fb_n=$1
-  forge_exec_check forge_rerun_in_base "$c_timeout"
-  forge_failed_tests < "$FORGE_TMP/out" > "$FORGE_TMP/failing.base"
   rm -rf "$FORGE_TMP/base-tree"
+  _ft_why=''
+  if ! forge_base_tree "$FORGE_TMP/base-tree"; then
+    _ft_why=$(cat "$FORGE_TMP/base-tree.why" 2>/dev/null)
+    [ -n "$_ft_why" ] || _ft_why='the copy of the tree could not be made'
+  else
+    FORGE_FILES=$(forge_test_files < "$FORGE_TMP/failing.now")
+    _fb_n=$1
+    forge_exec_check forge_rerun_in_base "$c_timeout"
+    _ft_rc=$?
+    forge_failed_tests < "$FORGE_TMP/out" > "$FORGE_TMP/failing.base"
+    if [ "$_ft_rc" -eq 124 ]; then _ft_why="the re-run there was stopped after ${c_timeout}s"
+    elif [ "$_ft_rc" -ne 0 ] && [ ! -s "$FORGE_TMP/failing.base" ]; then _ft_why='the re-run there failed without naming a failing test'
+    fi
+  fi
+  rm -rf "$FORGE_TMP/base-tree"
+  # not comparable: every failing test counts as new (never excused on a guess)
+  if [ -n "$_ft_why" ]; then
+    printf 'forge:%s failed: %s failing test(s); comparison with the start of the turn was not possible (%s), so they count as new:\n' "$c_id" "$(awk 'END { print NR }' "$FORGE_TMP/failing.now")" "$_ft_why"
+    first_lines 8 < "$FORGE_TMP/failing.now" | sed 's/^/  /'
+    forge_excerpt 20 < "$FORGE_TMP/test.now"
+    return 1
+  fi
   if [ -s "$FORGE_TMP/failing.base" ]; then
     grep -vxF -f "$FORGE_TMP/failing.base" "$FORGE_TMP/failing.now" > "$FORGE_TMP/failing.new"
     grep -xF -f "$FORGE_TMP/failing.base" "$FORGE_TMP/failing.now" > "$FORGE_TMP/failing.old"
@@ -9599,30 +9927,177 @@ forge_env_errors() {
 
 # forge_base_tree <dir>: the project as it was at the start of the turn, in <dir>:
 # the files git sees now (tracked and untracked, not ignored), with this turn's
-# changes undone from $FORGE_TMP/base (files added during the turn left out), and
-# every ignored path (dependencies, build output, .env) a link to the real one.
+# changes undone from $FORGE_TMP/base (files added during the turn left out). Of the
+# ignored paths: Python virtual environments are linked, with the project's own code
+# they import (editable installs) taken from the copy (PYTHONPATH in
+# $FORGE_TMP/base-tree.pythonpath); each node_modules directory is rebuilt from
+# links to its packages, a link to a package of the repository (a workspace package,
+# a file: dependency) pointing to that package in the copy, and test-run caches
+# (.vite, .vitest, .cache) left out; caches and reports that test runs rewrite
+# (__pycache__, .pytest_cache, coverage, …) are left out; everything else (.env, a
+# SQLite file, dist/) is copied, so a test run there never writes the user's files.
+# Fails, with the reason in $FORGE_TMP/base-tree.why, when the copy cannot be
+# isolated: what Python would import from the working tree instead of the copy, or
+# ignored files over FORGE_BASE_COPY_KB (262144) to copy.
 # The repository, its index, its stash and its working tree are not touched.
 forge_base_tree() {
   mkdir -p "$1" || return 1
+  _bt_root=$(pwd -P)
+  : > "$FORGE_TMP/base-tree.why"; : > "$FORGE_TMP/base-tree.pythonpath"; : > "$FORGE_TMP/base-tree.venvs"; : > "$FORGE_TMP/base-tree.copy"
   git ls-files -z --cached --others --exclude-standard 2>/dev/null | tr '\000' '\n' | while IFS= read -r _bt_f; do
-    if [ -f "$_bt_f" ] || [ -L "$_bt_f" ]; then printf '%s\n' "$_bt_f"; fi
+    if [ -f "$_bt_f" ] || [ -L "$_bt_f" ]; then printf './%s\n' "$_bt_f"; fi
   done > "$FORGE_TMP/base-tree.files"
   tar -cf - -T "$FORGE_TMP/base-tree.files" 2>/dev/null | ( cd "$1" && tar -xf - ) || return 1
   while IFS= read -r _bt_f; do
     rm -f "$1/$_bt_f"
     if [ -f "$FORGE_TMP/base/$_bt_f" ]; then mkdir -p "$1/$(dirname "$_bt_f")" && cp "$FORGE_TMP/base/$_bt_f" "$1/$_bt_f"; fi
   done < "$FORGE_TMP/changed"
-  git ls-files -z --others --ignored --exclude-standard --directory 2>/dev/null | tr '\000' '\n' | while IFS= read -r _bt_f; do
+  git ls-files -z --others --ignored --exclude-standard --directory 2>/dev/null | tr '\000' '\n' > "$FORGE_TMP/base-tree.ignored"
+  while IFS= read -r _bt_f; do
     _bt_f=${_bt_f%/}
     case $_bt_f in ''|.forge/state|.forge/state/*) continue ;; esac
     if [ -e "$1/$_bt_f" ] || [ -L "$1/$_bt_f" ]; then continue; fi
-    mkdir -p "$1/$(dirname "$_bt_f")" && ln -s "$FORGE_ROOT/$_bt_f" "$1/$_bt_f"
+    case ${_bt_f##*/} in
+      __pycache__|.pytest_cache|.mypy_cache|.ruff_cache|.hypothesis|.coverage|.coverage.*|coverage|htmlcov|.nyc_output|.vite|.vitest|.turbo|.eslintcache|*.tsbuildinfo) continue ;;
+    esac
+    mkdir -p "$1/$(dirname "$_bt_f")" || return 1
+    if [ -d "$_bt_f" ] && [ -f "$_bt_f/pyvenv.cfg" ]; then
+      ln -s "$_bt_root/$_bt_f" "$1/$_bt_f" && printf '%s\n' "$_bt_f" >> "$FORGE_TMP/base-tree.venvs"
+    elif [ "${_bt_f##*/}" = node_modules ] && [ -d "$_bt_f" ]; then
+      forge_base_modules "$_bt_f" "$1" || return 1
+    else
+      printf '%s\n' "$_bt_f" >> "$FORGE_TMP/base-tree.copy"
+    fi
+  done < "$FORGE_TMP/base-tree.ignored"
+  if [ -s "$FORGE_TMP/base-tree.copy" ]; then
+    _bt_kb=$(while IFS= read -r _bt_f; do du -sk "$_bt_f" 2>/dev/null; done < "$FORGE_TMP/base-tree.copy" | awk '{ s += $1 } END { print s + 0 }')
+    if [ "$_bt_kb" -gt "${FORGE_BASE_COPY_KB:-262144}" ]; then
+      printf 'the files git ignores here (%s KiB, e.g. %s) are too large to copy' "$_bt_kb" "$(head -n 1 "$FORGE_TMP/base-tree.copy")" > "$FORGE_TMP/base-tree.why"
+      return 1
+    fi
+    while IFS= read -r _bt_f; do cp -RP "$_bt_f" "$1/$_bt_f" 2>/dev/null; done < "$FORGE_TMP/base-tree.copy"
+  fi
+  [ -s "$FORGE_TMP/base-tree.venvs" ] || return 0
+  forge_base_python "$1"
+}
+
+# forge_base_modules <node_modules path> <base dir>: <base dir>/<path> as a directory
+# of links to the packages of <path>; a package that is a link into the repository
+# outside node_modules (a workspace package) is linked to its copy in <base dir>.
+forge_base_modules() {
+  mkdir -p "$2/$1" || return 1
+  for _bm_e in "$1"/* "$1"/.[!.]* "$1"/..?*; do
+    [ -e "$_bm_e" ] || [ -L "$_bm_e" ] || continue
+    case ${_bm_e##*/} in .vite|.vitest|.cache) continue ;; esac
+    if [ -d "$_bm_e" ] && [ ! -L "$_bm_e" ]; then
+      case ${_bm_e##*/} in
+        @*)
+          mkdir -p "$2/$_bm_e" || return 1
+          for _bm_s in "$_bm_e"/*; do
+            [ -e "$_bm_s" ] || [ -L "$_bm_s" ] || continue
+            forge_base_link "$_bm_s" "$2" || return 1
+          done
+          continue ;;
+      esac
+    fi
+    forge_base_link "$_bm_e" "$2" || return 1
   done
+}
+
+# forge_base_link <path> <base dir>: <base dir>/<path> a link to <path> in the working
+# tree, or, when <path> is a link to a directory of the repository outside
+# node_modules, to that directory in <base dir>.
+forge_base_link() {
+  _bl_to=$_bt_root/$1
+  if [ -L "$1" ] && [ -d "$1" ]; then
+    _bl_real=$(cd -P "$1" 2>/dev/null && pwd -P)
+    case $_bl_real/ in
+      "$_bt_root"/*)
+        _bl_rel=${_bl_real#"$_bt_root"/}
+        case /$_bl_rel/ in */node_modules/*) ;; *) _bl_to=$2/$_bl_rel ;; esac ;;
+    esac
+  fi
+  ln -s "$_bl_to" "$2/$1"
+}
+
+# FORGE_PY_LEAKS: run by a virtual environment's python as <script> <root> <venv>: the
+# first project modules (packages with __init__.py, modules) on its path or in its
+# editable-install finders that resolve under <root> (outside <venv>), not elsewhere.
+FORGE_PY_LEAKS='import importlib.util, os, sys
+root, venv = os.path.realpath(sys.argv[1]), os.path.realpath(sys.argv[2])
+def real(p):
+    p = os.path.realpath(p)
+    return (p == root or p.startswith(root + os.sep)) and not (p == venv or p.startswith(venv + os.sep))
+names = set()
+for p in sys.path:
+    if p and os.path.isdir(p) and real(p):
+        for e in os.listdir(p):
+            if e.endswith(".py") and e[:-3].isidentifier(): names.add(e[:-3])
+            elif e.isidentifier() and os.path.isfile(os.path.join(p, e, "__init__.py")): names.add(e)
+for m in list(sys.modules.values()):
+    mapping = getattr(m, "MAPPING", None)
+    if (getattr(m, "__name__", "") or "").startswith("__editable__") and isinstance(mapping, dict):
+        names.update(k for k, v in mapping.items() if isinstance(v, str) and real(v))
+leak = []
+for n in sorted(x for x in names if not x.startswith("__")):
+    try:
+        s = importlib.util.find_spec(n)
+    except Exception:
+        continue
+    if s is None: continue
+    where = s.origin if s.origin not in (None, "namespace", "built-in", "frozen") else next(iter(s.submodule_search_locations or []), None)
+    if where and real(where): leak.append(n)
+print(" ".join(leak[:5]))
+'
+
+# forge_base_python <base dir>: for each virtual environment of
+# $FORGE_TMP/base-tree.venvs, the repository paths its .pth files and editable-install
+# finders (__editable___*_finder.py MAPPING) add become their copies in <base dir>,
+# first on PYTHONPATH ($FORGE_TMP/base-tree.pythonpath). Then the environment's
+# python, run in <base dir> with that PYTHONPATH, checks that every module it could
+# import from the working tree resolves to the copy; fails (base-tree.why) otherwise.
+forge_base_python() {
+  while IFS= read -r _bp_v; do
+    for _bp_s in "$_bp_v"/lib/python*/site-packages "$_bp_v"/lib64/python*/site-packages; do
+      [ -d "$_bp_s" ] || continue
+      for _bp_p in "$_bp_s"/*.pth; do
+        [ -f "$_bp_p" ] && grep -v -e '^import[[:space:]]' -e '^#' "$_bp_p"
+      done
+      for _bp_p in "$_bp_s"/__editable__*finder.py; do
+        [ -f "$_bp_p" ] && grep -E '^MAPPING' "$_bp_p" | grep -oE "'/[^']+'|\"/[^\"]+\"" | tr -d "'\"" | while IFS= read -r _bp_m; do dirname "$_bp_m"; done
+      done
+    done
+  done < "$FORGE_TMP/base-tree.venvs" | while IFS= read -r _bp_p; do
+    _bp_p=${_bp_p%/}
+    for _bp_r in "$_bt_root" "$FORGE_ROOT"; do
+      case $_bp_p/ in "$_bp_r"/*) _bp_rel=${_bp_p#"$_bp_r"}; printf '%s%s\n' "$1" "$_bp_rel"; break ;; esac
+    done
+  done | awk '!seen[$0]++' > "$FORGE_TMP/base-tree.pythonpath"
+  _bp_pp=$(awk 'NR > 1 { printf ":" } { printf "%s", $0 }' "$FORGE_TMP/base-tree.pythonpath")
+  while IFS= read -r _bp_v; do
+    [ -x "$_bp_v/bin/python" ] || continue
+    _bp_vr=$(cd -P "$_bp_v" && pwd -P)
+    if ! _bp_leak=$(cd "$1" && PYTHONPATH=$_bp_pp${PYTHONPATH:+:$PYTHONPATH} "$_bt_root/$_bp_v/bin/python" -c "$FORGE_PY_LEAKS" "$_bt_root" "$_bp_vr" 2>/dev/null); then
+      printf 'could not check which code %s/bin/python imports' "$_bp_v" > "$FORGE_TMP/base-tree.why"
+      return 1
+    fi
+    if [ -n "$_bp_leak" ]; then
+      printf '%s/bin/python imports %s from the working tree, not from the copy' "$_bp_v" "$_bp_leak" > "$FORGE_TMP/base-tree.why"
+      return 1
+    fi
+  done < "$FORGE_TMP/base-tree.venvs"
   return 0
 }
 
 # forge_rerun_in_base: the rerun form of check $_fb_n on $FORGE_FILES, in the base tree.
-forge_rerun_in_base() { cd "$FORGE_TMP/base-tree" && "forge_check_rerun_$_fb_n"; }
+forge_rerun_in_base() {
+  cd "$FORGE_TMP/base-tree" || return 1
+  if [ -s "$FORGE_TMP/base-tree.pythonpath" ]; then
+    PYTHONPATH=$(awk 'NR > 1 { printf ":" } { printf "%s", $0 }' "$FORGE_TMP/base-tree.pythonpath")${PYTHONPATH:+:$PYTHONPATH}
+    export PYTHONPATH
+  fi
+  "forge_check_rerun_$_fb_n"
+}
 
 # forge_test_compare <n>: test check <n> failed under --turn ($FORGE_TMP/out). Its
 # failing test files are run again in the tree as it was at the start of the turn
@@ -9634,17 +10109,34 @@ forge_rerun_in_base() { cd "$FORGE_TMP/base-tree" && "forge_check_rerun_$_fb_n";
 forge_test_compare() {
   cp "$FORGE_TMP/out" "$FORGE_TMP/test.now"
   forge_failed_tests < "$FORGE_TMP/test.now" > "$FORGE_TMP/failing.now"
-  rm -rf "$FORGE_TMP/base-tree"
-  if [ ! -s "$FORGE_TMP/failing.now" ] || ! forge_base_tree "$FORGE_TMP/base-tree"; then
+  if [ ! -s "$FORGE_TMP/failing.now" ]; then
     printf 'forge:%s failed\n' "$c_id"
     forge_excerpt 25 < "$FORGE_TMP/test.now"
     return 1
   fi
-  FORGE_FILES=$(forge_test_files < "$FORGE_TMP/failing.now")
-  _fb_n=$1
-  forge_exec_check forge_rerun_in_base "$c_timeout"
-  forge_failed_tests < "$FORGE_TMP/out" > "$FORGE_TMP/failing.base"
   rm -rf "$FORGE_TMP/base-tree"
+  _ft_why=''
+  if ! forge_base_tree "$FORGE_TMP/base-tree"; then
+    _ft_why=$(cat "$FORGE_TMP/base-tree.why" 2>/dev/null)
+    [ -n "$_ft_why" ] || _ft_why='the copy of the tree could not be made'
+  else
+    FORGE_FILES=$(forge_test_files < "$FORGE_TMP/failing.now")
+    _fb_n=$1
+    forge_exec_check forge_rerun_in_base "$c_timeout"
+    _ft_rc=$?
+    forge_failed_tests < "$FORGE_TMP/out" > "$FORGE_TMP/failing.base"
+    if [ "$_ft_rc" -eq 124 ]; then _ft_why="the re-run there was stopped after ${c_timeout}s"
+    elif [ "$_ft_rc" -ne 0 ] && [ ! -s "$FORGE_TMP/failing.base" ]; then _ft_why='the re-run there failed without naming a failing test'
+    fi
+  fi
+  rm -rf "$FORGE_TMP/base-tree"
+  # not comparable: every failing test counts as new (never excused on a guess)
+  if [ -n "$_ft_why" ]; then
+    printf 'forge:%s failed: %s failing test(s); comparison with the start of the turn was not possible (%s), so they count as new:\n' "$c_id" "$(awk 'END { print NR }' "$FORGE_TMP/failing.now")" "$_ft_why"
+    first_lines 8 < "$FORGE_TMP/failing.now" | sed 's/^/  /'
+    forge_excerpt 20 < "$FORGE_TMP/test.now"
+    return 1
+  fi
   if [ -s "$FORGE_TMP/failing.base" ]; then
     grep -vxF -f "$FORGE_TMP/failing.base" "$FORGE_TMP/failing.now" > "$FORGE_TMP/failing.new"
     grep -xF -f "$FORGE_TMP/failing.base" "$FORGE_TMP/failing.now" > "$FORGE_TMP/failing.old"
@@ -12642,30 +13134,177 @@ forge_env_errors() {
 
 # forge_base_tree <dir>: the project as it was at the start of the turn, in <dir>:
 # the files git sees now (tracked and untracked, not ignored), with this turn's
-# changes undone from $FORGE_TMP/base (files added during the turn left out), and
-# every ignored path (dependencies, build output, .env) a link to the real one.
+# changes undone from $FORGE_TMP/base (files added during the turn left out). Of the
+# ignored paths: Python virtual environments are linked, with the project's own code
+# they import (editable installs) taken from the copy (PYTHONPATH in
+# $FORGE_TMP/base-tree.pythonpath); each node_modules directory is rebuilt from
+# links to its packages, a link to a package of the repository (a workspace package,
+# a file: dependency) pointing to that package in the copy, and test-run caches
+# (.vite, .vitest, .cache) left out; caches and reports that test runs rewrite
+# (__pycache__, .pytest_cache, coverage, …) are left out; everything else (.env, a
+# SQLite file, dist/) is copied, so a test run there never writes the user's files.
+# Fails, with the reason in $FORGE_TMP/base-tree.why, when the copy cannot be
+# isolated: what Python would import from the working tree instead of the copy, or
+# ignored files over FORGE_BASE_COPY_KB (262144) to copy.
 # The repository, its index, its stash and its working tree are not touched.
 forge_base_tree() {
   mkdir -p "$1" || return 1
+  _bt_root=$(pwd -P)
+  : > "$FORGE_TMP/base-tree.why"; : > "$FORGE_TMP/base-tree.pythonpath"; : > "$FORGE_TMP/base-tree.venvs"; : > "$FORGE_TMP/base-tree.copy"
   git ls-files -z --cached --others --exclude-standard 2>/dev/null | tr '\000' '\n' | while IFS= read -r _bt_f; do
-    if [ -f "$_bt_f" ] || [ -L "$_bt_f" ]; then printf '%s\n' "$_bt_f"; fi
+    if [ -f "$_bt_f" ] || [ -L "$_bt_f" ]; then printf './%s\n' "$_bt_f"; fi
   done > "$FORGE_TMP/base-tree.files"
   tar -cf - -T "$FORGE_TMP/base-tree.files" 2>/dev/null | ( cd "$1" && tar -xf - ) || return 1
   while IFS= read -r _bt_f; do
     rm -f "$1/$_bt_f"
     if [ -f "$FORGE_TMP/base/$_bt_f" ]; then mkdir -p "$1/$(dirname "$_bt_f")" && cp "$FORGE_TMP/base/$_bt_f" "$1/$_bt_f"; fi
   done < "$FORGE_TMP/changed"
-  git ls-files -z --others --ignored --exclude-standard --directory 2>/dev/null | tr '\000' '\n' | while IFS= read -r _bt_f; do
+  git ls-files -z --others --ignored --exclude-standard --directory 2>/dev/null | tr '\000' '\n' > "$FORGE_TMP/base-tree.ignored"
+  while IFS= read -r _bt_f; do
     _bt_f=${_bt_f%/}
     case $_bt_f in ''|.forge/state|.forge/state/*) continue ;; esac
     if [ -e "$1/$_bt_f" ] || [ -L "$1/$_bt_f" ]; then continue; fi
-    mkdir -p "$1/$(dirname "$_bt_f")" && ln -s "$FORGE_ROOT/$_bt_f" "$1/$_bt_f"
+    case ${_bt_f##*/} in
+      __pycache__|.pytest_cache|.mypy_cache|.ruff_cache|.hypothesis|.coverage|.coverage.*|coverage|htmlcov|.nyc_output|.vite|.vitest|.turbo|.eslintcache|*.tsbuildinfo) continue ;;
+    esac
+    mkdir -p "$1/$(dirname "$_bt_f")" || return 1
+    if [ -d "$_bt_f" ] && [ -f "$_bt_f/pyvenv.cfg" ]; then
+      ln -s "$_bt_root/$_bt_f" "$1/$_bt_f" && printf '%s\n' "$_bt_f" >> "$FORGE_TMP/base-tree.venvs"
+    elif [ "${_bt_f##*/}" = node_modules ] && [ -d "$_bt_f" ]; then
+      forge_base_modules "$_bt_f" "$1" || return 1
+    else
+      printf '%s\n' "$_bt_f" >> "$FORGE_TMP/base-tree.copy"
+    fi
+  done < "$FORGE_TMP/base-tree.ignored"
+  if [ -s "$FORGE_TMP/base-tree.copy" ]; then
+    _bt_kb=$(while IFS= read -r _bt_f; do du -sk "$_bt_f" 2>/dev/null; done < "$FORGE_TMP/base-tree.copy" | awk '{ s += $1 } END { print s + 0 }')
+    if [ "$_bt_kb" -gt "${FORGE_BASE_COPY_KB:-262144}" ]; then
+      printf 'the files git ignores here (%s KiB, e.g. %s) are too large to copy' "$_bt_kb" "$(head -n 1 "$FORGE_TMP/base-tree.copy")" > "$FORGE_TMP/base-tree.why"
+      return 1
+    fi
+    while IFS= read -r _bt_f; do cp -RP "$_bt_f" "$1/$_bt_f" 2>/dev/null; done < "$FORGE_TMP/base-tree.copy"
+  fi
+  [ -s "$FORGE_TMP/base-tree.venvs" ] || return 0
+  forge_base_python "$1"
+}
+
+# forge_base_modules <node_modules path> <base dir>: <base dir>/<path> as a directory
+# of links to the packages of <path>; a package that is a link into the repository
+# outside node_modules (a workspace package) is linked to its copy in <base dir>.
+forge_base_modules() {
+  mkdir -p "$2/$1" || return 1
+  for _bm_e in "$1"/* "$1"/.[!.]* "$1"/..?*; do
+    [ -e "$_bm_e" ] || [ -L "$_bm_e" ] || continue
+    case ${_bm_e##*/} in .vite|.vitest|.cache) continue ;; esac
+    if [ -d "$_bm_e" ] && [ ! -L "$_bm_e" ]; then
+      case ${_bm_e##*/} in
+        @*)
+          mkdir -p "$2/$_bm_e" || return 1
+          for _bm_s in "$_bm_e"/*; do
+            [ -e "$_bm_s" ] || [ -L "$_bm_s" ] || continue
+            forge_base_link "$_bm_s" "$2" || return 1
+          done
+          continue ;;
+      esac
+    fi
+    forge_base_link "$_bm_e" "$2" || return 1
   done
+}
+
+# forge_base_link <path> <base dir>: <base dir>/<path> a link to <path> in the working
+# tree, or, when <path> is a link to a directory of the repository outside
+# node_modules, to that directory in <base dir>.
+forge_base_link() {
+  _bl_to=$_bt_root/$1
+  if [ -L "$1" ] && [ -d "$1" ]; then
+    _bl_real=$(cd -P "$1" 2>/dev/null && pwd -P)
+    case $_bl_real/ in
+      "$_bt_root"/*)
+        _bl_rel=${_bl_real#"$_bt_root"/}
+        case /$_bl_rel/ in */node_modules/*) ;; *) _bl_to=$2/$_bl_rel ;; esac ;;
+    esac
+  fi
+  ln -s "$_bl_to" "$2/$1"
+}
+
+# FORGE_PY_LEAKS: run by a virtual environment's python as <script> <root> <venv>: the
+# first project modules (packages with __init__.py, modules) on its path or in its
+# editable-install finders that resolve under <root> (outside <venv>), not elsewhere.
+FORGE_PY_LEAKS='import importlib.util, os, sys
+root, venv = os.path.realpath(sys.argv[1]), os.path.realpath(sys.argv[2])
+def real(p):
+    p = os.path.realpath(p)
+    return (p == root or p.startswith(root + os.sep)) and not (p == venv or p.startswith(venv + os.sep))
+names = set()
+for p in sys.path:
+    if p and os.path.isdir(p) and real(p):
+        for e in os.listdir(p):
+            if e.endswith(".py") and e[:-3].isidentifier(): names.add(e[:-3])
+            elif e.isidentifier() and os.path.isfile(os.path.join(p, e, "__init__.py")): names.add(e)
+for m in list(sys.modules.values()):
+    mapping = getattr(m, "MAPPING", None)
+    if (getattr(m, "__name__", "") or "").startswith("__editable__") and isinstance(mapping, dict):
+        names.update(k for k, v in mapping.items() if isinstance(v, str) and real(v))
+leak = []
+for n in sorted(x for x in names if not x.startswith("__")):
+    try:
+        s = importlib.util.find_spec(n)
+    except Exception:
+        continue
+    if s is None: continue
+    where = s.origin if s.origin not in (None, "namespace", "built-in", "frozen") else next(iter(s.submodule_search_locations or []), None)
+    if where and real(where): leak.append(n)
+print(" ".join(leak[:5]))
+'
+
+# forge_base_python <base dir>: for each virtual environment of
+# $FORGE_TMP/base-tree.venvs, the repository paths its .pth files and editable-install
+# finders (__editable___*_finder.py MAPPING) add become their copies in <base dir>,
+# first on PYTHONPATH ($FORGE_TMP/base-tree.pythonpath). Then the environment's
+# python, run in <base dir> with that PYTHONPATH, checks that every module it could
+# import from the working tree resolves to the copy; fails (base-tree.why) otherwise.
+forge_base_python() {
+  while IFS= read -r _bp_v; do
+    for _bp_s in "$_bp_v"/lib/python*/site-packages "$_bp_v"/lib64/python*/site-packages; do
+      [ -d "$_bp_s" ] || continue
+      for _bp_p in "$_bp_s"/*.pth; do
+        [ -f "$_bp_p" ] && grep -v -e '^import[[:space:]]' -e '^#' "$_bp_p"
+      done
+      for _bp_p in "$_bp_s"/__editable__*finder.py; do
+        [ -f "$_bp_p" ] && grep -E '^MAPPING' "$_bp_p" | grep -oE "'/[^']+'|\"/[^\"]+\"" | tr -d "'\"" | while IFS= read -r _bp_m; do dirname "$_bp_m"; done
+      done
+    done
+  done < "$FORGE_TMP/base-tree.venvs" | while IFS= read -r _bp_p; do
+    _bp_p=${_bp_p%/}
+    for _bp_r in "$_bt_root" "$FORGE_ROOT"; do
+      case $_bp_p/ in "$_bp_r"/*) _bp_rel=${_bp_p#"$_bp_r"}; printf '%s%s\n' "$1" "$_bp_rel"; break ;; esac
+    done
+  done | awk '!seen[$0]++' > "$FORGE_TMP/base-tree.pythonpath"
+  _bp_pp=$(awk 'NR > 1 { printf ":" } { printf "%s", $0 }' "$FORGE_TMP/base-tree.pythonpath")
+  while IFS= read -r _bp_v; do
+    [ -x "$_bp_v/bin/python" ] || continue
+    _bp_vr=$(cd -P "$_bp_v" && pwd -P)
+    if ! _bp_leak=$(cd "$1" && PYTHONPATH=$_bp_pp${PYTHONPATH:+:$PYTHONPATH} "$_bt_root/$_bp_v/bin/python" -c "$FORGE_PY_LEAKS" "$_bt_root" "$_bp_vr" 2>/dev/null); then
+      printf 'could not check which code %s/bin/python imports' "$_bp_v" > "$FORGE_TMP/base-tree.why"
+      return 1
+    fi
+    if [ -n "$_bp_leak" ]; then
+      printf '%s/bin/python imports %s from the working tree, not from the copy' "$_bp_v" "$_bp_leak" > "$FORGE_TMP/base-tree.why"
+      return 1
+    fi
+  done < "$FORGE_TMP/base-tree.venvs"
   return 0
 }
 
 # forge_rerun_in_base: the rerun form of check $_fb_n on $FORGE_FILES, in the base tree.
-forge_rerun_in_base() { cd "$FORGE_TMP/base-tree" && "forge_check_rerun_$_fb_n"; }
+forge_rerun_in_base() {
+  cd "$FORGE_TMP/base-tree" || return 1
+  if [ -s "$FORGE_TMP/base-tree.pythonpath" ]; then
+    PYTHONPATH=$(awk 'NR > 1 { printf ":" } { printf "%s", $0 }' "$FORGE_TMP/base-tree.pythonpath")${PYTHONPATH:+:$PYTHONPATH}
+    export PYTHONPATH
+  fi
+  "forge_check_rerun_$_fb_n"
+}
 
 # forge_test_compare <n>: test check <n> failed under --turn ($FORGE_TMP/out). Its
 # failing test files are run again in the tree as it was at the start of the turn
@@ -12677,17 +13316,34 @@ forge_rerun_in_base() { cd "$FORGE_TMP/base-tree" && "forge_check_rerun_$_fb_n";
 forge_test_compare() {
   cp "$FORGE_TMP/out" "$FORGE_TMP/test.now"
   forge_failed_tests < "$FORGE_TMP/test.now" > "$FORGE_TMP/failing.now"
-  rm -rf "$FORGE_TMP/base-tree"
-  if [ ! -s "$FORGE_TMP/failing.now" ] || ! forge_base_tree "$FORGE_TMP/base-tree"; then
+  if [ ! -s "$FORGE_TMP/failing.now" ]; then
     printf 'forge:%s failed\n' "$c_id"
     forge_excerpt 25 < "$FORGE_TMP/test.now"
     return 1
   fi
-  FORGE_FILES=$(forge_test_files < "$FORGE_TMP/failing.now")
-  _fb_n=$1
-  forge_exec_check forge_rerun_in_base "$c_timeout"
-  forge_failed_tests < "$FORGE_TMP/out" > "$FORGE_TMP/failing.base"
   rm -rf "$FORGE_TMP/base-tree"
+  _ft_why=''
+  if ! forge_base_tree "$FORGE_TMP/base-tree"; then
+    _ft_why=$(cat "$FORGE_TMP/base-tree.why" 2>/dev/null)
+    [ -n "$_ft_why" ] || _ft_why='the copy of the tree could not be made'
+  else
+    FORGE_FILES=$(forge_test_files < "$FORGE_TMP/failing.now")
+    _fb_n=$1
+    forge_exec_check forge_rerun_in_base "$c_timeout"
+    _ft_rc=$?
+    forge_failed_tests < "$FORGE_TMP/out" > "$FORGE_TMP/failing.base"
+    if [ "$_ft_rc" -eq 124 ]; then _ft_why="the re-run there was stopped after ${c_timeout}s"
+    elif [ "$_ft_rc" -ne 0 ] && [ ! -s "$FORGE_TMP/failing.base" ]; then _ft_why='the re-run there failed without naming a failing test'
+    fi
+  fi
+  rm -rf "$FORGE_TMP/base-tree"
+  # not comparable: every failing test counts as new (never excused on a guess)
+  if [ -n "$_ft_why" ]; then
+    printf 'forge:%s failed: %s failing test(s); comparison with the start of the turn was not possible (%s), so they count as new:\n' "$c_id" "$(awk 'END { print NR }' "$FORGE_TMP/failing.now")" "$_ft_why"
+    first_lines 8 < "$FORGE_TMP/failing.now" | sed 's/^/  /'
+    forge_excerpt 20 < "$FORGE_TMP/test.now"
+    return 1
+  fi
   if [ -s "$FORGE_TMP/failing.base" ]; then
     grep -vxF -f "$FORGE_TMP/failing.base" "$FORGE_TMP/failing.now" > "$FORGE_TMP/failing.new"
     grep -xF -f "$FORGE_TMP/failing.base" "$FORGE_TMP/failing.now" > "$FORGE_TMP/failing.old"
@@ -17355,30 +18011,177 @@ forge_env_errors() {
 
 # forge_base_tree <dir>: the project as it was at the start of the turn, in <dir>:
 # the files git sees now (tracked and untracked, not ignored), with this turn's
-# changes undone from $FORGE_TMP/base (files added during the turn left out), and
-# every ignored path (dependencies, build output, .env) a link to the real one.
+# changes undone from $FORGE_TMP/base (files added during the turn left out). Of the
+# ignored paths: Python virtual environments are linked, with the project's own code
+# they import (editable installs) taken from the copy (PYTHONPATH in
+# $FORGE_TMP/base-tree.pythonpath); each node_modules directory is rebuilt from
+# links to its packages, a link to a package of the repository (a workspace package,
+# a file: dependency) pointing to that package in the copy, and test-run caches
+# (.vite, .vitest, .cache) left out; caches and reports that test runs rewrite
+# (__pycache__, .pytest_cache, coverage, …) are left out; everything else (.env, a
+# SQLite file, dist/) is copied, so a test run there never writes the user's files.
+# Fails, with the reason in $FORGE_TMP/base-tree.why, when the copy cannot be
+# isolated: what Python would import from the working tree instead of the copy, or
+# ignored files over FORGE_BASE_COPY_KB (262144) to copy.
 # The repository, its index, its stash and its working tree are not touched.
 forge_base_tree() {
   mkdir -p "$1" || return 1
+  _bt_root=$(pwd -P)
+  : > "$FORGE_TMP/base-tree.why"; : > "$FORGE_TMP/base-tree.pythonpath"; : > "$FORGE_TMP/base-tree.venvs"; : > "$FORGE_TMP/base-tree.copy"
   git ls-files -z --cached --others --exclude-standard 2>/dev/null | tr '\000' '\n' | while IFS= read -r _bt_f; do
-    if [ -f "$_bt_f" ] || [ -L "$_bt_f" ]; then printf '%s\n' "$_bt_f"; fi
+    if [ -f "$_bt_f" ] || [ -L "$_bt_f" ]; then printf './%s\n' "$_bt_f"; fi
   done > "$FORGE_TMP/base-tree.files"
   tar -cf - -T "$FORGE_TMP/base-tree.files" 2>/dev/null | ( cd "$1" && tar -xf - ) || return 1
   while IFS= read -r _bt_f; do
     rm -f "$1/$_bt_f"
     if [ -f "$FORGE_TMP/base/$_bt_f" ]; then mkdir -p "$1/$(dirname "$_bt_f")" && cp "$FORGE_TMP/base/$_bt_f" "$1/$_bt_f"; fi
   done < "$FORGE_TMP/changed"
-  git ls-files -z --others --ignored --exclude-standard --directory 2>/dev/null | tr '\000' '\n' | while IFS= read -r _bt_f; do
+  git ls-files -z --others --ignored --exclude-standard --directory 2>/dev/null | tr '\000' '\n' > "$FORGE_TMP/base-tree.ignored"
+  while IFS= read -r _bt_f; do
     _bt_f=${_bt_f%/}
     case $_bt_f in ''|.forge/state|.forge/state/*) continue ;; esac
     if [ -e "$1/$_bt_f" ] || [ -L "$1/$_bt_f" ]; then continue; fi
-    mkdir -p "$1/$(dirname "$_bt_f")" && ln -s "$FORGE_ROOT/$_bt_f" "$1/$_bt_f"
+    case ${_bt_f##*/} in
+      __pycache__|.pytest_cache|.mypy_cache|.ruff_cache|.hypothesis|.coverage|.coverage.*|coverage|htmlcov|.nyc_output|.vite|.vitest|.turbo|.eslintcache|*.tsbuildinfo) continue ;;
+    esac
+    mkdir -p "$1/$(dirname "$_bt_f")" || return 1
+    if [ -d "$_bt_f" ] && [ -f "$_bt_f/pyvenv.cfg" ]; then
+      ln -s "$_bt_root/$_bt_f" "$1/$_bt_f" && printf '%s\n' "$_bt_f" >> "$FORGE_TMP/base-tree.venvs"
+    elif [ "${_bt_f##*/}" = node_modules ] && [ -d "$_bt_f" ]; then
+      forge_base_modules "$_bt_f" "$1" || return 1
+    else
+      printf '%s\n' "$_bt_f" >> "$FORGE_TMP/base-tree.copy"
+    fi
+  done < "$FORGE_TMP/base-tree.ignored"
+  if [ -s "$FORGE_TMP/base-tree.copy" ]; then
+    _bt_kb=$(while IFS= read -r _bt_f; do du -sk "$_bt_f" 2>/dev/null; done < "$FORGE_TMP/base-tree.copy" | awk '{ s += $1 } END { print s + 0 }')
+    if [ "$_bt_kb" -gt "${FORGE_BASE_COPY_KB:-262144}" ]; then
+      printf 'the files git ignores here (%s KiB, e.g. %s) are too large to copy' "$_bt_kb" "$(head -n 1 "$FORGE_TMP/base-tree.copy")" > "$FORGE_TMP/base-tree.why"
+      return 1
+    fi
+    while IFS= read -r _bt_f; do cp -RP "$_bt_f" "$1/$_bt_f" 2>/dev/null; done < "$FORGE_TMP/base-tree.copy"
+  fi
+  [ -s "$FORGE_TMP/base-tree.venvs" ] || return 0
+  forge_base_python "$1"
+}
+
+# forge_base_modules <node_modules path> <base dir>: <base dir>/<path> as a directory
+# of links to the packages of <path>; a package that is a link into the repository
+# outside node_modules (a workspace package) is linked to its copy in <base dir>.
+forge_base_modules() {
+  mkdir -p "$2/$1" || return 1
+  for _bm_e in "$1"/* "$1"/.[!.]* "$1"/..?*; do
+    [ -e "$_bm_e" ] || [ -L "$_bm_e" ] || continue
+    case ${_bm_e##*/} in .vite|.vitest|.cache) continue ;; esac
+    if [ -d "$_bm_e" ] && [ ! -L "$_bm_e" ]; then
+      case ${_bm_e##*/} in
+        @*)
+          mkdir -p "$2/$_bm_e" || return 1
+          for _bm_s in "$_bm_e"/*; do
+            [ -e "$_bm_s" ] || [ -L "$_bm_s" ] || continue
+            forge_base_link "$_bm_s" "$2" || return 1
+          done
+          continue ;;
+      esac
+    fi
+    forge_base_link "$_bm_e" "$2" || return 1
   done
+}
+
+# forge_base_link <path> <base dir>: <base dir>/<path> a link to <path> in the working
+# tree, or, when <path> is a link to a directory of the repository outside
+# node_modules, to that directory in <base dir>.
+forge_base_link() {
+  _bl_to=$_bt_root/$1
+  if [ -L "$1" ] && [ -d "$1" ]; then
+    _bl_real=$(cd -P "$1" 2>/dev/null && pwd -P)
+    case $_bl_real/ in
+      "$_bt_root"/*)
+        _bl_rel=${_bl_real#"$_bt_root"/}
+        case /$_bl_rel/ in */node_modules/*) ;; *) _bl_to=$2/$_bl_rel ;; esac ;;
+    esac
+  fi
+  ln -s "$_bl_to" "$2/$1"
+}
+
+# FORGE_PY_LEAKS: run by a virtual environment's python as <script> <root> <venv>: the
+# first project modules (packages with __init__.py, modules) on its path or in its
+# editable-install finders that resolve under <root> (outside <venv>), not elsewhere.
+FORGE_PY_LEAKS='import importlib.util, os, sys
+root, venv = os.path.realpath(sys.argv[1]), os.path.realpath(sys.argv[2])
+def real(p):
+    p = os.path.realpath(p)
+    return (p == root or p.startswith(root + os.sep)) and not (p == venv or p.startswith(venv + os.sep))
+names = set()
+for p in sys.path:
+    if p and os.path.isdir(p) and real(p):
+        for e in os.listdir(p):
+            if e.endswith(".py") and e[:-3].isidentifier(): names.add(e[:-3])
+            elif e.isidentifier() and os.path.isfile(os.path.join(p, e, "__init__.py")): names.add(e)
+for m in list(sys.modules.values()):
+    mapping = getattr(m, "MAPPING", None)
+    if (getattr(m, "__name__", "") or "").startswith("__editable__") and isinstance(mapping, dict):
+        names.update(k for k, v in mapping.items() if isinstance(v, str) and real(v))
+leak = []
+for n in sorted(x for x in names if not x.startswith("__")):
+    try:
+        s = importlib.util.find_spec(n)
+    except Exception:
+        continue
+    if s is None: continue
+    where = s.origin if s.origin not in (None, "namespace", "built-in", "frozen") else next(iter(s.submodule_search_locations or []), None)
+    if where and real(where): leak.append(n)
+print(" ".join(leak[:5]))
+'
+
+# forge_base_python <base dir>: for each virtual environment of
+# $FORGE_TMP/base-tree.venvs, the repository paths its .pth files and editable-install
+# finders (__editable___*_finder.py MAPPING) add become their copies in <base dir>,
+# first on PYTHONPATH ($FORGE_TMP/base-tree.pythonpath). Then the environment's
+# python, run in <base dir> with that PYTHONPATH, checks that every module it could
+# import from the working tree resolves to the copy; fails (base-tree.why) otherwise.
+forge_base_python() {
+  while IFS= read -r _bp_v; do
+    for _bp_s in "$_bp_v"/lib/python*/site-packages "$_bp_v"/lib64/python*/site-packages; do
+      [ -d "$_bp_s" ] || continue
+      for _bp_p in "$_bp_s"/*.pth; do
+        [ -f "$_bp_p" ] && grep -v -e '^import[[:space:]]' -e '^#' "$_bp_p"
+      done
+      for _bp_p in "$_bp_s"/__editable__*finder.py; do
+        [ -f "$_bp_p" ] && grep -E '^MAPPING' "$_bp_p" | grep -oE "'/[^']+'|\"/[^\"]+\"" | tr -d "'\"" | while IFS= read -r _bp_m; do dirname "$_bp_m"; done
+      done
+    done
+  done < "$FORGE_TMP/base-tree.venvs" | while IFS= read -r _bp_p; do
+    _bp_p=${_bp_p%/}
+    for _bp_r in "$_bt_root" "$FORGE_ROOT"; do
+      case $_bp_p/ in "$_bp_r"/*) _bp_rel=${_bp_p#"$_bp_r"}; printf '%s%s\n' "$1" "$_bp_rel"; break ;; esac
+    done
+  done | awk '!seen[$0]++' > "$FORGE_TMP/base-tree.pythonpath"
+  _bp_pp=$(awk 'NR > 1 { printf ":" } { printf "%s", $0 }' "$FORGE_TMP/base-tree.pythonpath")
+  while IFS= read -r _bp_v; do
+    [ -x "$_bp_v/bin/python" ] || continue
+    _bp_vr=$(cd -P "$_bp_v" && pwd -P)
+    if ! _bp_leak=$(cd "$1" && PYTHONPATH=$_bp_pp${PYTHONPATH:+:$PYTHONPATH} "$_bt_root/$_bp_v/bin/python" -c "$FORGE_PY_LEAKS" "$_bt_root" "$_bp_vr" 2>/dev/null); then
+      printf 'could not check which code %s/bin/python imports' "$_bp_v" > "$FORGE_TMP/base-tree.why"
+      return 1
+    fi
+    if [ -n "$_bp_leak" ]; then
+      printf '%s/bin/python imports %s from the working tree, not from the copy' "$_bp_v" "$_bp_leak" > "$FORGE_TMP/base-tree.why"
+      return 1
+    fi
+  done < "$FORGE_TMP/base-tree.venvs"
   return 0
 }
 
 # forge_rerun_in_base: the rerun form of check $_fb_n on $FORGE_FILES, in the base tree.
-forge_rerun_in_base() { cd "$FORGE_TMP/base-tree" && "forge_check_rerun_$_fb_n"; }
+forge_rerun_in_base() {
+  cd "$FORGE_TMP/base-tree" || return 1
+  if [ -s "$FORGE_TMP/base-tree.pythonpath" ]; then
+    PYTHONPATH=$(awk 'NR > 1 { printf ":" } { printf "%s", $0 }' "$FORGE_TMP/base-tree.pythonpath")${PYTHONPATH:+:$PYTHONPATH}
+    export PYTHONPATH
+  fi
+  "forge_check_rerun_$_fb_n"
+}
 
 # forge_test_compare <n>: test check <n> failed under --turn ($FORGE_TMP/out). Its
 # failing test files are run again in the tree as it was at the start of the turn
@@ -17390,17 +18193,34 @@ forge_rerun_in_base() { cd "$FORGE_TMP/base-tree" && "forge_check_rerun_$_fb_n";
 forge_test_compare() {
   cp "$FORGE_TMP/out" "$FORGE_TMP/test.now"
   forge_failed_tests < "$FORGE_TMP/test.now" > "$FORGE_TMP/failing.now"
-  rm -rf "$FORGE_TMP/base-tree"
-  if [ ! -s "$FORGE_TMP/failing.now" ] || ! forge_base_tree "$FORGE_TMP/base-tree"; then
+  if [ ! -s "$FORGE_TMP/failing.now" ]; then
     printf 'forge:%s failed\n' "$c_id"
     forge_excerpt 25 < "$FORGE_TMP/test.now"
     return 1
   fi
-  FORGE_FILES=$(forge_test_files < "$FORGE_TMP/failing.now")
-  _fb_n=$1
-  forge_exec_check forge_rerun_in_base "$c_timeout"
-  forge_failed_tests < "$FORGE_TMP/out" > "$FORGE_TMP/failing.base"
   rm -rf "$FORGE_TMP/base-tree"
+  _ft_why=''
+  if ! forge_base_tree "$FORGE_TMP/base-tree"; then
+    _ft_why=$(cat "$FORGE_TMP/base-tree.why" 2>/dev/null)
+    [ -n "$_ft_why" ] || _ft_why='the copy of the tree could not be made'
+  else
+    FORGE_FILES=$(forge_test_files < "$FORGE_TMP/failing.now")
+    _fb_n=$1
+    forge_exec_check forge_rerun_in_base "$c_timeout"
+    _ft_rc=$?
+    forge_failed_tests < "$FORGE_TMP/out" > "$FORGE_TMP/failing.base"
+    if [ "$_ft_rc" -eq 124 ]; then _ft_why="the re-run there was stopped after ${c_timeout}s"
+    elif [ "$_ft_rc" -ne 0 ] && [ ! -s "$FORGE_TMP/failing.base" ]; then _ft_why='the re-run there failed without naming a failing test'
+    fi
+  fi
+  rm -rf "$FORGE_TMP/base-tree"
+  # not comparable: every failing test counts as new (never excused on a guess)
+  if [ -n "$_ft_why" ]; then
+    printf 'forge:%s failed: %s failing test(s); comparison with the start of the turn was not possible (%s), so they count as new:\n' "$c_id" "$(awk 'END { print NR }' "$FORGE_TMP/failing.now")" "$_ft_why"
+    first_lines 8 < "$FORGE_TMP/failing.now" | sed 's/^/  /'
+    forge_excerpt 20 < "$FORGE_TMP/test.now"
+    return 1
+  fi
   if [ -s "$FORGE_TMP/failing.base" ]; then
     grep -vxF -f "$FORGE_TMP/failing.base" "$FORGE_TMP/failing.now" > "$FORGE_TMP/failing.new"
     grep -xF -f "$FORGE_TMP/failing.base" "$FORGE_TMP/failing.now" > "$FORGE_TMP/failing.old"
@@ -18036,13 +18856,13 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "d0a502f51f51609d7e5e9cd6f39a8ce165c656ee1c1b7a607105a536962058eb",
     ".claude/skills/forge-project/scripts/guard.sh": "e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca",
     ".claude/skills/forge-project/scripts/lib.sh": "7754f516e6aac8caa42b9c2b016ec52975c4842c977e31ec16d1ada9d77f87c7",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "94fbc8798d14c6bf6722f3f530d2f0299bf0784daa316644808b51124c44b33e",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "bfa154b7e67e67d520b2ce7ef983082ad26da7605e25b15c33c1608a758cc8a3",
     ".claude/skills/forge-project/scripts/review.sh": "889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726",
-    ".claude/skills/forge-project/scripts/session-start.sh": "c5ffe413adf79d65f25a73df4ed6fd4503cc70e7c469840d64eadef89db19718",
+    ".claude/skills/forge-project/scripts/session-start.sh": "8a8e59bfe7a0bad4653ecbb42f643ca1f007036ec2d114b4bbbd214aef29cd04",
     ".claude/skills/forge-project/scripts/stop.sh": "10316d9cd59fea152c6f8fbf0ab70abf547514bf67a2c85f3e6b405554a71fad",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "1efa6de7ba7fb220da5c7fe3381f4b97d2d86bc344342c3c83a1e60542128101",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "83335b3ca3eb35b26bdc7a2c23b7cbf318a331fb9635bdb83ea4c2497a77ecf0",
     ".claude/skills/forge-project/scripts/turn-start.sh": "fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "1769058f74da72e114e69964091446ea7f085dc54096377ba6dedd9aadb0433d",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "1bcea0776f3fd161acf834d570d028f0e16067eb7271296a6a95c4aaf60d6579",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-bun-no-fewer-expects-test.yml": "bd5df50793070bba7b87b0f623ac58ed4599e0ba6f8d731fc0da4b28a0335ec8",
     ".forge/ast-grep/rule-tests/typescript-bun-no-mock-increase-test.yml": "cf28a1a131538f6ff9cb7cd9468d9338d29c52d6abe02dccf7785696f5c847b8",
@@ -18113,7 +18933,7 @@ exit "$fail"
     ".forge/ast-grep/rules/typescript/zod/error-param.yml": "88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a",
     ".forge/ast-grep/rules/typescript/zod/v4-string-formats.yml": "a7503c000f128a4718f29b0122170295972560de99263354d6ed0db1a8cb099c",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "8915cef2f7158d83cdb4919e891a6f12fe4ec204fd31f5ab3c0f591e09db961b",
+    ".forge/check.sh": "f5a59a5638a7022e090620464473af5c8fcdd8b7ffc352d11ffde6d83eb8af64",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -18181,13 +19001,13 @@ d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills
 d0a502f51f51609d7e5e9cd6f39a8ce165c656ee1c1b7a607105a536962058eb  .claude/skills/forge-project/scripts/guard.rules
 e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca  .claude/skills/forge-project/scripts/guard.sh
 7754f516e6aac8caa42b9c2b016ec52975c4842c977e31ec16d1ada9d77f87c7  .claude/skills/forge-project/scripts/lib.sh
-94fbc8798d14c6bf6722f3f530d2f0299bf0784daa316644808b51124c44b33e  .claude/skills/forge-project/scripts/post-edit.sh
+bfa154b7e67e67d520b2ce7ef983082ad26da7605e25b15c33c1608a758cc8a3  .claude/skills/forge-project/scripts/post-edit.sh
 889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726  .claude/skills/forge-project/scripts/review.sh
-c5ffe413adf79d65f25a73df4ed6fd4503cc70e7c469840d64eadef89db19718  .claude/skills/forge-project/scripts/session-start.sh
+8a8e59bfe7a0bad4653ecbb42f643ca1f007036ec2d114b4bbbd214aef29cd04  .claude/skills/forge-project/scripts/session-start.sh
 10316d9cd59fea152c6f8fbf0ab70abf547514bf67a2c85f3e6b405554a71fad  .claude/skills/forge-project/scripts/stop.sh
-1efa6de7ba7fb220da5c7fe3381f4b97d2d86bc344342c3c83a1e60542128101  .claude/skills/forge-project/scripts/test-edit.sh
+83335b3ca3eb35b26bdc7a2c23b7cbf318a331fb9635bdb83ea4c2497a77ecf0  .claude/skills/forge-project/scripts/test-edit.sh
 fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3  .claude/skills/forge-project/scripts/turn-start.sh
-1769058f74da72e114e69964091446ea7f085dc54096377ba6dedd9aadb0433d  .claude/skills/forge-project/scripts/typecheck.sh
+1bcea0776f3fd161acf834d570d028f0e16067eb7271296a6a95c4aaf60d6579  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 bd5df50793070bba7b87b0f623ac58ed4599e0ba6f8d731fc0da4b28a0335ec8  .forge/ast-grep/rule-tests/typescript-bun-no-fewer-expects-test.yml
 cf28a1a131538f6ff9cb7cd9468d9338d29c52d6abe02dccf7785696f5c847b8  .forge/ast-grep/rule-tests/typescript-bun-no-mock-increase-test.yml
@@ -18258,7 +19078,7 @@ d3c41a3915d84b21e86e9212a06ad14c52bf2f9bcefb7c5ca433200cc3ec44fb  .forge/ast-gre
 88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a  .forge/ast-grep/rules/typescript/zod/error-param.yml
 a7503c000f128a4718f29b0122170295972560de99263354d6ed0db1a8cb099c  .forge/ast-grep/rules/typescript/zod/v4-string-formats.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-8915cef2f7158d83cdb4919e891a6f12fe4ec204fd31f5ab3c0f591e09db961b  .forge/check.sh
+f5a59a5638a7022e090620464473af5c8fcdd8b7ffc352d11ffde6d83eb8af64  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

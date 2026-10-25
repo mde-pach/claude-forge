@@ -769,6 +769,37 @@ describe("failing tests at the start of the turn in a workspace package", () => 
   );
 
   test(
+    "a workspace package that another package depends on (a link in its node_modules) is taken from the copy, so a regression it causes is new; caches the re-run writes stay in the copy",
+    () => {
+      const r = sampleRepo("pnpm-workspace-app");
+      put(r, "packages/app/package.json", '{"name": "@mono/app", "private": true, "type": "module", "devDependencies": {"@mono/core": "workspace:*", "vitest": "4.0.8"}}\n');
+      put(r, "packages/app/src/app.test.ts", 'import { expect, it } from "vitest";\nimport { greet } from "@mono/core";\n\nit("uses core", () => {\n  expect(greet("a")).toBe("Hello, a");\n});\n');
+      commitAll(r, "app");
+      expect(forge(["apply", "--yes"], r).status).toBe(0);
+      commitAll(r, "forge");
+      const stub = (dir: string, body: string) => {
+        mkdirSync(join(r, dir, "node_modules/.bin"), { recursive: true });
+        writeFileSync(join(r, dir, "node_modules/.bin/vitest"), `#!/bin/sh\n${body}\n`);
+        chmodSync(join(r, dir, "node_modules/.bin/vitest"), 0o755);
+      };
+      stub("packages/core", "exit 0");
+      // the app's test sees core through the link pnpm makes; Vite writes its cache in node_modules/.vite
+      stub("packages/app", 'mkdir -p node_modules/.vite && echo run >> node_modules/.vite/results\ngrep -q turn-change node_modules/@mono/core/src/index.ts || exit 0\necho " FAIL  src/app.test.ts > uses core"; exit 1');
+      mkdirSync(join(r, "packages/app/node_modules/@mono"), { recursive: true });
+      symlinkSync("../../../core", join(r, "packages/app/node_modules/@mono/core"));
+      const snap = ".forge/state/t.turn";
+      put(r, `${snap}/head`, git(r, "rev-parse", "HEAD").stdout);
+      put(r, `${snap}/tree`, "\n");
+      put(r, `${snap}/dirty`, "");
+      put(r, "packages/core/src/index.ts", "export const greet = (name: string): string => `Hi, ${name}`; // turn-change\n");
+      const out = sh("sh", [".forge/check.sh", "--turn", snap], { cwd: r }).stdout;
+      expect(out).toContain("forge:typescript/vitest/run failed: 1 failing test(s) passed at the start of the turn:\n  packages/app/src/app.test.ts > uses core\n");
+      expect(readFileSync(join(r, "packages/app/node_modules/.vite/results"), "utf8")).toBe("run\n");
+    },
+    T,
+  );
+
+  test(
     "a test of a package that passed at the start of the turn is a new failure, named by its repository path",
     () => {
       const { turn } = wsRepo(`grep -q turn-change src/index.ts || exit 0; ${fail}`);

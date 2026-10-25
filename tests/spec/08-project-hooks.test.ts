@@ -1289,6 +1289,67 @@ describe("failing tests at the start of the turn", () => {
     T,
   );
 
+  /**
+   * The copy shares the dependencies of the working tree, but not the project's
+   * own code: an editable install (uv, pip -e, Poetry) puts the working tree's
+   * src/ on Python's path through a .pth file, and the copy's code must come first.
+   */
+  function editableRepo(install: (site: string, root: string) => void, pkg = "mypkg"): string {
+    const r = applied("fastapi-app");
+    put(r, ".gitignore", `${readFileSync(join(r, ".gitignore"), "utf8")}local.db\n`);
+    put(r, `src/${pkg}/__init__.py`, "");
+    put(r, `src/${pkg}/f.py`, "def f() -> int:\n    return 1\n");
+    put(r, "tests/test_f.py", "from mypkg.f import f\n\n\ndef test_f() -> None:\n    assert f() == 1\n");
+    git(r, "add", "-A");
+    git(r, "commit", "-qm", "pkg", "--no-verify");
+    put(r, "local.db", "seed\n");
+    expect(sh("python3", ["-m", "venv", "--without-pip", join(r, ".venv")]).status).toBe(0);
+    const lib = join(r, ".venv", "lib");
+    install(join(lib, readdirSync(lib).find((d) => d.startsWith("python"))!, "site-packages"), realpathSync(r));
+    // a stand-in pytest: imports the package with the venv's python, and writes to an ignored file
+    writeFileSync(
+      join(r, ".venv", "bin", "pytest"),
+      `#!/bin/sh\nprintf 'x\\n' >> local.db\nexec "$(dirname "$0")/python" -c 'import sys\nfrom mypkg.f import f\nif f() != 1:\n    print("FAILED tests/test_f.py::test_f - assert", f(), "== 1")\n    sys.exit(1)'\n`,
+    );
+    chmodSync(join(r, ".venv", "bin", "pytest"), 0o755);
+    return r;
+  }
+  const stopIn = (r: string, session: string, change: () => void) => {
+    hook("turn-start.sh", { session_id: session }, {}, r);
+    change();
+    return JSON.parse(hook("stop.sh", { session_id: session }, {}, r).stdout).reason as string;
+  };
+
+  test(
+    "with an editable install of the project in its virtual environment, the copy imports its own code, not the working tree's: a regression is not excused as already failing; the user's ignored files are copied, not written",
+    () => {
+      const r = editableRepo((site, root) => writeFileSync(join(site, "_editable_impl_mypkg.pth"), `${root}/src\n`));
+      const reason = stopIn(r, "e-1", () => put(r, "src/mypkg/f.py", "def f() -> int:\n    return 2\n"));
+      expect(reason).toContain("forge:python/pytest/run failed: 1 failing test(s) passed at the start of the turn:\n  tests/test_f.py::test_f\n");
+      // pytest ran twice (now, and in the copy); only the run in the working tree wrote there
+      expect(readFileSync(join(r, "local.db"), "utf8")).toBe("seed\nx\n");
+    },
+    T,
+  );
+
+  test(
+    "when the copy cannot be isolated (an editable-install finder maps the package to the working tree), the failing tests count as new and the block says the comparison was not possible",
+    () => {
+      const r = editableRepo((site, root) => {
+        writeFileSync(
+          join(site, "__editable___mypkg_finder.py"),
+          `import importlib.util, sys\nMAPPING = {"mypkg": "${root}/src/impl"}\nclass _F:\n    @classmethod\n    def find_spec(cls, name, path=None, target=None):\n        if name in MAPPING:\n            return importlib.util.spec_from_file_location(name, MAPPING[name] + "/__init__.py", submodule_search_locations=[MAPPING[name]])\n        return None\ndef install():\n    sys.meta_path.append(_F)\n`,
+        );
+        writeFileSync(join(site, "__editable__.mypkg-0.1.0.pth"), "import __editable___mypkg_finder; __editable___mypkg_finder.install()\n");
+      }, "impl");
+      const reason = stopIn(r, "e-2", () => put(r, "src/impl/f.py", "def f() -> int:\n    return 2\n"));
+      expect(reason).toContain(
+        "forge:python/pytest/run failed: 1 failing test(s); comparison with the start of the turn was not possible (.venv/bin/python imports mypkg from the working tree, not from the copy), so they count as new:\n  tests/test_f.py::test_f\n",
+      );
+    },
+    T,
+  );
+
   test(
     "a test that passed at the start of the turn and fails now blocks as usual, named first; the ones failing before too are counted, not blamed",
     () => {
