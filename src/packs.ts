@@ -137,24 +137,49 @@ export interface ProjectFacts extends DepFacts {
  * A Python library: pyproject.toml names the project and declares a build backend
  * (uv init --lib; an application from uv init has no [build-system]), ships no
  * console or GUI scripts (uv init --package: a packaged application), is not marked
- * "Private :: Do Not Upload", and the repository has no manage.py (a Django site).
+ * "Private :: Do Not Upload", its directory holds no manage.py (a Django site), and
+ * there is evidence it is published: trove classifiers (PyPI's metadata, which an
+ * internal service has no use for) or a CI workflow that uploads to PyPI. A build
+ * backend alone is not enough: uv workspace members and packaged services have one.
  */
-export function isPyLibrary(toml: Record<string, any>, hasManagePy: boolean): boolean {
+export function isPyLibrary(toml: Record<string, any>, hasManagePy: boolean, publishedByCi = false): boolean {
   const project = toml.project;
-  if (!project || typeof project.name !== "string" || !toml["build-system"]) return false;
+  if (!project || typeof project !== "object" || typeof project.name !== "string" || !toml["build-system"]) return false;
   if (project.scripts || project["gui-scripts"] || hasManagePy) return false;
-  return !(project.classifiers ?? []).some((c: unknown) => typeof c === "string" && c.startsWith("Private ::"));
+  const classifiers = Array.isArray(project.classifiers) ? project.classifiers.filter((c: unknown): c is string => typeof c === "string") : [];
+  if (classifiers.some((c: string) => c.startsWith("Private ::"))) return false;
+  return publishedByCi || classifiers.length > 0;
 }
 
 /**
- * An npm library: package.json is not "private": true, has a name, and declares what
- * it exports: "exports", or "main" / "module" together with "types", "typings" or
- * "files" ("main" alone is npm init's default, also in applications).
+ * An npm library: package.json is not "private": true, has a name, declares what
+ * it exports ("exports", or "main" / "module" together with "types", "typings" or
+ * "files"; "main" alone is npm init's default, also in applications), and there is
+ * evidence it is published: "publishConfig", or a release set-up that publishes
+ * (Changesets, a CI workflow running npm/pnpm/yarn/bun publish or semantic-release).
+ * Internal workspace packages export too, but are not published.
  */
-export function isNpmLibrary(pkg: Record<string, unknown>): boolean {
+export function isNpmLibrary(pkg: Record<string, unknown>, publishedByCi = false): boolean {
   if (pkg.private === true || typeof pkg.name !== "string") return false;
-  if (pkg.exports !== undefined) return true;
-  return (pkg.main !== undefined || pkg.module !== undefined) && (pkg.types !== undefined || pkg.typings !== undefined || pkg.files !== undefined);
+  const exportsApi = pkg.exports !== undefined || ((pkg.main !== undefined || pkg.module !== undefined) && (pkg.types !== undefined || pkg.typings !== undefined || pkg.files !== undefined));
+  return exportsApi && (publishedByCi || (pkg.publishConfig !== undefined && pkg.publishConfig !== null));
+}
+
+/** Release set-ups that publish to PyPI or npm, found in CI workflows (GitHub Actions, GitLab CI) and Changesets. */
+export function publishSignals(repo: string, files: string[]): { pypi: boolean; npm: boolean } {
+  const ci = files.filter((f) => /^\.github\/workflows\/[^/]+\.ya?ml$/.test(f) || f === ".gitlab-ci.yml");
+  let text = "";
+  for (const f of ci) {
+    try {
+      text += readFileSync(join(repo, f), "utf8") + "\n";
+    } catch {
+      // unreadable: no evidence
+    }
+  }
+  return {
+    pypi: /pypa\/gh-action-pypi-publish|\b(uv|poetry|hatch|flit|pdm)\s+publish\b|\btwine\s+upload\b/.test(text),
+    npm: files.includes(".changeset/config.json") || /\b(npm|pnpm|bun)\s+publish\b|\byarn\s+(npm\s+)?publish\b|changesets\/action|semantic-release|JS-DevTools\/npm-publish/.test(text),
+  };
 }
 
 function normPy(name: string): string {
@@ -178,7 +203,7 @@ function readTomlFile(file: string): Record<string, any> | undefined {
 }
 
 /** Dependencies declared by the package.json and pyproject.toml in dir (the root's must parse; a package's may not). */
-function readDeps(dir: string, strict: boolean, hasManagePy = false): Omit<DepFacts, "files"> {
+function readDeps(dir: string, strict: boolean, hasManagePy = false, published = { pypi: false, npm: false }): Omit<DepFacts, "files"> {
   const npm = new Map<string, string>();
   const pypi = new Map<string, string>();
   const library = new Set<"pypi" | "npm">();
@@ -187,7 +212,7 @@ function readDeps(dir: string, strict: boolean, hasManagePy = false): Omit<DepFa
   const pkg = read(join(dir, "package.json"), readJson, (t) => JSON.parse(t) as Record<string, any>);
   for (const key of ["dependencies", "devDependencies", "optionalDependencies", "peerDependencies"])
     for (const [name, range] of Object.entries<unknown>(pkg?.[key] ?? {})) if (typeof range === "string") npm.set(name, versionFromRange(range));
-  if (pkg && isNpmLibrary(pkg)) library.add("npm");
+  if (pkg && isNpmLibrary(pkg, published.npm)) library.add("npm");
   const toml = read(join(dir, "pyproject.toml"), readTomlFile, (t) => parseToml(t) as Record<string, any>);
   if (toml) {
     const reqs: string[] = [
@@ -202,7 +227,7 @@ function readDeps(dir: string, strict: boolean, hasManagePy = false): Omit<DepFa
       const m = /^\s*([A-Za-z0-9][A-Za-z0-9._-]*)\s*(?:\[[^\]]*\])?\s*(.*)$/.exec(req);
       if (m) pypi.set(normPy(m[1]!), versionFromPep440(m[2]!));
     }
-    if (isPyLibrary(toml, hasManagePy)) library.add("pypi");
+    if (isPyLibrary(toml, hasManagePy, published.pypi)) library.add("pypi");
   }
   return { npm, pypi, library };
 }
@@ -248,8 +273,13 @@ export function workspaceDirs(repo: string, files: string[]): string[] {
 
 export function readProjectFacts(repo: string, listFiles: () => string[]): ProjectFacts {
   const files = listFiles();
-  const hasManagePy = files.some((f) => f === "manage.py" || f.endsWith("/manage.py"));
-  const { npm, pypi, library } = readDeps(repo, true, hasManagePy);
+  const wsDirs = workspaceDirs(repo, files);
+  // a manage.py makes its own package a Django site (the root: one outside the workspace packages)
+  const managePy = files.filter((f) => f === "manage.py" || f.endsWith("/manage.py"));
+  const under = (dir: string, f: string) => f.startsWith(dir + "/");
+  const hasManagePy = (dir: string) => managePy.some((f) => (dir ? under(dir, f) : !wsDirs.some((d) => under(d, f))));
+  const published = publishSignals(repo, files);
+  const { npm, pypi, library } = readDeps(repo, true, hasManagePy(""), published);
   const bunLock = join(repo, "bun.lock");
   const lockNpm = new Map<string, string>();
   if (existsSync(bunLock)) {
@@ -281,8 +311,8 @@ export function readProjectFacts(repo: string, listFiles: () => string[]): Proje
     return (glob: string) => mine.some((f) => globMatch(glob, f));
   };
   const root: DepFacts = { npm, pypi, library, files: matcher("") };
-  const workspaces: WorkspaceFacts[] = workspaceDirs(repo, files).map((dir) => {
-    const d = readDeps(join(repo, dir), false, hasManagePy);
+  const workspaces: WorkspaceFacts[] = wsDirs.map((dir) => {
+    const d = readDeps(join(repo, dir), false, hasManagePy(dir), published);
     return { dir, ...resolve(d), library: d.library, files: matcher(dir) };
   });
   const merged = <T>(pick: (d: DepFacts) => Map<string, T>) => {
