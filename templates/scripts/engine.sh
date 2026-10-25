@@ -369,7 +369,7 @@ forge_test_blocks() {
 # (whitespace aside) and still be present, unless an Edit or Write changing it was
 # approved during the turn (<snapshot>/tests-approved, written by test-edit.sh); new
 # tests and setup-only changes are fine. Test support code (fakes, fixtures, helpers)
-# changed or removed is reported once per turn (<snapshot>/support-reported): it
+# changed or removed is reported once per turn and finding (forge_once_new): it
 # encodes the interface callers rely on.
 forge_test_edits() {
   [ "$mode" = --turn ] || return 0
@@ -405,17 +405,12 @@ forge_test_edits() {
     printf 'These tests existed before this turn and their assertions changed without approval. Restore them. If the task requires the change (it changes the behaviour they assert), make it with Edit or Write: Forge then asks for approval (the user, or a reviewer given the request).\n'
     _te_rc=1
   fi
-  # test support code: reported once per turn, then accepted
-  _te_seen=$FORGE_ARG/support-reported
-  grep '^S' "$FORGE_TMP/tests.edits" | cut -f 2,3 | while IFS= read -r _te_l; do
-    grep -qxF "$_te_l" "$_te_seen" 2>/dev/null || printf '%s\n' "$_te_l"
-  done > "$FORGE_TMP/support.new"
-  if [ -s "$FORGE_TMP/support.new" ]; then
-    grep '^S' "$FORGE_TMP/tests.edits" | while IFS='	' read -r _te_k _te_f _te_n _te_how; do
-      grep -qxF "$_te_f	$_te_n" "$FORGE_TMP/support.new" && printf '%s: test support `%s` was %s\n' "$_te_f" "$_te_n" "$_te_how"
-    done
+  # test support code: each finding reported once per turn (forge_once_new), then accepted
+  grep '^S' "$FORGE_TMP/tests.edits" | while IFS='	' read -r _te_k _te_f _te_n _te_how; do
+    printf '%s: test support `%s` was %s\n' "$_te_f" "$_te_n" "$_te_how"
+  done > "$FORGE_TMP/support.lines"
+  if [ -s "$FORGE_TMP/support.lines" ] && forge_once_new "$FORGE_TMP/support.lines"; then
     printf 'Test doubles, fixtures and helpers encode the interface the code'"'"'s callers rely on. Keep that interface in production (e.g. a property alias for a moved attribute) unless the task removes it; if it does, carry on: this is reported once.\n'
-    cat "$FORGE_TMP/support.new" >> "$_te_seen" 2>/dev/null
     # alone, it is advice (§10.7): the next Stop accepts it
     [ "$_te_rc" = 1 ] || : > "$(forge_advised_mark)"
     _te_rc=1
@@ -423,24 +418,46 @@ forge_test_edits() {
   return "$_te_rc"
 }
 
-# ---- advisory checks (§10.7): feedback that blocks Stop once per turn
+# ---- findings reported once per turn (§10.7)
 
-# forge_advise <helper> [args]: Stop only (--turn). Runs <helper>; when it prints
-# advice, prints it and fails, and marks the rule in the turn snapshot
-# (<snapshot>/advised/<rule>), so the next Stop of the same turn runs nothing and
-# passes: Claude acts on the advice or says why it does not apply. A new prompt
-# (a new snapshot) re-arms it. Pre-commit and CI never run advisory checks.
+# forge_once_new <file>: Stop (--turn) only. The lines of <file> that check $c_id has
+# not reported yet in this turn (<snapshot>/reported, "<rule-id><TAB><line>"), which
+# are recorded as reported; fails when there is none. Each line is one finding.
+forge_once_new() {
+  _on_seen=$FORGE_SNAP/reported
+  while IFS= read -r _on_l; do
+    [ -n "$_on_l" ] || continue
+    grep -qxF "$c_id	$_on_l" "$_on_seen" 2>/dev/null || printf '%s\n' "$_on_l"
+  done < "$1" > "$FORGE_TMP/once.new"
+  [ -s "$FORGE_TMP/once.new" ] || return 1
+  awk -v id="$c_id" '{ print id "\t" $0 }' "$FORGE_TMP/once.new" >> "$_on_seen"
+  cat "$FORGE_TMP/once.new"
+}
+
+# forge_once <helper> [args]: runs <helper>; what it prints is its findings, one per
+# line. At Stop (--turn) they are advice reported once per finding: output with a line
+# not reported yet in this turn is printed in full and fails as advice (it does not stop
+# the later steps, and check.sh prints it after the failing checks); output with
+# nothing new passes with "forge:<id> accepted: reported once this turn". A new prompt
+# (a new snapshot) re-arms it. In other modes (pre-commit, CI) any output fails.
+forge_once() {
+  "$@" > "$FORGE_TMP/once.out" 2>/dev/null
+  [ -s "$FORGE_TMP/once.out" ] || return 0
+  if [ "$mode" != --turn ] || [ -z "$FORGE_SNAP" ]; then cat "$FORGE_TMP/once.out"; return 1; fi
+  if forge_once_new "$FORGE_TMP/once.out" > /dev/null; then
+    : > "$(forge_advised_mark)"
+    cat "$FORGE_TMP/once.out"
+    return 1
+  fi
+  printf 'forge:%s accepted: reported once this turn\n' "$c_id"
+  return 0
+}
+
+# forge_advise <helper> [args]: forge_once at Stop only; pre-commit and CI never run
+# advisory checks (Claude acts on the advice or says why it does not apply).
 forge_advise() {
   [ "$mode" = --turn ] && [ -n "$FORGE_SNAP" ] || return 0
-  _fa_mark="$FORGE_SNAP/advised/$(printf '%s' "$c_id" | tr -c 'A-Za-z0-9_-' '_')"
-  [ -f "$_fa_mark" ] && return 0
-  "$@" > "$FORGE_TMP/advice" 2>/dev/null
-  [ -s "$FORGE_TMP/advice" ] || return 0
-  mkdir -p "$FORGE_SNAP/advised" && : > "$_fa_mark"
-  # advice does not stop the later steps (forge_run_stage): the tests still run
-  : > "$(forge_advised_mark)"
-  cat "$FORGE_TMP/advice"
-  return 1
+  forge_once "$@"
 }
 
 # Test files of the packs' conventions (pytest, Vitest, Playwright), as a POSIX ERE.
@@ -663,7 +680,7 @@ forge_stub_sync() {
 # test that compares output with snapshots or golden files (toMatchSnapshot,
 # toMatchFileSnapshot, toMatchInlineSnapshot, testdata/, golden), while no .snap,
 # __snapshots__, testdata or golden file changed in the turn. A test that uses only
-# inline snapshots counts as updated when it changed. Blocks once per turn (forge_once).
+# inline snapshots counts as updated when it changed. Run as advice (forge_advise).
 forge_snapshot_stale() {
   [ "$mode" = --turn ] || return 0
   grep -qE '\.snap$|(^|/)(__snapshots__|testdata|golden|__golden__)/|\.golden(\.|$)' "$FORGE_TMP/changed" && return 0
@@ -705,7 +722,6 @@ forge_snapshot_stale() {
   [ -s "$FORGE_TMP/snap.out" ] || return 0
   cat "$FORGE_TMP/snap.out"
   printf 'Output-producing code changed but its snapshots did not: run the snapshot tests with inputs that exercise the new output and update them (snapshot updates still go through no-snapshot-update).\n'
-  forge_once
 }
 
 # forge_toml_get <file> <section> <key>: the value of <key> in [<section>] ("" for
@@ -796,23 +812,6 @@ forge_trusted_deps() {
   return "$_td_rc"
 }
 
-# forge_once: for advisory checks. At Stop (--turn) a check that calls it after a
-# finding blocks once per turn: the first call records the finding in the turn
-# snapshot and fails; a later call in the same turn prints "accepted" and passes.
-# In other modes (pre-commit, CI) it always fails.
-forge_once() {
-  [ "$mode" = --turn ] && [ -n "$FORGE_SNAP" ] || return 1
-  _fo_m="$FORGE_SNAP/once.$(printf '%s' "$c_id" | tr -c 'A-Za-z0-9_.-' '_')"
-  if [ -f "$_fo_m" ]; then
-    printf 'forge:%s accepted: reported once this turn\n' "$c_id"
-    return 0
-  fi
-  : > "$_fo_m" 2>/dev/null
-  # as advice (§10.7): the steps after it still run
-  : > "$(forge_advised_mark)"
-  return 1
-}
-
 FORGE_JS_LOCKS='pnpm-lock.yaml package-lock.json npm-shrinkwrap.json yarn.lock bun.lock bun.lockb'
 
 # forge_pkg_deps <package.json>: "section<TAB>name<TAB>spec" for each entry of
@@ -849,7 +848,8 @@ forge_pkg_deps() {
 
 # forge_lockfile_updated: a package.json whose dependencies changed since the base
 # needs a changed lock file, when the project has one (next to it or at the root).
-# Blocks once per turn (forge_once): the package manager may not be able to run here.
+# Run with forge_once: at Stop it is reported once per finding (the package manager
+# may not be able to run here); pre-commit and CI always fail on it.
 forge_lockfile_updated() {
   grep -qE '(^|/)(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?)$' "$FORGE_TMP/changed" && return 0
   _lu_rc=0
@@ -878,7 +878,6 @@ forge_lockfile_updated() {
   done < "$FORGE_TMP/existing"
   [ "$_lu_rc" = 0 ] && return 0
   printf 'Run the package manager (bun install, pnpm install, npm install, yarn) to update the lock file; it is not edited by hand. If it cannot run here, tell the user.\n'
-  forge_once
 }
 
 # GitHub Actions workflows: pinned zizmor (through uvx), offline audits only, inline

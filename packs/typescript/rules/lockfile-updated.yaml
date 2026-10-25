@@ -1,8 +1,8 @@
 id: typescript/lockfile-updated
-description: "A package.json whose dependencies, devDependencies or optionalDependencies changed comes with a changed lock file (pnpm-lock.yaml, package-lock.json, yarn.lock or bun.lock, when the project has one): run the package manager to update it. At Stop it blocks once per turn, then accepts."
+description: "A package.json whose dependencies, devDependencies or optionalDependencies changed comes with a changed lock file (pnpm-lock.yaml, package-lock.json, yarn.lock or bun.lock, when the project has one): run the package manager to update it. At Stop each finding blocks once per turn, then is accepted."
 scope: {language: any}
 enforce:
-  - {target: check, stage: lint, run: "forge_lockfile_updated", when_changed: ["**/package.json"]}
+  - {target: check, stage: lint, run: "forge_once forge_lockfile_updated", when_changed: ["**/package.json"]}
 examples:
   match:
     - head: {package.json: "{\"name\": \"shop\", \"private\": true}\n", pnpm-lock.yaml: "lockfileVersion: '9.0'\n", packages/zod/package.json: "{\n  \"name\": \"zod\",\n  \"devDependencies\": {}\n}\n"}

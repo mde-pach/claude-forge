@@ -57,11 +57,19 @@ function checkEvents(rule: Rule, t: CheckTarget): LifecycleEvent[] {
       { step: "commit", effect: "inactive", text: "Not checked: a human edits tests on purpose." },
       { step: "ci", effect: "inactive", text: "Not checked: a human edits tests on purpose." },
     ];
-  if (/\bforge_advise\b/.test(t.run))
+  // advice (§10.7): each finding blocks Stop once per turn, after the failing checks
+  const once = `when the turn changed a ${scopeNoun(rule)} and the check finds something, it blocks Stop once per finding, after any failing check; a Stop that finds nothing new passes, so Claude acts on it or says why it does not apply.`;
+  if (/^\s*forge_advise\b/.test(t.run))
     return [
-      { step: "stop", effect: "blocks", text: `Advisory: when the turn changed a ${scopeNoun(rule)} and the check finds something, it blocks Stop once; the next Stop of the same turn passes, so Claude acts on it or says why it does not apply.` },
+      { step: "stop", effect: "blocks", text: `Advisory: ${once}` },
       { step: "commit", effect: "inactive", text: "Not checked: the advice is for Claude's turn." },
       { step: "ci", effect: "inactive", text: "Not checked: the advice is for Claude's turn." },
+    ];
+  if (/^\s*forge_once\b/.test(t.run))
+    return [
+      { step: "stop", effect: "blocks", text: `Reported once: ${once}` },
+      { step: "commit", effect: "blocks", text: "Fails the commit on any finding." },
+      { step: "ci", effect: "blocks", text: "Fails CI on any finding." },
     ];
   const files = t.changed_run?.includes("{files}");
   const changedCmd = t.changed_run ? cmd(t.changed_run, "--changed") : cmd(t.run, "--all");

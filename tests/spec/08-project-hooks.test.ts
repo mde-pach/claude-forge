@@ -970,8 +970,12 @@ describe("Stop", () => {
         expect(readFileSync(runs, "utf8")).toBe("run\nrun\n");
         expect(JSON.parse(hook("stop.sh", { session_id: "t-13" }).stdout).systemMessage).toContain("Handing over");
         put(repo, "app/main.py", 'async def health() -> dict[str, str]:\n    return {"status": "fine"}  # turn-change\n');
-        // checked again: the same failure; the advice given with it the first time is not repeated (§10.7)
-        expect(JSON.parse(hook("stop.sh", { session_id: "t-13" }).stdout).reason).toBe(first.replace(/forge:python\/pytest\/untested-change failed\n[^\n]*\n/, ""));
+        // checked again: the same failure; the advice given with it the first time is accepted, not repeated (§10.7)
+        expect(JSON.parse(hook("stop.sh", { session_id: "t-13" }).stdout).reason).toBe(
+          first
+            .replace(/forge:python\/pytest\/untested-change failed\n[^\n]*\n/, "")
+            .replace("forge:python/typecheck skipped", "forge:python/pytest/untested-change accepted: reported once this turn\nforge:python/typecheck skipped"),
+        );
         expect(readFileSync(runs, "utf8")).toBe("run\nrun\nrun\nrun\n");
       } finally {
         rmSync(join(repo, ".venv/bin/pytest"));
@@ -1185,6 +1189,28 @@ describe("Stop", () => {
       hook("turn-start.sh", { session_id: "t-12" });
       put(repo, "app/ok.py", "X = 2\n");
       expect(JSON.parse(hook("stop.sh", { session_id: "t-12" }).stdout).reason).toContain("forge:python/pytest/untested-change failed");
+      reset();
+    },
+    T,
+  );
+
+  /**
+   * Advice is reported once per finding, not once per rule: what Claude already
+   * answered is not repeated, but a later finding of the same rule in the turn is
+   * given too.
+   * @rule python/pytest/untested-change
+   */
+  test(
+    "advice is reported once per finding: a Stop with nothing new passes, a new finding of the same rule later in the turn blocks again",
+    () => {
+      hook("turn-start.sh", { session_id: "t-once" });
+      put(repo, "app/ok.py", "X = 1\n");
+      expect(JSON.parse(hook("stop.sh", { session_id: "t-once" }).stdout).reason).toContain("You changed behaviour in app/ok.py without");
+      put(repo, "app/ok.py", "X = 3\n");
+      const same = hook("stop.sh", { session_id: "t-once" }).stdout;
+      expect(same).toBe("");
+      put(repo, "app/other.py", "Y = 1\n");
+      expect(JSON.parse(hook("stop.sh", { session_id: "t-once" }).stdout).reason).toContain("You changed behaviour in app/ok.py, app/other.py without");
       reset();
     },
     T,
