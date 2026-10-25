@@ -644,8 +644,26 @@ forge_stub_sync() {
   done
 }
 
+# Output values, for forge_snapshot_stale: string and template literals in expressions
+# (not import / export sources, type annotations, interfaces or type aliases), and the
+# keys of object literals (pair, shorthand property).
+FORGE_SNAP_VALUES='id: forge-snap-str
+language: Tsx
+rule:
+  any: [{kind: string}, {kind: template_string}]
+  not:
+    inside:
+      stopBy: end
+      any: [{kind: import_statement}, {kind: export_statement, has: {field: source, kind: string}}, {kind: type_annotation}, {kind: literal_type}, {kind: interface_declaration}, {kind: type_alias_declaration}, {kind: type_arguments}]
+---
+id: forge-snap-key
+language: Tsx
+rule:
+  any: [{kind: pair}, {kind: shorthand_property_identifier}]
+  inside: {kind: object, stopBy: neighbor}'
+
 # forge_snapshot_stale: Stop only (--turn). A changed source file ($FORGE_FILES) whose
-# added lines hold a string or an object key, imported directly (relative import) by a
+# added lines hold a string literal in an expression or an object literal key, imported directly (relative import) by a
 # test that compares output with snapshots or golden files (toMatchSnapshot,
 # toMatchFileSnapshot, toMatchInlineSnapshot, testdata/, golden), while no .snap,
 # __snapshots__, testdata or golden file changed in the turn. A test that uses only
@@ -654,12 +672,34 @@ forge_snapshot_stale() {
   [ "$mode" = --turn ] || return 0
   grep -qE '\.snap$|(^|/)(__snapshots__|testdata|golden|__golden__)/|\.golden(\.|$)' "$FORGE_TMP/changed" && return 0
   : > "$FORGE_TMP/snap.src"
+  : > "$FORGE_TMP/snap.cand"
   for _ss_f in $FORGE_FILES; do
-    awk -F '\t' -v f="$_ss_f" '$1 == f { print $2 }' "$FORGE_TMP/added" > "$FORGE_TMP/snap.lines"
-    [ -s "$FORGE_TMP/snap.lines" ] || continue
-    awk 'NR == FNR { if ($0 == "*") all = 1; want[$0] = 1; next } all || (FNR in want)' "$FORGE_TMP/snap.lines" "$_ss_f" \
-      | grep -qE "[\"'\`]|[A-Za-z_\$][A-Za-z0-9_\$]*[?]?[[:space:]]*:" && printf '%s\n' "$_ss_f" >> "$FORGE_TMP/snap.src"
+    [ -f "$_ss_f" ] && awk -F '\t' -v f="$_ss_f" '$1 == f { found = 1; exit } END { exit !found }' "$FORGE_TMP/added" \
+      && printf '%s\n' "$_ss_f" >> "$FORGE_TMP/snap.cand"
   done
+  [ -s "$FORGE_TMP/snap.cand" ] || return 0
+  # output values on added lines: string literals in expressions and object literal keys
+  # (not imports, type annotations, interfaces or type aliases)
+  set -f
+  # shellcheck disable=SC2046
+  astgrep scan -c "$FORGE_ROOT/.forge/ast-grep/sgconfig.yml" --inline-rules "$FORGE_SNAP_VALUES" --filter '^forge-snap' --json=stream $(cat "$FORGE_TMP/snap.cand") > "$FORGE_TMP/snap.json"
+  _ss_rc=$?
+  set +f
+  [ "$_ss_rc" -le 1 ] || { printf 'forge:%s skipped: ast-grep unavailable\n' "$c_id"; return 0; }
+  awk '
+    function str(s, key,   i, out, c) {
+      i = index(s, "\"" key "\":\""); if (!i) return ""
+      s = substr(s, i + length(key) + 4); out = ""
+      while (length(s)) { c = substr(s, 1, 1); if (c == "\"") break; if (c == "\\") { out = out substr(s, 1, 2); s = substr(s, 3); continue } out = out c; s = substr(s, 2) }
+      return out
+    }
+    function num(s, key,   i) { i = index(s, "\"" key "\":{\"line\":"); return i ? substr(s, i + length(key) + 11) + 1 : 0 }
+    FILENAME == ARGV[1] { split($0, p, "\t"); if (p[2] == "*") all[p[1]] = 1; else want[p[1] "\t" p[2]] = 1; next }
+    {
+      f = str($0, "file"); a = num($0, "start"); b = num($0, "end")
+      if (str($0, "ruleId") == "forge-snap-key") b = a
+      for (l = a; l <= b; l++) if ((f in all) || ((f "\t" l) in want)) { if (!seen[f]++) print f; break }
+    }' "$FORGE_TMP/added" "$FORGE_TMP/snap.json" > "$FORGE_TMP/snap.src"
   [ -s "$FORGE_TMP/snap.src" ] || return 0
   git grep --untracked -lE 'toMatch(File|Inline)?Snapshot\(|testdata|golden' -- '*.test.*' '*.spec.*' '*/__tests__/*' > "$FORGE_TMP/snap.tests" 2>/dev/null
   : > "$FORGE_TMP/snap.imports"
