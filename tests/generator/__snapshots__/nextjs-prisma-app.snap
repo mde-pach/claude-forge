@@ -1220,19 +1220,9 @@ forge_check_run_16() {
 set -f
 _dm_files=$FORGE_FILES
 [ -n "$_dm_files" ] || _dm_files=$(git ls-files 'prisma/migrations/*/migration.sql' | sort | tail -n 1)
-[ -n "$_dm_files" ] || return 0
-awk '
-  /^[[:space:]]*--/ { next }
-  { u = toupper($0) }
-  u ~ /RENAME[[:space:]]+TO[[:space:]]/ { t = u; sub(/.*RENAME[[:space:]]+TO[[:space:]]+/, "", t); gsub(/[";`[:space:]]/, "", t); ren[FILENAME SUBSEP t] = 1 }
-  u ~ /(^|[^A-Z_])DROP[[:space:]]+(COLUMN|TABLE)([^A-Z_]|$)/ {
-    t = ""
-    if (u ~ /DROP[[:space:]]+TABLE/) { t = u; sub(/.*DROP[[:space:]]+TABLE[[:space:]]+(IF[[:space:]]+EXISTS[[:space:]]+)?/, "", t); gsub(/[";`[:space:]]/, "", t) }
-    s = $0; sub(/^[[:space:]]+/, "", s)
-    n++; df[n] = FILENAME; dl[n] = FNR; dt[n] = t; dx[n] = s
-  }
-  END { for (i = 1; i <= n; i++) if (dt[i] == "" || !((df[i] SUBSEP dt[i]) in ren)) print df[i] ":" dl[i] ": " dx[i] }
-' $_dm_files > "$FORGE_TMP/drops"
+[ -n "$_dm_files" ] || { set +f; return 0; }
+# shellcheck disable=SC2086
+forge_prisma_drops $_dm_files > "$FORGE_TMP/drops"
 set +f
 while IFS= read -r _dm_l; do
   [ -f forge.yaml ] && grep -qF -- "$_dm_l" forge.yaml && continue
@@ -2999,6 +2989,97 @@ forge_env_example() {
       }' "$FORGE_TMP/env.keys" "$FORGE_TMP/env.fields" || _ee_rc=1
   done < "$FORGE_TMP/env.files"
   return "$_ee_rc"
+}
+
+# forge_prisma_drops <file>...: "<file>:<line>: <statement>" for each DROP COLUMN or DROP
+# TABLE in the given Prisma migrations. Every migration.sql (sorted) is read to follow
+# the tables' columns (CREATE TABLE, ADD / DROP / RENAME COLUMN), so a SQLite table
+# redefinition (CREATE TABLE "new_X" ..., DROP TABLE "X", ALTER TABLE "new_X" RENAME
+# TO "X") is a drop only of the columns "new_X" lacks: "... (redefinition drops column
+# "C")". A redefined table that no earlier migration creates is not reported.
+forge_prisma_drops() {
+  printf '%s\n' "$@" > "$FORGE_TMP/prisma.targets"
+  { git ls-files -co --exclude-standard -- 'prisma/migrations/*/migration.sql' 2>/dev/null; printf '%s\n' "$@"; } \
+    | sort -u > "$FORGE_TMP/prisma.history"
+  set -f
+  # shellcheck disable=SC2046
+  awk '
+    function unq(t) { gsub(/[";`[:space:]]/, "", t); return t }
+    function name_after(u, re,   t) { t = u; sub(re, "", t); sub(/[[:space:](].*$/, "", t); return unq(t) }
+    # the column names of a CREATE TABLE body: the first identifier of each top-level item
+    function columns(stmt,   p, body, d, i, c, item, out, n, name) {
+      p = index(stmt, "("); if (!p) return ""
+      body = substr(stmt, p + 1); d = 0; item = ""; out = ""
+      for (i = 1; i <= length(body); i++) {
+        c = substr(body, i, 1)
+        if (c == "(") d++
+        if (c == ")") { if (d == 0) break; d-- }
+        if (c == "," && d == 0) { out = out item_col(item); item = ""; continue }
+        item = item c
+      }
+      return out item_col(item)
+    }
+    function item_col(item,   t) {
+      t = item; sub(/^[[:space:]]+/, "", t)
+      if (toupper(t) ~ /^(CONSTRAINT|PRIMARY|FOREIGN|UNIQUE|CHECK|KEY|INDEX)([^A-Z_]|$)/) return ""
+      if (!match(t, /^("[^"]+"|`[^`]+`|[A-Za-z_][A-Za-z0-9_]*)/)) return ""
+      return SUBSEP unq(substr(t, RSTART, RLENGTH))
+    }
+    function has_col(list, c) { return index(list SUBSEP, SUBSEP c SUBSEP) > 0 }
+    function del_col(list, c,   x) { x = list SUBSEP; sub(SUBSEP c SUBSEP, SUBSEP, x); return substr(x, 1, length(x) - 1) }
+    function statement(f, line, stmt,   u, t, c, n, a, i, old, gone) {
+      u = toupper(stmt)
+      if (u ~ /^[[:space:]]*CREATE[[:space:]]+TABLE/) { t = name_after(u, "^[[:space:]]*CREATE[[:space:]]+TABLE[[:space:]]+(IF[[:space:]]+NOT[[:space:]]+EXISTS[[:space:]]+)?"); cols[t] = toupper(columns(stmt)); return }
+      if (u ~ /^[[:space:]]*ALTER[[:space:]]+TABLE/) {
+        t = name_after(u, "^[[:space:]]*ALTER[[:space:]]+TABLE[[:space:]]+(ONLY[[:space:]]+)?(IF[[:space:]]+EXISTS[[:space:]]+)?")
+        if (u ~ /RENAME[[:space:]]+TO[[:space:]]/) {
+          n = name_after(u, ".*RENAME[[:space:]]+TO[[:space:]]+")
+          if ((f SUBSEP n) in dropped) {
+            old = dropped[f SUBSEP n]; gone = ""
+            c = split(substr(old, 2), a, SUBSEP)
+            for (i = 1; i <= c; i++) if (!has_col(cols[t], a[i])) gone = gone (gone == "" ? "" : ", ") "\"" a[i] "\""
+            if (f in target && gone != "") print f ":" dline[f SUBSEP n] ": " dtext[f SUBSEP n] " (redefinition drops column " gone ")"
+            delete dropped[f SUBSEP n]; delete pend[f SUBSEP n]
+          }
+          cols[n] = cols[t]; return
+        }
+        if (u ~ /RENAME[[:space:]]+COLUMN/) { a[1] = name_after(u, ".*RENAME[[:space:]]+COLUMN[[:space:]]+"); a[2] = name_after(u, ".*[[:space:]]TO[[:space:]]+"); cols[t] = del_col(cols[t], a[1]) SUBSEP a[2]; return }
+        while (match(u, /ADD[[:space:]]+(COLUMN[[:space:]]+)?("[^"]+"|[A-Z_][A-Z0-9_]*)/)) { c = substr(u, RSTART, RLENGTH); sub(/^ADD[[:space:]]+(COLUMN[[:space:]]+)?/, "", c); c = unq(c); if (c !~ /^(CONSTRAINT|PRIMARY|FOREIGN|UNIQUE|CHECK)$/) cols[t] = cols[t] SUBSEP c; u = substr(u, RSTART + RLENGTH) }
+        u = toupper(stmt)
+        while (match(u, /DROP[[:space:]]+COLUMN[[:space:]]+(IF[[:space:]]+EXISTS[[:space:]]+)?("[^"]+"|[A-Z_][A-Z0-9_]*)/)) { c = substr(u, RSTART, RLENGTH); sub(/^DROP[[:space:]]+COLUMN[[:space:]]+(IF[[:space:]]+EXISTS[[:space:]]+)?/, "", c); cols[t] = del_col(cols[t], unq(c)); u = substr(u, RSTART + RLENGTH) }
+        if (f in target && toupper(stmt) ~ /DROP[[:space:]]+COLUMN/) print f ":" line ": " text
+        return
+      }
+      if (u ~ /^[[:space:]]*DROP[[:space:]]+TABLE/) {
+        t = name_after(u, "^[[:space:]]*DROP[[:space:]]+TABLE[[:space:]]+(IF[[:space:]]+EXISTS[[:space:]]+)?")
+        # a redefinition renames "new_<t>" to <t> later in the same file
+        # (its old columns unknown, without the earlier migrations: not reported)
+        if (("NEW_" t) in cols) { if (t in cols) { dropped[f SUBSEP t] = cols[t]; dline[f SUBSEP t] = line; dtext[f SUBSEP t] = text; pend[f SUBSEP t] = 1 } }
+        else if (f in target) print f ":" line ": " text
+        delete cols[t]
+      }
+    }
+    FNR == 1 {
+      for (k in pend) { split(k, kk, SUBSEP); if ((k in dropped) && (kk[1] in target)) print kk[1] ":" dline[k] ": " dtext[k]; delete pend[k]; delete dropped[k] }
+      f = FILENAME; stmt = ""; incomment = 0
+    }
+    FILENAME == ARGV[1] { target[$0] = 1; next }
+    FILENAME == ARGV[2] { next }
+    {
+      l = $0
+      if (incomment) { if (index(l, "*/")) { incomment = 0; l = substr(l, index(l, "*/") + 2) } else next }
+      if (l ~ /^[[:space:]]*\/\*/ && !index(l, "*/")) { incomment = 1; next }
+      if (l ~ /^[[:space:]]*--/) next
+      if (stmt == "" && l ~ /^[[:space:]]*$/) next
+      if (stmt == "") { sline = FNR; text = l; sub(/^[[:space:]]+/, "", text) }
+      stmt = stmt " " l
+      if (index(l, ";")) { statement(f, sline, stmt); stmt = "" }
+    }
+    END { for (k in pend) { split(k, kk, SUBSEP); if ((k in dropped) && (kk[1] in target)) print kk[1] ":" dline[k] ": " dtext[k] } }
+  ' "$FORGE_TMP/prisma.targets" /dev/null $(cat "$FORGE_TMP/prisma.history")
+  _pd_rc=$?
+  set +f
+  return "$_pd_rc"
 }
 
 # Drizzle: drizzle.config.* names the schema files (`schema`: a path, a glob, a
@@ -4194,19 +4275,9 @@ forge_check_run_16() {
 set -f
 _dm_files=$FORGE_FILES
 [ -n "$_dm_files" ] || _dm_files=$(git ls-files 'prisma/migrations/*/migration.sql' | sort | tail -n 1)
-[ -n "$_dm_files" ] || return 0
-awk '
-  /^[[:space:]]*--/ { next }
-  { u = toupper($0) }
-  u ~ /RENAME[[:space:]]+TO[[:space:]]/ { t = u; sub(/.*RENAME[[:space:]]+TO[[:space:]]+/, "", t); gsub(/[";`[:space:]]/, "", t); ren[FILENAME SUBSEP t] = 1 }
-  u ~ /(^|[^A-Z_])DROP[[:space:]]+(COLUMN|TABLE)([^A-Z_]|$)/ {
-    t = ""
-    if (u ~ /DROP[[:space:]]+TABLE/) { t = u; sub(/.*DROP[[:space:]]+TABLE[[:space:]]+(IF[[:space:]]+EXISTS[[:space:]]+)?/, "", t); gsub(/[";`[:space:]]/, "", t) }
-    s = $0; sub(/^[[:space:]]+/, "", s)
-    n++; df[n] = FILENAME; dl[n] = FNR; dt[n] = t; dx[n] = s
-  }
-  END { for (i = 1; i <= n; i++) if (dt[i] == "" || !((df[i] SUBSEP dt[i]) in ren)) print df[i] ":" dl[i] ": " dx[i] }
-' $_dm_files > "$FORGE_TMP/drops"
+[ -n "$_dm_files" ] || { set +f; return 0; }
+# shellcheck disable=SC2086
+forge_prisma_drops $_dm_files > "$FORGE_TMP/drops"
 set +f
 while IFS= read -r _dm_l; do
   [ -f forge.yaml ] && grep -qF -- "$_dm_l" forge.yaml && continue
@@ -5973,6 +6044,97 @@ forge_env_example() {
       }' "$FORGE_TMP/env.keys" "$FORGE_TMP/env.fields" || _ee_rc=1
   done < "$FORGE_TMP/env.files"
   return "$_ee_rc"
+}
+
+# forge_prisma_drops <file>...: "<file>:<line>: <statement>" for each DROP COLUMN or DROP
+# TABLE in the given Prisma migrations. Every migration.sql (sorted) is read to follow
+# the tables' columns (CREATE TABLE, ADD / DROP / RENAME COLUMN), so a SQLite table
+# redefinition (CREATE TABLE "new_X" ..., DROP TABLE "X", ALTER TABLE "new_X" RENAME
+# TO "X") is a drop only of the columns "new_X" lacks: "... (redefinition drops column
+# "C")". A redefined table that no earlier migration creates is not reported.
+forge_prisma_drops() {
+  printf '%s\n' "$@" > "$FORGE_TMP/prisma.targets"
+  { git ls-files -co --exclude-standard -- 'prisma/migrations/*/migration.sql' 2>/dev/null; printf '%s\n' "$@"; } \
+    | sort -u > "$FORGE_TMP/prisma.history"
+  set -f
+  # shellcheck disable=SC2046
+  awk '
+    function unq(t) { gsub(/[";`[:space:]]/, "", t); return t }
+    function name_after(u, re,   t) { t = u; sub(re, "", t); sub(/[[:space:](].*$/, "", t); return unq(t) }
+    # the column names of a CREATE TABLE body: the first identifier of each top-level item
+    function columns(stmt,   p, body, d, i, c, item, out, n, name) {
+      p = index(stmt, "("); if (!p) return ""
+      body = substr(stmt, p + 1); d = 0; item = ""; out = ""
+      for (i = 1; i <= length(body); i++) {
+        c = substr(body, i, 1)
+        if (c == "(") d++
+        if (c == ")") { if (d == 0) break; d-- }
+        if (c == "," && d == 0) { out = out item_col(item); item = ""; continue }
+        item = item c
+      }
+      return out item_col(item)
+    }
+    function item_col(item,   t) {
+      t = item; sub(/^[[:space:]]+/, "", t)
+      if (toupper(t) ~ /^(CONSTRAINT|PRIMARY|FOREIGN|UNIQUE|CHECK|KEY|INDEX)([^A-Z_]|$)/) return ""
+      if (!match(t, /^("[^"]+"|`[^`]+`|[A-Za-z_][A-Za-z0-9_]*)/)) return ""
+      return SUBSEP unq(substr(t, RSTART, RLENGTH))
+    }
+    function has_col(list, c) { return index(list SUBSEP, SUBSEP c SUBSEP) > 0 }
+    function del_col(list, c,   x) { x = list SUBSEP; sub(SUBSEP c SUBSEP, SUBSEP, x); return substr(x, 1, length(x) - 1) }
+    function statement(f, line, stmt,   u, t, c, n, a, i, old, gone) {
+      u = toupper(stmt)
+      if (u ~ /^[[:space:]]*CREATE[[:space:]]+TABLE/) { t = name_after(u, "^[[:space:]]*CREATE[[:space:]]+TABLE[[:space:]]+(IF[[:space:]]+NOT[[:space:]]+EXISTS[[:space:]]+)?"); cols[t] = toupper(columns(stmt)); return }
+      if (u ~ /^[[:space:]]*ALTER[[:space:]]+TABLE/) {
+        t = name_after(u, "^[[:space:]]*ALTER[[:space:]]+TABLE[[:space:]]+(ONLY[[:space:]]+)?(IF[[:space:]]+EXISTS[[:space:]]+)?")
+        if (u ~ /RENAME[[:space:]]+TO[[:space:]]/) {
+          n = name_after(u, ".*RENAME[[:space:]]+TO[[:space:]]+")
+          if ((f SUBSEP n) in dropped) {
+            old = dropped[f SUBSEP n]; gone = ""
+            c = split(substr(old, 2), a, SUBSEP)
+            for (i = 1; i <= c; i++) if (!has_col(cols[t], a[i])) gone = gone (gone == "" ? "" : ", ") "\"" a[i] "\""
+            if (f in target && gone != "") print f ":" dline[f SUBSEP n] ": " dtext[f SUBSEP n] " (redefinition drops column " gone ")"
+            delete dropped[f SUBSEP n]; delete pend[f SUBSEP n]
+          }
+          cols[n] = cols[t]; return
+        }
+        if (u ~ /RENAME[[:space:]]+COLUMN/) { a[1] = name_after(u, ".*RENAME[[:space:]]+COLUMN[[:space:]]+"); a[2] = name_after(u, ".*[[:space:]]TO[[:space:]]+"); cols[t] = del_col(cols[t], a[1]) SUBSEP a[2]; return }
+        while (match(u, /ADD[[:space:]]+(COLUMN[[:space:]]+)?("[^"]+"|[A-Z_][A-Z0-9_]*)/)) { c = substr(u, RSTART, RLENGTH); sub(/^ADD[[:space:]]+(COLUMN[[:space:]]+)?/, "", c); c = unq(c); if (c !~ /^(CONSTRAINT|PRIMARY|FOREIGN|UNIQUE|CHECK)$/) cols[t] = cols[t] SUBSEP c; u = substr(u, RSTART + RLENGTH) }
+        u = toupper(stmt)
+        while (match(u, /DROP[[:space:]]+COLUMN[[:space:]]+(IF[[:space:]]+EXISTS[[:space:]]+)?("[^"]+"|[A-Z_][A-Z0-9_]*)/)) { c = substr(u, RSTART, RLENGTH); sub(/^DROP[[:space:]]+COLUMN[[:space:]]+(IF[[:space:]]+EXISTS[[:space:]]+)?/, "", c); cols[t] = del_col(cols[t], unq(c)); u = substr(u, RSTART + RLENGTH) }
+        if (f in target && toupper(stmt) ~ /DROP[[:space:]]+COLUMN/) print f ":" line ": " text
+        return
+      }
+      if (u ~ /^[[:space:]]*DROP[[:space:]]+TABLE/) {
+        t = name_after(u, "^[[:space:]]*DROP[[:space:]]+TABLE[[:space:]]+(IF[[:space:]]+EXISTS[[:space:]]+)?")
+        # a redefinition renames "new_<t>" to <t> later in the same file
+        # (its old columns unknown, without the earlier migrations: not reported)
+        if (("NEW_" t) in cols) { if (t in cols) { dropped[f SUBSEP t] = cols[t]; dline[f SUBSEP t] = line; dtext[f SUBSEP t] = text; pend[f SUBSEP t] = 1 } }
+        else if (f in target) print f ":" line ": " text
+        delete cols[t]
+      }
+    }
+    FNR == 1 {
+      for (k in pend) { split(k, kk, SUBSEP); if ((k in dropped) && (kk[1] in target)) print kk[1] ":" dline[k] ": " dtext[k]; delete pend[k]; delete dropped[k] }
+      f = FILENAME; stmt = ""; incomment = 0
+    }
+    FILENAME == ARGV[1] { target[$0] = 1; next }
+    FILENAME == ARGV[2] { next }
+    {
+      l = $0
+      if (incomment) { if (index(l, "*/")) { incomment = 0; l = substr(l, index(l, "*/") + 2) } else next }
+      if (l ~ /^[[:space:]]*\/\*/ && !index(l, "*/")) { incomment = 1; next }
+      if (l ~ /^[[:space:]]*--/) next
+      if (stmt == "" && l ~ /^[[:space:]]*$/) next
+      if (stmt == "") { sline = FNR; text = l; sub(/^[[:space:]]+/, "", text) }
+      stmt = stmt " " l
+      if (index(l, ";")) { statement(f, sline, stmt); stmt = "" }
+    }
+    END { for (k in pend) { split(k, kk, SUBSEP); if ((k in dropped) && (kk[1] in target)) print kk[1] ":" dline[k] ": " dtext[k] } }
+  ' "$FORGE_TMP/prisma.targets" /dev/null $(cat "$FORGE_TMP/prisma.history")
+  _pd_rc=$?
+  set +f
+  return "$_pd_rc"
 }
 
 # Drizzle: drizzle.config.* names the schema files (`schema`: a path, a glob, a
@@ -7184,19 +7346,9 @@ forge_check_run_16() {
 set -f
 _dm_files=$FORGE_FILES
 [ -n "$_dm_files" ] || _dm_files=$(git ls-files 'prisma/migrations/*/migration.sql' | sort | tail -n 1)
-[ -n "$_dm_files" ] || return 0
-awk '
-  /^[[:space:]]*--/ { next }
-  { u = toupper($0) }
-  u ~ /RENAME[[:space:]]+TO[[:space:]]/ { t = u; sub(/.*RENAME[[:space:]]+TO[[:space:]]+/, "", t); gsub(/[";`[:space:]]/, "", t); ren[FILENAME SUBSEP t] = 1 }
-  u ~ /(^|[^A-Z_])DROP[[:space:]]+(COLUMN|TABLE)([^A-Z_]|$)/ {
-    t = ""
-    if (u ~ /DROP[[:space:]]+TABLE/) { t = u; sub(/.*DROP[[:space:]]+TABLE[[:space:]]+(IF[[:space:]]+EXISTS[[:space:]]+)?/, "", t); gsub(/[";`[:space:]]/, "", t) }
-    s = $0; sub(/^[[:space:]]+/, "", s)
-    n++; df[n] = FILENAME; dl[n] = FNR; dt[n] = t; dx[n] = s
-  }
-  END { for (i = 1; i <= n; i++) if (dt[i] == "" || !((df[i] SUBSEP dt[i]) in ren)) print df[i] ":" dl[i] ": " dx[i] }
-' $_dm_files > "$FORGE_TMP/drops"
+[ -n "$_dm_files" ] || { set +f; return 0; }
+# shellcheck disable=SC2086
+forge_prisma_drops $_dm_files > "$FORGE_TMP/drops"
 set +f
 while IFS= read -r _dm_l; do
   [ -f forge.yaml ] && grep -qF -- "$_dm_l" forge.yaml && continue
@@ -8963,6 +9115,97 @@ forge_env_example() {
       }' "$FORGE_TMP/env.keys" "$FORGE_TMP/env.fields" || _ee_rc=1
   done < "$FORGE_TMP/env.files"
   return "$_ee_rc"
+}
+
+# forge_prisma_drops <file>...: "<file>:<line>: <statement>" for each DROP COLUMN or DROP
+# TABLE in the given Prisma migrations. Every migration.sql (sorted) is read to follow
+# the tables' columns (CREATE TABLE, ADD / DROP / RENAME COLUMN), so a SQLite table
+# redefinition (CREATE TABLE "new_X" ..., DROP TABLE "X", ALTER TABLE "new_X" RENAME
+# TO "X") is a drop only of the columns "new_X" lacks: "... (redefinition drops column
+# "C")". A redefined table that no earlier migration creates is not reported.
+forge_prisma_drops() {
+  printf '%s\n' "$@" > "$FORGE_TMP/prisma.targets"
+  { git ls-files -co --exclude-standard -- 'prisma/migrations/*/migration.sql' 2>/dev/null; printf '%s\n' "$@"; } \
+    | sort -u > "$FORGE_TMP/prisma.history"
+  set -f
+  # shellcheck disable=SC2046
+  awk '
+    function unq(t) { gsub(/[";`[:space:]]/, "", t); return t }
+    function name_after(u, re,   t) { t = u; sub(re, "", t); sub(/[[:space:](].*$/, "", t); return unq(t) }
+    # the column names of a CREATE TABLE body: the first identifier of each top-level item
+    function columns(stmt,   p, body, d, i, c, item, out, n, name) {
+      p = index(stmt, "("); if (!p) return ""
+      body = substr(stmt, p + 1); d = 0; item = ""; out = ""
+      for (i = 1; i <= length(body); i++) {
+        c = substr(body, i, 1)
+        if (c == "(") d++
+        if (c == ")") { if (d == 0) break; d-- }
+        if (c == "," && d == 0) { out = out item_col(item); item = ""; continue }
+        item = item c
+      }
+      return out item_col(item)
+    }
+    function item_col(item,   t) {
+      t = item; sub(/^[[:space:]]+/, "", t)
+      if (toupper(t) ~ /^(CONSTRAINT|PRIMARY|FOREIGN|UNIQUE|CHECK|KEY|INDEX)([^A-Z_]|$)/) return ""
+      if (!match(t, /^("[^"]+"|`[^`]+`|[A-Za-z_][A-Za-z0-9_]*)/)) return ""
+      return SUBSEP unq(substr(t, RSTART, RLENGTH))
+    }
+    function has_col(list, c) { return index(list SUBSEP, SUBSEP c SUBSEP) > 0 }
+    function del_col(list, c,   x) { x = list SUBSEP; sub(SUBSEP c SUBSEP, SUBSEP, x); return substr(x, 1, length(x) - 1) }
+    function statement(f, line, stmt,   u, t, c, n, a, i, old, gone) {
+      u = toupper(stmt)
+      if (u ~ /^[[:space:]]*CREATE[[:space:]]+TABLE/) { t = name_after(u, "^[[:space:]]*CREATE[[:space:]]+TABLE[[:space:]]+(IF[[:space:]]+NOT[[:space:]]+EXISTS[[:space:]]+)?"); cols[t] = toupper(columns(stmt)); return }
+      if (u ~ /^[[:space:]]*ALTER[[:space:]]+TABLE/) {
+        t = name_after(u, "^[[:space:]]*ALTER[[:space:]]+TABLE[[:space:]]+(ONLY[[:space:]]+)?(IF[[:space:]]+EXISTS[[:space:]]+)?")
+        if (u ~ /RENAME[[:space:]]+TO[[:space:]]/) {
+          n = name_after(u, ".*RENAME[[:space:]]+TO[[:space:]]+")
+          if ((f SUBSEP n) in dropped) {
+            old = dropped[f SUBSEP n]; gone = ""
+            c = split(substr(old, 2), a, SUBSEP)
+            for (i = 1; i <= c; i++) if (!has_col(cols[t], a[i])) gone = gone (gone == "" ? "" : ", ") "\"" a[i] "\""
+            if (f in target && gone != "") print f ":" dline[f SUBSEP n] ": " dtext[f SUBSEP n] " (redefinition drops column " gone ")"
+            delete dropped[f SUBSEP n]; delete pend[f SUBSEP n]
+          }
+          cols[n] = cols[t]; return
+        }
+        if (u ~ /RENAME[[:space:]]+COLUMN/) { a[1] = name_after(u, ".*RENAME[[:space:]]+COLUMN[[:space:]]+"); a[2] = name_after(u, ".*[[:space:]]TO[[:space:]]+"); cols[t] = del_col(cols[t], a[1]) SUBSEP a[2]; return }
+        while (match(u, /ADD[[:space:]]+(COLUMN[[:space:]]+)?("[^"]+"|[A-Z_][A-Z0-9_]*)/)) { c = substr(u, RSTART, RLENGTH); sub(/^ADD[[:space:]]+(COLUMN[[:space:]]+)?/, "", c); c = unq(c); if (c !~ /^(CONSTRAINT|PRIMARY|FOREIGN|UNIQUE|CHECK)$/) cols[t] = cols[t] SUBSEP c; u = substr(u, RSTART + RLENGTH) }
+        u = toupper(stmt)
+        while (match(u, /DROP[[:space:]]+COLUMN[[:space:]]+(IF[[:space:]]+EXISTS[[:space:]]+)?("[^"]+"|[A-Z_][A-Z0-9_]*)/)) { c = substr(u, RSTART, RLENGTH); sub(/^DROP[[:space:]]+COLUMN[[:space:]]+(IF[[:space:]]+EXISTS[[:space:]]+)?/, "", c); cols[t] = del_col(cols[t], unq(c)); u = substr(u, RSTART + RLENGTH) }
+        if (f in target && toupper(stmt) ~ /DROP[[:space:]]+COLUMN/) print f ":" line ": " text
+        return
+      }
+      if (u ~ /^[[:space:]]*DROP[[:space:]]+TABLE/) {
+        t = name_after(u, "^[[:space:]]*DROP[[:space:]]+TABLE[[:space:]]+(IF[[:space:]]+EXISTS[[:space:]]+)?")
+        # a redefinition renames "new_<t>" to <t> later in the same file
+        # (its old columns unknown, without the earlier migrations: not reported)
+        if (("NEW_" t) in cols) { if (t in cols) { dropped[f SUBSEP t] = cols[t]; dline[f SUBSEP t] = line; dtext[f SUBSEP t] = text; pend[f SUBSEP t] = 1 } }
+        else if (f in target) print f ":" line ": " text
+        delete cols[t]
+      }
+    }
+    FNR == 1 {
+      for (k in pend) { split(k, kk, SUBSEP); if ((k in dropped) && (kk[1] in target)) print kk[1] ":" dline[k] ": " dtext[k]; delete pend[k]; delete dropped[k] }
+      f = FILENAME; stmt = ""; incomment = 0
+    }
+    FILENAME == ARGV[1] { target[$0] = 1; next }
+    FILENAME == ARGV[2] { next }
+    {
+      l = $0
+      if (incomment) { if (index(l, "*/")) { incomment = 0; l = substr(l, index(l, "*/") + 2) } else next }
+      if (l ~ /^[[:space:]]*\/\*/ && !index(l, "*/")) { incomment = 1; next }
+      if (l ~ /^[[:space:]]*--/) next
+      if (stmt == "" && l ~ /^[[:space:]]*$/) next
+      if (stmt == "") { sline = FNR; text = l; sub(/^[[:space:]]+/, "", text) }
+      stmt = stmt " " l
+      if (index(l, ";")) { statement(f, sline, stmt); stmt = "" }
+    }
+    END { for (k in pend) { split(k, kk, SUBSEP); if ((k in dropped) && (kk[1] in target)) print kk[1] ":" dline[k] ": " dtext[k] } }
+  ' "$FORGE_TMP/prisma.targets" /dev/null $(cat "$FORGE_TMP/prisma.history")
+  _pd_rc=$?
+  set +f
+  return "$_pd_rc"
 }
 
 # Drizzle: drizzle.config.* names the schema files (`schema`: a path, a glob, a
@@ -10199,19 +10442,9 @@ forge_check_run_16() {
 set -f
 _dm_files=$FORGE_FILES
 [ -n "$_dm_files" ] || _dm_files=$(git ls-files 'prisma/migrations/*/migration.sql' | sort | tail -n 1)
-[ -n "$_dm_files" ] || return 0
-awk '
-  /^[[:space:]]*--/ { next }
-  { u = toupper($0) }
-  u ~ /RENAME[[:space:]]+TO[[:space:]]/ { t = u; sub(/.*RENAME[[:space:]]+TO[[:space:]]+/, "", t); gsub(/[";`[:space:]]/, "", t); ren[FILENAME SUBSEP t] = 1 }
-  u ~ /(^|[^A-Z_])DROP[[:space:]]+(COLUMN|TABLE)([^A-Z_]|$)/ {
-    t = ""
-    if (u ~ /DROP[[:space:]]+TABLE/) { t = u; sub(/.*DROP[[:space:]]+TABLE[[:space:]]+(IF[[:space:]]+EXISTS[[:space:]]+)?/, "", t); gsub(/[";`[:space:]]/, "", t) }
-    s = $0; sub(/^[[:space:]]+/, "", s)
-    n++; df[n] = FILENAME; dl[n] = FNR; dt[n] = t; dx[n] = s
-  }
-  END { for (i = 1; i <= n; i++) if (dt[i] == "" || !((df[i] SUBSEP dt[i]) in ren)) print df[i] ":" dl[i] ": " dx[i] }
-' $_dm_files > "$FORGE_TMP/drops"
+[ -n "$_dm_files" ] || { set +f; return 0; }
+# shellcheck disable=SC2086
+forge_prisma_drops $_dm_files > "$FORGE_TMP/drops"
 set +f
 while IFS= read -r _dm_l; do
   [ -f forge.yaml ] && grep -qF -- "$_dm_l" forge.yaml && continue
@@ -11978,6 +12211,97 @@ forge_env_example() {
       }' "$FORGE_TMP/env.keys" "$FORGE_TMP/env.fields" || _ee_rc=1
   done < "$FORGE_TMP/env.files"
   return "$_ee_rc"
+}
+
+# forge_prisma_drops <file>...: "<file>:<line>: <statement>" for each DROP COLUMN or DROP
+# TABLE in the given Prisma migrations. Every migration.sql (sorted) is read to follow
+# the tables' columns (CREATE TABLE, ADD / DROP / RENAME COLUMN), so a SQLite table
+# redefinition (CREATE TABLE "new_X" ..., DROP TABLE "X", ALTER TABLE "new_X" RENAME
+# TO "X") is a drop only of the columns "new_X" lacks: "... (redefinition drops column
+# "C")". A redefined table that no earlier migration creates is not reported.
+forge_prisma_drops() {
+  printf '%s\n' "$@" > "$FORGE_TMP/prisma.targets"
+  { git ls-files -co --exclude-standard -- 'prisma/migrations/*/migration.sql' 2>/dev/null; printf '%s\n' "$@"; } \
+    | sort -u > "$FORGE_TMP/prisma.history"
+  set -f
+  # shellcheck disable=SC2046
+  awk '
+    function unq(t) { gsub(/[";`[:space:]]/, "", t); return t }
+    function name_after(u, re,   t) { t = u; sub(re, "", t); sub(/[[:space:](].*$/, "", t); return unq(t) }
+    # the column names of a CREATE TABLE body: the first identifier of each top-level item
+    function columns(stmt,   p, body, d, i, c, item, out, n, name) {
+      p = index(stmt, "("); if (!p) return ""
+      body = substr(stmt, p + 1); d = 0; item = ""; out = ""
+      for (i = 1; i <= length(body); i++) {
+        c = substr(body, i, 1)
+        if (c == "(") d++
+        if (c == ")") { if (d == 0) break; d-- }
+        if (c == "," && d == 0) { out = out item_col(item); item = ""; continue }
+        item = item c
+      }
+      return out item_col(item)
+    }
+    function item_col(item,   t) {
+      t = item; sub(/^[[:space:]]+/, "", t)
+      if (toupper(t) ~ /^(CONSTRAINT|PRIMARY|FOREIGN|UNIQUE|CHECK|KEY|INDEX)([^A-Z_]|$)/) return ""
+      if (!match(t, /^("[^"]+"|`[^`]+`|[A-Za-z_][A-Za-z0-9_]*)/)) return ""
+      return SUBSEP unq(substr(t, RSTART, RLENGTH))
+    }
+    function has_col(list, c) { return index(list SUBSEP, SUBSEP c SUBSEP) > 0 }
+    function del_col(list, c,   x) { x = list SUBSEP; sub(SUBSEP c SUBSEP, SUBSEP, x); return substr(x, 1, length(x) - 1) }
+    function statement(f, line, stmt,   u, t, c, n, a, i, old, gone) {
+      u = toupper(stmt)
+      if (u ~ /^[[:space:]]*CREATE[[:space:]]+TABLE/) { t = name_after(u, "^[[:space:]]*CREATE[[:space:]]+TABLE[[:space:]]+(IF[[:space:]]+NOT[[:space:]]+EXISTS[[:space:]]+)?"); cols[t] = toupper(columns(stmt)); return }
+      if (u ~ /^[[:space:]]*ALTER[[:space:]]+TABLE/) {
+        t = name_after(u, "^[[:space:]]*ALTER[[:space:]]+TABLE[[:space:]]+(ONLY[[:space:]]+)?(IF[[:space:]]+EXISTS[[:space:]]+)?")
+        if (u ~ /RENAME[[:space:]]+TO[[:space:]]/) {
+          n = name_after(u, ".*RENAME[[:space:]]+TO[[:space:]]+")
+          if ((f SUBSEP n) in dropped) {
+            old = dropped[f SUBSEP n]; gone = ""
+            c = split(substr(old, 2), a, SUBSEP)
+            for (i = 1; i <= c; i++) if (!has_col(cols[t], a[i])) gone = gone (gone == "" ? "" : ", ") "\"" a[i] "\""
+            if (f in target && gone != "") print f ":" dline[f SUBSEP n] ": " dtext[f SUBSEP n] " (redefinition drops column " gone ")"
+            delete dropped[f SUBSEP n]; delete pend[f SUBSEP n]
+          }
+          cols[n] = cols[t]; return
+        }
+        if (u ~ /RENAME[[:space:]]+COLUMN/) { a[1] = name_after(u, ".*RENAME[[:space:]]+COLUMN[[:space:]]+"); a[2] = name_after(u, ".*[[:space:]]TO[[:space:]]+"); cols[t] = del_col(cols[t], a[1]) SUBSEP a[2]; return }
+        while (match(u, /ADD[[:space:]]+(COLUMN[[:space:]]+)?("[^"]+"|[A-Z_][A-Z0-9_]*)/)) { c = substr(u, RSTART, RLENGTH); sub(/^ADD[[:space:]]+(COLUMN[[:space:]]+)?/, "", c); c = unq(c); if (c !~ /^(CONSTRAINT|PRIMARY|FOREIGN|UNIQUE|CHECK)$/) cols[t] = cols[t] SUBSEP c; u = substr(u, RSTART + RLENGTH) }
+        u = toupper(stmt)
+        while (match(u, /DROP[[:space:]]+COLUMN[[:space:]]+(IF[[:space:]]+EXISTS[[:space:]]+)?("[^"]+"|[A-Z_][A-Z0-9_]*)/)) { c = substr(u, RSTART, RLENGTH); sub(/^DROP[[:space:]]+COLUMN[[:space:]]+(IF[[:space:]]+EXISTS[[:space:]]+)?/, "", c); cols[t] = del_col(cols[t], unq(c)); u = substr(u, RSTART + RLENGTH) }
+        if (f in target && toupper(stmt) ~ /DROP[[:space:]]+COLUMN/) print f ":" line ": " text
+        return
+      }
+      if (u ~ /^[[:space:]]*DROP[[:space:]]+TABLE/) {
+        t = name_after(u, "^[[:space:]]*DROP[[:space:]]+TABLE[[:space:]]+(IF[[:space:]]+EXISTS[[:space:]]+)?")
+        # a redefinition renames "new_<t>" to <t> later in the same file
+        # (its old columns unknown, without the earlier migrations: not reported)
+        if (("NEW_" t) in cols) { if (t in cols) { dropped[f SUBSEP t] = cols[t]; dline[f SUBSEP t] = line; dtext[f SUBSEP t] = text; pend[f SUBSEP t] = 1 } }
+        else if (f in target) print f ":" line ": " text
+        delete cols[t]
+      }
+    }
+    FNR == 1 {
+      for (k in pend) { split(k, kk, SUBSEP); if ((k in dropped) && (kk[1] in target)) print kk[1] ":" dline[k] ": " dtext[k]; delete pend[k]; delete dropped[k] }
+      f = FILENAME; stmt = ""; incomment = 0
+    }
+    FILENAME == ARGV[1] { target[$0] = 1; next }
+    FILENAME == ARGV[2] { next }
+    {
+      l = $0
+      if (incomment) { if (index(l, "*/")) { incomment = 0; l = substr(l, index(l, "*/") + 2) } else next }
+      if (l ~ /^[[:space:]]*\/\*/ && !index(l, "*/")) { incomment = 1; next }
+      if (l ~ /^[[:space:]]*--/) next
+      if (stmt == "" && l ~ /^[[:space:]]*$/) next
+      if (stmt == "") { sline = FNR; text = l; sub(/^[[:space:]]+/, "", text) }
+      stmt = stmt " " l
+      if (index(l, ";")) { statement(f, sline, stmt); stmt = "" }
+    }
+    END { for (k in pend) { split(k, kk, SUBSEP); if ((k in dropped) && (kk[1] in target)) print kk[1] ":" dline[k] ": " dtext[k] } }
+  ' "$FORGE_TMP/prisma.targets" /dev/null $(cat "$FORGE_TMP/prisma.history")
+  _pd_rc=$?
+  set +f
+  return "$_pd_rc"
 }
 
 # Drizzle: drizzle.config.* names the schema files (`schema`: a path, a glob, a
@@ -14780,19 +15104,9 @@ forge_check_run_16() {
 set -f
 _dm_files=$FORGE_FILES
 [ -n "$_dm_files" ] || _dm_files=$(git ls-files 'prisma/migrations/*/migration.sql' | sort | tail -n 1)
-[ -n "$_dm_files" ] || return 0
-awk '
-  /^[[:space:]]*--/ { next }
-  { u = toupper($0) }
-  u ~ /RENAME[[:space:]]+TO[[:space:]]/ { t = u; sub(/.*RENAME[[:space:]]+TO[[:space:]]+/, "", t); gsub(/[";`[:space:]]/, "", t); ren[FILENAME SUBSEP t] = 1 }
-  u ~ /(^|[^A-Z_])DROP[[:space:]]+(COLUMN|TABLE)([^A-Z_]|$)/ {
-    t = ""
-    if (u ~ /DROP[[:space:]]+TABLE/) { t = u; sub(/.*DROP[[:space:]]+TABLE[[:space:]]+(IF[[:space:]]+EXISTS[[:space:]]+)?/, "", t); gsub(/[";`[:space:]]/, "", t) }
-    s = $0; sub(/^[[:space:]]+/, "", s)
-    n++; df[n] = FILENAME; dl[n] = FNR; dt[n] = t; dx[n] = s
-  }
-  END { for (i = 1; i <= n; i++) if (dt[i] == "" || !((df[i] SUBSEP dt[i]) in ren)) print df[i] ":" dl[i] ": " dx[i] }
-' $_dm_files > "$FORGE_TMP/drops"
+[ -n "$_dm_files" ] || { set +f; return 0; }
+# shellcheck disable=SC2086
+forge_prisma_drops $_dm_files > "$FORGE_TMP/drops"
 set +f
 while IFS= read -r _dm_l; do
   [ -f forge.yaml ] && grep -qF -- "$_dm_l" forge.yaml && continue
@@ -16561,6 +16875,97 @@ forge_env_example() {
   return "$_ee_rc"
 }
 
+# forge_prisma_drops <file>...: "<file>:<line>: <statement>" for each DROP COLUMN or DROP
+# TABLE in the given Prisma migrations. Every migration.sql (sorted) is read to follow
+# the tables' columns (CREATE TABLE, ADD / DROP / RENAME COLUMN), so a SQLite table
+# redefinition (CREATE TABLE "new_X" ..., DROP TABLE "X", ALTER TABLE "new_X" RENAME
+# TO "X") is a drop only of the columns "new_X" lacks: "... (redefinition drops column
+# "C")". A redefined table that no earlier migration creates is not reported.
+forge_prisma_drops() {
+  printf '%s\n' "$@" > "$FORGE_TMP/prisma.targets"
+  { git ls-files -co --exclude-standard -- 'prisma/migrations/*/migration.sql' 2>/dev/null; printf '%s\n' "$@"; } \
+    | sort -u > "$FORGE_TMP/prisma.history"
+  set -f
+  # shellcheck disable=SC2046
+  awk '
+    function unq(t) { gsub(/[";`[:space:]]/, "", t); return t }
+    function name_after(u, re,   t) { t = u; sub(re, "", t); sub(/[[:space:](].*$/, "", t); return unq(t) }
+    # the column names of a CREATE TABLE body: the first identifier of each top-level item
+    function columns(stmt,   p, body, d, i, c, item, out, n, name) {
+      p = index(stmt, "("); if (!p) return ""
+      body = substr(stmt, p + 1); d = 0; item = ""; out = ""
+      for (i = 1; i <= length(body); i++) {
+        c = substr(body, i, 1)
+        if (c == "(") d++
+        if (c == ")") { if (d == 0) break; d-- }
+        if (c == "," && d == 0) { out = out item_col(item); item = ""; continue }
+        item = item c
+      }
+      return out item_col(item)
+    }
+    function item_col(item,   t) {
+      t = item; sub(/^[[:space:]]+/, "", t)
+      if (toupper(t) ~ /^(CONSTRAINT|PRIMARY|FOREIGN|UNIQUE|CHECK|KEY|INDEX)([^A-Z_]|$)/) return ""
+      if (!match(t, /^("[^"]+"|`[^`]+`|[A-Za-z_][A-Za-z0-9_]*)/)) return ""
+      return SUBSEP unq(substr(t, RSTART, RLENGTH))
+    }
+    function has_col(list, c) { return index(list SUBSEP, SUBSEP c SUBSEP) > 0 }
+    function del_col(list, c,   x) { x = list SUBSEP; sub(SUBSEP c SUBSEP, SUBSEP, x); return substr(x, 1, length(x) - 1) }
+    function statement(f, line, stmt,   u, t, c, n, a, i, old, gone) {
+      u = toupper(stmt)
+      if (u ~ /^[[:space:]]*CREATE[[:space:]]+TABLE/) { t = name_after(u, "^[[:space:]]*CREATE[[:space:]]+TABLE[[:space:]]+(IF[[:space:]]+NOT[[:space:]]+EXISTS[[:space:]]+)?"); cols[t] = toupper(columns(stmt)); return }
+      if (u ~ /^[[:space:]]*ALTER[[:space:]]+TABLE/) {
+        t = name_after(u, "^[[:space:]]*ALTER[[:space:]]+TABLE[[:space:]]+(ONLY[[:space:]]+)?(IF[[:space:]]+EXISTS[[:space:]]+)?")
+        if (u ~ /RENAME[[:space:]]+TO[[:space:]]/) {
+          n = name_after(u, ".*RENAME[[:space:]]+TO[[:space:]]+")
+          if ((f SUBSEP n) in dropped) {
+            old = dropped[f SUBSEP n]; gone = ""
+            c = split(substr(old, 2), a, SUBSEP)
+            for (i = 1; i <= c; i++) if (!has_col(cols[t], a[i])) gone = gone (gone == "" ? "" : ", ") "\"" a[i] "\""
+            if (f in target && gone != "") print f ":" dline[f SUBSEP n] ": " dtext[f SUBSEP n] " (redefinition drops column " gone ")"
+            delete dropped[f SUBSEP n]; delete pend[f SUBSEP n]
+          }
+          cols[n] = cols[t]; return
+        }
+        if (u ~ /RENAME[[:space:]]+COLUMN/) { a[1] = name_after(u, ".*RENAME[[:space:]]+COLUMN[[:space:]]+"); a[2] = name_after(u, ".*[[:space:]]TO[[:space:]]+"); cols[t] = del_col(cols[t], a[1]) SUBSEP a[2]; return }
+        while (match(u, /ADD[[:space:]]+(COLUMN[[:space:]]+)?("[^"]+"|[A-Z_][A-Z0-9_]*)/)) { c = substr(u, RSTART, RLENGTH); sub(/^ADD[[:space:]]+(COLUMN[[:space:]]+)?/, "", c); c = unq(c); if (c !~ /^(CONSTRAINT|PRIMARY|FOREIGN|UNIQUE|CHECK)$/) cols[t] = cols[t] SUBSEP c; u = substr(u, RSTART + RLENGTH) }
+        u = toupper(stmt)
+        while (match(u, /DROP[[:space:]]+COLUMN[[:space:]]+(IF[[:space:]]+EXISTS[[:space:]]+)?("[^"]+"|[A-Z_][A-Z0-9_]*)/)) { c = substr(u, RSTART, RLENGTH); sub(/^DROP[[:space:]]+COLUMN[[:space:]]+(IF[[:space:]]+EXISTS[[:space:]]+)?/, "", c); cols[t] = del_col(cols[t], unq(c)); u = substr(u, RSTART + RLENGTH) }
+        if (f in target && toupper(stmt) ~ /DROP[[:space:]]+COLUMN/) print f ":" line ": " text
+        return
+      }
+      if (u ~ /^[[:space:]]*DROP[[:space:]]+TABLE/) {
+        t = name_after(u, "^[[:space:]]*DROP[[:space:]]+TABLE[[:space:]]+(IF[[:space:]]+EXISTS[[:space:]]+)?")
+        # a redefinition renames "new_<t>" to <t> later in the same file
+        # (its old columns unknown, without the earlier migrations: not reported)
+        if (("NEW_" t) in cols) { if (t in cols) { dropped[f SUBSEP t] = cols[t]; dline[f SUBSEP t] = line; dtext[f SUBSEP t] = text; pend[f SUBSEP t] = 1 } }
+        else if (f in target) print f ":" line ": " text
+        delete cols[t]
+      }
+    }
+    FNR == 1 {
+      for (k in pend) { split(k, kk, SUBSEP); if ((k in dropped) && (kk[1] in target)) print kk[1] ":" dline[k] ": " dtext[k]; delete pend[k]; delete dropped[k] }
+      f = FILENAME; stmt = ""; incomment = 0
+    }
+    FILENAME == ARGV[1] { target[$0] = 1; next }
+    FILENAME == ARGV[2] { next }
+    {
+      l = $0
+      if (incomment) { if (index(l, "*/")) { incomment = 0; l = substr(l, index(l, "*/") + 2) } else next }
+      if (l ~ /^[[:space:]]*\/\*/ && !index(l, "*/")) { incomment = 1; next }
+      if (l ~ /^[[:space:]]*--/) next
+      if (stmt == "" && l ~ /^[[:space:]]*$/) next
+      if (stmt == "") { sline = FNR; text = l; sub(/^[[:space:]]+/, "", text) }
+      stmt = stmt " " l
+      if (index(l, ";")) { statement(f, sline, stmt); stmt = "" }
+    }
+    END { for (k in pend) { split(k, kk, SUBSEP); if ((k in dropped) && (kk[1] in target)) print kk[1] ":" dline[k] ": " dtext[k] } }
+  ' "$FORGE_TMP/prisma.targets" /dev/null $(cat "$FORGE_TMP/prisma.history")
+  _pd_rc=$?
+  set +f
+  return "$_pd_rc"
+}
+
 # Drizzle: drizzle.config.* names the schema files (`schema`: a path, a glob, a
 # directory or an array of them), the migrations folder (`out`, default ./drizzle)
 # and the `dialect`. forge_drizzle_config writes "key<TAB>value" lines (one per
@@ -17724,7 +18129,7 @@ exit "$fail"
     "typescript/playwright/run": "79dc276c6d71cd329a2360b0560e3b12d47c99d7ea11e13563d794961a0363fa",
     "typescript/prisma/client-generator": "8905dafcbf59a72531bc68fe4ccbcebca6cbd2af461fb39690d748885d375c01",
     "typescript/prisma/db-push": "ea9ca78f9244bfb5a4c56205190683e6148d7ff41b9debebbf9970582290d77e",
-    "typescript/prisma/destructive-migration": "e065c011610ed8ee56cd152276877371a377d8d5d1d619ac06cbe3455dbc2776",
+    "typescript/prisma/destructive-migration": "6cb32c74f021c89b0a63d09e89b2298c64d251f3c3c2380279bfd804b750ba02",
     "typescript/prisma/generated-client-import": "89567be06b4754638addfa6a8700297b4739e72cf932328b952b1cfb0621da45",
     "typescript/prisma/migration-lint": "9a5876481372fb0461b28c9150c4046a4ea45b5cbccce158b08afea89342ebb9",
     "typescript/prisma/migration-present": "884fb66ed58f8eaab7bc83838363ab83539cd972c45638055d79a93ef1752bde",
@@ -17779,13 +18184,13 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "d0a502f51f51609d7e5e9cd6f39a8ce165c656ee1c1b7a607105a536962058eb",
     ".claude/skills/forge-project/scripts/guard.sh": "e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca",
     ".claude/skills/forge-project/scripts/lib.sh": "462727c0187a948cfaefd1fac315bc87063203968e3df6d12ca68c839fbdf4a3",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "646e793e65fdeca0e07ec96197e9777a356765ccd8623b66a8a302f6f2f4c6be",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "3339c44388686c4d02bcb654dec628cda7333b90494b962ed956d0848677a7b4",
     ".claude/skills/forge-project/scripts/review.sh": "889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726",
-    ".claude/skills/forge-project/scripts/session-start.sh": "5d92e7530fd1fd9f76d773f6258cf699c6cea0692ca0f78f05062b58f8a21823",
+    ".claude/skills/forge-project/scripts/session-start.sh": "550a639a6d2c51182dfe616983ff5a44100a1923bc22ff877453017ec7c7dc50",
     ".claude/skills/forge-project/scripts/stop.sh": "10316d9cd59fea152c6f8fbf0ab70abf547514bf67a2c85f3e6b405554a71fad",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "4b7e604510a40f8d72256f0f3ab39bca1e390806e4425cb56d133a94b2589a7d",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "85873a775a49279e50bbc900a16a180b6fc87c2dbe5ae3a997a122a98bb0ca5c",
     ".claude/skills/forge-project/scripts/turn-start.sh": "fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "93089cb09941b2ad47f97b2e1b35797328738e6d3126b2f41ceaf880aacf1393",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "7696aa321e9ee8dc30b19c1f2453033d7d347fabf7f8e1c3d6099f48955e8e19",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-bun-no-fewer-expects-test.yml": "bd5df50793070bba7b87b0f623ac58ed4599e0ba6f8d731fc0da4b28a0335ec8",
     ".forge/ast-grep/rule-tests/typescript-bun-no-mock-increase-test.yml": "2916d521378a79dbddd4e3a5822e04b4c3e5fad9262a65e019095f58bbfe0310",
@@ -17852,7 +18257,7 @@ exit "$fail"
     ".forge/ast-grep/rules/typescript/zod/error-param.yml": "88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a",
     ".forge/ast-grep/rules/typescript/zod/v4-string-formats.yml": "a7503c000f128a4718f29b0122170295972560de99263354d6ed0db1a8cb099c",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "b027fcfa98f806cc29088afb387efff8990523b306235bce04db62c791bfd328",
+    ".forge/check.sh": "e5ed7c49fcf6c173fa9e5a640f7d5357cafff5c47553d4617255b9f1219a7ec0",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -17920,13 +18325,13 @@ d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills
 d0a502f51f51609d7e5e9cd6f39a8ce165c656ee1c1b7a607105a536962058eb  .claude/skills/forge-project/scripts/guard.rules
 e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca  .claude/skills/forge-project/scripts/guard.sh
 462727c0187a948cfaefd1fac315bc87063203968e3df6d12ca68c839fbdf4a3  .claude/skills/forge-project/scripts/lib.sh
-646e793e65fdeca0e07ec96197e9777a356765ccd8623b66a8a302f6f2f4c6be  .claude/skills/forge-project/scripts/post-edit.sh
+3339c44388686c4d02bcb654dec628cda7333b90494b962ed956d0848677a7b4  .claude/skills/forge-project/scripts/post-edit.sh
 889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726  .claude/skills/forge-project/scripts/review.sh
-5d92e7530fd1fd9f76d773f6258cf699c6cea0692ca0f78f05062b58f8a21823  .claude/skills/forge-project/scripts/session-start.sh
+550a639a6d2c51182dfe616983ff5a44100a1923bc22ff877453017ec7c7dc50  .claude/skills/forge-project/scripts/session-start.sh
 10316d9cd59fea152c6f8fbf0ab70abf547514bf67a2c85f3e6b405554a71fad  .claude/skills/forge-project/scripts/stop.sh
-4b7e604510a40f8d72256f0f3ab39bca1e390806e4425cb56d133a94b2589a7d  .claude/skills/forge-project/scripts/test-edit.sh
+85873a775a49279e50bbc900a16a180b6fc87c2dbe5ae3a997a122a98bb0ca5c  .claude/skills/forge-project/scripts/test-edit.sh
 fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3  .claude/skills/forge-project/scripts/turn-start.sh
-93089cb09941b2ad47f97b2e1b35797328738e6d3126b2f41ceaf880aacf1393  .claude/skills/forge-project/scripts/typecheck.sh
+7696aa321e9ee8dc30b19c1f2453033d7d347fabf7f8e1c3d6099f48955e8e19  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 bd5df50793070bba7b87b0f623ac58ed4599e0ba6f8d731fc0da4b28a0335ec8  .forge/ast-grep/rule-tests/typescript-bun-no-fewer-expects-test.yml
 2916d521378a79dbddd4e3a5822e04b4c3e5fad9262a65e019095f58bbfe0310  .forge/ast-grep/rule-tests/typescript-bun-no-mock-increase-test.yml
@@ -17993,7 +18398,7 @@ d3c41a3915d84b21e86e9212a06ad14c52bf2f9bcefb7c5ca433200cc3ec44fb  .forge/ast-gre
 88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a  .forge/ast-grep/rules/typescript/zod/error-param.yml
 a7503c000f128a4718f29b0122170295972560de99263354d6ed0db1a8cb099c  .forge/ast-grep/rules/typescript/zod/v4-string-formats.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-b027fcfa98f806cc29088afb387efff8990523b306235bce04db62c791bfd328  .forge/check.sh
+e5ed7c49fcf6c173fa9e5a640f7d5357cafff5c47553d4617255b9f1219a7ec0  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

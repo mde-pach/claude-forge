@@ -1578,6 +1578,97 @@ forge_env_example() {
   return "$_ee_rc"
 }
 
+# forge_prisma_drops <file>...: "<file>:<line>: <statement>" for each DROP COLUMN or DROP
+# TABLE in the given Prisma migrations. Every migration.sql (sorted) is read to follow
+# the tables' columns (CREATE TABLE, ADD / DROP / RENAME COLUMN), so a SQLite table
+# redefinition (CREATE TABLE "new_X" ..., DROP TABLE "X", ALTER TABLE "new_X" RENAME
+# TO "X") is a drop only of the columns "new_X" lacks: "... (redefinition drops column
+# "C")". A redefined table that no earlier migration creates is not reported.
+forge_prisma_drops() {
+  printf '%s\n' "$@" > "$FORGE_TMP/prisma.targets"
+  { git ls-files -co --exclude-standard -- 'prisma/migrations/*/migration.sql' 2>/dev/null; printf '%s\n' "$@"; } \
+    | sort -u > "$FORGE_TMP/prisma.history"
+  set -f
+  # shellcheck disable=SC2046
+  awk '
+    function unq(t) { gsub(/[";`[:space:]]/, "", t); return t }
+    function name_after(u, re,   t) { t = u; sub(re, "", t); sub(/[[:space:](].*$/, "", t); return unq(t) }
+    # the column names of a CREATE TABLE body: the first identifier of each top-level item
+    function columns(stmt,   p, body, d, i, c, item, out, n, name) {
+      p = index(stmt, "("); if (!p) return ""
+      body = substr(stmt, p + 1); d = 0; item = ""; out = ""
+      for (i = 1; i <= length(body); i++) {
+        c = substr(body, i, 1)
+        if (c == "(") d++
+        if (c == ")") { if (d == 0) break; d-- }
+        if (c == "," && d == 0) { out = out item_col(item); item = ""; continue }
+        item = item c
+      }
+      return out item_col(item)
+    }
+    function item_col(item,   t) {
+      t = item; sub(/^[[:space:]]+/, "", t)
+      if (toupper(t) ~ /^(CONSTRAINT|PRIMARY|FOREIGN|UNIQUE|CHECK|KEY|INDEX)([^A-Z_]|$)/) return ""
+      if (!match(t, /^("[^"]+"|`[^`]+`|[A-Za-z_][A-Za-z0-9_]*)/)) return ""
+      return SUBSEP unq(substr(t, RSTART, RLENGTH))
+    }
+    function has_col(list, c) { return index(list SUBSEP, SUBSEP c SUBSEP) > 0 }
+    function del_col(list, c,   x) { x = list SUBSEP; sub(SUBSEP c SUBSEP, SUBSEP, x); return substr(x, 1, length(x) - 1) }
+    function statement(f, line, stmt,   u, t, c, n, a, i, old, gone) {
+      u = toupper(stmt)
+      if (u ~ /^[[:space:]]*CREATE[[:space:]]+TABLE/) { t = name_after(u, "^[[:space:]]*CREATE[[:space:]]+TABLE[[:space:]]+(IF[[:space:]]+NOT[[:space:]]+EXISTS[[:space:]]+)?"); cols[t] = toupper(columns(stmt)); return }
+      if (u ~ /^[[:space:]]*ALTER[[:space:]]+TABLE/) {
+        t = name_after(u, "^[[:space:]]*ALTER[[:space:]]+TABLE[[:space:]]+(ONLY[[:space:]]+)?(IF[[:space:]]+EXISTS[[:space:]]+)?")
+        if (u ~ /RENAME[[:space:]]+TO[[:space:]]/) {
+          n = name_after(u, ".*RENAME[[:space:]]+TO[[:space:]]+")
+          if ((f SUBSEP n) in dropped) {
+            old = dropped[f SUBSEP n]; gone = ""
+            c = split(substr(old, 2), a, SUBSEP)
+            for (i = 1; i <= c; i++) if (!has_col(cols[t], a[i])) gone = gone (gone == "" ? "" : ", ") "\"" a[i] "\""
+            if (f in target && gone != "") print f ":" dline[f SUBSEP n] ": " dtext[f SUBSEP n] " (redefinition drops column " gone ")"
+            delete dropped[f SUBSEP n]; delete pend[f SUBSEP n]
+          }
+          cols[n] = cols[t]; return
+        }
+        if (u ~ /RENAME[[:space:]]+COLUMN/) { a[1] = name_after(u, ".*RENAME[[:space:]]+COLUMN[[:space:]]+"); a[2] = name_after(u, ".*[[:space:]]TO[[:space:]]+"); cols[t] = del_col(cols[t], a[1]) SUBSEP a[2]; return }
+        while (match(u, /ADD[[:space:]]+(COLUMN[[:space:]]+)?("[^"]+"|[A-Z_][A-Z0-9_]*)/)) { c = substr(u, RSTART, RLENGTH); sub(/^ADD[[:space:]]+(COLUMN[[:space:]]+)?/, "", c); c = unq(c); if (c !~ /^(CONSTRAINT|PRIMARY|FOREIGN|UNIQUE|CHECK)$/) cols[t] = cols[t] SUBSEP c; u = substr(u, RSTART + RLENGTH) }
+        u = toupper(stmt)
+        while (match(u, /DROP[[:space:]]+COLUMN[[:space:]]+(IF[[:space:]]+EXISTS[[:space:]]+)?("[^"]+"|[A-Z_][A-Z0-9_]*)/)) { c = substr(u, RSTART, RLENGTH); sub(/^DROP[[:space:]]+COLUMN[[:space:]]+(IF[[:space:]]+EXISTS[[:space:]]+)?/, "", c); cols[t] = del_col(cols[t], unq(c)); u = substr(u, RSTART + RLENGTH) }
+        if (f in target && toupper(stmt) ~ /DROP[[:space:]]+COLUMN/) print f ":" line ": " text
+        return
+      }
+      if (u ~ /^[[:space:]]*DROP[[:space:]]+TABLE/) {
+        t = name_after(u, "^[[:space:]]*DROP[[:space:]]+TABLE[[:space:]]+(IF[[:space:]]+EXISTS[[:space:]]+)?")
+        # a redefinition renames "new_<t>" to <t> later in the same file
+        # (its old columns unknown, without the earlier migrations: not reported)
+        if (("NEW_" t) in cols) { if (t in cols) { dropped[f SUBSEP t] = cols[t]; dline[f SUBSEP t] = line; dtext[f SUBSEP t] = text; pend[f SUBSEP t] = 1 } }
+        else if (f in target) print f ":" line ": " text
+        delete cols[t]
+      }
+    }
+    FNR == 1 {
+      for (k in pend) { split(k, kk, SUBSEP); if ((k in dropped) && (kk[1] in target)) print kk[1] ":" dline[k] ": " dtext[k]; delete pend[k]; delete dropped[k] }
+      f = FILENAME; stmt = ""; incomment = 0
+    }
+    FILENAME == ARGV[1] { target[$0] = 1; next }
+    FILENAME == ARGV[2] { next }
+    {
+      l = $0
+      if (incomment) { if (index(l, "*/")) { incomment = 0; l = substr(l, index(l, "*/") + 2) } else next }
+      if (l ~ /^[[:space:]]*\/\*/ && !index(l, "*/")) { incomment = 1; next }
+      if (l ~ /^[[:space:]]*--/) next
+      if (stmt == "" && l ~ /^[[:space:]]*$/) next
+      if (stmt == "") { sline = FNR; text = l; sub(/^[[:space:]]+/, "", text) }
+      stmt = stmt " " l
+      if (index(l, ";")) { statement(f, sline, stmt); stmt = "" }
+    }
+    END { for (k in pend) { split(k, kk, SUBSEP); if ((k in dropped) && (kk[1] in target)) print kk[1] ":" dline[k] ": " dtext[k] } }
+  ' "$FORGE_TMP/prisma.targets" /dev/null $(cat "$FORGE_TMP/prisma.history")
+  _pd_rc=$?
+  set +f
+  return "$_pd_rc"
+}
+
 # Drizzle: drizzle.config.* names the schema files (`schema`: a path, a glob, a
 # directory or an array of them), the migrations folder (`out`, default ./drizzle)
 # and the `dialect`. forge_drizzle_config writes "key<TAB>value" lines (one per
