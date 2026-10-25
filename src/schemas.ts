@@ -112,6 +112,9 @@ const target = {
           pattern: { type: "string", minLength: 1, pattern: "^[^\\t\\n]+$" },
           check: { enum: ["ephemeral-exec"] },
         },
+        // a built-in check decides which matching commands to ask about: a deny would refuse them all
+        if: { required: ["check"] },
+        then: { properties: { decision: { const: "ask" } } },
       },
     },
     {
@@ -143,6 +146,11 @@ const target = {
           requires_local_db: { type: "boolean" },
           timeout: { type: "integer", minimum: 1, maximum: 600 },
         },
+        allOf: [
+          // rerun re-runs failing tests (§10.6); format_stdin formats base copies (§10.1)
+          { if: { required: ["rerun"] }, then: { properties: { stage: { const: "test" } } } },
+          { if: { required: ["format_stdin"] }, then: { properties: { stage: { enum: ["format", "lint"] } } } },
+        ],
       },
     },
   ],
@@ -164,6 +172,20 @@ export const ruleSchema = {
   type: "object",
   additionalProperties: false,
   required: ["id", "description", "scope", "enforce"],
+  // review is the question for an ask nobody can answer (§9.3): a guard ask, or the test-edit check's ask
+  if: { required: ["review"] },
+  then: {
+    properties: {
+      enforce: {
+        contains: {
+          anyOf: [
+            { properties: { target: { const: "guard" }, decision: { const: "ask" } }, required: ["decision"] },
+            { properties: { target: { const: "check" }, run: { pattern: "^\\s*forge_test_edits\\s*$" } }, required: ["run"] },
+          ],
+        },
+      },
+    },
+  },
   properties: {
     id: { type: "string", pattern: RULE_ID },
     description: { type: "string", minLength: 1, pattern: "^[^\\n\\t]+$" },
@@ -236,11 +258,55 @@ export const projectConfigSchema = {
   },
 } as const;
 
+const SHA256 = "^[0-9a-f]{64}$";
+
+/**
+ * The lock (§12). Its paths are checked further by lock.ts (relative, inside the
+ * repository, and only where Forge writes): `remove` deletes and `apply` writes them.
+ */
+export const lockSchema = {
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  $id: "forge:lock",
+  type: "object",
+  additionalProperties: false,
+  required: ["forge_version", "claude_code_min", "rules", "files", "settings"],
+  properties: {
+    forge_version: { type: "string" },
+    claude_code_min: { type: "string" },
+    rules: { type: "object", propertyNames: { pattern: RULE_ID }, additionalProperties: { type: "string", pattern: SHA256 } },
+    files: { type: "object", propertyNames: { minLength: 1 }, additionalProperties: { type: "string", pattern: SHA256 } },
+    settings: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["file", "path", "value"],
+        properties: { file: { type: "string", minLength: 1 }, path: { type: "string", minLength: 1 }, value: true },
+      },
+    },
+    blocks: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["file", "kind", "created", "hash"],
+        properties: {
+          file: { type: "string", minLength: 1 },
+          kind: { enum: ["pre-commit", "husky", "lefthook", "hooks"] },
+          created: { type: "boolean" },
+          hash: { type: "string", pattern: SHA256 },
+        },
+      },
+    },
+  },
+} as const;
+
 const ajv = new Ajv2020({ allErrors: true, strict: true, strictRequired: false, strictTypes: false, allowUnionTypes: true });
 const validators = {
   pack: ajv.compile(packSchema),
   rule: ajv.compile(ruleSchema),
   project: ajv.compile(projectConfigSchema),
+  lock: ajv.compile(lockSchema),
 };
 
 export function validate(kind: keyof typeof validators, data: unknown, source: string): void {

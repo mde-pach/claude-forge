@@ -28,6 +28,11 @@ export interface TestReport {
 // ---------------------------------------------------------------- ast-grep
 
 /** argv prefix that runs the pinned ast-grep, or undefined. */
+/** The counts line of a test run, after `what` (packs and rules, or local rules). */
+export function testSummary(c: Record<string, number>, what: string): string {
+  return `${what}; ast-grep ${c.astgrep}, guard ${c.guard}, permission ${c.permission}, grep ${c.grep}, check ${c.check}, context ${c.context}`;
+}
+
 export function astGrepCommand(): string[] | undefined {
   if (run("bunx", ["--version"]).status === 0) return ["bunx", "-p", `@ast-grep/cli@${AST_GREP_VERSION}`, "ast-grep"];
   if (run("uvx", ["--version"]).status === 0) return ["uvx", "-q", "--from", `ast-grep-cli==${AST_GREP_VERSION}`, "ast-grep"];
@@ -217,12 +222,17 @@ export function defaultToolBins(repo?: string): string[] {
   return [...(repo ? [join(repo, "node_modules", ".bin"), join(repo, ".venv", "bin")] : []), ...(process.env.PATH ?? "").split(delimiter).filter(Boolean)];
 }
 
+/**
+ * The development self-test (`bun run test:packs`, the spec suite): every pack and rule
+ * of packsDir (and, with repo, its local rules replacing or adding to them) validated
+ * and their examples run.
+ */
 export function selfTest(packsDir: string, repo?: string, opts: { toolBins?: string[] } = {}): TestReport {
   const failures: string[] = [];
   const notes: string[] = [];
   const counts: Record<string, number> = { packs: 0, rules: 0, astgrep: 0, guard: 0, permission: 0, grep: 0, check: 0, context: 0 };
 
-  let rules: Rule[] = [];
+  const rules: Rule[] = [];
   try {
     const packs = loadPacks(packsDir);
     counts.packs = packs.size;
@@ -248,6 +258,34 @@ export function selfTest(packsDir: string, repo?: string, opts: { toolBins?: str
     failures.push((e as Error).message);
     return { failures, notes, counts };
   }
+  testRules(rules, repo, opts, { failures, notes, counts });
+  if (!existsSync(packsDir)) failures.push(`${packsDir} does not exist`);
+  return { failures, notes, counts };
+}
+
+/**
+ * `forge test` in a project: the rules of .forge/rules only (a local rule replacing a
+ * pack rule is tested as written), validated and their examples run. The bundled
+ * packs are proved by Forge's own test suite.
+ */
+export function localSelfTest(repo: string, opts: { toolBins?: string[] } = {}): TestReport {
+  const failures: string[] = [];
+  const notes: string[] = [];
+  const counts: Record<string, number> = { packs: 0, rules: 0, astgrep: 0, guard: 0, permission: 0, grep: 0, check: 0, context: 0 };
+  let rules: Rule[];
+  try {
+    rules = loadLocalRules(repo);
+  } catch (e) {
+    failures.push((e as Error).message);
+    return { failures, notes, counts };
+  }
+  testRules(rules, repo, opts, { failures, notes, counts });
+  return { failures, notes, counts };
+}
+
+/** Structural checks and every example of the given rules. */
+function testRules(rules: Rule[], repo: string | undefined, opts: { toolBins?: string[] }, report: TestReport): void {
+  const { failures, notes, counts } = report;
   counts.rules = rules.length;
 
   // structural checks the schema cannot express
@@ -392,7 +430,4 @@ export function selfTest(packsDir: string, repo?: string, opts: { toolBins?: str
     if (h.status === "mismatch") failures.push(`hadolint: ${h.detail}`);
     else if (h.status === "skipped") notes.push(`hadolint: ${h.detail}`);
   }
-
-  if (!existsSync(packsDir)) failures.push(`${packsDir} does not exist`);
-  return { failures, notes, counts };
 }

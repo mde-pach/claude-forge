@@ -24,6 +24,11 @@ describe("globs", () => {
     ["~/.ssh/**", "~/.sshconfig", false],
     ["app/**", "app/page.tsx", true],
     ["playwright.config.*", "playwright.config.ts", true],
+    // alternatives are globs too: ** spans directories inside them, and they nest
+    ["{**/docs,site}/*.md", "a/b/docs/x.md", true],
+    ["{**/docs,site}/*.md", "site/x.md", true],
+    ["{**/docs,site}/*.md", "site/a/x.md", false],
+    ["*.{ts,{m,c}ts}", "a.mts", true],
   ])("%s matches %s: %p", (g, p, want) => expect(globMatch(g, p)).toBe(want));
 
   test("globs become shell case patterns", () => {

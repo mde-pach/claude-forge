@@ -1,5 +1,5 @@
 /**
- * @spec 13 · Packs and rules (forge test)
+ * @spec 13 · Packs and rules (bun run test:packs)
  *
  * Every pack and rule validates against its schema, and every rule's examples
  * behave as declared: ast-grep rule tests pass (`match` is invalid code,
@@ -70,12 +70,25 @@ test("forge test passes on the shipped packs and counts every rule file", () => 
   expect(report.counts.rules).toBe(rules.length);
 });
 
+/** Pack authors run the self-test with `bun run test:packs` (scripts/test-packs.ts); the published CLI has no such command. */
 test(
-  "forge test from the CLI summarises and exits 0",
+  "bun run test:packs runs the self-test on a packs directory, summarises it and exits 0, or 1 on a failure",
   () => {
-    const r = forge(["test"], ROOT);
-    expect(r.status).toBe(0);
-    expect(r.stdout).toContain(`${packs.size} packs, ${rules.length} rules`);
+    const dir = mkdtempSync(join(tmpdir(), "forge-packs-"));
+    const pack = (rule: string) => {
+      mkdirSync(join(dir, "demo/rules"), { recursive: true });
+      writeFileSync(join(dir, "demo/pack.yaml"), "id: demo\ndescription: Demo.\nlevel: project\n");
+      writeFileSync(join(dir, "demo/rules/g.yaml"), `id: demo/g\ndescription: G.\nscope: {language: any}\nenforce: [{target: guard, decision: deny, pattern: "rm[[:space:]]+-rf"}]\nexamples: {match: [${JSON.stringify(rule)}], no_match: ["rm x"]}\n`);
+    };
+    pack("rm -rf x");
+    const ok = sh("bun", ["run", "test:packs", dir], { cwd: ROOT });
+    expect(ok.status).toBe(0);
+    expect(ok.stdout).toContain("test:packs: 1 packs, 1 rules; ast-grep 0, guard 1");
+    expect(ok.stdout).toContain("all passed");
+    pack("rm -r x");
+    const bad = sh("bun", ["run", "test:packs", dir], { cwd: ROOT });
+    expect(bad.status).toBe(1);
+    expect(bad.stderr).toContain('forge:test demo/g [sh]: expected deny for "rm -r x", got nothing');
   },
   T,
 );
@@ -124,6 +137,18 @@ describe("forge test catches broken packs", () => {
   }
   const guardRule = (match: string, noMatch: string) =>
     `id: demo/g\ndescription: Demo guard.\nscope: {language: any}\nenforce: [{target: guard, decision: deny, pattern: "rm[[:space:]]+-rf"}]\nexamples: {match: [${JSON.stringify(match)}], no_match: [${JSON.stringify(noMatch)}]}\n`;
+
+  /** Fields that only mean something with certain others are rejected elsewhere, rather than silently doing nothing. */
+  test.each([
+    ["rerun outside a test check", "enforce: [{target: check, stage: lint, run: 'ruff check .', rerun: 'pytest {files}'}]", "/enforce/0/stage must be equal to constant"],
+    ["format_stdin outside a format or lint check", "enforce: [{target: check, stage: typecheck, run: 'tsc', format_stdin: 'biome format --stdin-file-path={file}'}]", "/enforce/0/stage must be equal to one of the allowed values"],
+    ["review without a guard ask or the test-edit check", "enforce: [{target: guard, decision: deny, pattern: x}]\nreview: Is this fine?", "/enforce must contain at least 1 valid item"],
+    ["the ephemeral-exec guard check with decision deny", "enforce: [{target: guard, decision: deny, pattern: npx, check: ephemeral-exec}]", "/enforce/0/decision must be equal to constant"],
+    ["a project tool with a '-' run directly, not through forge_exec_tool", "enforce: [{target: check, stage: typecheck, run: 'vue-tsc --noEmit'}]", 'run vue-tsc as "forge_exec_tool vue-tsc"'],
+  ])("a rule with %s is rejected", (_what, body, message) => {
+    const dir = packsWith({ "demo/rules/x.yaml": `id: demo/x\ndescription: X.\nscope: {language: any}\n${body}\n` });
+    expect(() => loadPacks(dir)).toThrow(message);
+  });
 
   test("a correct pack passes", () => {
     expect(selfTest(packsWith({ "demo/rules/g.yaml": guardRule("rm -rf x", "rm x") })).failures).toEqual([]);

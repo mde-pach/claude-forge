@@ -9,6 +9,8 @@ export interface AuditResult {
   tool: ToolTarget["tool"];
   expects: string;
   status: "satisfied" | "unsatisfied" | "skipped";
+  /** The workspace package audited (its own config); absent: the root. */
+  dir?: string;
   /** Why unsatisfied / skipped. */
   detail?: string;
   snippet?: string;
@@ -171,6 +173,9 @@ function firstLine(s: string): string {
 }
 
 /** Audits every tool target; dirOf gives where a tool is configured (a workspace package, relative to repo). */
-export function auditRules(repo: string, items: { rule: Rule; audits: ToolTarget[] }[], dirOf: (tool: ToolTarget["tool"]) => string = () => ""): AuditResult[] {
-  return items.flatMap(({ rule, audits }) => audits.map((t) => auditTarget(join(repo, dirOf(t.tool)), rule, t, repo)));
+/** Each tool target audited in every place that configures the tool (the root "", or workspace packages, each with its own config). */
+export function auditRules(repo: string, items: { rule: Rule; audits: ToolTarget[] }[], dirsOf: (tool: ToolTarget["tool"]) => string[] = () => [""]): AuditResult[] {
+  return items.flatMap(({ rule, audits }) =>
+    audits.flatMap((t) => (dirsOf(t.tool).length ? dirsOf(t.tool) : [""]).map((d) => ({ ...auditTarget(join(repo, d), rule, t, repo), ...(d ? { dir: d } : {}) }))),
+  );
 }

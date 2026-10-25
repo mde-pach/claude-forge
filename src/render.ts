@@ -42,6 +42,20 @@ export function toolsInCommand(cmd: string): string[] {
   return found.sort((a, b) => a.at - b.at).map((f) => f.tool);
 }
 
+/**
+ * Project tools whose name has a "-" (no POSIX shell function can wrap them) that a
+ * command runs directly instead of as `forge_exec_tool <name>`: run directly, they
+ * would be whatever is on PATH, not the project's own.
+ */
+export function directDashedTools(cmd: string): string[] {
+  const out = new Set<string>();
+  for (const tool of PROJECT_TOOLS.filter((t) => t.includes("-"))) {
+    const re = new RegExp(`(^|[\\s;&|(\`]|\\$\\()${tool.replace(/[.-]/g, "\\$&")}(?=$|[\\s;&|)\`])`, "g");
+    for (const m of cmd.matchAll(re)) if (!/\bforge_exec_tool\s+$/.test(cmd.slice(0, m.index! + m[1]!.length))) out.add(tool);
+  }
+  return [...out];
+}
+
 export function checkTools(t: CheckTarget): string[] {
   const commands = [t.run, t.changed_run ?? "", t.fix_run ?? "", t.format_stdin ?? "", t.rerun ?? ""];
   const helpers = HELPER_TOOLS.filter(([re]) => commands.some((c) => re.test(c))).map(([, tool]) => tool);
@@ -90,13 +104,16 @@ function casePatterns(globs: string[]): string {
  * A rule's scope as a shell function on repository paths. With dirs (workspace
  * packages), the scope's globs are relative to each package.
  */
+/** A rule's scope globs, relative to each workspace package of dirs (the whole package when the rule has no include glob). */
+export function scopeInDirs(files: string[], dirs?: string[]): string[] {
+  if (!dirs) return files;
+  const inDirs = (g: string) => dirs.map((d) => `${d}/${g}`);
+  const include = files.filter((g) => !g.startsWith("!"));
+  return [...(include.length ? include : ["**"]).flatMap(inDirs), ...files.filter((g) => g.startsWith("!")).flatMap((g) => inDirs(g.slice(1)).map((x) => "!" + x))];
+}
+
 function scopeFunction(name: string, rule: Rule, dirs?: string[]): string {
-  let files = rule.scope.files ?? [];
-  if (dirs) {
-    const inDirs = (g: string) => dirs.map((d) => `${d}/${g}`);
-    const include = files.filter((g) => !g.startsWith("!"));
-    files = [...(include.length ? include : ["**"]).flatMap(inDirs), ...files.filter((g) => g.startsWith("!")).flatMap((g) => inDirs(g.slice(1)).map((x) => "!" + x))];
-  }
+  const files = scopeInDirs(rule.scope.files ?? [], dirs);
   const exclude = files.filter((g) => g.startsWith("!")).map((g) => g.slice(1));
   const include = files.filter((g) => !g.startsWith("!"));
   const lang = LANGUAGE_CASE[rule.scope.language];
@@ -120,13 +137,15 @@ export interface ActiveCheck {
 export interface ActiveGrep {
   rule: Rule;
   target: GrepTarget;
+  /** Workspace packages its pack was detected in; absent: the whole repository. */
+  dirs?: string[];
 }
 
 /** The grep rules: forge_grep_meta_<n> (g_id g_mode g_pattern g_desc) and forge_grep_scope_<n>. */
 function renderGreps(greps: ActiveGrep[]): string[] {
   const ids = (mode: GrepTarget["mode"]) => greps.filter((g) => g.target.mode === mode).map((g) => g.rule.id).join("|");
   const out = [`FORGE_NGREPS=${greps.length}`, `FORGE_GREP_NO_INCREASE='${ids("no-increase")}'`, `FORGE_GREP_NO_DECREASE='${ids("no-decrease")}'`];
-  greps.forEach(({ rule, target }, i) => {
+  greps.forEach(({ rule, target, dirs }, i) => {
     const n = i + 1;
     out.push(
       "",
@@ -136,7 +155,7 @@ function renderGreps(greps: ActiveGrep[]): string[] {
       `  g_pattern=${shQuote(target.pattern)}`,
       `  g_desc=${shQuote(rule.description)}`,
       "}",
-      scopeFunction(`forge_grep_scope_${n}`, rule),
+      scopeFunction(`forge_grep_scope_${n}`, rule, dirs),
     );
   });
   return out;
@@ -177,7 +196,7 @@ export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = []): s
     );
     if (changed) out.push(...body(`forge_check_changed_${n}`, target.changed_run!.replaceAll("{files}", "$FORGE_FILES"), target.changed_run!.includes("{files}") ? "files" : "all"));
     if (target.fix_run) out.push(...body(`forge_check_fix_${n}`, target.fix_run.replaceAll("{files}", "$FORGE_FILES"), "files"));
-    if (target.format_stdin) out.push(`forge_check_fmt_${n}() {`, target.format_stdin.replaceAll("{file}", '"$FORGE_FILE"'), "}");
+    if (target.format_stdin) out.push(...formatFunction(n, target.format_stdin, dirs));
     if (target.rerun) out.push(...body(`forge_check_rerun_${n}`, target.rerun.replaceAll("{files}", "$FORGE_FILES"), "files"));
   });
   out.push("", ...renderGreps(greps));
@@ -188,6 +207,30 @@ export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = []): s
       HADOLINT_SHAS: Object.entries(HADOLINT_SHA256).map(([p, h]) => `${p} ${h}`).join("\n"),
     }).trimEnd());
   return out.join("\n");
+}
+
+/**
+ * forge_check_fmt_<n>: the format_stdin filter on stdin, formatting as $FORGE_FILE. In
+ * workspace packages it runs in the package holding the file (the deepest), with the
+ * path relative to it, so the formatter reads that package's config, as the check does.
+ */
+function formatFunction(n: number, cmd: string, dirs?: string[]): string[] {
+  const filter = cmd.replaceAll("{file}", '"$FORGE_FILE"');
+  if (!dirs) return [`forge_check_fmt_${n}() {`, filter, "}"];
+  const deepestFirst = [...dirs].sort((a, b) => b.split("/").length - a.split("/").length || (a < b ? -1 : 1));
+  return [
+    `forge_check_fmt_${n}() {`,
+    `  for _ff_d in ${deepestFirst.map(shQuote).join(" ")}; do`,
+    '    case $FORGE_FILE in "$_ff_d"/*)',
+    '      ( FORGE_WS_ROOT=$(pwd); cd "$_ff_d" || exit 1; FORGE_FILE=${FORGE_FILE#"$_ff_d"/}',
+    filter,
+    "      )",
+    "      return ;;",
+    "    esac",
+    "  done",
+    filter,
+    "}",
+  ];
 }
 
 /**
@@ -290,8 +333,9 @@ export function astGrepTestPath(id: string): string {
   return `rule-tests/${id.replaceAll("/", "-")}-test.yml`;
 }
 
-export function renderAstGrepRule(rule: Rule, target: AstGrepTarget): string {
-  const files = rule.scope.files ?? [];
+/** An ast-grep rule file; with dirs (the workspace packages its pack was detected in), its globs are relative to them. */
+export function renderAstGrepRule(rule: Rule, target: AstGrepTarget, dirs?: string[]): string {
+  const files = scopeInDirs(rule.scope.files ?? [], dirs);
   const include = files.filter((g) => !g.startsWith("!"));
   const ignores = files.filter((g) => g.startsWith("!")).map((g) => g.slice(1));
   const doc: Record<string, unknown> = {

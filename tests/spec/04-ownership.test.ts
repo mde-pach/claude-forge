@@ -9,8 +9,9 @@
  * how `remove` knows exactly what to delete (§4, §12).
  */
 import { describe, expect, test } from "bun:test";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, relative } from "node:path";
 import { addEntries, removeEntries } from "../../src/settings";
 import { applied, commitAll, ensureTools, forge, git, hasBun, linkTools, put, sampleRepo, sh } from "../helpers";
 
@@ -83,6 +84,57 @@ describe("the lock", () => {
       const c = sh("sh", ["-c", 'command -v sha256sum >/dev/null && sha256sum -c --quiet || shasum -a 256 -c --quiet'], { cwd: r, input: plain });
       expect(c.status).toBe(0);
       expect(readFileSync(join(r, ".forge/check.sh"), "utf8")).not.toMatch(/awk[^\n]*forge\.lock\.json/);
+    },
+    T,
+  );
+
+  /**
+   * `remove` deletes the lock's files and blocks and `apply` writes them: a lock
+   * naming a path outside what Forge owns (outside the repository, through a
+   * symbolic link, or a hook file no hook manager uses) is refused as a whole.
+   */
+  test.each([
+    ["files", (lock: any, victim: string) => (lock.files[victim] = "0".repeat(64))],
+    ["files (through a symbolic link)", (lock: any) => (lock.files[".forge/link/victim.sh"] = "0".repeat(64))],
+    ["settings", (lock: any, victim: string) => lock.settings.push({ file: victim, path: "permissions.ask", value: "x" })],
+    ["blocks", (lock: any, victim: string) => (lock.blocks = [{ file: victim, kind: "husky", created: true, hash: "0".repeat(64) }])],
+    ["blocks (a file no hook manager uses)", (lock: any) => (lock.blocks = [{ file: "src/index.ts", kind: "husky", created: true, hash: "0".repeat(64) }])],
+  ] as const)(
+    "a lock whose %s name a path forge does not own is refused; apply and remove touch nothing",
+    (_what, craft) => {
+      const repo = applied("eslint-app");
+      const outside = mkdtempSync(join(tmpdir(), "forge-victim-"));
+      writeFileSync(join(outside, "victim.sh"), "#!/bin/sh\necho mine\n");
+      symlinkSync(outside, join(repo, ".forge/link"));
+      const victim = relative(repo, join(outside, "victim.sh"));
+      const lockFile = join(repo, ".forge/forge.lock.json");
+      const lock = JSON.parse(readFileSync(lockFile, "utf8"));
+      craft(lock, victim);
+      writeFileSync(lockFile, JSON.stringify(lock, null, 2) + "\n");
+      const index = readFileSync(join(repo, "src/index.ts"), "utf8");
+      for (const args of [["remove", "--yes"], ["apply", "--yes", "--force"]]) {
+        const r = forge(args, repo);
+        expect(r.status).toBe(1);
+        expect(r.stderr).toContain("forge: .forge/forge.lock.json: refused:");
+      }
+      expect(readFileSync(join(outside, "victim.sh"), "utf8")).toBe("#!/bin/sh\necho mine\n");
+      expect(readFileSync(join(repo, "src/index.ts"), "utf8")).toBe(index);
+      expect(existsSync(join(repo, ".forge/check.sh"))).toBe(true);
+    },
+    T,
+  );
+
+  test(
+    "a lock that is not valid JSON or does not match the lock schema is refused",
+    () => {
+      const repo = applied("eslint-app");
+      const lockFile = join(repo, ".forge/forge.lock.json");
+      const lock = JSON.parse(readFileSync(lockFile, "utf8"));
+      writeFileSync(lockFile, JSON.stringify({ ...lock, blocks: [{ file: ".husky/pre-commit", kind: "shell", created: true, hash: "0".repeat(64) }] }));
+      expect(forge(["remove", "--yes"], repo).stderr).toContain("invalid lock");
+      writeFileSync(lockFile, "{");
+      expect(forge(["remove", "--yes"], repo).stderr).toContain("not valid JSON");
+      expect(existsSync(join(repo, ".forge/check.sh"))).toBe(true);
     },
     T,
   );

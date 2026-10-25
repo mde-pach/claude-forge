@@ -10,11 +10,13 @@
  * never rewrites.
  */
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { lineage, loadPacks } from "../../src/packs";
+import { detectAnywhere, lineage, loadPacks, readProjectFacts, workspaceDirs } from "../../src/packs";
 import { plan, readProjectInputs } from "../../src/plan";
+import { renderLib } from "../../src/render";
+import { auditRules } from "../../src/audit";
 import { parseStrictYaml } from "../../src/yaml";
 import { applied, forge, put, ROOT, sampleRepo, sh } from "../helpers";
 
@@ -191,6 +193,67 @@ examples:
     T,
   );
 
+  /**
+   * `forge test` checks the project's own rules: those of `.forge/rules` (a local
+   * rule replacing a pack rule is tested as written). The bundled packs are proved
+   * by Forge's own test suite (`bun run test:packs`), so they are not run here.
+   */
+  describe("forge test", () => {
+    const guard = (match: string) =>
+      `id: local/no-force-push\ndescription: No force push.\nscope: {language: any}\nenforce: [{target: guard, decision: deny, pattern: "git push.*--force"}]\nexamples: {match: [${JSON.stringify(match)}], no_match: ["git push"]}\n`;
+
+    test(
+      "runs the examples of the local rules only, and passes when they behave as declared",
+      () => {
+        const repo = sampleRepo("eslint-app");
+        put(repo, ".forge/rules/no-force-push.yaml", guard("git push --force"));
+        const r = forge(["test"], repo);
+        expect(r.status).toBe(0);
+        expect(r.stdout).toContain("forge: 1 local rule(s); ast-grep 0, guard 1, permission 0, grep 0, check 0, context 0: all passed");
+        expect(r.stdout).not.toContain("packs");
+      },
+      T,
+    );
+
+    test(
+      "fails, naming the rule, when a local rule's example does not behave as declared",
+      () => {
+        const repo = sampleRepo("eslint-app");
+        put(repo, ".forge/rules/no-force-push.yaml", guard("git push -f"));
+        const r = forge(["test"], repo);
+        expect(r.status).toBe(1);
+        expect(r.stderr).toContain('forge:test local/no-force-push [sh]: expected deny for "git push -f", got nothing');
+      },
+      T,
+    );
+
+    test(
+      "a local rule replacing a pack rule is tested as written",
+      () => {
+        const repo = sampleRepo("eslint-app");
+        put(repo, ".forge/rules/no-ts-ignore.yaml", stricter.replace("// @ts-nocheck", "// fine"));
+        const r = forge(["test"], repo);
+        expect(r.status).toBe(1);
+        expect(r.stderr).toContain("typescript/no-ts-ignore");
+      },
+      T,
+    );
+
+    test(
+      "without local rules there is nothing to test; outside a repository it is an error",
+      () => {
+        const repo = sampleRepo("eslint-app");
+        const r = forge(["test"], repo);
+        expect(r.status).toBe(0);
+        expect(r.stdout).toBe("forge: no local rules in .forge/rules; nothing to test\n");
+        const outside = forge(["test"], mkdtempSync(join(tmpdir(), "forge-norepo-")));
+        expect(outside.status).toBe(1);
+        expect(outside.stderr).toContain("not inside a git repository");
+      },
+      T,
+    );
+  });
+
   test(
     "forge.yaml and .forge/rules are inputs: apply never rewrites them, and Claude must ask to edit them",
     () => {
@@ -242,17 +305,116 @@ describe("workspaces", () => {
     expect(uv.packs.map((x) => x.id)).toEqual(["python", "python/fastapi", "python/pydantic"]);
   });
 
-  test("without a workspace declaration, packages/* are read", () => {
-    expect(planOf(inDir("packages/lib", TS)).packs.map((x) => x.id)).toEqual(["typescript", "typescript/vitest"]);
+  test("each package is detected on its own dependencies: next@14 at the root and next@16 in a package activates typescript/nextjs (>=16)", () => {
+    const p = planOf({
+      "package.json": '{"name": "mono", "private": true, "workspaces": ["apps/*"], "dependencies": {"next": "14.2.0"}}\n',
+      "tsconfig.json": "{}\n",
+      "apps/old/package.json": '{"name": "old", "dependencies": {"next": "14.2.0"}}\n',
+      "apps/new/package.json": '{"name": "new", "dependencies": {"next": "16.0.0"}}\n',
+    });
+    expect(p.packs.map((x) => x.id)).toContain("typescript/nextjs");
+  });
+
+  /**
+   * A pack detected only in some packages scopes its ast-grep rule files and grep
+   * rules to those packages (as its checks run there); its guard, permission and
+   * context entries still apply to the whole repository.
+   */
+  test("a pack detected only in some packages scopes its ast-grep and grep rules to them", () => {
+    const p = planOf({
+      "pyproject.toml": '[project]\nname = "mono"\n\n[tool.uv.workspace]\nmembers = ["services/*"]\n',
+      "services/api/pyproject.toml": '[project]\nname = "api"\ndependencies = ["fastapi>=0.115"]\n',
+      "services/worker/pyproject.toml": '[project]\nname = "worker"\ndependencies = []\n',
+    });
+    const rule = parseStrictYaml(p.files.get(".forge/ast-grep/rules/python/fastapi/cors-credentials-wildcard.yml")!, "rule") as { files?: string[] };
+    expect(rule.files).toEqual(["services/api/**"]);
+    // python itself is detected at the root: its rules stay repository-wide
+    expect((parseStrictYaml(p.files.get(".forge/ast-grep/rules/python/no-stub.yml")!, "rule") as { files?: string[] }).files).toBeUndefined();
+    const vue = planOf({
+      "package.json": '{"name": "mono", "private": true, "workspaces": ["packages/*"]}\n',
+      "packages/web/package.json": '{"name": "web", "dependencies": {"vue": "^3.4.0"}, "devDependencies": {"typescript": "^5.4.0"}}\n',
+      "packages/lib/package.json": '{"name": "lib", "devDependencies": {"typescript": "^5.4.0"}}\n',
+    });
+    expect(vue.active.find((s) => s.rule.id === "typescript/vue/no-v-html")!.enforced).toEqual(["grep forbid (.forge/check.sh) (in packages/web)"]);
+  });
+
+  test("lerna.json declares packages (packages/* by default); without any declaration the repository has no workspace packages", () => {
+    expect(planOf({ "lerna.json": "{}\n", ...inDir("packages/lib", TS) }).packs.map((x) => x.id)).toEqual(["typescript", "typescript/vitest"]);
+    expect(planOf({ "lerna.json": '{"packages": ["modules/*"]}\n', ...inDir("modules/lib", TS) }).packs.map((x) => x.id)).toEqual(["typescript", "typescript/vitest"]);
+    expect(planOf({ "pyproject.toml": '[project]\nname = "app"\n', ...inDir("packages/lib", TS) }).packs.map((x) => x.id)).toEqual(["python"]);
+  });
+
+  test("an exclusion like !**/test/** also excludes a package directory named test", () => {
+    const files = ["packages/test/package.json", "packages/core/package.json"];
+    const repo = mkdtempSync(join(tmpdir(), "forge-ws-"));
+    put(repo, "pnpm-workspace.yaml", "packages: ['packages/*', '!**/test/**']\n");
+    expect(workspaceDirs(repo, files)).toEqual(["packages/core"]);
+  });
+
+  /** 1,500 packages of 200 files: detection reads the file list once, not once per package. */
+  test("detection on a large monorepo takes well under a few seconds", () => {
+    const files = ["package.json"];
+    for (let i = 1; i <= 1500; i++) {
+      files.push(`packages/p${i}/package.json`);
+      for (let j = 0; j < 200; j++) files.push(`packages/p${i}/src/f${j}.ts`);
+    }
+    const repo = mkdtempSync(join(tmpdir(), "forge-big-"));
+    put(repo, "package.json", '{"name": "r", "private": true, "workspaces": ["packages/*"]}\n');
+    const t = performance.now();
+    const facts = readProjectFacts(repo, () => files);
+    for (const p of PACKS.values()) detectAnywhere(p, facts);
+    expect(facts.workspaces.length).toBe(1500);
+    expect(performance.now() - t).toBeLessThan(3000);
+  });
+
+  /** @rule typescript/vue/typecheck */
+  test("the Vue type check (vue-tsc through forge_exec_tool) runs in the package that has Vue", () => {
+    const ws = planOf({
+      "package.json": '{"name": "mono", "private": true, "workspaces": ["packages/*"]}\n',
+      "packages/web/package.json": '{"name": "web", "private": true, "dependencies": {"vue": "^3.4.0"}, "devDependencies": {"vue-tsc": "^2.0.0", "typescript": "^5.4.0"}}\n',
+      "packages/web/tsconfig.json": "{}\n",
+      "packages/lib/package.json": '{"name": "lib", "private": true, "devDependencies": {"typescript": "^5.4.0"}}\n',
+      "packages/lib/tsconfig.json": "{}\n",
+    });
+    expect(ws.active.find((s) => s.rule.id === "typescript/vue/typecheck")!.enforced).toEqual([expect.stringMatching(/^check typecheck: .*\(in packages\/web\)$/s)]);
+  });
+
+  /**
+   * Added lines are found against the base copy formatted like the file (§10.1):
+   * that formatter runs in the package holding the file, with its config, as the
+   * format check itself does.
+   * @rule typescript/format-lint
+   */
+  test("a format_stdin filter runs in the package that configures the formatter, on the path relative to it", () => {
+    const biome = "#!/bin/sh\ncat\nprintf '// in %s as %s\\n' \"$(basename \"$PWD\")\" \"$2\"\n";
+    const ws = planOf({
+      "package.json": '{"name": "mono", "private": true, "workspaces": ["packages/*"]}\n',
+      ...inDir("packages/a", { "package.json": '{"name": "a", "devDependencies": {"@biomejs/biome": "2.5.15"}}\n', "biome.json": "{}\n", "tsconfig.json": "{}\n" }),
+    });
+    put(ws.base, "packages/a/node_modules/.bin/biome", biome);
+    chmodSync(join(ws.base, "packages/a/node_modules/.bin/biome"), 0o755);
+    put(ws.base, "in.ts", "const a = 1;\n");
+    const script = `${renderLib()}\nIFS='\n'\n${ws.checksFragment}\nforge_format_copy packages/a/src/x.ts in.ts out.ts; echo "rc=$?"; cat out.ts`;
+    const r = sh("sh", ["-c", script], { cwd: ws.base });
+    expect(r.stdout).toBe("rc=0\nconst a = 1;\n// in a as --stdin-file-path=src/x.ts\n");
+  });
+
+  /** Each package has its own tool config: each is audited (§11), not only the first. */
+  test("a tool configured in several packages is audited in each of them", () => {
+    const ws = planOf({ "package.json": '{"name": "mono"}\n', "pnpm-workspace.yaml": "packages: [packages/*]\n", ...inDir("packages/a", TS), ...inDir("packages/b", TS) });
+    expect(ws.toolDirs.tsc).toEqual(["packages/a", "packages/b"]);
+    const st = ws.active.filter((s) => s.audits.some((t) => t.tool === "tsc")).slice(0, 1);
+    expect(auditRules(ws.base, st, (t) => ws.toolDirs[t]).map((a) => a.dir)).toEqual(["packages/a", "packages/b"]);
   });
 
   test("a check whose tool is configured in a package runs there; at the root, as before, when the root configures it", () => {
     const ws = planOf({ "package.json": '{"name": "mono"}\n', "pnpm-workspace.yaml": "packages: [packages/*]\n", ...inDir("packages/a", TS), ...inDir("packages/b", TS) });
     const typecheck = ws.active.find((s) => s.rule.id === "typescript/typecheck")!;
-    expect(typecheck.enforced).toEqual(["check typecheck: tsc --noEmit -p tsconfig.json (in packages/a, packages/b)"]);
+    const run = (typecheck.rule.enforce[0] as { run: string }).run;
+    expect(typecheck.enforced).toEqual([`check typecheck: ${run} (in packages/a, packages/b)`]);
     expect(ws.files.get(".forge/check.sh")).toContain("c_dirs='packages/a packages/b'");
     const root = planOf({ ...TS, "pnpm-workspace.yaml": "packages: [packages/*]\n", ...inDir("packages/a", TS) });
-    expect(root.active.find((s) => s.rule.id === "typescript/typecheck")!.enforced).toEqual(["check typecheck: tsc --noEmit -p tsconfig.json"]);
+    expect(root.active.find((s) => s.rule.id === "typescript/typecheck")!.enforced).toEqual([`check typecheck: ${run}`]);
   });
 });
 

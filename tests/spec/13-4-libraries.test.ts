@@ -5,9 +5,13 @@
  * to that ecosystem. A Python library's `pyproject.toml` names the project and
  * declares a `[build-system]` (an application from `uv init` has none), has no
  * `[project.scripts]` / `[project.gui-scripts]`, no `Private ::` classifier and
- * no `manage.py`. An npm library's `package.json` is not `"private": true`, has a
- * `name`, and declares `exports`, or `main` / `module` together with `types`,
- * `typings` or `files` (`main` alone is `npm init`'s default). Some checks run the
+ * no `manage.py` in its package, and something shows it is published (trove
+ * classifiers, or a CI workflow uploading to PyPI). An npm library's
+ * `package.json` is not `"private": true`, has a `name`, declares `exports`, or
+ * `main` / `module` together with `types`, `typings` or `files` (`main` alone is
+ * `npm init`'s default), and is published (`publishConfig`, Changesets, or a CI
+ * workflow running a publish command). Otherwise the pack is added in
+ * `forge.yaml`. Some checks run the
  * project's own code: Django's `makemigrations --check`, and helpers that compare
  * the public API with the base.
  */
@@ -15,41 +19,74 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { isNpmLibrary, isPyLibrary } from "../../src/packs";
+import { isNpmLibrary, isPyLibrary, publishSignals, readProjectFacts } from "../../src/packs";
 import { commitAll, ensureTools, forge, git, hasUv, linkTools, put, sh } from "../helpers";
 
 const T = 180_000;
 
 /** @pack python/library */
 describe("a Python library", () => {
-  const lib = { project: { name: "acme" }, "build-system": { "build-backend": "hatchling.build" } };
-  test("is a named project with a build backend", () => {
+  const lib = { project: { name: "acme", classifiers: ["Programming Language :: Python :: 3"] }, "build-system": { "build-backend": "hatchling.build" } };
+  const bare = { project: { name: "acme" }, "build-system": { "build-backend": "hatchling.build" } };
+  test("is a named project with a build backend and evidence it is published: trove classifiers, or a CI workflow uploading to PyPI", () => {
     expect(isPyLibrary(lib, false)).toBe(true);
+    expect(isPyLibrary(bare, false, true)).toBe(true);
+  });
+  test("a build backend alone is not evidence: a packaged service or a uv workspace member has one too", () => {
+    const service = { project: { name: "svc", version: "0.1.0", dependencies: ["fastapi"] }, "build-system": { requires: ["hatchling"], "build-backend": "hatchling.build" } };
+    expect(isPyLibrary(service, false)).toBe(false);
   });
   test("is not an application: no build backend, console scripts, a Private classifier or a manage.py", () => {
-    expect(isPyLibrary({ project: { name: "app" } }, false)).toBe(false);
-    expect(isPyLibrary({ ...lib, project: { name: "acme", scripts: { acme: "acme.cli:main" } } }, false)).toBe(false);
-    expect(isPyLibrary({ ...lib, project: { name: "acme", classifiers: ["Private :: Do Not Upload"] } }, false)).toBe(false);
+    expect(isPyLibrary({ project: { name: "app" } }, false, true)).toBe(false);
+    expect(isPyLibrary({ ...lib, project: { ...lib.project, scripts: { acme: "acme.cli:main" } } }, false)).toBe(false);
+    expect(isPyLibrary({ ...lib, project: { name: "acme", classifiers: ["Private :: Do Not Upload"] } }, false, true)).toBe(false);
     expect(isPyLibrary(lib, true)).toBe(false);
+  });
+  test("malformed metadata (classifiers that are not a list, a project that is not a table) is not a library, and does not crash detection", () => {
+    expect(isPyLibrary({ ...bare, project: { name: "acme", classifiers: "Private :: Do Not Upload" } }, false)).toBe(false);
+    expect(isPyLibrary({ ...bare, project: "acme" }, false, true)).toBe(false);
+  });
+  test("a manage.py makes only its own workspace package a Django site", () => {
+    const repo = mkdtempSync(join(tmpdir(), "forge-pylib-"));
+    put(repo, "pyproject.toml", '[project]\nname = "acme"\nclassifiers = ["Programming Language :: Python :: 3"]\n\n[build-system]\nrequires = ["hatchling"]\nbuild-backend = "hatchling.build"\n\n[tool.uv.workspace]\nmembers = ["sites/*"]\n');
+    put(repo, "sites/web/pyproject.toml", '[project]\nname = "web"\nclassifiers = ["Framework :: Django"]\n\n[build-system]\nrequires = ["hatchling"]\nbuild-backend = "hatchling.build"\n');
+    put(repo, "sites/web/manage.py", "");
+    const facts = readProjectFacts(repo, () => ["pyproject.toml", "sites/web/pyproject.toml", "sites/web/manage.py"]);
+    expect([...facts.root.library]).toEqual(["pypi"]);
+    expect([...facts.workspaces[0]!.library]).toEqual([]);
   });
 });
 
 /** @pack typescript/library */
 describe("an npm library", () => {
-  test("declares exports, or main or module with types, typings or files, and is not private", () => {
-    expect(isNpmLibrary({ name: "acme", exports: { ".": "./dist/index.js" } })).toBe(true);
-    expect(isNpmLibrary({ name: "acme", main: "dist/index.js", types: "dist/index.d.ts" })).toBe(true);
+  const pub = { access: "public" };
+  test("declares exports, or main or module with types, typings or files, is not private, and is published: publishConfig or a release set-up", () => {
+    expect(isNpmLibrary({ name: "acme", exports: { ".": "./dist/index.js" }, publishConfig: pub })).toBe(true);
+    expect(isNpmLibrary({ name: "acme", main: "dist/index.js", types: "dist/index.d.ts" }, true)).toBe(true);
   });
   test("is not an application: private, unnamed, or only npm init's main", () => {
-    expect(isNpmLibrary({ name: "web", private: true, exports: "./index.js" })).toBe(false);
-    expect(isNpmLibrary({ exports: "./index.js" })).toBe(false);
-    expect(isNpmLibrary({ name: "server", main: "index.js" })).toBe(false);
+    expect(isNpmLibrary({ name: "web", private: true, exports: "./index.js", publishConfig: pub })).toBe(false);
+    expect(isNpmLibrary({ exports: "./index.js", publishConfig: pub })).toBe(false);
+    expect(isNpmLibrary({ name: "server", main: "index.js" }, true)).toBe(false);
   });
-  test("forge apply activates typescript/library for a library and not for a private app", () => {
+  test("an internal workspace package that exports, without anything publishing it, is not a library", () => {
+    expect(isNpmLibrary({ name: "@acme/lib", exports: "./dist/index.js" })).toBe(false);
+  });
+  test("release set-ups that publish: Changesets, or a CI workflow running a publish command", () => {
+    const repo = mkdtempSync(join(tmpdir(), "forge-pub-"));
+    put(repo, ".github/workflows/release.yml", "jobs:\n  r:\n    steps:\n      - run: uv build && uv publish\n");
+    expect(publishSignals(repo, [".github/workflows/release.yml"])).toEqual({ pypi: true, npm: false });
+    put(repo, ".github/workflows/release.yml", "jobs:\n  r:\n    steps:\n      - run: pnpm publish -r\n");
+    expect(publishSignals(repo, [".github/workflows/release.yml"])).toEqual({ pypi: false, npm: true });
+    expect(publishSignals(repo, [".changeset/config.json"]).npm).toBe(true);
+    put(repo, ".github/workflows/ci.yml", "jobs:\n  t:\n    steps:\n      - run: npm test\n");
+    expect(publishSignals(repo, [".github/workflows/ci.yml"])).toEqual({ pypi: false, npm: false });
+  });
+  test("forge apply activates typescript/library for a published library and not for a private app", () => {
     const repo = mkdtempSync(join(tmpdir(), "forge-lib-"));
     try {
       git(repo, "init", "-q", "-b", "main");
-      put(repo, "package.json", '{"name":"acme","version":"1.0.0","exports":"./dist/index.js","devDependencies":{"typescript":"5.9.3"}}\n');
+      put(repo, "package.json", '{"name":"acme","version":"1.0.0","exports":"./dist/index.js","publishConfig":{"access":"public"},"devDependencies":{"typescript":"5.9.3"}}\n');
       put(repo, "src/index.ts", "export const one = 1;\n");
       commitAll(repo, "init");
       expect(forge(["status"], repo).stdout).toContain("typescript/library");
