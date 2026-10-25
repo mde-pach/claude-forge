@@ -3163,6 +3163,22 @@ forge_related_py_tests() {
   } | sort -u
 }
 
+# forge_state_file <name>: an absolute path for a tool's cache file (tsc's build info)
+# under the repository root's .forge/state/ (ignored by git), never in the project: in
+# a workspace package (FORGE_WS_ROOT set), one per package, "<package dir with / as
+# ->.<name>", so packages neither share it nor get a .forge/ of their own.
+forge_state_file() {
+  _sf_root=${FORGE_WS_ROOT:-$(pwd)}
+  _sf_pkg=''
+  if [ -n "${FORGE_WS_ROOT:-}" ]; then
+    _sf_pkg=$(pwd)
+    _sf_pkg=${_sf_pkg#"$FORGE_WS_ROOT"}
+    _sf_pkg=$(printf '%s' "${_sf_pkg#/}" | tr '/' '-')
+  fi
+  mkdir -p "$_sf_root/.forge/state" 2>/dev/null
+  printf '%s/.forge/state/%s%s' "$_sf_root" "${_sf_pkg:+$_sf_pkg.}" "$1"
+}
+
 # forge_in_dirs <fn> <files|all>: runs <fn> in each workspace package of $c_dirs, with
 # FORGE_WS_ROOT set (tool() falls back to the root's install). "files": only in packages
 # holding files of $FORGE_FILES, given to <fn> relative to the package. Relative paths
@@ -5956,6 +5972,22 @@ forge_related_py_tests() {
     esac
   done
   } | sort -u
+}
+
+# forge_state_file <name>: an absolute path for a tool's cache file (tsc's build info)
+# under the repository root's .forge/state/ (ignored by git), never in the project: in
+# a workspace package (FORGE_WS_ROOT set), one per package, "<package dir with / as
+# ->.<name>", so packages neither share it nor get a .forge/ of their own.
+forge_state_file() {
+  _sf_root=${FORGE_WS_ROOT:-$(pwd)}
+  _sf_pkg=''
+  if [ -n "${FORGE_WS_ROOT:-}" ]; then
+    _sf_pkg=$(pwd)
+    _sf_pkg=${_sf_pkg#"$FORGE_WS_ROOT"}
+    _sf_pkg=$(printf '%s' "${_sf_pkg#/}" | tr '/' '-')
+  fi
+  mkdir -p "$_sf_root/.forge/state" 2>/dev/null
+  printf '%s/.forge/state/%s%s' "$_sf_root" "${_sf_pkg:+$_sf_pkg.}" "$1"
 }
 
 # forge_in_dirs <fn> <files|all>: runs <fn> in each workspace package of $c_dirs, with
@@ -8765,6 +8797,22 @@ forge_related_py_tests() {
     esac
   done
   } | sort -u
+}
+
+# forge_state_file <name>: an absolute path for a tool's cache file (tsc's build info)
+# under the repository root's .forge/state/ (ignored by git), never in the project: in
+# a workspace package (FORGE_WS_ROOT set), one per package, "<package dir with / as
+# ->.<name>", so packages neither share it nor get a .forge/ of their own.
+forge_state_file() {
+  _sf_root=${FORGE_WS_ROOT:-$(pwd)}
+  _sf_pkg=''
+  if [ -n "${FORGE_WS_ROOT:-}" ]; then
+    _sf_pkg=$(pwd)
+    _sf_pkg=${_sf_pkg#"$FORGE_WS_ROOT"}
+    _sf_pkg=$(printf '%s' "${_sf_pkg#/}" | tr '/' '-')
+  fi
+  mkdir -p "$_sf_root/.forge/state" 2>/dev/null
+  printf '%s/.forge/state/%s%s' "$_sf_root" "${_sf_pkg:+$_sf_pkg.}" "$1"
 }
 
 # forge_in_dirs <fn> <files|all>: runs <fn> in each workspace package of $c_dirs, with
@@ -11598,6 +11646,22 @@ forge_related_py_tests() {
     esac
   done
   } | sort -u
+}
+
+# forge_state_file <name>: an absolute path for a tool's cache file (tsc's build info)
+# under the repository root's .forge/state/ (ignored by git), never in the project: in
+# a workspace package (FORGE_WS_ROOT set), one per package, "<package dir with / as
+# ->.<name>", so packages neither share it nor get a .forge/ of their own.
+forge_state_file() {
+  _sf_root=${FORGE_WS_ROOT:-$(pwd)}
+  _sf_pkg=''
+  if [ -n "${FORGE_WS_ROOT:-}" ]; then
+    _sf_pkg=$(pwd)
+    _sf_pkg=${_sf_pkg#"$FORGE_WS_ROOT"}
+    _sf_pkg=$(printf '%s' "${_sf_pkg#/}" | tr '/' '-')
+  fi
+  mkdir -p "$_sf_root/.forge/state" 2>/dev/null
+  printf '%s/.forge/state/%s%s' "$_sf_root" "${_sf_pkg:+$_sf_pkg.}" "$1"
 }
 
 # forge_in_dirs <fn> <files|all>: runs <fn> in each workspace package of $c_dirs, with
@@ -15450,6 +15514,22 @@ forge_related_py_tests() {
   } | sort -u
 }
 
+# forge_state_file <name>: an absolute path for a tool's cache file (tsc's build info)
+# under the repository root's .forge/state/ (ignored by git), never in the project: in
+# a workspace package (FORGE_WS_ROOT set), one per package, "<package dir with / as
+# ->.<name>", so packages neither share it nor get a .forge/ of their own.
+forge_state_file() {
+  _sf_root=${FORGE_WS_ROOT:-$(pwd)}
+  _sf_pkg=''
+  if [ -n "${FORGE_WS_ROOT:-}" ]; then
+    _sf_pkg=$(pwd)
+    _sf_pkg=${_sf_pkg#"$FORGE_WS_ROOT"}
+    _sf_pkg=$(printf '%s' "${_sf_pkg#/}" | tr '/' '-')
+  fi
+  mkdir -p "$_sf_root/.forge/state" 2>/dev/null
+  printf '%s/.forge/state/%s%s' "$_sf_root" "${_sf_pkg:+$_sf_pkg.}" "$1"
+}
+
 # forge_in_dirs <fn> <files|all>: runs <fn> in each workspace package of $c_dirs, with
 # FORGE_WS_ROOT set (tool() falls back to the root's install). "files": only in packages
 # holding files of $FORGE_FILES, given to <fn> relative to the package. Relative paths
@@ -16441,13 +16521,13 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "ff61a19974ccfc38fe6771978c9f9fe21253d4132eff8af9f06b112607965a00",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
     ".claude/skills/forge-project/scripts/lib.sh": "c68e88cee33407a544446c0dab82e648fe28645fd2ffec56feb1f38c294698d1",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "cba0245f48170dbfc4e5bb50daa5ca80743a5fb253d24f9877cc8c125cec5238",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "8046c6f621af3494d4377ae136f98cec3d7d8de8c6e1a995ae4f7d0e49b98755",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
-    ".claude/skills/forge-project/scripts/session-start.sh": "22b1319f64ac22564ce13990b9f68dcde1ccf789d659c711730b9057ad5720e4",
+    ".claude/skills/forge-project/scripts/session-start.sh": "a3fd862e5daeae96630799f81032032a9a1a1f4bcf2145fe2aa34fce76f6405c",
     ".claude/skills/forge-project/scripts/stop.sh": "0adfa608a9bbcc166b30c6009e1b21e986d12b49283beff2230177455e03a5a0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "22eef07573580d40e49d4cce4272c578ca1786ae3adf94b7de9de3fd136655bd",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "1e728c4731d64c80a970911730a1b596bee07b89d9ca22b74af7643cf1530d98",
     ".claude/skills/forge-project/scripts/turn-start.sh": "3d6bbb9aed56181032c9e7c05ba1c20e8080ca104e831a193b42a825e3a12531",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "70f4f4759115cac7292b6e98069ac92bd00458b90cd4864ebbde5898200c64d2",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "12b3150923797c3db1c0fd7ef68bf0141b72177532e2dde1a84a21ec36530656",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/docker-compose-datastore-loopback-test.yml": "75507971edac1d4a2eca04e6bceb8a942429c0987372010b39ad0b7f126b55e9",
     ".forge/ast-grep/rule-tests/docker-compose-healthy-depends-test.yml": "bcd21e7f9112e5f0d44c9f5c9779824661b2f1dc40448323100787f342c4b7a8",
@@ -16470,7 +16550,7 @@ exit "$fail"
     ".forge/ast-grep/rules/python/no-secret-logging.yml": "d1cc1125fbf2e0916feeb06ba558b55d10b7f3e261987de058c46c20c2ebec8f",
     ".forge/ast-grep/rules/python/no-stub.yml": "0660a06b80fa4e3cccbc89f496275e8f093b873632d1d93ecb48e4315d987bbf",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "cb887a28ca295287d5e0c5ffad8d4a2e9667bdb391d40b552b3e084bac22cdcd",
+    ".forge/check.sh": "800c375ca9b753e16de3b6f6bb52a9a35dd4d77133033d8cb34401eb7b0d49bb",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -16523,13 +16603,13 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 ff61a19974ccfc38fe6771978c9f9fe21253d4132eff8af9f06b112607965a00  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
 c68e88cee33407a544446c0dab82e648fe28645fd2ffec56feb1f38c294698d1  .claude/skills/forge-project/scripts/lib.sh
-cba0245f48170dbfc4e5bb50daa5ca80743a5fb253d24f9877cc8c125cec5238  .claude/skills/forge-project/scripts/post-edit.sh
+8046c6f621af3494d4377ae136f98cec3d7d8de8c6e1a995ae4f7d0e49b98755  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
-22b1319f64ac22564ce13990b9f68dcde1ccf789d659c711730b9057ad5720e4  .claude/skills/forge-project/scripts/session-start.sh
+a3fd862e5daeae96630799f81032032a9a1a1f4bcf2145fe2aa34fce76f6405c  .claude/skills/forge-project/scripts/session-start.sh
 0adfa608a9bbcc166b30c6009e1b21e986d12b49283beff2230177455e03a5a0  .claude/skills/forge-project/scripts/stop.sh
-22eef07573580d40e49d4cce4272c578ca1786ae3adf94b7de9de3fd136655bd  .claude/skills/forge-project/scripts/test-edit.sh
+1e728c4731d64c80a970911730a1b596bee07b89d9ca22b74af7643cf1530d98  .claude/skills/forge-project/scripts/test-edit.sh
 3d6bbb9aed56181032c9e7c05ba1c20e8080ca104e831a193b42a825e3a12531  .claude/skills/forge-project/scripts/turn-start.sh
-70f4f4759115cac7292b6e98069ac92bd00458b90cd4864ebbde5898200c64d2  .claude/skills/forge-project/scripts/typecheck.sh
+12b3150923797c3db1c0fd7ef68bf0141b72177532e2dde1a84a21ec36530656  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 75507971edac1d4a2eca04e6bceb8a942429c0987372010b39ad0b7f126b55e9  .forge/ast-grep/rule-tests/docker-compose-datastore-loopback-test.yml
 bcd21e7f9112e5f0d44c9f5c9779824661b2f1dc40448323100787f342c4b7a8  .forge/ast-grep/rule-tests/docker-compose-healthy-depends-test.yml
@@ -16552,7 +16632,7 @@ e4fd92858db90ac12b535496548f182e453e83bc9cb24f53a102ab7fc98cd67b  .forge/ast-gre
 d1cc1125fbf2e0916feeb06ba558b55d10b7f3e261987de058c46c20c2ebec8f  .forge/ast-grep/rules/python/no-secret-logging.yml
 0660a06b80fa4e3cccbc89f496275e8f093b873632d1d93ecb48e4315d987bbf  .forge/ast-grep/rules/python/no-stub.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-cb887a28ca295287d5e0c5ffad8d4a2e9667bdb391d40b552b3e084bac22cdcd  .forge/check.sh
+800c375ca9b753e16de3b6f6bb52a9a35dd4d77133033d8cb34401eb7b0d49bb  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

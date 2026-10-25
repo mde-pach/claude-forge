@@ -1861,6 +1861,22 @@ forge_related_py_tests() {
   } | sort -u
 }
 
+# forge_state_file <name>: an absolute path for a tool's cache file (tsc's build info)
+# under the repository root's .forge/state/ (ignored by git), never in the project: in
+# a workspace package (FORGE_WS_ROOT set), one per package, "<package dir with / as
+# ->.<name>", so packages neither share it nor get a .forge/ of their own.
+forge_state_file() {
+  _sf_root=${FORGE_WS_ROOT:-$(pwd)}
+  _sf_pkg=''
+  if [ -n "${FORGE_WS_ROOT:-}" ]; then
+    _sf_pkg=$(pwd)
+    _sf_pkg=${_sf_pkg#"$FORGE_WS_ROOT"}
+    _sf_pkg=$(printf '%s' "${_sf_pkg#/}" | tr '/' '-')
+  fi
+  mkdir -p "$_sf_root/.forge/state" 2>/dev/null
+  printf '%s/.forge/state/%s%s' "$_sf_root" "${_sf_pkg:+$_sf_pkg.}" "$1"
+}
+
 # forge_in_dirs <fn> <files|all>: runs <fn> in each workspace package of $c_dirs, with
 # FORGE_WS_ROOT set (tool() falls back to the root's install). "files": only in packages
 # holding files of $FORGE_FILES, given to <fn> relative to the package. Relative paths

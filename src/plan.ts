@@ -140,7 +140,8 @@ export function toolPlaces(repo: string, facts: ProjectFacts): Record<AuditedToo
  * (helpers work on repository paths: ratchet, migrations, Docker).
  */
 function perPackage(t: CheckTarget): boolean {
-  return !/\bforge_[a-z_]+/.test([t.run, t.changed_run ?? "", t.fix_run ?? ""].join("\n")) && checkTools(t).some((x) => (PROJECT_TOOLS as readonly string[]).includes(x));
+  // engine helpers run at the root, except forge_state_file (a path for the package's tool cache)
+  return !/\bforge_(?!state_file\b)[a-z_]+/.test([t.run, t.changed_run ?? "", t.fix_run ?? ""].join("\n")) && checkTools(t).some((x) => (PROJECT_TOOLS as readonly string[]).includes(x));
 }
 
 // ---------------------------------------------------------------- active packs

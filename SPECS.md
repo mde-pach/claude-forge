@@ -542,7 +542,7 @@ context.md: uv and `.venv/bin`, basedpyright; no blocking calls in `async def`; 
 | Rule | Targets |
 |---|---|
 | `typescript/format-lint` | `check` lint: `run: biome ci .`, `changed_run: biome check --write {files}`, `format_stdin: biome format --stdin-file-path={file}`; no `fix_run`: `changed_run` applies Biome's safe fixes itself (removing unused imports or variables is unsafe, so it is not done) |
-| `typescript/typecheck` | `check` typecheck: `run: tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile .forge/state/tsc.tsbuildinfo` (plain diagnostics; incremental, TypeScript ≥ 4.0, with the build info under `.forge/state/` so a project's own or composite build info is never written) |
+| `typescript/typecheck` | `check` typecheck: `run: tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile "$(forge_state_file tsc.tsbuildinfo)"` (plain diagnostics; incremental, TypeScript ≥ 4.0, with the build info under the repository root's `.forge/state/`, as an absolute path, one file per workspace package (`<package dir, / as ->.tsc.tsbuildinfo`), so a project's own or composite build info is never written and a package never gets a `.forge/` of its own) |
 | `typescript/no-implicit-any` | `tool` tsc: expects `TS7006` on an untyped parameter (`noImplicitAny`, part of `strict`) |
 | `typescript/strict-null-checks` | `tool` tsc: expects `TS18047` on a possibly-null access (`strictNullChecks`) |
 | `typescript/strict-function-types` | `tool` tsc: expects `TS2322` on a parameter-bivariant assignment (`strictFunctionTypes`) |

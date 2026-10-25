@@ -249,10 +249,11 @@ describe("workspaces", () => {
   test("a check whose tool is configured in a package runs there; at the root, as before, when the root configures it", () => {
     const ws = planOf({ "package.json": '{"name": "mono"}\n', "pnpm-workspace.yaml": "packages: [packages/*]\n", ...inDir("packages/a", TS), ...inDir("packages/b", TS) });
     const typecheck = ws.active.find((s) => s.rule.id === "typescript/typecheck")!;
-    expect(typecheck.enforced).toEqual(["check typecheck: tsc --noEmit -p tsconfig.json (in packages/a, packages/b)"]);
+    const TSC = 'tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile "$(forge_state_file tsc.tsbuildinfo)"';
+    expect(typecheck.enforced).toEqual([`check typecheck: ${TSC} (in packages/a, packages/b)`]);
     expect(ws.files.get(".forge/check.sh")).toContain("c_dirs='packages/a packages/b'");
     const root = planOf({ ...TS, "pnpm-workspace.yaml": "packages: [packages/*]\n", ...inDir("packages/a", TS) });
-    expect(root.active.find((s) => s.rule.id === "typescript/typecheck")!.enforced).toEqual(["check typecheck: tsc --noEmit -p tsconfig.json"]);
+    expect(root.active.find((s) => s.rule.id === "typescript/typecheck")!.enforced).toEqual([`check typecheck: ${TSC}`]);
   });
 });
 
