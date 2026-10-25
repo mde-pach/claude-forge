@@ -766,6 +766,23 @@ describe("test edits", () => {
     T,
   );
 
+  /** @rule python/pytest/no-test-edits */
+  test(
+    "a test file whose name holds = (test_rate=fee.py) is read as a file, so changing its test asks too",
+    () => {
+      const t = "test_rate=fee.py";
+      head = git(repo, "rev-parse", "HEAD").stdout.trim();
+      put(repo, t, BEFORE);
+      git(repo, "add", t);
+      git(repo, "commit", "-qm", "tests", "--no-verify");
+      hook("turn-start.sh", { session_id: "s-eq", hook_event_name: "UserPromptSubmit", prompt: "Fix it." });
+      const out = hook("test-edit.sh", { session_id: "s-eq", hook_event_name: "PreToolUse", tool_name: "Edit", tool_use_id: "tu-eq", tool_input: { file_path: join(repo, t), old_string: "== 100", new_string: "== 90" } }, human).stdout;
+      expect(ask(out).permissionDecisionReason).toContain('test_rate=fee.py "test_total" (changed)');
+      finish();
+    },
+    T,
+  );
+
   test(
     "nobody being there, the reviewer answers whether the change is required by the user's request for the turn, which turn-start.sh saved",
     () => {

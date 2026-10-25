@@ -9390,7 +9390,7 @@ else
         i = all ? index(s, o) : 0
       }
       printf "%s", out s
-    }' "$FORGE_TMP/old" "$FORGE_TMP/new" "$file" > "$FORGE_TMP/v/after/$file" || exit 0
+    }' "$FORGE_TMP/old" "$FORGE_TMP/new" "./$file" > "$FORGE_TMP/v/after/$file" || exit 0
 fi
 printf 'base/%s\nbefore/%s\nafter/%s\n' "$file" "$file" "$file" > "$FORGE_TMP/list"
 forge_test_blocks "$FORGE_TMP/v" "$FORGE_TMP/list" > "$FORGE_TMP/blocks" || exit 0
@@ -16328,7 +16328,7 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
     ".claude/skills/forge-project/scripts/session-start.sh": "9321d35923d0b325755598ff8079059c5dacc6b0c51d4c96d240a027442a1167",
     ".claude/skills/forge-project/scripts/stop.sh": "0adfa608a9bbcc166b30c6009e1b21e986d12b49283beff2230177455e03a5a0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "c73be6a058fc0a16c728362ed93fea0cd75dbb7d9b82b650f0b421cff3332d9a",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "d9f14d3098c475cd4c4de109223ec26ff291534eb2c6e340ee614100aa3e7578",
     ".claude/skills/forge-project/scripts/turn-start.sh": "3d6bbb9aed56181032c9e7c05ba1c20e8080ca104e831a193b42a825e3a12531",
     ".claude/skills/forge-project/scripts/typecheck.sh": "e666cf2d5e0941b8d153a80d0c49ad91503664e16ea4fd43d566721ec36733f9",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
@@ -16417,7 +16417,7 @@ ee5ec200b5335e694bc0f6f59520dc483e50627805c813c383a350cd1913108c  .claude/skills
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
 9321d35923d0b325755598ff8079059c5dacc6b0c51d4c96d240a027442a1167  .claude/skills/forge-project/scripts/session-start.sh
 0adfa608a9bbcc166b30c6009e1b21e986d12b49283beff2230177455e03a5a0  .claude/skills/forge-project/scripts/stop.sh
-c73be6a058fc0a16c728362ed93fea0cd75dbb7d9b82b650f0b421cff3332d9a  .claude/skills/forge-project/scripts/test-edit.sh
+d9f14d3098c475cd4c4de109223ec26ff291534eb2c6e340ee614100aa3e7578  .claude/skills/forge-project/scripts/test-edit.sh
 3d6bbb9aed56181032c9e7c05ba1c20e8080ca104e831a193b42a825e3a12531  .claude/skills/forge-project/scripts/turn-start.sh
 e666cf2d5e0941b8d153a80d0c49ad91503664e16ea4fd43d566721ec36733f9  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
