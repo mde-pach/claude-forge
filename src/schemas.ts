@@ -181,6 +181,7 @@ export const ruleSchema = {
         no_match: { type: "array", items: example },
       },
     },
+    review: { type: "string", minLength: 1, pattern: "^[^\\n\\t]+$" },
     deprecated: {
       type: "object",
       additionalProperties: false,

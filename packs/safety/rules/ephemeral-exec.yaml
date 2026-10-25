@@ -1,6 +1,7 @@
 id: safety/ephemeral-exec
 description: Claude asks before running a package fetched from a registry on the fly (pnpm dlx, pipx run, a launcher given --package or name@version, or npx / bunx / uvx on a command not installed in the project); a typo or a hijacked name runs someone else's code. Tools installed in the project (npx tsc, bunx prisma) run as usual.
 scope: {language: any}
+review: "This command would fetch a package from a registry and run it (the rule's finding names it): is that exact package a well-known, legitimate one that this work plausibly needs, spelled right? Deny a name you cannot place, a likely typo or a lookalike of a known package."
 enforce:
   - target: guard
     decision: ask

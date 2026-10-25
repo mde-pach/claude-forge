@@ -105,6 +105,8 @@ export interface Rule {
   enforce: Target[];
   examples?: { match?: Example[]; no_match?: Example[] };
   deprecated?: { replaced_by: string };
+  /** For an ask: the one question an independent reviewer answers when nobody can (§9.3). */
+  review?: string;
   /** Absolute path of the rule file. */
   file: string;
   /** sha256 of the rule file content. */

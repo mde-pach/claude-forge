@@ -221,7 +221,7 @@ guard_installed() {
   done
 }
 
-# the matching rules in guard.rules order (denies first), "decision<TAB>id<TAB>check<TAB>description",
+# the matching rules in guard.rules order (denies first), "decision<TAB>id<TAB>check<TAB>review<TAB>description",
 # up to the first one without a check: nothing after it can win
 hits=$(printf '%s' "$input" | awk -F '\t' -v rules="$dir/guard.rules" '
   { buf = buf $0 " " }
@@ -239,19 +239,20 @@ hits=$(printf '%s' "$input" | awk -F '\t' -v rules="$dir/guard.rules" '
       split(line, f, "\t")
       if ((f[2] != "deny" && f[2] != "ask") || cmd !~ f[3]) continue
       d = f[4]; gsub(/\\/, "\\\\", d); gsub(/"/, "\\\"", d)
-      printf "%s\t%s\t%s\t%s\n", f[2], f[1], (f[5] == "" ? "-" : f[5]), d
+      printf "%s\t%s\t%s\t%s\t%s\n", f[2], f[1], (f[5] == "" ? "-" : f[5]), (f[6] == "" ? "-" : f[6]), d
       if (f[5] == "") exit 0
     }
   }
 ') || exit 1
 [ -n "$hits" ] || exit 0
 out=''
-while IFS='	' read -r decision id check desc; do
-  detail=''
+while IFS='	' read -r decision id check question desc; do
+  finding=''
   if [ "$check" != - ]; then
-    detail=$(guard_check_"$(printf '%s' "$check" | tr '-' '_')") || continue
-    detail=$(printf '%s' "$detail" | tr -d '\n\r\t' | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')
+    finding=$(guard_check_"$(printf '%s' "$check" | tr '-' '_')") || continue
+    finding=$(printf '%s' "$finding" | tr -d '\n\r\t')
   fi
+  detail=$(printf '%s' "$finding" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')
   out=$(printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"%s","permissionDecisionReason":"forge:%s %s%s"}}' "$decision" "$id" "$desc" "${detail:+ Here: $detail.}")
   break
 done <<EOF
@@ -260,7 +261,11 @@ EOF
 case $out in
   *'"permissionDecision":"ask"'*)
     if [ -z "${FORGE_REVIEWER:-}" ] && [ "${FORGE_ASK_REVIEW:-auto}" != never ] && [ -f "$dir/review.sh" ]; then
-      reviewed=$(printf '%s' "$input" | sh "$dir/review.sh" pre "$id")
+      # the reviewer answers this rule's concern only: its description (JSON-escaped in
+      # guard.rules), the check's finding, and its review question
+      concern=$(printf '%s' "$desc" | sed -e 's/\\"/"/g' -e 's/\\\\/\\/g')${finding:+ Here: $finding.}
+      [ "$question" = - ] && question=''
+      reviewed=$(printf '%s' "$input" | sh "$dir/review.sh" pre "$id" "$concern" "$question")
       [ -n "$reviewed" ] && out=$reviewed
     fi ;;
 esac

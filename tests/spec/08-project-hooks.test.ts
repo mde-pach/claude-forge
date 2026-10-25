@@ -106,8 +106,10 @@ describe("asks nobody can answer", () => {
     chmodSync(join(bin, "claude"), 0o755);
   }, T);
   const log = () => join(bin, "log");
-  function run(script: string, fields: Record<string, unknown>, env: Record<string, string>) {
+  /** Runs a hook script; verdicts cached by an earlier test are dropped unless `keepCache`. */
+  function run(script: string, fields: Record<string, unknown>, env: Record<string, string>, keepCache = false) {
     rmSync(log(), { force: true });
+    if (!keepCache) rmSync(join(ts, ".forge/state/review-cache"), { force: true });
     return sh("sh", [join(SCRIPTS, script)], {
       cwd: ts,
       input: hookJson({ cwd: ts, permission_mode: "default", ...fields }),
@@ -156,6 +158,45 @@ describe("asks nobody can answer", () => {
       expect(call).toContain('Input: {"command":"npm install left-pad"}');
       expect(call).toContain("Forge flagged it with rule typescript/bun/no-other-pm.");
       expect(call).not.toContain("/secret/transcript.jsonl");
+    },
+    T,
+  );
+
+  /** @rule safety/ephemeral-exec */
+  test(
+    "the reviewer of a rule's ask judges only that rule's concern: its description, the check's finding and the rule's review question, not the rest of the command",
+    () => {
+      const g = mkdtempSync(join(tmpdir(), "forge-guard-review-"));
+      for (const f of ["guard.sh", "review.sh", "lib.sh"]) writeFileSync(join(g, f), readFileSync(join(ts, SCRIPTS, f)));
+      writeFileSync(
+        join(g, "guard.rules"),
+        "safety/ephemeral-exec\task\tnpx\tPackages fetched on the fly.\tephemeral-exec\tIs that exact package legitimate?\n",
+      );
+      rmSync(log(), { force: true });
+      const out = sh("sh", [join(g, "guard.sh")], {
+        cwd: ts,
+        input: hookJson({ cwd: ts, session_id: "s-review", permission_mode: "default", hook_event_name: "PreToolUse", tool_name: "Bash", tool_input: { command: "git stash && npx some-typo; git stash pop" } }),
+        env: { PATH: `${bin}:${process.env.PATH}`, FAKE_LOG: log(), FAKE_REASON: "unknown name", FAKE_DECISION: "deny", CLAUDE_CODE_ENTRYPOINT: "sdk-cli", FORGE_ASK_REVIEW: "", FORGE_REVIEWER: "" },
+      }).stdout;
+      expect(decision(out).permissionDecision).toBe("deny");
+      const call = readFileSync(log(), "utf8");
+      expect(call).toContain("Forge flagged it with rule safety/ephemeral-exec. The concern of that rule: Packages fetched on the fly. Here: some-typo is not installed where the command runs");
+      expect(call).toContain("The question you answer: Is that exact package legitimate?");
+      expect(call).toContain("Judge only that question. The rest of the action is not under review");
+    },
+    T,
+  );
+
+  test(
+    "a verdict is reused for the same rule and input (whitespace aside) within a session",
+    () => {
+      const first = { ...npm, session_id: "s-cache", tool_input: { command: "npm install  left-pad" } };
+      expect(decision(run("guard.sh", first, { FAKE_DECISION: "deny", FAKE_REASON: "Bun project" }).stdout).permissionDecision).toBe("deny");
+      expect(existsSync(log())).toBe(true);
+      const again = run("guard.sh", { ...first, tool_input: { command: "npm install left-pad" } }, { FAKE_DECISION: "allow" }, true);
+      expect(decision(again.stdout).permissionDecision).toBe("deny");
+      expect(existsSync(log())).toBe(false);
+      expect(decision(run("guard.sh", { ...first, session_id: "s-other" }, { FAKE_DECISION: "allow" }, true).stdout).permissionDecision).toBe("allow");
     },
     T,
   );
