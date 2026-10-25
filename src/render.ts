@@ -198,13 +198,15 @@ export const PYTHON_TOOLS = new Set(["ruff", "basedpyright", "alembic", "pytest"
 const HELPER_SCRIPTS: { name: string; template: string }[] = [
   { name: "ratchet.py", template: "ratchet.py" },
   { name: "ratchet.mjs", template: "ratchet.mjs" },
+  { name: "public_api.py", template: "public_api.py" },
+  { name: "public_api.mjs", template: "public_api.mjs" },
 ];
 
 /** forge_script_<name>() functions for the helper scripts the checks use. */
 export function renderHelperScripts(checks: ActiveCheck[]): string {
   const out: string[] = [];
   for (const h of HELPER_SCRIPTS) {
-    const used = new RegExp(`\\bforge_ratchet [a-z]+ ${h.name.replace(".", "\\.")}(\\s|$)`);
+    const used = new RegExp(`\\bforge_(ratchet|helper) [a-z]+ ${h.name.replace(".", "\\.")}(\\s|$)`);
     if (!checks.some((c) => used.test(c.target.run) || used.test(c.target.changed_run ?? ""))) continue;
     const text = readFileSync(join(packageRoot(), "templates", "helpers", h.template), "utf8");
     if (text.split("\n").includes("FORGE_SCRIPT_END")) throw new Error(`${h.template}: contains the here-document delimiter`);

@@ -87,6 +87,7 @@ requires: [pack-id]         # other branches only; the parent is implied
 detect:                     # omitted for user-level packs
   files_any: [glob]
   deps_any: [{ecosystem: pypi | npm, name: string, version: semver-range}]
+  library_any: [pypi | npm]  # the project is a library published there (§13.4)
 ```
 
 - A root pack is active when detected; a child pack is active when its parent is active **and** it is detected.
@@ -573,6 +574,28 @@ context.md: "Pydantic v2: `model_validate`, `model_dump`, `model_config = Config
 
 context.md: tests assert behaviour, never weakened; "If an existing test looks wrong, stop and ask; never edit it to make the code pass."
 
+### python/library
+
+Detected by `library_any: [pypi]` (§13.4).
+
+| Rule | Targets |
+|---|---|
+| `python/library/all-exports` | `ast-grep` no-increase, not in tests: in a module with `__all__`, top-level function and class names without a leading underscore that `__all__` does not list |
+| `python/library/deprecation-shim` | `check` lint: `forge_helper python public_api.py` (§13.4), `when_changed`: `**/*.py`, `pyproject.toml` |
+
+context.md: `__all__` is the public API; removals and renames warn with `DeprecationWarning` until a major version.
+
+### typescript/library
+
+Detected by `library_any: [npm]` (§13.4).
+
+| Rule | Targets |
+|---|---|
+| `typescript/library/barrel-exports` | `check` lint: `forge_helper bun public_api.mjs barrel` (§13.4); `changed_run` with `{files}` |
+| `typescript/library/deprecation-shim` | `check` lint: `forge_helper bun public_api.mjs removed` (§13.4), `when_changed`: TypeScript and JavaScript files, `package.json` |
+
+context.md: entry points are the public API; listed re-exports stay complete; renamed exports stay as `@deprecated` aliases until a major version.
+
 ### typescript/bun
 
 | Rule | Targets |
@@ -755,6 +778,16 @@ context.md: `compose.yaml` + `compose.override.yaml`, healthchecks with `conditi
 ### 13.3 hadolint
 
 `forge_hadolint <code>…` runs hadolint (pinned, from the `hadolint-bin` wheel through `uvx --from hadolint-bin==<pin>`) once per `check.sh` run on the Dockerfiles of the change, shared by the hadolint rules. Before running it, it hashes the binary and compares it with the upstream release's sha256 for the platform (embedded in Forge); a mismatch, an unknown platform, or no uvx prints `forge:<id> skipped: …` and does not block. It runs with `-c <file containing "ignored: []">` (the project's `.hadolint.yaml` ignores do not apply), `--disable-ignore-pragma` (inline `# hadolint ignore=` comments do not apply; a rule is disabled in `forge.yaml`), `--no-fail --no-color -f tty`; lines `path:line CODE level: message` of the named codes print as `path:line CODE: message`. `forge test` also checks the wheel's binary against the upstream checksum.
+
+### 13.4 Libraries and project-run helpers
+
+`detect.library_any` activates a pack when the project publishes a library to that ecosystem. **pypi:** `pyproject.toml` has `[project] name` and a `[build-system]` table (`uv init --lib`; `uv init` makes an application without one), no `[project.scripts]` or `[project.gui-scripts]` (`uv init --package`: a packaged application), no `Private ::` classifier, and the repository has no `manage.py`. **npm:** `package.json` is not `"private": true`, has a `name`, and has `exports`, or `main` / `module` together with `types`, `typings` or `files` (`main` alone is `npm init`'s default). A library that ships a CLI script is not detected; add the pack in `forge.yaml`.
+
+`forge_helper <runtime> <script> [args]` runs a script embedded in `check.sh` (like the ratchet's) with the project's `python` or `bun`, as `<script> <FORGE_TMP> [args]`, where the change set (`changed`, `inbase`, `base/`) is; findings are `path:line message` (line 0: the file as a whole), attributed like lint diagnostics; a finding line found in `forge.yaml` is accepted; exit 3 prints `skipped:`.
+
+- `public_api.py`: for each changed module whose base copy has a literal `__all__`, each name that left it, or every name of a deleted module, must still be defined with a deprecation: a `def` / `class` / assignment of that name mentioning `DeprecationWarning`, `FutureWarning` or `deprecated`, or a module `__getattr__` in a module that warns and names it. A major bump of `[project] version` allows removals.
+- `public_api.mjs removed`: the names the package's entry points (`exports`, `main`, `module`, `types`, with `dist/`, `lib/`, `build/`, … mapped to `src/` and `.js` / `.d.ts` to the source file; `export *` followed through relative modules) export in the base are still exported, unless the `package.json` major version went up. Reported at line 0 of the module that declared the name.
+- `public_api.mjs barrel`: a changed module whose names an entry point re-exports by list (`export { a, b } from "./m"`), and not with `export *`, has no new export missing from that list. Reported at the declaration's line.
 
 ## 14. Acceptance tests
 

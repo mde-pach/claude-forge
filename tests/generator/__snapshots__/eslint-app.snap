@@ -819,6 +819,29 @@ forge_ratchet() {
   return 1
 }
 
+# forge_helper <runtime> <script> [file...]: runs <script> (embedded in check.sh as
+# forge_script_<script>) with the project's runtime, as `<script> <FORGE_TMP> [file...]`
+# (FORGE_TMP holds changed, existing, inbase and base/ from forge_change_set). Exit 0:
+# nothing found; 1: findings printed ("path:line message"; a line also present in
+# forge.yaml is accepted); 3: cannot run, its "skipped: ..." line is printed.
+forge_helper() {
+  _fh_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
+  "$_fh_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  _fh_rt=$1; _fh_s=$2; shift 2
+  "$_fh_rt" "$FORGE_TMP/$_fh_s" "$FORGE_TMP" "$@" > "$FORGE_TMP/helper" 2>&1
+  case $? in
+    0) return 0 ;;
+    1) ;;
+    *) printf 'forge:%s %s\n' "$c_id" "$(grep '^skipped:' "$FORGE_TMP/helper" | head -n 1 | grep . || printf 'skipped: %s could not run' "$_fh_s")"; return 0 ;;
+  esac
+  _fh_rc=0
+  while IFS= read -r _fh_l; do
+    [ -f forge.yaml ] && grep -qF -- "$_fh_l" forge.yaml && continue
+    printf '%s\n' "$_fh_l"; _fh_rc=1
+  done < "$FORGE_TMP/helper"
+  return "$_fh_rc"
+}
+
 # Test blocks, for forge_test_edits: pytest test functions (with their decorators)
 # and classes; Vitest/Playwright test and it calls, and the describe calls around them.
 FORGE_TEST_BLOCKS='id: forge-test
@@ -1438,13 +1461,16 @@ forge_exec_check() {
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "none" when no line names a file. With
-# "print", prints the lines that count instead.
+# "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
+# tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
   awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
+      gsub(ansi, "", line)
       if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -1952,6 +1978,29 @@ forge_ratchet() {
   return 1
 }
 
+# forge_helper <runtime> <script> [file...]: runs <script> (embedded in check.sh as
+# forge_script_<script>) with the project's runtime, as `<script> <FORGE_TMP> [file...]`
+# (FORGE_TMP holds changed, existing, inbase and base/ from forge_change_set). Exit 0:
+# nothing found; 1: findings printed ("path:line message"; a line also present in
+# forge.yaml is accepted); 3: cannot run, its "skipped: ..." line is printed.
+forge_helper() {
+  _fh_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
+  "$_fh_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  _fh_rt=$1; _fh_s=$2; shift 2
+  "$_fh_rt" "$FORGE_TMP/$_fh_s" "$FORGE_TMP" "$@" > "$FORGE_TMP/helper" 2>&1
+  case $? in
+    0) return 0 ;;
+    1) ;;
+    *) printf 'forge:%s %s\n' "$c_id" "$(grep '^skipped:' "$FORGE_TMP/helper" | head -n 1 | grep . || printf 'skipped: %s could not run' "$_fh_s")"; return 0 ;;
+  esac
+  _fh_rc=0
+  while IFS= read -r _fh_l; do
+    [ -f forge.yaml ] && grep -qF -- "$_fh_l" forge.yaml && continue
+    printf '%s\n' "$_fh_l"; _fh_rc=1
+  done < "$FORGE_TMP/helper"
+  return "$_fh_rc"
+}
+
 # Test blocks, for forge_test_edits: pytest test functions (with their decorators)
 # and classes; Vitest/Playwright test and it calls, and the describe calls around them.
 FORGE_TEST_BLOCKS='id: forge-test
@@ -2571,13 +2620,16 @@ forge_exec_check() {
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "none" when no line names a file. With
-# "print", prints the lines that count instead.
+# "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
+# tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
   awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
+      gsub(ansi, "", line)
       if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -3120,6 +3172,29 @@ forge_ratchet() {
   return 1
 }
 
+# forge_helper <runtime> <script> [file...]: runs <script> (embedded in check.sh as
+# forge_script_<script>) with the project's runtime, as `<script> <FORGE_TMP> [file...]`
+# (FORGE_TMP holds changed, existing, inbase and base/ from forge_change_set). Exit 0:
+# nothing found; 1: findings printed ("path:line message"; a line also present in
+# forge.yaml is accepted); 3: cannot run, its "skipped: ..." line is printed.
+forge_helper() {
+  _fh_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
+  "$_fh_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  _fh_rt=$1; _fh_s=$2; shift 2
+  "$_fh_rt" "$FORGE_TMP/$_fh_s" "$FORGE_TMP" "$@" > "$FORGE_TMP/helper" 2>&1
+  case $? in
+    0) return 0 ;;
+    1) ;;
+    *) printf 'forge:%s %s\n' "$c_id" "$(grep '^skipped:' "$FORGE_TMP/helper" | head -n 1 | grep . || printf 'skipped: %s could not run' "$_fh_s")"; return 0 ;;
+  esac
+  _fh_rc=0
+  while IFS= read -r _fh_l; do
+    [ -f forge.yaml ] && grep -qF -- "$_fh_l" forge.yaml && continue
+    printf '%s\n' "$_fh_l"; _fh_rc=1
+  done < "$FORGE_TMP/helper"
+  return "$_fh_rc"
+}
+
 # Test blocks, for forge_test_edits: pytest test functions (with their decorators)
 # and classes; Vitest/Playwright test and it calls, and the describe calls around them.
 FORGE_TEST_BLOCKS='id: forge-test
@@ -3739,13 +3814,16 @@ forge_exec_check() {
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "none" when no line names a file. With
-# "print", prints the lines that count instead.
+# "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
+# tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
   awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
+      gsub(ansi, "", line)
       if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -4941,6 +5019,29 @@ forge_ratchet() {
   return 1
 }
 
+# forge_helper <runtime> <script> [file...]: runs <script> (embedded in check.sh as
+# forge_script_<script>) with the project's runtime, as `<script> <FORGE_TMP> [file...]`
+# (FORGE_TMP holds changed, existing, inbase and base/ from forge_change_set). Exit 0:
+# nothing found; 1: findings printed ("path:line message"; a line also present in
+# forge.yaml is accepted); 3: cannot run, its "skipped: ..." line is printed.
+forge_helper() {
+  _fh_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
+  "$_fh_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  _fh_rt=$1; _fh_s=$2; shift 2
+  "$_fh_rt" "$FORGE_TMP/$_fh_s" "$FORGE_TMP" "$@" > "$FORGE_TMP/helper" 2>&1
+  case $? in
+    0) return 0 ;;
+    1) ;;
+    *) printf 'forge:%s %s\n' "$c_id" "$(grep '^skipped:' "$FORGE_TMP/helper" | head -n 1 | grep . || printf 'skipped: %s could not run' "$_fh_s")"; return 0 ;;
+  esac
+  _fh_rc=0
+  while IFS= read -r _fh_l; do
+    [ -f forge.yaml ] && grep -qF -- "$_fh_l" forge.yaml && continue
+    printf '%s\n' "$_fh_l"; _fh_rc=1
+  done < "$FORGE_TMP/helper"
+  return "$_fh_rc"
+}
+
 # Test blocks, for forge_test_edits: pytest test functions (with their decorators)
 # and classes; Vitest/Playwright test and it calls, and the describe calls around them.
 FORGE_TEST_BLOCKS='id: forge-test
@@ -5560,13 +5661,16 @@ forge_exec_check() {
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "none" when no line names a file. With
-# "print", prints the lines that count instead.
+# "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
+# tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
   awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
+      gsub(ansi, "", line)
       if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -6109,12 +6213,12 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "52a6f9fbaa079816551227307122ce0c0e20ba65ba3cc93e09e2d4d187f3e246",
     ".claude/skills/forge-project/scripts/guard.sh": "33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d",
     ".claude/skills/forge-project/scripts/lib.sh": "1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "ab69d60960b9332f40498423261f81fe8d7982ce532fe08d48f83ecd5b58dfe8",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "5daa66d4b482a7a0aef0a4c7caefa049844693d821b3d04fdf2d4d5a42020fa6",
     ".claude/skills/forge-project/scripts/review.sh": "9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac",
-    ".claude/skills/forge-project/scripts/session-start.sh": "dcb9262ebc713330c255fc3da6ede230b93e17474cf638394b046b1a22d9595d",
+    ".claude/skills/forge-project/scripts/session-start.sh": "5c172a682000f587c40579764d8335dfb6baa0a2d007706eb0c89827aea53150",
     ".claude/skills/forge-project/scripts/stop.sh": "f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173",
     ".claude/skills/forge-project/scripts/turn-start.sh": "a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "943de4a118c58f6440188dc40eca25d1e63c2dc830cb331f4834ff8a20cbfcfe",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "9a945867cf0318ed10b334488e167a978666f755150bf56029e5c57e01ff58af",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml": "c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20",
     ".forge/ast-grep/rule-tests/typescript-no-eval-test.yml": "3716e00219b28a0974a07a56e1d264bb478b35a6ef38d5c13740a9080b09516e",
@@ -6137,7 +6241,7 @@ exit "$fail"
     ".forge/ast-grep/rules/typescript/no-ts-nocheck.yml": "aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21",
     ".forge/ast-grep/rules/typescript/ts-expect-error-reason.yml": "b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "7c778f34dab2da1fa5b60e754ee0ca7c10de314f2ce929f0669e2e82efd26615",
+    ".forge/check.sh": "7cba2d6c6312f88d3aeeeca90c932ad2c28d6c9a66ec3274d155826141df9326",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -6187,12 +6291,12 @@ d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills
 52a6f9fbaa079816551227307122ce0c0e20ba65ba3cc93e09e2d4d187f3e246  .claude/skills/forge-project/scripts/guard.rules
 33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d  .claude/skills/forge-project/scripts/guard.sh
 1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a  .claude/skills/forge-project/scripts/lib.sh
-ab69d60960b9332f40498423261f81fe8d7982ce532fe08d48f83ecd5b58dfe8  .claude/skills/forge-project/scripts/post-edit.sh
+5daa66d4b482a7a0aef0a4c7caefa049844693d821b3d04fdf2d4d5a42020fa6  .claude/skills/forge-project/scripts/post-edit.sh
 9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac  .claude/skills/forge-project/scripts/review.sh
-dcb9262ebc713330c255fc3da6ede230b93e17474cf638394b046b1a22d9595d  .claude/skills/forge-project/scripts/session-start.sh
+5c172a682000f587c40579764d8335dfb6baa0a2d007706eb0c89827aea53150  .claude/skills/forge-project/scripts/session-start.sh
 f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173  .claude/skills/forge-project/scripts/stop.sh
 a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c  .claude/skills/forge-project/scripts/turn-start.sh
-943de4a118c58f6440188dc40eca25d1e63c2dc830cb331f4834ff8a20cbfcfe  .claude/skills/forge-project/scripts/typecheck.sh
+9a945867cf0318ed10b334488e167a978666f755150bf56029e5c57e01ff58af  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20  .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
 3716e00219b28a0974a07a56e1d264bb478b35a6ef38d5c13740a9080b09516e  .forge/ast-grep/rule-tests/typescript-no-eval-test.yml
@@ -6215,7 +6319,7 @@ b21497e3335f2271e6ca5874817957d18c640e7d787cfe76a72ef390ab62d634  .forge/ast-gre
 aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21  .forge/ast-grep/rules/typescript/no-ts-nocheck.yml
 b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad  .forge/ast-grep/rules/typescript/ts-expect-error-reason.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-7c778f34dab2da1fa5b60e754ee0ca7c10de314f2ce929f0669e2e82efd26615  .forge/check.sh
+7cba2d6c6312f88d3aeeeca90c932ad2c28d6c9a66ec3274d155826141df9326  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

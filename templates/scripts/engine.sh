@@ -142,6 +142,29 @@ forge_ratchet() {
   return 1
 }
 
+# forge_helper <runtime> <script> [file...]: runs <script> (embedded in check.sh as
+# forge_script_<script>) with the project's runtime, as `<script> <FORGE_TMP> [file...]`
+# (FORGE_TMP holds changed, existing, inbase and base/ from forge_change_set). Exit 0:
+# nothing found; 1: findings printed ("path:line message"; a line also present in
+# forge.yaml is accepted); 3: cannot run, its "skipped: ..." line is printed.
+forge_helper() {
+  _fh_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
+  "$_fh_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  _fh_rt=$1; _fh_s=$2; shift 2
+  "$_fh_rt" "$FORGE_TMP/$_fh_s" "$FORGE_TMP" "$@" > "$FORGE_TMP/helper" 2>&1
+  case $? in
+    0) return 0 ;;
+    1) ;;
+    *) printf 'forge:%s %s\n' "$c_id" "$(grep '^skipped:' "$FORGE_TMP/helper" | head -n 1 | grep . || printf 'skipped: %s could not run' "$_fh_s")"; return 0 ;;
+  esac
+  _fh_rc=0
+  while IFS= read -r _fh_l; do
+    [ -f forge.yaml ] && grep -qF -- "$_fh_l" forge.yaml && continue
+    printf '%s\n' "$_fh_l"; _fh_rc=1
+  done < "$FORGE_TMP/helper"
+  return "$_fh_rc"
+}
+
 # Test blocks, for forge_test_edits: pytest test functions (with their decorators)
 # and classes; Vitest/Playwright test and it calls, and the describe calls around them.
 FORGE_TEST_BLOCKS='id: forge-test

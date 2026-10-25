@@ -47,7 +47,9 @@ examples:
 
 Targets, in order of preference: `tool` (your linter or type checker, audited), `ast-grep` (Python, TypeScript or YAML, by `scope.language`), `grep` (a POSIX regex per line, for comments, config text and `.astro` files), `permission`, `sandbox`, `guard`, `check`. The [lifecycle](../../lifecycle/) of a rule follows from its targets, and every rule's page shows it.
 
-A `check` can call the engine's helpers instead of a project tool: `forge_ratchet`, `forge_test_edits`, `forge_hadolint`, `forge_zizmor`, `forge_squawk_files`, … (in `templates/scripts/engine.sh`). A `run` string never calls `exit`: it is a shell function body, and its last command's status is the result.
+A `check` can call the engine's helpers instead of a project tool: `forge_ratchet`, `forge_test_edits`, `forge_hadolint`, `forge_zizmor`, `forge_squawk_files`, … (in `templates/scripts/engine.sh`). A `run` string never calls `exit`: it is a shell function body, and its last command's status is the result. A check that needs more than a shell line runs a script with the project's Python or Bun: put it in `templates/helpers/`, list it in `HELPER_SCRIPTS` (`src/render.ts`), and call it as `forge_helper python <script>` or `forge_helper bun <script>`; it is embedded in `check.sh` only when an active rule uses it, and reads the change set from the directory it is given (SPECS §13.4).
+
+A pack can also be detected as a library (`detect: {library_any: [pypi]}` or `[npm]`), for rules about a published API.
 
 ## Examples are tests
 

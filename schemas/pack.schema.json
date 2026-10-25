@@ -68,6 +68,16 @@
               }
             }
           }
+        },
+        "library_any": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "pypi",
+              "npm"
+            ]
+          },
+          "uniqueItems": true
         }
       }
     }

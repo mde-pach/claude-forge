@@ -108,6 +108,32 @@ export interface ProjectFacts {
   npm: Map<string, string>;
   pypi: Map<string, string>;
   files: (glob: string) => boolean;
+  /** Ecosystems the project publishes a library to (see isPyLibrary, isNpmLibrary). */
+  library: Set<"pypi" | "npm">;
+}
+
+/**
+ * A Python library: pyproject.toml names the project and declares a build backend
+ * (uv init --lib; an application from uv init has no [build-system]), ships no
+ * console or GUI scripts (uv init --package: a packaged application), is not marked
+ * "Private :: Do Not Upload", and the repository has no manage.py (a Django site).
+ */
+export function isPyLibrary(toml: Record<string, any>, hasManagePy: boolean): boolean {
+  const project = toml.project;
+  if (!project || typeof project.name !== "string" || !toml["build-system"]) return false;
+  if (project.scripts || project["gui-scripts"] || hasManagePy) return false;
+  return !(project.classifiers ?? []).some((c: unknown) => typeof c === "string" && c.startsWith("Private ::"));
+}
+
+/**
+ * An npm library: package.json is not "private": true, has a name, and declares what
+ * it exports: "exports", or "main" / "module" together with "types", "typings" or
+ * "files" ("main" alone is npm init's default, also in applications).
+ */
+export function isNpmLibrary(pkg: Record<string, unknown>): boolean {
+  if (pkg.private === true || typeof pkg.name !== "string") return false;
+  if (pkg.exports !== undefined) return true;
+  return (pkg.main !== undefined || pkg.module !== undefined) && (pkg.types !== undefined || pkg.typings !== undefined || pkg.files !== undefined);
 }
 
 function normPy(name: string): string {
@@ -117,12 +143,15 @@ function normPy(name: string): string {
 export function readProjectFacts(repo: string, listFiles: () => string[]): ProjectFacts {
   const npm = new Map<string, string>();
   const pypi = new Map<string, string>();
+  const library = new Set<"pypi" | "npm">();
+  const files = listFiles();
 
   const pkgFile = join(repo, "package.json");
   if (existsSync(pkgFile)) {
     const pkg = JSON.parse(readFileSync(pkgFile, "utf8")) as Record<string, Record<string, string> | undefined>;
     for (const key of ["dependencies", "devDependencies", "optionalDependencies", "peerDependencies"])
       for (const [name, range] of Object.entries(pkg[key] ?? {})) npm.set(name, versionFromRange(range));
+    if (isNpmLibrary(pkg)) library.add("npm");
   }
   const bunLock = join(repo, "bun.lock");
   if (existsSync(bunLock)) {
@@ -152,6 +181,7 @@ export function readProjectFacts(repo: string, listFiles: () => string[]): Proje
       const m = /^\s*([A-Za-z0-9][A-Za-z0-9._-]*)\s*(?:\[[^\]]*\])?\s*(.*)$/.exec(req);
       if (m) pypi.set(normPy(m[1]!), versionFromPep440(m[2]!));
     }
+    if (isPyLibrary(toml, files.some((f) => f === "manage.py" || f.endsWith("/manage.py")))) library.add("pypi");
   }
   const uvLock = join(repo, "uv.lock");
   if (existsSync(uvLock)) {
@@ -161,8 +191,7 @@ export function readProjectFacts(repo: string, listFiles: () => string[]): Proje
       if (pypi.has(n) && p.version) pypi.set(n, p.version);
     }
   }
-  const files = listFiles();
-  return { npm, pypi, files: (glob) => files.some((f) => globMatch(glob, f)) };
+  return { npm, pypi, library, files: (glob) => files.some((f) => globMatch(glob, f)) };
 }
 
 function versionFromRange(range: string): string {
@@ -189,7 +218,8 @@ export function detectPack(pack: Pack, facts: ProjectFacts): boolean {
   if (!pack.detect) return false;
   return (
     (pack.detect.files_any ?? []).some((g) => facts.files(g)) ||
-    (pack.detect.deps_any ?? []).some((d) => depMatches(facts, d))
+    (pack.detect.deps_any ?? []).some((d) => depMatches(facts, d)) ||
+    (pack.detect.library_any ?? []).some((e) => facts.library.has(e))
   );
 }
 

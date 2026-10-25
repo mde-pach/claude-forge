@@ -40,7 +40,7 @@ const schemaEvents = [
 const detect =
   pack.level === "user"
     ? []
-    : [...(pack.detect?.files_any ?? []).map((f) => `file ${f}`), ...(pack.detect?.deps_any ?? []).map((d) => `${d.ecosystem} ${d.name}${d.version ? ` ${d.version}` : ""}`)];
+    : [...(pack.detect?.files_any ?? []).map((f) => `file ${f}`), ...(pack.detect?.deps_any ?? []).map((d) => `${d.ecosystem} ${d.name}${d.version ? ` ${d.version}` : ""}`), ...(pack.detect?.library_any ?? []).map((e) => `${e} library`)];
 const initFiles = (dir: string): string[] =>
   readdirSync(dir).flatMap((f) => (statSync(join(dir, f)).isDirectory() ? initFiles(join(dir, f)) : [relative(pack.initDir!, join(dir, f))]));
 const contextFile = `.claude/rules/forge-${pack.id.replaceAll("/", "-")}.md`;

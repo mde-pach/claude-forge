@@ -17,7 +17,7 @@ export interface Pack {
   description: string;
   level: Level;
   requires: string[];
-  detect?: { files_any?: string[]; deps_any?: DepSpec[] };
+  detect?: { files_any?: string[]; deps_any?: DepSpec[]; library_any?: ("pypi" | "npm")[] };
   dir: string;
   /** Parent pack id; a child is active only when its parent is. */
   parent?: string;
