@@ -39,7 +39,7 @@ SQL databases connect through a driver adapter (e.g. `@prisma/adapter-pg`) passe
 CLI configuration and the connection URL live in `prisma.config.ts`; `.env` is not loaded automatically.
 `prisma migrate dev` does not seed: run `prisma db seed`. Query hooks use Client Extensions (`$extends`; `$use` is removed).
 Raw SQL uses the tagged `$queryRaw` / `$executeRaw` forms; the `Unsafe` variants are rejected.
-`$transaction(async (tx) => …)` callbacks make no `fetch`/axios/SDK calls (rejected): call them before or after the transaction.
+`$transaction(async (tx) => …)` callbacks make no network calls (SDKs included): call them before or after the transaction; `fetch` and calls through an imported axios, got, ky, ofetch, node-fetch or undici there are rejected.
 A schema change comes with a migration (`prisma migrate dev`), except in a db push workflow (no `prisma/migrations`, a `prisma db push` script), where none is required.
 A new migration that drops a column or table is rejected unless the user accepts that line in `forge.yaml`: drop only after a deploy in which no code reads it (expand and contract).
 
@@ -13224,6 +13224,17 @@ valid:
     await fetch("https://hooks.example.com/orders", { method: "POST", body: JSON.stringify(order) });
   - |
     await prisma.$transaction([prisma.audit.create({ data }), prisma.post.delete({ where: { id } })]);
+  - |
+    await prisma.$transaction(async (tx) => {
+      const m = openai.model.toUpperCase();
+      await tx.audit.create({ data: { m } });
+    });
+  - |
+    import { got } from "./got-like";
+
+    await prisma.$transaction(async (tx) => {
+      await got(tx);
+    });
 invalid:
   - |
     await prisma.$transaction(async (tx) => {
@@ -13231,11 +13242,22 @@ invalid:
       await fetch("https://hooks.example.com/orders", { method: "POST", body: JSON.stringify(order) });
     });
   - |
+    import ky from "ky";
+
     await prisma.$transaction(async (tx) => {
       const order = await tx.order.create({ data });
-      await stripe.paymentIntents.create({ amount: order.total, currency: "eur" });
+      await ky.post("https://hooks.example.com/orders", { json: order });
     });
   - |
+    import { request as send } from "undici";
+
+    await prisma.$transaction(async (tx) => {
+      await tx.order.create({ data });
+      await send("https://hooks.example.com/orders");
+    });
+  - |
+    import axios from "axios";
+
     await db.$transaction(async function (tx) {
       await Promise.all(items.map(async (item) => axios.post(syncUrl, item)));
     });
@@ -13809,12 +13831,41 @@ rule:
 id: typescript/prisma/no-network-in-transaction
 language: Tsx
 severity: error
-message: forge:typescript/prisma/no-network-in-transaction An interactive transaction callback ($transaction(async (tx) => ...)) makes no network calls (fetch, axios, got, ky, ofetch, or the stripe, resend, openai, anthropic, twilio, sgMail, postmark SDK clients); call them before or after the transaction.
+message: "forge:typescript/prisma/no-network-in-transaction An interactive transaction callback ($transaction(async (tx) => ...)) makes no HTTP calls: the global fetch / $fetch, or a function or method of axios, got, ky, ofetch, node-fetch or undici imported in the file; call them before or after the transaction. SDK clients and the project's own helpers are not recognised."
 rule:
   kind: call_expression
-  has:
-    field: function
-    regex: ^(fetch|axios|got|ky|ofetch|\$fetch|(axios|got|ky|ofetch)\.(get|post|put|patch|delete|head|request)|(stripe|resend|openai|anthropic|twilio|sgMail|postmark)\.[A-Za-z0-9_.]+)$
+  any:
+    - has:
+        field: function
+        regex: ^(fetch|globalThis\.fetch|\$fetch)$
+    - all:
+        - any:
+            - has:
+                field: function
+                kind: identifier
+                pattern: $C
+            - has:
+                field: function
+                kind: member_expression
+                has:
+                  field: object
+                  kind: identifier
+                  pattern: $C
+        - inside:
+            kind: program
+            stopBy: end
+            has:
+              kind: import_statement
+              all:
+                - has:
+                    field: source
+                    regex: ^["'](axios|got|ky|ofetch|node-fetch|undici)["']$
+                - has:
+                    kind: import_clause
+                    has:
+                      stopBy: end
+                      kind: identifier
+                      pattern: $C
   inside:
     stopBy: end
     any:
@@ -17678,7 +17729,7 @@ exit "$fail"
     "typescript/prisma/migration-lint": "9a5876481372fb0461b28c9150c4046a4ea45b5cbccce158b08afea89342ebb9",
     "typescript/prisma/migration-present": "884fb66ed58f8eaab7bc83838363ab83539cd972c45638055d79a93ef1752bde",
     "typescript/prisma/no-middleware": "f9b87f0cec0365b73fcb60b3f7cb226c6cec8709b1a9891093960051b7969cc1",
-    "typescript/prisma/no-network-in-transaction": "e933f56e9ee1d587acdb33d8c16532f633ccb33c9820cff3423e5db0d9c80b83",
+    "typescript/prisma/no-network-in-transaction": "db431e0148e4b401390bba8063e5d616717048b4bd30ac22bc2343486bedfc71",
     "typescript/prisma/no-raw-unsafe": "b889b504c953cab447f027b52f6abd10c61002854b05ae1ed41c2d2a075365f9",
     "typescript/prisma/no-reset": "060bf3f7773db9cf87bede89da4d4540b19271ffb9a698aa7a3d84bf9cf7168a",
     "typescript/prisma/validate": "0479a5e9bc602a2d9f0a154719567605623fe73194bceafce1d87bc325d37aad",
@@ -17717,7 +17768,7 @@ exit "$fail"
     ".claude/rules/forge-typescript-nextjs-react.md": "2e3462b5d3b2ae7ca170af39cf82bab25bbf97a1dc41f937dcd43239740f2736",
     ".claude/rules/forge-typescript-nextjs.md": "96a99679c5ddb348fe571a68648c3f7722351fe90d1e12f7d15e3c081953d42a",
     ".claude/rules/forge-typescript-playwright.md": "460ee4a08c77b6c6509a681765f299c2116dd996a79a5040d1516645d8e47663",
-    ".claude/rules/forge-typescript-prisma.md": "cce1dfd5d025fe8c2b0f67a4317eb20c54405836de1f766f6693a99097ddf471",
+    ".claude/rules/forge-typescript-prisma.md": "cf4184031d0c1e5f2a4b8ce5ce8ab676cdbeb65fc59402433cf8e77418daa1d6",
     ".claude/rules/forge-typescript-react.md": "ae5f638883028fa1744f332b050e244ce57713ad2cc28ab5f8ee259f0088eb20",
     ".claude/rules/forge-typescript-vitest.md": "0c60275a6586d66aa3d3ab871383af8cc874c5e849d10646d8940031768cd606",
     ".claude/rules/forge-typescript-zod.md": "a5e2685c59231ba3ce5e994b28fa8dfd5e5e7946275ef3236334776e61329db7",
@@ -17756,7 +17807,7 @@ exit "$fail"
     ".forge/ast-grep/rule-tests/typescript-playwright-no-wait-for-timeout-test.yml": "6de739c52e05f5d443c247b3a60bc40bd15cc5cfce7f4cc80d428be001cf6c1a",
     ".forge/ast-grep/rule-tests/typescript-prisma-generated-client-import-test.yml": "91fbbe5ce58f7acf72b9885cb48b5d0c6eb692b862834058404f1b58e6007f5a",
     ".forge/ast-grep/rule-tests/typescript-prisma-no-middleware-test.yml": "a0975e619303c2b7ebf6a13a1c424464c86b5f1c37fdf16667de00e241a56998",
-    ".forge/ast-grep/rule-tests/typescript-prisma-no-network-in-transaction-test.yml": "ffef4badbc27931005da85eb756252ec41dcfcad626e167aeec0656383f8556b",
+    ".forge/ast-grep/rule-tests/typescript-prisma-no-network-in-transaction-test.yml": "52d332f1fd4e10ae42f7a8fc56a7763dca2457c4e5e2a9f02bde5c49f260becd",
     ".forge/ast-grep/rule-tests/typescript-prisma-no-raw-unsafe-test.yml": "011dd0c40d77e238e91f0d592ef3e39b4e17f822215fb2ab749c096f8661ccee",
     ".forge/ast-grep/rule-tests/typescript-react-no-prop-types-test.yml": "973df0a4b101d1b9d02787a5da612d991b2d66a6dda3727805aefed130706efe",
     ".forge/ast-grep/rule-tests/typescript-react-use-action-state-test.yml": "125b8c736e82d5ef59eaf57dd32da3df326b16bc81cd9534f9a7023aa5d54b35",
@@ -17788,7 +17839,7 @@ exit "$fail"
     ".forge/ast-grep/rules/typescript/playwright/no-wait-for-timeout.yml": "e4ed8b571875af6fbce7f92616b4772d90c847e5009403d57f76d46a7b55396d",
     ".forge/ast-grep/rules/typescript/prisma/generated-client-import.yml": "7b8a093b0f51e5d6b8f8a132b1ef43888104b1f5985465fc4f0f5984762a79c2",
     ".forge/ast-grep/rules/typescript/prisma/no-middleware.yml": "98cf3096f74f6db07744f597904e3df903a8a886a095cfffa52b133bf3acc1c7",
-    ".forge/ast-grep/rules/typescript/prisma/no-network-in-transaction.yml": "e7c654dbd4b6ad20a199d9898b63cfca6e4f0d5ca4f850c2f25189c37730ce05",
+    ".forge/ast-grep/rules/typescript/prisma/no-network-in-transaction.yml": "4867b2d6d4fcc67ecf3f85d3a7433a27be0204c9a33d17c690d1dd52708d3c35",
     ".forge/ast-grep/rules/typescript/prisma/no-raw-unsafe.yml": "304ac41eb0a4b7025ca081e4a03cb746cdd15b5512a0bac217ad9a89017b3e00",
     ".forge/ast-grep/rules/typescript/react/no-prop-types.yml": "9626068d2f677a351b7722fbddc5a74e87c539b4c3e46a55d75cfaf717542c62",
     ".forge/ast-grep/rules/typescript/react/use-action-state.yml": "17b6fc5e510df3154be12c72a584d8bfb31034b577774718a8c50516b2b15a81",
@@ -17858,7 +17909,7 @@ exit "$fail"
 2e3462b5d3b2ae7ca170af39cf82bab25bbf97a1dc41f937dcd43239740f2736  .claude/rules/forge-typescript-nextjs-react.md
 96a99679c5ddb348fe571a68648c3f7722351fe90d1e12f7d15e3c081953d42a  .claude/rules/forge-typescript-nextjs.md
 460ee4a08c77b6c6509a681765f299c2116dd996a79a5040d1516645d8e47663  .claude/rules/forge-typescript-playwright.md
-cce1dfd5d025fe8c2b0f67a4317eb20c54405836de1f766f6693a99097ddf471  .claude/rules/forge-typescript-prisma.md
+cf4184031d0c1e5f2a4b8ce5ce8ab676cdbeb65fc59402433cf8e77418daa1d6  .claude/rules/forge-typescript-prisma.md
 ae5f638883028fa1744f332b050e244ce57713ad2cc28ab5f8ee259f0088eb20  .claude/rules/forge-typescript-react.md
 0c60275a6586d66aa3d3ab871383af8cc874c5e849d10646d8940031768cd606  .claude/rules/forge-typescript-vitest.md
 a5e2685c59231ba3ce5e994b28fa8dfd5e5e7946275ef3236334776e61329db7  .claude/rules/forge-typescript-zod.md
@@ -17897,7 +17948,7 @@ bb487493a7aa36a61f149d2d9b1fbe38895749290027dba745f51fdc011f054f  .forge/ast-gre
 6de739c52e05f5d443c247b3a60bc40bd15cc5cfce7f4cc80d428be001cf6c1a  .forge/ast-grep/rule-tests/typescript-playwright-no-wait-for-timeout-test.yml
 91fbbe5ce58f7acf72b9885cb48b5d0c6eb692b862834058404f1b58e6007f5a  .forge/ast-grep/rule-tests/typescript-prisma-generated-client-import-test.yml
 a0975e619303c2b7ebf6a13a1c424464c86b5f1c37fdf16667de00e241a56998  .forge/ast-grep/rule-tests/typescript-prisma-no-middleware-test.yml
-ffef4badbc27931005da85eb756252ec41dcfcad626e167aeec0656383f8556b  .forge/ast-grep/rule-tests/typescript-prisma-no-network-in-transaction-test.yml
+52d332f1fd4e10ae42f7a8fc56a7763dca2457c4e5e2a9f02bde5c49f260becd  .forge/ast-grep/rule-tests/typescript-prisma-no-network-in-transaction-test.yml
 011dd0c40d77e238e91f0d592ef3e39b4e17f822215fb2ab749c096f8661ccee  .forge/ast-grep/rule-tests/typescript-prisma-no-raw-unsafe-test.yml
 973df0a4b101d1b9d02787a5da612d991b2d66a6dda3727805aefed130706efe  .forge/ast-grep/rule-tests/typescript-react-no-prop-types-test.yml
 125b8c736e82d5ef59eaf57dd32da3df326b16bc81cd9534f9a7023aa5d54b35  .forge/ast-grep/rule-tests/typescript-react-use-action-state-test.yml
@@ -17929,7 +17980,7 @@ c7c96b1437d5c6ac7bf04ec59e777e83def0d9451ef3b6cf238c881ff1909e29  .forge/ast-gre
 e4ed8b571875af6fbce7f92616b4772d90c847e5009403d57f76d46a7b55396d  .forge/ast-grep/rules/typescript/playwright/no-wait-for-timeout.yml
 7b8a093b0f51e5d6b8f8a132b1ef43888104b1f5985465fc4f0f5984762a79c2  .forge/ast-grep/rules/typescript/prisma/generated-client-import.yml
 98cf3096f74f6db07744f597904e3df903a8a886a095cfffa52b133bf3acc1c7  .forge/ast-grep/rules/typescript/prisma/no-middleware.yml
-e7c654dbd4b6ad20a199d9898b63cfca6e4f0d5ca4f850c2f25189c37730ce05  .forge/ast-grep/rules/typescript/prisma/no-network-in-transaction.yml
+4867b2d6d4fcc67ecf3f85d3a7433a27be0204c9a33d17c690d1dd52708d3c35  .forge/ast-grep/rules/typescript/prisma/no-network-in-transaction.yml
 304ac41eb0a4b7025ca081e4a03cb746cdd15b5512a0bac217ad9a89017b3e00  .forge/ast-grep/rules/typescript/prisma/no-raw-unsafe.yml
 9626068d2f677a351b7722fbddc5a74e87c539b4c3e46a55d75cfaf717542c62  .forge/ast-grep/rules/typescript/react/no-prop-types.yml
 17b6fc5e510df3154be12c72a584d8bfb31034b577774718a8c50516b2b15a81  .forge/ast-grep/rules/typescript/react/use-action-state.yml

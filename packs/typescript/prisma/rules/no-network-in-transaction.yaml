@@ -2,18 +2,30 @@
 # your interactive transactions" — the transaction holds a connection and its locks
 # until the callback returns, and a timeout rolls it back
 # (https://www.prisma.io/docs/orm/prisma-client/queries/transactions#interactive-transactions).
-# Only well-known HTTP clients and SDKs are matched (not every await), so this blocks.
+# Only HTTP client APIs are matched: the global fetch, and axios, got, ky, ofetch,
+# node-fetch and undici bound by an import (not variable names, nor every await), so it blocks.
 id: typescript/prisma/no-network-in-transaction
-description: An interactive transaction callback ($transaction(async (tx) => ...)) makes no network calls (fetch, axios, got, ky, ofetch, or the stripe, resend, openai, anthropic, twilio, sgMail, postmark SDK clients); call them before or after the transaction.
+description: "An interactive transaction callback ($transaction(async (tx) => ...)) makes no HTTP calls: the global fetch / $fetch, or a function or method of axios, got, ky, ofetch, node-fetch or undici imported in the file; call them before or after the transaction. SDK clients and the project's own helpers are not recognised."
 scope: {language: typescript}
 enforce:
   - target: ast-grep
     mode: forbid
     rule:
       kind: call_expression
-      has:
-        field: function
-        regex: "^(fetch|axios|got|ky|ofetch|\\$fetch|(axios|got|ky|ofetch)\\.(get|post|put|patch|delete|head|request)|(stripe|resend|openai|anthropic|twilio|sgMail|postmark)\\.[A-Za-z0-9_.]+)$"
+      any:
+        - has: {field: function, regex: "^(fetch|globalThis\\.fetch|\\$fetch)$"}
+        - all:
+            - any:
+                - has: {field: function, kind: identifier, pattern: $C}
+                - has: {field: function, kind: member_expression, has: {field: object, kind: identifier, pattern: $C}}
+            - inside:
+                kind: program
+                stopBy: end
+                has:
+                  kind: import_statement
+                  all:
+                    - has: {field: source, regex: "^[\"'](axios|got|ky|ofetch|node-fetch|undici)[\"']$"}
+                    - has: {kind: import_clause, has: {stopBy: end, kind: identifier, pattern: $C}}
       inside:
         stopBy: end
         any: [{kind: arrow_function}, {kind: function_expression}]
@@ -28,11 +40,22 @@ examples:
         await fetch("https://hooks.example.com/orders", { method: "POST", body: JSON.stringify(order) });
       });
     - |
+      import ky from "ky";
+
       await prisma.$transaction(async (tx) => {
         const order = await tx.order.create({ data });
-        await stripe.paymentIntents.create({ amount: order.total, currency: "eur" });
+        await ky.post("https://hooks.example.com/orders", { json: order });
       });
     - |
+      import { request as send } from "undici";
+
+      await prisma.$transaction(async (tx) => {
+        await tx.order.create({ data });
+        await send("https://hooks.example.com/orders");
+      });
+    - |
+      import axios from "axios";
+
       await db.$transaction(async function (tx) {
         await Promise.all(items.map(async (item) => axios.post(syncUrl, item)));
       });
@@ -46,3 +69,14 @@ examples:
       await fetch("https://hooks.example.com/orders", { method: "POST", body: JSON.stringify(order) });
     - |
       await prisma.$transaction([prisma.audit.create({ data }), prisma.post.delete({ where: { id } })]);
+    - |
+      await prisma.$transaction(async (tx) => {
+        const m = openai.model.toUpperCase();
+        await tx.audit.create({ data: { m } });
+      });
+    - |
+      import { got } from "./got-like";
+
+      await prisma.$transaction(async (tx) => {
+        await got(tx);
+      });
