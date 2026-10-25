@@ -750,6 +750,27 @@ Detected by `@react-router/dev >= 7` (framework mode).
 
 context.md: route module `loader` / `action` with `Route.*Args` types; actions validate what they read and check who is calling; `data()` and `redirect()`.
 
+### typescript/vue
+
+Detected by `vue >= 3`. ESLint (`eslint-plugin-vue`) is not audited: `tool` targets are Biome, ruff, basedpyright and tsc; the `.vue` rules are `check` and `grep` targets instead.
+
+| Rule | Targets |
+|---|---|
+| `typescript/vue/typecheck` | `check` typecheck: `forge_exec_tool vue-tsc --noEmit` (`--build` when `tsconfig.json` has `references`); skipped while a Nuxt `tsconfig.json` points at a missing `.nuxt/`. A tool whose name has a `-` gets no wrapper function (not a POSIX function name) and is run as `forge_exec_tool <name>` |
+| `typescript/vue/v-for-key` | `check` lint: `forge_vue_vfor_keys`: in `.vue` templates (comments, `<script>`, `<style>` skipped; quotes respected), an element other than `<template>` with `v-for` and no `:key` / `v-bind:key`, reported at the `v-for` line |
+| `typescript/vue/no-v-html` | `grep` forbid in `**/*.vue`: `v-html=`, `:innerHTML=`, `v-bind:innerHTML=` |
+
+context.md: `<script setup lang="ts">`, `vue-tsc` for `.vue` types, `:key` with `v-for`, no `v-html`, eslint-plugin-vue not run by Forge.
+
+### typescript/vue/nuxt
+
+| Rule | Targets |
+|---|---|
+| `typescript/vue/nuxt/server-validate` | `ast-grep` forbid in `server/**`: `readBody(…)`, `getQuery(…)`, `getRouterParams(…)` (h3's `readValidatedBody`, `getValidatedQuery`, `getValidatedRouterParams` instead) |
+| `typescript/vue/nuxt/no-public-secret` | `ast-grep` forbid in `nuxt.config.*`: a key under `runtimeConfig.public` whose name contains `secret`, `private`, `password`, `service_role` / `serviceRole` or `database_url` / `databaseUrl` (any case) |
+
+context.md: validated h3 readers in server routes; `runtimeConfig.public` reaches the browser; `vue-tsc` after `nuxt prepare`.
+
 ### github-actions
 
 Detected by `.github/workflows/*.yml` or `*.yaml`.

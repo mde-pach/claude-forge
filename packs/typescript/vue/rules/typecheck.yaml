@@ -1,0 +1,21 @@
+id: typescript/vue/typecheck
+description: The project passes vue-tsc, which type-checks .vue files (vue-tsc --build for a tsconfig with references). Skipped until nuxt prepare has written .nuxt/ in a Nuxt project.
+scope: {language: any, files: ["**/*.vue", "**/*.ts", "**/*.tsx", "**/*.mts"]}
+enforce:
+  - target: check
+    stage: typecheck
+    run: |
+      if grep -q '\.nuxt/' tsconfig.json 2>/dev/null && [ ! -d .nuxt ]; then
+        printf 'forge:typescript/vue/typecheck skipped: no .nuxt/ (run nuxt prepare)\n'
+      elif grep -q '"references"' tsconfig.json 2>/dev/null; then
+        forge_exec_tool vue-tsc --build
+      else
+        forge_exec_tool vue-tsc --noEmit
+      fi
+examples:
+  match:
+    - head: {tsconfig.json: "{\"compilerOptions\": {\"strict\": true, \"noEmit\": true, \"module\": \"esnext\", \"moduleResolution\": \"bundler\", \"target\": \"esnext\"}, \"include\": [\"src/**/*.ts\", \"src/**/*.vue\"]}\n"}
+      files: {src/Counter.vue: "<script setup lang=\"ts\">\nconst count: number = \"one\";\n</script>\n\n<template>\n  <p>{{ count }}</p>\n</template>\n"}
+  no_match:
+    - head: {tsconfig.json: "{\"compilerOptions\": {\"strict\": true, \"noEmit\": true, \"module\": \"esnext\", \"moduleResolution\": \"bundler\", \"target\": \"esnext\"}, \"include\": [\"src/**/*.ts\", \"src/**/*.vue\"]}\n"}
+      files: {src/Counter.vue: "<script setup lang=\"ts\">\nconst count: number = 1;\n</script>\n\n<template>\n  <p>{{ count }}</p>\n</template>\n"}

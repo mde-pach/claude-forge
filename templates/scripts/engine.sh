@@ -859,6 +859,53 @@ forge_drizzle_squawk() {
   forge_squawk_files "$@"
 }
 
+# forge_vue_vfor_keys <files>: in the templates of .vue files, each element with v-for
+# (not <template>) also binds a key (:key, v-bind:key). Prints "path:line: ..." per element
+# (the line of its v-for). Comments, <script> and <style> are skipped; quotes are respected.
+forge_vue_vfor_keys() {
+  _vk_rc=0
+  for _vk_f in "$@"; do
+    case $_vk_f in *.vue) ;; *) continue ;; esac
+    [ -f "$_vk_f" ] || continue
+    awk -v f="$_vk_f" '
+      { s = s $0 "\n" }
+      END {
+        n = length(s); ln = 1; skip = ""
+        for (i = 1; i <= n; i++) {
+          c = substr(s, i, 1)
+          if (c == "\n") { ln++; continue }
+          if (c != "<") continue
+          if (substr(s, i, 4) == "<!--") {
+            j = index(substr(s, i + 4), "-->"); if (!j) break
+            t = substr(s, i, j + 6); ln += gsub(/\n/, "", t); i += j + 5; continue
+          }
+          if (!match(substr(s, i + 1, 1), /[A-Za-z\/]/)) continue
+          # one tag, quotes respected
+          start = ln; q = ""; tag = ""
+          for (i++; i <= n; i++) {
+            c = substr(s, i, 1)
+            if (c == "\n") ln++
+            if (q != "") { if (c == q) q = ""; tag = tag c; continue }
+            if (c == "\"" || c == "\047") q = c
+            else if (c == ">") break
+            tag = tag c
+          }
+          name = tag; sub(/[[:space:]].*$/, "", name); if (length(name) > 1) sub(/\/$/, "", name); shown = name; name = tolower(name)
+          if (skip != "") { if (name == "/" skip) skip = ""; continue }
+          if ((name == "script" || name == "style") && tag !~ /\/$/) { skip = name; continue }
+          tag = " " tag
+          if (name == "template" || tag !~ /[[:space:]]v-for[[:space:]]*=/) continue
+          if (tag ~ /[[:space:]](:key|v-bind:key)[[:space:]]*=/) continue
+          match(tag, /[[:space:]]v-for[[:space:]]*=/); pre = substr(tag, 1, RSTART)
+          printf "%s:%d: <%s> has v-for without :key\n", f, start + gsub(/\n/, "", pre), shown
+          bad = 1
+        }
+        exit bad
+      }' "$_vk_f" || _vk_rc=1
+  done
+  return "$_vk_rc"
+}
+
 # forge_related_py_tests <files>: changed test files plus tests/**/test_<module>.py
 # for each changed module, one per line.
 forge_related_py_tests() {

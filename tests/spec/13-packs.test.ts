@@ -16,7 +16,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadPacks } from "../../src/packs";
 import { checkExamplesOptional, hadolintIntegrity, permissionMatches, selfTest, type TestReport } from "../../src/selftest";
-import { ensureTools, forge, ROOT, sh, TOOLS_CACHE } from "../helpers";
+import { ensureTools, ensureVueTools, forge, ROOT, sh, TOOLS_CACHE } from "../helpers";
 import type { CheckTarget } from "../../src/types";
 
 const T = 300_000;
@@ -25,10 +25,11 @@ const rules = [...packs.values()].flatMap((p) => p.rules);
 let report: TestReport;
 
 /** The cached project tools (tests/helpers.ts), then PATH. */
-const toolBins = () => [join(TOOLS_CACHE, "node_modules/.bin"), join(TOOLS_CACHE, ".venv/bin"), ...(process.env.PATH ?? "").split(":")];
+const toolBins = () => [join(TOOLS_CACHE, "node_modules/.bin"), join(TOOLS_CACHE, ".venv/bin"), join(TOOLS_CACHE, "vue/node_modules/.bin"), ...(process.env.PATH ?? "").split(":")];
 
 beforeAll(() => {
   ensureTools();
+  ensureVueTools();
   report = selfTest(join(ROOT, "packs"), undefined, { toolBins: toolBins() });
 }, T);
 
