@@ -6,7 +6,7 @@ import { auditRules, auditTarget, projectBinary, type AuditResult } from "./audi
 import { MANIFEST_PATH, readLock, renderLock, renderManifest } from "./lock.js";
 import { loadLocalRules, loadPacks } from "./packs.js";
 import { plan, readProjectInputs, type Plan } from "./plan.js";
-import { blockHash, CHECK, hasBlock, hookManager, insertBlock, onlyForge, preCommitPath, removeBlock, runsForgeCheck } from "./precommit.js";
+import { blockHash, CHECK, hasBlock, hookManager, insertBlock, managerInactive, onlyForge, preCommitPath, removeBlock, runsForgeCheck } from "./precommit.js";
 import { selfTest } from "./selftest.js";
 import { addEntries, conflictingScalars, entryKey, hasEntry, removeEntries } from "./settings.js";
 import { CLAUDE_CODE_MIN, FORGE_VERSION, compareVersions, gitToplevel, lineDiff, ownedHash, packageRoot, run } from "./util.js";
@@ -179,15 +179,34 @@ function offerPreCommit(ctx: Ctx): boolean {
   return true;
 }
 
-/** Where commits are checked: Forge's hook or block (forge), or the user's own line; undefined when they are not. */
-function preCommitInstalled(ctx: Ctx): { file: string; forge: boolean } | undefined {
+/**
+ * Whether commits are checked: Forge's hook or block (forge), or the user's own line,
+ * in a file git runs. A hook manager's config only counts when the manager is
+ * installed in this clone; otherwise `activate` is the command that installs it.
+ */
+interface PreCommitState {
+  installed: boolean;
+  file?: string;
+  forge?: boolean;
+  activate?: string;
+}
+function preCommitState(ctx: Ctx): PreCommitState {
   const pc = preCommitPath(ctx.base);
-  if (ctx.lock?.files[pc] !== undefined && existsSync(join(ctx.base, pc))) return { file: pc, forge: true };
-  for (const b of ctx.lock?.blocks ?? []) if (hasBlock(readText(join(ctx.base, b.file)) ?? "")) return { file: b.file, forge: true };
+  if (ctx.lock?.files[pc] !== undefined && existsSync(join(ctx.base, pc))) return { installed: true, file: pc, forge: true };
   const m = hookManager(ctx.base);
+  let found: { file: string; forge: boolean } | undefined;
+  for (const b of ctx.lock?.blocks ?? []) if (!found && hasBlock(readText(join(ctx.base, b.file)) ?? "")) found = { file: b.file, forge: true };
   const own = m?.file ?? (m ? undefined : pc);
-  if (own && runsForgeCheck(readText(join(ctx.base, own)) ?? "")) return { file: own, forge: false };
-  return undefined;
+  if (!found && own && runsForgeCheck(readText(join(ctx.base, own)) ?? "")) found = { file: own, forge: false };
+  if (!found) return { installed: false };
+  const activate = m && found.file === m.file ? managerInactive(ctx.base, m) : undefined;
+  return activate ? { installed: false, ...found, activate } : { installed: true, ...found };
+}
+
+/** The line apply and status print when commits are not checked. */
+function notChecked(ctx: Ctx, st: PreCommitState): string {
+  if (st.activate) return `${st.file} runs the check${st.forge ? " (forge)" : ""}, but ${hookManager(ctx.base)!.name} is not installed in this clone, so commits are not checked. To activate: ${st.activate}`;
+  return `NOT INSTALLED, so commits are not checked. To install: ${preCommitHint(ctx.base)}`;
 }
 
 // ---------------------------------------------------------------- changes
@@ -389,7 +408,9 @@ function cmdApply(flags: Flags): number {
   if (ctx.level === "project") {
     const audits = auditRules(ctx.base, ctx.plan.active, (t) => ctx.plan.toolDirs[t]);
     for (const a of audits.filter((x) => x.status === "unsatisfied")) out(formatAudit(a));
-    if (!preCommitInstalled(ctx)) out(`forge: pre-commit: not installed, so commits are not checked; ${preCommitHint(ctx.base)}`);
+    const pre = preCommitState(ctx);
+    if (pre.activate) out(`forge: pre-commit: ${notChecked(ctx, pre)}`);
+    else if (!pre.installed) out(`forge: pre-commit: not installed, so commits are not checked; ${preCommitHint(ctx.base)}`);
   }
   const sandbox = sandboxProblem(ctx);
   if (sandbox) out(sandbox);
@@ -542,7 +563,7 @@ function cmdStatus(flags: Flags): number {
           deprecated: p.deprecated,
           audits,
           missing_tools: missing,
-          pre_commit: ctx.level === "project" ? { installed: preCommitInstalled(ctx) !== undefined, ...preCommitInstalled(ctx) } : undefined,
+          pre_commit: ctx.level === "project" ? preCommitState(ctx) : undefined,
           drift: [...ch.drift, ...ch.conflicts, ...ch.blockDrift],
           warnings: p.warnings,
         },
@@ -594,8 +615,8 @@ function cmdStatus(flags: Flags): number {
   out(missing.length ? "Missing tools:\n" + missing.map((m) => `  ${m}`).join("\n") : "Missing tools: none");
   if (ctx.level === "project") {
     out("");
-    const installed = preCommitInstalled(ctx);
-    out(installed ? `Pre-commit: ${installed.file}${installed.forge ? " (forge)" : ""}` : `Pre-commit: NOT INSTALLED, so commits are not checked. To install: ${preCommitHint(ctx.base)}`);
+    const pre = preCommitState(ctx);
+    out(pre.installed ? `Pre-commit: ${pre.file}${pre.forge ? " (forge)" : ""}` : `Pre-commit: ${notChecked(ctx, pre)}`);
     out(`CI step, pull requests: sh .forge/check.sh --since origin/${defaultBranch(ctx.base)}`);
     out("CI step, the default branch: sh .forge/check.sh --all");
     if (p.packs.some((pk) => pk.id === "docker"))

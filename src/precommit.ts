@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { parse as parseYaml } from "yaml";
@@ -36,6 +36,25 @@ export function hookManager(base: string): HookManager | undefined {
   const rel = relative(base, isAbsolute(hp) ? hp : join(base, hp));
   const inside = rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
   return { kind: "hooks", name: `core.hooksPath (${hp})`, file: inside ? `${rel}/pre-commit` : undefined };
+}
+
+/**
+ * Whether the hook manager is installed in this clone, so that git runs it: pre-commit
+ * and lefthook write git's hooks/pre-commit (`pre-commit install`, `lefthook install`),
+ * Husky sets core.hooksPath to .husky/_ (v9) or .husky. A core.hooksPath manager is
+ * active by definition. Undefined when active; else the command that activates it.
+ */
+export function managerInactive(base: string, m: HookManager): string | undefined {
+  if (m.kind === "hooks") return undefined;
+  if (m.kind === "husky") {
+    const hp = run("git", ["config", "core.hooksPath"], { cwd: base }).stdout.trim();
+    const rel = hp ? relative(base, resolve(base, hp)) : "";
+    return rel === ".husky" || rel === ".husky/_" ? undefined : "npx husky (Husky sets core.hooksPath; usually run by the prepare script on install)";
+  }
+  const hook = join(base, preCommitPath(base));
+  const text = existsSync(hook) ? readFileSync(hook, "utf8") : "";
+  if (m.kind === "pre-commit") return /pre-commit\.com|pre_commit/.test(text) ? undefined : "pre-commit install";
+  return /lefthook/i.test(text) ? undefined : "lefthook install";
 }
 
 /** Whether a hook file or manager config already runs Forge's check (Forge's block or the user's own line). */
