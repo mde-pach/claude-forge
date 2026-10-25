@@ -100,7 +100,7 @@ Everything in §3–§14 is implemented. §14.1–§14.3 and everything else lis
 - **guard.rules format.** It has a 4th tab-separated column holding the rule description, used for `permissionDecisionReason`.
 - **TypeScript parsing.** `scope.language: typescript` compiles to ast-grep `language: Tsx`, with `languageGlobs: {tsx: ["*.ts","*.mts","*.cts"]}` in sgconfig. One rule file then covers `.ts` and `.tsx`.
 - **Exclusion globs.** `scope.files` entries starting with `!` become ast-grep `ignores`. They are needed for "non-test files" rules.
-- **Check timeouts.** `check` targets accept an optional `timeout` (seconds), used by `pytest/run` (300 s).
+- **Check timeouts.** `check` targets accept an optional `timeout` (seconds), used by `pytest/run` and `vitest/run` (300 s). A run stopped by its timeout fails with `forge:<id> failed: timed out after <n>s …` as its first line.
 - **check.sh is self-contained.** It inlines lib.sh so CI does not depend on `.claude/`.
 - **Built-in check ids.** `forge/integrity`, `forge/applied-migration`, `forge/deleted-test`, `forge/ast-grep`, `forge/since`.
 - **Suppression budget, ratchet and test integrity are pack rules, not built-ins.** The task asked for "built-in" checks with their own ids; as pack rules (a `grep` target, and check targets calling engine helpers) they get ids, examples, docs pages and `disable` for free. 1.4–1.6 share engine and renderer changes, so they are one commit.

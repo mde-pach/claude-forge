@@ -2,4 +2,4 @@ id: typescript/vitest/run
 description: Tests pass.
 scope: {language: typescript}
 enforce:
-  - {target: check, stage: test, run: "vitest run", changed_run: "vitest run --changed"}
+  - {target: check, stage: test, run: "vitest run", changed_run: "vitest run --changed", timeout: 300}

@@ -210,7 +210,33 @@ describe("steps", () => {
     },
     T,
   );
+
+  /** @rule python/pytest/run typescript/vitest/run */
+  test(
+    "a test run has a 300 s timeout; one that runs past its timeout is stopped and fails saying so first, then its output until then",
+    () => {
+      for (const rule of ["python/pytest/run", "typescript/vitest/run"]) {
+        expect(readFileSync(join(import.meta.dir, `../../packs/${rule.replace("/run", "")}/rules/run.yaml`), "utf8")).toMatch(/timeout: 300\b/);
+      }
+      const r = engine(
+        `mode=--all; forge_check_meta_1() { c_id=x/run; c_stage=test; c_tools=''; c_when=0; c_localdb=0; c_timeout=1; c_changed=0; c_files=0; c_fix=0; }
+forge_check_run_1() { echo "collected 3 items"; sleep 5; echo finished; }
+forge_run_check 1; echo "rc=$?"`,
+      );
+      expect(r.stdout).toStartWith("forge:x/run failed: timed out after 1s and was stopped");
+      expect(r.stdout).toContain("collected 3 items\nrc=1");
+      expect(r.stdout).not.toContain("finished");
+    },
+    T,
+  );
 });
+
+/** Runs a snippet with lib.sh and engine.sh loaded, as check.sh has them, in a fresh temporary directory. */
+function engine(snippet: string, env: Record<string, string> = {}, cwd = repo) {
+  const dir = join(import.meta.dir, "../../templates/scripts");
+  const tmp = mkdtempSync(join(tmpdir(), "forge-engine-"));
+  return sh("sh", ["-c", `IFS='\n'\nFORGE_TMP=${tmp}\n${readFileSync(join(dir, "lib.sh"), "utf8")}\n${readFileSync(join(dir, "engine.sh"), "utf8")}\n${snippet}`], { cwd, env });
+}
 
 describe("local database detection", () => {
   test.each([

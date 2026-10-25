@@ -334,6 +334,8 @@ Runs in order, stops at the first failing step, prints `forge:<rule-id>` lines:
 6. **Migration checks:** `check` targets of stage `migration`, only if a `when_changed` path changed and, when `requires_local_db` is set, the configured database host is `localhost`, `127.0.0.1`, `::1` or a Unix socket. Otherwise print `forge:<rule-id> skipped: no local database` and continue.
 7. **Tests:** `check` targets of stage `test` (`changed_run` with `--changed`).
 
+A check with a `timeout` (seconds) that runs past it is stopped with its process tree and fails with `forge:<rule-id> failed: timed out after <n>s and was stopped …` first, then its output until then.
+
 ### 10.2 Stop hook (`stop.sh`)
 
 `tree_hash` (in `lib.sh`) hashes `git diff HEAD` plus the untracked files (names and contents).
@@ -657,7 +659,7 @@ context.md: Prisma 7: `prisma-client` generator with `output`, driver adapters, 
 
 | Rule | Targets |
 |---|---|
-| `typescript/vitest/run` | `check` test: `run: vitest run`, `changed_run: vitest run --changed` |
+| `typescript/vitest/run` | `check` test: `run: vitest run`, `changed_run: vitest run --changed`; timeout 300 s |
 | `typescript/vitest/no-new-skip` | `ast-grep` no-increase on test files: `it.skip`, `test.skip`, `describe.skip`, `it.todo`, `test.todo`, `describe.todo`, `$X.skipIf`, `$X.runIf`, `$X.only` |
 | `typescript/vitest/no-fewer-expects` | `ast-grep` no-decrease on test files: `expect($$$)` |
 | `typescript/vitest/no-test-env-branch` | `ast-grep` forbid on non-test files: `process.env.VITEST`, `process.env.NODE_ENV === "test"` |

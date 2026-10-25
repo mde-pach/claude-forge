@@ -730,17 +730,20 @@ forge_related_py_tests() {
   done | sort -u
 }
 
-# forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out.
+# forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out; 124 when
+# it ran past <timeout> seconds and was stopped.
 forge_exec_check() {
   set -f
   if [ -n "$2" ]; then
+    rm -f "$FORGE_TMP/timedout"
     "$1" > "$FORGE_TMP/out" 2>&1 &
     _fe_pid=$!
-    ( sleep "$2"; printf 'forge: timed out after %ss\n' "$2" >> "$FORGE_TMP/out"; forge_kill_tree "$_fe_pid" ) >/dev/null 2>&1 &
+    ( sleep "$2"; : > "$FORGE_TMP/timedout"; printf 'forge: timed out after %ss\n' "$2" >> "$FORGE_TMP/out"; forge_kill_tree "$_fe_pid" ) >/dev/null 2>&1 &
     _fe_watch=$!
     wait "$_fe_pid" 2>/dev/null
     _fe_rc=$?
     forge_kill_tree "$_fe_watch"
+    if [ -f "$FORGE_TMP/timedout" ]; then rm -f "$FORGE_TMP/timedout"; _fe_rc=124; fi
   else
     ( "$1" ) > "$FORGE_TMP/out" 2>&1 < /dev/null
     _fe_rc=$?
@@ -825,10 +828,14 @@ forge_run_check() {
   case $mode in --changed|--turn)
     if [ "$c_changed" = 1 ] && [ -n "$FORGE_FILES" ]; then _fc_fn=forge_check_changed_$1; _fc_whole=0; fi ;;
   esac
-  if forge_exec_check "$_fc_fn" "$c_timeout"; then
-    grep '^forge:' "$FORGE_TMP/out"
-    return 0
-  fi
+  forge_exec_check "$_fc_fn" "$c_timeout"
+  case $? in
+    0) grep '^forge:' "$FORGE_TMP/out"; return 0 ;;
+    124)
+      printf 'forge:%s failed: timed out after %ss and was stopped (a hung test, or a service that never answers?); its output until then:\n' "$c_id" "$c_timeout"
+      grep -v '^forge: timed out after' "$FORGE_TMP/out" | first_lines 15
+      return 1 ;;
+  esac
   # outside --all, only errors in the change count (§10.1 step 5)
   _fc_level=$(forge_attribute_level "$c_stage" "$_fc_whole")
   if [ "$mode" != --all ] && [ -n "$_fc_level" ]; then
