@@ -656,8 +656,9 @@ context.md: "React components in Astro render to static HTML; they become intera
 | `typescript/prisma/client-generator` | `check` lint: no `provider = "prisma-client-js"` in tracked `*.prisma` files, `when_changed: [**/*.prisma]` |
 | `typescript/prisma/migration-lint` | `check` migration: changed `prisma/migrations/*/migration.sql` linted with Squawk (§13.1); `--all`: the newest migration; `when_changed: [prisma/migrations/**]` |
 | `typescript/prisma/no-network-in-transaction` | `ast-grep` forbid: `fetch` / `axios` / `got` / `ky` / `ofetch` calls (and their methods) and calls on `stripe`, `resend`, `openai`, `anthropic`, `twilio`, `sgMail`, `postmark` inside a function passed to `….$transaction(…)` |
+| `typescript/prisma/destructive-migration` | `check` migration: `DROP COLUMN` / `DROP TABLE` lines (not `--` comments; not a SQLite redefinition, where `RENAME TO` gives the table back) in the changed `prisma/migrations/*/migration.sql` (`--all`: the newest), printed `file:line: <statement>`; a line found in `forge.yaml` (an `accept` entry) passes; `when_changed: [prisma/migrations/**]` |
 
-context.md: Prisma 7: `prisma-client` generator with `output`, driver adapters, `prisma.config.ts` (no automatic `.env`), `prisma db seed`, `$extends` (no `$use`), tagged `$queryRaw` only; no network calls in interactive transactions; migrations with schema changes (not under db push).
+context.md: Prisma 7: `prisma-client` generator with `output`, driver adapters, `prisma.config.ts` (no automatic `.env`), `prisma db seed`, `$extends` (no `$use`), tagged `$queryRaw` only; no network calls in interactive transactions; migrations with schema changes (not under db push); drops accepted in `forge.yaml`.
 
 ### typescript/vitest
 
