@@ -1,0 +1,25 @@
+id: typescript/trpc/trpc-error
+description: A procedure throws TRPCError with a code, not a plain Error (which reaches the client as INTERNAL_SERVER_ERROR).
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: throw_statement
+      has: {kind: new_expression, has: {field: constructor, regex: "^Error$"}}
+      inside:
+        stopBy: end
+        kind: call_expression
+        has:
+          field: function
+          kind: member_expression
+          all:
+            - has: {field: property, regex: "^(query|mutation|subscription)$"}
+            - has: {field: object, regex: "^([A-Za-z_$][A-Za-z0-9_$]*[Pp]rocedure|procedure|t\\.procedure)([^A-Za-z0-9_$]|$)"}
+examples:
+  match:
+    - "export const byId = publicProcedure.input(z.object({ id: z.string() })).query(async ({ input }) => {\n  const post = await db.post.find(input.id);\n  if (!post) throw new Error(\"Post not found\");\n  return post;\n});\n"
+  no_match:
+    - "export const byId = publicProcedure.input(z.object({ id: z.string() })).query(async ({ input }) => {\n  const post = await db.post.find(input.id);\n  if (!post) throw new TRPCError({ code: \"NOT_FOUND\", message: \"Post not found\" });\n  return post;\n});\n"
+    - "const rows = await pool.query(sql, () => { throw new Error(\"x\"); });"
+    - "export function load() {\n  throw new Error(\"not a procedure\");\n}\n"

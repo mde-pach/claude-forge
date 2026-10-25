@@ -720,6 +720,16 @@ Detected by `drizzle.config.*` or the `drizzle-orm` / `drizzle-kit` dependency. 
 
 context.md: schema, `out` and `dialect` in `drizzle.config.*`; `drizzle-kit generate` after a schema change, its files committed together and never written by hand; applied migrations are not edited; `push` needs confirmation; the `sql` tag binds values.
 
+### typescript/trpc
+
+| Rule | Targets |
+|---|---|
+| `typescript/trpc/input-validate` | `ast-grep` forbid: `.input(…)` whose argument is `z.any()`, `z.unknown()`, `(v) => v as T` or `(v: T) => v` |
+| `typescript/trpc/protected-mutation` | `ast-grep` forbid: `.mutation(…)` on a chain that starts at `publicProcedure`, `baseProcedure`, `procedure` or `t.procedure`. Public mutations and other base names are handled with a local rule of the same id (§5.3) |
+| `typescript/trpc/trpc-error` | `ast-grep` forbid: `throw new Error(…)` inside the resolver of `.query` / `.mutation` / `.subscription` on a chain that starts at `*Procedure`, `procedure` or `t.procedure` |
+
+context.md: `.input(<schema>)` and what is rejected; mutations on an authorizing procedure; `TRPCError` with a `code` in procedures.
+
 ### github-actions
 
 Detected by `.github/workflows/*.yml` or `*.yaml`.
