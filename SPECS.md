@@ -858,7 +858,7 @@ context.md: schema, `out` and `dialect` in `drizzle.config.*`; `drizzle-kit gene
 | Rule | Targets |
 |---|---|
 | `typescript/trpc/input-validate` | `ast-grep` forbid: `.input(…)` whose argument is `z.any()`, `z.unknown()`, `(v) => v as T` or `(v: T) => v` |
-| `typescript/trpc/trpc-error` | `ast-grep` forbid: `throw new Error(…)` inside the resolver of `.query` / `.mutation` / `.subscription` on a chain that starts at `*Procedure`, `procedure` or `t.procedure` |
+| `typescript/trpc/trpc-error` | `ast-grep` forbid: `throw new Error(…)` or `throw Error(…)` inside a function passed as the first argument of `.query()`, `.mutation()` or `.subscription()`, in a file importing `@trpc/server` or when that function destructures `ctx` or `input`; not inside a `try` block |
 
 context.md: `.input(<schema>)` and what is rejected; `TRPCError` with a `code` in procedures.
 
