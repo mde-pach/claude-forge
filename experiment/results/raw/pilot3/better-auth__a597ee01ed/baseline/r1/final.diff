@@ -1,0 +1,82 @@
+diff --git a/packages/better-auth/src/plugins/organization/organization.test.ts b/packages/better-auth/src/plugins/organization/organization.test.ts
+index fb658c4..d136d7d 100644
+--- a/packages/better-auth/src/plugins/organization/organization.test.ts
++++ b/packages/better-auth/src/plugins/organization/organization.test.ts
+@@ -3677,3 +3677,43 @@ describe("organization additionalFields with returned: false", async () => {
+ 		expect(dbOrg?.secretField).toBe("updated-secret");
+ 	});
+ });
++
++describe("cancelPendingInvitationsOnReInvite", async () => {
++	const { customFetchImpl, signInWithTestUser } = await getTestInstance({
++		plugins: [
++			organization({
++				cancelPendingInvitationsOnReInvite: true,
++				async sendInvitationEmail() {},
++			}),
++		],
++	});
++	const client = createAuthClient({
++		plugins: [organizationClient()],
++		baseURL: "http://localhost:3000/api/auth",
++		fetchOptions: { customFetchImpl },
++	});
++	const { headers } = await signInWithTestUser();
++
++	it("should cancel the old invitation and create a new one", async () => {
++		const org = await client.organization.create(
++			{ name: "test", slug: "test" },
++			{ headers },
++		);
++		const body = {
++			organizationId: org.data?.id as string,
++			email: "reinvite@test.com",
++			role: "member" as const,
++		};
++		const first = await client.organization.inviteMember(body, { headers });
++		const second = await client.organization.inviteMember(body, { headers });
++		expect(second.error).toBeNull();
++		expect(second.data?.status).toBe("pending");
++		expect(second.data?.id).not.toBe(first.data?.id);
++
++		const list = await client.organization.listInvitations({
++			fetchOptions: { headers },
++		});
++		expect(list.data?.filter((i) => i.status === "pending").length).toBe(1);
++		expect(list.data?.filter((i) => i.status === "canceled").length).toBe(1);
++	});
++});
+diff --git a/packages/better-auth/src/plugins/organization/routes/crud-invites.ts b/packages/better-auth/src/plugins/organization/routes/crud-invites.ts
+index a277fb1..6b00c9b 100644
+--- a/packages/better-auth/src/plugins/organization/routes/crud-invites.ts
++++ b/packages/better-auth/src/plugins/organization/routes/crud-invites.ts
+@@ -289,7 +289,11 @@ export const createInvitation = <O extends OrganizationOptions>(option: O) => {
+ 				email: email,
+ 				organizationId: organizationId,
+ 			});
+-			if (alreadyInvited.length && !ctx.body.resend) {
++			if (
++				alreadyInvited.length &&
++				!ctx.body.resend &&
++				!ctx.context.orgOptions.cancelPendingInvitationsOnReInvite
++			) {
+ 				throw APIError.from(
+ 					"BAD_REQUEST",
+ 					ORGANIZATION_ERROR_CODES.USER_IS_ALREADY_INVITED_TO_THIS_ORGANIZATION,
+@@ -359,10 +363,12 @@ export const createInvitation = <O extends OrganizationOptions>(option: O) => {
+ 				alreadyInvited.length &&
+ 				ctx.context.orgOptions.cancelPendingInvitationsOnReInvite
+ 			) {
+-				await adapter.updateInvitation({
+-					invitationId: alreadyInvited[0]!.id,
+-					status: "canceled",
+-				});
++				for (const invitation of alreadyInvited) {
++					await adapter.updateInvitation({
++						invitationId: invitation.id,
++						status: "canceled",
++					});
++				}
+ 			}
+ 
+ 			const invitationLimit =

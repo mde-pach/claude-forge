@@ -1,0 +1,50 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > accepts an existing FAILED sandbox from Create",
+   "action": "keep",
+   "reason": "Checks only the returned id/status and the single request through the public create API, all of which the instruction requires; fetch is mocked at the boundary."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > accepts an existing PAUSED sandbox from Create",
+   "action": "keep",
+   "reason": "Checks only the returned id/status and the single request through the public create API, all of which the instruction requires; fetch is mocked at the boundary."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > accepts an existing PENDING sandbox from Create",
+   "action": "keep",
+   "reason": "Checks only the returned id/status and the single request through the public create API, all of which the instruction requires; fetch is mocked at the boundary."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > accepts an existing RUNNING sandbox from Create",
+   "action": "keep",
+   "reason": "Checks only the returned id/status and the single request through the public create API, all of which the instruction requires; fetch is mocked at the boundary."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > accepts an existing STARTING sandbox from Create",
+   "action": "keep",
+   "reason": "Checks only the returned id/status and the single request through the public create API, all of which the instruction requires; fetch is mocked at the boundary."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > accepts an existing TERMINATED sandbox from Create",
+   "action": "keep",
+   "reason": "Checks only the returned id/status and the single request through the public create API, all of which the instruction requires; fetch is mocked at the boundary."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > accepts an existing TERMINATING sandbox from Create",
+   "action": "keep",
+   "reason": "Checks only the returned id/status and the single request through the public create API, all of which the instruction requires; fetch is mocked at the boundary."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > marks Create transport failures as retryable",
+   "action": "keep",
+   "reason": "Asserts only the SandboxError fields the instruction lists (name, action, code, ambiguous, retryable), with fetch doubled at the boundary."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::step.sandbox > keeps create transport failures retryable and reconstructs them after exhaustion",
+   "action": "keep",
+   "reason": "Asserts the StepError/retriable outcome and the reconstructed SandboxError fields that the instruction requires for durable functions, using only public step APIs and a boundary fetch mock."
+  }
+ ],
+ "edits": []
+}

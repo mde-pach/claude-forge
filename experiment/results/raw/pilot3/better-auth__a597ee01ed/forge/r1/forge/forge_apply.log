@@ -1,0 +1,930 @@
+$ node /tmp/forge/dist/forge.js apply --user --yes
+[exit 0]
+--- .claude/settings.json
++++ .claude/settings.json
++{
++  "permissions": {
++    "deny": [
++      "Bash(dropdb:*)",
++      "Bash(git clean:*)",
++      "Bash(git filter-branch:*)",
++      "Bash(git filter-repo:*)",
++      "Bash(git reflog expire:*)",
++      "Bash(git stash clear:*)",
++      "Bash(git reset --hard:*)",
++      "Bash(npm publish:*)",
++      "Bash(bun publish:*)",
++      "Bash(uv publish:*)",
++      "Read(**/.env)",
++      "Read(**/.env.local)",
++      "Read(**/.env.development)",
++      "Read(**/.env.production)",
++      "Read(**/.env.test)",
++      "Edit(**/.env)",
++      "Edit(**/.env.local)",
++      "Edit(**/.env.development)",
++      "Edit(**/.env.production)",
++      "Edit(**/.env.test)",
++      "Read(**/*.pem)",
++      "Read(**/*.key)",
++      "Read(~/.ssh/**)",
++      "Read(~/.netrc)",
++      "Read(~/.npmrc)",
++      "Read(~/.pypirc)",
++      "Read(~/.pgpass)",
++      "Read(~/.git-credentials)",
++      "Read(~/.config/gh/hosts.yml)",
++      "Read(~/.docker/config.json)"
++    ],
++    "ask": [
++      "Bash(bun add:*)",
++      "Bash(uv add:*)",
++      "Edit(~/.claude/skills/forge-user/**)",
++      "Edit(~/.claude/forge.lock.json)"
++    ]
++  },
++  "sandbox": {
++    "enabled": true,
++    "network": {
++      "allowedDomains": [
++        "registry.npmjs.org",
++        "pypi.org",
++        "files.pythonhosted.org",
++        "github.com"
++      ]
++    }
++  }
++}
+forge: applied (7 written, 0 deleted, 1 settings file(s) updated)
+
+
+
+$ node /tmp/forge/dist/forge.js apply --yes
+[exit 0]
+--- .claude/settings.json
++++ .claude/settings.json
++{
++  "permissions": {
++    "ask": [
++      "Edit(.forge/**)",
++      "Edit(forge.yaml)",
++      "Edit(.claude/skills/forge-project/**)",
++      "Edit(.claude/rules/forge-*.md)",
++      "Edit(**/biome.json)",
++      "Edit(**/biome.jsonc)",
++      "Edit(**/tsconfig*.json)",
++      "Edit(**/vitest.config.*)"
++    ]
++  }
++}
+forge: applied (56 written, 0 deleted, 1 settings file(s) updated)
+forge:typescript/no-console biome lint/suspicious/noConsole: unsatisfied (lint/suspicious/noConsole not reported for: export function checkout(total: number): void {)
+  add to the biome config: "linter": {"rules": {"suspicious": {"noConsole": {"level": "error", "options": {"allow": ["warn", "error"]}}}}}
+forge:typescript/no-empty-block biome lint/suspicious/noEmptyBlockStatements: unsatisfied (lint/suspicious/noEmptyBlockStatements not reported for: export function apply(discount: number): void {)
+  add to the biome config: "linter": {"rules": {"suspicious": {"noEmptyBlockStatements": "error"}}}
+forge:typescript/no-eval biome lint/security/noGlobalEval: unsatisfied (lint/security/noGlobalEval not reported for: declare const code: string;)
+  add to the biome config: "linter": {"rules": {"security": {"noGlobalEval": "error"}}}
+forge:typescript/no-explicit-any biome lint/suspicious/noExplicitAny: unsatisfied (lint/suspicious/noExplicitAny not reported for: const x = y as any)
+  add to the biome config: "linter": {"rules": {"suspicious": {"noExplicitAny": "error"}}}
+forge:typescript/no-focused-tests biome lint/suspicious/noFocusedTests: unsatisfied (lint/suspicious/noFocusedTests not reported for: it.only("x", () => {});)
+  add to the biome config: "linter": {"rules": {"suspicious": {"noFocusedTests": "error"}}}
+forge:typescript/no-non-null-assertion biome lint/style/noNonNullAssertion: unsatisfied (lint/style/noNonNullAssertion not reported for: declare const users: string[];)
+  add to the biome config: "linter": {"rules": {"style": {"noNonNullAssertion": "error"}}}
+forge:typescript/no-secrets biome lint/security/noSecrets: unsatisfied (lint/security/noSecrets not reported for: export const AWS_KEY = "AKIAIOSFODNN7EXAMPLE";)
+  add to the biome config: "linter": {"rules": {"security": {"noSecrets": {"level": "error", "options": {"entropyThreshold": 50}}}}}, "overrides": [{"includes": ["**/*.test.*", "**/*.spec.*", "**/generated/**"], "linter": {"rules": {"security": {"noSecrets": "off"}}}}]
+forge:typescript/no-unused biome lint/correctness/noUnusedImports: unsatisfied (lint/correctness/noUnusedImports is only a warning in your biome config, so biome does not fail on it (e.g. import { readFile } from "node:fs/promises";))
+  add to the biome config: "linter": {"rules": {"correctness": {"noUnusedImports": "error", "noUnusedVariables": "error"}}}
+forge:typescript/no-unused biome lint/correctness/noUnusedVariables: unsatisfied (lint/correctness/noUnusedVariables is only a warning in your biome config, so biome does not fail on it (e.g. import { readFile } from "node:fs/promises";))
+  add to the biome config: "linter": {"rules": {"correctness": {"noUnusedImports": "error", "noUnusedVariables": "error"}}}
+forge: pre-commit: add "sh .forge/check.sh --changed" to lefthook.yml
+
+
+
+$ node /tmp/forge/dist/forge.js status --json; node /tmp/forge/dist/forge.js status --user --json
+[exit 0]
+{
+  "forge_version": "0.5.0",
+  "level": "project",
+  "base": "/work",
+  "applied": "0.5.0",
+  "packs": [
+    {
+      "id": "docker",
+      "why": "detected"
+    },
+    {
+      "id": "docker/compose",
+      "why": "detected"
+    },
+    {
+      "id": "github-actions",
+      "why": "detected"
+    },
+    {
+      "id": "typescript",
+      "why": "detected"
+    },
+    {
+      "id": "typescript/vitest",
+      "why": "detected"
+    }
+  ],
+  "inactive_packs": [],
+  "counts": {
+    "active": 57,
+    "enforced": 48,
+    "not_enforced": 9
+  },
+  "rules": [
+    {
+      "id": "docker/compose/config-valid",
+      "enforced": false,
+      "by": [],
+      "not_enforced": [
+        "docker not installed"
+      ]
+    },
+    {
+      "id": "docker/compose/datastore-loopback",
+      "enforced": true,
+      "by": [
+        "ast-grep forbid"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "docker/compose/env-not-committed",
+      "enforced": true,
+      "by": [
+        "check lint"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "docker/compose/healthy-depends",
+      "enforced": true,
+      "by": [
+        "ast-grep forbid"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "docker/compose/no-docker-sock",
+      "enforced": true,
+      "by": [
+        "ast-grep forbid"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "docker/compose/no-host-root-mounts",
+      "enforced": true,
+      "by": [
+        "ast-grep forbid"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "docker/compose/no-inline-secrets",
+      "enforced": true,
+      "by": [
+        "ast-grep forbid"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "docker/compose/no-privileged",
+      "enforced": true,
+      "by": [
+        "ast-grep forbid"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "docker/compose/no-version-key",
+      "enforced": true,
+      "by": [
+        "ast-grep forbid"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "docker/compose/pinned-images",
+      "enforced": true,
+      "by": [
+        "ast-grep forbid"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "docker/copy-not-add",
+      "enforced": true,
+      "by": [
+        "check lint"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "docker/dockerignore",
+      "enforced": true,
+      "by": [
+        "check lint"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "docker/exec-form",
+      "enforced": true,
+      "by": [
+        "check lint"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "docker/locked-install",
+      "enforced": true,
+      "by": [
+        "check lint"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "docker/no-secret-arg-env",
+      "enforced": true,
+      "by": [
+        "check lint"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "docker/non-root-user",
+      "enforced": true,
+      "by": [
+        "check lint"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "docker/pin-base-image",
+      "enforced": true,
+      "by": [
+        "check lint"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "docker/pipefail",
+      "enforced": true,
+      "by": [
+        "check lint"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "docker/workdir",
+      "enforced": true,
+      "by": [
+        "check lint"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "github-actions/zizmor",
+      "enforced": true,
+      "by": [
+        "check lint"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "typescript/config-files",
+      "enforced": true,
+      "by": [
+        "permission ask"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "typescript/config-ratchet",
+      "enforced": true,
+      "by": [
+        "check lint"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "typescript/format-lint",
+      "enforced": true,
+      "by": [
+        "check lint"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "typescript/no-console",
+      "enforced": false,
+      "by": [],
+      "not_enforced": [
+        "Biome rules not at error"
+      ]
+    },
+    {
+      "id": "typescript/no-double-assertion",
+      "enforced": true,
+      "by": [
+        "ast-grep forbid"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "typescript/no-empty-block",
+      "enforced": false,
+      "by": [],
+      "not_enforced": [
+        "Biome rules not at error"
+      ]
+    },
+    {
+      "id": "typescript/no-eval",
+      "enforced": false,
+      "by": [],
+      "not_enforced": [
+        "Biome rules not at error"
+      ]
+    },
+    {
+      "id": "typescript/no-explicit-any",
+      "enforced": false,
+      "by": [],
+      "not_enforced": [
+        "Biome rules not at error"
+      ]
+    },
+    {
+      "id": "typescript/no-focused-tests",
+      "enforced": false,
+      "by": [],
+      "not_enforced": [
+        "Biome rules not at error"
+      ]
+    },
+    {
+      "id": "typescript/no-ignore-deprecations",
+      "enforced": true,
+      "by": [
+        "check lint"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "typescript/no-implicit-any",
+      "enforced": true,
+      "by": [
+        "tsc TS7006"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "typescript/no-new-suppressions",
+      "enforced": true,
+      "by": [
+        "grep"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "typescript/no-non-null-assertion",
+      "enforced": false,
+      "by": [],
+      "not_enforced": [
+        "Biome rules not at error"
+      ]
+    },
+    {
+      "id": "typescript/no-placeholder-comment",
+      "enforced": true,
+      "by": [
+        "grep"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "typescript/no-secrets",
+      "enforced": false,
+      "by": [],
+      "not_enforced": [
+        "Biome rules not at error"
+      ]
+    },
+    {
+      "id": "typescript/no-stub",
+      "enforced": true,
+      "by": [
+        "ast-grep forbid"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "typescript/no-swallowed-catch",
+      "enforced": true,
+      "by": [
+        "ast-grep forbid"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "typescript/no-ts-ignore",
+      "enforced": true,
+      "by": [
+        "biome lint/suspicious/noTsIgnore"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "typescript/no-ts-nocheck",
+      "enforced": true,
+      "by": [
+        "ast-grep forbid"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "typescript/no-unused",
+      "enforced": false,
+      "by": [],
+      "not_enforced": [
+        "Biome rules not at error"
+      ]
+    },
+    {
+      "id": "typescript/no-unused-suppressions",
+      "enforced": true,
+      "by": [
+        "check lint"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "typescript/strict-function-types",
+      "enforced": true,
+      "by": [
+        "tsc TS2322"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "typescript/strict-null-checks",
+      "enforced": true,
+      "by": [
+        "tsc TS18047"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "typescript/ts-expect-error-reason",
+      "enforced": true,
+      "by": [
+        "ast-grep forbid"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "typescript/typecheck",
+      "enforced": true,
+      "by": [
+        "check typecheck"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "typescript/unchecked-index",
+      "enforced": true,
+      "by": [
+        "tsc TS18048"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "typescript/vitest/config-file",
+      "enforced": true,
+      "by": [
+        "permission ask"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "typescript/vitest/no-fewer-expects",
+      "enforced": true,
+      "by": [
+        "ast-grep no-decrease"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "typescript/vitest/no-mock-increase",
+      "enforced": true,
+      "by": [
+        "ast-grep no-increase"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "typescript/vitest/no-new-skip",
+      "enforced": true,
+      "by": [
+        "ast-grep no-increase"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "typescript/vitest/no-pass-with-no-tests",
+      "enforced": true,
+      "by": [
+        "guard ask"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "typescript/vitest/no-snapshot-update",
+      "enforced": true,
+      "by": [
+        "guard ask"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "typescript/vitest/no-tautological-expect",
+      "enforced": true,
+      "by": [
+        "ast-grep forbid"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "typescript/vitest/no-test-edits",
+      "enforced": true,
+      "by": [
+        "check lint"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "typescript/vitest/no-test-env-branch",
+      "enforced": true,
+      "by": [
+        "ast-grep forbid"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "typescript/vitest/no-workspace-file",
+      "enforced": true,
+      "by": [
+        "check lint"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "typescript/vitest/run",
+      "enforced": true,
+      "by": [
+        "check test"
+      ],
+      "not_enforced": []
+    }
+  ],
+  "disabled": [],
+  "deprecated": [],
+  "audits": [
+    {
+      "rule": "typescript/no-console",
+      "tool": "biome",
+      "expects": "lint/suspicious/noConsole",
+      "status": "unsatisfied",
+      "detail": "lint/suspicious/noConsole not reported for: export function checkout(total: number): void {",
+      "snippet": "\"linter\": {\"rules\": {\"suspicious\": {\"noConsole\": {\"level\": \"error\", \"options\": {\"allow\": [\"warn\", \"error\"]}}}}}"
+    },
+    {
+      "rule": "typescript/no-empty-block",
+      "tool": "biome",
+      "expects": "lint/suspicious/noEmptyBlockStatements",
+      "status": "unsatisfied",
+      "detail": "lint/suspicious/noEmptyBlockStatements not reported for: export function apply(discount: number): void {",
+      "snippet": "\"linter\": {\"rules\": {\"suspicious\": {\"noEmptyBlockStatements\": \"error\"}}}"
+    },
+    {
+      "rule": "typescript/no-eval",
+      "tool": "biome",
+      "expects": "lint/security/noGlobalEval",
+      "status": "unsatisfied",
+      "detail": "lint/security/noGlobalEval not reported for: declare const code: string;",
+      "snippet": "\"linter\": {\"rules\": {\"security\": {\"noGlobalEval\": \"error\"}}}"
+    },
+    {
+      "rule": "typescript/no-explicit-any",
+      "tool": "biome",
+      "expects": "lint/suspicious/noExplicitAny",
+      "status": "unsatisfied",
+      "detail": "lint/suspicious/noExplicitAny not reported for: const x = y as any",
+      "snippet": "\"linter\": {\"rules\": {\"suspicious\": {\"noExplicitAny\": \"error\"}}}"
+    },
+    {
+      "rule": "typescript/no-focused-tests",
+      "tool": "biome",
+      "expects": "lint/suspicious/noFocusedTests",
+      "status": "unsatisfied",
+      "detail": "lint/suspicious/noFocusedTests not reported for: it.only(\"x\", () => {});",
+      "snippet": "\"linter\": {\"rules\": {\"suspicious\": {\"noFocusedTests\": \"error\"}}}"
+    },
+    {
+      "rule": "typescript/no-implicit-any",
+      "tool": "tsc",
+      "expects": "TS7006",
+      "status": "satisfied"
+    },
+    {
+      "rule": "typescript/no-non-null-assertion",
+      "tool": "biome",
+      "expects": "lint/style/noNonNullAssertion",
+      "status": "unsatisfied",
+      "detail": "lint/style/noNonNullAssertion not reported for: declare const users: string[];",
+      "snippet": "\"linter\": {\"rules\": {\"style\": {\"noNonNullAssertion\": \"error\"}}}"
+    },
+    {
+      "rule": "typescript/no-secrets",
+      "tool": "biome",
+      "expects": "lint/security/noSecrets",
+      "status": "unsatisfied",
+      "detail": "lint/security/noSecrets not reported for: export const AWS_KEY = \"AKIAIOSFODNN7EXAMPLE\";",
+      "snippet": "\"linter\": {\"rules\": {\"security\": {\"noSecrets\": {\"level\": \"error\", \"options\": {\"entropyThreshold\": 50}}}}}, \"overrides\": [{\"includes\": [\"**/*.test.*\", \"**/*.spec.*\", \"**/generated/**\"], \"linter\": {\"rules\": {\"security\": {\"noSecrets\": \"off\"}}}}]"
+    },
+    {
+      "rule": "typescript/no-ts-ignore",
+      "tool": "biome",
+      "expects": "lint/suspicious/noTsIgnore",
+      "status": "satisfied"
+    },
+    {
+      "rule": "typescript/no-unused",
+      "tool": "biome",
+      "expects": "lint/correctness/noUnusedImports",
+      "status": "unsatisfied",
+      "detail": "lint/correctness/noUnusedImports is only a warning in your biome config, so biome does not fail on it (e.g. import { readFile } from \"node:fs/promises\";)",
+      "snippet": "\"linter\": {\"rules\": {\"correctness\": {\"noUnusedImports\": \"error\", \"noUnusedVariables\": \"error\"}}}"
+    },
+    {
+      "rule": "typescript/no-unused",
+      "tool": "biome",
+      "expects": "lint/correctness/noUnusedVariables",
+      "status": "unsatisfied",
+      "detail": "lint/correctness/noUnusedVariables is only a warning in your biome config, so biome does not fail on it (e.g. import { readFile } from \"node:fs/promises\";)",
+      "snippet": "\"linter\": {\"rules\": {\"correctness\": {\"noUnusedImports\": \"error\", \"noUnusedVariables\": \"error\"}}}"
+    },
+    {
+      "rule": "typescript/strict-function-types",
+      "tool": "tsc",
+      "expects": "TS2322",
+      "status": "satisfied"
+    },
+    {
+      "rule": "typescript/strict-null-checks",
+      "tool": "tsc",
+      "expects": "TS18047",
+      "status": "satisfied"
+    },
+    {
+      "rule": "typescript/unchecked-index",
+      "tool": "tsc",
+      "expects": "TS18048",
+      "status": "satisfied"
+    }
+  ],
+  "missing_tools": [
+    "docker"
+  ],
+  "drift": [],
+  "warnings": []
+}
+{
+  "forge_version": "0.5.0",
+  "level": "user",
+  "base": "/home/dev",
+  "applied": "0.5.0",
+  "packs": [
+    {
+      "id": "safety",
+      "why": "user level"
+    }
+  ],
+  "inactive_packs": [],
+  "counts": {
+    "active": 24,
+    "enforced": 24,
+    "not_enforced": 0
+  },
+  "rules": [
+    {
+      "id": "safety/docker-privileged",
+      "enforced": true,
+      "by": [
+        "guard deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/docker-push",
+      "enforced": true,
+      "by": [
+        "guard ask"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/docker-volumes",
+      "enforced": true,
+      "by": [
+        "guard deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/dropdb",
+      "enforced": true,
+      "by": [
+        "permission deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/ephemeral-exec",
+      "enforced": true,
+      "by": [
+        "guard ask"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/git-branch-force-delete",
+      "enforced": true,
+      "by": [
+        "guard ask"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/git-clean",
+      "enforced": true,
+      "by": [
+        "permission deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/git-discard",
+      "enforced": true,
+      "by": [
+        "guard deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/git-force-push",
+      "enforced": true,
+      "by": [
+        "guard deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/git-force-with-lease",
+      "enforced": true,
+      "by": [
+        "guard ask"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/git-history-rewrite",
+      "enforced": true,
+      "by": [
+        "permission deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/git-no-verify",
+      "enforced": true,
+      "by": [
+        "guard deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/git-reset-hard",
+      "enforced": true,
+      "by": [
+        "permission deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/git-stash-drop",
+      "enforced": true,
+      "by": [
+        "guard ask"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/package-add",
+      "enforced": true,
+      "by": [
+        "permission ask"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/prisma-ai-consent",
+      "enforced": true,
+      "by": [
+        "guard deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/publish",
+      "enforced": true,
+      "by": [
+        "permission deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/remote-script",
+      "enforced": true,
+      "by": [
+        "guard deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/rm-root",
+      "enforced": true,
+      "by": [
+        "guard deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/sandbox",
+      "enforced": true,
+      "by": [
+        "sandbox"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/secret-files",
+      "enforced": true,
+      "by": [
+        "permission deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/secret-read-bash",
+      "enforced": true,
+      "by": [
+        "guard deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/sql-destructive",
+      "enforced": true,
+      "by": [
+        "guard deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/terraform-destroy",
+      "enforced": true,
+      "by": [
+        "guard ask"
+      ],
+      "not_enforced": []
+    }
+  ],
+  "disabled": [],
+  "deprecated": [],
+  "audits": [],
+  "missing_tools": [],
+  "drift": [],
+  "warnings": []
+}
+
+
+
+$ git add .forge .claude && git commit -m 'Add Forge'
+[exit 0]

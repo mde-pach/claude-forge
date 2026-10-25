@@ -1,0 +1,120 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > accepts an existing FAILED sandbox from Create",
+   "action": "keep",
+   "reason": "Uses public client.create with an environment option the instruction names; outcome-only assertions."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > accepts an existing PAUSED sandbox from Create",
+   "action": "keep",
+   "reason": "Uses public client.create with an environment option the instruction names; outcome-only assertions."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > accepts an existing PENDING sandbox from Create",
+   "action": "keep",
+   "reason": "Uses public client.create with an environment option the instruction names; outcome-only assertions."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > accepts an existing RUNNING sandbox from Create",
+   "action": "keep",
+   "reason": "Uses public client.create with an environment option the instruction names; outcome-only assertions."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > accepts an existing STARTING sandbox from Create",
+   "action": "keep",
+   "reason": "Uses public client.create with an environment option the instruction names; outcome-only assertions."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > accepts an existing TERMINATED sandbox from Create",
+   "action": "keep",
+   "reason": "Uses public client.create with an environment option the instruction names; outcome-only assertions."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > accepts an existing TERMINATING sandbox from Create",
+   "action": "keep",
+   "reason": "Uses public client.create with an environment option the instruction names; outcome-only assertions."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > classifies a lost successful create response body",
+   "action": "keep",
+   "reason": "Existing public-behaviour test that fails only because the fixture now includes the specified environment field."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > guides an ambiguous Create response toward reconciliation",
+   "action": "keep",
+   "reason": "Existing public-behaviour test that fails only because the fixture now includes the specified environment field."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > makes readiness waiting opt-in on Create",
+   "action": "keep",
+   "reason": "Its request-body check matches the specified requirement that environment is included in the Create request."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > marks Create transport failures as retryable",
+   "action": "keep",
+   "reason": "Existing public-behaviour test that fails only because the fixture now includes environment."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > reports readiness timeout without retrying Create",
+   "action": "keep",
+   "reason": "Existing public-behaviour test that fails only because the fixture now includes environment."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > reports terminal startup failure without retrying",
+   "action": "keep",
+   "reason": "Existing public-behaviour test that fails only because the fixture now includes environment."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > retries transient readiness reads without redispatching Create",
+   "action": "keep",
+   "reason": "Existing public-behaviour test that fails only because the fixture now includes environment."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > uses the REST v2 resource shape and decodes byte-safe streams",
+   "action": "keep",
+   "reason": "Existing public-behaviour test that fails only because the fixture now includes environment."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > validates Create environment before transport",
+   "action": "keep",
+   "reason": "Checks the specified SandboxValidationError type and that fetch, a boundary double, is never called."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > waitUntilRunning reloads a STARTING sandbox",
+   "action": "keep",
+   "reason": "Existing public-behaviour test that fails only because the fixture now includes environment."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::step.sandbox > executes through REST in an ordinary run step and memoizes the result",
+   "action": "keep",
+   "reason": "Public durable create with the specified environment option; outcome-only assertions."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::step.sandbox > keeps create transport failures retryable and reconstructs them after exhaustion",
+   "action": "keep",
+   "reason": "Public durable create with the specified environment option; outcome-only assertions."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::step.sandbox > retries a structured Create availability failure",
+   "action": "keep",
+   "reason": "Public durable create with the specified environment option; outcome-only assertions."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::step.sandbox > suspends fresh process mutations and rehydrates them on replay",
+   "action": "keep",
+   "reason": "Public durable create with the specified environment option; outcome-only assertions."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::step.sandbox > uses UUID identity and exposes the complete durable lifecycle",
+   "action": "keep",
+   "reason": "Checks the operation input contains environment and runningTimeoutMs, both specified by the instruction."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::step.sandbox > validates Simcity limits without imposing identifier-style env keys",
+   "action": "keep",
+   "reason": "Checks SandboxValidationError from durable create and from parseSandboxOperation; the instruction names both, and the raw tool is a boundary double."
+  }
+ ],
+ "edits": []
+}

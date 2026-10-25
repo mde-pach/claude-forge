@@ -1,0 +1,90 @@
+{
+ "task_id": "better-auth__03dc5a046f",
+ "window": "main",
+ "repo": "better-auth",
+ "commit": "03dc5a046f536994950800ea557b8e2e2e0cdfdd",
+ "parent": "b30db3ffe5f338c129b1400aa49c96660e49d3b1",
+ "date": "2026-07-08T21:31:18+00:00",
+ "subject": "fix(core): resolve user.modelName collisions in references and adapter (#10235)",
+ "type": "fix",
+ "test_files": [
+  "packages/core/src/db/test/get-default-model-name.test.ts",
+  "packages/core/src/db/test/get-tables.test.ts"
+ ],
+ "source_files": [
+  "packages/core/src/db/adapter/get-default-model-name.ts",
+  "packages/core/src/db/get-tables.ts"
+ ],
+ "source_lines": 54,
+ "all_files": [
+  ".changeset/chilly-clowns-taste.md",
+  ".cspell/custom-words.txt",
+  "packages/core/src/db/adapter/get-default-model-name.ts",
+  "packages/core/src/db/get-tables.ts",
+  "packages/core/src/db/test/get-default-model-name.test.ts",
+  "packages/core/src/db/test/get-tables.test.ts"
+ ],
+ "hidden": [
+  "packages/core/src/db/test/get-default-model-name.test.ts",
+  "packages/core/src/db/test/get-tables.test.ts"
+ ],
+ "deleted": [],
+ "targets": [
+  "packages/core/src/db/test/get-default-model-name.test.ts",
+  "packages/core/src/db/test/get-tables.test.ts"
+ ],
+ "f2p": [
+  "packages/core/src/db/test/get-default-model-name.test.ts::initGetDefaultModelName > user.modelName collision with account schema key > resolves the user's modelName alias to the user schema key",
+  "packages/core/src/db/test/get-tables.test.ts::getAuthTables > user.modelName collision with account schema key > should point account.userId at the user table when user.modelName='account' and account.modelName='identity'",
+  "packages/core/src/db/test/get-tables.test.ts::getAuthTables > user.modelName collision with account schema key > should point session.userId at the user table when user.modelName='account' and account.modelName='identity'"
+ ],
+ "p2p": [
+  "packages/core/src/db/test/get-default-model-name.test.ts::initGetDefaultModelName > handles usePlural by stripping the trailing s before lookup",
+  "packages/core/src/db/test/get-default-model-name.test.ts::initGetDefaultModelName > resolves a custom modelName back to its schema key",
+  "packages/core/src/db/test/get-default-model-name.test.ts::initGetDefaultModelName > returns the schema key for a built-in model with no modelName override",
+  "packages/core/src/db/test/get-default-model-name.test.ts::initGetDefaultModelName > throws when the model cannot be resolved",
+  "packages/core/src/db/test/get-default-model-name.test.ts::initGetDefaultModelName > user.modelName collision with account schema key > resolves the account's modelName alias to the account schema key",
+  "packages/core/src/db/test/get-default-model-name.test.ts::initGetDefaultModelName > user.modelName collision with account schema key > still resolves the original schema keys when no alias collides",
+  "packages/core/src/db/test/get-tables.test.ts::getAuthTables > should exclude verification table when secondaryStorage is configured",
+  "packages/core/src/db/test/get-tables.test.ts::getAuthTables > should include verification table when no secondaryStorage",
+  "packages/core/src/db/test/get-tables.test.ts::getAuthTables > should include verification table when storeInDatabase is true",
+  "packages/core/src/db/test/get-tables.test.ts::getAuthTables > should keep disableMigration when plugins accumulate the same table key",
+  "packages/core/src/db/test/get-tables.test.ts::getAuthTables > should merge additionalFields into verification table metadata",
+  "packages/core/src/db/test/get-tables.test.ts::getAuthTables > should not use accessTokenExpiresAt field name for refreshTokenExpiresAt",
+  "packages/core/src/db/test/get-tables.test.ts::getAuthTables > should propagate disableMigration from a plugin schema onto the table",
+  "packages/core/src/db/test/get-tables.test.ts::getAuthTables > should use correct field name for refreshTokenExpiresAt",
+  "packages/core/src/db/test/get-tables.test.ts::getAuthTables > should use default field names when no custom names provided"
+ ],
+ "flaky": [],
+ "cost_instruction": 0.0681898,
+ "cost_audit": 0.0849262,
+ "kept_f2p": [
+  "packages/core/src/db/test/get-default-model-name.test.ts::initGetDefaultModelName > user.modelName collision with account schema key > resolves the user's modelName alias to the user schema key",
+  "packages/core/src/db/test/get-tables.test.ts::getAuthTables > user.modelName collision with account schema key > should point account.userId at the user table when user.modelName='account' and account.modelName='identity'",
+  "packages/core/src/db/test/get-tables.test.ts::getAuthTables > user.modelName collision with account schema key > should point session.userId at the user table when user.modelName='account' and account.modelName='identity'"
+ ],
+ "kept_p2p": [
+  "packages/core/src/db/test/get-default-model-name.test.ts::initGetDefaultModelName > handles usePlural by stripping the trailing s before lookup",
+  "packages/core/src/db/test/get-default-model-name.test.ts::initGetDefaultModelName > resolves a custom modelName back to its schema key",
+  "packages/core/src/db/test/get-default-model-name.test.ts::initGetDefaultModelName > returns the schema key for a built-in model with no modelName override",
+  "packages/core/src/db/test/get-default-model-name.test.ts::initGetDefaultModelName > throws when the model cannot be resolved",
+  "packages/core/src/db/test/get-default-model-name.test.ts::initGetDefaultModelName > user.modelName collision with account schema key > resolves the account's modelName alias to the account schema key",
+  "packages/core/src/db/test/get-default-model-name.test.ts::initGetDefaultModelName > user.modelName collision with account schema key > still resolves the original schema keys when no alias collides",
+  "packages/core/src/db/test/get-tables.test.ts::getAuthTables > should exclude verification table when secondaryStorage is configured",
+  "packages/core/src/db/test/get-tables.test.ts::getAuthTables > should include verification table when no secondaryStorage",
+  "packages/core/src/db/test/get-tables.test.ts::getAuthTables > should include verification table when storeInDatabase is true",
+  "packages/core/src/db/test/get-tables.test.ts::getAuthTables > should keep disableMigration when plugins accumulate the same table key",
+  "packages/core/src/db/test/get-tables.test.ts::getAuthTables > should merge additionalFields into verification table metadata",
+  "packages/core/src/db/test/get-tables.test.ts::getAuthTables > should not use accessTokenExpiresAt field name for refreshTokenExpiresAt",
+  "packages/core/src/db/test/get-tables.test.ts::getAuthTables > should propagate disableMigration from a plugin schema onto the table",
+  "packages/core/src/db/test/get-tables.test.ts::getAuthTables > should use correct field name for refreshTokenExpiresAt",
+  "packages/core/src/db/test/get-tables.test.ts::getAuthTables > should use default field names when no custom names provided"
+ ],
+ "edits_applied": 0,
+ "edits_rejected": [],
+ "dropped": [],
+ "revalidate_bad_f2p": [],
+ "revalidate_bad_p2p": [],
+ "final": "accepted",
+ "reason": null
+}

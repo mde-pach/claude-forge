@@ -1,0 +1,65 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > classifies a lost successful create response body",
+   "action": "keep",
+   "reason": "Asserts only specified public error fields (name/action/code/ambiguous/retryable) via the public client with fetch mocked at the boundary."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > classifies a lost successful destroy response body",
+   "action": "keep",
+   "reason": "Observable outcome of a body-loss on a 2xx response through the public API, as specified."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > classifies a lost successful exec response body",
+   "action": "keep",
+   "reason": "Checks specified classification for exec body loss via public interface only."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > classifies a lost successful file.upload response body",
+   "action": "keep",
+   "reason": "Instruction explicitly includes the file upload response; asserts only specified fields."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > classifies a lost successful process.start response body",
+   "action": "keep",
+   "reason": "Checks specified classification for process.start body loss via public interface."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > guides an ambiguous Create response toward reconciliation",
+   "action": "keep",
+   "reason": "Message substring and flags are exactly specified by the instruction for API operation_ambiguous on create."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > marks destroy transport failures as retryable with recovery guidance",
+   "action": "keep",
+   "reason": "Substring of the specified destroy message plus specified fields, fetch mocked at boundary."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > marks exec transport failures as ambiguous with recovery guidance",
+   "action": "keep",
+   "reason": "Substring of the specified exec message plus specified fields via public API."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > marks file.upload transport failures as retryable with recovery guidance",
+   "action": "keep",
+   "reason": "Substring of the specified upload message plus specified fields via public API."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > marks process.signal transport failures as ambiguous with recovery guidance",
+   "action": "keep",
+   "reason": "Substring of the specified process.signal message plus specified fields via public API."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > marks process.start transport failures as ambiguous with recovery guidance",
+   "action": "keep",
+   "reason": "Substring of the specified process.start message plus specified fields via public API."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > replaces a generic ambiguous API message with action-specific guidance",
+   "action": "keep",
+   "reason": "Instruction specifies replacing API operation_ambiguous messages with the table text; assertion is a substring of that text."
+  }
+ ],
+ "edits": []
+}

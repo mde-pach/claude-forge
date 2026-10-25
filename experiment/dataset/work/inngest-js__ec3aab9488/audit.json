@@ -1,0 +1,60 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/inngest/src/components/Inngest.test.ts::send > runtime > should carry a null session tombstone through on the wire",
+   "action": "keep",
+   "reason": "It checks the wire payload through the existing send() interface, with fetch mocked at the boundary, and the instruction specifies the payload exactly."
+  },
+  {
+   "id": "packages/inngest/src/components/Inngest.test.ts::send > runtime > should reject boolean event session values",
+   "action": "keep",
+   "reason": "The instruction specifies the error message 'must be a string, number, or null' word for word."
+  },
+  {
+   "id": "packages/inngest/src/helpers/sessions.test.ts::normalizeEventMeta (tombstones) > carries a per-key tombstone on the manual layer through",
+   "action": "keep",
+   "reason": "It checks the output of normalizeEventMeta, a helper the instruction names, against behaviour the instruction specifies."
+  },
+  {
+   "id": "packages/inngest/src/helpers/sessions.test.ts::normalizeEventMeta (tombstones) > carries whole-field null (clear all) through, keeping propagated",
+   "action": "keep",
+   "reason": "The instruction explicitly says sessions: null is kept and propagated_sessions are still sent alongside it."
+  },
+  {
+   "id": "packages/inngest/src/helpers/sessions.test.ts::normalizeManualSessions (tombstones) > normalizes string/number ids, absent when empty",
+   "action": "keep",
+   "reason": "It checks the named helper's specified results: string normalization, and undefined for absent or empty input."
+  },
+  {
+   "id": "packages/inngest/src/helpers/sessions.test.ts::normalizeManualSessions (tombstones) > preserves a per-key null tombstone",
+   "action": "keep",
+   "reason": "The instruction specifies that the named helper keeps a per-key null."
+  },
+  {
+   "id": "packages/inngest/src/helpers/sessions.test.ts::normalizeManualSessions (tombstones) > preserves whole-field null (clear all)",
+   "action": "keep",
+   "reason": "The instruction specifies that the named helper returns null for a whole-field null."
+  },
+  {
+   "id": "packages/inngest/src/helpers/sessions.test.ts::normalizeManualSessions (tombstones) > still rejects non-string/number/null values",
+   "action": "keep",
+   "reason": "The rejection and its message are both specified in the instruction."
+  },
+  {
+   "id": "packages/inngest/src/helpers/sessions.test.ts::normalizePropagatedSessions > drops whole-field null rather than preserving it",
+   "action": "keep",
+   "reason": "The instruction says a whole-field null on the propagated layer is dropped and treated as absent."
+  },
+  {
+   "id": "packages/inngest/src/helpers/sessions.test.ts::normalizePropagatedSessions > normalizes string/number ids, absent when empty",
+   "action": "keep",
+   "reason": "It checks the named helper's specified results: string normalization, and undefined for absent or empty input."
+  },
+  {
+   "id": "packages/inngest/src/helpers/sessions.test.ts::normalizePropagatedSessions > rejects a per-key null, since the layer carries no tombstones",
+   "action": "keep",
+   "reason": "The instruction specifies the throw and its message 'must be a string or number'."
+  }
+ ],
+ "edits": []
+}

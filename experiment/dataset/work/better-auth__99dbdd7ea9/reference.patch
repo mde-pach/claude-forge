@@ -1,0 +1,45 @@
+diff --git a/.changeset/hot-knives-yawn.md b/.changeset/hot-knives-yawn.md
+new file mode 100644
+index 00000000..dc405401
+--- /dev/null
++++ b/.changeset/hot-knives-yawn.md
+@@ -0,0 +1,6 @@
++---
++"auth": patch
++"better-auth": patch
++---
++
++Fixes Drizzle schema generation for fields that are both unique: true and index: true.
+diff --git a/packages/cli/src/generators/drizzle.ts b/packages/cli/src/generators/drizzle.ts
+index 3f5ef606..6c49a8f5 100644
+--- a/packages/cli/src/generators/drizzle.ts
++++ b/packages/cli/src/generators/drizzle.ts
+@@ -222,12 +222,6 @@ export const generateDrizzleSchema: SchemaGenerator = async ({
+ 									name: `${modelName}_${fieldName}_idx`,
+ 									on: fieldName,
+ 								});
+-							} else if (attr.index && attr.unique) {
+-								indexes.push({
+-									type: "uniqueIndex",
+-									name: `${modelName}_${fieldName}_uidx`,
+-									on: fieldName,
+-								});
+ 							}
+ 
+ 							if (
+@@ -662,15 +656,9 @@ function generateImport({
+ 	const hasIndexes = Object.values(tables).some((table) =>
+ 		Object.values(table.fields).some((field) => field.index && !field.unique),
+ 	);
+-	const hasUniqueIndexes = Object.values(tables).some((table) =>
+-		Object.values(table.fields).some((field) => field.unique && field.index),
+-	);
+ 	if (hasIndexes) {
+ 		coreImports.push("index");
+ 	}
+-	if (hasUniqueIndexes) {
+-		coreImports.push("uniqueIndex");
+-	}
+ 
+ 	return `${rootImports.length > 0 ? `import { ${rootImports.join(", ")} } from "drizzle-orm";\n` : ""}import { ${coreImports
+ 		.map((x) => x.trim())

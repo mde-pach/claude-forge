@@ -1,0 +1,42 @@
+diff --git a/.changeset/sixty-animals-brake.md b/.changeset/sixty-animals-brake.md
+new file mode 100644
+index 00000000..3e03125c
+--- /dev/null
++++ b/.changeset/sixty-animals-brake.md
+@@ -0,0 +1,5 @@
++---
++"better-auth": patch
++---
++
++fix: add no-store cache-control headers to get-session route
+diff --git a/packages/better-auth/src/api/routes/session.ts b/packages/better-auth/src/api/routes/session.ts
+index e3c057bd..1134250a 100644
+--- a/packages/better-auth/src/api/routes/session.ts
++++ b/packages/better-auth/src/api/routes/session.ts
+@@ -72,6 +72,9 @@ export const getSession = <Option extends BetterAuthOptions>() =>
+ 			session: Session<Option["session"], Option["plugins"]>;
+ 			user: User<Option["user"], Option["plugins"]>;
+ 		} | null> => {
++			ctx.setHeader("cache-control", "no-store");
++			ctx.setHeader("pragma", "no-cache");
++
+ 			const deferSessionRefresh =
+ 				ctx.context.options.session?.deferSessionRefresh;
+ 			const isPostRequest = ctx.method === "POST";
+@@ -584,9 +587,15 @@ export const getSessionFromCtx = async <
+ 	}
+ 	if (session.headers) {
+ 		session.headers.forEach((value, key) => {
++			const lowerKey = key.toLowerCase();
++			// /get-session response cache headers must not leak onto endpoints
++			// that resolve the session via getSessionFromCtx.
++			if (lowerKey === "cache-control" || lowerKey === "pragma") {
++				return;
++			}
+ 			if (!ctx.context.responseHeaders) {
+ 				ctx.context.responseHeaders = new Headers({ [key]: value });
+-			} else if (key.toLowerCase() === "set-cookie") {
++			} else if (lowerKey === "set-cookie") {
+ 				ctx.context.responseHeaders.append(key, value);
+ 			} else {
+ 				ctx.context.responseHeaders.set(key, value);

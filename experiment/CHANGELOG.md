@@ -18,3 +18,12 @@ Every change to the harness, the rules or the dataset after DESIGN.md was writte
 - **P10 (pilot2):** a session can emit several `result` events when a background-task notification starts a new turn. The parser kept only the last one. Cost now takes the maximum `total_cost_usd` (it is cumulative), and turns are summed across results.
 - **P11:** a better-auth pilot candidate was rejected as `revalidate_reference_patch_failed` because a manual cleanup removed its running container. It was reset and will be re-processed. A failed patch apply in a container that no longer runs is now infrastructure.
 - **P12 (pilot2):** in inngest-js, diff collection failed because `git add` with an exclude pathspec errors on the gitignored `.claude`. It now adds everything and excludes Forge paths only in the diff. Parity errors now list the differing paths.
+
+## Pilot summary (pilot1–pilot3, pilot-window tasks only, none in the main dataset)
+5 tasks, one or more per repository (fastmcp ×2, zod, inngest-js, better-auth), 10 trials, all scored.
+- Parity held in every scored trial: the pre-agent fingerprint was identical across arms and attempts.
+- Forge was active in every forge-arm trial (SessionStart, PreToolUse, PostToolUse, Stop) and absent from every baseline.
+- The scorer self-test passed on all 5 tasks.
+
+Harness changes P1–P12 above. Main-run setting: 3 parallel trials, at most 2 better-auth trials at once (disk). Pilot outcomes were used only to check the harness. They were not used to tune anything that affects either arm.
+- **P13 (determinism check, before the main run):** two identical preparations of pydantic-ai and logfire sometimes gave different `.venv` digests. The cause is uv's `uv_cache.json`, a timestamp cache key in the workspace package's dist-info, whose length varies. It is excluded from the fingerprint, being install bookkeeping with no behavioural effect. `harness/parity_determinism.py` prepares a task several times and diffs the fingerprints.

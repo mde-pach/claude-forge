@@ -1,0 +1,53 @@
+diff --git a/packages/inngest/src/components/sandbox/client.ts b/packages/inngest/src/components/sandbox/client.ts
+index 43906d3..7585cf9 100644
+--- a/packages/inngest/src/components/sandbox/client.ts
++++ b/packages/inngest/src/components/sandbox/client.ts
+@@ -348,17 +348,17 @@ class SandboxRestTransport {
+         requestInit,
+       );
+     } catch (error) {
+-      const mutation = !safeReadActions.has(action);
++      const safeToRepeat = action === "create" || safeReadActions.has(action);
+       throw new SandboxError({
+         action,
+-        code: mutation ? "operation_ambiguous" : "compute_unavailable",
+-        message: mutation
+-          ? "Sandbox operation result is ambiguous"
+-          : "Compute is temporarily unavailable",
++        code: safeToRepeat ? "compute_unavailable" : "operation_ambiguous",
++        message: safeToRepeat
++          ? "Compute is temporarily unavailable"
++          : "Sandbox operation result is ambiguous",
+         sandboxId: options.sandboxId,
+         processId: options.processId,
+-        ambiguous: mutation,
+-        retryable: !mutation,
++        ambiguous: !safeToRepeat,
++        retryable: safeToRepeat,
+         details: [],
+         cause: error,
+       });
+@@ -784,7 +784,7 @@ export const createSandboxClient = (
+         "create",
+         "POST",
+         "/v2/sandboxes",
+-        { body, statuses: [201, 202] },
++        { body, statuses: [200, 201, 202] },
+       );
+       const sandbox = sandboxRefFromResource(envelope?.data);
+       if (
+diff --git a/packages/inngest/src/components/sandbox/types.ts b/packages/inngest/src/components/sandbox/types.ts
+index c07bd51..2b496f6 100644
+--- a/packages/inngest/src/components/sandbox/types.ts
++++ b/packages/inngest/src/components/sandbox/types.ts
+@@ -38,6 +38,10 @@ export interface SandboxRef extends SandboxResource {
+ }
+ 
+ export interface SandboxCreateOptions {
++  /**
++   * Stable identity for an active sandbox. Creating the same name again with
++   * the same resources returns the existing sandbox.
++   */
+   name: string;
+   vcpu: number;
+   memoryMb: number;

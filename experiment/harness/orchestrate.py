@@ -19,7 +19,7 @@ PINS = json.load(open(os.path.join(HERE, "..", "config", "pins.json")))
 MAX_ATTEMPTS = 3
 LOCK = threading.Lock()
 # disk-heavy workspaces (~3 GB each): at most this many concurrent trials per repo
-REPO_CAP = {"better-auth": 1}
+REPO_CAP = {"better-auth": 2}
 SEMS = {r: threading.Semaphore(n) for r, n in REPO_CAP.items()}
 
 

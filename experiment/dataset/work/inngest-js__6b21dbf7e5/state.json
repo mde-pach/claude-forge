@@ -1,0 +1,102 @@
+{
+ "task_id": "inngest-js__6b21dbf7e5",
+ "window": "main",
+ "repo": "inngest-js",
+ "commit": "6b21dbf7e5c153fbb1f1254f4a93c060ee177170",
+ "parent": "23ddbc2e9caaa195f5fe20d95261c7298afd1b5e",
+ "date": "2026-08-03T13:53:57-05:00",
+ "subject": "feat(sandbox): reuse active sandboxes by name (#1659)",
+ "type": "feat",
+ "test_files": [
+  "packages/inngest/src/components/InngestSandbox.test.ts"
+ ],
+ "source_files": [
+  "packages/inngest/src/components/sandbox/client.ts",
+  "packages/inngest/src/components/sandbox/types.ts"
+ ],
+ "source_lines": 20,
+ "all_files": [
+  "packages/inngest/src/components/InngestSandbox.test.ts",
+  "packages/inngest/src/components/sandbox/client.ts",
+  "packages/inngest/src/components/sandbox/types.ts"
+ ],
+ "hidden": [
+  "packages/inngest/src/components/InngestSandbox.test.ts"
+ ],
+ "deleted": [],
+ "targets": [
+  "packages/inngest/src/components/InngestSandbox.test.ts"
+ ],
+ "f2p": [
+  "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > accepts an existing FAILED sandbox from Create",
+  "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > accepts an existing PAUSED sandbox from Create",
+  "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > accepts an existing PENDING sandbox from Create",
+  "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > accepts an existing RUNNING sandbox from Create",
+  "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > accepts an existing STARTING sandbox from Create",
+  "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > accepts an existing TERMINATED sandbox from Create",
+  "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > accepts an existing TERMINATING sandbox from Create",
+  "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > marks Create transport failures as retryable",
+  "packages/inngest/src/components/InngestSandbox.test.ts::step.sandbox > keeps create transport failures retryable and reconstructs them after exhaustion"
+ ],
+ "p2p": [
+  "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > aborts the HTTP response when a direct stream is cancelled",
+  "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > accepts an existing %s sandbox from Create",
+  "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > forwards the complete direct REST lifecycle",
+  "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > marks an incomplete captured Exec result as ambiguous (%s)",
+  "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > marks an incomplete captured Exec result as ambiguous (413)",
+  "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > marks an incomplete captured Exec result as ambiguous (504)",
+  "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > turns a terminal NDJSON error frame into a SandboxError",
+  "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > uses the REST v2 resource shape and decodes byte-safe streams",
+  "packages/inngest/src/components/InngestSandbox.test.ts::step.sandbox > executes through REST in an ordinary run step and memoizes the result",
+  "packages/inngest/src/components/InngestSandbox.test.ts::step.sandbox > keeps %s transport failures retryable and reconstructs them after exhaustion",
+  "packages/inngest/src/components/InngestSandbox.test.ts::step.sandbox > keeps larger direct Exec results but tail-truncates them at the durable step boundary",
+  "packages/inngest/src/components/InngestSandbox.test.ts::step.sandbox > keeps list transport failures retryable and reconstructs them after exhaustion",
+  "packages/inngest/src/components/InngestSandbox.test.ts::step.sandbox > maps a structured executor failure without making all errors non-retriable",
+  "packages/inngest/src/components/InngestSandbox.test.ts::step.sandbox > requires explicit middleware opt-in in function input types",
+  "packages/inngest/src/components/InngestSandbox.test.ts::step.sandbox > retries a structured Create availability failure",
+  "packages/inngest/src/components/InngestSandbox.test.ts::step.sandbox > suspends fresh process mutations and rehydrates them on replay",
+  "packages/inngest/src/components/InngestSandbox.test.ts::step.sandbox > uses UUID identity and exposes the complete durable lifecycle",
+  "packages/inngest/src/components/InngestSandbox.test.ts::step.sandbox > validates Simcity limits without imposing identifier-style env keys"
+ ],
+ "flaky": [],
+ "cost_instruction": 0.0734538,
+ "cost_audit": 0.10499420000000001,
+ "kept_f2p": [
+  "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > accepts an existing FAILED sandbox from Create",
+  "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > accepts an existing PAUSED sandbox from Create",
+  "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > accepts an existing PENDING sandbox from Create",
+  "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > accepts an existing RUNNING sandbox from Create",
+  "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > accepts an existing STARTING sandbox from Create",
+  "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > accepts an existing TERMINATED sandbox from Create",
+  "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > accepts an existing TERMINATING sandbox from Create",
+  "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > marks Create transport failures as retryable",
+  "packages/inngest/src/components/InngestSandbox.test.ts::step.sandbox > keeps create transport failures retryable and reconstructs them after exhaustion"
+ ],
+ "kept_p2p": [
+  "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > aborts the HTTP response when a direct stream is cancelled",
+  "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > accepts an existing %s sandbox from Create",
+  "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > forwards the complete direct REST lifecycle",
+  "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > marks an incomplete captured Exec result as ambiguous (%s)",
+  "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > marks an incomplete captured Exec result as ambiguous (413)",
+  "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > marks an incomplete captured Exec result as ambiguous (504)",
+  "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > turns a terminal NDJSON error frame into a SandboxError",
+  "packages/inngest/src/components/InngestSandbox.test.ts::inngest.sandboxes > uses the REST v2 resource shape and decodes byte-safe streams",
+  "packages/inngest/src/components/InngestSandbox.test.ts::step.sandbox > executes through REST in an ordinary run step and memoizes the result",
+  "packages/inngest/src/components/InngestSandbox.test.ts::step.sandbox > keeps %s transport failures retryable and reconstructs them after exhaustion",
+  "packages/inngest/src/components/InngestSandbox.test.ts::step.sandbox > keeps larger direct Exec results but tail-truncates them at the durable step boundary",
+  "packages/inngest/src/components/InngestSandbox.test.ts::step.sandbox > keeps list transport failures retryable and reconstructs them after exhaustion",
+  "packages/inngest/src/components/InngestSandbox.test.ts::step.sandbox > maps a structured executor failure without making all errors non-retriable",
+  "packages/inngest/src/components/InngestSandbox.test.ts::step.sandbox > requires explicit middleware opt-in in function input types",
+  "packages/inngest/src/components/InngestSandbox.test.ts::step.sandbox > retries a structured Create availability failure",
+  "packages/inngest/src/components/InngestSandbox.test.ts::step.sandbox > suspends fresh process mutations and rehydrates them on replay",
+  "packages/inngest/src/components/InngestSandbox.test.ts::step.sandbox > uses UUID identity and exposes the complete durable lifecycle",
+  "packages/inngest/src/components/InngestSandbox.test.ts::step.sandbox > validates Simcity limits without imposing identifier-style env keys"
+ ],
+ "edits_applied": 0,
+ "edits_rejected": [],
+ "dropped": [],
+ "revalidate_bad_f2p": [],
+ "revalidate_bad_p2p": [],
+ "final": "accepted",
+ "reason": null
+}

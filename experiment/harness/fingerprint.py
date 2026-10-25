@@ -11,6 +11,9 @@ import sys
 
 ROOTS = ["/work", "/home/dev"]
 TREE_DIRS = {".venv", "node_modules"}  # summarised: names + sizes only (installed deps, identical by construction)
+# uv writes a cache key with the install-time timestamp into the workspace package's dist-info
+# (`uv_cache.json`); it varies between identical installs and has no effect on behaviour.
+VOLATILE = {"uv_cache.json"}
 
 
 def file_sha(p):
@@ -26,6 +29,8 @@ def tree_digest(top):
     for d, dirs, files in os.walk(top):
         dirs.sort()
         for n in sorted(files):
+            if n in VOLATILE:
+                continue
             p = os.path.join(d, n)
             try:
                 st = os.lstat(p)
@@ -46,6 +51,16 @@ def main():
                 files = [f for f in files if f in ("HEAD", "config")]
             keep = []
             for x in sorted(dirs):
+                if x in TREE_DIRS and os.environ.get("FP_LIST_TREES") == "1":
+                    for d2, _, fs2 in os.walk(os.path.join(d, x)):
+                        for n2 in fs2:
+                            p2 = os.path.join(d2, n2)
+                            try:
+                                st2 = os.lstat(p2)
+                            except OSError:
+                                continue
+                            out[p2] = f"size:{st2.st_size}:{'link:' + os.readlink(p2) if stat.S_ISLNK(st2.st_mode) else ''}"
+                    continue
                 if x in TREE_DIRS:
                     out["/" + os.path.join(rel_d, x) + "/**"] = "tree:" + tree_digest(os.path.join(d, x))
                 else:

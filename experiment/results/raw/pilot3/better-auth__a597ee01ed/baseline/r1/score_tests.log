@@ -1,0 +1,51 @@
+$ cd /work
+pk=""
+for t in packages/better-auth/src/plugins/organization/organization.test.ts; do
+  d=$(dirname "$t")
+  while [ "$d" != "." ] && [ "$d" != "/" ] && [ ! -f "$d/package.json" ]; do d=$(dirname "$d"); done
+  [ "$d" = "." ] || [ "$d" = "/" ] || pk="$pk --filter=./$d"
+done
+if [ -n "$pk" ]; then
+  turbo run build $pk --output-logs=errors-only || { echo "[forge-exp] workspace build failed; tests not run"; exit 3; }
+fi
+NO_COLOR=1 vitest run packages/better-auth/src/plugins/organization/organization.test.ts --reporter=default --reporter=junit --outputFile.junit=/tmp/forge-junit-631302297583.xml
+
+
+   • Packages in scope: better-auth
+   • Running build in 1 packages
+   • Remote caching disabled
+
+
+ Tasks:    8 successful, 8 total
+Cached:    7 cached, 8 total
+  Time:    1m16.544s 
+
+
+ RUN  v4.1.5 /work
+
+ ✓ |better-auth| src/plugins/organization/organization.test.ts (97 tests | 1 todo) 12454ms
+     ✓ invites user to organization with role  547ms
+     ✓ invites user to organization with role  531ms
+     ✓ invites user to organization with role  541ms
+     ✓ should not allow inviting a user twice regardless of email casing  468ms
+     ✓ shouldn't allow updating owner role if you're not owner  322ms
+     ✓ should respect membershipLimit when adding members to organization  663ms
+     ✓ should respect membershipLimit function when adding members to organization  460ms
+     ✓ should allow listing invitations for a user using authClient  590ms
+     ✓ should allow rejecting expired invitations  1716ms
+     ✓ should only list pending invitations for a user  636ms
+     ✓ should not list rejected invitations  657ms
+     ✓ should throw error with custom invitation limit  308ms
+     ✓ allows setting custom role to a user  335ms
+
+ Test Files  1 passed (1)
+      Tests  96 passed | 1 todo (97)
+   Start at  00:08:47
+   Duration  23.25s (transform 4.55s, setup 0ms, import 10.39s, tests 12.45s, environment 0ms)
+
+JUNIT report written to /tmp/forge-junit-631302297583.xml
+• turbo 2.9.4
+(node:1336) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[exit 0 in 102s]

@@ -128,3 +128,7 @@ All of this goes in `results/raw/<run>/<task>/<arm>/<rep>/`:
   - Forge actually active in its arm (hook events present);
   - tasks at ceiling or floor;
   - per-repository heterogeneity.
+
+## Addendum (before the main run; see DECISIONS D16)
+- **Pre-registered sensitivity analysis:** the primary comparison repeated without better-auth, whose environment lacks the database services its development setup provides.
+- **Pre-registered secondary report:** Forge Stop blocks per repository.

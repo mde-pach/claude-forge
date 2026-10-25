@@ -1,0 +1,252 @@
+diff --git a/.changeset/fuzzy-dingos-build.md b/.changeset/fuzzy-dingos-build.md
+new file mode 100644
+index 0000000..9752736
+--- /dev/null
++++ b/.changeset/fuzzy-dingos-build.md
+@@ -0,0 +1,5 @@
++---
++"inngest": minor
++---
++
++Allow sandbox Create to configure environment variables inherited by commands and managed processes.
+diff --git a/packages/inngest/src/components/sandbox/protocol.ts b/packages/inngest/src/components/sandbox/protocol.ts
+index 08ef9a6..48848e8 100644
+--- a/packages/inngest/src/components/sandbox/protocol.ts
++++ b/packages/inngest/src/components/sandbox/protocol.ts
+@@ -10,6 +10,7 @@ import {
+ } from "./types.ts";
+ import {
+   canonicalUuidSchema,
++  normalizeSandboxCreateOptions,
+   normalizeSandboxProcessStartOptions,
+   parseWithSchema,
+   sandboxProcessRefSchema,
+@@ -38,9 +39,27 @@ const createInputSchema = z
+     name: z.string().regex(/^[a-z0-9_-]{1,63}$/),
+     vcpu: z.number().int().positive().max(0xffffffff),
+     memoryMb: z.number().int().positive().max(0xffffffff),
++    environment: z.record(z.string()).optional(),
+     runningTimeoutMs: z.number().int().positive().max(300_000).optional(),
+   })
+-  .strict();
++  .strict()
++  .superRefine((value, ctx) => {
++    try {
++      const { runningTimeoutMs, ...options } = value;
++      normalizeSandboxCreateOptions({
++        ...options,
++        ...(runningTimeoutMs !== undefined && {
++          runningTimeout: runningTimeoutMs,
++        }),
++      });
++    } catch (error) {
++      ctx.addIssue({
++        code: z.ZodIssueCode.custom,
++        message:
++          error instanceof Error ? error.message : "invalid create options",
++      });
++    }
++  });
+ const listInputSchema = z
+   .object({
+     cursor: z.string().min(1).optional(),
+diff --git a/packages/inngest/src/components/sandbox/types.ts b/packages/inngest/src/components/sandbox/types.ts
+index 815dcfd..a139263 100644
+--- a/packages/inngest/src/components/sandbox/types.ts
++++ b/packages/inngest/src/components/sandbox/types.ts
+@@ -40,12 +40,20 @@ export interface SandboxRef extends SandboxResource {
+ export interface SandboxCreateOptions {
+   /**
+    * Stable identity for an active sandbox. Creating the same name again with
+-   * the same resources returns the existing sandbox.
++   * the same configuration returns the existing sandbox.
+    */
+   name: string;
+   vcpu: number;
+   memoryMb: number;
+ 
++  /**
++   * Environment inherited by commands and managed processes. Values are
++   * persisted as literal sandbox configuration; this is not a secrets
++   * mechanism, so do not use this field for secrets. Guest defaults are
++   * retained, and operation-specific values override matching keys.
++   */
++  environment?: Record<string, string>;
++
+   /**
+    * Wait up to this duration for the sandbox to reach RUNNING.
+    *
+@@ -80,8 +88,8 @@ export interface SandboxCommandOptions {
+   command: readonly string[];
+ 
+   /**
+-   * Replaces the sandbox environment for this command. It is not merged.
+-   * Omitted or empty uses the guest's default environment.
++   * Overrides matching sandbox environment values for this command.
++   * Omitted or empty inherits the sandbox environment unchanged.
+    */
+   environment?: Record<string, string>;
+   cwd?: string;
+@@ -151,8 +159,8 @@ export interface SandboxProcessStartOptions {
+   command: readonly string[];
+ 
+   /**
+-   * Replaces the sandbox environment for this process. It is not merged.
+-   * Omitted or empty uses the guest's default environment.
++   * Overrides matching sandbox environment values for this process.
++   * Omitted or empty inherits the sandbox environment unchanged.
+    */
+   environment?: Record<string, string>;
+   cwd?: string;
+diff --git a/packages/inngest/src/components/sandbox/validation.ts b/packages/inngest/src/components/sandbox/validation.ts
+index a359c94..d9f3dda 100644
+--- a/packages/inngest/src/components/sandbox/validation.ts
++++ b/packages/inngest/src/components/sandbox/validation.ts
+@@ -44,6 +44,64 @@ const goJSONBytes = (value: unknown): number => {
+   return textEncoder.encode(encoded).byteLength;
+ };
+ 
++const assertNoNul = (value: string, context: string): void => {
++  if (value.includes("\0")) {
++    throw new SandboxValidationError(`${context} must not contain NUL`);
++  }
++};
++
++const assertValidUnicode = (value: string, context: string): void => {
++  for (let index = 0; index < value.length; index++) {
++    const codeUnit = value.charCodeAt(index);
++    if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
++      const next = value.charCodeAt(index + 1);
++      if (next < 0xdc00 || next > 0xdfff) {
++        throw new SandboxValidationError(
++          `${context} must not contain an unpaired surrogate`,
++        );
++      }
++      index++;
++    } else if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
++      throw new SandboxValidationError(
++        `${context} must not contain an unpaired surrogate`,
++      );
++    }
++  }
++};
++
++const validateSandboxEnvironment = (
++  environment: Record<string, string> | undefined,
++): Array<[string, string]> => {
++  const entries = Object.entries(environment ?? {});
++  if (entries.length > maxProcessEnvCount) {
++    throw new SandboxValidationError(
++      `environment must not contain more than ${maxProcessEnvCount} entries`,
++    );
++  }
++  let environmentBytes = 0;
++  for (const [key, value] of entries) {
++    if (!key || key.includes("=")) {
++      throw new SandboxValidationError(
++        "environment keys must be nonempty and must not contain '='",
++      );
++    }
++    assertNoNul(key, `environment key ${key}`);
++    assertNoNul(value, `environment.${key}`);
++    assertValidUnicode(key, `environment key ${key}`);
++    assertValidUnicode(value, `environment.${key}`);
++    environmentBytes +=
++      textEncoder.encode(key).byteLength +
++      1 +
++      textEncoder.encode(value).byteLength;
++  }
++  if (environmentBytes > maxProcessEnvBytes) {
++    throw new SandboxValidationError(
++      `environment must not exceed ${maxProcessEnvBytes} bytes`,
++    );
++  }
++  return entries;
++};
++
+ export const canonicalUuidSchema = z
+   .string()
+   .regex(
+@@ -284,12 +342,14 @@ export const normalizeSandboxCreateOptions = (
+         name: z.string().regex(/^[a-z0-9_-]{1,63}$/),
+         vcpu: z.number().int().positive().max(0xffffffff),
+         memoryMb: z.number().int().positive().max(0xffffffff),
++        environment: z.record(z.string()).optional(),
+         runningTimeout: z.unknown().optional(),
+       })
+       .strict(),
+     options,
+     "sandbox create options",
+   );
++  validateSandboxEnvironment(parsed.environment);
+   const { runningTimeout, ...create } = parsed;
+   return {
+     ...create,
+@@ -339,31 +399,6 @@ export const normalizeSandboxListOptions = (
+ 
+ export const normalizeSandboxProcessListOptions = normalizeSandboxListOptions;
+ 
+-const assertNoNul = (value: string, context: string): void => {
+-  if (value.includes("\0")) {
+-    throw new SandboxValidationError(`${context} must not contain NUL`);
+-  }
+-};
+-
+-const assertValidUnicode = (value: string, context: string): void => {
+-  for (let index = 0; index < value.length; index++) {
+-    const codeUnit = value.charCodeAt(index);
+-    if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
+-      const next = value.charCodeAt(index + 1);
+-      if (next < 0xdc00 || next > 0xdfff) {
+-        throw new SandboxValidationError(
+-          `${context} must not contain an unpaired surrogate`,
+-        );
+-      }
+-      index++;
+-    } else if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
+-      throw new SandboxValidationError(
+-        `${context} must not contain an unpaired surrogate`,
+-      );
+-    }
+-  }
+-};
+-
+ const normalizeProcessSpec = <
+   T extends SandboxCommandOptions | SandboxProcessStartOptions,
+ >(
+@@ -400,34 +435,7 @@ const normalizeProcessSpec = <
+     );
+   }
+ 
+-  const environment = parsed.environment ?? {};
+-  const entries = Object.entries(environment);
+-  if (entries.length > maxProcessEnvCount) {
+-    throw new SandboxValidationError(
+-      `environment must not contain more than ${maxProcessEnvCount} entries`,
+-    );
+-  }
+-  let environmentBytes = 0;
+-  for (const [key, value] of entries) {
+-    if (!key || key.includes("=")) {
+-      throw new SandboxValidationError(
+-        "environment keys must be nonempty and must not contain '='",
+-      );
+-    }
+-    assertNoNul(key, `environment key ${key}`);
+-    assertNoNul(value, `environment.${key}`);
+-    assertValidUnicode(key, `environment key ${key}`);
+-    assertValidUnicode(value, `environment.${key}`);
+-    environmentBytes +=
+-      textEncoder.encode(key).byteLength +
+-      1 +
+-      textEncoder.encode(value).byteLength;
+-  }
+-  if (environmentBytes > maxProcessEnvBytes) {
+-    throw new SandboxValidationError(
+-      `environment must not exceed ${maxProcessEnvBytes} bytes`,
+-    );
+-  }
++  const entries = validateSandboxEnvironment(parsed.environment);
+ 
+   if (parsed.cwd !== undefined) {
+     assertNoNul(parsed.cwd, "cwd");

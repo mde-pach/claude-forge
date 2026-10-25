@@ -75,3 +75,14 @@ The hidden set is every file the commit changes under a test path, of any type: 
 
 ## D15. Committing the Forge setup in repositories that ignore `.claude`
 *Getting started* says to run `git add .forge .claude && git commit -m "Add Forge"`. inngest-js lists `.claude` in its `.gitignore`, so that command fails there. The harness does not force-add past a repository's ignore rules. It commits `.forge`, and commits `.claude` where it is not ignored. Ignored files are invisible to `git status`, so Forge does not count them as changes either way.
+
+## D16. Missing external services (better-auth): a pre-registered sensitivity analysis
+better-auth's development setup starts 10 database services with docker-compose: PostgreSQL ×4, MySQL ×3, MSSQL, MongoDB and Redis. Running them alongside each trial does not fit this machine: 4 CPUs, 15 GB of RAM, and about 8 GB of free disk shared by every trial.
+- **Scoring is unaffected.** Tests that need a database fail at both the parent and the reference, so validation excludes them from F2P and P2P.
+- **Forge's arm is affected.** Its Stop check runs the tests related to the change, and some of those need a database, so it can block for reasons unrelated to the agent's work. In the pilot it blocked three times, then handed over. This is how Forge behaves in an environment missing the project's services, not how it behaves in a full development setup.
+- **Decision.** The environment stays as validated, so both arms are identical. Before any main-run data, I pre-register three reports:
+  - a sensitivity analysis of the primary comparison with better-auth excluded;
+  - Forge Stop blocks per repository;
+  - the paired difference per repository, which is already planned.
+
+  REPORT.md discusses this as a threat to validity. The other five repositories' unit tests run without external services.

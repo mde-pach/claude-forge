@@ -1,0 +1,135 @@
+{
+ "verdicts": [
+  {
+   "id": "packages/inngest/src/components/Inngest.test.ts::sessionPropagation toggle > `sessionPropagation: false` option overrides a conflicting env var",
+   "action": "keep",
+   "reason": "It checks the precedence given in the instruction through the named `sessionPropagationSymbol` toggle."
+  },
+  {
+   "id": "packages/inngest/src/components/Inngest.test.ts::sessionPropagation toggle > `sessionPropagation: true` option enables propagation",
+   "action": "keep",
+   "reason": "It checks the specified option through the named toggle."
+  },
+  {
+   "id": "packages/inngest/src/components/Inngest.test.ts::sessionPropagation toggle > `sessionPropagation: true` option overrides a conflicting env var",
+   "action": "keep",
+   "reason": "It checks the specified rule that the option overrides the env var, through the named toggle."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestStepTools.test.ts::stampPropagatedSessions > does not mutate the input payload",
+   "action": "keep",
+   "reason": "The instruction explicitly requires that the exported function never mutates its input."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestStepTools.test.ts::stampPropagatedSessions > preserves the manual sessions layer alongside propagated",
+   "action": "keep",
+   "reason": "The instruction specifies that existing meta, including manual `meta.sessions`, is kept, and this is observed on the exported function's output."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestStepTools.test.ts::stampPropagatedSessions > returns payload unchanged when there are no sessions",
+   "action": "keep",
+   "reason": "The instruction explicitly requires returning the same payload object when sessions are undefined or empty."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestStepTools.test.ts::stampPropagatedSessions > stamps each payload in an array",
+   "action": "keep",
+   "reason": "It checks the specified array behaviour of the exported function's output."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestStepTools.test.ts::stampPropagatedSessions > stamps propagated_sessions onto a single payload",
+   "action": "keep",
+   "reason": "It checks the specified output of the exported function."
+  },
+  {
+   "id": "packages/inngest/src/components/InngestStepTools.test.ts::step.sendEvent session propagation gating > stamps propagated_sessions from ctx.sessions when the toggle is on",
+   "action": "drop",
+   "reason": "It mocks the private `client._send` collaborator and reads its call arguments, so a correct implementation that stamps elsewhere in the send path would fail; that is an internal call-argument check the rule forbids."
+  },
+  {
+   "id": "packages/inngest/src/helpers/sessions.test.ts::compareUtf8 > a prefix sorts before its extension",
+   "action": "keep",
+   "reason": "The instruction specifies that a prefix sorts before its extension, and this is checked through the exported function."
+  },
+  {
+   "id": "packages/inngest/src/helpers/sessions.test.ts::compareUtf8 > astral char ordering matches UTF-8 bytes, not UTF-16 code units",
+   "action": "keep",
+   "reason": "The instruction gives this exact example of UTF-8 byte ordering."
+  },
+  {
+   "id": "packages/inngest/src/helpers/sessions.test.ts::compareUtf8 > equal strings compare equal",
+   "action": "keep",
+   "reason": "The instruction specifies that equal strings return 0."
+  },
+  {
+   "id": "packages/inngest/src/helpers/sessions.test.ts::compareUtf8 > multi-byte characters sort after ASCII",
+   "action": "keep",
+   "reason": "This follows directly from the specified UTF-8 byte order and only checks the sign of the result."
+  },
+  {
+   "id": "packages/inngest/src/helpers/sessions.test.ts::compareUtf8 > orders ASCII by byte value",
+   "action": "keep",
+   "reason": "This follows from the specified byte order and only checks the sign of the result."
+  },
+  {
+   "id": "packages/inngest/src/helpers/sessions.test.ts::reduceEventsToPropagatedSessions > __proto__ is collected as an own property, not the prototype",
+   "action": "keep",
+   "reason": "The instruction explicitly requires `__proto__` to end up as an own property of the result."
+  },
+  {
+   "id": "packages/inngest/src/helpers/sessions.test.ts::reduceEventsToPropagatedSessions > a duplicate id does not mask a genuine conflict",
+   "action": "keep",
+   "reason": "It checks the specified rule that keys with more than one distinct id are dropped, using only the output."
+  },
+  {
+   "id": "packages/inngest/src/helpers/sessions.test.ts::reduceEventsToPropagatedSessions > a key with conflicting ids across the batch is dropped entirely",
+   "action": "keep",
+   "reason": "It checks the specified conflict-drop behaviour on the output."
+  },
+  {
+   "id": "packages/inngest/src/helpers/sessions.test.ts::reduceEventsToPropagatedSessions > batch unions sessions across all triggering events",
+   "action": "keep",
+   "reason": "It checks the specified union behaviour on the output."
+  },
+  {
+   "id": "packages/inngest/src/helpers/sessions.test.ts::reduceEventsToPropagatedSessions > conflict drop happens BEFORE truncation",
+   "action": "keep",
+   "reason": "The instruction explicitly specifies dropping conflicts before truncating."
+  },
+  {
+   "id": "packages/inngest/src/helpers/sessions.test.ts::reduceEventsToPropagatedSessions > exact (key,id) duplicate across the batch dedupes",
+   "action": "keep",
+   "reason": "It checks the specified union and distinct-id behaviour on the output."
+  },
+  {
+   "id": "packages/inngest/src/helpers/sessions.test.ts::reduceEventsToPropagatedSessions > more than five keys truncate to the first five by key",
+   "action": "keep",
+   "reason": "It checks the specified sort-then-keep-first-5 behaviour on the output."
+  },
+  {
+   "id": "packages/inngest/src/helpers/sessions.test.ts::reduceEventsToPropagatedSessions > no events / no sessions yields an empty map (no-run safety)",
+   "action": "keep",
+   "reason": "The instruction specifies `{}` for empty input or input with no sessions, and null meta is allowed by the stated input type."
+  },
+  {
+   "id": "packages/inngest/src/helpers/sessions.test.ts::reduceEventsToPropagatedSessions > numeric and string ids for a key canonicalize equal (no false conflict)",
+   "action": "keep",
+   "reason": "The instruction specifies canonicalising ids with `String()`, so that `1` and `\"1\"` are the same id."
+  },
+  {
+   "id": "packages/inngest/src/helpers/sessions.test.ts::reduceEventsToPropagatedSessions > only the conflicting key is dropped; the rest survive",
+   "action": "keep",
+   "reason": "It checks the specified conflict-drop behaviour on the output."
+  },
+  {
+   "id": "packages/inngest/src/helpers/sessions.test.ts::reduceEventsToPropagatedSessions > single event, single session passes through",
+   "action": "keep",
+   "reason": "It checks basic specified behaviour on the output."
+  },
+  {
+   "id": "packages/inngest/src/helpers/sessions.test.ts::reduceEventsToPropagatedSessions > truncation uses UTF-8 byte order, not UTF-16 code-unit order",
+   "action": "keep",
+   "reason": "The instruction explicitly specifies sorting by UTF-8 byte order before truncation."
+  }
+ ],
+ "edits": []
+}

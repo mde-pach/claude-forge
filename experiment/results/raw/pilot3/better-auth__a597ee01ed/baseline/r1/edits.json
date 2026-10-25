@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 4,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/packages/better-auth/src/plugins/organization/routes && python3 - <<'E'\np='crud-invites.ts'\ns=open(p).read()\ns=s.replace(\"if (alreadyInvited.length && !ctx.body.resend) {\",\"if (\\n\\t\\t\\t\\talreadyInvited.length &&\\n\\t\\t\\t\\t!ctx.body.resend &&\\n\\t\\t\\t\\t!ctx.context.orgOptions.cancelPendingInvi",
+  "cd /work/packages/better-auth/src/plugins/organization; cat >> organization.test.ts <<'E'\n\ndescribe(\"cancelPendingInvitationsOnReInvite\", async () => {\n\tconst { customFetchImpl, signInWithTestUser } = await getTestInstance({\n\t\tplugins: [\n\t\t\torganization({\n\t\t\t\tcancelPendingInvitationsOnReInvite: true"
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

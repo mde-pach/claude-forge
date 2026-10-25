@@ -1,0 +1,49 @@
+$ cd /work
+pk=""
+for t in packages/better-auth/src/plugins/organization/organization.test.ts; do
+  d=$(dirname "$t")
+  while [ "$d" != "." ] && [ "$d" != "/" ] && [ ! -f "$d/package.json" ]; do d=$(dirname "$d"); done
+  [ "$d" = "." ] || [ "$d" = "/" ] || pk="$pk --filter=./$d"
+done
+if [ -n "$pk" ]; then
+  turbo run build $pk --output-logs=errors-only || { echo "[forge-exp] workspace build failed; tests not run"; exit 3; }
+fi
+NO_COLOR=1 vitest run packages/better-auth/src/plugins/organization/organization.test.ts --reporter=default --reporter=junit --outputFile.junit=/tmp/forge-junit-c193b70d1fab.xml
+
+
+   • Packages in scope: better-auth
+   • Running build in 1 packages
+   • Remote caching disabled
+
+
+ Tasks:    8 successful, 8 total
+Cached:    7 cached, 8 total
+  Time:    1m10.274s 
+
+
+ RUN  v4.1.5 /work
+
+ ✓ |better-auth| src/plugins/organization/organization.test.ts (97 tests | 1 todo) 11833ms
+     ✓ invites user to organization with role  426ms
+     ✓ invites user to organization with role  486ms
+     ✓ invites user to organization with role  453ms
+     ✓ should not allow inviting a user twice regardless of email casing  430ms
+     ✓ shouldn't allow updating owner role if you're not owner  326ms
+     ✓ should respect membershipLimit when adding members to organization  846ms
+     ✓ should respect membershipLimit function when adding members to organization  435ms
+     ✓ should allow listing invitations for a user using authClient  490ms
+     ✓ should allow rejecting expired invitations  1665ms
+     ✓ should only list pending invitations for a user  612ms
+     ✓ should not list rejected invitations  559ms
+
+ Test Files  1 passed (1)
+      Tests  96 passed | 1 todo (97)
+   Start at  00:42:52
+   Duration  21.38s (transform 3.72s, setup 0ms, import 9.21s, tests 11.83s, environment 0ms)
+
+JUNIT report written to /tmp/forge-junit-c193b70d1fab.xml
+• turbo 2.9.4
+(node:1328) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[exit 0 in 93s]

@@ -1,0 +1,14 @@
+{
+ "edit_tool_calls": 2,
+ "shell_edit_calls": 2,
+ "bash_calls": 6,
+ "edit_files": [
+  "/work/packages/better-auth/src/plugins/organization/routes/crud-invites.ts"
+ ],
+ "shell_edit_commands": [
+  "cat >> organization.test.ts <<'EOF'\n\ndescribe(\"cancelPendingInvitationsOnReInvite\", async () => {\n\tfor (const enabled of [true, false]) {\n\t\tdescribe(`enabled: ${enabled}`, async () => {\n\t\t\tconst { customFetchImpl, signInWithTestUser } = await getTestInstance({\n\t\t\t\tplugins: [\n\t\t\t\t\torganization({\n\t\t\t\t",
+  "cd /work/packages/better-auth/src/plugins/organization && sed -n 3686,3690p organization.test.ts && sed -i '3688d' organization.test.ts && sed -n 3684,3690p organization.test.ts && cd /work/packages/better-auth && npx vitest run src/plugins/organization/organization.test.ts -t \"cancelPendingInvitati"
+ ],
+ "total": 4,
+ "edit_tool_share": 0.5
+}

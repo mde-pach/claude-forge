@@ -1,0 +1,355 @@
+diff --git a/packages/inngest/src/components/Inngest.ts b/packages/inngest/src/components/Inngest.ts
+index adf09b6..7d96308 100644
+--- a/packages/inngest/src/components/Inngest.ts
++++ b/packages/inngest/src/components/Inngest.ts
+@@ -499,8 +499,9 @@ export class Inngest<const TClientOpts extends ClientOptions = ClientOptions>
+ 
+   /**
+    * Whether session propagation is enabled for this client. Resolved with the
+-   * precedence `INNGEST_SESSION_PROPAGATION` env var > {@link
+-   * SESSION_PROPAGATION_DEFAULT_ENABLED}.
++   * precedence explicit `sessionPropagation` option > `INNGEST_SESSION_PROPAGATION`
++   * env var > {@link SESSION_PROPAGATION_DEFAULT_ENABLED}, mirroring how
++   * {@link mode} resolves the `isDev` option ahead of the env var.
+    *
+    * Resolved lazily on every access (mirroring {@link mode}) so that env vars
+    * populated after construction via {@link setEnvVars} — as happens in
+@@ -509,19 +510,20 @@ export class Inngest<const TClientOpts extends ClientOptions = ClientOptions>
+    * @internal
+    */
+   get [sessionPropagationSymbol](): boolean {
+-    // Session propagation is resolved with the precedence
+-    // `INNGEST_SESSION_PROPAGATION` env var > default, matching the SDK's
+-    // `dev`-mode resolution order.
+-    let sessionPropagation = SESSION_PROPAGATION_DEFAULT_ENABLED;
++    // An explicit boolean option wins outright (like `isDev` in `mode`).
++    if (typeof this.options.sessionPropagation === "boolean") {
++      return this.options.sessionPropagation;
++    }
+ 
++    // Otherwise fall back to the env var, then the default.
+     const sessionPropagationEnv = parseAsBoolean(
+       this._env[envKeys.InngestSessionPropagation],
+     );
+     if (sessionPropagationEnv !== undefined) {
+-      sessionPropagation = sessionPropagationEnv;
++      return sessionPropagationEnv;
+     }
+ 
+-    return sessionPropagation;
++    return SESSION_PROPAGATION_DEFAULT_ENABLED;
+   }
+ 
+   get mode(): Mode {
+diff --git a/packages/inngest/src/components/InngestStepTools.ts b/packages/inngest/src/components/InngestStepTools.ts
+index 0402ac6..191cfec 100644
+--- a/packages/inngest/src/components/InngestStepTools.ts
++++ b/packages/inngest/src/components/InngestStepTools.ts
+@@ -39,6 +39,7 @@ import {
+   type GetStepTools,
+   type Inngest,
+   internalLoggerSymbol,
++  sessionPropagationSymbol,
+ } from "./Inngest.ts";
+ import { InngestFunction } from "./InngestFunction.ts";
+ import { InngestFunctionReference } from "./InngestFunctionReference.ts";
+@@ -221,6 +222,39 @@ export const getStepOptions = (options: StepOptionsOrId): StepOptions => {
+   return options;
+ };
+ 
++/**
++ * Stamps the run's propagated sessions onto each outgoing `step.sendEvent`
++ * payload as the separate `meta.propagated_sessions` layer, so child runs stay
++ * grouped in the parent's sessions. The manual `meta.sessions` layer is left
++ * untouched — the server merges the two (manual wins per key).
++ *
++ * `sessions` is `ctx.sessions`, read at send time so a run-level override
++ * (mutating `ctx.sessions` in the handler) is reflected. When there is nothing
++ * to propagate the payload is returned unchanged.
++ */
++export const stampPropagatedSessions = (
++  payload: SendEventPayload,
++  sessions: Record<string, string> | undefined,
++): SendEventPayload => {
++  if (!sessions || Object.keys(sessions).length === 0) {
++    return payload;
++  }
++
++  const stamp = <T extends { meta?: EventMeta }>(p: T): T => ({
++    ...p,
++    meta: {
++      ...p.meta,
++
++      // Clone so that mutating one event's sessions in middleware doesn't
++      // inadvertently mutate every other event's sessions, or `ctx.sessions`
++      // itself.
++      propagated_sessions: { ...sessions },
++    },
++  });
++
++  return Array.isArray(payload) ? payload.map(stamp) : stamp(payload);
++};
++
+ /**
+  * Suffix used to namespace steps that are automatically indexed.
+  */
+@@ -499,10 +533,14 @@ export const createStepTools = <
+         };
+       },
+       {
+-        fn: (_ctx, _idOrOptions, payload) => {
++        fn: (ctx, _idOrOptions, payload) => {
+           const fn = execution["options"]["fn"];
++          // Only stamp inherited sessions when the client-level toggle is on.
++          const payloadToSend = client[sessionPropagationSymbol]
++            ? stampPropagatedSessions(payload, ctx.sessions)
++            : payload;
+           return client["_send"]({
+-            payload,
++            payload: payloadToSend,
+             headers: execution["options"]["headers"],
+             fnMiddleware: fn.opts.middleware ?? [],
+             fn,
+diff --git a/packages/inngest/src/components/execution/engine.ts b/packages/inngest/src/components/execution/engine.ts
+index 9093444..acce759 100644
+--- a/packages/inngest/src/components/execution/engine.ts
++++ b/packages/inngest/src/components/execution/engine.ts
+@@ -33,6 +33,7 @@ import {
+   retryWithBackoff,
+   runAsPromise,
+ } from "../../helpers/promises.ts";
++import { reduceEventsToPropagatedSessions } from "../../helpers/sessions.ts";
+ import { stringify } from "../../helpers/strings.ts";
+ import * as Temporal from "../../helpers/temporal.ts";
+ import {
+@@ -55,7 +56,7 @@ import {
+   StepOpCode,
+ } from "../../types.ts";
+ import { version } from "../../version.ts";
+-import { internalLoggerSymbol } from "../Inngest.ts";
++import { internalLoggerSymbol, sessionPropagationSymbol } from "../Inngest.ts";
+ import { createGroupTools } from "../InngestGroupTools.ts";
+ import type {
+   MetadataKind,
+@@ -2159,6 +2160,25 @@ class InngestExecutionEngine
+       defer,
+     } as unknown as Context.Any;
+ 
++    // Aggregate the run's triggering events into its propagated sessions in
++    // `ctx.sessions`
++    //
++    // Gated by the client-level session-propagation toggle so that,
++    // while disabled, `ctx.sessions` stays unset and no new surface appears
++    // on the handler context.
++    if (this.options.client[sessionPropagationSymbol]) {
++      // Best-effort: session grouping must never crash a run, so a failure here
++      // degrades to no propagation rather than throwing.
++      try {
++        const sessions = reduceEventsToPropagatedSessions(fnArg.events ?? []);
++        if (Object.keys(sessions).length > 0) {
++          fnArg.sessions = sessions;
++        }
++      } catch {
++        // Best-effort: leave `ctx.sessions` absent on failure.
++      }
++    }
++
+     /**
+      * Handle use of the `onFailure` option by deserializing the error.
+      */
+diff --git a/packages/inngest/src/helpers/sessions.ts b/packages/inngest/src/helpers/sessions.ts
+index 7607ed3..4748ab4 100644
+--- a/packages/inngest/src/helpers/sessions.ts
++++ b/packages/inngest/src/helpers/sessions.ts
+@@ -49,7 +49,7 @@ export const normalizeEventSessions = (
+ 
+ export const normalizeEventMeta = (
+   meta: EventMeta | null | undefined,
+-): { sessions?: Record<string, string> } | undefined => {
++): NormalizedEventMeta | undefined => {
+   if (meta === undefined || meta === null) {
+     return undefined;
+   }
+@@ -58,9 +58,121 @@ export const normalizeEventMeta = (
+   }
+ 
+   const sessions = normalizeEventSessions(meta.sessions);
+-  if (sessions === undefined) {
++  const propagatedSessions = normalizeEventSessions(meta.propagated_sessions);
++  if (sessions === undefined && propagatedSessions === undefined) {
+     return undefined;
+   }
+ 
+-  return { sessions };
++  const out: NormalizedEventMeta = {};
++  if (sessions !== undefined) {
++    out.sessions = sessions;
++  }
++  if (propagatedSessions !== undefined) {
++    out.propagated_sessions = propagatedSessions;
++  }
++
++  return out;
++};
++
++type NormalizedEventMeta = {
++  sessions?: Record<string, string>;
++  propagated_sessions?: Record<string, string>;
++};
++
++/**
++ * Maximum sessions carried on a single event. Mirrors the server's
++ * `consts.MaxEventSessions`; the propagated aggregate is truncated to this so
++ * the emitted event passes ingest validation.
++ */
++const MAX_EVENT_SESSIONS = 5;
++
++const utf8Encoder = new TextEncoder();
++
++/**
++ * Compares two strings by their UTF-8 byte sequences, matching the server's
++ * native string ordering (Go's `cmp.Compare`, which is byte-wise over UTF-8).
++ *
++ * JavaScript's default `<` / `Array.prototype.sort` compares UTF-16 code units,
++ * which diverges from UTF-8 byte order for characters outside the BMP (surrogate
++ * pairs sort below `U+E000..U+FFFF` by code unit but above them by code point).
++ * Session keys have no charset restriction server-side, so we encode and compare
++ * bytes to stay byte-for-byte identical to server-side truncation. See the
++ * session-propagation design (collation decision).
++ */
++export const compareUtf8 = (a: string, b: string): number => {
++  if (a === b) {
++    return 0;
++  }
++  const ab = utf8Encoder.encode(a);
++  const bb = utf8Encoder.encode(b);
++  const len = Math.min(ab.length, bb.length);
++  for (let i = 0; i < len; i++) {
++    if (ab[i] !== bb[i]) {
++      return ab[i]! - bb[i]!;
++    }
++  }
++  return ab.length - bb.length;
++};
++
++/**
++ * Reduces a run's triggering events to `≤5` deterministic sessions that
++ * become the propagated sessions.
++ */
++export const reduceEventsToPropagatedSessions = (
++  // Accepts the send-time EventMeta shape (numeric ids permitted) since that is
++  // how a run's triggering events are statically typed; ids are canonicalized
++  // to strings below, so received string ids pass through unchanged.
++  events: ReadonlyArray<{ meta?: EventMeta | null }>,
++): Record<string, string> => {
++  // Group the sessions by key
++
++  // A Map (not a plain object) sidesteps `__proto__`/prototype-key footguns
++  // while collecting.
++  const idsByKey = new Map<string, Set<string>>();
++  for (const event of events) {
++    const sessions = event?.meta?.sessions;
++    if (!sessions) {
++      continue;
++    }
++    for (const [key, id] of Object.entries(sessions)) {
++      if (!key) {
++        continue; // defensive: the server rejects empty keys at ingest
++      }
++      let ids = idsByKey.get(key);
++      if (!ids) {
++        ids = new Set();
++        idsByKey.set(key, ids);
++      }
++      // Canonicalize to string so a numeric id and its string form dedupe
++      // rather than register as a conflict (ids are already strings when
++      // received; this guards against runtime type violations).
++      ids.add(String(id));
++    }
++  }
++
++  // Keep only keys with a single distinct id across the batch.
++  //
++  // A key that disagrees on its id (e.g. a batch carrying conv_id:1 and
++  // conv_id:2) is dropped entirely rather than resolved to one id, for
++  // predictability.
++  const keys: string[] = [];
++  for (const [key, ids] of idsByKey) {
++    if (ids.size === 1) {
++      keys.push(key);
++    }
++  }
++
++  // Deterministic `≤5`: sort by UTF-8 byte order (matching the server) and
++  // take the first MAX_EVENT_SESSIONS keys.
++  keys.sort(compareUtf8);
++
++  const entries = keys
++    .slice(0, MAX_EVENT_SESSIONS)
++    .map((key): [string, string] => {
++      const [id] = idsByKey.get(key)!;
++      return [key, id as string];
++    });
++
++  // Object.fromEntries so keys like "__proto__" land as own properties.
++  return Object.fromEntries(entries);
+ };
+diff --git a/packages/inngest/src/types.ts b/packages/inngest/src/types.ts
+index 3f7f298..d253dd1 100644
+--- a/packages/inngest/src/types.ts
++++ b/packages/inngest/src/types.ts
+@@ -579,6 +579,15 @@ export type BaseContext<TClient extends Inngest.Any> = {
+   event: Simplify<EventPayload>;
+   events: AsTuple<Simplify<EventPayload>>;
+ 
++  /**
++   * The run's effective sessions, aggregated from its triggering event(s).
++   *
++   * When session propagation is active, these are propagated onto events
++   * emitted during the run via `step.sendEvent`, so child runs stay grouped
++   * in the same sessions.
++   */
++  sessions?: Record<string, string>;
++
+   /**
+    * The run ID for the current function execution
+    */
+@@ -761,6 +770,18 @@ export type EventMeta = {
+    * normalized to strings before the event is sent.
+    */
+   sessions?: EventSessions;
++
++  /**
++   * EXPERIMENTAL: This API is not yet stable and may change in the future
++   * without a major version bump.
++   *
++   * Sessions propagated from the run that emitted this event. Stamped
++   * automatically from `ctx.sessions`; carried as a separate layer from manual
++   * {@link EventMeta.sessions} and merged server-side (manual wins per key).
++   *
++   * Not intended to be set by hand.
++   */
++  propagated_sessions?: EventSessions;
+ };
+ 
+ /**
+@@ -1166,6 +1187,19 @@ export interface ClientOptions {
+    */
+   aiMetadata?: boolean;
+ 
++  /**
++   * EXPERIMENTAL: This API is not yet stable and may change in the future
++   * without a major version bump.
++   *
++   * Whether events sent during a run inherit the run's session metadata, so
++   * the resulting child runs stay grouped in the same sessions as their parent.
++   *
++   * This option takes precedence over the `INNGEST_SESSION_PROPAGATION`
++   * environment variable, which in turn takes precedence over the SDK's
++   * default. When left unset, the feature is off by default.
++   */
++  sessionPropagation?: boolean;
++
+   /**
+    * Whether or not to use checkpointing by default for executions of functions
+    * created using this client.
