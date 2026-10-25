@@ -1,0 +1,60 @@
+{
+ "active": true,
+ "events": {
+  "SessionStart": 2,
+  "UserPromptSubmit": 1,
+  "PreToolUse": 27,
+  "PostToolUse": 16,
+  "PostToolUseFailure": 2,
+  "Stop": 2
+ },
+ "forge_messages": 5,
+ "blocks": 1,
+ "stop_blocks": 1,
+ "feedback": 1,
+ "nonzero_exit": 0,
+ "by_hook": {
+  "SessionStart:startup": {
+   "runs": 2,
+   "nonzero": 0,
+   "forge_msgs": 4
+  },
+  "UserPromptSubmit": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PreToolUse:Bash": {
+   "runs": 27,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PostToolUse:Bash": {
+   "runs": 16,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PostToolUseFailure:Bash": {
+   "runs": 2,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "Stop": {
+   "runs": 2,
+   "nonzero": 0,
+   "forge_msgs": 1
+  }
+ },
+ "samples": [
+  {
+   "hook": "SessionStart:startup",
+   "exit": 0,
+   "out": "forge: branch main, 0 changed files\nforge: last commits\n  28a27ab Add Forge\n  0295a77 initial\nforge: packs docker, docker/compose, github-actions, python, python/fastapi, python/pydantic, python/pytest, python/uv\nforge: missing tools (checks using them are skipped): docker\n"
+  },
+  {
+   "hook": "Stop",
+   "exit": 0,
+   "out": "{\"decision\":\"block\",\"reason\":\"forge:python/pytest/no-test-edits failed\\ntests/prompts/test_prompt.py: test \\\"TestPromptTypeConversion > test_type_conversion_error_handling\\\" was changed\\nTests that existed before this turn are not edited to make the code pass. Restore them; if one looks wrong, stop and ask the user.\"}\n"
+  }
+ ]
+}
