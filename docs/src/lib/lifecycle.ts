@@ -74,12 +74,13 @@ function checkEvents(rule: Rule, t: CheckTarget): LifecycleEvent[] {
     case "lint":
       if (files) out.push({ step: "edit", effect: "feedback", text: `Lints the edited file with ${cmd(t.changed_run!.replace("{files}", "<file>"), "--changed")}; findings go back to Claude.` });
       if (t.fix_run) out.push({ step: "edit", effect: "fixes", text: "First applies the safe fixes below to the edited file, and tells Claude when the file changed." });
+      else if (files && /--write|--fix/.test(t.changed_run!)) out.push({ step: "edit", effect: "fixes", text: "The same run applies the tool's safe fixes, and tells Claude when they changed the file beyond formatting." });
       out.push(...changed("blocks", "Runs"));
       for (const e of out) if (e.step === "stop" || e.step === "commit") e.text += " Only findings on added lines count.";
       out.push({ step: "ci", effect: "blocks", text: `Runs ${cmd(t.run, "--all")}: with \`--since\`, findings on the lines the branch added count; with \`--all\`, any finding.` });
       break;
     case "typecheck":
-      out.push({ step: "edit", effect: "wakes", text: `Runs ${cmd(t.run, "--all")} in the background after an edit to a ${scopeNoun(rule)}; errors in changed files wake Claude, errors only in other files stay silent.` });
+      out.push({ step: "edit", effect: "wakes", text: `Runs ${cmd(t.run, "--all")} in the background after an edit to a ${scopeNoun(rule)}; errors in changed files wake Claude, errors only in other files stay silent. Under \`claude -p\` with a prompt, where Claude Code would wait for it, Stop runs it instead.` });
       out.push(...changed("blocks", "Runs"));
       for (const e of out) if (e.step === "stop" || e.step === "commit") e.text += " Only errors in changed files count.";
       out.push({ step: "ci", effect: "blocks", text: `Runs ${cmd(t.run, "--all")}; any error fails.` });

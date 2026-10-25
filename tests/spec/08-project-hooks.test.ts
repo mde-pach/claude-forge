@@ -275,6 +275,63 @@ describe("files changed by Bash", () => {
     T,
   );
 
+  /**
+   * A tool can cost seconds per run (Biome scanning a large monorepo took 17 to 25 s per
+   * call), so each runs once for all the files a command changed, and the checks stop
+   * after `FORGE_EDIT_BUDGET` (45 s, under the hook's 60 s timeout) with what they found.
+   */
+  /** @rule python/format python/lint python/sqlalchemy/no-query-api */
+  test(
+    "after a Bash command that changed several files, each tool runs once on all of them, and each file's findings are reported",
+    () => {
+      const real = join(repo, ".venv/bin/ruff");
+      const target = sh("sh", ["-c", `readlink "${real}"`]).stdout.trim();
+      const log = join(mkdtempSync(join(tmpdir(), "forge-ruff-")), "calls");
+      rmSync(real);
+      writeFileSync(real, `#!/bin/sh\nprintf '%s\\n' "$*" >> "${log}"\nexec "${target}" "$@"\n`);
+      chmodSync(real, 0o755);
+      hook("bash-snapshot.sh", bash("toolu_m1"));
+      put(repo, "app/m1.py", "import os\n\ndef f(session):\n    return session.query(1)\n");
+      put(repo, "app/m2.py", "import sys\n\ndef g(session):\n    return session.query(2)\n");
+      const ctx = JSON.parse(hook("post-edit.sh", bash("toolu_m1")).stdout).hookSpecificOutput.additionalContext;
+      expect(ctx).toContain("forge:python/sqlalchemy/no-query-api app/m1.py:5:12");
+      expect(ctx).toContain("forge:python/sqlalchemy/no-query-api app/m2.py:5:12");
+      expect(ctx).toContain("app/m1.py:1:8: F401");
+      expect(ctx).toContain("app/m2.py:1:8: F401");
+      const calls = readFileSync(log, "utf8").trim().split("\n");
+      expect(calls).toEqual([
+        "format app/m1.py app/m2.py",
+        "check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise app/m1.py app/m2.py",
+        "check --output-format concise app/m1.py app/m2.py",
+      ]);
+      rmSync(real);
+      symlinkSync(target, real);
+      reset();
+    },
+    T,
+  );
+
+  /** @rule python/sqlalchemy/no-query-api */
+  test(
+    "checks still running after FORGE_EDIT_BUDGET seconds are stopped, and Claude gets what was found with a note",
+    () => {
+      const real = join(repo, ".venv/bin/ruff");
+      const target = sh("sh", ["-c", `readlink "${real}"`]).stdout.trim();
+      rmSync(real);
+      writeFileSync(real, `#!/bin/sh\ncase "$*" in "check --output-format"*) sleep 30 ;; esac\nexec "${target}" "$@"\n`);
+      chmodSync(real, 0o755);
+      put(repo, "app/slow.py", "X = 1\n");
+      const started = Date.now();
+      const r = hook("post-edit.sh", edit("app/slow.py"), { FORGE_EDIT_BUDGET: "2" });
+      expect(Date.now() - started).toBeLessThan(15_000);
+      expect(JSON.parse(r.stdout).hookSpecificOutput.additionalContext).toContain("forge: the checks after this edit stopped after 2s");
+      rmSync(real);
+      symlinkSync(target, real);
+      reset();
+    },
+    T,
+  );
+
   test(
     "files under .forge/, .claude/, .git/, node_modules/ and .venv/ are not checked, and deleted files are ignored",
     () => {
@@ -674,6 +731,7 @@ describe("Stop", () => {
   test(
     "a line only the formatter changed is not an added line: an untouched stub reformatted after an edit blocks neither post-edit nor Stop, while a new stub does",
     () => {
+      rmSync(join(repo, ".venv/bin/basedpyright"), { force: true }); // left behind by a failed typecheck test
       const before = "class Span:\n    def set_attribute(self, key: str) -> None: ... # pragma: no cover\n\n    def end(self) -> int:\n        return 1\n";
       put(repo, "app/span.py", before);
       hook("turn-start.sh", { session_id: "t-fmt" });

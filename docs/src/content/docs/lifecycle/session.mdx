@@ -43,7 +43,7 @@ After an `Edit` or `Write` (or a Bash command that changes files, below), `post-
 
 <Spec file="08-project-hooks" describe="PostToolUse" />
 
-Before the lint report, a lint check's safe fixes run (`fix_run`): sorted imports and pyupgrade with ruff, when your config selects them, and Biome's safe fixes. Unused imports are never removed, since an import added now is often used in the next edit. When a fix changes the file, Claude is told in one line, so it re-reads the file before editing it again.
+Before the lint report, a lint check's safe fixes run (`fix_run`): sorted imports and pyupgrade with ruff, when your config selects them, and Biome's safe fixes. Unused imports are never removed, since an import added now is often used in the next edit. When a fix changes the file, Claude is told in one line, so it re-reads the file before editing it again. Biome applies its safe fixes in the lint run itself (`biome check --write`), so it runs once per edit; Claude is told when that run changed more than the formatting. Each tool runs once with all the files a command changed, and the checks after an edit get 45 s (`FORGE_EDIT_BUDGET`, under the hook's 60 s timeout): past that, Claude gets what was found so far, and the Stop check covers the rest.
 
 <Spec file="08-project-hooks" describe="safe fixes after an edit" />
 
