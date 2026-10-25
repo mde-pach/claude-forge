@@ -1,0 +1,24 @@
+id: typescript/react-router/action-auth
+description: A route action checks who is calling (requireUser(), requireUserId(), getSession(), auth(), getAuth(), ...). Public actions (login, sign-up) and other helper names are handled with a local rule of the same id (see the pack page).
+scope: {language: typescript, files: ["app/**", "src/app/**"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: export_statement
+      any:
+        - has: {kind: function_declaration, has: {field: name, regex: "^action$"}}
+        - has: {kind: lexical_declaration, has: {kind: variable_declarator, has: {field: name, regex: "^action$"}}}
+      not:
+        has:
+          stopBy: end
+          kind: call_expression
+          has: {field: function, regex: "(^|\\.)(auth|getSession|getServerSession|getCurrentUser|currentUser|getUser|getUserId|requireUser|requireUserId|requireAuth|requireSession|requireAdmin|verifySession|validateRequest|getAuth|isAuthenticated)$"}
+examples:
+  match:
+    - "import type { Route } from \"./+types/project\";\n\nexport async function action({ params }: Route.ActionArgs) {\n  await db.project.delete({ where: { id: params.id } });\n  return redirect(\"/projects\");\n}\n"
+    - "export const action = async ({ request }: Route.ActionArgs) => {\n  const form = Schema.parse(Object.fromEntries(await request.formData()));\n  return data(await db.note.create({ data: form }));\n};\n"
+  no_match:
+    - "import type { Route } from \"./+types/project\";\n\nexport async function action({ request, params }: Route.ActionArgs) {\n  const userId = await requireUserId(request);\n  await db.project.delete({ where: { id: params.id, ownerId: userId } });\n  return redirect(\"/projects\");\n}\n"
+    - "export async function action({ request }: Route.ActionArgs) {\n  const session = await sessionStorage.getSession(request.headers.get(\"Cookie\"));\n  if (!session.has(\"userId\")) throw redirect(\"/login\");\n  return data({ ok: true });\n}\n"
+    - "export async function loader({ params }: Route.LoaderArgs) {\n  return data(await db.post.findMany());\n}\n"

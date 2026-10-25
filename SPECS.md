@@ -739,6 +739,17 @@ context.md: `.input(<schema>)` and what is rejected; mutations on an authorizing
 
 context.md: `zValidator` / `validator()` middleware and `c.req.valid()`; which raw reads are rejected; `cors()` with credentials names its origins.
 
+### typescript/react-router
+
+Detected by `@react-router/dev >= 7` (framework mode).
+
+| Rule | Targets |
+|---|---|
+| `typescript/react-router/action-validate` | `ast-grep` forbid in `app/**`, `src/app/**`: an exported `action` (function or `const`) that calls `.formData()` or `.json()` without a call to `parse`, `safeParse`, `parseAsync`, `safeParseAsync`, `parseWithZod`, `parseWithValibot`, `parseWithYup` or `getValidatedFormData` (as a function or a method) |
+| `typescript/react-router/action-auth` | `ast-grep` forbid in the same files: an exported `action` without a call to `auth`, `getSession`, `getServerSession`, `getCurrentUser`, `currentUser`, `getUser`, `getUserId`, `requireUser`, `requireUserId`, `requireAuth`, `requireSession`, `requireAdmin`, `verifySession`, `validateRequest`, `getAuth` or `isAuthenticated` (as a function or a method). Public actions and other helper names are handled with a local rule of the same id (§5.3) |
+
+context.md: route module `loader` / `action` with `Route.*Args` types; actions validate what they read and check who is calling; `data()` and `redirect()`.
+
 ### github-actions
 
 Detected by `.github/workflows/*.yml` or `*.yaml`.
