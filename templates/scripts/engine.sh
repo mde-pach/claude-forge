@@ -143,8 +143,21 @@ forge_ratchet() {
 }
 
 # Test blocks, for forge_test_edits: pytest test functions (with their decorators)
-# and classes; Vitest/Playwright test and it calls, and the describe calls around them.
-FORGE_TEST_BLOCKS='id: forge-test
+# and classes; Vitest/Playwright test and it calls, and the describe calls around them;
+# what a test checks (forge-test-check): assert statements and decorators (pytest
+# parametrize), expect statements and .each tables.
+FORGE_TEST_BLOCKS='id: forge-test-check
+language: Python
+rule: {any: [{kind: assert_statement}, {kind: decorator}]}
+---
+id: forge-test-check
+language: Tsx
+rule:
+  any:
+    - {kind: expression_statement, regex: "^(await\\s+)?expect\\b"}
+    - {kind: call_expression, regex: "^(test|it)\\b[^(]*[.]each[(]", inside: {kind: call_expression, field: function, stopBy: neighbor}}
+---
+id: forge-test
 language: Python
 rule:
   any:
@@ -173,9 +186,10 @@ constraints:
   F: {regex: "^(describe|suite|test[.]describe)([.(]|$)"}
   NAME: {any: [{kind: string}, {kind: template_string}]}'
 
-# forge_test_blocks <dir> <file-list>: "file<TAB>key<TAB>body" per test of the listed
-# files under <dir>; key = enclosing classes or describe names, then the test name
-# (" #2" for a repeated one); body = the test's text without whitespace.
+# forge_test_blocks <dir> <file-list>: "file<TAB>key<TAB>body<TAB>checks" per test of
+# the listed files under <dir>; key = enclosing classes or describe names, then the
+# test name (" #2" for a repeated one); body = the test's text without whitespace;
+# checks = its assertions and parametrization (forge-test-check), without whitespace.
 forge_test_blocks() {
   set -f
   # shellcheck disable=SC2046
@@ -217,14 +231,24 @@ forge_test_blocks() {
         for (j = 1; j <= m; j++) key = key cn[j] " > "
         key = key N[a]
         if (++seen[F[a] "\t" key] > 1) key = key " #" seen[F[a] "\t" key]
-        print F[a] "\t" key "\t" T[a]
+        sig = ""
+        for (b = 1; b <= n; b++) {
+          if (R[b] != "forge-test-check" || F[b] != F[a] || S[b] < S[a] || E[b] > E[a]) continue
+          inner = 1
+          for (c = 1; c <= n; c++)
+            if (c != a && R[c] == "forge-test" && F[c] == F[a] && S[c] <= S[b] && E[b] <= E[c] && S[a] <= S[c] && E[c] <= E[a] && E[c] - S[c] < E[a] - S[a]) { inner = 0; break }
+          if (inner) sig = sig T[b] "|"
+        }
+        print F[a] "\t" key "\t" T[a] "\t" sig
       }
     }' "$FORGE_TMP/blocks.json"
 }
 
 # forge_test_edits: Stop only (--turn). Each test of the in-scope files ($FORGE_FILES)
-# that existed at the start of the turn must be unchanged (whitespace aside) and
-# still present; new tests are fine.
+# that existed at the start of the turn must keep its assertions and parametrization
+# (whitespace aside) and still be present, unless an Edit or Write changing it was
+# approved during the turn (<snapshot>/tests-approved, written by test-edit.sh); new
+# tests and setup-only changes are fine.
 forge_test_edits() {
   [ "$mode" = --turn ] || return 0
   printf '%s\n' "$FORGE_FILES" | grep -xF -f "$FORGE_TMP/inbase" > "$FORGE_TMP/tests.files"
@@ -234,19 +258,23 @@ forge_test_edits() {
     printf 'forge:%s skipped: ast-grep unavailable\n' "$c_id"
     return 0
   fi
+  _te_ok=$FORGE_ARG/tests-approved
+  [ -f "$_te_ok" ] || _te_ok=/dev/null
   awk -F '\t' '
-    FILENAME == ARGV[1] { then[$1 "\t" $2] = $3; next }
-    { now[$1 "\t" $2] = $3 }
+    FILENAME == ARGV[1] { ok[$1 "\t" $2] = 1; next }
+    FILENAME == ARGV[2] { then[$1 "\t" $2] = $4; next }
+    { now[$1 "\t" $2] = $4 }
     END {
       for (k in then) {
+        if (k in ok) continue
         split(k, p, "\t")
         if (!(k in now)) print p[1] ": test \"" p[2] "\" was removed"
         else if (now[k] != then[k]) print p[1] ": test \"" p[2] "\" was changed"
       }
-    }' "$FORGE_TMP/tests.then" "$FORGE_TMP/tests.now" | sort > "$FORGE_TMP/tests.edits"
+    }' "$_te_ok" "$FORGE_TMP/tests.then" "$FORGE_TMP/tests.now" | sort > "$FORGE_TMP/tests.edits"
   [ -s "$FORGE_TMP/tests.edits" ] || return 0
   cat "$FORGE_TMP/tests.edits"
-  printf 'Tests that existed before this turn are not edited to make the code pass. Restore them; if one looks wrong, stop and ask the user.\n'
+  printf 'These tests existed before this turn and their assertions changed without approval. Restore them. If the task requires the change (it changes the behaviour they assert), make it with Edit or Write: Forge then asks for approval (the user, or a reviewer given the request).\n'
   return 1
 }
 

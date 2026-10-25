@@ -42,7 +42,7 @@ beforeAll(() => {
 }, T);
 
 test(
-  "hooks.json wires SessionStart, UserPromptSubmit, PreToolUse(Bash) twice, PermissionRequest, PostToolUse(Edit|Write|Bash) twice, PostToolUseFailure(Bash) twice and Stop, with the specified timeouts",
+  "hooks.json wires SessionStart, UserPromptSubmit, PreToolUse(Bash) twice and PreToolUse(Edit|Write), PermissionRequest, PostToolUse(Edit|Write|Bash) twice and PostToolUse(Edit|Write), PostToolUseFailure(Bash) twice and Stop, with the specified timeouts",
   () => {
     const hooks = JSON.parse(readFileSync(join(repo, ".claude/skills/forge-project/hooks/hooks.json"), "utf8")).hooks;
     expect(hooks.SessionStart[0]).toMatchObject({ matcher: "startup|resume|clear|compact", hooks: [{ timeout: 10 }] });
@@ -51,7 +51,9 @@ test(
     expect(hooks.PreToolUse[1]).toMatchObject({ matcher: "Bash", hooks: [{ command: 'sh "${CLAUDE_PLUGIN_ROOT}/scripts/bash-snapshot.sh"', timeout: 15 }] });
     expect(hooks.PermissionRequest[0]).toMatchObject({ hooks: [{ command: 'sh "${CLAUDE_PLUGIN_ROOT}/scripts/review.sh"', timeout: 180 }] });
     expect(hooks.PostToolUse[0].matcher).toBe("Edit|Write|Bash");
+    expect(hooks.PreToolUse[2]).toMatchObject({ matcher: "Edit|Write", hooks: [{ command: 'sh "${CLAUDE_PLUGIN_ROOT}/scripts/test-edit.sh"', timeout: 180 }] });
     expect(hooks.PostToolUse[0].hooks).toMatchObject([{ timeout: 60 }, { timeout: 300, asyncRewake: true }]);
+    expect(hooks.PostToolUse[1]).toMatchObject({ matcher: "Edit|Write", hooks: [{ command: 'sh "${CLAUDE_PLUGIN_ROOT}/scripts/test-edit.sh"', timeout: 10 }] });
     expect(hooks.PostToolUseFailure[0].matcher).toBe("Bash");
     expect(hooks.PostToolUseFailure[0].hooks).toEqual(hooks.PostToolUse[0].hooks);
     expect(hooks.Stop[0].hooks).toMatchObject([{ timeout: 600 }]);
@@ -511,6 +513,99 @@ describe("PostToolUse", () => {
       expect(existsSync(join(repo, ".forge/state/typecheck.lock"))).toBe(false);
       rmSync(join(repo, ".venv/bin/basedpyright"));
       reset();
+    },
+    T,
+  );
+});
+
+/**
+ * An edit that changes what a test asserts, or removes it, when the test existed
+ * at the start of the turn, is a real ask (test-edit.sh, PreToolUse Edit|Write):
+ * in an interactive session the user sees it; nobody being there, an independent
+ * reviewer answers it, given the user's request for the turn. An edit that ran
+ * was approved, and the Stop check does not block on it; a change nobody approved
+ * (e.g. through Bash) is still blocked at Stop.
+ */
+describe("test edits", () => {
+  const TEST = "tests/test_cart.py";
+  const BEFORE = "def test_total():\n    items = [40, 60]\n    assert sum(items) == 100\n";
+  const human = { CLAUDE_CODE_ENTRYPOINT: "cli", FORGE_ASK_REVIEW: "", FORGE_REVIEWER: "" };
+  function call(session: string, event: string, tool: "Edit" | "Write", input: Record<string, unknown>, env: Record<string, string> = human, id = "tu-1") {
+    return hook("test-edit.sh", { session_id: session, hook_event_name: event, tool_name: tool, tool_use_id: id, tool_input: { file_path: join(repo, TEST), ...input } }, env).stdout;
+  }
+  const ask = (out: string) => (out ? JSON.parse(out).hookSpecificOutput : undefined);
+  let head = "";
+  function start(session: string, prompt = "Fix the totals.") {
+    head = git(repo, "rev-parse", "HEAD").stdout.trim();
+    put(repo, TEST, BEFORE);
+    git(repo, "add", TEST);
+    git(repo, "commit", "-qm", "tests", "--no-verify");
+    hook("turn-start.sh", { session_id: session, hook_event_name: "UserPromptSubmit", prompt });
+  }
+  function finish() {
+    git(repo, "reset", "-q", "--hard", head);
+    reset();
+  }
+
+  /** @rule python/pytest/no-test-edits */
+  test(
+    "an Edit or Write changing the assertions of a test that existed at the start of the turn, or removing it, asks and names the test; new tests and setup-only changes do not",
+    () => {
+      start("s-te1");
+      const changed = ask(call("s-te1", "PreToolUse", "Edit", { old_string: "== 100", new_string: "== 90", replace_all: false }));
+      expect(changed.permissionDecision).toBe("ask");
+      expect(changed.permissionDecisionReason).toStartWith("forge:python/pytest/no-test-edits This edit changes what tests that existed before this turn assert");
+      expect(changed.permissionDecisionReason).toContain('tests/test_cart.py "test_total" (changed)');
+      expect(call("s-te1", "PreToolUse", "Edit", { old_string: "items = [40, 60]", new_string: "items = list((40, 60))" })).toBe("");
+      expect(call("s-te1", "PreToolUse", "Write", { content: BEFORE + "\n\ndef test_empty():\n    assert sum([]) == 0\n" })).toBe("");
+      expect(ask(call("s-te1", "PreToolUse", "Write", { content: "def test_other():\n    assert True\n" })).permissionDecisionReason).toContain('"test_total" (removed)');
+      // a test added during this turn is Claude's own: changing it asks nothing
+      put(repo, TEST, BEFORE + "\n\ndef test_new():\n    assert sum([1]) == 1\n");
+      expect(call("s-te1", "PreToolUse", "Edit", { old_string: "sum([1]) == 1", new_string: "sum([1]) == 2" })).toBe("");
+      finish();
+    },
+    T,
+  );
+
+  test(
+    "nobody being there, the reviewer answers whether the change is required by the user's request for the turn, which turn-start.sh saved",
+    () => {
+      const bin = mkdtempSync(join(tmpdir(), "forge-fake-claude-"));
+      writeFileSync(join(bin, "claude"), '#!/bin/sh\nfor a in "$@"; do printf "ARG:%s\\n" "$a"; done > "$FAKE_LOG"\nprintf \'{"structured_output":{"decision":"allow","reason":"the request reverses the total"}}\\n\'\n');
+      chmodSync(join(bin, "claude"), 0o755);
+      const log = join(bin, "log");
+      start("s-te2", "Totals now exclude the 10 EUR fee: update the behaviour and its tests.");
+      expect(readFileSync(join(repo, ".forge/state/s-te2.prompt"), "utf8")).toBe("Totals now exclude the 10 EUR fee: update the behaviour and its tests.");
+      const out = ask(
+        call("s-te2", "PreToolUse", "Edit", { old_string: "== 100", new_string: "== 90" }, { PATH: `${bin}:${process.env.PATH}`, FAKE_LOG: log, CLAUDE_CODE_ENTRYPOINT: "sdk-cli", FORGE_ASK_REVIEW: "", FORGE_REVIEWER: "" }),
+      );
+      expect(out.permissionDecision).toBe("allow");
+      const prompt = readFileSync(log, "utf8");
+      expect(prompt).toContain("<request>\nTotals now exclude the 10 EUR fee: update the behaviour and its tests.\n</request>");
+      expect(prompt).toContain("The question you answer: Is this change to existing tests required by the user's request");
+      finish();
+    },
+    T,
+  );
+
+  test(
+    "an edit that ran (PostToolUse) was approved: Stop does not block on it, and still blocks a change nobody approved",
+    () => {
+      start("s-te3");
+      expect(ask(call("s-te3", "PreToolUse", "Edit", { old_string: "== 100", new_string: "== 90" }, human, "tu-ok")).permissionDecision).toBe("ask");
+      put(repo, TEST, BEFORE.replace("== 100", "== 90"));
+      call("s-te3", "PostToolUse", "Edit", { old_string: "== 100", new_string: "== 90" }, human, "tu-ok");
+      expect(readFileSync(join(repo, ".forge/state/s-te3.turn/tests-approved"), "utf8")).toBe("tests/test_cart.py\ttest_total\n");
+      const stop = (session: string) => hook("stop.sh", { session_id: session }).stdout;
+      expect(stop("s-te3")).not.toContain("no-test-edits");
+      // the same change in a new turn, made without asking (e.g. through Bash)
+      put(repo, TEST, BEFORE);
+      hook("turn-start.sh", { session_id: "s-te4", hook_event_name: "UserPromptSubmit", prompt: "x" });
+      put(repo, TEST, BEFORE.replace("== 100", "== 90"));
+      const blocked = JSON.parse(stop("s-te4")).reason;
+      expect(blocked).toContain('tests/test_cart.py: test "test_total" was changed');
+      expect(blocked).toContain("make it with Edit or Write: Forge then asks for approval");
+      finish();
     },
     T,
   );

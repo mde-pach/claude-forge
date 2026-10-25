@@ -75,6 +75,16 @@ TypeScript 6 deprecates `baseUrl`, `moduleResolution: "node10"`, `target: "es5"`
             "timeout": 15
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/test-edit.sh\"",
+            "timeout": 180
+          }
+        ]
       }
     ],
     "PermissionRequest": [
@@ -102,6 +112,16 @@ TypeScript 6 deprecates `baseUrl`, `moduleResolution: "node10"`, `target: "es5"`
             "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/typecheck.sh\"",
             "timeout": 300,
             "asyncRewake": true
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/test-edit.sh\"",
+            "timeout": 10
           }
         ]
       }
@@ -1080,8 +1100,21 @@ forge_ratchet() {
 }
 
 # Test blocks, for forge_test_edits: pytest test functions (with their decorators)
-# and classes; Vitest/Playwright test and it calls, and the describe calls around them.
-FORGE_TEST_BLOCKS='id: forge-test
+# and classes; Vitest/Playwright test and it calls, and the describe calls around them;
+# what a test checks (forge-test-check): assert statements and decorators (pytest
+# parametrize), expect statements and .each tables.
+FORGE_TEST_BLOCKS='id: forge-test-check
+language: Python
+rule: {any: [{kind: assert_statement}, {kind: decorator}]}
+---
+id: forge-test-check
+language: Tsx
+rule:
+  any:
+    - {kind: expression_statement, regex: "^(await\\s+)?expect\\b"}
+    - {kind: call_expression, regex: "^(test|it)\\b[^(]*[.]each[(]", inside: {kind: call_expression, field: function, stopBy: neighbor}}
+---
+id: forge-test
 language: Python
 rule:
   any:
@@ -1110,9 +1143,10 @@ constraints:
   F: {regex: "^(describe|suite|test[.]describe)([.(]|$)"}
   NAME: {any: [{kind: string}, {kind: template_string}]}'
 
-# forge_test_blocks <dir> <file-list>: "file<TAB>key<TAB>body" per test of the listed
-# files under <dir>; key = enclosing classes or describe names, then the test name
-# (" #2" for a repeated one); body = the test's text without whitespace.
+# forge_test_blocks <dir> <file-list>: "file<TAB>key<TAB>body<TAB>checks" per test of
+# the listed files under <dir>; key = enclosing classes or describe names, then the
+# test name (" #2" for a repeated one); body = the test's text without whitespace;
+# checks = its assertions and parametrization (forge-test-check), without whitespace.
 forge_test_blocks() {
   set -f
   # shellcheck disable=SC2046
@@ -1154,14 +1188,24 @@ forge_test_blocks() {
         for (j = 1; j <= m; j++) key = key cn[j] " > "
         key = key N[a]
         if (++seen[F[a] "\t" key] > 1) key = key " #" seen[F[a] "\t" key]
-        print F[a] "\t" key "\t" T[a]
+        sig = ""
+        for (b = 1; b <= n; b++) {
+          if (R[b] != "forge-test-check" || F[b] != F[a] || S[b] < S[a] || E[b] > E[a]) continue
+          inner = 1
+          for (c = 1; c <= n; c++)
+            if (c != a && R[c] == "forge-test" && F[c] == F[a] && S[c] <= S[b] && E[b] <= E[c] && S[a] <= S[c] && E[c] <= E[a] && E[c] - S[c] < E[a] - S[a]) { inner = 0; break }
+          if (inner) sig = sig T[b] "|"
+        }
+        print F[a] "\t" key "\t" T[a] "\t" sig
       }
     }' "$FORGE_TMP/blocks.json"
 }
 
 # forge_test_edits: Stop only (--turn). Each test of the in-scope files ($FORGE_FILES)
-# that existed at the start of the turn must be unchanged (whitespace aside) and
-# still present; new tests are fine.
+# that existed at the start of the turn must keep its assertions and parametrization
+# (whitespace aside) and still be present, unless an Edit or Write changing it was
+# approved during the turn (<snapshot>/tests-approved, written by test-edit.sh); new
+# tests and setup-only changes are fine.
 forge_test_edits() {
   [ "$mode" = --turn ] || return 0
   printf '%s\n' "$FORGE_FILES" | grep -xF -f "$FORGE_TMP/inbase" > "$FORGE_TMP/tests.files"
@@ -1171,19 +1215,23 @@ forge_test_edits() {
     printf 'forge:%s skipped: ast-grep unavailable\n' "$c_id"
     return 0
   fi
+  _te_ok=$FORGE_ARG/tests-approved
+  [ -f "$_te_ok" ] || _te_ok=/dev/null
   awk -F '\t' '
-    FILENAME == ARGV[1] { then[$1 "\t" $2] = $3; next }
-    { now[$1 "\t" $2] = $3 }
+    FILENAME == ARGV[1] { ok[$1 "\t" $2] = 1; next }
+    FILENAME == ARGV[2] { then[$1 "\t" $2] = $4; next }
+    { now[$1 "\t" $2] = $4 }
     END {
       for (k in then) {
+        if (k in ok) continue
         split(k, p, "\t")
         if (!(k in now)) print p[1] ": test \"" p[2] "\" was removed"
         else if (now[k] != then[k]) print p[1] ": test \"" p[2] "\" was changed"
       }
-    }' "$FORGE_TMP/tests.then" "$FORGE_TMP/tests.now" | sort > "$FORGE_TMP/tests.edits"
+    }' "$_te_ok" "$FORGE_TMP/tests.then" "$FORGE_TMP/tests.now" | sort > "$FORGE_TMP/tests.edits"
   [ -s "$FORGE_TMP/tests.edits" ] || return 0
   cat "$FORGE_TMP/tests.edits"
-  printf 'Tests that existed before this turn are not edited to make the code pass. Restore them; if one looks wrong, stop and ask the user.\n'
+  printf 'These tests existed before this turn and their assertions changed without approval. Restore them. If the task requires the change (it changes the behaviour they assert), make it with Edit or Write: Forge then asks for approval (the user, or a reviewer given the request).\n'
   return 1
 }
 
@@ -1955,9 +2003,10 @@ exit 0
 # looking at it. A separate, context-free Claude session reviews the action alone
 # (no conversation, read-only tools, no hooks) and allows or denies it.
 #   PermissionRequest hook:  sh review.sh            (hook input on stdin)
-#   from guard.sh:           sh review.sh pre <rule> <concern> <question>
-#                            (a rule's ask; input on stdin): the reviewer judges only
-#                            that rule's concern, by answering its question
+#   from guard.sh:           sh review.sh pre <rule> <concern> <question> [<request>]
+#   and test-edit.sh         (a rule's ask; input on stdin): the reviewer judges only
+#                            that rule's concern, by answering its question (with the
+#                            user's request for the turn, when given)
 # Prints nothing (the usual dialog, or the usual denial) when a human can answer,
 # when FORGE_ASK_REVIEW=never, in dontAsk mode, or when claude cannot run.
 dir=$(cd "$(dirname "$0")" && pwd)
@@ -1967,6 +2016,7 @@ event=${1:-permission}
 why=${2:-}
 concern=${3:-}
 question=${4:-}
+request=${5:-}
 
 forge_review_wanted || exit 0
 # the project-level copy defers to the user-level one, so an ask is reviewed once
@@ -1986,7 +2036,7 @@ if [ "$event" = pre ]; then
     || verdict=''
 fi
 if [ -z "$verdict" ]; then
-  verdict=$(forge_review "$tool" "$input" "$why" "$concern" "$question") || exit 0
+  verdict=$(forge_review "$tool" "$input" "$why" "$concern" "$question" "$request") || exit 0
   [ -n "$key" ] && printf '%s\t%s\t%s\n' "$(session_id)" "$key" "$verdict" >> "$cache" 2>/dev/null
 fi
 decision=${verdict%%"	"*}
@@ -2233,8 +2283,21 @@ forge_ratchet() {
 }
 
 # Test blocks, for forge_test_edits: pytest test functions (with their decorators)
-# and classes; Vitest/Playwright test and it calls, and the describe calls around them.
-FORGE_TEST_BLOCKS='id: forge-test
+# and classes; Vitest/Playwright test and it calls, and the describe calls around them;
+# what a test checks (forge-test-check): assert statements and decorators (pytest
+# parametrize), expect statements and .each tables.
+FORGE_TEST_BLOCKS='id: forge-test-check
+language: Python
+rule: {any: [{kind: assert_statement}, {kind: decorator}]}
+---
+id: forge-test-check
+language: Tsx
+rule:
+  any:
+    - {kind: expression_statement, regex: "^(await\\s+)?expect\\b"}
+    - {kind: call_expression, regex: "^(test|it)\\b[^(]*[.]each[(]", inside: {kind: call_expression, field: function, stopBy: neighbor}}
+---
+id: forge-test
 language: Python
 rule:
   any:
@@ -2263,9 +2326,10 @@ constraints:
   F: {regex: "^(describe|suite|test[.]describe)([.(]|$)"}
   NAME: {any: [{kind: string}, {kind: template_string}]}'
 
-# forge_test_blocks <dir> <file-list>: "file<TAB>key<TAB>body" per test of the listed
-# files under <dir>; key = enclosing classes or describe names, then the test name
-# (" #2" for a repeated one); body = the test's text without whitespace.
+# forge_test_blocks <dir> <file-list>: "file<TAB>key<TAB>body<TAB>checks" per test of
+# the listed files under <dir>; key = enclosing classes or describe names, then the
+# test name (" #2" for a repeated one); body = the test's text without whitespace;
+# checks = its assertions and parametrization (forge-test-check), without whitespace.
 forge_test_blocks() {
   set -f
   # shellcheck disable=SC2046
@@ -2307,14 +2371,24 @@ forge_test_blocks() {
         for (j = 1; j <= m; j++) key = key cn[j] " > "
         key = key N[a]
         if (++seen[F[a] "\t" key] > 1) key = key " #" seen[F[a] "\t" key]
-        print F[a] "\t" key "\t" T[a]
+        sig = ""
+        for (b = 1; b <= n; b++) {
+          if (R[b] != "forge-test-check" || F[b] != F[a] || S[b] < S[a] || E[b] > E[a]) continue
+          inner = 1
+          for (c = 1; c <= n; c++)
+            if (c != a && R[c] == "forge-test" && F[c] == F[a] && S[c] <= S[b] && E[b] <= E[c] && S[a] <= S[c] && E[c] <= E[a] && E[c] - S[c] < E[a] - S[a]) { inner = 0; break }
+          if (inner) sig = sig T[b] "|"
+        }
+        print F[a] "\t" key "\t" T[a] "\t" sig
       }
     }' "$FORGE_TMP/blocks.json"
 }
 
 # forge_test_edits: Stop only (--turn). Each test of the in-scope files ($FORGE_FILES)
-# that existed at the start of the turn must be unchanged (whitespace aside) and
-# still present; new tests are fine.
+# that existed at the start of the turn must keep its assertions and parametrization
+# (whitespace aside) and still be present, unless an Edit or Write changing it was
+# approved during the turn (<snapshot>/tests-approved, written by test-edit.sh); new
+# tests and setup-only changes are fine.
 forge_test_edits() {
   [ "$mode" = --turn ] || return 0
   printf '%s\n' "$FORGE_FILES" | grep -xF -f "$FORGE_TMP/inbase" > "$FORGE_TMP/tests.files"
@@ -2324,19 +2398,23 @@ forge_test_edits() {
     printf 'forge:%s skipped: ast-grep unavailable\n' "$c_id"
     return 0
   fi
+  _te_ok=$FORGE_ARG/tests-approved
+  [ -f "$_te_ok" ] || _te_ok=/dev/null
   awk -F '\t' '
-    FILENAME == ARGV[1] { then[$1 "\t" $2] = $3; next }
-    { now[$1 "\t" $2] = $3 }
+    FILENAME == ARGV[1] { ok[$1 "\t" $2] = 1; next }
+    FILENAME == ARGV[2] { then[$1 "\t" $2] = $4; next }
+    { now[$1 "\t" $2] = $4 }
     END {
       for (k in then) {
+        if (k in ok) continue
         split(k, p, "\t")
         if (!(k in now)) print p[1] ": test \"" p[2] "\" was removed"
         else if (now[k] != then[k]) print p[1] ": test \"" p[2] "\" was changed"
       }
-    }' "$FORGE_TMP/tests.then" "$FORGE_TMP/tests.now" | sort > "$FORGE_TMP/tests.edits"
+    }' "$_te_ok" "$FORGE_TMP/tests.then" "$FORGE_TMP/tests.now" | sort > "$FORGE_TMP/tests.edits"
   [ -s "$FORGE_TMP/tests.edits" ] || return 0
   cat "$FORGE_TMP/tests.edits"
-  printf 'Tests that existed before this turn are not edited to make the code pass. Restore them; if one looks wrong, stop and ask the user.\n'
+  printf 'These tests existed before this turn and their assertions changed without approval. Restore them. If the task requires the change (it changes the behaviour they assert), make it with Edit or Write: Forge then asks for approval (the user, or a reviewer given the request).\n'
   return 1
 }
 
@@ -3136,12 +3214,1210 @@ reason=$(printf '%s\n' "$out" | first_lines 20 | json_escape)
 printf '{"decision":"block","reason":"%s"}\n' "$reason"
 exit 0
 
+===== .claude/skills/forge-project/scripts/test-edit.sh
+#!/bin/sh
+# Generated by forge. Edits to tests that existed at the start of the turn.
+# PreToolUse(Edit|Write): when the edit removes a test, or changes what it checks
+# (its assertions or parametrization; setup-only changes and new tests are fine),
+# asks: the user sees the ask; in an autonomous run an independent reviewer answers
+# it, given the user's request for the turn (saved by turn-start.sh). The tests
+# asked about are recorded as pending for this tool call.
+# PostToolUse(Edit|Write): the call ran, so it was approved: its pending tests are
+# recorded in <turn snapshot>/tests-approved, which the Stop check does not block
+# on. The edited test file is recorded in <turn snapshot>/touched, so the Stop
+# check still runs it when the edit is later reverted.
+dir=$(cd "$(dirname "$0")" && pwd)
+FORGE_INPUT=$(cat)
+. "$dir/lib.sh"
+repo_root || exit 0
+[ -d .forge ] || exit 0
+file=$(json_get file_path)
+[ -n "$file" ] || exit 0
+file=$(rel_path "$file") || exit 0
+FORGE_ROOT=$(pwd)
+snap=$(turn_dir)
+key=$(bash_key) || key=''
+IFS='
+'
+
+# ---- generated checks
+# Project tools used in check commands, resolved through tool().
+tsc() { forge_exec_tool tsc "$@"; }
+FORGE_NCHECKS=3
+
+# 1. typescript/config-ratchet
+forge_check_meta_1() {
+  c_id='typescript/config-ratchet'; c_stage=lint; c_tools='bun'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
+}
+forge_scope_1() {
+  case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) ;; *) return 1 ;; esac
+  return 0
+}
+forge_when_1() { case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) return 0 ;; esac; return 1; }
+forge_check_run_1() {
+forge_ratchet bun ratchet.mjs
+}
+
+# 2. typescript/no-ignore-deprecations
+forge_check_meta_2() {
+  c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
+}
+forge_scope_2() {
+  case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
+  return 0
+}
+forge_when_2() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
+forge_check_run_2() {
+! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')
+}
+
+# 3. typescript/typecheck
+forge_check_meta_3() {
+  c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0
+}
+forge_scope_3() {
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+forge_when_3() { return 1; }
+forge_check_run_3() {
+tsc --noEmit -p tsconfig.json
+}
+
+FORGE_NGREPS=2
+FORGE_GREP_NO_INCREASE='typescript/no-new-suppressions'
+FORGE_GREP_NO_DECREASE=''
+
+# grep 1. typescript/no-new-suppressions
+forge_grep_meta_1() {
+  g_id='typescript/no-new-suppressions'; g_mode=no-increase; g_flags=-E
+  g_pattern='biome-ignore|@ts-expect-error'
+  g_desc='No new suppression comments (biome-ignore in any form, @ts-expect-error); a changed file may not have more than it had. Fix the finding instead.'
+}
+forge_grep_scope_1() {
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+
+# grep 2. typescript/no-placeholder-comment
+forge_grep_meta_2() {
+  g_id='typescript/no-placeholder-comment'; g_mode=forbid; g_flags=-iE
+  g_pattern='(//|/\*|^[[:space:]]*\*).*(todo:?[[:space:]]*implement|in a real (implementation|app|application|system|project|world)|in production,? (you|we) would|placeholder (implementation|logic|code|value|for now)|stub(bed)? (implementation|for now)|implement (this|me) (later|properly))'
+  g_desc='No placeholder comments on added lines ("TODO implement", "in a real implementation", "placeholder logic"); write the code or say what is missing.'
+}
+forge_grep_scope_2() {
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+# ---- end of generated checks
+
+# Check engine (static part). Expects: IFS = newline, FORGE_TMP, FORGE_NCHECKS,
+# forge_check_meta_<n>, forge_scope_<n>, forge_when_<n>, forge_check_run_<n>,
+# forge_check_changed_<n>, plus tool() and first_lines() from lib.sh.
+
+# forge_change_set: the files a run is about, for $mode (--changed, --since,
+# --turn, --all; $FORGE_ARG is the ref or the snapshot directory). Writes to $FORGE_TMP:
+#   changed   changed paths, one per line   existing  those that exist now
+#   deleted   those gone since the base     inbase    those that exist in the base
+#   base/<p>  each one as it is in the base
+#   added     "path<TAB>line" per added line, "path<TAB>*" per new file (empty with --all)
+# The base is HEAD (--changed, --all), git merge-base <ref> HEAD (--since) or the
+# tree at the start of the turn (--turn: FORGE_SNAP, plus FORGE_BASE_REV for files
+# that were clean then).
+forge_change_set() {
+  FORGE_SNAP=''
+  case $mode in
+    --turn)
+      FORGE_SNAP=$FORGE_ARG
+      FORGE_BASE_REV=$(cat "$FORGE_SNAP/head" 2>/dev/null) ;;
+    --since)
+      FORGE_BASE_REV=$(git merge-base "$FORGE_ARG" HEAD 2>/dev/null) || {
+        printf 'forge:forge/since no merge base for %s and HEAD (fetch it: git fetch origin <branch>, or check out with fetch-depth: 0)\n' "$FORGE_ARG"
+        return 1
+      } ;;
+    *) FORGE_BASE_REV=$(git rev-parse -q --verify HEAD 2>/dev/null) ;;
+  esac
+  case $mode in
+    --turn)
+      { status_paths; cut -f 1 "$FORGE_SNAP/dirty" 2>/dev/null
+        [ -n "$FORGE_BASE_REV" ] && git diff --name-only --no-renames "$FORGE_BASE_REV" HEAD 2>/dev/null
+      } | sort -u | while IFS= read -r _cs_f; do
+        [ -n "$_cs_f" ] && [ "$(now_hash "$_cs_f")" != "$(base_hash "$_cs_f")" ] && printf '%s\n' "$_cs_f"
+      done ;;
+    --since)
+      { git diff --name-only --no-renames "$FORGE_BASE_REV" 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null; } | sort -u ;;
+    *) status_paths | sort -u ;;
+  esac > "$FORGE_TMP/changed"
+  : > "$FORGE_TMP/existing"; : > "$FORGE_TMP/deleted"; : > "$FORGE_TMP/inbase"; : > "$FORGE_TMP/added"
+  mkdir -p "$FORGE_TMP/base"
+  while IFS= read -r _cs_f; do
+    if base_file "$_cs_f" "$FORGE_TMP/base/$_cs_f"; then printf '%s\n' "$_cs_f" >> "$FORGE_TMP/inbase"; _cs_b=1; else _cs_b=0; fi
+    if [ -f "$_cs_f" ]; then
+      printf '%s\n' "$_cs_f" >> "$FORGE_TMP/existing"
+      [ "$mode" = --all ] || added_lines "$_cs_f" "$FORGE_TMP/base/$_cs_f" >> "$FORGE_TMP/added"
+    elif [ "$_cs_b" = 1 ]; then
+      printf '%s\n' "$_cs_f" >> "$FORGE_TMP/deleted"
+    fi
+  done < "$FORGE_TMP/changed"
+  return 0
+}
+
+# forge_sg_report <json>: ast-grep --json=stream matches as
+# "forge:<rule> path:line:column <description>" (from 1); unless $mode is --all, only
+# matches that overlap a line of $FORGE_TMP/added (a match spanning an edited line counts).
+forge_sg_report() {
+  awk -v all="$([ "$mode" = --all ] && printf 1)" '
+    function str(s, key,   i, out, c) {
+      i = index(s, "\"" key "\":\""); if (!i) return ""
+      s = substr(s, i + length(key) + 4); out = ""
+      while (length(s)) {
+        c = substr(s, 1, 1)
+        if (c == "\"") break
+        if (c == "\\") { c = substr(s, 2, 1); if (c == "n") c = " "; s = substr(s, 2) }
+        out = out c; s = substr(s, 2)
+      }
+      return out
+    }
+    function num(s, key,   i) { i = index(s, key); return i ? substr(s, i + length(key)) + 0 : -1 }
+    FILENAME == ARGV[1] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
+    {
+      r = substr($0, index($0, "\"range\":{"))
+      sl = num(r, "\"start\":{\"line\":") + 1; sc = num(r, "\"column\":") + 1
+      el = num(substr(r, index(r, "\"end\":{\"line\":")), "\"end\":{\"line\":") + 1
+      f = str($0, "file"); m = str($0, "message")
+      keep = (all != "" || (f in whole))
+      for (l = sl; !keep && l <= el; l++) if ((f "\t" l) in ad) keep = 1
+      if (!keep) next
+      id = m; sub(/^forge:/, "", id); sub(/ .*$/, "", id)
+      d = m; sub(/^[^ ]* ?/, "", d)
+      printf "forge:%s %s:%d:%d %s\n", id, f, sl, sc, d
+    }' "$FORGE_TMP/added" "$1"
+}
+
+# forge_grep_counts <dir> <file-list>: "rule<TAB>file<TAB>count" (matching lines)
+# for each grep rule that counts (no-increase, no-decrease), on the listed files under <dir>.
+forge_grep_counts() {
+  _gc_i=1
+  while [ "$_gc_i" -le "$FORGE_NGREPS" ]; do
+    forge_grep_meta_"$_gc_i"
+    if [ "$g_mode" != forbid ]; then
+      while IFS= read -r _gc_f; do
+        [ -f "$1/$_gc_f" ] && forge_grep_scope_"$_gc_i" "$_gc_f" || continue
+        printf '%s\t%s\t%s\n' "$g_id" "$_gc_f" "$(grep -c "$g_flags" -- "$g_pattern" "$1/$_gc_f")"
+      done < "$2"
+    fi
+    _gc_i=$((_gc_i + 1))
+  done
+}
+
+# forge_grep_forbid <file-list>: "forge:<rule> path:line <description>" for each
+# match of a forbid grep rule; unless $mode is --all, only on lines of $FORGE_TMP/added.
+forge_grep_forbid() {
+  _gf_i=1
+  while [ "$_gf_i" -le "$FORGE_NGREPS" ]; do
+    forge_grep_meta_"$_gf_i"
+    if [ "$g_mode" = forbid ]; then
+      while IFS= read -r _gf_f; do
+        [ -f "$_gf_f" ] && forge_grep_scope_"$_gf_i" "$_gf_f" || continue
+        grep -n "$g_flags" -- "$g_pattern" "$_gf_f" 2>/dev/null | awk -F: -v f="$_gf_f" -v id="$g_id" -v d="$g_desc" -v all="$([ "$mode" = --all ] && printf 1)" '
+          FILENAME == ARGV[1] { split($0, a, "\t"); if (a[2] == "*") whole[a[1]] = 1; else ad[a[1] "\t" a[2]] = 1; next }
+          all != "" || (f in whole) || ((f "\t" $1) in ad) { printf "forge:%s %s:%s %s\n", id, f, $1, d }' "$FORGE_TMP/added" -
+      done < "$1"
+    fi
+    _gf_i=$((_gf_i + 1))
+  done
+}
+
+# forge_ratchet <runtime> <script>: the config ratchet. Runs <script> (embedded in
+# check.sh as forge_script_<script>) with the project's runtime on the changed files
+# and their base copies; each printed line is a loosened setting, unless forge.yaml
+# records it as accepted.
+forge_ratchet() {
+  _fr_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
+  "$_fr_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  set -f
+  # shellcheck disable=SC2046
+  "$1" "$FORGE_TMP/$2" "$FORGE_TMP/base" $(cat "$FORGE_TMP/existing") > "$FORGE_TMP/ratchet" 2>&1
+  _fr_rc=$?
+  set +f
+  case $_fr_rc in
+    0) return 0 ;;
+    1) ;;
+    *) printf 'forge:%s %s\n' "$c_id" "$(grep '^skipped:' "$FORGE_TMP/ratchet" | head -n 1 | grep . || printf 'skipped: %s exited with %s' "$1" "$_fr_rc")"; return 0 ;;
+  esac
+  while IFS= read -r _fr_l; do
+    [ -f forge.yaml ] && grep -qF -- "$_fr_l" forge.yaml && continue
+    printf '%s\n' "$_fr_l"
+  done < "$FORGE_TMP/ratchet" > "$FORGE_TMP/ratchet.open"
+  [ -s "$FORGE_TMP/ratchet.open" ] || return 0
+  cat "$FORGE_TMP/ratchet.open"
+  printf 'Restore the setting, or have the user accept the change in forge.yaml: accept: [{rule: %s, change: "<line above>", reason: "..."}]\n' "$c_id"
+  return 1
+}
+
+# Test blocks, for forge_test_edits: pytest test functions (with their decorators)
+# and classes; Vitest/Playwright test and it calls, and the describe calls around them;
+# what a test checks (forge-test-check): assert statements and decorators (pytest
+# parametrize), expect statements and .each tables.
+FORGE_TEST_BLOCKS='id: forge-test-check
+language: Python
+rule: {any: [{kind: assert_statement}, {kind: decorator}]}
+---
+id: forge-test-check
+language: Tsx
+rule:
+  any:
+    - {kind: expression_statement, regex: "^(await\\s+)?expect\\b"}
+    - {kind: call_expression, regex: "^(test|it)\\b[^(]*[.]each[(]", inside: {kind: call_expression, field: function, stopBy: neighbor}}
+---
+id: forge-test
+language: Python
+rule:
+  any:
+    - kind: decorated_definition
+      has: {field: definition, kind: function_definition, has: {field: name, regex: "^test"}}
+    - all:
+        - kind: function_definition
+        - has: {field: name, regex: "^test"}
+        - not: {inside: {kind: decorated_definition, stopBy: neighbor}}
+---
+id: forge-test-scope
+language: Python
+rule: {kind: class_definition}
+---
+id: forge-test
+language: Tsx
+rule: {pattern: "$F($NAME, $$$REST)"}
+constraints:
+  F: {all: [{regex: "^(test|it)([.(]|$)"}, {not: {regex: "^test[.](describe|step|use|extend|info|beforeEach|afterEach|beforeAll|afterAll)"}}]}
+  NAME: {any: [{kind: string}, {kind: template_string}]}
+---
+id: forge-test-scope
+language: Tsx
+rule: {pattern: "$F($NAME, $$$REST)"}
+constraints:
+  F: {regex: "^(describe|suite|test[.]describe)([.(]|$)"}
+  NAME: {any: [{kind: string}, {kind: template_string}]}'
+
+# forge_test_blocks <dir> <file-list>: "file<TAB>key<TAB>body<TAB>checks" per test of
+# the listed files under <dir>; key = enclosing classes or describe names, then the
+# test name (" #2" for a repeated one); body = the test's text without whitespace;
+# checks = its assertions and parametrization (forge-test-check), without whitespace.
+forge_test_blocks() {
+  set -f
+  # shellcheck disable=SC2046
+  ( cd "$1" && astgrep scan -c "$FORGE_ROOT/.forge/ast-grep/sgconfig.yml" --inline-rules "$FORGE_TEST_BLOCKS" --filter '^forge-test' --json=stream $(cat "$2") ) > "$FORGE_TMP/blocks.json"
+  _tb_rc=$?
+  set +f
+  [ "$_tb_rc" -le 1 ] || return 1
+  awk '
+    function str(s, key,   i, out, c) {
+      i = index(s, "\"" key "\":\""); if (!i) return ""
+      s = substr(s, i + length(key) + 4); out = ""
+      while (length(s)) {
+        c = substr(s, 1, 1)
+        if (c == "\"") break
+        if (c == "\\") { c = substr(s, 2, 1); if (c == "n" || c == "t" || c == "r") c = " "; s = substr(s, 2) }
+        out = out c; s = substr(s, 2)
+      }
+      return out
+    }
+    {
+      rid = str($0, "ruleId"); if (rid !~ /^forge-test/) next
+      r = substr($0, index($0, "\"byteOffset\":{\"start\":") + 22)
+      n++; F[n] = str($0, "file"); R[n] = rid; S[n] = r + 0; E[n] = substr(r, index(r, "\"end\":") + 6) + 0
+      t = str($0, "text"); k = index($0, "\"NAME\":{"); nm = k ? str(substr($0, k), "text") : ""
+      if (nm == "" && match(t, /(def|class)[ ]+[A-Za-z_][A-Za-z0-9_]*/)) { nm = substr(t, RSTART, RLENGTH); sub(/^(def|class)[ ]+/, "", nm) }
+      if (nm ~ /^["\047`]/) nm = substr(nm, 2, length(nm) - 2)
+      N[n] = nm; gsub(/[[:space:]]/, "", t); T[n] = t
+    }
+    END {
+      for (a = 1; a <= n; a++) {
+        if (R[a] != "forge-test") continue
+        m = 0
+        for (b = 1; b <= n; b++)
+          if (R[b] == "forge-test-scope" && F[b] == F[a] && S[b] <= S[a] && E[a] <= E[b]) {
+            m++; cs[m] = S[b]; cn[m] = N[b]
+            for (j = m; j > 1 && cs[j - 1] > cs[j]; j--) { x = cs[j]; cs[j] = cs[j - 1]; cs[j - 1] = x; x = cn[j]; cn[j] = cn[j - 1]; cn[j - 1] = x }
+          }
+        key = ""
+        for (j = 1; j <= m; j++) key = key cn[j] " > "
+        key = key N[a]
+        if (++seen[F[a] "\t" key] > 1) key = key " #" seen[F[a] "\t" key]
+        sig = ""
+        for (b = 1; b <= n; b++) {
+          if (R[b] != "forge-test-check" || F[b] != F[a] || S[b] < S[a] || E[b] > E[a]) continue
+          inner = 1
+          for (c = 1; c <= n; c++)
+            if (c != a && R[c] == "forge-test" && F[c] == F[a] && S[c] <= S[b] && E[b] <= E[c] && S[a] <= S[c] && E[c] <= E[a] && E[c] - S[c] < E[a] - S[a]) { inner = 0; break }
+          if (inner) sig = sig T[b] "|"
+        }
+        print F[a] "\t" key "\t" T[a] "\t" sig
+      }
+    }' "$FORGE_TMP/blocks.json"
+}
+
+# forge_test_edits: Stop only (--turn). Each test of the in-scope files ($FORGE_FILES)
+# that existed at the start of the turn must keep its assertions and parametrization
+# (whitespace aside) and still be present, unless an Edit or Write changing it was
+# approved during the turn (<snapshot>/tests-approved, written by test-edit.sh); new
+# tests and setup-only changes are fine.
+forge_test_edits() {
+  [ "$mode" = --turn ] || return 0
+  printf '%s\n' "$FORGE_FILES" | grep -xF -f "$FORGE_TMP/inbase" > "$FORGE_TMP/tests.files"
+  [ -s "$FORGE_TMP/tests.files" ] || return 0
+  if ! forge_test_blocks "$FORGE_TMP/base" "$FORGE_TMP/tests.files" > "$FORGE_TMP/tests.then" \
+    || ! forge_test_blocks "$FORGE_ROOT" "$FORGE_TMP/tests.files" > "$FORGE_TMP/tests.now"; then
+    printf 'forge:%s skipped: ast-grep unavailable\n' "$c_id"
+    return 0
+  fi
+  _te_ok=$FORGE_ARG/tests-approved
+  [ -f "$_te_ok" ] || _te_ok=/dev/null
+  awk -F '\t' '
+    FILENAME == ARGV[1] { ok[$1 "\t" $2] = 1; next }
+    FILENAME == ARGV[2] { then[$1 "\t" $2] = $4; next }
+    { now[$1 "\t" $2] = $4 }
+    END {
+      for (k in then) {
+        if (k in ok) continue
+        split(k, p, "\t")
+        if (!(k in now)) print p[1] ": test \"" p[2] "\" was removed"
+        else if (now[k] != then[k]) print p[1] ": test \"" p[2] "\" was changed"
+      }
+    }' "$_te_ok" "$FORGE_TMP/tests.then" "$FORGE_TMP/tests.now" | sort > "$FORGE_TMP/tests.edits"
+  [ -s "$FORGE_TMP/tests.edits" ] || return 0
+  cat "$FORGE_TMP/tests.edits"
+  printf 'These tests existed before this turn and their assertions changed without approval. Restore them. If the task requires the change (it changes the behaviour they assert), make it with Edit or Write: Forge then asks for approval (the user, or a reviewer given the request).\n'
+  return 1
+}
+
+# forge_toml_get <file> <section> <key>: the value of <key> in [<section>] ("" for
+# the top level), quotes and comments removed; nothing when absent. One-line values only.
+forge_toml_get() {
+  awk -v want="$2" -v key="$3" '
+    /^[[:space:]]*\[/ { s = $0; sub(/^[[:space:]]*\[[[:space:]]*/, "", s); sub(/[[:space:]]*\].*$/, "", s); next }
+    s == want {
+      line = $0; sub(/^[[:space:]]*/, "", line)
+      if (substr(line, 1, length(key)) != key) next
+      rest = substr(line, length(key) + 1)
+      if (rest !~ /^[[:space:]]*=/) next
+      sub(/^[[:space:]]*=[[:space:]]*/, "", rest)
+      if (rest ~ /^"/) { sub(/^"/, "", rest); sub(/".*$/, "", rest) }
+      else if (rest ~ /^\047/) { sub(/^\047/, "", rest); sub(/\047.*$/, "", rest) }
+      else sub(/[[:space:]]*(#.*)?$/, "", rest)
+      print rest; exit
+    }' "$1" 2>/dev/null
+}
+
+# forge_duration_seconds <text>: a relative duration ("7 days", "1 week", "72 hours",
+# P7D, P1W, PT72H) in seconds; nothing when it is not one.
+forge_duration_seconds() {
+  printf '%s\n' "$1" | awk '{
+    v = tolower($0)
+    if (v ~ /^p[0-9]+w$/) print substr(v, 2) * 604800
+    else if (v ~ /^p[0-9]+d$/) print substr(v, 2) * 86400
+    else if (v ~ /^pt[0-9]+h$/) print substr(v, 3) * 3600
+    else if (v ~ /^[0-9]+[[:space:]]*(weeks?|days?|hours?)$/) {
+      n = v + 0; u = v; sub(/^[0-9]+[[:space:]]*/, "", u)
+      print n * (u ~ /^w/ ? 604800 : u ~ /^d/ ? 86400 : 3600)
+    }
+  }'
+}
+
+# forge_version_ge <a> <b>: succeeds when version a >= b (numeric dot-separated parts).
+forge_version_ge() {
+  awk -v a="$1" -v b="$2" 'BEGIN {
+    na = split(a, x, "."); nb = split(b, y, ".")
+    for (i = 1; i <= (na > nb ? na : nb); i++) { p = x[i] + 0; q = y[i] + 0; if (p > q) exit 0; if (p < q) exit 1 }
+    exit 0 }'
+}
+
+# forge_bun_cooldown: bunfig.toml [install] minimumReleaseAge is at least 3 days (259200 s).
+forge_bun_cooldown() {
+  _bc_v=$(forge_toml_get bunfig.toml install minimumReleaseAge)
+  case $_bc_v in ''|*[!0-9]*) ;; *) [ "$_bc_v" -ge 259200 ] && return 0 ;; esac
+  printf 'bunfig.toml: [install] minimumReleaseAge is %s; set it to at least 259200 (3 days, in seconds) so a freshly published (possibly compromised) version is not installed. Packages you must update sooner go in minimumReleaseAgeExcludes.\n' "${_bc_v:-unset}"
+  return 1
+}
+
+# forge_uv_cooldown: [tool.uv] (or uv.toml) exclude-newer is a relative duration of at
+# least 3 days, and required-version asks for uv >= 0.9.17 (older uv ignores relative values).
+forge_uv_cooldown() {
+  if [ -f uv.toml ]; then _uc_f=uv.toml; _uc_s=''; else _uc_f=pyproject.toml; _uc_s=tool.uv; fi
+  _uc_rc=0
+  _uc_v=$(forge_toml_get "$_uc_f" "$_uc_s" exclude-newer)
+  _uc_n=$(forge_duration_seconds "$_uc_v")
+  if [ -z "$_uc_n" ] || [ "$_uc_n" -lt 259200 ]; then
+    printf '%s: [%s] exclude-newer is %s; set a relative duration of at least 3 days, e.g. exclude-newer = "7 days", so a freshly published (possibly compromised) version is not resolved.\n' "$_uc_f" "${_uc_s:-top level}" "${_uc_v:-unset}"
+    _uc_rc=1
+  fi
+  _uc_r=$(forge_toml_get "$_uc_f" "$_uc_s" required-version)
+  _uc_min=$(printf '%s' "$_uc_r" | sed -n -E 's/^[[:space:]]*(>=|==|~=|>)[[:space:]]*([0-9][0-9.]*).*$/\2/p')
+  if [ -z "$_uc_min" ] || ! forge_version_ge "$_uc_min" 0.9.17; then
+    printf '%s: [%s] required-version is %s; set required-version = ">=0.9.17" (older uv ignores a relative exclude-newer).\n' "$_uc_f" "${_uc_s:-top level}" "${_uc_r:-unset}"
+    _uc_rc=1
+  fi
+  return "$_uc_rc"
+}
+
+# forge_trusted_deps: no package.json gains trustedDependencies entries (each one
+# lets that package run install scripts); compared with the base, with bun.
+forge_trusted_deps() {
+  _td_rc=0
+  while IFS= read -r _td_f; do
+    case $_td_f in package.json|*/package.json) ;; *) continue ;; esac
+    _td_new=$(bun -e '
+      const fs = require("fs");
+      const read = (p) => { try { const v = JSON.parse(fs.readFileSync(p, "utf8")).trustedDependencies; return Array.isArray(v) ? v : []; } catch { return []; } };
+      const before = new Set(read(process.argv[1]));
+      console.log(read(process.argv[2]).filter((d) => !before.has(d)).join(" "));' "$FORGE_TMP/base/$_td_f" "$_td_f") || continue
+    if [ -n "$_td_new" ]; then
+      printf '%s: trustedDependencies adds %s (its install scripts would run); the user adds trusted packages, not Claude\n' "$_td_f" "$_td_new"
+      _td_rc=1
+    fi
+  done < "$FORGE_TMP/existing"
+  return "$_td_rc"
+}
+
+# GitHub Actions workflows: pinned zizmor (through uvx), offline audits only, inline
+# ignore comments and ignore rules not honoured (disabling goes through forge.yaml).
+FORGE_ZIZMOR_VERSION="1.30.1"
+
+# forge_zizmor <audit>...: zizmor on $FORGE_FILES (else every tracked workflow and
+# action); prints "path:line audit message" for the findings of the named audits.
+forge_zizmor() {
+  if [ -n "$FORGE_FILES" ]; then set -f; set -- "$@" -- $FORGE_FILES; set +f
+  else
+    set -f
+    # shellcheck disable=SC2046
+    set -- "$@" -- $(git ls-files -- '.github/workflows/*.yml' '.github/workflows/*.yaml' '.github/actions/*action.yml' '.github/actions/*action.yaml' 'action.yml' 'action.yaml')
+    set +f
+  fi
+  _fz_audits=''
+  while [ "$1" != -- ]; do _fz_audits="$_fz_audits|$1"; shift; done
+  shift
+  [ "$#" -gt 0 ] || return 0
+  command -v uvx >/dev/null 2>&1 || { printf 'forge:%s skipped: uvx is needed to run zizmor\n' "$c_id"; return 0; }
+  uvx -q "zizmor@$FORGE_ZIZMOR_VERSION" --offline --no-progress --no-ignores --format github "$@" > "$FORGE_TMP/zizmor" 2> "$FORGE_TMP/zizmor.err"
+  _fz_rc=$?
+  if [ "$_fz_rc" -ne 0 ] && [ "$_fz_rc" -lt 10 ]; then
+    printf 'forge:%s skipped: zizmor could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/zizmor.err" | tail -n 1)"
+    return 0
+  fi
+  awk -v audits="${_fz_audits#|}" '
+    BEGIN { n = split(audits, a, "|"); for (i = 1; i <= n; i++) want[a[i]] = 1 }
+    /^::(error|warning|notice) / {
+      meta = $0; sub(/^::[a-z]+ /, "", meta); msg = meta; sub(/^[^:]*::/, "", msg); sub(/::.*$/, "", meta)
+      file = meta; sub(/^.*file=/, "", file); sub(/,.*$/, "", file)
+      line = meta; sub(/^.*line=/, "", line); sub(/,.*$/, "", line)
+      title = meta; sub(/^.*title=/, "", title); sub(/,.*$/, "", title)
+      sub(/^[^:]*:[0-9]+: /, "", msg)
+      if (title in want) { print file ":" line " " title ": " msg; bad = 1 }
+    }
+    END { exit bad }' "$FORGE_TMP/zizmor"
+}
+
+# Dockerfiles: pinned hadolint (hadolint-bin through uvx; its binary must match the
+# upstream release's sha256), run once per check.sh run and shared by the rules.
+FORGE_HADOLINT_VERSION="2.15.1"
+FORGE_HADOLINT_SHA256='Linux-x86_64 c7187db94eeeeca956519a6af171adc31453941a1e777961f6e680f697c8c507
+Linux-aarch64 f6198ef8090f404dbb771abfee086eb8c48ac177f30da7fd3510aca35b344b5d
+Linux-arm64 f6198ef8090f404dbb771abfee086eb8c48ac177f30da7fd3510aca35b344b5d
+Darwin-arm64 5c09f3213f8e40406abe048233d985eebef336d4a6a20021be47fadb6cf480a2
+Darwin-x86_64 ffe9bb18b23d5ed1eae50237aecdbb523d016e96da0bd4e7aa432040acfc3fde'
+
+# forge_dockerfiles: the Dockerfiles / Containerfiles of $FORGE_FILES, else every tracked one.
+forge_dockerfiles() {
+  if [ -n "$FORGE_FILES" ]; then printf '%s\n' "$FORGE_FILES"; else git ls-files 2>/dev/null; fi \
+    | grep -E '(^|/)(Dockerfile(\.[^/]*)?|[^/]*\.Dockerfile|Containerfile)$' | grep -v '\.dockerignore$'
+}
+
+# forge_hadolint <code>...: "path:line CODE: message" for the named hadolint codes.
+forge_hadolint() {
+  forge_dockerfiles > "$FORGE_TMP/dockerfiles"
+  [ -s "$FORGE_TMP/dockerfiles" ] || return 0
+  if ! cmp -s "$FORGE_TMP/dockerfiles" "$FORGE_TMP/hadolint.files" 2>/dev/null; then
+    cp "$FORGE_TMP/dockerfiles" "$FORGE_TMP/hadolint.files"
+    : > "$FORGE_TMP/hadolint.out"
+    if ! command -v uvx >/dev/null 2>&1; then
+      printf 'skipped: uvx is needed to run hadolint\n' > "$FORGE_TMP/hadolint.skip"
+    elif ! _fh_bin=$(uvx -q --from "hadolint-bin==$FORGE_HADOLINT_VERSION" python -c 'import shutil; print(shutil.which("hadolint") or "")' 2>/dev/null) || [ -z "$_fh_bin" ]; then
+      printf 'skipped: hadolint could not be installed (offline?)\n' > "$FORGE_TMP/hadolint.skip"
+    else
+      _fh_plat=$(uname -s)-$(uname -m)
+      _fh_want=$(printf '%s\n' "$FORGE_HADOLINT_SHA256" | awk -v p="$_fh_plat" '$1 == p { print $2 }')
+      _fh_have=$(forge_sha256 < "$_fh_bin")
+      if [ -z "$_fh_want" ]; then
+        printf 'skipped: no upstream hadolint checksum for %s\n' "$_fh_plat" > "$FORGE_TMP/hadolint.skip"
+      elif [ "$_fh_have" != "$_fh_want" ]; then
+        printf 'skipped: the hadolint-bin %s binary does not match the upstream release (sha256 %s)\n' "$FORGE_HADOLINT_VERSION" "$_fh_have" > "$FORGE_TMP/hadolint.skip"
+      else
+        rm -f "$FORGE_TMP/hadolint.skip"
+        printf 'ignored: []\n' > "$FORGE_TMP/hadolint.yaml"
+        set -f
+        # shellcheck disable=SC2046
+        "$_fh_bin" -c "$FORGE_TMP/hadolint.yaml" --disable-ignore-pragma --no-fail --no-color -f tty $(cat "$FORGE_TMP/dockerfiles") > "$FORGE_TMP/hadolint.out" 2>&1
+        set +f
+      fi
+    fi
+  fi
+  if [ -f "$FORGE_TMP/hadolint.skip" ]; then printf 'forge:%s %s\n' "$c_id" "$(cat "$FORGE_TMP/hadolint.skip")"; return 0; fi
+  _fh_codes=' '
+  for _fh_c in "$@"; do _fh_codes="$_fh_codes$_fh_c "; done
+  awk -v codes="$_fh_codes" '
+    match($0, /^[^[:space:]]+:[0-9]+ [A-Z]+[0-9]+ [a-z]+: /) {
+      split($0, w, " "); if (index(codes, " " w[2] " ") == 0) next
+      msg = $0; sub(/^[^[:space:]]+ [^[:space:]]+ [a-z]+: /, "", msg)
+      print w[1] " " w[2] ": " msg; bad = 1
+    }
+    END { exit bad }' "$FORGE_TMP/hadolint.out"
+}
+
+# forge_dockerfile_records <file>: one "line<TAB>instruction" per instruction,
+# continuation lines joined, comments dropped.
+forge_dockerfile_records() {
+  awk '
+    function flush() { if (cur != "") print start "\t" cur; cur = "" }
+    {
+      line = $0; sub(/\r$/, "", line)
+      if (cur == "") { if (line ~ /^[[:space:]]*(#|$)/) next; start = NR }
+      else if (line ~ /^[[:space:]]*#/) next
+      if (match(line, /\\[[:space:]]*$/)) { cur = cur substr(line, 1, RSTART - 1) " "; next }
+      cur = cur line; flush()
+    }
+    END { flush() }' "$1"
+}
+
+# forge_docker_nonroot: the final stage of each Dockerfile runs as a non-root USER,
+# set in that stage or inherited from the named stage it builds on; images that run
+# non-root by default (cgr.dev/, dhi.io/, *nonroot*, *unprivileged*, *rootless*) are exempt.
+forge_docker_nonroot() {
+  _dn_rc=0
+  forge_dockerfiles > "$FORGE_TMP/dockerfiles"
+  while IFS= read -r _dn_f; do
+    [ -f "$_dn_f" ] || continue
+    forge_dockerfile_records "$_dn_f" | awk -F '\t' -v f="$_dn_f" '
+      {
+        args = $2; sub(/^[[:space:]]*[A-Za-z]+[[:space:]]*/, "", args); instr = toupper($2); sub(/[[:space:]].*$/, "", instr)
+        if (instr == "FROM") {
+          n++; split(args, w, /[[:space:]]+/); i = 1; while (w[i] ~ /^--/) i++
+          img[n] = w[i]; name[n] = ""; user[n] = ""
+          if (tolower(w[i + 1]) == "as") name[n] = tolower(w[i + 2])
+        } else if (instr == "USER" && n) { split(args, w, /[[:space:]]+/); user[n] = w[1] }
+      }
+      END {
+        if (!n) exit 0
+        s = n; u = user[s]; b = img[s]
+        for (guard = 0; u == "" && guard < 50; guard++) {
+          k = 0; for (j = 1; j < s; j++) if (name[j] != "" && name[j] == tolower(b)) k = j
+          if (!k) break
+          s = k; u = user[k]; b = img[k]
+        }
+        if (u == "") {
+          if (b ~ /^(cgr\.dev|dhi\.io)\// || tolower(b) ~ /nonroot|unprivileged|rootless/) exit 0
+          print f ":0 the final stage has no USER (it runs as root); add a non-root USER"; exit 1
+        }
+        if (u ~ /^(root|0)(:.*)?$/) { print f ":0 the final stage runs as USER " u "; use a non-root user"; exit 1 }
+      }' || _dn_rc=1
+  done < "$FORGE_TMP/dockerfiles"
+  return "$_dn_rc"
+}
+
+# forge_docker_secrets: no ARG or ENV named like a secret (PASSWORD, SECRET, TOKEN,
+# API_KEY, PRIVATE_KEY, CREDENTIALS); *_FILE names are fine.
+forge_docker_secrets() {
+  _ds_rc=0
+  forge_dockerfiles > "$FORGE_TMP/dockerfiles"
+  while IFS= read -r _ds_f; do
+    [ -f "$_ds_f" ] || continue
+    forge_dockerfile_records "$_ds_f" | awk -F '\t' -v f="$_ds_f" '
+      {
+        instr = toupper($2); sub(/[[:space:]].*$/, "", instr)
+        if (instr != "ARG" && instr != "ENV") next
+        args = $2; sub(/^[[:space:]]*[A-Za-z]+[[:space:]]*/, "", args)
+        n = split(args, w, /[[:space:]]+/)
+        for (i = 1; i <= n; i++) {
+          name = w[i]; sub(/=.*$/, "", name)
+          if (instr == "ENV" && i > 1 && w[1] !~ /=/) break
+          if (toupper(name) ~ /(PASSWORD|SECRET|TOKEN|API_?KEY|PRIVATE_KEY|CREDENTIALS)/ && toupper(name) !~ /_FILE$/) {
+            print f ":" $1 " " instr " " name " puts a secret in the image or its history; use RUN --mount=type=secret,id=..."; bad = 1
+          }
+          if (instr == "ARG") break
+        }
+      }
+      END { exit bad }' || _ds_rc=1
+  done < "$FORGE_TMP/dockerfiles"
+  return "$_ds_rc"
+}
+
+# forge_docker_locked: RUN installs from the lock file (npm ci, bun install
+# --frozen-lockfile, uv sync --locked or --frozen, pnpm install --frozen-lockfile,
+# yarn --immutable or --frozen-lockfile) and never adds packages (bun add, uv add).
+forge_docker_locked() {
+  _dl_rc=0
+  forge_dockerfiles > "$FORGE_TMP/dockerfiles"
+  while IFS= read -r _dl_f; do
+    [ -f "$_dl_f" ] || continue
+    forge_dockerfile_records "$_dl_f" | awk -F '\t' -v f="$_dl_f" '
+      function why(c,   t) {
+        t = " " c " "
+        if (c ~ /^npm (install|i|add)( |$)/ && t !~ / (-g|--global) /) return "use npm ci"
+        if (c ~ /^bun (install|i)( |$)/ && t !~ / --frozen-lockfile /) return "add --frozen-lockfile"
+        if (c ~ /^bun add( |$)/) return "add dependencies to package.json and bun.lock, not in the image"
+        if (c ~ /^uv sync( |$)/ && t !~ / (--locked|--frozen) /) return "add --locked (or --frozen)"
+        if (c ~ /^uv add( |$)/) return "add dependencies to pyproject.toml and uv.lock, not in the image"
+        if (c ~ /^pnpm (install|i)( |$)/ && t !~ / --frozen-lockfile /) return "add --frozen-lockfile"
+        if (c ~ /^yarn( install)?( -[^ ]*)*$/ && t !~ / (--immutable|--frozen-lockfile) /) return "add --immutable (Yarn 2+) or --frozen-lockfile"
+        return ""
+      }
+      {
+        instr = toupper($2); sub(/[[:space:]].*$/, "", instr)
+        if (instr != "RUN") next
+        args = $2; sub(/^[[:space:]]*[A-Za-z]+[[:space:]]*/, "", args)
+        while (args ~ /^--[^[:space:]]+[[:space:]]/) sub(/^--[^[:space:]]+[[:space:]]+/, "", args)
+        n = split(args, cmds, /&&|\|\||;/)
+        for (i = 1; i <= n; i++) {
+          c = cmds[i]; gsub(/[[:space:]]+/, " ", c); sub(/^ /, "", c); sub(/ $/, "", c)
+          while (c ~ /^([A-Za-z_][A-Za-z0-9_]*=[^ ]* |sudo )/) sub(/^[^ ]+ /, "", c)
+          r = why(c)
+          if (r != "") { print f ":" $1 " " c ": " r; bad = 1 }
+        }
+      }
+      END { exit bad }' || _dl_rc=1
+  done < "$FORGE_TMP/dockerfiles"
+  return "$_dl_rc"
+}
+
+# forge_docker_ignore: each Dockerfile has a .dockerignore (<Dockerfile>.dockerignore,
+# the one in its directory, or the one at the repository root) that excludes .env files.
+forge_docker_ignore() {
+  _di_rc=0
+  forge_dockerfiles > "$FORGE_TMP/dockerfiles"
+  while IFS= read -r _di_f; do
+    [ -f "$_di_f" ] || continue
+    _di_d=$(dirname "$_di_f")
+    _di_ig=''
+    [ "$_di_d" = . ] && _di_d='' || _di_d="$_di_d/"
+    for _di_c in "$_di_f.dockerignore" "$_di_d.dockerignore" .dockerignore; do
+      [ -f "$_di_c" ] && { _di_ig=$_di_c; break; }
+    done
+    if [ -z "$_di_ig" ]; then
+      printf '%s:0 has no .dockerignore (next to it or at the root); add one that excludes .env files\n' "$_di_f"; _di_rc=1
+    elif ! grep -qE '^[[:space:]]*((\*\*/)?\.env(\*|\.\*)?|\*\.env|\*|\*\*)[[:space:]]*$' "$_di_ig"; then
+      printf '%s:0 %s does not exclude .env files; add .env* to it\n' "$_di_f" "$_di_ig"; _di_rc=1
+    fi
+  done < "$FORGE_TMP/dockerfiles"
+  return "$_di_rc"
+}
+
+# forge_exec_tool <name> <args>: runs the project's own <name>; 127 when absent.
+forge_exec_tool() {
+  _fx_cmd=$(tool "$1")
+  [ -n "$_fx_cmd" ] || { printf 'forge: %s not installed\n' "$1" >&2; return 127; }
+  shift
+  _fx_ifs=$IFS
+  IFS=' '
+  # shellcheck disable=SC2086
+  set -- $_fx_cmd "$@"
+  IFS=$_fx_ifs
+  "$@"
+}
+
+# forge_has_tool <name>: system runtimes (uv, bun) via PATH, others via tool().
+forge_has_tool() {
+  case $1 in
+    uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
+    *) [ -n "$(tool "$1")" ] ;;
+  esac
+}
+
+# forge_missing_tool: prints the first tool of $c_tools that is absent.
+forge_missing_tool() {
+  _fm_ifs=$IFS
+  IFS=' '
+  for _fm_t in $c_tools; do
+    if ! forge_has_tool "$_fm_t"; then IFS=$_fm_ifs; printf '%s' "$_fm_t"; return 0; fi
+  done
+  IFS=$_fm_ifs
+  return 1
+}
+
+# forge_filter <predicate>: lines of stdin for which <predicate> <line> succeeds.
+forge_filter() {
+  while read -r _ff_line; do
+    [ -n "$_ff_line" ] && "$1" "$_ff_line" && printf '%s\n' "$_ff_line"
+  done
+  return 0
+}
+
+# forge_db_url: DATABASE_URL from the environment, then .env, then alembic.ini.
+forge_db_url() {
+  if [ -n "${DATABASE_URL:-}" ]; then printf '%s' "$DATABASE_URL"; return 0; fi
+  if [ -f .env ]; then
+    _fd_url=$(sed -n 's/^[[:space:]]*\(export[[:space:]][[:space:]]*\)\{0,1\}DATABASE_URL[[:space:]]*=[[:space:]]*//p' .env \
+      | tail -n 1 | sed -e 's/[[:space:]]*$//' -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'\$/\1/")
+    if [ -n "$_fd_url" ]; then printf '%s' "$_fd_url"; return 0; fi
+  fi
+  if [ -f alembic.ini ]; then
+    sed -n 's/^[[:space:]]*sqlalchemy\.url[[:space:]]*=[[:space:]]*//p' alembic.ini | head -n 1 | sed 's/[[:space:]]*$//'
+  fi
+}
+
+# forge_local_db: succeeds when the configured database is on this machine
+# (localhost, 127.0.0.1, ::1, empty host or a Unix socket).
+forge_local_db() {
+  _fl_url=$(forge_db_url)
+  [ -n "$_fl_url" ] || return 1
+  case $_fl_url in *host=/*|*host=%2[Ff]*) return 0 ;; esac
+  _fl_host=$(printf '%s' "$_fl_url" | sed -e 's|^[A-Za-z][A-Za-z0-9+.-]*://||' -e 's|[/?].*$||' -e 's|^.*@||')
+  case $_fl_host in
+    \[*) _fl_host=$(printf '%s' "$_fl_host" | sed 's|^\[\([^]]*\)\].*$|\1|') ;;
+    *) _fl_host=$(printf '%s' "$_fl_host" | sed 's|:.*$||') ;;
+  esac
+  case $_fl_host in ''|localhost|127.0.0.1|::1|%2[Ff]*) return 0 ;; esac
+  return 1
+}
+
+# Migration linting with Squawk: only the changes that break the running version of
+# the application during a deploy fail (renames, type changes, new required columns,
+# DROP DATABASE); Squawk's other advice is not enforced.
+FORGE_SQUAWK_VERSION="2.70.0"
+FORGE_SQUAWK_BLOCKING='renaming-column|renaming-table|changing-column-type|adding-required-field|adding-not-nullable-field|ban-drop-database'
+
+# forge_squawk <args>: the pinned Squawk through bunx or uvx; gcc-style output in
+# $FORGE_TMP/squawk. Exit status 0 when Squawk ran (with or without findings).
+forge_squawk() {
+  if command -v bunx >/dev/null 2>&1; then
+    bunx -p "squawk-cli@$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
+  elif command -v uvx >/dev/null 2>&1; then
+    uvx -q --from "squawk-cli==$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
+  else
+    printf 'bunx or uvx is needed\n' > "$FORGE_TMP/squawk"
+    return 2
+  fi
+  _sq_rc=$?
+  # Squawk exits 1 whenever it warns, which is almost always
+  [ "$_sq_rc" -eq 0 ] || grep -qE ':[0-9]+:[0-9]+: (warning|error): ' "$FORGE_TMP/squawk"
+}
+
+# forge_squawk_blocking: prints the blocking findings of the last forge_squawk run
+# (Squawk counts lines and columns from 0; printed from 1); fails if any.
+forge_squawk_blocking() {
+  grep -E ": (warning|error): ($FORGE_SQUAWK_BLOCKING) " "$FORGE_TMP/squawk" \
+    | sed -E 's/^(.*):([0-9]+):([0-9]+): /\1 \2 \3 /' \
+    | awk '{ f = $1; l = $2 + 1; c = $3 + 1; $1 = $2 = $3 = ""; sub(/^ +/, ""); print f ":" l ":" c ": " $0 }' > "$FORGE_TMP/squawk.found"
+  cat "$FORGE_TMP/squawk.found"
+  [ ! -s "$FORGE_TMP/squawk.found" ]
+}
+
+# forge_squawk_skipped: reports, as a forge: line of the current check, that Squawk could not run.
+forge_squawk_skipped() {
+  printf 'forge:%s skipped: squawk could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/squawk" | tail -n 1)"
+}
+
+# forge_squawk_files <sql files>: lints migration SQL files.
+forge_squawk_files() {
+  [ "$#" -gt 0 ] || return 0
+  forge_squawk "$@" || { forge_squawk_skipped; return 0; }
+  forge_squawk_blocking
+}
+
+# forge_alembic_files: Alembic revision ids on stdin (as printed by `alembic heads`)
+# -> the revision files under alembic/versions that define them.
+forge_alembic_files() {
+  awk '{ print $1 }' | while read -r _fa_id; do
+    [ -n "$_fa_id" ] && find alembic/versions -name '*.py' -exec grep -lE "^revision[^=]*=[[:space:]]*['\"]$_fa_id['\"]" {} + 2>/dev/null
+  done
+}
+
+# forge_squawk_alembic <revision files>: lints the SQL each revision's upgrade emits
+# (`alembic upgrade <down_revision>:<revision> --sql`, offline: no database needed).
+# Merge revisions are skipped; when Alembic cannot render SQL, the revision is reported skipped.
+forge_squawk_alembic() {
+  _fs_rc=0
+  for _fs_f in "$@"; do
+    _fs_rev=$(sed -n "s/^revision[^=]*=[[:space:]]*['\"]\([^'\"]*\)['\"].*/\1/p" "$_fs_f" | head -n 1)
+    _fs_down=$(sed -n 's/^down_revision[^=]*=[[:space:]]*//p' "$_fs_f" | head -n 1)
+    [ -n "$_fs_rev" ] || continue
+    case $_fs_down in
+      \(*|\[*) continue ;;
+      None*|'') _fs_range=$_fs_rev ;;
+      *) _fs_range="$(printf '%s' "$_fs_down" | sed "s/^['\"]\([^'\"]*\)['\"].*/\1/"):$_fs_rev" ;;
+    esac
+    if ! alembic upgrade "$_fs_range" --sql > "$FORGE_TMP/alembic.sql" 2> "$FORGE_TMP/alembic.err"; then
+      printf 'forge:%s skipped: alembic upgrade %s --sql failed for %s (%s)\n' "$c_id" "$_fs_range" "$_fs_f" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/alembic.err" | tail -n 1)"
+      continue
+    fi
+    if ! forge_squawk --stdin-filepath "$_fs_f" < "$FORGE_TMP/alembic.sql"; then forge_squawk_skipped; return 0; fi
+    if ! forge_squawk_blocking > "$FORGE_TMP/squawk.block"; then
+      printf 'SQL of alembic upgrade %s --sql (line numbers are in that SQL):\n' "$_fs_range"
+      cat "$FORGE_TMP/squawk.block"
+      _fs_rc=1
+    fi
+  done
+  return "$_fs_rc"
+}
+
+# forge_related_py_tests <files>: changed test files plus tests/**/test_<module>.py
+# for each changed module, one per line.
+forge_related_py_tests() {
+  for _fr_f in "$@"; do
+    case $_fr_f in
+      *.py) ;;
+      *) continue ;;
+    esac
+    _fr_b=${_fr_f##*/}
+    case $_fr_b in
+      test_*.py|*_test.py) [ -f "$_fr_f" ] && printf '%s\n' "$_fr_f" ;;
+      __init__.py|conftest.py) ;;
+      *) [ -d tests ] && find tests -type f -name "test_${_fr_b%.py}.py" 2>/dev/null ;;
+    esac
+  done | sort -u
+}
+
+# forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out.
+forge_exec_check() {
+  set -f
+  if [ -n "$2" ]; then
+    "$1" > "$FORGE_TMP/out" 2>&1 &
+    _fe_pid=$!
+    ( sleep "$2"; printf 'forge: timed out after %ss\n' "$2" >> "$FORGE_TMP/out"; forge_kill_tree "$_fe_pid" ) >/dev/null 2>&1 &
+    _fe_watch=$!
+    wait "$_fe_pid" 2>/dev/null
+    _fe_rc=$?
+    forge_kill_tree "$_fe_watch"
+  else
+    ( "$1" ) > "$FORGE_TMP/out" 2>&1 < /dev/null
+    _fe_rc=$?
+  fi
+  set +f
+  return "$_fe_rc"
+}
+
+# forge_diagnostics <output> <file|line> [print]: sorts the error diagnostics of a
+# failed run by what they name (tsc "path(l,c)", "path:l:c" from Python and JS
+# linters, "--> path:l:c"; "Would reformat: path" and Biome's "path format" name a
+# file only; absolute paths under the repository are made relative; warning-only
+# lines are ignored). A diagnostic counts when it names a file of $FORGE_TMP/changed
+# ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
+# line 0, counts when that file changed). Prints "changed" when one counts, "other" when
+# they name only other files or lines, "none" when no line names a file. With
+# "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
+# tool that colours its output (tsc with "pretty": true) is attributed the same way.
+forge_diagnostics() {
+  awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
+    FILENAME == ARGV[1] { ch[$0] = 1; next }
+    FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
+    {
+      line = $0
+      gsub(ansi, "", line)
+      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
+      sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
+      ln = ""
+      if (match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) {
+        p = substr(line, 1, RLENGTH)
+        loc = p; sub(/^[^[:space:]:(]+[(:]/, "", loc); ln = loc + 0
+        sub(/([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)$/, "", p)
+      } else if (match(line, /^Would reformat: [^[:space:]]+/)) p = substr(line, 18, RLENGTH - 17)
+      else if (match(line, /^[^[:space:]:(]+ format /)) { p = line; sub(/ format .*$/, "", p) }
+      else next
+      if (index(p, r1 "/") == 1) p = substr(p, length(r1) + 2)
+      else if (index(p, r2 "/") == 1) p = substr(p, length(r2) + 2)
+      sub(/^\.\//, "", p)
+      named = 1
+      if (level == "line") counts = (p in whole) || (ln == "" || ln == 0 ? (p in ch) : ((p "\t" ln) in ad))
+      else counts = (p in ch)
+      if (counts) { hit = 1; if (mode == "print") print $0 }
+    }
+    END { if (mode != "print") print (hit ? "changed" : named ? "other" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
+}
+
+# forge_attribute_level <stage> <whole-project run: 1|0>: how a failed check's
+# diagnostics are attributed outside --all: lint by added line, typecheck and a
+# whole-project format run by changed file; anything else is not attributed.
+forge_attribute_level() {
+  case $1 in
+    lint) printf 'line' ;;
+    typecheck) printf 'file' ;;
+    format) [ "$2" = 1 ] && printf 'file' ;;
+  esac
+}
+
+# forge_run_check <n>: one check under check.sh ($mode and forge_change_set's files).
+# --changed and --turn run the {files} form on the changed files when there is one;
+# --since and --all run the whole-project form (read-only, as CI should).
+forge_run_check() {
+  forge_check_meta_"$1"
+  FORGE_FILES=''
+  if [ "$mode" != --all ]; then
+    if [ "$c_when" = 1 ]; then
+      [ -n "$(forge_filter "forge_when_$1" < "$FORGE_TMP/changed")" ] || return 0
+    fi
+    FORGE_FILES=$(forge_filter "forge_scope_$1" < "$FORGE_TMP/existing")
+    [ "$c_when" = 1 ] || [ -n "$FORGE_FILES" ] || return 0
+  fi
+  if _fc_missing=$(forge_missing_tool); then
+    printf 'forge:%s skipped: %s not installed\n' "$c_id" "$_fc_missing"
+    return 0
+  fi
+  if [ "$c_localdb" = 1 ] && ! forge_local_db; then
+    printf 'forge:%s skipped: no local database\n' "$c_id"
+    return 0
+  fi
+  _fc_fn=forge_check_run_$1
+  _fc_whole=1
+  case $mode in --changed|--turn)
+    if [ "$c_changed" = 1 ] && [ -n "$FORGE_FILES" ]; then _fc_fn=forge_check_changed_$1; _fc_whole=0; fi ;;
+  esac
+  if forge_exec_check "$_fc_fn" "$c_timeout"; then
+    grep '^forge:' "$FORGE_TMP/out"
+    return 0
+  fi
+  # outside --all, only errors in the change count (§10.1 step 5)
+  _fc_level=$(forge_attribute_level "$c_stage" "$_fc_whole")
+  if [ "$mode" != --all ] && [ -n "$_fc_level" ]; then
+    case $(forge_diagnostics "$FORGE_TMP/out" "$_fc_level") in
+      other)
+        if [ "$_fc_level" = line ]; then
+          printf 'forge:%s ok for the added lines (findings remain on lines this change did not add: sh .forge/check.sh --all)\n' "$c_id"
+        else
+          printf 'forge:%s ok for the changed files (errors remain in unchanged files: sh .forge/check.sh --all)\n' "$c_id"
+        fi
+        return 0 ;;
+      changed)
+        printf 'forge:%s failed\n' "$c_id"
+        forge_diagnostics "$FORGE_TMP/out" "$_fc_level" print | first_lines 15
+        return 1 ;;
+    esac
+  fi
+  printf 'forge:%s failed\n' "$c_id"
+  first_lines 15 < "$FORGE_TMP/out"
+  return 1
+}
+
+# forge_run_stage <stage>: every check of <stage>; fails if one fails.
+forge_run_stage() {
+  _fs_i=1
+  _fs_rc=0
+  while [ "$_fs_i" -le "$FORGE_NCHECKS" ]; do
+    forge_check_meta_"$_fs_i"
+    if [ "$c_stage" = "$1" ]; then
+      forge_run_check "$_fs_i" || _fs_rc=1
+    fi
+    _fs_i=$((_fs_i + 1))
+  done
+  [ "$_fs_rc" -eq 0 ] || fail=1
+  return "$_fs_rc"
+}
+
+# forge_file_stage <stage> <file>: the {files} form of each in-scope check of
+# <stage>, on one file (PostToolUse). Prints failures; lint findings only on the
+# lines of $FORGE_TMP/added; absent tools are skipped.
+forge_file_stage() {
+  _fp_i=1
+  _fp_rc=0
+  FORGE_FILES=$2
+  while [ "$_fp_i" -le "$FORGE_NCHECKS" ]; do
+    forge_check_meta_"$_fp_i"
+    if [ "$c_stage" = "$1" ] && [ "$c_files" = 1 ] && forge_scope_"$_fp_i" "$2" && ! forge_missing_tool >/dev/null; then
+      if ! forge_exec_check "forge_check_changed_$_fp_i" "$c_timeout"; then
+        _fp_level=$(forge_attribute_level "$1" 0)
+        _fp_what=none
+        [ -n "$_fp_level" ] && _fp_what=$(forge_diagnostics "$FORGE_TMP/out" "$_fp_level")
+        case $_fp_what in
+          other) ;;
+          changed)
+            printf 'forge:%s\n' "$c_id"
+            forge_diagnostics "$FORGE_TMP/out" "$_fp_level" print | first_lines 15
+            _fp_rc=1 ;;
+          *)
+            printf 'forge:%s\n' "$c_id"
+            first_lines 15 < "$FORGE_TMP/out"
+            _fp_rc=1 ;;
+        esac
+      fi
+    fi
+    _fp_i=$((_fp_i + 1))
+  done
+  return "$_fp_rc"
+}
+
+# forge_file_fixes <file>: the safe fixes (fix_run) of each in-scope lint check, on
+# one file. When they changed it, prints "forge: auto-fixed <codes> in <file>" (codes
+# from ruff's --show-fixes summary), so Claude knows its view of the file is stale.
+forge_file_fixes() {
+  _fx_i=1
+  _fx_codes=''
+  _fx_before=$(git hash-object -- "$1" 2>/dev/null)
+  FORGE_FILES=$1
+  while [ "$_fx_i" -le "$FORGE_NCHECKS" ]; do
+    forge_check_meta_"$_fx_i"
+    if [ "$c_stage" = lint ] && [ "$c_fix" = 1 ] && forge_scope_"$_fx_i" "$1" && ! forge_missing_tool >/dev/null; then
+      forge_exec_check "forge_check_fix_$_fx_i" "$c_timeout"
+      _fx_codes="$_fx_codes $(awk '/^Fixed [0-9]+ error/ { on = 1; next } on && /^ +[0-9]+ / && match($0, /[A-Z]+[0-9]+ \(/) { printf "%s ", substr($0, RSTART, RLENGTH - 2) } /^$/ { on = 0 }' "$FORGE_TMP/out")"
+    fi
+    _fx_i=$((_fx_i + 1))
+  done
+  [ "$(git hash-object -- "$1" 2>/dev/null)" != "$_fx_before" ] || return 0
+  _fx_codes=$(printf '%s' "$_fx_codes" | tr ' ' '\n' | awk 'NF && !seen[$0]++' | tr '\n' ' ' | sed 's/ $//; s/ /, /g')
+  printf 'forge: auto-fixed %s in %s; re-read it before editing it again\n' "${_fx_codes:-safe lint fixes}" "$1"
+}
+
+# forge_typecheck <file>: the full run of each typecheck check whose scope covers <file>;
+# only errors in files of $FORGE_TMP/changed count ($FORGE_TMP/added must exist).
+forge_typecheck() {
+  _ft_i=1
+  _ft_rc=0
+  while [ "$_ft_i" -le "$FORGE_NCHECKS" ]; do
+    forge_check_meta_"$_ft_i"
+    if [ "$c_stage" = typecheck ] && forge_scope_"$_ft_i" "$1" && ! forge_missing_tool >/dev/null; then
+      if ! forge_exec_check "forge_check_run_$_ft_i" "$c_timeout"; then
+        # only errors in changed files wake Claude
+        case $(forge_diagnostics "$FORGE_TMP/out" file) in
+          other) ;;
+          changed)
+            printf 'forge:%s\n' "$c_id"
+            forge_diagnostics "$FORGE_TMP/out" file print | first_lines 19
+            _ft_rc=1 ;;
+          *)
+            printf 'forge:%s\n' "$c_id"
+            first_lines 19 < "$FORGE_TMP/out"
+            _ft_rc=1 ;;
+        esac
+      fi
+    fi
+    _ft_i=$((_ft_i + 1))
+  done
+  return "$_ft_rc"
+}
+
+# forge_missing_tools: the tools the checks need that are not here, comma-separated
+# (also what forge status prints: one source of truth).
+forge_missing_tools() {
+  _mt=''
+  for _mt_t in $(forge_required_tools); do
+    forge_has_tool "$_mt_t" || _mt="${_mt:+$_mt, }$_mt_t"
+  done
+  if ! command -v bunx >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then
+    _mt="${_mt:+$_mt, }bunx or uvx (ast-grep)"
+  fi
+  printf '%s' "$_mt"
+}
+
+# forge_required_tools: every tool the checks use, one per line.
+forge_required_tools() {
+  _fq_i=1
+  while [ "$_fq_i" -le "$FORGE_NCHECKS" ]; do
+    forge_check_meta_"$_fq_i"
+    printf '%s\n' "$c_tools" | tr ' ' '\n'
+    _fq_i=$((_fq_i + 1))
+  done | awk 'NF && !seen[$0]++'
+}
+
+FORGE_NTESTRULES=0
+
+# forge_test_rule_for <file>: sets t_n, t_id, t_review for the test-edit rule whose
+# scope holds <file>; fails when none does.
+forge_test_rule_for() {
+  _tr_i=1
+  while [ "$_tr_i" -le "$FORGE_NTESTRULES" ]; do
+    forge_test_rule_"$_tr_i"
+    "forge_scope_$t_n" "$1" && return 0
+    _tr_i=$((_tr_i + 1))
+  done
+  return 1
+}
+forge_test_rule_for "$file" || exit 0
+
+if [ "$(json_get hook_event_name)" = PostToolUse ]; then
+  [ -d "$snap" ] || exit 0
+  grep -qxF "$file" "$snap/touched" 2>/dev/null || printf '%s\n' "$file" >> "$snap/touched"
+  if [ -n "$key" ] && [ -f "$snap/tests-pending/$key" ]; then
+    cat "$snap/tests-pending/$key" >> "$snap/tests-approved"
+    rm -f "$snap/tests-pending/$key"
+  fi
+  exit 0
+fi
+
+[ -f "$file" ] || exit 0
+FORGE_TMP=$(mktemp -d "${TMPDIR:-/tmp}/forge-test-edit.XXXXXX") || exit 0
+trap 'rm -rf "$FORGE_TMP"' EXIT HUP INT TERM
+FORGE_SNAP=''
+FORGE_BASE_REV=$(git rev-parse -q --verify HEAD 2>/dev/null)
+if [ -f "$snap/head" ]; then FORGE_SNAP=$snap; FORGE_BASE_REV=$(cat "$snap/head"); fi
+# the file at the start of the turn, now, and after this edit
+base_file "$file" "$FORGE_TMP/v/base/$file" || exit 0
+mkdir -p "$FORGE_TMP/v/before/$(dirname "$file")" "$FORGE_TMP/v/after/$(dirname "$file")"
+cp "$file" "$FORGE_TMP/v/before/$file"
+if [ "$(json_get tool_name)" = Write ]; then
+  json_get content > "$FORGE_TMP/v/after/$file"
+else
+  json_get old_string > "$FORGE_TMP/old"
+  json_get new_string > "$FORGE_TMP/new"
+  all=0
+  case $FORGE_INPUT in *'"replace_all":true'*|*'"replace_all": true'*) all=1 ;; esac
+  # the edit applied as Claude Code applies it: the first occurrence, or every one
+  awk -v all="$all" 'BEGIN { RS = "\001" }
+    FILENAME == ARGV[1] { o = $0; next }
+    FILENAME == ARGV[2] { n = $0; next }
+    { s = $0 }
+    END {
+      if (o == "" || !(i = index(s, o))) exit 1
+      out = ""
+      while (i) {
+        out = out substr(s, 1, i - 1) n; s = substr(s, i + length(o))
+        i = all ? index(s, o) : 0
+      }
+      printf "%s", out s
+    }' "$FORGE_TMP/old" "$FORGE_TMP/new" "$file" > "$FORGE_TMP/v/after/$file" || exit 0
+fi
+printf 'base/%s\nbefore/%s\nafter/%s\n' "$file" "$file" "$file" > "$FORGE_TMP/list"
+forge_test_blocks "$FORGE_TMP/v" "$FORGE_TMP/list" > "$FORGE_TMP/blocks" || exit 0
+# tests present at the start of the turn and now, removed or whose checks change
+awk -F '\t' -v f="$file" '
+  { v = $1; sub(/\/.*/, "", v) }
+  v == "base" { base[$2] = 1; next }
+  v == "before" { then[$2] = $4; next }
+  v == "after" { now[$2] = $4 }
+  END {
+    for (k in then) {
+      if (!(k in base)) continue
+      if (!(k in now)) print f "\t" k "\tremoved"
+      else if (now[k] != then[k]) print f "\t" k "\tchanged"
+    }
+  }' "$FORGE_TMP/blocks" | sort > "$FORGE_TMP/asked"
+[ -s "$FORGE_TMP/asked" ] || exit 0
+
+if [ -d "$snap" ] && [ -n "$key" ]; then
+  mkdir -p "$snap/tests-pending" && cut -f 1,2 "$FORGE_TMP/asked" > "$snap/tests-pending/$key"
+fi
+tests=$(awk -F '\t' '{ printf "%s%s \"%s\" (%s)", (NR > 1 ? ", " : ""), $1, $2, $3 }' "$FORGE_TMP/asked")
+concern="This edit changes what tests that existed before this turn assert, or removes them: $tests. That is right when the task changes the behaviour they assert; otherwise it weakens the tests to make the code pass."
+reason=$(printf 'forge:%s %s' "$t_id" "$concern" | json_escape)
+out=$(printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":"%s"}}' "$reason")
+if forge_review_wanted && [ -f "$dir/review.sh" ]; then
+  request=''
+  [ -f ".forge/state/$(session_id).prompt" ] && request=$(head -c 8000 ".forge/state/$(session_id).prompt")
+  reviewed=$(printf '%s' "$FORGE_INPUT" | sh "$dir/review.sh" pre "$t_id" "$concern" "$t_review" "${request:-(not recorded)}")
+  [ -n "$reviewed" ] && out=$reviewed
+fi
+printf '%s\n' "$out"
+exit 0
+
 ===== .claude/skills/forge-project/scripts/turn-start.sh
 #!/bin/sh
 # Generated by forge. UserPromptSubmit: snapshots the working tree at the start
 # of the turn (.forge/state/<session>.turn/), so the Stop hook checks only what
-# changed during the turn, and resets the Stop block counter. Prints nothing
-# (its output would reach Claude).
+# changed during the turn, resets the Stop block counter, and saves the prompt
+# (.forge/state/<session>.prompt) for a reviewer of test edits nobody can approve
+# (test-edit.sh). Prints nothing (its output would reach Claude).
 dir=$(cd "$(dirname "$0")" && pwd)
 FORGE_INPUT=$(cat)
 . "$dir/lib.sh"
@@ -3149,6 +4425,7 @@ repo_root || exit 0
 mkdir -p .forge/state 2>/dev/null || exit 0
 snapshot "$(turn_dir)" 2>/dev/null
 rm -f ".forge/state/$(session_id).blocks"
+json_get prompt > ".forge/state/$(session_id).prompt" 2>/dev/null
 exit 0
 
 ===== .claude/skills/forge-project/scripts/typecheck.sh
@@ -3404,8 +4681,21 @@ forge_ratchet() {
 }
 
 # Test blocks, for forge_test_edits: pytest test functions (with their decorators)
-# and classes; Vitest/Playwright test and it calls, and the describe calls around them.
-FORGE_TEST_BLOCKS='id: forge-test
+# and classes; Vitest/Playwright test and it calls, and the describe calls around them;
+# what a test checks (forge-test-check): assert statements and decorators (pytest
+# parametrize), expect statements and .each tables.
+FORGE_TEST_BLOCKS='id: forge-test-check
+language: Python
+rule: {any: [{kind: assert_statement}, {kind: decorator}]}
+---
+id: forge-test-check
+language: Tsx
+rule:
+  any:
+    - {kind: expression_statement, regex: "^(await\\s+)?expect\\b"}
+    - {kind: call_expression, regex: "^(test|it)\\b[^(]*[.]each[(]", inside: {kind: call_expression, field: function, stopBy: neighbor}}
+---
+id: forge-test
 language: Python
 rule:
   any:
@@ -3434,9 +4724,10 @@ constraints:
   F: {regex: "^(describe|suite|test[.]describe)([.(]|$)"}
   NAME: {any: [{kind: string}, {kind: template_string}]}'
 
-# forge_test_blocks <dir> <file-list>: "file<TAB>key<TAB>body" per test of the listed
-# files under <dir>; key = enclosing classes or describe names, then the test name
-# (" #2" for a repeated one); body = the test's text without whitespace.
+# forge_test_blocks <dir> <file-list>: "file<TAB>key<TAB>body<TAB>checks" per test of
+# the listed files under <dir>; key = enclosing classes or describe names, then the
+# test name (" #2" for a repeated one); body = the test's text without whitespace;
+# checks = its assertions and parametrization (forge-test-check), without whitespace.
 forge_test_blocks() {
   set -f
   # shellcheck disable=SC2046
@@ -3478,14 +4769,24 @@ forge_test_blocks() {
         for (j = 1; j <= m; j++) key = key cn[j] " > "
         key = key N[a]
         if (++seen[F[a] "\t" key] > 1) key = key " #" seen[F[a] "\t" key]
-        print F[a] "\t" key "\t" T[a]
+        sig = ""
+        for (b = 1; b <= n; b++) {
+          if (R[b] != "forge-test-check" || F[b] != F[a] || S[b] < S[a] || E[b] > E[a]) continue
+          inner = 1
+          for (c = 1; c <= n; c++)
+            if (c != a && R[c] == "forge-test" && F[c] == F[a] && S[c] <= S[b] && E[b] <= E[c] && S[a] <= S[c] && E[c] <= E[a] && E[c] - S[c] < E[a] - S[a]) { inner = 0; break }
+          if (inner) sig = sig T[b] "|"
+        }
+        print F[a] "\t" key "\t" T[a] "\t" sig
       }
     }' "$FORGE_TMP/blocks.json"
 }
 
 # forge_test_edits: Stop only (--turn). Each test of the in-scope files ($FORGE_FILES)
-# that existed at the start of the turn must be unchanged (whitespace aside) and
-# still present; new tests are fine.
+# that existed at the start of the turn must keep its assertions and parametrization
+# (whitespace aside) and still be present, unless an Edit or Write changing it was
+# approved during the turn (<snapshot>/tests-approved, written by test-edit.sh); new
+# tests and setup-only changes are fine.
 forge_test_edits() {
   [ "$mode" = --turn ] || return 0
   printf '%s\n' "$FORGE_FILES" | grep -xF -f "$FORGE_TMP/inbase" > "$FORGE_TMP/tests.files"
@@ -3495,19 +4796,23 @@ forge_test_edits() {
     printf 'forge:%s skipped: ast-grep unavailable\n' "$c_id"
     return 0
   fi
+  _te_ok=$FORGE_ARG/tests-approved
+  [ -f "$_te_ok" ] || _te_ok=/dev/null
   awk -F '\t' '
-    FILENAME == ARGV[1] { then[$1 "\t" $2] = $3; next }
-    { now[$1 "\t" $2] = $3 }
+    FILENAME == ARGV[1] { ok[$1 "\t" $2] = 1; next }
+    FILENAME == ARGV[2] { then[$1 "\t" $2] = $4; next }
+    { now[$1 "\t" $2] = $4 }
     END {
       for (k in then) {
+        if (k in ok) continue
         split(k, p, "\t")
         if (!(k in now)) print p[1] ": test \"" p[2] "\" was removed"
         else if (now[k] != then[k]) print p[1] ": test \"" p[2] "\" was changed"
       }
-    }' "$FORGE_TMP/tests.then" "$FORGE_TMP/tests.now" | sort > "$FORGE_TMP/tests.edits"
+    }' "$_te_ok" "$FORGE_TMP/tests.then" "$FORGE_TMP/tests.now" | sort > "$FORGE_TMP/tests.edits"
   [ -s "$FORGE_TMP/tests.edits" ] || return 0
   cat "$FORGE_TMP/tests.edits"
-  printf 'Tests that existed before this turn are not edited to make the code pass. Restore them; if one looks wrong, stop and ask the user.\n'
+  printf 'These tests existed before this turn and their assertions changed without approval. Restore them. If the task requires the change (it changes the behaviour they assert), make it with Edit or Write: Forge then asks for approval (the user, or a reviewer given the request).\n'
   return 1
 }
 
@@ -5256,8 +6561,21 @@ forge_ratchet() {
 }
 
 # Test blocks, for forge_test_edits: pytest test functions (with their decorators)
-# and classes; Vitest/Playwright test and it calls, and the describe calls around them.
-FORGE_TEST_BLOCKS='id: forge-test
+# and classes; Vitest/Playwright test and it calls, and the describe calls around them;
+# what a test checks (forge-test-check): assert statements and decorators (pytest
+# parametrize), expect statements and .each tables.
+FORGE_TEST_BLOCKS='id: forge-test-check
+language: Python
+rule: {any: [{kind: assert_statement}, {kind: decorator}]}
+---
+id: forge-test-check
+language: Tsx
+rule:
+  any:
+    - {kind: expression_statement, regex: "^(await\\s+)?expect\\b"}
+    - {kind: call_expression, regex: "^(test|it)\\b[^(]*[.]each[(]", inside: {kind: call_expression, field: function, stopBy: neighbor}}
+---
+id: forge-test
 language: Python
 rule:
   any:
@@ -5286,9 +6604,10 @@ constraints:
   F: {regex: "^(describe|suite|test[.]describe)([.(]|$)"}
   NAME: {any: [{kind: string}, {kind: template_string}]}'
 
-# forge_test_blocks <dir> <file-list>: "file<TAB>key<TAB>body" per test of the listed
-# files under <dir>; key = enclosing classes or describe names, then the test name
-# (" #2" for a repeated one); body = the test's text without whitespace.
+# forge_test_blocks <dir> <file-list>: "file<TAB>key<TAB>body<TAB>checks" per test of
+# the listed files under <dir>; key = enclosing classes or describe names, then the
+# test name (" #2" for a repeated one); body = the test's text without whitespace;
+# checks = its assertions and parametrization (forge-test-check), without whitespace.
 forge_test_blocks() {
   set -f
   # shellcheck disable=SC2046
@@ -5330,14 +6649,24 @@ forge_test_blocks() {
         for (j = 1; j <= m; j++) key = key cn[j] " > "
         key = key N[a]
         if (++seen[F[a] "\t" key] > 1) key = key " #" seen[F[a] "\t" key]
-        print F[a] "\t" key "\t" T[a]
+        sig = ""
+        for (b = 1; b <= n; b++) {
+          if (R[b] != "forge-test-check" || F[b] != F[a] || S[b] < S[a] || E[b] > E[a]) continue
+          inner = 1
+          for (c = 1; c <= n; c++)
+            if (c != a && R[c] == "forge-test" && F[c] == F[a] && S[c] <= S[b] && E[b] <= E[c] && S[a] <= S[c] && E[c] <= E[a] && E[c] - S[c] < E[a] - S[a]) { inner = 0; break }
+          if (inner) sig = sig T[b] "|"
+        }
+        print F[a] "\t" key "\t" T[a] "\t" sig
       }
     }' "$FORGE_TMP/blocks.json"
 }
 
 # forge_test_edits: Stop only (--turn). Each test of the in-scope files ($FORGE_FILES)
-# that existed at the start of the turn must be unchanged (whitespace aside) and
-# still present; new tests are fine.
+# that existed at the start of the turn must keep its assertions and parametrization
+# (whitespace aside) and still be present, unless an Edit or Write changing it was
+# approved during the turn (<snapshot>/tests-approved, written by test-edit.sh); new
+# tests and setup-only changes are fine.
 forge_test_edits() {
   [ "$mode" = --turn ] || return 0
   printf '%s\n' "$FORGE_FILES" | grep -xF -f "$FORGE_TMP/inbase" > "$FORGE_TMP/tests.files"
@@ -5347,19 +6676,23 @@ forge_test_edits() {
     printf 'forge:%s skipped: ast-grep unavailable\n' "$c_id"
     return 0
   fi
+  _te_ok=$FORGE_ARG/tests-approved
+  [ -f "$_te_ok" ] || _te_ok=/dev/null
   awk -F '\t' '
-    FILENAME == ARGV[1] { then[$1 "\t" $2] = $3; next }
-    { now[$1 "\t" $2] = $3 }
+    FILENAME == ARGV[1] { ok[$1 "\t" $2] = 1; next }
+    FILENAME == ARGV[2] { then[$1 "\t" $2] = $4; next }
+    { now[$1 "\t" $2] = $4 }
     END {
       for (k in then) {
+        if (k in ok) continue
         split(k, p, "\t")
         if (!(k in now)) print p[1] ": test \"" p[2] "\" was removed"
         else if (now[k] != then[k]) print p[1] ": test \"" p[2] "\" was changed"
       }
-    }' "$FORGE_TMP/tests.then" "$FORGE_TMP/tests.now" | sort > "$FORGE_TMP/tests.edits"
+    }' "$_te_ok" "$FORGE_TMP/tests.then" "$FORGE_TMP/tests.now" | sort > "$FORGE_TMP/tests.edits"
   [ -s "$FORGE_TMP/tests.edits" ] || return 0
   cat "$FORGE_TMP/tests.edits"
-  printf 'Tests that existed before this turn are not edited to make the code pass. Restore them; if one looks wrong, stop and ask the user.\n'
+  printf 'These tests existed before this turn and their assertions changed without approval. Restore them. If the task requires the change (it changes the behaviour they assert), make it with Edit or Write: Forge then asks for approval (the user, or a reviewer given the request).\n'
   return 1
 }
 
@@ -6421,17 +7754,18 @@ exit "$fail"
   "files": {
     ".claude/rules/forge-typescript.md": "adae3b7189e1b913fd0dbeb10f127fed7bde5b738f9889ddcff7f4a5a647b3a0",
     ".claude/skills/forge-project/.claude-plugin/plugin.json": "c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2",
-    ".claude/skills/forge-project/hooks/hooks.json": "2aa1ba3beed2c0f4c0dfa99ee106d9fe85cfb2f3897a1da95b3d9a6aad7f84bd",
+    ".claude/skills/forge-project/hooks/hooks.json": "32657a3f5c57c5641c15cb8a0581c8a3d9590b73b31fd57d35f5b8a0bdddb6e8",
     ".claude/skills/forge-project/scripts/bash-snapshot.sh": "d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8",
     ".claude/skills/forge-project/scripts/guard.rules": "ff61a19974ccfc38fe6771978c9f9fe21253d4132eff8af9f06b112607965a00",
     ".claude/skills/forge-project/scripts/guard.sh": "e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca",
     ".claude/skills/forge-project/scripts/lib.sh": "3d4f97208cdf61a9ac95ef40b4f9eb8504d028abde4db487780aa36768199c6b",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "33c025b89d0f17e1138aa04323604fe342719fc7ea56cf9fdc288ae00aae1a00",
-    ".claude/skills/forge-project/scripts/review.sh": "9514f233517d1061d4c911ab6a45b4f80a33ee48f477466bcf620ebb11c01580",
-    ".claude/skills/forge-project/scripts/session-start.sh": "79deffcf1e068007d6981327dacf4c5bd6a9131614b80887cacdfe8c75ddcfde",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "556fc2469da9631b9d418e894017fdf4f6c0ad803d2d9cf5597514c359a24ccc",
+    ".claude/skills/forge-project/scripts/review.sh": "889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726",
+    ".claude/skills/forge-project/scripts/session-start.sh": "dba7a7e4c06cf6a71c7ef47332705ff0e95b3ac050f8826308336d8973400f89",
     ".claude/skills/forge-project/scripts/stop.sh": "f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173",
-    ".claude/skills/forge-project/scripts/turn-start.sh": "a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "3a6fc6d7b4c85069dc9d700ebcbc2f77a28d1187aa1b5b8fb159e701a9dd1f28",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "fd6b4887719857822ccb37085239cba209393cb5d847a29f07857689a5cde5a7",
+    ".claude/skills/forge-project/scripts/turn-start.sh": "fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "d9c656b4830ad2242dbd21880fc42cbf33bc240f028cea3df255ae0d35ac3ae9",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml": "c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20",
     ".forge/ast-grep/rule-tests/typescript-no-eval-test.yml": "3716e00219b28a0974a07a56e1d264bb478b35a6ef38d5c13740a9080b09516e",
@@ -6454,7 +7788,7 @@ exit "$fail"
     ".forge/ast-grep/rules/typescript/no-ts-nocheck.yml": "aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21",
     ".forge/ast-grep/rules/typescript/ts-expect-error-reason.yml": "b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "16e2f275f96b70780f1a4b4be56f5a6550e76be7c18f5d3275299e4deec9dd5f",
+    ".forge/check.sh": "5e1111b5327c85ef9b4afad1b2fae1c534da0f231aebe5c3209a04c45c5fd71e",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -6499,17 +7833,18 @@ exit "$fail"
 ===== .forge/manifest.sha256
 adae3b7189e1b913fd0dbeb10f127fed7bde5b738f9889ddcff7f4a5a647b3a0  .claude/rules/forge-typescript.md
 c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills/forge-project/.claude-plugin/plugin.json
-2aa1ba3beed2c0f4c0dfa99ee106d9fe85cfb2f3897a1da95b3d9a6aad7f84bd  .claude/skills/forge-project/hooks/hooks.json
+32657a3f5c57c5641c15cb8a0581c8a3d9590b73b31fd57d35f5b8a0bdddb6e8  .claude/skills/forge-project/hooks/hooks.json
 d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills/forge-project/scripts/bash-snapshot.sh
 ff61a19974ccfc38fe6771978c9f9fe21253d4132eff8af9f06b112607965a00  .claude/skills/forge-project/scripts/guard.rules
 e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca  .claude/skills/forge-project/scripts/guard.sh
 3d4f97208cdf61a9ac95ef40b4f9eb8504d028abde4db487780aa36768199c6b  .claude/skills/forge-project/scripts/lib.sh
-33c025b89d0f17e1138aa04323604fe342719fc7ea56cf9fdc288ae00aae1a00  .claude/skills/forge-project/scripts/post-edit.sh
-9514f233517d1061d4c911ab6a45b4f80a33ee48f477466bcf620ebb11c01580  .claude/skills/forge-project/scripts/review.sh
-79deffcf1e068007d6981327dacf4c5bd6a9131614b80887cacdfe8c75ddcfde  .claude/skills/forge-project/scripts/session-start.sh
+556fc2469da9631b9d418e894017fdf4f6c0ad803d2d9cf5597514c359a24ccc  .claude/skills/forge-project/scripts/post-edit.sh
+889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726  .claude/skills/forge-project/scripts/review.sh
+dba7a7e4c06cf6a71c7ef47332705ff0e95b3ac050f8826308336d8973400f89  .claude/skills/forge-project/scripts/session-start.sh
 f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173  .claude/skills/forge-project/scripts/stop.sh
-a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c  .claude/skills/forge-project/scripts/turn-start.sh
-3a6fc6d7b4c85069dc9d700ebcbc2f77a28d1187aa1b5b8fb159e701a9dd1f28  .claude/skills/forge-project/scripts/typecheck.sh
+fd6b4887719857822ccb37085239cba209393cb5d847a29f07857689a5cde5a7  .claude/skills/forge-project/scripts/test-edit.sh
+fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3  .claude/skills/forge-project/scripts/turn-start.sh
+d9c656b4830ad2242dbd21880fc42cbf33bc240f028cea3df255ae0d35ac3ae9  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20  .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
 3716e00219b28a0974a07a56e1d264bb478b35a6ef38d5c13740a9080b09516e  .forge/ast-grep/rule-tests/typescript-no-eval-test.yml
@@ -6532,7 +7867,7 @@ b21497e3335f2271e6ca5874817957d18c640e7d787cfe76a72ef390ab62d634  .forge/ast-gre
 aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21  .forge/ast-grep/rules/typescript/no-ts-nocheck.yml
 b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad  .forge/ast-grep/rules/typescript/ts-expect-error-reason.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-16e2f275f96b70780f1a4b4be56f5a6550e76be7c18f5d3275299e4deec9dd5f  .forge/check.sh
+5e1111b5327c85ef9b4afad1b2fae1c534da0f231aebe5c3209a04c45c5fd71e  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

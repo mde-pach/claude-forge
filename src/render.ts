@@ -174,6 +174,19 @@ export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = []): s
   return out.join("\n");
 }
 
+/**
+ * test-edit.sh's rules: the checks running forge_test_edits (§10.5), as
+ * forge_test_rule_<i>() { t_n (the check's number); t_id; t_review } and FORGE_NTESTRULES.
+ */
+export function renderTestRules(checks: ActiveCheck[]): string {
+  const out: string[] = [];
+  checks.forEach(({ rule, target }, i) => {
+    if (target.run.trim() !== "forge_test_edits") return;
+    out.push(`forge_test_rule_${out.length + 1}() { t_n=${i + 1}; t_id=${shQuote(rule.id)}; t_review=${shQuote(rule.review ?? "")}; }`);
+  });
+  return [`FORGE_NTESTRULES=${out.length}`, ...out].join("\n");
+}
+
 /** .forge/check.sh: the library, the checks fragment and the ast-grep rule ids by mode. */
 export function renderCheckScript(checks: ActiveCheck[], ids: { forbid: string; noIncrease: string; noDecrease: string }, greps: ActiveGrep[] = []): string {
   return fill(template("check.sh"), {
@@ -303,6 +316,8 @@ export function renderHooks(level: Level): string {
   const guard = { matcher: "Bash", hooks: [hook("guard.sh", 180, { onFailure: "block" })] };
   const review = [{ hooks: [hook("review.sh", 180)] }];
   const afterEdit = [hook("post-edit.sh", 60), hook("typecheck.sh", 300, { asyncRewake: true })];
+  // an edit changing a test that existed at turn start asks (reviewed when nobody can answer); once it ran, it was approved
+  const testEdit = (timeout: number) => ({ matcher: "Edit|Write", hooks: [hook("test-edit.sh", timeout)] });
   const hooks =
     level === "user"
       ? {
@@ -313,9 +328,9 @@ export function renderHooks(level: Level): string {
       : {
           SessionStart: [{ matcher: "startup|resume|clear|compact", hooks: [hook("session-start.sh", 10)] }],
           UserPromptSubmit: [{ hooks: [hook("turn-start.sh", 10)] }],
-          PreToolUse: [guard, { matcher: "Bash", hooks: [hook("bash-snapshot.sh", 15)] }],
+          PreToolUse: [guard, { matcher: "Bash", hooks: [hook("bash-snapshot.sh", 15)] }, testEdit(180)],
           PermissionRequest: review,
-          PostToolUse: [{ matcher: "Edit|Write|Bash", hooks: afterEdit }],
+          PostToolUse: [{ matcher: "Edit|Write|Bash", hooks: afterEdit }, testEdit(10)],
           // a Bash command that fails (or is interrupted) partway may already have changed files; a failed Edit or Write changes nothing
           PostToolUseFailure: [{ matcher: "Bash", hooks: afterEdit }],
           Stop: [{ hooks: [hook("stop.sh", 600)] }],
