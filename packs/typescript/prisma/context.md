@@ -4,3 +4,4 @@ CLI configuration and the connection URL live in `prisma.config.ts`; `.env` is n
 `prisma migrate dev` does not seed: run `prisma db seed`. Query hooks use Client Extensions (`$extends`; `$use` is removed).
 Raw SQL uses the tagged `$queryRaw` / `$executeRaw` forms; the `Unsafe` variants are rejected.
 `$transaction(async (tx) => …)` callbacks make no `fetch`/axios/SDK calls (rejected): call them before or after the transaction.
+A schema change comes with a migration (`prisma migrate dev`), except in a db push workflow (no `prisma/migrations`, a `prisma db push` script), where none is required.

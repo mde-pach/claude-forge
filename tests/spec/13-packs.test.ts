@@ -11,11 +11,11 @@
  * this site show the same results.
  */
 import { beforeAll, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadPacks } from "../../src/packs";
-import { checkExamplesOptional, hadolintIntegrity, permissionMatches, selfTest, type TestReport } from "../../src/selftest";
+import { checkExamplesOptional, hadolintIntegrity, permissionMatches, runCheckExample, selfTest, type TestReport } from "../../src/selftest";
 import { ensureTools, forge, ROOT, sh, TOOLS_CACHE } from "../helpers";
 import type { CheckTarget } from "../../src/types";
 
@@ -78,6 +78,34 @@ test(
   },
   T,
 );
+
+/**
+ * `prisma db push` projects (no `prisma/migrations`, a `db push` script) have no
+ * migration history to compare the schema with. Here a stand-in `prisma` fails as
+ * `migrate diff --from-migrations` does on a missing directory.
+ */
+/** @rule typescript/prisma/migration-present */
+test("prisma migration-present passes in a db push workflow and still runs migrate diff in a migrate workflow", () => {
+  const rule = rules.find((r) => r.id === "typescript/prisma/migration-present")!;
+  const bin = mkdtempSync(join(tmpdir(), "forge-prisma-stub-"));
+  try {
+    writeFileSync(join(bin, "prisma"), "#!/bin/sh\necho 'Error: Could not find the migrations directory' >&2\nexit 1\n");
+    chmodSync(join(bin, "prisma"), 0o755);
+    const target = rule.enforce[0] as CheckTarget;
+    const schema = { "prisma/schema.prisma": "model User {\n  id Int @id\n}\n" };
+    const changed = { files: { "prisma/schema.prisma": "model User {\n  id    Int    @id\n  phone String?\n}\n" } };
+    const env = { ".env": "DATABASE_URL=postgresql://app@localhost:5432/app\n" };
+    const push = { head: { ...schema, ...env, "package.json": '{"scripts": {"db:push": "prisma db push"}}\n' }, ...changed };
+    expect(runCheckExample(rule, target, push, "no_match", [bin])).toEqual({ outcome: "pass", detail: "" });
+    const migrate = {
+      head: { ...schema, ...env, "package.json": '{"scripts": {"migrate": "prisma migrate dev"}}\n', "prisma.config.ts": "export default { datasource: { shadowDatabaseUrl: env('SHADOW_DATABASE_URL') } };\n", "prisma/migrations/20261020000000_init/migration.sql": "CREATE TABLE \"User\" (\"id\" INTEGER NOT NULL);\n" },
+      ...changed,
+    };
+    expect(runCheckExample(rule, target, migrate, "match", [bin])).toEqual({ outcome: "pass", detail: "" });
+  } finally {
+    rmSync(bin, { recursive: true, force: true });
+  }
+});
 
 describe("forge test catches broken packs", () => {
   function packsWith(files: Record<string, string>): string {
