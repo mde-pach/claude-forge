@@ -311,11 +311,14 @@ forge_review_log() {
 }
 
 # forge_kill_tree <pid>: kills a process and its descendants.
+# It is stopped first, so it cannot start a new child while its children are killed.
 forge_kill_tree() {
+  kill -STOP "$1" 2>/dev/null
   for _fk_c in $(ps -A -o pid= -o ppid= 2>/dev/null | awk -v p="$1" '$2 == p { print $1 }'); do
     forge_kill_tree "$_fk_c"
   done
   kill "$1" 2>/dev/null
+  kill -CONT "$1" 2>/dev/null
 }
 
 # ---- files changed by a Bash command (bash-snapshot.sh, post-edit.sh, typecheck.sh)

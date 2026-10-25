@@ -805,11 +805,14 @@ forge_review_log() {
 }
 
 # forge_kill_tree <pid>: kills a process and its descendants.
+# It is stopped first, so it cannot start a new child while its children are killed.
 forge_kill_tree() {
+  kill -STOP "$1" 2>/dev/null
   for _fk_c in $(ps -A -o pid= -o ppid= 2>/dev/null | awk -v p="$1" '$2 == p { print $1 }'); do
     forge_kill_tree "$_fk_c"
   done
   kill "$1" 2>/dev/null
+  kill -CONT "$1" 2>/dev/null
 }
 
 # ---- files changed by a Bash command (bash-snapshot.sh, post-edit.sh, typecheck.sh)
@@ -3186,14 +3189,30 @@ forge_prefix_paths() {
 }
 
 # forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out; 124 when
-# it ran past <timeout> seconds and was stopped.
+# it ran past <timeout> seconds and was stopped. Under Stop (FORGE_DEADLINE, in epoch
+# seconds) the limit is at most what is left of the run's budget; a check with no time
+# left is not started. FORGE_EXEC_LIMIT is the limit applied, FORGE_EXEC_WHY "timeout"
+# or "budget".
 forge_exec_check() {
   set -f
-  if [ -n "$2" ]; then
+  FORGE_EXEC_LIMIT=$2
+  FORGE_EXEC_WHY=timeout
+  # under Stop, every check fits in what is left of the run's budget (FORGE_DEADLINE)
+  if [ -n "${FORGE_DEADLINE:-}" ]; then
+    _fe_left=$((FORGE_DEADLINE - $(date +%s)))
+    [ "$_fe_left" -gt 0 ] || _fe_left=0
+    if [ -z "$FORGE_EXEC_LIMIT" ] || [ "$_fe_left" -lt "$FORGE_EXEC_LIMIT" ]; then FORGE_EXEC_LIMIT=$_fe_left; FORGE_EXEC_WHY=budget; fi
+  fi
+  if [ "$FORGE_EXEC_LIMIT" = 0 ]; then
+    : > "$FORGE_TMP/out"
+    set +f
+    return 124
+  fi
+  if [ -n "$FORGE_EXEC_LIMIT" ]; then
     rm -f "$FORGE_TMP/timedout"
     "$1" > "$FORGE_TMP/out" 2>&1 &
     _fe_pid=$!
-    ( sleep "$2"; : > "$FORGE_TMP/timedout"; printf 'forge: timed out after %ss\n' "$2" >> "$FORGE_TMP/out"; forge_kill_tree "$_fe_pid" ) >/dev/null 2>&1 &
+    ( sleep "$FORGE_EXEC_LIMIT"; : > "$FORGE_TMP/timedout"; printf 'forge: timed out after %ss\n' "$FORGE_EXEC_LIMIT" >> "$FORGE_TMP/out"; forge_kill_tree "$_fe_pid" ) >/dev/null 2>&1 &
     _fe_watch=$!
     wait "$_fe_pid" 2>/dev/null
     _fe_rc=$?
@@ -3335,7 +3354,11 @@ forge_run_check() {
   case $? in
     0) grep '^forge:' "$FORGE_TMP/out"; return 0 ;;
     124)
-      printf 'forge:%s failed: timed out after %ss and was stopped (a hung test, or a service that never answers?); its output until then:\n' "$c_id" "$c_timeout"
+      if [ "$FORGE_EXEC_WHY" = budget ]; then
+        printf 'forge:%s failed: stopped after %ss: the Stop hook'"'"'s time budget (%s s, FORGE_STOP_BUDGET) ran out before it finished; its output until then:\n' "$c_id" "$FORGE_EXEC_LIMIT" "${FORGE_BUDGET:-}"
+      else
+        printf 'forge:%s failed: timed out after %ss and was stopped (a hung test, or a service that never answers?); its output until then:\n' "$c_id" "$c_timeout"
+      fi
       grep -v '^forge: timed out after' "$FORGE_TMP/out" | forge_excerpt 15
       return 1 ;;
   esac
@@ -3616,7 +3639,9 @@ forge_test_compare() {
     forge_exec_check forge_rerun_in_base "$c_timeout"
     _ft_rc=$?
     forge_failed_tests < "$FORGE_TMP/out" > "$FORGE_TMP/failing.base"
-    if [ "$_ft_rc" -eq 124 ]; then _ft_why="the re-run there was stopped after ${c_timeout}s"
+    if [ "$_ft_rc" -eq 124 ]; then
+      _ft_why="the re-run there was stopped after ${FORGE_EXEC_LIMIT}s"
+      [ "$FORGE_EXEC_WHY" != budget ] || _ft_why="$_ft_why, when the Stop hook's time budget ran out"
     elif [ "$_ft_rc" -ne 0 ] && [ ! -s "$FORGE_TMP/failing.base" ]; then _ft_why='the re-run there failed without naming a failing test'
     fi
   fi
@@ -6238,14 +6263,30 @@ forge_prefix_paths() {
 }
 
 # forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out; 124 when
-# it ran past <timeout> seconds and was stopped.
+# it ran past <timeout> seconds and was stopped. Under Stop (FORGE_DEADLINE, in epoch
+# seconds) the limit is at most what is left of the run's budget; a check with no time
+# left is not started. FORGE_EXEC_LIMIT is the limit applied, FORGE_EXEC_WHY "timeout"
+# or "budget".
 forge_exec_check() {
   set -f
-  if [ -n "$2" ]; then
+  FORGE_EXEC_LIMIT=$2
+  FORGE_EXEC_WHY=timeout
+  # under Stop, every check fits in what is left of the run's budget (FORGE_DEADLINE)
+  if [ -n "${FORGE_DEADLINE:-}" ]; then
+    _fe_left=$((FORGE_DEADLINE - $(date +%s)))
+    [ "$_fe_left" -gt 0 ] || _fe_left=0
+    if [ -z "$FORGE_EXEC_LIMIT" ] || [ "$_fe_left" -lt "$FORGE_EXEC_LIMIT" ]; then FORGE_EXEC_LIMIT=$_fe_left; FORGE_EXEC_WHY=budget; fi
+  fi
+  if [ "$FORGE_EXEC_LIMIT" = 0 ]; then
+    : > "$FORGE_TMP/out"
+    set +f
+    return 124
+  fi
+  if [ -n "$FORGE_EXEC_LIMIT" ]; then
     rm -f "$FORGE_TMP/timedout"
     "$1" > "$FORGE_TMP/out" 2>&1 &
     _fe_pid=$!
-    ( sleep "$2"; : > "$FORGE_TMP/timedout"; printf 'forge: timed out after %ss\n' "$2" >> "$FORGE_TMP/out"; forge_kill_tree "$_fe_pid" ) >/dev/null 2>&1 &
+    ( sleep "$FORGE_EXEC_LIMIT"; : > "$FORGE_TMP/timedout"; printf 'forge: timed out after %ss\n' "$FORGE_EXEC_LIMIT" >> "$FORGE_TMP/out"; forge_kill_tree "$_fe_pid" ) >/dev/null 2>&1 &
     _fe_watch=$!
     wait "$_fe_pid" 2>/dev/null
     _fe_rc=$?
@@ -6387,7 +6428,11 @@ forge_run_check() {
   case $? in
     0) grep '^forge:' "$FORGE_TMP/out"; return 0 ;;
     124)
-      printf 'forge:%s failed: timed out after %ss and was stopped (a hung test, or a service that never answers?); its output until then:\n' "$c_id" "$c_timeout"
+      if [ "$FORGE_EXEC_WHY" = budget ]; then
+        printf 'forge:%s failed: stopped after %ss: the Stop hook'"'"'s time budget (%s s, FORGE_STOP_BUDGET) ran out before it finished; its output until then:\n' "$c_id" "$FORGE_EXEC_LIMIT" "${FORGE_BUDGET:-}"
+      else
+        printf 'forge:%s failed: timed out after %ss and was stopped (a hung test, or a service that never answers?); its output until then:\n' "$c_id" "$c_timeout"
+      fi
       grep -v '^forge: timed out after' "$FORGE_TMP/out" | forge_excerpt 15
       return 1 ;;
   esac
@@ -6668,7 +6713,9 @@ forge_test_compare() {
     forge_exec_check forge_rerun_in_base "$c_timeout"
     _ft_rc=$?
     forge_failed_tests < "$FORGE_TMP/out" > "$FORGE_TMP/failing.base"
-    if [ "$_ft_rc" -eq 124 ]; then _ft_why="the re-run there was stopped after ${c_timeout}s"
+    if [ "$_ft_rc" -eq 124 ]; then
+      _ft_why="the re-run there was stopped after ${FORGE_EXEC_LIMIT}s"
+      [ "$FORGE_EXEC_WHY" != budget ] || _ft_why="$_ft_why, when the Stop hook's time budget ran out"
     elif [ "$_ft_rc" -ne 0 ] && [ ! -s "$FORGE_TMP/failing.base" ]; then _ft_why='the re-run there failed without naming a failing test'
     fi
   fi
@@ -7002,6 +7049,12 @@ if [ "$hash" = "$(cat "$failed" 2>/dev/null)" ] && [ -f "$failed.reason" ]; then
 fi
 
 rm -f "$failed.unverified" "$failed.once"
+# one time budget for the whole check, under the hook's 600 s timeout (a stopped hook
+# blocks nothing): each check gets at most what is left of it
+FORGE_BUDGET=${FORGE_STOP_BUDGET:-540}
+case $FORGE_BUDGET in ''|*[!0-9]*) FORGE_BUDGET=540 ;; esac
+FORGE_DEADLINE=$(($(date +%s) + FORGE_BUDGET))
+export FORGE_BUDGET FORGE_DEADLINE
 out=$(FORGE_UNVERIFIED=$failed.unverified FORGE_ONCE=$failed.once sh .forge/check.sh "$@" 2>&1)
 rc=$?
 if [ "$rc" -eq 0 ]; then
@@ -9306,14 +9359,30 @@ forge_prefix_paths() {
 }
 
 # forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out; 124 when
-# it ran past <timeout> seconds and was stopped.
+# it ran past <timeout> seconds and was stopped. Under Stop (FORGE_DEADLINE, in epoch
+# seconds) the limit is at most what is left of the run's budget; a check with no time
+# left is not started. FORGE_EXEC_LIMIT is the limit applied, FORGE_EXEC_WHY "timeout"
+# or "budget".
 forge_exec_check() {
   set -f
-  if [ -n "$2" ]; then
+  FORGE_EXEC_LIMIT=$2
+  FORGE_EXEC_WHY=timeout
+  # under Stop, every check fits in what is left of the run's budget (FORGE_DEADLINE)
+  if [ -n "${FORGE_DEADLINE:-}" ]; then
+    _fe_left=$((FORGE_DEADLINE - $(date +%s)))
+    [ "$_fe_left" -gt 0 ] || _fe_left=0
+    if [ -z "$FORGE_EXEC_LIMIT" ] || [ "$_fe_left" -lt "$FORGE_EXEC_LIMIT" ]; then FORGE_EXEC_LIMIT=$_fe_left; FORGE_EXEC_WHY=budget; fi
+  fi
+  if [ "$FORGE_EXEC_LIMIT" = 0 ]; then
+    : > "$FORGE_TMP/out"
+    set +f
+    return 124
+  fi
+  if [ -n "$FORGE_EXEC_LIMIT" ]; then
     rm -f "$FORGE_TMP/timedout"
     "$1" > "$FORGE_TMP/out" 2>&1 &
     _fe_pid=$!
-    ( sleep "$2"; : > "$FORGE_TMP/timedout"; printf 'forge: timed out after %ss\n' "$2" >> "$FORGE_TMP/out"; forge_kill_tree "$_fe_pid" ) >/dev/null 2>&1 &
+    ( sleep "$FORGE_EXEC_LIMIT"; : > "$FORGE_TMP/timedout"; printf 'forge: timed out after %ss\n' "$FORGE_EXEC_LIMIT" >> "$FORGE_TMP/out"; forge_kill_tree "$_fe_pid" ) >/dev/null 2>&1 &
     _fe_watch=$!
     wait "$_fe_pid" 2>/dev/null
     _fe_rc=$?
@@ -9455,7 +9524,11 @@ forge_run_check() {
   case $? in
     0) grep '^forge:' "$FORGE_TMP/out"; return 0 ;;
     124)
-      printf 'forge:%s failed: timed out after %ss and was stopped (a hung test, or a service that never answers?); its output until then:\n' "$c_id" "$c_timeout"
+      if [ "$FORGE_EXEC_WHY" = budget ]; then
+        printf 'forge:%s failed: stopped after %ss: the Stop hook'"'"'s time budget (%s s, FORGE_STOP_BUDGET) ran out before it finished; its output until then:\n' "$c_id" "$FORGE_EXEC_LIMIT" "${FORGE_BUDGET:-}"
+      else
+        printf 'forge:%s failed: timed out after %ss and was stopped (a hung test, or a service that never answers?); its output until then:\n' "$c_id" "$c_timeout"
+      fi
       grep -v '^forge: timed out after' "$FORGE_TMP/out" | forge_excerpt 15
       return 1 ;;
   esac
@@ -9736,7 +9809,9 @@ forge_test_compare() {
     forge_exec_check forge_rerun_in_base "$c_timeout"
     _ft_rc=$?
     forge_failed_tests < "$FORGE_TMP/out" > "$FORGE_TMP/failing.base"
-    if [ "$_ft_rc" -eq 124 ]; then _ft_why="the re-run there was stopped after ${c_timeout}s"
+    if [ "$_ft_rc" -eq 124 ]; then
+      _ft_why="the re-run there was stopped after ${FORGE_EXEC_LIMIT}s"
+      [ "$FORGE_EXEC_WHY" != budget ] || _ft_why="$_ft_why, when the Stop hook's time budget ran out"
     elif [ "$_ft_rc" -ne 0 ] && [ ! -s "$FORGE_TMP/failing.base" ]; then _ft_why='the re-run there failed without naming a failing test'
     fi
   fi
@@ -12398,14 +12473,30 @@ forge_prefix_paths() {
 }
 
 # forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out; 124 when
-# it ran past <timeout> seconds and was stopped.
+# it ran past <timeout> seconds and was stopped. Under Stop (FORGE_DEADLINE, in epoch
+# seconds) the limit is at most what is left of the run's budget; a check with no time
+# left is not started. FORGE_EXEC_LIMIT is the limit applied, FORGE_EXEC_WHY "timeout"
+# or "budget".
 forge_exec_check() {
   set -f
-  if [ -n "$2" ]; then
+  FORGE_EXEC_LIMIT=$2
+  FORGE_EXEC_WHY=timeout
+  # under Stop, every check fits in what is left of the run's budget (FORGE_DEADLINE)
+  if [ -n "${FORGE_DEADLINE:-}" ]; then
+    _fe_left=$((FORGE_DEADLINE - $(date +%s)))
+    [ "$_fe_left" -gt 0 ] || _fe_left=0
+    if [ -z "$FORGE_EXEC_LIMIT" ] || [ "$_fe_left" -lt "$FORGE_EXEC_LIMIT" ]; then FORGE_EXEC_LIMIT=$_fe_left; FORGE_EXEC_WHY=budget; fi
+  fi
+  if [ "$FORGE_EXEC_LIMIT" = 0 ]; then
+    : > "$FORGE_TMP/out"
+    set +f
+    return 124
+  fi
+  if [ -n "$FORGE_EXEC_LIMIT" ]; then
     rm -f "$FORGE_TMP/timedout"
     "$1" > "$FORGE_TMP/out" 2>&1 &
     _fe_pid=$!
-    ( sleep "$2"; : > "$FORGE_TMP/timedout"; printf 'forge: timed out after %ss\n' "$2" >> "$FORGE_TMP/out"; forge_kill_tree "$_fe_pid" ) >/dev/null 2>&1 &
+    ( sleep "$FORGE_EXEC_LIMIT"; : > "$FORGE_TMP/timedout"; printf 'forge: timed out after %ss\n' "$FORGE_EXEC_LIMIT" >> "$FORGE_TMP/out"; forge_kill_tree "$_fe_pid" ) >/dev/null 2>&1 &
     _fe_watch=$!
     wait "$_fe_pid" 2>/dev/null
     _fe_rc=$?
@@ -12547,7 +12638,11 @@ forge_run_check() {
   case $? in
     0) grep '^forge:' "$FORGE_TMP/out"; return 0 ;;
     124)
-      printf 'forge:%s failed: timed out after %ss and was stopped (a hung test, or a service that never answers?); its output until then:\n' "$c_id" "$c_timeout"
+      if [ "$FORGE_EXEC_WHY" = budget ]; then
+        printf 'forge:%s failed: stopped after %ss: the Stop hook'"'"'s time budget (%s s, FORGE_STOP_BUDGET) ran out before it finished; its output until then:\n' "$c_id" "$FORGE_EXEC_LIMIT" "${FORGE_BUDGET:-}"
+      else
+        printf 'forge:%s failed: timed out after %ss and was stopped (a hung test, or a service that never answers?); its output until then:\n' "$c_id" "$c_timeout"
+      fi
       grep -v '^forge: timed out after' "$FORGE_TMP/out" | forge_excerpt 15
       return 1 ;;
   esac
@@ -12828,7 +12923,9 @@ forge_test_compare() {
     forge_exec_check forge_rerun_in_base "$c_timeout"
     _ft_rc=$?
     forge_failed_tests < "$FORGE_TMP/out" > "$FORGE_TMP/failing.base"
-    if [ "$_ft_rc" -eq 124 ]; then _ft_why="the re-run there was stopped after ${c_timeout}s"
+    if [ "$_ft_rc" -eq 124 ]; then
+      _ft_why="the re-run there was stopped after ${FORGE_EXEC_LIMIT}s"
+      [ "$FORGE_EXEC_WHY" != budget ] || _ft_why="$_ft_why, when the Stop hook's time budget ran out"
     elif [ "$_ft_rc" -ne 0 ] && [ ! -s "$FORGE_TMP/failing.base" ]; then _ft_why='the re-run there failed without naming a failing test'
     fi
   fi
@@ -13991,7 +14088,12 @@ FORGE_ROOT=$(pwd)
 IFS='
 '
 FORGE_TMP=$(mktemp -d "${TMPDIR:-/tmp}/forge-check.XXXXXX") || exit 2
-trap 'rm -rf "$FORGE_TMP"' EXIT; trap 'exit 143' HUP INT TERM
+# forge_kill_jobs: stops every process this run started (a check, its timeout watcher),
+# so none outlives it (the Stop hook's timeout, a Ctrl-C at commit).
+forge_kill_jobs() {
+  for _kj in $(ps -A -o pid= -o ppid= 2>/dev/null | awk -v p="$$" '$2 == p { print $1 }'); do forge_kill_tree "$_kj"; done
+}
+trap 'rm -rf "$FORGE_TMP"' EXIT; trap 'forge_kill_jobs; exit 143' HUP INT TERM
 
 # Generated by forge. Shared helpers for hook scripts. POSIX sh only.
 FORGE_AST_GREP_VERSION="0.45.3"
@@ -14306,11 +14408,14 @@ forge_review_log() {
 }
 
 # forge_kill_tree <pid>: kills a process and its descendants.
+# It is stopped first, so it cannot start a new child while its children are killed.
 forge_kill_tree() {
+  kill -STOP "$1" 2>/dev/null
   for _fk_c in $(ps -A -o pid= -o ppid= 2>/dev/null | awk -v p="$1" '$2 == p { print $1 }'); do
     forge_kill_tree "$_fk_c"
   done
   kill "$1" 2>/dev/null
+  kill -CONT "$1" 2>/dev/null
 }
 
 # ---- files changed by a Bash command (bash-snapshot.sh, post-edit.sh, typecheck.sh)
@@ -16634,14 +16739,30 @@ forge_prefix_paths() {
 }
 
 # forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out; 124 when
-# it ran past <timeout> seconds and was stopped.
+# it ran past <timeout> seconds and was stopped. Under Stop (FORGE_DEADLINE, in epoch
+# seconds) the limit is at most what is left of the run's budget; a check with no time
+# left is not started. FORGE_EXEC_LIMIT is the limit applied, FORGE_EXEC_WHY "timeout"
+# or "budget".
 forge_exec_check() {
   set -f
-  if [ -n "$2" ]; then
+  FORGE_EXEC_LIMIT=$2
+  FORGE_EXEC_WHY=timeout
+  # under Stop, every check fits in what is left of the run's budget (FORGE_DEADLINE)
+  if [ -n "${FORGE_DEADLINE:-}" ]; then
+    _fe_left=$((FORGE_DEADLINE - $(date +%s)))
+    [ "$_fe_left" -gt 0 ] || _fe_left=0
+    if [ -z "$FORGE_EXEC_LIMIT" ] || [ "$_fe_left" -lt "$FORGE_EXEC_LIMIT" ]; then FORGE_EXEC_LIMIT=$_fe_left; FORGE_EXEC_WHY=budget; fi
+  fi
+  if [ "$FORGE_EXEC_LIMIT" = 0 ]; then
+    : > "$FORGE_TMP/out"
+    set +f
+    return 124
+  fi
+  if [ -n "$FORGE_EXEC_LIMIT" ]; then
     rm -f "$FORGE_TMP/timedout"
     "$1" > "$FORGE_TMP/out" 2>&1 &
     _fe_pid=$!
-    ( sleep "$2"; : > "$FORGE_TMP/timedout"; printf 'forge: timed out after %ss\n' "$2" >> "$FORGE_TMP/out"; forge_kill_tree "$_fe_pid" ) >/dev/null 2>&1 &
+    ( sleep "$FORGE_EXEC_LIMIT"; : > "$FORGE_TMP/timedout"; printf 'forge: timed out after %ss\n' "$FORGE_EXEC_LIMIT" >> "$FORGE_TMP/out"; forge_kill_tree "$_fe_pid" ) >/dev/null 2>&1 &
     _fe_watch=$!
     wait "$_fe_pid" 2>/dev/null
     _fe_rc=$?
@@ -16783,7 +16904,11 @@ forge_run_check() {
   case $? in
     0) grep '^forge:' "$FORGE_TMP/out"; return 0 ;;
     124)
-      printf 'forge:%s failed: timed out after %ss and was stopped (a hung test, or a service that never answers?); its output until then:\n' "$c_id" "$c_timeout"
+      if [ "$FORGE_EXEC_WHY" = budget ]; then
+        printf 'forge:%s failed: stopped after %ss: the Stop hook'"'"'s time budget (%s s, FORGE_STOP_BUDGET) ran out before it finished; its output until then:\n' "$c_id" "$FORGE_EXEC_LIMIT" "${FORGE_BUDGET:-}"
+      else
+        printf 'forge:%s failed: timed out after %ss and was stopped (a hung test, or a service that never answers?); its output until then:\n' "$c_id" "$c_timeout"
+      fi
       grep -v '^forge: timed out after' "$FORGE_TMP/out" | forge_excerpt 15
       return 1 ;;
   esac
@@ -17064,7 +17189,9 @@ forge_test_compare() {
     forge_exec_check forge_rerun_in_base "$c_timeout"
     _ft_rc=$?
     forge_failed_tests < "$FORGE_TMP/out" > "$FORGE_TMP/failing.base"
-    if [ "$_ft_rc" -eq 124 ]; then _ft_why="the re-run there was stopped after ${c_timeout}s"
+    if [ "$_ft_rc" -eq 124 ]; then
+      _ft_why="the re-run there was stopped after ${FORGE_EXEC_LIMIT}s"
+      [ "$FORGE_EXEC_WHY" != budget ] || _ft_why="$_ft_why, when the Stop hook's time budget ran out"
     elif [ "$_ft_rc" -ne 0 ] && [ ! -s "$FORGE_TMP/failing.base" ]; then _ft_why='the re-run there failed without naming a failing test'
     fi
   fi
@@ -17762,14 +17889,14 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/bash-snapshot.sh": "d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8",
     ".claude/skills/forge-project/scripts/guard.rules": "a3bb50a3648137c8e0c7cda3d1cb07050fcb36f990e50b8b2b7f46b78e363f20",
     ".claude/skills/forge-project/scripts/guard.sh": "e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca",
-    ".claude/skills/forge-project/scripts/lib.sh": "7754f516e6aac8caa42b9c2b016ec52975c4842c977e31ec16d1ada9d77f87c7",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "6d94a70c64c114f761301b01068d326ac49434efc8d7202929f1eea507a04f4b",
+    ".claude/skills/forge-project/scripts/lib.sh": "152f8eaffa7bff1c36014d0b95f8f50279703bc93f3057dd30b3253dcee62d7a",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "570d41251cd79dec9ea0f270c5a91c6860f4bdcc4e87339bd1da8bd57d70cb4b",
     ".claude/skills/forge-project/scripts/review.sh": "889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726",
-    ".claude/skills/forge-project/scripts/session-start.sh": "9c14ec7402e49671fffa2917b8a8cef17266af691697c25ec64c015470f12fdf",
-    ".claude/skills/forge-project/scripts/stop.sh": "10316d9cd59fea152c6f8fbf0ab70abf547514bf67a2c85f3e6b405554a71fad",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "5246215b2be94a7cf0a85d5ff9dc8d771b87c083a62bedaf6a49bc515f80ded6",
+    ".claude/skills/forge-project/scripts/session-start.sh": "0c4addae4c3784c43d61c20f4458c751da0f3382de24f8126875cdc2a5f8f7d0",
+    ".claude/skills/forge-project/scripts/stop.sh": "9008b87730cd4f0ad9aa63e70c57bc65225f5305b27e77bafb81a34e33497049",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "5304dcb3d012acdeee8c7bf3b14bfbdc713331fb05f5120008326c8db3aa53fd",
     ".claude/skills/forge-project/scripts/turn-start.sh": "fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "bc7fa5eb128268a22a873b28424e1a9a7bd8c1fa27766781587cb8c5cb7b15a5",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "badfc90b5a5eacf1e9528dd3052d656aa46e0b6b479e95044a96be70ba26c207",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml": "69a94f1a0b16aa08bcf758af3e3dc269266cdd808aba1a4289b4c58c7f969700",
     ".forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml": "1589382e5e0b5cae841a8f47dae9f2b3a8583a4bb1074ceb858d882e648e9b49",
@@ -17808,7 +17935,7 @@ exit "$fail"
     ".forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml": "4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0",
     ".forge/ast-grep/rules/python/sqlalchemy/no-text-fstring.yml": "04c44c9e215449d46b10540e86e999ec1d6383d8c3a849855fe73cb456668fca",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "29005a3d7c1f27a04fd725bd1492a488e61d26e645c3726a3bd8d7e9ba3592c1",
+    ".forge/check.sh": "685c9d975a04391a633fc76a66a40d4bb5cc163674f1774df523ed547c95d4f3",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -17862,14 +17989,14 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills/forge-project/scripts/bash-snapshot.sh
 a3bb50a3648137c8e0c7cda3d1cb07050fcb36f990e50b8b2b7f46b78e363f20  .claude/skills/forge-project/scripts/guard.rules
 e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca  .claude/skills/forge-project/scripts/guard.sh
-7754f516e6aac8caa42b9c2b016ec52975c4842c977e31ec16d1ada9d77f87c7  .claude/skills/forge-project/scripts/lib.sh
-6d94a70c64c114f761301b01068d326ac49434efc8d7202929f1eea507a04f4b  .claude/skills/forge-project/scripts/post-edit.sh
+152f8eaffa7bff1c36014d0b95f8f50279703bc93f3057dd30b3253dcee62d7a  .claude/skills/forge-project/scripts/lib.sh
+570d41251cd79dec9ea0f270c5a91c6860f4bdcc4e87339bd1da8bd57d70cb4b  .claude/skills/forge-project/scripts/post-edit.sh
 889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726  .claude/skills/forge-project/scripts/review.sh
-9c14ec7402e49671fffa2917b8a8cef17266af691697c25ec64c015470f12fdf  .claude/skills/forge-project/scripts/session-start.sh
-10316d9cd59fea152c6f8fbf0ab70abf547514bf67a2c85f3e6b405554a71fad  .claude/skills/forge-project/scripts/stop.sh
-5246215b2be94a7cf0a85d5ff9dc8d771b87c083a62bedaf6a49bc515f80ded6  .claude/skills/forge-project/scripts/test-edit.sh
+0c4addae4c3784c43d61c20f4458c751da0f3382de24f8126875cdc2a5f8f7d0  .claude/skills/forge-project/scripts/session-start.sh
+9008b87730cd4f0ad9aa63e70c57bc65225f5305b27e77bafb81a34e33497049  .claude/skills/forge-project/scripts/stop.sh
+5304dcb3d012acdeee8c7bf3b14bfbdc713331fb05f5120008326c8db3aa53fd  .claude/skills/forge-project/scripts/test-edit.sh
 fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3  .claude/skills/forge-project/scripts/turn-start.sh
-bc7fa5eb128268a22a873b28424e1a9a7bd8c1fa27766781587cb8c5cb7b15a5  .claude/skills/forge-project/scripts/typecheck.sh
+badfc90b5a5eacf1e9528dd3052d656aa46e0b6b479e95044a96be70ba26c207  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 69a94f1a0b16aa08bcf758af3e3dc269266cdd808aba1a4289b4c58c7f969700  .forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml
 1589382e5e0b5cae841a8f47dae9f2b3a8583a4bb1074ceb858d882e648e9b49  .forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml
@@ -17908,7 +18035,7 @@ e1a15384665afb7aae24664c55f4d81523622a6ef117385b17f806bc30cd3c3f  .forge/ast-gre
 4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0  .forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml
 04c44c9e215449d46b10540e86e999ec1d6383d8c3a849855fe73cb456668fca  .forge/ast-grep/rules/python/sqlalchemy/no-text-fstring.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-29005a3d7c1f27a04fd725bd1492a488e61d26e645c3726a3bd8d7e9ba3592c1  .forge/check.sh
+685c9d975a04391a633fc76a66a40d4bb5cc163674f1774df523ed547c95d4f3  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

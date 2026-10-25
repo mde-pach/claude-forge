@@ -1920,14 +1920,30 @@ forge_prefix_paths() {
 }
 
 # forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out; 124 when
-# it ran past <timeout> seconds and was stopped.
+# it ran past <timeout> seconds and was stopped. Under Stop (FORGE_DEADLINE, in epoch
+# seconds) the limit is at most what is left of the run's budget; a check with no time
+# left is not started. FORGE_EXEC_LIMIT is the limit applied, FORGE_EXEC_WHY "timeout"
+# or "budget".
 forge_exec_check() {
   set -f
-  if [ -n "$2" ]; then
+  FORGE_EXEC_LIMIT=$2
+  FORGE_EXEC_WHY=timeout
+  # under Stop, every check fits in what is left of the run's budget (FORGE_DEADLINE)
+  if [ -n "${FORGE_DEADLINE:-}" ]; then
+    _fe_left=$((FORGE_DEADLINE - $(date +%s)))
+    [ "$_fe_left" -gt 0 ] || _fe_left=0
+    if [ -z "$FORGE_EXEC_LIMIT" ] || [ "$_fe_left" -lt "$FORGE_EXEC_LIMIT" ]; then FORGE_EXEC_LIMIT=$_fe_left; FORGE_EXEC_WHY=budget; fi
+  fi
+  if [ "$FORGE_EXEC_LIMIT" = 0 ]; then
+    : > "$FORGE_TMP/out"
+    set +f
+    return 124
+  fi
+  if [ -n "$FORGE_EXEC_LIMIT" ]; then
     rm -f "$FORGE_TMP/timedout"
     "$1" > "$FORGE_TMP/out" 2>&1 &
     _fe_pid=$!
-    ( sleep "$2"; : > "$FORGE_TMP/timedout"; printf 'forge: timed out after %ss\n' "$2" >> "$FORGE_TMP/out"; forge_kill_tree "$_fe_pid" ) >/dev/null 2>&1 &
+    ( sleep "$FORGE_EXEC_LIMIT"; : > "$FORGE_TMP/timedout"; printf 'forge: timed out after %ss\n' "$FORGE_EXEC_LIMIT" >> "$FORGE_TMP/out"; forge_kill_tree "$_fe_pid" ) >/dev/null 2>&1 &
     _fe_watch=$!
     wait "$_fe_pid" 2>/dev/null
     _fe_rc=$?
@@ -2069,7 +2085,11 @@ forge_run_check() {
   case $? in
     0) grep '^forge:' "$FORGE_TMP/out"; return 0 ;;
     124)
-      printf 'forge:%s failed: timed out after %ss and was stopped (a hung test, or a service that never answers?); its output until then:\n' "$c_id" "$c_timeout"
+      if [ "$FORGE_EXEC_WHY" = budget ]; then
+        printf 'forge:%s failed: stopped after %ss: the Stop hook'"'"'s time budget (%s s, FORGE_STOP_BUDGET) ran out before it finished; its output until then:\n' "$c_id" "$FORGE_EXEC_LIMIT" "${FORGE_BUDGET:-}"
+      else
+        printf 'forge:%s failed: timed out after %ss and was stopped (a hung test, or a service that never answers?); its output until then:\n' "$c_id" "$c_timeout"
+      fi
       grep -v '^forge: timed out after' "$FORGE_TMP/out" | forge_excerpt 15
       return 1 ;;
   esac
@@ -2350,7 +2370,9 @@ forge_test_compare() {
     forge_exec_check forge_rerun_in_base "$c_timeout"
     _ft_rc=$?
     forge_failed_tests < "$FORGE_TMP/out" > "$FORGE_TMP/failing.base"
-    if [ "$_ft_rc" -eq 124 ]; then _ft_why="the re-run there was stopped after ${c_timeout}s"
+    if [ "$_ft_rc" -eq 124 ]; then
+      _ft_why="the re-run there was stopped after ${FORGE_EXEC_LIMIT}s"
+      [ "$FORGE_EXEC_WHY" != budget ] || _ft_why="$_ft_why, when the Stop hook's time budget ran out"
     elif [ "$_ft_rc" -ne 0 ] && [ ! -s "$FORGE_TMP/failing.base" ]; then _ft_why='the re-run there failed without naming a failing test'
     fi
   fi

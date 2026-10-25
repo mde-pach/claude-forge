@@ -73,6 +73,12 @@ if [ "$hash" = "$(cat "$failed" 2>/dev/null)" ] && [ -f "$failed.reason" ]; then
 fi
 
 rm -f "$failed.unverified" "$failed.once"
+# one time budget for the whole check, under the hook's 600 s timeout (a stopped hook
+# blocks nothing): each check gets at most what is left of it
+FORGE_BUDGET=${FORGE_STOP_BUDGET:-540}
+case $FORGE_BUDGET in ''|*[!0-9]*) FORGE_BUDGET=540 ;; esac
+FORGE_DEADLINE=$(($(date +%s) + FORGE_BUDGET))
+export FORGE_BUDGET FORGE_DEADLINE
 out=$(FORGE_UNVERIFIED=$failed.unverified FORGE_ONCE=$failed.once sh .forge/check.sh "$@" 2>&1)
 rc=$?
 if [ "$rc" -eq 0 ]; then

@@ -996,6 +996,32 @@ describe("Stop", () => {
     T,
   );
 
+  /**
+   * Claude Code stops the Stop hook after 600 s, and a stopped hook blocks nothing.
+   * A test run (300 s), its re-run at the start of the turn (300 s) and the other
+   * checks could exceed that, so they share one budget under it.
+   * @rule python/pytest/run
+   */
+  test(
+    "the checks of a Stop share one time budget under the hook's timeout: a check still running when it runs out is stopped and blocks, saying so",
+    () => {
+      stubTool("pytest", "sleep 60; exit 0");
+      try {
+        hook("turn-start.sh", { session_id: "t-budget" });
+        put(repo, "app/main.py", 'async def health() -> dict[str, str]:\n    return {"status": "ok"}  # turn-change\n');
+        const t0 = performance.now();
+        const out = JSON.parse(hook("stop.sh", { session_id: "t-budget" }, { FORGE_STOP_BUDGET: "6" }).stdout);
+        expect(performance.now() - t0).toBeLessThan(30_000);
+        expect(out.decision).toBe("block");
+        expect(out.reason).toMatch(/forge:python\/pytest\/run failed: stopped after \d+s: the Stop hook's time budget \(6 s, FORGE_STOP_BUDGET\) ran out/);
+      } finally {
+        rmSync(join(repo, ".venv/bin/pytest"));
+        reset();
+      }
+    },
+    T,
+  );
+
   test(
     "a commit made during the turn is still part of the turn",
     () => {
