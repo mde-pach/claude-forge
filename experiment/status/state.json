@@ -1,6 +1,6 @@
 {
  "updated": "",
- "headline": "Main run in progress: 60 frozen tasks \u00d7 2 arms \u00d7 3 replicates = 360 trials. The charts show interim results; the analysis with confidence intervals comes when the run ends.",
+ "headline": "Found during the run: in every Forge trial so far, Claude Code's Bash sandbox (enabled by Forge) failed to start inside our containers, so the agent retried each command outside it. That run (Run A, shown below) is kept as a secondary result. The container is fixed, and the full experiment is being re-run as Run B, the primary result.",
  "phases": [
   {
    "name": "Design written and pre-registered",
@@ -45,7 +45,7 @@
   {
    "name": "Full run: 3 replicates \u00d7 2 arms",
    "state": "running",
-   "note": "started 2026-10-25; est. ~20 h"
+   "note": "Run A stopped at ~170/360 (sandbox could not start); Run B starting after a verification pilot"
   },
   {
    "name": "Analysis and REPORT.md",
@@ -122,6 +122,8 @@
   "Pre-registered (D16): sensitivity analysis without better-auth, and Stop blocks per repo",
   "P13: uv's uv_cache.json timestamp made prep non-deterministic; excluded; determinism verified on 6 repos",
   "Dataset v1 frozen: 60 tasks; scorer self-test passed on one main task per repo",
-  "Main run started"
+  "Main run started",
+  "Run A: every Forge trial hit 'bwrap: Can't mount proc' and retried unsandboxed; Forge's own probe misses this case",
+  "Fix: --security-opt systempaths=unconfined (both arms) + pre-agent sandbox probe; Run B re-runs the full design (D17)"
  ]
 }

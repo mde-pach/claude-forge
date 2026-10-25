@@ -40,7 +40,7 @@ The project's virtualenv `bin/` (Python) or `node_modules/.bin` (TypeScript) is 
 An `acceptEdits` arm would measure the ask-reviewer (see D2), but it needs another 180 trials. A "Forge project level only" arm answers a narrower question that is not asked here. The budget goes to 3 trials per task instead, which tightens the primary comparison.
 
 ## D7. The Bash sandbox
-`forge apply --user` enables Claude Code's Bash sandbox (bubblewrap). Docker's default seccomp and AppArmor profiles stop bubblewrap from creating namespaces, which is the failure Forge's docs describe. The docs' remedy is to give the container what bubblewrap needs. So **every** trial container, in both arms, runs with `--security-opt seccomp=unconfined --security-opt apparmor=unconfined --cap-add SYS_ADMIN`, and the shared image includes `bubblewrap` and `socat`. Then the Forge arm runs as Forge intends, and the baseline gets the same container privileges.
+`forge apply --user` enables Claude Code's Bash sandbox (bubblewrap). Docker's default seccomp and AppArmor profiles stop bubblewrap from creating namespaces, which is the failure Forge's docs describe. The docs' remedy is to give the container what bubblewrap needs. So **every** trial container, in both arms, runs with `--security-opt seccomp=unconfined --security-opt apparmor=unconfined --cap-add SYS_ADMIN` (and, since D17, `--security-opt systempaths=unconfined`), and the shared image includes `bubblewrap` and `socat`. Then the Forge arm runs as Forge intends, and the baseline gets the same container privileges.
 
 ## D8. Workspace trust
 Forge's docs say that headless Claude Code loads the project plugin only in a trusted workspace ("accept the trust dialog once, interactively"). The harness writes the equivalent `hasTrustDialogAccepted: true` entry for the workspace path into `~/.claude.json`, in **both** arms.
@@ -86,3 +86,15 @@ better-auth's development setup starts 10 database services with docker-compose:
   - the paired difference per repository, which is already planned.
 
   REPORT.md discusses this as a threat to validity. The other five repositories' unit tests run without external services.
+
+## D17. The Forge sandbox could not start in Run A. Run B is the primary run
+**Finding (2026-10-25, during the main run).** In every one of the first 81 Forge-arm trials, Claude Code's Bash sandbox failed: `bwrap: Can't mount proc on /newroot/proc: Operation not permitted`. The agent then retried its commands outside the sandbox (`dangerouslyDisableSandbox`, in 79 of the 81 trials).
+
+**Cause.** Docker masks `/proc` paths by default. The container settings from D7 (seccomp, apparmor, SYS_ADMIN) allow bubblewrap to create namespaces, but not to mount `/proc`, and Claude Code's sandbox needs that mount. Forge's own probe (`bwrap --ro-bind / / --dev /dev --unshare-all --die-with-parent true`, in SPECS "A sandbox that cannot start") does not mount `/proc`, so it passed and printed no warning.
+
+**Decision (conservative).**
+- Run A does not test Forge as its documentation intends, so it is not the primary result. It stopped cleanly; its trials are kept unchanged in `results/raw/main/` and reported separately as **Run A: the Forge sandbox could not start**. That situation is real: it is what a user in a default Docker container gets.
+- Every trial container, in both arms, now also gets `--security-opt systempaths=unconfined`, the remaining part of "give the container what bubblewrap needs".
+- Each trial now checks, before the agent starts, that bubblewrap can start a sandbox that mounts `/proc` (both arms). It also records `sandbox_failures` and `sandbox_bypass_calls` from the transcript.
+- The full pre-registered design (same frozen dataset v1, same arms, same 3 replicates, same analysis) runs again as **Run B** in `results/raw/main_b/`. Run B is the primary result.
+- Nothing else changes. No Run A outcome was used to change anything. The flaw was found by reading a transcript for the new trial-detail view, and Run A's interim outcomes were nearly identical between the arms.

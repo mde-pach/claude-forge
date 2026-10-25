@@ -148,6 +148,12 @@ def prepare(name, task, repo, arm, logs_dir):
     open(os.path.join(logs_dir, "install.log"), "w").write(log)
     if not ok:
         raise classify.Infra("dependency install failed")
+    # The Bash sandbox must be able to start (D17): the probe Claude Code's sandbox needs, incl. mounting /proc.
+    r = subprocess.run(["docker", "exec", "-u", "dev", name, "sh", "-c",
+                        "bwrap --ro-bind / / --proc /proc --dev /dev --unshare-all --die-with-parent true"],
+                       capture_output=True, text=True, timeout=60)
+    if r.returncode != 0:
+        raise classify.Infra("bubblewrap sandbox cannot start: " + r.stderr.strip()[:300])
     # trust the workspace + skip onboarding (both arms; DECISIONS D8)
     cfg = {"hasCompletedOnboarding": True, "bypassPermissionsModeAccepted": True,
            "projects": {"/work": {"hasTrustDialogAccepted": True, "hasCompletedProjectOnboarding": True}}}
@@ -376,8 +382,11 @@ def main():
         json.dump(tinfo["edits"], open(os.path.join(out, "edits.json"), "w"), indent=1)
         json.dump(tinfo["hooks"], open(os.path.join(out, "forge", "hook_summary.json"), "w"), indent=1)
         infra = classify.agent_infra(tinfo, timed_out, open(os.path.join(out, "agent_stderr.log")).read())
+        ttext = open(tpath, errors="replace").read()
+        meta["sandbox_failures"] = len(re.findall(r"bwrap: |Sandbox failure|sandbox (could not|cannot|failed to) start", ttext, re.I))
+        meta["sandbox_bypass_calls"] = ttext.count('"dangerouslyDisableSandbox":true')
         if not infra:
-            bad = classify.env_failure(open(tpath, errors="replace").read())
+            bad = classify.env_failure(ttext)
             if bad:
                 infra = f"disk/memory exhaustion during the agent run: {bad}"
         # copy logs + forge state

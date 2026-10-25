@@ -17,6 +17,7 @@ e = html.escape
 ARMS = ("baseline", "forge")
 REPOS = ["pydantic-ai", "fastmcp", "logfire", "better-auth", "zod", "inngest-js"]
 REPS = 3
+RUN_LABEL = os.environ.get("RUN_LABEL", "Results so far")
 
 
 def load(run_dir, ds_dir):
@@ -173,7 +174,9 @@ def grid(tasks):
                         cls, sym, tip = "run", "↻", f"{tid} · {arm} r{k}: retrying after {s}"
                     else:
                         cls, sym, tip = "todo", "", f"{tid} · {arm} r{k}: not run yet"
-                    cells.append(f'<td class="c {cls}" data-tip="{e(tip)}">{sym}</td>')
+                    attrs = (f' tabindex="0" role="button" data-task="{e(tid)}" data-key="{arm}/r{k}"'
+                             if s in ("scored", "infra_error", "parity_error") else "")
+                    cells.append(f'<td class="c {cls}" data-tip="{e(tip)}"{attrs}>{sym}</td>')
             out.append(f'<tr><td class="tl" title="{e(t["subject"])}"><span class="tid">{e(tid.split("__")[1][:7])}</span> '
                        f'<span class="subj">{e(t["subject"][:64])}</span></td>{"".join(cells)}</tr>')
     out.append("</tbody></table></div>")
@@ -251,11 +254,11 @@ if len(sys.argv) >= 3 and os.path.exists(os.path.join(sys.argv[2], "manifest.v1.
 <li><b>Forge makes its arm slower by design.</b> Its Stop hook runs the project's checks and related tests before the agent may finish, and sends it back to work (up to 3 times) until they pass. Agent time in the Forge arm is several times the baseline's on zod, pydantic-ai and better-auth.</li>
 <li><b>The machine is small.</b> It has 4 CPUs and about 11 GB of free disk, and each workspace takes 1.5–3.5 GB, so only 3 trials run at once and the CPUs are saturated.</li>
 </ul></section>
-<figure><figcaption><h3>Every trial</h3><p>One row per task, one cell per trial. A filled cell (✓) is resolved, ✗ is not resolved, … is running, and an empty cell is not run yet. Hover a cell for its turns, cost and time.</p></figcaption>{grid(tasks)}</figure>
+<figure><figcaption><h3>Every trial</h3><p>One row per task, one cell per trial. A filled cell (✓) is resolved, ✗ is not resolved, … is running, and an empty cell is not run yet. <b>Click a cell</b> to see its turns, tests, diff and what Forge did.</p></figcaption>{grid(tasks)}</figure>
 <figure><figcaption><h3>What Forge did in its arm</h3><p>Averages per scored Forge trial, from the hook events in the transcripts.</p></figcaption>{forge_activity(tasks)}</figure>
 """
 
-page = f"""<title>Forge Trial Ledger</title>
+page = rf"""<title>Forge Trial Ledger</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -351,6 +354,44 @@ dl {{ margin: 0; display: grid; gap: 8px; }}
 dl div {{ display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 8px; }}
 dt {{ color: var(--muted); font-size: 13px; }} dd {{ margin: 0; font: 13px var(--mono); overflow-wrap: anywhere; }}
 ul.log {{ margin: 12px 0 0; padding-left: 18px; display: grid; gap: 4px; font-size: 13.5px; }}
+[hidden] {{ display: none !important; }}
+td.c[role=button] {{ cursor: pointer; }}
+td.c:focus-visible {{ outline: 2px solid var(--accent); outline-offset: -2px; }}
+.drawer {{ position: fixed; z-index: 30; top: 0; right: 0; bottom: 0; width: min(760px, 100vw); background: var(--bg);
+  border-left: 1px solid var(--line); box-shadow: -8px 0 30px rgba(0,0,0,.18); display: flex; flex-direction: column;
+  padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); padding-right: env(safe-area-inset-right, 0px); }}
+.dh {{ padding: 16px 18px 10px; border-bottom: 1px solid var(--line); display: grid; gap: 8px; }}
+.dh .top {{ display: flex; gap: 12px; align-items: start; justify-content: space-between; }}
+.dh h3 {{ font: 600 18px/1.3 var(--display); }}
+.dh .meta {{ font: 12px var(--mono); color: var(--muted); }}
+.close {{ font: 600 13px var(--body); background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 4px; padding: 5px 10px; cursor: pointer; }}
+.switch {{ display: flex; flex-wrap: wrap; gap: 6px; }}
+.switch button, .tabs button {{ font: 500 12.5px var(--body); background: var(--panel); color: var(--fg); border: 1px solid var(--line);
+  border-radius: 4px; padding: 4px 9px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }}
+.switch button[aria-pressed=true], .tabs button[aria-selected=true] {{ border-color: var(--fg); box-shadow: inset 0 0 0 1px var(--fg); }}
+.switch button:disabled {{ opacity: .45; cursor: default; }}
+.stats {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px 14px; padding: 12px 18px; border-bottom: 1px solid var(--line); }}
+.stats div {{ display: grid; }}
+.stats b {{ font: 600 16px var(--mono); font-variant-numeric: tabular-nums; }}
+.stats span {{ font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }}
+.verdict {{ font: 600 13px var(--mono); padding: 2px 8px; border-radius: 3px; display: inline-block; }}
+.verdict.ok {{ background: var(--ok); color: var(--panel); }} .verdict.no {{ box-shadow: inset 0 0 0 1.5px var(--fail); color: var(--fail); }}
+.tabs {{ display: flex; gap: 6px; padding: 10px 18px 0; }}
+.dbody {{ overflow-y: auto; padding: 12px 18px 40px; flex: 1; min-height: 0; }}
+.step {{ display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--grid); }}
+.badge {{ font: 600 10.5px var(--mono); text-transform: uppercase; letter-spacing: .04em; border-radius: 3px; padding: 2px 5px; align-self: start; text-align: center; border: 1px solid var(--line); color: var(--muted); }}
+.b-tool {{ color: var(--fg); }} .b-block {{ color: var(--panel); background: var(--forge); border-color: var(--forge); }}
+.b-hook {{ color: var(--forge); border-color: var(--forge); }} .b-result {{ color: var(--panel); background: var(--accent); border-color: var(--accent); }}
+.turnno {{ font: 11px var(--mono); color: var(--muted); display: block; margin-top: 3px; text-align: center; }}
+pre.s {{ margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 12.5px/1.45 var(--mono); }}
+.step details {{ margin-top: 4px; }}
+.step summary {{ cursor: pointer; font-size: 12px; color: var(--muted); }}
+.step summary.err {{ color: var(--forge); }}
+pre.o {{ margin: 4px 0 0; padding: 8px; background: var(--panel); border: 1px solid var(--line); white-space: pre-wrap; overflow-wrap: anywhere; font: 11.5px/1.45 var(--mono); max-height: 320px; overflow: auto; }}
+.trow {{ display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 8px; padding: 3px 0; font: 12px var(--mono); overflow-wrap: anywhere; }}
+.st-passed {{ color: var(--ok); }} .st-failed, .st-error, .st-missing {{ color: var(--forge); font-weight: 600; }}
+.diff .add {{ color: var(--ok); }} .diff .del {{ color: var(--forge); }} .diff .hd {{ color: var(--accent); font-weight: 600; }}
+.instr {{ white-space: pre-wrap; font-size: 14px; max-width: 80ch; }}
 @media (prefers-reduced-motion: reduce) {{ * {{ transition: none !important; }} }}
 </style>
 <div class="wrap">
@@ -360,13 +401,122 @@ ul.log {{ margin: 12px 0 0; padding-left: 18px; display: grid; gap: 4px; font-si
   <p class="lede">{e(state["headline"])}</p>
   <div class="stamp">Updated {state["updated"]}</div>
 </header>
-<section><h2>Results so far</h2>{results_html}</section>
+<section><h2>{e(RUN_LABEL)}</h2>{results_html}</section>
 <section class="process">
   <div><h2>Progress</h2><ol class="phases">{phases}</ol></div>
   <div><h2>Pinned setup</h2><dl>{pins}</dl><h2 style="margin-top:24px">Log</h2><ul class="log">{log}</ul></div>
 </section>
 </div>
 <div class="tip" id="tip" hidden></div>
+<aside class="drawer" id="drawer" hidden aria-label="Trial details">
+  <div class="dh"><div class="top"><div><h3 id="d-title"></h3><div class="meta" id="d-meta"></div></div>
+  <button class="close" id="d-close" type="button">Close</button></div><div class="switch" id="d-switch"></div></div>
+  <div class="stats" id="d-stats"></div>
+  <div class="tabs" role="tablist" id="d-tabs"></div>
+  <div class="dbody" id="d-body"></div>
+</aside>
+<script>
+(function () {{
+  var drawer = document.getElementById('drawer'), cache = {{}}, cur = null;
+  var TABS = [['turns', 'Turns'], ['tests', 'Tests'], ['diff', 'Diff'], ['task', 'Task']];
+  function el(tag, cls, text) {{ var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }}
+  function fmt(x, d) {{ return x == null ? '–' : x.toFixed(d); }}
+  function open(task, key) {{
+    cur = {{ task: task, key: key, tab: (cur && cur.tab) || 'turns' }};
+    drawer.hidden = false;
+    document.getElementById('d-title').textContent = 'Loading…';
+    (cache[task] ? Promise.resolve(cache[task]) : fetch('data/' + task + '.json').then(function (r) {{
+      if (!r.ok) throw new Error(r.status); return r.json(); }})).then(function (doc) {{ cache[task] = doc; render(doc); }})
+      .catch(function () {{ document.getElementById('d-title').textContent = 'The details for this task could not be loaded. Reload the page and try again.'; }});
+  }}
+  function render(doc) {{
+    var t = doc.trials[cur.key] || {{}};
+    document.getElementById('d-title').textContent = doc.subject;
+    document.getElementById('d-meta').textContent = doc.task_id + ' · ' + doc.repo + ' · ' + doc.type + ' · upstream ' + doc.commit.slice(0, 10);
+    var sw = document.getElementById('d-switch'); sw.textContent = '';
+    ['baseline', 'forge'].forEach(function (arm) {{ [1, 2, 3].forEach(function (k) {{
+      var key = arm + '/r' + k, tr = doc.trials[key], b = el('button');
+      b.type = 'button'; b.setAttribute('aria-pressed', key === cur.key);
+      var dot = el('span', 'key k-' + arm); b.appendChild(dot);
+      b.appendChild(document.createTextNode((arm === 'forge' ? 'Forge' : 'Baseline') + ' r' + k +
+        (tr ? (tr.status !== 'scored' ? ' ↻' : tr.resolved ? ' ✓' : ' ✗') : '')));
+      if (!tr) b.disabled = true; else b.onclick = function () {{ cur.key = key; render(doc); }};
+      sw.appendChild(b); }}); }});
+    var stats = document.getElementById('d-stats'); stats.textContent = '';
+    function stat(label, val, node) {{ var d = el('div'); d.appendChild(node || el('b', null, val)); d.appendChild(el('span', null, label)); stats.appendChild(d); }}
+    if (t.status === 'scored') {{
+      stat('outcome', null, el('b', 'verdict ' + (t.resolved ? 'ok' : 'no'), t.resolved ? 'Resolved' : 'Not resolved'));
+      var f = t.f2p || {{}}, fk = Object.keys(f), fp = fk.filter(function (k) {{ return f[k] === 'passed'; }}).length;
+      stat('target tests pass', fp + ' / ' + fk.length);
+      stat('regressions', String(t.p2p_regressions != null ? t.p2p_regressions : '–'));
+    }} else {{ stat('status', t.status || '–'); }}
+    stat('turns', String(t.num_turns != null ? t.num_turns : '–'));
+    stat('cost', t.cost_usd != null ? '$' + fmt(t.cost_usd, 2) : '–');
+    stat('agent time', t.duration_s != null ? fmt(t.duration_s / 60, 1) + ' min' : '–');
+    stat('whole trial', t.wall_s != null ? fmt(t.wall_s / 60, 1) + ' min' : '–');
+    stat('lines changed', String(t.diff_lines != null ? t.diff_lines : '–'));
+    stat('new lint errors', String(t.lint_new != null ? t.lint_new : '–'));
+    if (t.edits) stat('edits: tool / shell', t.edits.edit_tool_calls + ' / ' + t.edits.shell_edit_calls);
+    if (cur.key.indexOf('forge') === 0 && t.hooks) {{ stat('Forge stop blocks', String(t.hooks.stop_blocks)); stat('Forge feedback', String(t.hooks.feedback)); }}
+    var tabs = document.getElementById('d-tabs'); tabs.textContent = '';
+    TABS.forEach(function (x) {{ var b = el('button', null, x[1]); b.type = 'button'; b.setAttribute('role', 'tab');
+      b.setAttribute('aria-selected', cur.tab === x[0]); b.onclick = function () {{ cur.tab = x[0]; render(doc); }}; tabs.appendChild(b); }});
+    var body = document.getElementById('d-body'); body.textContent = ''; body.scrollTop = 0;
+    if (cur.tab === 'turns') turns(body, t);
+    else if (cur.tab === 'tests') tests(body, t, doc);
+    else if (cur.tab === 'diff') diff(body, t);
+    else {{ body.appendChild(el('p', 'muted', 'The instruction both arms received, word for word. Hidden test files: ' + doc.test_files.join(', ') +
+      '. ' + doc.n_f2p + ' target tests and ' + doc.n_p2p + ' existing tests are scored; the audit dropped ' + doc.audit_dropped + '.'));
+      body.appendChild(el('div', 'instr', doc.instruction)); }}
+  }}
+  function turns(body, t) {{
+    if (t.infra_reason) body.appendChild(el('p', 'muted', 'Infrastructure: ' + t.infra_reason));
+    var steps = t.steps || [];
+    if (!steps.length) {{ body.appendChild(el('p', 'muted', 'No transcript for this attempt.')); return; }}
+    body.appendChild(el('p', 'muted', 'Every message, tool call and result, plus each hook that said something (Forge feedback and blocks). Click "output" to expand a result.'));
+    steps.forEach(function (s) {{
+      var row = el('div', 'step'), left = el('div');
+      var label = s.k === 'tool' ? s.tool : s.k === 'text' ? 'says' : s.k === 'block' ? 'blocked' : s.k === 'hook' ? 'hook' : 'final';
+      left.appendChild(el('div', 'badge b-' + s.k, label)); left.appendChild(el('span', 'turnno', 'turn ' + s.turn));
+      var right = el('div'); right.style.minWidth = '0';
+      if (s.k === 'hook' || s.k === 'block') right.appendChild(el('div', 'muted', (s.hook || '') + (s.exit != null ? ' · exit ' + s.exit : '')));
+      right.appendChild(el('pre', 's', s.s));
+      if (s.out != null) {{ var det = el('details'), sm = el('summary', s.err ? 'err' : null, s.err ? 'output (error)' : 'output');
+        det.appendChild(sm); det.appendChild(el('pre', 'o', s.out || '(empty)')); right.appendChild(det); }}
+      row.appendChild(left); row.appendChild(right); body.appendChild(row);
+    }});
+  }}
+  function tests(body, t, doc) {{
+    if (!t.f2p) {{ body.appendChild(el('p', 'muted', 'This attempt was not scored.')); return; }}
+    function list(title, obj, onlyBad) {{
+      var keys = Object.keys(obj), bad = keys.filter(function (k) {{ return obj[k] !== 'passed'; }});
+      body.appendChild(el('h3', null, title + ' (' + (keys.length - bad.length) + ' of ' + keys.length + ' pass)'));
+      var show = onlyBad ? bad : keys;
+      if (onlyBad) body.appendChild(el('p', 'muted', bad.length ? 'Only the existing tests that broke are listed.' : 'No existing test broke.'));
+      show.forEach(function (k) {{ var r = el('div', 'trow'); r.appendChild(el('span', 'st-' + obj[k], obj[k])); r.appendChild(el('span', null, k)); body.appendChild(r); }});
+    }}
+    body.appendChild(el('p', 'muted', 'Target tests failed before the upstream change and pass after it. Existing tests passed before and must still pass. Run on the agent’s final diff in a fresh container.'));
+    list('Target tests', t.f2p, false);
+    var sp = el('div'); sp.style.height = '14px'; body.appendChild(sp);
+    list('Existing tests', t.p2p || {{}}, true);
+  }}
+  function diff(body, t) {{
+    if (!t.diff) {{ body.appendChild(el('p', 'muted', 'The agent changed no files.')); return; }}
+    body.appendChild(el('p', 'muted', 'The agent’s final change against the starting commit (Forge’s own files excluded). Files: ' + (t.changed_files || []).join(', ')));
+    var pre = el('pre', 'o diff'); pre.style.maxHeight = 'none';
+    t.diff.split('\n').forEach(function (l) {{ var c = /^\+\+\+|^---|^diff |^@@/.test(l) ? 'hd' : l[0] === '+' ? 'add' : l[0] === '-' ? 'del' : null;
+      pre.appendChild(el('span', c, l + '\n')); }});
+    body.appendChild(pre);
+  }}
+  document.addEventListener('click', function (ev) {{ var c = ev.target.closest && ev.target.closest('td.c[data-task]'); if (c) open(c.dataset.task, c.dataset.key); }});
+  document.addEventListener('keydown', function (ev) {{
+    if (ev.key === 'Escape') drawer.hidden = true;
+    var c = ev.target.closest && ev.target.closest('td.c[data-task]');
+    if (c && (ev.key === 'Enter' || ev.key === ' ')) {{ ev.preventDefault(); open(c.dataset.task, c.dataset.key); }} }});
+  document.getElementById('d-close').onclick = function () {{ drawer.hidden = true; }};
+}})();
+</script>
+
 <script>
 (function () {{
   var tip = document.getElementById('tip');

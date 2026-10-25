@@ -63,8 +63,11 @@ DEV_UID = "1000"
 DEV_GID = "1000"
 CPUS = "2"
 MEMORY = "6g"
+# What bubblewrap (Claude Code's Bash sandbox, enabled by `forge apply --user`) needs inside Docker
+# (DECISIONS D7, D17): namespaces (seccomp/apparmor/SYS_ADMIN) AND an unmasked /proc to mount
+# (systempaths=unconfined). Identical in both arms.
 SECURITY_EXTRA = ["--security-opt", "seccomp=unconfined", "--security-opt", "apparmor=unconfined",
-                  "--cap-add", "SYS_ADMIN"]
+                  "--cap-add", "SYS_ADMIN", "--security-opt", "systempaths=unconfined"]
 GIT_IDENTITY = {
     "GIT_AUTHOR_NAME": "dev", "GIT_AUTHOR_EMAIL": "dev@example.com",
     "GIT_COMMITTER_NAME": "dev", "GIT_COMMITTER_EMAIL": "dev@example.com",
