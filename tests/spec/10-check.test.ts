@@ -12,7 +12,7 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { applied, commitAll, ensureTools, forge, git, hasBun, hasUv, linkTools, put, sampleRepo, sh, TOOLS_CACHE } from "../helpers";
+import { applied, commitAll, ensureTools, forge, git, hasBun, hasUv, linkTools, linkTs5, put, sampleRepo, sh, TOOL_VERSIONS, TOOLS_CACHE } from "../helpers";
 
 const T = 180_000;
 const hasRuff = sh("sh", ["-c", "command -v ruff"]).status === 0;
@@ -311,6 +311,34 @@ describe("errors in unchanged files", () => {
       expect(c.status).toBe(1);
       expect(c.stdout).toContain("forge:typescript/typecheck failed\nsrc/ok.ts(1,14): error TS2322");
       expect(c.stdout).not.toContain("src/legacy.ts");
+    },
+    T,
+  );
+
+  /**
+   * tsc 5.x with `"pretty": true` colours its diagnostics even when they go to a file
+   * (`\e[96msrc/legacy.ts\e[0m:\e[93m1\e[0m:...`); tsc 7 does not. Run with the real tsc 5.
+   */
+  /** @rule typescript/typecheck */
+  test.if(hasBun)(
+    "with tsc 5 and \"pretty\": true (coloured diagnostics), an unchanged file's error still does not block",
+    () => {
+      const r = legacyRepo();
+      linkTs5(r);
+      put(r, "tsconfig.json", '{"compilerOptions": {"target": "ES2022", "module": "ESNext", "strict": true, "noEmit": true, "pretty": true}, "include": ["src"]}\n');
+      commitAll(r, "pretty");
+      const v = sh("node_modules/.bin/tsc", ["-v"], { cwd: r });
+      expect(v.stdout).toContain(`Version ${TOOL_VERSIONS.typescript5}`);
+      put(r, "src/ok.ts", "export const ok: number = 1;\n");
+      const ok = sh("sh", [".forge/check.sh", "--changed"], { cwd: r });
+      expect(ok.stdout).toContain("forge:typescript/typecheck ok for the changed files (errors remain in unchanged files");
+      expect(ok.status).toBe(0);
+      put(r, "src/ok.ts", 'export const ok: number = "no";\n');
+      const bad = sh("sh", [".forge/check.sh", "--changed"], { cwd: r });
+      expect(bad.status).toBe(1);
+      expect(bad.stdout).toContain("forge:typescript/typecheck failed");
+      expect(bad.stdout).toContain("src/ok.ts");
+      expect(bad.stdout).not.toContain("src/legacy.ts");
     },
     T,
   );

@@ -757,13 +757,16 @@ forge_exec_check() {
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "none" when no line names a file. With
-# "print", prints the lines that count instead.
+# "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
+# tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
   awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
+      gsub(ansi, "", line)
       if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
