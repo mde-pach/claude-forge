@@ -673,6 +673,7 @@ context.md: Prisma 7: `prisma-client` generator with `output`, driver adapters, 
 
 | `typescript/vitest/no-mock-increase` | `ast-grep` no-increase on test files: `vi.mock`, `vi.doMock`, `vi.spyOn`, `vi.fn` calls |
 | `typescript/vitest/no-test-edits` | `check` lint: `forge_test_edits` on `**/*.test.*`, `**/*.spec.*`, `**/__tests__/**`, not `e2e/**` (§10.5) |
+| `typescript/vitest/snapshot-stale` | `check` lint: `forge_snapshot_stale`, Stop only (`--turn`): a changed non-test source file whose added lines hold a string or an object key, imported directly (relative import) by a test that uses `toMatchSnapshot`, `toMatchFileSnapshot`, `toMatchInlineSnapshot` or golden files (`testdata/`, `golden`), while no `.snap`, `__snapshots__/`, `testdata/` or golden file changed in the turn (a test using only inline snapshots counts as updated when it changed). It blocks once per turn, then prints `accepted` and passes (`forge_once`) |
 
 context.md: Vitest 4 `test.projects` and `maxWorkers`; assertions are never weakened to make a test pass; "If an existing test looks wrong, stop and ask; never edit it to make the code pass."
 

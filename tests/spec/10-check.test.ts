@@ -866,4 +866,25 @@ describe("advisory checks block once per turn", () => {
     },
     T,
   );
+  /** @rule typescript/vitest/snapshot-stale */
+  test(
+    "a change to output that a snapshot test imports, without a snapshot change, blocks the first Stop of the turn and is accepted at the next",
+    () => {
+      const { repo: r, turn } = turnRepo(["typescript/bun/lock-sync", "typescript/config-ratchet"]);
+      put(r, "src/span.ts", "export const span = (name: string) => ({ name });\n");
+      put(r, "src/span.test.ts", 'import { expect, it } from "vitest";\nimport { span } from "./span.js";\n\nit("span", () => {\n  expect(span("a")).toMatchSnapshot();\n});\n');
+      put(r, "src/__snapshots__/span.test.ts.snap", "exports[`span 1`] = `{}`;\n");
+      commitAll(r, "span");
+      put(r, ".forge/state/t.turn/head", git(r, "rev-parse", "HEAD").stdout);
+      put(r, "src/span.ts", 'export const span = (name: string) => ({ name, kind: "llm" });\n');
+      const first = turn();
+      expect(first.status).toBe(1);
+      expect(first.stdout).toContain("forge:typescript/vitest/snapshot-stale failed");
+      expect(first.stdout).toContain("src/span.ts: imported by src/span.test.ts, which compares output with snapshots or golden files");
+      expect(turn().stdout).toContain("forge:typescript/vitest/snapshot-stale accepted: reported once this turn");
+      // pre-commit and CI do not run it: a human updates snapshots on purpose
+      expect(sh("sh", [".forge/check.sh", "--changed"], { cwd: r }).stdout).not.toContain("forge:typescript/vitest/snapshot-stale");
+    },
+    T,
+  );
 });

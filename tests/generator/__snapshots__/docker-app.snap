@@ -1104,6 +1104,56 @@ forge_test_edits() {
   return 1
 }
 
+# forge_snapshot_stale: Stop only (--turn). A changed source file ($FORGE_FILES) whose
+# added lines hold a string or an object key, imported directly (relative import) by a
+# test that compares output with snapshots or golden files (toMatchSnapshot,
+# toMatchFileSnapshot, toMatchInlineSnapshot, testdata/, golden), while no .snap,
+# __snapshots__, testdata or golden file changed in the turn. A test that uses only
+# inline snapshots counts as updated when it changed. Blocks once per turn (forge_once).
+forge_snapshot_stale() {
+  [ "$mode" = --turn ] || return 0
+  grep -qE '\.snap$|(^|/)(__snapshots__|testdata|golden|__golden__)/|\.golden(\.|$)' "$FORGE_TMP/changed" && return 0
+  : > "$FORGE_TMP/snap.src"
+  for _ss_f in $FORGE_FILES; do
+    awk -F '\t' -v f="$_ss_f" '$1 == f { print $2 }' "$FORGE_TMP/added" > "$FORGE_TMP/snap.lines"
+    [ -s "$FORGE_TMP/snap.lines" ] || continue
+    awk 'NR == FNR { if ($0 == "*") all = 1; want[$0] = 1; next } all || (FNR in want)' "$FORGE_TMP/snap.lines" "$_ss_f" \
+      | grep -qE "[\"'\`]|[A-Za-z_\$][A-Za-z0-9_\$]*[?]?[[:space:]]*:" && printf '%s\n' "$_ss_f" >> "$FORGE_TMP/snap.src"
+  done
+  [ -s "$FORGE_TMP/snap.src" ] || return 0
+  git grep --untracked -lE 'toMatch(File|Inline)?Snapshot\(|testdata|golden' -- '*.test.*' '*.spec.*' '*/__tests__/*' > "$FORGE_TMP/snap.tests" 2>/dev/null
+  : > "$FORGE_TMP/snap.imports"
+  while IFS= read -r _ss_t; do
+    [ -f "$_ss_t" ] || continue
+    if grep -qxF "$_ss_t" "$FORGE_TMP/changed" && ! grep -qE 'toMatch(File)?Snapshot\(|testdata|golden' "$_ss_t"; then continue; fi
+    sed -n -E "s/.*(from|require\(|import\()[[:space:]]*[\"'](\.[^\"']*)[\"'].*/\2/p" "$_ss_t" \
+      | awk -v t="$_ss_t" '{ print t "\t" $0 }' >> "$FORGE_TMP/snap.imports"
+  done < "$FORGE_TMP/snap.tests"
+  awk -F '\t' '
+    function stem(p) { sub(/\.(d\.)?[cm]?[jt]sx?$/, "", p); return p }
+    function norm(p,   n, a, i, o, k) {
+      n = split(p, a, "/"); k = 0
+      for (i = 1; i <= n; i++) {
+        if (a[i] == "" || a[i] == ".") continue
+        if (a[i] == ".." && k > 0) { k--; continue }
+        o[++k] = a[i]
+      }
+      p = ""; for (i = 1; i <= k; i++) p = p (i > 1 ? "/" : "") o[i]
+      return p
+    }
+    FILENAME == ARGV[1] { src[stem($0)] = $0; next }
+    {
+      d = $1; if (d ~ /\//) sub(/\/[^\/]*$/, "", d); else d = "."
+      s = stem(norm(d "/" $2))
+      f = (s in src) ? src[s] : ((s "/index") in src) ? src[s "/index"] : ""
+      if (f != "" && !seen[f "\t" $1]++) print f ": imported by " $1 ", which compares output with snapshots or golden files"
+    }' "$FORGE_TMP/snap.src" "$FORGE_TMP/snap.imports" | sort | head -n 10 > "$FORGE_TMP/snap.out"
+  [ -s "$FORGE_TMP/snap.out" ] || return 0
+  cat "$FORGE_TMP/snap.out"
+  printf 'Output-producing code changed but its snapshots did not: run the snapshot tests with inputs that exercise the new output and update them (snapshot updates still go through no-snapshot-update).\n'
+  forge_once
+}
+
 # forge_toml_get <file> <section> <key>: the value of <key> in [<section>] ("" for
 # the top level), quotes and comments removed; nothing when absent. One-line values only.
 forge_toml_get() {
@@ -2470,6 +2520,56 @@ forge_test_edits() {
   cat "$FORGE_TMP/tests.edits"
   printf 'Tests that existed before this turn are not edited to make the code pass. Restore them; if one looks wrong, stop and ask the user.\n'
   return 1
+}
+
+# forge_snapshot_stale: Stop only (--turn). A changed source file ($FORGE_FILES) whose
+# added lines hold a string or an object key, imported directly (relative import) by a
+# test that compares output with snapshots or golden files (toMatchSnapshot,
+# toMatchFileSnapshot, toMatchInlineSnapshot, testdata/, golden), while no .snap,
+# __snapshots__, testdata or golden file changed in the turn. A test that uses only
+# inline snapshots counts as updated when it changed. Blocks once per turn (forge_once).
+forge_snapshot_stale() {
+  [ "$mode" = --turn ] || return 0
+  grep -qE '\.snap$|(^|/)(__snapshots__|testdata|golden|__golden__)/|\.golden(\.|$)' "$FORGE_TMP/changed" && return 0
+  : > "$FORGE_TMP/snap.src"
+  for _ss_f in $FORGE_FILES; do
+    awk -F '\t' -v f="$_ss_f" '$1 == f { print $2 }' "$FORGE_TMP/added" > "$FORGE_TMP/snap.lines"
+    [ -s "$FORGE_TMP/snap.lines" ] || continue
+    awk 'NR == FNR { if ($0 == "*") all = 1; want[$0] = 1; next } all || (FNR in want)' "$FORGE_TMP/snap.lines" "$_ss_f" \
+      | grep -qE "[\"'\`]|[A-Za-z_\$][A-Za-z0-9_\$]*[?]?[[:space:]]*:" && printf '%s\n' "$_ss_f" >> "$FORGE_TMP/snap.src"
+  done
+  [ -s "$FORGE_TMP/snap.src" ] || return 0
+  git grep --untracked -lE 'toMatch(File|Inline)?Snapshot\(|testdata|golden' -- '*.test.*' '*.spec.*' '*/__tests__/*' > "$FORGE_TMP/snap.tests" 2>/dev/null
+  : > "$FORGE_TMP/snap.imports"
+  while IFS= read -r _ss_t; do
+    [ -f "$_ss_t" ] || continue
+    if grep -qxF "$_ss_t" "$FORGE_TMP/changed" && ! grep -qE 'toMatch(File)?Snapshot\(|testdata|golden' "$_ss_t"; then continue; fi
+    sed -n -E "s/.*(from|require\(|import\()[[:space:]]*[\"'](\.[^\"']*)[\"'].*/\2/p" "$_ss_t" \
+      | awk -v t="$_ss_t" '{ print t "\t" $0 }' >> "$FORGE_TMP/snap.imports"
+  done < "$FORGE_TMP/snap.tests"
+  awk -F '\t' '
+    function stem(p) { sub(/\.(d\.)?[cm]?[jt]sx?$/, "", p); return p }
+    function norm(p,   n, a, i, o, k) {
+      n = split(p, a, "/"); k = 0
+      for (i = 1; i <= n; i++) {
+        if (a[i] == "" || a[i] == ".") continue
+        if (a[i] == ".." && k > 0) { k--; continue }
+        o[++k] = a[i]
+      }
+      p = ""; for (i = 1; i <= k; i++) p = p (i > 1 ? "/" : "") o[i]
+      return p
+    }
+    FILENAME == ARGV[1] { src[stem($0)] = $0; next }
+    {
+      d = $1; if (d ~ /\//) sub(/\/[^\/]*$/, "", d); else d = "."
+      s = stem(norm(d "/" $2))
+      f = (s in src) ? src[s] : ((s "/index") in src) ? src[s "/index"] : ""
+      if (f != "" && !seen[f "\t" $1]++) print f ": imported by " $1 ", which compares output with snapshots or golden files"
+    }' "$FORGE_TMP/snap.src" "$FORGE_TMP/snap.imports" | sort | head -n 10 > "$FORGE_TMP/snap.out"
+  [ -s "$FORGE_TMP/snap.out" ] || return 0
+  cat "$FORGE_TMP/snap.out"
+  printf 'Output-producing code changed but its snapshots did not: run the snapshot tests with inputs that exercise the new output and update them (snapshot updates still go through no-snapshot-update).\n'
+  forge_once
 }
 
 # forge_toml_get <file> <section> <key>: the value of <key> in [<section>] ("" for
@@ -3873,6 +3973,56 @@ forge_test_edits() {
   cat "$FORGE_TMP/tests.edits"
   printf 'Tests that existed before this turn are not edited to make the code pass. Restore them; if one looks wrong, stop and ask the user.\n'
   return 1
+}
+
+# forge_snapshot_stale: Stop only (--turn). A changed source file ($FORGE_FILES) whose
+# added lines hold a string or an object key, imported directly (relative import) by a
+# test that compares output with snapshots or golden files (toMatchSnapshot,
+# toMatchFileSnapshot, toMatchInlineSnapshot, testdata/, golden), while no .snap,
+# __snapshots__, testdata or golden file changed in the turn. A test that uses only
+# inline snapshots counts as updated when it changed. Blocks once per turn (forge_once).
+forge_snapshot_stale() {
+  [ "$mode" = --turn ] || return 0
+  grep -qE '\.snap$|(^|/)(__snapshots__|testdata|golden|__golden__)/|\.golden(\.|$)' "$FORGE_TMP/changed" && return 0
+  : > "$FORGE_TMP/snap.src"
+  for _ss_f in $FORGE_FILES; do
+    awk -F '\t' -v f="$_ss_f" '$1 == f { print $2 }' "$FORGE_TMP/added" > "$FORGE_TMP/snap.lines"
+    [ -s "$FORGE_TMP/snap.lines" ] || continue
+    awk 'NR == FNR { if ($0 == "*") all = 1; want[$0] = 1; next } all || (FNR in want)' "$FORGE_TMP/snap.lines" "$_ss_f" \
+      | grep -qE "[\"'\`]|[A-Za-z_\$][A-Za-z0-9_\$]*[?]?[[:space:]]*:" && printf '%s\n' "$_ss_f" >> "$FORGE_TMP/snap.src"
+  done
+  [ -s "$FORGE_TMP/snap.src" ] || return 0
+  git grep --untracked -lE 'toMatch(File|Inline)?Snapshot\(|testdata|golden' -- '*.test.*' '*.spec.*' '*/__tests__/*' > "$FORGE_TMP/snap.tests" 2>/dev/null
+  : > "$FORGE_TMP/snap.imports"
+  while IFS= read -r _ss_t; do
+    [ -f "$_ss_t" ] || continue
+    if grep -qxF "$_ss_t" "$FORGE_TMP/changed" && ! grep -qE 'toMatch(File)?Snapshot\(|testdata|golden' "$_ss_t"; then continue; fi
+    sed -n -E "s/.*(from|require\(|import\()[[:space:]]*[\"'](\.[^\"']*)[\"'].*/\2/p" "$_ss_t" \
+      | awk -v t="$_ss_t" '{ print t "\t" $0 }' >> "$FORGE_TMP/snap.imports"
+  done < "$FORGE_TMP/snap.tests"
+  awk -F '\t' '
+    function stem(p) { sub(/\.(d\.)?[cm]?[jt]sx?$/, "", p); return p }
+    function norm(p,   n, a, i, o, k) {
+      n = split(p, a, "/"); k = 0
+      for (i = 1; i <= n; i++) {
+        if (a[i] == "" || a[i] == ".") continue
+        if (a[i] == ".." && k > 0) { k--; continue }
+        o[++k] = a[i]
+      }
+      p = ""; for (i = 1; i <= k; i++) p = p (i > 1 ? "/" : "") o[i]
+      return p
+    }
+    FILENAME == ARGV[1] { src[stem($0)] = $0; next }
+    {
+      d = $1; if (d ~ /\//) sub(/\/[^\/]*$/, "", d); else d = "."
+      s = stem(norm(d "/" $2))
+      f = (s in src) ? src[s] : ((s "/index") in src) ? src[s "/index"] : ""
+      if (f != "" && !seen[f "\t" $1]++) print f ": imported by " $1 ", which compares output with snapshots or golden files"
+    }' "$FORGE_TMP/snap.src" "$FORGE_TMP/snap.imports" | sort | head -n 10 > "$FORGE_TMP/snap.out"
+  [ -s "$FORGE_TMP/snap.out" ] || return 0
+  cat "$FORGE_TMP/snap.out"
+  printf 'Output-producing code changed but its snapshots did not: run the snapshot tests with inputs that exercise the new output and update them (snapshot updates still go through no-snapshot-update).\n'
+  forge_once
 }
 
 # forge_toml_get <file> <section> <key>: the value of <key> in [<section>] ("" for
@@ -6157,6 +6307,56 @@ forge_test_edits() {
   return 1
 }
 
+# forge_snapshot_stale: Stop only (--turn). A changed source file ($FORGE_FILES) whose
+# added lines hold a string or an object key, imported directly (relative import) by a
+# test that compares output with snapshots or golden files (toMatchSnapshot,
+# toMatchFileSnapshot, toMatchInlineSnapshot, testdata/, golden), while no .snap,
+# __snapshots__, testdata or golden file changed in the turn. A test that uses only
+# inline snapshots counts as updated when it changed. Blocks once per turn (forge_once).
+forge_snapshot_stale() {
+  [ "$mode" = --turn ] || return 0
+  grep -qE '\.snap$|(^|/)(__snapshots__|testdata|golden|__golden__)/|\.golden(\.|$)' "$FORGE_TMP/changed" && return 0
+  : > "$FORGE_TMP/snap.src"
+  for _ss_f in $FORGE_FILES; do
+    awk -F '\t' -v f="$_ss_f" '$1 == f { print $2 }' "$FORGE_TMP/added" > "$FORGE_TMP/snap.lines"
+    [ -s "$FORGE_TMP/snap.lines" ] || continue
+    awk 'NR == FNR { if ($0 == "*") all = 1; want[$0] = 1; next } all || (FNR in want)' "$FORGE_TMP/snap.lines" "$_ss_f" \
+      | grep -qE "[\"'\`]|[A-Za-z_\$][A-Za-z0-9_\$]*[?]?[[:space:]]*:" && printf '%s\n' "$_ss_f" >> "$FORGE_TMP/snap.src"
+  done
+  [ -s "$FORGE_TMP/snap.src" ] || return 0
+  git grep --untracked -lE 'toMatch(File|Inline)?Snapshot\(|testdata|golden' -- '*.test.*' '*.spec.*' '*/__tests__/*' > "$FORGE_TMP/snap.tests" 2>/dev/null
+  : > "$FORGE_TMP/snap.imports"
+  while IFS= read -r _ss_t; do
+    [ -f "$_ss_t" ] || continue
+    if grep -qxF "$_ss_t" "$FORGE_TMP/changed" && ! grep -qE 'toMatch(File)?Snapshot\(|testdata|golden' "$_ss_t"; then continue; fi
+    sed -n -E "s/.*(from|require\(|import\()[[:space:]]*[\"'](\.[^\"']*)[\"'].*/\2/p" "$_ss_t" \
+      | awk -v t="$_ss_t" '{ print t "\t" $0 }' >> "$FORGE_TMP/snap.imports"
+  done < "$FORGE_TMP/snap.tests"
+  awk -F '\t' '
+    function stem(p) { sub(/\.(d\.)?[cm]?[jt]sx?$/, "", p); return p }
+    function norm(p,   n, a, i, o, k) {
+      n = split(p, a, "/"); k = 0
+      for (i = 1; i <= n; i++) {
+        if (a[i] == "" || a[i] == ".") continue
+        if (a[i] == ".." && k > 0) { k--; continue }
+        o[++k] = a[i]
+      }
+      p = ""; for (i = 1; i <= k; i++) p = p (i > 1 ? "/" : "") o[i]
+      return p
+    }
+    FILENAME == ARGV[1] { src[stem($0)] = $0; next }
+    {
+      d = $1; if (d ~ /\//) sub(/\/[^\/]*$/, "", d); else d = "."
+      s = stem(norm(d "/" $2))
+      f = (s in src) ? src[s] : ((s "/index") in src) ? src[s "/index"] : ""
+      if (f != "" && !seen[f "\t" $1]++) print f ": imported by " $1 ", which compares output with snapshots or golden files"
+    }' "$FORGE_TMP/snap.src" "$FORGE_TMP/snap.imports" | sort | head -n 10 > "$FORGE_TMP/snap.out"
+  [ -s "$FORGE_TMP/snap.out" ] || return 0
+  cat "$FORGE_TMP/snap.out"
+  printf 'Output-producing code changed but its snapshots did not: run the snapshot tests with inputs that exercise the new output and update them (snapshot updates still go through no-snapshot-update).\n'
+  forge_once
+}
+
 # forge_toml_get <file> <section> <key>: the value of <key> in [<section>] ("" for
 # the top level), quotes and comments removed; nothing when absent. One-line values only.
 forge_toml_get() {
@@ -7410,12 +7610,12 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "52a6f9fbaa079816551227307122ce0c0e20ba65ba3cc93e09e2d4d187f3e246",
     ".claude/skills/forge-project/scripts/guard.sh": "33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d",
     ".claude/skills/forge-project/scripts/lib.sh": "1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "1d5975d2ce83eddb28320e7d305d53c5a67dbc8dd3128f6ee176dd334daa46af",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "5f2e639a79873d9c4800de53446e84cae033af3e0e296a88a4f72821efa9d0a9",
     ".claude/skills/forge-project/scripts/review.sh": "9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac",
-    ".claude/skills/forge-project/scripts/session-start.sh": "2560e38440bd164c76f5aa44ad14f4f76484c7f221c2fef154a337bf97e46b66",
+    ".claude/skills/forge-project/scripts/session-start.sh": "84ac6544b45f9293181e8a0355bc8b3a7c2940e848dd7f62231be4f6fb856d61",
     ".claude/skills/forge-project/scripts/stop.sh": "f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173",
     ".claude/skills/forge-project/scripts/turn-start.sh": "a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "41514c54045bd7ccd89974be22e39f41e902d6eb6a60e48f59e104c951812147",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "e69fb1175d42a5ca3e5e9b2467058ee1158145701a78022be514bdb4a8355534",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/docker-compose-datastore-loopback-test.yml": "75507971edac1d4a2eca04e6bceb8a942429c0987372010b39ad0b7f126b55e9",
     ".forge/ast-grep/rule-tests/docker-compose-healthy-depends-test.yml": "bcd21e7f9112e5f0d44c9f5c9779824661b2f1dc40448323100787f342c4b7a8",
@@ -7436,7 +7636,7 @@ exit "$fail"
     ".forge/ast-grep/rules/docker/compose/pinned-images.yml": "026540d386ff8d8bd6f4f1951063c2fcd5cb8a96d8c7184f97e0887e3241c01a",
     ".forge/ast-grep/rules/python/no-stub.yml": "0660a06b80fa4e3cccbc89f496275e8f093b873632d1d93ecb48e4315d987bbf",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "c0b2248c9c66c51fdf1e05899200a6d8bbb496ba9a126501d8ca601ae64a3a66",
+    ".forge/check.sh": "a1dcaf9aac565edfc27d3a444dbeaa4e26b4d3ed86f832ab167504fda3ed533f",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -7489,12 +7689,12 @@ d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills
 52a6f9fbaa079816551227307122ce0c0e20ba65ba3cc93e09e2d4d187f3e246  .claude/skills/forge-project/scripts/guard.rules
 33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d  .claude/skills/forge-project/scripts/guard.sh
 1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a  .claude/skills/forge-project/scripts/lib.sh
-1d5975d2ce83eddb28320e7d305d53c5a67dbc8dd3128f6ee176dd334daa46af  .claude/skills/forge-project/scripts/post-edit.sh
+5f2e639a79873d9c4800de53446e84cae033af3e0e296a88a4f72821efa9d0a9  .claude/skills/forge-project/scripts/post-edit.sh
 9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac  .claude/skills/forge-project/scripts/review.sh
-2560e38440bd164c76f5aa44ad14f4f76484c7f221c2fef154a337bf97e46b66  .claude/skills/forge-project/scripts/session-start.sh
+84ac6544b45f9293181e8a0355bc8b3a7c2940e848dd7f62231be4f6fb856d61  .claude/skills/forge-project/scripts/session-start.sh
 f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173  .claude/skills/forge-project/scripts/stop.sh
 a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c  .claude/skills/forge-project/scripts/turn-start.sh
-41514c54045bd7ccd89974be22e39f41e902d6eb6a60e48f59e104c951812147  .claude/skills/forge-project/scripts/typecheck.sh
+e69fb1175d42a5ca3e5e9b2467058ee1158145701a78022be514bdb4a8355534  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 75507971edac1d4a2eca04e6bceb8a942429c0987372010b39ad0b7f126b55e9  .forge/ast-grep/rule-tests/docker-compose-datastore-loopback-test.yml
 bcd21e7f9112e5f0d44c9f5c9779824661b2f1dc40448323100787f342c4b7a8  .forge/ast-grep/rule-tests/docker-compose-healthy-depends-test.yml
@@ -7515,7 +7715,7 @@ e4fd92858db90ac12b535496548f182e453e83bc9cb24f53a102ab7fc98cd67b  .forge/ast-gre
 026540d386ff8d8bd6f4f1951063c2fcd5cb8a96d8c7184f97e0887e3241c01a  .forge/ast-grep/rules/docker/compose/pinned-images.yml
 0660a06b80fa4e3cccbc89f496275e8f093b873632d1d93ecb48e4315d987bbf  .forge/ast-grep/rules/python/no-stub.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-c0b2248c9c66c51fdf1e05899200a6d8bbb496ba9a126501d8ca601ae64a3a66  .forge/check.sh
+a1dcaf9aac565edfc27d3a444dbeaa4e26b4d3ed86f832ab167504fda3ed533f  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh
