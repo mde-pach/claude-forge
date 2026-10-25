@@ -634,6 +634,47 @@ describe("Stop", () => {
     T,
   );
 
+  /**
+   * Formatting is whole-file: after an edit, `ruff format` may also rewrite lines
+   * Claude never touched (here, two spaces before an inline comment). Those lines are
+   * compared with the base copy formatted the same way (`format_stdin`), so they do
+   * not count as added; without a formatter, or when it fails on the base, the plain
+   * comparison applies.
+   * @rule python/format python/no-stub
+   */
+  test(
+    "a line only the formatter changed is not an added line: an untouched stub reformatted after an edit blocks neither post-edit nor Stop, while a new stub does",
+    () => {
+      const before = "class Span:\n    def set_attribute(self, key: str) -> None: ... # pragma: no cover\n\n    def end(self) -> int:\n        return 1\n";
+      put(repo, "app/span.py", before);
+      hook("turn-start.sh", { session_id: "t-fmt" });
+      put(repo, "app/span.py", before.replace("return 1", "return 2"));
+      expect(hook("post-edit.sh", { session_id: "t-fmt", ...edit("app/span.py") }).stdout).toBe("");
+      expect(readFileSync(join(repo, "app/span.py"), "utf8")).toContain("...  # pragma: no cover");
+      expect(hook("stop.sh", { session_id: "t-fmt" }).stdout).toBe("");
+      put(repo, "app/span.py", readFileSync(join(repo, "app/span.py"), "utf8") + "\n    def flush(self) -> None: ...\n");
+      const ctx = JSON.parse(hook("post-edit.sh", { session_id: "t-fmt", ...edit("app/span.py") }).stdout).hookSpecificOutput.additionalContext;
+      expect(ctx).toContain("forge:python/no-stub app/span.py:7:");
+      expect(ctx).not.toContain("app/span.py:2:");
+      reset();
+    },
+    T,
+  );
+
+  /** @rule python/format python/no-stub */
+  test(
+    "when the formatter fails on the base copy (it does not parse), lines are compared with the base as it is",
+    () => {
+      put(repo, "app/span2.py", "class Span:\n    def set_attribute(self) -> None: ... # pragma: no cover\n\nX = (\n");
+      hook("turn-start.sh", { session_id: "t-fmt2" });
+      put(repo, "app/span2.py", "class Span:\n    def set_attribute(self) -> None: ... # pragma: no cover\n\nX = 1\n");
+      const ctx = JSON.parse(hook("post-edit.sh", { session_id: "t-fmt2", ...edit("app/span2.py") }).stdout).hookSpecificOutput.additionalContext;
+      expect(ctx).toContain("forge:python/no-stub app/span2.py:2:");
+      reset();
+    },
+    T,
+  );
+
   /** @rule python/typecheck */
   test.if(hasUv)(
     "typecheck wakes Claude only for errors in files changed during the turn",

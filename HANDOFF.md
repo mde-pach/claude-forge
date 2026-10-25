@@ -68,6 +68,10 @@ Everything in §3–§14 is implemented. §14.1–§14.3 and everything else lis
 15. **A sandbox that cannot start (R8).** `sandboxProblem` in `cli.ts`: on Linux, with `sandbox.enabled` in the plan, `apply --user` and `status --user` probe bubblewrap and say what is wrong and the two ways out. Checked here with a real `bwrap` (works in this container) and, in the tests, a stand-in `bwrap` that fails like Docker's default profile.
 16. **Failed Bash commands are checked too.** A Bash command that fails or is interrupted fires PostToolUseFailure, not PostToolUse (verified live on 2.1.308: `error`, `is_interrupt` in the input; `additionalContext` and `asyncRewake` honoured). post-edit.sh and typecheck.sh are wired there with matcher `Bash` (a failed Edit or Write changes nothing), so partial writes are checked and the snapshot is consumed; post-edit.sh answers with the event name it received.
 
+**Fixes from the experiment: the edit path** (one commit each):
+
+1. **Formatting is not an added line (§10.1).** Check targets gained `format_stdin` (`{file}`): the formatter as a filter (`ruff format --stdin-filename {file} -`, `biome format --stdin-file-path={file}`). `forge_added_lines` (engine.sh) counts a line only when it is added against the base copy and against the base copy formatted that way, so a whole-file format after an edit does not make untouched lines Claude's (logfire: `... # pragma: no cover` got two spaces and `python/no-stub` blocked Stop). Used by post-edit.sh and `forge_change_set`; typecheck.sh sets `FORGE_PLAIN_ADDED=1` (it attributes by file). No filter, no tool, or a filter failing on the base: the plain comparison.
+
 ## Remaining
 
 1. **Run the E2E harness** (`tests/e2e/README.md`) in a real container; expect to tune a few regexes and prompts on the first real run.

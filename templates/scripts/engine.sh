@@ -7,7 +7,9 @@
 #   changed   changed paths, one per line   existing  those that exist now
 #   deleted   those gone since the base     inbase    those that exist in the base
 #   base/<p>  each one as it is in the base
-#   added     "path<TAB>line" per added line, "path<TAB>*" per new file (empty with --all)
+#   added     "path<TAB>line" per added line, "path<TAB>*" per new file (empty with --all);
+#             lines only formatting changed are left out (forge_added_lines), unless
+#             FORGE_PLAIN_ADDED=1 (typecheck.sh, which attributes by file only)
 # The base is HEAD (--changed, --all), git merge-base <ref> HEAD (--since) or the
 # tree at the start of the turn (--turn: FORGE_SNAP, plus FORGE_BASE_REV for files
 # that were clean then).
@@ -41,11 +43,53 @@ forge_change_set() {
     if base_file "$_cs_f" "$FORGE_TMP/base/$_cs_f"; then printf '%s\n' "$_cs_f" >> "$FORGE_TMP/inbase"; _cs_b=1; else _cs_b=0; fi
     if [ -f "$_cs_f" ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/existing"
-      [ "$mode" = --all ] || added_lines "$_cs_f" "$FORGE_TMP/base/$_cs_f" >> "$FORGE_TMP/added"
+      [ "$mode" = --all ] || forge_added_lines "$_cs_f" "$FORGE_TMP/base/$_cs_f" >> "$FORGE_TMP/added"
     elif [ "$_cs_b" = 1 ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/deleted"
     fi
   done < "$FORGE_TMP/changed"
+  return 0
+}
+
+# forge_format_copy <path> <in> <out>: writes <in> to <out> formatted as <path> would be,
+# by the format_stdin filter of each check whose scope covers <path>, in check order.
+# Fails when no filter applies, a tool is absent, or a filter fails or prints nothing.
+forge_format_copy() {
+  _fy_i=1
+  _fy_rc=1
+  FORGE_FILE=$1
+  cp "$2" "$3" 2>/dev/null || return 1
+  while [ "$_fy_i" -le "$FORGE_NCHECKS" ]; do
+    forge_check_meta_"$_fy_i"
+    if [ "$c_fmt" = 1 ] && forge_scope_"$_fy_i" "$1"; then
+      forge_missing_tool >/dev/null && return 1
+      if ( forge_check_fmt_"$_fy_i" ) < "$3" > "$3.fmt" 2>/dev/null && { [ -s "$3.fmt" ] || [ ! -s "$3" ]; }; then
+        mv "$3.fmt" "$3"
+        _fy_rc=0
+      else
+        rm -f "$3.fmt"
+        return 1
+      fi
+    fi
+    _fy_i=$((_fy_i + 1))
+  done
+  return "$_fy_rc"
+}
+
+# forge_added_lines <path> <base-copy>: added_lines, less the lines that only formatting
+# changed: a line counts when it is added both against the base copy and against the
+# base copy formatted like <path> (forge_format_copy), so a whole-file format of an
+# unformatted file does not make its untouched lines Claude's. Without a formatter
+# (none in scope, tool absent, it fails on the base), the plain added_lines.
+forge_added_lines() {
+  added_lines "$1" "$2" > "$FORGE_TMP/al.raw"
+  if [ ! -f "$2" ] || [ ! -s "$FORGE_TMP/al.raw" ] || [ "${FORGE_PLAIN_ADDED:-0}" = 1 ] || ! forge_format_copy "$1" "$2" "$FORGE_TMP/al.base" || cmp -s "$2" "$FORGE_TMP/al.base"; then
+    cat "$FORGE_TMP/al.raw"
+  else
+    added_lines "$1" "$FORGE_TMP/al.base" > "$FORGE_TMP/al.fmt"
+    awk 'FILENAME == ARGV[1] { k[$0] = 1; next } $0 in k' "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.raw"
+  fi
+  rm -f "$FORGE_TMP/al.raw" "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.base"
   return 0
 }
 

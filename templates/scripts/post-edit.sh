@@ -64,7 +64,7 @@ while IFS= read -r file; do
   forge_file_stage format "$file" > /dev/null 2>&1
   rm -f "$FORGE_TMP/base"
   base_file "$file" "$FORGE_TMP/base"
-  added_lines "$file" "$FORGE_TMP/base" >> "$FORGE_TMP/added"
+  forge_added_lines "$file" "$FORGE_TMP/base" >> "$FORGE_TMP/added"
 done < "$FORGE_TMP/changed"
 # safe fixes first (sorted imports, pyupgrade, Biome's safe fixes), then what remains
 while IFS= read -r file; do

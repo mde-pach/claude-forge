@@ -8,6 +8,8 @@ enforce:
     changed_run: "biome check --write --no-errors-on-unmatched {files}"
     # after an edit: Biome's safe lint fixes and import sorting, without formatting; never removing unused imports or variables
     fix_run: "biome check --write --formatter-enabled=false --skip=correctness/noUnusedImports --skip=correctness/noUnusedVariables --no-errors-on-unmatched {files}"
+    # formats a file's base copy, so lines that only formatting changed are not counted as added
+    format_stdin: "biome format --stdin-file-path={file}"
 examples:
   match: ["export const same = (a: number, b: number) => a == b;\n"]
   no_match: ["export const same = (a: number, b: number) => a === b;\n"]

@@ -166,7 +166,7 @@ Every rule blocks. A rule you don't want is disabled with a reason.
 | `permission` | `decision: deny \| ask`, `rule` (permission rule string) | appended | settings `permissions` |
 | `guard` | `decision: deny \| ask`, `pattern` (POSIX ERE against the JSON-escaped command) | owned | `guard.rules` (§9.2) |
 | `sandbox` | `path`, `value` | appended, user only | `~/.claude/settings.json` `sandbox` |
-| `check` | `stage: format \| lint \| typecheck \| migration \| test`, `run`, `changed_run` (optional, `{files}`), `fix_run` (optional, lint only, `{files}`: safe fixes applied after an edit, §8.1), `when_changed` (optional), `requires_local_db` (optional, boolean) | owned | `.forge/check.sh` (§10) |
+| `check` | `stage: format \| lint \| typecheck \| migration \| test`, `run`, `changed_run` (optional, `{files}`), `fix_run` (optional, lint only, `{files}`: safe fixes applied after an edit, §8.1), `format_stdin` (optional, format or lint, `{file}`: the formatter as a filter, formatting stdin as if it were `{file}`; formats base copies for added lines, §10.1), `when_changed` (optional), `requires_local_db` (optional, boolean) | owned | `.forge/check.sh` (§10) |
 | `grep` | `pattern` (POSIX ERE, matched line by line), `mode: forbid \| no-increase \| no-decrease`, `ignore_case` (optional) | owned | `.forge/check.sh` (§10): counts are matching lines per file |
 
 ast-grep and grep modes:
@@ -322,7 +322,7 @@ One entry point for the Stop hook, the optional pre-commit hook and CI. Each mod
 | `--since <ref>` | CI on a pull request | `git diff --name-only <base>` plus untracked files | `git merge-base <ref> HEAD`; none → fail with `forge:forge/since` |
 | `--all` | CI on the default branch | the whole project | `HEAD` (for the comparisons of steps 2–3) |
 
-**Added lines.** Outside `--all`, each changed file's added lines are computed with `git diff --no-index -U0` against its base copy; a file absent from the base counts fully. An edited line counts as added, and so does moved code. ast-grep `forbid` matches and `lint` diagnostics count only when they overlap an added line (a match spanning an edited line counts). `no-increase` / `no-decrease` rules and whole-project checks (typecheck, migrations, tests) are not line-scoped.
+**Added lines.** Outside `--all`, each changed file's added lines are computed with `git diff --no-index -U0` against its base copy; a file absent from the base counts fully. Formatting is whole-file, so a formatter run after an edit may rewrite lines the change never touched: when a check in scope has a `format_stdin`, the base copy is also formatted with it, and a line counts only if it is added against both the base copy and the formatted one. When no filter applies, its tool is absent, or it fails or prints nothing on the base (e.g. the base does not parse), the plain comparison applies. An edited line counts as added, and so does moved code. ast-grep `forbid` matches and `lint` diagnostics count only when they overlap an added line (a match spanning an edited line counts). `no-increase` / `no-decrease` rules and whole-project checks (typecheck, migrations, tests) are not line-scoped.
 
 Runs in order, stops at the first failing step, prints `forge:<rule-id>` lines:
 
@@ -436,7 +436,7 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 
 | Rule | Targets |
 |---|---|
-| `python/format` | `check` format: `run: ruff format --check .`, `changed_run: ruff format {files}` |
+| `python/format` | `check` format: `run: ruff format --check .`, `changed_run: ruff format {files}`, `format_stdin: ruff format --stdin-filename {file} -` |
 | `python/lint` | `check` lint: `run: ruff check .`, `changed_run: ruff check {files}`, `fix_run: ruff check --fix --fixable I,UP --exit-zero --show-fixes {files}` (sorted imports and pyupgrade, when the project selects them; never F401 / F841) |
 | `python/typecheck` | `check` typecheck: `run: basedpyright` |
 | `python/no-explicit-any` | `tool` basedpyright `reportExplicitAny`; `tool` ruff `ANN401` |
@@ -477,7 +477,7 @@ context.md: uv and `.venv/bin`, basedpyright; no blocking calls in `async def`; 
 
 | Rule | Targets |
 |---|---|
-| `typescript/format-lint` | `check` lint: `run: biome ci .`, `changed_run: biome check --write {files}`, `fix_run: biome check --write --formatter-enabled=false --skip=correctness/noUnusedImports --skip=correctness/noUnusedVariables {files}` (safe lint fixes and import sorting) |
+| `typescript/format-lint` | `check` lint: `run: biome ci .`, `changed_run: biome check --write {files}`, `fix_run: biome check --write --formatter-enabled=false --skip=correctness/noUnusedImports --skip=correctness/noUnusedVariables {files}` (safe lint fixes and import sorting), `format_stdin: biome format --stdin-file-path={file}` |
 | `typescript/typecheck` | `check` typecheck: `run: tsc --noEmit -p tsconfig.json` |
 | `typescript/no-implicit-any` | `tool` tsc: expects `TS7006` on an untyped parameter (`noImplicitAny`, part of `strict`) |
 | `typescript/strict-null-checks` | `tool` tsc: expects `TS18047` on a possibly-null access (`strictNullChecks`) |

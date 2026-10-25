@@ -58,6 +58,7 @@ trap 'rm -rf "$FORGE_TMP" "$lock"' EXIT HUP INT TERM
 # (the turn snapshot), or every uncommitted change before the first prompt
 snap=$(turn_dir)
 if [ -f "$snap/head" ]; then mode=--turn; FORGE_ARG=$snap; else mode=--changed; fi
+FORGE_PLAIN_ADDED=1
 forge_change_set
 if forge_typecheck "$file" > "$FORGE_TMP/report" 2>&1; then exit 0; fi
 first_lines 20 < "$FORGE_TMP/report" >&2

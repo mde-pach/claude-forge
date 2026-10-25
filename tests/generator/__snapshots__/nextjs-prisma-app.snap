@@ -679,7 +679,7 @@ FORGE_NCHECKS=18
 forge_check_meta_1() {
   c_id='typescript/bun/lock-sync'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_1() {
   return 0
@@ -693,7 +693,7 @@ bun install --frozen-lockfile
 forge_check_meta_2() {
   c_id='typescript/bun/release-age'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_2() {
   return 0
@@ -707,7 +707,7 @@ forge_bun_cooldown
 forge_check_meta_3() {
   c_id='typescript/bun/trusted-deps'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_3() {
   return 0
@@ -721,7 +721,7 @@ forge_trusted_deps
 forge_check_meta_4() {
   c_id='typescript/config-ratchet'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_4() {
   case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) ;; *) return 1 ;; esac
@@ -736,7 +736,7 @@ forge_ratchet bun ratchet.mjs
 forge_check_meta_5() {
   c_id='typescript/format-lint'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=1
+  c_changed=1; c_files=1; c_fix=1; c_fmt=1
 }
 forge_scope_5() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -752,12 +752,15 @@ biome check --write --no-errors-on-unmatched $FORGE_FILES
 forge_check_fix_5() {
 biome check --write --formatter-enabled=false --skip=correctness/noUnusedImports --skip=correctness/noUnusedVariables --no-errors-on-unmatched $FORGE_FILES
 }
+forge_check_fmt_5() {
+biome format --stdin-file-path="$FORGE_FILE"
+}
 
 # 6. typescript/no-ignore-deprecations
 forge_check_meta_6() {
   c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_6() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
@@ -772,7 +775,7 @@ forge_check_run_6() {
 forge_check_meta_7() {
   c_id='typescript/no-unused-suppressions'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0
 }
 forge_scope_7() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -790,7 +793,7 @@ forge_check_changed_7() {
 forge_check_meta_8() {
   c_id='typescript/playwright/axe'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_8() {
   return 0
@@ -804,7 +807,7 @@ forge_check_run_8() {
 forge_check_meta_9() {
   c_id='typescript/playwright/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_9() {
   case $1 in e2e/*) ;; *) return 1 ;; esac
@@ -820,7 +823,7 @@ forge_test_edits
 forge_check_meta_10() {
   c_id='typescript/playwright/run'; c_stage=test; c_tools='playwright'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_10() {
   return 0
@@ -834,7 +837,7 @@ playwright test --reporter=line
 forge_check_meta_11() {
   c_id='typescript/prisma/client-generator'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_11() {
   return 0
@@ -848,7 +851,7 @@ forge_check_run_11() {
 forge_check_meta_12() {
   c_id='typescript/prisma/migration-lint'; c_stage=migration; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0
 }
 forge_scope_12() {
   case $1 in prisma/migrations/migration.sql|prisma/migrations/*/migration.sql) ;; *) return 1 ;; esac
@@ -866,7 +869,7 @@ forge_squawk_files $FORGE_FILES
 forge_check_meta_13() {
   c_id='typescript/prisma/migration-present'; c_stage=migration; c_tools='prisma'
   c_when=1; c_localdb=1; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_13() {
   return 0
@@ -880,7 +883,7 @@ if ! grep -q shadowDatabaseUrl prisma.config.ts 2>/dev/null; then echo "forge:ty
 forge_check_meta_14() {
   c_id='typescript/prisma/validate'; c_stage=migration; c_tools='prisma'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_14() {
   return 0
@@ -894,7 +897,7 @@ prisma validate
 forge_check_meta_15() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_15() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -909,7 +912,7 @@ tsc --noEmit -p tsconfig.json
 forge_check_meta_16() {
   c_id='typescript/vitest/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_16() {
   case $1 in e2e/*) return 1 ;; esac
@@ -926,7 +929,7 @@ forge_test_edits
 forge_check_meta_17() {
   c_id='typescript/vitest/no-workspace-file'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_17() {
   return 0
@@ -940,7 +943,7 @@ forge_check_run_17() {
 forge_check_meta_18() {
   c_id='typescript/vitest/run'; c_stage=test; c_tools='vitest'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=0; c_fix=0
+  c_changed=1; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_18() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -990,7 +993,9 @@ forge_grep_scope_2() {
 #   changed   changed paths, one per line   existing  those that exist now
 #   deleted   those gone since the base     inbase    those that exist in the base
 #   base/<p>  each one as it is in the base
-#   added     "path<TAB>line" per added line, "path<TAB>*" per new file (empty with --all)
+#   added     "path<TAB>line" per added line, "path<TAB>*" per new file (empty with --all);
+#             lines only formatting changed are left out (forge_added_lines), unless
+#             FORGE_PLAIN_ADDED=1 (typecheck.sh, which attributes by file only)
 # The base is HEAD (--changed, --all), git merge-base <ref> HEAD (--since) or the
 # tree at the start of the turn (--turn: FORGE_SNAP, plus FORGE_BASE_REV for files
 # that were clean then).
@@ -1024,11 +1029,53 @@ forge_change_set() {
     if base_file "$_cs_f" "$FORGE_TMP/base/$_cs_f"; then printf '%s\n' "$_cs_f" >> "$FORGE_TMP/inbase"; _cs_b=1; else _cs_b=0; fi
     if [ -f "$_cs_f" ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/existing"
-      [ "$mode" = --all ] || added_lines "$_cs_f" "$FORGE_TMP/base/$_cs_f" >> "$FORGE_TMP/added"
+      [ "$mode" = --all ] || forge_added_lines "$_cs_f" "$FORGE_TMP/base/$_cs_f" >> "$FORGE_TMP/added"
     elif [ "$_cs_b" = 1 ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/deleted"
     fi
   done < "$FORGE_TMP/changed"
+  return 0
+}
+
+# forge_format_copy <path> <in> <out>: writes <in> to <out> formatted as <path> would be,
+# by the format_stdin filter of each check whose scope covers <path>, in check order.
+# Fails when no filter applies, a tool is absent, or a filter fails or prints nothing.
+forge_format_copy() {
+  _fy_i=1
+  _fy_rc=1
+  FORGE_FILE=$1
+  cp "$2" "$3" 2>/dev/null || return 1
+  while [ "$_fy_i" -le "$FORGE_NCHECKS" ]; do
+    forge_check_meta_"$_fy_i"
+    if [ "$c_fmt" = 1 ] && forge_scope_"$_fy_i" "$1"; then
+      forge_missing_tool >/dev/null && return 1
+      if ( forge_check_fmt_"$_fy_i" ) < "$3" > "$3.fmt" 2>/dev/null && { [ -s "$3.fmt" ] || [ ! -s "$3" ]; }; then
+        mv "$3.fmt" "$3"
+        _fy_rc=0
+      else
+        rm -f "$3.fmt"
+        return 1
+      fi
+    fi
+    _fy_i=$((_fy_i + 1))
+  done
+  return "$_fy_rc"
+}
+
+# forge_added_lines <path> <base-copy>: added_lines, less the lines that only formatting
+# changed: a line counts when it is added both against the base copy and against the
+# base copy formatted like <path> (forge_format_copy), so a whole-file format of an
+# unformatted file does not make its untouched lines Claude's. Without a formatter
+# (none in scope, tool absent, it fails on the base), the plain added_lines.
+forge_added_lines() {
+  added_lines "$1" "$2" > "$FORGE_TMP/al.raw"
+  if [ ! -f "$2" ] || [ ! -s "$FORGE_TMP/al.raw" ] || [ "${FORGE_PLAIN_ADDED:-0}" = 1 ] || ! forge_format_copy "$1" "$2" "$FORGE_TMP/al.base" || cmp -s "$2" "$FORGE_TMP/al.base"; then
+    cat "$FORGE_TMP/al.raw"
+  else
+    added_lines "$1" "$FORGE_TMP/al.base" > "$FORGE_TMP/al.fmt"
+    awk 'FILENAME == ARGV[1] { k[$0] = 1; next } $0 in k' "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.raw"
+  fi
+  rm -f "$FORGE_TMP/al.raw" "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.base"
   return 0
 }
 
@@ -1744,13 +1791,16 @@ forge_exec_check() {
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "none" when no line names a file. With
-# "print", prints the lines that count instead.
+# "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
+# tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
   awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
+      gsub(ansi, "", line)
       if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -1967,7 +2017,7 @@ while IFS= read -r file; do
   forge_file_stage format "$file" > /dev/null 2>&1
   rm -f "$FORGE_TMP/base"
   base_file "$file" "$FORGE_TMP/base"
-  added_lines "$file" "$FORGE_TMP/base" >> "$FORGE_TMP/added"
+  forge_added_lines "$file" "$FORGE_TMP/base" >> "$FORGE_TMP/added"
 done < "$FORGE_TMP/changed"
 # safe fixes first (sorted imports, pyupgrade, Biome's safe fixes), then what remains
 while IFS= read -r file; do
@@ -2050,7 +2100,7 @@ FORGE_NCHECKS=18
 forge_check_meta_1() {
   c_id='typescript/bun/lock-sync'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_1() {
   return 0
@@ -2064,7 +2114,7 @@ bun install --frozen-lockfile
 forge_check_meta_2() {
   c_id='typescript/bun/release-age'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_2() {
   return 0
@@ -2078,7 +2128,7 @@ forge_bun_cooldown
 forge_check_meta_3() {
   c_id='typescript/bun/trusted-deps'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_3() {
   return 0
@@ -2092,7 +2142,7 @@ forge_trusted_deps
 forge_check_meta_4() {
   c_id='typescript/config-ratchet'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_4() {
   case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) ;; *) return 1 ;; esac
@@ -2107,7 +2157,7 @@ forge_ratchet bun ratchet.mjs
 forge_check_meta_5() {
   c_id='typescript/format-lint'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=1
+  c_changed=1; c_files=1; c_fix=1; c_fmt=1
 }
 forge_scope_5() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -2123,12 +2173,15 @@ biome check --write --no-errors-on-unmatched $FORGE_FILES
 forge_check_fix_5() {
 biome check --write --formatter-enabled=false --skip=correctness/noUnusedImports --skip=correctness/noUnusedVariables --no-errors-on-unmatched $FORGE_FILES
 }
+forge_check_fmt_5() {
+biome format --stdin-file-path="$FORGE_FILE"
+}
 
 # 6. typescript/no-ignore-deprecations
 forge_check_meta_6() {
   c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_6() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
@@ -2143,7 +2196,7 @@ forge_check_run_6() {
 forge_check_meta_7() {
   c_id='typescript/no-unused-suppressions'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0
 }
 forge_scope_7() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -2161,7 +2214,7 @@ forge_check_changed_7() {
 forge_check_meta_8() {
   c_id='typescript/playwright/axe'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_8() {
   return 0
@@ -2175,7 +2228,7 @@ forge_check_run_8() {
 forge_check_meta_9() {
   c_id='typescript/playwright/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_9() {
   case $1 in e2e/*) ;; *) return 1 ;; esac
@@ -2191,7 +2244,7 @@ forge_test_edits
 forge_check_meta_10() {
   c_id='typescript/playwright/run'; c_stage=test; c_tools='playwright'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_10() {
   return 0
@@ -2205,7 +2258,7 @@ playwright test --reporter=line
 forge_check_meta_11() {
   c_id='typescript/prisma/client-generator'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_11() {
   return 0
@@ -2219,7 +2272,7 @@ forge_check_run_11() {
 forge_check_meta_12() {
   c_id='typescript/prisma/migration-lint'; c_stage=migration; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0
 }
 forge_scope_12() {
   case $1 in prisma/migrations/migration.sql|prisma/migrations/*/migration.sql) ;; *) return 1 ;; esac
@@ -2237,7 +2290,7 @@ forge_squawk_files $FORGE_FILES
 forge_check_meta_13() {
   c_id='typescript/prisma/migration-present'; c_stage=migration; c_tools='prisma'
   c_when=1; c_localdb=1; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_13() {
   return 0
@@ -2251,7 +2304,7 @@ if ! grep -q shadowDatabaseUrl prisma.config.ts 2>/dev/null; then echo "forge:ty
 forge_check_meta_14() {
   c_id='typescript/prisma/validate'; c_stage=migration; c_tools='prisma'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_14() {
   return 0
@@ -2265,7 +2318,7 @@ prisma validate
 forge_check_meta_15() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_15() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -2280,7 +2333,7 @@ tsc --noEmit -p tsconfig.json
 forge_check_meta_16() {
   c_id='typescript/vitest/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_16() {
   case $1 in e2e/*) return 1 ;; esac
@@ -2297,7 +2350,7 @@ forge_test_edits
 forge_check_meta_17() {
   c_id='typescript/vitest/no-workspace-file'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_17() {
   return 0
@@ -2311,7 +2364,7 @@ forge_check_run_17() {
 forge_check_meta_18() {
   c_id='typescript/vitest/run'; c_stage=test; c_tools='vitest'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=0; c_fix=0
+  c_changed=1; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_18() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -2361,7 +2414,9 @@ forge_grep_scope_2() {
 #   changed   changed paths, one per line   existing  those that exist now
 #   deleted   those gone since the base     inbase    those that exist in the base
 #   base/<p>  each one as it is in the base
-#   added     "path<TAB>line" per added line, "path<TAB>*" per new file (empty with --all)
+#   added     "path<TAB>line" per added line, "path<TAB>*" per new file (empty with --all);
+#             lines only formatting changed are left out (forge_added_lines), unless
+#             FORGE_PLAIN_ADDED=1 (typecheck.sh, which attributes by file only)
 # The base is HEAD (--changed, --all), git merge-base <ref> HEAD (--since) or the
 # tree at the start of the turn (--turn: FORGE_SNAP, plus FORGE_BASE_REV for files
 # that were clean then).
@@ -2395,11 +2450,53 @@ forge_change_set() {
     if base_file "$_cs_f" "$FORGE_TMP/base/$_cs_f"; then printf '%s\n' "$_cs_f" >> "$FORGE_TMP/inbase"; _cs_b=1; else _cs_b=0; fi
     if [ -f "$_cs_f" ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/existing"
-      [ "$mode" = --all ] || added_lines "$_cs_f" "$FORGE_TMP/base/$_cs_f" >> "$FORGE_TMP/added"
+      [ "$mode" = --all ] || forge_added_lines "$_cs_f" "$FORGE_TMP/base/$_cs_f" >> "$FORGE_TMP/added"
     elif [ "$_cs_b" = 1 ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/deleted"
     fi
   done < "$FORGE_TMP/changed"
+  return 0
+}
+
+# forge_format_copy <path> <in> <out>: writes <in> to <out> formatted as <path> would be,
+# by the format_stdin filter of each check whose scope covers <path>, in check order.
+# Fails when no filter applies, a tool is absent, or a filter fails or prints nothing.
+forge_format_copy() {
+  _fy_i=1
+  _fy_rc=1
+  FORGE_FILE=$1
+  cp "$2" "$3" 2>/dev/null || return 1
+  while [ "$_fy_i" -le "$FORGE_NCHECKS" ]; do
+    forge_check_meta_"$_fy_i"
+    if [ "$c_fmt" = 1 ] && forge_scope_"$_fy_i" "$1"; then
+      forge_missing_tool >/dev/null && return 1
+      if ( forge_check_fmt_"$_fy_i" ) < "$3" > "$3.fmt" 2>/dev/null && { [ -s "$3.fmt" ] || [ ! -s "$3" ]; }; then
+        mv "$3.fmt" "$3"
+        _fy_rc=0
+      else
+        rm -f "$3.fmt"
+        return 1
+      fi
+    fi
+    _fy_i=$((_fy_i + 1))
+  done
+  return "$_fy_rc"
+}
+
+# forge_added_lines <path> <base-copy>: added_lines, less the lines that only formatting
+# changed: a line counts when it is added both against the base copy and against the
+# base copy formatted like <path> (forge_format_copy), so a whole-file format of an
+# unformatted file does not make its untouched lines Claude's. Without a formatter
+# (none in scope, tool absent, it fails on the base), the plain added_lines.
+forge_added_lines() {
+  added_lines "$1" "$2" > "$FORGE_TMP/al.raw"
+  if [ ! -f "$2" ] || [ ! -s "$FORGE_TMP/al.raw" ] || [ "${FORGE_PLAIN_ADDED:-0}" = 1 ] || ! forge_format_copy "$1" "$2" "$FORGE_TMP/al.base" || cmp -s "$2" "$FORGE_TMP/al.base"; then
+    cat "$FORGE_TMP/al.raw"
+  else
+    added_lines "$1" "$FORGE_TMP/al.base" > "$FORGE_TMP/al.fmt"
+    awk 'FILENAME == ARGV[1] { k[$0] = 1; next } $0 in k' "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.raw"
+  fi
+  rm -f "$FORGE_TMP/al.raw" "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.base"
   return 0
 }
 
@@ -3115,13 +3212,16 @@ forge_exec_check() {
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "none" when no line names a file. With
-# "print", prints the lines that count instead.
+# "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
+# tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
   awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
+      gsub(ansi, "", line)
       if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -3456,7 +3556,7 @@ FORGE_NCHECKS=18
 forge_check_meta_1() {
   c_id='typescript/bun/lock-sync'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_1() {
   return 0
@@ -3470,7 +3570,7 @@ bun install --frozen-lockfile
 forge_check_meta_2() {
   c_id='typescript/bun/release-age'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_2() {
   return 0
@@ -3484,7 +3584,7 @@ forge_bun_cooldown
 forge_check_meta_3() {
   c_id='typescript/bun/trusted-deps'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_3() {
   return 0
@@ -3498,7 +3598,7 @@ forge_trusted_deps
 forge_check_meta_4() {
   c_id='typescript/config-ratchet'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_4() {
   case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) ;; *) return 1 ;; esac
@@ -3513,7 +3613,7 @@ forge_ratchet bun ratchet.mjs
 forge_check_meta_5() {
   c_id='typescript/format-lint'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=1
+  c_changed=1; c_files=1; c_fix=1; c_fmt=1
 }
 forge_scope_5() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -3529,12 +3629,15 @@ biome check --write --no-errors-on-unmatched $FORGE_FILES
 forge_check_fix_5() {
 biome check --write --formatter-enabled=false --skip=correctness/noUnusedImports --skip=correctness/noUnusedVariables --no-errors-on-unmatched $FORGE_FILES
 }
+forge_check_fmt_5() {
+biome format --stdin-file-path="$FORGE_FILE"
+}
 
 # 6. typescript/no-ignore-deprecations
 forge_check_meta_6() {
   c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_6() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
@@ -3549,7 +3652,7 @@ forge_check_run_6() {
 forge_check_meta_7() {
   c_id='typescript/no-unused-suppressions'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0
 }
 forge_scope_7() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -3567,7 +3670,7 @@ forge_check_changed_7() {
 forge_check_meta_8() {
   c_id='typescript/playwright/axe'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_8() {
   return 0
@@ -3581,7 +3684,7 @@ forge_check_run_8() {
 forge_check_meta_9() {
   c_id='typescript/playwright/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_9() {
   case $1 in e2e/*) ;; *) return 1 ;; esac
@@ -3597,7 +3700,7 @@ forge_test_edits
 forge_check_meta_10() {
   c_id='typescript/playwright/run'; c_stage=test; c_tools='playwright'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_10() {
   return 0
@@ -3611,7 +3714,7 @@ playwright test --reporter=line
 forge_check_meta_11() {
   c_id='typescript/prisma/client-generator'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_11() {
   return 0
@@ -3625,7 +3728,7 @@ forge_check_run_11() {
 forge_check_meta_12() {
   c_id='typescript/prisma/migration-lint'; c_stage=migration; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0
 }
 forge_scope_12() {
   case $1 in prisma/migrations/migration.sql|prisma/migrations/*/migration.sql) ;; *) return 1 ;; esac
@@ -3643,7 +3746,7 @@ forge_squawk_files $FORGE_FILES
 forge_check_meta_13() {
   c_id='typescript/prisma/migration-present'; c_stage=migration; c_tools='prisma'
   c_when=1; c_localdb=1; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_13() {
   return 0
@@ -3657,7 +3760,7 @@ if ! grep -q shadowDatabaseUrl prisma.config.ts 2>/dev/null; then echo "forge:ty
 forge_check_meta_14() {
   c_id='typescript/prisma/validate'; c_stage=migration; c_tools='prisma'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_14() {
   return 0
@@ -3671,7 +3774,7 @@ prisma validate
 forge_check_meta_15() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_15() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -3686,7 +3789,7 @@ tsc --noEmit -p tsconfig.json
 forge_check_meta_16() {
   c_id='typescript/vitest/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_16() {
   case $1 in e2e/*) return 1 ;; esac
@@ -3703,7 +3806,7 @@ forge_test_edits
 forge_check_meta_17() {
   c_id='typescript/vitest/no-workspace-file'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_17() {
   return 0
@@ -3717,7 +3820,7 @@ forge_check_run_17() {
 forge_check_meta_18() {
   c_id='typescript/vitest/run'; c_stage=test; c_tools='vitest'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=0; c_fix=0
+  c_changed=1; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_18() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -3767,7 +3870,9 @@ forge_grep_scope_2() {
 #   changed   changed paths, one per line   existing  those that exist now
 #   deleted   those gone since the base     inbase    those that exist in the base
 #   base/<p>  each one as it is in the base
-#   added     "path<TAB>line" per added line, "path<TAB>*" per new file (empty with --all)
+#   added     "path<TAB>line" per added line, "path<TAB>*" per new file (empty with --all);
+#             lines only formatting changed are left out (forge_added_lines), unless
+#             FORGE_PLAIN_ADDED=1 (typecheck.sh, which attributes by file only)
 # The base is HEAD (--changed, --all), git merge-base <ref> HEAD (--since) or the
 # tree at the start of the turn (--turn: FORGE_SNAP, plus FORGE_BASE_REV for files
 # that were clean then).
@@ -3801,11 +3906,53 @@ forge_change_set() {
     if base_file "$_cs_f" "$FORGE_TMP/base/$_cs_f"; then printf '%s\n' "$_cs_f" >> "$FORGE_TMP/inbase"; _cs_b=1; else _cs_b=0; fi
     if [ -f "$_cs_f" ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/existing"
-      [ "$mode" = --all ] || added_lines "$_cs_f" "$FORGE_TMP/base/$_cs_f" >> "$FORGE_TMP/added"
+      [ "$mode" = --all ] || forge_added_lines "$_cs_f" "$FORGE_TMP/base/$_cs_f" >> "$FORGE_TMP/added"
     elif [ "$_cs_b" = 1 ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/deleted"
     fi
   done < "$FORGE_TMP/changed"
+  return 0
+}
+
+# forge_format_copy <path> <in> <out>: writes <in> to <out> formatted as <path> would be,
+# by the format_stdin filter of each check whose scope covers <path>, in check order.
+# Fails when no filter applies, a tool is absent, or a filter fails or prints nothing.
+forge_format_copy() {
+  _fy_i=1
+  _fy_rc=1
+  FORGE_FILE=$1
+  cp "$2" "$3" 2>/dev/null || return 1
+  while [ "$_fy_i" -le "$FORGE_NCHECKS" ]; do
+    forge_check_meta_"$_fy_i"
+    if [ "$c_fmt" = 1 ] && forge_scope_"$_fy_i" "$1"; then
+      forge_missing_tool >/dev/null && return 1
+      if ( forge_check_fmt_"$_fy_i" ) < "$3" > "$3.fmt" 2>/dev/null && { [ -s "$3.fmt" ] || [ ! -s "$3" ]; }; then
+        mv "$3.fmt" "$3"
+        _fy_rc=0
+      else
+        rm -f "$3.fmt"
+        return 1
+      fi
+    fi
+    _fy_i=$((_fy_i + 1))
+  done
+  return "$_fy_rc"
+}
+
+# forge_added_lines <path> <base-copy>: added_lines, less the lines that only formatting
+# changed: a line counts when it is added both against the base copy and against the
+# base copy formatted like <path> (forge_format_copy), so a whole-file format of an
+# unformatted file does not make its untouched lines Claude's. Without a formatter
+# (none in scope, tool absent, it fails on the base), the plain added_lines.
+forge_added_lines() {
+  added_lines "$1" "$2" > "$FORGE_TMP/al.raw"
+  if [ ! -f "$2" ] || [ ! -s "$FORGE_TMP/al.raw" ] || [ "${FORGE_PLAIN_ADDED:-0}" = 1 ] || ! forge_format_copy "$1" "$2" "$FORGE_TMP/al.base" || cmp -s "$2" "$FORGE_TMP/al.base"; then
+    cat "$FORGE_TMP/al.raw"
+  else
+    added_lines "$1" "$FORGE_TMP/al.base" > "$FORGE_TMP/al.fmt"
+    awk 'FILENAME == ARGV[1] { k[$0] = 1; next } $0 in k' "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.raw"
+  fi
+  rm -f "$FORGE_TMP/al.raw" "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.base"
   return 0
 }
 
@@ -4521,13 +4668,16 @@ forge_exec_check() {
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "none" when no line names a file. With
-# "print", prints the lines that count instead.
+# "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
+# tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
   awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
+      gsub(ansi, "", line)
       if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -4759,6 +4909,7 @@ trap 'rm -rf "$FORGE_TMP" "$lock"' EXIT HUP INT TERM
 # (the turn snapshot), or every uncommitted change before the first prompt
 snap=$(turn_dir)
 if [ -f "$snap/head" ]; then mode=--turn; FORGE_ARG=$snap; else mode=--changed; fi
+FORGE_PLAIN_ADDED=1
 forge_change_set
 if forge_typecheck "$file" > "$FORGE_TMP/report" 2>&1; then exit 0; fi
 first_lines 20 < "$FORGE_TMP/report" >&2
@@ -6227,7 +6378,7 @@ FORGE_NCHECKS=18
 forge_check_meta_1() {
   c_id='typescript/bun/lock-sync'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_1() {
   return 0
@@ -6241,7 +6392,7 @@ bun install --frozen-lockfile
 forge_check_meta_2() {
   c_id='typescript/bun/release-age'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_2() {
   return 0
@@ -6255,7 +6406,7 @@ forge_bun_cooldown
 forge_check_meta_3() {
   c_id='typescript/bun/trusted-deps'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_3() {
   return 0
@@ -6269,7 +6420,7 @@ forge_trusted_deps
 forge_check_meta_4() {
   c_id='typescript/config-ratchet'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_4() {
   case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) ;; *) return 1 ;; esac
@@ -6284,7 +6435,7 @@ forge_ratchet bun ratchet.mjs
 forge_check_meta_5() {
   c_id='typescript/format-lint'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=1
+  c_changed=1; c_files=1; c_fix=1; c_fmt=1
 }
 forge_scope_5() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -6300,12 +6451,15 @@ biome check --write --no-errors-on-unmatched $FORGE_FILES
 forge_check_fix_5() {
 biome check --write --formatter-enabled=false --skip=correctness/noUnusedImports --skip=correctness/noUnusedVariables --no-errors-on-unmatched $FORGE_FILES
 }
+forge_check_fmt_5() {
+biome format --stdin-file-path="$FORGE_FILE"
+}
 
 # 6. typescript/no-ignore-deprecations
 forge_check_meta_6() {
   c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_6() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
@@ -6320,7 +6474,7 @@ forge_check_run_6() {
 forge_check_meta_7() {
   c_id='typescript/no-unused-suppressions'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0
 }
 forge_scope_7() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -6338,7 +6492,7 @@ forge_check_changed_7() {
 forge_check_meta_8() {
   c_id='typescript/playwright/axe'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_8() {
   return 0
@@ -6352,7 +6506,7 @@ forge_check_run_8() {
 forge_check_meta_9() {
   c_id='typescript/playwright/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_9() {
   case $1 in e2e/*) ;; *) return 1 ;; esac
@@ -6368,7 +6522,7 @@ forge_test_edits
 forge_check_meta_10() {
   c_id='typescript/playwright/run'; c_stage=test; c_tools='playwright'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_10() {
   return 0
@@ -6382,7 +6536,7 @@ playwright test --reporter=line
 forge_check_meta_11() {
   c_id='typescript/prisma/client-generator'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_11() {
   return 0
@@ -6396,7 +6550,7 @@ forge_check_run_11() {
 forge_check_meta_12() {
   c_id='typescript/prisma/migration-lint'; c_stage=migration; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0
 }
 forge_scope_12() {
   case $1 in prisma/migrations/migration.sql|prisma/migrations/*/migration.sql) ;; *) return 1 ;; esac
@@ -6414,7 +6568,7 @@ forge_squawk_files $FORGE_FILES
 forge_check_meta_13() {
   c_id='typescript/prisma/migration-present'; c_stage=migration; c_tools='prisma'
   c_when=1; c_localdb=1; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_13() {
   return 0
@@ -6428,7 +6582,7 @@ if ! grep -q shadowDatabaseUrl prisma.config.ts 2>/dev/null; then echo "forge:ty
 forge_check_meta_14() {
   c_id='typescript/prisma/validate'; c_stage=migration; c_tools='prisma'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_14() {
   return 0
@@ -6442,7 +6596,7 @@ prisma validate
 forge_check_meta_15() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_15() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -6457,7 +6611,7 @@ tsc --noEmit -p tsconfig.json
 forge_check_meta_16() {
   c_id='typescript/vitest/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_16() {
   case $1 in e2e/*) return 1 ;; esac
@@ -6474,7 +6628,7 @@ forge_test_edits
 forge_check_meta_17() {
   c_id='typescript/vitest/no-workspace-file'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_17() {
   return 0
@@ -6488,7 +6642,7 @@ forge_check_run_17() {
 forge_check_meta_18() {
   c_id='typescript/vitest/run'; c_stage=test; c_tools='vitest'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=0; c_fix=0
+  c_changed=1; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_18() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -6538,7 +6692,9 @@ forge_grep_scope_2() {
 #   changed   changed paths, one per line   existing  those that exist now
 #   deleted   those gone since the base     inbase    those that exist in the base
 #   base/<p>  each one as it is in the base
-#   added     "path<TAB>line" per added line, "path<TAB>*" per new file (empty with --all)
+#   added     "path<TAB>line" per added line, "path<TAB>*" per new file (empty with --all);
+#             lines only formatting changed are left out (forge_added_lines), unless
+#             FORGE_PLAIN_ADDED=1 (typecheck.sh, which attributes by file only)
 # The base is HEAD (--changed, --all), git merge-base <ref> HEAD (--since) or the
 # tree at the start of the turn (--turn: FORGE_SNAP, plus FORGE_BASE_REV for files
 # that were clean then).
@@ -6572,11 +6728,53 @@ forge_change_set() {
     if base_file "$_cs_f" "$FORGE_TMP/base/$_cs_f"; then printf '%s\n' "$_cs_f" >> "$FORGE_TMP/inbase"; _cs_b=1; else _cs_b=0; fi
     if [ -f "$_cs_f" ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/existing"
-      [ "$mode" = --all ] || added_lines "$_cs_f" "$FORGE_TMP/base/$_cs_f" >> "$FORGE_TMP/added"
+      [ "$mode" = --all ] || forge_added_lines "$_cs_f" "$FORGE_TMP/base/$_cs_f" >> "$FORGE_TMP/added"
     elif [ "$_cs_b" = 1 ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/deleted"
     fi
   done < "$FORGE_TMP/changed"
+  return 0
+}
+
+# forge_format_copy <path> <in> <out>: writes <in> to <out> formatted as <path> would be,
+# by the format_stdin filter of each check whose scope covers <path>, in check order.
+# Fails when no filter applies, a tool is absent, or a filter fails or prints nothing.
+forge_format_copy() {
+  _fy_i=1
+  _fy_rc=1
+  FORGE_FILE=$1
+  cp "$2" "$3" 2>/dev/null || return 1
+  while [ "$_fy_i" -le "$FORGE_NCHECKS" ]; do
+    forge_check_meta_"$_fy_i"
+    if [ "$c_fmt" = 1 ] && forge_scope_"$_fy_i" "$1"; then
+      forge_missing_tool >/dev/null && return 1
+      if ( forge_check_fmt_"$_fy_i" ) < "$3" > "$3.fmt" 2>/dev/null && { [ -s "$3.fmt" ] || [ ! -s "$3" ]; }; then
+        mv "$3.fmt" "$3"
+        _fy_rc=0
+      else
+        rm -f "$3.fmt"
+        return 1
+      fi
+    fi
+    _fy_i=$((_fy_i + 1))
+  done
+  return "$_fy_rc"
+}
+
+# forge_added_lines <path> <base-copy>: added_lines, less the lines that only formatting
+# changed: a line counts when it is added both against the base copy and against the
+# base copy formatted like <path> (forge_format_copy), so a whole-file format of an
+# unformatted file does not make its untouched lines Claude's. Without a formatter
+# (none in scope, tool absent, it fails on the base), the plain added_lines.
+forge_added_lines() {
+  added_lines "$1" "$2" > "$FORGE_TMP/al.raw"
+  if [ ! -f "$2" ] || [ ! -s "$FORGE_TMP/al.raw" ] || [ "${FORGE_PLAIN_ADDED:-0}" = 1 ] || ! forge_format_copy "$1" "$2" "$FORGE_TMP/al.base" || cmp -s "$2" "$FORGE_TMP/al.base"; then
+    cat "$FORGE_TMP/al.raw"
+  else
+    added_lines "$1" "$FORGE_TMP/al.base" > "$FORGE_TMP/al.fmt"
+    awk 'FILENAME == ARGV[1] { k[$0] = 1; next } $0 in k' "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.raw"
+  fi
+  rm -f "$FORGE_TMP/al.raw" "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.base"
   return 0
 }
 
@@ -7292,13 +7490,16 @@ forge_exec_check() {
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "none" when no line names a file. With
-# "print", prints the lines that count instead.
+# "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
+# tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
   awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
+      gsub(ansi, "", line)
       if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -7812,7 +8013,7 @@ exit "$fail"
     "typescript/bun/trusted-deps": "a23199c6bb088f245f833db63f304fdc1c8f304167257caab8125af55bbda732",
     "typescript/config-files": "77940ff304752f88c143dedc5911b0961de9e16b68e10758a273cfc049505413",
     "typescript/config-ratchet": "b0ff3b6c064f691984e217acc0388d0900b1a2a1d1ee493935badb41a8a45022",
-    "typescript/format-lint": "873b5ec532051f0356d5a00590c714b3256104929a42c4d0fa4bdd1672ef295b",
+    "typescript/format-lint": "b74bc48492b77ed341c0f50e65b301a8ec861e36d923c3375d530869229ec097",
     "typescript/nextjs/no-legacy-image-config": "3fe00293c75da57b6623c1880c86eadb54aa9fce686ac52ffc1720780763fec7",
     "typescript/nextjs/no-next-router": "e935af017296ba5db9752bf63ad22bea52eb27816f357b18532a1052590d14ea",
     "typescript/nextjs/no-pages-data": "a4d7c707f125ee1f103d922b8765e619c4c293479797d9dbdb81c7e3bbe782fa",
@@ -7901,12 +8102,12 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "d660d521eb000121521ebe466d5dc93771432139ae59b8d03789bbdadc142ab1",
     ".claude/skills/forge-project/scripts/guard.sh": "33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d",
     ".claude/skills/forge-project/scripts/lib.sh": "1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "3b12e379ea9b0ccca11ae8b3bea43b5aa5cdbbee9d23290f73564d09e01f17a1",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "3ffe8dac69b2ccb22188bdd8a0134dd28e74ae741a06055ef80a01e10d34fa49",
     ".claude/skills/forge-project/scripts/review.sh": "9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac",
-    ".claude/skills/forge-project/scripts/session-start.sh": "8ecb02d4b469a3b31ee6dcd5d3be2b0607e92509fc745043d71d1c0f76cdb112",
+    ".claude/skills/forge-project/scripts/session-start.sh": "485f3487ee828ae97cc1dfce460f095d3a142ab6bbb8e9289d4361f85a00c8d8",
     ".claude/skills/forge-project/scripts/stop.sh": "f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173",
     ".claude/skills/forge-project/scripts/turn-start.sh": "a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "6cc39ae3cd7d3a025e6937337e696305fa58b43ae02561815c88d047a6842960",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "c9669981894d7414bdb09ad0c3bf2d6627bb65237053b4b20f48b1f559304c80",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-nextjs-no-legacy-image-config-test.yml": "9d723e3c62b5697de0fa5ab80b735c3cef23225a07c81425c492cd8827faf06d",
     ".forge/ast-grep/rule-tests/typescript-nextjs-no-next-router-test.yml": "5da1551f9fa49969cdbfb6ef3ba847589327a2d7430a3cdc79f3637fc81586f1",
@@ -7969,7 +8170,7 @@ exit "$fail"
     ".forge/ast-grep/rules/typescript/zod/error-param.yml": "88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a",
     ".forge/ast-grep/rules/typescript/zod/v4-string-formats.yml": "a7503c000f128a4718f29b0122170295972560de99263354d6ed0db1a8cb099c",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "5d549b1873d866acc228b20abfb9d3ecc444564523a2a598af7fd9ac2a044a08",
+    ".forge/check.sh": "f2d49e350e4cdfdcdd596b71fe523205613a208f3d1994fa7fea1b40f803f733",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -8036,12 +8237,12 @@ d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills
 d660d521eb000121521ebe466d5dc93771432139ae59b8d03789bbdadc142ab1  .claude/skills/forge-project/scripts/guard.rules
 33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d  .claude/skills/forge-project/scripts/guard.sh
 1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a  .claude/skills/forge-project/scripts/lib.sh
-3b12e379ea9b0ccca11ae8b3bea43b5aa5cdbbee9d23290f73564d09e01f17a1  .claude/skills/forge-project/scripts/post-edit.sh
+3ffe8dac69b2ccb22188bdd8a0134dd28e74ae741a06055ef80a01e10d34fa49  .claude/skills/forge-project/scripts/post-edit.sh
 9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac  .claude/skills/forge-project/scripts/review.sh
-8ecb02d4b469a3b31ee6dcd5d3be2b0607e92509fc745043d71d1c0f76cdb112  .claude/skills/forge-project/scripts/session-start.sh
+485f3487ee828ae97cc1dfce460f095d3a142ab6bbb8e9289d4361f85a00c8d8  .claude/skills/forge-project/scripts/session-start.sh
 f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173  .claude/skills/forge-project/scripts/stop.sh
 a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c  .claude/skills/forge-project/scripts/turn-start.sh
-6cc39ae3cd7d3a025e6937337e696305fa58b43ae02561815c88d047a6842960  .claude/skills/forge-project/scripts/typecheck.sh
+c9669981894d7414bdb09ad0c3bf2d6627bb65237053b4b20f48b1f559304c80  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 9d723e3c62b5697de0fa5ab80b735c3cef23225a07c81425c492cd8827faf06d  .forge/ast-grep/rule-tests/typescript-nextjs-no-legacy-image-config-test.yml
 5da1551f9fa49969cdbfb6ef3ba847589327a2d7430a3cdc79f3637fc81586f1  .forge/ast-grep/rule-tests/typescript-nextjs-no-next-router-test.yml
@@ -8104,7 +8305,7 @@ d3c41a3915d84b21e86e9212a06ad14c52bf2f9bcefb7c5ca433200cc3ec44fb  .forge/ast-gre
 88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a  .forge/ast-grep/rules/typescript/zod/error-param.yml
 a7503c000f128a4718f29b0122170295972560de99263354d6ed0db1a8cb099c  .forge/ast-grep/rules/typescript/zod/v4-string-formats.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-5d549b1873d866acc228b20abfb9d3ecc444564523a2a598af7fd9ac2a044a08  .forge/check.sh
+f2d49e350e4cdfdcdd596b71fe523205613a208f3d1994fa7fea1b40f803f733  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

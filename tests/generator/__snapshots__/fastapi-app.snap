@@ -642,7 +642,7 @@ FORGE_NCHECKS=11
 forge_check_meta_1() {
   c_id='python/config-ratchet'; c_stage=lint; c_tools='python'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_1() {
   case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) ;; *) return 1 ;; esac
@@ -657,7 +657,7 @@ forge_ratchet python ratchet.py
 forge_check_meta_2() {
   c_id='python/format'; c_stage=format; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_fmt=1
 }
 forge_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -670,12 +670,15 @@ ruff format --check .
 forge_check_changed_2() {
 ruff format $FORGE_FILES
 }
+forge_check_fmt_2() {
+ruff format --stdin-filename "$FORGE_FILE" -
+}
 
 # 3. python/lint
 forge_check_meta_3() {
   c_id='python/lint'; c_stage=lint; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=1
+  c_changed=1; c_files=1; c_fix=1; c_fmt=0
 }
 forge_scope_3() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -696,7 +699,7 @@ ruff check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise
 forge_check_meta_4() {
   c_id='python/pytest/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_4() {
   case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py) ;; *) return 1 ;; esac
@@ -712,7 +715,7 @@ forge_test_edits
 forge_check_meta_5() {
   c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
   c_when=0; c_localdb=0; c_timeout=300
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0
 }
 forge_scope_5() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -730,7 +733,7 @@ if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q 
 forge_check_meta_6() {
   c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=1; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_6() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -745,7 +748,7 @@ alembic check
 forge_check_meta_7() {
   c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0
 }
 forge_scope_7() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
@@ -764,7 +767,7 @@ forge_squawk_alembic $FORGE_FILES
 forge_check_meta_8() {
   c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_8() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -779,7 +782,7 @@ test "$(alembic heads | wc -l)" -le 1
 forge_check_meta_9() {
   c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_9() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -794,7 +797,7 @@ basedpyright
 forge_check_meta_10() {
   c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_10() {
   return 0
@@ -808,7 +811,7 @@ forge_uv_cooldown
 forge_check_meta_11() {
   c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_11() {
   return 0
@@ -854,7 +857,9 @@ forge_grep_scope_2() {
 #   changed   changed paths, one per line   existing  those that exist now
 #   deleted   those gone since the base     inbase    those that exist in the base
 #   base/<p>  each one as it is in the base
-#   added     "path<TAB>line" per added line, "path<TAB>*" per new file (empty with --all)
+#   added     "path<TAB>line" per added line, "path<TAB>*" per new file (empty with --all);
+#             lines only formatting changed are left out (forge_added_lines), unless
+#             FORGE_PLAIN_ADDED=1 (typecheck.sh, which attributes by file only)
 # The base is HEAD (--changed, --all), git merge-base <ref> HEAD (--since) or the
 # tree at the start of the turn (--turn: FORGE_SNAP, plus FORGE_BASE_REV for files
 # that were clean then).
@@ -888,11 +893,53 @@ forge_change_set() {
     if base_file "$_cs_f" "$FORGE_TMP/base/$_cs_f"; then printf '%s\n' "$_cs_f" >> "$FORGE_TMP/inbase"; _cs_b=1; else _cs_b=0; fi
     if [ -f "$_cs_f" ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/existing"
-      [ "$mode" = --all ] || added_lines "$_cs_f" "$FORGE_TMP/base/$_cs_f" >> "$FORGE_TMP/added"
+      [ "$mode" = --all ] || forge_added_lines "$_cs_f" "$FORGE_TMP/base/$_cs_f" >> "$FORGE_TMP/added"
     elif [ "$_cs_b" = 1 ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/deleted"
     fi
   done < "$FORGE_TMP/changed"
+  return 0
+}
+
+# forge_format_copy <path> <in> <out>: writes <in> to <out> formatted as <path> would be,
+# by the format_stdin filter of each check whose scope covers <path>, in check order.
+# Fails when no filter applies, a tool is absent, or a filter fails or prints nothing.
+forge_format_copy() {
+  _fy_i=1
+  _fy_rc=1
+  FORGE_FILE=$1
+  cp "$2" "$3" 2>/dev/null || return 1
+  while [ "$_fy_i" -le "$FORGE_NCHECKS" ]; do
+    forge_check_meta_"$_fy_i"
+    if [ "$c_fmt" = 1 ] && forge_scope_"$_fy_i" "$1"; then
+      forge_missing_tool >/dev/null && return 1
+      if ( forge_check_fmt_"$_fy_i" ) < "$3" > "$3.fmt" 2>/dev/null && { [ -s "$3.fmt" ] || [ ! -s "$3" ]; }; then
+        mv "$3.fmt" "$3"
+        _fy_rc=0
+      else
+        rm -f "$3.fmt"
+        return 1
+      fi
+    fi
+    _fy_i=$((_fy_i + 1))
+  done
+  return "$_fy_rc"
+}
+
+# forge_added_lines <path> <base-copy>: added_lines, less the lines that only formatting
+# changed: a line counts when it is added both against the base copy and against the
+# base copy formatted like <path> (forge_format_copy), so a whole-file format of an
+# unformatted file does not make its untouched lines Claude's. Without a formatter
+# (none in scope, tool absent, it fails on the base), the plain added_lines.
+forge_added_lines() {
+  added_lines "$1" "$2" > "$FORGE_TMP/al.raw"
+  if [ ! -f "$2" ] || [ ! -s "$FORGE_TMP/al.raw" ] || [ "${FORGE_PLAIN_ADDED:-0}" = 1 ] || ! forge_format_copy "$1" "$2" "$FORGE_TMP/al.base" || cmp -s "$2" "$FORGE_TMP/al.base"; then
+    cat "$FORGE_TMP/al.raw"
+  else
+    added_lines "$1" "$FORGE_TMP/al.base" > "$FORGE_TMP/al.fmt"
+    awk 'FILENAME == ARGV[1] { k[$0] = 1; next } $0 in k' "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.raw"
+  fi
+  rm -f "$FORGE_TMP/al.raw" "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.base"
   return 0
 }
 
@@ -1608,13 +1655,16 @@ forge_exec_check() {
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "none" when no line names a file. With
-# "print", prints the lines that count instead.
+# "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
+# tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
   awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
+      gsub(ansi, "", line)
       if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -1831,7 +1881,7 @@ while IFS= read -r file; do
   forge_file_stage format "$file" > /dev/null 2>&1
   rm -f "$FORGE_TMP/base"
   base_file "$file" "$FORGE_TMP/base"
-  added_lines "$file" "$FORGE_TMP/base" >> "$FORGE_TMP/added"
+  forge_added_lines "$file" "$FORGE_TMP/base" >> "$FORGE_TMP/added"
 done < "$FORGE_TMP/changed"
 # safe fixes first (sorted imports, pyupgrade, Biome's safe fixes), then what remains
 while IFS= read -r file; do
@@ -1914,7 +1964,7 @@ FORGE_NCHECKS=11
 forge_check_meta_1() {
   c_id='python/config-ratchet'; c_stage=lint; c_tools='python'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_1() {
   case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) ;; *) return 1 ;; esac
@@ -1929,7 +1979,7 @@ forge_ratchet python ratchet.py
 forge_check_meta_2() {
   c_id='python/format'; c_stage=format; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_fmt=1
 }
 forge_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -1942,12 +1992,15 @@ ruff format --check .
 forge_check_changed_2() {
 ruff format $FORGE_FILES
 }
+forge_check_fmt_2() {
+ruff format --stdin-filename "$FORGE_FILE" -
+}
 
 # 3. python/lint
 forge_check_meta_3() {
   c_id='python/lint'; c_stage=lint; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=1
+  c_changed=1; c_files=1; c_fix=1; c_fmt=0
 }
 forge_scope_3() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -1968,7 +2021,7 @@ ruff check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise
 forge_check_meta_4() {
   c_id='python/pytest/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_4() {
   case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py) ;; *) return 1 ;; esac
@@ -1984,7 +2037,7 @@ forge_test_edits
 forge_check_meta_5() {
   c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
   c_when=0; c_localdb=0; c_timeout=300
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0
 }
 forge_scope_5() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -2002,7 +2055,7 @@ if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q 
 forge_check_meta_6() {
   c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=1; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_6() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -2017,7 +2070,7 @@ alembic check
 forge_check_meta_7() {
   c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0
 }
 forge_scope_7() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
@@ -2036,7 +2089,7 @@ forge_squawk_alembic $FORGE_FILES
 forge_check_meta_8() {
   c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_8() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -2051,7 +2104,7 @@ test "$(alembic heads | wc -l)" -le 1
 forge_check_meta_9() {
   c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_9() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -2066,7 +2119,7 @@ basedpyright
 forge_check_meta_10() {
   c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_10() {
   return 0
@@ -2080,7 +2133,7 @@ forge_uv_cooldown
 forge_check_meta_11() {
   c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_11() {
   return 0
@@ -2126,7 +2179,9 @@ forge_grep_scope_2() {
 #   changed   changed paths, one per line   existing  those that exist now
 #   deleted   those gone since the base     inbase    those that exist in the base
 #   base/<p>  each one as it is in the base
-#   added     "path<TAB>line" per added line, "path<TAB>*" per new file (empty with --all)
+#   added     "path<TAB>line" per added line, "path<TAB>*" per new file (empty with --all);
+#             lines only formatting changed are left out (forge_added_lines), unless
+#             FORGE_PLAIN_ADDED=1 (typecheck.sh, which attributes by file only)
 # The base is HEAD (--changed, --all), git merge-base <ref> HEAD (--since) or the
 # tree at the start of the turn (--turn: FORGE_SNAP, plus FORGE_BASE_REV for files
 # that were clean then).
@@ -2160,11 +2215,53 @@ forge_change_set() {
     if base_file "$_cs_f" "$FORGE_TMP/base/$_cs_f"; then printf '%s\n' "$_cs_f" >> "$FORGE_TMP/inbase"; _cs_b=1; else _cs_b=0; fi
     if [ -f "$_cs_f" ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/existing"
-      [ "$mode" = --all ] || added_lines "$_cs_f" "$FORGE_TMP/base/$_cs_f" >> "$FORGE_TMP/added"
+      [ "$mode" = --all ] || forge_added_lines "$_cs_f" "$FORGE_TMP/base/$_cs_f" >> "$FORGE_TMP/added"
     elif [ "$_cs_b" = 1 ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/deleted"
     fi
   done < "$FORGE_TMP/changed"
+  return 0
+}
+
+# forge_format_copy <path> <in> <out>: writes <in> to <out> formatted as <path> would be,
+# by the format_stdin filter of each check whose scope covers <path>, in check order.
+# Fails when no filter applies, a tool is absent, or a filter fails or prints nothing.
+forge_format_copy() {
+  _fy_i=1
+  _fy_rc=1
+  FORGE_FILE=$1
+  cp "$2" "$3" 2>/dev/null || return 1
+  while [ "$_fy_i" -le "$FORGE_NCHECKS" ]; do
+    forge_check_meta_"$_fy_i"
+    if [ "$c_fmt" = 1 ] && forge_scope_"$_fy_i" "$1"; then
+      forge_missing_tool >/dev/null && return 1
+      if ( forge_check_fmt_"$_fy_i" ) < "$3" > "$3.fmt" 2>/dev/null && { [ -s "$3.fmt" ] || [ ! -s "$3" ]; }; then
+        mv "$3.fmt" "$3"
+        _fy_rc=0
+      else
+        rm -f "$3.fmt"
+        return 1
+      fi
+    fi
+    _fy_i=$((_fy_i + 1))
+  done
+  return "$_fy_rc"
+}
+
+# forge_added_lines <path> <base-copy>: added_lines, less the lines that only formatting
+# changed: a line counts when it is added both against the base copy and against the
+# base copy formatted like <path> (forge_format_copy), so a whole-file format of an
+# unformatted file does not make its untouched lines Claude's. Without a formatter
+# (none in scope, tool absent, it fails on the base), the plain added_lines.
+forge_added_lines() {
+  added_lines "$1" "$2" > "$FORGE_TMP/al.raw"
+  if [ ! -f "$2" ] || [ ! -s "$FORGE_TMP/al.raw" ] || [ "${FORGE_PLAIN_ADDED:-0}" = 1 ] || ! forge_format_copy "$1" "$2" "$FORGE_TMP/al.base" || cmp -s "$2" "$FORGE_TMP/al.base"; then
+    cat "$FORGE_TMP/al.raw"
+  else
+    added_lines "$1" "$FORGE_TMP/al.base" > "$FORGE_TMP/al.fmt"
+    awk 'FILENAME == ARGV[1] { k[$0] = 1; next } $0 in k' "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.raw"
+  fi
+  rm -f "$FORGE_TMP/al.raw" "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.base"
   return 0
 }
 
@@ -2880,13 +2977,16 @@ forge_exec_check() {
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "none" when no line names a file. With
-# "print", prints the lines that count instead.
+# "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
+# tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
   awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
+      gsub(ansi, "", line)
       if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -3221,7 +3321,7 @@ FORGE_NCHECKS=11
 forge_check_meta_1() {
   c_id='python/config-ratchet'; c_stage=lint; c_tools='python'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_1() {
   case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) ;; *) return 1 ;; esac
@@ -3236,7 +3336,7 @@ forge_ratchet python ratchet.py
 forge_check_meta_2() {
   c_id='python/format'; c_stage=format; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_fmt=1
 }
 forge_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -3249,12 +3349,15 @@ ruff format --check .
 forge_check_changed_2() {
 ruff format $FORGE_FILES
 }
+forge_check_fmt_2() {
+ruff format --stdin-filename "$FORGE_FILE" -
+}
 
 # 3. python/lint
 forge_check_meta_3() {
   c_id='python/lint'; c_stage=lint; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=1
+  c_changed=1; c_files=1; c_fix=1; c_fmt=0
 }
 forge_scope_3() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -3275,7 +3378,7 @@ ruff check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise
 forge_check_meta_4() {
   c_id='python/pytest/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_4() {
   case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py) ;; *) return 1 ;; esac
@@ -3291,7 +3394,7 @@ forge_test_edits
 forge_check_meta_5() {
   c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
   c_when=0; c_localdb=0; c_timeout=300
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0
 }
 forge_scope_5() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -3309,7 +3412,7 @@ if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q 
 forge_check_meta_6() {
   c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=1; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_6() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -3324,7 +3427,7 @@ alembic check
 forge_check_meta_7() {
   c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0
 }
 forge_scope_7() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
@@ -3343,7 +3446,7 @@ forge_squawk_alembic $FORGE_FILES
 forge_check_meta_8() {
   c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_8() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -3358,7 +3461,7 @@ test "$(alembic heads | wc -l)" -le 1
 forge_check_meta_9() {
   c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_9() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -3373,7 +3476,7 @@ basedpyright
 forge_check_meta_10() {
   c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_10() {
   return 0
@@ -3387,7 +3490,7 @@ forge_uv_cooldown
 forge_check_meta_11() {
   c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_11() {
   return 0
@@ -3433,7 +3536,9 @@ forge_grep_scope_2() {
 #   changed   changed paths, one per line   existing  those that exist now
 #   deleted   those gone since the base     inbase    those that exist in the base
 #   base/<p>  each one as it is in the base
-#   added     "path<TAB>line" per added line, "path<TAB>*" per new file (empty with --all)
+#   added     "path<TAB>line" per added line, "path<TAB>*" per new file (empty with --all);
+#             lines only formatting changed are left out (forge_added_lines), unless
+#             FORGE_PLAIN_ADDED=1 (typecheck.sh, which attributes by file only)
 # The base is HEAD (--changed, --all), git merge-base <ref> HEAD (--since) or the
 # tree at the start of the turn (--turn: FORGE_SNAP, plus FORGE_BASE_REV for files
 # that were clean then).
@@ -3467,11 +3572,53 @@ forge_change_set() {
     if base_file "$_cs_f" "$FORGE_TMP/base/$_cs_f"; then printf '%s\n' "$_cs_f" >> "$FORGE_TMP/inbase"; _cs_b=1; else _cs_b=0; fi
     if [ -f "$_cs_f" ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/existing"
-      [ "$mode" = --all ] || added_lines "$_cs_f" "$FORGE_TMP/base/$_cs_f" >> "$FORGE_TMP/added"
+      [ "$mode" = --all ] || forge_added_lines "$_cs_f" "$FORGE_TMP/base/$_cs_f" >> "$FORGE_TMP/added"
     elif [ "$_cs_b" = 1 ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/deleted"
     fi
   done < "$FORGE_TMP/changed"
+  return 0
+}
+
+# forge_format_copy <path> <in> <out>: writes <in> to <out> formatted as <path> would be,
+# by the format_stdin filter of each check whose scope covers <path>, in check order.
+# Fails when no filter applies, a tool is absent, or a filter fails or prints nothing.
+forge_format_copy() {
+  _fy_i=1
+  _fy_rc=1
+  FORGE_FILE=$1
+  cp "$2" "$3" 2>/dev/null || return 1
+  while [ "$_fy_i" -le "$FORGE_NCHECKS" ]; do
+    forge_check_meta_"$_fy_i"
+    if [ "$c_fmt" = 1 ] && forge_scope_"$_fy_i" "$1"; then
+      forge_missing_tool >/dev/null && return 1
+      if ( forge_check_fmt_"$_fy_i" ) < "$3" > "$3.fmt" 2>/dev/null && { [ -s "$3.fmt" ] || [ ! -s "$3" ]; }; then
+        mv "$3.fmt" "$3"
+        _fy_rc=0
+      else
+        rm -f "$3.fmt"
+        return 1
+      fi
+    fi
+    _fy_i=$((_fy_i + 1))
+  done
+  return "$_fy_rc"
+}
+
+# forge_added_lines <path> <base-copy>: added_lines, less the lines that only formatting
+# changed: a line counts when it is added both against the base copy and against the
+# base copy formatted like <path> (forge_format_copy), so a whole-file format of an
+# unformatted file does not make its untouched lines Claude's. Without a formatter
+# (none in scope, tool absent, it fails on the base), the plain added_lines.
+forge_added_lines() {
+  added_lines "$1" "$2" > "$FORGE_TMP/al.raw"
+  if [ ! -f "$2" ] || [ ! -s "$FORGE_TMP/al.raw" ] || [ "${FORGE_PLAIN_ADDED:-0}" = 1 ] || ! forge_format_copy "$1" "$2" "$FORGE_TMP/al.base" || cmp -s "$2" "$FORGE_TMP/al.base"; then
+    cat "$FORGE_TMP/al.raw"
+  else
+    added_lines "$1" "$FORGE_TMP/al.base" > "$FORGE_TMP/al.fmt"
+    awk 'FILENAME == ARGV[1] { k[$0] = 1; next } $0 in k' "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.raw"
+  fi
+  rm -f "$FORGE_TMP/al.raw" "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.base"
   return 0
 }
 
@@ -4187,13 +4334,16 @@ forge_exec_check() {
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "none" when no line names a file. With
-# "print", prints the lines that count instead.
+# "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
+# tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
   awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
+      gsub(ansi, "", line)
       if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -4425,6 +4575,7 @@ trap 'rm -rf "$FORGE_TMP" "$lock"' EXIT HUP INT TERM
 # (the turn snapshot), or every uncommitted change before the first prompt
 snap=$(turn_dir)
 if [ -f "$snap/head" ]; then mode=--turn; FORGE_ARG=$snap; else mode=--changed; fi
+FORGE_PLAIN_ADDED=1
 forge_change_set
 if forge_typecheck "$file" > "$FORGE_TMP/report" 2>&1; then exit 0; fi
 first_lines 20 < "$FORGE_TMP/report" >&2
@@ -5454,7 +5605,7 @@ FORGE_NCHECKS=11
 forge_check_meta_1() {
   c_id='python/config-ratchet'; c_stage=lint; c_tools='python'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_1() {
   case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) ;; *) return 1 ;; esac
@@ -5469,7 +5620,7 @@ forge_ratchet python ratchet.py
 forge_check_meta_2() {
   c_id='python/format'; c_stage=format; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_fmt=1
 }
 forge_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -5482,12 +5633,15 @@ ruff format --check .
 forge_check_changed_2() {
 ruff format $FORGE_FILES
 }
+forge_check_fmt_2() {
+ruff format --stdin-filename "$FORGE_FILE" -
+}
 
 # 3. python/lint
 forge_check_meta_3() {
   c_id='python/lint'; c_stage=lint; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=1
+  c_changed=1; c_files=1; c_fix=1; c_fmt=0
 }
 forge_scope_3() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -5508,7 +5662,7 @@ ruff check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise
 forge_check_meta_4() {
   c_id='python/pytest/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_4() {
   case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py) ;; *) return 1 ;; esac
@@ -5524,7 +5678,7 @@ forge_test_edits
 forge_check_meta_5() {
   c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
   c_when=0; c_localdb=0; c_timeout=300
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0
 }
 forge_scope_5() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -5542,7 +5696,7 @@ if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q 
 forge_check_meta_6() {
   c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=1; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_6() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -5557,7 +5711,7 @@ alembic check
 forge_check_meta_7() {
   c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0
 }
 forge_scope_7() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
@@ -5576,7 +5730,7 @@ forge_squawk_alembic $FORGE_FILES
 forge_check_meta_8() {
   c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_8() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -5591,7 +5745,7 @@ test "$(alembic heads | wc -l)" -le 1
 forge_check_meta_9() {
   c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_9() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -5606,7 +5760,7 @@ basedpyright
 forge_check_meta_10() {
   c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_10() {
   return 0
@@ -5620,7 +5774,7 @@ forge_uv_cooldown
 forge_check_meta_11() {
   c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0
 }
 forge_scope_11() {
   return 0
@@ -5666,7 +5820,9 @@ forge_grep_scope_2() {
 #   changed   changed paths, one per line   existing  those that exist now
 #   deleted   those gone since the base     inbase    those that exist in the base
 #   base/<p>  each one as it is in the base
-#   added     "path<TAB>line" per added line, "path<TAB>*" per new file (empty with --all)
+#   added     "path<TAB>line" per added line, "path<TAB>*" per new file (empty with --all);
+#             lines only formatting changed are left out (forge_added_lines), unless
+#             FORGE_PLAIN_ADDED=1 (typecheck.sh, which attributes by file only)
 # The base is HEAD (--changed, --all), git merge-base <ref> HEAD (--since) or the
 # tree at the start of the turn (--turn: FORGE_SNAP, plus FORGE_BASE_REV for files
 # that were clean then).
@@ -5700,11 +5856,53 @@ forge_change_set() {
     if base_file "$_cs_f" "$FORGE_TMP/base/$_cs_f"; then printf '%s\n' "$_cs_f" >> "$FORGE_TMP/inbase"; _cs_b=1; else _cs_b=0; fi
     if [ -f "$_cs_f" ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/existing"
-      [ "$mode" = --all ] || added_lines "$_cs_f" "$FORGE_TMP/base/$_cs_f" >> "$FORGE_TMP/added"
+      [ "$mode" = --all ] || forge_added_lines "$_cs_f" "$FORGE_TMP/base/$_cs_f" >> "$FORGE_TMP/added"
     elif [ "$_cs_b" = 1 ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/deleted"
     fi
   done < "$FORGE_TMP/changed"
+  return 0
+}
+
+# forge_format_copy <path> <in> <out>: writes <in> to <out> formatted as <path> would be,
+# by the format_stdin filter of each check whose scope covers <path>, in check order.
+# Fails when no filter applies, a tool is absent, or a filter fails or prints nothing.
+forge_format_copy() {
+  _fy_i=1
+  _fy_rc=1
+  FORGE_FILE=$1
+  cp "$2" "$3" 2>/dev/null || return 1
+  while [ "$_fy_i" -le "$FORGE_NCHECKS" ]; do
+    forge_check_meta_"$_fy_i"
+    if [ "$c_fmt" = 1 ] && forge_scope_"$_fy_i" "$1"; then
+      forge_missing_tool >/dev/null && return 1
+      if ( forge_check_fmt_"$_fy_i" ) < "$3" > "$3.fmt" 2>/dev/null && { [ -s "$3.fmt" ] || [ ! -s "$3" ]; }; then
+        mv "$3.fmt" "$3"
+        _fy_rc=0
+      else
+        rm -f "$3.fmt"
+        return 1
+      fi
+    fi
+    _fy_i=$((_fy_i + 1))
+  done
+  return "$_fy_rc"
+}
+
+# forge_added_lines <path> <base-copy>: added_lines, less the lines that only formatting
+# changed: a line counts when it is added both against the base copy and against the
+# base copy formatted like <path> (forge_format_copy), so a whole-file format of an
+# unformatted file does not make its untouched lines Claude's. Without a formatter
+# (none in scope, tool absent, it fails on the base), the plain added_lines.
+forge_added_lines() {
+  added_lines "$1" "$2" > "$FORGE_TMP/al.raw"
+  if [ ! -f "$2" ] || [ ! -s "$FORGE_TMP/al.raw" ] || [ "${FORGE_PLAIN_ADDED:-0}" = 1 ] || ! forge_format_copy "$1" "$2" "$FORGE_TMP/al.base" || cmp -s "$2" "$FORGE_TMP/al.base"; then
+    cat "$FORGE_TMP/al.raw"
+  else
+    added_lines "$1" "$FORGE_TMP/al.base" > "$FORGE_TMP/al.fmt"
+    awk 'FILENAME == ARGV[1] { k[$0] = 1; next } $0 in k' "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.raw"
+  fi
+  rm -f "$FORGE_TMP/al.raw" "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.base"
   return 0
 }
 
@@ -6420,13 +6618,16 @@ forge_exec_check() {
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "none" when no line names a file. With
-# "print", prints the lines that count instead.
+# "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
+# tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
   awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
+      gsub(ansi, "", line)
       if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -7016,7 +7217,7 @@ exit "$fail"
     "python/fastapi/annotated-depends": "74fc0e4e89bf389aa7377ee0ab2d47d29257c9d063592ab8156b1f3f9dca7f38",
     "python/fastapi/cors-credentials-wildcard": "1ff2c42562d1d01479da9e3f2bea4be08ad42b140de7d6dae3b80ef4d277d84c",
     "python/fastapi/no-on-event": "b271f0c2fcd5a098e169a20049f3734d1e74c555ef94815f85965c0f89dd13b7",
-    "python/format": "8d5ad243e61e901e21fe43bffdb84ea616abe97eedeb5bba3b41cc9023cd2ee2",
+    "python/format": "1aa3a77806c5786996cdfd0c51317768523af3ed210a5dce7039fcb038f58989",
     "python/http-timeout": "6dd6636dced7f6e05fa730e2e89e612def7de4c8824b792b268efbacd58bca94",
     "python/jinja-autoescape": "ce92237b1d07b1e3ca62b3bc850f072c0ac6c689bccb1041f0b1b1af15734f52",
     "python/lint": "ee52570ea6ee01c0688c5f22c3f364dbf5b7208a2a0f6bc1953bc872e488686e",
@@ -7085,12 +7286,12 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "abda384154c0c859546b6aa0e79a6a1a8c4cead27ff82e014fc69de843294b74",
     ".claude/skills/forge-project/scripts/guard.sh": "33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d",
     ".claude/skills/forge-project/scripts/lib.sh": "1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "54a033730dffff5acd1d2bae2cc86818e3109382b4c512b2d7f14ef5fb83a8ae",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "9c2cacb3b0ab9cc3c8025cdd52c70b2fa8b2785ff73a1d7ff9f9a4c30ad620db",
     ".claude/skills/forge-project/scripts/review.sh": "9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac",
-    ".claude/skills/forge-project/scripts/session-start.sh": "ffdbd14991203a7de4a69968abc47ea334e0146fae8f94ee9f3372ed9513967a",
+    ".claude/skills/forge-project/scripts/session-start.sh": "4f805869a8392ddf23148659a80f4a1f54e43be68768e991b4a8f0cefe97496b",
     ".claude/skills/forge-project/scripts/stop.sh": "f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173",
     ".claude/skills/forge-project/scripts/turn-start.sh": "a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "246ebdc30739c7a216e3acace9acfea79fc844a957c7450be6a601b368c7bf3f",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "dd782cf04199472c83eddd17ec37e273a3bd09f099cefb38644931400fbba914",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml": "69a94f1a0b16aa08bcf758af3e3dc269266cdd808aba1a4289b4c58c7f969700",
     ".forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml": "1589382e5e0b5cae841a8f47dae9f2b3a8583a4bb1074ceb858d882e648e9b49",
@@ -7125,7 +7326,7 @@ exit "$fail"
     ".forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml": "4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0",
     ".forge/ast-grep/rules/python/sqlalchemy/no-text-fstring.yml": "04c44c9e215449d46b10540e86e999ec1d6383d8c3a849855fe73cb456668fca",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "eef45dcd3608fd020057c62f8008e4049281a07834a2d7947f1168da31ad610b",
+    ".forge/check.sh": "0509e7e9b0a4af7d8e8097cea1c7dcfb3ae78f8fbed7fb0dd6e4b0d6fe8108af",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -7180,12 +7381,12 @@ d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills
 abda384154c0c859546b6aa0e79a6a1a8c4cead27ff82e014fc69de843294b74  .claude/skills/forge-project/scripts/guard.rules
 33872fc995af96e877897a11fc6e816d59288c6493da34be5ba05b37da2da16d  .claude/skills/forge-project/scripts/guard.sh
 1259a5acb515db1f6dfe5fac5a975b662f1de126736ea6b05d8215aa837d9d8a  .claude/skills/forge-project/scripts/lib.sh
-54a033730dffff5acd1d2bae2cc86818e3109382b4c512b2d7f14ef5fb83a8ae  .claude/skills/forge-project/scripts/post-edit.sh
+9c2cacb3b0ab9cc3c8025cdd52c70b2fa8b2785ff73a1d7ff9f9a4c30ad620db  .claude/skills/forge-project/scripts/post-edit.sh
 9f4b09b657783f754fb8e36b026b0b1acec775027092d9c8026224647726ebac  .claude/skills/forge-project/scripts/review.sh
-ffdbd14991203a7de4a69968abc47ea334e0146fae8f94ee9f3372ed9513967a  .claude/skills/forge-project/scripts/session-start.sh
+4f805869a8392ddf23148659a80f4a1f54e43be68768e991b4a8f0cefe97496b  .claude/skills/forge-project/scripts/session-start.sh
 f8aa2b8e3c5bdc36b19690cfafdea1f0999950aa55181bca9035710eb3eff173  .claude/skills/forge-project/scripts/stop.sh
 a600a4ab2947c1a18d9ef9abebdb6a9d48f3ff2e64e22ccedb63db44da850e5c  .claude/skills/forge-project/scripts/turn-start.sh
-246ebdc30739c7a216e3acace9acfea79fc844a957c7450be6a601b368c7bf3f  .claude/skills/forge-project/scripts/typecheck.sh
+dd782cf04199472c83eddd17ec37e273a3bd09f099cefb38644931400fbba914  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 69a94f1a0b16aa08bcf758af3e3dc269266cdd808aba1a4289b4c58c7f969700  .forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml
 1589382e5e0b5cae841a8f47dae9f2b3a8583a4bb1074ceb858d882e648e9b49  .forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml
@@ -7220,7 +7421,7 @@ e1a15384665afb7aae24664c55f4d81523622a6ef117385b17f806bc30cd3c3f  .forge/ast-gre
 4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0  .forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml
 04c44c9e215449d46b10540e86e999ec1d6383d8c3a849855fe73cb456668fca  .forge/ast-grep/rules/python/sqlalchemy/no-text-fstring.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-eef45dcd3608fd020057c62f8008e4049281a07834a2d7947f1168da31ad610b  .forge/check.sh
+0509e7e9b0a4af7d8e8097cea1c7dcfb3ae78f8fbed7fb0dd6e4b0d6fe8108af  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

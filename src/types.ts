@@ -63,6 +63,8 @@ export interface CheckTarget {
   changed_run?: string;
   /** Lint checks: safe fixes applied to an edited file before it is linted ({files}). */
   fix_run?: string;
+  /** The formatter as a filter: formats stdin as if it were {file}, prints the result. Formats base copies, so formatting is not counted as added lines. */
+  format_stdin?: string;
   when_changed?: string[];
   requires_local_db?: boolean;
   timeout?: number;

@@ -157,6 +157,7 @@ const MODE: Record<string, string> = {
             <Code code={t.run} lang="sh" title="--all (CI)" />
             {t.changed_run && <Code code={t.changed_run} lang="sh" title="--changed (Stop, pre-commit, after an edit)" />}
             {t.fix_run && <Code code={t.fix_run} lang="sh" title="safe fixes, after an edit" />}
+            {t.format_stdin && <Code code={t.format_stdin} lang="sh" title="formats base copies, for added lines" />}
           </>
         );
       })
