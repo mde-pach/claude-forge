@@ -1,6 +1,6 @@
 {
  "updated": "",
- "headline": "All five Python and TypeScript pilot pairs scored end to end; the better-auth pilot is running. Dataset: 5 of 6 repos have 10+ accepted tasks; better-auth (slow: 6\u201312 min install+build) is building.",
+ "headline": "Pilots done on all 6 repos (10 trials, all scored, parity held). Waiting on the last better-auth tasks before freezing dataset v1 and starting the main run (360 trials).",
  "phases": [
   {
    "name": "Design written and pre-registered",
@@ -39,8 +39,8 @@
   },
   {
    "name": "Pilot (harness end to end)",
-   "state": "running",
-   "note": "fastmcp \u00d72, zod, inngest-js scored in both arms; better-auth running; 12 harness fixes logged"
+   "state": "done",
+   "note": "5 pilot-window tasks, 10 trials; 13 harness fixes logged (CHANGELOG P1\u2013P13)"
   },
   {
    "name": "Full run: 3 replicates \u00d7 2 arms",
@@ -83,7 +83,7 @@
     "repo": "better-auth",
     "lang": "TypeScript",
     "candidates": 135,
-    "accepted": 0
+    "accepted": 6
    },
    {
     "repo": "zod",
@@ -95,7 +95,7 @@
     "repo": "inngest-js",
     "lang": "TypeScript",
     "candidates": 49,
-    "accepted": 8
+    "accepted": 10
    }
   ]
  },
@@ -117,6 +117,9 @@
   "Scorer self-test passes on Python and TypeScript pilot tasks",
   "inngest-js pilot: both arms resolved; Forge gave 1 feedback and 1 block",
   "Observation: Sonnet 5.5 edits files only through Bash (no Edit/Write calls) in every pilot trial, both arms",
-  "Usage-limit utilisation is flat (7-day window 15%); not a constraint"
+  "Usage-limit utilisation is flat (7-day window 15%); not a constraint",
+  "better-auth pilot: both arms resolved; Forge's Stop check hit database-backed tests (no DB in the container) and blocked 3 times, 34 min vs 17 min wall",
+  "Pre-registered (D16): sensitivity analysis without better-auth, and Stop blocks per repo",
+  "P13: uv's uv_cache.json timestamp made prep non-deterministic; excluded; determinism verified on 6 repos"
  ]
 }
