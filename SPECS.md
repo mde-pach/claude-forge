@@ -594,11 +594,13 @@ context.md: tests assert behaviour, never weakened; "If an existing test looks w
 | `typescript/nextjs/proxy-not-middleware` | `ast-grep` forbid: any code in `middleware.ts` / `src/middleware.ts` (file renamed to `proxy.ts` in Next.js 16) |
 | `typescript/nextjs/revalidate-tag-profile` | `ast-grep` forbid: `revalidateTag($A)` with one argument |
 | `typescript/nextjs/no-legacy-image-config` | `ast-grep` forbid: imports of `next/legacy/image`; a `domains` key inside `images` |
-| `typescript/nextjs/server-action-validate` | `ast-grep` forbid: an exported async function with parameters in a `'use server'` file, or an exported `POST` / `PUT` / `PATCH` / `DELETE` function, without a `.parse` / `.safeParse` / `.parseAsync` / `.safeParseAsync` call |
+| `typescript/nextjs/server-action-validate` | `ast-grep` forbid: an exported async function with parameters in a `'use server'` file without a `.parse` / `.safeParse` / `.parseAsync` / `.safeParseAsync` call |
 | `typescript/nextjs/server-action-auth` | `ast-grep` forbid: the same functions without a call to `auth`, `getSession`, `getServerSession`, `getCurrentUser`, `currentUser`, `getUser`, `requireUser`, `requireAuth`, `requireSession`, `verifySession`, `validateRequest` or `getAuth` (as a function or a method). Another helper name, or a public endpoint, is handled with a local rule of the same id (§5.3) |
 | `typescript/nextjs/no-public-secret-env` | `ast-grep` forbid: `process.env.NEXT_PUBLIC_*` names containing `SECRET`, `PRIVATE`, `PASSWORD`, `SERVICE_ROLE` or `DATABASE_URL` |
+| `typescript/nextjs/route-handler-validate` | `ast-grep` forbid in `**/app/**/route.{ts,js}`: `req.json()` / `req.formData()` (`req` or `request`), `….searchParams` or a destructured `searchParams` inside an exported `GET`…`OPTIONS` handler (function or `const`) without a `.parse` / `.safeParse` / `.parseAsync` / `.safeParseAsync` / `.validate` / `.decode` call (not `JSON.parse`) or a bare `parse(…)` / `safeParse(…)` |
+| `typescript/nextjs/route-handler-auth` | `ast-grep` advise in `**/app/**/route.{ts,js}`: the name of an exported `POST` / `PUT` / `PATCH` / `DELETE` handler whose export has no call to the `server-action-auth` helpers, `verify…` or `constructEvent`, no `with(Auth\|Session\|User\|Workspace\|Admin\|…)…(…)` wrapper and no `process.env.*SECRET*` / `*TOKEN*` / `*API_KEY*` |
 
-context.md: Next.js 16 App Router: async request APIs, Server Components by default, `proxy.ts`, `revalidateTag(tag, profile)` / `updateTag(tag)`, `images.remotePatterns`, no `next lint`, Server Actions validate input and check authorization, no secrets in `NEXT_PUBLIC_`.
+context.md: Next.js 16 App Router: async request APIs, Server Components by default, `proxy.ts`, `revalidateTag(tag, profile)` / `updateTag(tag)`, `images.remotePatterns`, no `next lint`, Server Actions validate input and check authorization, route handlers parse their input (auth is advice), no secrets in `NEXT_PUBLIC_`.
 
 ### typescript/nextjs/react
 
