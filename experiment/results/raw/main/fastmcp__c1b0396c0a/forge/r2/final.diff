@@ -1,0 +1,144 @@
+diff --git a/.python-version b/.python-version
+deleted file mode 100644
+index e4fba21..0000000
+--- a/.python-version
++++ /dev/null
+@@ -1 +0,0 @@
+-3.12
+diff --git a/examples/tasks/.envrc b/examples/tasks/.envrc
+deleted file mode 100644
+index 87a7dfe..0000000
+--- a/examples/tasks/.envrc
++++ /dev/null
+@@ -1,10 +0,0 @@
+-# FastMCP Tasks Example Environment Configuration
+-# This file is loaded by direnv (https://direnv.net/) when you cd into this directory
+-# Run `direnv allow` to enable automatic environment loading
+-
+-# Configure Docket backend URL
+-# Use Redis backend (requires docker-compose up)
+-export FASTMCP_DOCKET_URL=redis://localhost:24242/0
+-
+-# Or uncomment to use memory:// for single-process testing
+-# export FASTMCP_DOCKET_URL=memory://
+diff --git a/fastmcp_slim/fastmcp/server/auth/ssrf.py b/fastmcp_slim/fastmcp/server/auth/ssrf.py
+index ae0bea3..7f69eb5 100644
+--- a/fastmcp_slim/fastmcp/server/auth/ssrf.py
++++ b/fastmcp_slim/fastmcp/server/auth/ssrf.py
+@@ -23,6 +23,47 @@ from fastmcp.utilities.logging import get_logger
+ logger = get_logger(__name__)
+ 
+ NAT64_WELL_KNOWN_PREFIX = ipaddress.ip_network("64:ff9b::/96")
++NAT64_LOCAL_USE_PREFIX = ipaddress.ip_network("64:ff9b:1::/48")
++IPV4_TRANSLATED_PREFIX = ipaddress.ip_network("::ffff:0:0:0/96")
++
++# RFC 6052 byte positions of the embedded IPv4 address for each prefix length
++_NAT64_LOCAL_USE_LAYOUTS = (
++    (6, 7, 9, 10),  # /48
++    (7, 9, 10, 11),  # /56
++    (9, 10, 11, 12),  # /64
++)
++
++
++def _embedded_ipv4_candidates(
++    ip: ipaddress.IPv6Address,
++) -> list[ipaddress.IPv4Address]:
++    """Return every IPv4 address an IPv6 transition encoding could embed."""
++    packed = ip.packed
++    low32 = ipaddress.IPv4Address(packed[-4:])
++    candidates: list[ipaddress.IPv4Address] = []
++
++    if ip.ipv4_mapped:
++        candidates.append(ip.ipv4_mapped)
++    if ip.sixtofour:
++        candidates.append(ip.sixtofour)
++    if ip.teredo:
++        candidates.extend(ip.teredo)
++    if ip in NAT64_WELL_KNOWN_PREFIX or ip in IPV4_TRANSLATED_PREFIX:
++        candidates.append(low32)
++    if ip in NAT64_LOCAL_USE_PREFIX:
++        candidates.append(low32)
++        candidates.extend(
++            ipaddress.IPv4Address(bytes(packed[i] for i in layout))
++            for layout in _NAT64_LOCAL_USE_LAYOUTS
++        )
++    # IPv4-compatible (::a.b.c.d); :: and ::1 are rejected as unspecified/loopback
++    if packed[:12] == bytes(12) and int(ip) > 1:
++        candidates.append(low32)
++    # ISATAP: interface identifier 0000:5efe or 0200:5efe
++    if packed[8:12] in (b"\x00\x00\x5e\xfe", b"\x02\x00\x5e\xfe"):
++        candidates.append(low32)
++
++    return candidates
+ 
+ 
+ def format_ip_for_url(ip_str: str) -> str:
+@@ -85,17 +126,11 @@ def is_ip_allowed(ip_str: str) -> bool:
+     if ip.is_multicast:
+         return False
+ 
+-    # IPv6-specific checks for embedded IPv4 addresses
++    # IPv6 addresses that embed an IPv4 address must not wrap a blocked target
+     if isinstance(ip, ipaddress.IPv6Address):
+-        if ip.ipv4_mapped:
+-            return is_ip_allowed(str(ip.ipv4_mapped))
+-        if ip.sixtofour:
+-            return is_ip_allowed(str(ip.sixtofour))
+-        if ip.teredo:
+-            server, client = ip.teredo
+-            return is_ip_allowed(str(server)) and is_ip_allowed(str(client))
+-        if ip in NAT64_WELL_KNOWN_PREFIX:
+-            return is_ip_allowed(str(ipaddress.IPv4Address(ip.packed[-4:])))
++        for embedded in _embedded_ipv4_candidates(ip):
++            if not is_ip_allowed(str(embedded)):
++                return False
+ 
+     return True
+ 
+diff --git a/tests/server/auth/test_ssrf_protection.py b/tests/server/auth/test_ssrf_protection.py
+index 4c03b10..df70920 100644
+--- a/tests/server/auth/test_ssrf_protection.py
++++ b/tests/server/auth/test_ssrf_protection.py
+@@ -69,6 +69,42 @@ class TestIsIPAllowed:
+         assert is_ip_allowed("64:ff9b::0808:0808") is True
+ 
+ 
++class TestIPv6TransitionAddresses:
++    """IPv6 transition encodings must not smuggle in blocked IPv4 targets."""
++
++    @pytest.mark.parametrize(
++        "ip",
++        [
++            "64:ff9b:1::a9fe:a9fe",
++            "64:ff9b:1:a9fe:a9:fe00::",
++            "::ffff:0:7f00:1",
++            "::0a00:1",
++            "::6440:1",
++            "2002:a9fe:a9fe::1",
++            "2606:4700::5efe:192.168.1.1",
++            "2606:4700::200:5efe:169.254.169.254",
++        ],
++    )
++    def test_blocked_embedded_ipv4(self, ip: str):
++        assert is_ip_allowed(ip) is False
++
++    @pytest.mark.parametrize(
++        "ip",
++        [
++            "64:ff9b::0808:0808",
++            "::ffff:0:0808:0808",
++            "::0808:0808",
++            "2606:4700::5efe:8.8.8.8",
++        ],
++    )
++    def test_public_embedded_ipv4_allowed(self, ip: str):
++        assert is_ip_allowed(ip) is True
++
++    async def test_validate_url_blocks_transition_address(self):
++        with pytest.raises(SSRFError, match="blocked IP"):
++            await validate_url("https://[64:ff9b:1::a9fe:a9fe]/path")
++
++
+ class TestValidateURL:
+     """Tests for validate_url function."""
+ 

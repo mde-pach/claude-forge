@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 7,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/fastmcp_slim/fastmcp/server/auth; python3 - <<'EOF'\np='oauth_proxy/models.py'\ns=open(p).read()\ns=s.replace(\"import hashlib\\nfrom typing import Any, Final\\n\",\"import hashlib\\nfrom typing import Any, Final\\nfrom urllib.parse import urlparse\\n\",1)\ns=s.replace('''    cimd_fetched_at: float | No",
+  "cd /work; python3 - <<'EOF'\np='tests/server/auth/test_oauth_proxy_redirect_validation.py'\nL=open(p).read().split('\\n')\nnew='''    def test_default_limits_to_registered_uris(self):\n        \"\"\"Without proxy patterns, DCR clients are limited to registered URIs.\"\"\"\n        client = ProxyDCRClient(\n     "
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

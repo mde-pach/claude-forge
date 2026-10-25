@@ -1,0 +1,59 @@
+{
+ "active": true,
+ "events": {
+  "SessionStart": 1,
+  "UserPromptSubmit": 1,
+  "PreToolUse": 18,
+  "PostToolUse": 16,
+  "Stop": 2
+ },
+ "forge_messages": 4,
+ "blocks": 1,
+ "stop_blocks": 1,
+ "feedback": 1,
+ "nonzero_exit": 0,
+ "by_hook": {
+  "SessionStart:startup": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 3
+  },
+  "UserPromptSubmit": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PreToolUse:Bash": {
+   "runs": 18,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PostToolUse:Bash": {
+   "runs": 12,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PostToolUse:Edit": {
+   "runs": 4,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "Stop": {
+   "runs": 2,
+   "nonzero": 0,
+   "forge_msgs": 1
+  }
+ },
+ "samples": [
+  {
+   "hook": "SessionStart:startup",
+   "exit": 0,
+   "out": "forge: branch main, 0 changed files\nforge: last commits\n  8637f42 Add Forge\n  cb5c8b2 initial\nforge: packs github-actions, python, python/pydantic, python/pytest, python/uv\n"
+  },
+  {
+   "hook": "Stop",
+   "exit": 0,
+   "out": "{\"decision\":\"block\",\"reason\":\"forge:python/no-new-suppressions tests/models/test_bedrock.py: 62 -> 63\"}\n"
+  }
+ ]
+}

@@ -1,0 +1,13 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 3,
+ "bash_calls": 7,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/packages/zod/src/v4/classic; python3 - <<'E'\np='schemas.ts'\ns=open(p).read()\ns=s.replace('import * as checks','import en from \"../locales/en.js\";\\nimport * as checks',1)\ns=s.replace('''  core.$ZodType.init(inst, def);\n  Object.assign(inst[\"~standard\"], {\n    jsonSchema''','''  core.$ZodType",
+  "cd /work/packages/treeshake; mkdir -p tests; cat > locale.test.ts <<'E'\nimport { existsSync, readdirSync, statSync } from \"node:fs\";\nimport { dirname, join } from \"node:path\";\nimport { fileURLToPath } from \"node:url\";\nimport { nodeResolve } from \"@rollup/plugin-node-resolve\";\nimport { rollup } from ",
+  "cd /work/packages/treeshake; sed -i 's|const src = .*|const src = output[0].code;|' locale.test.ts; cd /work; pnpm vitest run packages/treeshake 2>&1 | tail -20"
+ ],
+ "total": 3,
+ "edit_tool_share": 0.0
+}

@@ -1,0 +1,13 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 3,
+ "bash_calls": 6,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/packages/inngest && cat > src/helpers/tmp_t.ts <<'EOF'\nimport type { Jsonify } from \"./jsonify.ts\";\ntype Widget = { media: { mediaId: string; label?: string }[] };\ntype A = Jsonify<Jsonify<Widget>>[\"media\"];\nexport const a: A = 1 as any as { mediaId: string; label?: string }[];\nexport const",
+  "sed -i 's/^type FilterJsonableKeys<T extends object> = {/&/; s/  \\[Key in keyof T\\]: T\\[Key\\] extends NotJsonable ? never : Key;/  [Key in keyof T]-?: T[Key] extends NotJsonable ? never : Key;/' src/helpers/jsonify.ts && git diff --stat && npx tsc --noEmit -p tsconfig.json 2>&1 | head",
+  "python3 - <<'EOF'\np='src/helpers/jsonify.test.ts'\ns=open(p).read()\ni=s.rstrip().rfind(\"});\")\nadd='''\n  describe(\"idempotency\", () => {\n    test(\"re-applying keeps optional properties nested in arrays\", () => {\n      type Widget = { media: { mediaId: string; label?: string }[] };\n      type Actual = "
+ ],
+ "total": 3,
+ "edit_tool_share": 0.0
+}

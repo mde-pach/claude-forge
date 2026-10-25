@@ -1,0 +1,74 @@
+{
+ "active": true,
+ "events": {
+  "SessionStart": 1,
+  "UserPromptSubmit": 1,
+  "PreToolUse": 27,
+  "PostToolUse": 18,
+  "Stop": 4
+ },
+ "forge_messages": 9,
+ "blocks": 3,
+ "stop_blocks": 3,
+ "feedback": 3,
+ "nonzero_exit": 1,
+ "by_hook": {
+  "SessionStart:startup": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 4
+  },
+  "UserPromptSubmit": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PreToolUse:Bash": {
+   "runs": 27,
+   "nonzero": 0,
+   "forge_msgs": 1
+  },
+  "PostToolUse:Bash": {
+   "runs": 18,
+   "nonzero": 1,
+   "forge_msgs": 0
+  },
+  "Stop": {
+   "runs": 4,
+   "nonzero": 0,
+   "forge_msgs": 4
+  }
+ },
+ "samples": [
+  {
+   "hook": "SessionStart:startup",
+   "exit": 0,
+   "out": "forge: branch main, 0 changed files\nforge: last commits\n  349df67 Add Forge\n  e9f64f8 initial\nforge: packs docker, docker/compose, github-actions, typescript, typescript/vitest\nforge: missing tools (checks using them are skipped): docker\n"
+  },
+  {
+   "hook": "PreToolUse:Bash",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"forge:safety/ephemeral-exec reviewed by an independent session, nobody being there to answer: tsc is already installed in better-auth/node_modules/.bin, so npx runs the local binary with no download, and `--noEmit` is a read-only typecheck, so it writes no build output.\"}}\n"
+  },
+  {
+   "hook": "Stop",
+   "exit": 0,
+   "out": "{\"decision\":\"block\",\"reason\":\"forge:typescript/vitest/run failed\\n\\n RUN  v4.1.5 /work\\n\\n(node:4841) ExperimentalWarning: SQLite is an experimental feature and might change at any time\\n(Use `node --trace-warnings ...` to show where the warning was created)\\n(node:4853) ExperimentalWarning: SQLite is an experimental feature and might change at any time\\n(Use `node --trace-warnings ...` to show where the warning was created)\\n(node:4842) ExperimentalWarning: SQLite is an experimental feature and might change at any time\\n(Use `node --trace-warnings ...` to show where the warning was created)\\n"
+  },
+  {
+   "hook": "Stop",
+   "exit": 0,
+   "out": "{\"decision\":\"block\",\"reason\":\"forge:typescript/vitest/run failed\\n\\n RUN  v4.1.5 /work\\n\\n(node:6662) ExperimentalWarning: SQLite is an experimental feature and might change at any time\\n(Use `node --trace-warnings ...` to show where the warning was created)\\n(node:6669) ExperimentalWarning: SQLite is an experimental feature and might change at any time\\n(Use `node --trace-warnings ...` to show where the warning was created)\\n(node:6663) ExperimentalWarning: SQLite is an experimental feature and might change at any time\\n(Use `node --trace-warnings ...` to show where the warning was created)\\n"
+  },
+  {
+   "hook": "Stop",
+   "exit": 0,
+   "out": "{\"decision\":\"block\",\"reason\":\"forge:typescript/vitest/run failed\\n\\n RUN  v4.1.5 /work\\n\\n(node:8269) ExperimentalWarning: SQLite is an experimental feature and might change at any time\\n(Use `node --trace-warnings ...` to show where the warning was created)\\n(node:8281) ExperimentalWarning: SQLite is an experimental feature and might change at any time\\n(Use `node --trace-warnings ...` to show where the warning was created)\\n(node:8275) ExperimentalWarning: SQLite is an experimental feature and might change at any time\\n(Use `node --trace-warnings ...` to show where the warning was created)\\n"
+  },
+  {
+   "hook": "Stop",
+   "exit": 0,
+   "out": "{\"systemMessage\":\"forge: check failed 3 times. Handing over to you.\"}\n"
+  }
+ ]
+}

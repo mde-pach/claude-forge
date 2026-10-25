@@ -1,0 +1,96 @@
+diff --git a/pydantic_ai_slim/pydantic_ai/messages.py b/pydantic_ai_slim/pydantic_ai/messages.py
+index 21155ec..212d5d7 100644
+--- a/pydantic_ai_slim/pydantic_ai/messages.py
++++ b/pydantic_ai_slim/pydantic_ai/messages.py
+@@ -1069,6 +1069,35 @@ tool_return_ta: pydantic.TypeAdapter[Any] = pydantic.TypeAdapter(
+     Any, config=pydantic.ConfigDict(defer_build=True, ser_json_bytes='base64', val_json_bytes='base64')
+ )
+ 
++_MULTI_MODAL_KINDS = frozenset({'image-url', 'audio-url', 'video-url', 'document-url', 'binary', 'uploaded-file'})
++_MULTI_MODAL_TYPE_FIELDS = ('url', 'media_type', 'file_id')
++
++
++_multi_modal_ta: pydantic.TypeAdapter[MultiModalContent] = pydantic.TypeAdapter(
++    MultiModalContent, config=pydantic.ConfigDict(defer_build=True)
++)
++
++
++def _validate_tool_return_content(value: Any, handler: pydantic.ValidatorFunctionWrapHandler) -> Any:
++    """Rehydrate multi-modal content dumped with `dump_python(mode='json')`, leaving lookalike dicts untouched.
++
++    The union alone can't rehydrate these from Python input, where `bytes` are base64 strings
++    (`val_json_bytes` only applies to JSON input) and the dicts are otherwise plain mappings.
++    """
++    if isinstance(value, dict):
++        mapping = cast('dict[str, Any]', value)
++        kind = mapping.get('kind')
++        if isinstance(kind, str) and kind in _MULTI_MODAL_KINDS and any(f in mapping for f in _MULTI_MODAL_TYPE_FIELDS):
++            data = mapping.get('data')
++            try:
++                if kind == 'binary' and isinstance(data, str):
++                    mapping = {**mapping, 'data': base64.b64decode(data, validate=True)}
++                return _multi_modal_ta.validate_python(mapping)
++            except (ValueError, pydantic.ValidationError):
++                pass
++    return handler(value)
++
++
+ if TYPE_CHECKING:
+     # Simpler type for static analysis - recursive TypeAliasType with Any produces spurious Unknown types
+     ToolReturnContent: TypeAlias = MultiModalContent | Sequence[Any] | Mapping[str, Any] | Any
+@@ -1077,7 +1106,10 @@ else:
+     # BinaryContent/FileUrl objects nested inside dicts/lists during deserialization
+     ToolReturnContent = TypeAliasType(
+         'ToolReturnContent',
+-        MultiModalContent | Sequence['ToolReturnContent'] | Mapping[str, 'ToolReturnContent'] | Any,
++        Annotated[
++            MultiModalContent | Sequence['ToolReturnContent'] | Mapping[str, 'ToolReturnContent'] | Any,
++            pydantic.WrapValidator(_validate_tool_return_content),
++        ],
+     )
+ 
+ 
+diff --git a/tests/test_messages.py b/tests/test_messages.py
+index 073a763..431e3fd 100644
+--- a/tests/test_messages.py
++++ b/tests/test_messages.py
+@@ -1,3 +1,4 @@
++import warnings
+ import sys
+ from datetime import datetime, timezone
+ from pathlib import Path
+@@ -1649,3 +1650,34 @@ def test_retry_prompt_tool_call_keeps_input_for_nested_errors():
+     response = part.model_response()
+     assert '"input": 42' in response
+     assert '"name"' in response
++
++
++@pytest.mark.parametrize(
++    'content',
++    [
++        BinaryContent(b'abc', media_type='audio/mpeg'),
++        ['hello', BinaryContent(b'abc', media_type='image/png')],
++        {'caption': 'x', 'attachment': ImageUrl('https://example.com/a.png')},
++        {'kind': 'binary', 'label': 'foo'},
++        {'kind': 'binary', 'media_type': 'text/plain', 'text': 'hello'},
++        {'kind': 'uploaded-file', 'file_id': 'abc', 'status': 'ready'},
++        {'kind': 'image-url', 'media_type': 'image/png', 'note': 'x'},
++    ],
++)
++def test_tool_return_multi_modal_roundtrip(content: Any):
++    messages: list[ModelMessage] = [ModelRequest(parts=[ToolReturnPart('t', content, 'id')])]
++    with warnings.catch_warnings():
++        warnings.simplefilter('error')
++        dumped = ModelMessagesTypeAdapter.dump_python(messages, mode='json')
++        from_python = ModelMessagesTypeAdapter.validate_python(dumped)
++        from_json = ModelMessagesTypeAdapter.validate_json(ModelMessagesTypeAdapter.dump_json(messages))
++    assert from_python == messages
++    assert from_json == messages
++
++
++@pytest.mark.parametrize('kind', [['a'], {'a': 1}, bytearray(b'x')])
++def test_tool_return_malformed_kind(kind: Any):
++    data = [{'kind': 'request', 'parts': [{'part_kind': 'tool-return', 'tool_name': 't', 'content': [{'kind': kind}]}]}]
++    part = ModelMessagesTypeAdapter.validate_python(data)[0].parts[0]
++    assert isinstance(part, ToolReturnPart)
++    assert part.content == [{'kind': kind}]

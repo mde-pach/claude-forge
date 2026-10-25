@@ -1,0 +1,110 @@
+diff --git a/packages/inngest/src/components/InngestCommHandler.ts b/packages/inngest/src/components/InngestCommHandler.ts
+index ff4774b..9c91877 100644
+--- a/packages/inngest/src/components/InngestCommHandler.ts
++++ b/packages/inngest/src/components/InngestCommHandler.ts
+@@ -1398,7 +1398,9 @@ export class InngestCommHandler<
+       const method = await actions.method("starting streaming response");
+ 
+       if (method === "POST") {
+-        const { stream, finalize } = await createStream();
++        const { stream, finalize } = await createStream({
++          logger: this.client[internalLoggerSymbol],
++        });
+ 
+         /**
+          * Errors are handled by `handleAction` here to ensure that an
+diff --git a/packages/inngest/src/helpers/stream.ts b/packages/inngest/src/helpers/stream.ts
+index 520ec5f..14605dd 100644
+--- a/packages/inngest/src/helpers/stream.ts
++++ b/packages/inngest/src/helpers/stream.ts
+@@ -1,3 +1,4 @@
++import type { Logger } from "../middleware/logger.ts";
+ import { stringify } from "./strings.ts";
+ 
+ /**
+@@ -21,6 +22,12 @@ export const createStream = (opts?: {
+    * Defaults to `" "`.
+    */
+   value?: string;
++
++  /**
++   * A logger used to report (at `debug` level) write failures that are
++   * contained. If omitted, such failures are silently ignored.
++   */
++  logger?: Logger;
+ }): Promise<{ finalize: (data: unknown) => void; stream: ReadableStream }> => {
+   /**
+    * We need to resolve this promise with both the stream and the `finalize`
+@@ -40,14 +47,36 @@ export const createStream = (opts?: {
+   const interval = opts?.interval ?? 3000;
+   const value = opts?.value ?? " ";
+ 
++  let cancelHook: (() => void) | undefined;
++
+   return new Promise(async (resolve, reject) => {
+     try {
+       const stream = new ReadableStream({
+         start(controller) {
+           const encoder = new TextEncoder();
+ 
++          let closed = false;
++          const stop = () => {
++            closed = true;
++            clearInterval(heartbeat);
++          };
++
++          cancelHook = stop;
++
+           const heartbeat = setInterval(() => {
+-            controller.enqueue(encoder.encode(value));
++            if (closed) {
++              return;
++            }
++
++            try {
++              controller.enqueue(encoder.encode(value));
++            } catch (err) {
++              stop();
++              opts?.logger?.debug(
++                { err },
++                "Failed to write heartbeat to stream",
++              );
++            }
+           }, interval);
+ 
+           const finalize = (data: unknown) => {
+@@ -56,14 +85,30 @@ export const createStream = (opts?: {
+             // `data` may be a `Promise`. If it is, we need to wait for it to
+             // resolve before sending it. To support this elegantly we'll always
+             // assume it's a promise and handle that case.
+-            void Promise.resolve(data).then((resolvedData) => {
+-              controller.enqueue(encoder.encode(stringify(resolvedData)));
+-              controller.close();
+-            });
++            void Promise.resolve(data)
++              .then((resolvedData) => {
++                if (closed) {
++                  return;
++                }
++
++                closed = true;
++                controller.enqueue(encoder.encode(stringify(resolvedData)));
++                controller.close();
++              })
++              .catch((err) => {
++                closed = true;
++                opts?.logger?.debug(
++                  { err },
++                  "Failed to write final value to stream",
++                );
++              });
+           };
+ 
+           passFinalize(finalize);
+         },
++        cancel() {
++          cancelHook?.();
++        },
+       });
+ 
+       resolve({ stream, finalize: await finalizeP });

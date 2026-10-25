@@ -1,0 +1,52 @@
+$ cd /work
+pk=""
+for t in packages/better-auth/src/plugins/organization/organization.test.ts; do
+  d=$(dirname "$t")
+  while [ "$d" != "." ] && [ "$d" != "/" ] && [ ! -f "$d/package.json" ]; do d=$(dirname "$d"); done
+  [ "$d" = "." ] || [ "$d" = "/" ] || pk="$pk --filter=./$d"
+done
+if [ -n "$pk" ]; then
+  turbo run build $pk --output-logs=errors-only || { echo "[forge-exp] workspace build failed; tests not run"; exit 3; }
+fi
+NO_COLOR=1 vitest run packages/better-auth/src/plugins/organization/organization.test.ts --reporter=default --reporter=junit --outputFile.junit=/tmp/forge-junit-c793d28f02d0.xml
+
+
+   • Packages in scope: better-auth
+   • Running build in 1 packages
+   • Remote caching disabled
+
+
+ Tasks:    8 successful, 8 total
+Cached:    7 cached, 8 total
+  Time:    1m28.957s 
+
+
+ RUN  v4.1.5 /work
+
+ ✓ |better-auth| src/plugins/organization/organization.test.ts (102 tests | 1 todo) 12717ms
+     ✓ invites user to organization with role  512ms
+     ✓ invites user to organization with role  433ms
+     ✓ invites user to organization with role  472ms
+     ✓ should not allow inviting a user twice regardless of email casing  433ms
+     ✓ should allow accepting invitation when user signs up with different email casing  445ms
+     ✓ should return BAD_REQUEST when non-member tries to delete organization  304ms
+     ✓ should respect membershipLimit when adding members to organization  551ms
+     ✓ should respect membershipLimit function when adding members to organization  438ms
+     ✓ should allow listing invitations for a user using authClient  578ms
+     ✓ should allow rejecting expired invitations  1666ms
+     ✓ should only list pending invitations for a user  587ms
+     ✓ should not list rejected invitations  539ms
+     ✓ should throw error with custom invitation limit  326ms
+     ✓ rolls back removeMember when an intermediate step throws  391ms
+
+ Test Files  1 passed (1)
+      Tests  101 passed | 1 todo (102)
+   Start at  02:37:23
+   Duration  23.02s (transform 4.13s, setup 0ms, import 10.03s, tests 12.72s, environment 0ms)
+
+JUNIT report written to /tmp/forge-junit-c793d28f02d0.xml
+• turbo 2.9.14
+(node:1329) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[exit 0 in 114s]

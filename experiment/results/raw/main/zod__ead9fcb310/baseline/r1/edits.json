@@ -1,0 +1,13 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 3,
+ "bash_calls": 5,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'E'\nimport re\ns=open('schemas.ts').read()\n# jitless/async helper\ns=s.replace('''  if (result.value === undefined) {\n    if (isPresent) {\n      (final.value as any)[key] = undefined;\n    }\n  } else {\n    (final.value as any)[key] = result.value;\n  }\n}\n''','''  if (result.value === undefin",
+  "cd /work/packages/zod/src/v4/classic/tests && cat > proto-key.test.ts <<'E'\nimport { expect, test } from \"vitest\";\nimport * as z from \"zod/v4\";\n\nconst input = '{\"__proto__\":{\"isAdmin\":true},\"name\":\"alice\"}';\nconst check = (out: any) => {\n  expect(Object.getPrototypeOf(out)).toBe(Object.prototype);\n ",
+  "cd /work/packages/zod/src/v4/classic/tests && sed -i '/const p = z.object/d;/expect(p).toBeDefined/d' proto-key.test.ts && cd /work && pnpm vitest run packages/zod/src/v4/classic/tests/proto-key.test.ts 2>&1 | grep -E \"Tests|Error\""
+ ],
+ "total": 3,
+ "edit_tool_share": 0.0
+}

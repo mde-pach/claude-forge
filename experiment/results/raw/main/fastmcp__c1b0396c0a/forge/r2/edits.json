@@ -1,0 +1,16 @@
+{
+ "edit_tool_calls": 2,
+ "shell_edit_calls": 3,
+ "bash_calls": 7,
+ "edit_files": [
+  "/work/fastmcp_slim/fastmcp/server/auth/ssrf.py",
+  "/work/tests/server/auth/test_ssrf_protection.py"
+ ],
+ "shell_edit_commands": [
+  "python3 - <<'EOF'\np='fastmcp_slim/fastmcp/server/auth/ssrf.py'\ns=open(p).read()\na=s.index(\"    # IPv6-specific checks for embedded IPv4 addresses\")\nb=s.index(\"    return True\\n\",a)\ns=s[:a]+'''    # IPv6 addresses that embed an IPv4 address must not wrap a blocked target\n    if isinstance(ip, ipaddre",
+  "python3 - <<'EOF'\np='fastmcp_slim/fastmcp/server/auth/ssrf.py'\ns=open(p).read()\na=s.index(\"    # IPv6-specific checks for embedded IPv4 addresses\")\nb=s.index(\"    return True\\n\",a)\ns=s[:a]+'''    # IPv6 addresses that embed an IPv4 address must not wrap a blocked target\n    if isinstance(ip, ipaddre",
+  "python3 - <<'EOF'\np='tests/server/auth/test_ssrf_protection.py'\ns=open(p).read()\nnew='''class TestIPv6TransitionAddresses:\n    \"\"\"IPv6 transition encodings must not smuggle in blocked IPv4 targets.\"\"\"\n\n    @pytest.mark.parametrize(\n        \"ip\",\n        [\n            \"64:ff9b:1::a9fe:a9fe\",\n        "
+ ],
+ "total": 5,
+ "edit_tool_share": 0.4
+}

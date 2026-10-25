@@ -1,0 +1,36 @@
+$ cd /work
+pk=""
+for t in packages/cli/test/generate.test.ts; do
+  d=$(dirname "$t")
+  while [ "$d" != "." ] && [ "$d" != "/" ] && [ ! -f "$d/package.json" ]; do d=$(dirname "$d"); done
+  [ "$d" = "." ] || [ "$d" = "/" ] || pk="$pk --filter=./$d"
+done
+if [ -n "$pk" ]; then
+  turbo run build $pk --output-logs=errors-only || { echo "[forge-exp] workspace build failed; tests not run"; exit 3; }
+fi
+NO_COLOR=1 vitest run packages/cli/test/generate.test.ts --reporter=default --reporter=junit --outputFile.junit=/tmp/forge-junit-b94c609e258e.xml
+
+
+   • Packages in scope: auth
+   • Running build in 1 packages
+   • Remote caching disabled
+
+
+ Tasks:    10 successful, 10 total
+Cached:    9 cached, 10 total
+  Time:    14.912s 
+
+
+ RUN  v4.1.5 /work
+
+ ✓ |auth| test/generate.test.ts (62 tests) 1396ms
+
+ Test Files  1 passed (1)
+      Tests  62 passed (62)
+   Start at  09:38:31
+   Duration  7.91s (transform 3.67s, setup 0ms, import 6.26s, tests 1.40s, environment 0ms)
+
+JUNIT report written to /tmp/forge-junit-b94c609e258e.xml
+• turbo 2.9.14
+
+[exit 0 in 25s]

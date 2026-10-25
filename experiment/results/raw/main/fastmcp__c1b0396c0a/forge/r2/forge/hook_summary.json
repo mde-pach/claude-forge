@@ -1,0 +1,70 @@
+{
+ "active": true,
+ "events": {
+  "SessionStart": 2,
+  "UserPromptSubmit": 1,
+  "PreToolUse": 21,
+  "PostToolUseFailure": 4,
+  "PostToolUse": 14,
+  "Stop": 2
+ },
+ "forge_messages": 6,
+ "blocks": 1,
+ "stop_blocks": 1,
+ "feedback": 2,
+ "nonzero_exit": 0,
+ "by_hook": {
+  "SessionStart:startup": {
+   "runs": 2,
+   "nonzero": 0,
+   "forge_msgs": 4
+  },
+  "UserPromptSubmit": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PreToolUse:Bash": {
+   "runs": 21,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PostToolUseFailure:Bash": {
+   "runs": 4,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PostToolUse:Bash": {
+   "runs": 10,
+   "nonzero": 0,
+   "forge_msgs": 1
+  },
+  "PostToolUse:Edit": {
+   "runs": 4,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "Stop": {
+   "runs": 2,
+   "nonzero": 0,
+   "forge_msgs": 1
+  }
+ },
+ "samples": [
+  {
+   "hook": "SessionStart:startup",
+   "exit": 0,
+   "out": "forge: branch main, 0 changed files\nforge: last commits\n  ebd08e4 Add Forge\n  2ee0792 initial\nforge: packs docker, docker/compose, github-actions, python, python/fastapi, python/pydantic, python/pytest, python/uv\nforge: missing tools (checks using them are skipped): docker\n"
+  },
+  {
+   "hook": "PostToolUse:Bash",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"forge:python/lint\\nfastmcp_slim/fastmcp/server/auth/ssrf.py:56:13: PERF401 Use `list.extend` to create a transformed list\"}}\n"
+  },
+  {
+   "hook": "Stop",
+   "exit": 0,
+   "out": "{\"decision\":\"block\",\"reason\":\"forge:python/pytest/no-mock-increase tests/server/auth/test_ssrf_protection.py: 68 -> 70\"}\n"
+  }
+ ]
+}

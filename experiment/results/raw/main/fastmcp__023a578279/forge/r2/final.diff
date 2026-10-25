@@ -1,0 +1,89 @@
+diff --git a/.python-version b/.python-version
+deleted file mode 100644
+index e4fba21..0000000
+--- a/.python-version
++++ /dev/null
+@@ -1 +0,0 @@
+-3.12
+diff --git a/examples/tasks/.envrc b/examples/tasks/.envrc
+deleted file mode 100644
+index 87a7dfe..0000000
+--- a/examples/tasks/.envrc
++++ /dev/null
+@@ -1,10 +0,0 @@
+-# FastMCP Tasks Example Environment Configuration
+-# This file is loaded by direnv (https://direnv.net/) when you cd into this directory
+-# Run `direnv allow` to enable automatic environment loading
+-
+-# Configure Docket backend URL
+-# Use Redis backend (requires docker-compose up)
+-export FASTMCP_DOCKET_URL=redis://localhost:24242/0
+-
+-# Or uncomment to use memory:// for single-process testing
+-# export FASTMCP_DOCKET_URL=memory://
+diff --git a/fastmcp_slim/fastmcp/server/mixins/lifespan.py b/fastmcp_slim/fastmcp/server/mixins/lifespan.py
+index bfb424c..db723d7 100644
+--- a/fastmcp_slim/fastmcp/server/mixins/lifespan.py
++++ b/fastmcp_slim/fastmcp/server/mixins/lifespan.py
+@@ -135,11 +135,17 @@ class LifespanMixin:
+             from fastmcp.server.tasks.context import restore_task_snapshot
+ 
+             # Create Docket instance using configured name and URL
+-            async with Docket(
+-                name=settings.docket.name,
+-                url=settings.docket.url,
+-            ) as docket:
++            # SharedContext is entered first so Shared() dependencies work for
++            # ordinary requests on this path too.
++            async with (
++                SharedContext(),
++                Docket(
++                    name=settings.docket.name,
++                    url=settings.docket.url,
++                ) as docket,
++            ):
+                 self._docket = docket
++                self._capture_shared_context()
+ 
+                 # Register task-enabled components with Docket
+                 for component in task_components:
+diff --git a/tests/server/test_dependencies.py b/tests/server/test_dependencies.py
+index 8555551..bafaeb3 100644
+--- a/tests/server/test_dependencies.py
++++ b/tests/server/test_dependencies.py
+@@ -1193,3 +1193,35 @@ class TestSharedDependencies:
+                 in result.messages[0].content.text
+             )
+             assert call_count == 1
++
++
++async def test_shared_dependency_with_task_enabled_component():
++    """Shared() resolves once per server even when the Docket path is active."""
++    from fastmcp import Client, FastMCP
++    from fastmcp.dependencies import Shared
++
++    calls = 0
++
++    def get_config() -> dict[str, str]:
++        nonlocal calls
++        calls += 1
++        return {"key": "value"}
++
++    mcp = FastMCP("task-capable-server")
++
++    @mcp.tool(task=True)
++    async def background_tool(x: int) -> int:
++        return x
++
++    @mcp.tool()
++    async def normal_tool(config: dict[str, str] = Shared(get_config)) -> str:
++        return config["key"]
++
++    async with Client(mcp) as client:
++        for _ in range(2):
++            result = await client.call_tool("normal_tool", {})
++            content = result.content[0]
++            assert isinstance(content, TextContent)
++            assert content.text == "value"
++
++    assert calls == 1

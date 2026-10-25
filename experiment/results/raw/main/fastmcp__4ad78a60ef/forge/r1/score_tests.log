@@ -1,0 +1,11 @@
+$ pytest -p no:cacheprovider -o junit_family=xunit1 --junitxml=/tmp/forge-junit-40361841c0c7.xml --continue-on-collection-errors -q --no-header -rN --inline-snapshot=disable --timeout=60 -m "not integration and not conformance" tests/server/http/test_http_auth_middleware.py tests/server/test_transport.py tests/test_settings.py
+......................................                                   [100%]
+=============================== warnings summary ===============================
+tests/server/http/test_http_auth_middleware.py:8
+  /work/tests/server/http/test_http_auth_middleware.py:8: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+38 passed, 1 warning in 3.16s
+
+[exit 0 in 11s]

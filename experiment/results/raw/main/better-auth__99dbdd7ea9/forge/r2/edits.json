@@ -1,0 +1,18 @@
+{
+ "edit_tool_calls": 5,
+ "shell_edit_calls": 6,
+ "bash_calls": 17,
+ "edit_files": [
+  "/work/packages/cli/src/generators/drizzle.ts"
+ ],
+ "shell_edit_commands": [
+  "python3 - <<'E'\np='drizzle.ts'\ns=open(p).read()\ns=s.replace('type Index = { type: \"uniqueIndex\" | \"index\"; name: string; on: string };','type Index = { type: \"index\"; name: string; on: string };')\ns=s.replace('''\t\t\t\t\t\t\t\t} else if (attr.index && attr.unique) {\n\t\t\t\t\t\t\t\t\tindexes.push({\n\t\t\t\t\t\t\t\t\t\ttype: ",
+  "python3 - <<'E'\np='generate.test.ts'\ns=open(p).read()\ni=s.rindex('});')\nt='''\n\tit(\"should not emit uniqueIndex for fields that are unique and indexed\", async () => {\n\t\tconst plugin = {\n\t\t\tid: \"unique-index\",\n\t\t\tschema: {\n\t\t\t\ttestTable: {\n\t\t\t\t\tfields: {\n\t\t\t\t\t\tslug: { type: \"string\", index: true, uniq",
+  "sed -i '225,230c\\\t\t\t\t\t\t\t}' src/generators/drizzle.ts && sed -n 217,230p src/generators/drizzle.ts && npx vitest run test/generate.test.ts 2>&1 | tail -6",
+  "sed -i '226d' src/generators/drizzle.ts && sed -n 217,230p src/generators/drizzle.ts && npx vitest run test/generate.test.ts 2>&1 | tail -6; git diff --stat",
+  "sed -i -e '671,673d' -e '665,667d' -e '225,230c\\\t\t\t\t\t\t\t}' -e '190s/\"uniqueIndex\" | \"index\"/\"index\"/' src/generators/drizzle.ts && git diff src/generators/drizzle.ts",
+  "sed -i '226d' src/generators/drizzle.ts && git diff --stat && sed -n 218,230p src/generators/drizzle.ts && npx vitest run test/generate.test.ts 2>&1 | tail -6"
+ ],
+ "total": 11,
+ "edit_tool_share": 0.45454545454545453
+}

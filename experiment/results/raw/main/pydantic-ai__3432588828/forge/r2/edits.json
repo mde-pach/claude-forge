@@ -1,0 +1,13 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 3,
+ "bash_calls": 15,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "sed -i '220,305s/model_name=self\\._model_name/model_name=self._model_name, provider_name=self.system/' test.py && cd /work && .venv/bin/ruff format pydantic_ai_slim/pydantic_ai/models/test.py && git diff --stat && .venv/bin/python -c \"\nfrom pydantic_ai import Agent\nfrom pydantic_ai.models.test impor",
+  ".venv/bin/pytest tests -q -n0 --inline-snapshot=fix -p no:cacheprovider > $TMPDIR/out.txt 2>&1; tail -8 $TMPDIR/out.txt; git diff --stat | tail -3",
+  "sed -i \"s/^\\( *\\)model_name='test',$/&\\n\\1provider_name='test',/\" docs/testing.md && git diff docs/testing.md | grep '^[+-]' ; .venv/bin/pytest tests/test_examples.py -q -n0 -k \"testing.md\" -p no:cacheprovider 2>&1 | tail -4"
+ ],
+ "total": 3,
+ "edit_tool_share": 0.0
+}

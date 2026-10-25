@@ -1,0 +1,11 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 1,
+ "bash_calls": 4,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'E'\ns=open('config.py').read()\ns=s.replace(\"from logfire._internal.auth import PYDANTIC_LOGFIRE_TOKEN_PATTERN, REGIONS\",\"from logfire._internal.auth import REGIONS\")\ns=s.replace(\"\"\"                base_url = self.advanced.base_url or get_base_url_from_token(self.api_key)\"\"\",\"\"\"          "
+ ],
+ "total": 1,
+ "edit_tool_share": 0.0
+}

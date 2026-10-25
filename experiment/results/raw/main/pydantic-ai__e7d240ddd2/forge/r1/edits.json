@@ -1,0 +1,17 @@
+{
+ "edit_tool_calls": 1,
+ "shell_edit_calls": 5,
+ "bash_calls": 10,
+ "edit_files": [
+  "/work/tests/test_messages.py"
+ ],
+ "shell_edit_commands": [
+  "python - <<'E'\np='messages.py'\ns=open(p).read()\ns=s.replace(\"\"\"MultiModalContent = Annotated[\n    ImageUrl | AudioUrl | DocumentUrl | VideoUrl | BinaryContent | UploadedFile, pydantic.Discriminator('kind')\n]\"\"\",\"\"\"NarrowedBinaryContent = Annotated[BinaryContent, pydantic.AfterValidator(BinaryImage.n",
+  "python - <<'E'\np='tests/test_messages.py'\ns=open(p).read()\ns=s.replace(\"\"\"    union_members = set(get_args(get_args(MultiModalContent)[0]))\n    assert set(MULTI\"\"\",\"\"\"    union_members = {get_args(m)[0] if get_origin(m) is Annotated else m for m in get_args(get_args(MultiModalContent)[0])}\n    asser",
+  "python - <<'E'\np='tests/test_messages.py'\ns=open(p).read()\ni=s.index(\"    union_members = {get_args(m)[0]\")\nj=s.index(\"    assert set(MULTI\",i)\ns=s[:i]+\"    union_members = set(get_args(get_args(MultiModalContent)[0]))\\n\"+s[j:]\ns=s.replace(\"from typing import Annotated, Any, cast, get_args, get_orig",
+  "sed -n '/^def test_multi_modal_content_narrows_binary_image/,$p' tests/test_messages.py > $TMPDIR/new.py && git checkout tests/test_messages.py && (echo; echo; cat $TMPDIR/new.py) >> tests/test_messages.py && git diff --stat && .venv/bin/python -m pytest tests/test_messages.py -q 2>&1 | tail -15",
+  "sed -i 's/^from typing import Any, cast, get_args$/from typing import Annotated, Any, cast, get_args, get_origin/' tests/test_messages.py && .venv/bin/ruff format tests/test_messages.py && .venv/bin/ruff check tests/test_messages.py pydantic_ai_slim/pydantic_ai/messages.py | tail -3; .venv/bin/pytho"
+ ],
+ "total": 6,
+ "edit_tool_share": 0.16666666666666666
+}

@@ -1,0 +1,13 @@
+{
+ "edit_tool_calls": 3,
+ "shell_edit_calls": 1,
+ "bash_calls": 5,
+ "edit_files": [
+  "/work/logfire/_internal/integrations/google_genai.py"
+ ],
+ "shell_edit_commands": [
+  ".venv/bin/python - <<'E'\np='logfire/_internal/integrations/google_genai.py'\ns=open(p).read()\na=s.index('def break_cycles'); b=s.index('def transform_part')\nnew='''def break_cycles(value: Any, ancestors: set[int]) -> Any:\n    \"\"\"Copy dicts, lists and tuples, replacing back-edges to an ancestor on the"
+ ],
+ "total": 4,
+ "edit_tool_share": 0.75
+}

@@ -1,0 +1,53 @@
+diff --git a/pydantic_ai_slim/pydantic_ai/models/bedrock.py b/pydantic_ai_slim/pydantic_ai/models/bedrock.py
+index 3d1b268..0b114ba 100644
+--- a/pydantic_ai_slim/pydantic_ai/models/bedrock.py
++++ b/pydantic_ai_slim/pydantic_ai/models/bedrock.py
+@@ -1018,6 +1018,12 @@ class BedrockConverseModel(Model[BaseClient]):
+                             else:
+                                 tool_result_content.append({'json': item})
+ 
++                        if not tool_result_content:
++                            # Bedrock rejects tool results with empty `content`, e.g. when a tool returns `[]`.
++                            tool_result_content.append(
++                                {'text': str(part.content)} if content_mode == 'str' else {'json': part.content}
++                            )
++
+                         user_content: list[ContentBlockUnionTypeDef] = [
+                             {
+                                 'toolResult': {
+diff --git a/tests/models/test_bedrock.py b/tests/models/test_bedrock.py
+index 55aa91f..c45026f 100644
+--- a/tests/models/test_bedrock.py
++++ b/tests/models/test_bedrock.py
+@@ -1037,6 +1037,31 @@ An example text describing the use of "John Doe" as a placeholder name in legal
+     )
+ 
+ 
++@pytest.mark.parametrize(
++    'model_name,expected_block',
++    [
++        ('us.amazon.nova-micro-v1:0', {'text': '[]'}),
++        ('mistral.mistral-7b-instruct-v0:2', {'json': []}),
++    ],
++)
++async def test_empty_list_tool_return_has_fallback_content(
++    bedrock_provider: BedrockProvider, model_name: str, expected_block: dict[str, Any]
++):
++    """Unit test: the Converse API rejects empty `toolResult.content`, and a VCR recording can't show the request shape."""
++    model = BedrockConverseModel(model_name, provider=bedrock_provider)
++    req = [ModelRequest(parts=[ToolReturnPart(tool_name='lookup', content=[], tool_call_id='id1')])]
++
++    map_messages = getattr(model, '_map_messages')
++    _, bedrock_messages = await map_messages(req, ModelRequestParameters(), None)
++
++    assert bedrock_messages == [
++        {
++            'role': 'user',
++            'content': [{'toolResult': {'toolUseId': 'id1', 'content': [expected_block], 'status': 'success'}}],
++        }
++    ]
++
++
+ async def test_s3_image_url_input(bedrock_provider: BedrockProvider):
+     """Test that s3:// image URLs are passed directly to Bedrock API without downloading."""
+     model = BedrockConverseModel('us.amazon.nova-pro-v1:0', provider=bedrock_provider)

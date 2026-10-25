@@ -1,0 +1,15 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 5,
+ "bash_calls": 13,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/pydantic_ai_slim/pydantic_ai; python - <<'E'\nimport re\ndef sub(p,a,b):\n    s=open(p).read(); assert a in s,(p,a); open(p,'w').write(s.replace(a,b,1))\nsub('_run_context.py','''    @property\n    def last_attempt(self)''','''    _mcp_tool_defs_cache: dict[str, dict[str, ToolDefinition]] = fiel",
+  "cd /work/pydantic_ai_slim/pydantic_ai; sed -i 's/default_factory=dict\\[str, dict\\[str, ToolDefinition\\]\\], repr=False/default_factory=lambda: {}, repr=False/' _run_context.py _agent_graph.py\ngrep -n \"ToolDefinition\" _agent_graph.py | head -3\ncd /work; PYRIGHT_PYTHON_IGNORE_WARNINGS=1 uv run pyright ",
+  "cd /work; sed -i '1613a\\    @property\\n    def _cache_tools(self) -> bool:\\n        return False\\n' tests/test_dbos.py; uv run pytest tests/test_dbos.py tests/test_temporal.py -q -k \"mcp\" 2>&1 | tail -12",
+  "cd /work; python - <<'E'\np='tests/test_dbos.py'\ns=open(p).read()\ns=s.replace('''    wrapper._cached_tool_defs = {  # pyright: ignore[reportPrivateUsage]\n        'foo': ToolDefinition(name='foo', parameters_json_schema={'type': 'object'}),\n    }\n    run_context = RunContext(deps=None, model=TestModel",
+  "cd /work; python - <<'E'\nimport re\np='tests/test_dbos.py'; s=open(p).read()\ni=s.index('@pytest.fixture(autouse=True)\\ndef _clear_mcp_tool_cache'); j=s.index('@contextmanager\\ndef workflow_raises')\ns=s[:i]+s[j:]; open(p,'w').write(s)\np='tests/test_temporal.py'; s=open(p).read()\ni=s.index('@pytest.fix"
+ ],
+ "total": 5,
+ "edit_tool_share": 0.0
+}

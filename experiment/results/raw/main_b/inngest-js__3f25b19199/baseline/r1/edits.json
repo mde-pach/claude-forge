@@ -1,0 +1,13 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 3,
+ "bash_calls": 7,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'E'\nimport re\np='helpers/strings.ts'\ns=open(p).read()\ns=s.replace('import type { TimeStr }','import type { Logger } from \"../middleware/logger.ts\";\\nimport type { TimeStr }')\ns=s.replace('''/**\n * Convert a given `Date`''','''let hasWarnedSubSecondRoundUp = false;\n\n/**\n * Convert a given",
+  "sed -i 's/opName = timeStr(stepInfo.input\\[0\\]);/opName = timeStr(stepInfo.input[0], this.internalLogger);/' components/middleware/manager.ts && grep -n \"{@link https://npm.im/ms}\" -B6 types.ts components/InngestStepTools.ts | grep -n \"ms}\\|timeout\\|duration\" | head -40",
+  "python3 - <<'E'\nimport re\nfor p in ['types.ts','components/InngestStepTools.ts']:\n    s=open(p).read()\n    s=re.sub(r'^(\\s*)\\* \\{@link https://npm.im/ms\\}',lambda m:f'{m[1]}* Durations under 1 second round up to `1s`, the minimum resolution of a\\n{m[1]}* durable wait.\\n{m[1]}*\\n{m[0]}',s,flags=re.M)"
+ ],
+ "total": 3,
+ "edit_tool_share": 0.0
+}

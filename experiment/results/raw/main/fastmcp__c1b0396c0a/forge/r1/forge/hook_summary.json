@@ -1,0 +1,70 @@
+{
+ "active": true,
+ "events": {
+  "SessionStart": 2,
+  "UserPromptSubmit": 1,
+  "PreToolUse": 12,
+  "PostToolUseFailure": 2,
+  "PostToolUse": 14,
+  "Stop": 1
+ },
+ "forge_messages": 6,
+ "blocks": 0,
+ "stop_blocks": 0,
+ "feedback": 3,
+ "nonzero_exit": 0,
+ "by_hook": {
+  "SessionStart:startup": {
+   "runs": 2,
+   "nonzero": 0,
+   "forge_msgs": 4
+  },
+  "UserPromptSubmit": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PreToolUse:Bash": {
+   "runs": 12,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PostToolUseFailure:Bash": {
+   "runs": 2,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PostToolUse:Edit": {
+   "runs": 8,
+   "nonzero": 0,
+   "forge_msgs": 2
+  },
+  "PostToolUse:Bash": {
+   "runs": 6,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "Stop": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  }
+ },
+ "samples": [
+  {
+   "hook": "SessionStart:startup",
+   "exit": 0,
+   "out": "forge: branch main, 0 changed files\nforge: last commits\n  ebd08e4 Add Forge\n  2ee0792 initial\nforge: packs docker, docker/compose, github-actions, python, python/fastapi, python/pydantic, python/pytest, python/uv\nforge: missing tools (checks using them are skipped): docker\n"
+  },
+  {
+   "hook": "PostToolUse:Edit",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"forge:python/lint\\nfastmcp_slim/fastmcp/server/auth/ssrf.py:110:47: F821 Undefined name `IPV4_TRANSLATED_PREFIX`\\nfastmcp_slim/fastmcp/server/auth/ssrf.py:112:14: F821 Undefined name `NAT64_LOCAL_USE_PREFIX`\\nfastmcp_slim/fastmcp/server/auth/ssrf.py:115:13: PERF401 Use `list.extend` to create a transformed list\"}}\n"
+  },
+  {
+   "hook": "PostToolUse:Edit",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"forge:python/lint\\nfastmcp_slim/fastmcp/server/auth/ssrf.py:117:13: PERF401 Use `list.extend` to create a transformed list\"}}\n"
+  }
+ ]
+}

@@ -1,0 +1,86 @@
+diff --git a/logfire/_internal/exporters/otlp.py b/logfire/_internal/exporters/otlp.py
+index 1356f41..5c5ba1e 100644
+--- a/logfire/_internal/exporters/otlp.py
++++ b/logfire/_internal/exporters/otlp.py
+@@ -63,6 +63,10 @@ class BodySizeCheckingOTLPSpanExporter(OTLPSpanExporter):
+         return super()._export(serialized_data, *args, **kwargs)
+ 
+ 
++class SuppressedConnectionError(Exception):
++    """Raised instead of a requests ConnectionError so that OTEL doesn't retry; the DiskRetryer handles it."""
++
++
+ class OTLPExporterHttpSession(Session):
+     """A requests.Session subclass that defers failed requests to a DiskRetryer."""
+ 
+@@ -70,7 +74,7 @@ class OTLPExporterHttpSession(Session):
+         start_time = time.time()
+         try:
+             return self._post(url, data, **kwargs)
+-        except requests.exceptions.RequestException:
++        except requests.exceptions.RequestException as e:
+             # Wait a little before trying again normally, before resorting to disk retrying.
+             # This has several advantages:
+             #  - Writing to disk might be impossible.
+@@ -82,14 +86,21 @@ class OTLPExporterHttpSession(Session):
+             end_time = time.time()
+             if end_time - start_time > 10:  # pragma: no cover
+                 self._add_task(data, url, kwargs)
+-                raise
++                raise self._maybe_suppress(e)
+ 
+             time.sleep(1)
+             try:
+                 return self._post(url, data, **kwargs)
+-            except requests.exceptions.RequestException:
++            except requests.exceptions.RequestException as e2:
+                 self._add_task(data, url, kwargs)
+-                raise
++                raise self._maybe_suppress(e2)
++
++    @staticmethod
++    def _maybe_suppress(e: requests.exceptions.RequestException) -> BaseException:
++        # OTEL retries ConnectionError itself, which would duplicate the DiskRetryer's work.
++        if isinstance(e, requests.exceptions.ConnectionError):
++            return SuppressedConnectionError(str(e))
++        return e
+ 
+     def _add_task(self, data: bytes, url: str, kwargs: dict[str, Any]):
+         # No threads in Emscripten, we can't add a task to try later
+@@ -294,7 +305,7 @@ class QuietSpanExporter(WrapperSpanExporter):
+     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
+         try:
+             return super().export(spans)
+-        except requests.exceptions.RequestException:
++        except (requests.exceptions.RequestException, SuppressedConnectionError):
+             # Rely on OTLPExporterHttpSession/DiskRetryer to log this kind of error periodically.
+             return SpanExportResult.FAILURE
+ 
+@@ -305,6 +316,6 @@ class QuietLogExporter(WrapperLogExporter):
+     def export(self, batch: Sequence[ReadableLogRecord]):
+         try:
+             return super().export(batch)
+-        except requests.exceptions.RequestException:
++        except (requests.exceptions.RequestException, SuppressedConnectionError):
+             # Rely on OTLPExporterHttpSession/DiskRetryer to log this kind of error periodically.
+             return LogRecordExportResult.FAILURE
+diff --git a/logfire/_internal/exporters/quiet_metrics.py b/logfire/_internal/exporters/quiet_metrics.py
+index 2aa7681..a4b22f5 100644
+--- a/logfire/_internal/exporters/quiet_metrics.py
++++ b/logfire/_internal/exporters/quiet_metrics.py
+@@ -3,6 +3,7 @@ from typing import Any
+ import requests
+ from opentelemetry.sdk.metrics.export import MetricExportResult, MetricsData
+ 
++from .otlp import SuppressedConnectionError
+ from .wrapper import WrapperMetricExporter
+ 
+ 
+@@ -12,6 +13,6 @@ class QuietMetricExporter(WrapperMetricExporter):
+     def export(self, metrics_data: MetricsData, timeout_millis: float = 10_000, **kwargs: Any) -> MetricExportResult:
+         try:
+             return super().export(metrics_data, timeout_millis, **kwargs)
+-        except requests.exceptions.RequestException:
++        except (requests.exceptions.RequestException, SuppressedConnectionError):
+             # Rely on OTLPExporterHttpSession to log this kind of error periodically.
+             return MetricExportResult.FAILURE

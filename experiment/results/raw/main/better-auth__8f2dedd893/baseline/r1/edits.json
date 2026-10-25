@@ -1,0 +1,13 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 3,
+ "bash_calls": 8,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'EOF'\np='index.ts'\ns=open(p).read()\ns=s.replace('''\tset?: (name: string, value: string) => void;\n\tsetHeader''','''\tset?: (name: string, value: string) => void;\n\tget?: (name: string) => string | undefined;\n\tgetHeader?: (name: string) => string | number | string[] | undefined;\n\tsetHeader''",
+  "sed -i 's/makeWWAuthenticate/makeWWWAuthenticate/' src/plugins/mcp/client/index.ts && npx vitest run src/plugins/mcp/client 2>&1 | tail -6; npx tsc --noEmit -p . 2>&1 | grep mcp/client | head",
+  "cat >> mcp-client.test.ts <<'EOF'\n\ndescribe(\"mcp-client 401 CORS headers\", () => {\n\tconst client = createMcpAuthClient({\n\t\tauthURL: \"https://auth.example.com/api/auth\",\n\t\tfetch: async () => new Response(\"no\", { status: 401 }),\n\t});\n\n\tit(\"exposes WWW-Authenticate on handler 401s\", async () => {\n\t\tcon"
+ ],
+ "total": 3,
+ "edit_tool_share": 0.0
+}

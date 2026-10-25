@@ -1,0 +1,489 @@
+diff --git a/.python-version b/.python-version
+deleted file mode 100644
+index e4fba21..0000000
+--- a/.python-version
++++ /dev/null
+@@ -1 +0,0 @@
+-3.12
+diff --git a/examples/tasks/.envrc b/examples/tasks/.envrc
+deleted file mode 100644
+index 87a7dfe..0000000
+--- a/examples/tasks/.envrc
++++ /dev/null
+@@ -1,10 +0,0 @@
+-# FastMCP Tasks Example Environment Configuration
+-# This file is loaded by direnv (https://direnv.net/) when you cd into this directory
+-# Run `direnv allow` to enable automatic environment loading
+-
+-# Configure Docket backend URL
+-# Use Redis backend (requires docker-compose up)
+-export FASTMCP_DOCKET_URL=redis://localhost:24242/0
+-
+-# Or uncomment to use memory:// for single-process testing
+-# export FASTMCP_DOCKET_URL=memory://
+diff --git a/fastmcp_slim/fastmcp/exceptions.py b/fastmcp_slim/fastmcp/exceptions.py
+index e3c831b..eca8321 100644
+--- a/fastmcp_slim/fastmcp/exceptions.py
++++ b/fastmcp_slim/fastmcp/exceptions.py
+@@ -4,11 +4,26 @@ import logging
+ 
+ try:
+     from mcp import MCPError
++    from mcp_types import INTERNAL_ERROR, INVALID_PARAMS
+ except ImportError:
++    INTERNAL_ERROR = -32603
++    INVALID_PARAMS = -32602
++
++    class ErrorData:
++        """Minimal stand-in for ``mcp_types.ErrorData``."""
++
++        def __init__(self, code: int, message: str, data: object = None) -> None:
++            self.code = code
++            self.message = message
++            self.data = data
+ 
+     class MCPError(Exception):  # type: ignore[no-redef]
+         """Fallback used when MCP dependencies are not installed."""
+ 
++        def __init__(self, code: int, message: str, data: object = None) -> None:
++            super().__init__(code, message, data)
++            self.error = ErrorData(code, message, data)
++
+ 
+ # Catch-compatibility alias for the pre-v2 SDK name. `except McpError` must
+ # catch SDK-raised `MCPError`, so this is a plain alias (a subclass would not
+@@ -68,3 +83,16 @@ class DisabledError(Exception):
+ 
+ class AuthorizationError(FastMCPError):
+     """Error when authorization check fails."""
++
++
++def to_mcp_error(exc: Exception, *, default_code: int = INTERNAL_ERROR) -> MCPError:
++    """Convert an exception to an ``MCPError`` with the spec-correct wire code.
++
++    Not-found, disabled and validation errors are invalid params; anything else
++    uses ``default_code``. An ``MCPError`` is returned unchanged.
++    """
++    if isinstance(exc, MCPError):
++        return exc
++    if isinstance(exc, NotFoundError | DisabledError | ValidationError):
++        return MCPError(code=INVALID_PARAMS, message=str(exc))
++    return MCPError(code=default_code, message=str(exc))
+diff --git a/fastmcp_slim/fastmcp/server/low_level.py b/fastmcp_slim/fastmcp/server/low_level.py
+index 3e020db..7f22639 100644
+--- a/fastmcp_slim/fastmcp/server/low_level.py
++++ b/fastmcp_slim/fastmcp/server/low_level.py
+@@ -83,16 +83,29 @@ class FastMCPServerMiddleware:
+         self, ctx: ServerRequestContext, call_next: CallNext
+     ) -> HandlerResult:
+         from fastmcp.server.dependencies import bind_request_context
++        from fastmcp.server.telemetry import seam_span
+ 
+         fastmcp = self._ref()
+         with self._apply_shared_context(fastmcp), bind_request_context(ctx):
+-            # Only initialize requests (request_id present) go through FastMCP
+-            # middleware here; every other request already binds the context in
+-            # its own adapter, so we just pass through.
+-            if ctx.method == "initialize" and ctx.request_id is not None:
+-                if fastmcp is not None:
+-                    return await self._run_initialize_mw(fastmcp, ctx, call_next)
+-            return await call_next(ctx)
++            # Notifications (no request_id) get no SERVER span.
++            if ctx.request_id is not None and fastmcp is not None:
++                with seam_span(ctx.method, fastmcp.name):
++                    return await self._dispatch(fastmcp, ctx, call_next)
++            return await self._dispatch(fastmcp, ctx, call_next)
++
++    async def _dispatch(
++        self,
++        fastmcp: FastMCP | None,
++        ctx: ServerRequestContext,
++        call_next: CallNext,
++    ) -> HandlerResult:
++        # Only initialize requests (request_id present) go through FastMCP
++        # middleware here; every other request already binds the context in
++        # its own adapter, so we just pass through.
++        if ctx.method == "initialize" and ctx.request_id is not None:
++            if fastmcp is not None:
++                return await self._run_initialize_mw(fastmcp, ctx, call_next)
++        return await call_next(ctx)
+ 
+     @contextmanager
+     def _apply_shared_context(self, fastmcp: FastMCP | None) -> Iterator[None]:
+@@ -205,11 +218,12 @@ class LowLevelServer(_Server[LifespanResultT]):
+             tools_changed=True,
+         )
+ 
+-        # Route initialize through FastMCP middleware. Append so the SDK's
+-        # seeded OpenTelemetryMiddleware stays outermost and keeps emitting spans.
+-        self.middleware.append(
++        # Route initialize through FastMCP middleware and open the request's
++        # SERVER span. Replace the SDK's seeded OpenTelemetryMiddleware, which
++        # would emit a second, differently-attributed span for every request.
++        self.middleware[:] = [
+             cast("ServerMiddleware[LifespanResultT]", FastMCPServerMiddleware(fastmcp))
+-        )
++        ]
+ 
+     @property
+     def fastmcp(self) -> FastMCP:
+diff --git a/fastmcp_slim/fastmcp/server/mixins/mcp_operations.py b/fastmcp_slim/fastmcp/server/mixins/mcp_operations.py
+index 0286ea1..5359608 100644
+--- a/fastmcp_slim/fastmcp/server/mixins/mcp_operations.py
++++ b/fastmcp_slim/fastmcp/server/mixins/mcp_operations.py
+@@ -9,6 +9,7 @@ import mcp_types
+ from mcp.server.context import ServerRequestContext
+ from mcp.shared.exceptions import MCPError
+ from mcp_types import (
++    INVALID_PARAMS,
+     CallToolRequestParams,
+     EmptyResult,
+     GetPromptRequestParams,
+@@ -17,7 +18,12 @@ from mcp_types import (
+     SetLevelRequestParams,
+ )
+ 
+-from fastmcp.exceptions import DisabledError, FastMCPError, NotFoundError
++from fastmcp.exceptions import (
++    DisabledError,
++    FastMCPError,
++    NotFoundError,
++    to_mcp_error,
++)
+ from fastmcp.server.dependencies import bind_request_context, extract_version_spec
+ from fastmcp.server.tasks.config import TaskMeta
+ from fastmcp.utilities.logging import get_logger
+@@ -46,7 +52,7 @@ def _apply_pagination(
+     try:
+         return paginate_sequence(items, cursor, page_size)
+     except ValueError as e:
+-        raise MCPError(code=-32602, message=str(e)) from e
++        raise MCPError(code=INVALID_PARAMS, message=str(e)) from e
+ 
+ 
+ def _normalize_call_tool_result(
+@@ -276,7 +282,7 @@ class MCPOperationsMixin:
+                 result = await self.read_resource(str(uri), version=version)
+             except (DisabledError, NotFoundError) as e:
+                 raise MCPError(
+-                    code=-32002, message=f"Resource not found: {str(uri)!r}"
++                    code=INVALID_PARAMS, message=f"Resource not found: {str(uri)!r}"
+                 ) from e
+ 
+             if isinstance(result, mcp_types.CreateTaskResult):
+@@ -308,7 +314,7 @@ class MCPOperationsMixin:
+             try:
+                 result = await self.render_prompt(name, arguments, version=version)
+             except (DisabledError, NotFoundError) as e:
+-                raise MCPError(code=-32602, message=f"Unknown prompt: {name!r}") from e
++                raise to_mcp_error(NotFoundError(f"Unknown prompt: {name!r}")) from e
+ 
+             if isinstance(result, mcp_types.CreateTaskResult):
+                 return result
+diff --git a/fastmcp_slim/fastmcp/server/telemetry.py b/fastmcp_slim/fastmcp/server/telemetry.py
+index d7e6254..9ca13e3 100644
+--- a/fastmcp_slim/fastmcp/server/telemetry.py
++++ b/fastmcp_slim/fastmcp/server/telemetry.py
+@@ -3,12 +3,28 @@
+ from collections.abc import Generator
+ from contextlib import contextmanager
+ 
++from opentelemetry import trace
+ from opentelemetry.context import Context
+ from opentelemetry.trace import Span, SpanKind, Status, StatusCode
+ 
+ from fastmcp.exceptions import ToolError as _ToolError
+ from fastmcp.telemetry import extract_trace_context, get_tracer
+ 
++SEAM_SPAN_MARKER = "fastmcp.span.seam"
++
++
++def record_span_exception(span: Span, exc: Exception) -> None:
++    """Record an exception on a span with ERROR status, at most once per span."""
++    if not span.is_recording():
++        return
++    attributes = getattr(span, "attributes", None) or {}
++    if "error.type" in attributes:
++        return
++    error_type = "tool_error" if isinstance(exc, _ToolError) else type(exc).__qualname__
++    span.set_attribute("error.type", error_type)
++    span.record_exception(exc)
++    span.set_status(Status(StatusCode.ERROR, str(exc)))
++
+ 
+ def get_auth_span_attributes() -> dict[str, str]:
+     """Get auth attributes for the current request, if authenticated."""
+@@ -66,6 +82,37 @@ def server_span(
+ 
+     Automatically records any exception on the span and sets error status.
+     """
++    attrs: dict[str, str] = {
++        # MCP semantic conventions
++        "mcp.method.name": method,
++        # FastMCP-specific attributes
++        "fastmcp.server.name": server_name,
++        "fastmcp.component.type": component_type,
++        "fastmcp.component.key": component_key,
++    }
++    if resource_uri is not None:
++        attrs["mcp.resource.uri"] = resource_uri
++    if tool_name is not None:
++        attrs["gen_ai.tool.name"] = tool_name
++    if prompt_name is not None:
++        attrs["gen_ai.prompt.name"] = prompt_name
++
++    current = trace.get_current_span()
++    attributes = getattr(current, "attributes", None) or {}
++    if current.is_recording() and attributes.get(SEAM_SPAN_MARKER):
++        # The dispatcher already opened the request's SERVER span; enrich it
++        # rather than emitting a second one.
++        current.update_name(name)
++        current.set_attributes(
++            {**attrs, **get_auth_span_attributes(), **get_session_span_attributes()}
++        )
++        try:
++            yield current
++        except Exception as e:
++            record_span_exception(current, e)
++            raise
++        return
++
+     tracer = get_tracer()
+     with tracer.start_as_current_span(
+         name,
+@@ -73,33 +120,44 @@ def server_span(
+         kind=SpanKind.SERVER,
+     ) as span:
+         if span.is_recording():
+-            attrs: dict[str, str] = {
+-                # MCP semantic conventions
+-                "mcp.method.name": method,
+-                # FastMCP-specific attributes
+-                "fastmcp.server.name": server_name,
+-                "fastmcp.component.type": component_type,
+-                "fastmcp.component.key": component_key,
+-                **get_auth_span_attributes(),
+-                **get_session_span_attributes(),
+-            }
+-            if resource_uri is not None:
+-                attrs["mcp.resource.uri"] = resource_uri
+-            if tool_name is not None:
+-                attrs["gen_ai.tool.name"] = tool_name
+-            if prompt_name is not None:
+-                attrs["gen_ai.prompt.name"] = prompt_name
+-            span.set_attributes(attrs)
++            span.set_attributes(
++                {**attrs, **get_auth_span_attributes(), **get_session_span_attributes()}
++            )
++        try:
++            yield span
++        except Exception as e:
++            record_span_exception(span, e)
++            raise
++
++
++@contextmanager
++def seam_span(method: str, server_name: str) -> Generator[Span, None, None]:
++    """Create the single SERVER span for an inbound request at the dispatcher.
++
++    Named after the method; `server_span` renames and enriches it for
++    tool, resource and prompt requests. Exceptions propagating out are
++    recorded on the span.
++    """
++    tracer = get_tracer()
++    with tracer.start_as_current_span(
++        method,
++        context=_get_parent_trace_context(),
++        kind=SpanKind.SERVER,
++    ) as span:
++        if span.is_recording():
++            span.set_attributes(
++                {
++                    SEAM_SPAN_MARKER: True,
++                    "mcp.method.name": method,
++                    "fastmcp.server.name": server_name,
++                    **get_auth_span_attributes(),
++                    **get_session_span_attributes(),
++                }
++            )
+         try:
+             yield span
+         except Exception as e:
+-            if span.is_recording():
+-                error_type = (
+-                    "tool_error" if isinstance(e, _ToolError) else type(e).__qualname__
+-                )
+-                span.set_attribute("error.type", error_type)
+-                span.record_exception(e)
+-                span.set_status(Status(StatusCode.ERROR, str(e)))
++            record_span_exception(span, e)
+             raise
+ 
+ 
+@@ -128,19 +186,16 @@ def delegate_span(
+         try:
+             yield span
+         except Exception as e:
+-            if span.is_recording():
+-                error_type = (
+-                    "tool_error" if isinstance(e, _ToolError) else type(e).__qualname__
+-                )
+-                span.set_attribute("error.type", error_type)
+-                span.record_exception(e)
+-                span.set_status(Status(StatusCode.ERROR, str(e)))
++            record_span_exception(span, e)
+             raise
+ 
+ 
+ __all__ = [
++    "SEAM_SPAN_MARKER",
+     "delegate_span",
+     "get_auth_span_attributes",
+     "get_session_span_attributes",
++    "record_span_exception",
++    "seam_span",
+     "server_span",
+ ]
+diff --git a/tests/server/telemetry/test_single_server_span.py b/tests/server/telemetry/test_single_server_span.py
+new file mode 100644
+index 0000000..c05b09c
+--- /dev/null
++++ b/tests/server/telemetry/test_single_server_span.py
+@@ -0,0 +1,137 @@
++"""One SERVER span per dispatched request, and spec-correct error codes."""
++
++from __future__ import annotations
++
++import pytest
++from mcp import MCPError
++from mcp_types import INTERNAL_ERROR, INVALID_PARAMS
++from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
++from opentelemetry.trace import SpanKind, StatusCode
++
++from fastmcp import Client, FastMCP
++from fastmcp.exceptions import (
++    DisabledError,
++    NotFoundError,
++    ToolError,
++    ValidationError,
++    to_mcp_error,
++)
++from fastmcp.server.middleware import Middleware
++
++
++def _server_spans(exporter: InMemorySpanExporter):
++    return [s for s in exporter.get_finished_spans() if s.kind == SpanKind.SERVER]
++
++
++async def test_tool_call_has_single_rich_span(trace_exporter: InMemorySpanExporter):
++    mcp = FastMCP("test-server")
++
++    @mcp.tool()
++    def greet(name: str) -> str:
++        return f"Hello, {name}!"
++
++    async with Client(mcp) as client:
++        trace_exporter.clear()
++        await client.call_tool("greet", {"name": "World"})
++
++    spans = [s for s in _server_spans(trace_exporter) if s.name == "tools/call greet"]
++    assert len(spans) == 1
++    # One span per request: the client's implicit tools/list is its own request.
++    names = [s.name for s in _server_spans(trace_exporter)]
++    assert sorted(names) == ["tools/call greet", "tools/list"]
++    attrs = spans[0].attributes or {}
++    assert attrs["mcp.method.name"] == "tools/call"
++    assert attrs["fastmcp.server.name"] == "test-server"
++    assert attrs["fastmcp.component.key"] == "tool:greet@"
++    assert attrs["gen_ai.tool.name"] == "greet"
++    assert spans[0].parent is not None
++
++
++async def test_non_component_method_gets_span(trace_exporter: InMemorySpanExporter):
++    mcp = FastMCP("test-server")
++    async with Client(mcp) as client:
++        trace_exporter.clear()
++        await client.set_logging_level("info")
++
++    spans = _server_spans(trace_exporter)
++    assert [s.name for s in spans] == ["logging/setLevel"]
++    assert (spans[0].attributes or {})["fastmcp.server.name"] == "test-server"
++
++
++async def test_middleware_rejection_has_error_span(
++    trace_exporter: InMemorySpanExporter,
++):
++    class Boom(Middleware):
++        async def on_call_tool(self, context, call_next):
++            raise RuntimeError("boom")
++
++    mcp = FastMCP("test-server", middleware=[Boom()])
++
++    @mcp.tool()
++    def greet() -> str:
++        return "hi"
++
++    async with Client(mcp) as client:
++        trace_exporter.clear()
++        with pytest.raises(Exception):
++            await client.call_tool("greet", {})
++
++    spans = _server_spans(trace_exporter)
++    assert len(spans) == 1
++    span = spans[0]
++    assert span.status.status_code == StatusCode.ERROR
++    assert (span.attributes or {})["error.type"] == "RuntimeError"
++    assert any(e.name == "exception" for e in span.events)
++
++
++async def test_tool_error_yields_one_span(trace_exporter: InMemorySpanExporter):
++    mcp = FastMCP("test-server")
++
++    @mcp.tool()
++    def bad() -> str:
++        raise ToolError("nope")
++
++    async with Client(mcp) as client:
++        trace_exporter.clear()
++        await client.call_tool("bad", {}, raise_on_error=False)
++
++    assert len(_server_spans(trace_exporter)) == 1
++
++
++async def test_missing_resource_is_invalid_params():
++    mcp = FastMCP("test-server")
++    async with Client(mcp) as client:
++        with pytest.raises(MCPError) as exc:
++            await client.read_resource("file:///missing")
++    assert exc.value.error.code == INVALID_PARAMS
++    assert "Resource not found" in exc.value.error.message
++
++
++async def test_unknown_prompt_is_invalid_params():
++    mcp = FastMCP("test-server")
++    async with Client(mcp) as client:
++        with pytest.raises(MCPError) as exc:
++            await client.get_prompt("nope")
++    assert exc.value.error.code == INVALID_PARAMS
++    assert "Unknown prompt" in exc.value.error.message
++
++
++@pytest.mark.parametrize(
++    "exc, code",
++    [
++        (NotFoundError("a"), INVALID_PARAMS),
++        (DisabledError("a"), INVALID_PARAMS),
++        (ValidationError("a"), INVALID_PARAMS),
++        (ToolError("a"), INTERNAL_ERROR),
++    ],
++)
++def test_to_mcp_error(exc: Exception, code: int):
++    err = to_mcp_error(exc)
++    assert err.error.code == code
++    assert err.error.message == "a"
++
++
++def test_to_mcp_error_passthrough_and_default():
++    original = MCPError(code=-1, message="x")
++    assert to_mcp_error(original) is original
++    assert to_mcp_error(ToolError("y"), default_code=-5).error.code == -5

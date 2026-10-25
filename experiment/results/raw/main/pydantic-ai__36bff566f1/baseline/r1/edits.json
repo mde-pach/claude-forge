@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 6,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/pydantic_ai_slim/pydantic_ai; sed -i '129s/to_json(/safe_to_json(/;221s/to_json(/safe_to_json(/;93s/value: Any/value: object/' _instrumentation.py && git diff --stat && cd /work && cat > /tmp/t.py <<'E'\nimport asyncio\nfrom pydantic_ai.models.test import TestModel\nfrom pydantic_ai.models.ins",
+  "cd /work; cat >> tests/models/test_instrumented.py <<'E'\n\n\nasync def test_instrumented_model_lone_surrogate_in_tool_definitions(capfire: CaptureLogfire):\n    import json\n\n    from pydantic_ai.tools import ToolDefinition\n\n    description = 'get the weather before\\udce4after'\n    params = ModelRequest"
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

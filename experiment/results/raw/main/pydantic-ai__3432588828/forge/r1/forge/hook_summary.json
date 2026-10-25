@@ -1,0 +1,74 @@
+{
+ "active": true,
+ "events": {
+  "SessionStart": 1,
+  "UserPromptSubmit": 1,
+  "PreToolUse": 24,
+  "PostToolUse": 18,
+  "Stop": 4
+ },
+ "forge_messages": 7,
+ "blocks": 3,
+ "stop_blocks": 3,
+ "feedback": 2,
+ "nonzero_exit": 0,
+ "by_hook": {
+  "SessionStart:startup": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 3
+  },
+  "UserPromptSubmit": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PreToolUse:Bash": {
+   "runs": 24,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PostToolUse:Bash": {
+   "runs": 16,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PostToolUse:Edit": {
+   "runs": 2,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "Stop": {
+   "runs": 4,
+   "nonzero": 0,
+   "forge_msgs": 4
+  }
+ },
+ "samples": [
+  {
+   "hook": "SessionStart:startup",
+   "exit": 0,
+   "out": "forge: branch main, 0 changed files\nforge: last commits\n  08961ab Add Forge\n  3caab34 initial\nforge: packs github-actions, python, python/pydantic, python/pytest, python/uv\n"
+  },
+  {
+   "hook": "Stop",
+   "exit": 0,
+   "out": "{\"decision\":\"block\",\"reason\":\"forge:python/pytest/no-test-edits failed\\ntests/models/test_model_function.py: test \\\"test_call_all\\\" was changed\\ntests/models/test_model_test.py: test \\\"test_custom_output_args\\\" was changed\\ntests/models/test_model_test.py: test \\\"test_custom_output_args_model\\\" was changed\\ntests/models/test_model_test.py: test \\\"test_output_type\\\" was changed\\ntests/models/test_model_test.py: test \\\"test_tool_retry\\\" was changed\\ntests/test_agent.py: test \\\"TestMultipleToolCalls > test_early_strategy_does_not_apply_to_tool_calls_without_final_tool\\\" was changed\\ntests/test_ag"
+  },
+  {
+   "hook": "Stop",
+   "exit": 0,
+   "out": "{\"decision\":\"block\",\"reason\":\"forge:python/pytest/no-test-edits failed\\ntests/models/test_model_function.py: test \\\"test_call_all\\\" was changed\\ntests/models/test_model_test.py: test \\\"test_custom_output_args\\\" was changed\\ntests/models/test_model_test.py: test \\\"test_custom_output_args_model\\\" was changed\\ntests/models/test_model_test.py: test \\\"test_output_type\\\" was changed\\ntests/models/test_model_test.py: test \\\"test_tool_retry\\\" was changed\\ntests/test_agent.py: test \\\"TestMultipleToolCalls > test_early_strategy_does_not_apply_to_tool_calls_without_final_tool\\\" was changed\\ntests/test_ag"
+  },
+  {
+   "hook": "Stop",
+   "exit": 0,
+   "out": "{\"decision\":\"block\",\"reason\":\"forge:python/pytest/no-test-edits failed\\ntests/models/test_model_function.py: test \\\"test_call_all\\\" was changed\\ntests/models/test_model_test.py: test \\\"test_custom_output_args\\\" was changed\\ntests/models/test_model_test.py: test \\\"test_custom_output_args_model\\\" was changed\\ntests/models/test_model_test.py: test \\\"test_output_type\\\" was changed\\ntests/models/test_model_test.py: test \\\"test_tool_retry\\\" was changed\\ntests/test_agent.py: test \\\"TestMultipleToolCalls > test_early_strategy_does_not_apply_to_tool_calls_without_final_tool\\\" was changed\\ntests/test_ag"
+  },
+  {
+   "hook": "Stop",
+   "exit": 0,
+   "out": "{\"systemMessage\":\"forge: check failed 3 times. Handing over to you.\"}\n"
+  }
+ ]
+}

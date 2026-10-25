@@ -1,0 +1,38 @@
+diff --git a/.python-version b/.python-version
+deleted file mode 100644
+index e4fba21..0000000
+--- a/.python-version
++++ /dev/null
+@@ -1 +0,0 @@
+-3.12
+diff --git a/examples/tasks/.envrc b/examples/tasks/.envrc
+deleted file mode 100644
+index 87a7dfe..0000000
+--- a/examples/tasks/.envrc
++++ /dev/null
+@@ -1,10 +0,0 @@
+-# FastMCP Tasks Example Environment Configuration
+-# This file is loaded by direnv (https://direnv.net/) when you cd into this directory
+-# Run `direnv allow` to enable automatic environment loading
+-
+-# Configure Docket backend URL
+-# Use Redis backend (requires docker-compose up)
+-export FASTMCP_DOCKET_URL=redis://localhost:24242/0
+-
+-# Or uncomment to use memory:// for single-process testing
+-# export FASTMCP_DOCKET_URL=memory://
+diff --git a/fastmcp_slim/fastmcp/server/mixins/lifespan.py b/fastmcp_slim/fastmcp/server/mixins/lifespan.py
+index bfb424c..bff67f3 100644
+--- a/fastmcp_slim/fastmcp/server/mixins/lifespan.py
++++ b/fastmcp_slim/fastmcp/server/mixins/lifespan.py
+@@ -171,7 +171,9 @@ class LifespanMixin:
+                         try:
+                             worker_task = asyncio.create_task(worker.run_forever())
+                             try:
+-                                yield
++                                async with SharedContext():
++                                    self._capture_shared_context()
++                                    yield
+                             finally:
+                                 worker_task.cancel()
+                                 with suppress(asyncio.CancelledError):

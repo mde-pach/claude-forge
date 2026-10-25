@@ -1,0 +1,16 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 6,
+ "bash_calls": 11,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work && python3 - <<'E'\np='packages/better-auth/src/plugins/last-login-method/index.ts'\ns=open(p).read()\ns=s.replace('''\t/**\n\t * Store the last login method in the database.''','''\t/**\n\t * Called before the last login method cookie is set. Return a falsy value\n\t * to skip setting the cookie (e.g",
+  "python3 - <<'E'\np='docs/content/docs/plugins/last-login-method.mdx'\ns=open(p).read()\ns=s.replace('''**customResolveMethod**: `(ctx''','''**beforeStoreCookie**: `(ctx: GenericEndpointContext, lastUsedLoginMethod: string) => Promise<boolean> | boolean`\n\n* Called on every login before the cookie is set",
+  "python3 - <<'E'\np='src/plugins/last-login-method/last-login-method.test.ts'\ns=open(p).read()\ns=s.replace(\"\t\t\t\t\tcookieName,\\n\t\t\t\t}),\",\"\t\t\t\t\t...(cookieName ? { cookieName } : {}),\\n\t\t\t\t}),\",1)\nopen(p,'w').write(s)\nE\nnpx vitest run src/plugins/last-login-method 2>&1 | tail -8; npx biome format --write ",
+  "python3 - <<'E'\np='src/plugins/last-login-method/last-login-method.test.ts'\ns=open(p).read()\ns=s.replace('''\t\tconst hook = vi.fn(async () => true);\n\t\tconst { setCookie, name } = await run(hook);\n\t\texpect(setCookie).toContain(`${name}=email`);\n\t\texpect(hook).toHaveBeenCalledWith(\n\t\t\texpect.objectCont",
+  "sed -i 's/await run(() => v)/await run(() => v as never)/' src/plugins/last-login-method/last-login-method.test.ts\nnpx vitest run src/plugins/last-login-method 2>&1 | grep -B3 -A15 FAIL | head -40; npx tsc --noEmit -p . 2>&1 | grep last-login | head",
+  "sed -i 's|expect(calls).toEqual(\\[{ path: \"/sign-in/email\", method: \"email\" }\\]);|expect(calls.at(-1)).toEqual({ path: \"/sign-in/email\", method: \"email\" });|' src/plugins/last-login-method/last-login-method.test.ts\nnpx biome format --write src/plugins/last-login-method >/dev/null 2>&1\nnpx vitest run"
+ ],
+ "total": 6,
+ "edit_tool_share": 0.0
+}

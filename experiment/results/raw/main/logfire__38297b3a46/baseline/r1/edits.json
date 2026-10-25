@@ -1,0 +1,11 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 1,
+ "bash_calls": 2,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python - <<'E'\np='logfire/_internal/integrations/google_genai.py'\ns=open(p).read()\ns=s.replace(\"\"\"        span.add_event(record.event_name, attributes={'event_body': json.dumps(body, default=default_json)})\n\"\"\",\"\"\"        try:\n            event_body = json.dumps(body, default=default_json)\n        e"
+ ],
+ "total": 1,
+ "edit_tool_share": 0.0
+}

@@ -1,0 +1,14 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 4,
+ "bash_calls": 7,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "sed -i 's/\\^(\\\\\\\\p{Extended_Pictographic}|\\\\\\\\p{Emoji_Component})+\\$/^[\\\\\\\\p{Extended_Pictographic}\\\\\\\\p{Emoji_Component}]+$/' v4/core/regexes.ts v3/types.ts v4/classic/tests/*.ts && git diff --stat && grep -rn \"Extended_Pictographic\" v3/types.ts v4/core/regexes.ts v4/classic/tests; cd /work; ls nod",
+  "cd /work/packages/zod && cat > /tmp/chk.test.ts <<'EOF'\nimport { check } from \"recheck\";\nimport { test } from \"vitest\";\nimport * as r from \"/work/packages/zod/src/v4/core/regexes.js\";\ntest(\"x\", async () => {\n  const list: [string, RegExp][] = [];\n  for (const [k, v] of Object.entries(r)) if (v insta",
+  "sed 's/^});$/}, 600000);/' /tmp/chk.test.ts > packages/zod/src/v4/classic/tests/zz.test.ts && pnpm vitest run packages/zod/src/v4/classic/tests/zz.test.ts 2>&1 | grep -E -A8 \"BAD|passed|failed\" | head -30; rm packages/zod/src/v4/classic/tests/zz.test.ts; git status --short",
+  "sed -i '496i\\  emoji.parse(\"\ud83e\uddb0\ud83e\uddb1\ud83e\uddb2\ud83e\uddb3\");\\n  const t = performance.now();\\n  expect(() => emoji.parse(\"\ud83e\uddb0\".repeat(26) + \" \")).toThrow();\\n  expect(performance.now() - t).toBeLessThan(100);' v4/classic/tests/string.test.ts && cd /work && pnpm vitest run packages/zod/src/v4/classic/tests/string.test.ts 2>&1 "
+ ],
+ "total": 4,
+ "edit_tool_share": 0.0
+}

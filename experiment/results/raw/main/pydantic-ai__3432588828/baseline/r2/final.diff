@@ -1,0 +1,835 @@
+diff --git a/pydantic_ai_slim/pydantic_ai/models/test.py b/pydantic_ai_slim/pydantic_ai/models/test.py
+index bef73f2..a535e8b 100644
+--- a/pydantic_ai_slim/pydantic_ai/models/test.py
++++ b/pydantic_ai_slim/pydantic_ai/models/test.py
+@@ -230,7 +230,7 @@ class TestModel(Model):
+                     ToolCallPart(name, self.gen_tool_args(args), tool_call_id=f'pyd_ai_tool_call_id__{name}')
+                     for name, args in tool_calls
+                 ],
+-                model_name=self._model_name,
++                model_name=self._model_name, provider_name=self.system,
+             )
+ 
+         if messages:  # pragma: no branch
+@@ -260,7 +260,7 @@ class TestModel(Model):
+                             if tool.name in new_retry_names
+                         ]
+                     )
+-                return ModelResponse(parts=retry_parts, model_name=self._model_name)
++                return ModelResponse(parts=retry_parts, model_name=self._model_name, provider_name=self.system)
+ 
+         if isinstance(output_wrapper, _WrappedTextOutput):
+             if (response_text := output_wrapper.value) is None:
+@@ -273,12 +273,12 @@ class TestModel(Model):
+                                 output[part.tool_name] = part.content
+                 if output:
+                     return ModelResponse(
+-                        parts=[TextPart(pydantic_core.to_json(output).decode())], model_name=self._model_name
++                        parts=[TextPart(pydantic_core.to_json(output).decode())], model_name=self._model_name, provider_name=self.system
+                     )
+                 else:
+-                    return ModelResponse(parts=[TextPart('success (no tool calls)')], model_name=self._model_name)
++                    return ModelResponse(parts=[TextPart('success (no tool calls)')], model_name=self._model_name, provider_name=self.system)
+             else:
+-                return ModelResponse(parts=[TextPart(response_text)], model_name=self._model_name)
++                return ModelResponse(parts=[TextPart(response_text)], model_name=self._model_name, provider_name=self.system)
+         else:
+             assert output_tools, 'No output tools provided'
+             custom_output_args = output_wrapper.value
+@@ -292,7 +292,7 @@ class TestModel(Model):
+                             tool_call_id=f'pyd_ai_tool_call_id__{output_tool.name}',
+                         )
+                     ],
+-                    model_name=self._model_name,
++                    model_name=self._model_name, provider_name=self.system,
+                 )
+             else:
+                 response_args = self.gen_tool_args(output_tool)
+@@ -304,7 +304,7 @@ class TestModel(Model):
+                             tool_call_id=f'pyd_ai_tool_call_id__{output_tool.name}',
+                         )
+                     ],
+-                    model_name=self._model_name,
++                    model_name=self._model_name, provider_name=self.system,
+                 )
+ 
+ 
+diff --git a/tests/models/test_model_function.py b/tests/models/test_model_function.py
+index cc84bca..612ff7e 100644
+--- a/tests/models/test_model_function.py
++++ b/tests/models/test_model_function.py
+@@ -406,6 +406,7 @@ def test_call_all():
+                 usage=RequestUsage(input_tokens=52, output_tokens=21),
+                 model_name='test',
+                 timestamp=IsNow(tz=timezone.utc),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -436,6 +437,7 @@ def test_call_all():
+                 usage=RequestUsage(input_tokens=57, output_tokens=33),
+                 model_name='test',
+                 timestamp=IsNow(tz=timezone.utc),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+diff --git a/tests/models/test_model_test.py b/tests/models/test_model_test.py
+index 77aa74b..506c5ca 100644
+--- a/tests/models/test_model_test.py
++++ b/tests/models/test_model_test.py
+@@ -92,6 +92,7 @@ def test_custom_output_args():
+                 usage=RequestUsage(input_tokens=51, output_tokens=7),
+                 model_name='test',
+                 timestamp=IsNow(tz=timezone.utc),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -144,6 +145,7 @@ def test_custom_output_args_model():
+                 usage=RequestUsage(input_tokens=51, output_tokens=6),
+                 model_name='test',
+                 timestamp=IsNow(tz=timezone.utc),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -192,6 +194,7 @@ def test_output_type():
+                 usage=RequestUsage(input_tokens=51, output_tokens=7),
+                 model_name='test',
+                 timestamp=IsNow(tz=timezone.utc),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -241,6 +244,7 @@ def test_tool_retry():
+                 usage=RequestUsage(input_tokens=51, output_tokens=4),
+                 model_name='test',
+                 timestamp=IsNow(tz=timezone.utc),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -262,6 +266,7 @@ def test_tool_retry():
+                 usage=RequestUsage(input_tokens=61, output_tokens=8),
+                 model_name='test',
+                 timestamp=IsNow(tz=timezone.utc),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -280,6 +285,7 @@ def test_tool_retry():
+                 usage=RequestUsage(input_tokens=62, output_tokens=12),
+                 model_name='test',
+                 timestamp=IsNow(tz=timezone.utc),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+diff --git a/tests/test_agent.py b/tests/test_agent.py
+index d4c5058..85db6ac 100644
+--- a/tests/test_agent.py
++++ b/tests/test_agent.py
+@@ -1205,6 +1205,7 @@ def test_output_tool_return_content_str_return():
+             usage=RequestUsage(input_tokens=51, output_tokens=4),
+             model_name='test',
+             timestamp=IsDatetime(),
++            provider_name='test',
+             run_id=IsStr(),
+             conversation_id=IsStr(),
+         )
+@@ -3012,6 +3013,7 @@ def test_run_with_history_new():
+                 usage=RequestUsage(input_tokens=52, output_tokens=5),
+                 model_name='test',
+                 timestamp=IsNow(tz=timezone.utc),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -3030,6 +3032,7 @@ def test_run_with_history_new():
+                 usage=RequestUsage(input_tokens=53, output_tokens=9),
+                 model_name='test',
+                 timestamp=IsNow(tz=timezone.utc),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -3054,6 +3057,7 @@ def test_run_with_history_new():
+                 usage=RequestUsage(input_tokens=52, output_tokens=5),
+                 model_name='test',
+                 timestamp=IsNow(tz=timezone.utc),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -3072,6 +3076,7 @@ def test_run_with_history_new():
+                 usage=RequestUsage(input_tokens=53, output_tokens=9),
+                 model_name='test',
+                 timestamp=IsNow(tz=timezone.utc),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -3086,6 +3091,7 @@ def test_run_with_history_new():
+                 usage=RequestUsage(input_tokens=55, output_tokens=13),
+                 model_name='test',
+                 timestamp=IsNow(tz=timezone.utc),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -3128,6 +3134,7 @@ def test_run_with_history_new():
+                 usage=RequestUsage(input_tokens=52, output_tokens=5),
+                 model_name='test',
+                 timestamp=IsNow(tz=timezone.utc),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -3146,6 +3153,7 @@ def test_run_with_history_new():
+                 usage=RequestUsage(input_tokens=53, output_tokens=9),
+                 model_name='test',
+                 timestamp=IsNow(tz=timezone.utc),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -3160,6 +3168,7 @@ def test_run_with_history_new():
+                 usage=RequestUsage(input_tokens=55, output_tokens=13),
+                 model_name='test',
+                 timestamp=IsNow(tz=timezone.utc),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -3201,6 +3210,7 @@ def test_run_with_history_new_structured():
+                 usage=RequestUsage(input_tokens=52, output_tokens=5),
+                 model_name='test',
+                 timestamp=IsNow(tz=timezone.utc),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -3225,6 +3235,7 @@ def test_run_with_history_new_structured():
+                 usage=RequestUsage(input_tokens=53, output_tokens=9),
+                 model_name='test',
+                 timestamp=IsNow(tz=timezone.utc),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -3261,6 +3272,7 @@ def test_run_with_history_new_structured():
+                 usage=RequestUsage(input_tokens=52, output_tokens=5),
+                 model_name='test',
+                 timestamp=IsNow(tz=timezone.utc),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -3279,6 +3291,7 @@ def test_run_with_history_new_structured():
+                 usage=RequestUsage(input_tokens=53, output_tokens=9),
+                 model_name='test',
+                 timestamp=IsNow(tz=timezone.utc),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -3309,6 +3322,7 @@ def test_run_with_history_new_structured():
+                 usage=RequestUsage(input_tokens=59, output_tokens=13),
+                 model_name='test',
+                 timestamp=IsNow(tz=timezone.utc),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -3400,6 +3414,7 @@ def test_run_with_history_ending_on_model_request_and_no_user_prompt():
+                 usage=RequestUsage(input_tokens=61, output_tokens=4),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -3564,6 +3579,7 @@ Summarize this conversation to include all important facts about the user and
+                 usage=RequestUsage(input_tokens=73, output_tokens=43),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -4856,6 +4872,7 @@ class TestMultipleToolCalls:
+                     usage=RequestUsage(input_tokens=57, output_tokens=4),
+                     model_name='test',
+                     timestamp=IsNow(tz=timezone.utc),
++                    provider_name='test',
+                     run_id=IsStr(),
+                     conversation_id=IsStr(),
+                 ),
+@@ -4883,6 +4900,7 @@ class TestMultipleToolCalls:
+                     usage=RequestUsage(input_tokens=58, output_tokens=9),
+                     model_name='test',
+                     timestamp=IsNow(tz=timezone.utc),
++                    provider_name='test',
+                     run_id=IsStr(),
+                     conversation_id=IsStr(),
+                 ),
+@@ -6796,6 +6814,7 @@ def test_nested_capture_run_messages() -> None:
+                 usage=RequestUsage(input_tokens=51, output_tokens=4),
+                 model_name='test',
+                 timestamp=IsNow(tz=timezone.utc),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -6826,6 +6845,7 @@ def test_double_capture_run_messages() -> None:
+                 usage=RequestUsage(input_tokens=51, output_tokens=4),
+                 model_name='test',
+                 timestamp=IsNow(tz=timezone.utc),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -6996,6 +7016,7 @@ def test_dynamic_false_no_reevaluate():
+                 usage=RequestUsage(input_tokens=53, output_tokens=4),
+                 model_name='test',
+                 timestamp=IsNow(tz=timezone.utc),
++                provider_name='test',
+                 run_id=IsStr(),
+                 kind='response',
+                 conversation_id=IsStr(),
+@@ -7028,6 +7049,7 @@ def test_dynamic_false_no_reevaluate():
+                 usage=RequestUsage(input_tokens=53, output_tokens=4),
+                 model_name='test',
+                 timestamp=IsNow(tz=timezone.utc),
++                provider_name='test',
+                 run_id=IsStr(),
+                 kind='response',
+                 conversation_id=IsStr(),
+@@ -7044,6 +7066,7 @@ def test_dynamic_false_no_reevaluate():
+                 usage=RequestUsage(input_tokens=54, output_tokens=8),
+                 model_name='test',
+                 timestamp=IsNow(tz=timezone.utc),
++                provider_name='test',
+                 run_id=IsStr(),
+                 kind='response',
+                 conversation_id=IsStr(),
+@@ -7092,6 +7115,7 @@ def test_dynamic_true_reevaluate_system_prompt():
+                 usage=RequestUsage(input_tokens=53, output_tokens=4),
+                 model_name='test',
+                 timestamp=IsNow(tz=timezone.utc),
++                provider_name='test',
+                 run_id=IsStr(),
+                 kind='response',
+                 conversation_id=IsStr(),
+@@ -7125,6 +7149,7 @@ def test_dynamic_true_reevaluate_system_prompt():
+                 usage=RequestUsage(input_tokens=53, output_tokens=4),
+                 model_name='test',
+                 timestamp=IsNow(tz=timezone.utc),
++                provider_name='test',
+                 run_id=IsStr(),
+                 kind='response',
+                 conversation_id=IsStr(),
+@@ -7141,6 +7166,7 @@ def test_dynamic_true_reevaluate_system_prompt():
+                 usage=RequestUsage(input_tokens=54, output_tokens=8),
+                 model_name='test',
+                 timestamp=IsNow(tz=timezone.utc),
++                provider_name='test',
+                 run_id=IsStr(),
+                 kind='response',
+                 conversation_id=IsStr(),
+@@ -7249,6 +7275,7 @@ def test_capture_run_messages_tool_agent() -> None:
+                 usage=RequestUsage(input_tokens=51, output_tokens=5),
+                 model_name='test',
+                 timestamp=IsNow(tz=timezone.utc),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -7270,6 +7297,7 @@ def test_capture_run_messages_tool_agent() -> None:
+                 usage=RequestUsage(input_tokens=54, output_tokens=11),
+                 model_name='test',
+                 timestamp=IsNow(tz=timezone.utc),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -7369,7 +7397,7 @@ def test_binary_content_serializable():
+                     'details': {},
+                 },
+                 'model_name': 'test',
+-                'provider_name': None,
++                'provider_name': 'test',
+                 'provider_details': None,
+                 'provider_response_id': None,
+                 'provider_url': None,
+@@ -7444,7 +7472,7 @@ def test_image_url_serializable_missing_media_type():
+                 },
+                 'model_name': 'test',
+                 'timestamp': IsStr(),
+-                'provider_name': None,
++                'provider_name': 'test',
+                 'provider_details': None,
+                 'provider_url': None,
+                 'provider_response_id': None,
+@@ -7525,7 +7553,7 @@ def test_image_url_serializable():
+                 },
+                 'model_name': 'test',
+                 'timestamp': IsStr(),
+-                'provider_name': None,
++                'provider_name': 'test',
+                 'provider_details': None,
+                 'provider_url': None,
+                 'provider_response_id': None,
+@@ -7777,6 +7805,7 @@ def test_instructions_with_message_history():
+                 usage=RequestUsage(input_tokens=56, output_tokens=4),
+                 model_name='test',
+                 timestamp=IsNow(tz=timezone.utc),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -7870,6 +7899,7 @@ def test_multi_agent_instructions_with_structured_output():
+                 usage=RequestUsage(input_tokens=51, output_tokens=9),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -8729,6 +8759,7 @@ def test_prepare_output_tools():
+                 usage=RequestUsage(input_tokens=51, output_tokens=5),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -8756,6 +8787,7 @@ def test_prepare_output_tools():
+                 usage=RequestUsage(input_tokens=52, output_tokens=12),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+diff --git a/tests/test_capabilities.py b/tests/test_capabilities.py
+index b521393..6bf59ab 100644
+--- a/tests/test_capabilities.py
++++ b/tests/test_capabilities.py
+@@ -8086,6 +8086,7 @@ also from spec\
+                     usage=RequestUsage(input_tokens=51, output_tokens=4),
+                     model_name='test',
+                     timestamp=IsDatetime(),
++                    provider_name='test',
+                     run_id=IsStr(),
+                     conversation_id=IsStr(),
+                 ),
+diff --git a/tests/test_deps.py b/tests/test_deps.py
+index cde1fda..ab03c7c 100644
+--- a/tests/test_deps.py
++++ b/tests/test_deps.py
+@@ -49,6 +49,7 @@ def test_deps_used():
+                 usage=RequestUsage(input_tokens=51, output_tokens=2),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -70,6 +71,7 @@ def test_deps_used():
+                 usage=RequestUsage(input_tokens=53, output_tokens=7),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -106,6 +108,7 @@ def test_deps_override():
+                 usage=RequestUsage(input_tokens=51, output_tokens=2),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -127,6 +130,7 @@ def test_deps_override():
+                 usage=RequestUsage(input_tokens=53, output_tokens=7),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+diff --git a/tests/test_direct.py b/tests/test_direct.py
+index ca9c332..e2b9af8 100644
+--- a/tests/test_direct.py
++++ b/tests/test_direct.py
+@@ -47,6 +47,7 @@ async def test_model_request():
+             model_name='test',
+             timestamp=IsNow(tz=timezone.utc),
+             usage=RequestUsage(input_tokens=51, output_tokens=4),
++            provider_name='test',
+         )
+     )
+ 
+@@ -66,6 +67,7 @@ async def test_model_request_tool_call():
+             model_name='test',
+             timestamp=IsNow(tz=timezone.utc),
+             usage=RequestUsage(input_tokens=51, output_tokens=2),
++            provider_name='test',
+         )
+     )
+ 
+@@ -78,6 +80,7 @@ def test_model_request_sync():
+             model_name='test',
+             timestamp=IsNow(tz=timezone.utc),
+             usage=RequestUsage(input_tokens=51, output_tokens=4),
++            provider_name='test',
+         )
+     )
+ 
+diff --git a/tests/test_tools.py b/tests/test_tools.py
+index ba5ba57..5ad09e0 100644
+--- a/tests/test_tools.py
++++ b/tests/test_tools.py
+@@ -2677,6 +2677,7 @@ def test_retry_tool_until_last_attempt():
+                 usage=RequestUsage(input_tokens=52, output_tokens=2),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -2698,6 +2699,7 @@ def test_retry_tool_until_last_attempt():
+                 usage=RequestUsage(input_tokens=62, output_tokens=4),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -2719,6 +2721,7 @@ def test_retry_tool_until_last_attempt():
+                 usage=RequestUsage(input_tokens=72, output_tokens=6),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -2740,6 +2743,7 @@ def test_retry_tool_until_last_attempt():
+                 usage=RequestUsage(input_tokens=77, output_tokens=14),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -3283,6 +3287,7 @@ def test_args_validator_success():
+                 usage=RequestUsage(input_tokens=56, output_tokens=6),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -3304,6 +3309,7 @@ def test_args_validator_success():
+                 usage=RequestUsage(input_tokens=57, output_tokens=9),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -3365,6 +3371,7 @@ async def test_args_validator_async():
+                 usage=RequestUsage(input_tokens=56, output_tokens=6),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -3386,6 +3393,7 @@ async def test_args_validator_async():
+                 usage=RequestUsage(input_tokens=57, output_tokens=9),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -3456,6 +3464,7 @@ def test_args_validator_tool_direct():
+                 usage=RequestUsage(input_tokens=56, output_tokens=6),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -3477,6 +3486,7 @@ def test_args_validator_tool_direct():
+                 usage=RequestUsage(input_tokens=57, output_tokens=9),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -3525,6 +3535,7 @@ def test_args_validator_toolset():
+                 usage=RequestUsage(input_tokens=56, output_tokens=6),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -3546,6 +3557,7 @@ def test_args_validator_toolset():
+                 usage=RequestUsage(input_tokens=57, output_tokens=9),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -3591,6 +3603,7 @@ def test_args_validator_tool_plain():
+                 usage=RequestUsage(input_tokens=56, output_tokens=6),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -3612,6 +3625,7 @@ def test_args_validator_tool_plain():
+                 usage=RequestUsage(input_tokens=57, output_tokens=9),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -4032,6 +4046,7 @@ def test_tool_ctx_agent():
+                 usage=RequestUsage(input_tokens=51, output_tokens=2),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -4053,6 +4068,7 @@ def test_tool_ctx_agent():
+                 usage=RequestUsage(input_tokens=52, output_tokens=6),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -4099,6 +4115,7 @@ def test_tool_ctx_agent_in_output_validator():
+                 usage=RequestUsage(input_tokens=51, output_tokens=4),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+diff --git a/tests/test_toolsets.py b/tests/test_toolsets.py
+index 5ab0bfc..a1dceb1 100644
+--- a/tests/test_toolsets.py
++++ b/tests/test_toolsets.py
+@@ -885,6 +885,7 @@ async def test_toolset_max_retries_inherits_from_agent():
+                 usage=RequestUsage(input_tokens=52, output_tokens=4),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -975,6 +976,7 @@ async def test_prepare_function_sees_agent_max_retries():
+                 usage=RequestUsage(input_tokens=52, output_tokens=4),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -996,6 +998,7 @@ async def test_prepare_function_sees_agent_max_retries():
+                 usage=RequestUsage(input_tokens=53, output_tokens=7),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+diff --git a/tests/test_usage_limits.py b/tests/test_usage_limits.py
+index 768f373..6729aa1 100644
+--- a/tests/test_usage_limits.py
++++ b/tests/test_usage_limits.py
+@@ -222,6 +222,7 @@ async def test_multi_agent_usage_no_incr():
+                 usage=RequestUsage(input_tokens=51, output_tokens=5),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -243,6 +244,7 @@ async def test_multi_agent_usage_no_incr():
+                 usage=RequestUsage(input_tokens=52, output_tokens=8),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -280,6 +282,7 @@ async def test_multi_agent_usage_no_incr():
+                 usage=RequestUsage(input_tokens=51, output_tokens=5),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -301,6 +304,7 @@ async def test_multi_agent_usage_no_incr():
+                 usage=RequestUsage(input_tokens=52, output_tokens=8),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -352,6 +356,7 @@ async def test_multi_agent_usage_sync():
+                 usage=RequestUsage(input_tokens=51, output_tokens=5),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -373,6 +378,7 @@ async def test_multi_agent_usage_sync():
+                 usage=RequestUsage(input_tokens=52, output_tokens=8),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -545,6 +551,7 @@ async def test_tool_call_limit() -> None:
+                 usage=RequestUsage(input_tokens=51, output_tokens=5),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -566,6 +573,7 @@ async def test_tool_call_limit() -> None:
+                 usage=RequestUsage(input_tokens=52, output_tokens=9),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -603,6 +611,7 @@ async def test_output_tool_not_counted() -> None:
+                 usage=RequestUsage(input_tokens=51, output_tokens=5),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -624,6 +633,7 @@ async def test_output_tool_not_counted() -> None:
+                 usage=RequestUsage(input_tokens=52, output_tokens=9),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -658,6 +668,7 @@ async def test_output_tool_not_counted() -> None:
+                 usage=RequestUsage(input_tokens=51, output_tokens=5),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -683,6 +694,7 @@ async def test_output_tool_not_counted() -> None:
+                 usage=RequestUsage(input_tokens=52, output_tokens=10),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -823,6 +835,7 @@ async def test_failed_tool_calls_not_counted() -> None:
+                 usage=RequestUsage(input_tokens=51, output_tokens=5),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -844,6 +857,7 @@ async def test_failed_tool_calls_not_counted() -> None:
+                 usage=RequestUsage(input_tokens=62, output_tokens=10),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -865,6 +879,7 @@ async def test_failed_tool_calls_not_counted() -> None:
+                 usage=RequestUsage(input_tokens=63, output_tokens=14),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+diff --git a/tests/test_validation_context.py b/tests/test_validation_context.py
+index d42a687..6c493b6 100644
+--- a/tests/test_validation_context.py
++++ b/tests/test_validation_context.py
+@@ -106,6 +106,7 @@ def test_agent_tool_call_with_validation_context():
+                 usage=RequestUsage(input_tokens=50, output_tokens=4),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -127,6 +128,7 @@ def test_agent_tool_call_with_validation_context():
+                 usage=RequestUsage(input_tokens=51, output_tokens=7),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -166,6 +168,7 @@ def test_agent_output_function_with_validation_context():
+                 usage=RequestUsage(input_tokens=50, output_tokens=4),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -219,6 +222,7 @@ def test_agent_output_validator_with_validation_context():
+                 usage=RequestUsage(input_tokens=50, output_tokens=4),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -279,6 +283,7 @@ def test_agent_output_validator_with_intermediary_deps_change_and_validation_con
+                 usage=RequestUsage(input_tokens=50, output_tokens=2),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),
+@@ -304,6 +309,7 @@ def test_agent_output_validator_with_intermediary_deps_change_and_validation_con
+                 usage=RequestUsage(input_tokens=50, output_tokens=6),
+                 model_name='test',
+                 timestamp=IsDatetime(),
++                provider_name='test',
+                 run_id=IsStr(),
+                 conversation_id=IsStr(),
+             ),

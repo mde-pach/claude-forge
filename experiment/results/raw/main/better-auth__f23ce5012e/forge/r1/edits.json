@@ -1,0 +1,16 @@
+{
+ "edit_tool_calls": 3,
+ "shell_edit_calls": 4,
+ "bash_calls": 9,
+ "edit_files": [
+  "/work/packages/better-auth/src/plugins/last-login-method/index.ts"
+ ],
+ "shell_edit_commands": [
+  "cat > before-store-cookie.test.ts <<'EOF'\nimport { describe, expect, it, vi } from \"vitest\";\nimport { getTestInstance } from \"../../test-utils/test-instance\";\nimport { lastLoginMethod } from \".\";\nimport { lastLoginMethodClient } from \"./client\";\n\nconst COOKIE = \"better-auth.last_used_login_method\";\n",
+  "cd src/plugins/last-login-method && sed -i 's|expect(hook.mock.calls\\[0\\]?.\\[0\\].path).toBe(\"/sign-in/email\");|const last = hook.mock.calls.at(-1);\\n\\t\\texpect(last?.[0].path).toBe(\"/sign-in/email\");|; s|expect(hook.mock.calls\\[0\\]?.\\[1\\]).toBe(\"email\");|expect(last?.[1]).toBe(\"email\");|' before-sto",
+  "cd src/plugins/last-login-method && sed -i 's|const hook = vi.fn(async () => true);|const hook = vi.fn(\\n\\t\\t\\tasync (_ctx: GenericEndpointContext, _method: string) => true,\\n\\t\\t);|; 1i import type { GenericEndpointContext } from \"@better-auth/core\";' before-store-cookie.test.ts && cd /work/package",
+  "cd /work/packages/better-auth/src/plugins/last-login-method && python3 - <<'EOF'\np='before-store-cookie.test.ts'\ns=open(p).read()\ns=s.replace('import { describe, expect, it, vi } from \"vitest\";','import { describe, expect, it } from \"vitest\";')\na=s.index('\\t\\tconst hook = vi.fn(')\nb=s.index('\\t\\tcon"
+ ],
+ "total": 7,
+ "edit_tool_share": 0.42857142857142855
+}

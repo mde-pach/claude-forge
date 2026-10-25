@@ -1,0 +1,13 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 3,
+ "bash_calls": 7,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/logfire/_internal/exporters; python3 - <<'E'\np='otlp.py'\ns=open(p).read()\ns=s.replace(\"\"\"                self._add_task(data, url, kwargs)\n                raise\n\n            time.sleep(1)\"\"\",\"\"\"                self._add_task(data, url, kwargs)\n                raise _suppress_connection_erro",
+  "cd /work; sed -i '92s/requests.exceptions.ConnectionError/SuppressedConnectionError/' tests/exporters/test_otlp_session.py; grep -n \"OTLPExporterHttpSession\" tests/exporters/test_otlp_session.py | head -3",
+  "cd /work; sed -i '24s/.*/    OTLPExporterHttpSession,\\n    SuppressedConnectionError,/' tests/exporters/test_otlp_session.py; .venv/bin/pytest tests -q -k \"otlp or retry or quiet or metrics or exporter\" 2>&1 | tail -8; .venv/bin/ruff check logfire tests/exporters; .venv/bin/basedpyright logfire/_int"
+ ],
+ "total": 3,
+ "edit_tool_share": 0.0
+}

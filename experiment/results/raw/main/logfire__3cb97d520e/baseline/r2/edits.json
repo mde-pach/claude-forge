@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 6,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/logfire/_internal/integrations/llm_providers; python3 - <<'EOF'\ns=open('semconv.py').read()\ns=s.replace('''class ReasoningPart(TypedDict):''','''class FilePart(TypedDict):\n    \"\"\"Reference to a file uploaded to the provider.\"\"\"\n\n    type: Literal['file']\n    file_id: str\n    media_type: Not",
+  "cd /work/logfire/_internal/integrations/llm_providers; sed -i 's/^from typing import TYPE_CHECKING, Any, cast/from typing import TYPE_CHECKING, Any, Literal, cast/; s/^    BlobPart,$/    BlobPart,\\n    FilePart,/' openai.py; sed -n 23,56p openai.py; cd /work; ruff check logfire; ruff format logfire;"
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

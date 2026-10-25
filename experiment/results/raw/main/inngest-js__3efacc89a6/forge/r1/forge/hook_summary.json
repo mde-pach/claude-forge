@@ -1,0 +1,65 @@
+{
+ "active": true,
+ "events": {
+  "SessionStart": 1,
+  "UserPromptSubmit": 1,
+  "PreToolUse": 48,
+  "PostToolUseFailure": 2,
+  "PostToolUse": 30,
+  "Stop": 1
+ },
+ "forge_messages": 5,
+ "blocks": 0,
+ "stop_blocks": 0,
+ "feedback": 3,
+ "nonzero_exit": 0,
+ "by_hook": {
+  "SessionStart:startup": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 3
+  },
+  "UserPromptSubmit": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PreToolUse:Bash": {
+   "runs": 48,
+   "nonzero": 0,
+   "forge_msgs": 2
+  },
+  "PostToolUseFailure:Bash": {
+   "runs": 2,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PostToolUse:Bash": {
+   "runs": 30,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "Stop": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  }
+ },
+ "samples": [
+  {
+   "hook": "SessionStart:startup",
+   "exit": 0,
+   "out": "forge: branch main, 0 changed files\nforge: last commits\n  7d75c26 Add Forge\n  3ab0f90 initial\nforge: packs github-actions\n"
+  },
+  {
+   "hook": "PreToolUse:Bash",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"forge:safety/ephemeral-exec reviewed by an independent session, nobody being there to answer: The command makes asserted, git-revertible source edits to files in the sandbox component and then runs read-only tsc and biome checks, with no network, secret, or destructive operations.\"}}\n"
+  },
+  {
+   "hook": "PreToolUse:Bash",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"forge:safety/ephemeral-exec reviewed by an independent session, nobody being there to answer: The command runs the repo's own biome (installed in /work/node_modules), tsc and vitest on the sandbox files already being edited, so nothing is fetched or installed. It only auto-formats those files and prints a few lines from the test file.\"}}\n"
+  }
+ ]
+}

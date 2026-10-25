@@ -1,0 +1,304 @@
+diff --git a/.python-version b/.python-version
+deleted file mode 100644
+index e4fba21..0000000
+--- a/.python-version
++++ /dev/null
+@@ -1 +0,0 @@
+-3.12
+diff --git a/docs/more/settings.mdx b/docs/more/settings.mdx
+index fab6117..8c70fc4 100644
+--- a/docs/more/settings.mdx
++++ b/docs/more/settings.mdx
+@@ -43,7 +43,7 @@ These control how the server listens when running with an HTTP transport.
+ | `FASTMCP_STREAMABLE_HTTP_PATH` | `str` | `/mcp` | Path for Streamable HTTP endpoint. |
+ | `FASTMCP_STATELESS_HTTP` | `bool` | `false` | Enable stateless HTTP mode (new transport per request). Useful for multi-worker deployments. |
+ | `FASTMCP_JSON_RESPONSE` | `bool` | `false` | Use JSON responses instead of SSE for Streamable HTTP. |
+-| `FASTMCP_HTTP_HOST_ORIGIN_PROTECTION` | `bool` | `true` | Validate `Host` and browser `Origin` headers for Streamable HTTP requests. |
++| `FASTMCP_HTTP_HOST_ORIGIN_PROTECTION` | `bool \| "auto"` | `false` | Validate `Host` and browser `Origin` headers for Streamable HTTP requests. `true` is strict; `auto` protects localhost-bound servers and explicit allowlists. |
+ | `FASTMCP_HTTP_ALLOWED_HOSTS` | `list[str] \| null` | `null` | Additional trusted hostnames for Streamable HTTP requests. Use a JSON array, such as `["mcp.example.com"]`. |
+ | `FASTMCP_HTTP_ALLOWED_ORIGINS` | `list[str] \| null` | `null` | Browser origins trusted by the Streamable HTTP request guard. Configure CORS separately for cross-origin browser reads. Use a JSON array, such as `["https://app.example.com"]`. |
+ | `FASTMCP_HTTP_SESSION_IDLE_TIMEOUT` | `float \| null` | `null` | Seconds a Streamable HTTP session may remain idle before it is terminated. The deadline resets on every request. When `null`, sessions never expire from inactivity. Not supported in stateless mode. |
+diff --git a/examples/tasks/.envrc b/examples/tasks/.envrc
+deleted file mode 100644
+index 87a7dfe..0000000
+--- a/examples/tasks/.envrc
++++ /dev/null
+@@ -1,10 +0,0 @@
+-# FastMCP Tasks Example Environment Configuration
+-# This file is loaded by direnv (https://direnv.net/) when you cd into this directory
+-# Run `direnv allow` to enable automatic environment loading
+-
+-# Configure Docket backend URL
+-# Use Redis backend (requires docker-compose up)
+-export FASTMCP_DOCKET_URL=redis://localhost:24242/0
+-
+-# Or uncomment to use memory:// for single-process testing
+-# export FASTMCP_DOCKET_URL=memory://
+diff --git a/fastmcp_slim/fastmcp/server/http.py b/fastmcp_slim/fastmcp/server/http.py
+index 9611fad..a10f3ee 100644
+--- a/fastmcp_slim/fastmcp/server/http.py
++++ b/fastmcp_slim/fastmcp/server/http.py
+@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager, contextmanager
+ from contextvars import ContextVar
+ from fnmatch import fnmatchcase
+ from ipaddress import ip_address
+-from typing import TYPE_CHECKING, Any
++from typing import TYPE_CHECKING, Any, Literal
+ from urllib.parse import urlsplit
+ from uuid import uuid4
+ 
+@@ -37,6 +37,8 @@ logger = get_logger(__name__)
+ 
+ DEFAULT_HOSTS = ("127.0.0.1", "localhost", "::1")
+ 
++HostOriginProtection = bool | Literal["auto"]
++
+ 
+ class FastMCPStreamableHTTPSessionManager(StreamableHTTPSessionManager):
+     """Session manager that scopes resumability storage per transport session."""
+@@ -223,41 +225,75 @@ def _origin_matches(origin: str, allowed_origins: Sequence[str]) -> bool:
+ 
+ 
+ class HostOriginGuardMiddleware:
+-    """Validate Host and Origin headers before requests reach MCP sessions."""
++    """Validate Host and Origin headers before requests reach MCP sessions.
++
++    In ``"strict"`` mode both headers are always validated. In ``"auto"`` mode
++    validation only applies when it is unambiguous: an explicit allowlist was
++    given, or the request targets a loopback host or server address.
++    """
+ 
+     def __init__(
+         self,
+         app: ASGIApp,
+         allowed_hosts: Sequence[str] | None = None,
+         allowed_origins: Sequence[str] | None = None,
++        mode: Literal["auto", "strict"] = "auto",
+     ) -> None:
+         self.app = app
+         self.allowed_hosts = tuple(allowed_hosts or ())
+         self.allowed_origins = tuple(allowed_origins or ())
++        self._hosts_explicit = allowed_hosts is not None
++        self._origins_explicit = allowed_origins is not None
++        self.mode = mode
+ 
+     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+         if scope["type"] != "http":
+             await self.app(scope, receive, send)
+             return
+ 
+-        allowed_hosts = self._allowed_hosts_for_scope(scope)
++        strict = self.mode == "strict"
+         headers = Headers(scope=scope)
+         host = headers.get("host", "")
++        server_loopback = self._server_is_loopback(scope)
++        host_loopback = _is_loopback_host(host)
+ 
+-        if not _host_matches(host, allowed_hosts):
++        validate_host = strict or self._hosts_explicit or server_loopback
++        if validate_host and not _host_matches(
++            host, self._allowed_hosts_for_scope(scope)
++        ):
+             response = Response("Misdirected Request", status_code=421)
+             await response(scope, receive, send)
+             return
+ 
+         origin = headers.get("origin")
+-        request_origin = _request_origin(scope, host)
+-        if origin and not self._origin_allowed(origin, request_origin, host):
+-            response = Response("Forbidden Origin", status_code=403)
+-            await response(scope, receive, send)
+-            return
++        validate_origin = (
++            strict
++            or self._hosts_explicit
++            or self._origins_explicit
++            or host_loopback
++            or server_loopback
++        )
++        if origin and validate_origin:
++            allow_fallback = (
++                not self._origins_explicit
++                or strict
++                or self._hosts_explicit
++                or host_loopback
++                or server_loopback
++            )
++            request_origin = _request_origin(scope, host)
++            if not self._origin_allowed(origin, request_origin, host, allow_fallback):
++                response = Response("Forbidden Origin", status_code=403)
++                await response(scope, receive, send)
++                return
+ 
+         await self.app(scope, receive, send)
+ 
++    @staticmethod
++    def _server_is_loopback(scope: Scope) -> bool:
++        server = scope.get("server")
++        return bool(server) and _is_loopback_host(str(server[0]))
++
+     def _allowed_hosts_for_scope(self, scope: Scope) -> tuple[str, ...]:
+         allowed_hosts = list(DEFAULT_HOSTS)
+         allowed_hosts.extend(self.allowed_hosts)
+@@ -270,10 +306,15 @@ class HostOriginGuardMiddleware:
+ 
+         return tuple(allowed_hosts)
+ 
+-    def _origin_allowed(self, origin: str, request_origin: str, host: str) -> bool:
++    def _origin_allowed(
++        self, origin: str, request_origin: str, host: str, allow_fallback: bool
++    ) -> bool:
+         if _origin_matches(origin, self.allowed_origins):
+             return True
+ 
++        if not allow_fallback:
++            return False
++
+         origin_host = _origin_host(origin)
+         if _is_loopback_host(origin_host) and _is_loopback_host(host):
+             return True
+@@ -493,7 +534,7 @@ def create_streamable_http_app(
+     debug: bool = False,
+     routes: list[BaseRoute] | None = None,
+     middleware: list[Middleware] | None = None,
+-    host_origin_protection: bool = True,
++    host_origin_protection: HostOriginProtection = False,
+     allowed_hosts: Sequence[str] | None = None,
+     allowed_origins: Sequence[str] | None = None,
+     session_idle_timeout: float | None = None,
+@@ -514,7 +555,9 @@ def create_streamable_http_app(
+         routes: Optional list of custom routes
+         middleware: Optional list of middleware
+         host_origin_protection: Whether to validate Host and Origin headers
+-            before requests reach the MCP endpoint.
++            before requests reach the MCP endpoint. ``False`` (default) disables
++            the guard, ``True`` enables strict validation, and ``"auto"``
++            validates only for loopback-bound servers and explicit allowlists.
+         allowed_hosts: Additional hostnames that may appear in the Host header.
+         allowed_origins: Additional browser origins trusted by the request guard.
+             Configure CORS separately when browser JavaScript must read
+@@ -527,6 +570,9 @@ def create_streamable_http_app(
+     Returns:
+         A Starlette application with StreamableHTTP support
+     """
++    if host_origin_protection not in (True, False, "auto"):
++        raise ValueError("host_origin_protection must be True, False, or 'auto'.")
++
+     server_routes: list[BaseRoute] = []
+     server_middleware: list[Middleware] = []
+ 
+@@ -590,6 +636,7 @@ def create_streamable_http_app(
+                 HostOriginGuardMiddleware,
+                 allowed_hosts=allowed_hosts,
+                 allowed_origins=allowed_origins,
++                mode="auto" if host_origin_protection == "auto" else "strict",
+             ),
+         )
+     if middleware:
+diff --git a/fastmcp_slim/fastmcp/server/mixins/transport.py b/fastmcp_slim/fastmcp/server/mixins/transport.py
+index 8938aac..42def07 100644
+--- a/fastmcp_slim/fastmcp/server/mixins/transport.py
++++ b/fastmcp_slim/fastmcp/server/mixins/transport.py
+@@ -19,7 +19,9 @@ from starlette.routing import BaseRoute, Route
+ import fastmcp
+ from fastmcp.server.event_store import EventStore
+ from fastmcp.server.http import (
++    HostOriginProtection,
+     StarletteWithLifespan,
++    _is_loopback_host,
+     create_sse_app,
+     create_streamable_http_app,
+ )
+@@ -35,6 +37,21 @@ if TYPE_CHECKING:
+ logger = get_logger(__name__)
+ 
+ 
++def _resolve_allowed_hosts_for_run(
++    *,
++    host: str,
++    host_origin_protection: HostOriginProtection,
++    allowed_hosts: list[str] | None,
++    configured_allowed_hosts: list[str] | None,
++) -> list[str] | None:
++    """Resolve the allowed hosts to pass to the app for a run."""
++    if allowed_hosts is not None:
++        return allowed_hosts
++    if host_origin_protection == "auto" and _is_loopback_host(host):
++        return [*(configured_allowed_hosts or []), host]
++    return configured_allowed_hosts
++
++
+ def _format_host_for_url(host: str) -> str:
+     """Format a host for inclusion in a URL, bracketing IPv6 addresses.
+ 
+@@ -249,7 +266,7 @@ class TransportMixin:
+         json_response: bool | None = None,
+         stateless_http: bool | None = None,
+         stateless: bool | None = None,
+-        host_origin_protection: bool | None = None,
++        host_origin_protection: HostOriginProtection | None = None,
+         allowed_hosts: list[str] | None = None,
+         allowed_origins: list[str] | None = None,
+         sockets: list[socket.socket] | None = None,
+@@ -268,7 +285,10 @@ class TransportMixin:
+             stateless_http: Whether to use stateless HTTP (defaults to settings.stateless_http)
+             stateless: Alias for stateless_http for CLI consistency
+             host_origin_protection: Whether to validate Host and Origin headers
+-                before requests reach the MCP endpoint.
++                before requests reach the MCP endpoint. ``True`` is strict,
++                ``"auto"`` protects loopback-bound servers and explicit
++                allowlists, ``False`` disables the guard. Defaults to settings
++                for ``run_http_async``.
+             allowed_hosts: Additional hostnames that may appear in the Host header.
+             allowed_origins: Additional browser origins trusted by the request guard.
+                 Configure CORS separately when browser JavaScript must read
+@@ -293,6 +313,15 @@ class TransportMixin:
+             log_level if log_level is not None else fastmcp.settings.log_level
+         ).lower()
+ 
++        if host_origin_protection is None:
++            host_origin_protection = fastmcp.settings.http_host_origin_protection
++        allowed_hosts = _resolve_allowed_hosts_for_run(
++            host=host,
++            host_origin_protection=host_origin_protection,
++            allowed_hosts=allowed_hosts,
++            configured_allowed_hosts=fastmcp.settings.http_allowed_hosts,
++        )
++
+         app = self.http_app(
+             path=path,
+             transport=transport,
+@@ -344,7 +373,7 @@ class TransportMixin:
+         transport: Literal["http", "streamable-http", "sse"] = "http",
+         event_store: EventStore | None = None,
+         retry_interval: int | None = None,
+-        host_origin_protection: bool | None = None,
++        host_origin_protection: HostOriginProtection | None = None,
+         allowed_hosts: list[str] | None = None,
+         allowed_origins: list[str] | None = None,
+         session_idle_timeout: float | None = None,
+@@ -365,7 +394,10 @@ class TransportMixin:
+                 disconnections. Requires event_store to be set. Only used with
+                 streamable-http transport.
+             host_origin_protection: Whether to validate Host and Origin headers
+-                before requests reach the MCP endpoint.
++                before requests reach the MCP endpoint. ``True`` is strict,
++                ``"auto"`` protects loopback-bound servers and explicit
++                allowlists, ``False`` disables the guard. Defaults to settings
++                for ``run_http_async``.
+             allowed_hosts: Additional hostnames that may appear in the Host header.
+             allowed_origins: Additional browser origins trusted by the request guard.
+                 Configure CORS separately when browser JavaScript must read
+diff --git a/fastmcp_slim/fastmcp/settings.py b/fastmcp_slim/fastmcp/settings.py
+index be933ee..dccfcf5 100644
+--- a/fastmcp_slim/fastmcp/settings.py
++++ b/fastmcp_slim/fastmcp/settings.py
+@@ -336,7 +336,7 @@ class Settings(BaseSettings):
+     stateless_http: bool = (
+         False  # If True, uses true stateless mode (new transport per request)
+     )
+-    http_host_origin_protection: bool = True
++    http_host_origin_protection: bool | Literal["auto"] = False
+     http_allowed_hosts: list[str] | None = None
+     http_allowed_origins: list[str] | None = None
+     http_session_idle_timeout: Annotated[

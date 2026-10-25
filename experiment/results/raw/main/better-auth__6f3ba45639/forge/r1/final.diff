@@ -1,0 +1,147 @@
+diff --git a/packages/cli/src/utils/get-config.ts b/packages/cli/src/utils/get-config.ts
+index bd201a6..110aa7c 100644
+--- a/packages/cli/src/utils/get-config.ts
++++ b/packages/cli/src/utils/get-config.ts
+@@ -11,7 +11,11 @@ import type { TsConfigResult } from "get-tsconfig";
+ import { createPathsMatcher, getTsconfig, parseTsconfig } from "get-tsconfig";
+ import type { JitiOptions } from "jiti";
+ import { addCloudflareVirtualModules } from "./cloudflare-virtual-modules";
+-import { addSvelteKitVirtualModules } from "./sveltekit-virtual-modules";
++import {
++	addSvelteKitVirtualModules,
++	createExplicitEnvStub,
++	EXPLICIT_ENV_MODULES,
++} from "./sveltekit-virtual-modules";
+ import { getViteAssetStub } from "./vite-virtual-modules";
+ 
+ let possiblePaths = [
+@@ -182,6 +186,11 @@ interface StringLiteralNode {
+ interface BabelNodePath<Node> {
+ 	node: Node;
+ }
++interface ModuleSpecifierNode {
++	type: string;
++	imported?: { type: string; name?: string; value?: string };
++	local?: { type: string; name?: string };
++}
+ interface BabelTypes {
+ 	isIdentifier(node: unknown): node is { name: string };
+ 	isImport(node: unknown): boolean;
+@@ -204,8 +213,22 @@ const LOADER_IDENTIFIERS = new Set(["require", "import", "jitiImport"]);
+  */
+ function createRewriteImportPathsPlugin(matchers: PathsMatcher[]) {
+ 	return ({ types: t }: { types: BabelTypes }) => {
+-		const rewrite = (source: StringLiteralNode | null | undefined): void => {
++		const rewrite = (
++			source: StringLiteralNode | null | undefined,
++			specifiers?: ModuleSpecifierNode[],
++		): void => {
+ 			if (!source) return;
++			// Explicit-env modules export arbitrary project-declared names, which ESM
++			// needs at link time; read them off the importing statement.
++			if (EXPLICIT_ENV_MODULES.has(source.value)) {
++				source.value = createExplicitEnvStub(
++					(specifiers ?? []).flatMap((s) => {
++						const name = s.imported?.name ?? s.imported?.value;
++						return s.type === "ImportSpecifier" && name ? [name] : [];
++					}),
++				);
++				return;
++			}
+ 			// Vite asset/query imports have no file on disk; stub them first so a
+ 			// resolved alias prefix never sends them down the filesystem path.
+ 			const stub = getViteAssetStub(source.value);
+@@ -218,8 +241,13 @@ function createRewriteImportPathsPlugin(matchers: PathsMatcher[]) {
+ 		};
+ 		return {
+ 			visitor: {
+-				ImportDeclaration(p: BabelNodePath<{ source: StringLiteralNode }>) {
+-					rewrite(p.node.source);
++				ImportDeclaration(
++					p: BabelNodePath<{
++						source: StringLiteralNode;
++						specifiers: ModuleSpecifierNode[];
++					}>,
++				) {
++					rewrite(p.node.source, p.node.specifiers);
+ 				},
+ 				ExportNamedDeclaration(
+ 					p: BabelNodePath<{ source: StringLiteralNode | null }>,
+diff --git a/packages/cli/src/utils/sveltekit-virtual-modules.ts b/packages/cli/src/utils/sveltekit-virtual-modules.ts
+index a315950..52e9288 100644
+--- a/packages/cli/src/utils/sveltekit-virtual-modules.ts
++++ b/packages/cli/src/utils/sveltekit-virtual-modules.ts
+@@ -245,3 +245,28 @@ const reserved = new Set([
+ 	"implements",
+ 	"instanceof",
+ ]);
++
++/**
++ * SvelteKit's explicit environment variable modules. Their export names are
++ * whatever the project declares in `src/env.ts`, so they cannot be enumerated
++ * ahead of time; the import statement itself supplies them (see the Babel
++ * plugin in `get-config.ts`). No prefix filtering applies in this mode.
++ */
++export const EXPLICIT_ENV_MODULES = new Set([
++	"$app/env/private",
++	"$app/env/public",
++]);
++
++/**
++ * Builds a data-URI module exporting each requested name as its current
++ * `process.env` value (`undefined` when unset).
++ */
++export function createExplicitEnvStub(names: string[]): string {
++	const body = [...new Set(names)]
++		.map(
++			(name, i) =>
++				`const v${i} = process.env[${JSON.stringify(name)}];\nexport { v${i} as ${JSON.stringify(name)} };`,
++		)
++		.join("\n");
++	return `data:text/javascript;charset=utf-8,${encodeURIComponent(`${body}\nexport {};\n`)}`;
++}
+diff --git a/packages/cli/test/get-config.test.ts b/packages/cli/test/get-config.test.ts
+index 688c397..c77099c 100644
+--- a/packages/cli/test/get-config.test.ts
++++ b/packages/cli/test/get-config.test.ts
+@@ -1978,4 +1978,40 @@ describe("SvelteKit virtual modules and Vite asset imports (user-reported scenar
+ 			});
+ 		},
+ 	);
++	tmpdirTest(
++		"should resolve explicit env imports from process.env",
++		async ({ tmpdir }) => {
++			vi.stubEnv("MY_SECRET_KEY", "secret");
++			vi.stubEnv("MY_PUBLIC_KEY", "public");
++			try {
++				await writeTree(tmpdir, {
++					"package.json": sveltekitPackageJson,
++					"src/lib/server/auth.ts": `
++						import { betterAuth } from "better-auth";
++						import { MY_SECRET_KEY, NOT_SET_ANYWHERE } from "$app/env/private";
++						import { MY_PUBLIC_KEY } from "$app/env/public";
++						export const auth = betterAuth({
++							appName:
++								MY_SECRET_KEY === "secret" &&
++								MY_PUBLIC_KEY === "public" &&
++								NOT_SET_ANYWHERE === undefined
++									? "ok"
++									: "bad",
++							emailAndPassword: { enabled: true },
++						});
++					`,
++				});
++
++				const config = await getConfig({
++					cwd: tmpdir,
++					configPath: "src/lib/server/auth.ts",
++					shouldThrowOnError: true,
++				});
++
++				expect(config).toMatchObject({ appName: "ok" });
++			} finally {
++				vi.unstubAllEnvs();
++			}
++		},
++	);
+ });

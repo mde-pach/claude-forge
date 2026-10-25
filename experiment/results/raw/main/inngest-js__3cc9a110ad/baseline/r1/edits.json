@@ -1,0 +1,18 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 8,
+ "bash_calls": 10,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/packages/inngest/src/components/execution/otel && python3 - <<'EOF'\nimport re\np='aiExtractor.ts'\ns=open(p).read()\ns=s.replace('import type { Attributes } from \"@opentelemetry/api\";','import type { Attributes, HrTime } from \"@opentelemetry/api\";\\nimport type { ReadableSpan } from \"@opentelem",
+  "cd /work/packages/inngest/src/components/execution/otel && git checkout aiExtractor.test.ts && python3 - <<'EOF'\np='aiExtractor.test.ts'\ns=open(p).read()\ns=s.replace('extractAIMetadataFromAttributes(span.attributes)','extractAIMetadataFromSpan(span)')\ns=s.replace('extractAIMetadataFromAttributes,','",
+  "cd /work/packages/inngest && sed -i '4a import type { ReadableSpan } from \"@opentelemetry/sdk-trace-base\";' src/components/execution/otel/aiExtractor.test.ts && npx biome check --write src/components/execution/otel 2>&1 | tail -15; npx tsc --noEmit -p . 2>&1 | head; npx vitest run src/components/exe",
+  "sed -i 's/\\.\\.\\.(\"fallbackSources\" in spec ? spec.fallbackSources : \\[\\])/...((\"fallbackSources\" in spec \\&\\& spec.fallbackSources) || [])/' src/components/execution/otel/aiExtractor.test.ts && sed -n 125,140p src/components/execution/otel/aiExtractor.test.ts; git stash -q; npx vitest run src/compon",
+  "sed -i 's/extractAIMetadataFromSpan(span),/extractAIMetadataFromSpan(span as unknown as ReadableSpan),/' src/components/execution/otel/aiExtractor.test.ts && npx biome check --write src/components/execution/otel 2>&1 | tail -5; npx vitest run src/components/execution/otel 2>&1 | grep -E \"FAIL|Tests ",
+  "python3 - <<'EOF'\np='src/components/execution/otel/aiExtractor.test.ts'\ns=open(p).read()\ni=s.index('const extractFromAttributes')\nj=s.index('describe(\"extractAIMetadataFromSpan\"')\ns=s[:i]+'''// Attribute-only extraction: drops the span-derived latency so these tests\n// focus on attribute behaviour.\n",
+  "cd /work/packages/inngest/src/components/execution/otel && sed -i 's/\\.\\.\\.(\"source\" in spec ? \\[spec.source\\] : \\[\\]),/...((\"source\" in spec \\&\\& spec.source) ? [spec.source] : []),/' aiExtractor.test.ts && sed -n 136,144p metadataProcessor.test.ts",
+  "sed -i -E '/expect\\(pushed\\)|^      \\{ requestModel: \"gpt-4.1-(nano|mini)\", inputTokens: [0-9]+ \\},/ s/(inputTokens: [0-9]+) \\}/\\1, latencyMs: expect.any(Number) }/' metadataProcessor.test.ts && cd /work/packages/inngest && npx biome check --write src/components/execution/otel | tail -3; npx vitest "
+ ],
+ "total": 8,
+ "edit_tool_share": 0.0
+}

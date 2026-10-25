@@ -1,0 +1,65 @@
+{
+ "active": true,
+ "events": {
+  "SessionStart": 2,
+  "UserPromptSubmit": 1,
+  "PreToolUse": 15,
+  "PostToolUseFailure": 2,
+  "PostToolUse": 14,
+  "Stop": 1
+ },
+ "forge_messages": 4,
+ "blocks": 0,
+ "stop_blocks": 0,
+ "feedback": 2,
+ "nonzero_exit": 0,
+ "by_hook": {
+  "SessionStart:startup": {
+   "runs": 2,
+   "nonzero": 0,
+   "forge_msgs": 3
+  },
+  "UserPromptSubmit": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PreToolUse:Bash": {
+   "runs": 15,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PostToolUseFailure:Bash": {
+   "runs": 2,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PostToolUse:Edit": {
+   "runs": 6,
+   "nonzero": 0,
+   "forge_msgs": 1
+  },
+  "PostToolUse:Bash": {
+   "runs": 8,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "Stop": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  }
+ },
+ "samples": [
+  {
+   "hook": "SessionStart:startup",
+   "exit": 0,
+   "out": "forge: branch main, 0 changed files\nforge: last commits\n  c704eb5 Add Forge\n  015bd5c initial\nforge: packs github-actions, python, python/fastapi, python/pydantic, python/pytest, python/sqlalchemy, python/uv\n"
+  },
+  {
+   "hook": "PostToolUse:Edit",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"forge:python/lint\\nlogfire/_internal/integrations/google_genai.py:106:21: F821 Undefined name `cast`\\nlogfire/_internal/integrations/google_genai.py:108:15: F821 Undefined name `cast`\"}}\n"
+  }
+ ]
+}

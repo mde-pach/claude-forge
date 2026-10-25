@@ -1,0 +1,412 @@
+diff --git a/packages/cli/src/commands/generate.ts b/packages/cli/src/commands/generate.ts
+index 0f212fc..1b0075e 100644
+--- a/packages/cli/src/commands/generate.ts
++++ b/packages/cli/src/commands/generate.ts
+@@ -113,11 +113,25 @@ async function generateAction(opts: any) {
+ 		}
+ 	}
+ 
++	const outputPath = options.output
++		? path.resolve(cwd, options.output)
++		: undefined;
++	// `getConfig` may create an empty placeholder at the output path so configs
++	// that import the not-yet-generated schema can load.
++	const outputExisted = outputPath ? existsSync(outputPath) : true;
++	const removePlaceholder = async () => {
++		if (outputPath && !outputExisted) {
++			await fs.rm(outputPath, { force: true });
++		}
++	};
++
+ 	const config = await getConfig({
+ 		cwd,
+ 		configPath: options.config,
++		outputPath,
+ 	});
+ 	if (!config) {
++		await removePlaceholder();
+ 		console.error(
+ 			"No configuration file found. Add a `auth.ts` file to your project or pass the path to the configuration file using the `--config` flag.",
+ 		);
+@@ -130,8 +144,9 @@ async function generateAction(opts: any) {
+ 		adapter = createMockAdapter(options.adapter, options.dialect);
+ 	} else {
+ 		// Get adapter from config (existing behavior)
+-		adapter = await getAdapter(config).catch((e) => {
++		adapter = await getAdapter(config).catch(async (e) => {
+ 			console.error(e.message);
++			await removePlaceholder();
+ 			process.exit(1);
+ 		});
+ 	}
+@@ -140,12 +155,13 @@ async function generateAction(opts: any) {
+ 
+ 	const schema = await generateSchema({
+ 		adapter,
+-		file: options.output,
++		file: outputPath,
+ 		options: config,
+ 	});
+ 
+ 	spinner.stop();
+ 	if (!schema.code) {
++		await removePlaceholder();
+ 		console.log("Your schema is already up to date.");
+ 		// telemetry: track generate attempted, no changes
+ 		try {
+@@ -180,16 +196,16 @@ async function generateAction(opts: any) {
+ 		}
+ 
+ 		if (confirm) {
+-			const exist = existsSync(path.join(cwd, schema.fileName));
++			const exist = existsSync(path.resolve(cwd, schema.fileName));
+ 			if (!exist) {
+-				await fs.mkdir(path.dirname(path.join(cwd, schema.fileName)), {
++				await fs.mkdir(path.dirname(path.resolve(cwd, schema.fileName)), {
+ 					recursive: true,
+ 				});
+ 			}
+ 			if (schema.overwrite) {
+-				await fs.writeFile(path.join(cwd, schema.fileName), schema.code);
++				await fs.writeFile(path.resolve(cwd, schema.fileName), schema.code);
+ 			} else {
+-				await fs.appendFile(path.join(cwd, schema.fileName), schema.code);
++				await fs.appendFile(path.resolve(cwd, schema.fileName), schema.code);
+ 			}
+ 			console.log(
+ 				`🚀 Schema was ${
+@@ -244,6 +260,7 @@ async function generateAction(opts: any) {
+ 	}
+ 
+ 	if (!confirm) {
++		await removePlaceholder();
+ 		console.error("Schema generation aborted.");
+ 		// telemetry: track generate aborted before write
+ 		try {
+@@ -259,18 +276,9 @@ async function generateAction(opts: any) {
+ 		process.exit(1);
+ 	}
+ 
+-	if (!options.output) {
+-		const dirExist = existsSync(path.dirname(path.join(cwd, schema.fileName)));
+-		if (!dirExist) {
+-			await fs.mkdir(path.dirname(path.join(cwd, schema.fileName)), {
+-				recursive: true,
+-			});
+-		}
+-	}
+-	await fs.writeFile(
+-		options.output || path.join(cwd, schema.fileName),
+-		schema.code,
+-	);
++	const finalPath = outputPath || path.resolve(cwd, schema.fileName);
++	await fs.mkdir(path.dirname(finalPath), { recursive: true });
++	await fs.writeFile(finalPath, schema.code);
+ 	console.log(`🚀 Schema was generated successfully!`);
+ 	// telemetry: track generate success
+ 	try {
+diff --git a/packages/cli/src/generators/prisma.ts b/packages/cli/src/generators/prisma.ts
+index 91dbf4c..7a849bc 100644
+--- a/packages/cli/src/generators/prisma.ts
++++ b/packages/cli/src/generators/prisma.ts
+@@ -18,7 +18,8 @@ export const generatePrismaSchema: SchemaGenerator = async ({
+ 		adapter.options?.provider || "postgresql";
+ 	const tables = getAuthTables(options);
+ 	const filePath = file || "./prisma/schema.prisma";
+-	const schemaPrismaExist = existsSync(path.join(process.cwd(), filePath));
++	const absoluteFilePath = path.resolve(process.cwd(), filePath);
++	const schemaPrismaExist = existsSync(absoluteFilePath);
+ 
+ 	const getModelName = initGetModelName({
+ 		schema: getAuthTables(options),
+@@ -31,10 +32,7 @@ export const generatePrismaSchema: SchemaGenerator = async ({
+ 
+ 	let schemaPrisma = "";
+ 	if (schemaPrismaExist) {
+-		schemaPrisma = await fs.readFile(
+-			path.join(process.cwd(), filePath),
+-			"utf-8",
+-		);
++		schemaPrisma = await fs.readFile(absoluteFilePath, "utf-8");
+ 	} else {
+ 		schemaPrisma = getNewPrisma(provider, process.cwd());
+ 	}
+diff --git a/packages/cli/src/utils/get-config-output.test.ts b/packages/cli/src/utils/get-config-output.test.ts
+new file mode 100644
+index 0000000..e3e682f
+--- /dev/null
++++ b/packages/cli/src/utils/get-config-output.test.ts
+@@ -0,0 +1,65 @@
++import fs from "node:fs";
++import os from "node:os";
++import path from "node:path";
++import { afterEach, beforeEach, describe, expect, it } from "vitest";
++import { getConfig } from "./get-config";
++
++describe("getConfig outputPath recovery", () => {
++	let dir: string;
++	beforeEach(() => {
++		dir = fs.mkdtempSync(path.join(os.tmpdir(), "ba-output-"));
++	});
++	afterEach(() => {
++		fs.rmSync(dir, { recursive: true, force: true });
++	});
++
++	const write = (name: string, content: string) => {
++		const p = path.join(dir, name);
++		fs.mkdirSync(path.dirname(p), { recursive: true });
++		fs.writeFileSync(p, content);
++	};
++
++	it("creates an empty placeholder when the config imports the output file", async () => {
++		write(
++			"auth.ts",
++			`import schema from "./schema";\nexport const auth = { options: { schema } };\n`,
++		);
++		const config = await getConfig({
++			cwd: dir,
++			outputPath: "schema.ts",
++			shouldThrowOnError: true,
++		});
++		expect(config).toBeTruthy();
++		expect(fs.readFileSync(path.join(dir, "schema.ts"), "utf-8")).toBe("");
++	});
++
++	it("does not create a placeholder for unrelated missing imports", async () => {
++		write(
++			"auth.ts",
++			`import x from "./other";\nexport const auth = { options: { x } };\n`,
++		);
++		await expect(
++			getConfig({
++				cwd: dir,
++				outputPath: "schema.ts",
++				shouldThrowOnError: true,
++			}),
++		).rejects.toThrow(/Cannot find module '\.\/other'/);
++		expect(fs.existsSync(path.join(dir, "schema.ts"))).toBe(false);
++	});
++
++	it("does not create a placeholder for bare specifiers", async () => {
++		write(
++			"auth.ts",
++			`import x from "schema";\nexport const auth = { options: { x } };\n`,
++		);
++		await expect(
++			getConfig({
++				cwd: dir,
++				outputPath: "schema.ts",
++				shouldThrowOnError: true,
++			}),
++		).rejects.toThrow();
++		expect(fs.existsSync(path.join(dir, "schema.ts"))).toBe(false);
++	});
++});
+diff --git a/packages/cli/src/utils/get-config.ts b/packages/cli/src/utils/get-config.ts
+index bd201a6..e7bbd59 100644
+--- a/packages/cli/src/utils/get-config.ts
++++ b/packages/cli/src/utils/get-config.ts
+@@ -300,21 +300,105 @@ const isDefaultExport = (
+ 		"options" in object
+ 	);
+ };
++
++const stripSourceExtension = (p: string) => {
++	const ext = path.extname(p);
++	return SOURCE_EXTENSIONS_SET.has(ext) ? p.slice(0, -ext.length) : p;
++};
++
++/**
++ * Whether `error` is a `MODULE_NOT_FOUND`
++ * for a `./` or `../` import that resolves (from an importing file) to exactly
++ * `outputPath`, ignoring source extensions.
++ */
++function isMissingOutputImport(
++	error: unknown,
++	outputPath: string,
++	fallbackImporters: string[],
++): boolean {
++	if (typeof error !== "object" || error === null) return false;
++	const { code, message, requireStack } = error as {
++		code?: unknown;
++		message?: unknown;
++		requireStack?: unknown;
++	};
++	if (code !== "MODULE_NOT_FOUND" || typeof message !== "string") return false;
++	const specifier = /Cannot find module '([^']+)'/.exec(message)?.[1];
++	if (!specifier || !/^\.\.?\//.test(specifier)) return false;
++	const importers = [
++		...(Array.isArray(requireStack)
++			? requireStack.filter((f): f is string => typeof f === "string")
++			: []),
++		...fallbackImporters,
++	];
++	const target = stripSourceExtension(outputPath);
++	return importers.some(
++		(importer) =>
++			stripSourceExtension(path.resolve(path.dirname(importer), specifier)) ===
++			target,
++	);
++}
++
+ export async function getConfig({
+ 	cwd,
+ 	configPath,
++	outputPath,
+ 	shouldThrowOnError = false,
+ }: {
+ 	cwd: string;
+ 	configPath?: string;
++	outputPath?: string;
+ 	shouldThrowOnError?: boolean;
+ }) {
++	const resolvedOutputPath = outputPath
++		? path.resolve(cwd, outputPath)
++		: undefined;
++
++	/**
++	 * Loads the config. If it fails because it imports the not-yet-generated
++	 * output file, creates an empty placeholder and retries once.
++	 */
++	const load = async <T extends Record<string, unknown>>(
++		configFile: string,
++	): Promise<{ config: T }> => {
++		const attempt = () =>
++			loadConfig<T>({
++				configFile,
++				dotenv: {
++					fileName: [".env", ".env.local"],
++				},
++				jitiOptions: jitiOptions(cwd),
++				cwd,
++			});
++		try {
++			return await attempt();
++		} catch (e) {
++			if (
++				!resolvedOutputPath ||
++				existsSync(resolvedOutputPath) ||
++				!isMissingOutputImport(e, resolvedOutputPath, [
++					path.resolve(cwd, configFile),
++				])
++			) {
++				throw e;
++			}
++			fs.mkdirSync(path.dirname(resolvedOutputPath), { recursive: true });
++			fs.writeFileSync(resolvedOutputPath, "");
++			try {
++				return await attempt();
++			} catch (retryError) {
++				fs.rmSync(resolvedOutputPath, { force: true });
++				throw retryError;
++			}
++		}
++	};
++
+ 	try {
+ 		let configFile: BetterAuthOptions | null = null;
+ 		if (configPath) {
+ 			let resolvedPath: string = path.join(cwd, configPath);
+ 			if (existsSync(configPath)) resolvedPath = configPath; // If the configPath is a file, use it as is, as it means the path wasn't relative.
+-			const { config } = await loadConfig<
++			const { config } = await load<
+ 				| {
+ 						auth: {
+ 							options: BetterAuthOptions;
+@@ -323,14 +407,7 @@ export async function getConfig({
+ 				| {
+ 						options: BetterAuthOptions;
+ 				  }
+-			>({
+-				configFile: resolvedPath,
+-				dotenv: {
+-					fileName: [".env", ".env.local"],
+-				},
+-				jitiOptions: jitiOptions(cwd),
+-				cwd,
+-			});
++			>(resolvedPath);
+ 			if (!("auth" in config) && !isDefaultExport(config)) {
+ 				if (shouldThrowOnError) {
+ 					throw new Error(
+@@ -348,21 +425,14 @@ export async function getConfig({
+ 		if (!configFile) {
+ 			for (const possiblePath of possiblePaths) {
+ 				try {
+-					const { config } = await loadConfig<{
++					const { config } = await load<{
+ 						auth: {
+ 							options: BetterAuthOptions;
+ 						};
+ 						default?: {
+ 							options: BetterAuthOptions;
+ 						};
+-					}>({
+-						configFile: possiblePath,
+-						dotenv: {
+-							fileName: [".env", ".env.local"],
+-						},
+-						jitiOptions: jitiOptions(cwd),
+-						cwd,
+-					});
++					}>(possiblePath);
+ 					const hasConfig = Object.keys(config).length > 0;
+ 					if (hasConfig) {
+ 						configFile =
+diff --git a/packages/core/src/db/adapter/get-default-model-name.ts b/packages/core/src/db/adapter/get-default-model-name.ts
+index 539c676..ee2e567 100644
+--- a/packages/core/src/db/adapter/get-default-model-name.ts
++++ b/packages/core/src/db/adapter/get-default-model-name.ts
+@@ -23,19 +23,15 @@ export const initGetDefaultModelName = ({
+ 		// Resolve a model string (either a schema key or a user-defined
+ 		// `modelName`) back to its canonical schema key.
+ 		//
+-		// Prefer a `modelName` match over a schema-key match. When a user
+-		// remaps a built-in table (e.g. `user.modelName = "account"`), the
+-		// string `"account"` is both an alias for the user table and the
+-		// schema key of the OAuth account table. The user's explicit
+-		// `modelName` choice must win, otherwise references and adapter
+-		// joins silently resolve to the wrong table.
+-		// @see https://github.com/better-auth/better-auth/issues/8111
++		// An exact schema-key match wins. When a string is both a canonical
++		// schema key and another table's `modelName` (e.g. `user.modelName =
++		// "account"`), the key is the canonical name. `modelName` lookup is
++		// only a fallback when no schema key matches.
+ 		const resolve = (candidate: string): string | undefined => {
+-			const byModelName = Object.entries(schema).find(
++			if (schema[candidate]) return candidate;
++			return Object.entries(schema).find(
+ 				([_, f]) => f.modelName === candidate,
+ 			)?.[0];
+-			if (byModelName) return byModelName;
+-			return schema[candidate] ? candidate : undefined;
+ 		};
+ 
+ 		// It's possible this `model` could had applied `usePlural`.
+diff --git a/packages/core/src/db/test/get-default-model-name-key-precedence.test.ts b/packages/core/src/db/test/get-default-model-name-key-precedence.test.ts
+new file mode 100644
+index 0000000..30f4f09
+--- /dev/null
++++ b/packages/core/src/db/test/get-default-model-name-key-precedence.test.ts
+@@ -0,0 +1,21 @@
++import { describe, expect, it } from "vitest";
++import { initGetDefaultModelName } from "../adapter/get-default-model-name";
++import { getAuthTables } from "../get-tables";
++
++describe("initGetDefaultModelName schema key precedence", () => {
++	const getDefaultModelName = initGetDefaultModelName({
++		schema: getAuthTables({
++			user: { modelName: "account" },
++			account: { modelName: "identity" },
++		}),
++		usePlural: false,
++	});
++
++	it("prefers an exact schema-key match over another table's modelName", () => {
++		expect(getDefaultModelName("account")).toBe("account");
++	});
++
++	it("falls back to modelName when no schema key matches", () => {
++		expect(getDefaultModelName("identity")).toBe("account");
++	});
++});

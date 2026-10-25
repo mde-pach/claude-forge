@@ -1,0 +1,19 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 9,
+ "bash_calls": 26,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'EOF'\nimport re\np='server/http.py'\ns=open(p).read()\ns=s.replace(\"from collections.abc import AsyncGenerator, Callable, Generator\\n\",\"import ipaddress\\nfrom collections.abc import AsyncGenerator, Callable, Generator, Sequence\\n\",1)\ns=s.replace(\"from contextvars import ContextVar\\n\",\"from ",
+  "python3 - <<'EOF'\np='server/mixins/transport.py'\ns=open(p).read()\ns=s.replace(\"import socket\\nfrom collections.abc import Awaitable, Callable\\n\",\"import ipaddress\\nimport socket\\nfrom collections.abc import Awaitable, Callable, Sequence\\n\",1)\ns=s.replace(\"def _format_host_for_url\",\"\"\"def _is_unspeci",
+  ".venv/bin/pytest -n auto -q tests/server 2>&1 | grep FAILED | sort > $TMPDIR/after.txt; git stash -q; .venv/bin/pytest -n auto -q tests/server 2>&1 | grep FAILED | sort > $TMPDIR/before.txt; git stash pop -q; wc -l $TMPDIR/before.txt; comm -13 $TMPDIR/before.txt $TMPDIR/after.txt | wc -l; git status",
+  "cd /work; python3 - <<'EOF'\np='tests/conftest.py'\ns=open(p).read()\ns=s.replace('''@pytest.fixture(autouse=True)\ndef import_rich_rule''','''@pytest.fixture(autouse=True)\ndef allow_testclient_host():\n    \"\"\"Starlette's TestClient sends `Host: testserver`; trust it in tests.\"\"\"\n    with temporary_setti",
+  "cd /work; .venv/bin/pytest -n auto -q tests/server tests/client 2>&1 | grep FAILED | sed 's/ - .*//;s/FAILED //' > $TMPDIR/f.txt; for f in $(cut -d: -f1 $TMPDIR/f.txt | sort -u); do echo \"== $f\"; grep -hoE '(base_url|Host|host)[=:\" ]+[^,)]*' $f | sort | uniq -c | sort -rn | head -3; done 2>&1 | head",
+  "cd /work; sed -i 's/http_allowed_hosts=\\[\"testserver\"\\]/http_allowed_hosts=[\"*\"]/; s/Starlette.s TestClient sends `Host: testserver`; trust it in tests./Tests talk to apps through arbitrary fake hosts (testserver, api.example.com, ...)./' tests/conftest.py\npython3 - <<'EOF'\np='fastmcp_slim/fastmcp/s",
+  "cd /work; sed -i 's|client = TestClient(app, base_url=f\"{scheme}://{host}\")|client = TestClient(app, base_url=f\"{scheme}://testserver\")|' tests/server/http/test_host_origin_protection.py; grep -n \"create_streamable_http_app(\" -B2 -A8 tests/server/auth/test_enhanced_error_responses.py tests/server/ht",
+  "cd /work; sed -i 's/^\\( *\\)app = create_streamable_http_app($/&\\n\\1    allowed_hosts=[\"testserver\"],/' tests/server/auth/test_enhanced_error_responses.py tests/server/http/test_http_auth_middleware.py tests/server/http/test_http_middleware.py; .venv/bin/ruff format -q tests; .venv/bin/ruff check tes",
+  "cd /work; git checkout tests/server/auth/test_enhanced_error_responses.py tests/server/http/test_http_auth_middleware.py tests/server/http/test_http_middleware.py\npython3 - <<'EOF'\np='tests/conftest.py'\ns=open(p).read()\ns=s.replace('''def allow_testclient_host():''','''def allow_testclient_host(monk"
+ ],
+ "total": 9,
+ "edit_tool_share": 0.0
+}

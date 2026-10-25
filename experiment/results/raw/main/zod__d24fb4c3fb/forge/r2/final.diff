@@ -1,0 +1,602 @@
+diff --git a/packages/zod/package.json b/packages/zod/package.json
+deleted file mode 100644
+index 8a0c194..0000000
+--- a/packages/zod/package.json
++++ /dev/null
+@@ -1,135 +0,0 @@
+-{
+-  "name": "zod",
+-  "version": "4.4.3",
+-  "type": "module",
+-  "license": "MIT",
+-  "author": "Colin McDonnell <zod@colinhacks.com>",
+-  "description": "TypeScript-first schema declaration and validation library with static type inference",
+-  "homepage": "https://zod.dev",
+-  "llms": "https://zod.dev/llms.txt",
+-  "llmsFull": "https://zod.dev/llms-full.txt",
+-  "mcpServer": "https://mcp.inkeep.com/zod/mcp",
+-  "funding": "https://github.com/sponsors/colinhacks",
+-  "sideEffects": false,
+-  "files": [
+-    "src",
+-    "**/*.js",
+-    "**/*.mjs",
+-    "**/*.cjs",
+-    "**/*.d.ts",
+-    "**/*.d.mts",
+-    "**/*.d.cts",
+-    "**/package.json"
+-  ],
+-  "keywords": [
+-    "typescript",
+-    "schema",
+-    "validation",
+-    "type",
+-    "inference"
+-  ],
+-  "main": "./index.cjs",
+-  "types": "./index.d.cts",
+-  "module": "./index.js",
+-  "zshy": {
+-    "exports": {
+-      "./package.json": "./package.json",
+-      ".": "./src/index.ts",
+-      "./mini": "./src/mini/index.ts",
+-      "./locales": "./src/locales/index.ts",
+-      "./v3": "./src/v3/index.ts",
+-      "./v4": "./src/v4/index.ts",
+-      "./v4-mini": "./src/v4-mini/index.ts",
+-      "./v4/mini": "./src/v4/mini/index.ts",
+-      "./v4/core": "./src/v4/core/index.ts",
+-      "./v4/locales": "./src/v4/locales/index.ts",
+-      "./v4/locales/*": "./src/v4/locales/*"
+-    },
+-    "conditions": {
+-      "@zod/source": "src"
+-    }
+-  },
+-  "exports": {
+-    "./package.json": "./package.json",
+-    ".": {
+-      "@zod/source": "./src/index.ts",
+-      "types": "./index.d.cts",
+-      "import": "./index.js",
+-      "require": "./index.cjs"
+-    },
+-    "./mini": {
+-      "@zod/source": "./src/mini/index.ts",
+-      "types": "./mini/index.d.cts",
+-      "import": "./mini/index.js",
+-      "require": "./mini/index.cjs"
+-    },
+-    "./locales": {
+-      "@zod/source": "./src/locales/index.ts",
+-      "types": "./locales/index.d.cts",
+-      "import": "./locales/index.js",
+-      "require": "./locales/index.cjs"
+-    },
+-    "./v3": {
+-      "@zod/source": "./src/v3/index.ts",
+-      "types": "./v3/index.d.cts",
+-      "import": "./v3/index.js",
+-      "require": "./v3/index.cjs"
+-    },
+-    "./v4": {
+-      "@zod/source": "./src/v4/index.ts",
+-      "types": "./v4/index.d.cts",
+-      "import": "./v4/index.js",
+-      "require": "./v4/index.cjs"
+-    },
+-    "./v4-mini": {
+-      "@zod/source": "./src/v4-mini/index.ts",
+-      "types": "./v4-mini/index.d.cts",
+-      "import": "./v4-mini/index.js",
+-      "require": "./v4-mini/index.cjs"
+-    },
+-    "./v4/mini": {
+-      "@zod/source": "./src/v4/mini/index.ts",
+-      "types": "./v4/mini/index.d.cts",
+-      "import": "./v4/mini/index.js",
+-      "require": "./v4/mini/index.cjs"
+-    },
+-    "./v4/core": {
+-      "@zod/source": "./src/v4/core/index.ts",
+-      "types": "./v4/core/index.d.cts",
+-      "import": "./v4/core/index.js",
+-      "require": "./v4/core/index.cjs"
+-    },
+-    "./v4/locales": {
+-      "@zod/source": "./src/v4/locales/index.ts",
+-      "types": "./v4/locales/index.d.cts",
+-      "import": "./v4/locales/index.js",
+-      "require": "./v4/locales/index.cjs"
+-    },
+-    "./v4/locales/*": {
+-      "@zod/source": "./src/v4/locales/*",
+-      "types": "./v4/locales/*",
+-      "import": "./v4/locales/*",
+-      "require": "./v4/locales/*"
+-    }
+-  },
+-  "repository": {
+-    "type": "git",
+-    "url": "git+https://github.com/colinhacks/zod.git"
+-  },
+-  "bugs": {
+-    "url": "https://github.com/colinhacks/zod/issues"
+-  },
+-  "support": {
+-    "backing": {
+-      "npm-funding": true
+-    }
+-  },
+-  "scripts": {
+-    "clean": "git clean -xdf . -e node_modules",
+-    "build": "zshy --project tsconfig.build.json",
+-    "postbuild": "tsx ../../scripts/write-stub-package-jsons.ts && pnpm biome check --write .",
+-    "test:watch": "pnpm vitest",
+-    "test": "pnpm vitest run",
+-    "prepublishOnly": "tsx ../../scripts/check-versions.ts"
+-  }
+-}
+diff --git a/packages/zod/src/v3/types.ts b/packages/zod/src/v3/types.ts
+index bce1754..c2d2e38 100644
+--- a/packages/zod/src/v3/types.ts
++++ b/packages/zod/src/v3/types.ts
+@@ -3246,9 +3246,10 @@ function mergeValues(a: any, b: any): { valid: true; data: any } | { valid: fals
+     return { valid: true, data: a };
+   } else if (aType === ZodParsedType.object && bType === ZodParsedType.object) {
+     const bKeys = util.objectKeys(b);
+-    const sharedKeys = util.objectKeys(a).filter((key) => bKeys.indexOf(key) !== -1);
++    const sharedKeys = util.objectKeys(a).filter((key) => key !== "__proto__" && bKeys.indexOf(key) !== -1);
+ 
+     const newObj: any = { ...a, ...b };
++    delete newObj.__proto__;
+     for (const key of sharedKeys) {
+       const sharedValue = mergeValues(a[key], b[key]);
+       if (!sharedValue.valid) {
+diff --git a/packages/zod/src/v4/classic/tests/discriminated-unions.test.ts b/packages/zod/src/v4/classic/tests/discriminated-unions.test.ts
+index 770b933..cd21d8a 100644
+--- a/packages/zod/src/v4/classic/tests/discriminated-unions.test.ts
++++ b/packages/zod/src/v4/classic/tests/discriminated-unions.test.ts
+@@ -707,8 +707,8 @@ test.each(["__proto__", "constructor", "toString", "hasOwnProperty", "valueOf"])
+       ["value", "ok"],
+     ]);
+     const parsed: any = schema.parse(input);
+-    expect(Object.prototype.hasOwnProperty.call(parsed, key)).toBe(true);
+-    expect(parsed[key]).toBe("a");
++    expect(Object.prototype.hasOwnProperty.call(parsed, key)).toBe(key !== "__proto__");
++    if (key !== "__proto__") expect(parsed[key]).toBe("a");
+     expect(parsed.value).toBe("ok");
+   }
+ );
+diff --git a/packages/zod/src/v4/classic/tests/from-json-schema.test.ts b/packages/zod/src/v4/classic/tests/from-json-schema.test.ts
+index f70e69a..e4f84c2 100644
+--- a/packages/zod/src/v4/classic/tests/from-json-schema.test.ts
++++ b/packages/zod/src/v4/classic/tests/from-json-schema.test.ts
+@@ -897,7 +897,7 @@ test("Date default is coerced to its JSON string form", () => {
+ // An object literal can't express an own "__proto__" key — `{ __proto__: x }`
+ // sets the literal's prototype instead. JSON.parse is both the realistic source
+ // of a JSON Schema and the only way to write these cases.
+-test("required __proto__ property is kept and enforced", () => {
++test("required __proto__ property stays in shape but is stripped when parsing", () => {
+   const schema = fromJSONSchema(
+     JSON.parse(`{
+       "type": "object",
+@@ -906,9 +906,11 @@ test("required __proto__ property is kept and enforced", () => {
+     }`)
+   );
+ 
+-  expect(schema.safeParse({ role: "x" }).success).toBe(false);
+-  expect(schema.safeParse(JSON.parse(`{ "role": "x", "__proto__": "wrong" }`)).success).toBe(false);
+-  expect(schema.safeParse(JSON.parse(`{ "role": "x", "__proto__": "admin" }`)).success).toBe(true);
++  expect(Object.keys((schema as z.ZodObject).shape)).toEqual(["__proto__", "role"]);
++  expect(schema.parse({ role: "x" })).toEqual({ role: "x" });
++  const parsed = schema.parse(JSON.parse(`{ "role": "x", "__proto__": "wrong" }`));
++  expect(parsed).toEqual({ role: "x" });
++  expect(Object.prototype.hasOwnProperty.call(parsed, "__proto__")).toBe(false);
+ });
+ 
+ test("__proto__ annotation key reaches the registry", () => {
+diff --git a/packages/zod/src/v4/classic/tests/object.test.ts b/packages/zod/src/v4/classic/tests/object.test.ts
+index c32674c..e58399a 100644
+--- a/packages/zod/src/v4/classic/tests/object.test.ts
++++ b/packages/zod/src/v4/classic/tests/object.test.ts
+@@ -731,7 +731,9 @@ describe("__proto__ in object catchall paths", () => {
+       const result = schema.safeParse(input);
+       expect(result.success).toBe(true);
+       if (result.success) {
+-        expect(Object.keys(result.data)).toEqual(["name", "__proto__"]);
++        expect(Object.keys(result.data)).toEqual(["name"]);
++        expect(result.data).toEqual({ name: "alice" });
++        expect(Object.prototype.hasOwnProperty.call(result.data, "__proto__")).toBe(false);
+         expect(Object.getPrototypeOf(result.data)).toBe(Object.prototype);
+       }
+     }
+@@ -754,89 +756,67 @@ describe("__proto__ in object catchall paths", () => {
+   });
+ });
+ 
+-// A __proto__ key declared in the shape is a field the caller asked for, so it must round-trip as
+-// an own data property instead of hitting the inherited setter (which replaced the result
+-// prototype and dropped the value).
++// A __proto__ key declared in the shape stays in .shape but is ignored while parsing.
+ describe("__proto__ as a declared shape key", () => {
+   const protoInput = () => JSON.parse('{"__proto__":{"isAdmin":true},"name":"alice"}');
+-  const makeShape = () =>
++  const protoShape = (schema: z.ZodType = z.string()) =>
+     Object.fromEntries([
+-      ["__proto__", z.object({ isAdmin: z.boolean() })],
++      ["__proto__", schema],
+       ["name", z.string()],
+     ]) as Record<string, any>;
+ 
+-  const expectOwnProp = (parsed: any) => {
++  const expectStripped = (parsed: any) => {
+     expect(Object.getPrototypeOf(parsed)).toBe(Object.prototype);
+-    expect(Object.prototype.hasOwnProperty.call(parsed, "__proto__")).toBe(true);
+-    expect(parsed.__proto__).toEqual({ isAdmin: true });
+-    expect((parsed as any).isAdmin).toBeUndefined();
+-    expect(Object.keys(parsed).sort()).toEqual(["__proto__", "name"]);
++    expect(Object.prototype.hasOwnProperty.call(parsed, "__proto__")).toBe(false);
++    expect(parsed).toEqual({ name: "alice" });
+   };
+ 
+   test("jit fastpass", () => {
+-    expectOwnProp(z.object(makeShape()).parse(protoInput()));
++    const schema = z.object(protoShape(z.object({ isAdmin: z.boolean() })));
++    expect(Object.keys(schema.shape)).toEqual(["__proto__", "name"]);
++    expectStripped(schema.parse(protoInput()));
+   });
+ 
+   test("jitless", () => {
+-    expectOwnProp(z.object(makeShape()).parse(protoInput(), { jitless: true } as any));
++    expectStripped(z.object(protoShape()).parse(protoInput(), { jitless: true } as any));
+   });
+ 
+   test("async", async () => {
+-    const shape = Object.fromEntries([
+-      ["__proto__", z.object({ isAdmin: z.boolean() }).refine(async () => true)],
+-      ["name", z.string()],
+-    ]) as Record<string, any>;
+-    expectOwnProp(await z.object(shape).parseAsync(protoInput()));
+-  });
+-
+-  test("primitive value is not silently dropped", () => {
+-    const schema = z.object(Object.fromEntries([["__proto__", z.string()]]) as Record<string, any>);
+-    const parsed: any = schema.parse(JSON.parse('{"__proto__":"hello"}'));
+-    expect(parsed.__proto__).toBe("hello");
+-    expect(Object.getPrototypeOf(parsed)).toBe(Object.prototype);
+-  });
+-
+-  test("validation still applies", () => {
+-    const schema = z.object(Object.fromEntries([["__proto__", z.string()]]) as Record<string, any>);
+-    expect(schema.safeParse(JSON.parse('{"__proto__":123}')).success).toBe(false);
++    expectStripped(await z.object(protoShape(z.any().refine(async () => true))).parseAsync(protoInput()));
+   });
+ 
+-  test("an absent key uses own-property semantics", () => {
+-    const shape = (schema: z.ZodType) => Object.fromEntries([["__proto__", schema]]) as Record<string, any>;
+-
++  test("schema is not run: invalid, missing and defaulted values", () => {
+     for (const jitless of [false, true]) {
+       const ctx = { jitless } as any;
+-      expect(z.object(shape(z.unknown())).safeParse({}, ctx).success).toBe(false);
+-      expect(z.object(shape(z.string().optional())).parse({}, ctx)).toEqual({});
+-
+-      const withDefault: any = z.object(shape(z.string().default("fallback"))).parse({}, ctx);
+-      expect(Object.getOwnPropertyDescriptor(withDefault, "__proto__")!.value).toBe("fallback");
++      expectStripped(z.object(protoShape()).parse(JSON.parse('{"__proto__":123,"name":"alice"}'), ctx));
++      expectStripped(z.object(protoShape()).parse({ name: "alice" }, ctx));
++      expectStripped(z.object(protoShape(z.string().default("fallback"))).parse({ name: "alice" }, ctx));
+     }
+   });
+ 
+-  test("an own getter is still evaluated", () => {
++  test("an own getter is not invoked", () => {
+     let reads = 0;
+-    const input = Object.defineProperty({}, "__proto__", {
++    const input = Object.defineProperty({ name: "alice" }, "__proto__", {
+       get() {
+         reads++;
+         return "value";
+       },
+       enumerable: true,
+     });
+-    const schema = z.object(Object.fromEntries([["__proto__", z.string()]]) as Record<string, any>);
+-
+-    expect(Object.getOwnPropertyDescriptor(schema.parse(input), "__proto__")!.value).toBe("value");
+-    expect(reads).toBe(1);
++    for (const jitless of [false, true]) {
++      expectStripped(z.object(protoShape()).parse(input, { jitless } as any));
++    }
++    expect(reads).toBe(0);
+   });
+ 
+-  test("pick keeps a declared key", () => {
+-    const shape = Object.fromEntries([["__proto__", z.string()]]) as Record<string, any>;
++  test("pick keeps a declared key in shape", () => {
+     const mask = Object.fromEntries([["__proto__", true]]) as Record<string, true>;
+-    const picked = z.object(shape).pick(mask);
++    const picked = z.object(protoShape()).pick(mask);
+ 
+     expect(Object.keys(picked.shape)).toEqual(["__proto__"]);
+-    const parsed: any = picked.parse(Object.fromEntries([["__proto__", "value"]]));
+-    expect(Object.getOwnPropertyDescriptor(parsed, "__proto__")!.value).toBe("value");
++    expect(picked.parse(protoInput())).toEqual({});
++    expect(picked.parse(protoInput(), { jitless: true } as any)).toEqual({});
++    expect(Object.keys(picked.parse(protoInput()))).toEqual([]);
+     expect(() => z.object({ value: z.string() }).pick(mask as any).shape).toThrow('Unrecognized key: "__proto__"');
+   });
+ 
+@@ -866,11 +846,20 @@ describe("__proto__ as a declared shape key", () => {
+       expect(Object.prototype.hasOwnProperty.call(next, "__proto__")).toBe(true);
+     }
+   });
++});
+ 
+-  test("Object.prototype is untouched", () => {
+-    z.object(makeShape()).parse(protoInput());
+-    expect(({} as any).isAdmin).toBeUndefined();
+-  });
++test("intersection strips __proto__ from merged objects", () => {
++  const parsed = z
++    .intersection(z.object({ name: z.string() }), z.unknown())
++    .parse(JSON.parse('{"__proto__":{"isAdmin":true},"name":"alice"}'));
++  expect(parsed).toEqual({ name: "alice" });
++  expect(Object.prototype.hasOwnProperty.call(parsed, "__proto__")).toBe(false);
++  expect(Object.getPrototypeOf(parsed)).toBe(Object.prototype);
++
++  const rec = z.intersection(z.record(z.string(), z.unknown()), z.any()).parse(JSON.parse('{"__proto__":{},"a":1}'));
++  expect(rec).toEqual({ a: 1 });
++  expect(Object.prototype.hasOwnProperty.call(rec, "__proto__")).toBe(false);
++  expect(Object.getPrototypeOf(rec)).toBe(Object.prototype);
+ });
+ 
+ test("object parsing still reads ordinary inherited properties", () => {
+diff --git a/packages/zod/src/v4/classic/tests/record.test.ts b/packages/zod/src/v4/classic/tests/record.test.ts
+index e1277b6..85d20ac 100644
+--- a/packages/zod/src/v4/classic/tests/record.test.ts
++++ b/packages/zod/src/v4/classic/tests/record.test.ts
+@@ -754,9 +754,7 @@ test("v3-compat single-arg form: z.record(valueType)", () => {
+   });
+ });
+ 
+-// A finite key set that declares __proto__ writes through the same assignment as z.object(); the
+-// key was declared by the schema, so it round-trips as an own data property.
+-test("__proto__ in a finite key set becomes an own property", () => {
++test("__proto__ in a finite key set is skipped", () => {
+   const data = JSON.parse('{"__proto__":{"a":"declared"},"b":{"a":"good"}}');
+ 
+   for (const schema of [
+@@ -765,9 +763,8 @@ test("__proto__ in a finite key set becomes an own property", () => {
+   ]) {
+     const parsed: any = schema.parse(data);
+     expect(Object.getPrototypeOf(parsed)).toBe(Object.prototype);
+-    expect(Object.prototype.hasOwnProperty.call(parsed, "__proto__")).toBe(true);
+-    expect(parsed.__proto__).toEqual({ a: "declared" });
+-    expect(parsed.a).toBeUndefined();
++    expect(Object.prototype.hasOwnProperty.call(parsed, "__proto__")).toBe(false);
++    expect(parsed).toEqual({ b: { a: "good" } });
+   }
+ 
+   expect(({} as any).a).toBeUndefined();
+@@ -780,27 +777,28 @@ test("a raw __proto__ input key stays skipped in loose mode", () => {
+   expect(Object.prototype.hasOwnProperty.call(parsed, "__proto__")).toBe(false);
+ });
+ 
+-test("partialRecord preserves a declared __proto__ key", () => {
++test("partialRecord skips a declared __proto__ key", () => {
+   const schema = z.partialRecord(z.enum(["__proto__", "b"]), z.string());
+   const parsed: any = schema.parse(Object.fromEntries([["__proto__", "declared"]]));
+ 
+   expect(Object.getPrototypeOf(parsed)).toBe(Object.prototype);
+-  expect(Object.prototype.hasOwnProperty.call(parsed, "__proto__")).toBe(true);
+-  expect(parsed.__proto__).toBe("declared");
++  expect(Object.prototype.hasOwnProperty.call(parsed, "__proto__")).toBe(false);
++  expect(parsed).toEqual({});
++  expect(Object.getPrototypeOf(parsed)).toBe(Object.prototype);
+   expect(schema.parse({})).toEqual({});
+   expect(schema.safeParse({ other: "x" }).success).toBe(false);
+ });
+ 
+-test("partialRecord safely passes through a declared __proto__ key in loose mode", () => {
++test("partialRecord does not pass through a declared __proto__ key in loose mode", () => {
+   const key = z.enum(["__proto__"]).refine(() => false);
+   const schema = z.partialRecord(key, z.unknown(), { mode: "loose" });
+   const value = { marker: true };
+   const parsed: any = schema.parse(Object.fromEntries([["__proto__", value]]));
+ 
+   expect(Object.getPrototypeOf(parsed)).toBe(Object.prototype);
+-  expect(Object.prototype.hasOwnProperty.call(parsed, "__proto__")).toBe(true);
+-  expect(parsed.__proto__).toBe(value);
+-  expect(parsed.marker).toBeUndefined();
++  expect(Object.prototype.hasOwnProperty.call(parsed, "__proto__")).toBe(false);
++  expect(parsed).toEqual({});
++  expect(Object.getPrototypeOf(parsed)).toBe(Object.prototype);
+ });
+ 
+ test("partial is internal to partialRecord", () => {
+@@ -811,19 +809,20 @@ test("partial is internal to partialRecord", () => {
+   expect(schema.parse({})).toEqual({});
+ });
+ 
+-test("partialRecord still applies transforms to a declared __proto__ key", () => {
++test("partialRecord does not transform a declared __proto__ key", () => {
+   const schema = z.partialRecord(
+     z.literal("__proto__").transform(() => "safe" as const),
+     z.string()
+   );
+ 
+-  expect(schema.parse(Object.fromEntries([["__proto__", "value"]]))).toEqual({ safe: "value" });
++  expect(schema.parse(Object.fromEntries([["__proto__", "value"]]))).toEqual({});
++  expect(schema.safeParse(Object.fromEntries([["__proto__", 1]])).success).toBe(true);
+ });
+ 
+-test("a missing finite __proto__ key is parsed like any other finite key", () => {
++test("a missing finite __proto__ key is not required", () => {
+   const parsed: any = z.record(z.enum(["__proto__"]), z.unknown()).parse({});
+ 
+   expect(Object.getPrototypeOf(parsed)).toBe(Object.prototype);
+-  expect(Object.prototype.hasOwnProperty.call(parsed, "__proto__")).toBe(true);
+-  expect(parsed.__proto__).toBeUndefined();
++  expect(Object.prototype.hasOwnProperty.call(parsed, "__proto__")).toBe(false);
++  expect(parsed).toEqual({});
+ });
+diff --git a/packages/zod/src/v4/core/schemas.ts b/packages/zod/src/v4/core/schemas.ts
+index 7fdc4fe..24f0fa7 100644
+--- a/packages/zod/src/v4/core/schemas.ts
++++ b/packages/zod/src/v4/core/schemas.ts
+@@ -1758,10 +1758,6 @@ function setProp(target: any, key: PropertyKey, value: unknown): void {
+   }
+ }
+ 
+-function getProperty(input: any, key: PropertyKey): unknown {
+-  return key === "__proto__" && !Object.prototype.hasOwnProperty.call(input, key) ? undefined : input[key];
+-}
+-
+ function isPropertyPresent(input: any, key: PropertyKey): boolean {
+   return key === "__proto__" ? Object.prototype.hasOwnProperty.call(input, key) : key in input;
+ }
+@@ -1985,11 +1981,12 @@ export const $ZodObject: core.$constructor<$ZodObject> = /*@__PURE__*/ core.$con
+     const shape = value.shape;
+ 
+     for (const key of value.keys) {
++      if (key === "__proto__") continue;
+       const el = shape[key]!;
+       const isOptionalIn = el._zod.optin === "optional";
+       const isOptionalOut = el._zod.optout === "optional";
+ 
+-      const r = el._zod.run({ value: getProperty(input, key), issues: [] }, ctx);
++      const r = el._zod.run({ value: input[key], issues: [] }, ctx);
+       if (r instanceof Promise) {
+         proms.push(r.then((r) => handlePropertyResult(r, payload, key, input, isOptionalIn, isOptionalOut)));
+       } else {
+@@ -2016,41 +2013,25 @@ export const $ZodObjectJIT: core.$constructor<$ZodObject> = /*@__PURE__*/ core.$
+ 
+     const generateFastpass = (shape: any) => {
+       const normalized = _normalized.value;
+-      const handlesProto = normalized.keySet.has("__proto__");
+-      const doc = new Doc(
+-        handlesProto
+-          ? ["shape", "payload", "ctx", "setProp", "getProperty", "isPropertyPresent"]
+-          : ["shape", "payload", "ctx"]
+-      );
+-
+-      const parseStr = (key: string) => {
+-        const k = util.esc(key);
+-        const value = key === "__proto__" ? `getProperty(input, ${k})` : `input[${k}]`;
+-        return `shape[${k}]._zod.run({ value: ${value}, issues: [] }, ctx)`;
+-      };
++      const doc = new Doc(["shape", "payload", "ctx"]);
++      const keys = normalized.keys.filter((key) => key !== "__proto__");
+ 
+-      const presentStr = (key: string) => {
+-        const k = util.esc(key);
+-        return key === "__proto__" ? `isPropertyPresent(input, ${k})` : `${k} in input`;
+-      };
+-
+-      // Keys are known here, so only a literal "__proto__" defers to setProp.
+-      const setStr = (key: string, value: string) => {
+-        const k = util.esc(key);
+-        return key === "__proto__" ? `setProp(newResult, ${k}, ${value});` : `newResult[${k}] = ${value};`;
+-      };
++      const parseStr = (key: string) =>
++        `shape[${util.esc(key)}]._zod.run({ value: input[${util.esc(key)}], issues: [] }, ctx)`;
++      const presentStr = (key: string) => `${util.esc(key)} in input`;
++      const setStr = (key: string, value: string) => `newResult[${util.esc(key)}] = ${value};`;
+ 
+       doc.write(`const input = payload.value;`);
+ 
+       const ids: any = Object.create(null);
+       let counter = 0;
+-      for (const key of normalized.keys) {
++      for (const key of keys) {
+         ids[key] = `key_${counter++}`;
+       }
+ 
+       // A: preserve key order {
+       doc.write(`const newResult = {};`);
+-      for (const key of normalized.keys) {
++      for (const key of keys) {
+         const id = ids[key];
+         const k = util.esc(key);
+         const isPresent = presentStr(key);
+@@ -2132,9 +2113,7 @@ export const $ZodObjectJIT: core.$constructor<$ZodObject> = /*@__PURE__*/ core.$
+       doc.write(`payload.value = newResult;`);
+       doc.write(`return payload;`);
+       const fn = doc.compile();
+-      return handlesProto
+-        ? (payload: any, ctx: any) => fn(shape, payload, ctx, setProp, getProperty, isPropertyPresent)
+-        : (payload: any, ctx: any) => fn(shape, payload, ctx);
++      return (payload: any, ctx: any) => fn(shape, payload, ctx);
+     };
+ 
+     let fastpass!: ReturnType<typeof generateFastpass>;
+@@ -2556,9 +2535,10 @@ function mergeValues(
+   }
+   if (util.isPlainObject(a) && util.isPlainObject(b)) {
+     const bKeys = Object.keys(b);
+-    const sharedKeys = Object.keys(a).filter((key) => bKeys.indexOf(key) !== -1);
++    const sharedKeys = Object.keys(a).filter((key) => key !== "__proto__" && bKeys.indexOf(key) !== -1);
+ 
+     const newObj: any = { ...a, ...b };
++    delete newObj.__proto__;
+     for (const key of sharedKeys) {
+       const sharedValue = mergeValues(a[key], b[key]);
+       if (!sharedValue.valid) {
+@@ -2948,6 +2928,7 @@ export const $ZodRecord: core.$constructor<$ZodRecord> = /*@__PURE__*/ core.$con
+       for (const key of values) {
+         if (typeof key === "string" || typeof key === "number" || typeof key === "symbol") {
+           recordKeys.add(typeof key === "number" ? key.toString() : key);
++          if (key === "__proto__") continue;
+           const keyResult = def.keyType._zod.run({ value: key, issues: [] }, ctx);
+           if (keyResult instanceof Promise) {
+             throw new Error("Async schemas not supported in object keys currently");
+@@ -2964,7 +2945,8 @@ export const $ZodRecord: core.$constructor<$ZodRecord> = /*@__PURE__*/ core.$con
+             continue;
+           }
+           const outKey = keyResult.value as PropertyKey;
+-          const result = def.valueType._zod.run({ value: getProperty(input, key), issues: [] }, ctx);
++          if (outKey === "__proto__") continue;
++          const result = def.valueType._zod.run({ value: input[key], issues: [] }, ctx);
+ 
+           if (result instanceof Promise) {
+             proms.push(
+@@ -3004,7 +2986,7 @@ export const $ZodRecord: core.$constructor<$ZodRecord> = /*@__PURE__*/ core.$con
+       payload.value = {};
+       // Reflect.ownKeys for Symbol-key support; filter non-enumerable to match z.object()
+       for (const key of Reflect.ownKeys(input)) {
+-        if (key === "__proto__" && !(def.partial && values?.has(key))) continue;
++        if (key === "__proto__") continue;
+         if (!Object.prototype.propertyIsEnumerable.call(input, key)) continue;
+         let keyResult = def.keyType._zod.run({ value: key, issues: [] }, ctx);
+         if (keyResult instanceof Promise) {
+@@ -3042,10 +3024,9 @@ export const $ZodRecord: core.$constructor<$ZodRecord> = /*@__PURE__*/ core.$con
+           continue;
+         }
+ 
+-        // the guard above tests the raw input key, but the key schema can normalize an
+-        // ordinary key into __proto__; re-check the key we actually write under
++        // the key schema can normalize an ordinary key into __proto__
+         const outKey = keyResult.value as PropertyKey;
+-        if (outKey === "__proto__" && !(def.partial && key === "__proto__" && values?.has(key))) continue;
++        if (outKey === "__proto__") continue;
+ 
+         const result = def.valueType._zod.run({ value: input[key], issues: [] }, ctx);
+ 
+diff --git a/packages/zod/src/v4/mini/tests/index.test.ts b/packages/zod/src/v4/mini/tests/index.test.ts
+index 4345197..df7edc6 100644
+--- a/packages/zod/src/v4/mini/tests/index.test.ts
++++ b/packages/zod/src/v4/mini/tests/index.test.ts
+@@ -349,8 +349,8 @@ test("z.record", () => {
+   expectTypeOf<partial>().toEqualTypeOf<Partial<Record<"__proto__" | "b", string>>>();
+   const parsed: any = z.parse(partial, Object.fromEntries([["__proto__", "declared"]]));
+   expect(Object.getPrototypeOf(parsed)).toBe(Object.prototype);
+-  expect(Object.prototype.hasOwnProperty.call(parsed, "__proto__")).toBe(true);
+-  expect(parsed.__proto__).toBe("declared");
++  expect(Object.prototype.hasOwnProperty.call(parsed, "__proto__")).toBe(false);
++  expect(parsed).toEqual({});
+   expect(z.parse(partial, {})).toEqual({});
+ 
+   // v3-compat single-arg form: z.record(valueType) defaults keyType to z.string()

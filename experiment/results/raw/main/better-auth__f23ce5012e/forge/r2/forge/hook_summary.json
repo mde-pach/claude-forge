@@ -1,0 +1,99 @@
+{
+ "active": true,
+ "events": {
+  "SessionStart": 1,
+  "UserPromptSubmit": 1,
+  "PreToolUse": 33,
+  "PostToolUse": 22,
+  "Stop": 4
+ },
+ "forge_messages": 14,
+ "blocks": 3,
+ "stop_blocks": 3,
+ "feedback": 8,
+ "nonzero_exit": 0,
+ "by_hook": {
+  "SessionStart:startup": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 4
+  },
+  "UserPromptSubmit": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PreToolUse:Bash": {
+   "runs": 33,
+   "nonzero": 0,
+   "forge_msgs": 5
+  },
+  "PostToolUse:Bash": {
+   "runs": 22,
+   "nonzero": 0,
+   "forge_msgs": 1
+  },
+  "Stop": {
+   "runs": 4,
+   "nonzero": 0,
+   "forge_msgs": 4
+  }
+ },
+ "samples": [
+  {
+   "hook": "SessionStart:startup",
+   "exit": 0,
+   "out": "forge: branch main, 0 changed files\nforge: last commits\n  4dd7ec3 Add Forge\n  6c21a0c initial\nforge: packs docker, docker/compose, github-actions, typescript, typescript/vitest\nforge: missing tools (checks using them are skipped): docker\n"
+  },
+  {
+   "hook": "PreToolUse:Bash",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"forge:safety/ephemeral-exec reviewed by an independent session, nobody being there to answer: The command only edits a docs file and a test file in the repo and runs local vitest, biome format and tsc on the last-login-method plugin, with no secrets, network, publishing or destructive effects.\"}}\n"
+  },
+  {
+   "hook": "PreToolUse:Bash",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"forge:safety/ephemeral-exec reviewed by an independent session, nobody being there to answer: The command makes a small local edit to an already-modified test file in the repo, then runs vitest, biome format and tsc on the same plugin directory, with no network, secret or destructive effects.\"}}\n"
+  },
+  {
+   "hook": "Stop",
+   "exit": 0,
+   "out": "{\"decision\":\"block\",\"reason\":\"forge:typescript/vitest/no-mock-increase packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts: 6 -> 7\"}\n"
+  },
+  {
+   "hook": "PreToolUse:Bash",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"forge:safety/ephemeral-exec reviewed by an independent session, nobody being there to answer: The action is a local edit to the plugin's test file (equivalent assertions, tighter types), followed by the repo's own format, test and typecheck commands scoped to that plugin, with no network, secret, destructive or publishing effects.\"}}\n"
+  },
+  {
+   "hook": "PostToolUse:Bash",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"forge: auto-fixed safe lint fixes in packages/better-auth/src/plugins/last-login-method/last-login-method.test.ts; re-read it before editing it again\"}}\n"
+  },
+  {
+   "hook": "PreToolUse:Bash",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"forge:safety/ephemeral-exec reviewed by an independent session, nobody being there to answer: The command makes a small type-cast edit to a test file the agent is already working on and runs the locally installed vitest and tsc (both are in node_modules/.bin, so npx won't download anything). It only reads and filters output, with no network access, deletion or secrets involved.\"}}\n"
+  },
+  {
+   "hook": "PreToolUse:Bash",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"forge:safety/ephemeral-exec reviewed by an independent session, nobody being there to answer: The command edits one assertion in the agent's own uncommitted test file, then runs the locally installed biome, vitest and tsc on the plugin directory. Nothing is fetched, published or deleted, and the assertion still checks the expected call.\"}}\n"
+  },
+  {
+   "hook": "Stop",
+   "exit": 0,
+   "out": "{\"decision\":\"block\",\"reason\":\"forge:typescript/vitest/run failed\\n\\n RUN  v4.1.5 /work\\n\\n(node:7005) ExperimentalWarning: SQLite is an experimental feature and might change at any time\\n(Use `node --trace-warnings ...` to show where the warning was created)\\n(node:6998) ExperimentalWarning: SQLite is an experimental feature and might change at any time\\n(Use `node --trace-warnings ...` to show where the warning was created)\\n(node:6999) ExperimentalWarning: SQLite is an experimental feature and might change at any time\\n(Use `node --trace-warnings ...` to show where the warning was created)\\n"
+  },
+  {
+   "hook": "Stop",
+   "exit": 0,
+   "out": "{\"decision\":\"block\",\"reason\":\"forge:typescript/vitest/run failed\\n\\n RUN  v4.1.5 /work\\n\\n(node:8667) ExperimentalWarning: SQLite is an experimental feature and might change at any time\\n(Use `node --trace-warnings ...` to show where the warning was created)\\n(node:8660) ExperimentalWarning: SQLite is an experimental feature and might change at any time\\n(Use `node --trace-warnings ...` to show where the warning was created)\\n(node:8666) ExperimentalWarning: SQLite is an experimental feature and might change at any time\\n(Use `node --trace-warnings ...` to show where the warning was created)\\n"
+  },
+  {
+   "hook": "Stop",
+   "exit": 0,
+   "out": "{\"systemMessage\":\"forge: check failed 3 times. Handing over to you.\"}\n"
+  }
+ ]
+}

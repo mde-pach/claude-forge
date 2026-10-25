@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 5,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'E'\ns=open('config.py').read()\ns=s.replace(\"self.advanced.base_url or get_base_url_from_token(self.api_key)\",\"self.advanced.generate_base_url(self.api_key)\")\ns=s.replace(\"self.advanced.base_url or get_base_url_from_token(api_key)\",\"self.advanced.generate_base_url(api_key)\")\nold=s[s.index",
+  "cd /work && sed -i 's/import PYDANTIC_LOGFIRE_TOKEN_PATTERN, REGIONS/import REGIONS/' logfire/_internal/config.py && .venv/bin/ruff check logfire/_internal/config.py && .venv/bin/pytest tests/test_configure.py tests/test_cli.py -q -x 2>&1 | tail -5"
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

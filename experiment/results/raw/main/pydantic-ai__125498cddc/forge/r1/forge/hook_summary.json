@@ -1,0 +1,80 @@
+{
+ "active": true,
+ "events": {
+  "SessionStart": 1,
+  "UserPromptSubmit": 1,
+  "PreToolUse": 60,
+  "PostToolUseFailure": 2,
+  "PostToolUse": 38,
+  "Stop": 4
+ },
+ "forge_messages": 10,
+ "blocks": 3,
+ "stop_blocks": 3,
+ "feedback": 3,
+ "nonzero_exit": 0,
+ "by_hook": {
+  "SessionStart:startup": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 3
+  },
+  "UserPromptSubmit": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PreToolUse:Bash": {
+   "runs": 60,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PostToolUseFailure:Bash": {
+   "runs": 2,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PostToolUse:Bash": {
+   "runs": 38,
+   "nonzero": 0,
+   "forge_msgs": 1
+  },
+  "Stop": {
+   "runs": 4,
+   "nonzero": 0,
+   "forge_msgs": 6
+  }
+ },
+ "samples": [
+  {
+   "hook": "SessionStart:startup",
+   "exit": 0,
+   "out": "forge: branch main, 0 changed files\nforge: last commits\n  08d9668 Add Forge\n  bf05c20 initial\nforge: packs github-actions, python, python/pydantic, python/pytest, python/uv\n"
+  },
+  {
+   "hook": "PostToolUse:Bash",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"forge:python/lint\\ntests/test_tools.py:4444:59: error[F821] Undefined name `RunUsage`\\ntests/test_tools.py:4445:59: error[F821] Undefined name `RunUsage`\"}}\n"
+  },
+  {
+   "hook": "Stop",
+   "exit": 0,
+   "out": "{\"decision\":\"block\",\"reason\":\"forge:python/no-new-suppressions pydantic_ai_slim/pydantic_ai/durable_exec/dbos/_mcp_toolset.py: 0 -> 2\\nforge:python/no-new-suppressions pydantic_ai_slim/pydantic_ai/durable_exec/temporal/_mcp_toolset.py: 0 -> 2\\nforge:python/pytest/no-fewer-asserts tests/test_temporal.py: 153 -> 152\"}\n"
+  },
+  {
+   "hook": "Stop",
+   "exit": 0,
+   "out": "{\"decision\":\"block\",\"reason\":\"forge:python/pytest/no-test-edits failed\\ntests/test_dbos.py: test \\\"test_dbos_mcptoolset_returns_cached_tool_defs\\\" was changed\\ntests/test_temporal.py: test \\\"test_mcp_tools_not_cached_when_disabled\\\" was changed\\nTests that existed before this turn are not edited to make the code pass. Restore them; if one looks wrong, stop and ask the user.\"}\n"
+  },
+  {
+   "hook": "Stop",
+   "exit": 0,
+   "out": "{\"decision\":\"block\",\"reason\":\"forge:python/pytest/no-test-edits failed\\ntests/test_dbos.py: test \\\"test_dbos_mcptoolset_returns_cached_tool_defs\\\" was changed\\ntests/test_temporal.py: test \\\"test_mcp_tools_not_cached_when_disabled\\\" was changed\\nTests that existed before this turn are not edited to make the code pass. Restore them; if one looks wrong, stop and ask the user.\"}\n"
+  },
+  {
+   "hook": "Stop",
+   "exit": 0,
+   "out": "{\"systemMessage\":\"forge: check failed 3 times. Handing over to you.\"}\n"
+  }
+ ]
+}

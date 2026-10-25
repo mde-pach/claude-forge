@@ -1,0 +1,169 @@
+diff --git a/.python-version b/.python-version
+deleted file mode 100644
+index e4fba21..0000000
+--- a/.python-version
++++ /dev/null
+@@ -1 +0,0 @@
+-3.12
+diff --git a/examples/tasks/.envrc b/examples/tasks/.envrc
+deleted file mode 100644
+index 87a7dfe..0000000
+--- a/examples/tasks/.envrc
++++ /dev/null
+@@ -1,10 +0,0 @@
+-# FastMCP Tasks Example Environment Configuration
+-# This file is loaded by direnv (https://direnv.net/) when you cd into this directory
+-# Run `direnv allow` to enable automatic environment loading
+-
+-# Configure Docket backend URL
+-# Use Redis backend (requires docker-compose up)
+-export FASTMCP_DOCKET_URL=redis://localhost:24242/0
+-
+-# Or uncomment to use memory:// for single-process testing
+-# export FASTMCP_DOCKET_URL=memory://
+diff --git a/fastmcp_slim/fastmcp/server/caching.py b/fastmcp_slim/fastmcp/server/caching.py
+new file mode 100644
+index 0000000..66b7ce0
+--- /dev/null
++++ b/fastmcp_slim/fastmcp/server/caching.py
+@@ -0,0 +1,31 @@
++"""Server-level cache hints (SEP-2549)."""
++
++from __future__ import annotations
++
++from typing import Literal
++
++from mcp.server.caching import CacheHint
++from mcp_types.methods import CACHEABLE_METHODS, CacheableMethod
++
++__all__ = ["CacheScope", "build_cache_hints"]
++
++CacheScope = Literal["public", "private"]
++
++
++def build_cache_hints(
++    cache_ttl: int | None, cache_scope: CacheScope | None
++) -> dict[CacheableMethod, CacheHint] | None:
++    """Build a uniform hint for every SDK-cacheable method.
++
++    Args:
++        cache_ttl: TTL in seconds, or None for no hints.
++        cache_scope: Cache scope; requires `cache_ttl`. Defaults to "private".
++    """
++    if cache_ttl is None:
++        if cache_scope is not None:
++            raise ValueError("cache_scope requires cache_ttl to be set")
++        return None
++    if cache_ttl <= 0:
++        raise ValueError(f"cache_ttl must be a positive integer, got {cache_ttl}")
++    hint = CacheHint(ttl_ms=cache_ttl * 1000, scope=cache_scope or "private")
++    return {method: hint for method in CACHEABLE_METHODS}  # type: ignore[misc]
+diff --git a/fastmcp_slim/fastmcp/server/server.py b/fastmcp_slim/fastmcp/server/server.py
+index 7f30073..84c2962 100644
+--- a/fastmcp_slim/fastmcp/server/server.py
++++ b/fastmcp_slim/fastmcp/server/server.py
+@@ -58,6 +58,7 @@ from fastmcp.prompts.base import PromptResult
+ from fastmcp.prompts.function_prompt import FunctionPrompt
+ from fastmcp.resources.base import Resource, ResourceResult
+ from fastmcp.resources.template import ResourceTemplate
++from fastmcp.server.caching import CacheScope, build_cache_hints
+ from fastmcp.server.auth import AuthCheck, AuthContext, AuthProvider, run_auth_checks
+ from fastmcp.server.lifespan import Lifespan
+ from fastmcp.server.low_level import LowLevelServer
+@@ -335,9 +336,12 @@ class FastMCP(
+         sampling_handler_behavior: Literal["always", "fallback"] | None = None,
+         client_log_level: mcp_types.LoggingLevel | None = None,
+         experimental_capabilities: dict[str, dict[str, Any]] | None = None,
++        cache_ttl: int | None = None,
++        cache_scope: CacheScope | None = None,
+         **kwargs: Any,
+     ):
+         _check_removed_kwargs(kwargs)
++        cache_hints = build_cache_hints(cache_ttl, cache_scope)
+ 
+         # Initialize Provider (sets up _transforms)
+         super().__init__()
+@@ -415,6 +419,7 @@ class FastMCP(
+             website_url=website_url,
+             icons=icons,
+             lifespan=_lifespan_proxy(fastmcp_server=self),
++            cache_hints=cache_hints,
+         )
+ 
+         self.auth: AuthProvider | None = auth
+diff --git a/tests/server/test_cache_hints.py b/tests/server/test_cache_hints.py
+new file mode 100644
+index 0000000..82cc973
+--- /dev/null
++++ b/tests/server/test_cache_hints.py
+@@ -0,0 +1,70 @@
++"""Server-level cache hints (SEP-2549) on FastMCP."""
++
++import pytest
++from mcp.server.caching import CacheHint
++from mcp_types.methods import CACHEABLE_METHODS
++
++from fastmcp import Client, FastMCP
++from fastmcp.server.caching import build_cache_hints
++
++
++class TestBuildCacheHints:
++    def test_none(self):
++        assert build_cache_hints(None, None) is None
++
++    def test_all_cacheable_methods(self):
++        hints = build_cache_hints(60, None)
++        assert hints is not None
++        assert set(hints) == set(CACHEABLE_METHODS)
++        assert all(h == CacheHint(ttl_ms=60000, scope="private") for h in hints.values())
++
++    def test_scope(self):
++        hints = build_cache_hints(1, "public")
++        assert hints is not None
++        assert hints["tools/list"].scope == "public"
++
++    def test_invalid_ttl(self):
++        with pytest.raises(ValueError, match="cache_ttl must be a positive integer"):
++            build_cache_hints(0, None)
++
++    def test_scope_without_ttl(self):
++        with pytest.raises(ValueError, match="cache_scope requires cache_ttl"):
++            FastMCP("x", cache_scope="public")
++
++
++class TestServerHints:
++    async def test_hints_on_wire(self):
++        mcp = FastMCP("x", cache_ttl=60, cache_scope="public")
++
++        @mcp.tool
++        def f() -> int:
++            return 1
++
++        @mcp.resource("a://b")
++        def r() -> str:
++            return "x"
++
++        async with Client(mcp, mode="auto") as client:
++            for result in (
++                await client.session.list_tools(),
++                await client.session.list_resources(),
++                await client.session.read_resource("a://b"),
++            ):
++                assert result.ttl_ms == 60000
++                assert result.cache_scope == "public"
++
++    async def test_client_cache_serves_second_call(self):
++        mcp = FastMCP("x", cache_ttl=60)
++        async with Client(mcp, mode="auto", cache=True) as client:
++            await client.list_tools()
++            calls = 0
++            original = client.session.list_tools
++
++            async def spy(**kwargs):
++                nonlocal calls
++                calls += 1
++                return await original(**kwargs)
++
++            client.session.list_tools = spy  # type: ignore[method-assign]
++            await client.list_tools()
++        assert calls == 0

@@ -1,0 +1,20 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 10,
+ "bash_calls": 22,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/fastmcp_slim/fastmcp; python - <<'EOF'\nimport re\np='server/http.py'\ns=open(p).read()\ns=s.replace(\"from collections.abc import AsyncGenerator, Callable, Generator\\n\",\"import ipaddress\\nfrom collections.abc import AsyncGenerator, Callable, Generator, Sequence\\n\",1)\ns=s.replace(\"from contextva",
+  "cd /work/fastmcp_slim/fastmcp; sed -i 's/^from collections.abc import Awaitable, Callable$/from collections.abc import Awaitable, Callable, Sequence/' server/mixins/transport.py; sed -n 21,26p server/mixins/transport.py",
+  "cd /work; cat > /tmp/t.py <<'EOF'\nfrom starlette.testclient import TestClient\nfrom fastmcp import FastMCP\napp=FastMCP(\"x\").http_app()\ninit={\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-03-26\",\"capabilities\":{},\"clientInfo\":{\"name\":\"a\",\"version\":\"1\"}}}\nH={\"accept\":\"a",
+  "cd /work; python - <<'EOF'\np='fastmcp_slim/fastmcp/server/mixins/transport.py'\ns=open(p).read()\ns=s.replace(\"from fastmcp.server.http import (\\n\",\"from fastmcp.server.http import (\\n    _is_unspecified,\\n\",1)\nopen(p,'w').write(s)\nEOF\nuv run pytest -n auto -q -x 2>&1 | tail -15",
+  "cd /work; grep -n \"^import\\|^from\\|autouse\" tests/conftest.py | head -30; python - <<'EOF'\nimport inspect, starlette.testclient as t\nprint(inspect.signature(t.TestClient.__init__))\nEOF",
+  "cd /work; python - <<'EOF'\np='tests/conftest.py'\ns=open(p).read()\ns=s.replace('''@pytest.fixture(autouse=True)\ndef import_rich_rule''','''@pytest.fixture(autouse=True)\ndef loopback_test_client_host(monkeypatch):\n    \"\"\"Starlette's TestClient defaults to Host `testserver`, which Host/Origin\n    prote",
+  "cd /work; python - <<'EOF'\nimport re\np='tests/conftest.py'\ns=open(p).read()\na=s.index('@pytest.fixture(autouse=True)\\ndef loopback_test_client_host')\nb=s.index('@pytest.fixture(autouse=True)\\ndef import_rich_rule')\ns=s[:a]+'''@pytest.fixture(autouse=True)\ndef allow_test_hosts(monkeypatch):\n    \"\"\"Te",
+  "cd /work; python - <<'EOF'\np='fastmcp_slim/fastmcp/server/http.py'\ns=open(p).read()\ns=s.replace('''        if host in DEFAULT_ALLOWED_HOSTS:\n            return True\n        return any(\n            fnmatchcase(host, pattern) or fnmatchcase(raw, pattern)\n            for pattern in self.allowed_hosts\n ",
+  "cd /work; sed -i 's/\"testserver\", \"test\", \"\\*.example.com\"/\"testserver\", \"test\", \"my-server.com\", \"*.example.com\"/' tests/conftest.py\ncat > tests/server/http/test_host_origin_protection.py <<'EOF'\nimport httpx\nimport pytest\n\nimport fastmcp\nfrom fastmcp import FastMCP\nfrom fastmcp.server.http import ",
+  "cd /work; python - <<'EOF'\np='docs/more/settings.mdx'\ns=open(p).read()\ns=s.replace(\"| `FASTMCP_DEBUG` | `bool` | `false` | Enable debug mode. |\\n\",\"\"\"| `FASTMCP_HTTP_HOST_ORIGIN_PROTECTION` | `bool` | `true` | Reject Streamable HTTP requests with an untrusted `Host` (421) or `Origin` (403) header, p"
+ ],
+ "total": 10,
+ "edit_tool_share": 0.0
+}

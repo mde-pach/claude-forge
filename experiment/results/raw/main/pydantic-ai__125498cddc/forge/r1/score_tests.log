@@ -1,0 +1,1788 @@
+$ pytest -p no:cacheprovider -o junit_family=xunit1 --junitxml=/tmp/forge-junit-38b45179e9c9.xml --continue-on-collection-errors -q --no-header -rN tests/test_dbos.py tests/test_temporal.py
+........................................E                                                                                                      [ 30%]tests/test_temporal.py:255 test_simple_agent_run_in_workflow - RuntimeError: Failed starting Temporal dev server: error sending request fo…E [ 31%]
+                                                                                                                                               [ 31%]tests/test_temporal.py:361 test_complex_agent_run_in_workflow - RuntimeError: Failed starting Temporal dev server: error sending request f…E [ 32%]
+                                                                                                                                               [ 32%]tests/test_temporal.py:816 test_mcp_tools_cached_across_activities - RuntimeError: Failed starting Temporal dev server: error sending requ…E [ 33%]
+                                                                                                                                               [ 33%]tests/test_temporal.py:910 test_temporal_mcp_get_tools_replay_deterministic - RuntimeError: Failed starting Temporal dev server: error sen…E [ 33%]
+                                                                                                                                               [ 33%]tests/test_temporal.py:964 test_temporal_mcp_get_tools_not_cached_when_disabled - RuntimeError: Failed starting Temporal dev server: error…. [ 34%]
+E                                                                                                                                              [ 35%]tests/test_temporal.py:1301 test_multiple_agents - RuntimeError: Failed starting Temporal dev server: error sending request for url (https…E [ 36%]
+                                                                                                                                               [ 36%]tests/test_temporal.py:1336 test_agent_name_collision - RuntimeError: Failed starting Temporal dev server: error sending request for url (…. [ 36%]
+...E                                                                                                                                           [ 39%]tests/test_temporal.py:1427 test_dynamic_toolset_in_workflow - RuntimeError: Failed starting Temporal dev server: error sending request fo…. [ 40%]
+E                                                                                                                                              [ 41%]tests/test_temporal.py:1481 test_mcptoolset_dynamic_toolset_in_workflow - RuntimeError: Failed starting Temporal dev server: error sending…E [ 42%]
+                                                                                                                                               [ 42%]tests/test_temporal.py:1517 test_model_construction_in_workflow_passes_sandbox[gateway-anthropic] - RuntimeError: Failed starting Temporal…E [ 42%]
+                                                                                                                                               [ 42%]tests/test_temporal.py:1517 test_model_construction_in_workflow_passes_sandbox[gateway-openai] - RuntimeError: Failed starting Temporal de…E [ 43%]
+                                                                                                                                               [ 43%]tests/test_temporal.py:1517 test_model_construction_in_workflow_passes_sandbox[gateway-google] - RuntimeError: Failed starting Temporal de…. [ 44%]
+.......E                                                                                                                                       [ 50%]tests/test_temporal.py:1729 test_temporal_agent_run_sync_in_workflow - RuntimeError: Failed starting Temporal dev server: error sending re…E [ 51%]
+                                                                                                                                               [ 51%]tests/test_temporal.py:1768 test_temporal_agent_with_sync_history_processor - RuntimeError: Failed starting Temporal dev server: error sen…E [ 51%]
+                                                                                                                                               [ 51%]tests/test_temporal.py:1811 test_temporal_agent_with_sync_instructions - RuntimeError: Failed starting Temporal dev server: error sending …E [ 52%]
+                                                                                                                                               [ 52%]tests/test_temporal.py:1842 test_temporal_agent_run_stream_in_workflow - RuntimeError: Failed starting Temporal dev server: error sending …E [ 53%]
+                                                                                                                                               [ 53%]tests/test_temporal.py:1871 test_temporal_agent_run_stream_events_in_workflow - RuntimeError: Failed starting Temporal dev server: error s…E [ 54%]
+                                                                                                                                               [ 54%]tests/test_temporal.py:1902 test_temporal_agent_iter_in_workflow - RuntimeError: Failed starting Temporal dev server: error sending reques…E [ 54%]
+                                                                                                                                               [ 54%]tests/test_temporal.py:1938 test_temporal_agent_run_in_workflow_with_event_stream_handler - RuntimeError: Failed starting Temporal dev ser…E [ 55%]
+                                                                                                                                               [ 55%]tests/test_temporal.py:1977 test_temporal_agent_run_in_workflow_with_model - RuntimeError: Failed starting Temporal dev server: error send…E [ 56%]
+                                                                                                                                               [ 56%]tests/test_temporal.py:2006 test_temporal_agent_run_in_workflow_with_toolsets - RuntimeError: Failed starting Temporal dev server: error s…E [ 57%]
+                                                                                                                                               [ 57%]tests/test_temporal.py:2035 test_temporal_agent_override_model_in_workflow - RuntimeError: Failed starting Temporal dev server: error send…E [ 57%]
+                                                                                                                                               [ 57%]tests/test_temporal.py:2064 test_temporal_agent_override_toolsets_in_workflow - RuntimeError: Failed starting Temporal dev server: error s…E [ 58%]
+                                                                                                                                               [ 58%]tests/test_temporal.py:2093 test_temporal_agent_override_tools_in_workflow - RuntimeError: Failed starting Temporal dev server: error send…E [ 59%]
+                                                                                                                                               [ 59%]tests/test_temporal.py:2122 test_temporal_agent_override_builtin_tools_in_workflow - RuntimeError: Failed starting Temporal dev server: er…E [ 60%]
+                                                                                                                                               [ 60%]tests/test_temporal.py:2152 test_temporal_agent_override_deps_in_workflow - RuntimeError: Failed starting Temporal dev server: error sendi…E [ 60%]
+                                                                                                                                               [ 60%]tests/test_temporal.py:2190 test_temporal_agent_sync_tool_activity_disabled - RuntimeError: Failed starting Temporal dev server: error sen…E [ 61%]
+                                                                                                                                               [ 61%]tests/test_temporal.py:2211 test_temporal_agent_mcp_server_activity_disabled - RuntimeError: Failed starting Temporal dev server: error se…E [ 62%]
+                                                                                                                                               [ 62%]tests/test_temporal.py:2240 test_temporal_model_stream_direct - RuntimeError: Failed starting Temporal dev server: error sending request f…E [ 63%]
+                                                                                                                                               [ 63%]tests/test_temporal.py:2281 test_temporal_agent_with_unserializable_deps_type - RuntimeError: Failed starting Temporal dev server: error s…E [ 63%]
+                                                                                                                                               [ 63%]tests/test_temporal.py:2302 test_logfire_plugin - RuntimeError: Failed starting Temporal dev server: error sending request for url (https:…E [ 64%]
+                                                                                                                                               [ 64%]tests/test_temporal.py:2406 test_temporal_agent_with_hitl_tool - RuntimeError: Failed starting Temporal dev server: error sending request …E [ 65%]
+                                                                                                                                               [ 65%]tests/test_temporal.py:2562 test_temporal_agent_with_model_retry - RuntimeError: Failed starting Temporal dev server: error sending reques…E [ 66%]
+                                                                                                                                               [ 66%]tests/test_temporal.py:2723 test_custom_model_settings - RuntimeError: Failed starting Temporal dev server: error sending request for url …E [ 66%]
+                                                                                                                                               [ 66%]tests/test_temporal.py:2769 test_temporal_mcptoolset_instructions_propagate - RuntimeError: Failed starting Temporal dev server: error sen…. [ 67%]
+E                                                                                                                                              [ 68%]tests/test_temporal.py:2809 test_image_agent - RuntimeError: Failed starting Temporal dev server: error sending request for url (https://t…E [ 69%]
+                                                                                                                                               [ 69%]tests/test_temporal.py:2850 test_document_url_serialization_preserves_media_type - RuntimeError: Failed starting Temporal dev server: erro…E [ 69%]
+                                                                                                                                               [ 69%]tests/test_temporal.py:2903 test_uploaded_file_serialization_preserves_media_type - RuntimeError: Failed starting Temporal dev server: err…E [ 70%]
+                                                                                                                                               [ 70%]tests/test_temporal.py:2953 test_web_search_agent_run_in_workflow - RuntimeError: Failed starting Temporal dev server: error sending reque…. [ 71%]
+....E                                                                                                                                          [ 75%]tests/test_temporal.py:3123 test_tool_return_metadata_survives_temporal - RuntimeError: Failed starting Temporal dev server: error sending…E [ 75%]
+                                                                                                                                               [ 75%]tests/test_temporal.py:3204 test_mcptoolset_in_temporal_workflow - RuntimeError: Failed starting Temporal dev server: error sending reques…E [ 76%]
+                                                                                                                                               [ 76%]tests/test_temporal.py:3255 test_ctx_agent_in_temporal_activity - RuntimeError: Failed starting Temporal dev server: error sending request…E [ 77%]
+                                                                                                                                               [ 77%]tests/test_temporal.py:3392 test_beta_graph_parallel_execution_in_workflow - RuntimeError: Failed starting Temporal dev server: error send…E [ 78%]
+                                                                                                                                               [ 78%]tests/test_temporal.py:3435 test_passing_agents_through_workflow - RuntimeError: Failed starting Temporal dev server: error sending reques…E [ 78%]
+                                                                                                                                               [ 78%]tests/test_temporal.py:3450 test_passing_agents_through_workflow_without_pydantic_ai_workflow - RuntimeError: Failed starting Temporal dev…. [ 79%]
+E                                                                                                                                              [ 80%]tests/test_temporal.py:3618 test_temporal_agent_multi_model_selection_in_workflow - RuntimeError: Failed starting Temporal dev server: err…E [ 81%]
+                                                                                                                                               [ 81%]tests/test_temporal.py:3654 test_temporal_dynamic_builtin_tools_select_by_model - RuntimeError: Failed starting Temporal dev server: error…E [ 81%]
+                                                                                                                                               [ 81%]tests/test_temporal.py:3687 test_builtins_in_workflow_with_runtime_model_override - RuntimeError: Failed starting Temporal dev server: err…E [ 82%]
+                                                                                                                                               [ 82%]tests/test_temporal.py:3714 test_temporal_agent_multi_model_unregistered_error - RuntimeError: Failed starting Temporal dev server: error …. [ 83%]
+.E                                                                                                                                             [ 84%]tests/test_temporal.py:3815 test_temporal_agent_model_selection_by_id[default_explicit] - RuntimeError: Failed starting Temporal dev serve…E [ 85%]
+                                                                                                                                               [ 85%]tests/test_temporal.py:3840 test_temporal_agent_model_selection_by_instance[default_instance] - RuntimeError: Failed starting Temporal dev…E [ 86%]
+                                                                                                                                               [ 86%]tests/test_temporal.py:3840 test_temporal_agent_model_selection_by_instance[registered_instance] - RuntimeError: Failed starting Temporal …. [ 87%]
+...............E                                                                                                                               [ 99%]tests/test_temporal.py:4250 test_multimodal_content_serialization_in_workflow - RuntimeError: Failed starting Temporal dev server: error s…E [100%]tests/test_temporal.py:4378 test_text_content_serialization_in_workflow - RuntimeError: Failed starting Temporal dev server: error sending… [100%]
+======================================================================= ERRORS =======================================================================
+________________________________________________ ERROR at setup of test_simple_agent_run_in_workflow _________________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+________________________________________________ ERROR at setup of test_complex_agent_run_in_workflow ________________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+_____________________________________________ ERROR at setup of test_mcp_tools_cached_across_activities ______________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+_________________________________________ ERROR at setup of test_temporal_mcp_get_tools_replay_deterministic _________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+_______________________________________ ERROR at setup of test_temporal_mcp_get_tools_not_cached_when_disabled _______________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+_______________________________________________________ ERROR at setup of test_multiple_agents _______________________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+____________________________________________________ ERROR at setup of test_agent_name_collision _____________________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+_________________________________________________ ERROR at setup of test_dynamic_toolset_in_workflow _________________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+___________________________________________ ERROR at setup of test_mcptoolset_dynamic_toolset_in_workflow ____________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+______________________________ ERROR at setup of test_model_construction_in_workflow_passes_sandbox[gateway-anthropic] _______________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+________________________________ ERROR at setup of test_model_construction_in_workflow_passes_sandbox[gateway-openai] ________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+________________________________ ERROR at setup of test_model_construction_in_workflow_passes_sandbox[gateway-google] ________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+_____________________________________________ ERROR at setup of test_temporal_agent_run_sync_in_workflow _____________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+_________________________________________ ERROR at setup of test_temporal_agent_with_sync_history_processor __________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+____________________________________________ ERROR at setup of test_temporal_agent_with_sync_instructions ____________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+____________________________________________ ERROR at setup of test_temporal_agent_run_stream_in_workflow ____________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+________________________________________ ERROR at setup of test_temporal_agent_run_stream_events_in_workflow _________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+_______________________________________________ ERROR at setup of test_temporal_agent_iter_in_workflow _______________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+__________________________________ ERROR at setup of test_temporal_agent_run_in_workflow_with_event_stream_handler ___________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+__________________________________________ ERROR at setup of test_temporal_agent_run_in_workflow_with_model __________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+________________________________________ ERROR at setup of test_temporal_agent_run_in_workflow_with_toolsets _________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+__________________________________________ ERROR at setup of test_temporal_agent_override_model_in_workflow __________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+________________________________________ ERROR at setup of test_temporal_agent_override_toolsets_in_workflow _________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+__________________________________________ ERROR at setup of test_temporal_agent_override_tools_in_workflow __________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+______________________________________ ERROR at setup of test_temporal_agent_override_builtin_tools_in_workflow ______________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+__________________________________________ ERROR at setup of test_temporal_agent_override_deps_in_workflow ___________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+_________________________________________ ERROR at setup of test_temporal_agent_sync_tool_activity_disabled __________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+_________________________________________ ERROR at setup of test_temporal_agent_mcp_server_activity_disabled _________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+________________________________________________ ERROR at setup of test_temporal_model_stream_direct _________________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+________________________________________ ERROR at setup of test_temporal_agent_with_unserializable_deps_type _________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+_______________________________________________________ ERROR at setup of test_logfire_plugin ________________________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+________________________________________________ ERROR at setup of test_temporal_agent_with_hitl_tool ________________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+_______________________________________________ ERROR at setup of test_temporal_agent_with_model_retry _______________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+____________________________________________________ ERROR at setup of test_custom_model_settings ____________________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+_________________________________________ ERROR at setup of test_temporal_mcptoolset_instructions_propagate __________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+_________________________________________________________ ERROR at setup of test_image_agent _________________________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+_______________________________________ ERROR at setup of test_document_url_serialization_preserves_media_type _______________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+______________________________________ ERROR at setup of test_uploaded_file_serialization_preserves_media_type _______________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+______________________________________________ ERROR at setup of test_web_search_agent_run_in_workflow _______________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+___________________________________________ ERROR at setup of test_tool_return_metadata_survives_temporal ____________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+_______________________________________________ ERROR at setup of test_mcptoolset_in_temporal_workflow _______________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+_______________________________________________ ERROR at setup of test_ctx_agent_in_temporal_activity ________________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+__________________________________________ ERROR at setup of test_beta_graph_parallel_execution_in_workflow __________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+_______________________________________________ ERROR at setup of test_passing_agents_through_workflow _______________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+________________________________ ERROR at setup of test_passing_agents_through_workflow_without_pydantic_ai_workflow _________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+______________________________________ ERROR at setup of test_temporal_agent_multi_model_selection_in_workflow _______________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+_______________________________________ ERROR at setup of test_temporal_dynamic_builtin_tools_select_by_model ________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+______________________________________ ERROR at setup of test_builtins_in_workflow_with_runtime_model_override _______________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+________________________________________ ERROR at setup of test_temporal_agent_multi_model_unregistered_error ________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+___________________________________ ERROR at setup of test_temporal_agent_model_selection_by_id[default_explicit] ____________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+________________________________ ERROR at setup of test_temporal_agent_model_selection_by_instance[default_instance] _________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+_______________________________ ERROR at setup of test_temporal_agent_model_selection_by_instance[registered_instance] _______________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+________________________________________ ERROR at setup of test_multimodal_content_serialization_in_workflow _________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+___________________________________________ ERROR at setup of test_text_content_serialization_in_workflow ____________________________________________
+
+    @pytest.fixture(scope='module')
+    async def temporal_env() -> AsyncIterator[WorkflowEnvironment]:
+>       async with await WorkflowEnvironment.start_local(  # pyright: ignore[reportUnknownMemberType]
+            port=TEMPORAL_PORT,
+            ui=True,
+            dev_server_extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'],
+        ) as env:
+
+tests/test_temporal.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/temporalio/testing/_workflow.py:186: in start_local
+    server = await temporalio.bridge.testing.EphemeralServer.start_dev_server(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+runtime = <temporalio.bridge.runtime.Runtime object at 0x7fa19c6e7cb0>
+config = DevServerConfig(existing_path=None, sdk_name='sdk-python', sdk_version='1.24.0', download_version='default', download_...og_format='pretty', log_level='warn', extra_args=['--dynamic-config-value', 'frontend.enableServerVersionCheck=false'])
+
+    @staticmethod
+    async def start_dev_server(
+        runtime: temporalio.bridge.runtime.Runtime, config: DevServerConfig
+    ) -> EphemeralServer:
+        """Start a dev server instance."""
+        return EphemeralServer(
+>           await temporalio.bridge.temporal_sdk_bridge.start_dev_server(
+                runtime._ref, config
+            )
+        )
+E       RuntimeError: Failed starting Temporal dev server: error sending request for url (https://temporal.download/cli/default?arch=amd64&platform=linux&format=tar.gz&sdk-name=sdk-python&sdk-version=1.24.0)
+
+.venv/lib/python3.12/site-packages/temporalio/bridge/testing.py:59: RuntimeError
+Results (34.13s):
+        79 passed
+        54 errors
+
+[exit 1 in 53s]

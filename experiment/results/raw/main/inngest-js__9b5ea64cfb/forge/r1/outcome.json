@@ -1,0 +1,21 @@
+{
+ "resolved": true,
+ "patch_applied": true,
+ "f2p": {
+  "packages/inngest/src/helpers/stream.test.ts::createStream > finalize does not reject after the consumer cancels the stream": "passed",
+  "packages/inngest/src/helpers/stream.test.ts::createStream > heartbeat does not throw after the consumer cancels the stream": "passed"
+ },
+ "p2p": {},
+ "f2p_frac": 1.0,
+ "p2p_regressions": 0,
+ "lint_new": 0,
+ "diff_lines": 59,
+ "changed_files": [
+  "packages/inngest/src/components/InngestCommHandler.ts",
+  "packages/inngest/src/helpers/stream.ts"
+ ],
+ "all_results": {
+  "packages/inngest/src/helpers/stream.test.ts::createStream > heartbeat does not throw after the consumer cancels the stream": "passed",
+  "packages/inngest/src/helpers/stream.test.ts::createStream > finalize does not reject after the consumer cancels the stream": "passed"
+ }
+}

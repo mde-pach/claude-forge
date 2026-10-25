@@ -1,0 +1,150 @@
+diff --git a/packages/better-auth/src/plugins/organization/organization.test.ts b/packages/better-auth/src/plugins/organization/organization.test.ts
+index e5a9891..cc8fd45 100644
+--- a/packages/better-auth/src/plugins/organization/organization.test.ts
++++ b/packages/better-auth/src/plugins/organization/organization.test.ts
+@@ -1,3 +1,4 @@
++import type { GenericEndpointContext } from "@better-auth/core";
+ import type { APIError } from "@better-auth/core/error";
+ import { memoryAdapter } from "@better-auth/memory-adapter";
+ import type { Prettify } from "better-call";
+@@ -4124,3 +4125,53 @@ describe("delete cascade rollback", async () => {
+ 		expect(teamMemberCount).toBe(1);
+ 	});
+ });
++
++describe("organization delete hooks", async () => {
++	type HookArgs = [
++		{ organization: { id: string }; user: unknown },
++		GenericEndpointContext | undefined,
++	];
++	const before: HookArgs[] = [];
++	const after: HookArgs[] = [];
++	const { auth, signInWithTestUser } = await getTestInstance({
++		plugins: [
++			organization({
++				organizationHooks: {
++					beforeDeleteOrganization: async (data, ctx) => {
++						before.push([data, ctx]);
++					},
++					afterDeleteOrganization: async (data, ctx) => {
++						after.push([data, ctx]);
++					},
++				},
++			}),
++		],
++	});
++
++	it("should pass the endpoint context to delete hooks", async () => {
++		const { headers } = await signInWithTestUser();
++		const org = await auth.api.createOrganization({
++			body: { name: "hook-org", slug: "hook-org" },
++			headers,
++		});
++		const res = await auth.handler(
++			new Request("http://localhost:3000/api/auth/organization/delete", {
++				method: "POST",
++				headers: {
++					...Object.fromEntries(headers),
++					"content-type": "application/json",
++				},
++				body: JSON.stringify({ organizationId: org?.id }),
++			}),
++		);
++		expect(res.status).toBe(200);
++		for (const hook of [before, after]) {
++			expect(hook).toHaveLength(1);
++			const [data, ctx] = hook[0] ?? [];
++			expect(data?.organization.id).toBe(org?.id);
++			expect(data?.user).toBeDefined();
++			expect(ctx).toBeDefined();
++			expect(ctx?.request).toBeDefined();
++		}
++	});
++});
+diff --git a/packages/better-auth/src/plugins/organization/routes/crud-org.ts b/packages/better-auth/src/plugins/organization/routes/crud-org.ts
+index dc43770..b1be64e 100644
+--- a/packages/better-auth/src/plugins/organization/routes/crud-org.ts
++++ b/packages/better-auth/src/plugins/organization/routes/crud-org.ts
+@@ -605,17 +605,23 @@ export const deleteOrganization = <O extends OrganizationOptions>(
+ 				throw APIError.fromStatus("BAD_REQUEST");
+ 			}
+ 			if (options?.organizationHooks?.beforeDeleteOrganization) {
+-				await options.organizationHooks.beforeDeleteOrganization({
+-					organization: org,
+-					user: session.user,
+-				});
++				await options.organizationHooks.beforeDeleteOrganization(
++					{
++						organization: org,
++						user: session.user,
++					},
++					ctx,
++				);
+ 			}
+ 			await adapter.deleteOrganization(organizationId);
+ 			if (options?.organizationHooks?.afterDeleteOrganization) {
+-				await options.organizationHooks.afterDeleteOrganization({
+-					organization: org,
+-					user: session.user,
+-				});
++				await options.organizationHooks.afterDeleteOrganization(
++					{
++						organization: org,
++						user: session.user,
++					},
++					ctx,
++				);
+ 			}
+ 			return ctx.json(org);
+ 		},
+diff --git a/packages/better-auth/src/plugins/organization/types.ts b/packages/better-auth/src/plugins/organization/types.ts
+index e33dc87..457ecff 100644
+--- a/packages/better-auth/src/plugins/organization/types.ts
++++ b/packages/better-auth/src/plugins/organization/types.ts
+@@ -461,17 +461,23 @@ export interface OrganizationOptions {
+ 				/**
+ 				 * A callback that runs before the organization is deleted
+ 				 */
+-				beforeDeleteOrganization?: (data: {
+-					organization: Organization & Record<string, any>;
+-					user: User & Record<string, any>;
+-				}) => Promise<void>;
++				beforeDeleteOrganization?: (
++					data: {
++						organization: Organization & Record<string, any>;
++						user: User & Record<string, any>;
++					},
++					ctx?: GenericEndpointContext,
++				) => Promise<void>;
+ 				/**
+ 				 * A callback that runs after the organization is deleted
+ 				 */
+-				afterDeleteOrganization?: (data: {
+-					organization: Organization & Record<string, any>;
+-					user: User & Record<string, any>;
+-				}) => Promise<void>;
++				afterDeleteOrganization?: (
++					data: {
++						organization: Organization & Record<string, any>;
++						user: User & Record<string, any>;
++					},
++					ctx?: GenericEndpointContext,
++				) => Promise<void>;
+ 				/**
+ 				 * Member hooks
+ 				 */
+diff --git a/packages/stripe/src/index.ts b/packages/stripe/src/index.ts
+index 9fa6e3a..cd5b3d1 100644
+--- a/packages/stripe/src/index.ts
++++ b/packages/stripe/src/index.ts
+@@ -262,8 +262,8 @@ export const stripe = <O extends StripeOptions>(options: O) => {
+ 							}
+ 						: afterUpdateStripeOrg,
+ 					beforeDeleteOrganization: existingHooks.beforeDeleteOrganization
+-						? async (data) => {
+-								await existingHooks.beforeDeleteOrganization!(data);
++						? async (data, ctx) => {
++								await existingHooks.beforeDeleteOrganization!(data, ctx);
+ 								await beforeDeleteStripeOrg(data);
+ 							}
+ 						: beforeDeleteStripeOrg,

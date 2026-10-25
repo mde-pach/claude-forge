@@ -1,0 +1,16 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 6,
+ "bash_calls": 16,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/packages/zod/src; python3 - <<'E'\np='v4/core/schemas.ts'\ns=open(p).read()\ns=s.replace('''  const keys = Object.keys(def.shape);\n  for (const k of keys) {\n    if (!def.shape?.[k]?._zod?.traits?.has(\"$ZodType\")) {\n      throw new Error(`Invalid element at key \"${k}\": expected a Zod schema`);\n",
+  "cd /work/packages/zod/src; python3 - <<'E'\np='v4/core/schemas.ts'\ns=open(p).read()\ns=s.replace('''          recordKeys.add(typeof key === \"number\" ? key.toString() : key);\n''','''          recordKeys.add(typeof key === \"number\" ? key.toString() : key);\n          if (key === \"__proto__\") continue;\n''",
+  "cd /work/packages/zod/src; python3 - <<'E'\nfor p,old in (('v4/core/schemas.ts','Object.keys'),('v3/types.ts','util.objectKeys')):\n    s=open(p).read()\n    s=s.replace('sharedKeys = %s(a).filter((key) => bKeys.indexOf(key) !== -1);'%old,'sharedKeys = %s(a).filter((key) => key !== \"__proto__\" && bKeys",
+  "cd /work/packages/zod/src/v4/classic/tests; python3 - <<'E'\nimport re\ndef sub(p,a,b):\n    s=open(p).read()\n    i=s.index(a); j=s.index(b,i)\n    return s,i,j\n# object.test.ts\np='object.test.ts'\ns=open(p).read()\ns=s.replace('''        expect(Object.keys(result.data)).toEqual([\"name\", \"__proto__\"]);'''",
+  "cd /work/packages/zod/src/v4/classic/tests; sed -i 's/z.object(makeShape()).parse(protoInput());/z.object(protoShape(z.object({ isAdmin: z.boolean() }))).parse(protoInput());/' object.test.ts; cd /work; pnpm biome format --write packages/zod/src >/dev/null 2>&1; pnpm vitest run packages/zod 2>&1 | g",
+  "cd /work/packages/zod/src/v4; python3 - <<'E'\ndef r(p,a,b):\n    s=open(p).read(); assert a in s,(p,a); open(p,'w').write(s.replace(a,b,1))\no='classic/tests/object.test.ts'\nr(o,'''        expect(Object.keys(result.data)).toEqual([\"name\"]);''','''        expect(Object.keys(result.data)).toEqual([\"name"
+ ],
+ "total": 6,
+ "edit_tool_share": 0.0
+}

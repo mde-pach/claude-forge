@@ -1,0 +1,996 @@
+$ node /tmp/forge/dist/forge.js apply --user --yes
+[exit 0]
+--- .claude/settings.json
++++ .claude/settings.json
++{
++  "permissions": {
++    "deny": [
++      "Bash(dropdb:*)",
++      "Bash(git clean:*)",
++      "Bash(git filter-branch:*)",
++      "Bash(git filter-repo:*)",
++      "Bash(git reflog expire:*)",
++      "Bash(git stash clear:*)",
++      "Bash(git reset --hard:*)",
++      "Bash(npm publish:*)",
++      "Bash(bun publish:*)",
++      "Bash(uv publish:*)",
++      "Read(**/.env)",
++      "Read(**/.env.local)",
++      "Read(**/.env.development)",
++      "Read(**/.env.production)",
++      "Read(**/.env.test)",
++      "Edit(**/.env)",
++      "Edit(**/.env.local)",
++      "Edit(**/.env.development)",
++      "Edit(**/.env.production)",
++      "Edit(**/.env.test)",
++      "Read(**/*.pem)",
++      "Read(**/*.key)",
++      "Read(~/.ssh/**)",
++      "Read(~/.netrc)",
++      "Read(~/.npmrc)",
++      "Read(~/.pypirc)",
++      "Read(~/.pgpass)",
++      "Read(~/.git-credentials)",
++      "Read(~/.config/gh/hosts.yml)",
++      "Read(~/.docker/config.json)"
++    ],
++    "ask": [
++      "Bash(bun add:*)",
++      "Bash(uv add:*)",
++      "Edit(~/.claude/skills/forge-user/**)",
++      "Edit(~/.claude/forge.lock.json)"
++    ]
++  },
++  "sandbox": {
++    "enabled": true,
++    "network": {
++      "allowedDomains": [
++        "registry.npmjs.org",
++        "pypi.org",
++        "files.pythonhosted.org",
++        "github.com"
++      ]
++    }
++  }
++}
+forge: applied (7 written, 0 deleted, 1 settings file(s) updated)
+
+
+
+$ node /tmp/forge/dist/forge.js apply --yes
+[exit 0]
+--- .claude/settings.json
++++ .claude/settings.json
+@@
+       "Bash(PYRIGHT_PYTHON_IGNORE_WARNINGS=1 uv run pyright *)",
+       "Bash(make:*)"
++    ],
++    "ask": [
++      "Edit(.forge/**)",
++      "Edit(forge.yaml)",
++      "Edit(.claude/skills/forge-project/**)",
++      "Edit(.claude/rules/forge-*.md)",
++      "Edit(**/ruff.toml)",
++      "Edit(**/.ruff.toml)",
++      "Edit(**/pyrightconfig.json)"
+     ]
+   }
+@@
+forge: applied (33 written, 0 deleted, 1 settings file(s) updated)
+forge:python/aware-datetime ruff DTZ005: unsatisfied (DTZ005 not reported for: from datetime import datetime)
+  add to the ruff config: [tool.ruff.lint] extend-select = ["DTZ005"]
+forge:python/http-timeout ruff S113: unsatisfied (S113 not reported for: import requests)
+  add to the ruff config: [tool.ruff.lint] extend-select = ["S113"]
+forge:python/jinja-autoescape ruff S701: unsatisfied (S701 not reported for: from jinja2 import Environment)
+  add to the ruff config: [tool.ruff.lint] extend-select = ["S701"]
+forge:python/log-exception ruff TRY400: unsatisfied (TRY400 not reported for: import logging)
+  add to the ruff config: [tool.ruff.lint] extend-select = ["TRY400"]
+forge:python/no-blanket-noqa ruff PGH004: unsatisfied (PGH004 not reported for: import os  # noqa)
+  add to the ruff config: [tool.ruff.lint] extend-select = ["PGH004"]
+forge:python/no-blind-except ruff BLE001: unsatisfied (BLE001 not reported for: def load() -> dict[str, str]:)
+  add to the ruff config: [tool.ruff.lint] extend-select = ["BLE001"]
+forge:python/no-blocking-in-async ruff ASYNC210: unsatisfied (ASYNC210 not reported for: import time)
+  add to the ruff config: [tool.ruff.lint] extend-select = ["ASYNC"]
+forge:python/no-blocking-in-async ruff ASYNC230: unsatisfied (ASYNC230 not reported for: import time)
+  add to the ruff config: [tool.ruff.lint] extend-select = ["ASYNC"]
+forge:python/no-blocking-in-async ruff ASYNC251: unsatisfied (ASYNC251 not reported for: import time)
+  add to the ruff config: [tool.ruff.lint] extend-select = ["ASYNC"]
+forge:python/no-commented-out-code ruff ERA001: unsatisfied (ERA001 not reported for: # total = compute(items))
+  add to the ruff config: [tool.ruff.lint] extend-select = ["ERA001"]
+forge:python/no-dangling-task ruff RUF006: unsatisfied (RUF006 not reported for: import asyncio)
+  add to the ruff config: [tool.ruff.lint] extend-select = ["RUF006"]
+forge:python/no-explicit-any ruff ANN401: unsatisfied (ANN401 not reported for: from typing import Any)
+  add to the ruff config: [tool.ruff.lint] extend-select = ["ANN401"]
+forge:python/no-hardcoded-password ruff S105: unsatisfied (S105 not reported for: PASSWORD = "hunter2")
+  add to the ruff config: [tool.ruff.lint] extend-select = ["S105", "S106"]
+[tool.ruff.lint.per-file-ignores] "tests/**" = ["S105", "S106"]
+forge:python/no-hardcoded-password ruff S106: unsatisfied (S106 not reported for: PASSWORD = "hunter2")
+  add to the ruff config: [tool.ruff.lint] extend-select = ["S105", "S106"]
+[tool.ruff.lint.per-file-ignores] "tests/**" = ["S105", "S106"]
+forge:python/no-pickle ruff S301: unsatisfied (S301 not reported for: import pickle)
+  add to the ruff config: [tool.ruff.lint] extend-select = ["S301"]
+forge:python/no-print ruff T201: unsatisfied (T201 not reported for: def handle() -> None:)
+  add to the ruff config: [tool.ruff.lint] extend-select = ["T201"]
+[tool.ruff.lint.per-file-ignores] "scripts/**" = ["T201"]  # and your CLI entry points
+forge:python/no-shell-true ruff S602: unsatisfied (S602 not reported for: import subprocess)
+  add to the ruff config: [tool.ruff.lint] extend-select = ["S602"]
+forge:python/no-silent-except ruff S110: unsatisfied (S110 not reported for: def run(jobs: list[str]) -> None:)
+  add to the ruff config: [tool.ruff.lint] extend-select = ["S110", "S112"]
+forge:python/no-silent-except ruff S112: unsatisfied (S112 not reported for: def run(jobs: list[str]) -> None:)
+  add to the ruff config: [tool.ruff.lint] extend-select = ["S110", "S112"]
+forge:python/no-sql-format ruff S608: unsatisfied (S608 not reported for: def find(name: str) -> str:)
+  add to the ruff config: [tool.ruff.lint] extend-select = ["S608"]
+forge:python/no-tls-bypass ruff S501: unsatisfied (S501 not reported for: import httpx)
+  add to the ruff config: [tool.ruff.lint] extend-select = ["S501"]
+forge:python/no-unsafe-yaml ruff S506: unsatisfied (S506 not reported for: import yaml)
+  add to the ruff config: [tool.ruff.lint] extend-select = ["S506"]
+forge:python/no-unscoped-ignore ruff PGH003: unsatisfied (PGH003 not reported for: x = int("1")  # pyright: ignore)
+  add to the ruff config: [tool.ruff.lint] extend-select = ["PGH003"]
+forge:python/no-weak-hash ruff S324: unsatisfied (S324 not reported for: import hashlib)
+  add to the ruff config: [tool.ruff.lint] extend-select = ["S324"]
+forge:python/pytest/no-blind-raises ruff B017: unsatisfied (B017 not reported for: import pytest)
+  add to the ruff config: [tool.ruff.lint] extend-select = ["B017"]
+forge: pre-commit: add "sh .forge/check.sh --changed" to .pre-commit-config.yaml
+
+
+
+$ node /tmp/forge/dist/forge.js status --json; node /tmp/forge/dist/forge.js status --user --json
+[exit 0]
+{
+  "forge_version": "0.5.0",
+  "level": "project",
+  "base": "/work",
+  "applied": "0.5.0",
+  "packs": [
+    {
+      "id": "github-actions",
+      "why": "detected"
+    },
+    {
+      "id": "python",
+      "why": "detected"
+    },
+    {
+      "id": "python/pydantic",
+      "why": "detected"
+    },
+    {
+      "id": "python/pytest",
+      "why": "detected"
+    },
+    {
+      "id": "python/uv",
+      "why": "detected"
+    }
+  ],
+  "inactive_packs": [],
+  "counts": {
+    "active": 47,
+    "enforced": 21,
+    "not_enforced": 26
+  },
+  "rules": [
+    {
+      "id": "github-actions/zizmor",
+      "enforced": true,
+      "by": [
+        "check lint"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "python/aware-datetime",
+      "enforced": false,
+      "by": [],
+      "not_enforced": [
+        "ruff codes not selected"
+      ]
+    },
+    {
+      "id": "python/config-files",
+      "enforced": true,
+      "by": [
+        "permission ask"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "python/config-ratchet",
+      "enforced": true,
+      "by": [
+        "check lint"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "python/format",
+      "enforced": true,
+      "by": [
+        "check format"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "python/http-timeout",
+      "enforced": false,
+      "by": [],
+      "not_enforced": [
+        "ruff codes not selected"
+      ]
+    },
+    {
+      "id": "python/jinja-autoescape",
+      "enforced": false,
+      "by": [],
+      "not_enforced": [
+        "ruff codes not selected"
+      ]
+    },
+    {
+      "id": "python/lint",
+      "enforced": true,
+      "by": [
+        "check lint"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "python/log-exception",
+      "enforced": false,
+      "by": [],
+      "not_enforced": [
+        "ruff codes not selected"
+      ]
+    },
+    {
+      "id": "python/no-bare-except",
+      "enforced": true,
+      "by": [
+        "ruff E722"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "python/no-blanket-noqa",
+      "enforced": false,
+      "by": [],
+      "not_enforced": [
+        "ruff codes not selected"
+      ]
+    },
+    {
+      "id": "python/no-blind-except",
+      "enforced": false,
+      "by": [],
+      "not_enforced": [
+        "ruff codes not selected"
+      ]
+    },
+    {
+      "id": "python/no-blocking-in-async",
+      "enforced": false,
+      "by": [],
+      "not_enforced": [
+        "ruff codes not selected"
+      ]
+    },
+    {
+      "id": "python/no-commented-out-code",
+      "enforced": false,
+      "by": [],
+      "not_enforced": [
+        "ruff codes not selected"
+      ]
+    },
+    {
+      "id": "python/no-dangling-task",
+      "enforced": false,
+      "by": [],
+      "not_enforced": [
+        "ruff codes not selected"
+      ]
+    },
+    {
+      "id": "python/no-deprecated",
+      "enforced": false,
+      "by": [],
+      "not_enforced": [
+        "basedpyright not configured"
+      ]
+    },
+    {
+      "id": "python/no-explicit-any",
+      "enforced": false,
+      "by": [],
+      "not_enforced": [
+        "ruff codes not selected",
+        "basedpyright not configured"
+      ]
+    },
+    {
+      "id": "python/no-hardcoded-password",
+      "enforced": false,
+      "by": [],
+      "not_enforced": [
+        "ruff codes not selected"
+      ]
+    },
+    {
+      "id": "python/no-new-suppressions",
+      "enforced": true,
+      "by": [
+        "grep"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "python/no-pickle",
+      "enforced": false,
+      "by": [],
+      "not_enforced": [
+        "ruff codes not selected"
+      ]
+    },
+    {
+      "id": "python/no-placeholder-comment",
+      "enforced": true,
+      "by": [
+        "grep"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "python/no-print",
+      "enforced": false,
+      "by": [],
+      "not_enforced": [
+        "ruff codes not selected"
+      ]
+    },
+    {
+      "id": "python/no-shell-true",
+      "enforced": false,
+      "by": [],
+      "not_enforced": [
+        "ruff codes not selected"
+      ]
+    },
+    {
+      "id": "python/no-silent-except",
+      "enforced": false,
+      "by": [],
+      "not_enforced": [
+        "ruff codes not selected"
+      ]
+    },
+    {
+      "id": "python/no-sql-format",
+      "enforced": false,
+      "by": [],
+      "not_enforced": [
+        "ruff codes not selected"
+      ]
+    },
+    {
+      "id": "python/no-stale-ignore",
+      "enforced": false,
+      "by": [],
+      "not_enforced": [
+        "basedpyright not configured"
+      ]
+    },
+    {
+      "id": "python/no-stub",
+      "enforced": true,
+      "by": [
+        "ast-grep forbid"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "python/no-tls-bypass",
+      "enforced": false,
+      "by": [],
+      "not_enforced": [
+        "ruff codes not selected"
+      ]
+    },
+    {
+      "id": "python/no-unknown",
+      "enforced": false,
+      "by": [],
+      "not_enforced": [
+        "basedpyright not configured"
+      ]
+    },
+    {
+      "id": "python/no-unsafe-yaml",
+      "enforced": false,
+      "by": [],
+      "not_enforced": [
+        "ruff codes not selected"
+      ]
+    },
+    {
+      "id": "python/no-unscoped-ignore",
+      "enforced": false,
+      "by": [],
+      "not_enforced": [
+        "ruff codes not selected",
+        "basedpyright not configured"
+      ]
+    },
+    {
+      "id": "python/no-unused-noqa",
+      "enforced": true,
+      "by": [
+        "ruff RUF100"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "python/no-useless-cast",
+      "enforced": false,
+      "by": [],
+      "not_enforced": [
+        "basedpyright not configured"
+      ]
+    },
+    {
+      "id": "python/no-weak-hash",
+      "enforced": false,
+      "by": [],
+      "not_enforced": [
+        "ruff codes not selected"
+      ]
+    },
+    {
+      "id": "python/pydantic/v2-api",
+      "enforced": true,
+      "by": [
+        "ast-grep forbid"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "python/pytest/no-blind-raises",
+      "enforced": false,
+      "by": [],
+      "not_enforced": [
+        "ruff codes not selected"
+      ]
+    },
+    {
+      "id": "python/pytest/no-fewer-asserts",
+      "enforced": true,
+      "by": [
+        "ast-grep no-decrease"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "python/pytest/no-mock-increase",
+      "enforced": true,
+      "by": [
+        "ast-grep no-increase"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "python/pytest/no-new-skip",
+      "enforced": true,
+      "by": [
+        "ast-grep no-increase"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "python/pytest/no-tautological-assert",
+      "enforced": true,
+      "by": [
+        "ast-grep forbid"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "python/pytest/no-test-edits",
+      "enforced": true,
+      "by": [
+        "check lint"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "python/pytest/no-test-env-branch",
+      "enforced": true,
+      "by": [
+        "ast-grep forbid"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "python/pytest/run",
+      "enforced": true,
+      "by": [
+        "check test"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "python/typecheck",
+      "enforced": false,
+      "by": [],
+      "not_enforced": [
+        "basedpyright not configured"
+      ]
+    },
+    {
+      "id": "python/uv/exclude-newer",
+      "enforced": true,
+      "by": [
+        "check lint"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "python/uv/lock-sync",
+      "enforced": true,
+      "by": [
+        "check lint"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "python/uv/no-pip",
+      "enforced": true,
+      "by": [
+        "guard ask"
+      ],
+      "not_enforced": []
+    }
+  ],
+  "disabled": [],
+  "deprecated": [],
+  "audits": [
+    {
+      "rule": "python/aware-datetime",
+      "tool": "ruff",
+      "expects": "DTZ005",
+      "status": "unsatisfied",
+      "detail": "DTZ005 not reported for: from datetime import datetime",
+      "snippet": "[tool.ruff.lint] extend-select = [\"DTZ005\"]"
+    },
+    {
+      "rule": "python/http-timeout",
+      "tool": "ruff",
+      "expects": "S113",
+      "status": "unsatisfied",
+      "detail": "S113 not reported for: import requests",
+      "snippet": "[tool.ruff.lint] extend-select = [\"S113\"]"
+    },
+    {
+      "rule": "python/jinja-autoescape",
+      "tool": "ruff",
+      "expects": "S701",
+      "status": "unsatisfied",
+      "detail": "S701 not reported for: from jinja2 import Environment",
+      "snippet": "[tool.ruff.lint] extend-select = [\"S701\"]"
+    },
+    {
+      "rule": "python/log-exception",
+      "tool": "ruff",
+      "expects": "TRY400",
+      "status": "unsatisfied",
+      "detail": "TRY400 not reported for: import logging",
+      "snippet": "[tool.ruff.lint] extend-select = [\"TRY400\"]"
+    },
+    {
+      "rule": "python/no-bare-except",
+      "tool": "ruff",
+      "expects": "E722",
+      "status": "satisfied"
+    },
+    {
+      "rule": "python/no-blanket-noqa",
+      "tool": "ruff",
+      "expects": "PGH004",
+      "status": "unsatisfied",
+      "detail": "PGH004 not reported for: import os  # noqa",
+      "snippet": "[tool.ruff.lint] extend-select = [\"PGH004\"]"
+    },
+    {
+      "rule": "python/no-blind-except",
+      "tool": "ruff",
+      "expects": "BLE001",
+      "status": "unsatisfied",
+      "detail": "BLE001 not reported for: def load() -> dict[str, str]:",
+      "snippet": "[tool.ruff.lint] extend-select = [\"BLE001\"]"
+    },
+    {
+      "rule": "python/no-blocking-in-async",
+      "tool": "ruff",
+      "expects": "ASYNC210",
+      "status": "unsatisfied",
+      "detail": "ASYNC210 not reported for: import time",
+      "snippet": "[tool.ruff.lint] extend-select = [\"ASYNC\"]"
+    },
+    {
+      "rule": "python/no-blocking-in-async",
+      "tool": "ruff",
+      "expects": "ASYNC230",
+      "status": "unsatisfied",
+      "detail": "ASYNC230 not reported for: import time",
+      "snippet": "[tool.ruff.lint] extend-select = [\"ASYNC\"]"
+    },
+    {
+      "rule": "python/no-blocking-in-async",
+      "tool": "ruff",
+      "expects": "ASYNC251",
+      "status": "unsatisfied",
+      "detail": "ASYNC251 not reported for: import time",
+      "snippet": "[tool.ruff.lint] extend-select = [\"ASYNC\"]"
+    },
+    {
+      "rule": "python/no-commented-out-code",
+      "tool": "ruff",
+      "expects": "ERA001",
+      "status": "unsatisfied",
+      "detail": "ERA001 not reported for: # total = compute(items)",
+      "snippet": "[tool.ruff.lint] extend-select = [\"ERA001\"]"
+    },
+    {
+      "rule": "python/no-dangling-task",
+      "tool": "ruff",
+      "expects": "RUF006",
+      "status": "unsatisfied",
+      "detail": "RUF006 not reported for: import asyncio",
+      "snippet": "[tool.ruff.lint] extend-select = [\"RUF006\"]"
+    },
+    {
+      "rule": "python/no-explicit-any",
+      "tool": "ruff",
+      "expects": "ANN401",
+      "status": "unsatisfied",
+      "detail": "ANN401 not reported for: from typing import Any",
+      "snippet": "[tool.ruff.lint] extend-select = [\"ANN401\"]"
+    },
+    {
+      "rule": "python/no-hardcoded-password",
+      "tool": "ruff",
+      "expects": "S105",
+      "status": "unsatisfied",
+      "detail": "S105 not reported for: PASSWORD = \"hunter2\"",
+      "snippet": "[tool.ruff.lint] extend-select = [\"S105\", \"S106\"]\n[tool.ruff.lint.per-file-ignores] \"tests/**\" = [\"S105\", \"S106\"]"
+    },
+    {
+      "rule": "python/no-hardcoded-password",
+      "tool": "ruff",
+      "expects": "S106",
+      "status": "unsatisfied",
+      "detail": "S106 not reported for: PASSWORD = \"hunter2\"",
+      "snippet": "[tool.ruff.lint] extend-select = [\"S105\", \"S106\"]\n[tool.ruff.lint.per-file-ignores] \"tests/**\" = [\"S105\", \"S106\"]"
+    },
+    {
+      "rule": "python/no-pickle",
+      "tool": "ruff",
+      "expects": "S301",
+      "status": "unsatisfied",
+      "detail": "S301 not reported for: import pickle",
+      "snippet": "[tool.ruff.lint] extend-select = [\"S301\"]"
+    },
+    {
+      "rule": "python/no-print",
+      "tool": "ruff",
+      "expects": "T201",
+      "status": "unsatisfied",
+      "detail": "T201 not reported for: def handle() -> None:",
+      "snippet": "[tool.ruff.lint] extend-select = [\"T201\"]\n[tool.ruff.lint.per-file-ignores] \"scripts/**\" = [\"T201\"]  # and your CLI entry points"
+    },
+    {
+      "rule": "python/no-shell-true",
+      "tool": "ruff",
+      "expects": "S602",
+      "status": "unsatisfied",
+      "detail": "S602 not reported for: import subprocess",
+      "snippet": "[tool.ruff.lint] extend-select = [\"S602\"]"
+    },
+    {
+      "rule": "python/no-silent-except",
+      "tool": "ruff",
+      "expects": "S110",
+      "status": "unsatisfied",
+      "detail": "S110 not reported for: def run(jobs: list[str]) -> None:",
+      "snippet": "[tool.ruff.lint] extend-select = [\"S110\", \"S112\"]"
+    },
+    {
+      "rule": "python/no-silent-except",
+      "tool": "ruff",
+      "expects": "S112",
+      "status": "unsatisfied",
+      "detail": "S112 not reported for: def run(jobs: list[str]) -> None:",
+      "snippet": "[tool.ruff.lint] extend-select = [\"S110\", \"S112\"]"
+    },
+    {
+      "rule": "python/no-sql-format",
+      "tool": "ruff",
+      "expects": "S608",
+      "status": "unsatisfied",
+      "detail": "S608 not reported for: def find(name: str) -> str:",
+      "snippet": "[tool.ruff.lint] extend-select = [\"S608\"]"
+    },
+    {
+      "rule": "python/no-tls-bypass",
+      "tool": "ruff",
+      "expects": "S501",
+      "status": "unsatisfied",
+      "detail": "S501 not reported for: import httpx",
+      "snippet": "[tool.ruff.lint] extend-select = [\"S501\"]"
+    },
+    {
+      "rule": "python/no-unsafe-yaml",
+      "tool": "ruff",
+      "expects": "S506",
+      "status": "unsatisfied",
+      "detail": "S506 not reported for: import yaml",
+      "snippet": "[tool.ruff.lint] extend-select = [\"S506\"]"
+    },
+    {
+      "rule": "python/no-unscoped-ignore",
+      "tool": "ruff",
+      "expects": "PGH003",
+      "status": "unsatisfied",
+      "detail": "PGH003 not reported for: x = int(\"1\")  # pyright: ignore",
+      "snippet": "[tool.ruff.lint] extend-select = [\"PGH003\"]"
+    },
+    {
+      "rule": "python/no-unused-noqa",
+      "tool": "ruff",
+      "expects": "RUF100",
+      "status": "satisfied"
+    },
+    {
+      "rule": "python/no-weak-hash",
+      "tool": "ruff",
+      "expects": "S324",
+      "status": "unsatisfied",
+      "detail": "S324 not reported for: import hashlib",
+      "snippet": "[tool.ruff.lint] extend-select = [\"S324\"]"
+    },
+    {
+      "rule": "python/pytest/no-blind-raises",
+      "tool": "ruff",
+      "expects": "B017",
+      "status": "unsatisfied",
+      "detail": "B017 not reported for: import pytest",
+      "snippet": "[tool.ruff.lint] extend-select = [\"B017\"]"
+    }
+  ],
+  "missing_tools": [],
+  "drift": [],
+  "warnings": []
+}
+{
+  "forge_version": "0.5.0",
+  "level": "user",
+  "base": "/home/dev",
+  "applied": "0.5.0",
+  "packs": [
+    {
+      "id": "safety",
+      "why": "user level"
+    }
+  ],
+  "inactive_packs": [],
+  "counts": {
+    "active": 24,
+    "enforced": 24,
+    "not_enforced": 0
+  },
+  "rules": [
+    {
+      "id": "safety/docker-privileged",
+      "enforced": true,
+      "by": [
+        "guard deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/docker-push",
+      "enforced": true,
+      "by": [
+        "guard ask"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/docker-volumes",
+      "enforced": true,
+      "by": [
+        "guard deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/dropdb",
+      "enforced": true,
+      "by": [
+        "permission deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/ephemeral-exec",
+      "enforced": true,
+      "by": [
+        "guard ask"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/git-branch-force-delete",
+      "enforced": true,
+      "by": [
+        "guard ask"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/git-clean",
+      "enforced": true,
+      "by": [
+        "permission deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/git-discard",
+      "enforced": true,
+      "by": [
+        "guard deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/git-force-push",
+      "enforced": true,
+      "by": [
+        "guard deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/git-force-with-lease",
+      "enforced": true,
+      "by": [
+        "guard ask"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/git-history-rewrite",
+      "enforced": true,
+      "by": [
+        "permission deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/git-no-verify",
+      "enforced": true,
+      "by": [
+        "guard deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/git-reset-hard",
+      "enforced": true,
+      "by": [
+        "permission deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/git-stash-drop",
+      "enforced": true,
+      "by": [
+        "guard ask"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/package-add",
+      "enforced": true,
+      "by": [
+        "permission ask"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/prisma-ai-consent",
+      "enforced": true,
+      "by": [
+        "guard deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/publish",
+      "enforced": true,
+      "by": [
+        "permission deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/remote-script",
+      "enforced": true,
+      "by": [
+        "guard deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/rm-root",
+      "enforced": true,
+      "by": [
+        "guard deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/sandbox",
+      "enforced": true,
+      "by": [
+        "sandbox"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/secret-files",
+      "enforced": true,
+      "by": [
+        "permission deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/secret-read-bash",
+      "enforced": true,
+      "by": [
+        "guard deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/sql-destructive",
+      "enforced": true,
+      "by": [
+        "guard deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/terraform-destroy",
+      "enforced": true,
+      "by": [
+        "guard ask"
+      ],
+      "not_enforced": []
+    }
+  ],
+  "disabled": [],
+  "deprecated": [],
+  "audits": [],
+  "missing_tools": [],
+  "drift": [],
+  "warnings": []
+}
+
+
+
+$ git add .forge .claude && git commit -m 'Add Forge'
+[exit 0]

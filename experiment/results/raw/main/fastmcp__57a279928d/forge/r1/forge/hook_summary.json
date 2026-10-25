@@ -1,0 +1,65 @@
+{
+ "active": true,
+ "events": {
+  "SessionStart": 2,
+  "UserPromptSubmit": 4,
+  "PreToolUse": 75,
+  "PostToolUseFailure": 2,
+  "PostToolUse": 48,
+  "Stop": 2
+ },
+ "forge_messages": 6,
+ "blocks": 1,
+ "stop_blocks": 1,
+ "feedback": 2,
+ "nonzero_exit": 0,
+ "by_hook": {
+  "SessionStart:startup": {
+   "runs": 2,
+   "nonzero": 0,
+   "forge_msgs": 4
+  },
+  "UserPromptSubmit": {
+   "runs": 4,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PreToolUse:Bash": {
+   "runs": 75,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PostToolUseFailure:Bash": {
+   "runs": 2,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PostToolUse:Bash": {
+   "runs": 48,
+   "nonzero": 0,
+   "forge_msgs": 1
+  },
+  "Stop": {
+   "runs": 2,
+   "nonzero": 0,
+   "forge_msgs": 1
+  }
+ },
+ "samples": [
+  {
+   "hook": "SessionStart:startup",
+   "exit": 0,
+   "out": "forge: branch main, 0 changed files\nforge: last commits\n  74f2db1 Add Forge\n  168ed2b initial\nforge: packs docker, docker/compose, github-actions, python, python/fastapi, python/pydantic, python/pytest, python/uv\nforge: missing tools (checks using them are skipped): docker\n"
+  },
+  {
+   "hook": "PostToolUse:Bash",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"forge:python/lint\\nfastmcp_slim/fastmcp/server/mixins/transport.py:255:24: F821 Undefined name `Sequence`\\nfastmcp_slim/fastmcp/server/mixins/transport.py:256:26: F821 Undefined name `Sequence`\\nfastmcp_slim/fastmcp/server/mixins/transport.py:299:25: F821 Undefined name `_is_unspecified_host`\\nfastmcp_slim/fastmcp/server/mixins/transport.py:354:24: F821 Undefined name `Sequence`\\nfastmcp_slim/fastmcp/server/mixins/transport.py:355:26: F821 Undefined name `Sequence`\"}}\n"
+  },
+  {
+   "hook": "Stop",
+   "exit": 0,
+   "out": "{\"decision\":\"block\",\"reason\":\"forge:python/pytest/no-test-edits failed\\ntests/server/auth/test_enhanced_error_responses.py: test \\\"TestEnhancedRequireAuthMiddleware > test_insufficient_scope_not_enhanced\\\" was changed\\ntests/server/auth/test_enhanced_error_responses.py: test \\\"TestEnhancedRequireAuthMiddleware > test_invalid_token_enhanced_error_message\\\" was changed\\ntests/server/auth/test_enhanced_error_responses.py: test \\\"TestEnhancedRequireAuthMiddleware > test_invalid_token_www_authenticate_header_format\\\" was changed\\ntests/server/auth/test_enhanced_error_responses.py: test \\\"TestEnhanc"
+  }
+ ]
+}

@@ -1,0 +1,13 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 3,
+ "bash_calls": 6,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'EOF'\np='semconv.py'\ns=open(p).read()\ns=s.replace('''class ReasoningPart(TypedDict):''','''class FilePart(TypedDict):\n    \"\"\"Reference to a file uploaded to the provider.\"\"\"\n\n    type: Literal['file']\n    file_id: str\n    media_type: NotRequired[str]\n    modality: NotRequired[Literal['im",
+  "sed -i 's/^from typing import TYPE_CHECKING, Any, cast/from typing import TYPE_CHECKING, Any, Literal, cast/' openai.py && sed -n 23,55p openai.py | grep -n \"ChatMessage\\|BlobPart\"",
+  "sed -i \"s/Literal\\[image, document\\]/Literal['image', 'document']/; s/^    ChatMessage,$/    ChatMessage,\\n    FilePart,/\" openai.py && cd /work && .venv/bin/ruff check logfire && .venv/bin/ruff format logfire && .venv/bin/basedpyright logfire/_internal/integrations/llm_providers 2>&1 | tail -8; .ve"
+ ],
+ "total": 3,
+ "edit_tool_share": 0.0
+}

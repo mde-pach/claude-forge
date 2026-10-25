@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 4,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'E'\nimport re\np='components/execution/lazyOps.ts'\ns=open(p).read()\ns=s.replace('import { type OutgoingOp, StepMode }','import { type OutgoingOp, StepMode, StepOpCode }')\ns=s.replace('''  push(op: OutgoingOp): void {\n''','''  push(op: OutgoingOp): void {\n    // A `DeferAbort` whose `Defer",
+  "python3 - <<'E'\np='src/components/execution/engine.ts'\ns=open(p).read()\ns=s.replace('''_internals.hashId(\n          typeof idOrOptions === \"string\" ? idOrOptions : idOrOptions.id,\n        );''','''_internals.hashId(idOrOptions);''')\nopen(p,'w').write(s)\nE\nnpx tsc --noEmit -p . 2>&1 | grep -v \"src/te"
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

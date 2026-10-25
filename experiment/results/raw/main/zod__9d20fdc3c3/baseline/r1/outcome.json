@@ -1,0 +1,30 @@
+{
+ "resolved": false,
+ "patch_applied": true,
+ "f2p": {
+  "packages/zod/src/v4/classic/tests/preprocess-types.test.ts::ZodPreprocess narrows input from an annotated preprocessor arg": "passed"
+ },
+ "p2p": {
+  "packages/zod/src/v4/classic/tests/preprocess-types.test.ts::ZodPreprocess input/output inference": "failed",
+  "packages/zod/src/v4/classic/tests/preprocess-types.test.ts::ZodPreprocess optin/optout defer to B": "failed",
+  "packages/zod/src/v4/classic/tests/preprocess-types.test.ts::ZodPreprocess<B> assignable to ZodPipe<$ZodTransform, B>": "failed",
+  "packages/zod/src/v4/classic/tests/preprocess-types.test.ts::narrowed ZodPreprocess still assignable to the bare type": "passed"
+ },
+ "f2p_frac": 1.0,
+ "p2p_regressions": 3,
+ "lint_new": 0,
+ "diff_lines": 171,
+ "changed_files": [
+  "packages/zod/src/v4/classic/schemas.ts",
+  "packages/zod/src/v4/classic/tests/preprocess.test.ts",
+  "packages/zod/src/v4/core/schemas.ts"
+ ],
+ "all_results": {
+  "packages/zod/src/v4/classic/tests/preprocess-types.test.ts::src/v4/classic/tests/preprocess-types.test.ts": "failed",
+  "packages/zod/src/v4/classic/tests/preprocess-types.test.ts::ZodPreprocess<B> assignable to ZodPipe<$ZodTransform, B>": "failed",
+  "packages/zod/src/v4/classic/tests/preprocess-types.test.ts::ZodPreprocess optin/optout defer to B": "failed",
+  "packages/zod/src/v4/classic/tests/preprocess-types.test.ts::ZodPreprocess input/output inference": "failed",
+  "packages/zod/src/v4/classic/tests/preprocess-types.test.ts::ZodPreprocess narrows input from an annotated preprocessor arg": "passed",
+  "packages/zod/src/v4/classic/tests/preprocess-types.test.ts::narrowed ZodPreprocess still assignable to the bare type": "passed"
+ }
+}

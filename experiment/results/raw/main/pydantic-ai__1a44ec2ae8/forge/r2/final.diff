@@ -1,0 +1,160 @@
+diff --git a/pydantic_ai_slim/pydantic_ai/ui/ag_ui/_adapter.py b/pydantic_ai_slim/pydantic_ai/ui/ag_ui/_adapter.py
+index 2affb9c..073502e 100644
+--- a/pydantic_ai_slim/pydantic_ai/ui/ag_ui/_adapter.py
++++ b/pydantic_ai_slim/pydantic_ai/ui/ag_ui/_adapter.py
+@@ -163,6 +163,23 @@ class _AGUIFrontendToolset(ExternalToolset[AgentDepsT]):
+         return 'the AG-UI frontend tools'  # pragma: no cover
+ 
+ 
++def _uploaded_file_activity(item: UploadedFile) -> ActivityMessage:
++    """Represent an `UploadedFile` as an `ActivityMessage`.
++
++    AG-UI has no native uploaded-file message type. We repurpose ActivityMessage with a reserved
++    `pydantic_ai_*` activity_type for round-trip fidelity. See UploadedFileActivityContent.
++    """
++    uploaded_content: dict[str, Any] = {
++        'file_id': item.file_id,
++        'provider_name': item.provider_name,
++        'media_type': item.media_type,
++        'identifier': item.identifier,
++    }
++    if item.vendor_metadata is not None:
++        uploaded_content['vendor_metadata'] = item.vendor_metadata
++    return ActivityMessage(id=_new_message_id(), activity_type=UPLOADED_FILE_ACTIVITY_TYPE, content=uploaded_content)
++
++
+ def _new_message_id() -> str:
+     """Generate a new unique message ID."""
+     return str(uuid.uuid4())
+@@ -549,6 +566,17 @@ class AGUIAdapter(UIAdapter[RunAgentInput, Message, BaseEvent, AgentDepsT, Outpu
+             | DocumentInputContent
+         ] = []
+ 
++        def flush_user() -> None:
++            # Emit pending user content at its original position, ending the current group.
++            if not user_content:
++                return
++            # Simplify to plain string if only single text item
++            if len(user_content) == 1 and isinstance(user_content[0], TextInputContent):
++                result.append(UserMessage(id=_new_message_id(), content=user_content[0].text))
++            else:
++                result.append(UserMessage(id=_new_message_id(), content=list(user_content)))
++            user_content.clear()
++
+         for part in msg.parts:
+             if isinstance(part, SystemPromptPart):
+                 system_content.append(part.content)
+@@ -558,29 +586,14 @@ class AGUIAdapter(UIAdapter[RunAgentInput, Message, BaseEvent, AgentDepsT, Outpu
+                 else:
+                     for item in part.content:
+                         if isinstance(item, UploadedFile) and preserve_file_data:
+-                            # AG-UI has no native uploaded-file message type. We repurpose
+-                            # ActivityMessage with a reserved `pydantic_ai_*` activity_type
+-                            # for round-trip fidelity. See UploadedFileActivityContent.
+-                            uploaded_content: dict[str, Any] = {
+-                                'file_id': item.file_id,
+-                                'provider_name': item.provider_name,
+-                                'media_type': item.media_type,
+-                                'identifier': item.identifier,
+-                            }
+-                            if item.vendor_metadata is not None:
+-                                uploaded_content['vendor_metadata'] = item.vendor_metadata
+-                            result.append(
+-                                ActivityMessage(
+-                                    id=_new_message_id(),
+-                                    activity_type=UPLOADED_FILE_ACTIVITY_TYPE,
+-                                    content=uploaded_content,
+-                                )
+-                            )
++                            flush_user()
++                            result.append(_uploaded_file_activity(item))
+                         else:
+                             converted = _user_content_to_input(item, use_multimodal=use_multimodal)
+                             if converted is not None:
+                                 user_content.append(converted)
+             elif isinstance(part, ToolReturnPart):
++                flush_user()
+                 result.append(
+                     ToolMessage(
+                         id=_new_message_id(),
+@@ -590,6 +603,7 @@ class AGUIAdapter(UIAdapter[RunAgentInput, Message, BaseEvent, AgentDepsT, Outpu
+                 )
+             elif isinstance(part, RetryPromptPart):
+                 if part.tool_name:
++                    flush_user()
+                     result.append(
+                         ToolMessage(
+                             id=_new_message_id(),
+@@ -603,17 +617,10 @@ class AGUIAdapter(UIAdapter[RunAgentInput, Message, BaseEvent, AgentDepsT, Outpu
+             else:
+                 assert_never(part)
+ 
+-        messages: list[Message] = []
++        flush_user()
+         if system_content:
+-            messages.append(SystemMessage(id=_new_message_id(), content='\n'.join(system_content)))
+-        if user_content:
+-            # Simplify to plain string if only single text item
+-            if len(user_content) == 1 and isinstance(user_content[0], TextInputContent):
+-                messages.append(UserMessage(id=_new_message_id(), content=user_content[0].text))
+-            else:
+-                messages.append(UserMessage(id=_new_message_id(), content=user_content))
+-        messages.extend(result)
+-        return messages
++            result.insert(0, SystemMessage(id=_new_message_id(), content='\n'.join(system_content)))
++        return result
+ 
+     @staticmethod
+     def _dump_response_parts(  # noqa: C901
+diff --git a/tests/test_ag_ui.py b/tests/test_ag_ui.py
+index 54215de..45b6ff2 100644
+--- a/tests/test_ag_ui.py
++++ b/tests/test_ag_ui.py
+@@ -5368,3 +5368,47 @@ async def test_interrupt_resume_roundtrip_executes_approved_tool() -> None:
+ 
+ 
+ # endregion
++
++
++def test_dump_messages_preserves_request_part_order():
++    messages: list[ModelMessage] = [
++        ModelResponse(parts=[ToolCallPart('my_tool', {}, tool_call_id='call_1')]),
++        ModelRequest(
++            parts=[
++                UserPromptPart('Before the tool return.'),
++                ToolReturnPart('my_tool', 'suggested', tool_call_id='call_1'),
++                UserPromptPart('After the tool return.'),
++            ]
++        ),
++    ]
++    dumped = AGUIAdapter.dump_messages(messages)
++    assert [type(m).__name__ for m in dumped] == snapshot(
++        ['AssistantMessage', 'UserMessage', 'ToolMessage', 'UserMessage']
++    )
++    assert [getattr(m, 'content', None) for m in dumped[1:]] == [
++        'Before the tool return.',
++        'suggested',
++        'After the tool return.',
++    ]
++    assert getattr(dumped[2], 'tool_call_id') == 'call_1'
++
++
++def test_dump_messages_preserves_order_around_uploaded_file():
++    messages: list[ModelMessage] = [
++        ModelRequest(
++            parts=[
++                UserPromptPart(
++                    [
++                        'Before the file.',
++                        UploadedFile(file_id='file-abc123', provider_name='anthropic'),
++                        'After the file.',
++                    ]
++                )
++            ]
++        )
++    ]
++    dumped = AGUIAdapter.dump_messages(messages, preserve_file_data=True)
++    assert [type(m).__name__ for m in dumped] == ['UserMessage', 'ActivityMessage', 'UserMessage']
++    assert getattr(dumped[0], 'content') == 'Before the file.'
++    assert getattr(dumped[1], 'content')['file_id'] == 'file-abc123'
++    assert getattr(dumped[2], 'content') == 'After the file.'

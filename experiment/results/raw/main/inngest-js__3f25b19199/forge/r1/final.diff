@@ -1,0 +1,184 @@
+diff --git a/.changeset/round-up-subsecond-waits.md b/.changeset/round-up-subsecond-waits.md
+new file mode 100644
+index 0000000..8a99d47
+--- /dev/null
++++ b/.changeset/round-up-subsecond-waits.md
+@@ -0,0 +1,5 @@
++---
++"inngest": patch
++---
++
++Round durable-wait durations under 1s up to `1s` instead of silently serializing them as an empty (zero-length) wait, and warn once per process when this happens.
+diff --git a/packages/inngest/src/components/InngestFunction.ts b/packages/inngest/src/components/InngestFunction.ts
+index 3b6e803..b9d15b4 100644
+--- a/packages/inngest/src/components/InngestFunction.ts
++++ b/packages/inngest/src/components/InngestFunction.ts
+@@ -208,7 +208,7 @@ export class InngestFunction<
+         };
+ 
+         if (timeout) {
+-          ret.timeout = timeStr(timeout);
++          ret.timeout = timeStr(timeout, this.client[internalLoggerSymbol]);
+         }
+ 
+         if (match) {
+diff --git a/packages/inngest/src/components/InngestStepTools.ts b/packages/inngest/src/components/InngestStepTools.ts
+index 7d41a17..7c4347f 100644
+--- a/packages/inngest/src/components/InngestStepTools.ts
++++ b/packages/inngest/src/components/InngestStepTools.ts
+@@ -532,7 +532,7 @@ export const createStepTools = <
+         displayName: name ?? id,
+         opts: {
+           signal: opts.signal,
+-          timeout: timeStr(opts.timeout),
++          timeout: timeStr(opts.timeout, client[internalLoggerSymbol]),
+           conflict: opts.onConflict,
+         },
+         userland: { id },
+@@ -695,7 +695,10 @@ export const createStepTools = <
+         opts,
+       ) => {
+         const matchOpts: { timeout: string; if?: string } = {
+-          timeout: timeStr(typeof opts === "string" ? opts : opts.timeout),
++          timeout: timeStr(
++            typeof opts === "string" ? opts : opts.timeout,
++            client[internalLoggerSymbol],
++          ),
+         };
+ 
+         if (typeof opts !== "string") {
+@@ -804,6 +807,9 @@ export const createStepTools = <
+      * The time to wait can be specified using a `number` of milliseconds or an
+      * `ms`-compatible time string like `"1 hour"`, `"30 mins"`, or `"2.5d"`.
+      *
++     * Durations under 1 second round up to `1s`, the minimum resolution of a
++     * durable wait.
++     *
+      * {@link https://npm.im/ms}
+      *
+      * To wait until a particular date, use `sleepUntil` instead.
+@@ -822,7 +828,7 @@ export const createStepTools = <
+        * The presence of this operation in the returned stack indicates that the
+        * sleep is over and we should continue execution.
+        */
+-      const msTimeStr: string = timeStr(time);
++      const msTimeStr: string = timeStr(time, client[internalLoggerSymbol]);
+ 
+       return {
+         id,
+@@ -956,7 +962,10 @@ export const createStepTools = <
+       } = {
+         payload,
+         function_id: "",
+-        timeout: typeof timeout === "undefined" ? undefined : timeStr(timeout),
++        timeout:
++          typeof timeout === "undefined"
++            ? undefined
++            : timeStr(timeout, client[internalLoggerSymbol]),
+       };
+ 
+       switch (_type) {
+@@ -1222,6 +1231,9 @@ type InvocationOpts<TFunction extends InvokeTargetFunctionDefinition> =
+        * a `Date`, a `Temporal.Duration` (relative wait), or a `Temporal.Instant`
+        * / `Temporal.ZonedDateTime` (absolute deadline).
+        *
++       * Durations under 1 second round up to `1s`, the minimum resolution of a
++       * durable wait.
++       *
+        * {@link https://npm.im/ms}
+        */
+       timeout?:
+@@ -1267,6 +1279,9 @@ type WaitForSignalOpts = {
+    * `Date`, a `Temporal.Duration` (relative wait), or a `Temporal.Instant` /
+    * `Temporal.ZonedDateTime` (absolute deadline).
+    *
++   * Durations under 1 second round up to `1s`, the minimum resolution of a
++   * durable wait.
++   *
+    * {@link https://npm.im/ms}
+    */
+   timeout:
+diff --git a/packages/inngest/src/components/middleware/manager.ts b/packages/inngest/src/components/middleware/manager.ts
+index 4f526c7..7bc22be 100644
+--- a/packages/inngest/src/components/middleware/manager.ts
++++ b/packages/inngest/src/components/middleware/manager.ts
+@@ -151,7 +151,7 @@ export class MiddlewareManager {
+           "Sleep time must be a string, number, Date, or Temporal.Duration",
+         );
+       }
+-      opName = timeStr(stepInfo.input[0]);
++      opName = timeStr(stepInfo.input[0], this.internalLogger);
+     }
+ 
+     // Reverse the input→opts mapping for step kinds where the whole opts
+diff --git a/packages/inngest/src/helpers/strings.ts b/packages/inngest/src/helpers/strings.ts
+index 8d38e5a..a5c8cf8 100644
+--- a/packages/inngest/src/helpers/strings.ts
++++ b/packages/inngest/src/helpers/strings.ts
+@@ -2,6 +2,7 @@ import hashjs from "hash.js";
+ import { default as safeStringify } from "json-stringify-safe";
+ import ms from "ms";
+ import { Temporal } from "temporal-polyfill";
++import type { Logger } from "../middleware/logger.ts";
+ import type { TimeStr } from "../types.ts";
+ import {
+   type DurationLike,
+@@ -86,9 +87,14 @@ const periods = [
+   ["s", second],
+ ] as const;
+ 
++let hasWarnedSubSecond = false;
++
+ /**
+  * Convert a given `Date`, `number`, or `ms`-compatible `string` to a
+  * Inngest sleep-compatible time string (e.g. `"1d"` or `"2h3010s"`).
++ *
++ * Durations under 1s round up to `"1s"`, the minimum resolution of a durable
++ * wait; longer durations round down to whole seconds.
+  */
+ export const timeStr = (
+   /**
+@@ -101,6 +107,11 @@ export const timeStr = (
+     | DurationLike
+     | InstantLike
+     | ZonedDateTimeLike,
++  /**
++   * Optional logger used to warn (once per process) when a sub-second
++   * duration is rounded up to 1s.
++   */
++  logger?: Logger,
+ ): string => {
+   if (input instanceof Date) {
+     return input.toISOString();
+@@ -128,6 +139,17 @@ export const timeStr = (
+     milliseconds = input as number;
+   }
+ 
++  if (milliseconds > 0 && milliseconds < second) {
++    if (logger && !hasWarnedSubSecond) {
++      hasWarnedSubSecond = true;
++      logger.warn(
++        { requestedMs: milliseconds },
++        "Durable waits have a minimum resolution of 1s; durations under 1s round up to 1s",
++      );
++    }
++    milliseconds = second;
++  }
++
+   const [, timeStr] = periods.reduce<[number, string]>(
+     ([num, str], [suffix, period]) => {
+       const numPeriods = Math.floor(num / period);
+diff --git a/packages/inngest/src/types.ts b/packages/inngest/src/types.ts
+index 77a5b53..03b51d8 100644
+--- a/packages/inngest/src/types.ts
++++ b/packages/inngest/src/types.ts
+@@ -1495,6 +1495,9 @@ export type Cancellation = {
+    * `Date`, a `Temporal.Duration` (relative wait), or a `Temporal.Instant` /
+    * `Temporal.ZonedDateTime` (absolute deadline).
+    *
++   * Durations under 1 second round up to `1s`, the minimum resolution of a
++   * durable wait.
++   *
+    * {@link https://npm.im/ms}
+    */
+   timeout?:

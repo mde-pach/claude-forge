@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 6,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/packages/zod/src && sed -i 's/\\^(\\\\\\\\p{Extended_Pictographic}|\\\\\\\\p{Emoji_Component})+\\$/^[\\\\\\\\p{Extended_Pictographic}\\\\\\\\p{Emoji_Component}]+$/' v4/core/regexes.ts v3/types.ts v4/classic/tests/to-json-schema.test.ts v4/classic/tests/continuability.test.ts && grep -rn \"Emoji_Component\" . ;",
+  "cat > classic/tests/regexes.test.ts <<'EOF'\nimport { check } from \"recheck\";\nimport { expect, test } from \"vitest\";\nimport * as z from \"zod/v4\";\n\nconst { regexes } = z.core;\n\nconst candidates: [string, RegExp][] = [];\nfor (const [name, value] of Object.entries(regexes)) {\n  if (value instanceof RegE"
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

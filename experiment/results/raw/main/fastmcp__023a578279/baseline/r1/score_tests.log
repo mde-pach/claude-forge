@@ -1,0 +1,5 @@
+$ pytest -p no:cacheprovider -o junit_family=xunit1 --junitxml=/tmp/forge-junit-f1fb6da1ac5c.xml --continue-on-collection-errors -q --no-header -rN --inline-snapshot=disable --timeout=60 -m "not integration and not conformance" tests/server/test_dependencies.py
+..............................................................           [100%]
+62 passed in 3.36s
+
+[exit 0 in 11s]

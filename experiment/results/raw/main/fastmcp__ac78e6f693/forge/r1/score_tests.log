@@ -1,0 +1,12 @@
+$ pytest -p no:cacheprovider -o junit_family=xunit1 --junitxml=/tmp/forge-junit-99daf446dc76.xml --continue-on-collection-errors -q --no-header -rN --inline-snapshot=disable --timeout=60 -m "not integration and not conformance" tests/server/telemetry/test_server_tracing.py tests/test_exceptions.py
+.............................                                            [100%]
+=============================== warnings summary ===============================
+tests/server/telemetry/test_server_tracing.py::TestSeamServerSpan::test_set_logging_level_emits_seam_span
+tests/server/telemetry/test_server_tracing.py::TestSeamServerSpan::test_seam_method_emits_single_server_span
+  /work/fastmcp_slim/fastmcp/client/client.py:876: MCPDeprecationWarning: The logging capability is deprecated as of 2026-07-28 (SEP-2577).
+    self.session.set_logging_level(level)  # ty: ignore[deprecated]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+29 passed, 2 warnings in 3.09s
+
+[exit 0 in 11s]

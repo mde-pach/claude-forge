@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 5,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "sed -i 's/(\\\\\\\\p{Extended_Pictographic}|\\\\\\\\p{Emoji_Component})+/[\\\\\\\\p{Extended_Pictographic}\\\\\\\\p{Emoji_Component}]+/' v4/core/regexes.ts v3/types.ts v4/classic/tests/continuability.test.ts v4/classic/tests/to-json-schema.test.ts && grep -rn \"Emoji_Component\" . ; sed -n 55,65p v4/core/regexes.ts",
+  "sed -n 618,626p v3/types.ts; grep -n \"_emojiRegex\" v3/types.ts; mkdir -p /tmp/chk && cat > /tmp/chk/c.test.ts <<'EOF'\nimport { check } from \"recheck\";\nimport { test, expect } from \"vitest\";\nimport * as r from \"/work/packages/zod/src/v4/core/regexes.js\";\ntest(\"safe\", async () => {\n  const pats: RegEx"
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

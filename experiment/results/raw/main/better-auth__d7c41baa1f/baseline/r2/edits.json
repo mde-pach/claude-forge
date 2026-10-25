@@ -1,0 +1,13 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 3,
+ "bash_calls": 11,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/packages/electron/src; python3 - <<'E'\ns=open('routes.ts').read()\ns=s.replace('let setCookie: string | null = null;','let setCookies: string[] = [];')\ns=s.replace('setCookie = headers.get(\"set-cookie\") ?? null;','setCookies = headers.getSetCookie();')\ns=s.replace('''\t\t\tif (setCookie) {\n\t\t\t\t",
+  "cd /work/packages/electron; sed -i 's/ctx.context.responseHeaders?.append/ctx.responseHeaders.append/' src/routes.ts; npx tsc --noEmit -p . 2>&1 | cut -c1-300 | head -5; npx vitest run test/electron.test.ts 2>&1 | grep -E \"Tests|fail\"",
+  "cd /work/packages/electron/test; python3 - <<'E'\ns=open('electron.test.ts').read()\nt='''\tit(\"should forward each inner Set-Cookie header separately\", async () => {\n\t\tconst headers = new Headers({ \"content-type\": \"application/json\" });\n\t\theaders.append(\"set-cookie\", \"first.cookie=one; Path=/; HttpOnl"
+ ],
+ "total": 3,
+ "edit_tool_share": 0.0
+}

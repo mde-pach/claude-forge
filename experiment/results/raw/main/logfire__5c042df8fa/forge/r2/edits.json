@@ -1,0 +1,14 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 4,
+ "bash_calls": 8,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'E'\nimport re\nc=open('config.py').read()\nc=c.replace(\"        self._variable_provider: VariableProvider = NoOpVariableProvider()\\n\",\"        self._variable_provider: VariableProvider = NoOpVariableProvider()\\n        # Registry of managed variables, shared by all Logfire instances using ",
+  "sed -n 2785,2790p main.py; sed -n 2894,2899p main.py; cd /work && .venv/bin/ruff format logfire >/dev/null; .venv/bin/basedpyright logfire/_internal/main.py logfire/_internal/config.py 2>&1 | tail -5\ncat > $TMPDIR/t.py <<'E'\nimport logfire\nlogfire.configure(send_to_logfire=False)\nl2=logfire.with_set",
+  "python3 - <<'E'\np='logfire/_internal/main.py'\nm=open(p).read()\nfor v in ('pushed','validated'):\n    m=m.replace(f\"all variables\\n                registered with this Logfire instance will be {v}.\",f\"all variables\\n                registered with this instance's config, including `with_settings()` si",
+  "sed -i 's/self\\._variables: dict\\[str, Variable\\[Any\\] | TemplateVariable\\[Any, Any\\]\\] = {}/self.registered_variables: dict[str, Variable[Any] | TemplateVariable[Any, Any]] = {}/' logfire/_internal/config.py && sed -i 's/return self\\._config\\._variables  # pyright: ignore\\[reportPrivateUsage\\]/retu"
+ ],
+ "total": 4,
+ "edit_tool_share": 0.0
+}

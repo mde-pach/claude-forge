@@ -1,0 +1,338 @@
+$ node /tmp/forge/dist/forge.js apply --user --yes
+[exit 0]
+--- .claude/settings.json
++++ .claude/settings.json
++{
++  "permissions": {
++    "deny": [
++      "Bash(dropdb:*)",
++      "Bash(git clean:*)",
++      "Bash(git filter-branch:*)",
++      "Bash(git filter-repo:*)",
++      "Bash(git reflog expire:*)",
++      "Bash(git stash clear:*)",
++      "Bash(git reset --hard:*)",
++      "Bash(npm publish:*)",
++      "Bash(bun publish:*)",
++      "Bash(uv publish:*)",
++      "Read(**/.env)",
++      "Read(**/.env.local)",
++      "Read(**/.env.development)",
++      "Read(**/.env.production)",
++      "Read(**/.env.test)",
++      "Edit(**/.env)",
++      "Edit(**/.env.local)",
++      "Edit(**/.env.development)",
++      "Edit(**/.env.production)",
++      "Edit(**/.env.test)",
++      "Read(**/*.pem)",
++      "Read(**/*.key)",
++      "Read(~/.ssh/**)",
++      "Read(~/.netrc)",
++      "Read(~/.npmrc)",
++      "Read(~/.pypirc)",
++      "Read(~/.pgpass)",
++      "Read(~/.git-credentials)",
++      "Read(~/.config/gh/hosts.yml)",
++      "Read(~/.docker/config.json)"
++    ],
++    "ask": [
++      "Bash(bun add:*)",
++      "Bash(uv add:*)",
++      "Edit(~/.claude/skills/forge-user/**)",
++      "Edit(~/.claude/forge.lock.json)"
++    ]
++  },
++  "sandbox": {
++    "enabled": true,
++    "network": {
++      "allowedDomains": [
++        "registry.npmjs.org",
++        "pypi.org",
++        "files.pythonhosted.org",
++        "github.com"
++      ]
++    }
++  }
++}
+forge: applied (7 written, 0 deleted, 1 settings file(s) updated)
+
+
+
+$ node /tmp/forge/dist/forge.js apply --yes
+[exit 0]
+--- .claude/settings.json
++++ .claude/settings.json
++{
++  "permissions": {
++    "ask": [
++      "Edit(.forge/**)",
++      "Edit(forge.yaml)",
++      "Edit(.claude/skills/forge-project/**)",
++      "Edit(.claude/rules/forge-*.md)"
++    ]
++  }
++}
+forge: applied (17 written, 0 deleted, 1 settings file(s) updated)
+
+
+
+$ node /tmp/forge/dist/forge.js status --json; node /tmp/forge/dist/forge.js status --user --json
+[exit 0]
+{
+  "forge_version": "0.5.0",
+  "level": "project",
+  "base": "/work",
+  "applied": "0.5.0",
+  "packs": [
+    {
+      "id": "github-actions",
+      "why": "detected"
+    }
+  ],
+  "inactive_packs": [],
+  "counts": {
+    "active": 1,
+    "enforced": 1,
+    "not_enforced": 0
+  },
+  "rules": [
+    {
+      "id": "github-actions/zizmor",
+      "enforced": true,
+      "by": [
+        "check lint"
+      ],
+      "not_enforced": []
+    }
+  ],
+  "disabled": [],
+  "deprecated": [],
+  "audits": [],
+  "missing_tools": [],
+  "drift": [],
+  "warnings": []
+}
+{
+  "forge_version": "0.5.0",
+  "level": "user",
+  "base": "/home/dev",
+  "applied": "0.5.0",
+  "packs": [
+    {
+      "id": "safety",
+      "why": "user level"
+    }
+  ],
+  "inactive_packs": [],
+  "counts": {
+    "active": 24,
+    "enforced": 24,
+    "not_enforced": 0
+  },
+  "rules": [
+    {
+      "id": "safety/docker-privileged",
+      "enforced": true,
+      "by": [
+        "guard deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/docker-push",
+      "enforced": true,
+      "by": [
+        "guard ask"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/docker-volumes",
+      "enforced": true,
+      "by": [
+        "guard deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/dropdb",
+      "enforced": true,
+      "by": [
+        "permission deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/ephemeral-exec",
+      "enforced": true,
+      "by": [
+        "guard ask"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/git-branch-force-delete",
+      "enforced": true,
+      "by": [
+        "guard ask"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/git-clean",
+      "enforced": true,
+      "by": [
+        "permission deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/git-discard",
+      "enforced": true,
+      "by": [
+        "guard deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/git-force-push",
+      "enforced": true,
+      "by": [
+        "guard deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/git-force-with-lease",
+      "enforced": true,
+      "by": [
+        "guard ask"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/git-history-rewrite",
+      "enforced": true,
+      "by": [
+        "permission deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/git-no-verify",
+      "enforced": true,
+      "by": [
+        "guard deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/git-reset-hard",
+      "enforced": true,
+      "by": [
+        "permission deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/git-stash-drop",
+      "enforced": true,
+      "by": [
+        "guard ask"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/package-add",
+      "enforced": true,
+      "by": [
+        "permission ask"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/prisma-ai-consent",
+      "enforced": true,
+      "by": [
+        "guard deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/publish",
+      "enforced": true,
+      "by": [
+        "permission deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/remote-script",
+      "enforced": true,
+      "by": [
+        "guard deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/rm-root",
+      "enforced": true,
+      "by": [
+        "guard deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/sandbox",
+      "enforced": true,
+      "by": [
+        "sandbox"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/secret-files",
+      "enforced": true,
+      "by": [
+        "permission deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/secret-read-bash",
+      "enforced": true,
+      "by": [
+        "guard deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/sql-destructive",
+      "enforced": true,
+      "by": [
+        "guard deny"
+      ],
+      "not_enforced": []
+    },
+    {
+      "id": "safety/terraform-destroy",
+      "enforced": true,
+      "by": [
+        "guard ask"
+      ],
+      "not_enforced": []
+    }
+  ],
+  "disabled": [],
+  "deprecated": [],
+  "audits": [],
+  "missing_tools": [],
+  "drift": [],
+  "warnings": []
+}
+
+
+
+$ git add .forge .claude && git commit -m 'Add Forge'
+[exit 0]

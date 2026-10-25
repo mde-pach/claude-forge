@@ -1,0 +1,280 @@
+diff --git a/packages/treeshake/treeshake.test.ts b/packages/treeshake/treeshake.test.ts
+new file mode 100644
+index 0000000..be2e126
+--- /dev/null
++++ b/packages/treeshake/treeshake.test.ts
+@@ -0,0 +1,60 @@
++import { existsSync, readdirSync, statSync } from "node:fs";
++import { dirname, join, resolve } from "node:path";
++import { fileURLToPath } from "node:url";
++import { nodeResolve } from "@rollup/plugin-node-resolve";
++import { rollup } from "rollup";
++import { expect, test } from "vitest";
++
++const zodDir = resolve(dirname(fileURLToPath(import.meta.url)), "../zod");
++const entry = join(zodDir, "v4/index.js");
++
++function newestMtime(dir: string): number {
++  let newest = 0;
++  for (const e of readdirSync(dir, { withFileTypes: true })) {
++    const p = join(dir, e.name);
++    if (e.isDirectory()) newest = Math.max(newest, newestMtime(p));
++    else if (/\.ts$/.test(e.name) && !e.name.endsWith(".d.ts")) newest = Math.max(newest, statSync(p).mtimeMs);
++  }
++  return newest;
++}
++
++function assertFreshBuild() {
++  if (!existsSync(entry)) throw new Error(`Built entry missing: ${entry}. Run \`pnpm build\` first.`);
++  if (statSync(entry).mtimeMs < newestMtime(join(zodDir, "src")))
++    throw new Error(`Built entry ${entry} is older than sources. Run \`pnpm build\` first.`);
++}
++
++async function bundleAndRun(body: string): Promise<string> {
++  assertFreshBuild();
++  const bundle = await rollup({
++    input: "entry",
++    plugins: [
++      {
++        name: "virtual-entry",
++        resolveId: (id) => (id === "entry" ? id : null),
++        load: (id) => (id === "entry" ? `import * as z from ${JSON.stringify(entry)};\n${body}` : null),
++      },
++      nodeResolve(),
++    ],
++    treeshake: { preset: "smallest", annotations: true },
++  });
++  const { output } = await bundle.generate({ format: "esm" });
++  await bundle.close();
++  const code = output[0].code.replace(/export\s*\{[^}]*\};?\s*$/, "");
++  const fn = new Function(`${code}\nreturn __result;`);
++  return fn();
++}
++
++test("default English locale survives tree-shaking", async () => {
++  const msg = await bundleAndRun(
++    `const __result = z.enum(["km", "mi"]).safeParse("feet").error.issues[0].message;\nexport { __result };`
++  );
++  expect(msg).toBe('Invalid option: expected one of "km"|"mi"');
++});
++
++test("explicit locale survives tree-shaking", async () => {
++  const msg = await bundleAndRun(
++    `z.config(z.locales.fr());\nconst __result = z.enum(["km", "mi"]).safeParse("feet").error.issues[0].message;\nexport { __result };`
++  );
++  expect(msg).toBe('Option invalide : une valeur parmi "km"|"mi" attendue');
++});
+diff --git a/packages/zod/package.json b/packages/zod/package.json
+deleted file mode 100644
+index 8a0c194..0000000
+--- a/packages/zod/package.json
++++ /dev/null
+@@ -1,135 +0,0 @@
+-{
+-  "name": "zod",
+-  "version": "4.4.3",
+-  "type": "module",
+-  "license": "MIT",
+-  "author": "Colin McDonnell <zod@colinhacks.com>",
+-  "description": "TypeScript-first schema declaration and validation library with static type inference",
+-  "homepage": "https://zod.dev",
+-  "llms": "https://zod.dev/llms.txt",
+-  "llmsFull": "https://zod.dev/llms-full.txt",
+-  "mcpServer": "https://mcp.inkeep.com/zod/mcp",
+-  "funding": "https://github.com/sponsors/colinhacks",
+-  "sideEffects": false,
+-  "files": [
+-    "src",
+-    "**/*.js",
+-    "**/*.mjs",
+-    "**/*.cjs",
+-    "**/*.d.ts",
+-    "**/*.d.mts",
+-    "**/*.d.cts",
+-    "**/package.json"
+-  ],
+-  "keywords": [
+-    "typescript",
+-    "schema",
+-    "validation",
+-    "type",
+-    "inference"
+-  ],
+-  "main": "./index.cjs",
+-  "types": "./index.d.cts",
+-  "module": "./index.js",
+-  "zshy": {
+-    "exports": {
+-      "./package.json": "./package.json",
+-      ".": "./src/index.ts",
+-      "./mini": "./src/mini/index.ts",
+-      "./locales": "./src/locales/index.ts",
+-      "./v3": "./src/v3/index.ts",
+-      "./v4": "./src/v4/index.ts",
+-      "./v4-mini": "./src/v4-mini/index.ts",
+-      "./v4/mini": "./src/v4/mini/index.ts",
+-      "./v4/core": "./src/v4/core/index.ts",
+-      "./v4/locales": "./src/v4/locales/index.ts",
+-      "./v4/locales/*": "./src/v4/locales/*"
+-    },
+-    "conditions": {
+-      "@zod/source": "src"
+-    }
+-  },
+-  "exports": {
+-    "./package.json": "./package.json",
+-    ".": {
+-      "@zod/source": "./src/index.ts",
+-      "types": "./index.d.cts",
+-      "import": "./index.js",
+-      "require": "./index.cjs"
+-    },
+-    "./mini": {
+-      "@zod/source": "./src/mini/index.ts",
+-      "types": "./mini/index.d.cts",
+-      "import": "./mini/index.js",
+-      "require": "./mini/index.cjs"
+-    },
+-    "./locales": {
+-      "@zod/source": "./src/locales/index.ts",
+-      "types": "./locales/index.d.cts",
+-      "import": "./locales/index.js",
+-      "require": "./locales/index.cjs"
+-    },
+-    "./v3": {
+-      "@zod/source": "./src/v3/index.ts",
+-      "types": "./v3/index.d.cts",
+-      "import": "./v3/index.js",
+-      "require": "./v3/index.cjs"
+-    },
+-    "./v4": {
+-      "@zod/source": "./src/v4/index.ts",
+-      "types": "./v4/index.d.cts",
+-      "import": "./v4/index.js",
+-      "require": "./v4/index.cjs"
+-    },
+-    "./v4-mini": {
+-      "@zod/source": "./src/v4-mini/index.ts",
+-      "types": "./v4-mini/index.d.cts",
+-      "import": "./v4-mini/index.js",
+-      "require": "./v4-mini/index.cjs"
+-    },
+-    "./v4/mini": {
+-      "@zod/source": "./src/v4/mini/index.ts",
+-      "types": "./v4/mini/index.d.cts",
+-      "import": "./v4/mini/index.js",
+-      "require": "./v4/mini/index.cjs"
+-    },
+-    "./v4/core": {
+-      "@zod/source": "./src/v4/core/index.ts",
+-      "types": "./v4/core/index.d.cts",
+-      "import": "./v4/core/index.js",
+-      "require": "./v4/core/index.cjs"
+-    },
+-    "./v4/locales": {
+-      "@zod/source": "./src/v4/locales/index.ts",
+-      "types": "./v4/locales/index.d.cts",
+-      "import": "./v4/locales/index.js",
+-      "require": "./v4/locales/index.cjs"
+-    },
+-    "./v4/locales/*": {
+-      "@zod/source": "./src/v4/locales/*",
+-      "types": "./v4/locales/*",
+-      "import": "./v4/locales/*",
+-      "require": "./v4/locales/*"
+-    }
+-  },
+-  "repository": {
+-    "type": "git",
+-    "url": "git+https://github.com/colinhacks/zod.git"
+-  },
+-  "bugs": {
+-    "url": "https://github.com/colinhacks/zod/issues"
+-  },
+-  "support": {
+-    "backing": {
+-      "npm-funding": true
+-    }
+-  },
+-  "scripts": {
+-    "clean": "git clean -xdf . -e node_modules",
+-    "build": "zshy --project tsconfig.build.json",
+-    "postbuild": "tsx ../../scripts/write-stub-package-jsons.ts && pnpm biome check --write .",
+-    "test:watch": "pnpm vitest",
+-    "test": "pnpm vitest run",
+-    "prepublishOnly": "tsx ../../scripts/check-versions.ts"
+-  }
+-}
+diff --git a/packages/zod/src/v4/classic/external.ts b/packages/zod/src/v4/classic/external.ts
+index 56cabdc..16c3259 100644
+--- a/packages/zod/src/v4/classic/external.ts
++++ b/packages/zod/src/v4/classic/external.ts
+@@ -6,10 +6,6 @@ export * from "./parse.js";
+ export * from "./compat.js";
+ 
+ // zod-specified
+-import { config } from "../core/index.js";
+-import en from "../locales/en.js";
+-config(en());
+-
+ export type { infer, output, input } from "../core/index.js";
+ export type { JSONType } from "../core/util.js";
+ export {
+diff --git a/packages/zod/src/v4/classic/schemas.ts b/packages/zod/src/v4/classic/schemas.ts
+index 0766647..4f33a0a 100644
+--- a/packages/zod/src/v4/classic/schemas.ts
++++ b/packages/zod/src/v4/classic/schemas.ts
+@@ -3,6 +3,7 @@ import { util } from "../core/index.js";
+ import * as processors from "../core/json-schema-processors.js";
+ import type { StandardSchemaWithJSONProps } from "../core/standard-schema.js";
+ import { createStandardJSONSchemaMethod, createToJSONSchemaMethod } from "../core/to-json-schema.js";
++import en from "../locales/en.js";
+ 
+ import * as checks from "./checks.js";
+ import * as parse from "./parse.js";
+@@ -213,6 +214,8 @@ export interface _ZodType<out Internals extends core.$ZodTypeInternals = core.$Z
+   extends ZodType<any, any, Internals> {}
+ 
+ export const ZodType: core.$constructor<ZodType> = /*@__PURE__*/ core.$constructor("ZodType", (inst, def) => {
++  // registered on construction (not at module level) so tree-shaking can't drop it
++  if (!core.config().localeError) core.config(en());
+   core.$ZodType.init(inst, def);
+   Object.assign(inst["~standard"], {
+     jsonSchema: {
+diff --git a/packages/zod/src/v4/classic/tests/default-locale.test.ts b/packages/zod/src/v4/classic/tests/default-locale.test.ts
+new file mode 100644
+index 0000000..11c6b0a
+--- /dev/null
++++ b/packages/zod/src/v4/classic/tests/default-locale.test.ts
+@@ -0,0 +1,31 @@
++import { afterEach, expect, test } from "vitest";
++import * as z from "zod/v4";
++
++afterEach(() => {
++  z.config(z.locales.en());
++});
++
++test("English is registered on first schema construction", () => {
++  z.config({ localeError: undefined });
++  expect(z.config().localeError).toBeUndefined();
++  const schema = z.enum(["km", "mi"]);
++  expect(z.config().localeError).toBeDefined();
++  expect(schema.safeParse("feet").error?.issues[0]?.message).toBe('Invalid option: expected one of "km"|"mi"');
++});
++
++test("explicit locale before construction is kept", () => {
++  z.config(z.locales.fr());
++  z.enum(["km", "mi"]);
++  expect(z.enum(["km", "mi"]).safeParse("feet").error?.issues[0]?.message).toBe(
++    'Option invalide : une valeur parmi "km"|"mi" attendue'
++  );
++});
++
++test("explicit locale after construction replaces default", () => {
++  z.config({ localeError: undefined });
++  const schema = z.enum(["km", "mi"]);
++  z.config(z.locales.fr());
++  expect(schema.safeParse("feet").error?.issues[0]?.message).toBe(
++    'Option invalide : une valeur parmi "km"|"mi" attendue'
++  );
++});

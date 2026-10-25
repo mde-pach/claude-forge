@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 7,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'E'\nimport re\np='helpers/strings.ts'\ns=open(p).read()\ns=s.replace('import type { TimeStr }','import type { Logger } from \"../middleware/logger.ts\";\\nimport type { TimeStr }')\ns=s.replace('''/**\n * Convert a given `Date`''','''let hasWarnedSubSecond = false;\n\n/**\n * Convert a given `Date`",
+  "python3 - <<'E'\nimport re\nnote=\"Durations under 1 second round up to `1s`, the minimum resolution of a\\n{I}durable wait.\\n{I}\"\nfor p in ['components/InngestStepTools.ts','types.ts']:\n    L=open(p).read().split('\\n')\n    out=[]\n    for i,l in enumerate(L):\n        m=re.match(r'^(\\s*)\\* \\{@link https:"
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

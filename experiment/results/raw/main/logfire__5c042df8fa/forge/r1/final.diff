@@ -1,0 +1,162 @@
+diff --git a/logfire/_internal/config.py b/logfire/_internal/config.py
+index 8885e23..25efd82 100644
+--- a/logfire/_internal/config.py
++++ b/logfire/_internal/config.py
+@@ -127,7 +127,7 @@ from .utils import (
+ if TYPE_CHECKING:
+     from typing import TextIO
+ 
+-    from logfire.variables import VariablesConfig
++    from logfire.variables import TemplateVariable, Variable, VariablesConfig
+ 
+     from .main import Logfire
+ 
+@@ -1024,6 +1024,8 @@ class LogfireConfig(_LogfireConfigData):
+         self._has_set_providers = False
+         self._initialized = False
+         self._lock = RLock()
++        # Managed variables registered by all `Logfire` instances sharing this config.
++        self._variables: dict[str, Variable[Any] | TemplateVariable[Any, Any]] = {}
+ 
+     def configure(
+         self,
+diff --git a/logfire/_internal/main.py b/logfire/_internal/main.py
+index fe0d856..22fe57f 100644
+--- a/logfire/_internal/main.py
++++ b/logfire/_internal/main.py
+@@ -166,7 +166,6 @@ class Logfire:
+         self._sample_rate = sample_rate
+         self._console_log = console_log
+         self._otel_scope = otel_scope
+-        self._variables: dict[str, Variable[Any] | TemplateVariable[Any, Any]] = {}
+ 
+     @property
+     def config(self) -> LogfireConfig:
+@@ -2591,7 +2590,7 @@ class Logfire:
+         # Variables are expected to be defined once at import time (single-threaded), so this
+         # check-then-insert is not locked. If you register variables concurrently from multiple
+         # threads, guard your own registration to preserve the uniqueness guarantee.
+-        if name in self._variables:
++        if name in self._config._variables:
+             raise ValueError(
+                 f"A variable with name '{name}' has already been registered. Each variable must have a unique name."
+             )
+@@ -2603,11 +2602,11 @@ class Logfire:
+             logfire_instance=self,
+             description=description,
+         )
+-        self._variables[name] = variable
++        self._config._variables[name] = variable
+ 
+         from logfire.variables.variable import warn_on_template_inputs_composition_mismatch
+ 
+-        warn_on_template_inputs_composition_mismatch(self._variables, variable)
++        warn_on_template_inputs_composition_mismatch(self._config._variables, variable)
+ 
+         return variable
+ 
+@@ -2726,7 +2725,7 @@ class Logfire:
+         # Variables are expected to be defined once at import time (single-threaded), so this
+         # check-then-insert is not locked. If you register variables concurrently from multiple
+         # threads, guard your own registration to preserve the uniqueness guarantee.
+-        if name in self._variables:
++        if name in self._config._variables:
+             raise ValueError(
+                 f"A variable with name '{name}' has already been registered. Each variable must have a unique name."
+             )
+@@ -2740,27 +2739,27 @@ class Logfire:
+             logfire_instance=self,
+             template_mismatch_policy=template_mismatch_policy,
+         )
+-        self._variables[name] = variable
++        self._config._variables[name] = variable
+ 
+         from logfire.variables.variable import warn_on_template_inputs_composition_mismatch
+ 
+-        warn_on_template_inputs_composition_mismatch(self._variables, variable)
++        warn_on_template_inputs_composition_mismatch(self._config._variables, variable)
+ 
+         return variable
+ 
+     def variables_clear(self) -> None:
+-        """Clear all registered variables from this Logfire instance.
++        """Clear all variables registered with this instance's config, including `with_settings()` siblings.
+ 
+         This removes all variables previously registered via [`var()`][logfire.Logfire.var]
+         or [`template_var()`][logfire.Logfire.template_var],
+         allowing them to be re-registered. This is primarily intended for use in tests
+         to ensure a clean state between test cases.
+         """
+-        self._variables.clear()
++        self._config._variables.clear()
+ 
+     def variables_get(self) -> list[Variable[Any] | TemplateVariable[Any, Any]]:
+-        """Get all variables registered with this Logfire instance."""
+-        return list(self._variables.values())
++        """Get all variables registered with this instance's config, including `with_settings()` siblings."""
++        return list(self._config._variables.values())
+ 
+     def variables_push(
+         self,
+@@ -2782,7 +2781,7 @@ class Logfire:
+ 
+         Args:
+             variables: Variable instances to push. If None, all variables
+-                registered with this Logfire instance will be pushed.
++                registered with this instance's config (including `with_settings()` siblings) will be pushed.
+             dry_run: If True, only show what would change without applying.
+             yes: If True, skip confirmation prompt.
+             strict: If True, fail if any existing label values are incompatible with new schemas
+@@ -2891,7 +2890,7 @@ class Logfire:
+ 
+         Args:
+             variables: Variable instances to validate. If None, all variables
+-                registered with this Logfire instance will be validated.
++                registered with this instance's config (including `with_settings()` siblings) will be validated.
+ 
+         Returns:
+             A ValidationReport containing any errors found. Use `report.is_valid` to check
+@@ -2993,7 +2992,8 @@ class Logfire:
+         No labels or versions are created - use this to build a template config that can be edited.
+ 
+         Args:
+-            variables: Variable instances to include. If None, uses all registered variables.
++            variables: Variable instances to include. If None, uses all variables registered with this
++                instance's config, including `with_settings()` siblings.
+ 
+         Returns:
+             A VariablesConfig with minimal configs for each variable.
+diff --git a/logfire/variables/variable.py b/logfire/variables/variable.py
+index 1e05308..2be70d6 100644
+--- a/logfire/variables/variable.py
++++ b/logfire/variables/variable.py
+@@ -236,7 +236,7 @@ class Variable(Generic[T_co]):
+         self.default = default
+         self.description = description
+ 
+-        self._variable_registry = logfire_instance._variables  # pyright: ignore[reportPrivateUsage]
++        self._variable_registry = logfire_instance._config._variables  # pyright: ignore[reportPrivateUsage]
+         self.logfire_instance = logfire_instance.with_settings(custom_scope_suffix='variables')
+         self.type_adapter = TypeAdapter[T_co](type)
+ 
+diff --git a/tests/test_push_variables.py b/tests/test_push_variables.py
+index ef08fbd..a664d75 100644
+--- a/tests/test_push_variables.py
++++ b/tests/test_push_variables.py
+@@ -5,6 +5,7 @@ from __future__ import annotations
+ 
+ import sys
+ from dataclasses import dataclass, field
++from types import SimpleNamespace
+ from typing import Any
+ 
+ import pytest
+@@ -39,7 +40,7 @@ class MockLogfire:
+     """Mock Logfire instance for testing."""
+ 
+     config: Any = None
+-    _variables: dict[str, object] = field(default_factory=dict[str, object])
++    _config: Any = field(default_factory=lambda: SimpleNamespace(_variables={}))
+ 
+     def with_settings(self, **kwargs: Any) -> MockLogfire:
+         """Return self for chaining."""

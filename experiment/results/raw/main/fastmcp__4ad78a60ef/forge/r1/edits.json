@@ -1,0 +1,13 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 3,
+ "bash_calls": 13,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'EOF'\nimport re\np='server/http.py'\ns=open(p).read()\ns=s.replace(\"from typing import TYPE_CHECKING, Any\\n\",\"from typing import TYPE_CHECKING, Any, Literal\\n\")\ns=s.replace('DEFAULT_HOSTS = (\"127.0.0.1\", \"localhost\", \"::1\")\\n','DEFAULT_HOSTS = (\"127.0.0.1\", \"localhost\", \"::1\")\\n\\nHostOrigin",
+  "python3 - <<'EOF'\np='tests/server/http/test_http_auth_middleware.py'\ns=open(p).read()\ni=s.index(\"class TestStreamableHTTPHostOriginProtection\")\nhead,tail=s[:i],s[i:]\ntail=tail.replace('            streamable_http_path=\"/mcp\",\\n','            streamable_http_path=\"/mcp\",\\n            host_origin_prot",
+  "python3 - <<'EOF'\nimport re\np='tests/server/http/test_http_auth_middleware.py'\ns=open(p).read()\n# collapse duplicated kwarg lines inserted directly before an existing one\ns=re.sub(r'( +host_origin_protection=True,\\n)(?=(?: +\\w+=.*\\n)*? +host_origin_protection=)',r'',s)\nopen(p,'w').write(s)\nEOF\ngit d"
+ ],
+ "total": 3,
+ "edit_tool_share": 0.0
+}

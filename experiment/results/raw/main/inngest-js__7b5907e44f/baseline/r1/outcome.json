@@ -1,0 +1,57 @@
+{
+ "resolved": true,
+ "patch_applied": true,
+ "f2p": {
+  "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.AsyncCheckpointing > defer abort lazy ops > abort noops when the prior defer is not abortable": "passed",
+  "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.AsyncCheckpointing > defer abort lazy ops > immediate abort reports only DeferAbort for the defer": "passed"
+ },
+ "p2p": {
+  "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.AsyncCheckpointing > Bug 1: flush-only checkpoint failure must not silently lose steps > should fall back to returning buffered steps when flush-before-parallel-steps fails": "passed",
+  "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.AsyncCheckpointing > Bug 1: flush-only checkpoint failure must not silently lose steps > should fall back to returning buffered steps when flush-before-step-error fails": "passed",
+  "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.AsyncCheckpointing > Bug 2: checkpoint failure fallback must include all buffered steps > fallback after buffer-full flush failure should return all buffered steps": "passed",
+  "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.AsyncCheckpointing > Bug 3: function-rejected must force-flush buffered steps > should fall back to returning buffered steps when forced flush fails during function-rejected": "passed",
+  "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.AsyncCheckpointing > Bug 3: function-rejected must force-flush buffered steps > should flush buffered steps before returning function-rejected": "passed",
+  "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.AsyncCheckpointing > buffer is cleared after successful checkpoint": "passed",
+  "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.AsyncCheckpointing > does not flush when buffer is below threshold and force is false": "passed",
+  "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.AsyncCheckpointing > flushes buffered steps before returning parallel steps to executor": "passed",
+  "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.AsyncCheckpointing > function-resolved flushes remaining buffered steps": "passed",
+  "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.AsyncCheckpointing > simple function without steps returns result without checkpointing": "passed",
+  "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.Sync (Durable Endpoints) > checkpointNewRun (first checkpoint) > retries on transient failure and succeeds": "passed",
+  "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.Sync (Durable Endpoints) > checkpointNewRun (first checkpoint) > returns function-rejected after all retries exhausted (InngestCommHandler converts to 500)": "passed",
+  "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.Sync (Durable Endpoints) > metadata propagation to checkpoint payload > includes metadata from state.metadata in the checkpoint steps": "passed",
+  "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.Sync (SSE streaming) > NonRetriableError in step checkpoints as StepFailed with serialized error data": "passed",
+  "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.Sync (SSE streaming) > checkpoint failure resolves with function-rejected instead of throwing": "passed",
+  "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.Sync with steps > checkpoints steps via checkpointSteps after initial run": "passed"
+ },
+ "f2p_frac": 1.0,
+ "p2p_regressions": 0,
+ "lint_new": 0,
+ "diff_lines": 80,
+ "changed_files": [
+  "packages/inngest/src/components/execution/InngestExecution.ts",
+  "packages/inngest/src/components/execution/engine.ts",
+  "packages/inngest/src/components/execution/lazyOps.ts",
+  "packages/inngest/src/helpers/functions.ts",
+  "packages/inngest/src/types.ts"
+ ],
+ "all_results": {
+  "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.Sync (Durable Endpoints) > checkpointNewRun (first checkpoint) > retries on transient failure and succeeds": "passed",
+  "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.Sync (Durable Endpoints) > checkpointNewRun (first checkpoint) > returns function-rejected after all retries exhausted (InngestCommHandler converts to 500)": "passed",
+  "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.Sync (Durable Endpoints) > metadata propagation to checkpoint payload > includes metadata from state.metadata in the checkpoint steps": "passed",
+  "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.AsyncCheckpointing > simple function without steps returns result without checkpointing": "passed",
+  "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.AsyncCheckpointing > defer abort lazy ops > immediate abort reports only DeferAbort for the defer": "passed",
+  "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.AsyncCheckpointing > defer abort lazy ops > abort noops when the prior defer is not abortable": "passed",
+  "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.AsyncCheckpointing > flushes buffered steps before returning parallel steps to executor": "passed",
+  "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.AsyncCheckpointing > Bug 1: flush-only checkpoint failure must not silently lose steps > should fall back to returning buffered steps when flush-before-parallel-steps fails": "passed",
+  "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.AsyncCheckpointing > Bug 1: flush-only checkpoint failure must not silently lose steps > should fall back to returning buffered steps when flush-before-step-error fails": "passed",
+  "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.AsyncCheckpointing > Bug 2: checkpoint failure fallback must include all buffered steps > fallback after buffer-full flush failure should return all buffered steps": "passed",
+  "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.AsyncCheckpointing > Bug 3: function-rejected must force-flush buffered steps > should flush buffered steps before returning function-rejected": "passed",
+  "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.AsyncCheckpointing > Bug 3: function-rejected must force-flush buffered steps > should fall back to returning buffered steps when forced flush fails during function-rejected": "passed",
+  "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.AsyncCheckpointing > does not flush when buffer is below threshold and force is false": "passed",
+  "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.AsyncCheckpointing > buffer is cleared after successful checkpoint": "passed",
+  "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.AsyncCheckpointing > function-resolved flushes remaining buffered steps": "passed",
+  "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.Sync with steps > checkpoints steps via checkpointSteps after initial run": "passed",
+  "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.Sync (SSE streaming) > checkpoint failure resolves with function-rejected instead of throwing": "passed",
+  "packages/inngest/src/components/execution/engine.test.ts::Execution engine checkpoint retry behavior > StepMode.Sync (SSE streaming) > NonRetriableError in step checkpoints as StepFailed with serialized error data": "passed"
+ }
+}

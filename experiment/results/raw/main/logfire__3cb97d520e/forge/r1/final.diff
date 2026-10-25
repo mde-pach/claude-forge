@@ -1,0 +1,126 @@
+diff --git a/logfire/_internal/integrations/llm_providers/openai.py b/logfire/_internal/integrations/llm_providers/openai.py
+index 39e708a..d680d97 100644
+--- a/logfire/_internal/integrations/llm_providers/openai.py
++++ b/logfire/_internal/integrations/llm_providers/openai.py
+@@ -2,7 +2,7 @@ from __future__ import annotations
+ 
+ import contextlib
+ import json
+-from typing import TYPE_CHECKING, Any, cast
++from typing import TYPE_CHECKING, Any, Literal, cast
+ 
+ import openai
+ from openai._legacy_response import LegacyAPIResponse
+@@ -39,6 +39,7 @@ from .semconv import (
+     TOOL_DEFINITIONS,
+     BlobPart,
+     ChatMessage,
++    FilePart,
+     InputMessages,
+     MessagePart,
+     OutputMessage,
+@@ -282,11 +283,12 @@ def _convert_content_part(part: object) -> MessagePart:
+ 
+     part = cast('dict[str, Any]', part)
+     part_type = part.get('type', 'unknown')
+-    if part_type in ('text', 'output_text'):
++    if part_type in ('text', 'output_text', 'input_text'):
+         return TextPart(type='text', content=part.get('text', ''))
+-    elif part_type == 'image_url':  # pragma: no cover
+-        url = part.get('image_url', {}).get('url', '')
+-        return UriPart(type='uri', uri=url, modality='image')
++    elif part_type in ('image_url', 'input_image'):
++        return _convert_media_part(part, part.get('image_url'), 'image')
++    elif part_type == 'input_file':
++        return _convert_media_part(part, part.get('file_url'), 'document')
+     elif part_type == 'input_audio':  # pragma: no cover
+         return BlobPart(
+             type='blob',
+@@ -298,6 +300,25 @@ def _convert_content_part(part: object) -> MessagePart:
+         return {**part, 'type': part_type}
+ 
+ 
++def _url_of(value: Any) -> str | None:
++    """Extract a URL from a string or a `{'url': ...}` dict."""
++    if isinstance(value, dict):
++        value = cast('dict[str, Any]', value).get('url')
++    return value if isinstance(value, str) and value else None
++
++
++def _convert_media_part(part: dict[str, Any], url_value: Any, modality: Literal['image', 'document']) -> MessagePart:
++    url = _url_of(url_value)
++    if url:
++        return UriPart(type='uri', uri=url, modality=modality)
++    if part.get('file_data'):
++        return BlobPart(type='blob', content=part['file_data'], modality=modality)
++    file_id = part.get('file_id')
++    if isinstance(file_id, str):
++        return FilePart(type='file', file_id=file_id, modality=modality)
++    return part
++
++
+ def convert_responses_inputs_to_semconv(
+     inputs: str | list[dict[str, Any]] | None, instructions: str | None
+ ) -> tuple[InputMessages, SystemInstructions]:
+@@ -728,8 +749,30 @@ def input_to_events(inp: dict[str, Any], tool_call_id_to_name: dict[str, str]):
+             else:
+                 for content_item in content:
+                     with contextlib.suppress(KeyError):
+-                        if content_item['type'] == 'output_text':
+-                            events.append({'event.name': event_name, 'content': content_item['text'], 'role': role})
++                        item_type = content_item['type']
++                        if item_type in ('input_text', 'output_text'):
++                            value = content_item['text']
++                        elif item_type in ('image_url', 'input_image'):
++                            value = _url_of(content_item.get('image_url'))
++                            if not value:
++                                if content_item.get('file_data') is not None:
++                                    value = '[file_data]'
++                                else:
++                                    value = content_item.get('file_id')
++                        elif item_type == 'input_file':
++                            value = _url_of(content_item.get('file_url')) or content_item.get('file_id')
++                            if not value:
++                                filename = content_item.get('filename')
++                                if isinstance(filename, str):
++                                    value = filename
++                                elif content_item.get('file_data') is not None:
++                                    value = '[file_data]'
++                                else:
++                                    value = '[file]'
++                        else:
++                            value = None
++                        if value:
++                            events.append({'event.name': event_name, 'content': value, 'role': role})
+                             continue
+                     events.append(unknown_event(content_item))  # pragma: no cover
+         elif typ == 'function_call':
+diff --git a/logfire/_internal/integrations/llm_providers/semconv.py b/logfire/_internal/integrations/llm_providers/semconv.py
+index 3c7ed00..264c544 100644
+--- a/logfire/_internal/integrations/llm_providers/semconv.py
++++ b/logfire/_internal/integrations/llm_providers/semconv.py
+@@ -136,6 +136,15 @@ class BlobPart(TypedDict):
+     modality: NotRequired[Literal['image', 'audio', 'video', 'document']]
+ 
+ 
++class FilePart(TypedDict):
++    """Reference to a file uploaded to the provider."""
++
++    type: Literal['file']
++    file_id: str
++    media_type: NotRequired[str]
++    modality: NotRequired[Literal['image', 'audio', 'video', 'document']]
++
++
+ class ReasoningPart(TypedDict):
+     """Reasoning/thinking content part."""
+ 
+@@ -144,7 +153,7 @@ class ReasoningPart(TypedDict):
+ 
+ 
+ MessagePart: TypeAlias = (
+-    TextPart | ToolCallPart | ToolCallResponsePart | UriPart | BlobPart | ReasoningPart | dict[str, Any]
++    TextPart | ToolCallPart | ToolCallResponsePart | UriPart | BlobPart | FilePart | ReasoningPart | dict[str, Any]
+ )
+ """A message part.
+ 

@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 6,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/fastmcp_slim/fastmcp/server/mixins && python3 - <<'E'\np='lifespan.py'\ns=open(p).read()\ns=s.replace(\"\"\"            # Create Docket instance using configured name and URL\n            async with Docket(\n                name=settings.docket.name,\n                url=settings.docket.url,\n       ",
+  "python3 - <<'E'\np='tests/server/test_dependencies.py'\ns=open(p).read()\nm=\"    async def test_shared_async_function(self, mcp: FastMCP):\"\nnew='''    async def test_shared_with_task_enabled_component(self):\n        \"\"\"Shared works on the Docket lifespan path (task-enabled components).\"\"\"\n\n        call"
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

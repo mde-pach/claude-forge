@@ -1,0 +1,16 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 6,
+ "bash_calls": 11,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/packages/cli/src; python3 - <<'E'\np='/work/packages/core/src/db/adapter/get-default-model-name.ts'\ns=open(p).read()\na=s.index(\"\t\t// Prefer a `modelName` match\")\nb=s.index(\"\t\t// It's possible\")\ns=s[:a]+'''\t\t// An exact schema-key match wins. `modelName` is only a fallback, so\n\t\t// remapping ",
+  "cd /work/packages/cli/src; python3 - <<'E'\nimport re\np='generators/prisma.ts'\ns=open(p).read()\ns=s.replace('existsSync(path.join(process.cwd(), filePath))','existsSync(path.resolve(process.cwd(), filePath))')\ns=s.replace('''\t\tschemaPrisma = await fs.readFile(\n\t\t\tpath.join(process.cwd(), filePath),\n\t",
+  "cd /work/packages/cli/src; python3 - <<'E'\np='utils/get-config.ts'\ns=open(p).read()\ns=s.replace('<T extends Record<string, any>>','<T extends UserInputConfig>')\ns=s.replace('import { loadConfig as c12LoadConfig } from \"c12\";','import type { UserInputConfig } from \"c12\";\\nimport { loadConfig as c12Lo",
+  "cd /work/packages/cli/src; sed -i 's/^import { existsSync } from \"node:fs\";/import { existsSync, rmSync } from \"node:fs\";/; s/path\\.join(cwd, schema\\.fileName)/path.resolve(cwd, schema.fileName)/g' commands/generate.ts\ncd ..; npx tsc --noEmit -p . 2>&1 | head; npx vitest run src 2>&1 | tail -15",
+  "cd /work/packages/cli; d=$(mktemp -d); mkdir -p $d/convex/betterAuth; cat > $d/convex/betterAuth/auth.ts <<'E'\nimport schema from \"./schema\";\nexport const auth = { options: { schema } };\nE\ncat > test/tmp-recover.test.ts <<E\nimport { existsSync, readFileSync } from \"node:fs\";\nimport { expect, it } fr",
+  "cd /work/packages/core; python3 - <<'E'\np='src/db/test/get-default-model-name.test.ts'\ns=open(p).read()\ns=s.replace('''\t * collides with the built-in account schema key. The user's explicit\n\t * `modelName` choice must win, so resolving \"account\" should return the\n\t * user schema key, not the OAuth a"
+ ],
+ "total": 6,
+ "edit_tool_share": 0.0
+}

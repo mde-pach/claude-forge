@@ -1,0 +1,84 @@
+diff --git a/packages/cli/src/generators/drizzle.ts b/packages/cli/src/generators/drizzle.ts
+index 3f5ef60..db4777c 100644
+--- a/packages/cli/src/generators/drizzle.ts
++++ b/packages/cli/src/generators/drizzle.ts
+@@ -187,7 +187,7 @@ export const generateDrizzleSchema: SchemaGenerator = async ({
+ 			}
+ 		}
+ 
+-		type Index = { type: "uniqueIndex" | "index"; name: string; on: string };
++		type Index = { type: "index"; name: string; on: string };
+ 
+ 		const indexes: Index[] = [];
+ 
+@@ -222,12 +222,6 @@ export const generateDrizzleSchema: SchemaGenerator = async ({
+ 									name: `${modelName}_${fieldName}_idx`,
+ 									on: fieldName,
+ 								});
+-							} else if (attr.index && attr.unique) {
+-								indexes.push({
+-									type: "uniqueIndex",
+-									name: `${modelName}_${fieldName}_uidx`,
+-									on: fieldName,
+-								});
+ 							}
+ 
+ 							if (
+@@ -662,15 +656,9 @@ function generateImport({
+ 	const hasIndexes = Object.values(tables).some((table) =>
+ 		Object.values(table.fields).some((field) => field.index && !field.unique),
+ 	);
+-	const hasUniqueIndexes = Object.values(tables).some((table) =>
+-		Object.values(table.fields).some((field) => field.unique && field.index),
+-	);
+ 	if (hasIndexes) {
+ 		coreImports.push("index");
+ 	}
+-	if (hasUniqueIndexes) {
+-		coreImports.push("uniqueIndex");
+-	}
+ 
+ 	return `${rootImports.length > 0 ? `import { ${rootImports.join(", ")} } from "drizzle-orm";\n` : ""}import { ${coreImports
+ 		.map((x) => x.trim())
+diff --git a/packages/cli/test/generate.test.ts b/packages/cli/test/generate.test.ts
+index 07486c5..b33989f 100644
+--- a/packages/cli/test/generate.test.ts
++++ b/packages/cli/test/generate.test.ts
+@@ -377,6 +377,37 @@ describe("generate", async () => {
+ 		);
+ 	});
+ 
++	it("should not emit uniqueIndex for fields that are both unique and index", async () => {
++		const pluginWithUniqueIndex = (): BetterAuthPlugin => ({
++			id: "unique-index-test",
++			schema: {
++				testTable: {
++					fields: {
++						slug: { type: "string", index: true, unique: true },
++						name: { type: "string", index: true },
++					},
++				},
++			},
++		});
++
++		const schema = await generateDrizzleSchema({
++			file: "test.drizzle",
++			adapter: {
++				id: "drizzle",
++				options: { provider: "pg", schema: {} },
++			} as any,
++			options: {
++				database: {} as any,
++				plugins: [pluginWithUniqueIndex()],
++			} as BetterAuthOptions,
++		});
++
++		expect(schema.code).toContain('slug: text("slug").notNull().unique()');
++		expect(schema.code).not.toContain("uniqueIndex");
++		expect(schema.code).not.toContain("slug_uidx");
++		expect(schema.code).toContain('index("testTable_name_idx")');
++	});
++
+ 	it("should treat fields with omitted required as notNull (default true)", async () => {
+ 		const pluginWithOmittedRequired = (): BetterAuthPlugin => ({
+ 			id: "omitted-required-test",

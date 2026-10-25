@@ -1,0 +1,13 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 3,
+ "bash_calls": 8,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/fastmcp_slim/fastmcp/server/auth && python3 - <<'EOF'\nimport re\np='redirect_validation.py'\ns=open(p).read()\ns=s.replace('''def _parse_host_port''','''# Schemes that execute script or expose local content when a browser navigates\n# to them. They are never valid OAuth redirect targets.\nUNSAFE",
+  "cd /work/fastmcp_slim/fastmcp/server/auth && sed -i 's/^from fastmcp.server.auth.oauth_proxy.ui import create_error_html$/&\\nfrom fastmcp.server.auth.redirect_validation import validate_redirect_uri/' oauth_proxy/proxy.py && cd /work && .venv/bin/ruff check --fix fastmcp_slim/fastmcp/server/auth; .v",
+  "cat > tests/server/auth/test_unsafe_redirect_schemes.py <<'EOF'\nimport pytest\nfrom mcp.server.auth.provider import RegistrationError\nfrom mcp.shared.auth import InvalidRedirectUriError, OAuthClientInformationFull\nfrom pydantic import AnyUrl\n\nfrom fastmcp.server.auth.oauth_proxy.models import ProxyDC"
+ ],
+ "total": 3,
+ "edit_tool_share": 0.0
+}

@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 8,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/fastmcp_slim/fastmcp/server && cat > caching.py <<'EOF'\n\"\"\"Server-level cache hints (SEP-2549).\"\"\"\n\nfrom __future__ import annotations\n\nfrom typing import Literal\n\nfrom mcp.server.caching import CacheHint\nfrom mcp_types.methods import CACHEABLE_METHODS, CacheableMethod\n\n__all__ = [\"CacheSco",
+  "sed -i 's/async with Client(m) as c:/async with Client(m, mode=\"auto\") as c:/' /tmp/t.py && .venv/bin/python /tmp/t.py\ncat > tests/server/test_cache_hints.py <<'EOF'\n\"\"\"Server-level cache hints (SEP-2549) on FastMCP.\"\"\"\n\nimport pytest\nfrom mcp.server.caching import CacheHint\nfrom mcp_types.methods i"
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

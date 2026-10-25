@@ -1,0 +1,40 @@
+$ cd /work
+pk=""
+for t in packages/core/src/db/test/get-default-model-name.test.ts packages/core/src/db/test/get-tables.test.ts; do
+  d=$(dirname "$t")
+  while [ "$d" != "." ] && [ "$d" != "/" ] && [ ! -f "$d/package.json" ]; do d=$(dirname "$d"); done
+  [ "$d" = "." ] || [ "$d" = "/" ] || pk="$pk --filter=./$d"
+done
+if [ -n "$pk" ]; then
+  turbo run build $pk --output-logs=errors-only || { echo "[forge-exp] workspace build failed; tests not run"; exit 3; }
+fi
+NO_COLOR=1 vitest run packages/core/src/db/test/get-default-model-name.test.ts packages/core/src/db/test/get-tables.test.ts --reporter=default --reporter=junit --outputFile.junit=/tmp/forge-junit-80a147ef7190.xml
+
+
+   • Packages in scope: @better-auth/core
+   • Running build in 1 packages
+   • Remote caching disabled
+
+
+ Tasks:    1 successful, 1 total
+Cached:    0 cached, 1 total
+  Time:    15.799s 
+
+
+ RUN  v4.1.5 /work
+
+stdout | src/db/test/get-tables.test.ts > getAuthTables > should merge additionalFields into verification table metadata
+{ fieldName: 'new_field', type: 'string' }
+
+ ✓ |@better-auth/core| src/db/test/get-tables.test.ts (11 tests) 26ms
+ ✓ |@better-auth/core| src/db/test/get-default-model-name.test.ts (7 tests) 16ms
+
+ Test Files  2 passed (2)
+      Tests  18 passed (18)
+   Start at  03:53:04
+   Duration  521ms (transform 280ms, setup 0ms, import 356ms, tests 42ms, environment 0ms)
+
+JUNIT report written to /tmp/forge-junit-80a147ef7190.xml
+• turbo 2.9.14
+
+[exit 0 in 18s]

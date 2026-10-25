@@ -1,0 +1,534 @@
+diff --git a/.changeset/sandbox-wait-running.md b/.changeset/sandbox-wait-running.md
+new file mode 100644
+index 0000000..2507d43
+--- /dev/null
++++ b/.changeset/sandbox-wait-running.md
+@@ -0,0 +1,5 @@
++---
++"inngest": minor
++---
++
++Add `runningTimeout` to sandbox create and `waitUntilRunning` to sandboxes (direct and durable) to wait for a sandbox to reach `RUNNING`.
+diff --git a/packages/inngest/src/components/InngestSandbox.test.ts b/packages/inngest/src/components/InngestSandbox.test.ts
+index 3e8dc63..f5f93ea 100644
+--- a/packages/inngest/src/components/InngestSandbox.test.ts
++++ b/packages/inngest/src/components/InngestSandbox.test.ts
+@@ -63,6 +63,12 @@ const resultForOperation = (
+   switch (operation.action) {
+     case "create":
+       return { protocolVersion: 1, action: "create", sandbox: sandboxRef };
++    case "waitUntilRunning":
++      return {
++        protocolVersion: 1,
++        action: "waitUntilRunning",
++        sandbox: sandboxRef,
++      };
+     case "list":
+       return {
+         protocolVersion: 1,
+@@ -756,6 +762,103 @@ describe("step.sandbox", () => {
+   });
+ });
+ 
++describe("inngest.sandboxes running wait", () => {
++  const { kind: _kind, version: _version, ...resource } = sandboxRef;
++  const respond = (status: string, error?: string) =>
++    Response.json({
++      data: { ...resource, status, ...(error && { error }) },
++    });
++
++  test("Create with runningTimeout polls Get without re-sending Create", async () => {
++    vi.useFakeTimers();
++    try {
++      const calls: string[] = [];
++      const statuses = ["STARTING", "RUNNING"];
++      const client = createSandboxClient({
++        baseUrl: () => "https://api.example.test",
++        apiKey: () => "signkey-test",
++        headers: () => ({}),
++        fetch: () => async (url, init) => {
++          calls.push(`${init?.method} ${new URL(String(url)).pathname}`);
++          if (init?.method === "POST") {
++            expect(JSON.parse(String(init.body))).toEqual(createOptions);
++            return respond("STARTING");
++          }
++          return respond(statuses.shift()!);
++        },
++      });
++      const promise = client.create({ ...createOptions, runningTimeout: "5s" });
++      await vi.advanceTimersByTimeAsync(2_000);
++      await expect(promise).resolves.toMatchObject({ status: "RUNNING" });
++      expect(calls).toEqual([
++        "POST /v2/sandboxes",
++        `GET /v2/sandboxes/${sandboxId}`,
++        `GET /v2/sandboxes/${sandboxId}`,
++      ]);
++    } finally {
++      vi.useRealTimers();
++    }
++  });
++
++  test("waitUntilRunning reports failed and timed out starts", async () => {
++    vi.useFakeTimers();
++    try {
++      let status = "FAILED";
++      const client = createSandboxClient({
++        baseUrl: () => "https://api.example.test",
++        apiKey: () => "signkey-test",
++        headers: () => ({}),
++        fetch: () => async (_url, init) =>
++          init?.method === "POST"
++            ? respond("STARTING")
++            : respond(status, status === "FAILED" ? "boom" : undefined),
++      });
++      const sandbox = await client.create(createOptions);
++      const failed = expect(
++        sandbox.waitUntilRunning({ timeout: "5s" }),
++      ).rejects.toMatchObject({
++        action: "waitUntilRunning",
++        code: "sandbox_start_failed",
++        retryable: false,
++        sandboxId,
++        message: "Sandbox entered FAILED before reaching RUNNING",
++        details: [{ status: "FAILED", error: "boom" }],
++      });
++      await vi.advanceTimersByTimeAsync(1_000);
++      await failed;
++
++      status = "STARTING";
++      const timedOut = expect(
++        sandbox.waitUntilRunning({ timeout: "2s" }),
++      ).rejects.toMatchObject({
++        code: "sandbox_start_timed_out",
++        message: "Sandbox did not reach RUNNING within 2000 milliseconds",
++        details: [{ status: "STARTING", timeoutMs: 2000 }],
++      });
++      await vi.advanceTimersByTimeAsync(3_000);
++      await timedOut;
++    } finally {
++      vi.useRealTimers();
++    }
++  });
++
++  test("waitUntilRunning rejects unknown keys and long timeouts", async () => {
++    const client = createSandboxClient({
++      baseUrl: () => "https://api.example.test",
++      apiKey: () => "signkey-test",
++      headers: () => ({}),
++      fetch: () => async () => respond("RUNNING"),
++    });
++    const sandbox = await client.create(createOptions);
++    await expect(
++      sandbox.waitUntilRunning({ timeout: "5s", extra: 1 } as never),
++    ).rejects.toBeInstanceOf(SandboxValidationError);
++    await expect(
++      sandbox.waitUntilRunning({ timeout: "6m" }),
++    ).rejects.toBeInstanceOf(SandboxValidationError);
++  });
++});
++
+ describe("inngest.sandboxes", () => {
+   test("marks Create transport failures as retryable", async () => {
+     const client = createSandboxClient({
+diff --git a/packages/inngest/src/components/InngestSandbox.ts b/packages/inngest/src/components/InngestSandbox.ts
+index 297bcc4..e303c44 100644
+--- a/packages/inngest/src/components/InngestSandbox.ts
++++ b/packages/inngest/src/components/InngestSandbox.ts
+@@ -62,6 +62,7 @@ export type {
+   SandboxResource,
+   SandboxResources,
+   SandboxStatus,
++  SandboxWaitUntilRunningOptions,
+ } from "./sandbox/types.ts";
+ export {
+   SandboxError,
+diff --git a/packages/inngest/src/components/sandbox/client.ts b/packages/inngest/src/components/sandbox/client.ts
+index 7585cf9..270dd50 100644
+--- a/packages/inngest/src/components/sandbox/client.ts
++++ b/packages/inngest/src/components/sandbox/client.ts
+@@ -11,6 +11,7 @@ import {
+   type SandboxFileUploadResult,
+   type SandboxOutputChunk,
+   type SandboxProcess,
++  type SandboxRef,
+   SandboxValidationError,
+ } from "./types.ts";
+ import {
+@@ -27,6 +28,7 @@ import {
+   normalizeSandboxProcessSignalOptions,
+   normalizeSandboxProcessStartOptions,
+   normalizeSandboxProcessWaitOptions,
++  normalizeSandboxWaitUntilRunningOptions,
+   parseWithSchema,
+   restOutputChunkSchema,
+   sandboxProcessRefFromResource,
+@@ -125,6 +127,7 @@ const waitProcessSchema = z
+ const safeReadActions = new Set<SandboxAction>([
+   "list",
+   "get",
++  "waitUntilRunning",
+   "process.list",
+   "process.get",
+   "process.wait",
+@@ -423,6 +426,69 @@ class SandboxRestTransport {
+   }
+ }
+ 
++const sandboxPollIntervalMs = 1_000;
++
++const sleep = (ms: number): Promise<void> =>
++  new Promise((resolve) => setTimeout(resolve, ms));
++
++/**
++ * Poll Get until the sandbox is RUNNING. Never re-sends Create.
++ */
++const waitForRunning = async (
++  transport: SandboxRestTransport,
++  initial: SandboxRef,
++  timeoutMs: number,
++  action: "create" | "waitUntilRunning",
++): Promise<SandboxRef> => {
++  const deadline = Date.now() + timeoutMs;
++  let current = initial;
++  for (;;) {
++    if (current.status === "RUNNING") {
++      return current;
++    }
++    if (current.status !== "PENDING" && current.status !== "STARTING") {
++      throw new SandboxError({
++        action,
++        code: "sandbox_start_failed",
++        message: `Sandbox entered ${current.status} before reaching RUNNING`,
++        sandboxId: current.id,
++        retryable: false,
++        details: [
++          {
++            status: current.status,
++            ...(current.error !== undefined && { error: current.error }),
++          },
++        ],
++      });
++    }
++    const remaining = deadline - Date.now();
++    if (remaining <= 0) {
++      throw new SandboxError({
++        action,
++        code: "sandbox_start_timed_out",
++        message: `Sandbox did not reach RUNNING within ${timeoutMs} milliseconds`,
++        sandboxId: current.id,
++        retryable: false,
++        details: [{ status: current.status, timeoutMs }],
++      });
++    }
++    await sleep(Math.min(sandboxPollIntervalMs, remaining));
++    try {
++      const { envelope } = await transport.json(
++        "get",
++        "GET",
++        `/v2/sandboxes/${encodeURIComponent(current.id)}`,
++        { statuses: [200], sandboxId: current.id },
++      );
++      current = sandboxRefFromResource(envelope?.data);
++    } catch (error) {
++      if (!(error instanceof SandboxError) || !error.retryable) {
++        throw error;
++      }
++    }
++  }
++};
++
+ const processPath = (sandboxId: string, processId: string): string =>
+   `/v2/sandboxes/${encodeURIComponent(sandboxId)}/processes/${encodeURIComponent(processId)}`;
+ 
+@@ -719,6 +785,19 @@ const createDirectSandboxFacade = (
+         }
+       },
+     }),
++    waitUntilRunning: async (options) => {
++      const { timeoutMs } = normalizeSandboxWaitUntilRunningOptions(options);
++      if (ref.status === "RUNNING") {
++        return facade;
++      }
++      const running = await waitForRunning(
++        transport,
++        ref,
++        timeoutMs,
++        "waitUntilRunning",
++      );
++      return createDirectSandboxFacade(running, transport);
++    },
+     destroy: async (): Promise<SandboxDestroyResult> => {
+       const { status, envelope } = await transport.json(
+         "destroy",
+@@ -779,7 +858,8 @@ export const createSandboxClient = (
+   const transport = new SandboxRestTransport(config);
+   const client: SandboxClient = {
+     create: async (options) => {
+-      const body = normalizeSandboxCreateOptions(options);
++      const { runningTimeoutMs, ...body } =
++        normalizeSandboxCreateOptions(options);
+       const { status, envelope } = await transport.json(
+         "create",
+         "POST",
+@@ -795,7 +875,13 @@ export const createSandboxClient = (
+           `Sandbox Create returned HTTP ${status} with status ${sandbox.status}`,
+         );
+       }
+-      return createDirectSandboxFacade(sandbox, transport);
++      if (runningTimeoutMs === undefined) {
++        return createDirectSandboxFacade(sandbox, transport);
++      }
++      return createDirectSandboxFacade(
++        await waitForRunning(transport, sandbox, runningTimeoutMs, "create"),
++        transport,
++      );
+     },
+     list: async (options) => {
+       const normalized = normalizeSandboxListOptions(options);
+diff --git a/packages/inngest/src/components/sandbox/durable.ts b/packages/inngest/src/components/sandbox/durable.ts
+index 7040ee1..101b9f3 100644
+--- a/packages/inngest/src/components/sandbox/durable.ts
++++ b/packages/inngest/src/components/sandbox/durable.ts
+@@ -43,6 +43,7 @@ import {
+   normalizeSandboxProcessSignalOptions,
+   normalizeSandboxProcessStartOptions,
+   normalizeSandboxProcessWaitOptions,
++  normalizeSandboxWaitUntilRunningOptions,
+   parseWithSchema,
+   sandboxProcessRefSchema,
+   sandboxRefSchema,
+@@ -160,7 +161,13 @@ export const executeSandboxOperation = async (
+ 
+   switch (operation.action) {
+     case "create": {
+-      const sandbox = await client.create(operation.input[0]);
++      const { runningTimeoutMs, ...createOptions } = operation.input[0];
++      const sandbox = await client.create({
++        ...createOptions,
++        ...(runningTimeoutMs !== undefined && {
++          runningTimeout: runningTimeoutMs,
++        }),
++      });
+       return {
+         protocolVersion: sandboxProtocolVersion,
+         action: operation.action,
+@@ -185,6 +192,17 @@ export const executeSandboxOperation = async (
+         sandbox: sandbox ? sandboxRefForWire(sandbox) : null,
+       };
+     }
++    case "waitUntilRunning": {
++      const sandbox = await sandboxForOperation(
++        client,
++        operation.target.sandbox,
++      ).waitUntilRunning({ timeout: operation.input[0].timeoutMs });
++      return {
++        protocolVersion: sandboxProtocolVersion,
++        action: operation.action,
++        sandbox: sandboxRefForWire(sandbox),
++      };
++    }
+     case "exec": {
+       const { timeoutMs, ...options } = operation.input[0];
+       const sandbox = sandboxForOperation(client, operation.target.sandbox);
+@@ -505,6 +523,16 @@ export const createDurableSandboxFacade = (
+           : null;
+       },
+     }),
++    waitUntilRunning: async (idOrOptions, options) => {
++      const operation = parseSandboxOperationForAction("waitUntilRunning", {
++        protocolVersion: sandboxProtocolVersion,
++        action: "waitUntilRunning",
++        target: sandboxTarget(ref),
++        input: [normalizeSandboxWaitUntilRunningOptions(options)],
++      });
++      const result = await callRawTool(rawToolResolver, idOrOptions, operation);
++      return createDurableSandboxFacade(result.sandbox, rawToolResolver);
++    },
+     destroy: async (idOrOptions): Promise<SandboxDestroyResult> => {
+       const operation = parseSandboxOperationForAction("destroy", {
+         protocolVersion: sandboxProtocolVersion,
+diff --git a/packages/inngest/src/components/sandbox/protocol.ts b/packages/inngest/src/components/sandbox/protocol.ts
+index 0990baf..bb16f43 100644
+--- a/packages/inngest/src/components/sandbox/protocol.ts
++++ b/packages/inngest/src/components/sandbox/protocol.ts
+@@ -38,6 +38,7 @@ const createInputSchema = z
+     name: z.string().regex(/^[a-z0-9_-]{1,63}$/),
+     vcpu: z.number().int().positive().max(0xffffffff),
+     memoryMb: z.number().int().positive().max(0xffffffff),
++    runningTimeoutMs: z.number().int().positive().max(300_000).optional(),
+   })
+   .strict();
+ const listInputSchema = z
+@@ -132,6 +133,14 @@ export const sandboxOperationSchema = z.discriminatedUnion("action", [
+       input: z.tuple([getInputSchema]),
+     })
+     .strict(),
++  z
++    .object({
++      ...operationBase,
++      action: z.literal("waitUntilRunning"),
++      target: sandboxTargetSchema,
++      input: z.tuple([waitInputSchema]),
++    })
++    .strict(),
+   z
+     .object({
+       ...operationBase,
+@@ -338,6 +347,16 @@ export const sandboxOperationResultSchema = z.discriminatedUnion("action", [
+       sandbox: sandboxRefSchema.nullable(),
+     })
+     .strict(),
++  z
++    .object({
++      ...operationBase,
++      action: z.literal("waitUntilRunning"),
++      sandbox: sandboxRefSchema.refine(
++        (sandbox) => sandbox.status === "RUNNING",
++        "sandbox must be RUNNING",
++      ),
++    })
++    .strict(),
+   z
+     .object({
+       ...operationBase,
+@@ -405,6 +424,7 @@ const sandboxErrorPayloadSchema = z
+       "create",
+       "list",
+       "get",
++      "waitUntilRunning",
+       "exec",
+       "destroy",
+       "process.start",
+diff --git a/packages/inngest/src/components/sandbox/types.ts b/packages/inngest/src/components/sandbox/types.ts
+index 2b496f6..a5a603d 100644
+--- a/packages/inngest/src/components/sandbox/types.ts
++++ b/packages/inngest/src/components/sandbox/types.ts
+@@ -45,6 +45,16 @@ export interface SandboxCreateOptions {
+   name: string;
+   vcpu: number;
+   memoryMb: number;
++
++  /**
++   * When set, create waits until the sandbox is RUNNING (polling Get) for up
++   * to this long before returning. Maximum 5 minutes.
++   */
++  runningTimeout?: SandboxDuration;
++}
++
++export interface SandboxWaitUntilRunningOptions {
++  timeout: SandboxDuration;
+ }
+ 
+ export interface SandboxListOptions {
+@@ -196,6 +206,7 @@ export type SandboxAction =
+   | "create"
+   | "list"
+   | "get"
++  | "waitUntilRunning"
+   | "exec"
+   | "destroy"
+   | "process.start"
+@@ -225,6 +236,8 @@ export type SandboxErrorCode =
+   | "sandbox_process_not_found"
+   | "sandbox_process_output_not_retained"
+   | "sandbox_process_wait_timed_out"
++  | "sandbox_start_failed"
++  | "sandbox_start_timed_out"
+   | (string & {});
+ 
+ export type SandboxErrorDetail = Record<string, unknown>;
+@@ -315,6 +328,7 @@ export interface Sandbox {
+     ): Promise<SandboxProcessListResult<SandboxProcess>>;
+     get(processId: string): Promise<SandboxProcess | null>;
+   };
++  waitUntilRunning(options: SandboxWaitUntilRunningOptions): Promise<Sandbox>;
+   destroy(): Promise<SandboxDestroyResult>;
+ }
+ 
+@@ -379,6 +393,10 @@ export interface DurableSandbox {
+       processId: string,
+     ): Promise<DurableSandboxProcess | null>;
+   };
++  waitUntilRunning(
++    idOrOptions: StepOptionsOrId,
++    options: SandboxWaitUntilRunningOptions,
++  ): Promise<DurableSandbox>;
+   destroy(idOrOptions: StepOptionsOrId): Promise<SandboxDestroyResult>;
+ }
+ 
+diff --git a/packages/inngest/src/components/sandbox/validation.ts b/packages/inngest/src/components/sandbox/validation.ts
+index 20cc621..f44c6d6 100644
+--- a/packages/inngest/src/components/sandbox/validation.ts
++++ b/packages/inngest/src/components/sandbox/validation.ts
+@@ -17,6 +17,7 @@ import {
+   type SandboxProcessWaitOptions,
+   type SandboxRef,
+   SandboxValidationError,
++  type SandboxWaitUntilRunningOptions,
+ } from "./types.ts";
+ 
+ export const maxSandboxProcessTimeoutMs = 5 * 60 * 1_000;
+@@ -273,18 +274,49 @@ export const sandboxProcessRefFromResource = (
+ 
+ export const normalizeSandboxCreateOptions = (
+   options: SandboxCreateOptions,
+-): SandboxCreateOptions =>
+-  parseWithSchema(
++): Omit<SandboxCreateOptions, "runningTimeout"> & {
++  runningTimeoutMs?: number;
++} => {
++  const { runningTimeout, ...rest } = parseWithSchema(
+     z
+       .object({
+         name: z.string().regex(/^[a-z0-9_-]{1,63}$/),
+         vcpu: z.number().int().positive().max(0xffffffff),
+         memoryMb: z.number().int().positive().max(0xffffffff),
++        runningTimeout: z.unknown().optional(),
+       })
+       .strict(),
+     options,
+     "sandbox create options",
+   );
++  return {
++    ...rest,
++    ...(runningTimeout !== undefined && {
++      runningTimeoutMs: normalizeDurationMs(
++        runningTimeout as SandboxDuration,
++        maxSandboxProcessTimeoutMs,
++        "runningTimeout",
++      ),
++    }),
++  };
++};
++
++export const normalizeSandboxWaitUntilRunningOptions = (
++  options: SandboxWaitUntilRunningOptions,
++): { timeoutMs: number } => {
++  const parsed = parseWithSchema(
++    z.object({ timeout: z.unknown() }).strict(),
++    options,
++    "sandbox waitUntilRunning options",
++  );
++  return {
++    timeoutMs: normalizeDurationMs(
++      parsed.timeout as SandboxDuration,
++      maxSandboxProcessTimeoutMs,
++      "timeout",
++    ),
++  };
++};
+ 
+ export const normalizeSandboxListOptions = (
+   options: SandboxListOptions = {},
+diff --git a/packages/inngest/src/experimental.ts b/packages/inngest/src/experimental.ts
+index 1877511..75eb89f 100644
+--- a/packages/inngest/src/experimental.ts
++++ b/packages/inngest/src/experimental.ts
+@@ -51,6 +51,7 @@ export type {
+   SandboxResource,
+   SandboxResources,
+   SandboxStatus,
++  SandboxWaitUntilRunningOptions,
+ } from "./components/InngestSandbox.ts";
+ export {
+   SandboxError,

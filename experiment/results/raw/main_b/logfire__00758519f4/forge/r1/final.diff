@@ -1,0 +1,46 @@
+diff --git a/logfire/experimental/query_client.py b/logfire/experimental/query_client.py
+index 9209440..4623d7b 100644
+--- a/logfire/experimental/query_client.py
++++ b/logfire/experimental/query_client.py
+@@ -47,6 +47,12 @@ class InfoRequestError(RuntimeError):
+     pass
+ 
+ 
++class UnexpectedResponseError(RuntimeError):
++    """Raised when the server responds with an unexpected HTTP status code."""
++
++    pass
++
++
+ class ReadTokenInfo(TypedDict, total=False):
+     """Information about the read token."""
+ 
+@@ -202,7 +208,8 @@ class _BaseLogfireQueryClient(Generic[T]):
+         if response.status_code == 422:  # pragma: no cover
+             data = response.json() if media_type == 'application/json' else response.text
+             raise QueryRequestError(data)
+-        assert response.status_code == 200, response.content
++        if response.status_code != 200:
++            raise UnexpectedResponseError(f'Unexpected response status code {response.status_code}: {response.text!r}')
+ 
+ 
+ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
+diff --git a/logfire/query_client.py b/logfire/query_client.py
+index d06b1eb..f812014 100644
+--- a/logfire/query_client.py
++++ b/logfire/query_client.py
+@@ -10,12 +10,14 @@ from .experimental.query_client import (
+     QueryResults,
+     ReadTokenInfo,
+     RowQueryResults,
++    UnexpectedResponseError,
+ )
+ 
+ __all__ = [
+     'QueryExecutionError',
+     'QueryRequestError',
+     'InfoRequestError',
++    'UnexpectedResponseError',
+     'ReadTokenInfo',
+     'ColumnDetails',
+     'ColumnData',

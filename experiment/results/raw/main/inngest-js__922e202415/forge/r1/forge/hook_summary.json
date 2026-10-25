@@ -1,0 +1,54 @@
+{
+ "active": true,
+ "events": {
+  "SessionStart": 1,
+  "UserPromptSubmit": 1,
+  "PreToolUse": 21,
+  "PostToolUse": 14,
+  "Stop": 1
+ },
+ "forge_messages": 4,
+ "blocks": 0,
+ "stop_blocks": 0,
+ "feedback": 2,
+ "nonzero_exit": 0,
+ "by_hook": {
+  "SessionStart:startup": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 3
+  },
+  "UserPromptSubmit": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PreToolUse:Bash": {
+   "runs": 21,
+   "nonzero": 0,
+   "forge_msgs": 1
+  },
+  "PostToolUse:Bash": {
+   "runs": 14,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "Stop": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  }
+ },
+ "samples": [
+  {
+   "hook": "SessionStart:startup",
+   "exit": 0,
+   "out": "forge: branch main, 0 changed files\nforge: last commits\n  eb2779b Add Forge\n  293e3bc initial\nforge: packs github-actions\n"
+  },
+  {
+   "hook": "PreToolUse:Bash",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"forge:safety/ephemeral-exec reviewed by an independent session, nobody being there to answer: The inline Python only appends tests to the repo's jsonify test file and adds a changeset file within the repo, followed by running local vitest and tsc, with no destructive, network, or secret-related effects.\"}}\n"
+  }
+ ]
+}

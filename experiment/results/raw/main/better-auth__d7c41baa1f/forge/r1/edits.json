@@ -1,0 +1,15 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 5,
+ "bash_calls": 14,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/packages/electron/src && python3 - <<'E'\ns=open('routes.ts').read()\ns=s.replace(\"let setCookie: string | null = null;\",\"let setCookies: string[] = [];\")\ns=s.replace('setCookie = headers.get(\"set-cookie\") ?? null;','setCookies = headers.getSetCookie();')\ns=s.replace('''if (setCookie) {\n\t\t\t\tc",
+  "sed -i 's/ctx.context.responseHeaders?.append/ctx.responseHeaders?.append/' src/routes.ts && npx tsc --noEmit -p . 2>&1 | cut -c1-300 | head",
+  "cd /work/packages/electron; python3 - <<'E'\ns=open('test/electron.test.ts').read()\nt='''describe(\"electronInitOAuthProxy set-cookie forwarding\", () => {\n\tconst { auth } = testUtils();\n\n\tit(\"forwards each cookie as its own Set-Cookie header in order\", async () => {\n\t\tconst inner = new Headers();\n\t\tin",
+  "cd /work/packages/electron; python3 - <<'E'\ns=open('test/electron.test.ts').read()\ns=s.replace('''const fetchSpy = vi.spyOn(globalThis, \"fetch\").mockResolvedValue(\n\t\t\tnew Response(JSON.stringify({ url: \"https://idp.test/auth\", redirect: true }), {\n\t\t\t\theaders: inner,\n\t\t\t}),\n\t\t);''','''const original",
+  "cd /work/packages/electron; python3 - <<'E'\nimport re\ns=open('test/electron.test.ts').read()\ni=s.index('const fetchSpy = vi.spyOn')\nj=s.index('try {',i)\ns=s[:i]+'''const originalFetch = globalThis.fetch;\n\t\tglobalThis.fetch = async () =>\n\t\t\tnew Response(\n\t\t\t\tJSON.stringify({ url: \"https://idp.test/au"
+ ],
+ "total": 5,
+ "edit_tool_share": 0.0
+}

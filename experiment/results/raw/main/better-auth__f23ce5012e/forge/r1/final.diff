@@ -1,0 +1,137 @@
+diff --git a/docs/content/docs/plugins/last-login-method.mdx b/docs/content/docs/plugins/last-login-method.mdx
+index 2c97e3c..84f6f45 100644
+--- a/docs/content/docs/plugins/last-login-method.mdx
++++ b/docs/content/docs/plugins/last-login-method.mdx
+@@ -289,6 +289,12 @@ export const auth = betterAuth({
+ * Return `null` to use the default resolution logic
+ * Useful for custom OAuth providers or authentication flows
+ 
++**beforeStoreCookie**: `(ctx: GenericEndpointContext, lastUsedLoginMethod: string) => Promise<boolean> | boolean`
++
++* Called every time before the cookie is set; return a falsy value to skip it (e.g. until the user has consented under GDPR)
++* If the hook throws or rejects, the cookie is skipped, the error is logged, and sign-in still succeeds
++* Does not affect `storeInDatabase`
++
+ **schema**: `object`
+ 
+ * Customize database field names when `storeInDatabase` is enabled
+diff --git a/packages/better-auth/src/plugins/last-login-method/before-store-cookie.test.ts b/packages/better-auth/src/plugins/last-login-method/before-store-cookie.test.ts
+new file mode 100644
+index 0000000..6261973
+--- /dev/null
++++ b/packages/better-auth/src/plugins/last-login-method/before-store-cookie.test.ts
+@@ -0,0 +1,67 @@
++import type { GenericEndpointContext } from "@better-auth/core";
++import { describe, expect, it } from "vitest";
++import { getTestInstance } from "../../test-utils/test-instance";
++import { lastLoginMethod } from ".";
++import { lastLoginMethodClient } from "./client";
++
++const COOKIE = "better-auth.last_used_login_method";
++
++async function signIn(
++	beforeStoreCookie: Parameters<typeof lastLoginMethod>[0] extends infer O
++		? O extends { beforeStoreCookie?: infer F }
++			? F
++			: never
++		: never,
++) {
++	const { client, testUser } = await getTestInstance(
++		{ plugins: [lastLoginMethod({ beforeStoreCookie })] },
++		{ clientOptions: { plugins: [lastLoginMethodClient()] } },
++	);
++	let setCookie = "";
++	const res = await client.signIn.email(
++		{ email: testUser.email, password: testUser.password },
++		{
++			onSuccess(context) {
++				setCookie = context.response.headers.get("set-cookie") || "";
++			},
++		},
++	);
++	return { res, setCookie };
++}
++
++describe("lastLoginMethod beforeStoreCookie", () => {
++	it("sets the cookie when the hook returns true", async () => {
++		const calls: [GenericEndpointContext, string][] = [];
++		const hook = async (ctx: GenericEndpointContext, method: string) => {
++			calls.push([ctx, method]);
++			return true;
++		};
++		const { setCookie } = await signIn(hook);
++		expect(setCookie).toContain(COOKIE);
++		const last = calls.at(-1);
++		expect(last?.[0].path).toBe("/sign-in/email");
++		expect(last?.[1]).toBe("email");
++	});
++
++	it("skips the cookie when the hook returns false", async () => {
++		const { res, setCookie } = await signIn(() => false);
++		expect(res.data?.token).toBeTruthy();
++		expect(setCookie).not.toContain(COOKIE);
++	});
++
++	it("skips the cookie and still authenticates when the hook throws", async () => {
++		const { res, setCookie } = await signIn(() => {
++			throw new Error("boom");
++		});
++		expect(res.data?.token).toBeTruthy();
++		expect(setCookie).not.toContain(COOKIE);
++	});
++
++	it("skips the cookie when the hook rejects", async () => {
++		const { res, setCookie } = await signIn(async () => {
++			throw new Error("boom");
++		});
++		expect(res.data?.token).toBeTruthy();
++		expect(setCookie).not.toContain(COOKIE);
++	});
++});
+diff --git a/packages/better-auth/src/plugins/last-login-method/index.ts b/packages/better-auth/src/plugins/last-login-method/index.ts
+index ae335d5..1236f6b 100644
+--- a/packages/better-auth/src/plugins/last-login-method/index.ts
++++ b/packages/better-auth/src/plugins/last-login-method/index.ts
+@@ -34,6 +34,20 @@ export interface LastLoginMethodOptions {
+ 	customResolveMethod?:
+ 		| ((ctx: GenericEndpointContext) => string | null)
+ 		| undefined;
++	/**
++	 * Called each time before the last login method cookie is set. Return a
++	 * falsy value to skip setting the cookie (e.g. when the user has not
++	 * consented). If it throws, the cookie is skipped and the error is logged.
++	 * This does not affect `storeInDatabase`.
++	 * @param ctx - The endpoint context of the login request
++	 * @param lastUsedLoginMethod - The detected login method
++	 */
++	beforeStoreCookie?:
++		| ((
++				ctx: GenericEndpointContext,
++				lastUsedLoginMethod: string,
++		  ) => Promise<boolean> | boolean)
++		| undefined;
+ 	/**
+ 	 * Store the last login method in the database. This will create a new field in the user table.
+ 	 * @default false
+@@ -160,6 +174,21 @@ export const lastLoginMethod = <O extends LastLoginMethodOptions>(
+ 								cookie.includes(sessionTokenName),
+ 							);
+ 							if (hasSessionToken) {
++								if (config.beforeStoreCookie) {
++									try {
++										const allowed = await config.beforeStoreCookie(
++											ctx,
++											lastUsedLoginMethod,
++										);
++										if (!allowed) return;
++									} catch (error) {
++										ctx.context.logger.error(
++											"Failed to run beforeStoreCookie",
++											error,
++										);
++										return;
++									}
++								}
+ 								// Inherit cookie attributes from Better Auth's centralized cookie system
+ 								// This ensures consistency with cross-origin, cross-subdomain, and security settings
+ 								const cookieAttributes = {

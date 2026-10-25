@@ -1,0 +1,16 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 6,
+ "bash_calls": 21,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'EOF'\np='server/telemetry.py'\ns=open(p).read()\n\ns=s.replace('''def get_auth_span_attributes''','''SEAM_SPAN_MARKER = \"fastmcp.span.seam\"\n\n\ndef record_span_exception(span: Span, exc: Exception) -> None:\n    \"\"\"Record an exception on a span with ERROR status, at most once per span.\"\"\"\n    ",
+  "python3 - <<'EOF'\np='server/low_level.py'\ns=open(p).read()\ns=s.replace('''        if True:\n            # Only initialize requests (request_id present) go through FastMCP\n            # middleware here; every other request already binds the context in\n            # its own adapter, so we just pass thr",
+  "python3 - <<'EOF'\np='server/mixins/mcp_operations.py'\ns=open(p).read()\ns=s.replace('''    GetPromptRequestParams,\n''','''    INVALID_PARAMS,\n    GetPromptRequestParams,\n''',1)\ns=s.replace('from fastmcp.exceptions import DisabledError, FastMCPError, NotFoundError','''from fastmcp.exceptions import (\n",
+  "python3 - <<'EOF'\np='fastmcp_slim/fastmcp/server/telemetry.py'\ns=open(p).read()\ns=s.replace('''        current.set_attributes(attrs)\n''','''        current.set_attributes(\n            {**attrs, **get_auth_span_attributes(), **get_session_span_attributes()}\n        )\n''',1)\nopen(p,'w').write(s)\nEOF\n.",
+  "cat > tests/server/telemetry/test_single_server_span.py <<'EOF'\n\"\"\"One SERVER span per dispatched request, and spec-correct error codes.\"\"\"\n\nfrom __future__ import annotations\n\nimport pytest\nfrom mcp import MCPError\nfrom mcp_types import INTERNAL_ERROR, INVALID_PARAMS\nfrom opentelemetry.sdk.trace.ex",
+  "python3 - <<'EOF'\np='tests/server/telemetry/test_single_server_span.py'\ns=open(p).read()\ns=s.replace('''    assert len(_server_spans(trace_exporter)) == 1\n    attrs =''','''    # One span per request: the client's implicit tools/list is its own request.\n    names = [s.name for s in _server_spans(tra"
+ ],
+ "total": 6,
+ "edit_tool_share": 0.0
+}

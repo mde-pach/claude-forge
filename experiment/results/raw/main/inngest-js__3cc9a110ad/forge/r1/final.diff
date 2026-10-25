@@ -1,0 +1,466 @@
+diff --git a/packages/inngest/src/components/execution/otel/aiExtractor.test.ts b/packages/inngest/src/components/execution/otel/aiExtractor.test.ts
+index 1b61026..6039cdb 100644
+--- a/packages/inngest/src/components/execution/otel/aiExtractor.test.ts
++++ b/packages/inngest/src/components/execution/otel/aiExtractor.test.ts
+@@ -2,11 +2,12 @@ import { readdirSync, readFileSync } from "node:fs";
+ import { dirname, join } from "node:path";
+ import { fileURLToPath } from "node:url";
+ import type { Attributes, AttributeValue } from "@opentelemetry/api";
++import type { ReadableSpan } from "@opentelemetry/sdk-trace-base";
+ import { describe, expect, test } from "vitest";
+ import type { AIMetadata } from "./aiExtractor.ts";
+ import {
+   aggregate,
+-  extractAIMetadataFromAttributes,
++  extractAIMetadataFromSpan,
+   FIELD_SPECS,
+   toInngestAIMetadataValues,
+ } from "./aiExtractor.ts";
+@@ -106,7 +107,30 @@ const discoverFixtures = (): {
+   return out;
+ };
+ 
+-describe("extractAIMetadataFromAttributes", () => {
++const spanOf = (
++  attributes: Record<string, unknown>,
++  startTime: [number, number] = [10, 0],
++  endTime: [number, number] = [10, 500_000_000],
++) => ({ attributes, startTime, endTime }) as unknown as ReadableSpan;
++
++const fromAttrs = (attributes: Record<string, unknown>) => {
++  const { latencyMs: _ignored, ...rest } = extractAIMetadataFromSpan(
++    spanOf(attributes),
++  );
++  return rest;
++};
++
++describe("extractAIMetadataFromSpan", () => {
++  test("derives latencyMs only alongside other fields", () => {
++    expect(
++      extractAIMetadataFromSpan(spanOf({ "gen_ai.request.model": "m" })),
++    ).toEqual({ requestModel: "m", latencyMs: 500 });
++    expect(extractAIMetadataFromSpan(spanOf({}))).toEqual({});
++    expect(
++      extractAIMetadataFromSpan(spanOf({ "gen_ai.request.model": "" })),
++    ).toEqual({});
++  });
++
+   describe("captured OTLP fixtures", () => {
+     const fixtures = discoverFixtures();
+ 
+@@ -122,7 +146,9 @@ describe("extractAIMetadataFromAttributes", () => {
+         // canonical metadata this extractor produces for it.
+         const extracted = spans.map((span) => ({
+           span: span.name,
+-          metadata: extractAIMetadataFromAttributes(span.attributes),
++          metadata: extractAIMetadataFromSpan({
++            attributes: span.attributes,
++          } as unknown as ReadableSpan),
+         }));
+ 
+         await expect(
+@@ -134,7 +160,7 @@ describe("extractAIMetadataFromAttributes", () => {
+ 
+   test("maps allowlisted gen_ai keys to canonical fields", () => {
+     expect(
+-      extractAIMetadataFromAttributes({
++      fromAttrs({
+         "gen_ai.request.model": "gpt-4.1-nano",
+         "gen_ai.response.model": "gpt-4.1-nano-2025-04-14",
+         "gen_ai.provider.name": "openai",
+@@ -158,28 +184,26 @@ describe("extractAIMetadataFromAttributes", () => {
+ 
+   describe("operationName", () => {
+     test("reads gen_ai.operation.name", () => {
+-      expect(
+-        extractAIMetadataFromAttributes({ "gen_ai.operation.name": "chat" }),
+-      ).toEqual({ operationName: "chat" });
++      expect(fromAttrs({ "gen_ai.operation.name": "chat" })).toEqual({
++        operationName: "chat",
++      });
+     });
+ 
+     test("drops an empty gen_ai.operation.name", () => {
+-      expect(
+-        extractAIMetadataFromAttributes({ "gen_ai.operation.name": "" }),
+-      ).toEqual({});
++      expect(fromAttrs({ "gen_ai.operation.name": "" })).toEqual({});
+     });
+   });
+ 
+   describe("provider", () => {
+     test("reads the deprecated gen_ai.system when the canonical key is absent", () => {
+-      expect(
+-        extractAIMetadataFromAttributes({ "gen_ai.system": "anthropic" }),
+-      ).toEqual({ provider: "anthropic" });
++      expect(fromAttrs({ "gen_ai.system": "anthropic" })).toEqual({
++        provider: "anthropic",
++      });
+     });
+ 
+     test("prefers gen_ai.provider.name over the deprecated gen_ai.system", () => {
+       expect(
+-        extractAIMetadataFromAttributes({
++        fromAttrs({
+           "gen_ai.provider.name": "openai",
+           "gen_ai.system": "anthropic",
+         }),
+@@ -188,7 +212,7 @@ describe("extractAIMetadataFromAttributes", () => {
+ 
+     test("falls back to gen_ai.system when the canonical key is empty", () => {
+       expect(
+-        extractAIMetadataFromAttributes({
++        fromAttrs({
+           "gen_ai.provider.name": "",
+           "gen_ai.system": "anthropic",
+         }),
+@@ -199,7 +223,7 @@ describe("extractAIMetadataFromAttributes", () => {
+   test("reports only the provider-supplied total; never derives one", () => {
+     // With input + output but no total, the total field is simply absent.
+     expect(
+-      extractAIMetadataFromAttributes({
++      fromAttrs({
+         "gen_ai.usage.input_tokens": 17,
+         "gen_ai.usage.output_tokens": 41,
+       }),
+@@ -208,7 +232,7 @@ describe("extractAIMetadataFromAttributes", () => {
+ 
+   test("extracts request parameters", () => {
+     expect(
+-      extractAIMetadataFromAttributes({
++      fromAttrs({
+         "gen_ai.request.temperature": 0.7,
+         "gen_ai.request.top_p": 0.9,
+         "gen_ai.request.max_tokens": 64,
+@@ -227,14 +251,14 @@ describe("extractAIMetadataFromAttributes", () => {
+   });
+ 
+   test("keeps a zero-valued temperature rather than dropping it", () => {
+-    expect(
+-      extractAIMetadataFromAttributes({ "gen_ai.request.temperature": 0 }),
+-    ).toEqual({ temperature: 0 });
++    expect(fromAttrs({ "gen_ai.request.temperature": 0 })).toEqual({
++      temperature: 0,
++    });
+   });
+ 
+   test("extracts finish reasons as a list of strings", () => {
+     expect(
+-      extractAIMetadataFromAttributes({
++      fromAttrs({
+         "gen_ai.response.finish_reasons": ["stop", "tool_calls"],
+       }),
+     ).toEqual({ finishReasons: ["stop", "tool_calls"] });
+@@ -242,7 +266,7 @@ describe("extractAIMetadataFromAttributes", () => {
+ 
+   test("drops empty and non-string finish-reason entries", () => {
+     expect(
+-      extractAIMetadataFromAttributes({
++      fromAttrs({
+         "gen_ai.response.finish_reasons": ["", "stop"],
+       }),
+     ).toEqual({ finishReasons: ["stop"] });
+@@ -250,7 +274,7 @@ describe("extractAIMetadataFromAttributes", () => {
+ 
+   test("drops finish reasons when the list reduces to nothing", () => {
+     expect(
+-      extractAIMetadataFromAttributes({
++      fromAttrs({
+         "gen_ai.response.finish_reasons": [],
+       }),
+     ).toEqual({});
+@@ -258,7 +282,7 @@ describe("extractAIMetadataFromAttributes", () => {
+ 
+   test("ignores unmapped, content, and sensitive keys", () => {
+     expect(
+-      extractAIMetadataFromAttributes({
++      fromAttrs({
+         "gen_ai.tool.name": "search",
+         "gen_ai.prompt": "secret prompt",
+         "gen_ai.completion": "secret completion",
+@@ -271,7 +295,7 @@ describe("extractAIMetadataFromAttributes", () => {
+ 
+   test("coerces quoted-string int64 counts to numbers", () => {
+     expect(
+-      extractAIMetadataFromAttributes({
++      fromAttrs({
+         "gen_ai.usage.input_tokens": "17",
+       }),
+     ).toEqual({ inputTokens: 17 });
+@@ -279,7 +303,7 @@ describe("extractAIMetadataFromAttributes", () => {
+ 
+   test("drops empty-string text fields", () => {
+     expect(
+-      extractAIMetadataFromAttributes({
++      fromAttrs({
+         "gen_ai.request.model": "",
+       }),
+     ).toEqual({});
+@@ -287,7 +311,7 @@ describe("extractAIMetadataFromAttributes", () => {
+ 
+   test("drops non-numeric values for numeric fields", () => {
+     expect(
+-      extractAIMetadataFromAttributes({
++      fromAttrs({
+         "gen_ai.usage.input_tokens": "not-a-number",
+         "gen_ai.usage.output_tokens": true,
+         "gen_ai.usage.total_tokens": "",
+@@ -297,7 +321,7 @@ describe("extractAIMetadataFromAttributes", () => {
+ 
+   test("drops undefined values", () => {
+     expect(
+-      extractAIMetadataFromAttributes({
++      fromAttrs({
+         "gen_ai.request.model": undefined,
+       }),
+     ).toEqual({});
+@@ -419,13 +443,21 @@ describe("FIELD_SPECS", () => {
+     // Guards the allowlist against typos: every source must live in the
+     // OpenTelemetry GenAI (`gen_ai.*`) namespace.
+     const nonGenAi = FIELD_SPECS.flatMap((spec) => [
+-      spec.source,
++      ...(spec.source ? [spec.source] : []),
+       ...(spec.fallbackSources ?? []),
+     ]).filter((source) => !source.startsWith("gen_ai."));
+ 
+     expect(nonGenAi).toEqual([]);
+   });
+ 
++  test("latencyMs is the only optional field", () => {
++    expect(
++      FIELD_SPECS.filter((s) => "optional" in s && s.optional).map(
++        (s) => s.field,
++      ),
++    ).toEqual(["latencyMs"]);
++  });
++
+   test("each canonical field is mapped at most once", () => {
+     const fields = FIELD_SPECS.map((spec) => spec.field);
+     expect(new Set(fields).size).toBe(fields.length);
+diff --git a/packages/inngest/src/components/execution/otel/aiExtractor.ts b/packages/inngest/src/components/execution/otel/aiExtractor.ts
+index 285ac14..1cce963 100644
+--- a/packages/inngest/src/components/execution/otel/aiExtractor.ts
++++ b/packages/inngest/src/components/execution/otel/aiExtractor.ts
+@@ -1,4 +1,5 @@
+-import type { Attributes } from "@opentelemetry/api";
++import type { HrTime } from "@opentelemetry/api";
++import type { ReadableSpan } from "@opentelemetry/sdk-trace-base";
+ 
+ /**
+  * Canonical AI metadata extracted from a span's OpenTelemetry GenAI semantic
+@@ -74,6 +75,14 @@ export interface AIMetadata {
+   presencePenalty?: number;
+   /** Sampling seed requested, when the emitter reports it. */
+   seed?: number;
++
++  // Timing (summed).
++
++  /**
++   * Duration of the AI call in milliseconds, derived from the span's start and
++   * end times. Only populated alongside at least one other recognised field.
++   */
++  latencyMs?: number;
+ }
+ 
+ type ValueType = "text" | "number" | "stringList";
+@@ -101,8 +110,16 @@ type NumberField = FieldsWithValue<number>;
+ type StringListField = FieldsWithValue<string[]>;
+ 
+ interface BaseFieldSpec {
+-  /** The canonical (preferred) source `gen_ai.*` attribute key. */
+-  source: string;
++  /**
++   * The canonical (preferred) source `gen_ai.*` attribute key. Omitted for
++   * fields derived from the span itself (e.g. latency).
++   */
++  source?: string;
++  /**
++   * Optional fields are only populated when at least one non-optional field
++   * produced a value for the same span.
++   */
++  optional?: boolean;
+   /**
+    * Deprecated source keys to read when {@link BaseFieldSpec.source} is absent
+    * or carries no usable value, in descending precedence. The preferred
+@@ -163,6 +180,13 @@ function numberField(
+   };
+ }
+ 
++function spanDerivedNumberField(
++  field: NumberField,
++  merge: MergeStrategy,
++): NumberFieldSpec {
++  return { field, optional: true, valueType: "number", merge };
++}
++
+ function stringListField(
+   field: StringListField,
+   source: string,
+@@ -176,7 +200,8 @@ function stringListField(
+ }
+ 
+ /**
+- * Every `gen_ai.*` attribute we capture, mapped to its canonical field.
++ * Every `gen_ai.*` attribute (and span-derived value) we capture, mapped to
++ * its canonical field.
+  *
+  * Anything not listed here (prompt/response content, messages, tool calls,
+  * unknown keys) is ignored.
+@@ -216,6 +241,9 @@ export const FIELD_SPECS = [
+   ),
+   numberField("presencePenalty", "gen_ai.request.presence_penalty", "replace"),
+   numberField("seed", "gen_ai.request.seed", "replace"),
++
++  // Span-derived. Summed so a step's calls report their combined latency.
++  spanDerivedNumberField("latencyMs", "sum"),
+ ] as const satisfies readonly FieldSpec[];
+ 
+ function parseNumericAttribute(value: unknown): number | undefined {
+@@ -244,8 +272,10 @@ function parseStringListAttribute(value: unknown): string[] | undefined {
+   return strings.length > 0 ? strings : undefined;
+ }
+ 
++const hrTimeToMs = (time: HrTime): number => time[0] * 1000 + time[1] / 1e6;
++
+ /**
+- * Extracts {@link AIMetadata} from a span's attributes.
++ * Extracts {@link AIMetadata} from a span.
+  *
+  * Only the allowlisted {@link FIELD_SPECS} are read. Every other attribute is
+  * ignored. Numeric fields accept numbers and quoted numeric strings and are
+@@ -253,18 +283,21 @@ function parseStringListAttribute(value: unknown): string[] | undefined {
+  * fields are dropped when empty. String-list fields keep only non-empty string
+  * entries and are dropped when none remain.
+  *
+- * Returns an empty object for spans carrying no recognised `gen_ai.*`
+- * attributes.
++ * Optional span-derived fields (`latencyMs`) are added only when at least one
++ * other field was extracted, so spans with no recognised `gen_ai.*` attributes
++ * yield an empty object.
+  *
+- * @param attributes - The span attributes, as exposed by
+- * `ReadableSpan.attributes`.
++ * @param span - The span; only `attributes`, `startTime` and `endTime` are read.
+  */
+-export const extractAIMetadataFromAttributes = (
+-  attributes: Attributes,
+-): AIMetadata => {
++export const extractAIMetadataFromSpan = (span: ReadableSpan): AIMetadata => {
++  const attributes = span.attributes ?? {};
+   const metadata: AIMetadata = {};
+ 
+   for (const spec of FIELD_SPECS) {
++    if (spec.source === undefined) {
++      continue;
++    }
++
+     // Read the canonical key first, then any deprecated fallbacks in order,
+     // taking the first that yields a usable value.
+     const sources = [spec.source, ...(spec.fallbackSources ?? [])];
+@@ -297,6 +330,13 @@ export const extractAIMetadataFromAttributes = (
+     }
+   }
+ 
++  if (Object.keys(metadata).length > 0 && span.startTime && span.endTime) {
++    const latencyMs = hrTimeToMs(span.endTime) - hrTimeToMs(span.startTime);
++    if (Number.isFinite(latencyMs)) {
++      metadata.latencyMs = latencyMs;
++    }
++  }
++
+   return metadata;
+ };
+ 
+diff --git a/packages/inngest/src/components/execution/otel/metadataProcessor.test.ts b/packages/inngest/src/components/execution/otel/metadataProcessor.test.ts
+index 7dc26dc..3f163ae 100644
+--- a/packages/inngest/src/components/execution/otel/metadataProcessor.test.ts
++++ b/packages/inngest/src/components/execution/otel/metadataProcessor.test.ts
+@@ -91,7 +91,13 @@ describe("InngestMetadataSpanProcessor", () => {
+       "gen_ai.usage.input_tokens": 42,
+     });
+ 
+-    expect(pushed).toEqual([{ requestModel: "gpt-4.1-nano", inputTokens: 42 }]);
++    expect(pushed).toEqual([
++      {
++        requestModel: "gpt-4.1-nano",
++        inputTokens: 42,
++        latencyMs: expect.any(Number),
++      },
++    ]);
+   });
+ 
+   test("captures only allowlisted fields; content never reaches the sink", () => {
+@@ -107,7 +113,13 @@ describe("InngestMetadataSpanProcessor", () => {
+     });
+ 
+     // Only the allowlisted signal reaches the sink; content is never captured.
+-    expect(pushed).toEqual([{ requestModel: "gpt-4.1-nano", inputTokens: 42 }]);
++    expect(pushed).toEqual([
++      {
++        requestModel: "gpt-4.1-nano",
++        inputTokens: 42,
++        latencyMs: expect.any(Number),
++      },
++    ]);
+   });
+ 
+   test("does not call the sink when a span carries only content attributes", () => {
+@@ -136,8 +148,16 @@ describe("InngestMetadataSpanProcessor", () => {
+     });
+ 
+     expect(pushed).toEqual([
+-      { requestModel: "gpt-4.1-nano", inputTokens: 10 },
+-      { requestModel: "gpt-4.1-mini", inputTokens: 5 },
++      {
++        requestModel: "gpt-4.1-nano",
++        inputTokens: 10,
++        latencyMs: expect.any(Number),
++      },
++      {
++        requestModel: "gpt-4.1-mini",
++        inputTokens: 5,
++        latencyMs: expect.any(Number),
++      },
+     ]);
+   });
+ 
+@@ -165,7 +185,13 @@ describe("InngestMetadataSpanProcessor", () => {
+     });
+     mid.end();
+ 
+-    expect(pushed).toEqual([{ requestModel: "gpt-4.1-nano", inputTokens: 7 }]);
++    expect(pushed).toEqual([
++      {
++        requestModel: "gpt-4.1-nano",
++        inputTokens: 7,
++        latencyMs: expect.any(Number),
++      },
++    ]);
+   });
+ 
+   test("ignores spans that are not part of a declared run", () => {
+diff --git a/packages/inngest/src/components/execution/otel/metadataProcessor.ts b/packages/inngest/src/components/execution/otel/metadataProcessor.ts
+index 2946c01..8e778e7 100644
+--- a/packages/inngest/src/components/execution/otel/metadataProcessor.ts
++++ b/packages/inngest/src/components/execution/otel/metadataProcessor.ts
+@@ -5,10 +5,7 @@ import type {
+ } from "@opentelemetry/sdk-trace-base";
+ import Debug from "debug";
+ import { isRecord } from "../../../helpers/types.ts";
+-import {
+-  type AIMetadata,
+-  extractAIMetadataFromAttributes,
+-} from "./aiExtractor.ts";
++import { type AIMetadata, extractAIMetadataFromSpan } from "./aiExtractor.ts";
+ import { debugPrefix } from "./consts.ts";
+ 
+ const processorDevDebug = Debug(`${debugPrefix}:InngestMetadataSpanProcessor`);
+@@ -277,7 +274,7 @@ export class InngestMetadataSpanProcessor implements SpanProcessor {
+         return;
+       }
+ 
+-      const aiMetadata = extractAIMetadataFromAttributes(span.attributes);
++      const aiMetadata = extractAIMetadataFromSpan(span);
+       if (Object.keys(aiMetadata).length === 0) {
+         return;
+       }

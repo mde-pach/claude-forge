@@ -1,0 +1,11 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 1,
+ "bash_calls": 4,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cat > utils/request.ts <<'EOF'\n/**\n * Clone a request without ever throwing. If `clone()` fails (e.g. the body is\n * disturbed or locked), a bodyless copy carrying the same metadata is returned.\n */\nexport function safeCloneRequest(request?: Request): Request | undefined {\n\tif (!request) {\n\t\treturn "
+ ],
+ "total": 1,
+ "edit_tool_share": 0.0
+}

@@ -1,0 +1,14 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 4,
+ "bash_calls": 10,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'E'\nimport re\ndef sub(p,a,b,c=1):\n    s=open(p).read(); assert s.count(a)==c,(p,a,s.count(a)); open(p,'w').write(s.replace(a,b))\nsub('core/util.ts','const EVALUATING =','''export function setOwn<T extends object>(object: T, key: string, value: unknown): void {\n  Object.defineProperty(obj",
+  "sed -i '4a import * as util from \"./util.js\";' core/to-json-schema.ts && sed -i '2a import * as util from \"../core/util.js\";' classic/from-json-schema.ts && cat > core/tests/proto-tmp.test.ts <<'E'\nimport { expect, test } from \"vitest\";\nimport * as z from \"zod/v4\";\n\ntest(\"proto\", () => {\n  const s =",
+  "f=packages/zod/src/v4/core/tests/proto-tmp.test.ts && sed -i 's/Object.hasOwn(\\([^,]*\\), /Object.prototype.hasOwnProperty.call(\\1, /; s/const reg = z.registry<any>();/const reg = z.registry<any>(); const ref: any[] = [];/; s/  z.fromJSONSchema(JSON.parse(\\(.*\\)), { registry: reg });/  ref.push(z.fro",
+  "cd /work/packages/zod/src/v4/core/tests && git mv -f proto-tmp.test.ts json-schema-proto.test.ts 2>/dev/null || mv proto-tmp.test.ts json-schema-proto.test.ts\npython3 - <<'E'\np='json-schema-proto.test.ts'\ns=open(p).read().rstrip()\nassert s.endswith(\"});\")\ns=s[:-3]+'''\n  const d = z.registry<{ id: st"
+ ],
+ "total": 4,
+ "edit_tool_share": 0.0
+}

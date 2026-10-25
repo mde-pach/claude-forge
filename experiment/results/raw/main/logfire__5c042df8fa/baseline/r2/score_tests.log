@@ -1,0 +1,1563 @@
+$ pytest -p no:cacheprovider -o junit_family=xunit1 --junitxml=/tmp/forge-junit-84f4bba286bb.xml --continue-on-collection-errors -q --no-header -rN tests/test_push_variables.py tests/test_variable_composition.py
+F                                                                        [  0%]tests/test_push_variables.py:54 test_get_json_schema_bool - Attribut…F [  1%]
+                                                                         [  1%]tests/test_push_variables.py:66 test_get_json_schema_int - Attribute…F [  1%]
+                                                                         [  1%]tests/test_push_variables.py:78 test_get_json_schema_str - Attribute…F [  2%]
+                                                                         [  2%]tests/test_push_variables.py:90 test_get_default_serialized_staticF [  2%]
+                                                                         [  2%]tests/test_push_variables.py:102 test_get_default_serialized_boolF [  3%]
+                                                                         [  3%]tests/test_push_variables.py:114 test_get_default_serialized_functionF [  3%]
+                                                                         [  3%]tests/test_push_variables.py:126 test_check_variant_compatibility_validF [  4%]
+                                                                         [  4%]tests/test_push_variables.py:139 test_check_label_compatibility_invalidF [  5%]
+                                                                         [  5%]tests/test_push_variables.py:152 test_compute_diff_new_variableF [  5%]
+                                                                         [  5%]tests/test_push_variables.py:171 test_compute_diff_no_changeF [  6%]
+                                                                         [  6%]tests/test_push_variables.py:199 test_compute_diff_schema_change. [  6%]
+.....F                                                                   [ 10%]tests/test_push_variables.py:434 test_compute_diff_orphaned_variablesF [ 10%]
+                                                                         [ 10%]tests/test_push_variables.py:467 test_compute_diff_reference_errorsF [ 11%]
+                                                                         [ 11%]tests/test_push_variables.py:509 test_compute_diff_reports_malformed_composition_valueF [ 11%]
+                                                                         [ 11%]tests/test_push_variables.py:542 test_compute_diff_reference_error_scan_handles_unserializable_defaultF [ 12%]
+                                                                         [ 12%]tests/test_push_variables.py:569 test_compute_diff_reference_error_scan_skips_already_visited_nodesF [ 12%]
+                                                                         [ 12%]tests/test_push_variables.py:598 test_compute_diff_reference_errors_through_server_only_chainF [ 13%]
+                                                                         [ 13%]tests/test_push_variables.py:633 test_compute_diff_detects_cycle_through_server_only_chain. [ 13%]
+..F                                                                      [ 15%]tests/test_push_variables.py:722 test_push_non_strict_warns_undeclared_template_field. [ 16%]
+..F                                                                      [ 17%]tests/test_push_variables.py:795 test_push_variables_strict_fails_with_reference_errorsF [ 18%]
+                                                                         [ 18%]tests/test_push_variables.py:809 test_push_variables_blocks_cycle_even_non_strictF [ 18%]
+                                                                         [ 18%]tests/test_push_variables.py:824 test_push_variables_warns_but_applies_missing_ref_non_strictF [ 19%]
+                                                                         [ 19%]tests/test_push_variables.py:848 test_push_variables_strict_fails_with_missing_referenceF [ 20%]
+                                                                         [ 20%]tests/test_push_variables.py:870 test_check_reference_errors_recursion_limit. [ 20%]
+........................F                                                [ 34%]tests/test_push_variables.py:1412 test_compute_diff_schema_change_with_ref_labelF [ 35%]
+                                                                         [ 35%]tests/test_push_variables.py:1445 test_compute_diff_schema_change_with_latest_version_incompatibleF [ 35%]
+                                                                         [ 35%]tests/test_push_variables.py:1477 test_compute_diff_schema_change_with_latest_version_compatible. [ 36%]
+........................................................................ [ 76%]
+...........................................                              [100%]
+=================================== FAILURES ===================================
+__________________________ test_get_json_schema_bool ___________________________
+
+mock_logfire_instance = MockLogfire(config=None, _variables={})
+
+    def test_get_json_schema_bool(mock_logfire_instance: MockLogfire) -> None:
+        """Test JSON schema generation for boolean type."""
+>       var = Variable[bool](
+            name='test_bool',
+            default=False,
+            type=bool,
+            logfire_instance=mock_logfire_instance,  # type: ignore
+        )
+
+tests/test_push_variables.py:57: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/uv-python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/typing.py:1184: in __call__
+    result = self.__origin__(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <logfire.variables.variable.Variable object at 0x7f1bcbb8bf80>
+name = 'test_bool', type = <class 'bool'>, default = False, description = None
+logfire_instance = MockLogfire(config=None, _variables={})
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        type: type[T_co],
+        default: T_co | ResolveFunction[T_co],
+        description: str | None = None,
+        logfire_instance: logfire.Logfire,
+    ):
+        """Create a new managed variable.
+    
+        Args:
+            name: Unique name identifying this variable.
+            type: The expected type of this variable's values, used for validation.
+            default: Default value to use when no configuration is found, or a function
+                that computes the default based on targeting_key and attributes.
+            description: Optional human-readable description of what this variable controls.
+            logfire_instance: The Logfire instance this variable is associated with. Used to determine config, etc.
+        """
+        self.name = name
+        self.value_type = type
+        self.default = default
+        self.description = description
+    
+>       self._variable_registry = logfire_instance._config.variable_registry  # pyright: ignore[reportPrivateUsage]
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'MockLogfire' object has no attribute '_config'. Did you mean: 'config'?
+
+logfire/variables/variable.py:239: AttributeError
+___________________________ test_get_json_schema_int ___________________________
+
+mock_logfire_instance = MockLogfire(config=None, _variables={})
+
+    def test_get_json_schema_int(mock_logfire_instance: MockLogfire) -> None:
+        """Test JSON schema generation for integer type."""
+>       var = Variable[int](
+            name='test_int',
+            default=42,
+            type=int,
+            logfire_instance=mock_logfire_instance,  # type: ignore
+        )
+
+tests/test_push_variables.py:69: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/uv-python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/typing.py:1184: in __call__
+    result = self.__origin__(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <logfire.variables.variable.Variable object at 0x7f1bcbb58d10>
+name = 'test_int', type = <class 'int'>, default = 42, description = None
+logfire_instance = MockLogfire(config=None, _variables={})
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        type: type[T_co],
+        default: T_co | ResolveFunction[T_co],
+        description: str | None = None,
+        logfire_instance: logfire.Logfire,
+    ):
+        """Create a new managed variable.
+    
+        Args:
+            name: Unique name identifying this variable.
+            type: The expected type of this variable's values, used for validation.
+            default: Default value to use when no configuration is found, or a function
+                that computes the default based on targeting_key and attributes.
+            description: Optional human-readable description of what this variable controls.
+            logfire_instance: The Logfire instance this variable is associated with. Used to determine config, etc.
+        """
+        self.name = name
+        self.value_type = type
+        self.default = default
+        self.description = description
+    
+>       self._variable_registry = logfire_instance._config.variable_registry  # pyright: ignore[reportPrivateUsage]
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'MockLogfire' object has no attribute '_config'. Did you mean: 'config'?
+
+logfire/variables/variable.py:239: AttributeError
+___________________________ test_get_json_schema_str ___________________________
+
+mock_logfire_instance = MockLogfire(config=None, _variables={})
+
+    def test_get_json_schema_str(mock_logfire_instance: MockLogfire) -> None:
+        """Test JSON schema generation for string type."""
+>       var = Variable[str](
+            name='test_str',
+            default='hello',
+            type=str,
+            logfire_instance=mock_logfire_instance,  # type: ignore
+        )
+
+tests/test_push_variables.py:81: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/uv-python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/typing.py:1184: in __call__
+    result = self.__origin__(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <logfire.variables.variable.Variable object at 0x7f1bcbb882c0>
+name = 'test_str', type = <class 'str'>, default = 'hello', description = None
+logfire_instance = MockLogfire(config=None, _variables={})
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        type: type[T_co],
+        default: T_co | ResolveFunction[T_co],
+        description: str | None = None,
+        logfire_instance: logfire.Logfire,
+    ):
+        """Create a new managed variable.
+    
+        Args:
+            name: Unique name identifying this variable.
+            type: The expected type of this variable's values, used for validation.
+            default: Default value to use when no configuration is found, or a function
+                that computes the default based on targeting_key and attributes.
+            description: Optional human-readable description of what this variable controls.
+            logfire_instance: The Logfire instance this variable is associated with. Used to determine config, etc.
+        """
+        self.name = name
+        self.value_type = type
+        self.default = default
+        self.description = description
+    
+>       self._variable_registry = logfire_instance._config.variable_registry  # pyright: ignore[reportPrivateUsage]
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'MockLogfire' object has no attribute '_config'. Did you mean: 'config'?
+
+logfire/variables/variable.py:239: AttributeError
+______________________ test_get_default_serialized_static ______________________
+
+mock_logfire_instance = MockLogfire(config=None, _variables={})
+
+    def test_get_default_serialized_static(mock_logfire_instance: MockLogfire) -> None:
+        """Test serialization of static default values."""
+>       var = Variable[int](
+            name='test',
+            default=42,
+            type=int,
+            logfire_instance=mock_logfire_instance,  # type: ignore
+        )
+
+tests/test_push_variables.py:93: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/uv-python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/typing.py:1184: in __call__
+    result = self.__origin__(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <logfire.variables.variable.Variable object at 0x7f1bcbb63d40>
+name = 'test', type = <class 'int'>, default = 42, description = None
+logfire_instance = MockLogfire(config=None, _variables={})
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        type: type[T_co],
+        default: T_co | ResolveFunction[T_co],
+        description: str | None = None,
+        logfire_instance: logfire.Logfire,
+    ):
+        """Create a new managed variable.
+    
+        Args:
+            name: Unique name identifying this variable.
+            type: The expected type of this variable's values, used for validation.
+            default: Default value to use when no configuration is found, or a function
+                that computes the default based on targeting_key and attributes.
+            description: Optional human-readable description of what this variable controls.
+            logfire_instance: The Logfire instance this variable is associated with. Used to determine config, etc.
+        """
+        self.name = name
+        self.value_type = type
+        self.default = default
+        self.description = description
+    
+>       self._variable_registry = logfire_instance._config.variable_registry  # pyright: ignore[reportPrivateUsage]
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'MockLogfire' object has no attribute '_config'. Did you mean: 'config'?
+
+logfire/variables/variable.py:239: AttributeError
+_______________________ test_get_default_serialized_bool _______________________
+
+mock_logfire_instance = MockLogfire(config=None, _variables={})
+
+    def test_get_default_serialized_bool(mock_logfire_instance: MockLogfire) -> None:
+        """Test serialization of boolean default values."""
+>       var = Variable[bool](
+            name='test',
+            default=True,
+            type=bool,
+            logfire_instance=mock_logfire_instance,  # type: ignore
+        )
+
+tests/test_push_variables.py:105: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/uv-python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/typing.py:1184: in __call__
+    result = self.__origin__(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <logfire.variables.variable.Variable object at 0x7f1bcbc3dfa0>
+name = 'test', type = <class 'bool'>, default = True, description = None
+logfire_instance = MockLogfire(config=None, _variables={})
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        type: type[T_co],
+        default: T_co | ResolveFunction[T_co],
+        description: str | None = None,
+        logfire_instance: logfire.Logfire,
+    ):
+        """Create a new managed variable.
+    
+        Args:
+            name: Unique name identifying this variable.
+            type: The expected type of this variable's values, used for validation.
+            default: Default value to use when no configuration is found, or a function
+                that computes the default based on targeting_key and attributes.
+            description: Optional human-readable description of what this variable controls.
+            logfire_instance: The Logfire instance this variable is associated with. Used to determine config, etc.
+        """
+        self.name = name
+        self.value_type = type
+        self.default = default
+        self.description = description
+    
+>       self._variable_registry = logfire_instance._config.variable_registry  # pyright: ignore[reportPrivateUsage]
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'MockLogfire' object has no attribute '_config'. Did you mean: 'config'?
+
+logfire/variables/variable.py:239: AttributeError
+_____________________ test_get_default_serialized_function _____________________
+
+mock_logfire_instance = MockLogfire(config=None, _variables={})
+
+    def test_get_default_serialized_function(mock_logfire_instance: MockLogfire) -> None:
+        """Test that function defaults return None."""
+>       var = Variable[int](
+            name='test',
+            default=lambda targeting_key, attributes: 10,
+            type=int,
+            logfire_instance=mock_logfire_instance,  # type: ignore
+        )
+
+tests/test_push_variables.py:117: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/uv-python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/typing.py:1184: in __call__
+    result = self.__origin__(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <logfire.variables.variable.Variable object at 0x7f1bcbc3ff20>
+name = 'test', type = <class 'int'>
+default = <function test_get_default_serialized_function.<locals>.<lambda> at 0x7f1bd0505800>
+description = None, logfire_instance = MockLogfire(config=None, _variables={})
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        type: type[T_co],
+        default: T_co | ResolveFunction[T_co],
+        description: str | None = None,
+        logfire_instance: logfire.Logfire,
+    ):
+        """Create a new managed variable.
+    
+        Args:
+            name: Unique name identifying this variable.
+            type: The expected type of this variable's values, used for validation.
+            default: Default value to use when no configuration is found, or a function
+                that computes the default based on targeting_key and attributes.
+            description: Optional human-readable description of what this variable controls.
+            logfire_instance: The Logfire instance this variable is associated with. Used to determine config, etc.
+        """
+        self.name = name
+        self.value_type = type
+        self.default = default
+        self.description = description
+    
+>       self._variable_registry = logfire_instance._config.variable_registry  # pyright: ignore[reportPrivateUsage]
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'MockLogfire' object has no attribute '_config'. Did you mean: 'config'?
+
+logfire/variables/variable.py:239: AttributeError
+____________________ test_check_variant_compatibility_valid ____________________
+
+mock_logfire_instance = MockLogfire(config=None, _variables={})
+
+    def test_check_variant_compatibility_valid(mock_logfire_instance: MockLogfire) -> None:
+        """Test variant compatibility check with valid value."""
+>       var = Variable[int](
+            name='test',
+            default=0,
+            type=int,
+            logfire_instance=mock_logfire_instance,  # type: ignore
+        )
+
+tests/test_push_variables.py:129: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/uv-python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/typing.py:1184: in __call__
+    result = self.__origin__(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <logfire.variables.variable.Variable object at 0x7f1bcbb612e0>
+name = 'test', type = <class 'int'>, default = 0, description = None
+logfire_instance = MockLogfire(config=None, _variables={})
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        type: type[T_co],
+        default: T_co | ResolveFunction[T_co],
+        description: str | None = None,
+        logfire_instance: logfire.Logfire,
+    ):
+        """Create a new managed variable.
+    
+        Args:
+            name: Unique name identifying this variable.
+            type: The expected type of this variable's values, used for validation.
+            default: Default value to use when no configuration is found, or a function
+                that computes the default based on targeting_key and attributes.
+            description: Optional human-readable description of what this variable controls.
+            logfire_instance: The Logfire instance this variable is associated with. Used to determine config, etc.
+        """
+        self.name = name
+        self.value_type = type
+        self.default = default
+        self.description = description
+    
+>       self._variable_registry = logfire_instance._config.variable_registry  # pyright: ignore[reportPrivateUsage]
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'MockLogfire' object has no attribute '_config'. Did you mean: 'config'?
+
+logfire/variables/variable.py:239: AttributeError
+____________________ test_check_label_compatibility_invalid ____________________
+
+mock_logfire_instance = MockLogfire(config=None, _variables={})
+
+    def test_check_label_compatibility_invalid(mock_logfire_instance: MockLogfire) -> None:
+        """Test label compatibility check with invalid value."""
+>       var = Variable[int](
+            name='test',
+            default=0,
+            type=int,
+            logfire_instance=mock_logfire_instance,  # type: ignore
+        )
+
+tests/test_push_variables.py:142: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/uv-python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/typing.py:1184: in __call__
+    result = self.__origin__(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <logfire.variables.variable.Variable object at 0x7f1bcbc576e0>
+name = 'test', type = <class 'int'>, default = 0, description = None
+logfire_instance = MockLogfire(config=None, _variables={})
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        type: type[T_co],
+        default: T_co | ResolveFunction[T_co],
+        description: str | None = None,
+        logfire_instance: logfire.Logfire,
+    ):
+        """Create a new managed variable.
+    
+        Args:
+            name: Unique name identifying this variable.
+            type: The expected type of this variable's values, used for validation.
+            default: Default value to use when no configuration is found, or a function
+                that computes the default based on targeting_key and attributes.
+            description: Optional human-readable description of what this variable controls.
+            logfire_instance: The Logfire instance this variable is associated with. Used to determine config, etc.
+        """
+        self.name = name
+        self.value_type = type
+        self.default = default
+        self.description = description
+    
+>       self._variable_registry = logfire_instance._config.variable_registry  # pyright: ignore[reportPrivateUsage]
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'MockLogfire' object has no attribute '_config'. Did you mean: 'config'?
+
+logfire/variables/variable.py:239: AttributeError
+________________________ test_compute_diff_new_variable ________________________
+
+mock_logfire_instance = MockLogfire(config=None, _variables={})
+
+    def test_compute_diff_new_variable(mock_logfire_instance: MockLogfire) -> None:
+        """Test diff computation for a new variable."""
+>       var = Variable[bool](
+            name='new_feature',
+            default=False,
+            type=bool,
+            logfire_instance=mock_logfire_instance,  # type: ignore
+        )
+
+tests/test_push_variables.py:155: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/uv-python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/typing.py:1184: in __call__
+    result = self.__origin__(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <logfire.variables.variable.Variable object at 0x7f1bcbc557c0>
+name = 'new_feature', type = <class 'bool'>, default = False, description = None
+logfire_instance = MockLogfire(config=None, _variables={})
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        type: type[T_co],
+        default: T_co | ResolveFunction[T_co],
+        description: str | None = None,
+        logfire_instance: logfire.Logfire,
+    ):
+        """Create a new managed variable.
+    
+        Args:
+            name: Unique name identifying this variable.
+            type: The expected type of this variable's values, used for validation.
+            default: Default value to use when no configuration is found, or a function
+                that computes the default based on targeting_key and attributes.
+            description: Optional human-readable description of what this variable controls.
+            logfire_instance: The Logfire instance this variable is associated with. Used to determine config, etc.
+        """
+        self.name = name
+        self.value_type = type
+        self.default = default
+        self.description = description
+    
+>       self._variable_registry = logfire_instance._config.variable_registry  # pyright: ignore[reportPrivateUsage]
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'MockLogfire' object has no attribute '_config'. Did you mean: 'config'?
+
+logfire/variables/variable.py:239: AttributeError
+_________________________ test_compute_diff_no_change __________________________
+
+mock_logfire_instance = MockLogfire(config=None, _variables={})
+
+    def test_compute_diff_no_change(mock_logfire_instance: MockLogfire) -> None:
+        """Test diff computation when variable exists with same schema."""
+>       var = Variable[bool](
+            name='existing_feature',
+            default=False,
+            type=bool,
+            logfire_instance=mock_logfire_instance,  # type: ignore
+        )
+
+tests/test_push_variables.py:174: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/uv-python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/typing.py:1184: in __call__
+    result = self.__origin__(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <logfire.variables.variable.Variable object at 0x7f1bcbcf7a70>
+name = 'existing_feature', type = <class 'bool'>, default = False
+description = None, logfire_instance = MockLogfire(config=None, _variables={})
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        type: type[T_co],
+        default: T_co | ResolveFunction[T_co],
+        description: str | None = None,
+        logfire_instance: logfire.Logfire,
+    ):
+        """Create a new managed variable.
+    
+        Args:
+            name: Unique name identifying this variable.
+            type: The expected type of this variable's values, used for validation.
+            default: Default value to use when no configuration is found, or a function
+                that computes the default based on targeting_key and attributes.
+            description: Optional human-readable description of what this variable controls.
+            logfire_instance: The Logfire instance this variable is associated with. Used to determine config, etc.
+        """
+        self.name = name
+        self.value_type = type
+        self.default = default
+        self.description = description
+    
+>       self._variable_registry = logfire_instance._config.variable_registry  # pyright: ignore[reportPrivateUsage]
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'MockLogfire' object has no attribute '_config'. Did you mean: 'config'?
+
+logfire/variables/variable.py:239: AttributeError
+_______________________ test_compute_diff_schema_change ________________________
+
+mock_logfire_instance = MockLogfire(config=None, _variables={})
+
+    def test_compute_diff_schema_change(mock_logfire_instance: MockLogfire) -> None:
+        """Test diff computation when schema has changed."""
+>       var = Variable[int](
+            name='config_value',
+            default=10,
+            type=int,
+            logfire_instance=mock_logfire_instance,  # type: ignore
+        )
+
+tests/test_push_variables.py:202: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/uv-python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/typing.py:1184: in __call__
+    result = self.__origin__(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <logfire.variables.variable.Variable object at 0x7f1bcbb880b0>
+name = 'config_value', type = <class 'int'>, default = 10, description = None
+logfire_instance = MockLogfire(config=None, _variables={})
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        type: type[T_co],
+        default: T_co | ResolveFunction[T_co],
+        description: str | None = None,
+        logfire_instance: logfire.Logfire,
+    ):
+        """Create a new managed variable.
+    
+        Args:
+            name: Unique name identifying this variable.
+            type: The expected type of this variable's values, used for validation.
+            default: Default value to use when no configuration is found, or a function
+                that computes the default based on targeting_key and attributes.
+            description: Optional human-readable description of what this variable controls.
+            logfire_instance: The Logfire instance this variable is associated with. Used to determine config, etc.
+        """
+        self.name = name
+        self.value_type = type
+        self.default = default
+        self.description = description
+    
+>       self._variable_registry = logfire_instance._config.variable_registry  # pyright: ignore[reportPrivateUsage]
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'MockLogfire' object has no attribute '_config'. Did you mean: 'config'?
+
+logfire/variables/variable.py:239: AttributeError
+_____________________ test_compute_diff_orphaned_variables _____________________
+
+mock_logfire_instance = MockLogfire(config=None, _variables={})
+
+    def test_compute_diff_orphaned_variables(mock_logfire_instance: MockLogfire) -> None:
+        """Test detection of orphaned server variables."""
+>       var = Variable[bool](
+            name='my_feature',
+            default=False,
+            type=bool,
+            logfire_instance=mock_logfire_instance,  # type: ignore
+        )
+
+tests/test_push_variables.py:437: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/uv-python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/typing.py:1184: in __call__
+    result = self.__origin__(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <logfire.variables.variable.Variable object at 0x7f1bcbd69c10>
+name = 'my_feature', type = <class 'bool'>, default = False, description = None
+logfire_instance = MockLogfire(config=None, _variables={})
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        type: type[T_co],
+        default: T_co | ResolveFunction[T_co],
+        description: str | None = None,
+        logfire_instance: logfire.Logfire,
+    ):
+        """Create a new managed variable.
+    
+        Args:
+            name: Unique name identifying this variable.
+            type: The expected type of this variable's values, used for validation.
+            default: Default value to use when no configuration is found, or a function
+                that computes the default based on targeting_key and attributes.
+            description: Optional human-readable description of what this variable controls.
+            logfire_instance: The Logfire instance this variable is associated with. Used to determine config, etc.
+        """
+        self.name = name
+        self.value_type = type
+        self.default = default
+        self.description = description
+    
+>       self._variable_registry = logfire_instance._config.variable_registry  # pyright: ignore[reportPrivateUsage]
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'MockLogfire' object has no attribute '_config'. Did you mean: 'config'?
+
+logfire/variables/variable.py:239: AttributeError
+______________________ test_compute_diff_reference_errors ______________________
+
+mock_logfire_instance = MockLogfire(config=None, _variables={})
+
+    def test_compute_diff_reference_errors(mock_logfire_instance: MockLogfire) -> None:
+        """Reference errors include missing references and cycles."""
+>       var_a = Variable[str](
+            name='var_a',
+            default='@{missing}@ @{var_b}@',
+            type=str,
+            logfire_instance=mock_logfire_instance,  # type: ignore
+        )
+
+tests/test_push_variables.py:470: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/uv-python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/typing.py:1184: in __call__
+    result = self.__origin__(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <logfire.variables.variable.Variable object at 0x7f1bcbd68f50>
+name = 'var_a', type = <class 'str'>, default = '@{missing}@ @{var_b}@'
+description = None, logfire_instance = MockLogfire(config=None, _variables={})
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        type: type[T_co],
+        default: T_co | ResolveFunction[T_co],
+        description: str | None = None,
+        logfire_instance: logfire.Logfire,
+    ):
+        """Create a new managed variable.
+    
+        Args:
+            name: Unique name identifying this variable.
+            type: The expected type of this variable's values, used for validation.
+            default: Default value to use when no configuration is found, or a function
+                that computes the default based on targeting_key and attributes.
+            description: Optional human-readable description of what this variable controls.
+            logfire_instance: The Logfire instance this variable is associated with. Used to determine config, etc.
+        """
+        self.name = name
+        self.value_type = type
+        self.default = default
+        self.description = description
+    
+>       self._variable_registry = logfire_instance._config.variable_registry  # pyright: ignore[reportPrivateUsage]
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'MockLogfire' object has no attribute '_config'. Did you mean: 'config'?
+
+logfire/variables/variable.py:239: AttributeError
+____________ test_compute_diff_reports_malformed_composition_value _____________
+
+mock_logfire_instance = MockLogfire(config=None, _variables={})
+
+    def test_compute_diff_reports_malformed_composition_value(mock_logfire_instance: MockLogfire) -> None:
+        """Malformed/reserved `@{...}@` values are reported as reference errors, not crashes.
+    
+        `@{#if x}@` (unclosed) makes pydantic-handlebars' extractor raise a HandlebarsError, and a
+        reserved literal like `@{true}@` makes it raise a bare AssertionError. Both must be caught and
+        surfaced rather than crashing push/validate.
+        """
+>       var = Variable[str](
+            name='bad',
+            default='@{#if x}@ unclosed',
+            type=str,
+            logfire_instance=mock_logfire_instance,  # type: ignore
+        )
+
+tests/test_push_variables.py:517: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/uv-python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/typing.py:1184: in __call__
+    result = self.__origin__(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <logfire.variables.variable.Variable object at 0x7f1bcbd6b080>
+name = 'bad', type = <class 'str'>, default = '@{#if x}@ unclosed'
+description = None, logfire_instance = MockLogfire(config=None, _variables={})
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        type: type[T_co],
+        default: T_co | ResolveFunction[T_co],
+        description: str | None = None,
+        logfire_instance: logfire.Logfire,
+    ):
+        """Create a new managed variable.
+    
+        Args:
+            name: Unique name identifying this variable.
+            type: The expected type of this variable's values, used for validation.
+            default: Default value to use when no configuration is found, or a function
+                that computes the default based on targeting_key and attributes.
+            description: Optional human-readable description of what this variable controls.
+            logfire_instance: The Logfire instance this variable is associated with. Used to determine config, etc.
+        """
+        self.name = name
+        self.value_type = type
+        self.default = default
+        self.description = description
+    
+>       self._variable_registry = logfire_instance._config.variable_registry  # pyright: ignore[reportPrivateUsage]
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'MockLogfire' object has no attribute '_config'. Did you mean: 'config'?
+
+logfire/variables/variable.py:239: AttributeError
+____ test_compute_diff_reference_error_scan_handles_unserializable_default _____
+
+mock_logfire_instance = MockLogfire(config=None, _variables={})
+
+    def test_compute_diff_reference_error_scan_handles_unserializable_default(
+        mock_logfire_instance: MockLogfire,
+    ) -> None:
+        """Reference scanning tolerates defaults that cannot be serialized."""
+>       var = Variable[object](
+            name='opaque',
+            default=object(),
+            type=object,
+            logfire_instance=mock_logfire_instance,  # type: ignore
+        )
+
+tests/test_push_variables.py:547: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/uv-python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/typing.py:1184: in __call__
+    result = self.__origin__(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <logfire.variables.variable.Variable object at 0x7f1bcbdb9280>
+name = 'opaque', type = <class 'object'>
+default = <object object at 0x7f1bd0585280>, description = None
+logfire_instance = MockLogfire(config=None, _variables={})
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        type: type[T_co],
+        default: T_co | ResolveFunction[T_co],
+        description: str | None = None,
+        logfire_instance: logfire.Logfire,
+    ):
+        """Create a new managed variable.
+    
+        Args:
+            name: Unique name identifying this variable.
+            type: The expected type of this variable's values, used for validation.
+            default: Default value to use when no configuration is found, or a function
+                that computes the default based on targeting_key and attributes.
+            description: Optional human-readable description of what this variable controls.
+            logfire_instance: The Logfire instance this variable is associated with. Used to determine config, etc.
+        """
+        self.name = name
+        self.value_type = type
+        self.default = default
+        self.description = description
+    
+>       self._variable_registry = logfire_instance._config.variable_registry  # pyright: ignore[reportPrivateUsage]
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'MockLogfire' object has no attribute '_config'. Did you mean: 'config'?
+
+logfire/variables/variable.py:239: AttributeError
+______ test_compute_diff_reference_error_scan_skips_already_visited_nodes ______
+
+mock_logfire_instance = MockLogfire(config=None, _variables={})
+
+    def test_compute_diff_reference_error_scan_skips_already_visited_nodes(
+        mock_logfire_instance: MockLogfire,
+    ) -> None:
+        """Cycle detection handles shared reference graph nodes without duplicate traversal."""
+>       var_a = Variable[str](
+            name='var_a',
+            default='@{shared}@',
+            type=str,
+            logfire_instance=mock_logfire_instance,  # type: ignore
+        )
+
+tests/test_push_variables.py:574: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/uv-python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/typing.py:1184: in __call__
+    result = self.__origin__(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <logfire.variables.variable.Variable object at 0x7f1bcbd68fb0>
+name = 'var_a', type = <class 'str'>, default = '@{shared}@', description = None
+logfire_instance = MockLogfire(config=None, _variables={})
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        type: type[T_co],
+        default: T_co | ResolveFunction[T_co],
+        description: str | None = None,
+        logfire_instance: logfire.Logfire,
+    ):
+        """Create a new managed variable.
+    
+        Args:
+            name: Unique name identifying this variable.
+            type: The expected type of this variable's values, used for validation.
+            default: Default value to use when no configuration is found, or a function
+                that computes the default based on targeting_key and attributes.
+            description: Optional human-readable description of what this variable controls.
+            logfire_instance: The Logfire instance this variable is associated with. Used to determine config, etc.
+        """
+        self.name = name
+        self.value_type = type
+        self.default = default
+        self.description = description
+    
+>       self._variable_registry = logfire_instance._config.variable_registry  # pyright: ignore[reportPrivateUsage]
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'MockLogfire' object has no attribute '_config'. Did you mean: 'config'?
+
+logfire/variables/variable.py:239: AttributeError
+_________ test_compute_diff_reference_errors_through_server_only_chain _________
+
+mock_logfire_instance = MockLogfire(config=None, _variables={})
+
+    def test_compute_diff_reference_errors_through_server_only_chain(
+        mock_logfire_instance: MockLogfire,
+    ) -> None:
+        """Missing refs reached through server-only variables are surfaced.
+    
+        Reproduces the case from #1951's review: a local variable composes a
+        server-only fragment whose own value references a third name that
+        doesn't exist anywhere. The walker has to follow `@{ref}@` edges out
+        of server-only nodes — values are in `VariablesConfig`, the walker
+        just needs to follow them.
+        """
+>       foo2 = Variable[str](
+            name='foo2',
+            default='@{foo1}@',
+            type=str,
+            logfire_instance=mock_logfire_instance,  # type: ignore
+        )
+
+tests/test_push_variables.py:610: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/uv-python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/typing.py:1184: in __call__
+    result = self.__origin__(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <logfire.variables.variable.Variable object at 0x7f1bcbd1c0e0>
+name = 'foo2', type = <class 'str'>, default = '@{foo1}@', description = None
+logfire_instance = MockLogfire(config=None, _variables={})
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        type: type[T_co],
+        default: T_co | ResolveFunction[T_co],
+        description: str | None = None,
+        logfire_instance: logfire.Logfire,
+    ):
+        """Create a new managed variable.
+    
+        Args:
+            name: Unique name identifying this variable.
+            type: The expected type of this variable's values, used for validation.
+            default: Default value to use when no configuration is found, or a function
+                that computes the default based on targeting_key and attributes.
+            description: Optional human-readable description of what this variable controls.
+            logfire_instance: The Logfire instance this variable is associated with. Used to determine config, etc.
+        """
+        self.name = name
+        self.value_type = type
+        self.default = default
+        self.description = description
+    
+>       self._variable_registry = logfire_instance._config.variable_registry  # pyright: ignore[reportPrivateUsage]
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'MockLogfire' object has no attribute '_config'. Did you mean: 'config'?
+
+logfire/variables/variable.py:239: AttributeError
+__________ test_compute_diff_detects_cycle_through_server_only_chain ___________
+
+mock_logfire_instance = MockLogfire(config=None, _variables={})
+
+    def test_compute_diff_detects_cycle_through_server_only_chain(
+        mock_logfire_instance: MockLogfire,
+    ) -> None:
+        """Cycles whose midpoints are server-only are detected."""
+>       foo = Variable[str](
+            name='foo',
+            default='@{server_a}@',
+            type=str,
+            logfire_instance=mock_logfire_instance,  # type: ignore
+        )
+
+tests/test_push_variables.py:638: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/uv-python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/typing.py:1184: in __call__
+    result = self.__origin__(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <logfire.variables.variable.Variable object at 0x7f1bcbd1f320>
+name = 'foo', type = <class 'str'>, default = '@{server_a}@', description = None
+logfire_instance = MockLogfire(config=None, _variables={})
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        type: type[T_co],
+        default: T_co | ResolveFunction[T_co],
+        description: str | None = None,
+        logfire_instance: logfire.Logfire,
+    ):
+        """Create a new managed variable.
+    
+        Args:
+            name: Unique name identifying this variable.
+            type: The expected type of this variable's values, used for validation.
+            default: Default value to use when no configuration is found, or a function
+                that computes the default based on targeting_key and attributes.
+            description: Optional human-readable description of what this variable controls.
+            logfire_instance: The Logfire instance this variable is associated with. Used to determine config, etc.
+        """
+        self.name = name
+        self.value_type = type
+        self.default = default
+        self.description = description
+    
+>       self._variable_registry = logfire_instance._config.variable_registry  # pyright: ignore[reportPrivateUsage]
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'MockLogfire' object has no attribute '_config'. Did you mean: 'config'?
+
+logfire/variables/variable.py:239: AttributeError
+_____________ test_push_non_strict_warns_undeclared_template_field _____________
+
+mock_logfire_instance = MockLogfire(config=None, _variables={})
+capsys = <_pytest.capture.CaptureFixture object at 0x7f1bcbdf0560>
+
+    def test_push_non_strict_warns_undeclared_template_field(
+        mock_logfire_instance: MockLogfire, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Non-strict push applies but warns on an undeclared `{{field}}` (renders empty at runtime)."""
+    
+        class Inputs(BaseModel):
+            user_name: str
+    
+>       var = TemplateVariable[str, Inputs](
+            name='prompt',
+            default='Hi {{user_name}}, code={{secret_code}}',
+            type=str,
+            inputs_type=Inputs,
+            logfire_instance=mock_logfire_instance,  # type: ignore
+        )
+
+tests/test_push_variables.py:731: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/uv-python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/typing.py:1184: in __call__
+    result = self.__origin__(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+logfire/variables/variable.py:1015: in __init__
+    super().__init__(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <logfire.variables.variable.TemplateVariable object at 0x7f1bcbdf01d0>
+name = 'prompt', type = <class 'str'>
+default = 'Hi {{user_name}}, code={{secret_code}}', description = None
+logfire_instance = MockLogfire(config=None, _variables={})
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        type: type[T_co],
+        default: T_co | ResolveFunction[T_co],
+        description: str | None = None,
+        logfire_instance: logfire.Logfire,
+    ):
+        """Create a new managed variable.
+    
+        Args:
+            name: Unique name identifying this variable.
+            type: The expected type of this variable's values, used for validation.
+            default: Default value to use when no configuration is found, or a function
+                that computes the default based on targeting_key and attributes.
+            description: Optional human-readable description of what this variable controls.
+            logfire_instance: The Logfire instance this variable is associated with. Used to determine config, etc.
+        """
+        self.name = name
+        self.value_type = type
+        self.default = default
+        self.description = description
+    
+>       self._variable_registry = logfire_instance._config.variable_registry  # pyright: ignore[reportPrivateUsage]
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'MockLogfire' object has no attribute '_config'. Did you mean: 'config'?
+
+logfire/variables/variable.py:239: AttributeError
+____________ test_push_variables_strict_fails_with_reference_errors ____________
+
+mock_logfire_instance = MockLogfire(config=None, _variables={})
+
+    def test_push_variables_strict_fails_with_reference_errors(mock_logfire_instance: MockLogfire) -> None:
+        """Strict push fails when reference errors such as cycles are present."""
+        provider = LocalVariableProvider(VariablesConfig(variables={}))
+>       var = Variable[str](
+            name='prompt',
+            default='@{prompt}@',
+            type=str,
+            logfire_instance=mock_logfire_instance,  # type: ignore
+        )
+
+tests/test_push_variables.py:799: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/uv-python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/typing.py:1184: in __call__
+    result = self.__origin__(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <logfire.variables.variable.Variable object at 0x7f1bcbde5430>
+name = 'prompt', type = <class 'str'>, default = '@{prompt}@'
+description = None, logfire_instance = MockLogfire(config=None, _variables={})
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        type: type[T_co],
+        default: T_co | ResolveFunction[T_co],
+        description: str | None = None,
+        logfire_instance: logfire.Logfire,
+    ):
+        """Create a new managed variable.
+    
+        Args:
+            name: Unique name identifying this variable.
+            type: The expected type of this variable's values, used for validation.
+            default: Default value to use when no configuration is found, or a function
+                that computes the default based on targeting_key and attributes.
+            description: Optional human-readable description of what this variable controls.
+            logfire_instance: The Logfire instance this variable is associated with. Used to determine config, etc.
+        """
+        self.name = name
+        self.value_type = type
+        self.default = default
+        self.description = description
+    
+>       self._variable_registry = logfire_instance._config.variable_registry  # pyright: ignore[reportPrivateUsage]
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'MockLogfire' object has no attribute '_config'. Did you mean: 'config'?
+
+logfire/variables/variable.py:239: AttributeError
+_______________ test_push_variables_blocks_cycle_even_non_strict _______________
+
+mock_logfire_instance = MockLogfire(config=None, _variables={})
+
+    def test_push_variables_blocks_cycle_even_non_strict(mock_logfire_instance: MockLogfire) -> None:
+        """A cyclic reference blocks the push even in non-strict mode — it can never resolve."""
+        provider = LocalVariableProvider(VariablesConfig(variables={}))
+>       var = Variable[str](
+            name='prompt',
+            default='@{prompt}@',
+            type=str,
+            logfire_instance=mock_logfire_instance,  # type: ignore
+        )
+
+tests/test_push_variables.py:813: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/uv-python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/typing.py:1184: in __call__
+    result = self.__origin__(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <logfire.variables.variable.Variable object at 0x7f1bcbaed190>
+name = 'prompt', type = <class 'str'>, default = '@{prompt}@'
+description = None, logfire_instance = MockLogfire(config=None, _variables={})
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        type: type[T_co],
+        default: T_co | ResolveFunction[T_co],
+        description: str | None = None,
+        logfire_instance: logfire.Logfire,
+    ):
+        """Create a new managed variable.
+    
+        Args:
+            name: Unique name identifying this variable.
+            type: The expected type of this variable's values, used for validation.
+            default: Default value to use when no configuration is found, or a function
+                that computes the default based on targeting_key and attributes.
+            description: Optional human-readable description of what this variable controls.
+            logfire_instance: The Logfire instance this variable is associated with. Used to determine config, etc.
+        """
+        self.name = name
+        self.value_type = type
+        self.default = default
+        self.description = description
+    
+>       self._variable_registry = logfire_instance._config.variable_registry  # pyright: ignore[reportPrivateUsage]
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'MockLogfire' object has no attribute '_config'. Did you mean: 'config'?
+
+logfire/variables/variable.py:239: AttributeError
+_________ test_push_variables_warns_but_applies_missing_ref_non_strict _________
+
+mock_logfire_instance = MockLogfire(config=None, _variables={})
+capsys = <_pytest.capture.CaptureFixture object at 0x7f1bcbaec350>
+
+    def test_push_variables_warns_but_applies_missing_ref_non_strict(
+        mock_logfire_instance: MockLogfire, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """A missing (non-cyclic) reference is a non-strict warning; the push still applies.
+    
+        Unlike a cycle, a missing reference may legitimately resolve in another codebase/environment,
+        so non-strict push applies it — but surfaces a prominent warning and does *not* advertise a
+        clean "synced successfully".
+        """
+        provider = LocalVariableProvider(VariablesConfig(variables={}))
+>       var = Variable[str](
+            name='prompt',
+            default='Hello @{missing}@',
+            type=str,
+            logfire_instance=mock_logfire_instance,  # type: ignore
+        )
+
+tests/test_push_variables.py:835: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/uv-python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/typing.py:1184: in __call__
+    result = self.__origin__(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <logfire.variables.variable.Variable object at 0x7f1bcbaee0c0>
+name = 'prompt', type = <class 'str'>, default = 'Hello @{missing}@'
+description = None, logfire_instance = MockLogfire(config=None, _variables={})
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        type: type[T_co],
+        default: T_co | ResolveFunction[T_co],
+        description: str | None = None,
+        logfire_instance: logfire.Logfire,
+    ):
+        """Create a new managed variable.
+    
+        Args:
+            name: Unique name identifying this variable.
+            type: The expected type of this variable's values, used for validation.
+            default: Default value to use when no configuration is found, or a function
+                that computes the default based on targeting_key and attributes.
+            description: Optional human-readable description of what this variable controls.
+            logfire_instance: The Logfire instance this variable is associated with. Used to determine config, etc.
+        """
+        self.name = name
+        self.value_type = type
+        self.default = default
+        self.description = description
+    
+>       self._variable_registry = logfire_instance._config.variable_registry  # pyright: ignore[reportPrivateUsage]
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'MockLogfire' object has no attribute '_config'. Did you mean: 'config'?
+
+logfire/variables/variable.py:239: AttributeError
+___________ test_push_variables_strict_fails_with_missing_reference ____________
+
+mock_logfire_instance = MockLogfire(config=None, _variables={})
+capsys = <_pytest.capture.CaptureFixture object at 0x7f1bcbaee870>
+
+    def test_push_variables_strict_fails_with_missing_reference(
+        mock_logfire_instance: MockLogfire, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """A missing (non-cyclic) reference is a hard error under strict and applies nothing.
+    
+        Non-strict only warns (the ref may resolve elsewhere); strict treats it as a blocking error — a
+        different path from the unconditional cycle block above.
+        """
+        provider = LocalVariableProvider(VariablesConfig(variables={}))
+>       var = Variable[str](
+            name='prompt',
+            default='Hello @{missing}@',
+            type=str,
+            logfire_instance=mock_logfire_instance,  # type: ignore
+        )
+
+tests/test_push_variables.py:858: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/uv-python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/typing.py:1184: in __call__
+    result = self.__origin__(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <logfire.variables.variable.Variable object at 0x7f1bcbaef2f0>
+name = 'prompt', type = <class 'str'>, default = 'Hello @{missing}@'
+description = None, logfire_instance = MockLogfire(config=None, _variables={})
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        type: type[T_co],
+        default: T_co | ResolveFunction[T_co],
+        description: str | None = None,
+        logfire_instance: logfire.Logfire,
+    ):
+        """Create a new managed variable.
+    
+        Args:
+            name: Unique name identifying this variable.
+            type: The expected type of this variable's values, used for validation.
+            default: Default value to use when no configuration is found, or a function
+                that computes the default based on targeting_key and attributes.
+            description: Optional human-readable description of what this variable controls.
+            logfire_instance: The Logfire instance this variable is associated with. Used to determine config, etc.
+        """
+        self.name = name
+        self.value_type = type
+        self.default = default
+        self.description = description
+    
+>       self._variable_registry = logfire_instance._config.variable_registry  # pyright: ignore[reportPrivateUsage]
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'MockLogfire' object has no attribute '_config'. Did you mean: 'config'?
+
+logfire/variables/variable.py:239: AttributeError
+_________________ test_check_reference_errors_recursion_limit __________________
+
+mock_logfire_instance = MockLogfire(config=None, _variables={})
+
+    def test_check_reference_errors_recursion_limit(mock_logfire_instance: MockLogfire) -> None:
+        """A reference chain deeper than the recursion limit is surfaced as a clean error, not a crash.
+    
+        Cycle detection walks the assembled graph with a recursive DFS; an arbitrarily deep `@{ref}@`
+        chain from server config would otherwise raise RecursionError out of push / validate. The chain
+        is sized off the live limit so it overflows regardless of any ambient `setrecursionlimit`.
+        """
+        depth = sys.getrecursionlimit() + 500
+        # Local seed a0 -> a1; a1..a{depth-1} are server-only links; a{depth} terminates the chain.
+>       seed = Variable[str](
+            name='a0',
+            default='@{a1}@',
+            type=str,
+            logfire_instance=mock_logfire_instance,  # type: ignore
+        )
+
+tests/test_push_variables.py:880: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/uv-python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/typing.py:1184: in __call__
+    result = self.__origin__(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <logfire.variables.variable.Variable object at 0x7f1bcbaeefc0>
+name = 'a0', type = <class 'str'>, default = '@{a1}@', description = None
+logfire_instance = MockLogfire(config=None, _variables={})
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        type: type[T_co],
+        default: T_co | ResolveFunction[T_co],
+        description: str | None = None,
+        logfire_instance: logfire.Logfire,
+    ):
+        """Create a new managed variable.
+    
+        Args:
+            name: Unique name identifying this variable.
+            type: The expected type of this variable's values, used for validation.
+            default: Default value to use when no configuration is found, or a function
+                that computes the default based on targeting_key and attributes.
+            description: Optional human-readable description of what this variable controls.
+            logfire_instance: The Logfire instance this variable is associated with. Used to determine config, etc.
+        """
+        self.name = name
+        self.value_type = type
+        self.default = default
+        self.description = description
+    
+>       self._variable_registry = logfire_instance._config.variable_registry  # pyright: ignore[reportPrivateUsage]
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'MockLogfire' object has no attribute '_config'. Did you mean: 'config'?
+
+logfire/variables/variable.py:239: AttributeError
+________________ test_compute_diff_schema_change_with_ref_label ________________
+
+mock_logfire_instance = MockLogfire(config=None, _variables={})
+
+    def test_compute_diff_schema_change_with_ref_label(mock_logfire_instance: MockLogfire) -> None:
+        """Test diff computation when schema changes and a label uses a ref (serialized_value=None)."""
+>       var = Variable[int](
+            name='config_value',
+            default=10,
+            type=int,
+            logfire_instance=mock_logfire_instance,  # type: ignore
+        )
+
+tests/test_push_variables.py:1415: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/uv-python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/typing.py:1184: in __call__
+    result = self.__origin__(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <logfire.variables.variable.Variable object at 0x7f1bd04b9610>
+name = 'config_value', type = <class 'int'>, default = 10, description = None
+logfire_instance = MockLogfire(config=None, _variables={})
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        type: type[T_co],
+        default: T_co | ResolveFunction[T_co],
+        description: str | None = None,
+        logfire_instance: logfire.Logfire,
+    ):
+        """Create a new managed variable.
+    
+        Args:
+            name: Unique name identifying this variable.
+            type: The expected type of this variable's values, used for validation.
+            default: Default value to use when no configuration is found, or a function
+                that computes the default based on targeting_key and attributes.
+            description: Optional human-readable description of what this variable controls.
+            logfire_instance: The Logfire instance this variable is associated with. Used to determine config, etc.
+        """
+        self.name = name
+        self.value_type = type
+        self.default = default
+        self.description = description
+    
+>       self._variable_registry = logfire_instance._config.variable_registry  # pyright: ignore[reportPrivateUsage]
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'MockLogfire' object has no attribute '_config'. Did you mean: 'config'?
+
+logfire/variables/variable.py:239: AttributeError
+_______ test_compute_diff_schema_change_with_latest_version_incompatible _______
+
+mock_logfire_instance = MockLogfire(config=None, _variables={})
+
+    def test_compute_diff_schema_change_with_latest_version_incompatible(mock_logfire_instance: MockLogfire) -> None:
+        """Test diff computation when schema changes and latest_version value is incompatible."""
+        from logfire.variables.config import LatestVersion
+    
+>       var = Variable[int](
+            name='config_value',
+            default=10,
+            type=int,
+            logfire_instance=mock_logfire_instance,  # type: ignore
+        )
+
+tests/test_push_variables.py:1450: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/uv-python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/typing.py:1184: in __call__
+    result = self.__origin__(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <logfire.variables.variable.Variable object at 0x7f1bd04b9f10>
+name = 'config_value', type = <class 'int'>, default = 10, description = None
+logfire_instance = MockLogfire(config=None, _variables={})
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        type: type[T_co],
+        default: T_co | ResolveFunction[T_co],
+        description: str | None = None,
+        logfire_instance: logfire.Logfire,
+    ):
+        """Create a new managed variable.
+    
+        Args:
+            name: Unique name identifying this variable.
+            type: The expected type of this variable's values, used for validation.
+            default: Default value to use when no configuration is found, or a function
+                that computes the default based on targeting_key and attributes.
+            description: Optional human-readable description of what this variable controls.
+            logfire_instance: The Logfire instance this variable is associated with. Used to determine config, etc.
+        """
+        self.name = name
+        self.value_type = type
+        self.default = default
+        self.description = description
+    
+>       self._variable_registry = logfire_instance._config.variable_registry  # pyright: ignore[reportPrivateUsage]
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'MockLogfire' object has no attribute '_config'. Did you mean: 'config'?
+
+logfire/variables/variable.py:239: AttributeError
+________ test_compute_diff_schema_change_with_latest_version_compatible ________
+
+mock_logfire_instance = MockLogfire(config=None, _variables={})
+
+    def test_compute_diff_schema_change_with_latest_version_compatible(mock_logfire_instance: MockLogfire) -> None:
+        """Test diff computation when schema changes and latest_version value is compatible."""
+        from logfire.variables.config import LatestVersion
+    
+>       var = Variable[int](
+            name='config_value',
+            default=10,
+            type=int,
+            logfire_instance=mock_logfire_instance,  # type: ignore
+        )
+
+tests/test_push_variables.py:1482: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/uv-python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/typing.py:1184: in __call__
+    result = self.__origin__(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <logfire.variables.variable.Variable object at 0x7f1bd04bb020>
+name = 'config_value', type = <class 'int'>, default = 10, description = None
+logfire_instance = MockLogfire(config=None, _variables={})
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        type: type[T_co],
+        default: T_co | ResolveFunction[T_co],
+        description: str | None = None,
+        logfire_instance: logfire.Logfire,
+    ):
+        """Create a new managed variable.
+    
+        Args:
+            name: Unique name identifying this variable.
+            type: The expected type of this variable's values, used for validation.
+            default: Default value to use when no configuration is found, or a function
+                that computes the default based on targeting_key and attributes.
+            description: Optional human-readable description of what this variable controls.
+            logfire_instance: The Logfire instance this variable is associated with. Used to determine config, etc.
+        """
+        self.name = name
+        self.value_type = type
+        self.default = default
+        self.description = description
+    
+>       self._variable_registry = logfire_instance._config.variable_registry  # pyright: ignore[reportPrivateUsage]
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'MockLogfire' object has no attribute '_config'. Did you mean: 'config'?
+
+logfire/variables/variable.py:239: AttributeError
+                              Summary of Failures                               
+┏━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┓
+┃               ┃               ┃  Function     ┃              ┃               ┃
+┃  File         ┃  Function     ┃  Line         ┃  Error Line  ┃  Error        ┃
+┡━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━┩
+│  tests/test…  │  test_get_j…  │  55           │  57          │  AttributeE…  │
+│  tests/test…  │  test_get_j…  │  67           │  69          │  AttributeE…  │
+│  tests/test…  │  test_get_j…  │  79           │  81          │  AttributeE…  │
+│  tests/test…  │  test_get_d…  │  91           │  93          │  AttributeE…  │
+│  tests/test…  │  test_get_d…  │  103          │  105         │  AttributeE…  │
+│  tests/test…  │  test_get_d…  │  115          │  117         │  AttributeE…  │
+│  tests/test…  │  test_check…  │  127          │  129         │  AttributeE…  │
+│  tests/test…  │  test_check…  │  140          │  142         │  AttributeE…  │
+│  tests/test…  │  test_compu…  │  153          │  155         │  AttributeE…  │
+│  tests/test…  │  test_compu…  │  172          │  174         │  AttributeE…  │
+│  tests/test…  │  test_compu…  │  200          │  202         │  AttributeE…  │
+│  tests/test…  │  test_compu…  │  435          │  437         │  AttributeE…  │
+│  tests/test…  │  test_compu…  │  468          │  470         │  AttributeE…  │
+│  tests/test…  │  test_compu…  │  510          │  517         │  AttributeE…  │
+│  tests/test…  │  test_compu…  │  543          │  547         │  AttributeE…  │
+│  tests/test…  │  test_compu…  │  570          │  574         │  AttributeE…  │
+│  tests/test…  │  test_compu…  │  599          │  610         │  AttributeE…  │
+│  tests/test…  │  test_compu…  │  634          │  638         │  AttributeE…  │
+│  tests/test…  │  test_push_…  │  723          │  731         │  AttributeE…  │
+│  tests/test…  │  test_push_…  │  796          │  799         │  AttributeE…  │
+│  tests/test…  │  test_push_…  │  810          │  813         │  AttributeE…  │
+│  tests/test…  │  test_push_…  │  825          │  835         │  AttributeE…  │
+│  tests/test…  │  test_push_…  │  849          │  858         │  AttributeE…  │
+│  tests/test…  │  test_check…  │  871          │  880         │  AttributeE…  │
+│  tests/test…  │  test_compu…  │  1413         │  1415        │  AttributeE…  │
+│  tests/test…  │  test_compu…  │  1446         │  1450        │  AttributeE…  │
+│  tests/test…  │  test_compu…  │  1478         │  1482        │  AttributeE…  │
+└───────────────┴───────────────┴───────────────┴──────────────┴───────────────┘
+Results (12.30s):
+        27 failed
+       153 passed
+
+[exit 1 in 27s]

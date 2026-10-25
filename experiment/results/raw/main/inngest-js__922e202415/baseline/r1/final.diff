@@ -1,0 +1,50 @@
+diff --git a/.changeset/calm-owls-jsonify.md b/.changeset/calm-owls-jsonify.md
+new file mode 100644
+index 0000000..48444b9
+--- /dev/null
++++ b/.changeset/calm-owls-jsonify.md
+@@ -0,0 +1,5 @@
++---
++"inngest": patch
++---
++
++Fix `Jsonify` collapsing nested objects with optional properties to `{}` when applied more than once, which affected `step.run` output types with multiple middleware and `step.invoke` results
+diff --git a/packages/inngest/src/helpers/jsonify.test.ts b/packages/inngest/src/helpers/jsonify.test.ts
+index 44d8a3d..86d30f7 100644
+--- a/packages/inngest/src/helpers/jsonify.test.ts
++++ b/packages/inngest/src/helpers/jsonify.test.ts
+@@ -144,4 +144,21 @@ describe("Jsonify", () => {
+       });
+     });
+   });
++  describe("idempotency", () => {
++    test("re-applying keeps optional properties nested in arrays", () => {
++      type Widget = { media: { mediaId: string; label?: string }[] };
++      type Actual = Jsonify<Jsonify<Widget>>["media"];
++      assertType<IsEqual<Actual, { mediaId: string; label?: string }[]>>(true);
++    });
++
++    test("re-applying keeps index signature plus known keys", () => {
++      interface Foo {
++        // biome-ignore lint/suspicious/noExplicitAny: intentional
++        [x: string]: any;
++        items: { id: string; label?: string }[];
++      }
++      type Actual = Jsonify<Jsonify<Foo>>["items"][number]["id"];
++      assertType<IsEqual<Actual, string>>(true);
++    });
++  });
+ });
+diff --git a/packages/inngest/src/helpers/jsonify.ts b/packages/inngest/src/helpers/jsonify.ts
+index 126ee21..9d75193 100644
+--- a/packages/inngest/src/helpers/jsonify.ts
++++ b/packages/inngest/src/helpers/jsonify.ts
+@@ -38,7 +38,7 @@ type JsonifyList<T extends UnknownArray> = T extends readonly []
+       : Array<T[number] extends NotJsonable ? null : Jsonify<T[number]>>;
+ 
+ type FilterJsonableKeys<T extends object> = {
+-  [Key in keyof T]: T[Key] extends NotJsonable ? never : Key;
++  [Key in keyof T]-?: T[Key] extends NotJsonable ? never : Key;
+ }[keyof T];
+ 
+ /**

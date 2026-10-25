@@ -1,0 +1,13 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 3,
+ "bash_calls": 9,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/packages/inngest/src; python3 - <<'E'\nimport re\np='helpers/strings.ts'\ns=open(p).read()\ns=s.replace('import type { TimeStr } from \"../types.ts\";','import type { Logger } from \"../middleware/logger.ts\";\\nimport type { TimeStr } from \"../types.ts\";',1)\ns=s.replace('''    | ZonedDateTimeLike,\n",
+  "cd /work/packages/inngest/src; python3 - <<'E'\nimport re\nnote=\"Durations under 1 second round up to `1s`, the minimum resolution of a durable wait.\"\nfor p in ['components/InngestStepTools.ts','types.ts']:\n    L=open(p).read().split('\\n'); out=[]\n    for i,l in enumerate(L):\n        m=re.match(r'^(\\s",
+  "cd /work; cat .changeset/calm-leases-renew.md | head -5; printf -- '---\\n\"inngest\": patch\\n---\\n\\nRound durable-wait durations under 1s up to `1s` instead of dropping them to an empty string, and warn once when this happens.\\n' > .changeset/round-up-subsecond-waits.md"
+ ],
+ "total": 3,
+ "edit_tool_share": 0.0
+}

@@ -1,0 +1,21 @@
+diff --git a/packages/inngest/src/components/InngestCommHandler.ts b/packages/inngest/src/components/InngestCommHandler.ts
+index 9c91877..04eb5e8 100644
+--- a/packages/inngest/src/components/InngestCommHandler.ts
++++ b/packages/inngest/src/components/InngestCommHandler.ts
+@@ -2214,15 +2214,10 @@ export class InngestCommHandler<
+       headerReqVersion,
+       this.client[internalLoggerSymbol],
+     );
+-    const { sdkDecided } = immediateFnData;
+     let version = ExecutionVersion.V2;
+ 
+     // Handle opting out of optimized parallelism
+-    if (
+-      version === ExecutionVersion.V2 &&
+-      sdkDecided &&
+-      fn.fn["shouldOptimizeParallelism"]?.() === false
+-    ) {
++    if (fn.fn["shouldOptimizeParallelism"]?.() === false) {
+       version = ExecutionVersion.V1;
+     }
+ 

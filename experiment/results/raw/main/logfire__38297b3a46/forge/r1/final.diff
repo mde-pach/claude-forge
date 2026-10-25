@@ -1,0 +1,43 @@
+diff --git a/logfire/_internal/integrations/google_genai.py b/logfire/_internal/integrations/google_genai.py
+index 33998b5..7b1d408 100644
+--- a/logfire/_internal/integrations/google_genai.py
++++ b/logfire/_internal/integrations/google_genai.py
+@@ -2,7 +2,7 @@ from __future__ import annotations
+ 
+ import base64
+ import json
+-from typing import Any, TypeAlias
++from typing import Any, TypeAlias, cast
+ 
+ from opentelemetry._logs import Logger, LoggerProvider, LogRecord
+ from opentelemetry.trace import get_current_span
+@@ -86,7 +86,28 @@ class SpanEventLogger(Logger):
+                     body['content'] = transform_part(body['content'])
+             body['role'] = body.get('role', record.event_name.split('.')[1])
+ 
+-        span.add_event(record.event_name, attributes={'event_body': json.dumps(body, default=default_json)})
++        try:
++            event_body = json.dumps(body, default=default_json)
++        except ValueError:
++            event_body = json.dumps(break_cycles(body, set()), default=default_json)
++
++        span.add_event(record.event_name, attributes={'event_body': event_body})
++
++
++def break_cycles(value: Any, ancestors: set[int]) -> Any:
++    """Copy dicts, lists and tuples, replacing back-edges to an ancestor on the current path with a repr."""
++    if not isinstance(value, (dict, list, tuple)):
++        return value
++    obj = cast('dict[Any, Any] | list[Any] | tuple[Any, ...]', value)
++    if id(obj) in ancestors:
++        return safe_repr(obj)
++    ancestors.add(id(obj))
++    try:
++        if isinstance(obj, dict):
++            return {k: break_cycles(v, ancestors) for k, v in obj.items()}
++        return [break_cycles(v, ancestors) for v in obj]
++    finally:
++        ancestors.discard(id(obj))
+ 
+ 
+ def transform_part(part: Part) -> Part:

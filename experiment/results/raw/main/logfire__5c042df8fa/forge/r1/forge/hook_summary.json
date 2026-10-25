@@ -1,0 +1,65 @@
+{
+ "active": true,
+ "events": {
+  "SessionStart": 2,
+  "UserPromptSubmit": 1,
+  "PreToolUse": 39,
+  "PostToolUseFailure": 4,
+  "PostToolUse": 22,
+  "Stop": 1
+ },
+ "forge_messages": 5,
+ "blocks": 0,
+ "stop_blocks": 0,
+ "feedback": 3,
+ "nonzero_exit": 0,
+ "by_hook": {
+  "SessionStart:startup": {
+   "runs": 2,
+   "nonzero": 0,
+   "forge_msgs": 3
+  },
+  "UserPromptSubmit": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PreToolUse:Bash": {
+   "runs": 39,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PostToolUseFailure:Bash": {
+   "runs": 4,
+   "nonzero": 0,
+   "forge_msgs": 1
+  },
+  "PostToolUse:Bash": {
+   "runs": 22,
+   "nonzero": 0,
+   "forge_msgs": 1
+  },
+  "Stop": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  }
+ },
+ "samples": [
+  {
+   "hook": "SessionStart:startup",
+   "exit": 0,
+   "out": "forge: branch main, 0 changed files\nforge: last commits\n  ee5bd2e Add Forge\n  1170d29 initial\nforge: packs github-actions, python, python/fastapi, python/pydantic, python/pytest, python/sqlalchemy, python/uv\n"
+  },
+  {
+   "hook": "PostToolUse:Bash",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"forge:python/lint\\nlogfire/_internal/config.py:1028:36: F821 Undefined name `Variable`\\nlogfire/_internal/config.py:1028:52: F821 Undefined name `TemplateVariable`\"}}\n"
+  },
+  {
+   "hook": "PostToolUseFailure:Bash",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUseFailure\",\"additionalContext\":\"forge:python/lint\\nlogfire/_internal/main.py:2761:9: D205 1 blank line required between summary line and description\\nlogfire/_internal/main.py:2761:9: D209 [*] Multi-line docstring closing quotes should be on a separate line\"}}\n"
+  }
+ ]
+}

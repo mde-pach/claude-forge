@@ -1,0 +1,11 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 1,
+ "bash_calls": 4,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/pydantic_ai_slim/pydantic_ai/models; sed -i '220,310s/model_name=self\\._model_name/model_name=self._model_name, provider_name=self._system/' test.py && sed -n 140,170p test.py && git diff --stat"
+ ],
+ "total": 1,
+ "edit_tool_share": 0.0
+}

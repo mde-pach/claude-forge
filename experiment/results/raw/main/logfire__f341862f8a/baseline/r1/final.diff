@@ -1,0 +1,103 @@
+diff --git a/logfire/variables/remote.py b/logfire/variables/remote.py
+index 7a2542d..f0b59b4 100644
+--- a/logfire/variables/remote.py
++++ b/logfire/variables/remote.py
+@@ -19,7 +19,7 @@ from requests import RequestException, Session
+ from logfire._internal.client import UA_HEADER
+ from logfire._internal.config import VariablesOptions
+ from logfire._internal.server_response import ServerResponseCallback, install_logfire_response_hook
+-from logfire._internal.utils import UnexpectedResponse
++from logfire._internal.utils import UnexpectedResponse, suppress_instrumentation
+ from logfire.variables.abstract import (
+     ResolvedVariable,
+     VariableAlreadyExistsError,
+@@ -49,6 +49,24 @@ if TYPE_CHECKING:
+ 
+ __all__ = ('LogfireRemoteVariableProvider',)
+ 
++_CONSECUTIVE_FAILURES_BEFORE_ERROR = 5
++"""Number of consecutive refresh failures (with a cached config) after which failures are logged as errors."""
++
++
++class _UninstrumentedSession(Session):
++    """A `requests` session whose requests never produce spans, even if the user instruments `requests`."""
++
++    def request(self, *args: Any, **kwargs: Any):
++        with suppress_instrumentation():
++            return super().request(*args, **kwargs)
++
++
++def _is_transient_error(exc: Exception) -> bool:
++    if isinstance(exc, UnexpectedResponse):
++        status = exc.response.status_code
++        return status >= 500 or status in (408, 429)
++    return isinstance(exc, RequestException)
++
+ 
+ class LogfireRemoteVariableProvider(VariableProvider):
+     """Variable provider that fetches configuration from a remote Logfire API.
+@@ -82,7 +100,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
+         self._base_url = base_url
+         self._token = token
+         self._server_response_hook = server_response_hook
+-        self._session = Session()
++        self._session = _UninstrumentedSession()
+         self._session.headers.update({'Authorization': f'bearer {token}', 'User-Agent': UA_HEADER})
+         install_logfire_response_hook(self._session, server_response_hook)
+         self._timeout = options.timeout
+@@ -94,6 +112,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
+         self._session_lock = threading.Lock()
+         self._reset_once = Once()
+         self._has_attempted_fetch: bool = False
++        self._consecutive_refresh_failures = 0
+         self._last_fetched_at: datetime | None = None
+ 
+         self._config: VariablesConfig | None = None
+@@ -192,6 +211,16 @@ class LogfireRemoteVariableProvider(VariableProvider):
+         else:
+             warnings.warn(f'{message}: {exc}', category=RuntimeWarning)
+ 
++    def _log_warning(self, message: str, exc: Exception) -> None:
++        """Log a warning (without exception info) using logfire if available, otherwise warnings."""
++        error_type = type(exc).__name__
++        if self._logfire is not None:
++            self._logfire.warn(
++                '{message}: {error_type}: {error}', message=message, error_type=error_type, error=str(exc)
++            )
++        else:
++            warnings.warn(f'{message}: {error_type}: {exc}', category=RuntimeWarning)
++
+     def _start_sse_listener(self):  # pragma: no cover
+         """Start the SSE listener thread for real-time updates."""
+         if self._sse_thread is not None and self._sse_thread.is_alive():
+@@ -225,7 +254,8 @@ class LogfireRemoteVariableProvider(VariableProvider):
+                     install_logfire_response_hook(sse_session, self._server_response_hook)
+ 
+                     # Open streaming connection
+-                    response = sse_session.get(sse_url, stream=True, timeout=(10, None))
++                    with suppress_instrumentation():
++                        response = sse_session.get(sse_url, stream=True, timeout=(10, None))
+                     if response.status_code != 200:
+                         # Server doesn't support SSE or auth failed, back off
+                         self._sse_connected = False
+@@ -377,9 +407,19 @@ class LogfireRemoteVariableProvider(VariableProvider):
+                 # (when `block_before_first_resolve` is set) while the server is unreachable, despite
+                 # the background worker already polling.
+                 self._has_attempted_fetch = True
+-                self._log_error('Error retrieving variables', e)
++                self._consecutive_refresh_failures += 1
++                if (
++                    self._last_fetched_at is not None
++                    and self._consecutive_refresh_failures < _CONSECUTIVE_FAILURES_BEFORE_ERROR
++                    and _is_transient_error(e)
++                ):
++                    self._log_warning('Error retrieving variables', e)
++                else:
++                    self._log_error('Error retrieving variables', e)
+                 return
+ 
++            self._consecutive_refresh_failures = 0
++
+             try:
+                 new_config = VariablesConfig.model_validate(variables_config_data)
+                 self._config = new_config

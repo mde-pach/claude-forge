@@ -1,0 +1,21 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 11,
+ "bash_calls": 20,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/pydantic_ai_slim/pydantic_ai; python3 - <<'E'\nimport re\np='_run_context.py'\ns=open(p).read()\ns=s.replace('''    @property\n    def last_attempt(self)''','''    _mcp_tool_defs_cache: dict[str, dict[str, ToolDefinition]] = field(\n        default_factory=dict[str, dict[str, 'ToolDefinition']], ",
+  "cd /work/pydantic_ai_slim/pydantic_ai; python3 - <<'E'\np='_agent_graph.py'\ns=open(p).read()\nblk='''    # Shared by reference into every `RunContext` this run, like the two sets above.\n    mcp_tool_defs_cache: dict[str, dict[str, ToolDefinition]] = dataclasses.field(\n        default_factory=dict[str,",
+  "cd /work/pydantic_ai_slim/pydantic_ai; python3 - <<'E'\np='durable_exec/dbos/_mcp.py'\ns=open(p).read()\ns=s.replace('''    @abstractmethod\n    def tool_for_tool_def''','''    @property\n    @abstractmethod\n    def _cache_tools(self) -> bool:\n        \"\"\"Whether the wrapped toolset caches its tool defini",
+  "cd /work; sed -i 's/  # pyright: ignore\\[reportPrivateUsage\\]$//' pydantic_ai_slim/pydantic_ai/durable_exec/*/_mcp_toolset.py; git diff pydantic_ai_slim/pydantic_ai/durable_exec/dbos/_mcp_toolset.py | grep ignore; PYRIGHT_PYTHON_IGNORE_WARNINGS=1 .venv/bin/pyright pydantic_ai_slim/pydantic_ai/durabl",
+  "cd /work; sed -i 's/\\(ctx\\._mcp_tool_defs_cache.*\\)$/\\1  # pyright: ignore[reportPrivateUsage]/' pydantic_ai_slim/pydantic_ai/durable_exec/*/_mcp_toolset.py; PYRIGHT_PYTHON_IGNORE_WARNINGS=1 .venv/bin/pyright pydantic_ai_slim/pydantic_ai/durable_exec 2>&1 | tail -5; ruff=.venv/bin/ruff; $ruff format",
+  "cd /work; python3 - <<'E'\nimport re\np='tests/test_dbos.py'\ns=open(p).read()\na=s.index('@pytest.fixture(autouse=True)\\ndef _clear_mcp_tool_cache')\nb=s.index('@contextmanager\\ndef workflow_raises')\ns=s[:a]+s[b:]\ns=s.replace('''class _TestDBOSMCPToolset(DBOSMCPToolsetBase[int]):\n''','''class _TestDBOSM",
+  "cd /work; cat >> tests/test_tools.py <<'E'\n\n\ndef test_run_context_mcp_tool_defs_cache_is_per_instance():\n    ctx1 = RunContext(deps=None, model=TestModel(), usage=RunUsage())\n    ctx2 = RunContext(deps=None, model=TestModel(), usage=RunUsage())\n    assert ctx1._mcp_tool_defs_cache == {}  # pyright: ",
+  "cd /work; sed -i 's/^from pydantic_ai.usage import RequestUsage$/from pydantic_ai.usage import RequestUsage, RunUsage/' tests/test_tools.py; .venv/bin/ruff check tests/test_tools.py tests/test_dbos.py tests/test_temporal.py; .venv/bin/ruff format tests; timeout 600 .venv/bin/pytest tests/test_tools.",
+  "cd /work; sed -i '4440,4450s/  # pyright: ignore\\[reportPrivateUsage\\]//' tests/test_tools.py; PYRIGHT_PYTHON_IGNORE_WARNINGS=1 .venv/bin/pyright tests/test_tools.py | tail -3; sed -n 4440,4450p tests/test_tools.py",
+  "cd /work; python3 - <<'E'\nfor p in ('pydantic_ai_slim/pydantic_ai/durable_exec/dbos/_mcp_toolset.py','pydantic_ai_slim/pydantic_ai/durable_exec/temporal/_mcp_toolset.py'):\n    s=open(p).read()\n    s=s.replace(\"        cached = ctx._mcp_tool_defs_cache.get(cache_key)  # pyright: ignore[reportPrivateU",
+  "cd /work; python3 - <<'E'\np='tests/test_temporal.py'\ns=open(p).read()\ns=s.replace(\"        assert result.output is not None\\n    finally:\\n        wrapped.cache_tools = original_cache_tools\",\"        assert result.output is not None\\n        # Caching stayed disabled for the whole run, so every `get"
+ ],
+ "total": 11,
+ "edit_tool_share": 0.0
+}

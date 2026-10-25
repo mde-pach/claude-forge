@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 12,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'E'\nimport re\np='core/schemas.ts'\ns=open(p).read()\ns=s.replace('''export interface $ZodPreprocessDef<B extends SomeType = $ZodType> extends $ZodPipeDef<$ZodTransform, B> {\n  in: $ZodTransform;''','''export interface $ZodPreprocessDef<B extends SomeType = $ZodType, I = unknown>\n  extends ",
+  "cat >> preprocess-types.test.ts <<'E'\n\ntest(\"ZodPreprocess narrows input from annotated argument\", () => {\n  const trimmed = z.preprocess((val: string | null | undefined) => val?.trim() ?? \"\", z.string());\n  expectTypeOf<z.input<typeof trimmed>>().toEqualTypeOf<string | null | undefined>();\n  expect"
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

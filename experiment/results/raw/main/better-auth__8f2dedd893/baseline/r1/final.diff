@@ -1,0 +1,178 @@
+diff --git a/packages/better-auth/src/plugins/mcp/client/index.ts b/packages/better-auth/src/plugins/mcp/client/index.ts
+index 7897357..04bf771 100644
+--- a/packages/better-auth/src/plugins/mcp/client/index.ts
++++ b/packages/better-auth/src/plugins/mcp/client/index.ts
+@@ -40,6 +40,8 @@ interface NodeLikeRequest {
+ 
+ interface NodeLikeResponse {
+ 	set?: (name: string, value: string) => void;
++	get?: (name: string) => string | undefined;
++	getHeader?: (name: string) => string | number | string[] | undefined;
+ 	setHeader?: (name: string, value: string) => void;
+ 	status?: (code: number) => { json: (body: unknown) => void };
+ 	writeHead?: (code: number, headers: Record<string, string>) => void;
+@@ -92,7 +94,20 @@ function makeWWWAuthenticate(authURL: string, resource?: string): string {
+ 	return `Bearer resource_metadata="${resourceMetadataURL}"`;
+ }
+ 
+-function make401Response(authURL: string, resource?: string): Response {
++function mergeExposeHeaders(existing: string | undefined): string {
++	const current = existing?.trim();
++	if (!current) return "WWW-Authenticate";
++	const listed = current
++		.split(",")
++		.some((h) => h.trim().toLowerCase() === "www-authenticate");
++	return listed ? existing! : `${existing}, WWW-Authenticate`;
++}
++
++function make401Response(
++	authURL: string,
++	corsHeaders: Record<string, string>,
++	resource?: string,
++): Response {
+ 	const wwwAuth = makeWWWAuthenticate(authURL, resource);
+ 	return Response.json(
+ 		{
+@@ -107,14 +122,28 @@ function make401Response(authURL: string, resource?: string): Response {
+ 		{
+ 			status: 401,
+ 			headers: {
++				...corsHeaders,
++				"Access-Control-Expose-Headers": mergeExposeHeaders(
++					corsHeaders["Access-Control-Expose-Headers"],
++				),
+ 				"WWW-Authenticate": wwwAuth,
+ 			},
+ 		},
+ 	);
+ }
+ 
++function readExposeHeaders(res: NodeLikeResponse): string | undefined {
++	const name = "Access-Control-Expose-Headers";
++	const fromGet = res.get?.(name);
++	if (fromGet !== undefined && fromGet !== null) return String(fromGet);
++	const value = res.getHeader?.(name);
++	if (value === undefined || value === null) return undefined;
++	return Array.isArray(value) ? value.join(", ") : String(value);
++}
++
+ function send401Node(
+ 	res: NodeLikeResponse,
++	corsHeaders: Record<string, string>,
+ 	wwwAuth: string,
+ 	message: string,
+ ): void {
+@@ -123,14 +152,23 @@ function send401Node(
+ 		error: { code: -32000, message },
+ 		id: null,
+ 	});
++	const headers: Record<string, string> = {
++		...corsHeaders,
++		"Access-Control-Expose-Headers": mergeExposeHeaders(
++			readExposeHeaders(res),
++		),
++		"WWW-Authenticate": wwwAuth,
++	};
+ 
+ 	if (typeof res.set === "function") {
+-		res.set("WWW-Authenticate", wwwAuth);
++		for (const [name, value] of Object.entries(headers)) {
++			res.set(name, value);
++		}
+ 		res.status?.(401).json(JSON.parse(body));
+ 	} else if (typeof res.writeHead === "function") {
+ 		res.writeHead(401, {
+ 			"Content-Type": "application/json",
+-			"WWW-Authenticate": wwwAuth,
++			...headers,
+ 		});
+ 		res.end?.(body);
+ 	}
+@@ -186,13 +224,13 @@ export function createMcpAuthClient(
+ 
+ 			const authHeader = req.headers.get("Authorization");
+ 			if (!authHeader || !authHeader.startsWith("Bearer ")) {
+-				return make401Response(authURL, options.resource);
++				return make401Response(authURL, corsHeaders, options.resource);
+ 			}
+ 
+ 			const token = authHeader.slice(7);
+ 			const session = await verifyToken(token);
+ 			if (!session) {
+-				return make401Response(authURL, options.resource);
++				return make401Response(authURL, corsHeaders, options.resource);
+ 			}
+ 
+ 			return fn(req, session);
+@@ -262,6 +300,7 @@ export function createMcpAuthClient(
+ 			if (!authHeader || !authHeader.startsWith("Bearer ")) {
+ 				send401Node(
+ 					res,
++					corsHeaders,
+ 					makeWWWAuthenticate(authURL, options.resource),
+ 					"Unauthorized: Authentication required",
+ 				);
+@@ -273,6 +312,7 @@ export function createMcpAuthClient(
+ 			if (!session) {
+ 				send401Node(
+ 					res,
++					corsHeaders,
+ 					makeWWWAuthenticate(authURL, options.resource),
+ 					"Invalid or expired token",
+ 				);
+diff --git a/packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts b/packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts
+index f8dc375..4331769 100644
+--- a/packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts
++++ b/packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts
+@@ -429,3 +429,51 @@ describe("mcp-client", async () => {
+ 		});
+ 	});
+ });
++
++describe("mcp-client 401 CORS headers", () => {
++	const client = createMcpAuthClient({
++		authURL: "https://auth.example.com/api/auth",
++		fetch: async () => new Response("no", { status: 401 }),
++	});
++
++	it("exposes WWW-Authenticate on handler 401s", async () => {
++		const handler = client.handler(() => new Response("ok"));
++		const res = await handler(new Request("https://mcp.example.com/mcp"));
++		expect(res.status).toBe(401);
++		expect(res.headers.get("WWW-Authenticate")).toContain("resource_metadata");
++		expect(res.headers.get("Access-Control-Allow-Origin")).toBe(
++			"https://auth.example.com",
++		);
++		expect(res.headers.get("Access-Control-Expose-Headers")).toBe(
++			"WWW-Authenticate",
++		);
++		const bad = await handler(
++			new Request("https://mcp.example.com/mcp", {
++				headers: { Authorization: "Bearer bad" },
++			}),
++		);
++		expect(bad.headers.get("Access-Control-Expose-Headers")).toBe(
++			"WWW-Authenticate",
++		);
++	});
++
++	it("appends to existing expose headers on node responses", async () => {
++		const headers: Record<string, string> = {
++			"Access-Control-Expose-Headers": "set-auth-token",
++		};
++		const res = {
++			set: (n: string, v: string) => {
++				headers[n] = v;
++			},
++			getHeader: (n: string) => headers[n],
++			status: () => ({ json: () => {} }),
++		};
++		await client.middleware()({ headers: {} }, res, () => {});
++		expect(headers["Access-Control-Expose-Headers"]).toBe(
++			"set-auth-token, WWW-Authenticate",
++		);
++		expect(headers["Access-Control-Allow-Origin"]).toBe(
++			"https://auth.example.com",
++		);
++	});
++});

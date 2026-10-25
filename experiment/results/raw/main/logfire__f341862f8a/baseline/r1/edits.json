@@ -1,0 +1,13 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 3,
+ "bash_calls": 9,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python - <<'E'\ns=open('remote.py').read()\ns=s.replace(\"from logfire._internal.utils import UnexpectedResponse\",\"from logfire._internal.utils import UnexpectedResponse, suppress_instrumentation\")\ns=s.replace(\"__all__ = ('LogfireRemoteVariableProvider',)\\n\",\"\"\"__all__ = ('LogfireRemoteVariableProvider",
+  "sed -i '114a\\        self._consecutive_refresh_failures = 0' logfire/variables/remote.py && sed -n 112,117p logfire/variables/remote.py && uv run pytest tests -q -k \"variable\" -x 2>&1 | tail -15; uv run ruff format logfire/variables/remote.py; uv run ruff check logfire/variables/remote.py; uv run py",
+  "python - <<'E'\np='logfire/variables/remote.py'\ns=open(p).read()\ns=s.replace(\"with _UninstrumentedSession() as sse_session:\",\"with Session() as sse_session:\")\ns=s.replace(\"\"\"                    response = sse_session.get(sse_url, stream=True, timeout=(10, None))\"\"\",\"\"\"                    with suppres"
+ ],
+ "total": 3,
+ "edit_tool_share": 0.0
+}

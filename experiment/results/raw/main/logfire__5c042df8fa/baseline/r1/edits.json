@@ -1,0 +1,15 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 5,
+ "bash_calls": 11,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python - <<'E'\nimport re\ns=open('main.py').read()\ns=s.replace(\"        self._variables: dict[str, Variable[Any] | TemplateVariable[Any, Any]] = {}\\n\",\"\")\ns=s.replace(\"self._variables\",\"self._config._variables\")\ns=s.replace(\"\"\"        \\\"\\\"\\\"Clear all registered variables from this Logfire instance.\n\"",
+  "python - <<'E'\ns=open('main.py').read()\ns=s.replace(\"registered with this Logfire instance will be pushed.\",\"registered with this instance's config (including `with_settings()` siblings) will be pushed.\")\ns=s.replace(\"registered with this Logfire instance will be validated.\",\"registered with this in",
+  "sed -i 's/_config\\._variables/_config.variable_registry/g' logfire/_internal/main.py logfire/variables/variable.py && sed -i 's/self\\._variables: dict/self.variable_registry: dict/' logfire/_internal/config.py && sed -i 's/logfire_instance\\._config\\.variable_registry  # pyright: ignore\\[reportPrivat",
+  "sed -i 's/logfire_instance\\._config\\.variable_registry  # pyright: ignore\\[reportPrivateUsage\\]/logfire_instance.config.variable_registry/' logfire/variables/variable.py && grep -rn \"MockLogfire\" tests | head -3; grep -rn -B3 -A8 \"class MockLogfire\" tests",
+  "python - <<'E'\np='tests/test_push_variables.py'\ns=open(p).read()\ns=s.replace(\"\"\"    config: Any = None\n    _variables: dict[str, object] = field(default_factory=dict[str, object])\n\"\"\",\"\"\"    config: Any = None\n    _variables: dict[str, object] = field(default_factory=dict[str, object])\n\n    def __po"
+ ],
+ "total": 5,
+ "edit_tool_share": 0.0
+}

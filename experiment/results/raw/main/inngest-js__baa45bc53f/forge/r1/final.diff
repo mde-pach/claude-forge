@@ -1,0 +1,51 @@
+diff --git a/packages/inngest/src/components/Inngest.ts b/packages/inngest/src/components/Inngest.ts
+index 31c756c..7a85e66 100644
+--- a/packages/inngest/src/components/Inngest.ts
++++ b/packages/inngest/src/components/Inngest.ts
+@@ -118,6 +118,15 @@ type FetchT = typeof fetch;
+  */
+ export const internalLoggerSymbol = Symbol.for("inngest.internalLogger");
+ 
++/**
++ * Symbol for accessing whether session propagation is enabled. Not part of
++ * the public API.
++ * @internal
++ */
++export const sessionPropagationSymbol = Symbol.for(
++  "inngest.sessionPropagation",
++);
++
+ export class Inngest<const TClientOpts extends ClientOptions = ClientOptions>
+   implements Inngest.Like
+ {
+@@ -430,6 +439,18 @@ export class Inngest<const TClientOpts extends ClientOptions = ClientOptions>
+     return this;
+   }
+ 
++  /**
++   * Whether session propagation is enabled. Resolved lazily from the current
++   * env so that values supplied via `setEnvVars` are honoured.
++   *
++   * @internal
++   */
++  get [sessionPropagationSymbol](): boolean {
++    return (
++      parseAsBoolean(this._env[envKeys.InngestSessionPropagation]) ?? false
++    );
++  }
++
+   get mode(): Mode {
+     if (typeof this.options.isDev === "boolean") {
+       return this.options.isDev ? "dev" : "cloud";
+diff --git a/packages/inngest/src/helpers/consts.ts b/packages/inngest/src/helpers/consts.ts
+index 1073e85..82f1ddc 100644
+--- a/packages/inngest/src/helpers/consts.ts
++++ b/packages/inngest/src/helpers/consts.ts
+@@ -36,6 +36,7 @@ export enum envKeys {
+   InngestServeOrigin = "INNGEST_SERVE_ORIGIN",
+   InngestStreaming = "INNGEST_STREAMING",
+   InngestDevMode = "INNGEST_DEV",
++  InngestSessionPropagation = "INNGEST_SESSION_PROPAGATION",
+   InngestAllowInBandSync = "INNGEST_ALLOW_IN_BAND_SYNC",
+   InngestEnableUnauthedSync = "INNGEST_ENABLE_UNAUTHED_SYNC",
+   InngestConnectMaxWorkerConcurrency = "INNGEST_CONNECT_MAX_WORKER_CONCURRENCY",

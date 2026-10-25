@@ -1,0 +1,75 @@
+{
+ "active": true,
+ "events": {
+  "SessionStart": 1,
+  "UserPromptSubmit": 1,
+  "PreToolUse": 15,
+  "PostToolUseFailure": 2,
+  "PostToolUse": 16,
+  "Stop": 1
+ },
+ "forge_messages": 6,
+ "blocks": 0,
+ "stop_blocks": 0,
+ "feedback": 4,
+ "nonzero_exit": 0,
+ "by_hook": {
+  "SessionStart:startup": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 3
+  },
+  "UserPromptSubmit": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PreToolUse:Bash": {
+   "runs": 15,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PostToolUseFailure:Bash": {
+   "runs": 2,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PostToolUse:Bash": {
+   "runs": 8,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PostToolUse:Edit": {
+   "runs": 8,
+   "nonzero": 0,
+   "forge_msgs": 3
+  },
+  "Stop": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  }
+ },
+ "samples": [
+  {
+   "hook": "SessionStart:startup",
+   "exit": 0,
+   "out": "forge: branch main, 0 changed files\nforge: last commits\n  98a92db Add Forge\n  2d72577 initial\nforge: packs github-actions, python, python/pydantic, python/pytest, python/uv\n"
+  },
+  {
+   "hook": "PostToolUse:Edit",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"forge:python/lint\\npydantic_ai_slim/pydantic_ai/models/huggingface.py:466:17: error[F821] Undefined name `file_content`\"}}\n"
+  },
+  {
+   "hook": "PostToolUse:Edit",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"forge:python/lint\\npydantic_ai_slim/pydantic_ai/models/huggingface.py:459:28: error[F821] Undefined name `UserContent`\"}}\n"
+  },
+  {
+   "hook": "PostToolUse:Edit",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"forge:python/lint\\npydantic_ai_slim/pydantic_ai/models/huggingface.py:459:28: error[F821] Undefined name `UserContent`\"}}\n"
+  }
+ ]
+}

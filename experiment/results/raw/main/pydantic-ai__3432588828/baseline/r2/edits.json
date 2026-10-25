@@ -1,0 +1,11 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 1,
+ "bash_calls": 8,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "sed -i '218,308s/model_name=self\\._model_name/model_name=self._model_name, provider_name=self.system/' test.py && sed -n 160,168p test.py && git diff --stat && cd /work && uv run pytest tests/test_agent.py -q -x 2>&1 | tail -5"
+ ],
+ "total": 1,
+ "edit_tool_share": 0.0
+}

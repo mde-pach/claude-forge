@@ -1,0 +1,29 @@
+diff --git a/logfire/_internal/integrations/google_genai.py b/logfire/_internal/integrations/google_genai.py
+index 33998b5..0690796 100644
+--- a/logfire/_internal/integrations/google_genai.py
++++ b/logfire/_internal/integrations/google_genai.py
+@@ -86,7 +86,23 @@ class SpanEventLogger(Logger):
+                     body['content'] = transform_part(body['content'])
+             body['role'] = body.get('role', record.event_name.split('.')[1])
+ 
+-        span.add_event(record.event_name, attributes={'event_body': json.dumps(body, default=default_json)})
++        try:
++            event_body = json.dumps(body, default=default_json)
++        except ValueError:  # circular reference
++            event_body = json.dumps(break_cycles(body), default=default_json)
++        span.add_event(record.event_name, attributes={'event_body': event_body})
++
++
++def break_cycles(obj: Any, ancestors: frozenset[int] = frozenset()) -> Any:
++    """Replace dicts/lists/tuples that are their own ancestors with their repr."""
++    if not isinstance(obj, (dict, list, tuple)):
++        return obj
++    if id(obj) in ancestors:
++        return f'<circular reference to {type(obj).__name__} id={id(obj)}>'
++    ancestors = ancestors | {id(obj)}
++    if isinstance(obj, dict):
++        return {k: break_cycles(v, ancestors) for k, v in obj.items()}  # pyright: ignore
++    return [break_cycles(v, ancestors) for v in obj]  # pyright: ignore
+ 
+ 
+ def transform_part(part: Part) -> Part:

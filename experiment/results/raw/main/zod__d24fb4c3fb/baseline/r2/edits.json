@@ -1,0 +1,17 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 7,
+ "bash_calls": 16,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/packages/zod/src; python3 - <<'E'\nimport re\np='v4/core/schemas.ts'\ns=open(p).read()\ns=s.replace(\"\"\"  if (a === b) {\n    return { valid: true, data: a };\n  }\n  if (a instanceof Date && b instanceof Date && +a === +b) {\"\"\",\"\"\"  if (a === b && !(util.isPlainObject(a) && Object.hasOwn(a, \"__pro",
+  "cd /work/packages/zod/src/v4/core; python3 - <<'E'\ns=open('schemas.ts').read()\ns=s.replace(\"\"\"    for (const key of value.keys) {\n      const el = shape[key]!;\"\"\",\"\"\"    for (const key of value.keys) {\n      if (key === \"__proto__\") continue;\n      const el = shape[key]!;\"\"\",1)\ns=s.replace(\"\"\"      ",
+  "cd /work/packages/zod/src/v4/core; python3 - <<'E'\ns=open('schemas.ts').read()\ns=s.replace(\"\"\"if (key === \"__proto__\" && !(def.partial && values?.has(key))) continue;\"\"\",\"\"\"if (key === \"__proto__\") continue;\"\"\",1)\ns=s.replace(\"\"\"if (outKey === \"__proto__\" && !(def.partial && key === \"__proto__\" && v",
+  "cd /work/packages/zod/src/v4/core; python3 - <<'E'\ns=open('schemas.ts').read()\ns=s.replace(\"\"\"          recordKeys.add(typeof key === \"number\" ? key.toString() : key);\n\"\"\",\"\"\"          recordKeys.add(typeof key === \"number\" ? key.toString() : key);\n          if (key === \"__proto__\") continue;\n\"\"\",1)",
+  "cd /work/packages/zod/src; sed -i 's/Object.hasOwn(a, \"__proto__\")/Object.prototype.hasOwnProperty.call(a, \"__proto__\")/' v4/core/schemas.ts; cd /work; pnpm vitest run packages/zod/src/v4/classic/tests/discriminated-unions.test.ts packages/zod/src/v4/classic/tests/from-json-schema.test.ts packages/z",
+  "cd /work/packages/zod/src/v4/classic/tests; python3 - <<'E'\nimport re\n# object.test.ts\np='object.test.ts'\ns=open(p).read()\ns=s.replace(\"\"\"expect(Object.keys(result.data)).toEqual([\"name\", \"__proto__\"]);\"\"\",\"\"\"expect(Object.keys(result.data)).toEqual([\"name\"]);\"\"\")\na=s.index(\"// A __proto__ key decla",
+  "cd /work/packages/zod/src/v3/tests; head -12 intersection.test.ts; cat >> intersection.test.ts <<'E'\n\ntest(\"intersection strips __proto__ when merging\", () => {\n  const parsed: any = z\n    .intersection(z.object({ name: z.string() }), z.unknown())\n    .parse(JSON.parse('{\"__proto__\":{\"isAdmin\":true}"
+ ],
+ "total": 7,
+ "edit_tool_share": 0.0
+}

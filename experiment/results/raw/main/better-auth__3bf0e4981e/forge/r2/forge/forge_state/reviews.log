@@ -1,0 +1,1 @@
+2026-10-25T10:15:04Z	8880b9fc-e273-4b6c-a982-0b8f13655503	allow	Bash	{"command":"cd /work/packages/better-auth && timeout 500 npx tsc --noEmit -p . 2>&1 | tail -8","dangerouslyDisableSandbox":true}	tsc is already installed in better-auth/node_modules/.bin, so npx runs the local binary with no download, and `--noEmit` is a read-only typecheck, so it writes no build output.

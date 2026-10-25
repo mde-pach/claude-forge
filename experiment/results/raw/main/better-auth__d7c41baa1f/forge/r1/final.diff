@@ -1,0 +1,79 @@
+diff --git a/packages/electron/src/routes.ts b/packages/electron/src/routes.ts
+index 43eefab..9dab4fb 100644
+--- a/packages/electron/src/routes.ts
++++ b/packages/electron/src/routes.ts
+@@ -216,7 +216,7 @@ export const electronInitOAuthProxy = (opts: ElectronOptions) =>
+ 
+ 			const headers = new Headers(ctx.request?.headers);
+ 			headers.set("origin", new URL(ctx.context.baseURL).origin);
+-			let setCookie: string | null = null;
++			let setCookies: string[] = [];
+ 			const searchParams = new URLSearchParams();
+ 			searchParams.set("client_id", opts.clientID || "electron");
+ 			searchParams.set("code_challenge", ctx.query.code_challenge);
+@@ -237,7 +237,7 @@ export const electronInitOAuthProxy = (opts: ElectronOptions) =>
+ 					},
+ 					onResponse: (ctx) => {
+ 						const headers = ctx.response.headers;
+-						setCookie = headers.get("set-cookie") ?? null;
++						setCookies = headers.getSetCookie();
+ 					},
+ 					headers,
+ 				},
+@@ -249,8 +249,8 @@ export const electronInitOAuthProxy = (opts: ElectronOptions) =>
+ 				});
+ 			}
+ 
+-			if (setCookie) {
+-				ctx.setHeader("set-cookie", setCookie);
++			for (const cookie of setCookies) {
++				ctx.responseHeaders?.append("set-cookie", cookie);
+ 			}
+ 			if (res.data.url && res.data.redirect) {
+ 				ctx.setHeader("Location", res.data.url);
+diff --git a/packages/electron/test/electron.test.ts b/packages/electron/test/electron.test.ts
+index 7860fcb..1ea39a7 100644
+--- a/packages/electron/test/electron.test.ts
++++ b/packages/electron/test/electron.test.ts
+@@ -2384,6 +2384,41 @@ describe("Electron", () => {
+ 	});
+ });
+ 
++describe("electronInitOAuthProxy set-cookie forwarding", () => {
++	const { auth } = testUtils();
++
++	it("forwards each cookie as its own Set-Cookie header in order", async () => {
++		const inner = new Headers();
++		inner.append("set-cookie", "first.cookie=one; Path=/; HttpOnly");
++		inner.append("set-cookie", "second.cookie=two; Path=/; HttpOnly");
++		const originalFetch = globalThis.fetch;
++		globalThis.fetch = async () =>
++			new Response(
++				JSON.stringify({ url: "https://idp.test/auth", redirect: true }),
++				{ headers: inner },
++			);
++		try {
++			const res = await auth.api.electronInitOAuthProxy({
++				query: {
++					provider: "github",
++					state: "s",
++					code_challenge: "c",
++					code_challenge_method: "S256",
++				},
++				asResponse: true,
++			});
++			expect(res.status).toBe(302);
++			expect(res.headers.get("location")).toBe("https://idp.test/auth");
++			const cookies = res.headers.getSetCookie();
++			expect(cookies).toHaveLength(2);
++			expect(cookies[0]).toMatch(/^first\.cookie=one/);
++			expect(cookies[1]).toMatch(/^second\.cookie=two/);
++		} finally {
++			globalThis.fetch = originalFetch;
++		}
++	});
++});
++
+ describe("cookies getCookie", () => {
+ 	it("serializes stored cookies into a Cookie header string", () => {
+ 		const stored = JSON.stringify({

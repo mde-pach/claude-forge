@@ -1,0 +1,14 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 4,
+ "bash_calls": 10,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/logfire/variables && python3 - <<'E'\np='remote.py'\ns=open(p).read()\ns=s.replace(\"from logfire._internal.utils import UnexpectedResponse\",\"from logfire._internal.utils import UnexpectedResponse, suppress_instrumentation\")\ns=s.replace(\"\"\"__all__ = ('LogfireRemoteVariableProvider',)\n\"\"\",\"\"\"__a",
+  "cd /work/logfire/variables && python3 - <<'E'\nimport re\np='remote.py'\ns=open(p).read()\na=s.index(\"class _SuppressedSession\"); b=s.index(\"def _is_transient\")\ns=s[:a]+s[b:]\ns=s.replace(\"_SuppressedSession()\",\"Session()\")\n# wrap calls\ns=re.sub(r\"( *)(response|variables_response) = (self\\._session|sse_s",
+  "python3 - <<'E'\nimport re\np='remote.py'\ns=open(p).read()\ns=re.sub(r\"self\\._session\\.(get|post|put|delete)\\(\", r\"self._request('\\1', \", s)\ns=s.replace(\"\"\"                    response = sse_session.get(sse_url, stream=True, timeout=(10, None))\"\"\",\"\"\"                    with suppress_instrumentation():",
+  "cd /work; sed -i \"s/return self._session.request(method, url, \\*\\*kwargs)/return getattr(self._session, method)(url, **kwargs)/\" logfire/variables/remote.py; .venv/bin/python -m pytest tests -q -k \"variables\" 2>&1 | tail -4; .venv/bin/pyright logfire/variables/remote.py 2>&1 | tail -3; git status --"
+ ],
+ "total": 4,
+ "edit_tool_share": 0.0
+}

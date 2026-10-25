@@ -1,0 +1,68 @@
+$ set -e
+W=/tmp/pnpm-store
+for d in /cache/pnpm/v*; do
+  [ -d "$d" ] || continue
+  v=$(basename "$d"); mkdir -p "$W/$v"
+  for e in "$d"/*; do
+    n=$(basename "$e")
+    if [ "$n" = files ]; then ln -sfn "$e" "$W/$v/files"; else cp -a "$e" "$W/$v/"; fi
+  done
+done
+pnpm install --frozen-lockfile --offline --ignore-scripts --store-dir "$W" --package-import-method copy
+(cd packages/test && pnpm run build)
+(cd packages/inngest && pnpm run pb:version)
+
+Scope: all 12 workspace projects
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +1561
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 1561, reused 260, downloaded 0, added 0
+Progress: resolved 1561, reused 830, downloaded 0, added 0
+Progress: resolved 1561, reused 1501, downloaded 0, added 0
+Progress: resolved 1561, reused 1525, downloaded 0, added 50
+Progress: resolved 1561, reused 1525, downloaded 0, added 131
+Progress: resolved 1561, reused 1525, downloaded 0, added 248
+Progress: resolved 1561, reused 1525, downloaded 0, added 433
+Progress: resolved 1561, reused 1525, downloaded 0, added 578
+Progress: resolved 1561, reused 1525, downloaded 0, added 656
+Progress: resolved 1561, reused 1525, downloaded 0, added 744
+Progress: resolved 1561, reused 1525, downloaded 0, added 898
+Progress: resolved 1561, reused 1525, downloaded 0, added 985
+Progress: resolved 1561, reused 1525, downloaded 0, added 1020
+Progress: resolved 1561, reused 1525, downloaded 0, added 1160
+Progress: resolved 1561, reused 1525, downloaded 0, added 1239
+Progress: resolved 1561, reused 1525, downloaded 0, added 1329
+Progress: resolved 1561, reused 1525, downloaded 0, added 1412
+Progress: resolved 1561, reused 1525, downloaded 0, added 1560
+Progress: resolved 1561, reused 1525, downloaded 0, added 1561, done
+
+devDependencies:
++ @actions/core 1.10.0
++ @actions/exec 1.1.1
++ @actions/github 6.0.0
++ @biomejs/biome 2.1.2
++ @changesets/changelog-github 0.4.8
++ @changesets/cli 2.26.2
++ cross-env 7.0.3
++ vitest 3.2.4
+
+Done in 20.8s using pnpm v10.12.1
+
+> @inngest/test@1.0.0 build /work/packages/test
+> pnpm run build:clean && pnpm run build:tsc
+
+
+> @inngest/test@1.0.0 build:clean /work/packages/test
+> rm -rf ./dist
+
+
+> @inngest/test@1.0.0 build:tsc /work/packages/test
+> tsc --project tsconfig.build.json
+
+
+> inngest@4.13.0 pb:version /work/packages/inngest
+> genversion --semi --double --es6 ./src/version.ts
+
+
+[exit 0 in 29s]

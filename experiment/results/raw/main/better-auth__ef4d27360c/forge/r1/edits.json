@@ -1,0 +1,17 @@
+{
+ "edit_tool_calls": 1,
+ "shell_edit_calls": 5,
+ "bash_calls": 11,
+ "edit_files": [
+  "/work/packages/better-auth/src/utils/request.ts"
+ ],
+ "shell_edit_commands": [
+  "cd /work/packages/better-auth/src/api/routes && sed -i 's/ctx\\.request?\\.clone()/safeCloneRequest(ctx.request)/' email-verification.ts sign-up.ts sign-in.ts && grep -n \"^import\" email-verification.ts sign-up.ts sign-in.ts | grep -n \"utils\" ",
+  "cd /work/packages/better-auth/src && python3 - <<'E'\nimport re\np='utils/request.ts'\ns=open(p).read()\ns=s.replace('''\t\t\ttry {\n\t\t\t\tconst value = request[key];\n\t\t\t\tif (value !== undefined) {\n\t\t\t\t\t(init as Record<string, unknown>)[key] = value;\n\t\t\t\t}\n\t\t\t} catch {}\n''','''\t\t\tconst value = request[key];\n\t",
+  "cat > src/utils/request.test.ts <<'E'\nimport { describe, expect, it, vi } from \"vitest\";\nimport { safeCloneRequest } from \"./request\";\n\ndescribe(\"safeCloneRequest\", () => {\n\tit(\"returns undefined without a request\", () => {\n\t\texpect(safeCloneRequest(undefined)).toBeUndefined();\n\t});\n\n\tit(\"returns th",
+  "python3 - <<'E'\np='src/utils/request.test.ts'\ns=open(p).read()\ns=s.replace('import { describe, expect, it, vi }','import { describe, expect, it }')\ns=s.replace('''\t\tvi.spyOn(req, \"clone\").mockImplementation(() => {\n\t\t\tthrow new TypeError(\"disturbed\");\n\t\t});\n''','''\t\t// Consuming the body makes the n",
+  "python3 - <<'E'\np='src/utils/request.ts'\ns=open(p).read()\ns='import { logger } from \"@better-auth/core/env\";\\n\\n'+s\ns=s.replace('\t} catch {\\n','\t} catch (error) {\\n\t\tlogger.debug(\"Failed to clone request, using a bodyless copy\", error);\\n',1)\nopen(p,'w').write(s)\nE\nnpx vitest run src/utils/request.t"
+ ],
+ "total": 6,
+ "edit_tool_share": 0.16666666666666666
+}

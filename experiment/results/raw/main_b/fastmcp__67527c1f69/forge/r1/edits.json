@@ -1,0 +1,15 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 5,
+ "bash_calls": 7,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'E'\np='redirect_validation.py'\ns=open(p).read()\ns=s.replace('''def _parse_host_port''','''UNSAFE_REDIRECT_URI_SCHEMES = frozenset({\"javascript\", \"data\", \"file\", \"vbscript\"})\n\n\ndef _has_unsafe_scheme(uri: str) -> bool:\n    \"\"\"Return True if the URI has an unsafe scheme or cannot be parsed",
+  "python3 - <<'E'\np='oauth_proxy/models.py'\ns=open(p).read()\ns=s.replace('''    def validate_redirect_uri(self, redirect_uri: AnyUrl | None) -> AnyUrl:\n        \"\"\"Validate redirect URI against proxy''','''    def validate_redirect_uri(self, redirect_uri: AnyUrl | None) -> AnyUrl:\n        \"\"\"Validate a",
+  "python3 - <<'E'\nimport re\np='models.py'\ns=open(p).read()\ns=s.replace(\"from fastmcp.server.auth.redirect_validation import (\\n\",\"from fastmcp.server.auth.redirect_validation import (\\n    _has_unsafe_scheme,\\n\",1)\nopen(p,'w').write(s)\n\np='consent.py'\ns=open(p).read()\ns=s.replace(\"from fastmcp.utiliti",
+  "cd /work && sed -i 's/^    RefreshToken,\\n    TokenError/&/; 0,/^    RefreshToken,$/s//    RefreshToken,\\n    RegistrationError,/' fastmcp_slim/fastmcp/server/auth/oauth_proxy/proxy.py && .venv/bin/ruff format fastmcp_slim && .venv/bin/ruff check fastmcp_slim | tail -3; .venv/bin/pytest -n auto -q t",
+  "cat > tests/server/auth/test_unsafe_redirect_schemes.py <<'E'\nimport pytest\nfrom mcp.shared.auth import InvalidRedirectUriError\nfrom pydantic import AnyUrl\n\nfrom fastmcp.server.auth.oauth_proxy.models import ProxyDCRClient\nfrom fastmcp.server.auth.redirect_validation import (\n    UNSAFE_REDIRECT_URI"
+ ],
+ "total": 5,
+ "edit_tool_share": 0.0
+}

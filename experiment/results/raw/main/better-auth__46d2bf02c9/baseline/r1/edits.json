@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 7,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/packages/better-auth/src; python3 - <<'E'\np='api/routes/session.ts'\ns=open(p).read()\ns=s.replace(\"\"\"\t\t\tconst deferSessionRefresh =\n\t\t\t\tctx.context.options.session?.deferSessionRefresh;\n\t\t\tconst isPostRequest\"\"\",\"\"\"\t\t\t// Session responses are user-specific and must never be cached.\n\t\t\tctx.se",
+  "cd /work/packages/better-auth; python3 - <<'E'\np='src/api/routes/session-api.test.ts'\ns=open(p).read()\ns=s.replace(\"\"\"\tit(\"should set cookies correctly on sign in\",\"\"\",\"\"\"\tit(\"should return no-store headers from get-session\", async () => {\n\t\tconst unauth = await auth.api.getSession({\n\t\t\theaders: new"
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

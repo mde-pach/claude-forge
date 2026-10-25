@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 3,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/packages/core/src/db; sed -i 's/model: options.user?.modelName || \"user\",/model: \"user\",/' get-tables.ts; cat adapter/get-default-model-name.ts",
+  "cd /work/packages/core/src/db/adapter; python3 - <<'E'\np='get-default-model-name.ts'\ns=open(p).read()\na=s.index(\"\tconst getDefaultModelName\")\nb=s.index(\"\treturn getDefaultModelName;\")\nnew='''\tconst resolve = (candidate: string): string | undefined =>\n\t\tObject.entries(schema).find(([_, f]) => f.model"
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

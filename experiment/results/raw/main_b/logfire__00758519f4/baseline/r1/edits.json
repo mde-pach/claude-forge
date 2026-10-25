@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 4,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/logfire/experimental; python - <<'E'\np='query_client.py'\ns=open(p).read()\ns=s.replace('''class InfoRequestError(''','''class UnexpectedResponseError(RuntimeError):\n    \"\"\"Raised when the server returns an unexpected HTTP status code.\"\"\"\n\n    pass\n\n\nclass InfoRequestError(''',1)\ns=s.replace(",
+  "cd /work; python - <<'E'\nimport httpx\nfrom logfire.query_client import LogfireQueryClient, UnexpectedResponseError\nt=httpx.MockTransport(lambda r: httpx.Response(500,headers={'content-type':'application/json'},text='{\"detail\": \"trunca'))\ntry: LogfireQueryClient('x',base_url='http://x',transport=t).i"
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

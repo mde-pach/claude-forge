@@ -1,0 +1,50 @@
+{
+ "resolved": true,
+ "patch_applied": true,
+ "f2p": {
+  "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPHostOriginProtection::test_allows_configured_host_and_origin": "passed",
+  "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPHostOriginProtection::test_allows_configured_loopback_origin_for_public_host": "passed",
+  "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPHostOriginProtection::test_allows_same_request_origin": "passed",
+  "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPHostOriginProtection::test_can_disable_host_origin_protection": "passed",
+  "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPHostOriginProtection::test_rejects_loopback_origin_for_public_host": "passed",
+  "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPHostOriginProtection::test_rejects_same_host_different_origin[http://mcp.example.com]": "passed",
+  "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPHostOriginProtection::test_rejects_same_host_different_origin[https://mcp.example.com:3000]": "passed",
+  "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPHostOriginProtection::test_rejects_untrusted_host_before_session_initialization": "passed",
+  "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPHostOriginProtection::test_rejects_untrusted_origin_before_session_initialization": "passed"
+ },
+ "p2p": {
+  "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPAppResourceMetadataURL::test_auth_endpoint_has_correct_methods": "passed",
+  "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPAppResourceMetadataURL::test_auth_endpoint_wrapped_with_require_auth_middleware": "passed",
+  "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPAppResourceMetadataURL::test_authenticated_requests_still_require_auth": "passed",
+  "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPAppResourceMetadataURL::test_no_auth_provider_mounts_without_middleware": "passed",
+  "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPHostOriginProtection::test_allows_loopback_origin_for_loopback_host": "passed"
+ },
+ "f2p_frac": 1.0,
+ "p2p_regressions": 0,
+ "lint_new": 0,
+ "diff_lines": 361,
+ "changed_files": [
+  "docs/more/settings.mdx",
+  "fastmcp_slim/fastmcp/server/http.py",
+  "fastmcp_slim/fastmcp/server/mixins/transport.py",
+  "fastmcp_slim/fastmcp/settings.py",
+  "tests/conftest.py",
+  "tests/server/http/test_host_origin_protection.py"
+ ],
+ "all_results": {
+  "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPAppResourceMetadataURL::test_auth_endpoint_wrapped_with_require_auth_middleware": "passed",
+  "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPAppResourceMetadataURL::test_auth_endpoint_has_correct_methods": "passed",
+  "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPAppResourceMetadataURL::test_no_auth_provider_mounts_without_middleware": "passed",
+  "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPAppResourceMetadataURL::test_authenticated_requests_still_require_auth": "passed",
+  "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPHostOriginProtection::test_rejects_untrusted_host_before_session_initialization": "passed",
+  "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPHostOriginProtection::test_rejects_untrusted_origin_before_session_initialization": "passed",
+  "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPHostOriginProtection::test_allows_configured_host_and_origin": "passed",
+  "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPHostOriginProtection::test_allows_same_request_origin": "passed",
+  "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPHostOriginProtection::test_allows_loopback_origin_for_loopback_host": "passed",
+  "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPHostOriginProtection::test_rejects_loopback_origin_for_public_host": "passed",
+  "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPHostOriginProtection::test_allows_configured_loopback_origin_for_public_host": "passed",
+  "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPHostOriginProtection::test_rejects_same_host_different_origin[http://mcp.example.com]": "passed",
+  "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPHostOriginProtection::test_rejects_same_host_different_origin[https://mcp.example.com:3000]": "passed",
+  "tests/server/http/test_http_auth_middleware.py::TestStreamableHTTPHostOriginProtection::test_can_disable_host_origin_protection": "passed"
+ }
+}

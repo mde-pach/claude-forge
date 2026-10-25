@@ -1,0 +1,59 @@
+$ cd /work
+J=$(mktemp -d /tmp/fx-junit.XXXXXX)
+for t in packages/inngest/src/components/middleware/middleware.test.ts packages/inngest/src/helpers/jsonify.test.ts; do
+  d=$(dirname "$t")
+  while [ "$d" != "." ] && [ ! -f "$d/package.json" ]; do d=$(dirname "$d"); done
+  printf '%s\t%s\n' "$d" "${t#$d/}"
+done > "$J/map"
+rc=0; i=0
+for d in $(cut -f1 "$J/map" | sort -u); do
+  i=$((i+1))
+  files=$(awk -F'\t' -v d="$d" '$1==d {print $2}' "$J/map" | tr '\n' ' ')
+  echo "[forge-exp] vitest in $d: $files"
+  v=vitest; [ -x "$d/node_modules/.bin/vitest" ] && v=./node_modules/.bin/vitest
+  (cd "$d" && NO_COLOR=1 $v run $files --reporter=default --reporter=junit --outputFile.junit="$J/$i.xml") || rc=$?
+  printf '%s\t%s\n' "$J/$i.xml" "$d" >> "$J/parts"
+done
+python3 - "$J/parts" /tmp/forge-junit-296ba0f39479.xml <<'PY'
+import sys, os, xml.etree.ElementTree as ET
+out = ET.Element("testsuites", name="vitest tests")
+for line in open(sys.argv[1]):
+    path, pkg = line.rstrip("\n").split("\t")
+    if not os.path.exists(path):
+        continue
+    pre = "" if pkg == "." else pkg + "/"
+    root = ET.parse(path).getroot()
+    for ts in root.iter("testsuite"):
+        ts.set("name", pre + ts.get("name", ""))
+        for tc in ts.iter("testcase"):
+            cls, nm = tc.get("classname", ""), tc.get("name", "")
+            if nm == cls:
+                tc.set("name", pre + nm)
+            tc.set("classname", pre + cls)
+        out.append(ts)
+if len(out):
+    ET.ElementTree(out).write(sys.argv[2], encoding="utf-8", xml_declaration=True)
+PY
+rm -rf "$J"
+exit $rc
+
+[forge-exp] vitest in packages/inngest: src/components/middleware/middleware.test.ts src/helpers/jsonify.test.ts 
+
+ RUN  v3.2.4 /work/packages/inngest
+
+ ✓ src/helpers/jsonify.test.ts (17 tests) 12ms 12 MB heap used
+ ✓ src/components/middleware/middleware.test.ts (3 tests) 11ms 20 MB heap used
+ ✓  TS  src/helpers/jsonify.test.ts (17 tests)
+ ✓  TS  src/components/middleware/middleware.test.ts (3 tests)
+
+ Test Files  4 passed (4)
+      Tests  40 passed (40)
+Type Errors  no errors
+   Start at  06:36:02
+   Duration  20.93s (transform 1.12s, setup 0ms, collect 2.25s, tests 23ms, environment 1ms, prepare 599ms, typecheck 20.66s)
+
+JUNIT report written to /tmp/fx-junit.9qppwi/1.xml
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+[exit 0 in 22s]

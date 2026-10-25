@@ -1,0 +1,56 @@
+$ cd /work
+pk=""
+for t in packages/better-auth/src/api/routes/email-verification.test.ts packages/better-auth/src/utils/request.test.ts; do
+  d=$(dirname "$t")
+  while [ "$d" != "." ] && [ "$d" != "/" ] && [ ! -f "$d/package.json" ]; do d=$(dirname "$d"); done
+  [ "$d" = "." ] || [ "$d" = "/" ] || pk="$pk --filter=./$d"
+done
+if [ -n "$pk" ]; then
+  turbo run build $pk --output-logs=errors-only || { echo "[forge-exp] workspace build failed; tests not run"; exit 3; }
+fi
+NO_COLOR=1 vitest run packages/better-auth/src/api/routes/email-verification.test.ts packages/better-auth/src/utils/request.test.ts --reporter=default --reporter=junit --outputFile.junit=/tmp/forge-junit-3df301b789f7.xml
+
+
+   • Packages in scope: better-auth
+   • Running build in 1 packages
+   • Remote caching disabled
+
+
+ Tasks:    8 successful, 8 total
+Cached:    7 cached, 8 total
+  Time:    1m24.633s 
+
+
+ RUN  v4.1.5 /work
+
+ ✓ |better-auth| src/utils/request.test.ts (1 test) 62ms
+ ✓ |better-auth| src/api/routes/email-verification.test.ts (25 tests) 12536ms
+     ✓ should not throw 'body already consumed' error when sendVerificationEmail callback reads the request  715ms
+     ✓ should send a verification email when enabled  507ms
+     ✓ should return APIError status when sendVerificationEmail throws (e.g. rate limit)  644ms
+     ✓ should sign after verification  312ms
+     ✓ should use custom expiresIn  666ms
+     ✓ should call afterEmailVerification callback when email is verified  687ms
+     ✓ should call beforeEmailVerification callback when email is verified  665ms
+     ✓ should call afterEmailVerification callback when email is verified  664ms
+     ✓ should properly encode callbackURL with query parameters when sending verification email  670ms
+     ✓ should not send verification email when a third party requests for an already verified user  1197ms
+     ✓ should enforce a constant-time floor for both existing and non-existing emails  1170ms
+     ✓ should still surface errors from sendVerificationEmail after the minimum delay  646ms
+     ✓ should verify email  520ms
+     ✓ should set emailVerified on all sessions  796ms
+     ✓ should set emailVerified on all sessions  801ms
+     ✓ should call hooks when verifying email change (change-email-verification)  316ms
+     ✓ should handle email case insensitivity when sending verification email while signed in  434ms
+
+ Test Files  2 passed (2)
+      Tests  26 passed (26)
+   Start at  02:39:30
+   Duration  18.57s (transform 4.18s, setup 0ms, import 5.97s, tests 12.60s, environment 0ms)
+
+JUNIT report written to /tmp/forge-junit-3df301b789f7.xml
+• turbo 2.9.14
+(node:1329) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[exit 0 in 105s]

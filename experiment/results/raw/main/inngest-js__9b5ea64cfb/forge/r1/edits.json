@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 6,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'E'\np='helpers/stream.ts'\ns=open(p).read()\ns=s.replace('import { stringify }','import type { Logger } from \"../middleware/logger.ts\";\\nimport { stringify }',1)\ns=s.replace('''  value?: string;\n}):''','''  value?: string;\n\n  /**\n   * A logger used to report (at `debug` level) write failur",
+  "python3 - <<'E'\np='src/helpers/stream.ts'\ns=open(p).read()\na=s.index('          let heartbeat:')\nb=s.index('          heartbeat = setInterval')\ns=s[:a]+'''          const stop = () => {\n            closed = true;\n            clearInterval(heartbeat);\n          };\n\n          cancelHook = stop;\n\n'''+s"
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

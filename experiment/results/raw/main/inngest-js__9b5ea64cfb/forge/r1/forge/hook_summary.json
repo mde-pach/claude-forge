@@ -1,0 +1,59 @@
+{
+ "active": true,
+ "events": {
+  "SessionStart": 1,
+  "UserPromptSubmit": 1,
+  "PreToolUse": 18,
+  "PostToolUse": 12,
+  "Stop": 1
+ },
+ "forge_messages": 5,
+ "blocks": 0,
+ "stop_blocks": 0,
+ "feedback": 3,
+ "nonzero_exit": 0,
+ "by_hook": {
+  "SessionStart:startup": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 3
+  },
+  "UserPromptSubmit": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PreToolUse:Bash": {
+   "runs": 18,
+   "nonzero": 0,
+   "forge_msgs": 2
+  },
+  "PostToolUse:Bash": {
+   "runs": 12,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "Stop": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  }
+ },
+ "samples": [
+  {
+   "hook": "SessionStart:startup",
+   "exit": 0,
+   "out": "forge: branch main, 0 changed files\nforge: last commits\n  424b539 Add Forge\n  e58d864 initial\nforge: packs github-actions\n"
+  },
+  {
+   "hook": "PreToolUse:Bash",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"forge:safety/ephemeral-exec reviewed by an independent session, nobody being there to answer: The inline Python only does string replacements on two source files in the repo, which has a clean git tree so it's easy to revert, and the tsc and biome commands that follow are read-only checks.\"}}\n"
+  },
+  {
+   "hook": "PreToolUse:Bash",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"forge:safety/ephemeral-exec reviewed by an independent session, nobody being there to answer: The command makes a local edit to src/helpers/stream.ts (a file already being modified), then runs the repo's own biome (found in /work/node_modules/.bin) and tsc, so there is no network fetch, secret access or destructive effect.\"}}\n"
+  }
+ ]
+}

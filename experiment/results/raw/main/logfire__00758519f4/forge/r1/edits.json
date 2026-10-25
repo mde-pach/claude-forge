@@ -1,0 +1,11 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 1,
+ "bash_calls": 4,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/logfire && python3 - <<'E'\np='experimental/query_client.py'\ns=open(p).read()\ns=s.replace('''class ReadTokenInfo(TypedDict''','''class UnexpectedResponseError(RuntimeError):\n    \"\"\"Raised when the server returns a response status code other than 200, 400 or 422.\"\"\"\n\n    pass\n\n\nclass ReadToke"
+ ],
+ "total": 1,
+ "edit_tool_share": 0.0
+}

@@ -1,0 +1,18 @@
+diff --git a/pydantic_ai_slim/pydantic_ai/models/bedrock.py b/pydantic_ai_slim/pydantic_ai/models/bedrock.py
+index 3d1b268..e8ae669 100644
+--- a/pydantic_ai_slim/pydantic_ai/models/bedrock.py
++++ b/pydantic_ai_slim/pydantic_ai/models/bedrock.py
+@@ -1018,6 +1018,13 @@ class BedrockConverseModel(Model[BaseClient]):
+                             else:
+                                 tool_result_content.append({'json': item})
+ 
++                        if not tool_result_content:
++                            # Bedrock requires non-empty toolResult content, e.g. when a tool returns `[]`.
++                            if content_mode == 'str':
++                                tool_result_content.append({'text': str(part.content)})
++                            else:
++                                tool_result_content.append({'json': part.content})
++
+                         user_content: list[ContentBlockUnionTypeDef] = [
+                             {
+                                 'toolResult': {

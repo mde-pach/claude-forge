@@ -1,0 +1,54 @@
+$ cd /work
+pk=""
+for t in packages/better-auth/src/plugins/organization/organization.test.ts; do
+  d=$(dirname "$t")
+  while [ "$d" != "." ] && [ "$d" != "/" ] && [ ! -f "$d/package.json" ]; do d=$(dirname "$d"); done
+  [ "$d" = "." ] || [ "$d" = "/" ] || pk="$pk --filter=./$d"
+done
+if [ -n "$pk" ]; then
+  turbo run build $pk --output-logs=errors-only || { echo "[forge-exp] workspace build failed; tests not run"; exit 3; }
+fi
+NO_COLOR=1 vitest run packages/better-auth/src/plugins/organization/organization.test.ts --reporter=default --reporter=junit --outputFile.junit=/tmp/forge-junit-3de0670e44b9.xml
+
+
+   • Packages in scope: better-auth
+   • Running build in 1 packages
+   • Remote caching disabled
+
+
+ Tasks:    8 successful, 8 total
+Cached:    7 cached, 8 total
+  Time:    1m51.121s 
+
+
+ RUN  v4.1.5 /work
+
+ ✓ |better-auth| src/plugins/organization/organization.test.ts (102 tests | 1 todo) 16460ms
+     ✓ should prevent updating organization to duplicate slug  362ms
+     ✓ invites user to organization with role  460ms
+     ✓ invites user to organization with role  433ms
+     ✓ invites user to organization with role  492ms
+     ✓ should not allow inviting a user twice regardless of email casing  564ms
+     ✓ should allow accepting invitation when user signs up with different email casing  497ms
+     ✓ shouldn't allow updating owner role if you're not owner  337ms
+     ✓ should return BAD_REQUEST when non-member tries to delete organization  353ms
+     ✓ should respect membershipLimit when adding members to organization  1108ms
+     ✓ should respect membershipLimit function when adding members to organization  719ms
+     ✓ should allow listing invitations for a user using authClient  970ms
+     ✓ should allow rejecting expired invitations  1818ms
+     ✓ should only list pending invitations for a user  748ms
+     ✓ should not list rejected invitations  523ms
+     ✓ rolls back deleteOrganization when an intermediate step throws  446ms
+     ✓ rolls back removeMember when an intermediate step throws  579ms
+
+ Test Files  1 passed (1)
+      Tests  101 passed | 1 todo (102)
+   Start at  10:31:27
+   Duration  28.91s (transform 4.67s, setup 0ms, import 12.12s, tests 16.46s, environment 0ms)
+
+JUNIT report written to /tmp/forge-junit-3de0670e44b9.xml
+• turbo 2.9.14
+(node:1337) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[exit 0 in 142s]

@@ -1,0 +1,11 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 1,
+ "bash_calls": 5,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/logfire/variables && python - <<'E'\np='remote.py'\ns=open(p).read()\ns=s.replace(\"with self._session_lock:\",\"with self._session_lock, suppress_instrumentation():\")\ns=s.replace(\"response = sse_session.get(sse_url, stream=True, timeout=(10, None))\",\"with suppress_instrumentation():\\n           "
+ ],
+ "total": 1,
+ "edit_tool_share": 0.0
+}

@@ -1,0 +1,70 @@
+{
+ "active": true,
+ "events": {
+  "SessionStart": 1,
+  "UserPromptSubmit": 1,
+  "PreToolUse": 21,
+  "PostToolUseFailure": 2,
+  "PostToolUse": 12,
+  "Stop": 1
+ },
+ "forge_messages": 7,
+ "blocks": 0,
+ "stop_blocks": 0,
+ "feedback": 4,
+ "nonzero_exit": 0,
+ "by_hook": {
+  "SessionStart:startup": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 4
+  },
+  "UserPromptSubmit": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PreToolUse:Bash": {
+   "runs": 21,
+   "nonzero": 0,
+   "forge_msgs": 3
+  },
+  "PostToolUseFailure:Bash": {
+   "runs": 2,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PostToolUse:Bash": {
+   "runs": 12,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "Stop": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  }
+ },
+ "samples": [
+  {
+   "hook": "SessionStart:startup",
+   "exit": 0,
+   "out": "forge: branch main, 0 changed files\nforge: last commits\n  1bf6686 Add Forge\n  abc6c3d initial\nforge: packs docker, docker/compose, github-actions, typescript, typescript/vitest\nforge: missing tools (checks using them are skipped): docker\n"
+  },
+  {
+   "hook": "PreToolUse:Bash",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"forge:safety/ephemeral-exec reviewed by an independent session, nobody being there to answer: The inline Python only edits one source file in the repo's MCP client plugin (git tree is clean, so reversible), and the vitest and tsc runs are local checks of that change, with no deletion, publishing, secrets or fetched code involved.\"}}\n"
+  },
+  {
+   "hook": "PreToolUse:Bash",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"forge:safety/ephemeral-exec reviewed by an independent session, nobody being there to answer: It's a small local sed edit to a tracked source file followed by running the repo's locally installed vitest and tsc, with no network, secrets, or destructive effects.\"}}\n"
+  },
+  {
+   "hook": "PreToolUse:Bash",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"forge:safety/ephemeral-exec reviewed by an independent session, nobody being there to answer: The command adds two new tests to the repo's own mcp-client test file and runs the local vitest and tsc, so it is ordinary, reversible, repo-local work with no network, secret or destructive effects.\"}}\n"
+  }
+ ]
+}

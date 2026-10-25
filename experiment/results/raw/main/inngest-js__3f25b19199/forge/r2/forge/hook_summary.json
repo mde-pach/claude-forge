@@ -1,0 +1,54 @@
+{
+ "active": true,
+ "events": {
+  "SessionStart": 1,
+  "UserPromptSubmit": 1,
+  "PreToolUse": 27,
+  "PostToolUse": 18,
+  "Stop": 1
+ },
+ "forge_messages": 4,
+ "blocks": 0,
+ "stop_blocks": 0,
+ "feedback": 2,
+ "nonzero_exit": 0,
+ "by_hook": {
+  "SessionStart:startup": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 3
+  },
+  "UserPromptSubmit": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PreToolUse:Bash": {
+   "runs": 27,
+   "nonzero": 0,
+   "forge_msgs": 1
+  },
+  "PostToolUse:Bash": {
+   "runs": 18,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "Stop": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  }
+ },
+ "samples": [
+  {
+   "hook": "SessionStart:startup",
+   "exit": 0,
+   "out": "forge: branch main, 0 changed files\nforge: last commits\n  9b23e5a Add Forge\n  675b5a9 initial\nforge: packs github-actions\n"
+  },
+  {
+   "hook": "PreToolUse:Bash",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"forge:safety/ephemeral-exec reviewed by an independent session, nobody being there to answer: The command inserts a doc-comment line into two source files in the repo and then runs the repo's own formatter, type-check and tests, all local and reviewable in the diff, with no network, secrets or destructive operations.\"}}\n"
+  }
+ ]
+}

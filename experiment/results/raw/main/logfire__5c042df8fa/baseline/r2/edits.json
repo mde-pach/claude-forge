@@ -1,0 +1,15 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 5,
+ "bash_calls": 11,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python - <<'E'\nimport re\np='logfire/_internal/main.py'\ns=open(p).read()\ns=s.replace(\"        self._variables: dict[str, Variable[Any] | TemplateVariable[Any, Any]] = {}\\n\",\"\")\ns=s.replace(\"self._variables\",\"self._config._variables\")\ns=s.replace('\"\"\"Clear all registered variables from this Logfire in",
+  "sed -i 's/logfire_instance\\._variables  # pyright/logfire_instance._config._variables  # pyright/' logfire/variables/variable.py && sed -i \"2899s/registered with this Logfire instance will/registered with this instance's config (including \\`with_settings()\\` siblings) will/\" logfire/_internal/main.p",
+  "python - <<'E'\np='tests/test_push_variables.py'\ns=open(p).read()\ns=s.replace(\"\"\"    _variables: dict[str, object] = field(default_factory=dict[str, object])\n\"\"\",\"\"\"    _config: Any = field(default_factory=lambda: SimpleNamespace(_variables={}))\n\"\"\")\ns=s.replace(\"\\nimport \",\"\\nfrom types import Simpl",
+  "sed -i 's/self\\._config\\._variables/self._config.variable_registry/g' logfire/_internal/main.py && sed -i 's/logfire_instance\\._config\\._variables  # pyright: ignore\\[reportPrivateUsage\\]/logfire_instance._config.variable_registry  # pyright: ignore[reportPrivateUsage]/' logfire/variables/variable.p",
+  "cat > /tmp/t.py <<'E'\nimport logfire\nlogfire.configure(send_to_logfire=False)\nlf2=logfire.with_settings(tags=['x'])\na=logfire.var(name='greeting',default='Hello',type=str)\nb=lf2.var(name='main',default='@{greeting}@ World',type=str)\nprint(logfire.variables_get()==[a,b]==lf2.variables_get())\nr=b.get("
+ ],
+ "total": 5,
+ "edit_tool_share": 0.0
+}

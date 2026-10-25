@@ -1,0 +1,174 @@
+diff --git a/logfire/variables/remote.py b/logfire/variables/remote.py
+index 7a2542d..e0a63bd 100644
+--- a/logfire/variables/remote.py
++++ b/logfire/variables/remote.py
+@@ -14,12 +14,12 @@ from urllib.parse import urljoin
+ 
+ from opentelemetry.util._once import Once
+ from pydantic import ValidationError
+-from requests import RequestException, Session
++from requests import RequestException, Response, Session
+ 
+ from logfire._internal.client import UA_HEADER
+ from logfire._internal.config import VariablesOptions
+ from logfire._internal.server_response import ServerResponseCallback, install_logfire_response_hook
+-from logfire._internal.utils import UnexpectedResponse
++from logfire._internal.utils import UnexpectedResponse, suppress_instrumentation
+ from logfire.variables.abstract import (
+     ResolvedVariable,
+     VariableAlreadyExistsError,
+@@ -49,6 +49,19 @@ if TYPE_CHECKING:
+ 
+ __all__ = ('LogfireRemoteVariableProvider',)
+ 
++_CONSECUTIVE_FAILURES_BEFORE_ERROR = 5
++"""Number of consecutive refresh failures at which a failure is logged as an error even if it's transient."""
++
++
++def _is_transient(exc: BaseException) -> bool:
++    if isinstance(exc, RequestException):
++        response = getattr(exc, 'response', None)
++        status = getattr(response, 'status_code', None)
++        if status is not None:
++            return status >= 500 or status in (408, 429)
++        return True
++    return False
++
+ 
+ class LogfireRemoteVariableProvider(VariableProvider):
+     """Variable provider that fetches configuration from a remote Logfire API.
+@@ -95,6 +108,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
+         self._reset_once = Once()
+         self._has_attempted_fetch: bool = False
+         self._last_fetched_at: datetime | None = None
++        self._consecutive_refresh_failures = 0
+ 
+         self._config: VariablesConfig | None = None
+ 
+@@ -180,6 +194,11 @@ class LogfireRemoteVariableProvider(VariableProvider):
+ 
+             os.register_at_fork(after_in_child=_after_in_child)
+ 
++    def _request(self, method: str, url: str, **kwargs: Any) -> Response:
++        """Make a request on the provider's session without producing spans from user HTTP instrumentation."""
++        with suppress_instrumentation():
++            return getattr(self._session, method)(url, **kwargs)
++
+     def _log_error(self, message: str, exc: Exception) -> None:
+         """Log an error using logfire if available, otherwise warnings.
+ 
+@@ -192,6 +211,26 @@ class LogfireRemoteVariableProvider(VariableProvider):
+         else:
+             warnings.warn(f'{message}: {exc}', category=RuntimeWarning)
+ 
++    def _log_refresh_failure(self, exc: Exception) -> None:
++        """Log a failed refresh, as a warning if it's likely transient and we still have a usable config."""
++        message = 'Error retrieving variables'
++        if (
++            self._config is not None
++            and self._consecutive_refresh_failures < _CONSECUTIVE_FAILURES_BEFORE_ERROR
++            and _is_transient(exc)
++        ):
++            if self._logfire is not None:
++                self._logfire.warn(
++                    '{message}: {error_type}: {error}',
++                    message=message,
++                    error_type=type(exc).__name__,
++                    error=str(exc),
++                )
++            else:
++                warnings.warn(f'{message}: {type(exc).__name__}: {exc}', category=RuntimeWarning)
++        else:
++            self._log_error(message, exc)
++
+     def _start_sse_listener(self):  # pragma: no cover
+         """Start the SSE listener thread for real-time updates."""
+         if self._sse_thread is not None and self._sse_thread.is_alive():
+@@ -225,7 +264,8 @@ class LogfireRemoteVariableProvider(VariableProvider):
+                     install_logfire_response_hook(sse_session, self._server_response_hook)
+ 
+                     # Open streaming connection
+-                    response = sse_session.get(sse_url, stream=True, timeout=(10, None))
++                    with suppress_instrumentation():
++                        response = sse_session.get(sse_url, stream=True, timeout=(10, None))
+                     if response.status_code != 200:
+                         # Server doesn't support SSE or auth failed, back off
+                         self._sse_connected = False
+@@ -364,8 +404,8 @@ class LogfireRemoteVariableProvider(VariableProvider):
+ 
+             try:
+                 with self._session_lock:
+-                    variables_response = self._session.get(
+-                        urljoin(self._base_url, '/v1/variables/'), timeout=self._timeout
++                    variables_response = self._request(
++                        'get', urljoin(self._base_url, '/v1/variables/'), timeout=self._timeout
+                     )
+                     UnexpectedResponse.raise_for_status(variables_response)
+                     variables_config_data = variables_response.json()
+@@ -377,9 +417,12 @@ class LogfireRemoteVariableProvider(VariableProvider):
+                 # (when `block_before_first_resolve` is set) while the server is unreachable, despite
+                 # the background worker already polling.
+                 self._has_attempted_fetch = True
+-                self._log_error('Error retrieving variables', e)
++                self._consecutive_refresh_failures += 1
++                self._log_refresh_failure(e)
+                 return
+ 
++            self._consecutive_refresh_failures = 0
++
+             try:
+                 new_config = VariablesConfig.model_validate(variables_config_data)
+                 self._config = new_config
+@@ -506,8 +549,8 @@ class LogfireRemoteVariableProvider(VariableProvider):
+         body = self._config_to_api_body(config)
+         try:
+             with self._session_lock:
+-                response = self._session.post(
+-                    urljoin(self._base_url, '/v1/variables/'), json=body, timeout=self._timeout
++                response = self._request(
++                    'post', urljoin(self._base_url, '/v1/variables/'), json=body, timeout=self._timeout
+                 )
+                 if response.status_code == 409:
+                     raise VariableAlreadyExistsError(f"Variable '{config.name}' already exists")
+@@ -536,8 +579,8 @@ class LogfireRemoteVariableProvider(VariableProvider):
+         body = self._config_to_api_body(config)
+         try:
+             with self._session_lock:
+-                response = self._session.put(
+-                    urljoin(self._base_url, f'/v1/variables/{name}/'), json=body, timeout=self._timeout
++                response = self._request(
++                    'put', urljoin(self._base_url, f'/v1/variables/{name}/'), json=body, timeout=self._timeout
+                 )
+                 if response.status_code == 404:
+                     raise VariableNotFoundError(f"Variable '{name}' not found")
+@@ -561,8 +604,8 @@ class LogfireRemoteVariableProvider(VariableProvider):
+         """
+         try:
+             with self._session_lock:
+-                response = self._session.delete(
+-                    urljoin(self._base_url, f'/v1/variables/{name}/'), timeout=self._timeout
++                response = self._request(
++                    'delete', urljoin(self._base_url, f'/v1/variables/{name}/'), timeout=self._timeout
+                 )
+                 if response.status_code == 404:
+                     raise VariableNotFoundError(f"Variable '{name}' not found")
+@@ -678,7 +721,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
+ 
+         try:
+             with self._session_lock:
+-                response = self._session.get(urljoin(self._base_url, '/v1/variable-types/'), timeout=self._timeout)
++                response = self._request('get', urljoin(self._base_url, '/v1/variable-types/'), timeout=self._timeout)
+                 UnexpectedResponse.raise_for_status(response)
+                 types_data = response.json()
+         except (UnexpectedResponse, RequestException) as e:
+@@ -723,8 +766,8 @@ class LogfireRemoteVariableProvider(VariableProvider):
+         try:
+             with self._session_lock:
+                 # POST endpoint is an upsert (create or update by name)
+-                response = self._session.post(
+-                    urljoin(self._base_url, '/v1/variable-types/'), json=body, timeout=self._timeout
++                response = self._request(
++                    'post', urljoin(self._base_url, '/v1/variable-types/'), json=body, timeout=self._timeout
+                 )
+                 UnexpectedResponse.raise_for_status(response)
+         except (UnexpectedResponse, RequestException) as e:

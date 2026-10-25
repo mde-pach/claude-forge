@@ -1,0 +1,29 @@
+diff --git a/pydantic_ai_slim/pydantic_ai/models/__init__.py b/pydantic_ai_slim/pydantic_ai/models/__init__.py
+index 738e33f..8c780a3 100644
+--- a/pydantic_ai_slim/pydantic_ai/models/__init__.py
++++ b/pydantic_ai_slim/pydantic_ai/models/__init__.py
+@@ -428,7 +428,8 @@ class Model(ABC, Generic[InterfaceClient]):
+            `defer_loading` flag for `ToolSearchTool`).
+         3. `with_native` matches an *unsupported* native tool AND `defer_loading=True`
+            → drop from wire (the corpus member is currently undiscovered, so the model has
+-           no way to call it on this provider).
++           no way to call it on this provider). If already discovered (`defer_loading=False`),
++           keep it as a plain function tool with `with_native` cleared.
+         4. Otherwise → keep.
+ 
+         On top of the four-rule filter, two narrower drops apply, kept independent:
+@@ -485,8 +486,12 @@ class Model(ABC, Generic[InterfaceClient]):
+                 if not (tool_search_kept_local and t.unless_native == ToolSearchTool.kind):
+                     continue
+             # Rule 3: drop undiscovered corpus members when the native tool is unsupported.
+-            if t.with_native and t.with_native not in supported_ids and t.defer_loading:
+-                continue
++            # Rule 3b: keep discovered ones as plain function tools, clearing the native pairing
++            # so adapters don't derive native-specific flags (e.g. a lone `defer_loading`).
++            if t.with_native and t.with_native not in supported_ids:
++                if t.defer_loading:
++                    continue
++                t = replace(t, with_native=None)
+             # Rules 2 + 4: keep.
+             function_tools.append(t)
+ 

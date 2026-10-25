@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 14,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/packages/better-auth/src/api/routes && python3 - <<'E'\ns=open('session.ts').read()\ns=s.replace(\"\"\"\t\t\tconst deferSessionRefresh =\n\t\t\t\tctx.context.options.session?.deferSessionRefresh;\n\t\t\tconst isPostRequest\"\"\",\"\"\"\t\t\t// Session responses are user-specific and must never be cached.\n\t\t\tctx.setH",
+  "python3 - <<'E'\np='session-api.test.ts'\ns=open(p).read()\nnew='''\tit(\"should mark get-session responses as non-cacheable\", async () => {\n\t\tconst { auth, signInWithTestUser } = await getTestInstance();\n\t\tconst { headers } = await signInWithTestUser();\n\t\tconst authed = await auth.handler(\n\t\t\tnew Reques"
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

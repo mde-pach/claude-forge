@@ -1,0 +1,16 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 6,
+ "bash_calls": 16,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'EOF'\nimport re\ndef sub(path, old, new, count=1):\n    s=open(path).read()\n    assert old in s, (path, old)\n    s=s.replace(old,new,count)\n    open(path,'w').write(s)\n\nt='types.ts'\nsub(t,\"\"\"  memoryMb: number;\n}\n\nexport interface SandboxListOptions\"\"\",\"\"\"  memoryMb: number;\n\n  /**\n   * Wh",
+  "python3 - <<'EOF'\ndef sub(path, old, new):\n    s=open(path).read()\n    assert old in s, (path, old)\n    s=s.replace(old,new,1)\n    open(path,'w').write(s)\n\nsub('../../experimental.ts',\"  SandboxStatus,\\n} from\",\"  SandboxStatus,\\n  SandboxWaitUntilRunningOptions,\\n} from\")\n\nv='validation.ts'\nsub(v,\"",
+  "python3 - <<'EOF'\ndef sub(path, old, new):\n    s=open(path).read()\n    assert old in s, (path, old)\n    s=s.replace(old,new,1)\n    open(path,'w').write(s)\nsub('validation.ts',\"  type SandboxDuration,\\n\",\"  type SandboxDuration,\\n  type SandboxWaitUntilRunningOptions,\\n\")\n\nc='client.ts'\nsub(c,\"  norm",
+  "python3 - <<'EOF'\np='src/components/InngestSandbox.test.ts'\ns=open(p).read()\ns=s.replace('''    case \"list\":\n      return {\n        protocolVersion: 1,\n        action: \"list\",''','''    case \"waitUntilRunning\":\n      return {\n        protocolVersion: 1,\n        action: \"waitUntilRunning\",\n        sa",
+  "python3 - <<'EOF'\np='src/components/InngestSandbox.test.ts'\ns=open(p).read()\nnew='''describe(\"inngest.sandboxes running wait\", () => {\n  const { kind: _kind, version: _version, ...resource } = sandboxRef;\n  const respond = (status: string, error?: string) =>\n    Response.json({\n      data: { ...reso",
+  "cd /work && ls .changeset | head -3; cat > .changeset/sandbox-wait-running.md <<'EOF'\n---\n\"inngest\": minor\n---\n\nAdd `runningTimeout` to sandbox create and `waitUntilRunning` to sandboxes (direct and durable) to wait for a sandbox to reach `RUNNING`.\nEOF"
+ ],
+ "total": 6,
+ "edit_tool_share": 0.0
+}

@@ -1,0 +1,217 @@
+diff --git a/.python-version b/.python-version
+deleted file mode 100644
+index e4fba21..0000000
+--- a/.python-version
++++ /dev/null
+@@ -1 +0,0 @@
+-3.12
+diff --git a/examples/tasks/.envrc b/examples/tasks/.envrc
+deleted file mode 100644
+index 87a7dfe..0000000
+--- a/examples/tasks/.envrc
++++ /dev/null
+@@ -1,10 +0,0 @@
+-# FastMCP Tasks Example Environment Configuration
+-# This file is loaded by direnv (https://direnv.net/) when you cd into this directory
+-# Run `direnv allow` to enable automatic environment loading
+-
+-# Configure Docket backend URL
+-# Use Redis backend (requires docker-compose up)
+-export FASTMCP_DOCKET_URL=redis://localhost:24242/0
+-
+-# Or uncomment to use memory:// for single-process testing
+-# export FASTMCP_DOCKET_URL=memory://
+diff --git a/fastmcp_slim/fastmcp/server/auth/oauth_proxy/models.py b/fastmcp_slim/fastmcp/server/auth/oauth_proxy/models.py
+index 5d2366a..3568ae9 100644
+--- a/fastmcp_slim/fastmcp/server/auth/oauth_proxy/models.py
++++ b/fastmcp_slim/fastmcp/server/auth/oauth_proxy/models.py
+@@ -7,6 +7,7 @@ from __future__ import annotations
+ 
+ import hashlib
+ from typing import Any, Final
++from urllib.parse import urlparse
+ 
+ from mcp.shared.auth import InvalidRedirectUriError, OAuthClientInformationFull
+ from pydantic import AnyUrl, BaseModel, Field
+@@ -134,6 +135,35 @@ def _hash_token(token: str) -> str:
+     return hashlib.sha256(token.encode()).hexdigest()
+ 
+ 
++_LOOPBACK_HOSTS: Final[frozenset[str]] = frozenset({"localhost", "127.0.0.1", "::1"})
++
++
++def _loopback_match(registered: str, requested: str) -> bool:
++    """True if URIs are identical except for the port of a loopback host."""
++    try:
++        reg = urlparse(registered)
++        req = urlparse(requested)
++        reg_host = (reg.hostname or "").lower()
++        req_host = (req.hostname or "").lower()
++        # Accessing .port validates the port component
++        reg.port, req.port  # noqa: B018
++    except ValueError:
++        return False
++    if reg_host not in _LOOPBACK_HOSTS or reg_host != req_host:
++        return False
++    if reg.username is not None or reg.password is not None:
++        return False
++    if req.username is not None or req.password is not None:
++        return False
++    return (
++        reg.scheme.lower() == req.scheme.lower()
++        and (reg.path or "/") == (req.path or "/")
++        and reg.params == req.params
++        and reg.query == req.query
++        and reg.fragment == req.fragment
++    )
++
++
+ class ProxyDCRClient(OAuthClientInformationFull):
+     """Client for DCR proxy with configurable redirect URI validation.
+ 
+@@ -164,6 +194,17 @@ class ProxyDCRClient(OAuthClientInformationFull):
+     client_name: str | None = Field(default=None)
+     cimd_document: CIMDDocument | None = Field(default=None)
+     cimd_fetched_at: float | None = Field(default=None)
++    allow_unregistered_redirect_uris: bool = Field(default=False, exclude=True)
++
++    def _matches_registered_redirect_uri(self, redirect_uri: AnyUrl) -> bool:
++        """Check a URI against registered redirect_uris (exact or loopback-port match)."""
++        requested = str(redirect_uri)
++        for registered in self.redirect_uris or []:
++            if requested == str(registered):
++                return True
++            if _loopback_match(str(registered), requested):
++                return True
++        return False
+ 
+     def validate_redirect_uri(self, redirect_uri: AnyUrl | None) -> AnyUrl:
+         """Validate redirect URI against proxy patterns and optionally CIMD redirect_uris.
+@@ -235,6 +276,17 @@ class ProxyDCRClient(OAuthClientInformationFull):
+ 
+                 return redirect_uri
+ 
++            if self.allowed_redirect_uri_patterns is None:
++                if (
++                    self.cimd_document is not None
++                    or self.allow_unregistered_redirect_uris
++                    or self._matches_registered_redirect_uri(redirect_uri)
++                ):
++                    return redirect_uri
++                raise InvalidRedirectUriError(
++                    f"Redirect URI '{redirect_uri}' not registered for client"
++                )
++
+             pattern_matches = validate_redirect_uri(
+                 redirect_uri=redirect_uri,
+                 allowed_patterns=self.allowed_redirect_uri_patterns,
+diff --git a/fastmcp_slim/fastmcp/server/auth/oauth_proxy/proxy.py b/fastmcp_slim/fastmcp/server/auth/oauth_proxy/proxy.py
+index 227f6dc..c533499 100644
+--- a/fastmcp_slim/fastmcp/server/auth/oauth_proxy/proxy.py
++++ b/fastmcp_slim/fastmcp/server/auth/oauth_proxy/proxy.py
+@@ -300,7 +300,8 @@ class OAuthProxy(OAuthProvider, ConsentMixin):
+             service_documentation_url: Optional service documentation URL
+             allowed_client_redirect_uris: List of allowed redirect URI patterns for MCP clients.
+                 Patterns support wildcards (e.g., "http://localhost:*", "https://*.example.com/*").
+-                If None (default), all redirect URIs are allowed (for DCR compatibility).
++                If None (default), DCR clients are limited to their registered redirect URIs,
++                with loopback ports (localhost, 127.0.0.1, ::1) allowed to vary.
+                 If empty list, no redirect URIs are allowed.
+                 These are for MCP clients performing loopback redirects, NOT for the upstream OAuth app.
+             valid_scopes: List of all the possible valid scopes for a client.
+@@ -820,6 +821,7 @@ class OAuthProxy(OAuthProvider, ConsentMixin):
+                 scope=self._default_scope_str,
+                 token_endpoint_auth_method="none",
+                 allowed_redirect_uri_patterns=self._allowed_client_redirect_uris,
++                allow_unregistered_redirect_uris=True,
+             )
+ 
+         return None
+diff --git a/fastmcp_slim/fastmcp/server/auth/oidc_proxy.py b/fastmcp_slim/fastmcp/server/auth/oidc_proxy.py
+index 8556880..bbe3ed5 100644
+--- a/fastmcp_slim/fastmcp/server/auth/oidc_proxy.py
++++ b/fastmcp_slim/fastmcp/server/auth/oidc_proxy.py
+@@ -277,7 +277,8 @@ class OIDCProxy(OAuthProxy):
+             redirect_path: Redirect path configured in upstream OAuth app (defaults to "/auth/callback")
+             allowed_client_redirect_uris: List of allowed redirect URI patterns for MCP clients.
+                 Patterns support wildcards (e.g., "http://localhost:*", "https://*.example.com/*").
+-                If None (default), all redirect URIs are allowed (for DCR compatibility).
++                If None (default), DCR clients are limited to their registered redirect URIs,
++                with loopback ports (localhost, 127.0.0.1, ::1) allowed to vary.
+                 If empty list, no redirect URIs are allowed.
+                 These are for MCP clients performing loopback redirects, NOT for the upstream OAuth app.
+             client_storage: Storage backend for OAuth state (client registrations, encrypted tokens).
+diff --git a/tests/server/auth/test_oauth_proxy_redirect_validation.py b/tests/server/auth/test_oauth_proxy_redirect_validation.py
+index d763845..817614d 100644
+--- a/tests/server/auth/test_oauth_proxy_redirect_validation.py
++++ b/tests/server/auth/test_oauth_proxy_redirect_validation.py
+@@ -29,30 +29,54 @@ class MockTokenVerifier(TokenVerifier):
+ class TestProxyDCRClient:
+     """Test ProxyDCRClient redirect URI validation."""
+ 
+-    def test_default_allows_all(self):
+-        """Test that default configuration allows all URIs for DCR compatibility."""
++    def test_default_limits_to_registered_uris(self):
++        """Without proxy patterns, DCR clients are limited to registered URIs."""
+         client = ProxyDCRClient(
+             client_id="test",
+             client_secret="secret",
+-            redirect_uris=[AnyUrl("http://localhost:3000")],
+-        )
+-
+-        # All URIs should be allowed by default for DCR compatibility
+-        assert client.validate_redirect_uri(AnyUrl("http://localhost:3000")) == AnyUrl(
+-            "http://localhost:3000"
++            redirect_uris=[AnyUrl("http://localhost:3000/callback")],
++        )
++
++        for ok in [
++            "http://localhost:3000/callback",
++            "http://localhost:8080/callback",
++            "http://LOCALHOST:9/callback",
++        ]:
++            assert client.validate_redirect_uri(AnyUrl(ok)) == AnyUrl(ok)
++        for bad in [
++            "http://localhost:8080/other",
++            "http://127.0.0.1:3000/callback",
++            "http://example.com/callback",
++            "http://user@localhost:8080/callback",
++        ]:
++            with pytest.raises(InvalidRedirectUriError, match="not registered"):
++                client.validate_redirect_uri(AnyUrl(bad))
++
++    def test_non_loopback_requires_exact_match(self):
++        client = ProxyDCRClient(
++            client_id="test",
++            client_secret="secret",
++            redirect_uris=[AnyUrl("https://client.example.com/oauth/callback")],
+         )
+-        assert client.validate_redirect_uri(AnyUrl("http://localhost:8080")) == AnyUrl(
+-            "http://localhost:8080"
++        client.validate_redirect_uri(
++            AnyUrl("https://client.example.com/oauth/callback")
+         )
+-        assert client.validate_redirect_uri(AnyUrl("http://127.0.0.1:3000")) == AnyUrl(
+-            "http://127.0.0.1:3000"
++        with pytest.raises(InvalidRedirectUriError):
++            client.validate_redirect_uri(
++                AnyUrl("https://client.example.com:8443/oauth/callback")
++            )
++
++    def test_allow_unregistered_redirect_uris(self):
++        client = ProxyDCRClient(
++            client_id="test",
++            client_secret="secret",
++            redirect_uris=[AnyUrl("http://localhost:3000")],
++            allow_unregistered_redirect_uris=True,
+         )
+         assert client.validate_redirect_uri(AnyUrl("http://example.com")) == AnyUrl(
+             "http://example.com"
+         )
+-        assert client.validate_redirect_uri(
+-            AnyUrl("https://claude.ai/api/mcp/auth_callback")
+-        ) == AnyUrl("https://claude.ai/api/mcp/auth_callback")
++        assert "allow_unregistered_redirect_uris" not in client.model_dump()
+ 
+     def test_custom_patterns(self):
+         """Test custom redirect URI patterns."""

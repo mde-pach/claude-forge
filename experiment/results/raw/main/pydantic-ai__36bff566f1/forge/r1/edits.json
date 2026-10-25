@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 8,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/pydantic_ai_slim/pydantic_ai; sed -i 's/^def safe_to_json(value: Any)/def safe_to_json(value: object)/; s/to_json(serialize_any(model_request_parameters)).decode()/safe_to_json(serialize_any(model_request_parameters)).decode()/; s/\\x27gen_ai.tool.definitions\\x27\\] = to_json(/\\x27gen_ai.tool",
+  "cd /work; sed -n 156,166p tests/models/test_instrumented.py; grep -n \"ToolDefinition\" tests/models/test_instrumented.py | head -3\ncat >> tests/models/test_instrumented.py <<'E'\n\n\nasync def test_instrumented_model_tool_definitions_lone_surrogate(capfire: CaptureLogfire):\n    import json\n\n    from pyd"
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

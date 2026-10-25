@@ -1,0 +1,15 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 5,
+ "bash_calls": 11,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/fastmcp_slim/fastmcp/server && grep -n \"lifespan\\|super().__init__\\|_mcp_server = \\|LowLevelServer(\" server.py | head -40; ls; python - <<'E'\nE\n.venv/bin/python -c \"print(1)\" 2>/dev/null; cd /work; .venv/bin/python -c \"\nimport mcp.server.caching as c, mcp_types.methods as m;print(c.__file__",
+  "cat > caching.py <<'E'\n\"\"\"Server-level cache hints (SEP-2549).\n\nA single `cache_ttl` / `cache_scope` pair configures the same freshness hint\nfor every cacheable MCP result a server returns.\n\"\"\"\n\nfrom __future__ import annotations\n\nfrom typing import Literal\n\nfrom mcp.server.caching import CacheHint\n",
+  "cd /work && sed -i 's/return {method: hint for method in CACHEABLE_METHODS}/return dict.fromkeys(CACHEABLE_METHODS, hint)/' fastmcp_slim/fastmcp/server/caching.py\nmkdir -p tests/server && cat > tests/server/test_cache_hints.py <<'E'\nimport pytest\nfrom mcp_types.methods import CACHEABLE_METHODS\n\nfrom",
+  "python3 - <<'E'\np='tests/server/test_cache_hints.py'\ns=open(p).read()\ni=s.index(\"async def test_hints_on_wire\")\ns=s[:i]+'''async def test_hints_on_wire():\n    mcp = FastMCP(\"x\", cache_ttl=60, cache_scope=\"public\")\n    async with Client(mcp, mode=\"2026-07-28\") as client:\n        result = await client",
+  "python3 - <<'E'\np='tests/server/test_cache_hints.py'\ns=open(p).read()\ns=s.replace(\"async def test_client_cache_serves_second_list():\",\"async def test_client_cache_serves_second_list(monkeypatch: pytest.MonkeyPatch):\")\ns=s.replace(\"        client.session.list_tools = counting  # type: ignore[method-a"
+ ],
+ "total": 5,
+ "edit_tool_share": 0.0
+}

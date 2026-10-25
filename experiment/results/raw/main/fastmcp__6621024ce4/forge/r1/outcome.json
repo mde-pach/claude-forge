@@ -1,0 +1,27 @@
+{
+ "resolved": true,
+ "patch_applied": true,
+ "f2p": {
+  "tests/server/http/test_session_idle_timeout.py::test_idle_session_is_terminated_after_timeout": "passed"
+ },
+ "p2p": {
+  "tests/server/http/test_session_owner_enforcement.py::test_session_reuse_with_creating_credential_succeeds": "passed",
+  "tests/server/http/test_session_owner_enforcement.py::test_session_reuse_with_different_credential_returns_404": "passed"
+ },
+ "f2p_frac": 1.0,
+ "p2p_regressions": 0,
+ "lint_new": 0,
+ "diff_lines": 55,
+ "changed_files": [
+  "docs/more/settings.mdx",
+  "fastmcp_slim/fastmcp/server/http.py",
+  "fastmcp_slim/fastmcp/server/mixins/transport.py",
+  "fastmcp_slim/fastmcp/server/server.py",
+  "fastmcp_slim/fastmcp/settings.py"
+ ],
+ "all_results": {
+  "tests/server/http/test_session_idle_timeout.py::test_idle_session_is_terminated_after_timeout": "passed",
+  "tests/server/http/test_session_owner_enforcement.py::test_session_reuse_with_creating_credential_succeeds": "passed",
+  "tests/server/http/test_session_owner_enforcement.py::test_session_reuse_with_different_credential_returns_404": "passed"
+ }
+}

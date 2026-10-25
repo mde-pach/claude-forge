@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 11,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'EOF'\np='get-config.ts'\ns=open(p).read()\ns=s.replace('''interface BabelTypes {''','''interface ModuleSpecifierNode {\n\ttype: string;\n\timported?: { type: string; name?: string; value?: string };\n\tlocal?: { type: string; name?: string };\n}\ninterface BabelTypes {''',1)\ns=s.replace('''\t\tconst",
+  "cd /work/packages/cli/test; python3 - <<'EOF'\ns=open('get-config.test.ts').read()\ni=s.rstrip().rfind('});')\nt='''\n\ttmpdirTest(\n\t\t\"should resolve explicit env imports from process.env\",\n\t\tasync ({ tmpdir }) => {\n\t\t\tvi.stubEnv(\"MY_SECRET_KEY\", \"secret\");\n\t\t\tvi.stubEnv(\"MY_PUBLIC_KEY\", \"public\");\n\t\t\ttr"
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

@@ -1,0 +1,14 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 4,
+ "bash_calls": 8,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cat >> core/util.ts <<'EOF'\n\nexport function setOwn(obj: object, key: PropertyKey, value: unknown): void {\n  Object.defineProperty(obj, key, { value, writable: true, enumerable: true, configurable: true });\n}\nEOF\ngrep -n \"^import.*util\" core/json-schema-processors.ts core/to-json-schema.ts classic/f",
+  "python3 - <<'EOF'\nimport re\ndef sub(p,a,b,imp=None):\n    s=open(p).read()\n    assert a in s,(p,a)\n    s=s.replace(a,b)\n    if imp: s=imp[0]+s if imp[1] not in s else s\n    open(p,'w').write(s)\nsub('core/json-schema-processors.ts','import { getEnumValues } from \"./util.js\";','import { getEnumValues, ",
+  "sed -i '4a import { setOwn } from \"../core/util.js\";' classic/from-json-schema.ts && sed -i '5a import { setOwn } from \"./util.js\";' core/to-json-schema.ts && cat > /tmp/p.test.ts <<'EOF'\nimport { test, expect } from \"vitest\";\nimport * as z from \"zod/v4\";\ntest(\"p\", () => {\n  const j = z.toJSONSchema",
+  "sed -i 's/Object.hasOwn(\\(.*\\), \"__proto__\")/Object.prototype.hasOwnProperty.call(\\1, \"__proto__\")/' /tmp/p.test.ts && cp /tmp/p.test.ts packages/zod/src/v4/core/tests/proto-json-schema.test.ts && pnpm vitest run json-schema 2>&1 | tail -8"
+ ],
+ "total": 4,
+ "edit_tool_share": 0.0
+}

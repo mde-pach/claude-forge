@@ -1,0 +1,5 @@
+$ pytest -p no:cacheprovider -o junit_family=xunit1 --junitxml=/tmp/forge-junit-223f0a5b7dcd.xml --continue-on-collection-errors -q --no-header -rN --inline-snapshot=disable --timeout=60 -m "not integration and not conformance" tests/server/auth/test_ssrf_protection.py
+...................................................                      [100%]
+51 passed in 3.44s
+
+[exit 0 in 11s]

@@ -1,0 +1,13 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 3,
+ "bash_calls": 15,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work && python - <<'E'\nimport mcp.server.streamable_http_manager as m,inspect\ns=inspect.getsource(m)\ni=s.find(\"async def run\");print(s[i:i+2500])\nE\nsed -n 338,400p fastmcp_slim/fastmcp/server/mixins/transport.py",
+  "cd /work/fastmcp_slim/fastmcp && python - <<'E'\nimport re\np='server/server.py'\ns=open(p).read()\na=s.index(\"        if fastmcp_server._lifespan is default_lifespan:\\n            yield {}\")\nb=s.index(\"    return wrap\\n\",a)\ns=s[:a]+'''        # Entering the FastMCP lifespan is ref-counted, so a nested ",
+  "sed -i '48a | `FASTMCP_HTTP_SESSION_IDLE_TIMEOUT` | `float \\\\| null` | `null` | Seconds of inactivity after which a Streamable HTTP session is terminated. Must be greater than 0; `null` disables expiry. Not supported in stateless mode. |' docs/more/settings.mdx && sed -n 49p docs/more/settings.mdx"
+ ],
+ "total": 3,
+ "edit_tool_share": 0.0
+}

@@ -1,0 +1,14 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 4,
+ "bash_calls": 11,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/logfire/variables && python3 - <<'E'\nimport re\ns=open('remote.py').read()\ns=s.replace(\"from logfire._internal.utils import UnexpectedResponse\",\"from logfire._internal.utils import UnexpectedResponse, suppress_instrumentation\")\ns=s.replace(\"__all__ = (\",\"_CONSECUTIVE_FAILURES_BEFORE_ERROR = ",
+  "sed -i \"s/return self._session.request(method.upper(), url, \\*\\*kwargs)/return getattr(self._session, method)(url, **kwargs)/\" logfire/variables/remote.py && .venv/bin/pytest tests -q -k \"variables or logfire_api\" 2>&1 | tail -8; ls .venv/bin | grep -i pyright",
+  "python3 - <<'E'\ns=open('tests/test_variables.py').read()\nmarker=\"    def test_get_serialized_value_missing_config_no_block(self) -> None:\"\nnew='''    def test_transient_failure_after_success_warns_then_errors(self) -> None:\n        from logfire.variables import remote\n\n        request_mocker = reque",
+  "python3 - <<'E'\ns=open('tests/test_variables.py').read()\na='''                with unittest.mock.patch.object(provider, '_log_error') as log_error:\n                    provider.refresh(force=True)\n                log_error.assert_called_once()\n'''\nb='''                with warnings.catch_warnings(re"
+ ],
+ "total": 4,
+ "edit_tool_share": 0.0
+}

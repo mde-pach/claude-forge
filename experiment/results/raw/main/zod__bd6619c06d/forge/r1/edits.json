@@ -1,0 +1,17 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 7,
+ "bash_calls": 15,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'EOF'\nimport re\np='to-json-schema.ts'\ns=open(p).read()\ns=s.replace('''export interface JSONSchemaGeneratorParams {''','''export type UnrepresentableHandler<T extends schemas.$ZodType = schemas.$ZodType> = (ctx: {\n  zodSchema: T;\n  path: (string | number)[];\n  message: string;\n}) => JSONS",
+  "python3 - <<'EOF'\np='json-schema-processors.ts'\ns=open(p).read()\ns=s.replace('''      handleUnrepresentable(schema, ctx, \"Literal `undefined` cannot be represented in JSON Schema\", json);''','''      if (handleUnrepresentable(schema, ctx, \"Literal `undefined` cannot be represented in JSON Schema\", j",
+  "cd /work/packages/zod/src/v4/core && python3 - <<'EOF'\np='to-json-schema.ts'\ns=open(p).read()\ns=s.replace('unrepresentable: \"throw\" | \"any\" | UnrepresentableHandler;','unrepresentable: \"throw\" | \"any\" | UnrepresentableHandler<any>;')\ns=s.replace('  let mode = ctx.unrepresentable;','  let mode: Retur",
+  "cat >> to-json-schema.test.ts <<'EOF'\n\ndescribe(\"unrepresentable handler\", () => {\n  const dateHandler: z.core.UnrepresentableHandler = ({ zodSchema }) =>\n    zodSchema._zod.def.type === \"date\" ? { type: \"string\", format: \"date-time\" } : \"throw\";\n\n  test(\"selective handling, context and override ord",
+  "cd /work/packages/zod/src/v4/classic/tests && python3 - <<'EOF'\np='to-json-schema.test.ts'\ns=open(p).read()\ns=s.replace('void (jsonSchema.type = \"string\")','{ jsonSchema.type = \"string\"; }')\ns=s.replace('''unrepresentable: ({ message }) => (messages.push(message), \"any\"),''','''unrepresentable: ({ m",
+  "cd /work/packages/zod/src/v4/core && python3 - <<'EOF'\np='json-schema-processors.ts'\ns=open(p).read()\na=s.index('  let catchValue: any;\\n  try {')\nb=s.index('  json.default = catchValue;')\ns=s[:a]+'''  let catchValue: any;\n  try {\n    catchValue = def.catchValue(undefined as any);\n  } catch (error) ",
+  "cd /work/packages/zod/src/v4/core && python3 - <<'EOF'\np='json-schema-processors.ts'\ns=open(p).read()\na=s.index('  let catchValue: any;\\n  try {')\nb=s.index('  json.default = catchValue;')\ns=s[:a]+'''  const result = evalCatchValue(def);\n  if (result.error) {\n    handleUnrepresentable(schema, ctx, \""
+ ],
+ "total": 7,
+ "edit_tool_share": 0.0
+}

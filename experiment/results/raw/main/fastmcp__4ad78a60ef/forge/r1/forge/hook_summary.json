@@ -1,0 +1,65 @@
+{
+ "active": true,
+ "events": {
+  "SessionStart": 2,
+  "UserPromptSubmit": 1,
+  "PreToolUse": 39,
+  "PostToolUseFailure": 4,
+  "PostToolUse": 22,
+  "Stop": 2
+ },
+ "forge_messages": 6,
+ "blocks": 1,
+ "stop_blocks": 1,
+ "feedback": 2,
+ "nonzero_exit": 0,
+ "by_hook": {
+  "SessionStart:startup": {
+   "runs": 2,
+   "nonzero": 0,
+   "forge_msgs": 4
+  },
+  "UserPromptSubmit": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PreToolUse:Bash": {
+   "runs": 39,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PostToolUseFailure:Bash": {
+   "runs": 4,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PostToolUse:Bash": {
+   "runs": 22,
+   "nonzero": 0,
+   "forge_msgs": 1
+  },
+  "Stop": {
+   "runs": 2,
+   "nonzero": 0,
+   "forge_msgs": 1
+  }
+ },
+ "samples": [
+  {
+   "hook": "SessionStart:startup",
+   "exit": 0,
+   "out": "forge: branch main, 0 changed files\nforge: last commits\n  c05e918 Add Forge\n  58bd42f initial\nforge: packs docker, docker/compose, github-actions, python, python/fastapi, python/pydantic, python/pytest, python/uv\nforge: missing tools (checks using them are skipped): docker\n"
+  },
+  {
+   "hook": "PostToolUse:Bash",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"forge: auto-fixed I001 in fastmcp_slim/fastmcp/server/mixins/transport.py; re-read it before editing it again\"}}\n"
+  },
+  {
+   "hook": "Stop",
+   "exit": 0,
+   "out": "{\"decision\":\"block\",\"reason\":\"forge:python/pytest/no-test-edits failed\\ntests/server/http/test_http_auth_middleware.py: test \\\"TestStreamableHTTPHostOriginProtection > test_allows_configured_host_and_origin\\\" was changed\\ntests/server/http/test_http_auth_middleware.py: test \\\"TestStreamableHTTPHostOriginProtection > test_allows_configured_loopback_origin_for_public_host\\\" was changed\\ntests/server/http/test_http_auth_middleware.py: test \\\"TestStreamableHTTPHostOriginProtection > test_allows_loopback_origin_for_loopback_host\\\" was changed\\ntests/server/http/test_http_auth_middleware.py: test \\\""
+  }
+ ]
+}

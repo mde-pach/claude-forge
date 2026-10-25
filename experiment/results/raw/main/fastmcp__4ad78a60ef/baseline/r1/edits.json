@@ -1,0 +1,15 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 5,
+ "bash_calls": 15,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'E'\np='server/http.py'; s=open(p).read()\ns=s.replace(\"from typing import TYPE_CHECKING, Any\\n\",\"from typing import TYPE_CHECKING, Any, Literal\\n\",1)\ns=s.replace(\"\\n\\ndef _normalize_host(\",\"\\n\\nHostOriginProtection = bool | Literal[\\\"auto\\\"]\\n\\n\\ndef _normalize_host(\",1)\na=s.index(\"class ",
+  "python3 - <<'E'\np='server/mixins/transport.py'; s=open(p).read()\ns=s.replace(\"from fastmcp.server.http import (\\n\",\"from fastmcp.server.http import (\\n    HostOriginProtection,\\n\",1)\ns=s.replace(\"    create_streamable_http_app,\\n)\\n\",\"    _is_loopback_host,\\n    create_streamable_http_app,\\n)\\n\",1)\n",
+  "python3 - <<'E'\np='tests/server/http/test_http_auth_middleware.py'\ns=open(p).read()\ni=s.index(\"class TestStreamableHTTPHostOriginProtection\")\nh,t=s[:i],s[i:]\nt=t.replace('            streamable_http_path=\"/mcp\",\\n','            streamable_http_path=\"/mcp\",\\n            host_origin_protection=True,\\n",
+  "python3 - <<'E'\np='tests/server/http/test_http_auth_middleware.py'\ns=open(p).read()\ns=s.replace(\"            host_origin_protection=True,\\n            host_origin_protection=False,\\n\",\"            host_origin_protection=False,\\n\")\ns=s.replace(\"            host_origin_protection=False,\\n            h",
+  "python3 - <<'E'\np='tests/server/http/test_http_auth_middleware.py'\ns=open(p).read()\ni=s.index(\"    def test_auto_skips_non_loopback_server\")\ns=s[:i].rstrip()+\"\\n\"\nopen(p,'w').write(s)\nE\nuv run pytest -n auto -q tests 2>&1 | tail -4; uv run prek run --all-files 2>&1 | tail -8"
+ ],
+ "total": 5,
+ "edit_tool_share": 0.0
+}

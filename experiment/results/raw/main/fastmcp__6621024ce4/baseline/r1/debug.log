@@ -1,0 +1,663 @@
+2026-10-25T05:00:57.350Z [DEBUG] MDM settings load completed in 0ms
+2026-10-25T05:00:57.356Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: /home/dev/.claude/settings.json
+2026-10-25T05:00:57.357Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: /etc/claude-code/managed-settings.json
+2026-10-25T05:00:57.359Z [DEBUG] Read OAuth token from well-known file /home/claude/.claude/remote/.oauth_token
+2026-10-25T05:00:57.374Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: /work/.claude/settings.local.json
+2026-10-25T05:00:57.376Z [DEBUG] Cleared CA certificates cache
+2026-10-25T05:00:57.392Z [DEBUG] [init] configureGlobalMTLS starting
+2026-10-25T05:00:57.392Z [DEBUG] [init] configureGlobalMTLS complete
+2026-10-25T05:00:57.392Z [DEBUG] [init] configureGlobalAgents starting
+2026-10-25T05:00:57.433Z [DEBUG] CA certs: stores=bundled,system, extraCertsPath=/etc/ssl/ccr-ca.crt
+2026-10-25T05:00:57.433Z [DEBUG] CA certs: Loaded 118 bundled root certificates
+2026-10-25T05:00:57.452Z [DEBUG] CA certs: Dropped 1 expired certificate(s) from system store
+2026-10-25T05:00:57.453Z [DEBUG] CA certs: Loaded 162 system CA certificates
+2026-10-25T05:00:57.460Z [DEBUG] CA certs: Dropped blocked certificate 40f6af0346a99aa1cd1d555a4e9cce62c7f9634603ee406615833dc8c8d00367 from bundled
+2026-10-25T05:00:57.474Z [DEBUG] CA certs: Dropped blocked certificate 40f6af0346a99aa1cd1d555a4e9cce62c7f9634603ee406615833dc8c8d00367 from system
+2026-10-25T05:00:57.474Z [DEBUG] CA certs: Dropped blocked certificate 125609aa301da0a249b97a8239cb6a34216f44dcac9f3954b14292f2e8c8608f from system
+2026-10-25T05:00:57.475Z [DEBUG] CA certs: Dropped blocked certificate bc4d809b15189d78db3e1d8cf4f9726a795da1643ca5f1358e1ddb0edc0d7eb3 from system
+2026-10-25T05:00:57.484Z [DEBUG] CA certs: Appended extra certificates from NODE_EXTRA_CA_CERTS (/etc/ssl/ccr-ca.crt)
+2026-10-25T05:00:57.515Z [DEBUG] mTLS: Creating HTTPS agent with custom certificates
+2026-10-25T05:00:57.524Z [DEBUG] [init] configureGlobalAgents complete
+2026-10-25T05:00:57.538Z [DEBUG] Error log sink initialized
+2026-10-25T05:00:57.569Z [DEBUG] Writing to temp file: /home/dev/.claude/settings.json.tmp.185.b071d4fb8072
+2026-10-25T05:00:57.577Z [DEBUG] Git remote URL: null
+2026-10-25T05:00:57.577Z [DEBUG] No git remote URL found
+2026-10-25T05:00:57.577Z [DEBUG] Preserving file permissions: 100666
+2026-10-25T05:00:57.577Z [DEBUG] Writing to temp file: /home/dev/.claude.json.tmp.185.ce9ddf12a685
+2026-10-25T05:00:57.580Z [DEBUG] Temp file written successfully, size: 48 bytes
+2026-10-25T05:00:57.580Z [DEBUG] Renaming /home/dev/.claude/settings.json.tmp.185.b071d4fb8072 to /home/dev/.claude/settings.json
+2026-10-25T05:00:57.581Z [DEBUG] File /home/dev/.claude/settings.json written atomically
+2026-10-25T05:00:57.623Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: /work/.claude/settings.local.json
+2026-10-25T05:00:57.623Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: /etc/claude-code/managed-settings.json
+2026-10-25T05:00:57.627Z [DEBUG] Applied original permissions to temp file
+2026-10-25T05:00:57.633Z [DEBUG] Temp file written successfully, size: 238 bytes
+2026-10-25T05:00:57.633Z [DEBUG] Renaming /home/dev/.claude.json.tmp.185.ce9ddf12a685 to /home/dev/.claude.json
+2026-10-25T05:00:57.633Z [DEBUG] File /home/dev/.claude.json written atomically
+2026-10-25T05:00:57.636Z [DEBUG] Preserving file permissions: 100666
+2026-10-25T05:00:57.637Z [DEBUG] Writing to temp file: /home/dev/.claude.json.tmp.185.9d61dcb6c2a4
+2026-10-25T05:00:57.637Z [DEBUG] Applied original permissions to temp file
+2026-10-25T05:00:57.638Z [DEBUG] Temp file written successfully, size: 321 bytes
+2026-10-25T05:00:57.638Z [DEBUG] Renaming /home/dev/.claude.json.tmp.185.9d61dcb6c2a4 to /home/dev/.claude.json
+2026-10-25T05:00:57.639Z [DEBUG] File /home/dev/.claude.json written atomically
+2026-10-25T05:00:57.641Z [DEBUG] Preserving file permissions: 100666
+2026-10-25T05:00:57.641Z [DEBUG] Writing to temp file: /home/dev/.claude.json.tmp.185.806cab1b4642
+2026-10-25T05:00:57.642Z [DEBUG] Applied original permissions to temp file
+2026-10-25T05:00:57.643Z [DEBUG] Temp file written successfully, size: 401 bytes
+2026-10-25T05:00:57.643Z [DEBUG] Renaming /home/dev/.claude.json.tmp.185.806cab1b4642 to /home/dev/.claude.json
+2026-10-25T05:00:57.643Z [DEBUG] File /home/dev/.claude.json written atomically
+2026-10-25T05:00:57.645Z [DEBUG] Preserving file permissions: 100666
+2026-10-25T05:00:57.645Z [DEBUG] Writing to temp file: /home/dev/.claude.json.tmp.185.a30c3756344d
+2026-10-25T05:00:57.645Z [DEBUG] Applied original permissions to temp file
+2026-10-25T05:00:57.646Z [DEBUG] Temp file written successfully, size: 360 bytes
+2026-10-25T05:00:57.646Z [DEBUG] Renaming /home/dev/.claude.json.tmp.185.a30c3756344d to /home/dev/.claude.json
+2026-10-25T05:00:57.647Z [DEBUG] File /home/dev/.claude.json written atomically
+2026-10-25T05:00:57.653Z [DEBUG] Preserving file permissions: 100666
+2026-10-25T05:00:57.653Z [DEBUG] Writing to temp file: /home/dev/.claude.json.tmp.185.ce2ee0c1efee
+2026-10-25T05:00:57.653Z [DEBUG] Applied original permissions to temp file
+2026-10-25T05:00:57.654Z [DEBUG] Temp file written successfully, size: 396 bytes
+2026-10-25T05:00:57.654Z [DEBUG] Renaming /home/dev/.claude.json.tmp.185.ce2ee0c1efee to /home/dev/.claude.json
+2026-10-25T05:00:57.655Z [DEBUG] File /home/dev/.claude.json written atomically
+2026-10-25T05:00:57.657Z [DEBUG] Preserving file permissions: 100666
+2026-10-25T05:00:57.657Z [DEBUG] Writing to temp file: /home/dev/.claude.json.tmp.185.80c2d3992a95
+2026-10-25T05:00:57.657Z [DEBUG] Applied original permissions to temp file
+2026-10-25T05:00:57.659Z [DEBUG] Temp file written successfully, size: 435 bytes
+2026-10-25T05:00:57.659Z [DEBUG] Renaming /home/dev/.claude.json.tmp.185.80c2d3992a95 to /home/dev/.claude.json
+2026-10-25T05:00:57.659Z [DEBUG] File /home/dev/.claude.json written atomically
+2026-10-25T05:00:57.662Z [DEBUG] Preserving file permissions: 100666
+2026-10-25T05:00:57.662Z [DEBUG] Writing to temp file: /home/dev/.claude.json.tmp.185.6646ec32f711
+2026-10-25T05:00:57.663Z [DEBUG] Applied original permissions to temp file
+2026-10-25T05:00:57.664Z [DEBUG] Temp file written successfully, size: 462 bytes
+2026-10-25T05:00:57.664Z [DEBUG] Renaming /home/dev/.claude.json.tmp.185.6646ec32f711 to /home/dev/.claude.json
+2026-10-25T05:00:57.664Z [DEBUG] File /home/dev/.claude.json written atomically
+2026-10-25T05:00:57.666Z [DEBUG] Preserving file permissions: 100666
+2026-10-25T05:00:57.666Z [DEBUG] Writing to temp file: /home/dev/.claude.json.tmp.185.b2906d332b86
+2026-10-25T05:00:57.667Z [DEBUG] Applied original permissions to temp file
+2026-10-25T05:00:57.668Z [DEBUG] Temp file written successfully, size: 510 bytes
+2026-10-25T05:00:57.668Z [DEBUG] Renaming /home/dev/.claude.json.tmp.185.b2906d332b86 to /home/dev/.claude.json
+2026-10-25T05:00:57.668Z [DEBUG] File /home/dev/.claude.json written atomically
+2026-10-25T05:00:57.670Z [DEBUG] Preserving file permissions: 100666
+2026-10-25T05:00:57.670Z [DEBUG] Writing to temp file: /home/dev/.claude.json.tmp.185.0207d28387e9
+2026-10-25T05:00:57.671Z [DEBUG] Applied original permissions to temp file
+2026-10-25T05:00:57.672Z [DEBUG] Temp file written successfully, size: 536 bytes
+2026-10-25T05:00:57.672Z [DEBUG] Renaming /home/dev/.claude.json.tmp.185.0207d28387e9 to /home/dev/.claude.json
+2026-10-25T05:00:57.672Z [DEBUG] File /home/dev/.claude.json written atomically
+2026-10-25T05:00:57.677Z [DEBUG] policyHelper: no helper configuration present at helper-pass time (remote managed settings eligible, no payload in cache); a payload landing later arms one only through a fetch cycle after preAction
+2026-10-25T05:00:57.702Z [DEBUG] [mcp-policy-cold-start] waiting on remote managed-settings load
+2026-10-25T05:00:57.706Z [DEBUG] installed_plugins.json doesn't exist, returning empty V2 object
+2026-10-25T05:00:57.711Z [DEBUG] Found 3 plugins (3 enabled, 0 disabled)
+2026-10-25T05:00:58.049Z [DEBUG] Remote settings: No settings found (404)
+2026-10-25T05:00:58.052Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: /etc/claude-code/managed-settings.json
+2026-10-25T05:00:58.058Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: /work/.claude/settings.local.json
+2026-10-25T05:00:58.059Z [DEBUG] Cleared mTLS configuration cache
+2026-10-25T05:00:58.060Z [DEBUG] Cleared proxy agent cache
+2026-10-25T05:00:58.060Z [DEBUG] mTLS: Creating HTTPS agent with custom certificates
+2026-10-25T05:00:58.064Z [DEBUG] Remote settings: Saved to /home/dev/.claude/remote-settings.json
+2026-10-25T05:00:58.065Z [DEBUG] Remote settings: Saved empty sentinel (404 response)
+2026-10-25T05:00:58.067Z [DEBUG] Programmatic settings change notification for policySettings
+2026-10-25T05:00:58.068Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: /etc/claude-code/managed-settings.json
+2026-10-25T05:00:58.070Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: /work/.claude/settings.local.json
+2026-10-25T05:00:58.070Z [DEBUG] [mcp-policy-cold-start] waiting on the policy-limits verdict (compliance taints feed config ${VAR} expansion)
+2026-10-25T05:00:58.080Z [DEBUG] Policy limits: Fetched successfully
+2026-10-25T05:00:58.085Z [DEBUG] Policy limits: Saved to /home/dev/.claude/policy-limits.json
+2026-10-25T05:00:58.086Z [DEBUG] Policy limits: Applied new restrictions successfully
+2026-10-25T05:00:58.097Z [DEBUG] [ToolSearch:optimistic] mode=tst, ENABLE_TOOL_SEARCH=undefined, result=true
+2026-10-25T05:00:58.104Z [DEBUG] [STARTUP] Loading MCP configs...
+2026-10-25T05:00:58.112Z [DEBUG] [claudeai-mcp] Missing user:mcp_servers scope (scopes=user:inference,user:ccr_inference,user:file_upload)
+2026-10-25T05:00:58.116Z [DEBUG] [STARTUP] Running setup()...
+2026-10-25T05:00:58.126Z [DEBUG] getPluginSkills: Processing 3 enabled plugins
+2026-10-25T05:00:58.126Z [DEBUG] Checking plugin cc-plugin-agents-md: skillsPath=none, skillsPaths=0 paths
+2026-10-25T05:00:58.126Z [DEBUG] Checking plugin cc-plugin-telemetry: skillsPath=none, skillsPaths=0 paths
+2026-10-25T05:00:58.126Z [DEBUG] Checking plugin cc-plugin-plugin-authoring: skillsPath=none, skillsPaths=0 paths
+2026-10-25T05:00:58.126Z [DEBUG] Total plugin workflows loaded: 0
+2026-10-25T05:00:58.128Z [DEBUG] Total plugin commands loaded: 0
+2026-10-25T05:00:58.130Z [DEBUG] Loading skills from: managed=/etc/claude-code/.claude/skills, user=/home/dev/.claude/skills, project=[/work/.claude/skills]
+2026-10-25T05:00:58.131Z [DEBUG] Total plugin skills loaded: 0 (0 duplicate/user-owned entries skipped)
+2026-10-25T05:00:58.148Z [DEBUG] Failed to stat directory /home/dev/.claude/commands: ENOENT: no such file or directory, stat '/home/dev/.claude/commands'
+2026-10-25T05:00:58.148Z [DEBUG] Failed to stat directory /etc/claude-code/.claude/commands: ENOENT: no such file or directory, stat '/etc/claude-code/.claude/commands'
+2026-10-25T05:00:58.150Z [DEBUG] Failed to stat directory /home/dev/.claude/agents: ENOENT: no such file or directory, stat '/home/dev/.claude/agents'
+2026-10-25T05:00:58.150Z [DEBUG] Failed to stat directory /etc/claude-code/.claude/agents: ENOENT: no such file or directory, stat '/etc/claude-code/.claude/agents'
+2026-10-25T05:00:58.153Z [DEBUG] Total plugin agents loaded: 0
+2026-10-25T05:00:58.191Z [DEBUG] Loaded 4 unique skills (4 unconditional, 0 conditional, managed: 0, user: 0, project: 4, additional: 0, legacy commands: 0)
+2026-10-25T05:00:58.197Z [INFO] [uds-messaging] Listening: /tmp/cc-socks/185.sock
+2026-10-25T05:00:58.199Z [INFO] [uds-messaging] Inject messages (auth line optional here): { echo '{"type":"auth","token":"[REDACTED]"$CLAUDE_CODE_MESSAGING_TOKEN"'"}'; echo '{"type":"user","message":{"role":"user","content":"hello"}}'; } | socat - UNIX-CONNECT:/tmp/cc-socks/185.sock
+2026-10-25T05:00:58.203Z [INFO] [uds-messaging] Connect when the data is ready (e.g. out=$(cmd); printf '%s\n' "$out" | nc -N -U "$CLAUDE_CODE_MESSAGING_SOCKET" — or the socat form above): a connection that sends no complete line within 30000 ms is closed
+2026-10-25T05:00:58.212Z [DEBUG] Error log sink initialized
+2026-10-25T05:00:58.222Z [DEBUG] cc-plugin-sec-default@builtin not seated: no managed settings and not a Team or Enterprise organization (none)
+2026-10-25T05:00:58.225Z [DEBUG] [STARTUP] setup() completed in 109ms
+2026-10-25T05:00:58.226Z [DEBUG] Cleared mTLS configuration cache
+2026-10-25T05:00:58.226Z [DEBUG] Cleared proxy agent cache
+2026-10-25T05:00:58.226Z [DEBUG] mTLS: Creating HTTPS agent with custom certificates
+2026-10-25T05:00:58.251Z [DEBUG] plugin cc-plugin-agents-md: no pluginConfigs["agents-md@builtin" or "cc-plugin-agents-md@builtin"].options in user, --settings or managed settings (project settings are not read); every option is its default
+2026-10-25T05:00:58.254Z [DEBUG] cc-plugin-telemetry: hooks telemetry for: anthropic, collector
+2026-10-25T05:00:58.260Z [DEBUG] hooks module cc-plugin-agents-md@builtin loaded (native, environment 1, tier builtin); events: session.start,prompt.context,command.run,session.compact,prompt.submit,turn.start,turn.complete,agent.spawn,tool.call,prompt.mention
+2026-10-25T05:00:58.265Z [DEBUG] hooks module cc-plugin-telemetry@builtin loaded (native, environment 2, tier builtin); events: telemetry.*,telemetry.log,telemetry.mark,session.start,session.end,engine.create
+2026-10-25T05:00:58.268Z [DEBUG] hooks module cc-plugin-plugin-authoring@builtin loaded (native, environment 3, tier builtin); events: skill.prompt,tool.check,tool.call
+2026-10-25T05:00:58.275Z [DEBUG] hooks module cc-plugin-telemetry@builtin engine.create settled in 3.6ms (native hop, next() included)
+2026-10-25T05:00:58.276Z [DEBUG] engine.create: no plugin-provided interfaces; $ built for cc-plugin-agents-md,cc-plugin-telemetry,cc-plugin-plugin-authoring
+2026-10-25T05:00:58.277Z [DEBUG] plugin.register: cc-plugin-agents-md (builtin, cc-plugin-agents-md@builtin), judged by core alone: admitted
+2026-10-25T05:00:58.278Z [DEBUG] plugin.register: cc-plugin-telemetry (builtin, cc-plugin-telemetry@builtin), judged by core alone: admitted
+2026-10-25T05:00:58.278Z [DEBUG] plugin.register: cc-plugin-plugin-authoring (builtin, cc-plugin-plugin-authoring@builtin), judged by core alone: admitted
+2026-10-25T05:00:58.286Z [DEBUG] Registered 0 hooks from 3 plugins
+2026-10-25T05:00:58.289Z [DEBUG] settings.read: the engine's merge was raised (the loaded plugins changed) in 1.0 ms; 0 keys answered otherwise than the files.
+2026-10-25T05:00:58.290Z [DEBUG] settings.read: the engine's merge is not raised again (the loaded plugins changed): neither the loaded plugins nor the settings changed.
+2026-10-25T05:00:58.321Z [DEBUG] memory index backfill: ENOENT: no such file or directory, scandir '/home/dev/.claude/projects/-work/memory/'
+2026-10-25T05:00:58.344Z [DEBUG] $.session (cc-plugin-agents-md): no session bound; id, cwd and model answered from the process
+2026-10-25T05:00:58.361Z [DEBUG] hooks module cc-plugin-telemetry@builtin (native): telemetry.log nested in cc-plugin-agents-md#1
+2026-10-25T05:00:58.366Z [DEBUG] hooks module cc-plugin-telemetry@builtin (native): telemetry.mark nested in cc-plugin-agents-md#1
+2026-10-25T05:00:58.367Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 6.1ms (native link, next() included)
+2026-10-25T05:00:58.367Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.mark settled in 1.0ms (native link, next() included)
+2026-10-25T05:00:58.368Z [DEBUG] cc-plugin-telemetry (builtin) answered telemetry.log without next() in 7.1ms; nothing beneath it ran for this dispatch
+2026-10-25T05:00:58.368Z [DEBUG] cc-plugin-telemetry (builtin) answered telemetry.mark without next() in 2.6ms; nothing beneath it ran for this dispatch
+2026-10-25T05:00:58.368Z [DEBUG] hooks module cc-plugin-agents-md@builtin prompt.context settled in 26.1ms (native link, next() included)
+2026-10-25T05:00:58.370Z [DEBUG] $.session.surfaces (cc-plugin-telemetry): nothing attached draws; []
+2026-10-25T05:00:58.372Z [DEBUG] $.session (cc-plugin-telemetry): no session bound; id, cwd and model answered from the process
+2026-10-25T05:00:58.402Z [DEBUG] [STARTUP] Loading commands and agents...
+2026-10-25T05:00:58.410Z [DEBUG] getSkills returning: 4 skill dir commands, 0 plugin skills, 37 bundled skills, 1 builtin plugin skills
+2026-10-25T05:00:58.422Z [DEBUG] [STARTUP] Commands and agents loaded in 20ms
+2026-10-25T05:00:58.426Z [DEBUG] [LSP MANAGER] initializeLspServerManager() called
+2026-10-25T05:00:58.426Z [DEBUG] [LSP MANAGER] Created manager instance, state=pending
+2026-10-25T05:00:58.426Z [DEBUG] [LSP MANAGER] Starting async initialization (generation 1)
+2026-10-25T05:00:58.426Z [DEBUG] Starting background startup prefetches
+2026-10-25T05:00:58.427Z [DEBUG] [Bootstrap] Fetching
+2026-10-25T05:00:58.431Z [DEBUG] [STARTUP] MCP configs resolved in 7ms (awaited at +327ms)
+2026-10-25T05:00:58.439Z [DEBUG] Cleared mTLS configuration cache
+2026-10-25T05:00:58.439Z [DEBUG] Cleared proxy agent cache
+2026-10-25T05:00:58.439Z [DEBUG] mTLS: Creating HTTPS agent with custom certificates
+2026-10-25T05:00:58.439Z [DEBUG] [3P telemetry] Waiting for remote managed settings fetch before telemetry init
+2026-10-25T05:00:58.441Z [DEBUG] Total LSP servers loaded: 0
+2026-10-25T05:00:58.442Z [DEBUG] [LSP SERVER MANAGER] getAllLspServers returned 0 server(s)
+2026-10-25T05:00:58.442Z [DEBUG] LSP manager initialized with 0 servers
+2026-10-25T05:00:58.443Z [DEBUG] Initialized versioned plugins system with 0 plugins
+2026-10-25T05:00:58.443Z [DEBUG] [3P telemetry] Remote managed settings fetch settled, initializing telemetry
+2026-10-25T05:00:58.443Z [DEBUG] Cleared mTLS configuration cache
+2026-10-25T05:00:58.443Z [DEBUG] Cleared proxy agent cache
+2026-10-25T05:00:58.443Z [DEBUG] mTLS: Creating HTTPS agent with custom certificates
+2026-10-25T05:00:58.443Z [DEBUG] LSP server manager initialized successfully
+2026-10-25T05:00:58.444Z [DEBUG] LSP notification handlers registered successfully for all 0 server(s)
+2026-10-25T05:00:58.456Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:00:58.457Z [DEBUG] [MCP] --mcp-config servers running fully async (nonblocking)
+2026-10-25T05:00:58.457Z [DEBUG] [MCP] claude.ai connectors running fully async (nonblocking)
+2026-10-25T05:00:58.460Z [DEBUG] [auto-mode] verifyAutoModeGateAccess: enabledState=enabled disabledBySettings=false model=claude-sonnet-5-5 modelSupported=true disableFastModeBreakerFires=false carouselAvailable=true canEnterAuto=true
+2026-10-25T05:00:58.462Z [DEBUG] [servedCatalog] off (flag)
+2026-10-25T05:00:58.489Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 48.2ms (native link, next() included)
+2026-10-25T05:00:58.494Z [DEBUG] [event-loop-stall] detector started (interval=200ms, threshold=500ms)
+2026-10-25T05:00:58.496Z [DEBUG] Settings changed from policySettings, updating app state
+2026-10-25T05:00:58.497Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: /etc/claude-code/managed-settings.json
+2026-10-25T05:00:58.499Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: /work/.claude/settings.local.json
+2026-10-25T05:00:58.500Z [DEBUG] Replacing all allow rules for destination 'userSettings' with 0 rule(s): []
+2026-10-25T05:00:58.500Z [DEBUG] Replacing all deny rules for destination 'userSettings' with 0 rule(s): []
+2026-10-25T05:00:58.500Z [DEBUG] Replacing all ask rules for destination 'userSettings' with 0 rule(s): []
+2026-10-25T05:00:58.500Z [DEBUG] Replacing all allow rules for destination 'projectSettings' with 0 rule(s): []
+2026-10-25T05:00:58.500Z [DEBUG] Replacing all deny rules for destination 'projectSettings' with 0 rule(s): []
+2026-10-25T05:00:58.500Z [DEBUG] Replacing all ask rules for destination 'projectSettings' with 0 rule(s): []
+2026-10-25T05:00:58.500Z [DEBUG] Replacing all allow rules for destination 'localSettings' with 0 rule(s): []
+2026-10-25T05:00:58.500Z [DEBUG] Replacing all deny rules for destination 'localSettings' with 0 rule(s): []
+2026-10-25T05:00:58.500Z [DEBUG] Replacing all ask rules for destination 'localSettings' with 0 rule(s): []
+2026-10-25T05:00:58.500Z [DEBUG] Replacing all allow rules for destination 'flagSettings' with 0 rule(s): []
+2026-10-25T05:00:58.500Z [DEBUG] Replacing all deny rules for destination 'flagSettings' with 0 rule(s): []
+2026-10-25T05:00:58.500Z [DEBUG] Replacing all ask rules for destination 'flagSettings' with 0 rule(s): []
+2026-10-25T05:00:58.500Z [DEBUG] Replacing all allow rules for destination 'policySettings' with 0 rule(s): []
+2026-10-25T05:00:58.500Z [DEBUG] Replacing all deny rules for destination 'policySettings' with 0 rule(s): []
+2026-10-25T05:00:58.500Z [DEBUG] Replacing all ask rules for destination 'policySettings' with 0 rule(s): []
+2026-10-25T05:00:58.507Z [DEBUG] Plugin autoupdate: skipped (auto-updater disabled)
+2026-10-25T05:00:58.513Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 0.4ms (native link, next() included)
+2026-10-25T05:00:58.513Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 0.2ms (native link, next() included)
+2026-10-25T05:00:58.514Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 0.2ms (native link, next() included)
+2026-10-25T05:00:58.514Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 0.2ms (native link, next() included)
+2026-10-25T05:00:58.515Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 0.2ms (native link, next() included)
+2026-10-25T05:00:58.531Z [DEBUG] [Perfetto] initializePerfettoTracing called, env value: undefined
+2026-10-25T05:00:58.531Z [DEBUG] [3P telemetry] isTelemetryEnabled=false (CLAUDE_CODE_ENABLE_TELEMETRY=undefined)
+2026-10-25T05:00:58.534Z [DEBUG] [sessionRegistry] sweep declined by isRegistrySweepPermitted() — dead records are left in place (neither counted nor deleted)
+2026-10-25T05:00:58.543Z [DEBUG] Ripgrep first use test: PASSED (mode=embedded, path=/opt/claude-code/bin/claude)
+2026-10-25T05:00:58.544Z [DEBUG] "rg error (signal=undefined, code=2, stderr: rg: /home/dev/.claude/plugins/cache: IO error for operation on /home/dev/.claude/plugins/cache: No such file or directory (os error 2)\n), 0 results"
+2026-10-25T05:00:58.550Z [DEBUG] Hooks: SessionStart:startup [bash "$CLAUDE_PROJECT_DIR"/.claude/hooks/session-init.sh] finished with status 0 (60ms)
+2026-10-25T05:00:58.550Z [DEBUG] Hook output does not start with {, treating as plain text
+2026-10-25T05:00:58.554Z [DEBUG] [3P telemetry] Event dropped (no event logger initialized): hook_execution_complete
+2026-10-25T05:00:58.564Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 10.0ms (native link, next() included)
+2026-10-25T05:00:58.587Z [DEBUG] [ScheduledTasks] scheduler start() — enabled=false, hasTasks=false
+2026-10-25T05:00:58.591Z [DEBUG] session.start: raised (surface none, not interactive)
+2026-10-25T05:00:58.593Z [DEBUG] hooks module cc-plugin-telemetry@builtin (native): telemetry.log nested in cc-plugin-agents-md#0
+2026-10-25T05:00:58.600Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 7.0ms (native link, next() included)
+2026-10-25T05:00:58.601Z [DEBUG] hooks module cc-plugin-telemetry@builtin session.start settled in 8.5ms (native link, next() included)
+2026-10-25T05:00:58.602Z [DEBUG] hooks module cc-plugin-agents-md@builtin session.start settled in 10.1ms (native link, next() included)
+2026-10-25T05:00:58.614Z [DEBUG] Watching for changes in skill/command directories: /work/.claude/skills...
+2026-10-25T05:00:58.617Z [DEBUG] mcp runtime arm: v2 (source: growthbook)
+2026-10-25T05:00:58.619Z [DEBUG] installPluginsForHeadless: starting
+2026-10-25T05:00:58.620Z [DEBUG] installPluginsForHeadless: no marketplaces declared
+2026-10-25T05:00:58.621Z [DEBUG] Preserving file permissions: 100666
+2026-10-25T05:00:58.621Z [DEBUG] Writing to temp file: /home/dev/.claude.json.tmp.185.92508e973a1a
+2026-10-25T05:00:58.626Z [DEBUG] $.process.run (cc-plugin-telemetry): sh with 2 args in /work (pid 220)
+2026-10-25T05:00:58.628Z [DEBUG] Watching for changes in setting files /home/dev/.claude/settings.json, /work/.claude/settings.json, /work/.claude/settings.local.json...
+2026-10-25T05:00:58.638Z [DEBUG] Applied original permissions to temp file
+2026-10-25T05:00:58.644Z [DEBUG] Temp file written successfully, size: 55471 bytes
+2026-10-25T05:00:58.644Z [DEBUG] Renaming /home/dev/.claude.json.tmp.185.92508e973a1a to /home/dev/.claude.json
+2026-10-25T05:00:58.645Z [DEBUG] File /home/dev/.claude.json written atomically
+2026-10-25T05:00:58.686Z [DEBUG] $.process.run (cc-plugin-telemetry): sh exited 0 in 63ms, 49 + 0 chars
+2026-10-25T05:00:58.696Z [DEBUG] Preserving file permissions: 100666
+2026-10-25T05:00:58.696Z [DEBUG] Writing to temp file: /home/dev/.claude.json.tmp.185.a3714fddd50e
+2026-10-25T05:00:58.696Z [DEBUG] $.fs.read (cc-plugin-telemetry): /sys/hypervisor/uuid failed: ENOENT: no such file or directory, open '/sys/hypervisor/uuid'
+2026-10-25T05:00:58.697Z [DEBUG] Applied original permissions to temp file
+2026-10-25T05:00:58.698Z [DEBUG] Temp file written successfully, size: 55900 bytes
+2026-10-25T05:00:58.698Z [DEBUG] Renaming /home/dev/.claude.json.tmp.185.a3714fddd50e to /home/dev/.claude.json
+2026-10-25T05:00:58.699Z [DEBUG] File /home/dev/.claude.json written atomically
+2026-10-25T05:00:58.926Z [DEBUG] [Bootstrap] Skipped: 403 for OAuth token without profile scope
+2026-10-25T05:00:58.930Z [DEBUG] Total plugin workflows loaded: 0
+2026-10-25T05:00:58.932Z [DEBUG] getSkills returning: 4 skill dir commands, 0 plugin skills, 37 bundled skills, 1 builtin plugin skills
+2026-10-25T05:00:58.944Z [DEBUG] Failed to stat directory /home/dev/.claude/output-styles: ENOENT: no such file or directory, stat '/home/dev/.claude/output-styles'
+2026-10-25T05:00:58.944Z [DEBUG] Failed to stat directory /etc/claude-code/.claude/output-styles: ENOENT: no such file or directory, stat '/etc/claude-code/.claude/output-styles'
+2026-10-25T05:00:58.945Z [DEBUG] Total plugin output styles loaded: 0
+2026-10-25T05:00:58.966Z [DEBUG] LSP Diagnostics: getLSPDiagnosticAttachments called
+2026-10-25T05:00:58.966Z [DEBUG] LSP Diagnostics: Checking registry - 0 pending
+2026-10-25T05:00:58.967Z [DEBUG] Sending 17 skills via attachment (initial)
+2026-10-25T05:00:58.968Z [DEBUG] Hooks: checkForNewResponses returning 0 responses, 0 hooks still pending
+2026-10-25T05:00:58.984Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 4.6ms (native link, next() included)
+2026-10-25T05:00:58.989Z [DEBUG] [fs.watch probe] verdict: delivers
+2026-10-25T05:00:59.028Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:00:59.028Z [DEBUG] [session-notices] advertise=false mode=bypassPermissions flag=true(payload) pollChannel=false ownEventsOnly=false remote=false remoteEnv=false nonInteractive=true
+2026-10-25T05:00:59.038Z [DEBUG] [engine] turn 1 start
+2026-10-25T05:00:59.047Z [DEBUG] hooks module cc-plugin-agents-md@builtin turn.start settled in 9.7ms (native link, next() included)
+2026-10-25T05:00:59.047Z [DEBUG] hooks module cc-plugin-agents-md@builtin prompt.submit settled in 64.7ms (native link, next() included)
+2026-10-25T05:00:59.054Z [DEBUG] autocompact: tokens=[REDACTED] level=ok effectiveWindow=980000
+2026-10-25T05:00:59.064Z [DEBUG] [AdvisorTool] Server-side tool enabled with claude-opus-5-5 as the advisor model
+2026-10-25T05:00:59.064Z [DEBUG] [AdvisorTool] No standby advisor entry - this org is not known to serve claude-opus-5-5
+2026-10-25T05:00:59.087Z [DEBUG] Dynamic tool loading: 0/14 deferred tools included
+2026-10-25T05:00:59.093Z [DEBUG] attribution header x-anthropic-billing-header: cc_version=2.1.310.688; cc_entrypoint=sdk-cli; cch=00000; cc_prompt_id=6b6db135-2359-4e52-9ab8-9032505a1539; cc_turn_origin=sdk; cc_prompt_index=0; cc_turn_index=1;
+2026-10-25T05:00:59.094Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:00:59.099Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:00:59.106Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:00:59.112Z [DEBUG] [API:timing] dispatching to firstParty model=claude-sonnet-5-5
+2026-10-25T05:00:59.112Z [DEBUG] [dispatch] sent anthropic-dispatch-id=v2d
+2026-10-25T05:00:59.116Z [DEBUG] [API REQUEST] /v1/messages x-client-request-id=ad25c1b1-bbe3-427f-a7cd-79e58f086866 source=sdk
+2026-10-25T05:00:59.544Z [DEBUG] [mcp-registry] Loaded 294 official MCP URLs (legacy)
+2026-10-25T05:01:01.434Z [DEBUG] Stream started - received first chunk
+2026-10-25T05:01:01.434Z [DEBUG] [API:timing] first byte after 2328ms
+2026-10-25T05:01:02.253Z [INFO] [Stall] tool_dispatch_start tool=Bash toolUseId=toolu_01WmC94ysNGVq7qBMFAoeVPN permissionDecisionMs=177
+2026-10-25T05:01:02.271Z [DEBUG] Creating shell snapshot for bash (/bin/bash)
+2026-10-25T05:01:02.271Z [DEBUG] Looking for shell config file: /home/dev/.bashrc
+2026-10-25T05:01:02.275Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 5.3ms (native link, next() included)
+2026-10-25T05:01:02.312Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 4.8ms (native link, next() included)
+2026-10-25T05:01:02.314Z [DEBUG] Snapshots directory: /home/dev/.claude/shell-snapshots
+2026-10-25T05:01:02.315Z [DEBUG] Creating snapshot at: /home/dev/.claude/shell-snapshots/snapshot-bash-1792904462314-w307lz.sh
+2026-10-25T05:01:02.316Z [DEBUG] Execution timeout: 10000ms
+2026-10-25T05:01:02.339Z [DEBUG] Preserving file permissions: 100666
+2026-10-25T05:01:02.339Z [DEBUG] Writing to temp file: /home/dev/.claude.json.tmp.185.5fbcb39b91eb
+2026-10-25T05:01:02.340Z [DEBUG] Applied original permissions to temp file
+2026-10-25T05:01:02.346Z [DEBUG] Temp file written successfully, size: 55958 bytes
+2026-10-25T05:01:02.346Z [DEBUG] Renaming /home/dev/.claude.json.tmp.185.5fbcb39b91eb to /home/dev/.claude.json
+2026-10-25T05:01:02.347Z [DEBUG] File /home/dev/.claude.json written atomically
+2026-10-25T05:01:02.406Z [DEBUG] Spawn-env probe captured 36 keys
+2026-10-25T05:01:02.473Z [DEBUG] Shell snapshot created successfully (4823 bytes)
+2026-10-25T05:01:02.479Z [DEBUG] No session environment scripts found
+2026-10-25T05:01:02.479Z [DEBUG] Spawning shell without login (-l flag skipped)
+2026-10-25T05:01:02.525Z [DEBUG] Invalidating session environment cache
+2026-10-25T05:01:02.534Z [INFO] [Stall] tool_dispatch_end tool=Bash toolUseId=toolu_01WmC94ysNGVq7qBMFAoeVPN outcome=ok durationMs=281
+2026-10-25T05:01:02.542Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 2.8ms (native link, next() included)
+2026-10-25T05:01:02.554Z [DEBUG] LSP Diagnostics: getLSPDiagnosticAttachments called
+2026-10-25T05:01:02.554Z [DEBUG] LSP Diagnostics: Checking registry - 0 pending
+2026-10-25T05:01:02.555Z [DEBUG] Hooks: checkForNewResponses returning 0 responses, 0 hooks still pending
+2026-10-25T05:01:02.556Z [DEBUG] Failed to stat directory /home/dev/.claude/output-styles: ENOENT: no such file or directory, stat '/home/dev/.claude/output-styles'
+2026-10-25T05:01:02.556Z [DEBUG] Failed to stat directory /etc/claude-code/.claude/output-styles: ENOENT: no such file or directory, stat '/etc/claude-code/.claude/output-styles'
+2026-10-25T05:01:02.563Z [DEBUG] autocompact: tokens=[REDACTED] level=ok effectiveWindow=980000
+2026-10-25T05:01:02.570Z [DEBUG] Dynamic tool loading: 0/14 deferred tools included
+2026-10-25T05:01:02.574Z [DEBUG] attribution header x-anthropic-billing-header: cc_version=2.1.310.688; cc_entrypoint=sdk-cli; cch=00000; cc_prev_req=req_011CgNNFYYpZXxn6cXDhAEdf; cc_prompt_id=6b6db135-2359-4e52-9ab8-9032505a1539; cc_turn_origin=sdk; cc_prompt_index=0; cc_turn_index=1;
+2026-10-25T05:01:02.574Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:01:02.577Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:01:02.581Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:01:02.584Z [DEBUG] [API:timing] dispatching to firstParty model=claude-sonnet-5-5
+2026-10-25T05:01:02.584Z [DEBUG] [dispatch] sent anthropic-dispatch-id=v2d
+2026-10-25T05:01:02.585Z [DEBUG] [API REQUEST] /v1/messages x-client-request-id=046a5fee-81a6-46a8-8274-657581396c65 source=sdk
+2026-10-25T05:01:03.377Z [DEBUG] $.http.fetch (cc-plugin-telemetry): POST https://api.anthropic.com/api/event_logging/v2/batch
+2026-10-25T05:01:03.463Z [DEBUG] $.http.fetch (cc-plugin-telemetry): 200 in 87ms, 39 chars
+2026-10-25T05:01:03.464Z [DEBUG] [cc-plugin-telemetry] $.ui.log (to debug): telemetry: sent 3 row(s)
+2026-10-25T05:01:03.499Z [DEBUG] settings.read: the engine's merge was raised (a retention sweep starts) in 0.1 ms; 0 keys answered otherwise than the files.
+2026-10-25T05:01:03.540Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 0.7ms (native link, next() included)
+2026-10-25T05:01:04.148Z [DEBUG] Stream started - received first chunk
+2026-10-25T05:01:04.148Z [DEBUG] [API:timing] first byte after 1567ms
+2026-10-25T05:01:04.960Z [INFO] [Stall] tool_dispatch_start tool=Bash toolUseId=toolu_01F1veiBXRSm8mdNMDokWDvv permissionDecisionMs=66
+2026-10-25T05:01:04.968Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 1.1ms (native link, next() included)
+2026-10-25T05:01:04.987Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 6.5ms (native link, next() included)
+2026-10-25T05:01:04.988Z [DEBUG] No session environment scripts found
+2026-10-25T05:01:04.989Z [DEBUG] Spawning shell without login (-l flag skipped)
+2026-10-25T05:01:05.058Z [INFO] [Stall] tool_dispatch_end tool=Bash toolUseId=toolu_01F1veiBXRSm8mdNMDokWDvv outcome=ok durationMs=98
+2026-10-25T05:01:05.064Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 1.8ms (native link, next() included)
+2026-10-25T05:01:05.071Z [DEBUG] LSP Diagnostics: getLSPDiagnosticAttachments called
+2026-10-25T05:01:05.071Z [DEBUG] LSP Diagnostics: Checking registry - 0 pending
+2026-10-25T05:01:05.072Z [DEBUG] Hooks: checkForNewResponses returning 0 responses, 0 hooks still pending
+2026-10-25T05:01:05.077Z [DEBUG] autocompact: tokens=[REDACTED] level=ok effectiveWindow=980000
+2026-10-25T05:01:05.083Z [DEBUG] Dynamic tool loading: 0/14 deferred tools included
+2026-10-25T05:01:05.087Z [DEBUG] attribution header x-anthropic-billing-header: cc_version=2.1.310.688; cc_entrypoint=sdk-cli; cch=00000; cc_prev_req=req_011CgNNFnxzAmPH7v99k1jAa; cc_prompt_id=6b6db135-2359-4e52-9ab8-9032505a1539; cc_turn_origin=sdk; cc_prompt_index=0; cc_turn_index=1;
+2026-10-25T05:01:05.087Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:01:05.090Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:01:05.094Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:01:05.096Z [DEBUG] [API:timing] dispatching to firstParty model=claude-sonnet-5-5
+2026-10-25T05:01:05.097Z [DEBUG] [dispatch] sent anthropic-dispatch-id=v2d
+2026-10-25T05:01:05.098Z [DEBUG] [API REQUEST] /v1/messages x-client-request-id=ff7e3ec7-fca6-482f-8465-4233e5640495 source=sdk
+2026-10-25T05:01:08.377Z [DEBUG] cc-plugin-telemetry (builtin) answered telemetry.log without next() 1 more times in the last 10s (the last in 8.3ms)
+2026-10-25T05:01:08.446Z [DEBUG] Stream started - received first chunk
+2026-10-25T05:01:08.446Z [DEBUG] [API:timing] first byte after 3353ms
+2026-10-25T05:01:09.497Z [INFO] [Stall] tool_dispatch_start tool=Bash toolUseId=toolu_01AsSy71V1VHQ48WVPftKxmf permissionDecisionMs=19
+2026-10-25T05:01:09.506Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 1.2ms (native link, next() included)
+2026-10-25T05:01:09.517Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 1.8ms (native link, next() included)
+2026-10-25T05:01:09.519Z [DEBUG] Spawning shell without login (-l flag skipped)
+2026-10-25T05:01:09.556Z [INFO] [Stall] tool_dispatch_end tool=Bash toolUseId=toolu_01AsSy71V1VHQ48WVPftKxmf outcome=ok durationMs=59
+2026-10-25T05:01:09.564Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 2.8ms (native link, next() included)
+2026-10-25T05:01:09.571Z [DEBUG] LSP Diagnostics: getLSPDiagnosticAttachments called
+2026-10-25T05:01:09.571Z [DEBUG] LSP Diagnostics: Checking registry - 0 pending
+2026-10-25T05:01:09.572Z [DEBUG] Hooks: checkForNewResponses returning 0 responses, 0 hooks still pending
+2026-10-25T05:01:09.583Z [DEBUG] autocompact: tokens=[REDACTED] level=ok effectiveWindow=980000
+2026-10-25T05:01:09.591Z [DEBUG] Dynamic tool loading: 0/14 deferred tools included
+2026-10-25T05:01:09.595Z [DEBUG] attribution header x-anthropic-billing-header: cc_version=2.1.310.688; cc_entrypoint=sdk-cli; cch=00000; cc_prev_req=req_011CgNNFyhQRvxrspTK44kah; cc_prompt_id=6b6db135-2359-4e52-9ab8-9032505a1539; cc_turn_origin=sdk; cc_prompt_index=0; cc_turn_index=1;
+2026-10-25T05:01:09.596Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:01:09.598Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:01:09.602Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:01:09.609Z [DEBUG] [API:timing] dispatching to firstParty model=claude-sonnet-5-5
+2026-10-25T05:01:09.609Z [DEBUG] [dispatch] sent anthropic-dispatch-id=v2d
+2026-10-25T05:01:09.610Z [DEBUG] [API REQUEST] /v1/messages x-client-request-id=a1266dad-c2ba-4f41-b3b3-d307b821f0db source=sdk
+2026-10-25T05:01:11.734Z [DEBUG] Stream started - received first chunk
+2026-10-25T05:01:11.734Z [DEBUG] [API:timing] first byte after 2132ms
+2026-10-25T05:01:14.985Z [INFO] [Stall] tool_dispatch_start tool=Bash toolUseId=toolu_01Noq41izia1cs1XDPM35e6f permissionDecisionMs=18
+2026-10-25T05:01:14.989Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 0.9ms (native link, next() included)
+2026-10-25T05:01:15.000Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 1.5ms (native link, next() included)
+2026-10-25T05:01:15.002Z [DEBUG] Spawning shell without login (-l flag skipped)
+2026-10-25T05:01:18.066Z [DEBUG] Invalidating session environment cache
+2026-10-25T05:01:18.073Z [INFO] [Stall] tool_dispatch_end tool=Bash toolUseId=toolu_01Noq41izia1cs1XDPM35e6f outcome=ok durationMs=3086
+2026-10-25T05:01:18.080Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 2.4ms (native link, next() included)
+2026-10-25T05:01:18.086Z [DEBUG] LSP Diagnostics: getLSPDiagnosticAttachments called
+2026-10-25T05:01:18.086Z [DEBUG] LSP Diagnostics: Checking registry - 0 pending
+2026-10-25T05:01:18.088Z [DEBUG] Hooks: checkForNewResponses returning 0 responses, 0 hooks still pending
+2026-10-25T05:01:18.095Z [DEBUG] autocompact: tokens=[REDACTED] level=ok effectiveWindow=980000
+2026-10-25T05:01:18.103Z [DEBUG] Dynamic tool loading: 0/14 deferred tools included
+2026-10-25T05:01:18.108Z [DEBUG] attribution header x-anthropic-billing-header: cc_version=2.1.310.688; cc_entrypoint=sdk-cli; cch=00000; cc_prev_req=req_011CgNNGJz1fm2gVkEv1KmFi; cc_prompt_id=6b6db135-2359-4e52-9ab8-9032505a1539; cc_turn_origin=sdk; cc_prompt_index=0; cc_turn_index=1;
+2026-10-25T05:01:18.108Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:01:18.110Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:01:18.114Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:01:18.117Z [DEBUG] [API:timing] dispatching to firstParty model=claude-sonnet-5-5
+2026-10-25T05:01:18.117Z [DEBUG] [dispatch] sent anthropic-dispatch-id=v2d
+2026-10-25T05:01:18.118Z [DEBUG] [API REQUEST] /v1/messages x-client-request-id=e796a4b9-c647-4673-bb1f-e7409bd1e729 source=sdk
+2026-10-25T05:01:19.735Z [DEBUG] Stream started - received first chunk
+2026-10-25T05:01:19.735Z [DEBUG] [API:timing] first byte after 1621ms
+2026-10-25T05:01:27.198Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 1.8ms (native link, next() included)
+2026-10-25T05:01:27.232Z [INFO] [Stall] tool_dispatch_start tool=Bash toolUseId=toolu_016rKycQ4QK4E2K3gRP9Pb5D permissionDecisionMs=64
+2026-10-25T05:01:27.239Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 0.9ms (native link, next() included)
+2026-10-25T05:01:27.239Z [DEBUG] No session environment scripts found
+2026-10-25T05:01:27.240Z [DEBUG] Spawning shell without login (-l flag skipped)
+2026-10-25T05:01:58.701Z [DEBUG] [skills] idle — switching poll interval to 30000ms
+2026-10-25T05:03:08.824Z [INFO] [Stall] tool_dispatch_end tool=Bash toolUseId=toolu_016rKycQ4QK4E2K3gRP9Pb5D outcome=ok durationMs=101592
+2026-10-25T05:03:08.832Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 3.0ms (native link, next() included)
+2026-10-25T05:03:08.844Z [DEBUG] LSP Diagnostics: getLSPDiagnosticAttachments called
+2026-10-25T05:03:08.844Z [DEBUG] LSP Diagnostics: Checking registry - 0 pending
+2026-10-25T05:03:08.846Z [DEBUG] Hooks: checkForNewResponses returning 0 responses, 0 hooks still pending
+2026-10-25T05:03:08.857Z [DEBUG] autocompact: tokens=[REDACTED] level=ok effectiveWindow=980000
+2026-10-25T05:03:08.867Z [DEBUG] Dynamic tool loading: 0/14 deferred tools included
+2026-10-25T05:03:08.874Z [DEBUG] attribution header x-anthropic-billing-header: cc_version=2.1.310.688; cc_entrypoint=sdk-cli; cch=00000; cc_prev_req=req_011CgNNGwPXoN3iXGkskz5To; cc_prompt_id=6b6db135-2359-4e52-9ab8-9032505a1539; cc_turn_origin=sdk; cc_prompt_index=0; cc_turn_index=1;
+2026-10-25T05:03:08.875Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:03:08.879Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:03:08.885Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:03:08.890Z [DEBUG] [API:timing] dispatching to firstParty model=claude-sonnet-5-5
+2026-10-25T05:03:08.890Z [DEBUG] [dispatch] sent anthropic-dispatch-id=v2d
+2026-10-25T05:03:08.892Z [DEBUG] [API REQUEST] /v1/messages x-client-request-id=c42042d1-c10d-4032-a84a-6f59fdbb98b1 source=sdk
+2026-10-25T05:03:11.595Z [DEBUG] Stream started - received first chunk
+2026-10-25T05:03:11.595Z [DEBUG] [API:timing] first byte after 2710ms
+2026-10-25T05:03:12.284Z [INFO] [Stall] tool_dispatch_start tool=Bash toolUseId=toolu_017qwLSsgoCJbU8KtJm3xg6f permissionDecisionMs=21
+2026-10-25T05:03:12.289Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 1.4ms (native link, next() included)
+2026-10-25T05:03:12.298Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 2.5ms (native link, next() included)
+2026-10-25T05:03:12.300Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 0.3ms (native link, next() included)
+2026-10-25T05:03:12.301Z [DEBUG] Spawning shell without login (-l flag skipped)
+2026-10-25T05:05:12.712Z [INFO] [Stall] tool_dispatch_end tool=Bash toolUseId=toolu_017qwLSsgoCJbU8KtJm3xg6f outcome=ok durationMs=120428
+2026-10-25T05:05:12.735Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 10.5ms (native link, next() included)
+2026-10-25T05:05:12.780Z [DEBUG] LSP Diagnostics: getLSPDiagnosticAttachments called
+2026-10-25T05:05:12.780Z [DEBUG] LSP Diagnostics: Checking registry - 0 pending
+2026-10-25T05:05:12.789Z [DEBUG] Hooks: checkForNewResponses returning 0 responses, 0 hooks still pending
+2026-10-25T05:05:12.812Z [DEBUG] autocompact: tokens=[REDACTED] level=ok effectiveWindow=980000
+2026-10-25T05:05:12.829Z [DEBUG] Dynamic tool loading: 0/14 deferred tools included
+2026-10-25T05:05:12.838Z [DEBUG] attribution header x-anthropic-billing-header: cc_version=2.1.310.688; cc_entrypoint=sdk-cli; cch=00000; cc_prev_req=req_011CgNNR71wibGTtiG6TWp7R; cc_prompt_id=6b6db135-2359-4e52-9ab8-9032505a1539; cc_turn_origin=sdk; cc_prompt_index=0; cc_turn_index=1;
+2026-10-25T05:05:12.839Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:05:12.842Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:05:12.847Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:05:12.850Z [DEBUG] [API:timing] dispatching to firstParty model=claude-sonnet-5-5
+2026-10-25T05:05:12.850Z [DEBUG] [dispatch] sent anthropic-dispatch-id=v2d
+2026-10-25T05:05:12.851Z [DEBUG] [API REQUEST] /v1/messages x-client-request-id=42fcef3c-e5c6-4cf9-8bd4-3e1b6b6a744d source=sdk
+2026-10-25T05:05:14.183Z [DEBUG] Stream started - received first chunk
+2026-10-25T05:05:14.183Z [DEBUG] [API:timing] first byte after 1337ms
+2026-10-25T05:05:14.621Z [INFO] [Stall] tool_dispatch_start tool=Bash toolUseId=toolu_01UHPCRQ8LTsPWwjMqoRzT9V permissionDecisionMs=30
+2026-10-25T05:05:14.630Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 1.0ms (native link, next() included)
+2026-10-25T05:05:14.681Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 38.5ms (native link, next() included)
+2026-10-25T05:05:14.684Z [DEBUG] Spawning shell without login (-l flag skipped)
+2026-10-25T05:05:14.783Z [INFO] [Stall] tool_dispatch_end tool=Bash toolUseId=toolu_01UHPCRQ8LTsPWwjMqoRzT9V outcome=ok durationMs=162
+2026-10-25T05:05:14.801Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 7.7ms (native link, next() included)
+2026-10-25T05:05:14.814Z [DEBUG] LSP Diagnostics: getLSPDiagnosticAttachments called
+2026-10-25T05:05:14.814Z [DEBUG] LSP Diagnostics: Checking registry - 0 pending
+2026-10-25T05:05:14.828Z [DEBUG] Hooks: checkForNewResponses returning 0 responses, 0 hooks still pending
+2026-10-25T05:05:14.877Z [DEBUG] autocompact: tokens=[REDACTED] level=ok effectiveWindow=980000
+2026-10-25T05:05:14.897Z [DEBUG] Dynamic tool loading: 0/14 deferred tools included
+2026-10-25T05:05:14.917Z [DEBUG] attribution header x-anthropic-billing-header: cc_version=2.1.310.688; cc_entrypoint=sdk-cli; cch=00000; cc_prev_req=req_011CgNNaFCa4wJnjtzfwWWgW; cc_prompt_id=6b6db135-2359-4e52-9ab8-9032505a1539; cc_turn_origin=sdk; cc_prompt_index=0; cc_turn_index=1;
+2026-10-25T05:05:14.918Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:05:14.925Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:05:14.940Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:05:14.978Z [DEBUG] [API:timing] dispatching to firstParty model=claude-sonnet-5-5
+2026-10-25T05:05:14.979Z [DEBUG] [dispatch] sent anthropic-dispatch-id=v2d
+2026-10-25T05:05:14.980Z [DEBUG] [API REQUEST] /v1/messages x-client-request-id=92285441-e38b-48b4-962d-ca824ea0ab74 source=sdk
+2026-10-25T05:05:16.983Z [DEBUG] Stream started - received first chunk
+2026-10-25T05:05:16.984Z [DEBUG] [API:timing] first byte after 2047ms
+2026-10-25T05:05:18.215Z [INFO] [Stall] tool_dispatch_start tool=Bash toolUseId=toolu_01Bp2N7pxAWAgoXkHQifJ2Vh permissionDecisionMs=104
+2026-10-25T05:05:18.224Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 1.5ms (native link, next() included)
+2026-10-25T05:05:18.232Z [DEBUG] Spawning shell without login (-l flag skipped)
+2026-10-25T05:05:18.338Z [INFO] [Stall] tool_dispatch_end tool=Bash toolUseId=toolu_01Bp2N7pxAWAgoXkHQifJ2Vh outcome=ok durationMs=123
+2026-10-25T05:05:18.384Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 6.3ms (native link, next() included)
+2026-10-25T05:05:18.601Z [DEBUG] Bash tool validation error: code=10 messageChars=340
+2026-10-25T05:05:18.684Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 41.3ms (native link, next() included)
+2026-10-25T05:05:18.690Z [DEBUG] LSP Diagnostics: getLSPDiagnosticAttachments called
+2026-10-25T05:05:18.690Z [DEBUG] LSP Diagnostics: Checking registry - 0 pending
+2026-10-25T05:05:18.701Z [DEBUG] Hooks: checkForNewResponses returning 0 responses, 0 hooks still pending
+2026-10-25T05:05:18.719Z [DEBUG] autocompact: tokens=[REDACTED] level=ok effectiveWindow=980000
+2026-10-25T05:05:18.743Z [DEBUG] Dynamic tool loading: 0/14 deferred tools included
+2026-10-25T05:05:18.812Z [DEBUG] attribution header x-anthropic-billing-header: cc_version=2.1.310.688; cc_entrypoint=sdk-cli; cch=00000; cc_prev_req=req_011CgNNaQB4XnEgzRoD9Tsca; cc_prompt_id=6b6db135-2359-4e52-9ab8-9032505a1539; cc_turn_origin=sdk; cc_prompt_index=0; cc_turn_index=1;
+2026-10-25T05:05:18.812Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:05:18.822Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:05:18.838Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:05:18.885Z [DEBUG] [API:timing] dispatching to firstParty model=claude-sonnet-5-5
+2026-10-25T05:05:18.885Z [DEBUG] [dispatch] sent anthropic-dispatch-id=v2d
+2026-10-25T05:05:18.886Z [DEBUG] [API REQUEST] /v1/messages x-client-request-id=17ac77cb-bafe-4d4e-ad5f-18ed6a88c419 source=sdk
+2026-10-25T05:05:20.679Z [DEBUG] Stream started - received first chunk
+2026-10-25T05:05:20.680Z [DEBUG] [API:timing] first byte after 1841ms
+2026-10-25T05:05:20.983Z [DEBUG] Monitor tool input error: issues=invalid_type inputBytes=44 errorChars=1521
+2026-10-25T05:05:21.017Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 3.9ms (native link, next() included)
+2026-10-25T05:05:21.030Z [DEBUG] LSP Diagnostics: getLSPDiagnosticAttachments called
+2026-10-25T05:05:21.030Z [DEBUG] LSP Diagnostics: Checking registry - 0 pending
+2026-10-25T05:05:21.031Z [DEBUG] Hooks: checkForNewResponses returning 0 responses, 0 hooks still pending
+2026-10-25T05:05:21.033Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 0.7ms (native link, next() included)
+2026-10-25T05:05:21.104Z [DEBUG] autocompact: tokens=[REDACTED] level=ok effectiveWindow=980000
+2026-10-25T05:05:21.183Z [DEBUG] Dynamic tool loading: 0/14 deferred tools included
+2026-10-25T05:05:21.230Z [DEBUG] attribution header x-anthropic-billing-header: cc_version=2.1.310.688; cc_entrypoint=sdk-cli; cch=00000; cc_prev_req=req_011CgNNagrA6SrisTfruMM8Q; cc_prompt_id=6b6db135-2359-4e52-9ab8-9032505a1539; cc_turn_origin=sdk; cc_prompt_index=0; cc_turn_index=1;
+2026-10-25T05:05:21.230Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:05:21.243Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:05:21.290Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:05:21.300Z [DEBUG] [API:timing] dispatching to firstParty model=claude-sonnet-5-5
+2026-10-25T05:05:21.300Z [DEBUG] [dispatch] sent anthropic-dispatch-id=v2d
+2026-10-25T05:05:21.302Z [DEBUG] [API REQUEST] /v1/messages x-client-request-id=f0f1d228-e4c8-4f7b-95bd-654cfdf1fe3a source=sdk
+2026-10-25T05:05:23.195Z [DEBUG] Stream started - received first chunk
+2026-10-25T05:05:23.195Z [DEBUG] [API:timing] first byte after 1905ms
+2026-10-25T05:05:25.036Z [INFO] [Stall] tool_dispatch_start tool=Bash toolUseId=toolu_01XvRQU5LEfG9W7N3RF96wdA permissionDecisionMs=48
+2026-10-25T05:05:25.085Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 1.3ms (native link, next() included)
+2026-10-25T05:05:25.109Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 2.5ms (native link, next() included)
+2026-10-25T05:05:25.110Z [DEBUG] Spawning shell without login (-l flag skipped)
+2026-10-25T05:07:20.423Z [INFO] [Stall] tool_dispatch_end tool=Bash toolUseId=toolu_01XvRQU5LEfG9W7N3RF96wdA outcome=ok durationMs=115392
+2026-10-25T05:07:20.428Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 1.5ms (native link, next() included)
+2026-10-25T05:07:20.438Z [DEBUG] LSP Diagnostics: getLSPDiagnosticAttachments called
+2026-10-25T05:07:20.438Z [DEBUG] LSP Diagnostics: Checking registry - 0 pending
+2026-10-25T05:07:20.440Z [DEBUG] applyTaskOffsetsAndEvictions: evicted task be4etfx4g
+2026-10-25T05:07:20.440Z [DEBUG] Hooks: checkForNewResponses returning 0 responses, 0 hooks still pending
+2026-10-25T05:07:20.441Z [DEBUG] hooks module cc-plugin-agents-md@builtin prompt.submit settled in 7.2ms (native link, next() included)
+2026-10-25T05:07:20.447Z [DEBUG] autocompact: tokens=[REDACTED] level=ok effectiveWindow=980000
+2026-10-25T05:07:20.453Z [DEBUG] Dynamic tool loading: 0/14 deferred tools included
+2026-10-25T05:07:20.458Z [DEBUG] attribution header x-anthropic-billing-header: cc_version=2.1.310.688; cc_entrypoint=sdk-cli; cch=00000; cc_prev_req=req_011CgNNasA2cojnnGRL4N2NN; cc_prompt_id=6b6db135-2359-4e52-9ab8-9032505a1539; cc_turn_origin=sdk; cc_prompt_index=0; cc_turn_index=1;
+2026-10-25T05:07:20.459Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:07:20.462Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:07:20.465Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:07:20.468Z [DEBUG] [API:timing] dispatching to firstParty model=claude-sonnet-5-5
+2026-10-25T05:07:20.468Z [DEBUG] [dispatch] sent anthropic-dispatch-id=v2d
+2026-10-25T05:07:20.469Z [DEBUG] [API REQUEST] /v1/messages x-client-request-id=1467a051-e851-456b-a79c-be7d4f44efee source=sdk
+2026-10-25T05:07:22.311Z [DEBUG] Stream started - received first chunk
+2026-10-25T05:07:22.311Z [DEBUG] [API:timing] first byte after 1846ms
+2026-10-25T05:07:23.509Z [INFO] [Stall] tool_dispatch_start tool=Bash toolUseId=toolu_01RKH7LK7RpdJyyzPFx5MBZ3 permissionDecisionMs=24
+2026-10-25T05:07:23.514Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 0.8ms (native link, next() included)
+2026-10-25T05:07:23.520Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 1.0ms (native link, next() included)
+2026-10-25T05:07:23.521Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 0.2ms (native link, next() included)
+2026-10-25T05:07:23.521Z [DEBUG] Spawning shell without login (-l flag skipped)
+2026-10-25T05:12:23.879Z [INFO] [Stall] tool_dispatch_end tool=Bash toolUseId=toolu_01RKH7LK7RpdJyyzPFx5MBZ3 outcome=ok durationMs=300370
+2026-10-25T05:12:23.888Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 4.8ms (native link, next() included)
+2026-10-25T05:12:23.896Z [DEBUG] LSP Diagnostics: getLSPDiagnosticAttachments called
+2026-10-25T05:12:23.896Z [DEBUG] LSP Diagnostics: Checking registry - 0 pending
+2026-10-25T05:12:23.952Z [DEBUG] Hooks: checkForNewResponses returning 0 responses, 0 hooks still pending
+2026-10-25T05:12:23.961Z [DEBUG] autocompact: tokens=[REDACTED] level=ok effectiveWindow=980000
+2026-10-25T05:12:23.967Z [DEBUG] Dynamic tool loading: 0/14 deferred tools included
+2026-10-25T05:12:23.974Z [DEBUG] attribution header x-anthropic-billing-header: cc_version=2.1.310.688; cc_entrypoint=sdk-cli; cch=00000; cc_prev_req=req_011CgNNjehBjVZM1bT5CuWQz; cc_prompt_id=6b6db135-2359-4e52-9ab8-9032505a1539; cc_turn_origin=sdk; cc_prompt_index=0; cc_turn_index=1;
+2026-10-25T05:12:23.975Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:12:23.978Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:12:23.982Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:12:24.015Z [DEBUG] [API:timing] dispatching to firstParty model=claude-sonnet-5-5
+2026-10-25T05:12:24.016Z [DEBUG] [dispatch] sent anthropic-dispatch-id=v2d
+2026-10-25T05:12:24.021Z [DEBUG] [API REQUEST] /v1/messages x-client-request-id=94fe1e30-4501-4ba4-87ae-f7695caa287f source=sdk
+2026-10-25T05:12:24.496Z [ERROR] API error (attempt 1/11): 404 404 {"type":"error","error":{"type":"not_found_error","message":"No thread state was found for the requested `previous_message_id`. Replay the full conversation with `thread: {\"type\": \"create\"}` to start a new Thread.","details":{"error_code":"thread_not_found"}},"request_id":"req_011CgNP83pMVc7BU4ckAcmEC"}
+2026-10-25T05:12:24.501Z [DEBUG] [tether] forcing create for retry: replay_not_found
+2026-10-25T05:12:24.502Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:12:24.506Z [DEBUG] [API:timing] dispatching to firstParty model=claude-sonnet-5-5
+2026-10-25T05:12:24.507Z [DEBUG] [dispatch] sent anthropic-dispatch-id=v2d
+2026-10-25T05:12:24.509Z [DEBUG] [API REQUEST] /v1/messages x-client-request-id=6980ef4c-c189-48e6-96ea-16dd827a40ac source=sdk
+2026-10-25T05:12:25.882Z [DEBUG] Stream started - received first chunk
+2026-10-25T05:12:25.882Z [DEBUG] [API:timing] first byte after 1380ms
+2026-10-25T05:12:27.384Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 1.5ms (native link, next() included)
+2026-10-25T05:12:27.394Z [INFO] [Stall] tool_dispatch_start tool=Bash toolUseId=toolu_017SV5rLRWXHGcmgdaj8pzb5 permissionDecisionMs=57
+2026-10-25T05:12:27.399Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 0.9ms (native link, next() included)
+2026-10-25T05:12:27.401Z [DEBUG] Spawning shell without login (-l flag skipped)
+2026-10-25T05:20:47.645Z [INFO] [Stall] tool_dispatch_end tool=Bash toolUseId=toolu_017SV5rLRWXHGcmgdaj8pzb5 outcome=ok durationMs=500250
+2026-10-25T05:20:47.653Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 3.1ms (native link, next() included)
+2026-10-25T05:20:47.664Z [DEBUG] LSP Diagnostics: getLSPDiagnosticAttachments called
+2026-10-25T05:20:47.664Z [DEBUG] LSP Diagnostics: Checking registry - 0 pending
+2026-10-25T05:20:47.666Z [DEBUG] Hooks: checkForNewResponses returning 0 responses, 0 hooks still pending
+2026-10-25T05:20:47.675Z [DEBUG] autocompact: tokens=[REDACTED] level=ok effectiveWindow=980000
+2026-10-25T05:20:47.682Z [DEBUG] Dynamic tool loading: 0/14 deferred tools included
+2026-10-25T05:20:47.689Z [DEBUG] attribution header x-anthropic-billing-header: cc_version=2.1.310.688; cc_entrypoint=sdk-cli; cch=00000; cc_prev_req=req_011CgNP84oNjaeAodztCQTMA; cc_prompt_id=6b6db135-2359-4e52-9ab8-9032505a1539; cc_turn_origin=sdk; cc_prompt_index=0; cc_turn_index=1;
+2026-10-25T05:20:47.689Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:20:47.692Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:20:47.696Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:20:47.701Z [DEBUG] [API:timing] dispatching to firstParty model=claude-sonnet-5-5
+2026-10-25T05:20:47.701Z [DEBUG] [dispatch] sent anthropic-dispatch-id=v2d
+2026-10-25T05:20:47.702Z [DEBUG] [API REQUEST] /v1/messages x-client-request-id=71e7e295-7e6f-4713-9331-a5ab1e7ab35e source=sdk
+2026-10-25T05:20:48.156Z [ERROR] API error (attempt 1/11): 404 404 {"type":"error","error":{"type":"not_found_error","message":"No thread state was found for the requested `previous_message_id`. Replay the full conversation with `thread: {\"type\": \"create\"}` to start a new Thread.","details":{"error_code":"thread_not_found"}},"request_id":"req_011CgNPmBUVvusD7eLonHs2M"}
+2026-10-25T05:20:48.157Z [DEBUG] [tether] forcing create for retry: replay_not_found
+2026-10-25T05:20:48.158Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:20:48.162Z [DEBUG] [API:timing] dispatching to firstParty model=claude-sonnet-5-5
+2026-10-25T05:20:48.162Z [DEBUG] [dispatch] sent anthropic-dispatch-id=v2d
+2026-10-25T05:20:48.164Z [DEBUG] [API REQUEST] /v1/messages x-client-request-id=91fc99ce-f365-47a0-bb20-3dbd7aefbf36 source=sdk
+2026-10-25T05:20:49.770Z [DEBUG] Stream started - received first chunk
+2026-10-25T05:20:49.770Z [DEBUG] [API:timing] first byte after 1613ms
+2026-10-25T05:20:50.285Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 2.2ms (native link, next() included)
+2026-10-25T05:20:50.290Z [INFO] [Stall] tool_dispatch_start tool=Bash toolUseId=toolu_012hGfE1yc1isqLUyQZpGDgH permissionDecisionMs=39
+2026-10-25T05:20:50.295Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 0.9ms (native link, next() included)
+2026-10-25T05:20:50.296Z [DEBUG] Spawning shell without login (-l flag skipped)
+2026-10-25T05:20:50.376Z [INFO] [Stall] tool_dispatch_end tool=Bash toolUseId=toolu_012hGfE1yc1isqLUyQZpGDgH outcome=ok durationMs=86
+2026-10-25T05:20:50.383Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 2.7ms (native link, next() included)
+2026-10-25T05:20:50.390Z [DEBUG] LSP Diagnostics: getLSPDiagnosticAttachments called
+2026-10-25T05:20:50.390Z [DEBUG] LSP Diagnostics: Checking registry - 0 pending
+2026-10-25T05:20:50.391Z [DEBUG] Hooks: checkForNewResponses returning 0 responses, 0 hooks still pending
+2026-10-25T05:20:50.398Z [DEBUG] autocompact: tokens=[REDACTED] level=ok effectiveWindow=980000
+2026-10-25T05:20:50.405Z [DEBUG] Dynamic tool loading: 0/14 deferred tools included
+2026-10-25T05:20:50.413Z [DEBUG] attribution header x-anthropic-billing-header: cc_version=2.1.310.688; cc_entrypoint=sdk-cli; cch=00000; cc_prev_req=req_011CgNPmCGcziNVQPpf7aGT5; cc_prompt_id=6b6db135-2359-4e52-9ab8-9032505a1539; cc_turn_origin=sdk; cc_prompt_index=0; cc_turn_index=1;
+2026-10-25T05:20:50.413Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:20:50.416Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:20:50.421Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:20:50.425Z [DEBUG] [API:timing] dispatching to firstParty model=claude-sonnet-5-5
+2026-10-25T05:20:50.425Z [DEBUG] [dispatch] sent anthropic-dispatch-id=v2d
+2026-10-25T05:20:50.426Z [DEBUG] [API REQUEST] /v1/messages x-client-request-id=102f0363-491b-4eb7-8b71-834d7c491241 source=sdk
+2026-10-25T05:20:52.648Z [DEBUG] Stream started - received first chunk
+2026-10-25T05:20:52.649Z [DEBUG] [API:timing] first byte after 2228ms
+2026-10-25T05:20:53.712Z [INFO] [Stall] tool_dispatch_start tool=Bash toolUseId=toolu_01Urj6q9SfyGKAbmdXKE2oJ8 permissionDecisionMs=19
+2026-10-25T05:20:53.715Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 0.8ms (native link, next() included)
+2026-10-25T05:20:53.723Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 1.4ms (native link, next() included)
+2026-10-25T05:20:53.724Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 0.4ms (native link, next() included)
+2026-10-25T05:20:53.725Z [DEBUG] Spawning shell without login (-l flag skipped)
+2026-10-25T05:22:23.530Z [DEBUG] LocalShellTask b0duv2f17 kill requested
+2026-10-25T05:22:23.534Z [DEBUG] LocalShellTask b0duv2f17: stopped at its 600000ms background deadline
+2026-10-25T05:27:33.768Z [INFO] [Stall] tool_dispatch_end tool=Bash toolUseId=toolu_01Urj6q9SfyGKAbmdXKE2oJ8 outcome=ok durationMs=400055
+2026-10-25T05:27:33.774Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 2.1ms (native link, next() included)
+2026-10-25T05:27:33.786Z [DEBUG] LSP Diagnostics: getLSPDiagnosticAttachments called
+2026-10-25T05:27:33.787Z [DEBUG] LSP Diagnostics: Checking registry - 0 pending
+2026-10-25T05:27:33.788Z [DEBUG] Hooks: checkForNewResponses returning 0 responses, 0 hooks still pending
+2026-10-25T05:27:33.789Z [DEBUG] hooks module cc-plugin-agents-md@builtin prompt.submit settled in 7.2ms (native link, next() included)
+2026-10-25T05:27:33.794Z [DEBUG] applyTaskOffsetsAndEvictions: evicted task b0duv2f17
+2026-10-25T05:27:33.801Z [DEBUG] autocompact: tokens=[REDACTED] level=ok effectiveWindow=980000
+2026-10-25T05:27:33.809Z [DEBUG] Dynamic tool loading: 0/14 deferred tools included
+2026-10-25T05:27:33.818Z [DEBUG] attribution header x-anthropic-billing-header: cc_version=2.1.310.688; cc_entrypoint=sdk-cli; cch=00000; cc_prev_req=req_011CgNPmMrqFX38LFHdY8rXN; cc_prompt_id=6b6db135-2359-4e52-9ab8-9032505a1539; cc_turn_origin=sdk; cc_prompt_index=0; cc_turn_index=1;
+2026-10-25T05:27:33.818Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:27:33.823Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:27:33.828Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:27:33.832Z [DEBUG] [API:timing] dispatching to firstParty model=claude-sonnet-5-5
+2026-10-25T05:27:33.832Z [DEBUG] [dispatch] sent anthropic-dispatch-id=v2d
+2026-10-25T05:27:33.834Z [DEBUG] [API REQUEST] /v1/messages x-client-request-id=4a494096-d402-42f1-a4d9-085859197b23 source=sdk
+2026-10-25T05:27:34.178Z [ERROR] API error (attempt 1/11): 404 404 {"type":"error","error":{"type":"not_found_error","message":"No thread state was found for the requested `previous_message_id`. Replay the full conversation with `thread: {\"type\": \"create\"}` to start a new Thread.","details":{"error_code":"thread_not_found"}},"request_id":"req_011CgNQH7AdSSwedZiB1FzJD"}
+2026-10-25T05:27:34.178Z [DEBUG] [tether] forcing create for retry: replay_not_found
+2026-10-25T05:27:34.179Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:27:34.184Z [DEBUG] [API:timing] dispatching to firstParty model=claude-sonnet-5-5
+2026-10-25T05:27:34.184Z [DEBUG] [dispatch] sent anthropic-dispatch-id=v2d
+2026-10-25T05:27:34.186Z [DEBUG] [API REQUEST] /v1/messages x-client-request-id=e2a70d51-12db-4cbe-9203-8ea54c2429b8 source=sdk
+2026-10-25T05:27:38.122Z [DEBUG] Stream started - received first chunk
+2026-10-25T05:27:38.122Z [DEBUG] [API:timing] first byte after 3943ms
+2026-10-25T05:27:38.163Z [INFO] [Stall] tool_dispatch_start tool=Bash toolUseId=toolu_01WfuWvnAFHorGXqnPa7uRPc permissionDecisionMs=16
+2026-10-25T05:27:38.166Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 1.0ms (native link, next() included)
+2026-10-25T05:27:38.167Z [DEBUG] Spawning shell without login (-l flag skipped)
+2026-10-25T05:27:38.185Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 1.5ms (native link, next() included)
+2026-10-25T05:27:38.295Z [INFO] [Stall] tool_dispatch_end tool=Bash toolUseId=toolu_01WfuWvnAFHorGXqnPa7uRPc outcome=ok durationMs=133
+2026-10-25T05:27:38.299Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 1.3ms (native link, next() included)
+2026-10-25T05:27:38.306Z [DEBUG] LSP Diagnostics: getLSPDiagnosticAttachments called
+2026-10-25T05:27:38.306Z [DEBUG] LSP Diagnostics: Checking registry - 0 pending
+2026-10-25T05:27:38.307Z [DEBUG] Hooks: checkForNewResponses returning 0 responses, 0 hooks still pending
+2026-10-25T05:27:38.312Z [DEBUG] autocompact: tokens=[REDACTED] level=ok effectiveWindow=980000
+2026-10-25T05:27:38.320Z [DEBUG] Dynamic tool loading: 0/14 deferred tools included
+2026-10-25T05:27:38.326Z [DEBUG] attribution header x-anthropic-billing-header: cc_version=2.1.310.688; cc_entrypoint=sdk-cli; cch=00000; cc_prev_req=req_011CgNQH8J6cApb8TpCyBUfv; cc_prompt_id=6b6db135-2359-4e52-9ab8-9032505a1539; cc_turn_origin=sdk; cc_prompt_index=0; cc_turn_index=1;
+2026-10-25T05:27:38.327Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:27:38.329Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:27:38.333Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:27:38.336Z [DEBUG] [API:timing] dispatching to firstParty model=claude-sonnet-5-5
+2026-10-25T05:27:38.336Z [DEBUG] [dispatch] sent anthropic-dispatch-id=v2d
+2026-10-25T05:27:38.337Z [DEBUG] [API REQUEST] /v1/messages x-client-request-id=d69786f4-525b-401e-a93f-85b4c3a29ca2 source=sdk
+2026-10-25T05:27:44.439Z [DEBUG] Stream started - received first chunk
+2026-10-25T05:27:44.439Z [DEBUG] [API:timing] first byte after 6106ms
+2026-10-25T05:27:44.476Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 2.4ms (native link, next() included)
+2026-10-25T05:27:44.482Z [DEBUG] [engine] turn 1 end (turns=17 usage in=32 out=5145 cost=$0.2279 api=62325ms stop=end_turn resultLen=1920)
+2026-10-25T05:27:44.483Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:27:44.483Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 3.2ms (native link, next() included)
+2026-10-25T05:27:44.494Z [DEBUG] hooks module cc-plugin-agents-md@builtin turn.complete settled in 0.5ms (native link, next() included)
+2026-10-25T05:27:49.666Z [DEBUG] Waiting for background work to finish (shell "until grep -q "stash\|Dropped\|On branch" /tmp/claude-1000/-"). Press Ctrl+C to exit now.
+2026-10-25T05:30:47.423Z [DEBUG] LocalShellTask bco0tibxl kill requested
+2026-10-25T05:30:47.426Z [DEBUG] LocalShellTask bco0tibxl: stopped at its 600000ms background deadline
+2026-10-25T05:30:47.515Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 3.8ms (native link, next() included)
+2026-10-25T05:30:47.522Z [DEBUG] LSP Diagnostics: getLSPDiagnosticAttachments called
+2026-10-25T05:30:47.522Z [DEBUG] LSP Diagnostics: Checking registry - 0 pending
+2026-10-25T05:30:47.523Z [DEBUG] applyTaskOffsetsAndEvictions: evicted task bco0tibxl
+2026-10-25T05:30:47.523Z [DEBUG] Hooks: checkForNewResponses returning 0 responses, 0 hooks still pending
+2026-10-25T05:30:47.538Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:30:47.539Z [DEBUG] [session-notices] advertise=false mode=bypassPermissions flag=true(payload) pollChannel=false ownEventsOnly=false remote=false remoteEnv=false nonInteractive=true
+2026-10-25T05:30:47.542Z [DEBUG] [engine] turn 2 start
+2026-10-25T05:30:47.554Z [DEBUG] hooks module cc-plugin-agents-md@builtin turn.start settled in 12.2ms (native link, next() included)
+2026-10-25T05:30:47.554Z [DEBUG] hooks module cc-plugin-agents-md@builtin prompt.submit settled in 39.9ms (native link, next() included)
+2026-10-25T05:30:47.557Z [DEBUG] autocompact: tokens=[REDACTED] level=ok effectiveWindow=980000
+2026-10-25T05:30:47.568Z [DEBUG] Dynamic tool loading: 0/14 deferred tools included
+2026-10-25T05:30:47.583Z [DEBUG] attribution header x-anthropic-billing-header: cc_version=2.1.310.688; cc_entrypoint=sdk-cli; cch=00000; cc_prev_req=req_011CgNQHS1htnVc3rY3uiRyX; cc_prompt_id=82ff38c7-ccf5-4d92-aaf6-fd4d87e392af; cc_turn_origin=task_notification; cc_prompt_index=0; cc_turn_index=2;
+2026-10-25T05:30:47.583Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:30:47.590Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:30:47.595Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:30:47.602Z [DEBUG] [API:timing] dispatching to firstParty model=claude-sonnet-5-5
+2026-10-25T05:30:47.602Z [DEBUG] [dispatch] sent anthropic-dispatch-id=v2d
+2026-10-25T05:30:47.603Z [DEBUG] [API REQUEST] /v1/messages x-client-request-id=cfd0a3c7-252a-4465-9068-052a849f4c67 source=sdk
+2026-10-25T05:30:49.035Z [DEBUG] Stream started - received first chunk
+2026-10-25T05:30:49.035Z [DEBUG] [API:timing] first byte after 1441ms
+2026-10-25T05:30:50.407Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 3.3ms (native link, next() included)
+2026-10-25T05:30:50.412Z [DEBUG] [engine] turn 2 end (turns=1 usage in=34 out=5341 cost=$0.2395 api=65137ms stop=end_turn resultLen=539)
+2026-10-25T05:30:50.413Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-10-25T05:30:50.413Z [DEBUG] hooks module cc-plugin-telemetry@builtin telemetry.log settled in 2.2ms (native link, next() included)
+2026-10-25T05:30:50.427Z [DEBUG] hooks module cc-plugin-agents-md@builtin turn.complete settled in 0.6ms (native link, next() included)
+2026-10-25T05:30:50.435Z [DEBUG] [uds-messaging] Shutting down
+2026-10-25T05:30:50.438Z [DEBUG] LSP server manager shut down successfully
+2026-10-25T05:30:50.442Z [DEBUG] Cleaned up session snapshot: /home/dev/.claude/shell-snapshots/snapshot-bash-1792904462314-w307lz.sh
+2026-10-25T05:30:50.446Z [DEBUG] hooks module cc-plugin-telemetry@builtin session.end settled in 0.9ms (native link, next() included)

@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 4,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'EOF'\np='remote.py'\ns=open(p).read()\ns=s.replace(\"\"\"        self._consecutive_refresh_failures: int = 0\n\n        self._config:\"\"\",\"\"\"        self._consecutive_refresh_failures: int = 0\n        self._etag: str | None = None  # Validator from the last successfully parsed response\n        #",
+  "sed -i 's/^import threading$/import threading\\nimport time/; s/^_CONSECUTIVE_FAILURES_BEFORE_ERROR = 5$/&\\n_FOLLOWUP_REFRESH_DELAY_SECONDS = 2.0/' remote.py && cd /work && .venv/bin/ruff check logfire/variables/remote.py && .venv/bin/basedpyright logfire/variables/remote.py | tail -5; .venv/bin/pyte"
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

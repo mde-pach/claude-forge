@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 4,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd packages/zod/src/v4/core && python3 - <<'E'\ns=open('schemas.ts').read()\na=\"\"\"          continue;\n        }\n\n        const result = def.valueType._zod.run({ value: input[key], issues: [] }, ctx);\n\"\"\"\nassert s.count(a)==1\ns=s.replace(a,\"\"\"          continue;\n        }\n\n        // key schemas can ma",
+  "cd /work/packages/zod/src/v4/classic/tests && head -5 record.test.ts && cat >> record.test.ts <<'E'\n\ntest(\"record drops keys that the key schema maps to __proto__\", async () => {\n  const schema = z.record(z.string().toLowerCase(), z.object({ a: z.string() }).refine(async () => true));\n  const input "
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

@@ -1,0 +1,150 @@
+diff --git a/logfire/_internal/integrations/llm_providers/openai.py b/logfire/_internal/integrations/llm_providers/openai.py
+index 39e708a..7bddd8a 100644
+--- a/logfire/_internal/integrations/llm_providers/openai.py
++++ b/logfire/_internal/integrations/llm_providers/openai.py
+@@ -2,7 +2,7 @@ from __future__ import annotations
+ 
+ import contextlib
+ import json
+-from typing import TYPE_CHECKING, Any, cast
++from typing import TYPE_CHECKING, Any, Literal, cast
+ 
+ import openai
+ from openai._legacy_response import LegacyAPIResponse
+@@ -39,6 +39,7 @@ from .semconv import (
+     TOOL_DEFINITIONS,
+     BlobPart,
+     ChatMessage,
++    FilePart,
+     InputMessages,
+     MessagePart,
+     OutputMessage,
+@@ -275,6 +276,24 @@ def _convert_content_part_or_parts(content: object) -> list[MessagePart]:
+         return [_convert_content_part(content)]
+ 
+ 
++def _url_value(value: object) -> str | None:
++    """Extract a URL from a string or a dict with a string `url`."""
++    if isinstance(value, dict):
++        value = cast('dict[str, Any]', value).get('url')
++    return value if isinstance(value, str) and value else None
++
++
++def _convert_media_part(part: dict[str, Any], url: str | None, modality: Literal['image', 'document']) -> MessagePart:
++    if url:
++        return UriPart(type='uri', uri=url, modality=modality)
++    if part.get('file_data'):
++        return BlobPart(type='blob', content=part['file_data'], modality=modality)
++    file_id = part.get('file_id')
++    if isinstance(file_id, str):
++        return FilePart(type='file', file_id=file_id, modality=modality)
++    return part
++
++
+ def _convert_content_part(part: object) -> MessagePart:
+     """Convert a single content part to semconv format."""
+     if not isinstance(part, dict):  # pragma: no cover
+@@ -282,11 +301,12 @@ def _convert_content_part(part: object) -> MessagePart:
+ 
+     part = cast('dict[str, Any]', part)
+     part_type = part.get('type', 'unknown')
+-    if part_type in ('text', 'output_text'):
++    if part_type in ('text', 'input_text', 'output_text'):
+         return TextPart(type='text', content=part.get('text', ''))
+-    elif part_type == 'image_url':  # pragma: no cover
+-        url = part.get('image_url', {}).get('url', '')
+-        return UriPart(type='uri', uri=url, modality='image')
++    elif part_type in ('image_url', 'input_image'):
++        return _convert_media_part(part, _url_value(part.get('image_url')), 'image')
++    elif part_type == 'input_file':
++        return _convert_media_part(part, _url_value(part.get('file_url')), 'document')
+     elif part_type == 'input_audio':  # pragma: no cover
+         return BlobPart(
+             type='blob',
+@@ -727,11 +747,11 @@ def input_to_events(inp: dict[str, Any], tool_call_id_to_name: dict[str, str]):
+                 events.append({'event.name': event_name, 'content': content, 'role': role})
+             else:
+                 for content_item in content:
+-                    with contextlib.suppress(KeyError):
+-                        if content_item['type'] == 'output_text':
+-                            events.append({'event.name': event_name, 'content': content_item['text'], 'role': role})
+-                            continue
+-                    events.append(unknown_event(content_item))  # pragma: no cover
++                    value = _content_item_event_value(content_item)
++                    if value is _NO_VALUE:
++                        events.append(unknown_event(content_item))
++                    else:
++                        events.append({'event.name': event_name, 'content': value, 'role': role})
+         elif typ == 'function_call':
+             tool_call_id_to_name[inp['call_id']] = inp['name']
+             events.append(
+@@ -765,6 +785,40 @@ def input_to_events(inp: dict[str, Any], tool_call_id_to_name: dict[str, str]):
+         return [unknown_event(inp)]
+ 
+ 
++_NO_VALUE: Any = object()
++
++
++def _content_item_event_value(item: Any) -> Any:
++    """Return the event content for a message content part, or `_NO_VALUE` if unrecognised."""
++    if not isinstance(item, dict):
++        return _NO_VALUE
++    item = cast('dict[str, Any]', item)
++    typ = item.get('type')
++    if typ in ('input_text', 'output_text'):
++        return item['text'] if 'text' in item else _NO_VALUE
++    if typ in ('image_url', 'input_image'):
++        url = _url_value(item.get('image_url'))
++        if url:
++            return url
++        if item.get('file_data') is not None:
++            return '[file_data]'
++        if item.get('file_id') is not None:
++            return item['file_id']
++        return _NO_VALUE
++    if typ == 'input_file':
++        url = _url_value(item.get('file_url'))
++        if url:
++            return url
++        if item.get('file_id') is not None:
++            return item['file_id']
++        if isinstance(item.get('filename'), str):
++            return item['filename']
++        if item.get('file_data') is not None:
++            return '[file_data]'
++        return '[file]'
++    return _NO_VALUE
++
++
+ def unknown_event(inp: dict[str, Any]):
+     return {
+         'event.name': 'gen_ai.unknown',
+diff --git a/logfire/_internal/integrations/llm_providers/semconv.py b/logfire/_internal/integrations/llm_providers/semconv.py
+index 3c7ed00..264c544 100644
+--- a/logfire/_internal/integrations/llm_providers/semconv.py
++++ b/logfire/_internal/integrations/llm_providers/semconv.py
+@@ -136,6 +136,15 @@ class BlobPart(TypedDict):
+     modality: NotRequired[Literal['image', 'audio', 'video', 'document']]
+ 
+ 
++class FilePart(TypedDict):
++    """Reference to a file uploaded to the provider."""
++
++    type: Literal['file']
++    file_id: str
++    media_type: NotRequired[str]
++    modality: NotRequired[Literal['image', 'audio', 'video', 'document']]
++
++
+ class ReasoningPart(TypedDict):
+     """Reasoning/thinking content part."""
+ 
+@@ -144,7 +153,7 @@ class ReasoningPart(TypedDict):
+ 
+ 
+ MessagePart: TypeAlias = (
+-    TextPart | ToolCallPart | ToolCallResponsePart | UriPart | BlobPart | ReasoningPart | dict[str, Any]
++    TextPart | ToolCallPart | ToolCallResponsePart | UriPart | BlobPart | FilePart | ReasoningPart | dict[str, Any]
+ )
+ """A message part.
+ 

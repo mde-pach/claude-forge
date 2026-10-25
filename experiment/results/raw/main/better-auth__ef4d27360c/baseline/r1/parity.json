@@ -1,0 +1,76 @@
+{
+ "pre_digest": "ed097ccc0fa8290a4aaf8d43a2aee47264ea4809d8bda33483f7775ef01cf895",
+ "extra": {
+  "image": "sha256:f3c56f28d8698062c635c165e6520bdf8754d9710dc97bb27c0e23bf6fa46aaa",
+  "argv": [
+   "claude",
+   "-p",
+   "--model",
+   "claude-sonnet-5-5",
+   "--permission-mode",
+   "bypassPermissions",
+   "--output-format",
+   "stream-json",
+   "--verbose",
+   "--include-hook-events",
+   "--debug-file",
+   "/logs/debug.log",
+   "--max-budget-usd",
+   "15"
+  ],
+  "env": "449e62b416d69d06b9c84f5538b0bc9f2f0d63c074b0bd5e7a396ad5104716fa",
+  "container_env": [
+   "BUN_INSTALL_CACHE_DIR=/opt/forge-cache/bun",
+   "CHECKPOINT_DISABLE=1",
+   "COREPACK_ENABLE_AUTO_PIN=0",
+   "COREPACK_ENABLE_DOWNLOAD_PROMPT=0",
+   "COREPACK_ENABLE_NETWORK=0",
+   "COREPACK_HOME=/opt/corepack",
+   "DEBIAN_FRONTEND=noninteractive",
+   "DO_NOT_TRACK=1",
+   "HOME=/home/dev",
+   "LANG=C.UTF-8",
+   "LC_ALL=C.UTF-8",
+   "PATH=/work/node_modules/.bin:/opt/node/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+   "TURBO_CACHE_DIR=/tmp/turbo-cache",
+   "TURBO_NO_UPDATE_NOTIFIER=1",
+   "TURBO_TELEMETRY_DISABLED=1",
+   "UV_CACHE_DIR=/opt/forge-cache/uv",
+   "UV_LINK_MODE=copy",
+   "UV_OFFLINE=1",
+   "UV_PYTHON_DOWNLOADS=never",
+   "UV_PYTHON_INSTALL_DIR=/opt/uv-python",
+   "npm_config_package_import_method=copy",
+   "npm_config_store_dir=/tmp/pnpm-store",
+   "npm_config_update_notifier=false",
+   "pnpm_config_package_import_method=copy",
+   "pnpm_config_store_dir=/tmp/pnpm-store"
+  ],
+  "claude_sha256": "b73676430af12f97316a798b8371f81d640f90a58bdcb8f3ce56a835bb47df56",
+  "limits": [
+   2000000000,
+   6442450944,
+   [
+    "apparmor=unconfined",
+    "seccomp=unconfined"
+   ],
+   [
+    "CAP_SYS_ADMIN"
+   ],
+   "trialnet",
+   [
+    "/cache/bun:False",
+    "/cache/npm:False",
+    "/cache/pnpm:False",
+    "/cache/uv:False",
+    "/etc/ssl/ccr-ca.crt:False",
+    "/home/claude/.claude/remote:False",
+    "/logs:True",
+    "/opt/claude-code/bin/claude:False",
+    "/opt/harness:False"
+   ]
+  ]
+ },
+ "reference": "reference set",
+ "ok": true
+}

@@ -1,0 +1,13 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 3,
+ "bash_calls": 5,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'E'\np='index.ts'\ns=open(p).read()\ns=s.replace('''\t/**\n\t * Store the last login method in the database.''','''\t/**\n\t * Called before the last login method cookie is set. Return a falsy value\n\t * to skip setting the cookie (e.g. when the user has not consented).\n\t * If it throws, the cooki",
+  "cd /work && python3 - <<'E'\np='docs/content/docs/plugins/last-login-method.mdx'\ns=open(p).read()\ns=s.replace('''**schema**: `object`\n''','''**beforeStoreCookie**: `(ctx: GenericEndpointContext, lastUsedLoginMethod: string) => Promise<boolean> | boolean`\n\n* Called on every login before the cookie is ",
+  "cd /work/packages/better-auth/src/plugins/last-login-method; cat >> last-login-method.test.ts <<'E'\n\ndescribe(\"last-login-method beforeStoreCookie\", () => {\n\tconst signIn = async (\n\t\tbeforeStoreCookie: (ctx: any, method: string) => any,\n\t) => {\n\t\tconst { client } = await getTestInstance({\n\t\t\tplugins"
+ ],
+ "total": 3,
+ "edit_tool_share": 0.0
+}

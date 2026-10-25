@@ -1,0 +1,29 @@
+{
+ "resolved": true,
+ "patch_applied": true,
+ "f2p": {
+  "tests/otel_integrations/test_google_genai.py::test_span_event_logger_with_circular_reference": "passed"
+ },
+ "p2p": {
+  "tests/otel_integrations/test_google_genai.py::test_instrument_google_genai": "passed",
+  "tests/otel_integrations/test_google_genai.py::test_instrument_google_genai_no_content": "passed",
+  "tests/otel_integrations/test_google_genai.py::test_instrument_google_genai_response_schema": "passed",
+  "tests/otel_integrations/test_google_genai.py::test_missing_opentelemetry_dependency": "passed",
+  "tests/otel_integrations/test_google_genai.py::test_span_event_logger_with_none_parts": "passed"
+ },
+ "f2p_frac": 1.0,
+ "p2p_regressions": 0,
+ "lint_new": 0,
+ "diff_lines": 18,
+ "changed_files": [
+  "logfire/_internal/integrations/google_genai.py"
+ ],
+ "all_results": {
+  "tests/otel_integrations/test_google_genai.py::test_missing_opentelemetry_dependency": "passed",
+  "tests/otel_integrations/test_google_genai.py::test_instrument_google_genai": "passed",
+  "tests/otel_integrations/test_google_genai.py::test_instrument_google_genai_no_content": "passed",
+  "tests/otel_integrations/test_google_genai.py::test_instrument_google_genai_response_schema": "passed",
+  "tests/otel_integrations/test_google_genai.py::test_span_event_logger_with_none_parts": "passed",
+  "tests/otel_integrations/test_google_genai.py::test_span_event_logger_with_circular_reference": "passed"
+ }
+}

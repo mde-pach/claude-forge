@@ -1,0 +1,11 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 1,
+ "bash_calls": 5,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/packages/inngest/src; python3 - <<'E'\np='helpers/consts.ts'\ns=open(p).read()\ns=s.replace('  InngestDevMode = \"INNGEST_DEV\",\\n','  InngestDevMode = \"INNGEST_DEV\",\\n  InngestSessionPropagation = \"INNGEST_SESSION_PROPAGATION\",\\n',1)\nopen(p,'w').write(s)\np='components/Inngest.ts'\ns=open(p).read"
+ ],
+ "total": 1,
+ "edit_tool_share": 0.0
+}

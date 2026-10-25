@@ -1,0 +1,13 @@
+{
+ "edit_tool_calls": 1,
+ "shell_edit_calls": 1,
+ "bash_calls": 9,
+ "edit_files": [
+  "/work/pydantic_ai_slim/pydantic_ai/models/test.py"
+ ],
+ "shell_edit_commands": [
+  "git diff | grep '^[-+]' | grep -v '^+++\\|^---' | sort | uniq -c | sort -rn | head -8; (uv run pytest tests -q --inline-snapshot=fix -p no:cacheprovider > $TMPDIR/out.txt 2>&1; echo done >> $TMPDIR/out.txt) & echo $TMPDIR"
+ ],
+ "total": 2,
+ "edit_tool_share": 0.5
+}

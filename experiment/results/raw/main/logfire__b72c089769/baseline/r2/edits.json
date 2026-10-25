@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 4,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python - <<'E'\ns=open('config.py').read()\ns=s.replace(\"\"\"    if match := PYDANTIC_LOGFIRE_TOKEN_PATTERN.match(token):\n        region = match.group('region')\n\"\"\",\"\"\"    if match := _TOKEN_REGION_PREFIX_PATTERN.match(token):\n        region = match.group('region')\n\"\"\")\ns=s.replace(\"\"\"def get_base_url_f",
+  "cd /work && sed -i 's/import PYDANTIC_LOGFIRE_TOKEN_PATTERN, REGIONS/import REGIONS/' logfire/_internal/config.py && grep -n \"PYDANTIC_LOGFIRE_TOKEN_PATTERN\" logfire/_internal/config.py; python -m pytest tests -q -k \"base_url or variable or token\" -x 2>&1 | tail -3"
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

@@ -1,0 +1,29 @@
+{
+ "resolved": true,
+ "patch_applied": true,
+ "f2p": {
+  "packages/zod/src/v4/classic/tests/default-locale.test.ts::first ZodType construction registers the English default locale": "passed"
+ },
+ "p2p": {
+  "packages/zod/src/v4/classic/tests/default-locale.test.ts::explicit locale set after schema construction overrides default": "passed",
+  "packages/zod/src/v4/classic/tests/default-locale.test.ts::explicit locale set before schema construction is preserved": "passed"
+ },
+ "f2p_frac": 1.0,
+ "p2p_regressions": 0,
+ "lint_new": 0,
+ "diff_lines": 197,
+ "changed_files": [
+  "packages/treeshake/locale.test.ts",
+  "packages/zod/src/v4/classic/external.ts",
+  "packages/zod/src/v4/classic/schemas.ts"
+ ],
+ "all_results": {
+  "packages/treeshake/default-locale.test.ts::a tree-shaken bundle keeps the default English locale": "skipped",
+  "packages/treeshake/default-locale.test.ts::an explicitly configured locale still wins in a tree-shaken bundle": "skipped",
+  "packages/treeshake/default-locale.test.ts::default-locale.test.ts": "failed",
+  "packages/zod/src/v4/classic/tests/default-locale.test.ts::src/v4/classic/tests/default-locale.test.ts": "failed",
+  "packages/zod/src/v4/classic/tests/default-locale.test.ts::first ZodType construction registers the English default locale": "passed",
+  "packages/zod/src/v4/classic/tests/default-locale.test.ts::explicit locale set before schema construction is preserved": "passed",
+  "packages/zod/src/v4/classic/tests/default-locale.test.ts::explicit locale set after schema construction overrides default": "passed"
+ }
+}

@@ -1,0 +1,11 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 1,
+ "bash_calls": 3,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/packages/inngest/src; python3 - <<'E'\np='components/Inngest.ts'\ns=open(p).read()\ns=s.replace('''export const internalLoggerSymbol = Symbol.for(\"inngest.internalLogger\");\n''','''export const internalLoggerSymbol = Symbol.for(\"inngest.internalLogger\");\n\n/**\n * Symbol for accessing whether ses"
+ ],
+ "total": 1,
+ "edit_tool_share": 0.0
+}

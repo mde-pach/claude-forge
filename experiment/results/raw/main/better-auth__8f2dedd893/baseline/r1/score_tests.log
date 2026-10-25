@@ -1,0 +1,38 @@
+$ cd /work
+pk=""
+for t in packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts; do
+  d=$(dirname "$t")
+  while [ "$d" != "." ] && [ "$d" != "/" ] && [ ! -f "$d/package.json" ]; do d=$(dirname "$d"); done
+  [ "$d" = "." ] || [ "$d" = "/" ] || pk="$pk --filter=./$d"
+done
+if [ -n "$pk" ]; then
+  turbo run build $pk --output-logs=errors-only || { echo "[forge-exp] workspace build failed; tests not run"; exit 3; }
+fi
+NO_COLOR=1 vitest run packages/better-auth/src/plugins/mcp/client/mcp-client.test.ts --reporter=default --reporter=junit --outputFile.junit=/tmp/forge-junit-be4740861989.xml
+
+
+   • Packages in scope: better-auth
+   • Running build in 1 packages
+   • Remote caching disabled
+
+
+ Tasks:    8 successful, 8 total
+Cached:    7 cached, 8 total
+  Time:    15.53s 
+
+
+ RUN  v4.1.5 /work
+
+ ✓ |better-auth| src/plugins/mcp/client/mcp-client.test.ts (22 tests) 140ms
+
+ Test Files  1 passed (1)
+      Tests  22 passed (22)
+   Start at  06:32:53
+   Duration  7.24s (transform 4.62s, setup 0ms, import 6.81s, tests 140ms, environment 0ms)
+
+JUNIT report written to /tmp/forge-junit-be4740861989.xml
+• turbo 2.9.14
+(node:1318) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[exit 0 in 24s]

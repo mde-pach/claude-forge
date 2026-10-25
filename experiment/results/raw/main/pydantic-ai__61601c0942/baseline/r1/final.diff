@@ -1,0 +1,44 @@
+diff --git a/pydantic_ai_slim/pydantic_ai/models/huggingface.py b/pydantic_ai_slim/pydantic_ai/models/huggingface.py
+index 5af397c..21e4972 100644
+--- a/pydantic_ai_slim/pydantic_ai/models/huggingface.py
++++ b/pydantic_ai_slim/pydantic_ai/models/huggingface.py
+@@ -35,6 +35,7 @@ from ..messages import (
+     ThinkingPart,
+     ToolCallPart,
+     ToolReturnPart,
++    UserContent,
+     UploadedFile,
+     UserPromptPart,
+     VideoUrl,
+@@ -456,17 +457,20 @@ class HuggingFaceModel(Model[AsyncInferenceClient]):
+     async def _map_user_message(
+         self, message: ModelRequest
+     ) -> AsyncIterable[ChatCompletionInputMessage | ChatCompletionOutputMessage]:
++        tool_file_content: list[UserContent] = []
+         for part in message.parts:
+             if isinstance(part, SystemPromptPart):
+                 yield ChatCompletionInputMessage.parse_obj_as_instance({'role': 'system', 'content': part.content})  # type: ignore
+             elif isinstance(part, UserPromptPart):
+                 yield await self._map_user_prompt(part)
+             elif isinstance(part, ToolReturnPart):
++                tool_text, file_content = part.model_response_str_and_user_content()
++                tool_file_content.extend(file_content)
+                 yield ChatCompletionOutputMessage.parse_obj_as_instance(  # type: ignore
+                     {
+                         'role': 'tool',
+                         'tool_call_id': _guard_tool_call_id(t=part),
+-                        'content': part.model_response_str(),
++                        'content': tool_text,
+                     }
+                 )
+             elif isinstance(part, RetryPromptPart):
+@@ -485,6 +489,9 @@ class HuggingFaceModel(Model[AsyncInferenceClient]):
+             else:
+                 assert_never(part)
+ 
++        if tool_file_content:
++            yield await self._map_user_prompt(UserPromptPart(content=tool_file_content))
++
+     @staticmethod
+     async def _map_user_prompt(part: UserPromptPart) -> ChatCompletionInputMessage:
+         content: str | list[ChatCompletionInputMessage]

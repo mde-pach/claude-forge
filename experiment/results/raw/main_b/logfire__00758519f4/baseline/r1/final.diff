@@ -1,0 +1,57 @@
+diff --git a/logfire/experimental/query_client.py b/logfire/experimental/query_client.py
+index 9209440..273dc7a 100644
+--- a/logfire/experimental/query_client.py
++++ b/logfire/experimental/query_client.py
+@@ -41,6 +41,12 @@ class QueryRequestError(RuntimeError):
+     pass
+ 
+ 
++class UnexpectedResponseError(RuntimeError):
++    """Raised when the server returns an unexpected HTTP status code."""
++
++    pass
++
++
+ class InfoRequestError(RuntimeError):
+     """Raised when the request for read token info fails because of unavailable information."""
+ 
+@@ -196,13 +202,15 @@ class _BaseLogfireQueryClient(Generic[T]):
+         # we assume text/plain if not set.
+         content_type = response.headers.get('content-type', 'text/plain')
+         media_type = content_type.split(';', 1)[0].strip().lower()
+-        if response.status_code == 400:  # pragma: no cover
+-            data = response.json() if media_type == 'application/json' else response.text
+-            raise QueryExecutionError(data)
+-        if response.status_code == 422:  # pragma: no cover
++        if response.status_code == 200:
++            return
++        if response.status_code in (400, 422):
+             data = response.json() if media_type == 'application/json' else response.text
++            if response.status_code == 400:
++                raise QueryExecutionError(data)
+             raise QueryRequestError(data)
+-        assert response.status_code == 200, response.content
++        # Don't try to decode the body: it may be truncated or malformed.
++        raise UnexpectedResponseError(f'Unexpected response status code {response.status_code}: {response.text!r}')
+ 
+ 
+ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
+diff --git a/logfire/query_client.py b/logfire/query_client.py
+index d06b1eb..f812014 100644
+--- a/logfire/query_client.py
++++ b/logfire/query_client.py
+@@ -10,12 +10,14 @@ from .experimental.query_client import (
+     QueryResults,
+     ReadTokenInfo,
+     RowQueryResults,
++    UnexpectedResponseError,
+ )
+ 
+ __all__ = [
+     'QueryExecutionError',
+     'QueryRequestError',
+     'InfoRequestError',
++    'UnexpectedResponseError',
+     'ReadTokenInfo',
+     'ColumnDetails',
+     'ColumnData',

@@ -1,0 +1,54 @@
+{
+ "active": true,
+ "events": {
+  "SessionStart": 2,
+  "UserPromptSubmit": 1,
+  "PreToolUse": 12,
+  "PostToolUse": 8,
+  "Stop": 1
+ },
+ "forge_messages": 4,
+ "blocks": 0,
+ "stop_blocks": 0,
+ "feedback": 2,
+ "nonzero_exit": 0,
+ "by_hook": {
+  "SessionStart:startup": {
+   "runs": 2,
+   "nonzero": 0,
+   "forge_msgs": 3
+  },
+  "UserPromptSubmit": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PreToolUse:Bash": {
+   "runs": 12,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PostToolUse:Bash": {
+   "runs": 8,
+   "nonzero": 0,
+   "forge_msgs": 1
+  },
+  "Stop": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  }
+ },
+ "samples": [
+  {
+   "hook": "SessionStart:startup",
+   "exit": 0,
+   "out": "forge: branch main, 0 changed files\nforge: last commits\n  4da90c6 Add Forge\n  a5ee124 initial\nforge: packs github-actions, python, python/fastapi, python/pydantic, python/pytest, python/sqlalchemy, python/uv\n"
+  },
+  {
+   "hook": "PostToolUse:Bash",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"forge:python/lint\\nlogfire/variables/remote.py:398:45: F821 Undefined name `time`\\nlogfire/variables/remote.py:398:64: F821 Undefined name `_FOLLOWUP_REFRESH_DELAY_SECONDS`\\nlogfire/variables/remote.py:400:87: F821 Undefined name `time`\\nlogfire/variables/remote.py:411:58: F821 Undefined name `time`\"}}\n"
+  }
+ ]
+}

@@ -1,0 +1,165 @@
+diff --git a/.python-version b/.python-version
+deleted file mode 100644
+index e4fba21..0000000
+--- a/.python-version
++++ /dev/null
+@@ -1 +0,0 @@
+-3.12
+diff --git a/examples/tasks/.envrc b/examples/tasks/.envrc
+deleted file mode 100644
+index 87a7dfe..0000000
+--- a/examples/tasks/.envrc
++++ /dev/null
+@@ -1,10 +0,0 @@
+-# FastMCP Tasks Example Environment Configuration
+-# This file is loaded by direnv (https://direnv.net/) when you cd into this directory
+-# Run `direnv allow` to enable automatic environment loading
+-
+-# Configure Docket backend URL
+-# Use Redis backend (requires docker-compose up)
+-export FASTMCP_DOCKET_URL=redis://localhost:24242/0
+-
+-# Or uncomment to use memory:// for single-process testing
+-# export FASTMCP_DOCKET_URL=memory://
+diff --git a/fastmcp_slim/fastmcp/server/caching.py b/fastmcp_slim/fastmcp/server/caching.py
+new file mode 100644
+index 0000000..aa6649c
+--- /dev/null
++++ b/fastmcp_slim/fastmcp/server/caching.py
+@@ -0,0 +1,33 @@
++"""Server-level cache hints (SEP-2549).
++
++A single `cache_ttl` / `cache_scope` pair configures the same freshness hint
++for every cacheable MCP result a server returns.
++"""
++
++from __future__ import annotations
++
++from typing import Literal
++
++from mcp.server.caching import CacheHint
++from mcp_types.methods import CACHEABLE_METHODS, CacheableMethod
++
++CacheScope = Literal["public", "private"]
++
++
++def build_cache_hints(
++    cache_ttl: int | None, cache_scope: CacheScope | None
++) -> dict[CacheableMethod, CacheHint] | None:
++    """Build the SDK `cache_hints` mapping from a TTL (seconds) and scope.
++
++    Returns `None` when neither argument is given. Raises `ValueError` if the
++    TTL is not positive or a scope is given without a TTL.
++    """
++    if cache_ttl is None:
++        if cache_scope is not None:
++            raise ValueError("cache_scope requires cache_ttl to be set")
++        return None
++    if cache_ttl <= 0:
++        raise ValueError(f"cache_ttl must be a positive integer, got {cache_ttl}")
++
++    hint = CacheHint(ttl_ms=cache_ttl * 1000, scope=cache_scope or "private")
++    return dict.fromkeys(CACHEABLE_METHODS, hint)
+diff --git a/fastmcp_slim/fastmcp/server/server.py b/fastmcp_slim/fastmcp/server/server.py
+index 7f30073..d7770a5 100644
+--- a/fastmcp_slim/fastmcp/server/server.py
++++ b/fastmcp_slim/fastmcp/server/server.py
+@@ -59,6 +59,7 @@ from fastmcp.prompts.function_prompt import FunctionPrompt
+ from fastmcp.resources.base import Resource, ResourceResult
+ from fastmcp.resources.template import ResourceTemplate
+ from fastmcp.server.auth import AuthCheck, AuthContext, AuthProvider, run_auth_checks
++from fastmcp.server.caching import CacheScope, build_cache_hints
+ from fastmcp.server.lifespan import Lifespan
+ from fastmcp.server.low_level import LowLevelServer
+ from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
+@@ -335,9 +336,12 @@ class FastMCP(
+         sampling_handler_behavior: Literal["always", "fallback"] | None = None,
+         client_log_level: mcp_types.LoggingLevel | None = None,
+         experimental_capabilities: dict[str, dict[str, Any]] | None = None,
++        cache_ttl: int | None = None,
++        cache_scope: CacheScope | None = None,
+         **kwargs: Any,
+     ):
+         _check_removed_kwargs(kwargs)
++        cache_hints = build_cache_hints(cache_ttl, cache_scope)
+ 
+         # Initialize Provider (sets up _transforms)
+         super().__init__()
+@@ -415,6 +419,7 @@ class FastMCP(
+             website_url=website_url,
+             icons=icons,
+             lifespan=_lifespan_proxy(fastmcp_server=self),
++            cache_hints=cache_hints,
+         )
+ 
+         self.auth: AuthProvider | None = auth
+diff --git a/tests/server/test_cache_hints.py b/tests/server/test_cache_hints.py
+new file mode 100644
+index 0000000..279e269
+--- /dev/null
++++ b/tests/server/test_cache_hints.py
+@@ -0,0 +1,64 @@
++import pytest
++from mcp_types.methods import CACHEABLE_METHODS
++
++from fastmcp import Client, FastMCP
++from fastmcp.server.caching import build_cache_hints
++
++
++def test_build_cache_hints_none():
++    assert build_cache_hints(None, None) is None
++
++
++def test_build_cache_hints_default_scope():
++    hints = build_cache_hints(60, None)
++    assert hints is not None
++    assert set(hints) == set(CACHEABLE_METHODS)
++    assert all(h.ttl_ms == 60000 and h.scope == "private" for h in hints.values())
++
++
++@pytest.mark.parametrize("ttl", [0, -1])
++def test_non_positive_ttl(ttl: int):
++    with pytest.raises(ValueError, match="cache_ttl must be a positive integer"):
++        FastMCP("x", cache_ttl=ttl)
++
++
++def test_scope_without_ttl():
++    with pytest.raises(ValueError, match="cache_scope requires cache_ttl"):
++        FastMCP("x", cache_scope="public")
++
++
++async def test_hints_on_wire():
++    mcp = FastMCP("x", cache_ttl=60, cache_scope="public")
++    async with Client(mcp, mode="2026-07-28") as client:
++        result = await client.session.list_tools()
++        assert result.ttl_ms == 60000
++        assert result.cache_scope == "public"
++
++
++async def test_no_hint_when_unset():
++    mcp = FastMCP("x")
++    async with Client(mcp, mode="2026-07-28") as client:
++        result = await client.session.list_tools()
++        assert not result.ttl_ms
++
++
++async def test_client_cache_serves_second_list(monkeypatch: pytest.MonkeyPatch):
++    mcp = FastMCP("x", cache_ttl=60)
++    calls = 0
++
++    @mcp.tool
++    def hello() -> str:
++        return "hi"
++
++    async with Client(mcp, mode="2026-07-28", cache=True) as client:
++        original = client.session.list_tools
++
++        async def counting(*a, **kw):
++            nonlocal calls
++            calls += 1
++            return await original(*a, **kw)
++
++        monkeypatch.setattr(client.session, "list_tools", counting)
++        await client.list_tools()
++        await client.list_tools()
++    assert calls == 1

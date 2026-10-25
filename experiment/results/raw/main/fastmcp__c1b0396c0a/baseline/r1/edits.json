@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 3,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python - <<'E'\np='fastmcp_slim/fastmcp/server/auth/ssrf.py'\ns=open(p).read()\na=s.index(\"    # IPv6-specific checks\")\nb=s.index(\"    return True\\n\",a)\nnew='''    if isinstance(ip, ipaddress.IPv6Address):\n        return all(is_ip_allowed(str(v4)) for v4 in _embedded_ipv4_candidates(ip))\n\n'''\ns=s[:a]+n",
+  "cat >> tests/server/auth/test_ssrf_protection.py <<'E'\n\n\n@pytest.mark.parametrize(\n    \"ip\",\n    [\n        \"64:ff9b:1::a9fe:a9fe\",\n        \"64:ff9b:1:a9fe:a9:fe00::\",\n        \"::ffff:0:7f00:1\",\n        \"::0a00:1\",\n        \"::6440:1\",\n        \"2002:a9fe:a9fe::1\",\n        \"2606:4700::5efe:192.168.1.1\""
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

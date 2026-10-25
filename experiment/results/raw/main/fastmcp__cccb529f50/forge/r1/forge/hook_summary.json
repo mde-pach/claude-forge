@@ -1,0 +1,75 @@
+{
+ "active": true,
+ "events": {
+  "SessionStart": 2,
+  "UserPromptSubmit": 1,
+  "PreToolUse": 24,
+  "PostToolUseFailure": 2,
+  "PostToolUse": 14,
+  "Stop": 4
+ },
+ "forge_messages": 8,
+ "blocks": 3,
+ "stop_blocks": 3,
+ "feedback": 2,
+ "nonzero_exit": 0,
+ "by_hook": {
+  "SessionStart:startup": {
+   "runs": 2,
+   "nonzero": 0,
+   "forge_msgs": 4
+  },
+  "UserPromptSubmit": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PreToolUse:Bash": {
+   "runs": 24,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PostToolUseFailure:Bash": {
+   "runs": 2,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PostToolUse:Bash": {
+   "runs": 14,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "Stop": {
+   "runs": 4,
+   "nonzero": 0,
+   "forge_msgs": 4
+  }
+ },
+ "samples": [
+  {
+   "hook": "SessionStart:startup",
+   "exit": 0,
+   "out": "forge: branch main, 0 changed files\nforge: last commits\n  83411d7 Add Forge\n  0a51a84 initial\nforge: packs docker, docker/compose, github-actions, python, python/fastapi, python/pydantic, python/pytest, python/uv\nforge: missing tools (checks using them are skipped): docker\n"
+  },
+  {
+   "hook": "Stop",
+   "exit": 0,
+   "out": "{\"decision\":\"block\",\"reason\":\"forge:python/pytest/no-fewer-asserts tests/server/auth/test_oauth_proxy_redirect_validation.py: 26 -> 25\"}\n"
+  },
+  {
+   "hook": "Stop",
+   "exit": 0,
+   "out": "{\"decision\":\"block\",\"reason\":\"forge:python/pytest/no-test-edits failed\\ntests/server/auth/test_oauth_proxy_redirect_validation.py: test \\\"TestProxyDCRClient > test_default_allows_all\\\" was removed\\nTests that existed before this turn are not edited to make the code pass. Restore them; if one looks wrong, stop and ask the user.\"}\n"
+  },
+  {
+   "hook": "Stop",
+   "exit": 0,
+   "out": "{\"decision\":\"block\",\"reason\":\"forge:python/pytest/run failed\\nF....................................................................... [ 66%]\\n.....................................                                    [100%]\\n=================================== FAILURES ===================================\\n__________________ TestProxyDCRClient.test_default_allows_all __________________\\n\\nself = <tests.server.auth.test_oauth_proxy_redirect_validation.TestProxyDCRClient object at 0x7f63bad1cc80>\\n\\n    def test_default_allows_all(self):\\n        \\\"\\\"\\\"Test that default configuration allows all UR"
+  },
+  {
+   "hook": "Stop",
+   "exit": 0,
+   "out": "{\"systemMessage\":\"forge: check failed 3 times. Handing over to you.\"}\n"
+  }
+ ]
+}

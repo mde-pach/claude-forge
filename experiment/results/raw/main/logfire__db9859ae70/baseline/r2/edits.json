@@ -1,0 +1,14 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 4,
+ "bash_calls": 6,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/logfire/_internal/exporters; python - <<'E'\ns=open('otlp.py').read()\ns=s.replace(\"\"\"                self._add_task(data, url, kwargs)\n                raise\n\n            time.sleep(1)\"\"\",\"\"\"                self._add_task_and_raise(data, url, kwargs)\n\n            time.sleep(1)\"\"\")\ns=s.replace",
+  "cd /work/logfire/_internal/exporters; sed -i 's/^from .wrapper import WrapperMetricExporter/from .otlp import SuppressedConnectionError\\nfrom .wrapper import WrapperMetricExporter/' quiet_metrics.py; cd /work; uv run pytest tests -q -x -k \"otlp or retry or exporter or metrics\" 2>&1 | tail -8",
+  "cd /work; sed -i '92s/requests.exceptions.ConnectionError/SuppressedConnectionError/' tests/exporters/test_otlp_session.py; grep -n \"otlp import\" -A8 tests/exporters/test_otlp_session.py | head -12",
+  "cd /work; sed -i '24a\\    SuppressedConnectionError,' tests/exporters/test_otlp_session.py; uv run pytest tests -q -k \"otlp or retry or exporter or metrics\" 2>&1 | tail -8; uv run ruff check logfire tests/exporters; uv run pyright logfire/_internal/exporters 2>&1 | tail -3"
+ ],
+ "total": 4,
+ "edit_tool_share": 0.0
+}

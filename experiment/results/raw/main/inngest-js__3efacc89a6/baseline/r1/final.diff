@@ -1,0 +1,428 @@
+diff --git a/packages/inngest/src/components/InngestSandbox.test.ts b/packages/inngest/src/components/InngestSandbox.test.ts
+index 3e8dc63..23a9854 100644
+--- a/packages/inngest/src/components/InngestSandbox.test.ts
++++ b/packages/inngest/src/components/InngestSandbox.test.ts
+@@ -63,6 +63,12 @@ const resultForOperation = (
+   switch (operation.action) {
+     case "create":
+       return { protocolVersion: 1, action: "create", sandbox: sandboxRef };
++    case "waitUntilRunning":
++      return {
++        protocolVersion: 1,
++        action: "waitUntilRunning",
++        sandbox: { ...sandboxRef, status: "RUNNING" },
++      };
+     case "list":
+       return {
+         protocolVersion: 1,
+diff --git a/packages/inngest/src/components/InngestSandbox.ts b/packages/inngest/src/components/InngestSandbox.ts
+index 297bcc4..e303c44 100644
+--- a/packages/inngest/src/components/InngestSandbox.ts
++++ b/packages/inngest/src/components/InngestSandbox.ts
+@@ -62,6 +62,7 @@ export type {
+   SandboxResource,
+   SandboxResources,
+   SandboxStatus,
++  SandboxWaitUntilRunningOptions,
+ } from "./sandbox/types.ts";
+ export {
+   SandboxError,
+diff --git a/packages/inngest/src/components/sandbox/client.ts b/packages/inngest/src/components/sandbox/client.ts
+index 7585cf9..b59ced8 100644
+--- a/packages/inngest/src/components/sandbox/client.ts
++++ b/packages/inngest/src/components/sandbox/client.ts
+@@ -11,6 +11,7 @@ import {
+   type SandboxFileUploadResult,
+   type SandboxOutputChunk,
+   type SandboxProcess,
++  type SandboxRef,
+   SandboxValidationError,
+ } from "./types.ts";
+ import {
+@@ -27,6 +28,7 @@ import {
+   normalizeSandboxProcessSignalOptions,
+   normalizeSandboxProcessStartOptions,
+   normalizeSandboxProcessWaitOptions,
++  normalizeSandboxWaitUntilRunningOptions,
+   parseWithSchema,
+   restOutputChunkSchema,
+   sandboxProcessRefFromResource,
+@@ -125,6 +127,7 @@ const waitProcessSchema = z
+ const safeReadActions = new Set<SandboxAction>([
+   "list",
+   "get",
++  "waitUntilRunning",
+   "process.list",
+   "process.get",
+   "process.wait",
+@@ -524,6 +527,70 @@ const createDirectProcessFacade = (
+   return Object.freeze(facade);
+ };
+ 
++const sandboxPollIntervalMs = 1_000;
++const sleep = (ms: number) =>
++  new Promise<void>((resolve) => setTimeout(resolve, ms));
++
++/**
++ * Poll Get until the sandbox is RUNNING, fails, or the deadline passes.
++ * Never re-sends Create.
++ */
++const waitForRunning = async (
++  transport: SandboxRestTransport,
++  initial: SandboxRef,
++  timeoutMs: number,
++  action: "create" | "waitUntilRunning",
++): Promise<SandboxRef> => {
++  const deadline = Date.now() + timeoutMs;
++  let current = initial;
++  for (;;) {
++    if (current.status === "RUNNING") {
++      return current;
++    }
++    if (current.status !== "PENDING" && current.status !== "STARTING") {
++      throw new SandboxError({
++        action,
++        code: "sandbox_start_failed",
++        message: `Sandbox entered ${current.status} before reaching RUNNING`,
++        sandboxId: current.id,
++        retryable: false,
++        details: [
++          {
++            status: current.status,
++            ...(current.error !== undefined && { error: current.error }),
++          },
++        ],
++      });
++    }
++    const remaining = deadline - Date.now();
++    if (remaining <= 0) {
++      throw new SandboxError({
++        action,
++        code: "sandbox_start_timed_out",
++        message: `Sandbox did not reach RUNNING within ${timeoutMs} milliseconds`,
++        sandboxId: current.id,
++        retryable: false,
++        details: [{ status: current.status, timeoutMs }],
++      });
++    }
++    await sleep(Math.min(sandboxPollIntervalMs, remaining));
++    try {
++      const { envelope } = await transport.json(
++        "get",
++        "GET",
++        `/v2/sandboxes/${encodeURIComponent(current.id)}`,
++        { statuses: [200], sandboxId: current.id },
++      );
++      current = sandboxRefFromResource(envelope?.data);
++    } catch (error) {
++      if (error instanceof SandboxError && error.retryable) {
++        continue;
++      }
++      throw error;
++    }
++  }
++};
++
+ const createDirectSandboxFacade = (
+   rawRef: unknown,
+   transport: SandboxRestTransport,
+@@ -719,6 +786,19 @@ const createDirectSandboxFacade = (
+         }
+       },
+     }),
++    waitUntilRunning: async (options) => {
++      const { timeoutMs } = normalizeSandboxWaitUntilRunningOptions(options);
++      if (ref.status === "RUNNING") {
++        return facade;
++      }
++      const running = await waitForRunning(
++        transport,
++        ref,
++        timeoutMs,
++        "waitUntilRunning",
++      );
++      return createDirectSandboxFacade(running, transport);
++    },
+     destroy: async (): Promise<SandboxDestroyResult> => {
+       const { status, envelope } = await transport.json(
+         "destroy",
+@@ -779,7 +859,8 @@ export const createSandboxClient = (
+   const transport = new SandboxRestTransport(config);
+   const client: SandboxClient = {
+     create: async (options) => {
+-      const body = normalizeSandboxCreateOptions(options);
++      const { runningTimeoutMs, ...body } =
++        normalizeSandboxCreateOptions(options);
+       const { status, envelope } = await transport.json(
+         "create",
+         "POST",
+@@ -795,7 +876,13 @@ export const createSandboxClient = (
+           `Sandbox Create returned HTTP ${status} with status ${sandbox.status}`,
+         );
+       }
+-      return createDirectSandboxFacade(sandbox, transport);
++      if (runningTimeoutMs === undefined) {
++        return createDirectSandboxFacade(sandbox, transport);
++      }
++      return createDirectSandboxFacade(
++        await waitForRunning(transport, sandbox, runningTimeoutMs, "create"),
++        transport,
++      );
+     },
+     list: async (options) => {
+       const normalized = normalizeSandboxListOptions(options);
+diff --git a/packages/inngest/src/components/sandbox/durable.ts b/packages/inngest/src/components/sandbox/durable.ts
+index 7040ee1..101b9f3 100644
+--- a/packages/inngest/src/components/sandbox/durable.ts
++++ b/packages/inngest/src/components/sandbox/durable.ts
+@@ -43,6 +43,7 @@ import {
+   normalizeSandboxProcessSignalOptions,
+   normalizeSandboxProcessStartOptions,
+   normalizeSandboxProcessWaitOptions,
++  normalizeSandboxWaitUntilRunningOptions,
+   parseWithSchema,
+   sandboxProcessRefSchema,
+   sandboxRefSchema,
+@@ -160,7 +161,13 @@ export const executeSandboxOperation = async (
+ 
+   switch (operation.action) {
+     case "create": {
+-      const sandbox = await client.create(operation.input[0]);
++      const { runningTimeoutMs, ...createOptions } = operation.input[0];
++      const sandbox = await client.create({
++        ...createOptions,
++        ...(runningTimeoutMs !== undefined && {
++          runningTimeout: runningTimeoutMs,
++        }),
++      });
+       return {
+         protocolVersion: sandboxProtocolVersion,
+         action: operation.action,
+@@ -185,6 +192,17 @@ export const executeSandboxOperation = async (
+         sandbox: sandbox ? sandboxRefForWire(sandbox) : null,
+       };
+     }
++    case "waitUntilRunning": {
++      const sandbox = await sandboxForOperation(
++        client,
++        operation.target.sandbox,
++      ).waitUntilRunning({ timeout: operation.input[0].timeoutMs });
++      return {
++        protocolVersion: sandboxProtocolVersion,
++        action: operation.action,
++        sandbox: sandboxRefForWire(sandbox),
++      };
++    }
+     case "exec": {
+       const { timeoutMs, ...options } = operation.input[0];
+       const sandbox = sandboxForOperation(client, operation.target.sandbox);
+@@ -505,6 +523,16 @@ export const createDurableSandboxFacade = (
+           : null;
+       },
+     }),
++    waitUntilRunning: async (idOrOptions, options) => {
++      const operation = parseSandboxOperationForAction("waitUntilRunning", {
++        protocolVersion: sandboxProtocolVersion,
++        action: "waitUntilRunning",
++        target: sandboxTarget(ref),
++        input: [normalizeSandboxWaitUntilRunningOptions(options)],
++      });
++      const result = await callRawTool(rawToolResolver, idOrOptions, operation);
++      return createDurableSandboxFacade(result.sandbox, rawToolResolver);
++    },
+     destroy: async (idOrOptions): Promise<SandboxDestroyResult> => {
+       const operation = parseSandboxOperationForAction("destroy", {
+         protocolVersion: sandboxProtocolVersion,
+diff --git a/packages/inngest/src/components/sandbox/protocol.ts b/packages/inngest/src/components/sandbox/protocol.ts
+index 0990baf..68cb6c3 100644
+--- a/packages/inngest/src/components/sandbox/protocol.ts
++++ b/packages/inngest/src/components/sandbox/protocol.ts
+@@ -38,8 +38,12 @@ const createInputSchema = z
+     name: z.string().regex(/^[a-z0-9_-]{1,63}$/),
+     vcpu: z.number().int().positive().max(0xffffffff),
+     memoryMb: z.number().int().positive().max(0xffffffff),
++    runningTimeoutMs: z.number().int().positive().max(300_000).optional(),
+   })
+   .strict();
++const waitUntilRunningInputSchema = z
++  .object({ timeoutMs: z.number().int().positive().max(300_000) })
++  .strict();
+ const listInputSchema = z
+   .object({
+     cursor: z.string().min(1).optional(),
+@@ -132,6 +136,14 @@ export const sandboxOperationSchema = z.discriminatedUnion("action", [
+       input: z.tuple([getInputSchema]),
+     })
+     .strict(),
++  z
++    .object({
++      ...operationBase,
++      action: z.literal("waitUntilRunning"),
++      target: sandboxTargetSchema,
++      input: z.tuple([waitUntilRunningInputSchema]),
++    })
++    .strict(),
+   z
+     .object({
+       ...operationBase,
+@@ -338,6 +350,15 @@ export const sandboxOperationResultSchema = z.discriminatedUnion("action", [
+       sandbox: sandboxRefSchema.nullable(),
+     })
+     .strict(),
++  z
++    .object({
++      ...operationBase,
++      action: z.literal("waitUntilRunning"),
++      sandbox: sandboxRefSchema.refine((s) => s.status === "RUNNING", {
++        message: "sandbox must be RUNNING",
++      }),
++    })
++    .strict(),
+   z
+     .object({
+       ...operationBase,
+@@ -405,6 +426,7 @@ const sandboxErrorPayloadSchema = z
+       "create",
+       "list",
+       "get",
++      "waitUntilRunning",
+       "exec",
+       "destroy",
+       "process.start",
+diff --git a/packages/inngest/src/components/sandbox/types.ts b/packages/inngest/src/components/sandbox/types.ts
+index 2b496f6..1d2bade 100644
+--- a/packages/inngest/src/components/sandbox/types.ts
++++ b/packages/inngest/src/components/sandbox/types.ts
+@@ -45,6 +45,16 @@ export interface SandboxCreateOptions {
+   name: string;
+   vcpu: number;
+   memoryMb: number;
++
++  /**
++   * When set, Create waits (up to this duration, max 5 minutes) for the
++   * sandbox to reach RUNNING before returning. Omitted: return immediately.
++   */
++  runningTimeout?: SandboxDuration;
++}
++
++export interface SandboxWaitUntilRunningOptions {
++  timeout: SandboxDuration;
+ }
+ 
+ export interface SandboxListOptions {
+@@ -196,6 +206,7 @@ export type SandboxAction =
+   | "create"
+   | "list"
+   | "get"
++  | "waitUntilRunning"
+   | "exec"
+   | "destroy"
+   | "process.start"
+@@ -225,6 +236,8 @@ export type SandboxErrorCode =
+   | "sandbox_process_not_found"
+   | "sandbox_process_output_not_retained"
+   | "sandbox_process_wait_timed_out"
++  | "sandbox_start_failed"
++  | "sandbox_start_timed_out"
+   | (string & {});
+ 
+ export type SandboxErrorDetail = Record<string, unknown>;
+@@ -315,6 +328,7 @@ export interface Sandbox {
+     ): Promise<SandboxProcessListResult<SandboxProcess>>;
+     get(processId: string): Promise<SandboxProcess | null>;
+   };
++  waitUntilRunning(options: SandboxWaitUntilRunningOptions): Promise<Sandbox>;
+   destroy(): Promise<SandboxDestroyResult>;
+ }
+ 
+@@ -379,6 +393,10 @@ export interface DurableSandbox {
+       processId: string,
+     ): Promise<DurableSandboxProcess | null>;
+   };
++  waitUntilRunning(
++    idOrOptions: StepOptionsOrId,
++    options: SandboxWaitUntilRunningOptions,
++  ): Promise<DurableSandbox>;
+   destroy(idOrOptions: StepOptionsOrId): Promise<SandboxDestroyResult>;
+ }
+ 
+diff --git a/packages/inngest/src/components/sandbox/validation.ts b/packages/inngest/src/components/sandbox/validation.ts
+index 20cc621..8229b19 100644
+--- a/packages/inngest/src/components/sandbox/validation.ts
++++ b/packages/inngest/src/components/sandbox/validation.ts
+@@ -17,6 +17,7 @@ import {
+   type SandboxProcessWaitOptions,
+   type SandboxRef,
+   SandboxValidationError,
++  type SandboxWaitUntilRunningOptions,
+ } from "./types.ts";
+ 
+ export const maxSandboxProcessTimeoutMs = 5 * 60 * 1_000;
+@@ -271,20 +272,53 @@ export const sandboxProcessRefFromResource = (
+     "sandbox process reference",
+   );
+ 
++export const maxSandboxRunningTimeoutMs = 5 * 60 * 1_000;
++
+ export const normalizeSandboxCreateOptions = (
+   options: SandboxCreateOptions,
+-): SandboxCreateOptions =>
+-  parseWithSchema(
++): Omit<SandboxCreateOptions, "runningTimeout"> & {
++  runningTimeoutMs?: number;
++} => {
++  const { runningTimeout, ...rest } = parseWithSchema(
+     z
+       .object({
+         name: z.string().regex(/^[a-z0-9_-]{1,63}$/),
+         vcpu: z.number().int().positive().max(0xffffffff),
+         memoryMb: z.number().int().positive().max(0xffffffff),
++        runningTimeout: z.unknown().optional(),
+       })
+       .strict(),
+     options,
+     "sandbox create options",
+   );
++  return {
++    ...rest,
++    ...(runningTimeout !== undefined && {
++      runningTimeoutMs: normalizeDurationMs(
++        runningTimeout as SandboxDuration,
++        maxSandboxRunningTimeoutMs,
++        "runningTimeout",
++      ),
++    }),
++  };
++};
++
++export const normalizeSandboxWaitUntilRunningOptions = (
++  options: SandboxWaitUntilRunningOptions,
++): { timeoutMs: number } => {
++  const parsed = parseWithSchema(
++    z.object({ timeout: z.unknown() }).strict(),
++    options,
++    "sandbox waitUntilRunning options",
++  );
++  return {
++    timeoutMs: normalizeDurationMs(
++      parsed.timeout as SandboxDuration,
++      maxSandboxRunningTimeoutMs,
++      "timeout",
++    ),
++  };
++};
+ 
+ export const normalizeSandboxListOptions = (
+   options: SandboxListOptions = {},
+diff --git a/packages/inngest/src/experimental.ts b/packages/inngest/src/experimental.ts
+index 1877511..75eb89f 100644
+--- a/packages/inngest/src/experimental.ts
++++ b/packages/inngest/src/experimental.ts
+@@ -51,6 +51,7 @@ export type {
+   SandboxResource,
+   SandboxResources,
+   SandboxStatus,
++  SandboxWaitUntilRunningOptions,
+ } from "./components/InngestSandbox.ts";
+ export {
+   SandboxError,

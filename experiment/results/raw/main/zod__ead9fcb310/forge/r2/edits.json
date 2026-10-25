@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 7,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'E'\nimport re\ns=open('schemas.ts').read()\ns=s.replace('''function handlePropertyResult(''','''function setOwn(obj: any, key: PropertyKey, value: unknown) {\n  if (key === \"__proto__\") {\n    Object.defineProperty(obj, key, { value, enumerable: true, writable: true, configurable: true });\n ",
+  "cd /work/packages/zod/src/v4/classic/tests && cat >> object.test.ts <<'E'\n\ntest(\"declared __proto__ key is an own data property\", async () => {\n  const input = JSON.parse('{\"__proto__\":{\"isAdmin\":true},\"name\":\"alice\"}');\n  const shape = Object.fromEntries([\n    [\"__proto__\", z.object({ isAdmin: z.bo"
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

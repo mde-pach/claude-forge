@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 3,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cat > utils/request.ts <<'EOF'\n/**\n * Clone a request without ever throwing. If `clone()` fails (e.g. the body is\n * disturbed or locked), a bodyless copy of the request is returned instead.\n */\nexport function safeCloneRequest(request?: Request): Request | undefined {\n\tif (!request) {\n\t\treturn unde",
+  "cat > src/utils/request.test.ts <<'EOF'\nimport { describe, expect, it } from \"vitest\";\nimport { safeCloneRequest } from \"./request\";\n\ndescribe(\"safeCloneRequest\", () => {\n\tit(\"returns undefined without a request\", () => {\n\t\texpect(safeCloneRequest(undefined)).toBeUndefined();\n\t});\n\n\tit(\"falls back t"
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

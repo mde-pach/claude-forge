@@ -1,0 +1,14 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 4,
+ "bash_calls": 11,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/packages/zod/src; python3 - <<'E'\ndef mk(p):\n    return open(p).read()\ns=mk('v4/core/schemas.ts')\ndef r(a,b):\n    global s\n    assert a in s,a\n    s=s.replace(a,b)\nr('''  const okeys = util.optionalKeys(def.shape);\n\n  return {\n    ...def,\n    keys,\n    keySet: new Set(keys),\n    numKeys: ke",
+  "cd /work; python3 - <<'E'\np='packages/zod/src/v4/core/schemas.ts'\ns=open(p).read()\na=s.index('function getProperty'); b=s.index('function isPropertyPresent')\ns=s[:a]+s[b:]\nopen(p,'w').write(s)\nE\npnpm vitest run packages/zod 2>&1 | grep -E \"^ FAIL|Tests \"",
+  "cd /work/packages/zod/src/v4; python3 - <<'E'\nimport re\ndef edit(p,f):\n    s=open(p).read(); s=f(s); open(p,'w').write(s)\n\n# object tests\ndef obj(s):\n    a=s.index('  test(\"strict still accepts a __proto__ key the shape declares\"')\n    b=s.index('  test(\"strictObject and jitless agree')\n    s=s[:a]+",
+  "cd /work/packages/zod/src; cat >> v4/classic/tests/intersection.test.ts <<'E'\n\ntest(\"intersection strips __proto__ when merging\", () => {\n  const a = z.intersection(z.object({ name: z.string() }), z.unknown());\n  expect(a.parse(JSON.parse('{\"__proto__\":{\"isAdmin\":true},\"name\":\"alice\"}'))).toEqual({ "
+ ],
+ "total": 4,
+ "edit_tool_share": 0.0
+}

@@ -1,0 +1,4866 @@
+$ cd /work && NO_COLOR=1 vitest run packages/zod/src/v4/core/tests/treeshake.test.ts --reporter=default --reporter=junit --outputFile.junit=/tmp/forge-junit-fbd9591ddb3e.xml
+
+ RUN  v4.1.5 /work
+
+ ✓ |zod| src/v4/core/tests/treeshake.test.ts (2 tests) 241ms
+ ✓ |zod|  TS  src/v4/core/tests/treeshake.test.ts (2 tests)
+
+ Test Files  2 passed (2)
+      Tests  4 passed (4)
+Type Errors  no errors
+     Errors  967 errors
+   Start at  06:04:15
+   Duration  17.75s (transform 99ms, setup 79ms, import 95ms, tests 241ms, environment 0ms, typecheck 17.03s)
+
+JUNIT report written to /tmp/forge-junit-fbd9591ddb3e.xml
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+⎯⎯⎯⎯⎯⎯ Unhandled Errors ⎯⎯⎯⎯⎯⎯
+
+Vitest caught 967 unhandled errors during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/benchmarks/discriminatedUnion.ts:3:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/benchmarks/object.ts:3:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/benchmarks/primitives.ts:3:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/benchmarks/realworld.ts:3:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/benchmarks/string.ts:3:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/benchmarks/union.ts:3:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/all-errors.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/all-errors.test.ts:22:73
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/all-errors.test.ts:36:108
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/all-errors.test.ts:46:73
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v3/tests/all-errors.test.ts:52:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v3/tests/all-errors.test.ts:55:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v3/tests/all-errors.test.ts:67:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/all-errors.test.ts:81:8
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: 'error' is of type 'unknown'.
+ ❯ packages/zod/src/v3/tests/all-errors.test.ts:94:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'iss' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/all-errors.test.ts:116:27
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/anyunknown.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/anyunknown.test.ts:20:33
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/array.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/array.test.ts:14:45
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/array.test.ts:17:32
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/async-parsing.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'x' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/async-parsing.test.ts:312:31
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'x' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/async-parsing.test.ts:313:29
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'r2' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/async-parsing.test.ts:321:23
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'r2' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/async-parsing.test.ts:337:23
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'r2' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/async-parsing.test.ts:356:23
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/async-refinements.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/async-refinements.test.ts:7:44
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/async-refinements.test.ts:10:38
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/async-refinements.test.ts:15:44
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/async-refinements.test.ts:18:44
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/async-refinements.test.ts:26:38
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/async-refinements.test.ts:30:38
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/async-refinements.test.ts:33:38
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/async-refinements.test.ts:39:44
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/base.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'arg' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/base.test.ts:8:48
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/base.test.ts:18:39
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/bigint.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/branded.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: A computed property name in a type literal must refer to an expression whose type is a literal type or a 'unique symbol' type.
+ ❯ packages/zod/src/v3/tests/branded.test.ts:16:51
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/branded.test.ts:16:87
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: A computed property name in a type literal must refer to an expression whose type is a literal type or a 'unique symbol' type.
+ ❯ packages/zod/src/v3/tests/branded.test.ts:31:45
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/branded.test.ts:31:72
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'false' is not assignable to parameter of type 'true'.
+ ❯ packages/zod/src/v3/tests/branded.test.ts:47:35
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/branded.test.ts:48:38
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v3/tests/branded.test.ts:51:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/catch.test.ts:4:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/catch.test.ts:39:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/catch.test.ts:48:34
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/catch.test.ts:50:33
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/catch.test.ts:62:34
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/catch.test.ts:64:45
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/catch.test.ts:71:34
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/catch.test.ts:73:45
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/catch.test.ts:80:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/catch.test.ts:81:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/catch.test.ts:96:33
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/catch.test.ts:105:36
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/catch.test.ts:107:44
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/catch.test.ts:193:29
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/catch.test.ts:215:36
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/coerce.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/complex.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'arg' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/complex.test.ts:23:45
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/custom.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'x' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/custom.test.ts:7:38
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'x' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/custom.test.ts:13:38
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'x' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/custom.test.ts:21:44
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/date.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/deepmasking.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/default.test.ts:4:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/default.test.ts:14:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/default.test.ts:22:45
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/default.test.ts:24:33
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/default.test.ts:35:45
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/default.test.ts:37:33
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/default.test.ts:44:45
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/default.test.ts:46:45
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/default.test.ts:53:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/default.test.ts:66:33
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/default.test.ts:75:71
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/default.test.ts:77:44
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/description.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/discriminated-unions.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/discriminated-unions.test.ts:157:31
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/discriminated-unions.test.ts:177:31
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/discriminated-unions.test.ts:210:27
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/enum.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/enum.test.ts:17:54
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/enum.test.ts:28:40
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/enum.test.ts:49:68
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/enum.test.ts:50:92
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v3/tests/enum.test.ts:51:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/enum.test.ts:53:58
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/error.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'error' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/error.test.ts:29:34
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/error.test.ts:29:41
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/error.test.ts:55:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/error.test.ts:69:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'x' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/error.test.ts:83:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'x' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/error.test.ts:95:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'x' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/error.test.ts:107:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/error.test.ts:156:40
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'error' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/error.test.ts:161:36
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/error.test.ts:174:6
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/error.test.ts:175:6
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/error.test.ts:217:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/error.test.ts:240:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/error.test.ts:257:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/error.test.ts:259:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/error.test.ts:317:41
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'issue' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/error.test.ts:358:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/error.test.ts:358:21
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/firstparty.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'any' is not assignable to parameter of type 'never'.
+ ❯ packages/zod/src/v3/tests/firstparty.test.ts:85:24
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/firstpartyschematypes.test.ts:4:70
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/function.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/function.test.ts:29:50
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/function.test.ts:65:59
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/function.test.ts:69:72
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/function.test.ts:73:72
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/function.test.ts:96:5
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_x' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/function.test.ts:100:46
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_x' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/function.test.ts:116:47
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_x' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/function.test.ts:128:47
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'arg' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/function.test.ts:146:77
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/function.test.ts:172:36
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/function.test.ts:173:49
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/function.test.ts:174:23
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/function.test.ts:197:36
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/function.test.ts:198:39
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/function.test.ts:199:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'str' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/function.test.ts:219:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_arg' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/function.test.ts:219:22
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_qewr' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/function.test.ts:219:28
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/function.test.ts:240:33
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/function.test.ts:242:40
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/function.test.ts:253:33
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/function.test.ts:254:55
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/function.test.ts:256:40
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/generics.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/generics.test.ts:13:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/generics.test.ts:20:59
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/instanceof.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/instanceof.test.ts:30:54
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'd' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/instanceof.test.ts:34:45
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/intersection.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'x' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/intersection.test.ts:75:27
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/intersection.test.ts:97:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/language-server.source.ts:1:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/literal.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/map.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/map.test.ts:5:30
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/map.test.ts:12:52
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/map.test.ts:91:24
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/nan.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/nativeEnum.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/nativeEnum.test.ts:18:51
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/nativeEnum.test.ts:48:40
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/nullable.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/number.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/object-augmentation.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/object-in-es5-env.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/object.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/object.test.ts:22:53
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/object.test.ts:207:41
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/object.test.ts:215:67
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/object.test.ts:226:108
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/object.test.ts:242:37
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/object.test.ts:248:81
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/object.test.ts:254:56
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/object.test.ts:273:5
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/object.test.ts:281:63
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/object.test.ts:356:59
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/object.test.ts:396:85
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/object.test.ts:397:99
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/object.test.ts:410:89
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/object.test.ts:416:38
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/object.test.ts:419:65
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/optional.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/parser.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/partials.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/partials.test.ts:5:42
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/partials.test.ts:26:38
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/partials.test.ts:50:35
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/partials.test.ts:123:41
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/partials.test.ts:162:40
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v3/tests/partials.test.ts:188:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v3/tests/partials.test.ts:223:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/pickomit.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/pickomit.test.ts:16:52
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v3/tests/pickomit.test.ts:23:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v3/tests/pickomit.test.ts:38:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/pickomit.test.ts:51:61
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v3/tests/pickomit.test.ts:58:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v3/tests/pickomit.test.ts:69:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/pickomit.test.ts:82:70
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v3/tests/pickomit.test.ts:103:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v3/tests/pickomit.test.ts:105:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v3/tests/pickomit.test.ts:107:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v3/tests/pickomit.test.ts:109:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/pipeline.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/pipeline.test.ts:14:23
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'c' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/pipeline.test.ts:22:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/pipeline.test.ts:23:23
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'v' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/pipeline.test.ts:24:30
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/preprocess.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/preprocess.test.ts:8:32
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/preprocess.test.ts:16:38
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/preprocess.test.ts:24:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/preprocess.test.ts:24:25
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/preprocess.test.ts:48:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/preprocess.test.ts:48:25
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: 'err' is of type 'unknown'.
+ ❯ packages/zod/src/v3/tests/preprocess.test.ts:57:12
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/preprocess.test.ts:63:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/preprocess.test.ts:63:25
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: 'err' is of type 'unknown'.
+ ❯ packages/zod/src/v3/tests/preprocess.test.ts:73:12
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/preprocess.test.ts:78:38
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/preprocess.test.ts:78:44
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/preprocess.test.ts:102:24
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/preprocess.test.ts:102:30
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/preprocess.test.ts:127:29
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/preprocess.test.ts:127:34
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/preprocess.test.ts:136:33
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'v' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/preprocess.test.ts:144:32
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/primitive.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/primitive.test.ts:140:74
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/primitive.test.ts:376:66
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/primitive.test.ts:377:62
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/primitive.test.ts:378:65
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/primitive.test.ts:379:66
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/primitive.test.ts:380:59
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/primitive.test.ts:381:59
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/primitive.test.ts:382:59
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/primitive.test.ts:383:61
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/primitive.test.ts:384:55
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/primitive.test.ts:385:59
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/primitive.test.ts:387:55
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/primitive.test.ts:388:65
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/primitive.test.ts:389:79
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/primitive.test.ts:390:74
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/primitive.test.ts:391:79
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/primitive.test.ts:392:74
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/primitive.test.ts:393:79
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/primitive.test.ts:394:74
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/primitive.test.ts:395:81
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/primitive.test.ts:396:76
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/primitive.test.ts:397:75
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/primitive.test.ts:398:70
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/primitive.test.ts:399:79
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/primitive.test.ts:400:74
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/promise.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/promise.test.ts:16:76
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/readonly.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/readonly.test.ts:38:58
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/readonly.test.ts:39:58
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/readonly.test.ts:40:58
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/readonly.test.ts:41:58
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/readonly.test.ts:42:59
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/readonly.test.ts:43:56
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/readonly.test.ts:44:61
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/readonly.test.ts:45:56
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/readonly.test.ts:47:69
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/readonly.test.ts:48:57
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/readonly.test.ts:50:5
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/readonly.test.ts:52:70
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/readonly.test.ts:54:78
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/readonly.test.ts:55:78
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/readonly.test.ts:56:81
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/readonly.test.ts:57:85
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/readonly.test.ts:58:85
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/readonly.test.ts:59:95
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/readonly.test.ts:60:71
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/readonly.test.ts:61:68
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/record.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/record.test.ts:17:60
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/record.test.ts:19:84
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/record.test.ts:21:87
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/recursive.test.ts:4:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/refine.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/refine.test.ts:15:29
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/refine.test.ts:35:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 's' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/refine.test.ts:48:27
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/refine.test.ts:54:40
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/refine.test.ts:56:38
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/refine.test.ts:68:8
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/refine.test.ts:85:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/refine.test.ts:94:44
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/refine.test.ts:94:50
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/refine.test.ts:121:52
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/refine.test.ts:121:57
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/refine.test.ts:150:58
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/refine.test.ts:150:63
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'arg' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/refine.test.ts:186:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/refine.test.ts:186:24
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/refine.test.ts:199:56
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'arg' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/refine.test.ts:216:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'arg' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/refine.test.ts:217:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/refine.test.ts:217:24
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/refine.test.ts:218:53
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'arg' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/refine.test.ts:228:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/refine.test.ts:229:54
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/refine.test.ts:233:61
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Binding element 'length' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/refine.test.ts:249:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Binding element 'size' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/refine.test.ts:253:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/refine.test.ts:275:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/refine.test.ts:275:24
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/refine.test.ts:284:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/refine.test.ts:284:24
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/refine.test.ts:303:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/refine.test.ts:304:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/safeparse.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/safeparse.test.ts:22:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/set.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/set.test.ts:5:30
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/set.test.ts:18:44
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/standard-schema.test.ts:5:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'x' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/standard-schema.test.ts:18:48
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/string.test.ts:5:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/transformer.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'arg' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/transformer.test.ts:7:46
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'n' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/transformer.test.ts:11:57
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/transformer.test.ts:18:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/transformer.test.ts:18:25
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/transformer.test.ts:49:23
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/transformer.test.ts:49:29
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/transformer.test.ts:80:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/transformer.test.ts:80:22
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/transformer.test.ts:88:33
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/transformer.test.ts:98:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'n' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/transformer.test.ts:104:45
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'n' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/transformer.test.ts:115:51
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/transformer.test.ts:180:52
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/transformer.test.ts:181:52
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/transformer.test.ts:185:36
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/transformer.test.ts:188:36
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/transformer.test.ts:193:45
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/transformer.test.ts:203:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/transformer.test.ts:221:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/tuple.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/tuple.test.ts:17:50
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v3/tests/tuple.test.ts:59:48
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/tuple.test.ts:63:34
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/tuple.test.ts:65:34
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/tuple.test.ts:78:56
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/unions.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/validations.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v3/tests/void.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Argument of type 'true' is not assignable to parameter of type 'false'.
+ ❯ packages/zod/src/v3/tests/void.test.ts:14:29
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/anyunknown.test.ts:3:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/apply.test.ts:3:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 's' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/apply.test.ts:11:13
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 's' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/apply.test.ts:12:13
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/array.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/assignability.test.ts:3:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/assignability.test.ts:123:21
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/assignability.test.ts:124:21
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/assignability.test.ts:127:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/assignability.test.ts:128:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'v' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/assignability.test.ts:147:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'v' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/assignability.test.ts:148:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'v' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/assignability.test.ts:149:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'v' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/assignability.test.ts:150:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/async-parsing.test.ts:3:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'x' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/async-parsing.test.ts:300:31
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'x' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/async-parsing.test.ts:301:29
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'r2' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/async-parsing.test.ts:309:23
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'result2' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/async-parsing.test.ts:324:23
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'result2' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/async-parsing.test.ts:349:23
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/async-refinements.test.ts:3:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/async-refinements.test.ts:7:39
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/async-refinements.test.ts:12:39
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/async-refinements.test.ts:16:39
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/async-refinements.test.ts:36:38
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/async-refinements.test.ts:40:38
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/async-refinements.test.ts:43:38
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/async-refinements.test.ts:49:44
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/base.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/bigint.test.ts:3:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/brand.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: A computed property name in a type literal must refer to an expression whose type is a literal type or a 'unique symbol' type.
+ ❯ packages/zod/src/v4/classic/tests/brand.test.ts:29:57
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Expected 1 arguments, but got 0.
+ ❯ packages/zod/src/v4/classic/tests/brand.test.ts:45:32
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/brand.test.ts:49:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/catch.test.ts:2:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/catch.test.ts:36:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/catch.test.ts:79:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/catch.test.ts:80:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/catch.test.ts:220:29
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/catch.test.ts:249:36
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 's' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/catch.test.ts:286:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 's' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/catch.test.ts:295:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 's' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/catch.test.ts:296:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 's' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/catch.test.ts:306:23
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 's' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/catch.test.ts:316:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 's' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/catch.test.ts:323:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/codec-examples.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'str' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec-examples.test.ts:10:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'num' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec-examples.test.ts:11:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'str' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec-examples.test.ts:39:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'num' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec-examples.test.ts:40:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'str' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec-examples.test.ts:68:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'bigint' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec-examples.test.ts:69:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'num' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec-examples.test.ts:97:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'bigint' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec-examples.test.ts:98:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'isoString' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec-examples.test.ts:126:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'date' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec-examples.test.ts:127:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'seconds' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec-examples.test.ts:154:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'date' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec-examples.test.ts:155:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'millis' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec-examples.test.ts:182:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'date' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec-examples.test.ts:183:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'jsonString' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec-examples.test.ts:210:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec-examples.test.ts:210:26
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'value' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec-examples.test.ts:223:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'str' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec-examples.test.ts:250:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'bytes' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec-examples.test.ts:251:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'bytes' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec-examples.test.ts:278:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'str' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec-examples.test.ts:279:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'base64String' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec-examples.test.ts:307:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'bytes' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec-examples.test.ts:308:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'base64urlString' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec-examples.test.ts:335:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'bytes' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec-examples.test.ts:336:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'hexString' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec-examples.test.ts:363:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'bytes' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec-examples.test.ts:364:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'urlString' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec-examples.test.ts:395:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'url' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec-examples.test.ts:396:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'urlString' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec-examples.test.ts:425:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'url' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec-examples.test.ts:426:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'encodedString' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec-examples.test.ts:458:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'decodedString' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec-examples.test.ts:459:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'isoString' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:8:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'date' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:9:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'isoString' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:43:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'date' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:44:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'isoString' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:59:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'date' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:60:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:62:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'isoString' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:87:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'date' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:88:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'str' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:128:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'num' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:129:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'isoString' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:143:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'date' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:144:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'str' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:173:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'num' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:174:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'coord' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:198:22
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'coord' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:207:18
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'waypoint' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:209:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:392:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:393:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:401:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:402:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_payload' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:436:29
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:441:5
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:446:5
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:453:5
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:486:7
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:500:7
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:507:45
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:510:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:511:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:513:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:518:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'str' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:537:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'num' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:541:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'str' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:556:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'num' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:557:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'num' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:609:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'str' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:610:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'isoString' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:624:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'date' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:625:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'isoString' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:668:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'date' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/codec.test.ts:669:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/coerce.test.ts:3:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/continuability.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/custom.test.ts:3:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'x' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/custom.test.ts:6:38
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'x' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/custom.test.ts:12:38
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/custom.test.ts:27:22
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/custom.test.ts:28:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/date.test.ts:3:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/datetime.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/default.test.ts:2:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/default.test.ts:17:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/default.test.ts:78:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/default.test.ts:120:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/default.test.ts:123:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/default.test.ts:128:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/default.test.ts:131:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/default.test.ts:241:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/default.test.ts:244:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/default.test.ts:249:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/default.test.ts:252:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/description.test.ts:3:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/detached-methods.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/discriminated-unions.test.ts:3:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/discriminated-unions.test.ts:22:29
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/discriminated-unions.test.ts:25:45
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/discriminated-unions.test.ts:267:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/discriminated-unions.test.ts:301:27
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/discriminated-unions.test.ts:321:27
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/discriminated-unions.test.ts:365:41
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 's' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/discriminated-unions.test.ts:634:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/enum.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'iss' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/enum.test.ts:104:31
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Expected 1 arguments, but got 0.
+ ❯ packages/zod/src/v4/classic/tests/enum.test.ts:160:49
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/error-utils.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'iss' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/error-utils.test.ts:83:44
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'iss' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/error-utils.test.ts:166:43
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/error-utils.test.ts:225:8
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'iss' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/error-utils.test.ts:261:42
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/error-utils.test.ts:812:62
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/error-utils.test.ts:812:65
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/error-utils.test.ts:824:62
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/error-utils.test.ts:824:65
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/error-utils.test.ts:836:62
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/error-utils.test.ts:836:65
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/error-utils.test.ts:851:36
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/error.test.ts:3:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/error.test.ts:28:24
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'iss' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/error.test.ts:30:15
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'issue' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/error.test.ts:35:34
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/error.test.ts:65:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/error.test.ts:87:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'x' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/error.test.ts:111:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'x' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/error.test.ts:129:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'x' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/error.test.ts:147:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/error.test.ts:207:40
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'issue' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/error.test.ts:212:36
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/error.test.ts:282:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/error.test.ts:302:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/error.test.ts:317:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/error.test.ts:319:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/error.test.ts:336:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/error.test.ts:339:8
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/error.test.ts:382:41
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'o' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/error.test.ts:484:72
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/error.test.ts:607:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/file.test.ts:5:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/firstparty.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4/core' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/firstparty.test.ts:3:28
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Expected 1 arguments, but got 0.
+ ❯ packages/zod/src/v4/classic/tests/firstparty.test.ts:88:25
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Expected 1 arguments, but got 0.
+ ❯ packages/zod/src/v4/classic/tests/firstparty.test.ts:177:26
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/function.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/function.test.ts:19:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/function.test.ts:25:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_x' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/function.test.ts:120:47
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_x' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/function.test.ts:160:47
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/function.test.ts:180:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'args' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/function.test.ts:212:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'args' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/function.test.ts:224:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/function.test.ts:254:38
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/function.test.ts:255:48
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/function.test.ts:257:45
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/function.test.ts:279:44
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/function.test.ts:279:50
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/function.test.ts:332:38
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/function.test.ts:333:38
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/function.test.ts:334:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'str' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/function.test.ts:354:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_arg' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/function.test.ts:354:22
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_qewr' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/function.test.ts:354:28
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/generics.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/generics.test.ts:26:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Expected 1 arguments, but got 0.
+ ❯ packages/zod/src/v4/classic/tests/generics.test.ts:33:33
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/global-config.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4/core' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/global-config.test.ts:3:23
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/hash.test.ts:2:50
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/index.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4/core' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/index.test.ts:3:27
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/index.test.ts:472:18
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/index.test.ts:483:24
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/index.test.ts:493:18
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/index.test.ts:556:34
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/index.test.ts:575:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/index.test.ts:643:23
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/index.test.ts:659:22
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/index.test.ts:682:22
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/index.test.ts:702:39
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Binding element 'value' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/index.test.ts:707:32
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Binding element 'issues' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/index.test.ts:707:39
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/index.test.ts:730:15
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/index.test.ts:731:15
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/index.test.ts:777:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/index.test.ts:915:21
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/index.test.ts:916:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/instanceof.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'd' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/instanceof.test.ts:31:45
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4/core' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/intersection.test.ts:2:27
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/intersection.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'x' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/intersection.test.ts:123:27
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/intersection.test.ts:137:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/intersection.test.ts:151:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/intersection.test.ts:161:35
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/intersection.test.ts:164:35
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/intersection.test.ts:177:37
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/jitless-allows-eval.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4/core' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/jitless-allows-eval.test.ts:3:23
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/lazy.test.ts:3:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/literal.test.ts:3:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/locales_ka.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/locales_ro.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/map.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/map.test.ts:205:24
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/nan.test.ts:3:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/nested-refine.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'value' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/nested-refine.test.ts:13:22
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/nested-refine.test.ts:18:12
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/nested-refine.test.ts:28:8
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/nonoptional.test.ts:2:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/nullable.test.ts:3:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/number.test.ts:3:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'iss' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/number.test.ts:323:31
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'iss' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/number.test.ts:324:31
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/object.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4/core' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/object.test.ts:3:23
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Type '"prop" | "opt" | "arr"' does not satisfy the constraint '"Expected literal string prop, Actual string" | "Expected literal string prop, Actual number" | "Expected literal string prop, Actual ..." | "Expected literal string opt, Actual string" | ... 4 more ... | "Expected literal string arr, Actual ..."'.
+  Type '"prop"' is not assignable to type '"Expected literal string prop, Actual string" | "Expected literal string prop, Actual number" | "Expected literal string prop, Actual ..." | "Expected literal string opt, Actual string" | ... 4 more ... | "Expected literal string arr, Actual ..."'.
+ ❯ packages/zod/src/v4/classic/tests/object.test.ts:379:47
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/object.test.ts:415:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/object.test.ts:431:51
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Type '"firstName" | "lastName" | "nickName"' does not satisfy the constraint '"Expected literal string firstName, Actual string" | "Expected literal string firstName, Actual number" | "Expected literal string firstName, Actual ..." | ... 5 more ... | "Expected literal string nickName, Actual ..."'.
+  Type '"firstName"' is not assignable to type '"Expected literal string firstName, Actual string" | "Expected literal string firstName, Actual number" | "Expected literal string firstName, Actual ..." | ... 5 more ... | "Expected literal string nickName, Actual ..."'.
+ ❯ packages/zod/src/v4/classic/tests/object.test.ts:452:58
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/object.test.ts:490:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/object.test.ts:613:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/object.test.ts:615:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/object.test.ts:617:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/object.test.ts:619:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/object.test.ts:651:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/optional.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/optional.test.ts:72:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/optional.test.ts:85:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/optional.test.ts:98:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/optional.test.ts:102:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/optional.test.ts:129:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/optional.test.ts:173:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'v' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/optional.test.ts:298:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/partial.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/partial.test.ts:102:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/partial.test.ts:137:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Binding element 'value' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/partial.test.ts:323:15
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/partial.test.ts:372:49
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/partial.test.ts:372:54
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/partial.test.ts:391:44
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/partial.test.ts:404:49
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/partial.test.ts:404:54
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/partial.test.ts:434:44
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/pickomit.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/pickomit.test.ts:20:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/pickomit.test.ts:35:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/pickomit.test.ts:65:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/pickomit.test.ts:76:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/pickomit.test.ts:118:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/pickomit.test.ts:120:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/pickomit.test.ts:122:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/pickomit.test.ts:124:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/pickomit.test.ts:128:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/pickomit.test.ts:130:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/pickomit.test.ts:132:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/pickomit.test.ts:134:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/pickomit.test.ts:145:49
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/pickomit.test.ts:145:54
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/pickomit.test.ts:167:49
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/pickomit.test.ts:167:54
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/pickomit.test.ts:188:44
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/pickomit.test.ts:204:44
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/pipe.test.ts:3:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/pipe.test.ts:13:23
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'v' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/pipe.test.ts:21:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'c' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/pipe.test.ts:35:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/pipe.test.ts:36:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'c' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/pipe.test.ts:37:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'c' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/pipe.test.ts:58:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/pipe.test.ts:59:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'c' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/pipe.test.ts:60:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/pipe.test.ts:97:40
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/prefault.test.ts:2:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/preprocess-types.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'v' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/preprocess-types.test.ts:5:29
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'v' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/preprocess-types.test.ts:13:40
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'v' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/preprocess-types.test.ts:17:34
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'v' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/preprocess-types.test.ts:23:29
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/preprocess.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/preprocess.test.ts:5:32
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/preprocess.test.ts:12:38
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/preprocess.test.ts:28:32
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/preprocess.test.ts:28:35
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/preprocess.test.ts:48:27
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/preprocess.test.ts:48:33
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/preprocess.test.ts:77:32
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/preprocess.test.ts:77:38
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/preprocess.test.ts:103:32
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/preprocess.test.ts:103:38
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/preprocess.test.ts:134:38
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/preprocess.test.ts:134:44
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/preprocess.test.ts:161:29
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/preprocess.test.ts:161:34
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'v' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/preprocess.test.ts:191:32
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/preprocess.test.ts:267:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/preprocess.test.ts:269:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/preprocess.test.ts:271:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'v' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/preprocess.test.ts:285:46
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'v' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/preprocess.test.ts:293:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'v' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/preprocess.test.ts:299:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'v' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/preprocess.test.ts:303:38
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'v' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/preprocess.test.ts:306:24
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'v' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/preprocess.test.ts:311:45
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'v' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/preprocess.test.ts:312:45
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'v' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/preprocess.test.ts:325:32
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'v' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/preprocess.test.ts:332:31
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/primitive.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/promise.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/prototypes.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Invalid module name in augmentation, module 'zod/v4' cannot be found.
+ ❯ packages/zod/src/v4/classic/tests/prototypes.test.ts:4:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/readonly.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/record.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'k' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/record.test.ts:283:38
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'k' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/record.test.ts:292:35
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'k' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/record.test.ts:308:35
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 's' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/record.test.ts:416:31
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'n' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/record.test.ts:727:27
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/recursive-types.test.ts:2:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/recursive-types.test.ts:507:13
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'sub' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/recursive-types.test.ts:511:42
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'index' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/recursive-types.test.ts:511:47
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/redos.test.ts:3:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:11:31
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:25:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:62:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:86:10
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:114:21
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:114:26
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:123:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:136:21
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:136:26
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:145:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:158:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:159:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:173:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:185:54
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:185:59
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:222:60
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:222:65
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:259:21
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:259:24
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:285:21
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:285:24
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:304:52
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:304:55
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:329:44
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:329:47
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:344:21
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:344:26
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:354:21
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:354:26
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Binding element 'length' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:380:18
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Binding element 'size' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:384:18
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:425:8
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:425:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Binding element 'value' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:434:18
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:457:8
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:457:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Binding element 'value' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:466:18
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 's' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:484:39
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 's' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:491:39
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:534:8
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'payload' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:543:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'iss' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/refine.test.ts:547:40
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/registries.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/registries.test.ts:54:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/registries.test.ts:56:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/registries.test.ts:97:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/registries.test.ts:107:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/registries.test.ts:116:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/registries.test.ts:126:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'arg' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/registries.test.ts:178:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_test' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/registries.test.ts:178:22
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/registries.test.ts:191:42
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'arg' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/registries.test.ts:193:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_test' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/registries.test.ts:193:22
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/set.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/standard-schema.test.ts:3:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/standard-schema.test.ts:33:43
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/standard-schema.test.ts:50:43
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'str' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/standard-schema.test.ts:61:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'num' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/standard-schema.test.ts:62:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'str' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/standard-schema.test.ts:86:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'num' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/standard-schema.test.ts:87:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'str' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/standard-schema.test.ts:112:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'num' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/standard-schema.test.ts:113:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/string-formats.test.ts:3:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/string-formats.test.ts:37:34
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/string-formats.test.ts:40:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/string-formats.test.ts:79:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/string.test.ts:4:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/stringbool.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/template-literal.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/template-literal.test.ts:181:5
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/template-literal.test.ts:185:5
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/template-literal.test.ts:189:5
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/template-literal.test.ts:192:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/template-literal.test.ts:200:7
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/template-literal.test.ts:205:5
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/template-literal.test.ts:209:5
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/template-literal.test.ts:213:5
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/template-literal.test.ts:217:5
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/template-literal.test.ts:221:5
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/template-literal.test.ts:225:5
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/template-literal.test.ts:229:5
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/template-literal.test.ts:233:5
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/template-literal.test.ts:237:5
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/template-literal.test.ts:241:5
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/template-literal.test.ts:245:5
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/template-literal.test.ts:249:5
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/template-literal.test.ts:253:5
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/template-literal.test.ts:258:5
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/template-literal.test.ts:261:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/template-literal.test.ts:264:5
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/template-literal.test.ts:268:5
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/classic/tests/template-literal.test.ts:272:5
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/to-json-schema-methods.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/to-json-schema-methods.test.ts:360:23
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/to-json-schema-methods.test.ts:367:31
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/to-json-schema.test.ts:3:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/to-json-schema.test.ts:312:51
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/to-json-schema.test.ts:326:50
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/to-json-schema.test.ts:1257:18
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/to-json-schema.test.ts:1415:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/to-json-schema.test.ts:1490:18
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/to-json-schema.test.ts:1846:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'str' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/to-json-schema.test.ts:1866:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/to-json-schema.test.ts:1874:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/to-json-schema.test.ts:1885:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/to-json-schema.test.ts:1904:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/to-json-schema.test.ts:1934:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/to-json-schema.test.ts:1957:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Binding element 'jsonSchema' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/to-json-schema.test.ts:2208:18
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'id' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/to-json-schema.test.ts:2487:11
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/to-json-schema.test.ts:2587:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/to-json-schema.test.ts:2894:27
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 's' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/to-json-schema.test.ts:2906:47
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'n' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/to-json-schema.test.ts:2906:73
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/transform.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/transform.test.ts:6:40
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/transform.test.ts:6:46
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/transform.test.ts:35:23
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/transform.test.ts:35:29
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/transform.test.ts:66:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/transform.test.ts:66:22
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/transform.test.ts:88:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'n' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/transform.test.ts:94:45
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'n' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/transform.test.ts:105:51
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'n' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/transform.test.ts:116:59
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'arg' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/transform.test.ts:164:48
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/transform.test.ts:178:36
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/transform.test.ts:181:36
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'arg' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/transform.test.ts:186:48
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/transform.test.ts:188:45
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/transform.test.ts:198:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/transform.test.ts:223:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/transform.test.ts:255:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/transform.test.ts:255:22
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/transform.test.ts:287:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/transform.test.ts:287:22
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/transform.test.ts:321:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/transform.test.ts:321:22
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/transform.test.ts:357:40
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/transform.test.ts:364:31
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/transform.test.ts:364:36
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/tuple.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 's' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/tuple.test.ts:292:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 's' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/tuple.test.ts:317:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/union.test.ts:3:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'data' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/classic/tests/union.test.ts:110:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Expected 1 arguments, but got 0.
+ ❯ packages/zod/src/v4/classic/tests/union.test.ts:223:42
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Expected 1 arguments, but got 0.
+ ❯ packages/zod/src/v4/classic/tests/union.test.ts:242:42
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/url.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/validations.test.ts:3:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/classic/tests/void.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/core/tests/extend.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v3' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/core/tests/index.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/core/tests/locales/tr.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/core/tests/locales/uz.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/core/tests/record-constructor.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/core/tests/recursive-tuples.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/mini' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/mini/tests/assignability.test.ts:3:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/assignability.test.ts:92:21
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/assignability.test.ts:95:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/locales' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/mini/tests/codec.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/mini' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/mini/tests/codec.test.ts:3:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'isoString' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/codec.test.ts:11:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'date' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/codec.test.ts:12:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'isoString' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/codec.test.ts:46:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'date' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/codec.test.ts:47:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'isoString' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/codec.test.ts:62:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'date' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/codec.test.ts:63:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/codec.test.ts:65:22
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'isoString' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/codec.test.ts:90:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'date' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/codec.test.ts:91:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'str' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/codec.test.ts:131:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'num' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/codec.test.ts:132:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'isoString' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/codec.test.ts:146:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'date' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/codec.test.ts:147:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'str' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/codec.test.ts:176:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'num' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/codec.test.ts:177:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'coord' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/codec.test.ts:201:30
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'coord' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/codec.test.ts:210:26
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'waypoint' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/codec.test.ts:213:17
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/codec.test.ts:397:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/codec.test.ts:398:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_payload' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/codec.test.ts:431:29
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/mini/tests/codec.test.ts:436:5
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/mini/tests/codec.test.ts:441:5
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/mini/tests/codec.test.ts:448:5
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'str' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/codec.test.ts:456:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'num' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/codec.test.ts:460:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'str' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/codec.test.ts:475:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'num' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/codec.test.ts:476:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/mini/tests/codec.test.ts:511:7
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/mini/tests/codec.test.ts:525:7
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/mini' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/mini/tests/computed.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4/core' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/mini/tests/computed.test.ts:3:28
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/mini' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/mini/tests/error.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/mini' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/mini/tests/index.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/v4/core' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/mini/tests/index.test.ts:3:27
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/mini/tests/index.test.ts:251:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/index.test.ts:498:18
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/index.test.ts:509:24
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/index.test.ts:519:18
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/index.test.ts:582:34
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/index.test.ts:601:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/index.test.ts:669:23
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/index.test.ts:675:40
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/index.test.ts:685:22
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'ctx' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/index.test.ts:708:22
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/index.test.ts:728:39
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Binding element 'value' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/index.test.ts:733:32
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Binding element 'issues' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/index.test.ts:733:39
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/index.test.ts:756:15
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/index.test.ts:757:15
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/mini/tests/index.test.ts:803:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'v' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/index.test.ts:918:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/index.test.ts:956:21
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/index.test.ts:957:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/mini' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/mini/tests/number.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter '_' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/number.test.ts:16:46
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/mini' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/mini/tests/object.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Binding element 'value' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/object.test.ts:49:14
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/mini/tests/object.test.ts:124:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/mini/tests/object.test.ts:178:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/mini/tests/object.test.ts:180:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/mini/tests/object.test.ts:182:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/mini/tests/object.test.ts:184:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/mini/tests/object.test.ts:188:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/mini/tests/object.test.ts:190:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/mini/tests/object.test.ts:192:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/zod/src/v4/mini/tests/object.test.ts:194:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/mini' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/mini/tests/prototypes.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Invalid module name in augmentation, module 'zod/v4/core' cannot be found.
+ ❯ packages/zod/src/v4/mini/tests/prototypes.test.ts:4:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Invalid module name in augmentation, module 'zod/v4/mini' cannot be found.
+ ❯ packages/zod/src/v4/mini/tests/prototypes.test.ts:25:16
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/mini' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/mini/tests/recursive-types.test.ts:2:19
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Cannot find module 'zod/mini' or its corresponding type declarations.
+ ❯ packages/zod/src/v4/mini/tests/string.test.ts:2:20
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/string.test.ts:27:40
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/string.test.ts:30:40
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/string.test.ts:33:40
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/string.test.ts:36:40
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'val' implicitly has an 'any' type.
+ ❯ packages/zod/src/v4/mini/tests/string.test.ts:43:46
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+
+
+[exit 1 in 19s]

@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 4,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/pydantic_ai_slim/pydantic_ai/models; python - <<'E'\ns=open('huggingface.py').read()\ns=s.replace(\"\"\"        for part in message.parts:\n            if isinstance(part, SystemPromptPart):\n                yield ChatCompletionInputMessage.parse\"\"\",\"\"\"        tool_file_content: list[UserContent] ",
+  "cd /work/pydantic_ai_slim/pydantic_ai/models; sed -i 's/^    ToolReturnPart,$/    ToolReturnPart,\\n    UserContent,/' huggingface.py; sed -i '0,/^    UserContent,\\n/!b' huggingface.py; cd /work; uv run pyright pydantic_ai_slim/pydantic_ai/models/huggingface.py 2>&1 | tail -5; uv run pytest tests/mod"
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

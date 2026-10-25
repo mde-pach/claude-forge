@@ -1,0 +1,11 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 1,
+ "bash_calls": 3,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'E'\nimport re\np='better-auth/src/plugins/organization/types.ts'\ns=open(p).read()\nfor n in ('before','after'):\n    s=s.replace(f\"\"\"{n}DeleteOrganization?: (data: {{\n\t\t\t\t\torganization: Organization & Record<string, any>;\n\t\t\t\t\tuser: User & Record<string, any>;\n\t\t\t\t}}) => Promise<void>;\"\"\",f"
+ ],
+ "total": 1,
+ "edit_tool_share": 0.0
+}

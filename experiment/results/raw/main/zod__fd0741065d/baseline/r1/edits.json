@@ -1,0 +1,14 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 4,
+ "bash_calls": 7,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'E'\nimport re\np='json-schema-processors.ts'\ns=open(p).read()\n# generic pattern: if (ctx.unrepresentable === \"throw\") {\\n    throw new Error(X);\\n  }\ns=re.sub(r'if \\(ctx\\.unrepresentable === \"throw\"\\) \\{(\\s*)throw new Error\\((\"[^\"]*\")\\);',\n r'if (ctx.unrepresentable === \"throw\") {\\1flagUn",
+  "python3 - <<'E'\np='json-schema-processors.ts'\ns=open(p).read()\ns=s.replace('flagUnrepresentable(_json, \"Dynamic','flagUnrepresentable(json, \"Dynamic')\ns=s.replace('  finalize,\\n','  finalize,\\n  flagUnrepresentable,\\n',1)\nfor n in ['Literal `undefined`','BigInt literals']:\n    s=s.replace('flagUnrep",
+  "cd /work && cat > /tmp/t.test.ts <<'E'\nimport { test, expect } from \"vitest\";\nimport * as z from \"/work/packages/zod/src/v4/index.js\";\nconst o = (ctx: any) => { if (ctx.zodSchema._zod.def.type === \"date\") { ctx.jsonSchema.type = \"string\"; ctx.jsonSchema.format = \"date-time\"; } };\ntest(\"x\", () => {\n ",
+  "cd /work/packages/zod/src/v4/classic/tests && cat >> to-json-schema.test.ts <<'E'\n\ntest(\"override can represent an unrepresentable type\", () => {\n  const override = (ctx: any) => {\n    if (ctx.zodSchema._zod.def.type === \"date\") {\n      ctx.jsonSchema.type = \"string\";\n      ctx.jsonSchema.format = \""
+ ],
+ "total": 4,
+ "edit_tool_share": 0.0
+}

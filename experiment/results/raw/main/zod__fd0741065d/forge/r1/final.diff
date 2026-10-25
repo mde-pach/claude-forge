@@ -1,0 +1,438 @@
+diff --git a/packages/zod/package.json b/packages/zod/package.json
+deleted file mode 100644
+index 8a0c194..0000000
+--- a/packages/zod/package.json
++++ /dev/null
+@@ -1,135 +0,0 @@
+-{
+-  "name": "zod",
+-  "version": "4.4.3",
+-  "type": "module",
+-  "license": "MIT",
+-  "author": "Colin McDonnell <zod@colinhacks.com>",
+-  "description": "TypeScript-first schema declaration and validation library with static type inference",
+-  "homepage": "https://zod.dev",
+-  "llms": "https://zod.dev/llms.txt",
+-  "llmsFull": "https://zod.dev/llms-full.txt",
+-  "mcpServer": "https://mcp.inkeep.com/zod/mcp",
+-  "funding": "https://github.com/sponsors/colinhacks",
+-  "sideEffects": false,
+-  "files": [
+-    "src",
+-    "**/*.js",
+-    "**/*.mjs",
+-    "**/*.cjs",
+-    "**/*.d.ts",
+-    "**/*.d.mts",
+-    "**/*.d.cts",
+-    "**/package.json"
+-  ],
+-  "keywords": [
+-    "typescript",
+-    "schema",
+-    "validation",
+-    "type",
+-    "inference"
+-  ],
+-  "main": "./index.cjs",
+-  "types": "./index.d.cts",
+-  "module": "./index.js",
+-  "zshy": {
+-    "exports": {
+-      "./package.json": "./package.json",
+-      ".": "./src/index.ts",
+-      "./mini": "./src/mini/index.ts",
+-      "./locales": "./src/locales/index.ts",
+-      "./v3": "./src/v3/index.ts",
+-      "./v4": "./src/v4/index.ts",
+-      "./v4-mini": "./src/v4-mini/index.ts",
+-      "./v4/mini": "./src/v4/mini/index.ts",
+-      "./v4/core": "./src/v4/core/index.ts",
+-      "./v4/locales": "./src/v4/locales/index.ts",
+-      "./v4/locales/*": "./src/v4/locales/*"
+-    },
+-    "conditions": {
+-      "@zod/source": "src"
+-    }
+-  },
+-  "exports": {
+-    "./package.json": "./package.json",
+-    ".": {
+-      "@zod/source": "./src/index.ts",
+-      "types": "./index.d.cts",
+-      "import": "./index.js",
+-      "require": "./index.cjs"
+-    },
+-    "./mini": {
+-      "@zod/source": "./src/mini/index.ts",
+-      "types": "./mini/index.d.cts",
+-      "import": "./mini/index.js",
+-      "require": "./mini/index.cjs"
+-    },
+-    "./locales": {
+-      "@zod/source": "./src/locales/index.ts",
+-      "types": "./locales/index.d.cts",
+-      "import": "./locales/index.js",
+-      "require": "./locales/index.cjs"
+-    },
+-    "./v3": {
+-      "@zod/source": "./src/v3/index.ts",
+-      "types": "./v3/index.d.cts",
+-      "import": "./v3/index.js",
+-      "require": "./v3/index.cjs"
+-    },
+-    "./v4": {
+-      "@zod/source": "./src/v4/index.ts",
+-      "types": "./v4/index.d.cts",
+-      "import": "./v4/index.js",
+-      "require": "./v4/index.cjs"
+-    },
+-    "./v4-mini": {
+-      "@zod/source": "./src/v4-mini/index.ts",
+-      "types": "./v4-mini/index.d.cts",
+-      "import": "./v4-mini/index.js",
+-      "require": "./v4-mini/index.cjs"
+-    },
+-    "./v4/mini": {
+-      "@zod/source": "./src/v4/mini/index.ts",
+-      "types": "./v4/mini/index.d.cts",
+-      "import": "./v4/mini/index.js",
+-      "require": "./v4/mini/index.cjs"
+-    },
+-    "./v4/core": {
+-      "@zod/source": "./src/v4/core/index.ts",
+-      "types": "./v4/core/index.d.cts",
+-      "import": "./v4/core/index.js",
+-      "require": "./v4/core/index.cjs"
+-    },
+-    "./v4/locales": {
+-      "@zod/source": "./src/v4/locales/index.ts",
+-      "types": "./v4/locales/index.d.cts",
+-      "import": "./v4/locales/index.js",
+-      "require": "./v4/locales/index.cjs"
+-    },
+-    "./v4/locales/*": {
+-      "@zod/source": "./src/v4/locales/*",
+-      "types": "./v4/locales/*",
+-      "import": "./v4/locales/*",
+-      "require": "./v4/locales/*"
+-    }
+-  },
+-  "repository": {
+-    "type": "git",
+-    "url": "git+https://github.com/colinhacks/zod.git"
+-  },
+-  "bugs": {
+-    "url": "https://github.com/colinhacks/zod/issues"
+-  },
+-  "support": {
+-    "backing": {
+-      "npm-funding": true
+-    }
+-  },
+-  "scripts": {
+-    "clean": "git clean -xdf . -e node_modules",
+-    "build": "zshy --project tsconfig.build.json",
+-    "postbuild": "tsx ../../scripts/write-stub-package-jsons.ts && pnpm biome check --write .",
+-    "test:watch": "pnpm vitest",
+-    "test": "pnpm vitest run",
+-    "prepublishOnly": "tsx ../../scripts/check-versions.ts"
+-  }
+-}
+diff --git a/packages/zod/src/v4/classic/tests/to-json-schema.test.ts b/packages/zod/src/v4/classic/tests/to-json-schema.test.ts
+index 132ad8e..f3e4845 100644
+--- a/packages/zod/src/v4/classic/tests/to-json-schema.test.ts
++++ b/packages/zod/src/v4/classic/tests/to-json-schema.test.ts
+@@ -3188,3 +3188,50 @@ test("partialRecord does not require finite keys", () => {
+   expect(result.propertyNames).toEqual({ type: "string", enum: ["__proto__", "b"] });
+   expect(result.additionalProperties).toEqual({ type: "string" });
+ });
++
++describe("override handles unrepresentable types", () => {
++  const override = (ctx: any) => {
++    if (ctx.zodSchema._zod.def.type === "date") {
++      ctx.jsonSchema.type = "string";
++      ctx.jsonSchema.format = "date-time";
++    }
++  };
++  const date = { type: "string", format: "date-time" };
++
++  test("handled nodes do not throw; others still do", () => {
++    expect(z.toJSONSchema(z.object({ when: z.date() }), { override }).properties).toEqual({ when: date });
++    expect(() => z.toJSONSchema(z.object({ when: z.date(), id: z.bigint() }), { override })).toThrow(
++      "BigInt cannot be represented in JSON Schema"
++    );
++  });
++
++  test("annotations do not count as handling", () => {
++    const describe = (ctx: any) => {
++      ctx.jsonSchema.description = "y";
++    };
++    expect(() => z.toJSONSchema(z.date(), { override: describe })).toThrow("Date cannot be represented");
++    expect(() => z.toJSONSchema(z.date().describe("x"), { override: () => {} })).toThrow("Date cannot be represented");
++  });
++
++  test("wrapped, cloned, reused, and openapi-3.0", () => {
++    expect(z.toJSONSchema(z.date().describe("x").optional(), { override })).toMatchObject({
++      ...date,
++      description: "x",
++    });
++    const d = z.date().meta({ id: "D" });
++    const result = z.toJSONSchema(z.object({ a: d, b: d }), { override, target: "openapi-3.0" });
++    expect(result.definitions).toEqual({ D: date });
++  });
++
++  test("value-level errors still throw", () => {
++    expect(() =>
++      z.toJSONSchema(
++        z.string().catch(() => {
++          throw new Error("x");
++        }),
++        { override }
++      )
++    ).toThrow("Dynamic catch values are not supported in JSON Schema");
++    expect(() => z.toJSONSchema(z.literal([undefined, "a"]))).toThrow("Literal `undefined` cannot be represented");
++  });
++});
+diff --git a/packages/zod/src/v4/core/json-schema-processors.ts b/packages/zod/src/v4/core/json-schema-processors.ts
+index 439c554..8a5c117 100644
+--- a/packages/zod/src/v4/core/json-schema-processors.ts
++++ b/packages/zod/src/v4/core/json-schema-processors.ts
+@@ -9,6 +9,7 @@ import {
+   type ZodStandardJSONSchemaPayload,
+   extractDefs,
+   finalize,
++  flagUnrepresentable,
+   initializeContext,
+   process,
+ } from "./to-json-schema.js";
+@@ -99,16 +100,12 @@ export const booleanProcessor: Processor<schemas.$ZodBoolean> = (_schema, _ctx,
+   (json as JSONSchema.BooleanSchema).type = "boolean";
+ };
+ 
+-export const bigintProcessor: Processor<schemas.$ZodBigInt> = (_schema, ctx, _json, _params) => {
+-  if (ctx.unrepresentable === "throw") {
+-    throw new Error("BigInt cannot be represented in JSON Schema");
+-  }
++export const bigintProcessor: Processor<schemas.$ZodBigInt> = (schema, ctx, _json, _params) => {
++  flagUnrepresentable(schema, ctx, "BigInt cannot be represented in JSON Schema");
+ };
+ 
+-export const symbolProcessor: Processor<schemas.$ZodSymbol> = (_schema, ctx, _json, _params) => {
+-  if (ctx.unrepresentable === "throw") {
+-    throw new Error("Symbols cannot be represented in JSON Schema");
+-  }
++export const symbolProcessor: Processor<schemas.$ZodSymbol> = (schema, ctx, _json, _params) => {
++  flagUnrepresentable(schema, ctx, "Symbols cannot be represented in JSON Schema");
+ };
+ 
+ export const nullProcessor: Processor<schemas.$ZodNull> = (_schema, ctx, json, _params) => {
+@@ -121,16 +118,12 @@ export const nullProcessor: Processor<schemas.$ZodNull> = (_schema, ctx, json, _
+   }
+ };
+ 
+-export const undefinedProcessor: Processor<schemas.$ZodUndefined> = (_schema, ctx, _json, _params) => {
+-  if (ctx.unrepresentable === "throw") {
+-    throw new Error("Undefined cannot be represented in JSON Schema");
+-  }
++export const undefinedProcessor: Processor<schemas.$ZodUndefined> = (schema, ctx, _json, _params) => {
++  flagUnrepresentable(schema, ctx, "Undefined cannot be represented in JSON Schema");
+ };
+ 
+-export const voidProcessor: Processor<schemas.$ZodVoid> = (_schema, ctx, _json, _params) => {
+-  if (ctx.unrepresentable === "throw") {
+-    throw new Error("Void cannot be represented in JSON Schema");
+-  }
++export const voidProcessor: Processor<schemas.$ZodVoid> = (schema, ctx, _json, _params) => {
++  flagUnrepresentable(schema, ctx, "Void cannot be represented in JSON Schema");
+ };
+ 
+ export const neverProcessor: Processor<schemas.$ZodNever> = (_schema, _ctx, json, _params) => {
+@@ -145,10 +138,8 @@ export const unknownProcessor: Processor<schemas.$ZodUnknown> = (_schema, _ctx,
+   // empty schema accepts anything
+ };
+ 
+-export const dateProcessor: Processor<schemas.$ZodDate> = (_schema, ctx, _json, _params) => {
+-  if (ctx.unrepresentable === "throw") {
+-    throw new Error("Date cannot be represented in JSON Schema");
+-  }
++export const dateProcessor: Processor<schemas.$ZodDate> = (schema, ctx, _json, _params) => {
++  flagUnrepresentable(schema, ctx, "Date cannot be represented in JSON Schema");
+ };
+ 
+ export const enumProcessor: Processor<schemas.$ZodEnum> = (schema, _ctx, json, _params) => {
+@@ -165,17 +156,10 @@ export const literalProcessor: Processor<schemas.$ZodLiteral> = (schema, ctx, js
+   const vals: (string | number | boolean | null)[] = [];
+   for (const val of def.values) {
+     if (val === undefined) {
+-      if (ctx.unrepresentable === "throw") {
+-        throw new Error("Literal `undefined` cannot be represented in JSON Schema");
+-      } else {
+-        // do not add to vals
+-      }
++      flagUnrepresentable(schema, ctx, "Literal `undefined` cannot be represented in JSON Schema");
+     } else if (typeof val === "bigint") {
+-      if (ctx.unrepresentable === "throw") {
+-        throw new Error("BigInt literals cannot be represented in JSON Schema");
+-      } else {
+-        vals.push(Number(val));
+-      }
++      flagUnrepresentable(schema, ctx, "BigInt literals cannot be represented in JSON Schema");
++      vals.push(Number(val));
+     } else {
+       vals.push(val);
+     }
+@@ -199,10 +183,8 @@ export const literalProcessor: Processor<schemas.$ZodLiteral> = (schema, ctx, js
+   }
+ };
+ 
+-export const nanProcessor: Processor<schemas.$ZodNaN> = (_schema, ctx, _json, _params) => {
+-  if (ctx.unrepresentable === "throw") {
+-    throw new Error("NaN cannot be represented in JSON Schema");
+-  }
++export const nanProcessor: Processor<schemas.$ZodNaN> = (schema, ctx, _json, _params) => {
++  flagUnrepresentable(schema, ctx, "NaN cannot be represented in JSON Schema");
+ };
+ 
+ export const templateLiteralProcessor: Processor<schemas.$ZodTemplateLiteral> = (schema, _ctx, json, _params) => {
+@@ -241,34 +223,24 @@ export const successProcessor: Processor<schemas.$ZodSuccess> = (_schema, _ctx,
+   (json as JSONSchema.BooleanSchema).type = "boolean";
+ };
+ 
+-export const customProcessor: Processor<schemas.$ZodCustom> = (_schema, ctx, _json, _params) => {
+-  if (ctx.unrepresentable === "throw") {
+-    throw new Error("Custom types cannot be represented in JSON Schema");
+-  }
++export const customProcessor: Processor<schemas.$ZodCustom> = (schema, ctx, _json, _params) => {
++  flagUnrepresentable(schema, ctx, "Custom types cannot be represented in JSON Schema");
+ };
+ 
+-export const functionProcessor: Processor<schemas.$ZodFunction> = (_schema, ctx, _json, _params) => {
+-  if (ctx.unrepresentable === "throw") {
+-    throw new Error("Function types cannot be represented in JSON Schema");
+-  }
++export const functionProcessor: Processor<schemas.$ZodFunction> = (schema, ctx, _json, _params) => {
++  flagUnrepresentable(schema, ctx, "Function types cannot be represented in JSON Schema");
+ };
+ 
+-export const transformProcessor: Processor<schemas.$ZodTransform> = (_schema, ctx, _json, _params) => {
+-  if (ctx.unrepresentable === "throw") {
+-    throw new Error("Transforms cannot be represented in JSON Schema");
+-  }
++export const transformProcessor: Processor<schemas.$ZodTransform> = (schema, ctx, _json, _params) => {
++  flagUnrepresentable(schema, ctx, "Transforms cannot be represented in JSON Schema");
+ };
+ 
+-export const mapProcessor: Processor<schemas.$ZodMap> = (_schema, ctx, _json, _params) => {
+-  if (ctx.unrepresentable === "throw") {
+-    throw new Error("Map cannot be represented in JSON Schema");
+-  }
++export const mapProcessor: Processor<schemas.$ZodMap> = (schema, ctx, _json, _params) => {
++  flagUnrepresentable(schema, ctx, "Map cannot be represented in JSON Schema");
+ };
+ 
+-export const setProcessor: Processor<schemas.$ZodSet> = (_schema, ctx, _json, _params) => {
+-  if (ctx.unrepresentable === "throw") {
+-    throw new Error("Set cannot be represented in JSON Schema");
+-  }
++export const setProcessor: Processor<schemas.$ZodSet> = (schema, ctx, _json, _params) => {
++  flagUnrepresentable(schema, ctx, "Set cannot be represented in JSON Schema");
+ };
+ 
+ // ==================== COMPOSITE TYPE PROCESSORS ====================
+@@ -523,10 +495,8 @@ export const catchProcessor: Processor<schemas.$ZodCatch> = (schema, ctx, json,
+   let catchValue: any;
+   try {
+     catchValue = def.catchValue(undefined as any);
+-  } catch {
+-    if (ctx.unrepresentable === "throw") {
+-      throw new Error("Dynamic catch values are not supported in JSON Schema");
+-    }
++  } catch (cause) {
++    flagUnrepresentable(schema, ctx, "Dynamic catch values are not supported in JSON Schema", cause);
+     return;
+   }
+   json.default = catchValue;
+diff --git a/packages/zod/src/v4/core/to-json-schema.ts b/packages/zod/src/v4/core/to-json-schema.ts
+index f044ae3..364abba 100644
+--- a/packages/zod/src/v4/core/to-json-schema.ts
++++ b/packages/zod/src/v4/core/to-json-schema.ts
+@@ -91,6 +91,44 @@ export interface Seen {
+   ref?: schemas.$ZodType | null;
+   /** JSON Schema property path for this schema */
+   path?: (string | number)[] | undefined;
++  /** Unrepresentable-type error, thrown during finalize unless `override` handles the node */
++  error?: string | undefined;
++  errorCause?: unknown;
++}
++
++const ANNOTATION_KEYS = new Set([
++  "title",
++  "description",
++  "default",
++  "examples",
++  "deprecated",
++  "readOnly",
++  "writeOnly",
++  "$comment",
++  "id",
++  "$id",
++]);
++
++export function flagUnrepresentable(
++  schema: schemas.$ZodType,
++  ctx: ToJSONSchemaContext,
++  message: string,
++  cause?: unknown
++): void {
++  if (ctx.unrepresentable !== "throw") return;
++  const seen = ctx.seen.get(schema);
++  if (seen && !seen.error) {
++    seen.error = message;
++    seen.errorCause = cause;
++  }
++}
++
++function snapshotStructure(json: JSONSchema.BaseSchema): Map<string, string | undefined> {
++  const out = new Map<string, string | undefined>();
++  for (const key of Object.keys(json)) {
++    if (!ANNOTATION_KEYS.has(key)) out.set(key, JSON.stringify((json as any)[key]));
++  }
++  return out;
+ }
+ 
+ export interface ToJSONSchemaContext {
+@@ -451,11 +489,33 @@ export function finalize<T extends schemas.$ZodType>(
+     }
+ 
+     // execute overrides
++    const error = seen.error;
++    const before = error ? snapshotStructure(schema) : undefined;
+     ctx.override({
+       zodSchema: zodSchema as schemas.$ZodTypes,
+       jsonSchema: schema,
+       path: seen.path ?? [],
+     });
++
++    // an unrepresentable type is an error unless override structurally changed the node
++    if (error && before) {
++      seen.error = undefined;
++      const after = snapshotStructure(schema);
++      let handled = after.size !== before.size;
++      if (!handled) {
++        for (const [key, value] of after) {
++          if (before.get(key) !== value) {
++            handled = true;
++            break;
++          }
++        }
++      }
++      if (!handled) {
++        const err = new Error(error);
++        if (seen.errorCause !== undefined) assignProp(err, "cause", seen.errorCause);
++        throw err;
++      }
++    }
+   };
+ 
+   for (const entry of [...ctx.seen.entries()].reverse()) {

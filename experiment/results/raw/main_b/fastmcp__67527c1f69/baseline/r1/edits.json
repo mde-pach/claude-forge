@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 6,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/fastmcp_slim/fastmcp/server/auth; python - <<'E'\np='redirect_validation.py'\ns=open(p).read()\ns=s.replace('''def _parse_host_port''','''UNSAFE_REDIRECT_URI_SCHEMES = frozenset({\"javascript\", \"data\", \"file\", \"vbscript\"})\n\n\ndef _has_unsafe_scheme(uri: str) -> bool:\n    \"\"\"Return True if the UR",
+  "cd /work/fastmcp_slim/fastmcp/server/auth/oauth_proxy; python - <<'E'\nimport re\n# consent.py\np='consent.py'; s=open(p).read()\ns=s.replace('''from fastmcp.server.auth.oauth_proxy.ui import create_consent_html\n''','''from fastmcp.server.auth.oauth_proxy.ui import create_consent_html\nfrom fastmcp.serve"
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

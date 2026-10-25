@@ -1,0 +1,57 @@
+diff --git a/packages/better-auth/src/api/routes/session-api.test.ts b/packages/better-auth/src/api/routes/session-api.test.ts
+index 4f75fa6..d2b873b 100644
+--- a/packages/better-auth/src/api/routes/session-api.test.ts
++++ b/packages/better-auth/src/api/routes/session-api.test.ts
+@@ -35,6 +35,25 @@ describe("session", async () => {
+ 		vi.useRealTimers();
+ 	});
+ 
++	it("should return no-store headers from get-session", async () => {
++		const unauth = await auth.api.getSession({
++			headers: new Headers(),
++			asResponse: true,
++		});
++		expect(unauth.headers.get("cache-control")).toContain("no-store");
++		expect(unauth.headers.get("pragma")).toBe("no-cache");
++		expect(await unauth.json()).toBeNull();
++
++		const headers = new Headers();
++		await client.signIn.email(
++			{ email: testUser.email, password: testUser.password },
++			{ onSuccess: cookieSetter(headers) },
++		);
++		const res = await auth.api.getSession({ headers, asResponse: true });
++		expect(res.status).toBe(200);
++		expect(res.headers.get("cache-control")).toContain("no-store");
++	});
++
+ 	it("should set cookies correctly on sign in", async () => {
+ 		const headers = new Headers();
+ 		await client.signIn.email(
+diff --git a/packages/better-auth/src/api/routes/session.ts b/packages/better-auth/src/api/routes/session.ts
+index e3c057b..4471d8c 100644
+--- a/packages/better-auth/src/api/routes/session.ts
++++ b/packages/better-auth/src/api/routes/session.ts
+@@ -72,6 +72,9 @@ export const getSession = <Option extends BetterAuthOptions>() =>
+ 			session: Session<Option["session"], Option["plugins"]>;
+ 			user: User<Option["user"], Option["plugins"]>;
+ 		} | null> => {
++			// Session responses are user-specific and must never be cached.
++			ctx.setHeader("Cache-Control", "no-store");
++			ctx.setHeader("Pragma", "no-cache");
+ 			const deferSessionRefresh =
+ 				ctx.context.options.session?.deferSessionRefresh;
+ 			const isPostRequest = ctx.method === "POST";
+@@ -584,6 +587,12 @@ export const getSessionFromCtx = async <
+ 	}
+ 	if (session.headers) {
+ 		session.headers.forEach((value, key) => {
++			const lowerKey = key.toLowerCase();
++			// Cache headers belong to `/get-session` only; don't leak them onto
++			// the calling endpoint's response.
++			if (lowerKey === "cache-control" || lowerKey === "pragma") {
++				return;
++			}
+ 			if (!ctx.context.responseHeaders) {
+ 				ctx.context.responseHeaders = new Headers({ [key]: value });
+ 			} else if (key.toLowerCase() === "set-cookie") {

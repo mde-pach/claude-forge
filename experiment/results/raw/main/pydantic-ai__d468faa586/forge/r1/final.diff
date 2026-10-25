@@ -1,0 +1,105 @@
+diff --git a/pydantic_ai_slim/pydantic_ai/messages.py b/pydantic_ai_slim/pydantic_ai/messages.py
+index 21155ec..1f3b11c 100644
+--- a/pydantic_ai_slim/pydantic_ai/messages.py
++++ b/pydantic_ai_slim/pydantic_ai/messages.py
+@@ -1069,6 +1069,27 @@ tool_return_ta: pydantic.TypeAdapter[Any] = pydantic.TypeAdapter(
+     Any, config=pydantic.ConfigDict(defer_build=True, ser_json_bytes='base64', val_json_bytes='base64')
+ )
+ 
++
++def _decode_dumped_binary_content(value: Any, info: pydantic.ValidationInfo) -> Any:
++    """Decode the base64 `data` of a JSON-mode-dumped `BinaryContent` dict when validating from Python.
++
++    `dump_python(mode='json')` base64-encodes `BinaryContent.data`, which `validate_python` would otherwise
++    re-encode as UTF-8 bytes instead of decoding. (`validate_json` already decodes via `val_json_bytes`.)
++    Dicts that aren't a recognizable dumped `BinaryContent` are passed through untouched.
++    """
++    if info.mode != 'python' or not isinstance(value, dict):
++        return value
++    value = cast('dict[Any, Any]', value)
++    data = value.get('data')
++    kind = value.get('kind')
++    if isinstance(kind, str) and kind == 'binary' and isinstance(data, str) and 'media_type' in value:
++        try:
++            return {**value, 'data': base64.b64decode(data, validate=True)}
++        except ValueError:  # binascii.Error is a ValueError
++            pass
++    return value
++
++
+ if TYPE_CHECKING:
+     # Simpler type for static analysis - recursive TypeAliasType with Any produces spurious Unknown types
+     ToolReturnContent: TypeAlias = MultiModalContent | Sequence[Any] | Mapping[str, Any] | Any
+@@ -1077,7 +1098,13 @@ else:
+     # BinaryContent/FileUrl objects nested inside dicts/lists during deserialization
+     ToolReturnContent = TypeAliasType(
+         'ToolReturnContent',
+-        MultiModalContent | Sequence['ToolReturnContent'] | Mapping[str, 'ToolReturnContent'] | Any,
++        Annotated[
++            Annotated[MultiModalContent, pydantic.BeforeValidator(_decode_dumped_binary_content)]
++            | Sequence['ToolReturnContent']
++            | Mapping[str, 'ToolReturnContent']
++            | Any,
++            pydantic.Field(union_mode='left_to_right'),
++        ],
+     )
+ 
+ 
+diff --git a/tests/test_messages.py b/tests/test_messages.py
+index 073a763..ad80608 100644
+--- a/tests/test_messages.py
++++ b/tests/test_messages.py
+@@ -1,4 +1,6 @@
+ import sys
++import warnings
++from collections.abc import Sequence
+ from datetime import datetime, timezone
+ from pathlib import Path
+ from typing import Any, cast, get_args
+@@ -1649,3 +1651,46 @@ def test_retry_prompt_tool_call_keeps_input_for_nested_errors():
+     response = part.model_response()
+     assert '"input": 42' in response
+     assert '"name"' in response
++
++
++def _tool_return_content(messages: Sequence[ModelMessage]) -> Any:
++    part = cast(ModelRequest, messages[0]).parts[0]
++    assert isinstance(part, ToolReturnPart)
++    return part.content
++
++
++@pytest.mark.parametrize(
++    'content',
++    [
++        BinaryContent(data=b'\xff\x00abc', media_type='audio/mpeg'),
++        ['hello', BinaryContent(data=b'\xff\x00', media_type='image/png')],
++        {'caption': 'x', 'attachment': BinaryContent(data=b'\xff', media_type='text/plain')},
++        {'kind': 'binary', 'label': 'foo'},
++        {'kind': 'binary', 'media_type': 'text/plain', 'text': 'hello'},
++        {'kind': 'uploaded-file', 'file_id': 'abc', 'status': 'ready'},
++        {'kind': 'image-url', 'media_type': 'image/png', 'note': 'x'},
++    ],
++)
++def test_tool_return_content_python_roundtrip(content: Any):
++    messages: list[ModelMessage] = [
++        ModelRequest(parts=[ToolReturnPart(tool_name='t', content=content, tool_call_id='1')])
++    ]
++    with warnings.catch_warnings():
++        warnings.simplefilter('error')
++        dumped = ModelMessagesTypeAdapter.dump_python(messages, mode='json')
++        from_python = ModelMessagesTypeAdapter.validate_python(dumped)
++        from_json = ModelMessagesTypeAdapter.validate_json(ModelMessagesTypeAdapter.dump_json(messages))
++    assert _tool_return_content(from_python) == content
++    assert _tool_return_content(from_json) == content
++
++
++@pytest.mark.parametrize('kind', [['a'], {'a': 1}, bytearray(b'a')])
++def test_tool_return_content_malformed_kind(kind: Any):
++    for content in ({'kind': kind, 'url': 'x'}, [{'kind': kind, 'url': 'x'}]):
++        data = [
++            {
++                'kind': 'request',
++                'parts': [{'part_kind': 'tool-return', 'tool_name': 't', 'content': content, 'tool_call_id': '1'}],
++            }
++        ]
++        assert _tool_return_content(ModelMessagesTypeAdapter.validate_python(data)) == content

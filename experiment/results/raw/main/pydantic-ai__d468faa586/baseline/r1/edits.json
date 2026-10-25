@@ -1,0 +1,20 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 10,
+ "bash_calls": 13,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work && cat > /tmp/t.py <<'E'\nfrom pydantic_ai.messages import *\nm=[ModelResponse(parts=[]),ModelRequest(parts=[ToolReturnPart('t',['hi',BinaryContent(b'abc',media_type='audio/mpeg')],'id')])]\nd=ModelMessagesTypeAdapter.dump_python(m,mode='json')\nprint(d[1]['parts'][0]['content'])\nprint(ModelMes",
+  "python3 - <<'E'\np='pydantic_ai_slim/pydantic_ai/messages.py'\ns=open(p).read()\ns=s.replace('''if TYPE_CHECKING:\n    # Simpler type for static analysis - recursive''','''_MULTI_MODAL_KINDS = frozenset({'image-url', 'audio-url', 'video-url', 'document-url', 'binary', 'uploaded-file'})\n_MULTI_MODAL_TYPE",
+  "sed -i '21a from pydantic_core import PydanticCustomError' pydantic_ai_slim/pydantic_ai/messages.py && sed -n 18,26p pydantic_ai_slim/pydantic_ai/messages.py && cat > /tmp/t2.py <<'E'\nimport warnings; warnings.simplefilter('error')\nfrom pydantic_ai.messages import *\ncases=[BinaryContent(b'abc',media",
+  "sed -i '22d' pydantic_ai_slim/pydantic_ai/messages.py && sed -i 's/^import pydantic_core$/import pydantic_core\\nfrom pydantic_core import PydanticCustomError/' pydantic_ai_slim/pydantic_ai/messages.py && sed -i \"s/provider='openai'/provider_name='openai'/\" /tmp/t2.py && uv run python /tmp/t2.py",
+  "cat > /tmp/t3.py <<'E'\nfrom pydantic_ai.messages import *\nimport pydantic\nta=pydantic.TypeAdapter(ToolReturnContent,config=pydantic.ConfigDict(ser_json_bytes='base64', val_json_bytes='base64'))\nprint(ta.validate_json(ta.dump_json(BinaryContent(b'abc',media_type='audio/mpeg'))))\nimport pydantic_ai.me",
+  "python3 - <<'E'\np='pydantic_ai_slim/pydantic_ai/messages.py'\ns=open(p).read()\na=s.index('def _validate_tool_return_multi_modal')\nb=s.index('if TYPE_CHECKING:\\n    # Simpler type')\ns=s[:a]+'''_multi_modal_ta: pydantic.TypeAdapter[MultiModalContent] = pydantic.TypeAdapter(\n    MultiModalContent, confi",
+  "sed -i \"s/    if info.mode == 'python' and isinstance(value, dict):/    if isinstance(value, dict):/; s/value: Any, handler: pydantic.ValidatorFunctionWrapHandler, info: pydantic.ValidationInfo/value: Any, handler: pydantic.ValidatorFunctionWrapHandler/\" pydantic_ai_slim/pydantic_ai/messages.py && u",
+  "python3 - <<'E'\np='pydantic_ai_slim/pydantic_ai/messages.py'\ns=open(p).read()\ns=s.replace('''    JSON validation already handles this through the union, but in Python mode the dumped dicts are\n    otherwise indistinguishable from plain mappings, and `bytes` are base64 strings.\n''','''    The union a",
+  "cat >> tests/test_messages.py <<'E'\n\n\n@pytest.mark.parametrize(\n    'content',\n    [\n        BinaryContent(b'abc', media_type='audio/mpeg'),\n        ['hello', BinaryContent(b'abc', media_type='image/png')],\n        {'caption': 'x', 'attachment': ImageUrl('https://example.com/a.png')},\n        {'kind",
+  "sed -i '1s/^/import warnings\\n/' tests/test_messages.py && grep -n \"ModelRequest,\\|ModelMessagesTypeAdapter,\\|BinaryContent,\" tests/test_messages.py | head -3; uv run pytest tests/test_messages.py -q 2>&1 | tail -8"
+ ],
+ "total": 10,
+ "edit_tool_share": 0.0
+}

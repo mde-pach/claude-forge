@@ -1,0 +1,14 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 4,
+ "bash_calls": 8,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'EOF'\np='oauth_proxy/models.py'\ns=open(p).read()\ns=s.replace(\"import hashlib\\nfrom typing import Any, Final\\n\",\"import hashlib\\nfrom typing import Any, Final\\nfrom urllib.parse import urlparse\\n\",1)\ns=s.replace('''def _hash_token(''','''_LOOPBACK_HOSTS: Final[frozenset[str]] = frozenset(",
+  "python3 - <<'EOF'\np='tests/server/auth/test_oauth_proxy_redirect_validation.py'\ns=open(p).read()\na=s.index(\"    def test_default_allows_all(self):\")\nb=s.index(\"    def test_custom_patterns(self):\")\nnew='''    def test_default_restricts_to_registered_uris(self):\n        \"\"\"With no patterns, DCR clien",
+  "python3 - <<'EOF'\np='tests/server/auth/test_oauth_proxy_redirect_validation.py'\ns=open(p).read()\nold=\"    def test_non_loopback_requires_exact_match(self):\"\nnew='''    def test_loopback_empty_path_treated_as_root(self):\n        client = ProxyDCRClient(\n            client_id=\"test\",\n            clien",
+  "python3 - <<'EOF'\nimport subprocess\nold=subprocess.check_output([\"git\",\"show\",\"HEAD:tests/server/auth/test_oauth_proxy_redirect_validation.py\"],text=True)\na=old.index(\"    def test_default_allows_all(self):\")\nb=old.index(\"    def test_custom_patterns(self):\")\norig=old[a:b]\np='tests/server/auth/test_"
+ ],
+ "total": 4,
+ "edit_tool_share": 0.0
+}

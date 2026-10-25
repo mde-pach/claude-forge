@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 8,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/packages/zod/src/v4; python3 - <<'E'\nimport re\np='core/schemas.ts'; s=open(p).read()\na=s.index('export interface $ZodPreprocessDef'); b=s.index('export const $ZodPreprocess:')\nn=s[a:b]\nn=n.replace('<B extends SomeType = $ZodType>','<B extends SomeType = $ZodType, I = unknown>').replace('$Zo",
+  "cd /work/packages/zod/src/v4/classic/tests; cat >> preprocess.test.ts <<'E'\n\ntest(\"preprocess narrows input from annotated argument\", () => {\n  const pre = z.preprocess((v: string | null | undefined) => v?.trim() ?? \"\", z.string());\n  expectTypeOf<z.input<typeof pre>>().toEqualTypeOf<string | null |"
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

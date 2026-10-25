@@ -1,0 +1,14 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 4,
+ "bash_calls": 6,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/packages/inngest/src/components/execution/otel && python3 - <<'E'\np='aiExtractor.ts'\ns=open(p).read()\ns=s.replace('import type { Attributes } from \"@opentelemetry/api\";','import type { HrTime } from \"@opentelemetry/api\";\\nimport type { ReadableSpan } from \"@opentelemetry/sdk-trace-base\";')\n",
+  "python3 - <<'E'\nimport re\np='aiExtractor.test.ts'\ns=open(p).read()\ns=s.replace(\"extractAIMetadataFromAttributes(span.attributes)\",\"extractAIMetadataFromSpan(spanOf(span.attributes))\")\ns=s.replace(\"extractAIMetadataFromAttributes({\",\"extractAIMetadataFromAttributes_({\")\ns=s.replace(\"  extractAIMetada",
+  "cd /work/packages/inngest/src/components/execution/otel && python3 - <<'E'\np='aiExtractor.test.ts'\ns=open(p).read()\ns=s.replace(\"extractAIMetadataFromSpan(spanOf(span.attributes))\",\"extractAIMetadataFromSpan({\\n            attributes: span.attributes,\\n          } as unknown as ReadableSpan)\")\nopen(",
+  "sed -i -E '/pushed\\)\\.toEqual|^      \\{ requestModel/ s/(inputTokens: [0-9]+) \\}/\\1, latencyMs: expect.any(Number) }/' metadataProcessor.test.ts && cd /work/packages/inngest && npx biome check --write src/components/execution/otel 2>&1 | tail -15; npx vitest run src/components/execution/otel 2>&1 | "
+ ],
+ "total": 4,
+ "edit_tool_share": 0.0
+}

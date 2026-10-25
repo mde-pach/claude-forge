@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 9,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/packages/cli/src/utils; python3 - <<'E'\np='get-config.ts'\ns=open(p).read()\ns=s.replace('''interface BabelNodePath<Node> {''','''interface ModuleSpecifierNode {\n\ttype: string;\n\timported?: { type: string; name?: string; value?: string };\n\tlocal?: { name: string };\n\texported?: { type: string; ",
+  "cd /work/packages/cli; python3 - <<'E'\np='test/get-config.test.ts'\ns=open(p).read()\nm='''\t/**\n\t * `$app/env` is SvelteKit's alias'''\nnew='''\t/**\n\t * Explicit environment variables (SvelteKit 2.63+): arbitrary names declared\n\t * in `src/env.ts`, resolved from `process.env` with no prefix filtering.\n\t"
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

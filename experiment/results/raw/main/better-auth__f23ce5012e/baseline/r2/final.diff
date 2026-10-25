@@ -1,0 +1,128 @@
+diff --git a/docs/content/docs/plugins/last-login-method.mdx b/docs/content/docs/plugins/last-login-method.mdx
+index 2c97e3c..ce7e04f 100644
+--- a/docs/content/docs/plugins/last-login-method.mdx
++++ b/docs/content/docs/plugins/last-login-method.mdx
+@@ -289,6 +289,12 @@ export const auth = betterAuth({
+ * Return `null` to use the default resolution logic
+ * Useful for custom OAuth providers or authentication flows
+ 
++**beforeStoreCookie**: `(ctx: GenericEndpointContext, lastUsedLoginMethod: string) => Promise<boolean> | boolean`
++
++* Called each time before the cookie is set; return a falsy value to skip it (e.g. until the user has consented under GDPR)
++* If the hook throws or rejects, the cookie is not set and the error is logged
++* Does not affect `storeInDatabase`
++
+ **schema**: `object`
+ 
+ * Customize database field names when `storeInDatabase` is enabled
+diff --git a/packages/better-auth/src/plugins/last-login-method/before-store-cookie.test.ts b/packages/better-auth/src/plugins/last-login-method/before-store-cookie.test.ts
+new file mode 100644
+index 0000000..710c5f4
+--- /dev/null
++++ b/packages/better-auth/src/plugins/last-login-method/before-store-cookie.test.ts
+@@ -0,0 +1,58 @@
++import { describe, expect, it, vi } from "vitest";
++import { getTestInstance } from "../../test-utils/test-instance";
++import { lastLoginMethod } from ".";
++
++const cookieName = "better-auth.last_used_login_method";
++
++async function signIn(
++	beforeStoreCookie: Parameters<
++		typeof lastLoginMethod
++	>[0] extends infer O
++		? NonNullable<O> extends { beforeStoreCookie?: infer F }
++			? F
++			: never
++		: never,
++) {
++	const { client, testUser } = await getTestInstance({
++		plugins: [lastLoginMethod({ beforeStoreCookie })],
++	});
++	let setCookie = "";
++	await client.signIn.email(
++		{ email: testUser.email, password: testUser.password },
++		{
++			onResponse(c) {
++				setCookie = c.response.headers.get("set-cookie") || "";
++			},
++		},
++	);
++	return setCookie;
++}
++
++describe("lastLoginMethod beforeStoreCookie", () => {
++	it("sets cookie when hook returns truthy", async () => {
++		const hook = vi.fn(async () => true);
++		const c = await signIn(hook);
++		expect(c).toContain(`${cookieName}=email`);
++		const last = hook.mock.calls.at(-1)!;
++		expect(last[0].path).toBe("/sign-in/email");
++		expect(last[1]).toBe("email");
++	});
++
++	it("skips cookie when hook returns falsy", async () => {
++		expect(await signIn(() => false)).not.toContain(cookieName);
++		expect(await signIn(async () => 0 as unknown as boolean)).not.toContain(
++			cookieName,
++		);
++	});
++
++	it("skips cookie when hook throws or rejects", async () => {
++		const c1 = await signIn(() => {
++			throw new Error("x");
++		});
++		expect(c1).toContain("better-auth.session_token");
++		expect(c1).not.toContain(cookieName);
++		expect(await signIn(async () => Promise.reject(new Error("x")))).not.toContain(
++			cookieName,
++		);
++	});
++});
+diff --git a/packages/better-auth/src/plugins/last-login-method/index.ts b/packages/better-auth/src/plugins/last-login-method/index.ts
+index ae335d5..cabf0b5 100644
+--- a/packages/better-auth/src/plugins/last-login-method/index.ts
++++ b/packages/better-auth/src/plugins/last-login-method/index.ts
+@@ -34,6 +34,20 @@ export interface LastLoginMethodOptions {
+ 	customResolveMethod?:
+ 		| ((ctx: GenericEndpointContext) => string | null)
+ 		| undefined;
++	/**
++	 * Called before the last login method cookie is set. Return a falsy value
++	 * to skip setting the cookie (e.g. when the user has not given consent).
++	 * If it throws or rejects, the cookie is not set and the error is logged.
++	 * Has no effect on `storeInDatabase`.
++	 * @param ctx - The endpoint context of the login request
++	 * @param lastUsedLoginMethod - The detected login method
++	 */
++	beforeStoreCookie?:
++		| ((
++				ctx: GenericEndpointContext,
++				lastUsedLoginMethod: string,
++		  ) => Promise<boolean> | boolean)
++		| undefined;
+ 	/**
+ 	 * Store the last login method in the database. This will create a new field in the user table.
+ 	 * @default false
+@@ -160,6 +174,21 @@ export const lastLoginMethod = <O extends LastLoginMethodOptions>(
+ 								cookie.includes(sessionTokenName),
+ 							);
+ 							if (hasSessionToken) {
++								if (config.beforeStoreCookie) {
++									try {
++										const allowed = await config.beforeStoreCookie(
++											ctx,
++											lastUsedLoginMethod,
++										);
++										if (!allowed) return;
++									} catch (error) {
++										ctx.context.logger.error(
++											"Failed to run beforeStoreCookie hook",
++											error,
++										);
++										return;
++									}
++								}
+ 								// Inherit cookie attributes from Better Auth's centralized cookie system
+ 								// This ensures consistency with cross-origin, cross-subdomain, and security settings
+ 								const cookieAttributes = {

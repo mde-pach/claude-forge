@@ -1,0 +1,65 @@
+{
+ "active": true,
+ "events": {
+  "SessionStart": 2,
+  "UserPromptSubmit": 2,
+  "PreToolUse": 63,
+  "PostToolUseFailure": 4,
+  "PostToolUse": 38,
+  "Stop": 1
+ },
+ "forge_messages": 6,
+ "blocks": 0,
+ "stop_blocks": 0,
+ "feedback": 3,
+ "nonzero_exit": 0,
+ "by_hook": {
+  "SessionStart:startup": {
+   "runs": 2,
+   "nonzero": 0,
+   "forge_msgs": 4
+  },
+  "UserPromptSubmit": {
+   "runs": 2,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PreToolUse:Bash": {
+   "runs": 63,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PostToolUseFailure:Bash": {
+   "runs": 4,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PostToolUse:Bash": {
+   "runs": 38,
+   "nonzero": 0,
+   "forge_msgs": 2
+  },
+  "Stop": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  }
+ },
+ "samples": [
+  {
+   "hook": "SessionStart:startup",
+   "exit": 0,
+   "out": "forge: branch main, 0 changed files\nforge: last commits\n  08065d4 Add Forge\n  c4b2312 initial\nforge: packs docker, docker/compose, github-actions, python, python/fastapi, python/pydantic, python/pytest, python/uv\nforge: missing tools (checks using them are skipped): docker\n"
+  },
+  {
+   "hook": "PostToolUse:Bash",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"forge: auto-fixed I001 in fastmcp_slim/fastmcp/server/telemetry.py; re-read it before editing it again\"}}\n"
+  },
+  {
+   "hook": "PostToolUse:Bash",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"forge:python/lint\\nfastmcp_slim/fastmcp/server/mixins/mcp_operations.py:49:29: F821 Undefined name `INVALID_PARAMS`\\nfastmcp_slim/fastmcp/server/mixins/mcp_operations.py:279:26: F821 Undefined name `INVALID_PARAMS`\\nfastmcp_slim/fastmcp/server/mixins/mcp_operations.py:311:23: F821 Undefined name `to_mcp_error`\"}}\n"
+  }
+ ]
+}

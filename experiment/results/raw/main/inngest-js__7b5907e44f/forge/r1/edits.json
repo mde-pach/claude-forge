@@ -1,0 +1,13 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 3,
+ "bash_calls": 8,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'E'\nimport re\np='components/execution/lazyOps.ts'\ns=open(p).read()\ns=s.replace('''  /**\n   * Record that an id''','''  /**\n   * Remove a still-buffered op by hashed id. Returns whether one was removed.\n   */\n  remove(id: string): boolean {\n    const idx = this.buffer.findIndex((op) => op",
+  "sed -i '154s/z.record(z.unknown())/z.record(z.object({ abortable: z.boolean().optional() }))/' helpers/functions.ts && cd .. && npx tsc --noEmit -p . 2>&1 | grep -v \"src/test/\" | head; npx biome check src 2>&1 | tail -15; npx vitest run src/components/execution 2>&1 | tail -8",
+  "cd /work && printf -- '---\\n\"inngest\": minor\\n---\\n\\nExperimental: `defer(...)` now returns a `DeferHandle` with an `abort()` method to cancel a deferred run.\\n' > .changeset/defer-abort-handle.md && git status --short"
+ ],
+ "total": 3,
+ "edit_tool_share": 0.0
+}

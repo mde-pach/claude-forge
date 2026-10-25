@@ -1,0 +1,8 @@
+$ pytest -p no:cacheprovider -o junit_family=xunit1 --junitxml=/tmp/forge-junit-d785e83eda39.xml --continue-on-collection-errors -q --no-header -rN tests/test_push_variables.py tests/test_variable_composition.py
+........................................................................ [ 40%]
+........................................................................ [ 80%]
+....................................                                     [100%]
+Results (8.52s):
+       180 passed
+
+[exit 0 in 23s]

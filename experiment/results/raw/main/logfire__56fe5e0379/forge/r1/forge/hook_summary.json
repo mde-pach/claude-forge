@@ -1,0 +1,80 @@
+{
+ "active": true,
+ "events": {
+  "SessionStart": 2,
+  "UserPromptSubmit": 1,
+  "PreToolUse": 3,
+  "PostToolUseFailure": 2,
+  "PostToolUse": 12,
+  "Stop": 1
+ },
+ "forge_messages": 8,
+ "blocks": 0,
+ "stop_blocks": 0,
+ "feedback": 6,
+ "nonzero_exit": 0,
+ "by_hook": {
+  "SessionStart:startup": {
+   "runs": 2,
+   "nonzero": 0,
+   "forge_msgs": 3
+  },
+  "UserPromptSubmit": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PreToolUse:Bash": {
+   "runs": 3,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PostToolUseFailure:Bash": {
+   "runs": 2,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PostToolUse:Edit": {
+   "runs": 12,
+   "nonzero": 0,
+   "forge_msgs": 5
+  },
+  "Stop": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  }
+ },
+ "samples": [
+  {
+   "hook": "SessionStart:startup",
+   "exit": 0,
+   "out": "forge: branch main, 0 changed files\nforge: last commits\n  fb9ac77 Add Forge\n  4785ade initial\nforge: packs github-actions, python, python/fastapi, python/pydantic, python/pytest, python/sqlalchemy, python/uv\n"
+  },
+  {
+   "hook": "PostToolUse:Edit",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"forge:python/lint\\nlogfire/variables/remote.py:256:44: F821 Undefined name `_SSE_FIELD_PREFIXES`\"}}\n"
+  },
+  {
+   "hook": "PostToolUse:Edit",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"forge:python/lint\\nlogfire/variables/remote.py:256:44: F821 Undefined name `_SSE_FIELD_PREFIXES`\"}}\n"
+  },
+  {
+   "hook": "PostToolUse:Edit",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"forge:python/lint\\nlogfire/variables/remote.py:256:44: F821 Undefined name `_SSE_FIELD_PREFIXES`\\nlogfire/variables/remote.py:315:90: F821 Undefined name `random`\"}}\n"
+  },
+  {
+   "hook": "PostToolUse:Edit",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"forge:python/lint\\nlogfire/variables/remote.py:257:44: F821 Undefined name `_SSE_FIELD_PREFIXES`\\nlogfire/variables/remote.py:316:90: F821 Undefined name `random`\"}}\n"
+  },
+  {
+   "hook": "PostToolUse:Edit",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"forge:python/lint\\nlogfire/variables/remote.py:258:44: F821 Undefined name `_SSE_FIELD_PREFIXES`\"}}\n"
+  }
+ ]
+}

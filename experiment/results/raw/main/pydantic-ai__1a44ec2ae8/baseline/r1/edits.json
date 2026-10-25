@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 4,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python - <<'EOF'\np='_adapter.py'\ns=open(p).read()\na=s.index(\"        result: list[Message] = []\\n        system_content: list[str] = []\")\nb=s.index(\"    @staticmethod\\n    def _dump_response_parts\")\nnew='''        result: list[Message] = []\n        system_content: list[str] = []\n        user_content",
+  "cat >> tests/test_ag_ui.py <<'EOF'\n\n\ndef test_dump_messages_preserves_request_part_order():\n    from pydantic_ai.messages import ModelRequest, ModelResponse, ToolCallPart, ToolReturnPart, UserPromptPart\n\n    messages = [\n        ModelResponse(parts=[ToolCallPart(tool_name='t', args={}, tool_call_id="
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

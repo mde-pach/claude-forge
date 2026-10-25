@@ -1,0 +1,11 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 1,
+ "bash_calls": 7,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'EOF'\nimport re\ns=open('schemas.ts').read()\nhelper='''function setOwn(target: any, key: PropertyKey, value: unknown) {\n  if (key === \"__proto__\") {\n    Object.defineProperty(target, key, { value, enumerable: true, writable: true, configurable: true });\n  } else {\n    target[key] = value;"
+ ],
+ "total": 1,
+ "edit_tool_share": 0.0
+}

@@ -1,0 +1,17 @@
+diff --git a/logfire-api/logfire_api/__init__.py b/logfire-api/logfire_api/__init__.py
+index 1327628..ebdc1d1 100644
+--- a/logfire-api/logfire_api/__init__.py
++++ b/logfire-api/logfire_api/__init__.py
+@@ -131,7 +131,11 @@ except ImportError:
+ 
+             def install_auto_tracing(self, *args, **kwargs) -> None: ...
+ 
+-            def instrument(self, *args, **kwargs):
++            def instrument(self, msg_template=None, **kwargs):
++                if callable(msg_template):
++                    # Bare decorator usage: `@logfire.instrument`
++                    return msg_template
++
+                 def decorator(func):
+                     return func
+ 

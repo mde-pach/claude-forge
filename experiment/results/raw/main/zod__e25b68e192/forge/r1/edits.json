@@ -1,0 +1,16 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 6,
+ "bash_calls": 21,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "sed -i 's|= Symbol(\"zod_brand\")|= /*@__PURE__*/ Symbol(\"zod_brand\")|' core/core.ts && sed -i 's|= Symbol(\"ZodOutput\")|= /*@__PURE__*/ Symbol(\"ZodOutput\")|; s|= Symbol(\"ZodInput\")|= /*@__PURE__*/ Symbol(\"ZodInput\")|' core/registries.ts && sed -n 1,8p core/registries.ts; sed -n 80p core/core.ts\ncd /wo",
+  "python3 - <<'E'\np='src/v4/core/util.ts'\ns=open(p).read()\na=s.index('export const NUMBER_FORMAT_RANGES')\nb=s.index('};\\n',a)+3\nblk=s[a:b]\nnew=blk.replace('= {','= /*@__PURE__*/ (() => ({',1)[:-3]+'}))();\\n'\ns=s[:a]+new+s[b:]\nopen(p,'w').write(s)\nE\nsed -n 586,596p src/v4/core/util.ts; grep -rn \"regexe",
+  "sed -n 125,128p package.json && python3 - <<'E'\np='package.json'\ns=open(p).read()\ns=s.replace('  \"scripts\": {','  \"devDependencies\": {\\n    \"esbuild\": \"^0.25.5\"\\n  },\\n  \"scripts\": {',1)\nopen(p,'w').write(s)\np='/work/pnpm-lock.yaml'\ns=open(p).read()\ns=s.replace(\"  packages/zod: {}\\n\",\"  packages/zod",
+  "sed -i 's|^export const date: RegExp = /\\*@__PURE__\\*/ new RegExp(`^${dateSource}$`);|export const date: RegExp = /*@__PURE__*/ (() => new RegExp(`^${dateSource}$`))();|' src/v4/core/regexes.ts && grep -n \"export const date:\" src/v4/core/regexes.ts && node $TMPDIR/b/t.mjs",
+  "cat > src/v4/core/tests/treeshake.test.ts <<'E'\nimport { build } from \"esbuild\";\nimport { expect, test } from \"vitest\";\nimport * as core from \"zod/v4/core\";\nimport * as z from \"zod/v4\";\n\nconst bundle = async (entry: string) => {\n  const result = await build({\n    stdin: {\n      contents: `import * a",
+  "cd /work/packages/zod && sed -i 's|resolveDir: import.meta.dirname,|resolveDir: new URL(\"../../../..\", import.meta.url).pathname,|; s|    treeShaking: true,|    treeShaking: true,\\n    conditions: [\"@zod/source\"],|' src/v4/core/tests/treeshake.test.ts && cd /work && pnpm vitest run packages/zod/src/"
+ ],
+ "total": 6,
+ "edit_tool_share": 0.0
+}

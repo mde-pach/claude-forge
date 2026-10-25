@@ -1,0 +1,292 @@
+diff --git a/packages/zod/package.json b/packages/zod/package.json
+deleted file mode 100644
+index 8a0c194..0000000
+--- a/packages/zod/package.json
++++ /dev/null
+@@ -1,135 +0,0 @@
+-{
+-  "name": "zod",
+-  "version": "4.4.3",
+-  "type": "module",
+-  "license": "MIT",
+-  "author": "Colin McDonnell <zod@colinhacks.com>",
+-  "description": "TypeScript-first schema declaration and validation library with static type inference",
+-  "homepage": "https://zod.dev",
+-  "llms": "https://zod.dev/llms.txt",
+-  "llmsFull": "https://zod.dev/llms-full.txt",
+-  "mcpServer": "https://mcp.inkeep.com/zod/mcp",
+-  "funding": "https://github.com/sponsors/colinhacks",
+-  "sideEffects": false,
+-  "files": [
+-    "src",
+-    "**/*.js",
+-    "**/*.mjs",
+-    "**/*.cjs",
+-    "**/*.d.ts",
+-    "**/*.d.mts",
+-    "**/*.d.cts",
+-    "**/package.json"
+-  ],
+-  "keywords": [
+-    "typescript",
+-    "schema",
+-    "validation",
+-    "type",
+-    "inference"
+-  ],
+-  "main": "./index.cjs",
+-  "types": "./index.d.cts",
+-  "module": "./index.js",
+-  "zshy": {
+-    "exports": {
+-      "./package.json": "./package.json",
+-      ".": "./src/index.ts",
+-      "./mini": "./src/mini/index.ts",
+-      "./locales": "./src/locales/index.ts",
+-      "./v3": "./src/v3/index.ts",
+-      "./v4": "./src/v4/index.ts",
+-      "./v4-mini": "./src/v4-mini/index.ts",
+-      "./v4/mini": "./src/v4/mini/index.ts",
+-      "./v4/core": "./src/v4/core/index.ts",
+-      "./v4/locales": "./src/v4/locales/index.ts",
+-      "./v4/locales/*": "./src/v4/locales/*"
+-    },
+-    "conditions": {
+-      "@zod/source": "src"
+-    }
+-  },
+-  "exports": {
+-    "./package.json": "./package.json",
+-    ".": {
+-      "@zod/source": "./src/index.ts",
+-      "types": "./index.d.cts",
+-      "import": "./index.js",
+-      "require": "./index.cjs"
+-    },
+-    "./mini": {
+-      "@zod/source": "./src/mini/index.ts",
+-      "types": "./mini/index.d.cts",
+-      "import": "./mini/index.js",
+-      "require": "./mini/index.cjs"
+-    },
+-    "./locales": {
+-      "@zod/source": "./src/locales/index.ts",
+-      "types": "./locales/index.d.cts",
+-      "import": "./locales/index.js",
+-      "require": "./locales/index.cjs"
+-    },
+-    "./v3": {
+-      "@zod/source": "./src/v3/index.ts",
+-      "types": "./v3/index.d.cts",
+-      "import": "./v3/index.js",
+-      "require": "./v3/index.cjs"
+-    },
+-    "./v4": {
+-      "@zod/source": "./src/v4/index.ts",
+-      "types": "./v4/index.d.cts",
+-      "import": "./v4/index.js",
+-      "require": "./v4/index.cjs"
+-    },
+-    "./v4-mini": {
+-      "@zod/source": "./src/v4-mini/index.ts",
+-      "types": "./v4-mini/index.d.cts",
+-      "import": "./v4-mini/index.js",
+-      "require": "./v4-mini/index.cjs"
+-    },
+-    "./v4/mini": {
+-      "@zod/source": "./src/v4/mini/index.ts",
+-      "types": "./v4/mini/index.d.cts",
+-      "import": "./v4/mini/index.js",
+-      "require": "./v4/mini/index.cjs"
+-    },
+-    "./v4/core": {
+-      "@zod/source": "./src/v4/core/index.ts",
+-      "types": "./v4/core/index.d.cts",
+-      "import": "./v4/core/index.js",
+-      "require": "./v4/core/index.cjs"
+-    },
+-    "./v4/locales": {
+-      "@zod/source": "./src/v4/locales/index.ts",
+-      "types": "./v4/locales/index.d.cts",
+-      "import": "./v4/locales/index.js",
+-      "require": "./v4/locales/index.cjs"
+-    },
+-    "./v4/locales/*": {
+-      "@zod/source": "./src/v4/locales/*",
+-      "types": "./v4/locales/*",
+-      "import": "./v4/locales/*",
+-      "require": "./v4/locales/*"
+-    }
+-  },
+-  "repository": {
+-    "type": "git",
+-    "url": "git+https://github.com/colinhacks/zod.git"
+-  },
+-  "bugs": {
+-    "url": "https://github.com/colinhacks/zod/issues"
+-  },
+-  "support": {
+-    "backing": {
+-      "npm-funding": true
+-    }
+-  },
+-  "scripts": {
+-    "clean": "git clean -xdf . -e node_modules",
+-    "build": "zshy --project tsconfig.build.json",
+-    "postbuild": "tsx ../../scripts/write-stub-package-jsons.ts && pnpm biome check --write .",
+-    "test:watch": "pnpm vitest",
+-    "test": "pnpm vitest run",
+-    "prepublishOnly": "tsx ../../scripts/check-versions.ts"
+-  }
+-}
+diff --git a/packages/zod/src/v4/classic/tests/proto-key.test.ts b/packages/zod/src/v4/classic/tests/proto-key.test.ts
+new file mode 100644
+index 0000000..3f378d6
+--- /dev/null
++++ b/packages/zod/src/v4/classic/tests/proto-key.test.ts
+@@ -0,0 +1,46 @@
++import { describe, expect, test } from "vitest";
++import * as z from "zod/v4";
++
++const shape = () =>
++  Object.fromEntries([
++    ["__proto__", z.any()],
++    ["name", z.string()],
++  ]) as any;
++const json = '{"__proto__":{"isAdmin":true},"name":"alice"}';
++
++function check(r: any) {
++  expect(Object.getPrototypeOf(r)).toBe(Object.prototype);
++  expect(r.isAdmin).toBeUndefined();
++  expect(Object.keys(r)).toEqual(["__proto__", "name"]);
++  expect(Object.getOwnPropertyDescriptor(r, "__proto__")).toEqual({
++    value: { isAdmin: true },
++    enumerable: true,
++    writable: true,
++    configurable: true,
++  });
++}
++
++describe("declared __proto__ keys", () => {
++  for (const jitless of [false, true]) {
++    test(`object jitless=${jitless}`, async () => {
++      const schema = z.object(shape());
++      check(schema.parse(JSON.parse(json), { jitless }));
++      check(await schema.parseAsync(JSON.parse(json), { jitless }));
++      const p = z.object(Object.fromEntries([["__proto__", z.string()]]) as any);
++      expect(Object.keys(p.parse(JSON.parse('{"__proto__":"hello"}'), { jitless }))).toEqual(["__proto__"]);
++      expect(p.safeParse(JSON.parse('{"__proto__":1}'), { jitless }).success).toBe(false);
++    });
++  }
++
++  test("record finite keys", async () => {
++    const schema = z.record(z.enum(["__proto__", "name"]), z.any());
++    const input = JSON.parse(json);
++    check(schema.parse(input));
++    check(await schema.parseAsync(input));
++  });
++
++  test("undeclared stays dropped", () => {
++    expect(Object.keys(z.looseObject({ name: z.string() }).parse(JSON.parse(json)))).toEqual(["name"]);
++    expect(Object.keys(z.record(z.string(), z.any()).parse(JSON.parse(json)))).toEqual(["name"]);
++  });
++});
+diff --git a/packages/zod/src/v4/core/schemas.ts b/packages/zod/src/v4/core/schemas.ts
+index 4f85fbf..4f9edb3 100644
+--- a/packages/zod/src/v4/core/schemas.ts
++++ b/packages/zod/src/v4/core/schemas.ts
+@@ -1747,6 +1747,14 @@ export type $InferObjectInput<T extends $ZodLooseShape, Extra extends Record<str
+         } & Extra
+       >;
+ 
++function setOwn(target: any, key: PropertyKey, value: unknown) {
++  if (key === "__proto__") {
++    Object.defineProperty(target, key, { value, enumerable: true, writable: true, configurable: true });
++  } else {
++    target[key] = value;
++  }
++}
++
+ function handlePropertyResult(
+   result: ParsePayload,
+   final: ParsePayload,
+@@ -1778,10 +1786,10 @@ function handlePropertyResult(
+ 
+   if (result.value === undefined) {
+     if (isPresent) {
+-      (final.value as any)[key] = undefined;
++      setOwn(final.value, key, undefined);
+     }
+   } else {
+-    (final.value as any)[key] = result.value;
++    setOwn(final.value, key, result.value);
+   }
+ }
+ 
+@@ -1991,6 +1999,11 @@ export const $ZodObjectJIT: core.$constructor<$ZodObject> = /*@__PURE__*/ core.$
+       const doc = new Doc(["shape", "payload", "ctx"]);
+       const normalized = _normalized.value;
+ 
++      const assignStr = (key: string, expr: string) =>
++        key === "__proto__"
++          ? `Object.defineProperty(newResult, "__proto__", { value: ${expr}, enumerable: true, writable: true, configurable: true });`
++          : `newResult[${util.esc(key)}] = ${expr};`;
++
+       const parseStr = (key: string) => {
+         const k = util.esc(key);
+         return `shape[${k}]._zod.run({ value: input[${k}], issues: [] }, ctx)`;
+@@ -2029,10 +2042,10 @@ export const $ZodObjectJIT: core.$constructor<$ZodObject> = /*@__PURE__*/ core.$
+         
+         if (${id}.value === undefined) {
+           if (${k} in input) {
+-            newResult[${k}] = undefined;
++            ${assignStr(key, "undefined")}
+           }
+         } else {
+-          newResult[${k}] = ${id}.value;
++          ${assignStr(key, `${id}.value`)}
+         }
+         
+       `);
+@@ -2056,9 +2069,9 @@ export const $ZodObjectJIT: core.$constructor<$ZodObject> = /*@__PURE__*/ core.$
+ 
+         if (${id}_present) {
+           if (${id}.value === undefined) {
+-            newResult[${k}] = undefined;
++            ${assignStr(key, "undefined")}
+           } else {
+-            newResult[${k}] = ${id}.value;
++            ${assignStr(key, `${id}.value`)}
+           }
+         }
+ 
+@@ -2074,10 +2087,10 @@ export const $ZodObjectJIT: core.$constructor<$ZodObject> = /*@__PURE__*/ core.$
+         
+         if (${id}.value === undefined) {
+           if (${k} in input) {
+-            newResult[${k}] = undefined;
++            ${assignStr(key, "undefined")}
+           }
+         } else {
+-          newResult[${k}] = ${id}.value;
++          ${assignStr(key, `${id}.value`)}
+         }
+         
+       `);
+@@ -2922,14 +2935,14 @@ export const $ZodRecord: core.$constructor<$ZodRecord> = /*@__PURE__*/ core.$con
+                 if (result.issues.length) {
+                   payload.issues.push(...util.prefixIssues(key, result.issues));
+                 }
+-                payload.value[outKey] = result.value;
++                setOwn(payload.value, outKey, result.value);
+               })
+             );
+           } else {
+             if (result.issues.length) {
+               payload.issues.push(...util.prefixIssues(key, result.issues));
+             }
+-            payload.value[outKey] = result.value;
++            setOwn(payload.value, outKey, result.value);
+           }
+         }
+       }

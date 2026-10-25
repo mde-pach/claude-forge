@@ -1,0 +1,13 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 3,
+ "bash_calls": 7,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/packages/zod/src/v4; python3 - <<'E'\nimport re\np='core/schemas.ts'\ns=open(p).read()\na=s.index('export interface $ZodPreprocessDef')\nb=s.index('export const $ZodPreprocess:')\nnew='''export interface $ZodPreprocessDef<B extends SomeType = $ZodType, I = unknown>\n  extends $ZodPipeDef<$ZodTrans",
+  "cd /work/packages/zod; cp /tmp/t.test.ts src/v4/classic/tests/tmpx.test.ts; npx tsc --noEmit -p . 2>&1 | grep -E \"error\" | grep -v \"TS6133\\|TS6196\" | head; rm src/v4/classic/tests/tmpx.test.ts; git status --short",
+  "cd /work/packages/zod/src/v4/classic/tests; cat >> preprocess.test.ts <<'E'\n\ntest(\"preprocess narrows input from annotated argument\", () => {\n  const pre = z.preprocess((v: string) => v.length, z.number());\n  expectTypeOf<z.input<typeof pre>>().toEqualTypeOf<string>();\n  expectTypeOf<z.output<typeof"
+ ],
+ "total": 3,
+ "edit_tool_share": 0.0
+}

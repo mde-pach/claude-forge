@@ -1,0 +1,70 @@
+{
+ "active": true,
+ "events": {
+  "SessionStart": 1,
+  "UserPromptSubmit": 1,
+  "PreToolUse": 42,
+  "PostToolUse": 26,
+  "PostToolUseFailure": 2,
+  "Stop": 2
+ },
+ "forge_messages": 7,
+ "blocks": 1,
+ "stop_blocks": 1,
+ "feedback": 3,
+ "nonzero_exit": 0,
+ "by_hook": {
+  "SessionStart:startup": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 4
+  },
+  "UserPromptSubmit": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PreToolUse:Bash": {
+   "runs": 42,
+   "nonzero": 0,
+   "forge_msgs": 2
+  },
+  "PostToolUse:Bash": {
+   "runs": 26,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PostToolUseFailure:Bash": {
+   "runs": 2,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "Stop": {
+   "runs": 2,
+   "nonzero": 0,
+   "forge_msgs": 1
+  }
+ },
+ "samples": [
+  {
+   "hook": "SessionStart:startup",
+   "exit": 0,
+   "out": "forge: branch main, 0 changed files\nforge: last commits\n  0a1d9ef Add Forge\n  139153a initial\nforge: packs docker, docker/compose, github-actions, typescript, typescript/vitest\nforge: missing tools (checks using them are skipped): docker\n"
+  },
+  {
+   "hook": "PreToolUse:Bash",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"forge:safety/ephemeral-exec reviewed by an independent session, nobody being there to answer: The command makes a small in-repo string edit to electron/src/routes.ts (matching existing setCookie lines), then runs the locally installed tsc (/work/node_modules/.bin/tsc) with --noEmit and git diff --stat, so nothing is fetched, deleted, or published.\"}}\n"
+  },
+  {
+   "hook": "PreToolUse:Bash",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"forge:safety/ephemeral-exec reviewed by an independent session, nobody being there to answer: The command makes one narrow in-place edit to a tracked source file in the repo and then runs a local type-check with tsc, which is installed at /work/node_modules/.bin, so npx won't download anything; nothing leaves the machine.\"}}\n"
+  },
+  {
+   "hook": "Stop",
+   "exit": 0,
+   "out": "{\"decision\":\"block\",\"reason\":\"forge:typescript/vitest/no-mock-increase packages/electron/test/electron.test.ts: 24 -> 25\"}\n"
+  }
+ ]
+}

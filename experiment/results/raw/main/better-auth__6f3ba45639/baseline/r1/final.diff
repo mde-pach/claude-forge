@@ -1,0 +1,136 @@
+diff --git a/packages/cli/src/utils/get-config.ts b/packages/cli/src/utils/get-config.ts
+index bd201a6..2b36b03 100644
+--- a/packages/cli/src/utils/get-config.ts
++++ b/packages/cli/src/utils/get-config.ts
+@@ -179,6 +179,12 @@ interface StringLiteralNode {
+ 	type: "StringLiteral";
+ 	value: string;
+ }
++interface ModuleSpecifierNode {
++	type: string;
++	imported?: { type: string; name?: string; value?: string };
++	local?: { name: string };
++	exported?: { type: string; name?: string; value?: string };
++}
+ interface BabelNodePath<Node> {
+ 	node: Node;
+ }
+@@ -195,6 +201,19 @@ interface BabelTypes {
+  */
+ const LOADER_IDENTIFIERS = new Set(["require", "import", "jitiImport"]);
+ 
++const EXPLICIT_ENV_MODULES = new Set(["$app/env/private", "$app/env/public"]);
++
++function createExplicitEnvModule(names: string[]): string {
++	const unique = [...new Set(names)];
++	const body = unique
++		.map(
++			(n, i) =>
++				`const v${i} = process.env[${JSON.stringify(n)}];\nexport { v${i} as ${JSON.stringify(n)} };`,
++		)
++		.join("\n");
++	return `data:text/javascript;charset=utf-8,${encodeURIComponent(body || "export {};")}`;
++}
++
+ /**
+  * Rewrites aliased specifiers at AST level. Required because jiti's `alias`
+  * option only supports prefix matching and cannot express mid-path wildcards.
+@@ -216,14 +235,48 @@ function createRewriteImportPathsPlugin(matchers: PathsMatcher[]) {
+ 			const resolved = resolveWithMatchers(source.value, matchers);
+ 			if (resolved) source.value = resolved;
+ 		};
++		// SvelteKit's explicit env modules export arbitrary project-declared names,
++		// so the stub is generated per import to export exactly the requested ones.
++		const rewriteExplicitEnv = (
++			source: StringLiteralNode | null | undefined,
++			specifiers: ModuleSpecifierNode[],
++			key: "imported" | "local",
++		): boolean => {
++			if (!source || !EXPLICIT_ENV_MODULES.has(source.value)) return false;
++			const names = specifiers
++				.map((s) => {
++					const n = s[key] as { name?: string; value?: string } | undefined;
++					return n?.name ?? n?.value;
++				})
++				.filter((n): n is string => typeof n === "string");
++			source.value = createExplicitEnvModule(names);
++			return true;
++		};
+ 		return {
+ 			visitor: {
+-				ImportDeclaration(p: BabelNodePath<{ source: StringLiteralNode }>) {
++				ImportDeclaration(
++					p: BabelNodePath<{
++						source: StringLiteralNode;
++						specifiers: ModuleSpecifierNode[];
++					}>,
++				) {
++					const specifiers = p.node.specifiers.filter(
++						(s) => s.type === "ImportSpecifier",
++					);
++					if (rewriteExplicitEnv(p.node.source, specifiers, "imported")) return;
+ 					rewrite(p.node.source);
+ 				},
+ 				ExportNamedDeclaration(
+-					p: BabelNodePath<{ source: StringLiteralNode | null }>,
++					p: BabelNodePath<{
++						source: StringLiteralNode | null;
++						specifiers?: ModuleSpecifierNode[];
++					}>,
+ 				) {
++					const specifiers = (p.node.specifiers ?? []).filter(
++						(s) => s.type === "ExportSpecifier",
++					);
++					// Re-exports reference the source module's names via `local`.
++					if (rewriteExplicitEnv(p.node.source, specifiers, "local")) return;
+ 					rewrite(p.node.source);
+ 				},
+ 				ExportAllDeclaration(p: BabelNodePath<{ source: StringLiteralNode }>) {
+diff --git a/packages/cli/test/get-config.test.ts b/packages/cli/test/get-config.test.ts
+index 688c397..c886b25 100644
+--- a/packages/cli/test/get-config.test.ts
++++ b/packages/cli/test/get-config.test.ts
+@@ -1681,6 +1681,43 @@ describe("SvelteKit virtual modules and Vite asset imports (user-reported scenar
+ 		},
+ 	);
+ 
++	/**
++	 * Explicit environment variables (SvelteKit 2.63+): arbitrary names declared
++	 * in `src/env.ts`, resolved from `process.env` with no prefix filtering.
++	 */
++	tmpdirTest(
++		"resolves $app/env/private and $app/env/public imports",
++		async ({ tmpdir, expect }) => {
++			vi.stubEnv("MY_SECRET_KEY", "secret");
++			vi.stubEnv("MY_PUBLIC_KEY", "public");
++			await writeTree(tmpdir, {
++				"package.json": sveltekitPackageJson,
++				"src/lib/server/auth.ts": `
++					import { betterAuth } from "better-auth";
++					import { MY_SECRET_KEY, UNSET_KEY } from "$app/env/private";
++					import { MY_PUBLIC_KEY } from "$app/env/public";
++					export const auth = betterAuth({
++						appName:
++							MY_SECRET_KEY === "secret" &&
++							MY_PUBLIC_KEY === "public" &&
++							UNSET_KEY === undefined
++								? "ok"
++								: "bad",
++						emailAndPassword: { enabled: true },
++					});
++				`,
++			});
++
++			const config = await getConfig({
++				cwd: tmpdir,
++				configPath: "src/lib/server/auth.ts",
++				shouldThrowOnError: true,
++			});
++
++			expect(config).toMatchObject({ appName: "ok" });
++		},
++	);
++
+ 	/**
+ 	 * `$app/env` is SvelteKit's alias for `$app/environment` with the same
+ 	 * `browser`/`building`/`dev`/`version` surface, so it must resolve identically.

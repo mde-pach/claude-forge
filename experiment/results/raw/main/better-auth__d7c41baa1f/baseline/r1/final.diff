@@ -1,0 +1,88 @@
+diff --git a/packages/electron/src/routes.ts b/packages/electron/src/routes.ts
+index 43eefab..9d6a3eb 100644
+--- a/packages/electron/src/routes.ts
++++ b/packages/electron/src/routes.ts
+@@ -216,7 +216,7 @@ export const electronInitOAuthProxy = (opts: ElectronOptions) =>
+ 
+ 			const headers = new Headers(ctx.request?.headers);
+ 			headers.set("origin", new URL(ctx.context.baseURL).origin);
+-			let setCookie: string | null = null;
++			let setCookies: string[] = [];
+ 			const searchParams = new URLSearchParams();
+ 			searchParams.set("client_id", opts.clientID || "electron");
+ 			searchParams.set("code_challenge", ctx.query.code_challenge);
+@@ -236,8 +236,7 @@ export const electronInitOAuthProxy = (opts: ElectronOptions) =>
+ 						provider: ctx.query.provider,
+ 					},
+ 					onResponse: (ctx) => {
+-						const headers = ctx.response.headers;
+-						setCookie = headers.get("set-cookie") ?? null;
++						setCookies = ctx.response.headers.getSetCookie();
+ 					},
+ 					headers,
+ 				},
+@@ -249,8 +248,8 @@ export const electronInitOAuthProxy = (opts: ElectronOptions) =>
+ 				});
+ 			}
+ 
+-			if (setCookie) {
+-				ctx.setHeader("set-cookie", setCookie);
++			for (const cookie of setCookies) {
++				ctx.responseHeaders.append("set-cookie", cookie);
+ 			}
+ 			if (res.data.url && res.data.redirect) {
+ 				ctx.setHeader("Location", res.data.url);
+diff --git a/packages/electron/test/init-oauth-proxy.test.ts b/packages/electron/test/init-oauth-proxy.test.ts
+new file mode 100644
+index 0000000..22fbef7
+--- /dev/null
++++ b/packages/electron/test/init-oauth-proxy.test.ts
+@@ -0,0 +1,48 @@
++import { afterEach, describe, expect, it, vi } from "vitest";
++import { betterAuth } from "better-auth";
++import { electron } from "../src/index";
++
++describe("electron init-oauth-proxy", () => {
++	afterEach(() => {
++		vi.unstubAllGlobals();
++	});
++
++	it("forwards each Set-Cookie header separately", async () => {
++		const auth = betterAuth({
++			baseURL: "http://localhost:3000",
++			secret: "test-secret-test-secret-test-secret",
++			socialProviders: {
++				github: { clientId: "id", clientSecret: "secret" },
++			},
++			plugins: [electron()],
++		});
++		const inner = new Headers({ "content-type": "application/json" });
++		inner.append("set-cookie", "first.cookie=one; Path=/; HttpOnly");
++		inner.append("set-cookie", "second.cookie=two; Path=/; HttpOnly");
++		vi.stubGlobal(
++			"fetch",
++			vi.fn(
++				async () =>
++					new Response(
++						JSON.stringify({ url: "https://example.com/auth", redirect: true }),
++						{ status: 200, headers: inner },
++					),
++			),
++		);
++		const res = await auth.api.electronInitOAuthProxy({
++			query: {
++				provider: "github",
++				state: "s",
++				code_challenge: "c",
++				code_challenge_method: "S256",
++			},
++			asResponse: true,
++		});
++		expect(res.status).toBe(302);
++		expect(res.headers.get("location")).toBe("https://example.com/auth");
++		const cookies = res.headers.getSetCookie();
++		expect(cookies).toHaveLength(2);
++		expect(cookies[0]).toMatch(/^first\.cookie=one/);
++		expect(cookies[1]).toMatch(/^second\.cookie=two/);
++	});
++});

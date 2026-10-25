@@ -1,0 +1,19 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 9,
+ "bash_calls": 18,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/packages/zod/src/v4/core; python3 - <<'E'\ns=open('schemas.ts').read()\na=s.index(\"      const handlesProto = normalized.keySet\")\nb=s.index(\"      doc.write(`const input = payload.value;`);\")\ns=s[:a]+\"      const doc = new Doc([\\\"shape\\\", \\\"payload\\\", \\\"ctx\\\"]);\\n      const keys = normalized",
+  "cd /work/packages/zod/src; python3 - <<'E'\np='v4/core/schemas.ts'\ns=open(p).read()\ns=s.replace(\"\"\"    const bKeys = Object.keys(b);\n    const sharedKeys = Object.keys(a).filter((key) => bKeys.indexOf(key) !== -1);\n\n    const newObj: any = { ...a, ...b };\n\"\"\",\"\"\"    const bKeys = Object.keys(b);\n    ",
+  "cd /work/packages/zod/src; python3 - <<'E'\np='v3/types.ts'\ns=open(p).read()\ns=s.replace(\"\"\"filter((key) => bKeys.indexOf(key) !== -1);\n\n    const newObj: any = { ...a, ...b };\n\"\"\",\"\"\"filter((key) => key !== \"__proto__\" && bKeys.indexOf(key) !== -1);\n\n    const newObj: any = { ...a, ...b };\n    delet",
+  "cd /work/packages/zod/src/v4/core; python3 - <<'E'\ns=open('schemas.ts').read()\ns=s.replace(\"\"\"          recordKeys.add(typeof key === \"number\" ? key.toString() : key);\n\"\"\",\"\"\"          recordKeys.add(typeof key === \"number\" ? key.toString() : key);\n          if (key === \"__proto__\") continue;\n\"\"\")\ns",
+  "cd /work/packages/zod/src/v4/core; python3 - <<'E'\ns=open('schemas.ts').read()\ns=s.replace(\"\"\"          const outKey = keyResult.value as PropertyKey;\n          const result\"\"\",\"\"\"          const outKey = keyResult.value as PropertyKey;\n          if (outKey === \"__proto__\") continue;\n          const",
+  "cd /work/packages/zod/src/v4; python3 - <<'E'\nimport re\ndef sub(p, a, b, to=None):\n    s=open(p).read()\n    i=s.index(a)\n    j=s.index(to,i) if to else i+len(a)\n    s=s[:i]+b+s[j:]\n    open(p,'w').write(s)\n\n# object tests\np='classic/tests/object.test.ts'\nsub(p,'        expect(Object.keys(result.data",
+  "cd /work/packages/zod/src/v4/classic/tests; cat > $TMPDIR/blk.ts <<'E'\n// A __proto__ key declared in the shape stays in .shape but is ignored while parsing.\ndescribe(\"__proto__ as a declared shape key\", () => {\n  const protoInput = () => JSON.parse('{\"__proto__\":{\"isAdmin\":true},\"name\":\"alice\"}');\n",
+  "cd /work/packages/zod/src/v4; python3 - <<'E'\ndef sub(p,a,b):\n    s=open(p).read(); assert a in s,a; open(p,'w').write(s.replace(a,b,1))\np='classic/tests/object.test.ts'\nsub(p,'''        expect(Object.keys(result.data)).toEqual([\"name\"]);''','''        expect(Object.keys(result.data)).toEqual([\"name",
+  "cd /work/packages/zod/src/v4; python3 - <<'E'\np='mini/tests/index.test.ts'\ns=open(p).read()\na='''\"__proto__\")).toBe(false);\n  expect(z.parse(partial, {}))'''\nassert a in s\ns=s.replace(a,'''\"__proto__\")).toBe(false);\n  expect(parsed).toEqual({});\n  expect(z.parse(partial, {}))''',1)\nopen(p,'w').write"
+ ],
+ "total": 9,
+ "edit_tool_share": 0.0
+}

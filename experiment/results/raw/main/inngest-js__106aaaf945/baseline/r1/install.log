@@ -1,0 +1,87 @@
+$ set -e
+W=/tmp/pnpm-store
+for d in /cache/pnpm/v*; do
+  [ -d "$d" ] || continue
+  v=$(basename "$d"); mkdir -p "$W/$v"
+  for e in "$d"/*; do
+    n=$(basename "$e")
+    if [ "$n" = files ]; then ln -sfn "$e" "$W/$v/files"; else cp -a "$e" "$W/$v/"; fi
+  done
+done
+pnpm install --frozen-lockfile --offline --ignore-scripts --store-dir "$W" --package-import-method copy
+(cd packages/test && pnpm run build)
+(cd packages/inngest && pnpm run pb:version)
+
+Scope: all 12 workspace projects
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +1561
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 1561, reused 199, downloaded 0, added 0
+Progress: resolved 1561, reused 942, downloaded 0, added 0
+Progress: resolved 1561, reused 1525, downloaded 0, added 4
+Progress: resolved 1561, reused 1525, downloaded 0, added 145
+Progress: resolved 1561, reused 1525, downloaded 0, added 224
+Progress: resolved 1561, reused 1525, downloaded 0, added 302
+Progress: resolved 1561, reused 1525, downloaded 0, added 506
+Progress: resolved 1561, reused 1525, downloaded 0, added 545
+Progress: resolved 1561, reused 1525, downloaded 0, added 621
+Progress: resolved 1561, reused 1525, downloaded 0, added 638
+Progress: resolved 1561, reused 1525, downloaded 0, added 655
+Progress: resolved 1561, reused 1525, downloaded 0, added 667
+Progress: resolved 1561, reused 1525, downloaded 0, added 709
+Progress: resolved 1561, reused 1525, downloaded 0, added 819
+Progress: resolved 1561, reused 1525, downloaded 0, added 905
+Progress: resolved 1561, reused 1525, downloaded 0, added 977
+Progress: resolved 1561, reused 1525, downloaded 0, added 985
+Progress: resolved 1561, reused 1525, downloaded 0, added 1018
+Progress: resolved 1561, reused 1525, downloaded 0, added 1037
+Progress: resolved 1561, reused 1525, downloaded 0, added 1107
+Progress: resolved 1561, reused 1525, downloaded 0, added 1172
+Progress: resolved 1561, reused 1525, downloaded 0, added 1217
+Progress: resolved 1561, reused 1525, downloaded 0, added 1222
+Progress: resolved 1561, reused 1525, downloaded 0, added 1244
+Progress: resolved 1561, reused 1525, downloaded 0, added 1290
+Progress: resolved 1561, reused 1525, downloaded 0, added 1302
+Progress: resolved 1561, reused 1525, downloaded 0, added 1308
+Progress: resolved 1561, reused 1525, downloaded 0, added 1323
+Progress: resolved 1561, reused 1525, downloaded 0, added 1329
+Progress: resolved 1561, reused 1525, downloaded 0, added 1338
+Progress: resolved 1561, reused 1525, downloaded 0, added 1347
+Progress: resolved 1561, reused 1525, downloaded 0, added 1364
+Progress: resolved 1561, reused 1525, downloaded 0, added 1368
+Progress: resolved 1561, reused 1525, downloaded 0, added 1405
+Progress: resolved 1561, reused 1525, downloaded 0, added 1469
+Progress: resolved 1561, reused 1525, downloaded 0, added 1560
+Progress: resolved 1561, reused 1525, downloaded 0, added 1561
+Progress: resolved 1561, reused 1525, downloaded 0, added 1561, done
+
+devDependencies:
++ @actions/core 1.10.0
++ @actions/exec 1.1.1
++ @actions/github 6.0.0
++ @biomejs/biome 2.1.2
++ @changesets/changelog-github 0.4.8
++ @changesets/cli 2.26.2
++ cross-env 7.0.3
++ vitest 3.2.4
+
+Done in 41.1s using pnpm v10.12.1
+
+> @inngest/test@1.0.0 build /work/packages/test
+> pnpm run build:clean && pnpm run build:tsc
+
+
+> @inngest/test@1.0.0 build:clean /work/packages/test
+> rm -rf ./dist
+
+
+> @inngest/test@1.0.0 build:tsc /work/packages/test
+> tsc --project tsconfig.build.json
+
+
+> inngest@4.13.0 pb:version /work/packages/inngest
+> genversion --semi --double --es6 ./src/version.ts
+
+
+[exit 0 in 50s]

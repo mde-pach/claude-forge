@@ -1,0 +1,55 @@
+diff --git a/packages/inngest/src/components/Inngest.ts b/packages/inngest/src/components/Inngest.ts
+index 31c756c..221bdd1 100644
+--- a/packages/inngest/src/components/Inngest.ts
++++ b/packages/inngest/src/components/Inngest.ts
+@@ -118,6 +118,15 @@ type FetchT = typeof fetch;
+  */
+ export const internalLoggerSymbol = Symbol.for("inngest.internalLogger");
+ 
++/**
++ * Symbol for accessing whether session propagation is enabled. Not part of
++ * the public API.
++ * @internal
++ */
++export const sessionPropagationSymbol = Symbol.for(
++  "inngest.sessionPropagation",
++);
++
+ export class Inngest<const TClientOpts extends ClientOptions = ClientOptions>
+   implements Inngest.Like
+ {
+@@ -447,6 +456,18 @@ export class Inngest<const TClientOpts extends ClientOptions = ClientOptions>
+     return "cloud";
+   }
+ 
++  /**
++   * Whether session propagation is enabled. Resolved lazily from the current
++   * env on every access, so env vars set after construction are honoured.
++   *
++   * @internal
++   */
++  get [sessionPropagationSymbol](): boolean {
++    return (
++      parseAsBoolean(this._env[envKeys.InngestSessionPropagation]) ?? false
++    );
++  }
++
+   /**
+    * Given a response from Inngest, relay the error to the caller.
+    */
+diff --git a/packages/inngest/src/helpers/consts.ts b/packages/inngest/src/helpers/consts.ts
+index 1073e85..66c5a19 100644
+--- a/packages/inngest/src/helpers/consts.ts
++++ b/packages/inngest/src/helpers/consts.ts
+@@ -36,6 +36,11 @@ export enum envKeys {
+   InngestServeOrigin = "INNGEST_SERVE_ORIGIN",
+   InngestStreaming = "INNGEST_STREAMING",
+   InngestDevMode = "INNGEST_DEV",
++
++  /**
++   * Enables session propagation (internal, off by default).
++   */
++  InngestSessionPropagation = "INNGEST_SESSION_PROPAGATION",
+   InngestAllowInBandSync = "INNGEST_ALLOW_IN_BAND_SYNC",
+   InngestEnableUnauthedSync = "INNGEST_ENABLE_UNAUTHED_SYNC",
+   InngestConnectMaxWorkerConcurrency = "INNGEST_CONNECT_MAX_WORKER_CONCURRENCY",

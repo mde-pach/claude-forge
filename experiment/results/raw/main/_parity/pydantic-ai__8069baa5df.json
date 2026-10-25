@@ -1,0 +1,64 @@
+{
+ "fingerprint": "13704db88d31915a0b3224333dde7a99b4913de24aad884aeaf81e59ea1b41b3",
+ "source": "results/raw/main/pydantic-ai__8069baa5df/baseline/r1/fingerprint_pre.json",
+ "image": "sha256:a23b084baf2c9f031ec2cd5269b50034d1890e2a56135902fb8b7c39c0f67fc2",
+ "argv": [
+  "claude",
+  "-p",
+  "--model",
+  "claude-sonnet-5-5",
+  "--permission-mode",
+  "bypassPermissions",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--debug-file",
+  "/logs/debug.log",
+  "--max-budget-usd",
+  "15"
+ ],
+ "env": "6127f153be6b3529ca9577ea8f19b15f8d6952ee7ea2be31a2b37d3c6b5457c8",
+ "container_env": [
+  "BUN_INSTALL_CACHE_DIR=/opt/forge-cache/bun",
+  "COLUMNS=150",
+  "COREPACK_ENABLE_AUTO_PIN=0",
+  "COREPACK_ENABLE_DOWNLOAD_PROMPT=0",
+  "COREPACK_HOME=/opt/corepack",
+  "DEBIAN_FRONTEND=noninteractive",
+  "HOME=/home/dev",
+  "LANG=C.UTF-8",
+  "LC_ALL=C.UTF-8",
+  "PATH=/work/.venv/bin:/opt/node/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+  "UV_CACHE_DIR=/cache/uv",
+  "UV_LINK_MODE=copy",
+  "UV_OFFLINE=1",
+  "UV_PYTHON=3.12",
+  "UV_PYTHON_DOWNLOADS=never",
+  "UV_PYTHON_INSTALL_DIR=/opt/uv-python"
+ ],
+ "claude_sha256": "b73676430af12f97316a798b8371f81d640f90a58bdcb8f3ce56a835bb47df56",
+ "limits": [
+  2000000000,
+  6442450944,
+  [
+   "apparmor=unconfined",
+   "seccomp=unconfined"
+  ],
+  [
+   "CAP_SYS_ADMIN"
+  ],
+  "trialnet",
+  [
+   "/cache/bun:False",
+   "/cache/npm:False",
+   "/cache/pnpm:False",
+   "/cache/uv:True",
+   "/etc/ssl/ccr-ca.crt:False",
+   "/home/claude/.claude/remote:False",
+   "/logs:True",
+   "/opt/claude-code/bin/claude:False",
+   "/opt/harness:False"
+  ]
+ ]
+}

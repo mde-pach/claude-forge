@@ -1,0 +1,15 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 5,
+ "bash_calls": 13,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'E'\nimport re\np='config.py'; s=open(p).read()\ns=s.replace(\"        self._lock = RLock()\\n\\n    def configure(\",\"        self._lock = RLock()\\n        # Managed variables registered by all `Logfire` instances sharing this config.\\n        self._variables: dict[str, Variable[Any] | Templat",
+  "python3 - <<'E'\np='config.py'; s=open(p).read()\ns=s.replace(\"    from logfire.variables import VariablesConfig\\n\",\"    from logfire.variables import TemplateVariable, Variable, VariablesConfig\\n\",1)\nopen(p,'w').write(s)\np='main.py'; s=open(p).read()\nS=\" (including those from [`with_settings()`][logf",
+  "cd /work && python3 - <<'E'\np='logfire/_internal/main.py'; s=open(p).read()\ns=s.replace('''\"\"\"Get all variables registered with this instance's config, including `with_settings()` siblings,\n        in registration order.\"\"\"''','''\"\"\"Get all variables registered with this instance's config, including",
+  "python3 - <<'E'\np='tests/test_push_variables.py'; s=open(p).read()\ns=s.replace('''    config: Any = None\n    _variables: dict[str, object] = field(default_factory=dict[str, object])\n''','''    config: Any = None\n    _config: Any = field(default_factory=lambda: SimpleNamespace(_variables={}))\n''',1)\n",
+  "cat > $TMPDIR/t.py <<'E'\nimport logfire\nlogfire.configure(send_to_logfire=False)\na=logfire.var(name='a',default='Hello',type=str)\nl2=logfire.with_settings(tags=['x'])\nb=l2.var(name='main',default='@{a}@ World',type=str)\nassert logfire.variables_get()==[a,b]==l2.variables_get()\nprint(b.get().value, b"
+ ],
+ "total": 5,
+ "edit_tool_share": 0.0
+}

@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 4,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd packages/zod/src/v4/core && python3 - <<'E'\ns=open('schemas.ts').read()\na=\"\"\"        const result = def.valueType._zod.run({ value: input[key], issues: [] }, ctx);\n\n        if (result instanceof Promise) {\n          proms.push(\n            result.then((result) => {\n              if (result.issues",
+  "cd /work/packages/zod/src/v4/classic/tests && head -5 record.test.ts && cat >> record.test.ts <<'E'\n\ntest(\"record drops keys that the key schema transforms into __proto__\", async () => {\n  const schema = z.record(z.string().toLowerCase(), z.object({ a: z.string() }));\n  const input = JSON.parse('{\"_"
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

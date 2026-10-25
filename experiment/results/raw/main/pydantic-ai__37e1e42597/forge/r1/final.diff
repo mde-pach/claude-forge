@@ -1,0 +1,89 @@
+diff --git a/pydantic_ai_slim/pydantic_ai/_agent_graph.py b/pydantic_ai_slim/pydantic_ai/_agent_graph.py
+index 98ba607..533e96f 100644
+--- a/pydantic_ai_slim/pydantic_ai/_agent_graph.py
++++ b/pydantic_ai_slim/pydantic_ai/_agent_graph.py
+@@ -916,9 +916,10 @@ class ModelRequestNode(AgentNode[DepsT, NodeRunEndT]):
+         model_settings = ctx.deps.get_model_settings(run_context) or ModelSettings()
+         run_context.model_settings = model_settings
+ 
++        input_messages = ctx.state.message_history[:]
+         request_context = ModelRequestContext(
+             model=ctx.deps.model,
+-            messages=ctx.state.message_history[:],
++            messages=input_messages[:],
+             model_settings=model_settings,
+             model_request_parameters=model_request_parameters,
+         )
+@@ -944,6 +945,9 @@ class ModelRequestNode(AgentNode[DepsT, NodeRunEndT]):
+ 
+         if self.is_resuming_without_prompt:
+             ctx.deps.resumed_request = self.request
++        if ctx.deps.resumed_request is not None:
++            # Processors may rebuild the resumed request, so follow it to its new object (or `None` if removed).
++            ctx.deps.resumed_request = _track_resumed_request(input_messages, messages, ctx.deps.resumed_request)
+         # `ctx.state.message_history` is the same list used by `capture_run_messages`, so we should replace its contents, not the reference
+         ctx.state.message_history[:] = messages
+         # Update the new message index to ensure `result.new_messages()` returns the correct messages
+@@ -1690,6 +1694,36 @@ def _first_new_message_index(
+     return _first_run_id_index(messages, run_id)
+ 
+ 
++def _track_resumed_request(
++    input_messages: list[_messages.ModelMessage],
++    output_messages: list[_messages.ModelMessage],
++    resumed_request: _messages.ModelRequest,
++) -> _messages.ModelRequest | None:
++    """Find the object in `output_messages` that represents `resumed_request` after history processing.
++
++    Matches by identity, then by value. Failing that, the request was rebuilt: it's the last new `ModelRequest`
++    that precedes the first surviving message that followed it in the input. Returns `None` if it was removed.
++    """
++    for message in output_messages:
++        if message is resumed_request:
++            return message
++    for message in reversed(output_messages):
++        if _is_same_request(message, resumed_request) and isinstance(message, _messages.ModelRequest):
++            return message
++
++    input_ids = {id(m) for m in input_messages}
++    start = next((i for i, m in enumerate(input_messages) if m is resumed_request), None)
++    after = input_messages[start + 1 :] if start is not None else []
++    region_end = next(
++        (i for i, m in enumerate(output_messages) if any(m is a or m == a for a in after)),
++        len(output_messages),
++    )
++    for message in reversed(output_messages[:region_end]):
++        if isinstance(message, _messages.ModelRequest) and id(message) not in input_ids:
++            return message
++    return None
++
++
+ def _is_same_request(message: _messages.ModelMessage, request: _messages.ModelRequest) -> bool:
+     if not isinstance(message, _messages.ModelRequest):
+         return False
+diff --git a/tests/test_history_processor.py b/tests/test_history_processor.py
+index 2f7f103..1c2ae2c 100644
+--- a/tests/test_history_processor.py
++++ b/tests/test_history_processor.py
+@@ -1677,8 +1677,7 @@ async def test_history_processor_replace_resumed_request_falls_through(
+ ):
+     """
+     When a history processor replaces the resumed request with completely
+-    different content, new_messages() falls back to run_id-based detection
+-    to determine which messages belong to the current run.
++    different content, it is still treated as prior context and excluded from new_messages().
+     """
+ 
+     def replace_all_requests(messages: list[ModelMessage]) -> list[ModelMessage]:
+@@ -1744,9 +1743,8 @@ async def test_history_processor_replace_resumed_request_falls_through(
+         ]
+     )
+ 
+-    # Falls back to run_id-based detection: the replaced request got run_id from
+-    # the framework, so new_messages includes both it and the model response
+-    assert result.new_messages() == result.all_messages()[-2:]
++    # The replaced request is the resumed request, so only the model response is new
++    assert result.new_messages() == result.all_messages()[-1:]
+ 
+ 
+ def test_takes_ctx_returns_false_for_untyped_processor():

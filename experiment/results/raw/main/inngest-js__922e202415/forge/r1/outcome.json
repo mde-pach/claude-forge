@@ -1,0 +1,59 @@
+{
+ "resolved": true,
+ "patch_applied": true,
+ "f2p": {
+  "packages/inngest/src/components/middleware/middleware.test.ts::multiple middleware preserve step.run output with optional properties": "passed",
+  "packages/inngest/src/components/middleware/middleware.test.ts::step.invoke preserves optional properties in invoked step.run output": "passed",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #1532 > re-applying Jsonify to a mapped type with optional properties is a no-op": "passed",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #1532 > re-applying Jsonify to an object with optional properties is a no-op": "passed"
+ },
+ "p2p": {
+  "packages/inngest/src/components/middleware/middleware.test.ts::stepOutputTransform does not affect step.invoke return type": "passed",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #513 > appropriately types `string | null` when nested": "passed",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #513 > appropriately types `string | null` when unnested": "passed",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #537 > nested { name: string; } object is preserved > when nullable": "passed",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #537 > nested { name: string; } object is preserved > when union with another object": "passed",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #537 > nested { name: string; } object is preserved > when union with another scalar": "passed",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #98 > allows mapped types with overrides when nested": "passed",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #98 > allows mapped types with overrides when unnested": "passed",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > nested > allows `any`": "passed",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > nested > allows `unknown`": "passed",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > nested > allows number literals": "passed",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > nested > allows string literals": "passed",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > unnested > allows `any`": "passed",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > unnested > allows `unknown`": "passed",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > unnested > allows number literals": "passed",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > unnested > allows string literals": "passed"
+ },
+ "f2p_frac": 1.0,
+ "p2p_regressions": 0,
+ "lint_new": 1,
+ "diff_lines": 30,
+ "changed_files": [
+  ".changeset/calm-jsons-settle.md",
+  "packages/inngest/src/helpers/jsonify.test.ts",
+  "packages/inngest/src/helpers/jsonify.ts"
+ ],
+ "all_results": {
+  "packages/inngest/src/components/middleware/middleware.test.ts::stepOutputTransform does not affect step.invoke return type": "passed",
+  "packages/inngest/src/components/middleware/middleware.test.ts::multiple middleware preserve step.run output with optional properties": "passed",
+  "packages/inngest/src/components/middleware/middleware.test.ts::step.invoke preserves optional properties in invoked step.run output": "passed",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > unnested > allows `any`": "passed",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > unnested > allows `unknown`": "passed",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > unnested > allows number literals": "passed",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > unnested > allows string literals": "passed",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > nested > allows `any`": "passed",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > nested > allows `unknown`": "passed",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > nested > allows number literals": "passed",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > nested > allows string literals": "passed",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #513 > appropriately types `string | null` when unnested": "passed",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #513 > appropriately types `string | null` when nested": "passed",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #98 > allows mapped types with overrides when unnested": "passed",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #98 > allows mapped types with overrides when nested": "passed",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #1532 > re-applying Jsonify to an object with optional properties is a no-op": "passed",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #1532 > re-applying Jsonify to a mapped type with optional properties is a no-op": "passed",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #537 > nested { name: string; } object is preserved > when nullable": "passed",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #537 > nested { name: string; } object is preserved > when union with another object": "passed",
+  "packages/inngest/src/helpers/jsonify.test.ts::Jsonify > #537 > nested { name: string; } object is preserved > when union with another scalar": "passed"
+ }
+}

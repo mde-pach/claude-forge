@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 4,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/packages/zod/src/v4/core; python3 - <<'E'\nimport re\ns=open('schemas.ts').read()\ns=s.replace(\"(final.value as any)[key] = undefined;\",\"util.setOwn(final.value, key, undefined);\")\ns=s.replace(\"(final.value as any)[key] = result.value;\",\"util.setOwn(final.value, key, result.value);\",1) if Fals",
+  "cd /work/packages/zod/src/v4/classic/tests; cat >> object.test.ts <<'E'\n\ntest(\"declared __proto__ key is an own data property\", async () => {\n  const shape = Object.fromEntries([\n    [\"__proto__\", z.union([z.string(), z.object({ isAdmin: z.boolean() })])],\n    [\"name\", z.string()],\n  ]);\n  const sch"
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

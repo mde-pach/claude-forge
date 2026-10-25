@@ -1,0 +1,36 @@
+$ cd /work
+pk=""
+for t in packages/electron/test/electron.test.ts; do
+  d=$(dirname "$t")
+  while [ "$d" != "." ] && [ "$d" != "/" ] && [ ! -f "$d/package.json" ]; do d=$(dirname "$d"); done
+  [ "$d" = "." ] || [ "$d" = "/" ] || pk="$pk --filter=./$d"
+done
+if [ -n "$pk" ]; then
+  turbo run build $pk --output-logs=errors-only || { echo "[forge-exp] workspace build failed; tests not run"; exit 3; }
+fi
+NO_COLOR=1 vitest run packages/electron/test/electron.test.ts --reporter=default --reporter=junit --outputFile.junit=/tmp/forge-junit-6f0cba314918.xml
+
+
+   • Packages in scope: @better-auth/electron
+   • Running build in 1 packages
+   • Remote caching disabled
+
+
+ Tasks:    9 successful, 9 total
+Cached:    8 cached, 9 total
+  Time:    15.081s 
+
+
+ RUN  v4.1.5 /work
+
+ ✓ |@better-auth/electron| test/electron.test.ts (85 tests) 5515ms
+
+ Test Files  1 passed (1)
+      Tests  85 passed (85)
+   Start at  12:16:38
+   Duration  10.12s (transform 2.76s, setup 0ms, import 4.32s, tests 5.51s, environment 0ms)
+
+JUNIT report written to /tmp/forge-junit-6f0cba314918.xml
+• turbo 2.9.14
+
+[exit 0 in 27s]

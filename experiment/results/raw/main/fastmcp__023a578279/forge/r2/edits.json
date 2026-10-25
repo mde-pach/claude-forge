@@ -1,0 +1,17 @@
+{
+ "edit_tool_calls": 1,
+ "shell_edit_calls": 5,
+ "bash_calls": 14,
+ "edit_files": [
+  "/work/tests/server/test_dependencies.py"
+ ],
+ "shell_edit_commands": [
+  "cd /work/fastmcp_slim/fastmcp/server/mixins && python3 - <<'E'\np='lifespan.py'\ns=open(p).read()\ns=s.replace(\"\"\"            async with Docket(\n                name=settings.docket.name,\n                url=settings.docket.url,\n            ) as docket:\n                self._docket = docket\n\"\"\",\"\"\"    ",
+  "cat >> tests/server/test_dependencies.py <<'E'\n\n\nasync def test_shared_dependency_with_task_enabled_component():\n    \"\"\"Shared() resolves once per server even when the Docket path is active.\"\"\"\n    from fastmcp import Client, FastMCP\n    from fastmcp.dependencies import Shared\n\n    calls = 0\n\n    de",
+  "python3 - <<'E'\np='tests/server/test_dependencies.py'\ns=open(p).read()\ns=s.replace(\"\"\"            assert result.content[0].text == \"value\"  # type: ignore[attr-defined]\n\"\"\",\"\"\"            content = result.content[0]\n            assert isinstance(content, TextContent)\n            assert content.text ",
+  "sed -i '1200d' tests/server/test_dependencies.py && sed -n 1196,1202p tests/server/test_dependencies.py && grep -n \"^from mcp_types\" tests/server/test_dependencies.py",
+  "sed -i '1198d' tests/server/test_dependencies.py && .venv/bin/ruff check tests/server/test_dependencies.py | tail -2; .venv/bin/ruff format tests/server/test_dependencies.py; .venv/bin/pytest tests/server/test_dependencies.py -q 2>&1 | tail -2; grep -c \"type: ignore\" tests/server/test_dependencies.p"
+ ],
+ "total": 6,
+ "edit_tool_share": 0.16666666666666666
+}

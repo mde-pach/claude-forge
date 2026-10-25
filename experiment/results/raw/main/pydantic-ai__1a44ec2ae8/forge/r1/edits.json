@@ -1,0 +1,16 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 6,
+ "bash_calls": 15,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'EOF'\np='_adapter.py'\ns=open(p).read()\na=s.index(\"        result: list[Message] = []\\n        system_content: list[str] = []\")\nb=s.index(\"    @staticmethod\\n    def _dump_response_parts\")\nnew='''        result: list[Message] = []\n        system_content: list[str] = []\n        user_conten",
+  "cat >> tests/test_ag_ui.py <<'EOF'\n\n\ndef test_dump_messages_preserves_request_part_order() -> None:\n    \"\"\"User content, tool messages and uploaded-file activities keep their original relative order.\"\"\"\n    messages: list[ModelMessage] = [\n        ModelResponse(parts=[ToolCallPart(tool_name='tool', ",
+  "python3 - <<'EOF'\np='tests/test_ag_ui.py'\ns=open(p).read()\ns=s.replace(\"    assert dumped[2].tool_call_id == 'call_1'  # pyright: ignore[reportAttributeAccessIssue]\\n\",\n\"    tool_message = dumped[2]\\n    assert isinstance(tool_message, ToolMessage)\\n    assert tool_message.tool_call_id == 'call_1'\\n",
+  "sed -i 's/    def _dump_request_parts(/    def _dump_request_parts(  # noqa: C901/' pydantic_ai_slim/pydantic_ai/ui/ag_ui/_adapter.py && .venv/bin/ruff format pydantic_ai_slim/pydantic_ai/ui/ag_ui/_adapter.py && .venv/bin/ruff check pydantic_ai_slim/pydantic_ai/ui/ag_ui/_adapter.py tests/test_ag_ui.",
+  "python3 - <<'EOF'\np='pydantic_ai_slim/pydantic_ai/ui/ag_ui/_adapter.py'\ns=open(p).read()\ns=s.replace(\"    def _dump_request_parts(  # noqa: C901\",\"    def _dump_request_parts(\")\nold_start=s.index(\"                            # AG-UI has no native uploaded-file message type.\")\nold_end=s.index(\"      ",
+  "python3 - <<'EOF'\np='pydantic_ai_slim/pydantic_ai/ui/ag_ui/_adapter.py'\ns=open(p).read()\ns=s.replace(\"@dataclass\\ndef _uploaded_file_activity\",\"def _uploaded_file_activity\",1)\ns=s.replace(\"\\n\\nclass AGUIAdapter(\",\"\\n\\n@dataclass\\nclass AGUIAdapter(\",1)\nopen(p,'w').write(s)\nEOF\n.venv/bin/ruff format "
+ ],
+ "total": 6,
+ "edit_tool_share": 0.0
+}

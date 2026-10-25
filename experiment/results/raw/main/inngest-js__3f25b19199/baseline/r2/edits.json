@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 7,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'E'\nimport re\np='components/InngestStepTools.ts'\ns=open(p).read()\ns=s.replace(\"timeStr(opts.timeout)\",\"timeStr(opts.timeout, client[internalLoggerSymbol])\")\ns=s.replace('timeStr(typeof opts === \"string\" ? opts : opts.timeout)','timeStr(\\n            typeof opts === \"string\" ? opts : opts",
+  "python3 - <<'E'\np='src/components/InngestStepTools.ts'\ns=open(p).read()\na=\"           * `Temporal.Instant` / `Temporal.ZonedDateTime` (absolute deadline).\\n\"\nprint(s.count(a))\ns=s.replace(a,a+\"           *\\n           * Durations under 1 second round up to `1s`, the minimum resolution of\\n          "
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

@@ -1,0 +1,14 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 4,
+ "bash_calls": 9,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "sed -i 's/(\\\\\\\\p{Extended_Pictographic}|\\\\\\\\p{Emoji_Component})+\\$/[\\\\\\\\p{Extended_Pictographic}\\\\\\\\p{Emoji_Component}]+$/' v4/core/regexes.ts v3/types.ts v4/classic/tests/continuability.test.ts v4/classic/tests/to-json-schema.test.ts && git diff | grep '^[+-]'; grep -rn \"Emoji_Component\" --include=",
+  "python3 - <<'EOF'\nimport re\np='src/v4/classic/tests/string.test.ts'\ns=open(p).read()\ns=s.replace('''  expect(() => emoji.parse(\"stuff\ud83d\ude00\")).toThrow();\n});\n''','''  expect(() => emoji.parse(\"stuff\ud83d\ude00\")).toThrow();\n  emoji.parse(\"\ud83e\uddb0\ud83e\uddb1\ud83e\uddb2\ud83e\uddb3\");\n\n  const start = performance.now();\n  expect(emoji.safeParse(`${\"\ud83e\uddb0\".",
+  "cd /work/packages/zod && git checkout src/v3/tests/string.test.ts src/v4/classic/tests/string.test.ts && for f in src/v3/tests/string.test.ts src/v4/classic/tests/string.test.ts; do cat >> $f <<'EOF'\n\ntest(\"emoji rejects without catastrophic backtracking\", () => {\n  const emoji = z.string().emoji();",
+  "cd /work/packages/zod && sed -i '1235s/z.string().emoji()/z.emoji()/' src/v4/classic/tests/string.test.ts && sed -n 1235p src/v4/classic/tests/string.test.ts && cd /work && pnpm vitest run packages/zod/src/v4/classic/tests/string.test.ts 2>&1 | grep -E \"Tests |FAIL\""
+ ],
+ "total": 4,
+ "edit_tool_share": 0.0
+}

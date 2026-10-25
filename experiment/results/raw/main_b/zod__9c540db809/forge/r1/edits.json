@@ -1,0 +1,13 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 3,
+ "bash_calls": 5,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'E'\ns=open('schemas.ts').read()\na=\"\"\"        const result = def.valueType._zod.run({ value: input[key], issues: [] }, ctx);\n\n        if (result instanceof Promise) {\n          proms.push(\n            result.then((result) => {\n              if (result.issues.length) {\n                payl",
+  "cat >> packages/zod/src/v4/classic/tests/record.test.ts <<'E'\n\ntest(\"key schema producing __proto__ drops the entry\", async () => {\n  const v = z.object({ a: z.string() });\n  const va = v.refine(async () => true);\n  const cases: [z.ZodType<any, any>, string][] = [\n    [z.string().toLowerCase(), \"__P",
+  "f=packages/zod/src/v4/mini/tests/record.test.ts && printf 'import { expect, test } from \"vitest\";\\nimport * as z from \"zod/mini\";\\n\\n' | cat - $f > $TMPDIR/r && cp $TMPDIR/r $f && pnpm vitest run packages/zod/src/v4/classic/tests/record.test.ts $f 2>&1 | tail -8; git stash -q -- packages/zod/src/v4/"
+ ],
+ "total": 3,
+ "edit_tool_share": 0.0
+}

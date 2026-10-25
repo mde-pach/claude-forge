@@ -1,0 +1,94 @@
+{
+ "active": true,
+ "events": {
+  "SessionStart": 1,
+  "UserPromptSubmit": 1,
+  "PreToolUse": 69,
+  "PostToolUse": 44,
+  "Stop": 4
+ },
+ "forge_messages": 12,
+ "blocks": 7,
+ "stop_blocks": 3,
+ "feedback": 3,
+ "nonzero_exit": 3,
+ "by_hook": {
+  "SessionStart:startup": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 3
+  },
+  "UserPromptSubmit": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PreToolUse:Bash": {
+   "runs": 69,
+   "nonzero": 0,
+   "forge_msgs": 2
+  },
+  "PostToolUse:Bash": {
+   "runs": 44,
+   "nonzero": 3,
+   "forge_msgs": 3
+  },
+  "Stop": {
+   "runs": 4,
+   "nonzero": 0,
+   "forge_msgs": 4
+  }
+ },
+ "samples": [
+  {
+   "hook": "SessionStart:startup",
+   "exit": 0,
+   "out": "forge: branch main, 0 changed files\nforge: last commits\n  9b1cc18 Add Forge\n  ed30256 initial\nforge: packs github-actions, typescript, typescript/vitest, typescript/zod\n"
+  },
+  {
+   "hook": "PostToolUse:Bash",
+   "exit": 2,
+   "out": "forge:typescript/typecheck\n\u001b[96mpackages/bench/key-iteration.ts\u001b[0m:\u001b[93m26\u001b[0m:\u001b[93m5\u001b[0m - \u001b[91merror\u001b[0m\u001b[90m TS6133: \u001b[0m'_temp' is declared but its value is never read.\n\n\u001b[7m26\u001b[0m let _temp: any;\n\u001b[7m  \u001b[0m \u001b[91m    ~~~~~\u001b[0m\n\n\u001b[96mpackages/bench/safeparse.ts\u001b[0m:\u001b[93m26\u001b[0m:\u001b[93m15\u001b[0m - \u001b[91merror\u001b[0m\u001b[90m TS6133: \u001b[0m'_result' is declared but its value is never read.\n\n\u001b[7m26\u001b[0m         const _result = schema.parse(d);\n\u001b[7m  \u001b[0m \u001b[91m              ~~~~~~~\u001b[0m\n\n\u001b[96mpackages/integration/fixtures/internal-types/cjs-test.cts\u001b[0m:\u001b[93m3\u001b[0m:\u001b[93m19\u001b[0m - \u001b[91merror\u001b[0m\u001b[90m TS1479: \u001b[0mT"
+  },
+  {
+   "hook": "PostToolUse:Bash",
+   "exit": 2,
+   "out": "forge:typescript/typecheck\n\u001b[96mpackages/bench/key-iteration.ts\u001b[0m:\u001b[93m26\u001b[0m:\u001b[93m5\u001b[0m - \u001b[91merror\u001b[0m\u001b[90m TS6133: \u001b[0m'_temp' is declared but its value is never read.\n\n\u001b[7m26\u001b[0m let _temp: any;\n\u001b[7m  \u001b[0m \u001b[91m    ~~~~~\u001b[0m\n\n\u001b[96mpackages/bench/safeparse.ts\u001b[0m:\u001b[93m26\u001b[0m:\u001b[93m15\u001b[0m - \u001b[91merror\u001b[0m\u001b[90m TS6133: \u001b[0m'_result' is declared but its value is never read.\n\n\u001b[7m26\u001b[0m         const _result = schema.parse(d);\n\u001b[7m  \u001b[0m \u001b[91m              ~~~~~~~\u001b[0m\n\n\u001b[96mpackages/integration/fixtures/internal-types/cjs-test.cts\u001b[0m:\u001b[93m3\u001b[0m:\u001b[93m19\u001b[0m - \u001b[91merror\u001b[0m\u001b[90m TS1479: \u001b[0mT"
+  },
+  {
+   "hook": "Stop",
+   "exit": 0,
+   "out": "{\"decision\":\"block\",\"reason\":\"forge:typescript/typecheck failed\\n\\u001b[96mpackages/bench/key-iteration.ts\\u001b[0m:\\u001b[93m26\\u001b[0m:\\u001b[93m5\\u001b[0m - \\u001b[91merror\\u001b[0m\\u001b[90m TS6133: \\u001b[0m'_temp' is declared but its value is never read.\\n\\n\\u001b[7m26\\u001b[0m let _temp: any;\\n\\u001b[7m  \\u001b[0m \\u001b[91m    ~~~~~\\u001b[0m\\n\\n\\u001b[96mpackages/bench/safeparse.ts\\u001b[0m:\\u001b[93m26\\u001b[0m:\\u001b[93m15\\u001b[0m - \\u001b[91merror\\u001b[0m\\u001b[90m TS6133: \\u001b[0m'_result' is declared but its value is never read.\\n\\n\\u001b[7m26\\u001b[0m         const _result = "
+  },
+  {
+   "hook": "PreToolUse:Bash",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"forge:safety/ephemeral-exec reviewed by an independent session, nobody being there to answer: The command stashes all of the user's uncommitted and untracked work with `git stash -u` around a long tsc run, which could strand or conflict that work if interrupted, and it also disables the sandbox, so a separate git worktree should be used for the baseline comparison.\"}}\n"
+  },
+  {
+   "hook": "PreToolUse:Bash",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"forge:safety/ephemeral-exec reviewed by an independent session, nobody being there to answer: This runs local tsc type-checks on the working tree and on a temporary HEAD worktree with a node_modules symlink, which is normal and reversible and involves no network access, secrets or destructive changes.\"}}\n"
+  },
+  {
+   "hook": "Stop",
+   "exit": 0,
+   "out": "{\"decision\":\"block\",\"reason\":\"forge:typescript/typecheck failed\\n\\u001b[96mpackages/bench/key-iteration.ts\\u001b[0m:\\u001b[93m26\\u001b[0m:\\u001b[93m5\\u001b[0m - \\u001b[91merror\\u001b[0m\\u001b[90m TS6133: \\u001b[0m'_temp' is declared but its value is never read.\\n\\n\\u001b[7m26\\u001b[0m let _temp: any;\\n\\u001b[7m  \\u001b[0m \\u001b[91m    ~~~~~\\u001b[0m\\n\\n\\u001b[96mpackages/bench/safeparse.ts\\u001b[0m:\\u001b[93m26\\u001b[0m:\\u001b[93m15\\u001b[0m - \\u001b[91merror\\u001b[0m\\u001b[90m TS6133: \\u001b[0m'_result' is declared but its value is never read.\\n\\n\\u001b[7m26\\u001b[0m         const _result = "
+  },
+  {
+   "hook": "PostToolUse:Bash",
+   "exit": 2,
+   "out": "forge:typescript/typecheck\n\u001b[96mpackages/bench/key-iteration.ts\u001b[0m:\u001b[93m26\u001b[0m:\u001b[93m5\u001b[0m - \u001b[91merror\u001b[0m\u001b[90m TS6133: \u001b[0m'_temp' is declared but its value is never read.\n\n\u001b[7m26\u001b[0m let _temp: any;\n\u001b[7m  \u001b[0m \u001b[91m    ~~~~~\u001b[0m\n\n\u001b[96mpackages/bench/safeparse.ts\u001b[0m:\u001b[93m26\u001b[0m:\u001b[93m15\u001b[0m - \u001b[91merror\u001b[0m\u001b[90m TS6133: \u001b[0m'_result' is declared but its value is never read.\n\n\u001b[7m26\u001b[0m         const _result = schema.parse(d);\n\u001b[7m  \u001b[0m \u001b[91m              ~~~~~~~\u001b[0m\n\n\u001b[96mpackages/integration/fixtures/internal-types/cjs-test.cts\u001b[0m:\u001b[93m3\u001b[0m:\u001b[93m19\u001b[0m - \u001b[91merror\u001b[0m\u001b[90m TS1479: \u001b[0mT"
+  },
+  {
+   "hook": "Stop",
+   "exit": 0,
+   "out": "{\"decision\":\"block\",\"reason\":\"forge:typescript/typecheck failed\\n\\u001b[96mpackages/bench/key-iteration.ts\\u001b[0m:\\u001b[93m26\\u001b[0m:\\u001b[93m5\\u001b[0m - \\u001b[91merror\\u001b[0m\\u001b[90m TS6133: \\u001b[0m'_temp' is declared but its value is never read.\\n\\n\\u001b[7m26\\u001b[0m let _temp: any;\\n\\u001b[7m  \\u001b[0m \\u001b[91m    ~~~~~\\u001b[0m\\n\\n\\u001b[96mpackages/bench/safeparse.ts\\u001b[0m:\\u001b[93m26\\u001b[0m:\\u001b[93m15\\u001b[0m - \\u001b[91merror\\u001b[0m\\u001b[90m TS6133: \\u001b[0m'_result' is declared but its value is never read.\\n\\n\\u001b[7m26\\u001b[0m         const _result = "
+  },
+  {
+   "hook": "Stop",
+   "exit": 0,
+   "out": "{\"systemMessage\":\"forge: check failed 3 times. Handing over to you.\"}\n"
+  }
+ ]
+}

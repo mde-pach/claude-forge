@@ -1,0 +1,116 @@
+diff --git a/logfire/_internal/exporters/otlp.py b/logfire/_internal/exporters/otlp.py
+index 1356f41..645ae52 100644
+--- a/logfire/_internal/exporters/otlp.py
++++ b/logfire/_internal/exporters/otlp.py
+@@ -12,7 +12,7 @@ from functools import cached_property
+ from pathlib import Path
+ from tempfile import mkdtemp
+ from threading import Lock, Thread
+-from typing import Any
++from typing import Any, NoReturn
+ 
+ import requests.exceptions
+ from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+@@ -63,6 +63,10 @@ class BodySizeCheckingOTLPSpanExporter(OTLPSpanExporter):
+         return super()._export(serialized_data, *args, **kwargs)
+ 
+ 
++class SuppressedConnectionError(Exception):
++    """Raised instead of ConnectionError after the payload was queued, so OTEL doesn't retry it too."""
++
++
+ class OTLPExporterHttpSession(Session):
+     """A requests.Session subclass that defers failed requests to a DiskRetryer."""
+ 
+@@ -70,7 +74,7 @@ class OTLPExporterHttpSession(Session):
+         start_time = time.time()
+         try:
+             return self._post(url, data, **kwargs)
+-        except requests.exceptions.RequestException:
++        except requests.exceptions.RequestException as e:
+             # Wait a little before trying again normally, before resorting to disk retrying.
+             # This has several advantages:
+             #  - Writing to disk might be impossible.
+@@ -82,14 +86,21 @@ class OTLPExporterHttpSession(Session):
+             end_time = time.time()
+             if end_time - start_time > 10:  # pragma: no cover
+                 self._add_task(data, url, kwargs)
+-                raise
++                self._reraise(e)
+ 
+             time.sleep(1)
+             try:
+                 return self._post(url, data, **kwargs)
+-            except requests.exceptions.RequestException:
++            except requests.exceptions.RequestException as e2:
+                 self._add_task(data, url, kwargs)
+-                raise
++                self._reraise(e2)
++
++    @staticmethod
++    def _reraise(e: requests.exceptions.RequestException) -> NoReturn:
++        # OTEL retries ConnectionError itself, which would duplicate exports since the retryer already has the payload.
++        if isinstance(e, requests.exceptions.ConnectionError):
++            raise SuppressedConnectionError(str(e)) from e
++        raise e
+ 
+     def _add_task(self, data: bytes, url: str, kwargs: dict[str, Any]):
+         # No threads in Emscripten, we can't add a task to try later
+@@ -294,7 +305,7 @@ class QuietSpanExporter(WrapperSpanExporter):
+     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
+         try:
+             return super().export(spans)
+-        except requests.exceptions.RequestException:
++        except (requests.exceptions.RequestException, SuppressedConnectionError):
+             # Rely on OTLPExporterHttpSession/DiskRetryer to log this kind of error periodically.
+             return SpanExportResult.FAILURE
+ 
+@@ -305,6 +316,6 @@ class QuietLogExporter(WrapperLogExporter):
+     def export(self, batch: Sequence[ReadableLogRecord]):
+         try:
+             return super().export(batch)
+-        except requests.exceptions.RequestException:
++        except (requests.exceptions.RequestException, SuppressedConnectionError):
+             # Rely on OTLPExporterHttpSession/DiskRetryer to log this kind of error periodically.
+             return LogRecordExportResult.FAILURE
+diff --git a/logfire/_internal/exporters/quiet_metrics.py b/logfire/_internal/exporters/quiet_metrics.py
+index 2aa7681..a4b22f5 100644
+--- a/logfire/_internal/exporters/quiet_metrics.py
++++ b/logfire/_internal/exporters/quiet_metrics.py
+@@ -3,6 +3,7 @@ from typing import Any
+ import requests
+ from opentelemetry.sdk.metrics.export import MetricExportResult, MetricsData
+ 
++from .otlp import SuppressedConnectionError
+ from .wrapper import WrapperMetricExporter
+ 
+ 
+@@ -12,6 +13,6 @@ class QuietMetricExporter(WrapperMetricExporter):
+     def export(self, metrics_data: MetricsData, timeout_millis: float = 10_000, **kwargs: Any) -> MetricExportResult:
+         try:
+             return super().export(metrics_data, timeout_millis, **kwargs)
+-        except requests.exceptions.RequestException:
++        except (requests.exceptions.RequestException, SuppressedConnectionError):
+             # Rely on OTLPExporterHttpSession to log this kind of error periodically.
+             return MetricExportResult.FAILURE
+diff --git a/tests/exporters/test_otlp_session.py b/tests/exporters/test_otlp_session.py
+index 7521596..1bc62db 100644
+--- a/tests/exporters/test_otlp_session.py
++++ b/tests/exporters/test_otlp_session.py
+@@ -22,6 +22,7 @@ from logfire._internal.exporters.otlp import (
+     BodyTooLargeError,
+     DiskRetryer,
+     OTLPExporterHttpSession,
++    SuppressedConnectionError,
+     cleanup_disk_retryers,
+ )
+ from tests.exporters.test_retry_fewer_spans import TEST_SPANS
+@@ -89,7 +90,7 @@ def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytes
+ 
+     # Create a bunch of failed exports.
+     for _ in range(num_exports):
+-        with pytest.raises(requests.exceptions.ConnectionError):
++        with pytest.raises(SuppressedConnectionError):
+             session.post('http://example.com/', data=b'123')
+ 
+     # Wait for the retryer to finish.

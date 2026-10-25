@@ -1,0 +1,13 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 3,
+ "bash_calls": 7,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/packages/inngest && cat ../../.changeset/few-carpets-fix.md; grep -n \"IsLiteral\\|KnownKeys\\|type Simplify\\|IsUnknown\\|IsAny\" -A8 src/helpers/types.ts | head -80; ls node_modules/.bin | grep -c tsc\nmkdir -p $TMPDIR; cat > src/helpers/zz.test-d.ts <<'EOF'\nimport type { Jsonify } from \"./jsoni",
+  "sed -i 's/^  \\[Key in keyof T\\]: T\\[Key\\] extends NotJsonable ? never : Key;/  [Key in keyof T]-?: T[Key] extends NotJsonable ? never : Key;/' src/helpers/jsonify.ts && git diff --stat && npx tsc --noEmit --skipLibCheck --strict --target es2022 --moduleResolution bundler --module esnext --allowImpor",
+  "python3 - <<'EOF'\np='src/helpers/jsonify.test.ts'\ns=open(p).read()\nassert s.endswith(\"  });\\n});\\n\")\ns=s[:-len(\"});\\n\")]+'''\n  describe(\"idempotence\", () => {\n    test(\"optional properties nested in arrays\", () => {\n      type Widget = { media: { mediaId: string; label?: string }[] };\n      type Act"
+ ],
+ "total": 3,
+ "edit_tool_share": 0.0
+}

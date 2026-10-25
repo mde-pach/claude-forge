@@ -1,0 +1,56 @@
+diff --git a/.changeset/calm-jsons-settle.md b/.changeset/calm-jsons-settle.md
+new file mode 100644
+index 0000000..f2a0f4e
+--- /dev/null
++++ b/.changeset/calm-jsons-settle.md
+@@ -0,0 +1,5 @@
++---
++"inngest": patch
++---
++
++Fix `step.run` and `step.invoke` output types collapsing to `{}` when `Jsonify` is applied more than once (e.g. with multiple middleware) to objects with optional properties
+diff --git a/packages/inngest/src/helpers/jsonify.test.ts b/packages/inngest/src/helpers/jsonify.test.ts
+index 44d8a3d..01599a1 100644
+--- a/packages/inngest/src/helpers/jsonify.test.ts
++++ b/packages/inngest/src/helpers/jsonify.test.ts
+@@ -144,4 +144,27 @@ describe("Jsonify", () => {
+       });
+     });
+   });
++
++  describe("idempotence", () => {
++    test("optional properties nested in arrays", () => {
++      type Widget = { media: { mediaId: string; label?: string }[] };
++      type Actual = Jsonify<Jsonify<Widget>>;
++
++      assertType<IsEqual<Actual, Jsonify<Widget>>>(true);
++      assertType<IsEqual<Actual["media"][number]["mediaId"], string>>(true);
++      assertType<
++        IsEqual<Actual["media"], { mediaId: string; label?: string }[]>
++      >(true);
++    });
++
++    test("index signature with known keys containing optionals", () => {
++      interface Foo {
++        [x: string]: any;
++        items: { id: string; label?: string }[];
++      }
++      type Actual = Jsonify<Jsonify<Foo>>;
++
++      assertType<IsEqual<Actual["items"][number]["id"], string>>(true);
++    });
++  });
+ });
+diff --git a/packages/inngest/src/helpers/jsonify.ts b/packages/inngest/src/helpers/jsonify.ts
+index 126ee21..9d75193 100644
+--- a/packages/inngest/src/helpers/jsonify.ts
++++ b/packages/inngest/src/helpers/jsonify.ts
+@@ -38,7 +38,7 @@ type JsonifyList<T extends UnknownArray> = T extends readonly []
+       : Array<T[number] extends NotJsonable ? null : Jsonify<T[number]>>;
+ 
+ type FilterJsonableKeys<T extends object> = {
+-  [Key in keyof T]: T[Key] extends NotJsonable ? never : Key;
++  [Key in keyof T]-?: T[Key] extends NotJsonable ? never : Key;
+ }[keyof T];
+ 
+ /**

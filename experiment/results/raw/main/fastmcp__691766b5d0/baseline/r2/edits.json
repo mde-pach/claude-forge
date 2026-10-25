@@ -1,0 +1,13 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 3,
+ "bash_calls": 7,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/fastmcp_slim/fastmcp; python - <<'E'\np='utilities/openapi/schemas.py'\ns=open(p).read()\ns=s.replace(\"\"\"    colliding_params = all_non_body_params & body_param_names\n\"\"\",\"\"\"    colliding_params = all_non_body_params & body_param_names\n    # Parameters sharing a name across non-body locations ",
+  "cd /work/fastmcp_slim/fastmcp; python - <<'E'\np='server/providers/openapi/components.py'\ns=open(p).read()\na=s.index(\"            path = self._route.path\\n            resource_uri\")\nb=s.index(\"            response = await self._client.request(\")\nc=s.index(\"            )\\n\",b)+len(\"            )\\n\")\nn",
+  "cd /work; cat > /tmp/t.py <<'E'\nimport asyncio, httpx\nfrom fastmcp import FastMCP, Client\nfrom fastmcp.server.providers.openapi import OpenAPIProvider, RouteMap, MCPType\ndef run(path, uri, extra=None):\n    spec={\"openapi\":\"3.0.0\",\"info\":{\"title\":\"t\",\"version\":\"1\"},\"paths\":{path:{\"get\":{\"operationId\""
+ ],
+ "total": 3,
+ "edit_tool_share": 0.0
+}

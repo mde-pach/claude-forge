@@ -1,0 +1,25 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 15,
+ "bash_calls": 18,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work && cat > $TMPDIR/r.py <<'E'\nfrom pydantic_ai.messages import *\nimport warnings\nwarnings.simplefilter('error')\ncases=[BinaryContent(data=b'\\xff\\x00abc',media_type='audio/mpeg'),ImageUrl(url='http://x/a.png'),UploadedFile(file_id='a',provider='openai'),\n['hello',BinaryContent(data=b'\\xff\\x00'",
+  "cd /work && sed -i \"s/provider='openai'/provider_name='openai'/\" $TMPDIR/r.py && .venv/bin/python $TMPDIR/r.py",
+  "cd /work/pydantic_ai_slim/pydantic_ai && python3 - <<'E'\np='messages.py'\ns=open(p).read()\ns=s.replace('''if TYPE_CHECKING:\n    # Simpler type for static analysis - recursive''','''def _decode_dumped_binary_content(value: Any, info: pydantic.ValidationInfo) -> Any:\n    \"\"\"Decode the base64 `data` of ",
+  ".venv/bin/python - <<'E'\nimport pydantic\nfrom pydantic_ai.messages import *\nfrom pydantic_ai import messages as m\nta=pydantic.TypeAdapter(m.ToolReturnContent,config=pydantic.ConfigDict(val_json_bytes='base64',ser_json_bytes='base64'))\nb=BinaryContent(data=b'\\xff',media_type='image/png')\nprint(ta.val",
+  "git stash -q && .venv/bin/python - <<'E'\nimport pydantic\nfrom pydantic_ai.messages import *\nfrom pydantic_ai import messages as m\nta=pydantic.TypeAdapter(m.ToolReturnContent,config=pydantic.ConfigDict(val_json_bytes='base64',ser_json_bytes='base64'))\nb=BinaryContent(data=b'\\xff',media_type='image/pn",
+  ".venv/bin/python - <<'E'\nimport pydantic\nfrom typing import Annotated, Any\nfrom typing_extensions import TypeAliasType\nfrom collections.abc import Sequence, Mapping\nfrom pydantic_ai.messages import *\nfrom pydantic_ai import messages as m\ndef noop(v,info): return v\nfor name,ann in [('before',pydantic",
+  "cd /work/pydantic_ai_slim/pydantic_ai && python3 - <<'E'\np='messages.py'\ns=open(p).read()\ns=s.replace('''        Annotated[\n            MultiModalContent | Sequence['ToolReturnContent'] | Mapping[str, 'ToolReturnContent'] | Any,\n            pydantic.BeforeValidator(_decode_dumped_binary_content),\n  ",
+  ".venv/bin/python - <<'E'\nimport pydantic\nfrom typing import Annotated\nfrom pydantic_ai.messages import *\ndef f(v,info):\n    print('mode',info.mode,type(v)); return v\nta=pydantic.TypeAdapter(Annotated[MultiModalContent,pydantic.BeforeValidator(f)],config=pydantic.ConfigDict(val_json_bytes='base64',se",
+  "cd /work/pydantic_ai_slim/pydantic_ai && python3 - <<'E'\np='messages.py'\ns=open(p).read()\ns=s.replace('''        Annotated[MultiModalContent, pydantic.BeforeValidator(_decode_dumped_binary_content)]\n        | Sequence['ToolReturnContent']\n        | Mapping[str, 'ToolReturnContent']\n        | Any,\n  ",
+  ".venv/bin/python - <<'E'\nfrom pydantic_ai.messages import *\nfor c in [{'kind':bytearray(b'a'),'url':'x'},[{'kind':['x'],'media_type':'a'}],{'kind':{'a':1},'file_id':'x'}]:\n    d=[{'kind':'request','parts':[{'part_kind':'tool-return','tool_name':'t','content':c,'tool_call_id':'1'}]}]\n    print(ModelM",
+  "cat >> tests/test_messages.py <<'E'\n\n\n@pytest.mark.parametrize(\n    'content',\n    [\n        BinaryContent(data=b'\\xff\\x00abc', media_type='audio/mpeg'),\n        ['hello', BinaryContent(data=b'\\xff\\x00', media_type='image/png')],\n        {'caption': 'x', 'attachment': BinaryContent(data=b'\\xff', med",
+  "sed -i '1i import warnings' tests/test_messages.py && sed -i 's/\\(\\.content\\) == content  # type: ignore\\[union-attr\\]/\\1 == content/' tests/test_messages.py && grep -n \"ModelMessagesTypeAdapter\" tests/test_messages.py | head -3; .venv/bin/ruff format tests/test_messages.py; .venv/bin/ruff check tes",
+  "python3 - <<'E'\nimport re\np='tests/test_messages.py'\ns=open(p).read()\ns=s.replace(\"assert from_python[0].parts[0].content == content\",\"assert _tool_return_content(from_python) == content\")\ns=s.replace(\"assert from_json[0].parts[0].content == content\",\"assert _tool_return_content(from_json) == conten",
+  "sed -i 's/def _tool_return_content(messages: list\\[ModelMessage\\])/def _tool_return_content(messages: Sequence[ModelMessage])/' tests/test_messages.py && sed -i 's/^from datetime import/from collections.abc import Sequence\\nfrom datetime import/' tests/test_messages.py && .venv/bin/ruff check --fix ",
+  "sed -i \"s/^    messages = \\[ModelRequest(parts=\\[ToolReturnPart(tool_name='t', content=content/    messages: list[ModelMessage] = [ModelRequest(parts=[ToolReturnPart(tool_name='t', content=content/\" tests/test_messages.py && .venv/bin/ruff format tests/test_messages.py; PYRIGHT_PYTHON_IGNORE_WARNING"
+ ],
+ "total": 15,
+ "edit_tool_share": 0.0
+}

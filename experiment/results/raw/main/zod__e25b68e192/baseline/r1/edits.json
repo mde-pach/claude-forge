@@ -1,0 +1,16 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 6,
+ "bash_calls": 11,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/packages/zod; sed -i 's/= Symbol(\"zod_brand\")/= \\/*@__PURE__*\\/ Symbol(\"zod_brand\")/' src/v4/core/core.ts\nsed -i 's/= Symbol(\"ZodOutput\")/= \\/*@__PURE__*\\/ Symbol(\"ZodOutput\")/;s/= Symbol(\"ZodInput\")/= \\/*@__PURE__*\\/ Symbol(\"ZodInput\")/' src/v4/core/registries.ts\ngit diff --stat; cat packa",
+  "cd /work/packages/zod; sed -n 120,127p package.json; ls src/v4/mini/index.ts src/v4/classic/index.ts src/mini src/index.ts 2>&1|head; cat > /tmp/t.mjs <<'E'\nimport {build} from \"/work/node_modules/esbuild/lib/main.js\";\nfor (const f of [\"mini/index\",\"classic/index\"]) {\n const r=await build({stdin:{co",
+  "cd /work/packages/zod; python3 - <<'E'\np='src/v4/core/util.ts'\ns=open(p).read()\na=s.index('export const NUMBER_FORMAT_RANGES')\nb=s.index('};\\n',a)+3\nblk=s[a:b]\nnew=blk.replace('export const NUMBER_FORMAT_RANGES: Record<checks.$ZodNumberFormats, [number, number]> = {','export const NUMBER_FORMAT_RANG",
+  "cd /work/packages/zod; python3 - <<'E'\np='src/v4/core/regexes.ts'\ns=open(p).read()\ns=s.replace('export const date: RegExp = /*@__PURE__*/ new RegExp(`^${dateSource}$`);','export const date: RegExp = /*@__PURE__*/ (() => new RegExp(`^${dateSource}$`))();')\ns=s.replace('\\nconst dateSource = `','\\ncons",
+  "cd /work/packages/zod; sed -i '97s/^\\(\\/\\/ const dateSource = \\)\\/\\*@__PURE__\\*\\/ (() => /\\1/' src/v4/core/regexes.ts\nsed -i '98s/`;$/`)();/' src/v4/core/regexes.ts\nsed -n 97p src/v4/core/regexes.ts | cut -c1-60; node /tmp/t.mjs; grep -n \"MAX_SAFE_INTEGER\" src/v4/core/checks.ts",
+  "cd /work/packages/zod; python3 - <<'E'\np='package.json'\ns=open(p).read()\ns=s.replace('  \"scripts\": {','  \"devDependencies\": {\\n    \"esbuild\": \"^0.25.5\"\\n  },\\n  \"scripts\": {',1)\nopen(p,'w').write(s)\nE\nmkdir -p src/v4/core/tests; cat > src/v4/core/tests/treeshake.test.ts <<'E'\nimport { build } from \""
+ ],
+ "total": 6,
+ "edit_tool_share": 0.0
+}

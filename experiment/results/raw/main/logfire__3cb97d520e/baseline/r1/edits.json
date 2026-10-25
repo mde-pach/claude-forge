@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 6,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/logfire/_internal/integrations/llm_providers; python - <<'E'\np='semconv.py'\ns=open(p).read()\ns=s.replace('''class ReasoningPart(TypedDict):''','''class FilePart(TypedDict):\n    \"\"\"Reference to a file uploaded to the provider.\"\"\"\n\n    type: Literal['file']\n    file_id: str\n    media_type: No",
+  "cd /work && sed -i '5s/.*/from typing import TYPE_CHECKING, Any, Literal, cast/' logfire/_internal/integrations/llm_providers/openai.py && ruff format logfire && ruff check logfire | tail -5; pyright logfire/_internal/integrations/llm_providers 2>&1 | tail -8; uv run pytest tests -q -k \"openai\" 2>&1"
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

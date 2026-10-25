@@ -1,0 +1,16 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 6,
+ "bash_calls": 12,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'E'\nimport re\np='to-json-schema.ts'\ns=open(p).read()\ns=s.replace('''   * - `\"any\"` \u2014 Unrepresentable types become `{}` */\n  unrepresentable?: \"throw\" | \"any\";''','''   * - `\"any\"` \u2014 Unrepresentable types become `{}`\n   * - a function \u2014 called per unrepresentable site; returns a JSON Sche",
+  "python3 - <<'E'\nimport re\np='to-json-schema.ts'\ns=open(p).read()\na=s.index('const ANNOTATION_KEYS')\nb=s.index('export function finalize')\ns=s[:a]+s[b:]\nopen(p,'w').write(s)\np='json-schema-processors.ts'\ns=open(p).read()\n# simple processors: pass json\ns=re.sub(r'\\((schema), ctx, _json, _params\\) => \\",
+  "cd /work/packages/zod/src/v4 && sed -i 's/unrepresentable: \"throw\" | \"any\" | UnrepresentableHandler<schemas.\\$ZodType>;/unrepresentable: \"throw\" | \"any\" | UnrepresentableHandler<schemas.$ZodTypes>;/' core/to-json-schema.ts && sed -i 's/(ctx.unrepresentable as UnrepresentableHandler)({/(ctx.unreprese",
+  "sed -i 's/const handler = ({ zodSchema, path, message }: any) => {/const handler = ({ zodSchema, path, message }: any): any => {/' packages/zod/src/v4/classic/tests/to-json-schema.test.ts && pnpm vitest run packages/zod/src/v4 2>&1 | grep -E \"FAIL|Error|expected|Tests|received\" | head -30",
+  "sed -i '3192,3353d' to-json-schema.test.ts && cd /work && pnpm vitest run packages/zod/src/v4 2>&1 | grep -E \"FAIL|Tests|Type Errors\"; pnpm biome check packages/zod/src 2>&1 | tail -5",
+  "sed -i 's/override: (ctx) => void (ctx.jsonSchema.nullable = true) }/override: (ctx) => {\\n          ctx.jsonSchema.nullable = true;\\n        } }/' packages/zod/src/v4/classic/tests/to-json-schema.test.ts && pnpm biome check --write packages/zod/src 2>&1 | tail -3; pnpm vitest run packages/zod/src/v"
+ ],
+ "total": 6,
+ "edit_tool_share": 0.0
+}

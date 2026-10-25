@@ -1,0 +1,79 @@
+diff --git a/pydantic_ai_slim/pydantic_ai/messages.py b/pydantic_ai_slim/pydantic_ai/messages.py
+index 7ef93ac..d06b768 100644
+--- a/pydantic_ai_slim/pydantic_ai/messages.py
++++ b/pydantic_ai_slim/pydantic_ai/messages.py
+@@ -859,8 +859,11 @@ class UploadedFile:
+     __repr__ = _utils.dataclasses_no_defaults_repr
+ 
+ 
++NarrowedBinaryContent = Annotated[BinaryContent, pydantic.AfterValidator(BinaryImage.narrow_type)]
++"""`BinaryContent` that is narrowed to `BinaryImage` on validation if it's an image."""
++
+ MultiModalContent = Annotated[
+-    ImageUrl | AudioUrl | DocumentUrl | VideoUrl | BinaryContent | UploadedFile, pydantic.Discriminator('kind')
++    ImageUrl | AudioUrl | DocumentUrl | VideoUrl | NarrowedBinaryContent | UploadedFile, pydantic.Discriminator('kind')
+ ]
+ """Union of all multi-modal content types with a discriminator for Pydantic validation."""
+ 
+@@ -1778,7 +1781,7 @@ class CompactionPart:
+ class FilePart:
+     """A file response from a model."""
+ 
+-    content: Annotated[BinaryContent, pydantic.AfterValidator(BinaryImage.narrow_type)]
++    content: NarrowedBinaryContent
+     """The file content of the response."""
+ 
+     _: KW_ONLY
+diff --git a/tests/test_messages.py b/tests/test_messages.py
+index 78b5b44..63aac98 100644
+--- a/tests/test_messages.py
++++ b/tests/test_messages.py
+@@ -2,7 +2,7 @@ import sys
+ import warnings
+ from datetime import datetime, timezone
+ from pathlib import Path
+-from typing import Any, cast, get_args
++from typing import Annotated, Any, cast, get_args, get_origin
+ 
+ import pytest
+ from pydantic import TypeAdapter
+@@ -1285,7 +1285,10 @@ def test_tool_return_content_nested_multimodal():
+ def test_multi_modal_content_types_matches_union():
+     """Validate that MULTI_MODAL_CONTENT_TYPES matches the MultiModalContent union members,
+     and that is_multi_modal_content correctly narrows types."""
+-    union_members = set(get_args(get_args(MultiModalContent)[0]))
++    union_members = {
++        get_args(member)[0] if get_origin(member) is Annotated else member
++        for member in get_args(get_args(MultiModalContent)[0])
++    }
+     assert set(MULTI_MODAL_CONTENT_TYPES) == union_members
+ 
+     # Positive cases: each multimodal type is recognized
+@@ -1818,3 +1821,27 @@ def test_retry_prompt_tool_call_keeps_input_for_nested_errors():
+     response = part.model_response()
+     assert '"input": 42' in response
+     assert '"name"' in response
++
++
++def test_multi_modal_content_narrows_binary_image():
++    image = BinaryContent(data=b'\x89PNG', media_type='image/png')
++    audio = BinaryContent(data=b'\x00\x01', media_type='audio/mpeg')
++    msgs = [
++        ModelRequest(
++            parts=[
++                UserPromptPart(content=[image, audio]),
++                ToolReturnPart(tool_name='t', content=image, tool_call_id='c'),
++            ]
++        )
++    ]
++    for loaded in (
++        ModelMessagesTypeAdapter.validate_json(ModelMessagesTypeAdapter.dump_json(msgs)),
++        ModelMessagesTypeAdapter.validate_python(ModelMessagesTypeAdapter.dump_python(msgs, mode='json')),
++    ):
++        user, tool = loaded[0].parts
++        assert isinstance(user, UserPromptPart) and isinstance(tool, ToolReturnPart)
++        img, aud = user.content
++        assert type(img) is BinaryImage
++        assert img.data == image.data and img.identifier == image.identifier
++        assert type(aud) is BinaryContent
++        assert type(tool.content) is BinaryImage

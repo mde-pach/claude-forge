@@ -1,0 +1,54 @@
+diff --git a/pydantic_ai_slim/pydantic_ai/_instrumentation.py b/pydantic_ai_slim/pydantic_ai/_instrumentation.py
+index a2bd639..c9447c3 100644
+--- a/pydantic_ai_slim/pydantic_ai/_instrumentation.py
++++ b/pydantic_ai_slim/pydantic_ai/_instrumentation.py
+@@ -90,7 +90,7 @@ def serialize_any(value: Any) -> str:
+             return f'Unable to serialize: {e}'
+ 
+ 
+-def safe_to_json(value: Any) -> bytes:
++def safe_to_json(value: object) -> bytes:
+     """Serialize `value` to compact JSON bytes, tolerating lone surrogates.
+ 
+     `to_json` raises on unpaired surrogates (e.g. text decoded with `errors='surrogateescape'`),
+@@ -126,7 +126,7 @@ def model_attributes(model: Model) -> dict[str, AttributeValue]:
+ def model_request_parameters_attributes(
+     model_request_parameters: ModelRequestParameters,
+ ) -> dict[str, AttributeValue]:
+-    return {'model_request_parameters': to_json(serialize_any(model_request_parameters)).decode()}
++    return {'model_request_parameters': safe_to_json(serialize_any(model_request_parameters)).decode()}
+ 
+ 
+ def annotate_tool_call_otel_metadata(response: ModelResponse, parameters: ModelRequestParameters) -> None:
+@@ -218,7 +218,7 @@ def open_model_request_span(
+ 
+     tool_definitions = build_tool_definitions(prepared_parameters)
+     if tool_definitions:
+-        attributes['gen_ai.tool.definitions'] = to_json(tool_definitions).decode()
++        attributes['gen_ai.tool.definitions'] = safe_to_json(tool_definitions).decode()
+ 
+     if prepared_settings:
+         for key in MODEL_SETTING_ATTRIBUTES:
+diff --git a/tests/models/test_instrumented.py b/tests/models/test_instrumented.py
+index 52fed6f..3df8ad3 100644
+--- a/tests/models/test_instrumented.py
++++ b/tests/models/test_instrumented.py
+@@ -2100,3 +2100,18 @@ async def test_instrumented_model_request_error(capfire: CaptureLogfire):
+     # finish() was never called, so response-specific attributes are absent
+     assert 'gen_ai.response.id' not in spans[0]['attributes']
+     assert 'gen_ai.usage.input_tokens' not in spans[0]['attributes']
++
++
++async def test_instrumented_model_lone_surrogate_in_tool_definitions(capfire: CaptureLogfire):
++    import json
++
++    from pydantic_ai.tools import ToolDefinition
++
++    description = 'get the weather before\udce4after'
++    params = ModelRequestParameters(function_tools=[ToolDefinition(name='weather', description=description)])
++    model = InstrumentedModel(MyModel(), InstrumentationSettings())
++    await model.request([ModelRequest(parts=[UserPromptPart('hi')])], None, params)
++
++    attrs = capfire.exporter.exported_spans_as_dict()[0]['attributes']
++    assert json.loads(attrs['gen_ai.tool.definitions'])[0]['description'] == description
++    assert json.loads(attrs['model_request_parameters'])['function_tools'][0]['name'] == 'weather'

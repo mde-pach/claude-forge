@@ -1,0 +1,90 @@
+{
+ "active": true,
+ "events": {
+  "SessionStart": 1,
+  "UserPromptSubmit": 1,
+  "PreToolUse": 33,
+  "PostToolUseFailure": 2,
+  "PostToolUse": 22,
+  "Stop": 4
+ },
+ "forge_messages": 12,
+ "blocks": 3,
+ "stop_blocks": 3,
+ "feedback": 4,
+ "nonzero_exit": 2,
+ "by_hook": {
+  "SessionStart:startup": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 4
+  },
+  "UserPromptSubmit": {
+   "runs": 1,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PreToolUse:Bash": {
+   "runs": 33,
+   "nonzero": 0,
+   "forge_msgs": 1
+  },
+  "PostToolUseFailure:Bash": {
+   "runs": 2,
+   "nonzero": 0,
+   "forge_msgs": 0
+  },
+  "PostToolUse:Bash": {
+   "runs": 20,
+   "nonzero": 2,
+   "forge_msgs": 0
+  },
+  "PostToolUse:Write": {
+   "runs": 2,
+   "nonzero": 0,
+   "forge_msgs": 3
+  },
+  "Stop": {
+   "runs": 4,
+   "nonzero": 0,
+   "forge_msgs": 4
+  }
+ },
+ "samples": [
+  {
+   "hook": "SessionStart:startup",
+   "exit": 0,
+   "out": "forge: branch main, 0 changed files\nforge: last commits\n  83783a9 Add Forge\n  c85debc initial\nforge: packs docker, docker/compose, github-actions, typescript, typescript/vitest\nforge: missing tools (checks using them are skipped): docker\n"
+  },
+  {
+   "hook": "PostToolUse:Write",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"forge:typescript/no-swallowed-catch packages/better-auth/src/utils/request.ts:12:4 A catch block rethrows or uses the error it caught; .catch(() => {}) is not allowed either. Handle the error, log it, or let it propagate.\\nforge:typescript/no-swallowed-catch packages/better-auth/src/utils/request.ts:34:6 A catch block rethrows or uses the error it caught; .catch(() => {}) is not allowed either. Handle the error, log it, or let it propagate.\\nforge:typescript/no-swallowed-catch packages/better-auth/src/utils/request.ts:38"
+  },
+  {
+   "hook": "PreToolUse:Bash",
+   "exit": 0,
+   "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"forge:safety/ephemeral-exec reviewed by an independent session, nobody being there to answer: The inline Python only edits the agent's own in-progress files in this repo (utils/request.ts and three route files, all already modified or untracked), and the type-check uses the locally installed tsc, so nothing is fetched, deleted, published or read from secrets.\"}}\n"
+  },
+  {
+   "hook": "Stop",
+   "exit": 0,
+   "out": "{\"decision\":\"block\",\"reason\":\"forge:typescript/vitest/no-mock-increase packages/better-auth/src/utils/request.test.ts: 0 -> 1\"}\n"
+  },
+  {
+   "hook": "Stop",
+   "exit": 0,
+   "out": "{\"decision\":\"block\",\"reason\":\"forge:typescript/no-swallowed-catch packages/better-auth/src/utils/request.ts:12:4 A catch block rethrows or uses the error it caught; .catch(() => {}) is not allowed either. Handle the error, log it, or let it propagate.\"}\n"
+  },
+  {
+   "hook": "Stop",
+   "exit": 0,
+   "out": "{\"decision\":\"block\",\"reason\":\"forge:typescript/vitest/run failed\\n\\n RUN  v4.1.5 /work\\n\\n(node:7013) ExperimentalWarning: SQLite is an experimental feature and might change at any time\\n(Use `node --trace-warnings ...` to show where the warning was created)\\n(node:7014) ExperimentalWarning: SQLite is an experimental feature and might change at any time\\n(Use `node --trace-warnings ...` to show where the warning was created)\\n(node:7020) ExperimentalWarning: SQLite is an experimental feature and might change at any time\\n(Use `node --trace-warnings ...` to show where the warning was created)\\n"
+  },
+  {
+   "hook": "Stop",
+   "exit": 0,
+   "out": "{\"systemMessage\":\"forge: check failed 3 times. Handing over to you.\"}\n"
+  }
+ ]
+}

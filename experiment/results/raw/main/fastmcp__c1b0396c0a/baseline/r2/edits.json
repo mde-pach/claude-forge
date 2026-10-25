@@ -1,0 +1,11 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 1,
+ "bash_calls": 2,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python - <<'E'\ns=open('ssrf.py').read()\na=s.index(\"    # IPv6-specific checks\")\nb=s.index(\"    return True\\n\\n\\nasync def resolve\")\nnew='''    # IPv6 transition addresses: reject if any embedded IPv4 target is blocked\n    if isinstance(ip, ipaddress.IPv6Address):\n        for candidate in _embedded_i"
+ ],
+ "total": 1,
+ "edit_tool_share": 0.0
+}

@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 4,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python - <<'E'\ns=open('_adapter.py').read()\ns=s.replace(\"\"\"        ] = []\n\n        for part in msg.parts:\n            if isinstance(part, SystemPromptPart):\"\"\",\"\"\"        ] = []\n\n        def flush_user() -> None:\n            nonlocal user_content\n            if not user_content:\n                retu",
+  "cat >> tests/test_ag_ui.py <<'E'\n\n\ndef test_dump_messages_preserves_request_part_order():\n    from pydantic_ai.messages import ModelRequest, ModelResponse, ToolCallPart, ToolReturnPart, UserPromptPart\n\n    messages = AGUIAdapter.dump_messages(\n        [\n            ModelResponse(parts=[ToolCallPart("
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

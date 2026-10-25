@@ -1,0 +1,24 @@
+diff --git a/packages/inngest/src/components/InngestCommHandler.ts b/packages/inngest/src/components/InngestCommHandler.ts
+index 9c91877..b7d88a7 100644
+--- a/packages/inngest/src/components/InngestCommHandler.ts
++++ b/packages/inngest/src/components/InngestCommHandler.ts
+@@ -2214,15 +2214,12 @@ export class InngestCommHandler<
+       headerReqVersion,
+       this.client[internalLoggerSymbol],
+     );
+-    const { sdkDecided } = immediateFnData;
+     let version = ExecutionVersion.V2;
+ 
+-    // Handle opting out of optimized parallelism
+-    if (
+-      version === ExecutionVersion.V2 &&
+-      sdkDecided &&
+-      fn.fn["shouldOptimizeParallelism"]?.() === false
+-    ) {
++    // Opting out of optimized parallelism always forces V1, regardless of the
++    // version the executor requested. Otherwise the executor could switch the
++    // run back to V2 and coalesce parallel steps, which can hang the run.
++    if (fn.fn["shouldOptimizeParallelism"]?.() === false) {
+       version = ExecutionVersion.V1;
+     }
+ 

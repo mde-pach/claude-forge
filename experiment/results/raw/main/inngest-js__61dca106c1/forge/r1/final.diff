@@ -1,0 +1,34 @@
+diff --git a/packages/otel/src/instrument.ts b/packages/otel/src/instrument.ts
+index 1d7b607..92badbd 100644
+--- a/packages/otel/src/instrument.ts
++++ b/packages/otel/src/instrument.ts
+@@ -12,6 +12,13 @@ import { type MaybeError, toError } from "./types.ts";
+ 
+ const debug = Debug("inngest:otel:instrumentTracing");
+ 
++/**
++ * Key of a non-enumerable `true` property set on tracer providers created by
++ * Inngest's instrumentation. Uses the global symbol registry so separate copies
++ * of this package resolve to the same key.
++ */
++export const providerMarker = Symbol.for("inngest.otel.provider");
++
+ let isTraceInstrumentationHookRegistered = false;
+ let isTraceInstrumentationStarted = false;
+ 
+@@ -101,6 +108,15 @@ function ensureTraceProvider(): MaybeError<void> {
+       return;
+     }
+ 
++    // Mark the provider so other code can tell it was created by Inngest. The
++    // global proxy's delegate is this same instance.
++    Object.defineProperty(provider, providerMarker, {
++      value: true,
++      enumerable: false,
++      configurable: true,
++      writable: false,
++    });
++
+     context.setGlobalContextManager(
+       new AsyncLocalStorageContextManager().enable(),
+     );

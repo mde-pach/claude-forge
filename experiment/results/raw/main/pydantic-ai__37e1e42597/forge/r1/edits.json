@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 10,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'EOF'\np='_agent_graph.py'\ns=open(p).read()\ns=s.replace(\"\"\"        request_context = ModelRequestContext(\n            model=ctx.deps.model,\n            messages=ctx.state.message_history[:],\"\"\",\"\"\"        input_messages = ctx.state.message_history[:]\n        request_context = ModelRequest",
+  "python3 - <<'EOF'\np='tests/test_history_processor.py'\ns=open(p).read()\ns=s.replace(\"\"\"    When a history processor replaces the resumed request with completely\n    different content, new_messages() falls back to run_id-based detection\n    to determine which messages belong to the current run.\"\"\",\"\"\""
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

@@ -1,0 +1,13 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 3,
+ "bash_calls": 6,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/logfire/_internal/exporters && python - <<'E'\np='otlp.py'\ns=open(p).read()\ns=s.replace(\"\"\"                self._add_task(data, url, kwargs)\n                raise\n\n            time.sleep(1)\n            try:\n                return self._post(url, data, **kwargs)\n            except requests.ex",
+  "cd /work; sed -i '92s/requests.exceptions.ConnectionError/SuppressedConnectionError/' tests/exporters/test_otlp_session.py; grep -n \"import.*OTLPExporterHttpSession\" tests/exporters/test_otlp_session.py",
+  "cd /work; sed -i '24a\\    SuppressedConnectionError,' tests/exporters/test_otlp_session.py; uv run pytest tests/exporters -q 2>&1 | tail -5; uv run ruff check logfire tests/exporters; uv run ruff format logfire tests/exporters"
+ ],
+ "total": 3,
+ "edit_tool_share": 0.0
+}

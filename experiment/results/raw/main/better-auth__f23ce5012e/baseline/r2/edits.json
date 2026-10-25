@@ -1,0 +1,13 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 3,
+ "bash_calls": 5,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'E'\np='index.ts'\ns=open(p).read()\ns=s.replace('''\t/**\n\t * Store the last login method in the database.''','''\t/**\n\t * Called before the last login method cookie is set. Return a falsy value\n\t * to skip setting the cookie (e.g. when the user has not given consent).\n\t * If it throws or rej",
+  "sed -n 280,292p /work/docs/content/docs/plugins/last-login-method.mdx\ncat > before-store-cookie.test.ts <<'E'\nimport { describe, expect, it, vi } from \"vitest\";\nimport { getTestInstance } from \"../../test-utils/test-instance\";\nimport { lastLoginMethod } from \".\";\n\nconst cookieName = \"better-auth.las",
+  "python3 - <<'E'\np='src/plugins/last-login-method/before-store-cookie.test.ts'\ns=open(p).read()\ns=s.replace('''\t\texpect(hook.mock.calls[0]![0].path).toBe(\"/sign-in/email\");\n\t\texpect(hook.mock.calls[0]![1]).toBe(\"email\");''','''\t\tconst last = hook.mock.calls.at(-1)!;\n\t\texpect(last[0].path).toBe(\"/sign"
+ ],
+ "total": 3,
+ "edit_tool_share": 0.0
+}

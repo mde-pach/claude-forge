@@ -1,0 +1,13 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 3,
+ "bash_calls": 9,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/packages; python3 - <<'E'\nimport re\np='better-auth/src/plugins/organization/types.ts'\ns=open(p).read()\nfor n in ('before','after'):\n    s=s.replace(n+'DeleteOrganization?: (data: {\\n\\t\\t\\t\\t\\torganization: Organization & Record<string, any>;\\n\\t\\t\\t\\t\\tuser: User & Record<string, any>;\\n\\t\\",
+  "cd /work/packages/better-auth/src/plugins/organization; cat >> organization.test.ts <<'E'\n\ndescribe(\"organization delete hooks\", async () => {\n\tconst before = vi.fn();\n\tconst after = vi.fn();\n\tconst { auth, signInWithTestUser } = await getTestInstance({\n\t\tplugins: [\n\t\t\torganization({\n\t\t\t\torganizatio",
+  "cd /work/packages/better-auth/src/plugins/organization; python3 - <<'E'\np='organization.test.ts'\ns=open(p).read()\ns=s.replace('''\tconst before = vi.fn();\n\tconst after = vi.fn();\n''','''\ttype HookArgs = [\n\t\t{ organization: { id: string }; user: unknown },\n\t\tGenericEndpointContext | undefined,\n\t];\n\tco"
+ ],
+ "total": 3,
+ "edit_tool_share": 0.0
+}

@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 9,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/packages/electron/src && python3 - <<'E'\ns=open('routes.ts').read()\ns=s.replace('let setCookie: string | null = null;','let setCookies: string[] = [];')\ns=s.replace('''const headers = ctx.response.headers;\n\t\t\t\t\t\tsetCookie = headers.get(\"set-cookie\") ?? null;''','''setCookies = ctx.response.",
+  "cat > test/init-oauth-proxy.test.ts <<'E'\nimport { afterEach, describe, expect, it, vi } from \"vitest\";\nimport { betterAuth } from \"better-auth\";\nimport { electron } from \"../src/index\";\n\ndescribe(\"electron init-oauth-proxy\", () => {\n\tafterEach(() => {\n\t\tvi.unstubAllGlobals();\n\t});\n\n\tit(\"forwards ea"
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

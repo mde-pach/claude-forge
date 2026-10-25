@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 11,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cat > /tmp/edit.py <<'E'\np='_agent_graph.py'\ns=open(p).read()\ns=s.replace(\"\"\"        request_context = ModelRequestContext(\n            model=ctx.deps.model,\n            messages=ctx.state.message_history[:],\"\"\",\"\"\"        input_messages = ctx.state.message_history[:]\n        request_context = Model",
+  "cat > /tmp/e2.py <<'E'\np='tests/test_history_processor.py'\ns=open(p).read()\ns=s.replace(\"\"\"    different content, new_messages() falls back to run_id-based detection\n    to determine which messages belong to the current run.\"\"\",\"\"\"    different content, the replacement is still treated as the resume"
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

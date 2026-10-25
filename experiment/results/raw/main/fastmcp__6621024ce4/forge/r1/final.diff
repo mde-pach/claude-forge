@@ -1,0 +1,157 @@
+diff --git a/.python-version b/.python-version
+deleted file mode 100644
+index e4fba21..0000000
+--- a/.python-version
++++ /dev/null
+@@ -1 +0,0 @@
+-3.12
+diff --git a/docs/more/settings.mdx b/docs/more/settings.mdx
+index cd3ba02..f396e65 100644
+--- a/docs/more/settings.mdx
++++ b/docs/more/settings.mdx
+@@ -46,6 +46,7 @@ These control how the server listens when running with an HTTP transport.
+ | `FASTMCP_HTTP_HOST_ORIGIN_PROTECTION` | `bool` | `true` | Validate `Host` and browser `Origin` headers for Streamable HTTP requests. |
+ | `FASTMCP_HTTP_ALLOWED_HOSTS` | `list[str] \| null` | `null` | Additional trusted hostnames for Streamable HTTP requests. Use a JSON array, such as `["mcp.example.com"]`. |
+ | `FASTMCP_HTTP_ALLOWED_ORIGINS` | `list[str] \| null` | `null` | Browser origins trusted by the Streamable HTTP request guard. Configure CORS separately for cross-origin browser reads. Use a JSON array, such as `["https://app.example.com"]`. |
++| `FASTMCP_HTTP_SESSION_IDLE_TIMEOUT` | `float \| null` | `null` | Seconds of inactivity after which a stateful Streamable HTTP session is terminated. Must be greater than 0; unset means sessions never expire. Not supported with stateless HTTP. |
+ | `FASTMCP_DEBUG` | `bool` | `false` | Enable debug mode. |
+ 
+ ## Error Handling
+diff --git a/examples/tasks/.envrc b/examples/tasks/.envrc
+deleted file mode 100644
+index 87a7dfe..0000000
+--- a/examples/tasks/.envrc
++++ /dev/null
+@@ -1,10 +0,0 @@
+-# FastMCP Tasks Example Environment Configuration
+-# This file is loaded by direnv (https://direnv.net/) when you cd into this directory
+-# Run `direnv allow` to enable automatic environment loading
+-
+-# Configure Docket backend URL
+-# Use Redis backend (requires docker-compose up)
+-export FASTMCP_DOCKET_URL=redis://localhost:24242/0
+-
+-# Or uncomment to use memory:// for single-process testing
+-# export FASTMCP_DOCKET_URL=memory://
+diff --git a/fastmcp_slim/fastmcp/server/http.py b/fastmcp_slim/fastmcp/server/http.py
+index b96bcdd..86f5210 100644
+--- a/fastmcp_slim/fastmcp/server/http.py
++++ b/fastmcp_slim/fastmcp/server/http.py
+@@ -496,6 +496,7 @@ def create_streamable_http_app(
+     host_origin_protection: bool = True,
+     allowed_hosts: Sequence[str] | None = None,
+     allowed_origins: Sequence[str] | None = None,
++    session_idle_timeout: float | None = None,
+ ) -> StarletteWithLifespan:
+     """Return an instance of the StreamableHTTP server app.
+ 
+@@ -518,6 +519,8 @@ def create_streamable_http_app(
+         allowed_origins: Additional browser origins trusted by the request guard.
+             Configure CORS separately when browser JavaScript must read
+             cross-origin responses.
++        session_idle_timeout: Seconds of inactivity after which a stateful
++            session is terminated. Not supported in stateless mode.
+ 
+     Returns:
+         A Starlette application with StreamableHTTP support
+@@ -599,6 +602,7 @@ def create_streamable_http_app(
+             retry_interval=retry_interval,
+             json_response=json_response,
+             stateless=stateless_http,
++            session_idle_timeout=session_idle_timeout,
+             # FastMCP owns DNS-rebinding protection via HostOriginGuardMiddleware,
+             # which is more expressive and already the documented surface. Always
+             # disable the SDK's own protection so the two layers don't
+@@ -607,10 +611,9 @@ def create_streamable_http_app(
+                 enable_dns_rebinding_protection=False
+             ),
+         )
+-        async with (
+-            server._lifespan_manager(),
+-            streamable_http_app.session_manager.run(),
+-        ):
++        # `session_manager.run()` enters the low-level server lifespan, which
++        # in turn enters the FastMCP lifespan.
++        async with streamable_http_app.session_manager.run():
+             try:
+                 yield
+             finally:
+diff --git a/fastmcp_slim/fastmcp/server/mixins/transport.py b/fastmcp_slim/fastmcp/server/mixins/transport.py
+index 7218330..d1437c3 100644
+--- a/fastmcp_slim/fastmcp/server/mixins/transport.py
++++ b/fastmcp_slim/fastmcp/server/mixins/transport.py
+@@ -347,6 +347,7 @@ class TransportMixin:
+         host_origin_protection: bool | None = None,
+         allowed_hosts: list[str] | None = None,
+         allowed_origins: list[str] | None = None,
++        session_idle_timeout: float | None = None,
+     ) -> StarletteWithLifespan:
+         """Create a Starlette app using the specified HTTP transport.
+ 
+@@ -369,6 +370,10 @@ class TransportMixin:
+             allowed_origins: Additional browser origins trusted by the request guard.
+                 Configure CORS separately when browser JavaScript must read
+                 cross-origin responses.
++            session_idle_timeout: Seconds of inactivity after which a stateful
++                session is terminated. Defaults to
++                `fastmcp.settings.http_session_idle_timeout`. Only used with
++                streamable-http transport.
+ 
+         Returns:
+             A Starlette application configured with the specified transport
+@@ -410,6 +415,11 @@ class TransportMixin:
+                     if allowed_origins is not None
+                     else fastmcp.settings.http_allowed_origins
+                 ),
++                session_idle_timeout=(
++                    session_idle_timeout
++                    if session_idle_timeout is not None
++                    else fastmcp.settings.http_session_idle_timeout
++                ),
+             )
+         elif transport == "sse":
+             return create_sse_app(
+diff --git a/fastmcp_slim/fastmcp/server/server.py b/fastmcp_slim/fastmcp/server/server.py
+index ed1f81c..49a3485 100644
+--- a/fastmcp_slim/fastmcp/server/server.py
++++ b/fastmcp_slim/fastmcp/server/server.py
+@@ -289,17 +289,10 @@ def _lifespan_proxy(
+     async def wrap(
+         low_level_server: LowLevelServer[LifespanResultT],
+     ) -> AsyncIterator[LifespanResultT]:
+-        if fastmcp_server._lifespan is default_lifespan:
+-            yield {}  # ty:ignore[invalid-yield]
+-            return
+-
+-        if not fastmcp_server._lifespan_result_set:
+-            raise RuntimeError(
+-                "FastMCP server has a lifespan defined but no lifespan result is set, which means the server's context manager was not entered. "
+-                " Are you running the server in a way that supports lifespans? If so, please file an issue at https://github.com/PrefectHQ/fastmcp/issues."
+-            )
+-
+-        yield fastmcp_server._lifespan_result  # ty:ignore[invalid-yield]
++        # Nested entries reuse the existing result (ref-counted), so this is
++        # safe when an outer caller already entered the lifespan.
++        async with fastmcp_server._lifespan_manager():
++            yield fastmcp_server._lifespan_result  # ty:ignore[invalid-yield]
+ 
+     return wrap
+ 
+diff --git a/fastmcp_slim/fastmcp/settings.py b/fastmcp_slim/fastmcp/settings.py
+index 9709f9e..f1956d9 100644
+--- a/fastmcp_slim/fastmcp/settings.py
++++ b/fastmcp_slim/fastmcp/settings.py
+@@ -339,6 +339,13 @@ class Settings(BaseSettings):
+     http_host_origin_protection: bool = True
+     http_allowed_hosts: list[str] | None = None
+     http_allowed_origins: list[str] | None = None
++    http_session_idle_timeout: Annotated[
++        float | None,
++        Field(
++            gt=0,
++            description="Seconds of inactivity after which a stateful streamable-HTTP session is terminated. None disables expiry.",
++        ),
++    ] = None
+ 
+     mounted_components_raise_on_load_error: Annotated[
+         bool,

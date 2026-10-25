@@ -1,0 +1,128 @@
+diff --git a/packages/core/src/db/adapter/get-default-model-name.test.ts b/packages/core/src/db/adapter/get-default-model-name.test.ts
+new file mode 100644
+index 0000000..eb0c686
+--- /dev/null
++++ b/packages/core/src/db/adapter/get-default-model-name.test.ts
+@@ -0,0 +1,60 @@
++import { describe, expect, it } from "vitest";
++import { getAuthTables } from "../get-tables";
++import { initGetDefaultModelName } from "./get-default-model-name";
++
++describe("initGetDefaultModelName", () => {
++	const collision = {
++		user: { modelName: "account" },
++		account: { modelName: "identity" },
++	};
++
++	it("resolves default schema", () => {
++		const get = initGetDefaultModelName({
++			schema: getAuthTables({}),
++			usePlural: false,
++		});
++		expect(get("user")).toBe("user");
++		expect(get("account")).toBe("account");
++		expect(get("session")).toBe("session");
++	});
++
++	it("handles plural", () => {
++		const get = initGetDefaultModelName({
++			schema: getAuthTables({}),
++			usePlural: true,
++		});
++		expect(get("users")).toBe("user");
++		expect(get("accounts")).toBe("account");
++	});
++
++	it("prefers modelName over schema key on collision", () => {
++		const get = initGetDefaultModelName({
++			schema: getAuthTables(collision),
++			usePlural: false,
++		});
++		expect(get("account")).toBe("user");
++		expect(get("identity")).toBe("account");
++		expect(get("user")).toBe("user");
++		expect(get("session")).toBe("session");
++		expect(get("verification")).toBe("verification");
++	});
++
++	it("throws for unknown models", () => {
++		const get = initGetDefaultModelName({
++			schema: getAuthTables({}),
++			usePlural: false,
++		});
++		expect(() => get("does_not_exist")).toThrow(
++			'Model "does_not_exist" not found in schema',
++		);
++	});
++
++	it("keeps user references canonical", () => {
++		const tables = getAuthTables(collision);
++		for (const t of ["session", "account"]) {
++			const ref = tables[t]!.fields.userId!.references!;
++			expect(ref.model).toBe("user");
++			expect(tables[ref.model]!.modelName).toBe("account");
++		}
++	});
++});
+diff --git a/packages/core/src/db/adapter/get-default-model-name.ts b/packages/core/src/db/adapter/get-default-model-name.ts
+index 6fbb893..333ab04 100644
+--- a/packages/core/src/db/adapter/get-default-model-name.ts
++++ b/packages/core/src/db/adapter/get-default-model-name.ts
+@@ -19,27 +19,17 @@ export const initGetDefaultModelName = ({
+ 	 * 2. When using a custom modelName, doing something like `schema[model]` will not work.
+ 	 * 3. Using this function helps us get the actual model name based on the user's defined custom modelName.
+ 	 */
++	const resolve = (candidate: string) =>
++		Object.entries(schema).find(([_, f]) => f.modelName === candidate)?.[0] ??
++		(schema[candidate] ? candidate : undefined);
++
+ 	const getDefaultModelName = (model: string) => {
+ 		// It's possible this `model` could had applied `usePlural`.
+ 		// Thus we'll try the search but without the trailing `s`.
+-		if (usePlural && model.charAt(model.length - 1) === "s") {
+-			const pluralessModel = model.slice(0, -1);
+-			let m = schema[pluralessModel] ? pluralessModel : undefined;
+-			if (!m) {
+-				m = Object.entries(schema).find(
+-					([_, f]) => f.modelName === pluralessModel,
+-				)?.[0];
+-			}
+-
+-			if (m) {
+-				return m;
+-			}
+-		}
+-
+-		let m = schema[model] ? model : undefined;
+-		if (!m) {
+-			m = Object.entries(schema).find(([_, f]) => f.modelName === model)?.[0];
+-		}
++		const m =
++			(usePlural && model.endsWith("s")
++				? resolve(model.slice(0, -1))
++				: undefined) ?? resolve(model);
+ 
+ 		if (!m) {
+ 			throw new BetterAuthError(`Model "${model}" not found in schema`);
+diff --git a/packages/core/src/db/get-tables.ts b/packages/core/src/db/get-tables.ts
+index 5573e00..421f7ef 100644
+--- a/packages/core/src/db/get-tables.ts
++++ b/packages/core/src/db/get-tables.ts
+@@ -142,7 +142,7 @@ export const getAuthTables = (
+ 					type: "string",
+ 					fieldName: options.session?.fields?.userId || "userId",
+ 					references: {
+-						model: options.user?.modelName || "user",
++						model: "user",
+ 						field: "id",
+ 						onDelete: "cascade",
+ 					},
+@@ -225,7 +225,7 @@ export const getAuthTables = (
+ 				userId: {
+ 					type: "string",
+ 					references: {
+-						model: options.user?.modelName || "user",
++						model: "user",
+ 						field: "id",
+ 						onDelete: "cascade",
+ 					},

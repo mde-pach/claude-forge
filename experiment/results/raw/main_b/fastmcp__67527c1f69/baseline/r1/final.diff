@@ -1,0 +1,227 @@
+diff --git a/.python-version b/.python-version
+deleted file mode 100644
+index e4fba21..0000000
+--- a/.python-version
++++ /dev/null
+@@ -1 +0,0 @@
+-3.12
+diff --git a/examples/tasks/.envrc b/examples/tasks/.envrc
+deleted file mode 100644
+index 87a7dfe..0000000
+--- a/examples/tasks/.envrc
++++ /dev/null
+@@ -1,10 +0,0 @@
+-# FastMCP Tasks Example Environment Configuration
+-# This file is loaded by direnv (https://direnv.net/) when you cd into this directory
+-# Run `direnv allow` to enable automatic environment loading
+-
+-# Configure Docket backend URL
+-# Use Redis backend (requires docker-compose up)
+-export FASTMCP_DOCKET_URL=redis://localhost:24242/0
+-
+-# Or uncomment to use memory:// for single-process testing
+-# export FASTMCP_DOCKET_URL=memory://
+diff --git a/fastmcp_slim/fastmcp/server/auth/oauth_proxy/consent.py b/fastmcp_slim/fastmcp/server/auth/oauth_proxy/consent.py
+index 68551f7..4f48143 100644
+--- a/fastmcp_slim/fastmcp/server/auth/oauth_proxy/consent.py
++++ b/fastmcp_slim/fastmcp/server/auth/oauth_proxy/consent.py
+@@ -23,6 +23,7 @@ from starlette.responses import HTMLResponse, RedirectResponse
+ 
+ from fastmcp.server.auth.oauth_proxy.models import ProxyDCRClient
+ from fastmcp.server.auth.oauth_proxy.ui import create_consent_html
++from fastmcp.server.auth.redirect_validation import validate_redirect_uri
+ from fastmcp.utilities.logging import get_logger
+ from fastmcp.utilities.ui import create_secure_html_response
+ 
+@@ -46,6 +47,16 @@ class ConsentMixin:
+     - URI normalization for consent tracking
+     """
+ 
++    def _stored_redirect_uri_is_valid(self: OAuthProxy, redirect_uri: str) -> bool:
++        """Re-validate a transaction's client redirect URI before redirecting to it."""
++        return validate_redirect_uri(redirect_uri, self._allowed_client_redirect_uris)
++
++    def _invalid_redirect_uri_response(self: OAuthProxy) -> HTMLResponse:
++        """Error page returned instead of redirecting to an invalid client URI."""
++        return create_secure_html_response(
++            "<h1>Error</h1><p>Invalid redirect URI</p>", status_code=400
++        )
++
+     def _normalize_uri(self, uri: str) -> str:
+         """Normalize a URI to a canonical form for consent tracking."""
+         parsed = urlparse(uri)
+@@ -361,6 +372,10 @@ class ConsentMixin:
+                     return response
+ 
+                 if client_key in denied:
++                    if not self._stored_redirect_uri_is_valid(
++                        txn["client_redirect_uri"]
++                    ):
++                        return self._invalid_redirect_uri_response()
+                     callback_params = {
+                         "error": "access_denied",
+                         "state": txn.get("client_state") or "",
+@@ -526,6 +541,8 @@ class ConsentMixin:
+             return response
+ 
+         elif action == "deny":
++            if not self._stored_redirect_uri_is_valid(txn["client_redirect_uri"]):
++                return self._invalid_redirect_uri_response()
+             callback_params = {
+                 "error": "access_denied",
+                 "state": txn.get("client_state") or "",
+diff --git a/fastmcp_slim/fastmcp/server/auth/oauth_proxy/models.py b/fastmcp_slim/fastmcp/server/auth/oauth_proxy/models.py
+index 01a5969..d40fd51 100644
+--- a/fastmcp_slim/fastmcp/server/auth/oauth_proxy/models.py
++++ b/fastmcp_slim/fastmcp/server/auth/oauth_proxy/models.py
+@@ -14,6 +14,7 @@ from pydantic import AnyUrl, BaseModel, Field, ValidationError
+ 
+ from fastmcp.server.auth.cimd import CIMDDocument
+ from fastmcp.server.auth.redirect_validation import (
++    _has_unsafe_scheme,
+     matches_allowed_pattern,
+     validate_redirect_uri,
+ )
+@@ -228,6 +229,11 @@ class ProxyDCRClient(OAuthClientInformationFull):
+         proxy patterns, validates against registered redirect_uris while allowing
+         loopback ports to vary for MCP client compatibility.
+         """
++        if redirect_uri is not None and _has_unsafe_scheme(str(redirect_uri)):
++            raise InvalidRedirectUriError(
++                f"Redirect URI '{redirect_uri}' uses an unsafe scheme."
++            )
++
+         if redirect_uri is None and self.cimd_document is not None:
+             cimd_redirect_uris = self.cimd_document.redirect_uris
+             if len(cimd_redirect_uris) == 1:
+@@ -243,6 +249,11 @@ class ProxyDCRClient(OAuthClientInformationFull):
+                         f"Invalid CIMD redirect_uri: {e}"
+                     ) from e
+ 
++                if _has_unsafe_scheme(str(resolved)):
++                    raise InvalidRedirectUriError(
++                        f"Redirect URI '{resolved}' uses an unsafe scheme."
++                    )
++
+                 # Respect proxy-level redirect URI restrictions even when the
+                 # client omits redirect_uri and we fall back to CIMD defaults.
+                 if (
+@@ -312,6 +323,10 @@ class ProxyDCRClient(OAuthClientInformationFull):
+         # (handles the single-registered-URI shortcut for DCR clients), then validate
+         # the resolved URI against patterns so [] and other restrictions are enforced.
+         resolved = super().validate_redirect_uri(redirect_uri)
++        if _has_unsafe_scheme(str(resolved)):
++            raise InvalidRedirectUriError(
++                f"Redirect URI '{resolved}' uses an unsafe scheme."
++            )
+         if self.allowed_redirect_uri_patterns is not None:
+             if not validate_redirect_uri(resolved, self.allowed_redirect_uri_patterns):
+                 raise InvalidRedirectUriError(
+diff --git a/fastmcp_slim/fastmcp/server/auth/oauth_proxy/proxy.py b/fastmcp_slim/fastmcp/server/auth/oauth_proxy/proxy.py
+index a6296a0..3405227 100644
+--- a/fastmcp_slim/fastmcp/server/auth/oauth_proxy/proxy.py
++++ b/fastmcp_slim/fastmcp/server/auth/oauth_proxy/proxy.py
+@@ -48,6 +48,7 @@ from mcp.server.auth.provider import (
+     AuthorizationParams,
+     AuthorizeError,
+     RefreshToken,
++    RegistrationError,
+     TokenError,
+ )
+ from mcp.server.auth.routes import build_metadata, cors_middleware
+@@ -91,6 +92,7 @@ from fastmcp.server.auth.oauth_proxy.models import (
+     _hash_token,
+ )
+ from fastmcp.server.auth.oauth_proxy.ui import create_error_html
++from fastmcp.server.auth.redirect_validation import validate_redirect_uri
+ from fastmcp.utilities.auth import parse_scopes
+ from fastmcp.utilities.logging import get_logger
+ 
+@@ -836,6 +838,15 @@ class OAuthProxy(OAuthProvider, ConsentMixin):
+         proxied IDP only knows about this server's fixed redirect URI.
+         """
+ 
++        # Reject disallowed redirect URIs (and unsafe schemes) up front. When
++        # none are provided, the placeholder is validated at authorization time.
++        for uri in client_info.redirect_uris or []:
++            if not validate_redirect_uri(uri, self._allowed_client_redirect_uris):
++                raise RegistrationError(
++                    error="invalid_redirect_uri",
++                    error_description=f"Redirect URI '{uri}' is not allowed.",
++                )
++
+         # Create a ProxyDCRClient with configured redirect URI validation
+         if client_info.client_id is None:
+             raise ValueError("client_id is required for client registration")
+@@ -2167,6 +2178,11 @@ class OAuthProxy(OAuthProvider, ConsentMixin):
+                     if error_description:
+                         error_params["error_description"] = error_description
+                     client_redirect_uri = transaction_model.client_redirect_uri
++                    if not self._stored_redirect_uri_is_valid(client_redirect_uri):
++                        logger.error(
++                            "Refusing to forward IdP error to invalid redirect URI"
++                        )
++                        return self._invalid_redirect_uri_response()
+                     separator = "&" if "?" in client_redirect_uri else "?"
+                     return RedirectResponse(
+                         url=f"{client_redirect_uri}{separator}{urlencode(error_params)}",
+@@ -2220,6 +2236,16 @@ class OAuthProxy(OAuthProvider, ConsentMixin):
+                     )
+                     return HTMLResponse(content=html_content, status_code=403)
+ 
++            # Validate the stored client redirect URI before any upstream calls
++            if not self._stored_redirect_uri_is_valid(
++                transaction_model.client_redirect_uri
++            ):
++                logger.error(
++                    "Transaction %s has invalid client redirect URI; not redirecting",
++                    txn_id,
++                )
++                return self._invalid_redirect_uri_response()
++
+             transaction = transaction_model.model_dump()
+ 
+             try:
+diff --git a/fastmcp_slim/fastmcp/server/auth/redirect_validation.py b/fastmcp_slim/fastmcp/server/auth/redirect_validation.py
+index 6781257..f24bf1a 100644
+--- a/fastmcp_slim/fastmcp/server/auth/redirect_validation.py
++++ b/fastmcp_slim/fastmcp/server/auth/redirect_validation.py
+@@ -9,6 +9,17 @@ from urllib.parse import unquote, urlparse
+ 
+ from pydantic import AnyUrl
+ 
++UNSAFE_REDIRECT_URI_SCHEMES = frozenset({"javascript", "data", "file", "vbscript"})
++
++
++def _has_unsafe_scheme(uri: str) -> bool:
++    """Return True if the URI has an unsafe scheme or cannot be parsed."""
++    try:
++        scheme = urlparse(uri.strip()).scheme.lower()
++    except ValueError:
++        return True
++    return scheme in UNSAFE_REDIRECT_URI_SCHEMES
++
+ 
+ def _parse_host_port(netloc: str) -> tuple[str | None, str | None]:
+     """Parse host and port from netloc, handling wildcards.
+@@ -166,6 +177,9 @@ def matches_allowed_pattern(uri: str, pattern: str) -> bool:
+     Returns:
+         True if the URI matches the pattern
+     """
++    if _has_unsafe_scheme(uri):
++        return False
++
+     try:
+         uri_parsed = urlparse(uri)
+         pattern_parsed = urlparse(pattern)
+@@ -228,6 +242,10 @@ def validate_redirect_uri(
+ 
+     uri_str = str(redirect_uri)
+ 
++    # SECURITY: unsafe browser schemes are never allowed, regardless of patterns
++    if _has_unsafe_scheme(uri_str):
++        return False
++
+     # If no patterns specified, allow all for DCR compatibility
+     # (clients need to dynamically register with their own redirect URIs)
+     if allowed_patterns is None:

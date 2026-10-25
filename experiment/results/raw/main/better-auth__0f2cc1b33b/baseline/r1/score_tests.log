@@ -1,0 +1,176 @@
+$ cd /work
+pk=""
+for t in packages/cli/test/get-config.test.ts packages/core/src/db/test/get-default-model-name.test.ts; do
+  d=$(dirname "$t")
+  while [ "$d" != "." ] && [ "$d" != "/" ] && [ ! -f "$d/package.json" ]; do d=$(dirname "$d"); done
+  [ "$d" = "." ] || [ "$d" = "/" ] || pk="$pk --filter=./$d"
+done
+if [ -n "$pk" ]; then
+  turbo run build $pk --output-logs=errors-only || { echo "[forge-exp] workspace build failed; tests not run"; exit 3; }
+fi
+NO_COLOR=1 vitest run packages/cli/test/get-config.test.ts packages/core/src/db/test/get-default-model-name.test.ts --reporter=default --reporter=junit --outputFile.junit=/tmp/forge-junit-234aae82ebc2.xml
+
+
+   • Packages in scope: @better-auth/core, auth
+   • Running build in 2 packages
+   • Remote caching disabled
+
+
+ Tasks:    10 successful, 10 total
+Cached:    0 cached, 10 total
+  Time:    2m42.114s 
+
+
+ RUN  v4.1.5 /work
+
+ ✓ |@better-auth/core| src/db/test/get-default-model-name.test.ts (7 tests) 13ms
+ ✓ |auth| test/get-config.test.ts (52 tests) 3339ms
+     ✓ should resolve resolver type alias  924ms
+
+ Test Files  2 passed (2)
+      Tests  59 passed (59)
+   Start at  07:11:15
+   Duration  4.75s (transform 685ms, setup 0ms, import 1.43s, tests 3.35s, environment 0ms)
+
+JUNIT report written to /tmp/forge-junit-234aae82ebc2.xml
+• turbo 2.9.14
+stderr | test/get-config.test.ts > getConfig > should resolve resolver type alias
+2026-10-25T07:11:17.806Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > getConfig > should resolve direct alias
+2026-10-25T07:11:17.914Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > getConfig > should resolve resolver type alias with relative path
+2026-10-25T07:11:17.976Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > getConfig > should resolve direct alias with relative path
+2026-10-25T07:11:18.037Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > getConfig > should resolve with relative import
+2026-10-25T07:11:18.099Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > getConfig > should resolve js config
+2026-10-25T07:11:18.241Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > getConfig > should resolve path aliases from referenced tsconfig files
+2026-10-25T07:11:18.312Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > getConfig > should handle missing referenced tsconfig files gracefully
+2026-10-25T07:11:18.345Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > getConfig > should handle circular references in tsconfig files
+2026-10-25T07:11:18.378Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > getConfig > should resolve direct tsconfig file references
+2026-10-25T07:11:18.433Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > getConfig > should handle mixed directory and file references
+2026-10-25T07:11:18.472Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > getConfig > should resolve SvelteKit $lib/server imports correctly
+2026-10-25T07:11:18.514Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > getConfig > should resolve export default auth
+2026-10-25T07:11:18.554Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > getConfig > should resolve export default auth with named export
+2026-10-25T07:11:18.612Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > getConfig > should resolve export default with inline betterAuth call
+2026-10-25T07:11:18.656Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > getConfig > should load configs importing cloudflare workers
+2026-10-25T07:11:18.691Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > getConfig > should load configs importing cloudflare class and proxy exports
+2026-10-25T07:11:18.728Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > getConfig > should resolve path aliases from extended tsconfig
+2026-10-25T07:11:18.783Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > getConfig > should resolve path aliases from chained extends
+2026-10-25T07:11:18.845Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > getConfig > should resolve extended tsconfig paths relative to the extended file's directory
+2026-10-25T07:11:18.902Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > getConfig > should let child paths override parent paths from extends
+2026-10-25T07:11:18.967Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > tsconfig paths resolution (user-reported scenarios) > resolves $lib imports in an extends setup with default and namespace forms
+2026-10-25T07:11:19.296Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > tsconfig paths resolution (user-reported scenarios) > resolves $lib imports when SvelteKit lives in a monorepo subdirectory
+2026-10-25T07:11:19.328Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > tsconfig paths resolution (user-reported scenarios) > resolves mid-path wildcard substitutions across multiple sibling packages
+2026-10-25T07:11:19.398Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > tsconfig paths resolution (user-reported scenarios) > captures multi-segment star when the import specifier spans `/`
+2026-10-25T07:11:19.441Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > tsconfig paths resolution (user-reported scenarios) > picks the first substitution candidate in declaration order when multiple exist
+2026-10-25T07:11:19.481Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > tsconfig paths resolution (user-reported scenarios) > falls through to the next substitution when the first does not exist on disk
+2026-10-25T07:11:19.508Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > tsconfig paths resolution (user-reported scenarios) > rewrites aliased specifiers across import, re-export, and dynamic import AST nodes
+2026-10-25T07:11:19.596Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > tsconfig paths resolution (user-reported scenarios) > resolves aliased files ending in '.ts'
+2026-10-25T07:11:19.624Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > tsconfig paths resolution (user-reported scenarios) > resolves aliased files ending in '.tsx'
+2026-10-25T07:11:19.653Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > tsconfig paths resolution (user-reported scenarios) > resolves aliased files ending in '.mts'
+2026-10-25T07:11:19.679Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > tsconfig paths resolution (user-reported scenarios) > resolves aliased files ending in '.cts'
+2026-10-25T07:11:19.730Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > tsconfig paths resolution (user-reported scenarios) > resolves aliased files ending in '.js'
+2026-10-25T07:11:19.753Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > tsconfig paths resolution (user-reported scenarios) > resolves aliased files ending in '.jsx'
+2026-10-25T07:11:19.792Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > tsconfig paths resolution (user-reported scenarios) > resolves aliased files ending in '.mjs'
+2026-10-25T07:11:19.829Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > tsconfig paths resolution (user-reported scenarios) > resolves aliased files ending in '.cjs'
+2026-10-25T07:11:19.856Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > SvelteKit virtual modules and Vite asset imports (user-reported scenarios) > resolves $app/environment imports in a SvelteKit project
+2026-10-25T07:11:19.891Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > SvelteKit virtual modules and Vite asset imports (user-reported scenarios) > resolves the $app/env alias surface
+2026-10-25T07:11:19.913Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > SvelteKit virtual modules and Vite asset imports (user-reported scenarios) > resolves the full $app/paths and $app/server export surface
+2026-10-25T07:11:19.939Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > SvelteKit virtual modules and Vite asset imports (user-reported scenarios) > resolves $app/stores with store-shaped exports
+2026-10-25T07:11:19.978Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > SvelteKit virtual modules and Vite asset imports (user-reported scenarios) > resolves Vite ?inline query imports reached through a custom kit.alias
+2026-10-25T07:11:20.021Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > SvelteKit virtual modules and Vite asset imports (user-reported scenarios) > resolves Vite ?raw query imports of a relative asset
+2026-10-25T07:11:20.073Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > SvelteKit virtual modules and Vite asset imports (user-reported scenarios) > resolves plain asset and side-effect stylesheet imports
+2026-10-25T07:11:20.111Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > SvelteKit virtual modules and Vite asset imports (user-reported scenarios) > filters $env/dynamic by public/private prefix
+2026-10-25T07:11:20.146Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > SvelteKit virtual modules and Vite asset imports (user-reported scenarios) > resolves arbitrary $app/env/private and $app/env/public imports
+2026-10-25T07:11:20.184Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+stderr | test/get-config.test.ts > SvelteKit virtual modules and Vite asset imports (user-reported scenarios) > resolves Vite ?worker and .wasm?init imports
+2026-10-25T07:11:20.235Z WARN [Better Auth]: [better-auth] Base URL is not set. Set the baseURL option or BETTER_AUTH_URL env, or use a dynamic baseURL with allowedHosts for multi-host setups. Without it the origin is derived from the incoming request, and callbacks and redirects may not work correctly.
+
+
+[exit 0 in 169s]

@@ -1,0 +1,59 @@
+{
+ "resolved": true,
+ "patch_applied": true,
+ "f2p": {
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > StepPlanned with type 'step.ai.wrap' returns 'ai.wrap'": "passed"
+ },
+ "p2p": {
+  "packages/inngest/src/components/middleware/utils.test.ts::isSleepInput > accepts string, number, Date, and Temporal.Duration": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::isSleepInput > rejects an invalid value": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::optsFromStepInput > returns input[0] for invoke": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::optsFromStepInput > returns input[0] for waitForEvent": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::optsFromStepInput > returns undefined for run": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::optsFromStepInput > returns undefined for sleep": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::optsFromStepInput > returns undefined when input is undefined": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::optsFromStepInput > returns undefined when input[0] is not an object": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > AiGateway with type 'step.ai.infer' returns 'ai.infer'": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > AiGateway with unknown type returns 'unknown'": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > Gateway returns 'fetch'": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > InvokeFunction returns 'invoke'": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > Sleep returns 'sleep'": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > StepPlanned with type 'step.realtime.publish' returns 'realtime.publish'": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > StepPlanned with type 'step.sendEvent' returns 'sendEvent'": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > StepPlanned with unknown type returns 'unknown'": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > StepPlanned without type returns 'run'": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > WaitForEvent returns 'waitForEvent'": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > WaitForSignal returns 'waitForSignal'": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > unhandled opcode returns 'unknown'": "passed"
+ },
+ "f2p_frac": 1.0,
+ "p2p_regressions": 0,
+ "lint_new": 0,
+ "diff_lines": 6,
+ "changed_files": [
+  "packages/inngest/src/components/middleware/utils.ts"
+ ],
+ "all_results": {
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > StepPlanned without type returns 'run'": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > StepPlanned with type 'step.ai.wrap' returns 'ai.wrap'": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > StepPlanned with type 'step.sendEvent' returns 'sendEvent'": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > StepPlanned with type 'step.realtime.publish' returns 'realtime.publish'": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > StepPlanned with unknown type returns 'unknown'": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > InvokeFunction returns 'invoke'": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > Sleep returns 'sleep'": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > WaitForEvent returns 'waitForEvent'": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > WaitForSignal returns 'waitForSignal'": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > AiGateway with type 'step.ai.infer' returns 'ai.infer'": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > AiGateway with unknown type returns 'unknown'": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > unhandled opcode returns 'unknown'": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::stepTypeFromOpCode > Gateway returns 'fetch'": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::optsFromStepInput > returns input[0] for invoke": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::optsFromStepInput > returns input[0] for waitForEvent": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::optsFromStepInput > returns undefined for run": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::optsFromStepInput > returns undefined for sleep": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::optsFromStepInput > returns undefined when input is undefined": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::optsFromStepInput > returns undefined when input[0] is not an object": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::isSleepInput > accepts string, number, Date, and Temporal.Duration": "passed",
+  "packages/inngest/src/components/middleware/utils.test.ts::isSleepInput > rejects an invalid value": "passed"
+ }
+}

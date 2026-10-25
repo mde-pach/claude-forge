@@ -1,0 +1,12 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 2,
+ "bash_calls": 5,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "sed -i 's|await createStream();|await createStream({\\n          logger: this.client[internalLoggerSymbol],\\n        });|' components/InngestCommHandler.ts\npython3 - <<'E'\np='helpers/stream.ts'\ns=open(p).read()\ns=s.replace('import { stringify }','import type { Logger } from \"../middleware/logger.ts\";",
+  "python3 - <<'E'\np='helpers/stream.ts'\ns=open(p).read()\ns=s.replace('''          let closed = false;\n\n          const heartbeat = setInterval(''','''\n          heartbeat = setInterval(''',1)\ns=s.replace('clearInterval(heartbeat);','clearInterval(heartbeat);',)\ns=s.replace('''      const stream = new "
+ ],
+ "total": 2,
+ "edit_tool_share": 0.0
+}

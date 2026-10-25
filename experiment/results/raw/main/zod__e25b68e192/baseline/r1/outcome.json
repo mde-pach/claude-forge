@@ -1,0 +1,24 @@
+{
+ "resolved": true,
+ "patch_applied": true,
+ "f2p": {
+  "packages/zod/src/v4/core/tests/treeshake.test.ts::a minimal classic schema drops the registry symbols": "passed",
+  "packages/zod/src/v4/core/tests/treeshake.test.ts::a minimal zod/mini schema drops the declarations it cannot reach": "passed"
+ },
+ "p2p": {},
+ "f2p_frac": 1.0,
+ "p2p_regressions": 0,
+ "lint_new": 0,
+ "diff_lines": 182,
+ "changed_files": [
+  "packages/zod/src/v4/core/core.ts",
+  "packages/zod/src/v4/core/regexes.ts",
+  "packages/zod/src/v4/core/registries.ts",
+  "packages/zod/src/v4/core/tests/treeshake.test.ts",
+  "packages/zod/src/v4/core/util.ts"
+ ],
+ "all_results": {
+  "packages/zod/src/v4/core/tests/treeshake.test.ts::a minimal zod/mini schema drops the declarations it cannot reach": "passed",
+  "packages/zod/src/v4/core/tests/treeshake.test.ts::a minimal classic schema drops the registry symbols": "passed"
+ }
+}

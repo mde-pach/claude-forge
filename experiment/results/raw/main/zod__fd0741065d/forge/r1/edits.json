@@ -1,0 +1,16 @@
+{
+ "edit_tool_calls": 1,
+ "shell_edit_calls": 4,
+ "bash_calls": 12,
+ "edit_files": [
+  "/work/packages/zod/src/v4/core/json-schema-processors.ts"
+ ],
+ "shell_edit_commands": [
+  "python3 - <<'EOF'\np='to-json-schema.ts'\ns=open(p).read()\ns=s.replace(\"\"\"  path?: (string | number)[] | undefined;\n}\n\nexport interface ToJSONSchemaContext\"\"\",\"\"\"  path?: (string | number)[] | undefined;\n  /** Unrepresentable-type error, thrown during finalize unless `override` handles the node */\n  e",
+  "cat >> to-json-schema.test.ts <<'EOF'\n\ndescribe(\"override handles unrepresentable types\", () => {\n  const override = (ctx: any) => {\n    if (ctx.zodSchema._zod.def.type === \"date\") {\n      ctx.jsonSchema.type = \"string\";\n      ctx.jsonSchema.format = \"date-time\";\n    }\n  };\n  const date = { type: \"s",
+  "cd /work/packages/zod/src/v4/core && python3 - <<'EOF'\np='json-schema-processors.ts'\ns=open(p).read()\ns=s.replace(\"\"\"  } catch {\n    flagUnrepresentable(schema, ctx, \"Dynamic catch values are not supported in JSON Schema\");\"\"\",\"\"\"  } catch (cause) {\n    flagUnrepresentable(schema, ctx, \"Dynamic catc",
+  "python3 - <<'EOF'\np='to-json-schema.ts'\ns=open(p).read()\ns=s.replace(\"      if (!handled) throw new Error(error, seen.errorCause === undefined ? undefined : { cause: seen.errorCause });\",\"\"\"      if (!handled) {\n        const err = new Error(error);\n        if (seen.errorCause !== undefined) assignP"
+ ],
+ "total": 5,
+ "edit_tool_share": 0.2
+}

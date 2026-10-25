@@ -1,0 +1,5 @@
+$ pytest -p no:cacheprovider -o junit_family=xunit1 --junitxml=/tmp/forge-junit-f3cf6274e0cc.xml --continue-on-collection-errors -q --no-header -rN --inline-snapshot=disable --timeout=60 -m "not integration and not conformance" tests/server/providers/openapi/test_openapi_features.py tests/utilities/openapi/test_legacy_compatibility.py
+.............................................                            [100%]
+45 passed in 3.67s
+
+[exit 0 in 10s]

@@ -1,0 +1,13 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 3,
+ "bash_calls": 7,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/packages/better-auth/src/plugins/mcp/client && python3 - <<'EOF'\np='index.ts'\ns=open(p).read()\ns=s.replace('''\tset?: (name: string, value: string) => void;\n\tsetHeader''','''\tset?: (name: string, value: string) => void;\n\tget?: (name: string) => string | undefined;\n\tgetHeader?: (name: string)",
+  "sed -i 's/^\\t\\t\\t\\t\\tres,$/\\t\\t\\t\\t\\tres,\\n\\t\\t\\t\\t\\tcorsHeaders,/' index.ts && cd /work/packages/better-auth && npx vitest run src/plugins/mcp/client 2>&1 | tail -8; npx tsc --noEmit -p . 2>&1 | grep mcp/client | head",
+  "python3 - <<'EOF'\np='mcp-client.test.ts'\ns=open(p).read()\ni=s.rstrip().rfind('\\t});\\n});')\nnew='''\n\t\tit(\"should expose WWW-Authenticate with CORS headers on 401s\", async () => {\n\t\t\tconst client = createMcpAuthClient({\n\t\t\t\tauthURL: \"https://auth.example.com/api/auth\",\n\t\t\t\tfetch: customFetchImpl as ty"
+ ],
+ "total": 3,
+ "edit_tool_share": 0.0
+}

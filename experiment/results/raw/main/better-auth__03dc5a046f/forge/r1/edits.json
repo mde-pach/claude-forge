@@ -1,0 +1,13 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 3,
+ "bash_calls": 5,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/packages/core/src/db; cat adapter/get-default-model-name.ts; sed -i 's/model: options.user?.modelName || \"user\",/model: \"user\",/' get-tables.ts; git diff --stat",
+  "cd /work/packages/core/src/db/adapter; python3 - <<'E'\np='get-default-model-name.ts'\ns=open(p).read()\na=s.index(\"\tconst getDefaultModelName\")\nb=s.index(\"\treturn getDefaultModelName;\")\nnew='''\tconst resolve = (candidate: string) =>\n\t\tObject.entries(schema).find(([_, f]) => f.modelName === candidate)?",
+  "cd /work/packages/core/src/db && ls adapter | grep -i test; cat > adapter/get-default-model-name.test.ts <<'E'\nimport { describe, expect, it } from \"vitest\";\nimport { getAuthTables } from \"../get-tables\";\nimport { initGetDefaultModelName } from \"./get-default-model-name\";\n\ndescribe(\"initGetDefaultMo"
+ ],
+ "total": 3,
+ "edit_tool_share": 0.0
+}

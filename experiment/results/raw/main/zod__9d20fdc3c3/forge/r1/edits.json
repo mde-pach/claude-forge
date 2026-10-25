@@ -1,0 +1,13 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 3,
+ "bash_calls": 13,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'E'\nimport re\np='core/schemas.ts'\ns=open(p).read()\na=s.index('export interface $ZodPreprocessDef')\nb=s.index('export const $ZodPreprocess')\ns=s[:a]+'''export interface $ZodPreprocessDef<B extends SomeType = $ZodType, I = unknown>\n  extends $ZodPipeDef<$ZodTransform<unknown, I>, B> {\n  in",
+  "cat >> preprocess.test.ts <<'E'\n\ntest(\"preprocess narrows input from annotated argument\", () => {\n  const trimmed = z.preprocess((val: string | null | undefined) => val?.trim() ?? \"\", z.string());\n  expectTypeOf<z.input<typeof trimmed>>().toEqualTypeOf<string | null | undefined>();\n  expectTypeOf<z.",
+  "cat .claude/skills/forge-project/scripts/typecheck.sh | head -30; git stash -q; sh .claude/skills/forge-project/scripts/typecheck.sh >$TMPDIR/base.txt 2>&1; echo exit=$?; git stash pop -q; wc -l $TMPDIR/base.txt; head -5 $TMPDIR/base.txt"
+ ],
+ "total": 3,
+ "edit_tool_share": 0.0
+}

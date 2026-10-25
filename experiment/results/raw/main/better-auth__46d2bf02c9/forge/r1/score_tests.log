@@ -1,0 +1,85 @@
+$ cd /work
+pk=""
+for t in packages/better-auth/src/api/routes/session-api.test.ts; do
+  d=$(dirname "$t")
+  while [ "$d" != "." ] && [ "$d" != "/" ] && [ ! -f "$d/package.json" ]; do d=$(dirname "$d"); done
+  [ "$d" = "." ] || [ "$d" = "/" ] || pk="$pk --filter=./$d"
+done
+if [ -n "$pk" ]; then
+  turbo run build $pk --output-logs=errors-only || { echo "[forge-exp] workspace build failed; tests not run"; exit 3; }
+fi
+NO_COLOR=1 vitest run packages/better-auth/src/api/routes/session-api.test.ts --reporter=default --reporter=junit --outputFile.junit=/tmp/forge-junit-5d5abf104898.xml
+
+
+   • Packages in scope: better-auth
+   • Running build in 1 packages
+   • Remote caching disabled
+
+
+ Tasks:    8 successful, 8 total
+Cached:    7 cached, 8 total
+  Time:    1m31.203s 
+
+
+ RUN  v4.1.5 /work
+
+stdout | src/api/routes/session-api.test.ts
+2026-10-25T05:59:35.796Z DEBUG [Better Auth]: [Memory Adapter] - Using provided transaction implementation.
+
+stdout | src/api/routes/session-api.test.ts > cookie cache refreshCache > should preserve session expiry when refreshing stateless cookie cache
+2026-10-25T05:59:42.365Z DEBUG [Better Auth]: [Memory Adapter] - Using provided transaction implementation.
+
+stdout | src/api/routes/session-api.test.ts > cookie cache refreshCache > should work without database when refreshCache threshold is reached
+2026-10-25T05:59:42.640Z DEBUG [Better Auth]: [Memory Adapter] - Using provided transaction implementation.
+
+stdout | src/api/routes/session-api.test.ts > cookie cache refreshCache > should extend session_token cookie expiry when refreshCache threshold is reached
+2026-10-25T05:59:43.199Z DEBUG [Better Auth]: [Memory Adapter] - Using provided transaction implementation.
+
+stdout | src/api/routes/session-api.test.ts > date field type consistency > should have consistent date types between cookie cache and refresh paths
+2026-10-25T05:59:48.790Z DEBUG [Better Auth]: [Memory Adapter] - Using provided transaction implementation.
+
+stdout | src/api/routes/session-api.test.ts > update-session cookie cache revocation > still refreshes the cookie in a DB-less deployment when no row exists
+2026-10-25T05:59:50.941Z DEBUG [Better Auth]: [Memory Adapter] - Using provided transaction implementation.
+
+stdout | src/api/routes/session-api.test.ts > forced strict session validation > uses the signed cookie as the authoritative session record without a server store
+2026-10-25T05:59:51.688Z DEBUG [Better Auth]: [Memory Adapter] - Using provided transaction implementation.
+
+ ✓ |better-auth| src/api/routes/session-api.test.ts (70 tests) 15967ms
+     ✓ should require a fresh session based on session creation time  350ms
+     ✓ should require a fresh session to list sessions  369ms
+     ✓ should update session when update age is reached  338ms
+     ✓ should work without database (session stored in cookie only)  370ms
+     ✓ should invalidate cookie cache when version changes (string version)  485ms
+     ✓ should work with function-based version  302ms
+     ✓ should work with async function-based version  306ms
+     ✓ should work with jwt strategy  320ms
+     ✓ should default to version '1' when not specified  382ms
+     ✓ should include additionalFields when retrieving from cookie cache  405ms
+     ✓ should update session on POST when deferSessionRefresh is enabled  348ms
+     ✓ should reject POST when deferSessionRefresh is not enabled  327ms
+     ✓ should delete expired session on POST when deferSessionRefresh is enabled  388ms
+     ✓ should still update session on GET when deferSessionRefresh is not enabled (default behavior)  335ms
+     ✓ should have consistent date types between cookie cache and refresh paths  347ms
+     ✓ fails closed when the backing session is revoked in a stateful deployment  337ms
+     ✓ still refreshes the cookie in a DB-less deployment when no row exists  375ms
+     ✓ a request cannot re-enable the cookie cache on a route that forces it off  373ms
+     ✓ uses the signed cookie as the authoritative session record without a server store  339ms
+     ✓ sets Cache-Control: no-store on authenticated GET /get-session responses  361ms
+
+ Test Files  1 passed (1)
+      Tests  70 passed (70)
+   Start at  05:59:29
+   Duration  23.58s (transform 4.21s, setup 0ms, import 7.32s, tests 15.97s, environment 0ms)
+
+JUNIT report written to /tmp/forge-junit-5d5abf104898.xml
+• turbo 2.9.14
+(node:1325) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+stderr | src/api/routes/session-api.test.ts
+2026-10-25T05:59:36.281Z WARN [Better Auth]: [better-auth] `session.cookieCache.refreshCache` is enabled while `database` or `secondaryStorage` is configured. `refreshCache` is meant for stateless (DB-less) setups. Disabling `refreshCache` — remove it from your config to silence this warning.
+
+stderr | src/api/routes/session-api.test.ts > cookie cache refreshCache > should work without database (session stored in cookie only)
+2026-10-25T05:59:41.993Z WARN [Better Auth]: [better-auth] `session.cookieCache.refreshCache` is enabled while `database` or `secondaryStorage` is configured. `refreshCache` is meant for stateless (DB-less) setups. Disabling `refreshCache` — remove it from your config to silence this warning.
+
+
+[exit 0 in 117s]

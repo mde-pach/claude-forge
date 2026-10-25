@@ -1,0 +1,14 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 4,
+ "bash_calls": 12,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/fastmcp_slim/fastmcp && python - <<'E'\np='exceptions.py'\ns=open(p).read()\ns=s.replace('''try:\n    from mcp import MCPError\nexcept ImportError:\n\n    class MCPError(Exception):  # type: ignore[no-redef]\n        \"\"\"Fallback used when MCP dependencies are not installed.\"\"\"\n''','''try:\n    from ",
+  "python - <<'E'\np='server/mixins/mcp_operations.py'\ns=open(p).read()\ns=s.replace('''                raise MCPError(\n                    code=-32002, message=f\"Resource not found: {str(uri)!r}\"\n                ) from e''','''                raise to_mcp_error(\n                    NotFoundError(f\"Resou",
+  "python - <<'E'\np='server/telemetry.py'\ns=open(p).read()\na=s.index(\"    try:\\n        with span_cm as span:\")\nb=s.index(\"@contextmanager\\ndef delegate_span\")\nnew='''    try:\n        with span_cm as span:\n            if span.is_recording():\n                attrs: dict[str, str] = {\n                   ",
+  "cat >> tests/test_exceptions_mcp_error.py <<'E'\nfrom mcp import MCPError\nfrom mcp_types import INTERNAL_ERROR, INVALID_PARAMS\n\nfrom fastmcp.exceptions import (\n    DisabledError,\n    NotFoundError,\n    ToolError,\n    ValidationError,\n    to_mcp_error,\n)\n\n\ndef test_to_mcp_error_mapping():\n    for exc"
+ ],
+ "total": 4,
+ "edit_tool_share": 0.0
+}

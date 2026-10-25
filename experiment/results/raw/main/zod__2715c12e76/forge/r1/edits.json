@@ -1,0 +1,13 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 3,
+ "bash_calls": 23,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/packages/zod/src/v4/classic; python3 - <<'E'\np='external.ts'\ns=open(p).read()\ns=s.replace('''import { config } from \"../core/index.js\";\nimport en from \"../locales/en.js\";\nconfig(en());\n\n''','')\ns=s.replace('''export type { infer, output''','''export type { infer, output''',1)\nopen(p,'w').wr",
+  "cd /work/packages; ls treeshake/node_modules/.bin | head -3; ls treeshake/*.test.ts treeshake/vitest* 2>&1 | head; cat > zod/src/v4/classic/tests/default-locale.test.ts <<'E'\nimport { afterEach, expect, test } from \"vitest\";\nimport * as z from \"zod/v4\";\n\nafterEach(() => {\n  z.config(z.locales.en());",
+  "cd /work; sed -i 's/^import resolveNode from \"@rollup\\/plugin-node-resolve\";/import { nodeResolve } from \"@rollup\\/plugin-node-resolve\";/; s/resolveNode()/nodeResolve()/' packages/treeshake/treeshake.test.ts; node_modules/.bin/tsc --noEmit --pretty false -p tsconfig.json 2>&1 | grep treeshake; pnpm "
+ ],
+ "total": 3,
+ "edit_tool_share": 0.0
+}

@@ -1,0 +1,14 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 4,
+ "bash_calls": 10,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "python3 - <<'E'\nimport re\np='helpers/strings.ts'\ns=open(p).read()\ns=s.replace('import type { TimeStr }','import type { Logger } from \"../middleware/logger.ts\";\\nimport type { TimeStr }',1)\ns=s.replace('''/**\n * Convert a given `Date`, `number`, or `ms`-compatible `string` to a\n * Inngest sleep-compa",
+  "python3 - <<'E'\np='types.ts'\ns=open(p).read()\ns=s.replace('''   * `Temporal.ZonedDateTime` (absolute deadline).\n   *\n   * {@link https://npm.im/ms}\n   */\n  timeout?:''','''   * `Temporal.ZonedDateTime` (absolute deadline).\n   *\n   * Durations under 1 second round up to `1s`, the minimum resolution o",
+  "python3 - <<'E'\np='src/components/InngestStepTools.ts'\ns=open(p).read()\ns=s.replace('''\"30 mins\"`, or `\"2.5d\"`.\n     *\n     * {@link https://npm.im/ms}\n     *\n     * To wait until''','''\"30 mins\"`, or `\"2.5d\"`.\n     *\n     * Durations under 1 second round up to `1s`, the minimum resolution of a\n    ",
+  "cd /work/.changeset && cat calm-leases-renew.md | head -5; printf -- '---\\n\"inngest\": patch\\n---\\n\\nRound durable-wait durations under 1s up to `1s` instead of silently serializing them as an empty (zero-length) wait, and warn once per process when this happens.\\n' > round-up-subsecond-waits.md"
+ ],
+ "total": 4,
+ "edit_tool_share": 0.0
+}

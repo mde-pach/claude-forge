@@ -1,0 +1,386 @@
+diff --git a/.python-version b/.python-version
+deleted file mode 100644
+index e4fba21..0000000
+--- a/.python-version
++++ /dev/null
+@@ -1 +0,0 @@
+-3.12
+diff --git a/examples/tasks/.envrc b/examples/tasks/.envrc
+deleted file mode 100644
+index 87a7dfe..0000000
+--- a/examples/tasks/.envrc
++++ /dev/null
+@@ -1,10 +0,0 @@
+-# FastMCP Tasks Example Environment Configuration
+-# This file is loaded by direnv (https://direnv.net/) when you cd into this directory
+-# Run `direnv allow` to enable automatic environment loading
+-
+-# Configure Docket backend URL
+-# Use Redis backend (requires docker-compose up)
+-export FASTMCP_DOCKET_URL=redis://localhost:24242/0
+-
+-# Or uncomment to use memory:// for single-process testing
+-# export FASTMCP_DOCKET_URL=memory://
+diff --git a/fastmcp_slim/fastmcp/exceptions.py b/fastmcp_slim/fastmcp/exceptions.py
+index e3c831b..2a4912c 100644
+--- a/fastmcp_slim/fastmcp/exceptions.py
++++ b/fastmcp_slim/fastmcp/exceptions.py
+@@ -4,11 +4,26 @@ import logging
+ 
+ try:
+     from mcp import MCPError
++    from mcp_types import INTERNAL_ERROR, INVALID_PARAMS
+ except ImportError:
++    INTERNAL_ERROR = -32603
++    INVALID_PARAMS = -32602
++
++    class ErrorData:  # type: ignore[no-redef]
++        """Minimal stand-in for ``mcp_types.ErrorData``."""
++
++        def __init__(self, code: int, message: str, data: object = None) -> None:
++            self.code = code
++            self.message = message
++            self.data = data
+ 
+     class MCPError(Exception):  # type: ignore[no-redef]
+         """Fallback used when MCP dependencies are not installed."""
+ 
++        def __init__(self, code: int, message: str, data: object = None) -> None:
++            super().__init__(message)
++            self.error = ErrorData(code, message, data)
++
+ 
+ # Catch-compatibility alias for the pre-v2 SDK name. `except McpError` must
+ # catch SDK-raised `MCPError`, so this is a plain alias (a subclass would not
+@@ -68,3 +83,19 @@ class DisabledError(Exception):
+ 
+ class AuthorizationError(FastMCPError):
+     """Error when authorization check fails."""
++
++
++def to_mcp_error(exc: Exception, *, default_code: int = INTERNAL_ERROR) -> MCPError:
++    """Map an exception to the `MCPError` carrying its wire error code.
++
++    `NotFoundError`, `DisabledError` and `ValidationError` map to
++    `INVALID_PARAMS`; everything else maps to `default_code`. An `MCPError` is
++    returned unchanged.
++    """
++    if isinstance(exc, MCPError):
++        return exc
++    if isinstance(exc, NotFoundError | DisabledError | ValidationError):
++        code = INVALID_PARAMS
++    else:
++        code = default_code
++    return MCPError(code=code, message=str(exc))
+diff --git a/fastmcp_slim/fastmcp/server/low_level.py b/fastmcp_slim/fastmcp/server/low_level.py
+index 3e020db..b4eca59 100644
+--- a/fastmcp_slim/fastmcp/server/low_level.py
++++ b/fastmcp_slim/fastmcp/server/low_level.py
+@@ -6,6 +6,7 @@ from contextlib import contextmanager
+ from typing import TYPE_CHECKING, Any, cast
+ 
+ import mcp_types
++from mcp.server._otel import OpenTelemetryMiddleware
+ from mcp.server.context import (
+     CallNext,
+     HandlerResult,
+@@ -189,6 +190,34 @@ class FastMCPServerMiddleware:
+                 return captured_result
+ 
+ 
++class FastMCPTelemetryMiddleware:
++    """Opens the single SERVER span for every inbound request.
++
++    Replaces the SDK's own OpenTelemetry middleware so a request never produces
++    two SERVER spans. For tool, resource and prompt calls, `server_span` enriches
++    this span with component attributes and the rich name.
++    """
++
++    def __init__(self, fastmcp: FastMCP):
++        self._ref: weakref.ref[FastMCP] = weakref.ref(fastmcp)
++
++    async def __call__(
++        self, ctx: ServerRequestContext, call_next: CallNext
++    ) -> HandlerResult:
++        from fastmcp.server.telemetry import seam_span
++        from fastmcp.telemetry import extract_trace_context
++
++        # Notifications carry no request id and produce no SERVER span.
++        if ctx.request_id is None:
++            return await call_next(ctx)
++
++        fastmcp = self._ref()
++        server_name = fastmcp.name if fastmcp is not None else ""
++        parent = extract_trace_context(ctx.meta) if ctx.meta else None
++        with seam_span(ctx.method, server_name, parent_context=parent):
++            return await call_next(ctx)
++
++
+ class LowLevelServer(_Server[LifespanResultT]):
+     def __init__(self, fastmcp: FastMCP, *args: Any, **kwargs: Any):
+         super().__init__(*args, **kwargs)
+@@ -205,8 +234,19 @@ class LowLevelServer(_Server[LifespanResultT]):
+             tools_changed=True,
+         )
+ 
+-        # Route initialize through FastMCP middleware. Append so the SDK's
+-        # seeded OpenTelemetryMiddleware stays outermost and keeps emitting spans.
++        # Swap the SDK's OpenTelemetryMiddleware for FastMCP's, which owns the
++        # one SERVER span per request, and keep it outermost.
++        self.middleware[:] = [
++            m for m in self.middleware if not isinstance(m, OpenTelemetryMiddleware)
++        ]
++        self.middleware.insert(
++            0,
++            cast(
++                "ServerMiddleware[LifespanResultT]", FastMCPTelemetryMiddleware(fastmcp)
++            ),
++        )
++
++        # Route initialize through FastMCP middleware.
+         self.middleware.append(
+             cast("ServerMiddleware[LifespanResultT]", FastMCPServerMiddleware(fastmcp))
+         )
+diff --git a/fastmcp_slim/fastmcp/server/mixins/mcp_operations.py b/fastmcp_slim/fastmcp/server/mixins/mcp_operations.py
+index 0286ea1..58ae99c 100644
+--- a/fastmcp_slim/fastmcp/server/mixins/mcp_operations.py
++++ b/fastmcp_slim/fastmcp/server/mixins/mcp_operations.py
+@@ -17,7 +17,12 @@ from mcp_types import (
+     SetLevelRequestParams,
+ )
+ 
+-from fastmcp.exceptions import DisabledError, FastMCPError, NotFoundError
++from fastmcp.exceptions import (
++    DisabledError,
++    FastMCPError,
++    NotFoundError,
++    to_mcp_error,
++)
+ from fastmcp.server.dependencies import bind_request_context, extract_version_spec
+ from fastmcp.server.tasks.config import TaskMeta
+ from fastmcp.utilities.logging import get_logger
+@@ -275,8 +280,8 @@ class MCPOperationsMixin:
+             try:
+                 result = await self.read_resource(str(uri), version=version)
+             except (DisabledError, NotFoundError) as e:
+-                raise MCPError(
+-                    code=-32002, message=f"Resource not found: {str(uri)!r}"
++                raise to_mcp_error(
++                    NotFoundError(f"Resource not found: {str(uri)!r}")
+                 ) from e
+ 
+             if isinstance(result, mcp_types.CreateTaskResult):
+@@ -308,7 +313,7 @@ class MCPOperationsMixin:
+             try:
+                 result = await self.render_prompt(name, arguments, version=version)
+             except (DisabledError, NotFoundError) as e:
+-                raise MCPError(code=-32602, message=f"Unknown prompt: {name!r}") from e
++                raise to_mcp_error(NotFoundError(f"Unknown prompt: {name!r}")) from e
+ 
+             if isinstance(result, mcp_types.CreateTaskResult):
+                 return result
+diff --git a/fastmcp_slim/fastmcp/server/telemetry.py b/fastmcp_slim/fastmcp/server/telemetry.py
+index d7e6254..1eb03cc 100644
+--- a/fastmcp_slim/fastmcp/server/telemetry.py
++++ b/fastmcp_slim/fastmcp/server/telemetry.py
+@@ -1,7 +1,8 @@
+ """Server-side telemetry helpers."""
+ 
+ from collections.abc import Generator
+-from contextlib import contextmanager
++from contextlib import contextmanager, nullcontext
++from contextvars import ContextVar
+ 
+ from opentelemetry.context import Context
+ from opentelemetry.trace import Span, SpanKind, Status, StatusCode
+@@ -9,6 +10,66 @@ from opentelemetry.trace import Span, SpanKind, Status, StatusCode
+ from fastmcp.exceptions import ToolError as _ToolError
+ from fastmcp.telemetry import extract_trace_context, get_tracer
+ 
++SEAM_SPAN_MARKER = "fastmcp.span.seam"
++
++# The dispatcher-level SERVER span that the next `server_span` should enrich
++# instead of opening a second span for the same request.
++_seam_span: ContextVar[Span | None] = ContextVar("fastmcp_seam_span", default=None)
++
++
++def record_span_exception(span: Span, exc: BaseException) -> None:
++    """Record an exception on a span and mark it as an error."""
++    if span.is_recording():
++        error_type = (
++            "tool_error" if isinstance(exc, _ToolError) else type(exc).__qualname__
++        )
++        span.set_attribute("error.type", error_type)
++        span.record_exception(exc)
++        span.set_status(Status(StatusCode.ERROR, str(exc)))
++
++
++def _has_error_status(span: Span) -> bool:
++    status = getattr(span, "status", None)
++    return status is not None and status.status_code == StatusCode.ERROR
++
++
++@contextmanager
++def seam_span(
++    method: str, server_name: str, parent_context: Context | None = None
++) -> Generator[Span, None, None]:
++    """Create the single SERVER span for an inbound request at the dispatcher.
++
++    `server_span` enriches this span (name and component attributes) rather than
++    creating a second one when the request reaches a tool, resource or prompt.
++    """
++    tracer = get_tracer()
++    with tracer.start_as_current_span(
++        method,
++        context=parent_context
++        if parent_context is not None
++        else _get_parent_trace_context(),
++        kind=SpanKind.SERVER,
++    ) as span:
++        if span.is_recording():
++            span.set_attributes(
++                {
++                    SEAM_SPAN_MARKER: True,
++                    "mcp.method.name": method,
++                    "fastmcp.server.name": server_name,
++                    **get_auth_span_attributes(),
++                    **get_session_span_attributes(),
++                }
++            )
++        token = _seam_span.set(span)
++        try:
++            yield span
++        except Exception as e:
++            if not _has_error_status(span):
++                record_span_exception(span, e)
++            raise
++        finally:
++            _seam_span.reset(token)
++
+ 
+ def get_auth_span_attributes() -> dict[str, str]:
+     """Get auth attributes for the current request, if authenticated."""
+@@ -66,41 +127,48 @@ def server_span(
+ 
+     Automatically records any exception on the span and sets error status.
+     """
+-    tracer = get_tracer()
+-    with tracer.start_as_current_span(
+-        name,
+-        context=_get_parent_trace_context(),
+-        kind=SpanKind.SERVER,
+-    ) as span:
+-        if span.is_recording():
+-            attrs: dict[str, str] = {
+-                # MCP semantic conventions
+-                "mcp.method.name": method,
+-                # FastMCP-specific attributes
+-                "fastmcp.server.name": server_name,
+-                "fastmcp.component.type": component_type,
+-                "fastmcp.component.key": component_key,
+-                **get_auth_span_attributes(),
+-                **get_session_span_attributes(),
+-            }
+-            if resource_uri is not None:
+-                attrs["mcp.resource.uri"] = resource_uri
+-            if tool_name is not None:
+-                attrs["gen_ai.tool.name"] = tool_name
+-            if prompt_name is not None:
+-                attrs["gen_ai.prompt.name"] = prompt_name
+-            span.set_attributes(attrs)
+-        try:
+-            yield span
+-        except Exception as e:
++    seam = _seam_span.get()
++    if seam is not None:
++        # Adopt the request's seam span; clear it so nested in-process calls
++        # create their own spans.
++        token = _seam_span.set(None)
++        seam.update_name(name)
++        span_cm = nullcontext(seam)
++    else:
++        token = None
++        span_cm = get_tracer().start_as_current_span(
++            name,
++            context=_get_parent_trace_context(),
++            kind=SpanKind.SERVER,
++        )
++    try:
++        with span_cm as span:
+             if span.is_recording():
+-                error_type = (
+-                    "tool_error" if isinstance(e, _ToolError) else type(e).__qualname__
+-                )
+-                span.set_attribute("error.type", error_type)
+-                span.record_exception(e)
+-                span.set_status(Status(StatusCode.ERROR, str(e)))
+-            raise
++                attrs: dict[str, str] = {
++                    # MCP semantic conventions
++                    "mcp.method.name": method,
++                    # FastMCP-specific attributes
++                    "fastmcp.server.name": server_name,
++                    "fastmcp.component.type": component_type,
++                    "fastmcp.component.key": component_key,
++                    **get_auth_span_attributes(),
++                    **get_session_span_attributes(),
++                }
++                if resource_uri is not None:
++                    attrs["mcp.resource.uri"] = resource_uri
++                if tool_name is not None:
++                    attrs["gen_ai.tool.name"] = tool_name
++                if prompt_name is not None:
++                    attrs["gen_ai.prompt.name"] = prompt_name
++                span.set_attributes(attrs)
++            try:
++                yield span
++            except Exception as e:
++                record_span_exception(span, e)
++                raise
++    finally:
++        if token is not None:
++            _seam_span.reset(token)
+ 
+ 
+ @contextmanager
+@@ -139,8 +207,11 @@ def delegate_span(
+ 
+ 
+ __all__ = [
++    "SEAM_SPAN_MARKER",
+     "delegate_span",
+     "get_auth_span_attributes",
+     "get_session_span_attributes",
++    "record_span_exception",
++    "seam_span",
+     "server_span",
+ ]
+diff --git a/tests/test_exceptions_mcp_error.py b/tests/test_exceptions_mcp_error.py
+new file mode 100644
+index 0000000..3240799
+--- /dev/null
++++ b/tests/test_exceptions_mcp_error.py
+@@ -0,0 +1,23 @@
++from mcp import MCPError
++from mcp_types import INTERNAL_ERROR, INVALID_PARAMS
++
++from fastmcp.exceptions import (
++    DisabledError,
++    NotFoundError,
++    ToolError,
++    ValidationError,
++    to_mcp_error,
++)
++
++
++def test_to_mcp_error_mapping():
++    for exc in (NotFoundError("a"), DisabledError("a"), ValidationError("a")):
++        assert to_mcp_error(exc).error.code == INVALID_PARAMS
++    err = to_mcp_error(ToolError("boom"))
++    assert err.error.code == INTERNAL_ERROR
++    assert err.error.message == "boom"
++
++
++def test_to_mcp_error_passthrough():
++    err = MCPError(code=-32000, message="x")
++    assert to_mcp_error(err) is err

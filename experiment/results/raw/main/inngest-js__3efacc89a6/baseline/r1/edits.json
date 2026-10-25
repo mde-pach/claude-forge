@@ -1,0 +1,14 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 4,
+ "bash_calls": 11,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/packages/inngest/src/components/sandbox && python3 - <<'E'\nimport re\ndef sub(f,a,b,c=1):\n    s=open(f).read()\n    assert s.count(a)>=1,(f,a)\n    s=s.replace(a,b,c); open(f,'w').write(s)\n\n# types\nsub('types.ts','''  memoryMb: number;\n}\n\nexport interface SandboxListOptions''','''  memoryMb: n",
+  "python3 - <<'E'\ndef sub(f,a,b):\n    s=open(f).read()\n    assert a in s,a\n    s=s.replace(a,b,1); open(f,'w').write(s)\nf='client.ts'\nsub(f,'  \"get\",\\n  \"process.list\",','  \"get\",\\n  \"waitUntilRunning\",\\n  \"process.list\",')\nsub(f,'  normalizeSandboxProcessWaitOptions,','  normalizeSandboxProcessWaitOp",
+  "sed -i 's/^  type SandboxProcess,$/  type SandboxProcess,\\n  type SandboxRef,/' src/components/sandbox/client.ts && npx tsc --noEmit -p . 2>&1 | grep -i sandbox; sed -n 55,70p src/components/InngestSandbox.test.ts; npx vitest run src/components/InngestSandbox.test.ts 2>&1 | tail -15; npx biome check",
+  "npx biome check --write src/components/sandbox src/experimental.ts 2>&1 | tail -5; python3 - <<'E'\nf='src/components/InngestSandbox.test.ts'\ns=open(f).read()\na='    case \"list\":\\n      return {\\n        protocolVersion: 1,\\n        action: \"list\",'\nassert a in s\ns=s.replace(a,'    case \"waitUntilRun"
+ ],
+ "total": 4,
+ "edit_tool_share": 0.0
+}

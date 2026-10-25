@@ -1,0 +1,86 @@
+diff --git a/logfire/variables/remote.py b/logfire/variables/remote.py
+index fcd1d0d..4bfad64 100644
+--- a/logfire/variables/remote.py
++++ b/logfire/variables/remote.py
+@@ -5,6 +5,7 @@ import os
+ import random
+ import re
+ import threading
++import time
+ import warnings
+ import weakref
+ from collections.abc import Mapping
+@@ -103,6 +104,9 @@ class LogfireRemoteVariableProvider(VariableProvider):
+         self._has_attempted_fetch: bool = False
+         self._last_fetched_at: datetime | None = None
+         self._consecutive_refresh_failures: int = 0
++        self._etag: str | None = None
++        # `time.monotonic()` deadline for a follow-up refresh after an SSE-triggered fetch
++        self._followup_refresh_at: float | None = None
+ 
+         self._config: VariablesConfig | None = None
+ 
+@@ -138,6 +142,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
+         self._session_lock = threading.Lock()
+         self._worker_awaken = threading.Event()
+         self._force_refresh_event = threading.Event()
++        self._followup_refresh_at = None
+         # Only restart threads if we were started before the fork
+         if self._started and not was_shutdown:
+             self._worker_thread = threading.Thread(
+@@ -383,10 +388,18 @@ class LogfireRemoteVariableProvider(VariableProvider):
+             # downstream logic (Gap 5 follow-up) can still detect SSE-triggered iterations.
+             self.refresh(force=True)
+ 
++            # The first fetch after an SSE notification may be answered by a stale server-side
++            # cache, so schedule a follow-up refresh shortly after.
++            if force:
++                self._followup_refresh_at = time.monotonic() + 2.0
++
+             # Gap 3: add uniform +/-10% jitter to the wait so that fleets deployed
+             # simultaneously don't poll in lockstep.
+             base_interval = self._polling_interval.total_seconds()
+             wait_timeout = base_interval * random.uniform(0.9, 1.1)
++            followup_at = self._followup_refresh_at
++            if followup_at is not None:
++                wait_timeout = max(0.0, min(wait_timeout, followup_at - time.monotonic()))
+ 
+             # Use wait(timeout) then clear() to avoid lost wakeups:
+             # If SSE sets the event during refresh(), wait() returns immediately
+@@ -396,6 +409,9 @@ class LogfireRemoteVariableProvider(VariableProvider):
+                 self._worker_awaken.clear()
+             if self._shutdown:  # pragma: no branch
+                 break
++            # The next iteration's top-of-loop refresh serves as the follow-up.
++            if self._followup_refresh_at is not None and time.monotonic() >= self._followup_refresh_at:
++                self._followup_refresh_at = None
+ 
+     def refresh(self, force: bool = False):
+         """Fetch the latest variable configuration from the remote API.
+@@ -424,9 +440,17 @@ class LogfireRemoteVariableProvider(VariableProvider):
+                 # have their HTTP client instrumented shouldn't see a span for every poll.
+                 # Failures are still logged: the `except` handler runs outside this block.
+                 with self._session_lock, suppress_instrumentation():
++                    request_headers = {'If-None-Match': self._etag} if self._etag is not None else {}
+                     variables_response = self._session.get(
+-                        urljoin(self._base_url, '/v1/variables/'), timeout=self._timeout
++                        urljoin(self._base_url, '/v1/variables/'),
++                        timeout=self._timeout,
++                        **({'headers': request_headers} if request_headers else {}),
+                     )
++                    if variables_response.status_code == 304:
++                        self._consecutive_refresh_failures = 0
++                        self._last_fetched_at = datetime.now(tz=timezone.utc)
++                        self._has_attempted_fetch = True
++                        return
+                     UnexpectedResponse.raise_for_status(variables_response)
+                     variables_config_data = variables_response.json()
+             except Exception as e:
+@@ -458,6 +482,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
+             try:
+                 new_config = VariablesConfig.model_validate(variables_config_data)
+                 self._config = new_config
++                self._etag = variables_response.headers.get('ETag')
+                 self._last_fetched_at = datetime.now(tz=timezone.utc)
+             except ValidationError as e:
+                 self._log_error('Failed to parse variables configuration from Logfire API', e)

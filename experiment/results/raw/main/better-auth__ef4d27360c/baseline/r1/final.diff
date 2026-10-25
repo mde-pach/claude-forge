@@ -1,0 +1,154 @@
+diff --git a/packages/better-auth/src/api/routes/email-verification.ts b/packages/better-auth/src/api/routes/email-verification.ts
+index fc47ea5..d1a0ad1 100644
+--- a/packages/better-auth/src/api/routes/email-verification.ts
++++ b/packages/better-auth/src/api/routes/email-verification.ts
+@@ -1,3 +1,4 @@
++import { safeCloneRequest } from "../../utils/request";
+ import type { GenericEndpointContext } from "@better-auth/core";
+ import { createAuthEndpoint } from "@better-auth/core/api";
+ import { APIError, BASE_ERROR_CODES } from "@better-auth/core/error";
+@@ -354,7 +355,7 @@ export const verifyEmail = createAuthEndpoint(
+ 									url,
+ 									token: newToken,
+ 								},
+-								ctx.request?.clone(),
++								safeCloneRequest(ctx.request),
+ 							),
+ 						);
+ 					}
+@@ -453,7 +454,7 @@ export const verifyEmail = createAuthEndpoint(
+ 									url: `${ctx.context.baseURL}/verify-email?token=${newToken}&callbackURL=${updateCallbackURL}`,
+ 									token: newToken,
+ 								},
+-								ctx.request?.clone(),
++								safeCloneRequest(ctx.request),
+ 							),
+ 						);
+ 					}
+diff --git a/packages/better-auth/src/api/routes/sign-in.ts b/packages/better-auth/src/api/routes/sign-in.ts
+index badf716..1a01905 100644
+--- a/packages/better-auth/src/api/routes/sign-in.ts
++++ b/packages/better-auth/src/api/routes/sign-in.ts
+@@ -1,3 +1,4 @@
++import { safeCloneRequest } from "../../utils/request";
+ import type { BetterAuthOptions } from "@better-auth/core";
+ import { createAuthEndpoint } from "@better-auth/core/api";
+ import type { User } from "@better-auth/core/db";
+@@ -557,7 +558,7 @@ export const signInEmail = <O extends BetterAuthOptions>() =>
+ 								url,
+ 								token,
+ 							},
+-							ctx.request?.clone(),
++							safeCloneRequest(ctx.request),
+ 						),
+ 					);
+ 				}
+diff --git a/packages/better-auth/src/api/routes/sign-up.ts b/packages/better-auth/src/api/routes/sign-up.ts
+index cefa4c7..872b386 100644
+--- a/packages/better-auth/src/api/routes/sign-up.ts
++++ b/packages/better-auth/src/api/routes/sign-up.ts
+@@ -1,3 +1,4 @@
++import { safeCloneRequest } from "../../utils/request";
+ import type { BetterAuthOptions } from "@better-auth/core";
+ import { createAuthEndpoint } from "@better-auth/core/api";
+ import { runWithTransaction } from "@better-auth/core/context";
+@@ -260,7 +261,7 @@ export const signUpEmail = <O extends BetterAuthOptions>() =>
+ 							await ctx.context.runInBackgroundOrAwait(
+ 								ctx.context.options.emailAndPassword.onExistingUserSignUp(
+ 									{ user: dbUser.user },
+-									ctx.request?.clone(),
++									safeCloneRequest(ctx.request),
+ 								),
+ 							);
+ 						}
+@@ -394,7 +395,7 @@ export const signUpEmail = <O extends BetterAuthOptions>() =>
+ 									url,
+ 									token,
+ 								},
+-								ctx.request?.clone(),
++								safeCloneRequest(ctx.request),
+ 							),
+ 						);
+ 					}
+diff --git a/packages/better-auth/src/utils/request.test.ts b/packages/better-auth/src/utils/request.test.ts
+new file mode 100644
+index 0000000..30932a2
+--- /dev/null
++++ b/packages/better-auth/src/utils/request.test.ts
+@@ -0,0 +1,25 @@
++import { describe, expect, it } from "vitest";
++import { safeCloneRequest } from "./request";
++
++describe("safeCloneRequest", () => {
++	it("returns undefined without a request", () => {
++		expect(safeCloneRequest(undefined)).toBeUndefined();
++	});
++
++	it("falls back to a bodyless request when clone throws", async () => {
++		const req = new Request("http://localhost/a", {
++			method: "POST",
++			headers: { "x-test": "1" },
++			body: "hello",
++		});
++		req.clone = () => {
++			throw new TypeError("nope");
++		};
++		const copy = safeCloneRequest(req)!;
++		expect(copy).not.toBe(req);
++		expect(copy.url).toBe(req.url);
++		expect(copy.method).toBe("POST");
++		expect(copy.headers.get("x-test")).toBe("1");
++		expect(await copy.text()).toBe("");
++	});
++});
+diff --git a/packages/better-auth/src/utils/request.ts b/packages/better-auth/src/utils/request.ts
+new file mode 100644
+index 0000000..56de015
+--- /dev/null
++++ b/packages/better-auth/src/utils/request.ts
+@@ -0,0 +1,45 @@
++/**
++ * Clone a request without ever throwing. If `clone()` fails (e.g. the body is
++ * disturbed or locked), a bodyless copy of the request is returned instead.
++ */
++export function safeCloneRequest(request?: Request): Request | undefined {
++	if (!request) {
++		return undefined;
++	}
++	try {
++		return request.clone();
++	} catch {
++		const init: RequestInit = {
++			method: request.method,
++			headers: new Headers(request.headers),
++		};
++		const optional = [
++			"cache",
++			"credentials",
++			"integrity",
++			"keepalive",
++			"mode",
++			"redirect",
++			"referrer",
++			"referrerPolicy",
++			"signal",
++		] as const;
++		for (const key of optional) {
++			try {
++				const value = request[key];
++				if (value !== undefined) {
++					(init as Record<string, unknown>)[key] = value;
++				}
++			} catch {}
++		}
++		try {
++			return new Request(request.url, init);
++		} catch {
++			// some runtimes reject certain options; retry with the essentials
++			return new Request(request.url, {
++				method: request.method,
++				headers: new Headers(request.headers),
++			});
++		}
++	}
++}

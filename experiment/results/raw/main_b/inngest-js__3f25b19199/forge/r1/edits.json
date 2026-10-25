@@ -1,0 +1,13 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 3,
+ "bash_calls": 8,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "sed -i 's/timeStr(opts.timeout),/timeStr(opts.timeout, client[internalLoggerSymbol]),/; s/timeStr(typeof opts === \"string\" ? opts : opts.timeout),/timeStr(\\n            typeof opts === \"string\" ? opts : opts.timeout,\\n            client[internalLoggerSymbol],\\n          ),/; s/timeStr(time);/timeStr",
+  "python3 - <<'E'\nimport re\nN=\"Durations under 1 second round up to `1s`, the minimum resolution of a\\n{i} * durable wait.\\n\"\np='components/InngestStepTools.ts'\ns=open(p).read()\ns=s.replace('''     * {@link https://npm.im/ms}\n     *\n     * To wait until''','''     * Durations under 1 second round up t",
+  "python3 - <<'E'\np='types.ts'\ns=open(p).read()\ns=s.replace('''   * `Temporal.ZonedDateTime` (absolute deadline).\n   *\n   * {@link https://npm.im/ms}\n   */\n  timeout?:''','''   * `Temporal.ZonedDateTime` (absolute deadline).\n   *\n   * Durations under 1 second round up to `1s`, the minimum resolution o"
+ ],
+ "total": 3,
+ "edit_tool_share": 0.0
+}

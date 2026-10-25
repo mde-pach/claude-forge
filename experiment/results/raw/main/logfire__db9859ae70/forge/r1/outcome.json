@@ -1,0 +1,30 @@
+{
+ "resolved": true,
+ "patch_applied": true,
+ "f2p": {
+  "tests/exporters/test_otlp_session.py::test_connection_error_retries": "passed"
+ },
+ "p2p": {
+  "tests/exporters/test_otlp_session.py::test_cleanup_disk_retryers_skips_dead_weakrefs": "passed",
+  "tests/exporters/test_otlp_session.py::test_disk_retryer_add_task_after_close_does_nothing": "passed",
+  "tests/exporters/test_otlp_session.py::test_disk_retryer_cleanup_after_logfire_shutdown": "passed",
+  "tests/exporters/test_otlp_session.py::test_disk_retryer_close_during_retry": "passed",
+  "tests/exporters/test_otlp_session.py::test_max_body_size_bytes": "passed"
+ },
+ "f2p_frac": 1.0,
+ "p2p_regressions": 0,
+ "lint_new": 0,
+ "diff_lines": 26,
+ "changed_files": [
+  "logfire/_internal/exporters/otlp.py",
+  "logfire/_internal/exporters/quiet_metrics.py"
+ ],
+ "all_results": {
+  "tests/exporters/test_otlp_session.py::test_max_body_size_bytes": "passed",
+  "tests/exporters/test_otlp_session.py::test_connection_error_retries": "passed",
+  "tests/exporters/test_otlp_session.py::test_disk_retryer_cleanup_after_logfire_shutdown": "passed",
+  "tests/exporters/test_otlp_session.py::test_cleanup_disk_retryers_skips_dead_weakrefs": "passed",
+  "tests/exporters/test_otlp_session.py::test_disk_retryer_close_during_retry": "passed",
+  "tests/exporters/test_otlp_session.py::test_disk_retryer_add_task_after_close_does_nothing": "passed"
+ }
+}

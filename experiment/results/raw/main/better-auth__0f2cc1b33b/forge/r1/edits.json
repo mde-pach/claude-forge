@@ -1,0 +1,20 @@
+{
+ "edit_tool_calls": 3,
+ "shell_edit_calls": 7,
+ "bash_calls": 10,
+ "edit_files": [
+  "/work/packages/core/src/db/adapter/get-default-model-name.ts",
+  "/work/packages/cli/src/generators/prisma.ts"
+ ],
+ "shell_edit_commands": [
+  "cd /work/packages/cli/src/generators; python3 - <<'E'\nimport re\np='/work/packages/core/src/db/adapter/get-default-model-name.ts'\ns=open(p).read()\na=s.index(\"\t\t\t// Prefer a `modelName`\")\nb=s.index(\"\t\t\tconst resolve\")\ns=s[:a]+\"\"\"\t\t\t// An exact schema-key match wins. When a string is both a canonical\n\t",
+  "cd /work/packages/cli/src/utils; python3 - <<'E'\np='get-config.ts'\ns=open(p).read()\ns=s.replace('''export async function getConfig({\n\tcwd,\n\tconfigPath,\n\tshouldThrowOnError = false,\n}: {\n\tcwd: string;\n\tconfigPath?: string;\n\tshouldThrowOnError?: boolean;\n}) {\n\ttry {''','''\nconst stripSourceExtension =",
+  "cd /work/packages/cli/src; python3 - <<'E'\np='utils/get-config.ts'\ns=open(p).read()\ns=s.replace(\"Record<string, any>\",\"Record<string, unknown>\")\ns=s.replace(\" * Returns the missing relative specifier when `error` is\",\" * Whether `error` is\")\nopen(p,'w').write(s)\n\np='commands/generate.ts'\ns=open(p).r",
+  "sed -i 's/await getAdapter(config).catch((e) => {/await getAdapter(config).catch(async (e) => {/' src/commands/generate.ts && npx tsc --noEmit -p . 2>&1 | head; sed -n 40,75p ../core/src/db/test/get-default-model-name.test.ts",
+  "ls src/utils/*.test.ts | head -3; cat > src/utils/get-config-output.test.ts <<'E'\nimport fs from \"node:fs\";\nimport os from \"node:os\";\nimport path from \"node:path\";\nimport { afterEach, beforeEach, describe, expect, it } from \"vitest\";\nimport { getConfig } from \"./get-config\";\n\ndescribe(\"getConfig out",
+  "cd /work/packages/core/src/db/test && python3 - <<'E'\np='get-default-model-name.test.ts'\ns=open(p).read()\ns=s.replace('''\t * When a user remaps `user.modelName = \"account\"`, the string \"account\"\n\t * collides with the built-in account schema key. The user's explicit\n\t * `modelName` choice must win, s",
+  "git checkout src/db/test/get-default-model-name.test.ts && cat > src/db/test/get-default-model-name-key-precedence.test.ts <<'E'\nimport { describe, expect, it } from \"vitest\";\nimport { getAuthTables } from \"../get-tables\";\nimport { initGetDefaultModelName } from \"../adapter/get-default-model-name\";\n"
+ ],
+ "total": 10,
+ "edit_tool_share": 0.3
+}

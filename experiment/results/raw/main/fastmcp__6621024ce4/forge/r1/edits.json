@@ -1,0 +1,13 @@
+{
+ "edit_tool_calls": 0,
+ "shell_edit_calls": 3,
+ "bash_calls": 16,
+ "edit_files": [],
+ "shell_edit_commands": [
+  "cd /work/fastmcp_slim/fastmcp && python3 - <<'E'\nimport re\np='server/server.py'; s=open(p).read()\na=s.index(\"        if fastmcp_server._lifespan is default_lifespan:\")\nb=s.index(\"    return wrap\\n\",a)\ns=s[:a]+\"\"\"        # Nested entries reuse the existing result (ref-counted), so this is\n        # s",
+  "python3 - <<'E'\np='docs/more/settings.mdx'; s=open(p).read()\nk=\"| `FASTMCP_DEBUG` | `bool` | `false` | Enable debug mode. |\"\ns=s.replace(k,\"| `FASTMCP_HTTP_SESSION_IDLE_TIMEOUT` | `float \\\\| null` | `null` | Seconds of inactivity after which a stateful Streamable HTTP session is terminated. Must be ",
+  ".venv/bin/python -m pytest -n auto -q tests/client tests/server tests/test_settings.py tests/utilities --timeout=30 --deselect tests/server/providers/openapi/test_openapi_performance.py > $TMPDIR/out.txt 2>&1; tail -12 $TMPDIR/out.txt"
+ ],
+ "total": 3,
+ "edit_tool_share": 0.0
+}
