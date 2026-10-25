@@ -1,3 +1,3 @@
-Celery. Tasks take ids and plain JSON values and re-fetch rows when they run; a model instance as a task argument is rejected.
+Celery. Tasks take ids and plain JSON values and re-fetch rows when they run: a model instance passed as an argument is serialized when queued and stale when the task runs.
 Tasks may run more than once (retries, `acks_late`, a worker lost mid-task): make them idempotent (check state before acting, use unique keys or upserts) and queue them from `transaction.on_commit()` when they read rows written in the same transaction.
 Retries use `autoretry_for` with `max_retries` and `retry_backoff`, or `self.retry(exc=exc)`; `max_retries=None` is rejected. A task never waits on another task's result (`.get()` in a task is rejected): use chains and chord callbacks.

@@ -3824,7 +3824,7 @@ forge_required_tools() {
   done | awk 'NF && !seen[$0]++'
 }
 
-FORGE_FORBID='typescript/nextjs/no-legacy-image-config|typescript/nextjs/no-next-router|typescript/nextjs/no-pages-data|typescript/nextjs/no-public-secret-env|typescript/nextjs/proxy-not-middleware|typescript/nextjs/react/client-hooks|typescript/nextjs/react/no-server-in-client|typescript/nextjs/revalidate-tag-profile|typescript/no-double-assertion|typescript/no-latch-before-optional-call|typescript/no-secret-logging|typescript/no-stub|typescript/no-swallowed-catch|typescript/no-ts-nocheck|typescript/playwright/locators|typescript/playwright/no-wait-for-timeout|typescript/prisma/generated-client-import|typescript/prisma/no-middleware|typescript/prisma/no-network-in-transaction|typescript/prisma/no-raw-unsafe|typescript/react/no-prop-types|typescript/react/use-action-state|typescript/ts-expect-error-reason|typescript/vitest/no-tautological-expect|typescript/vitest/no-test-env-branch|typescript/zod/error-param|typescript/zod/v4-string-formats'
+FORGE_FORBID='typescript/nextjs/no-legacy-image-config|typescript/nextjs/no-next-router|typescript/nextjs/no-pages-data|typescript/nextjs/no-public-secret-env|typescript/nextjs/proxy-not-middleware|typescript/nextjs/react/client-hooks|typescript/nextjs/react/no-server-in-client|typescript/nextjs/revalidate-tag-profile|typescript/no-double-assertion|typescript/no-stub|typescript/no-swallowed-catch|typescript/no-ts-nocheck|typescript/playwright/locators|typescript/playwright/no-wait-for-timeout|typescript/prisma/generated-client-import|typescript/prisma/no-middleware|typescript/prisma/no-network-in-transaction|typescript/prisma/no-raw-unsafe|typescript/react/no-prop-types|typescript/react/use-action-state|typescript/ts-expect-error-reason|typescript/vitest/no-tautological-expect|typescript/vitest/no-test-env-branch|typescript/zod/error-param|typescript/zod/v4-string-formats'
 
 # the lines added to each file during the turn (base: the turn snapshot, else HEAD)
 mode=--changed
@@ -13126,115 +13126,6 @@ invalid:
   - "const u = (req as unknown as { user: User }).user;"
   - const n = s as any as number;
 
-===== .forge/ast-grep/rule-tests/typescript-no-latch-before-optional-call-test.yml
-id: typescript/no-latch-before-optional-call
-valid:
-  - |
-    let hasWarnedSubSecond = false;
-
-    export function clamp(ms: number, logger?: Logger): number {
-      if (!hasWarnedSubSecond && logger) {
-        hasWarnedSubSecond = true;
-        logger.warn({ ms }, "durations under 1s round up to 1s");
-      }
-      return Math.max(ms, 1000);
-    }
-  - |
-    let hasWarnedSubSecond = false;
-
-    export function clamp(ms: number, logger?: Logger): number {
-      if (!hasWarnedSubSecond) {
-        hasWarnedSubSecond = true;
-        console.warn("durations under 1s round up to 1s");
-      }
-      return Math.max(ms, 1000);
-    }
-  - |
-    export function clamp(ms: number, logger?: Logger): number {
-      if (logger) {
-        warnOnce(logger, "sub-second", { ms }, "durations under 1s round up to 1s");
-      }
-      return Math.max(ms, 1000);
-    }
-  - |
-    let started = false;
-
-    export function start(onStart?: () => void): void {
-      if (started) return;
-      started = true;
-      run();
-    }
-invalid:
-  - |
-    let hasWarnedSubSecond = false;
-
-    export function clamp(ms: number, logger?: Logger): number {
-      if (ms > 0 && ms < 1000) {
-        if (!hasWarnedSubSecond) {
-          hasWarnedSubSecond = true;
-          logger?.warn({ ms }, "durations under 1s round up to 1s");
-        }
-        return 1000;
-      }
-      return ms;
-    }
-  - |
-    export class Client {
-      private warned = false;
-
-      constructor(private readonly logger?: Logger) {}
-
-      deprecated(): void {
-        if (this.warned) return;
-        this.warned = true;
-        this.logger?.warn("deprecated() will be removed in v5");
-      }
-    }
-
-===== .forge/ast-grep/rule-tests/typescript-no-secret-logging-test.yml
-id: typescript/no-secret-logging
-valid:
-  - |
-    export function usage(maxTokens: number, hasToken: boolean): void {
-      console.log(`budget ${maxTokens}, authenticated ${hasToken}`);
-    }
-  - |
-    export function refresh(token: string): void {
-      logger.info({ tokenLength: token.length }, "refreshing");
-    }
-  - |
-    export function page(nextPageToken: string): void {
-      logger.debug({ nextPageToken }, "next page");
-    }
-  - |
-    export function reset(userId: string): never {
-      console.info("password reset for", userId);
-      throw new Error("password is too short");
-    }
-  - |
-    export function store(passwordHash: string, cacheKey: string): void {
-      logger.debug({ passwordHash, cacheKey }, "stored");
-    }
-invalid:
-  - |
-    export function refresh(token: string): void {
-      console.log(`refreshing with token=${token}`);
-    }
-  - |
-    export function call(apiKey: string): void {
-      logger.info({ apiKey }, "calling the API");
-    }
-  - |
-    export function check(req: Request): void {
-      log.warn("header " + req.headers.get("x") + req.headers.authorization);
-    }
-  - |
-    export function connect(accessToken: string): never {
-      throw new Error(`login failed with ${accessToken}`);
-    }
-  - |
-    console.log(process.env.STRIPE_SECRET_KEY);
-
 ===== .forge/ast-grep/rule-tests/typescript-no-stub-test.yml
 id: typescript/no-stub
 valid:
@@ -13774,136 +13665,6 @@ rule:
   any:
     - pattern: $X as unknown as $T
     - pattern: $X as any as $T
-
-===== .forge/ast-grep/rules/typescript/no-latch-before-optional-call.yml
-# Generated by forge from typescript/no-latch-before-optional-call (mode: forbid).
-id: typescript/no-latch-before-optional-call
-language: Tsx
-severity: error
-message: "forge:typescript/no-latch-before-optional-call A once-flag is set before an optional call in its guard (if (!warned) { warned = true; logger?.warn(…) }): the flag is consumed even when the receiver is absent, so the call never happens once it is there. Check the receiver first (if (!warned && logger)), or use the project's existing warn-once helper."
-rule:
-  all:
-    - kind: expression_statement
-    - has:
-        pattern: $F = true
-        stopBy: neighbor
-    - precedes:
-        stopBy: end
-        has:
-          pattern: $X?.$M($$$)
-          stopBy: end
-    - any:
-        - inside:
-            kind: statement_block
-            stopBy: neighbor
-            inside:
-              kind: if_statement
-              stopBy: neighbor
-              has:
-                field: condition
-                pattern: (!$F)
-        - follows:
-            stopBy: end
-            all:
-              - kind: if_statement
-              - has:
-                  field: condition
-                  pattern: ($F)
-              - has:
-                  field: consequence
-                  regex: ^(\{\s*)?return\b
-
-===== .forge/ast-grep/rules/typescript/no-secret-logging.yml
-# Generated by forge from typescript/no-secret-logging (mode: forbid).
-id: typescript/no-secret-logging
-language: Tsx
-severity: error
-message: "forge:typescript/no-secret-logging No secret in a log line or thrown error: a variable, property or header named like a token, secret, password, API key, private or access key, authorization or credentials, passed to console.*, a logger's methods or a thrown error (directly, in a template literal, with +, or as an object property) is rejected. Log an id or a masked value instead; a name such as maxTokens, hasToken, passwordHash or nextPageToken is not a secret."
-ignores:
-  - "**/*.test.*"
-  - "**/*.spec.*"
-  - "**/__tests__/**"
-  - e2e/**
-  - scripts/**
-rule:
-  matches: secret-name
-  any:
-    - inside:
-        kind: arguments
-        stopBy: neighbor
-        inside:
-          matches: sink
-          stopBy: neighbor
-    - inside:
-        kind: template_substitution
-        stopBy: neighbor
-        inside:
-          kind: template_string
-          stopBy: neighbor
-          inside:
-            kind: arguments
-            stopBy: neighbor
-            inside:
-              matches: sink
-              stopBy: neighbor
-    - inside:
-        kind: binary_expression
-        stopBy: neighbor
-        inside:
-          kind: arguments
-          stopBy: neighbor
-          inside:
-            matches: sink
-            stopBy: neighbor
-    - inside:
-        kind: object
-        stopBy: neighbor
-        inside:
-          kind: arguments
-          stopBy: neighbor
-          inside:
-            matches: sink
-            stopBy: neighbor
-    - inside:
-        kind: pair
-        field: value
-        stopBy: neighbor
-        inside:
-          kind: object
-          stopBy: neighbor
-          inside:
-            kind: arguments
-            stopBy: neighbor
-            inside:
-              matches: sink
-              stopBy: neighbor
-utils:
-  secret-name:
-    any:
-      - kind: identifier
-        regex: (?i)(^|_)(token|secret|password|passwd|pwd|api_?key|apikey|secret_?key|private_?key|access_?key|authorization|credentials?)$|(Token|Secret|Password|ApiKey|SecretKey|PrivateKey|AccessKey|Authorization|Credentials?)$
-      - kind: shorthand_property_identifier
-        regex: (?i)(^|_)(token|secret|password|passwd|pwd|api_?key|apikey|secret_?key|private_?key|access_?key|authorization|credentials?)$|(Token|Secret|Password|ApiKey|SecretKey|PrivateKey|AccessKey|Authorization|Credentials?)$
-      - kind: member_expression
-        has:
-          field: property
-          regex: (?i)(^|_)(token|secret|password|passwd|pwd|api_?key|apikey|secret_?key|private_?key|access_?key|authorization|credentials?)$|(Token|Secret|Password|ApiKey|SecretKey|PrivateKey|AccessKey|Authorization|Credentials?)$
-      - kind: subscript_expression
-        has:
-          field: index
-          regex: (?i)^["'`](x-)?(authorization|api-?key|token|password|secret|cookie)["'`]$
-    not:
-      regex: (?i)(^|[._])(has|is|use|should|needs?|num|max|min|count|total|len|page|next|prev|continuation|pagination|cursor|sync|cancel|cancellation|csrf|xsrf)_?[A-Za-z_]*$|^(has|is|use|should|need|num|max|min|count|total|page|next|prev|cursor|csrf|xsrf)[A-Z]
-  sink:
-    any:
-      - kind: call_expression
-        has:
-          field: function
-          regex: ^console\.(log|info|warn|error|debug|trace)$|(?i)^([A-Za-z_$][A-Za-z0-9_$]*\.)*_?(log|logger)\.(debug|info|warn|warning|error|fatal|trace|log)$
-      - kind: new_expression
-        inside:
-          kind: throw_statement
-          stopBy: neighbor
 
 ===== .forge/ast-grep/rules/typescript/no-stub.yml
 # Generated by forge from typescript/no-stub (mode: forbid).
@@ -17691,7 +17452,7 @@ process.exit(findings.length ? 1 : 0);
 FORGE_SCRIPT_END
 }
 
-FORGE_FORBID='typescript/nextjs/no-legacy-image-config|typescript/nextjs/no-next-router|typescript/nextjs/no-pages-data|typescript/nextjs/no-public-secret-env|typescript/nextjs/proxy-not-middleware|typescript/nextjs/react/client-hooks|typescript/nextjs/react/no-server-in-client|typescript/nextjs/revalidate-tag-profile|typescript/no-double-assertion|typescript/no-latch-before-optional-call|typescript/no-secret-logging|typescript/no-stub|typescript/no-swallowed-catch|typescript/no-ts-nocheck|typescript/playwright/locators|typescript/playwright/no-wait-for-timeout|typescript/prisma/generated-client-import|typescript/prisma/no-middleware|typescript/prisma/no-network-in-transaction|typescript/prisma/no-raw-unsafe|typescript/react/no-prop-types|typescript/react/use-action-state|typescript/ts-expect-error-reason|typescript/vitest/no-tautological-expect|typescript/vitest/no-test-env-branch|typescript/zod/error-param|typescript/zod/v4-string-formats'
+FORGE_FORBID='typescript/nextjs/no-legacy-image-config|typescript/nextjs/no-next-router|typescript/nextjs/no-pages-data|typescript/nextjs/no-public-secret-env|typescript/nextjs/proxy-not-middleware|typescript/nextjs/react/client-hooks|typescript/nextjs/react/no-server-in-client|typescript/nextjs/revalidate-tag-profile|typescript/no-double-assertion|typescript/no-stub|typescript/no-swallowed-catch|typescript/no-ts-nocheck|typescript/playwright/locators|typescript/playwright/no-wait-for-timeout|typescript/prisma/generated-client-import|typescript/prisma/no-middleware|typescript/prisma/no-network-in-transaction|typescript/prisma/no-raw-unsafe|typescript/react/no-prop-types|typescript/react/use-action-state|typescript/ts-expect-error-reason|typescript/vitest/no-tautological-expect|typescript/vitest/no-test-env-branch|typescript/zod/error-param|typescript/zod/v4-string-formats'
 FORGE_NO_INCREASE='typescript/bun/no-mock-increase|typescript/bun/no-new-skip|typescript/playwright/no-new-skip|typescript/vitest/no-mock-increase|typescript/vitest/no-new-skip'
 FORGE_NO_DECREASE='typescript/bun/no-fewer-expects|typescript/vitest/no-fewer-expects'
 
@@ -17882,11 +17643,9 @@ exit "$fail"
     "typescript/no-focused-tests": "0c7614dd6db46bbe6d9a19b58cf8130638128e786cd1dc912e58203ecc72a87b",
     "typescript/no-ignore-deprecations": "63044c1f4bd2f841800843fa17b4db5a29e5d8cc32053591a25622f15902c888",
     "typescript/no-implicit-any": "7ac25a953e4d6df85abee5379ea5496788f5d15776ae37623ceff5ebcc034108",
-    "typescript/no-latch-before-optional-call": "b0006561501550041b6131be348103c246c8dc268fd634cd9589e021d11583f9",
     "typescript/no-new-suppressions": "b49b319f832234670b6d55d259add6b912cd7e49e81fd2143917e7b64976dfed",
     "typescript/no-non-null-assertion": "24bf5fb3547ff36667d3886eaebc706fc21a387a18d2f5789156220e65462ce2",
     "typescript/no-placeholder-comment": "940fb140d959d26ffe50ae2978f2efbf8b3e44891a2b7fa0e0156f4752c7fb47",
-    "typescript/no-secret-logging": "482dfec8ac1f0f2765aca794e173ba1a679d87563973b7fb4671acc84108c521",
     "typescript/no-secrets": "94ad67cd60030c667e22aa4c097abbb17675fdeb5cf944ffb69a6cde2aab365c",
     "typescript/no-stub": "c0b7945c7b23df7621388872772f9185161a99ca57a0ea316f969a41972840a8",
     "typescript/no-swallowed-catch": "80a3b4c0071c2d325aefdd8e158b950847eca9159276eb6ab126f21e26015de4",
@@ -17959,7 +17718,7 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "d0a502f51f51609d7e5e9cd6f39a8ce165c656ee1c1b7a607105a536962058eb",
     ".claude/skills/forge-project/scripts/guard.sh": "e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca",
     ".claude/skills/forge-project/scripts/lib.sh": "462727c0187a948cfaefd1fac315bc87063203968e3df6d12ca68c839fbdf4a3",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "83bffb4d3db9a8e76fc9ee047d8d78a41a5df1ddc0577dc36213f7e41afab81c",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "4d0d84f3e2731ccc8ea498f8e3d4116bc5ffeff8e7e80aa7811f8801ceef570d",
     ".claude/skills/forge-project/scripts/review.sh": "889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726",
     ".claude/skills/forge-project/scripts/session-start.sh": "be10afe1c384cc977ef5ff93aa5a4886f05543aaa2b30f2d702d39fc9da5c4cd",
     ".claude/skills/forge-project/scripts/stop.sh": "10316d9cd59fea152c6f8fbf0ab70abf547514bf67a2c85f3e6b405554a71fad",
@@ -17979,8 +17738,6 @@ exit "$fail"
     ".forge/ast-grep/rule-tests/typescript-nextjs-react-no-server-in-client-test.yml": "d961ad163fef43f625286d82ef70180d240b753eb0b600073751e4f511d98c68",
     ".forge/ast-grep/rule-tests/typescript-nextjs-revalidate-tag-profile-test.yml": "82a873549d13a28bd75fe0ec7f7c225c9a0480525e385aa5c9c3c96d15fc0e68",
     ".forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml": "c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20",
-    ".forge/ast-grep/rule-tests/typescript-no-latch-before-optional-call-test.yml": "c86f87d695b414c91cf90a528067e558a5ce93dbf38c8d9f90d1e7aec886b743",
-    ".forge/ast-grep/rule-tests/typescript-no-secret-logging-test.yml": "892ec40621c9bd2663c9898c9434ac2891245cc3da326fffe7d7de3a6ef9c923",
     ".forge/ast-grep/rule-tests/typescript-no-stub-test.yml": "b02e7e21f6bd597fe4b3d577b3a2cc6dfee9741674cc1cc99285e22ef90a2778",
     ".forge/ast-grep/rule-tests/typescript-no-swallowed-catch-test.yml": "fb2f02c2bcf9562ed49731349520cde2d48d2f3b3557d2174b5e2e856d6c8e48",
     ".forge/ast-grep/rule-tests/typescript-no-ts-nocheck-test.yml": "c15f604d5317f942de32470aeaff16702116a64d283347c9a9825056b4dbe69e",
@@ -18013,8 +17770,6 @@ exit "$fail"
     ".forge/ast-grep/rules/typescript/nextjs/react/no-server-in-client.yml": "bb96a57b3d86ff82cceefb7a13e7e17a3996071931386bd40fce989878f9e2de",
     ".forge/ast-grep/rules/typescript/nextjs/revalidate-tag-profile.yml": "cacc0230a82fede425f3e83c4535f49229b9e831f40766fb416f7a2974fc14bd",
     ".forge/ast-grep/rules/typescript/no-double-assertion.yml": "c0b8c6e7a7a09608b63f8c9367afb4ac22fb1daa93c79c967373efdab597a48c",
-    ".forge/ast-grep/rules/typescript/no-latch-before-optional-call.yml": "9414562604c76184c19ca04490da4eb9d1126f41355169eb9d76962eb60c3c41",
-    ".forge/ast-grep/rules/typescript/no-secret-logging.yml": "eeac044a194027ca862ec69fe23d17a2811e46da3a763eeed7246f7ca67a0c47",
     ".forge/ast-grep/rules/typescript/no-stub.yml": "b21497e3335f2271e6ca5874817957d18c640e7d787cfe76a72ef390ab62d634",
     ".forge/ast-grep/rules/typescript/no-swallowed-catch.yml": "4bd8569b39e21928852fafeaee02ce9d2ff35726699f91b3f50a6ebf57843bd6",
     ".forge/ast-grep/rules/typescript/no-ts-nocheck.yml": "aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21",
@@ -18036,7 +17791,7 @@ exit "$fail"
     ".forge/ast-grep/rules/typescript/zod/error-param.yml": "88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a",
     ".forge/ast-grep/rules/typescript/zod/v4-string-formats.yml": "a7503c000f128a4718f29b0122170295972560de99263354d6ed0db1a8cb099c",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "0b0820cbefe1176af90939b55bc800f546ec52b75b7d14e38adfbcde938abf31",
+    ".forge/check.sh": "bf275a9f913695907756abff33ddef5eadae9c20d8876cad16665cb9e3713681",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -18104,7 +17859,7 @@ d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills
 d0a502f51f51609d7e5e9cd6f39a8ce165c656ee1c1b7a607105a536962058eb  .claude/skills/forge-project/scripts/guard.rules
 e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca  .claude/skills/forge-project/scripts/guard.sh
 462727c0187a948cfaefd1fac315bc87063203968e3df6d12ca68c839fbdf4a3  .claude/skills/forge-project/scripts/lib.sh
-83bffb4d3db9a8e76fc9ee047d8d78a41a5df1ddc0577dc36213f7e41afab81c  .claude/skills/forge-project/scripts/post-edit.sh
+4d0d84f3e2731ccc8ea498f8e3d4116bc5ffeff8e7e80aa7811f8801ceef570d  .claude/skills/forge-project/scripts/post-edit.sh
 889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726  .claude/skills/forge-project/scripts/review.sh
 be10afe1c384cc977ef5ff93aa5a4886f05543aaa2b30f2d702d39fc9da5c4cd  .claude/skills/forge-project/scripts/session-start.sh
 10316d9cd59fea152c6f8fbf0ab70abf547514bf67a2c85f3e6b405554a71fad  .claude/skills/forge-project/scripts/stop.sh
@@ -18124,8 +17879,6 @@ d2c1565050d4c9260d1fcf98bae6a781ceb3a6f2e72c1db475ac459818bd450a  .forge/ast-gre
 d961ad163fef43f625286d82ef70180d240b753eb0b600073751e4f511d98c68  .forge/ast-grep/rule-tests/typescript-nextjs-react-no-server-in-client-test.yml
 82a873549d13a28bd75fe0ec7f7c225c9a0480525e385aa5c9c3c96d15fc0e68  .forge/ast-grep/rule-tests/typescript-nextjs-revalidate-tag-profile-test.yml
 c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20  .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
-c86f87d695b414c91cf90a528067e558a5ce93dbf38c8d9f90d1e7aec886b743  .forge/ast-grep/rule-tests/typescript-no-latch-before-optional-call-test.yml
-892ec40621c9bd2663c9898c9434ac2891245cc3da326fffe7d7de3a6ef9c923  .forge/ast-grep/rule-tests/typescript-no-secret-logging-test.yml
 b02e7e21f6bd597fe4b3d577b3a2cc6dfee9741674cc1cc99285e22ef90a2778  .forge/ast-grep/rule-tests/typescript-no-stub-test.yml
 fb2f02c2bcf9562ed49731349520cde2d48d2f3b3557d2174b5e2e856d6c8e48  .forge/ast-grep/rule-tests/typescript-no-swallowed-catch-test.yml
 c15f604d5317f942de32470aeaff16702116a64d283347c9a9825056b4dbe69e  .forge/ast-grep/rule-tests/typescript-no-ts-nocheck-test.yml
@@ -18158,8 +17911,6 @@ c189e6db00b706044708a2c5fc1e5fe8698213059fabf7d6d4f549eb57a759fb  .forge/ast-gre
 bb96a57b3d86ff82cceefb7a13e7e17a3996071931386bd40fce989878f9e2de  .forge/ast-grep/rules/typescript/nextjs/react/no-server-in-client.yml
 cacc0230a82fede425f3e83c4535f49229b9e831f40766fb416f7a2974fc14bd  .forge/ast-grep/rules/typescript/nextjs/revalidate-tag-profile.yml
 c0b8c6e7a7a09608b63f8c9367afb4ac22fb1daa93c79c967373efdab597a48c  .forge/ast-grep/rules/typescript/no-double-assertion.yml
-9414562604c76184c19ca04490da4eb9d1126f41355169eb9d76962eb60c3c41  .forge/ast-grep/rules/typescript/no-latch-before-optional-call.yml
-eeac044a194027ca862ec69fe23d17a2811e46da3a763eeed7246f7ca67a0c47  .forge/ast-grep/rules/typescript/no-secret-logging.yml
 b21497e3335f2271e6ca5874817957d18c640e7d787cfe76a72ef390ab62d634  .forge/ast-grep/rules/typescript/no-stub.yml
 4bd8569b39e21928852fafeaee02ce9d2ff35726699f91b3f50a6ebf57843bd6  .forge/ast-grep/rules/typescript/no-swallowed-catch.yml
 aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21  .forge/ast-grep/rules/typescript/no-ts-nocheck.yml
@@ -18181,7 +17932,7 @@ d3c41a3915d84b21e86e9212a06ad14c52bf2f9bcefb7c5ca433200cc3ec44fb  .forge/ast-gre
 88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a  .forge/ast-grep/rules/typescript/zod/error-param.yml
 a7503c000f128a4718f29b0122170295972560de99263354d6ed0db1a8cb099c  .forge/ast-grep/rules/typescript/zod/v4-string-formats.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-0b0820cbefe1176af90939b55bc800f546ec52b75b7d14e38adfbcde938abf31  .forge/check.sh
+bf275a9f913695907756abff33ddef5eadae9c20d8876cad16665cb9e3713681  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

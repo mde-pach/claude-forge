@@ -4,9 +4,6 @@
 //       entry points (package.json exports, main, module, types) in the base are still
 //       exported, unless the major version was bumped; a renamed export stays as a
 //       /** @deprecated */ alias.
-//   bun public_api.mjs <forge-tmp> barrel [file...]  a changed module whose siblings an
-//       entry point re-exports by name (export { a, b } from "./m") gets its new exports
-//       listed there too.
 // Exit 0: nothing found; 1: findings printed ("path:line message").
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, normalize } from "node:path";
@@ -110,29 +107,6 @@ if (mode === "removed") {
       for (const [name, info] of was) {
         if (now.has(name) || SKIP.test(info.file)) continue;
         found.push(`${info.file}:0 ${name} was exported by the package entry ${entry} and is gone: keep it exported as a /** @deprecated Use <new name> */ alias, or bump the major version`);
-      }
-    }
-  }
-} else if (mode === "barrel") {
-  const files = (args.length ? args : [...changed]).filter((f) => SOURCE.some((e) => f.endsWith(e)) && !SKIP.test(f) && !f.endsWith(".d.ts"));
-  const barrels = entries(pkg);
-  for (const file of files) {
-    if (barrels.includes(file) || readNow(file) === null) continue;
-    const mine = exportsOf(file, readNow, new Set());
-    const old = hasBase ? exportsOf(file, readBase, new Set()) : new Map();
-    for (const barrel of barrels) {
-      const text = strip(readNow(barrel) ?? "");
-      let star = false;
-      const listed = new Set();
-      for (const m of text.matchAll(/\bexport\s+(?:type\s+)?(\*(?:\s+as\s+[\w$]+)?|\{([^}]*)\})\s*from\s*["']([^"']+)["']/g)) {
-        if (resolve(barrel, m[3]) !== file) continue;
-        if (m[1].startsWith("*")) star = true;
-        else for (const part of m[2].split(",")) { const p = part.trim().replace(/^type\s+/, ""); if (p) listed.add(p.split(/\s+as\s+/)[0].trim()); }
-      }
-      if (star || listed.size === 0) continue;
-      for (const [name, info] of mine) {
-        if (name === "default" || listed.has(name) || old.has(name) || info.file !== file) continue;
-        found.push(`${file}:${info.line} ${name} is exported here but not from the package entry ${barrel}, which re-exports its siblings (${[...listed].slice(0, 3).join(", ")}): add it to that export list, or drop the export if it is internal`);
       }
     }
   }
