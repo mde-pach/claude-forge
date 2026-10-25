@@ -2,7 +2,12 @@ id: python/format
 description: Python files are formatted with ruff.
 scope: {language: python}
 enforce:
-  - {target: check, stage: format, run: "ruff format --check .", changed_run: "ruff format {files}"}
+  - target: check
+    stage: format
+    run: "ruff format --check ."
+    changed_run: "ruff format {files}"
+    # formats a file's base copy, so lines that only formatting changed are not counted as added
+    format_stdin: "ruff format --stdin-filename {file} -"
 examples:
   match: ["x=1\n"]
   no_match: ["x = 1\n"]

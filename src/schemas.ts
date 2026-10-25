@@ -134,6 +134,7 @@ const target = {
           run: { type: "string", minLength: 1 },
           changed_run: { type: "string", minLength: 1 },
           fix_run: { type: "string", minLength: 1, pattern: "\\{files\\}" },
+          format_stdin: { type: "string", minLength: 1, pattern: "\\{file\\}" },
           when_changed: { type: "array", items: { type: "string", minLength: 1 }, minItems: 1 },
           requires_local_db: { type: "boolean" },
           timeout: { type: "integer", minimum: 1, maximum: 600 },

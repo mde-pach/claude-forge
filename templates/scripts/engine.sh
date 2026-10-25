@@ -7,7 +7,9 @@
 #   changed   changed paths, one per line   existing  those that exist now
 #   deleted   those gone since the base     inbase    those that exist in the base
 #   base/<p>  each one as it is in the base
-#   added     "path<TAB>line" per added line, "path<TAB>*" per new file (empty with --all)
+#   added     "path<TAB>line" per added line, "path<TAB>*" per new file (empty with --all);
+#             lines only formatting changed are left out (forge_added_lines), unless
+#             FORGE_PLAIN_ADDED=1 (typecheck.sh, which attributes by file only)
 # The base is HEAD (--changed, --all), git merge-base <ref> HEAD (--since) or the
 # tree at the start of the turn (--turn: FORGE_SNAP, plus FORGE_BASE_REV for files
 # that were clean then).
@@ -41,11 +43,70 @@ forge_change_set() {
     if base_file "$_cs_f" "$FORGE_TMP/base/$_cs_f"; then printf '%s\n' "$_cs_f" >> "$FORGE_TMP/inbase"; _cs_b=1; else _cs_b=0; fi
     if [ -f "$_cs_f" ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/existing"
-      [ "$mode" = --all ] || added_lines "$_cs_f" "$FORGE_TMP/base/$_cs_f" >> "$FORGE_TMP/added"
+      [ "$mode" = --all ] || forge_added_lines "$_cs_f" "$FORGE_TMP/base/$_cs_f" >> "$FORGE_TMP/added"
     elif [ "$_cs_b" = 1 ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/deleted"
     fi
   done < "$FORGE_TMP/changed"
+  return 0
+}
+
+# forge_format_copy <path> <in> <out>: writes <in> to <out> formatted as <path> would be,
+# by the format_stdin filter of each check whose scope covers <path>, in check order.
+# Returns 2 when no filter applies, 1 when a tool is absent or a filter fails or prints nothing.
+forge_format_copy() {
+  _fy_i=1
+  _fy_rc=2
+  FORGE_FILE=$1
+  cp "$2" "$3" 2>/dev/null || return 1
+  while [ "$_fy_i" -le "$FORGE_NCHECKS" ]; do
+    forge_check_meta_"$_fy_i"
+    if [ "$c_fmt" = 1 ] && forge_scope_"$_fy_i" "$1"; then
+      forge_missing_tool >/dev/null && return 1
+      if ( forge_check_fmt_"$_fy_i" ) < "$3" > "$3.fmt" 2>/dev/null && { [ -s "$3.fmt" ] || [ ! -s "$3" ]; }; then
+        mv "$3.fmt" "$3"
+        _fy_rc=0
+      else
+        rm -f "$3.fmt"
+        return 1
+      fi
+    fi
+    _fy_i=$((_fy_i + 1))
+  done
+  return "$_fy_rc"
+}
+
+# forge_format_base <path> <base-copy> <out>: forge_format_copy of a base copy. With a
+# turn snapshot (FORGE_SNAP) the result is kept for the turn in <snapshot>/formatted/
+# (<snapshot>/unformattable/ when the formatter failed), since the base does not change
+# during a turn: post-edit and Stop then format each base once.
+forge_format_base() {
+  if [ -z "${FORGE_SNAP:-}" ] || [ ! -d "$FORGE_SNAP" ]; then forge_format_copy "$@"; return; fi
+  if [ -f "$FORGE_SNAP/formatted/$1" ]; then cp "$FORGE_SNAP/formatted/$1" "$3"; return; fi
+  [ -f "$FORGE_SNAP/unformattable/$1" ] && return 1
+  forge_format_copy "$@"
+  _fb_rc=$?
+  case $_fb_rc in
+    0) mkdir -p "$(dirname "$FORGE_SNAP/formatted/$1")" && cp "$3" "$FORGE_SNAP/formatted/$1" ;;
+    1) mkdir -p "$(dirname "$FORGE_SNAP/unformattable/$1")" && : > "$FORGE_SNAP/unformattable/$1" ;;
+  esac
+  return "$_fb_rc"
+}
+
+# forge_added_lines <path> <base-copy>: added_lines, less the lines that only formatting
+# changed: a line counts when it is added both against the base copy and against the
+# base copy formatted like <path> (forge_format_copy), so a whole-file format of an
+# unformatted file does not make its untouched lines Claude's. Without a formatter
+# (none in scope, tool absent, it fails on the base), the plain added_lines.
+forge_added_lines() {
+  added_lines "$1" "$2" > "$FORGE_TMP/al.raw"
+  if [ ! -f "$2" ] || [ ! -s "$FORGE_TMP/al.raw" ] || [ "${FORGE_PLAIN_ADDED:-0}" = 1 ] || ! forge_format_base "$1" "$2" "$FORGE_TMP/al.base" || cmp -s "$2" "$FORGE_TMP/al.base"; then
+    cat "$FORGE_TMP/al.raw"
+  else
+    added_lines "$1" "$FORGE_TMP/al.base" > "$FORGE_TMP/al.fmt"
+    awk 'FILENAME == ARGV[1] { k[$0] = 1; next } $0 in k' "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.raw"
+  fi
+  rm -f "$FORGE_TMP/al.raw" "$FORGE_TMP/al.fmt" "$FORGE_TMP/al.base"
   return 0
 }
 
@@ -866,57 +927,110 @@ forge_run_stage() {
   return "$_fs_rc"
 }
 
-# forge_file_stage <stage> <file>: the {files} form of each in-scope check of
-# <stage>, on one file (PostToolUse). Prints failures; lint findings only on the
-# lines of $FORGE_TMP/added; absent tools are skipped.
+# forge_file_stage <stage> <list>: forge_file_run then forge_file_report.
 forge_file_stage() {
+  forge_file_run "$1" "$2"
+  forge_file_report "$1"
+}
+
+# forge_file_run <stage> <list>: the {files} form of each check of <stage>, run once
+# on the files of <list> (one path per line) in its scope (PostToolUse); absent tools
+# are skipped. Outputs of failed runs go to $FORGE_TMP/stage-<stage>.<n>, their
+# numbers to $FORGE_TMP/stage-<stage>.failed, for forge_file_report.
+forge_file_run() {
   _fp_i=1
-  _fp_rc=0
-  FORGE_FILES=$2
+  : > "$FORGE_TMP/stage-$1.failed"
   while [ "$_fp_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fp_i"
-    if [ "$c_stage" = "$1" ] && [ "$c_files" = 1 ] && forge_scope_"$_fp_i" "$2" && ! forge_missing_tool >/dev/null; then
-      if ! forge_exec_check "forge_check_changed_$_fp_i" "$c_timeout"; then
-        _fp_level=$(forge_attribute_level "$1" 0)
-        _fp_what=none
-        [ -n "$_fp_level" ] && _fp_what=$(forge_diagnostics "$FORGE_TMP/out" "$_fp_level")
-        case $_fp_what in
-          other) ;;
-          changed)
-            printf 'forge:%s\n' "$c_id"
-            forge_diagnostics "$FORGE_TMP/out" "$_fp_level" print | first_lines 15
-            _fp_rc=1 ;;
-          *)
-            printf 'forge:%s\n' "$c_id"
-            first_lines 15 < "$FORGE_TMP/out"
-            _fp_rc=1 ;;
-        esac
+    if [ "$c_stage" = "$1" ] && [ "$c_files" = 1 ] && ! forge_missing_tool >/dev/null; then
+      FORGE_FILES=$(forge_filter "forge_scope_$_fp_i" < "$2")
+      if [ -n "$FORGE_FILES" ] && ! forge_exec_check "forge_check_changed_$_fp_i" "$c_timeout"; then
+        mv "$FORGE_TMP/out" "$FORGE_TMP/stage-$1.$_fp_i"
+        printf '%s\n' "$_fp_i" >> "$FORGE_TMP/stage-$1.failed"
       fi
     fi
     _fp_i=$((_fp_i + 1))
   done
-  return "$_fp_rc"
+  return 0
 }
 
-# forge_file_fixes <file>: the safe fixes (fix_run) of each in-scope lint check, on
-# one file. When they changed it, prints "forge: auto-fixed <codes> in <file>" (codes
-# from ruff's --show-fixes summary), so Claude knows its view of the file is stale.
+# forge_file_report <stage>: prints the failures forge_file_run recorded; lint findings
+# only on the lines of $FORGE_TMP/added. Fails when one is printed.
+forge_file_report() {
+  _fr_rc=0
+  while read -r _fr_i; do
+    forge_check_meta_"$_fr_i"
+    _fr_out=$FORGE_TMP/stage-$1.$_fr_i
+    _fr_level=$(forge_attribute_level "$1" 0)
+    _fr_what=none
+    [ -n "$_fr_level" ] && _fr_what=$(forge_diagnostics "$_fr_out" "$_fr_level")
+    case $_fr_what in
+      other) ;;
+      changed)
+        printf 'forge:%s\n' "$c_id"
+        forge_diagnostics "$_fr_out" "$_fr_level" print | first_lines 15
+        _fr_rc=1 ;;
+      *)
+        printf 'forge:%s\n' "$c_id"
+        first_lines 15 < "$_fr_out"
+        _fr_rc=1 ;;
+    esac
+  done < "$FORGE_TMP/stage-$1.failed"
+  return "$_fr_rc"
+}
+
+# forge_file_hashes <list>: "path<TAB>blob hash" for each file of <list>.
+forge_file_hashes() {
+  while read -r _fh_f; do printf '%s\t%s\n' "$_fh_f" "$(git hash-object -- "$_fh_f" 2>/dev/null)"; done < "$1"
+}
+
+# forge_file_fixes <list>: the safe fixes (fix_run) of each lint check, run once on the
+# files of <list> in its scope. For each file they changed, prints "forge: auto-fixed
+# <codes> in <file>" (codes from ruff's --show-fixes summary, per file), so Claude knows
+# its view of the file is stale; the files go to $FORGE_TMP/noted.
 forge_file_fixes() {
   _fx_i=1
-  _fx_codes=''
-  _fx_before=$(git hash-object -- "$1" 2>/dev/null)
-  FORGE_FILES=$1
+  : > "$FORGE_TMP/fix.codes"
+  forge_file_hashes "$1" > "$FORGE_TMP/fix.before"
   while [ "$_fx_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fx_i"
-    if [ "$c_stage" = lint ] && [ "$c_fix" = 1 ] && forge_scope_"$_fx_i" "$1" && ! forge_missing_tool >/dev/null; then
-      forge_exec_check "forge_check_fix_$_fx_i" "$c_timeout"
-      _fx_codes="$_fx_codes $(awk '/^Fixed [0-9]+ error/ { on = 1; next } on && /^ +[0-9]+ / && match($0, /[A-Z]+[0-9]+ \(/) { printf "%s ", substr($0, RSTART, RLENGTH - 2) } /^$/ { on = 0 }' "$FORGE_TMP/out")"
+    if [ "$c_stage" = lint ] && [ "$c_fix" = 1 ] && ! forge_missing_tool >/dev/null; then
+      FORGE_FILES=$(forge_filter "forge_scope_$_fx_i" < "$1")
+      if [ -n "$FORGE_FILES" ]; then
+        forge_exec_check "forge_check_fix_$_fx_i" "$c_timeout"
+        # ruff: "Fixed N errors:", then "- <path>:" and "    1 × I001 (unsorted-imports)" lines
+        awk '/^Fixed [0-9]+ error/ { on = 1; next }
+          on && /^- .*:$/ { f = substr($0, 3, length($0) - 3); next }
+          on && /^ +[0-9]+ / && match($0, /[A-Z]+[0-9]+ \(/) { print f "\t" substr($0, RSTART, RLENGTH - 2) }
+          /^$/ { on = 0 }' "$FORGE_TMP/out" >> "$FORGE_TMP/fix.codes"
+      fi
     fi
     _fx_i=$((_fx_i + 1))
   done
-  [ "$(git hash-object -- "$1" 2>/dev/null)" != "$_fx_before" ] || return 0
-  _fx_codes=$(printf '%s' "$_fx_codes" | tr ' ' '\n' | awk 'NF && !seen[$0]++' | tr '\n' ' ' | sed 's/ $//; s/ /, /g')
-  printf 'forge: auto-fixed %s in %s; re-read it before editing it again\n' "${_fx_codes:-safe lint fixes}" "$1"
+  while IFS='	' read -r _fx_f _fx_h; do
+    [ "$(git hash-object -- "$_fx_f" 2>/dev/null)" != "$_fx_h" ] || continue
+    _fx_codes=$(awk -F '\t' -v f="$_fx_f" '($1 == f || $1 == "") && !seen[$2]++ { printf "%s%s", (n++ ? ", " : ""), $2 }' "$FORGE_TMP/fix.codes")
+    printf 'forge: auto-fixed %s in %s; re-read it before editing it again\n' "${_fx_codes:-safe lint fixes}" "$_fx_f"
+    printf '%s\n' "$_fx_f" >> "$FORGE_TMP/noted"
+  done < "$FORGE_TMP/fix.before"
+  return 0
+}
+
+# forge_lint_fixes <list> <before>: after a lint run that writes (Biome's check --write
+# applies the safe fixes and formats in one pass), "forge: auto-fixed safe lint fixes in
+# <file>" for each file of <list> it changed beyond formatting: the copy saved before it
+# (<before>/<path>), formatted (forge_format_copy), differs from the file now. Without a
+# formatter for the file, any change counts. Files already noted are skipped.
+forge_lint_fixes() {
+  while read -r _lf_f; do
+    [ -f "$2/$_lf_f" ] && ! cmp -s "$2/$_lf_f" "$_lf_f" || continue
+    grep -qxF "$_lf_f" "$FORGE_TMP/noted" 2>/dev/null && continue
+    forge_format_copy "$_lf_f" "$2/$_lf_f" "$FORGE_TMP/lf.fmt" && cmp -s "$FORGE_TMP/lf.fmt" "$_lf_f" && continue
+    printf 'forge: auto-fixed safe lint fixes in %s; re-read it before editing it again\n' "$_lf_f"
+    printf '%s\n' "$_lf_f" >> "$FORGE_TMP/noted"
+  done < "$1"
+  rm -f "$FORGE_TMP/lf.fmt"
+  return 0
 }
 
 # forge_typecheck <file>: the full run of each typecheck check whose scope covers <file>;

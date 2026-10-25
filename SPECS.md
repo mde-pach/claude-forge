@@ -166,7 +166,7 @@ Every rule blocks. A rule you don't want is disabled with a reason.
 | `permission` | `decision: deny \| ask`, `rule` (permission rule string) | appended | settings `permissions` |
 | `guard` | `decision: deny \| ask`, `pattern` (POSIX ERE against the JSON-escaped command) | owned | `guard.rules` (§9.2) |
 | `sandbox` | `path`, `value` | appended, user only | `~/.claude/settings.json` `sandbox` |
-| `check` | `stage: format \| lint \| typecheck \| migration \| test`, `run`, `changed_run` (optional, `{files}`), `fix_run` (optional, lint only, `{files}`: safe fixes applied after an edit, §8.1), `when_changed` (optional), `requires_local_db` (optional, boolean) | owned | `.forge/check.sh` (§10) |
+| `check` | `stage: format \| lint \| typecheck \| migration \| test`, `run`, `changed_run` (optional, `{files}`), `fix_run` (optional, lint only, `{files}`: safe fixes applied after an edit, §8.1), `format_stdin` (optional, format or lint, `{file}`: the formatter as a filter, formatting stdin as if it were `{file}`; formats base copies for added lines, §10.1), `when_changed` (optional), `requires_local_db` (optional, boolean) | owned | `.forge/check.sh` (§10) |
 | `grep` | `pattern` (POSIX ERE, matched line by line), `mode: forbid \| no-increase \| no-decrease`, `ignore_case` (optional) | owned | `.forge/check.sh` (§10): counts are matching lines per file |
 
 ast-grep and grep modes:
@@ -254,8 +254,8 @@ All scripts are POSIX `sh`. They read file paths and the working directory from 
 | PreToolUse | `Bash` | `guard.sh` | sync | 180 s | Project `guard` rules. `onFailure: "block"`. An ask nobody can answer is reviewed (§9.3). |
 | PreToolUse | `Bash` | `bash-snapshot.sh` | sync | 15 s | Snapshots the working tree for the files the command changes (§8.4). Prints nothing. |
 | PermissionRequest | — | `review.sh` | sync | 180 s | §9.3. Defers to the user-level `review.sh` when it exists. |
-| PostToolUse | `Edit\|Write\|Bash` | `post-edit.sh` | sync | 60 s | On the edited file (Bash: the files the command changed, §8.4): format silently; apply the `fix_run` safe fixes of in-scope lint checks, and when they changed the file add `forge: auto-fixed <codes> in <file>; re-read it before editing it again` (codes from ruff's `--show-fixes`, else "safe lint fixes"); lint it; run ast-grep `forbid` rules on it. Findings on lines added during the turn (against the turn snapshot; before the first prompt, against `HEAD`) → JSON `{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"…"}}`, ≤ 20 lines, diagnostics for these files only. Nothing on success. |
-| PostToolUse | `Edit\|Write\|Bash` | `typecheck.sh` | `asyncRewake: true` | 300 s | Project typecheck, when the edited file (Bash: a file the command changed) is in a typecheck's scope. Errors in files changed during the turn (the Stop hook's change set, §10.2) → exit 2, stderr ≤ 20 lines, those files' diagnostics only; errors only in other files → silent. Skips if one is already running (lock in `.forge/state/`). |
+| PostToolUse | `Edit\|Write\|Bash` | `post-edit.sh` | sync | 60 s | On the edited file (Bash: the files the command changed, §8.4): format silently; apply the `fix_run` safe fixes of in-scope lint checks, and when they changed the file add `forge: auto-fixed <codes> in <file>; re-read it before editing it again` (codes from ruff's `--show-fixes`, per file, else "safe lint fixes"); lint it (a lint `changed_run` that writes, like Biome's `check --write`, applies its safe fixes in the same run: a change beyond what `format_stdin` explains adds the same line); run ast-grep `forbid` rules on it. Each tool runs once with all the files in its scope. Added lines are computed after these writes. The checks get `FORGE_EDIT_BUDGET` seconds (45, under the 60 s timeout); past it they are stopped and the findings so far are returned after `forge: the checks after this edit stopped after <n>s; findings so far are below, and the Stop check covers the rest.` Findings on lines added during the turn (against the turn snapshot; before the first prompt, against `HEAD`) → JSON `{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"…"}}`, ≤ 20 lines, diagnostics for these files only. Nothing on success. |
+| PostToolUse | `Edit\|Write\|Bash` | `typecheck.sh` | `asyncRewake: true` | 300 s | Project typecheck, when the edited file (Bash: a file the command changed) is in a typecheck's scope. Errors in files changed during the turn (the Stop hook's change set, §10.2) → exit 2, stderr ≤ 20 lines, those files' diagnostics only; errors only in other files → silent. Skips if one is already running (lock in `.forge/state/`). Does not run where Claude Code would wait for it: Claude Code runs an `asyncRewake` hook in the background only in an interactive session or with streaming input, so under `claude -p "<prompt>"` (`CLAUDE_CODE_ENTRYPOINT=sdk-cli` and no ancestor process with `--input-format stream-json` or `--sdk-url`) it exits 0 at once and the Stop check runs the typecheck; `FORGE_EDIT_TYPECHECK=always` runs it anyway, `never` skips it everywhere. |
 | PostToolUseFailure | `Bash` | `post-edit.sh`, `typecheck.sh` | as above | as above | The same two hooks for a Bash command that fails or is interrupted: it may have changed files before stopping (a script that writes three files then fails on the fourth). Same checks and output, with `hookEventName` `PostToolUseFailure`. A failed Edit or Write changes nothing, so they are not matched. |
 | Stop | — | `stop.sh` | sync | 600 s | §10.2. |
 
@@ -322,7 +322,7 @@ One entry point for the Stop hook, the optional pre-commit hook and CI. Each mod
 | `--since <ref>` | CI on a pull request | `git diff --name-only <base>` plus untracked files | `git merge-base <ref> HEAD`; none → fail with `forge:forge/since` |
 | `--all` | CI on the default branch | the whole project | `HEAD` (for the comparisons of steps 2–3) |
 
-**Added lines.** Outside `--all`, each changed file's added lines are computed with `git diff --no-index -U0` against its base copy; a file absent from the base counts fully. An edited line counts as added, and so does moved code. ast-grep `forbid` matches and `lint` diagnostics count only when they overlap an added line (a match spanning an edited line counts). `no-increase` / `no-decrease` rules and whole-project checks (typecheck, migrations, tests) are not line-scoped.
+**Added lines.** Outside `--all`, each changed file's added lines are computed with `git diff --no-index -U0` against its base copy; a file absent from the base counts fully. Formatting is whole-file, so a formatter run after an edit may rewrite lines the change never touched: when a check in scope has a `format_stdin`, the base copy is also formatted with it, and a line counts only if it is added against both the base copy and the formatted one. When no filter applies, its tool is absent, or it fails or prints nothing on the base (e.g. the base does not parse), the plain comparison applies. An edited line counts as added, and so does moved code. ast-grep `forbid` matches and `lint` diagnostics count only when they overlap an added line (a match spanning an edited line counts). `no-increase` / `no-decrease` rules and whole-project checks (typecheck, migrations, tests) are not line-scoped.
 
 Runs in order, stops at the first failing step, prints `forge:<rule-id>` lines:
 
@@ -436,7 +436,7 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 
 | Rule | Targets |
 |---|---|
-| `python/format` | `check` format: `run: ruff format --check .`, `changed_run: ruff format {files}` |
+| `python/format` | `check` format: `run: ruff format --check .`, `changed_run: ruff format {files}`, `format_stdin: ruff format --stdin-filename {file} -` |
 | `python/lint` | `check` lint: `run: ruff check .`, `changed_run: ruff check {files}`, `fix_run: ruff check --fix --fixable I,UP --exit-zero --show-fixes {files}` (sorted imports and pyupgrade, when the project selects them; never F401 / F841) |
 | `python/typecheck` | `check` typecheck: `run: basedpyright` |
 | `python/no-explicit-any` | `tool` basedpyright `reportExplicitAny`; `tool` ruff `ANN401` |
@@ -477,8 +477,8 @@ context.md: uv and `.venv/bin`, basedpyright; no blocking calls in `async def`; 
 
 | Rule | Targets |
 |---|---|
-| `typescript/format-lint` | `check` lint: `run: biome ci .`, `changed_run: biome check --write {files}`, `fix_run: biome check --write --formatter-enabled=false --skip=correctness/noUnusedImports --skip=correctness/noUnusedVariables {files}` (safe lint fixes and import sorting) |
-| `typescript/typecheck` | `check` typecheck: `run: tsc --noEmit -p tsconfig.json` |
+| `typescript/format-lint` | `check` lint: `run: biome ci .`, `changed_run: biome check --write {files}`, `format_stdin: biome format --stdin-file-path={file}`; no `fix_run`: `changed_run` applies Biome's safe fixes itself (removing unused imports or variables is unsafe, so it is not done) |
+| `typescript/typecheck` | `check` typecheck: `run: tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile .forge/state/tsc.tsbuildinfo` (plain diagnostics; incremental, TypeScript ≥ 4.0, with the build info under `.forge/state/` so a project's own or composite build info is never written) |
 | `typescript/no-implicit-any` | `tool` tsc: expects `TS7006` on an untyped parameter (`noImplicitAny`, part of `strict`) |
 | `typescript/strict-null-checks` | `tool` tsc: expects `TS18047` on a possibly-null access (`strictNullChecks`) |
 | `typescript/strict-function-types` | `tool` tsc: expects `TS2322` on a parameter-bivariant assignment (`strictFunctionTypes`) |

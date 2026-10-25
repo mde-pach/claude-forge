@@ -18,7 +18,8 @@ const SCRIPTS = ".claude/skills/forge-project/scripts";
 let repo = "";
 
 function hook(script: string, fields: Record<string, unknown>, env: Record<string, string> = {}, cwd = repo) {
-  return sh("sh", [join(SCRIPTS, script)], { cwd, input: hookJson({ cwd, ...fields }), env });
+  // an interactive session unless a test says otherwise (the suite may itself run under claude -p)
+  return sh("sh", [join(SCRIPTS, script)], { cwd, input: hookJson({ cwd, ...fields }), env: { CLAUDE_CODE_ENTRYPOINT: "cli", ...env } });
 }
 function reset() {
   git(repo, "reset", "-q", "--hard");
@@ -274,6 +275,63 @@ describe("files changed by Bash", () => {
     T,
   );
 
+  /**
+   * A tool can cost seconds per run (Biome scanning a large monorepo took 17 to 25 s per
+   * call), so each runs once for all the files a command changed, and the checks stop
+   * after `FORGE_EDIT_BUDGET` (45 s, under the hook's 60 s timeout) with what they found.
+   */
+  /** @rule python/format python/lint python/sqlalchemy/no-query-api */
+  test(
+    "after a Bash command that changed several files, each tool runs once on all of them, and each file's findings are reported",
+    () => {
+      const real = join(repo, ".venv/bin/ruff");
+      const target = sh("sh", ["-c", `readlink "${real}"`]).stdout.trim();
+      const log = join(mkdtempSync(join(tmpdir(), "forge-ruff-")), "calls");
+      rmSync(real);
+      writeFileSync(real, `#!/bin/sh\nprintf '%s\\n' "$*" >> "${log}"\nexec "${target}" "$@"\n`);
+      chmodSync(real, 0o755);
+      hook("bash-snapshot.sh", bash("toolu_m1"));
+      put(repo, "app/m1.py", "import os\n\ndef f(session):\n    return session.query(1)\n");
+      put(repo, "app/m2.py", "import sys\n\ndef g(session):\n    return session.query(2)\n");
+      const ctx = JSON.parse(hook("post-edit.sh", bash("toolu_m1")).stdout).hookSpecificOutput.additionalContext;
+      expect(ctx).toContain("forge:python/sqlalchemy/no-query-api app/m1.py:5:12");
+      expect(ctx).toContain("forge:python/sqlalchemy/no-query-api app/m2.py:5:12");
+      expect(ctx).toContain("app/m1.py:1:8: F401");
+      expect(ctx).toContain("app/m2.py:1:8: F401");
+      const calls = readFileSync(log, "utf8").trim().split("\n");
+      expect(calls).toEqual([
+        "format app/m1.py app/m2.py",
+        "check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise app/m1.py app/m2.py",
+        "check --output-format concise app/m1.py app/m2.py",
+      ]);
+      rmSync(real);
+      symlinkSync(target, real);
+      reset();
+    },
+    T,
+  );
+
+  /** @rule python/sqlalchemy/no-query-api */
+  test(
+    "checks still running after FORGE_EDIT_BUDGET seconds are stopped, and Claude gets what was found with a note",
+    () => {
+      const real = join(repo, ".venv/bin/ruff");
+      const target = sh("sh", ["-c", `readlink "${real}"`]).stdout.trim();
+      rmSync(real);
+      writeFileSync(real, `#!/bin/sh\ncase "$*" in "check --output-format"*) sleep 30 ;; esac\nexec "${target}" "$@"\n`);
+      chmodSync(real, 0o755);
+      put(repo, "app/slow.py", "X = 1\n");
+      const started = Date.now();
+      const r = hook("post-edit.sh", edit("app/slow.py"), { FORGE_EDIT_BUDGET: "2" });
+      expect(Date.now() - started).toBeLessThan(15_000);
+      expect(JSON.parse(r.stdout).hookSpecificOutput.additionalContext).toContain("forge: the checks after this edit stopped after 2s");
+      rmSync(real);
+      symlinkSync(target, real);
+      reset();
+    },
+    T,
+  );
+
   test(
     "files under .forge/, .claude/, .git/, node_modules/ and .venv/ are not checked, and deleted files are ignored",
     () => {
@@ -460,6 +518,34 @@ describe("PostToolUse", () => {
     T,
   );
 
+  /**
+   * Claude Code runs an `asyncRewake` hook in the background only in an interactive
+   * session or with streaming input; under `claude -p "<prompt>"` it waits for it, so
+   * every edit would wait for a whole-project typecheck (32–64 s per edit in zod). There
+   * typecheck.sh exits at once and the Stop check runs the typecheck once.
+   * @rule python/typecheck
+   */
+  test.if(hasUv)(
+    "under claude -p with a prompt (entrypoint sdk-cli, no streaming input) typecheck.sh does not run, leaving the typecheck to Stop; with --input-format stream-json, or FORGE_EDIT_TYPECHECK=always, it runs",
+    () => {
+      realBasedpyright();
+      put(repo, "app/main.py", readFileSync(join(repo, "app/main.py"), "utf8") + '\nBROKEN: int = "no"\n');
+      const input = join(mkdtempSync(join(tmpdir(), "forge-in-")), "in.json");
+      writeFileSync(input, hookJson({ cwd: repo, ...edit("app/main.py") }));
+      const run = (env: Record<string, string>, ...args: string[]) =>
+        sh("sh", ["-c", 'sh "$0" < "$1"; exit $?', join(SCRIPTS, "typecheck.sh"), input, ...args], { cwd: repo, env: { FORGE_EDIT_TYPECHECK: "", ...env } });
+      const headless = run({ CLAUDE_CODE_ENTRYPOINT: "sdk-cli" });
+      expect(headless.status).toBe(0);
+      expect(headless.stderr).toBe("");
+      expect(run({ CLAUDE_CODE_ENTRYPOINT: "sdk-cli" }, "--input-format", "stream-json").status).toBe(2);
+      expect(run({ CLAUDE_CODE_ENTRYPOINT: "sdk-cli", FORGE_EDIT_TYPECHECK: "always" }).status).toBe(2);
+      expect(run({ CLAUDE_CODE_ENTRYPOINT: "cli" }).status).toBe(2);
+      rmSync(join(repo, ".venv/bin/basedpyright"));
+      reset();
+    },
+    T,
+  );
+
   test.if(hasUv)(
     "typecheck takes over a lock whose process is gone",
     () => {
@@ -629,6 +715,48 @@ describe("Stop", () => {
       const ctx = JSON.parse(hook("post-edit.sh", { session_id: "t-9", ...edit("app/wip.py") }).stdout).hookSpecificOutput.additionalContext;
       expect(ctx).toContain("app/wip.py:6:12");
       expect(ctx).not.toContain("app/wip.py:2:12");
+      reset();
+    },
+    T,
+  );
+
+  /**
+   * Formatting is whole-file: after an edit, `ruff format` may also rewrite lines
+   * Claude never touched (here, two spaces before an inline comment). Those lines are
+   * compared with the base copy formatted the same way (`format_stdin`), so they do
+   * not count as added; without a formatter, or when it fails on the base, the plain
+   * comparison applies.
+   * @rule python/format python/no-stub
+   */
+  test(
+    "a line only the formatter changed is not an added line: an untouched stub reformatted after an edit blocks neither post-edit nor Stop, while a new stub does",
+    () => {
+      rmSync(join(repo, ".venv/bin/basedpyright"), { force: true }); // left behind by a failed typecheck test
+      const before = "class Span:\n    def set_attribute(self, key: str) -> None: ... # pragma: no cover\n\n    def end(self) -> int:\n        return 1\n";
+      put(repo, "app/span.py", before);
+      hook("turn-start.sh", { session_id: "t-fmt" });
+      put(repo, "app/span.py", before.replace("return 1", "return 2"));
+      expect(hook("post-edit.sh", { session_id: "t-fmt", ...edit("app/span.py") }).stdout).toBe("");
+      expect(readFileSync(join(repo, "app/span.py"), "utf8")).toContain("...  # pragma: no cover");
+      expect(hook("stop.sh", { session_id: "t-fmt" }).stdout).toBe("");
+      put(repo, "app/span.py", readFileSync(join(repo, "app/span.py"), "utf8") + "\n    def flush(self) -> None: ...\n");
+      const ctx = JSON.parse(hook("post-edit.sh", { session_id: "t-fmt", ...edit("app/span.py") }).stdout).hookSpecificOutput.additionalContext;
+      expect(ctx).toContain("forge:python/no-stub app/span.py:7:");
+      expect(ctx).not.toContain("app/span.py:2:");
+      reset();
+    },
+    T,
+  );
+
+  /** @rule python/format python/no-stub */
+  test(
+    "when the formatter fails on the base copy (it does not parse), lines are compared with the base as it is",
+    () => {
+      put(repo, "app/span2.py", "class Span:\n    def set_attribute(self) -> None: ... # pragma: no cover\n\nX = (\n");
+      hook("turn-start.sh", { session_id: "t-fmt2" });
+      put(repo, "app/span2.py", "class Span:\n    def set_attribute(self) -> None: ... # pragma: no cover\n\nX = 1\n");
+      const ctx = JSON.parse(hook("post-edit.sh", { session_id: "t-fmt2", ...edit("app/span2.py") }).stdout).hookSpecificOutput.additionalContext;
+      expect(ctx).toContain("forge:python/no-stub app/span2.py:2:");
       reset();
     },
     T,
