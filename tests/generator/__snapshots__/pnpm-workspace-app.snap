@@ -952,6 +952,14 @@ forge_check_changed_3_dir() {
 biome check --write --no-errors-on-unmatched $FORGE_FILES
 }
 forge_check_fmt_3() {
+  for _ff_d in 'packages/core'; do
+    case $FORGE_FILE in "$_ff_d"/*)
+      ( FORGE_WS_ROOT=$(pwd); cd "$_ff_d" || exit 1; FORGE_FILE=${FORGE_FILE#"$_ff_d"/}
+biome format --stdin-file-path="$FORGE_FILE"
+      )
+      return ;;
+    esac
+  done
 biome format --stdin-file-path="$FORGE_FILE"
 }
 
@@ -3731,6 +3739,14 @@ forge_check_changed_3_dir() {
 biome check --write --no-errors-on-unmatched $FORGE_FILES
 }
 forge_check_fmt_3() {
+  for _ff_d in 'packages/core'; do
+    case $FORGE_FILE in "$_ff_d"/*)
+      ( FORGE_WS_ROOT=$(pwd); cd "$_ff_d" || exit 1; FORGE_FILE=${FORGE_FILE#"$_ff_d"/}
+biome format --stdin-file-path="$FORGE_FILE"
+      )
+      return ;;
+    esac
+  done
 biome format --stdin-file-path="$FORGE_FILE"
 }
 
@@ -6526,6 +6542,14 @@ forge_check_changed_3_dir() {
 biome check --write --no-errors-on-unmatched $FORGE_FILES
 }
 forge_check_fmt_3() {
+  for _ff_d in 'packages/core'; do
+    case $FORGE_FILE in "$_ff_d"/*)
+      ( FORGE_WS_ROOT=$(pwd); cd "$_ff_d" || exit 1; FORGE_FILE=${FORGE_FILE#"$_ff_d"/}
+biome format --stdin-file-path="$FORGE_FILE"
+      )
+      return ;;
+    esac
+  done
 biome format --stdin-file-path="$FORGE_FILE"
 }
 
@@ -9345,6 +9369,14 @@ forge_check_changed_3_dir() {
 biome check --write --no-errors-on-unmatched $FORGE_FILES
 }
 forge_check_fmt_3() {
+  for _ff_d in 'packages/core'; do
+    case $FORGE_FILE in "$_ff_d"/*)
+      ( FORGE_WS_ROOT=$(pwd); cd "$_ff_d" || exit 1; FORGE_FILE=${FORGE_FILE#"$_ff_d"/}
+biome format --stdin-file-path="$FORGE_FILE"
+      )
+      return ;;
+    esac
+  done
 biome format --stdin-file-path="$FORGE_FILE"
 }
 
@@ -13078,6 +13110,14 @@ forge_check_changed_3_dir() {
 biome check --write --no-errors-on-unmatched $FORGE_FILES
 }
 forge_check_fmt_3() {
+  for _ff_d in 'packages/core'; do
+    case $FORGE_FILE in "$_ff_d"/*)
+      ( FORGE_WS_ROOT=$(pwd); cd "$_ff_d" || exit 1; FORGE_FILE=${FORGE_FILE#"$_ff_d"/}
+biome format --stdin-file-path="$FORGE_FILE"
+      )
+      return ;;
+    esac
+  done
 biome format --stdin-file-path="$FORGE_FILE"
 }
 
@@ -16029,13 +16069,13 @@ exit "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "bf28e2c1752c202d3ac96c33fdabe8ae4ff659765ddafe45b4777368573aa186",
     ".claude/skills/forge-project/scripts/guard.sh": "e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca",
     ".claude/skills/forge-project/scripts/lib.sh": "462727c0187a948cfaefd1fac315bc87063203968e3df6d12ca68c839fbdf4a3",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "7f19ea0dda570e8ec8b9c294ae20b56db3064fa05de172b91b43c5340854a6d2",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "7066635b81dd6069e336b59b0cee0cd6f4e6864091e21ad7c178feebcbb3f26c",
     ".claude/skills/forge-project/scripts/review.sh": "889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726",
-    ".claude/skills/forge-project/scripts/session-start.sh": "643826f4e1e01a2f5a3deb91577b4374f9c1cf81a5975e18f196ff3589ad3e9d",
+    ".claude/skills/forge-project/scripts/session-start.sh": "912cecccaf059331106a69b248d347c17e688a67199d603ec4e44f1147e97b07",
     ".claude/skills/forge-project/scripts/stop.sh": "10316d9cd59fea152c6f8fbf0ab70abf547514bf67a2c85f3e6b405554a71fad",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "b6c73644c76116119c32289196f83fb50881a987ac7dfe09513cb658eeade703",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "cd9fb9cde93e42f5d859b5ad360a57356ad975f9b22c768076be941361a0a79e",
     ".claude/skills/forge-project/scripts/turn-start.sh": "fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "881d91683525b562cff3ec4d8ef1fe9c2e46dd7c1325b9b9cf0a4a896437bec7",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "731ef914c1f2d8b3e074da5e844171f74047b1b8fd3328abf2c9b3383d891a86",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml": "c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20",
     ".forge/ast-grep/rule-tests/typescript-no-latch-before-optional-call-test.yml": "c86f87d695b414c91cf90a528067e558a5ce93dbf38c8d9f90d1e7aec886b743",
@@ -16062,7 +16102,7 @@ exit "$fail"
     ".forge/ast-grep/rules/typescript/vitest/no-tautological-expect.yml": "35497c3d5cc2bfdc45837edfa133f8320134101d9a869cebdcebcc9b8e685521",
     ".forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml": "d3c41a3915d84b21e86e9212a06ad14c52bf2f9bcefb7c5ca433200cc3ec44fb",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "9bba82e0d412adce4a0aecd79a0d1ff9c20bb2451b03cd3e1502a0ea65590347",
+    ".forge/check.sh": "a7a5843c7d4fdd95bafb84a5fdb270f0db7127de13179608e3bcd7ec19321b81",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -16118,13 +16158,13 @@ d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills
 bf28e2c1752c202d3ac96c33fdabe8ae4ff659765ddafe45b4777368573aa186  .claude/skills/forge-project/scripts/guard.rules
 e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca  .claude/skills/forge-project/scripts/guard.sh
 462727c0187a948cfaefd1fac315bc87063203968e3df6d12ca68c839fbdf4a3  .claude/skills/forge-project/scripts/lib.sh
-7f19ea0dda570e8ec8b9c294ae20b56db3064fa05de172b91b43c5340854a6d2  .claude/skills/forge-project/scripts/post-edit.sh
+7066635b81dd6069e336b59b0cee0cd6f4e6864091e21ad7c178feebcbb3f26c  .claude/skills/forge-project/scripts/post-edit.sh
 889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726  .claude/skills/forge-project/scripts/review.sh
-643826f4e1e01a2f5a3deb91577b4374f9c1cf81a5975e18f196ff3589ad3e9d  .claude/skills/forge-project/scripts/session-start.sh
+912cecccaf059331106a69b248d347c17e688a67199d603ec4e44f1147e97b07  .claude/skills/forge-project/scripts/session-start.sh
 10316d9cd59fea152c6f8fbf0ab70abf547514bf67a2c85f3e6b405554a71fad  .claude/skills/forge-project/scripts/stop.sh
-b6c73644c76116119c32289196f83fb50881a987ac7dfe09513cb658eeade703  .claude/skills/forge-project/scripts/test-edit.sh
+cd9fb9cde93e42f5d859b5ad360a57356ad975f9b22c768076be941361a0a79e  .claude/skills/forge-project/scripts/test-edit.sh
 fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3  .claude/skills/forge-project/scripts/turn-start.sh
-881d91683525b562cff3ec4d8ef1fe9c2e46dd7c1325b9b9cf0a4a896437bec7  .claude/skills/forge-project/scripts/typecheck.sh
+731ef914c1f2d8b3e074da5e844171f74047b1b8fd3328abf2c9b3383d891a86  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20  .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
 c86f87d695b414c91cf90a528067e558a5ce93dbf38c8d9f90d1e7aec886b743  .forge/ast-grep/rule-tests/typescript-no-latch-before-optional-call-test.yml
@@ -16151,7 +16191,7 @@ ea54564f283a2f3c832fecfd6f4d55c6243ce9922ddf524c48ee5a43738c1472  .forge/ast-gre
 35497c3d5cc2bfdc45837edfa133f8320134101d9a869cebdcebcc9b8e685521  .forge/ast-grep/rules/typescript/vitest/no-tautological-expect.yml
 d3c41a3915d84b21e86e9212a06ad14c52bf2f9bcefb7c5ca433200cc3ec44fb  .forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-9bba82e0d412adce4a0aecd79a0d1ff9c20bb2451b03cd3e1502a0ea65590347  .forge/check.sh
+a7a5843c7d4fdd95bafb84a5fdb270f0db7127de13179608e3bcd7ec19321b81  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

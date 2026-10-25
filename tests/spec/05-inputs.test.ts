@@ -10,11 +10,12 @@
  * never rewrites.
  */
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { lineage, loadPacks } from "../../src/packs";
 import { plan, readProjectInputs } from "../../src/plan";
+import { renderLib } from "../../src/render";
 import { parseStrictYaml } from "../../src/yaml";
 import { applied, forge, put, ROOT, sampleRepo, sh } from "../helpers";
 
@@ -244,6 +245,38 @@ describe("workspaces", () => {
 
   test("without a workspace declaration, packages/* are read", () => {
     expect(planOf(inDir("packages/lib", TS)).packs.map((x) => x.id)).toEqual(["typescript", "typescript/vitest"]);
+  });
+
+  /** @rule typescript/vue/typecheck */
+  test("the Vue type check (vue-tsc through forge_exec_tool) runs in the package that has Vue", () => {
+    const ws = planOf({
+      "package.json": '{"name": "mono", "private": true, "workspaces": ["packages/*"]}\n',
+      "packages/web/package.json": '{"name": "web", "private": true, "dependencies": {"vue": "^3.4.0"}, "devDependencies": {"vue-tsc": "^2.0.0", "typescript": "^5.4.0"}}\n',
+      "packages/web/tsconfig.json": "{}\n",
+      "packages/lib/package.json": '{"name": "lib", "private": true, "devDependencies": {"typescript": "^5.4.0"}}\n',
+      "packages/lib/tsconfig.json": "{}\n",
+    });
+    expect(ws.active.find((s) => s.rule.id === "typescript/vue/typecheck")!.enforced).toEqual([expect.stringMatching(/^check typecheck: .*\(in packages\/web\)$/s)]);
+  });
+
+  /**
+   * Added lines are found against the base copy formatted like the file (§10.1):
+   * that formatter runs in the package holding the file, with its config, as the
+   * format check itself does.
+   * @rule typescript/format-lint
+   */
+  test("a format_stdin filter runs in the package that configures the formatter, on the path relative to it", () => {
+    const biome = "#!/bin/sh\ncat\nprintf '// in %s as %s\\n' \"$(basename \"$PWD\")\" \"$2\"\n";
+    const ws = planOf({
+      "package.json": '{"name": "mono", "private": true, "workspaces": ["packages/*"]}\n',
+      ...inDir("packages/a", { "package.json": '{"name": "a", "devDependencies": {"@biomejs/biome": "2.5.15"}}\n', "biome.json": "{}\n", "tsconfig.json": "{}\n" }),
+    });
+    put(ws.base, "packages/a/node_modules/.bin/biome", biome);
+    chmodSync(join(ws.base, "packages/a/node_modules/.bin/biome"), 0o755);
+    put(ws.base, "in.ts", "const a = 1;\n");
+    const script = `${renderLib()}\nIFS='\n'\n${ws.checksFragment}\nforge_format_copy packages/a/src/x.ts in.ts out.ts; echo "rc=$?"; cat out.ts`;
+    const r = sh("sh", ["-c", script], { cwd: ws.base });
+    expect(r.stdout).toBe("rc=0\nconst a = 1;\n// in a as --stdin-file-path=src/x.ts\n");
   });
 
   test("a check whose tool is configured in a package runs there; at the root, as before, when the root configures it", () => {

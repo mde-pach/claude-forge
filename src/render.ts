@@ -177,7 +177,7 @@ export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = []): s
     );
     if (changed) out.push(...body(`forge_check_changed_${n}`, target.changed_run!.replaceAll("{files}", "$FORGE_FILES"), target.changed_run!.includes("{files}") ? "files" : "all"));
     if (target.fix_run) out.push(...body(`forge_check_fix_${n}`, target.fix_run.replaceAll("{files}", "$FORGE_FILES"), "files"));
-    if (target.format_stdin) out.push(`forge_check_fmt_${n}() {`, target.format_stdin.replaceAll("{file}", '"$FORGE_FILE"'), "}");
+    if (target.format_stdin) out.push(...formatFunction(n, target.format_stdin, dirs));
     if (target.rerun) out.push(...body(`forge_check_rerun_${n}`, target.rerun.replaceAll("{files}", "$FORGE_FILES"), "files"));
   });
   out.push("", ...renderGreps(greps));
@@ -188,6 +188,30 @@ export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = []): s
       HADOLINT_SHAS: Object.entries(HADOLINT_SHA256).map(([p, h]) => `${p} ${h}`).join("\n"),
     }).trimEnd());
   return out.join("\n");
+}
+
+/**
+ * forge_check_fmt_<n>: the format_stdin filter on stdin, formatting as $FORGE_FILE. In
+ * workspace packages it runs in the package holding the file (the deepest), with the
+ * path relative to it, so the formatter reads that package's config, as the check does.
+ */
+function formatFunction(n: number, cmd: string, dirs?: string[]): string[] {
+  const filter = cmd.replaceAll("{file}", '"$FORGE_FILE"');
+  if (!dirs) return [`forge_check_fmt_${n}() {`, filter, "}"];
+  const deepestFirst = [...dirs].sort((a, b) => b.split("/").length - a.split("/").length || (a < b ? -1 : 1));
+  return [
+    `forge_check_fmt_${n}() {`,
+    `  for _ff_d in ${deepestFirst.map(shQuote).join(" ")}; do`,
+    '    case $FORGE_FILE in "$_ff_d"/*)',
+    '      ( FORGE_WS_ROOT=$(pwd); cd "$_ff_d" || exit 1; FORGE_FILE=${FORGE_FILE#"$_ff_d"/}',
+    filter,
+    "      )",
+    "      return ;;",
+    "    esac",
+    "  done",
+    filter,
+    "}",
+  ];
 }
 
 /**

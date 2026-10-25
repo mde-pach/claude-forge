@@ -134,13 +134,19 @@ export function toolPlaces(repo: string, facts: ProjectFacts): Record<AuditedToo
   return out;
 }
 
+/** Engine helpers that work the same from any directory: forge_exec_tool runs the project's tool (a name with "-", e.g. vue-tsc). */
+const CWD_AGNOSTIC_HELPERS = new Set(["forge_exec_tool"]);
+
 /**
  * Checks that may run inside workspace packages: those that run a project tool
- * (which reads its config from the working directory) and no engine helper
- * (helpers work on repository paths: ratchet, migrations, Docker).
+ * (which reads its config from the working directory) and no engine helper other
+ * than the cwd-agnostic ones (the others work on repository paths: ratchet,
+ * migrations, Docker).
  */
 function perPackage(t: CheckTarget): boolean {
-  return !/\bforge_[a-z_]+/.test([t.run, t.changed_run ?? "", t.fix_run ?? ""].join("\n")) && checkTools(t).some((x) => (PROJECT_TOOLS as readonly string[]).includes(x));
+  const commands = [t.run, t.changed_run ?? "", t.fix_run ?? "", t.format_stdin ?? "", t.rerun ?? ""].join("\n");
+  const helpers = commands.match(/\bforge_[a-z_]+/g) ?? [];
+  return helpers.every((h) => CWD_AGNOSTIC_HELPERS.has(h)) && checkTools(t).some((x) => (PROJECT_TOOLS as readonly string[]).includes(x));
 }
 
 // ---------------------------------------------------------------- active packs
