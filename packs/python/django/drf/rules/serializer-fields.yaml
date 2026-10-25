@@ -1,0 +1,26 @@
+id: python/django/drf/serializer-fields
+description: "A ModelSerializer's Meta lists its fields; fields = \"__all__\" would expose (and, unless read-only, accept) every column added to the model later, such as a password hash or an is_staff flag."
+scope: {language: python, files: ["!**/tests/**", "!**/test_*.py"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: expression_statement
+      has: {kind: assignment, all: [{has: {field: left, regex: "^fields$"}}, {has: {field: right, regex: "^[\"']__all__[\"']$"}}]}
+      inside:
+        stopBy: neighbor
+        kind: block
+        inside:
+          kind: class_definition
+          has: {field: name, regex: "^Meta$"}
+          inside:
+            stopBy: end
+            kind: class_definition
+            has: {field: superclasses, regex: "Serializer"}
+examples:
+  match:
+    - "from rest_framework import serializers\n\n\nclass UserSerializer(serializers.ModelSerializer):\n    class Meta:\n        model = User\n        fields = \"__all__\"\n"
+    - "class OrderSerializer(HyperlinkedModelSerializer):\n    class Meta:\n        model = Order\n        fields = '__all__'\n        read_only_fields = [\"id\"]\n"
+  no_match:
+    - "from rest_framework import serializers\n\n\nclass UserSerializer(serializers.ModelSerializer):\n    class Meta:\n        model = User\n        fields = [\"id\", \"username\", \"email\"]\n"
+    - "class FilterSet(django_filters.FilterSet):\n    class Meta:\n        model = Order\n        fields = \"__all__\"\n"

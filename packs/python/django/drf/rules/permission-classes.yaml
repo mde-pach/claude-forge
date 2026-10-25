@@ -1,0 +1,17 @@
+id: python/django/drf/permission-classes
+description: "Unless settings set REST_FRAMEWORK DEFAULT_PERMISSION_CLASSES to something other than AllowAny (DRF's default is AllowAny), a view that subclasses a DRF APIView, generic view or viewset directly sets permission_classes (or get_permissions), and an @api_view function has @permission_classes. Views on a project base class are not checked."
+scope: {language: python, files: ["!**/migrations/**", "!**/tests/**", "!**/test_*.py"]}
+enforce:
+  - target: check
+    stage: lint
+    run: "forge_helper python drf_permissions.py"
+    changed_run: "forge_helper python drf_permissions.py {files}"
+examples:
+  match:
+    - files: {shop/views.py: "from rest_framework import viewsets\nfrom rest_framework.decorators import api_view\nfrom rest_framework.response import Response\n\nfrom .models import Order\nfrom .serializers import OrderSerializer\n\n\nclass OrderViewSet(viewsets.ModelViewSet):\n    queryset = Order.objects.all()\n    serializer_class = OrderSerializer\n\n\n@api_view([\"POST\"])\ndef refund(request, pk):\n    return Response(status=204)\n"}
+  no_match:
+    - files: {shop/views.py: "from rest_framework import permissions, viewsets\nfrom rest_framework.decorators import api_view, permission_classes\nfrom rest_framework.response import Response\n\nfrom .models import Order\nfrom .serializers import OrderSerializer\n\n\nclass OrderViewSet(viewsets.ModelViewSet):\n    queryset = Order.objects.all()\n    serializer_class = OrderSerializer\n    permission_classes = [permissions.IsAuthenticated]\n\n\n@api_view([\"POST\"])\n@permission_classes([permissions.IsAdminUser])\ndef refund(request, pk):\n    return Response(status=204)\n"}
+    - files:
+        proj/settings.py: "REST_FRAMEWORK = {\n    \"DEFAULT_PERMISSION_CLASSES\": [\"rest_framework.permissions.IsAuthenticated\"],\n}\n"
+        shop/views.py: "from rest_framework import viewsets\n\nfrom .models import Order\nfrom .serializers import OrderSerializer\n\n\nclass OrderViewSet(viewsets.ModelViewSet):\n    queryset = Order.objects.all()\n    serializer_class = OrderSerializer\n"
+    - files: {shop/views.py: "from rest_framework import viewsets\n\nfrom core.views import TenantViewSet\n\nfrom .models import Order\n\n\nclass OrderViewSet(TenantViewSet):\n    queryset = Order.objects.all()\n"}

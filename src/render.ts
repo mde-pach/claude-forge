@@ -198,6 +198,7 @@ export const PYTHON_TOOLS = new Set(["ruff", "basedpyright", "alembic", "pytest"
 const HELPER_SCRIPTS: { name: string; template: string }[] = [
   { name: "ratchet.py", template: "ratchet.py" },
   { name: "ratchet.mjs", template: "ratchet.mjs" },
+  { name: "drf_permissions.py", template: "drf_permissions.py" },
   { name: "public_api.py", template: "public_api.py" },
   { name: "public_api.mjs", template: "public_api.mjs" },
 ];

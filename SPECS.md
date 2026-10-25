@@ -586,6 +586,18 @@ Detected by `django` (pypi) or a `manage.py` at the root or one level down.
 
 context.md: migrations generated and committed with model changes; SQL parameters; `select_related()` / `prefetch_related()` against N+1; `transaction.atomic()` and `transaction.on_commit()`.
 
+### python/django/drf
+
+Detected by `djangorestframework` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/django/drf/permission-classes` | `check` lint: `forge_helper python drf_permissions.py` (§13.4): unless a tracked module sets `DEFAULT_PERMISSION_CLASSES` to something other than `AllowAny`, a class whose bases are all DRF views, viewsets or model mixins sets `permission_classes` or `get_permissions`, and an `@api_view` function has `@permission_classes`; findings on the class or function line |
+| `python/django/drf/serializer-fields` | `ast-grep` forbid: `fields = "__all__"` in the `Meta` of a class whose bases name a `Serializer` |
+| `python/django/drf/no-allowany-write` | `ast-grep` forbid: `permission_classes` naming `AllowAny` in a `ModelViewSet`, a Create/Update/Destroy generic view or model mixin, or a class with `post`/`put`/`patch`/`delete`/`create`/`update`/`partial_update`/`destroy`; `@permission_classes([AllowAny])` on an `@api_view` with a write method; `AllowAny` as `DEFAULT_PERMISSION_CLASSES` |
+
+context.md: explicit serializer fields and `read_only_fields`; permission defaults; ask before opening a write endpoint.
+
 ### python/library
 
 Detected by `library_any: [pypi]` (§13.4).
@@ -797,6 +809,7 @@ context.md: `compose.yaml` + `compose.override.yaml`, healthchecks with `conditi
 
 `forge_helper <runtime> <script> [args]` runs a script embedded in `check.sh` (like the ratchet's) with the project's `python` or `bun`, as `<script> <FORGE_TMP> [args]`, where the change set (`changed`, `inbase`, `base/`) is; findings are `path:line message` (line 0: the file as a whole), attributed like lint diagnostics; a finding line found in `forge.yaml` is accepted; exit 3 prints `skipped:`.
 
+- `drf_permissions.py`: §13 `python/django/drf/permission-classes`.
 - `public_api.py`: for each changed module whose base copy has a literal `__all__`, each name that left it, or every name of a deleted module, must still be defined with a deprecation: a `def` / `class` / assignment of that name mentioning `DeprecationWarning`, `FutureWarning` or `deprecated`, or a module `__getattr__` in a module that warns and names it. A major bump of `[project] version` allows removals.
 - `public_api.mjs removed`: the names the package's entry points (`exports`, `main`, `module`, `types`, with `dist/`, `lib/`, `build/`, … mapped to `src/` and `.js` / `.d.ts` to the source file; `export *` followed through relative modules) export in the base are still exported, unless the `package.json` major version went up. Reported at line 0 of the module that declared the name.
 - `public_api.mjs barrel`: a changed module whose names an entry point re-exports by list (`export { a, b } from "./m"`), and not with `export *`, has no new export missing from that list. Reported at the declaration's line.

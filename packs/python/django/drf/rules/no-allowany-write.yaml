@@ -1,0 +1,39 @@
+id: python/django/drf/no-allowany-write
+description: "AllowAny is not set on an endpoint that writes (a ModelViewSet, a Create/Update/Destroy view or mixin, a view with post/put/patch/delete, an @api_view accepting POST/PUT/PATCH/DELETE) nor made the DEFAULT_PERMISSION_CLASSES: opening a write endpoint to anonymous callers is the user's decision. Ask; if they confirm, they disable the rule for that file in a local rule."
+scope: {language: python, files: ["!**/tests/**", "!**/test_*.py"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        - kind: expression_statement
+          has: {kind: assignment, all: [{has: {field: left, regex: "^permission_classes$"}}, {has: {field: right, regex: "\\bAllowAny\\b"}}]}
+          inside:
+            stopBy: neighbor
+            kind: block
+            inside:
+              kind: class_definition
+              any:
+                - has: {field: superclasses, regex: "(^|[^A-Za-z])(ModelViewSet|(Create|Update|Destroy|ListCreate|RetrieveUpdate|RetrieveDestroy|RetrieveUpdateDestroy)APIView|(Create|Update|Destroy)ModelMixin)\\b"}
+                - has: {field: body, has: {kind: function_definition, has: {field: name, regex: "^(post|put|patch|delete|create|update|partial_update|destroy)$"}}}
+                - has: {field: body, has: {kind: decorated_definition, has: {kind: function_definition, has: {field: name, regex: "^(post|put|patch|delete|create|update|partial_update|destroy)$"}}}}
+        - kind: decorator
+          regex: "^@([A-Za-z_.]*\\.)?permission_classes\\(.*\\bAllowAny\\b"
+          inside:
+            kind: decorated_definition
+            has: {kind: decorator, regex: "^@([A-Za-z_.]*\\.)?api_view\\(.*[\"'](POST|PUT|PATCH|DELETE)[\"']"}
+        - kind: pair
+          all:
+            - has: {field: key, regex: "^[\"']DEFAULT_PERMISSION_CLASSES[\"']$"}
+            - has: {field: value, regex: "AllowAny"}
+examples:
+  match:
+    - "from rest_framework import permissions, viewsets\n\n\nclass OrderViewSet(viewsets.ModelViewSet):\n    queryset = Order.objects.all()\n    permission_classes = [permissions.AllowAny]\n"
+    - "from rest_framework.permissions import AllowAny\nfrom rest_framework.views import APIView\n\n\nclass Signup(APIView):\n    permission_classes = (AllowAny,)\n\n    def post(self, request):\n        return Response(status=201)\n"
+    - "@api_view([\"GET\", \"POST\"])\n@permission_classes([AllowAny])\ndef comments(request):\n    return Response()\n"
+    - "REST_FRAMEWORK = {\n    \"DEFAULT_PERMISSION_CLASSES\": [\"rest_framework.permissions.AllowAny\"],\n}\n"
+  no_match:
+    - "from rest_framework import permissions, viewsets\n\n\nclass ProductViewSet(viewsets.ReadOnlyModelViewSet):\n    queryset = Product.objects.all()\n    permission_classes = [permissions.AllowAny]\n"
+    - "class Health(APIView):\n    permission_classes = [AllowAny]\n\n    def get(self, request):\n        return Response({\"ok\": True})\n"
+    - "@api_view([\"GET\"])\n@permission_classes([AllowAny])\ndef status(request):\n    return Response()\n"
+    - "class OrderViewSet(viewsets.ModelViewSet):\n    permission_classes = [IsAuthenticated]\n"
