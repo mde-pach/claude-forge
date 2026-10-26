@@ -10,13 +10,13 @@
  * BusyBox.
  */
 import { describe, expect, test } from "bun:test";
-import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { renderGuardRules, renderLib, template } from "../../src/render";
 import { availableShells, guardDecision, guardExampleDir, hookInput } from "../../src/selftest";
 import type { Rule } from "../../src/types";
+import { sh } from "../helpers";
 
 const shells = availableShells();
 const lib = mkdtempSync(join(tmpdir(), "forge-lib-"));
@@ -24,7 +24,7 @@ writeFileSync(join(lib, "lib.sh"), renderLib());
 
 /** Runs `snippet` after sourcing lib.sh, with $FORGE_INPUT set to `input`. */
 function libRun(argv: string[], input: string, snippet: string, cwd = lib): string {
-  const r = spawnSync(argv[0]!, [...argv.slice(1), "-c", `. "${join(lib, "lib.sh")}"; FORGE_INPUT=$(cat); ${snippet}`], { input, cwd, encoding: "utf8" });
+  const r = sh(argv[0]!, [...argv.slice(1), "-c", `. "${join(lib, "lib.sh")}"; FORGE_INPUT=$(cat); ${snippet}`], { input, cwd });
   return r.stdout;
 }
 
@@ -78,7 +78,7 @@ describe("guard.sh", () => {
   });
 
   test("the decision reason is forge:<rule-id> followed by the rule's description", () => {
-    const r = spawnSync("sh", [join(dir, "guard.sh")], { input: hookInput("git push --force"), encoding: "utf8" });
+    const r = sh("sh", [join(dir, "guard.sh")], { input: hookInput("git push --force") });
     expect(JSON.parse(r.stdout)).toEqual({
       hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: "forge:t/no-force No force push." },
     });
@@ -102,7 +102,7 @@ describe("guard.sh", () => {
       const cwd = guardExampleDir({ "node_modules/.bin/tsc": "" });
       expect(guardDecision([...argv], d, "npx tsc --noEmit", cwd)).toBe("");
       expect(guardDecision([...argv], d, "npx cowsay", cwd)).toBe("ask");
-      const r = spawnSync(argv[0]!, [...argv.slice(1), join(d, "guard.sh")], { input: hookInput("npx some-typo", cwd), encoding: "utf8", env: { ...process.env, FORGE_ASK_REVIEW: "never" } });
+      const r = sh(argv[0]!, [...argv.slice(1), join(d, "guard.sh")], { input: hookInput("npx some-typo", cwd), env: { FORGE_ASK_REVIEW: "never" } });
       expect(JSON.parse(r.stdout).hookSpecificOutput.permissionDecisionReason).toBe(
         `forge:t/fetch Fetched packages need a look. Here: some-typo is not installed where the command runs: no node_modules/.bin/some-typo from ${cwd} up to the repository root, so npx would fetch it from a registry and run it.`,
       );
@@ -110,6 +110,6 @@ describe("guard.sh", () => {
   );
 
   test("a missing guard.sh makes the hook command fail, which onFailure: block turns into a blocked call", () => {
-    expect(spawnSync("sh", [join(dir, "missing.sh")], { input: hookInput("ls") }).status).not.toBe(0);
+    expect(sh("sh", [join(dir, "missing.sh")], { input: hookInput("ls") }).status).not.toBe(0);
   });
 });

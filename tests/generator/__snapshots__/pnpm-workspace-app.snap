@@ -660,7 +660,7 @@ tool() {
 # Exit status: 0 no finding, 1 findings, other = could not run.
 astgrep() {
   if { [ -f bun.lock ] || [ -f bun.lockb ]; } && command -v bunx >/dev/null 2>&1; then
-    bunx -p "@ast-grep/cli@$FORGE_AST_GREP_VERSION" ast-grep "$@" 2>/dev/null
+    astgrep_bunx "$@"
   elif command -v uvx >/dev/null 2>&1; then
     uvx -q --from "ast-grep-cli==$FORGE_AST_GREP_VERSION" ast-grep "$@" 2>/dev/null
     _rc=$?
@@ -670,10 +670,22 @@ astgrep() {
     fi
     return "$_rc"
   elif command -v bunx >/dev/null 2>&1; then
-    bunx -p "@ast-grep/cli@$FORGE_AST_GREP_VERSION" ast-grep "$@" 2>/dev/null
+    astgrep_bunx "$@"
   else
     return 127
   fi
+}
+
+# astgrep_bunx <args>: `bunx -p <package> <bin>` installs the package again at every
+# run (about a second); with --no-install it runs the copy in bunx's cache, which is
+# installed first when it is not there (once per shell).
+astgrep_bunx() {
+  if [ -z "${_ag_bunx:-}" ]; then
+    bunx --no-install -p "@ast-grep/cli@$FORGE_AST_GREP_VERSION" ast-grep --version >/dev/null 2>&1 \
+      || bunx -p "@ast-grep/cli@$FORGE_AST_GREP_VERSION" ast-grep --version >/dev/null 2>&1
+    _ag_bunx=1
+  fi
+  bunx --no-install -p "@ast-grep/cli@$FORGE_AST_GREP_VERSION" ast-grep "$@" 2>/dev/null
 }
 
 # first_lines <n>: keep the first n lines of stdin.
@@ -2628,6 +2640,25 @@ forge_filter() {
   return 0
 }
 
+# forge_select <predicate>: FORGE_FILES=$(forge_filter <predicate>), without the
+# subshell (a fork per check and run otherwise).
+forge_select() {
+  FORGE_FILES=''
+  while read -r _ff_line; do
+    [ -n "$_ff_line" ] && "$1" "$_ff_line" && FORGE_FILES="${FORGE_FILES:+$FORGE_FILES
+}$_ff_line"
+  done
+  return 0
+}
+
+# forge_any <predicate>: succeeds when <predicate> holds for a line of stdin.
+forge_any() {
+  while read -r _ff_line; do
+    [ -n "$_ff_line" ] && "$1" "$_ff_line" && return 0
+  done
+  return 1
+}
+
 # forge_db_url: DATABASE_URL from the environment, then .env, then alembic.ini.
 forge_db_url() {
   if [ -n "${DATABASE_URL:-}" ]; then printf '%s' "$DATABASE_URL"; return 0; fi
@@ -3665,9 +3696,9 @@ forge_run_check() {
   FORGE_FILES=''
   if [ "$mode" != --all ]; then
     if [ "$c_when" = 1 ]; then
-      [ -n "$(forge_filter "forge_when_$1" < "$FORGE_TMP/changed")" ] || return 0
+      forge_any "forge_when_$1" < "$FORGE_TMP/changed" || return 0
     fi
-    FORGE_FILES=$(forge_filter "forge_scope_$1" < "$FORGE_TMP/existing")
+    forge_select "forge_scope_$1" < "$FORGE_TMP/existing"
     [ "$c_when" = 1 ] || [ -n "$FORGE_FILES" ] || return 0
   fi
   if _fc_missing=$(forge_missing_tool); then
@@ -4055,7 +4086,8 @@ forge_run_stage() {
     if [ "$c_stage" = "$1" ]; then
       forge_run_check "$_fs_i" > "$FORGE_TMP/check.out"
       case $? in
-        0) cat "$FORGE_TMP/check.out" ;;
+        # most checks print nothing (not in the change): no cat then
+        0) [ ! -s "$FORGE_TMP/check.out" ] || cat "$FORGE_TMP/check.out" ;;
         3) cat "$FORGE_TMP/check.out"; [ "$_fs_rc" -ne 0 ] || _fs_rc=3 ;;
         *)
           # advice goes after every real failure (check.sh prints it last)
@@ -4086,7 +4118,7 @@ forge_file_run() {
   while [ "$_fp_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fp_i"
     if [ "$c_stage" = "$1" ] && [ "$c_files" = 1 ] && ! forge_missing_tool >/dev/null; then
-      FORGE_FILES=$(forge_filter "forge_scope_$_fp_i" < "$2")
+      forge_select "forge_scope_$_fp_i" < "$2"
       if [ -n "$FORGE_FILES" ] && ! forge_exec_check "forge_check_changed_$_fp_i" "$c_timeout"; then
         mv "$FORGE_TMP/out" "$FORGE_TMP/stage-$1.$_fp_i"
         printf '%s\n' "$_fp_i" >> "$FORGE_TMP/stage-$1.failed"
@@ -4138,7 +4170,7 @@ forge_file_fixes() {
   while [ "$_fx_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fx_i"
     if [ "$c_stage" = lint ] && [ "$c_fix" = 1 ] && ! forge_missing_tool >/dev/null; then
-      FORGE_FILES=$(forge_filter "forge_scope_$_fx_i" < "$1")
+      forge_select "forge_scope_$_fx_i" < "$1"
       if [ -n "$FORGE_FILES" ]; then
         forge_exec_check "forge_check_fix_$_fx_i" "$c_timeout"
         # ruff: "Fixed N errors:", then "- <path>:" and "    1 × I001 (unsorted-imports)" lines
@@ -4285,11 +4317,14 @@ forge_types_up() {
     typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" ;;
   esac
   # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a
-  # launcher that fails before (no network for a first download) says "exited <code>"
+  # launcher that fails before (no network for a first download) says "exited <code>".
+  # Those two write on this shell's descriptor (7), not by path: the reader holds the
+  # FIFO open for writing too, so it would wait forever for a line that cannot be
+  # written once the state directory has been removed.
   exec 7<>"$_tu_d/started"
-  { "$@" < /dev/null >> "$_tu_d/log" 2>&1 || printf 'exited %s\n' "$?" 1<>"$_tu_d/started"; } &
+  { "$@" < /dev/null >> "$_tu_d/log" 2>&1 || printf 'exited %s\n' "$?" >&7; } &
   { sleep "${FORGE_TYPES_START_TIMEOUT:-60}" & printf '%s\n' "$!" > "$_tu_d.lock/sleep"; wait "$!"
-    printf 'failed: not started within %ss\n' "${FORGE_TYPES_START_TIMEOUT:-60}" 1<>"$_tu_d/started"; } >/dev/null 2>&1 &
+    printf 'failed: not started within %ss\n' "${FORGE_TYPES_START_TIMEOUT:-60}" >&7; } >/dev/null 2>&1 &
   _tu_w=$!
   IFS= read -r _tu_l <&7
   forge_types_unwatch "$_tu_w" "$_tu_d.lock/sleep"
@@ -5988,6 +6023,25 @@ forge_filter() {
   return 0
 }
 
+# forge_select <predicate>: FORGE_FILES=$(forge_filter <predicate>), without the
+# subshell (a fork per check and run otherwise).
+forge_select() {
+  FORGE_FILES=''
+  while read -r _ff_line; do
+    [ -n "$_ff_line" ] && "$1" "$_ff_line" && FORGE_FILES="${FORGE_FILES:+$FORGE_FILES
+}$_ff_line"
+  done
+  return 0
+}
+
+# forge_any <predicate>: succeeds when <predicate> holds for a line of stdin.
+forge_any() {
+  while read -r _ff_line; do
+    [ -n "$_ff_line" ] && "$1" "$_ff_line" && return 0
+  done
+  return 1
+}
+
 # forge_db_url: DATABASE_URL from the environment, then .env, then alembic.ini.
 forge_db_url() {
   if [ -n "${DATABASE_URL:-}" ]; then printf '%s' "$DATABASE_URL"; return 0; fi
@@ -7025,9 +7079,9 @@ forge_run_check() {
   FORGE_FILES=''
   if [ "$mode" != --all ]; then
     if [ "$c_when" = 1 ]; then
-      [ -n "$(forge_filter "forge_when_$1" < "$FORGE_TMP/changed")" ] || return 0
+      forge_any "forge_when_$1" < "$FORGE_TMP/changed" || return 0
     fi
-    FORGE_FILES=$(forge_filter "forge_scope_$1" < "$FORGE_TMP/existing")
+    forge_select "forge_scope_$1" < "$FORGE_TMP/existing"
     [ "$c_when" = 1 ] || [ -n "$FORGE_FILES" ] || return 0
   fi
   if _fc_missing=$(forge_missing_tool); then
@@ -7415,7 +7469,8 @@ forge_run_stage() {
     if [ "$c_stage" = "$1" ]; then
       forge_run_check "$_fs_i" > "$FORGE_TMP/check.out"
       case $? in
-        0) cat "$FORGE_TMP/check.out" ;;
+        # most checks print nothing (not in the change): no cat then
+        0) [ ! -s "$FORGE_TMP/check.out" ] || cat "$FORGE_TMP/check.out" ;;
         3) cat "$FORGE_TMP/check.out"; [ "$_fs_rc" -ne 0 ] || _fs_rc=3 ;;
         *)
           # advice goes after every real failure (check.sh prints it last)
@@ -7446,7 +7501,7 @@ forge_file_run() {
   while [ "$_fp_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fp_i"
     if [ "$c_stage" = "$1" ] && [ "$c_files" = 1 ] && ! forge_missing_tool >/dev/null; then
-      FORGE_FILES=$(forge_filter "forge_scope_$_fp_i" < "$2")
+      forge_select "forge_scope_$_fp_i" < "$2"
       if [ -n "$FORGE_FILES" ] && ! forge_exec_check "forge_check_changed_$_fp_i" "$c_timeout"; then
         mv "$FORGE_TMP/out" "$FORGE_TMP/stage-$1.$_fp_i"
         printf '%s\n' "$_fp_i" >> "$FORGE_TMP/stage-$1.failed"
@@ -7498,7 +7553,7 @@ forge_file_fixes() {
   while [ "$_fx_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fx_i"
     if [ "$c_stage" = lint ] && [ "$c_fix" = 1 ] && ! forge_missing_tool >/dev/null; then
-      FORGE_FILES=$(forge_filter "forge_scope_$_fx_i" < "$1")
+      forge_select "forge_scope_$_fx_i" < "$1"
       if [ -n "$FORGE_FILES" ]; then
         forge_exec_check "forge_check_fix_$_fx_i" "$c_timeout"
         # ruff: "Fixed N errors:", then "- <path>:" and "    1 × I001 (unsorted-imports)" lines
@@ -7645,11 +7700,14 @@ forge_types_up() {
     typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" ;;
   esac
   # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a
-  # launcher that fails before (no network for a first download) says "exited <code>"
+  # launcher that fails before (no network for a first download) says "exited <code>".
+  # Those two write on this shell's descriptor (7), not by path: the reader holds the
+  # FIFO open for writing too, so it would wait forever for a line that cannot be
+  # written once the state directory has been removed.
   exec 7<>"$_tu_d/started"
-  { "$@" < /dev/null >> "$_tu_d/log" 2>&1 || printf 'exited %s\n' "$?" 1<>"$_tu_d/started"; } &
+  { "$@" < /dev/null >> "$_tu_d/log" 2>&1 || printf 'exited %s\n' "$?" >&7; } &
   { sleep "${FORGE_TYPES_START_TIMEOUT:-60}" & printf '%s\n' "$!" > "$_tu_d.lock/sleep"; wait "$!"
-    printf 'failed: not started within %ss\n' "${FORGE_TYPES_START_TIMEOUT:-60}" 1<>"$_tu_d/started"; } >/dev/null 2>&1 &
+    printf 'failed: not started within %ss\n' "${FORGE_TYPES_START_TIMEOUT:-60}" >&7; } >/dev/null 2>&1 &
   _tu_w=$!
   IFS= read -r _tu_l <&7
   forge_types_unwatch "$_tu_w" "$_tu_d.lock/sleep"
@@ -9379,6 +9437,25 @@ forge_filter() {
   return 0
 }
 
+# forge_select <predicate>: FORGE_FILES=$(forge_filter <predicate>), without the
+# subshell (a fork per check and run otherwise).
+forge_select() {
+  FORGE_FILES=''
+  while read -r _ff_line; do
+    [ -n "$_ff_line" ] && "$1" "$_ff_line" && FORGE_FILES="${FORGE_FILES:+$FORGE_FILES
+}$_ff_line"
+  done
+  return 0
+}
+
+# forge_any <predicate>: succeeds when <predicate> holds for a line of stdin.
+forge_any() {
+  while read -r _ff_line; do
+    [ -n "$_ff_line" ] && "$1" "$_ff_line" && return 0
+  done
+  return 1
+}
+
 # forge_db_url: DATABASE_URL from the environment, then .env, then alembic.ini.
 forge_db_url() {
   if [ -n "${DATABASE_URL:-}" ]; then printf '%s' "$DATABASE_URL"; return 0; fi
@@ -10416,9 +10493,9 @@ forge_run_check() {
   FORGE_FILES=''
   if [ "$mode" != --all ]; then
     if [ "$c_when" = 1 ]; then
-      [ -n "$(forge_filter "forge_when_$1" < "$FORGE_TMP/changed")" ] || return 0
+      forge_any "forge_when_$1" < "$FORGE_TMP/changed" || return 0
     fi
-    FORGE_FILES=$(forge_filter "forge_scope_$1" < "$FORGE_TMP/existing")
+    forge_select "forge_scope_$1" < "$FORGE_TMP/existing"
     [ "$c_when" = 1 ] || [ -n "$FORGE_FILES" ] || return 0
   fi
   if _fc_missing=$(forge_missing_tool); then
@@ -10806,7 +10883,8 @@ forge_run_stage() {
     if [ "$c_stage" = "$1" ]; then
       forge_run_check "$_fs_i" > "$FORGE_TMP/check.out"
       case $? in
-        0) cat "$FORGE_TMP/check.out" ;;
+        # most checks print nothing (not in the change): no cat then
+        0) [ ! -s "$FORGE_TMP/check.out" ] || cat "$FORGE_TMP/check.out" ;;
         3) cat "$FORGE_TMP/check.out"; [ "$_fs_rc" -ne 0 ] || _fs_rc=3 ;;
         *)
           # advice goes after every real failure (check.sh prints it last)
@@ -10837,7 +10915,7 @@ forge_file_run() {
   while [ "$_fp_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fp_i"
     if [ "$c_stage" = "$1" ] && [ "$c_files" = 1 ] && ! forge_missing_tool >/dev/null; then
-      FORGE_FILES=$(forge_filter "forge_scope_$_fp_i" < "$2")
+      forge_select "forge_scope_$_fp_i" < "$2"
       if [ -n "$FORGE_FILES" ] && ! forge_exec_check "forge_check_changed_$_fp_i" "$c_timeout"; then
         mv "$FORGE_TMP/out" "$FORGE_TMP/stage-$1.$_fp_i"
         printf '%s\n' "$_fp_i" >> "$FORGE_TMP/stage-$1.failed"
@@ -10889,7 +10967,7 @@ forge_file_fixes() {
   while [ "$_fx_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fx_i"
     if [ "$c_stage" = lint ] && [ "$c_fix" = 1 ] && ! forge_missing_tool >/dev/null; then
-      FORGE_FILES=$(forge_filter "forge_scope_$_fx_i" < "$1")
+      forge_select "forge_scope_$_fx_i" < "$1"
       if [ -n "$FORGE_FILES" ]; then
         forge_exec_check "forge_check_fix_$_fx_i" "$c_timeout"
         # ruff: "Fixed N errors:", then "- <path>:" and "    1 × I001 (unsorted-imports)" lines
@@ -11036,11 +11114,14 @@ forge_types_up() {
     typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" ;;
   esac
   # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a
-  # launcher that fails before (no network for a first download) says "exited <code>"
+  # launcher that fails before (no network for a first download) says "exited <code>".
+  # Those two write on this shell's descriptor (7), not by path: the reader holds the
+  # FIFO open for writing too, so it would wait forever for a line that cannot be
+  # written once the state directory has been removed.
   exec 7<>"$_tu_d/started"
-  { "$@" < /dev/null >> "$_tu_d/log" 2>&1 || printf 'exited %s\n' "$?" 1<>"$_tu_d/started"; } &
+  { "$@" < /dev/null >> "$_tu_d/log" 2>&1 || printf 'exited %s\n' "$?" >&7; } &
   { sleep "${FORGE_TYPES_START_TIMEOUT:-60}" & printf '%s\n' "$!" > "$_tu_d.lock/sleep"; wait "$!"
-    printf 'failed: not started within %ss\n' "${FORGE_TYPES_START_TIMEOUT:-60}" 1<>"$_tu_d/started"; } >/dev/null 2>&1 &
+    printf 'failed: not started within %ss\n' "${FORGE_TYPES_START_TIMEOUT:-60}" >&7; } >/dev/null 2>&1 &
   _tu_w=$!
   IFS= read -r _tu_l <&7
   forge_types_unwatch "$_tu_w" "$_tu_d.lock/sleep"
@@ -12791,6 +12872,25 @@ forge_filter() {
   return 0
 }
 
+# forge_select <predicate>: FORGE_FILES=$(forge_filter <predicate>), without the
+# subshell (a fork per check and run otherwise).
+forge_select() {
+  FORGE_FILES=''
+  while read -r _ff_line; do
+    [ -n "$_ff_line" ] && "$1" "$_ff_line" && FORGE_FILES="${FORGE_FILES:+$FORGE_FILES
+}$_ff_line"
+  done
+  return 0
+}
+
+# forge_any <predicate>: succeeds when <predicate> holds for a line of stdin.
+forge_any() {
+  while read -r _ff_line; do
+    [ -n "$_ff_line" ] && "$1" "$_ff_line" && return 0
+  done
+  return 1
+}
+
 # forge_db_url: DATABASE_URL from the environment, then .env, then alembic.ini.
 forge_db_url() {
   if [ -n "${DATABASE_URL:-}" ]; then printf '%s' "$DATABASE_URL"; return 0; fi
@@ -13828,9 +13928,9 @@ forge_run_check() {
   FORGE_FILES=''
   if [ "$mode" != --all ]; then
     if [ "$c_when" = 1 ]; then
-      [ -n "$(forge_filter "forge_when_$1" < "$FORGE_TMP/changed")" ] || return 0
+      forge_any "forge_when_$1" < "$FORGE_TMP/changed" || return 0
     fi
-    FORGE_FILES=$(forge_filter "forge_scope_$1" < "$FORGE_TMP/existing")
+    forge_select "forge_scope_$1" < "$FORGE_TMP/existing"
     [ "$c_when" = 1 ] || [ -n "$FORGE_FILES" ] || return 0
   fi
   if _fc_missing=$(forge_missing_tool); then
@@ -14218,7 +14318,8 @@ forge_run_stage() {
     if [ "$c_stage" = "$1" ]; then
       forge_run_check "$_fs_i" > "$FORGE_TMP/check.out"
       case $? in
-        0) cat "$FORGE_TMP/check.out" ;;
+        # most checks print nothing (not in the change): no cat then
+        0) [ ! -s "$FORGE_TMP/check.out" ] || cat "$FORGE_TMP/check.out" ;;
         3) cat "$FORGE_TMP/check.out"; [ "$_fs_rc" -ne 0 ] || _fs_rc=3 ;;
         *)
           # advice goes after every real failure (check.sh prints it last)
@@ -14249,7 +14350,7 @@ forge_file_run() {
   while [ "$_fp_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fp_i"
     if [ "$c_stage" = "$1" ] && [ "$c_files" = 1 ] && ! forge_missing_tool >/dev/null; then
-      FORGE_FILES=$(forge_filter "forge_scope_$_fp_i" < "$2")
+      forge_select "forge_scope_$_fp_i" < "$2"
       if [ -n "$FORGE_FILES" ] && ! forge_exec_check "forge_check_changed_$_fp_i" "$c_timeout"; then
         mv "$FORGE_TMP/out" "$FORGE_TMP/stage-$1.$_fp_i"
         printf '%s\n' "$_fp_i" >> "$FORGE_TMP/stage-$1.failed"
@@ -14301,7 +14402,7 @@ forge_file_fixes() {
   while [ "$_fx_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fx_i"
     if [ "$c_stage" = lint ] && [ "$c_fix" = 1 ] && ! forge_missing_tool >/dev/null; then
-      FORGE_FILES=$(forge_filter "forge_scope_$_fx_i" < "$1")
+      forge_select "forge_scope_$_fx_i" < "$1"
       if [ -n "$FORGE_FILES" ]; then
         forge_exec_check "forge_check_fix_$_fx_i" "$c_timeout"
         # ruff: "Fixed N errors:", then "- <path>:" and "    1 × I001 (unsorted-imports)" lines
@@ -14448,11 +14549,14 @@ forge_types_up() {
     typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" ;;
   esac
   # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a
-  # launcher that fails before (no network for a first download) says "exited <code>"
+  # launcher that fails before (no network for a first download) says "exited <code>".
+  # Those two write on this shell's descriptor (7), not by path: the reader holds the
+  # FIFO open for writing too, so it would wait forever for a line that cannot be
+  # written once the state directory has been removed.
   exec 7<>"$_tu_d/started"
-  { "$@" < /dev/null >> "$_tu_d/log" 2>&1 || printf 'exited %s\n' "$?" 1<>"$_tu_d/started"; } &
+  { "$@" < /dev/null >> "$_tu_d/log" 2>&1 || printf 'exited %s\n' "$?" >&7; } &
   { sleep "${FORGE_TYPES_START_TIMEOUT:-60}" & printf '%s\n' "$!" > "$_tu_d.lock/sleep"; wait "$!"
-    printf 'failed: not started within %ss\n' "${FORGE_TYPES_START_TIMEOUT:-60}" 1<>"$_tu_d/started"; } >/dev/null 2>&1 &
+    printf 'failed: not started within %ss\n' "${FORGE_TYPES_START_TIMEOUT:-60}" >&7; } >/dev/null 2>&1 &
   _tu_w=$!
   IFS= read -r _tu_l <&7
   forge_types_unwatch "$_tu_w" "$_tu_d.lock/sleep"
@@ -15152,7 +15256,7 @@ tool() {
 # Exit status: 0 no finding, 1 findings, other = could not run.
 astgrep() {
   if { [ -f bun.lock ] || [ -f bun.lockb ]; } && command -v bunx >/dev/null 2>&1; then
-    bunx -p "@ast-grep/cli@$FORGE_AST_GREP_VERSION" ast-grep "$@" 2>/dev/null
+    astgrep_bunx "$@"
   elif command -v uvx >/dev/null 2>&1; then
     uvx -q --from "ast-grep-cli==$FORGE_AST_GREP_VERSION" ast-grep "$@" 2>/dev/null
     _rc=$?
@@ -15162,10 +15266,22 @@ astgrep() {
     fi
     return "$_rc"
   elif command -v bunx >/dev/null 2>&1; then
-    bunx -p "@ast-grep/cli@$FORGE_AST_GREP_VERSION" ast-grep "$@" 2>/dev/null
+    astgrep_bunx "$@"
   else
     return 127
   fi
+}
+
+# astgrep_bunx <args>: `bunx -p <package> <bin>` installs the package again at every
+# run (about a second); with --no-install it runs the copy in bunx's cache, which is
+# installed first when it is not there (once per shell).
+astgrep_bunx() {
+  if [ -z "${_ag_bunx:-}" ]; then
+    bunx --no-install -p "@ast-grep/cli@$FORGE_AST_GREP_VERSION" ast-grep --version >/dev/null 2>&1 \
+      || bunx -p "@ast-grep/cli@$FORGE_AST_GREP_VERSION" ast-grep --version >/dev/null 2>&1
+    _ag_bunx=1
+  fi
+  bunx --no-install -p "@ast-grep/cli@$FORGE_AST_GREP_VERSION" ast-grep "$@" 2>/dev/null
 }
 
 # first_lines <n>: keep the first n lines of stdin.
@@ -17067,6 +17183,25 @@ forge_filter() {
   return 0
 }
 
+# forge_select <predicate>: FORGE_FILES=$(forge_filter <predicate>), without the
+# subshell (a fork per check and run otherwise).
+forge_select() {
+  FORGE_FILES=''
+  while read -r _ff_line; do
+    [ -n "$_ff_line" ] && "$1" "$_ff_line" && FORGE_FILES="${FORGE_FILES:+$FORGE_FILES
+}$_ff_line"
+  done
+  return 0
+}
+
+# forge_any <predicate>: succeeds when <predicate> holds for a line of stdin.
+forge_any() {
+  while read -r _ff_line; do
+    [ -n "$_ff_line" ] && "$1" "$_ff_line" && return 0
+  done
+  return 1
+}
+
 # forge_db_url: DATABASE_URL from the environment, then .env, then alembic.ini.
 forge_db_url() {
   if [ -n "${DATABASE_URL:-}" ]; then printf '%s' "$DATABASE_URL"; return 0; fi
@@ -18104,9 +18239,9 @@ forge_run_check() {
   FORGE_FILES=''
   if [ "$mode" != --all ]; then
     if [ "$c_when" = 1 ]; then
-      [ -n "$(forge_filter "forge_when_$1" < "$FORGE_TMP/changed")" ] || return 0
+      forge_any "forge_when_$1" < "$FORGE_TMP/changed" || return 0
     fi
-    FORGE_FILES=$(forge_filter "forge_scope_$1" < "$FORGE_TMP/existing")
+    forge_select "forge_scope_$1" < "$FORGE_TMP/existing"
     [ "$c_when" = 1 ] || [ -n "$FORGE_FILES" ] || return 0
   fi
   if _fc_missing=$(forge_missing_tool); then
@@ -18494,7 +18629,8 @@ forge_run_stage() {
     if [ "$c_stage" = "$1" ]; then
       forge_run_check "$_fs_i" > "$FORGE_TMP/check.out"
       case $? in
-        0) cat "$FORGE_TMP/check.out" ;;
+        # most checks print nothing (not in the change): no cat then
+        0) [ ! -s "$FORGE_TMP/check.out" ] || cat "$FORGE_TMP/check.out" ;;
         3) cat "$FORGE_TMP/check.out"; [ "$_fs_rc" -ne 0 ] || _fs_rc=3 ;;
         *)
           # advice goes after every real failure (check.sh prints it last)
@@ -18525,7 +18661,7 @@ forge_file_run() {
   while [ "$_fp_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fp_i"
     if [ "$c_stage" = "$1" ] && [ "$c_files" = 1 ] && ! forge_missing_tool >/dev/null; then
-      FORGE_FILES=$(forge_filter "forge_scope_$_fp_i" < "$2")
+      forge_select "forge_scope_$_fp_i" < "$2"
       if [ -n "$FORGE_FILES" ] && ! forge_exec_check "forge_check_changed_$_fp_i" "$c_timeout"; then
         mv "$FORGE_TMP/out" "$FORGE_TMP/stage-$1.$_fp_i"
         printf '%s\n' "$_fp_i" >> "$FORGE_TMP/stage-$1.failed"
@@ -18577,7 +18713,7 @@ forge_file_fixes() {
   while [ "$_fx_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fx_i"
     if [ "$c_stage" = lint ] && [ "$c_fix" = 1 ] && ! forge_missing_tool >/dev/null; then
-      FORGE_FILES=$(forge_filter "forge_scope_$_fx_i" < "$1")
+      forge_select "forge_scope_$_fx_i" < "$1"
       if [ -n "$FORGE_FILES" ]; then
         forge_exec_check "forge_check_fix_$_fx_i" "$c_timeout"
         # ruff: "Fixed N errors:", then "- <path>:" and "    1 × I001 (unsorted-imports)" lines
@@ -18724,11 +18860,14 @@ forge_types_up() {
     typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" ;;
   esac
   # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a
-  # launcher that fails before (no network for a first download) says "exited <code>"
+  # launcher that fails before (no network for a first download) says "exited <code>".
+  # Those two write on this shell's descriptor (7), not by path: the reader holds the
+  # FIFO open for writing too, so it would wait forever for a line that cannot be
+  # written once the state directory has been removed.
   exec 7<>"$_tu_d/started"
-  { "$@" < /dev/null >> "$_tu_d/log" 2>&1 || printf 'exited %s\n' "$?" 1<>"$_tu_d/started"; } &
+  { "$@" < /dev/null >> "$_tu_d/log" 2>&1 || printf 'exited %s\n' "$?" >&7; } &
   { sleep "${FORGE_TYPES_START_TIMEOUT:-60}" & printf '%s\n' "$!" > "$_tu_d.lock/sleep"; wait "$!"
-    printf 'failed: not started within %ss\n' "${FORGE_TYPES_START_TIMEOUT:-60}" 1<>"$_tu_d/started"; } >/dev/null 2>&1 &
+    printf 'failed: not started within %ss\n' "${FORGE_TYPES_START_TIMEOUT:-60}" >&7; } >/dev/null 2>&1 &
   _tu_w=$!
   IFS= read -r _tu_l <&7
   forge_types_unwatch "$_tu_w" "$_tu_d.lock/sleep"
@@ -19049,14 +19188,14 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/bash-snapshot.sh": "29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e",
     ".claude/skills/forge-project/scripts/guard.rules": "bf28e2c1752c202d3ac96c33fdabe8ae4ff659765ddafe45b4777368573aa186",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
-    ".claude/skills/forge-project/scripts/lib.sh": "f9cb6629b5900b5c8d0891b5d69d0d51cb68108a2c99d1bfad86ddd612b3725a",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "2ff219396714fa6465ba76deb09c353322fd1fead6fcff152ebc8bb88b342b6a",
+    ".claude/skills/forge-project/scripts/lib.sh": "83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "e9c184ec1ea4752be7554dc6399919ba0cd6126eeaa049e202f02fff4358c4d7",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
-    ".claude/skills/forge-project/scripts/session-start.sh": "eaec4b6d411bad65df3137f012d0998cd855b851d294461435e4133a75659a92",
+    ".claude/skills/forge-project/scripts/session-start.sh": "e96e63f90346fc5d92a4c2e7d1fb04d8b90a4c17220b19294a4f2a62f3c2def9",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "d7c00824e12f8b12256bbad8a83e282b3e50b6f127301a001de60cdf08213810",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "9aae65f46f281a9adad40c2f1b56aceb67d155089df458a24d7b70dd7c023b65",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "ec5994f4815a1b7d290ba2611d184576ae55db1561b8bf6ffd9a9e529b3fe0a3",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "8796d2ded99a6cbe8063f8a5d3c6cd9f21a3a6cfc7a5a47d09744bf8d5172921",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml": "c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20",
     ".forge/ast-grep/rule-tests/typescript-no-stub-test.yml": "b02e7e21f6bd597fe4b3d577b3a2cc6dfee9741674cc1cc99285e22ef90a2778",
@@ -19079,7 +19218,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/typescript/vitest/no-tautological-expect.yml": "ec546003dd3fc5a92950f126fc5ffad8599f20b6dd83a0954151758b3481fe8c",
     ".forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml": "240f482cc1062537b49330dd8577e1c128edb7ef60478a042dab716d79c87b42",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "2a0cbf902608801f0fe7fa987f0d3a70c4a439baf9fb81694acdac4bc49849c0",
+    ".forge/check.sh": "97fe141d282012eb196551f9a5f6ada8ef90e0c6066ea2fac605205f2dea2183",
     ".forge/helpers/ratchet.mjs": "14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
@@ -19277,14 +19416,14 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e  .claude/skills/forge-project/scripts/bash-snapshot.sh
 bf28e2c1752c202d3ac96c33fdabe8ae4ff659765ddafe45b4777368573aa186  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
-f9cb6629b5900b5c8d0891b5d69d0d51cb68108a2c99d1bfad86ddd612b3725a  .claude/skills/forge-project/scripts/lib.sh
-2ff219396714fa6465ba76deb09c353322fd1fead6fcff152ebc8bb88b342b6a  .claude/skills/forge-project/scripts/post-edit.sh
+83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5  .claude/skills/forge-project/scripts/lib.sh
+e9c184ec1ea4752be7554dc6399919ba0cd6126eeaa049e202f02fff4358c4d7  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
-eaec4b6d411bad65df3137f012d0998cd855b851d294461435e4133a75659a92  .claude/skills/forge-project/scripts/session-start.sh
+e96e63f90346fc5d92a4c2e7d1fb04d8b90a4c17220b19294a4f2a62f3c2def9  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-d7c00824e12f8b12256bbad8a83e282b3e50b6f127301a001de60cdf08213810  .claude/skills/forge-project/scripts/test-edit.sh
+9aae65f46f281a9adad40c2f1b56aceb67d155089df458a24d7b70dd7c023b65  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-ec5994f4815a1b7d290ba2611d184576ae55db1561b8bf6ffd9a9e529b3fe0a3  .claude/skills/forge-project/scripts/typecheck.sh
+8796d2ded99a6cbe8063f8a5d3c6cd9f21a3a6cfc7a5a47d09744bf8d5172921  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20  .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
 b02e7e21f6bd597fe4b3d577b3a2cc6dfee9741674cc1cc99285e22ef90a2778  .forge/ast-grep/rule-tests/typescript-no-stub-test.yml
@@ -19307,7 +19446,7 @@ db9df1c23a73e64e692caa2aa1014e5987a298613dddc37c9113fcfaf28796c3  .forge/ast-gre
 ec546003dd3fc5a92950f126fc5ffad8599f20b6dd83a0954151758b3481fe8c  .forge/ast-grep/rules/typescript/vitest/no-tautological-expect.yml
 240f482cc1062537b49330dd8577e1c128edb7ef60478a042dab716d79c87b42  .forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-2a0cbf902608801f0fe7fa987f0d3a70c4a439baf9fb81694acdac4bc49849c0  .forge/check.sh
+97fe141d282012eb196551f9a5f6ada8ef90e0c6066ea2fac605205f2dea2183  .forge/check.sh
 14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38  .forge/helpers/ratchet.mjs
 
 ===== .git/hooks/pre-commit

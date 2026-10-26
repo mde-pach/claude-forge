@@ -15,7 +15,8 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { renderChecks, renderLib } from "../../src/render";
-import { commitAll, fakeClaude, forge, git, hasBun, hasUv, hookJson, othersRunning, processesNaming, put, ROOT, sh, stateDir, stopEngines, TOOL_VERSIONS } from "../helpers";
+import { ENGINE_PYTHON, TY_VERSION } from "../../src/util";
+import { commitAll, fakeClaude, fixture, forge, git, hasBun, hasUv, hookJson, othersRunning, processesNaming, put, ROOT, sh, stateDir, stopEngines, TOOL_VERSIONS } from "../helpers";
 
 const T = 300_000;
 const SCRIPTS = ".claude/skills/forge-project/scripts";
@@ -57,17 +58,20 @@ function ended(pids: string[]): string[] {
   return running(pids);
 }
 
-/** A git repository from tests/generator/<sample> (or empty) with <setup> run, committed, and forge applied. */
-function project(sample: string | undefined, setup: (dir: string) => void): string {
-  const dir = mkdtempSync(join(tmpdir(), "forge-types-"));
-  if (sample) cpSync(join(ROOT, "tests", "generator", sample), dir, { recursive: true });
-  setup(dir);
-  git(dir, "init", "-q", "-b", "main");
-  commitAll(dir, "init");
-  const r = forge(["apply", "--yes"], dir, { ...fakeClaude() });
-  if (r.status !== 0) throw new Error(`forge apply failed:\n${r.stdout}\n${r.stderr}`);
-  commitAll(dir, "forge");
-  return dir;
+/**
+ * A git repository from tests/generator/<sample> (or empty) with <setup> run, committed,
+ * and forge applied: a fixture (helpers.ts), built once per run under <key>.
+ */
+function project(key: string, sample: string | undefined, setup: (dir: string) => void): string {
+  return fixture(`types-${key}`, (dir) => {
+    if (sample) cpSync(join(ROOT, "tests", "generator", sample), dir, { recursive: true });
+    setup(dir);
+    git(dir, "init", "-q", "-b", "main");
+    commitAll(dir, "init");
+    const r = forge(["apply", "--yes"], dir, { ...fakeClaude() });
+    if (r.status !== 0) throw new Error(`forge apply failed:\n${r.stdout}\n${r.stderr}`);
+    commitAll(dir, "forge");
+  });
 }
 
 /**
@@ -95,7 +99,7 @@ const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.len
 describe.if(hasUv)("Python: the receiver's type, through ty", () => {
   let repo = "";
   beforeAll(() => {
-    repo = project("fastapi-app", (dir) => {
+    repo = project("sqlalchemy", "fastapi-app", (dir) => {
       expect(sh("uv", ["venv", "-q", "--python", "3.12", join(dir, ".venv")]).status).toBe(0);
       expect(sh("uv", ["pip", "install", "-q", "--python", join(dir, ".venv/bin/python"), "sqlalchemy==2.0.44"]).status).toBe(0);
     });
@@ -267,6 +271,56 @@ describe.if(hasUv)("Python: the receiver's type, through ty", () => {
     },
     T,
   );
+
+  test(
+    "two daemons on one state directory (a start whose starter was killed, racing with the next): the one its pid file does not name exits while lines keep coming, and the other once the state directory and the repository are gone",
+    () => {
+      const root = mkdtempSync(join(tmpdir(), "forge-twin-root-"));
+      writeFileSync(join(root, "a.py"), "x = 1\n");
+      const state = mkdtempSync(join(tmpdir(), "forge-twin-state-"));
+      // as forge_types_up starts one, twice on the same FIFOs
+      const start = sh(
+        "sh",
+        [
+          "-c",
+          'mkfifo "$2/in" "$2/started" && exec 7<>"$2/started" || exit 1\n' +
+            'for i in 1 2; do uvx -q --python "$3" --from "ty==$4" python "$5" "$1" "$2" < /dev/null >> "$2/log" 2>&1 & done\n' +
+            'read -r a <&7; read -r b <&7; echo "$a"; echo "$b"',
+          "sh",
+          root,
+          state,
+          ENGINE_PYTHON,
+          TY_VERSION,
+          join(repo, ".forge/helpers/types_python.py"),
+        ],
+        { cwd: root, env: ENV },
+      );
+      expect(start.stdout.split("\n").filter((l) => l.startsWith("ready ty "))).toHaveLength(2);
+      const twins = processesNaming(state);
+      expect(twins).toHaveLength(2);
+      const tree = (p: string): string[] => [p, ...sh("pgrep", ["-P", p]).stdout.split("\n").filter(Boolean).flatMap(tree)];
+      const all = twins.flatMap(tree);
+      try {
+        const owner = readFileSync(join(state, "pid"), "utf8").trim();
+        const other = twins.filter((p) => p !== owner);
+        expect(other).toHaveLength(1);
+        // lines keep coming, each read by one of the two
+        for (let i = 0; i < 150 && running(other).length; i++) {
+          sh("sh", ["-c", 'printf "changed\\ta.py\\n" 1<>"$1/in"', "sh", state]);
+          Bun.sleepSync(100);
+        }
+        expect(running(other)).toEqual([]);
+        expect(running([owner])).toEqual([owner]);
+        rmSync(state, { recursive: true, force: true });
+        rmSync(root, { recursive: true, force: true });
+        for (let i = 0; i < 150 && running(all).length; i++) Bun.sleepSync(100);
+        expect(running(all)).toEqual([]);
+      } finally {
+        for (const p of running(all)) sh("kill", ["-9", p]);
+      }
+    },
+    T,
+  );
 });
 
 /**
@@ -278,7 +332,7 @@ describe.if(hasUv)("Python: the receiver's type, through ty", () => {
 describe.each(TOOL_VERSIONS.typescriptEngines.map((v) => [v]))("TypeScript %s: the receiver's type, through the project's TypeScript", (version) => {
   let repo = "";
   beforeAll(() => {
-    repo = project(undefined, (dir) => {
+    repo = project(`zod-typescript-${version}`, undefined, (dir) => {
       mkdirSync(join(dir, "src"));
       writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "zod-app", private: true, type: "module", dependencies: { zod: "4.1.12" }, devDependencies: { typescript: version } }));
       writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ compilerOptions: { strict: true, module: "ESNext", moduleResolution: "bundler", target: "ES2022", noEmit: true } }));
@@ -358,7 +412,7 @@ describe.each(TOOL_VERSIONS.typescriptEngines.map((v) => [v]))("TypeScript %s: t
 test(
   "a project without its own TypeScript package gets its typed matches reported unchecked, never passed",
   () => {
-    const repo = project(undefined, (dir) => {
+    const repo = project("zod-no-typescript", undefined, (dir) => {
       mkdirSync(join(dir, "src"));
       writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "no-ts", private: true, type: "module", dependencies: { zod: "4.1.12" } }));
       writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ compilerOptions: { strict: true, noEmit: true } }));
@@ -374,6 +428,41 @@ test(
     } finally {
       stopEngines(repo);
     }
+  },
+  T,
+);
+
+/** @rule python/sqlalchemy/no-query-api */
+test(
+  "a start whose state directory is removed while the engine is starting still ends: the start timeout's line reaches the starter",
+  () => {
+    const dir = mkdtempSync(join(tmpdir(), "forge-start-gone-"));
+    const state = join(dir, "state");
+    // a launcher that hangs (a first download that never ends): the engine never says it is ready
+    const bin = join(dir, "bin");
+    mkdirSync(bin);
+    writeFileSync(join(bin, "uvx"), "#!/bin/sh\nexec sleep 5\n");
+    sh("chmod", ["+x", join(bin, "uvx")]);
+    const script = join(dir, "start.sh");
+    writeFileSync(
+      script,
+      [
+        renderLib(),
+        "IFS='\n'",
+        renderChecks([], [], ["python"]),
+        `FORGE_STATE='${state}'`,
+        '( forge_types_up python; echo "rc=$?" ) & p=$!',
+        // the state directory goes away while the engine starts (a test's cleanup, a repository deleted)
+        `n=0; until [ -p '${state}/types/python/started' ] || [ "$n" -ge 100 ]; do sleep 0.1; n=$((n + 1)); done; rm -rf '${state}'`,
+        "( sleep 20; kill $p ) 2>/dev/null & w=$!",
+        'wait "$p"; kill "$w" 2>/dev/null',
+      ].join("\n"),
+    );
+    const t = performance.now();
+    const r = sh("sh", [script], { cwd: dir, env: { FORGE_TYPES_START_TIMEOUT: "2", PATH: `${bin}:${process.env.PATH}` } });
+    expect(r.stdout).toContain("did not start: failed: not started within 2s");
+    expect(r.stdout).toContain("rc=1");
+    expect(performance.now() - t).toBeLessThan(20_000);
   },
   T,
 );

@@ -1229,6 +1229,25 @@ forge_filter() {
   return 0
 }
 
+# forge_select <predicate>: FORGE_FILES=$(forge_filter <predicate>), without the
+# subshell (a fork per check and run otherwise).
+forge_select() {
+  FORGE_FILES=''
+  while read -r _ff_line; do
+    [ -n "$_ff_line" ] && "$1" "$_ff_line" && FORGE_FILES="${FORGE_FILES:+$FORGE_FILES
+}$_ff_line"
+  done
+  return 0
+}
+
+# forge_any <predicate>: succeeds when <predicate> holds for a line of stdin.
+forge_any() {
+  while read -r _ff_line; do
+    [ -n "$_ff_line" ] && "$1" "$_ff_line" && return 0
+  done
+  return 1
+}
+
 # forge_db_url: DATABASE_URL from the environment, then .env, then alembic.ini.
 forge_db_url() {
   if [ -n "${DATABASE_URL:-}" ]; then printf '%s' "$DATABASE_URL"; return 0; fi
@@ -2266,9 +2285,9 @@ forge_run_check() {
   FORGE_FILES=''
   if [ "$mode" != --all ]; then
     if [ "$c_when" = 1 ]; then
-      [ -n "$(forge_filter "forge_when_$1" < "$FORGE_TMP/changed")" ] || return 0
+      forge_any "forge_when_$1" < "$FORGE_TMP/changed" || return 0
     fi
-    FORGE_FILES=$(forge_filter "forge_scope_$1" < "$FORGE_TMP/existing")
+    forge_select "forge_scope_$1" < "$FORGE_TMP/existing"
     [ "$c_when" = 1 ] || [ -n "$FORGE_FILES" ] || return 0
   fi
   if _fc_missing=$(forge_missing_tool); then
@@ -2656,7 +2675,8 @@ forge_run_stage() {
     if [ "$c_stage" = "$1" ]; then
       forge_run_check "$_fs_i" > "$FORGE_TMP/check.out"
       case $? in
-        0) cat "$FORGE_TMP/check.out" ;;
+        # most checks print nothing (not in the change): no cat then
+        0) [ ! -s "$FORGE_TMP/check.out" ] || cat "$FORGE_TMP/check.out" ;;
         3) cat "$FORGE_TMP/check.out"; [ "$_fs_rc" -ne 0 ] || _fs_rc=3 ;;
         *)
           # advice goes after every real failure (check.sh prints it last)
@@ -2687,7 +2707,7 @@ forge_file_run() {
   while [ "$_fp_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fp_i"
     if [ "$c_stage" = "$1" ] && [ "$c_files" = 1 ] && ! forge_missing_tool >/dev/null; then
-      FORGE_FILES=$(forge_filter "forge_scope_$_fp_i" < "$2")
+      forge_select "forge_scope_$_fp_i" < "$2"
       if [ -n "$FORGE_FILES" ] && ! forge_exec_check "forge_check_changed_$_fp_i" "$c_timeout"; then
         mv "$FORGE_TMP/out" "$FORGE_TMP/stage-$1.$_fp_i"
         printf '%s\n' "$_fp_i" >> "$FORGE_TMP/stage-$1.failed"
@@ -2739,7 +2759,7 @@ forge_file_fixes() {
   while [ "$_fx_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fx_i"
     if [ "$c_stage" = lint ] && [ "$c_fix" = 1 ] && ! forge_missing_tool >/dev/null; then
-      FORGE_FILES=$(forge_filter "forge_scope_$_fx_i" < "$1")
+      forge_select "forge_scope_$_fx_i" < "$1"
       if [ -n "$FORGE_FILES" ]; then
         forge_exec_check "forge_check_fix_$_fx_i" "$c_timeout"
         # ruff: "Fixed N errors:", then "- <path>:" and "    1 × I001 (unsorted-imports)" lines
@@ -2886,11 +2906,14 @@ forge_types_up() {
     typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" ;;
   esac
   # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a
-  # launcher that fails before (no network for a first download) says "exited <code>"
+  # launcher that fails before (no network for a first download) says "exited <code>".
+  # Those two write on this shell's descriptor (7), not by path: the reader holds the
+  # FIFO open for writing too, so it would wait forever for a line that cannot be
+  # written once the state directory has been removed.
   exec 7<>"$_tu_d/started"
-  { "$@" < /dev/null >> "$_tu_d/log" 2>&1 || printf 'exited %s\n' "$?" 1<>"$_tu_d/started"; } &
+  { "$@" < /dev/null >> "$_tu_d/log" 2>&1 || printf 'exited %s\n' "$?" >&7; } &
   { sleep "${FORGE_TYPES_START_TIMEOUT:-60}" & printf '%s\n' "$!" > "$_tu_d.lock/sleep"; wait "$!"
-    printf 'failed: not started within %ss\n' "${FORGE_TYPES_START_TIMEOUT:-60}" 1<>"$_tu_d/started"; } >/dev/null 2>&1 &
+    printf 'failed: not started within %ss\n' "${FORGE_TYPES_START_TIMEOUT:-60}" >&7; } >/dev/null 2>&1 &
   _tu_w=$!
   IFS= read -r _tu_l <&7
   forge_types_unwatch "$_tu_w" "$_tu_d.lock/sleep"

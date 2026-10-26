@@ -200,11 +200,13 @@ export interface CheckExampleRun {
 
 const SNAP = ".forge/state/example.turn";
 /**
- * One example's run, after its repository holds the head files: commits them, records the
- * turn's start (the snapshot turn-start.sh would write: that head, a clean tree), writes
- * the fixture's files (staged in $1) and stages them, then runs check.sh (its mode in $2…).
+ * One example's run, after its repository holds the head files: commits them (without
+ * git's automatic maintenance, which a commit starts in the background: a throwaway
+ * repository needs none), records the turn's start (the snapshot turn-start.sh would
+ * write: that head, a clean tree), writes the fixture's files (staged in $1) and stages
+ * them, then runs check.sh (its mode in $2…).
  */
-const EXAMPLE_RUN = `g() ( export ${Object.entries(GIT_ENV).map(([k, v]) => `${k}=${v}`).join(" ")}; exec git "$@" )
+const EXAMPLE_RUN = `g() ( export ${Object.entries(GIT_ENV).map(([k, v]) => `${k}=${v}`).join(" ")}; exec git -c maintenance.auto=false "$@" )
 g init -q -b main
 g add -A
 g commit -qm head --allow-empty

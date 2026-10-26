@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { spawnSync, type SpawnSyncOptions } from "node:child_process";
-import { existsSync } from "node:fs";
-import { availableParallelism } from "node:os";
+import { closeSync, existsSync, mkdtempSync, openSync, readFileSync, rmSync } from "node:fs";
+import { availableParallelism, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -53,13 +53,29 @@ export interface RunResult {
   stderr: string;
 }
 
+/**
+ * spawnSync with the output written to temporary files instead of pipes: under load,
+ * Bun's spawnSync (1.3) can return a pipe's output empty although the process wrote it
+ * (Forge's own test suite and `bun run test:packs` run this code under Bun). env:
+ * process.env is Node's default; Bun's is the environment the process started with.
+ */
+export function spawnCaptured(cmd: string, args: string[], opts: SpawnSyncOptions = {}): { status: number | null; error?: Error; stdout: string; stderr: string } {
+  const dir = mkdtempSync(join(tmpdir(), "forge-run-"));
+  const out = openSync(join(dir, "out"), "w");
+  const err = openSync(join(dir, "err"), "w");
+  try {
+    const r = spawnSync(cmd, args, { env: process.env, ...opts, stdio: ["pipe", out, err] });
+    return { status: r.status, error: r.error, stdout: readFileSync(join(dir, "out"), "utf8"), stderr: readFileSync(join(dir, "err"), "utf8") };
+  } finally {
+    closeSync(out);
+    closeSync(err);
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 export function run(cmd: string, args: string[], opts: SpawnSyncOptions = {}): RunResult {
-  const r = spawnSync(cmd, args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, ...opts });
-  return {
-    status: r.status ?? (r.error ? 127 : 1),
-    stdout: String(r.stdout ?? ""),
-    stderr: String(r.stderr ?? ""),
-  };
+  const r = spawnCaptured(cmd, args, opts);
+  return { status: r.status ?? (r.error ? 127 : 1), stdout: r.stdout, stderr: r.stderr };
 }
 
 /** A process for runParallel: env holds overrides of the current environment. */
@@ -98,7 +114,7 @@ Promise.all(Array.from({ length: Math.min(n, jobs.length) }, async () => {
  */
 export function runParallel(jobs: Job[], n = availableParallelism()): RunResult[] {
   if (jobs.length < 2 || n < 2) return jobs.map((j) => run(j.cmd, j.args, { cwd: j.cwd, env: { ...process.env, ...j.env }, input: j.input ?? "" }));
-  const r = spawnSync(process.execPath, ["-e", POOL, String(n)], { input: JSON.stringify(jobs), encoding: "utf8", maxBuffer: 512 * 1024 * 1024 });
+  const r = spawnCaptured(process.execPath, ["-e", POOL, String(n)], { input: JSON.stringify(jobs) });
   if (r.status !== 0) throw new Error(`forge: the process pool failed: ${String(r.stderr || r.error || "").trim()}`);
   return JSON.parse(r.stdout) as RunResult[];
 }

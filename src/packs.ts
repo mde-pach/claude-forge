@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { satisfies, minVersion, coerce, validRange } from "semver";
 import { parse as parseJsonc } from "jsonc-parser/lib/esm/main.js";
 import { parse as parseToml } from "smol-toml";
@@ -85,6 +85,42 @@ export function loadPacks(packsDir: string): Map<string, Pack> {
   }
   for (const pack of packs.values())
     for (const req of pack.requires) if (!packs.has(req)) throw new Error(`pack ${pack.id}: requires unknown pack ${req}`);
+  return packs;
+}
+
+/**
+ * dist/packs.json, written by `bun run build`: the shipped packs as loadPacks reads (and
+ * validates) them, with their paths relative to the packs directory. The CLI reads it
+ * (shippedPacks) instead of parsing and validating every pack and rule file at each run.
+ */
+export function packBundle(packsDir: string): string {
+  const rel = (p: string) => relative(packsDir, p);
+  // null for the fields loadPacks leaves undefined: the keys keep their place
+  return JSON.stringify(
+    [...loadPacks(packsDir).values()].map((p) => ({
+      ...p,
+      dir: rel(p.dir),
+      parent: p.parent ?? null,
+      context: p.context ?? null,
+      initDir: p.initDir === undefined ? null : rel(p.initDir),
+      rules: p.rules.map((r) => ({ ...r, file: rel(r.file) })),
+    })),
+  );
+}
+
+/** The packs of a packBundle, their paths in <packsDir>: what loadPacks(packsDir) returned when it was written. */
+export function loadPackBundle(bundleFile: string, packsDir: string): Map<string, Pack> {
+  type Bundled = Omit<Pack, "parent" | "context" | "initDir"> & { parent: string | null; context: string | null; initDir: string | null };
+  const packs = new Map<string, Pack>();
+  for (const p of JSON.parse(readFileSync(bundleFile, "utf8")) as Bundled[])
+    packs.set(p.id, {
+      ...p,
+      dir: join(packsDir, p.dir),
+      parent: p.parent ?? undefined,
+      context: p.context ?? undefined,
+      initDir: p.initDir === null ? undefined : join(packsDir, p.initDir),
+      rules: p.rules.map((r) => ({ ...r, file: join(packsDir, r.file) })),
+    });
   return packs;
 }
 

@@ -14,8 +14,11 @@
 // the number of processes at a time (default: the CPU count). Shared work
 // that would race between processes happens once, first: the tool caches (ensureTools,
 // ensureVueTools, ensureTs5) and the bunx/uvx caches of the pinned ast-grep and Squawk.
+// FORGE_PROF_DIR=<dir> keeps each shard's JUnit report there and writes shards.tsv (shard,
+// file, tests, planned cost, start and wall in seconds, exit status), for profiling.
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { rm } from "node:fs/promises";
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { availableParallelism, tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { AST_GREP_VERSION, SQUAWK_VERSION } from "../src/util";
@@ -86,11 +89,15 @@ async function pool<T, R>(items: T[], n: number, fn: (item: T) => Promise<R>): P
  * ("Failed to link @ast-grep/cli: EEXIST"); one shard runs one at a time.
  */
 const shardTmps: string[] = [];
+const removing: Promise<void>[] = [];
+/** The prepared repositories of the run (tests/helpers.ts fixture), shared by the shards. */
+const fixtures = join(work, "fixtures");
+mkdirSync(fixtures);
 function shardEnv(): Record<string, string | undefined> {
   // short: sockets under it must fit in 104 bytes
   const tmp = mkdtempSync(join(tmpdir(), "fs-"));
   shardTmps.push(tmp);
-  const env: Record<string, string | undefined> = { ...process.env, FORGE_TOOLS_CACHE: TOOLS_CACHE, TMPDIR: `${tmp}/` };
+  const env: Record<string, string | undefined> = { ...process.env, FORGE_TOOLS_CACHE: TOOLS_CACHE, FORGE_TEST_FIXTURES: fixtures, TMPDIR: `${tmp}/` };
   delete env.FORGE_STATE_HOME;
   return env;
 }
@@ -144,8 +151,14 @@ function parseJUnit(xml: string): Case[] {
 // ------------------------------------------------------------------ timings
 
 interface FileTimings {
-  /** wall time of a run of the whole file minus the time of its tests: start-up, beforeAll */
+  /** wall time of a run of the whole file minus the time of its tests: start-up, beforeAll (the least of its shards') */
   overhead: number;
+  /**
+   * the most of its shards': a shard that runs several describe blocks pays their
+   * beforeAll each, and one that waits (engines starting) more than its tests' CPU;
+   * it orders the shards, so such a shard starts early instead of ending the phase late
+   */
+  overheadMax?: number;
   tests: Record<string, number>;
 }
 const timingsPath = join(ROOT, "node_modules", ".cache", "forge-spec-timings.json");
@@ -206,13 +219,14 @@ async function plan(): Promise<Shard[]> {
     const testTime = t ? Object.values(t.tests).reduce((a, b) => a + b, 0) : 0;
     // splitting repeats the file's overhead in every shard: each shard's tests take at least twice as long
     const k = t ? Math.min(Math.ceil(testTime / target), Math.floor(testTime / (2 * t.overhead)), 64) : 0;
+    const most = t ? (t.overheadMax ?? t.overhead) : 0;
     if (k < 2) {
-      shards.push({ file, cost: t ? t.overhead + testTime : 1e6 });
+      shards.push({ file, cost: t ? most + testTime : 1e6 });
       return;
     }
     const names = [...new Set((await listTests(file)).map((c) => c.full))];
     if (names.length < 2) {
-      shards.push({ file, cost: t!.overhead + testTime });
+      shards.push({ file, cost: most + testTime });
       return;
     }
     // longest first, each to the cheapest of k shards
@@ -223,7 +237,7 @@ async function plan(): Promise<Shard[]> {
       bin.names.push(n);
       bin.cost += t!.tests[n] ?? median;
     }
-    for (const b of bins) shards.push({ file, names: b.names, cost: b.cost });
+    for (const b of bins) shards.push({ file, names: b.names, cost: b.cost - t!.overhead + most });
   });
   return shards.sort((a, b) => b.cost - a.cost);
 }
@@ -234,6 +248,8 @@ interface ShardResult {
   s: Shard;
   cases: Case[];
   wall: number;
+  /** cases with the results of the tests that ran again alone (the quiet run) */
+  merged?: Case[];
 }
 let failedShards = 0;
 let shardNo = 0;
@@ -242,8 +258,17 @@ async function runShard(s: Shard, env: Record<string, string | undefined>): Prom
   const args = ["test", "--timeout", T, ...passThrough, s.file, "--reporter=junit", `--reporter-outfile=${out}`];
   if (s.names) args.push("-t", `^(?:${s.names.map(escapeRe).join("|")})$`);
   const t0 = performance.now();
-  const r = await run("bun", args, env);
+  const no = shardNo - 1;
+  const tmp = (env.TMPDIR ?? "").replace(/\/$/, "");
+  // profiling (FORGE_PROF_DIR): the shard's number for the exec tracer, its timeline and report kept
+  const r = await run("bun", args, process.env.FORGE_PROF_DIR ? { ...env, FORGE_PROF_SHARD: `s${no}` } : env);
   const wall = (performance.now() - t0) / 1000;
+  // its temporary directory goes while the other shards run (removing them all at the end took seconds)
+  if (shardTmps.includes(tmp)) removing.push(rm(tmp, { recursive: true, force: true }).catch(() => {}));
+  if (process.env.FORGE_PROF_DIR) {
+    if (existsSync(out)) writeFileSync(join(process.env.FORGE_PROF_DIR, `shard-s${no}.xml`), readFileSync(out));
+    appendFileSync(join(process.env.FORGE_PROF_DIR, "shards.tsv"), `s${no}\t${s.file}\t${s.names?.length ?? "all"}\t${s.cost.toFixed(1)}\t${((t0 - started) / 1000).toFixed(2)}\t${wall.toFixed(2)}\t${r.status}\n`);
+  }
   let cases = existsSync(out) ? parseJUnit(readFileSync(out, "utf8")) : [];
   if (s.names) {
     const want = new Set(s.names);
@@ -261,27 +286,51 @@ async function runShard(s: Shard, env: Record<string, string | undefined>): Prom
 await prepare();
 const shards = await plan();
 const prepared = performance.now();
+if (process.env.FORGE_PROF_DIR) appendFileSync(join(process.env.FORGE_PROF_DIR, "shards.tsv"), `prepare\t-\t-\t-\t0\t${((prepared - started) / 1000).toFixed(2)}\t0\n`);
 // every shard, many at a time; tests that need a quiet machine skip themselves (helpers.ts othersRunning)
 const quietList = join(work, "quiet");
-const results = await pool(shards, jobs, (s) => runShard(s, { ...shardEnv(), FORGE_TEST_PHASE: "parallel", FORGE_TEST_QUIET_LIST: quietList }));
-// then those tests, alone: the tests their files skipped
-const quietFiles = existsSync(quietList) ? [...new Set(readFileSync(quietList, "utf8").split("\n").filter(Boolean).map((f) => relative(ROOT, f)))] : [];
-for (const file of quietFiles) {
-  const skipped = results.flatMap((r) => (r.s.file === file ? r.cases.filter((c) => c.skipped) : []));
-  if (!skipped.length) continue;
-  const again = await runShard({ file, names: [...new Set(skipped.map((c) => c.full))], cost: 0 }, shardEnv());
+const quietFiles = () => (existsSync(quietList) ? new Set(readFileSync(quietList, "utf8").split("\n").filter(Boolean).map((f) => relative(ROOT, f))) : new Set<string>());
+// Those tests run again, alone. Once every shard of their file has ended, the run of the
+// tests it skipped starts, so its beforeAll prepares during the parallel phase; its tests
+// wait for their go (FORGE_TEST_GO), given once the parallel phase has ended and every
+// such run is waiting, one file at a time.
+const quiet: { file: string; go: string; run: Promise<ShardResult>; ended?: boolean }[] = [];
+const left = new Map<string, number>();
+for (const s of shards) left.set(s.file, (left.get(s.file) ?? 0) + 1);
+const ended: ShardResult[] = [];
+const results = await pool(shards, jobs, async (s) => {
+  const r = await runShard(s, { ...shardEnv(), FORGE_TEST_PHASE: "parallel", FORGE_TEST_QUIET_LIST: quietList });
+  ended.push(r);
+  left.set(s.file, left.get(s.file)! - 1);
+  if (left.get(s.file) === 0 && quietFiles().has(s.file)) {
+    const skipped = ended.flatMap((e) => (e.s.file === s.file ? e.cases.filter((c) => c.skipped) : []));
+    const go = join(work, `go-${quiet.length}`);
+    if (skipped.length) {
+      const q: (typeof quiet)[number] = { file: s.file, go, run: runShard({ file: s.file, names: [...new Set(skipped.map((c) => c.full))], cost: 0 }, { ...shardEnv(), FORGE_TEST_PHASE: "quiet", FORGE_TEST_GO: go }) };
+      void q.run.then(() => (q.ended = true));
+      quiet.push(q);
+    }
+  }
+  return r;
+});
+// nothing else runs: every quiet run is waiting for its go (or has ended)
+while (!quiet.every((q) => q.ended || existsSync(`${q.go}.ready`))) await Bun.sleep(50);
+for (const q of quiet) {
+  writeFileSync(q.go, "");
+  const again = await q.run;
   const done = new Map(again.cases.map((c) => [c.full, c]));
-  for (const r of results) if (r.s.file === file) r.cases = r.cases.map((c) => (c.skipped && done.get(c.full)) || c);
+  for (const r of results) if (r.s.file === q.file) r.merged = r.cases.map((c) => (c.skipped && done.get(c.full)) || c);
 }
 
-// timings for the next plan: per test, and per file the overhead of a shard
+// timings for the next plan: per test, and per file the overhead of a shard, as in the
+// parallel phase (a test that runs alone afterwards is skipped there: 0)
 const next: Record<string, FileTimings> = { ...timings };
 for (const file of files) {
   const rs = results.filter((r) => r.s.file === file);
   const tests: Record<string, number> = {};
   for (const r of rs) for (const c of r.cases) tests[c.full] = c.time;
   const overheads = rs.map((r) => r.wall - r.cases.reduce((a, c) => a + c.time, 0));
-  next[file] = { overhead: Math.max(0.3, Math.min(...overheads)), tests };
+  next[file] = { overhead: Math.max(0.3, Math.min(...overheads)), overheadMax: Math.max(0.3, ...overheads), tests };
 }
 try {
   mkdirSync(join(ROOT, "node_modules", ".cache"), { recursive: true });
@@ -291,14 +340,14 @@ try {
     writeFileSync(
       seedPath,
       JSON.stringify(
-        Object.fromEntries(files.map((f) => [f, { overhead: round(next[f]!.overhead), tests: Object.fromEntries(Object.entries(next[f]!.tests).map(([k, v]) => [k, round(v)])) }])),
+        Object.fromEntries(files.map((f) => [f, { overhead: round(next[f]!.overhead), overheadMax: round(next[f]!.overheadMax!), tests: Object.fromEntries(Object.entries(next[f]!.tests).map(([k, v]) => [k, round(v)])) }])),
         null,
         1,
       ) + "\n",
     );
 } catch {}
 
-const all = results.flatMap((r) => r.cases);
+const all = results.flatMap((r) => r.merged ?? r.cases);
 const pass = all.filter((c) => !c.failed && !c.skipped).length;
 const skip = all.filter((c) => c.skipped).length;
 const fail = all.filter((c) => c.failed).length;
@@ -313,6 +362,7 @@ if (junit) {
   mkdirSync(join(junit, ".."), { recursive: true });
   writeFileSync(junit, `<?xml version="1.0" encoding="UTF-8"?>\n<testsuites name="bun test" tests="${all.length}" failures="${fail}" skipped="${skip}" time="${((performance.now() - started) / 1000).toFixed(3)}">\n${suites.join("\n")}\n</testsuites>\n`);
 }
+await Promise.all(removing);
 for (const d of [work, ...shardTmps]) rmSync(d, { recursive: true, force: true });
 const done = performance.now();
 console.log(

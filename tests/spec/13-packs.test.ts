@@ -14,7 +14,7 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadPacks } from "../../src/packs";
+import { loadPackBundle, loadPacks } from "../../src/packs";
 import { checkExamplesOptional, hadolintIntegrity, permissionMatches, runCheckExample, selfTest, type TestReport } from "../../src/selftest";
 import { ensureTools, ensureVueTools, forge, ROOT, sh, TOOLS_CACHE } from "../helpers";
 import type { CheckTarget } from "../../src/types";
@@ -68,6 +68,13 @@ describe("every pack", () => {
 test("forge test passes on the shipped packs and counts every rule file", () => {
   expect(report.failures).toEqual([]);
   expect(report.counts.rules).toBe(rules.length);
+});
+
+/** The CLI reads the shipped packs from the build's bundle; it holds what loadPacks reads from packs/, fields and their order included. */
+test("dist/packs.json, which forge reads, is the packs directory as loaded and validated from its files", () => {
+  const bundled = loadPackBundle(join(ROOT, "dist", "packs.json"), join(ROOT, "packs"));
+  expect(bundled).toStrictEqual(packs);
+  expect(JSON.stringify([...bundled])).toBe(JSON.stringify([...packs]));
 });
 
 /** Pack authors run the self-test with `bun run test:packs` (scripts/test-packs.ts); the published CLI has no such command. */

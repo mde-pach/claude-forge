@@ -12,7 +12,7 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSyn
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { renderChecks } from "../../src/render";
-import { applied, commitAll, ensureTools, forge, git, hasBun, hasUv, hookJson, linkTools, put, sampleRepo, sh, stateDir, stopEngines, TOOLS_CACHE } from "../helpers";
+import { applied, commitAll, copyRepo, ensureTools, fixture, forge, git, hasBun, hasUv, hookJson, linkTools, put, sampleRepo, sh, stateDir, stopEngines, TOOLS_CACHE } from "../helpers";
 
 const T = 180_000;
 const SCRIPTS = ".claude/skills/forge-project/scripts";
@@ -1152,11 +1152,18 @@ describe("Stop", () => {
     "the checks of a Stop share one time budget under the hook's timeout: a check still running when it runs out is stopped and blocks, saying so",
     () => {
       stubTool("pytest", "sleep 60; exit 0");
+      // A clock that stands still (date +%s; anything else is the real date): the checks
+      // before pytest take no time from the budget however busy the machine is, so the
+      // check still running when it runs out is pytest. What is tested is how the hooks
+      // share the budget, not the clock; the stop itself is a real sleep of the budget.
+      const clock = mkdtempSync(join(tmpdir(), "forge-clock-"));
+      writeFileSync(join(clock, "date"), `#!/bin/sh\n[ "$*" = +%s ] || exec /bin/date "$@"\n[ -s "${clock}/now" ] || /bin/date +%s > "${clock}/now"\ncat "${clock}/now"\n`);
+      chmodSync(join(clock, "date"), 0o755);
       try {
         hook("turn-start.sh", { session_id: "t-budget" });
         put(repo, "app/main.py", 'async def health() -> dict[str, str]:\n    return {"status": "ok"}  # turn-change\n');
         const t0 = performance.now();
-        const out = JSON.parse(hook("stop.sh", { session_id: "t-budget" }, { FORGE_STOP_BUDGET: "6" }).stdout);
+        const out = JSON.parse(hook("stop.sh", { session_id: "t-budget" }, { FORGE_STOP_BUDGET: "6", PATH: `${clock}:${process.env.PATH}` }).stdout);
         expect(performance.now() - t0).toBeLessThan(30_000);
         expect(out.decision).toBe("block");
         expect(out.reason).toMatch(/forge:python\/pytest\/run failed: stopped after \d+s: the Stop hook's time budget \(6 s, FORGE_STOP_BUDGET\) ran out/);
@@ -1624,14 +1631,15 @@ describe("failing tests at the start of the turn", () => {
  */
 describe("errors in unchanged files", () => {
   function legacyRepo(): string {
-    ensureTools();
-    const r = sampleRepo("eslint-app");
-    linkTools(r, "node");
-    put(r, "src/legacy.ts", 'export const legacy: number = "oops";\n');
-    commitAll(r, "legacy");
-    expect(forge(["apply", "--yes"], r).status).toBe(0);
-    commitAll(r, "forge");
-    return r;
+    return fixture("eslint-app-legacy", (r) => {
+      ensureTools();
+      copyRepo(sampleRepo("eslint-app"), r);
+      linkTools(r, "node");
+      put(r, "src/legacy.ts", 'export const legacy: number = "oops";\n');
+      commitAll(r, "legacy");
+      expect(forge(["apply", "--yes"], r).status).toBe(0);
+      commitAll(r, "forge");
+    });
   }
 
   /** @rule typescript/typecheck */

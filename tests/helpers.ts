@@ -1,8 +1,8 @@
-import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { appendFileSync, chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { appendFileSync, chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, relative } from "node:path";
+import { dirname, join, relative } from "node:path";
+import { spawnCaptured } from "../src/util";
 
 export const ROOT = join(import.meta.dir, "..");
 export const FORGE = join(ROOT, "dist", "forge.js");
@@ -13,28 +13,45 @@ process.env.FORGE_STATE_HOME ||= mkdtempSync(join(tmpdir(), "forge-state-home-")
 
 /**
  * Version-manager shims (pyenv's `pyenv exec "$program"` scripts) cost about 200 ms per
- * call, and the hooks and checks call uv, uvx, ruff and python many times. The suite
- * resolves them once: a directory of symlinks to the executables the shims would run
- * (looked up from a temporary directory, where the hooks run), ahead of PATH. The tools
- * are the same; only the shim's lookup is skipped. A parent that did it already (the
+ * call, and the hooks and checks call uv, uvx, ruff and python many times; with the
+ * shims' directory on PATH, `uvx --python 3.12` also runs the python3.12 shim in its
+ * interpreter discovery (300 ms more per call). The suite resolves them once: a
+ * directory of symlinks to the executables the shims would run (looked up from a
+ * temporary directory, where the hooks run), ahead of PATH, and the shims' directory
+ * off PATH. The tools are the same; only the shim's lookup is skipped. On macOS,
+ * /usr/bin/git is an xcrun shim (12 ms per call, and the suite makes thousands): the git
+ * it runs (xcrun -f git) is linked the same way. A parent that did it already (the
  * runner, scripts/test.ts) passes FORGE_TEST_BIN and the PATH down.
+ *
+ * Every spawn passes env (spawnCaptured does): under Bun, a spawn without it gets the
+ * environment the process started with, not process.env as changed here.
  */
 function resolveShims(): void {
   if (process.env.FORGE_TEST_BIN) return;
   const bin = mkdtempSync(join(tmpdir(), "forge-test-bin-"));
   process.env.FORGE_TEST_BIN = bin;
+  const env = process.env;
+  const shims = new Set<string>();
   const shimmed = ["uv", "uvx", "ruff", "python3", "python"].filter((n) => {
-    const r = spawnSync("sh", ["-c", 'command -v "$1"', "sh", n], { encoding: "utf8" });
+    const r = spawnCaptured("sh", ["-c", 'command -v "$1"', "sh", n], { env });
     const p = r.status === 0 ? r.stdout.trim() : "";
-    return p.startsWith("/") && /^#!.*\n[\s\S]*pyenv"? exec "\$program"/.test(readFileSync(p).subarray(0, 1024).toString("latin1"));
+    const shim = p.startsWith("/") && /^#!.*\n[\s\S]*pyenv"? exec "\$program"/.test(readFileSync(p).subarray(0, 1024).toString("latin1"));
+    if (shim) shims.add(dirname(p));
+    return shim;
   });
-  if (!shimmed.length) return;
-  const r = spawnSync("sh", ["-c", 'for n; do pyenv which "$n" 2>/dev/null || echo; done', "sh", ...shimmed], { cwd: tmpdir(), encoding: "utf8" });
-  const real = (r.stdout ?? "").split("\n");
-  shimmed.forEach((n, i) => {
-    if (real[i]?.startsWith("/")) symlinkSync(real[i]!, join(bin, n));
-  });
-  process.env.PATH = `${bin}:${process.env.PATH}`;
+  if (shimmed.length) {
+    const r = spawnCaptured("sh", ["-c", 'for n; do pyenv which "$n" 2>/dev/null || echo; done', "sh", ...shimmed], { cwd: tmpdir(), env });
+    const real = (r.stdout ?? "").split("\n");
+    shimmed.forEach((n, i) => {
+      if (real[i]?.startsWith("/")) symlinkSync(real[i]!, join(bin, n));
+    });
+  }
+  const git = spawnCaptured("sh", ["-c", "command -v git"], { env }).stdout.trim();
+  if (git === "/usr/bin/git") {
+    const real = spawnCaptured("xcrun", ["-f", "git"], { env });
+    if (real.status === 0 && real.stdout.trim().startsWith("/")) symlinkSync(real.stdout.trim(), join(bin, "git"));
+  }
+  process.env.PATH = [bin, ...(process.env.PATH ?? "").split(":").filter((d) => !shims.has(d.replace(/\/$/, "")))].join(":");
 }
 resolveShims();
 
@@ -44,7 +61,7 @@ resolveShims();
  * .venv/bin/ty-stand-in in the repository. This shim, first on PATH for the whole
  * suite, hands `uvx ... --from ty==<v> ty <args>` to it; everything else is the real uvx.
  */
-const REAL_UVX = spawnSync("sh", ["-c", "command -v uvx"], { encoding: "utf8" }).stdout.trim();
+const REAL_UVX = spawnCaptured("sh", ["-c", "command -v uvx"]).stdout.trim();
 if (REAL_UVX && !process.env.FORGE_TEST_UVX_SHIM) {
   const shim = mkdtempSync(join(tmpdir(), "forge-uvx-shim-"));
   writeFileSync(
@@ -81,10 +98,20 @@ export function stateDir(repo: string): string {
  * For a test that measures time (a latency budget) and needs a quiet machine: true while
  * the parallel runner (tests/run.ts, FORGE_TEST_PHASE=parallel) runs the suite many
  * processes at a time; the test is then skipped (test.skipIf), and <file> recorded in
- * $FORGE_TEST_QUIET_LIST so that the runner runs that file's skipped tests again
- * afterwards, alone. False in any other run (bun test <file>).
+ * $FORGE_TEST_QUIET_LIST so that the runner runs that file's skipped tests again, alone.
+ * That run (FORGE_TEST_PHASE=quiet) starts while the other processes still run: its
+ * beforeAll prepares, then each of these tests waits (beforeEach, after creating
+ * $FORGE_TEST_GO.ready) for the runner's go, $FORGE_TEST_GO, given once nothing else runs. False in any other run (bun test <file>).
  */
 export function othersRunning(file: string): boolean {
+  const go = process.env.FORGE_TEST_GO;
+  if (process.env.FORGE_TEST_PHASE === "quiet" && go) {
+    (require("bun:test") as typeof import("bun:test")).beforeEach(() => {
+      writeFileSync(`${go}.ready`, "");
+      while (!existsSync(go)) Bun.sleepSync(50);
+    }, 3_600_000);
+    return false;
+  }
   if (process.env.FORGE_TEST_PHASE !== "parallel" || !process.env.FORGE_TEST_QUIET_LIST) return false;
   appendFileSync(process.env.FORGE_TEST_QUIET_LIST, `${file}\n`);
   return true;
@@ -96,22 +123,26 @@ export interface Result {
   stderr: string;
 }
 
+/** Runs a process to its end (its output through files: src/util.ts spawnCaptured). */
 export function sh(cmd: string, args: string[], opts: { cwd?: string; input?: string; env?: Record<string, string> } = {}): Result {
-  const r = spawnSync(cmd, args, {
-    cwd: opts.cwd,
-    input: opts.input ?? "",
-    encoding: "utf8",
-    env: { ...process.env, ...opts.env },
-    maxBuffer: 64 * 1024 * 1024,
-  });
-  return { status: r.status ?? 1, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
+  const r = spawnCaptured(cmd, args, { cwd: opts.cwd, input: opts.input ?? "", env: { ...process.env, ...opts.env } });
+  return { status: r.status ?? 1, stdout: r.stdout, stderr: r.stderr };
 }
 
-/** A directory with a fake `claude` reporting <version>, prepended to PATH. */
+/**
+ * A directory with a fake `claude` reporting <version>, prepended to PATH: one per
+ * version and process (the first run of a freshly written script costs macOS's
+ * assessment, ≈50 ms).
+ */
+const fakeClaudes = new Map<string, string>();
 export function fakeClaude(version = "2.1.300"): Record<string, string> {
-  const bin = mkdtempSync(join(tmpdir(), "forge-bin-"));
-  writeFileSync(join(bin, "claude"), `#!/bin/sh\necho "${version} (Claude Code)"\n`);
-  chmodSync(join(bin, "claude"), 0o755);
+  let bin = fakeClaudes.get(version);
+  if (!bin) {
+    bin = mkdtempSync(join(tmpdir(), "forge-bin-"));
+    writeFileSync(join(bin, "claude"), `#!/bin/sh\necho "${version} (Claude Code)"\n`);
+    chmodSync(join(bin, "claude"), 0o755);
+    fakeClaudes.set(version, bin);
+  }
   return { PATH: `${bin}:${process.env.PATH}` };
 }
 
@@ -127,18 +158,67 @@ const GIT_ENV = {
   GIT_CONFIG_NOSYSTEM: "1",
 };
 
+/** git in a test repository; without the automatic maintenance a commit starts in the background (a process per commit). */
 export function git(cwd: string, ...args: string[]): Result {
-  return sh("git", args, { cwd, env: GIT_ENV });
+  return sh("git", ["-c", "maintenance.auto=false", ...args], { cwd, env: GIT_ENV });
+}
+
+/**
+ * Prepared repositories, built once and copied for each use: the runner's
+ * FORGE_TEST_FIXTURES is shared by its shards (one builds a fixture, the others wait for
+ * it); a process without it (bun test <file>) has its own. A fixture's content depends
+ * only on its key and the build (the same Forge, packs and tools in every shard), and
+ * holds no absolute path (but links to the shared TOOLS_CACHE): a copy is the
+ * repository the build would make there. Forge keeps its state outside repositories,
+ * by path, so a copy starts with none. A build starts from an empty directory
+ * (copyRepo puts another repository there, e.g. sampleRepo(name)).
+ */
+const FIXTURES = (process.env.FORGE_TEST_FIXTURES ||= mkdtempSync(join(tmpdir(), "forge-fixtures-")));
+export function fixture(key: string, build: (dir: string) => void): string {
+  const done = join(FIXTURES, key);
+  const lock = `${done}.lock`;
+  while (!existsSync(done)) {
+    try {
+      mkdirSync(lock);
+    } catch {
+      // a builder that died leaves its lock: taken over
+      let pid = 0;
+      try {
+        pid = Number(readFileSync(join(lock, "pid"), "utf8").trim());
+      } catch {}
+      if (pid && sh("kill", ["-0", String(pid)]).status !== 0) rmSync(lock, { recursive: true, force: true });
+      else Bun.sleepSync(50);
+      continue;
+    }
+    try {
+      writeFileSync(join(lock, "pid"), `${process.pid}\n`);
+      if (!existsSync(done)) {
+        const tmp = mkdtempSync(`${done}.build-`);
+        build(tmp);
+        renameSync(tmp, done);
+      }
+    } finally {
+      rmSync(lock, { recursive: true, force: true });
+    }
+  }
+  const dir = mkdtempSync(join(tmpdir(), `forge-${key}-`));
+  cpSync(done, dir, { recursive: true, verbatimSymlinks: true });
+  return dir;
+}
+
+/** Copies the repository <from> into <dir> (symbolic links as they are). */
+export function copyRepo(from: string, dir: string): void {
+  cpSync(from, dir, { recursive: true, verbatimSymlinks: true });
 }
 
 /** Copies tests/generator/<name> into a fresh git repository with one commit. */
 export function sampleRepo(name: string): string {
-  const dir = mkdtempSync(join(tmpdir(), `forge-${name}-`));
-  cpSync(join(ROOT, "tests", "generator", name), dir, { recursive: true });
-  git(dir, "init", "-q", "-b", "main");
-  git(dir, "add", "-A");
-  git(dir, "commit", "-qm", "init");
-  return dir;
+  return fixture(name, (dir) => {
+    cpSync(join(ROOT, "tests", "generator", name), dir, { recursive: true });
+    git(dir, "init", "-q", "-b", "main");
+    git(dir, "add", "-A");
+    git(dir, "commit", "-qm", "init");
+  });
 }
 
 function walk(dir: string, base: string, out: string[]): void {
@@ -185,10 +265,11 @@ export function put(repo: string, rel: string, text: string): void {
 
 /** A sample repository after a successful `forge apply --yes`. */
 export function applied(name: string): string {
-  const repo = sampleRepo(name);
-  const r = forge(["apply", "--yes"], repo);
-  if (r.status !== 0) throw new Error(`forge apply failed in ${name}:\n${r.stdout}\n${r.stderr}`);
-  return repo;
+  return fixture(`${name}-applied`, (dir) => {
+    copyRepo(sampleRepo(name), dir);
+    const r = forge(["apply", "--yes"], dir);
+    if (r.status !== 0) throw new Error(`forge apply failed in ${name}:\n${r.stdout}\n${r.stderr}`);
+  });
 }
 
 /** Commits everything in the repository. */
