@@ -1,0 +1,34 @@
+id: typescript/node/no-shell-interpolation
+description: No shell command built from values. exec/execSync get a constant command; pass values as an argv array to execFile or spawn, without shell true.
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      pattern: "$F($$$)"
+      any:
+        # exec("..." + x), exec(`... ${x}`)
+        - all:
+            - has: {field: arguments, has: {nthChild: 1, any: [{kind: template_string, has: {kind: template_substitution}}, {kind: binary_expression, regex: "\\+"}]}}
+            - has: {field: function, pattern: $EXEC}
+        # spawn(cmd, args, {shell: true}): Node joins the arguments unescaped (DEP0190)
+        - all:
+            - has: {field: arguments, all: [{has: {nthChild: 2, kind: array}}, {has: {nthChild: 3, kind: object, has: {kind: pair, all: [{has: {field: key, regex: "^[\"']?shell[\"']?$"}}, {has: {field: value, kind: "true"}}]}}}]}
+            - has: {field: function, pattern: $SPAWN}
+    # The function called is node:child_process's (§15.6), whatever the import calls it.
+    where:
+      EXEC: {declared: {package: node, module: node/child_process, name: [exec, execSync]}}
+      SPAWN: {declared: {package: node, module: node/child_process, name: [spawn, spawnSync, execFile, execFileSync]}}
+examples:
+  deps: [{ecosystem: npm, name: "@types/node", version: "24.10.1"}]
+  match:
+    - "import { exec } from \"node:child_process\";\n\nexport function remove(dir: string) {\n  exec(`rm -rf ${dir}`);\n}\n"
+    - "import * as cp from \"child_process\";\n\nexport function show(file: string) {\n  return cp.execSync(\"cat \" + file).toString();\n}\n"
+    - "import { spawn as run } from \"node:child_process\";\n\nexport function grep(pattern: string) {\n  return run(\"grep\", [pattern, \"-r\", \".\"], { shell: true });\n}\n"
+  no_match:
+    - "import { execFile } from \"node:child_process\";\n\nexport function remove(dir: string) {\n  execFile(\"rm\", [\"-rf\", dir]);\n}\n"
+    - "import { exec } from \"node:child_process\";\n\nexec(\"git status\");\n"
+    - "import { spawn } from \"node:child_process\";\n\nexport function grep(pattern: string) {\n  return spawn(\"grep\", [pattern, \"-r\", \".\"]);\n}\n"
+    - "function exec(command: string): string {\n  return command;\n}\n\nexport function remove(dir: string) {\n  return exec(`rm -rf ${dir}`);\n}\n"
+    - "export const db = { exec: (sql: string) => sql };\n\nexport function drop(table: string) {\n  return db.exec(\"DROP TABLE \" + table);\n}\n"

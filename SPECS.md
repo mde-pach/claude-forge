@@ -593,6 +593,8 @@ context.md: uv and `.venv/bin`, ty, annotated parameters and returns; no blockin
 | `typescript/config-ratchet` | `check` lint: `forge_ratchet bun ratchet.mjs` (§10.4), `when_changed`: Biome, tsconfig and `package.json` files |
 | `typescript/lockfile-updated` | `check` lint: `forge_lockfile_updated`: a `package.json` whose `dependencies`, `devDependencies` or `optionalDependencies` changed since the base needs its lock file (`pnpm-lock.yaml`, `package-lock.json`, `npm-shrinkwrap.json`, `yarn.lock`, `bun.lock`; next to it, else at the root) to have a changed line naming each changed dependency; `bun.lock` is skipped when `typescript/bun/lock-sync` is active (`forge_check_active`); blocks once per turn (`forge_once`) |
 | `typescript/env-example` | `check` lint: `forge_env_example ts`, as `python/env-example` for the UPPER_CASE keys of a Zod env schema (t3-env `createEnv`, or `z.object(…)` with `process.env`) whose value is a `z.` chain; a key with `.default()`, `.optional()` or `.catch()` counts as having a default |
+| `typescript/cors-credentials-wildcard` | `ast-grep` forbid: an options object with `credentials: true` and `origin` `"*"`, `true` or a function that returns its first parameter (as its body, with a `??` / `||` fallback, or in a `return`), passed to a function declared (§15.6) by `cors` or as `hono`'s `cors`, as the second argument of `.register()` with a first argument declared by `@fastify/cors`, to `.enableCors()` on a value of type `@nestjs/common`'s `INestApplication`, or as `cors` in the second argument of `create()` on `@nestjs/core`'s `NestFactory` |
+| `typescript/no-hardcoded-session-secret` | `ast-grep` forbid, not in tests: a string or a template without `${}` (or an array of them) as `secret` in the first argument of a function declared (§15.6) as `express-session`'s `session`, `better-auth`'s `betterAuth` or `hono`'s `jwt`, or in the second argument of `.register()` with a first argument declared by `@fastify/cookie` or `@fastify/session`; as the second argument of `jsonwebtoken`'s or `hono`'s `sign` / `verify`; as the first argument of a function declared by `cookie-parser` |
 
 context.md: strict TypeScript and Bun; TypeScript 6 deprecations are migrated, never silenced with `ignoreDeprecations`; no `!` or `as unknown as`; search for an existing helper (warn-once, logging, `util.*`) before writing one.
 
@@ -769,6 +771,18 @@ Detected by `library_any: [pypi]` (§13.4).
 
 context.md: `__all__` is the public API; removals and renames warn with `DeprecationWarning` until a major version.
 
+### typescript/node
+
+Detected by `@types/node` (npm).
+
+| Rule | Targets |
+|---|---|
+| `typescript/node/no-shell-interpolation` | `ast-grep` forbid: a call declared (§15.6) in `node/child_process` as `exec` / `execSync` whose first argument is a template with `${}` or a `+` concatenation; a call declared there as `spawn`, `spawnSync`, `execFile`, `execFileSync` with an array second argument and `shell: true` in the third |
+| `typescript/node/no-sync-fs-in-async` | `ast-grep` advise: inside an `async` function, arrow function or method, a call whose callee ends in `Sync` (Node's naming) and is declared (§15.6) in `node/fs` |
+| `typescript/node/fetch-timeout` | `ast-grep` advise: a call declared (§15.6) as `fetch` by `typescript` (the DOM library), `node`, `undici-types` or `bun-types`, with one argument, or with an object literal second argument without `signal` (and no spread) |
+| `typescript/node/weak-crypto` | `ast-grep` advise: a call declared (§15.6) in `node/crypto` as `createHash` / `createHmac` whose first argument is the string `md5` or `sha1` (any case) |
+| `typescript/node/no-ecb-cipher` | `ast-grep` forbid: a call declared (§15.6) in `node/crypto` as `createCipheriv` / `createDecipheriv` whose first argument is a string ending in `-ecb` (any case) |
+
 ### typescript/library
 
 Detected by `library_any: [npm]` (§13.4).
@@ -793,6 +807,7 @@ context.md: entry points are the public API; renamed exports stay as `@deprecate
 | `typescript/bun/no-mock-increase` | `ast-grep` no-increase on the same files: `mock(…)`, `mock.module(…)`, `spyOn(…)` (also under an import alias), `jest.fn/mock/spyOn`, `vi.fn/mock/spyOn` |
 | `typescript/bun/no-test-edits` | `check` lint: `forge_test_edits` on the in-scope files that import `bun:test` (§10.5) |
 | `typescript/bun/no-snapshot-update` | `guard` ask: `bun test` with `-u` or `--update-snapshots` |
+| `typescript/bun/no-shell-raw` | `ast-grep` forbid: a tagged template whose tag is declared (§15.6) as `bun-types`' `$` with an `${{ raw: … }}` substitution; a call declared as `bun-types`' `spawn` / `spawnSync` whose first argument is an array `["sh" \| "bash" \| "zsh", "-c", <template with ${} or + concatenation>]` |
 
 context.md: `bun:test` tests run with `bun test`, what the integrity rules reject in them, and "If an existing test looks wrong, stop and ask; never edit it to make the code pass."
 
@@ -950,7 +965,7 @@ context.md: `.input(<schema>)` and what is rejected; `TRPCError` with a `code` i
 | Rule | Targets |
 |---|---|
 | `typescript/hono/validate-input` | `ast-grep` forbid, in files importing `hono`, `hono/*` or `@hono/*`: `.json()`, `.parseBody()`, `.formData()`, `.query()`, `.queries()` on `$C.req` or on a `req` destructured from the handler's parameter (`({ req })`, `({ req: r })`), unless the call (or its `await`) is passed straight to `X.parse` / `safeParse` / `parseAsync` / `safeParseAsync` (not on `JSON`, `Date`, …) or as the second argument of `parse(Schema, …)` / `v.parse(…)`; `c.req.param()` is not checked |
-| `typescript/hono/cors-credentials-wildcard` | `ast-grep` forbid: `cors({…})` with `credentials: true` and `origin: "*"` or an `origin` function that returns its first parameter (as its body, with a `??` / `||` fallback, or in a `return`) |
+| `typescript/hono/cors-credentials-wildcard` | deprecated, replaced by `typescript/cors-credentials-wildcard` (which anchors `cors` by its declaration and covers `cors`, `@fastify/cors` and Nest) |
 
 context.md: `zValidator` / `validator()` middleware and `c.req.valid()`; which raw reads are rejected; `cors()` with credentials names its origins.
 
