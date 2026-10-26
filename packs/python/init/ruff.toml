@@ -1,4 +1,40 @@
 line-length = 100
 
 [lint]
-select = ["E", "F", "W", "I", "B", "UP", "ANN001", "ANN002", "ANN003", "ANN201", "ANN202", "ANN401", "E722", "PGH003"]
+select = ["E", "F", "W", "I", "B", "UP", "ANN001", "ANN002", "ANN003", "ANN201", "ANN202", "ANN401", "E722", "PGH003", "TID251"]
+
+# modules and functions the python packs ban (python/no-pytz, python/no-removed-stdlib, ...)
+[lint.flake8-tidy-imports.banned-api]
+"asyncio.get_event_loop".msg = "use asyncio.run() at the entry point and asyncio.get_running_loop() inside coroutines"
+"asyncio.ensure_future".msg = "use asyncio.create_task() or a TaskGroup"
+"nest_asyncio".msg = "archived; call async code with await, or run it in a thread"
+"async_timeout".msg = "use asyncio.timeout()"
+"pytz".msg = "use zoneinfo.ZoneInfo"
+"jose".msg = "python-jose is unmaintained; use PyJWT or joserfc"
+"passlib".msg = "passlib is unmaintained; use pwdlib, argon2-cffi or bcrypt"
+"pkg_resources".msg = "use importlib.metadata / importlib.resources"
+"distutils".msg = "removed in Python 3.12; use setuptools or packaging"
+"imp".msg = "removed in Python 3.12; use importlib"
+"asynchat".msg = "removed in Python 3.12; use asyncio"
+"asyncore".msg = "removed in Python 3.12; use asyncio"
+"smtpd".msg = "removed in Python 3.12; use aiosmtpd"
+"aifc".msg = "removed in Python 3.13 (PEP 594)"
+"audioop".msg = "removed in Python 3.13 (PEP 594)"
+"cgi".msg = "removed in Python 3.13 (PEP 594); parse with email.message or a web framework"
+"cgitb".msg = "removed in Python 3.13 (PEP 594)"
+"chunk".msg = "removed in Python 3.13 (PEP 594)"
+"crypt".msg = "removed in Python 3.13 (PEP 594); use hashlib or a password hashing library"
+"imghdr".msg = "removed in Python 3.13 (PEP 594); use filetype or Pillow"
+"mailcap".msg = "removed in Python 3.13 (PEP 594); use mimetypes"
+"msilib".msg = "removed in Python 3.13 (PEP 594)"
+"nis".msg = "removed in Python 3.13 (PEP 594)"
+"nntplib".msg = "removed in Python 3.13 (PEP 594)"
+"ossaudiodev".msg = "removed in Python 3.13 (PEP 594)"
+"pipes".msg = "removed in Python 3.13 (PEP 594); use shlex.quote and subprocess"
+"sndhdr".msg = "removed in Python 3.13 (PEP 594)"
+"spwd".msg = "removed in Python 3.13 (PEP 594)"
+"sunau".msg = "removed in Python 3.13 (PEP 594)"
+"telnetlib".msg = "removed in Python 3.13 (PEP 594); use telnetlib3"
+"uu".msg = "removed in Python 3.13 (PEP 594); use base64"
+"xdrlib".msg = "removed in Python 3.13 (PEP 594)"
+"lib2to3".msg = "removed in Python 3.13"

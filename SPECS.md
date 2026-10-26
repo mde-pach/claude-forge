@@ -545,6 +545,15 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `python/override-decorator` | `tool` ty `missing-override-decorator` |
 | `python/generic-type-args` | `tool` ty `missing-type-argument` |
 | `python/typed-decorators` | `tool` ty `dynamic-function-decorator-return` |
+| `python/no-get-event-loop` | `tool` ruff `TID251`, banned-api `asyncio.get_event_loop` |
+| `python/no-ensure-future` | `tool` ruff `TID251`, banned-api `asyncio.ensure_future` |
+| `python/no-nest-asyncio` | `tool` ruff `TID251`, banned-api `nest_asyncio` |
+| `python/no-async-timeout` | `tool` ruff `TID251`, banned-api `async_timeout` |
+| `python/no-pytz` | `tool` ruff `TID251`, banned-api `pytz` |
+| `python/no-python-jose` | `tool` ruff `TID251`, banned-api `jose` |
+| `python/no-passlib` | `tool` ruff `TID251`, banned-api `passlib` |
+| `python/no-pkg-resources` | `tool` ruff `TID251`, banned-api `pkg_resources` |
+| `python/no-removed-stdlib` | `tool` ruff `TID251`, banned-api: the modules removed in Python 3.12 (`distutils`, `imp`, `asynchat`, `asyncore`, `smtpd`) and 3.13 (PEP 594's 19, `lib2to3`) |
 | `python/aware-datetime` | `tool` ruff `DTZ005` |
 | `python/no-new-suppressions` | `grep` no-increase: `# noqa`, `# ty: ignore`, `# type: ignore`, `# pyright: ignore` (suppression budget) |
 | `python/config-files` | `permission` ask: `Edit(**/ruff.toml)`, `Edit(**/.ruff.toml)`, `Edit(**/ty.toml)` |
@@ -568,6 +577,8 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `python/stub-sync` | `check` lint, advisory (§10.7): `forge_stub_sync` on `*.py` |
 | `python/no-placeholder-comment` | `grep` forbid (case-insensitive): comments such as `TODO: implement`, "in a real implementation", "placeholder logic", "stub for now" |
 | `python/env-example` | `check` lint: `forge_env_example py`, not with `--all`: a field added to a pydantic-settings `BaseSettings` class (`env_prefix`, `alias`, `case_sensitive` applied) appears in the nearest directory's `.env.example`, `.env.template`, `.env.sample`, `.env.dist` or `.env.<name>.example` (a `# KEY=` line counts): always without a default, also with one when the template lists at least half of the class's variables; a template listing none of them is not about that class |
+
+Every banned-api rule shares ruff's `TID251`: each rule's examples import only its own module, so the audit tells them apart, and `forge status` merges their tables (§11).
 
 context.md: uv and `.venv/bin`, ty, annotated parameters and returns; no blocking calls in `async def`; ignore comments name their rule; search for an existing helper (warn-once, logging, utils) before writing one.
 

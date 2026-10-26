@@ -1,0 +1,42 @@
+id: python/no-removed-stdlib
+description: "No standard library modules removed in Python 3.12 and 3.13 (distutils, imp, asyncore, cgi, crypt, imghdr, pipes, telnetlib, PEP 594)."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: TID251
+    snippet: |
+      [tool.ruff.lint]
+      extend-select = ["TID251"]
+
+      [tool.ruff.lint.flake8-tidy-imports.banned-api]
+      "distutils".msg = "removed in Python 3.12; use setuptools or packaging"
+      "imp".msg = "removed in Python 3.12; use importlib"
+      "asynchat".msg = "removed in Python 3.12; use asyncio"
+      "asyncore".msg = "removed in Python 3.12; use asyncio"
+      "smtpd".msg = "removed in Python 3.12; use aiosmtpd"
+      "aifc".msg = "removed in Python 3.13 (PEP 594)"
+      "audioop".msg = "removed in Python 3.13 (PEP 594)"
+      "cgi".msg = "removed in Python 3.13 (PEP 594); parse with email.message or a web framework"
+      "cgitb".msg = "removed in Python 3.13 (PEP 594)"
+      "chunk".msg = "removed in Python 3.13 (PEP 594)"
+      "crypt".msg = "removed in Python 3.13 (PEP 594); use hashlib or a password hashing library"
+      "imghdr".msg = "removed in Python 3.13 (PEP 594); use filetype or Pillow"
+      "mailcap".msg = "removed in Python 3.13 (PEP 594); use mimetypes"
+      "msilib".msg = "removed in Python 3.13 (PEP 594)"
+      "nis".msg = "removed in Python 3.13 (PEP 594)"
+      "nntplib".msg = "removed in Python 3.13 (PEP 594)"
+      "ossaudiodev".msg = "removed in Python 3.13 (PEP 594)"
+      "pipes".msg = "removed in Python 3.13 (PEP 594); use shlex.quote and subprocess"
+      "sndhdr".msg = "removed in Python 3.13 (PEP 594)"
+      "spwd".msg = "removed in Python 3.13 (PEP 594)"
+      "sunau".msg = "removed in Python 3.13 (PEP 594)"
+      "telnetlib".msg = "removed in Python 3.13 (PEP 594); use telnetlib3"
+      "uu".msg = "removed in Python 3.13 (PEP 594); use base64"
+      "xdrlib".msg = "removed in Python 3.13 (PEP 594)"
+      "lib2to3".msg = "removed in Python 3.13"
+examples:
+  match:
+    - "import imp\nfrom distutils.version import LooseVersion\n\nimport cgi\n"
+  no_match:
+    - "import importlib\n\nfrom packaging.version import Version\n"

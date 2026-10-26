@@ -17,6 +17,7 @@
  */
 import { beforeAll, describe, expect, test } from "bun:test";
 import { parse as parseToml } from "smol-toml";
+import { mergeTomlSnippets } from "../../src/snippets";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -225,7 +226,9 @@ function projectFor(t: ToolTarget, on: boolean): string {
     const options = on ? (JSON.parse(`{${t.snippet}}`) as { compilerOptions: object }).compilerOptions : { strict: false };
     writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ compilerOptions: { ...options, noEmit: true, skipLibCheck: true } }));
   } else {
-    const ruff = `[tool.ruff.lint]\nselect = ["${t.tool === "ruff" && on ? t.expects : "F"}"]\n`;
+    // on: the code selected, with the rule's snippet's tables (a banned-api table for TID251)
+    const ruff =
+      t.tool === "ruff" && on ? `${mergeTomlSnippets([`[tool.ruff.lint] select = ["${t.expects}"]`, t.snippet])}\n` : `[tool.ruff.lint]\nselect = ["F"]\n`;
     const ty = `[tool.ty.rules]\n${t.tool === "ty" ? `${t.expects} = "${on ? "error" : "ignore"}"\n` : ""}`;
     writeFileSync(join(dir, "pyproject.toml"), `[project]\nname = "audit"\nversion = "0.1.0"\nrequires-python = ">=3.12"\n\n${ruff}\n${ty}`);
   }
