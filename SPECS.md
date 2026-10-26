@@ -790,6 +790,22 @@ Detected by `pnpm-lock.yaml` or `pnpm-workspace.yaml`.
 
 context.md: pnpm manages dependencies; its settings live in `pnpm-workspace.yaml`.
 
+### typescript/npm
+
+Detected by `package-lock.json` or `npm-shrinkwrap.json`.
+
+| Rule | Targets |
+|---|---|
+| `typescript/npm/no-other-pm` | `guard` ask: `pnpm`, `yarn`, `bun install`, `bun i`, `bun add` |
+| `typescript/npm/lock-sync` | `check` lint: `npm ci --dry-run --ignore-scripts` (skipped when npm is not installed), `when_changed`: `package.json` files, `package-lock.json`, `npm-shrinkwrap.json` |
+| `typescript/npm/no-exotic-sources` | `grep` forbid in `.npmrc`: `allow-git=all`, `allow-remote=all`; `guard` deny: the same settings in a command |
+| `typescript/npm/no-exotic-deps` | `check` lint: a `dependencies`, `devDependencies` or `optionalDependencies` entry added or changed since the base (`forge_pkg_deps`) whose spec is `git+…`, `git:`, `github:`, `gitlab:`, `bitbucket:`, `http(s)://…` or `user/repo` |
+| `typescript/npm/no-legacy-peer-deps` | `guard` deny: `npm install`, `i`, `ci`, `add` with `--legacy-peer-deps` or `--force` |
+| `typescript/npm/no-legacy-peer-deps-config` | `grep` forbid in `.npmrc`: `legacy-peer-deps=true`, `force=true` |
+| `typescript/npm/no-audit-fix-force` | `guard` ask: `npm audit fix … --force` |
+
+context.md: npm manages dependencies; peer conflicts are resolved, not forced; dependencies come from the registry.
+
 ### typescript/nextjs
 
 | Rule | Targets |

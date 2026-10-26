@@ -1,0 +1,10 @@
+id: typescript/npm/no-other-pm
+description: Dependencies are managed with npm; installing with pnpm, yarn or bun asks.
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: ask
+    pattern: '(^|[^A-Za-z0-9_-])(pnpm|yarn|bun[[:space:]]+(install|i|add))([[:space:];&|)]|$)'
+examples:
+  match: ["pnpm add zod", "pnpm install", "yarn", "yarn add zod", "bun add zod", "bun install"]
+  no_match: ["npm install zod", "npm ci", "bun run build", "bunx tsc", "npx pnpm-lock-check"]
