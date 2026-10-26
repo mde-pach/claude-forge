@@ -44,7 +44,10 @@ export const packSchema = {
   then: { not: { required: ["detect"] } },
 } as const;
 
-/** A where condition (§15.1): a type the metavariable's expression has, or not. */
+/**
+ * A where condition: the type the metavariable's expression has (§15.1), the declaration
+ * the name it is bound to refers to (§15.6), or not.
+ */
 const typeSpec = {
   type: "object",
   additionalProperties: false,
@@ -62,9 +65,12 @@ const typeSpec = {
     unknown: { enum: ["match", "no-match"] },
   },
 } as const;
+/** A spec, or several: the condition holds when one of them does. */
+const typeSpecs = { oneOf: [{ $ref: "#/$defs/spec" }, { type: "array", minItems: 1, items: { $ref: "#/$defs/spec" } }] } as const;
 const whereCondition = {
   oneOf: [
-    { type: "object", additionalProperties: false, required: ["type"], properties: { type: typeSpec } },
+    { type: "object", additionalProperties: false, required: ["type"], properties: { type: typeSpecs } },
+    { type: "object", additionalProperties: false, required: ["declared"], properties: { declared: typeSpecs } },
     { type: "object", additionalProperties: false, required: ["not"], properties: { not: { $ref: "#/$defs/where" } } },
   ],
 } as const;
@@ -198,7 +204,7 @@ const example = {
 export const ruleSchema = {
   $schema: "https://json-schema.org/draft/2020-12/schema",
   $id: "forge:rule",
-  $defs: { where: whereCondition },
+  $defs: { where: whereCondition, spec: typeSpec },
   type: "object",
   additionalProperties: false,
   required: ["id", "description", "scope", "enforce"],

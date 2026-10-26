@@ -9,6 +9,8 @@
 // <state-dir>/in is the Python engine's (types_python.py): "changed<TAB><path>",
 // "stop", "restart", or the absolute path of a question directory (req: ast-grep
 // matches; reply: the matches whose forge_where holds, "error<TAB>..." lines, "end").
+// A forge_where asks a metavariable's type or the declaration its name refers to
+// (SPECS §15.1, §15.6).
 // Node-compatible: no Bun-only API.
 import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
@@ -282,7 +284,7 @@ function declaredIn(file) {
 }
 
 const WORD = /[A-Za-z_$][\w$]*/y;
-const KEYWORDS = new Set(["export", "declare", "default", "abstract", "class", "interface", "type", "enum", "const", "let", "var", "function", "namespace", "module"]);
+const KEYWORDS = new Set(["export", "declare", "default", "abstract", "async", "class", "interface", "type", "enum", "const", "let", "var", "function", "namespace", "module"]);
 
 function readText(file) {
   try {
@@ -442,6 +444,20 @@ function heritage(text, from) {
   return out;
 }
 
+/**
+ * Whether <index> is in the clause of an import declaration (`import { a, b as c }`,
+ * `import d, * as ns`): where a server's definition stops when it cannot resolve the
+ * module. The clause holds no string, parenthesis, `=` or `;`.
+ */
+function inImport(text, index) {
+  for (let i = text.lastIndexOf("import", index); i >= 0; i = text.lastIndexOf("import", i - 1)) {
+    if (/[\w$]/.test(text[i - 1] ?? "") || !/\s/.test(text[i + 6] ?? "")) continue;
+    if (/[;'"`()=]/.test(text.slice(i + 6, index))) return false;
+    return /(^|[;}\n])\s*$/.test(text.slice(Math.max(0, i - 200), i));
+  }
+  return false;
+}
+
 class Types {
   constructor(server) {
     this.server = server;
@@ -481,11 +497,16 @@ class Types {
    * "index\0variable" -> declarations, from the type the server infers for each
    * expression: the file is shown to the server with each expression wrapped as
    * ({__forge_t<i>: (<expr>)}).__forge_t<i>, in memory only, and the type definition of
-   * that property is asked.
+   * that property is asked. named: the same for the declarations names refer to
+   * (declared below), asked on that same version of the file.
    */
-  async check(file, wanted) {
+  async check(file, wanted, named = []) {
     const text = fs.readFileSync(file, "utf8");
     const raw = Buffer.from(text, "utf8");
+    if (!wanted.length) {
+      this.server.sync(file);
+      return this.declared(file, text, raw, named, text, []);
+    }
     const ranges = [];
     const slot = wanted.map(([, , s, e]) => {
       const r = [raw.subarray(0, s).toString("utf8").length, raw.subarray(0, e).toString("utf8").length];
@@ -523,7 +544,51 @@ class Types {
       // any and unknown have no declaration: the checker does not know the type
       perRange.push({ decls, unknown: decls.length === 0 });
     }
-    return new Map(wanted.map((w, n) => [`${w[0]}\0${w[1]}`, perRange[slot[n]]]));
+    const found = await this.declared(file, text, raw, named, overlay, events);
+    for (const [n, w] of wanted.entries()) found.set(`${w[0]}\0${w[1]}`, perRange[slot[n]]);
+    return found;
+  }
+  /**
+   * Map "index\0variable" -> {decls, unknown} of the names in named: the declarations
+   * the server's definition of the expression's last name gives (an import alias or a
+   * re-export resolved; overloads and merged declarations each count), asked on the
+   * version of the file the server has (<shown>: the text with <events> inserted). An
+   * expression that does not end with a name, a name without a definition and one whose
+   * definition is an import the server could not resolve are unknown.
+   */
+  async declared(file, text, raw, named, shown, events) {
+    const found = new Map();
+    const asked = new Map();
+    for (const [n, v, s, e] of named) {
+      const expr = raw.subarray(s, e).toString("utf8");
+      const m = /[A-Za-z_$][\w$]*$/.exec(expr);
+      if (!m || (m.index > 0 && !expr.slice(0, m.index).trimEnd().endsWith("."))) {
+        found.set(`${n}\0${v}`, { decls: [], unknown: true });
+        continue;
+      }
+      const at = raw.subarray(0, s).toString("utf8").length + m.index;
+      // where the name is in the version shown: past every insert at or before it
+      const shift = events.reduce((sum, [off, , , , piece]) => sum + (off <= at ? piece.length : 0), 0);
+      if (!asked.has(at)) asked.set(at, this.server.definition(file, position(shown, at + shift)));
+      found.set(`${n}\0${v}`, at);
+    }
+    const answers = new Map();
+    for (const [at, locations] of asked) {
+      const decls = new Map();
+      for (const l of await locations) {
+        const f = pathOf(l.uri);
+        const body = f === file || (fs.existsSync(f) && fs.realpathSync(f) === fs.realpathSync(file)) ? shown : readText(f);
+        if (body === undefined) continue;
+        const i = indexOf(body, l.pos);
+        if (inImport(body, i)) continue; // the server stopped at an import it could not resolve
+        const [pkg, mod] = declaredIn(f);
+        const name = nameAt(body, i)?.name ?? null;
+        decls.set(`${pkg}\0${mod}\0${name}`, [pkg, mod, name]);
+      }
+      answers.set(at, { decls: [...decls.values()], unknown: decls.size === 0 });
+    }
+    for (const [k, v] of found) if (typeof v === "number") found.set(k, answers.get(v));
+    return found;
   }
 }
 
@@ -548,22 +613,25 @@ function satisfies({ decls, unknown }, spec) {
       (!pkgs || pkgs.includes(pkg)) && (!mods || mods.some((m) => mod === m || (mod ?? "").startsWith(`${m}/`))) && (!names || names.includes(name)),
   );
 }
-const holds = (decls, cond) => (cond.not ? !holds(decls, cond.not) : satisfies(decls, cond.type));
+// several specs: one of them is enough
+const holds = (decls, cond) => (cond.not ? !holds(decls, cond.not) : [cond.type ?? cond.declared].flat().some((spec) => satisfies(decls, spec)));
+/** What a condition asks of its metavariable: "type" or "declared". */
+const asks = (cond) => (cond.not ? asks(cond.not) : cond.declared ? "declared" : "type");
 
 async function answer(types, matches) {
   const byFile = new Map();
   matches.forEach((m, n) => {
     const where = m.metadata?.forge_where ?? {};
     const single = m.metaVariables?.single ?? {};
-    for (const v of Object.keys(where)) {
+    for (const [v, cond] of Object.entries(where)) {
       if (!single[v]) continue;
       const b = single[v].range.byteOffset;
-      if (!byFile.has(m.file)) byFile.set(m.file, []);
-      byFile.get(m.file).push([n, v, b.start, b.end]);
+      if (!byFile.has(m.file)) byFile.set(m.file, { type: [], declared: [] });
+      byFile.get(m.file)[asks(cond)].push([n, v, b.start, b.end]);
     }
   });
   const found = new Map();
-  for (const [f, wanted] of byFile) for (const [k, d] of await types.check(path.join(ROOT, f), wanted)) found.set(k, d);
+  for (const [f, kinds] of byFile) for (const [k, d] of await types.check(path.join(ROOT, f), kinds.type, kinds.declared)) found.set(k, d);
   return matches.flatMap((m, n) =>
     Object.entries(m.metadata?.forge_where ?? {}).every(([v, cond]) => !found.has(`${n}\0${v}`) || holds(found.get(`${n}\0${v}`), cond)) ? [n] : [],
   );

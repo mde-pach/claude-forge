@@ -1081,7 +1081,7 @@ A rule says **what** it needs to know about the code; the engine decides **how**
 | Capability | Asked from | Answers | State |
 |---|---|---|---|
 | types | `where: {<VAR>: {type: …}}` on an `ast-grep` target | what the static type of the expression bound to a metavariable is declared as | implemented (§15.1–§15.3) |
-| declared | `where: {<VAR>: {declared: …}}` | what a name refers to (an imported function or class, through aliases): `textDocument/definition` instead of `typeDefinition`, no supertypes | proposed (§15.6) |
+| declared | `where: {<VAR>: {declared: …}}` | what a name refers to (an imported function or class, through aliases): `textDocument/definition` instead of `typeDefinition`, no supertypes | implemented (§15.6) |
 | files | `@<role>` in `scope.files` and in check helpers | the paths of a file role: Forge's defaults, the tool's declarative config, `forge.yaml` | designed (§15.4) |
 | tests | engine helpers of test checks | the tests a runner collects and the ones that failed, from the runner's own reports | proposed (§15.5) |
 
@@ -1101,7 +1101,7 @@ examples:
   no_match: ["class Session:\n    def query(self, q: str) -> list[str]:\n        return [q]\n\n\ndef search(session: Session):\n    return session.query(\"text\")\n"]
 ```
 
-`where` maps single metavariables of the rule (`$S`, not `$$$S`) to a condition: `{type: <spec>}` or `{not: <condition>}`. A spec has `package` and/or `module` (a string or a list; at least one: a name alone would be a guess), optionally `name` (a string or a list of identifiers) and `unknown: match | no-match` (default `no-match`).
+`where` maps single metavariables of the rule (`$S`, not `$$$S`) to a condition: `{type: <spec>}`, `{declared: <spec>}` (the declaration a name refers to, §15.6) or `{not: <condition>}`. A spec has `package` and/or `module` (a string or a list; at least one: a name alone would be a guess), optionally `name` (a string or a list of identifiers) and `unknown: match | no-match` (default `no-match`).
 
 **Semantics.** For each match, each condition is evaluated on the expression the metavariable is bound to; the match counts only when all of them hold.
 
@@ -1109,14 +1109,14 @@ examples:
 2. **Declarations.** Each location returned is the declaration of the type, or of one member: a union or intersection gives one per member (`Session | None`: `Session` and `NoneType`). Import aliases, re-exports and type aliases are resolved by the checker: a declaration has the name it is declared with (`Session`, never the alias `Db`). An anonymous type (an object type literal, a function or tuple type) is named by the type alias that declares it (`type UseFormWatch<T> = { … }` is `UseFormWatch`, never a word of the literal or its comments); one written inline has no name. An intersection (`type UseBoundStore<S> = { … } & S`) has no declaration of its own: the servers return none for it, so its type is unknown (rule 7).
 3. **Subtypes.** Each declaration counts with its supertypes, transitively, at most 64 (Python: the server's type hierarchy; TypeScript: the classes and interfaces in its `extends` and `implements` clauses, resolved with `textDocument/definition`). A project class deriving from `Session` is a `Session`. Assignability is nominal: a structurally compatible type that does not derive from the declaration does not count.
 4. **Generics.** Type arguments are ignored: `list[Session]` is `list`, `scoped_session[Session]` is `scoped_session`.
-5. **Where a declaration is.** Its file decides. Python: under `site-packages` / `dist-packages`, the package is the first path segment (`<pkg>-stubs` counts as `<pkg>`) and the module the dotted path (`sqlalchemy.orm.session`, `__init__` dropped); typeshed's `stdlib/` and `stubs/<dist>/` likewise. TypeScript: under the innermost `node_modules/`, the package is `<name>` or `@scope/name` (`@types/x` counts as `x`, `@types/a__b` as `@a/b`) and the module `<package>/<path in it without extension>` (`zod/v4/classic/schemas`); TypeScript's own `lib.*.d.ts` are package `typescript`. A declaration in the project has no package; its module is its path (Python: dotted, without a leading `src.`). The package is the one that **declares** the type, which may be a library's internal package (Vitest's `expect` is declared in `@vitest/expect`).
-6. **A spec holds** when one declaration or supertype has the package (one of the list), the module (equal, or a prefix by whole segments: `.` in Python, `/` in TypeScript) and the name (one of the list) that the spec gives. With a union, one member is enough: the expression may hold such a value at run time.
+5. **Where a declaration is.** Its file decides. Python: under `site-packages` / `dist-packages`, the package is the first path segment (`<pkg>-stubs` counts as `<pkg>`) and the module the dotted path (`sqlalchemy.orm.session`, `__init__` dropped); typeshed's `stdlib/` and `stubs/<dist>/` likewise, and the standard library's own sources (`lib/python3.X/`, where ty's definitions of stdlib functions go: `random.choice` is `random`). TypeScript: under the innermost `node_modules/`, the package is `<name>` or `@scope/name` (`@types/x` counts as `x`, `@types/a__b` as `@a/b`) and the module `<package>/<path in it without extension>` (`zod/v4/classic/schemas`); TypeScript's own `lib.*.d.ts` are package `typescript`. A declaration in the project has no package; its module is its path (Python: dotted, without a leading `src.`). The package is the one that **declares** the type, which may be a library's internal package (Vitest's `expect` is declared in `@vitest/expect`).
+6. **A spec holds** when one declaration or supertype has the package (one of the list), the module (equal, or a prefix by whole segments: `.` in Python, `/` in TypeScript) and the name (one of the list) that the spec gives. With a union, one member is enough: the expression may hold such a value at run time. A condition may give a list of specs (`type: [{package: datetime, name: now}, {package: time, name: time}]`): it holds when one of them does.
 7. **Unknown types.** When the checker does not know the type (Python `Any` and `Unknown`: an unannotated parameter, an unresolved import; TypeScript `any`, `unknown`, an error: no declaration), a spec does not hold, unless it says `unknown: match`. Type constraints therefore rely on typed code, which the type-checking rules enforce: `python/no-unknown` (ruff `ANN001`–`ANN003`, `ANN201`, `ANN202`: annotated parameters and returns) and `python/no-explicit-any` (`ANN401`); `typescript/no-implicit-any` (`noImplicitAny`) and `typescript/no-explicit-any`. Removing an annotation to escape a rule is then itself a finding.
 8. `not` inverts its condition. A metavariable the match did not bind (an `any:` branch without it) is not evaluated.
 
 **Where it runs.** A rule's `where` is rendered into its ast-grep rule file as `metadata: {forge_where: …}`, so each match carries it (`ast-grep scan --include-metadata`). post-edit.sh (§8.1) and check.sh step 4 (§10.1) keep the matches on added lines, then pass those with `forge_where` to `forge_types_filter` (engine.sh), which asks the language's engine and keeps the matches it confirms; other matches are untouched. An engine that cannot start or answer prints `forge:forge/types <rule-id> was not checked: <reason>`: after an edit as feedback, in check.sh as a failure.
 
-**Schema and `forge test`.** `where` is allowed on `forbid` and `advise` targets (counted modes would need the base copy's types: not yet), with `scope.language` `python`, `typescript` or `tsx`, on metavariables that occur in the rule. Such a rule MUST have `examples.deps` (packages of its language's ecosystem, exact versions), and its examples are whole files (imports included). Its ast-grep test proves the `match` examples structurally; then every example is scanned and filtered by the generated `forge_types_filter` in a project holding those packages (a uv environment on the engine's Python, or a `bun install`ed `package.json`; kept in `$FORGE_EXAMPLES_CACHE`, default `~/.cache/forge/examples/`): a `match` example must keep a match, a `no_match` example none.
+**Schema and `forge test`.** `where` is allowed on `forbid` and `advise` targets (counted modes would need the base copy's types: not yet), with `scope.language` `python`, `typescript` or `tsx`, on metavariables that occur in the rule. Such a rule MUST have `examples.deps` (packages of its language's ecosystem, exact versions), and its examples are whole files (imports included). Its ast-grep test proves the `match` examples structurally; then every example is scanned and filtered by the generated `forge_types_filter` in a project holding those packages (a uv environment on the engine's Python, or a `bun install`ed `package.json` whose `tsconfig.json` lists the `@types/*` packages among them in `types`, as a project using their globals does: TypeScript 6 and later include none by default; kept in `$FORGE_EXAMPLES_CACHE`, default `~/.cache/forge/examples/`): a `match` example must keep a match, a `no_match` example none.
 
 ### 15.2 Engines
 
@@ -1198,6 +1198,27 @@ files:
 
 Test checks read the runner's own reports rather than its console output or ast-grep patterns: the tests a runner collects (`pytest --collect-only -q`, `vitest list --json`) give test identity for test integrity (§10.5) and failing tests come from its machine-readable report (pytest `--junitxml`, Vitest `--reporter=junit`) for §10.6, through engine helpers with the same interface as now. Pack rules keep naming the runner's checks; the helpers change.
 
-### 15.6 Declared names (proposed)
+### 15.6 Declared names
 
-`where: {F: {declared: {package: sqlalchemy, name: text}}}`: the metavariable is a name (or attribute) that refers to that declaration, through import aliases and re-exports (`textDocument/definition`, no supertypes): for functions and decorators (`text()`, `patch`, `pytest.mark.skip`, `React.useState`), where `type` would describe a function type. Same engines, daemons and semantics for package, module and name.
+```yaml
+# packs/python/numpy/rules/no-allow-pickle.yaml
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call
+      pattern: "$F($$$)"
+      has: {field: arguments, has: {kind: keyword_argument, regex: "^allow_pickle[[:space:]]*=[[:space:]]*True$"}}
+    where:
+      F: {declared: {package: numpy, name: load}}
+```
+
+`{declared: <spec>}` holds when the name or attribute the metavariable is bound to **refers to** a declaration that the spec describes (§15.1 rule 6, the same `package`, `module`, `name` and `unknown`): for functions, decorators, classes and modules used by name (`np.load(…)`, `@workflow.defn`, `exec(…)`, `` $`…` ``), where `type` would describe the value's type: a function's type has no name, and TypeScript's type definition of a name bound to a function is the declaration of what it returns.
+
+1. **The name.** The expression must end with a name: a name (`load`) or an attribute (`np.load`, `workflow.unsafe.sandbox_unrestricted`); its last name is asked. Any other expression (a call `pick()`, a subscript) is unknown (rule 4).
+2. **The declaration** is what the language's checker answers to `textDocument/definition` at that name, in the file as it is on disk (TypeScript: in the version of §15.1 the server has, the position moved past the bindings). The checker resolves import aliases, namespace imports and re-exports, the project's included (`from numpy import load as read`, `import * as cp from "node:child_process"`, `export { useForm as useAppForm } from "react-hook-form"`): a declaration has the name it is declared with. Overloads and merged declarations each give one. No supertypes are added: a class's subclass is not that class.
+3. **Where it is** decides as in §15.1 rule 5: the package and module of its file, the name it is declared with. A module (`import numpy as np` then `$F` bound to `np`) is declared by its file, with its module's last segment as name (Python).
+4. **Unknown.** A name the checker gives no definition for (an attribute of `Any`, an unresolved name), one whose definition is an import the checker could not resolve (the definition stops at the project's import statement), and an expression that does not end with a name are unknown: the spec does not hold unless it says `unknown: match`.
+5. A name bound to a project variable refers to that variable (`run = np.load`, then `run(…)`): the declaration is the project's, whatever its value.
+
+Same engines, daemons, protocol and `forge test` as §15.1: a rule may mix `type` and `declared` conditions on different metavariables. Through the adapters, ty, tsserver (TypeScript 5, 6) and `tsc --lsp` (7) answer `definition` on a name through aliases, namespaces and re-exports; an unresolved import gives the import itself or nothing, and an attribute of `any` / `Any` nothing.

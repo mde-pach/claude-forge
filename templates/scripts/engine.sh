@@ -2948,8 +2948,9 @@ forge_types_down() {
 
 # forge_types_filter <matches>: keeps in the file of ast-grep --json=stream matches
 # (with --include-metadata) only those whose forge_where the language's types engine
-# confirms (§15.1); matches without forge_where stay. An engine that cannot answer is
-# not a pass: "forge:forge/types ..." lines name the rules left unchecked, and it fails.
+# confirms (types, §15.1; declared names, §15.6); matches without forge_where stay. An
+# engine that cannot answer is not a pass: "forge:forge/types ..." lines name the rules
+# left unchecked, and it fails.
 forge_types_filter() {
   grep -q '"forge_where"' "$1" 2>/dev/null || return 0
   grep -v '"forge_where"' "$1" > "$1.kept"

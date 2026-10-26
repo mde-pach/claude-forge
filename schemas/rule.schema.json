@@ -12,76 +12,41 @@
           ],
           "properties": {
             "type": {
-              "type": "object",
-              "additionalProperties": false,
-              "anyOf": [
+              "oneOf": [
                 {
-                  "required": [
-                    "package"
-                  ]
+                  "$ref": "#/$defs/spec"
                 },
                 {
-                  "required": [
-                    "module"
-                  ]
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "$ref": "#/$defs/spec"
+                  }
                 }
-              ],
-              "properties": {
-                "package": {
-                  "oneOf": [
-                    {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    {
-                      "type": "array",
-                      "minItems": 1,
-                      "items": {
-                        "type": "string",
-                        "minLength": 1
-                      }
-                    }
-                  ]
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "declared"
+          ],
+          "properties": {
+            "declared": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/spec"
                 },
-                "module": {
-                  "oneOf": [
-                    {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    {
-                      "type": "array",
-                      "minItems": 1,
-                      "items": {
-                        "type": "string",
-                        "minLength": 1
-                      }
-                    }
-                  ]
-                },
-                "name": {
-                  "oneOf": [
-                    {
-                      "type": "string",
-                      "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*$"
-                    },
-                    {
-                      "type": "array",
-                      "minItems": 1,
-                      "items": {
-                        "type": "string",
-                        "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*$"
-                      }
-                    }
-                  ]
-                },
-                "unknown": {
-                  "enum": [
-                    "match",
-                    "no-match"
-                  ]
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "$ref": "#/$defs/spec"
+                  }
                 }
-              }
+              ]
             }
           }
         },
@@ -98,6 +63,78 @@
           }
         }
       ]
+    },
+    "spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "anyOf": [
+        {
+          "required": [
+            "package"
+          ]
+        },
+        {
+          "required": [
+            "module"
+          ]
+        }
+      ],
+      "properties": {
+        "package": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          ]
+        },
+        "module": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          ]
+        },
+        "name": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*$"
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*$"
+              }
+            }
+          ]
+        },
+        "unknown": {
+          "enum": [
+            "match",
+            "no-match"
+          ]
+        }
+      }
     }
   },
   "type": "object",

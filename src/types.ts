@@ -56,7 +56,13 @@ export interface TypeSpec {
   /** A type the checker does not know (Any, Unknown, any, unknown): no-match (default) or match. */
   unknown?: "match" | "no-match";
 }
-export type WhereCondition = { type: TypeSpec } | { not: WhereCondition };
+/**
+ * A where condition: the static type of the metavariable's expression (§15.1), the
+ * declaration the name or attribute it is bound to refers to (§15.6: through import
+ * aliases and re-exports, no supertypes), or the negation of one. A list of specs holds
+ * when one of them does.
+ */
+export type WhereCondition = { type: TypeSpec | TypeSpec[] } | { declared: TypeSpec | TypeSpec[] } | { not: WhereCondition };
 export interface PermissionTarget {
   target: "permission";
   decision: Decision;
