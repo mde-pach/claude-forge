@@ -619,6 +619,35 @@ context.md: strict TypeScript and Bun; TypeScript 6 deprecations are migrated, n
 
 context.md: "FastAPI. Dependencies use `Annotated[T, Depends(...)]`. Startup and shutdown use `lifespan`. Request and response bodies are Pydantic v2 models."
 
+### python/litestar
+
+Detected by `litestar` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/litestar/sync-to-thread` | `ast-grep` forbid: a sync `def` decorated with a call typed `litestar` `HTTPRouteHandler` (§15.1: `@get`, `@post`, …, `@route`) without `sync_to_thread=` |
+| `python/litestar/no-debug-true` | `ast-grep` forbid, not in tests: a call typed `litestar` `Litestar` with `debug=True` |
+
+context.md: `sync_to_thread` stated on sync handlers; no debug mode outside tests.
+
+### python/flask
+
+Detected by `flask` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/flask/no-debug-run` | `tool` ruff `S201` |
+
+### python/flask/sqlalchemy
+
+Detected by `flask-sqlalchemy` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/flask/sqlalchemy/no-model-query` | `ast-grep` forbid: `$M.query` where `$M` is typed `flask_sqlalchemy` (§15.1: a `db.Model` class); `db.session.query()` is `python/sqlalchemy/no-query-api` |
+
+context.md: SQLAlchemy 2.0 queries through `db.session`, `db.get_or_404()`, `db.paginate()`.
+
 ### python/sqlalchemy
 
 | Rule | Targets |

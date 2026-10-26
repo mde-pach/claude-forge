@@ -1,0 +1,19 @@
+id: python/litestar/no-debug-true
+description: "No Litestar(debug=True) outside tests: debug mode returns tracebacks (code, settings, local values) to any client that triggers an error."
+scope: {language: python, files: ["!**/tests/**", "!**/test_*.py", "!**/*_test.py", "!**/conftest.py"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call
+      pattern: $C
+      has: {field: arguments, has: {kind: keyword_argument, regex: "^debug[[:space:]]*=[[:space:]]*True$"}}
+    where:
+      C: {type: {package: litestar, name: Litestar}}
+examples:
+  deps: [{ecosystem: pypi, name: litestar, version: "2.25.0"}]
+  match:
+    - "from litestar import Litestar\n\napp = Litestar(route_handlers=[], debug=True)\n"
+  no_match:
+    - "import os\n\nfrom litestar import Litestar\n\napp = Litestar(route_handlers=[], debug=os.environ.get(\"DEBUG\") == \"1\")\n"
+    - "def configure(debug: bool) -> None:\n    pass\n\n\nconfigure(debug=True)\n"

@@ -1,0 +1,1 @@
+Flask-SQLAlchemy 3 with SQLAlchemy 2.0 queries: `db.session.execute(db.select(User).filter_by(...))`, `db.session.scalars(...)`, `db.session.get(User, id)`, `db.get_or_404(User, id)`, `db.paginate(db.select(User))`. The legacy `User.query` is rejected.
