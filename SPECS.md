@@ -858,6 +858,17 @@ Detected by the `msw` dependency.
 
 context.md: the test server starts with `onUnhandledRequest: "error"`.
 
+### typescript/storybook
+
+Detected by the `storybook` dependency at 9 or later.
+
+| Rule | Targets |
+|---|---|
+| `typescript/storybook/consolidated-imports` | `ast-grep` forbid: imports and re-exports from `@storybook/test`, `addon-actions`, `addon-viewport`, `addon-essentials`, `addon-interactions`, `manager-api`, `preview-api`, `theming`, `blocks` |
+| `typescript/storybook/consolidated-deps` | `grep` forbid in `package.json`: those packages as keys |
+
+context.md: the `storybook/*` entry points that replace them.
+
 ### typescript/nextjs
 
 | Rule | Targets |
