@@ -13,7 +13,7 @@ enforce:
     where:
       REQ: {type: {package: starlette, name: Request}}
 examples:
-  deps: [{ecosystem: pypi, name: fastapi, version: "0.162.0"}]
+  deps: [{ecosystem: pypi, name: fastapi, version: "0.162.0"}, {ecosystem: pypi, name: httpx, version: "0.28.1"}]
   match:
     - "from fastapi import FastAPI, Request\n\napp = FastAPI()\n\n\n@app.post(\"/items\")\nasync def create(request: Request) -> dict[str, str]:\n    data = await request.json()\n    return {\"name\": data[\"name\"]}\n"
     - "from fastapi import FastAPI\nfrom starlette.requests import Request\n\napp = FastAPI()\n\n\n@app.post(\"/upload\")\nasync def upload(req: Request) -> int:\n    form = await req.form()\n    return len(form)\n"

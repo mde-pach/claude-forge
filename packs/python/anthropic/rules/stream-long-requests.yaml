@@ -18,7 +18,7 @@ enforce:
     where:
       C: {type: {package: anthropic, name: [Messages, AsyncMessages]}}
 examples:
-  deps: [{ecosystem: pypi, name: anthropic, version: "2.3.0"}]
+  deps: [{ecosystem: pypi, name: anthropic, version: "2.3.0"}, {ecosystem: pypi, name: openai, version: "3.37.0"}]
   match:
     - "from anthropic import Anthropic\n\nclient = Anthropic()\nreply = client.messages.create(model=\"claude-opus-5-5\", max_tokens=64000, messages=[{\"role\": \"user\", \"content\": \"Hi\"}])\n"
     - "from anthropic import AsyncAnthropic\n\n\nasync def ask(client: AsyncAnthropic) -> None:\n    await client.messages.create(model=\"claude-opus-5-5\", max_tokens=32_000, messages=[])\n"

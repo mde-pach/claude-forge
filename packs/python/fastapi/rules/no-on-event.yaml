@@ -12,7 +12,7 @@ enforce:
     where:
       C: {type: {package: fastapi, name: [FastAPI, APIRouter]}}
 examples:
-  deps: [{ecosystem: pypi, name: fastapi, version: "0.162.0"}]
+  deps: [{ecosystem: pypi, name: fastapi, version: "0.162.0"}, {ecosystem: pypi, name: httpx, version: "0.28.1"}]
   match:
     - "from fastapi import FastAPI\n\n\nasync def connect() -> None:\n    pass\n\n\napp = FastAPI(on_startup=[connect])\n"
     - "from fastapi import APIRouter\n\n\ndef close() -> None:\n    pass\n\n\nrouter = APIRouter(prefix=\"/items\", on_shutdown=[close])\n"

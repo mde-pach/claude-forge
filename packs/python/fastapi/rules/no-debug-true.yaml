@@ -12,7 +12,7 @@ enforce:
     where:
       C: {type: {package: starlette, name: Starlette}}
 examples:
-  deps: [{ecosystem: pypi, name: fastapi, version: "0.162.0"}]
+  deps: [{ecosystem: pypi, name: fastapi, version: "0.162.0"}, {ecosystem: pypi, name: httpx, version: "0.28.1"}]
   match:
     - "from fastapi import FastAPI\n\napp = FastAPI(title=\"shop\", debug=True)\n"
     - "from starlette.applications import Starlette\n\napp = Starlette(debug=True, routes=[])\n"
