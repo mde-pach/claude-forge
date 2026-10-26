@@ -1,0 +1,21 @@
+id: typescript/redis/no-keys
+description: "No KEYS command on a Redis client (client.keys(pattern) / client.KEYS(…)): it walks the whole keyspace in O(N) and blocks the server; iterate with scanStream() / scanIterator() / SCAN."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      has: {field: function, kind: member_expression, all: [{has: {field: object, pattern: $C}}, {has: {field: property, regex: "^(keys|KEYS)$"}}]}
+    # node-redis's createClient() / createCluster() results are intersections
+    # (RedisClientType = RedisClient & …), which the types engine does not resolve yet
+    where:
+      C: {type: {package: [ioredis, "@redis/client"], name: [Redis, Cluster, RedisClient, RedisCluster]}}
+examples:
+  deps: [{ecosystem: npm, name: ioredis, version: "6.0.0"}]
+  match:
+    - "import Redis from \"ioredis\";\n\nconst redis = new Redis();\n\nexport async function sessions(): Promise<string[]> {\n  return redis.keys(\"session:*\");\n}\n"
+    - "import { Cluster } from \"ioredis\";\n\nexport const all = (c: Cluster) => c.keys(\"*\");\n"
+  no_match:
+    - "import Redis from \"ioredis\";\n\nconst redis = new Redis();\n\nexport function sessions() {\n  return redis.scanStream({ match: \"session:*\", count: 100 });\n}\n"
+    - "const cache = new Map<string, number>();\n\nexport const names = [...cache.keys()];\nexport const fields = Object.keys({ a: 1 });\n"

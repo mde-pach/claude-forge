@@ -1097,6 +1097,16 @@ Detected by `@mikro-orm/core`.
 
 context.md: request contexts, never a global one; migrations; which schema commands are refused or asked.
 
+### typescript/redis
+
+Detected by `ioredis`, `redis` or `@redis/client`.
+
+| Rule | Targets |
+|---|---|
+| `typescript/redis/no-keys` | `ast-grep` forbid: `$C.keys(…)` / `$C.KEYS(…)`, where `C` is ioredis's `Redis` or `Cluster`, or node-redis's `RedisClient` or `RedisCluster` (`createClient()`'s result is an intersection the TypeScript engine does not resolve yet, §15.1) |
+
+context.md: `SCAN` iterators instead of `KEYS`.
+
 ### github-actions
 
 Detected by `.github/workflows/*.yml` or `*.yaml`.
