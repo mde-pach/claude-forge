@@ -1,0 +1,30 @@
+id: typescript/aws-cdk/nag-suppressions
+description: A changed file does not add cdk-nag suppressions (NagSuppressions.add…Suppressions calls, also under an import alias); fix the finding instead.
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: no-increase
+    rule:
+      kind: call_expression
+      all:
+        - has: {field: function, kind: member_expression, all: [{has: {field: object, kind: identifier, pattern: $N}}, {has: {field: property, regex: "^add\\w*Suppressions\\w*$"}}]}
+        - inside:
+            kind: program
+            stopBy: end
+            has:
+              kind: import_statement
+              all:
+                - has: {field: source, regex: "^[\"']cdk-nag[\"']$"}
+                - has:
+                    stopBy: end
+                    kind: import_specifier
+                    any:
+                      - all: [{has: {field: name, regex: "^NagSuppressions$"}}, {has: {field: alias, pattern: $N}}]
+                      - all: [{has: {field: name, regex: "^NagSuppressions$", pattern: $N}}, {not: {has: {field: alias, kind: identifier}}}]
+examples:
+  match:
+    - "import { NagSuppressions } from \"cdk-nag\";\n\nNagSuppressions.addStackSuppressions(stack, [{ id: \"AwsSolutions-IAM4\", reason: \"managed policy\" }]);\n"
+    - "import { NagSuppressions as Nag } from \"cdk-nag\";\n\nNag.addResourceSuppressionsByPath(stack, \"/App/Fn/Role\", [{ id: \"AwsSolutions-IAM5\", reason: \"wildcard\" }]);\n"
+  no_match:
+    - "import { AwsSolutionsChecks } from \"cdk-nag\";\nimport { Aspects } from \"aws-cdk-lib\";\n\nAspects.of(app).add(new AwsSolutionsChecks());\n"
+    - "import { NagSuppressions } from \"./local\";\n\nNagSuppressions.addStackSuppressions(stack, []);\n"

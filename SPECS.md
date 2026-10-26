@@ -1157,6 +1157,18 @@ context.md: `{ data, error }` results are handled.
 
 context.md: protected resources stay protected.
 
+### typescript/aws-cdk
+
+Detected by `cdk.json` or the `aws-cdk-lib` dependency.
+
+| Rule | Targets |
+|---|---|
+| `typescript/aws-cdk/removal-policy-destroy` | `ast-grep` advise: `$E.DESTROY`, where `E` is aws-cdk-lib's `RemovalPolicy`; `new $B(…, {autoDeleteObjects: true})`, where `B` is aws-cdk-lib's `Bucket` |
+| `typescript/aws-cdk/context-committed` | `check` lint: with `cdk.json`, `cdk.context.json` is not git-ignored (`git check-ignore`), `when_changed: [.gitignore, **/.gitignore, cdk.json]` |
+| `typescript/aws-cdk/nag-suppressions` | `ast-grep` no-increase: `NagSuppressions.add…Suppressions…(…)`, `NagSuppressions` imported from `cdk-nag` (aliases included) |
+
+context.md: destroy policies are advice; `cdk.context.json` committed; cdk-nag findings fixed, not suppressed.
+
 ### github-actions
 
 Detected by `.github/workflows/*.yml` or `*.yaml`.

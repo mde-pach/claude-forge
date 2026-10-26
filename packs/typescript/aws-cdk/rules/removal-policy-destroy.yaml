@@ -1,0 +1,27 @@
+id: typescript/aws-cdk/removal-policy-destroy
+description: "Advice on RemovalPolicy.DESTROY and on autoDeleteObjects: true in a Bucket's props: they let cdk destroy (or a replacement) delete the data; keep them to throwaway stacks."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      any:
+        - kind: member_expression
+          all:
+            - has: {field: object, pattern: $E}
+            - has: {field: property, regex: "^DESTROY$"}
+        - kind: new_expression
+          all:
+            - pattern: $B
+            - has: {field: arguments, has: {kind: object, has: {kind: pair, all: [{has: {field: key, regex: "^[\"']?autoDeleteObjects[\"']?$"}}, {has: {field: value, kind: "true"}}]}}}
+    where:
+      E: {type: {package: aws-cdk-lib, name: RemovalPolicy}}
+      B: {type: {package: aws-cdk-lib, name: Bucket}}
+examples:
+  deps: [{ecosystem: npm, name: aws-cdk-lib, version: "2.273.0"}, {ecosystem: npm, name: constructs, version: "10.8.1"}]
+  match:
+    - "import { RemovalPolicy, Stack } from \"aws-cdk-lib\";\nimport * as s3 from \"aws-cdk-lib/aws-s3\";\n\nexport class Storage extends Stack {\n  readonly bucket = new s3.Bucket(this, \"Uploads\", { removalPolicy: RemovalPolicy.DESTROY });\n}\n"
+    - "import * as cdk from \"aws-cdk-lib\";\nimport { Bucket } from \"aws-cdk-lib/aws-s3\";\n\nexport class Storage extends cdk.Stack {\n  readonly bucket = new Bucket(this, \"Uploads\", { autoDeleteObjects: true });\n}\n"
+  no_match:
+    - "import { RemovalPolicy, Stack } from \"aws-cdk-lib\";\nimport * as s3 from \"aws-cdk-lib/aws-s3\";\n\nexport class Storage extends Stack {\n  readonly bucket = new s3.Bucket(this, \"Uploads\", { removalPolicy: RemovalPolicy.RETAIN, autoDeleteObjects: false });\n}\n"
+    - "enum Policy {\n  DESTROY,\n  KEEP,\n}\n\nexport const p = Policy.DESTROY;\nclass Bucket {\n  constructor(readonly o: object) {}\n}\nexport const b = new Bucket({ autoDeleteObjects: true });\n"
