@@ -739,7 +739,7 @@ tool() {
 # Exit status: 0 no finding, 1 findings, other = could not run.
 astgrep() {
   if { [ -f bun.lock ] || [ -f bun.lockb ]; } && command -v bunx >/dev/null 2>&1; then
-    bunx -p "@ast-grep/cli@$FORGE_AST_GREP_VERSION" ast-grep "$@" 2>/dev/null
+    astgrep_bunx "$@"
   elif command -v uvx >/dev/null 2>&1; then
     uvx -q --from "ast-grep-cli==$FORGE_AST_GREP_VERSION" ast-grep "$@" 2>/dev/null
     _rc=$?
@@ -749,10 +749,22 @@ astgrep() {
     fi
     return "$_rc"
   elif command -v bunx >/dev/null 2>&1; then
-    bunx -p "@ast-grep/cli@$FORGE_AST_GREP_VERSION" ast-grep "$@" 2>/dev/null
+    astgrep_bunx "$@"
   else
     return 127
   fi
+}
+
+# astgrep_bunx <args>: `bunx -p <package> <bin>` installs the package again at every
+# run (about a second); with --no-install it runs the copy in bunx's cache, which is
+# installed first when it is not there (once per shell).
+astgrep_bunx() {
+  if [ -z "${_ag_bunx:-}" ]; then
+    bunx --no-install -p "@ast-grep/cli@$FORGE_AST_GREP_VERSION" ast-grep --version >/dev/null 2>&1 \
+      || bunx -p "@ast-grep/cli@$FORGE_AST_GREP_VERSION" ast-grep --version >/dev/null 2>&1
+    _ag_bunx=1
+  fi
+  bunx --no-install -p "@ast-grep/cli@$FORGE_AST_GREP_VERSION" ast-grep "$@" 2>/dev/null
 }
 
 # first_lines <n>: keep the first n lines of stdin.
@@ -16853,7 +16865,7 @@ tool() {
 # Exit status: 0 no finding, 1 findings, other = could not run.
 astgrep() {
   if { [ -f bun.lock ] || [ -f bun.lockb ]; } && command -v bunx >/dev/null 2>&1; then
-    bunx -p "@ast-grep/cli@$FORGE_AST_GREP_VERSION" ast-grep "$@" 2>/dev/null
+    astgrep_bunx "$@"
   elif command -v uvx >/dev/null 2>&1; then
     uvx -q --from "ast-grep-cli==$FORGE_AST_GREP_VERSION" ast-grep "$@" 2>/dev/null
     _rc=$?
@@ -16863,10 +16875,22 @@ astgrep() {
     fi
     return "$_rc"
   elif command -v bunx >/dev/null 2>&1; then
-    bunx -p "@ast-grep/cli@$FORGE_AST_GREP_VERSION" ast-grep "$@" 2>/dev/null
+    astgrep_bunx "$@"
   else
     return 127
   fi
+}
+
+# astgrep_bunx <args>: `bunx -p <package> <bin>` installs the package again at every
+# run (about a second); with --no-install it runs the copy in bunx's cache, which is
+# installed first when it is not there (once per shell).
+astgrep_bunx() {
+  if [ -z "${_ag_bunx:-}" ]; then
+    bunx --no-install -p "@ast-grep/cli@$FORGE_AST_GREP_VERSION" ast-grep --version >/dev/null 2>&1 \
+      || bunx -p "@ast-grep/cli@$FORGE_AST_GREP_VERSION" ast-grep --version >/dev/null 2>&1
+    _ag_bunx=1
+  fi
+  bunx --no-install -p "@ast-grep/cli@$FORGE_AST_GREP_VERSION" ast-grep "$@" 2>/dev/null
 }
 
 # first_lines <n>: keep the first n lines of stdin.
@@ -20997,7 +21021,7 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/bash-snapshot.sh": "29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e",
     ".claude/skills/forge-project/scripts/guard.rules": "d0a502f51f51609d7e5e9cd6f39a8ce165c656ee1c1b7a607105a536962058eb",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
-    ".claude/skills/forge-project/scripts/lib.sh": "f9cb6629b5900b5c8d0891b5d69d0d51cb68108a2c99d1bfad86ddd612b3725a",
+    ".claude/skills/forge-project/scripts/lib.sh": "83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5",
     ".claude/skills/forge-project/scripts/post-edit.sh": "c91ad8d8bf0897fc175437e4a140874a0ac15a202c6602762e766fcac317b22e",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
     ".claude/skills/forge-project/scripts/session-end.sh": "99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58",
@@ -21072,7 +21096,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/typescript/zod/error-param.yml": "88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a",
     ".forge/ast-grep/rules/typescript/zod/v4-string-formats.yml": "1f4b2e54f9767673c6469da4a1d7f0d9dc1d8f39b657460bab8096b8c35a0a45",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "8bebc4784c2125492293308adeb623e06e6a8632a1af99e465efa541da17659f",
+    ".forge/check.sh": "fb531a8fb8da64a57d5a5dcca074b86cddecf258ec6de5e8f05b302690290107",
     ".forge/helpers/ratchet.mjs": "14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38",
     ".forge/helpers/types_typescript.mjs": "6e762a63e5d062fec1c24302266e2a0f186fb2541487fe820f10e76f9015c177",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
@@ -21969,7 +21993,7 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e  .claude/skills/forge-project/scripts/bash-snapshot.sh
 d0a502f51f51609d7e5e9cd6f39a8ce165c656ee1c1b7a607105a536962058eb  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
-f9cb6629b5900b5c8d0891b5d69d0d51cb68108a2c99d1bfad86ddd612b3725a  .claude/skills/forge-project/scripts/lib.sh
+83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5  .claude/skills/forge-project/scripts/lib.sh
 c91ad8d8bf0897fc175437e4a140874a0ac15a202c6602762e766fcac317b22e  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
 99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58  .claude/skills/forge-project/scripts/session-end.sh
@@ -22044,7 +22068,7 @@ d3c41a3915d84b21e86e9212a06ad14c52bf2f9bcefb7c5ca433200cc3ec44fb  .forge/ast-gre
 88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a  .forge/ast-grep/rules/typescript/zod/error-param.yml
 1f4b2e54f9767673c6469da4a1d7f0d9dc1d8f39b657460bab8096b8c35a0a45  .forge/ast-grep/rules/typescript/zod/v4-string-formats.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-8bebc4784c2125492293308adeb623e06e6a8632a1af99e465efa541da17659f  .forge/check.sh
+fb531a8fb8da64a57d5a5dcca074b86cddecf258ec6de5e8f05b302690290107  .forge/check.sh
 14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38  .forge/helpers/ratchet.mjs
 6e762a63e5d062fec1c24302266e2a0f186fb2541487fe820f10e76f9015c177  .forge/helpers/types_typescript.mjs
 
