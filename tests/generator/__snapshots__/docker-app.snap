@@ -2679,6 +2679,25 @@ forge_filter() {
   return 0
 }
 
+# forge_select <predicate>: FORGE_FILES=$(forge_filter <predicate>), without the
+# subshell (a fork per check and run otherwise).
+forge_select() {
+  FORGE_FILES=''
+  while read -r _ff_line; do
+    [ -n "$_ff_line" ] && "$1" "$_ff_line" && FORGE_FILES="${FORGE_FILES:+$FORGE_FILES
+}$_ff_line"
+  done
+  return 0
+}
+
+# forge_any <predicate>: succeeds when <predicate> holds for a line of stdin.
+forge_any() {
+  while read -r _ff_line; do
+    [ -n "$_ff_line" ] && "$1" "$_ff_line" && return 0
+  done
+  return 1
+}
+
 # forge_db_url: DATABASE_URL from the environment, then .env, then alembic.ini.
 forge_db_url() {
   if [ -n "${DATABASE_URL:-}" ]; then printf '%s' "$DATABASE_URL"; return 0; fi
@@ -3716,9 +3735,9 @@ forge_run_check() {
   FORGE_FILES=''
   if [ "$mode" != --all ]; then
     if [ "$c_when" = 1 ]; then
-      [ -n "$(forge_filter "forge_when_$1" < "$FORGE_TMP/changed")" ] || return 0
+      forge_any "forge_when_$1" < "$FORGE_TMP/changed" || return 0
     fi
-    FORGE_FILES=$(forge_filter "forge_scope_$1" < "$FORGE_TMP/existing")
+    forge_select "forge_scope_$1" < "$FORGE_TMP/existing"
     [ "$c_when" = 1 ] || [ -n "$FORGE_FILES" ] || return 0
   fi
   if _fc_missing=$(forge_missing_tool); then
@@ -4106,7 +4125,8 @@ forge_run_stage() {
     if [ "$c_stage" = "$1" ]; then
       forge_run_check "$_fs_i" > "$FORGE_TMP/check.out"
       case $? in
-        0) cat "$FORGE_TMP/check.out" ;;
+        # most checks print nothing (not in the change): no cat then
+        0) [ ! -s "$FORGE_TMP/check.out" ] || cat "$FORGE_TMP/check.out" ;;
         3) cat "$FORGE_TMP/check.out"; [ "$_fs_rc" -ne 0 ] || _fs_rc=3 ;;
         *)
           # advice goes after every real failure (check.sh prints it last)
@@ -4137,7 +4157,7 @@ forge_file_run() {
   while [ "$_fp_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fp_i"
     if [ "$c_stage" = "$1" ] && [ "$c_files" = 1 ] && ! forge_missing_tool >/dev/null; then
-      FORGE_FILES=$(forge_filter "forge_scope_$_fp_i" < "$2")
+      forge_select "forge_scope_$_fp_i" < "$2"
       if [ -n "$FORGE_FILES" ] && ! forge_exec_check "forge_check_changed_$_fp_i" "$c_timeout"; then
         mv "$FORGE_TMP/out" "$FORGE_TMP/stage-$1.$_fp_i"
         printf '%s\n' "$_fp_i" >> "$FORGE_TMP/stage-$1.failed"
@@ -4189,7 +4209,7 @@ forge_file_fixes() {
   while [ "$_fx_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fx_i"
     if [ "$c_stage" = lint ] && [ "$c_fix" = 1 ] && ! forge_missing_tool >/dev/null; then
-      FORGE_FILES=$(forge_filter "forge_scope_$_fx_i" < "$1")
+      forge_select "forge_scope_$_fx_i" < "$1"
       if [ -n "$FORGE_FILES" ]; then
         forge_exec_check "forge_check_fix_$_fx_i" "$c_timeout"
         # ruff: "Fixed N errors:", then "- <path>:" and "    1 × I001 (unsorted-imports)" lines
@@ -6063,6 +6083,25 @@ forge_filter() {
   return 0
 }
 
+# forge_select <predicate>: FORGE_FILES=$(forge_filter <predicate>), without the
+# subshell (a fork per check and run otherwise).
+forge_select() {
+  FORGE_FILES=''
+  while read -r _ff_line; do
+    [ -n "$_ff_line" ] && "$1" "$_ff_line" && FORGE_FILES="${FORGE_FILES:+$FORGE_FILES
+}$_ff_line"
+  done
+  return 0
+}
+
+# forge_any <predicate>: succeeds when <predicate> holds for a line of stdin.
+forge_any() {
+  while read -r _ff_line; do
+    [ -n "$_ff_line" ] && "$1" "$_ff_line" && return 0
+  done
+  return 1
+}
+
 # forge_db_url: DATABASE_URL from the environment, then .env, then alembic.ini.
 forge_db_url() {
   if [ -n "${DATABASE_URL:-}" ]; then printf '%s' "$DATABASE_URL"; return 0; fi
@@ -7100,9 +7139,9 @@ forge_run_check() {
   FORGE_FILES=''
   if [ "$mode" != --all ]; then
     if [ "$c_when" = 1 ]; then
-      [ -n "$(forge_filter "forge_when_$1" < "$FORGE_TMP/changed")" ] || return 0
+      forge_any "forge_when_$1" < "$FORGE_TMP/changed" || return 0
     fi
-    FORGE_FILES=$(forge_filter "forge_scope_$1" < "$FORGE_TMP/existing")
+    forge_select "forge_scope_$1" < "$FORGE_TMP/existing"
     [ "$c_when" = 1 ] || [ -n "$FORGE_FILES" ] || return 0
   fi
   if _fc_missing=$(forge_missing_tool); then
@@ -7490,7 +7529,8 @@ forge_run_stage() {
     if [ "$c_stage" = "$1" ]; then
       forge_run_check "$_fs_i" > "$FORGE_TMP/check.out"
       case $? in
-        0) cat "$FORGE_TMP/check.out" ;;
+        # most checks print nothing (not in the change): no cat then
+        0) [ ! -s "$FORGE_TMP/check.out" ] || cat "$FORGE_TMP/check.out" ;;
         3) cat "$FORGE_TMP/check.out"; [ "$_fs_rc" -ne 0 ] || _fs_rc=3 ;;
         *)
           # advice goes after every real failure (check.sh prints it last)
@@ -7521,7 +7561,7 @@ forge_file_run() {
   while [ "$_fp_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fp_i"
     if [ "$c_stage" = "$1" ] && [ "$c_files" = 1 ] && ! forge_missing_tool >/dev/null; then
-      FORGE_FILES=$(forge_filter "forge_scope_$_fp_i" < "$2")
+      forge_select "forge_scope_$_fp_i" < "$2"
       if [ -n "$FORGE_FILES" ] && ! forge_exec_check "forge_check_changed_$_fp_i" "$c_timeout"; then
         mv "$FORGE_TMP/out" "$FORGE_TMP/stage-$1.$_fp_i"
         printf '%s\n' "$_fp_i" >> "$FORGE_TMP/stage-$1.failed"
@@ -7573,7 +7613,7 @@ forge_file_fixes() {
   while [ "$_fx_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fx_i"
     if [ "$c_stage" = lint ] && [ "$c_fix" = 1 ] && ! forge_missing_tool >/dev/null; then
-      FORGE_FILES=$(forge_filter "forge_scope_$_fx_i" < "$1")
+      forge_select "forge_scope_$_fx_i" < "$1"
       if [ -n "$FORGE_FILES" ]; then
         forge_exec_check "forge_check_fix_$_fx_i" "$c_timeout"
         # ruff: "Fixed N errors:", then "- <path>:" and "    1 × I001 (unsorted-imports)" lines
@@ -9478,6 +9518,25 @@ forge_filter() {
   return 0
 }
 
+# forge_select <predicate>: FORGE_FILES=$(forge_filter <predicate>), without the
+# subshell (a fork per check and run otherwise).
+forge_select() {
+  FORGE_FILES=''
+  while read -r _ff_line; do
+    [ -n "$_ff_line" ] && "$1" "$_ff_line" && FORGE_FILES="${FORGE_FILES:+$FORGE_FILES
+}$_ff_line"
+  done
+  return 0
+}
+
+# forge_any <predicate>: succeeds when <predicate> holds for a line of stdin.
+forge_any() {
+  while read -r _ff_line; do
+    [ -n "$_ff_line" ] && "$1" "$_ff_line" && return 0
+  done
+  return 1
+}
+
 # forge_db_url: DATABASE_URL from the environment, then .env, then alembic.ini.
 forge_db_url() {
   if [ -n "${DATABASE_URL:-}" ]; then printf '%s' "$DATABASE_URL"; return 0; fi
@@ -10515,9 +10574,9 @@ forge_run_check() {
   FORGE_FILES=''
   if [ "$mode" != --all ]; then
     if [ "$c_when" = 1 ]; then
-      [ -n "$(forge_filter "forge_when_$1" < "$FORGE_TMP/changed")" ] || return 0
+      forge_any "forge_when_$1" < "$FORGE_TMP/changed" || return 0
     fi
-    FORGE_FILES=$(forge_filter "forge_scope_$1" < "$FORGE_TMP/existing")
+    forge_select "forge_scope_$1" < "$FORGE_TMP/existing"
     [ "$c_when" = 1 ] || [ -n "$FORGE_FILES" ] || return 0
   fi
   if _fc_missing=$(forge_missing_tool); then
@@ -10905,7 +10964,8 @@ forge_run_stage() {
     if [ "$c_stage" = "$1" ]; then
       forge_run_check "$_fs_i" > "$FORGE_TMP/check.out"
       case $? in
-        0) cat "$FORGE_TMP/check.out" ;;
+        # most checks print nothing (not in the change): no cat then
+        0) [ ! -s "$FORGE_TMP/check.out" ] || cat "$FORGE_TMP/check.out" ;;
         3) cat "$FORGE_TMP/check.out"; [ "$_fs_rc" -ne 0 ] || _fs_rc=3 ;;
         *)
           # advice goes after every real failure (check.sh prints it last)
@@ -10936,7 +10996,7 @@ forge_file_run() {
   while [ "$_fp_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fp_i"
     if [ "$c_stage" = "$1" ] && [ "$c_files" = 1 ] && ! forge_missing_tool >/dev/null; then
-      FORGE_FILES=$(forge_filter "forge_scope_$_fp_i" < "$2")
+      forge_select "forge_scope_$_fp_i" < "$2"
       if [ -n "$FORGE_FILES" ] && ! forge_exec_check "forge_check_changed_$_fp_i" "$c_timeout"; then
         mv "$FORGE_TMP/out" "$FORGE_TMP/stage-$1.$_fp_i"
         printf '%s\n' "$_fp_i" >> "$FORGE_TMP/stage-$1.failed"
@@ -10988,7 +11048,7 @@ forge_file_fixes() {
   while [ "$_fx_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fx_i"
     if [ "$c_stage" = lint ] && [ "$c_fix" = 1 ] && ! forge_missing_tool >/dev/null; then
-      FORGE_FILES=$(forge_filter "forge_scope_$_fx_i" < "$1")
+      forge_select "forge_scope_$_fx_i" < "$1"
       if [ -n "$FORGE_FILES" ]; then
         forge_exec_check "forge_check_fix_$_fx_i" "$c_timeout"
         # ruff: "Fixed N errors:", then "- <path>:" and "    1 × I001 (unsorted-imports)" lines
@@ -12913,6 +12973,25 @@ forge_filter() {
   return 0
 }
 
+# forge_select <predicate>: FORGE_FILES=$(forge_filter <predicate>), without the
+# subshell (a fork per check and run otherwise).
+forge_select() {
+  FORGE_FILES=''
+  while read -r _ff_line; do
+    [ -n "$_ff_line" ] && "$1" "$_ff_line" && FORGE_FILES="${FORGE_FILES:+$FORGE_FILES
+}$_ff_line"
+  done
+  return 0
+}
+
+# forge_any <predicate>: succeeds when <predicate> holds for a line of stdin.
+forge_any() {
+  while read -r _ff_line; do
+    [ -n "$_ff_line" ] && "$1" "$_ff_line" && return 0
+  done
+  return 1
+}
+
 # forge_db_url: DATABASE_URL from the environment, then .env, then alembic.ini.
 forge_db_url() {
   if [ -n "${DATABASE_URL:-}" ]; then printf '%s' "$DATABASE_URL"; return 0; fi
@@ -13950,9 +14029,9 @@ forge_run_check() {
   FORGE_FILES=''
   if [ "$mode" != --all ]; then
     if [ "$c_when" = 1 ]; then
-      [ -n "$(forge_filter "forge_when_$1" < "$FORGE_TMP/changed")" ] || return 0
+      forge_any "forge_when_$1" < "$FORGE_TMP/changed" || return 0
     fi
-    FORGE_FILES=$(forge_filter "forge_scope_$1" < "$FORGE_TMP/existing")
+    forge_select "forge_scope_$1" < "$FORGE_TMP/existing"
     [ "$c_when" = 1 ] || [ -n "$FORGE_FILES" ] || return 0
   fi
   if _fc_missing=$(forge_missing_tool); then
@@ -14340,7 +14419,8 @@ forge_run_stage() {
     if [ "$c_stage" = "$1" ]; then
       forge_run_check "$_fs_i" > "$FORGE_TMP/check.out"
       case $? in
-        0) cat "$FORGE_TMP/check.out" ;;
+        # most checks print nothing (not in the change): no cat then
+        0) [ ! -s "$FORGE_TMP/check.out" ] || cat "$FORGE_TMP/check.out" ;;
         3) cat "$FORGE_TMP/check.out"; [ "$_fs_rc" -ne 0 ] || _fs_rc=3 ;;
         *)
           # advice goes after every real failure (check.sh prints it last)
@@ -14371,7 +14451,7 @@ forge_file_run() {
   while [ "$_fp_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fp_i"
     if [ "$c_stage" = "$1" ] && [ "$c_files" = 1 ] && ! forge_missing_tool >/dev/null; then
-      FORGE_FILES=$(forge_filter "forge_scope_$_fp_i" < "$2")
+      forge_select "forge_scope_$_fp_i" < "$2"
       if [ -n "$FORGE_FILES" ] && ! forge_exec_check "forge_check_changed_$_fp_i" "$c_timeout"; then
         mv "$FORGE_TMP/out" "$FORGE_TMP/stage-$1.$_fp_i"
         printf '%s\n' "$_fp_i" >> "$FORGE_TMP/stage-$1.failed"
@@ -14423,7 +14503,7 @@ forge_file_fixes() {
   while [ "$_fx_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fx_i"
     if [ "$c_stage" = lint ] && [ "$c_fix" = 1 ] && ! forge_missing_tool >/dev/null; then
-      FORGE_FILES=$(forge_filter "forge_scope_$_fx_i" < "$1")
+      forge_select "forge_scope_$_fx_i" < "$1"
       if [ -n "$FORGE_FILES" ]; then
         forge_exec_check "forge_check_fix_$_fx_i" "$c_timeout"
         # ruff: "Fixed N errors:", then "- <path>:" and "    1 × I001 (unsorted-imports)" lines
@@ -17347,6 +17427,25 @@ forge_filter() {
   return 0
 }
 
+# forge_select <predicate>: FORGE_FILES=$(forge_filter <predicate>), without the
+# subshell (a fork per check and run otherwise).
+forge_select() {
+  FORGE_FILES=''
+  while read -r _ff_line; do
+    [ -n "$_ff_line" ] && "$1" "$_ff_line" && FORGE_FILES="${FORGE_FILES:+$FORGE_FILES
+}$_ff_line"
+  done
+  return 0
+}
+
+# forge_any <predicate>: succeeds when <predicate> holds for a line of stdin.
+forge_any() {
+  while read -r _ff_line; do
+    [ -n "$_ff_line" ] && "$1" "$_ff_line" && return 0
+  done
+  return 1
+}
+
 # forge_db_url: DATABASE_URL from the environment, then .env, then alembic.ini.
 forge_db_url() {
   if [ -n "${DATABASE_URL:-}" ]; then printf '%s' "$DATABASE_URL"; return 0; fi
@@ -18384,9 +18483,9 @@ forge_run_check() {
   FORGE_FILES=''
   if [ "$mode" != --all ]; then
     if [ "$c_when" = 1 ]; then
-      [ -n "$(forge_filter "forge_when_$1" < "$FORGE_TMP/changed")" ] || return 0
+      forge_any "forge_when_$1" < "$FORGE_TMP/changed" || return 0
     fi
-    FORGE_FILES=$(forge_filter "forge_scope_$1" < "$FORGE_TMP/existing")
+    forge_select "forge_scope_$1" < "$FORGE_TMP/existing"
     [ "$c_when" = 1 ] || [ -n "$FORGE_FILES" ] || return 0
   fi
   if _fc_missing=$(forge_missing_tool); then
@@ -18774,7 +18873,8 @@ forge_run_stage() {
     if [ "$c_stage" = "$1" ]; then
       forge_run_check "$_fs_i" > "$FORGE_TMP/check.out"
       case $? in
-        0) cat "$FORGE_TMP/check.out" ;;
+        # most checks print nothing (not in the change): no cat then
+        0) [ ! -s "$FORGE_TMP/check.out" ] || cat "$FORGE_TMP/check.out" ;;
         3) cat "$FORGE_TMP/check.out"; [ "$_fs_rc" -ne 0 ] || _fs_rc=3 ;;
         *)
           # advice goes after every real failure (check.sh prints it last)
@@ -18805,7 +18905,7 @@ forge_file_run() {
   while [ "$_fp_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fp_i"
     if [ "$c_stage" = "$1" ] && [ "$c_files" = 1 ] && ! forge_missing_tool >/dev/null; then
-      FORGE_FILES=$(forge_filter "forge_scope_$_fp_i" < "$2")
+      forge_select "forge_scope_$_fp_i" < "$2"
       if [ -n "$FORGE_FILES" ] && ! forge_exec_check "forge_check_changed_$_fp_i" "$c_timeout"; then
         mv "$FORGE_TMP/out" "$FORGE_TMP/stage-$1.$_fp_i"
         printf '%s\n' "$_fp_i" >> "$FORGE_TMP/stage-$1.failed"
@@ -18857,7 +18957,7 @@ forge_file_fixes() {
   while [ "$_fx_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fx_i"
     if [ "$c_stage" = lint ] && [ "$c_fix" = 1 ] && ! forge_missing_tool >/dev/null; then
-      FORGE_FILES=$(forge_filter "forge_scope_$_fx_i" < "$1")
+      forge_select "forge_scope_$_fx_i" < "$1"
       if [ -n "$FORGE_FILES" ]; then
         forge_exec_check "forge_check_fix_$_fx_i" "$c_timeout"
         # ruff: "Fixed N errors:", then "- <path>:" and "    1 × I001 (unsorted-imports)" lines
@@ -19350,13 +19450,13 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "ff61a19974ccfc38fe6771978c9f9fe21253d4132eff8af9f06b112607965a00",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
     ".claude/skills/forge-project/scripts/lib.sh": "83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "8fc79f8542c9cdb495f6f851cd54e10a20e8f215899b40e28cbb9c821d804b33",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "d429d43929666e145934a8be37f4758b933e5047ac282cd5b98bf9af4092856e",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
-    ".claude/skills/forge-project/scripts/session-start.sh": "c5f25303e9f7abce66785fd76f7f3b1d499cf6e0aa84dab49d224fd20e7cd724",
+    ".claude/skills/forge-project/scripts/session-start.sh": "aee6e2072d14ffad1aafe8ccd8ba115293db6137593f185f3d612c71e4d0b140",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "d915195bfac6cf7e0b0d2f771904bce03818a87f80e982637fbacbcd4276e411",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "80f57800409a318fe1c9a66db03bfaa09130dbe2cb3174aef09e7a7040b9fe5d",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "d7c8d5c6df80501d9055fc5b9d0659320a07ebebd7c2dc9b3afdf549d52b58de",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "2e3be4bf4e27b9d3bc5c3c750a54d8a6a6983367bf8c00a1ef3f58a9645e8cb6",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/docker-compose-datastore-loopback-test.yml": "75507971edac1d4a2eca04e6bceb8a942429c0987372010b39ad0b7f126b55e9",
     ".forge/ast-grep/rule-tests/docker-compose-healthy-depends-test.yml": "bcd21e7f9112e5f0d44c9f5c9779824661b2f1dc40448323100787f342c4b7a8",
@@ -19377,7 +19477,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/docker/compose/pinned-images.yml": "026540d386ff8d8bd6f4f1951063c2fcd5cb8a96d8c7184f97e0887e3241c01a",
     ".forge/ast-grep/rules/python/no-stub.yml": "0660a06b80fa4e3cccbc89f496275e8f093b873632d1d93ecb48e4315d987bbf",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "ab13e126f9707e6a7caa9896c2d8a0430569d178afe7a7cf96d688be149baa9d",
+    ".forge/check.sh": "c4857756ffd554462fbdaed2ee2526a103fdd1c7e7abb1c668060abf62712224",
     ".forge/helpers/ratchet.py": "4f7e312b9419bd1ee09fe9cd3e988546bba089d706cb1b44e4546c4b4c87173d",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
@@ -19642,13 +19742,13 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 ff61a19974ccfc38fe6771978c9f9fe21253d4132eff8af9f06b112607965a00  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
 83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5  .claude/skills/forge-project/scripts/lib.sh
-8fc79f8542c9cdb495f6f851cd54e10a20e8f215899b40e28cbb9c821d804b33  .claude/skills/forge-project/scripts/post-edit.sh
+d429d43929666e145934a8be37f4758b933e5047ac282cd5b98bf9af4092856e  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
-c5f25303e9f7abce66785fd76f7f3b1d499cf6e0aa84dab49d224fd20e7cd724  .claude/skills/forge-project/scripts/session-start.sh
+aee6e2072d14ffad1aafe8ccd8ba115293db6137593f185f3d612c71e4d0b140  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-d915195bfac6cf7e0b0d2f771904bce03818a87f80e982637fbacbcd4276e411  .claude/skills/forge-project/scripts/test-edit.sh
+80f57800409a318fe1c9a66db03bfaa09130dbe2cb3174aef09e7a7040b9fe5d  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-d7c8d5c6df80501d9055fc5b9d0659320a07ebebd7c2dc9b3afdf549d52b58de  .claude/skills/forge-project/scripts/typecheck.sh
+2e3be4bf4e27b9d3bc5c3c750a54d8a6a6983367bf8c00a1ef3f58a9645e8cb6  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 75507971edac1d4a2eca04e6bceb8a942429c0987372010b39ad0b7f126b55e9  .forge/ast-grep/rule-tests/docker-compose-datastore-loopback-test.yml
 bcd21e7f9112e5f0d44c9f5c9779824661b2f1dc40448323100787f342c4b7a8  .forge/ast-grep/rule-tests/docker-compose-healthy-depends-test.yml
@@ -19669,7 +19769,7 @@ e4fd92858db90ac12b535496548f182e453e83bc9cb24f53a102ab7fc98cd67b  .forge/ast-gre
 026540d386ff8d8bd6f4f1951063c2fcd5cb8a96d8c7184f97e0887e3241c01a  .forge/ast-grep/rules/docker/compose/pinned-images.yml
 0660a06b80fa4e3cccbc89f496275e8f093b873632d1d93ecb48e4315d987bbf  .forge/ast-grep/rules/python/no-stub.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-ab13e126f9707e6a7caa9896c2d8a0430569d178afe7a7cf96d688be149baa9d  .forge/check.sh
+c4857756ffd554462fbdaed2ee2526a103fdd1c7e7abb1c668060abf62712224  .forge/check.sh
 4f7e312b9419bd1ee09fe9cd3e988546bba089d706cb1b44e4546c4b4c87173d  .forge/helpers/ratchet.py
 
 ===== .git/hooks/pre-commit
