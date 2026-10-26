@@ -673,8 +673,9 @@ context.md: strict TypeScript and Bun; TypeScript 6 deprecations are migrated, n
 | `python/fastapi/no-on-event` | `ast-grep` forbid: `@app.on_event($$$)` |
 | `python/fastapi/annotated-depends` | `tool` ruff `FAST002` |
 | `python/fastapi/cors-credentials-wildcard` | `ast-grep` forbid: `add_middleware(CORSMiddleware, …)` with both `allow_origins=["*"]` and `allow_credentials=True` |
+| `python/fastapi/basic-auth-compare-digest` | `ast-grep` forbid: `==` / `!=` with `$C.username` or `$C.password` as an operand, where `C` is typed `fastapi` `HTTPBasicCredentials` (§15.1) |
 
-context.md: "FastAPI. Dependencies use `Annotated[T, Depends(...)]`. Startup and shutdown use `lifespan`. Request and response bodies are Pydantic v2 models."
+context.md: "FastAPI. Dependencies use `Annotated[T, Depends(...)]`. Startup and shutdown use `lifespan`. Request and response bodies are Pydantic v2 models." HTTP Basic credentials are compared with `secrets.compare_digest`.
 
 ### python/sqlalchemy
 
