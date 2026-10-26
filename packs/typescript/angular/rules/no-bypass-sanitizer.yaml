@@ -1,0 +1,25 @@
+id: typescript/angular/no-bypass-sanitizer
+description: "No DomSanitizer.bypassSecurityTrustHtml, Script, Style, Url or ResourceUrl: they turn off Angular's XSS protection for that value. Bind the value and let Angular sanitise it."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      has:
+        field: function
+        kind: member_expression
+        all:
+          - has: {field: property, regex: "^bypassSecurityTrust(Html|Script|Style|Url|ResourceUrl)$"}
+          - has: {field: object, pattern: $S}
+    # The receiver is Angular's DomSanitizer by its type (§15.1), however it was injected.
+    where:
+      S: {type: {package: "@angular/platform-browser", name: DomSanitizer}}
+examples:
+  deps: [{ecosystem: npm, name: "@angular/platform-browser", version: "22.2.3"}, {ecosystem: npm, name: "@angular/core", version: "22.2.3"}, {ecosystem: npm, name: "@angular/common", version: "22.2.3"}, {ecosystem: npm, name: rxjs, version: "7.8.2"}]
+  match:
+    - "import { inject } from \"@angular/core\";\nimport { DomSanitizer } from \"@angular/platform-browser\";\n\nexport function html(s: string) {\n  return inject(DomSanitizer).bypassSecurityTrustHtml(s);\n}\n"
+    - "import { DomSanitizer as D } from \"@angular/platform-browser\";\n\nexport class C {\n  constructor(private san: D) {}\n  url(u: string) {\n    return this.san.bypassSecurityTrustResourceUrl(u);\n  }\n}\n"
+  no_match:
+    - "import { inject } from \"@angular/core\";\nimport { DomSanitizer, SecurityContext } from \"@angular/platform-browser\";\n\nexport function html(s: string) {\n  return inject(DomSanitizer).sanitize(SecurityContext.HTML, s);\n}\n"
+    - "const s = { bypassSecurityTrustHtml: (x: string) => x };\nexport const y = s.bypassSecurityTrustHtml(\"a\");\n"
