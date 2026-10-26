@@ -1,0 +1,63 @@
+id: typescript/typeorm/no-synchronize
+description: "No literal synchronize: true or dropSchema: true in new DataSource({...}), TypeOrmModule.forRoot({...}) or the object a TypeOrmModule.forRootAsync useFactory returns: schema auto-sync alters and drops columns, dropSchema wipes the database at every start; schema changes go through migrations."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: pair
+      all:
+        - has: {field: key, regex: "^[\"']?(synchronize|dropSchema)[\"']?$"}
+        - has: {field: value, kind: "true"}
+        - any:
+            # new DataSource({...})
+            - inside:
+                kind: object
+                stopBy: neighbor
+                inside: {kind: arguments, stopBy: neighbor, inside: {kind: new_expression, stopBy: neighbor, pattern: $D}}
+            # TypeOrmModule.forRoot({...}), and the object a forRootAsync useFactory returns
+            - inside:
+                kind: object
+                stopBy: neighbor
+                all:
+                  - any:
+                      - inside: {kind: arguments, stopBy: neighbor, inside: {kind: call_expression, stopBy: neighbor, has: {field: function, kind: member_expression, all: [{has: {field: object, pattern: $M}}, {has: {field: property, regex: "^forRoot$"}}]}}}
+                      - inside:
+                          stopBy: end
+                          any: [{kind: arrow_function}, {kind: function_expression}, {kind: method_definition}]
+                          all:
+                            - any:
+                                - inside: {kind: pair, stopBy: neighbor, has: {field: key, regex: "^[\"']?useFactory[\"']?$"}}
+                                - {kind: method_definition, has: {field: name, regex: "^useFactory$"}}
+                            - inside:
+                                kind: call_expression
+                                stopBy: end
+                                has: {field: function, kind: member_expression, all: [{has: {field: object, pattern: $M}}, {has: {field: property, regex: "^forRootAsync$"}}]}
+                  - inside:
+                      kind: program
+                      stopBy: end
+                      has:
+                        kind: import_statement
+                        all:
+                          - has: {field: source, regex: "^[\"']@nestjs/typeorm[\"']$"}
+                          - has:
+                              stopBy: end
+                              kind: import_specifier
+                              any:
+                                - all: [{has: {field: name, regex: "^TypeOrmModule$"}}, {has: {field: alias, pattern: $M}}]
+                                - all: [{has: {field: name, regex: "^TypeOrmModule$", pattern: $M}}, {not: {has: {field: alias, kind: identifier}}}]
+    # a TypeORM DataSource however it is imported; TypeOrmModule is the binding imported from @nestjs/typeorm
+    where:
+      D: {type: {package: typeorm, name: DataSource}}
+examples:
+  deps: [{ecosystem: npm, name: typeorm, version: "1.1.2"}, {ecosystem: npm, name: reflect-metadata, version: "0.2.2"}]
+  match:
+    - "import { DataSource } from \"typeorm\";\n\nexport const ds = new DataSource({ type: \"postgres\", url: \"postgres://localhost/app\", synchronize: true });\n"
+    - "import { DataSource as Db } from \"typeorm\";\n\nexport const ds = new Db({ type: \"postgres\", dropSchema: true });\n"
+    - "import { Module } from \"@nestjs/common\";\nimport { TypeOrmModule } from \"@nestjs/typeorm\";\n\n@Module({ imports: [TypeOrmModule.forRoot({ type: \"postgres\", synchronize: true })] })\nexport class AppModule {}\n"
+    - "import { Module } from \"@nestjs/common\";\nimport { TypeOrmModule } from \"@nestjs/typeorm\";\n\n@Module({\n  imports: [\n    TypeOrmModule.forRootAsync({\n      useFactory: () => ({ type: \"postgres\", synchronize: true }),\n    }),\n  ],\n})\nexport class AppModule {}\n"
+  no_match:
+    - "import { DataSource } from \"typeorm\";\n\nexport const ds = new DataSource({ type: \"postgres\", synchronize: false, migrationsRun: true });\n"
+    - "import { DataSource } from \"typeorm\";\n\nexport const ds = new DataSource({ type: \"postgres\", synchronize: process.env.DB_SYNC === \"1\" });\n"
+    - "class Store {\n  constructor(readonly opts: { synchronize: boolean }) {}\n}\n\nexport const s = new Store({ synchronize: true });\n"
+    - "import { Module } from \"@nestjs/common\";\nimport { ConfigModule } from \"@nestjs/config\";\n\n@Module({ imports: [ConfigModule.forRoot({ synchronize: true })] })\nexport class AppModule {}\n"

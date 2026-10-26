@@ -969,6 +969,19 @@ context.md: `ValidationPipe` with `whitelist` and `forbidNonWhitelisted`; DTO cl
 
 context.md: the `sql` tag binds values, `sql.ref()` / `sql.id()` for names, no `sql.raw()` / `sql.lit()` from a template; deletes and updates have a `where`.
 
+### typescript/typeorm
+
+| Rule | Targets |
+|---|---|
+| `typescript/typeorm/no-synchronize` | `ast-grep` forbid: a pair `synchronize: true` / `dropSchema: true` in the object argument of `new $D(…)` where `D` is TypeORM's `DataSource`, of `TypeOrmModule.forRoot(…)`, or in an object a `TypeOrmModule.forRootAsync` `useFactory` returns (`TypeOrmModule` the binding imported from `@nestjs/typeorm`) |
+| `typescript/typeorm/synchronize-expression` | `ast-grep` advise: the same keys set from an expression (not `true` / `false`) |
+| `typescript/typeorm/no-raw-query-interpolation` | `ast-grep` forbid: `$R.query(…)` whose first argument is a template with `${}`, a `+` concatenation or a variable declared from one, where `R` is `DataSource`, `EntityManager`, `QueryRunner` or `Repository` |
+| `typescript/typeorm/no-qb-where-interpolation` | `ast-grep` forbid: `where` / `andWhere` / `orWhere` / `having` / `andHaving` / `orHaving` / `orderBy` / `addOrderBy` with such a first argument on a `SelectQueryBuilder`, `UpdateQueryBuilder`, `DeleteQueryBuilder`, `SoftDeleteQueryBuilder` or `WhereExpressionBuilder` |
+| `typescript/typeorm/schema-sync-guard` | `guard` deny: `typeorm` / `typeorm-ts-node-esm` / `typeorm-ts-node-commonjs` `schema:sync`, `schema:drop` |
+| `typescript/typeorm/migration-revert` | `guard` ask: the same bins with `migration:revert` |
+
+context.md: migrations, never `synchronize` / `dropSchema`; parameters in `.query()` and in query builder conditions.
+
 ### github-actions
 
 Detected by `.github/workflows/*.yml` or `*.yaml`.

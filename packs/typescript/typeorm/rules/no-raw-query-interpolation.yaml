@@ -1,0 +1,38 @@
+id: typescript/typeorm/no-raw-query-interpolation
+description: "No TypeORM .query() (DataSource, EntityManager, QueryRunner, Repository) whose SQL is a template with ${}, a concatenation or a variable declared from one in the same function or module; pass the values as parameters (query(sql, [values]))."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      all:
+        - has: {field: function, kind: member_expression, all: [{has: {field: object, pattern: $R}}, {has: {field: property, regex: "^query$"}}]}
+        - has:
+            field: arguments
+            has:
+              nthChild: 1
+              any:
+                - {kind: template_string, has: {kind: template_substitution}}
+                - {kind: binary_expression, regex: "\\+"}
+                - all:
+                    - {kind: identifier, pattern: $Q}
+                    - inside:
+                        stopBy: end
+                        any: [{kind: statement_block}, {kind: program}]
+                        has:
+                          stopBy: end
+                          kind: variable_declarator
+                          all:
+                            - has: {field: name, pattern: $Q}
+                            - has: {field: value, any: [{kind: template_string, has: {kind: template_substitution}}, {kind: binary_expression, regex: "\\+"}]}
+    where:
+      R: {type: {package: typeorm, name: [DataSource, EntityManager, QueryRunner, Repository]}}
+examples:
+  deps: [{ecosystem: npm, name: typeorm, version: "1.1.2"}, {ecosystem: npm, name: reflect-metadata, version: "0.2.2"}]
+  match:
+    - "import type { DataSource } from \"typeorm\";\n\nexport function find(ds: DataSource, email: string) {\n  return ds.query(`SELECT * FROM users WHERE email = '${email}'`);\n}\n"
+    - "import type { EntityManager } from \"typeorm\";\n\nexport async function remove(em: EntityManager, table: string) {\n  const sql = \"DELETE FROM \" + table;\n  await em.query(sql);\n}\n"
+  no_match:
+    - "import type { DataSource } from \"typeorm\";\n\nexport function find(ds: DataSource, email: string) {\n  return ds.query(\"SELECT * FROM users WHERE email = $1\", [email]);\n}\n"
+    - "const client = { query: (sql: string) => sql };\n\nexport const r = (t: string) => client.query(`SELECT * FROM ${t}`);\n"
