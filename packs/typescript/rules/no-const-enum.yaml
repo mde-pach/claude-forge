@@ -1,0 +1,11 @@
+id: typescript/no-const-enum
+description: No const enum; isolated transpilers and type stripping cannot inline it. Use a union of literals or an as const object.
+scope: {language: typescript}
+enforce:
+  - target: tool
+    tool: biome
+    expects: lint/suspicious/noConstEnum
+    snippet: '"linter": {"rules": {"suspicious": {"noConstEnum": "error"}}}'
+examples:
+  match: ["export const enum Status {\n  Active = \"active\",\n  Archived = \"archived\",\n}\n"]
+  no_match: ["export const Status = {\n  Active: \"active\",\n  Archived: \"archived\",\n} as const;\n"]

@@ -1,0 +1,11 @@
+id: typescript/no-banned-types
+description: No Function, Object, String, Number, Boolean or {} as types; write the function signature, object shape or primitive type.
+scope: {language: typescript}
+enforce:
+  - target: tool
+    tool: biome
+    expects: lint/complexity/noBannedTypes
+    snippet: '"linter": {"rules": {"complexity": {"noBannedTypes": "error"}}}'
+examples:
+  match: ["export function run(task: Function): void {\n  task();\n}\n"]
+  no_match: ["export function run(task: () => void): void {\n  task();\n}\n"]

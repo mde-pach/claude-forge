@@ -1,0 +1,33 @@
+id: typescript/no-unchecked-json
+description: "The result of JSON.parse() or a fetch Response's .json() is not asserted (as T) or annotated (const x: T =) to a type it was never checked against: take it as unknown and validate it with a schema."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        - pattern: "JSON.parse($$$) as $T"
+        - pattern: "await $R.json() as $T"
+        - pattern: "(await $R.json()) as $T"
+        - kind: variable_declarator
+          all:
+            - has: {field: type, kind: type_annotation, not: {has: {kind: predefined_type, regex: "^unknown$"}}}
+            - has: {field: value, any: [{pattern: "JSON.parse($$$)"}, {pattern: "await $R.json()"}]}
+    constraints:
+      T: {not: {regex: "^unknown$"}}
+    # JSON is the global; .json() counts only on a fetch Response, by its type (§15.1):
+    # lib.dom's (package typescript) or Node's global one (undici-types)
+    where:
+      R: {type: {package: [typescript, undici-types], name: Response}}
+examples:
+  deps: [{ecosystem: npm, name: "@types/node", version: "24.10.1"}]
+  match:
+    - "type Config = { port: number };\n\nexport function load(text: string): Config {\n  return JSON.parse(text) as Config;\n}\n"
+    - "type Config = { port: number };\n\nexport function load(text: string): number {\n  const config: Config = JSON.parse(text);\n  return config.port;\n}\n"
+    - "type User = { id: number };\n\nexport async function user(): Promise<User> {\n  const res = await fetch(\"https://api.example.com/me\");\n  return (await res.json()) as User;\n}\n"
+    - "type User = { id: number };\n\nexport async function user(): Promise<number> {\n  const res = await fetch(\"https://api.example.com/me\");\n  const me: User = await res.json();\n  return me.id;\n}\n"
+  no_match:
+    - "export function load(text: string): unknown {\n  const config: unknown = JSON.parse(text);\n  return config;\n}\n"
+    - "export function load(text: string): unknown {\n  return JSON.parse(text) as unknown;\n}\n"
+    - "type User = { id: number };\n\nexport async function user(): Promise<unknown> {\n  const res = await fetch(\"https://api.example.com/me\");\n  const me: unknown = await res.json();\n  return me;\n}\n"
+    - "type User = { id: number };\n\nclass Store {\n  async json(): Promise<User> {\n    return { id: 1 };\n  }\n}\n\nexport async function user(store: Store): Promise<User> {\n  return (await store.json()) as User;\n}\n"

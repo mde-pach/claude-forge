@@ -580,7 +580,7 @@ context.md: uv and `.venv/bin`, ty, annotated parameters and returns; no blockin
 | `typescript/no-focused-tests` | `tool` biome `lint/suspicious/noFocusedTests`; `ast-grep` forbid `it.only(…)`, `test.only(…)`, `describe.only(…)`, `test.describe.only(…)` in test files and `e2e/**` |
 | `typescript/no-eval` | `tool` biome `lint/security/noGlobalEval`; `ast-grep` forbid `eval(…)`, `globalThis.eval(…)`, `window.eval(…)` |
 | `typescript/unchecked-index` | `tool` tsc: expects `TS18048` on an unchecked array element (`noUncheckedIndexedAccess`; snippet adds it to `strict`) |
-| `typescript/no-new-suppressions` | `grep` no-increase: `biome-ignore` (every form), `@ts-expect-error` (suppression budget; `@ts-ignore` and `@ts-nocheck` are forbidden outright) |
+| `typescript/no-new-suppressions` | `grep` no-increase: `biome-ignore`, `eslint-disable`, `oxlint-disable` (every form), `deno-lint-ignore`, `prettier-ignore`, `@ts-expect-error` (suppression budget; `@ts-ignore` and `@ts-nocheck` are forbidden outright) |
 | `typescript/no-empty-block` | `tool` biome `lint/suspicious/noEmptyBlockStatements` |
 | `typescript/no-swallowed-catch` | `ast-grep` forbid: a `catch` that neither throws nor uses its error; `.catch(() => {})`, `.catch(() => undefined)`, `.catch(() => null)` |
 | `typescript/no-console` | `tool` biome `lint/suspicious/noConsole` (snippet allows `warn` and `error`) |
@@ -589,12 +589,22 @@ context.md: uv and `.venv/bin`, ty, annotated parameters and returns; no blockin
 | `typescript/no-unused-suppressions` | `check` lint: `biome lint` output has no `suppressions/unused` diagnostic (Biome reports it only as a warning, and no setting raises it) |
 | `typescript/no-stub` | `ast-grep` forbid, not in `*.d.ts`: a `throw` whose message starts with "Not implemented", "unimplemented" or "TODO"; a named function or method (not a constructor) whose body is empty or only comments |
 | `typescript/no-placeholder-comment` | `grep` forbid (case-insensitive): the Python list, after `//`, `/*` or `*` |
-| `typescript/config-files` | `permission` ask: `Edit(**/biome.json)`, `Edit(**/biome.jsonc)`, `Edit(**/tsconfig*.json)` |
+| `typescript/config-files` | `permission` ask: `Edit(**/biome.json)`, `Edit(**/biome.jsonc)`, `Edit(**/tsconfig*.json)`, `Edit(**/eslint.config.*)`, `Edit(**/.oxlintrc.json)`, `Edit(**/deno.json)`, `Edit(**/deno.jsonc)`, `Edit(**/.prettierrc*)`, `Edit(**/prettier.config.*)`, `Edit(**/pnpm-workspace.yaml)`, `Edit(**/.npmrc)`, `Edit(**/.yarnrc.yml)`, `Edit(**/bunfig.toml)`, `Edit(**/turbo.json)` (code configs are not ratcheted, §10.4) |
 | `typescript/config-ratchet` | `check` lint: `forge_ratchet bun ratchet.mjs` (§10.4), `when_changed`: Biome, tsconfig and `package.json` files |
 | `typescript/lockfile-updated` | `check` lint: `forge_lockfile_updated`: a `package.json` whose `dependencies`, `devDependencies` or `optionalDependencies` changed since the base needs its lock file (`pnpm-lock.yaml`, `package-lock.json`, `npm-shrinkwrap.json`, `yarn.lock`, `bun.lock`; next to it, else at the root) to have a changed line naming each changed dependency; `bun.lock` is skipped when `typescript/bun/lock-sync` is active (`forge_check_active`); blocks once per turn (`forge_once`) |
 | `typescript/env-example` | `check` lint: `forge_env_example ts`, as `python/env-example` for the UPPER_CASE keys of a Zod env schema (t3-env `createEnv`, or `z.object(…)` with `process.env`) whose value is a `z.` chain; a key with `.default()`, `.optional()` or `.catch()` counts as having a default |
+| `typescript/verbatim-imports` | `tool` biome `lint/style/useImportType`, `lint/style/useExportType` (snippet: error; recommended has them as warnings) |
+| `typescript/implicit-returns` | `tool` tsc: expects `TS7030` (`noImplicitReturns`) |
+| `typescript/no-banned-types` | `tool` biome `lint/complexity/noBannedTypes` (snippet: error) |
+| `typescript/no-const-enum` | `tool` biome `lint/suspicious/noConstEnum` (snippet: error) |
+| `typescript/no-object-literal-assertion` | `ast-grep` forbid: `$E as $T` where `E` is an object literal or a non-empty array literal and `T` is not `const` |
+| `typescript/no-unchecked-json` | `ast-grep` forbid: `JSON.parse(…) as T`, `const x: T = JSON.parse(…)`, and the same on `await $R.json()` where `R` is a `Response` (`typescript` lib.dom, `undici-types`); `T` other than `unknown` |
+| `typescript/error-cause` | `tool` biome `lint/style/useErrorCause` |
+| `typescript/array-sort-compare` | `tool` biome `lint/suspicious/useArraySortCompare` (strings too: Biome has no option to exempt them) |
+| `typescript/no-proto` | `tool` biome `lint/suspicious/noProto` (snippet: error) |
+| `typescript/no-dynamic-regexp` | `ast-grep` advise: `new RegExp($A, …)` / `RegExp($A, …)` whose pattern is not a string, a template without substitutions, or `RegExp.escape(…)` (a template whose substitutions are all `RegExp.escape(…)` counts as escaped) |
 
-context.md: strict TypeScript and Bun; TypeScript 6 deprecations are migrated, never silenced with `ignoreDeprecations`; no `!` or `as unknown as`; search for an existing helper (warn-once, logging, `util.*`) before writing one.
+context.md: strict TypeScript; TypeScript 6 deprecations are migrated, never silenced with `ignoreDeprecations`; no `!` or `as unknown as`; `import type` for type-only imports, parsed JSON stays `unknown` until a schema validates it, `satisfies` instead of asserting a literal; search for an existing helper (warn-once, logging, `util.*`) before writing one.
 
 ### python/uv
 
@@ -742,7 +752,7 @@ context.md: entry points are the public API; renamed exports stay as `@deprecate
 | `typescript/bun/no-test-edits` | `check` lint: `forge_test_edits` on the in-scope files that import `bun:test` (§10.5) |
 | `typescript/bun/no-snapshot-update` | `guard` ask: `bun test` with `-u` or `--update-snapshots` |
 
-context.md: `bun:test` tests run with `bun test`, what the integrity rules reject in them, and "If an existing test looks wrong, stop and ask; never edit it to make the code pass."
+context.md: Bun is the runtime and package manager; `bun:test` tests run with `bun test`, what the integrity rules reject in them, and "If an existing test looks wrong, stop and ask; never edit it to make the code pass."
 
 ### typescript/nextjs
 

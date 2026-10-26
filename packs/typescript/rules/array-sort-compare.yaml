@@ -1,0 +1,11 @@
+id: typescript/array-sort-compare
+description: .sort() and .toSorted() always get a compare function (strings too, (a, b) => a.localeCompare(b)); the default compares as strings, so [10, 9].sort() is [10, 9].
+scope: {language: typescript}
+enforce:
+  - target: tool
+    tool: biome
+    expects: lint/suspicious/useArraySortCompare
+    snippet: '"linter": {"rules": {"suspicious": {"useArraySortCompare": "error"}}}'
+examples:
+  match: ["export function ranked(scores: number[]): number[] {\n  return scores.toSorted();\n}\n"]
+  no_match: ["export function ranked(scores: number[]): number[] {\n  return scores.toSorted((a, b) => a - b);\n}\n"]

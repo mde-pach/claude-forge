@@ -6,7 +6,15 @@
     "enabled": true,
     "rules": {
       "recommended": true,
-      "suspicious": { "noExplicitAny": "error", "noTsIgnore": "error" }
+      "complexity": { "noBannedTypes": "error" },
+      "style": { "useImportType": "error", "useExportType": "error", "useErrorCause": "error" },
+      "suspicious": {
+        "noExplicitAny": "error",
+        "noTsIgnore": "error",
+        "noConstEnum": "error",
+        "noProto": "error",
+        "useArraySortCompare": "error"
+      }
     }
   },
   "assist": { "actions": { "source": { "organizeImports": "on" } } }

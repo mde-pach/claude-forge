@@ -1,0 +1,21 @@
+id: typescript/no-object-literal-assertion
+description: No type assertion on an object or array literal ({ … } as T, [x] as T[]); it hides missing and misspelled fields. Annotate the variable, use satisfies T, or pass a type argument; as const and an empty [] are fine.
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule: {pattern: "$E as $T"}
+    constraints:
+      E: {any: [{kind: object}, {kind: array, has: {nthChild: 1}}]}
+      T: {not: {regex: "^const$"}}
+examples:
+  match:
+    - "type User = { id: number; name: string };\nexport const admin = { id: 1 } as User;\n"
+    - "type User = { id: number; name: string };\nexport const users = [{ id: 1, name: \"a\" }] as User[];\n"
+    - "export const totals = {} as Record<string, number>;\n"
+  no_match:
+    - "type User = { id: number; name: string };\nexport const admin: User = { id: 1, name: \"a\" };\n"
+    - "type User = { id: number; name: string };\nexport const admin = { id: 1, name: \"a\" } satisfies User;\n"
+    - "export const roles = [\"admin\", \"editor\"] as const;\n"
+    - "export const ids = [] as number[];\n"
+    - "type User = { id: number };\ndeclare const raw: User | null;\nexport const user = raw as User;\n"
