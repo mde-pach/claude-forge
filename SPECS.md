@@ -1023,6 +1023,19 @@ Detected by `.gitlab-ci.yml`. Rules apply to `.gitlab-ci.yml` and `.gitlab/ci/**
 | `gitlab-ci/rules-not-only-except` | `ast-grep` forbid: `only:` / `except:` in a job (a top-level key other than `variables`, `workflow`, `default`, `include`, `stages`) |
 | `gitlab-ci/pinned-includes` | `ast-grep` forbid: under `include`, a `project:` entry without `ref:` or with `ref:` `main`, `master`, `HEAD`, `develop`; a `component:` ending in `@~latest`, `@main` or `@master` |
 
+### terraform
+
+Detected by `**/*.tf` or `**/*.tofu`. The grep rules apply to those files.
+
+| Rule | Targets |
+|---|---|
+| `terraform/protection-ratchet` | `grep` no-decrease: `prevent_destroy = true`, `deletion_protection = true` |
+| `terraform/no-unprotect` | `grep` forbid: `force_destroy = true`, `skip_final_snapshot = true`, `deletion_protection = false` |
+| `terraform/no-new-suppressions` | `grep` no-increase: `#trivy:ignore:`, `#tfsec:ignore:`, `#checkov:skip=`, `# tflint-ignore:` (also after `//`) |
+| `terraform/state-not-committed` | `check` lint: `git ls-files -co --exclude-standard` lists no `*.tfstate`, `*.tfstate.backup`, `crash.log` or file under `.terraform/`; a `.terraform.lock.hcl` next to a tracked `*.tf` / `*.tofu` is not git-ignored |
+
+context.md: `moved {}`, `removed {}` and `import {}` blocks instead of `terraform state mv|rm` and CLI import; protections are kept; suppressions and state as above.
+
 ### 13.1 Migration linting
 
 `migration-lint` checks run [Squawk](https://squawkhq.com) (`squawk-cli`, pinned, through `bunx` or `uvx`, like ast-grep) on migration SQL and fail only on the changes that break the running version of the application during a deploy: `renaming-column`, `renaming-table`, `changing-column-type`, `adding-required-field`, `adding-not-nullable-field`, `ban-drop-database`. Squawk's other advice (lock and statement timeouts, `IF NOT EXISTS`, `CONCURRENTLY`, column types) is not enforced: Prisma and Alembic generate SQL that triggers it on every migration. Findings are printed `file:line:column` (from 1). When Squawk cannot run (offline, no `bunx` or `uvx`) or Alembic cannot render a revision, the check prints `forge:<id> skipped: …` and does not block. In CI (`--all`) only the newest migration is linted, so an accepted rename does not fail every later run.

@@ -1,0 +1,12 @@
+id: terraform/protection-ratchet
+description: "Deletion protections are not removed: a changed file may not have fewer prevent_destroy = true or deletion_protection = true than it had. An intended decommission is accepted in forge.yaml."
+scope: {language: any, files: ["**/*.tf", "**/*.tofu"]}
+enforce:
+  - target: grep
+    mode: no-decrease
+    pattern: "(prevent_destroy|deletion_protection)[[:space:]]*=[[:space:]]*true"
+examples:
+  match:
+    - "resource \"aws_db_instance\" \"main\" {\n  deletion_protection = true\n\n  lifecycle {\n    prevent_destroy = true\n  }\n}\n"
+  no_match:
+    - "resource \"aws_db_instance\" \"main\" {\n  deletion_protection = var.protect\n}\n"

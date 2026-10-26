@@ -1,0 +1,15 @@
+id: terraform/no-new-suppressions
+description: "No new inline IaC scanner suppressions (#trivy:ignore:, #tfsec:ignore:, #checkov:skip=, # tflint-ignore:); a changed file may not have more than it had. Fix the finding instead."
+scope: {language: any, files: ["**/*.tf", "**/*.tofu"]}
+enforce:
+  - target: grep
+    mode: no-increase
+    pattern: "(#|//)[[:space:]]*(trivy:ignore:|tfsec:ignore:|checkov:skip=|tflint-ignore:)"
+examples:
+  match:
+    - "#trivy:ignore:AVD-AWS-0089\nresource \"aws_s3_bucket\" \"logs\" {}\n"
+    - "resource \"aws_s3_bucket\" \"logs\" {\n  # checkov:skip=CKV_AWS_18: no access logs\n}\n"
+    - "# tflint-ignore: terraform_unused_declarations\nvariable \"x\" {}\n"
+    - "// tfsec:ignore:aws-s3-enable-versioning\nresource \"aws_s3_bucket\" \"b\" {}\n"
+  no_match:
+    - "# ignore the legacy bucket until it is migrated\nresource \"aws_s3_bucket\" \"logs\" {}\n"
