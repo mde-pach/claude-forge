@@ -1,0 +1,19 @@
+id: kubernetes/kustomize/no-deprecated-fields
+description: "kustomization files do not use the fields kustomize v5 deprecates: bases, patchesStrategicMerge, patchesJson6902, commonLabels, imageTags, vars, helmChartInflationGenerator. Use resources, patches, labels, images, replacements and helmCharts (kustomize edit fix rewrites them)."
+scope: {language: yaml, files: ["**/kustomization.yaml", "**/kustomization.yml"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: block_mapping_pair
+      has: {field: key, regex: "^[\"']?(bases|patchesStrategicMerge|patchesJson6902|commonLabels|imageTags|vars|helmChartInflationGenerator)[\"']?$"}
+      inside: {kind: block_mapping, inside: {kind: block_node, inside: {kind: document}}}
+examples:
+  match:
+    - "apiVersion: kustomize.config.k8s.io/v1beta1\nkind: Kustomization\nbases:\n  - ../base\n"
+    - "resources:\n  - ../base\npatchesStrategicMerge:\n  - replicas.yaml\n"
+    - "resources:\n  - deployment.yaml\ncommonLabels:\n  app: shop\n"
+    - "resources:\n  - deployment.yaml\nvars:\n  - name: SERVICE\n    objref: {kind: Service, name: shop, apiVersion: v1}\n"
+  no_match:
+    - "apiVersion: kustomize.config.k8s.io/v1beta1\nkind: Kustomization\nresources:\n  - ../base\npatches:\n  - path: replicas.yaml\nlabels:\n  - pairs:\n      app: shop\n    includeSelectors: true\n"
+    - "resources:\n  - deployment.yaml\nconfigMapGenerator:\n  - name: env\n    literals:\n      - vars=1\nreplacements:\n  - source: {kind: Service, name: shop}\n    targets: []\n"

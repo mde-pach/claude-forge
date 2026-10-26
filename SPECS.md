@@ -1047,6 +1047,26 @@ Detected by a dependency on `anthropic`, `openai`, `pydantic-ai`, `litellm`, `la
 |---|---|
 | `ai-models/model-ids` | `grep` forbid, any file: a quoted retired model id (Anthropic's and OpenAI's deprecation pages as of 2026-10-26: `claude-3-*` dated ids and their `-latest` aliases, `claude-opus-4-0` / `-4-1`, `claude-sonnet-4-0`, `claude-2.x`, `claude-1.x`, `claude-instant-1.x`; `gpt-4`, `gpt-4-turbo*`, `gpt-3.5-turbo*`, `gpt-4-32k*`, `gpt-4.1-nano*`, `gpt-4.5-preview`, `o1`, `o1-pro`, `o3-mini`, `dall-e-2` / `-3`, `text-davinci-*`, …), optionally after pydantic-ai's `anthropic:` / `openai:` or LiteLLM's `anthropic/` prefix; Bedrock (`anthropic.`) and Vertex (`@`) ids are not checked |
 
+### kubernetes
+
+Detected by `**/Chart.yaml`, `**/kustomization.yaml`, `**/kustomization.yml` or `**/Kustomization` (plain manifests are not detected by name). No rules of its own yet.
+
+### kubernetes/helm
+
+Detected by `**/Chart.yaml`.
+
+| Rule | Targets |
+|---|---|
+| `kubernetes/helm/chart-api-v2` | `grep` forbid on `Chart.yaml`: a top-level `apiVersion: v1` |
+
+### kubernetes/kustomize
+
+Detected by `**/kustomization.yaml`, `**/kustomization.yml` or `**/Kustomization`.
+
+| Rule | Targets |
+|---|---|
+| `kubernetes/kustomize/no-deprecated-fields` | `ast-grep` forbid on `kustomization.y*ml`: a top-level `bases`, `patchesStrategicMerge`, `patchesJson6902`, `commonLabels`, `imageTags`, `vars` or `helmChartInflationGenerator` key |
+
 ### 13.1 Migration linting
 
 `migration-lint` checks run [Squawk](https://squawkhq.com) (`squawk-cli`, pinned, through `bunx` or `uvx`, like ast-grep) on migration SQL and fail only on the changes that break the running version of the application during a deploy: `renaming-column`, `renaming-table`, `changing-column-type`, `adding-required-field`, `adding-not-nullable-field`, `ban-drop-database`. Squawk's other advice (lock and statement timeouts, `IF NOT EXISTS`, `CONCURRENTLY`, column types) is not enforced: Prisma and Alembic generate SQL that triggers it on every migration. Findings are printed `file:line:column` (from 1). When Squawk cannot run (offline, no `bunx` or `uvx`) or Alembic cannot render a revision, the check prints `forge:<id> skipped: …` and does not block. In CI (`--all`) only the newest migration is linted, so an accepted rename does not fail every later run.

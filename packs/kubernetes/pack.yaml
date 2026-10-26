@@ -1,0 +1,5 @@
+id: kubernetes
+description: Kubernetes manifests packaged as Helm charts or Kustomize bases.
+level: project
+detect:
+  files_any: ["**/Chart.yaml", "**/kustomization.yaml", "**/kustomization.yml", "**/Kustomization"]
