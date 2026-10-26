@@ -928,9 +928,23 @@ context.md: `zValidator` / `validator()` middleware and `c.req.valid()`; which r
 
 Detected by `@react-router/dev >= 7` (framework mode).
 
-No rules: whether an action validates its input and checks the caller cannot be decided from syntax (rules that guessed it from helper names were removed).
+| Rule | Targets |
+|---|---|
+| `typescript/react-router/route-types` | `ast-grep` advise in `app/routes/**`, `app/root.tsx`: `LoaderFunctionArgs`, `ActionFunctionArgs`, `ClientLoaderFunctionArgs`, `ClientActionFunctionArgs`, `MetaFunction`, `LinksFunction`, `HeadersFunction` imported from `react-router` or `@remix-run/*` (the generated `Route.*` types instead) |
+
+Whether an action validates its input and checks the caller cannot be decided from syntax (rules that guessed it from helper names were removed).
 
 context.md: route module `loader` / `action` with `Route.*Args` types; actions are public endpoints (guidance, not checked); `data()` and `redirect()`.
+
+### typescript/tanstack-router
+
+Detected by `@tanstack/react-router` or `@tanstack/solid-router` (npm).
+
+| Rule | Targets |
+|---|---|
+| `typescript/tanstack-router/no-generated-edits` | `permission` deny: `Edit(**/routeTree.gen.ts)` (the default `generatedRouteTree`) |
+
+context.md: `routeTree.gen.ts` is generated from the routes directory and never edited by hand.
 
 ### typescript/vue
 
