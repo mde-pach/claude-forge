@@ -1,0 +1,10 @@
+id: typescript/turbo/no-env-loose-flag
+description: turbo runs without --env-mode=loose; declare the variables a task needs (env, passThroughEnv) instead.
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: deny
+    pattern: '--env-mode[= ]loose'
+examples:
+  match: ["turbo run build --env-mode=loose", "pnpm turbo build --env-mode loose"]
+  no_match: ["turbo run build", "turbo run build --env-mode=strict"]

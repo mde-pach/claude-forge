@@ -817,6 +817,19 @@ Detected by `.yarnrc.yml` (Yarn 2 and later).
 
 context.md: Yarn manages dependencies.
 
+### typescript/turbo
+
+Detected by `turbo.json`.
+
+| Rule | Targets |
+|---|---|
+| `typescript/turbo/tasks-key` | `grep` forbid in `turbo.json`: a `"pipeline"` key (Turborepo 2 uses `tasks`) |
+| `typescript/turbo/declared-env` | `tool` biome `lint/suspicious/noUndeclaredEnvVars` (snippet: error; Biome's turborepo domain enables it as a warning only) |
+| `typescript/turbo/no-env-loose` | `grep` forbid in `turbo.json`: `"envMode": "loose"` |
+| `typescript/turbo/no-env-loose-flag` | `guard` deny: `--env-mode=loose`, `--env-mode loose` |
+
+context.md: `tasks`, strict env mode, every env var read is declared in `env` or `globalEnv`.
+
 ### typescript/nextjs
 
 | Rule | Targets |

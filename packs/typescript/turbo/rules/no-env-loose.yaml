@@ -1,0 +1,10 @@
+id: typescript/turbo/no-env-loose
+description: "turbo.json keeps the strict env mode (no \"envMode\": \"loose\"): in loose mode tasks see every variable and the cache ignores the undeclared ones."
+scope: {language: any, files: ["**/turbo.json"]}
+enforce:
+  - target: grep
+    mode: forbid
+    pattern: '"envMode"[[:space:]]*:[[:space:]]*"loose"'
+examples:
+  match: ["{\n  \"envMode\": \"loose\",\n  \"tasks\": {}\n}\n"]
+  no_match: ["{\n  \"envMode\": \"strict\",\n  \"tasks\": {}\n}\n", "{\n  \"globalPassThroughEnv\": [\"AWS_PROFILE\"],\n  \"tasks\": {}\n}\n"]

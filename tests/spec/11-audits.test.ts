@@ -192,6 +192,8 @@ function projectFor(t: ToolTarget, on: boolean): string {
     // inside a package, as in a real project: Biome resolves imported types there
     // (noDeprecatedImports) and reads the React version (noReactForwardRef is for React 19)
     writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "audit", private: true, dependencies: { react: TOOL_VERSIONS.react } }));
+    // a Turborepo config declaring no env var: noUndeclaredEnvVars checks env reads against it, and is silent without one
+    writeFileSync(join(dir, "turbo.json"), JSON.stringify({ tasks: {} }));
     writeFileSync(join(dir, "biome.json"), JSON.stringify({ linter: { enabled: true, rules: { recommended: false, [group!]: { [name!]: on ? "error" : "off" } } } }));
   } else if (t.tool === "tsc") {
     // on: the rule's own snippet (e.g. strict plus noUncheckedIndexedAccess); off: not strict
