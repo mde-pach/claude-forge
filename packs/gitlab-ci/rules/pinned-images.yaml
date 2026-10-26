@@ -1,0 +1,34 @@
+id: gitlab-ci/pinned-images
+description: "image: and services: entries name a version tag (or a digest), never latest or nothing; $VARIABLE images are not checked."
+scope: {language: yaml, files: [".gitlab-ci.yml", ".gitlab/ci/**/*.yml", ".gitlab/ci/**/*.yaml"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: flow_node
+      all:
+        - any: [{regex: ":latest[\"']?$"}, {regex: "^[\"']?([^/\"'$]*/)*[^:/\"'@$]+[\"']?$"}]
+        - any:
+            - inside: {kind: block_mapping_pair, field: value, has: {field: key, regex: "^[\"']?image[\"']?$"}}
+            - inside: {kind: block_sequence_item, inside: {kind: block_sequence, inside: {kind: block_node, inside: {kind: block_mapping_pair, has: {field: key, regex: "^[\"']?services[\"']?$"}}}}}
+            - inside:
+                kind: block_mapping_pair
+                field: value
+                has: {field: key, regex: "^[\"']?name[\"']?$"}
+                inside:
+                  kind: block_mapping
+                  inside:
+                    kind: block_node
+                    any:
+                      - inside: {kind: block_mapping_pair, has: {field: key, regex: "^[\"']?image[\"']?$"}}
+                      - inside: {kind: block_sequence_item, inside: {kind: block_sequence, inside: {kind: block_node, inside: {kind: block_mapping_pair, has: {field: key, regex: "^[\"']?services[\"']?$"}}}}}
+examples:
+  match:
+    - "test:\n  image: python:latest\n  script: pytest\n"
+    - "test:\n  image: node\n  script: npm test\n"
+    - "test:\n  image:\n    name: ghcr.io/acme/ci\n    entrypoint: [\"\"]\n  script: make\n"
+    - "test:\n  image: python:3.13\n  services:\n    - postgres\n  script: pytest\n"
+    - "test:\n  image: python:3.13\n  services:\n    - name: redis:latest\n      alias: cache\n  script: pytest\n"
+  no_match:
+    - "default:\n  image: python:3.13-slim\ntest:\n  image:\n    name: ghcr.io/acme/ci@sha256:4d09c27d4f8151c586b83a9390eaa5843b1e2af2a67df61a53b18b2df4c769d4\n  services:\n    - postgres:17.6\n    - name: redis:8.2\n      alias: cache\n  script: pytest\nbuild:\n  image: $CI_REGISTRY_IMAGE/builder\n  script: make\n"
+    - "test:\n  variables:\n    name: latest\n  script: echo\n"

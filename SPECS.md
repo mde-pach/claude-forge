@@ -1011,6 +1011,18 @@ Detected by `**/package.json`, `**/pyproject.toml`, `**/requirements*.txt`, `**/
 | `supply-chain/no-dependency-confusion-command` | `guard` ask: `pip install … --extra-index-url`, `--index-strategy unsafe-…` |
 | `supply-chain/audit-ignore-ratchet` | `grep` no-increase on `osv-scanner.toml`, `pnpm-workspace.yaml`, `package.json`, `.nsprc`, `audit-ci.json(c)`, `.trivyignore`, `.grype.yaml`, workflows, `.gitlab-ci.yml`, `Makefile`: advisory ids (`GHSA-…`, `CVE-…`, `PYSEC-…`, `RUSTSEC-…`) |
 
+### gitlab-ci
+
+Detected by `.gitlab-ci.yml`. Rules apply to `.gitlab-ci.yml` and `.gitlab/ci/**/*.y*ml`; ast-grep rules use `scope.language: yaml`.
+
+| Rule | Targets |
+|---|---|
+| `gitlab-ci/ci-ratchet` | `grep` no-increase: `allow_failure: true`, `when: manual`, a script line ending in `\|\| true` / `\|\| exit 0` / `\|\| :` |
+| `gitlab-ci/no-debug-trace` | `grep` forbid: `CI_DEBUG_TRACE` or `CI_DEBUG_SERVICES` set to `true` (masked secrets go to the job log) |
+| `gitlab-ci/pinned-images` | `ast-grep` forbid: an `image:` value, `image: name:`, a `services:` entry or its `name:` with `:latest` or no tag or digest; `$VAR` images are not checked |
+| `gitlab-ci/rules-not-only-except` | `ast-grep` forbid: `only:` / `except:` in a job (a top-level key other than `variables`, `workflow`, `default`, `include`, `stages`) |
+| `gitlab-ci/pinned-includes` | `ast-grep` forbid: under `include`, a `project:` entry without `ref:` or with `ref:` `main`, `master`, `HEAD`, `develop`; a `component:` ending in `@~latest`, `@main` or `@master` |
+
 ### 13.1 Migration linting
 
 `migration-lint` checks run [Squawk](https://squawkhq.com) (`squawk-cli`, pinned, through `bunx` or `uvx`, like ast-grep) on migration SQL and fail only on the changes that break the running version of the application during a deploy: `renaming-column`, `renaming-table`, `changing-column-type`, `adding-required-field`, `adding-not-nullable-field`, `ban-drop-database`. Squawk's other advice (lock and statement timeouts, `IF NOT EXISTS`, `CONCURRENTLY`, column types) is not enforced: Prisma and Alembic generate SQL that triggers it on every migration. Findings are printed `file:line:column` (from 1). When Squawk cannot run (offline, no `bunx` or `uvx`) or Alembic cannot render a revision, the check prints `forge:<id> skipped: …` and does not block. In CI (`--all`) only the newest migration is linted, so an accepted rename does not fail every later run.
