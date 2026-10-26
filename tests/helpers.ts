@@ -323,9 +323,39 @@ function ensureVenv(dir: string, probe: string, pkgs: string[]): void {
   if (r.status !== 0) throw new Error(`uv install failed: ${r.stderr}`);
 }
 
-/** Installs Biome, TypeScript and React's types (bun), ruff (uv), and Alembic and Django (uv, own venvs) once into TOOLS_CACHE. ty is Forge's own, through uvx. */
+/**
+ * Infrastructure CLIs that pack checks run from PATH (§13.5), for their examples: the newest
+ * releases older than 14 days, checked against each release's own checksum file.
+ */
+export const SYSTEM_TOOL_VERSIONS = { terraform: "1.16.5", helm: "4.3.0" };
+/** Where ensureTools puts terraform and helm (13-packs adds it to the example tools). */
+export const SYSTEM_TOOLS_BIN = join(TOOLS_CACHE, "system", "bin");
+
+/** Downloads terraform and helm (SYSTEM_TOOL_VERSIONS) for this platform into SYSTEM_TOOLS_BIN, once. */
+function ensureSystemTools(): void {
+  const os = process.platform === "darwin" ? "darwin" : "linux";
+  const arch = process.arch === "arm64" ? "arm64" : "amd64";
+  const t = SYSTEM_TOOL_VERSIONS.terraform;
+  const h = SYSTEM_TOOL_VERSIONS.helm;
+  const fetch = [
+    ["terraform", `https://releases.hashicorp.com/terraform/${t}/terraform_${t}_${os}_${arch}.zip`, `https://releases.hashicorp.com/terraform/${t}/terraform_${t}_SHA256SUMS`, "unzip -o -q asset terraform"],
+    ["helm", `https://get.helm.sh/helm-v${h}-${os}-${arch}.tar.gz`, `https://get.helm.sh/helm-v${h}-${os}-${arch}.tar.gz.sha256sum`, `tar -xzf asset && mv ${os}-${arch}/helm helm`],
+  ];
+  mkdirSync(SYSTEM_TOOLS_BIN, { recursive: true });
+  for (const [name, url, sums, unpack] of fetch) {
+    if (existsSync(join(SYSTEM_TOOLS_BIN, name!))) continue;
+    const dir = mkdtempSync(join(TOOLS_CACHE, `.${name}-`));
+    const script = `set -e; curl -fsSL -o asset "$1"; want=$(curl -fsSL "$2" | awk -v f="\${1##*/}" '$2 == f || NF == 1 { print $1; exit }'); have=$( (sha256sum asset 2>/dev/null || shasum -a 256 asset) | cut -d ' ' -f 1); [ -n "$want" ] && [ "$want" = "$have" ]; ${unpack}; chmod 755 ${name}; mv -f ${name} "$3/"`;
+    const r = sh("sh", ["-c", script, "sh", url!, sums!, SYSTEM_TOOLS_BIN], { cwd: dir });
+    rmSync(dir, { recursive: true, force: true });
+    if (r.status !== 0) throw new Error(`could not install ${name}: ${r.stderr}`);
+  }
+}
+
+/** Installs Biome, TypeScript and React's types (bun), ruff (uv), and Alembic and Django (uv, own venvs) once into TOOLS_CACHE, and terraform and helm (ensureSystemTools). ty is Forge's own, through uvx. */
 export function ensureTools(): void {
   mkdirSync(TOOLS_CACHE, { recursive: true });
+  ensureSystemTools();
   if (hasBun && !existsSync(join(TOOLS_CACHE, "node_modules/@types/react/package.json"))) {
     writeFileSync(join(TOOLS_CACHE, "package.json"), '{"name":"tools","private":true}');
     const pkgs = ["@biomejs/biome", "typescript", "react", "@types/react"] as const;

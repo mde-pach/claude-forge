@@ -16,7 +16,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadPackBundle, loadPacks } from "../../src/packs";
 import { checkExamplesOptional, hadolintIntegrity, permissionMatches, runCheckExample, selfTest, type TestReport } from "../../src/selftest";
-import { ensureTools, ensureVueTools, forge, ROOT, sh, TOOLS_CACHE } from "../helpers";
+import { ensureTools, ensureVueTools, forge, ROOT, sh, SYSTEM_TOOLS_BIN, TOOLS_CACHE } from "../helpers";
 import type { CheckTarget } from "../../src/types";
 import { renderChecks, renderLib } from "../../src/render";
 import { RELEASE_BINARIES } from "../../src/util";
@@ -27,7 +27,7 @@ const rules = [...packs.values()].flatMap((p) => p.rules);
 let report: TestReport;
 
 /** The cached project tools (tests/helpers.ts), then PATH. */
-const toolBins = () => [join(TOOLS_CACHE, "node_modules/.bin"), join(TOOLS_CACHE, ".venv/bin"), join(TOOLS_CACHE, "vue/node_modules/.bin"), ...(process.env.PATH ?? "").split(":")];
+const toolBins = () => [join(TOOLS_CACHE, "node_modules/.bin"), join(TOOLS_CACHE, ".venv/bin"), join(TOOLS_CACHE, "vue/node_modules/.bin"), SYSTEM_TOOLS_BIN, ...(process.env.PATH ?? "").split(":")];
 
 beforeAll(() => {
   ensureTools();

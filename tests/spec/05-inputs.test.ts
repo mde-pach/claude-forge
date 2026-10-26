@@ -488,6 +488,12 @@ describe("detection by content", () => {
     expect(activeIn(packs, { ...ws, "apps/next.config.ts": "export default { cacheComponents: true };\n" })).toEqual([]);
   });
 
+  /** @pack kubernetes */
+  test("a Kubernetes manifest activates the kubernetes pack whatever its file is called; a workflow or a compose file does not", () => {
+    expect(activeIn(PACKS, { "ops/web.yaml": "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: web\n" })).toContain("kubernetes");
+    expect(activeIn(PACKS, { ".github/workflows/ci.yml": "name: ci\non: push\njobs: {}\n", "compose.yaml": "services:\n  db:\n    image: postgres:17\n" })).not.toContain("kubernetes");
+  });
+
   test("a content_any pattern that is not a regular expression is rejected when the packs load", () => {
     expect(() => packsDir({ "x/pack.yaml": 'id: x\ndescription: X.\nlevel: project\ndetect: {content_any: [{files: [a], pattern: "("}]}\n' })).toThrow("is not a regular expression");
   });

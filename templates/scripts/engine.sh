@@ -1508,19 +1508,18 @@ forge_kube_linter() {
   fi
   forge_release kube-linter _kl_bin || return "$_kl_rc"
   awk '{ d = $0; if (sub(/\/[^\/]*$/, "", d) == 0) d = "."; print d }' "$FORGE_TMP/kl.changed" | sort -u > "$FORGE_TMP/kl.dirs"
-  while IFS= read -r _kl_d; do
-    for _kl_f in "$_kl_d"/*.yaml "$_kl_d"/*.yml; do
-      _kl_f=${_kl_f#./}
-      forge_kube_manifest "$_kl_f" && printf '%s\n' "$_kl_f"
-    done
-  done < "$FORGE_TMP/kl.dirs" | sort -u > "$FORGE_TMP/kl.files"
+  git ls-files --cached --others --exclude-standard -- '*.yaml' '*.yml' 2>/dev/null \
+    | awk 'FILENAME == ARGV[1] { want[$0] = 1; next } { d = $0; if (sub(/\/[^\/]*$/, "", d) == 0) d = "."; if (d in want) print }' "$FORGE_TMP/kl.dirs" - \
+    | forge_filter forge_kube_manifest | sort -u > "$FORGE_TMP/kl.files"
   { printf 'checks:\n  doNotAutoAddDefaults: true\n  include:\n'; for _kl_c in "$@"; do printf '    - %s\n' "$_kl_c"; done; } > "$FORGE_TMP/kl.yaml"
   set -f
   # shellcheck disable=SC2046
   "$_kl_bin" lint --config "$FORGE_TMP/kl.yaml" --format plain --with-color=false $(cat "$FORGE_TMP/kl.files") > "$FORGE_TMP/kl.out" 2>&1
   set +f
   awk -v r1="$(pwd)/" -v r2="$(pwd -P)/" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*m" }
     FILENAME == ARGV[1] { want[$0] = 1; next }
+    { gsub(ansi, "") }
     match($0, /: \(object: [^)]*\) /) {
       f = substr($0, 1, RSTART - 1); obj = substr($0, RSTART + 11, RLENGTH - 13); msg = substr($0, RSTART + RLENGTH)
       if (index(f, r1) == 1) f = substr(f, length(r1) + 1); else if (index(f, r2) == 1) f = substr(f, length(r2) + 1)
@@ -1593,7 +1592,7 @@ forge_helm() {
       _hm_rc=1; continue
     fi
     if ! command helm template forge "$_hm_c" > "$FORGE_TMP/helm.yaml" 2> "$FORGE_TMP/helm.err"; then
-      printf '%s: helm template: %s\n' "$_hm_c" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/helm.err" | tail -n 1)"; _hm_rc=1; continue
+      printf '%s: helm template: %s\n' "$_hm_c" "$({ grep '^Error' "$FORGE_TMP/helm.err"; grep -v '^[[:space:]]*$' "$FORGE_TMP/helm.err"; } | head -n 1)"; _hm_rc=1; continue
     fi
     forge_kubeconform "$_hm_c" "$FORGE_TMP/helm.yaml" || _hm_rc=1
   done < "$FORGE_TMP/helm.charts"
@@ -1693,7 +1692,9 @@ forge_trivy_config() {
     # the directory as it was: its files now, with the change undone
     _tr_b=$FORGE_TMP/trivy-base/$_tr_d
     rm -rf "$_tr_b"; mkdir -p "$_tr_b"
-    for _tr_f in "$_tr_d"/*; do [ -f "$_tr_f" ] && cp "$_tr_f" "$_tr_b/"; done
+    git ls-files --cached --others --exclude-standard -- "$_tr_d" 2>/dev/null \
+      | awk -v d="$_tr_d" '{ p = $0; if (sub(/\/[^\/]*$/, "", p) == 0) p = "."; if (p == d) print }' > "$FORGE_TMP/tv.files"
+    while IFS= read -r _tr_f; do [ -f "$_tr_f" ] && cp "$_tr_f" "$_tr_b/"; done < "$FORGE_TMP/tv.files"
     awk -v d="$_tr_d" '{ p = $0; if (sub(/\/[^\/]*$/, "", p) == 0) p = "."; if (p == d) print }' "$FORGE_TMP/changed" > "$FORGE_TMP/tv.changed"
     while IFS= read -r _tr_f; do
       rm -f "$_tr_b/${_tr_f##*/}"

@@ -1,0 +1,13 @@
+id: kubernetes/rbac-advice
+description: "Advice at Stop: changed RBAC objects pass kube-linter's wildcard-in-rules and cluster-admin-role-binding checks (grant named verbs and resources, not * or cluster-admin)."
+scope: {language: any, files: ["**/*.yaml", "**/*.yml"]}
+enforce:
+  - target: check
+    stage: lint
+    run: "forge_advise forge_kube_linter wildcard-in-rules cluster-admin-role-binding"
+examples:
+  match:
+    - files: {deploy/rbac.yaml: "apiVersion: rbac.authorization.k8s.io/v1\nkind: Role\nmetadata:\n  name: operator\nrules:\n  - apiGroups: [\"\"]\n    resources: [\"*\"]\n    verbs: [\"*\"]\n"}
+    - files: {deploy/binding.yaml: "apiVersion: rbac.authorization.k8s.io/v1\nkind: ClusterRoleBinding\nmetadata:\n  name: ci\nroleRef:\n  apiGroup: rbac.authorization.k8s.io\n  kind: ClusterRole\n  name: cluster-admin\nsubjects:\n  - kind: ServiceAccount\n    name: ci\n    namespace: default\n"}
+  no_match:
+    - files: {deploy/rbac.yaml: "apiVersion: rbac.authorization.k8s.io/v1\nkind: Role\nmetadata:\n  name: reader\nrules:\n  - apiGroups: [\"\"]\n    resources: [\"pods\"]\n    verbs: [\"get\", \"list\"]\n"}

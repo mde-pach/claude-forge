@@ -246,6 +246,7 @@ export function runCheckExamples(runs: CheckExampleRun[], toolBins: string[]): C
       mkdirSync(stage);
       writeFiles(repo, { ".gitignore": "node_modules/\n.venv/\n", ...owned, ".forge/manifest.sha256": manifest, ...(fixture.head ?? {}) });
       writeFiles(stage, fixture.files);
+      const path = new Set<string>();
       for (const tool of checkTools(t)) {
         if ((PROJECT_TOOLS as readonly string[]).includes(tool) || PYTHON_TOOLS.has(tool)) {
           const bin = toolBins.map((b) => join(b, tool)).find((p) => existsSync(p));
@@ -253,13 +254,21 @@ export function runCheckExamples(runs: CheckExampleRun[], toolBins: string[]): C
           const to = join(repo, PYTHON_TOOLS.has(tool) ? ".venv/bin" : "node_modules/.bin", tool);
           mkdirSync(dirname(to), { recursive: true });
           symlinkSync(bin, to);
-        } else if (run("sh", ["-c", `command -v ${tool === "ty" ? "uvx" : tool}`]).status !== 0) return void (results[i] = { outcome: "skip", detail: `${tool === "ty" ? "uvx (for ty)" : tool} not available` });
+        } else {
+          // a system tool (§13.5): from the tool directories, else PATH; its directory goes first on the example's PATH
+          const want = tool === "ty" ? "uvx" : tool;
+          const dir = toolBins.find((b) => existsSync(join(b, want)));
+          if (dir) path.add(dir);
+          else if (run("sh", ["-c", `command -v ${want}`]).status !== 0) return void (results[i] = { outcome: "skip", detail: `${tool === "ty" ? "uvx (for ty)" : tool} not available` });
+        }
       }
       const mode = checkExampleMode(t);
       // its own TMPDIR: bunx installs ast-grep there at every run, and two at once in one place fail
       const tmp = join(dir, "tmp");
       mkdirSync(tmp);
-      jobs.push({ cmd: "sh", args: ["-c", EXAMPLE_RUN, "sh", stage, ...(mode === "--turn" ? [mode, SNAP] : [mode])], cwd: repo, env: { TMPDIR: `${tmp}/` } });
+      const env: Record<string, string> = { TMPDIR: `${tmp}/` };
+      if (path.size) env.PATH = [...path, process.env.PATH ?? ""].join(delimiter);
+      jobs.push({ cmd: "sh", args: ["-c", EXAMPLE_RUN, "sh", stage, ...(mode === "--turn" ? [mode, SNAP] : [mode])], cwd: repo, env });
       pending.push(i);
     });
     runParallel(jobs).forEach((r, j) => {

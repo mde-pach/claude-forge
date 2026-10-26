@@ -1015,6 +1015,26 @@ Active in every repository (`detect: {always: true}`, §5.1).
 | `git/generated-files` | `check` lint, advisory (§10.7): `forge_generated_edits`: a changed file marked `linguist-generated` (`git check-attr`) or with `@generated` / `Code generated … DO NOT EDIT.` in its first 15 lines: regenerate it rather than edit it |
 | `git/editorconfig` | `check` lint: `forge_editorconfig`, when `.editorconfig` exists: pinned editorconfig-checker (§13.5) with an empty config of Forge's (`.editorconfig-checker.json` excludes and disables do not apply), `-format gcc`, on the changed files no format check of the setup covers |
 
+### kubernetes
+
+Detected by a YAML file whose first document has top-level `apiVersion` and `kind` (`yaml_keys`, §5.1; manifest file names are the project's), or by `**/kustomization.yaml`, `**/kustomization.yml`, `**/Kustomization`, `**/Chart.yaml`.
+
+| Rule | Targets |
+|---|---|
+| `kubernetes/kube-linter` | `check` lint: `forge_kube_linter --no-new-ignores <checks>`: pinned kube-linter (§13.5) with a config of Forge's own (`doNotAutoAddDefaults`, `include` the checks; a project `.kube-linter.yaml` does not apply) on the changed manifests (first document with `apiVersion` and `kind`, outside a chart's `templates/`), each linted with the manifests of its directory; findings of changed files at line 0: `run-as-non-root`, `privilege-escalation-container`, `privileged-container`, `no-read-only-root-fs`, `unset-memory-requirements`, `latest-tag`, `host-network`, `host-pid`, `host-ipc`, `docker-sock`, `sensitive-host-mounts`, `drop-net-raw-capability`, `mismatching-selector`, `dangling-service`, `deprecated-service-account-field`, `invalid-target-ports`, `liveness-port`, `readiness-port`, `startup-port`, `unsafe-sysctls`, `duplicate-env-var`; a changed manifest also may not gain `ignore-check.kube-linter.io/` annotations (kube-linter has no flag to disregard them) |
+| `kubernetes/rbac-advice` | `check` lint, advisory (§10.7): `forge_kube_linter wildcard-in-rules cluster-admin-role-binding` |
+| `kubernetes/no-plain-secret` | `ast-grep` forbid (`yaml`, not under `templates/`): `data` / `stringData` of a document with `apiVersion: v1`, `kind: Secret` and no top-level `sops` |
+
+context.md: what kube-linter enforces, no ignore annotations, Secrets through SealedSecret / ExternalSecret / SOPS, RBAC without wildcards or `cluster-admin`.
+
+### kubernetes/helm
+
+Detected by `**/Chart.yaml`.
+
+| Rule | Targets |
+|---|---|
+| `kubernetes/helm/lint` | `check` lint: `forge_helm` (needs `helm`, a system tool): for each chart with changed files (the nearest `Chart.yaml` above them), `helm lint --strict`, then `helm template forge <chart>` validated by `forge_kubeconform`: pinned kubeconform (§13.5) `-strict` against Kubernetes' schemas and the CRDs catalog, cached in `~/.cache/forge/kubeconform`; a document with no schema is a finding when its group is Kubernetes' own (none, no dot, or `*.k8s.io`: an apiVersion current Kubernetes no longer serves), else `skipped`; schemas that cannot be downloaded are `skipped`; a chart whose dependencies are not built is `skipped` (`helm dependency build`). Findings name the chart, not lines |
+
 ### 13.1 Migration linting
 
 `migration-lint` checks run [Squawk](https://squawkhq.com) (`squawk-cli`, pinned, through `bunx` or `uvx`, like ast-grep) on migration SQL and fail only on the changes that break the running version of the application during a deploy: `renaming-column`, `renaming-table`, `changing-column-type`, `adding-required-field`, `adding-not-nullable-field`, `ban-drop-database`. Squawk's other advice (lock and statement timeouts, `IF NOT EXISTS`, `CONCURRENTLY`, column types) is not enforced: Prisma and Alembic generate SQL that triggers it on every migration. Findings are printed `file:line:column` (from 1). When Squawk cannot run (offline, no `bunx` or `uvx`) or Alembic cannot render a revision, the check prints `forge:<id> skipped: …` and does not block. In CI (`--all`) only the newest migration is linted, so an accepted rename does not fail every later run.
