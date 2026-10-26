@@ -772,11 +772,12 @@ now_hash() {
 }
 
 # base_file <path> <out>: writes <path> as it is in the base to <out>; fails if absent there.
+# _bf_inrev=0 says <path> is not in FORGE_BASE_REV's tree (the caller looked it up).
 base_file() {
   if [ -n "${FORGE_SNAP:-}" ] && _bf=$(awk -F '\t' -v p="$1" '$1 == p { print $2; f = 1; exit } END { exit !f }' "$FORGE_SNAP/dirty" 2>/dev/null); then
     [ "$_bf" != - ] && [ -f "$FORGE_SNAP/files/$1" ] || return 1
     mkdir -p "$(dirname "$2")" && cp "$FORGE_SNAP/files/$1" "$2"
-  elif [ -n "${FORGE_BASE_REV:-}" ] && git cat-file -e "$FORGE_BASE_REV:$1" 2>/dev/null; then
+  elif [ -n "${FORGE_BASE_REV:-}" ] && [ "${_bf_inrev:-1}" != 0 ] && git cat-file -e "$FORGE_BASE_REV:$1" 2>/dev/null; then
     mkdir -p "$(dirname "$2")" && git cat-file blob "$FORGE_BASE_REV:$1" > "$2" 2>/dev/null
   else
     return 1
@@ -1172,7 +1173,14 @@ forge_change_set() {
   esac > "$FORGE_TMP/changed"
   : > "$FORGE_TMP/existing"; : > "$FORGE_TMP/deleted"; : > "$FORGE_TMP/inbase"; : > "$FORGE_TMP/added"
   mkdir -p "$FORGE_TMP/base"
-  while IFS= read -r _cs_f; do
+  # "<0|1><TAB><path>": 0 when the path is not in FORGE_BASE_REV's tree at all (one ls-tree
+  # for the whole change, instead of a git cat-file per new file in base_file)
+  : > "$FORGE_TMP/inrev"
+  [ -z "${FORGE_BASE_REV:-}" ] || git ls-tree -r -t -z --full-tree --name-only "$FORGE_BASE_REV" 2>/dev/null | tr '\000' '\n' > "$FORGE_TMP/inrev"
+  awk 'FILENAME == ARGV[1] { t[$0] = 1; next } { print (($0 in t) ? 1 : 0) "\t" $0 }' "$FORGE_TMP/inrev" "$FORGE_TMP/changed" > "$FORGE_TMP/changed.inrev"
+  while IFS= read -r _cs_l; do
+    _bf_inrev=${_cs_l%%"	"*}
+    _cs_f=${_cs_l#*"	"}
     if base_file "$_cs_f" "$FORGE_TMP/base/$_cs_f"; then printf '%s\n' "$_cs_f" >> "$FORGE_TMP/inbase"; _cs_b=1; else _cs_b=0; fi
     if [ -f "$_cs_f" ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/existing"
@@ -1180,7 +1188,8 @@ forge_change_set() {
     elif [ "$_cs_b" = 1 ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/deleted"
     fi
-  done < "$FORGE_TMP/changed"
+  done < "$FORGE_TMP/changed.inrev"
+  unset _bf_inrev
   return 0
 }
 
@@ -1236,6 +1245,8 @@ forge_format_base() {
 # base also counts when its text is that of a line added against the formatted base
 # not matched by number (each such line counted once).
 forge_added_lines() {
+  # a file new since the base: every line is added
+  if [ ! -f "$2" ]; then printf '%s\t*\n' "$1"; return 0; fi
   added_lines "$1" "$2" > "$FORGE_TMP/al.raw"
   if [ ! -f "$2" ] || [ ! -s "$FORGE_TMP/al.raw" ] || [ "${FORGE_PLAIN_ADDED:-0}" = 1 ] || ! forge_format_base "$1" "$2" "$FORGE_TMP/al.base" || cmp -s "$2" "$FORGE_TMP/al.base"; then
     cat "$FORGE_TMP/al.raw"
@@ -4221,7 +4232,14 @@ forge_change_set() {
   esac > "$FORGE_TMP/changed"
   : > "$FORGE_TMP/existing"; : > "$FORGE_TMP/deleted"; : > "$FORGE_TMP/inbase"; : > "$FORGE_TMP/added"
   mkdir -p "$FORGE_TMP/base"
-  while IFS= read -r _cs_f; do
+  # "<0|1><TAB><path>": 0 when the path is not in FORGE_BASE_REV's tree at all (one ls-tree
+  # for the whole change, instead of a git cat-file per new file in base_file)
+  : > "$FORGE_TMP/inrev"
+  [ -z "${FORGE_BASE_REV:-}" ] || git ls-tree -r -t -z --full-tree --name-only "$FORGE_BASE_REV" 2>/dev/null | tr '\000' '\n' > "$FORGE_TMP/inrev"
+  awk 'FILENAME == ARGV[1] { t[$0] = 1; next } { print (($0 in t) ? 1 : 0) "\t" $0 }' "$FORGE_TMP/inrev" "$FORGE_TMP/changed" > "$FORGE_TMP/changed.inrev"
+  while IFS= read -r _cs_l; do
+    _bf_inrev=${_cs_l%%"	"*}
+    _cs_f=${_cs_l#*"	"}
     if base_file "$_cs_f" "$FORGE_TMP/base/$_cs_f"; then printf '%s\n' "$_cs_f" >> "$FORGE_TMP/inbase"; _cs_b=1; else _cs_b=0; fi
     if [ -f "$_cs_f" ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/existing"
@@ -4229,7 +4247,8 @@ forge_change_set() {
     elif [ "$_cs_b" = 1 ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/deleted"
     fi
-  done < "$FORGE_TMP/changed"
+  done < "$FORGE_TMP/changed.inrev"
+  unset _bf_inrev
   return 0
 }
 
@@ -4285,6 +4304,8 @@ forge_format_base() {
 # base also counts when its text is that of a line added against the formatted base
 # not matched by number (each such line counted once).
 forge_added_lines() {
+  # a file new since the base: every line is added
+  if [ ! -f "$2" ]; then printf '%s\t*\n' "$1"; return 0; fi
   added_lines "$1" "$2" > "$FORGE_TMP/al.raw"
   if [ ! -f "$2" ] || [ ! -s "$FORGE_TMP/al.raw" ] || [ "${FORGE_PLAIN_ADDED:-0}" = 1 ] || ! forge_format_base "$1" "$2" "$FORGE_TMP/al.base" || cmp -s "$2" "$FORGE_TMP/al.base"; then
     cat "$FORGE_TMP/al.raw"
@@ -7299,7 +7320,14 @@ forge_change_set() {
   esac > "$FORGE_TMP/changed"
   : > "$FORGE_TMP/existing"; : > "$FORGE_TMP/deleted"; : > "$FORGE_TMP/inbase"; : > "$FORGE_TMP/added"
   mkdir -p "$FORGE_TMP/base"
-  while IFS= read -r _cs_f; do
+  # "<0|1><TAB><path>": 0 when the path is not in FORGE_BASE_REV's tree at all (one ls-tree
+  # for the whole change, instead of a git cat-file per new file in base_file)
+  : > "$FORGE_TMP/inrev"
+  [ -z "${FORGE_BASE_REV:-}" ] || git ls-tree -r -t -z --full-tree --name-only "$FORGE_BASE_REV" 2>/dev/null | tr '\000' '\n' > "$FORGE_TMP/inrev"
+  awk 'FILENAME == ARGV[1] { t[$0] = 1; next } { print (($0 in t) ? 1 : 0) "\t" $0 }' "$FORGE_TMP/inrev" "$FORGE_TMP/changed" > "$FORGE_TMP/changed.inrev"
+  while IFS= read -r _cs_l; do
+    _bf_inrev=${_cs_l%%"	"*}
+    _cs_f=${_cs_l#*"	"}
     if base_file "$_cs_f" "$FORGE_TMP/base/$_cs_f"; then printf '%s\n' "$_cs_f" >> "$FORGE_TMP/inbase"; _cs_b=1; else _cs_b=0; fi
     if [ -f "$_cs_f" ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/existing"
@@ -7307,7 +7335,8 @@ forge_change_set() {
     elif [ "$_cs_b" = 1 ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/deleted"
     fi
-  done < "$FORGE_TMP/changed"
+  done < "$FORGE_TMP/changed.inrev"
+  unset _bf_inrev
   return 0
 }
 
@@ -7363,6 +7392,8 @@ forge_format_base() {
 # base also counts when its text is that of a line added against the formatted base
 # not matched by number (each such line counted once).
 forge_added_lines() {
+  # a file new since the base: every line is added
+  if [ ! -f "$2" ]; then printf '%s\t*\n' "$1"; return 0; fi
   added_lines "$1" "$2" > "$FORGE_TMP/al.raw"
   if [ ! -f "$2" ] || [ ! -s "$FORGE_TMP/al.raw" ] || [ "${FORGE_PLAIN_ADDED:-0}" = 1 ] || ! forge_format_base "$1" "$2" "$FORGE_TMP/al.base" || cmp -s "$2" "$FORGE_TMP/al.base"; then
     cat "$FORGE_TMP/al.raw"
@@ -10393,7 +10424,14 @@ forge_change_set() {
   esac > "$FORGE_TMP/changed"
   : > "$FORGE_TMP/existing"; : > "$FORGE_TMP/deleted"; : > "$FORGE_TMP/inbase"; : > "$FORGE_TMP/added"
   mkdir -p "$FORGE_TMP/base"
-  while IFS= read -r _cs_f; do
+  # "<0|1><TAB><path>": 0 when the path is not in FORGE_BASE_REV's tree at all (one ls-tree
+  # for the whole change, instead of a git cat-file per new file in base_file)
+  : > "$FORGE_TMP/inrev"
+  [ -z "${FORGE_BASE_REV:-}" ] || git ls-tree -r -t -z --full-tree --name-only "$FORGE_BASE_REV" 2>/dev/null | tr '\000' '\n' > "$FORGE_TMP/inrev"
+  awk 'FILENAME == ARGV[1] { t[$0] = 1; next } { print (($0 in t) ? 1 : 0) "\t" $0 }' "$FORGE_TMP/inrev" "$FORGE_TMP/changed" > "$FORGE_TMP/changed.inrev"
+  while IFS= read -r _cs_l; do
+    _bf_inrev=${_cs_l%%"	"*}
+    _cs_f=${_cs_l#*"	"}
     if base_file "$_cs_f" "$FORGE_TMP/base/$_cs_f"; then printf '%s\n' "$_cs_f" >> "$FORGE_TMP/inbase"; _cs_b=1; else _cs_b=0; fi
     if [ -f "$_cs_f" ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/existing"
@@ -10401,7 +10439,8 @@ forge_change_set() {
     elif [ "$_cs_b" = 1 ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/deleted"
     fi
-  done < "$FORGE_TMP/changed"
+  done < "$FORGE_TMP/changed.inrev"
+  unset _bf_inrev
   return 0
 }
 
@@ -10457,6 +10496,8 @@ forge_format_base() {
 # base also counts when its text is that of a line added against the formatted base
 # not matched by number (each such line counted once).
 forge_added_lines() {
+  # a file new since the base: every line is added
+  if [ ! -f "$2" ]; then printf '%s\t*\n' "$1"; return 0; fi
   added_lines "$1" "$2" > "$FORGE_TMP/al.raw"
   if [ ! -f "$2" ] || [ ! -s "$FORGE_TMP/al.raw" ] || [ "${FORGE_PLAIN_ADDED:-0}" = 1 ] || ! forge_format_base "$1" "$2" "$FORGE_TMP/al.base" || cmp -s "$2" "$FORGE_TMP/al.base"; then
     cat "$FORGE_TMP/al.raw"
@@ -13806,11 +13847,12 @@ now_hash() {
 }
 
 # base_file <path> <out>: writes <path> as it is in the base to <out>; fails if absent there.
+# _bf_inrev=0 says <path> is not in FORGE_BASE_REV's tree (the caller looked it up).
 base_file() {
   if [ -n "${FORGE_SNAP:-}" ] && _bf=$(awk -F '\t' -v p="$1" '$1 == p { print $2; f = 1; exit } END { exit !f }' "$FORGE_SNAP/dirty" 2>/dev/null); then
     [ "$_bf" != - ] && [ -f "$FORGE_SNAP/files/$1" ] || return 1
     mkdir -p "$(dirname "$2")" && cp "$FORGE_SNAP/files/$1" "$2"
-  elif [ -n "${FORGE_BASE_REV:-}" ] && git cat-file -e "$FORGE_BASE_REV:$1" 2>/dev/null; then
+  elif [ -n "${FORGE_BASE_REV:-}" ] && [ "${_bf_inrev:-1}" != 0 ] && git cat-file -e "$FORGE_BASE_REV:$1" 2>/dev/null; then
     mkdir -p "$(dirname "$2")" && git cat-file blob "$FORGE_BASE_REV:$1" > "$2" 2>/dev/null
   else
     return 1
@@ -14153,7 +14195,14 @@ forge_change_set() {
   esac > "$FORGE_TMP/changed"
   : > "$FORGE_TMP/existing"; : > "$FORGE_TMP/deleted"; : > "$FORGE_TMP/inbase"; : > "$FORGE_TMP/added"
   mkdir -p "$FORGE_TMP/base"
-  while IFS= read -r _cs_f; do
+  # "<0|1><TAB><path>": 0 when the path is not in FORGE_BASE_REV's tree at all (one ls-tree
+  # for the whole change, instead of a git cat-file per new file in base_file)
+  : > "$FORGE_TMP/inrev"
+  [ -z "${FORGE_BASE_REV:-}" ] || git ls-tree -r -t -z --full-tree --name-only "$FORGE_BASE_REV" 2>/dev/null | tr '\000' '\n' > "$FORGE_TMP/inrev"
+  awk 'FILENAME == ARGV[1] { t[$0] = 1; next } { print (($0 in t) ? 1 : 0) "\t" $0 }' "$FORGE_TMP/inrev" "$FORGE_TMP/changed" > "$FORGE_TMP/changed.inrev"
+  while IFS= read -r _cs_l; do
+    _bf_inrev=${_cs_l%%"	"*}
+    _cs_f=${_cs_l#*"	"}
     if base_file "$_cs_f" "$FORGE_TMP/base/$_cs_f"; then printf '%s\n' "$_cs_f" >> "$FORGE_TMP/inbase"; _cs_b=1; else _cs_b=0; fi
     if [ -f "$_cs_f" ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/existing"
@@ -14161,7 +14210,8 @@ forge_change_set() {
     elif [ "$_cs_b" = 1 ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/deleted"
     fi
-  done < "$FORGE_TMP/changed"
+  done < "$FORGE_TMP/changed.inrev"
+  unset _bf_inrev
   return 0
 }
 
@@ -14217,6 +14267,8 @@ forge_format_base() {
 # base also counts when its text is that of a line added against the formatted base
 # not matched by number (each such line counted once).
 forge_added_lines() {
+  # a file new since the base: every line is added
+  if [ ! -f "$2" ]; then printf '%s\t*\n' "$1"; return 0; fi
   added_lines "$1" "$2" > "$FORGE_TMP/al.raw"
   if [ ! -f "$2" ] || [ ! -s "$FORGE_TMP/al.raw" ] || [ "${FORGE_PLAIN_ADDED:-0}" = 1 ] || ! forge_format_base "$1" "$2" "$FORGE_TMP/al.base" || cmp -s "$2" "$FORGE_TMP/al.base"; then
     cat "$FORGE_TMP/al.raw"
@@ -17290,14 +17342,14 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/bash-snapshot.sh": "29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e",
     ".claude/skills/forge-project/scripts/guard.rules": "ff61a19974ccfc38fe6771978c9f9fe21253d4132eff8af9f06b112607965a00",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
-    ".claude/skills/forge-project/scripts/lib.sh": "cda55212f9420881ab0e83ddd845f4be311ed0852bc40c74a62d5f826ec194c3",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "db17301d4033a040ea1920e691854f84a14d8c2458c965faf2e7b17865fca30f",
+    ".claude/skills/forge-project/scripts/lib.sh": "3d43cd8c99637dd2a46b6bb5eded3df3aa96b7b22abcf84353179f399359f276",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "58d4913f6694e9767bb95671b68e4ee9fd6f82d1ddec172e38e43229dee13989",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
-    ".claude/skills/forge-project/scripts/session-start.sh": "25766902f34c44ed53914abe50e0e4952654c114907f04c2a346ef75cba8f5a0",
+    ".claude/skills/forge-project/scripts/session-start.sh": "e98e589fa28d125ccd732a84f6a88242aa511c4b656cc98f801ed5630f9b1b11",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "d19bfae529917d68614f2ecfe7bf2d6e0a9f2dd2d244128b0ba254cd28fc18c4",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "f9833a871995dc8fceec42e9963d71393449af1b163563382e6e225ed2664813",
     ".claude/skills/forge-project/scripts/turn-start.sh": "3d6bbb9aed56181032c9e7c05ba1c20e8080ca104e831a193b42a825e3a12531",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "4cfc12ac267c50255c2460d9e574a008369b39b910398be417e8e4121c9fcd57",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "b324b9cca3bf0bb0d9af907a57114a27e231bc26c7ab05e561112cf6d0528c5d",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml": "c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20",
     ".forge/ast-grep/rule-tests/typescript-no-eval-test.yml": "3716e00219b28a0974a07a56e1d264bb478b35a6ef38d5c13740a9080b09516e",
@@ -17320,7 +17372,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/typescript/no-ts-nocheck.yml": "aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21",
     ".forge/ast-grep/rules/typescript/ts-expect-error-reason.yml": "b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "322f9c7de2e1b9770f26a46396862d1522f02fd45e9afa62828f653cfdb13f3b",
+    ".forge/check.sh": "faeddda4af18b8d13fb4c0bb567ffa065618af3ed94ab02b81476ac504e99aaa",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -17369,14 +17421,14 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e  .claude/skills/forge-project/scripts/bash-snapshot.sh
 ff61a19974ccfc38fe6771978c9f9fe21253d4132eff8af9f06b112607965a00  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
-cda55212f9420881ab0e83ddd845f4be311ed0852bc40c74a62d5f826ec194c3  .claude/skills/forge-project/scripts/lib.sh
-db17301d4033a040ea1920e691854f84a14d8c2458c965faf2e7b17865fca30f  .claude/skills/forge-project/scripts/post-edit.sh
+3d43cd8c99637dd2a46b6bb5eded3df3aa96b7b22abcf84353179f399359f276  .claude/skills/forge-project/scripts/lib.sh
+58d4913f6694e9767bb95671b68e4ee9fd6f82d1ddec172e38e43229dee13989  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
-25766902f34c44ed53914abe50e0e4952654c114907f04c2a346ef75cba8f5a0  .claude/skills/forge-project/scripts/session-start.sh
+e98e589fa28d125ccd732a84f6a88242aa511c4b656cc98f801ed5630f9b1b11  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-d19bfae529917d68614f2ecfe7bf2d6e0a9f2dd2d244128b0ba254cd28fc18c4  .claude/skills/forge-project/scripts/test-edit.sh
+f9833a871995dc8fceec42e9963d71393449af1b163563382e6e225ed2664813  .claude/skills/forge-project/scripts/test-edit.sh
 3d6bbb9aed56181032c9e7c05ba1c20e8080ca104e831a193b42a825e3a12531  .claude/skills/forge-project/scripts/turn-start.sh
-4cfc12ac267c50255c2460d9e574a008369b39b910398be417e8e4121c9fcd57  .claude/skills/forge-project/scripts/typecheck.sh
+b324b9cca3bf0bb0d9af907a57114a27e231bc26c7ab05e561112cf6d0528c5d  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20  .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
 3716e00219b28a0974a07a56e1d264bb478b35a6ef38d5c13740a9080b09516e  .forge/ast-grep/rule-tests/typescript-no-eval-test.yml
@@ -17399,7 +17451,7 @@ b21497e3335f2271e6ca5874817957d18c640e7d787cfe76a72ef390ab62d634  .forge/ast-gre
 aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21  .forge/ast-grep/rules/typescript/no-ts-nocheck.yml
 b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad  .forge/ast-grep/rules/typescript/ts-expect-error-reason.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-322f9c7de2e1b9770f26a46396862d1522f02fd45e9afa62828f653cfdb13f3b  .forge/check.sh
+faeddda4af18b8d13fb4c0bb567ffa065618af3ed94ab02b81476ac504e99aaa  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh
