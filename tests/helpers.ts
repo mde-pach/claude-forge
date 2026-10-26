@@ -124,11 +124,20 @@ export function sh(cmd: string, args: string[], opts: { cwd?: string; input?: st
   return { status: r.status ?? 1, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
 }
 
-/** A directory with a fake `claude` reporting <version>, prepended to PATH. */
+/**
+ * A directory with a fake `claude` reporting <version>, prepended to PATH: one per
+ * version and process (the first run of a freshly written script costs macOS's
+ * assessment, ≈50 ms).
+ */
+const fakeClaudes = new Map<string, string>();
 export function fakeClaude(version = "2.1.300"): Record<string, string> {
-  const bin = mkdtempSync(join(tmpdir(), "forge-bin-"));
-  writeFileSync(join(bin, "claude"), `#!/bin/sh\necho "${version} (Claude Code)"\n`);
-  chmodSync(join(bin, "claude"), 0o755);
+  let bin = fakeClaudes.get(version);
+  if (!bin) {
+    bin = mkdtempSync(join(tmpdir(), "forge-bin-"));
+    writeFileSync(join(bin, "claude"), `#!/bin/sh\necho "${version} (Claude Code)"\n`);
+    chmodSync(join(bin, "claude"), 0o755);
+    fakeClaudes.set(version, bin);
+  }
   return { PATH: `${bin}:${process.env.PATH}` };
 }
 
