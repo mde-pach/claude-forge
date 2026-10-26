@@ -1,0 +1,19 @@
+id: github-actions/ci-ratchet
+description: "Workflow changes do not switch checks off: a changed workflow may not have more continue-on-error: true, run lines ending in || true / || exit 0 / || :, if: false or paths-ignore than it had. Fix the failing step instead; an accepted change goes through forge.yaml."
+scope: {language: any, files: [".github/workflows/*.yml", ".github/workflows/*.yaml"]}
+enforce:
+  - target: grep
+    mode: no-increase
+    pattern: "continue-on-error:[[:space:]]*(true|\\$\\{\\{[[:space:]]*true[[:space:]]*\\}\\})|\\|\\|[[:space:]]*(true|exit[[:space:]]+0|:)([[:space:];)\"']|$)|^[[:space:]]*-?[[:space:]]*if:[[:space:]]*(false|\\$\\{\\{[[:space:]]*false[[:space:]]*\\}\\})[[:space:]]*$|paths-ignore:"
+examples:
+  match:
+    - "      - run: pytest\n        continue-on-error: true\n"
+    - "      - run: npm test || true\n"
+    - "      - run: uv run pytest || exit 0\n"
+    - "  e2e:\n    if: false\n"
+    - "    if: ${{ false }}\n"
+    - "on:\n  push:\n    paths-ignore: ['docs/**']\n"
+  no_match:
+    - "      - run: pytest\n        continue-on-error: ${{ matrix.experimental }}\n"
+    - "      - run: test -f a || cp b a\n"
+    - "    if: github.event_name == 'push'\n"

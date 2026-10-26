@@ -1,15 +1,20 @@
 id: github-actions/zizmor
-description: Workflows pass zizmor's unpinned-uses (actions pinned to a commit SHA, cf. the tj-actions/changed-files compromise, CVE-2025-30066), template-injection, dangerous-triggers, excessive-permissions and artipacked audits.
-scope: {language: any, files: [".github/workflows/*.yml", ".github/workflows/*.yaml", ".github/actions/**/action.yml", ".github/actions/**/action.yaml", "action.yml", "action.yaml"]}
+description: "Workflows, actions and dependabot.yml pass zizmor's unpinned-uses (actions pinned to a commit SHA, cf. the tj-actions/changed-files compromise, CVE-2025-30066), template-injection, dangerous-triggers, excessive-permissions, artipacked, cache-poisoning, github-env, insecure-commands, overprovisioned-secrets, unredacted-secrets, secrets-inherit, bot-conditions, obfuscation, unsound-condition, unsound-contains, unsound-ternary, hardcoded-container-credentials, unpinned-images, ref-version-mismatch, archived-uses, typosquat-uses, use-trusted-publishing, dependabot-cooldown and dependabot-execution audits."
+scope: {language: any, files: [".github/workflows/*.yml", ".github/workflows/*.yaml", ".github/actions/**/action.yml", ".github/actions/**/action.yaml", "action.yml", "action.yaml", ".github/dependabot.yml", ".github/dependabot.yaml"]}
 enforce:
   - target: check
     stage: lint
-    run: "forge_zizmor unpinned-uses template-injection dangerous-triggers excessive-permissions artipacked"
-    when_changed: [".github/workflows/**", ".github/actions/**", "action.yml", "action.yaml"]
+    run: "forge_zizmor unpinned-uses template-injection dangerous-triggers excessive-permissions artipacked cache-poisoning github-env insecure-commands overprovisioned-secrets unredacted-secrets secrets-inherit bot-conditions obfuscation unsound-condition unsound-contains unsound-ternary hardcoded-container-credentials unpinned-images ref-version-mismatch archived-uses typosquat-uses use-trusted-publishing dependabot-cooldown dependabot-execution"
+    when_changed: [".github/workflows/**", ".github/actions/**", "action.yml", "action.yaml", ".github/dependabot.yml", ".github/dependabot.yaml"]
 examples:
   match:
     - files: {.github/workflows/ci.yml: "name: ci\non: push\npermissions: {}\njobs:\n  test:\n    runs-on: ubuntu-latest\n    permissions:\n      contents: read\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          persist-credentials: false\n"}
     - files: {.github/workflows/greet.yml: "name: greet\non: issues\npermissions: {}\njobs:\n  greet:\n    runs-on: ubuntu-latest\n    permissions: {}\n    steps:\n      - run: echo \"${{ github.event.issue.title }}\"\n"}
     - files: {.github/workflows/pr.yml: "name: pr\non: pull_request_target\npermissions: {}\njobs:\n  label:\n    runs-on: ubuntu-latest\n    permissions: {}\n    steps:\n      - run: echo labelled\n"}
+    - files: {.github/workflows/ci.yml: "name: ci\non: push\npermissions: {}\njobs:\n  test:\n    runs-on: ubuntu-latest\n    permissions: {}\n    container:\n      image: node:24\n      credentials:\n        username: ci\n        password: hunter2\n    steps:\n      - run: echo ok\n"}
+    - files: {.github/workflows/ci.yml: "name: ci\non: push\npermissions: {}\njobs:\n  test:\n    runs-on: ubuntu-latest\n    permissions: {}\n    steps:\n      - run: echo '${{ toJSON(secrets) }}'\n"}
+    - files: {.github/workflows/ci.yml: "name: ci\non: push\npermissions: {}\njobs:\n  call:\n    uses: acme/workflows/.github/workflows/ci.yml@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v1\n    secrets: inherit\n"}
+    - files: {.github/dependabot.yml: "version: 2\nupdates:\n  - package-ecosystem: pip\n    directory: /\n    schedule:\n      interval: weekly\n"}
   no_match:
     - files: {.github/workflows/ci.yml: "name: ci\non: push\npermissions: {}\njobs:\n  test:\n    runs-on: ubuntu-latest\n    permissions:\n      contents: read\n    steps:\n      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0\n        with:\n          persist-credentials: false\n      - env:\n          TITLE: ${{ github.event.head_commit.message }}\n        run: echo \"$TITLE\"\n"}
+    - files: {.github/dependabot.yml: "version: 2\nupdates:\n  - package-ecosystem: pip\n    directory: /\n    schedule:\n      interval: weekly\n    cooldown:\n      default-days: 7\n"}
