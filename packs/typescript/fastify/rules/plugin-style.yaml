@@ -1,0 +1,52 @@
+id: typescript/fastify/plugin-style
+description: "A Fastify plugin is either async (instance, opts) or (instance, opts, done), never an async function with a third parameter: Fastify 5 rejects it at ready() (FST_ERR_PLUGIN_INVALID_ASYNC_HANDLER), which tsc does not see."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any: [{kind: arrow_function}, {kind: function_expression}]
+      all:
+        - regex: "^async\\b"
+        - has: {field: parameters, has: {nthChild: 3, any: [{kind: required_parameter}, {kind: optional_parameter}]}}
+        - any:
+            # passed to instance.register(…)
+            - all:
+                - nthChild: 1
+                - inside:
+                    kind: arguments
+                    stopBy: neighbor
+                    inside:
+                      kind: call_expression
+                      stopBy: neighbor
+                      has: {field: function, kind: member_expression, all: [{has: {field: object, pattern: $F}}, {has: {field: property, regex: "^register$"}}]}
+            # wrapped in fastify-plugin's fp(…)
+            - inside:
+                kind: arguments
+                stopBy: neighbor
+                inside:
+                  kind: call_expression
+                  stopBy: neighbor
+                  all:
+                    - has: {field: function, kind: identifier, pattern: $P}
+                    - inside:
+                        kind: program
+                        stopBy: end
+                        has:
+                          kind: import_statement
+                          all:
+                            - has: {field: source, regex: "^[\"']fastify-plugin[\"']$"}
+                            - has: {stopBy: end, kind: identifier, pattern: $P, inside: {kind: import_clause, stopBy: neighbor}}
+    # the receiver of register() is a Fastify instance. Fastify()'s own result is an
+    # intersection (FastifyInstance & SafePromiseLike), which the types engine does not
+    # resolve yet: registrations on it are not checked until it does.
+    where:
+      F: {type: {package: fastify, name: FastifyInstance}}
+examples:
+  deps: [{ecosystem: npm, name: fastify, version: "5.12.5"}, {ecosystem: npm, name: fastify-plugin, version: "6.0.1"}]
+  match:
+    - "import type { FastifyInstance } from \"fastify\";\n\nexport function routes(app: FastifyInstance) {\n  app.register(async (instance, opts, done) => {\n    instance.get(\"/\", async () => \"ok\");\n    done();\n  });\n}\n"
+    - "import fp from \"fastify-plugin\";\nimport type { FastifyInstance } from \"fastify\";\n\nexport default fp(async function db(app: FastifyInstance, opts: object, done: () => void) {\n  app.decorate(\"db\", {});\n  done();\n});\n"
+  no_match:
+    - "import type { FastifyInstance } from \"fastify\";\n\nexport function routes(app: FastifyInstance) {\n  app.register(async (instance) => {\n    instance.get(\"/\", async () => \"ok\");\n  });\n  app.register((instance, opts, done) => {\n    done();\n  });\n}\n"
+    - "const bus = { register: (f: (a: number, b: number, c: number) => Promise<void>) => f };\n\nexport const r = bus.register(async (a, b, c) => {});\n"

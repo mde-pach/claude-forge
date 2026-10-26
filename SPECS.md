@@ -1037,6 +1037,17 @@ context.md: stdout is the JSON-RPC stream; logs on stderr.
 
 context.md: `limit()` never throws; check `success`.
 
+### typescript/fastify
+
+Detected by `fastify >= 5`. `Fastify()` returns an intersection (`FastifyInstance & SafePromiseLike<…>`), which the TypeScript engine does not resolve (§15.1): calls on it are not checked; calls on a `FastifyInstance` (plugin parameters, annotated instances) are.
+
+| Rule | Targets |
+|---|---|
+| `typescript/fastify/plugin-style` | `ast-grep` forbid: an `async` arrow or function expression with a third parameter, passed first to `$F.register(…)` (where `F` is a `FastifyInstance`) or to fastify-plugin's default import |
+| `typescript/fastify/full-json-schema` | `ast-grep` forbid: in the `schema` of `$F.route({…})` / `$F.<method>(url, {…}, …)` (where `F` is a `FastifyInstance`), a `body`, `querystring`, `params` or `headers` value, or a `response` status value, that is an object literal with properties, no spread and no JSON Schema keyword key |
+
+context.md: the two plugin signatures; full JSON Schemas in routes.
+
 ### github-actions
 
 Detected by `.github/workflows/*.yml` or `*.yaml`.

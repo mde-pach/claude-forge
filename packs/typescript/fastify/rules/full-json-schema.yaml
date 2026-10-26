@@ -1,0 +1,59 @@
+id: typescript/fastify/full-json-schema
+description: "In a Fastify route schema, body, querystring, params, headers and each response status are a full JSON Schema ({type: \"object\", properties: …}) or a schema builder's result, not a v4 shorthand map of properties: Fastify 5 removed the shorthand, and the route fails at ready() (FST_ERR_SCH_VALIDATION_BUILD … unknown keyword), which tsc does not see."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    utils:
+      # an object literal with at least one property, no spread, and no JSON Schema keyword among its keys
+      shorthand-map:
+        kind: object
+        all:
+          - has: {kind: pair}
+          - not: {has: {kind: spread_element}}
+          - not:
+              has:
+                any:
+                  - {kind: pair, has: {field: key, regex: "^[\"']?(\\$schema|\\$id|\\$ref|\\$defs|\\$comment|definitions|type|enum|const|properties|patternProperties|additionalProperties|propertyNames|required|items|prefixItems|additionalItems|contains|anyOf|allOf|oneOf|not|if|then|else|dependentRequired|dependentSchemas|dependencies|minProperties|maxProperties|minItems|maxItems|uniqueItems|minLength|maxLength|pattern|format|minimum|maximum|exclusiveMinimum|exclusiveMaximum|multipleOf|title|description|default|examples|nullable|readOnly|writeOnly|discriminator|unevaluatedProperties|unevaluatedItems|contentMediaType|contentEncoding)[\"']?$"}}
+                  - {kind: shorthand_property_identifier, regex: "^(\\$schema|\\$id|\\$ref|\\$defs|\\$comment|definitions|type|enum|const|properties|patternProperties|additionalProperties|propertyNames|required|items|prefixItems|additionalItems|contains|anyOf|allOf|oneOf|not|if|then|else|dependentRequired|dependentSchemas|dependencies|minProperties|maxProperties|minItems|maxItems|uniqueItems|minLength|maxLength|pattern|format|minimum|maximum|exclusiveMinimum|exclusiveMaximum|multipleOf|title|description|default|examples|nullable|readOnly|writeOnly|discriminator|unevaluatedProperties|unevaluatedItems|contentMediaType|contentEncoding)$"}
+    rule:
+      kind: pair
+      all:
+        - has: {field: value, matches: shorthand-map}
+        - any:
+            - all:
+                - has: {field: key, regex: "^[\"']?(body|querystring|params|headers)[\"']?$"}
+                - inside: {kind: object, stopBy: neighbor, inside: {kind: pair, stopBy: neighbor, has: {field: key, regex: "^[\"']?schema[\"']?$"}, pattern: $SCHEMA}}
+            - all:
+                - has: {field: key, regex: "^[\"']?([1-5]([0-9]{2}|xx)|default)[\"']?$"}
+                - inside:
+                    kind: object
+                    stopBy: neighbor
+                    inside:
+                      kind: pair
+                      stopBy: neighbor
+                      has: {field: key, regex: "^[\"']?response[\"']?$"}
+                      inside: {kind: object, stopBy: neighbor, inside: {kind: pair, stopBy: neighbor, has: {field: key, regex: "^[\"']?schema[\"']?$"}, pattern: $SCHEMA}}
+        # the schema option of a route: route({…}) or <method>(url, {…}, handler) on a Fastify instance
+        - inside:
+            stopBy: end
+            kind: call_expression
+            all:
+              - has:
+                  field: function
+                  kind: member_expression
+                  all:
+                    - has: {field: object, pattern: $F}
+                    - has: {field: property, regex: "^(route|get|post|put|patch|delete|head|options|all)$"}
+              - has: {field: arguments, has: {kind: object, has: {pattern: $SCHEMA}}}
+    where:
+      F: {type: {package: fastify, name: FastifyInstance}}
+examples:
+  deps: [{ecosystem: npm, name: fastify, version: "5.12.5"}]
+  match:
+    - "import type { FastifyInstance } from \"fastify\";\n\nexport async function routes(app: FastifyInstance) {\n  app.post(\"/users\", { schema: { body: { name: { type: \"string\" } } } }, async () => \"ok\");\n}\n"
+    - "import type { FastifyInstance } from \"fastify\";\n\nexport async function routes(app: FastifyInstance) {\n  app.route({\n    method: \"GET\",\n    url: \"/users/:id\",\n    schema: {\n      params: { type: \"object\", properties: { id: { type: \"string\" } } },\n      response: { 200: { id: { type: \"string\" } } },\n    },\n    handler: async () => ({ id: \"1\" }),\n  });\n}\n"
+  no_match:
+    - "import type { FastifyInstance } from \"fastify\";\n\nexport async function routes(app: FastifyInstance) {\n  app.post(\"/users\", { schema: { body: { type: \"object\", properties: { name: { type: \"string\" } }, required: [\"name\"] }, response: { 201: { type: \"object\", properties: { id: { type: \"string\" } } } } } }, async () => \"ok\");\n  app.get(\"/q\", { schema: { querystring: { properties: { q: { type: \"string\" } } }, headers: { $ref: \"auth#\" } } }, async () => \"ok\");\n}\n"
+    - "import type { FastifyInstance } from \"fastify\";\n\nconst Body = { type: \"object\" } as const;\n\nexport async function routes(app: FastifyInstance) {\n  app.post(\"/users\", { schema: { body: Body, params: {} } }, async () => \"ok\");\n}\n"
+    - "const router = { post: (u: string, o: object) => [u, o] };\n\nexport const r = router.post(\"/x\", { schema: { body: { name: { type: \"string\" } } } });\n"
