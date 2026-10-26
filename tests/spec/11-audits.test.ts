@@ -3,11 +3,11 @@
  *
  * For each `tool` target of an active rule, Forge runs the project's own tool
  * with the project's own config on the rule's examples. Every `match` example
- * must get the expected diagnostic **at a level that fails the tool's run**
- * (an error, or a warning when the tool fails on warnings), and no `no_match`
+ * must get the expected diagnostic **as an error**, and no `no_match`
  * example may get it; then the rule is satisfied, and stricter configs satisfy
  * it automatically. A diagnostic that is only a warning does not enforce
- * anything: the rule is unsatisfied. Severity is read from the tools'
+ * anything, since the checks never block on warnings (§10.1), even when the tool
+ * exits non-zero on them: the rule is unsatisfied. Severity is read from the tools'
  * machine-readable output (Biome's JSON reporter, `ruff --output-format json`,
  * `ty check --output-format gitlab`; tsc only has errors). ty is Forge's own, pinned
  * (run through uvx with the project's config). Otherwise `forge status` prints the
@@ -86,7 +86,7 @@ describe.if(hasBun)("Biome and tsc", () => {
     () => {
       const out = audit(repo("nextjs-prisma-app", { "biome.json": JSON.stringify({ linter: { enabled: true, rules: { recommended: true } } }), "tsconfig.json": TSCONFIG(true) }));
       expect(out).toContain(
-        "forge:typescript/no-explicit-any biome lint/suspicious/noExplicitAny: unsatisfied (lint/suspicious/noExplicitAny is only a warning in your biome config, so biome does not fail on it",
+        "forge:typescript/no-explicit-any biome lint/suspicious/noExplicitAny: unsatisfied (lint/suspicious/noExplicitAny is only a warning in your biome config, and Forge's checks do not block on warnings",
       );
       expect(out).toContain('add to the biome config: "linter": {"rules": {"suspicious": {"noExplicitAny": "error"}}}');
     },
@@ -136,20 +136,26 @@ describe.if(hasUv)("ruff and ty", () => {
 
   /** @rule python/no-deprecated */
   test(
-    "deprecated as a warning, without error-on-warning, does not fail ty: unsatisfied",
+    "deprecated as a warning, without error-on-warning, does not enforce the rule: unsatisfied",
     () => {
       const out = audit(repo("fastapi-app", { "pyproject.toml": PYPROJECT(["E", "ANN401"], "warn", false) }));
-      expect(out).toContain("forge:python/no-deprecated ty deprecated: unsatisfied (deprecated is only a warning in your ty config, so ty does not fail on it");
+      expect(out).toContain("forge:python/no-deprecated ty deprecated: unsatisfied (deprecated is only a warning in your ty config, and Forge's checks do not block on warnings");
     },
     T,
   );
 
-  /** @rule python/no-deprecated */
+  /**
+   * ty exits 1 on warnings with `terminal.error-on-warning`, but its warnings still do
+   * not block a change (§10.1: warning-only output is not attributed), so the rule asks
+   * for the error level.
+   * @rule python/no-deprecated
+   */
   test(
-    "deprecated as a warning, with error-on-warning, fails ty: satisfied",
+    "deprecated as a warning, with error-on-warning, does not enforce the rule either: unsatisfied",
     () => {
       const out = audit(repo("fastapi-app", { "pyproject.toml": PYPROJECT(["E", "ANN401"], "warn", true) }));
-      expect(out).toContain("forge:python/no-deprecated ty deprecated: satisfied");
+      expect(out).toContain("forge:python/no-deprecated ty deprecated: unsatisfied (deprecated is only a warning in your ty config");
+      expect(out).toContain('add to the ty config: [tool.ty.rules] deprecated = "error"');
     },
     T,
   );

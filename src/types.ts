@@ -90,6 +90,8 @@ export interface CheckTarget {
   rerun?: string;
   when_changed?: string[];
   requires_local_db?: boolean;
+  /** warning diagnostics count like errors (§10.1) */
+  fail_on_warnings?: true;
   timeout?: number;
 }
 /** A POSIX ERE matched line by line in the rule's files (comments, config text, .astro files). */

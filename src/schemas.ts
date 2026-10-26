@@ -173,6 +173,8 @@ const target = {
           rerun: { type: "string", minLength: 1, pattern: "\\{files\\}" },
           when_changed: { type: "array", items: { type: "string", minLength: 1 }, minItems: 1 },
           requires_local_db: { type: "boolean" },
+          // the check's warnings block like errors (the run fails on them: oxlint --deny-warnings)
+          fail_on_warnings: { const: true },
           timeout: { type: "integer", minimum: 1, maximum: 600 },
         },
         allOf: [

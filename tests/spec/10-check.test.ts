@@ -676,6 +676,29 @@ describe("errors in unchanged files", () => {
     T,
   );
 
+  /**
+   * A check can say that its warnings block (`fail_on_warnings`: a linter run with
+   * `--deny-warnings` or `--max-warnings=0`, whose output still says "warning"): its
+   * warning diagnostics are then attributed like errors. Without it, the same output
+   * passes as warnings only.
+   * @rule python/typecheck
+   */
+  test(
+    "a check with fail_on_warnings blocks on a warning on an added line; the same check without it passes",
+    () => {
+      // a linter stand-in: one warning per line holding WARN, exit 1 when there is one
+      const lint = 'for f in {files}; do grep -n WARN "$f" | sed "s|^\\([0-9]*\\):.*|$f:\\1:1: warning: marked|"; done; ! grep -q WARN {files}';
+      const target = (warn: boolean): CheckTarget => ({ target: "check", stage: "lint", run: "true", changed_run: lint, ...(warn ? { fail_on_warnings: true as const } : {}) });
+      const rule = { id: "local/warnings", description: "x", scope: { language: "any" as const }, enforce: [target(true)], pack: "local", file: "x" } as never;
+      const marked = { files: { "notes.txt": "fine\nWARN here\n" } };
+      const clean = { files: { "notes.txt": "fine\n" } };
+      expect(runCheckExample(rule, target(true), marked, "match", []).outcome).toBe("pass");
+      expect(runCheckExample(rule, target(true), clean, "no_match", []).outcome).toBe("pass");
+      expect(runCheckExample(rule, target(false), marked, "no_match", []).outcome).toBe("pass");
+    },
+    T,
+  );
+
   /** A TypeScript repository with a type error committed in src/legacy.ts. */
   function legacyRepo(): string {
     return fixture("eslint-app-legacy", (r) => {

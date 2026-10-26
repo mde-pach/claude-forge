@@ -46,9 +46,9 @@ export function examplePath(rule: Rule, stem: string): string {
 
 /** How the tool reported the expected diagnostic on one example. */
 export type Verdict =
-  /** reported, and it fails the tool's CI-style run */
+  /** reported as an error */
   | "fails"
-  /** reported, but at a level that does not fail the run (a warning) */
+  /** reported as a warning: the check stage does not block on it (§10.1), even when the tool exits non-zero */
   | "warning"
   /** not reported */
   | "absent";
@@ -116,10 +116,9 @@ function parseJson(text: string): unknown {
 }
 
 /**
- * Whether the run reported `expects`, and whether that fails the run: an error
- * does; a warning does only when the run exits non-zero with no error
- * diagnostic at all (the tool fails on warnings, e.g. ty's
- * terminal.error-on-warning). Throws when the output cannot be read.
+ * Whether the run reported `expects`, and at which level: only an error enforces the
+ * rule, since the check stage ignores warnings (§10.1), also when the tool exits
+ * non-zero on them (ty's terminal.error-on-warning). Throws when the output cannot be read.
  */
 export function verdict(tool: ToolTarget["tool"], expects: string, r: ToolRun): Verdict {
   if (tool === "tsc") return new RegExp(`\\berror ${expects}\\b`).test(r.stdout + r.stderr) ? "fails" : "absent";
@@ -128,7 +127,7 @@ export function verdict(tool: ToolTarget["tool"], expects: string, r: ToolRun): 
     const items = parseJson(r.stdout) as { code: string | null }[];
     return items.some((d) => d.code === expects) ? "fails" : "absent";
   }
-  return judge(expects, diagnostics(tool, r).list, r.status);
+  return judge(expects, diagnostics(tool, r).list);
 }
 
 interface Diagnostic {
@@ -157,21 +156,17 @@ function diagnostics(tool: "biome" | "ty", r: ToolRun): { list: Diagnostic[]; co
   return { list: out.map((d) => ({ id: d.check_name ?? "", severity: severity(d.severity), file: d.location?.path ?? "" })), complete: true };
 }
 
-/** The verdict on the diagnostics of a run (all: of one example) that exited with <status>. */
-function judge(expects: string, all: { id: string; severity: string }[], status: number): Verdict {
+/** The verdict on the diagnostics of a run (all: of one example). */
+function judge(expects: string, all: { id: string; severity: string }[]): Verdict {
   const mine = all.filter((d) => d.id === expects);
   if (!mine.length) return "absent";
-  if (mine.some((d) => d.severity === "error")) return "fails";
-  const warningsFail = status !== 0 && !all.some((d) => d.severity === "error");
-  return warningsFail ? "fails" : "warning";
+  return mine.some((d) => d.severity === "error") ? "fails" : "warning";
 }
 
 /**
  * biome and ty report by file, so the examples of a target run in one process (several
  * when two examples have the same path). Per example, the verdict is the one a run on
- * that example alone gives: its own diagnostics; and when only a warning was reported,
- * whether the run failed tells whether warnings fail it, which the batch's exit status
- * says only when no file got an error: otherwise that example runs alone. undefined for
+ * that example alone gives: its own diagnostics. undefined for
  * an example the batch cannot judge (output not read, diagnostics left out, a file name
  * that is not one of the examples'): it runs alone.
  */
@@ -198,14 +193,7 @@ function batchVerdicts(repo: string, rule: Rule, t: ToolTarget, bin: string, cod
     }
     const mine = new Set(b.map((n) => rels[n]!));
     if (!d.complete || d.list.some((x) => !mine.has(x.file))) continue;
-    const anyError = d.list.some((x) => x.severity === "error");
-    for (const n of b) {
-      const all = d.list.filter((x) => x.file === rels[n]);
-      const v = judge(t.expects, all, r.status);
-      // a warning only: the batch's status is this example's only if no file got an error
-      const onlyWarning = all.some((x) => x.id === t.expects) && !all.some((x) => x.id === t.expects && x.severity === "error");
-      if (!onlyWarning || !anyError) out[n] = v;
-    }
+    for (const n of b) out[n] = judge(t.expects, d.list.filter((x) => x.file === rels[n]));
   }
   return out;
 }
@@ -249,7 +237,7 @@ export function auditTarget(repo: string, rule: Rule, t: ToolTarget, root = repo
       return {
         ...base,
         status: "unsatisfied",
-        detail: `${t.expects} is only a warning in your ${t.tool} config, so ${t.tool} does not fail on it (e.g. ${firstLine(code)})`,
+        detail: `${t.expects} is only a warning in your ${t.tool} config, and Forge's checks do not block on warnings (e.g. ${firstLine(code)})`,
         snippet: t.snippet,
       };
   }
