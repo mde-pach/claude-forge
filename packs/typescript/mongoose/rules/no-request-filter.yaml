@@ -1,0 +1,35 @@
+id: typescript/mongoose/no-request-filter
+description: "A request's body, query or params (Express or Fastify) is not passed whole as the filter or update of a Mongoose find / findOne / findOneAndUpdate / findOneAndDelete / findOneAndReplace / updateOne / updateMany / deleteOne / deleteMany / countDocuments / replaceOne: a client sends {\"password\": {\"$ne\": null}} (operator injection). Validate it first, or wrap it in sanitizeFilter()."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      all:
+        - has:
+            field: function
+            kind: member_expression
+            all:
+              - has: {field: object, pattern: $M}
+              - has: {field: property, regex: "^(find|findOne|findOneAndUpdate|findOneAndDelete|findOneAndReplace|updateOne|updateMany|deleteOne|deleteMany|countDocuments|replaceOne)$"}
+        - has:
+            field: arguments
+            has:
+              any: [{nthChild: 1}, {nthChild: 2}]
+              kind: member_expression
+              all:
+                - has: {field: object, pattern: $R}
+                - has: {field: property, regex: "^(body|query|params)$"}
+    where:
+      M: {type: {package: mongoose, name: [Model, Query]}}
+      R: {type: {package: [express-serve-static-core, express, fastify], name: [Request, FastifyRequest]}}
+examples:
+  deps: [{ecosystem: npm, name: mongoose, version: "9.11.1"}, {ecosystem: npm, name: "@types/express", version: "5.0.6"}, {ecosystem: npm, name: fastify, version: "5.12.5"}]
+  match:
+    - "import type { Request } from \"express\";\nimport { model, Schema } from \"mongoose\";\n\nconst User = model(\"User\", new Schema({ email: String, password: String }));\n\nexport async function login(req: Request) {\n  return User.findOne(req.body);\n}\n"
+    - "import type { FastifyRequest } from \"fastify\";\nimport { model, Schema } from \"mongoose\";\n\nconst Post = model(\"Post\", new Schema({ title: String }));\n\nexport async function edit(request: FastifyRequest) {\n  return Post.updateOne({ _id: \"1\" }, request.query);\n}\n"
+  no_match:
+    - "import type { Request } from \"express\";\nimport { model, Schema } from \"mongoose\";\n\nconst User = model(\"User\", new Schema({ email: String }));\n\nexport async function byEmail(req: Request) {\n  const email = String(req.body.email);\n  return User.findOne({ email });\n}\n"
+    - "import type { Request } from \"express\";\n\nconst cache = { find: (q: unknown) => q };\n\nexport const hit = (req: Request) => cache.find(req.body);\n"
+    - "import { model, Schema } from \"mongoose\";\n\nconst User = model(\"User\", new Schema({ email: String }));\nconst input = { body: { email: \"a@b\" } };\n\nexport const u = User.findOne(input.body);\n"

@@ -1,0 +1,29 @@
+id: typescript/mongoose/no-where-operator
+description: "No $where in a query passed to a Mongoose model or query, and no .$where(): it runs JavaScript on the database server (injection, denial of service) and is deprecated in MongoDB 8; use query operators or $expr."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        - kind: pair
+          has: {field: key, regex: "^[\"']?\\$where[\"']?$"}
+          inside:
+            kind: arguments
+            stopBy: end
+            inside:
+              kind: call_expression
+              stopBy: neighbor
+              has: {field: function, kind: member_expression, has: {field: object, pattern: $M}}
+        - kind: call_expression
+          has: {field: function, kind: member_expression, all: [{has: {field: object, pattern: $M}}, {has: {field: property, regex: "^\\$where$"}}]}
+    where:
+      M: {type: {package: mongoose, name: [Model, Query]}}
+examples:
+  deps: [{ecosystem: npm, name: mongoose, version: "9.11.1"}]
+  match:
+    - "import { model, Schema } from \"mongoose\";\n\nconst User = model(\"User\", new Schema({ name: String }));\n\nexport const r = (n: string) => User.find({ $where: `this.name == '${n}'` });\n"
+    - "import { model, Schema } from \"mongoose\";\n\nconst User = model(\"User\", new Schema({ age: Number }));\n\nexport const adults = User.find().$where(\"this.age >= 18\");\n"
+  no_match:
+    - "import { model, Schema } from \"mongoose\";\n\nconst User = model(\"User\", new Schema({ age: Number }));\n\nexport const adults = User.find({ age: { $gte: 18 } });\n"
+    - "const builder = { find: (q: object) => q };\n\nexport const q = builder.find({ $where: \"x\" });\n"

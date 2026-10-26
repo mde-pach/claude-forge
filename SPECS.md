@@ -982,6 +982,15 @@ context.md: the `sql` tag binds values, `sql.ref()` / `sql.id()` for names, no `
 
 context.md: migrations, never `synchronize` / `dropSchema`; parameters in `.query()` and in query builder conditions.
 
+### typescript/mongoose
+
+| Rule | Targets |
+|---|---|
+| `typescript/mongoose/no-request-filter` | `ast-grep` forbid: `$M.<op>($R.body \| query \| params, …)` or as the second argument, `<op>` one of `find`, `findOne`, `findOneAndUpdate`, `findOneAndDelete`, `findOneAndReplace`, `updateOne`, `updateMany`, `deleteOne`, `deleteMany`, `countDocuments`, `replaceOne`, where `M` is a Mongoose `Model` or `Query` and `R` an Express `Request` or a `FastifyRequest` |
+| `typescript/mongoose/no-where-operator` | `ast-grep` forbid: a `$where` key in the arguments of a call on `$M`, or `$M.$where(…)`, where `M` is a Mongoose `Model` or `Query` |
+
+context.md: request input validated or `sanitizeFilter()`ed before a filter; no `$where`.
+
 ### github-actions
 
 Detected by `.github/workflows/*.yml` or `*.yaml`.
