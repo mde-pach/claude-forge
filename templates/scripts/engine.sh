@@ -2139,7 +2139,7 @@ forge_exec_check() {
     _fe_watch=$!
     wait "$_fe_pid" 2>/dev/null
     _fe_rc=$?
-    forge_kill_tree "$_fe_watch"
+    forge_kill_watch "$_fe_watch"
     if [ -f "$FORGE_TMP/timedout" ]; then rm -f "$FORGE_TMP/timedout"; _fe_rc=124; fi
   else
     ( "$1" ) > "$FORGE_TMP/out" 2>&1 < /dev/null

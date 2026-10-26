@@ -922,6 +922,21 @@ forge_kill_tree() {
   kill -CONT "$1" 2>/dev/null
 }
 
+# forge_kill_watch <pid>: stops a timeout watcher, "( sleep <n>; ... ) &" started by
+# this shell, and its sleep.
+# SIGKILL: a SIGTERM that reaches the subshell before it has dropped its parent's traps
+# can be lost, and a watcher left alive holds the parent's saved descriptors (a hook's
+# $(...) pipe) until its sleep ends. Stopped first, so it starts nothing meanwhile.
+forge_kill_watch() {
+  kill -STOP "$1" 2>/dev/null
+  _kw_c=$(ps -A -o pid= -o ppid= 2>/dev/null | awk -v p="$1" '$2 == p { print $1 }')
+  # shellcheck disable=SC2086
+  kill -9 "$1" $_kw_c 2>/dev/null
+  # reaped here, so the shell does not report it ("Killed: 9") when it reaps a later job
+  wait "$1" 2>/dev/null
+  return 0
+}
+
 # ---- files changed by a Bash command (bash-snapshot.sh, post-edit.sh, typecheck.sh)
 
 # bash_state: where Bash-command snapshots live; bash_key: this tool call's id, file-name safe.
@@ -952,7 +967,7 @@ tree_snapshot() {
   _ts_watch=$!
   wait "$_ts_pid" 2>/dev/null
   _ts_rc=$?
-  forge_kill_tree "$_ts_watch"
+  forge_kill_watch "$_ts_watch"
   _ts_tree=$(cat "$_ts_tmp.out" 2>/dev/null)
   rm -f "$_ts_tmp" "$_ts_tmp.out" "$_ts_tmp.lock"
   [ "$_ts_rc" -eq 0 ] && [ -n "$_ts_tree" ] || return 1
@@ -3434,7 +3449,7 @@ forge_exec_check() {
     _fe_watch=$!
     wait "$_fe_pid" 2>/dev/null
     _fe_rc=$?
-    forge_kill_tree "$_fe_watch"
+    forge_kill_watch "$_fe_watch"
     if [ -f "$FORGE_TMP/timedout" ]; then rm -f "$FORGE_TMP/timedout"; _fe_rc=124; fi
   else
     ( "$1" ) > "$FORGE_TMP/out" 2>&1 < /dev/null
@@ -4161,7 +4176,7 @@ if [ -s "$FORGE_TMP/changed" ]; then
   ( sleep "${FORGE_EDIT_BUDGET:-45}"; : > "$FORGE_TMP/over"; forge_kill_tree "$_pe_pid" ) >/dev/null 2>&1 &
   _pe_watch=$!
   wait "$_pe_pid" 2>/dev/null
-  forge_kill_tree "$_pe_watch"
+  forge_kill_watch "$_pe_watch"
   if [ -f "$FORGE_TMP/over" ]; then
     { printf 'forge: the checks after this edit stopped after %ss; findings so far are below, and the Stop check covers the rest.\n' "${FORGE_EDIT_BUDGET:-45}"
       cat "$FORGE_TMP/report"; } > "$FORGE_TMP/report.over"
@@ -6640,7 +6655,7 @@ forge_exec_check() {
     _fe_watch=$!
     wait "$_fe_pid" 2>/dev/null
     _fe_rc=$?
-    forge_kill_tree "$_fe_watch"
+    forge_kill_watch "$_fe_watch"
     if [ -f "$FORGE_TMP/timedout" ]; then rm -f "$FORGE_TMP/timedout"; _fe_rc=124; fi
   else
     ( "$1" ) > "$FORGE_TMP/out" 2>&1 < /dev/null
@@ -9875,7 +9890,7 @@ forge_exec_check() {
     _fe_watch=$!
     wait "$_fe_pid" 2>/dev/null
     _fe_rc=$?
-    forge_kill_tree "$_fe_watch"
+    forge_kill_watch "$_fe_watch"
     if [ -f "$FORGE_TMP/timedout" ]; then rm -f "$FORGE_TMP/timedout"; _fe_rc=124; fi
   else
     ( "$1" ) > "$FORGE_TMP/out" 2>&1 < /dev/null
@@ -13127,7 +13142,7 @@ forge_exec_check() {
     _fe_watch=$!
     wait "$_fe_pid" 2>/dev/null
     _fe_rc=$?
-    forge_kill_tree "$_fe_watch"
+    forge_kill_watch "$_fe_watch"
     if [ -f "$FORGE_TMP/timedout" ]; then rm -f "$FORGE_TMP/timedout"; _fe_rc=124; fi
   else
     ( "$1" ) > "$FORGE_TMP/out" 2>&1 < /dev/null
@@ -14690,6 +14705,21 @@ forge_kill_tree() {
   kill -CONT "$1" 2>/dev/null
 }
 
+# forge_kill_watch <pid>: stops a timeout watcher, "( sleep <n>; ... ) &" started by
+# this shell, and its sleep.
+# SIGKILL: a SIGTERM that reaches the subshell before it has dropped its parent's traps
+# can be lost, and a watcher left alive holds the parent's saved descriptors (a hook's
+# $(...) pipe) until its sleep ends. Stopped first, so it starts nothing meanwhile.
+forge_kill_watch() {
+  kill -STOP "$1" 2>/dev/null
+  _kw_c=$(ps -A -o pid= -o ppid= 2>/dev/null | awk -v p="$1" '$2 == p { print $1 }')
+  # shellcheck disable=SC2086
+  kill -9 "$1" $_kw_c 2>/dev/null
+  # reaped here, so the shell does not report it ("Killed: 9") when it reaps a later job
+  wait "$1" 2>/dev/null
+  return 0
+}
+
 # ---- files changed by a Bash command (bash-snapshot.sh, post-edit.sh, typecheck.sh)
 
 # bash_state: where Bash-command snapshots live; bash_key: this tool call's id, file-name safe.
@@ -14720,7 +14750,7 @@ tree_snapshot() {
   _ts_watch=$!
   wait "$_ts_pid" 2>/dev/null
   _ts_rc=$?
-  forge_kill_tree "$_ts_watch"
+  forge_kill_watch "$_ts_watch"
   _ts_tree=$(cat "$_ts_tmp.out" 2>/dev/null)
   rm -f "$_ts_tmp" "$_ts_tmp.out" "$_ts_tmp.lock"
   [ "$_ts_rc" -eq 0 ] && [ -n "$_ts_tree" ] || return 1
@@ -17149,7 +17179,7 @@ forge_exec_check() {
     _fe_watch=$!
     wait "$_fe_pid" 2>/dev/null
     _fe_rc=$?
-    forge_kill_tree "$_fe_watch"
+    forge_kill_watch "$_fe_watch"
     if [ -f "$FORGE_TMP/timedout" ]; then rm -f "$FORGE_TMP/timedout"; _fe_rc=124; fi
   else
     ( "$1" ) > "$FORGE_TMP/out" 2>&1 < /dev/null
@@ -18206,14 +18236,14 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/bash-snapshot.sh": "29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e",
     ".claude/skills/forge-project/scripts/guard.rules": "bf28e2c1752c202d3ac96c33fdabe8ae4ff659765ddafe45b4777368573aa186",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
-    ".claude/skills/forge-project/scripts/lib.sh": "3d43cd8c99637dd2a46b6bb5eded3df3aa96b7b22abcf84353179f399359f276",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "98bbd6498312373e4f1d9ca1dd77adf41608a91b7b2fdad2d67a689e82a25c38",
+    ".claude/skills/forge-project/scripts/lib.sh": "992199575f70acaff0dafde29d70563ab19290e5799ef3594ddceb6b3ee5d9ab",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "1acf0b2a78e9766ac9c364f72ef783103d11b3bdbc2043aaf4d00be3125813e9",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
-    ".claude/skills/forge-project/scripts/session-start.sh": "5432580a31c15b00b6ad5a592295379abcd2f23955c7db0f1266451b920929f6",
+    ".claude/skills/forge-project/scripts/session-start.sh": "d2c9fb0a006b6f1797df1ae6c6bc63f37e7d7669deac0f5fba487a6e8a1397f8",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "0c6eee340238f9ea5b4ad72d1637f6dfd691364abb30100fc96b082407db005d",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "afe6a3c03e0cc5f8216136f4fcb7f30a733ae927e13e7aad1c960634897ed44b",
     ".claude/skills/forge-project/scripts/turn-start.sh": "3d6bbb9aed56181032c9e7c05ba1c20e8080ca104e831a193b42a825e3a12531",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "120bb8e13cf7ab95ff336ecf531bf59442ca50b2f0ca527f442eff61fa354436",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "ac74ff723307f2b6709397551ecb336d620e77d367b441a9ac952de4881dae16",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml": "c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20",
     ".forge/ast-grep/rule-tests/typescript-no-stub-test.yml": "b02e7e21f6bd597fe4b3d577b3a2cc6dfee9741674cc1cc99285e22ef90a2778",
@@ -18236,7 +18266,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/typescript/vitest/no-tautological-expect.yml": "ec546003dd3fc5a92950f126fc5ffad8599f20b6dd83a0954151758b3481fe8c",
     ".forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml": "240f482cc1062537b49330dd8577e1c128edb7ef60478a042dab716d79c87b42",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "280c866d16a3b6f32e20686da180cf6dfc4c589630e4a2ed219f2c27877cb93d",
+    ".forge/check.sh": "712d23a99e79bf16caf41f0bd25d1d1b01fb461355e1527a7976fbd2ed392dbd",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -18291,14 +18321,14 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e  .claude/skills/forge-project/scripts/bash-snapshot.sh
 bf28e2c1752c202d3ac96c33fdabe8ae4ff659765ddafe45b4777368573aa186  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
-3d43cd8c99637dd2a46b6bb5eded3df3aa96b7b22abcf84353179f399359f276  .claude/skills/forge-project/scripts/lib.sh
-98bbd6498312373e4f1d9ca1dd77adf41608a91b7b2fdad2d67a689e82a25c38  .claude/skills/forge-project/scripts/post-edit.sh
+992199575f70acaff0dafde29d70563ab19290e5799ef3594ddceb6b3ee5d9ab  .claude/skills/forge-project/scripts/lib.sh
+1acf0b2a78e9766ac9c364f72ef783103d11b3bdbc2043aaf4d00be3125813e9  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
-5432580a31c15b00b6ad5a592295379abcd2f23955c7db0f1266451b920929f6  .claude/skills/forge-project/scripts/session-start.sh
+d2c9fb0a006b6f1797df1ae6c6bc63f37e7d7669deac0f5fba487a6e8a1397f8  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-0c6eee340238f9ea5b4ad72d1637f6dfd691364abb30100fc96b082407db005d  .claude/skills/forge-project/scripts/test-edit.sh
+afe6a3c03e0cc5f8216136f4fcb7f30a733ae927e13e7aad1c960634897ed44b  .claude/skills/forge-project/scripts/test-edit.sh
 3d6bbb9aed56181032c9e7c05ba1c20e8080ca104e831a193b42a825e3a12531  .claude/skills/forge-project/scripts/turn-start.sh
-120bb8e13cf7ab95ff336ecf531bf59442ca50b2f0ca527f442eff61fa354436  .claude/skills/forge-project/scripts/typecheck.sh
+ac74ff723307f2b6709397551ecb336d620e77d367b441a9ac952de4881dae16  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20  .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
 b02e7e21f6bd597fe4b3d577b3a2cc6dfee9741674cc1cc99285e22ef90a2778  .forge/ast-grep/rule-tests/typescript-no-stub-test.yml
@@ -18321,7 +18351,7 @@ db9df1c23a73e64e692caa2aa1014e5987a298613dddc37c9113fcfaf28796c3  .forge/ast-gre
 ec546003dd3fc5a92950f126fc5ffad8599f20b6dd83a0954151758b3481fe8c  .forge/ast-grep/rules/typescript/vitest/no-tautological-expect.yml
 240f482cc1062537b49330dd8577e1c128edb7ef60478a042dab716d79c87b42  .forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-280c866d16a3b6f32e20686da180cf6dfc4c589630e4a2ed219f2c27877cb93d  .forge/check.sh
+712d23a99e79bf16caf41f0bd25d1d1b01fb461355e1527a7976fbd2ed392dbd  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh
