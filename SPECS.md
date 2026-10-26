@@ -838,6 +838,16 @@ Detected by the `jest` dependency at 30 or later.
 |---|---|
 | `typescript/jest/no-test-path-pattern` | `grep` forbid in `package.json`: `--testPathPattern` (Jest 30: `--testPathPatterns`); `guard` deny: a `jest` command with it |
 
+### typescript/testing-library
+
+Detected by the `@testing-library/react` dependency.
+
+| Rule | Targets |
+|---|---|
+| `typescript/testing-library/no-hooks-lib` | `ast-grep` forbid: an import or `require` of `@testing-library/react-hooks` |
+
+context.md: `renderHook` from `@testing-library/react`.
+
 ### typescript/nextjs
 
 | Rule | Targets |
