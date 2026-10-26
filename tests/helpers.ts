@@ -158,8 +158,9 @@ const GIT_ENV = {
   GIT_CONFIG_NOSYSTEM: "1",
 };
 
+/** git in a test repository; without the automatic maintenance a commit starts in the background (a process per commit). */
 export function git(cwd: string, ...args: string[]): Result {
-  return sh("git", args, { cwd, env: GIT_ENV });
+  return sh("git", ["-c", "maintenance.auto=false", ...args], { cwd, env: GIT_ENV });
 }
 
 /**
