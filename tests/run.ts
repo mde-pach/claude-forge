@@ -277,7 +277,16 @@ for (const file of files) {
 try {
   mkdirSync(join(ROOT, "node_modules", ".cache"), { recursive: true });
   writeFileSync(timingsPath, JSON.stringify(next));
-  if (process.env.FORGE_UPDATE_TIMINGS) writeFileSync(seedPath, JSON.stringify(next, null, 1) + "\n");
+  const round = (x: number) => Math.round(x * 10) / 10;
+  if (process.env.FORGE_UPDATE_TIMINGS)
+    writeFileSync(
+      seedPath,
+      JSON.stringify(
+        Object.fromEntries(files.map((f) => [f, { overhead: round(next[f]!.overhead), tests: Object.fromEntries(Object.entries(next[f]!.tests).map(([k, v]) => [k, round(v)])) }])),
+        null,
+        1,
+      ) + "\n",
+    );
 } catch {}
 
 const all = results.flatMap((r) => r.cases);
