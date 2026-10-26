@@ -1,0 +1,50 @@
+id: typescript/nestjs/dto-is-class
+description: "A parameter decorated @Body(), @Query() or @Param() (from @nestjs/common, without a pipe argument) is typed with a DTO class: no type, any, unknown, object, an inline object type or Record<…> reaches the handler unvalidated, since ValidationPipe validates class types only."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any: [{kind: required_parameter}, {kind: optional_parameter}]
+      all:
+        - has:
+            kind: decorator
+            has:
+              kind: call_expression
+              all:
+                - has: {field: function, kind: identifier, pattern: $D}
+                - has: {field: arguments, regex: "^\\(\\s*\\)$"}
+        - inside:
+            kind: program
+            stopBy: end
+            has:
+              kind: import_statement
+              all:
+                - has: {field: source, regex: "^[\"']@nestjs/common[\"']$"}
+                - has:
+                    stopBy: end
+                    kind: import_specifier
+                    any:
+                      - all: [{has: {field: name, regex: "^(Body|Query|Param)$"}}, {has: {field: alias, pattern: $D}}]
+                      - all: [{has: {field: name, regex: "^(Body|Query|Param)$", pattern: $D}}, {not: {has: {field: alias, kind: identifier}}}]
+        # no type, or one that erases the class: no type annotation other than those
+        - not:
+            has:
+              kind: type_annotation
+              not:
+                has:
+                  any:
+                    - {kind: predefined_type, regex: "^(any|unknown|object)$"}
+                    - {kind: object_type}
+                    - {kind: generic_type, has: {field: name, regex: "^Record$"}}
+examples:
+  match:
+    - "import { Body, Controller, Post } from \"@nestjs/common\";\n\n@Controller(\"users\")\nexport class UsersController {\n  @Post()\n  create(@Body() body: Record<string, unknown>) {\n    return body;\n  }\n}\n"
+    - "import { Controller, Get, Query } from \"@nestjs/common\";\n\n@Controller(\"users\")\nexport class UsersController {\n  @Get()\n  list(@Query() q: { page: number }) {\n    return q;\n  }\n}\n"
+    - "import { Body as Payload, Controller, Post } from \"@nestjs/common\";\n\n@Controller(\"users\")\nexport class UsersController {\n  @Post()\n  create(@Payload() body: any) {\n    return body;\n  }\n}\n"
+    - "import { Controller, Get, Param } from \"@nestjs/common\";\n\n@Controller(\"users\")\nexport class UsersController {\n  @Get(\":id\")\n  one(@Param() params) {\n    return params;\n  }\n}\n"
+  no_match:
+    - "import { Body, Controller, Post } from \"@nestjs/common\";\nimport { CreateUserDto } from \"./create-user.dto\";\n\n@Controller(\"users\")\nexport class UsersController {\n  @Post()\n  create(@Body() dto: CreateUserDto) {\n    return dto;\n  }\n}\n"
+    - "import { Controller, Get, Param, ParseIntPipe, Query } from \"@nestjs/common\";\n\n@Controller(\"users\")\nexport class UsersController {\n  @Get(\":id\")\n  one(@Param(\"id\", ParseIntPipe) id: number, @Query(\"q\") q: string) {\n    return { id, q };\n  }\n}\n"
+    - "import { Args, Query, Resolver } from \"@nestjs/graphql\";\n\n@Resolver()\nexport class UsersResolver {\n  @Query()\n  users(@Args() args: Record<string, unknown>) {\n    return args;\n  }\n}\n"
+    - "import { Body } from \"./decorators\";\n\nexport class Handler {\n  run(@Body() body: object) {\n    return body;\n  }\n}\n"

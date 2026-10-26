@@ -946,6 +946,20 @@ Detected by `openapi-typescript`, `orval` or `@hey-api/openapi-ts`. Both checks 
 
 context.md: the client comes from the document through a generator script; the two change together, generated files are never edited by hand.
 
+### typescript/nestjs
+
+Detected by `@nestjs/core` or `@nestjs/common`. Decorators are matched as the bindings imported from their package (`import { Body as B } from "@nestjs/common"` included), never by a name alone.
+
+| Rule | Targets |
+|---|---|
+| `typescript/nestjs/validation-pipe-whitelist` | `ast-grep` forbid: `new $N(…)` without `whitelist: true` in its object argument, where `N` is `@nestjs/common`'s `ValidationPipe` |
+| `typescript/nestjs/validation-pipe-forbid-non-whitelisted` | `ast-grep` advise: the same without `forbidNonWhitelisted: true` |
+| `typescript/nestjs/dto-is-class` | `ast-grep` forbid: a parameter decorated `@Body()` / `@Query()` / `@Param()` (from `@nestjs/common`, no arguments) with no type, `any`, `unknown`, `object`, an object type literal or `Record<…>` |
+| `typescript/nestjs/validate-nested-type` | `ast-grep` forbid: a property decorated with class-validator's `ValidateNested` and no class-transformer `Type` decorator |
+| `typescript/nestjs/http-exception` | `ast-grep` advise: `throw new Error(…)` in a method of a class decorated with `@nestjs/common`'s `Controller`, not inside a `try` block |
+
+context.md: `ValidationPipe` with `whitelist` and `forbidNonWhitelisted`; DTO classes on `@Body()` / `@Query()` / `@Param()`; `@ValidateNested()` with `@Type()`; `HttpException` subclasses in controllers.
+
 ### github-actions
 
 Detected by `.github/workflows/*.yml` or `*.yaml`.

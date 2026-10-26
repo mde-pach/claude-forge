@@ -1,0 +1,53 @@
+id: typescript/nestjs/validate-nested-type
+description: "A property decorated @ValidateNested() (class-validator) also has @Type(() => X) (class-transformer); without it the nested value stays a plain object and is not validated."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: public_field_definition
+      all:
+        - has:
+            kind: decorator
+            has: {kind: call_expression, has: {field: function, kind: identifier, pattern: $V}}
+        - inside:
+            kind: program
+            stopBy: end
+            has:
+              kind: import_statement
+              all:
+                - has: {field: source, regex: "^[\"']class-validator[\"']$"}
+                - has:
+                    stopBy: end
+                    kind: import_specifier
+                    any:
+                      - all: [{has: {field: name, regex: "^ValidateNested$"}}, {has: {field: alias, pattern: $V}}]
+                      - all: [{has: {field: name, regex: "^ValidateNested$", pattern: $V}}, {not: {has: {field: alias, kind: identifier}}}]
+        - not:
+            has:
+              kind: decorator
+              has:
+                kind: call_expression
+                all:
+                  - has: {field: function, kind: identifier, pattern: $T}
+                  - inside:
+                      kind: program
+                      stopBy: end
+                      has:
+                        kind: import_statement
+                        all:
+                          - has: {field: source, regex: "^[\"']class-transformer[\"']$"}
+                          - has:
+                              stopBy: end
+                              kind: import_specifier
+                              any:
+                                - all: [{has: {field: name, regex: "^Type$"}}, {has: {field: alias, pattern: $T}}]
+                                - all: [{has: {field: name, regex: "^Type$", pattern: $T}}, {not: {has: {field: alias, kind: identifier}}}]
+examples:
+  match:
+    - "import { IsString, ValidateNested } from \"class-validator\";\n\nclass Address {\n  @IsString()\n  city!: string;\n}\n\nexport class CreateUserDto {\n  @ValidateNested()\n  address!: Address;\n}\n"
+    - "import { ValidateNested } from \"class-validator\";\nimport { Type } from \"class-transformer\";\n\nclass Item {}\n\nexport class OrderDto {\n  @ValidateNested({ each: true })\n  @Type(() => Item)\n  items!: Item[];\n\n  @ValidateNested()\n  extra!: Item;\n}\n"
+  no_match:
+    - "import { ValidateNested } from \"class-validator\";\nimport { Type } from \"class-transformer\";\n\nclass Address {}\n\nexport class CreateUserDto {\n  @ValidateNested()\n  @Type(() => Address)\n  address!: Address;\n}\n"
+    - "import { ValidateNested as Nested } from \"class-validator\";\nimport { Type as As } from \"class-transformer\";\n\nclass Address {}\n\nexport class CreateUserDto {\n  @As(() => Address)\n  @Nested()\n  address!: Address;\n}\n"
+    - "import { IsString } from \"class-validator\";\n\nexport class CreateUserDto {\n  @IsString()\n  name!: string;\n}\n"

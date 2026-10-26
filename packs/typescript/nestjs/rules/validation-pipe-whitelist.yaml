@@ -1,0 +1,24 @@
+id: typescript/nestjs/validation-pipe-whitelist
+description: "new ValidationPipe({...}) sets whitelist: true; without it, body fields the DTO does not declare (role, isAdmin) reach the handler (mass assignment)."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: new_expression
+      all:
+        - pattern: $N
+        - not:
+            has:
+              field: arguments
+              has: {kind: object, has: {kind: pair, all: [{has: {field: key, regex: "^[\"']?whitelist[\"']?$"}}, {has: {field: value, kind: "true"}}]}}
+    where:
+      N: {type: {package: "@nestjs/common", name: ValidationPipe}}
+examples:
+  deps: [{ecosystem: npm, name: "@nestjs/common", version: "11.2.7"}, {ecosystem: npm, name: reflect-metadata, version: "0.2.2"}, {ecosystem: npm, name: rxjs, version: "7.8.2"}]
+  match:
+    - "import { ValidationPipe } from \"@nestjs/common\";\n\nexport const pipe = new ValidationPipe();\n"
+    - "import { ValidationPipe as VP } from \"@nestjs/common\";\n\nexport const pipe = new VP({ transform: true, whitelist: false });\n"
+  no_match:
+    - "import { ValidationPipe } from \"@nestjs/common\";\n\nexport const pipe = new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true });\n"
+    - "class ValidationPipe {\n  constructor(readonly opts: object = {}) {}\n}\n\nexport const pipe = new ValidationPipe();\n"
