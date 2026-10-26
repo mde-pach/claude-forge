@@ -754,6 +754,17 @@ context.md: entry points are the public API; renamed exports stay as `@deprecate
 
 context.md: Bun is the runtime and package manager; `bun:test` tests run with `bun test`, what the integrity rules reject in them, and "If an existing test looks wrong, stop and ask; never edit it to make the code pass."
 
+### typescript/node
+
+Detected by the `@types/node` dependency.
+
+| Rule | Targets |
+|---|---|
+| `typescript/node/no-ts-node` | `grep` forbid in `package.json`: `ts-node` (scripts or dependencies); `guard` ask: a `ts-node` command |
+| `typescript/node/no-vm-sandbox` | `ast-grep` advise: an import or `require` of `node:vm` / `vm` |
+
+context.md: TypeScript runs with `node file.ts` or `tsx`, not `ts-node`; `node:vm` is not a security boundary.
+
 ### typescript/nextjs
 
 | Rule | Targets |

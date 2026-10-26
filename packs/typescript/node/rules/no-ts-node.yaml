@@ -1,0 +1,19 @@
+id: typescript/node/no-ts-node
+description: No ts-node in package.json (scripts or dependencies), and running ts-node asks; it is unmaintained since 2023 and breaks on modern ESM. Run TypeScript with node file.ts (type stripping) or tsx.
+scope: {language: any, files: ["**/package.json"]}
+enforce:
+  - target: grep
+    mode: forbid
+    pattern: "(^|[^A-Za-z0-9_@/-])ts-node([^A-Za-z0-9_-]|$)"
+  - target: guard
+    decision: ask
+    pattern: "(^|[^A-Za-z0-9_-])ts-node([[:space:]]|$)"
+examples:
+  match:
+    - "{\"scripts\": {\"seed\": \"ts-node prisma/seed.ts\"}}"
+    - "npx ts-node scripts/migrate.ts"
+  no_match:
+    - "{\"scripts\": {\"seed\": \"tsx prisma/seed.ts\"}}"
+    - "node src/index.ts"
+    - "npx tsx scripts/migrate.ts"
+    - "{\"devDependencies\": {\"@types/ts-nodes\": \"1.0.0\"}}"
