@@ -1,0 +1,13 @@
+id: typescript/iframe-sandbox
+description: "No iframe sandbox with both allow-scripts and allow-same-origin: together they let the framed page remove its own sandbox."
+scope: {language: "tsx"}
+enforce:
+  - target: tool
+    tool: biome
+    expects: "lint/nursery/noUnsafeIframeSandbox"
+    snippet: "\"linter\": {\"rules\": {\"nursery\": {\"noUnsafeIframeSandbox\": \"error\"}}}"
+examples:
+  match:
+    - "export function Preview({ src }: { src: string }) {\n  return <iframe title=\"preview\" src={src} sandbox=\"allow-scripts allow-same-origin\" />;\n}\n"
+  no_match:
+    - "export function Preview({ src }: { src: string }) {\n  return (\n    <div>\n      <iframe title=\"preview\" src={src} sandbox=\"allow-scripts allow-forms\" />\n      <iframe title=\"docs\" src={src} sandbox=\"allow-same-origin\" />\n    </div>\n  );\n}\n"

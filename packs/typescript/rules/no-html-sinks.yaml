@@ -1,0 +1,33 @@
+id: typescript/no-html-sinks
+description: "No HTML built from a value written into the DOM (XSS): no innerHTML or outerHTML assigned anything but a constant string, and no insertAdjacentHTML, document.write, writeln, createContextualFragment or setHTMLUnsafe whose HTML argument is not constant. Set textContent, build elements, or sanitise in one place."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        - kind: assignment_expression
+          all:
+            - has: {field: left, kind: member_expression, all: [{has: {field: property, regex: "^(innerHTML|outerHTML)$"}}, {has: {field: object, pattern: $E}}]}
+            - not: {has: {field: right, any: [{kind: string}, {kind: template_string, not: {has: {kind: template_substitution}}}]}}
+        - kind: call_expression
+          all:
+            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: "^(insertAdjacentHTML|write|writeln|createContextualFragment|setHTMLUnsafe)$"}}, {has: {field: object, pattern: $E}}]}
+            - has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, not: {any: [{kind: string}, {kind: template_string, not: {has: {kind: template_substitution}}}]}}}
+    # The receiver is a DOM node by its type (§15.1): an element of any kind, the
+    # document, a range or a shadow root; not a project object with an innerHTML field.
+    where:
+      E: {type: {package: typescript, name: [Element, Document, Range, ShadowRoot]}}
+examples:
+  deps: [{ecosystem: npm, name: typescript, version: "7.0.2"}]
+  match:
+    - "export function show(el: HTMLDivElement, msg: string) {\n  el.innerHTML = msg;\n}\n"
+    - "export function show(msg: string) {\n  document.body.insertAdjacentHTML(\"beforeend\", `<p>${msg}</p>`);\n}\n"
+    - "export function frag(r: Range, s: string) {\n  return r.createContextualFragment(s);\n}\n"
+    - "export function render(root: ShadowRoot | null, html: string) {\n  if (root) root.innerHTML = html;\n  document.write(html);\n}\n"
+  no_match:
+    - "export function clear(el: HTMLDivElement) {\n  el.innerHTML = \"\";\n}\n"
+    - "export function show(el: HTMLDivElement, msg: string) {\n  el.textContent = msg;\n}\n"
+    - "const o = { innerHTML: \"\" };\nexport function f(s: string) {\n  o.innerHTML = s;\n}\n"
+    - "export function show() {\n  document.body.insertAdjacentHTML(\"beforeend\", `<hr>`);\n}\n"
+    - "export class Log {\n  write(line: string) {\n    return line;\n  }\n}\nexport const out = new Log().write(String(Date.now()));\n"
