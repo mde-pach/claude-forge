@@ -515,7 +515,9 @@ function reply(dir, lines) {
   fs.closeSync(fd);
 }
 
+/** Removes the daemon's files, unless another daemon took the state directory over. */
 function cleanup() {
+  if (readText(path.join(STATE, "pid"))?.trim() !== String(process.pid)) return;
   for (const n of ["ready", "pid", "in", "loading"]) fs.rmSync(path.join(STATE, n), { force: true });
 }
 
@@ -608,13 +610,15 @@ async function main() {
       });
   };
   let idle = setTimeout(() => stop("idle"), IDLE);
-  // the state directory was dropped (its FIFO gone or replaced) or the repository is gone:
-  // nobody can reach this daemon any more
+  // the state directory was dropped (its FIFO gone or replaced), another daemon took it
+  // over (its pid file names that one: a start whose starter was killed can race with the
+  // next start, and both open the same FIFO) or the repository is gone: nobody reaches
+  // this daemon any more
   const inode = fs.fstatSync(fd).ino;
   setInterval(() => {
     let gone;
     try {
-      gone = fs.statSync(path.join(STATE, "in")).ino !== inode || !fs.existsSync(ROOT);
+      gone = fs.readFileSync(path.join(STATE, "pid"), "utf8").trim() !== String(process.pid) || fs.statSync(path.join(STATE, "in")).ino !== inode || !fs.existsSync(ROOT);
     } catch {
       gone = true;
     }

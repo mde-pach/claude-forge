@@ -15,6 +15,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { renderChecks, renderLib } from "../../src/render";
+import { ENGINE_PYTHON, TY_VERSION } from "../../src/util";
 import { commitAll, fakeClaude, forge, git, hasBun, hasUv, hookJson, othersRunning, processesNaming, put, ROOT, sh, stateDir, stopEngines, TOOL_VERSIONS } from "../helpers";
 
 const T = 300_000;
@@ -264,6 +265,56 @@ describe.if(hasUv)("Python: the receiver's type, through ty", () => {
       const ctx = afterEdit(repo, "app/repo.py", { PATH: `${bin}:${process.env.PATH}` });
       expect(ctx).toContain("forge:forge/types python/sqlalchemy/no-query-api was not checked: the python engine (ty ");
       expect(ctx).toContain("did not start: exited 2");
+    },
+    T,
+  );
+
+  test(
+    "two daemons on one state directory (a start whose starter was killed, racing with the next): the one its pid file does not name exits while lines keep coming, and the other once the state directory and the repository are gone",
+    () => {
+      const root = mkdtempSync(join(tmpdir(), "forge-twin-root-"));
+      writeFileSync(join(root, "a.py"), "x = 1\n");
+      const state = mkdtempSync(join(tmpdir(), "forge-twin-state-"));
+      // as forge_types_up starts one, twice on the same FIFOs
+      const start = sh(
+        "sh",
+        [
+          "-c",
+          'mkfifo "$2/in" "$2/started" && exec 7<>"$2/started" || exit 1\n' +
+            'for i in 1 2; do uvx -q --python "$3" --from "ty==$4" python "$5" "$1" "$2" < /dev/null >> "$2/log" 2>&1 & done\n' +
+            'read -r a <&7; read -r b <&7; echo "$a"; echo "$b"',
+          "sh",
+          root,
+          state,
+          ENGINE_PYTHON,
+          TY_VERSION,
+          join(repo, ".forge/helpers/types_python.py"),
+        ],
+        { cwd: root, env: ENV },
+      );
+      expect(start.stdout.split("\n").filter((l) => l.startsWith("ready ty "))).toHaveLength(2);
+      const twins = processesNaming(state);
+      expect(twins).toHaveLength(2);
+      const tree = (p: string): string[] => [p, ...sh("pgrep", ["-P", p]).stdout.split("\n").filter(Boolean).flatMap(tree)];
+      const all = twins.flatMap(tree);
+      try {
+        const owner = readFileSync(join(state, "pid"), "utf8").trim();
+        const other = twins.filter((p) => p !== owner);
+        expect(other).toHaveLength(1);
+        // lines keep coming, each read by one of the two
+        for (let i = 0; i < 150 && running(other).length; i++) {
+          sh("sh", ["-c", 'printf "changed\\ta.py\\n" 1<>"$1/in"', "sh", state]);
+          Bun.sleepSync(100);
+        }
+        expect(running(other)).toEqual([]);
+        expect(running([owner])).toEqual([owner]);
+        rmSync(state, { recursive: true, force: true });
+        rmSync(root, { recursive: true, force: true });
+        for (let i = 0; i < 150 && running(all).length; i++) Bun.sleepSync(100);
+        expect(running(all)).toEqual([]);
+      } finally {
+        for (const p of running(all)) sh("kill", ["-9", p]);
+      }
     },
     T,
   );

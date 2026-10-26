@@ -16,7 +16,8 @@
 #                        the matches whose forge_where holds (verbatim), "error<TAB>..."
 #                        lines, then "end"
 # The daemon exits after FORGE_TYPES_IDLE seconds (1800) without a line, and when its
-# state directory or the repository is gone (checked every 10 seconds).
+# state directory or the repository is gone or another daemon took the state directory
+# over (checked every 10 seconds).
 import json
 import os
 import re
@@ -402,29 +403,44 @@ def reply(d, lines):
 
 
 def orphaned(fd):
-    """The state directory was dropped (its FIFO is gone or replaced) or the repository
-    no longer exists: nobody can reach this daemon any more."""
+    """The state directory was dropped (its FIFO is gone or replaced), another daemon took
+    it over (its pid file names that one: a start whose starter was killed can race with
+    the next start, and both open the same FIFO) or the repository no longer exists:
+    nobody reaches this daemon any more."""
     try:
-        return os.stat(os.path.join(STATE, "in")).st_ino != os.fstat(fd).st_ino or not os.path.isdir(ROOT)
+        with open(os.path.join(STATE, "pid")) as f:
+            mine = f.read().strip() == str(os.getpid())
+        return not mine or os.stat(os.path.join(STATE, "in")).st_ino != os.fstat(fd).st_ino or not os.path.isdir(ROOT)
     except OSError:
         return True
 
 
 def serve(server, types, fd):
     buf = b""
-    last = time.time()
+    last = checked = time.time()
+    # non-blocking: a FIFO another daemon also reads (see orphaned) can be readable for
+    # select and empty for read
+    os.set_blocking(fd, False)
     while True:
         r, _, _ = select.select([fd], [], [], min(IDLE, 10))
-        if not r:
-            if time.time() - last >= IDLE:
-                log("idle, exiting")
-                return
+        now = time.time()
+        # every 10 seconds, whether lines come or not
+        if now - checked >= 10 or not r:
+            checked = now
             if orphaned(fd):
                 log("orphaned, exiting")
                 return
+        if not r:
+            if now - last >= IDLE:
+                log("idle, exiting")
+                return
             continue
-        last = time.time()
-        buf += os.read(fd, 65536)
+        try:
+            data = os.read(fd, 65536)
+        except BlockingIOError:
+            continue
+        last = now
+        buf += data
         while b"\n" in buf:
             line, buf = buf.split(b"\n", 1)
             line = line.decode("utf-8", errors="surrogateescape")
