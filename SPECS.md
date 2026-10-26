@@ -617,7 +617,7 @@ context.md: strict TypeScript and Bun; TypeScript 6 deprecations are migrated, n
 | `python/fastapi/testclient-lifespan` | `ast-grep` advise: a call typed `starlette` `TestClient` outside a `with` item |
 | `python/fastapi/no-testclient-in-async-test` | `ast-grep` forbid: a call typed `starlette` `TestClient` inside an `async def` |
 
-context.md: "FastAPI. Dependencies use `Annotated[T, Depends(...)]`. Startup and shutdown use `lifespan`. Request and response bodies are Pydantic v2 models."
+context.md: "FastAPI. Dependencies use `Annotated[T, Depends(...)]`. Startup and shutdown use `lifespan`. Request and response bodies are Pydantic v2 models." No debug mode outside tests; `with TestClient(app)` so the lifespan runs, `httpx.AsyncClient` with `ASGITransport` in async tests.
 
 ### python/litestar
 
@@ -665,7 +665,7 @@ context.md: SQLAlchemy 2.0 queries through `db.session`, `db.get_or_404()`, `db.
 | `python/sqlalchemy/asyncio-extra` | `check` lint: when a tracked or new `*.py` imports `sqlalchemy.ext.asyncio`, a `pyproject.toml` or `requirements*.txt` names `sqlalchemy[asyncio]` or `greenlet`; `when_changed`: those files |
 | `python/sqlalchemy/fk-index` | `check` lint, advisory (§10.7): `forge_advise forge_helper python fk_index.py` (§13.4), skipped for a MySQL / MariaDB `forge_db_url` |
 
-context.md: SQLAlchemy 2.0 async models, queries and sessions; no lazy loading in async sessions (`selectinload()`, `lazy="raise"`); values reach `text()` as bound parameters, with f-strings, `.format()`, `%`, `+` in `text()` and literal strings in `.execute()` rejected, and statements that cannot take parameters (`SET`, `SET LOCAL`) free to embed a validated value.
+context.md: SQLAlchemy 2.0 async models, queries and sessions (opened with `async with`, `sqlalchemy[asyncio]` declared); no lazy loading in async sessions (`selectinload()`, `lazy="raise"`, `WriteOnlyMapped` instead of `lazy="dynamic"`), one statement at a time per session; values reach `text()` as bound parameters, with f-strings, `.format()`, `%`, `+` in `text()` and literal strings in `.execute()` rejected, and statements that cannot take parameters (`SET`, `SET LOCAL`) free to embed a validated value.
 
 ### python/sqlalchemy/alembic
 
@@ -684,7 +684,7 @@ context.md: SQLAlchemy 2.0 async models, queries and sessions; no lazy loading i
 
 The migration `check` lint rules above examine the changed revisions, and with `--all` only the head revisions. A required column added without a default (`op.add_column(…, nullable=False)` without `server_default`) is already caught by `migration-lint` (Squawk `adding-required-field`, §13.1).
 
-context.md: "Alembic with an async engine: `alembic/env.py` runs migrations through `run_async_migrations()` and `connection.run_sync()`. New revisions: `alembic revision --autogenerate -m \"<change>\"`. Committed revisions are never edited."
+context.md: "Alembic with an async engine: `alembic/env.py` runs migrations through `run_async_migrations()` and `connection.run_sync()`. New revisions: `alembic revision --autogenerate -m \"<change>\"`. Committed revisions are never edited."; no `metadata.create_all()` outside tests.
 
 ### python/pydantic
 
