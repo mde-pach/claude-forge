@@ -1,0 +1,5 @@
+id: typescript/langchain
+description: LangChain.js (legacy chains and agents).
+level: project
+detect:
+  deps_any: [{ecosystem: npm, name: langchain}, {ecosystem: npm, name: "@langchain/core"}, {ecosystem: npm, name: "@langchain/classic"}]

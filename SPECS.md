@@ -1206,6 +1206,27 @@ Detected by `@aws-sdk/client-s3` or `@aws-sdk/s3-presigned-post`.
 
 context.md: no public ACLs on uploads.
 
+### typescript/langchain
+
+Detected by `langchain`, `@langchain/core` or `@langchain/classic`.
+
+| Rule | Targets |
+|---|---|
+| `typescript/langchain/no-legacy-chains` | `ast-grep` advise: importing `LLMChain`, `ConversationChain`, `RetrievalQAChain`, `ConversationalRetrievalQAChain`, `initializeAgentExecutorWithOptions` or `AgentExecutor` from `@langchain/classic…` or `langchain/chains…` / `langchain/agents…` |
+
+context.md: `createAgent`; the legacy chains live in `@langchain/classic`.
+
+### typescript/opentelemetry
+
+Detected by `@opentelemetry/api` or `@opentelemetry/sdk-node`.
+
+| Rule | Targets |
+|---|---|
+| `typescript/opentelemetry/init-before-imports` | `ast-grep` advise: in a file with a value import of `@opentelemetry/sdk-node`, a value import of a library the Node auto-instrumentations patch (`http`, `https`, `net`, `dns` and their `node:` forms, `express`, `fastify`, `koa`, `pg`, `mysql2`, `mongodb`, `mongoose`, `ioredis`, `redis`, `graphql`, `kafkajs`, `undici`, `pino`, `winston`, `@aws-sdk/*`, …) |
+| `typescript/opentelemetry/semconv-stable-keys` | `ast-grep` forbid: `$S.setAttribute(<key>, …)` / `$S.setAttributes({<key>: …})` with an old key (`http.method`, `http.status_code`, `http.url`, `http.target`, `http.scheme`, `http.user_agent`, `net.peer.name` / `port`, `net.host.name` / `port`, `db.statement`, `db.system`), where `S` is `@opentelemetry/api`'s `Span` |
+
+context.md: the SDK in its own file loaded first; stable semantic convention keys.
+
 ### github-actions
 
 Detected by `.github/workflows/*.yml` or `*.yaml`.
