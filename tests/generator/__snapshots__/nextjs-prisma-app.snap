@@ -7864,10 +7864,12 @@ if [ "$rc" -eq 0 ]; then
 fi
 # exit 3: the only failures are tests that fail at the start of the turn too
 [ "$rc" -eq 3 ] || rm -f "$failed.unverified"
-# the failures first, then the "skipped" and "ok for" notes; at most 40 lines and
-# 6000 characters, so the reason stays short when Claude Code shows it
-printf '%s\n' "$out" \
-  | awk '/^forge:[^ ]+ (skipped:|ok for |accepted:)/ { note[++k] = $0; next } { print } END { for (i = 1; i <= k; i++) print note[i] }' \
+# the failures first, then the "skipped", "ok for" and "accepted" notes sorted by rule
+# (checks print them in run order, which differs when advice is deferred, so the same
+# tree gives the same reason); at most 40 lines and 6000 characters, so the reason
+# stays short when Claude Code shows it
+note='^forge:[^ ]+ (skipped:|ok for |accepted:)'
+{ printf '%s\n' "$out" | grep -Ev "$note"; printf '%s\n' "$out" | grep -E "$note" | LC_ALL=C sort; } \
   | awk '{ c += length($0) + 1 } NR <= 40 && c <= 6000' > "$failed.reason"
 # exit 4: advice only (§10.7). It is given once: the same tree then passes, so it is
 # recorded as passing (the checks did pass) and not as failing. Any other failure is
@@ -20046,7 +20048,7 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/post-edit.sh": "bff17cc8c5acf3fcbbcd2e4df318a5d535c3816a4957866ea5a6d09d6c524a23",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
     ".claude/skills/forge-project/scripts/session-start.sh": "d2987d628f61a1e0af8ea3daaf9ddf36cefa76ff048495c8a884c51c9437ac26",
-    ".claude/skills/forge-project/scripts/stop.sh": "682df8c349a383257a35dab4a184397b9d21f6f9501278d78a4d89b27d6079d0",
+    ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
     ".claude/skills/forge-project/scripts/test-edit.sh": "2d09f48d7fb29bd261cfb2d63eefc1981e4afc80996c460328dfabaf7ea73250",
     ".claude/skills/forge-project/scripts/turn-start.sh": "3d6bbb9aed56181032c9e7c05ba1c20e8080ca104e831a193b42a825e3a12531",
     ".claude/skills/forge-project/scripts/typecheck.sh": "28e7f619c1bd42b1a1c9ff83902c4b8327fe67cd93f585353d4b0707c8e4dacf",
@@ -20187,7 +20189,7 @@ cda55212f9420881ab0e83ddd845f4be311ed0852bc40c74a62d5f826ec194c3  .claude/skills
 bff17cc8c5acf3fcbbcd2e4df318a5d535c3816a4957866ea5a6d09d6c524a23  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
 d2987d628f61a1e0af8ea3daaf9ddf36cefa76ff048495c8a884c51c9437ac26  .claude/skills/forge-project/scripts/session-start.sh
-682df8c349a383257a35dab4a184397b9d21f6f9501278d78a4d89b27d6079d0  .claude/skills/forge-project/scripts/stop.sh
+52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
 2d09f48d7fb29bd261cfb2d63eefc1981e4afc80996c460328dfabaf7ea73250  .claude/skills/forge-project/scripts/test-edit.sh
 3d6bbb9aed56181032c9e7c05ba1c20e8080ca104e831a193b42a825e3a12531  .claude/skills/forge-project/scripts/turn-start.sh
 28e7f619c1bd42b1a1c9ff83902c4b8327fe67cd93f585353d4b0707c8e4dacf  .claude/skills/forge-project/scripts/typecheck.sh

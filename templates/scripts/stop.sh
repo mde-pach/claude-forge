@@ -88,10 +88,12 @@ if [ "$rc" -eq 0 ]; then
 fi
 # exit 3: the only failures are tests that fail at the start of the turn too
 [ "$rc" -eq 3 ] || rm -f "$failed.unverified"
-# the failures first, then the "skipped" and "ok for" notes; at most 40 lines and
-# 6000 characters, so the reason stays short when Claude Code shows it
-printf '%s\n' "$out" \
-  | awk '/^forge:[^ ]+ (skipped:|ok for |accepted:)/ { note[++k] = $0; next } { print } END { for (i = 1; i <= k; i++) print note[i] }' \
+# the failures first, then the "skipped", "ok for" and "accepted" notes sorted by rule
+# (checks print them in run order, which differs when advice is deferred, so the same
+# tree gives the same reason); at most 40 lines and 6000 characters, so the reason
+# stays short when Claude Code shows it
+note='^forge:[^ ]+ (skipped:|ok for |accepted:)'
+{ printf '%s\n' "$out" | grep -Ev "$note"; printf '%s\n' "$out" | grep -E "$note" | LC_ALL=C sort; } \
   | awk '{ c += length($0) + 1 } NR <= 40 && c <= 6000' > "$failed.reason"
 # exit 4: advice only (§10.7). It is given once: the same tree then passes, so it is
 # recorded as passing (the checks did pass) and not as failing. Any other failure is

@@ -1103,11 +1103,11 @@ describe("Stop", () => {
         expect(JSON.parse(hook("stop.sh", { session_id: "t-13" }).stdout).systemMessage).toContain("Handing over");
         put(repo, "app/main.py", 'async def health() -> dict[str, str]:\n    return {"status": "fine"}  # turn-change\n');
         // checked again: the same failure; the advice given with it the first time is accepted, not repeated (§10.7)
-        expect(JSON.parse(hook("stop.sh", { session_id: "t-13" }).stdout).reason).toBe(
-          first
-            .replace(/forge:python\/pytest\/untested-change failed\n[^\n]*\n/, "")
-            .replace("forge:python/typecheck skipped", "forge:python/pytest/untested-change accepted: reported once this turn\nforge:python/typecheck skipped"),
-        );
+        // (notes come after the failures, sorted: §10.2 step 7)
+        const isNote = (l: string) => /^forge:\S+ (skipped:|ok for |accepted:)/.test(l);
+        const lines = first.replace(/forge:python\/pytest\/untested-change failed\n[^\n]*\n/, "").split("\n");
+        const notes = [...lines.filter(isNote), "forge:python/pytest/untested-change accepted: reported once this turn"].sort();
+        expect(JSON.parse(hook("stop.sh", { session_id: "t-13" }).stdout).reason).toBe([...lines.filter((l) => !isNote(l)), ...notes].join("\n"));
         expect(readFileSync(runs, "utf8")).toBe("run\nrun\nrun\nrun\n");
       } finally {
         rmSync(join(repo, ".venv/bin/pytest"));
