@@ -87,7 +87,7 @@ function withRuffWrapper(body: string, fn: () => void) {
 }
 /** A test added with a clean change, so the change is not "untested" (python/pytest/untested-change). */
 const OK_TEST = "def test_ok() -> None:\n    assert 1 + 1 == 2\n";
-/** Adds a test to tests/test_main.py, so a change made with it is not "untested" (python/pytest/untested-change). */
+/** Adds a test to tests/test_main.py, so a clean change made with it passes Stop (python/pytest/untested-change). */
 const addTest = () => put(repo, "tests/test_main.py", `${readFileSync(join(repo, "tests/test_main.py"), "utf8")}\n\ndef test_turn_ok() -> None:\n    assert 1 + 1 == 2\n`);
 const edit = (rel: string) => ({ tool_name: "Edit", tool_input: { file_path: join(repo, rel) } });
 
@@ -1058,7 +1058,6 @@ describe("Stop", () => {
       try {
         hook("turn-start.sh", { session_id: "t-12" });
         put(repo, "app/main.py", 'async def health() -> dict[str, str]:\n    return {"status": "ok"}  # turn-change\n');
-        addTest();
         const reason: string = JSON.parse(hook("stop.sh", { session_id: "t-12" }).stdout).reason;
         const lines = reason.split("\n");
         expect(lines.length).toBeLessThanOrEqual(40);
@@ -1093,7 +1092,6 @@ describe("Stop", () => {
       try {
         hook("turn-start.sh", { session_id: "t-13" });
         put(repo, "app/main.py", 'async def health() -> dict[str, str]:\n    return {"status": "ok"}  # turn-change\n');
-        addTest();
         const first: string = JSON.parse(hook("stop.sh", { session_id: "t-13" }).stdout).reason;
         expect(first).toContain("FAILED tests/test_main.py::test_health");
         // given again without running anything: the stand-in counts its runs
@@ -1104,8 +1102,89 @@ describe("Stop", () => {
         expect(readFileSync(runs, "utf8")).toBe("run\nrun\n");
         expect(JSON.parse(hook("stop.sh", { session_id: "t-13" }).stdout).systemMessage).toContain("Handing over");
         put(repo, "app/main.py", 'async def health() -> dict[str, str]:\n    return {"status": "fine"}  # turn-change\n');
-        expect(JSON.parse(hook("stop.sh", { session_id: "t-13" }).stdout).reason).toBe(first);
+        // checked again: the same failure; the advice given with it the first time is accepted, not repeated (§10.7)
+        // (notes come after the failures, sorted: §10.2 step 7)
+        const isNote = (l: string) => /^forge:\S+ (skipped:|ok for |accepted:)/.test(l);
+        const lines = first.replace(/forge:python\/pytest\/untested-change failed\n[^\n]*\n/, "").split("\n");
+        const notes = [...lines.filter(isNote), "forge:python/pytest/untested-change accepted: reported once this turn"].sort();
+        expect(JSON.parse(hook("stop.sh", { session_id: "t-13" }).stdout).reason).toBe([...lines.filter((l) => !isNote(l)), ...notes].join("\n"));
         expect(readFileSync(runs, "utf8")).toBe("run\nrun\nrun\nrun\n");
+      } finally {
+        rmSync(join(repo, ".venv/bin/pytest"));
+        rmSync(runs, { force: true });
+        reset();
+      }
+    },
+    T,
+  );
+
+  /** @rule python/sqlalchemy/no-declarative-base */
+  test(
+    "a file whose name is not ASCII is part of the turn's change: Stop checks it like any other",
+    () => {
+      hook("turn-start.sh", { session_id: "t-utf8" });
+      put(repo, "app/café.py", "def f():\n    return declarative_base(1)\n");
+      const reason = JSON.parse(hook("stop.sh", { session_id: "t-utf8" }).stdout).reason;
+      expect(reason).toContain("forge:python/sqlalchemy/no-declarative-base app/café.py:2:12");
+      reset();
+    },
+    T,
+  );
+
+  /**
+   * Claude Code stops the Stop hook after 600 s, and a stopped hook blocks nothing.
+   * A test run (300 s), its re-run at the start of the turn (300 s) and the other
+   * checks could exceed that, so they share one budget under it.
+   * @rule python/pytest/run
+   */
+  test(
+    "the checks of a Stop share one time budget under the hook's timeout: a check still running when it runs out is stopped and blocks, saying so",
+    () => {
+      stubTool("pytest", "sleep 60; exit 0");
+      try {
+        hook("turn-start.sh", { session_id: "t-budget" });
+        put(repo, "app/main.py", 'async def health() -> dict[str, str]:\n    return {"status": "ok"}  # turn-change\n');
+        const t0 = performance.now();
+        const out = JSON.parse(hook("stop.sh", { session_id: "t-budget" }, { FORGE_STOP_BUDGET: "6" }).stdout);
+        expect(performance.now() - t0).toBeLessThan(30_000);
+        expect(out.decision).toBe("block");
+        expect(out.reason).toMatch(/forge:python\/pytest\/run failed: stopped after \d+s: the Stop hook's time budget \(6 s, FORGE_STOP_BUDGET\) ran out/);
+      } finally {
+        rmSync(join(repo, ".venv/bin/pytest"));
+        reset();
+      }
+    },
+    T,
+  );
+
+  /**
+   * Advice (§10.7) comes from lint-stage checks, before the tests run, but a
+   * failing test is what Claude must deal with first; and the failing tree is
+   * still remembered, so stopping again on it runs nothing.
+   * @rule python/pytest/run python/pytest/untested-change
+   */
+  test(
+    "with advice and a failing test, the block shows the failure first and the advice after it; the failing tree is remembered and replayed without running the tests again, and the advice is not repeated once the tree changes",
+    () => {
+      const runs = join(repo, ".venv", "runs");
+      rmSync(runs, { force: true });
+      stubTool("pytest", `echo run >> "${runs}"; grep -q turn-change app/main.py || exit 0; echo "FAILED tests/test_main.py::test_health - assert 500 == 200"; exit 1`);
+      try {
+        hook("turn-start.sh", { session_id: "t-adv" });
+        put(repo, "app/main.py", 'async def health() -> dict[str, str]:\n    return {"status": "ok"}  # turn-change\n');
+        const first: string = JSON.parse(hook("stop.sh", { session_id: "t-adv" }).stdout).reason;
+        const failure = first.indexOf("forge:python/pytest/run failed");
+        const advice = first.indexOf("forge:python/pytest/untested-change failed");
+        expect(failure).toBe(0);
+        expect(advice).toBeGreaterThan(failure);
+        expect(JSON.parse(hook("stop.sh", { session_id: "t-adv" }).stdout).reason).toBe(
+          `forge: nothing changed in the working tree since this check failed, so it was not run again (it runs again once a file changes):\n${first}`,
+        );
+        expect(readFileSync(runs, "utf8")).toBe("run\nrun\n");
+        put(repo, "app/main.py", 'async def health() -> dict[str, str]:\n    return {"status": "fine"}  # turn-change\n');
+        const second: string = JSON.parse(hook("stop.sh", { session_id: "t-adv" }).stdout).reason;
+        expect(second).toStartWith("forge:python/pytest/run failed");
+        expect(second).not.toContain("untested-change failed");
       } finally {
         rmSync(join(repo, ".venv/bin/pytest"));
         rmSync(runs, { force: true });
@@ -1265,6 +1344,28 @@ describe("Stop", () => {
     T,
   );
 
+  /**
+   * Advice is reported once per finding, not once per rule: what Claude already
+   * answered is not repeated, but a later finding of the same rule in the turn is
+   * given too.
+   * @rule python/pytest/untested-change
+   */
+  test(
+    "advice is reported once per finding: a Stop with nothing new passes, a new finding of the same rule later in the turn blocks again",
+    () => {
+      hook("turn-start.sh", { session_id: "t-once" });
+      put(repo, "app/ok.py", "X = 1\n");
+      expect(JSON.parse(hook("stop.sh", { session_id: "t-once" }).stdout).reason).toContain("You changed behaviour in app/ok.py without");
+      put(repo, "app/ok.py", "X = 3\n");
+      const same = hook("stop.sh", { session_id: "t-once" }).stdout;
+      expect(same).toBe("");
+      put(repo, "app/other.py", "Y = 1\n");
+      expect(JSON.parse(hook("stop.sh", { session_id: "t-once" }).stdout).reason).toContain("You changed behaviour in app/ok.py, app/other.py without");
+      reset();
+    },
+    T,
+  );
+
   test(
     "editing .forge/check.sh through Bash fails the next Stop on integrity",
     () => {
@@ -1310,10 +1411,7 @@ describe("failing tests at the start of the turn", () => {
     rmSync(log(), { force: true });
     stubTool("pytest", `printf '%s|%s|%s\\n' "$(pwd)" "$*" "$(grep -c turn-change app/main.py)" >> "${log()}"; ${body}; exit 1`);
   }
-  const change = () => {
-    put(repo, "app/main.py", 'async def health() -> dict[str, str]:\n    return {"status": "ok"}  # turn-change\n');
-    addTest();
-  };
+  const change = () => put(repo, "app/main.py", 'async def health() -> dict[str, str]:\n    return {"status": "ok"}  # turn-change\n');
   const runs = () => readFileSync(log(), "utf8").trimEnd().split("\n").map((l) => l.split("|"));
 
   test(
@@ -1367,6 +1465,122 @@ describe("failing tests at the start of the turn", () => {
         rmSync(join(repo, ".venv/bin/pytest"));
         reset();
       }
+    },
+    T,
+  );
+
+  test(
+    "a test file whose name is not ASCII is in the copy of the tree at the start of the turn",
+    () => {
+      const head = git(repo, "rev-parse", "HEAD").stdout.trim();
+      put(repo, "tests/test_café.py", "def test_db() -> None:\n    assert True\n");
+      git(repo, "add", "-A");
+      git(repo, "commit", "-qm", "café", "--no-verify");
+      pytest('[ -f tests/test_café.py ] && echo "FAILED tests/test_café.py::test_db - ConnectionRefusedError: connect ECONNREFUSED 127.0.0.1:5432"');
+      try {
+        hook("turn-start.sh", { session_id: "p-utf8" });
+        change();
+        const reason: string = JSON.parse(hook("stop.sh", { session_id: "p-utf8" }).stdout).reason;
+        expect(reason).toStartWith("forge:python/pytest/run 1 failing test(s) also fail at the start of the turn (re-run there)");
+        expect(reason).toContain("  tests/test_café.py::test_db\n");
+      } finally {
+        rmSync(join(repo, ".venv/bin/pytest"));
+        git(repo, "reset", "-q", "--hard", head);
+        reset();
+      }
+    },
+    T,
+  );
+
+  test(
+    "after the comparison, the output excerpt is at most 20 lines under new failures and 12 under failures that were already there",
+    () => {
+      const noise = 'i=0; while [ $i -lt 60 ]; do echo "noise $i"; i=$((i + 1)); done';
+      const excerpt = (reason: string) => {
+        const lines = reason.split("\n");
+        const from = lines.findIndex((l) => l === "noise 0" || l.startsWith("FAILED "));
+        const to = lines.findIndex((l, i) => i > from && l.startsWith("... ("));
+        return lines.slice(from, to + 1);
+      };
+      pytest(`${noise}; if grep -q turn-change app/main.py; then echo "FAILED tests/test_main.py::test_health - assert 500 == 200"; fi`);
+      try {
+        hook("turn-start.sh", { session_id: "p-x1" });
+        change();
+        const fresh = excerpt(JSON.parse(hook("stop.sh", { session_id: "p-x1" }).stdout).reason);
+        expect(fresh[0]).toBe("FAILED tests/test_main.py::test_health - assert 500 == 200");
+        expect(fresh.length).toBe(20);
+        reset();
+        pytest(`${noise}; ${db}`);
+        hook("turn-start.sh", { session_id: "p-x2" });
+        change();
+        const old = excerpt(JSON.parse(hook("stop.sh", { session_id: "p-x2" }).stdout).reason);
+        expect(old[0]).toStartWith("FAILED tests/test_main.py::test_db");
+        expect(old.length).toBe(12);
+      } finally {
+        rmSync(join(repo, ".venv/bin/pytest"));
+        reset();
+      }
+    },
+    T,
+  );
+
+  /**
+   * The copy shares the dependencies of the working tree, but not the project's
+   * own code: an editable install (uv, pip -e, Poetry) puts the working tree's
+   * src/ on Python's path through a .pth file, and the copy's code must come first.
+   */
+  function editableRepo(install: (site: string, root: string) => void, pkg = "mypkg"): string {
+    const r = applied("fastapi-app");
+    put(r, ".gitignore", `${readFileSync(join(r, ".gitignore"), "utf8")}local.db\n`);
+    put(r, `src/${pkg}/__init__.py`, "");
+    put(r, `src/${pkg}/f.py`, "def f() -> int:\n    return 1\n");
+    put(r, "tests/test_f.py", "from mypkg.f import f\n\n\ndef test_f() -> None:\n    assert f() == 1\n");
+    git(r, "add", "-A");
+    git(r, "commit", "-qm", "pkg", "--no-verify");
+    put(r, "local.db", "seed\n");
+    expect(sh("python3", ["-m", "venv", "--without-pip", join(r, ".venv")]).status).toBe(0);
+    const lib = join(r, ".venv", "lib");
+    install(join(lib, readdirSync(lib).find((d) => d.startsWith("python"))!, "site-packages"), realpathSync(r));
+    // a stand-in pytest: imports the package with the venv's python, and writes to an ignored file
+    writeFileSync(
+      join(r, ".venv", "bin", "pytest"),
+      `#!/bin/sh\nprintf 'x\\n' >> local.db\nexec "$(dirname "$0")/python" -c 'import sys\nfrom mypkg.f import f\nif f() != 1:\n    print("FAILED tests/test_f.py::test_f - assert", f(), "== 1")\n    sys.exit(1)'\n`,
+    );
+    chmodSync(join(r, ".venv", "bin", "pytest"), 0o755);
+    return r;
+  }
+  const stopIn = (r: string, session: string, change: () => void) => {
+    hook("turn-start.sh", { session_id: session }, {}, r);
+    change();
+    return JSON.parse(hook("stop.sh", { session_id: session }, {}, r).stdout).reason as string;
+  };
+
+  test(
+    "with an editable install of the project in its virtual environment, the copy imports its own code, not the working tree's: a regression is not excused as already failing; the user's ignored files are copied, not written",
+    () => {
+      const r = editableRepo((site, root) => writeFileSync(join(site, "_editable_impl_mypkg.pth"), `${root}/src\n`));
+      const reason = stopIn(r, "e-1", () => put(r, "src/mypkg/f.py", "def f() -> int:\n    return 2\n"));
+      expect(reason).toContain("forge:python/pytest/run failed: 1 failing test(s) passed at the start of the turn:\n  tests/test_f.py::test_f\n");
+      // pytest ran twice (now, and in the copy); only the run in the working tree wrote there
+      expect(readFileSync(join(r, "local.db"), "utf8")).toBe("seed\nx\n");
+    },
+    T,
+  );
+
+  test(
+    "when the copy cannot be isolated (an editable-install finder maps the package to the working tree), the failing tests count as new and the block says the comparison was not possible",
+    () => {
+      const r = editableRepo((site, root) => {
+        writeFileSync(
+          join(site, "__editable___mypkg_finder.py"),
+          `import importlib.util, sys\nMAPPING = {"mypkg": "${root}/src/impl"}\nclass _F:\n    @classmethod\n    def find_spec(cls, name, path=None, target=None):\n        if name in MAPPING:\n            return importlib.util.spec_from_file_location(name, MAPPING[name] + "/__init__.py", submodule_search_locations=[MAPPING[name]])\n        return None\ndef install():\n    sys.meta_path.append(_F)\n`,
+        );
+        writeFileSync(join(site, "__editable__.mypkg-0.1.0.pth"), "import __editable___mypkg_finder; __editable___mypkg_finder.install()\n");
+      }, "impl");
+      const reason = stopIn(r, "e-2", () => put(r, "src/impl/f.py", "def f() -> int:\n    return 2\n"));
+      expect(reason).toContain(
+        "forge:python/pytest/run failed: 1 failing test(s); comparison with the start of the turn was not possible (.venv/bin/python imports mypkg from the working tree, not from the copy), so they count as new:\n  tests/test_f.py::test_f\n",
+      );
     },
     T,
   );

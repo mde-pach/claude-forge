@@ -32,11 +32,22 @@ json_get() {
     }'
 }
 
-# json_escape: stdin -> JSON string body (no surrounding quotes).
+# json_escape: stdin -> JSON string body (no surrounding quotes). Carriage returns
+# are dropped; every other control character is escaped (\t, \n, \u00XX): one
+# left raw makes the whole JSON invalid.
 json_escape() {
-  awk 'BEGIN { ORS = "" } {
+  awk 'BEGIN {
+    ORS = ""
+    for (c = 1; c < 32; c++) if (c != 9 && c != 10 && c != 13) { ch = sprintf("%c", c); ctl[ch] = sprintf("\\u%04x", c); re = re ch }
+    re = "[" re "]"
+  }
+  {
     gsub(/\\/, "\\\\"); gsub(/"/, "\\\""); gsub(/\t/, "\\t"); gsub(/\r/, "")
-    gsub(/\033/, "\\u001b")
+    if ($0 ~ re) {
+      s = ""; n = length($0)
+      for (i = 1; i <= n; i++) { ch = substr($0, i, 1); s = s ((ch in ctl) ? ctl[ch] : ch) }
+      $0 = s
+    }
     if (NR > 1) printf "\\n"
     printf "%s", $0
   }'
@@ -138,16 +149,16 @@ forge_sha256() {
 tree_hash() {
   {
     if git rev-parse --verify -q HEAD >/dev/null; then git diff HEAD --binary 2>/dev/null; else git diff --cached --binary 2>/dev/null; fi
-    git ls-files --others --exclude-standard 2>/dev/null | while IFS= read -r _th_f; do
+    git ls-files -z --others --exclude-standard 2>/dev/null | tr '\000' '\n' | while IFS= read -r _th_f; do
       printf '%s ' "$_th_f"; git hash-object -- "$_th_f" 2>/dev/null || printf '\n'
     done
   } | forge_sha256
 }
 
-# status_paths: changed paths (staged, unstaged, untracked; renames as delete + add), one per line.
+# status_paths: changed paths (staged, unstaged, untracked; renames as delete + add),
+# one per line, as they are (-z: git quotes non-ASCII names otherwise).
 status_paths() {
-  git status --porcelain --no-renames --untracked-files=all 2>/dev/null \
-    | sed -e 's/^...//' -e 's/^"\(.*\)"$/\1/'
+  git status --porcelain -z --no-renames --untracked-files=all 2>/dev/null | tr '\000' '\n' | sed 's/^...//'
 }
 
 # snapshot <dir>: the working tree at the start of a turn, for the Stop hook:
@@ -316,11 +327,14 @@ forge_review_log() {
 }
 
 # forge_kill_tree <pid>: kills a process and its descendants.
+# It is stopped first, so it cannot start a new child while its children are killed.
 forge_kill_tree() {
+  kill -STOP "$1" 2>/dev/null
   for _fk_c in $(ps -A -o pid= -o ppid= 2>/dev/null | awk -v p="$1" '$2 == p { print $1 }'); do
     forge_kill_tree "$_fk_c"
   done
   kill "$1" 2>/dev/null
+  kill -CONT "$1" 2>/dev/null
 }
 
 # ---- files changed by a Bash command (bash-snapshot.sh, post-edit.sh, typecheck.sh)

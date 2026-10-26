@@ -9,7 +9,7 @@
  * files.
  */
 import { beforeAll, describe, expect, test } from "bun:test";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { applied, commitAll, ensureTools, forge, git, hasBun, hasUv, linkTools, linkTs5, put, ROOT, sampleRepo, sh, TOOL_VERSIONS, TOOLS_CACHE } from "../helpers";
@@ -195,12 +195,12 @@ describe("steps", () => {
    * directory, and Claude saw "cannot create …: Directory nonexistent".
    */
   test(
-    "a terminated check.sh exits at once (143) instead of carrying on without its temporary directory",
+    "a terminated check.sh exits at once (143) instead of carrying on without its temporary directory, and stops the checks it started",
     async () => {
       const started = join(repo, ".venv", "started");
       // outside the repository: the stand-in's sleep outlives the test
       const finished = join(mkdtempSync(join(tmpdir(), "forge-term-")), "finished");
-      stub("pytest", `: > "${started}"; sleep 10; : > "${finished}"; echo late; exit 1`);
+      stub("pytest", `: > "${started}"; sleep 3; : > "${finished}"; echo late; exit 1`);
       put(repo, "app/main.py", 'async def health() -> dict[str, str]:\n    return {"status": "ok"}\n');
       const p = Bun.spawn(["sh", ".forge/check.sh", "--changed"], { cwd: repo, stdout: "pipe", stderr: "pipe" });
       for (let i = 0; i < 600 && !existsSync(started); i++) await Bun.sleep(100);
@@ -212,6 +212,9 @@ describe("steps", () => {
       const stdout = await new Response(p.stdout).text();
       expect(stderr + stdout).not.toMatch(/nonexistent|No such file|cannot (create|open)/);
       expect(stdout).not.toContain("forge:python/pytest/run failed");
+      // the test run was stopped with check.sh: it never gets to write after its sleep
+      await Bun.sleep(4000);
+      expect(existsSync(finished)).toBe(false);
       unlinkSync(join(repo, ".venv/bin/pytest"));
       unlinkSync(started);
       reset();
@@ -617,6 +620,38 @@ test(
  * turn. `--all` (CI) still fails on any error.
  */
 describe("errors in unchanged files", () => {
+  /**
+   * basedpyright in its "recommended" mode exits 1 on warnings alone (an unused
+   * parameter, an unannotated `__tablename__` in a file nobody touched): warnings
+   * do not count (§10.1), so a run that reports nothing else passes.
+   * @rule python/typecheck
+   */
+  test(
+    "a typecheck that exits non-zero with warnings only passes outside --all, with a note; one with an error in a changed file still fails",
+    () => {
+      // basedpyright prints real paths
+      const root = realpathSync(repo);
+      const warn = (f: string) => `echo "${root}/${f}"; echo "  ${root}/${f}:7:20 - warning: \\"app\\" is not accessed (reportUnusedParameter)"`;
+      stub("basedpyright", `${warn("app/main.py")}; ${warn("app/new.py")}; echo "0 errors, 2 warnings, 0 notes"; exit 1`);
+      try {
+        put(repo, "app/new.py", "X = 1\n");
+        const ok = check();
+        expect(ok.stdout).not.toContain("forge:python/typecheck failed");
+        expect(ok.stdout).toContain("forge:python/typecheck ok for the changed files (only warnings)");
+        stub("basedpyright", `${warn("app/main.py")}; echo "  ${root}/app/new.py:1:5 - error: Type mismatch"; echo "1 error, 1 warning, 0 notes"; exit 1`);
+        const bad = check();
+        expect(bad.stdout).toContain(`forge:python/typecheck failed\n  ${root}/app/new.py:1:5 - error: Type mismatch`);
+        // "Warning" in prose (a crash, no diagnostic location) is not a warning diagnostic: the run fails
+        stub("basedpyright", `echo "basedpyright stopped: loading the config raised PendingDeprecationWarning"; exit 1`);
+        expect(check().stdout).toContain("forge:python/typecheck failed\nbasedpyright stopped: loading the config raised PendingDeprecationWarning");
+      } finally {
+        unlinkSync(join(repo, ".venv/bin/basedpyright"));
+        reset();
+      }
+    },
+    T,
+  );
+
   /** A TypeScript repository with a type error committed in src/legacy.ts. */
   function legacyRepo(): string {
     ensureTools();
@@ -813,6 +848,93 @@ describe("workspace packages", () => {
       const status = forge(["status"], r).stdout;
       expect(status).not.toContain("tsc (packages/core)");
       expect(status).not.toContain("biome (packages/core)");
+    },
+    T,
+  );
+});
+
+/**
+ * In a workspace, Vitest runs in each package and names its test files relative
+ * to that package. Under `--turn` its failing tests are compared with the start
+ * of the turn (§10.6) like anywhere else: the ids are made repository paths, the
+ * re-run selects them in the package, and its results are compared by the same ids.
+ * A stand-in `vitest` in the package logs where it ran and with which arguments.
+ */
+/** @rule typescript/vitest/run */
+describe("failing tests at the start of the turn in a workspace package", () => {
+  function wsRepo(body: string): { repo: string; log: string; turn: () => ReturnType<typeof sh> } {
+    const r = sampleRepo("pnpm-workspace-app");
+    put(r, "packages/core/src/index.test.ts", 'import { expect, it } from "vitest";\nimport { greet } from "./index.js";\n\nit("greets", () => {\n  expect(greet("a")).toBe("Hello, a");\n});\n');
+    commitAll(r, "test");
+    expect(forge(["apply", "--yes"], r).status).toBe(0);
+    commitAll(r, "forge");
+    const log = join(r, "vitest.log");
+    const bin = join(r, "packages/core/node_modules/.bin");
+    mkdirSync(bin, { recursive: true });
+    writeFileSync(join(bin, "vitest"), `#!/bin/sh\nprintf '%s|%s\\n' "$(pwd)" "$*" >> "${log}"\n${body}\n`);
+    chmodSync(join(bin, "vitest"), 0o755);
+    const snap = ".forge/state/t.turn";
+    put(r, `${snap}/head`, git(r, "rev-parse", "HEAD").stdout);
+    put(r, `${snap}/tree`, "\n");
+    put(r, `${snap}/dirty`, "");
+    put(r, "packages/core/src/index.ts", "export const greet = (name: string): string => `Hi, ${name}`; // turn-change\n");
+    return { repo: r, log, turn: () => sh("sh", [".forge/check.sh", "--turn", snap], { cwd: r }) };
+  }
+  const fail = 'echo " FAIL  src/index.test.ts > greets"; echo "Error: connect ECONNREFUSED 127.0.0.1:5432"; exit 1';
+
+  test(
+    "a test of a package that also fails at the start of the turn is re-run in that package of the copy, under its repository path, and counted as already failing",
+    () => {
+      const { repo: r, log, turn } = wsRepo(fail);
+      const out = turn();
+      expect(out.stdout).toContain(
+        "forge:typescript/vitest/run 1 failing test(s) also fail at the start of the turn (re-run there), so this change did not cause them, but it is not verified by them either:\n  packages/core/src/index.test.ts > greets\n",
+      );
+      const runs = readFileSync(log, "utf8").trimEnd().split("\n").map((l) => l.split("|"));
+      expect(runs.length).toBe(2);
+      expect(runs[1]![0]).not.toStartWith(r);
+      expect(runs[1]![0]).toEndWith("/packages/core");
+      expect(runs[1]![1]).toBe("run src/index.test.ts");
+    },
+    T,
+  );
+
+  test(
+    "a workspace package that another package depends on (a link in its node_modules) is taken from the copy, so a regression it causes is new; caches the re-run writes stay in the copy",
+    () => {
+      const r = sampleRepo("pnpm-workspace-app");
+      put(r, "packages/app/package.json", '{"name": "@mono/app", "private": true, "type": "module", "devDependencies": {"@mono/core": "workspace:*", "vitest": "4.0.8"}}\n');
+      put(r, "packages/app/src/app.test.ts", 'import { expect, it } from "vitest";\nimport { greet } from "@mono/core";\n\nit("uses core", () => {\n  expect(greet("a")).toBe("Hello, a");\n});\n');
+      commitAll(r, "app");
+      expect(forge(["apply", "--yes"], r).status).toBe(0);
+      commitAll(r, "forge");
+      const stub = (dir: string, body: string) => {
+        mkdirSync(join(r, dir, "node_modules/.bin"), { recursive: true });
+        writeFileSync(join(r, dir, "node_modules/.bin/vitest"), `#!/bin/sh\n${body}\n`);
+        chmodSync(join(r, dir, "node_modules/.bin/vitest"), 0o755);
+      };
+      stub("packages/core", "exit 0");
+      // the app's test sees core through the link pnpm makes; Vite writes its cache in node_modules/.vite
+      stub("packages/app", 'mkdir -p node_modules/.vite && echo run >> node_modules/.vite/results\ngrep -q turn-change node_modules/@mono/core/src/index.ts || exit 0\necho " FAIL  src/app.test.ts > uses core"; exit 1');
+      mkdirSync(join(r, "packages/app/node_modules/@mono"), { recursive: true });
+      symlinkSync("../../../core", join(r, "packages/app/node_modules/@mono/core"));
+      const snap = ".forge/state/t.turn";
+      put(r, `${snap}/head`, git(r, "rev-parse", "HEAD").stdout);
+      put(r, `${snap}/tree`, "\n");
+      put(r, `${snap}/dirty`, "");
+      put(r, "packages/core/src/index.ts", "export const greet = (name: string): string => `Hi, ${name}`; // turn-change\n");
+      const out = sh("sh", [".forge/check.sh", "--turn", snap], { cwd: r }).stdout;
+      expect(out).toContain("forge:typescript/vitest/run failed: 1 failing test(s) passed at the start of the turn:\n  packages/app/src/app.test.ts > uses core\n");
+      expect(readFileSync(join(r, "packages/app/node_modules/.vite/results"), "utf8")).toBe("run\n");
+    },
+    T,
+  );
+
+  test(
+    "a test of a package that passed at the start of the turn is a new failure, named by its repository path",
+    () => {
+      const { turn } = wsRepo(`grep -q turn-change src/index.ts || exit 0; ${fail}`);
+      expect(turn().stdout).toContain("forge:typescript/vitest/run failed: 1 failing test(s) passed at the start of the turn:\n  packages/core/src/index.test.ts > greets\n");
     },
     T,
   );
@@ -1295,7 +1417,7 @@ describe("advisory checks block once per turn", () => {
       const pkg = readFileSync(join(r, "package.json"), "utf8");
       put(r, "package.json", pkg.replace('"zod": "4.1.12"', '"zod": "4.1.12", "esbuild": "0.25.5"'));
       const first = turn();
-      expect(first.status).toBe(1);
+      expect(first.status).toBe(4); // advice only (§10.7)
       expect(first.stdout).toContain("forge:typescript/lockfile-updated failed");
       expect(first.stdout).toContain("package.json: dependencies esbuild 0.25.5 added, but bun.lock has no changed line for it");
       const second = turn();
@@ -1317,7 +1439,7 @@ describe("advisory checks block once per turn", () => {
       put(r, ".forge/state/t.turn/head", git(r, "rev-parse", "HEAD").stdout);
       put(r, "src/span.ts", 'export const span = (name: string) => ({ name, kind: "llm" });\n');
       const first = turn();
-      expect(first.status).toBe(1);
+      expect(first.status).toBe(4); // advice only (§10.7)
       expect(first.stdout).toContain("forge:typescript/vitest/snapshot-stale failed");
       expect(first.stdout).toContain("src/span.ts: imported by src/span.test.ts, which compares output with snapshots or golden files");
       expect(turn().stdout).toContain("forge:typescript/vitest/snapshot-stale accepted: reported once this turn");

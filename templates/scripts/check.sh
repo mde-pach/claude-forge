@@ -19,8 +19,14 @@ FORGE_ROOT=$(pwd)
 IFS='
 '
 FORGE_TMP=$(mktemp -d "${TMPDIR:-/tmp}/forge-check.XXXXXX") || exit 2
-# a types engine this run started is stopped at the end unless a session uses it (§15.3)
-trap 'forge_types_down; rm -rf "$FORGE_TMP"' EXIT; trap 'exit 143' HUP INT TERM
+# forge_kill_jobs: stops every process this run started (a check, its timeout watcher),
+# so none outlives it (the Stop hook's timeout, a Ctrl-C at commit). A types engine
+# detaches into its own session; one this run started is stopped at the end unless a
+# session uses it (§15.3).
+forge_kill_jobs() {
+  for _kj in $(ps -A -o pid= -o ppid= 2>/dev/null | awk -v p="$$" '$2 == p { print $1 }'); do forge_kill_tree "$_kj"; done
+}
+trap 'forge_types_down; rm -rf "$FORGE_TMP"' EXIT; trap 'forge_kill_jobs; exit 143' HUP INT TERM
 
 @@LIB@@
 
@@ -39,7 +45,7 @@ FORGE_NO_DECREASE='@@NO_DECREASE@@'
 # The change: changed, existing, deleted, base/, inbase and added in $FORGE_TMP.
 forge_change_set || exit 1
 if [ "$mode" = --all ]; then
-  git ls-files --cached --others --exclude-standard 2>/dev/null | sort -u > "$FORGE_TMP/scope"
+  git ls-files -z --cached --others --exclude-standard 2>/dev/null | tr '\000' '\n' | sort -u > "$FORGE_TMP/scope"
   : > "$FORGE_TMP/scope.tmp"
   while read -r f; do [ -f "$f" ] && printf '%s\n' "$f" >> "$FORGE_TMP/scope.tmp"; done < "$FORGE_TMP/scope"
   mv "$FORGE_TMP/scope.tmp" "$FORGE_TMP/scope"
@@ -176,7 +182,9 @@ forge_forbid() {
   return 0
 }
 
-forge_step() { [ "$fail" -eq 0 ] || exit 1; "$@"; }
+# forge_end <status>: advice (§10.7) last, after every failing check, then exit.
+forge_end() { [ ! -s "$FORGE_TMP/advice.out" ] || cat "$FORGE_TMP/advice.out"; exit "$1"; }
+forge_step() { [ "$fail" -eq 0 ] || forge_end "$fail"; "$@"; }
 
 forge_step forge_integrity
 forge_step forge_applied_migrations
@@ -187,6 +195,6 @@ forge_step forge_run_stage lint
 forge_step forge_run_stage typecheck
 forge_step forge_run_stage migration
 forge_step forge_run_stage test
-# advice (§10.7) fails the run without stopping the steps after it
-[ "$fail" -ne 0 ] || [ "${advised:-0}" -eq 0 ] || fail=1
-exit "$fail"
+# advice (§10.7) does not stop the steps after it; when it is the only failure, exit 4
+[ "$fail" -ne 0 ] || [ "${advised:-0}" -eq 0 ] || fail=4
+forge_end "$fail"

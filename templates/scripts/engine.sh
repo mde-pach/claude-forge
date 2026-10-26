@@ -29,12 +29,12 @@ forge_change_set() {
   case $mode in
     --turn)
       { status_paths; cut -f 1 "$FORGE_SNAP/dirty" 2>/dev/null
-        [ -n "$FORGE_BASE_REV" ] && git diff --name-only --no-renames "$FORGE_BASE_REV" HEAD 2>/dev/null
+        [ -n "$FORGE_BASE_REV" ] && git diff --name-only -z --no-renames "$FORGE_BASE_REV" HEAD 2>/dev/null | tr '\000' '\n'
       } | sort -u | while IFS= read -r _cs_f; do
         [ -n "$_cs_f" ] && [ "$(now_hash "$_cs_f")" != "$(base_hash "$_cs_f")" ] && printf '%s\n' "$_cs_f"
       done ;;
     --since)
-      { git diff --name-only --no-renames "$FORGE_BASE_REV" 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null; } | sort -u ;;
+      { git diff --name-only -z --no-renames "$FORGE_BASE_REV" 2>/dev/null; git ls-files -z --others --exclude-standard 2>/dev/null; } | tr '\000' '\n' | sort -u ;;
     *) status_paths | sort -u ;;
   esac > "$FORGE_TMP/changed"
   : > "$FORGE_TMP/existing"; : > "$FORGE_TMP/deleted"; : > "$FORGE_TMP/inbase"; : > "$FORGE_TMP/added"
@@ -368,7 +368,7 @@ forge_test_blocks() {
 # formatting aside) and still be present, unless an Edit or Write changing it was
 # approved during the turn (<snapshot>/tests-approved, written by test-edit.sh); new
 # tests are fine. Test support code (fakes, fixtures, helpers)
-# changed or removed is reported once per turn (<snapshot>/support-reported): it
+# changed or removed is reported once per turn and finding (forge_once_new): it
 # encodes the interface callers rely on.
 forge_test_edits() {
   [ "$mode" = --turn ] || return 0
@@ -404,44 +404,59 @@ forge_test_edits() {
     printf 'These tests existed before this turn and were changed without approval. Restore them. If the task requires the change (it changes the behaviour they assert), make it with Edit or Write: Forge then asks for approval (the user, or a reviewer given the request).\n'
     _te_rc=1
   fi
-  # test support code: reported once per turn, then accepted
-  _te_seen=$FORGE_ARG/support-reported
-  grep '^S' "$FORGE_TMP/tests.edits" | cut -f 2,3 | while IFS= read -r _te_l; do
-    grep -qxF "$_te_l" "$_te_seen" 2>/dev/null || printf '%s\n' "$_te_l"
-  done > "$FORGE_TMP/support.new"
-  if [ -s "$FORGE_TMP/support.new" ]; then
-    grep '^S' "$FORGE_TMP/tests.edits" | while IFS='	' read -r _te_k _te_f _te_n _te_how; do
-      grep -qxF "$_te_f	$_te_n" "$FORGE_TMP/support.new" && printf '%s: test support `%s` was %s\n' "$_te_f" "$_te_n" "$_te_how"
-    done
+  # test support code: each finding reported once per turn (forge_once_new), then accepted
+  grep '^S' "$FORGE_TMP/tests.edits" | while IFS='	' read -r _te_k _te_f _te_n _te_how; do
+    printf '%s: test support `%s` was %s\n' "$_te_f" "$_te_n" "$_te_how"
+  done > "$FORGE_TMP/support.lines"
+  if [ -s "$FORGE_TMP/support.lines" ] && forge_once_new "$FORGE_TMP/support.lines"; then
     printf 'Test doubles, fixtures and helpers encode the interface the code'"'"'s callers rely on. Keep that interface in production (e.g. a property alias for a moved attribute) unless the task removes it; if it does, carry on: this is reported once.\n'
-    cat "$FORGE_TMP/support.new" >> "$_te_seen" 2>/dev/null
-    # reported once: the same tree checked again gives another result, so Stop must not replay it
-    [ -z "${FORGE_ONCE:-}" ] || : > "$FORGE_ONCE"
+    # alone, it is advice (§10.7): the next Stop accepts it
+    [ "$_te_rc" = 1 ] || : > "$(forge_advised_mark)"
     _te_rc=1
   fi
   return "$_te_rc"
 }
 
-# ---- advisory checks (§10.7): feedback that blocks Stop once per turn
+# ---- findings reported once per turn (§10.7)
 
-# forge_advise <helper> [args]: Stop only (--turn). Runs <helper>; when it prints
-# advice, prints it and fails, and marks the rule in the turn snapshot
-# (<snapshot>/advised/<rule>), so the next Stop of the same turn runs nothing and
-# passes: Claude acts on the advice or says why it does not apply. A new prompt
-# (a new snapshot) re-arms it. Pre-commit and CI never run advisory checks.
+# forge_once_new <file>: Stop (--turn) only. The lines of <file> that check $c_id has
+# not reported yet in this turn (<snapshot>/reported, "<rule-id><TAB><line>"), which
+# are recorded as reported; fails when there is none. Each line is one finding.
+forge_once_new() {
+  _on_seen=$FORGE_SNAP/reported
+  while IFS= read -r _on_l; do
+    [ -n "$_on_l" ] || continue
+    grep -qxF "$c_id	$_on_l" "$_on_seen" 2>/dev/null || printf '%s\n' "$_on_l"
+  done < "$1" > "$FORGE_TMP/once.new"
+  [ -s "$FORGE_TMP/once.new" ] || return 1
+  awk -v id="$c_id" '{ print id "\t" $0 }' "$FORGE_TMP/once.new" >> "$_on_seen"
+  cat "$FORGE_TMP/once.new"
+}
+
+# forge_once <helper> [args]: runs <helper>; what it prints is its findings, one per
+# line. At Stop (--turn) they are advice reported once per finding: output with a line
+# not reported yet in this turn is printed in full and fails as advice (it does not stop
+# the later steps, and check.sh prints it after the failing checks); output with
+# nothing new passes with "forge:<id> accepted: reported once this turn". A new prompt
+# (a new snapshot) re-arms it. In other modes (pre-commit, CI) any output fails.
+forge_once() {
+  "$@" > "$FORGE_TMP/once.out" 2>/dev/null
+  [ -s "$FORGE_TMP/once.out" ] || return 0
+  if [ "$mode" != --turn ] || [ -z "$FORGE_SNAP" ]; then cat "$FORGE_TMP/once.out"; return 1; fi
+  if forge_once_new "$FORGE_TMP/once.out" > /dev/null; then
+    : > "$(forge_advised_mark)"
+    cat "$FORGE_TMP/once.out"
+    return 1
+  fi
+  printf 'forge:%s accepted: reported once this turn\n' "$c_id"
+  return 0
+}
+
+# forge_advise <helper> [args]: forge_once at Stop only; pre-commit and CI never run
+# advisory checks (Claude acts on the advice or says why it does not apply).
 forge_advise() {
   [ "$mode" = --turn ] && [ -n "$FORGE_SNAP" ] || return 0
-  _fa_mark="$FORGE_SNAP/advised/$(printf '%s' "$c_id" | tr -c 'A-Za-z0-9_-' '_')"
-  [ -f "$_fa_mark" ] && return 0
-  "$@" > "$FORGE_TMP/advice" 2>/dev/null
-  [ -s "$FORGE_TMP/advice" ] || return 0
-  mkdir -p "$FORGE_SNAP/advised" && : > "$_fa_mark"
-  # advice does not stop the later steps (forge_run_stage): the tests still run
-  : > "$FORGE_TMP/advised.$(basename "$_fa_mark")"
-  # given once: Stop must not replay it on the same tree (§10.2 step 5)
-  [ -z "${FORGE_ONCE:-}" ] || : > "$FORGE_ONCE"
-  cat "$FORGE_TMP/advice"
-  return 1
+  forge_once "$@"
 }
 
 # Test files of the packs' conventions (pytest, Vitest, Playwright), as a POSIX ERE.
@@ -682,7 +697,7 @@ rule:
 # test that compares output with snapshots or golden files (toMatchSnapshot,
 # toMatchFileSnapshot, toMatchInlineSnapshot, testdata/, golden), while no .snap,
 # __snapshots__, testdata or golden file changed in the turn. A test that uses only
-# inline snapshots counts as updated when it changed. Blocks once per turn (forge_once).
+# inline snapshots counts as updated when it changed. Run as advice (forge_advise).
 forge_snapshot_stale() {
   [ "$mode" = --turn ] || return 0
   grep -qE '\.snap$|(^|/)(__snapshots__|testdata|golden|__golden__)/|\.golden(\.|$)' "$FORGE_TMP/changed" && return 0
@@ -746,7 +761,6 @@ forge_snapshot_stale() {
   [ -s "$FORGE_TMP/snap.out" ] || return 0
   cat "$FORGE_TMP/snap.out"
   printf 'Output-producing code changed but its snapshots did not: run the snapshot tests with inputs that exercise the new output and update them (snapshot updates still go through no-snapshot-update).\n'
-  forge_once
 }
 
 # forge_toml_get <file> <section> <key>: the value of <key> in [<section>] ("" for
@@ -837,24 +851,6 @@ forge_trusted_deps() {
   return "$_td_rc"
 }
 
-# forge_once: for advisory checks. At Stop (--turn) a check that calls it after a
-# finding blocks once per turn: the first call records the finding in the turn
-# snapshot and fails; a later call in the same turn prints "accepted" and passes.
-# In other modes (pre-commit, CI) it always fails.
-forge_once() {
-  [ "$mode" = --turn ] && [ -n "$FORGE_SNAP" ] || return 1
-  _fo_m="$FORGE_SNAP/once.$(printf '%s' "$c_id" | tr -c 'A-Za-z0-9_.-' '_')"
-  if [ -f "$_fo_m" ]; then
-    printf 'forge:%s accepted: reported once this turn\n' "$c_id"
-    return 0
-  fi
-  : > "$_fo_m" 2>/dev/null
-  # as advice (§10.7): Stop does not replay it on the same tree, and the steps after it still run
-  [ -z "${FORGE_ONCE:-}" ] || : > "$FORGE_ONCE"
-  : > "$FORGE_TMP/advised.$(printf '%s' "$c_id" | tr -c 'A-Za-z0-9_-' '_')"
-  return 1
-}
-
 FORGE_JS_LOCKS='pnpm-lock.yaml package-lock.json npm-shrinkwrap.json yarn.lock bun.lock bun.lockb'
 
 # forge_pkg_deps <package.json>: "section<TAB>name<TAB>spec" for each entry of
@@ -907,8 +903,8 @@ forge_check_active() {
 # re-versioned), when the project has a pnpm, npm or Yarn lock file (next to it or at
 # the root); a lock change that names none (a new blank line) does not count. bun.lock
 # is left to typescript/bun/lock-sync (bun install --frozen-lockfile) when that check is
-# active. Blocks once per
-# turn (forge_once): the package manager may not be able to run here.
+# active. Run with forge_once: at Stop it is reported once per finding (the package manager
+# may not be able to run here); pre-commit and CI always fail on it.
 forge_lockfile_updated() {
   _lu_rc=0
   while IFS= read -r _lu_f; do
@@ -946,7 +942,6 @@ forge_lockfile_updated() {
   done < "$FORGE_TMP/existing"
   [ "$_lu_rc" = 0 ] && return 0
   printf 'Run the package manager (bun install, pnpm install, npm install, yarn) to update the lock file; it is not edited by hand. If it cannot run here, tell the user.\n'
-  forge_once
 }
 
 # GitHub Actions workflows: pinned zizmor (through uvx), offline audits only, inline
@@ -2080,13 +2075,24 @@ forge_in_dirs() {
 }
 
 # forge_prefix_paths <dir>: stdin with the relative paths that start a diagnostic
-# (the forms forge_diagnostics reads) prefixed with <dir>/; "../" is resolved.
+# (the forms forge_diagnostics reads) or name a failing test (Vitest "FAIL  [|project| ]<file>",
+# pytest "FAILED <file>::…" and "ERROR <file>", as forge_failed_tests reads them)
+# prefixed with <dir>/; "../" is resolved.
 forge_prefix_paths() {
   awk -v d="$1/" '
     BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     {
       line = $0
       gsub(ansi, "", line)
+      if (match(line, /^[[:space:]]*FAIL +(\|[^|]*\| )?/) || match(line, /^(FAILED|ERROR) /)) {
+        lead = substr(line, 1, RLENGTH); rest = substr(line, RLENGTH + 1)
+        if (rest !~ /^\// && rest ~ /^[^[:space:]]+\.[A-Za-z]+( |::|$)/) {
+          p = d rest
+          while (sub(/(^|\/)[^\/.][^\/]*\/\.\.\//, "/", p)) sub(/^\//, "", p)
+          print lead p
+          next
+        }
+      }
       match(line, /^[[:space:]]*(-->[[:space:]]*)?(Would reformat: )?/)
       lead = substr(line, 1, RLENGTH); rest = substr(line, RLENGTH + 1)
       if (rest !~ /^\// && (rest ~ /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+| format )/ || lead ~ /Would reformat: $/)) {
@@ -2098,14 +2104,30 @@ forge_prefix_paths() {
 }
 
 # forge_exec_check <fn> <timeout>: runs <fn> with output in $FORGE_TMP/out; 124 when
-# it ran past <timeout> seconds and was stopped.
+# it ran past <timeout> seconds and was stopped. Under Stop (FORGE_DEADLINE, in epoch
+# seconds) the limit is at most what is left of the run's budget; a check with no time
+# left is not started. FORGE_EXEC_LIMIT is the limit applied, FORGE_EXEC_WHY "timeout"
+# or "budget".
 forge_exec_check() {
   set -f
-  if [ -n "$2" ]; then
+  FORGE_EXEC_LIMIT=$2
+  FORGE_EXEC_WHY=timeout
+  # under Stop, every check fits in what is left of the run's budget (FORGE_DEADLINE)
+  if [ -n "${FORGE_DEADLINE:-}" ]; then
+    _fe_left=$((FORGE_DEADLINE - $(date +%s)))
+    [ "$_fe_left" -gt 0 ] || _fe_left=0
+    if [ -z "$FORGE_EXEC_LIMIT" ] || [ "$_fe_left" -lt "$FORGE_EXEC_LIMIT" ]; then FORGE_EXEC_LIMIT=$_fe_left; FORGE_EXEC_WHY=budget; fi
+  fi
+  if [ "$FORGE_EXEC_LIMIT" = 0 ]; then
+    : > "$FORGE_TMP/out"
+    set +f
+    return 124
+  fi
+  if [ -n "$FORGE_EXEC_LIMIT" ]; then
     rm -f "$FORGE_TMP/timedout"
     "$1" > "$FORGE_TMP/out" 2>&1 &
     _fe_pid=$!
-    ( sleep "$2"; : > "$FORGE_TMP/timedout"; printf 'forge: timed out after %ss\n' "$2" >> "$FORGE_TMP/out"; forge_kill_tree "$_fe_pid" ) >/dev/null 2>&1 &
+    ( sleep "$FORGE_EXEC_LIMIT"; : > "$FORGE_TMP/timedout"; printf 'forge: timed out after %ss\n' "$FORGE_EXEC_LIMIT" >> "$FORGE_TMP/out"; forge_kill_tree "$_fe_pid" ) >/dev/null 2>&1 &
     _fe_watch=$!
     wait "$_fe_pid" 2>/dev/null
     _fe_rc=$?
@@ -2172,7 +2194,8 @@ forge_excerpt() {
 # lines are ignored). A diagnostic counts when it names a file of $FORGE_TMP/changed
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
-# they name only other files or lines, "none" when no line names a file. With
+# they name only other files or lines, "warnings" when the output has warnings and no
+# error at all (a tool that exits non-zero on warnings), "none" when no line names a file. With
 # "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
 # tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
@@ -2183,7 +2206,12 @@ forge_diagnostics() {
     {
       line = $0
       gsub(ansi, "", line)
-      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) next
+      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
+        # a warning diagnostic: a location, then "warning" as a word (not DeprecationWarning)
+        if (line ~ /^[[:space:]]*(-->[[:space:]]*)?[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+)/ && line ~ /(^|[^A-Za-z])[Ww]arning([^A-Za-z]|$)/) warned = 1
+        next
+      }
+      if (line ~ /[Ee]rror/ && line !~ /(^|[^0-9])0 errors?([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
       if (match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) {
@@ -2201,7 +2229,7 @@ forge_diagnostics() {
       else counts = (p in ch)
       if (counts) { hit = 1; if (mode == "print") print $0 }
     }
-    END { if (mode != "print") print (hit ? "changed" : named ? "other" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
+    END { if (mode != "print") print (hit ? "changed" : named ? "other" : (warned && !erred) ? "warnings" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
 }
 
 # forge_attribute_level <stage> <whole-project run: 1|0>: how a failed check's
@@ -2245,10 +2273,20 @@ forge_run_check() {
   case $? in
     0) grep '^forge:' "$FORGE_TMP/out"; return 0 ;;
     124)
-      printf 'forge:%s failed: timed out after %ss and was stopped (a hung test, or a service that never answers?); its output until then:\n' "$c_id" "$c_timeout"
+      if [ "$FORGE_EXEC_WHY" = budget ]; then
+        printf 'forge:%s failed: stopped after %ss: the Stop hook'"'"'s time budget (%s s, FORGE_STOP_BUDGET) ran out before it finished; its output until then:\n' "$c_id" "$FORGE_EXEC_LIMIT" "${FORGE_BUDGET:-}"
+      else
+        printf 'forge:%s failed: timed out after %ss and was stopped (a hung test, or a service that never answers?); its output until then:\n' "$c_id" "$c_timeout"
+      fi
       grep -v '^forge: timed out after' "$FORGE_TMP/out" | forge_excerpt 15
       return 1 ;;
   esac
+  # advice (§10.7) is shown as the check gave it, never attributed
+  if [ -f "$(forge_advised_mark)" ]; then
+    printf 'forge:%s failed\n' "$c_id"
+    forge_excerpt 15 < "$FORGE_TMP/out"
+    return 1
+  fi
   # outside --all, only errors in the change count (§10.1 step 5)
   _fc_level=$(forge_attribute_level "$c_stage" "$_fc_whole")
   if [ "$mode" != --all ] && [ -n "$_fc_level" ]; then
@@ -2258,6 +2296,11 @@ forge_run_check() {
           printf 'forge:%s ok for the added lines (findings remain on lines this change did not add: sh .forge/check.sh --all)\n' "$c_id"
         else
           printf 'forge:%s ok for the changed files (errors remain in unchanged files: sh .forge/check.sh --all)\n' "$c_id"
+        fi
+        return 0 ;;
+      warnings)
+        if [ "$_fc_level" = line ]; then printf 'forge:%s ok for the added lines (only warnings)\n' "$c_id"
+        else printf 'forge:%s ok for the changed files (only warnings)\n' "$c_id"
         fi
         return 0 ;;
       changed)
@@ -2323,30 +2366,177 @@ forge_env_errors() {
 
 # forge_base_tree <dir>: the project as it was at the start of the turn, in <dir>:
 # the files git sees now (tracked and untracked, not ignored), with this turn's
-# changes undone from $FORGE_TMP/base (files added during the turn left out), and
-# every ignored path (dependencies, build output, .env) a link to the real one.
+# changes undone from $FORGE_TMP/base (files added during the turn left out). Of the
+# ignored paths: Python virtual environments are linked, with the project's own code
+# they import (editable installs) taken from the copy (PYTHONPATH in
+# $FORGE_TMP/base-tree.pythonpath); each node_modules directory is rebuilt from
+# links to its packages, a link to a package of the repository (a workspace package,
+# a file: dependency) pointing to that package in the copy, and test-run caches
+# (.vite, .vitest, .cache) left out; caches and reports that test runs rewrite
+# (__pycache__, .pytest_cache, coverage, …) are left out; everything else (.env, a
+# SQLite file, dist/) is copied, so a test run there never writes the user's files.
+# Fails, with the reason in $FORGE_TMP/base-tree.why, when the copy cannot be
+# isolated: what Python would import from the working tree instead of the copy, or
+# ignored files over FORGE_BASE_COPY_KB (262144) to copy.
 # The repository, its index, its stash and its working tree are not touched.
 forge_base_tree() {
   mkdir -p "$1" || return 1
-  git ls-files --cached --others --exclude-standard 2>/dev/null | while IFS= read -r _bt_f; do
-    if [ -f "$_bt_f" ] || [ -L "$_bt_f" ]; then printf '%s\n' "$_bt_f"; fi
+  _bt_root=$(pwd -P)
+  : > "$FORGE_TMP/base-tree.why"; : > "$FORGE_TMP/base-tree.pythonpath"; : > "$FORGE_TMP/base-tree.venvs"; : > "$FORGE_TMP/base-tree.copy"
+  git ls-files -z --cached --others --exclude-standard 2>/dev/null | tr '\000' '\n' | while IFS= read -r _bt_f; do
+    if [ -f "$_bt_f" ] || [ -L "$_bt_f" ]; then printf './%s\n' "$_bt_f"; fi
   done > "$FORGE_TMP/base-tree.files"
   tar -cf - -T "$FORGE_TMP/base-tree.files" 2>/dev/null | ( cd "$1" && tar -xf - ) || return 1
   while IFS= read -r _bt_f; do
     rm -f "$1/$_bt_f"
     if [ -f "$FORGE_TMP/base/$_bt_f" ]; then mkdir -p "$1/$(dirname "$_bt_f")" && cp "$FORGE_TMP/base/$_bt_f" "$1/$_bt_f"; fi
   done < "$FORGE_TMP/changed"
-  git ls-files --others --ignored --exclude-standard --directory 2>/dev/null | while IFS= read -r _bt_f; do
+  git ls-files -z --others --ignored --exclude-standard --directory 2>/dev/null | tr '\000' '\n' > "$FORGE_TMP/base-tree.ignored"
+  while IFS= read -r _bt_f; do
     _bt_f=${_bt_f%/}
     case $_bt_f in ''|.forge/state|.forge/state/*) continue ;; esac
     if [ -e "$1/$_bt_f" ] || [ -L "$1/$_bt_f" ]; then continue; fi
-    mkdir -p "$1/$(dirname "$_bt_f")" && ln -s "$FORGE_ROOT/$_bt_f" "$1/$_bt_f"
+    case ${_bt_f##*/} in
+      __pycache__|.pytest_cache|.mypy_cache|.ruff_cache|.hypothesis|.coverage|.coverage.*|coverage|htmlcov|.nyc_output|.vite|.vitest|.turbo|.eslintcache|*.tsbuildinfo) continue ;;
+    esac
+    mkdir -p "$1/$(dirname "$_bt_f")" || return 1
+    if [ -d "$_bt_f" ] && [ -f "$_bt_f/pyvenv.cfg" ]; then
+      ln -s "$_bt_root/$_bt_f" "$1/$_bt_f" && printf '%s\n' "$_bt_f" >> "$FORGE_TMP/base-tree.venvs"
+    elif [ "${_bt_f##*/}" = node_modules ] && [ -d "$_bt_f" ]; then
+      forge_base_modules "$_bt_f" "$1" || return 1
+    else
+      printf '%s\n' "$_bt_f" >> "$FORGE_TMP/base-tree.copy"
+    fi
+  done < "$FORGE_TMP/base-tree.ignored"
+  if [ -s "$FORGE_TMP/base-tree.copy" ]; then
+    _bt_kb=$(while IFS= read -r _bt_f; do du -sk "$_bt_f" 2>/dev/null; done < "$FORGE_TMP/base-tree.copy" | awk '{ s += $1 } END { print s + 0 }')
+    if [ "$_bt_kb" -gt "${FORGE_BASE_COPY_KB:-262144}" ]; then
+      printf 'the files git ignores here (%s KiB, e.g. %s) are too large to copy' "$_bt_kb" "$(head -n 1 "$FORGE_TMP/base-tree.copy")" > "$FORGE_TMP/base-tree.why"
+      return 1
+    fi
+    while IFS= read -r _bt_f; do cp -RP "$_bt_f" "$1/$_bt_f" 2>/dev/null; done < "$FORGE_TMP/base-tree.copy"
+  fi
+  [ -s "$FORGE_TMP/base-tree.venvs" ] || return 0
+  forge_base_python "$1"
+}
+
+# forge_base_modules <node_modules path> <base dir>: <base dir>/<path> as a directory
+# of links to the packages of <path>; a package that is a link into the repository
+# outside node_modules (a workspace package) is linked to its copy in <base dir>.
+forge_base_modules() {
+  mkdir -p "$2/$1" || return 1
+  for _bm_e in "$1"/* "$1"/.[!.]* "$1"/..?*; do
+    [ -e "$_bm_e" ] || [ -L "$_bm_e" ] || continue
+    case ${_bm_e##*/} in .vite|.vitest|.cache) continue ;; esac
+    if [ -d "$_bm_e" ] && [ ! -L "$_bm_e" ]; then
+      case ${_bm_e##*/} in
+        @*)
+          mkdir -p "$2/$_bm_e" || return 1
+          for _bm_s in "$_bm_e"/*; do
+            [ -e "$_bm_s" ] || [ -L "$_bm_s" ] || continue
+            forge_base_link "$_bm_s" "$2" || return 1
+          done
+          continue ;;
+      esac
+    fi
+    forge_base_link "$_bm_e" "$2" || return 1
   done
+}
+
+# forge_base_link <path> <base dir>: <base dir>/<path> a link to <path> in the working
+# tree, or, when <path> is a link to a directory of the repository outside
+# node_modules, to that directory in <base dir>.
+forge_base_link() {
+  _bl_to=$_bt_root/$1
+  if [ -L "$1" ] && [ -d "$1" ]; then
+    _bl_real=$(cd -P "$1" 2>/dev/null && pwd -P)
+    case $_bl_real/ in
+      "$_bt_root"/*)
+        _bl_rel=${_bl_real#"$_bt_root"/}
+        case /$_bl_rel/ in */node_modules/*) ;; *) _bl_to=$2/$_bl_rel ;; esac ;;
+    esac
+  fi
+  ln -s "$_bl_to" "$2/$1"
+}
+
+# FORGE_PY_LEAKS: run by a virtual environment's python as <script> <root> <venv>: the
+# first project modules (packages with __init__.py, modules) on its path or in its
+# editable-install finders that resolve under <root> (outside <venv>), not elsewhere.
+FORGE_PY_LEAKS='import importlib.util, os, sys
+root, venv = os.path.realpath(sys.argv[1]), os.path.realpath(sys.argv[2])
+def real(p):
+    p = os.path.realpath(p)
+    return (p == root or p.startswith(root + os.sep)) and not (p == venv or p.startswith(venv + os.sep))
+names = set()
+for p in sys.path:
+    if p and os.path.isdir(p) and real(p):
+        for e in os.listdir(p):
+            if e.endswith(".py") and e[:-3].isidentifier(): names.add(e[:-3])
+            elif e.isidentifier() and os.path.isfile(os.path.join(p, e, "__init__.py")): names.add(e)
+for m in list(sys.modules.values()):
+    mapping = getattr(m, "MAPPING", None)
+    if (getattr(m, "__name__", "") or "").startswith("__editable__") and isinstance(mapping, dict):
+        names.update(k for k, v in mapping.items() if isinstance(v, str) and real(v))
+leak = []
+for n in sorted(x for x in names if not x.startswith("__")):
+    try:
+        s = importlib.util.find_spec(n)
+    except Exception:
+        continue
+    if s is None: continue
+    where = s.origin if s.origin not in (None, "namespace", "built-in", "frozen") else next(iter(s.submodule_search_locations or []), None)
+    if where and real(where): leak.append(n)
+print(" ".join(leak[:5]))
+'
+
+# forge_base_python <base dir>: for each virtual environment of
+# $FORGE_TMP/base-tree.venvs, the repository paths its .pth files and editable-install
+# finders (__editable___*_finder.py MAPPING) add become their copies in <base dir>,
+# first on PYTHONPATH ($FORGE_TMP/base-tree.pythonpath). Then the environment's
+# python, run in <base dir> with that PYTHONPATH, checks that every module it could
+# import from the working tree resolves to the copy; fails (base-tree.why) otherwise.
+forge_base_python() {
+  while IFS= read -r _bp_v; do
+    for _bp_s in "$_bp_v"/lib/python*/site-packages "$_bp_v"/lib64/python*/site-packages; do
+      [ -d "$_bp_s" ] || continue
+      for _bp_p in "$_bp_s"/*.pth; do
+        [ -f "$_bp_p" ] && grep -v -e '^import[[:space:]]' -e '^#' "$_bp_p"
+      done
+      for _bp_p in "$_bp_s"/__editable__*finder.py; do
+        [ -f "$_bp_p" ] && grep -E '^MAPPING' "$_bp_p" | grep -oE "'/[^']+'|\"/[^\"]+\"" | tr -d "'\"" | while IFS= read -r _bp_m; do dirname "$_bp_m"; done
+      done
+    done
+  done < "$FORGE_TMP/base-tree.venvs" | while IFS= read -r _bp_p; do
+    _bp_p=${_bp_p%/}
+    for _bp_r in "$_bt_root" "$FORGE_ROOT"; do
+      case $_bp_p/ in "$_bp_r"/*) _bp_rel=${_bp_p#"$_bp_r"}; printf '%s%s\n' "$1" "$_bp_rel"; break ;; esac
+    done
+  done | awk '!seen[$0]++' > "$FORGE_TMP/base-tree.pythonpath"
+  _bp_pp=$(awk 'NR > 1 { printf ":" } { printf "%s", $0 }' "$FORGE_TMP/base-tree.pythonpath")
+  while IFS= read -r _bp_v; do
+    [ -x "$_bp_v/bin/python" ] || continue
+    _bp_vr=$(cd -P "$_bp_v" && pwd -P)
+    if ! _bp_leak=$(cd "$1" && PYTHONPATH=$_bp_pp${PYTHONPATH:+:$PYTHONPATH} "$_bt_root/$_bp_v/bin/python" -c "$FORGE_PY_LEAKS" "$_bt_root" "$_bp_vr" 2>/dev/null); then
+      printf 'could not check which code %s/bin/python imports' "$_bp_v" > "$FORGE_TMP/base-tree.why"
+      return 1
+    fi
+    if [ -n "$_bp_leak" ]; then
+      printf '%s/bin/python imports %s from the working tree, not from the copy' "$_bp_v" "$_bp_leak" > "$FORGE_TMP/base-tree.why"
+      return 1
+    fi
+  done < "$FORGE_TMP/base-tree.venvs"
   return 0
 }
 
 # forge_rerun_in_base: the rerun form of check $_fb_n on $FORGE_FILES, in the base tree.
-forge_rerun_in_base() { cd "$FORGE_TMP/base-tree" && "forge_check_rerun_$_fb_n"; }
+forge_rerun_in_base() {
+  cd "$FORGE_TMP/base-tree" || return 1
+  if [ -s "$FORGE_TMP/base-tree.pythonpath" ]; then
+    PYTHONPATH=$(awk 'NR > 1 { printf ":" } { printf "%s", $0 }' "$FORGE_TMP/base-tree.pythonpath")${PYTHONPATH:+:$PYTHONPATH}
+    export PYTHONPATH
+  fi
+  "forge_check_rerun_$_fb_n"
+}
 
 # forge_test_compare <n>: test check <n> failed under --turn ($FORGE_TMP/out). Its
 # failing test files are run again in the tree as it was at the start of the turn
@@ -2358,17 +2548,36 @@ forge_rerun_in_base() { cd "$FORGE_TMP/base-tree" && "forge_check_rerun_$_fb_n";
 forge_test_compare() {
   cp "$FORGE_TMP/out" "$FORGE_TMP/test.now"
   forge_failed_tests < "$FORGE_TMP/test.now" > "$FORGE_TMP/failing.now"
-  rm -rf "$FORGE_TMP/base-tree"
-  if [ ! -s "$FORGE_TMP/failing.now" ] || ! forge_base_tree "$FORGE_TMP/base-tree"; then
+  if [ ! -s "$FORGE_TMP/failing.now" ]; then
     printf 'forge:%s failed\n' "$c_id"
     forge_excerpt 25 < "$FORGE_TMP/test.now"
     return 1
   fi
-  FORGE_FILES=$(forge_test_files < "$FORGE_TMP/failing.now")
-  _fb_n=$1
-  forge_exec_check forge_rerun_in_base "$c_timeout"
-  forge_failed_tests < "$FORGE_TMP/out" > "$FORGE_TMP/failing.base"
   rm -rf "$FORGE_TMP/base-tree"
+  _ft_why=''
+  if ! forge_base_tree "$FORGE_TMP/base-tree"; then
+    _ft_why=$(cat "$FORGE_TMP/base-tree.why" 2>/dev/null)
+    [ -n "$_ft_why" ] || _ft_why='the copy of the tree could not be made'
+  else
+    FORGE_FILES=$(forge_test_files < "$FORGE_TMP/failing.now")
+    _fb_n=$1
+    forge_exec_check forge_rerun_in_base "$c_timeout"
+    _ft_rc=$?
+    forge_failed_tests < "$FORGE_TMP/out" > "$FORGE_TMP/failing.base"
+    if [ "$_ft_rc" -eq 124 ]; then
+      _ft_why="the re-run there was stopped after ${FORGE_EXEC_LIMIT}s"
+      [ "$FORGE_EXEC_WHY" != budget ] || _ft_why="$_ft_why, when the Stop hook's time budget ran out"
+    elif [ "$_ft_rc" -ne 0 ] && [ ! -s "$FORGE_TMP/failing.base" ]; then _ft_why='the re-run there failed without naming a failing test'
+    fi
+  fi
+  rm -rf "$FORGE_TMP/base-tree"
+  # not comparable: every failing test counts as new (never excused on a guess)
+  if [ -n "$_ft_why" ]; then
+    printf 'forge:%s failed: %s failing test(s); comparison with the start of the turn was not possible (%s), so they count as new:\n' "$c_id" "$(awk 'END { print NR }' "$FORGE_TMP/failing.now")" "$_ft_why"
+    first_lines 8 < "$FORGE_TMP/failing.now" | sed 's/^/  /'
+    forge_excerpt 20 < "$FORGE_TMP/test.now"
+    return 1
+  fi
   if [ -s "$FORGE_TMP/failing.base" ]; then
     grep -vxF -f "$FORGE_TMP/failing.base" "$FORGE_TMP/failing.now" > "$FORGE_TMP/failing.new"
     grep -xF -f "$FORGE_TMP/failing.base" "$FORGE_TMP/failing.now" > "$FORGE_TMP/failing.old"
@@ -2412,18 +2621,27 @@ forge_test_compare() {
   return 3
 }
 
-# forge_run_stage <stage>: every check of <stage>; fails if one fails.
+# forge_advised_mark: the file that marks check $c_id as having given advice in this
+# run (§10.7): its failure is advice, not a failing check.
+forge_advised_mark() { printf '%s/advised.%s' "$FORGE_TMP" "$(printf '%s' "$c_id" | tr -c 'A-Za-z0-9_-' '_')"; }
+
+# forge_run_stage <stage>: every check of <stage>; fails if one fails. The output of
+# a check that gave advice goes to $FORGE_TMP/advice.out, printed at the end.
 forge_run_stage() {
   _fs_i=1
   _fs_rc=0
   while [ "$_fs_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_fs_i"
     if [ "$c_stage" = "$1" ]; then
-      forge_run_check "$_fs_i"
+      forge_run_check "$_fs_i" > "$FORGE_TMP/check.out"
       case $? in
-        0) ;;
-        3) [ "$_fs_rc" -ne 0 ] || _fs_rc=3 ;;
-        *) if [ -f "$FORGE_TMP/advised.$(printf '%s' "$c_id" | tr -c 'A-Za-z0-9_-' '_')" ]; then advised=1; else _fs_rc=1; fi ;;
+        0) cat "$FORGE_TMP/check.out" ;;
+        3) cat "$FORGE_TMP/check.out"; [ "$_fs_rc" -ne 0 ] || _fs_rc=3 ;;
+        *)
+          # advice goes after every real failure (check.sh prints it last)
+          if [ -f "$(forge_advised_mark)" ]; then cat "$FORGE_TMP/check.out" >> "$FORGE_TMP/advice.out"; advised=1
+          else cat "$FORGE_TMP/check.out"; _fs_rc=1
+          fi ;;
       esac
     fi
     _fs_i=$((_fs_i + 1))
@@ -2470,7 +2688,7 @@ forge_file_report() {
     _fr_what=none
     [ -n "$_fr_level" ] && _fr_what=$(forge_diagnostics "$_fr_out" "$_fr_level")
     case $_fr_what in
-      other) ;;
+      other|warnings) ;;
       changed)
         printf 'forge:%s\n' "$c_id"
         forge_diagnostics "$_fr_out" "$_fr_level" print | first_lines 15
@@ -2549,7 +2767,7 @@ forge_typecheck() {
       if ! forge_exec_check "forge_check_run_$_ft_i" "$c_timeout"; then
         # only errors in changed files wake Claude
         case $(forge_diagnostics "$FORGE_TMP/out" file) in
-          other) ;;
+          other|warnings) ;;
           changed)
             printf 'forge:%s\n' "$c_id"
             forge_diagnostics "$FORGE_TMP/out" file print | first_lines 19
