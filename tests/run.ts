@@ -17,6 +17,7 @@
 // FORGE_PROF_DIR=<dir> keeps each shard's JUnit report there and writes shards.tsv (shard,
 // file, tests, planned cost, start and wall in seconds, exit status), for profiling.
 import { spawn } from "node:child_process";
+import { rm } from "node:fs/promises";
 import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { availableParallelism, tmpdir } from "node:os";
 import { join, relative } from "node:path";
@@ -88,6 +89,7 @@ async function pool<T, R>(items: T[], n: number, fn: (item: T) => Promise<R>): P
  * ("Failed to link @ast-grep/cli: EEXIST"); one shard runs one at a time.
  */
 const shardTmps: string[] = [];
+const removing: Promise<void>[] = [];
 /** The prepared repositories of the run (tests/helpers.ts fixture), shared by the shards. */
 const fixtures = join(work, "fixtures");
 mkdirSync(fixtures);
@@ -250,9 +252,12 @@ async function runShard(s: Shard, env: Record<string, string | undefined>): Prom
   if (s.names) args.push("-t", `^(?:${s.names.map(escapeRe).join("|")})$`);
   const t0 = performance.now();
   const no = shardNo - 1;
+  const tmp = (env.TMPDIR ?? "").replace(/\/$/, "");
   // profiling (FORGE_PROF_DIR): the shard's number for the exec tracer, its timeline and report kept
   const r = await run("bun", args, process.env.FORGE_PROF_DIR ? { ...env, FORGE_PROF_SHARD: `s${no}` } : env);
   const wall = (performance.now() - t0) / 1000;
+  // its temporary directory goes while the other shards run (removing them all at the end took seconds)
+  if (shardTmps.includes(tmp)) removing.push(rm(tmp, { recursive: true, force: true }).catch(() => {}));
   if (process.env.FORGE_PROF_DIR) {
     if (existsSync(out)) writeFileSync(join(process.env.FORGE_PROF_DIR, `shard-s${no}.xml`), readFileSync(out));
     appendFileSync(join(process.env.FORGE_PROF_DIR, "shards.tsv"), `s${no}\t${s.file}\t${s.names?.length ?? "all"}\t${s.cost.toFixed(1)}\t${((t0 - started) / 1000).toFixed(2)}\t${wall.toFixed(2)}\t${r.status}\n`);
@@ -350,6 +355,7 @@ if (junit) {
   mkdirSync(join(junit, ".."), { recursive: true });
   writeFileSync(junit, `<?xml version="1.0" encoding="UTF-8"?>\n<testsuites name="bun test" tests="${all.length}" failures="${fail}" skipped="${skip}" time="${((performance.now() - started) / 1000).toFixed(3)}">\n${suites.join("\n")}\n</testsuites>\n`);
 }
+await Promise.all(removing);
 for (const d of [work, ...shardTmps]) rmSync(d, { recursive: true, force: true });
 const done = performance.now();
 console.log(
