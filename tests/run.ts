@@ -86,11 +86,14 @@ async function pool<T, R>(items: T[], n: number, fn: (item: T) => Promise<R>): P
  * ("Failed to link @ast-grep/cli: EEXIST"); one shard runs one at a time.
  */
 const shardTmps: string[] = [];
+/** The prepared repositories of the run (tests/helpers.ts fixture), shared by the shards. */
+const fixtures = join(work, "fixtures");
+mkdirSync(fixtures);
 function shardEnv(): Record<string, string | undefined> {
   // short: sockets under it must fit in 104 bytes
   const tmp = mkdtempSync(join(tmpdir(), "fs-"));
   shardTmps.push(tmp);
-  const env: Record<string, string | undefined> = { ...process.env, FORGE_TOOLS_CACHE: TOOLS_CACHE, TMPDIR: `${tmp}/` };
+  const env: Record<string, string | undefined> = { ...process.env, FORGE_TOOLS_CACHE: TOOLS_CACHE, FORGE_TEST_FIXTURES: fixtures, TMPDIR: `${tmp}/` };
   delete env.FORGE_STATE_HOME;
   return env;
 }

@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { appendFileSync, chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { appendFileSync, chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 
@@ -148,14 +148,55 @@ export function git(cwd: string, ...args: string[]): Result {
   return sh("git", args, { cwd, env: GIT_ENV });
 }
 
+/**
+ * Prepared repositories, built once and copied for each use: the runner's
+ * FORGE_TEST_FIXTURES is shared by its shards (one builds a fixture, the others wait for
+ * it); a process without it (bun test <file>) has its own. A fixture's content depends
+ * only on its key and the build (the same Forge, packs and tools in every shard), and
+ * holds no absolute path: a copy is the repository the build would make there. Forge
+ * keeps its state outside repositories, by path, so a copy starts with none.
+ */
+const FIXTURES = (process.env.FORGE_TEST_FIXTURES ||= mkdtempSync(join(tmpdir(), "forge-fixtures-")));
+function fixture(key: string, build: (dir: string) => void): string {
+  const done = join(FIXTURES, key);
+  const lock = `${done}.lock`;
+  while (!existsSync(done)) {
+    try {
+      mkdirSync(lock);
+    } catch {
+      // a builder that died leaves its lock: taken over
+      let pid = 0;
+      try {
+        pid = Number(readFileSync(join(lock, "pid"), "utf8").trim());
+      } catch {}
+      if (pid && sh("kill", ["-0", String(pid)]).status !== 0) rmSync(lock, { recursive: true, force: true });
+      else Bun.sleepSync(50);
+      continue;
+    }
+    try {
+      writeFileSync(join(lock, "pid"), `${process.pid}\n`);
+      if (!existsSync(done)) {
+        const tmp = mkdtempSync(`${done}.build-`);
+        build(tmp);
+        renameSync(tmp, done);
+      }
+    } finally {
+      rmSync(lock, { recursive: true, force: true });
+    }
+  }
+  const dir = mkdtempSync(join(tmpdir(), `forge-${key}-`));
+  cpSync(done, dir, { recursive: true, verbatimSymlinks: true });
+  return dir;
+}
+
 /** Copies tests/generator/<name> into a fresh git repository with one commit. */
 export function sampleRepo(name: string): string {
-  const dir = mkdtempSync(join(tmpdir(), `forge-${name}-`));
-  cpSync(join(ROOT, "tests", "generator", name), dir, { recursive: true });
-  git(dir, "init", "-q", "-b", "main");
-  git(dir, "add", "-A");
-  git(dir, "commit", "-qm", "init");
-  return dir;
+  return fixture(name, (dir) => {
+    cpSync(join(ROOT, "tests", "generator", name), dir, { recursive: true });
+    git(dir, "init", "-q", "-b", "main");
+    git(dir, "add", "-A");
+    git(dir, "commit", "-qm", "init");
+  });
 }
 
 function walk(dir: string, base: string, out: string[]): void {
@@ -202,10 +243,11 @@ export function put(repo: string, rel: string, text: string): void {
 
 /** A sample repository after a successful `forge apply --yes`. */
 export function applied(name: string): string {
-  const repo = sampleRepo(name);
-  const r = forge(["apply", "--yes"], repo);
-  if (r.status !== 0) throw new Error(`forge apply failed in ${name}:\n${r.stdout}\n${r.stderr}`);
-  return repo;
+  return fixture(`${name}-applied`, (dir) => {
+    cpSync(sampleRepo(name), dir, { recursive: true, verbatimSymlinks: true });
+    const r = forge(["apply", "--yes"], dir);
+    if (r.status !== 0) throw new Error(`forge apply failed in ${name}:\n${r.stdout}\n${r.stderr}`);
+  });
 }
 
 /** Commits everything in the repository. */
