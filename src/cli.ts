@@ -8,6 +8,7 @@ import { loadLocalRules, loadPackBundle } from "./packs.js";
 import { plan, readProjectInputs, type Plan } from "./plan.js";
 import { blockHash, CHECK, hasBlock, hookManager, insertBlock, managerInactive, onlyForge, preCommitPath, removeBlock, runsForgeCheck } from "./precommit.js";
 import { localSelfTest, testSummary } from "./selftest.js";
+import { mergeTomlSnippets } from "./snippets.js";
 import { addEntries, conflictingScalars, entryKey, hasEntry, removeEntries } from "./settings.js";
 import { CLAUDE_CODE_MIN, ENGINE_PYTHON, FORGE_VERSION, TY_VERSION, compareVersions, gitToplevel, lineDiff, ownedHash, packageRoot, run } from "./util.js";
 import type { Level, Lock, LockBlock, SettingsEntry } from "./types.js";
@@ -413,6 +414,7 @@ function cmdApply(flags: Flags): number {
   if (ctx.level === "project") {
     const audits = auditRules(ctx.base, ctx.plan.active, (t) => ctx.plan.toolDirs[t]);
     for (const a of audits.filter((x) => x.status === "unsatisfied")) out(formatAudit(a));
+    for (const l of formatMerged(audits)) out(l);
     const pre = preCommitState(ctx);
     if (pre.activate) out(`forge: pre-commit: ${notChecked(ctx, pre)}`);
     else if (!pre.installed) out(`forge: pre-commit: not installed, so commits are not checked; ${preCommitHint(ctx.base)}`);
@@ -463,6 +465,31 @@ function cmdDiff(flags: Flags): number {
   for (const path of ch.drift) out(`forge: ${path} was modified since the last apply`);
   for (const path of ch.conflicts) out(`forge: ${path} exists and is not a forge file`);
   return printDiff(ctx, ch, { withLock: true }) || ch.drift.length > 0 ? 1 : 0;
+}
+
+/**
+ * One config block per TOML tool (ruff, ty) and audited place for its unsatisfied audits,
+ * when there are several: rules add entries to the same tables (extend-select,
+ * banned-api), and a table written twice is not valid TOML. Keyed "<tool>" or "<tool> (in <dir>)".
+ */
+function mergedSnippets(audits: AuditResult[]): Record<string, string> {
+  const groups = new Map<string, string[]>();
+  for (const a of audits)
+    if (a.status === "unsatisfied" && a.snippet && (a.tool === "ruff" || a.tool === "ty")) {
+      const k = `${a.tool}${a.dir ? ` (in ${a.dir})` : ""}`;
+      if (!groups.has(k)) groups.set(k, []);
+      if (!groups.get(k)!.includes(a.snippet)) groups.get(k)!.push(a.snippet);
+    }
+  const out: Record<string, string> = {};
+  for (const [k, list] of groups) {
+    const merged = list.length > 1 ? mergeTomlSnippets(list) : undefined;
+    if (merged) out[k] = merged;
+  }
+  return out;
+}
+
+function formatMerged(audits: AuditResult[]): string[] {
+  return Object.entries(mergedSnippets(audits)).flatMap(([k, block]) => [`forge: to satisfy every unsatisfied ${k} audit, add to the ${k.split(" ")[0]} config:`, ...block.split("\n").map((l) => `  ${l}`)]);
 }
 
 function formatAudit(a: AuditResult): string {
@@ -585,6 +612,7 @@ function cmdStatus(flags: Flags): number {
           gated: p.gated,
           deprecated: p.deprecated,
           audits,
+          snippets: mergedSnippets(audits),
           missing_tools: missing,
           pre_commit: ctx.level === "project" ? preCommitState(ctx) : undefined,
           drift: [...ch.drift, ...ch.conflicts, ...ch.blockDrift],
@@ -626,6 +654,7 @@ function cmdStatus(flags: Flags): number {
       out("");
       out("Audit:");
       for (const a of audits) out("  " + formatAudit(a).replace(/\n/g, "\n  "));
+      for (const l of formatMerged(audits)) out(`  ${l}`);
     }
   }
   out("");

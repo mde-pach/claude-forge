@@ -16,6 +16,7 @@
  * tests/helpers.ts); ty comes through uvx.
  */
 import { beforeAll, describe, expect, test } from "bun:test";
+import { parse as parseToml } from "smol-toml";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -116,6 +117,26 @@ describe.if(hasUv)("ruff and ty", () => {
       expect(out).toContain("forge:python/no-bare-except ruff E722: satisfied");
       expect(out).toContain("forge:python/no-explicit-any ruff ANN401: satisfied");
       expect(out).toContain("forge:python/no-deprecated ty deprecated: satisfied");
+    },
+    T,
+  );
+
+  /**
+   * Several rules add entries to the same tables (ruff's `extend-select` and banned-api,
+   * ty's `rules`), and a TOML table may appear only once: next to each rule's snippet,
+   * status prints one block per tool holding them all, which parses.
+   * @rule python/no-bare-except python/no-explicit-any python/no-deprecated
+   */
+  test(
+    "the snippets of a tool's unsatisfied audits are also printed merged into one valid block",
+    () => {
+      const dir = repo("fastapi-app", { "pyproject.toml": PYPROJECT(["F"], "ignore") });
+      const json = JSON.parse(forge(["status", "--json"], dir).stdout) as { snippets: Record<string, string> };
+      const ruff = parseToml(json.snippets.ruff!) as { tool: { ruff: { lint: { "extend-select": string[] } } } };
+      expect(ruff.tool.ruff.lint["extend-select"]).toEqual(expect.arrayContaining(["E722", "ANN401", "S501", "DTZ005"]));
+      const ty = parseToml(json.snippets.ty!) as { tool: { ty: { rules: Record<string, string> } } };
+      expect(ty.tool.ty.rules).toMatchObject({ deprecated: "error", "unused-awaitable": "error", "redundant-cast": "error" });
+      expect(audit(dir)).toContain("forge: to satisfy every unsatisfied ruff audit, add to the ruff config:\n    [tool.ruff.lint]\n    extend-select = [");
     },
     T,
   );
