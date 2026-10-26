@@ -1196,6 +1196,16 @@ Detected by `bcrypt` or `bcryptjs`.
 
 context.md: await the async variants in async code.
 
+### typescript/aws-s3
+
+Detected by `@aws-sdk/client-s3` or `@aws-sdk/s3-presigned-post`.
+
+| Rule | Targets |
+|---|---|
+| `typescript/aws-s3/no-public-acl` | `ast-grep` advise: the string `public-read` / `public-read-write` as the `ACL` of `new $C({…})`, where `C` is `PutObjectCommand`, `CreateMultipartUploadCommand` or `CopyObjectCommand` (`@aws-sdk/client-s3`), or anywhere in the arguments of `createPresignedPost` imported from `@aws-sdk/s3-presigned-post` |
+
+context.md: no public ACLs on uploads.
+
 ### github-actions
 
 Detected by `.github/workflows/*.yml` or `*.yaml`.

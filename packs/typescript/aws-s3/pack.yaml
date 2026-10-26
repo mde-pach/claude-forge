@@ -1,0 +1,5 @@
+id: typescript/aws-s3
+description: AWS SDK v3 S3 client.
+level: project
+detect:
+  deps_any: [{ecosystem: npm, name: "@aws-sdk/client-s3"}, {ecosystem: npm, name: "@aws-sdk/s3-presigned-post"}]
