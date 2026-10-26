@@ -795,6 +795,16 @@ Detected by `library_any: [pypi]` (§13.4).
 
 context.md: `__all__` is the public API; removals and renames warn with `DeprecationWarning` until a major version; SPDX `license` (and the backends that support it), no `requires-python` cap; no logging configuration in library code.
 
+### python/pyjwt
+
+Detected by `pyjwt` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/pyjwt/jwt-verify` | `ast-grep` forbid: `jwt.decode(…)`, or `$J.decode(…)` where `J` is typed `jwt` `PyJWT` / `PyJWS` (§15.1), without `algorithms` (keyword or third positional argument; a `**kwargs` is not judged), or with `verify=False`, `options={…"verify_signature": False…}` or `"none"` (any case) in the algorithms list |
+
+context.md: `algorithms=[…]` always, never `"none"`; no signature check turned off; `jwt.get_unverified_header()` for an unverified header.
+
 ### typescript/library
 
 Detected by `library_any: [npm]` (§13.4).
