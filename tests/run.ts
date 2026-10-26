@@ -195,8 +195,8 @@ async function plan(): Promise<Shard[]> {
   await pool(files, jobs, async (file) => {
     const t = timings[file];
     const testTime = t ? Object.values(t.tests).reduce((a, b) => a + b, 0) : 0;
-    // splitting repeats the file's overhead in every shard: only when tests dominate
-    const k = t ? Math.min(Math.floor(testTime / Math.max(target, 3 * t.overhead)), 64) : 0;
+    // splitting repeats the file's overhead in every shard: each shard's tests take at least twice as long
+    const k = t ? Math.min(Math.ceil(testTime / target), Math.floor(testTime / (2 * t.overhead)), 64) : 0;
     if (k < 2) {
       shards.push({ file, cost: t ? t.overhead + testTime : 1e6 });
       return;
