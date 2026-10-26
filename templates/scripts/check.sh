@@ -61,24 +61,46 @@ forge_owned_hash() {
     *) forge_sha256 < "$1" ;;
   esac
 }
+# forge_sha256_files <file>...: "<hex><2 chars><path>" per file, in one run (sha256sum
+# format; openssl's "<hex> *<path>" has the same layout).
+forge_sha256_files() {
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum "$@"
+  elif command -v shasum >/dev/null 2>&1; then shasum -a 256 "$@"
+  else openssl dgst -sha256 -r "$@"
+  fi
+}
 forge_integrity() {
   manifest=.forge/manifest.sha256
   [ -f "$manifest" ] || { report forge/integrity "$manifest is missing (run forge apply)"; return; }
-  awk '/^[0-9a-f]+  ./ { h = $1; p = substr($0, length(h) + 3); print p "\t" h }' "$manifest" > "$FORGE_TMP/owned"
+  awk '/^[0-9a-f]+  ./ { h = $1; p = substr($0, length(h) + 3); if (p ~ /^[.](forge|claude)\//) print p "\t" h }' "$manifest" > "$FORGE_TMP/owned"
+  # "<path><TAB><hash>" lines in $FORGE_TMP/have ("-" for a missing file, none for one
+  # that cannot be read): one hashing run for every owned file but JSON (hashed without whitespace)
+  : > "$FORGE_TMP/have"; : > "$FORGE_TMP/plain"
   while IFS='	' read -r path hash; do
     [ -n "$path" ] || continue
-    case $path in .forge/*|.claude/*) ;; *) continue ;; esac
-    if [ ! -f "$path" ]; then report forge/integrity "$path is missing (run forge apply)"
-    elif [ "$(forge_owned_hash "$path")" != "$hash" ]; then report forge/integrity "$path was modified (run forge diff)"
-    fi
+    [ -f "$path" ] || { printf '%s\t-\n' "$path" >> "$FORGE_TMP/have"; continue; }
+    case $path in
+      *.json) printf '%s\t%s\n' "$path" "$(forge_owned_hash "$path")" >> "$FORGE_TMP/have" ;;
+      *) printf '%s\n' "$path" >> "$FORGE_TMP/plain" ;;
+    esac
   done < "$FORGE_TMP/owned"
+  if [ -s "$FORGE_TMP/plain" ]; then
+    set -f
+    # shellcheck disable=SC2046
+    forge_sha256_files $(cat "$FORGE_TMP/plain") 2>/dev/null | awk '{ h = $1; print substr($0, length(h) + 3) "\t" h }' >> "$FORGE_TMP/have"
+    set +f
+  fi
+  # in manifest order: missing, or modified
+  awk -F '\t' 'FILENAME == ARGV[1] { have[$1] = $2; next }
+    $1 == "" { next }
+    have[$1] == "-" { printf "forge:forge/integrity %s is missing (run forge apply)\n", $1; next }
+    have[$1] != $2 { printf "forge:forge/integrity %s was modified (run forge diff)\n", $1 }' "$FORGE_TMP/have" "$FORGE_TMP/owned" > "$FORGE_TMP/integrity"
   cut -f 1 "$FORGE_TMP/owned" > "$FORGE_TMP/owned-paths"
   { find .forge .claude/skills/forge-project -type f 2>/dev/null; find .claude/rules -name 'forge-*.md' -type f 2>/dev/null; } \
-    | sed 's|^\./||' | while read -r path; do
-      case $path in .forge/state/*|.forge/rules/*|.forge/forge.lock.json|.forge/manifest.sha256) continue ;; esac
-      grep -qxF "$path" "$FORGE_TMP/owned-paths" || printf 'forge:forge/integrity %s is not a forge file (remove it or run forge apply)\n' "$path"
-    done > "$FORGE_TMP/extra"
-  if [ -s "$FORGE_TMP/extra" ]; then cat "$FORGE_TMP/extra"; fail=1; fi
+    | sed 's|^\./||' | awk 'FILENAME == ARGV[1] { owned[$0] = 1; next }
+      /^[.]forge\/(state|rules)\// || $0 == ".forge/forge.lock.json" || $0 == ".forge/manifest.sha256" { next }
+      !($0 in owned) { printf "forge:forge/integrity %s is not a forge file (remove it or run forge apply)\n", $0 }' "$FORGE_TMP/owned-paths" - >> "$FORGE_TMP/integrity"
+  if [ -s "$FORGE_TMP/integrity" ]; then cat "$FORGE_TMP/integrity"; fail=1; fi
 }
 
 # 2. Applied migrations (in the base) are never modified or deleted.

@@ -18183,24 +18183,46 @@ forge_owned_hash() {
     *) forge_sha256 < "$1" ;;
   esac
 }
+# forge_sha256_files <file>...: "<hex><2 chars><path>" per file, in one run (sha256sum
+# format; openssl's "<hex> *<path>" has the same layout).
+forge_sha256_files() {
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum "$@"
+  elif command -v shasum >/dev/null 2>&1; then shasum -a 256 "$@"
+  else openssl dgst -sha256 -r "$@"
+  fi
+}
 forge_integrity() {
   manifest=.forge/manifest.sha256
   [ -f "$manifest" ] || { report forge/integrity "$manifest is missing (run forge apply)"; return; }
-  awk '/^[0-9a-f]+  ./ { h = $1; p = substr($0, length(h) + 3); print p "\t" h }' "$manifest" > "$FORGE_TMP/owned"
+  awk '/^[0-9a-f]+  ./ { h = $1; p = substr($0, length(h) + 3); if (p ~ /^[.](forge|claude)\//) print p "\t" h }' "$manifest" > "$FORGE_TMP/owned"
+  # "<path><TAB><hash>" lines in $FORGE_TMP/have ("-" for a missing file, none for one
+  # that cannot be read): one hashing run for every owned file but JSON (hashed without whitespace)
+  : > "$FORGE_TMP/have"; : > "$FORGE_TMP/plain"
   while IFS='	' read -r path hash; do
     [ -n "$path" ] || continue
-    case $path in .forge/*|.claude/*) ;; *) continue ;; esac
-    if [ ! -f "$path" ]; then report forge/integrity "$path is missing (run forge apply)"
-    elif [ "$(forge_owned_hash "$path")" != "$hash" ]; then report forge/integrity "$path was modified (run forge diff)"
-    fi
+    [ -f "$path" ] || { printf '%s\t-\n' "$path" >> "$FORGE_TMP/have"; continue; }
+    case $path in
+      *.json) printf '%s\t%s\n' "$path" "$(forge_owned_hash "$path")" >> "$FORGE_TMP/have" ;;
+      *) printf '%s\n' "$path" >> "$FORGE_TMP/plain" ;;
+    esac
   done < "$FORGE_TMP/owned"
+  if [ -s "$FORGE_TMP/plain" ]; then
+    set -f
+    # shellcheck disable=SC2046
+    forge_sha256_files $(cat "$FORGE_TMP/plain") 2>/dev/null | awk '{ h = $1; print substr($0, length(h) + 3) "\t" h }' >> "$FORGE_TMP/have"
+    set +f
+  fi
+  # in manifest order: missing, or modified
+  awk -F '\t' 'FILENAME == ARGV[1] { have[$1] = $2; next }
+    $1 == "" { next }
+    have[$1] == "-" { printf "forge:forge/integrity %s is missing (run forge apply)\n", $1; next }
+    have[$1] != $2 { printf "forge:forge/integrity %s was modified (run forge diff)\n", $1 }' "$FORGE_TMP/have" "$FORGE_TMP/owned" > "$FORGE_TMP/integrity"
   cut -f 1 "$FORGE_TMP/owned" > "$FORGE_TMP/owned-paths"
   { find .forge .claude/skills/forge-project -type f 2>/dev/null; find .claude/rules -name 'forge-*.md' -type f 2>/dev/null; } \
-    | sed 's|^\./||' | while read -r path; do
-      case $path in .forge/state/*|.forge/rules/*|.forge/forge.lock.json|.forge/manifest.sha256) continue ;; esac
-      grep -qxF "$path" "$FORGE_TMP/owned-paths" || printf 'forge:forge/integrity %s is not a forge file (remove it or run forge apply)\n' "$path"
-    done > "$FORGE_TMP/extra"
-  if [ -s "$FORGE_TMP/extra" ]; then cat "$FORGE_TMP/extra"; fail=1; fi
+    | sed 's|^\./||' | awk 'FILENAME == ARGV[1] { owned[$0] = 1; next }
+      /^[.]forge\/(state|rules)\// || $0 == ".forge/forge.lock.json" || $0 == ".forge/manifest.sha256" { next }
+      !($0 in owned) { printf "forge:forge/integrity %s is not a forge file (remove it or run forge apply)\n", $0 }' "$FORGE_TMP/owned-paths" - >> "$FORGE_TMP/integrity"
+  if [ -s "$FORGE_TMP/integrity" ]; then cat "$FORGE_TMP/integrity"; fail=1; fi
 }
 
 # 2. Applied migrations (in the base) are never modified or deleted.
@@ -18412,7 +18434,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/docker/compose/pinned-images.yml": "026540d386ff8d8bd6f4f1951063c2fcd5cb8a96d8c7184f97e0887e3241c01a",
     ".forge/ast-grep/rules/python/no-stub.yml": "0660a06b80fa4e3cccbc89f496275e8f093b873632d1d93ecb48e4315d987bbf",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "863b01b07d7b96520432362ee2f51bf65be27343ef56cd3ce50297ceb3c5de29",
+    ".forge/check.sh": "1d28be4b2ccb848bd13699254afd3d03db09b831a14d98faa3a0bb03dbaf3ed1",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -18492,7 +18514,7 @@ e4fd92858db90ac12b535496548f182e453e83bc9cb24f53a102ab7fc98cd67b  .forge/ast-gre
 026540d386ff8d8bd6f4f1951063c2fcd5cb8a96d8c7184f97e0887e3241c01a  .forge/ast-grep/rules/docker/compose/pinned-images.yml
 0660a06b80fa4e3cccbc89f496275e8f093b873632d1d93ecb48e4315d987bbf  .forge/ast-grep/rules/python/no-stub.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-863b01b07d7b96520432362ee2f51bf65be27343ef56cd3ce50297ceb3c5de29  .forge/check.sh
+1d28be4b2ccb848bd13699254afd3d03db09b831a14d98faa3a0bb03dbaf3ed1  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

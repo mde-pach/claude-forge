@@ -17948,24 +17948,46 @@ forge_owned_hash() {
     *) forge_sha256 < "$1" ;;
   esac
 }
+# forge_sha256_files <file>...: "<hex><2 chars><path>" per file, in one run (sha256sum
+# format; openssl's "<hex> *<path>" has the same layout).
+forge_sha256_files() {
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum "$@"
+  elif command -v shasum >/dev/null 2>&1; then shasum -a 256 "$@"
+  else openssl dgst -sha256 -r "$@"
+  fi
+}
 forge_integrity() {
   manifest=.forge/manifest.sha256
   [ -f "$manifest" ] || { report forge/integrity "$manifest is missing (run forge apply)"; return; }
-  awk '/^[0-9a-f]+  ./ { h = $1; p = substr($0, length(h) + 3); print p "\t" h }' "$manifest" > "$FORGE_TMP/owned"
+  awk '/^[0-9a-f]+  ./ { h = $1; p = substr($0, length(h) + 3); if (p ~ /^[.](forge|claude)\//) print p "\t" h }' "$manifest" > "$FORGE_TMP/owned"
+  # "<path><TAB><hash>" lines in $FORGE_TMP/have ("-" for a missing file, none for one
+  # that cannot be read): one hashing run for every owned file but JSON (hashed without whitespace)
+  : > "$FORGE_TMP/have"; : > "$FORGE_TMP/plain"
   while IFS='	' read -r path hash; do
     [ -n "$path" ] || continue
-    case $path in .forge/*|.claude/*) ;; *) continue ;; esac
-    if [ ! -f "$path" ]; then report forge/integrity "$path is missing (run forge apply)"
-    elif [ "$(forge_owned_hash "$path")" != "$hash" ]; then report forge/integrity "$path was modified (run forge diff)"
-    fi
+    [ -f "$path" ] || { printf '%s\t-\n' "$path" >> "$FORGE_TMP/have"; continue; }
+    case $path in
+      *.json) printf '%s\t%s\n' "$path" "$(forge_owned_hash "$path")" >> "$FORGE_TMP/have" ;;
+      *) printf '%s\n' "$path" >> "$FORGE_TMP/plain" ;;
+    esac
   done < "$FORGE_TMP/owned"
+  if [ -s "$FORGE_TMP/plain" ]; then
+    set -f
+    # shellcheck disable=SC2046
+    forge_sha256_files $(cat "$FORGE_TMP/plain") 2>/dev/null | awk '{ h = $1; print substr($0, length(h) + 3) "\t" h }' >> "$FORGE_TMP/have"
+    set +f
+  fi
+  # in manifest order: missing, or modified
+  awk -F '\t' 'FILENAME == ARGV[1] { have[$1] = $2; next }
+    $1 == "" { next }
+    have[$1] == "-" { printf "forge:forge/integrity %s is missing (run forge apply)\n", $1; next }
+    have[$1] != $2 { printf "forge:forge/integrity %s was modified (run forge diff)\n", $1 }' "$FORGE_TMP/have" "$FORGE_TMP/owned" > "$FORGE_TMP/integrity"
   cut -f 1 "$FORGE_TMP/owned" > "$FORGE_TMP/owned-paths"
   { find .forge .claude/skills/forge-project -type f 2>/dev/null; find .claude/rules -name 'forge-*.md' -type f 2>/dev/null; } \
-    | sed 's|^\./||' | while read -r path; do
-      case $path in .forge/state/*|.forge/rules/*|.forge/forge.lock.json|.forge/manifest.sha256) continue ;; esac
-      grep -qxF "$path" "$FORGE_TMP/owned-paths" || printf 'forge:forge/integrity %s is not a forge file (remove it or run forge apply)\n' "$path"
-    done > "$FORGE_TMP/extra"
-  if [ -s "$FORGE_TMP/extra" ]; then cat "$FORGE_TMP/extra"; fail=1; fi
+    | sed 's|^\./||' | awk 'FILENAME == ARGV[1] { owned[$0] = 1; next }
+      /^[.]forge\/(state|rules)\// || $0 == ".forge/forge.lock.json" || $0 == ".forge/manifest.sha256" { next }
+      !($0 in owned) { printf "forge:forge/integrity %s is not a forge file (remove it or run forge apply)\n", $0 }' "$FORGE_TMP/owned-paths" - >> "$FORGE_TMP/integrity"
+  if [ -s "$FORGE_TMP/integrity" ]; then cat "$FORGE_TMP/integrity"; fail=1; fi
 }
 
 # 2. Applied migrations (in the base) are never modified or deleted.
@@ -18162,7 +18184,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/typescript/vitest/no-tautological-expect.yml": "ec546003dd3fc5a92950f126fc5ffad8599f20b6dd83a0954151758b3481fe8c",
     ".forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml": "240f482cc1062537b49330dd8577e1c128edb7ef60478a042dab716d79c87b42",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "ec8705dbe2a1cfcbf6cd32d6519e2109ab635ba516631e41e384afdfa72c6e38",
+    ".forge/check.sh": "851eda7d56ac4e3055c0476121908e3a1bb1c3c4ff483d8895dd02ddf4fc0451",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -18247,7 +18269,7 @@ db9df1c23a73e64e692caa2aa1014e5987a298613dddc37c9113fcfaf28796c3  .forge/ast-gre
 ec546003dd3fc5a92950f126fc5ffad8599f20b6dd83a0954151758b3481fe8c  .forge/ast-grep/rules/typescript/vitest/no-tautological-expect.yml
 240f482cc1062537b49330dd8577e1c128edb7ef60478a042dab716d79c87b42  .forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-ec8705dbe2a1cfcbf6cd32d6519e2109ab635ba516631e41e384afdfa72c6e38  .forge/check.sh
+851eda7d56ac4e3055c0476121908e3a1bb1c3c4ff483d8895dd02ddf4fc0451  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh
