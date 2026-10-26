@@ -11,6 +11,33 @@ export const FORGE = join(ROOT, "dist", "forge.js");
 // (default ~/.claude/forge-state): the suite never writes the user's home.
 process.env.FORGE_STATE_HOME ||= mkdtempSync(join(tmpdir(), "forge-state-home-"));
 
+/**
+ * Version-manager shims (pyenv's `pyenv exec "$program"` scripts) cost about 200 ms per
+ * call, and the hooks and checks call uv, uvx, ruff and python many times. The suite
+ * resolves them once: a directory of symlinks to the executables the shims would run
+ * (looked up from a temporary directory, where the hooks run), ahead of PATH. The tools
+ * are the same; only the shim's lookup is skipped. A parent that did it already (the
+ * runner, scripts/test.ts) passes FORGE_TEST_BIN and the PATH down.
+ */
+function resolveShims(): void {
+  if (process.env.FORGE_TEST_BIN) return;
+  const bin = mkdtempSync(join(tmpdir(), "forge-test-bin-"));
+  process.env.FORGE_TEST_BIN = bin;
+  const shimmed = ["uv", "uvx", "ruff", "python3", "python"].filter((n) => {
+    const r = spawnSync("sh", ["-c", 'command -v "$1"', "sh", n], { encoding: "utf8" });
+    const p = r.status === 0 ? r.stdout.trim() : "";
+    return p.startsWith("/") && /^#!.*\n[\s\S]*pyenv"? exec "\$program"/.test(readFileSync(p).subarray(0, 1024).toString("latin1"));
+  });
+  if (!shimmed.length) return;
+  const r = spawnSync("sh", ["-c", 'for n; do pyenv which "$n" 2>/dev/null || echo; done', "sh", ...shimmed], { cwd: tmpdir(), encoding: "utf8" });
+  const real = (r.stdout ?? "").split("\n");
+  shimmed.forEach((n, i) => {
+    if (real[i]?.startsWith("/")) symlinkSync(real[i]!, join(bin, n));
+  });
+  process.env.PATH = `${bin}:${process.env.PATH}`;
+}
+resolveShims();
+
 /** The hooks' state directory for <repo> (lib.sh forge_state_of): $FORGE_STATE_HOME/<sha256 of its physical path, 16 hex>. */
 export function stateDir(repo: string): string {
   return join(process.env.FORGE_STATE_HOME as string, createHash("sha256").update(realpathSync(repo)).digest("hex").slice(0, 16));
