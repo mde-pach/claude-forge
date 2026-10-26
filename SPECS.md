@@ -1107,6 +1107,17 @@ Detected by `ioredis`, `redis` or `@redis/client`.
 
 context.md: `SCAN` iterators instead of `KEYS`.
 
+### typescript/jsonwebtoken
+
+`verify`, `sign` and `decode` are members of jsonwebtoken's default or namespace import, or its named imports (aliases included).
+
+| Rule | Targets |
+|---|---|
+| `typescript/jsonwebtoken/verify-algorithms` | `ast-grep` forbid: `verify(…)` without a third argument that is an object with `algorithms` (or a variable / member holding options); `algorithms` containing `"none"` or `ignoreExpiration: true` in `verify`'s options; `algorithm: "none"` in `sign`'s options |
+| `typescript/jsonwebtoken/no-decode-trust` | `ast-grep` advise: every `decode(…)` call (it does not verify) |
+
+context.md: `verify` with an algorithm list, expiry kept; `decode` is not trust.
+
 ### github-actions
 
 Detected by `.github/workflows/*.yml` or `*.yaml`.

@@ -1,0 +1,49 @@
+id: typescript/jsonwebtoken/no-decode-trust
+description: "Advice: jsonwebtoken's decode() does not verify the signature; use verify() whenever the claims decide anything (identity, permissions, expiry)."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: advise
+    utils:
+      jwt-decode:
+        any:
+          # jwt.decode, jwt the default or namespace import of jsonwebtoken
+          - kind: member_expression
+            all:
+              - has: {field: property, regex: "^decode$"}
+              - has: {field: object, kind: identifier, pattern: $J}
+              - inside:
+                  kind: program
+                  stopBy: end
+                  has:
+                    kind: import_statement
+                    all:
+                      - has: {field: source, regex: "^[\"']jsonwebtoken[\"']$"}
+                      - has: {stopBy: end, kind: identifier, pattern: $J, inside: {any: [{kind: import_clause}, {kind: namespace_import}], stopBy: neighbor}}
+          # decode imported by name (aliases included)
+          - kind: identifier
+            all:
+              - pattern: $J
+              - inside:
+                  kind: program
+                  stopBy: end
+                  has:
+                    kind: import_statement
+                    all:
+                      - has: {field: source, regex: "^[\"']jsonwebtoken[\"']$"}
+                      - has:
+                          stopBy: end
+                          kind: import_specifier
+                          any:
+                            - all: [{has: {field: name, regex: "^decode$"}}, {has: {field: alias, pattern: $J}}]
+                            - all: [{has: {field: name, regex: "^decode$", pattern: $J}}, {not: {has: {field: alias, kind: identifier}}}]
+    rule:
+      kind: call_expression
+      has: {field: function, matches: jwt-decode}
+examples:
+  match:
+    - "import jwt from \"jsonwebtoken\";\n\nexport const userId = (token: string) => (jwt.decode(token) as { sub: string }).sub;\n"
+    - "import { decode } from \"jsonwebtoken\";\n\nexport const header = (token: string) => decode(token, { complete: true });\n"
+  no_match:
+    - "import jwt from \"jsonwebtoken\";\n\nexport const claims = (token: string, key: string) => jwt.verify(token, key, { algorithms: [\"HS256\"] });\n"
+    - "export const text = (b: Uint8Array) => new TextDecoder().decode(b);\n"
