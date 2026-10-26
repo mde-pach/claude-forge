@@ -1,0 +1,25 @@
+id: python/sqlalchemy/session-context
+description: "Advice: a Session or AsyncSession (Session(engine), a sessionmaker's call) is opened in a with / async with block, or returned or yielded to the code that closes it (a framework dependency): a session left open keeps its connection. A try/finally that calls close() is also right."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: call
+      pattern: $C
+      not:
+        any:
+          - inside: {kind: with_item, stopBy: end}
+          - inside: {kind: return_statement}
+          - inside: {kind: yield}
+    where:
+      C: {type: {package: sqlalchemy, name: [Session, AsyncSession]}}
+examples:
+  deps: [{ecosystem: pypi, name: sqlalchemy, version: "2.0.44"}]
+  match:
+    - "from sqlalchemy import create_engine\nfrom sqlalchemy.orm import Session\n\nengine = create_engine(\"sqlite://\")\n\n\ndef count() -> None:\n    session = Session(engine)\n    session.commit()\n"
+    - "from sqlalchemy import create_engine\nfrom sqlalchemy.orm import sessionmaker\n\nSessionLocal = sessionmaker(create_engine(\"sqlite://\"))\n\n\ndef count() -> None:\n    db = SessionLocal()\n    db.commit()\n"
+  no_match:
+    - "from sqlalchemy import create_engine\nfrom sqlalchemy.orm import Session\n\nengine = create_engine(\"sqlite://\")\n\n\ndef count() -> None:\n    with Session(engine) as session:\n        session.commit()\n"
+    - "from collections.abc import AsyncIterator\n\nfrom sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine\n\nSessionLocal = async_sessionmaker(create_async_engine(\"sqlite+aiosqlite://\"), expire_on_commit=False)\n\n\nasync def get_db() -> AsyncIterator[AsyncSession]:\n    async with SessionLocal() as session:\n        yield session\n"
+    - "from sqlalchemy import create_engine\nfrom sqlalchemy.orm import Session, sessionmaker\n\nSessionLocal = sessionmaker(create_engine(\"sqlite://\"))\n\n\ndef make() -> Session:\n    return SessionLocal()\n"

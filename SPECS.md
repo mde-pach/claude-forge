@@ -659,6 +659,10 @@ context.md: SQLAlchemy 2.0 queries through `db.session`, `db.get_or_404()`, `db.
 | `python/sqlalchemy/no-raw-execute` | `ast-grep` forbid: `$X.execute("$$$")` with a string literal |
 | `python/sqlalchemy/async-expire-on-commit` | `ast-grep` forbid: `async_sessionmaker(…)` without `expire_on_commit=False` |
 | `python/sqlalchemy/no-text-fstring` | `ast-grep` forbid: `text()` whose SQL is an f-string, `.format()`, `%` or `+` concatenation |
+| `python/sqlalchemy/no-concurrent-session` | `ast-grep` forbid: `asyncio.gather(…)` with two calls on one receiver typed `sqlalchemy` `AsyncSession` / `async_scoped_session` (§15.1) |
+| `python/sqlalchemy/no-lazy-dynamic` | `ast-grep` forbid: a call typed in `sqlalchemy.orm` (`relationship`, `backref`, `dynamic_loader`) with `lazy="dynamic"` |
+| `python/sqlalchemy/session-context` | `ast-grep` advise: a call typed `sqlalchemy` `Session` / `AsyncSession` (`Session(engine)`, a sessionmaker's call) outside a `with` item, a `return` or a `yield` |
+| `python/sqlalchemy/asyncio-extra` | `check` lint: when a tracked or new `*.py` imports `sqlalchemy.ext.asyncio`, a `pyproject.toml` or `requirements*.txt` names `sqlalchemy[asyncio]` or `greenlet`; `when_changed`: those files |
 | `python/sqlalchemy/fk-index` | `check` lint, advisory (§10.7): `forge_advise forge_helper python fk_index.py` (§13.4), skipped for a MySQL / MariaDB `forge_db_url` |
 
 context.md: SQLAlchemy 2.0 async models, queries and sessions; no lazy loading in async sessions (`selectinload()`, `lazy="raise"`); values reach `text()` as bound parameters, with f-strings, `.format()`, `%`, `+` in `text()` and literal strings in `.execute()` rejected, and statements that cannot take parameters (`SET`, `SET LOCAL`) free to embed a validated value.
@@ -674,6 +678,7 @@ context.md: SQLAlchemy 2.0 async models, queries and sessions; no lazy loading i
 | `python/sqlalchemy/alembic/migration-lint` | `check` migration: each changed revision's upgrade rendered offline (`alembic upgrade <down_revision>:<revision> --sql`) and linted with Squawk (§13.1); `--all`: the head revision; merge revisions are skipped; `when_changed: [alembic/versions/**]` |
 | `python/sqlalchemy/alembic/model-registered` | `check` lint on `**/models/**`: `forge_models_registered`: a module of a models package with a mapped class (`__tablename__`) is named in the package's `__init__.py` when that file imports other table modules of the package (the registry), or in `alembic/env.py`; otherwise `Base.metadata` lacks the table and `alembic check` passes without its migration |
 | `python/sqlalchemy/alembic/fk-index` | `check` lint on `alembic/versions/**`, advisory (§10.7): `forge_advise forge_alembic_fk_index`: in `upgrade()`, each column given a foreign key (`sa.Column(…, sa.ForeignKey(…))`, `sa.ForeignKeyConstraint([…])`, `op.create_foreign_key(…, […], …)`) is the first column of an `op.create_index`, `sa.Index`, primary key or unique constraint or `CREATE INDEX`, or has `index=True`, `unique=True` or `primary_key=True`; skipped for a MySQL / MariaDB database URL |
+| `python/sqlalchemy/alembic/no-create-all` | `ast-grep` forbid, not in tests: `$M.create_all` with `$M` typed `sqlalchemy` `MetaData` (§15.1: `Base.metadata`, `SQLModel.metadata`; the call and `run_sync(…create_all)`) |
 | `python/sqlalchemy/alembic/sqlite-batch` | `check` lint on `alembic/versions/**`: `forge_alembic_batch`: when `alembic/env.py` sets `render_as_batch=True` or `alembic.ini` has a sqlite URL, no `op.alter_column`, `op.drop_column`, `op.create_foreign_key`, `op.drop_constraint`, `op.create_unique_constraint`, `op.create_check_constraint`, `op.create_primary_key` outside `op.batch_alter_table()`, except under an `if` on the dialect |
 | `python/sqlalchemy/alembic/data-migration-downgrade` | `check` lint on `alembic/versions/**`, advisory (§10.7): `forge_advise forge_alembic_data_downgrade`: an `upgrade()` that changes rows (`UPDATE … SET`, `INSERT INTO`, `DELETE FROM` with `execute(`, `sa.update/insert/delete(…)`, `.update()/.insert()/.delete()`, `op.bulk_insert(`, `Session(`) has a `downgrade()` that changes rows the same ways or has a `raise` statement; reported at the `downgrade` line |
 
@@ -686,6 +691,7 @@ context.md: "Alembic with an async engine: `alembic/env.py` runs migrations thro
 | Rule | Targets |
 |---|---|
 | `python/pydantic/v2-api` | `ast-grep` forbid: `$M.dict()`, `$M.json()`, `$M.parse_obj($$$)`, `$M.parse_raw($$$)`, `@validator($$$)`, `@root_validator($$$)`, `class Config:` inside a `BaseModel` subclass |
+| `python/pydantic/typeadapter-module-level` | `ast-grep` advise: a call typed `pydantic` `TypeAdapter` inside a function not decorated with `cache`, `lru_cache` or `cached_property` |
 
 context.md: "Pydantic v2: `model_validate`, `model_dump`, `model_config = ConfigDict(...)`, `@field_validator`, `@model_validator`, `Field(pattern=...)`, `TypeAdapter(T).validate_python(...)` (not `parse_obj_as`)."
 
