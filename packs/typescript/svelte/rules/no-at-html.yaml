@@ -1,0 +1,8 @@
+id: typescript/svelte/no-at-html
+description: No {@html ...} in .svelte files; it renders unescaped HTML (XSS). Render the content as text, or sanitise it in one component.
+scope: {language: any, files: ["**/*.svelte"]}
+enforce:
+  - {target: grep, mode: forbid, pattern: "\\{@html[[:space:]]"}
+examples:
+  match: ["<script>\n  let { body } = $props();\n</script>\n<article>{@html body}</article>\n"]
+  no_match: ["<script>\n  let { body } = $props();\n</script>\n<article>{body}</article>\n", "<p>Never use @html for user content.</p>\n"]

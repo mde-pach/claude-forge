@@ -1,0 +1,8 @@
+id: typescript/svelte/runes-only
+description: "Svelte components use runes, not legacy syntax that silently switches the component to legacy mode: no export let ($props()), $: ($derived / $effect), on:event (onevent), <slot> or $$slots ({@render}), $$props / $$restProps, createEventDispatcher (callback props), beforeUpdate / afterUpdate ($effect.pre / $effect), svelte/legacy."
+scope: {language: any, files: ["**/*.svelte"]}
+enforce:
+  - {target: grep, mode: forbid, pattern: "^[[:space:]]*\\$:[[:space:]]|^[[:space:]]*export[[:space:]]+let[[:space:]]|[[:space:]]on:[a-zA-Z]+[|=>[:space:]]|<slot([[:space:]/>]|$)|\\$\\$(slots|props|restProps)|createEventDispatcher|(beforeUpdate|afterUpdate)[[:space:]]*[,}(]|['\"]svelte/legacy['\"]"}
+examples:
+  match: ["<script>\n  export let name;\n</script>\n", "<script>\n  let n = 0;\n  $: double = n * 2;\n</script>\n", "<button on:click={go}>x</button>\n", "<div><slot /></div>\n", "<p>{$$props.a}</p>\n", "<script>\n  import { createEventDispatcher } from 'svelte';\n</script>\n", "<script>\n  import { afterUpdate } from 'svelte';\n</script>\n", "<script>\n  import { run } from 'svelte/legacy';\n</script>\n", "<input on:input|preventDefault={f} />\n"]
+  no_match: ["<script>\n  let { name, children } = $props();\n  let double = $derived(name.length * 2);\n</script>\n<button onclick={go}>{@render children?.()}</button>\n", "<p>a: b</p>\n<p>Turn on:off</p>\n"]

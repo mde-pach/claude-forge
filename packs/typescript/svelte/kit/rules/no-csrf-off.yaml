@@ -1,0 +1,15 @@
+id: typescript/svelte/kit/no-csrf-off
+description: "svelte.config does not turn off SvelteKit's CSRF protection: no csrf.checkOrigin: false, no \"*\" in csrf.trustedOrigins. Name the trusted origins."
+scope: {language: typescript, files: ["svelte.config.*"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: pair
+      inside: {kind: pair, stopBy: end, has: {field: key, regex: "^[\"']?csrf[\"']?$"}}
+      any:
+        - all: [{has: {field: key, regex: "^[\"']?checkOrigin[\"']?$"}}, {has: {field: value, kind: "false"}}]
+        - all: [{has: {field: key, regex: "^[\"']?trustedOrigins[\"']?$"}}, {has: {field: value, kind: array, has: {kind: string, regex: "^[\"']\\*[\"']$"}}}]
+examples:
+  match: ["export default { kit: { csrf: { checkOrigin: false } } };\n", "const config = { kit: { csrf: { trustedOrigins: ['*'] } } };\nexport default config;\n"]
+  no_match: ["export default { kit: { csrf: { trustedOrigins: ['https://pay.example.com'] } } };\n", "export default { kit: { csrf: { checkOrigin: true } } };\n"]
