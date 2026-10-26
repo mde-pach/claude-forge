@@ -1149,6 +1149,14 @@ context.md: async handlers; callback handlers rejected.
 
 context.md: `{ data, error }` results are handled.
 
+### typescript/pulumi
+
+| Rule | Targets |
+|---|---|
+| `typescript/pulumi/protect-ratchet` | `grep` no-decrease: `protect: true` (whole words) |
+
+context.md: protected resources stay protected.
+
 ### github-actions
 
 Detected by `.github/workflows/*.yml` or `*.yaml`.
