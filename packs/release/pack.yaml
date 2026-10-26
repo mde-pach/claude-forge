@@ -1,0 +1,9 @@
+id: release
+description: Releases whose changelog and versions are written by release tooling (Changesets, release-please, semantic-release, towncrier, git-cliff).
+level: project
+detect:
+  files_any: [".changeset/config.json", "release-please-config.json", ".release-please-manifest.json", ".releaserc", ".releaserc.*", "release.config.*", "cliff.toml", "towncrier.toml", "changelog.d/*"]
+  deps_any:
+    - {ecosystem: npm, name: semantic-release}
+    - {ecosystem: npm, name: "@changesets/cli"}
+    - {ecosystem: pypi, name: towncrier}

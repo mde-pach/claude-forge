@@ -1,0 +1,8 @@
+id: release/no-hand-changelog
+description: "CHANGELOG.md is written by the release tooling: an Edit or Write of it needs confirmation. Add a changeset, a news fragment or a conventional commit instead."
+scope: {language: any}
+enforce:
+  - {target: permission, decision: ask, rule: "Edit(**/CHANGELOG.md)"}
+examples:
+  match: ["Edit(CHANGELOG.md)", "Edit(packages/core/CHANGELOG.md)"]
+  no_match: ["Edit(.changeset/brave-dogs-sing.md)", "Edit(docs/changelog-policy.md)", "Read(CHANGELOG.md)"]
