@@ -1152,11 +1152,18 @@ describe("Stop", () => {
     "the checks of a Stop share one time budget under the hook's timeout: a check still running when it runs out is stopped and blocks, saying so",
     () => {
       stubTool("pytest", "sleep 60; exit 0");
+      // A clock that stands still (date +%s; anything else is the real date): the checks
+      // before pytest take no time from the budget however busy the machine is, so the
+      // check still running when it runs out is pytest. What is tested is how the hooks
+      // share the budget, not the clock; the stop itself is a real sleep of the budget.
+      const clock = mkdtempSync(join(tmpdir(), "forge-clock-"));
+      writeFileSync(join(clock, "date"), `#!/bin/sh\n[ "$*" = +%s ] || exec /bin/date "$@"\n[ -s "${clock}/now" ] || /bin/date +%s > "${clock}/now"\ncat "${clock}/now"\n`);
+      chmodSync(join(clock, "date"), 0o755);
       try {
         hook("turn-start.sh", { session_id: "t-budget" });
         put(repo, "app/main.py", 'async def health() -> dict[str, str]:\n    return {"status": "ok"}  # turn-change\n');
         const t0 = performance.now();
-        const out = JSON.parse(hook("stop.sh", { session_id: "t-budget" }, { FORGE_STOP_BUDGET: "6" }).stdout);
+        const out = JSON.parse(hook("stop.sh", { session_id: "t-budget" }, { FORGE_STOP_BUDGET: "6", PATH: `${clock}:${process.env.PATH}` }).stdout);
         expect(performance.now() - t0).toBeLessThan(30_000);
         expect(out.decision).toBe("block");
         expect(out.reason).toMatch(/forge:python\/pytest\/run failed: stopped after \d+s: the Stop hook's time budget \(6 s, FORGE_STOP_BUDGET\) ran out/);
