@@ -1184,10 +1184,10 @@ forge_check_meta_1() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_1() {
-  case $1 in compose*.yml|*/compose*.yml|compose*.yaml|*/compose*.yaml|docker-compose*.yml|*/docker-compose*.yml|docker-compose*.yaml|*/docker-compose*.yaml) ;; *) return 1 ;; esac
+  case $1 in compose*.yaml|*/compose*.yaml|compose*.yml|*/compose*.yml|docker-compose*.yaml|*/docker-compose*.yaml|docker-compose*.yml|*/docker-compose*.yml) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_1() { case $1 in compose*.yml|*/compose*.yml|compose*.yaml|*/compose*.yaml|docker-compose*.yml|*/docker-compose*.yml|docker-compose*.yaml|*/docker-compose*.yaml|.env.example|*/.env.example) return 0 ;; esac; return 1; }
+forge_when_1() { case $1 in compose*.yaml|*/compose*.yaml|compose*.yml|*/compose*.yml|docker-compose*.yaml|*/docker-compose*.yaml|docker-compose*.yml|*/docker-compose*.yml|.env.example|*/.env.example) return 0 ;; esac; return 1; }
 forge_check_run_1() {
 [ -z "$(ls compose.yaml compose.yml docker-compose.yaml docker-compose.yml 2>/dev/null)" ] || docker compose config --quiet --no-interpolate --no-env-resolution
 }
@@ -1213,10 +1213,11 @@ forge_check_meta_3() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_3() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_3() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_3() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_3() {
 forge_hadolint DL3020
 }
@@ -1228,10 +1229,11 @@ forge_check_meta_4() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_4() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_4() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|.dockerignore|*/.dockerignore|*.dockerignore|*/*.dockerignore) return 0 ;; esac; return 1; }
+forge_when_4() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore|.dockerignore|*/.dockerignore|*.dockerignore|*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_4() {
 forge_docker_ignore
 }
@@ -1243,10 +1245,11 @@ forge_check_meta_5() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_5() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_5() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_5() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_5() {
 forge_hadolint DL3025
 }
@@ -1258,10 +1261,11 @@ forge_check_meta_6() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_6() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_6() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_6() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_6() {
 forge_docker_locked
 }
@@ -1273,10 +1277,11 @@ forge_check_meta_7() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_7() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_7() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_7() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_7() {
 forge_docker_secrets
 }
@@ -1288,10 +1293,11 @@ forge_check_meta_8() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_8() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_8() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_8() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_8() {
 forge_docker_nonroot
 }
@@ -1303,10 +1309,11 @@ forge_check_meta_9() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_9() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_9() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_9() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_9() {
 forge_hadolint DL3006 DL3007
 }
@@ -1318,10 +1325,11 @@ forge_check_meta_10() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_10() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_10() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_10() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_10() {
 forge_hadolint DL4006
 }
@@ -1333,10 +1341,11 @@ forge_check_meta_11() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_11() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_11() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_11() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_11() {
 forge_hadolint DL3045
 }
@@ -1440,6 +1449,17 @@ forge_grep_meta_2() {
 }
 forge_grep_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+
+# File roles (§15.4): forge_role <@role> <path>.
+forge_role() {
+  case ${1#@} in
+    alembic-migrations) case $2 in alembic/versions/*|migrations/versions/*) return 0 ;; esac ;;
+    compose) case $2 in compose*.yaml|*/compose*.yaml|compose*.yml|*/compose*.yml|docker-compose*.yaml|*/docker-compose*.yaml|docker-compose*.yml|*/docker-compose*.yml) return 0 ;; esac ;;
+    django-migrations) case $2 in migrations/[0-9]*.py|*/migrations/[0-9]*.py) return 0 ;; esac ;;
+    dockerfile) case $2 in *.dockerignore|*/*.dockerignore) return 1 ;; esac; case $2 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac ;;
+  esac
   return 1
 }
 # ---- end of generated checks
@@ -2446,10 +2466,11 @@ Linux-arm64 f6198ef8090f404dbb771abfee086eb8c48ac177f30da7fd3510aca35b344b5d
 Darwin-arm64 5c09f3213f8e40406abe048233d985eebef336d4a6a20021be47fadb6cf480a2
 Darwin-x86_64 ffe9bb18b23d5ed1eae50237aecdbb523d016e96da0bd4e7aa432040acfc3fde'
 
-# forge_dockerfiles: the Dockerfiles / Containerfiles of $FORGE_FILES, else every tracked one.
+# forge_dockerfiles: the files of $FORGE_FILES in file role @dockerfile (§15.4), else every tracked one.
 forge_dockerfiles() {
   if [ -n "$FORGE_FILES" ]; then printf '%s\n' "$FORGE_FILES"; else git ls-files 2>/dev/null; fi \
-    | grep -E '(^|/)(Dockerfile(\.[^/]*)?|[^/]*\.Dockerfile|Containerfile)$' | grep -v '\.dockerignore$'
+    | while IFS= read -r _df_f; do forge_role @dockerfile "$_df_f" && printf '%s\n' "$_df_f"; done
+  return 0
 }
 
 # forge_hadolint <code>...: "path:line CODE: message" for the named hadolint codes.
@@ -2774,10 +2795,12 @@ forge_squawk_files() {
 }
 
 # forge_alembic_files: Alembic revision ids on stdin (as printed by `alembic heads`)
-# -> the revision files under alembic/versions that define them.
+# -> the revision files (file role @alembic-migrations) that define them.
 forge_alembic_files() {
+  forge_role_files @alembic-migrations | grep '\.py$' > "$FORGE_TMP/alembic.all"
   awk '{ print $1 }' | while read -r _fa_id; do
-    [ -n "$_fa_id" ] && find alembic/versions -name '*.py' -exec grep -lE "^revision[^=]*=[[:space:]]*['\"]$_fa_id['\"]" {} + 2>/dev/null
+    # shellcheck disable=SC2046
+    [ -n "$_fa_id" ] && [ -s "$FORGE_TMP/alembic.all" ] && grep -lE "^revision[^=]*=[[:space:]]*['\"]$_fa_id['\"]" $(cat "$FORGE_TMP/alembic.all") 2>/dev/null
   done
 }
 
@@ -2817,10 +2840,12 @@ forge_squawk_alembic() {
 # down_revision), so revisions written before a rule was adopted do not fail CI.
 forge_alembic_targets() {
   if [ -n "$FORGE_FILES" ]; then
-    printf '%s\n' "$FORGE_FILES" | grep -E '^alembic/versions/.*\.py$'
+    printf '%s\n' "$FORGE_FILES" | while IFS= read -r _at_f; do
+      case $_at_f in *.py) forge_role @alembic-migrations "$_at_f" && printf '%s\n' "$_at_f" ;; esac
+    done
     return 0
   fi
-  find alembic/versions -name '*.py' 2>/dev/null | sort > "$FORGE_TMP/alembic.revs"
+  forge_role_files @alembic-migrations | grep '\.py$' | sort > "$FORGE_TMP/alembic.revs"
   [ -s "$FORGE_TMP/alembic.revs" ] || return 0
   # shellcheck disable=SC2046
   awk '
@@ -3337,6 +3362,32 @@ forge_drizzle_migration_present() {
   done < "$FORGE_TMP/dz.schema"
   printf 'Generate it (drizzle-kit generate) and keep the SQL, meta/_journal.json and the snapshot together; never write them by hand.\n'
   return 1
+}
+
+# forge_role_files <@role>: the repository's files (tracked, and untracked but not ignored)
+# of a file role (§15.4), by forge_role (rendered with the role's effective patterns).
+forge_role_files() {
+  git ls-files -co --exclude-standard 2>/dev/null | while IFS= read -r _rf_f; do
+    forge_role "$1" "$_rf_f" && printf '%s\n' "$_rf_f"
+  done
+  return 0
+}
+
+# forge_applied_migrations <@role>...: migrations (the files of the roles) that exist in the
+# base are not modified or deleted; a change goes in a new migration. Not with --all (no base).
+forge_applied_migrations() {
+  [ "$mode" != --all ] || return 0
+  _am_rc=0
+  while IFS= read -r _am_f; do
+    for _am_r in "$@"; do
+      forge_role "$_am_r" "$_am_f" || continue
+      if [ -f "$_am_f" ]; then _am_what=modified; else _am_what=deleted; fi
+      printf '%s: an existing migration was %s; it may already be applied somewhere, so write a new migration instead\n' "$_am_f" "$_am_what"
+      _am_rc=1
+      break
+    done
+  done < "$FORGE_TMP/inbase"
+  return "$_am_rc"
 }
 
 # forge_drizzle_applied: migrations (SQL and snapshots in the out folder) that exist in
@@ -4588,10 +4639,10 @@ forge_check_meta_1() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_1() {
-  case $1 in compose*.yml|*/compose*.yml|compose*.yaml|*/compose*.yaml|docker-compose*.yml|*/docker-compose*.yml|docker-compose*.yaml|*/docker-compose*.yaml) ;; *) return 1 ;; esac
+  case $1 in compose*.yaml|*/compose*.yaml|compose*.yml|*/compose*.yml|docker-compose*.yaml|*/docker-compose*.yaml|docker-compose*.yml|*/docker-compose*.yml) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_1() { case $1 in compose*.yml|*/compose*.yml|compose*.yaml|*/compose*.yaml|docker-compose*.yml|*/docker-compose*.yml|docker-compose*.yaml|*/docker-compose*.yaml|.env.example|*/.env.example) return 0 ;; esac; return 1; }
+forge_when_1() { case $1 in compose*.yaml|*/compose*.yaml|compose*.yml|*/compose*.yml|docker-compose*.yaml|*/docker-compose*.yaml|docker-compose*.yml|*/docker-compose*.yml|.env.example|*/.env.example) return 0 ;; esac; return 1; }
 forge_check_run_1() {
 [ -z "$(ls compose.yaml compose.yml docker-compose.yaml docker-compose.yml 2>/dev/null)" ] || docker compose config --quiet --no-interpolate --no-env-resolution
 }
@@ -4617,10 +4668,11 @@ forge_check_meta_3() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_3() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_3() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_3() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_3() {
 forge_hadolint DL3020
 }
@@ -4632,10 +4684,11 @@ forge_check_meta_4() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_4() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_4() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|.dockerignore|*/.dockerignore|*.dockerignore|*/*.dockerignore) return 0 ;; esac; return 1; }
+forge_when_4() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore|.dockerignore|*/.dockerignore|*.dockerignore|*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_4() {
 forge_docker_ignore
 }
@@ -4647,10 +4700,11 @@ forge_check_meta_5() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_5() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_5() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_5() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_5() {
 forge_hadolint DL3025
 }
@@ -4662,10 +4716,11 @@ forge_check_meta_6() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_6() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_6() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_6() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_6() {
 forge_docker_locked
 }
@@ -4677,10 +4732,11 @@ forge_check_meta_7() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_7() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_7() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_7() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_7() {
 forge_docker_secrets
 }
@@ -4692,10 +4748,11 @@ forge_check_meta_8() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_8() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_8() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_8() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_8() {
 forge_docker_nonroot
 }
@@ -4707,10 +4764,11 @@ forge_check_meta_9() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_9() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_9() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_9() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_9() {
 forge_hadolint DL3006 DL3007
 }
@@ -4722,10 +4780,11 @@ forge_check_meta_10() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_10() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_10() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_10() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_10() {
 forge_hadolint DL4006
 }
@@ -4737,10 +4796,11 @@ forge_check_meta_11() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_11() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_11() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_11() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_11() {
 forge_hadolint DL3045
 }
@@ -4844,6 +4904,17 @@ forge_grep_meta_2() {
 }
 forge_grep_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+
+# File roles (§15.4): forge_role <@role> <path>.
+forge_role() {
+  case ${1#@} in
+    alembic-migrations) case $2 in alembic/versions/*|migrations/versions/*) return 0 ;; esac ;;
+    compose) case $2 in compose*.yaml|*/compose*.yaml|compose*.yml|*/compose*.yml|docker-compose*.yaml|*/docker-compose*.yaml|docker-compose*.yml|*/docker-compose*.yml) return 0 ;; esac ;;
+    django-migrations) case $2 in migrations/[0-9]*.py|*/migrations/[0-9]*.py) return 0 ;; esac ;;
+    dockerfile) case $2 in *.dockerignore|*/*.dockerignore) return 1 ;; esac; case $2 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac ;;
+  esac
   return 1
 }
 # ---- end of generated checks
@@ -5850,10 +5921,11 @@ Linux-arm64 f6198ef8090f404dbb771abfee086eb8c48ac177f30da7fd3510aca35b344b5d
 Darwin-arm64 5c09f3213f8e40406abe048233d985eebef336d4a6a20021be47fadb6cf480a2
 Darwin-x86_64 ffe9bb18b23d5ed1eae50237aecdbb523d016e96da0bd4e7aa432040acfc3fde'
 
-# forge_dockerfiles: the Dockerfiles / Containerfiles of $FORGE_FILES, else every tracked one.
+# forge_dockerfiles: the files of $FORGE_FILES in file role @dockerfile (§15.4), else every tracked one.
 forge_dockerfiles() {
   if [ -n "$FORGE_FILES" ]; then printf '%s\n' "$FORGE_FILES"; else git ls-files 2>/dev/null; fi \
-    | grep -E '(^|/)(Dockerfile(\.[^/]*)?|[^/]*\.Dockerfile|Containerfile)$' | grep -v '\.dockerignore$'
+    | while IFS= read -r _df_f; do forge_role @dockerfile "$_df_f" && printf '%s\n' "$_df_f"; done
+  return 0
 }
 
 # forge_hadolint <code>...: "path:line CODE: message" for the named hadolint codes.
@@ -6178,10 +6250,12 @@ forge_squawk_files() {
 }
 
 # forge_alembic_files: Alembic revision ids on stdin (as printed by `alembic heads`)
-# -> the revision files under alembic/versions that define them.
+# -> the revision files (file role @alembic-migrations) that define them.
 forge_alembic_files() {
+  forge_role_files @alembic-migrations | grep '\.py$' > "$FORGE_TMP/alembic.all"
   awk '{ print $1 }' | while read -r _fa_id; do
-    [ -n "$_fa_id" ] && find alembic/versions -name '*.py' -exec grep -lE "^revision[^=]*=[[:space:]]*['\"]$_fa_id['\"]" {} + 2>/dev/null
+    # shellcheck disable=SC2046
+    [ -n "$_fa_id" ] && [ -s "$FORGE_TMP/alembic.all" ] && grep -lE "^revision[^=]*=[[:space:]]*['\"]$_fa_id['\"]" $(cat "$FORGE_TMP/alembic.all") 2>/dev/null
   done
 }
 
@@ -6221,10 +6295,12 @@ forge_squawk_alembic() {
 # down_revision), so revisions written before a rule was adopted do not fail CI.
 forge_alembic_targets() {
   if [ -n "$FORGE_FILES" ]; then
-    printf '%s\n' "$FORGE_FILES" | grep -E '^alembic/versions/.*\.py$'
+    printf '%s\n' "$FORGE_FILES" | while IFS= read -r _at_f; do
+      case $_at_f in *.py) forge_role @alembic-migrations "$_at_f" && printf '%s\n' "$_at_f" ;; esac
+    done
     return 0
   fi
-  find alembic/versions -name '*.py' 2>/dev/null | sort > "$FORGE_TMP/alembic.revs"
+  forge_role_files @alembic-migrations | grep '\.py$' | sort > "$FORGE_TMP/alembic.revs"
   [ -s "$FORGE_TMP/alembic.revs" ] || return 0
   # shellcheck disable=SC2046
   awk '
@@ -6741,6 +6817,32 @@ forge_drizzle_migration_present() {
   done < "$FORGE_TMP/dz.schema"
   printf 'Generate it (drizzle-kit generate) and keep the SQL, meta/_journal.json and the snapshot together; never write them by hand.\n'
   return 1
+}
+
+# forge_role_files <@role>: the repository's files (tracked, and untracked but not ignored)
+# of a file role (§15.4), by forge_role (rendered with the role's effective patterns).
+forge_role_files() {
+  git ls-files -co --exclude-standard 2>/dev/null | while IFS= read -r _rf_f; do
+    forge_role "$1" "$_rf_f" && printf '%s\n' "$_rf_f"
+  done
+  return 0
+}
+
+# forge_applied_migrations <@role>...: migrations (the files of the roles) that exist in the
+# base are not modified or deleted; a change goes in a new migration. Not with --all (no base).
+forge_applied_migrations() {
+  [ "$mode" != --all ] || return 0
+  _am_rc=0
+  while IFS= read -r _am_f; do
+    for _am_r in "$@"; do
+      forge_role "$_am_r" "$_am_f" || continue
+      if [ -f "$_am_f" ]; then _am_what=modified; else _am_what=deleted; fi
+      printf '%s: an existing migration was %s; it may already be applied somewhere, so write a new migration instead\n' "$_am_f" "$_am_what"
+      _am_rc=1
+      break
+    done
+  done < "$FORGE_TMP/inbase"
+  return "$_am_rc"
 }
 
 # forge_drizzle_applied: migrations (SQL and snapshots in the out folder) that exist in
@@ -8023,10 +8125,10 @@ forge_check_meta_1() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_1() {
-  case $1 in compose*.yml|*/compose*.yml|compose*.yaml|*/compose*.yaml|docker-compose*.yml|*/docker-compose*.yml|docker-compose*.yaml|*/docker-compose*.yaml) ;; *) return 1 ;; esac
+  case $1 in compose*.yaml|*/compose*.yaml|compose*.yml|*/compose*.yml|docker-compose*.yaml|*/docker-compose*.yaml|docker-compose*.yml|*/docker-compose*.yml) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_1() { case $1 in compose*.yml|*/compose*.yml|compose*.yaml|*/compose*.yaml|docker-compose*.yml|*/docker-compose*.yml|docker-compose*.yaml|*/docker-compose*.yaml|.env.example|*/.env.example) return 0 ;; esac; return 1; }
+forge_when_1() { case $1 in compose*.yaml|*/compose*.yaml|compose*.yml|*/compose*.yml|docker-compose*.yaml|*/docker-compose*.yaml|docker-compose*.yml|*/docker-compose*.yml|.env.example|*/.env.example) return 0 ;; esac; return 1; }
 forge_check_run_1() {
 [ -z "$(ls compose.yaml compose.yml docker-compose.yaml docker-compose.yml 2>/dev/null)" ] || docker compose config --quiet --no-interpolate --no-env-resolution
 }
@@ -8052,10 +8154,11 @@ forge_check_meta_3() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_3() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_3() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_3() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_3() {
 forge_hadolint DL3020
 }
@@ -8067,10 +8170,11 @@ forge_check_meta_4() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_4() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_4() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|.dockerignore|*/.dockerignore|*.dockerignore|*/*.dockerignore) return 0 ;; esac; return 1; }
+forge_when_4() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore|.dockerignore|*/.dockerignore|*.dockerignore|*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_4() {
 forge_docker_ignore
 }
@@ -8082,10 +8186,11 @@ forge_check_meta_5() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_5() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_5() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_5() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_5() {
 forge_hadolint DL3025
 }
@@ -8097,10 +8202,11 @@ forge_check_meta_6() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_6() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_6() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_6() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_6() {
 forge_docker_locked
 }
@@ -8112,10 +8218,11 @@ forge_check_meta_7() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_7() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_7() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_7() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_7() {
 forge_docker_secrets
 }
@@ -8127,10 +8234,11 @@ forge_check_meta_8() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_8() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_8() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_8() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_8() {
 forge_docker_nonroot
 }
@@ -8142,10 +8250,11 @@ forge_check_meta_9() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_9() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_9() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_9() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_9() {
 forge_hadolint DL3006 DL3007
 }
@@ -8157,10 +8266,11 @@ forge_check_meta_10() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_10() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_10() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_10() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_10() {
 forge_hadolint DL4006
 }
@@ -8172,10 +8282,11 @@ forge_check_meta_11() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_11() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_11() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_11() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_11() {
 forge_hadolint DL3045
 }
@@ -8279,6 +8390,17 @@ forge_grep_meta_2() {
 }
 forge_grep_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+
+# File roles (§15.4): forge_role <@role> <path>.
+forge_role() {
+  case ${1#@} in
+    alembic-migrations) case $2 in alembic/versions/*|migrations/versions/*) return 0 ;; esac ;;
+    compose) case $2 in compose*.yaml|*/compose*.yaml|compose*.yml|*/compose*.yml|docker-compose*.yaml|*/docker-compose*.yaml|docker-compose*.yml|*/docker-compose*.yml) return 0 ;; esac ;;
+    django-migrations) case $2 in migrations/[0-9]*.py|*/migrations/[0-9]*.py) return 0 ;; esac ;;
+    dockerfile) case $2 in *.dockerignore|*/*.dockerignore) return 1 ;; esac; case $2 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac ;;
+  esac
   return 1
 }
 # ---- end of generated checks
@@ -9285,10 +9407,11 @@ Linux-arm64 f6198ef8090f404dbb771abfee086eb8c48ac177f30da7fd3510aca35b344b5d
 Darwin-arm64 5c09f3213f8e40406abe048233d985eebef336d4a6a20021be47fadb6cf480a2
 Darwin-x86_64 ffe9bb18b23d5ed1eae50237aecdbb523d016e96da0bd4e7aa432040acfc3fde'
 
-# forge_dockerfiles: the Dockerfiles / Containerfiles of $FORGE_FILES, else every tracked one.
+# forge_dockerfiles: the files of $FORGE_FILES in file role @dockerfile (§15.4), else every tracked one.
 forge_dockerfiles() {
   if [ -n "$FORGE_FILES" ]; then printf '%s\n' "$FORGE_FILES"; else git ls-files 2>/dev/null; fi \
-    | grep -E '(^|/)(Dockerfile(\.[^/]*)?|[^/]*\.Dockerfile|Containerfile)$' | grep -v '\.dockerignore$'
+    | while IFS= read -r _df_f; do forge_role @dockerfile "$_df_f" && printf '%s\n' "$_df_f"; done
+  return 0
 }
 
 # forge_hadolint <code>...: "path:line CODE: message" for the named hadolint codes.
@@ -9613,10 +9736,12 @@ forge_squawk_files() {
 }
 
 # forge_alembic_files: Alembic revision ids on stdin (as printed by `alembic heads`)
-# -> the revision files under alembic/versions that define them.
+# -> the revision files (file role @alembic-migrations) that define them.
 forge_alembic_files() {
+  forge_role_files @alembic-migrations | grep '\.py$' > "$FORGE_TMP/alembic.all"
   awk '{ print $1 }' | while read -r _fa_id; do
-    [ -n "$_fa_id" ] && find alembic/versions -name '*.py' -exec grep -lE "^revision[^=]*=[[:space:]]*['\"]$_fa_id['\"]" {} + 2>/dev/null
+    # shellcheck disable=SC2046
+    [ -n "$_fa_id" ] && [ -s "$FORGE_TMP/alembic.all" ] && grep -lE "^revision[^=]*=[[:space:]]*['\"]$_fa_id['\"]" $(cat "$FORGE_TMP/alembic.all") 2>/dev/null
   done
 }
 
@@ -9656,10 +9781,12 @@ forge_squawk_alembic() {
 # down_revision), so revisions written before a rule was adopted do not fail CI.
 forge_alembic_targets() {
   if [ -n "$FORGE_FILES" ]; then
-    printf '%s\n' "$FORGE_FILES" | grep -E '^alembic/versions/.*\.py$'
+    printf '%s\n' "$FORGE_FILES" | while IFS= read -r _at_f; do
+      case $_at_f in *.py) forge_role @alembic-migrations "$_at_f" && printf '%s\n' "$_at_f" ;; esac
+    done
     return 0
   fi
-  find alembic/versions -name '*.py' 2>/dev/null | sort > "$FORGE_TMP/alembic.revs"
+  forge_role_files @alembic-migrations | grep '\.py$' | sort > "$FORGE_TMP/alembic.revs"
   [ -s "$FORGE_TMP/alembic.revs" ] || return 0
   # shellcheck disable=SC2046
   awk '
@@ -10176,6 +10303,32 @@ forge_drizzle_migration_present() {
   done < "$FORGE_TMP/dz.schema"
   printf 'Generate it (drizzle-kit generate) and keep the SQL, meta/_journal.json and the snapshot together; never write them by hand.\n'
   return 1
+}
+
+# forge_role_files <@role>: the repository's files (tracked, and untracked but not ignored)
+# of a file role (§15.4), by forge_role (rendered with the role's effective patterns).
+forge_role_files() {
+  git ls-files -co --exclude-standard 2>/dev/null | while IFS= read -r _rf_f; do
+    forge_role "$1" "$_rf_f" && printf '%s\n' "$_rf_f"
+  done
+  return 0
+}
+
+# forge_applied_migrations <@role>...: migrations (the files of the roles) that exist in the
+# base are not modified or deleted; a change goes in a new migration. Not with --all (no base).
+forge_applied_migrations() {
+  [ "$mode" != --all ] || return 0
+  _am_rc=0
+  while IFS= read -r _am_f; do
+    for _am_r in "$@"; do
+      forge_role "$_am_r" "$_am_f" || continue
+      if [ -f "$_am_f" ]; then _am_what=modified; else _am_what=deleted; fi
+      printf '%s: an existing migration was %s; it may already be applied somewhere, so write a new migration instead\n' "$_am_f" "$_am_what"
+      _am_rc=1
+      break
+    done
+  done < "$FORGE_TMP/inbase"
+  return "$_am_rc"
 }
 
 # forge_drizzle_applied: migrations (SQL and snapshots in the out folder) that exist in
@@ -11478,10 +11631,10 @@ forge_check_meta_1() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_1() {
-  case $1 in compose*.yml|*/compose*.yml|compose*.yaml|*/compose*.yaml|docker-compose*.yml|*/docker-compose*.yml|docker-compose*.yaml|*/docker-compose*.yaml) ;; *) return 1 ;; esac
+  case $1 in compose*.yaml|*/compose*.yaml|compose*.yml|*/compose*.yml|docker-compose*.yaml|*/docker-compose*.yaml|docker-compose*.yml|*/docker-compose*.yml) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_1() { case $1 in compose*.yml|*/compose*.yml|compose*.yaml|*/compose*.yaml|docker-compose*.yml|*/docker-compose*.yml|docker-compose*.yaml|*/docker-compose*.yaml|.env.example|*/.env.example) return 0 ;; esac; return 1; }
+forge_when_1() { case $1 in compose*.yaml|*/compose*.yaml|compose*.yml|*/compose*.yml|docker-compose*.yaml|*/docker-compose*.yaml|docker-compose*.yml|*/docker-compose*.yml|.env.example|*/.env.example) return 0 ;; esac; return 1; }
 forge_check_run_1() {
 [ -z "$(ls compose.yaml compose.yml docker-compose.yaml docker-compose.yml 2>/dev/null)" ] || docker compose config --quiet --no-interpolate --no-env-resolution
 }
@@ -11507,10 +11660,11 @@ forge_check_meta_3() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_3() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_3() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_3() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_3() {
 forge_hadolint DL3020
 }
@@ -11522,10 +11676,11 @@ forge_check_meta_4() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_4() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_4() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|.dockerignore|*/.dockerignore|*.dockerignore|*/*.dockerignore) return 0 ;; esac; return 1; }
+forge_when_4() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore|.dockerignore|*/.dockerignore|*.dockerignore|*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_4() {
 forge_docker_ignore
 }
@@ -11537,10 +11692,11 @@ forge_check_meta_5() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_5() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_5() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_5() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_5() {
 forge_hadolint DL3025
 }
@@ -11552,10 +11708,11 @@ forge_check_meta_6() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_6() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_6() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_6() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_6() {
 forge_docker_locked
 }
@@ -11567,10 +11724,11 @@ forge_check_meta_7() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_7() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_7() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_7() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_7() {
 forge_docker_secrets
 }
@@ -11582,10 +11740,11 @@ forge_check_meta_8() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_8() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_8() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_8() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_8() {
 forge_docker_nonroot
 }
@@ -11597,10 +11756,11 @@ forge_check_meta_9() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_9() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_9() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_9() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_9() {
 forge_hadolint DL3006 DL3007
 }
@@ -11612,10 +11772,11 @@ forge_check_meta_10() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_10() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_10() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_10() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_10() {
 forge_hadolint DL4006
 }
@@ -11627,10 +11788,11 @@ forge_check_meta_11() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_11() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_11() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_11() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_11() {
 forge_hadolint DL3045
 }
@@ -11734,6 +11896,17 @@ forge_grep_meta_2() {
 }
 forge_grep_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+
+# File roles (§15.4): forge_role <@role> <path>.
+forge_role() {
+  case ${1#@} in
+    alembic-migrations) case $2 in alembic/versions/*|migrations/versions/*) return 0 ;; esac ;;
+    compose) case $2 in compose*.yaml|*/compose*.yaml|compose*.yml|*/compose*.yml|docker-compose*.yaml|*/docker-compose*.yaml|docker-compose*.yml|*/docker-compose*.yml) return 0 ;; esac ;;
+    django-migrations) case $2 in migrations/[0-9]*.py|*/migrations/[0-9]*.py) return 0 ;; esac ;;
+    dockerfile) case $2 in *.dockerignore|*/*.dockerignore) return 1 ;; esac; case $2 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac ;;
+  esac
   return 1
 }
 # ---- end of generated checks
@@ -12740,10 +12913,11 @@ Linux-arm64 f6198ef8090f404dbb771abfee086eb8c48ac177f30da7fd3510aca35b344b5d
 Darwin-arm64 5c09f3213f8e40406abe048233d985eebef336d4a6a20021be47fadb6cf480a2
 Darwin-x86_64 ffe9bb18b23d5ed1eae50237aecdbb523d016e96da0bd4e7aa432040acfc3fde'
 
-# forge_dockerfiles: the Dockerfiles / Containerfiles of $FORGE_FILES, else every tracked one.
+# forge_dockerfiles: the files of $FORGE_FILES in file role @dockerfile (§15.4), else every tracked one.
 forge_dockerfiles() {
   if [ -n "$FORGE_FILES" ]; then printf '%s\n' "$FORGE_FILES"; else git ls-files 2>/dev/null; fi \
-    | grep -E '(^|/)(Dockerfile(\.[^/]*)?|[^/]*\.Dockerfile|Containerfile)$' | grep -v '\.dockerignore$'
+    | while IFS= read -r _df_f; do forge_role @dockerfile "$_df_f" && printf '%s\n' "$_df_f"; done
+  return 0
 }
 
 # forge_hadolint <code>...: "path:line CODE: message" for the named hadolint codes.
@@ -13068,10 +13242,12 @@ forge_squawk_files() {
 }
 
 # forge_alembic_files: Alembic revision ids on stdin (as printed by `alembic heads`)
-# -> the revision files under alembic/versions that define them.
+# -> the revision files (file role @alembic-migrations) that define them.
 forge_alembic_files() {
+  forge_role_files @alembic-migrations | grep '\.py$' > "$FORGE_TMP/alembic.all"
   awk '{ print $1 }' | while read -r _fa_id; do
-    [ -n "$_fa_id" ] && find alembic/versions -name '*.py' -exec grep -lE "^revision[^=]*=[[:space:]]*['\"]$_fa_id['\"]" {} + 2>/dev/null
+    # shellcheck disable=SC2046
+    [ -n "$_fa_id" ] && [ -s "$FORGE_TMP/alembic.all" ] && grep -lE "^revision[^=]*=[[:space:]]*['\"]$_fa_id['\"]" $(cat "$FORGE_TMP/alembic.all") 2>/dev/null
   done
 }
 
@@ -13111,10 +13287,12 @@ forge_squawk_alembic() {
 # down_revision), so revisions written before a rule was adopted do not fail CI.
 forge_alembic_targets() {
   if [ -n "$FORGE_FILES" ]; then
-    printf '%s\n' "$FORGE_FILES" | grep -E '^alembic/versions/.*\.py$'
+    printf '%s\n' "$FORGE_FILES" | while IFS= read -r _at_f; do
+      case $_at_f in *.py) forge_role @alembic-migrations "$_at_f" && printf '%s\n' "$_at_f" ;; esac
+    done
     return 0
   fi
-  find alembic/versions -name '*.py' 2>/dev/null | sort > "$FORGE_TMP/alembic.revs"
+  forge_role_files @alembic-migrations | grep '\.py$' | sort > "$FORGE_TMP/alembic.revs"
   [ -s "$FORGE_TMP/alembic.revs" ] || return 0
   # shellcheck disable=SC2046
   awk '
@@ -13631,6 +13809,32 @@ forge_drizzle_migration_present() {
   done < "$FORGE_TMP/dz.schema"
   printf 'Generate it (drizzle-kit generate) and keep the SQL, meta/_journal.json and the snapshot together; never write them by hand.\n'
   return 1
+}
+
+# forge_role_files <@role>: the repository's files (tracked, and untracked but not ignored)
+# of a file role (§15.4), by forge_role (rendered with the role's effective patterns).
+forge_role_files() {
+  git ls-files -co --exclude-standard 2>/dev/null | while IFS= read -r _rf_f; do
+    forge_role "$1" "$_rf_f" && printf '%s\n' "$_rf_f"
+  done
+  return 0
+}
+
+# forge_applied_migrations <@role>...: migrations (the files of the roles) that exist in the
+# base are not modified or deleted; a change goes in a new migration. Not with --all (no base).
+forge_applied_migrations() {
+  [ "$mode" != --all ] || return 0
+  _am_rc=0
+  while IFS= read -r _am_f; do
+    for _am_r in "$@"; do
+      forge_role "$_am_r" "$_am_f" || continue
+      if [ -f "$_am_f" ]; then _am_what=modified; else _am_what=deleted; fi
+      printf '%s: an existing migration was %s; it may already be applied somewhere, so write a new migration instead\n' "$_am_f" "$_am_what"
+      _am_rc=1
+      break
+    done
+  done < "$FORGE_TMP/inbase"
+  return "$_am_rc"
 }
 
 # forge_drizzle_applied: migrations (SQL and snapshots in the out folder) that exist in
@@ -15056,10 +15260,10 @@ language: Yaml
 severity: error
 message: "forge:docker/compose/datastore-loopback Published database and broker ports (5432, 3306, 6379, 27017, 9200, 5672, 11211, 1433) bind to 127.0.0.1; Docker-published ports bypass ufw and firewalld. Short syntax only: a long-syntax ports entry is not checked."
 files:
-  - "**/compose*.yml"
   - "**/compose*.yaml"
-  - "**/docker-compose*.yml"
+  - "**/compose*.yml"
   - "**/docker-compose*.yaml"
+  - "**/docker-compose*.yml"
 rule:
   all:
     - any:
@@ -15084,10 +15288,10 @@ language: Yaml
 severity: error
 message: forge:docker/compose/healthy-depends depends_on uses the long form with a condition (service_healthy for databases), never the bare list, which only waits for the container to start.
 files:
-  - "**/compose*.yml"
   - "**/compose*.yaml"
-  - "**/docker-compose*.yml"
+  - "**/compose*.yml"
   - "**/docker-compose*.yaml"
+  - "**/docker-compose*.yml"
 rule:
   kind: block_mapping_pair
   has:
@@ -15112,10 +15316,10 @@ language: Yaml
 severity: error
 message: forge:docker/compose/no-docker-sock No service mounts the Docker socket; it gives the container root on the host.
 files:
-  - "**/compose*.yml"
   - "**/compose*.yaml"
-  - "**/docker-compose*.yml"
+  - "**/compose*.yml"
   - "**/docker-compose*.yaml"
+  - "**/docker-compose*.yml"
 rule:
   any:
     - kind: string_scalar
@@ -15130,10 +15334,10 @@ language: Yaml
 severity: error
 message: forge:docker/compose/no-host-root-mounts No service mounts /, /etc, /root, /home or the home directory from the host.
 files:
-  - "**/compose*.yml"
   - "**/compose*.yaml"
-  - "**/docker-compose*.yml"
+  - "**/compose*.yml"
   - "**/docker-compose*.yaml"
+  - "**/docker-compose*.yml"
 rule:
   all:
     - inside:
@@ -15165,10 +15369,10 @@ language: Yaml
 severity: error
 message: forge:docker/compose/no-inline-secrets Secret-like variables under environment or build args (PASSWORD, SECRET, TOKEN, API_KEY, PRIVATE_KEY, CREDENTIALS) hold a ${VAR} reference or nothing, never a value; *_FILE variables are fine.
 files:
-  - "**/compose*.yml"
   - "**/compose*.yaml"
-  - "**/docker-compose*.yml"
+  - "**/compose*.yml"
   - "**/docker-compose*.yaml"
+  - "**/docker-compose*.yml"
 rule:
   all:
     - inside:
@@ -15210,10 +15414,10 @@ language: Yaml
 severity: error
 message: "forge:docker/compose/no-privileged No privileged service, host namespaces (network_mode, pid, ipc, userns_mode, uts: host), ALL or SYS_ADMIN capabilities, or unconfined security options."
 files:
-  - "**/compose*.yml"
   - "**/compose*.yaml"
-  - "**/docker-compose*.yml"
+  - "**/compose*.yml"
   - "**/docker-compose*.yaml"
+  - "**/docker-compose*.yml"
 rule:
   any:
     - all:
@@ -15264,10 +15468,10 @@ language: Yaml
 severity: error
 message: forge:docker/compose/no-version-key No top-level version key; Compose ignores it and warns.
 files:
-  - "**/compose*.yml"
   - "**/compose*.yaml"
-  - "**/docker-compose*.yml"
+  - "**/compose*.yml"
   - "**/docker-compose*.yaml"
+  - "**/docker-compose*.yml"
 rule:
   kind: block_mapping_pair
   has:
@@ -15287,10 +15491,10 @@ language: Yaml
 severity: error
 message: forge:docker/compose/pinned-images Images name a version tag (or a digest), never latest or nothing, except in a service that builds its own image.
 files:
-  - "**/compose*.yml"
   - "**/compose*.yaml"
-  - "**/docker-compose*.yml"
+  - "**/compose*.yml"
   - "**/docker-compose*.yaml"
+  - "**/docker-compose*.yml"
 rule:
   kind: block_mapping_pair
   has:
@@ -15319,8 +15523,9 @@ severity: error
 message: forge:python/no-stub No stub left behind. A function whose body is only pass or ..., or that raises NotImplementedError, is a stub unless it is abstract, an overload or part of a Protocol (stub files and migrations are exempt).
 ignores:
   - "**/*.pyi"
-  - "**/alembic/versions/**"
-  - "**/migrations/**"
+  - alembic/versions/**
+  - migrations/versions/**
+  - "**/migrations/[0-9]*.py"
 rule:
   all:
     - any:
@@ -15932,10 +16137,10 @@ forge_check_meta_1() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_1() {
-  case $1 in compose*.yml|*/compose*.yml|compose*.yaml|*/compose*.yaml|docker-compose*.yml|*/docker-compose*.yml|docker-compose*.yaml|*/docker-compose*.yaml) ;; *) return 1 ;; esac
+  case $1 in compose*.yaml|*/compose*.yaml|compose*.yml|*/compose*.yml|docker-compose*.yaml|*/docker-compose*.yaml|docker-compose*.yml|*/docker-compose*.yml) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_1() { case $1 in compose*.yml|*/compose*.yml|compose*.yaml|*/compose*.yaml|docker-compose*.yml|*/docker-compose*.yml|docker-compose*.yaml|*/docker-compose*.yaml|.env.example|*/.env.example) return 0 ;; esac; return 1; }
+forge_when_1() { case $1 in compose*.yaml|*/compose*.yaml|compose*.yml|*/compose*.yml|docker-compose*.yaml|*/docker-compose*.yaml|docker-compose*.yml|*/docker-compose*.yml|.env.example|*/.env.example) return 0 ;; esac; return 1; }
 forge_check_run_1() {
 [ -z "$(ls compose.yaml compose.yml docker-compose.yaml docker-compose.yml 2>/dev/null)" ] || docker compose config --quiet --no-interpolate --no-env-resolution
 }
@@ -15961,10 +16166,11 @@ forge_check_meta_3() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_3() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_3() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_3() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_3() {
 forge_hadolint DL3020
 }
@@ -15976,10 +16182,11 @@ forge_check_meta_4() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_4() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_4() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|.dockerignore|*/.dockerignore|*.dockerignore|*/*.dockerignore) return 0 ;; esac; return 1; }
+forge_when_4() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore|.dockerignore|*/.dockerignore|*.dockerignore|*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_4() {
 forge_docker_ignore
 }
@@ -15991,10 +16198,11 @@ forge_check_meta_5() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_5() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_5() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_5() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_5() {
 forge_hadolint DL3025
 }
@@ -16006,10 +16214,11 @@ forge_check_meta_6() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_6() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_6() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_6() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_6() {
 forge_docker_locked
 }
@@ -16021,10 +16230,11 @@ forge_check_meta_7() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_7() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_7() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_7() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_7() {
 forge_docker_secrets
 }
@@ -16036,10 +16246,11 @@ forge_check_meta_8() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_8() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_8() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_8() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_8() {
 forge_docker_nonroot
 }
@@ -16051,10 +16262,11 @@ forge_check_meta_9() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_9() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_9() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_9() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_9() {
 forge_hadolint DL3006 DL3007
 }
@@ -16066,10 +16278,11 @@ forge_check_meta_10() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_10() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_10() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_10() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_10() {
 forge_hadolint DL4006
 }
@@ -16081,10 +16294,11 @@ forge_check_meta_11() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_11() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
   case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_11() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac; return 1; }
+forge_when_11() { case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|\!*.dockerignore|\!*/*.dockerignore) return 0 ;; esac; return 1; }
 forge_check_run_11() {
 forge_hadolint DL3045
 }
@@ -16188,6 +16402,17 @@ forge_grep_meta_2() {
 }
 forge_grep_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+
+# File roles (§15.4): forge_role <@role> <path>.
+forge_role() {
+  case ${1#@} in
+    alembic-migrations) case $2 in alembic/versions/*|migrations/versions/*) return 0 ;; esac ;;
+    compose) case $2 in compose*.yaml|*/compose*.yaml|compose*.yml|*/compose*.yml|docker-compose*.yaml|*/docker-compose*.yaml|docker-compose*.yml|*/docker-compose*.yml) return 0 ;; esac ;;
+    django-migrations) case $2 in migrations/[0-9]*.py|*/migrations/[0-9]*.py) return 0 ;; esac ;;
+    dockerfile) case $2 in *.dockerignore|*/*.dockerignore) return 1 ;; esac; case $2 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac ;;
+  esac
   return 1
 }
 # ---- end of generated checks
@@ -17194,10 +17419,11 @@ Linux-arm64 f6198ef8090f404dbb771abfee086eb8c48ac177f30da7fd3510aca35b344b5d
 Darwin-arm64 5c09f3213f8e40406abe048233d985eebef336d4a6a20021be47fadb6cf480a2
 Darwin-x86_64 ffe9bb18b23d5ed1eae50237aecdbb523d016e96da0bd4e7aa432040acfc3fde'
 
-# forge_dockerfiles: the Dockerfiles / Containerfiles of $FORGE_FILES, else every tracked one.
+# forge_dockerfiles: the files of $FORGE_FILES in file role @dockerfile (§15.4), else every tracked one.
 forge_dockerfiles() {
   if [ -n "$FORGE_FILES" ]; then printf '%s\n' "$FORGE_FILES"; else git ls-files 2>/dev/null; fi \
-    | grep -E '(^|/)(Dockerfile(\.[^/]*)?|[^/]*\.Dockerfile|Containerfile)$' | grep -v '\.dockerignore$'
+    | while IFS= read -r _df_f; do forge_role @dockerfile "$_df_f" && printf '%s\n' "$_df_f"; done
+  return 0
 }
 
 # forge_hadolint <code>...: "path:line CODE: message" for the named hadolint codes.
@@ -17522,10 +17748,12 @@ forge_squawk_files() {
 }
 
 # forge_alembic_files: Alembic revision ids on stdin (as printed by `alembic heads`)
-# -> the revision files under alembic/versions that define them.
+# -> the revision files (file role @alembic-migrations) that define them.
 forge_alembic_files() {
+  forge_role_files @alembic-migrations | grep '\.py$' > "$FORGE_TMP/alembic.all"
   awk '{ print $1 }' | while read -r _fa_id; do
-    [ -n "$_fa_id" ] && find alembic/versions -name '*.py' -exec grep -lE "^revision[^=]*=[[:space:]]*['\"]$_fa_id['\"]" {} + 2>/dev/null
+    # shellcheck disable=SC2046
+    [ -n "$_fa_id" ] && [ -s "$FORGE_TMP/alembic.all" ] && grep -lE "^revision[^=]*=[[:space:]]*['\"]$_fa_id['\"]" $(cat "$FORGE_TMP/alembic.all") 2>/dev/null
   done
 }
 
@@ -17565,10 +17793,12 @@ forge_squawk_alembic() {
 # down_revision), so revisions written before a rule was adopted do not fail CI.
 forge_alembic_targets() {
   if [ -n "$FORGE_FILES" ]; then
-    printf '%s\n' "$FORGE_FILES" | grep -E '^alembic/versions/.*\.py$'
+    printf '%s\n' "$FORGE_FILES" | while IFS= read -r _at_f; do
+      case $_at_f in *.py) forge_role @alembic-migrations "$_at_f" && printf '%s\n' "$_at_f" ;; esac
+    done
     return 0
   fi
-  find alembic/versions -name '*.py' 2>/dev/null | sort > "$FORGE_TMP/alembic.revs"
+  forge_role_files @alembic-migrations | grep '\.py$' | sort > "$FORGE_TMP/alembic.revs"
   [ -s "$FORGE_TMP/alembic.revs" ] || return 0
   # shellcheck disable=SC2046
   awk '
@@ -18085,6 +18315,32 @@ forge_drizzle_migration_present() {
   done < "$FORGE_TMP/dz.schema"
   printf 'Generate it (drizzle-kit generate) and keep the SQL, meta/_journal.json and the snapshot together; never write them by hand.\n'
   return 1
+}
+
+# forge_role_files <@role>: the repository's files (tracked, and untracked but not ignored)
+# of a file role (§15.4), by forge_role (rendered with the role's effective patterns).
+forge_role_files() {
+  git ls-files -co --exclude-standard 2>/dev/null | while IFS= read -r _rf_f; do
+    forge_role "$1" "$_rf_f" && printf '%s\n' "$_rf_f"
+  done
+  return 0
+}
+
+# forge_applied_migrations <@role>...: migrations (the files of the roles) that exist in the
+# base are not modified or deleted; a change goes in a new migration. Not with --all (no base).
+forge_applied_migrations() {
+  [ "$mode" != --all ] || return 0
+  _am_rc=0
+  while IFS= read -r _am_f; do
+    for _am_r in "$@"; do
+      forge_role "$_am_r" "$_am_f" || continue
+      if [ -f "$_am_f" ]; then _am_what=modified; else _am_what=deleted; fi
+      printf '%s: an existing migration was %s; it may already be applied somewhere, so write a new migration instead\n' "$_am_f" "$_am_what"
+      _am_rc=1
+      break
+    done
+  done < "$FORGE_TMP/inbase"
+  return "$_am_rc"
 }
 
 # forge_drizzle_applied: migrations (SQL and snapshots in the out folder) that exist in
@@ -19382,25 +19638,25 @@ forge_end "$fail"
   "forge_version": "0.5.0",
   "claude_code_min": "2.1.295",
   "rules": {
-    "docker/compose/config-valid": "c4f8a388cb7ff67fd9b5ff23c83ebfd9c5d48a2b9dc5f4ca168729d0dce16ac2",
-    "docker/compose/datastore-loopback": "39ab90bf903a1cdf2dc8d865d0c868285b01c274622c79a77116b41ad31e84ba",
+    "docker/compose/config-valid": "d2f66b3e007c386ecc7b0b2964fc29d7132700b28934ca75e9dbb7ba3ebd1569",
+    "docker/compose/datastore-loopback": "43892d01fdec9ac491fb3882ad2a7438af2f84e859d033a538485cd7bbbac2c3",
     "docker/compose/env-not-committed": "f4ee68aa3a04c07cc5a0c7a9bea7ea8351083c9d4c0595e7049efc4652f2e4be",
-    "docker/compose/healthy-depends": "f244946443fe92efc6988b3df2ca3f5bf82baa34234d3f27b87fa1294ec0d6aa",
-    "docker/compose/no-docker-sock": "36558153b043727b080540b2ca545bfa8cff3b93c91a24ff45f235e17775b091",
-    "docker/compose/no-host-root-mounts": "8f435338faa7c85337238f4d2791dd5ec879caa15288f0d397229348178aca64",
-    "docker/compose/no-inline-secrets": "763fdf3de214ac740cc1f5a83f13ef2525f76aaa9566e9ca57971a1d7fdcdb5c",
-    "docker/compose/no-privileged": "c535b4745a4855ac6d398f25656ff398247e4fc50534867d3052e8cfd64c3e7e",
-    "docker/compose/no-version-key": "7574b47f0eaa30dc81220b1fbe5aa1f562bfb24103f30229b7e427182a6ab009",
-    "docker/compose/pinned-images": "480947fe98554281f93bee79024a88d1831a91fb4e078ff5f591b2b520b3305f",
-    "docker/copy-not-add": "1ae2fd3e6c9fd7d438afd9658c00c67cdd7a16c0dde50810ade107b8ad98c80b",
-    "docker/dockerignore": "659acf534667174bafbd9529da07cb59f289c6153ddd67ca08bc227825e4c176",
-    "docker/exec-form": "0f592554fe69c8e4389ac94c49f77ac710751f76b82ec1419aaa31a3a5e3af2c",
-    "docker/locked-install": "5292c471e078e6c15b373a5899b45d964d9e47a3389e2b8962eb167604654541",
-    "docker/no-secret-arg-env": "ff8b9bcaae53a5402df7a13a5cd7596951706221e4f9ac2673621db67b5a15d0",
-    "docker/non-root-user": "246143c09af7b076953dd326754c0fb398bc8c4affa70e8523eaf1000c3c57f2",
-    "docker/pin-base-image": "85ec4db95b5032bc0529f10fdca117b5b5e5b8097f5045e01f832e2d546853db",
-    "docker/pipefail": "ccf735744ca50df126f9400f9ffbc299bad12e6c360ea901947e487b2d17a21d",
-    "docker/workdir": "b38dc1c2698c966548c93aa21ebacad5c75a53b8083427533be1f552ed28928c",
+    "docker/compose/healthy-depends": "28a47bf2921dd7041a878ff5d7c089ce75a0711aefb88e00b599c51b95e5aa29",
+    "docker/compose/no-docker-sock": "544a4ff4105d0a67f445ec265dc00088b21f1d7100cd11e646829156d2c84214",
+    "docker/compose/no-host-root-mounts": "668048d320eab4bc13a818dd9b9f5d085d271025e7869ad4b09740c86ce959e4",
+    "docker/compose/no-inline-secrets": "855fe35726fd9131bd87587a9f3947aaa0d5370bfcdb1a3202a6733186600e53",
+    "docker/compose/no-privileged": "5870ca015ca64a9cb94b4e66aff16e9f12b5e832ee4f79c5c5d7e323e0fce856",
+    "docker/compose/no-version-key": "91ec3635e4dd2da89e4a10a2a8aab160d3106d38a24389bb84ece0174e65d2b7",
+    "docker/compose/pinned-images": "13729d3fc187e8e27b993e53842a96e4d73ac1dde1f55502d32a9d501764f2cd",
+    "docker/copy-not-add": "5c3ab1b028c86b84d5ef86e0486b97cd9470fbb31056f788b6b8713ed5cfe83a",
+    "docker/dockerignore": "99f013f0c52289375c0f2552ab0ee5a4e7b8f56e399cd1d53de0a8dd85890540",
+    "docker/exec-form": "18e5e51155d61fe2a856c665a8015de70fe3fbbc5589131e75a3c9a2b469e012",
+    "docker/locked-install": "a5495533935cc356e8fced1905edd6270f4ee74ab11aa4962428532f94673280",
+    "docker/no-secret-arg-env": "82dbb6e788a6f4951d9acfe5bc05c62a0e90db51be84fe17c4121f2568f7a4f7",
+    "docker/non-root-user": "632b555a85749702d4547dea1ce0c84bf6c4382b03a6c004df5200c13b84edab",
+    "docker/pin-base-image": "4b3c4da19bfd220fc4bd457a6845ee83ae91c36a729a4309f4e69f8682c7cdc3",
+    "docker/pipefail": "a139fc92536169041f21e1e7a004f80fc8c4930adceec45f4e2b90709725d0e8",
+    "docker/workdir": "e93bb4f7873a3ad1bc8def88a259d8ec4d2bb461d58dc0ac924f5fb46eae09de",
     "github-actions/zizmor": "ae9224ad36bad4208e891d964d601d5d19f9e0216044d307918e59bf9058bba5",
     "python/aware-datetime": "34edbcba3e80528562da1cc94eaf4c50305b8749f03027d6b653546eb64bd5dc",
     "python/config-files": "10a4c68ce6ad01cd9aef64ddc48117984fc693c065aafd4ec566327a2d109f20",
@@ -19428,7 +19684,7 @@ forge_end "$fail"
     "python/no-silent-except": "cb885f3faac45a814f4f080cecd5b5de600926626ba454fd8776ab5abf10185c",
     "python/no-sql-format": "7946d9a48b8df9239ac68a0bf2b4b3880171d2e72426507d623d36a5c7035e4c",
     "python/no-stale-ignore": "025c59ddb4f717e8f1cdb657b3c4dc20d9956546d59bd263f40bf7ab3f55a6aa",
-    "python/no-stub": "eeec4edd5c17679b9c1ffe5fed019b968ed15975a2636b78bdcb632043885be9",
+    "python/no-stub": "b2b4943b8db051e5e64d410b2a3a6538c71c931c7bc8e474dfa2883dc6993a50",
     "python/no-tls-bypass": "4196bdee89c3f655bbbf51c477b21ac4834f3c680211fa6b9d26d3d2a7695695",
     "python/no-unknown": "6355a10b97485aaad9f6857abef12eba928769a8a9634da109b916b156e2f036",
     "python/no-unsafe-yaml": "3a1aa90fcb8512a33df1c4afff6717b4cb4e95f77c634409f7f7b6221eabad92",
@@ -19450,13 +19706,13 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "ff61a19974ccfc38fe6771978c9f9fe21253d4132eff8af9f06b112607965a00",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
     ".claude/skills/forge-project/scripts/lib.sh": "83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "d429d43929666e145934a8be37f4758b933e5047ac282cd5b98bf9af4092856e",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "7dc04c630f82ef65c5d8a079bfd2418501b52ae2e8d8041d599cf6200f09359c",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
-    ".claude/skills/forge-project/scripts/session-start.sh": "aee6e2072d14ffad1aafe8ccd8ba115293db6137593f185f3d612c71e4d0b140",
+    ".claude/skills/forge-project/scripts/session-start.sh": "1004b3f06bef85b95cfb502d877cf73b104bf11e2322f1336653ae903956e402",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "80f57800409a318fe1c9a66db03bfaa09130dbe2cb3174aef09e7a7040b9fe5d",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "7f7ff5eb365d78ba44ac6781a983588d3edd7594ad5097832ffa79aff7dec1d3",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "2e3be4bf4e27b9d3bc5c3c750a54d8a6a6983367bf8c00a1ef3f58a9645e8cb6",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "b75f8b050e9d1bb623907cdc0e78fca00cc4f111f746fde9e2f59c841301d7c4",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/docker-compose-datastore-loopback-test.yml": "75507971edac1d4a2eca04e6bceb8a942429c0987372010b39ad0b7f126b55e9",
     ".forge/ast-grep/rule-tests/docker-compose-healthy-depends-test.yml": "bcd21e7f9112e5f0d44c9f5c9779824661b2f1dc40448323100787f342c4b7a8",
@@ -19467,17 +19723,17 @@ forge_end "$fail"
     ".forge/ast-grep/rule-tests/docker-compose-no-version-key-test.yml": "38738a83519fff330da789bbf9e39ecc9b5dea0b7aa453cf9783bebfe1cf30ea",
     ".forge/ast-grep/rule-tests/docker-compose-pinned-images-test.yml": "4310a184f20efdaf1bcc48d930d61205a736f766500cd68b1e8a3c83adc7b270",
     ".forge/ast-grep/rule-tests/python-no-stub-test.yml": "caa135cd54c3f53d5d2fbb85c518a2e94d263fd9a4860a63d224c7187432275b",
-    ".forge/ast-grep/rules/docker/compose/datastore-loopback.yml": "ff139de8b2cf5873b341dc86ae819174d0329c518d148897a00ec762627cc246",
-    ".forge/ast-grep/rules/docker/compose/healthy-depends.yml": "c5b376c86c683b2f6229ff36d0fba48fc052f4d5e5cee42089219e55da8395f5",
-    ".forge/ast-grep/rules/docker/compose/no-docker-sock.yml": "c26e51b95ad235db2654084c1c8402b34104313d0e98b83769864d72799ca660",
-    ".forge/ast-grep/rules/docker/compose/no-host-root-mounts.yml": "e0a63f986124eda783d7fe8e9cd44b0858b399102ce3e2a024bf02e87cf41612",
-    ".forge/ast-grep/rules/docker/compose/no-inline-secrets.yml": "b891aa174ec0c97b2d5e0a8ca85861b29ad30786650a347ec842b3dfe3ee0df7",
-    ".forge/ast-grep/rules/docker/compose/no-privileged.yml": "76bde16300660bc38ac472cdd5bcd811bbbfb9b6ec4f3cf3c9b0e85fcde700a7",
-    ".forge/ast-grep/rules/docker/compose/no-version-key.yml": "e4fd92858db90ac12b535496548f182e453e83bc9cb24f53a102ab7fc98cd67b",
-    ".forge/ast-grep/rules/docker/compose/pinned-images.yml": "026540d386ff8d8bd6f4f1951063c2fcd5cb8a96d8c7184f97e0887e3241c01a",
-    ".forge/ast-grep/rules/python/no-stub.yml": "0660a06b80fa4e3cccbc89f496275e8f093b873632d1d93ecb48e4315d987bbf",
+    ".forge/ast-grep/rules/docker/compose/datastore-loopback.yml": "801ec9ec099808466e80ab7a980d555f99fe58f2ada28b7f0f09a9622b246482",
+    ".forge/ast-grep/rules/docker/compose/healthy-depends.yml": "6e159e195d38994eb8851b81fbb4963918f5f363c51b6edb957d182936962203",
+    ".forge/ast-grep/rules/docker/compose/no-docker-sock.yml": "351aa80b1e653dfb260f778c703d3b28fa6ed40a951a608b57000f50e644df7c",
+    ".forge/ast-grep/rules/docker/compose/no-host-root-mounts.yml": "8413e9ba45cf720a7e6d13cdced0842cfe8662f37223c31ebec5dfd4bb8a8f4b",
+    ".forge/ast-grep/rules/docker/compose/no-inline-secrets.yml": "c429782050868700e55baa177a8050b633ddaa245be06e538efb42bc24eb0251",
+    ".forge/ast-grep/rules/docker/compose/no-privileged.yml": "b4070f06a5d955838295c55274ede20ef90cd60b1bd39c52f7c81f9d2b9f1854",
+    ".forge/ast-grep/rules/docker/compose/no-version-key.yml": "fb509328e86bda30b5e5d0c094f45ca28c61c4a1009a22c39a25f21bf11bb0c3",
+    ".forge/ast-grep/rules/docker/compose/pinned-images.yml": "8db2a6c914287677a9a2f33b8c90ecf5502cc36a4a31faf75c0a55b77ce052d2",
+    ".forge/ast-grep/rules/python/no-stub.yml": "54a1d2a3cf63ed4bac8a9fe67d53119564d1e0b41752c2ed85a693f926557628",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "c4857756ffd554462fbdaed2ee2526a103fdd1c7e7abb1c668060abf62712224",
+    ".forge/check.sh": "8b8576281b5765a2bbbb305032c0c785df0559821f91f2776ebbe81aa8b1927b",
     ".forge/helpers/ratchet.py": "4f7e312b9419bd1ee09fe9cd3e988546bba089d706cb1b44e4546c4b4c87173d",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
@@ -19517,7 +19773,29 @@ forge_end "$fail"
       "path": "permissions.ask",
       "value": "Edit(**/ty.toml)"
     }
-  ]
+  ],
+  "roles": {
+    "alembic-migrations": [
+      "alembic/versions/**",
+      "migrations/versions/**"
+    ],
+    "compose": [
+      "**/compose*.yaml",
+      "**/compose*.yml",
+      "**/docker-compose*.yaml",
+      "**/docker-compose*.yml"
+    ],
+    "django-migrations": [
+      "**/migrations/[0-9]*.py"
+    ],
+    "dockerfile": [
+      "**/Dockerfile",
+      "**/Dockerfile.*",
+      "**/*.Dockerfile",
+      "**/Containerfile",
+      "!**/*.dockerignore"
+    ]
+  }
 }
 
 ===== .forge/helpers/ratchet.py
@@ -19742,13 +20020,13 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 ff61a19974ccfc38fe6771978c9f9fe21253d4132eff8af9f06b112607965a00  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
 83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5  .claude/skills/forge-project/scripts/lib.sh
-d429d43929666e145934a8be37f4758b933e5047ac282cd5b98bf9af4092856e  .claude/skills/forge-project/scripts/post-edit.sh
+7dc04c630f82ef65c5d8a079bfd2418501b52ae2e8d8041d599cf6200f09359c  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
-aee6e2072d14ffad1aafe8ccd8ba115293db6137593f185f3d612c71e4d0b140  .claude/skills/forge-project/scripts/session-start.sh
+1004b3f06bef85b95cfb502d877cf73b104bf11e2322f1336653ae903956e402  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-80f57800409a318fe1c9a66db03bfaa09130dbe2cb3174aef09e7a7040b9fe5d  .claude/skills/forge-project/scripts/test-edit.sh
+7f7ff5eb365d78ba44ac6781a983588d3edd7594ad5097832ffa79aff7dec1d3  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-2e3be4bf4e27b9d3bc5c3c750a54d8a6a6983367bf8c00a1ef3f58a9645e8cb6  .claude/skills/forge-project/scripts/typecheck.sh
+b75f8b050e9d1bb623907cdc0e78fca00cc4f111f746fde9e2f59c841301d7c4  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 75507971edac1d4a2eca04e6bceb8a942429c0987372010b39ad0b7f126b55e9  .forge/ast-grep/rule-tests/docker-compose-datastore-loopback-test.yml
 bcd21e7f9112e5f0d44c9f5c9779824661b2f1dc40448323100787f342c4b7a8  .forge/ast-grep/rule-tests/docker-compose-healthy-depends-test.yml
@@ -19759,17 +20037,17 @@ f27f61f7237b9fa5db5bff95713420e234c25de09c0011e58483499a83fb8821  .forge/ast-gre
 38738a83519fff330da789bbf9e39ecc9b5dea0b7aa453cf9783bebfe1cf30ea  .forge/ast-grep/rule-tests/docker-compose-no-version-key-test.yml
 4310a184f20efdaf1bcc48d930d61205a736f766500cd68b1e8a3c83adc7b270  .forge/ast-grep/rule-tests/docker-compose-pinned-images-test.yml
 caa135cd54c3f53d5d2fbb85c518a2e94d263fd9a4860a63d224c7187432275b  .forge/ast-grep/rule-tests/python-no-stub-test.yml
-ff139de8b2cf5873b341dc86ae819174d0329c518d148897a00ec762627cc246  .forge/ast-grep/rules/docker/compose/datastore-loopback.yml
-c5b376c86c683b2f6229ff36d0fba48fc052f4d5e5cee42089219e55da8395f5  .forge/ast-grep/rules/docker/compose/healthy-depends.yml
-c26e51b95ad235db2654084c1c8402b34104313d0e98b83769864d72799ca660  .forge/ast-grep/rules/docker/compose/no-docker-sock.yml
-e0a63f986124eda783d7fe8e9cd44b0858b399102ce3e2a024bf02e87cf41612  .forge/ast-grep/rules/docker/compose/no-host-root-mounts.yml
-b891aa174ec0c97b2d5e0a8ca85861b29ad30786650a347ec842b3dfe3ee0df7  .forge/ast-grep/rules/docker/compose/no-inline-secrets.yml
-76bde16300660bc38ac472cdd5bcd811bbbfb9b6ec4f3cf3c9b0e85fcde700a7  .forge/ast-grep/rules/docker/compose/no-privileged.yml
-e4fd92858db90ac12b535496548f182e453e83bc9cb24f53a102ab7fc98cd67b  .forge/ast-grep/rules/docker/compose/no-version-key.yml
-026540d386ff8d8bd6f4f1951063c2fcd5cb8a96d8c7184f97e0887e3241c01a  .forge/ast-grep/rules/docker/compose/pinned-images.yml
-0660a06b80fa4e3cccbc89f496275e8f093b873632d1d93ecb48e4315d987bbf  .forge/ast-grep/rules/python/no-stub.yml
+801ec9ec099808466e80ab7a980d555f99fe58f2ada28b7f0f09a9622b246482  .forge/ast-grep/rules/docker/compose/datastore-loopback.yml
+6e159e195d38994eb8851b81fbb4963918f5f363c51b6edb957d182936962203  .forge/ast-grep/rules/docker/compose/healthy-depends.yml
+351aa80b1e653dfb260f778c703d3b28fa6ed40a951a608b57000f50e644df7c  .forge/ast-grep/rules/docker/compose/no-docker-sock.yml
+8413e9ba45cf720a7e6d13cdced0842cfe8662f37223c31ebec5dfd4bb8a8f4b  .forge/ast-grep/rules/docker/compose/no-host-root-mounts.yml
+c429782050868700e55baa177a8050b633ddaa245be06e538efb42bc24eb0251  .forge/ast-grep/rules/docker/compose/no-inline-secrets.yml
+b4070f06a5d955838295c55274ede20ef90cd60b1bd39c52f7c81f9d2b9f1854  .forge/ast-grep/rules/docker/compose/no-privileged.yml
+fb509328e86bda30b5e5d0c094f45ca28c61c4a1009a22c39a25f21bf11bb0c3  .forge/ast-grep/rules/docker/compose/no-version-key.yml
+8db2a6c914287677a9a2f33b8c90ecf5502cc36a4a31faf75c0a55b77ce052d2  .forge/ast-grep/rules/docker/compose/pinned-images.yml
+54a1d2a3cf63ed4bac8a9fe67d53119564d1e0b41752c2ed85a693f926557628  .forge/ast-grep/rules/python/no-stub.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-c4857756ffd554462fbdaed2ee2526a103fdd1c7e7abb1c668060abf62712224  .forge/check.sh
+8b8576281b5765a2bbbb305032c0c785df0559821f91f2776ebbe81aa8b1927b  .forge/check.sh
 4f7e312b9419bd1ee09fe9cd3e988546bba089d706cb1b44e4546c4b4c87173d  .forge/helpers/ratchet.py
 
 ===== .git/hooks/pre-commit

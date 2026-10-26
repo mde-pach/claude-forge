@@ -1261,7 +1261,7 @@ forge_check_meta_2() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_2() {
-  case $1 in e2e/*) return 1 ;; esac
+  case $1 in e2e/*|tests/e2e/*) return 1 ;; esac
   case $1 in *.test.*|*/*.test.*|*_test.*|*/*_test.*|*.spec.*|*/*.spec.*|*_spec.*|*/*_spec.*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
@@ -1425,7 +1425,7 @@ forge_check_meta_12() {
 forge_scope_12() {
   return 0
 }
-forge_when_12() { case $1 in package.json|e2e/*|*.spec.*|*/*.spec.*) return 0 ;; esac; return 1; }
+forge_when_12() { case $1 in package.json|e2e/*|tests/e2e/*|*.spec.*|*/*.spec.*) return 0 ;; esac; return 1; }
 forge_check_run_12() {
 ! grep -q '"@axe-core/playwright"' package.json 2>/dev/null || git ls-files -z -- 'e2e/*' '*.spec.*' | xargs -0 grep -l AxeBuilder /dev/null | grep -q . || { echo 'package.json depends on @axe-core/playwright but no e2e test uses AxeBuilder'; false; }
 }
@@ -1437,7 +1437,7 @@ forge_check_meta_13() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_13() {
-  case $1 in e2e/*) ;; *) return 1 ;; esac
+  case $1 in e2e/*|tests/e2e/*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
@@ -1455,7 +1455,7 @@ forge_check_meta_14() {
 forge_scope_14() {
   return 0
 }
-forge_when_14() { case $1 in e2e/*|playwright.config.*) return 0 ;; esac; return 1; }
+forge_when_14() { case $1 in e2e/*|tests/e2e/*|playwright.config.*) return 0 ;; esac; return 1; }
 forge_check_run_14() {
 playwright test --reporter=line
 }
@@ -1572,8 +1572,8 @@ forge_check_meta_21() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_21() {
-  case $1 in e2e/*) return 1 ;; esac
-  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|__mocks__/*|*/__mocks__/*|test-utils.*|*/test-utils.*|test-helpers.*|*/test-helpers.*|vitest.setup.*|*/vitest.setup.*) ;; *) return 1 ;; esac
+  case $1 in e2e/*|tests/e2e/*) return 1 ;; esac
+  case $1 in *.test.ts|*/*.test.ts|*.test.tsx|*/*.test.tsx|*.test.mts|*/*.test.mts|*.test.cts|*/*.test.cts|*.test.js|*/*.test.js|*.test.jsx|*/*.test.jsx|*.test.mjs|*/*.test.mjs|*.test.cjs|*/*.test.cjs|*.spec.ts|*/*.spec.ts|*.spec.tsx|*/*.spec.tsx|*.spec.mts|*/*.spec.mts|*.spec.cts|*/*.spec.cts|*.spec.js|*/*.spec.js|*.spec.jsx|*/*.spec.jsx|*.spec.mjs|*/*.spec.mjs|*.spec.cjs|*/*.spec.cjs|__tests__/*|*/__tests__/*|__mocks__/*|*/__mocks__/*|test-utils.*|*/test-utils.*|test-helpers.*|*/test-helpers.*|vitest.setup.*|*/vitest.setup.*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
@@ -1624,7 +1624,7 @@ forge_check_meta_24() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_24() {
-  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts) return 1 ;; esac
+  case $1 in *.test.ts|*/*.test.ts|*.test.tsx|*/*.test.tsx|*.test.mts|*/*.test.mts|*.test.cts|*/*.test.cts|*.test.js|*/*.test.js|*.test.jsx|*/*.test.jsx|*.test.mjs|*/*.test.mjs|*.test.cjs|*/*.test.cjs|*.spec.ts|*/*.spec.ts|*.spec.tsx|*/*.spec.tsx|*.spec.mts|*/*.spec.mts|*.spec.cts|*/*.spec.cts|*.spec.js|*/*.spec.js|*.spec.jsx|*/*.spec.jsx|*.spec.mjs|*/*.spec.mjs|*.spec.cjs|*/*.spec.cjs|__tests__/*|*/__tests__/*|e2e/*|tests/e2e/*|*.d.ts|*/*.d.ts) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
@@ -1640,7 +1640,7 @@ forge_check_meta_25() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_25() {
-  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts|*.config.*|*/*.config.*) return 1 ;; esac
+  case $1 in *.test.ts|*/*.test.ts|*.test.tsx|*/*.test.tsx|*.test.mts|*/*.test.mts|*.test.cts|*/*.test.cts|*.test.js|*/*.test.js|*.test.jsx|*/*.test.jsx|*.test.mjs|*/*.test.mjs|*.test.cjs|*/*.test.cjs|*.spec.ts|*/*.spec.ts|*.spec.tsx|*/*.spec.tsx|*.spec.mts|*/*.spec.mts|*.spec.cts|*/*.spec.cts|*.spec.js|*/*.spec.js|*.spec.jsx|*/*.spec.jsx|*.spec.mjs|*/*.spec.mjs|*.spec.cjs|*/*.spec.cjs|__tests__/*|*/__tests__/*|e2e/*|tests/e2e/*|*.d.ts|*/*.d.ts|*.config.*|*/*.config.*) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
@@ -1672,6 +1672,17 @@ forge_grep_meta_2() {
 }
 forge_grep_scope_2() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+
+# File roles (§15.4): forge_role <@role> <path>.
+forge_role() {
+  case ${1#@} in
+    alembic-migrations) case $2 in alembic/versions/*|migrations/versions/*) return 0 ;; esac ;;
+    dockerfile) case $2 in *.dockerignore|*/*.dockerignore) return 1 ;; esac; case $2 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac ;;
+    e2e-tests) case $2 in e2e/*|tests/e2e/*) return 0 ;; esac ;;
+    ts-tests) case $2 in *.test.ts|*/*.test.ts|*.test.tsx|*/*.test.tsx|*.test.mts|*/*.test.mts|*.test.cts|*/*.test.cts|*.test.js|*/*.test.js|*.test.jsx|*/*.test.jsx|*.test.mjs|*/*.test.mjs|*.test.cjs|*/*.test.cjs|*.spec.ts|*/*.spec.ts|*.spec.tsx|*/*.spec.tsx|*.spec.mts|*/*.spec.mts|*.spec.cts|*/*.spec.cts|*.spec.js|*/*.spec.js|*.spec.jsx|*/*.spec.jsx|*.spec.mjs|*/*.spec.mjs|*.spec.cjs|*/*.spec.cjs|__tests__/*|*/__tests__/*) return 0 ;; esac ;;
+  esac
   return 1
 }
 # ---- end of generated checks
@@ -2678,10 +2689,11 @@ Linux-arm64 f6198ef8090f404dbb771abfee086eb8c48ac177f30da7fd3510aca35b344b5d
 Darwin-arm64 5c09f3213f8e40406abe048233d985eebef336d4a6a20021be47fadb6cf480a2
 Darwin-x86_64 ffe9bb18b23d5ed1eae50237aecdbb523d016e96da0bd4e7aa432040acfc3fde'
 
-# forge_dockerfiles: the Dockerfiles / Containerfiles of $FORGE_FILES, else every tracked one.
+# forge_dockerfiles: the files of $FORGE_FILES in file role @dockerfile (§15.4), else every tracked one.
 forge_dockerfiles() {
   if [ -n "$FORGE_FILES" ]; then printf '%s\n' "$FORGE_FILES"; else git ls-files 2>/dev/null; fi \
-    | grep -E '(^|/)(Dockerfile(\.[^/]*)?|[^/]*\.Dockerfile|Containerfile)$' | grep -v '\.dockerignore$'
+    | while IFS= read -r _df_f; do forge_role @dockerfile "$_df_f" && printf '%s\n' "$_df_f"; done
+  return 0
 }
 
 # forge_hadolint <code>...: "path:line CODE: message" for the named hadolint codes.
@@ -3006,10 +3018,12 @@ forge_squawk_files() {
 }
 
 # forge_alembic_files: Alembic revision ids on stdin (as printed by `alembic heads`)
-# -> the revision files under alembic/versions that define them.
+# -> the revision files (file role @alembic-migrations) that define them.
 forge_alembic_files() {
+  forge_role_files @alembic-migrations | grep '\.py$' > "$FORGE_TMP/alembic.all"
   awk '{ print $1 }' | while read -r _fa_id; do
-    [ -n "$_fa_id" ] && find alembic/versions -name '*.py' -exec grep -lE "^revision[^=]*=[[:space:]]*['\"]$_fa_id['\"]" {} + 2>/dev/null
+    # shellcheck disable=SC2046
+    [ -n "$_fa_id" ] && [ -s "$FORGE_TMP/alembic.all" ] && grep -lE "^revision[^=]*=[[:space:]]*['\"]$_fa_id['\"]" $(cat "$FORGE_TMP/alembic.all") 2>/dev/null
   done
 }
 
@@ -3049,10 +3063,12 @@ forge_squawk_alembic() {
 # down_revision), so revisions written before a rule was adopted do not fail CI.
 forge_alembic_targets() {
   if [ -n "$FORGE_FILES" ]; then
-    printf '%s\n' "$FORGE_FILES" | grep -E '^alembic/versions/.*\.py$'
+    printf '%s\n' "$FORGE_FILES" | while IFS= read -r _at_f; do
+      case $_at_f in *.py) forge_role @alembic-migrations "$_at_f" && printf '%s\n' "$_at_f" ;; esac
+    done
     return 0
   fi
-  find alembic/versions -name '*.py' 2>/dev/null | sort > "$FORGE_TMP/alembic.revs"
+  forge_role_files @alembic-migrations | grep '\.py$' | sort > "$FORGE_TMP/alembic.revs"
   [ -s "$FORGE_TMP/alembic.revs" ] || return 0
   # shellcheck disable=SC2046
   awk '
@@ -3569,6 +3585,32 @@ forge_drizzle_migration_present() {
   done < "$FORGE_TMP/dz.schema"
   printf 'Generate it (drizzle-kit generate) and keep the SQL, meta/_journal.json and the snapshot together; never write them by hand.\n'
   return 1
+}
+
+# forge_role_files <@role>: the repository's files (tracked, and untracked but not ignored)
+# of a file role (§15.4), by forge_role (rendered with the role's effective patterns).
+forge_role_files() {
+  git ls-files -co --exclude-standard 2>/dev/null | while IFS= read -r _rf_f; do
+    forge_role "$1" "$_rf_f" && printf '%s\n' "$_rf_f"
+  done
+  return 0
+}
+
+# forge_applied_migrations <@role>...: migrations (the files of the roles) that exist in the
+# base are not modified or deleted; a change goes in a new migration. Not with --all (no base).
+forge_applied_migrations() {
+  [ "$mode" != --all ] || return 0
+  _am_rc=0
+  while IFS= read -r _am_f; do
+    for _am_r in "$@"; do
+      forge_role "$_am_r" "$_am_f" || continue
+      if [ -f "$_am_f" ]; then _am_what=modified; else _am_what=deleted; fi
+      printf '%s: an existing migration was %s; it may already be applied somewhere, so write a new migration instead\n' "$_am_f" "$_am_what"
+      _am_rc=1
+      break
+    done
+  done < "$FORGE_TMP/inbase"
+  return "$_am_rc"
 }
 
 # forge_drizzle_applied: migrations (SQL and snapshots in the out folder) that exist in
@@ -4544,7 +4586,7 @@ FORGE_TYPES_LANGS='typescript'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='acf150afbdb9'
+FORGE_TYPES_REV='d293bd59f078'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -4847,7 +4889,7 @@ forge_check_meta_2() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_2() {
-  case $1 in e2e/*) return 1 ;; esac
+  case $1 in e2e/*|tests/e2e/*) return 1 ;; esac
   case $1 in *.test.*|*/*.test.*|*_test.*|*/*_test.*|*.spec.*|*/*.spec.*|*_spec.*|*/*_spec.*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
@@ -5011,7 +5053,7 @@ forge_check_meta_12() {
 forge_scope_12() {
   return 0
 }
-forge_when_12() { case $1 in package.json|e2e/*|*.spec.*|*/*.spec.*) return 0 ;; esac; return 1; }
+forge_when_12() { case $1 in package.json|e2e/*|tests/e2e/*|*.spec.*|*/*.spec.*) return 0 ;; esac; return 1; }
 forge_check_run_12() {
 ! grep -q '"@axe-core/playwright"' package.json 2>/dev/null || git ls-files -z -- 'e2e/*' '*.spec.*' | xargs -0 grep -l AxeBuilder /dev/null | grep -q . || { echo 'package.json depends on @axe-core/playwright but no e2e test uses AxeBuilder'; false; }
 }
@@ -5023,7 +5065,7 @@ forge_check_meta_13() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_13() {
-  case $1 in e2e/*) ;; *) return 1 ;; esac
+  case $1 in e2e/*|tests/e2e/*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
@@ -5041,7 +5083,7 @@ forge_check_meta_14() {
 forge_scope_14() {
   return 0
 }
-forge_when_14() { case $1 in e2e/*|playwright.config.*) return 0 ;; esac; return 1; }
+forge_when_14() { case $1 in e2e/*|tests/e2e/*|playwright.config.*) return 0 ;; esac; return 1; }
 forge_check_run_14() {
 playwright test --reporter=line
 }
@@ -5158,8 +5200,8 @@ forge_check_meta_21() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_21() {
-  case $1 in e2e/*) return 1 ;; esac
-  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|__mocks__/*|*/__mocks__/*|test-utils.*|*/test-utils.*|test-helpers.*|*/test-helpers.*|vitest.setup.*|*/vitest.setup.*) ;; *) return 1 ;; esac
+  case $1 in e2e/*|tests/e2e/*) return 1 ;; esac
+  case $1 in *.test.ts|*/*.test.ts|*.test.tsx|*/*.test.tsx|*.test.mts|*/*.test.mts|*.test.cts|*/*.test.cts|*.test.js|*/*.test.js|*.test.jsx|*/*.test.jsx|*.test.mjs|*/*.test.mjs|*.test.cjs|*/*.test.cjs|*.spec.ts|*/*.spec.ts|*.spec.tsx|*/*.spec.tsx|*.spec.mts|*/*.spec.mts|*.spec.cts|*/*.spec.cts|*.spec.js|*/*.spec.js|*.spec.jsx|*/*.spec.jsx|*.spec.mjs|*/*.spec.mjs|*.spec.cjs|*/*.spec.cjs|__tests__/*|*/__tests__/*|__mocks__/*|*/__mocks__/*|test-utils.*|*/test-utils.*|test-helpers.*|*/test-helpers.*|vitest.setup.*|*/vitest.setup.*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
@@ -5210,7 +5252,7 @@ forge_check_meta_24() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_24() {
-  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts) return 1 ;; esac
+  case $1 in *.test.ts|*/*.test.ts|*.test.tsx|*/*.test.tsx|*.test.mts|*/*.test.mts|*.test.cts|*/*.test.cts|*.test.js|*/*.test.js|*.test.jsx|*/*.test.jsx|*.test.mjs|*/*.test.mjs|*.test.cjs|*/*.test.cjs|*.spec.ts|*/*.spec.ts|*.spec.tsx|*/*.spec.tsx|*.spec.mts|*/*.spec.mts|*.spec.cts|*/*.spec.cts|*.spec.js|*/*.spec.js|*.spec.jsx|*/*.spec.jsx|*.spec.mjs|*/*.spec.mjs|*.spec.cjs|*/*.spec.cjs|__tests__/*|*/__tests__/*|e2e/*|tests/e2e/*|*.d.ts|*/*.d.ts) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
@@ -5226,7 +5268,7 @@ forge_check_meta_25() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_25() {
-  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts|*.config.*|*/*.config.*) return 1 ;; esac
+  case $1 in *.test.ts|*/*.test.ts|*.test.tsx|*/*.test.tsx|*.test.mts|*/*.test.mts|*.test.cts|*/*.test.cts|*.test.js|*/*.test.js|*.test.jsx|*/*.test.jsx|*.test.mjs|*/*.test.mjs|*.test.cjs|*/*.test.cjs|*.spec.ts|*/*.spec.ts|*.spec.tsx|*/*.spec.tsx|*.spec.mts|*/*.spec.mts|*.spec.cts|*/*.spec.cts|*.spec.js|*/*.spec.js|*.spec.jsx|*/*.spec.jsx|*.spec.mjs|*/*.spec.mjs|*.spec.cjs|*/*.spec.cjs|__tests__/*|*/__tests__/*|e2e/*|tests/e2e/*|*.d.ts|*/*.d.ts|*.config.*|*/*.config.*) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
@@ -5258,6 +5300,17 @@ forge_grep_meta_2() {
 }
 forge_grep_scope_2() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+
+# File roles (§15.4): forge_role <@role> <path>.
+forge_role() {
+  case ${1#@} in
+    alembic-migrations) case $2 in alembic/versions/*|migrations/versions/*) return 0 ;; esac ;;
+    dockerfile) case $2 in *.dockerignore|*/*.dockerignore) return 1 ;; esac; case $2 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac ;;
+    e2e-tests) case $2 in e2e/*|tests/e2e/*) return 0 ;; esac ;;
+    ts-tests) case $2 in *.test.ts|*/*.test.ts|*.test.tsx|*/*.test.tsx|*.test.mts|*/*.test.mts|*.test.cts|*/*.test.cts|*.test.js|*/*.test.js|*.test.jsx|*/*.test.jsx|*.test.mjs|*/*.test.mjs|*.test.cjs|*/*.test.cjs|*.spec.ts|*/*.spec.ts|*.spec.tsx|*/*.spec.tsx|*.spec.mts|*/*.spec.mts|*.spec.cts|*/*.spec.cts|*.spec.js|*/*.spec.js|*.spec.jsx|*/*.spec.jsx|*.spec.mjs|*/*.spec.mjs|*.spec.cjs|*/*.spec.cjs|__tests__/*|*/__tests__/*) return 0 ;; esac ;;
+  esac
   return 1
 }
 # ---- end of generated checks
@@ -6264,10 +6317,11 @@ Linux-arm64 f6198ef8090f404dbb771abfee086eb8c48ac177f30da7fd3510aca35b344b5d
 Darwin-arm64 5c09f3213f8e40406abe048233d985eebef336d4a6a20021be47fadb6cf480a2
 Darwin-x86_64 ffe9bb18b23d5ed1eae50237aecdbb523d016e96da0bd4e7aa432040acfc3fde'
 
-# forge_dockerfiles: the Dockerfiles / Containerfiles of $FORGE_FILES, else every tracked one.
+# forge_dockerfiles: the files of $FORGE_FILES in file role @dockerfile (§15.4), else every tracked one.
 forge_dockerfiles() {
   if [ -n "$FORGE_FILES" ]; then printf '%s\n' "$FORGE_FILES"; else git ls-files 2>/dev/null; fi \
-    | grep -E '(^|/)(Dockerfile(\.[^/]*)?|[^/]*\.Dockerfile|Containerfile)$' | grep -v '\.dockerignore$'
+    | while IFS= read -r _df_f; do forge_role @dockerfile "$_df_f" && printf '%s\n' "$_df_f"; done
+  return 0
 }
 
 # forge_hadolint <code>...: "path:line CODE: message" for the named hadolint codes.
@@ -6592,10 +6646,12 @@ forge_squawk_files() {
 }
 
 # forge_alembic_files: Alembic revision ids on stdin (as printed by `alembic heads`)
-# -> the revision files under alembic/versions that define them.
+# -> the revision files (file role @alembic-migrations) that define them.
 forge_alembic_files() {
+  forge_role_files @alembic-migrations | grep '\.py$' > "$FORGE_TMP/alembic.all"
   awk '{ print $1 }' | while read -r _fa_id; do
-    [ -n "$_fa_id" ] && find alembic/versions -name '*.py' -exec grep -lE "^revision[^=]*=[[:space:]]*['\"]$_fa_id['\"]" {} + 2>/dev/null
+    # shellcheck disable=SC2046
+    [ -n "$_fa_id" ] && [ -s "$FORGE_TMP/alembic.all" ] && grep -lE "^revision[^=]*=[[:space:]]*['\"]$_fa_id['\"]" $(cat "$FORGE_TMP/alembic.all") 2>/dev/null
   done
 }
 
@@ -6635,10 +6691,12 @@ forge_squawk_alembic() {
 # down_revision), so revisions written before a rule was adopted do not fail CI.
 forge_alembic_targets() {
   if [ -n "$FORGE_FILES" ]; then
-    printf '%s\n' "$FORGE_FILES" | grep -E '^alembic/versions/.*\.py$'
+    printf '%s\n' "$FORGE_FILES" | while IFS= read -r _at_f; do
+      case $_at_f in *.py) forge_role @alembic-migrations "$_at_f" && printf '%s\n' "$_at_f" ;; esac
+    done
     return 0
   fi
-  find alembic/versions -name '*.py' 2>/dev/null | sort > "$FORGE_TMP/alembic.revs"
+  forge_role_files @alembic-migrations | grep '\.py$' | sort > "$FORGE_TMP/alembic.revs"
   [ -s "$FORGE_TMP/alembic.revs" ] || return 0
   # shellcheck disable=SC2046
   awk '
@@ -7155,6 +7213,32 @@ forge_drizzle_migration_present() {
   done < "$FORGE_TMP/dz.schema"
   printf 'Generate it (drizzle-kit generate) and keep the SQL, meta/_journal.json and the snapshot together; never write them by hand.\n'
   return 1
+}
+
+# forge_role_files <@role>: the repository's files (tracked, and untracked but not ignored)
+# of a file role (§15.4), by forge_role (rendered with the role's effective patterns).
+forge_role_files() {
+  git ls-files -co --exclude-standard 2>/dev/null | while IFS= read -r _rf_f; do
+    forge_role "$1" "$_rf_f" && printf '%s\n' "$_rf_f"
+  done
+  return 0
+}
+
+# forge_applied_migrations <@role>...: migrations (the files of the roles) that exist in the
+# base are not modified or deleted; a change goes in a new migration. Not with --all (no base).
+forge_applied_migrations() {
+  [ "$mode" != --all ] || return 0
+  _am_rc=0
+  while IFS= read -r _am_f; do
+    for _am_r in "$@"; do
+      forge_role "$_am_r" "$_am_f" || continue
+      if [ -f "$_am_f" ]; then _am_what=modified; else _am_what=deleted; fi
+      printf '%s: an existing migration was %s; it may already be applied somewhere, so write a new migration instead\n' "$_am_f" "$_am_what"
+      _am_rc=1
+      break
+    done
+  done < "$FORGE_TMP/inbase"
+  return "$_am_rc"
 }
 
 # forge_drizzle_applied: migrations (SQL and snapshots in the out folder) that exist in
@@ -8130,7 +8214,7 @@ FORGE_TYPES_LANGS='typescript'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='acf150afbdb9'
+FORGE_TYPES_REV='d293bd59f078'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -8453,7 +8537,7 @@ forge_check_meta_2() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_2() {
-  case $1 in e2e/*) return 1 ;; esac
+  case $1 in e2e/*|tests/e2e/*) return 1 ;; esac
   case $1 in *.test.*|*/*.test.*|*_test.*|*/*_test.*|*.spec.*|*/*.spec.*|*_spec.*|*/*_spec.*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
@@ -8617,7 +8701,7 @@ forge_check_meta_12() {
 forge_scope_12() {
   return 0
 }
-forge_when_12() { case $1 in package.json|e2e/*|*.spec.*|*/*.spec.*) return 0 ;; esac; return 1; }
+forge_when_12() { case $1 in package.json|e2e/*|tests/e2e/*|*.spec.*|*/*.spec.*) return 0 ;; esac; return 1; }
 forge_check_run_12() {
 ! grep -q '"@axe-core/playwright"' package.json 2>/dev/null || git ls-files -z -- 'e2e/*' '*.spec.*' | xargs -0 grep -l AxeBuilder /dev/null | grep -q . || { echo 'package.json depends on @axe-core/playwright but no e2e test uses AxeBuilder'; false; }
 }
@@ -8629,7 +8713,7 @@ forge_check_meta_13() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_13() {
-  case $1 in e2e/*) ;; *) return 1 ;; esac
+  case $1 in e2e/*|tests/e2e/*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
@@ -8647,7 +8731,7 @@ forge_check_meta_14() {
 forge_scope_14() {
   return 0
 }
-forge_when_14() { case $1 in e2e/*|playwright.config.*) return 0 ;; esac; return 1; }
+forge_when_14() { case $1 in e2e/*|tests/e2e/*|playwright.config.*) return 0 ;; esac; return 1; }
 forge_check_run_14() {
 playwright test --reporter=line
 }
@@ -8764,8 +8848,8 @@ forge_check_meta_21() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_21() {
-  case $1 in e2e/*) return 1 ;; esac
-  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|__mocks__/*|*/__mocks__/*|test-utils.*|*/test-utils.*|test-helpers.*|*/test-helpers.*|vitest.setup.*|*/vitest.setup.*) ;; *) return 1 ;; esac
+  case $1 in e2e/*|tests/e2e/*) return 1 ;; esac
+  case $1 in *.test.ts|*/*.test.ts|*.test.tsx|*/*.test.tsx|*.test.mts|*/*.test.mts|*.test.cts|*/*.test.cts|*.test.js|*/*.test.js|*.test.jsx|*/*.test.jsx|*.test.mjs|*/*.test.mjs|*.test.cjs|*/*.test.cjs|*.spec.ts|*/*.spec.ts|*.spec.tsx|*/*.spec.tsx|*.spec.mts|*/*.spec.mts|*.spec.cts|*/*.spec.cts|*.spec.js|*/*.spec.js|*.spec.jsx|*/*.spec.jsx|*.spec.mjs|*/*.spec.mjs|*.spec.cjs|*/*.spec.cjs|__tests__/*|*/__tests__/*|__mocks__/*|*/__mocks__/*|test-utils.*|*/test-utils.*|test-helpers.*|*/test-helpers.*|vitest.setup.*|*/vitest.setup.*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
@@ -8816,7 +8900,7 @@ forge_check_meta_24() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_24() {
-  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts) return 1 ;; esac
+  case $1 in *.test.ts|*/*.test.ts|*.test.tsx|*/*.test.tsx|*.test.mts|*/*.test.mts|*.test.cts|*/*.test.cts|*.test.js|*/*.test.js|*.test.jsx|*/*.test.jsx|*.test.mjs|*/*.test.mjs|*.test.cjs|*/*.test.cjs|*.spec.ts|*/*.spec.ts|*.spec.tsx|*/*.spec.tsx|*.spec.mts|*/*.spec.mts|*.spec.cts|*/*.spec.cts|*.spec.js|*/*.spec.js|*.spec.jsx|*/*.spec.jsx|*.spec.mjs|*/*.spec.mjs|*.spec.cjs|*/*.spec.cjs|__tests__/*|*/__tests__/*|e2e/*|tests/e2e/*|*.d.ts|*/*.d.ts) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
@@ -8832,7 +8916,7 @@ forge_check_meta_25() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_25() {
-  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts|*.config.*|*/*.config.*) return 1 ;; esac
+  case $1 in *.test.ts|*/*.test.ts|*.test.tsx|*/*.test.tsx|*.test.mts|*/*.test.mts|*.test.cts|*/*.test.cts|*.test.js|*/*.test.js|*.test.jsx|*/*.test.jsx|*.test.mjs|*/*.test.mjs|*.test.cjs|*/*.test.cjs|*.spec.ts|*/*.spec.ts|*.spec.tsx|*/*.spec.tsx|*.spec.mts|*/*.spec.mts|*.spec.cts|*/*.spec.cts|*.spec.js|*/*.spec.js|*.spec.jsx|*/*.spec.jsx|*.spec.mjs|*/*.spec.mjs|*.spec.cjs|*/*.spec.cjs|__tests__/*|*/__tests__/*|e2e/*|tests/e2e/*|*.d.ts|*/*.d.ts|*.config.*|*/*.config.*) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
@@ -8864,6 +8948,17 @@ forge_grep_meta_2() {
 }
 forge_grep_scope_2() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+
+# File roles (§15.4): forge_role <@role> <path>.
+forge_role() {
+  case ${1#@} in
+    alembic-migrations) case $2 in alembic/versions/*|migrations/versions/*) return 0 ;; esac ;;
+    dockerfile) case $2 in *.dockerignore|*/*.dockerignore) return 1 ;; esac; case $2 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac ;;
+    e2e-tests) case $2 in e2e/*|tests/e2e/*) return 0 ;; esac ;;
+    ts-tests) case $2 in *.test.ts|*/*.test.ts|*.test.tsx|*/*.test.tsx|*.test.mts|*/*.test.mts|*.test.cts|*/*.test.cts|*.test.js|*/*.test.js|*.test.jsx|*/*.test.jsx|*.test.mjs|*/*.test.mjs|*.test.cjs|*/*.test.cjs|*.spec.ts|*/*.spec.ts|*.spec.tsx|*/*.spec.tsx|*.spec.mts|*/*.spec.mts|*.spec.cts|*/*.spec.cts|*.spec.js|*/*.spec.js|*.spec.jsx|*/*.spec.jsx|*.spec.mjs|*/*.spec.mjs|*.spec.cjs|*/*.spec.cjs|__tests__/*|*/__tests__/*) return 0 ;; esac ;;
+  esac
   return 1
 }
 # ---- end of generated checks
@@ -9870,10 +9965,11 @@ Linux-arm64 f6198ef8090f404dbb771abfee086eb8c48ac177f30da7fd3510aca35b344b5d
 Darwin-arm64 5c09f3213f8e40406abe048233d985eebef336d4a6a20021be47fadb6cf480a2
 Darwin-x86_64 ffe9bb18b23d5ed1eae50237aecdbb523d016e96da0bd4e7aa432040acfc3fde'
 
-# forge_dockerfiles: the Dockerfiles / Containerfiles of $FORGE_FILES, else every tracked one.
+# forge_dockerfiles: the files of $FORGE_FILES in file role @dockerfile (§15.4), else every tracked one.
 forge_dockerfiles() {
   if [ -n "$FORGE_FILES" ]; then printf '%s\n' "$FORGE_FILES"; else git ls-files 2>/dev/null; fi \
-    | grep -E '(^|/)(Dockerfile(\.[^/]*)?|[^/]*\.Dockerfile|Containerfile)$' | grep -v '\.dockerignore$'
+    | while IFS= read -r _df_f; do forge_role @dockerfile "$_df_f" && printf '%s\n' "$_df_f"; done
+  return 0
 }
 
 # forge_hadolint <code>...: "path:line CODE: message" for the named hadolint codes.
@@ -10198,10 +10294,12 @@ forge_squawk_files() {
 }
 
 # forge_alembic_files: Alembic revision ids on stdin (as printed by `alembic heads`)
-# -> the revision files under alembic/versions that define them.
+# -> the revision files (file role @alembic-migrations) that define them.
 forge_alembic_files() {
+  forge_role_files @alembic-migrations | grep '\.py$' > "$FORGE_TMP/alembic.all"
   awk '{ print $1 }' | while read -r _fa_id; do
-    [ -n "$_fa_id" ] && find alembic/versions -name '*.py' -exec grep -lE "^revision[^=]*=[[:space:]]*['\"]$_fa_id['\"]" {} + 2>/dev/null
+    # shellcheck disable=SC2046
+    [ -n "$_fa_id" ] && [ -s "$FORGE_TMP/alembic.all" ] && grep -lE "^revision[^=]*=[[:space:]]*['\"]$_fa_id['\"]" $(cat "$FORGE_TMP/alembic.all") 2>/dev/null
   done
 }
 
@@ -10241,10 +10339,12 @@ forge_squawk_alembic() {
 # down_revision), so revisions written before a rule was adopted do not fail CI.
 forge_alembic_targets() {
   if [ -n "$FORGE_FILES" ]; then
-    printf '%s\n' "$FORGE_FILES" | grep -E '^alembic/versions/.*\.py$'
+    printf '%s\n' "$FORGE_FILES" | while IFS= read -r _at_f; do
+      case $_at_f in *.py) forge_role @alembic-migrations "$_at_f" && printf '%s\n' "$_at_f" ;; esac
+    done
     return 0
   fi
-  find alembic/versions -name '*.py' 2>/dev/null | sort > "$FORGE_TMP/alembic.revs"
+  forge_role_files @alembic-migrations | grep '\.py$' | sort > "$FORGE_TMP/alembic.revs"
   [ -s "$FORGE_TMP/alembic.revs" ] || return 0
   # shellcheck disable=SC2046
   awk '
@@ -10761,6 +10861,32 @@ forge_drizzle_migration_present() {
   done < "$FORGE_TMP/dz.schema"
   printf 'Generate it (drizzle-kit generate) and keep the SQL, meta/_journal.json and the snapshot together; never write them by hand.\n'
   return 1
+}
+
+# forge_role_files <@role>: the repository's files (tracked, and untracked but not ignored)
+# of a file role (§15.4), by forge_role (rendered with the role's effective patterns).
+forge_role_files() {
+  git ls-files -co --exclude-standard 2>/dev/null | while IFS= read -r _rf_f; do
+    forge_role "$1" "$_rf_f" && printf '%s\n' "$_rf_f"
+  done
+  return 0
+}
+
+# forge_applied_migrations <@role>...: migrations (the files of the roles) that exist in the
+# base are not modified or deleted; a change goes in a new migration. Not with --all (no base).
+forge_applied_migrations() {
+  [ "$mode" != --all ] || return 0
+  _am_rc=0
+  while IFS= read -r _am_f; do
+    for _am_r in "$@"; do
+      forge_role "$_am_r" "$_am_f" || continue
+      if [ -f "$_am_f" ]; then _am_what=modified; else _am_what=deleted; fi
+      printf '%s: an existing migration was %s; it may already be applied somewhere, so write a new migration instead\n' "$_am_f" "$_am_what"
+      _am_rc=1
+      break
+    done
+  done < "$FORGE_TMP/inbase"
+  return "$_am_rc"
 }
 
 # forge_drizzle_applied: migrations (SQL and snapshots in the out folder) that exist in
@@ -11736,7 +11862,7 @@ FORGE_TYPES_LANGS='typescript'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='acf150afbdb9'
+FORGE_TYPES_REV='d293bd59f078'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -12081,7 +12207,7 @@ forge_check_meta_2() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_2() {
-  case $1 in e2e/*) return 1 ;; esac
+  case $1 in e2e/*|tests/e2e/*) return 1 ;; esac
   case $1 in *.test.*|*/*.test.*|*_test.*|*/*_test.*|*.spec.*|*/*.spec.*|*_spec.*|*/*_spec.*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
@@ -12245,7 +12371,7 @@ forge_check_meta_12() {
 forge_scope_12() {
   return 0
 }
-forge_when_12() { case $1 in package.json|e2e/*|*.spec.*|*/*.spec.*) return 0 ;; esac; return 1; }
+forge_when_12() { case $1 in package.json|e2e/*|tests/e2e/*|*.spec.*|*/*.spec.*) return 0 ;; esac; return 1; }
 forge_check_run_12() {
 ! grep -q '"@axe-core/playwright"' package.json 2>/dev/null || git ls-files -z -- 'e2e/*' '*.spec.*' | xargs -0 grep -l AxeBuilder /dev/null | grep -q . || { echo 'package.json depends on @axe-core/playwright but no e2e test uses AxeBuilder'; false; }
 }
@@ -12257,7 +12383,7 @@ forge_check_meta_13() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_13() {
-  case $1 in e2e/*) ;; *) return 1 ;; esac
+  case $1 in e2e/*|tests/e2e/*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
@@ -12275,7 +12401,7 @@ forge_check_meta_14() {
 forge_scope_14() {
   return 0
 }
-forge_when_14() { case $1 in e2e/*|playwright.config.*) return 0 ;; esac; return 1; }
+forge_when_14() { case $1 in e2e/*|tests/e2e/*|playwright.config.*) return 0 ;; esac; return 1; }
 forge_check_run_14() {
 playwright test --reporter=line
 }
@@ -12392,8 +12518,8 @@ forge_check_meta_21() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_21() {
-  case $1 in e2e/*) return 1 ;; esac
-  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|__mocks__/*|*/__mocks__/*|test-utils.*|*/test-utils.*|test-helpers.*|*/test-helpers.*|vitest.setup.*|*/vitest.setup.*) ;; *) return 1 ;; esac
+  case $1 in e2e/*|tests/e2e/*) return 1 ;; esac
+  case $1 in *.test.ts|*/*.test.ts|*.test.tsx|*/*.test.tsx|*.test.mts|*/*.test.mts|*.test.cts|*/*.test.cts|*.test.js|*/*.test.js|*.test.jsx|*/*.test.jsx|*.test.mjs|*/*.test.mjs|*.test.cjs|*/*.test.cjs|*.spec.ts|*/*.spec.ts|*.spec.tsx|*/*.spec.tsx|*.spec.mts|*/*.spec.mts|*.spec.cts|*/*.spec.cts|*.spec.js|*/*.spec.js|*.spec.jsx|*/*.spec.jsx|*.spec.mjs|*/*.spec.mjs|*.spec.cjs|*/*.spec.cjs|__tests__/*|*/__tests__/*|__mocks__/*|*/__mocks__/*|test-utils.*|*/test-utils.*|test-helpers.*|*/test-helpers.*|vitest.setup.*|*/vitest.setup.*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
@@ -12444,7 +12570,7 @@ forge_check_meta_24() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_24() {
-  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts) return 1 ;; esac
+  case $1 in *.test.ts|*/*.test.ts|*.test.tsx|*/*.test.tsx|*.test.mts|*/*.test.mts|*.test.cts|*/*.test.cts|*.test.js|*/*.test.js|*.test.jsx|*/*.test.jsx|*.test.mjs|*/*.test.mjs|*.test.cjs|*/*.test.cjs|*.spec.ts|*/*.spec.ts|*.spec.tsx|*/*.spec.tsx|*.spec.mts|*/*.spec.mts|*.spec.cts|*/*.spec.cts|*.spec.js|*/*.spec.js|*.spec.jsx|*/*.spec.jsx|*.spec.mjs|*/*.spec.mjs|*.spec.cjs|*/*.spec.cjs|__tests__/*|*/__tests__/*|e2e/*|tests/e2e/*|*.d.ts|*/*.d.ts) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
@@ -12460,7 +12586,7 @@ forge_check_meta_25() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_25() {
-  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts|*.config.*|*/*.config.*) return 1 ;; esac
+  case $1 in *.test.ts|*/*.test.ts|*.test.tsx|*/*.test.tsx|*.test.mts|*/*.test.mts|*.test.cts|*/*.test.cts|*.test.js|*/*.test.js|*.test.jsx|*/*.test.jsx|*.test.mjs|*/*.test.mjs|*.test.cjs|*/*.test.cjs|*.spec.ts|*/*.spec.ts|*.spec.tsx|*/*.spec.tsx|*.spec.mts|*/*.spec.mts|*.spec.cts|*/*.spec.cts|*.spec.js|*/*.spec.js|*.spec.jsx|*/*.spec.jsx|*.spec.mjs|*/*.spec.mjs|*.spec.cjs|*/*.spec.cjs|__tests__/*|*/__tests__/*|e2e/*|tests/e2e/*|*.d.ts|*/*.d.ts|*.config.*|*/*.config.*) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
@@ -12492,6 +12618,17 @@ forge_grep_meta_2() {
 }
 forge_grep_scope_2() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+
+# File roles (§15.4): forge_role <@role> <path>.
+forge_role() {
+  case ${1#@} in
+    alembic-migrations) case $2 in alembic/versions/*|migrations/versions/*) return 0 ;; esac ;;
+    dockerfile) case $2 in *.dockerignore|*/*.dockerignore) return 1 ;; esac; case $2 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac ;;
+    e2e-tests) case $2 in e2e/*|tests/e2e/*) return 0 ;; esac ;;
+    ts-tests) case $2 in *.test.ts|*/*.test.ts|*.test.tsx|*/*.test.tsx|*.test.mts|*/*.test.mts|*.test.cts|*/*.test.cts|*.test.js|*/*.test.js|*.test.jsx|*/*.test.jsx|*.test.mjs|*/*.test.mjs|*.test.cjs|*/*.test.cjs|*.spec.ts|*/*.spec.ts|*.spec.tsx|*/*.spec.tsx|*.spec.mts|*/*.spec.mts|*.spec.cts|*/*.spec.cts|*.spec.js|*/*.spec.js|*.spec.jsx|*/*.spec.jsx|*.spec.mjs|*/*.spec.mjs|*.spec.cjs|*/*.spec.cjs|__tests__/*|*/__tests__/*) return 0 ;; esac ;;
+  esac
   return 1
 }
 # ---- end of generated checks
@@ -13498,10 +13635,11 @@ Linux-arm64 f6198ef8090f404dbb771abfee086eb8c48ac177f30da7fd3510aca35b344b5d
 Darwin-arm64 5c09f3213f8e40406abe048233d985eebef336d4a6a20021be47fadb6cf480a2
 Darwin-x86_64 ffe9bb18b23d5ed1eae50237aecdbb523d016e96da0bd4e7aa432040acfc3fde'
 
-# forge_dockerfiles: the Dockerfiles / Containerfiles of $FORGE_FILES, else every tracked one.
+# forge_dockerfiles: the files of $FORGE_FILES in file role @dockerfile (§15.4), else every tracked one.
 forge_dockerfiles() {
   if [ -n "$FORGE_FILES" ]; then printf '%s\n' "$FORGE_FILES"; else git ls-files 2>/dev/null; fi \
-    | grep -E '(^|/)(Dockerfile(\.[^/]*)?|[^/]*\.Dockerfile|Containerfile)$' | grep -v '\.dockerignore$'
+    | while IFS= read -r _df_f; do forge_role @dockerfile "$_df_f" && printf '%s\n' "$_df_f"; done
+  return 0
 }
 
 # forge_hadolint <code>...: "path:line CODE: message" for the named hadolint codes.
@@ -13826,10 +13964,12 @@ forge_squawk_files() {
 }
 
 # forge_alembic_files: Alembic revision ids on stdin (as printed by `alembic heads`)
-# -> the revision files under alembic/versions that define them.
+# -> the revision files (file role @alembic-migrations) that define them.
 forge_alembic_files() {
+  forge_role_files @alembic-migrations | grep '\.py$' > "$FORGE_TMP/alembic.all"
   awk '{ print $1 }' | while read -r _fa_id; do
-    [ -n "$_fa_id" ] && find alembic/versions -name '*.py' -exec grep -lE "^revision[^=]*=[[:space:]]*['\"]$_fa_id['\"]" {} + 2>/dev/null
+    # shellcheck disable=SC2046
+    [ -n "$_fa_id" ] && [ -s "$FORGE_TMP/alembic.all" ] && grep -lE "^revision[^=]*=[[:space:]]*['\"]$_fa_id['\"]" $(cat "$FORGE_TMP/alembic.all") 2>/dev/null
   done
 }
 
@@ -13869,10 +14009,12 @@ forge_squawk_alembic() {
 # down_revision), so revisions written before a rule was adopted do not fail CI.
 forge_alembic_targets() {
   if [ -n "$FORGE_FILES" ]; then
-    printf '%s\n' "$FORGE_FILES" | grep -E '^alembic/versions/.*\.py$'
+    printf '%s\n' "$FORGE_FILES" | while IFS= read -r _at_f; do
+      case $_at_f in *.py) forge_role @alembic-migrations "$_at_f" && printf '%s\n' "$_at_f" ;; esac
+    done
     return 0
   fi
-  find alembic/versions -name '*.py' 2>/dev/null | sort > "$FORGE_TMP/alembic.revs"
+  forge_role_files @alembic-migrations | grep '\.py$' | sort > "$FORGE_TMP/alembic.revs"
   [ -s "$FORGE_TMP/alembic.revs" ] || return 0
   # shellcheck disable=SC2046
   awk '
@@ -14389,6 +14531,32 @@ forge_drizzle_migration_present() {
   done < "$FORGE_TMP/dz.schema"
   printf 'Generate it (drizzle-kit generate) and keep the SQL, meta/_journal.json and the snapshot together; never write them by hand.\n'
   return 1
+}
+
+# forge_role_files <@role>: the repository's files (tracked, and untracked but not ignored)
+# of a file role (§15.4), by forge_role (rendered with the role's effective patterns).
+forge_role_files() {
+  git ls-files -co --exclude-standard 2>/dev/null | while IFS= read -r _rf_f; do
+    forge_role "$1" "$_rf_f" && printf '%s\n' "$_rf_f"
+  done
+  return 0
+}
+
+# forge_applied_migrations <@role>...: migrations (the files of the roles) that exist in the
+# base are not modified or deleted; a change goes in a new migration. Not with --all (no base).
+forge_applied_migrations() {
+  [ "$mode" != --all ] || return 0
+  _am_rc=0
+  while IFS= read -r _am_f; do
+    for _am_r in "$@"; do
+      forge_role "$_am_r" "$_am_f" || continue
+      if [ -f "$_am_f" ]; then _am_what=modified; else _am_what=deleted; fi
+      printf '%s: an existing migration was %s; it may already be applied somewhere, so write a new migration instead\n' "$_am_f" "$_am_what"
+      _am_rc=1
+      break
+    done
+  done < "$FORGE_TMP/inbase"
+  return "$_am_rc"
 }
 
 # forge_drizzle_applied: migrations (SQL and snapshots in the out folder) that exist in
@@ -15364,7 +15532,7 @@ FORGE_TYPES_LANGS='typescript'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='acf150afbdb9'
+FORGE_TYPES_REV='d293bd59f078'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -16145,6 +16313,7 @@ files:
   - "**/*_spec.*"
 ignores:
   - e2e/**
+  - tests/e2e/**
 rule:
   pattern: expect($$$)
   inside:
@@ -16169,6 +16338,7 @@ files:
   - "**/*_spec.*"
 ignores:
   - e2e/**
+  - tests/e2e/**
 rule:
   kind: call_expression
   inside:
@@ -16233,6 +16403,7 @@ files:
   - "**/*_spec.*"
 ignores:
   - e2e/**
+  - tests/e2e/**
 rule:
   kind: member_expression
   regex: ^(it|test|describe)\.(skip|todo|only|failing|if|skipIf|todoIf)$
@@ -16483,6 +16654,7 @@ severity: error
 message: forge:typescript/playwright/locators Use locators (getByRole, getByLabel, locator()), not element handles or waitForSelector/waitForNavigation.
 files:
   - e2e/**
+  - tests/e2e/**
   - "**/*.spec.*"
 rule:
   kind: call_expression
@@ -16501,6 +16673,7 @@ severity: error
 message: forge:typescript/playwright/no-new-skip End-to-end tests are not skipped, marked fixme or fail, or focused.
 files:
   - e2e/**
+  - tests/e2e/**
 rule:
   any:
     - pattern: test.skip
@@ -16519,6 +16692,7 @@ severity: error
 message: forge:typescript/playwright/no-wait-for-timeout No fixed waits (waitForTimeout). Wait for a condition with a web-first assertion or waitForURL.
 files:
   - e2e/**
+  - tests/e2e/**
   - "**/*.spec.*"
 rule:
   pattern: $P.waitForTimeout($$$)
@@ -16655,11 +16829,11 @@ language: Tsx
 severity: error
 message: forge:typescript/vitest/no-fewer-expects Assertions are not removed from tests.
 files:
-  - "**/*.test.*"
-  - "**/*.spec.*"
+  - "**/*.{test,spec}.{ts,tsx,mts,cts,js,jsx,mjs,cjs}"
   - "**/__tests__/**"
 ignores:
   - e2e/**
+  - tests/e2e/**
 rule:
   pattern: expect($$$)
 
@@ -16670,11 +16844,11 @@ language: Tsx
 severity: error
 message: "forge:typescript/vitest/no-mock-increase A test file may not gain mocks: vi.mock, vi.doMock, vi.spyOn, vi.fn, also through an import alias (import { vi as v }); test through the real code or a fake at the boundary. vi.stubEnv and vi.stubGlobal are not counted: they set configuration for a test, like pytest's monkeypatch."
 files:
-  - "**/*.test.*"
-  - "**/*.spec.*"
+  - "**/*.{test,spec}.{ts,tsx,mts,cts,js,jsx,mjs,cjs}"
   - "**/__tests__/**"
 ignores:
   - e2e/**
+  - tests/e2e/**
 rule:
   kind: call_expression
   any:
@@ -16720,11 +16894,11 @@ language: Tsx
 severity: error
 message: forge:typescript/vitest/no-new-skip Tests are not skipped, made conditional, left as todo or focused with .only.
 files:
-  - "**/*.test.*"
-  - "**/*.spec.*"
+  - "**/*.{test,spec}.{ts,tsx,mts,cts,js,jsx,mjs,cjs}"
   - "**/__tests__/**"
 ignores:
   - e2e/**
+  - tests/e2e/**
 rule:
   any:
     - pattern: it.skip
@@ -16744,11 +16918,11 @@ language: Tsx
 severity: error
 message: forge:typescript/vitest/no-tautological-expect Assertions test something. No expect() on a literal, such as expect(true).toBe(true).
 files:
-  - "**/*.test.*"
-  - "**/*.spec.*"
+  - "**/*.{test,spec}.{ts,tsx,mts,cts,js,jsx,mjs,cjs}"
   - "**/__tests__/**"
 ignores:
   - e2e/**
+  - tests/e2e/**
 rule:
   kind: call_expression
   has:
@@ -16782,10 +16956,10 @@ message: forge:typescript/vitest/no-test-env-branch Application code does not br
 files:
   - "**/*"
 ignores:
-  - "**/*.test.*"
-  - "**/*.spec.*"
+  - "**/*.{test,spec}.{ts,tsx,mts,cts,js,jsx,mjs,cjs}"
   - "**/__tests__/**"
   - e2e/**
+  - tests/e2e/**
   - vitest.config.*
   - vitest.setup.*
 rule:
@@ -17426,7 +17600,7 @@ forge_check_meta_2() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_2() {
-  case $1 in e2e/*) return 1 ;; esac
+  case $1 in e2e/*|tests/e2e/*) return 1 ;; esac
   case $1 in *.test.*|*/*.test.*|*_test.*|*/*_test.*|*.spec.*|*/*.spec.*|*_spec.*|*/*_spec.*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
@@ -17590,7 +17764,7 @@ forge_check_meta_12() {
 forge_scope_12() {
   return 0
 }
-forge_when_12() { case $1 in package.json|e2e/*|*.spec.*|*/*.spec.*) return 0 ;; esac; return 1; }
+forge_when_12() { case $1 in package.json|e2e/*|tests/e2e/*|*.spec.*|*/*.spec.*) return 0 ;; esac; return 1; }
 forge_check_run_12() {
 ! grep -q '"@axe-core/playwright"' package.json 2>/dev/null || git ls-files -z -- 'e2e/*' '*.spec.*' | xargs -0 grep -l AxeBuilder /dev/null | grep -q . || { echo 'package.json depends on @axe-core/playwright but no e2e test uses AxeBuilder'; false; }
 }
@@ -17602,7 +17776,7 @@ forge_check_meta_13() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_13() {
-  case $1 in e2e/*) ;; *) return 1 ;; esac
+  case $1 in e2e/*|tests/e2e/*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
@@ -17620,7 +17794,7 @@ forge_check_meta_14() {
 forge_scope_14() {
   return 0
 }
-forge_when_14() { case $1 in e2e/*|playwright.config.*) return 0 ;; esac; return 1; }
+forge_when_14() { case $1 in e2e/*|tests/e2e/*|playwright.config.*) return 0 ;; esac; return 1; }
 forge_check_run_14() {
 playwright test --reporter=line
 }
@@ -17737,8 +17911,8 @@ forge_check_meta_21() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_21() {
-  case $1 in e2e/*) return 1 ;; esac
-  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|__mocks__/*|*/__mocks__/*|test-utils.*|*/test-utils.*|test-helpers.*|*/test-helpers.*|vitest.setup.*|*/vitest.setup.*) ;; *) return 1 ;; esac
+  case $1 in e2e/*|tests/e2e/*) return 1 ;; esac
+  case $1 in *.test.ts|*/*.test.ts|*.test.tsx|*/*.test.tsx|*.test.mts|*/*.test.mts|*.test.cts|*/*.test.cts|*.test.js|*/*.test.js|*.test.jsx|*/*.test.jsx|*.test.mjs|*/*.test.mjs|*.test.cjs|*/*.test.cjs|*.spec.ts|*/*.spec.ts|*.spec.tsx|*/*.spec.tsx|*.spec.mts|*/*.spec.mts|*.spec.cts|*/*.spec.cts|*.spec.js|*/*.spec.js|*.spec.jsx|*/*.spec.jsx|*.spec.mjs|*/*.spec.mjs|*.spec.cjs|*/*.spec.cjs|__tests__/*|*/__tests__/*|__mocks__/*|*/__mocks__/*|test-utils.*|*/test-utils.*|test-helpers.*|*/test-helpers.*|vitest.setup.*|*/vitest.setup.*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
@@ -17789,7 +17963,7 @@ forge_check_meta_24() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_24() {
-  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts) return 1 ;; esac
+  case $1 in *.test.ts|*/*.test.ts|*.test.tsx|*/*.test.tsx|*.test.mts|*/*.test.mts|*.test.cts|*/*.test.cts|*.test.js|*/*.test.js|*.test.jsx|*/*.test.jsx|*.test.mjs|*/*.test.mjs|*.test.cjs|*/*.test.cjs|*.spec.ts|*/*.spec.ts|*.spec.tsx|*/*.spec.tsx|*.spec.mts|*/*.spec.mts|*.spec.cts|*/*.spec.cts|*.spec.js|*/*.spec.js|*.spec.jsx|*/*.spec.jsx|*.spec.mjs|*/*.spec.mjs|*.spec.cjs|*/*.spec.cjs|__tests__/*|*/__tests__/*|e2e/*|tests/e2e/*|*.d.ts|*/*.d.ts) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
@@ -17805,7 +17979,7 @@ forge_check_meta_25() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_25() {
-  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts|*.config.*|*/*.config.*) return 1 ;; esac
+  case $1 in *.test.ts|*/*.test.ts|*.test.tsx|*/*.test.tsx|*.test.mts|*/*.test.mts|*.test.cts|*/*.test.cts|*.test.js|*/*.test.js|*.test.jsx|*/*.test.jsx|*.test.mjs|*/*.test.mjs|*.test.cjs|*/*.test.cjs|*.spec.ts|*/*.spec.ts|*.spec.tsx|*/*.spec.tsx|*.spec.mts|*/*.spec.mts|*.spec.cts|*/*.spec.cts|*.spec.js|*/*.spec.js|*.spec.jsx|*/*.spec.jsx|*.spec.mjs|*/*.spec.mjs|*.spec.cjs|*/*.spec.cjs|__tests__/*|*/__tests__/*|e2e/*|tests/e2e/*|*.d.ts|*/*.d.ts|*.config.*|*/*.config.*) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
@@ -17837,6 +18011,17 @@ forge_grep_meta_2() {
 }
 forge_grep_scope_2() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+
+# File roles (§15.4): forge_role <@role> <path>.
+forge_role() {
+  case ${1#@} in
+    alembic-migrations) case $2 in alembic/versions/*|migrations/versions/*) return 0 ;; esac ;;
+    dockerfile) case $2 in *.dockerignore|*/*.dockerignore) return 1 ;; esac; case $2 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac ;;
+    e2e-tests) case $2 in e2e/*|tests/e2e/*) return 0 ;; esac ;;
+    ts-tests) case $2 in *.test.ts|*/*.test.ts|*.test.tsx|*/*.test.tsx|*.test.mts|*/*.test.mts|*.test.cts|*/*.test.cts|*.test.js|*/*.test.js|*.test.jsx|*/*.test.jsx|*.test.mjs|*/*.test.mjs|*.test.cjs|*/*.test.cjs|*.spec.ts|*/*.spec.ts|*.spec.tsx|*/*.spec.tsx|*.spec.mts|*/*.spec.mts|*.spec.cts|*/*.spec.cts|*.spec.js|*/*.spec.js|*.spec.jsx|*/*.spec.jsx|*.spec.mjs|*/*.spec.mjs|*.spec.cjs|*/*.spec.cjs|__tests__/*|*/__tests__/*) return 0 ;; esac ;;
+  esac
   return 1
 }
 # ---- end of generated checks
@@ -18843,10 +19028,11 @@ Linux-arm64 f6198ef8090f404dbb771abfee086eb8c48ac177f30da7fd3510aca35b344b5d
 Darwin-arm64 5c09f3213f8e40406abe048233d985eebef336d4a6a20021be47fadb6cf480a2
 Darwin-x86_64 ffe9bb18b23d5ed1eae50237aecdbb523d016e96da0bd4e7aa432040acfc3fde'
 
-# forge_dockerfiles: the Dockerfiles / Containerfiles of $FORGE_FILES, else every tracked one.
+# forge_dockerfiles: the files of $FORGE_FILES in file role @dockerfile (§15.4), else every tracked one.
 forge_dockerfiles() {
   if [ -n "$FORGE_FILES" ]; then printf '%s\n' "$FORGE_FILES"; else git ls-files 2>/dev/null; fi \
-    | grep -E '(^|/)(Dockerfile(\.[^/]*)?|[^/]*\.Dockerfile|Containerfile)$' | grep -v '\.dockerignore$'
+    | while IFS= read -r _df_f; do forge_role @dockerfile "$_df_f" && printf '%s\n' "$_df_f"; done
+  return 0
 }
 
 # forge_hadolint <code>...: "path:line CODE: message" for the named hadolint codes.
@@ -19171,10 +19357,12 @@ forge_squawk_files() {
 }
 
 # forge_alembic_files: Alembic revision ids on stdin (as printed by `alembic heads`)
-# -> the revision files under alembic/versions that define them.
+# -> the revision files (file role @alembic-migrations) that define them.
 forge_alembic_files() {
+  forge_role_files @alembic-migrations | grep '\.py$' > "$FORGE_TMP/alembic.all"
   awk '{ print $1 }' | while read -r _fa_id; do
-    [ -n "$_fa_id" ] && find alembic/versions -name '*.py' -exec grep -lE "^revision[^=]*=[[:space:]]*['\"]$_fa_id['\"]" {} + 2>/dev/null
+    # shellcheck disable=SC2046
+    [ -n "$_fa_id" ] && [ -s "$FORGE_TMP/alembic.all" ] && grep -lE "^revision[^=]*=[[:space:]]*['\"]$_fa_id['\"]" $(cat "$FORGE_TMP/alembic.all") 2>/dev/null
   done
 }
 
@@ -19214,10 +19402,12 @@ forge_squawk_alembic() {
 # down_revision), so revisions written before a rule was adopted do not fail CI.
 forge_alembic_targets() {
   if [ -n "$FORGE_FILES" ]; then
-    printf '%s\n' "$FORGE_FILES" | grep -E '^alembic/versions/.*\.py$'
+    printf '%s\n' "$FORGE_FILES" | while IFS= read -r _at_f; do
+      case $_at_f in *.py) forge_role @alembic-migrations "$_at_f" && printf '%s\n' "$_at_f" ;; esac
+    done
     return 0
   fi
-  find alembic/versions -name '*.py' 2>/dev/null | sort > "$FORGE_TMP/alembic.revs"
+  forge_role_files @alembic-migrations | grep '\.py$' | sort > "$FORGE_TMP/alembic.revs"
   [ -s "$FORGE_TMP/alembic.revs" ] || return 0
   # shellcheck disable=SC2046
   awk '
@@ -19734,6 +19924,32 @@ forge_drizzle_migration_present() {
   done < "$FORGE_TMP/dz.schema"
   printf 'Generate it (drizzle-kit generate) and keep the SQL, meta/_journal.json and the snapshot together; never write them by hand.\n'
   return 1
+}
+
+# forge_role_files <@role>: the repository's files (tracked, and untracked but not ignored)
+# of a file role (§15.4), by forge_role (rendered with the role's effective patterns).
+forge_role_files() {
+  git ls-files -co --exclude-standard 2>/dev/null | while IFS= read -r _rf_f; do
+    forge_role "$1" "$_rf_f" && printf '%s\n' "$_rf_f"
+  done
+  return 0
+}
+
+# forge_applied_migrations <@role>...: migrations (the files of the roles) that exist in the
+# base are not modified or deleted; a change goes in a new migration. Not with --all (no base).
+forge_applied_migrations() {
+  [ "$mode" != --all ] || return 0
+  _am_rc=0
+  while IFS= read -r _am_f; do
+    for _am_r in "$@"; do
+      forge_role "$_am_r" "$_am_f" || continue
+      if [ -f "$_am_f" ]; then _am_what=modified; else _am_what=deleted; fi
+      printf '%s: an existing migration was %s; it may already be applied somewhere, so write a new migration instead\n' "$_am_f" "$_am_what"
+      _am_rc=1
+      break
+    done
+  done < "$FORGE_TMP/inbase"
+  return "$_am_rc"
 }
 
 # forge_drizzle_applied: migrations (SQL and snapshots in the out folder) that exist in
@@ -20709,7 +20925,7 @@ FORGE_TYPES_LANGS='typescript'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='acf150afbdb9'
+FORGE_TYPES_REV='d293bd59f078'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -21032,12 +21248,12 @@ forge_end "$fail"
   "claude_code_min": "2.1.295",
   "rules": {
     "typescript/bun/lock-sync": "9e09d6a5edb31aa8fb18dc32cdf27b4610898b56dceb6715df786d729f80fb3c",
-    "typescript/bun/no-fewer-expects": "5a1ceafdb3fe2b8bb363f18b760e55144f8cae87bd963e26309ab5619a563c3a",
-    "typescript/bun/no-mock-increase": "1bf4f349d6d33eb5993d156a4b7efcd43675ecc158b84998c936d24edeaf0fde",
-    "typescript/bun/no-new-skip": "9aa6a5b58ac541611b827f6eb354be6d67edece10cb6416cc94f9d980d34b67e",
+    "typescript/bun/no-fewer-expects": "d39ef28d4c918ccd050f1017d83623c984b090d379eff2868ba2300b89b64d87",
+    "typescript/bun/no-mock-increase": "59da686537b2fe781f69a285892669bfee36a4a6458c0e46c8ba898544046442",
+    "typescript/bun/no-new-skip": "26cfa8b0a0ad346a30b14bf8de071fe2802eaa1aa9dce056d063c7b033f7faf0",
     "typescript/bun/no-other-pm": "fcdd00d782b97240fbb0c968b667110542cc5ca7fd48ee4bd5b9e7895e51ec05",
     "typescript/bun/no-snapshot-update": "44f865cdc519d6c573a601582a64a08517db474ca9a2e8dbcb5ab782e9a603f8",
-    "typescript/bun/no-test-edits": "f0def5a284d258b5fc0afb8274636df1a80cec4fe88c6a50a3ad57523859fe91",
+    "typescript/bun/no-test-edits": "4ae92104baca408cf8bac7598a5a8690da1dd8125f5070349349254dd52c73cd",
     "typescript/bun/release-age": "a82d38eebf7955af0cef4cb4561d05374438bcd31c28a82eb46e1d644f29c44e",
     "typescript/bun/test": "53b59f6fdb7da1713a6bb636496cdb705de29a53701bab7cbe016b5a47a1b0f7",
     "typescript/bun/trusted-deps": "a23199c6bb088f245f833db63f304fdc1c8f304167257caab8125af55bbda732",
@@ -21059,7 +21275,7 @@ forge_end "$fail"
     "typescript/no-empty-block": "e615b8d48575392c885e65f5b5e69cfaba918ae070473fb229086fe36501a31f",
     "typescript/no-eval": "695bc504e485395796c1500ec90804609a4f5e8c9a5867062271b9caa5f58143",
     "typescript/no-explicit-any": "66e8f9968e8c88a77229e6c092e4489cffced1186a72fa257017fa6a2e612d28",
-    "typescript/no-focused-tests": "0c7614dd6db46bbe6d9a19b58cf8130638128e786cd1dc912e58203ecc72a87b",
+    "typescript/no-focused-tests": "8450a2111244ef53e5c5451aa9a127f215f3ff26b9de3ec189ddbb775de6cd53",
     "typescript/no-ignore-deprecations": "63044c1f4bd2f841800843fa17b4db5a29e5d8cc32053591a25622f15902c888",
     "typescript/no-implicit-any": "7ac25a953e4d6df85abee5379ea5496788f5d15776ae37623ceff5ebcc034108",
     "typescript/no-new-suppressions": "b49b319f832234670b6d55d259add6b912cd7e49e81fd2143917e7b64976dfed",
@@ -21072,14 +21288,14 @@ forge_end "$fail"
     "typescript/no-ts-nocheck": "25caeef679e03c9b88f75f961ce1b5d13c0f28538112f9642c513658a10f4213",
     "typescript/no-unused": "d75d0e94afbbd14b74ea3896c6f269d7a6953eed0c9e7edcc4c65534c460c413",
     "typescript/no-unused-suppressions": "47b77a16691164d172e4f52e2267d0b6f1c7888c6b43a095e3ec41093081c918",
-    "typescript/playwright/axe": "0e5978f59f13347b9842d1dfcf6a51e2486bdcad8bac48509924fd9f5d3d03d3",
+    "typescript/playwright/axe": "e951813b377a71e9224293df5a8c9ef62a4b3bdd0c91c66374bd2087ab200981",
     "typescript/playwright/config-file": "b257557ca4312f58fe449d1cb237fe8c9806b92cd934a3cf955efbb1923b7287",
-    "typescript/playwright/locators": "f71e79219da3569c417936bc942cca4869f76ad630569f169f5022c93e25ac14",
-    "typescript/playwright/no-new-skip": "af6b674bbaf8f67ef5f66749946b7f2fb5660d74f8bbca34506ba8cf97f6bede",
+    "typescript/playwright/locators": "061b7ca2b98ee5568b93550913aa29a309dffaa5ccb2869df1add76c59624187",
+    "typescript/playwright/no-new-skip": "1b4319e7b932b8a178b9cb920a335a9bb18bcd1091a5522a1fe1562969c540c8",
     "typescript/playwright/no-snapshot-update": "78a18162973e50be255a9cdc5e3dd308ca4c339e29687e45bf9eb3986a8eca3e",
-    "typescript/playwright/no-test-edits": "16b6681c7d6009249ff3466e5a531a991506bb8b6bdbbe295e8b925c525d8bdb",
-    "typescript/playwright/no-wait-for-timeout": "d6f5471ff500bf60ee5b260325c0cd41d31ba86cb59030036fb7f517dfaaf5e1",
-    "typescript/playwright/run": "79dc276c6d71cd329a2360b0560e3b12d47c99d7ea11e13563d794961a0363fa",
+    "typescript/playwright/no-test-edits": "8791405a87b605a6a2b11343878db18ab330daa100414b8cddd692c312280161",
+    "typescript/playwright/no-wait-for-timeout": "b8fec15a285fcc0bc18cfe89465455882f5610ae440f1ac501cbb1141d1285ce",
+    "typescript/playwright/run": "429826e2cc64a538bcea8f772b1c6a2e776f7a9d61b3fcfc1d5eb8db545ee203",
     "typescript/prisma/client-generator": "8905dafcbf59a72531bc68fe4ccbcebca6cbd2af461fb39690d748885d375c01",
     "typescript/prisma/db-push": "ea9ca78f9244bfb5a4c56205190683e6148d7ff41b9debebbf9970582290d77e",
     "typescript/prisma/destructive-migration": "6cb32c74f021c89b0a63d09e89b2298c64d251f3c3c2380279bfd804b750ba02",
@@ -21106,18 +21322,18 @@ forge_end "$fail"
     "typescript/typecheck": "9e26565727146ec77b97b763002c2a035a5b077ed2b4b85a3134b2a04850780a",
     "typescript/unchecked-index": "c8a32a9a463d933695100cbee6ec896fc7bb41bad7d252871fd371ae78801755",
     "typescript/vitest/config-file": "abe466390dd426b11ccbd6526a81a8a6ea3a720e06604c84ec0ca0d8c51dd3dd",
-    "typescript/vitest/no-fewer-expects": "8f6ef8c18f355e6f87742658e5bddb47ae364a35ee3e601db827eff23b17328e",
-    "typescript/vitest/no-mock-increase": "3429055f565bb02d51426bce4db2922c3fd829c6f845e6d9af489637e94b71b5",
-    "typescript/vitest/no-new-skip": "ba7c386c0e31cf2576e8dc9489d71ec9dec3194dbac1032eeba030108750ed85",
+    "typescript/vitest/no-fewer-expects": "024fda235e5a51a89a17228a7c50b20252b0d5754775f6c72c4c336ef06e03c9",
+    "typescript/vitest/no-mock-increase": "ba0ee04f03ef25ace93d3f4f3d871d14d73fa3a70fb42d5ea5efbef38d8a164a",
+    "typescript/vitest/no-new-skip": "a11e5b84ac571a56a3e001501a3940c6304b239f50cb1655c49e1f6fe1ef61eb",
     "typescript/vitest/no-pass-with-no-tests": "f0ca2c41a2c2d0289f12750c521dbe16bf55a0a94ce38457dd51492fe028a1f3",
     "typescript/vitest/no-snapshot-update": "519846b6b08b3de78a1bee29e807aba76fd96e6055b3b37aff636232af075f0b",
-    "typescript/vitest/no-tautological-expect": "116c62d9efc9da4497cf9c2e69bdd365ca4f02db4e720e6cdd7fe6ff93dad768",
-    "typescript/vitest/no-test-edits": "bc2ef168386cc51f41b84aa10c492bb7a2a2f75d36df2ddd605ff5a34c70e6fc",
-    "typescript/vitest/no-test-env-branch": "9df6b921e06f85f5b55fcc438225f5d662d3b2998807a1e977705973af5c33fb",
+    "typescript/vitest/no-tautological-expect": "7649e807659538b0cd4cd18de3c3a75a35fac5d185c157d314ae4e158ba36764",
+    "typescript/vitest/no-test-edits": "19c2e23c6879075c92aa85265b9ff50cd66fc2bbb91b1253c447a7ca0cf3e172",
+    "typescript/vitest/no-test-env-branch": "31e48565cf429e4ed86651a26b3bbe204e3693c897740053650954224a567466",
     "typescript/vitest/no-workspace-file": "239ef7e6cb5e8cf05438582b554b786c681c8a162bafb3d3cb0e033aab96948a",
     "typescript/vitest/run": "b40ed7dc07ba4276d9f8e40dc353b627d6067a14812d2dad1636240f5d47d300",
-    "typescript/vitest/snapshot-stale": "9158abd81c23110df79622b012fba0b6dcd7e26fe7bfc104b3164c5e20bce861",
-    "typescript/vitest/untested-change": "65b07d8c9d6b6d188323266ba570ad7e9878e6f26d9d3a1d03ce32cd22468344",
+    "typescript/vitest/snapshot-stale": "5cfed406c2567dbc25cc4e46f73207f6d76e807866bd2874f08d8824ecdd49b8",
+    "typescript/vitest/untested-change": "696e3e1851c3610fa5172c3e4505081b9d25411760ee494cbc54f1eaa8fd2a99",
     "typescript/zod/error-param": "98f91bc633e6bf49f35ef19f18911ca916f9a8dd6e31fbe09f7083c5b68c086c",
     "typescript/zod/v4-string-formats": "7e7373a687ac781f4dc75661e0f5bd51b89998d46d4e836055620fc965723f57"
   },
@@ -21137,14 +21353,14 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "d0a502f51f51609d7e5e9cd6f39a8ce165c656ee1c1b7a607105a536962058eb",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
     ".claude/skills/forge-project/scripts/lib.sh": "83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "16818d5c2a0c669597e661137cf8d4cdc9fcbb8d8c9b54f680ef8a7fc6234d6e",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "4c33f69dbd231935d710e9fc643925b4b54f4cc4937e8c43cb49cce43ec1d71d",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
     ".claude/skills/forge-project/scripts/session-end.sh": "99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58",
-    ".claude/skills/forge-project/scripts/session-start.sh": "d78f0a86f13810af4a23e5d6b7bf5b6a079d99331ee739441919afd1c5df6ba8",
+    ".claude/skills/forge-project/scripts/session-start.sh": "ae45f3cf14ef466ff31d80d80658f15211e75c239bcf9d32961c73e05c35a6b8",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "fdad8a9b8cb9704be32dd736055e8896a71c4b4a76e3f8505ab14b15cddd794c",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "2489fb6af023bd719f21a0a242f7551e5981b10e8218d56050fd5e2cf2b484f7",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "2331785270da2751418b5456f461992afd3504056780b5f57c1f86d6db40f0b7",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "8f38013bba448ea94af8f874a6a93f46f7b12ac4f0d629c1fdca6137c7173c18",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-bun-no-fewer-expects-test.yml": "bd5df50793070bba7b87b0f623ac58ed4599e0ba6f8d731fc0da4b28a0335ec8",
     ".forge/ast-grep/rule-tests/typescript-bun-no-mock-increase-test.yml": "2916d521378a79dbddd4e3a5822e04b4c3e5fad9262a65e019095f58bbfe0310",
@@ -21178,9 +21394,9 @@ forge_end "$fail"
     ".forge/ast-grep/rule-tests/typescript-vitest-no-test-env-branch-test.yml": "72dcb1355a54b0a7a880206f4567d94c18f8eaaf6d2dc7d1ab0a9414981250c8",
     ".forge/ast-grep/rule-tests/typescript-zod-error-param-test.yml": "5ca3e9da32d72d98bb2be00a1341f6b6d5cc431f86e0313d2e51f33384d50fe7",
     ".forge/ast-grep/rule-tests/typescript-zod-v4-string-formats-test.yml": "0f6c16bcf006eac0bc6bd6584b6a412c3f7277731138738373276f90233a9279",
-    ".forge/ast-grep/rules/typescript/bun/no-fewer-expects.yml": "2ca24b5c409a8a142b0f81d7f9501cf3d41c426b2b6e7c037559da5179bb498f",
-    ".forge/ast-grep/rules/typescript/bun/no-mock-increase.yml": "bf70d7263b8cc030ea6c1edd627f76c118417cf5a31dd2fd35cce6737e9ee0d4",
-    ".forge/ast-grep/rules/typescript/bun/no-new-skip.yml": "33db9ec4783c392bf85ff2bc68f3ed8fcf877fe87da5ad541e31ea55253dc75a",
+    ".forge/ast-grep/rules/typescript/bun/no-fewer-expects.yml": "1d28227793e39282d11e89381d76d865d5decb208f73b2bd928e334f7e08b7e6",
+    ".forge/ast-grep/rules/typescript/bun/no-mock-increase.yml": "aa0491b4e9c83f38f7ed6def712c73eee29046429dc097d7f3638a6f57769384",
+    ".forge/ast-grep/rules/typescript/bun/no-new-skip.yml": "f9883da046589bbc4eb07ff2bab3bf1aecdbeb7d3e63c3727ade0fd164bf87bd",
     ".forge/ast-grep/rules/typescript/nextjs/no-legacy-image-config.yml": "99d6745b72bc71e63a385b0c72edc6a1d5d2f0c2484b32a8edf403a052181538",
     ".forge/ast-grep/rules/typescript/nextjs/no-next-router.yml": "2447380f96c63cf72fcf39285fff2abe7f1edd49646a74ed5ad91fbb77a908e0",
     ".forge/ast-grep/rules/typescript/nextjs/no-pages-data.yml": "c189e6db00b706044708a2c5fc1e5fe8698213059fabf7d6d4f549eb57a759fb",
@@ -21193,9 +21409,9 @@ forge_end "$fail"
     ".forge/ast-grep/rules/typescript/no-stub.yml": "b21497e3335f2271e6ca5874817957d18c640e7d787cfe76a72ef390ab62d634",
     ".forge/ast-grep/rules/typescript/no-swallowed-catch.yml": "4bd8569b39e21928852fafeaee02ce9d2ff35726699f91b3f50a6ebf57843bd6",
     ".forge/ast-grep/rules/typescript/no-ts-nocheck.yml": "aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21",
-    ".forge/ast-grep/rules/typescript/playwright/locators.yml": "c7c96b1437d5c6ac7bf04ec59e777e83def0d9451ef3b6cf238c881ff1909e29",
-    ".forge/ast-grep/rules/typescript/playwright/no-new-skip.yml": "2bc5836e747a7dc4b45593074ff04b30a7e89fd2e8c53dc274e37035885c7d5c",
-    ".forge/ast-grep/rules/typescript/playwright/no-wait-for-timeout.yml": "e4ed8b571875af6fbce7f92616b4772d90c847e5009403d57f76d46a7b55396d",
+    ".forge/ast-grep/rules/typescript/playwright/locators.yml": "928bcf8cf19aded246ff9770c0c4580bc127c1ed10443d1682d42c4e1b55c9e3",
+    ".forge/ast-grep/rules/typescript/playwright/no-new-skip.yml": "a5027d8d2ec65a4651bb18a08b95d15b7a5331b7fc9afcbc6645a02c1c2ffef2",
+    ".forge/ast-grep/rules/typescript/playwright/no-wait-for-timeout.yml": "c9555ee744b362ae85f511404a291a67a128b7aac5d1c7503c748ae2a4ecfb20",
     ".forge/ast-grep/rules/typescript/prisma/generated-client-import.yml": "7b8a093b0f51e5d6b8f8a132b1ef43888104b1f5985465fc4f0f5984762a79c2",
     ".forge/ast-grep/rules/typescript/prisma/no-middleware.yml": "98cf3096f74f6db07744f597904e3df903a8a886a095cfffa52b133bf3acc1c7",
     ".forge/ast-grep/rules/typescript/prisma/no-network-in-transaction.yml": "4867b2d6d4fcc67ecf3f85d3a7433a27be0204c9a33d17c690d1dd52708d3c35",
@@ -21203,17 +21419,17 @@ forge_end "$fail"
     ".forge/ast-grep/rules/typescript/react/no-prop-types.yml": "9626068d2f677a351b7722fbddc5a74e87c539b4c3e46a55d75cfaf717542c62",
     ".forge/ast-grep/rules/typescript/react/use-action-state.yml": "17b6fc5e510df3154be12c72a584d8bfb31034b577774718a8c50516b2b15a81",
     ".forge/ast-grep/rules/typescript/ts-expect-error-reason.yml": "b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad",
-    ".forge/ast-grep/rules/typescript/vitest/no-fewer-expects.yml": "eb97cf87f7d0754f025a3afb9e1a97ac145789684524424f720d96ce1e8b98b2",
-    ".forge/ast-grep/rules/typescript/vitest/no-mock-increase.yml": "4c44cb2d640e8938692105eaeb084ff7ae7732f3487e7b59ff74bdb3b6bf35b8",
-    ".forge/ast-grep/rules/typescript/vitest/no-new-skip.yml": "ea54564f283a2f3c832fecfd6f4d55c6243ce9922ddf524c48ee5a43738c1472",
-    ".forge/ast-grep/rules/typescript/vitest/no-tautological-expect.yml": "35497c3d5cc2bfdc45837edfa133f8320134101d9a869cebdcebcc9b8e685521",
-    ".forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml": "d3c41a3915d84b21e86e9212a06ad14c52bf2f9bcefb7c5ca433200cc3ec44fb",
+    ".forge/ast-grep/rules/typescript/vitest/no-fewer-expects.yml": "61b033107653d6918c4344befa09d1600c9230f5b11d55e0c84330c1d0e0fdf5",
+    ".forge/ast-grep/rules/typescript/vitest/no-mock-increase.yml": "39d0e107d8ef1c272f4fa14e13294d4be36bff3ade3d7f0c5c0f3ce853a9e8af",
+    ".forge/ast-grep/rules/typescript/vitest/no-new-skip.yml": "a177d889c58e4ec07acda640b671d277f719f2249822839745d8eb536d8bcfd2",
+    ".forge/ast-grep/rules/typescript/vitest/no-tautological-expect.yml": "5306747659b6fddceeccd86ef8d55515efe182def5825af4bbfc23ee6051e973",
+    ".forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml": "520e0adad5e133bc364a2e959e64a20222900306d1630c8265ebd53ce6879ef8",
     ".forge/ast-grep/rules/typescript/zod/error-param.yml": "88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a",
     ".forge/ast-grep/rules/typescript/zod/v4-string-formats.yml": "1f4b2e54f9767673c6469da4a1d7f0d9dc1d8f39b657460bab8096b8c35a0a45",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "8516ea105c4f4decd358efa899f9014cd3591fcb5ee23ef241086f9e0af02e1e",
+    ".forge/check.sh": "b67c3e1db8726b7278d9046e337f0acd4a935939265384c84fd8b46deab58223",
     ".forge/helpers/ratchet.mjs": "14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38",
-    ".forge/helpers/types_typescript.mjs": "6e762a63e5d062fec1c24302266e2a0f186fb2541487fe820f10e76f9015c177",
+    ".forge/helpers/types_typescript.mjs": "16ca7738e134f4b4de59289b647f4d5d2845af42236680028ba0a95790fdb29e",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -21262,7 +21478,17 @@ forge_end "$fail"
       "path": "permissions.ask",
       "value": "Edit(**/vitest.config.*)"
     }
-  ]
+  ],
+  "roles": {
+    "e2e-tests": [
+      "e2e/**",
+      "tests/e2e/**"
+    ],
+    "ts-tests": [
+      "**/*.{test,spec}.{ts,tsx,mts,cts,js,jsx,mjs,cjs}",
+      "**/__tests__/**"
+    ]
+  }
 }
 
 ===== .forge/helpers/ratchet.mjs
@@ -21702,14 +21928,88 @@ function readText(file) {
   }
 }
 
-/** The declared name at <index> (keywords skipped). */
+/** The index of the first character at or after <i> that is not whitespace or a comment. */
+function skipTrivia(text, i) {
+  for (;;) {
+    while (i < text.length && /\s/.test(text[i])) i++;
+    if (text.startsWith("//", i)) {
+      const n = text.indexOf("\n", i);
+      i = n < 0 ? text.length : n + 1;
+    } else if (text.startsWith("/*", i)) {
+      const n = text.indexOf("*/", i + 2);
+      i = n < 0 ? text.length : n + 2;
+    } else return i;
+  }
+}
+
+/** The index just past the string literal starting at <i> (its quote). */
+function skipString(text, i) {
+  const q = text[i];
+  for (let j = i + 1; j < text.length; j++) {
+    if (text[j] === "\\") j++;
+    else if (text[j] === q) return j + 1;
+  }
+  return text.length;
+}
+
+/**
+ * The name of the type alias whose body holds <index>, the start of an anonymous type
+ * (an object type literal, a function or tuple type): `type UseFormWatch<T> = { … }`
+ * gives UseFormWatch. The servers point the type definition of such a type at the
+ * literal, which has no name of its own. Undefined when no alias declares it (an inline
+ * type annotation).
+ */
+function enclosingAlias(text, index) {
+  const heads = [...text.slice(0, index).matchAll(/\btype\s+([A-Za-z_$][\w$]*)/g)];
+  for (let h = heads.length - 1; h >= 0; h--) {
+    const head = heads[h];
+    // past the name and its type parameters (balanced <>, where => is not a closing >)
+    let i = skipTrivia(text, head.index + head[0].length);
+    if (text[i] === "<") {
+      let depth = 0;
+      for (; i < index; i++) {
+        if (text[i] === "=" && text[i + 1] === ">") i++;
+        else if (text[i] === "<") depth++;
+        else if (text[i] === ">" && --depth === 0) break;
+      }
+      i = skipTrivia(text, i + 1);
+    }
+    if (text[i] !== "=" || text[i + 1] === ">" || i >= index) continue;
+    // the alias's statement goes on to a ; at depth 0 (or the end of the enclosing block)
+    let depth = 0;
+    let ended = false;
+    for (let j = i + 1; j < index && !ended; ) {
+      const k = skipTrivia(text, j);
+      if (k !== j) {
+        j = k;
+        continue;
+      }
+      const c = text[j];
+      if (c === '"' || c === "'" || c === "`") j = skipString(text, j);
+      else {
+        if ("([{".includes(c)) depth++;
+        else if (")]}".includes(c)) ended = --depth < 0;
+        else if (c === ";" && depth === 0) ended = true;
+        j++;
+      }
+    }
+    if (!ended) return head[1];
+  }
+  return undefined;
+}
+
+/**
+ * The declared name at <index> (keywords and comments skipped): { name, end }, with end
+ * where a class or interface header's heritage clauses start; an anonymous type gets the
+ * name of the alias declaring it, and no heritage (end undefined).
+ */
 function nameAt(text, index) {
-  for (let i = index; i < text.length; ) {
+  for (let i = skipTrivia(text, index); i < text.length; i = skipTrivia(text, i)) {
     WORD.lastIndex = i;
     const m = WORD.exec(text);
     if (!m) {
-      i++;
-      continue;
+      const name = enclosingAlias(text, i);
+      return name ? { name, end: undefined } : undefined;
     }
     if (!KEYWORDS.has(m[0])) return { name: m[0], end: i + m[0].length };
     i += m[0].length;
@@ -21802,7 +22102,7 @@ class Types {
       const at = nameAt(text, indexOf(text, l.pos));
       if (!at) continue;
       out.set(`${pkg}\0${mod}\0${at.name}`, [pkg, mod, at.name]);
-      const bases = heritage(text, at.end);
+      const bases = at.end === undefined ? [] : heritage(text, at.end);
       const defs = await Promise.all(
         bases.map((b) => this.server.definition(file, position(text, b))),
       );
@@ -22109,14 +22409,14 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 d0a502f51f51609d7e5e9cd6f39a8ce165c656ee1c1b7a607105a536962058eb  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
 83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5  .claude/skills/forge-project/scripts/lib.sh
-16818d5c2a0c669597e661137cf8d4cdc9fcbb8d8c9b54f680ef8a7fc6234d6e  .claude/skills/forge-project/scripts/post-edit.sh
+4c33f69dbd231935d710e9fc643925b4b54f4cc4937e8c43cb49cce43ec1d71d  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
 99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58  .claude/skills/forge-project/scripts/session-end.sh
-d78f0a86f13810af4a23e5d6b7bf5b6a079d99331ee739441919afd1c5df6ba8  .claude/skills/forge-project/scripts/session-start.sh
+ae45f3cf14ef466ff31d80d80658f15211e75c239bcf9d32961c73e05c35a6b8  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-fdad8a9b8cb9704be32dd736055e8896a71c4b4a76e3f8505ab14b15cddd794c  .claude/skills/forge-project/scripts/test-edit.sh
+2489fb6af023bd719f21a0a242f7551e5981b10e8218d56050fd5e2cf2b484f7  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-2331785270da2751418b5456f461992afd3504056780b5f57c1f86d6db40f0b7  .claude/skills/forge-project/scripts/typecheck.sh
+8f38013bba448ea94af8f874a6a93f46f7b12ac4f0d629c1fdca6137c7173c18  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 bd5df50793070bba7b87b0f623ac58ed4599e0ba6f8d731fc0da4b28a0335ec8  .forge/ast-grep/rule-tests/typescript-bun-no-fewer-expects-test.yml
 2916d521378a79dbddd4e3a5822e04b4c3e5fad9262a65e019095f58bbfe0310  .forge/ast-grep/rule-tests/typescript-bun-no-mock-increase-test.yml
@@ -22150,9 +22450,9 @@ b8a0548c0fe777d62794a8a101d54fcb110517e3f5657d0d338d6a0f5b75487a  .forge/ast-gre
 72dcb1355a54b0a7a880206f4567d94c18f8eaaf6d2dc7d1ab0a9414981250c8  .forge/ast-grep/rule-tests/typescript-vitest-no-test-env-branch-test.yml
 5ca3e9da32d72d98bb2be00a1341f6b6d5cc431f86e0313d2e51f33384d50fe7  .forge/ast-grep/rule-tests/typescript-zod-error-param-test.yml
 0f6c16bcf006eac0bc6bd6584b6a412c3f7277731138738373276f90233a9279  .forge/ast-grep/rule-tests/typescript-zod-v4-string-formats-test.yml
-2ca24b5c409a8a142b0f81d7f9501cf3d41c426b2b6e7c037559da5179bb498f  .forge/ast-grep/rules/typescript/bun/no-fewer-expects.yml
-bf70d7263b8cc030ea6c1edd627f76c118417cf5a31dd2fd35cce6737e9ee0d4  .forge/ast-grep/rules/typescript/bun/no-mock-increase.yml
-33db9ec4783c392bf85ff2bc68f3ed8fcf877fe87da5ad541e31ea55253dc75a  .forge/ast-grep/rules/typescript/bun/no-new-skip.yml
+1d28227793e39282d11e89381d76d865d5decb208f73b2bd928e334f7e08b7e6  .forge/ast-grep/rules/typescript/bun/no-fewer-expects.yml
+aa0491b4e9c83f38f7ed6def712c73eee29046429dc097d7f3638a6f57769384  .forge/ast-grep/rules/typescript/bun/no-mock-increase.yml
+f9883da046589bbc4eb07ff2bab3bf1aecdbeb7d3e63c3727ade0fd164bf87bd  .forge/ast-grep/rules/typescript/bun/no-new-skip.yml
 99d6745b72bc71e63a385b0c72edc6a1d5d2f0c2484b32a8edf403a052181538  .forge/ast-grep/rules/typescript/nextjs/no-legacy-image-config.yml
 2447380f96c63cf72fcf39285fff2abe7f1edd49646a74ed5ad91fbb77a908e0  .forge/ast-grep/rules/typescript/nextjs/no-next-router.yml
 c189e6db00b706044708a2c5fc1e5fe8698213059fabf7d6d4f549eb57a759fb  .forge/ast-grep/rules/typescript/nextjs/no-pages-data.yml
@@ -22165,9 +22465,9 @@ c0b8c6e7a7a09608b63f8c9367afb4ac22fb1daa93c79c967373efdab597a48c  .forge/ast-gre
 b21497e3335f2271e6ca5874817957d18c640e7d787cfe76a72ef390ab62d634  .forge/ast-grep/rules/typescript/no-stub.yml
 4bd8569b39e21928852fafeaee02ce9d2ff35726699f91b3f50a6ebf57843bd6  .forge/ast-grep/rules/typescript/no-swallowed-catch.yml
 aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21  .forge/ast-grep/rules/typescript/no-ts-nocheck.yml
-c7c96b1437d5c6ac7bf04ec59e777e83def0d9451ef3b6cf238c881ff1909e29  .forge/ast-grep/rules/typescript/playwright/locators.yml
-2bc5836e747a7dc4b45593074ff04b30a7e89fd2e8c53dc274e37035885c7d5c  .forge/ast-grep/rules/typescript/playwright/no-new-skip.yml
-e4ed8b571875af6fbce7f92616b4772d90c847e5009403d57f76d46a7b55396d  .forge/ast-grep/rules/typescript/playwright/no-wait-for-timeout.yml
+928bcf8cf19aded246ff9770c0c4580bc127c1ed10443d1682d42c4e1b55c9e3  .forge/ast-grep/rules/typescript/playwright/locators.yml
+a5027d8d2ec65a4651bb18a08b95d15b7a5331b7fc9afcbc6645a02c1c2ffef2  .forge/ast-grep/rules/typescript/playwright/no-new-skip.yml
+c9555ee744b362ae85f511404a291a67a128b7aac5d1c7503c748ae2a4ecfb20  .forge/ast-grep/rules/typescript/playwright/no-wait-for-timeout.yml
 7b8a093b0f51e5d6b8f8a132b1ef43888104b1f5985465fc4f0f5984762a79c2  .forge/ast-grep/rules/typescript/prisma/generated-client-import.yml
 98cf3096f74f6db07744f597904e3df903a8a886a095cfffa52b133bf3acc1c7  .forge/ast-grep/rules/typescript/prisma/no-middleware.yml
 4867b2d6d4fcc67ecf3f85d3a7433a27be0204c9a33d17c690d1dd52708d3c35  .forge/ast-grep/rules/typescript/prisma/no-network-in-transaction.yml
@@ -22175,17 +22475,17 @@ e4ed8b571875af6fbce7f92616b4772d90c847e5009403d57f76d46a7b55396d  .forge/ast-gre
 9626068d2f677a351b7722fbddc5a74e87c539b4c3e46a55d75cfaf717542c62  .forge/ast-grep/rules/typescript/react/no-prop-types.yml
 17b6fc5e510df3154be12c72a584d8bfb31034b577774718a8c50516b2b15a81  .forge/ast-grep/rules/typescript/react/use-action-state.yml
 b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad  .forge/ast-grep/rules/typescript/ts-expect-error-reason.yml
-eb97cf87f7d0754f025a3afb9e1a97ac145789684524424f720d96ce1e8b98b2  .forge/ast-grep/rules/typescript/vitest/no-fewer-expects.yml
-4c44cb2d640e8938692105eaeb084ff7ae7732f3487e7b59ff74bdb3b6bf35b8  .forge/ast-grep/rules/typescript/vitest/no-mock-increase.yml
-ea54564f283a2f3c832fecfd6f4d55c6243ce9922ddf524c48ee5a43738c1472  .forge/ast-grep/rules/typescript/vitest/no-new-skip.yml
-35497c3d5cc2bfdc45837edfa133f8320134101d9a869cebdcebcc9b8e685521  .forge/ast-grep/rules/typescript/vitest/no-tautological-expect.yml
-d3c41a3915d84b21e86e9212a06ad14c52bf2f9bcefb7c5ca433200cc3ec44fb  .forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml
+61b033107653d6918c4344befa09d1600c9230f5b11d55e0c84330c1d0e0fdf5  .forge/ast-grep/rules/typescript/vitest/no-fewer-expects.yml
+39d0e107d8ef1c272f4fa14e13294d4be36bff3ade3d7f0c5c0f3ce853a9e8af  .forge/ast-grep/rules/typescript/vitest/no-mock-increase.yml
+a177d889c58e4ec07acda640b671d277f719f2249822839745d8eb536d8bcfd2  .forge/ast-grep/rules/typescript/vitest/no-new-skip.yml
+5306747659b6fddceeccd86ef8d55515efe182def5825af4bbfc23ee6051e973  .forge/ast-grep/rules/typescript/vitest/no-tautological-expect.yml
+520e0adad5e133bc364a2e959e64a20222900306d1630c8265ebd53ce6879ef8  .forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml
 88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a  .forge/ast-grep/rules/typescript/zod/error-param.yml
 1f4b2e54f9767673c6469da4a1d7f0d9dc1d8f39b657460bab8096b8c35a0a45  .forge/ast-grep/rules/typescript/zod/v4-string-formats.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-8516ea105c4f4decd358efa899f9014cd3591fcb5ee23ef241086f9e0af02e1e  .forge/check.sh
+b67c3e1db8726b7278d9046e337f0acd4a935939265384c84fd8b46deab58223  .forge/check.sh
 14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38  .forge/helpers/ratchet.mjs
-6e762a63e5d062fec1c24302266e2a0f186fb2541487fe820f10e76f9015c177  .forge/helpers/types_typescript.mjs
+16ca7738e134f4b4de59289b647f4d5d2845af42236680028ba0a95790fdb29e  .forge/helpers/types_typescript.mjs
 
 ===== .git/hooks/pre-commit
 #!/bin/sh
