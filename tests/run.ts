@@ -19,7 +19,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { availableParallelism, tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { AST_GREP_VERSION, SQUAWK_VERSION } from "../src/util";
-import { ensureTools, ensureTs5, ensureVueTools, hasBun, hasUv, ROOT } from "./helpers";
+import { ensureTools, ensureTs5, ensureVueTools, hasBun, hasUv, ROOT, TOOLS_CACHE } from "./helpers";
 
 const T = "300000";
 const argv = process.argv.slice(2);
@@ -79,9 +79,18 @@ async function pool<T, R>(items: T[], n: number, fn: (item: T) => Promise<R>): P
   return out;
 }
 
-/** The environment of a shard: its own FORGE_STATE_HOME (tests/helpers.ts makes one). */
+/**
+ * The environment of a shard: its own FORGE_STATE_HOME (tests/helpers.ts makes one) and
+ * its own TMPDIR, the tool cache shared. bunx installs a package in $TMPDIR at every run
+ * of `bunx -p @ast-grep/cli@<v> ast-grep`, and two at once in the same place fail
+ * ("Failed to link @ast-grep/cli: EEXIST"); one shard runs one at a time.
+ */
+const shardTmps: string[] = [];
 function shardEnv(): Record<string, string | undefined> {
-  const env = { ...process.env };
+  // short: sockets under it must fit in 104 bytes
+  const tmp = mkdtempSync(join(tmpdir(), "fs-"));
+  shardTmps.push(tmp);
+  const env: Record<string, string | undefined> = { ...process.env, FORGE_TOOLS_CACHE: TOOLS_CACHE, TMPDIR: `${tmp}/` };
   delete env.FORGE_STATE_HOME;
   return env;
 }
@@ -162,7 +171,7 @@ async function prepare(): Promise<void> {
   // first runs of bunx/uvx install into shared caches: once here, not racing in the shards
   const warm: [string, string[]][] = [];
   if (hasBun)
-    warm.push(["bunx", ["-p", `@ast-grep/cli@${AST_GREP_VERSION}`, "ast-grep", "--version"]], ["bunx", ["-p", `squawk-cli@${SQUAWK_VERSION}`, "squawk", "--version"]]);
+    warm.push(["bunx", ["-p", `@ast-grep/cli@${AST_GREP_VERSION}`, "ast-grep", "--version"]], ["bunx", [`squawk-cli@${SQUAWK_VERSION}`, "--version"]]);
   if (hasUv)
     warm.push(["uvx", ["-q", "--from", `ast-grep-cli==${AST_GREP_VERSION}`, "ast-grep", "--version"]], ["uvx", ["-q", "--from", `squawk-cli==${SQUAWK_VERSION}`, "squawk", "--version"]]);
   await Promise.all(warm.map(([c, a]) => run(c, a)));
@@ -304,7 +313,7 @@ if (junit) {
   mkdirSync(join(junit, ".."), { recursive: true });
   writeFileSync(junit, `<?xml version="1.0" encoding="UTF-8"?>\n<testsuites name="bun test" tests="${all.length}" failures="${fail}" skipped="${skip}" time="${((performance.now() - started) / 1000).toFixed(3)}">\n${suites.join("\n")}\n</testsuites>\n`);
 }
-rmSync(work, { recursive: true, force: true });
+for (const d of [work, ...shardTmps]) rmSync(d, { recursive: true, force: true });
 const done = performance.now();
 console.log(
   `\n ${pass} pass\n ${skip} skip\n ${fail} fail\nRan ${all.length} tests across ${files.length} files in ${shards.length} processes (${jobs} at a time). [${secs(done - started)}; preparing ${secs(prepared - started)}]`,

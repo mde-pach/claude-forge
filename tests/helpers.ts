@@ -184,7 +184,8 @@ export const TOOL_VERSIONS = {
   // python/django/makemigrations runs the project's manage.py (5.2 LTS: Python 3.10+)
   django: "5.2.18",
 };
-export const TOOLS_CACHE = join(tmpdir(), "forge-tools-v2");
+/** Shared by every process of a run: the runner (tests/run.ts) passes it down with each shard's own TMPDIR. */
+export const TOOLS_CACHE = process.env.FORGE_TOOLS_CACHE || join(tmpdir(), "forge-tools-v2");
 export const hasBun = sh("sh", ["-c", "command -v bun"]).status === 0;
 export const hasUv = sh("sh", ["-c", "command -v uv"]).status === 0;
 

@@ -247,7 +247,10 @@ export function runCheckExamples(runs: CheckExampleRun[], toolBins: string[]): C
         } else if (run("sh", ["-c", `command -v ${tool}`]).status !== 0) return void (results[i] = { outcome: "skip", detail: `${tool} not available` });
       }
       const mode = checkExampleMode(t);
-      jobs.push({ cmd: "sh", args: ["-c", EXAMPLE_RUN, "sh", stage, ...(mode === "--turn" ? [mode, SNAP] : [mode])], cwd: repo });
+      // its own TMPDIR: bunx installs ast-grep there at every run, and two at once in one place fail
+      const tmp = join(dir, "tmp");
+      mkdirSync(tmp);
+      jobs.push({ cmd: "sh", args: ["-c", EXAMPLE_RUN, "sh", stage, ...(mode === "--turn" ? [mode, SNAP] : [mode])], cwd: repo, env: { TMPDIR: `${tmp}/` } });
       pending.push(i);
     });
     runParallel(jobs).forEach((r, j) => {
