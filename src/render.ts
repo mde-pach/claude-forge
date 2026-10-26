@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { codeExamples } from "./packs.js";
 import { toYaml } from "./yaml.js";
-import { AST_GREP_VERSION, FORGE_VERSION, HADOLINT_SHA256, HADOLINT_VERSION, packageRoot, shQuote, SQUAWK_VERSION, ZIZMOR_VERSION } from "./util.js";
+import { AST_GREP_VERSION, ENGINE_PYTHON, FORGE_VERSION, HADOLINT_SHA256, HADOLINT_VERSION, packageRoot, sha256, shQuote, SQUAWK_VERSION, TY_VERSION, ZIZMOR_VERSION } from "./util.js";
 import type { AstGrepTarget, CheckTarget, GrepTarget, GuardTarget, Language, Level, Rule } from "./types.js";
 
 export function template(name: string): string {
@@ -21,8 +21,10 @@ export function renderLib(): string {
 // ---------------------------------------------------------------- tools in commands
 
 /** Project tools resolved through `tool <name>` (audited tools first). */
-export const AUDITED_TOOLS = ["biome", "ruff", "basedpyright", "tsc"] as const;
-export const PROJECT_TOOLS = [...AUDITED_TOOLS, "alembic", "pytest", "prisma", "vitest", "playwright", "astro", "python", "vue-tsc"] as const;
+export const AUDITED_TOOLS = ["biome", "ruff", "ty", "tsc"] as const;
+export const PROJECT_TOOLS = ["biome", "ruff", "tsc", "alembic", "pytest", "prisma", "vitest", "playwright", "astro", "python", "vue-tsc"] as const;
+/** Forge's own pinned tools used in check commands: ty (Python's type checker, through uvx, §15.2). */
+export const FORGE_TOOLS = ["ty"] as const;
 /** System runtimes, checked with `command -v`. */
 export const SYSTEM_TOOLS = ["uv", "uvx", "bun", "docker"] as const;
 
@@ -35,7 +37,7 @@ const HELPER_TOOLS: [RegExp, string][] = [
 /** Tools invoked as commands in a shell string, in order of first use. */
 export function toolsInCommand(cmd: string): string[] {
   const found: { tool: string; at: number }[] = [];
-  for (const tool of [...PROJECT_TOOLS, ...SYSTEM_TOOLS]) {
+  for (const tool of [...PROJECT_TOOLS, ...FORGE_TOOLS, ...SYSTEM_TOOLS]) {
     const m = new RegExp(`(^|[\\s;&|(\`]|\\$\\()${tool}(?=$|[\\s;&|)\`])`).exec(cmd);
     if (m) found.push({ tool, at: m.index });
   }
@@ -161,8 +163,23 @@ function renderGreps(greps: ActiveGrep[]): string[] {
   return out;
 }
 
+/** The languages of the types engine (§15.2). */
+export type TypesLanguage = "python" | "typescript";
+
+/** The types engine a rule's ast-grep target needs (§15.2): its language's, when it has a where. */
+export function typesLanguage(rule: Rule, target: AstGrepTarget): TypesLanguage | undefined {
+  if (!target.where) return undefined;
+  return rule.scope.language === "python" ? "python" : "typescript";
+}
+
+/** A hash of the engine adapters: a daemon started by another revision is restarted. */
+function typesRevision(): string {
+  const text = ["types_python.py", "types_typescript.mjs"].map((f) => readFileSync(join(packageRoot(), "templates", "helpers", f), "utf8")).join("\0");
+  return sha256(text).slice(0, 12);
+}
+
 /** The generated checks fragment (wrappers, per-check functions, grep rules, engine). */
-export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = []): string {
+export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = [], types: TypesLanguage[] = []): string {
   const used = new Set(checks.flatMap((c) => checkTools(c.target)));
   const out: string[] = ["# ---- generated checks"];
   // a POSIX shell function name has no "-": such tools are run as `forge_exec_tool <name>`
@@ -171,6 +188,7 @@ export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = []): s
     out.push("# Project tools used in check commands, resolved through tool().");
     for (const t of wrappers) out.push(`${t}() { forge_exec_tool ${t} "$@"; }`);
   }
+  if (used.has("ty")) out.push("# ty is Forge's own, pinned (§15.2).", 'ty() { forge_ty "$@"; }');
   out.push(`FORGE_NCHECKS=${checks.length}`);
   checks.forEach(({ rule, target, dirs }, i) => {
     const n = i + 1;
@@ -205,6 +223,11 @@ export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = []): s
       ZIZMOR_VERSION,
       HADOLINT_VERSION,
       HADOLINT_SHAS: Object.entries(HADOLINT_SHA256).map(([p, h]) => `${p} ${h}`).join("\n"),
+      // newline-separated: IFS is a newline in the generated scripts
+      TYPES_LANGS: types.join("\n"),
+      TY_VERSION,
+      ENGINE_PYTHON,
+      TYPES_REV: types.length ? typesRevision() : "",
     }).trimEnd());
   return out.join("\n");
 }
@@ -247,11 +270,15 @@ export function renderTestRules(checks: ActiveCheck[]): string {
 }
 
 /** .forge/check.sh: the library, the checks fragment and the ast-grep rule ids by mode. */
-export function renderCheckScript(checks: ActiveCheck[], ids: { forbid: string; noIncrease: string; noDecrease: string }, greps: ActiveGrep[] = []): string {
+export function renderCheckScript(
+  checks: ActiveCheck[],
+  ids: { forbid: string; noIncrease: string; noDecrease: string },
+  greps: ActiveGrep[] = [],
+  types: TypesLanguage[] = [],
+): string {
   return fill(template("check.sh"), {
     LIB: renderLib().trimEnd(),
-    CHECKS: renderChecks(checks, greps),
-    SCRIPTS: renderHelperScripts(checks),
+    CHECKS: renderChecks(checks, greps, types),
     FORBID: ids.forbid,
     NO_INCREASE: ids.noIncrease,
     NO_DECREASE: ids.noDecrease,
@@ -259,34 +286,30 @@ export function renderCheckScript(checks: ActiveCheck[], ids: { forbid: string; 
 }
 
 /** Tools resolved from the project's .venv/bin (the others from node_modules/.bin). */
-export const PYTHON_TOOLS = new Set(["ruff", "basedpyright", "alembic", "pytest", "python"]);
+export const PYTHON_TOOLS = new Set(["ruff", "alembic", "pytest", "python"]);
 
 /**
- * Scripts that engine helpers run with the project's own runtime. They are
- * embedded in check.sh as here-documents (forge_script_<name>), only when an
- * active check uses them: as separate files, the project's formatters would
- * rewrite them (ruff format ., biome check --write .).
+ * Scripts that engine helpers and the types engine run with a runtime (§13.4, §15.2),
+ * shipped as plain files in .forge/helpers/, only when an active check or rule uses
+ * them. A project formatter may rewrite them: their integrity hash ignores formatting
+ * (ownedHash).
  */
-const HELPER_SCRIPTS: { name: string; template: string }[] = [
-  { name: "ratchet.py", template: "ratchet.py" },
-  { name: "ratchet.mjs", template: "ratchet.mjs" },
-  { name: "drf_permissions.py", template: "drf_permissions.py" },
-  { name: "public_api.py", template: "public_api.py" },
-  { name: "public_api.mjs", template: "public_api.mjs" },
-  { name: "fk_index.py", template: "fk_index.py" },
-];
+const HELPER_SCRIPTS = ["ratchet.py", "ratchet.mjs", "drf_permissions.py", "public_api.py", "public_api.mjs", "fk_index.py"];
+export const HELPERS_DIR = ".forge/helpers";
 
-/** forge_script_<name>() functions for the helper scripts the checks use. */
-export function renderHelperScripts(checks: ActiveCheck[]): string {
-  const out: string[] = [];
-  for (const h of HELPER_SCRIPTS) {
-    const used = new RegExp(`\\bforge_(ratchet|helper) [a-z]+ ${h.name.replace(".", "\\.")}(\\s|$)`);
-    if (!checks.some((c) => used.test(c.target.run) || used.test(c.target.changed_run ?? ""))) continue;
-    const text = readFileSync(join(packageRoot(), "templates", "helpers", h.template), "utf8");
-    if (text.split("\n").includes("FORGE_SCRIPT_END")) throw new Error(`${h.template}: contains the here-document delimiter`);
-    out.push(`forge_script_${h.name.replace(/\W/g, "_")}() {`, "cat <<'FORGE_SCRIPT_END'", text.trimEnd(), "FORGE_SCRIPT_END", "}");
+/** The helper files the checks and types engines use: path (repository-relative) -> content. */
+export function helperFiles(checks: ActiveCheck[], types: TypesLanguage[] = []): Map<string, string> {
+  const out = new Map<string, string>();
+  const read = (name: string) => readFileSync(join(packageRoot(), "templates", "helpers", name), "utf8");
+  for (const name of HELPER_SCRIPTS) {
+    const used = new RegExp(`\\bforge_(ratchet|helper) [a-z]+ ${name.replace(".", "\\.")}(\\s|$)`);
+    if (checks.some((c) => used.test(c.target.run) || used.test(c.target.changed_run ?? ""))) out.set(`${HELPERS_DIR}/${name}`, read(name));
   }
-  return out.join("\n");
+  for (const lang of types) {
+    const name = lang === "python" ? "types_python.py" : "types_typescript.mjs";
+    out.set(`${HELPERS_DIR}/${name}`, read(name));
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------- guard.rules
@@ -350,11 +373,19 @@ export function renderAstGrepRule(rule: Rule, target: AstGrepTarget, dirs?: stri
   doc.rule = target.rule;
   if (target.constraints) doc.constraints = target.constraints;
   if (target.utils) doc.utils = target.utils;
+  // engine capabilities travel with each match (--include-metadata) to forge_types_filter
+  if (target.where) doc.metadata = { forge_where: target.where };
   return `# Generated by forge from ${rule.id} (mode: ${target.mode}).\n${toYaml(doc)}`;
 }
 
+/**
+ * The ast-grep test of a rule's examples. With a where (§15.1), ast-grep alone only
+ * proves that every match example matches; the no_match examples need the types engine
+ * (selftest's types examples).
+ */
 export function renderAstGrepTest(rule: Rule): string {
-  return toYaml({ id: rule.id, valid: codeExamples(rule, "no_match"), invalid: codeExamples(rule, "match") });
+  const typed = rule.enforce.some((t) => t.target === "ast-grep" && t.where);
+  return toYaml({ id: rule.id, valid: typed ? [] : codeExamples(rule, "no_match"), invalid: codeExamples(rule, "match") });
 }
 
 export function renderSgConfig(): string {
@@ -375,7 +406,7 @@ function hook(script: string, timeout: number, extra: Record<string, unknown> = 
   return { type: "command", command: `sh "\${CLAUDE_PLUGIN_ROOT}/scripts/${script}"`, timeout, ...extra };
 }
 
-export function renderHooks(level: Level): string {
+export function renderHooks(level: Level, opts: { types?: boolean } = {}): string {
   // 180 s: an ask nobody can answer waits for an independent review (review.sh); the usual answer takes milliseconds
   const guard = { matcher: "Bash", hooks: [hook("guard.sh", 180, { onFailure: "block" })] };
   const review = [{ hooks: [hook("review.sh", 180)] }];
@@ -398,6 +429,8 @@ export function renderHooks(level: Level): string {
           // a Bash command that fails (or is interrupted) partway may already have changed files; a failed Edit or Write changes nothing
           PostToolUseFailure: [{ matcher: "Bash", hooks: afterEdit }],
           Stop: [{ hooks: [hook("stop.sh", 600)] }],
+          // the last session to end stops the types engines (§15.3)
+          ...(opts.types ? { SessionEnd: [{ hooks: [hook("session-end.sh", 10)] }] } : {}),
         };
   return JSON.stringify({ description: "Generated by forge. Do not edit; run forge apply.", hooks }, null, 2) + "\n";
 }

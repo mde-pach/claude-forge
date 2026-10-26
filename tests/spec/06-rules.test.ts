@@ -114,7 +114,7 @@ describe("permission, guard and context targets", () => {
         "Edit(.claude/rules/forge-*.md)",
         "Edit(**/ruff.toml)",
         "Edit(**/.ruff.toml)",
-        "Edit(**/pyrightconfig.json)",
+        "Edit(**/ty.toml)",
       ]);
     },
     T,

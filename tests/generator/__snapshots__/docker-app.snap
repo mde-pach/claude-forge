@@ -29,9 +29,9 @@ Attacker-controllable `${{ }}` values (issue and PR titles, bodies, branch names
 ===== .claude/rules/forge-python.md
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
 
-Python project managed with uv. Tools run from `.venv/bin`. Type checking: basedpyright.
+Python project managed with uv. Tools run from `.venv/bin`. Type checking: ty (`[tool.ty]`); parameters and return types are annotated.
 Inside `async def`, the checks reject blocking calls that ruff's ASYNC210, ASYNC230 and ASYNC251 detect (sync HTTP clients, `open()`, `time.sleep`).
-Ignore comments name their rule (`# pyright: ignore[ruleName]`), and a changed file may not gain suppression comments.
+Ignore comments name their rule (`# ty: ignore[rule-name]`), and a changed file may not gain suppression comments.
 Before writing a utility, search the codebase for an existing helper (warn-once and logging helpers, `utils` functions) and reuse it instead of adding a near-duplicate.
 
 ===== .claude/settings.json
@@ -44,7 +44,7 @@ Before writing a utility, search the codebase for an existing helper (warn-once 
       "Edit(.claude/rules/forge-*.md)",
       "Edit(**/ruff.toml)",
       "Edit(**/.ruff.toml)",
-      "Edit(**/pyrightconfig.json)"
+      "Edit(**/ty.toml)"
     ]
   }
 }
@@ -1000,6 +1000,95 @@ bash_cleanup() {
   return 0
 }
 
+# ---- engine capabilities (SPECS §15): the types engine, one daemon per language and
+# repository in $FORGE_STATE/types/<lang>/ (in: the request FIFO; pid, ready, want,
+# log; sessions/ holds one file per Claude Code session using it).
+
+# forge_types_alive <lang>: its daemon is running.
+forge_types_alive() {
+  [ -p "$FORGE_STATE/types/$1/in" ] && [ -f "$FORGE_STATE/types/$1/ready" ] \
+    && kill -0 "$(cat "$FORGE_STATE/types/$1/pid" 2>/dev/null)" 2>/dev/null
+}
+
+# forge_types_line <lang> <line>: writes one line (shorter than PIPE_BUF, so writers
+# never mix) to the daemon's FIFO. Opened read-write, so it never blocks.
+forge_types_line() { printf '%s\n' "$2" 1<>"$FORGE_STATE/types/$1/in"; }
+
+# forge_types_ask <lang> <dir> [stop]: asks the daemon the question in <dir>/req and
+# prints its answer (without the final "end"); with "stop", asks it to stop and waits
+# until it has (its language server ended). Fails when no answer comes within
+# FORGE_TYPES_TIMEOUT seconds (20). The reply FIFO is opened read-write before the
+# question is sent, so the daemon's non-blocking open always finds a reader.
+forge_types_ask() {
+  mkfifo "$2/reply" || return 1
+  exec 8<>"$2/reply"
+  forge_types_line "$1" "${3:+$3	}$2"
+  { sleep "${FORGE_TYPES_TIMEOUT:-20}" & printf '%s\n' "$!" > "$2/sleep"; wait "$!"
+    printf 'error\tno answer within %ss\nend\n' "${FORGE_TYPES_TIMEOUT:-20}" 1<>"$2/reply"; } >/dev/null 2>&1 &
+  _ta_w=$!
+  _ta_rc=1
+  while IFS= read -r _ta_l <&8; do
+    [ "$_ta_l" = end ] && { _ta_rc=0; break; }
+    printf '%s\n' "$_ta_l"
+  done
+  forge_types_unwatch "$_ta_w" "$2/sleep"
+  exec 8<&-
+  return "$_ta_rc"
+}
+
+# forge_types_unwatch <watchdog pid> <file with its sleep's pid>: ends a watchdog by
+# its sleep, so the watchdog ends on its own (killing it would make some shells print
+# "Terminated"); its late line goes to a FIFO nobody reads any more.
+forge_types_unwatch() {
+  _tw_n=0
+  while [ ! -s "$2" ] && [ "$_tw_n" -lt 100 ]; do _tw_n=$((_tw_n + 1)); done
+  if [ -s "$2" ] && read -r _tw_p < "$2"; then kill "$_tw_p" 2>/dev/null; else kill "$1" 2>/dev/null; fi
+  wait "$1" 2>/dev/null
+  return 0
+}
+
+# forge_types_changed <path>...: tells the running daemons that files changed on disk
+# (they resync them). A dependency or configuration change restarts them instead: the
+# next question starts them again on the new environment.
+forge_types_changed() {
+  [ -d "$FORGE_STATE/types" ] || return 0
+  for _tc_lang in python typescript; do
+    forge_types_alive "$_tc_lang" || continue
+    for _tc_f in "$@"; do
+      case $_tc_f in
+        uv.lock|*/uv.lock|pyproject.toml|*/pyproject.toml|ty.toml|bun.lock|bun.lockb|package-lock.json|pnpm-lock.yaml|yarn.lock|package.json|*/package.json|tsconfig*.json|*/tsconfig*.json)
+          forge_types_line "$_tc_lang" restart; break ;;
+        *) forge_types_line "$_tc_lang" "changed	$_tc_f" ;;
+      esac
+    done
+  done
+}
+
+# forge_types_stop <lang>: stops the language's daemon and waits until it and its
+# language server have exited (at most FORGE_TYPES_TIMEOUT seconds).
+forge_types_stop() {
+  forge_types_alive "$1" || return 0
+  _tp_r=$(mktemp -d "${TMPDIR:-/tmp}/forge-types-stop.XXXXXX") || return 1
+  forge_types_ask "$1" "$_tp_r" stop > /dev/null
+  rm -rf "$_tp_r"
+  return 0
+}
+
+# forge_types_session <start|end>: registers this Claude Code session with the running
+# daemons, or unregisters it; the last session to end stops them.
+forge_types_session() {
+  for _tx_lang in python typescript; do
+    _tx_d=$FORGE_STATE/types/$_tx_lang
+    [ -d "$_tx_d" ] || continue
+    if [ "$1" = start ]; then mkdir -p "$_tx_d/sessions" && : > "$_tx_d/sessions/$(session_id)"
+    else
+      rm -f "$_tx_d/sessions/$(session_id)"
+      [ -n "$(ls "$_tx_d/sessions" 2>/dev/null)" ] || forge_types_stop "$_tx_lang"
+    fi
+  done
+  return 0
+}
+
 ===== .claude/skills/forge-project/scripts/post-edit.sh
 #!/bin/sh
 # Generated by forge. PostToolUse(Edit|Write|Bash) and PostToolUseFailure(Bash), a
@@ -1056,7 +1145,9 @@ fi
 # ---- generated checks
 # Project tools used in check commands, resolved through tool().
 python() { forge_exec_tool python "$@"; }
-FORGE_NCHECKS=15
+# ty is Forge's own, pinned (§15.2).
+ty() { forge_ty "$@"; }
+FORGE_NCHECKS=16
 
 # 1. docker/compose/config-valid
 forge_check_meta_1() {
@@ -1244,10 +1335,10 @@ forge_check_meta_13() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_13() {
-  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) ;; *) return 1 ;; esac
+  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_13() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) return 0 ;; esac; return 1; }
+forge_when_13() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) return 0 ;; esac; return 1; }
 forge_check_run_13() {
 forge_ratchet python ratchet.py
 }
@@ -1283,6 +1374,21 @@ forge_check_run_15() {
 forge_advise forge_stub_sync
 }
 
+# 16. python/typecheck
+forge_check_meta_16() {
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+}
+forge_scope_16() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_16() { return 1; }
+forge_check_run_16() {
+ty check --output-format concise
+}
+
 FORGE_NGREPS=2
 FORGE_GREP_NO_INCREASE='python/no-new-suppressions'
 FORGE_GREP_NO_DECREASE=''
@@ -1290,7 +1396,7 @@ FORGE_GREP_NO_DECREASE=''
 # grep 1. python/no-new-suppressions
 forge_grep_meta_1() {
   g_id='python/no-new-suppressions'; g_mode=no-increase; g_flags=-E
-  g_pattern='#[[:space:]]*(noqa|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore)'
+  g_pattern='#[[:space:]]*(noqa|ty:[[:space:]]*ignore|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore)'
   g_desc='No new suppression comments (# noqa,'
 }
 forge_grep_scope_1() {
@@ -1348,7 +1454,9 @@ forge_change_set() {
     --since)
       { git diff --name-only -z --no-renames "$FORGE_BASE_REV" 2>/dev/null; git ls-files -z --others --exclude-standard 2>/dev/null; } | tr '\000' '\n' | sort -u ;;
     *) status_paths | sort -u ;;
-  esac > "$FORGE_TMP/changed"
+  esac | grep -v '^\.forge/' > "$FORGE_TMP/changed"
+  # Forge's own files (.forge/: check.sh, its helper scripts) are not the project's code:
+  # integrity covers them (check.sh step 1), the project's rules do not
   : > "$FORGE_TMP/existing"; : > "$FORGE_TMP/deleted"; : > "$FORGE_TMP/inbase"; : > "$FORGE_TMP/added"
   mkdir -p "$FORGE_TMP/base"
   while IFS= read -r _cs_f; do
@@ -1435,11 +1543,12 @@ forge_added_lines() {
   return 0
 }
 
-# forge_sg_report <json>: ast-grep --json=stream matches as
+# forge_sg_report <json> [json]: ast-grep --json=stream matches as
 # "forge:<rule> path:line:column <description>" (from 1); unless $mode is --all, only
 # matches that overlap a line of $FORGE_TMP/added (a match spanning an edited line counts).
+# With "json", those matches as they are (for forge_types_filter).
 forge_sg_report() {
-  awk -v all="$([ "$mode" = --all ] && printf 1)" '
+  awk -v all="$([ "$mode" = --all ] && printf 1)" -v json="${2:-}" '
     function str(s, key,   i, out, c) {
       i = index(s, "\"" key "\":\""); if (!i) return ""
       s = substr(s, i + length(key) + 4); out = ""
@@ -1461,6 +1570,7 @@ forge_sg_report() {
       keep = (all != "" || (f in whole))
       for (l = sl; !keep && l <= el; l++) if ((f "\t" l) in ad) keep = 1
       if (!keep) next
+      if (json != "") { print; next }
       id = m; sub(/^forge:/, "", id); sub(/ .*$/, "", id)
       d = m; sub(/^[^ ]* ?/, "", d)
       printf "forge:%s %s:%d:%d %s\n", id, f, sl, sc, d
@@ -1501,16 +1611,14 @@ forge_grep_forbid() {
   done
 }
 
-# forge_ratchet <runtime> <script>: the config ratchet. Runs <script> (embedded in
-# check.sh as forge_script_<script>) with the project's runtime on the changed files
-# and their base copies; each printed line is a loosened setting, unless forge.yaml
-# records it as accepted.
+# forge_ratchet <runtime> <script>: the config ratchet. Runs .forge/helpers/<script>
+# with the project's runtime on the changed files and their base copies; each printed
+# line is a loosened setting, unless forge.yaml records it as accepted.
 forge_ratchet() {
-  _fr_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
-  "$_fr_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  [ -f ".forge/helpers/$2" ] || { printf 'forge:%s skipped: .forge/helpers/%s is missing (run forge apply)\n' "$c_id" "$2"; return 0; }
   set -f
   # shellcheck disable=SC2046
-  "$1" "$FORGE_TMP/$2" "$FORGE_TMP/base" $(cat "$FORGE_TMP/existing") > "$FORGE_TMP/ratchet" 2>&1
+  "$1" ".forge/helpers/$2" "$FORGE_TMP/base" $(cat "$FORGE_TMP/existing") > "$FORGE_TMP/ratchet" 2>&1
   _fr_rc=$?
   set +f
   case $_fr_rc in
@@ -1528,16 +1636,15 @@ forge_ratchet() {
   return 1
 }
 
-# forge_helper <runtime> <script> [file...]: runs <script> (embedded in check.sh as
-# forge_script_<script>) with the project's runtime, as `<script> <FORGE_TMP> [file...]`
+# forge_helper <runtime> <script> [file...]: runs .forge/helpers/<script> with the
+# project's runtime, as `<script> <FORGE_TMP> [file...]`
 # (FORGE_TMP holds changed, existing, inbase and base/ from forge_change_set). Exit 0:
 # nothing found; 1: findings printed ("path:line message"; a line also present in
 # forge.yaml is accepted); 3: cannot run, its "skipped: ..." line is printed.
 forge_helper() {
-  _fh_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
-  "$_fh_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  [ -f ".forge/helpers/$2" ] || { printf 'forge:%s skipped: .forge/helpers/%s is missing (run forge apply)\n' "$c_id" "$2"; return 0; }
   _fh_rt=$1; _fh_s=$2; shift 2
-  "$_fh_rt" "$FORGE_TMP/$_fh_s" "$FORGE_TMP" "$@" > "$FORGE_TMP/helper" 2>&1
+  "$_fh_rt" ".forge/helpers/$_fh_s" "$FORGE_TMP" "$@" > "$FORGE_TMP/helper" 2>&1
   case $? in
     0) return 0 ;;
     1) ;;
@@ -2504,6 +2611,8 @@ forge_has_tool() {
   case $1 in
     *@*) ( _fh_root=$(pwd); cd "${1#*@}" 2>/dev/null && FORGE_WS_ROOT=$_fh_root forge_has_tool "${1%%@*}" ) ;;
     uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
+    # Forge's pinned ty runs through uvx (§15.2)
+    ty) command -v uvx >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
@@ -3539,11 +3648,12 @@ forge_diagnostics() {
       else if (index(p, r2 "/") == 1) p = substr(p, length(r2) + 2)
       sub(/^\.\//, "", p)
       named = 1
+      if (p !~ /^\.forge\//) project = 1
       if (level == "line") counts = (p in whole) || (ln == "" || ln == 0 ? (p in ch) : ((p "\t" ln) in ad))
       else counts = (p in ch)
       if (counts) { hit = 1; if (mode == "print") print $0 }
     }
-    END { if (mode != "print") print (hit ? "changed" : named ? "other" : (warned && !erred) ? "warnings" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
+    END { if (mode != "print") print (hit ? "changed" : named && !project ? "forge" : named ? "other" : (warned && !erred) ? "warnings" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
 }
 
 # forge_attribute_level <stage> <whole-project run: 1|0>: how a failed check's
@@ -3603,6 +3713,12 @@ forge_run_check() {
   fi
   # outside --all, only errors in the change count (§10.1 step 5)
   _fc_level=$(forge_attribute_level "$c_stage" "$_fc_whole")
+  # findings only in Forge's own helper scripts (.forge/helpers/, checked by integrity)
+  # are not the project's, in every mode
+  if [ -n "$_fc_level" ] && [ "$(forge_diagnostics "$FORGE_TMP/out" "$_fc_level")" = forge ]; then
+    printf 'forge:%s ok (its findings are only in Forge'"'"'s own .forge/ files)\n' "$c_id"
+    return 0
+  fi
   if [ "$mode" != --all ] && [ -n "$_fc_level" ]; then
     case $(forge_diagnostics "$FORGE_TMP/out" "$_fc_level") in
       other)
@@ -4109,6 +4225,12 @@ forge_missing_tools() {
   if ! command -v bunx >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then
     _mt="${_mt:+$_mt, }bunx or uvx (ast-grep)"
   fi
+  for _mt_l in $FORGE_TYPES_LANGS; do
+    case $_mt_l in
+      python) command -v uvx >/dev/null 2>&1 || _mt="${_mt:+$_mt, }uvx (types engine: ty $FORGE_TY_VERSION)" ;;
+      typescript) command -v bun >/dev/null 2>&1 || _mt="${_mt:+$_mt, }bun (types engine: the project's TypeScript)" ;;
+    esac
+  done
   printf '%s' "$_mt"
 }
 
@@ -4120,6 +4242,135 @@ forge_required_tools() {
     printf '%s\n' "$c_tools" | tr ' ' '\n' | awk -v d="$c_dirs" 'NF { if (d == "") print; else { n = split(d, ds, " "); for (i = 1; i <= n; i++) print $0 "@" ds[i] } }'
     _fq_i=$((_fq_i + 1))
   done | awk 'NF && !seen[$0]++'
+}
+
+# ---- engine capabilities (SPECS §15): types
+
+# The languages whose types engine the active rules use, and the engines' pins.
+FORGE_TYPES_LANGS=''
+FORGE_TY_VERSION='0.0.86'
+FORGE_ENGINE_PYTHON='3.12'
+# the adapters' revision: a running daemon of another Forge version is restarted
+FORGE_TYPES_REV=''
+
+# forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
+# environment (.venv) and configuration ([tool.ty], ty.toml).
+forge_ty() { uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" ty "$@"; }
+
+# forge_types_up <lang>: the language's daemon runs, with the pinned engine (started
+# when it does not: by the first hook that needs it, or by SessionStart). Prints why
+# and fails when it cannot start. Registers the hook's session, if any.
+forge_types_up() {
+  _tu_lang=$1
+  _tu_d=$FORGE_STATE/types/$1
+  case $1 in
+    python) _tu_want="ty $FORGE_TY_VERSION $FORGE_TYPES_REV" ;;
+    # the project's own TypeScript: a change of its version changes package.json or a lock file (restart)
+    typescript) _tu_want="typescript (the project's) $FORGE_TYPES_REV" ;;
+    *) printf 'no types engine for %s\n' "$1"; return 1 ;;
+  esac
+  forge_types_running "$1" "$_tu_want" && return 0
+  forge_state_dir && mkdir -p "$FORGE_STATE/types" || { printf 'cannot create %s\n' "$FORGE_STATE/types"; return 1; }
+  # one starter at a time; another one's start is waited for (its lock holds its pid)
+  _tu_n=0
+  until mkdir "$_tu_d.lock" 2>/dev/null; do
+    _tu_p=$(cat "$_tu_d.lock/pid" 2>/dev/null)
+    if [ -n "$_tu_p" ] && ! kill -0 "$_tu_p" 2>/dev/null; then rm -rf "$_tu_d.lock"; continue; fi
+    [ "$_tu_n" -lt "${FORGE_TYPES_START_TIMEOUT:-60}" ] || { printf 'another hook is still starting the %s engine\n' "$1"; return 1; }
+    sleep 1
+    _tu_n=$((_tu_n + 1))
+  done
+  # this shell's own pid ($$ is the script's, which a background subshell outlives)
+  _tu_me=$(exec sh -c 'echo "$PPID"')
+  printf '%s\n' "$_tu_me" > "$_tu_d.lock/pid"
+  # started meanwhile by the hook that held the lock
+  if forge_types_running "$1" "$_tu_want"; then rm -rf "$_tu_d.lock"; return 0; fi
+  # another pin or Forge: stopped (and waited for) before its state is replaced
+  forge_types_stop "$1"
+  rm -rf "$_tu_d"
+  mkdir -p "$_tu_d/sessions" && mkfifo "$_tu_d/in" "$_tu_d/started" || { rm -rf "$_tu_d.lock"; printf 'cannot create %s\n' "$_tu_d"; return 1; }
+  printf '%s\n' "$_tu_want" > "$_tu_d/want"
+  case $1 in
+    python) set -- uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" python "$(pwd -P)/.forge/helpers/types_python.py" "$(pwd -P)" "$_tu_d" ;;
+    typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" ;;
+  esac
+  # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a
+  # launcher that fails before (no network for a first download) says "exited <code>"
+  exec 7<>"$_tu_d/started"
+  { "$@" < /dev/null >> "$_tu_d/log" 2>&1 || printf 'exited %s\n' "$?" 1<>"$_tu_d/started"; } &
+  { sleep "${FORGE_TYPES_START_TIMEOUT:-60}" & printf '%s\n' "$!" > "$_tu_d.lock/sleep"; wait "$!"
+    printf 'failed: not started within %ss\n' "${FORGE_TYPES_START_TIMEOUT:-60}" 1<>"$_tu_d/started"; } >/dev/null 2>&1 &
+  _tu_w=$!
+  IFS= read -r _tu_l <&7
+  forge_types_unwatch "$_tu_w" "$_tu_d.lock/sleep"
+  exec 7<&-
+  rm -rf "$_tu_d.lock"
+  case $_tu_l in
+    ready*)
+      [ -z "${FORGE_INPUT:-}" ] || : > "$_tu_d/sessions/$(session_id)"
+      FORGE_TYPES_STARTED="${FORGE_TYPES_STARTED:+$FORGE_TYPES_STARTED
+}$_tu_lang"
+      return 0 ;;
+  esac
+  printf 'the %s engine (%s) did not start: %s (log: %s)\n' "$_tu_lang" "$_tu_want" "$_tu_l" "$_tu_d/log"
+  return 1
+}
+
+# forge_types_running <lang> <want>: its daemon runs with this engine; registers the
+# hook's session with it.
+forge_types_running() {
+  forge_types_alive "$1" && [ "$(cat "$FORGE_STATE/types/$1/want" 2>/dev/null)" = "$2" ] || return 1
+  [ -z "${FORGE_INPUT:-}" ] || : > "$FORGE_STATE/types/$1/sessions/$(session_id)"
+}
+
+# forge_types_down: stops the daemons this run started when no session uses them, and
+# waits until they have exited (check.sh in CI or a pre-commit hook: nothing is left running).
+forge_types_down() {
+  for _td_l in ${FORGE_TYPES_STARTED:-}; do
+    [ -n "$(ls "$FORGE_STATE/types/$_td_l/sessions" 2>/dev/null)" ] || forge_types_stop "$_td_l"
+  done
+  return 0
+}
+
+# forge_types_filter <matches>: keeps in the file of ast-grep --json=stream matches
+# (with --include-metadata) only those whose forge_where the language's types engine
+# confirms (§15.1); matches without forge_where stay. An engine that cannot answer is
+# not a pass: "forge:forge/types ..." lines name the rules left unchecked, and it fails.
+forge_types_filter() {
+  grep -q '"forge_where"' "$1" 2>/dev/null || return 0
+  grep -v '"forge_where"' "$1" > "$1.kept"
+  _tf_rc=0
+  _tf_base=${FORGE_TYPES_TIMEOUT:-20}
+  for _tf_lang in $FORGE_TYPES_LANGS; do
+    case $_tf_lang in python) _tf_sg='"language":"Python"' ;; typescript) _tf_sg='"language":"Tsx"' ;; esac
+    _tf_q=$1.$_tf_lang
+    rm -rf "$_tf_q" && mkdir "$_tf_q" || return 1
+    grep '"forge_where"' "$1" | grep -F "$_tf_sg" > "$_tf_q/req"
+    [ -s "$_tf_q/req" ] || continue
+    # After an edit (FORGE_TYPES_EDIT=1, post-edit.sh) an engine still loading the project's
+    # tsconfig projects is waited for at most FORGE_TYPES_LOADING_WAIT seconds (5): the edit
+    # is not held up, and the Stop check, which waits, checks these matches.
+    _tf_t=$_tf_base
+    if [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then _tf_t=${FORGE_TYPES_LOADING_WAIT:-5}; fi
+    # not in a subshell: forge_types_up records what it started (FORGE_TYPES_STARTED)
+    if forge_types_up "$_tf_lang" > "$_tf_q/why" && FORGE_TYPES_TIMEOUT=$_tf_t forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
+      && ! grep -q '^error	' "$_tf_q/answer"; then
+      cat "$_tf_q/answer" >> "$1.kept"
+    elif [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then
+      grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
+        printf 'forge:forge/types %s was not checked after this edit: the %s engine (%s) is still loading the project; the Stop check runs it\n' "$_tf_id" "$_tf_lang" "$(cat "$FORGE_STATE/types/$_tf_lang/ready" 2>/dev/null)"
+      done
+    else
+      _tf_why=$(cat "$_tf_q/why")
+      [ -n "$_tf_why" ] || _tf_why=$(grep '^error	' "$_tf_q/answer" 2>/dev/null | head -n 1 | cut -f 2-)
+      grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
+        printf 'forge:forge/types %s was not checked: %s\n' "$_tf_id" "${_tf_why:-the types engine gave no answer}"
+      done
+      _tf_rc=1
+    fi
+  done
+  mv "$1.kept" "$1"
+  return "$_tf_rc"
 }
 
 FORGE_FORBID='docker/compose/datastore-loopback|docker/compose/healthy-depends|docker/compose/no-docker-sock|docker/compose/no-host-root-mounts|docker/compose/no-inline-secrets|docker/compose/no-privileged|docker/compose/no-version-key|docker/compose/pinned-images|python/no-stub'
@@ -4134,6 +4385,8 @@ if [ -f "$snap/head" ]; then FORGE_SNAP=$snap; FORGE_BASE_REV=$(cat "$snap/head"
 # Each tool runs once on all the files; what is found is appended to the report as
 # it comes, so a run cut short by the time budget still returns what it has.
 forge_edit_checks() {
+  # the types engine resyncs the changed files before any question (§15.3)
+  forge_types_changed $(cat "$FORGE_TMP/changed")
   forge_file_stage format "$FORGE_TMP/changed" > /dev/null 2>&1
   # safe fixes first (sorted imports, pyupgrade), then lint: a lint run may write too
   # (Biome's check --write applies its safe fixes and formats), so copies are kept to
@@ -4157,9 +4410,13 @@ forge_edit_checks() {
   if [ -s "$FORGE_TMP/changed" ] && [ -n "$FORGE_FORBID" ] && [ -f .forge/ast-grep/sgconfig.yml ]; then
     set -f
     # shellcheck disable=SC2046
-    astgrep scan -c .forge/ast-grep/sgconfig.yml --filter "^($FORGE_FORBID)\$" --json=stream $(cat "$FORGE_TMP/changed") > "$FORGE_TMP/forbid" 2>/dev/null
+    astgrep scan -c .forge/ast-grep/sgconfig.yml --filter "^($FORGE_FORBID)\$" --json=stream --include-metadata $(cat "$FORGE_TMP/changed") > "$FORGE_TMP/forbid" 2>/dev/null
     set +f
-    forge_sg_report "$FORGE_TMP/forbid" >> "$FORGE_TMP/report"
+    # matches on added lines; those of rules with type constraints only when the
+    # types engine confirms them (§15.1)
+    forge_sg_report "$FORGE_TMP/forbid" json > "$FORGE_TMP/forbid.added"
+    FORGE_TYPES_EDIT=1 forge_types_filter "$FORGE_TMP/forbid.added" >> "$FORGE_TMP/report"
+    forge_sg_report "$FORGE_TMP/forbid.added" >> "$FORGE_TMP/report"
   fi
   return 0
 }
@@ -4256,7 +4513,9 @@ IFS='
 # ---- generated checks
 # Project tools used in check commands, resolved through tool().
 python() { forge_exec_tool python "$@"; }
-FORGE_NCHECKS=15
+# ty is Forge's own, pinned (§15.2).
+ty() { forge_ty "$@"; }
+FORGE_NCHECKS=16
 
 # 1. docker/compose/config-valid
 forge_check_meta_1() {
@@ -4444,10 +4703,10 @@ forge_check_meta_13() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_13() {
-  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) ;; *) return 1 ;; esac
+  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_13() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) return 0 ;; esac; return 1; }
+forge_when_13() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) return 0 ;; esac; return 1; }
 forge_check_run_13() {
 forge_ratchet python ratchet.py
 }
@@ -4483,6 +4742,21 @@ forge_check_run_15() {
 forge_advise forge_stub_sync
 }
 
+# 16. python/typecheck
+forge_check_meta_16() {
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+}
+forge_scope_16() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_16() { return 1; }
+forge_check_run_16() {
+ty check --output-format concise
+}
+
 FORGE_NGREPS=2
 FORGE_GREP_NO_INCREASE='python/no-new-suppressions'
 FORGE_GREP_NO_DECREASE=''
@@ -4490,7 +4764,7 @@ FORGE_GREP_NO_DECREASE=''
 # grep 1. python/no-new-suppressions
 forge_grep_meta_1() {
   g_id='python/no-new-suppressions'; g_mode=no-increase; g_flags=-E
-  g_pattern='#[[:space:]]*(noqa|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore)'
+  g_pattern='#[[:space:]]*(noqa|ty:[[:space:]]*ignore|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore)'
   g_desc='No new suppression comments (# noqa,'
 }
 forge_grep_scope_1() {
@@ -4548,7 +4822,9 @@ forge_change_set() {
     --since)
       { git diff --name-only -z --no-renames "$FORGE_BASE_REV" 2>/dev/null; git ls-files -z --others --exclude-standard 2>/dev/null; } | tr '\000' '\n' | sort -u ;;
     *) status_paths | sort -u ;;
-  esac > "$FORGE_TMP/changed"
+  esac | grep -v '^\.forge/' > "$FORGE_TMP/changed"
+  # Forge's own files (.forge/: check.sh, its helper scripts) are not the project's code:
+  # integrity covers them (check.sh step 1), the project's rules do not
   : > "$FORGE_TMP/existing"; : > "$FORGE_TMP/deleted"; : > "$FORGE_TMP/inbase"; : > "$FORGE_TMP/added"
   mkdir -p "$FORGE_TMP/base"
   while IFS= read -r _cs_f; do
@@ -4635,11 +4911,12 @@ forge_added_lines() {
   return 0
 }
 
-# forge_sg_report <json>: ast-grep --json=stream matches as
+# forge_sg_report <json> [json]: ast-grep --json=stream matches as
 # "forge:<rule> path:line:column <description>" (from 1); unless $mode is --all, only
 # matches that overlap a line of $FORGE_TMP/added (a match spanning an edited line counts).
+# With "json", those matches as they are (for forge_types_filter).
 forge_sg_report() {
-  awk -v all="$([ "$mode" = --all ] && printf 1)" '
+  awk -v all="$([ "$mode" = --all ] && printf 1)" -v json="${2:-}" '
     function str(s, key,   i, out, c) {
       i = index(s, "\"" key "\":\""); if (!i) return ""
       s = substr(s, i + length(key) + 4); out = ""
@@ -4661,6 +4938,7 @@ forge_sg_report() {
       keep = (all != "" || (f in whole))
       for (l = sl; !keep && l <= el; l++) if ((f "\t" l) in ad) keep = 1
       if (!keep) next
+      if (json != "") { print; next }
       id = m; sub(/^forge:/, "", id); sub(/ .*$/, "", id)
       d = m; sub(/^[^ ]* ?/, "", d)
       printf "forge:%s %s:%d:%d %s\n", id, f, sl, sc, d
@@ -4701,16 +4979,14 @@ forge_grep_forbid() {
   done
 }
 
-# forge_ratchet <runtime> <script>: the config ratchet. Runs <script> (embedded in
-# check.sh as forge_script_<script>) with the project's runtime on the changed files
-# and their base copies; each printed line is a loosened setting, unless forge.yaml
-# records it as accepted.
+# forge_ratchet <runtime> <script>: the config ratchet. Runs .forge/helpers/<script>
+# with the project's runtime on the changed files and their base copies; each printed
+# line is a loosened setting, unless forge.yaml records it as accepted.
 forge_ratchet() {
-  _fr_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
-  "$_fr_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  [ -f ".forge/helpers/$2" ] || { printf 'forge:%s skipped: .forge/helpers/%s is missing (run forge apply)\n' "$c_id" "$2"; return 0; }
   set -f
   # shellcheck disable=SC2046
-  "$1" "$FORGE_TMP/$2" "$FORGE_TMP/base" $(cat "$FORGE_TMP/existing") > "$FORGE_TMP/ratchet" 2>&1
+  "$1" ".forge/helpers/$2" "$FORGE_TMP/base" $(cat "$FORGE_TMP/existing") > "$FORGE_TMP/ratchet" 2>&1
   _fr_rc=$?
   set +f
   case $_fr_rc in
@@ -4728,16 +5004,15 @@ forge_ratchet() {
   return 1
 }
 
-# forge_helper <runtime> <script> [file...]: runs <script> (embedded in check.sh as
-# forge_script_<script>) with the project's runtime, as `<script> <FORGE_TMP> [file...]`
+# forge_helper <runtime> <script> [file...]: runs .forge/helpers/<script> with the
+# project's runtime, as `<script> <FORGE_TMP> [file...]`
 # (FORGE_TMP holds changed, existing, inbase and base/ from forge_change_set). Exit 0:
 # nothing found; 1: findings printed ("path:line message"; a line also present in
 # forge.yaml is accepted); 3: cannot run, its "skipped: ..." line is printed.
 forge_helper() {
-  _fh_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
-  "$_fh_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  [ -f ".forge/helpers/$2" ] || { printf 'forge:%s skipped: .forge/helpers/%s is missing (run forge apply)\n' "$c_id" "$2"; return 0; }
   _fh_rt=$1; _fh_s=$2; shift 2
-  "$_fh_rt" "$FORGE_TMP/$_fh_s" "$FORGE_TMP" "$@" > "$FORGE_TMP/helper" 2>&1
+  "$_fh_rt" ".forge/helpers/$_fh_s" "$FORGE_TMP" "$@" > "$FORGE_TMP/helper" 2>&1
   case $? in
     0) return 0 ;;
     1) ;;
@@ -5704,6 +5979,8 @@ forge_has_tool() {
   case $1 in
     *@*) ( _fh_root=$(pwd); cd "${1#*@}" 2>/dev/null && FORGE_WS_ROOT=$_fh_root forge_has_tool "${1%%@*}" ) ;;
     uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
+    # Forge's pinned ty runs through uvx (§15.2)
+    ty) command -v uvx >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
@@ -6739,11 +7016,12 @@ forge_diagnostics() {
       else if (index(p, r2 "/") == 1) p = substr(p, length(r2) + 2)
       sub(/^\.\//, "", p)
       named = 1
+      if (p !~ /^\.forge\//) project = 1
       if (level == "line") counts = (p in whole) || (ln == "" || ln == 0 ? (p in ch) : ((p "\t" ln) in ad))
       else counts = (p in ch)
       if (counts) { hit = 1; if (mode == "print") print $0 }
     }
-    END { if (mode != "print") print (hit ? "changed" : named ? "other" : (warned && !erred) ? "warnings" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
+    END { if (mode != "print") print (hit ? "changed" : named && !project ? "forge" : named ? "other" : (warned && !erred) ? "warnings" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
 }
 
 # forge_attribute_level <stage> <whole-project run: 1|0>: how a failed check's
@@ -6803,6 +7081,12 @@ forge_run_check() {
   fi
   # outside --all, only errors in the change count (§10.1 step 5)
   _fc_level=$(forge_attribute_level "$c_stage" "$_fc_whole")
+  # findings only in Forge's own helper scripts (.forge/helpers/, checked by integrity)
+  # are not the project's, in every mode
+  if [ -n "$_fc_level" ] && [ "$(forge_diagnostics "$FORGE_TMP/out" "$_fc_level")" = forge ]; then
+    printf 'forge:%s ok (its findings are only in Forge'"'"'s own .forge/ files)\n' "$c_id"
+    return 0
+  fi
   if [ "$mode" != --all ] && [ -n "$_fc_level" ]; then
     case $(forge_diagnostics "$FORGE_TMP/out" "$_fc_level") in
       other)
@@ -7309,6 +7593,12 @@ forge_missing_tools() {
   if ! command -v bunx >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then
     _mt="${_mt:+$_mt, }bunx or uvx (ast-grep)"
   fi
+  for _mt_l in $FORGE_TYPES_LANGS; do
+    case $_mt_l in
+      python) command -v uvx >/dev/null 2>&1 || _mt="${_mt:+$_mt, }uvx (types engine: ty $FORGE_TY_VERSION)" ;;
+      typescript) command -v bun >/dev/null 2>&1 || _mt="${_mt:+$_mt, }bun (types engine: the project's TypeScript)" ;;
+    esac
+  done
   printf '%s' "$_mt"
 }
 
@@ -7320,6 +7610,135 @@ forge_required_tools() {
     printf '%s\n' "$c_tools" | tr ' ' '\n' | awk -v d="$c_dirs" 'NF { if (d == "") print; else { n = split(d, ds, " "); for (i = 1; i <= n; i++) print $0 "@" ds[i] } }'
     _fq_i=$((_fq_i + 1))
   done | awk 'NF && !seen[$0]++'
+}
+
+# ---- engine capabilities (SPECS §15): types
+
+# The languages whose types engine the active rules use, and the engines' pins.
+FORGE_TYPES_LANGS=''
+FORGE_TY_VERSION='0.0.86'
+FORGE_ENGINE_PYTHON='3.12'
+# the adapters' revision: a running daemon of another Forge version is restarted
+FORGE_TYPES_REV=''
+
+# forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
+# environment (.venv) and configuration ([tool.ty], ty.toml).
+forge_ty() { uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" ty "$@"; }
+
+# forge_types_up <lang>: the language's daemon runs, with the pinned engine (started
+# when it does not: by the first hook that needs it, or by SessionStart). Prints why
+# and fails when it cannot start. Registers the hook's session, if any.
+forge_types_up() {
+  _tu_lang=$1
+  _tu_d=$FORGE_STATE/types/$1
+  case $1 in
+    python) _tu_want="ty $FORGE_TY_VERSION $FORGE_TYPES_REV" ;;
+    # the project's own TypeScript: a change of its version changes package.json or a lock file (restart)
+    typescript) _tu_want="typescript (the project's) $FORGE_TYPES_REV" ;;
+    *) printf 'no types engine for %s\n' "$1"; return 1 ;;
+  esac
+  forge_types_running "$1" "$_tu_want" && return 0
+  forge_state_dir && mkdir -p "$FORGE_STATE/types" || { printf 'cannot create %s\n' "$FORGE_STATE/types"; return 1; }
+  # one starter at a time; another one's start is waited for (its lock holds its pid)
+  _tu_n=0
+  until mkdir "$_tu_d.lock" 2>/dev/null; do
+    _tu_p=$(cat "$_tu_d.lock/pid" 2>/dev/null)
+    if [ -n "$_tu_p" ] && ! kill -0 "$_tu_p" 2>/dev/null; then rm -rf "$_tu_d.lock"; continue; fi
+    [ "$_tu_n" -lt "${FORGE_TYPES_START_TIMEOUT:-60}" ] || { printf 'another hook is still starting the %s engine\n' "$1"; return 1; }
+    sleep 1
+    _tu_n=$((_tu_n + 1))
+  done
+  # this shell's own pid ($$ is the script's, which a background subshell outlives)
+  _tu_me=$(exec sh -c 'echo "$PPID"')
+  printf '%s\n' "$_tu_me" > "$_tu_d.lock/pid"
+  # started meanwhile by the hook that held the lock
+  if forge_types_running "$1" "$_tu_want"; then rm -rf "$_tu_d.lock"; return 0; fi
+  # another pin or Forge: stopped (and waited for) before its state is replaced
+  forge_types_stop "$1"
+  rm -rf "$_tu_d"
+  mkdir -p "$_tu_d/sessions" && mkfifo "$_tu_d/in" "$_tu_d/started" || { rm -rf "$_tu_d.lock"; printf 'cannot create %s\n' "$_tu_d"; return 1; }
+  printf '%s\n' "$_tu_want" > "$_tu_d/want"
+  case $1 in
+    python) set -- uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" python "$(pwd -P)/.forge/helpers/types_python.py" "$(pwd -P)" "$_tu_d" ;;
+    typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" ;;
+  esac
+  # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a
+  # launcher that fails before (no network for a first download) says "exited <code>"
+  exec 7<>"$_tu_d/started"
+  { "$@" < /dev/null >> "$_tu_d/log" 2>&1 || printf 'exited %s\n' "$?" 1<>"$_tu_d/started"; } &
+  { sleep "${FORGE_TYPES_START_TIMEOUT:-60}" & printf '%s\n' "$!" > "$_tu_d.lock/sleep"; wait "$!"
+    printf 'failed: not started within %ss\n' "${FORGE_TYPES_START_TIMEOUT:-60}" 1<>"$_tu_d/started"; } >/dev/null 2>&1 &
+  _tu_w=$!
+  IFS= read -r _tu_l <&7
+  forge_types_unwatch "$_tu_w" "$_tu_d.lock/sleep"
+  exec 7<&-
+  rm -rf "$_tu_d.lock"
+  case $_tu_l in
+    ready*)
+      [ -z "${FORGE_INPUT:-}" ] || : > "$_tu_d/sessions/$(session_id)"
+      FORGE_TYPES_STARTED="${FORGE_TYPES_STARTED:+$FORGE_TYPES_STARTED
+}$_tu_lang"
+      return 0 ;;
+  esac
+  printf 'the %s engine (%s) did not start: %s (log: %s)\n' "$_tu_lang" "$_tu_want" "$_tu_l" "$_tu_d/log"
+  return 1
+}
+
+# forge_types_running <lang> <want>: its daemon runs with this engine; registers the
+# hook's session with it.
+forge_types_running() {
+  forge_types_alive "$1" && [ "$(cat "$FORGE_STATE/types/$1/want" 2>/dev/null)" = "$2" ] || return 1
+  [ -z "${FORGE_INPUT:-}" ] || : > "$FORGE_STATE/types/$1/sessions/$(session_id)"
+}
+
+# forge_types_down: stops the daemons this run started when no session uses them, and
+# waits until they have exited (check.sh in CI or a pre-commit hook: nothing is left running).
+forge_types_down() {
+  for _td_l in ${FORGE_TYPES_STARTED:-}; do
+    [ -n "$(ls "$FORGE_STATE/types/$_td_l/sessions" 2>/dev/null)" ] || forge_types_stop "$_td_l"
+  done
+  return 0
+}
+
+# forge_types_filter <matches>: keeps in the file of ast-grep --json=stream matches
+# (with --include-metadata) only those whose forge_where the language's types engine
+# confirms (§15.1); matches without forge_where stay. An engine that cannot answer is
+# not a pass: "forge:forge/types ..." lines name the rules left unchecked, and it fails.
+forge_types_filter() {
+  grep -q '"forge_where"' "$1" 2>/dev/null || return 0
+  grep -v '"forge_where"' "$1" > "$1.kept"
+  _tf_rc=0
+  _tf_base=${FORGE_TYPES_TIMEOUT:-20}
+  for _tf_lang in $FORGE_TYPES_LANGS; do
+    case $_tf_lang in python) _tf_sg='"language":"Python"' ;; typescript) _tf_sg='"language":"Tsx"' ;; esac
+    _tf_q=$1.$_tf_lang
+    rm -rf "$_tf_q" && mkdir "$_tf_q" || return 1
+    grep '"forge_where"' "$1" | grep -F "$_tf_sg" > "$_tf_q/req"
+    [ -s "$_tf_q/req" ] || continue
+    # After an edit (FORGE_TYPES_EDIT=1, post-edit.sh) an engine still loading the project's
+    # tsconfig projects is waited for at most FORGE_TYPES_LOADING_WAIT seconds (5): the edit
+    # is not held up, and the Stop check, which waits, checks these matches.
+    _tf_t=$_tf_base
+    if [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then _tf_t=${FORGE_TYPES_LOADING_WAIT:-5}; fi
+    # not in a subshell: forge_types_up records what it started (FORGE_TYPES_STARTED)
+    if forge_types_up "$_tf_lang" > "$_tf_q/why" && FORGE_TYPES_TIMEOUT=$_tf_t forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
+      && ! grep -q '^error	' "$_tf_q/answer"; then
+      cat "$_tf_q/answer" >> "$1.kept"
+    elif [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then
+      grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
+        printf 'forge:forge/types %s was not checked after this edit: the %s engine (%s) is still loading the project; the Stop check runs it\n' "$_tf_id" "$_tf_lang" "$(cat "$FORGE_STATE/types/$_tf_lang/ready" 2>/dev/null)"
+      done
+    else
+      _tf_why=$(cat "$_tf_q/why")
+      [ -n "$_tf_why" ] || _tf_why=$(grep '^error	' "$_tf_q/answer" 2>/dev/null | head -n 1 | cut -f 2-)
+      grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
+        printf 'forge:forge/types %s was not checked: %s\n' "$_tf_id" "${_tf_why:-the types engine gave no answer}"
+      done
+      _tf_rc=1
+    fi
+  done
+  mv "$1.kept" "$1"
+  return "$_tf_rc"
 }
 
 branch=$(git branch --show-current 2>/dev/null)
@@ -7334,6 +7753,14 @@ if git rev-parse --verify -q HEAD >/dev/null; then
   git log -5 --format='%h %s' 2>/dev/null | cut -c 1-72 | sed 's/^/  /'
 fi
 printf 'forge: packs docker, docker/compose, github-actions, python\n'
+
+# the types engines the rules use start now, in the background, so the first edit
+# does not wait for them (§15.3); this session is registered with them
+if [ -n "$FORGE_TYPES_LANGS" ] && forge_state_dir; then
+  for _ss_l in $FORGE_TYPES_LANGS; do
+    ( forge_types_up "$_ss_l" ) < /dev/null > /dev/null 2>&1 &
+  done
+fi
 
 missing=$(forge_missing_tools)
 state=$FORGE_STATE/missing-tools
@@ -7485,7 +7912,9 @@ IFS='
 # ---- generated checks
 # Project tools used in check commands, resolved through tool().
 python() { forge_exec_tool python "$@"; }
-FORGE_NCHECKS=15
+# ty is Forge's own, pinned (§15.2).
+ty() { forge_ty "$@"; }
+FORGE_NCHECKS=16
 
 # 1. docker/compose/config-valid
 forge_check_meta_1() {
@@ -7673,10 +8102,10 @@ forge_check_meta_13() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_13() {
-  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) ;; *) return 1 ;; esac
+  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_13() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) return 0 ;; esac; return 1; }
+forge_when_13() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) return 0 ;; esac; return 1; }
 forge_check_run_13() {
 forge_ratchet python ratchet.py
 }
@@ -7712,6 +8141,21 @@ forge_check_run_15() {
 forge_advise forge_stub_sync
 }
 
+# 16. python/typecheck
+forge_check_meta_16() {
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+}
+forge_scope_16() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_16() { return 1; }
+forge_check_run_16() {
+ty check --output-format concise
+}
+
 FORGE_NGREPS=2
 FORGE_GREP_NO_INCREASE='python/no-new-suppressions'
 FORGE_GREP_NO_DECREASE=''
@@ -7719,7 +8163,7 @@ FORGE_GREP_NO_DECREASE=''
 # grep 1. python/no-new-suppressions
 forge_grep_meta_1() {
   g_id='python/no-new-suppressions'; g_mode=no-increase; g_flags=-E
-  g_pattern='#[[:space:]]*(noqa|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore)'
+  g_pattern='#[[:space:]]*(noqa|ty:[[:space:]]*ignore|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore)'
   g_desc='No new suppression comments (# noqa,'
 }
 forge_grep_scope_1() {
@@ -7777,7 +8221,9 @@ forge_change_set() {
     --since)
       { git diff --name-only -z --no-renames "$FORGE_BASE_REV" 2>/dev/null; git ls-files -z --others --exclude-standard 2>/dev/null; } | tr '\000' '\n' | sort -u ;;
     *) status_paths | sort -u ;;
-  esac > "$FORGE_TMP/changed"
+  esac | grep -v '^\.forge/' > "$FORGE_TMP/changed"
+  # Forge's own files (.forge/: check.sh, its helper scripts) are not the project's code:
+  # integrity covers them (check.sh step 1), the project's rules do not
   : > "$FORGE_TMP/existing"; : > "$FORGE_TMP/deleted"; : > "$FORGE_TMP/inbase"; : > "$FORGE_TMP/added"
   mkdir -p "$FORGE_TMP/base"
   while IFS= read -r _cs_f; do
@@ -7864,11 +8310,12 @@ forge_added_lines() {
   return 0
 }
 
-# forge_sg_report <json>: ast-grep --json=stream matches as
+# forge_sg_report <json> [json]: ast-grep --json=stream matches as
 # "forge:<rule> path:line:column <description>" (from 1); unless $mode is --all, only
 # matches that overlap a line of $FORGE_TMP/added (a match spanning an edited line counts).
+# With "json", those matches as they are (for forge_types_filter).
 forge_sg_report() {
-  awk -v all="$([ "$mode" = --all ] && printf 1)" '
+  awk -v all="$([ "$mode" = --all ] && printf 1)" -v json="${2:-}" '
     function str(s, key,   i, out, c) {
       i = index(s, "\"" key "\":\""); if (!i) return ""
       s = substr(s, i + length(key) + 4); out = ""
@@ -7890,6 +8337,7 @@ forge_sg_report() {
       keep = (all != "" || (f in whole))
       for (l = sl; !keep && l <= el; l++) if ((f "\t" l) in ad) keep = 1
       if (!keep) next
+      if (json != "") { print; next }
       id = m; sub(/^forge:/, "", id); sub(/ .*$/, "", id)
       d = m; sub(/^[^ ]* ?/, "", d)
       printf "forge:%s %s:%d:%d %s\n", id, f, sl, sc, d
@@ -7930,16 +8378,14 @@ forge_grep_forbid() {
   done
 }
 
-# forge_ratchet <runtime> <script>: the config ratchet. Runs <script> (embedded in
-# check.sh as forge_script_<script>) with the project's runtime on the changed files
-# and their base copies; each printed line is a loosened setting, unless forge.yaml
-# records it as accepted.
+# forge_ratchet <runtime> <script>: the config ratchet. Runs .forge/helpers/<script>
+# with the project's runtime on the changed files and their base copies; each printed
+# line is a loosened setting, unless forge.yaml records it as accepted.
 forge_ratchet() {
-  _fr_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
-  "$_fr_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  [ -f ".forge/helpers/$2" ] || { printf 'forge:%s skipped: .forge/helpers/%s is missing (run forge apply)\n' "$c_id" "$2"; return 0; }
   set -f
   # shellcheck disable=SC2046
-  "$1" "$FORGE_TMP/$2" "$FORGE_TMP/base" $(cat "$FORGE_TMP/existing") > "$FORGE_TMP/ratchet" 2>&1
+  "$1" ".forge/helpers/$2" "$FORGE_TMP/base" $(cat "$FORGE_TMP/existing") > "$FORGE_TMP/ratchet" 2>&1
   _fr_rc=$?
   set +f
   case $_fr_rc in
@@ -7957,16 +8403,15 @@ forge_ratchet() {
   return 1
 }
 
-# forge_helper <runtime> <script> [file...]: runs <script> (embedded in check.sh as
-# forge_script_<script>) with the project's runtime, as `<script> <FORGE_TMP> [file...]`
+# forge_helper <runtime> <script> [file...]: runs .forge/helpers/<script> with the
+# project's runtime, as `<script> <FORGE_TMP> [file...]`
 # (FORGE_TMP holds changed, existing, inbase and base/ from forge_change_set). Exit 0:
 # nothing found; 1: findings printed ("path:line message"; a line also present in
 # forge.yaml is accepted); 3: cannot run, its "skipped: ..." line is printed.
 forge_helper() {
-  _fh_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
-  "$_fh_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  [ -f ".forge/helpers/$2" ] || { printf 'forge:%s skipped: .forge/helpers/%s is missing (run forge apply)\n' "$c_id" "$2"; return 0; }
   _fh_rt=$1; _fh_s=$2; shift 2
-  "$_fh_rt" "$FORGE_TMP/$_fh_s" "$FORGE_TMP" "$@" > "$FORGE_TMP/helper" 2>&1
+  "$_fh_rt" ".forge/helpers/$_fh_s" "$FORGE_TMP" "$@" > "$FORGE_TMP/helper" 2>&1
   case $? in
     0) return 0 ;;
     1) ;;
@@ -8933,6 +9378,8 @@ forge_has_tool() {
   case $1 in
     *@*) ( _fh_root=$(pwd); cd "${1#*@}" 2>/dev/null && FORGE_WS_ROOT=$_fh_root forge_has_tool "${1%%@*}" ) ;;
     uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
+    # Forge's pinned ty runs through uvx (§15.2)
+    ty) command -v uvx >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
@@ -9968,11 +10415,12 @@ forge_diagnostics() {
       else if (index(p, r2 "/") == 1) p = substr(p, length(r2) + 2)
       sub(/^\.\//, "", p)
       named = 1
+      if (p !~ /^\.forge\//) project = 1
       if (level == "line") counts = (p in whole) || (ln == "" || ln == 0 ? (p in ch) : ((p "\t" ln) in ad))
       else counts = (p in ch)
       if (counts) { hit = 1; if (mode == "print") print $0 }
     }
-    END { if (mode != "print") print (hit ? "changed" : named ? "other" : (warned && !erred) ? "warnings" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
+    END { if (mode != "print") print (hit ? "changed" : named && !project ? "forge" : named ? "other" : (warned && !erred) ? "warnings" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
 }
 
 # forge_attribute_level <stage> <whole-project run: 1|0>: how a failed check's
@@ -10032,6 +10480,12 @@ forge_run_check() {
   fi
   # outside --all, only errors in the change count (§10.1 step 5)
   _fc_level=$(forge_attribute_level "$c_stage" "$_fc_whole")
+  # findings only in Forge's own helper scripts (.forge/helpers/, checked by integrity)
+  # are not the project's, in every mode
+  if [ -n "$_fc_level" ] && [ "$(forge_diagnostics "$FORGE_TMP/out" "$_fc_level")" = forge ]; then
+    printf 'forge:%s ok (its findings are only in Forge'"'"'s own .forge/ files)\n' "$c_id"
+    return 0
+  fi
   if [ "$mode" != --all ] && [ -n "$_fc_level" ]; then
     case $(forge_diagnostics "$FORGE_TMP/out" "$_fc_level") in
       other)
@@ -10538,6 +10992,12 @@ forge_missing_tools() {
   if ! command -v bunx >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then
     _mt="${_mt:+$_mt, }bunx or uvx (ast-grep)"
   fi
+  for _mt_l in $FORGE_TYPES_LANGS; do
+    case $_mt_l in
+      python) command -v uvx >/dev/null 2>&1 || _mt="${_mt:+$_mt, }uvx (types engine: ty $FORGE_TY_VERSION)" ;;
+      typescript) command -v bun >/dev/null 2>&1 || _mt="${_mt:+$_mt, }bun (types engine: the project's TypeScript)" ;;
+    esac
+  done
   printf '%s' "$_mt"
 }
 
@@ -10549,6 +11009,135 @@ forge_required_tools() {
     printf '%s\n' "$c_tools" | tr ' ' '\n' | awk -v d="$c_dirs" 'NF { if (d == "") print; else { n = split(d, ds, " "); for (i = 1; i <= n; i++) print $0 "@" ds[i] } }'
     _fq_i=$((_fq_i + 1))
   done | awk 'NF && !seen[$0]++'
+}
+
+# ---- engine capabilities (SPECS §15): types
+
+# The languages whose types engine the active rules use, and the engines' pins.
+FORGE_TYPES_LANGS=''
+FORGE_TY_VERSION='0.0.86'
+FORGE_ENGINE_PYTHON='3.12'
+# the adapters' revision: a running daemon of another Forge version is restarted
+FORGE_TYPES_REV=''
+
+# forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
+# environment (.venv) and configuration ([tool.ty], ty.toml).
+forge_ty() { uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" ty "$@"; }
+
+# forge_types_up <lang>: the language's daemon runs, with the pinned engine (started
+# when it does not: by the first hook that needs it, or by SessionStart). Prints why
+# and fails when it cannot start. Registers the hook's session, if any.
+forge_types_up() {
+  _tu_lang=$1
+  _tu_d=$FORGE_STATE/types/$1
+  case $1 in
+    python) _tu_want="ty $FORGE_TY_VERSION $FORGE_TYPES_REV" ;;
+    # the project's own TypeScript: a change of its version changes package.json or a lock file (restart)
+    typescript) _tu_want="typescript (the project's) $FORGE_TYPES_REV" ;;
+    *) printf 'no types engine for %s\n' "$1"; return 1 ;;
+  esac
+  forge_types_running "$1" "$_tu_want" && return 0
+  forge_state_dir && mkdir -p "$FORGE_STATE/types" || { printf 'cannot create %s\n' "$FORGE_STATE/types"; return 1; }
+  # one starter at a time; another one's start is waited for (its lock holds its pid)
+  _tu_n=0
+  until mkdir "$_tu_d.lock" 2>/dev/null; do
+    _tu_p=$(cat "$_tu_d.lock/pid" 2>/dev/null)
+    if [ -n "$_tu_p" ] && ! kill -0 "$_tu_p" 2>/dev/null; then rm -rf "$_tu_d.lock"; continue; fi
+    [ "$_tu_n" -lt "${FORGE_TYPES_START_TIMEOUT:-60}" ] || { printf 'another hook is still starting the %s engine\n' "$1"; return 1; }
+    sleep 1
+    _tu_n=$((_tu_n + 1))
+  done
+  # this shell's own pid ($$ is the script's, which a background subshell outlives)
+  _tu_me=$(exec sh -c 'echo "$PPID"')
+  printf '%s\n' "$_tu_me" > "$_tu_d.lock/pid"
+  # started meanwhile by the hook that held the lock
+  if forge_types_running "$1" "$_tu_want"; then rm -rf "$_tu_d.lock"; return 0; fi
+  # another pin or Forge: stopped (and waited for) before its state is replaced
+  forge_types_stop "$1"
+  rm -rf "$_tu_d"
+  mkdir -p "$_tu_d/sessions" && mkfifo "$_tu_d/in" "$_tu_d/started" || { rm -rf "$_tu_d.lock"; printf 'cannot create %s\n' "$_tu_d"; return 1; }
+  printf '%s\n' "$_tu_want" > "$_tu_d/want"
+  case $1 in
+    python) set -- uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" python "$(pwd -P)/.forge/helpers/types_python.py" "$(pwd -P)" "$_tu_d" ;;
+    typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" ;;
+  esac
+  # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a
+  # launcher that fails before (no network for a first download) says "exited <code>"
+  exec 7<>"$_tu_d/started"
+  { "$@" < /dev/null >> "$_tu_d/log" 2>&1 || printf 'exited %s\n' "$?" 1<>"$_tu_d/started"; } &
+  { sleep "${FORGE_TYPES_START_TIMEOUT:-60}" & printf '%s\n' "$!" > "$_tu_d.lock/sleep"; wait "$!"
+    printf 'failed: not started within %ss\n' "${FORGE_TYPES_START_TIMEOUT:-60}" 1<>"$_tu_d/started"; } >/dev/null 2>&1 &
+  _tu_w=$!
+  IFS= read -r _tu_l <&7
+  forge_types_unwatch "$_tu_w" "$_tu_d.lock/sleep"
+  exec 7<&-
+  rm -rf "$_tu_d.lock"
+  case $_tu_l in
+    ready*)
+      [ -z "${FORGE_INPUT:-}" ] || : > "$_tu_d/sessions/$(session_id)"
+      FORGE_TYPES_STARTED="${FORGE_TYPES_STARTED:+$FORGE_TYPES_STARTED
+}$_tu_lang"
+      return 0 ;;
+  esac
+  printf 'the %s engine (%s) did not start: %s (log: %s)\n' "$_tu_lang" "$_tu_want" "$_tu_l" "$_tu_d/log"
+  return 1
+}
+
+# forge_types_running <lang> <want>: its daemon runs with this engine; registers the
+# hook's session with it.
+forge_types_running() {
+  forge_types_alive "$1" && [ "$(cat "$FORGE_STATE/types/$1/want" 2>/dev/null)" = "$2" ] || return 1
+  [ -z "${FORGE_INPUT:-}" ] || : > "$FORGE_STATE/types/$1/sessions/$(session_id)"
+}
+
+# forge_types_down: stops the daemons this run started when no session uses them, and
+# waits until they have exited (check.sh in CI or a pre-commit hook: nothing is left running).
+forge_types_down() {
+  for _td_l in ${FORGE_TYPES_STARTED:-}; do
+    [ -n "$(ls "$FORGE_STATE/types/$_td_l/sessions" 2>/dev/null)" ] || forge_types_stop "$_td_l"
+  done
+  return 0
+}
+
+# forge_types_filter <matches>: keeps in the file of ast-grep --json=stream matches
+# (with --include-metadata) only those whose forge_where the language's types engine
+# confirms (§15.1); matches without forge_where stay. An engine that cannot answer is
+# not a pass: "forge:forge/types ..." lines name the rules left unchecked, and it fails.
+forge_types_filter() {
+  grep -q '"forge_where"' "$1" 2>/dev/null || return 0
+  grep -v '"forge_where"' "$1" > "$1.kept"
+  _tf_rc=0
+  _tf_base=${FORGE_TYPES_TIMEOUT:-20}
+  for _tf_lang in $FORGE_TYPES_LANGS; do
+    case $_tf_lang in python) _tf_sg='"language":"Python"' ;; typescript) _tf_sg='"language":"Tsx"' ;; esac
+    _tf_q=$1.$_tf_lang
+    rm -rf "$_tf_q" && mkdir "$_tf_q" || return 1
+    grep '"forge_where"' "$1" | grep -F "$_tf_sg" > "$_tf_q/req"
+    [ -s "$_tf_q/req" ] || continue
+    # After an edit (FORGE_TYPES_EDIT=1, post-edit.sh) an engine still loading the project's
+    # tsconfig projects is waited for at most FORGE_TYPES_LOADING_WAIT seconds (5): the edit
+    # is not held up, and the Stop check, which waits, checks these matches.
+    _tf_t=$_tf_base
+    if [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then _tf_t=${FORGE_TYPES_LOADING_WAIT:-5}; fi
+    # not in a subshell: forge_types_up records what it started (FORGE_TYPES_STARTED)
+    if forge_types_up "$_tf_lang" > "$_tf_q/why" && FORGE_TYPES_TIMEOUT=$_tf_t forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
+      && ! grep -q '^error	' "$_tf_q/answer"; then
+      cat "$_tf_q/answer" >> "$1.kept"
+    elif [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then
+      grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
+        printf 'forge:forge/types %s was not checked after this edit: the %s engine (%s) is still loading the project; the Stop check runs it\n' "$_tf_id" "$_tf_lang" "$(cat "$FORGE_STATE/types/$_tf_lang/ready" 2>/dev/null)"
+      done
+    else
+      _tf_why=$(cat "$_tf_q/why")
+      [ -n "$_tf_why" ] || _tf_why=$(grep '^error	' "$_tf_q/answer" 2>/dev/null | head -n 1 | cut -f 2-)
+      grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
+        printf 'forge:forge/types %s was not checked: %s\n' "$_tf_id" "${_tf_why:-the types engine gave no answer}"
+      done
+      _tf_rc=1
+    fi
+  done
+  mv "$1.kept" "$1"
+  return "$_tf_rc"
 }
 
 FORGE_NTESTRULES=0
@@ -10649,7 +11238,8 @@ exit 0
 # directory outside it: forge_state_of in lib.sh), so the Stop hook checks only what
 # changed during the turn, resets the Stop block counter, and saves the prompt
 # (<state>/<session>.prompt) for a reviewer of test edits nobody can approve
-# (test-edit.sh). Prints nothing (its output would reach Claude).
+# (test-edit.sh). Tells the running types engines which files changed outside Claude's
+# edits since the last prompt (§15.3). Prints nothing (its output would reach Claude).
 dir=$(cd "$(dirname "$0")" && pwd)
 FORGE_INPUT=$(cat)
 . "$dir/lib.sh"
@@ -10658,6 +11248,17 @@ forge_state_dir || exit 0
 snapshot "$(turn_dir)" 2>/dev/null
 rm -f "$FORGE_STATE/$(session_id).blocks"
 json_get prompt > "$FORGE_STATE/$(session_id).prompt" 2>/dev/null
+if [ -d "$FORGE_STATE/types" ]; then
+  # the uncommitted files, and every file a commit, checkout or pull changed since then
+  _ts_h=$(git rev-parse -q --verify HEAD 2>/dev/null)
+  _ts_o=$(cat "$FORGE_STATE/types/head" 2>/dev/null)
+  set -f
+  IFS='
+'
+  # shellcheck disable=SC2046
+  forge_types_changed $({ status_paths; [ -n "$_ts_o" ] && [ "$_ts_o" != "$_ts_h" ] && git diff --name-only "$_ts_o" "$_ts_h" 2>/dev/null; } | sort -u)
+  printf '%s\n' "$_ts_h" > "$FORGE_STATE/types/head"
+fi
 exit 0
 
 ===== .claude/skills/forge-project/scripts/typecheck.sh
@@ -10730,7 +11331,9 @@ IFS='
 # ---- generated checks
 # Project tools used in check commands, resolved through tool().
 python() { forge_exec_tool python "$@"; }
-FORGE_NCHECKS=15
+# ty is Forge's own, pinned (§15.2).
+ty() { forge_ty "$@"; }
+FORGE_NCHECKS=16
 
 # 1. docker/compose/config-valid
 forge_check_meta_1() {
@@ -10918,10 +11521,10 @@ forge_check_meta_13() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_13() {
-  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) ;; *) return 1 ;; esac
+  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_13() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) return 0 ;; esac; return 1; }
+forge_when_13() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) return 0 ;; esac; return 1; }
 forge_check_run_13() {
 forge_ratchet python ratchet.py
 }
@@ -10957,6 +11560,21 @@ forge_check_run_15() {
 forge_advise forge_stub_sync
 }
 
+# 16. python/typecheck
+forge_check_meta_16() {
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+}
+forge_scope_16() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_16() { return 1; }
+forge_check_run_16() {
+ty check --output-format concise
+}
+
 FORGE_NGREPS=2
 FORGE_GREP_NO_INCREASE='python/no-new-suppressions'
 FORGE_GREP_NO_DECREASE=''
@@ -10964,7 +11582,7 @@ FORGE_GREP_NO_DECREASE=''
 # grep 1. python/no-new-suppressions
 forge_grep_meta_1() {
   g_id='python/no-new-suppressions'; g_mode=no-increase; g_flags=-E
-  g_pattern='#[[:space:]]*(noqa|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore)'
+  g_pattern='#[[:space:]]*(noqa|ty:[[:space:]]*ignore|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore)'
   g_desc='No new suppression comments (# noqa,'
 }
 forge_grep_scope_1() {
@@ -11022,7 +11640,9 @@ forge_change_set() {
     --since)
       { git diff --name-only -z --no-renames "$FORGE_BASE_REV" 2>/dev/null; git ls-files -z --others --exclude-standard 2>/dev/null; } | tr '\000' '\n' | sort -u ;;
     *) status_paths | sort -u ;;
-  esac > "$FORGE_TMP/changed"
+  esac | grep -v '^\.forge/' > "$FORGE_TMP/changed"
+  # Forge's own files (.forge/: check.sh, its helper scripts) are not the project's code:
+  # integrity covers them (check.sh step 1), the project's rules do not
   : > "$FORGE_TMP/existing"; : > "$FORGE_TMP/deleted"; : > "$FORGE_TMP/inbase"; : > "$FORGE_TMP/added"
   mkdir -p "$FORGE_TMP/base"
   while IFS= read -r _cs_f; do
@@ -11109,11 +11729,12 @@ forge_added_lines() {
   return 0
 }
 
-# forge_sg_report <json>: ast-grep --json=stream matches as
+# forge_sg_report <json> [json]: ast-grep --json=stream matches as
 # "forge:<rule> path:line:column <description>" (from 1); unless $mode is --all, only
 # matches that overlap a line of $FORGE_TMP/added (a match spanning an edited line counts).
+# With "json", those matches as they are (for forge_types_filter).
 forge_sg_report() {
-  awk -v all="$([ "$mode" = --all ] && printf 1)" '
+  awk -v all="$([ "$mode" = --all ] && printf 1)" -v json="${2:-}" '
     function str(s, key,   i, out, c) {
       i = index(s, "\"" key "\":\""); if (!i) return ""
       s = substr(s, i + length(key) + 4); out = ""
@@ -11135,6 +11756,7 @@ forge_sg_report() {
       keep = (all != "" || (f in whole))
       for (l = sl; !keep && l <= el; l++) if ((f "\t" l) in ad) keep = 1
       if (!keep) next
+      if (json != "") { print; next }
       id = m; sub(/^forge:/, "", id); sub(/ .*$/, "", id)
       d = m; sub(/^[^ ]* ?/, "", d)
       printf "forge:%s %s:%d:%d %s\n", id, f, sl, sc, d
@@ -11175,16 +11797,14 @@ forge_grep_forbid() {
   done
 }
 
-# forge_ratchet <runtime> <script>: the config ratchet. Runs <script> (embedded in
-# check.sh as forge_script_<script>) with the project's runtime on the changed files
-# and their base copies; each printed line is a loosened setting, unless forge.yaml
-# records it as accepted.
+# forge_ratchet <runtime> <script>: the config ratchet. Runs .forge/helpers/<script>
+# with the project's runtime on the changed files and their base copies; each printed
+# line is a loosened setting, unless forge.yaml records it as accepted.
 forge_ratchet() {
-  _fr_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
-  "$_fr_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  [ -f ".forge/helpers/$2" ] || { printf 'forge:%s skipped: .forge/helpers/%s is missing (run forge apply)\n' "$c_id" "$2"; return 0; }
   set -f
   # shellcheck disable=SC2046
-  "$1" "$FORGE_TMP/$2" "$FORGE_TMP/base" $(cat "$FORGE_TMP/existing") > "$FORGE_TMP/ratchet" 2>&1
+  "$1" ".forge/helpers/$2" "$FORGE_TMP/base" $(cat "$FORGE_TMP/existing") > "$FORGE_TMP/ratchet" 2>&1
   _fr_rc=$?
   set +f
   case $_fr_rc in
@@ -11202,16 +11822,15 @@ forge_ratchet() {
   return 1
 }
 
-# forge_helper <runtime> <script> [file...]: runs <script> (embedded in check.sh as
-# forge_script_<script>) with the project's runtime, as `<script> <FORGE_TMP> [file...]`
+# forge_helper <runtime> <script> [file...]: runs .forge/helpers/<script> with the
+# project's runtime, as `<script> <FORGE_TMP> [file...]`
 # (FORGE_TMP holds changed, existing, inbase and base/ from forge_change_set). Exit 0:
 # nothing found; 1: findings printed ("path:line message"; a line also present in
 # forge.yaml is accepted); 3: cannot run, its "skipped: ..." line is printed.
 forge_helper() {
-  _fh_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
-  "$_fh_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  [ -f ".forge/helpers/$2" ] || { printf 'forge:%s skipped: .forge/helpers/%s is missing (run forge apply)\n' "$c_id" "$2"; return 0; }
   _fh_rt=$1; _fh_s=$2; shift 2
-  "$_fh_rt" "$FORGE_TMP/$_fh_s" "$FORGE_TMP" "$@" > "$FORGE_TMP/helper" 2>&1
+  "$_fh_rt" ".forge/helpers/$_fh_s" "$FORGE_TMP" "$@" > "$FORGE_TMP/helper" 2>&1
   case $? in
     0) return 0 ;;
     1) ;;
@@ -12178,6 +12797,8 @@ forge_has_tool() {
   case $1 in
     *@*) ( _fh_root=$(pwd); cd "${1#*@}" 2>/dev/null && FORGE_WS_ROOT=$_fh_root forge_has_tool "${1%%@*}" ) ;;
     uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
+    # Forge's pinned ty runs through uvx (§15.2)
+    ty) command -v uvx >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
@@ -13213,11 +13834,12 @@ forge_diagnostics() {
       else if (index(p, r2 "/") == 1) p = substr(p, length(r2) + 2)
       sub(/^\.\//, "", p)
       named = 1
+      if (p !~ /^\.forge\//) project = 1
       if (level == "line") counts = (p in whole) || (ln == "" || ln == 0 ? (p in ch) : ((p "\t" ln) in ad))
       else counts = (p in ch)
       if (counts) { hit = 1; if (mode == "print") print $0 }
     }
-    END { if (mode != "print") print (hit ? "changed" : named ? "other" : (warned && !erred) ? "warnings" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
+    END { if (mode != "print") print (hit ? "changed" : named && !project ? "forge" : named ? "other" : (warned && !erred) ? "warnings" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
 }
 
 # forge_attribute_level <stage> <whole-project run: 1|0>: how a failed check's
@@ -13277,6 +13899,12 @@ forge_run_check() {
   fi
   # outside --all, only errors in the change count (§10.1 step 5)
   _fc_level=$(forge_attribute_level "$c_stage" "$_fc_whole")
+  # findings only in Forge's own helper scripts (.forge/helpers/, checked by integrity)
+  # are not the project's, in every mode
+  if [ -n "$_fc_level" ] && [ "$(forge_diagnostics "$FORGE_TMP/out" "$_fc_level")" = forge ]; then
+    printf 'forge:%s ok (its findings are only in Forge'"'"'s own .forge/ files)\n' "$c_id"
+    return 0
+  fi
   if [ "$mode" != --all ] && [ -n "$_fc_level" ]; then
     case $(forge_diagnostics "$FORGE_TMP/out" "$_fc_level") in
       other)
@@ -13783,6 +14411,12 @@ forge_missing_tools() {
   if ! command -v bunx >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then
     _mt="${_mt:+$_mt, }bunx or uvx (ast-grep)"
   fi
+  for _mt_l in $FORGE_TYPES_LANGS; do
+    case $_mt_l in
+      python) command -v uvx >/dev/null 2>&1 || _mt="${_mt:+$_mt, }uvx (types engine: ty $FORGE_TY_VERSION)" ;;
+      typescript) command -v bun >/dev/null 2>&1 || _mt="${_mt:+$_mt, }bun (types engine: the project's TypeScript)" ;;
+    esac
+  done
   printf '%s' "$_mt"
 }
 
@@ -13794,6 +14428,135 @@ forge_required_tools() {
     printf '%s\n' "$c_tools" | tr ' ' '\n' | awk -v d="$c_dirs" 'NF { if (d == "") print; else { n = split(d, ds, " "); for (i = 1; i <= n; i++) print $0 "@" ds[i] } }'
     _fq_i=$((_fq_i + 1))
   done | awk 'NF && !seen[$0]++'
+}
+
+# ---- engine capabilities (SPECS §15): types
+
+# The languages whose types engine the active rules use, and the engines' pins.
+FORGE_TYPES_LANGS=''
+FORGE_TY_VERSION='0.0.86'
+FORGE_ENGINE_PYTHON='3.12'
+# the adapters' revision: a running daemon of another Forge version is restarted
+FORGE_TYPES_REV=''
+
+# forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
+# environment (.venv) and configuration ([tool.ty], ty.toml).
+forge_ty() { uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" ty "$@"; }
+
+# forge_types_up <lang>: the language's daemon runs, with the pinned engine (started
+# when it does not: by the first hook that needs it, or by SessionStart). Prints why
+# and fails when it cannot start. Registers the hook's session, if any.
+forge_types_up() {
+  _tu_lang=$1
+  _tu_d=$FORGE_STATE/types/$1
+  case $1 in
+    python) _tu_want="ty $FORGE_TY_VERSION $FORGE_TYPES_REV" ;;
+    # the project's own TypeScript: a change of its version changes package.json or a lock file (restart)
+    typescript) _tu_want="typescript (the project's) $FORGE_TYPES_REV" ;;
+    *) printf 'no types engine for %s\n' "$1"; return 1 ;;
+  esac
+  forge_types_running "$1" "$_tu_want" && return 0
+  forge_state_dir && mkdir -p "$FORGE_STATE/types" || { printf 'cannot create %s\n' "$FORGE_STATE/types"; return 1; }
+  # one starter at a time; another one's start is waited for (its lock holds its pid)
+  _tu_n=0
+  until mkdir "$_tu_d.lock" 2>/dev/null; do
+    _tu_p=$(cat "$_tu_d.lock/pid" 2>/dev/null)
+    if [ -n "$_tu_p" ] && ! kill -0 "$_tu_p" 2>/dev/null; then rm -rf "$_tu_d.lock"; continue; fi
+    [ "$_tu_n" -lt "${FORGE_TYPES_START_TIMEOUT:-60}" ] || { printf 'another hook is still starting the %s engine\n' "$1"; return 1; }
+    sleep 1
+    _tu_n=$((_tu_n + 1))
+  done
+  # this shell's own pid ($$ is the script's, which a background subshell outlives)
+  _tu_me=$(exec sh -c 'echo "$PPID"')
+  printf '%s\n' "$_tu_me" > "$_tu_d.lock/pid"
+  # started meanwhile by the hook that held the lock
+  if forge_types_running "$1" "$_tu_want"; then rm -rf "$_tu_d.lock"; return 0; fi
+  # another pin or Forge: stopped (and waited for) before its state is replaced
+  forge_types_stop "$1"
+  rm -rf "$_tu_d"
+  mkdir -p "$_tu_d/sessions" && mkfifo "$_tu_d/in" "$_tu_d/started" || { rm -rf "$_tu_d.lock"; printf 'cannot create %s\n' "$_tu_d"; return 1; }
+  printf '%s\n' "$_tu_want" > "$_tu_d/want"
+  case $1 in
+    python) set -- uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" python "$(pwd -P)/.forge/helpers/types_python.py" "$(pwd -P)" "$_tu_d" ;;
+    typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" ;;
+  esac
+  # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a
+  # launcher that fails before (no network for a first download) says "exited <code>"
+  exec 7<>"$_tu_d/started"
+  { "$@" < /dev/null >> "$_tu_d/log" 2>&1 || printf 'exited %s\n' "$?" 1<>"$_tu_d/started"; } &
+  { sleep "${FORGE_TYPES_START_TIMEOUT:-60}" & printf '%s\n' "$!" > "$_tu_d.lock/sleep"; wait "$!"
+    printf 'failed: not started within %ss\n' "${FORGE_TYPES_START_TIMEOUT:-60}" 1<>"$_tu_d/started"; } >/dev/null 2>&1 &
+  _tu_w=$!
+  IFS= read -r _tu_l <&7
+  forge_types_unwatch "$_tu_w" "$_tu_d.lock/sleep"
+  exec 7<&-
+  rm -rf "$_tu_d.lock"
+  case $_tu_l in
+    ready*)
+      [ -z "${FORGE_INPUT:-}" ] || : > "$_tu_d/sessions/$(session_id)"
+      FORGE_TYPES_STARTED="${FORGE_TYPES_STARTED:+$FORGE_TYPES_STARTED
+}$_tu_lang"
+      return 0 ;;
+  esac
+  printf 'the %s engine (%s) did not start: %s (log: %s)\n' "$_tu_lang" "$_tu_want" "$_tu_l" "$_tu_d/log"
+  return 1
+}
+
+# forge_types_running <lang> <want>: its daemon runs with this engine; registers the
+# hook's session with it.
+forge_types_running() {
+  forge_types_alive "$1" && [ "$(cat "$FORGE_STATE/types/$1/want" 2>/dev/null)" = "$2" ] || return 1
+  [ -z "${FORGE_INPUT:-}" ] || : > "$FORGE_STATE/types/$1/sessions/$(session_id)"
+}
+
+# forge_types_down: stops the daemons this run started when no session uses them, and
+# waits until they have exited (check.sh in CI or a pre-commit hook: nothing is left running).
+forge_types_down() {
+  for _td_l in ${FORGE_TYPES_STARTED:-}; do
+    [ -n "$(ls "$FORGE_STATE/types/$_td_l/sessions" 2>/dev/null)" ] || forge_types_stop "$_td_l"
+  done
+  return 0
+}
+
+# forge_types_filter <matches>: keeps in the file of ast-grep --json=stream matches
+# (with --include-metadata) only those whose forge_where the language's types engine
+# confirms (§15.1); matches without forge_where stay. An engine that cannot answer is
+# not a pass: "forge:forge/types ..." lines name the rules left unchecked, and it fails.
+forge_types_filter() {
+  grep -q '"forge_where"' "$1" 2>/dev/null || return 0
+  grep -v '"forge_where"' "$1" > "$1.kept"
+  _tf_rc=0
+  _tf_base=${FORGE_TYPES_TIMEOUT:-20}
+  for _tf_lang in $FORGE_TYPES_LANGS; do
+    case $_tf_lang in python) _tf_sg='"language":"Python"' ;; typescript) _tf_sg='"language":"Tsx"' ;; esac
+    _tf_q=$1.$_tf_lang
+    rm -rf "$_tf_q" && mkdir "$_tf_q" || return 1
+    grep '"forge_where"' "$1" | grep -F "$_tf_sg" > "$_tf_q/req"
+    [ -s "$_tf_q/req" ] || continue
+    # After an edit (FORGE_TYPES_EDIT=1, post-edit.sh) an engine still loading the project's
+    # tsconfig projects is waited for at most FORGE_TYPES_LOADING_WAIT seconds (5): the edit
+    # is not held up, and the Stop check, which waits, checks these matches.
+    _tf_t=$_tf_base
+    if [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then _tf_t=${FORGE_TYPES_LOADING_WAIT:-5}; fi
+    # not in a subshell: forge_types_up records what it started (FORGE_TYPES_STARTED)
+    if forge_types_up "$_tf_lang" > "$_tf_q/why" && FORGE_TYPES_TIMEOUT=$_tf_t forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
+      && ! grep -q '^error	' "$_tf_q/answer"; then
+      cat "$_tf_q/answer" >> "$1.kept"
+    elif [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then
+      grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
+        printf 'forge:forge/types %s was not checked after this edit: the %s engine (%s) is still loading the project; the Stop check runs it\n' "$_tf_id" "$_tf_lang" "$(cat "$FORGE_STATE/types/$_tf_lang/ready" 2>/dev/null)"
+      done
+    else
+      _tf_why=$(cat "$_tf_q/why")
+      [ -n "$_tf_why" ] || _tf_why=$(grep '^error	' "$_tf_q/answer" 2>/dev/null | head -n 1 | cut -f 2-)
+      grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
+        printf 'forge:forge/types %s was not checked: %s\n' "$_tf_id" "${_tf_why:-the types engine gave no answer}"
+      done
+      _tf_rc=1
+    fi
+  done
+  mv "$1.kept" "$1"
+  return "$_tf_rc"
 }
 
 # the first changed file in a typecheck's scope
@@ -14458,11 +15221,13 @@ IFS='
 '
 FORGE_TMP=$(mktemp -d "${TMPDIR:-/tmp}/forge-check.XXXXXX") || exit 2
 # forge_kill_jobs: stops every process this run started (a check, its timeout watcher),
-# so none outlives it (the Stop hook's timeout, a Ctrl-C at commit).
+# so none outlives it (the Stop hook's timeout, a Ctrl-C at commit). A types engine
+# detaches into its own session; one this run started is stopped at the end unless a
+# session uses it (§15.3).
 forge_kill_jobs() {
   for _kj in $(ps -A -o pid= -o ppid= 2>/dev/null | awk -v p="$$" '$2 == p { print $1 }'); do forge_kill_tree "$_kj"; done
 }
-trap 'rm -rf "$FORGE_TMP"' EXIT; trap 'forge_kill_jobs; exit 143' HUP INT TERM
+trap 'forge_types_down; rm -rf "$FORGE_TMP"' EXIT; trap 'forge_kill_jobs; exit 143' HUP INT TERM
 
 # Generated by forge. Shared helpers for hook scripts. POSIX sh only.
 FORGE_AST_GREP_VERSION="0.45.3"
@@ -14864,10 +15629,101 @@ bash_cleanup() {
   return 0
 }
 
+# ---- engine capabilities (SPECS §15): the types engine, one daemon per language and
+# repository in $FORGE_STATE/types/<lang>/ (in: the request FIFO; pid, ready, want,
+# log; sessions/ holds one file per Claude Code session using it).
+
+# forge_types_alive <lang>: its daemon is running.
+forge_types_alive() {
+  [ -p "$FORGE_STATE/types/$1/in" ] && [ -f "$FORGE_STATE/types/$1/ready" ] \
+    && kill -0 "$(cat "$FORGE_STATE/types/$1/pid" 2>/dev/null)" 2>/dev/null
+}
+
+# forge_types_line <lang> <line>: writes one line (shorter than PIPE_BUF, so writers
+# never mix) to the daemon's FIFO. Opened read-write, so it never blocks.
+forge_types_line() { printf '%s\n' "$2" 1<>"$FORGE_STATE/types/$1/in"; }
+
+# forge_types_ask <lang> <dir> [stop]: asks the daemon the question in <dir>/req and
+# prints its answer (without the final "end"); with "stop", asks it to stop and waits
+# until it has (its language server ended). Fails when no answer comes within
+# FORGE_TYPES_TIMEOUT seconds (20). The reply FIFO is opened read-write before the
+# question is sent, so the daemon's non-blocking open always finds a reader.
+forge_types_ask() {
+  mkfifo "$2/reply" || return 1
+  exec 8<>"$2/reply"
+  forge_types_line "$1" "${3:+$3	}$2"
+  { sleep "${FORGE_TYPES_TIMEOUT:-20}" & printf '%s\n' "$!" > "$2/sleep"; wait "$!"
+    printf 'error\tno answer within %ss\nend\n' "${FORGE_TYPES_TIMEOUT:-20}" 1<>"$2/reply"; } >/dev/null 2>&1 &
+  _ta_w=$!
+  _ta_rc=1
+  while IFS= read -r _ta_l <&8; do
+    [ "$_ta_l" = end ] && { _ta_rc=0; break; }
+    printf '%s\n' "$_ta_l"
+  done
+  forge_types_unwatch "$_ta_w" "$2/sleep"
+  exec 8<&-
+  return "$_ta_rc"
+}
+
+# forge_types_unwatch <watchdog pid> <file with its sleep's pid>: ends a watchdog by
+# its sleep, so the watchdog ends on its own (killing it would make some shells print
+# "Terminated"); its late line goes to a FIFO nobody reads any more.
+forge_types_unwatch() {
+  _tw_n=0
+  while [ ! -s "$2" ] && [ "$_tw_n" -lt 100 ]; do _tw_n=$((_tw_n + 1)); done
+  if [ -s "$2" ] && read -r _tw_p < "$2"; then kill "$_tw_p" 2>/dev/null; else kill "$1" 2>/dev/null; fi
+  wait "$1" 2>/dev/null
+  return 0
+}
+
+# forge_types_changed <path>...: tells the running daemons that files changed on disk
+# (they resync them). A dependency or configuration change restarts them instead: the
+# next question starts them again on the new environment.
+forge_types_changed() {
+  [ -d "$FORGE_STATE/types" ] || return 0
+  for _tc_lang in python typescript; do
+    forge_types_alive "$_tc_lang" || continue
+    for _tc_f in "$@"; do
+      case $_tc_f in
+        uv.lock|*/uv.lock|pyproject.toml|*/pyproject.toml|ty.toml|bun.lock|bun.lockb|package-lock.json|pnpm-lock.yaml|yarn.lock|package.json|*/package.json|tsconfig*.json|*/tsconfig*.json)
+          forge_types_line "$_tc_lang" restart; break ;;
+        *) forge_types_line "$_tc_lang" "changed	$_tc_f" ;;
+      esac
+    done
+  done
+}
+
+# forge_types_stop <lang>: stops the language's daemon and waits until it and its
+# language server have exited (at most FORGE_TYPES_TIMEOUT seconds).
+forge_types_stop() {
+  forge_types_alive "$1" || return 0
+  _tp_r=$(mktemp -d "${TMPDIR:-/tmp}/forge-types-stop.XXXXXX") || return 1
+  forge_types_ask "$1" "$_tp_r" stop > /dev/null
+  rm -rf "$_tp_r"
+  return 0
+}
+
+# forge_types_session <start|end>: registers this Claude Code session with the running
+# daemons, or unregisters it; the last session to end stops them.
+forge_types_session() {
+  for _tx_lang in python typescript; do
+    _tx_d=$FORGE_STATE/types/$_tx_lang
+    [ -d "$_tx_d" ] || continue
+    if [ "$1" = start ]; then mkdir -p "$_tx_d/sessions" && : > "$_tx_d/sessions/$(session_id)"
+    else
+      rm -f "$_tx_d/sessions/$(session_id)"
+      [ -n "$(ls "$_tx_d/sessions" 2>/dev/null)" ] || forge_types_stop "$_tx_lang"
+    fi
+  done
+  return 0
+}
+
 # ---- generated checks
 # Project tools used in check commands, resolved through tool().
 python() { forge_exec_tool python "$@"; }
-FORGE_NCHECKS=15
+# ty is Forge's own, pinned (§15.2).
+ty() { forge_ty "$@"; }
+FORGE_NCHECKS=16
 
 # 1. docker/compose/config-valid
 forge_check_meta_1() {
@@ -15055,10 +15911,10 @@ forge_check_meta_13() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_13() {
-  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) ;; *) return 1 ;; esac
+  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_13() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) return 0 ;; esac; return 1; }
+forge_when_13() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) return 0 ;; esac; return 1; }
 forge_check_run_13() {
 forge_ratchet python ratchet.py
 }
@@ -15094,6 +15950,21 @@ forge_check_run_15() {
 forge_advise forge_stub_sync
 }
 
+# 16. python/typecheck
+forge_check_meta_16() {
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+}
+forge_scope_16() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_16() { return 1; }
+forge_check_run_16() {
+ty check --output-format concise
+}
+
 FORGE_NGREPS=2
 FORGE_GREP_NO_INCREASE='python/no-new-suppressions'
 FORGE_GREP_NO_DECREASE=''
@@ -15101,7 +15972,7 @@ FORGE_GREP_NO_DECREASE=''
 # grep 1. python/no-new-suppressions
 forge_grep_meta_1() {
   g_id='python/no-new-suppressions'; g_mode=no-increase; g_flags=-E
-  g_pattern='#[[:space:]]*(noqa|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore)'
+  g_pattern='#[[:space:]]*(noqa|ty:[[:space:]]*ignore|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore)'
   g_desc='No new suppression comments (# noqa,'
 }
 forge_grep_scope_1() {
@@ -15159,7 +16030,9 @@ forge_change_set() {
     --since)
       { git diff --name-only -z --no-renames "$FORGE_BASE_REV" 2>/dev/null; git ls-files -z --others --exclude-standard 2>/dev/null; } | tr '\000' '\n' | sort -u ;;
     *) status_paths | sort -u ;;
-  esac > "$FORGE_TMP/changed"
+  esac | grep -v '^\.forge/' > "$FORGE_TMP/changed"
+  # Forge's own files (.forge/: check.sh, its helper scripts) are not the project's code:
+  # integrity covers them (check.sh step 1), the project's rules do not
   : > "$FORGE_TMP/existing"; : > "$FORGE_TMP/deleted"; : > "$FORGE_TMP/inbase"; : > "$FORGE_TMP/added"
   mkdir -p "$FORGE_TMP/base"
   while IFS= read -r _cs_f; do
@@ -15246,11 +16119,12 @@ forge_added_lines() {
   return 0
 }
 
-# forge_sg_report <json>: ast-grep --json=stream matches as
+# forge_sg_report <json> [json]: ast-grep --json=stream matches as
 # "forge:<rule> path:line:column <description>" (from 1); unless $mode is --all, only
 # matches that overlap a line of $FORGE_TMP/added (a match spanning an edited line counts).
+# With "json", those matches as they are (for forge_types_filter).
 forge_sg_report() {
-  awk -v all="$([ "$mode" = --all ] && printf 1)" '
+  awk -v all="$([ "$mode" = --all ] && printf 1)" -v json="${2:-}" '
     function str(s, key,   i, out, c) {
       i = index(s, "\"" key "\":\""); if (!i) return ""
       s = substr(s, i + length(key) + 4); out = ""
@@ -15272,6 +16146,7 @@ forge_sg_report() {
       keep = (all != "" || (f in whole))
       for (l = sl; !keep && l <= el; l++) if ((f "\t" l) in ad) keep = 1
       if (!keep) next
+      if (json != "") { print; next }
       id = m; sub(/^forge:/, "", id); sub(/ .*$/, "", id)
       d = m; sub(/^[^ ]* ?/, "", d)
       printf "forge:%s %s:%d:%d %s\n", id, f, sl, sc, d
@@ -15312,16 +16187,14 @@ forge_grep_forbid() {
   done
 }
 
-# forge_ratchet <runtime> <script>: the config ratchet. Runs <script> (embedded in
-# check.sh as forge_script_<script>) with the project's runtime on the changed files
-# and their base copies; each printed line is a loosened setting, unless forge.yaml
-# records it as accepted.
+# forge_ratchet <runtime> <script>: the config ratchet. Runs .forge/helpers/<script>
+# with the project's runtime on the changed files and their base copies; each printed
+# line is a loosened setting, unless forge.yaml records it as accepted.
 forge_ratchet() {
-  _fr_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
-  "$_fr_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  [ -f ".forge/helpers/$2" ] || { printf 'forge:%s skipped: .forge/helpers/%s is missing (run forge apply)\n' "$c_id" "$2"; return 0; }
   set -f
   # shellcheck disable=SC2046
-  "$1" "$FORGE_TMP/$2" "$FORGE_TMP/base" $(cat "$FORGE_TMP/existing") > "$FORGE_TMP/ratchet" 2>&1
+  "$1" ".forge/helpers/$2" "$FORGE_TMP/base" $(cat "$FORGE_TMP/existing") > "$FORGE_TMP/ratchet" 2>&1
   _fr_rc=$?
   set +f
   case $_fr_rc in
@@ -15339,16 +16212,15 @@ forge_ratchet() {
   return 1
 }
 
-# forge_helper <runtime> <script> [file...]: runs <script> (embedded in check.sh as
-# forge_script_<script>) with the project's runtime, as `<script> <FORGE_TMP> [file...]`
+# forge_helper <runtime> <script> [file...]: runs .forge/helpers/<script> with the
+# project's runtime, as `<script> <FORGE_TMP> [file...]`
 # (FORGE_TMP holds changed, existing, inbase and base/ from forge_change_set). Exit 0:
 # nothing found; 1: findings printed ("path:line message"; a line also present in
 # forge.yaml is accepted); 3: cannot run, its "skipped: ..." line is printed.
 forge_helper() {
-  _fh_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
-  "$_fh_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  [ -f ".forge/helpers/$2" ] || { printf 'forge:%s skipped: .forge/helpers/%s is missing (run forge apply)\n' "$c_id" "$2"; return 0; }
   _fh_rt=$1; _fh_s=$2; shift 2
-  "$_fh_rt" "$FORGE_TMP/$_fh_s" "$FORGE_TMP" "$@" > "$FORGE_TMP/helper" 2>&1
+  "$_fh_rt" ".forge/helpers/$_fh_s" "$FORGE_TMP" "$@" > "$FORGE_TMP/helper" 2>&1
   case $? in
     0) return 0 ;;
     1) ;;
@@ -16315,6 +17187,8 @@ forge_has_tool() {
   case $1 in
     *@*) ( _fh_root=$(pwd); cd "${1#*@}" 2>/dev/null && FORGE_WS_ROOT=$_fh_root forge_has_tool "${1%%@*}" ) ;;
     uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
+    # Forge's pinned ty runs through uvx (§15.2)
+    ty) command -v uvx >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
@@ -17350,11 +18224,12 @@ forge_diagnostics() {
       else if (index(p, r2 "/") == 1) p = substr(p, length(r2) + 2)
       sub(/^\.\//, "", p)
       named = 1
+      if (p !~ /^\.forge\//) project = 1
       if (level == "line") counts = (p in whole) || (ln == "" || ln == 0 ? (p in ch) : ((p "\t" ln) in ad))
       else counts = (p in ch)
       if (counts) { hit = 1; if (mode == "print") print $0 }
     }
-    END { if (mode != "print") print (hit ? "changed" : named ? "other" : (warned && !erred) ? "warnings" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
+    END { if (mode != "print") print (hit ? "changed" : named && !project ? "forge" : named ? "other" : (warned && !erred) ? "warnings" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
 }
 
 # forge_attribute_level <stage> <whole-project run: 1|0>: how a failed check's
@@ -17414,6 +18289,12 @@ forge_run_check() {
   fi
   # outside --all, only errors in the change count (§10.1 step 5)
   _fc_level=$(forge_attribute_level "$c_stage" "$_fc_whole")
+  # findings only in Forge's own helper scripts (.forge/helpers/, checked by integrity)
+  # are not the project's, in every mode
+  if [ -n "$_fc_level" ] && [ "$(forge_diagnostics "$FORGE_TMP/out" "$_fc_level")" = forge ]; then
+    printf 'forge:%s ok (its findings are only in Forge'"'"'s own .forge/ files)\n' "$c_id"
+    return 0
+  fi
   if [ "$mode" != --all ] && [ -n "$_fc_level" ]; then
     case $(forge_diagnostics "$FORGE_TMP/out" "$_fc_level") in
       other)
@@ -17920,6 +18801,12 @@ forge_missing_tools() {
   if ! command -v bunx >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then
     _mt="${_mt:+$_mt, }bunx or uvx (ast-grep)"
   fi
+  for _mt_l in $FORGE_TYPES_LANGS; do
+    case $_mt_l in
+      python) command -v uvx >/dev/null 2>&1 || _mt="${_mt:+$_mt, }uvx (types engine: ty $FORGE_TY_VERSION)" ;;
+      typescript) command -v bun >/dev/null 2>&1 || _mt="${_mt:+$_mt, }bun (types engine: the project's TypeScript)" ;;
+    esac
+  done
   printf '%s' "$_mt"
 }
 
@@ -17933,227 +18820,137 @@ forge_required_tools() {
   done | awk 'NF && !seen[$0]++'
 }
 
-# Scripts that checks run with the project's own runtime (Python, bun).
-forge_script_ratchet_py() {
-cat <<'FORGE_SCRIPT_END'
-# Generated by forge. Config ratchet for Python tool configs (run by .forge/check.sh
-# with the project's own Python, 3.11+): compares each changed file with its copy in
-# the base and prints one line per loosened setting. Usage:
-#   python ratchet.py <base-dir> <path>...
-# Exit 0: nothing loosened; 1: findings printed; 3: cannot run ("skipped: …" printed).
-import json
-import re
-import sys
+# ---- engine capabilities (SPECS §15): types
 
-try:
-    import tomllib
-except ImportError:
-    print("skipped: tomllib needs Python 3.11+")
-    sys.exit(3)
+# The languages whose types engine the active rules use, and the engines' pins.
+FORGE_TYPES_LANGS=''
+FORGE_TY_VERSION='0.0.86'
+FORGE_ENGINE_PYTHON='3.12'
+# the adapters' revision: a running daemon of another Forge version is restarted
+FORGE_TYPES_REV=''
 
-findings = []
+# forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
+# environment (.venv) and configuration ([tool.ty], ty.toml).
+forge_ty() { uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" ty "$@"; }
 
-
-def out(path, what):
-    findings.append(f"{path}: {what}")
-
-
-def show(v):
-    if isinstance(v, bool):
-        return "true" if v else "false"
-    if v is None:
-        return "unset"
-    if isinstance(v, (list, tuple)):
-        return "[" + ", ".join(show(x) for x in v) + "]"
-    return str(v).replace('"', "").replace("\\", "/")
-
-
-def as_list(v):
-    if v is None:
-        return []
-    return list(v) if isinstance(v, (list, tuple)) else [v]
-
-
-def strip_jsonc(text):
-    """JSON with comments and trailing commas -> JSON."""
-    out_, i, n, in_str = [], 0, len(text), False
-    while i < n:
-        c = text[i]
-        if in_str:
-            out_.append(c)
-            if c == "\\" and i + 1 < n:
-                out_.append(text[i + 1])
-                i += 1
-            elif c == '"':
-                in_str = False
-        elif c == '"':
-            in_str = True
-            out_.append(c)
-        elif text.startswith("//", i):
-            while i < n and text[i] != "\n":
-                i += 1
-            continue
-        elif text.startswith("/*", i):
-            end = text.find("*/", i + 2)
-            i = n if end < 0 else end + 2
-            continue
-        else:
-            out_.append(c)
-        i += 1
-    return re.sub(r",(\s*[}\]])", r"\1", "".join(out_))
-
-
-# ---- ruff
-
-def covered(code, selectors):
-    return any(s == "ALL" or code.startswith(s) for s in selectors)
-
-
-def ruff(path, before, after, prefix=""):
-    def lint(cfg):
-        return {**{k: v for k, v in cfg.items() if k != "lint"}, **(cfg.get("lint") or {})}
-
-    b, a = lint(before), lint(after)
-    for key in ("select", "extend-select"):
-        new = as_list(a.get("select")) + as_list(a.get("extend-select"))
-        for code in as_list(b.get(key)):
-            if not covered(code, new):
-                out(path, f"{prefix}lint.{key} no longer selects {code}")
-    for key in ("ignore", "extend-ignore"):
-        for code in as_list(a.get(key)):
-            if code not in as_list(b.get(key)):
-                out(path, f"{prefix}lint.{key} adds {code}")
-    for key in ("per-file-ignores", "extend-per-file-ignores"):
-        bb, aa = b.get(key) or {}, a.get(key) or {}
-        for glob, codes in aa.items():
-            for code in as_list(codes):
-                if code not in as_list(bb.get(glob)):
-                    out(path, f"{prefix}lint.{key} adds {code} for {glob}")
-    for key in ("exclude", "extend-exclude"):
-        for x in as_list(after.get(key)):
-            if x not in as_list(before.get(key)):
-                out(path, f"{prefix}{key} adds {x}")
-        for x in as_list((after.get("lint") or {}).get(key)):
-            if x not in as_list((before.get("lint") or {}).get(key)):
-                out(path, f"{prefix}lint.{key} adds {x}")
-
-
-# ---- basedpyright / pyright
-
-MODES = ["off", "basic", "standard", "strict", "recommended", "all"]
-LEVELS = {"none": 0, False: 0, "false": 0, "information": 1, "warning": 2, "error": 3, True: 3, "true": 3}
-
-
-def pyright(path, b, a, prefix="", default="standard"):
-    mb, ma = b.get("typeCheckingMode"), a.get("typeCheckingMode")
-    if mb in MODES and MODES.index(mb) > MODES.index(ma if ma in MODES else default):
-        out(path, f"{prefix}typeCheckingMode {mb} -> {show(ma)}")
-    for key, vb in b.items():
-        if not key.startswith("report"):
-            continue
-        va = a.get(key)
-        lb, la = LEVELS.get(vb, 0), LEVELS.get(va, -1)
-        if va is None and lb > 0:
-            out(path, f"{prefix}{key} {show(vb)} -> unset")
-        elif la >= 0 and la < lb:
-            out(path, f"{prefix}{key} {show(vb)} -> {show(va)}")
-    if b.get("failOnWarnings") is True and a.get("failOnWarnings") is not True:
-        out(path, f"{prefix}failOnWarnings true -> {show(a.get('failOnWarnings'))}")
-    if b.get("enableTypeIgnoreComments") is False and a.get("enableTypeIgnoreComments") is not False:
-        out(path, f"{prefix}enableTypeIgnoreComments false -> {show(a.get('enableTypeIgnoreComments'))}")
-    for key in ("exclude", "ignore"):
-        for x in as_list(a.get(key)):
-            if x not in as_list(b.get(key)):
-                out(path, f"{prefix}{key} adds {x}")
-    for x in as_list(b.get("strict")):
-        if x not in as_list(a.get("strict")):
-            out(path, f"{prefix}strict no longer has {x}")
-
-
-# ---- pytest
-
-LOOSE_OPTS = re.compile(r"^(--ignore(-glob)?|--deselect|-k|-m|--continue-on-collection-errors|--lf|--last-failed|--sw|--stepwise)(=|$)")
-
-
-def pytest(path, b, a, prefix):
-    tb = str(b.get("addopts", "")).split() if not isinstance(b.get("addopts"), list) else b.get("addopts")
-    ta = str(a.get("addopts", "")).split() if not isinstance(a.get("addopts"), list) else a.get("addopts")
-    for t in ta:
-        if LOOSE_OPTS.match(t) and t not in tb:
-            out(path, f"{prefix}addopts adds {t}")
-    for x in as_list(b.get("testpaths")):
-        if x not in as_list(a.get("testpaths")):
-            out(path, f"{prefix}testpaths no longer has {x}")
-    for x in as_list(a.get("norecursedirs")):
-        if x not in as_list(b.get("norecursedirs")):
-            out(path, f"{prefix}norecursedirs adds {x}")
-    if b.get("xfail_strict") is True and a.get("xfail_strict") is not True:
-        out(path, f"{prefix}xfail_strict true -> {show(a.get('xfail_strict'))}")
-
-
-# ---- coverage
-
-def coverage(path, b, a, prefix):
-    rb, ra = b.get("report") or {}, a.get("report") or {}
-    fb, fa = rb.get("fail_under"), ra.get("fail_under")
-    if isinstance(fb, (int, float)) and (not isinstance(fa, (int, float)) or fa < fb):
-        out(path, f"{prefix}report.fail_under {show(fb)} -> {show(fa)}")
-    for sect, key in (("run", "omit"), ("report", "omit"), ("report", "exclude_lines"), ("report", "exclude_also")):
-        for x in as_list((a.get(sect) or {}).get(key)):
-            if x not in as_list((b.get(sect) or {}).get(key)):
-                out(path, f"{prefix}{sect}.{key} adds {x}")
-
-
-def load(text, path):
-    if path.endswith(".json"):
-        return json.loads(strip_jsonc(text))
-    return tomllib.loads(text)
-
-
-def main():
-    base = sys.argv[1]
-    for path in sys.argv[2:]:
-        name = path.rsplit("/", 1)[-1]
-        if name not in ("pyproject.toml", "ruff.toml", ".ruff.toml", "pyrightconfig.json"):
-            continue
-        try:
-            with open(f"{base}/{path}", encoding="utf-8") as f:
-                before = load(f.read(), path)
-        except FileNotFoundError:
-            continue
-        except (ValueError, tomllib.TOMLDecodeError):
-            continue
-        try:
-            with open(path, encoding="utf-8") as f:
-                after = load(f.read(), path)
-        except (ValueError, tomllib.TOMLDecodeError) as e:
-            out(path, f"cannot be parsed ({str(e).splitlines()[0]})")
-            continue
-        if name == "pyproject.toml":
-            tb, ta = before.get("tool") or {}, after.get("tool") or {}
-            ruff(path, tb.get("ruff") or {}, ta.get("ruff") or {}, "tool.ruff.")
-            for tool, default in (("basedpyright", "recommended"), ("pyright", "standard")):
-                pyright(path, tb.get(tool) or {}, ta.get(tool) or {}, f"tool.{tool}.", default)
-            pytest(path, (tb.get("pytest") or {}).get("ini_options") or {}, (ta.get("pytest") or {}).get("ini_options") or {}, "tool.pytest.ini_options.")
-            coverage(path, tb.get("coverage") or {}, ta.get("coverage") or {}, "tool.coverage.")
-        elif name == "pyrightconfig.json":
-            pyright(path, before, after)
-        else:
-            ruff(path, before, after)
-    for f in findings:
-        print(f)
-    sys.exit(1 if findings else 0)
-
-
-try:
-    main()
-except SystemExit:
-    raise
-except Exception as e:  # never report a crash as a loosened setting
-    print(f"skipped: the ratchet could not run ({type(e).__name__}: {e})")
-    sys.exit(3)
-FORGE_SCRIPT_END
+# forge_types_up <lang>: the language's daemon runs, with the pinned engine (started
+# when it does not: by the first hook that needs it, or by SessionStart). Prints why
+# and fails when it cannot start. Registers the hook's session, if any.
+forge_types_up() {
+  _tu_lang=$1
+  _tu_d=$FORGE_STATE/types/$1
+  case $1 in
+    python) _tu_want="ty $FORGE_TY_VERSION $FORGE_TYPES_REV" ;;
+    # the project's own TypeScript: a change of its version changes package.json or a lock file (restart)
+    typescript) _tu_want="typescript (the project's) $FORGE_TYPES_REV" ;;
+    *) printf 'no types engine for %s\n' "$1"; return 1 ;;
+  esac
+  forge_types_running "$1" "$_tu_want" && return 0
+  forge_state_dir && mkdir -p "$FORGE_STATE/types" || { printf 'cannot create %s\n' "$FORGE_STATE/types"; return 1; }
+  # one starter at a time; another one's start is waited for (its lock holds its pid)
+  _tu_n=0
+  until mkdir "$_tu_d.lock" 2>/dev/null; do
+    _tu_p=$(cat "$_tu_d.lock/pid" 2>/dev/null)
+    if [ -n "$_tu_p" ] && ! kill -0 "$_tu_p" 2>/dev/null; then rm -rf "$_tu_d.lock"; continue; fi
+    [ "$_tu_n" -lt "${FORGE_TYPES_START_TIMEOUT:-60}" ] || { printf 'another hook is still starting the %s engine\n' "$1"; return 1; }
+    sleep 1
+    _tu_n=$((_tu_n + 1))
+  done
+  # this shell's own pid ($$ is the script's, which a background subshell outlives)
+  _tu_me=$(exec sh -c 'echo "$PPID"')
+  printf '%s\n' "$_tu_me" > "$_tu_d.lock/pid"
+  # started meanwhile by the hook that held the lock
+  if forge_types_running "$1" "$_tu_want"; then rm -rf "$_tu_d.lock"; return 0; fi
+  # another pin or Forge: stopped (and waited for) before its state is replaced
+  forge_types_stop "$1"
+  rm -rf "$_tu_d"
+  mkdir -p "$_tu_d/sessions" && mkfifo "$_tu_d/in" "$_tu_d/started" || { rm -rf "$_tu_d.lock"; printf 'cannot create %s\n' "$_tu_d"; return 1; }
+  printf '%s\n' "$_tu_want" > "$_tu_d/want"
+  case $1 in
+    python) set -- uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" python "$(pwd -P)/.forge/helpers/types_python.py" "$(pwd -P)" "$_tu_d" ;;
+    typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" ;;
+  esac
+  # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a
+  # launcher that fails before (no network for a first download) says "exited <code>"
+  exec 7<>"$_tu_d/started"
+  { "$@" < /dev/null >> "$_tu_d/log" 2>&1 || printf 'exited %s\n' "$?" 1<>"$_tu_d/started"; } &
+  { sleep "${FORGE_TYPES_START_TIMEOUT:-60}" & printf '%s\n' "$!" > "$_tu_d.lock/sleep"; wait "$!"
+    printf 'failed: not started within %ss\n' "${FORGE_TYPES_START_TIMEOUT:-60}" 1<>"$_tu_d/started"; } >/dev/null 2>&1 &
+  _tu_w=$!
+  IFS= read -r _tu_l <&7
+  forge_types_unwatch "$_tu_w" "$_tu_d.lock/sleep"
+  exec 7<&-
+  rm -rf "$_tu_d.lock"
+  case $_tu_l in
+    ready*)
+      [ -z "${FORGE_INPUT:-}" ] || : > "$_tu_d/sessions/$(session_id)"
+      FORGE_TYPES_STARTED="${FORGE_TYPES_STARTED:+$FORGE_TYPES_STARTED
+}$_tu_lang"
+      return 0 ;;
+  esac
+  printf 'the %s engine (%s) did not start: %s (log: %s)\n' "$_tu_lang" "$_tu_want" "$_tu_l" "$_tu_d/log"
+  return 1
 }
+
+# forge_types_running <lang> <want>: its daemon runs with this engine; registers the
+# hook's session with it.
+forge_types_running() {
+  forge_types_alive "$1" && [ "$(cat "$FORGE_STATE/types/$1/want" 2>/dev/null)" = "$2" ] || return 1
+  [ -z "${FORGE_INPUT:-}" ] || : > "$FORGE_STATE/types/$1/sessions/$(session_id)"
+}
+
+# forge_types_down: stops the daemons this run started when no session uses them, and
+# waits until they have exited (check.sh in CI or a pre-commit hook: nothing is left running).
+forge_types_down() {
+  for _td_l in ${FORGE_TYPES_STARTED:-}; do
+    [ -n "$(ls "$FORGE_STATE/types/$_td_l/sessions" 2>/dev/null)" ] || forge_types_stop "$_td_l"
+  done
+  return 0
+}
+
+# forge_types_filter <matches>: keeps in the file of ast-grep --json=stream matches
+# (with --include-metadata) only those whose forge_where the language's types engine
+# confirms (§15.1); matches without forge_where stay. An engine that cannot answer is
+# not a pass: "forge:forge/types ..." lines name the rules left unchecked, and it fails.
+forge_types_filter() {
+  grep -q '"forge_where"' "$1" 2>/dev/null || return 0
+  grep -v '"forge_where"' "$1" > "$1.kept"
+  _tf_rc=0
+  _tf_base=${FORGE_TYPES_TIMEOUT:-20}
+  for _tf_lang in $FORGE_TYPES_LANGS; do
+    case $_tf_lang in python) _tf_sg='"language":"Python"' ;; typescript) _tf_sg='"language":"Tsx"' ;; esac
+    _tf_q=$1.$_tf_lang
+    rm -rf "$_tf_q" && mkdir "$_tf_q" || return 1
+    grep '"forge_where"' "$1" | grep -F "$_tf_sg" > "$_tf_q/req"
+    [ -s "$_tf_q/req" ] || continue
+    # After an edit (FORGE_TYPES_EDIT=1, post-edit.sh) an engine still loading the project's
+    # tsconfig projects is waited for at most FORGE_TYPES_LOADING_WAIT seconds (5): the edit
+    # is not held up, and the Stop check, which waits, checks these matches.
+    _tf_t=$_tf_base
+    if [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then _tf_t=${FORGE_TYPES_LOADING_WAIT:-5}; fi
+    # not in a subshell: forge_types_up records what it started (FORGE_TYPES_STARTED)
+    if forge_types_up "$_tf_lang" > "$_tf_q/why" && FORGE_TYPES_TIMEOUT=$_tf_t forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
+      && ! grep -q '^error	' "$_tf_q/answer"; then
+      cat "$_tf_q/answer" >> "$1.kept"
+    elif [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then
+      grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
+        printf 'forge:forge/types %s was not checked after this edit: the %s engine (%s) is still loading the project; the Stop check runs it\n' "$_tf_id" "$_tf_lang" "$(cat "$FORGE_STATE/types/$_tf_lang/ready" 2>/dev/null)"
+      done
+    else
+      _tf_why=$(cat "$_tf_q/why")
+      [ -n "$_tf_why" ] || _tf_why=$(grep '^error	' "$_tf_q/answer" 2>/dev/null | head -n 1 | cut -f 2-)
+      grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
+        printf 'forge:forge/types %s was not checked: %s\n' "$_tf_id" "${_tf_why:-the types engine gave no answer}"
+      done
+      _tf_rc=1
+    fi
+  done
+  mv "$1.kept" "$1"
+  return "$_tf_rc"
+}
+
+FORGE_STATE=$(forge_state_of "$(pwd -P)")
+
 
 FORGE_FORBID='docker/compose/datastore-loopback|docker/compose/healthy-depends|docker/compose/no-docker-sock|docker/compose/no-host-root-mounts|docker/compose/no-inline-secrets|docker/compose/no-privileged|docker/compose/no-version-key|docker/compose/pinned-images|python/no-stub'
 FORGE_NO_INCREASE=''
@@ -18163,7 +18960,7 @@ FORGE_NO_DECREASE=''
 # The change: changed, existing, deleted, base/, inbase and added in $FORGE_TMP.
 forge_change_set || exit 1
 if [ "$mode" = --all ]; then
-  git ls-files -z --cached --others --exclude-standard 2>/dev/null | tr '\000' '\n' | sort -u > "$FORGE_TMP/scope"
+  git ls-files -z --cached --others --exclude-standard 2>/dev/null | tr '\000' '\n' | grep -v '^\.forge/' | sort -u > "$FORGE_TMP/scope"
   : > "$FORGE_TMP/scope.tmp"
   while read -r f; do [ -f "$f" ] && printf '%s\n' "$f" >> "$FORGE_TMP/scope.tmp"; done < "$FORGE_TMP/scope"
   mv "$FORGE_TMP/scope.tmp" "$FORGE_TMP/scope"
@@ -18176,9 +18973,13 @@ report() { printf 'forge:%s %s\n' "$1" "$2"; fail=1; }
 
 # 1. Integrity: owned files match .forge/manifest.sha256 ("<sha256>  <path>" lines,
 # sha256sum format). JSON files are hashed with spaces, tabs and newlines removed,
-# so a formatter run is not tampering; any other change is.
+# helper scripts also without quotes, commas, semicolons and parentheses, so a
+# formatter run is not tampering; any other change is.
 forge_owned_hash() {
   case $1 in
+    # helper scripts: what a formatter changes (layout, quotes, trailing commas,
+    # semicolons, parentheses) is left out, so ruff format or Biome rewriting them is not tampering
+    .forge/helpers/*) tr -d " \t\r\n,;()'\"\`" < "$1" | forge_sha256 ;;
     *.json) tr -d ' \t\r\n' < "$1" | forge_sha256 ;;
     *) forge_sha256 < "$1" ;;
   esac
@@ -18284,11 +19085,16 @@ forge_forbid() {
   if [ -n "$FORGE_FORBID" ]; then
     set -f
     # shellcheck disable=SC2046
-    astgrep scan -c .forge/ast-grep/sgconfig.yml --filter "^($FORGE_FORBID)\$" --json=stream $(cat "$FORGE_TMP/scope") > "$FORGE_TMP/forbid"
+    astgrep scan -c .forge/ast-grep/sgconfig.yml --filter "^($FORGE_FORBID)\$" --json=stream --include-metadata $(cat "$FORGE_TMP/scope") > "$FORGE_TMP/forbid"
     rc=$?
     set +f
     if [ "$rc" -gt 1 ]; then printf 'forge:forge/ast-grep skipped: ast-grep unavailable\n'
-    else forge_sg_report "$FORGE_TMP/forbid" >> "$FORGE_TMP/forbid.out"
+    else
+      # rules with type constraints: only the matches the types engine confirms (§15.1)
+      forge_sg_report "$FORGE_TMP/forbid" json > "$FORGE_TMP/forbid.added"
+      forge_types_changed $(cat "$FORGE_TMP/changed")
+      forge_types_filter "$FORGE_TMP/forbid.added" >> "$FORGE_TMP/forbid.out"
+      forge_sg_report "$FORGE_TMP/forbid.added" >> "$FORGE_TMP/forbid.out"
     fi
   fi
   if [ -s "$FORGE_TMP/forbid.out" ]; then cat "$FORGE_TMP/forbid.out"; fail=1; fi
@@ -18338,8 +19144,8 @@ forge_end "$fail"
     "docker/workdir": "b38dc1c2698c966548c93aa21ebacad5c75a53b8083427533be1f552ed28928c",
     "github-actions/zizmor": "ae9224ad36bad4208e891d964d601d5d19f9e0216044d307918e59bf9058bba5",
     "python/aware-datetime": "34edbcba3e80528562da1cc94eaf4c50305b8749f03027d6b653546eb64bd5dc",
-    "python/config-files": "da9ccbb03a788a9d5ef6c200d2fb71befbf02bf9a51d68cb623a258f15d1d8fe",
-    "python/config-ratchet": "f52f4a9010b8e8f25fd8a37629712e683c61ccc162748669e29967b5869ce599",
+    "python/config-files": "10a4c68ce6ad01cd9aef64ddc48117984fc693c065aafd4ec566327a2d109f20",
+    "python/config-ratchet": "97a033be5bce27330c9ddcd5d36728904a6989998278ce50d45fa78812de2db8",
     "python/env-example": "c4597314420b3777fb4b0e819ea37c3d0187c175afcb6e63f00176bab4fff4cd",
     "python/format": "1aa3a77806c5786996cdfd0c51317768523af3ed210a5dce7039fcb038f58989",
     "python/http-timeout": "6dd6636dced7f6e05fa730e2e89e612def7de4c8824b792b268efbacd58bca94",
@@ -18352,46 +19158,46 @@ forge_end "$fail"
     "python/no-blocking-in-async": "153fdfba0b1d27a269663ac9d98ba8cb0f3eea2cc969cba6333e913f109bff16",
     "python/no-commented-out-code": "487d2f33d65136e87513575b109b4b569117c2d674531283b5832f79d92cb101",
     "python/no-dangling-task": "c09a3fd256995061f4760b21789aecc7588fdb4b3ef80458eb79a15d3ecba901",
-    "python/no-deprecated": "30f45650cb871e268ee0bdc12b4ef5b2ad467277a718a859b176ed6f947fb714",
-    "python/no-explicit-any": "937b83f85a06043eec64d4a4aa2c8f237dac489a974924875b80daacd5a1c292",
+    "python/no-deprecated": "4cf9e03410696c5de2a2f099a11c58768679e9f34cc87eb6d2d74c4a64f59afd",
+    "python/no-explicit-any": "e3510c58cd582e5c40bd7eb02d4606708cc1f92e17bb3ac555f264c4e2e5e46b",
     "python/no-hardcoded-password": "d209f33885ad20af5c9fcf483c4537703dff0b26551c922e531bdef8e202c36e",
-    "python/no-new-suppressions": "5891332cf27656ef9ceba4ad56b803c8c404814574488d1b464dbd057095d964",
+    "python/no-new-suppressions": "ca503a681a10fd3e7a96e807f6750247db8168ced4b532412e4173f8dda00abd",
     "python/no-pickle": "b85ea1a2242fa9e0d748e6512ee83c185d91afe515473f1559fd3ba3fac87152",
     "python/no-placeholder-comment": "f527fcb761d164766cd78d64625480135f62bfefc8b9232ea5424cbd2b968286",
     "python/no-print": "64c6bbe79a0f0e0205844745791774acc85e6bfc3e9f24dd9bd9846555f5254a",
     "python/no-shell-true": "3e958140e547ae367e19a44a2b3bd223ec1e095333d7ff7664f4a0d4e31e782f",
     "python/no-silent-except": "cb885f3faac45a814f4f080cecd5b5de600926626ba454fd8776ab5abf10185c",
     "python/no-sql-format": "7946d9a48b8df9239ac68a0bf2b4b3880171d2e72426507d623d36a5c7035e4c",
-    "python/no-stale-ignore": "769b44645c8a286da6db1e30dc04850623474e90f72701c474d535a0008bc26a",
+    "python/no-stale-ignore": "025c59ddb4f717e8f1cdb657b3c4dc20d9956546d59bd263f40bf7ab3f55a6aa",
     "python/no-stub": "eeec4edd5c17679b9c1ffe5fed019b968ed15975a2636b78bdcb632043885be9",
     "python/no-tls-bypass": "4196bdee89c3f655bbbf51c477b21ac4834f3c680211fa6b9d26d3d2a7695695",
-    "python/no-unknown": "4e50d135c9b50a9888cdfbf8e44f0d9c031373df4624dfd6ac614e6c818e3bf4",
+    "python/no-unknown": "6355a10b97485aaad9f6857abef12eba928769a8a9634da109b916b156e2f036",
     "python/no-unsafe-yaml": "3a1aa90fcb8512a33df1c4afff6717b4cb4e95f77c634409f7f7b6221eabad92",
-    "python/no-unscoped-ignore": "829e71fff9f5ee50555bdb947bd66c70f8308e1bf594bceca5bf2115e6806eb8",
+    "python/no-unscoped-ignore": "431b8ace40499bc0444f2d57b5a4a826853bb8d340a4c1091003ad9b7bb8ce0c",
     "python/no-unused-noqa": "451c4baa594552fae0c808e39002665ddfe1a86dd3d9ba95ebc22def6d80edd6",
-    "python/no-useless-cast": "2a210ffd37f7f4aa754f46e6a04e5510b7892518762d360e692ac04f481edc94",
+    "python/no-useless-cast": "69e12c7922cfc0c6a2d6c9d2baa84e04b5746e11393627a6bc1b6076fe300421",
     "python/no-weak-hash": "c089bf6b94415d3a015f154c82037e28b4755268e6f219fb77dd7dc832fc1c03",
     "python/stub-sync": "73da3b9b1b1b66d958d03306e05f26c601377596348f4632fc3f462242f4bafe",
-    "python/typecheck": "1e41c54ae5a5cd94ab184a0aab1e42e329877240f7e39361e8c35966aed53b2f"
+    "python/typecheck": "8649af2dc8c24e4104e077c4dc5ec03b64dd3ff4a5a11bed706bc9575fa02a9d"
   },
   "files": {
     ".claude/rules/forge-docker-compose.md": "35e094a47a5a4be9a61f496e4dc1de3b6c2cb1d836c4c0ca46846ab24414dfff",
     ".claude/rules/forge-docker.md": "0aa39e4c93ea79eda0a7b7f7657829f72326d4c61a34b75c097461c568ec97d7",
     ".claude/rules/forge-github-actions.md": "032616772621679b8f2daa8621475e79176b582af94221582d992e8576f3b426",
-    ".claude/rules/forge-python.md": "7a536c4dd6092df1e8527675372b86fe47afce33d4e7293709406a379350f00f",
+    ".claude/rules/forge-python.md": "901fbb585eee69fe9a3442a8334787233666b61533ed0e5104a57e9996fe3330",
     ".claude/skills/forge-project/.claude-plugin/plugin.json": "c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2",
     ".claude/skills/forge-project/hooks/hooks.json": "32657a3f5c57c5641c15cb8a0581c8a3d9590b73b31fd57d35f5b8a0bdddb6e8",
     ".claude/skills/forge-project/scripts/bash-snapshot.sh": "29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e",
     ".claude/skills/forge-project/scripts/guard.rules": "ff61a19974ccfc38fe6771978c9f9fe21253d4132eff8af9f06b112607965a00",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
-    ".claude/skills/forge-project/scripts/lib.sh": "cda55212f9420881ab0e83ddd845f4be311ed0852bc40c74a62d5f826ec194c3",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "783682191d657722a8a35754a3c4643bd4634c72be4b9c1d6a324434c9db2905",
+    ".claude/skills/forge-project/scripts/lib.sh": "97c691d009a979b4dd1f81efd9535346b0027bc12a574653532eca62b978a289",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "ec410bdefc7b2fc303ca23b50c7eca305a7e35a8320f983f8239df49ac9de1dd",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
-    ".claude/skills/forge-project/scripts/session-start.sh": "55776a9336b0b238f62b1fa09d29577516b450157b350ad87e43af1016d5e7cb",
+    ".claude/skills/forge-project/scripts/session-start.sh": "d8813db6a41144a3285f3a80854800e2d82dd02c5372e81b8ada0696b2e8e670",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "51b79eac1ab76b19c68de5fa4b71b46c61caa79d12fdb6eb174fd0c8a4b0d4c0",
-    ".claude/skills/forge-project/scripts/turn-start.sh": "3d6bbb9aed56181032c9e7c05ba1c20e8080ca104e831a193b42a825e3a12531",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "c56047ea6412c6d9cffa356912f4554bb09ce4f375d7e4bae9622e7c2e734e5d",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "f00ab5afadea822724c28c0b7e6f4325499fcbb07bab6c7534a3a0f307cf13d6",
+    ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "9cbf4c7925fc772e24564b7a2e0050d90d1413f9847f7023b1766f7229b1be95",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/docker-compose-datastore-loopback-test.yml": "75507971edac1d4a2eca04e6bceb8a942429c0987372010b39ad0b7f126b55e9",
     ".forge/ast-grep/rule-tests/docker-compose-healthy-depends-test.yml": "bcd21e7f9112e5f0d44c9f5c9779824661b2f1dc40448323100787f342c4b7a8",
@@ -18412,7 +19218,8 @@ forge_end "$fail"
     ".forge/ast-grep/rules/docker/compose/pinned-images.yml": "026540d386ff8d8bd6f4f1951063c2fcd5cb8a96d8c7184f97e0887e3241c01a",
     ".forge/ast-grep/rules/python/no-stub.yml": "0660a06b80fa4e3cccbc89f496275e8f093b873632d1d93ecb48e4315d987bbf",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "863b01b07d7b96520432362ee2f51bf65be27343ef56cd3ce50297ceb3c5de29",
+    ".forge/check.sh": "d13199d76eeceb68f7139724086a3678b00700526fbf07ed1f7fb408d1f5ab2d",
+    ".forge/helpers/ratchet.py": "4f7e312b9419bd1ee09fe9cd3e988546bba089d706cb1b44e4546c4b4c87173d",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -18449,29 +19256,240 @@ forge_end "$fail"
     {
       "file": ".claude/settings.json",
       "path": "permissions.ask",
-      "value": "Edit(**/pyrightconfig.json)"
+      "value": "Edit(**/ty.toml)"
     }
   ]
 }
+
+===== .forge/helpers/ratchet.py
+# Generated by forge. Config ratchet for Python tool configs (run by .forge/check.sh
+# with the project's own Python, 3.11+): compares each changed file with its copy in
+# the base and prints one line per loosened setting. Usage:
+#   python ratchet.py <base-dir> <path>...
+# Exit 0: nothing loosened; 1: findings printed; 3: cannot run ("skipped: …" printed).
+import json
+import re
+import sys
+
+try:
+    import tomllib
+except ImportError:
+    print("skipped: tomllib needs Python 3.11+")
+    sys.exit(3)
+
+findings = []
+
+
+def out(path, what):
+    findings.append(f"{path}: {what}")
+
+
+def show(v):
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if v is None:
+        return "unset"
+    if isinstance(v, (list, tuple)):
+        return "[" + ", ".join(show(x) for x in v) + "]"
+    return str(v).replace('"', "").replace("\\", "/")
+
+
+def as_list(v):
+    if v is None:
+        return []
+    return list(v) if isinstance(v, (list, tuple)) else [v]
+
+
+def strip_jsonc(text):
+    """JSON with comments and trailing commas -> JSON."""
+    out_, i, n, in_str = [], 0, len(text), False
+    while i < n:
+        c = text[i]
+        if in_str:
+            out_.append(c)
+            if c == "\\" and i + 1 < n:
+                out_.append(text[i + 1])
+                i += 1
+            elif c == '"':
+                in_str = False
+        elif c == '"':
+            in_str = True
+            out_.append(c)
+        elif text.startswith("//", i):
+            while i < n and text[i] != "\n":
+                i += 1
+            continue
+        elif text.startswith("/*", i):
+            end = text.find("*/", i + 2)
+            i = n if end < 0 else end + 2
+            continue
+        else:
+            out_.append(c)
+        i += 1
+    return re.sub(r",(\s*[}\]])", r"\1", "".join(out_))
+
+
+# ---- ruff
+
+def covered(code, selectors):
+    return any(s == "ALL" or code.startswith(s) for s in selectors)
+
+
+def ruff(path, before, after, prefix=""):
+    def lint(cfg):
+        return {**{k: v for k, v in cfg.items() if k != "lint"}, **(cfg.get("lint") or {})}
+
+    b, a = lint(before), lint(after)
+    for key in ("select", "extend-select"):
+        new = as_list(a.get("select")) + as_list(a.get("extend-select"))
+        for code in as_list(b.get(key)):
+            if not covered(code, new):
+                out(path, f"{prefix}lint.{key} no longer selects {code}")
+    for key in ("ignore", "extend-ignore"):
+        for code in as_list(a.get(key)):
+            if code not in as_list(b.get(key)):
+                out(path, f"{prefix}lint.{key} adds {code}")
+    for key in ("per-file-ignores", "extend-per-file-ignores"):
+        bb, aa = b.get(key) or {}, a.get(key) or {}
+        for glob, codes in aa.items():
+            for code in as_list(codes):
+                if code not in as_list(bb.get(glob)):
+                    out(path, f"{prefix}lint.{key} adds {code} for {glob}")
+    for key in ("exclude", "extend-exclude"):
+        for x in as_list(after.get(key)):
+            if x not in as_list(before.get(key)):
+                out(path, f"{prefix}{key} adds {x}")
+        for x in as_list((after.get("lint") or {}).get(key)):
+            if x not in as_list((before.get("lint") or {}).get(key)):
+                out(path, f"{prefix}lint.{key} adds {x}")
+
+
+# ---- ty
+
+TY_LEVELS = {"ignore": 0, "warn": 1, "error": 2}
+
+
+def ty(path, b, a, prefix=""):
+    rb, ra = b.get("rules") or {}, a.get("rules") or {}
+    for key, vb in rb.items():
+        if vb not in TY_LEVELS:
+            continue
+        va = ra.get(key)
+        if va is None and TY_LEVELS[vb] > 0:
+            out(path, f"{prefix}rules.{key} {show(vb)} -> unset")
+        elif va in TY_LEVELS and TY_LEVELS[va] < TY_LEVELS[vb]:
+            out(path, f"{prefix}rules.{key} {show(vb)} -> {show(va)}")
+    tb, ta = b.get("terminal") or {}, a.get("terminal") or {}
+    if tb.get("error-on-warning") is True and ta.get("error-on-warning") is not True:
+        out(path, f"{prefix}terminal.error-on-warning true -> {show(ta.get('error-on-warning'))}")
+    sb, sa = b.get("src") or {}, a.get("src") or {}
+    for x in as_list(sa.get("exclude")):
+        if x not in as_list(sb.get("exclude")):
+            out(path, f"{prefix}src.exclude adds {x}")
+    if len(as_list(a.get("overrides"))) > len(as_list(b.get("overrides"))):
+        out(path, f"{prefix}overrides adds an entry")
+
+
+# ---- pytest
+
+LOOSE_OPTS = re.compile(r"^(--ignore(-glob)?|--deselect|-k|-m|--continue-on-collection-errors|--lf|--last-failed|--sw|--stepwise)(=|$)")
+
+
+def pytest(path, b, a, prefix):
+    tb = str(b.get("addopts", "")).split() if not isinstance(b.get("addopts"), list) else b.get("addopts")
+    ta = str(a.get("addopts", "")).split() if not isinstance(a.get("addopts"), list) else a.get("addopts")
+    for t in ta:
+        if LOOSE_OPTS.match(t) and t not in tb:
+            out(path, f"{prefix}addopts adds {t}")
+    for x in as_list(b.get("testpaths")):
+        if x not in as_list(a.get("testpaths")):
+            out(path, f"{prefix}testpaths no longer has {x}")
+    for x in as_list(a.get("norecursedirs")):
+        if x not in as_list(b.get("norecursedirs")):
+            out(path, f"{prefix}norecursedirs adds {x}")
+    if b.get("xfail_strict") is True and a.get("xfail_strict") is not True:
+        out(path, f"{prefix}xfail_strict true -> {show(a.get('xfail_strict'))}")
+
+
+# ---- coverage
+
+def coverage(path, b, a, prefix):
+    rb, ra = b.get("report") or {}, a.get("report") or {}
+    fb, fa = rb.get("fail_under"), ra.get("fail_under")
+    if isinstance(fb, (int, float)) and (not isinstance(fa, (int, float)) or fa < fb):
+        out(path, f"{prefix}report.fail_under {show(fb)} -> {show(fa)}")
+    for sect, key in (("run", "omit"), ("report", "omit"), ("report", "exclude_lines"), ("report", "exclude_also")):
+        for x in as_list((a.get(sect) or {}).get(key)):
+            if x not in as_list((b.get(sect) or {}).get(key)):
+                out(path, f"{prefix}{sect}.{key} adds {x}")
+
+
+def load(text, path):
+    if path.endswith(".json"):
+        return json.loads(strip_jsonc(text))
+    return tomllib.loads(text)
+
+
+def main():
+    base = sys.argv[1]
+    for path in sys.argv[2:]:
+        name = path.rsplit("/", 1)[-1]
+        if name not in ("pyproject.toml", "ruff.toml", ".ruff.toml", "ty.toml"):
+            continue
+        try:
+            with open(f"{base}/{path}", encoding="utf-8") as f:
+                before = load(f.read(), path)
+        except FileNotFoundError:
+            continue
+        except (ValueError, tomllib.TOMLDecodeError):
+            continue
+        try:
+            with open(path, encoding="utf-8") as f:
+                after = load(f.read(), path)
+        except (ValueError, tomllib.TOMLDecodeError) as e:
+            out(path, f"cannot be parsed ({str(e).splitlines()[0]})")
+            continue
+        if name == "pyproject.toml":
+            tb, ta = before.get("tool") or {}, after.get("tool") or {}
+            ruff(path, tb.get("ruff") or {}, ta.get("ruff") or {}, "tool.ruff.")
+            ty(path, tb.get("ty") or {}, ta.get("ty") or {}, "tool.ty.")
+            pytest(path, (tb.get("pytest") or {}).get("ini_options") or {}, (ta.get("pytest") or {}).get("ini_options") or {}, "tool.pytest.ini_options.")
+            coverage(path, tb.get("coverage") or {}, ta.get("coverage") or {}, "tool.coverage.")
+        elif name == "ty.toml":
+            ty(path, before, after)
+        else:
+            ruff(path, before, after)
+    for f in findings:
+        print(f)
+    sys.exit(1 if findings else 0)
+
+
+try:
+    main()
+except SystemExit:
+    raise
+except Exception as e:  # never report a crash as a loosened setting
+    print(f"skipped: the ratchet could not run ({type(e).__name__}: {e})")
+    sys.exit(3)
 
 ===== .forge/manifest.sha256
 35e094a47a5a4be9a61f496e4dc1de3b6c2cb1d836c4c0ca46846ab24414dfff  .claude/rules/forge-docker-compose.md
 0aa39e4c93ea79eda0a7b7f7657829f72326d4c61a34b75c097461c568ec97d7  .claude/rules/forge-docker.md
 032616772621679b8f2daa8621475e79176b582af94221582d992e8576f3b426  .claude/rules/forge-github-actions.md
-7a536c4dd6092df1e8527675372b86fe47afce33d4e7293709406a379350f00f  .claude/rules/forge-python.md
+901fbb585eee69fe9a3442a8334787233666b61533ed0e5104a57e9996fe3330  .claude/rules/forge-python.md
 c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills/forge-project/.claude-plugin/plugin.json
 32657a3f5c57c5641c15cb8a0581c8a3d9590b73b31fd57d35f5b8a0bdddb6e8  .claude/skills/forge-project/hooks/hooks.json
 29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e  .claude/skills/forge-project/scripts/bash-snapshot.sh
 ff61a19974ccfc38fe6771978c9f9fe21253d4132eff8af9f06b112607965a00  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
-cda55212f9420881ab0e83ddd845f4be311ed0852bc40c74a62d5f826ec194c3  .claude/skills/forge-project/scripts/lib.sh
-783682191d657722a8a35754a3c4643bd4634c72be4b9c1d6a324434c9db2905  .claude/skills/forge-project/scripts/post-edit.sh
+97c691d009a979b4dd1f81efd9535346b0027bc12a574653532eca62b978a289  .claude/skills/forge-project/scripts/lib.sh
+ec410bdefc7b2fc303ca23b50c7eca305a7e35a8320f983f8239df49ac9de1dd  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
-55776a9336b0b238f62b1fa09d29577516b450157b350ad87e43af1016d5e7cb  .claude/skills/forge-project/scripts/session-start.sh
+d8813db6a41144a3285f3a80854800e2d82dd02c5372e81b8ada0696b2e8e670  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-51b79eac1ab76b19c68de5fa4b71b46c61caa79d12fdb6eb174fd0c8a4b0d4c0  .claude/skills/forge-project/scripts/test-edit.sh
-3d6bbb9aed56181032c9e7c05ba1c20e8080ca104e831a193b42a825e3a12531  .claude/skills/forge-project/scripts/turn-start.sh
-c56047ea6412c6d9cffa356912f4554bb09ce4f375d7e4bae9622e7c2e734e5d  .claude/skills/forge-project/scripts/typecheck.sh
+f00ab5afadea822724c28c0b7e6f4325499fcbb07bab6c7534a3a0f307cf13d6  .claude/skills/forge-project/scripts/test-edit.sh
+e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
+9cbf4c7925fc772e24564b7a2e0050d90d1413f9847f7023b1766f7229b1be95  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 75507971edac1d4a2eca04e6bceb8a942429c0987372010b39ad0b7f126b55e9  .forge/ast-grep/rule-tests/docker-compose-datastore-loopback-test.yml
 bcd21e7f9112e5f0d44c9f5c9779824661b2f1dc40448323100787f342c4b7a8  .forge/ast-grep/rule-tests/docker-compose-healthy-depends-test.yml
@@ -18492,7 +19510,8 @@ e4fd92858db90ac12b535496548f182e453e83bc9cb24f53a102ab7fc98cd67b  .forge/ast-gre
 026540d386ff8d8bd6f4f1951063c2fcd5cb8a96d8c7184f97e0887e3241c01a  .forge/ast-grep/rules/docker/compose/pinned-images.yml
 0660a06b80fa4e3cccbc89f496275e8f093b873632d1d93ecb48e4315d987bbf  .forge/ast-grep/rules/python/no-stub.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-863b01b07d7b96520432362ee2f51bf65be27343ef56cd3ce50297ceb3c5de29  .forge/check.sh
+d13199d76eeceb68f7139724086a3678b00700526fbf07ed1f7fb408d1f5ab2d  .forge/check.sh
+4f7e312b9419bd1ee09fe9cd3e988546bba089d706cb1b44e4546c4b4c87173d  .forge/helpers/ratchet.py
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

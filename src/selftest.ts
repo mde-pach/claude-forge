@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
 import { examplePath } from "./audit.js";
 import { codeExamples, globMatch, guardExamples, loadPacks, loadLocalRules } from "./packs.js";
@@ -12,12 +12,17 @@ import {
   renderAstGrepRule,
   renderAstGrepTest,
   renderCheckScript,
+  renderChecks,
+  helperFiles,
   renderGuardRules,
+  renderLib,
   renderSgConfig,
   template,
+  typesLanguage,
+  type TypesLanguage,
 } from "./render.js";
-import { AST_GREP_VERSION, HADOLINT_SHA256, HADOLINT_VERSION, ownedHash, run, sha256 } from "./util.js";
-import type { AstGrepTarget, CheckTarget, Example, ExampleFixture, GrepTarget, GuardTarget, PermissionTarget, Rule } from "./types.js";
+import { AST_GREP_VERSION, ENGINE_PYTHON, HADOLINT_SHA256, HADOLINT_VERSION, ownedHash, run, sha256 } from "./util.js";
+import type { AstGrepTarget, CheckTarget, DepSpec, Example, ExampleFixture, GrepTarget, GuardTarget, PermissionTarget, Rule, WhereCondition } from "./types.js";
 
 export interface TestReport {
   failures: string[];
@@ -182,6 +187,7 @@ export function runCheckExample(rule: Rule, t: CheckTarget, ex: Example, kind: "
       ".forge/check.sh": script,
       ".forge/.gitignore": "state/\n",
       ".forge/ast-grep/sgconfig.yml": renderSgConfig(),
+      ...Object.fromEntries(helperFiles([{ rule, target: t }])),
     };
     const manifest = Object.entries(owned).map(([p, text]) => `${ownedHash(p, text)}  ${p}`).join("\n") + "\n";
     writeFiles(dir, { ".gitignore": "node_modules/\n.venv/\n", ...owned, ".forge/manifest.sha256": manifest, ...(fixture.head ?? {}) });
@@ -192,7 +198,7 @@ export function runCheckExample(rule: Rule, t: CheckTarget, ex: Example, kind: "
         const to = join(dir, PYTHON_TOOLS.has(tool) ? ".venv/bin" : "node_modules/.bin", tool);
         mkdirSync(dirname(to), { recursive: true });
         symlinkSync(bin, to);
-      } else if (run("sh", ["-c", `command -v ${tool}`]).status !== 0) return { outcome: "skip", detail: `${tool} not available` };
+      } else if (run("sh", ["-c", `command -v ${tool === "ty" ? "uvx" : tool}`]).status !== 0) return { outcome: "skip", detail: `${tool === "ty" ? "uvx (for ty)" : tool} not available` };
     }
     const git = (...args: string[]) => run("git", args, { cwd: dir, env: { ...process.env, ...GIT_ENV } });
     git("init", "-q", "-b", "main");
@@ -303,6 +309,16 @@ function testRules(rules: Rule[], repo: string | undefined, opts: { toolBins?: s
       failures.push(`${r.id}: fixture examples (files) are for check rules only`);
     if (all.some((e) => typeof e !== "string" && "command" in e) && r.enforce.some((t) => t.target !== "guard"))
       failures.push(`${r.id}: command examples are for guard rules only`);
+    // engine capabilities (§15.1): metavariables of the rule, a parsed language, examples with their packages
+    const typed = ast.find((t): t is AstGrepTarget => t.target === "ast-grep" && !!(t as AstGrepTarget).where);
+    if (typed) {
+      const text = JSON.stringify([typed.rule, typed.constraints ?? {}, typed.utils ?? {}]);
+      for (const v of Object.keys(typed.where!)) if (!text.includes(`$${v}`)) failures.push(`${r.id}: where: $${v} is not a metavariable of the rule`);
+      if (!["python", "typescript", "tsx"].includes(r.scope.language)) failures.push(`${r.id}: where needs scope.language python, typescript or tsx`);
+      const eco = typesLanguage(r, typed) === "python" ? "pypi" : "npm";
+      if (!r.examples?.deps?.length) failures.push(`${r.id}: where needs examples.deps (the packages its examples are type-checked against)`);
+      else if (r.examples.deps.some((d) => d.ecosystem !== eco)) failures.push(`${r.id}: examples.deps must be ${eco} packages`);
+    } else if (r.examples?.deps) failures.push(`${r.id}: examples.deps is for rules with a where`);
   }
 
   // ast-grep rule-tests
@@ -343,6 +359,11 @@ function testRules(rules: Rule[], repo: string | undefined, opts: { toolBins?: s
       }
     }
   }
+
+  // examples of rules with type constraints, through the types engine (§15.1)
+  const typedRules = astRules.filter((r) => r.enforce.some((t) => t.target === "ast-grep" && t.where) && r.examples?.deps?.length);
+  counts.types = typedRules.length;
+  if (typedRules.length) typesExamples(typedRules, { failures, notes, counts });
 
   // guard examples, each rule in isolation, on every available shell
   const guardRules = rules.filter((r) => r.enforce.some((t) => t.target === "guard"));
@@ -430,4 +451,141 @@ function testRules(rules: Rule[], repo: string | undefined, opts: { toolBins?: s
     if (h.status === "mismatch") failures.push(`hadolint: ${h.detail}`);
     else if (h.status === "skipped") notes.push(`hadolint: ${h.detail}`);
   }
+}
+
+
+// ---------------------------------------------------------------- types (§15.1)
+
+/** The TypeScript that type-checks a rule's examples when its examples.deps name none. */
+const EXAMPLES_TYPESCRIPT = "7.0.2";
+
+/** Where example projects (their packages installed) are kept between runs. */
+function examplesCache(): string {
+  return process.env.FORGE_EXAMPLES_CACHE ?? join(process.env.XDG_CACHE_HOME ?? join(homedir(), ".cache"), "forge", "examples");
+}
+
+/**
+ * A project holding the given packages, for the types engine: a uv virtual environment
+ * on the engine's Python (pypi), or a package.json installed with bun (npm). Created
+ * once per set of packages. Returns its directory, or an error.
+ */
+export function examplesProject(lang: TypesLanguage, deps: DepSpec[]): { dir?: string; error?: string } {
+  const key = sha256(JSON.stringify([lang, [...deps].sort((a, b) => (a.name < b.name ? -1 : 1)), lang === "typescript" ? EXAMPLES_TYPESCRIPT : ""])).slice(0, 16);
+  const dir = join(examplesCache(), `${lang}-${key}`);
+  const done = join(dir, ".forge-ready");
+  if (existsSync(done)) return { dir };
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  if (lang === "python") {
+    writeFileSync(join(dir, "pyproject.toml"), `[project]\nname = "forge-examples"\nversion = "0"\nrequires-python = ">=${ENGINE_PYTHON}"\n`);
+    let r = run("uv", ["venv", "-q", "--python", ENGINE_PYTHON, join(dir, ".venv")]);
+    if (r.status === 0) r = run("uv", ["pip", "install", "-q", "--python", join(dir, ".venv", "bin", "python"), ...deps.map((d) => `${d.name}==${d.version}`)]);
+    if (r.status !== 0) return { error: `uv: ${(r.stderr || r.stdout).trim().split("\n").slice(-3).join(" ")}` };
+  } else {
+    // the types engine is the project's TypeScript (§15.2): the examples get one unless deps name it
+    const dependencies = { typescript: EXAMPLES_TYPESCRIPT, ...Object.fromEntries(deps.map((d) => [d.name, d.version])) };
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "forge-examples", private: true, type: "module", dependencies }, null, 2));
+    writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ compilerOptions: { target: "ES2022", module: "ESNext", moduleResolution: "bundler", strict: true, noEmit: true, skipLibCheck: true } }, null, 2));
+    const r = run("bun", ["install", "--silent"], { cwd: dir });
+    if (r.status !== 0) return { error: `bun install: ${(r.stderr || r.stdout).trim().split("\n").slice(-3).join(" ")}` };
+  }
+  writeFileSync(done, "");
+  return { dir };
+}
+
+/**
+ * Runs the forge_types_filter of the generated scripts on ast-grep matches (a file of
+ * --json=stream lines, paths relative to project), with a state directory of its own;
+ * the daemon it starts is stopped at the end. Returns the matches kept and the output.
+ */
+export function runTypesFilter(project: string, lang: TypesLanguage, matches: string, state: string): { kept: string[]; output: string; status: number } {
+  const script = [
+    renderLib(),
+    "IFS='\n'",
+    renderChecks([], [], [lang]),
+    `FORGE_STATE=${JSON.stringify(state)}`,
+    'forge_types_filter "$1"; rc=$?',
+    "forge_types_down",
+    'exit "$rc"',
+  ].join("\n");
+  const file = join(state, "filter.sh");
+  mkdirSync(state, { recursive: true, mode: 0o700 });
+  // the engine's adapter, where the generated scripts start it from
+  for (const [rel, text] of helperFiles([], [lang])) {
+    mkdirSync(dirname(join(project, rel)), { recursive: true });
+    writeFileSync(join(project, rel), text);
+  }
+  writeFileSync(file, script);
+  const r = run("sh", [file, matches], { cwd: project });
+  return { kept: readFileSync(matches, "utf8").split("\n").filter(Boolean), output: r.stdout + r.stderr, status: r.status };
+}
+
+function typesExamples(rules: Rule[], report: TestReport): void {
+  const { failures, notes } = report;
+  const cmd = astGrepCommand();
+  if (!cmd) return; // reported by the ast-grep tests
+  const groups = new Map<string, { lang: TypesLanguage; deps: DepSpec[]; rules: Rule[] }>();
+  for (const r of rules) {
+    const t = r.enforce.find((x): x is AstGrepTarget => x.target === "ast-grep" && !!x.where)!;
+    const lang = typesLanguage(r, t)!;
+    const key = JSON.stringify([lang, r.examples!.deps]);
+    if (!groups.has(key)) groups.set(key, { lang, deps: r.examples!.deps!, rules: [] });
+    groups.get(key)!.rules.push(r);
+  }
+  for (const { lang, deps, rules: group } of groups.values()) {
+    const project = examplesProject(lang, deps);
+    if (!project.dir) {
+      failures.push(`types examples (${deps.map((d) => `${d.name}@${d.version}`).join(", ")}): ${project.error}`);
+      continue;
+    }
+    const sg = mkdtempSync(join(tmpdir(), "forge-types-sg-"));
+    const state = mkdtempSync(join(tmpdir(), "forge-types-state-"));
+    const ex = mkdtempSync(join(project.dir, "ex-"));
+    const rel = ex.slice(project.dir.length + 1);
+    try {
+      writeFileSync(join(sg, "sgconfig.yml"), renderSgConfig());
+      const expected = new Map<string, { rule: Rule; kind: "match" | "no_match"; i: number }>();
+      for (const r of group) {
+        const t = r.enforce.find((x): x is AstGrepTarget => x.target === "ast-grep")!;
+        mkdirSync(dirname(join(sg, astGrepRulePath(r.id))), { recursive: true });
+        writeFileSync(join(sg, astGrepRulePath(r.id)), renderAstGrepRule(r, t));
+        for (const kind of ["match", "no_match"] as const)
+          codeExamples(r, kind).forEach((code, i) => {
+            const name = `${rel}/${r.id.replaceAll("/", "_")}_${kind}_${i + 1}.${lang === "python" ? "py" : "ts"}`;
+            writeFileSync(join(project.dir!, name), code);
+            expected.set(name, { rule: r, kind, i });
+          });
+      }
+      const scan = run(cmd[0]!, [...cmd.slice(1), "scan", "-c", join(sg, "sgconfig.yml"), "--json=stream", "--include-metadata", ...expected.keys()], { cwd: project.dir });
+      const matches = join(state, "matches.json");
+      writeFileSync(matches, scan.stdout);
+      const res = runTypesFilter(project.dir, lang, matches, join(state, "s"));
+      if (res.status !== 0) {
+        failures.push(`types examples (${lang}): the types engine failed: ${res.output.trim().split("\n").slice(0, 5).join(" | ")}`);
+        continue;
+      }
+      const hit = new Map<string, Set<string>>();
+      for (const l of res.kept) {
+        const m = JSON.parse(l) as { file: string; ruleId: string };
+        if (!hit.has(m.file)) hit.set(m.file, new Set());
+        hit.get(m.file)!.add(m.ruleId);
+      }
+      for (const [file, { rule, kind, i }] of expected) {
+        const got = hit.get(file)?.has(rule.id) ?? false;
+        if (kind === "match" && !got) failures.push(`${rule.id}: match example ${i + 1} is not matched with types (${describeWhere(rule)})`);
+        if (kind === "no_match" && got) failures.push(`${rule.id}: no_match example ${i + 1} is matched with types (${describeWhere(rule)})`);
+      }
+      notes.push(`types (${lang}): ${expected.size} examples of ${group.length} rule(s) checked with ${deps.map((d) => `${d.name}@${d.version}`).join(", ")}`);
+    } finally {
+      rmSync(sg, { recursive: true, force: true });
+      rmSync(state, { recursive: true, force: true });
+      rmSync(ex, { recursive: true, force: true });
+    }
+  }
+}
+
+function describeWhere(rule: Rule): string {
+  const t = rule.enforce.find((x): x is AstGrepTarget => x.target === "ast-grep")!;
+  const show = (c: WhereCondition): string => ("not" in c ? `not ${show(c.not)}` : JSON.stringify(c.type));
+  return Object.entries(t.where ?? {}).map(([v, c]) => `$${v}: ${show(c)}`).join(", ");
 }

@@ -9,6 +9,7 @@ import {
   astGrepTestPath,
   checkTools,
   fill,
+  helperFiles,
   renderAstGrepRule,
   renderAstGrepTest,
   renderChecks,
@@ -20,11 +21,13 @@ import {
   renderSgConfig,
   renderTestRules,
   template,
+  typesLanguage,
+  type TypesLanguage,
   type ActiveCheck,
   type ActiveGrep,
   type ActiveGuard,
 } from "./render.js";
-import { listRepoFiles } from "./util.js";
+import { listRepoFiles, TY_VERSION } from "./util.js";
 import type { AstGrepTarget, CheckTarget, Level, Pack, ProjectConfig, Rule, SettingsEntry, ToolName, ToolTarget } from "./types.js";
 
 export type AuditedTool = (typeof AUDITED_TOOLS)[number];
@@ -70,6 +73,8 @@ export interface Plan {
   toolDirs: Record<AuditedTool, string[]>;
   /** Project level: the checks fragment the hook scripts share (forge status runs its forge_missing_tools). */
   checksFragment?: string;
+  /** The types engines the active rules use (§15.2). */
+  types: TypesLanguage[];
 }
 
 export interface PlanOptions {
@@ -112,7 +117,8 @@ function toolsIn(dir: string, deps: DepFacts): Record<AuditedTool, { config: boo
   return {
     biome: { config: has("biome.json") || has("biome.jsonc"), dep: deps.npm.has("@biomejs/biome") },
     ruff: { config: has("ruff.toml") || has(".ruff.toml") || py.tool?.ruff !== undefined, dep: deps.pypi.has("ruff") },
-    basedpyright: { config: py.tool?.basedpyright !== undefined || has("pyrightconfig.json"), dep: deps.pypi.has("basedpyright") },
+    // Forge's own ty (§15.2): wherever there is a Python project; its config is optional
+    ty: { config: has("pyproject.toml") || has("ty.toml"), dep: false },
     tsc: { config: has("tsconfig.json"), dep: deps.npm.has("typescript") },
   };
 }
@@ -297,7 +303,9 @@ export function plan(opts: PlanOptions): Plan {
         const dirs = packDirs(rule.pack);
         st.astgrep = ast;
         astgrep.push({ rule, target: ast, ...(dirs ? { dirs } : {}) });
-        st.enforced.push(`ast-grep ${ast.mode} (.forge/ast-grep/${astGrepRulePath(rule.id)})${dirs ? ` (in ${dirs.join(", ")})` : ""}`);
+        const lang = typesLanguage(rule, ast);
+        const engine = lang === "python" ? `ty ${TY_VERSION}` : "the project's TypeScript";
+        st.enforced.push(`ast-grep ${ast.mode} (.forge/ast-grep/${astGrepRulePath(rule.id)})${lang ? ` with types (${engine})` : ""}${dirs ? ` (in ${dirs.join(", ")})` : ""}`);
         st.notEnforced = [];
       }
     }
@@ -344,6 +352,7 @@ export function plan(opts: PlanOptions): Plan {
   // ---- files
   const files = new Map<string, string>();
   let checksFragment: string | undefined;
+  let typesUsed: TypesLanguage[] = [];
   const lib = renderLib();
   const guardRules = renderGuardRules(guards, base);
   if (level === "user") {
@@ -365,11 +374,14 @@ export function plan(opts: PlanOptions): Plan {
         .filter((a) => a.target.mode === mode)
         .map((a) => a.rule.id)
         .join("|");
-    const fragment = renderChecks(checks, greps);
+    // the types engines the active ast-grep rules use (§15.2)
+    const types = [...new Set(astgrep.map((a) => typesLanguage(a.rule, a.target)).filter((l): l is TypesLanguage => !!l))].sort();
+    const fragment = renderChecks(checks, greps, types);
     checksFragment = fragment;
+    typesUsed = types;
     const root = ".claude/skills/forge-project";
     files.set(`${root}/.claude-plugin/plugin.json`, renderPlugin("project"));
-    files.set(`${root}/hooks/hooks.json`, renderHooks("project"));
+    files.set(`${root}/hooks/hooks.json`, renderHooks("project", { types: types.length > 0 }));
     files.set(`${root}/scripts/lib.sh`, lib);
     files.set(`${root}/scripts/guard.sh`, template("guard.sh"));
     files.set(`${root}/scripts/guard.rules`, guardRules);
@@ -381,12 +393,14 @@ export function plan(opts: PlanOptions): Plan {
     files.set(`${root}/scripts/stop.sh`, template("stop.sh"));
     files.set(`${root}/scripts/test-edit.sh`, fill(template("test-edit.sh"), { CHECKS: fragment, TEST_RULES: renderTestRules(checks) }));
     files.set(`${root}/scripts/turn-start.sh`, template("turn-start.sh"));
+    if (types.length) files.set(`${root}/scripts/session-end.sh`, template("session-end.sh"));
     for (const p of packs) {
       const ctx = opts.packs.get(p.id)!.context;
       if (ctx !== undefined) files.set(`.claude/rules/${contextFileName(p.id)}`, CONTEXT_INTRO + ctx);
     }
-    files.set(".forge/check.sh", renderCheckScript(checks, { forbid: ids("forbid"), noIncrease: ids("no-increase"), noDecrease: ids("no-decrease") }, greps));
+    files.set(".forge/check.sh", renderCheckScript(checks, { forbid: ids("forbid"), noIncrease: ids("no-increase"), noDecrease: ids("no-decrease") }, greps, types));
     files.set(".forge/.gitignore", "state/\n");
+    for (const [path, text] of helperFiles(checks, types)) files.set(path, text);
     files.set(".forge/ast-grep/sgconfig.yml", renderSgConfig());
     for (const { rule, target, dirs } of astgrep) {
       files.set(`.forge/ast-grep/${astGrepRulePath(rule.id)}`, renderAstGrepRule(rule, target, dirs));
@@ -419,6 +433,7 @@ export function plan(opts: PlanOptions): Plan {
     tools,
     toolDirs,
     checksFragment,
+    types: typesUsed,
   };
 }
 

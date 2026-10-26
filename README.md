@@ -24,7 +24,7 @@ Once published, `bunx @maximedepachtere/forge …` or `npx @maximedepachtere/for
 - **Claude cannot change the setup unnoticed.** Forge-owned files are behind a permission prompt and hash-checked at every Stop, pre-commit and CI run.
 - **Rules are data.** One YAML file per rule, in a tree of packs (language → package → sub-package, e.g. `typescript/nextjs/react`), with examples that double as tests.
 
-Stack: uv, FastAPI, SQLAlchemy 2 + Alembic, Pydantic v2, ruff, basedpyright, pytest — Bun, Next.js 16 + React 19, Astro (+ React islands), Prisma 7, Zod, Biome 2, tsc, Vitest, Playwright. Projects using other tools are never broken: rules whose tool is absent are reported as *not enforced here*.
+Stack: uv, FastAPI, SQLAlchemy 2 + Alembic, Pydantic v2, ruff, ty, pytest — Bun, Next.js 16 + React 19, Astro (+ React islands), Prisma 7, Zod, Biome 2, tsc, Vitest, Playwright. Projects using other tools are never broken: rules whose tool is absent are reported as *not enforced here*.
 
 ## Development
 

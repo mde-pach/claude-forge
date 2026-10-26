@@ -25,7 +25,7 @@ Every requirement uses MUST / MUST NOT. Anything not described here is out of sc
 | Data | SQLAlchemy 2.0 async, typed declarative + Alembic async | Prisma 7 |
 | Validation | Pydantic v2 | Zod |
 | Format + lint | ruff | Biome 2 |
-| Typecheck | basedpyright | TypeScript 7 `tsc` |
+| Typecheck | ty (Forge's pinned ty, §15.2) | TypeScript 7 `tsc` |
 | Unit tests | pytest | Vitest |
 | E2E tests | — | Playwright |
 | Database | PostgreSQL | PostgreSQL |
@@ -51,7 +51,7 @@ Every requirement uses MUST / MUST NOT. Anything not described here is out of sc
 | `forge apply --user` | Generate or update the user-level setup. |
 | `forge apply --local` | Like `apply`, but permission entries go to `.claude/settings.local.json` (for repositories you don't own). |
 | `forge diff [--user]` | Show what `apply` would change. Exit 1 if anything differs. |
-| `forge status [--user] [--json]` | Active packs; rules as `Rules: <n> active, <m> enforced, <k> not enforced (<count> <reason>, …)` then each rule with where it is enforced; disabled rules with reasons; audit results with snippets; drift; missing tools. A rule is enforced when at least one of its targets acts here: a satisfied audit, an ast-grep rule, a permission, guard, sandbox or grep target, or a check whose tools are installed. Reasons: `ruff codes not selected`, `Biome rules not at error`, `basedpyright rules not at error`, `tsc options not set` (unsatisfied audits), `<tool> not configured`, `<tool> not installed`. Missing tools are what the generated scripts' `forge_missing_tools` prints (the SessionStart hook reports the same list). `--json` prints all of it as one object: `counts`, `rules` (`id`, `enforced`, `by`, `not_enforced`), `audits`, `missing_tools`, `packs`, `disabled`, `drift`. |
+| `forge status [--user] [--json]` | Active packs; rules as `Rules: <n> active, <m> enforced, <k> not enforced (<count> <reason>, …)` then each rule with where it is enforced; disabled rules with reasons; audit results with snippets; drift; missing tools. A rule is enforced when at least one of its targets acts here: a satisfied audit, an ast-grep rule, a permission, guard, sandbox or grep target, or a check whose tools are installed. Reasons: `ruff codes not selected`, `Biome rules not at error`, `ty rules not at error`, `tsc options not set` (unsatisfied audits), `<tool> not configured`, `<tool> not installed`. Missing tools are what the generated scripts' `forge_missing_tools` prints (the SessionStart hook reports the same list). `--json` prints all of it as one object: `counts`, `rules` (`id`, `enforced`, `by`, `not_enforced`), `audits`, `missing_tools`, `packs`, `disabled`, `drift`. |
 | `forge explain <rule-id>` | The rule file, where it is enforced in this project, and its audit result. |
 | `forge test` | Inside a git repository: validate the project's local rules (`.forge/rules/`; a local rule replacing a pack rule is tested as written) against the schema and run their examples (§14.1). No local rules: prints that there is nothing to test, exit 0. The bundled packs are not run: they are proved by Forge's own test suite. |
 | `forge remove [--user]` | Delete every owned file and exactly the settings entries recorded in the lock. |
@@ -148,6 +148,7 @@ enforce:                       # ordered; see §6.2
 examples:
   match: [example]             # MUST trigger the rule
   no_match: [example]          # MUST NOT trigger the rule
+  deps: [{ecosystem, name, version}]  # rules with a where (§15.1): the packages, exact versions, the examples are type-checked against
 deprecated:                    # optional
   replaced_by: <rule-id>
 review: string                 # optional, one line: for an ask, the one question a reviewer answers (§9.3)
@@ -170,8 +171,8 @@ Every rule blocks, except an `ast-grep` target in `advise` mode (§6.2), for heu
 
 | Target | Fields | Category | Effect |
 |---|---|---|---|
-| `tool` | `tool: biome \| ruff \| basedpyright \| tsc`, `expects` (diagnostic code or rule name), `snippet` (config to show when unsatisfied) | audited | §11 |
-| `ast-grep` | `rule` (ast-grep rule object), `mode: forbid \| no-increase \| no-decrease \| advise` | owned | `.forge/ast-grep/rules/<rule-id>.yml` |
+| `tool` | `tool: biome \| ruff \| ty \| tsc`, `expects` (diagnostic code or rule name), `snippet` (config to show when unsatisfied) | audited | §11 |
+| `ast-grep` | `rule` (ast-grep rule object), `mode: forbid \| no-increase \| no-decrease \| advise`, `constraints`, `utils` (passed through), `where` (optional: engine capabilities on metavariables, §15.1) | owned | `.forge/ast-grep/rules/<rule-id>.yml` |
 | `permission` | `decision: deny \| ask`, `rule` (permission rule string) | appended | settings `permissions` |
 | `guard` | `decision: deny \| ask`, `pattern` (POSIX ERE against the JSON-escaped command), `check` (optional, `decision: ask` only: a built-in guard check, `ephemeral-exec`, that decides when `pattern` matches) | owned | `guard.rules` (§9.2) |
 | `sandbox` | `path`, `value` | appended, user only | `~/.claude/settings.json` `sandbox` |
@@ -249,6 +250,7 @@ examples:
 └── .forge/
     ├── check.sh
     ├── ast-grep/{sgconfig.yml, rules/*.yml, rule-tests/*.yml}
+    ├── helpers/                          # scripts engine helpers and the types engines run (§13.4, §15.2), when used
     ├── forge.lock.json                   # for the CLI
     ├── manifest.sha256                   # owned-file hashes for check.sh (sha256sum format)
     ├── .gitignore                        # state/
@@ -265,7 +267,7 @@ All scripts are POSIX `sh`. They read file paths and the working directory from 
 
 | Event | Matcher | Script | Mode | Timeout | Behavior |
 |---|---|---|---|---|---|
-| SessionStart | `startup\|resume\|clear\|compact` | `session-start.sh` | sync | 10 s | ≤ 20 lines: branch, number of changed files and first 10 paths, last 5 commits (`%h %s`, ≤ 72 chars), active packs, missing tools (once). |
+| SessionStart | `startup\|resume\|clear\|compact` | `session-start.sh` | sync | 10 s | ≤ 20 lines: branch, number of changed files and first 10 paths, last 5 commits (`%h %s`, ≤ 72 chars), active packs, missing tools (once). Starts the types engines the active rules use, in the background (§15.3). |
 | UserPromptSubmit | — | `turn-start.sh` | sync | 10 s | Snapshots the tree at the start of the turn, resets the Stop block counter (§10.2) and saves the prompt to `<state>/<session_id>.prompt` (for a review of test edits, §10.5). Prints nothing. |
 | PreToolUse | `Bash` | `guard.sh` | sync | 180 s | Project `guard` rules. `onFailure: "block"`. An ask nobody can answer is reviewed (§9.3). |
 | PreToolUse | `Bash` | `bash-snapshot.sh` | sync | 15 s | Snapshots the working tree for the files the command changes (§8.2). Prints nothing. |
@@ -276,6 +278,7 @@ All scripts are POSIX `sh`. They read file paths and the working directory from 
 | PostToolUse | `Edit\|Write\|Bash` | `typecheck.sh` | `asyncRewake: true` | 300 s | Project typecheck, when the edited file (Bash: a file the command changed) is in a typecheck's scope. Errors in files changed during the turn (the Stop hook's change set, §10.2) → exit 2, stderr ≤ 20 lines, those files' diagnostics only; errors only in other files → silent. Skips if one is already running (lock in `<state>`, taken over when its pid is gone, or when it has had no pid for a minute). Does not run where Claude Code would wait for it: Claude Code runs an `asyncRewake` hook in the background only in an interactive session or with streaming input, so under `claude -p "<prompt>"` (`CLAUDE_CODE_ENTRYPOINT=sdk-cli` and no ancestor process with `--input-format stream-json` or `--sdk-url`; the ancestors are looked up once per session, the answer kept in `<state>/<session_id>.rewake`) it exits 0 at once and the Stop check runs the typecheck; `FORGE_EDIT_TYPECHECK=always` runs it anyway, `never` skips it everywhere. |
 | PostToolUseFailure | `Bash` | `post-edit.sh`, `typecheck.sh` | as above | as above | The same two hooks for a Bash command that fails or is interrupted: it may have changed files before stopping (a script that writes three files then fails on the fourth). Same checks and output, with `hookEventName` `PostToolUseFailure`. A failed Edit or Write changes nothing, so they are not matched. |
 | Stop | — | `stop.sh` | sync | 600 s | §10.2. |
+| SessionEnd | — | `session-end.sh` | sync | 10 s | Only when an active rule uses the types engine (§15.3): unregisters the session; the last session to end stops the engines. Prints nothing. |
 
 ### 8.2 Files changed by Bash
 
@@ -346,6 +349,8 @@ One entry point for the Stop hook, the optional pre-commit hook and CI. Each mod
 
 Paths are listed NUL-separated (`-z`, here, in the turn snapshot and in the base tree of §10.6), so a name with non-ASCII characters is taken as it is; git would otherwise print it quoted and octal-escaped, and the file would drop out of the change.
 
+**Forge's own files.** Files under `.forge/` (check.sh, the helper scripts) are never part of a change or of `--all`'s scope, and a tool run whose findings are all in `.forge/` passes (`forge:<id> ok (its findings are only in Forge's own .forge/ files)`): integrity (step 1) covers them, the project's rules and tools do not.
+
 **Added lines.** Outside `--all`, each changed file's added lines are computed with `git diff --no-index -U0` against its base copy; a file absent from the base counts fully. Formatting is whole-file, so a formatter run after an edit may rewrite lines the change never touched: when a check in scope has a `format_stdin`, the base copy is also formatted with it, and a line counts only if it is added against both the base copy and the formatted one; since the two diffs may align repeated lines differently (a duplicated line is the first copy in one, the second in the other), a line added against the base whose text is that of a line added against the formatted base, not matched by number, also counts (each such line once). When no filter applies, its tool is absent, or it fails or prints nothing on the base (e.g. the base does not parse), the plain comparison applies. An edited line counts as added, and so does moved code. ast-grep `forbid` matches and `lint` diagnostics count only when they overlap an added line (a match spanning an edited line counts). `no-increase` / `no-decrease` rules and whole-project checks (typecheck, migrations, tests) are not line-scoped.
 
 Runs in order, stops at the first failing step, prints `forge:<rule-id>` lines:
@@ -354,7 +359,7 @@ Runs in order, stops at the first failing step, prints `forge:<rule-id>` lines:
 2. **Applied migrations:** any file under `alembic/versions/` or `prisma/migrations/` that exists in the base and is modified or deleted → fail.
 3. **Tests and counts:** test files present in the base and deleted → fail; ast-grep and grep `no-increase` / `no-decrease` rules compared with the base (`forge:<id> <path>: <before> -> <after>`).
 4. **Forbid rules** (ast-grep and grep), on added lines outside `--all` (`forge:<id> <path>:<line>[:<column>] <description>`).
-5. **Format, lint, typecheck:** `check` targets of stages `format`, `lint`, `typecheck`, using project binaries: `changed_run` on the changed files with `--turn` and `--changed`, `run` (read-only, whole project) with `--since` and `--all`. Outside `--all`, a failing run's error diagnostics are attributed: `lint` diagnostics count on added lines, `typecheck` diagnostics (and a whole-project `format` run's) on changed files. When none counts, the check prints `forge:<rule-id> ok for the added lines (…)` or `ok for the changed files (…)` and passes; otherwise it prints only the diagnostics that count. Output naming no file at all (configuration error, crash) fails as before. Diagnostic locations are read from the tools' plain output (`path(l,c)`, `path:l:c`, `--> path:l:c`; `Would reformat: path` and Biome's `path format` name a file only; absolute paths under the repository are made relative; warning-only lines are ignored). A failing run whose output has warnings and no error (basedpyright's `recommended` mode exits 1 on warnings alone) prints `forge:<rule-id> ok for the added lines (only warnings)` or `ok for the changed files (only warnings)` and passes; the edit-time hooks stay silent on it. `--all` fails on any error, and on the tool's exit status.
+5. **Format, lint, typecheck:** `check` targets of stages `format`, `lint`, `typecheck`, using project binaries: `changed_run` on the changed files with `--turn` and `--changed`, `run` (read-only, whole project) with `--since` and `--all`. Outside `--all`, a failing run's error diagnostics are attributed: `lint` diagnostics count on added lines, `typecheck` diagnostics (and a whole-project `format` run's) on changed files. When none counts, the check prints `forge:<rule-id> ok for the added lines (…)` or `ok for the changed files (…)` and passes; otherwise it prints only the diagnostics that count. Output naming no file at all (configuration error, crash) fails as before. Diagnostic locations are read from the tools' plain output (`path(l,c)`, `path:l:c`, `--> path:l:c`; `Would reformat: path` and Biome's `path format` name a file only; absolute paths under the repository are made relative; warning-only lines are ignored). A failing run whose output has warnings and no error (ty with `terminal.error-on-warning` exits 1 on warnings alone) prints `forge:<rule-id> ok for the added lines (only warnings)` or `ok for the changed files (only warnings)` and passes; the edit-time hooks stay silent on it. `--all` fails on any error, and on the tool's exit status.
 6. **Migration checks:** `check` targets of stage `migration`, only if a `when_changed` path changed and, when `requires_local_db` is set, the configured database host is `localhost`, `127.0.0.1`, `::1` or a Unix socket. Otherwise print `forge:<rule-id> skipped: no local database` and continue.
 7. **Tests:** `check` targets of stage `test` (`changed_run` with `--changed` and `--turn`). Under `--turn`, failing tests are first compared with the start of the turn (§10.6).
 
@@ -387,12 +392,12 @@ A check with a `timeout` (seconds) that runs past it is stopped with its process
 
 ### 10.4 Config ratchet
 
-`python/config-ratchet` and `typescript/config-ratchet` are `check` targets (stage `lint`) running the engine helper `forge_ratchet <runtime> <script>`. The script is embedded in `check.sh` as a here-document, only when the rule is active (`ratchet.py`, run with the project's own `.venv/bin/python`, 3.11+ for `tomllib`; `ratchet.mjs`, run with `bun`); a separate file would be rewritten by the project's own formatters. It compares each changed config file with its copy in the base (§10.1) and prints one line per loosened setting, `<path>: <setting> <before> -> <after>` (or `adds <x>`, `no longer has <x>`). Only the relevant sections are parsed, so dependency changes never trigger it:
+`python/config-ratchet` and `typescript/config-ratchet` are `check` targets (stage `lint`) running the engine helper `forge_ratchet <runtime> <script>`. The script is `.forge/helpers/ratchet.py` (run with the project's own `.venv/bin/python`, 3.11+ for `tomllib`) or `.forge/helpers/ratchet.mjs` (run with `bun`), written only when the rule is active; a project formatter may rewrite it (§12). It compares each changed config file with its copy in the base (§10.1) and prints one line per loosened setting, `<path>: <setting> <before> -> <after>` (or `adds <x>`, `no longer has <x>`). Only the relevant sections are parsed, so dependency changes never trigger it:
 
 | File | Loosened when |
 |---|---|
 | `pyproject.toml` `[tool.ruff]`, `ruff.toml`, `.ruff.toml` | a selected code is no longer covered by `select` / `extend-select` (prefixes and `ALL` count); a code added to `ignore` / `extend-ignore` or to a glob of `per-file-ignores`; a path added to `exclude` / `extend-exclude` |
-| `[tool.basedpyright]`, `[tool.pyright]`, `pyrightconfig.json` | `typeCheckingMode` lowered (`off` < `basic` < `standard` < `strict` < `recommended` < `all`; removed = the tool's default); a `report*` level lowered or removed; `failOnWarnings` no longer true; `enableTypeIgnoreComments` no longer false; `exclude` / `ignore` entries added; `strict` paths removed |
+| `[tool.ty]`, `ty.toml` | a `rules` level lowered (`error` > `warn` > `ignore`) or removed; `terminal.error-on-warning` no longer true; `src.exclude` entries added; an `overrides` entry added |
 | `[tool.pytest.ini_options]` | `addopts` gains `--ignore`, `--ignore-glob`, `--deselect`, `-k`, `-m`, `--lf`, `--sw` or `--continue-on-collection-errors`; `testpaths` entries removed; `norecursedirs` entries added; `xfail_strict` no longer true |
 | `[tool.coverage]` | `report.fail_under` lowered or removed; `omit`, `exclude_lines` or `exclude_also` entries added |
 | `biome.json`, `biome.jsonc` | a rule's level lowered (`error` > `warn` > `info` > `off`) or removed; a group's level lowered; `recommended`, `linter.enabled` or `formatter.enabled` turned off; negated `files.includes` / `linter.includes` entries added; an `overrides` entry added or changed |
@@ -451,8 +456,8 @@ Advice does not stop the steps after it (§10.1): the later stages still run, an
 For each `tool` target of an active rule:
 
 1. The tool is not present in the project → the rule's `ast-grep` target is used if it has one; otherwise `forge status` reports "not enforced here: <tool> not configured".
-2. The tool is present → Forge writes each example to a temporary file inside the rule's scope and runs the project's own tool with the project's config, reading machine-readable output: `biome lint --reporter=json <file>`, `ruff check --output-format json --stdin-filename`, `basedpyright --outputjson <file>`, `tsc --noEmit -p <temporary tsconfig extending the project's>`.
-3. Every `match` example gets the expected diagnostic **at a level that fails the tool's run**, and no `no_match` example gets it → satisfied (stricter configs satisfy automatically). A diagnostic fails the run when its severity is `error`, or when it is a warning and the run exits non-zero without any error diagnostic (the tool fails on warnings, e.g. basedpyright's `failOnWarnings`). ruff has no warning level; tsc reports errors only.
+2. The tool is present → Forge writes each example to a temporary file inside the rule's scope and runs the project's own tool with the project's config, reading machine-readable output: `biome lint --reporter=json <file>`, `ruff check --output-format json --stdin-filename`, `ty check --output-format gitlab <file>` (Forge's pinned ty through uvx, with the project's config: present wherever there is a `pyproject.toml` or `ty.toml`; `major` is an error, `minor` a warning), `tsc --noEmit -p <temporary tsconfig extending the project's>`.
+3. Every `match` example gets the expected diagnostic **at a level that fails the tool's run**, and no `no_match` example gets it → satisfied (stricter configs satisfy automatically). A diagnostic fails the run when its severity is `error`, or when it is a warning and the run exits non-zero without any error diagnostic (the tool fails on warnings, e.g. ty's `terminal.error-on-warning`). ruff has no warning level; tsc reports errors only.
 4. Otherwise → `forge status` reports the rule as unsatisfied and prints its `snippet`; when the diagnostic is reported only as a warning, the detail says so. Forge never edits the config. Output that cannot be read → the audit is skipped with the tool's first line of output, never satisfied.
 
 Audits run during `forge apply` and `forge status`, never in hooks.
@@ -472,8 +477,8 @@ Audits run during `forge apply` and `forge status`, never in hooks.
 - `remove` deletes listed files and removes exactly the listed settings entries.
 - **Validation.** Every command reading the lock validates it against its schema and refuses it as a whole (exit 1, nothing written or deleted) when a path is not one Forge writes: `files` keys must be owned paths (§4) or git's `hooks/pre-commit` (`git rev-parse --git-path`), `settings[].file` a settings file of that level, `blocks[].file` the file `hookManager` names for its `kind` (`.pre-commit-config.yaml`, `.husky/pre-commit`, `lefthook.yml` / `.yaml` / `.lefthook.yml`, `<core.hooksPath>/pre-commit`); all relative, without `.` or `..` segments, and inside the repository (or `~/.claude`) once symbolic links are resolved.
 - **`blocks`** (present only when there is one): `[{file, kind, created, hash}]`, Forge's marked block in a hook manager's file (§10.3); `hash` is the sha256 of the block's lines, indentation removed.
-- **Owned-file hashes** are sha256 of the content, except for `.json` files, which are hashed with spaces, tabs, CR and LF removed: a formatter reflowing Forge's JSON is not drift, any other change is. A file whose owned hash matches is not rewritten by `apply`. The lock is compared as JSON (formatting ignored).
-- **`.forge/manifest.sha256`** (project level) repeats the owned-file hashes of `.forge/` and `.claude/` as `<sha256>  <path>` lines (sha256sum format) for `check.sh`. Non-JSON lines verify with `sha256sum -c`; JSON lines need the whitespace-stripped content, so `check.sh` hashes each file itself (`sha256sum`, `shasum -a 256` or `openssl`). The manifest and the lock do not hash themselves; `remove` deletes both.
+- **Owned-file hashes** are sha256 of the content, except for `.json` files, which are hashed with spaces, tabs, CR and LF removed, and the scripts in `.forge/helpers/`, hashed also without `'`, `"`, `` ` ``, `,`, `;`, `(` and `)`: a formatter reflowing Forge's JSON, or rewriting its helper scripts (`ruff format .`, `biome check --write .`: layout, quote style, trailing commas, semicolons, parentheses), is not drift; any other change is. (A change made only of those characters, such as moving a parenthesis, is not detected: the price of letting formatters rewrite the scripts.) A file whose owned hash matches is not rewritten by `apply`. The lock is compared as JSON (formatting ignored).
+- **`.forge/manifest.sha256`** (project level) repeats the owned-file hashes of `.forge/` and `.claude/` as `<sha256>  <path>` lines (sha256sum format) for `check.sh`. Non-JSON lines verify with `sha256sum -c`; JSON and helper lines need the normalised content, so `check.sh` hashes each file itself (`sha256sum`, `shasum -a 256` or `openssl`). The manifest and the lock do not hash themselves; `remove` deletes both.
 - **Formatting.** During `apply`, the JSON files Forge generates (plugin manifest, `hooks.json`, the lock, and a `.claude/settings.json` that Forge creates) are formatted with the project's own Biome when installed (`biome format --stdin-file-path`), so the project's `biome ci .` passes. An existing settings file keeps its own indentation for appended entries. Project-owned files are never formatted.
 
 ## 13. Packs and rules
@@ -519,20 +524,20 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 |---|---|
 | `python/format` | `check` format: `run: ruff format --check .`, `changed_run: ruff format {files}`, `format_stdin: ruff format --stdin-filename {file} -` |
 | `python/lint` | `check` lint: `run: ruff check .`, `changed_run: ruff check {files}`, `fix_run: ruff check --fix --fixable I,UP --exit-zero --show-fixes {files}` (sorted imports and pyupgrade, when the project selects them; never F401 / F841) |
-| `python/typecheck` | `check` typecheck: `run: basedpyright` |
-| `python/no-explicit-any` | `tool` basedpyright `reportExplicitAny`; `tool` ruff `ANN401` |
+| `python/typecheck` | `check` typecheck: `run: ty check --output-format concise` (Forge's pinned ty, §15.2) |
+| `python/no-explicit-any` | `tool` ruff `ANN401` (ty has no equivalent) |
 | `python/no-bare-except` | `tool` ruff `E722` |
-| `python/no-unscoped-ignore` | `tool` basedpyright `reportIgnoreCommentWithoutRule`; `tool` ruff `PGH003` |
-| `python/no-unknown` | `tool` basedpyright `reportUnknownParameterType`, `reportUnknownVariableType` |
-| `python/no-useless-cast` | `tool` basedpyright `reportUnnecessaryCast`, `reportInvalidCast` |
-| `python/no-deprecated` | `tool` basedpyright `reportDeprecated` (PEP 702 and typeshed deprecations) |
+| `python/no-unscoped-ignore` | `tool` ty `blanket-ignore-comment`; `tool` ruff `PGH003` |
+| `python/no-unknown` | `tool` ruff `ANN001`, `ANN002`, `ANN003`, `ANN201`, `ANN202`: parameters and return types annotated, so no receiver is Unknown (§15.1); an unannotated local's type is inferred (ty has no equivalent of `reportUnknownVariableType`) |
+| `python/no-useless-cast` | `tool` ty `redundant-cast`, `disjoint-cast` |
+| `python/no-deprecated` | `tool` ty `deprecated` (PEP 702 and typeshed deprecations) |
 | `python/no-blocking-in-async` | `tool` ruff `ASYNC210`, `ASYNC230`, `ASYNC251` |
 | `python/no-tls-bypass` | `tool` ruff `S501` |
 | `python/no-shell-true` | `tool` ruff `S602` |
-| `python/no-stale-ignore` | `tool` basedpyright `reportUnnecessaryTypeIgnoreComment` |
+| `python/no-stale-ignore` | `tool` ty `unused-ignore-comment`, `unused-type-ignore-comment` |
 | `python/aware-datetime` | `tool` ruff `DTZ005` |
-| `python/no-new-suppressions` | `grep` no-increase: `# noqa`, `# type: ignore`, `# pyright: ignore` (suppression budget) |
-| `python/config-files` | `permission` ask: `Edit(**/ruff.toml)`, `Edit(**/.ruff.toml)`, `Edit(**/pyrightconfig.json)` |
+| `python/no-new-suppressions` | `grep` no-increase: `# noqa`, `# ty: ignore`, `# type: ignore`, `# pyright: ignore` (suppression budget) |
+| `python/config-files` | `permission` ask: `Edit(**/ruff.toml)`, `Edit(**/.ruff.toml)`, `Edit(**/ty.toml)` |
 | `python/config-ratchet` | `check` lint: `forge_ratchet python ratchet.py` (§10.4), `when_changed`: the Python config files |
 | `python/no-silent-except` | `tool` ruff `S110`, `S112` |
 | `python/no-blind-except` | `tool` ruff `BLE001` |
@@ -554,7 +559,7 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `python/no-placeholder-comment` | `grep` forbid (case-insensitive): comments such as `TODO: implement`, "in a real implementation", "placeholder logic", "stub for now" |
 | `python/env-example` | `check` lint: `forge_env_example py`, not with `--all`: a field added to a pydantic-settings `BaseSettings` class (`env_prefix`, `alias`, `case_sensitive` applied) appears in the nearest directory's `.env.example`, `.env.template`, `.env.sample`, `.env.dist` or `.env.<name>.example` (a `# KEY=` line counts): always without a default, also with one when the template lists at least half of the class's variables; a template listing none of them is not about that class |
 
-context.md: uv and `.venv/bin`, basedpyright; no blocking calls in `async def`; ignore comments name their rule; search for an existing helper (warn-once, logging, utils) before writing one.
+context.md: uv and `.venv/bin`, ty, annotated parameters and returns; no blocking calls in `async def`; ignore comments name their rule; search for an existing helper (warn-once, logging, utils) before writing one.
 
 ### typescript
 
@@ -907,7 +912,7 @@ context.md: route module `loader` / `action` with `Route.*Args` types; actions a
 
 ### typescript/vue
 
-Detected by `vue >= 3`. ESLint (`eslint-plugin-vue`) is not audited: `tool` targets are Biome, ruff, basedpyright and tsc; the `.vue` rules are `check` and `grep` targets instead.
+Detected by `vue >= 3`. ESLint (`eslint-plugin-vue`) is not audited: `tool` targets are Biome, ruff, ty and tsc; the `.vue` rules are `check` and `grep` targets instead.
 
 | Rule | Targets |
 |---|---|
@@ -1000,7 +1005,7 @@ context.md: `compose.yaml` + `compose.override.yaml`, healthchecks with `conditi
 
 `detect.library_any` activates a pack when the project publishes a library to that ecosystem. The shape of a package is not enough (most uv workspace members and packaged services have a build backend; internal workspace packages declare `exports`), so detection also needs **evidence that it is published**; without it, add the pack in `forge.yaml`. Each `pyproject.toml` / `package.json` (the root's and each workspace package's) is judged on its own. **pypi:** `pyproject.toml` has `[project] name` and a `[build-system]` table (`uv init --lib`; `uv init` makes an application without one), no `[project.scripts]` or `[project.gui-scripts]` (`uv init --package`: a packaged application), no `Private ::` classifier, no `manage.py` in its package (for the root: outside the workspace packages), and is published: it has trove `classifiers` (PyPI metadata), or a CI workflow (`.github/workflows/*.yml`, `.gitlab-ci.yml`) uploads to PyPI (`pypa/gh-action-pypi-publish`, `uv`/`poetry`/`hatch`/`flit`/`pdm publish`, `twine upload`). **npm:** `package.json` is not `"private": true`, has a `name`, has `exports`, or `main` / `module` together with `types`, `typings` or `files` (`main` alone is `npm init`'s default), and is published: `publishConfig`, Changesets (`.changeset/config.json`), or a CI workflow running `npm`/`pnpm`/`yarn`/`bun publish`, `changesets/action` or `semantic-release`. A library that ships a CLI script is not detected; add the pack in `forge.yaml`.
 
-`forge_helper <runtime> <script> [args]` runs a script embedded in `check.sh` (like the ratchet's) with the project's `python` or `bun`, as `<script> <FORGE_TMP> [args]`, where the change set (`changed`, `inbase`, `base/`) is; findings are `path:line message` (line 0: the file as a whole), attributed like lint diagnostics; a finding line found in `forge.yaml` is accepted; exit 3 prints `skipped:`.
+`forge_helper <runtime> <script> [args]` runs `.forge/helpers/<script>` (written when an active check uses it, like the ratchet's) with the project's `python` or `bun`, as `<script> <FORGE_TMP> [args]`, where the change set (`changed`, `inbase`, `base/`) is; findings are `path:line message` (line 0: the file as a whole), attributed like lint diagnostics; a finding line found in `forge.yaml` is accepted; exit 3 prints `skipped:`.
 
 - `drf_permissions.py`: §13 `python/django/drf/permission-classes`.
 - `fk_index.py`: §13 `python/sqlalchemy/fk-index`: in each changed `.py` file outside `versions/`, the foreign key columns (a `ForeignKey(…)` argument of `mapped_column` / `Column`, a `ForeignKeyConstraint` in `__table_args__`; per class or `Table(…)`) not in the base copy that no index leads with: `index=True` / `unique=True`, the first `primary_key=True` column, or the first column of an `Index` (after its name), `UniqueConstraint` or `PrimaryKeyConstraint`. Reported at the column's line.
@@ -1066,3 +1071,133 @@ Clean container with Claude Code ≥ 2.1.295, git, Bun, uv, PostgreSQL, and no F
 4. After `/compact`, SessionStart output is present again.
 5. `guard.sh` deleted → PreToolUse blocked.
 6. Bun absent in a TypeScript repo → hooks exit 0; SessionStart reports the missing runtime once.
+## 15. Engine capabilities
+
+A rule says **what** it needs to know about the code; the engine decides **how** to find it out. A capability is a question a rule asks declaratively in its YAML, answered by **one pinned, provisioned implementation per language** (§15.2). Packs and rules never name the tool that answers: replacing ty or TypeScript's server by another type checker changes the engine, never a rule.
+
+- A capability MUST NOT decide on names the project chose (variables, receivers, helpers, parameters, free text). Literal conventions of a tool or library are allowed (a library's own API names, `Dockerfile`, `*_TOKEN` keys in `.env`), and each one is overridable in `forge.yaml` (§15.4).
+- There is no fallback. A capability that cannot answer is reported with the rules it leaves unchecked, never taken as a pass and never replaced by a weaker heuristic (§15.1).
+
+| Capability | Asked from | Answers | State |
+|---|---|---|---|
+| types | `where: {<VAR>: {type: …}}` on an `ast-grep` target | what the static type of the expression bound to a metavariable is declared as | implemented (§15.1–§15.3) |
+| declared | `where: {<VAR>: {declared: …}}` | what a name refers to (an imported function or class, through aliases): `textDocument/definition` instead of `typeDefinition`, no supertypes | proposed (§15.6) |
+| files | `@<role>` in `scope.files` and in check helpers | the paths of a file role: Forge's defaults, the tool's declarative config, `forge.yaml` | designed (§15.4) |
+| tests | engine helpers of test checks | the tests a runner collects and the ones that failed, from the runner's own reports | proposed (§15.5) |
+
+### 15.1 Types
+
+```yaml
+# packs/python/sqlalchemy/rules/no-query-api.yaml
+enforce:
+  - target: ast-grep
+    mode: forbid                    # forbid or advise
+    rule: {pattern: "$S.query($$$)"}
+    where:
+      S: {type: {package: sqlalchemy, name: [Session, scoped_session, AsyncSession, async_scoped_session]}}
+examples:
+  deps: [{ecosystem: pypi, name: sqlalchemy, version: "2.0.44"}]
+  match: ["from sqlalchemy.orm import Session as Db\n\n\ndef first(db: Db):\n    return db.query(int).first()\n"]
+  no_match: ["class Session:\n    def query(self, q: str) -> list[str]:\n        return [q]\n\n\ndef search(session: Session):\n    return session.query(\"text\")\n"]
+```
+
+`where` maps single metavariables of the rule (`$S`, not `$$$S`) to a condition: `{type: <spec>}` or `{not: <condition>}`. A spec has `package` and/or `module` (a string or a list; at least one: a name alone would be a guess), optionally `name` (a string or a list of identifiers) and `unknown: match | no-match` (default `no-match`).
+
+**Semantics.** For each match, each condition is evaluated on the expression the metavariable is bound to; the match counts only when all of them hold.
+
+1. **The expression's type** is what the language's type checker infers for exactly that expression, in the file as it is on disk: the engine shows the server, in memory only, the file with the expression bound to a fresh name (Python `(__forge_tN := (<expr>))`, TypeScript `({__forge_tN: (<expr>)}).__forge_tN`), asks `textDocument/typeDefinition` at that name, then shows it the file as it is. Any expression works (a name, an attribute, a call such as `sessionmaker(e)()`, a subscript). Nothing is written to the project.
+2. **Declarations.** Each location returned is the declaration of the type, or of one member: a union or intersection gives one per member (`Session | None`: `Session` and `NoneType`). Import aliases, re-exports and type aliases are resolved by the checker: a declaration has the name it is declared with (`Session`, never the alias `Db`).
+3. **Subtypes.** Each declaration counts with its supertypes, transitively, at most 64 (Python: the server's type hierarchy; TypeScript: the classes and interfaces in its `extends` and `implements` clauses, resolved with `textDocument/definition`). A project class deriving from `Session` is a `Session`. Assignability is nominal: a structurally compatible type that does not derive from the declaration does not count.
+4. **Generics.** Type arguments are ignored: `list[Session]` is `list`, `scoped_session[Session]` is `scoped_session`.
+5. **Where a declaration is.** Its file decides. Python: under `site-packages` / `dist-packages`, the package is the first path segment (`<pkg>-stubs` counts as `<pkg>`) and the module the dotted path (`sqlalchemy.orm.session`, `__init__` dropped); typeshed's `stdlib/` and `stubs/<dist>/` likewise. TypeScript: under the innermost `node_modules/`, the package is `<name>` or `@scope/name` (`@types/x` counts as `x`, `@types/a__b` as `@a/b`) and the module `<package>/<path in it without extension>` (`zod/v4/classic/schemas`); TypeScript's own `lib.*.d.ts` are package `typescript`. A declaration in the project has no package; its module is its path (Python: dotted, without a leading `src.`). The package is the one that **declares** the type, which may be a library's internal package (Vitest's `expect` is declared in `@vitest/expect`).
+6. **A spec holds** when one declaration or supertype has the package (one of the list), the module (equal, or a prefix by whole segments: `.` in Python, `/` in TypeScript) and the name (one of the list) that the spec gives. With a union, one member is enough: the expression may hold such a value at run time.
+7. **Unknown types.** When the checker does not know the type (Python `Any` and `Unknown`: an unannotated parameter, an unresolved import; TypeScript `any`, `unknown`, an error: no declaration), a spec does not hold, unless it says `unknown: match`. Type constraints therefore rely on typed code, which the type-checking rules enforce: `python/no-unknown` (ruff `ANN001`–`ANN003`, `ANN201`, `ANN202`: annotated parameters and returns) and `python/no-explicit-any` (`ANN401`); `typescript/no-implicit-any` (`noImplicitAny`) and `typescript/no-explicit-any`. Removing an annotation to escape a rule is then itself a finding.
+8. `not` inverts its condition. A metavariable the match did not bind (an `any:` branch without it) is not evaluated.
+
+**Where it runs.** A rule's `where` is rendered into its ast-grep rule file as `metadata: {forge_where: …}`, so each match carries it (`ast-grep scan --include-metadata`). post-edit.sh (§8.1) and check.sh step 4 (§10.1) keep the matches on added lines, then pass those with `forge_where` to `forge_types_filter` (engine.sh), which asks the language's engine and keeps the matches it confirms; other matches are untouched. An engine that cannot start or answer prints `forge:forge/types <rule-id> was not checked: <reason>`: after an edit as feedback, in check.sh as a failure.
+
+**Schema and `forge test`.** `where` is allowed on `forbid` and `advise` targets (counted modes would need the base copy's types: not yet), with `scope.language` `python`, `typescript` or `tsx`, on metavariables that occur in the rule. Such a rule MUST have `examples.deps` (packages of its language's ecosystem, exact versions), and its examples are whole files (imports included). Its ast-grep test proves the `match` examples structurally; then every example is scanned and filtered by the generated `forge_types_filter` in a project holding those packages (a uv environment on the engine's Python, or a `bun install`ed `package.json`; kept in `$FORGE_EXAMPLES_CACHE`, default `~/.cache/forge/examples/`): a `match` example must keep a match, a `no_match` example none.
+
+### 15.2 Engines
+
+| Language | Server | Pin | Started as | Adapter |
+|---|---|---|---|---|
+| Python | `ty server` (Astral) | ty 0.0.86 | `uvx --python 3.12 --from ty==0.0.86 python <adapter> <root> <state>` | `types_python.py`: standard library only, on the Python uvx provides next to the pinned `ty` |
+| TypeScript | the project's own TypeScript (`node_modules/typescript`, resolved from the root): 7 and later, its language server (`bin/tsc --lsp --stdio`, the Go compiler); 5 and 6, its `lib/tsserver.js` (tsserver protocol) | the project's (its lock file) | `bun <adapter> <root> <state>` | `types_typescript.mjs`: Node-compatible, no Bun-only API |
+
+- **ty is Python's type checker in Forge, everywhere**: the types engine, `python/typecheck` (`ty check`, as `forge_ty` in the generated scripts) and the `tool: ty` audits run the same pinned ty through uvx, with the project's environment and configuration. basedpyright is not used.
+- ty's pin follows Forge's rule for its own tools (the newest release older than 14 days; ast-grep, Squawk, zizmor, hadolint) and is embedded in the generated scripts with a revision of the adapters.
+- `uvx` (Python) and `bun` (TypeScript) are required tools of the capability: missing, they are listed by `forge_missing_tools` (SessionStart, `forge status`). `forge apply` provisions the pinned ty (fills the uvx cache), so the hooks run offline afterwards. TypeScript's engine is the project's: the version that type-checks the project answers its type questions, and a project without `node_modules/typescript` gets `forge:forge/types <rule> was not checked: the project has no typescript package …`. The same semantics and the same spec tests hold for TypeScript 5, 6 and 7 (one version of each is pinned in the test tools).
+- The engine answers with the project's own environment: ty finds `.venv` (or `VIRTUAL_ENV`) and the project's `[tool.ty]`; TypeScript reads the project's `tsconfig.json` files and `node_modules`, workspace packages included.
+- Both adapters implement one protocol (§15.3) and the semantics of §15.1; only the way supertypes are found differs (ty has a type hierarchy; TypeScript's servers have none). The TypeScript binding `({__forge_tN: (<expr>)}).__forge_tN` declares no name, so the server keeps that version of the file until it changes: one program update per question. To tsserver only the span that differs is sent.
+- **Loading.** The TypeScript adapter loads the project's tsconfig projects (one tracked source file of each `tsconfig.json`) in the background once ready, questions first; while it does, `<state>/types/typescript/loading` exists. After an edit, a question to an engine still loading waits at most `FORGE_TYPES_LOADING_WAIT` seconds (5) and then prints `forge:forge/types <rule-id> was not checked after this edit: the typescript engine (<server>) is still loading the project; the Stop check runs it`; the Stop check and CI wait for the answer. SessionStart starts the engines, so the load usually ends before the first edit.
+
+**Evidence** (Apple M2, 2026-10-26; `typeDefinition` on a receiver; cold = spawn to `initialize` reply; first = `didOpen` + first answer; warm = `didChange` + answer, median of 20; RSS after warm-up):
+
+| Project | Server | Cold | First | Warm | RSS |
+|---|---|---|---|---|---|
+| fastapi-app sample | ty 0.0.92 / basedpyright 1.40.2 | 8 / 171 ms | 42 / 478 ms | 0.5 / 11.5 ms | 43 / 354 MB |
+| Netflix dispatch (655 files, SQLAlchemy 2.0.8) | ty 0.0.86 / 0.0.92 / basedpyright | 8 / 8 / 181 ms | 226 / 196 / 1338 ms | 7.5 / 6.0 / 4.3 ms | 103 / 100 / 517 MB |
+| nextjs-prisma-app sample | TypeScript 7.0.2 / typescript-language-server + 5.9.3 | 45 / 65 ms | 41 / 924 ms | 1.0 / 3.5 ms | 103 / 782 MB |
+| documenso (2245 TS files, workspaces) | TypeScript 7.0.2 / typescript-language-server + 5.9.3 | 42 / 63 ms | 408 / 4538 ms | 86 / 97 ms (p95 163 / 122) | 1642 / 1998 MB |
+
+Through the TypeScript adapter on documenso (12 tsconfig projects; its own TypeScript 5.6.2, then 6.0.3 and 7.0.2 in its `node_modules`; a question on `packages/lib/utils/document-audit-logs.ts` with 2 matches of a `{package: zod}` rule; warm = after a `changed` line for an edit of that file, median of 10):
+
+| TypeScript | Server | Ready | A question during the load | Load of the 12 projects | Warm question |
+|---|---|---|---|---|---|
+| 5.6.2 | tsserver | 400 ms | 9.5 s | 21.3 s | 145–152 ms (max 217) |
+| 6.0.3 | tsserver | 272 ms | 7.0 s | 14.5 s | 145–153 ms (max 209) |
+| 7.0.2 | tsc --lsp | 91 ms | 0.7 s | 1.2 s | 39 ms (max 71) |
+
+tsserver's warm cost is its own program update after an edit in a large project (sending only the changed span, or one update instead of three per question, changed nothing measurable). The fixture of §15.1's tests answers 16 matches in 95–99 ms (5.9.3, 6.0.3) and 33 ms (7.0.2) cold, with the same 12 matches kept.
+
+Through the adapters and the FIFO: a question from a POSIX `sh` client costs 5.6 ms of client and transport (bash 3.2 as `sh`); the engine answers a warm question in 2–16 ms (1 to 14 matches), the cold one in 63–250 ms; the whole `forge_types_filter` of an edit takes about 50 ms, sourcing the script included. ty and TypeScript 7 answer correctly through import aliases, re-exports, `sessionmaker()` results, subscripts, unions with `None`, subclasses (with the supertype walk) and generics, and give no declaration for `any`; queried at the end of a call or subscript, basedpyright (measured for the choice; Forge no longer uses it) and tsserver answer nothing, but through the binding of §15.1 (a name) tsserver answers every case like TypeScript 7.
+
+### 15.3 Daemons
+
+- **One daemon per language and repository**, in `<state>/types/<lang>/` (the hook state outside the repository, §8): `in` (the request FIFO), `started` (FIFO, start reports), `pid`, `ready` (the server's name and version), `want` (engine pin and adapter revision), `log`, `sessions/`. The adapters are `.forge/helpers/types_python.py` and `.forge/helpers/types_typescript.mjs`.
+- **Start** (`forge_types_up <lang>`): SessionStart starts the engines the active rules use, in the background; any hook that needs an answer starts its engine when it is not running (the same function: there is no other path). A lock directory holding the starter's pid serialises starters; the adapter detaches into its own session (the hook that started it may end) and writes `ready …` or `failed …` to `started`; a launcher failing before it (a first download without network) gives `exited <code>`. A daemon whose `want` differs from the scripts' (another pin, another Forge) is stopped and started again. Starting takes at most `FORGE_TYPES_START_TIMEOUT` seconds (60).
+- **Protocol.** Lines written to `in` are shorter than `PIPE_BUF`, so concurrent writers never interleave, and `in` is opened read-write, so a writer never blocks: `changed<TAB><path>`, `stop`, `restart`, or the absolute path of a question directory, whose `req` holds ast-grep match lines. The client opens the question's `reply` FIFO read-write before asking (the daemon's non-blocking open always finds a reader), reads up to `end` and gives up after `FORGE_TYPES_TIMEOUT` seconds (20). Questions are answered one at a time, in order; parallel hooks queue.
+- **What the server sees.** The asked file is read from disk at each question and sent (`didOpen`, then `didChange` with the full text) when it differs from what the server has. Other files reach the server through `changed` lines: post-edit.sh sends every file of the edit (Edit, Write, the files a Bash command changed), turn-start.sh the uncommitted files and those a commit, checkout or pull changed since the previous turn, check.sh its change set. A change to a lock file, `pyproject.toml`, `ty.toml`, `package.json` or `tsconfig*.json` restarts the daemon instead (`restart`): the next question starts it on the new environment. Nothing is written in the repository.
+- **End.** Sessions register when they start the engine or find it running; SessionEnd (`session-end.sh`) unregisters, and the last session to end stops it. A stop is synchronous (`stop<TAB><dir>`: the daemon answers once its language server has exited), so check.sh outside a session (pre-commit, CI), which stops the engines it started, leaves nothing running when it exits. A daemon also exits after `FORGE_TYPES_IDLE` seconds (1800) without a line, and within 10 seconds of its state directory or the repository disappearing. The start lock holds the starting shell's own pid (not `$$`, which a background subshell outlives), and a starter that gets the lock checks again whether the engine started meanwhile, so concurrent hooks start one engine.
+
+### 15.4 File roles
+
+Rules and helpers name the files they are about by **role**, not by literal globs: `scope.files: ["@python-tests"]`, `"!@alembic-migrations"`, `forge_role <role> <path>` in check helpers. Each role has Forge's defaults; `forge.yaml` changes them:
+
+```yaml
+files:
+  python-tests: {add: ["integration/**/check_*.py"]}   # added to the defaults
+  env-files: {set: [".env", ".env.local"]}             # replaces the defaults and the tool's config
+```
+
+- **Effective patterns** are computed by `forge apply` and rendered literally into the generated scripts (shell `case` patterns, ast-grep `files` / `ignores`), so hooks never parse configs. `forge status` prints a `Files:` section: each role an active rule uses, its patterns and where each comes from (`forge default`, the tool's config file, `forge.yaml`); a changed source is drift (`forge diff`).
+- **Defaults from the tool's own config**: only when the config is data Forge reads without running code (INI, TOML, JSON, YAML, `schema.prisma`), and then they replace Forge's defaults for that role: pytest `testpaths` / `python_files` (`[tool.pytest.ini_options]`, `pytest.ini`), `alembic.ini` `script_location`, `schema.prisma` generator `output`, `package.json` `prisma.schema`, `[tool.pytest.ini_options]` `DJANGO_SETTINGS_MODULE`. Code configs (`vitest.config.*`, `playwright.config.*`, `drizzle.config.*`, `prisma.config.ts`) are never evaluated: the tool's documented defaults apply, and the user overrides in `forge.yaml`.
+- **Roles and defaults:**
+
+| Role | Defaults | From the tool's config |
+|---|---|---|
+| `compose` | `compose.yaml`, `compose.yml`, `docker-compose.yaml`, `docker-compose.yml`, `compose.*.yaml`, `docker-compose.*.yml` | — |
+| `dockerfile` | `**/Dockerfile`, `**/Dockerfile.*`, `**/*.Dockerfile` | — |
+| `python-tests` | `**/test_*.py`, `**/*_test.py`, `**/conftest.py` | pytest `testpaths` × `python_files` |
+| `ts-tests` | `**/*.{test,spec}.{ts,tsx,mts,cts,js,jsx,mjs,cjs}`, `**/__tests__/**` | — (code config) |
+| `e2e-tests` | `e2e/**`, `tests/e2e/**` | — (code config) |
+| `alembic-migrations` | `alembic/versions/**`, `migrations/versions/**` | `alembic.ini` `script_location` + `/versions/**` |
+| `prisma-migrations` | `prisma/migrations/**` | `package.json` `prisma.schema` directory + `/migrations/**` |
+| `drizzle-migrations` | `drizzle/**` | — (code config) |
+| `env-files` | `.env`, `.env.*`, `!@env-template` | — |
+| `env-template` | `.env.example`, `.env.sample`, `.env.template` | — |
+| `lockfiles` | `uv.lock`, `bun.lock`, `bun.lockb`, `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock` | — |
+| `docs` | `docs/**/*.{md,mdx,rst}`, `doc/**/*.{md,mdx,rst}`, `README*` | — |
+| `generated-clients` | none | `schema.prisma` generator `output`; the OpenAPI generator outputs of `package.json` scripts |
+| `django-settings` | `**/settings.py`, `**/settings/*.py` | pytest-django `DJANGO_SETTINGS_MODULE` |
+
+- A role may include another (`!@env-template`); cycles are rejected. A role an active rule names but nothing matches is reported by `status`, never guessed.
+
+### 15.5 Tests (proposed)
+
+Test checks read the runner's own reports rather than its console output or ast-grep patterns: the tests a runner collects (`pytest --collect-only -q`, `vitest list --json`) give test identity for test integrity (§10.5) and failing tests come from its machine-readable report (pytest `--junitxml`, Vitest `--reporter=junit`) for §10.6, through engine helpers with the same interface as now. Pack rules keep naming the runner's checks; the helpers change.
+
+### 15.6 Declared names (proposed)
+
+`where: {F: {declared: {package: sqlalchemy, name: text}}}`: the metavariable is a name (or attribute) that refers to that declaration, through import aliases and re-exports (`textDocument/definition`, no supertypes): for functions and decorators (`text()`, `patch`, `pytest.mark.skip`, `React.useState`), where `type` would describe a function type. Same engines, daemons and semantics for package, module and name.

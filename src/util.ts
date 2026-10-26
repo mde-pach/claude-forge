@@ -9,6 +9,13 @@ export const CLAUDE_CODE_MIN = "2.1.295";
 export const AST_GREP_VERSION = "0.45.3";
 /** Squawk (Postgres migration linter), run through bunx or uvx by migration-lint checks. */
 export const SQUAWK_VERSION = "2.70.0";
+/**
+ * The Python types engine (§15.2), pinned like the other Forge tools (the newest release
+ * older than 14 days): ty's language server through uvx on this Python. TypeScript's
+ * engine is the project's own TypeScript (its tsserver, or tsc --lsp from 7 on).
+ */
+export const TY_VERSION = "0.0.86";
+export const ENGINE_PYTHON = "3.12";
 /** zizmor (GitHub Actions auditor), run through uvx by github-actions/zizmor. */
 export const ZIZMOR_VERSION = "1.30.1";
 /** hadolint, run through uvx from the hadolint-bin wheel, whose binary must match the upstream release. */
@@ -125,6 +132,13 @@ export function lineDiff(before: string, after: string, label: string): string {
  * files are hashed with spaces, tabs and newlines removed, so a formatter run
  * is not tampering (check.sh does the same with `tr -d ' \t\r\n'`).
  */
+/**
+ * The hash of an owned file as check.sh computes it (forge_owned_hash): JSON without
+ * whitespace; the helper scripts in .forge/helpers/ also without quotes, commas,
+ * semicolons and parentheses, so a project formatter (ruff format, Biome) rewriting
+ * them is not tampering (§12); anything else as it is.
+ */
 export function ownedHash(path: string, content: string): string {
+  if (path.startsWith(".forge/helpers/")) return sha256(content.replace(/[ \t\r\n,;()'"`]/g, ""));
   return sha256(path.endsWith(".json") ? content.replace(/[ \t\r\n]/g, "") : content);
 }

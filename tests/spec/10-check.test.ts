@@ -12,7 +12,7 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { applied, commitAll, ensureTools, forge, git, hasBun, hasUv, linkTools, linkTs5, put, ROOT, sampleRepo, sh, TOOL_VERSIONS, TOOLS_CACHE } from "../helpers";
+import { applied, commitAll, ensureTools, forge, git, hasBun, hasUv, linkTools, linkTs5, put, ROOT, sampleRepo, sh, TOOL_VERSIONS, TOOLS_CACHE, TY_FINDS_NOTHING } from "../helpers";
 import { loadPacks } from "../../src/packs";
 import { checkTools, renderChecks } from "../../src/render";
 import { insertBlock, removeBlock } from "../../src/precommit";
@@ -43,6 +43,9 @@ beforeAll(() => {
   mkdirSync(join(repo, ".venv", "bin"), { recursive: true });
   const ruff = sh("sh", ["-c", "command -v ruff"]).stdout.trim();
   if (ruff) symlinkSync(ruff, join(repo, ".venv", "bin", "ruff"));
+  // ty (Forge's, through uvx) finds nothing unless a test says otherwise (the sample's
+  // dependencies are not installed; these tests are not about what ty finds)
+  stub("ty-stand-in", "exit 0");
 }, T);
 
 describe("steps", () => {
@@ -60,6 +63,29 @@ describe("steps", () => {
       reset();
       put(repo, ".forge/extra.txt", "x");
       expect(check().stdout).toContain("forge:forge/integrity .forge/extra.txt is not a forge file");
+      reset();
+    },
+    T,
+  );
+
+  /**
+   * The helper scripts are plain files in `.forge/helpers/`, where a project-wide
+   * `ruff format .` or `biome check --write .` may rewrite them. Their hash leaves out
+   * what formatters change (layout, quotes, trailing commas, semicolons, parentheses),
+   * and they are Forge's files: the project's rules and tools do not judge them.
+   */
+  test(
+    "1. integrity: a helper script rewritten by a formatter passes and is not checked as project code; a change to its code fails",
+    () => {
+      const helper = join(repo, ".forge/helpers/ratchet.py");
+      const text = readFileSync(helper, "utf8");
+      // what a formatter may do: other quotes, blank lines, a trailing comma, parentheses
+      writeFileSync(helper, text.replaceAll('"', "'").replaceAll("\n", "\n\n").replace("sys.argv[1]", "(sys.argv[1],)"));
+      const ok = check();
+      expect(ok.stdout).not.toContain("forge:forge/integrity");
+      expect(ok.stdout).not.toContain(".forge/helpers/ratchet.py");
+      writeFileSync(helper, `${text}\nprint("tampered")\n`);
+      expect(check().stdout).toContain("forge:forge/integrity .forge/helpers/ratchet.py was modified (run forge diff)");
       reset();
     },
     T,
@@ -121,14 +147,14 @@ describe("steps", () => {
     T,
   );
 
-  /** @rule python/sqlalchemy/no-query-api */
+  /** @rule python/sqlalchemy/no-declarative-base */
   test(
     "4. ast-grep forbid rules report file:line:column with the rule's description",
     () => {
-      put(repo, "app/repo.py", "def f(session):\n    return session.query(1)\n");
+      put(repo, "app/repo.py", "def f():\n    return declarative_base(1)\n");
       const r = check();
       expect(r.status).toBe(1);
-      expect(r.stdout).toContain("forge:python/sqlalchemy/no-query-api app/repo.py:2:12 No legacy session.query().");
+      expect(r.stdout).toContain("forge:python/sqlalchemy/no-declarative-base app/repo.py:2:12 No declarative_base().");
       reset();
     },
     T,
@@ -146,13 +172,13 @@ describe("steps", () => {
     T,
   );
 
-  /** @rule python/typecheck */
+  /** @rule python/pytest/run */
   test(
     "a check whose tool is not installed prints skipped and does not fail",
     () => {
       put(repo, "app/x.py", "X = 1\n");
       const r = check();
-      expect(r.stdout).toContain("forge:python/typecheck skipped: basedpyright not installed");
+      expect(r.stdout).toContain("forge:python/pytest/run skipped: pytest not installed");
       reset();
     },
     T,
@@ -599,15 +625,15 @@ describe("pre-commit", () => {
   );
 });
 
-/** @rule python/sqlalchemy/no-query-api */
+/** @rule python/sqlalchemy/no-declarative-base */
 test(
   "CI: --all checks the whole project, not only the changed files",
   () => {
-    put(repo, "app/legacy.py", "def f(session):\n    return session.query(1)\n");
+    put(repo, "app/legacy.py", "def f():\n    return declarative_base(1)\n");
     git(repo, "add", "-A");
     git(repo, "commit", "-qm", "legacy", "--no-verify"); // the forge pre-commit hook would refuse it
     expect(check("--changed").stdout).not.toContain("legacy.py");
-    expect(check("--all").stdout).toContain("forge:python/sqlalchemy/no-query-api app/legacy.py:2:12");
+    expect(check("--all").stdout).toContain("forge:python/sqlalchemy/no-declarative-base app/legacy.py:2:12");
     git(repo, "reset", "-q", "--hard", "HEAD~1");
   },
   T,
@@ -621,31 +647,29 @@ test(
  */
 describe("errors in unchanged files", () => {
   /**
-   * basedpyright in its "recommended" mode exits 1 on warnings alone (an unused
-   * parameter, an unannotated `__tablename__` in a file nobody touched): warnings
-   * do not count (§10.1), so a run that reports nothing else passes.
+   * ty with `error-on-warning` exits 1 on warnings alone (an unused ignore comment in
+   * a file nobody touched): warnings do not count (§10.1), so a run that reports
+   * nothing else passes.
    * @rule python/typecheck
    */
   test(
     "a typecheck that exits non-zero with warnings only passes outside --all, with a note; one with an error in a changed file still fails",
     () => {
-      // basedpyright prints real paths
-      const root = realpathSync(repo);
-      const warn = (f: string) => `echo "${root}/${f}"; echo "  ${root}/${f}:7:20 - warning: \\"app\\" is not accessed (reportUnusedParameter)"`;
-      stub("basedpyright", `${warn("app/main.py")}; ${warn("app/new.py")}; echo "0 errors, 2 warnings, 0 notes"; exit 1`);
+      const warn = (f: string) => `echo "${f}:7:20: warning[unused-ignore-comment] Unused \\\`ty: ignore\\\` directive"`;
+      stub("ty-stand-in", `${warn("app/main.py")}; ${warn("app/new.py")}; echo "Found 2 diagnostics"; exit 1`);
       try {
         put(repo, "app/new.py", "X = 1\n");
         const ok = check();
         expect(ok.stdout).not.toContain("forge:python/typecheck failed");
         expect(ok.stdout).toContain("forge:python/typecheck ok for the changed files (only warnings)");
-        stub("basedpyright", `${warn("app/main.py")}; echo "  ${root}/app/new.py:1:5 - error: Type mismatch"; echo "1 error, 1 warning, 0 notes"; exit 1`);
+        stub("ty-stand-in", `${warn("app/main.py")}; echo "app/new.py:1:5: error[invalid-assignment] Type mismatch"; echo "Found 2 diagnostics"; exit 1`);
         const bad = check();
-        expect(bad.stdout).toContain(`forge:python/typecheck failed\n  ${root}/app/new.py:1:5 - error: Type mismatch`);
+        expect(bad.stdout).toContain("forge:python/typecheck failed\napp/new.py:1:5: error[invalid-assignment] Type mismatch");
         // "Warning" in prose (a crash, no diagnostic location) is not a warning diagnostic: the run fails
-        stub("basedpyright", `echo "basedpyright stopped: loading the config raised PendingDeprecationWarning"; exit 1`);
-        expect(check().stdout).toContain("forge:python/typecheck failed\nbasedpyright stopped: loading the config raised PendingDeprecationWarning");
+        stub("ty-stand-in", `echo "ty failed: loading the config raised PendingDeprecationWarning"; exit 2`);
+        expect(check().stdout).toContain("forge:python/typecheck failed\nty failed: loading the config raised PendingDeprecationWarning");
       } finally {
-        unlinkSync(join(repo, ".venv/bin/basedpyright"));
+        stub("ty-stand-in", "exit 0");
         reset();
       }
     },
@@ -947,7 +971,7 @@ describe("failing tests at the start of the turn in a workspace package", () => 
  * change's. `--since <ref>` measures the change from `git merge-base <ref> HEAD`.
  */
 describe("added lines", () => {
-  const QUERY = "def f(session):\n    return session.query(1)\n";
+  const QUERY = "def f():\n    return declarative_base(1)\n";
   /** The fastapi sample, applied, with app/legacy.py (a forbidden match) committed. */
   function legacyRepo(): string {
     const r = applied("fastapi-app");
@@ -956,64 +980,64 @@ describe("added lines", () => {
     git(r, "commit", "-qm", "legacy", "--no-verify"); // the forge pre-commit hook would refuse it
     return r;
   }
-  const run = (r: string, ...args: string[]) => sh("sh", [".forge/check.sh", ...args], { cwd: r });
+  const run = (r: string, ...args: string[]) => sh("sh", [".forge/check.sh", ...args], { cwd: r, env: TY_FINDS_NOTHING });
 
-  /** @rule python/sqlalchemy/no-query-api */
+  /** @rule python/sqlalchemy/no-declarative-base */
   test(
     "--changed: a match on a line that was already at HEAD does not fail; one on an added line does, and only that one is reported",
     () => {
       const r = legacyRepo();
       put(r, "app/legacy.py", QUERY + "\n\nX = 1\n");
       expect(run(r, "--changed").status).toBe(0);
-      put(r, "app/legacy.py", QUERY + "\n\ndef g(session):\n    return session.query(2)\n");
+      put(r, "app/legacy.py", QUERY + "\n\ndef g():\n    return declarative_base(2)\n");
       const out = run(r, "--changed");
       expect(out.status).toBe(1);
-      expect(out.stdout).toContain("forge:python/sqlalchemy/no-query-api app/legacy.py:6:12");
+      expect(out.stdout).toContain("forge:python/sqlalchemy/no-declarative-base app/legacy.py:6:12");
       expect(out.stdout).not.toContain("app/legacy.py:2:12");
     },
     T,
   );
 
-  /** @rule python/sqlalchemy/no-query-api */
+  /** @rule python/sqlalchemy/no-declarative-base */
   test(
     "a match spanning an edited line counts, and so does code moved to another place",
     () => {
       const r = applied("fastapi-app");
-      put(r, "app/span.py", "def f(session):\n    return session.query(\n        1,\n    )\n\n\nX = 1\n");
+      put(r, "app/span.py", "def f():\n    return declarative_base(\n        1,\n    )\n\n\nX = 1\n");
       git(r, "add", "-A");
       git(r, "commit", "-qm", "span", "--no-verify");
-      put(r, "app/span.py", "def f(session):\n    return session.query(\n        2,\n    )\n\n\nX = 1\n");
-      expect(run(r, "--changed").stdout).toContain("forge:python/sqlalchemy/no-query-api app/span.py:2:12");
+      put(r, "app/span.py", "def f():\n    return declarative_base(\n        2,\n    )\n\n\nX = 1\n");
+      expect(run(r, "--changed").stdout).toContain("forge:python/sqlalchemy/no-declarative-base app/span.py:2:12");
       git(r, "checkout", "-q", "--", "app/span.py");
       put(r, "app/span.py", "X = 1\n");
-      put(r, "app/moved.py", "def f(session):\n    return session.query(\n        1,\n    )\n");
-      expect(run(r, "--changed").stdout).toContain("forge:python/sqlalchemy/no-query-api app/moved.py:2:12");
+      put(r, "app/moved.py", "def f():\n    return declarative_base(\n        1,\n    )\n");
+      expect(run(r, "--changed").stdout).toContain("forge:python/sqlalchemy/no-declarative-base app/moved.py:2:12");
     },
     T,
   );
 
-  /** @rule python/sqlalchemy/no-query-api */
+  /** @rule python/sqlalchemy/no-declarative-base */
   test(
     "--all still reports every match in the project",
     () => {
       const r = legacyRepo();
-      expect(run(r, "--all").stdout).toContain("forge:python/sqlalchemy/no-query-api app/legacy.py:2:12");
+      expect(run(r, "--all").stdout).toContain("forge:python/sqlalchemy/no-declarative-base app/legacy.py:2:12");
     },
     T,
   );
 
-  /** @rule python/sqlalchemy/no-query-api */
+  /** @rule python/sqlalchemy/no-declarative-base */
   test(
     "--since <ref>: what a branch added since its merge base with <ref> fails, committed or not; the base's own code does not",
     () => {
       const r = legacyRepo();
       git(r, "checkout", "-q", "-b", "feature");
-      put(r, "app/feature.py", "def g(session):\n    return session.query(2)\n");
+      put(r, "app/feature.py", "def g():\n    return declarative_base(2)\n");
       git(r, "add", "-A");
       git(r, "commit", "-qm", "feature", "--no-verify");
       const out = run(r, "--since", "main");
       expect(out.status).toBe(1);
-      expect(out.stdout).toContain("forge:python/sqlalchemy/no-query-api app/feature.py:2:12");
+      expect(out.stdout).toContain("forge:python/sqlalchemy/no-declarative-base app/feature.py:2:12");
       expect(out.stdout).not.toContain("app/legacy.py");
       // --changed sees nothing: the work is committed
       expect(run(r, "--changed").status).toBe(0);
@@ -1261,7 +1285,7 @@ ALTER TABLE "Post" ADD CONSTRAINT "Post_authorId_fkey" FOREIGN KEY ("authorId") 
     commitAll(r, "forge");
     return r;
   }
-  const run = (r: string, mode: string, env: Record<string, string> = {}) => sh("sh", [".forge/check.sh", mode], { cwd: r, env });
+  const run = (r: string, mode: string, env: Record<string, string> = {}) => sh("sh", [".forge/check.sh", mode], { cwd: r, env: { ...TY_FINDS_NOTHING, ...env } });
 
   /** @rule typescript/prisma/migration-lint */
   test.if(hasBun)(

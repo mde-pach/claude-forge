@@ -64,6 +64,8 @@ if [ -f "$snap/head" ]; then FORGE_SNAP=$snap; FORGE_BASE_REV=$(cat "$snap/head"
 # Each tool runs once on all the files; what is found is appended to the report as
 # it comes, so a run cut short by the time budget still returns what it has.
 forge_edit_checks() {
+  # the types engine resyncs the changed files before any question (§15.3)
+  forge_types_changed $(cat "$FORGE_TMP/changed")
   forge_file_stage format "$FORGE_TMP/changed" > /dev/null 2>&1
   # safe fixes first (sorted imports, pyupgrade), then lint: a lint run may write too
   # (Biome's check --write applies its safe fixes and formats), so copies are kept to
@@ -87,9 +89,13 @@ forge_edit_checks() {
   if [ -s "$FORGE_TMP/changed" ] && [ -n "$FORGE_FORBID" ] && [ -f .forge/ast-grep/sgconfig.yml ]; then
     set -f
     # shellcheck disable=SC2046
-    astgrep scan -c .forge/ast-grep/sgconfig.yml --filter "^($FORGE_FORBID)\$" --json=stream $(cat "$FORGE_TMP/changed") > "$FORGE_TMP/forbid" 2>/dev/null
+    astgrep scan -c .forge/ast-grep/sgconfig.yml --filter "^($FORGE_FORBID)\$" --json=stream --include-metadata $(cat "$FORGE_TMP/changed") > "$FORGE_TMP/forbid" 2>/dev/null
     set +f
-    forge_sg_report "$FORGE_TMP/forbid" >> "$FORGE_TMP/report"
+    # matches on added lines; those of rules with type constraints only when the
+    # types engine confirms them (§15.1)
+    forge_sg_report "$FORGE_TMP/forbid" json > "$FORGE_TMP/forbid.added"
+    FORGE_TYPES_EDIT=1 forge_types_filter "$FORGE_TMP/forbid.added" >> "$FORGE_TMP/report"
+    forge_sg_report "$FORGE_TMP/forbid.added" >> "$FORGE_TMP/report"
   fi
   return 0
 }

@@ -11,13 +11,11 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pytest>=8.3", "ruff>=0.8", "basedpyright>=1.22"]
+dev = ["pytest>=8.3", "ruff>=0.8"]
 
 [tool.ruff.lint]
 select = ["E", "F", "ANN401", "E722"]
 
-[tool.basedpyright]
-reportExplicitAny = "error"
 
 [tool.uv]
 exclude-newer = "7 days"

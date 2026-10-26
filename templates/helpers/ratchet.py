@@ -100,36 +100,30 @@ def ruff(path, before, after, prefix=""):
                 out(path, f"{prefix}lint.{key} adds {x}")
 
 
-# ---- basedpyright / pyright
+# ---- ty
 
-MODES = ["off", "basic", "standard", "strict", "recommended", "all"]
-LEVELS = {"none": 0, False: 0, "false": 0, "information": 1, "warning": 2, "error": 3, True: 3, "true": 3}
+TY_LEVELS = {"ignore": 0, "warn": 1, "error": 2}
 
 
-def pyright(path, b, a, prefix="", default="standard"):
-    mb, ma = b.get("typeCheckingMode"), a.get("typeCheckingMode")
-    if mb in MODES and MODES.index(mb) > MODES.index(ma if ma in MODES else default):
-        out(path, f"{prefix}typeCheckingMode {mb} -> {show(ma)}")
-    for key, vb in b.items():
-        if not key.startswith("report"):
+def ty(path, b, a, prefix=""):
+    rb, ra = b.get("rules") or {}, a.get("rules") or {}
+    for key, vb in rb.items():
+        if vb not in TY_LEVELS:
             continue
-        va = a.get(key)
-        lb, la = LEVELS.get(vb, 0), LEVELS.get(va, -1)
-        if va is None and lb > 0:
-            out(path, f"{prefix}{key} {show(vb)} -> unset")
-        elif la >= 0 and la < lb:
-            out(path, f"{prefix}{key} {show(vb)} -> {show(va)}")
-    if b.get("failOnWarnings") is True and a.get("failOnWarnings") is not True:
-        out(path, f"{prefix}failOnWarnings true -> {show(a.get('failOnWarnings'))}")
-    if b.get("enableTypeIgnoreComments") is False and a.get("enableTypeIgnoreComments") is not False:
-        out(path, f"{prefix}enableTypeIgnoreComments false -> {show(a.get('enableTypeIgnoreComments'))}")
-    for key in ("exclude", "ignore"):
-        for x in as_list(a.get(key)):
-            if x not in as_list(b.get(key)):
-                out(path, f"{prefix}{key} adds {x}")
-    for x in as_list(b.get("strict")):
-        if x not in as_list(a.get("strict")):
-            out(path, f"{prefix}strict no longer has {x}")
+        va = ra.get(key)
+        if va is None and TY_LEVELS[vb] > 0:
+            out(path, f"{prefix}rules.{key} {show(vb)} -> unset")
+        elif va in TY_LEVELS and TY_LEVELS[va] < TY_LEVELS[vb]:
+            out(path, f"{prefix}rules.{key} {show(vb)} -> {show(va)}")
+    tb, ta = b.get("terminal") or {}, a.get("terminal") or {}
+    if tb.get("error-on-warning") is True and ta.get("error-on-warning") is not True:
+        out(path, f"{prefix}terminal.error-on-warning true -> {show(ta.get('error-on-warning'))}")
+    sb, sa = b.get("src") or {}, a.get("src") or {}
+    for x in as_list(sa.get("exclude")):
+        if x not in as_list(sb.get("exclude")):
+            out(path, f"{prefix}src.exclude adds {x}")
+    if len(as_list(a.get("overrides"))) > len(as_list(b.get("overrides"))):
+        out(path, f"{prefix}overrides adds an entry")
 
 
 # ---- pytest
@@ -176,7 +170,7 @@ def main():
     base = sys.argv[1]
     for path in sys.argv[2:]:
         name = path.rsplit("/", 1)[-1]
-        if name not in ("pyproject.toml", "ruff.toml", ".ruff.toml", "pyrightconfig.json"):
+        if name not in ("pyproject.toml", "ruff.toml", ".ruff.toml", "ty.toml"):
             continue
         try:
             with open(f"{base}/{path}", encoding="utf-8") as f:
@@ -194,12 +188,11 @@ def main():
         if name == "pyproject.toml":
             tb, ta = before.get("tool") or {}, after.get("tool") or {}
             ruff(path, tb.get("ruff") or {}, ta.get("ruff") or {}, "tool.ruff.")
-            for tool, default in (("basedpyright", "recommended"), ("pyright", "standard")):
-                pyright(path, tb.get(tool) or {}, ta.get(tool) or {}, f"tool.{tool}.", default)
+            ty(path, tb.get("ty") or {}, ta.get("ty") or {}, "tool.ty.")
             pytest(path, (tb.get("pytest") or {}).get("ini_options") or {}, (ta.get("pytest") or {}).get("ini_options") or {}, "tool.pytest.ini_options.")
             coverage(path, tb.get("coverage") or {}, ta.get("coverage") or {}, "tool.coverage.")
-        elif name == "pyrightconfig.json":
-            pyright(path, before, after)
+        elif name == "ty.toml":
+            ty(path, before, after)
         else:
             ruff(path, before, after)
     for f in findings:

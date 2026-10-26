@@ -12,7 +12,7 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSyn
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { renderChecks } from "../../src/render";
-import { applied, commitAll, ensureTools, forge, git, hasBun, hasUv, hookJson, linkTools, put, sampleRepo, sh, stateDir, TOOLS_CACHE } from "../helpers";
+import { applied, commitAll, ensureTools, forge, git, hasBun, hasUv, hookJson, linkTools, put, sampleRepo, sh, stateDir, stopEngines, TOOLS_CACHE } from "../helpers";
 
 const T = 180_000;
 const SCRIPTS = ".claude/skills/forge-project/scripts";
@@ -31,21 +31,25 @@ function hook(script: string, fields: Record<string, unknown>, env: Record<strin
  */
 function reset() {
   if (!repo) return;
+  // SessionStart starts the types engines (§15.3): none outlives the test
+  stopEngines(repo);
   git(repo, "reset", "-q", "--hard");
   git(repo, "clean", "-qfdx", "-e", ".venv");
   rmSync(stateDir(repo), { recursive: true, force: true });
 }
 afterEach(reset);
-/** Runs <fn> with the real basedpyright (TOOL_VERSIONS.basedpyright) linked into the repository's .venv, removed afterwards. */
-function withRealBasedpyright(fn: () => void) {
-  ensureTools();
-  const p = join(repo, ".venv", "bin", "basedpyright");
+/** Runs <fn> with the real ty (Forge's pinned one, through uvx): without the repository's ty stand-in, put back afterwards. */
+function withRealTy(fn: () => void) {
+  const p = join(repo, ".venv", "bin", "ty-stand-in");
+  const saved = existsSync(p) ? readFileSync(p, "utf8") : undefined;
   rmSync(p, { force: true });
-  symlinkSync(join(TOOLS_CACHE, ".venv", "bin", "basedpyright"), p);
   try {
     fn();
   } finally {
-    rmSync(p, { force: true });
+    if (saved !== undefined) {
+      writeFileSync(p, saved);
+      chmodSync(p, 0o755);
+    }
   }
 }
 /** A stand-in for a project tool in the repository's .venv. */
@@ -54,21 +58,25 @@ function stubTool(name: string, body: string) {
   writeFileSync(p, `#!/bin/sh\n${body}\n`);
   chmodSync(p, 0o755);
 }
-/** Runs <fn> with a stand-in for a project tool in the repository's .venv, removed afterwards. */
+/** Runs <fn> with a stand-in for a tool in the repository's .venv (ty's: ty-stand-in), then puts back what was there. */
 function withStub(name: string, body: string, fn: () => void) {
+  const p = join(repo, ".venv", "bin", name);
+  const saved = existsSync(p) ? readFileSync(p, "utf8") : undefined;
   stubTool(name, body);
   try {
     fn();
   } finally {
-    rmSync(join(repo, ".venv", "bin", name), { force: true });
+    rmSync(p, { force: true });
+    if (saved !== undefined) {
+      writeFileSync(p, saved);
+      chmodSync(p, 0o755);
+    }
   }
 }
 /**
- * A basedpyright that takes a second, then reports a type error in app/main.py,
- * for the tests of when typecheck.sh runs (its lock, headless sessions), where
- * the tool's own output is not under test. They need no uv, and do not depend on
- * how the real one judges the sample: basedpyright 1.40 exits 1 on the sample's
- * two warnings (recommended mode fails on warnings).
+ * A ty that takes a second, then reports a type error in app/main.py, for the tests
+ * of when typecheck.sh runs (its lock, headless sessions), where the tool's own output
+ * is not under test: they do not depend on how the real one judges the sample.
  */
 const FAILING_TYPECHECK = 'sleep 1; echo "app/main.py:1:1 - error: stand-in type error"; exit 1';
 /** Runs <fn> with the repository's .venv/bin/ruff replaced by a wrapper around the real one (<body> runs first), restored afterwards. */
@@ -97,6 +105,9 @@ beforeAll(() => {
   mkdirSync(join(repo, ".venv", "bin"), { recursive: true });
   const ruff = sh("sh", ["-c", "command -v ruff"]).stdout.trim();
   if (ruff) symlinkSync(ruff, join(repo, ".venv", "bin", "ruff"));
+  // ty (Forge's, through uvx) finds nothing here unless a test says otherwise: the sample's
+  // dependencies are not installed, and these tests are not about what ty finds
+  stubTool("ty-stand-in", "exit 0");
 }, T);
 
 test(
@@ -360,7 +371,7 @@ describe("files changed by Bash", () => {
   const bash = (id: string, extra: Record<string, unknown> = {}) => ({ tool_name: "Bash", tool_use_id: id, tool_input: { command: "python3 - <<EOF" }, ...extra });
   const objects = () => git(repo, "count-objects").stdout;
 
-  /** @rule python/sqlalchemy/no-query-api */
+  /** @rule python/sqlalchemy/no-declarative-base */
   test(
     "a Bash command that writes a forbidden pattern into a new untracked file gets the finding as additionalContext; the user's index and object store are untouched",
     () => {
@@ -369,9 +380,9 @@ describe("files changed by Bash", () => {
       const index = readFileSync(join(repo, ".git/index"));
       const before = objects();
       expect(hook("bash-snapshot.sh", bash("toolu_b1")).stdout).toBe("");
-      put(repo, "app/via_bash.py", "def f(session):\n    return session.query(1)\n");
+      put(repo, "app/via_bash.py", "def f():\n    return declarative_base(1)\n");
       const out = JSON.parse(hook("post-edit.sh", bash("toolu_b1")).stdout).hookSpecificOutput;
-      expect(out.additionalContext).toContain("forge:python/sqlalchemy/no-query-api app/via_bash.py:2:12");
+      expect(out.additionalContext).toContain("forge:python/sqlalchemy/no-declarative-base app/via_bash.py:2:12");
       expect(readFileSync(join(repo, ".git/index")).equals(index)).toBe(true);
       expect(objects()).toBe(before);
       expect(existsSync(join(stateDir(repo), "bash/objects"))).toBe(false);
@@ -380,7 +391,7 @@ describe("files changed by Bash", () => {
     T,
   );
 
-  /** @rule python/sqlalchemy/no-query-api */
+  /** @rule python/sqlalchemy/no-declarative-base */
   test(
     "a modified tracked file is checked on the lines the turn added; a command that changes nothing prints nothing",
     () => {
@@ -388,32 +399,32 @@ describe("files changed by Bash", () => {
       hook("bash-snapshot.sh", bash("toolu_b2", { session_id: "b-2" }));
       expect(hook("post-edit.sh", bash("toolu_b2", { session_id: "b-2" })).stdout).toBe("");
       hook("bash-snapshot.sh", bash("toolu_b3", { session_id: "b-2" }));
-      put(repo, "app/main.py", readFileSync(join(repo, "app/main.py"), "utf8") + "\n\ndef q(session):\n    return session.query(2)\n");
-      expect(JSON.parse(hook("post-edit.sh", bash("toolu_b3", { session_id: "b-2" })).stdout).hookSpecificOutput.additionalContext).toContain("forge:python/sqlalchemy/no-query-api app/main.py:");
+      put(repo, "app/main.py", readFileSync(join(repo, "app/main.py"), "utf8") + "\n\ndef q():\n    return declarative_base(2)\n");
+      expect(JSON.parse(hook("post-edit.sh", bash("toolu_b3", { session_id: "b-2" })).stdout).hookSpecificOutput.additionalContext).toContain("forge:python/sqlalchemy/no-declarative-base app/main.py:");
       reset();
     },
     T,
   );
 
-  /** @rule python/sqlalchemy/no-query-api python/typecheck */
+  /** @rule python/sqlalchemy/no-declarative-base python/typecheck */
   test.if(hasUv)(
     "a Bash command that fails or is interrupted after writing files is checked like one that succeeded (PostToolUseFailure)",
     () =>
-      withRealBasedpyright(() => {
+      withRealTy(() => {
         const failed = (id: string, extra: Record<string, unknown> = {}) =>
           bash(id, { hook_event_name: "PostToolUseFailure", error: "Exit code 3", is_interrupt: false, ...extra });
         hook("bash-snapshot.sh", bash("toolu_f1"));
-        put(repo, "app/partial_a.py", "def f(session):\n    return session.query(1)\n");
+        put(repo, "app/partial_a.py", "def f():\n    return declarative_base(1)\n");
         put(repo, "app/partial_b.py", 'X: int = "no"\n');
         const out = JSON.parse(hook("post-edit.sh", failed("toolu_f1")).stdout).hookSpecificOutput;
         expect(out.hookEventName).toBe("PostToolUseFailure");
-        expect(out.additionalContext).toContain("forge:python/sqlalchemy/no-query-api app/partial_a.py:2:12");
+        expect(out.additionalContext).toContain("forge:python/sqlalchemy/no-declarative-base app/partial_a.py:2:12");
         const r = hook("typecheck.sh", failed("toolu_f1"));
         expect(r.status).toBe(2);
-        expect(r.stderr).toContain("app/partial_b.py:1:10 - error: Type \"Literal['no']\" is not assignable to declared type \"int\"");
+        expect(r.stderr).toContain('app/partial_b.py:1:10: error[invalid-assignment] Object of type `Literal["no"]` is not assignable to `int`');
         expect(readdirSync(join(stateDir(repo), "bash")).filter((f) => f.startsWith("toolu_f1"))).toEqual([]);
         hook("bash-snapshot.sh", bash("toolu_f2"));
-        put(repo, "app/interrupted.py", "def g(session):\n    return session.query(2)\n");
+        put(repo, "app/interrupted.py", "def g():\n    return declarative_base(2)\n");
         expect(JSON.parse(hook("post-edit.sh", failed("toolu_f2", { error: "Interrupted", is_interrupt: true })).stdout).hookSpecificOutput.additionalContext).toContain(
           "app/interrupted.py:2:12",
         );
@@ -426,18 +437,18 @@ describe("files changed by Bash", () => {
    * call), so each runs once for all the files a command changed, and the checks stop
    * after `FORGE_EDIT_BUDGET` (45 s, under the hook's 60 s timeout) with what they found.
    */
-  /** @rule python/format python/lint python/sqlalchemy/no-query-api */
+  /** @rule python/format python/lint python/sqlalchemy/no-declarative-base */
   test(
     "after a Bash command that changed several files, each tool runs once on all of them, and each file's findings are reported",
     () => {
       const log = join(mkdtempSync(join(tmpdir(), "forge-ruff-")), "calls");
       withRuffWrapper(`printf '%s\\n' "$*" >> "${log}"`, () => {
         hook("bash-snapshot.sh", bash("toolu_m1"));
-        put(repo, "app/m1.py", "import os\n\ndef f(session):\n    return session.query(1)\n");
-        put(repo, "app/m2.py", "import sys\n\ndef g(session):\n    return session.query(2)\n");
+        put(repo, "app/m1.py", "import os\n\ndef f():\n    return declarative_base(1)\n");
+        put(repo, "app/m2.py", "import sys\n\ndef g():\n    return declarative_base(2)\n");
         const ctx = JSON.parse(hook("post-edit.sh", bash("toolu_m1")).stdout).hookSpecificOutput.additionalContext;
-        expect(ctx).toContain("forge:python/sqlalchemy/no-query-api app/m1.py:5:12");
-        expect(ctx).toContain("forge:python/sqlalchemy/no-query-api app/m2.py:5:12");
+        expect(ctx).toContain("forge:python/sqlalchemy/no-declarative-base app/m1.py:5:12");
+        expect(ctx).toContain("forge:python/sqlalchemy/no-declarative-base app/m2.py:5:12");
         expect(ctx).toContain("app/m1.py:1:8: F401");
         expect(ctx).toContain("app/m2.py:1:8: F401");
         const calls = readFileSync(log, "utf8").trim().split("\n");
@@ -451,7 +462,7 @@ describe("files changed by Bash", () => {
     T,
   );
 
-  /** @rule python/sqlalchemy/no-query-api */
+  /** @rule python/sqlalchemy/no-declarative-base */
   test(
     "checks still running after FORGE_EDIT_BUDGET seconds are stopped, and Claude gets what was found with a note",
     () =>
@@ -470,7 +481,7 @@ describe("files changed by Bash", () => {
     "files under .forge/, .claude/, .git/, node_modules/ and .venv/ are not checked, and deleted files are ignored",
     () => {
       hook("bash-snapshot.sh", bash("toolu_b4"));
-      put(repo, "node_modules/pkg/q.py", "def f(session):\n    return session.query(1)\n");
+      put(repo, "node_modules/pkg/q.py", "def f():\n    return declarative_base(1)\n");
       rmSync(join(repo, "app/main.py"));
       expect(hook("post-edit.sh", bash("toolu_b4")).stdout).toBe("");
       reset();
@@ -482,14 +493,14 @@ describe("files changed by Bash", () => {
   test.if(hasUv)(
     "typecheck.sh runs when a Bash command changed a file in a typecheck's scope, using the list post-edit.sh wrote",
     () =>
-      withRealBasedpyright(() => {
+      withRealTy(() => {
         hook("bash-snapshot.sh", bash("toolu_b5"));
         put(repo, "app/typed.py", 'X: int = "no"\n');
         hook("post-edit.sh", bash("toolu_b5"));
         const r = hook("typecheck.sh", bash("toolu_b5"));
         expect(r.status).toBe(2);
         expect(r.stderr).toContain("forge:python/typecheck");
-        expect(r.stderr).toContain("app/typed.py:1:10 - error: Type \"Literal['no']\" is not assignable to declared type \"int\"");
+        expect(r.stderr).toContain('app/typed.py:1:10: error[invalid-assignment] Object of type `Literal["no"]` is not assignable to `int`');
         expect(existsSync(join(stateDir(repo), "bash/toolu_b5.files"))).toBe(false);
       }),
     T,
@@ -602,19 +613,19 @@ describe("safe fixes after an edit", () => {
 });
 
 describe("PostToolUse", () => {
-  /** @rule python/format python/lint python/sqlalchemy/no-query-api */
+  /** @rule python/format python/lint python/sqlalchemy/no-declarative-base */
   test(
     "post-edit formats the file silently, then returns lint and ast-grep findings for this file as additionalContext (≤ 20 lines)",
     () => {
-      put(repo, "app/q.py", "import os\n\ndef f(session):\n    return session.query(1)\n");
+      put(repo, "app/q.py", "import os\n\ndef f():\n    return declarative_base(1)\n");
       const r = hook("post-edit.sh", edit("app/q.py"));
       expect(r.status).toBe(0);
       const out = JSON.parse(r.stdout).hookSpecificOutput;
       expect(out.hookEventName).toBe("PostToolUse");
-      expect(out.additionalContext).toContain("forge:python/sqlalchemy/no-query-api app/q.py:5:12");
+      expect(out.additionalContext).toContain("forge:python/sqlalchemy/no-declarative-base app/q.py:5:12");
       if (!existsSync(join(repo, ".venv/bin/ruff"))) throw new Error("ruff is required on PATH for this test");
       expect(out.additionalContext).toContain("F401");
-      expect(readFileSync(join(repo, "app/q.py"), "utf8")).toBe("import os\n\n\ndef f(session):\n    return session.query(1)\n");
+      expect(readFileSync(join(repo, "app/q.py"), "utf8")).toBe("import os\n\n\ndef f():\n    return declarative_base(1)\n");
       expect(out.additionalContext.split("\n").length).toBeLessThanOrEqual(20);
       reset();
     },
@@ -673,7 +684,7 @@ describe("PostToolUse", () => {
   test(
     "typecheck reports errors with exit 2 on stderr, and skips while another run holds the lock",
     () =>
-      withStub("basedpyright", FAILING_TYPECHECK, () => {
+      withStub("ty-stand-in", FAILING_TYPECHECK, () => {
         put(repo, "app/main.py", readFileSync(join(repo, "app/main.py"), "utf8") + '\nBROKEN: int = "no"\n');
         const input = join(mkdtempSync(join(tmpdir(), "forge-in-")), "in.json");
         writeFileSync(input, hookJson({ cwd: repo, ...edit("app/main.py") }));
@@ -696,7 +707,7 @@ describe("PostToolUse", () => {
   test(
     "under claude -p with a prompt (entrypoint sdk-cli, no streaming input) typecheck.sh does not run, leaving the typecheck to Stop; with --input-format stream-json, or FORGE_EDIT_TYPECHECK=always, it runs",
     () =>
-      withStub("basedpyright", FAILING_TYPECHECK, () => {
+      withStub("ty-stand-in", FAILING_TYPECHECK, () => {
         put(repo, "app/main.py", readFileSync(join(repo, "app/main.py"), "utf8") + '\nBROKEN: int = "no"\n');
         const input = join(mkdtempSync(join(tmpdir(), "forge-in-")), "in.json");
         writeFileSync(input, hookJson({ cwd: repo, ...edit("app/main.py") }));
@@ -726,7 +737,7 @@ describe("PostToolUse", () => {
   test(
     "typecheck takes over a lock whose process is gone",
     () =>
-      withStub("basedpyright", FAILING_TYPECHECK, () => {
+      withStub("ty-stand-in", FAILING_TYPECHECK, () => {
         put(repo, "app/main.py", readFileSync(join(repo, "app/main.py"), "utf8") + "\nX = 1\n");
         mkdirSync(join(stateDir(repo), "typecheck.lock"), { recursive: true });
         writeFileSync(join(stateDir(repo), "typecheck.lock/pid"), "999999\n");
@@ -905,15 +916,15 @@ describe("test edits", () => {
 });
 
 describe("Stop", () => {
-  /** @rule python/sqlalchemy/no-query-api */
+  /** @rule python/sqlalchemy/no-declarative-base */
   test(
     "stop blocks with the check output while check.sh fails, then hands over after 3 blocks",
     () => {
-      put(repo, "app/q.py", "def f(session):\n    return session.query(1)\n");
+      put(repo, "app/q.py", "def f():\n    return declarative_base(1)\n");
       for (let i = 0; i < 3; i++) {
         const out = JSON.parse(hook("stop.sh", { session_id: "s-1" }).stdout);
         expect(out.decision).toBe("block");
-        expect(out.reason).toContain("forge:python/sqlalchemy/no-query-api app/q.py:2:12");
+        expect(out.reason).toContain("forge:python/sqlalchemy/no-declarative-base app/q.py:2:12");
       }
       expect(JSON.parse(hook("stop.sh", { session_id: "s-1" }).stdout)).toEqual({ systemMessage: "forge: check failed 3 times. Handing over to you." });
       reset();
@@ -956,7 +967,7 @@ describe("Stop", () => {
   test(
     "work the user left uncommitted before the turn does not block Claude when the turn changes nothing",
     () => {
-      put(repo, "app/wip.py", "def f(session):\n    return session.query(1)\n");
+      put(repo, "app/wip.py", "def f():\n    return declarative_base(1)\n");
       expect(hook("turn-start.sh", { session_id: "t-1", hook_event_name: "UserPromptSubmit", prompt: "What does app/main.py do?" }).stdout).toBe("");
       expect(hook("stop.sh", { session_id: "t-1" }).stdout).toBe("");
       reset();
@@ -968,10 +979,10 @@ describe("Stop", () => {
     "a change made during the turn runs the check",
     () => {
       hook("turn-start.sh", { session_id: "t-2" });
-      put(repo, "app/q.py", "def f(session):\n    return session.query(1)\n");
+      put(repo, "app/q.py", "def f():\n    return declarative_base(1)\n");
       const out = JSON.parse(hook("stop.sh", { session_id: "t-2" }).stdout);
       expect(out.decision).toBe("block");
-      expect(out.reason).toContain("forge:python/sqlalchemy/no-query-api app/q.py:2:12");
+      expect(out.reason).toContain("forge:python/sqlalchemy/no-declarative-base app/q.py:2:12");
       reset();
     },
     T,
@@ -981,7 +992,7 @@ describe("Stop", () => {
     "without a turn-start snapshot (e.g. the first Stop after forge apply) the check runs on every changed file, as before",
     () => {
       rmSync(join(stateDir(repo), "t-3.turn"), { recursive: true, force: true });
-      put(repo, "app/wip.py", "def f(session):\n    return session.query(1)\n");
+      put(repo, "app/wip.py", "def f():\n    return declarative_base(1)\n");
       expect(JSON.parse(hook("stop.sh", { session_id: "t-3" }).stdout).decision).toBe("block");
       reset();
     },
@@ -991,10 +1002,10 @@ describe("Stop", () => {
   test(
     "a new prompt resets the Stop block counter",
     () => {
-      put(repo, "app/q.py", "def f(session):\n    return session.query(1)\n");
+      put(repo, "app/q.py", "def f():\n    return declarative_base(1)\n");
       for (let i = 0; i < 2; i++) expect(JSON.parse(hook("stop.sh", { session_id: "t-4" }).stdout).decision).toBe("block");
       hook("turn-start.sh", { session_id: "t-4" });
-      put(repo, "app/q2.py", "def g(session):\n    return session.query(2)\n");
+      put(repo, "app/q2.py", "def g():\n    return declarative_base(2)\n");
       for (let i = 0; i < 3; i++) expect(JSON.parse(hook("stop.sh", { session_id: "t-4" }).stdout).decision).toBe("block");
       expect(JSON.parse(hook("stop.sh", { session_id: "t-4" }).stdout).systemMessage).toContain("Handing over");
       reset();
@@ -1016,11 +1027,11 @@ describe("Stop", () => {
     T,
   );
 
-  /** @rule python/sqlalchemy/no-query-api */
+  /** @rule python/sqlalchemy/no-declarative-base */
   test(
     "Stop checks only what changed during the turn: the user's broken work in another file does not block a clean change",
     () => {
-      put(repo, "app/wip.py", "def f(session):\n    return session.query(1)\n");
+      put(repo, "app/wip.py", "def f():\n    return declarative_base(1)\n");
       hook("turn-start.sh", { session_id: "t-6" });
       put(repo, "app/ok.py", "X = 1\n");
       put(repo, "tests/test_ok.py", OK_TEST);
@@ -1030,19 +1041,19 @@ describe("Stop", () => {
     T,
   );
 
-  /** @rule python/sqlalchemy/no-query-api */
+  /** @rule python/sqlalchemy/no-declarative-base */
   test(
     "in a file the user had already changed, only the lines added during the turn count",
     () => {
-      put(repo, "app/wip.py", "def f(session):\n    return session.query(1)\n");
+      put(repo, "app/wip.py", "def f():\n    return declarative_base(1)\n");
       hook("turn-start.sh", { session_id: "t-7" });
-      put(repo, "app/wip.py", "def f(session):\n    return session.query(1)\n\n\nX = 1\n");
+      put(repo, "app/wip.py", "def f():\n    return declarative_base(1)\n\n\nX = 1\n");
       put(repo, "tests/test_wip.py", OK_TEST);
       expect(hook("stop.sh", { session_id: "t-7" }).stdout).toBe("");
       hook("turn-start.sh", { session_id: "t-7" });
-      put(repo, "app/wip.py", "def f(session):\n    return session.query(1)\n\n\ndef g(session):\n    return session.query(2)\n");
+      put(repo, "app/wip.py", "def f():\n    return declarative_base(1)\n\n\ndef g():\n    return declarative_base(2)\n");
       const reason = JSON.parse(hook("stop.sh", { session_id: "t-7" }).stdout).reason;
-      expect(reason).toContain("forge:python/sqlalchemy/no-query-api app/wip.py:6:12");
+      expect(reason).toContain("forge:python/sqlalchemy/no-declarative-base app/wip.py:6:12");
       expect(reason).not.toContain("app/wip.py:2:12");
       reset();
     },
@@ -1067,7 +1078,7 @@ describe("Stop", () => {
           "FAILED tests/test_main.py::test_health - assert 500 == 200",
         ]);
         expect(reason).toContain("PytestWarning: noise 0");
-        expect(lines.at(-1)).toBe("forge:python/typecheck skipped: basedpyright not installed");
+        expect(lines.at(-1)).toBe("forge:python/sqlalchemy/fk-index skipped: python not installed");
       } finally {
         rmSync(join(repo, ".venv/bin/pytest"));
         reset();
@@ -1118,14 +1129,14 @@ describe("Stop", () => {
     T,
   );
 
-  /** @rule python/sqlalchemy/no-query-api */
+  /** @rule python/sqlalchemy/no-declarative-base */
   test(
     "a file whose name is not ASCII is part of the turn's change: Stop checks it like any other",
     () => {
       hook("turn-start.sh", { session_id: "t-utf8" });
-      put(repo, "app/café.py", "def f(session):\n    return session.query(1)\n");
+      put(repo, "app/café.py", "def f():\n    return declarative_base(1)\n");
       const reason = JSON.parse(hook("stop.sh", { session_id: "t-utf8" }).stdout).reason;
-      expect(reason).toContain("forge:python/sqlalchemy/no-query-api app/café.py:2:12");
+      expect(reason).toContain("forge:python/sqlalchemy/no-declarative-base app/café.py:2:12");
       reset();
     },
     T,
@@ -1198,24 +1209,24 @@ describe("Stop", () => {
     "a commit made during the turn is still part of the turn",
     () => {
       hook("turn-start.sh", { session_id: "t-8" });
-      put(repo, "app/q.py", "def f(session):\n    return session.query(1)\n");
+      put(repo, "app/q.py", "def f():\n    return declarative_base(1)\n");
       git(repo, "add", "-A");
       git(repo, "commit", "-qm", "q", "--no-verify");
-      expect(JSON.parse(hook("stop.sh", { session_id: "t-8" }).stdout).reason).toContain("forge:python/sqlalchemy/no-query-api app/q.py:2:12");
+      expect(JSON.parse(hook("stop.sh", { session_id: "t-8" }).stdout).reason).toContain("forge:python/sqlalchemy/no-declarative-base app/q.py:2:12");
       git(repo, "reset", "-q", "--hard", "HEAD~1");
     },
     T,
   );
 
-  /** @rule python/sqlalchemy/no-query-api */
+  /** @rule python/sqlalchemy/no-declarative-base */
   test(
     "post-edit reports findings only on lines added during the turn",
     () => {
-      put(repo, "app/wip.py", "def f(session):\n    return session.query(1)\n");
+      put(repo, "app/wip.py", "def f():\n    return declarative_base(1)\n");
       hook("turn-start.sh", { session_id: "t-9" });
-      put(repo, "app/wip.py", "def f(session):\n    return session.query(1)\n\n\nX = 1\n");
+      put(repo, "app/wip.py", "def f():\n    return declarative_base(1)\n\n\nX = 1\n");
       expect(hook("post-edit.sh", { session_id: "t-9", ...edit("app/wip.py") }).stdout).toBe("");
-      put(repo, "app/wip.py", "def f(session):\n    return session.query(1)\n\n\ndef g(session):\n    return session.query(2)\n");
+      put(repo, "app/wip.py", "def f():\n    return declarative_base(1)\n\n\ndef g():\n    return declarative_base(2)\n");
       const ctx = JSON.parse(hook("post-edit.sh", { session_id: "t-9", ...edit("app/wip.py") }).stdout).hookSpecificOutput.additionalContext;
       expect(ctx).toContain("app/wip.py:6:12");
       expect(ctx).not.toContain("app/wip.py:2:12");
@@ -1291,7 +1302,7 @@ describe("Stop", () => {
   test.if(hasUv)(
     "typecheck wakes Claude only for errors in files changed during the turn",
     () =>
-      withRealBasedpyright(() => {
+      withRealTy(() => {
         put(repo, "app/wip.py", 'X: int = "no"\n');
         hook("turn-start.sh", { session_id: "t-10" });
         // the turn changes a file with no type error (the sample's main.py has a real one: fastapi is not installed here)
@@ -1392,6 +1403,7 @@ test(
     expect(run("post-edit.sh", tsEdit).status).toBe(0);
     expect(run("typecheck.sh", tsEdit).status).toBe(0);
     expect(run("guard.sh", { tool_name: "Bash", tool_input: { command: "ls" } }).status).toBe(0);
+    stopEngines(ts);
   },
   T,
 );

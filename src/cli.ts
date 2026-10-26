@@ -9,7 +9,7 @@ import { plan, readProjectInputs, type Plan } from "./plan.js";
 import { blockHash, CHECK, hasBlock, hookManager, insertBlock, managerInactive, onlyForge, preCommitPath, removeBlock, runsForgeCheck } from "./precommit.js";
 import { localSelfTest, testSummary } from "./selftest.js";
 import { addEntries, conflictingScalars, entryKey, hasEntry, removeEntries } from "./settings.js";
-import { CLAUDE_CODE_MIN, FORGE_VERSION, compareVersions, gitToplevel, lineDiff, ownedHash, packageRoot, run } from "./util.js";
+import { CLAUDE_CODE_MIN, ENGINE_PYTHON, FORGE_VERSION, TY_VERSION, compareVersions, gitToplevel, lineDiff, ownedHash, packageRoot, run } from "./util.js";
 import type { Level, Lock, LockBlock, SettingsEntry } from "./types.js";
 import { USAGE } from "./usage.js";
 
@@ -411,10 +411,23 @@ function cmdApply(flags: Flags): number {
     const pre = preCommitState(ctx);
     if (pre.activate) out(`forge: pre-commit: ${notChecked(ctx, pre)}`);
     else if (!pre.installed) out(`forge: pre-commit: not installed, so commits are not checked; ${preCommitHint(ctx.base)}`);
+    for (const problem of provisionEngines(ctx.plan.types)) out(problem);
   }
   const sandbox = sandboxProblem(ctx);
   if (sandbox) out(sandbox);
   return 0;
+}
+
+/**
+ * Fetches the pinned Python types engine into the uvx cache (§15.2), so the hooks start
+ * it offline; TypeScript's is the project's own (node_modules). Returns what could not be
+ * provisioned.
+ */
+function provisionEngines(langs: string[]): string[] {
+  if (!langs.includes("python")) return [];
+  const r = run("uvx", ["-q", "--python", ENGINE_PYTHON, "--from", `ty==${TY_VERSION}`, "ty", "--version"]);
+  if (r.status === 0) return [];
+  return [`forge: the python types engine (ty ${TY_VERSION}) could not be provisioned with uvx: ${(r.stderr || r.stdout).trim().split("\n").slice(-1)[0] || `exit ${r.status}`}; rules with type constraints are reported unchecked until it is`];
 }
 
 /**
@@ -498,7 +511,7 @@ interface Enforcement {
 const UNSATISFIED: Record<string, string> = {
   ruff: "ruff codes not selected",
   biome: "Biome rules not at error",
-  basedpyright: "basedpyright rules not at error",
+  ty: "ty rules not at error",
   tsc: "tsc options not set",
 };
 
