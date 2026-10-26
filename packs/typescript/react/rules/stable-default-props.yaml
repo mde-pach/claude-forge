@@ -1,0 +1,13 @@
+id: typescript/react/stable-default-props
+description: "Destructured props do not default to an object, array or function literal ({ items = [] }): it is a new value on every render, which defeats memo and re-runs effects. Hoist the default to a module constant."
+scope: {language: "tsx"}
+enforce:
+  - target: tool
+    tool: biome
+    expects: "lint/nursery/noReactObjectTypeAsDefaultProp"
+    snippet: "\"linter\": {\"rules\": {\"nursery\": {\"noReactObjectTypeAsDefaultProp\": \"error\"}}}"
+examples:
+  match:
+    - "export function List({ items = [], style = {}, onPick = () => {} }: { items?: string[]; style?: object; onPick?: () => void }) {\n  return <ul style={style} onClick={onPick}>{items.map((i) => <li key={i}>{i}</li>)}</ul>;\n}\n"
+  no_match:
+    - "const NO_ITEMS: string[] = [];\n\nexport function List({ items = NO_ITEMS, size = 3, label = \"x\" }: { items?: string[]; size?: number; label?: string }) {\n  return <ul data-size={size} title={label}>{items.map((i) => <li key={i}>{i}</li>)}</ul>;\n}\n"

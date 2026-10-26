@@ -778,11 +778,15 @@ Detected by `react >= 19` (npm); a sibling of `nextjs` and `astro`, so it applie
 | `typescript/react/no-dangerous-html` | `tool` biome `lint/security/noDangerouslySetInnerHtml`; `ast-grep` forbid the `dangerouslySetInnerHTML` attribute |
 | `typescript/react/hooks-rules` | `tool` biome `lint/correctness/useHookAtTopLevel`, `lint/correctness/useExhaustiveDependencies` |
 | `typescript/react/stable-keys` | `tool` biome `lint/suspicious/noArrayIndexKey` |
-| `typescript/react/no-nested-components` | `tool` biome `lint/correctness/noNestedComponentDefinitions` |
+| `typescript/react/no-nested-components` | `tool` biome `lint/correctness/noNestedComponentDefinitions`, `lint/nursery/noComponentHookFactories` (a function that defines and returns a component or hook) |
 | `typescript/react/a11y` | `tool` biome `lint/a11y/useAltText`, `lint/a11y/useButtonType` (snippet: the whole `a11y` group at error) |
 | `typescript/react/no-deprecated-types` | `tool` biome `lint/suspicious/noDeprecatedImports`, on imports React's types mark `@deprecated` (`ElementRef`, `MutableRefObject`, `LegacyRef`); Biome reads the tags from real `node_modules` directories only (not pnpm's symlinks) |
+| `typescript/react/compiler-rules` | `tool` biome `lint/nursery/useReactCompiler` (snippet: error, `compilationMode: infer`): no synchronous `setState` in an effect, no ref read or written while rendering, no impure call while rendering |
+| `typescript/react/no-prop-assign` | `tool` biome `lint/correctness/noReactPropAssignments` |
+| `typescript/react/stable-default-props` | `tool` biome `lint/nursery/noReactObjectTypeAsDefaultProp`: no object, array or function literal as a destructured prop's default |
+| `typescript/react/act-from-react` | `ast-grep` forbid: imports from `react-dom/test-utils` |
 
-context.md: React 19: `ref` is a prop (no `forwardRef`), `useActionState` and `act` from `react`, no `propTypes` / `defaultProps`, `createRoot` instead of `ReactDOM.render`.
+context.md: React 19: `ref` is a prop (no `forwardRef`), `useActionState` and `act` from `react`, no `propTypes` / `defaultProps` (object defaults hoisted), `createRoot` instead of `ReactDOM.render`, React Compiler's checks, props never assigned to.
 
 ### typescript/astro
 
