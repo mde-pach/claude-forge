@@ -18,8 +18,10 @@ process.env.FORGE_STATE_HOME ||= mkdtempSync(join(tmpdir(), "forge-state-home-")
  * interpreter discovery (300 ms more per call). The suite resolves them once: a
  * directory of symlinks to the executables the shims would run (looked up from a
  * temporary directory, where the hooks run), ahead of PATH, and the shims' directory
- * off PATH. The tools are the same; only the shim's lookup is skipped. A parent that
- * did it already (the runner, scripts/test.ts) passes FORGE_TEST_BIN and the PATH down.
+ * off PATH. The tools are the same; only the shim's lookup is skipped. On macOS,
+ * /usr/bin/git is an xcrun shim (12 ms per call, and the suite makes thousands): the git
+ * it runs (xcrun -f git) is linked the same way. A parent that did it already (the
+ * runner, scripts/test.ts) passes FORGE_TEST_BIN and the PATH down.
  *
  * Every spawn passes env: under Bun, a spawn without it gets the environment the process
  * started with, not process.env as changed here.
@@ -43,6 +45,11 @@ function resolveShims(): void {
     shimmed.forEach((n, i) => {
       if (real[i]?.startsWith("/")) symlinkSync(real[i]!, join(bin, n));
     });
+  }
+  const git = spawnSync("sh", ["-c", "command -v git"], { encoding: "utf8", env }).stdout?.trim();
+  if (git === "/usr/bin/git") {
+    const real = spawnSync("xcrun", ["-f", "git"], { encoding: "utf8", env });
+    if (real.status === 0 && real.stdout.trim().startsWith("/")) symlinkSync(real.stdout.trim(), join(bin, "git"));
   }
   process.env.PATH = [bin, ...(process.env.PATH ?? "").split(":").filter((d) => !shims.has(d.replace(/\/$/, "")))].join(":");
 }
