@@ -551,6 +551,9 @@ describe("errors in unchanged files", () => {
         stub("basedpyright", `${warn("app/main.py")}; echo "  ${root}/app/new.py:1:5 - error: Type mismatch"; echo "1 error, 1 warning, 0 notes"; exit 1`);
         const bad = check();
         expect(bad.stdout).toContain(`forge:python/typecheck failed\n  ${root}/app/new.py:1:5 - error: Type mismatch`);
+        // "Warning" in prose (a crash, no diagnostic location) is not a warning diagnostic: the run fails
+        stub("basedpyright", `echo "basedpyright stopped: loading the config raised PendingDeprecationWarning"; exit 1`);
+        expect(check().stdout).toContain("forge:python/typecheck failed\nbasedpyright stopped: loading the config raised PendingDeprecationWarning");
       } finally {
         unlinkSync(join(repo, ".venv/bin/basedpyright"));
         reset();

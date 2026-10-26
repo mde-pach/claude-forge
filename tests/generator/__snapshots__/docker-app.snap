@@ -3207,7 +3207,11 @@ forge_diagnostics() {
     {
       line = $0
       gsub(ansi, "", line)
-      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) { warned = 1; next }
+      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
+        # a warning diagnostic: a location, then "warning" as a word (not DeprecationWarning)
+        if (line ~ /^[[:space:]]*(-->[[:space:]]*)?[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+)/ && line ~ /(^|[^A-Za-z])[Ww]arning([^A-Za-z]|$)/) warned = 1
+        next
+      }
       if (line ~ /[Ee]rror/ && line !~ /(^|[^0-9])0 errors?([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -6215,7 +6219,11 @@ forge_diagnostics() {
     {
       line = $0
       gsub(ansi, "", line)
-      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) { warned = 1; next }
+      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
+        # a warning diagnostic: a location, then "warning" as a word (not DeprecationWarning)
+        if (line ~ /^[[:space:]]*(-->[[:space:]]*)?[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+)/ && line ~ /(^|[^A-Za-z])[Ww]arning([^A-Za-z]|$)/) warned = 1
+        next
+      }
       if (line ~ /[Ee]rror/ && line !~ /(^|[^0-9])0 errors?([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -9252,7 +9260,11 @@ forge_diagnostics() {
     {
       line = $0
       gsub(ansi, "", line)
-      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) { warned = 1; next }
+      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
+        # a warning diagnostic: a location, then "warning" as a word (not DeprecationWarning)
+        if (line ~ /^[[:space:]]*(-->[[:space:]]*)?[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+)/ && line ~ /(^|[^A-Za-z])[Ww]arning([^A-Za-z]|$)/) warned = 1
+        next
+      }
       if (line ~ /[Ee]rror/ && line !~ /(^|[^0-9])0 errors?([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -12299,7 +12311,11 @@ forge_diagnostics() {
     {
       line = $0
       gsub(ansi, "", line)
-      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) { warned = 1; next }
+      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
+        # a warning diagnostic: a location, then "warning" as a word (not DeprecationWarning)
+        if (line ~ /^[[:space:]]*(-->[[:space:]]*)?[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+)/ && line ~ /(^|[^A-Za-z])[Ww]arning([^A-Za-z]|$)/) warned = 1
+        next
+      }
       if (line ~ /[Ee]rror/ && line !~ /(^|[^0-9])0 errors?([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -16367,7 +16383,11 @@ forge_diagnostics() {
     {
       line = $0
       gsub(ansi, "", line)
-      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) { warned = 1; next }
+      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
+        # a warning diagnostic: a location, then "warning" as a word (not DeprecationWarning)
+        if (line ~ /^[[:space:]]*(-->[[:space:]]*)?[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+)/ && line ~ /(^|[^A-Za-z])[Ww]arning([^A-Za-z]|$)/) warned = 1
+        next
+      }
       if (line ~ /[Ee]rror/ && line !~ /(^|[^0-9])0 errors?([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -17418,13 +17438,13 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "ff61a19974ccfc38fe6771978c9f9fe21253d4132eff8af9f06b112607965a00",
     ".claude/skills/forge-project/scripts/guard.sh": "e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca",
     ".claude/skills/forge-project/scripts/lib.sh": "152f8eaffa7bff1c36014d0b95f8f50279703bc93f3057dd30b3253dcee62d7a",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "9b45d951b4bb91f1b010d7d2a811ff09c7c2ec2fbeb179c9ad013ff484a0c7a4",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "a08630dec875436dca76fa5690dd091af466568ca26a97125d0643395e927a0d",
     ".claude/skills/forge-project/scripts/review.sh": "889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726",
-    ".claude/skills/forge-project/scripts/session-start.sh": "de91e6b53a25d6ef07f6a15b235235c611c2b5e39341b158536c61866a7bebd1",
+    ".claude/skills/forge-project/scripts/session-start.sh": "e55ac0c1f3ffc26da650ea3d72bfe454a213f219924ae845ff9903627cc5fb6b",
     ".claude/skills/forge-project/scripts/stop.sh": "1e78a790452d312d15c58294e49a1f04507c108ba37cdf4797840a7399e26e40",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "ebd562ca41ce72972a1b3a2c8e20e40d7619635b4698f1eb39d9e331c2b99400",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "d10ddb8bef602de31a1fb4c6abbfd07518ad353cc1d1866bc48d3f7d53e38d38",
     ".claude/skills/forge-project/scripts/turn-start.sh": "fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "a3d3175553bc05820423ef68e208e0b88844a682743fded57ed20362befdb725",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "9b5a960942b8cc237f1023a502e3ee67f044af10b33f999967cda7269dcae14e",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/docker-compose-datastore-loopback-test.yml": "75507971edac1d4a2eca04e6bceb8a942429c0987372010b39ad0b7f126b55e9",
     ".forge/ast-grep/rule-tests/docker-compose-healthy-depends-test.yml": "bcd21e7f9112e5f0d44c9f5c9779824661b2f1dc40448323100787f342c4b7a8",
@@ -17447,7 +17467,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/python/no-secret-logging.yml": "d1cc1125fbf2e0916feeb06ba558b55d10b7f3e261987de058c46c20c2ebec8f",
     ".forge/ast-grep/rules/python/no-stub.yml": "0660a06b80fa4e3cccbc89f496275e8f093b873632d1d93ecb48e4315d987bbf",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "d4b2937da8324d576ecb09d60ac2358ad8ac90645b70d9438a8df869231c8f0e",
+    ".forge/check.sh": "55fd3573f991538628d282287b9291941ed59e0f16b267e5a88ccc4b2209b182",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -17500,13 +17520,13 @@ d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills
 ff61a19974ccfc38fe6771978c9f9fe21253d4132eff8af9f06b112607965a00  .claude/skills/forge-project/scripts/guard.rules
 e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca  .claude/skills/forge-project/scripts/guard.sh
 152f8eaffa7bff1c36014d0b95f8f50279703bc93f3057dd30b3253dcee62d7a  .claude/skills/forge-project/scripts/lib.sh
-9b45d951b4bb91f1b010d7d2a811ff09c7c2ec2fbeb179c9ad013ff484a0c7a4  .claude/skills/forge-project/scripts/post-edit.sh
+a08630dec875436dca76fa5690dd091af466568ca26a97125d0643395e927a0d  .claude/skills/forge-project/scripts/post-edit.sh
 889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726  .claude/skills/forge-project/scripts/review.sh
-de91e6b53a25d6ef07f6a15b235235c611c2b5e39341b158536c61866a7bebd1  .claude/skills/forge-project/scripts/session-start.sh
+e55ac0c1f3ffc26da650ea3d72bfe454a213f219924ae845ff9903627cc5fb6b  .claude/skills/forge-project/scripts/session-start.sh
 1e78a790452d312d15c58294e49a1f04507c108ba37cdf4797840a7399e26e40  .claude/skills/forge-project/scripts/stop.sh
-ebd562ca41ce72972a1b3a2c8e20e40d7619635b4698f1eb39d9e331c2b99400  .claude/skills/forge-project/scripts/test-edit.sh
+d10ddb8bef602de31a1fb4c6abbfd07518ad353cc1d1866bc48d3f7d53e38d38  .claude/skills/forge-project/scripts/test-edit.sh
 fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3  .claude/skills/forge-project/scripts/turn-start.sh
-a3d3175553bc05820423ef68e208e0b88844a682743fded57ed20362befdb725  .claude/skills/forge-project/scripts/typecheck.sh
+9b5a960942b8cc237f1023a502e3ee67f044af10b33f999967cda7269dcae14e  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 75507971edac1d4a2eca04e6bceb8a942429c0987372010b39ad0b7f126b55e9  .forge/ast-grep/rule-tests/docker-compose-datastore-loopback-test.yml
 bcd21e7f9112e5f0d44c9f5c9779824661b2f1dc40448323100787f342c4b7a8  .forge/ast-grep/rule-tests/docker-compose-healthy-depends-test.yml
@@ -17529,7 +17549,7 @@ e4fd92858db90ac12b535496548f182e453e83bc9cb24f53a102ab7fc98cd67b  .forge/ast-gre
 d1cc1125fbf2e0916feeb06ba558b55d10b7f3e261987de058c46c20c2ebec8f  .forge/ast-grep/rules/python/no-secret-logging.yml
 0660a06b80fa4e3cccbc89f496275e8f093b873632d1d93ecb48e4315d987bbf  .forge/ast-grep/rules/python/no-stub.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-d4b2937da8324d576ecb09d60ac2358ad8ac90645b70d9438a8df869231c8f0e  .forge/check.sh
+55fd3573f991538628d282287b9291941ed59e0f16b267e5a88ccc4b2209b182  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

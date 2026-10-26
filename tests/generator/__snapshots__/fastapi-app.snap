@@ -3287,7 +3287,11 @@ forge_diagnostics() {
     {
       line = $0
       gsub(ansi, "", line)
-      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) { warned = 1; next }
+      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
+        # a warning diagnostic: a location, then "warning" as a word (not DeprecationWarning)
+        if (line ~ /^[[:space:]]*(-->[[:space:]]*)?[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+)/ && line ~ /(^|[^A-Za-z])[Ww]arning([^A-Za-z]|$)/) warned = 1
+        next
+      }
       if (line ~ /[Ee]rror/ && line !~ /(^|[^0-9])0 errors?([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -6372,7 +6376,11 @@ forge_diagnostics() {
     {
       line = $0
       gsub(ansi, "", line)
-      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) { warned = 1; next }
+      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
+        # a warning diagnostic: a location, then "warning" as a word (not DeprecationWarning)
+        if (line ~ /^[[:space:]]*(-->[[:space:]]*)?[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+)/ && line ~ /(^|[^A-Za-z])[Ww]arning([^A-Za-z]|$)/) warned = 1
+        next
+      }
       if (line ~ /[Ee]rror/ && line !~ /(^|[^0-9])0 errors?([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -9486,7 +9494,11 @@ forge_diagnostics() {
     {
       line = $0
       gsub(ansi, "", line)
-      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) { warned = 1; next }
+      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
+        # a warning diagnostic: a location, then "warning" as a word (not DeprecationWarning)
+        if (line ~ /^[[:space:]]*(-->[[:space:]]*)?[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+)/ && line ~ /(^|[^A-Za-z])[Ww]arning([^A-Za-z]|$)/) warned = 1
+        next
+      }
       if (line ~ /[Ee]rror/ && line !~ /(^|[^0-9])0 errors?([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -12611,7 +12623,11 @@ forge_diagnostics() {
     {
       line = $0
       gsub(ansi, "", line)
-      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) { warned = 1; next }
+      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
+        # a warning diagnostic: a location, then "warning" as a word (not DeprecationWarning)
+        if (line ~ /^[[:space:]]*(-->[[:space:]]*)?[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+)/ && line ~ /(^|[^A-Za-z])[Ww]arning([^A-Za-z]|$)/) warned = 1
+        next
+      }
       if (line ~ /[Ee]rror/ && line !~ /(^|[^0-9])0 errors?([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -16888,7 +16904,11 @@ forge_diagnostics() {
     {
       line = $0
       gsub(ansi, "", line)
-      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) { warned = 1; next }
+      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
+        # a warning diagnostic: a location, then "warning" as a word (not DeprecationWarning)
+        if (line ~ /^[[:space:]]*(-->[[:space:]]*)?[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+)/ && line ~ /(^|[^A-Za-z])[Ww]arning([^A-Za-z]|$)/) warned = 1
+        next
+      }
       if (line ~ /[Ee]rror/ && line !~ /(^|[^0-9])0 errors?([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -17954,13 +17974,13 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "a3bb50a3648137c8e0c7cda3d1cb07050fcb36f990e50b8b2b7f46b78e363f20",
     ".claude/skills/forge-project/scripts/guard.sh": "e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca",
     ".claude/skills/forge-project/scripts/lib.sh": "152f8eaffa7bff1c36014d0b95f8f50279703bc93f3057dd30b3253dcee62d7a",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "258c265d6fc84063a4c5942f307752ae1625c6f9377c5bb0279ab73efe2231d6",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "ea72e042fdd5f53acae71ef390de7be632c8a1afc629da085b721f7480a230e0",
     ".claude/skills/forge-project/scripts/review.sh": "889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726",
-    ".claude/skills/forge-project/scripts/session-start.sh": "f32e0a3f262a363331f6df1931407278b1ecee2cc4989805bec919692e93c1c1",
+    ".claude/skills/forge-project/scripts/session-start.sh": "051ce193180a22e2025f9fedbcb3937592d89cf12cca9a61762ea763b7a4462c",
     ".claude/skills/forge-project/scripts/stop.sh": "1e78a790452d312d15c58294e49a1f04507c108ba37cdf4797840a7399e26e40",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "2bb173fb85d435bff705683960fe1561fc2a71f67211f53695fa5497a80dffaf",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "47c8a73d7957f31bf3c93655499355b95d3782f5c8d9fd0dae2d4cf155ac9d9c",
     ".claude/skills/forge-project/scripts/turn-start.sh": "fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "f7bbabe85369443c214e9dff91b74b7edf723f2dee00680d0951b0a2083cfbc1",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "69d5597fda81dc332bcadb8afab8e7cffa21d60ee06f0b407ef8387223007687",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml": "69a94f1a0b16aa08bcf758af3e3dc269266cdd808aba1a4289b4c58c7f969700",
     ".forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml": "1589382e5e0b5cae841a8f47dae9f2b3a8583a4bb1074ceb858d882e648e9b49",
@@ -17999,7 +18019,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml": "4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0",
     ".forge/ast-grep/rules/python/sqlalchemy/no-text-fstring.yml": "04c44c9e215449d46b10540e86e999ec1d6383d8c3a849855fe73cb456668fca",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "520cfcb1166de15f81174055c2b9742652fb2ed0160575ae68ed4e2d3d492835",
+    ".forge/check.sh": "925de968495bb21e329f127f5dbb8f81d48ae4e1c98af1f5904c06ab7440370c",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -18054,13 +18074,13 @@ d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills
 a3bb50a3648137c8e0c7cda3d1cb07050fcb36f990e50b8b2b7f46b78e363f20  .claude/skills/forge-project/scripts/guard.rules
 e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca  .claude/skills/forge-project/scripts/guard.sh
 152f8eaffa7bff1c36014d0b95f8f50279703bc93f3057dd30b3253dcee62d7a  .claude/skills/forge-project/scripts/lib.sh
-258c265d6fc84063a4c5942f307752ae1625c6f9377c5bb0279ab73efe2231d6  .claude/skills/forge-project/scripts/post-edit.sh
+ea72e042fdd5f53acae71ef390de7be632c8a1afc629da085b721f7480a230e0  .claude/skills/forge-project/scripts/post-edit.sh
 889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726  .claude/skills/forge-project/scripts/review.sh
-f32e0a3f262a363331f6df1931407278b1ecee2cc4989805bec919692e93c1c1  .claude/skills/forge-project/scripts/session-start.sh
+051ce193180a22e2025f9fedbcb3937592d89cf12cca9a61762ea763b7a4462c  .claude/skills/forge-project/scripts/session-start.sh
 1e78a790452d312d15c58294e49a1f04507c108ba37cdf4797840a7399e26e40  .claude/skills/forge-project/scripts/stop.sh
-2bb173fb85d435bff705683960fe1561fc2a71f67211f53695fa5497a80dffaf  .claude/skills/forge-project/scripts/test-edit.sh
+47c8a73d7957f31bf3c93655499355b95d3782f5c8d9fd0dae2d4cf155ac9d9c  .claude/skills/forge-project/scripts/test-edit.sh
 fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3  .claude/skills/forge-project/scripts/turn-start.sh
-f7bbabe85369443c214e9dff91b74b7edf723f2dee00680d0951b0a2083cfbc1  .claude/skills/forge-project/scripts/typecheck.sh
+69d5597fda81dc332bcadb8afab8e7cffa21d60ee06f0b407ef8387223007687  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 69a94f1a0b16aa08bcf758af3e3dc269266cdd808aba1a4289b4c58c7f969700  .forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml
 1589382e5e0b5cae841a8f47dae9f2b3a8583a4bb1074ceb858d882e648e9b49  .forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml
@@ -18099,7 +18119,7 @@ e1a15384665afb7aae24664c55f4d81523622a6ef117385b17f806bc30cd3c3f  .forge/ast-gre
 4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0  .forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml
 04c44c9e215449d46b10540e86e999ec1d6383d8c3a849855fe73cb456668fca  .forge/ast-grep/rules/python/sqlalchemy/no-text-fstring.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-520cfcb1166de15f81174055c2b9742652fb2ed0160575ae68ed4e2d3d492835  .forge/check.sh
+925de968495bb21e329f127f5dbb8f81d48ae4e1c98af1f5904c06ab7440370c  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

@@ -3028,7 +3028,11 @@ forge_diagnostics() {
     {
       line = $0
       gsub(ansi, "", line)
-      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) { warned = 1; next }
+      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
+        # a warning diagnostic: a location, then "warning" as a word (not DeprecationWarning)
+        if (line ~ /^[[:space:]]*(-->[[:space:]]*)?[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+)/ && line ~ /(^|[^A-Za-z])[Ww]arning([^A-Za-z]|$)/) warned = 1
+        next
+      }
       if (line ~ /[Ee]rror/ && line !~ /(^|[^0-9])0 errors?([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -5885,7 +5889,11 @@ forge_diagnostics() {
     {
       line = $0
       gsub(ansi, "", line)
-      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) { warned = 1; next }
+      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
+        # a warning diagnostic: a location, then "warning" as a word (not DeprecationWarning)
+        if (line ~ /^[[:space:]]*(-->[[:space:]]*)?[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+)/ && line ~ /(^|[^A-Za-z])[Ww]arning([^A-Za-z]|$)/) warned = 1
+        next
+      }
       if (line ~ /[Ee]rror/ && line !~ /(^|[^0-9])0 errors?([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -8771,7 +8779,11 @@ forge_diagnostics() {
     {
       line = $0
       gsub(ansi, "", line)
-      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) { warned = 1; next }
+      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
+        # a warning diagnostic: a location, then "warning" as a word (not DeprecationWarning)
+        if (line ~ /^[[:space:]]*(-->[[:space:]]*)?[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+)/ && line ~ /(^|[^A-Za-z])[Ww]arning([^A-Za-z]|$)/) warned = 1
+        next
+      }
       if (line ~ /[Ee]rror/ && line !~ /(^|[^0-9])0 errors?([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -11667,7 +11679,11 @@ forge_diagnostics() {
     {
       line = $0
       gsub(ansi, "", line)
-      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) { warned = 1; next }
+      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
+        # a warning diagnostic: a location, then "warning" as a word (not DeprecationWarning)
+        if (line ~ /^[[:space:]]*(-->[[:space:]]*)?[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+)/ && line ~ /(^|[^A-Za-z])[Ww]arning([^A-Za-z]|$)/) warned = 1
+        next
+      }
       if (line ~ /[Ee]rror/ && line !~ /(^|[^0-9])0 errors?([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -15457,7 +15473,11 @@ forge_diagnostics() {
     {
       line = $0
       gsub(ansi, "", line)
-      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) { warned = 1; next }
+      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
+        # a warning diagnostic: a location, then "warning" as a word (not DeprecationWarning)
+        if (line ~ /^[[:space:]]*(-->[[:space:]]*)?[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+)/ && line ~ /(^|[^A-Za-z])[Ww]arning([^A-Za-z]|$)/) warned = 1
+        next
+      }
       if (line ~ /[Ee]rror/ && line !~ /(^|[^0-9])0 errors?([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
@@ -16402,13 +16422,13 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "ff61a19974ccfc38fe6771978c9f9fe21253d4132eff8af9f06b112607965a00",
     ".claude/skills/forge-project/scripts/guard.sh": "e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca",
     ".claude/skills/forge-project/scripts/lib.sh": "152f8eaffa7bff1c36014d0b95f8f50279703bc93f3057dd30b3253dcee62d7a",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "9600f437414012768afb32d97f27e6cfbdf26367a3dac7e3cd6605f74223d6a3",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "6f1dc79165093db4945f092bcec5b54f5c84a81c7137f53c83cade503047e500",
     ".claude/skills/forge-project/scripts/review.sh": "889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726",
-    ".claude/skills/forge-project/scripts/session-start.sh": "da75555159b9ea7417fc75425f6e7e5c8dd255b3b6d4c61a6e947573ec0a520c",
+    ".claude/skills/forge-project/scripts/session-start.sh": "f9fcc7999ba39143e668ba4616b274b58752c789519d36de9e593b9c6182b481",
     ".claude/skills/forge-project/scripts/stop.sh": "1e78a790452d312d15c58294e49a1f04507c108ba37cdf4797840a7399e26e40",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "030b4f9a426aaf25209eefbb143d75fd650fb8256152dba90feae41b0024d618",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "77b546563c51a4c2611fe5b33a2089f58b02c68f0c08b43b60ad6245245449ea",
     ".claude/skills/forge-project/scripts/turn-start.sh": "fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "623f0e915098b2835fed6ae5c65446a203a437bb9d5ff89e0d12685913144627",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "cbf87c7fe40340075b430a62f0c78b27cc947aa8f9732fa835c69fa48d6e604e",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml": "c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20",
     ".forge/ast-grep/rule-tests/typescript-no-eval-test.yml": "3716e00219b28a0974a07a56e1d264bb478b35a6ef38d5c13740a9080b09516e",
@@ -16435,7 +16455,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/typescript/no-ts-nocheck.yml": "aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21",
     ".forge/ast-grep/rules/typescript/ts-expect-error-reason.yml": "b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "5367c17f8523b12ac2dc7f4dad32d3b04bc8b82a5f0fb9a9fe2754b39debd484",
+    ".forge/check.sh": "b37148acc00d3e51e504194257e254331bf34dc2f658a6f6d073fe305da7aa10",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -16485,13 +16505,13 @@ d419b4cd45d10d126a2260f19e7015794396aa59f987d74280f1e02246810eb8  .claude/skills
 ff61a19974ccfc38fe6771978c9f9fe21253d4132eff8af9f06b112607965a00  .claude/skills/forge-project/scripts/guard.rules
 e86a0ebb1430e5def06e44ff40bbcb0e8c37b26694fd0882842b1805dc6485ca  .claude/skills/forge-project/scripts/guard.sh
 152f8eaffa7bff1c36014d0b95f8f50279703bc93f3057dd30b3253dcee62d7a  .claude/skills/forge-project/scripts/lib.sh
-9600f437414012768afb32d97f27e6cfbdf26367a3dac7e3cd6605f74223d6a3  .claude/skills/forge-project/scripts/post-edit.sh
+6f1dc79165093db4945f092bcec5b54f5c84a81c7137f53c83cade503047e500  .claude/skills/forge-project/scripts/post-edit.sh
 889adf17e8184c23ac86d55b5a34f2b0d39d964ccfdef273cf0740658834e726  .claude/skills/forge-project/scripts/review.sh
-da75555159b9ea7417fc75425f6e7e5c8dd255b3b6d4c61a6e947573ec0a520c  .claude/skills/forge-project/scripts/session-start.sh
+f9fcc7999ba39143e668ba4616b274b58752c789519d36de9e593b9c6182b481  .claude/skills/forge-project/scripts/session-start.sh
 1e78a790452d312d15c58294e49a1f04507c108ba37cdf4797840a7399e26e40  .claude/skills/forge-project/scripts/stop.sh
-030b4f9a426aaf25209eefbb143d75fd650fb8256152dba90feae41b0024d618  .claude/skills/forge-project/scripts/test-edit.sh
+77b546563c51a4c2611fe5b33a2089f58b02c68f0c08b43b60ad6245245449ea  .claude/skills/forge-project/scripts/test-edit.sh
 fab859d8dad77a66eb9bc08c5c1ece39e94ca6be61b26aa1fca7c908d40822f3  .claude/skills/forge-project/scripts/turn-start.sh
-623f0e915098b2835fed6ae5c65446a203a437bb9d5ff89e0d12685913144627  .claude/skills/forge-project/scripts/typecheck.sh
+cbf87c7fe40340075b430a62f0c78b27cc947aa8f9732fa835c69fa48d6e604e  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20  .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
 3716e00219b28a0974a07a56e1d264bb478b35a6ef38d5c13740a9080b09516e  .forge/ast-grep/rule-tests/typescript-no-eval-test.yml
@@ -16518,7 +16538,7 @@ b21497e3335f2271e6ca5874817957d18c640e7d787cfe76a72ef390ab62d634  .forge/ast-gre
 aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21  .forge/ast-grep/rules/typescript/no-ts-nocheck.yml
 b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad  .forge/ast-grep/rules/typescript/ts-expect-error-reason.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-5367c17f8523b12ac2dc7f4dad32d3b04bc8b82a5f0fb9a9fe2754b39debd484  .forge/check.sh
+b37148acc00d3e51e504194257e254331bf34dc2f658a6f6d073fe305da7aa10  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh
