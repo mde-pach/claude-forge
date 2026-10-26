@@ -1,0 +1,19 @@
+id: python/pytest/asyncio/no-loop-policy-fixture
+description: "Do not override the event_loop_policy fixture (event loop policies are deprecated in Python 3.14): implement the pytest_asyncio_loop_factories hook instead."
+scope: {language: python, files: ["**/test_*.py", "**/*_test.py", "**/conftest.py"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: function_definition
+      has: {field: name, regex: "^event_loop_policy$"}
+      inside:
+        kind: decorated_definition
+        stopBy: neighbor
+        has: {kind: decorator, regex: "^@(pytest\\.fixture|pytest_asyncio\\.fixture)\\b"}
+examples:
+  match:
+    - "import pytest\nimport uvloop\n\n\n@pytest.fixture(scope=\"session\")\ndef event_loop_policy():\n    return uvloop.EventLoopPolicy()\n"
+  no_match:
+    - "import uvloop\n\n\ndef pytest_asyncio_loop_factories(config, item):\n    return {\"uvloop\": uvloop.new_event_loop}\n"
+    - "import uvloop\n\n\ndef event_loop_policy():\n    return uvloop.EventLoopPolicy()\n"

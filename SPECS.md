@@ -733,6 +733,18 @@ context.md: "Pydantic v2: `model_validate`, `model_dump`, `model_config = Config
 
 context.md: tests assert behaviour, never weakened; "When the task changes behaviour an existing test asserts, update that test in place with Edit or Write (keep its name; Forge asks for approval) and say so in your summary. Otherwise never edit an existing test to make the code pass."
 
+### python/pytest/asyncio
+
+Detected by `pytest-asyncio` (pypi). Rules on test files (`**/test_*.py`, `**/*_test.py`, `**/conftest.py`).
+
+| Rule | Targets |
+|---|---|
+| `python/pytest/asyncio/no-event-loop-fixture` | `ast-grep` forbid: a function `event_loop` decorated `@pytest.fixture` / `@pytest_asyncio.fixture`; an `event_loop` parameter of a function whose name starts with `test` |
+| `python/pytest/asyncio/no-loop-policy-fixture` | `ast-grep` forbid: a function `event_loop_policy` decorated `@pytest.fixture` / `@pytest_asyncio.fixture` |
+| `python/pytest/asyncio/async-fixture-decorator` | `ast-grep` forbid: an `async def` decorated `@pytest.fixture` |
+
+context.md: `@pytest_asyncio.fixture` for async fixtures; `loop_scope=` and `asyncio_default_fixture_loop_scope`, no `event_loop` fixture, `pytest_asyncio_loop_factories` instead of an `event_loop_policy` fixture.
+
 ### python/django
 
 Detected by `django` (pypi) or a `manage.py` at the root or one level down.
