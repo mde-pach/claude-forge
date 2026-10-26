@@ -848,6 +848,16 @@ Detected by the `@testing-library/react` dependency.
 
 context.md: `renderHook` from `@testing-library/react`.
 
+### typescript/msw
+
+Detected by the `msw` dependency.
+
+| Rule | Targets |
+|---|---|
+| `typescript/msw/unhandled-error` | `ast-grep` advise: `$S.listen(…)` without `onUnhandledRequest: "error"` (or a function), where `S` is msw's `SetupServer` / `SetupServerCommon` (§15.1) |
+
+context.md: the test server starts with `onUnhandledRequest: "error"`.
+
 ### typescript/nextjs
 
 | Rule | Targets |
