@@ -991,6 +991,14 @@ context.md: migrations, never `synchronize` / `dropSchema`; parameters in `.quer
 
 context.md: request input validated or `sanitizeFilter()`ed before a filter; no `$where`.
 
+### typescript/temporal
+
+| Rule | Targets |
+|---|---|
+| `typescript/temporal/workflow-determinism` | `ast-grep` forbid, in a file with a value import of `@temporalio/workflow`: a value import or `require()` of `node:*`, `fs`, `fs/promises`, `path`, `os`, `crypto`, `http`, `https`, `net`, `tls`, `dns`, `child_process`, `worker_threads`, `cluster`, `@temporalio/activity`, `@temporalio/client` or `@temporalio/worker`; `crypto.randomUUID()` / `crypto.getRandomValues()`. A project module holding activities imported by value is not detected (which module holds activities is not known without guessing) |
+
+context.md: the workflow sandbox; activities through `proxyActivities` with `import type`; `uuid4()`.
+
 ### github-actions
 
 Detected by `.github/workflows/*.yml` or `*.yaml`.
