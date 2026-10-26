@@ -1,0 +1,10 @@
+id: typescript/mikro-orm/schema-update
+description: mikro-orm schema:update --run (changes the schema without a migration) and migration:fresh (drops the database and reruns every migration) need confirmation.
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: ask
+    pattern: '(^|[^A-Za-z0-9_-])mikro-orm(-esm)?[[:space:]]+(schema:update[^;&|]*([[:space:]]--run|[[:space:]]-r)|migration:fresh)([[:space:];&|)]|$)'
+examples:
+  match: ["npx mikro-orm schema:update --run", "npx mikro-orm-esm schema:update -r --safe", "npx mikro-orm migration:fresh --seed"]
+  no_match: ["npx mikro-orm schema:update --dump", "npx mikro-orm migration:up", "npx mikro-orm migration:create"]

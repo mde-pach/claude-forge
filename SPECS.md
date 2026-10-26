@@ -1085,6 +1085,18 @@ context.md: error masking on; `GraphQLError` for client errors.
 
 context.md: `yield*` inside generators, `run*` at the edge; `Effect.fail` with tagged errors.
 
+### typescript/mikro-orm
+
+Detected by `@mikro-orm/core`.
+
+| Rule | Targets |
+|---|---|
+| `typescript/mikro-orm/no-global-context` | `ast-grep` forbid, outside test files (`*.test.*`, `*.spec.*`, `__tests__/`, `e2e/`): `allowGlobalContext: true` in the object passed to `MikroORM.init(…)`, `new MikroORM(…)` or `defineConfig(…)`, those names imported from `@mikro-orm/*` (aliases included) |
+| `typescript/mikro-orm/schema-guard` | `guard` deny: `mikro-orm` / `mikro-orm-esm` `schema:drop` or `schema:fresh` with `--run` / `-r` |
+| `typescript/mikro-orm/schema-update` | `guard` ask: `schema:update` with `--run` / `-r`, `migration:fresh` |
+
+context.md: request contexts, never a global one; migrations; which schema commands are refused or asked.
+
 ### github-actions
 
 Detected by `.github/workflows/*.yml` or `*.yaml`.
