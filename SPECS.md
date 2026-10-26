@@ -754,9 +754,56 @@ Detected by `celery` (pypi).
 | Rule | Targets |
 |---|---|
 | `python/celery/bounded-retries` | `ast-grep` forbid: `max_retries=None` in a `shared_task(…)` / `<x>.task(…)` call or a `.retry()`, `.apply_async()`, `.signature()`, `.set()` call; `"max_retries": None` inside `retry_kwargs=`; a `max_retries = None` class attribute of a class whose bases name `Task` |
+| `python/celery/no-pickle` | `grep` forbid (case-insensitive): `task_serializer`, `result_serializer`, `event_serializer` or `serializer` set to `"pickle"` (`=` or `:`); `accept_content` naming `pickle` or `application/x-python-serialize` |
 | `python/celery/no-result-get-in-task` | `ast-grep` forbid: inside a task, `.get()`, `.wait()`, `.join()` on `.delay()` / `.apply_async()` / `AsyncResult()` results (directly, through a variable of the function, or as the variable of a `for` loop or comprehension over them) or on a called `group` / `chord` / `chain`; `disable_sync_subtasks=False` anywhere |
 
-context.md: ids as arguments, idempotent tasks queued from `transaction.on_commit()`, bounded retries, no waiting on results inside tasks.
+context.md: ids as arguments, idempotent tasks queued from `transaction.on_commit()`, bounded retries, no waiting on results inside tasks, the json serializer.
+
+### python/tortoise
+
+Detected by `tortoise-orm` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/tortoise/primary-key-kw` | `ast-grep` forbid: a call typed `tortoise` (§15.1: a field constructor) with `pk=True` |
+
+### python/piccolo
+
+Detected by `piccolo` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/piccolo/no-run-sync-in-async` | `ast-grep` forbid: `$Q.run_sync(…)` inside an `async def`, `$Q` typed `piccolo` |
+
+### python/psycopg
+
+Detected by `psycopg` or `psycopg-pool` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/psycopg/pool-open-explicit` | `ast-grep` forbid: a call typed `psycopg_pool` `ConnectionPool` / `AsyncConnectionPool` without `open=`, outside a `with` item |
+| `python/psycopg/placeholder-style` | `ast-grep` advise: `execute()` / `executemany()` on a receiver typed `psycopg` `Connection`, `Cursor`, `ServerCursor` (and their async forms) with a string literal holding `$<digit>` and no dollar quote (`$$`, `$tag$`) |
+
+context.md: `%s` placeholders; pools opened explicitly in startup.
+
+### python/redis
+
+Detected by `redis` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/redis/no-keys` | `ast-grep` advise: `$R.keys(…)`, `$R` typed `redis` `Redis` / `StrictRedis` / `RedisCluster` (sync and `redis.asyncio`) |
+| `python/redis/aclose` | `ast-grep` forbid: `$R.close()`, `$R` typed `redis.asyncio` `Redis` |
+
+context.md: `scan_iter()` instead of `KEYS`; `aclose()` on asyncio clients.
+
+### python/strawberry
+
+Detected by `strawberry-graphql` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/strawberry/query-limits` | `ast-grep` advise: a call typed `strawberry` `Schema` without an `extensions=` argument naming `QueryDepthLimiter` |
 
 ### python/library
 

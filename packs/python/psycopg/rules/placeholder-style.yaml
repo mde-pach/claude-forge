@@ -1,0 +1,24 @@
+id: python/psycopg/placeholder-style
+description: "Advice: SQL passed to a psycopg execute() or executemany() takes %s or %(name)s placeholders, not $1 (asyncpg's style, which psycopg sends to the server unchanged and PostgreSQL rejects). Text with a dollar-quoted body ($$ ... $$) is left alone."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      any:
+        - pattern: $R.execute($X)
+        - pattern: $R.execute($X, $$$)
+        - pattern: $R.executemany($X, $$$)
+    constraints:
+      X: {kind: string, regex: "\\$[0-9]", not: {regex: "\\$[A-Za-z_]*\\$"}}
+    where:
+      R: {type: {package: psycopg, name: [Cursor, AsyncCursor, Connection, AsyncConnection, ServerCursor, AsyncServerCursor]}}
+examples:
+  deps: [{ecosystem: pypi, name: psycopg, version: "3.3.6"}]
+  match:
+    - "import psycopg\n\n\ndef rename(conn: psycopg.Connection, user_id: int, name: str) -> None:\n    conn.execute(\"UPDATE users SET name = $2 WHERE id = $1\", (user_id, name))\n"
+    - "import psycopg\n\n\nasync def rename(conn: psycopg.AsyncConnection, user_id: int) -> None:\n    async with conn.cursor() as cur:\n        await cur.execute(\"DELETE FROM users WHERE id = $1\", (user_id,))\n"
+  no_match:
+    - "import psycopg\n\n\ndef rename(conn: psycopg.Connection, user_id: int, name: str) -> None:\n    conn.execute(\"UPDATE users SET name = %s WHERE id = %s\", (name, user_id))\n"
+    - "import psycopg\n\n\ndef install(conn: psycopg.Connection) -> None:\n    conn.execute(\"CREATE FUNCTION inc(i int) RETURNS int AS $$ SELECT $1 + 1 $$ LANGUAGE sql\")\n"
+    - "class Pg:\n    def execute(self, sql: str, args: tuple[int, ...]) -> None:\n        pass\n\n\nPg().execute(\"SELECT $1\", (1,))\n"

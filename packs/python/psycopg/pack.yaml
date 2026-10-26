@@ -1,0 +1,5 @@
+id: python/psycopg
+description: psycopg 3 connections, cursors and pools.
+level: project
+detect:
+  deps_any: [{ecosystem: pypi, name: psycopg}, {ecosystem: pypi, name: psycopg-pool}]

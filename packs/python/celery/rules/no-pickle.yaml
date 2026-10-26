@@ -1,0 +1,17 @@
+id: python/celery/no-pickle
+description: "Celery does not use the pickle serializer: no task_serializer, result_serializer, event_serializer or serializer set to \"pickle\" (CELERY_* settings included), and no \"pickle\" or \"application/x-python-serialize\" in accept_content. Anyone who can publish to the broker could run code in the workers; use json."
+scope: {language: python}
+enforce:
+  - target: grep
+    mode: forbid
+    ignore_case: true
+    pattern: "((task|result|event)_)?serializer[\"']?[[:space:]]*[=:][[:space:]]*[\"']pickle[\"']|accept_content.*[\"'](pickle|application/x-python-serialize)[\"']"
+examples:
+  match:
+    - "from celery import Celery\n\napp = Celery(\"shop\")\napp.conf.task_serializer = \"pickle\"\n"
+    - "CELERY_ACCEPT_CONTENT = [\"json\", \"pickle\"]\n"
+    - "from celery import Celery\n\napp = Celery(\"shop\")\napp.conf.update(result_serializer='pickle', accept_content=[\"json\"])\n"
+    - "def queue(task, order_id: int) -> None:\n    task.apply_async((order_id,), serializer=\"pickle\")\n"
+  no_match:
+    - "from celery import Celery\n\napp = Celery(\"shop\")\napp.conf.task_serializer = \"json\"\napp.conf.accept_content = [\"json\"]\n"
+    - "import pickle\n\nPICKLE_PROTOCOL = pickle.HIGHEST_PROTOCOL\n"
