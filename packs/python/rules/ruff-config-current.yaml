@@ -1,0 +1,15 @@
+id: python/ruff-config-current
+description: "Ruff settings use their current names (linter options under [tool.ruff.lint] / [lint], no deprecated option): ruff prints no deprecation warning for the project's config."
+scope: {language: any, files: ["**/pyproject.toml", "**/ruff.toml", "**/.ruff.toml"]}
+enforce:
+  - target: check
+    stage: lint
+    run: "! ruff check --exit-zero --no-cache . 2>&1 >/dev/null | grep -iE -A5 '^warning: .*deprecat'"
+    when_changed: ["**/pyproject.toml", "**/ruff.toml", "**/.ruff.toml"]
+examples:
+  match:
+    - files: {pyproject.toml: "[project]\nname = \"app\"\nversion = \"0.1.0\"\n\n[tool.ruff]\nselect = [\"E\"]\n"}
+    - files: {ruff.toml: "ignore-init-module-imports = true\n\n[lint]\nselect = [\"E\"]\n"}
+  no_match:
+    - files: {pyproject.toml: "[project]\nname = \"app\"\nversion = \"0.1.0\"\n\n[tool.ruff]\nline-length = 100\n\n[tool.ruff.lint]\nselect = [\"E\"]\n"}
+    - files: {ruff.toml: "line-length = 100\n\n[lint]\nselect = [\"E\"]\n"}

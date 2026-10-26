@@ -1,0 +1,14 @@
+id: python/no-raise-vanilla
+description: "No raise Exception(...) or BaseException(...): raise a specific built-in or project exception class that callers can catch."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: TRY002
+    snippet: '[tool.ruff.lint] extend-select = ["TRY002"]'
+examples:
+  match:
+    - "def check(n: int) -> None:\n    if n < 0:\n        raise Exception(\"negative\")\n"
+  no_match:
+    - "def check(n: int) -> None:\n    if n < 0:\n        raise ValueError(\"negative\")\n"
+    - "class QuotaError(Exception):\n    pass\n\n\ndef check(n: int) -> None:\n    if n < 0:\n        raise QuotaError(n)\n"

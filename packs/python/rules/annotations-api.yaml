@@ -1,0 +1,14 @@
+id: python/annotations-api
+description: Read annotations with annotationlib.get_annotations() or inspect.get_annotations(), not __dict__["__annotations__"] (empty under lazy annotations).
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: RUF063
+    snippet: '[tool.ruff.lint] extend-select = ["RUF063"]'
+examples:
+  match:
+    - "def fields(cls: type) -> dict[str, object]:\n    return cls.__dict__[\"__annotations__\"]\n"
+  no_match:
+    - "import inspect\n\n\ndef fields(cls: type) -> dict[str, object]:\n    return inspect.get_annotations(cls)\n"
+    - "def doc(cls: type) -> object:\n    return cls.__dict__[\"__doc__\"]\n"

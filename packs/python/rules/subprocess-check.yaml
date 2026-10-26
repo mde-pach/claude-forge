@@ -1,0 +1,14 @@
+id: python/subprocess-check
+description: subprocess.run() states check=True (fail on a non-zero exit) or check=False (the caller reads returncode).
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: PLW1510
+    snippet: '[tool.ruff.lint] extend-select = ["PLW1510"]'
+examples:
+  match:
+    - "import subprocess\n\nsubprocess.run([\"git\", \"push\"])\n"
+  no_match:
+    - "import subprocess\n\nsubprocess.run([\"git\", \"push\"], check=True)\n"
+    - "import subprocess\n\nr = subprocess.run([\"git\", \"diff\", \"--quiet\"], check=False)\nchanged = r.returncode == 1\n"

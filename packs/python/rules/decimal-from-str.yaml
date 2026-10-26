@@ -1,0 +1,13 @@
+id: python/decimal-from-str
+description: Decimal is built from a string or an int (Decimal("0.1")), not from a float literal (Decimal(0.1) is 0.1000000000000000055...).
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: RUF032
+    snippet: '[tool.ruff.lint] extend-select = ["RUF032"]'
+examples:
+  match:
+    - "from decimal import Decimal\n\nRATE = Decimal(0.1)\n"
+  no_match:
+    - "from decimal import Decimal\n\nRATE = Decimal(\"0.1\")\nCOUNT = Decimal(10)\n"

@@ -1,0 +1,13 @@
+id: python/no-global-statement
+description: "No global statements: pass state explicitly or keep it in an object."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: PLW0603
+    snippet: '[tool.ruff.lint] extend-select = ["PLW0603"]'
+examples:
+  match:
+    - "COUNT = 0\n\n\ndef bump() -> None:\n    global COUNT\n    COUNT += 1\n"
+  no_match:
+    - "COUNTS: dict[str, int] = {\"n\": 0}\n\n\ndef bump() -> None:\n    COUNTS[\"n\"] += 1\n"

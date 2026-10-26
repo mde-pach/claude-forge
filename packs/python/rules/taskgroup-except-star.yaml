@@ -1,0 +1,42 @@
+id: python/taskgroup-except-star
+description: "A try whose body is one task group (asyncio.TaskGroup, anyio task group, trio nursery) catches with except*, ExceptionGroup or Exception: a task group raises an ExceptionGroup, which a plain except SomeError never catches."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: except_clause
+      has: {field: value, regex: "."}
+      not:
+        any:
+          - regex: "^except\\s*\\*"
+          - has: {field: value, regex: "^(Exception|BaseException|ExceptionGroup|BaseExceptionGroup)(\\s+as\\s+\\w+)?$"}
+      inside:
+        kind: try_statement
+        stopBy: neighbor
+        has:
+          field: body
+          kind: block
+          all:
+            - has:
+                nthChild: 1
+                any:
+                  # trio.open_nursery() is typed AbstractAsyncContextManager[Nursery]: its literal API name
+                  - pattern: "async with trio.open_nursery($$$) as $N: $$$B"
+                  - pattern: "async with $CM as $N: $$$B"
+            - not: {has: {nthChild: 2}}
+    # the context manager is a task group by its type (§15.1), whatever it is called
+    where:
+      CM: {type: {package: [asyncio, anyio], name: TaskGroup}}
+examples:
+  deps: [{ecosystem: pypi, name: anyio, version: "4.15.1"}, {ecosystem: pypi, name: trio, version: "0.34.0"}]
+  match:
+    - "import asyncio\n\n\nasync def fetch(n: int) -> int:\n    return n\n\n\nasync def main() -> None:\n    try:\n        async with asyncio.TaskGroup() as tg:\n            tg.create_task(fetch(1))\n            tg.create_task(fetch(2))\n    except ValueError:\n        pass\n"
+    - "import anyio\n\n\nasync def fetch(n: int) -> None:\n    pass\n\n\nasync def main() -> None:\n    try:\n        async with anyio.create_task_group() as group:\n            group.start_soon(fetch, 1)\n    except (ValueError, KeyError) as err:\n        print(err)\n"
+    - "import trio\n\n\nasync def fetch(n: int) -> None:\n    pass\n\n\nasync def main() -> None:\n    try:\n        async with trio.open_nursery() as nursery:\n            nursery.start_soon(fetch, 1)\n    except OSError:\n        pass\n"
+  no_match:
+    - "import asyncio\n\n\nasync def fetch(n: int) -> int:\n    return n\n\n\nasync def main() -> None:\n    try:\n        async with asyncio.TaskGroup() as tg:\n            tg.create_task(fetch(1))\n    except* ValueError:\n        pass\n"
+    - "import anyio\n\n\nasync def fetch(n: int) -> None:\n    pass\n\n\nasync def main() -> None:\n    try:\n        async with anyio.create_task_group() as group:\n            group.start_soon(fetch, 1)\n    except ExceptionGroup as eg:\n        print(eg.exceptions)\n"
+    - "import asyncio\n\n\nasync def fetch(n: int) -> int:\n    return n\n\n\nasync def main() -> None:\n    try:\n        async with asyncio.TaskGroup() as tg:\n            tg.create_task(fetch(1))\n    except Exception:\n        raise\n"
+    - "import asyncio\n\n\nasync def main() -> None:\n    try:\n        async with asyncio.timeout(5) as scope:\n            await asyncio.sleep(1)\n    except TimeoutError:\n        print(scope)\n"
+    - "class TaskGroup:\n    async def __aenter__(self) -> \"TaskGroup\":\n        return self\n\n    async def __aexit__(self, *exc: object) -> None:\n        pass\n\n\nasync def main() -> None:\n    try:\n        async with TaskGroup() as tg:\n            print(tg)\n    except ValueError:\n        pass\n"

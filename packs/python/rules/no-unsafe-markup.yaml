@@ -1,0 +1,14 @@
+id: python/no-unsafe-markup
+description: "No markupsafe.Markup() around a string built at run time (f-string, .format(), +): it marks unescaped input safe. Escape the values with escape() or Markup.format()."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: S704
+    snippet: '[tool.ruff.lint] extend-select = ["S704"]'
+examples:
+  match:
+    - "from markupsafe import Markup\n\n\ndef link(name: str) -> Markup:\n    return Markup(f\"<b>{name}</b>\")\n"
+  no_match:
+    - "from markupsafe import Markup\n\n\ndef link(name: str) -> Markup:\n    return Markup(\"<b>{}</b>\").format(name)\n"
+    - "from markupsafe import Markup\n\nBOLD = Markup(\"<b>hi</b>\")\n"

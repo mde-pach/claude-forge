@@ -1,13 +1,18 @@
 id: python/no-pickle
-description: "No pickle on data you did not write: unpickling runs code. Use JSON or a schema."
+description: "No pickle or marshal on data you did not write: unpickling runs code, and marshal is not safe against crafted input. Use JSON or a schema."
 scope: {language: "python"}
 enforce:
   - target: tool
     tool: ruff
-    expects: "S301"
-    snippet: "[tool.ruff.lint] extend-select = [\"S301\"]"
+    expects: S301
+    snippet: '[tool.ruff.lint] extend-select = ["S301"]'
+  - target: tool
+    tool: ruff
+    expects: S302
+    snippet: '[tool.ruff.lint] extend-select = ["S302"]'
 examples:
   match:
-    - "import pickle\n\n\ndef load(data: bytes) -> object:\n    return pickle.loads(data)\n"
+    - "import marshal\nimport pickle\n\n\ndef load(data: bytes) -> object:\n    return pickle.loads(data), marshal.loads(data)\n"
   no_match:
     - "import json\n\n\ndef load(data: bytes) -> object:\n    return json.loads(data)\n"
+    - "import marshal\n\n\ndef dump(code: object) -> bytes:\n    return marshal.dumps(code)\n"

@@ -532,12 +532,12 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `python/no-explicit-any` | `tool` ruff `ANN401` (ty has no equivalent) |
 | `python/no-bare-except` | `tool` ruff `E722` |
 | `python/no-unscoped-ignore` | `tool` ty `blanket-ignore-comment`; `tool` ruff `PGH003` |
-| `python/no-unknown` | `tool` ruff `ANN001`, `ANN002`, `ANN003`, `ANN201`, `ANN202`: parameters and return types annotated, so no receiver is Unknown (§15.1); an unannotated local's type is inferred (ty has no equivalent of `reportUnknownVariableType`) |
+| `python/no-unknown` | `tool` ruff `ANN001`, `ANN002`, `ANN003`, `ANN201`, `ANN202`, `ANN204`, `ANN205`, `ANN206`: parameters and return types annotated, so no receiver is Unknown (§15.1); an unannotated local's type is inferred (ty has no equivalent of `reportUnknownVariableType`) |
 | `python/no-useless-cast` | `tool` ty `redundant-cast`, `disjoint-cast` |
 | `python/no-deprecated` | `tool` ty `deprecated` (PEP 702 and typeshed deprecations) |
-| `python/no-blocking-in-async` | `tool` ruff `ASYNC210`, `ASYNC230`, `ASYNC251` |
-| `python/no-tls-bypass` | `tool` ruff `S501` |
-| `python/no-shell-true` | `tool` ruff `S602` |
+| `python/no-blocking-in-async` | `tool` ruff `ASYNC210`, `ASYNC230`, `ASYNC251`, `ASYNC212`, `ASYNC220`, `ASYNC221`, `ASYNC222`, `ASYNC240`, `ASYNC250`, `ASYNC100`, `ASYNC105`, `ASYNC110` (not `ASYNC109`: it keys on a parameter named `timeout`) |
+| `python/no-tls-bypass` | `tool` ruff `S501`, `S323`, `S502` |
+| `python/no-shell-true` | `tool` ruff `S602`, `S605` |
 | `python/no-stale-ignore` | `tool` ty `unused-ignore-comment`, `unused-type-ignore-comment` |
 | `python/no-unawaited-coroutine` | `tool` ty `unused-awaitable` |
 | `python/no-forgotten-call` | `tool` ty `redundant-condition`, `truthiness-test-of-callable`, `truthiness-test-of-iterable` |
@@ -554,7 +554,7 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `python/no-passlib` | `tool` ruff `TID251`, banned-api `passlib` |
 | `python/no-pkg-resources` | `tool` ruff `TID251`, banned-api `pkg_resources` |
 | `python/no-removed-stdlib` | `tool` ruff `TID251`, banned-api: the modules removed in Python 3.12 (`distutils`, `imp`, `asynchat`, `asyncore`, `smtpd`) and 3.13 (PEP 594's 19, `lib2to3`) |
-| `python/aware-datetime` | `tool` ruff `DTZ005` |
+| `python/aware-datetime` | `tool` ruff `DTZ005`, `DTZ001`, `DTZ002`, `DTZ006`, `DTZ011`, `DTZ012`, `DTZ901` (not `DTZ007`: it flags date-only `strptime(…).date()`) |
 | `python/no-new-suppressions` | `grep` no-increase: `# noqa`, `# ty: ignore`, `# type: ignore`, `# pyright: ignore` (suppression budget) |
 | `python/config-files` | `permission` ask: `Edit(**/ruff.toml)`, `Edit(**/.ruff.toml)`, `Edit(**/ty.toml)` |
 | `python/config-ratchet` | `check` lint: `forge_ratchet python ratchet.py` (§10.4), `when_changed`: the Python config files |
@@ -570,17 +570,53 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `python/no-sql-format` | `tool` ruff `S608` |
 | `python/http-timeout` | `tool` ruff `S113` (requests without `timeout`; httpx with `timeout=None`) |
 | `python/no-weak-hash` | `tool` ruff `S324` |
-| `python/no-pickle` | `tool` ruff `S301` |
+| `python/no-pickle` | `tool` ruff `S301`, `S302` |
 | `python/no-unsafe-yaml` | `tool` ruff `S506` |
 | `python/jinja-autoescape` | `tool` ruff `S701` |
 | `python/no-stub` | `ast-grep` forbid, not in `*.pyi` or migrations: a function whose body is only `pass` / `...` (docstrings and comments aside), or `raise NotImplementedError`, outside `@abstractmethod`, `@overload` and `Protocol` / `ABC` classes |
 | `python/stub-sync` | `check` lint, advisory (§10.7): `forge_stub_sync` on `*.py` |
 | `python/no-placeholder-comment` | `grep` forbid (case-insensitive): comments such as `TODO: implement`, "in a real implementation", "placeholder logic", "stub for now" |
 | `python/env-example` | `check` lint: `forge_env_example py`, not with `--all`: a field added to a pydantic-settings `BaseSettings` class (`env_prefix`, `alias`, `case_sensitive` applied) appears in the nearest directory's `.env.example`, `.env.template`, `.env.sample`, `.env.dist` or `.env.<name>.example` (a `# KEY=` line counts): always without a default, also with one when the template lists at least half of the class's variables; a template listing none of them is not about that class |
+| `python/taskgroup-except-star` | `ast-grep` forbid: a plain `except SomeError` (not `except*`, `Exception`, `BaseException`, `ExceptionGroup`, `BaseExceptionGroup`) on a `try` whose body is only `async with <cm> as …:`, where `<cm>` is typed `asyncio` / `anyio` `TaskGroup` (§15.1) or is literally `trio.open_nursery(…)` (typed `AbstractAsyncContextManager[Nursery]`) |
+| `python/no-swallowed-cancel` | `ast-grep` forbid: an `except` catching `asyncio.CancelledError` (or `CancelledError` imported from `asyncio`), alone or in a tuple, with no `raise` in the handler (nested functions aside) |
+| `python/subprocess-check` | `tool` ruff `PLW1510` |
+| `python/no-mutable-defaults` | `tool` ruff `B006`, `B039`, `RUF008`, `RUF009`, `RUF033` |
+| `python/type-checking-imports` | `tool` ruff `TC004` |
+| `python/raise-from` | `tool` ruff `B904` |
+| `python/no-raise-vanilla` | `tool` ruff `TRY002` |
+| `python/no-jump-in-finally` | `tool` ruff `B012` |
+| `python/no-root-logger` | `tool` ruff `LOG015`, `LOG001`, `LOG002` (not `LOG004`, `LOG007`, `LOG014`, `PLE1205`, `PLE1206`: they pick loggers by receiver name) |
+| `python/open-with-context` | `tool` ruff `SIM115` |
+| `python/decimal-from-str` | `tool` ruff `RUF032` |
+| `python/loop-closure` | `tool` ruff `B023` |
+| `python/no-eval` | `tool` ruff `S307`, `S102` |
+| `python/no-debugger` | `tool` ruff `T100` |
+| `python/no-unsafe-markup` | `tool` ruff `S704` |
+| `python/ruff-config-current` | `check` lint: `ruff check --exit-zero` prints no `warning: … deprecat…` line for the project's config (deprecated top-level linter settings, deprecated options); `when_changed`: `pyproject.toml`, `ruff.toml`, `.ruff.toml` |
+| `python/project-table` | `check` lint: the root `pyproject.toml` has `[project]` `requires-python` (`forge_toml_get`); `when_changed: [pyproject.toml]` |
+| `python/no-preexec-fn` | `tool` ruff `PLW1509` |
+| `python/no-useless-lock` | `tool` ruff `PLW2101` |
+| `python/no-cached-method` | `tool` ruff `B019` |
+| `python/self-type` | `tool` ruff `PYI019`, `PYI034` |
+| `python/annotations-api` | `tool` ruff `RUF063` |
+| `python/typeis-over-typeguard` | `ast-grep` advise: a function whose return annotation is `TypeGuard[…]` (`typing.` / `typing_extensions.` or bare) |
+| `python/no-useless-try` | `tool` ruff `TRY203`, `TRY201` |
+| `python/misplaced-bare-raise` | `tool` ruff `PLE0704` |
+| `python/contextmanager-finally` | `ast-grep` forbid: in a function decorated `@contextmanager` / `@asynccontextmanager` (bare or `contextlib.`), a `yield` statement directly in its body followed by another statement |
+| `python/with-suffix-dot` | `tool` ruff `PTH210` |
+| `python/no-commonprefix` | `tool` ruff `RUF071` |
+| `python/strict-zip` | `tool` ruff `B905` |
+| `python/weak-crypto` | `tool` ruff `S304`, `S305`, `S505` (the `cryptography` package) |
+| `python/no-bidi-chars` | `tool` ruff `PLE2502`, `PLE2515` |
+| `python/no-unused-args` | `tool` ruff `ARG001`, `ARG002` |
+| `python/no-global-statement` | `tool` ruff `PLW0603` |
+| `python/env-misuse` | `tool` ruff `B003`, `PLW1508`, `PLW1507` |
+| `python/no-setup-py` | `permission` ask: `Write(**/setup.py)`, `Write(**/setup.cfg)` |
+| `python/no-ruff-overlap` | `grep` forbid (case-insensitive) in `pyproject.toml` and `.pre-commit-config.yaml`: `black`, `isort`, `flake8`, `autopep8`, `pyupgrade`, `autoflake` as a quoted dependency string, or their pre-commit hook repository URLs |
 
 Every banned-api rule shares ruff's `TID251`: each rule's examples import only its own module, so the audit tells them apart, and `forge status` merges their tables (§11).
 
-context.md: uv and `.venv/bin`, ty, annotated parameters and returns; no blocking calls in `async def`; ignore comments name their rule; search for an existing helper (warn-once, logging, utils) before writing one.
+context.md: uv and `.venv/bin`, ty, annotated parameters and returns; no blocking calls in `async def`, `CancelledError` re-raised, `except*` around task groups; ignore comments name their rule; search for an existing helper (warn-once, logging, utils) before writing one.
 
 ### typescript
 

@@ -1,0 +1,21 @@
+id: python/no-root-logger
+description: "Log through logging.getLogger(__name__): no calls on the root logger (logging.info(...)), no logging.Logger(...) construction, no getLogger(__file__)."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: LOG015
+    snippet: '[tool.ruff.lint] extend-select = ["LOG015"]'
+  - target: tool
+    tool: ruff
+    expects: LOG001
+    snippet: '[tool.ruff.lint] extend-select = ["LOG001"]'
+  - target: tool
+    tool: ruff
+    expects: LOG002
+    snippet: '[tool.ruff.lint] extend-select = ["LOG002"]'
+examples:
+  match:
+    - "import logging\n\nlog = logging.Logger(\"app\")\nother = logging.getLogger(__file__)\nlogging.info(\"started\")\n"
+  no_match:
+    - "import logging\n\nlog = logging.getLogger(__name__)\nlog.info(\"started\")\nlogging.basicConfig(level=logging.INFO)\n"

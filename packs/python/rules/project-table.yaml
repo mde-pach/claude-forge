@@ -1,0 +1,15 @@
+id: python/project-table
+description: "pyproject.toml declares the project in a PEP 621 [project] table with requires-python, not only in tool-specific metadata such as [tool.poetry]."
+scope: {language: any, files: [pyproject.toml]}
+enforce:
+  - target: check
+    stage: lint
+    run: "[ ! -f pyproject.toml ] || [ -n \"$(forge_toml_get pyproject.toml project requires-python)\" ] || { printf 'pyproject.toml: no [project] requires-python; declare the project in a PEP 621 [project] table (name, version, requires-python, dependencies)\\n'; false; }"
+    when_changed: [pyproject.toml]
+examples:
+  match:
+    - files: {pyproject.toml: "[tool.poetry]\nname = \"app\"\nversion = \"0.1.0\"\n\n[tool.poetry.dependencies]\npython = \"^3.12\"\n"}
+    - files: {pyproject.toml: "[project]\nname = \"app\"\nversion = \"0.1.0\"\ndependencies = []\n"}
+  no_match:
+    - files: {pyproject.toml: "[project]\nname = \"app\"\nversion = \"0.1.0\"\nrequires-python = \">=3.12\"\ndependencies = []\n"}
+    - files: {pyproject.toml: "[project]\nname = \"app\"\nversion = \"0.1.0\"\nrequires-python = \">=3.12\"\n\n[tool.poetry]\npackage-mode = false\n"}

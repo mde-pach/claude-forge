@@ -1,0 +1,14 @@
+id: python/with-suffix-dot
+description: Path.with_suffix() gets a suffix with its dot (".txt").
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: PTH210
+    snippet: '[tool.ruff.lint] extend-select = ["PTH210"]'
+examples:
+  match:
+    - "from pathlib import Path\n\n\ndef as_json(p: Path) -> Path:\n    return p.with_suffix(\"json\")\n"
+  no_match:
+    - "from pathlib import Path\n\n\ndef as_json(p: Path) -> Path:\n    return p.with_suffix(\".json\")\n"
+    - "from pathlib import Path\n\n\ndef bare(p: Path) -> Path:\n    return p.with_suffix(\"\")\n"

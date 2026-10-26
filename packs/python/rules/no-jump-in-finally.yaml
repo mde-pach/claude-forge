@@ -1,0 +1,14 @@
+id: python/no-jump-in-finally
+description: "No return, break or continue inside finally: it swallows the exception in flight."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: B012
+    snippet: '[tool.ruff.lint] extend-select = ["B012"]'
+examples:
+  match:
+    - "def save(rows: list[int]) -> bool:\n    try:\n        rows.append(1)\n    finally:\n        return True\n"
+  no_match:
+    - "def save(rows: list[int]) -> bool:\n    try:\n        rows.append(1)\n    finally:\n        rows.clear()\n    return True\n"
+    - "def first(rows: list[int]) -> int:\n    try:\n        pass\n    finally:\n        for r in rows:\n            if r:\n                break\n    return 0\n"

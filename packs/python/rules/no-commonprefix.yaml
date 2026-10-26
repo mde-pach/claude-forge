@@ -1,0 +1,13 @@
+id: python/no-commonprefix
+description: "Use os.path.commonpath, not os.path.commonprefix, for paths: commonprefix compares characters (/usr/lib and /usr/local give /usr/l)."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: RUF071
+    snippet: '[tool.ruff.lint] extend-select = ["RUF071"]'
+examples:
+  match:
+    - "import os\n\n\ndef root(paths: list[str]) -> str:\n    return os.path.commonprefix(paths)\n"
+  no_match:
+    - "import os\n\n\ndef root(paths: list[str]) -> str:\n    return os.path.commonpath(paths)\n"

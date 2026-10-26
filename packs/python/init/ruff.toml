@@ -1,7 +1,19 @@
 line-length = 100
 
 [lint]
-select = ["E", "F", "W", "I", "B", "UP", "ANN001", "ANN002", "ANN003", "ANN201", "ANN202", "ANN401", "E722", "PGH003", "TID251"]
+select = [
+    "E", "F", "W", "I", "B", "UP",
+    "ASYNC100", "ASYNC105", "ASYNC110", "ASYNC210", "ASYNC212", "ASYNC220", "ASYNC221", "ASYNC222",
+    "ASYNC230", "ASYNC240", "ASYNC250", "ASYNC251",
+    "ANN001", "ANN002", "ANN003", "ANN201", "ANN202", "ANN204", "ANN205", "ANN206", "ANN401",
+    "E722", "PGH003",
+    "ARG001", "ARG002", "DTZ001", "DTZ002", "DTZ005", "DTZ006", "DTZ011", "DTZ012", "DTZ901",
+    "LOG001", "LOG002", "LOG015", "PLE0704", "PLE2502", "PLE2515", "PLW0603", "PLW1507", "PLW1508",
+    "PLW1509", "PLW1510", "PLW2101", "PTH210", "PYI019", "PYI034",
+    "RUF008", "RUF009", "RUF032", "RUF033", "RUF063", "RUF071",
+    "S102", "S301", "S302", "S304", "S305", "S307", "S323", "S501", "S502", "S505", "S602", "S605", "S704",
+    "SIM115", "T100", "TC004", "TID251", "TRY002", "TRY201", "TRY203",
+]
 
 # modules and functions the python packs ban (python/no-pytz, python/no-removed-stdlib, ...)
 [lint.flake8-tidy-imports.banned-api]
