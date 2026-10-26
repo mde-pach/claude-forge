@@ -661,7 +661,9 @@ context.md: strict TypeScript and Bun; TypeScript 6 deprecations are migrated, n
 | Rule | Targets |
 |---|---|
 | `python/uv/lock-sync` | `check` lint: `run: uv lock --check`, `when_changed: [pyproject.toml]` |
-| `python/uv/no-pip` | `guard` ask: `pip install`, `pip3 install`, `uv pip install` |
+| `python/uv/no-pip` | `guard` ask: `pip install`, `pip3 install`, `uv pip install`, `python -m pip install`; `poetry add` / `install`, `pipenv install`, `pdm add` / `install`, `conda` / `mamba` / `micromamba install`, `python -m venv` / `virtualenv`, `virtualenv` |
+| `python/uv/dependency-groups` | `grep` forbid in `pyproject.toml`: a `dev-dependencies =` key (`[tool.uv]`; development dependencies go in `[dependency-groups]`, PEP 735) |
+| `python/uv/no-requirements-txt` | `permission` ask: `Write(**/requirements*.txt)`, `Edit(**/requirements*.txt)` (`uv export` through Bash is not asked) |
 | `python/uv/exclude-newer` | `check` lint: `forge_uv_cooldown`: `[tool.uv]` (or `uv.toml`) `exclude-newer` is a relative duration of at least 3 days (`"7 days"`, `P1W`) and `required-version` is `>=0.9.17`; `when_changed`: `pyproject.toml`, `uv.toml`, `uv.lock` |
 
 ### python/fastapi
