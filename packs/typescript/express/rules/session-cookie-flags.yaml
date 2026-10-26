@@ -1,0 +1,64 @@
+id: typescript/express/session-cookie-flags
+description: "No literal secure: false or httpOnly: false in the cookie options of express-session's session({ cookie: {...} }) or in cookie-session's cookieSession({...}) (default imports, any local name): a literal false turns the protection off in every environment; set it from the environment if needed."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: pair
+      all:
+        - has: {field: key, regex: "^[\"']?(secure|httpOnly)[\"']?$"}
+        - has: {field: value, kind: "false"}
+        - inside:
+            kind: object
+            stopBy: neighbor
+            any:
+              # express-session: session({ cookie: { … } })
+              - inside:
+                  kind: pair
+                  stopBy: neighbor
+                  has: {field: key, regex: "^[\"']?cookie[\"']?$"}
+                  inside:
+                    kind: object
+                    stopBy: neighbor
+                    inside:
+                      kind: arguments
+                      stopBy: neighbor
+                      inside:
+                        kind: call_expression
+                        stopBy: neighbor
+                        all:
+                          - has: {field: function, kind: identifier, pattern: $S}
+                          - inside:
+                              kind: program
+                              stopBy: end
+                              has:
+                                kind: import_statement
+                                all:
+                                  - has: {field: source, regex: "^[\"']express-session[\"']$"}
+                                  - has: {stopBy: end, kind: identifier, pattern: $S, inside: {kind: import_clause, stopBy: neighbor}}
+              # cookie-session: cookieSession({ … })
+              - inside:
+                  kind: arguments
+                  stopBy: neighbor
+                  inside:
+                    kind: call_expression
+                    stopBy: neighbor
+                    all:
+                      - has: {field: function, kind: identifier, pattern: $C}
+                      - inside:
+                          kind: program
+                          stopBy: end
+                          has:
+                            kind: import_statement
+                            all:
+                              - has: {field: source, regex: "^[\"']cookie-session[\"']$"}
+                              - has: {stopBy: end, kind: identifier, pattern: $C, inside: {kind: import_clause, stopBy: neighbor}}
+examples:
+  match:
+    - "import express from \"express\";\nimport session from \"express-session\";\n\nconst app = express();\napp.use(session({ secret: \"s\", resave: false, saveUninitialized: false, cookie: { secure: false, sameSite: \"lax\" } }));\n"
+    - "import cookieSession from \"cookie-session\";\n\nexport const sessions = cookieSession({ name: \"sid\", keys: [\"k\"], httpOnly: false });\n"
+  no_match:
+    - "import session from \"express-session\";\n\nexport const s = session({ secret: \"s\", resave: false, saveUninitialized: false, cookie: { secure: process.env.NODE_ENV === \"production\", httpOnly: true } });\n"
+    - "import session from \"express-session\";\nimport { RedisStore } from \"connect-redis\";\n\nexport const s = session({ secret: \"s\", resave: false, store: new RedisStore({ client, secure: false }) });\n"
+    - "import cookieSession from \"cookie-session\";\n\nexport const s = cookieSession({ name: \"sid\", keys: [\"k\"], secure: true });\n"
