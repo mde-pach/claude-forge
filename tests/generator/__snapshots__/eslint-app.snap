@@ -4030,7 +4030,7 @@ forge_missing_tools() {
   for _mt_l in $FORGE_TYPES_LANGS; do
     case $_mt_l in
       python) command -v uvx >/dev/null 2>&1 || _mt="${_mt:+$_mt, }uvx (types engine: ty $FORGE_TY_VERSION)" ;;
-      typescript) command -v bun >/dev/null 2>&1 || _mt="${_mt:+$_mt, }bun (types engine: TypeScript $FORGE_TS_ENGINE_VERSION)" ;;
+      typescript) command -v bun >/dev/null 2>&1 || _mt="${_mt:+$_mt, }bun (types engine: the project's TypeScript)" ;;
     esac
   done
   printf '%s' "$_mt"
@@ -4051,7 +4051,6 @@ forge_required_tools() {
 # The languages whose types engine the active rules use, and the engines' pins.
 FORGE_TYPES_LANGS=''
 FORGE_TY_VERSION='0.0.86'
-FORGE_TS_ENGINE_VERSION='7.0.2'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
 FORGE_TYPES_REV=''
@@ -4064,7 +4063,8 @@ forge_types_up() {
   _tu_d=$FORGE_STATE/types/$1
   case $1 in
     python) _tu_want="ty $FORGE_TY_VERSION $FORGE_TYPES_REV" ;;
-    typescript) _tu_want="typescript $FORGE_TS_ENGINE_VERSION $FORGE_TYPES_REV" ;;
+    # the project's own TypeScript: a change of its version changes package.json or a lock file (restart)
+    typescript) _tu_want="typescript (the project's) $FORGE_TYPES_REV" ;;
     *) printf 'no types engine for %s\n' "$1"; return 1 ;;
   esac
   forge_types_running "$1" "$_tu_want" && return 0
@@ -4090,7 +4090,7 @@ forge_types_up() {
   printf '%s\n' "$_tu_want" > "$_tu_d/want"
   case $1 in
     python) set -- uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" python "$(pwd -P)/.forge/helpers/types_python.py" "$(pwd -P)" "$_tu_d" ;;
-    typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" "$FORGE_TS_ENGINE_VERSION" ;;
+    typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" ;;
   esac
   # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a
   # launcher that fails before (no network for a first download) says "exited <code>"
@@ -4138,16 +4138,26 @@ forge_types_filter() {
   grep -q '"forge_where"' "$1" 2>/dev/null || return 0
   grep -v '"forge_where"' "$1" > "$1.kept"
   _tf_rc=0
+  _tf_base=${FORGE_TYPES_TIMEOUT:-20}
   for _tf_lang in $FORGE_TYPES_LANGS; do
     case $_tf_lang in python) _tf_sg='"language":"Python"' ;; typescript) _tf_sg='"language":"Tsx"' ;; esac
     _tf_q=$1.$_tf_lang
     rm -rf "$_tf_q" && mkdir "$_tf_q" || return 1
     grep '"forge_where"' "$1" | grep -F "$_tf_sg" > "$_tf_q/req"
     [ -s "$_tf_q/req" ] || continue
+    # After an edit (FORGE_TYPES_EDIT=1, post-edit.sh) an engine still loading the project's
+    # tsconfig projects is waited for at most FORGE_TYPES_LOADING_WAIT seconds (5): the edit
+    # is not held up, and the Stop check, which waits, checks these matches.
+    _tf_t=$_tf_base
+    if [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then _tf_t=${FORGE_TYPES_LOADING_WAIT:-5}; fi
     # not in a subshell: forge_types_up records what it started (FORGE_TYPES_STARTED)
-    if forge_types_up "$_tf_lang" > "$_tf_q/why" && forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
+    if forge_types_up "$_tf_lang" > "$_tf_q/why" && FORGE_TYPES_TIMEOUT=$_tf_t forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
       && ! grep -q '^error	' "$_tf_q/answer"; then
       cat "$_tf_q/answer" >> "$1.kept"
+    elif [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then
+      grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
+        printf 'forge:forge/types %s was not checked after this edit: the %s engine (%s) is still loading the project; the Stop check runs it\n' "$_tf_id" "$_tf_lang" "$(cat "$FORGE_STATE/types/$_tf_lang/ready" 2>/dev/null)"
+      done
     else
       _tf_why=$(cat "$_tf_q/why")
       [ -n "$_tf_why" ] || _tf_why=$(grep '^error	' "$_tf_q/answer" 2>/dev/null | head -n 1 | cut -f 2-)
@@ -4203,7 +4213,7 @@ forge_edit_checks() {
     # matches on added lines; those of rules with type constraints only when the
     # types engine confirms them (§15.1)
     forge_sg_report "$FORGE_TMP/forbid" json > "$FORGE_TMP/forbid.added"
-    forge_types_filter "$FORGE_TMP/forbid.added" >> "$FORGE_TMP/report"
+    FORGE_TYPES_EDIT=1 forge_types_filter "$FORGE_TMP/forbid.added" >> "$FORGE_TMP/report"
     forge_sg_report "$FORGE_TMP/forbid.added" >> "$FORGE_TMP/report"
   fi
   return 0
@@ -7214,7 +7224,7 @@ forge_missing_tools() {
   for _mt_l in $FORGE_TYPES_LANGS; do
     case $_mt_l in
       python) command -v uvx >/dev/null 2>&1 || _mt="${_mt:+$_mt, }uvx (types engine: ty $FORGE_TY_VERSION)" ;;
-      typescript) command -v bun >/dev/null 2>&1 || _mt="${_mt:+$_mt, }bun (types engine: TypeScript $FORGE_TS_ENGINE_VERSION)" ;;
+      typescript) command -v bun >/dev/null 2>&1 || _mt="${_mt:+$_mt, }bun (types engine: the project's TypeScript)" ;;
     esac
   done
   printf '%s' "$_mt"
@@ -7235,7 +7245,6 @@ forge_required_tools() {
 # The languages whose types engine the active rules use, and the engines' pins.
 FORGE_TYPES_LANGS=''
 FORGE_TY_VERSION='0.0.86'
-FORGE_TS_ENGINE_VERSION='7.0.2'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
 FORGE_TYPES_REV=''
@@ -7248,7 +7257,8 @@ forge_types_up() {
   _tu_d=$FORGE_STATE/types/$1
   case $1 in
     python) _tu_want="ty $FORGE_TY_VERSION $FORGE_TYPES_REV" ;;
-    typescript) _tu_want="typescript $FORGE_TS_ENGINE_VERSION $FORGE_TYPES_REV" ;;
+    # the project's own TypeScript: a change of its version changes package.json or a lock file (restart)
+    typescript) _tu_want="typescript (the project's) $FORGE_TYPES_REV" ;;
     *) printf 'no types engine for %s\n' "$1"; return 1 ;;
   esac
   forge_types_running "$1" "$_tu_want" && return 0
@@ -7274,7 +7284,7 @@ forge_types_up() {
   printf '%s\n' "$_tu_want" > "$_tu_d/want"
   case $1 in
     python) set -- uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" python "$(pwd -P)/.forge/helpers/types_python.py" "$(pwd -P)" "$_tu_d" ;;
-    typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" "$FORGE_TS_ENGINE_VERSION" ;;
+    typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" ;;
   esac
   # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a
   # launcher that fails before (no network for a first download) says "exited <code>"
@@ -7322,16 +7332,26 @@ forge_types_filter() {
   grep -q '"forge_where"' "$1" 2>/dev/null || return 0
   grep -v '"forge_where"' "$1" > "$1.kept"
   _tf_rc=0
+  _tf_base=${FORGE_TYPES_TIMEOUT:-20}
   for _tf_lang in $FORGE_TYPES_LANGS; do
     case $_tf_lang in python) _tf_sg='"language":"Python"' ;; typescript) _tf_sg='"language":"Tsx"' ;; esac
     _tf_q=$1.$_tf_lang
     rm -rf "$_tf_q" && mkdir "$_tf_q" || return 1
     grep '"forge_where"' "$1" | grep -F "$_tf_sg" > "$_tf_q/req"
     [ -s "$_tf_q/req" ] || continue
+    # After an edit (FORGE_TYPES_EDIT=1, post-edit.sh) an engine still loading the project's
+    # tsconfig projects is waited for at most FORGE_TYPES_LOADING_WAIT seconds (5): the edit
+    # is not held up, and the Stop check, which waits, checks these matches.
+    _tf_t=$_tf_base
+    if [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then _tf_t=${FORGE_TYPES_LOADING_WAIT:-5}; fi
     # not in a subshell: forge_types_up records what it started (FORGE_TYPES_STARTED)
-    if forge_types_up "$_tf_lang" > "$_tf_q/why" && forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
+    if forge_types_up "$_tf_lang" > "$_tf_q/why" && FORGE_TYPES_TIMEOUT=$_tf_t forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
       && ! grep -q '^error	' "$_tf_q/answer"; then
       cat "$_tf_q/answer" >> "$1.kept"
+    elif [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then
+      grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
+        printf 'forge:forge/types %s was not checked after this edit: the %s engine (%s) is still loading the project; the Stop check runs it\n' "$_tf_id" "$_tf_lang" "$(cat "$FORGE_STATE/types/$_tf_lang/ready" 2>/dev/null)"
+      done
     else
       _tf_why=$(cat "$_tf_q/why")
       [ -n "$_tf_why" ] || _tf_why=$(grep '^error	' "$_tf_q/answer" 2>/dev/null | head -n 1 | cut -f 2-)
@@ -10429,7 +10449,7 @@ forge_missing_tools() {
   for _mt_l in $FORGE_TYPES_LANGS; do
     case $_mt_l in
       python) command -v uvx >/dev/null 2>&1 || _mt="${_mt:+$_mt, }uvx (types engine: ty $FORGE_TY_VERSION)" ;;
-      typescript) command -v bun >/dev/null 2>&1 || _mt="${_mt:+$_mt, }bun (types engine: TypeScript $FORGE_TS_ENGINE_VERSION)" ;;
+      typescript) command -v bun >/dev/null 2>&1 || _mt="${_mt:+$_mt, }bun (types engine: the project's TypeScript)" ;;
     esac
   done
   printf '%s' "$_mt"
@@ -10450,7 +10470,6 @@ forge_required_tools() {
 # The languages whose types engine the active rules use, and the engines' pins.
 FORGE_TYPES_LANGS=''
 FORGE_TY_VERSION='0.0.86'
-FORGE_TS_ENGINE_VERSION='7.0.2'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
 FORGE_TYPES_REV=''
@@ -10463,7 +10482,8 @@ forge_types_up() {
   _tu_d=$FORGE_STATE/types/$1
   case $1 in
     python) _tu_want="ty $FORGE_TY_VERSION $FORGE_TYPES_REV" ;;
-    typescript) _tu_want="typescript $FORGE_TS_ENGINE_VERSION $FORGE_TYPES_REV" ;;
+    # the project's own TypeScript: a change of its version changes package.json or a lock file (restart)
+    typescript) _tu_want="typescript (the project's) $FORGE_TYPES_REV" ;;
     *) printf 'no types engine for %s\n' "$1"; return 1 ;;
   esac
   forge_types_running "$1" "$_tu_want" && return 0
@@ -10489,7 +10509,7 @@ forge_types_up() {
   printf '%s\n' "$_tu_want" > "$_tu_d/want"
   case $1 in
     python) set -- uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" python "$(pwd -P)/.forge/helpers/types_python.py" "$(pwd -P)" "$_tu_d" ;;
-    typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" "$FORGE_TS_ENGINE_VERSION" ;;
+    typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" ;;
   esac
   # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a
   # launcher that fails before (no network for a first download) says "exited <code>"
@@ -10537,16 +10557,26 @@ forge_types_filter() {
   grep -q '"forge_where"' "$1" 2>/dev/null || return 0
   grep -v '"forge_where"' "$1" > "$1.kept"
   _tf_rc=0
+  _tf_base=${FORGE_TYPES_TIMEOUT:-20}
   for _tf_lang in $FORGE_TYPES_LANGS; do
     case $_tf_lang in python) _tf_sg='"language":"Python"' ;; typescript) _tf_sg='"language":"Tsx"' ;; esac
     _tf_q=$1.$_tf_lang
     rm -rf "$_tf_q" && mkdir "$_tf_q" || return 1
     grep '"forge_where"' "$1" | grep -F "$_tf_sg" > "$_tf_q/req"
     [ -s "$_tf_q/req" ] || continue
+    # After an edit (FORGE_TYPES_EDIT=1, post-edit.sh) an engine still loading the project's
+    # tsconfig projects is waited for at most FORGE_TYPES_LOADING_WAIT seconds (5): the edit
+    # is not held up, and the Stop check, which waits, checks these matches.
+    _tf_t=$_tf_base
+    if [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then _tf_t=${FORGE_TYPES_LOADING_WAIT:-5}; fi
     # not in a subshell: forge_types_up records what it started (FORGE_TYPES_STARTED)
-    if forge_types_up "$_tf_lang" > "$_tf_q/why" && forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
+    if forge_types_up "$_tf_lang" > "$_tf_q/why" && FORGE_TYPES_TIMEOUT=$_tf_t forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
       && ! grep -q '^error	' "$_tf_q/answer"; then
       cat "$_tf_q/answer" >> "$1.kept"
+    elif [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then
+      grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
+        printf 'forge:forge/types %s was not checked after this edit: the %s engine (%s) is still loading the project; the Stop check runs it\n' "$_tf_id" "$_tf_lang" "$(cat "$FORGE_STATE/types/$_tf_lang/ready" 2>/dev/null)"
+      done
     else
       _tf_why=$(cat "$_tf_q/why")
       [ -n "$_tf_why" ] || _tf_why=$(grep '^error	' "$_tf_q/answer" 2>/dev/null | head -n 1 | cut -f 2-)
@@ -13664,7 +13694,7 @@ forge_missing_tools() {
   for _mt_l in $FORGE_TYPES_LANGS; do
     case $_mt_l in
       python) command -v uvx >/dev/null 2>&1 || _mt="${_mt:+$_mt, }uvx (types engine: ty $FORGE_TY_VERSION)" ;;
-      typescript) command -v bun >/dev/null 2>&1 || _mt="${_mt:+$_mt, }bun (types engine: TypeScript $FORGE_TS_ENGINE_VERSION)" ;;
+      typescript) command -v bun >/dev/null 2>&1 || _mt="${_mt:+$_mt, }bun (types engine: the project's TypeScript)" ;;
     esac
   done
   printf '%s' "$_mt"
@@ -13685,7 +13715,6 @@ forge_required_tools() {
 # The languages whose types engine the active rules use, and the engines' pins.
 FORGE_TYPES_LANGS=''
 FORGE_TY_VERSION='0.0.86'
-FORGE_TS_ENGINE_VERSION='7.0.2'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
 FORGE_TYPES_REV=''
@@ -13698,7 +13727,8 @@ forge_types_up() {
   _tu_d=$FORGE_STATE/types/$1
   case $1 in
     python) _tu_want="ty $FORGE_TY_VERSION $FORGE_TYPES_REV" ;;
-    typescript) _tu_want="typescript $FORGE_TS_ENGINE_VERSION $FORGE_TYPES_REV" ;;
+    # the project's own TypeScript: a change of its version changes package.json or a lock file (restart)
+    typescript) _tu_want="typescript (the project's) $FORGE_TYPES_REV" ;;
     *) printf 'no types engine for %s\n' "$1"; return 1 ;;
   esac
   forge_types_running "$1" "$_tu_want" && return 0
@@ -13724,7 +13754,7 @@ forge_types_up() {
   printf '%s\n' "$_tu_want" > "$_tu_d/want"
   case $1 in
     python) set -- uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" python "$(pwd -P)/.forge/helpers/types_python.py" "$(pwd -P)" "$_tu_d" ;;
-    typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" "$FORGE_TS_ENGINE_VERSION" ;;
+    typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" ;;
   esac
   # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a
   # launcher that fails before (no network for a first download) says "exited <code>"
@@ -13772,16 +13802,26 @@ forge_types_filter() {
   grep -q '"forge_where"' "$1" 2>/dev/null || return 0
   grep -v '"forge_where"' "$1" > "$1.kept"
   _tf_rc=0
+  _tf_base=${FORGE_TYPES_TIMEOUT:-20}
   for _tf_lang in $FORGE_TYPES_LANGS; do
     case $_tf_lang in python) _tf_sg='"language":"Python"' ;; typescript) _tf_sg='"language":"Tsx"' ;; esac
     _tf_q=$1.$_tf_lang
     rm -rf "$_tf_q" && mkdir "$_tf_q" || return 1
     grep '"forge_where"' "$1" | grep -F "$_tf_sg" > "$_tf_q/req"
     [ -s "$_tf_q/req" ] || continue
+    # After an edit (FORGE_TYPES_EDIT=1, post-edit.sh) an engine still loading the project's
+    # tsconfig projects is waited for at most FORGE_TYPES_LOADING_WAIT seconds (5): the edit
+    # is not held up, and the Stop check, which waits, checks these matches.
+    _tf_t=$_tf_base
+    if [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then _tf_t=${FORGE_TYPES_LOADING_WAIT:-5}; fi
     # not in a subshell: forge_types_up records what it started (FORGE_TYPES_STARTED)
-    if forge_types_up "$_tf_lang" > "$_tf_q/why" && forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
+    if forge_types_up "$_tf_lang" > "$_tf_q/why" && FORGE_TYPES_TIMEOUT=$_tf_t forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
       && ! grep -q '^error	' "$_tf_q/answer"; then
       cat "$_tf_q/answer" >> "$1.kept"
+    elif [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then
+      grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
+        printf 'forge:forge/types %s was not checked after this edit: the %s engine (%s) is still loading the project; the Stop check runs it\n' "$_tf_id" "$_tf_lang" "$(cat "$FORGE_STATE/types/$_tf_lang/ready" 2>/dev/null)"
+      done
     else
       _tf_why=$(cat "$_tf_q/why")
       [ -n "$_tf_why" ] || _tf_why=$(grep '^error	' "$_tf_q/answer" 2>/dev/null | head -n 1 | cut -f 2-)
@@ -17644,7 +17684,7 @@ forge_missing_tools() {
   for _mt_l in $FORGE_TYPES_LANGS; do
     case $_mt_l in
       python) command -v uvx >/dev/null 2>&1 || _mt="${_mt:+$_mt, }uvx (types engine: ty $FORGE_TY_VERSION)" ;;
-      typescript) command -v bun >/dev/null 2>&1 || _mt="${_mt:+$_mt, }bun (types engine: TypeScript $FORGE_TS_ENGINE_VERSION)" ;;
+      typescript) command -v bun >/dev/null 2>&1 || _mt="${_mt:+$_mt, }bun (types engine: the project's TypeScript)" ;;
     esac
   done
   printf '%s' "$_mt"
@@ -17665,7 +17705,6 @@ forge_required_tools() {
 # The languages whose types engine the active rules use, and the engines' pins.
 FORGE_TYPES_LANGS=''
 FORGE_TY_VERSION='0.0.86'
-FORGE_TS_ENGINE_VERSION='7.0.2'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
 FORGE_TYPES_REV=''
@@ -17678,7 +17717,8 @@ forge_types_up() {
   _tu_d=$FORGE_STATE/types/$1
   case $1 in
     python) _tu_want="ty $FORGE_TY_VERSION $FORGE_TYPES_REV" ;;
-    typescript) _tu_want="typescript $FORGE_TS_ENGINE_VERSION $FORGE_TYPES_REV" ;;
+    # the project's own TypeScript: a change of its version changes package.json or a lock file (restart)
+    typescript) _tu_want="typescript (the project's) $FORGE_TYPES_REV" ;;
     *) printf 'no types engine for %s\n' "$1"; return 1 ;;
   esac
   forge_types_running "$1" "$_tu_want" && return 0
@@ -17704,7 +17744,7 @@ forge_types_up() {
   printf '%s\n' "$_tu_want" > "$_tu_d/want"
   case $1 in
     python) set -- uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" python "$(pwd -P)/.forge/helpers/types_python.py" "$(pwd -P)" "$_tu_d" ;;
-    typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" "$FORGE_TS_ENGINE_VERSION" ;;
+    typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" ;;
   esac
   # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a
   # launcher that fails before (no network for a first download) says "exited <code>"
@@ -17752,16 +17792,26 @@ forge_types_filter() {
   grep -q '"forge_where"' "$1" 2>/dev/null || return 0
   grep -v '"forge_where"' "$1" > "$1.kept"
   _tf_rc=0
+  _tf_base=${FORGE_TYPES_TIMEOUT:-20}
   for _tf_lang in $FORGE_TYPES_LANGS; do
     case $_tf_lang in python) _tf_sg='"language":"Python"' ;; typescript) _tf_sg='"language":"Tsx"' ;; esac
     _tf_q=$1.$_tf_lang
     rm -rf "$_tf_q" && mkdir "$_tf_q" || return 1
     grep '"forge_where"' "$1" | grep -F "$_tf_sg" > "$_tf_q/req"
     [ -s "$_tf_q/req" ] || continue
+    # After an edit (FORGE_TYPES_EDIT=1, post-edit.sh) an engine still loading the project's
+    # tsconfig projects is waited for at most FORGE_TYPES_LOADING_WAIT seconds (5): the edit
+    # is not held up, and the Stop check, which waits, checks these matches.
+    _tf_t=$_tf_base
+    if [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then _tf_t=${FORGE_TYPES_LOADING_WAIT:-5}; fi
     # not in a subshell: forge_types_up records what it started (FORGE_TYPES_STARTED)
-    if forge_types_up "$_tf_lang" > "$_tf_q/why" && forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
+    if forge_types_up "$_tf_lang" > "$_tf_q/why" && FORGE_TYPES_TIMEOUT=$_tf_t forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
       && ! grep -q '^error	' "$_tf_q/answer"; then
       cat "$_tf_q/answer" >> "$1.kept"
+    elif [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then
+      grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
+        printf 'forge:forge/types %s was not checked after this edit: the %s engine (%s) is still loading the project; the Stop check runs it\n' "$_tf_id" "$_tf_lang" "$(cat "$FORGE_STATE/types/$_tf_lang/ready" 2>/dev/null)"
+      done
     else
       _tf_why=$(cat "$_tf_q/why")
       [ -n "$_tf_why" ] || _tf_why=$(grep '^error	' "$_tf_q/answer" 2>/dev/null | head -n 1 | cut -f 2-)
@@ -17986,13 +18036,13 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "ff61a19974ccfc38fe6771978c9f9fe21253d4132eff8af9f06b112607965a00",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
     ".claude/skills/forge-project/scripts/lib.sh": "97c691d009a979b4dd1f81efd9535346b0027bc12a574653532eca62b978a289",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "8514817dab306909b894a34cda9d68f535ff0bcf5f42d376ec8f94f04f255f93",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "48829976de0fa88f3834a44030b07832c8bbdb8d395af184e41c16616fe04cd0",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
-    ".claude/skills/forge-project/scripts/session-start.sh": "b49f740f5e9ab6a879d7349cfea1728ee56ec897ea8d96637c2ca3f3f0d3e4b9",
+    ".claude/skills/forge-project/scripts/session-start.sh": "014bd48e57e132ef34d4e78e59d65a1588a5d0381473bca221675b315b82d0d8",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "b22bea977c510668c6f95b16ab0f13a9b3e044d10d72202b10b8e0b3133647a3",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "634d6c7e8f9b161d0738c538a541e410f5484d7f3e9e27aa1357e11b47acd8a2",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "6086d299f0fa1531ccc20839fc16b0e0c1f27e6fa8289b1fef259ba75fea08f9",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "1d31a31dba63bac8d4b45b9d00611b4bed49952947da2c572a485e66c98c19f5",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml": "c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20",
     ".forge/ast-grep/rule-tests/typescript-no-eval-test.yml": "3716e00219b28a0974a07a56e1d264bb478b35a6ef38d5c13740a9080b09516e",
@@ -18015,7 +18065,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/typescript/no-ts-nocheck.yml": "aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21",
     ".forge/ast-grep/rules/typescript/ts-expect-error-reason.yml": "b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "231404c4b30d8b77c2a0d6323e2fcde2756264560c9f1e77c028b8bad79d70ce",
+    ".forge/check.sh": "ae1f44810aad0220e0f113704e3fbc44c055e18b9ecc70840a69405d31dd6660",
     ".forge/helpers/ratchet.mjs": "14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
@@ -18208,13 +18258,13 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 ff61a19974ccfc38fe6771978c9f9fe21253d4132eff8af9f06b112607965a00  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
 97c691d009a979b4dd1f81efd9535346b0027bc12a574653532eca62b978a289  .claude/skills/forge-project/scripts/lib.sh
-8514817dab306909b894a34cda9d68f535ff0bcf5f42d376ec8f94f04f255f93  .claude/skills/forge-project/scripts/post-edit.sh
+48829976de0fa88f3834a44030b07832c8bbdb8d395af184e41c16616fe04cd0  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
-b49f740f5e9ab6a879d7349cfea1728ee56ec897ea8d96637c2ca3f3f0d3e4b9  .claude/skills/forge-project/scripts/session-start.sh
+014bd48e57e132ef34d4e78e59d65a1588a5d0381473bca221675b315b82d0d8  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-b22bea977c510668c6f95b16ab0f13a9b3e044d10d72202b10b8e0b3133647a3  .claude/skills/forge-project/scripts/test-edit.sh
+634d6c7e8f9b161d0738c538a541e410f5484d7f3e9e27aa1357e11b47acd8a2  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-6086d299f0fa1531ccc20839fc16b0e0c1f27e6fa8289b1fef259ba75fea08f9  .claude/skills/forge-project/scripts/typecheck.sh
+1d31a31dba63bac8d4b45b9d00611b4bed49952947da2c572a485e66c98c19f5  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20  .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
 3716e00219b28a0974a07a56e1d264bb478b35a6ef38d5c13740a9080b09516e  .forge/ast-grep/rule-tests/typescript-no-eval-test.yml
@@ -18237,7 +18287,7 @@ b21497e3335f2271e6ca5874817957d18c640e7d787cfe76a72ef390ab62d634  .forge/ast-gre
 aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21  .forge/ast-grep/rules/typescript/no-ts-nocheck.yml
 b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad  .forge/ast-grep/rules/typescript/ts-expect-error-reason.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-231404c4b30d8b77c2a0d6323e2fcde2756264560c9f1e77c028b8bad79d70ce  .forge/check.sh
+ae1f44810aad0220e0f113704e3fbc44c055e18b9ecc70840a69405d31dd6660  .forge/check.sh
 14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38  .forge/helpers/ratchet.mjs
 
 ===== .git/hooks/pre-commit

@@ -130,6 +130,8 @@ export const TOOL_VERSIONS = {
   // tsc 5.x colours diagnostics even when piped, when the tsconfig sets "pretty": true
   // (tsc 7 does not); diagnostics attribution must read that format too.
   typescript5: "5.5.4",
+  /** The TypeScript versions the types engine is proved on (§15.2): one per major. */
+  typescriptEngines: ["5.9.3", "6.0.3", "7.0.2"],
   ruff: "0.17.1",
   basedpyright: "1.40.2",
   // types that Biome reads to report deprecated imports

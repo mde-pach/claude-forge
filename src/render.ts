@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { codeExamples } from "./packs.js";
 import { toYaml } from "./yaml.js";
-import { AST_GREP_VERSION, ENGINE_PYTHON, FORGE_VERSION, HADOLINT_SHA256, HADOLINT_VERSION, packageRoot, sha256, shQuote, SQUAWK_VERSION, TS_ENGINE_VERSION, TY_VERSION, ZIZMOR_VERSION } from "./util.js";
+import { AST_GREP_VERSION, ENGINE_PYTHON, FORGE_VERSION, HADOLINT_SHA256, HADOLINT_VERSION, packageRoot, sha256, shQuote, SQUAWK_VERSION, TY_VERSION, ZIZMOR_VERSION } from "./util.js";
 import type { AstGrepTarget, CheckTarget, GrepTarget, GuardTarget, Language, Level, Rule } from "./types.js";
 
 export function template(name: string): string {
@@ -223,7 +223,6 @@ export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = [], ty
       // newline-separated: IFS is a newline in the generated scripts
       TYPES_LANGS: types.join("\n"),
       TY_VERSION,
-      TS_ENGINE_VERSION,
       ENGINE_PYTHON,
       TYPES_REV: types.length ? typesRevision() : "",
     }).trimEnd());

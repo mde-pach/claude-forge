@@ -27,7 +27,7 @@ import {
   type ActiveGrep,
   type ActiveGuard,
 } from "./render.js";
-import { listRepoFiles, TS_ENGINE_VERSION, TY_VERSION } from "./util.js";
+import { listRepoFiles, TY_VERSION } from "./util.js";
 import type { AstGrepTarget, CheckTarget, Level, Pack, ProjectConfig, Rule, SettingsEntry, ToolName, ToolTarget } from "./types.js";
 
 export type AuditedTool = (typeof AUDITED_TOOLS)[number];
@@ -303,7 +303,7 @@ export function plan(opts: PlanOptions): Plan {
         st.astgrep = ast;
         astgrep.push({ rule, target: ast, ...(dirs ? { dirs } : {}) });
         const lang = typesLanguage(rule, ast);
-        const engine = lang === "python" ? `ty ${TY_VERSION}` : `TypeScript ${TS_ENGINE_VERSION}`;
+        const engine = lang === "python" ? `ty ${TY_VERSION}` : "the project's TypeScript";
         st.enforced.push(`ast-grep ${ast.mode} (.forge/ast-grep/${astGrepRulePath(rule.id)})${lang ? ` with types (${engine})` : ""}${dirs ? ` (in ${dirs.join(", ")})` : ""}`);
         st.notEnforced = [];
       }

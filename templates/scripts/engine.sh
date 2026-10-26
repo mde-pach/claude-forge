@@ -2804,7 +2804,7 @@ forge_missing_tools() {
   for _mt_l in $FORGE_TYPES_LANGS; do
     case $_mt_l in
       python) command -v uvx >/dev/null 2>&1 || _mt="${_mt:+$_mt, }uvx (types engine: ty $FORGE_TY_VERSION)" ;;
-      typescript) command -v bun >/dev/null 2>&1 || _mt="${_mt:+$_mt, }bun (types engine: TypeScript $FORGE_TS_ENGINE_VERSION)" ;;
+      typescript) command -v bun >/dev/null 2>&1 || _mt="${_mt:+$_mt, }bun (types engine: the project's TypeScript)" ;;
     esac
   done
   printf '%s' "$_mt"
@@ -2825,7 +2825,6 @@ forge_required_tools() {
 # The languages whose types engine the active rules use, and the engines' pins.
 FORGE_TYPES_LANGS='@@TYPES_LANGS@@'
 FORGE_TY_VERSION='@@TY_VERSION@@'
-FORGE_TS_ENGINE_VERSION='@@TS_ENGINE_VERSION@@'
 FORGE_ENGINE_PYTHON='@@ENGINE_PYTHON@@'
 # the adapters' revision: a running daemon of another Forge version is restarted
 FORGE_TYPES_REV='@@TYPES_REV@@'
@@ -2838,7 +2837,8 @@ forge_types_up() {
   _tu_d=$FORGE_STATE/types/$1
   case $1 in
     python) _tu_want="ty $FORGE_TY_VERSION $FORGE_TYPES_REV" ;;
-    typescript) _tu_want="typescript $FORGE_TS_ENGINE_VERSION $FORGE_TYPES_REV" ;;
+    # the project's own TypeScript: a change of its version changes package.json or a lock file (restart)
+    typescript) _tu_want="typescript (the project's) $FORGE_TYPES_REV" ;;
     *) printf 'no types engine for %s\n' "$1"; return 1 ;;
   esac
   forge_types_running "$1" "$_tu_want" && return 0
@@ -2864,7 +2864,7 @@ forge_types_up() {
   printf '%s\n' "$_tu_want" > "$_tu_d/want"
   case $1 in
     python) set -- uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" python "$(pwd -P)/.forge/helpers/types_python.py" "$(pwd -P)" "$_tu_d" ;;
-    typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" "$FORGE_TS_ENGINE_VERSION" ;;
+    typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" ;;
   esac
   # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a
   # launcher that fails before (no network for a first download) says "exited <code>"
@@ -2912,16 +2912,26 @@ forge_types_filter() {
   grep -q '"forge_where"' "$1" 2>/dev/null || return 0
   grep -v '"forge_where"' "$1" > "$1.kept"
   _tf_rc=0
+  _tf_base=${FORGE_TYPES_TIMEOUT:-20}
   for _tf_lang in $FORGE_TYPES_LANGS; do
     case $_tf_lang in python) _tf_sg='"language":"Python"' ;; typescript) _tf_sg='"language":"Tsx"' ;; esac
     _tf_q=$1.$_tf_lang
     rm -rf "$_tf_q" && mkdir "$_tf_q" || return 1
     grep '"forge_where"' "$1" | grep -F "$_tf_sg" > "$_tf_q/req"
     [ -s "$_tf_q/req" ] || continue
+    # After an edit (FORGE_TYPES_EDIT=1, post-edit.sh) an engine still loading the project's
+    # tsconfig projects is waited for at most FORGE_TYPES_LOADING_WAIT seconds (5): the edit
+    # is not held up, and the Stop check, which waits, checks these matches.
+    _tf_t=$_tf_base
+    if [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then _tf_t=${FORGE_TYPES_LOADING_WAIT:-5}; fi
     # not in a subshell: forge_types_up records what it started (FORGE_TYPES_STARTED)
-    if forge_types_up "$_tf_lang" > "$_tf_q/why" && forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
+    if forge_types_up "$_tf_lang" > "$_tf_q/why" && FORGE_TYPES_TIMEOUT=$_tf_t forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
       && ! grep -q '^error	' "$_tf_q/answer"; then
       cat "$_tf_q/answer" >> "$1.kept"
+    elif [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then
+      grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
+        printf 'forge:forge/types %s was not checked after this edit: the %s engine (%s) is still loading the project; the Stop check runs it\n' "$_tf_id" "$_tf_lang" "$(cat "$FORGE_STATE/types/$_tf_lang/ready" 2>/dev/null)"
+      done
     else
       _tf_why=$(cat "$_tf_q/why")
       [ -n "$_tf_why" ] || _tf_why=$(grep '^error	' "$_tf_q/answer" 2>/dev/null | head -n 1 | cut -f 2-)

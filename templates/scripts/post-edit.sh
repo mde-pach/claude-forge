@@ -94,7 +94,7 @@ forge_edit_checks() {
     # matches on added lines; those of rules with type constraints only when the
     # types engine confirms them (§15.1)
     forge_sg_report "$FORGE_TMP/forbid" json > "$FORGE_TMP/forbid.added"
-    forge_types_filter "$FORGE_TMP/forbid.added" >> "$FORGE_TMP/report"
+    FORGE_TYPES_EDIT=1 forge_types_filter "$FORGE_TMP/forbid.added" >> "$FORGE_TMP/report"
     forge_sg_report "$FORGE_TMP/forbid.added" >> "$FORGE_TMP/report"
   fi
   return 0

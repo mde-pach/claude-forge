@@ -15,7 +15,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { renderChecks, renderLib } from "../../src/render";
-import { commitAll, fakeClaude, forge, git, hasBun, hasUv, hookJson, processesNaming, put, ROOT, sh, stateDir, stopEngines } from "../helpers";
+import { commitAll, fakeClaude, forge, git, hasBun, hasUv, hookJson, processesNaming, put, ROOT, sh, stateDir, stopEngines, TOOL_VERSIONS } from "../helpers";
 
 const T = 300_000;
 const SCRIPTS = ".claude/skills/forge-project/scripts";
@@ -269,13 +269,18 @@ describe.if(hasUv)("Python: the receiver's type, through ty", () => {
   );
 });
 
+/**
+ * The project's own TypeScript answers (§15.2): TypeScript 7 through its language server
+ * (tsc --lsp), TypeScript 5 and 6 through their tsserver. The same tests run on one
+ * version of each.
+ */
 /** @rule typescript/zod/v4-string-formats */
-describe.if(hasBun)("TypeScript: the receiver's type, through TypeScript 7", () => {
+describe.each(TOOL_VERSIONS.typescriptEngines.map((v) => [v]))("TypeScript %s: the receiver's type, through the project's TypeScript", (version) => {
   let repo = "";
   beforeAll(() => {
     repo = project(undefined, (dir) => {
       mkdirSync(join(dir, "src"));
-      writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "zod-app", private: true, type: "module", dependencies: { zod: "4.1.12" }, devDependencies: { typescript: "5.9.3" } }));
+      writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "zod-app", private: true, type: "module", dependencies: { zod: "4.1.12" }, devDependencies: { typescript: version } }));
       writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ compilerOptions: { strict: true, module: "ESNext", moduleResolution: "bundler", target: "ES2022", noEmit: true } }));
       writeFileSync(join(dir, ".gitignore"), "node_modules/\n");
       writeFileSync(join(dir, "src/index.ts"), "export const x = 1;\n");
@@ -296,6 +301,17 @@ describe.if(hasBun)("TypeScript: the receiver's type, through TypeScript 7", () 
     "}",
     "",
   ].join("\n");
+
+  test(
+    "the engine is the project's TypeScript: tsc --lsp from TypeScript 7, its tsserver before",
+    () => {
+      put(repo, "src/schemas.ts", SCHEMAS);
+      afterEdit(repo, "src/schemas.ts");
+      const ready = readFileSync(join(stateDir(repo), "types", "typescript", "ready"), "utf8").trim();
+      expect(ready).toBe(Number(version.split(".")[0]) >= 7 ? `typescript-go ${version}` : `tsserver ${version}`);
+    },
+    T,
+  );
 
   test(
     "a receiver of Zod 4's ZodString is matched whatever it is called: a namespace import, a variable, a parameter, a call chain",
@@ -337,3 +353,27 @@ describe.if(hasBun)("TypeScript: the receiver's type, through TypeScript 7", () 
     T,
   );
 });
+
+/** @rule typescript/zod/v4-string-formats */
+test(
+  "a project without its own TypeScript package gets its typed matches reported unchecked, never passed",
+  () => {
+    const repo = project(undefined, (dir) => {
+      mkdirSync(join(dir, "src"));
+      writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "no-ts", private: true, type: "module", dependencies: { zod: "4.1.12" } }));
+      writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ compilerOptions: { strict: true, noEmit: true } }));
+      writeFileSync(join(dir, ".gitignore"), "node_modules/\n");
+      writeFileSync(join(dir, "src/index.ts"), "export const x = 1;\n");
+      expect(sh("bun", ["install", "--silent"], { cwd: dir }).status).toBe(0);
+    });
+    try {
+      put(repo, "src/schemas.ts", 'import { z } from "zod";\n\nexport const Email = z.string().email();\n');
+      const ctx = afterEdit(repo, "src/schemas.ts");
+      expect(ctx).toContain("forge:forge/types typescript/zod/v4-string-formats was not checked: the typescript engine");
+      expect(ctx).toContain("the project has no typescript package");
+    } finally {
+      stopEngines(repo);
+    }
+  },
+  T,
+);

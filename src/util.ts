@@ -10,13 +10,12 @@ export const AST_GREP_VERSION = "0.45.3";
 /** Squawk (Postgres migration linter), run through bunx or uvx by migration-lint checks. */
 export const SQUAWK_VERSION = "2.70.0";
 /**
- * The types engines (§15.2), pinned like the other Forge tools (the newest release older
- * than 14 days): ty's language server through uvx on this Python, TypeScript 7's
- * (tsc --lsp) through bunx.
+ * The Python types engine (§15.2), pinned like the other Forge tools (the newest release
+ * older than 14 days): ty's language server through uvx on this Python. TypeScript's
+ * engine is the project's own TypeScript (its tsserver, or tsc --lsp from 7 on).
  */
 export const TY_VERSION = "0.0.86";
 export const ENGINE_PYTHON = "3.12";
-export const TS_ENGINE_VERSION = "7.0.2";
 /** zizmor (GitHub Actions auditor), run through uvx by github-actions/zizmor. */
 export const ZIZMOR_VERSION = "1.30.1";
 /** hadolint, run through uvx from the hadolint-bin wheel, whose binary must match the upstream release. */

@@ -1123,12 +1123,13 @@ examples:
 | Language | Server | Pin | Started as | Adapter |
 |---|---|---|---|---|
 | Python | `ty server` (Astral) | ty 0.0.86 | `uvx --python 3.12 --from ty==0.0.86 python <adapter> <root> <state>` | `types_python.py`: standard library only, on the Python uvx provides next to the pinned `ty` |
-| TypeScript | `tsc --lsp --stdio` of TypeScript 7 (the Go compiler) | typescript 7.0.2 | `bun <adapter> <root> <state> 7.0.2`, the adapter running `bun x --bun -p typescript@7.0.2 tsc --lsp --stdio` | `types_typescript.mjs`: Node-compatible, no Bun-only API |
+| TypeScript | the project's own TypeScript (`node_modules/typescript`, resolved from the root): 7 and later, its language server (`bin/tsc --lsp --stdio`, the Go compiler); 5 and 6, its `lib/tsserver.js` (tsserver protocol) | the project's (its lock file) | `bun <adapter> <root> <state>` | `types_typescript.mjs`: Node-compatible, no Bun-only API |
 
-- Pins follow Forge's rule for its own tools (the newest release older than 14 days; ast-grep, Squawk, zizmor, hadolint), are embedded in the generated scripts with a revision of the adapters, and are the same for every project: the engine is Forge's, like ast-grep, not the project's type checker (basedpyright and `tsc` stay the project's `typecheck` checks).
-- `uvx` (Python) and `bun` (TypeScript) are required tools of the capability: missing, they are listed by `forge_missing_tools` (SessionStart, `forge status`). `forge apply` provisions the pinned engines (fills the uvx / bunx caches), so the hooks run offline afterwards.
+- ty's pin follows Forge's rule for its own tools (the newest release older than 14 days; ast-grep, Squawk, zizmor, hadolint) and is embedded in the generated scripts with a revision of the adapters.
+- `uvx` (Python) and `bun` (TypeScript) are required tools of the capability: missing, they are listed by `forge_missing_tools` (SessionStart, `forge status`). `forge apply` provisions the pinned ty (fills the uvx cache), so the hooks run offline afterwards. TypeScript's engine is the project's: the version that type-checks the project answers its type questions, and a project without `node_modules/typescript` gets `forge:forge/types <rule> was not checked: the project has no typescript package …`. The same semantics and the same spec tests hold for TypeScript 5, 6 and 7 (one version of each is pinned in the test tools).
 - The engine answers with the project's own environment: ty finds `.venv` (or `VIRTUAL_ENV`) and the project's `[tool.ty]`; TypeScript reads the project's `tsconfig.json` files and `node_modules`, workspace packages included.
-- Both adapters implement one protocol (§15.3) and the semantics of §15.1; only the way supertypes are found differs (ty has a type hierarchy; TypeScript's server has none).
+- Both adapters implement one protocol (§15.3) and the semantics of §15.1; only the way supertypes are found differs (ty has a type hierarchy; TypeScript's servers have none). The TypeScript binding `({__forge_tN: (<expr>)}).__forge_tN` declares no name, so the server keeps that version of the file until it changes: one program update per question. To tsserver only the span that differs is sent.
+- **Loading.** The TypeScript adapter loads the project's tsconfig projects (one tracked source file of each `tsconfig.json`) in the background once ready, questions first; while it does, `<state>/types/typescript/loading` exists. After an edit, a question to an engine still loading waits at most `FORGE_TYPES_LOADING_WAIT` seconds (5) and then prints `forge:forge/types <rule-id> was not checked after this edit: the typescript engine (<server>) is still loading the project; the Stop check runs it`; the Stop check and CI wait for the answer. SessionStart starts the engines, so the load usually ends before the first edit.
 
 **Evidence** (Apple M2, 2026-10-26; `typeDefinition` on a receiver; cold = spawn to `initialize` reply; first = `didOpen` + first answer; warm = `didChange` + answer, median of 20; RSS after warm-up):
 
@@ -1139,7 +1140,17 @@ examples:
 | nextjs-prisma-app sample | TypeScript 7.0.2 / typescript-language-server + 5.9.3 | 45 / 65 ms | 41 / 924 ms | 1.0 / 3.5 ms | 103 / 782 MB |
 | documenso (2245 TS files, workspaces) | TypeScript 7.0.2 / typescript-language-server + 5.9.3 | 42 / 63 ms | 408 / 4538 ms | 86 / 97 ms (p95 163 / 122) | 1642 / 1998 MB |
 
-Through the adapters and the FIFO: a question from a POSIX `sh` client costs 5.6 ms of client and transport (bash 3.2 as `sh`); the engine answers a warm question in 2–16 ms (1 to 14 matches), the cold one in 63–250 ms; the whole `forge_types_filter` of an edit takes about 50 ms, sourcing the script included. ty and TypeScript 7 answer correctly through import aliases, re-exports, `sessionmaker()` results, subscripts, unions with `None`, subclasses (with the supertype walk) and generics, and give no declaration for `any`; basedpyright and tsserver answer the same for names but nothing for calls and subscripts, and cost 5–20× more to start.
+Through the TypeScript adapter on documenso (12 tsconfig projects; its own TypeScript 5.6.2, then 6.0.3 and 7.0.2 in its `node_modules`; a question on `packages/lib/utils/document-audit-logs.ts` with 2 matches of a `{package: zod}` rule; warm = after a `changed` line for an edit of that file, median of 10):
+
+| TypeScript | Server | Ready | A question during the load | Load of the 12 projects | Warm question |
+|---|---|---|---|---|---|
+| 5.6.2 | tsserver | 400 ms | 9.5 s | 21.3 s | 145–152 ms (max 217) |
+| 6.0.3 | tsserver | 272 ms | 7.0 s | 14.5 s | 145–153 ms (max 209) |
+| 7.0.2 | tsc --lsp | 91 ms | 0.7 s | 1.2 s | 39 ms (max 71) |
+
+tsserver's warm cost is its own program update after an edit in a large project (sending only the changed span, or one update instead of three per question, changed nothing measurable). The fixture of §15.1's tests answers 16 matches in 95–99 ms (5.9.3, 6.0.3) and 33 ms (7.0.2) cold, with the same 12 matches kept.
+
+Through the adapters and the FIFO: a question from a POSIX `sh` client costs 5.6 ms of client and transport (bash 3.2 as `sh`); the engine answers a warm question in 2–16 ms (1 to 14 matches), the cold one in 63–250 ms; the whole `forge_types_filter` of an edit takes about 50 ms, sourcing the script included. ty and TypeScript 7 answer correctly through import aliases, re-exports, `sessionmaker()` results, subscripts, unions with `None`, subclasses (with the supertype walk) and generics, and give no declaration for `any`; queried at the end of a call or subscript, basedpyright and tsserver answer nothing, but through the binding of §15.1 (a name) tsserver answers every case like TypeScript 7.
 
 ### 15.3 Daemons
 

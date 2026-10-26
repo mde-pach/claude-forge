@@ -4458,7 +4458,7 @@ forge_missing_tools() {
   for _mt_l in $FORGE_TYPES_LANGS; do
     case $_mt_l in
       python) command -v uvx >/dev/null 2>&1 || _mt="${_mt:+$_mt, }uvx (types engine: ty $FORGE_TY_VERSION)" ;;
-      typescript) command -v bun >/dev/null 2>&1 || _mt="${_mt:+$_mt, }bun (types engine: TypeScript $FORGE_TS_ENGINE_VERSION)" ;;
+      typescript) command -v bun >/dev/null 2>&1 || _mt="${_mt:+$_mt, }bun (types engine: the project's TypeScript)" ;;
     esac
   done
   printf '%s' "$_mt"
@@ -4479,10 +4479,9 @@ forge_required_tools() {
 # The languages whose types engine the active rules use, and the engines' pins.
 FORGE_TYPES_LANGS='typescript'
 FORGE_TY_VERSION='0.0.86'
-FORGE_TS_ENGINE_VERSION='7.0.2'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='3f3b5d2e09dd'
+FORGE_TYPES_REV='604f166279ee'
 
 # forge_types_up <lang>: the language's daemon runs, with the pinned engine (started
 # when it does not: by the first hook that needs it, or by SessionStart). Prints why
@@ -4492,7 +4491,8 @@ forge_types_up() {
   _tu_d=$FORGE_STATE/types/$1
   case $1 in
     python) _tu_want="ty $FORGE_TY_VERSION $FORGE_TYPES_REV" ;;
-    typescript) _tu_want="typescript $FORGE_TS_ENGINE_VERSION $FORGE_TYPES_REV" ;;
+    # the project's own TypeScript: a change of its version changes package.json or a lock file (restart)
+    typescript) _tu_want="typescript (the project's) $FORGE_TYPES_REV" ;;
     *) printf 'no types engine for %s\n' "$1"; return 1 ;;
   esac
   forge_types_running "$1" "$_tu_want" && return 0
@@ -4518,7 +4518,7 @@ forge_types_up() {
   printf '%s\n' "$_tu_want" > "$_tu_d/want"
   case $1 in
     python) set -- uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" python "$(pwd -P)/.forge/helpers/types_python.py" "$(pwd -P)" "$_tu_d" ;;
-    typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" "$FORGE_TS_ENGINE_VERSION" ;;
+    typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" ;;
   esac
   # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a
   # launcher that fails before (no network for a first download) says "exited <code>"
@@ -4566,16 +4566,26 @@ forge_types_filter() {
   grep -q '"forge_where"' "$1" 2>/dev/null || return 0
   grep -v '"forge_where"' "$1" > "$1.kept"
   _tf_rc=0
+  _tf_base=${FORGE_TYPES_TIMEOUT:-20}
   for _tf_lang in $FORGE_TYPES_LANGS; do
     case $_tf_lang in python) _tf_sg='"language":"Python"' ;; typescript) _tf_sg='"language":"Tsx"' ;; esac
     _tf_q=$1.$_tf_lang
     rm -rf "$_tf_q" && mkdir "$_tf_q" || return 1
     grep '"forge_where"' "$1" | grep -F "$_tf_sg" > "$_tf_q/req"
     [ -s "$_tf_q/req" ] || continue
+    # After an edit (FORGE_TYPES_EDIT=1, post-edit.sh) an engine still loading the project's
+    # tsconfig projects is waited for at most FORGE_TYPES_LOADING_WAIT seconds (5): the edit
+    # is not held up, and the Stop check, which waits, checks these matches.
+    _tf_t=$_tf_base
+    if [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then _tf_t=${FORGE_TYPES_LOADING_WAIT:-5}; fi
     # not in a subshell: forge_types_up records what it started (FORGE_TYPES_STARTED)
-    if forge_types_up "$_tf_lang" > "$_tf_q/why" && forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
+    if forge_types_up "$_tf_lang" > "$_tf_q/why" && FORGE_TYPES_TIMEOUT=$_tf_t forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
       && ! grep -q '^error	' "$_tf_q/answer"; then
       cat "$_tf_q/answer" >> "$1.kept"
+    elif [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then
+      grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
+        printf 'forge:forge/types %s was not checked after this edit: the %s engine (%s) is still loading the project; the Stop check runs it\n' "$_tf_id" "$_tf_lang" "$(cat "$FORGE_STATE/types/$_tf_lang/ready" 2>/dev/null)"
+      done
     else
       _tf_why=$(cat "$_tf_q/why")
       [ -n "$_tf_why" ] || _tf_why=$(grep '^error	' "$_tf_q/answer" 2>/dev/null | head -n 1 | cut -f 2-)
@@ -4631,7 +4641,7 @@ forge_edit_checks() {
     # matches on added lines; those of rules with type constraints only when the
     # types engine confirms them (§15.1)
     forge_sg_report "$FORGE_TMP/forbid" json > "$FORGE_TMP/forbid.added"
-    forge_types_filter "$FORGE_TMP/forbid.added" >> "$FORGE_TMP/report"
+    FORGE_TYPES_EDIT=1 forge_types_filter "$FORGE_TMP/forbid.added" >> "$FORGE_TMP/report"
     forge_sg_report "$FORGE_TMP/forbid.added" >> "$FORGE_TMP/report"
   fi
   return 0
@@ -7992,7 +8002,7 @@ forge_missing_tools() {
   for _mt_l in $FORGE_TYPES_LANGS; do
     case $_mt_l in
       python) command -v uvx >/dev/null 2>&1 || _mt="${_mt:+$_mt, }uvx (types engine: ty $FORGE_TY_VERSION)" ;;
-      typescript) command -v bun >/dev/null 2>&1 || _mt="${_mt:+$_mt, }bun (types engine: TypeScript $FORGE_TS_ENGINE_VERSION)" ;;
+      typescript) command -v bun >/dev/null 2>&1 || _mt="${_mt:+$_mt, }bun (types engine: the project's TypeScript)" ;;
     esac
   done
   printf '%s' "$_mt"
@@ -8013,10 +8023,9 @@ forge_required_tools() {
 # The languages whose types engine the active rules use, and the engines' pins.
 FORGE_TYPES_LANGS='typescript'
 FORGE_TY_VERSION='0.0.86'
-FORGE_TS_ENGINE_VERSION='7.0.2'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='3f3b5d2e09dd'
+FORGE_TYPES_REV='604f166279ee'
 
 # forge_types_up <lang>: the language's daemon runs, with the pinned engine (started
 # when it does not: by the first hook that needs it, or by SessionStart). Prints why
@@ -8026,7 +8035,8 @@ forge_types_up() {
   _tu_d=$FORGE_STATE/types/$1
   case $1 in
     python) _tu_want="ty $FORGE_TY_VERSION $FORGE_TYPES_REV" ;;
-    typescript) _tu_want="typescript $FORGE_TS_ENGINE_VERSION $FORGE_TYPES_REV" ;;
+    # the project's own TypeScript: a change of its version changes package.json or a lock file (restart)
+    typescript) _tu_want="typescript (the project's) $FORGE_TYPES_REV" ;;
     *) printf 'no types engine for %s\n' "$1"; return 1 ;;
   esac
   forge_types_running "$1" "$_tu_want" && return 0
@@ -8052,7 +8062,7 @@ forge_types_up() {
   printf '%s\n' "$_tu_want" > "$_tu_d/want"
   case $1 in
     python) set -- uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" python "$(pwd -P)/.forge/helpers/types_python.py" "$(pwd -P)" "$_tu_d" ;;
-    typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" "$FORGE_TS_ENGINE_VERSION" ;;
+    typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" ;;
   esac
   # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a
   # launcher that fails before (no network for a first download) says "exited <code>"
@@ -8100,16 +8110,26 @@ forge_types_filter() {
   grep -q '"forge_where"' "$1" 2>/dev/null || return 0
   grep -v '"forge_where"' "$1" > "$1.kept"
   _tf_rc=0
+  _tf_base=${FORGE_TYPES_TIMEOUT:-20}
   for _tf_lang in $FORGE_TYPES_LANGS; do
     case $_tf_lang in python) _tf_sg='"language":"Python"' ;; typescript) _tf_sg='"language":"Tsx"' ;; esac
     _tf_q=$1.$_tf_lang
     rm -rf "$_tf_q" && mkdir "$_tf_q" || return 1
     grep '"forge_where"' "$1" | grep -F "$_tf_sg" > "$_tf_q/req"
     [ -s "$_tf_q/req" ] || continue
+    # After an edit (FORGE_TYPES_EDIT=1, post-edit.sh) an engine still loading the project's
+    # tsconfig projects is waited for at most FORGE_TYPES_LOADING_WAIT seconds (5): the edit
+    # is not held up, and the Stop check, which waits, checks these matches.
+    _tf_t=$_tf_base
+    if [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then _tf_t=${FORGE_TYPES_LOADING_WAIT:-5}; fi
     # not in a subshell: forge_types_up records what it started (FORGE_TYPES_STARTED)
-    if forge_types_up "$_tf_lang" > "$_tf_q/why" && forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
+    if forge_types_up "$_tf_lang" > "$_tf_q/why" && FORGE_TYPES_TIMEOUT=$_tf_t forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
       && ! grep -q '^error	' "$_tf_q/answer"; then
       cat "$_tf_q/answer" >> "$1.kept"
+    elif [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then
+      grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
+        printf 'forge:forge/types %s was not checked after this edit: the %s engine (%s) is still loading the project; the Stop check runs it\n' "$_tf_id" "$_tf_lang" "$(cat "$FORGE_STATE/types/$_tf_lang/ready" 2>/dev/null)"
+      done
     else
       _tf_why=$(cat "$_tf_q/why")
       [ -n "$_tf_why" ] || _tf_why=$(grep '^error	' "$_tf_q/answer" 2>/dev/null | head -n 1 | cut -f 2-)
@@ -11546,7 +11566,7 @@ forge_missing_tools() {
   for _mt_l in $FORGE_TYPES_LANGS; do
     case $_mt_l in
       python) command -v uvx >/dev/null 2>&1 || _mt="${_mt:+$_mt, }uvx (types engine: ty $FORGE_TY_VERSION)" ;;
-      typescript) command -v bun >/dev/null 2>&1 || _mt="${_mt:+$_mt, }bun (types engine: TypeScript $FORGE_TS_ENGINE_VERSION)" ;;
+      typescript) command -v bun >/dev/null 2>&1 || _mt="${_mt:+$_mt, }bun (types engine: the project's TypeScript)" ;;
     esac
   done
   printf '%s' "$_mt"
@@ -11567,10 +11587,9 @@ forge_required_tools() {
 # The languages whose types engine the active rules use, and the engines' pins.
 FORGE_TYPES_LANGS='typescript'
 FORGE_TY_VERSION='0.0.86'
-FORGE_TS_ENGINE_VERSION='7.0.2'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='3f3b5d2e09dd'
+FORGE_TYPES_REV='604f166279ee'
 
 # forge_types_up <lang>: the language's daemon runs, with the pinned engine (started
 # when it does not: by the first hook that needs it, or by SessionStart). Prints why
@@ -11580,7 +11599,8 @@ forge_types_up() {
   _tu_d=$FORGE_STATE/types/$1
   case $1 in
     python) _tu_want="ty $FORGE_TY_VERSION $FORGE_TYPES_REV" ;;
-    typescript) _tu_want="typescript $FORGE_TS_ENGINE_VERSION $FORGE_TYPES_REV" ;;
+    # the project's own TypeScript: a change of its version changes package.json or a lock file (restart)
+    typescript) _tu_want="typescript (the project's) $FORGE_TYPES_REV" ;;
     *) printf 'no types engine for %s\n' "$1"; return 1 ;;
   esac
   forge_types_running "$1" "$_tu_want" && return 0
@@ -11606,7 +11626,7 @@ forge_types_up() {
   printf '%s\n' "$_tu_want" > "$_tu_d/want"
   case $1 in
     python) set -- uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" python "$(pwd -P)/.forge/helpers/types_python.py" "$(pwd -P)" "$_tu_d" ;;
-    typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" "$FORGE_TS_ENGINE_VERSION" ;;
+    typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" ;;
   esac
   # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a
   # launcher that fails before (no network for a first download) says "exited <code>"
@@ -11654,16 +11674,26 @@ forge_types_filter() {
   grep -q '"forge_where"' "$1" 2>/dev/null || return 0
   grep -v '"forge_where"' "$1" > "$1.kept"
   _tf_rc=0
+  _tf_base=${FORGE_TYPES_TIMEOUT:-20}
   for _tf_lang in $FORGE_TYPES_LANGS; do
     case $_tf_lang in python) _tf_sg='"language":"Python"' ;; typescript) _tf_sg='"language":"Tsx"' ;; esac
     _tf_q=$1.$_tf_lang
     rm -rf "$_tf_q" && mkdir "$_tf_q" || return 1
     grep '"forge_where"' "$1" | grep -F "$_tf_sg" > "$_tf_q/req"
     [ -s "$_tf_q/req" ] || continue
+    # After an edit (FORGE_TYPES_EDIT=1, post-edit.sh) an engine still loading the project's
+    # tsconfig projects is waited for at most FORGE_TYPES_LOADING_WAIT seconds (5): the edit
+    # is not held up, and the Stop check, which waits, checks these matches.
+    _tf_t=$_tf_base
+    if [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then _tf_t=${FORGE_TYPES_LOADING_WAIT:-5}; fi
     # not in a subshell: forge_types_up records what it started (FORGE_TYPES_STARTED)
-    if forge_types_up "$_tf_lang" > "$_tf_q/why" && forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
+    if forge_types_up "$_tf_lang" > "$_tf_q/why" && FORGE_TYPES_TIMEOUT=$_tf_t forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
       && ! grep -q '^error	' "$_tf_q/answer"; then
       cat "$_tf_q/answer" >> "$1.kept"
+    elif [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then
+      grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
+        printf 'forge:forge/types %s was not checked after this edit: the %s engine (%s) is still loading the project; the Stop check runs it\n' "$_tf_id" "$_tf_lang" "$(cat "$FORGE_STATE/types/$_tf_lang/ready" 2>/dev/null)"
+      done
     else
       _tf_why=$(cat "$_tf_q/why")
       [ -n "$_tf_why" ] || _tf_why=$(grep '^error	' "$_tf_q/answer" 2>/dev/null | head -n 1 | cut -f 2-)
@@ -15122,7 +15152,7 @@ forge_missing_tools() {
   for _mt_l in $FORGE_TYPES_LANGS; do
     case $_mt_l in
       python) command -v uvx >/dev/null 2>&1 || _mt="${_mt:+$_mt, }uvx (types engine: ty $FORGE_TY_VERSION)" ;;
-      typescript) command -v bun >/dev/null 2>&1 || _mt="${_mt:+$_mt, }bun (types engine: TypeScript $FORGE_TS_ENGINE_VERSION)" ;;
+      typescript) command -v bun >/dev/null 2>&1 || _mt="${_mt:+$_mt, }bun (types engine: the project's TypeScript)" ;;
     esac
   done
   printf '%s' "$_mt"
@@ -15143,10 +15173,9 @@ forge_required_tools() {
 # The languages whose types engine the active rules use, and the engines' pins.
 FORGE_TYPES_LANGS='typescript'
 FORGE_TY_VERSION='0.0.86'
-FORGE_TS_ENGINE_VERSION='7.0.2'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='3f3b5d2e09dd'
+FORGE_TYPES_REV='604f166279ee'
 
 # forge_types_up <lang>: the language's daemon runs, with the pinned engine (started
 # when it does not: by the first hook that needs it, or by SessionStart). Prints why
@@ -15156,7 +15185,8 @@ forge_types_up() {
   _tu_d=$FORGE_STATE/types/$1
   case $1 in
     python) _tu_want="ty $FORGE_TY_VERSION $FORGE_TYPES_REV" ;;
-    typescript) _tu_want="typescript $FORGE_TS_ENGINE_VERSION $FORGE_TYPES_REV" ;;
+    # the project's own TypeScript: a change of its version changes package.json or a lock file (restart)
+    typescript) _tu_want="typescript (the project's) $FORGE_TYPES_REV" ;;
     *) printf 'no types engine for %s\n' "$1"; return 1 ;;
   esac
   forge_types_running "$1" "$_tu_want" && return 0
@@ -15182,7 +15212,7 @@ forge_types_up() {
   printf '%s\n' "$_tu_want" > "$_tu_d/want"
   case $1 in
     python) set -- uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" python "$(pwd -P)/.forge/helpers/types_python.py" "$(pwd -P)" "$_tu_d" ;;
-    typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" "$FORGE_TS_ENGINE_VERSION" ;;
+    typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" ;;
   esac
   # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a
   # launcher that fails before (no network for a first download) says "exited <code>"
@@ -15230,16 +15260,26 @@ forge_types_filter() {
   grep -q '"forge_where"' "$1" 2>/dev/null || return 0
   grep -v '"forge_where"' "$1" > "$1.kept"
   _tf_rc=0
+  _tf_base=${FORGE_TYPES_TIMEOUT:-20}
   for _tf_lang in $FORGE_TYPES_LANGS; do
     case $_tf_lang in python) _tf_sg='"language":"Python"' ;; typescript) _tf_sg='"language":"Tsx"' ;; esac
     _tf_q=$1.$_tf_lang
     rm -rf "$_tf_q" && mkdir "$_tf_q" || return 1
     grep '"forge_where"' "$1" | grep -F "$_tf_sg" > "$_tf_q/req"
     [ -s "$_tf_q/req" ] || continue
+    # After an edit (FORGE_TYPES_EDIT=1, post-edit.sh) an engine still loading the project's
+    # tsconfig projects is waited for at most FORGE_TYPES_LOADING_WAIT seconds (5): the edit
+    # is not held up, and the Stop check, which waits, checks these matches.
+    _tf_t=$_tf_base
+    if [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then _tf_t=${FORGE_TYPES_LOADING_WAIT:-5}; fi
     # not in a subshell: forge_types_up records what it started (FORGE_TYPES_STARTED)
-    if forge_types_up "$_tf_lang" > "$_tf_q/why" && forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
+    if forge_types_up "$_tf_lang" > "$_tf_q/why" && FORGE_TYPES_TIMEOUT=$_tf_t forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
       && ! grep -q '^error	' "$_tf_q/answer"; then
       cat "$_tf_q/answer" >> "$1.kept"
+    elif [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then
+      grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
+        printf 'forge:forge/types %s was not checked after this edit: the %s engine (%s) is still loading the project; the Stop check runs it\n' "$_tf_id" "$_tf_lang" "$(cat "$FORGE_STATE/types/$_tf_lang/ready" 2>/dev/null)"
+      done
     else
       _tf_why=$(cat "$_tf_q/why")
       [ -n "$_tf_why" ] || _tf_why=$(grep '^error	' "$_tf_q/answer" 2>/dev/null | head -n 1 | cut -f 2-)
@@ -20387,7 +20427,7 @@ forge_missing_tools() {
   for _mt_l in $FORGE_TYPES_LANGS; do
     case $_mt_l in
       python) command -v uvx >/dev/null 2>&1 || _mt="${_mt:+$_mt, }uvx (types engine: ty $FORGE_TY_VERSION)" ;;
-      typescript) command -v bun >/dev/null 2>&1 || _mt="${_mt:+$_mt, }bun (types engine: TypeScript $FORGE_TS_ENGINE_VERSION)" ;;
+      typescript) command -v bun >/dev/null 2>&1 || _mt="${_mt:+$_mt, }bun (types engine: the project's TypeScript)" ;;
     esac
   done
   printf '%s' "$_mt"
@@ -20408,10 +20448,9 @@ forge_required_tools() {
 # The languages whose types engine the active rules use, and the engines' pins.
 FORGE_TYPES_LANGS='typescript'
 FORGE_TY_VERSION='0.0.86'
-FORGE_TS_ENGINE_VERSION='7.0.2'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='3f3b5d2e09dd'
+FORGE_TYPES_REV='604f166279ee'
 
 # forge_types_up <lang>: the language's daemon runs, with the pinned engine (started
 # when it does not: by the first hook that needs it, or by SessionStart). Prints why
@@ -20421,7 +20460,8 @@ forge_types_up() {
   _tu_d=$FORGE_STATE/types/$1
   case $1 in
     python) _tu_want="ty $FORGE_TY_VERSION $FORGE_TYPES_REV" ;;
-    typescript) _tu_want="typescript $FORGE_TS_ENGINE_VERSION $FORGE_TYPES_REV" ;;
+    # the project's own TypeScript: a change of its version changes package.json or a lock file (restart)
+    typescript) _tu_want="typescript (the project's) $FORGE_TYPES_REV" ;;
     *) printf 'no types engine for %s\n' "$1"; return 1 ;;
   esac
   forge_types_running "$1" "$_tu_want" && return 0
@@ -20447,7 +20487,7 @@ forge_types_up() {
   printf '%s\n' "$_tu_want" > "$_tu_d/want"
   case $1 in
     python) set -- uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" python "$(pwd -P)/.forge/helpers/types_python.py" "$(pwd -P)" "$_tu_d" ;;
-    typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" "$FORGE_TS_ENGINE_VERSION" ;;
+    typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" ;;
   esac
   # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a
   # launcher that fails before (no network for a first download) says "exited <code>"
@@ -20495,16 +20535,26 @@ forge_types_filter() {
   grep -q '"forge_where"' "$1" 2>/dev/null || return 0
   grep -v '"forge_where"' "$1" > "$1.kept"
   _tf_rc=0
+  _tf_base=${FORGE_TYPES_TIMEOUT:-20}
   for _tf_lang in $FORGE_TYPES_LANGS; do
     case $_tf_lang in python) _tf_sg='"language":"Python"' ;; typescript) _tf_sg='"language":"Tsx"' ;; esac
     _tf_q=$1.$_tf_lang
     rm -rf "$_tf_q" && mkdir "$_tf_q" || return 1
     grep '"forge_where"' "$1" | grep -F "$_tf_sg" > "$_tf_q/req"
     [ -s "$_tf_q/req" ] || continue
+    # After an edit (FORGE_TYPES_EDIT=1, post-edit.sh) an engine still loading the project's
+    # tsconfig projects is waited for at most FORGE_TYPES_LOADING_WAIT seconds (5): the edit
+    # is not held up, and the Stop check, which waits, checks these matches.
+    _tf_t=$_tf_base
+    if [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then _tf_t=${FORGE_TYPES_LOADING_WAIT:-5}; fi
     # not in a subshell: forge_types_up records what it started (FORGE_TYPES_STARTED)
-    if forge_types_up "$_tf_lang" > "$_tf_q/why" && forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
+    if forge_types_up "$_tf_lang" > "$_tf_q/why" && FORGE_TYPES_TIMEOUT=$_tf_t forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
       && ! grep -q '^error	' "$_tf_q/answer"; then
       cat "$_tf_q/answer" >> "$1.kept"
+    elif [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then
+      grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
+        printf 'forge:forge/types %s was not checked after this edit: the %s engine (%s) is still loading the project; the Stop check runs it\n' "$_tf_id" "$_tf_lang" "$(cat "$FORGE_STATE/types/$_tf_lang/ready" 2>/dev/null)"
+      done
     else
       _tf_why=$(cat "$_tf_q/why")
       [ -n "$_tf_why" ] || _tf_why=$(grep '^error	' "$_tf_q/answer" 2>/dev/null | head -n 1 | cut -f 2-)
@@ -20798,14 +20848,14 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "d0a502f51f51609d7e5e9cd6f39a8ce165c656ee1c1b7a607105a536962058eb",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
     ".claude/skills/forge-project/scripts/lib.sh": "97c691d009a979b4dd1f81efd9535346b0027bc12a574653532eca62b978a289",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "7d522507ca0882e9fc5d696ee8a38ba5787ae4cd6536f579bc9f613c21e90e91",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "eede9b5157cb97ac42ee2d2dde7b7473eadbe67ccac12122d375c2d6dbdde4d3",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
     ".claude/skills/forge-project/scripts/session-end.sh": "99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58",
-    ".claude/skills/forge-project/scripts/session-start.sh": "9d77b52bd6f343c49fe5ef617bd6e3996528813db3db62b4c192aa6f0f780e87",
+    ".claude/skills/forge-project/scripts/session-start.sh": "6595abac29ec342d4287522eb535f0b5f321aebad7b31ab3c192b9bafbc744da",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "638d022d6d72d1b0e525df58419b7c2150260c327977743f5baf383a0658b98b",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "6b79ed2359e478ab1b4dcffc682ecf31bb2bd5537f4a19273f17861a5fcf2f2d",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "d81550f8add289ace2e57fde9a4232a16ae048a7f9b539f6013a2b9bf585482d",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "7bfdebf691a0eb49c79aa1168c02a0622071223bd25c29783288acfec2d7ed09",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-bun-no-fewer-expects-test.yml": "bd5df50793070bba7b87b0f623ac58ed4599e0ba6f8d731fc0da4b28a0335ec8",
     ".forge/ast-grep/rule-tests/typescript-bun-no-mock-increase-test.yml": "2916d521378a79dbddd4e3a5822e04b4c3e5fad9262a65e019095f58bbfe0310",
@@ -20872,9 +20922,9 @@ forge_end "$fail"
     ".forge/ast-grep/rules/typescript/zod/error-param.yml": "88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a",
     ".forge/ast-grep/rules/typescript/zod/v4-string-formats.yml": "1f4b2e54f9767673c6469da4a1d7f0d9dc1d8f39b657460bab8096b8c35a0a45",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "2ad1f030e8ca70392b45075456775560b64d6db6d14d4cd54fb88cc5ba0208dd",
+    ".forge/check.sh": "cafa9c5201f924aef634e5ffa330c31aef2b11b7ecfcc0e7ee768faa697b3e6d",
     ".forge/helpers/ratchet.mjs": "14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38",
-    ".forge/helpers/types_typescript.mjs": "7a77c4f510148fc32d1c6154073354264e835799e649ecf1ac0b9673e156aa10",
+    ".forge/helpers/types_typescript.mjs": "ab1ef50aaf6a1e14ee6e812ef048898e84251322f064e881ba7bbdd625702a21",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -21070,23 +21120,26 @@ process.exit(findings.length ? 1 : 0);
 
 ===== .forge/helpers/types_typescript.mjs
 // Generated by forge. The types engine for TypeScript (SPECS §15): a daemon that keeps
-// TypeScript 7's language server (tsc --lsp) running for one repository and answers
-// the hooks' type questions through a FIFO. Started by forge_types_up as
-//   bun types_typescript.mjs <root> <state-dir> <typescript version>
+// the project's own TypeScript running for one repository and answers the hooks' type
+// questions through a FIFO: TypeScript 7 or later through its language server
+// (tsc --lsp), TypeScript 5 and 6 through their tsserver. Started by forge_types_up as
+//   bun types_typescript.mjs <root> <state-dir>
 // It detaches (its own session), then writes "ready <server> <version>" (or
-// "failed <reason>") to the FIFO <state-dir>/started. The protocol on <state-dir>/in is
-// the Python engine's (types_python.py): "changed<TAB><path>", "stop", "restart", or
-// the absolute path of a question directory (req: ast-grep matches; reply: the matches
-// whose forge_where holds, "error<TAB>..." lines, "end"). Node-compatible: no Bun-only API.
-import { spawn } from "node:child_process";
+// "failed <reason>") to the FIFO <state-dir>/started, and loads the project's
+// tsconfig projects in the background (questions go first). The protocol on
+// <state-dir>/in is the Python engine's (types_python.py): "changed<TAB><path>",
+// "stop", "restart", or the absolute path of a question directory (req: ast-grep
+// matches; reply: the matches whose forge_where holds, "error<TAB>..." lines, "end").
+// Node-compatible: no Bun-only API.
+import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = fs.realpathSync(process.argv[2]);
 const STATE = process.argv[3];
-const VERSION = process.argv[4];
 const IDLE = Number(process.env.FORGE_TYPES_IDLE ?? 1800) * 1000;
 const logFile = fs.openSync(path.join(STATE, "log"), "a");
 const log = (...a) => fs.writeSync(logFile, `${new Date().toISOString().slice(11, 19)} ${a.join(" ")}\n`);
@@ -21106,21 +21159,55 @@ function indexOf(text, pos) {
   return i + pos.character;
 }
 
-// ---------------------------------------------------------------- the language server
+// ---------------------------------------------------------------- the language servers
 
-class Server {
+/**
+ * The project's own TypeScript decides the server (§15.2): TypeScript 7 or later, its
+ * language server (tsc --lsp); TypeScript 5 and 6, its tsserver. Both are driven
+ * through the same small interface: show(file, text), sync(file), changed(file),
+ * typeDefinition(file, pos) and definition(file, pos), positions and results as LSP
+ * (0-based lines, UTF-16 columns; results [{uri, pos}]).
+ */
+function projectTypeScript() {
+  let pkg;
+  try {
+    pkg = createRequire(path.join(ROOT, "package.json")).resolve("typescript/package.json");
+  } catch {
+    throw new Error("the project has no typescript package (node_modules/typescript): install the project's dependencies");
+  }
+  const version = JSON.parse(fs.readFileSync(pkg, "utf8")).version;
+  return { dir: path.dirname(pkg), version, major: Number(version.split(".")[0]) };
+}
+
+class Base {
   constructor() {
-    // tsc's bin starts the native compiler; --bun: no Node needed
-    this.proc = spawn(process.execPath, ["x", "--bun", "-p", `typescript@${VERSION}`, "tsc", "--lsp", "--stdio"], { cwd: ROOT, stdio: ["pipe", "pipe", logFile] });
-    this.proc.on("exit", () => {
-      log("server exited");
-      process.exit(3);
-    });
+    this.texts = new Map();
+  }
+  /** The file as it is on disk; returns its text. */
+  sync(file) {
+    const text = fs.readFileSync(file, "utf8");
+    if (this.texts.get(file) !== text) {
+      this.show(file, text);
+      this.texts.set(file, text);
+    }
+    return text;
+  }
+  exited() {
+    log("server exited");
+    process.exit(3);
+  }
+}
+
+/** TypeScript 7: the native compiler's language server, LSP over stdio. */
+class Lsp extends Base {
+  constructor(ts) {
+    super();
+    this.proc = spawn(process.execPath, [path.join(ts.dir, "bin", "tsc"), "--lsp", "--stdio"], { cwd: ROOT, stdio: ["pipe", "pipe", logFile] });
+    this.proc.on("exit", () => this.exited());
     this.buf = Buffer.alloc(0);
     this.next = 0;
     this.waiting = new Map();
     this.versions = new Map();
-    this.texts = new Map();
     this.proc.stdout.on("data", (d) => this.read(d));
   }
   read(d) {
@@ -21170,23 +21257,12 @@ class Server {
     this.notify("initialized", {});
     return `${info?.serverInfo?.name ?? "tsc"} ${info?.serverInfo?.version ?? ""}`.trim();
   }
-  /** Makes the server see <text> as the content of <file> (in memory only). */
   show(file, text) {
     const u = uri(file);
     const v = (this.versions.get(u) ?? 0) + 1;
     this.versions.set(u, v);
-    const languageId = /\.[cm]?tsx?$/.test(file) ? (file.endsWith("x") ? "typescriptreact" : "typescript") : file.endsWith("x") ? "javascriptreact" : "javascript";
-    if (v === 1) this.notify("textDocument/didOpen", { textDocument: { uri: u, languageId, version: v, text } });
+    if (v === 1) this.notify("textDocument/didOpen", { textDocument: { uri: u, languageId: languageId(file), version: v, text } });
     else this.notify("textDocument/didChange", { textDocument: { uri: u, version: v }, contentChanges: [{ text }] });
-  }
-  /** The file as it is on disk; returns its text. */
-  sync(file) {
-    const text = fs.readFileSync(file, "utf8");
-    if (this.texts.get(file) !== text) {
-      this.show(file, text);
-      this.texts.set(file, text);
-    }
-    return text;
   }
   changed(file) {
     if (this.versions.has(uri(file))) {
@@ -21195,7 +21271,107 @@ class Server {
     }
     this.notify("workspace/didChangeWatchedFiles", { changes: [{ uri: uri(file), type: fs.existsSync(file) ? 2 : 3 }] });
   }
+  async locations(method, file, pos) {
+    const r = await this.request(`textDocument/${method}`, { textDocument: { uri: uri(file) }, position: pos });
+    return asArray(r).map((l) => ({ uri: l.targetUri ?? l.uri, pos: (l.targetSelectionRange ?? l.targetRange ?? l.range).start }));
+  }
+  typeDefinition(file, pos) {
+    return this.locations("typeDefinition", file, pos);
+  }
+  definition(file, pos) {
+    return this.locations("definition", file, pos);
+  }
 }
+
+/** TypeScript 5 and 6: the project's tsserver, its own protocol over stdio (1-based lines and offsets). */
+class TsServer extends Base {
+  constructor(ts) {
+    super();
+    this.version = ts.version;
+    this.proc = spawn(process.execPath, [path.join(ts.dir, "lib", "tsserver.js"), "--disableAutomaticTypingAcquisition", "--suppressDiagnosticEvents"], {
+      cwd: ROOT,
+      stdio: ["pipe", "pipe", logFile],
+    });
+    this.proc.on("exit", () => this.exited());
+    this.buf = Buffer.alloc(0);
+    this.seq = 0;
+    this.waiting = new Map();
+    this.open = new Set();
+    this.shown = new Map();
+    this.proc.stdout.on("data", (d) => this.read(d));
+  }
+  read(d) {
+    this.buf = Buffer.concat([this.buf, d]);
+    for (;;) {
+      const sep = this.buf.indexOf("\r\n\r\n");
+      if (sep < 0) return;
+      const len = Number(/content-length: *(\d+)/i.exec(this.buf.subarray(0, sep).toString())[1]);
+      if (this.buf.length < sep + 4 + len) return;
+      const msg = JSON.parse(this.buf.subarray(sep + 4, sep + 4 + len).toString());
+      this.buf = this.buf.subarray(sep + 4 + len);
+      if (msg.type === "response") {
+        this.waiting.get(msg.request_seq)?.(msg.success ? msg.body : undefined);
+        this.waiting.delete(msg.request_seq);
+      }
+    }
+  }
+  /** A command; with an answer, a promise of its body. */
+  command(command, args, answer = true) {
+    const seq = ++this.seq;
+    this.proc.stdin.write(`${JSON.stringify({ seq, type: "request", command, arguments: args })}\n`);
+    if (!answer) return undefined;
+    return new Promise((resolve) => this.waiting.set(seq, resolve));
+  }
+  async start() {
+    await this.command("configure", { preferences: {}, hostInfo: "forge" });
+    return `tsserver ${this.version}`;
+  }
+  show(file, text) {
+    if (!this.open.has(file)) {
+      this.command("open", { file, fileContent: text, scriptKindName: scriptKind(file), projectRootPath: ROOT }, false);
+      this.open.add(file);
+    } else {
+      // only the span that differs (common prefix and suffix kept): tsserver reparses less
+      const old = this.shown.get(file);
+      let a = 0;
+      while (a < old.length && a < text.length && old[a] === text[a]) a++;
+      let b = 0;
+      while (b < old.length - a && b < text.length - a && old[old.length - 1 - b] === text[text.length - 1 - b]) b++;
+      const at = (i) => {
+        const p = position(old, i);
+        return { line: p.line + 1, offset: p.character + 1 };
+      };
+      const change = { start: at(a), end: at(old.length - b), newText: text.slice(a, text.length - b) };
+      this.command("updateOpen", { changedFiles: [{ fileName: file, textChanges: [change] }] }, false);
+    }
+    this.shown.set(file, text);
+  }
+  changed(file) {
+    if (this.open.has(file)) {
+      if (fs.existsSync(file)) this.sync(file);
+      return;
+    }
+    // a file the server reads from disk: opening and closing it makes it read it again
+    if (fs.existsSync(file)) {
+      this.command("open", { file, projectRootPath: ROOT }, false);
+      this.command("close", { file }, false);
+    }
+  }
+  async locations(command, file, pos) {
+    const body = await this.command(command, { file, line: pos.line + 1, offset: pos.character + 1 });
+    return asArray(body).map((s) => ({ uri: pathToFileURL(s.file).href, pos: { line: s.start.line - 1, character: s.start.offset - 1 } }));
+  }
+  typeDefinition(file, pos) {
+    return this.locations("typeDefinition", file, pos);
+  }
+  definition(file, pos) {
+    return this.locations("definition", file, pos);
+  }
+}
+
+const languageId = (file) =>
+  /\.[cm]?tsx?$/.test(file) ? (file.endsWith("x") ? "typescriptreact" : "typescript") : file.endsWith("x") ? "javascriptreact" : "javascript";
+const scriptKind = (file) => ({ typescript: "TS", typescriptreact: "TSX", javascript: "JS", javascriptreact: "JSX" })[languageId(file)];
 
 // ---------------------------------------------------------------- declarations
 
@@ -21339,10 +21515,9 @@ class Types {
       out.set(`${pkg}\0${mod}\0${at.name}`, [pkg, mod, at.name]);
       const bases = heritage(text, at.end);
       const defs = await Promise.all(
-        bases.map((b) => this.server.request("textDocument/definition", { textDocument: { uri: l.uri }, position: position(text, b) })),
+        bases.map((b) => this.server.definition(file, position(text, b))),
       );
-      // a base in a file the server has not opened: open it as it is on disk first
-      for (const d of defs) for (const x of asArray(d)) todo.push(toLoc(x));
+      for (const d of defs) todo.push(...d);
     }
     const value = [...out.values()];
     if (!pathOf(loc.uri).startsWith(ROOT + "/") || loc.uri.includes("/node_modules/")) this.cache.set(key, value);
@@ -21353,10 +21528,10 @@ class Types {
    * "index\0variable" -> declarations, from the type the server infers for each
    * expression: the file is shown to the server with each expression wrapped as
    * ({__forge_t<i>: (<expr>)}).__forge_t<i>, in memory only, and the type definition of
-   * that property is asked; then the file is shown as it is.
+   * that property is asked.
    */
   async check(file, wanted) {
-    const text = this.server.sync(file);
+    const text = fs.readFileSync(file, "utf8");
     const raw = Buffer.from(text, "utf8");
     const ranges = [];
     const slot = wanted.map(([, , s, e]) => {
@@ -21383,15 +21558,15 @@ class Types {
       overlay += piece;
     }
     overlay += text.slice(last);
+    // the server keeps this version until the file changes: the wrapping binds no name, so
+    // what other files see of this one is unchanged (one program update per question)
     this.server.show(file, overlay);
-    const results = await Promise.all(
-      ranges.map((_, n) => this.server.request("textDocument/typeDefinition", { textDocument: { uri: uri(file) }, position: position(overlay, anchors[n]) })),
-    );
-    this.server.show(file, text);
+    this.server.texts.set(file, overlay);
+    const results = await Promise.all(ranges.map((_, n) => this.server.typeDefinition(file, position(overlay, anchors[n]))));
     const perRange = [];
     for (const r of results) {
       const decls = [];
-      for (const l of asArray(r)) decls.push(...(await this.hierarchy(toLoc(l))));
+      for (const l of r) decls.push(...(await this.hierarchy(l)));
       // any and unknown have no declaration: the checker does not know the type
       perRange.push({ decls, unknown: decls.length === 0 });
     }
@@ -21400,7 +21575,6 @@ class Types {
 }
 
 const asArray = (r) => (Array.isArray(r) ? r : r ? [r] : []);
-const toLoc = (l) => ({ uri: l.targetUri ?? l.uri, pos: (l.targetSelectionRange ?? l.targetRange ?? l.range).start });
 
 // ---------------------------------------------------------------- constraints
 
@@ -21463,7 +21637,7 @@ function reply(dir, lines) {
 }
 
 function cleanup() {
-  for (const n of ["ready", "pid", "in"]) fs.rmSync(path.join(STATE, n), { force: true });
+  for (const n of ["ready", "pid", "in", "loading"]) fs.rmSync(path.join(STATE, n), { force: true });
 }
 
 /** Tells the starter (waiting on <state>/started) how the start went. */
@@ -21477,6 +21651,28 @@ function started(line) {
   }
 }
 
+/**
+ * One file of each tsconfig project the repository tracks (outside node_modules), so
+ * the server loads them before the first question needs them.
+ */
+function preloadFiles() {
+  let files;
+  try {
+    files = execFileSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], { cwd: ROOT, maxBuffer: 1 << 28 }).toString().split("\0");
+  } catch {
+    return [];
+  }
+  const sources = files.filter((f) => /\.[cm]?tsx?$/.test(f) && !/\.d\.[cm]?ts$/.test(f) && !f.includes("node_modules/"));
+  return files
+    .filter((f) => /(^|\/)tsconfig\.json$/.test(f) && !f.includes("node_modules/"))
+    .map((t) => {
+      const dir = path.dirname(t) === "." ? "" : `${path.dirname(t)}/`;
+      return sources.find((s) => s.startsWith(dir));
+    })
+    .filter((f, i, all) => f && all.indexOf(f) === i)
+    .map((f) => path.join(ROOT, f));
+}
+
 async function main() {
   // detach: a session of its own, so ending the hook that started it does not end it
   if (!process.env.FORGE_TYPES_DETACHED) {
@@ -21485,7 +21681,8 @@ async function main() {
   }
   fs.writeFileSync(path.join(STATE, "pid"), `${process.pid}\n`);
   const fd = fs.openSync(path.join(STATE, "in"), fs.constants.O_RDWR);
-  const server = new Server();
+  const ts = projectTypeScript();
+  const server = ts.major >= 7 ? new Lsp(ts) : new TsServer(ts);
   const ready = await server.start();
   fs.writeFileSync(path.join(STATE, "ready"), `${ready}\n`);
   log("started", ready, "for", ROOT);
@@ -21504,6 +21701,32 @@ async function main() {
     server.proc.once("exit", done);
     setTimeout(() => server.proc.kill("SIGKILL"), 5000).unref();
     server.proc.kill();
+  };
+  // one job at a time: the FIFO's lines in order, the preload when there is none
+  const lines = [];
+  const preload = preloadFiles().map((file) => async () => {
+    const t = performance.now();
+    server.sync(file);
+    await server.typeDefinition(file, { line: 0, character: 0 });
+    log(`loaded the project of ${path.relative(ROOT, file)} in ${(performance.now() - t).toFixed(0)} ms`);
+  });
+  // while projects load, "loading" tells the hooks a question may wait for one (§15.3)
+  const loading = path.join(STATE, "loading");
+  if (preload.length) fs.writeFileSync(loading, `${preload.length}\n`);
+  let running = false;
+  const pump = () => {
+    if (running) return;
+    if (!preload.length) fs.rmSync(loading, { force: true });
+    const job = lines.length ? lines.shift() : preload.shift();
+    if (!job) return;
+    running = true;
+    Promise.resolve()
+      .then(job)
+      .catch((e) => log("error", e.stack ?? e))
+      .finally(() => {
+        running = false;
+        pump();
+      });
   };
   let idle = setTimeout(() => stop("idle"), IDLE);
   // the state directory was dropped (its FIFO gone or replaced) or the repository is gone:
@@ -21524,7 +21747,6 @@ async function main() {
     }
   }, 10_000).unref();
   let buf = "";
-  let queue = Promise.resolve();
   const stream = fs.createReadStream(null, { fd, autoClose: false, encoding: "utf8" });
   stream.on("data", (chunk) => {
     clearTimeout(idle);
@@ -21533,15 +21755,16 @@ async function main() {
     for (let i; (i = buf.indexOf("\n")) >= 0; ) {
       const line = buf.slice(0, i);
       buf = buf.slice(i + 1);
-      // one line at a time, in order
-      queue = queue.then(() => {
+      lines.push(() => {
         if (line.startsWith("changed\t")) server.changed(path.join(ROOT, line.slice(8)));
         else if (line === "stop" || line === "restart") stop(`asked to ${line}`);
         else if (line.startsWith("stop\t")) stop("asked to stop", line.slice(5));
         else if (line.startsWith("/")) return question(types, line);
       });
     }
+    pump();
   });
+  pump();
 }
 
 async function question(types, dir) {
@@ -21593,14 +21816,14 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 d0a502f51f51609d7e5e9cd6f39a8ce165c656ee1c1b7a607105a536962058eb  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
 97c691d009a979b4dd1f81efd9535346b0027bc12a574653532eca62b978a289  .claude/skills/forge-project/scripts/lib.sh
-7d522507ca0882e9fc5d696ee8a38ba5787ae4cd6536f579bc9f613c21e90e91  .claude/skills/forge-project/scripts/post-edit.sh
+eede9b5157cb97ac42ee2d2dde7b7473eadbe67ccac12122d375c2d6dbdde4d3  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
 99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58  .claude/skills/forge-project/scripts/session-end.sh
-9d77b52bd6f343c49fe5ef617bd6e3996528813db3db62b4c192aa6f0f780e87  .claude/skills/forge-project/scripts/session-start.sh
+6595abac29ec342d4287522eb535f0b5f321aebad7b31ab3c192b9bafbc744da  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-638d022d6d72d1b0e525df58419b7c2150260c327977743f5baf383a0658b98b  .claude/skills/forge-project/scripts/test-edit.sh
+6b79ed2359e478ab1b4dcffc682ecf31bb2bd5537f4a19273f17861a5fcf2f2d  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-d81550f8add289ace2e57fde9a4232a16ae048a7f9b539f6013a2b9bf585482d  .claude/skills/forge-project/scripts/typecheck.sh
+7bfdebf691a0eb49c79aa1168c02a0622071223bd25c29783288acfec2d7ed09  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 bd5df50793070bba7b87b0f623ac58ed4599e0ba6f8d731fc0da4b28a0335ec8  .forge/ast-grep/rule-tests/typescript-bun-no-fewer-expects-test.yml
 2916d521378a79dbddd4e3a5822e04b4c3e5fad9262a65e019095f58bbfe0310  .forge/ast-grep/rule-tests/typescript-bun-no-mock-increase-test.yml
@@ -21667,9 +21890,9 @@ d3c41a3915d84b21e86e9212a06ad14c52bf2f9bcefb7c5ca433200cc3ec44fb  .forge/ast-gre
 88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a  .forge/ast-grep/rules/typescript/zod/error-param.yml
 1f4b2e54f9767673c6469da4a1d7f0d9dc1d8f39b657460bab8096b8c35a0a45  .forge/ast-grep/rules/typescript/zod/v4-string-formats.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-2ad1f030e8ca70392b45075456775560b64d6db6d14d4cd54fb88cc5ba0208dd  .forge/check.sh
+cafa9c5201f924aef634e5ffa330c31aef2b11b7ecfcc0e7ee768faa697b3e6d  .forge/check.sh
 14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38  .forge/helpers/ratchet.mjs
-7a77c4f510148fc32d1c6154073354264e835799e649ecf1ac0b9673e156aa10  .forge/helpers/types_typescript.mjs
+ab1ef50aaf6a1e14ee6e812ef048898e84251322f064e881ba7bbdd625702a21  .forge/helpers/types_typescript.mjs
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

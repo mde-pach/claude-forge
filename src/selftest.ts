@@ -456,6 +456,9 @@ function testRules(rules: Rule[], repo: string | undefined, opts: { toolBins?: s
 
 // ---------------------------------------------------------------- types (§15.1)
 
+/** The TypeScript that type-checks a rule's examples when its examples.deps name none. */
+const EXAMPLES_TYPESCRIPT = "7.0.2";
+
 /** Where example projects (their packages installed) are kept between runs. */
 function examplesCache(): string {
   return process.env.FORGE_EXAMPLES_CACHE ?? join(process.env.XDG_CACHE_HOME ?? join(homedir(), ".cache"), "forge", "examples");
@@ -467,7 +470,7 @@ function examplesCache(): string {
  * once per set of packages. Returns its directory, or an error.
  */
 export function examplesProject(lang: TypesLanguage, deps: DepSpec[]): { dir?: string; error?: string } {
-  const key = sha256(JSON.stringify([lang, [...deps].sort((a, b) => (a.name < b.name ? -1 : 1))])).slice(0, 16);
+  const key = sha256(JSON.stringify([lang, [...deps].sort((a, b) => (a.name < b.name ? -1 : 1)), lang === "typescript" ? EXAMPLES_TYPESCRIPT : ""])).slice(0, 16);
   const dir = join(examplesCache(), `${lang}-${key}`);
   const done = join(dir, ".forge-ready");
   if (existsSync(done)) return { dir };
@@ -479,7 +482,9 @@ export function examplesProject(lang: TypesLanguage, deps: DepSpec[]): { dir?: s
     if (r.status === 0) r = run("uv", ["pip", "install", "-q", "--python", join(dir, ".venv", "bin", "python"), ...deps.map((d) => `${d.name}==${d.version}`)]);
     if (r.status !== 0) return { error: `uv: ${(r.stderr || r.stdout).trim().split("\n").slice(-3).join(" ")}` };
   } else {
-    writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "forge-examples", private: true, type: "module", dependencies: Object.fromEntries(deps.map((d) => [d.name, d.version])) }, null, 2));
+    // the types engine is the project's TypeScript (§15.2): the examples get one unless deps name it
+    const dependencies = { typescript: EXAMPLES_TYPESCRIPT, ...Object.fromEntries(deps.map((d) => [d.name, d.version])) };
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "forge-examples", private: true, type: "module", dependencies }, null, 2));
     writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ compilerOptions: { target: "ES2022", module: "ESNext", moduleResolution: "bundler", strict: true, noEmit: true, skipLibCheck: true } }, null, 2));
     const r = run("bun", ["install", "--silent"], { cwd: dir });
     if (r.status !== 0) return { error: `bun install: ${(r.stderr || r.stdout).trim().split("\n").slice(-3).join(" ")}` };
