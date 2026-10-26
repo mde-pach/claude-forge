@@ -11,13 +11,26 @@ export interface DepSpec {
   version?: string;
 }
 
+/** How a project-level pack is detected (§5.1): any one of these facts. */
+export interface PackDetect {
+  /** Active in every repository: a root pack not tied to a language (secrets, git). */
+  always?: true;
+  files_any?: string[];
+  deps_any?: DepSpec[];
+  library_any?: ("pypi" | "npm")[];
+  /** A file matching one of `files` has a line matching `pattern` (a literal value in a literal config file). */
+  content_any?: { files: string[]; pattern: string }[];
+  /** A .yaml / .yml file whose first document is a mapping with all these top-level keys (Kubernetes: apiVersion, kind). */
+  yaml_keys?: string[];
+}
+
 export interface Pack {
   /** Path in the pack tree: language first, then package, then sub-package (e.g. "typescript/nextjs/react"). */
   id: string;
   description: string;
   level: Level;
   requires: string[];
-  detect?: { files_any?: string[]; deps_any?: DepSpec[]; library_any?: ("pypi" | "npm")[] };
+  detect?: PackDetect;
   dir: string;
   /** Parent pack id; a child is active only when its parent is. */
   parent?: string;

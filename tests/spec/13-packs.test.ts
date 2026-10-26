@@ -18,6 +18,8 @@ import { loadPackBundle, loadPacks } from "../../src/packs";
 import { checkExamplesOptional, hadolintIntegrity, permissionMatches, runCheckExample, selfTest, type TestReport } from "../../src/selftest";
 import { ensureTools, ensureVueTools, forge, ROOT, sh, TOOLS_CACHE } from "../helpers";
 import type { CheckTarget } from "../../src/types";
+import { renderChecks, renderLib } from "../../src/render";
+import { RELEASE_BINARIES } from "../../src/util";
 
 const T = 300_000;
 const packs = loadPacks(join(ROOT, "packs"));
@@ -51,6 +53,17 @@ test("every check target has examples, except test and migration runs, astro che
 test("the hadolint-bin wheel ships the upstream hadolint release binary (its sha256 matches the release's)", () => {
   expect(hadolintIntegrity().status).toBe("ok");
 }, T);
+
+/**
+ * Each pinned release binary (§13.5) for this platform is fetched as check.sh fetches it
+ * (into ~/.cache/forge/bin, once per machine) and matches the sha256 Forge embeds.
+ */
+test("every pinned release binary for this platform downloads and matches its embedded sha256", () => {
+  const engine = [renderLib(), "IFS='\n'", renderChecks([])].join("\n");
+  const names = Object.keys(RELEASE_BINARIES);
+  const r = sh("sh", ["-c", `${engine}\nfor n in ${names.join(" ")}; do b=$(forge_release_bin "$n") && [ -x "$b" ] && echo "$n ok" || echo "$n: $b"; done`]);
+  expect(r.stdout).toBe(names.map((n) => `${n} ok\n`).join(""));
+}, 600_000);
 
 /** Only a system tool this machine does not have (docker on CI's macOS runners) may skip an example. */
 test("every check example ran: none was skipped, except for a system tool that is not installed here", () => {

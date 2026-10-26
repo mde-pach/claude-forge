@@ -447,9 +447,12 @@ forge_once_new() {
 # not reported yet in this turn is printed in full and fails as advice (it does not stop
 # the later steps, and check.sh prints it after the failing checks); output with
 # nothing new passes with "forge:<id> accepted: reported once this turn". A new prompt
-# (a new snapshot) re-arms it. In other modes (pre-commit, CI) any output fails.
+# (a new snapshot) re-arms it. In other modes (pre-commit, CI) any output fails. A
+# "forge:<id> skipped: …" line (the helper could not run) is printed, not a finding.
 forge_once() {
-  "$@" > "$FORGE_TMP/once.out" 2>/dev/null
+  "$@" > "$FORGE_TMP/once.all" 2>/dev/null
+  grep -F "forge:$c_id skipped: " "$FORGE_TMP/once.all"
+  grep -vF "forge:$c_id skipped: " "$FORGE_TMP/once.all" > "$FORGE_TMP/once.out"
   [ -s "$FORGE_TMP/once.out" ] || return 0
   if [ "$mode" != --turn ] || [ -z "$FORGE_SNAP" ]; then cat "$FORGE_TMP/once.out"; return 1; fi
   if forge_once_new "$FORGE_TMP/once.out" > /dev/null; then
@@ -1043,6 +1046,57 @@ forge_hadolint() {
     END { exit bad }' "$FORGE_TMP/hadolint.out"
 }
 
+# ---- pinned release binaries (§13.5): tools with no PyPI or npm distribution, run from
+# their GitHub release, pinned by version and by each platform's sha256.
+# "<name> <version> <platform> <url> <sha256>" per line; platform = `uname -s`-`uname -m`.
+FORGE_RELEASES='@@RELEASES@@'
+
+# forge_release_bin <name>: prints the path of the pinned <name> binary. The first use on a
+# machine downloads the release asset (curl or wget; in check.sh, outside the Bash
+# sandbox), checks its sha256, unpacks the binary (.tar.gz, .zip, or the asset itself) and
+# keeps it in ${XDG_CACHE_HOME:-~/.cache}/forge/bin/<name>-<version>-<platform>/<name>.
+# Fails, printing why (one line), when the platform has no pinned asset, the download
+# fails (offline) or the asset does not match its sha256: the caller reports the check
+# skipped, never passed.
+forge_release_bin() {
+  _rb_plat=$(uname -s)-$(uname -m)
+  _rb_row=$(printf '%s\n' "$FORGE_RELEASES" | awk -v n="$1" -v p="$_rb_plat" '$1 == n && $3 == p { print $2 " " $4 " " $5; exit }')
+  if [ -z "$_rb_row" ]; then printf 'no pinned %s release binary for %s' "$1" "$_rb_plat"; return 1; fi
+  _rb_ver=${_rb_row%% *}; _rb_url=${_rb_row#* }; _rb_sha=${_rb_url#* }; _rb_url=${_rb_url%% *}
+  _rb_dir=${XDG_CACHE_HOME:-$HOME/.cache}/forge/bin/$1-$_rb_ver-$_rb_plat
+  if [ -f "$_rb_dir/$1" ] && [ -x "$_rb_dir/$1" ]; then printf '%s' "$_rb_dir/$1"; return 0; fi
+  mkdir -p "$_rb_dir" 2>/dev/null && _rb_tmp=$(mktemp -d "$_rb_dir/.fetch.XXXXXX" 2>/dev/null) \
+    || { printf 'cannot write the cache directory %s' "$_rb_dir"; return 1; }
+  if command -v curl >/dev/null 2>&1; then curl -fsSL --retry 2 --connect-timeout 15 -o "$_rb_tmp/asset" "$_rb_url" 2>/dev/null
+  elif command -v wget >/dev/null 2>&1; then wget -q -T 15 -O "$_rb_tmp/asset" "$_rb_url" 2>/dev/null
+  else rm -rf "$_rb_tmp"; printf 'curl or wget is needed to fetch %s %s' "$1" "$_rb_ver"; return 1
+  fi || { rm -rf "$_rb_tmp"; printf 'could not download %s %s (offline?)' "$1" "$_rb_ver"; return 1; }
+  _rb_have=$(forge_sha256 < "$_rb_tmp/asset")
+  if [ "$_rb_have" != "$_rb_sha" ]; then
+    rm -rf "$_rb_tmp"; printf 'the downloaded %s %s does not match its pinned sha256 (got %s)' "$1" "$_rb_ver" "$_rb_have"; return 1
+  fi
+  case $_rb_url in
+    *.tar.gz|*.tgz) ( cd "$_rb_tmp" && tar -xzf asset "$1" ) >/dev/null 2>&1 ;;
+    *.zip)
+      if ! command -v unzip >/dev/null 2>&1; then rm -rf "$_rb_tmp"; printf 'unzip is needed to unpack %s %s' "$1" "$_rb_ver"; return 1; fi
+      ( cd "$_rb_tmp" && unzip -q -o asset "$1" ) >/dev/null 2>&1 ;;
+    *) mv "$_rb_tmp/asset" "$_rb_tmp/$1" ;;
+  esac
+  if [ ! -f "$_rb_tmp/$1" ] || ! chmod 755 "$_rb_tmp/$1" || ! mv -f "$_rb_tmp/$1" "$_rb_dir/$1"; then
+    rm -rf "$_rb_tmp"; printf 'could not unpack %s %s' "$1" "$_rb_ver"; return 1
+  fi
+  rm -rf "$_rb_tmp"
+  printf '%s' "$_rb_dir/$1"
+}
+
+# forge_release <name> <var>: sets <var> to the pinned binary's path; when it cannot be had,
+# prints "forge:<id> skipped: <why>" for the current check and fails.
+forge_release() {
+  if _rl_bin=$(forge_release_bin "$1"); then eval "$2=\$_rl_bin"; return 0; fi
+  printf 'forge:%s skipped: %s\n' "$c_id" "$_rl_bin"
+  return 1
+}
+
 # forge_dockerfile_records <file>: one "line<TAB>instruction" per instruction,
 # continuation lines joined, comments dropped.
 forge_dockerfile_records() {
@@ -1193,16 +1247,65 @@ forge_exec_tool() {
   "$@"
 }
 
-# forge_has_tool <name>[@<dir>]: system runtimes (uv, bun) via PATH, others via tool()
-# (in workspace package <dir> when given).
+# forge_has_tool <name>[@<dir>]: system tools (runtimes, infrastructure CLIs) via PATH,
+# others via tool() (in workspace package <dir> when given).
 forge_has_tool() {
   case $1 in
     *@*) ( _fh_root=$(pwd); cd "${1#*@}" 2>/dev/null && FORGE_WS_ROOT=$_fh_root forge_has_tool "${1%%@*}" ) ;;
     uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
+    tofu|helm|kubectl) forge_on_path "$1" ;;
+    terraform) forge_on_path "$(forge_tf_bin)" ;;
+    kustomize) forge_on_path kustomize || forge_on_path kubectl ;;
     # Forge's pinned ty runs through uvx (§15.2)
     ty) command -v uvx >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
+}
+
+# forge_tool_label <name>: how a missing tool is named: the binary the engine would run.
+forge_tool_label() {
+  case $1 in
+    terraform) forge_tf_bin ;;
+    kustomize) printf 'kustomize or kubectl' ;;
+    *) printf '%s' "$1" ;;
+  esac
+}
+
+# forge_on_path <name>: an executable <name> is on PATH (not a shell function of that name).
+forge_on_path() {
+  _op_ifs=$IFS
+  IFS=:
+  for _op_d in $PATH; do
+    if [ -n "$_op_d" ] && [ -f "$_op_d/$1" ] && [ -x "$_op_d/$1" ]; then IFS=$_op_ifs; return 0; fi
+  done
+  IFS=$_op_ifs
+  return 1
+}
+
+# forge_tf_bin: the project's Terraform CLI: tofu when it uses OpenTofu (a *.tofu file, or
+# a .terraform.lock.hcl naming registry.opentofu.org providers), else terraform.
+forge_tf_bin() {
+  if [ -z "${_tf_bin:-}" ]; then
+    _tf_bin=terraform
+    _tf_files=$(git ls-files --cached --others --exclude-standard -- '*.tofu' '*.terraform.lock.hcl' 2>/dev/null)
+    while IFS= read -r _tf_f; do
+      case $_tf_f in
+        *.tofu) _tf_bin=tofu; break ;;
+        *.terraform.lock.hcl) grep -q 'registry\.opentofu\.org/' "$_tf_f" 2>/dev/null && { _tf_bin=tofu; break; } ;;
+      esac
+    done <<EOF
+$_tf_files
+EOF
+  fi
+  printf '%s' "$_tf_bin"
+}
+
+# forge_terraform <args>: the project's Terraform CLI (forge_tf_bin) from PATH.
+forge_terraform() { command "$(forge_tf_bin)" "$@"; }
+
+# forge_kustomize <args>: kustomize from PATH, else `kubectl kustomize`.
+forge_kustomize() {
+  if forge_on_path kustomize; then command kustomize "$@"; else command kubectl kustomize "$@"; fi
 }
 
 # forge_missing_tool: prints the first tool of $c_tools that is absent (in a package
@@ -1213,9 +1316,9 @@ forge_missing_tool() {
   for _fm_t in $c_tools; do
     if [ -n "${c_dirs:-}" ]; then
       for _fm_d in $c_dirs; do
-        if ! forge_has_tool "$_fm_t@$_fm_d"; then IFS=$_fm_ifs; printf '%s (%s)' "$_fm_t" "$_fm_d"; return 0; fi
+        if ! forge_has_tool "$_fm_t@$_fm_d"; then IFS=$_fm_ifs; printf '%s (%s)' "$(forge_tool_label "$_fm_t")" "$_fm_d"; return 0; fi
       done
-    elif ! forge_has_tool "$_fm_t"; then IFS=$_fm_ifs; printf '%s' "$_fm_t"; return 0; fi
+    elif ! forge_has_tool "$_fm_t"; then IFS=$_fm_ifs; forge_tool_label "$_fm_t"; return 0; fi
   done
   IFS=$_fm_ifs
   return 1
@@ -2830,7 +2933,7 @@ forge_typecheck() {
 forge_missing_tools() {
   _mt=''
   for _mt_t in $(forge_required_tools); do
-    case $_mt_t in *@*) _mt_n="${_mt_t%%@*} (${_mt_t#*@})" ;; *) _mt_n=$_mt_t ;; esac
+    case $_mt_t in *@*) _mt_n="$(forge_tool_label "${_mt_t%%@*}") (${_mt_t#*@})" ;; *) _mt_n=$(forge_tool_label "$_mt_t") ;; esac
     forge_has_tool "$_mt_t" || _mt="${_mt:+$_mt, }$_mt_n"
   done
   if ! command -v bunx >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then

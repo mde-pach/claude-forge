@@ -18,6 +18,12 @@ Packs are a tree: language, then package, then sub-package. See any [pack page](
 
 <Spec file="05-inputs" describe="the pack tree" />
 
+### Detection by content
+
+Some packs are active in every repository (`secrets`, `git`); others are detected by a literal value in a config file (Next.js `cacheComponents: true`) or by the structure of a YAML document (a Kubernetes manifest has top-level `apiVersion` and `kind`). `packs.add` and `packs.remove` in `forge.yaml` still decide last.
+
+<Spec file="05-inputs" describe="detection by content" />
+
 ### Monorepos
 
 In a workspace (pnpm, npm, Yarn, Bun or uv), detection also reads each workspace package: its manifest, its dependencies and its files. A check whose tool is configured in a package rather than at the root runs in that package.

@@ -24,7 +24,7 @@ packs/
 
 | Path | |
 |---|---|
-| `pack.yaml` | `id` (its path), `description`, `level`, optional `detect` and `requires` — [schema](../../reference/schemas/#pack) |
+| `pack.yaml` | `id` (its path), `description`, `level`, optional `detect` and `requires` — [schema](../../reference/schemas/#pack). `detect` is any one of: `always: true`, `files_any`, `deps_any`, `library_any`, `content_any` (a line of a literal config file matches a pattern), `yaml_keys` (a YAML file's first document has these top-level keys) |
 | `rules/<name>.yaml` | one rule each; its id is `<pack id>/<name>` — [schema](../../reference/schemas/#rule) |
 | `context.md` | optional, ≤ 10 lines of facts for Claude |
 | `init/` | optional templates for `forge init` |
@@ -49,6 +49,10 @@ Targets, in order of preference: `tool` (your linter or type checker, audited), 
 
 A `check` can call the engine's helpers instead of a project tool: `forge_ratchet`, `forge_test_edits`, `forge_hadolint`, `forge_zizmor`, `forge_squawk_files`, … (in `templates/scripts/engine.sh`). A `run` string never calls `exit`: it is a shell function body, and its last command's status is the result. `forge_advise <helper>` makes a check **advisory**: at Stop only, each line the helper prints is a finding that blocks once per turn, after any failing check, and a Stop with nothing new passes (for advice Claude may have a reason not to follow, such as `forge_untested_change`). `forge_once <helper>` does the same at Stop and fails pre-commit and CI on any finding (`forge_lockfile_updated`).
 A pack can also be detected as a library (`detect: {library_any: [pypi]}` or `[npm]`), for rules about a published API.
+
+A tool with no PyPI or npm package runs from its GitHub release: a helper asks the engine for it with `forge_release <name> <var>`, which fetches the pinned binary once (checked against the sha256 Forge embeds for the platform) or prints the check's `skipped` line. Infrastructure CLIs the project installs itself (`terraform`, `tofu`, `helm`, `kustomize`, `kubectl`) are named in `run` like project tools and found on `PATH`; `terraform` runs `tofu` in an OpenTofu project.
+
+<Spec file="10-check" describe="pinned release binaries and system tools" />
 
 ## Asking the engine: types
 

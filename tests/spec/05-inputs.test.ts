@@ -19,6 +19,7 @@ import { renderLib } from "../../src/render";
 import { auditRules } from "../../src/audit";
 import { parseStrictYaml } from "../../src/yaml";
 import { applied, forge, put, ROOT, sampleRepo, sh } from "../helpers";
+import type { Pack } from "../../src/types";
 
 const T = 120_000;
 const PACKS = loadPacks(join(ROOT, "packs"));
@@ -415,6 +416,78 @@ describe("workspaces", () => {
     expect(ws.files.get(".forge/check.sh")).toContain("c_dirs='packages/a packages/b'");
     const root = planOf({ ...TS, "pnpm-workspace.yaml": "packages: [packages/*]\n", ...inDir("packages/a", TS) });
     expect(root.active.find((s) => s.rule.id === "typescript/typecheck")!.enforced).toEqual([`check typecheck: ${run}`]);
+  });
+});
+
+/**
+ * Detection beyond files and dependencies (§5.1): a root pack can be active in every
+ * repository (`always`), a pack can be detected by a literal value in a literal config file
+ * (`content_any`) or by the structure of a YAML document (`yaml_keys`). File contents are read
+ * only for packs that ask, and `forge.yaml` `packs.add` / `packs.remove` still decide last.
+ */
+describe("detection by content", () => {
+  function packsDir(files: Record<string, string>): Map<string, Pack> {
+    const dir = mkdtempSync(join(tmpdir(), "forge-detect-packs-"));
+    for (const [rel, text] of Object.entries(files)) put(dir, rel, text);
+    return loadPacks(dir);
+  }
+  function activeIn(packs: Map<string, Pack>, files: Record<string, string>): string[] {
+    const repo = mkdtempSync(join(tmpdir(), "forge-detect-"));
+    for (const [rel, text] of Object.entries(files)) put(repo, rel, text);
+    sh("git", ["init", "-q"], { cwd: repo });
+    return plan({ level: "project", base: repo, packs, ...readProjectInputs(repo) }).packs.map((p) => p.id);
+  }
+
+  test("a root pack with detect.always is active in every repository, with its context file", () => {
+    const packs = packsDir({ "everywhere/pack.yaml": "id: everywhere\ndescription: E.\nlevel: project\ndetect: {always: true}\n", "everywhere/context.md": "- A fact.\n" });
+    const repo = mkdtempSync(join(tmpdir(), "forge-detect-"));
+    sh("git", ["init", "-q"], { cwd: repo });
+    const p = plan({ level: "project", base: repo, packs, ...readProjectInputs(repo) });
+    expect(p.packs).toEqual([{ id: "everywhere", why: "detected" }]);
+    expect(p.files.get(".claude/rules/forge-everywhere.md")).toContain("- A fact.");
+    expect(activeIn(packs, { "forge.yaml": 'forge: "0.5"\npacks: {remove: [everywhere]}\n' })).toEqual([]);
+  });
+
+  test("detect.always: true is the only value; false is rejected", () => {
+    expect(() => packsDir({ "x/pack.yaml": "id: x\ndescription: X.\nlevel: project\ndetect: {always: false}\n" })).toThrow("invalid pack");
+  });
+
+  test("detect.yaml_keys: a .yaml or .yml file whose first document has all the keys at its top level", () => {
+    const packs = packsDir({ "k8s/pack.yaml": "id: k8s\ndescription: K.\nlevel: project\ndetect: {yaml_keys: [apiVersion, kind]}\n" });
+    expect(activeIn(packs, { "deploy/app.yaml": "# a comment\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata: {name: web}\n" })).toEqual(["k8s"]);
+    expect(activeIn(packs, { "k/svc.yml": "apiVersion: v1\nkind: Service\n---\nother: 1\n" })).toEqual(["k8s"]);
+    // one key only, keys below the top level, a later document, a list, a template that is not YAML, another extension
+    expect(activeIn(packs, { "a.yaml": "kind: Deployment\n" })).toEqual([]);
+    expect(activeIn(packs, { "b.yaml": "spec:\n  apiVersion: v1\n  kind: Pod\n" })).toEqual([]);
+    expect(activeIn(packs, { "c.yaml": "name: x\n---\napiVersion: v1\nkind: Pod\n" })).toEqual([]);
+    expect(activeIn(packs, { "d.yaml": "- apiVersion: v1\n  kind: Pod\n" })).toEqual([]);
+    expect(activeIn(packs, { "e.yaml": "{{- if .Values.pod }}\napiVersion: v1\nkind: Pod\n{{- end }}\n" })).toEqual([]);
+    expect(activeIn(packs, { "f.json": '{"apiVersion": "v1", "kind": "Pod"}\n' })).toEqual([]);
+  });
+
+  test("detect.content_any: a line of a literal config file matches the pattern; a comment or another file does not", () => {
+    const packs = packsDir({
+      "next/pack.yaml": "id: next\ndescription: N.\nlevel: project\ndetect: {files_any: [next.config.*]}\n",
+      "next/cc/pack.yaml": 'id: next/cc\ndescription: C.\nlevel: project\ndetect:\n  content_any: [{files: ["next.config.{js,mjs,ts}"], pattern: "^\\\\s*cacheComponents\\\\s*:\\\\s*true\\\\b"}]\n',
+    });
+    expect(activeIn(packs, { "next.config.ts": "export default {\n  cacheComponents: true,\n};\n" })).toEqual(["next", "next/cc"]);
+    expect(activeIn(packs, { "next.config.ts": "export default {\n  // cacheComponents: true,\n  cacheComponents: false,\n};\n" })).toEqual(["next"]);
+    expect(activeIn(packs, { "next.config.ts": "export default {};\n", "notes.md": "cacheComponents: true\n" })).toEqual(["next"]);
+    expect(activeIn(packs, { "next.config.ts": "export default {};\n", "forge.yaml": 'forge: "0.5"\npacks: {add: [next/cc]}\n' })).toEqual(["next", "next/cc"]);
+    expect(activeIn(packs, { "next.config.mjs": "export default {\n  cacheComponents: true };\n", "forge.yaml": 'forge: "0.5"\npacks: {remove: [next/cc]}\n' })).toEqual(["next"]);
+  });
+
+  test("content and YAML detection read the files of each workspace package, relative to it", () => {
+    const packs = packsDir({
+      "next/pack.yaml": "id: next\ndescription: N.\nlevel: project\ndetect: {content_any: [{files: [next.config.ts], pattern: cacheComponents}]}\n",
+    });
+    const ws = { "package.json": '{"name": "mono", "private": true, "workspaces": ["apps/*"]}\n', "apps/web/package.json": '{"name": "web"}\n' };
+    expect(activeIn(packs, { ...ws, "apps/web/next.config.ts": "export default { cacheComponents: true };\n" })).toEqual(["next"]);
+    expect(activeIn(packs, { ...ws, "apps/next.config.ts": "export default { cacheComponents: true };\n" })).toEqual([]);
+  });
+
+  test("a content_any pattern that is not a regular expression is rejected when the packs load", () => {
+    expect(() => packsDir({ "x/pack.yaml": 'id: x\ndescription: X.\nlevel: project\ndetect: {content_any: [{files: [a], pattern: "("}]}\n' })).toThrow("is not a regular expression");
   });
 });
 

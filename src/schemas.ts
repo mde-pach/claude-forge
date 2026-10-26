@@ -37,6 +37,24 @@ export const packSchema = {
         },
         /** The project is a library published to that ecosystem (packs.ts, isPyLibrary / isNpmLibrary). */
         library_any: { type: "array", items: { enum: ["pypi", "npm"] }, uniqueItems: true },
+        /** Active in every repository (a root pack not tied to a language). */
+        always: { const: true },
+        /** A file matching one of files has a line matching pattern (a regular expression): a literal value in a literal config file. */
+        content_any: {
+          type: "array",
+          minItems: 1,
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["files", "pattern"],
+            properties: {
+              files: { type: "array", minItems: 1, items: { type: "string", minLength: 1 } },
+              pattern: { type: "string", minLength: 1 },
+            },
+          },
+        },
+        /** A .yaml / .yml file whose first document is a mapping with all these top-level keys. */
+        yaml_keys: { type: "array", minItems: 1, uniqueItems: true, items: { type: "string", minLength: 1 } },
       },
     },
   },

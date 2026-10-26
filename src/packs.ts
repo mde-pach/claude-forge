@@ -3,7 +3,7 @@ import { join, relative } from "node:path";
 import { satisfies, minVersion, coerce, validRange } from "semver";
 import { parse as parseJsonc } from "jsonc-parser/lib/esm/main.js";
 import { parse as parseToml } from "smol-toml";
-import { parse as parseYaml } from "yaml";
+import { isMap, isScalar, parse as parseYaml, parseDocument } from "yaml";
 import { parseStrictYaml } from "./yaml.js";
 import { directDashedTools } from "./render.js";
 import { validate } from "./schemas.js";
@@ -48,6 +48,13 @@ export function loadPacks(packsDir: string): Map<string, Pack> {
     const pack = data as unknown as Pack;
     if (pack.id !== id) throw new Error(`${packFile}: id "${pack.id}" must equal its path in the pack tree, "${id}"`);
     if (parent && pack.level !== parent.level) throw new Error(`${packFile}: level ${pack.level} differs from parent ${parent.id} (${parent.level})`);
+    for (const c of pack.detect?.content_any ?? []) {
+      try {
+        new RegExp(c.pattern, "m");
+      } catch (e) {
+        throw new Error(`${packFile}: detect.content_any pattern ${JSON.stringify(c.pattern)} is not a regular expression: ${(e as Error).message}`);
+      }
+    }
     const rulesDir = join(dir, "rules");
     const rules: Rule[] = [];
     if (existsSync(rulesDir)) {
@@ -155,6 +162,10 @@ export interface DepFacts {
   npm: Map<string, string>;
   pypi: Map<string, string>;
   files: (glob: string) => boolean;
+  /** A file matching one of globs has a line matching pattern (detect.content_any). */
+  contains: (globs: string[], pattern: string) => boolean;
+  /** A .yaml / .yml file's first document is a mapping with all these top-level keys (detect.yaml_keys). */
+  yamlKeys: (keys: string[]) => boolean;
   /** Ecosystems the project publishes a library to (see isPyLibrary, isNpmLibrary). */
   library: Set<"pypi" | "npm">;
 }
@@ -244,7 +255,7 @@ function readTomlFile(file: string): Record<string, any> | undefined {
 }
 
 /** Dependencies declared by the package.json and pyproject.toml in dir (the root's must parse; a package's may not). */
-function readDeps(dir: string, strict: boolean, hasManagePy = false, published = { pypi: false, npm: false }): Omit<DepFacts, "files"> {
+function readDeps(dir: string, strict: boolean, hasManagePy = false, published = { pypi: false, npm: false }): Omit<DepFacts, "files" | "contains" | "yamlKeys"> {
   const npm = new Map<string, string>();
   const pypi = new Map<string, string>();
   const library = new Set<"pypi" | "npm">();
@@ -370,26 +381,75 @@ export function readProjectFacts(repo: string, listFiles: () => string[]): Proje
     return deps;
   };
   resolve({ npm, pypi });
-  // the root's files are those outside the workspace packages: a file belongs to its package
-  const matcher = (dir: string) => {
+  // the root's files are those outside the workspace packages: a file belongs to its package;
+  // file contents are read only when a pack asks (content_any, yaml_keys), each file once
+  const fileFacts = (dir: string): Pick<DepFacts, "files" | "contains" | "yamlKeys"> => {
     const mine = own.get(dir)!;
+    const read = (f: string) => readSmallFile(join(repo, dir, f));
     const seen = new Map<string, boolean>();
-    return (glob: string) => {
-      let hit = seen.get(glob);
-      if (hit === undefined) {
-        const re = globToRegExp(glob);
-        hit = mine.some((f) => re.test(f));
-        seen.set(glob, hit);
-      }
+    const memo = (key: string, compute: () => boolean) => {
+      let hit = seen.get(key);
+      if (hit === undefined) seen.set(key, (hit = compute()));
       return hit;
     };
+    let yamlTops: Set<string>[] | undefined;
+    return {
+      files: (glob) =>
+        memo(`f\0${glob}`, () => {
+          const re = globToRegExp(glob);
+          return mine.some((f) => re.test(f));
+        }),
+      contains: (globs, pattern) =>
+        memo(`c\0${globs.join("\0")}\0${pattern}`, () => {
+          const res = globs.map(globToRegExp);
+          const line = new RegExp(pattern, "m");
+          return mine.some((f) => res.some((re) => re.test(f)) && line.test(read(f) ?? ""));
+        }),
+      yamlKeys: (keys) =>
+        memo(`y\0${keys.join("\0")}`, () => {
+          yamlTops ??= mine.filter((f) => /\.ya?ml$/.test(f)).map((f) => firstDocumentKeys(read(f) ?? ""));
+          return yamlTops.some((top) => keys.every((k) => top.has(k)));
+        }),
+    };
   };
-  const root: DepFacts = { npm, pypi, library, files: matcher("") };
+  const root: DepFacts = { npm, pypi, library, ...fileFacts("") };
   const workspaces: WorkspaceFacts[] = wsDirs.map((dir) => {
     const d = readDeps(join(repo, dir), false, hasManagePy(dir), published);
-    return { dir, ...resolve(d), library: d.library, files: matcher(dir) };
+    return { dir, ...resolve(d), library: d.library, ...fileFacts(dir) };
   });
   return { root, workspaces };
+}
+
+/** Files detection reads the contents of (content_any, yaml_keys) are at most this large; larger ones are not read. */
+const DETECT_READ_MAX = 1024 * 1024;
+
+function readSmallFile(file: string): string | undefined {
+  try {
+    if (statSync(file).size > DETECT_READ_MAX) return undefined;
+    return readFileSync(file, "utf8");
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The top-level keys of a YAML file's first document, when it is a mapping (none when it
+ * does not parse: a template that only renders to YAML, such as a Helm template, is not YAML).
+ */
+export function firstDocumentKeys(text: string): Set<string> {
+  // the first document ends at the next "---" or "..." line after its content
+  const lines = text.split("\n");
+  let start = 0;
+  while (start < lines.length && /^(\s*(#.*)?|%.*|---\s*(#.*)?)$/.test(lines[start]!.replace(/\r$/, ""))) start++;
+  let end = start;
+  while (end < lines.length && !/^(---|\.\.\.)(\s|$)/.test(lines[end]!)) end++;
+  try {
+    const doc = parseDocument(lines.slice(start, end).join("\n"), { uniqueKeys: false, strict: false });
+    if (doc.errors.length || !isMap(doc.contents)) return new Set();
+    return new Set(doc.contents.items.map((pair) => (isScalar(pair.key) ? String(pair.key.value) : "")).filter(Boolean));
+  } catch {
+    return new Set();
+  }
 }
 
 function versionFromRange(range: string): string {
@@ -418,11 +478,15 @@ export function detectAnywhere(pack: Pack, facts: ProjectFacts): boolean {
 }
 
 export function detectPack(pack: Pack, facts: DepFacts): boolean {
-  if (!pack.detect) return false;
+  const d = pack.detect;
+  if (!d) return false;
   return (
-    (pack.detect.files_any ?? []).some((g) => facts.files(g)) ||
-    (pack.detect.deps_any ?? []).some((d) => depMatches(facts, d)) ||
-    (pack.detect.library_any ?? []).some((e) => facts.library.has(e))
+    d.always === true ||
+    (d.files_any ?? []).some((g) => facts.files(g)) ||
+    (d.deps_any ?? []).some((dep) => depMatches(facts, dep)) ||
+    (d.library_any ?? []).some((e) => facts.library.has(e)) ||
+    (d.content_any ?? []).some((c) => facts.contains(c.files, c.pattern)) ||
+    (d.yaml_keys !== undefined && facts.yamlKeys(d.yaml_keys))
   );
 }
 

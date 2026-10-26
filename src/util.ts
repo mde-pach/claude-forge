@@ -33,6 +33,121 @@ export const HADOLINT_SHA256: Record<string, string> = {
   "Darwin-x86_64": "ffe9bb18b23d5ed1eae50237aecdbb523d016e96da0bd4e7aa432040acfc3fde",
 };
 
+/**
+ * Tools that ship only as GitHub release binaries (no PyPI or npm distribution), pinned
+ * like the other Forge tools (the newest release older than 14 days). By `uname -s`-`uname -m`:
+ * the release asset (a .tar.gz or .zip holding the binary, named like the tool, at its
+ * root; or the binary itself) and its sha256, computed from the downloaded asset and
+ * matching both GitHub's asset digest and the release's checksum file. check.sh fetches
+ * an asset once, checks it, and keeps the binary under ~/.cache/forge/bin (§13.5).
+ */
+export interface ReleaseBinary {
+  version: string;
+  /** The release's download URL; the asset name is appended. */
+  base: string;
+  assets: Record<string, [asset: string, sha256: string]>;
+}
+export const RELEASE_BINARIES: Record<string, ReleaseBinary> = {
+  "gitleaks": {
+    version: "8.30.1",
+    base: "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/",
+    assets: {
+      "Linux-x86_64": ["gitleaks_8.30.1_linux_x64.tar.gz", "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"],
+      "Linux-aarch64": ["gitleaks_8.30.1_linux_arm64.tar.gz", "e4a487ee7ccd7d3a7f7ec08657610aa3606637dab924210b3aee62570fb4b080"],
+      "Linux-arm64": ["gitleaks_8.30.1_linux_arm64.tar.gz", "e4a487ee7ccd7d3a7f7ec08657610aa3606637dab924210b3aee62570fb4b080"],
+      "Darwin-arm64": ["gitleaks_8.30.1_darwin_arm64.tar.gz", "b40ab0ae55c505963e365f271a8d3846efbc170aa17f2607f13df610a9aeb6a5"],
+      "Darwin-x86_64": ["gitleaks_8.30.1_darwin_x64.tar.gz", "dfe101a4db2255fc85120ac7f3d25e4342c3c20cf749f2c20a18081af1952709"],
+    },
+  },
+  "kubeconform": {
+    version: "0.8.0",
+    base: "https://github.com/yannh/kubeconform/releases/download/v0.8.0/",
+    assets: {
+      "Linux-x86_64": ["kubeconform-linux-amd64.tar.gz", "9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883"],
+      "Linux-aarch64": ["kubeconform-linux-arm64.tar.gz", "1f53fc8e81258197a35e8603054162a5af1de8c5af13746c71ab680d9534ed87"],
+      "Linux-arm64": ["kubeconform-linux-arm64.tar.gz", "1f53fc8e81258197a35e8603054162a5af1de8c5af13746c71ab680d9534ed87"],
+      "Darwin-arm64": ["kubeconform-darwin-arm64.tar.gz", "f84f4dfbebf4a6b0b230385fa065a39ea35e02608c2b50d025dcf64775a69d67"],
+      "Darwin-x86_64": ["kubeconform-darwin-amd64.tar.gz", "71dbc87ac9f24099a62b93570e65aa06312ba6ac8aea63b7f86e9d999edf5a92"],
+    },
+  },
+  "kube-linter": {
+    version: "0.8.3",
+    base: "https://github.com/stackrox/kube-linter/releases/download/v0.8.3/",
+    assets: {
+      "Linux-x86_64": ["kube-linter-linux.tar.gz", "1a6d8419b11971372971fdbc22682b684ebfb7cf1c39591662d1b6ca736c41df"],
+      "Linux-aarch64": ["kube-linter-linux_arm64.tar.gz", "802e1b09eabd08f6f0a060a6b8ab2bf7bc7e6bf4f673bb2692303704c84b3e22"],
+      "Linux-arm64": ["kube-linter-linux_arm64.tar.gz", "802e1b09eabd08f6f0a060a6b8ab2bf7bc7e6bf4f673bb2692303704c84b3e22"],
+      "Darwin-arm64": ["kube-linter-darwin_arm64.tar.gz", "6e3443a8ff8625a9fc31a38682c783988d7559018f7ff707a4f8c77c18c92f14"],
+      "Darwin-x86_64": ["kube-linter-darwin.tar.gz", "c62e8af3c9df2557c7a3922119ea1b35597794737d1ccad493f63a0d66e7b8fc"],
+    },
+  },
+  "tflint": {
+    version: "0.64.0",
+    base: "https://github.com/terraform-linters/tflint/releases/download/v0.64.0/",
+    assets: {
+      "Linux-x86_64": ["tflint_linux_amd64.zip", "cca9d13e2e1d7a2c627af60ff899a3c9b74212899416aeb96ec764d2ef954537"],
+      "Linux-aarch64": ["tflint_linux_arm64.zip", "560da89aacf59389d4eb029730dd5b109b7288096c32f2726a0d9e783a5ea8eb"],
+      "Linux-arm64": ["tflint_linux_arm64.zip", "560da89aacf59389d4eb029730dd5b109b7288096c32f2726a0d9e783a5ea8eb"],
+      "Darwin-arm64": ["tflint_darwin_arm64.zip", "2496e9cb3d24992d553b45e7c87a0fdc9449ca975233876247a9bfeda857e6c0"],
+      "Darwin-x86_64": ["tflint_darwin_amd64.zip", "0f3a9fd17526014646a2dfc3f9122f7b4161abe3d6b0f0f03f9014483ddf4d19"],
+    },
+  },
+  "trivy": {
+    version: "0.75.0",
+    base: "https://github.com/aquasecurity/trivy/releases/download/v0.75.0/",
+    assets: {
+      "Linux-x86_64": ["trivy_0.75.0_Linux-64bit.tar.gz", "c6e65abddb348e25f10549df887045629cf28cc72453cd1c63acb717316b3f3f"],
+      "Linux-aarch64": ["trivy_0.75.0_Linux-ARM64.tar.gz", "a1ee9f6ffb7d112b64ff726a2a0717c21175c1114361391f4a132956751a13b3"],
+      "Linux-arm64": ["trivy_0.75.0_Linux-ARM64.tar.gz", "a1ee9f6ffb7d112b64ff726a2a0717c21175c1114361391f4a132956751a13b3"],
+      "Darwin-arm64": ["trivy_0.75.0_macOS-ARM64.tar.gz", "4a77108cccf8e55c8d6823e1e759939a622277e66cd0daa3c1fc621ed69e4568"],
+      "Darwin-x86_64": ["trivy_0.75.0_macOS-64bit.tar.gz", "291edaa9778acbe4693d067b5ad60ee11570e5ac68296e85595417528ca641e4"],
+    },
+  },
+  "osv-scanner": {
+    version: "2.7.0",
+    base: "https://github.com/google/osv-scanner/releases/download/v2.7.0/",
+    assets: {
+      "Linux-x86_64": ["osv-scanner_linux_amd64", "160c6253e2922e9e0a6a9771c5c4c40a4b3c6090b34a3cdd5e80c96cc2e4218b"],
+      "Linux-aarch64": ["osv-scanner_linux_arm64", "4061ef4c021ed3c47f203b818f337e351336cc5cd67c0274fc36bd1dfc728dd7"],
+      "Linux-arm64": ["osv-scanner_linux_arm64", "4061ef4c021ed3c47f203b818f337e351336cc5cd67c0274fc36bd1dfc728dd7"],
+      "Darwin-arm64": ["osv-scanner_darwin_arm64", "d4926ef8da134332543be276dff157e4c170f99ad91fc48e89448a8816bdf70b"],
+      "Darwin-x86_64": ["osv-scanner_darwin_amd64", "e82c5df7ab0a42dff29a1cd0660711447b56b4c0483ff66ad8634df10fd81a45"],
+    },
+  },
+  "oasdiff": {
+    version: "1.33.0",
+    base: "https://github.com/oasdiff/oasdiff/releases/download/v1.33.0/",
+    assets: {
+      "Linux-x86_64": ["oasdiff_1.33.0_linux_amd64.tar.gz", "43a4e328e2d13ba1552d760aa68d2485c75c5621f309f6ff64ae895188345247"],
+      "Linux-aarch64": ["oasdiff_1.33.0_linux_arm64.tar.gz", "4ae3c362d6074d919aada2dea82d0ee84366591600384455d0bdc658ddf8f7ae"],
+      "Linux-arm64": ["oasdiff_1.33.0_linux_arm64.tar.gz", "4ae3c362d6074d919aada2dea82d0ee84366591600384455d0bdc658ddf8f7ae"],
+      "Darwin-arm64": ["oasdiff_1.33.0_darwin_all.tar.gz", "2a479337c15afdcbf0b1e89c0b4d0cf0176472dbc11483358fed1f831d1e46c5"],
+      "Darwin-x86_64": ["oasdiff_1.33.0_darwin_all.tar.gz", "2a479337c15afdcbf0b1e89c0b4d0cf0176472dbc11483358fed1f831d1e46c5"],
+    },
+  },
+  "editorconfig-checker": {
+    version: "4.0.2",
+    base: "https://github.com/editorconfig-checker/editorconfig-checker/releases/download/v4.0.2/",
+    assets: {
+      "Linux-x86_64": ["editorconfig-checker-linux-amd64.tar.gz", "44efaef3ed14c6ab52eb87481d78e5e5c204796dccf26e2f4598a61ba17f8003"],
+      "Linux-aarch64": ["editorconfig-checker-linux-arm64.tar.gz", "abad76da8c9950fdc2a314bcd66969172aa823e9c595fa7e3a389a91e34d025e"],
+      "Linux-arm64": ["editorconfig-checker-linux-arm64.tar.gz", "abad76da8c9950fdc2a314bcd66969172aa823e9c595fa7e3a389a91e34d025e"],
+      "Darwin-arm64": ["editorconfig-checker-darwin-all.tar.gz", "ff59f57717d95fc62b8e372c8051dbbb766f7d660942409a85d027b0feb2422c"],
+      "Darwin-x86_64": ["editorconfig-checker-darwin-all.tar.gz", "ff59f57717d95fc62b8e372c8051dbbb766f7d660942409a85d027b0feb2422c"],
+    },
+  },
+};
+
+/** The release table as check.sh reads it: "<name> <version> <platform> <url> <sha256>" per line. */
+export function releaseTable(): string {
+  return Object.entries(RELEASE_BINARIES)
+    .flatMap(([name, r]) => Object.entries(r.assets).map(([plat, [asset, sha]]) => `${name} ${r.version} ${plat} ${r.base}${asset} ${sha}`))
+    .join("\n");
+}
+
+/** tflint's provider rulesets (terraform/tflint), pinned like the tools; tflint --init fetches and verifies them. */
+export const TFLINT_RULESETS: Record<string, string> = { aws: "0.49.0", google: "0.40.0", azurerm: "0.32.0" };
+
 export function sha256(text: string | Buffer): string {
   return createHash("sha256").update(text).digest("hex");
 }
