@@ -1,0 +1,10 @@
+id: python/huggingface/no-pickle-weights
+description: "No use_safetensors=False: it loads the pickled .bin weights even when safetensors exist, and unpickling runs any code the file holds. Leave the default, which prefers safetensors."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule: {kind: keyword_argument, regex: "^use_safetensors[[:space:]]*=[[:space:]]*False$"}
+examples:
+  match: ["from transformers import AutoModel\n\nmodel = AutoModel.from_pretrained(\"org/model\", use_safetensors=False)\n"]
+  no_match: ["from transformers import AutoModel\n\nmodel = AutoModel.from_pretrained(\"org/model\", use_safetensors=True)\n", "from transformers import AutoModel\n\nmodel = AutoModel.from_pretrained(\"org/model\")\n"]

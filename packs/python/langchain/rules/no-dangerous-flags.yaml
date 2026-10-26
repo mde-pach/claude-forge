@@ -1,0 +1,10 @@
+id: python/langchain/no-dangerous-flags
+description: "Advice: allow_dangerous_deserialization=True, allow_dangerous_code=True and allow_dangerous_requests=True opt in to unpickling, running model-written code and requests to any URL. Keep them for data and tools the project controls (an index it wrote itself), and say so."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule: {kind: keyword_argument, regex: "^allow_dangerous_(deserialization|code|requests)[[:space:]]*=[[:space:]]*True$"}
+examples:
+  match: ["from langchain_community.vectorstores import FAISS\n\n\ndef load(embeddings: object) -> object:\n    return FAISS.load_local(\"index\", embeddings, allow_dangerous_deserialization=True)\n"]
+  no_match: ["from langchain_community.vectorstores import FAISS\n\n\ndef load(embeddings: object) -> object:\n    return FAISS.load_local(\"index\", embeddings)\n", "agent = build(allow_dangerous_code=False)\n"]

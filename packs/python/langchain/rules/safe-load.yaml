@@ -1,0 +1,10 @@
+id: python/langchain/safe-load
+description: "langchain_core.load's loads() and load() never take allowed_objects=\"all\" or secrets_from_env=True: deserializing a manifest could then build any class and read the process's secrets (CVE-2025-68664). List the allowed objects; pass secrets_map= for the secrets it needs."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule: {kind: keyword_argument, regex: "^(allowed_objects[[:space:]]*=[[:space:]]*[\"']all[\"']|secrets_from_env[[:space:]]*=[[:space:]]*True)$"}
+examples:
+  match: ["from langchain_core.load import loads\n\n\ndef restore(text: str) -> object:\n    return loads(text, allowed_objects=\"all\")\n", "from langchain_core.load import loads\n\n\ndef restore(text: str) -> object:\n    return loads(text, secrets_from_env=True)\n"]
+  no_match: ["from langchain_core.load import loads\n\n\ndef restore(text: str) -> object:\n    return loads(text, allowed_objects=\"messages\")\n"]

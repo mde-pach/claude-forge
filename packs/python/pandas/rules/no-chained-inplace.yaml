@@ -1,0 +1,23 @@
+id: python/pandas/no-chained-inplace
+description: "No inplace=True on a selection (df[\"a\"].fillna(0, inplace=True), df.loc[...].replace(..., inplace=True)): under Copy-on-Write (pandas 3) the selection is a copy, so df never changes. Assign the result: df[\"a\"] = df[\"a\"].fillna(0)."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        - pattern: $D.$I[$$$A].$M($$$)
+        - pattern: $D[$$$A].$M($$$)
+      has: {field: arguments, has: {kind: keyword_argument, regex: "^inplace[[:space:]]*=[[:space:]]*True$"}}
+    constraints: {I: {regex: "^(loc|iloc)$"}}
+    where:
+      D: {type: {package: pandas, name: [DataFrame, Series]}}
+examples:
+  deps: [{ecosystem: pypi, name: pandas, version: "3.1.0"}]
+  match:
+    - "import pandas as pd\n\ndf = pd.DataFrame({\"a\": [1, 2], \"b\": [\"x\", \"y\"]})\ndf[\"a\"].fillna(0, inplace=True)\n"
+    - "import pandas as pd\n\ndf = pd.DataFrame({\"a\": [1, 2], \"b\": [\"x\", \"y\"]})\ndf.loc[:, \"a\"].replace(1, 2, inplace=True)\n"
+  no_match:
+    - "import pandas as pd\n\ndf = pd.DataFrame({\"a\": [1, 2], \"b\": [\"x\", \"y\"]})\ndf[\"a\"] = df[\"a\"].fillna(0)\n"
+    - "import pandas as pd\n\ndf = pd.DataFrame({\"a\": [1, 2], \"b\": [\"x\", \"y\"]})\ndf.fillna(0, inplace=True)\n"
+    - "from typing import Any\n\n\ndef fill(m: dict[str, Any]) -> None:\n    m[\"k\"].fillna(0, inplace=True)\n"

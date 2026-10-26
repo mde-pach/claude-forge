@@ -1,0 +1,2 @@
+pandas 3: Copy-on-Write. Assign through one indexer (`df.loc[row, col] = v`), never a chain (`df["a"][0] = v`); assign results (`df = df.rename(...)`) instead of `inplace=True` on a selection or on the methods that deprecate it.
+Strings have the `str` dtype: test with `pd.api.types.is_string_dtype()` or `select_dtypes("string")`, not `dtype == object`. Offsets are `ME`, `QE`, `YE`, `h`, `min`, `s`, `ms`, `us`, `ns` (`M`, `H`, `T`, `S`, `A`, ... raise). Prefer column operations to row loops.

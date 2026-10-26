@@ -550,6 +550,7 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `python/no-hardcoded-password` | `tool` ruff `S105`, `S106` (snippet: off under `tests/**`) |
 | `python/no-sql-format` | `tool` ruff `S608` |
 | `python/http-timeout` | `tool` ruff `S113` (requests without `timeout`; httpx with `timeout=None`) |
+| `python/llm-client-timeout` | `ast-grep` forbid: a call typed `anthropic` or `openai` (§15.1: a client constructor, `with_options()`, a request) with `timeout=None` |
 | `python/no-weak-hash` | `tool` ruff `S324` |
 | `python/no-pickle` | `tool` ruff `S301` |
 | `python/no-unsafe-yaml` | `tool` ruff `S506` |
@@ -804,6 +805,107 @@ Detected by `strawberry-graphql` (pypi).
 | Rule | Targets |
 |---|---|
 | `python/strawberry/query-limits` | `ast-grep` advise: a call typed `strawberry` `Schema` without an `extensions=` argument naming `QueryDepthLimiter` |
+
+### python/pandas
+
+Detected by `pandas >= 3.0.0` (pypi). The receivers are typed `pandas` `DataFrame` / `Series` (§15.1); without pandas-stubs ty types the frame, so the rules ask for the innermost object (`df` in `df["a"][0]`).
+
+| Rule | Targets |
+|---|---|
+| `python/pandas/no-chained-assignment` | `ast-grep` forbid: `$D[…][…] = …` (and `+=`, `-=`), `$D.loc[…][…] = …`, `$D[…].iloc[…] = …` (`loc`, `iloc`, `at`, `iat`) |
+| `python/pandas/no-chained-inplace` | `ast-grep` forbid: `$D[…].$M(…, inplace=True)`, `$D.loc[…].$M(…, inplace=True)` (`loc`, `iloc`) |
+| `python/pandas/no-deprecated-inplace` | `ast-grep` forbid: `inplace=True` on `rename`, `rename_axis`, `reset_index`, `set_index`, `drop`, `drop_duplicates`, `dropna`, `sort_values`, `sort_index`, `query`, `eval` (deprecated in pandas 3.1) |
+| `python/pandas/no-object-dtype-check` | `ast-grep` forbid: `.dtype` / `.dtypes` compared (`==`, `!=`) with `object`, `"object"`, `"O"` or `<module>.object_`; `select_dtypes(…)` naming `object` / `"O"` |
+| `python/pandas/no-removed-freq-aliases` | `ast-grep` forbid: a call typed `pandas` whose `freq=` / `rule=` or first argument of `resample` / `asfreq` / `rolling` / `to_period` is a removed alias (`BM`, `SM`, `CBM`, `BQ`, `BY`, `A`, `AS`, `BA`, `BAS`, `H`, `BH`, `CBH`, `T`, `L`, `U`, `N`, `S`, with a multiple and an anchor), or `M` / `Q` / `Y` outside `period_range`, `to_period`, `Period`, `PeriodIndex` |
+| `python/pandas/no-row-loops` | `ast-grep` advise: `$R.iterrows()`, `$R.itertuples(…)`, `$R.apply(…, axis=1 / "columns")` on a `DataFrame` |
+
+context.md: pandas 3 Copy-on-Write (one indexer per assignment, results assigned), the `str` dtype, the new frequency aliases, vectorized operations.
+
+### python/polars
+
+Detected by `polars` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/polars/no-python-row-functions` | `ast-grep` advise: `map_elements`, `map_rows`, `iter_rows` on a receiver typed `polars` `Expr` / `Series` / `DataFrame` |
+
+### python/numpy
+
+Detected by `numpy` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/numpy/legacy-random` | `tool` ruff `NPY002` |
+
+### python/torch
+
+Detected by `torch` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/torch/no-unsafe-load` | `ast-grep` forbid: the keyword argument `weights_only=False` |
+| `python/torch/no-unsafe-load-env` | `grep` forbid: `TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD` in `*.py`, `.env` files, Dockerfiles, Compose files, `*.sh`, `*.toml`, `*.ini`, `*.cfg`, `.github/workflows/*` |
+
+### python/huggingface
+
+Detected by `transformers`, `datasets`, `huggingface-hub`, `sentence-transformers`, `diffusers`, `peft` or `vllm` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/huggingface/no-trust-remote-code` | `ast-grep` advise: the keyword argument `trust_remote_code=True` |
+| `python/huggingface/no-pickle-weights` | `ast-grep` forbid: the keyword argument `use_safetensors=False` |
+
+### python/jupyter
+
+Detected by a `*.ipynb` file.
+
+| Rule | Targets |
+|---|---|
+| `python/jupyter/no-outputs` | `grep` forbid on `**/*.ipynb`: `"output_type": "…"`, `"execution_count": <number>` |
+
+context.md: outputs cleared before committing (nbstripout as a git filter).
+
+### python/anthropic
+
+Detected by `anthropic >= 2.0.0` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/anthropic/no-version-header` | `ast-grep` advise: a call typed `anthropic` with `default_headers=` / `extra_headers=` holding an `"anthropic-version"` key |
+| `python/anthropic/stream-long-requests` | `ast-grep` advise: `create(…)` / `parse(…)` on a receiver typed `anthropic` `Messages` / `AsyncMessages` with an integer `max_tokens` above 21,333 and no `stream=True` |
+
+### python/langchain
+
+Detected by `langchain-core` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/langchain/no-dangerous-flags` | `ast-grep` advise: the keyword arguments `allow_dangerous_deserialization=True`, `allow_dangerous_code=True`, `allow_dangerous_requests=True` |
+| `python/langchain/safe-load` | `ast-grep` forbid: the keyword arguments `allowed_objects="all"`, `secrets_from_env=True` |
+
+### python/mcp
+
+Detected by `mcp` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/mcp/dns-rebinding-protection` | `ast-grep` forbid: a call typed `mcp` `TransportSecuritySettings` with `enable_dns_rebinding_protection=False` |
+
+### python/opentelemetry
+
+Detected by `opentelemetry-sdk` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/opentelemetry/batch-processor` | `ast-grep` advise: a call typed `opentelemetry` `SimpleSpanProcessor` / `SimpleLogRecordProcessor` whose argument is typed `opentelemetry.exporter.otlp` `OTLPSpanExporter` / `OTLPLogExporter` |
+
+### python/airflow
+
+Detected by `apache-airflow` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/airflow/dag-schedule` | `tool` ruff `AIR002` |
 
 ### python/library
 
