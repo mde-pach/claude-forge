@@ -1262,9 +1262,12 @@ FORGE_SQUAWK_BLOCKING='renaming-column|renaming-table|changing-column-type|addin
 
 # forge_squawk <args>: the pinned Squawk through bunx or uvx; gcc-style output in
 # $FORGE_TMP/squawk. Exit status 0 when Squawk ran (with or without findings).
+# "bunx squawk-cli@<v>" runs the package's one binary from bunx's cache; with
+# "-p squawk-cli@<v> squawk" bunx installs the package again at every run, and
+# runs at the same time then kill each other's install.
 forge_squawk() {
   if command -v bunx >/dev/null 2>&1; then
-    bunx -p "squawk-cli@$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
+    bunx "squawk-cli@$FORGE_SQUAWK_VERSION" --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
   elif command -v uvx >/dev/null 2>&1; then
     uvx -q --from "squawk-cli==$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
   else

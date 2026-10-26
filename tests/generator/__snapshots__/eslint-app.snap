@@ -2415,9 +2415,12 @@ FORGE_SQUAWK_BLOCKING='renaming-column|renaming-table|changing-column-type|addin
 
 # forge_squawk <args>: the pinned Squawk through bunx or uvx; gcc-style output in
 # $FORGE_TMP/squawk. Exit status 0 when Squawk ran (with or without findings).
+# "bunx squawk-cli@<v>" runs the package's one binary from bunx's cache; with
+# "-p squawk-cli@<v> squawk" bunx installs the package again at every run, and
+# runs at the same time then kill each other's install.
 forge_squawk() {
   if command -v bunx >/dev/null 2>&1; then
-    bunx -p "squawk-cli@$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
+    bunx "squawk-cli@$FORGE_SQUAWK_VERSION" --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
   elif command -v uvx >/dev/null 2>&1; then
     uvx -q --from "squawk-cli==$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
   else
@@ -5474,9 +5477,12 @@ FORGE_SQUAWK_BLOCKING='renaming-column|renaming-table|changing-column-type|addin
 
 # forge_squawk <args>: the pinned Squawk through bunx or uvx; gcc-style output in
 # $FORGE_TMP/squawk. Exit status 0 when Squawk ran (with or without findings).
+# "bunx squawk-cli@<v>" runs the package's one binary from bunx's cache; with
+# "-p squawk-cli@<v> squawk" bunx installs the package again at every run, and
+# runs at the same time then kill each other's install.
 forge_squawk() {
   if command -v bunx >/dev/null 2>&1; then
-    bunx -p "squawk-cli@$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
+    bunx "squawk-cli@$FORGE_SQUAWK_VERSION" --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
   elif command -v uvx >/dev/null 2>&1; then
     uvx -q --from "squawk-cli==$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
   else
@@ -8562,9 +8568,12 @@ FORGE_SQUAWK_BLOCKING='renaming-column|renaming-table|changing-column-type|addin
 
 # forge_squawk <args>: the pinned Squawk through bunx or uvx; gcc-style output in
 # $FORGE_TMP/squawk. Exit status 0 when Squawk ran (with or without findings).
+# "bunx squawk-cli@<v>" runs the package's one binary from bunx's cache; with
+# "-p squawk-cli@<v> squawk" bunx installs the package again at every run, and
+# runs at the same time then kill each other's install.
 forge_squawk() {
   if command -v bunx >/dev/null 2>&1; then
-    bunx -p "squawk-cli@$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
+    bunx "squawk-cli@$FORGE_SQUAWK_VERSION" --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
   elif command -v uvx >/dev/null 2>&1; then
     uvx -q --from "squawk-cli==$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
   else
@@ -11666,9 +11675,12 @@ FORGE_SQUAWK_BLOCKING='renaming-column|renaming-table|changing-column-type|addin
 
 # forge_squawk <args>: the pinned Squawk through bunx or uvx; gcc-style output in
 # $FORGE_TMP/squawk. Exit status 0 when Squawk ran (with or without findings).
+# "bunx squawk-cli@<v>" runs the package's one binary from bunx's cache; with
+# "-p squawk-cli@<v> squawk" bunx installs the package again at every run, and
+# runs at the same time then kill each other's install.
 forge_squawk() {
   if command -v bunx >/dev/null 2>&1; then
-    bunx -p "squawk-cli@$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
+    bunx "squawk-cli@$FORGE_SQUAWK_VERSION" --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
   elif command -v uvx >/dev/null 2>&1; then
     uvx -q --from "squawk-cli==$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
   else
@@ -15452,9 +15464,12 @@ FORGE_SQUAWK_BLOCKING='renaming-column|renaming-table|changing-column-type|addin
 
 # forge_squawk <args>: the pinned Squawk through bunx or uvx; gcc-style output in
 # $FORGE_TMP/squawk. Exit status 0 when Squawk ran (with or without findings).
+# "bunx squawk-cli@<v>" runs the package's one binary from bunx's cache; with
+# "-p squawk-cli@<v> squawk" bunx installs the package again at every run, and
+# runs at the same time then kill each other's install.
 forge_squawk() {
   if command -v bunx >/dev/null 2>&1; then
-    bunx -p "squawk-cli@$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
+    bunx "squawk-cli@$FORGE_SQUAWK_VERSION" --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
   elif command -v uvx >/dev/null 2>&1; then
     uvx -q --from "squawk-cli==$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
   else
@@ -17373,13 +17388,13 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "ff61a19974ccfc38fe6771978c9f9fe21253d4132eff8af9f06b112607965a00",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
     ".claude/skills/forge-project/scripts/lib.sh": "992199575f70acaff0dafde29d70563ab19290e5799ef3594ddceb6b3ee5d9ab",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "bc310eb6a608e7bad473ed85689166ccfbf074f6942d6402c846072d0c930856",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "10a4b16ec163d43ad7c8e170d11912703200fcad544f3883848fa670d5d92aeb",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
-    ".claude/skills/forge-project/scripts/session-start.sh": "9f7ee1ab78436b3015350602d82246ba90d4cf1cf93f27f7f752a46049bf981a",
+    ".claude/skills/forge-project/scripts/session-start.sh": "6a7f319ebeef0a8d8da7fe6bb7fffb2bb39f1b1d9c18e7091f3bedff5c926ffd",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "a64ad9b86102d2f694dc2929d7c841e79e8d70738356dc626fe4d1ae2ce0afdf",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "15eda907a452c2c5dd01350885293236d333e95d1674493f4e257affb37f1b0a",
     ".claude/skills/forge-project/scripts/turn-start.sh": "3d6bbb9aed56181032c9e7c05ba1c20e8080ca104e831a193b42a825e3a12531",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "7b03c2497b4745c870e71ac047b21e3a7c7e2e20a641f700c14c7b33ecd48eb9",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "483860f2e14085633f589e6152bbd03da62084b2e65ff2f84c09fcc429c7373c",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml": "c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20",
     ".forge/ast-grep/rule-tests/typescript-no-eval-test.yml": "3716e00219b28a0974a07a56e1d264bb478b35a6ef38d5c13740a9080b09516e",
@@ -17402,7 +17417,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/typescript/no-ts-nocheck.yml": "aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21",
     ".forge/ast-grep/rules/typescript/ts-expect-error-reason.yml": "b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "7b35cb6b58c34a86a42909925e9162e832f9fbc0f87bf65cfd91936ca6435f05",
+    ".forge/check.sh": "173ac9fd658b1d7c90bb0fde4338df23121484cc9a32a87525cbccd2e0c5d780",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -17452,13 +17467,13 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 ff61a19974ccfc38fe6771978c9f9fe21253d4132eff8af9f06b112607965a00  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
 992199575f70acaff0dafde29d70563ab19290e5799ef3594ddceb6b3ee5d9ab  .claude/skills/forge-project/scripts/lib.sh
-bc310eb6a608e7bad473ed85689166ccfbf074f6942d6402c846072d0c930856  .claude/skills/forge-project/scripts/post-edit.sh
+10a4b16ec163d43ad7c8e170d11912703200fcad544f3883848fa670d5d92aeb  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
-9f7ee1ab78436b3015350602d82246ba90d4cf1cf93f27f7f752a46049bf981a  .claude/skills/forge-project/scripts/session-start.sh
+6a7f319ebeef0a8d8da7fe6bb7fffb2bb39f1b1d9c18e7091f3bedff5c926ffd  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-a64ad9b86102d2f694dc2929d7c841e79e8d70738356dc626fe4d1ae2ce0afdf  .claude/skills/forge-project/scripts/test-edit.sh
+15eda907a452c2c5dd01350885293236d333e95d1674493f4e257affb37f1b0a  .claude/skills/forge-project/scripts/test-edit.sh
 3d6bbb9aed56181032c9e7c05ba1c20e8080ca104e831a193b42a825e3a12531  .claude/skills/forge-project/scripts/turn-start.sh
-7b03c2497b4745c870e71ac047b21e3a7c7e2e20a641f700c14c7b33ecd48eb9  .claude/skills/forge-project/scripts/typecheck.sh
+483860f2e14085633f589e6152bbd03da62084b2e65ff2f84c09fcc429c7373c  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20  .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
 3716e00219b28a0974a07a56e1d264bb478b35a6ef38d5c13740a9080b09516e  .forge/ast-grep/rule-tests/typescript-no-eval-test.yml
@@ -17481,7 +17496,7 @@ b21497e3335f2271e6ca5874817957d18c640e7d787cfe76a72ef390ab62d634  .forge/ast-gre
 aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21  .forge/ast-grep/rules/typescript/no-ts-nocheck.yml
 b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad  .forge/ast-grep/rules/typescript/ts-expect-error-reason.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-7b35cb6b58c34a86a42909925e9162e832f9fbc0f87bf65cfd91936ca6435f05  .forge/check.sh
+173ac9fd658b1d7c90bb0fde4338df23121484cc9a32a87525cbccd2e0c5d780  .forge/check.sh
 
 ===== .git/hooks/pre-commit
 #!/bin/sh
