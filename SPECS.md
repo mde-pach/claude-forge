@@ -685,8 +685,11 @@ Detected by `django` (pypi) or a `manage.py` at the root or one level down.
 | `python/django/makemigrations` | `check` migration: the shallowest tracked `manage.py`, `python <manage.py> makemigrations --check --dry-run --no-input` (no database needed: Django only warns when it cannot check the migration history); fails on "Migrations for", any other failure (settings that need an environment variable, a missing module) prints `skipped:` with the error's last line; `when_changed`: models, migrations, settings; timeout 120 s |
 | `python/django/no-raw-sql-format` | `tool` ruff `S610` (`.extra()` with a non-literal `select` / `where` / `tables` / …), `S611` (`RawSQL()` with non-literal SQL); SQL strings built with an f-string, `.format()`, `%` or `+` (also through a variable) are `python/no-sql-format` (`S608`) |
 | `python/django/flake8-django` | `tool` ruff `DJ001`, `DJ003`, `DJ006`, `DJ007`, `DJ013` |
+| `python/django/csrf-exempt` | `ast-grep` forbid: `@csrf_exempt`, `csrf_exempt(…)`, `csrf_exempt` passed as an argument (`@method_decorator(csrf_exempt, …)`); the user decides, and disables the rule for that file in a local rule |
+| `python/django/no-mark-safe` | `tool` ruff `S308` |
+| `python/django/migrate-guard` | `guard` ask (`review`: is the user aware it resets data or the migration state): `manage.py` / `django-admin` `migrate … --fake`, `migrate <app> zero`, `flush`, `reset_db`, `sqlflush` piped to a command |
 
-context.md: migrations generated and committed with model changes; SQL parameters; `select_related()` / `prefetch_related()` against N+1; `transaction.atomic()` and `transaction.on_commit()`.
+context.md: migrations generated and committed with model changes; SQL parameters; `select_related()` / `prefetch_related()` against N+1; `transaction.atomic()` and `transaction.on_commit()`; `format_html()` rather than `mark_safe()`; `@csrf_exempt` asked for.
 
 ### python/django/drf
 
@@ -695,10 +698,19 @@ Detected by `djangorestframework` (pypi).
 | Rule | Targets |
 |---|---|
 | `python/django/drf/permission-classes` | `check` lint: `forge_helper python drf_permissions.py` (§13.4): unless the settings module Django runs with (`DJANGO_SETTINGS_MODULE` set in `manage.py`, `wsgi.py` or `asgi.py`, star imports followed; else a `settings.py` / `settings/` outside tests) sets `DEFAULT_PERMISSION_CLASSES` to a non-empty list without `AllowAny`, a class inheriting a DRF view or viewset (directly or through project classes and mixins of any kind) gets a non-empty `permission_classes` or `get_permissions` from itself or a project ancestor, and an `@api_view` function has `@permission_classes`; `permission_classes = []` declares nothing; findings on the class or function line |
-| `python/django/drf/serializer-fields` | `ast-grep` forbid: `fields = "__all__"` in the `Meta` of a class whose bases name a `Serializer` |
+| `python/django/drf/serializer-fields` | `ast-grep` forbid: `fields = "__all__"` or `exclude = …` in the `Meta` of a class whose bases name a `Serializer` |
+| `python/django/drf/no-csrf-exempt-session-auth` | `ast-grep` forbid: a class whose base is typed `rest_framework` `SessionAuthentication` (§15.1) and that defines `enforce_csrf` |
 | `python/django/drf/no-allowany-write` | `ast-grep` forbid: `permission_classes` naming `AllowAny` in a `ModelViewSet`, a Create/Update/Destroy generic view or model mixin, or a class with `post`/`put`/`patch`/`delete`/`create`/`update`/`partial_update`/`destroy`; `@permission_classes([AllowAny])` on an `@api_view` with a write method; `AllowAny` as `DEFAULT_PERMISSION_CLASSES` |
 
 context.md: explicit serializer fields and `read_only_fields`; permission defaults; ask before opening a write endpoint.
+
+### python/django/ninja
+
+Detected by `django-ninja` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/django/ninja/schema-fields` | `ast-grep` forbid: `fields = "__all__"` or `exclude = …` in the `Meta` of a class whose base is typed `ninja` `ModelSchema` (§15.1) |
 
 ### python/celery
 

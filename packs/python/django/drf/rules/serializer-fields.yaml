@@ -1,12 +1,16 @@
 id: python/django/drf/serializer-fields
-description: "A ModelSerializer's Meta lists its fields; fields = \"__all__\" would expose (and, unless read-only, accept) every column added to the model later, such as a password hash or an is_staff flag."
+description: "A ModelSerializer's Meta lists its fields: fields = \"__all__\" and exclude = [...] would expose (and, unless read-only, accept) every column added to the model later, such as a password hash or an is_staff flag."
 scope: {language: python, files: ["!**/tests/**", "!**/test_*.py"]}
 enforce:
   - target: ast-grep
     mode: forbid
     rule:
       kind: expression_statement
-      has: {kind: assignment, all: [{has: {field: left, regex: "^fields$"}}, {has: {field: right, regex: "^[\"']__all__[\"']$"}}]}
+      has:
+        kind: assignment
+        any:
+          - all: [{has: {field: left, regex: "^fields$"}}, {has: {field: right, regex: "^[\"']__all__[\"']$"}}]
+          - has: {field: left, regex: "^exclude$"}
       inside:
         stopBy: neighbor
         kind: block
@@ -21,6 +25,8 @@ examples:
   match:
     - "from rest_framework import serializers\n\n\nclass UserSerializer(serializers.ModelSerializer):\n    class Meta:\n        model = User\n        fields = \"__all__\"\n"
     - "class OrderSerializer(HyperlinkedModelSerializer):\n    class Meta:\n        model = Order\n        fields = '__all__'\n        read_only_fields = [\"id\"]\n"
+    - "from rest_framework import serializers\n\n\nclass UserSerializer(serializers.ModelSerializer):\n    class Meta:\n        model = User\n        exclude = [\"password\"]\n"
   no_match:
     - "from rest_framework import serializers\n\n\nclass UserSerializer(serializers.ModelSerializer):\n    class Meta:\n        model = User\n        fields = [\"id\", \"username\", \"email\"]\n"
     - "class FilterSet(django_filters.FilterSet):\n    class Meta:\n        model = Order\n        fields = \"__all__\"\n"
+    - "class OrderFilter(django_filters.FilterSet):\n    class Meta:\n        model = Order\n        exclude = [\"secret\"]\n"
