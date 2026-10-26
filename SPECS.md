@@ -751,6 +751,7 @@ context.md: entry points are the public API; renamed exports stay as `@deprecate
 | `typescript/bun/no-mock-increase` | `ast-grep` no-increase on the same files: `mock(…)`, `mock.module(…)`, `spyOn(…)` (also under an import alias), `jest.fn/mock/spyOn`, `vi.fn/mock/spyOn` |
 | `typescript/bun/no-test-edits` | `check` lint: `forge_test_edits` on the in-scope files that import `bun:test` (§10.5) |
 | `typescript/bun/no-snapshot-update` | `guard` ask: `bun test` with `-u` or `--update-snapshots` |
+| `typescript/bun/text-lockfile` | `check` lint: no `bun.lockb` file (tracked or untracked, not ignored); `when_changed`: `bun.lockb`, `package.json` |
 
 context.md: Bun is the runtime and package manager; `bun:test` tests run with `bun test`, what the integrity rules reject in them, and "If an existing test looks wrong, stop and ask; never edit it to make the code pass."
 
