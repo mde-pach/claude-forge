@@ -778,6 +778,18 @@ Detected by an `eslint.config.*` file or the `eslint` dependency at 9 or later.
 
 context.md: flat config only (ignores and globals in `eslint.config.*`); typescript-eslint needs TypeScript 6 or older.
 
+### typescript/pnpm
+
+Detected by `pnpm-lock.yaml` or `pnpm-workspace.yaml`.
+
+| Rule | Targets |
+|---|---|
+| `typescript/pnpm/no-other-pm` | `guard` ask: `npm install`, `npm i`, `npm ci`, `npm add`, `yarn`, `bun install`, `bun i`, `bun add` |
+| `typescript/pnpm/lock-sync` | `check` lint: `pnpm install --frozen-lockfile --lockfile-only` (skipped when pnpm is not installed), `when_changed`: `package.json` files, `pnpm-lock.yaml`, `pnpm-workspace.yaml` |
+| `typescript/pnpm/settings-location` | `check` lint (with `bun`) on changed `package.json` and `.npmrc` files: a top-level `pnpm` field, and pnpm settings in `.npmrc` (`node-linker`, `shamefully-hoist`, `only-built-dependencies`, `minimum-release-age`, …), reported at their line |
+
+context.md: pnpm manages dependencies; its settings live in `pnpm-workspace.yaml`.
+
 ### typescript/nextjs
 
 | Rule | Targets |
