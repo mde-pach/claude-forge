@@ -1049,6 +1049,14 @@ Detected by `fastify >= 5`. `Fastify()` returns an intersection (`FastifyInstanc
 
 context.md: the two plugin signatures; full JSON Schemas in routes.
 
+### typescript/elysia
+
+| Rule | Targets |
+|---|---|
+| `typescript/elysia/body-schema` | `ast-grep` forbid: `$APP.post` / `put` / `patch(path, handler, …)` whose handler's first parameter destructures `body`, without a third argument object holding `body`, where `APP` is an `Elysia` |
+
+context.md: a `body` schema on routes that read the body.
+
 ### github-actions
 
 Detected by `.github/workflows/*.yml` or `*.yaml`.
