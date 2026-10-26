@@ -16,7 +16,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { renderChecks, renderLib } from "../../src/render";
 import { ENGINE_PYTHON, TY_VERSION } from "../../src/util";
-import { commitAll, fakeClaude, forge, git, hasBun, hasUv, hookJson, othersRunning, processesNaming, put, ROOT, sh, stateDir, stopEngines, TOOL_VERSIONS } from "../helpers";
+import { commitAll, fakeClaude, fixture, forge, git, hasBun, hasUv, hookJson, othersRunning, processesNaming, put, ROOT, sh, stateDir, stopEngines, TOOL_VERSIONS } from "../helpers";
 
 const T = 300_000;
 const SCRIPTS = ".claude/skills/forge-project/scripts";
@@ -58,17 +58,20 @@ function ended(pids: string[]): string[] {
   return running(pids);
 }
 
-/** A git repository from tests/generator/<sample> (or empty) with <setup> run, committed, and forge applied. */
-function project(sample: string | undefined, setup: (dir: string) => void): string {
-  const dir = mkdtempSync(join(tmpdir(), "forge-types-"));
-  if (sample) cpSync(join(ROOT, "tests", "generator", sample), dir, { recursive: true });
-  setup(dir);
-  git(dir, "init", "-q", "-b", "main");
-  commitAll(dir, "init");
-  const r = forge(["apply", "--yes"], dir, { ...fakeClaude() });
-  if (r.status !== 0) throw new Error(`forge apply failed:\n${r.stdout}\n${r.stderr}`);
-  commitAll(dir, "forge");
-  return dir;
+/**
+ * A git repository from tests/generator/<sample> (or empty) with <setup> run, committed,
+ * and forge applied: a fixture (helpers.ts), built once per run under <key>.
+ */
+function project(key: string, sample: string | undefined, setup: (dir: string) => void): string {
+  return fixture(`types-${key}`, (dir) => {
+    if (sample) cpSync(join(ROOT, "tests", "generator", sample), dir, { recursive: true });
+    setup(dir);
+    git(dir, "init", "-q", "-b", "main");
+    commitAll(dir, "init");
+    const r = forge(["apply", "--yes"], dir, { ...fakeClaude() });
+    if (r.status !== 0) throw new Error(`forge apply failed:\n${r.stdout}\n${r.stderr}`);
+    commitAll(dir, "forge");
+  });
 }
 
 /**
@@ -96,7 +99,7 @@ const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.len
 describe.if(hasUv)("Python: the receiver's type, through ty", () => {
   let repo = "";
   beforeAll(() => {
-    repo = project("fastapi-app", (dir) => {
+    repo = project("sqlalchemy", "fastapi-app", (dir) => {
       expect(sh("uv", ["venv", "-q", "--python", "3.12", join(dir, ".venv")]).status).toBe(0);
       expect(sh("uv", ["pip", "install", "-q", "--python", join(dir, ".venv/bin/python"), "sqlalchemy==2.0.44"]).status).toBe(0);
     });
@@ -329,7 +332,7 @@ describe.if(hasUv)("Python: the receiver's type, through ty", () => {
 describe.each(TOOL_VERSIONS.typescriptEngines.map((v) => [v]))("TypeScript %s: the receiver's type, through the project's TypeScript", (version) => {
   let repo = "";
   beforeAll(() => {
-    repo = project(undefined, (dir) => {
+    repo = project(`zod-typescript-${version}`, undefined, (dir) => {
       mkdirSync(join(dir, "src"));
       writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "zod-app", private: true, type: "module", dependencies: { zod: "4.1.12" }, devDependencies: { typescript: version } }));
       writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ compilerOptions: { strict: true, module: "ESNext", moduleResolution: "bundler", target: "ES2022", noEmit: true } }));
@@ -409,7 +412,7 @@ describe.each(TOOL_VERSIONS.typescriptEngines.map((v) => [v]))("TypeScript %s: t
 test(
   "a project without its own TypeScript package gets its typed matches reported unchecked, never passed",
   () => {
-    const repo = project(undefined, (dir) => {
+    const repo = project("zod-no-typescript", undefined, (dir) => {
       mkdirSync(join(dir, "src"));
       writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "no-ts", private: true, type: "module", dependencies: { zod: "4.1.12" } }));
       writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ compilerOptions: { strict: true, noEmit: true } }));
