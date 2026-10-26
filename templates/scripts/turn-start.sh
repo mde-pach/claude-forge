@@ -4,7 +4,8 @@
 # directory outside it: forge_state_of in lib.sh), so the Stop hook checks only what
 # changed during the turn, resets the Stop block counter, and saves the prompt
 # (<state>/<session>.prompt) for a reviewer of test edits nobody can approve
-# (test-edit.sh). Prints nothing (its output would reach Claude).
+# (test-edit.sh). Tells the running types engines which files changed outside Claude's
+# edits since the last prompt (§15.3). Prints nothing (its output would reach Claude).
 dir=$(cd "$(dirname "$0")" && pwd)
 FORGE_INPUT=$(cat)
 . "$dir/lib.sh"
@@ -13,4 +14,15 @@ forge_state_dir || exit 0
 snapshot "$(turn_dir)" 2>/dev/null
 rm -f "$FORGE_STATE/$(session_id).blocks"
 json_get prompt > "$FORGE_STATE/$(session_id).prompt" 2>/dev/null
+if [ -d "$FORGE_STATE/types" ]; then
+  # the uncommitted files, and every file a commit, checkout or pull changed since then
+  _ts_h=$(git rev-parse -q --verify HEAD 2>/dev/null)
+  _ts_o=$(cat "$FORGE_STATE/types/head" 2>/dev/null)
+  set -f
+  IFS='
+'
+  # shellcheck disable=SC2046
+  forge_types_changed $({ status_paths; [ -n "$_ts_o" ] && [ "$_ts_o" != "$_ts_h" ] && git diff --name-only "$_ts_o" "$_ts_h" 2>/dev/null; } | sort -u)
+  printf '%s\n' "$_ts_h" > "$FORGE_STATE/types/head"
+fi
 exit 0

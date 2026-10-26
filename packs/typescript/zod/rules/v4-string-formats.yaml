@@ -11,11 +11,22 @@ enforce:
         kind: member_expression
         all:
           - has: {field: property, regex: "^(email|uuid|guid|url|cuid|cuid2|ulid|ipv4|ipv6|ip|datetime|date|time|duration|base64|base64url|nanoid|emoji|jwt)$"}
-          - has:
-              field: object
-              any:
-                - {pattern: "z.string()"}
-                - {has: {stopBy: end, pattern: "z.string()"}}
+          - has: {field: object, pattern: $S}
+    # The receiver is a Zod 4 string schema by its type (§15.1), however it was built or
+    # imported (z, a namespace import, a variable, a parameter); not an object of the
+    # project's with an email() method, nor Zod 3's ZodString.
+    where:
+      S: {type: {module: zod/v4, name: ZodString}}
 examples:
-  match: ["const E = z.string().email();", "const U = z.string().min(1).uuid();", "const D = z.string().datetime({ offset: true });"]
-  no_match: ["const E = z.email();", "const D = z.iso.datetime();", "const S = z.string().min(1).max(10);", "const n = user.email();"]
+  deps: [{ecosystem: npm, name: zod, version: "4.1.12"}]
+  match:
+    - "import { z } from \"zod\";\n\nexport const Email = z.string().email();\n"
+    - "import * as zod from \"zod\";\n\nexport const Url = zod.string().min(1).url();\n"
+    - "import { z } from \"zod\";\n\nconst base = z.string();\nexport const Id = base.uuid();\n"
+    - "import { z } from \"zod\";\n\nexport function at(s: z.ZodString) {\n  return s.datetime({ offset: true });\n}\n"
+  no_match:
+    - "import { z } from \"zod\";\n\nexport const Email = z.email();\n"
+    - "import { z } from \"zod\";\n\nexport const At = z.iso.datetime();\n"
+    - "import { z } from \"zod\";\n\nexport const S = z.string().min(1).max(10);\n"
+    - "class ZodString {\n  email(): string {\n    return \"\";\n  }\n}\n\nexport const e = new ZodString().email();\n"
+    - "export const user = { email: (): string => \"a@b\" };\nexport const e = user.email();\n"

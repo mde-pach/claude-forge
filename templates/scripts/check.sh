@@ -19,11 +19,14 @@ FORGE_ROOT=$(pwd)
 IFS='
 '
 FORGE_TMP=$(mktemp -d "${TMPDIR:-/tmp}/forge-check.XXXXXX") || exit 2
-trap 'rm -rf "$FORGE_TMP"' EXIT; trap 'exit 143' HUP INT TERM
+# a types engine this run started is stopped at the end unless a session uses it (§15.3)
+trap 'forge_types_down; rm -rf "$FORGE_TMP"' EXIT; trap 'exit 143' HUP INT TERM
 
 @@LIB@@
 
 @@CHECKS@@
+
+FORGE_STATE=$(forge_state_of "$(pwd -P)")
 
 # Scripts that checks run with the project's own runtime (Python, bun).
 @@SCRIPTS@@
@@ -157,11 +160,16 @@ forge_forbid() {
   if [ -n "$FORGE_FORBID" ]; then
     set -f
     # shellcheck disable=SC2046
-    astgrep scan -c .forge/ast-grep/sgconfig.yml --filter "^($FORGE_FORBID)\$" --json=stream $(cat "$FORGE_TMP/scope") > "$FORGE_TMP/forbid"
+    astgrep scan -c .forge/ast-grep/sgconfig.yml --filter "^($FORGE_FORBID)\$" --json=stream --include-metadata $(cat "$FORGE_TMP/scope") > "$FORGE_TMP/forbid"
     rc=$?
     set +f
     if [ "$rc" -gt 1 ]; then printf 'forge:forge/ast-grep skipped: ast-grep unavailable\n'
-    else forge_sg_report "$FORGE_TMP/forbid" >> "$FORGE_TMP/forbid.out"
+    else
+      # rules with type constraints: only the matches the types engine confirms (§15.1)
+      forge_sg_report "$FORGE_TMP/forbid" json > "$FORGE_TMP/forbid.added"
+      forge_types_changed $(cat "$FORGE_TMP/changed")
+      forge_types_filter "$FORGE_TMP/forbid.added" >> "$FORGE_TMP/forbid.out"
+      forge_sg_report "$FORGE_TMP/forbid.added" >> "$FORGE_TMP/forbid.out"
     fi
   fi
   if [ -s "$FORGE_TMP/forbid.out" ]; then cat "$FORGE_TMP/forbid.out"; fail=1; fi

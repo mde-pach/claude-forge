@@ -40,7 +40,23 @@ export interface AstGrepTarget {
   // Optional ast-grep keys passed through (constraints, utils, transform).
   constraints?: Record<string, unknown>;
   utils?: Record<string, unknown>;
+  /** Engine capabilities on metavariables (§15.1): a match counts only when they hold. */
+  where?: Record<string, WhereCondition>;
 }
+
+/**
+ * What the static type of an expression must be (§15.1): declared, or a subtype of a
+ * type declared, in a package or module, optionally with one of the given names (the
+ * declared name, never an import alias). Never a name alone.
+ */
+export interface TypeSpec {
+  package?: string | string[];
+  module?: string | string[];
+  name?: string | string[];
+  /** A type the checker does not know (Any, Unknown, any, unknown): no-match (default) or match. */
+  unknown?: "match" | "no-match";
+}
+export type WhereCondition = { type: TypeSpec } | { not: WhereCondition };
 export interface PermissionTarget {
   target: "permission";
   decision: Decision;
@@ -107,7 +123,8 @@ export interface Rule {
   description: string;
   scope: { language: Language; files?: string[] };
   enforce: Target[];
-  examples?: { match?: Example[]; no_match?: Example[] };
+  /** deps: the packages (exact versions) the examples are type-checked against, for rules with type constraints (§15.1). */
+  examples?: { match?: Example[]; no_match?: Example[]; deps?: DepSpec[] };
   deprecated?: { replaced_by: string };
   /** For an ask: the one question an independent reviewer answers when nobody can (§9.3). */
   review?: string;

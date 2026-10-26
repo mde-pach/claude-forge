@@ -9,7 +9,7 @@ import { plan, readProjectInputs, type Plan } from "./plan.js";
 import { blockHash, CHECK, hasBlock, hookManager, insertBlock, managerInactive, onlyForge, preCommitPath, removeBlock, runsForgeCheck } from "./precommit.js";
 import { localSelfTest, testSummary } from "./selftest.js";
 import { addEntries, conflictingScalars, entryKey, hasEntry, removeEntries } from "./settings.js";
-import { CLAUDE_CODE_MIN, FORGE_VERSION, compareVersions, gitToplevel, lineDiff, ownedHash, packageRoot, run } from "./util.js";
+import { CLAUDE_CODE_MIN, ENGINE_PYTHON, FORGE_VERSION, TS_ENGINE_VERSION, TY_VERSION, compareVersions, gitToplevel, lineDiff, ownedHash, packageRoot, run } from "./util.js";
 import type { Level, Lock, LockBlock, SettingsEntry } from "./types.js";
 import { USAGE } from "./usage.js";
 
@@ -411,10 +411,29 @@ function cmdApply(flags: Flags): number {
     const pre = preCommitState(ctx);
     if (pre.activate) out(`forge: pre-commit: ${notChecked(ctx, pre)}`);
     else if (!pre.installed) out(`forge: pre-commit: not installed, so commits are not checked; ${preCommitHint(ctx.base)}`);
+    for (const problem of provisionEngines(ctx.plan.types)) out(problem);
   }
   const sandbox = sandboxProblem(ctx);
   if (sandbox) out(sandbox);
   return 0;
+}
+
+/**
+ * Fetches the pinned types engines the rules use into the uvx / bunx caches (§15.2), so
+ * the hooks start them offline. Returns what could not be provisioned.
+ */
+function provisionEngines(langs: string[]): string[] {
+  const problems: string[] = [];
+  for (const lang of langs) {
+    const [cmd, args, what] =
+      lang === "python"
+        ? ["uvx", ["-q", "--python", ENGINE_PYTHON, "--from", `ty==${TY_VERSION}`, "ty", "--version"], `ty ${TY_VERSION}`]
+        : ["bun", ["x", "--bun", "-p", `typescript@${TS_ENGINE_VERSION}`, "tsc", "--version"], `TypeScript ${TS_ENGINE_VERSION}`];
+    const r = run(cmd, args as string[]);
+    if (r.status !== 0)
+      problems.push(`forge: the ${lang} types engine (${what}) could not be provisioned with ${cmd}: ${(r.stderr || r.stdout).trim().split("\n").slice(-1)[0] || `exit ${r.status}`}; rules with type constraints are reported unchecked until it is`);
+  }
+  return problems;
 }
 
 /**

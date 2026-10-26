@@ -123,11 +123,12 @@ forge_added_lines() {
   return 0
 }
 
-# forge_sg_report <json>: ast-grep --json=stream matches as
+# forge_sg_report <json> [json]: ast-grep --json=stream matches as
 # "forge:<rule> path:line:column <description>" (from 1); unless $mode is --all, only
 # matches that overlap a line of $FORGE_TMP/added (a match spanning an edited line counts).
+# With "json", those matches as they are (for forge_types_filter).
 forge_sg_report() {
-  awk -v all="$([ "$mode" = --all ] && printf 1)" '
+  awk -v all="$([ "$mode" = --all ] && printf 1)" -v json="${2:-}" '
     function str(s, key,   i, out, c) {
       i = index(s, "\"" key "\":\""); if (!i) return ""
       s = substr(s, i + length(key) + 4); out = ""
@@ -149,6 +150,7 @@ forge_sg_report() {
       keep = (all != "" || (f in whole))
       for (l = sl; !keep && l <= el; l++) if ((f "\t" l) in ad) keep = 1
       if (!keep) next
+      if (json != "") { print; next }
       id = m; sub(/^forge:/, "", id); sub(/ .*$/, "", id)
       d = m; sub(/^[^ ]* ?/, "", d)
       printf "forge:%s %s:%d:%d %s\n", id, f, sl, sc, d
@@ -2575,6 +2577,12 @@ forge_missing_tools() {
   if ! command -v bunx >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then
     _mt="${_mt:+$_mt, }bunx or uvx (ast-grep)"
   fi
+  for _mt_l in $FORGE_TYPES_LANGS; do
+    case $_mt_l in
+      python) command -v uvx >/dev/null 2>&1 || _mt="${_mt:+$_mt, }uvx (types engine: ty $FORGE_TY_VERSION)" ;;
+      typescript) command -v bun >/dev/null 2>&1 || _mt="${_mt:+$_mt, }bun (types engine: TypeScript $FORGE_TS_ENGINE_VERSION)" ;;
+    esac
+  done
   printf '%s' "$_mt"
 }
 
@@ -2586,4 +2594,117 @@ forge_required_tools() {
     printf '%s\n' "$c_tools" | tr ' ' '\n' | awk -v d="$c_dirs" 'NF { if (d == "") print; else { n = split(d, ds, " "); for (i = 1; i <= n; i++) print $0 "@" ds[i] } }'
     _fq_i=$((_fq_i + 1))
   done | awk 'NF && !seen[$0]++'
+}
+
+# ---- engine capabilities (SPECS §15): types
+
+# The languages whose types engine the active rules use, and the engines' pins.
+FORGE_TYPES_LANGS='@@TYPES_LANGS@@'
+FORGE_TY_VERSION='@@TY_VERSION@@'
+FORGE_TS_ENGINE_VERSION='@@TS_ENGINE_VERSION@@'
+FORGE_ENGINE_PYTHON='@@ENGINE_PYTHON@@'
+# the adapters' revision: a running daemon of another Forge version is restarted
+FORGE_TYPES_REV='@@TYPES_REV@@'
+
+# forge_types_up <lang>: the language's daemon runs, with the pinned engine (started
+# when it does not: by the first hook that needs it, or by SessionStart). Prints why
+# and fails when it cannot start. Registers the hook's session, if any.
+forge_types_up() {
+  _tu_lang=$1
+  _tu_d=$FORGE_STATE/types/$1
+  case $1 in
+    python) _tu_want="ty $FORGE_TY_VERSION $FORGE_TYPES_REV" ;;
+    typescript) _tu_want="typescript $FORGE_TS_ENGINE_VERSION $FORGE_TYPES_REV" ;;
+    *) printf 'no types engine for %s\n' "$1"; return 1 ;;
+  esac
+  if forge_types_alive "$1"; then
+    if [ "$(cat "$_tu_d/want" 2>/dev/null)" = "$_tu_want" ]; then
+      [ -z "${FORGE_INPUT:-}" ] || : > "$_tu_d/sessions/$(session_id)"
+      return 0
+    fi
+    forge_types_line "$1" stop
+  fi
+  forge_state_dir && mkdir -p "$FORGE_STATE/types" || { printf 'cannot create %s\n' "$FORGE_STATE/types"; return 1; }
+  # one starter at a time; another one's start is waited for (its lock holds its pid)
+  _tu_n=0
+  until mkdir "$_tu_d.lock" 2>/dev/null; do
+    _tu_p=$(cat "$_tu_d.lock/pid" 2>/dev/null)
+    if [ -n "$_tu_p" ] && ! kill -0 "$_tu_p" 2>/dev/null; then rm -rf "$_tu_d.lock"; continue; fi
+    [ "$_tu_n" -lt "${FORGE_TYPES_START_TIMEOUT:-60}" ] || { printf 'another hook is still starting the %s engine\n' "$1"; return 1; }
+    sleep 1
+    _tu_n=$((_tu_n + 1))
+    forge_types_alive "$1" && return 0
+  done
+  printf '%s\n' "$$" > "$_tu_d.lock/pid"
+  rm -rf "$_tu_d"
+  mkdir -p "$_tu_d/sessions" && mkfifo "$_tu_d/in" "$_tu_d/started" || { rm -rf "$_tu_d.lock"; printf 'cannot create %s\n' "$_tu_d"; return 1; }
+  printf '%s\n' "$_tu_want" > "$_tu_d/want"
+  case $1 in
+    python)
+      forge_script_types_python_py > "$_tu_d/engine.py"
+      set -- uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" python "$_tu_d/engine.py" "$(pwd -P)" "$_tu_d" ;;
+    typescript)
+      forge_script_types_typescript_mjs > "$_tu_d/engine.mjs"
+      set -- bun "$_tu_d/engine.mjs" "$(pwd -P)" "$_tu_d" "$FORGE_TS_ENGINE_VERSION" ;;
+  esac
+  # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a
+  # launcher that fails before (no network for a first download) says "exited <code>"
+  exec 7<>"$_tu_d/started"
+  { "$@" < /dev/null >> "$_tu_d/log" 2>&1 || printf 'exited %s\n' "$?" 1<>"$_tu_d/started"; } &
+  { sleep "${FORGE_TYPES_START_TIMEOUT:-60}" & printf '%s\n' "$!" > "$_tu_d.lock/sleep"; wait "$!"
+    printf 'failed: not started within %ss\n' "${FORGE_TYPES_START_TIMEOUT:-60}" 1<>"$_tu_d/started"; } >/dev/null 2>&1 &
+  _tu_w=$!
+  IFS= read -r _tu_l <&7
+  forge_types_unwatch "$_tu_w" "$_tu_d.lock/sleep"
+  exec 7<&-
+  rm -rf "$_tu_d.lock"
+  case $_tu_l in
+    ready*)
+      [ -z "${FORGE_INPUT:-}" ] || : > "$_tu_d/sessions/$(session_id)"
+      FORGE_TYPES_STARTED="${FORGE_TYPES_STARTED:+$FORGE_TYPES_STARTED
+}$_tu_lang"
+      return 0 ;;
+  esac
+  printf 'the %s engine (%s) did not start: %s (log: %s)\n' "$_tu_lang" "$_tu_want" "$_tu_l" "$_tu_d/log"
+  return 1
+}
+
+# forge_types_down: stops the daemons this run started when no session uses them
+# (check.sh in CI or a pre-commit hook: nothing is left running).
+forge_types_down() {
+  for _td_l in ${FORGE_TYPES_STARTED:-}; do
+    [ -n "$(ls "$FORGE_STATE/types/$_td_l/sessions" 2>/dev/null)" ] || forge_types_line "$_td_l" stop
+  done
+  return 0
+}
+
+# forge_types_filter <matches>: keeps in the file of ast-grep --json=stream matches
+# (with --include-metadata) only those whose forge_where the language's types engine
+# confirms (§15.1); matches without forge_where stay. An engine that cannot answer is
+# not a pass: "forge:forge/types ..." lines name the rules left unchecked, and it fails.
+forge_types_filter() {
+  grep -q '"forge_where"' "$1" 2>/dev/null || return 0
+  grep -v '"forge_where"' "$1" > "$1.kept"
+  _tf_rc=0
+  for _tf_lang in $FORGE_TYPES_LANGS; do
+    case $_tf_lang in python) _tf_sg='"language":"Python"' ;; typescript) _tf_sg='"language":"Tsx"' ;; esac
+    _tf_q=$1.$_tf_lang
+    rm -rf "$_tf_q" && mkdir "$_tf_q" || return 1
+    grep '"forge_where"' "$1" | grep -F "$_tf_sg" > "$_tf_q/req"
+    [ -s "$_tf_q/req" ] || continue
+    # not in a subshell: forge_types_up records what it started (FORGE_TYPES_STARTED)
+    if forge_types_up "$_tf_lang" > "$_tf_q/why" && forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
+      && ! grep -q '^error	' "$_tf_q/answer"; then
+      cat "$_tf_q/answer" >> "$1.kept"
+    else
+      _tf_why=$(cat "$_tf_q/why")
+      [ -n "$_tf_why" ] || _tf_why=$(grep '^error	' "$_tf_q/answer" 2>/dev/null | head -n 1 | cut -f 2-)
+      grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
+        printf 'forge:forge/types %s was not checked: %s\n' "$_tf_id" "${_tf_why:-the types engine gave no answer}"
+      done
+      _tf_rc=1
+    fi
+  done
+  mv "$1.kept" "$1"
+  return "$_tf_rc"
 }

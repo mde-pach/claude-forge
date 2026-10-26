@@ -121,14 +121,14 @@ describe("steps", () => {
     T,
   );
 
-  /** @rule python/sqlalchemy/no-query-api */
+  /** @rule python/sqlalchemy/no-declarative-base */
   test(
     "4. ast-grep forbid rules report file:line:column with the rule's description",
     () => {
-      put(repo, "app/repo.py", "def f(session):\n    return session.query(1)\n");
+      put(repo, "app/repo.py", "def f():\n    return declarative_base(1)\n");
       const r = check();
       expect(r.status).toBe(1);
-      expect(r.stdout).toContain("forge:python/sqlalchemy/no-query-api app/repo.py:2:12 No legacy session.query().");
+      expect(r.stdout).toContain("forge:python/sqlalchemy/no-declarative-base app/repo.py:2:12 No declarative_base().");
       reset();
     },
     T,
@@ -596,15 +596,15 @@ describe("pre-commit", () => {
   );
 });
 
-/** @rule python/sqlalchemy/no-query-api */
+/** @rule python/sqlalchemy/no-declarative-base */
 test(
   "CI: --all checks the whole project, not only the changed files",
   () => {
-    put(repo, "app/legacy.py", "def f(session):\n    return session.query(1)\n");
+    put(repo, "app/legacy.py", "def f():\n    return declarative_base(1)\n");
     git(repo, "add", "-A");
     git(repo, "commit", "-qm", "legacy", "--no-verify"); // the forge pre-commit hook would refuse it
     expect(check("--changed").stdout).not.toContain("legacy.py");
-    expect(check("--all").stdout).toContain("forge:python/sqlalchemy/no-query-api app/legacy.py:2:12");
+    expect(check("--all").stdout).toContain("forge:python/sqlalchemy/no-declarative-base app/legacy.py:2:12");
     git(repo, "reset", "-q", "--hard", "HEAD~1");
   },
   T,
@@ -825,7 +825,7 @@ describe("workspace packages", () => {
  * change's. `--since <ref>` measures the change from `git merge-base <ref> HEAD`.
  */
 describe("added lines", () => {
-  const QUERY = "def f(session):\n    return session.query(1)\n";
+  const QUERY = "def f():\n    return declarative_base(1)\n";
   /** The fastapi sample, applied, with app/legacy.py (a forbidden match) committed. */
   function legacyRepo(): string {
     const r = applied("fastapi-app");
@@ -836,62 +836,62 @@ describe("added lines", () => {
   }
   const run = (r: string, ...args: string[]) => sh("sh", [".forge/check.sh", ...args], { cwd: r });
 
-  /** @rule python/sqlalchemy/no-query-api */
+  /** @rule python/sqlalchemy/no-declarative-base */
   test(
     "--changed: a match on a line that was already at HEAD does not fail; one on an added line does, and only that one is reported",
     () => {
       const r = legacyRepo();
       put(r, "app/legacy.py", QUERY + "\n\nX = 1\n");
       expect(run(r, "--changed").status).toBe(0);
-      put(r, "app/legacy.py", QUERY + "\n\ndef g(session):\n    return session.query(2)\n");
+      put(r, "app/legacy.py", QUERY + "\n\ndef g():\n    return declarative_base(2)\n");
       const out = run(r, "--changed");
       expect(out.status).toBe(1);
-      expect(out.stdout).toContain("forge:python/sqlalchemy/no-query-api app/legacy.py:6:12");
+      expect(out.stdout).toContain("forge:python/sqlalchemy/no-declarative-base app/legacy.py:6:12");
       expect(out.stdout).not.toContain("app/legacy.py:2:12");
     },
     T,
   );
 
-  /** @rule python/sqlalchemy/no-query-api */
+  /** @rule python/sqlalchemy/no-declarative-base */
   test(
     "a match spanning an edited line counts, and so does code moved to another place",
     () => {
       const r = applied("fastapi-app");
-      put(r, "app/span.py", "def f(session):\n    return session.query(\n        1,\n    )\n\n\nX = 1\n");
+      put(r, "app/span.py", "def f():\n    return declarative_base(\n        1,\n    )\n\n\nX = 1\n");
       git(r, "add", "-A");
       git(r, "commit", "-qm", "span", "--no-verify");
-      put(r, "app/span.py", "def f(session):\n    return session.query(\n        2,\n    )\n\n\nX = 1\n");
-      expect(run(r, "--changed").stdout).toContain("forge:python/sqlalchemy/no-query-api app/span.py:2:12");
+      put(r, "app/span.py", "def f():\n    return declarative_base(\n        2,\n    )\n\n\nX = 1\n");
+      expect(run(r, "--changed").stdout).toContain("forge:python/sqlalchemy/no-declarative-base app/span.py:2:12");
       git(r, "checkout", "-q", "--", "app/span.py");
       put(r, "app/span.py", "X = 1\n");
-      put(r, "app/moved.py", "def f(session):\n    return session.query(\n        1,\n    )\n");
-      expect(run(r, "--changed").stdout).toContain("forge:python/sqlalchemy/no-query-api app/moved.py:2:12");
+      put(r, "app/moved.py", "def f():\n    return declarative_base(\n        1,\n    )\n");
+      expect(run(r, "--changed").stdout).toContain("forge:python/sqlalchemy/no-declarative-base app/moved.py:2:12");
     },
     T,
   );
 
-  /** @rule python/sqlalchemy/no-query-api */
+  /** @rule python/sqlalchemy/no-declarative-base */
   test(
     "--all still reports every match in the project",
     () => {
       const r = legacyRepo();
-      expect(run(r, "--all").stdout).toContain("forge:python/sqlalchemy/no-query-api app/legacy.py:2:12");
+      expect(run(r, "--all").stdout).toContain("forge:python/sqlalchemy/no-declarative-base app/legacy.py:2:12");
     },
     T,
   );
 
-  /** @rule python/sqlalchemy/no-query-api */
+  /** @rule python/sqlalchemy/no-declarative-base */
   test(
     "--since <ref>: what a branch added since its merge base with <ref> fails, committed or not; the base's own code does not",
     () => {
       const r = legacyRepo();
       git(r, "checkout", "-q", "-b", "feature");
-      put(r, "app/feature.py", "def g(session):\n    return session.query(2)\n");
+      put(r, "app/feature.py", "def g():\n    return declarative_base(2)\n");
       git(r, "add", "-A");
       git(r, "commit", "-qm", "feature", "--no-verify");
       const out = run(r, "--since", "main");
       expect(out.status).toBe(1);
-      expect(out.stdout).toContain("forge:python/sqlalchemy/no-query-api app/feature.py:2:12");
+      expect(out.stdout).toContain("forge:python/sqlalchemy/no-declarative-base app/feature.py:2:12");
       expect(out.stdout).not.toContain("app/legacy.py");
       // --changed sees nothing: the work is committed
       expect(run(r, "--changed").status).toBe(0);

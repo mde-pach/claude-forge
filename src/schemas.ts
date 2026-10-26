@@ -44,6 +44,31 @@ export const packSchema = {
   then: { not: { required: ["detect"] } },
 } as const;
 
+/** A where condition (§15.1): a type the metavariable's expression has, or not. */
+const typeSpec = {
+  type: "object",
+  additionalProperties: false,
+  // where the type is declared: a package or a module, never only a name
+  anyOf: [{ required: ["package"] }, { required: ["module"] }],
+  properties: {
+    package: { oneOf: [{ type: "string", minLength: 1 }, { type: "array", minItems: 1, items: { type: "string", minLength: 1 } }] },
+    module: { oneOf: [{ type: "string", minLength: 1 }, { type: "array", minItems: 1, items: { type: "string", minLength: 1 } }] },
+    name: {
+      oneOf: [
+        { type: "string", pattern: "^[A-Za-z_$][A-Za-z0-9_$]*$" },
+        { type: "array", minItems: 1, items: { type: "string", pattern: "^[A-Za-z_$][A-Za-z0-9_$]*$" } },
+      ],
+    },
+    unknown: { enum: ["match", "no-match"] },
+  },
+} as const;
+const whereCondition = {
+  oneOf: [
+    { type: "object", additionalProperties: false, required: ["type"], properties: { type: typeSpec } },
+    { type: "object", additionalProperties: false, required: ["not"], properties: { not: { $ref: "#/$defs/where" } } },
+  ],
+} as const;
+
 const target = {
   type: "object",
   required: ["target"],
@@ -73,7 +98,11 @@ const target = {
           rule: { type: "object", minProperties: 1 },
           constraints: { type: "object" },
           utils: { type: "object" },
+          where: { type: "object", minProperties: 1, propertyNames: { pattern: "^[A-Z][A-Z0-9_]*$" }, additionalProperties: { $ref: "#/$defs/where" } },
         },
+        // engine capabilities decide on single matches: counted modes are not supported yet
+        if: { required: ["where"] },
+        then: { properties: { mode: { enum: ["forbid", "advise"] } } },
       },
     },
     {
@@ -169,6 +198,7 @@ const example = {
 export const ruleSchema = {
   $schema: "https://json-schema.org/draft/2020-12/schema",
   $id: "forge:rule",
+  $defs: { where: whereCondition },
   type: "object",
   additionalProperties: false,
   required: ["id", "description", "scope", "enforce"],
@@ -205,6 +235,21 @@ export const ruleSchema = {
       properties: {
         match: { type: "array", items: example },
         no_match: { type: "array", items: example },
+        // the packages the examples are type-checked against (rules with where, §15.1)
+        deps: {
+          type: "array",
+          minItems: 1,
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["ecosystem", "name", "version"],
+            properties: {
+              ecosystem: { enum: ["pypi", "npm"] },
+              name: { type: "string", minLength: 1 },
+              version: { type: "string", pattern: "^[0-9][0-9A-Za-z.+-]*$" },
+            },
+          },
+        },
       },
     },
     review: { type: "string", minLength: 1, pattern: "^[^\\n\\t]+$" },
