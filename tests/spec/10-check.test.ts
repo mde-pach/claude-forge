@@ -12,7 +12,7 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { applied, commitAll, ensureTools, forge, git, hasBun, hasUv, linkTools, linkTs5, put, ROOT, sampleRepo, sh, TOOL_VERSIONS, TOOLS_CACHE, TY_FINDS_NOTHING } from "../helpers";
+import { applied, commitAll, copyRepo, ensureTools, fixture, forge, git, hasBun, hasUv, linkTools, linkTs5, put, ROOT, sampleRepo, sh, TOOL_VERSIONS, TOOLS_CACHE, TY_FINDS_NOTHING } from "../helpers";
 import { loadPacks } from "../../src/packs";
 import { checkTools, renderChecks } from "../../src/render";
 import { insertBlock, removeBlock } from "../../src/precommit";
@@ -678,14 +678,15 @@ describe("errors in unchanged files", () => {
 
   /** A TypeScript repository with a type error committed in src/legacy.ts. */
   function legacyRepo(): string {
-    ensureTools();
-    const r = sampleRepo("eslint-app");
-    linkTools(r, "node");
-    put(r, "src/legacy.ts", 'export const legacy: number = "oops";\n');
-    commitAll(r, "legacy");
-    expect(forge(["apply", "--yes"], r).status).toBe(0);
-    commitAll(r, "forge");
-    return r;
+    return fixture("eslint-app-legacy", (r) => {
+      ensureTools();
+      copyRepo(sampleRepo("eslint-app"), r);
+      linkTools(r, "node");
+      put(r, "src/legacy.ts", 'export const legacy: number = "oops";\n');
+      commitAll(r, "legacy");
+      expect(forge(["apply", "--yes"], r).status).toBe(0);
+      commitAll(r, "forge");
+    });
   }
 
   /** @rule typescript/typecheck */
@@ -815,14 +816,15 @@ describe("errors in unchanged files", () => {
 describe("workspace packages", () => {
   /** The pnpm workspace sample with a type error committed in packages/core/src/legacy.ts; tools in the package or at the root. */
   function workspaceRepo(tools: "package" | "root"): string {
-    ensureTools();
-    const r = sampleRepo("pnpm-workspace-app");
-    linkTools(tools === "package" ? join(r, "packages/core") : r, "node");
-    put(r, "packages/core/src/legacy.ts", 'export const legacy: number = "oops";\n');
-    commitAll(r, "legacy");
-    expect(forge(["apply", "--yes"], r).status).toBe(0);
-    commitAll(r, "forge");
-    return r;
+    return fixture(`pnpm-workspace-app-legacy-tools-in-${tools}`, (r) => {
+      ensureTools();
+      copyRepo(sampleRepo("pnpm-workspace-app"), r);
+      linkTools(tools === "package" ? join(r, "packages/core") : r, "node");
+      put(r, "packages/core/src/legacy.ts", 'export const legacy: number = "oops";\n');
+      commitAll(r, "legacy");
+      expect(forge(["apply", "--yes"], r).status).toBe(0);
+      commitAll(r, "forge");
+    });
   }
 
   /** @rule typescript/typecheck */
@@ -887,11 +889,13 @@ describe("workspace packages", () => {
 /** @rule typescript/vitest/run */
 describe("failing tests at the start of the turn in a workspace package", () => {
   function wsRepo(body: string): { repo: string; log: string; turn: () => ReturnType<typeof sh> } {
-    const r = sampleRepo("pnpm-workspace-app");
-    put(r, "packages/core/src/index.test.ts", 'import { expect, it } from "vitest";\nimport { greet } from "./index.js";\n\nit("greets", () => {\n  expect(greet("a")).toBe("Hello, a");\n});\n');
-    commitAll(r, "test");
-    expect(forge(["apply", "--yes"], r).status).toBe(0);
-    commitAll(r, "forge");
+    const r = fixture("pnpm-workspace-app-tested", (r) => {
+      copyRepo(sampleRepo("pnpm-workspace-app"), r);
+      put(r, "packages/core/src/index.test.ts", 'import { expect, it } from "vitest";\nimport { greet } from "./index.js";\n\nit("greets", () => {\n  expect(greet("a")).toBe("Hello, a");\n});\n');
+      commitAll(r, "test");
+      expect(forge(["apply", "--yes"], r).status).toBe(0);
+      commitAll(r, "forge");
+    });
     const log = join(r, "vitest.log");
     const bin = join(r, "packages/core/node_modules/.bin");
     mkdirSync(bin, { recursive: true });
@@ -974,11 +978,12 @@ describe("added lines", () => {
   const QUERY = "def f():\n    return declarative_base(1)\n";
   /** The fastapi sample, applied, with app/legacy.py (a forbidden match) committed. */
   function legacyRepo(): string {
-    const r = applied("fastapi-app");
-    put(r, "app/legacy.py", QUERY);
-    git(r, "add", "-A");
-    git(r, "commit", "-qm", "legacy", "--no-verify"); // the forge pre-commit hook would refuse it
-    return r;
+    return fixture("fastapi-app-legacy", (r) => {
+      copyRepo(applied("fastapi-app"), r);
+      put(r, "app/legacy.py", QUERY);
+      git(r, "add", "-A");
+      git(r, "commit", "-qm", "legacy", "--no-verify"); // the forge pre-commit hook would refuse it
+    });
   }
   const run = (r: string, ...args: string[]) => sh("sh", [".forge/check.sh", ...args], { cwd: r, env: TY_FINDS_NOTHING });
 
@@ -1278,12 +1283,13 @@ ALTER TABLE "Post" ADD CONSTRAINT "Post_authorId_fkey" FOREIGN KEY ("authorId") 
 
   /** The Next.js sample, applied and committed, with lock-sync off (the sample's lock file is a stub). */
   function prismaRepo(): string {
-    const r = sampleRepo("nextjs-prisma-app");
-    put(r, "forge.yaml", 'forge: "0.5"\ndisable:\n  - id: typescript/bun/lock-sync\n    reason: the sample lock file is a stub\n');
-    commitAll(r, "config");
-    expect(forge(["apply", "--yes"], r).status).toBe(0);
-    commitAll(r, "forge");
-    return r;
+    return fixture("nextjs-prisma-app-no-lock-sync", (r) => {
+      copyRepo(sampleRepo("nextjs-prisma-app"), r);
+      put(r, "forge.yaml", 'forge: "0.5"\ndisable:\n  - id: typescript/bun/lock-sync\n    reason: the sample lock file is a stub\n');
+      commitAll(r, "config");
+      expect(forge(["apply", "--yes"], r).status).toBe(0);
+      commitAll(r, "forge");
+    });
   }
   const run = (r: string, mode: string, env: Record<string, string> = {}) => sh("sh", [".forge/check.sh", mode], { cwd: r, env: { ...TY_FINDS_NOTHING, ...env } });
 
@@ -1353,29 +1359,30 @@ ALTER TABLE "Post" ADD CONSTRAINT "Post_authorId_fkey" FOREIGN KEY ("authorId") 
 
   /** The FastAPI sample with a real async Alembic setup (`alembic init -t async`) and the cached Alembic. */
   function alembicRepo(): string {
-    ensureTools();
-    const r = sampleRepo("fastapi-app");
-    const tpl = mkdtempSync(join(tmpdir(), "forge-alembic-"));
-    // alembic init writes alembic.ini to its working directory, the scripts to the named one
-    expect(sh(join(TOOLS_CACHE, ".venv-alembic/bin/alembic"), ["init", "-t", "async", "alembic"], { cwd: tpl }).status).toBe(0);
-    put(r, "alembic/env.py", readFileSync(join(tpl, "alembic/env.py"), "utf8"));
-    put(r, "alembic/script.py.mako", readFileSync(join(tpl, "alembic/script.py.mako"), "utf8"));
-    put(r, "alembic.ini", readFileSync(join(tpl, "alembic.ini"), "utf8").replace(/^sqlalchemy\.url = .*$/m, "sqlalchemy.url = postgresql+asyncpg://app:app@localhost:5432/app").replace(/^script_location = .*$/m, "script_location = %(here)s/alembic"));
-    put(
-      r,
-      "alembic/versions/0001_users.py",
-      '"""users"""\nimport sqlalchemy as sa\nfrom alembic import op\n\nrevision = "0001"\ndown_revision = None\n\n\ndef upgrade() -> None:\n    op.create_table("users", sa.Column("id", sa.Integer, primary_key=True), sa.Column("name", sa.Text))\n\n\ndef downgrade() -> None:\n    op.drop_table("users")\n',
-    );
-    put(
-      r,
-      "forge.yaml",
-      'forge: "0.5"\ndisable:\n  - id: python/sqlalchemy/alembic/check\n    reason: no database in this test\n  - id: python/uv/lock-sync\n    reason: the sample lock file is a stub\n',
-    );
-    linkTools(r, "alembic");
-    commitAll(r, "alembic");
-    expect(forge(["apply", "--yes"], r).status).toBe(0);
-    commitAll(r, "forge");
-    return r;
+    return fixture("fastapi-app-alembic", (r) => {
+      ensureTools();
+      copyRepo(sampleRepo("fastapi-app"), r);
+      const tpl = mkdtempSync(join(tmpdir(), "forge-alembic-"));
+      // alembic init writes alembic.ini to its working directory, the scripts to the named one
+      expect(sh(join(TOOLS_CACHE, ".venv-alembic/bin/alembic"), ["init", "-t", "async", "alembic"], { cwd: tpl }).status).toBe(0);
+      put(r, "alembic/env.py", readFileSync(join(tpl, "alembic/env.py"), "utf8"));
+      put(r, "alembic/script.py.mako", readFileSync(join(tpl, "alembic/script.py.mako"), "utf8"));
+      put(r, "alembic.ini", readFileSync(join(tpl, "alembic.ini"), "utf8").replace(/^sqlalchemy\.url = .*$/m, "sqlalchemy.url = postgresql+asyncpg://app:app@localhost:5432/app").replace(/^script_location = .*$/m, "script_location = %(here)s/alembic"));
+      put(
+        r,
+        "alembic/versions/0001_users.py",
+        '"""users"""\nimport sqlalchemy as sa\nfrom alembic import op\n\nrevision = "0001"\ndown_revision = None\n\n\ndef upgrade() -> None:\n    op.create_table("users", sa.Column("id", sa.Integer, primary_key=True), sa.Column("name", sa.Text))\n\n\ndef downgrade() -> None:\n    op.drop_table("users")\n',
+      );
+      put(
+        r,
+        "forge.yaml",
+        'forge: "0.5"\ndisable:\n  - id: python/sqlalchemy/alembic/check\n    reason: no database in this test\n  - id: python/uv/lock-sync\n    reason: the sample lock file is a stub\n',
+      );
+      linkTools(r, "alembic");
+      commitAll(r, "alembic");
+      expect(forge(["apply", "--yes"], r).status).toBe(0);
+      commitAll(r, "forge");
+    });
   }
   const revision = (body: string, rev = "0002", down = "0001") =>
     `"""next"""\nimport sqlalchemy as sa\nfrom alembic import op\n\nrevision: str = "${rev}"\ndown_revision: str | None = "${down}"\n\n\ndef upgrade() -> None:\n    ${body}\n\n\ndef downgrade() -> None:\n    pass\n`;
@@ -1421,11 +1428,13 @@ ALTER TABLE "Post" ADD CONSTRAINT "Post_authorId_fkey" FOREIGN KEY ("authorId") 
 describe("advisory checks block once per turn", () => {
   /** An applied Next.js repository with only the lint stage's tool-free checks left to run, and a turn snapshot at HEAD. */
   function turnRepo(disable: string[]): { repo: string; turn: () => ReturnType<typeof sh> } {
-    const r = sampleRepo("nextjs-prisma-app");
-    put(r, "forge.yaml", `forge: "0.5"\ndisable:\n${disable.map((id) => `  - {id: ${id}, reason: test}\n`).join("")}`);
-    commitAll(r, "forge.yaml");
-    expect(forge(["apply", "--yes"], r).status).toBe(0);
-    commitAll(r, "forge");
+    const r = fixture(`nextjs-prisma-app-disable-${disable.join("+").replace(/\//g, "_")}`, (r) => {
+      copyRepo(sampleRepo("nextjs-prisma-app"), r);
+      put(r, "forge.yaml", `forge: "0.5"\ndisable:\n${disable.map((id) => `  - {id: ${id}, reason: test}\n`).join("")}`);
+      commitAll(r, "forge.yaml");
+      expect(forge(["apply", "--yes"], r).status).toBe(0);
+      commitAll(r, "forge");
+    });
     const snap = ".forge/state/t.turn";
     put(r, `${snap}/head`, git(r, "rev-parse", "HEAD").stdout);
     put(r, `${snap}/tree`, "\n");

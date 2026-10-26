@@ -162,11 +162,13 @@ export function git(cwd: string, ...args: string[]): Result {
  * FORGE_TEST_FIXTURES is shared by its shards (one builds a fixture, the others wait for
  * it); a process without it (bun test <file>) has its own. A fixture's content depends
  * only on its key and the build (the same Forge, packs and tools in every shard), and
- * holds no absolute path: a copy is the repository the build would make there. Forge
- * keeps its state outside repositories, by path, so a copy starts with none.
+ * holds no absolute path (but links to the shared TOOLS_CACHE): a copy is the
+ * repository the build would make there. Forge keeps its state outside repositories,
+ * by path, so a copy starts with none. A build starts from an empty directory
+ * (copyRepo puts another repository there, e.g. sampleRepo(name)).
  */
 const FIXTURES = (process.env.FORGE_TEST_FIXTURES ||= mkdtempSync(join(tmpdir(), "forge-fixtures-")));
-function fixture(key: string, build: (dir: string) => void): string {
+export function fixture(key: string, build: (dir: string) => void): string {
   const done = join(FIXTURES, key);
   const lock = `${done}.lock`;
   while (!existsSync(done)) {
@@ -196,6 +198,11 @@ function fixture(key: string, build: (dir: string) => void): string {
   const dir = mkdtempSync(join(tmpdir(), `forge-${key}-`));
   cpSync(done, dir, { recursive: true, verbatimSymlinks: true });
   return dir;
+}
+
+/** Copies the repository <from> into <dir> (symbolic links as they are). */
+export function copyRepo(from: string, dir: string): void {
+  cpSync(from, dir, { recursive: true, verbatimSymlinks: true });
 }
 
 /** Copies tests/generator/<name> into a fresh git repository with one commit. */
@@ -253,7 +260,7 @@ export function put(repo: string, rel: string, text: string): void {
 /** A sample repository after a successful `forge apply --yes`. */
 export function applied(name: string): string {
   return fixture(`${name}-applied`, (dir) => {
-    cpSync(sampleRepo(name), dir, { recursive: true, verbatimSymlinks: true });
+    copyRepo(sampleRepo(name), dir);
     const r = forge(["apply", "--yes"], dir);
     if (r.status !== 0) throw new Error(`forge apply failed in ${name}:\n${r.stdout}\n${r.stderr}`);
   });

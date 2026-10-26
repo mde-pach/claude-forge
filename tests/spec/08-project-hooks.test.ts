@@ -12,7 +12,7 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSyn
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { renderChecks } from "../../src/render";
-import { applied, commitAll, ensureTools, forge, git, hasBun, hasUv, hookJson, linkTools, put, sampleRepo, sh, stateDir, stopEngines, TOOLS_CACHE } from "../helpers";
+import { applied, commitAll, copyRepo, ensureTools, fixture, forge, git, hasBun, hasUv, hookJson, linkTools, put, sampleRepo, sh, stateDir, stopEngines, TOOLS_CACHE } from "../helpers";
 
 const T = 180_000;
 const SCRIPTS = ".claude/skills/forge-project/scripts";
@@ -1624,14 +1624,15 @@ describe("failing tests at the start of the turn", () => {
  */
 describe("errors in unchanged files", () => {
   function legacyRepo(): string {
-    ensureTools();
-    const r = sampleRepo("eslint-app");
-    linkTools(r, "node");
-    put(r, "src/legacy.ts", 'export const legacy: number = "oops";\n');
-    commitAll(r, "legacy");
-    expect(forge(["apply", "--yes"], r).status).toBe(0);
-    commitAll(r, "forge");
-    return r;
+    return fixture("eslint-app-legacy", (r) => {
+      ensureTools();
+      copyRepo(sampleRepo("eslint-app"), r);
+      linkTools(r, "node");
+      put(r, "src/legacy.ts", 'export const legacy: number = "oops";\n');
+      commitAll(r, "legacy");
+      expect(forge(["apply", "--yes"], r).status).toBe(0);
+      commitAll(r, "forge");
+    });
   }
 
   /** @rule typescript/typecheck */
