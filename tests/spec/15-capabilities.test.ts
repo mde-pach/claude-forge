@@ -428,3 +428,37 @@ test(
   },
   T,
 );
+
+test(
+  "a start whose state directory is removed while the engine is starting still ends: the start timeout's line reaches the starter",
+  () => {
+    const dir = mkdtempSync(join(tmpdir(), "forge-start-gone-"));
+    const state = join(dir, "state");
+    // a launcher that hangs (a first download that never ends): the engine never says it is ready
+    const bin = join(dir, "bin");
+    mkdirSync(bin);
+    writeFileSync(join(bin, "uvx"), "#!/bin/sh\nexec sleep 5\n");
+    sh("chmod", ["+x", join(bin, "uvx")]);
+    const script = join(dir, "start.sh");
+    writeFileSync(
+      script,
+      [
+        renderLib(),
+        "IFS='\n'",
+        renderChecks([], [], ["python"]),
+        `FORGE_STATE='${state}'`,
+        '( forge_types_up python; echo "rc=$?" ) & p=$!',
+        // the state directory goes away while the engine starts (a test's cleanup, a repository deleted)
+        `n=0; until [ -p '${state}/types/python/started' ] || [ "$n" -ge 100 ]; do sleep 0.1; n=$((n + 1)); done; rm -rf '${state}'`,
+        "( sleep 20; kill $p ) 2>/dev/null & w=$!",
+        'wait "$p"; kill "$w" 2>/dev/null',
+      ].join("\n"),
+    );
+    const t = performance.now();
+    const r = sh("sh", [script], { cwd: dir, env: { FORGE_TYPES_START_TIMEOUT: "2", PATH: `${bin}:${process.env.PATH}` } });
+    expect(r.stdout).toContain("did not start: failed: not started within 2s");
+    expect(r.stdout).toContain("rc=1");
+    expect(performance.now() - t).toBeLessThan(20_000);
+  },
+  T,
+);

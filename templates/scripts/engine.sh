@@ -2886,11 +2886,14 @@ forge_types_up() {
     typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" ;;
   esac
   # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a
-  # launcher that fails before (no network for a first download) says "exited <code>"
+  # launcher that fails before (no network for a first download) says "exited <code>".
+  # Those two write on this shell's descriptor (7), not by path: the reader holds the
+  # FIFO open for writing too, so it would wait forever for a line that cannot be
+  # written once the state directory has been removed.
   exec 7<>"$_tu_d/started"
-  { "$@" < /dev/null >> "$_tu_d/log" 2>&1 || printf 'exited %s\n' "$?" 1<>"$_tu_d/started"; } &
+  { "$@" < /dev/null >> "$_tu_d/log" 2>&1 || printf 'exited %s\n' "$?" >&7; } &
   { sleep "${FORGE_TYPES_START_TIMEOUT:-60}" & printf '%s\n' "$!" > "$_tu_d.lock/sleep"; wait "$!"
-    printf 'failed: not started within %ss\n' "${FORGE_TYPES_START_TIMEOUT:-60}" 1<>"$_tu_d/started"; } >/dev/null 2>&1 &
+    printf 'failed: not started within %ss\n' "${FORGE_TYPES_START_TIMEOUT:-60}" >&7; } >/dev/null 2>&1 &
   _tu_w=$!
   IFS= read -r _tu_l <&7
   forge_types_unwatch "$_tu_w" "$_tu_d.lock/sleep"

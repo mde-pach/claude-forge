@@ -4336,11 +4336,14 @@ forge_types_up() {
     typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" ;;
   esac
   # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a
-  # launcher that fails before (no network for a first download) says "exited <code>"
+  # launcher that fails before (no network for a first download) says "exited <code>".
+  # Those two write on this shell's descriptor (7), not by path: the reader holds the
+  # FIFO open for writing too, so it would wait forever for a line that cannot be
+  # written once the state directory has been removed.
   exec 7<>"$_tu_d/started"
-  { "$@" < /dev/null >> "$_tu_d/log" 2>&1 || printf 'exited %s\n' "$?" 1<>"$_tu_d/started"; } &
+  { "$@" < /dev/null >> "$_tu_d/log" 2>&1 || printf 'exited %s\n' "$?" >&7; } &
   { sleep "${FORGE_TYPES_START_TIMEOUT:-60}" & printf '%s\n' "$!" > "$_tu_d.lock/sleep"; wait "$!"
-    printf 'failed: not started within %ss\n' "${FORGE_TYPES_START_TIMEOUT:-60}" 1<>"$_tu_d/started"; } >/dev/null 2>&1 &
+    printf 'failed: not started within %ss\n' "${FORGE_TYPES_START_TIMEOUT:-60}" >&7; } >/dev/null 2>&1 &
   _tu_w=$!
   IFS= read -r _tu_l <&7
   forge_types_unwatch "$_tu_w" "$_tu_d.lock/sleep"
@@ -7717,11 +7720,14 @@ forge_types_up() {
     typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" ;;
   esac
   # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a
-  # launcher that fails before (no network for a first download) says "exited <code>"
+  # launcher that fails before (no network for a first download) says "exited <code>".
+  # Those two write on this shell's descriptor (7), not by path: the reader holds the
+  # FIFO open for writing too, so it would wait forever for a line that cannot be
+  # written once the state directory has been removed.
   exec 7<>"$_tu_d/started"
-  { "$@" < /dev/null >> "$_tu_d/log" 2>&1 || printf 'exited %s\n' "$?" 1<>"$_tu_d/started"; } &
+  { "$@" < /dev/null >> "$_tu_d/log" 2>&1 || printf 'exited %s\n' "$?" >&7; } &
   { sleep "${FORGE_TYPES_START_TIMEOUT:-60}" & printf '%s\n' "$!" > "$_tu_d.lock/sleep"; wait "$!"
-    printf 'failed: not started within %ss\n' "${FORGE_TYPES_START_TIMEOUT:-60}" 1<>"$_tu_d/started"; } >/dev/null 2>&1 &
+    printf 'failed: not started within %ss\n' "${FORGE_TYPES_START_TIMEOUT:-60}" >&7; } >/dev/null 2>&1 &
   _tu_w=$!
   IFS= read -r _tu_l <&7
   forge_types_unwatch "$_tu_w" "$_tu_d.lock/sleep"
@@ -11129,11 +11135,14 @@ forge_types_up() {
     typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" ;;
   esac
   # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a
-  # launcher that fails before (no network for a first download) says "exited <code>"
+  # launcher that fails before (no network for a first download) says "exited <code>".
+  # Those two write on this shell's descriptor (7), not by path: the reader holds the
+  # FIFO open for writing too, so it would wait forever for a line that cannot be
+  # written once the state directory has been removed.
   exec 7<>"$_tu_d/started"
-  { "$@" < /dev/null >> "$_tu_d/log" 2>&1 || printf 'exited %s\n' "$?" 1<>"$_tu_d/started"; } &
+  { "$@" < /dev/null >> "$_tu_d/log" 2>&1 || printf 'exited %s\n' "$?" >&7; } &
   { sleep "${FORGE_TYPES_START_TIMEOUT:-60}" & printf '%s\n' "$!" > "$_tu_d.lock/sleep"; wait "$!"
-    printf 'failed: not started within %ss\n' "${FORGE_TYPES_START_TIMEOUT:-60}" 1<>"$_tu_d/started"; } >/dev/null 2>&1 &
+    printf 'failed: not started within %ss\n' "${FORGE_TYPES_START_TIMEOUT:-60}" >&7; } >/dev/null 2>&1 &
   _tu_w=$!
   IFS= read -r _tu_l <&7
   forge_types_unwatch "$_tu_w" "$_tu_d.lock/sleep"
@@ -14561,11 +14570,14 @@ forge_types_up() {
     typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" ;;
   esac
   # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a
-  # launcher that fails before (no network for a first download) says "exited <code>"
+  # launcher that fails before (no network for a first download) says "exited <code>".
+  # Those two write on this shell's descriptor (7), not by path: the reader holds the
+  # FIFO open for writing too, so it would wait forever for a line that cannot be
+  # written once the state directory has been removed.
   exec 7<>"$_tu_d/started"
-  { "$@" < /dev/null >> "$_tu_d/log" 2>&1 || printf 'exited %s\n' "$?" 1<>"$_tu_d/started"; } &
+  { "$@" < /dev/null >> "$_tu_d/log" 2>&1 || printf 'exited %s\n' "$?" >&7; } &
   { sleep "${FORGE_TYPES_START_TIMEOUT:-60}" & printf '%s\n' "$!" > "$_tu_d.lock/sleep"; wait "$!"
-    printf 'failed: not started within %ss\n' "${FORGE_TYPES_START_TIMEOUT:-60}" 1<>"$_tu_d/started"; } >/dev/null 2>&1 &
+    printf 'failed: not started within %ss\n' "${FORGE_TYPES_START_TIMEOUT:-60}" >&7; } >/dev/null 2>&1 &
   _tu_w=$!
   IFS= read -r _tu_l <&7
   forge_types_unwatch "$_tu_w" "$_tu_d.lock/sleep"
@@ -18992,11 +19004,14 @@ forge_types_up() {
     typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" ;;
   esac
   # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a
-  # launcher that fails before (no network for a first download) says "exited <code>"
+  # launcher that fails before (no network for a first download) says "exited <code>".
+  # Those two write on this shell's descriptor (7), not by path: the reader holds the
+  # FIFO open for writing too, so it would wait forever for a line that cannot be
+  # written once the state directory has been removed.
   exec 7<>"$_tu_d/started"
-  { "$@" < /dev/null >> "$_tu_d/log" 2>&1 || printf 'exited %s\n' "$?" 1<>"$_tu_d/started"; } &
+  { "$@" < /dev/null >> "$_tu_d/log" 2>&1 || printf 'exited %s\n' "$?" >&7; } &
   { sleep "${FORGE_TYPES_START_TIMEOUT:-60}" & printf '%s\n' "$!" > "$_tu_d.lock/sleep"; wait "$!"
-    printf 'failed: not started within %ss\n' "${FORGE_TYPES_START_TIMEOUT:-60}" 1<>"$_tu_d/started"; } >/dev/null 2>&1 &
+    printf 'failed: not started within %ss\n' "${FORGE_TYPES_START_TIMEOUT:-60}" >&7; } >/dev/null 2>&1 &
   _tu_w=$!
   IFS= read -r _tu_l <&7
   forge_types_unwatch "$_tu_w" "$_tu_d.lock/sleep"
@@ -19335,13 +19350,13 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "ff61a19974ccfc38fe6771978c9f9fe21253d4132eff8af9f06b112607965a00",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
     ".claude/skills/forge-project/scripts/lib.sh": "83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "efb8ff86c66681f4559aed16d83238a5720387066b9ed90229bfd06acf47ff9f",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "8fc79f8542c9cdb495f6f851cd54e10a20e8f215899b40e28cbb9c821d804b33",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
-    ".claude/skills/forge-project/scripts/session-start.sh": "348e0077532488c13e4aeb8b92bbdad4f3ad40a1bb9b5d951e924815aa6fd48e",
+    ".claude/skills/forge-project/scripts/session-start.sh": "c5f25303e9f7abce66785fd76f7f3b1d499cf6e0aa84dab49d224fd20e7cd724",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "50827f6fbb7d6eb0befcecbae6c62e7a53c8fed1d8ddab9c6a7d6c644f580b8f",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "d915195bfac6cf7e0b0d2f771904bce03818a87f80e982637fbacbcd4276e411",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "e46a4d93cff2891548a4a6ff2f7f7ee8d4f2241f40a88d9f57b5cad5e89e3a35",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "d7c8d5c6df80501d9055fc5b9d0659320a07ebebd7c2dc9b3afdf549d52b58de",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/docker-compose-datastore-loopback-test.yml": "75507971edac1d4a2eca04e6bceb8a942429c0987372010b39ad0b7f126b55e9",
     ".forge/ast-grep/rule-tests/docker-compose-healthy-depends-test.yml": "bcd21e7f9112e5f0d44c9f5c9779824661b2f1dc40448323100787f342c4b7a8",
@@ -19362,7 +19377,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/docker/compose/pinned-images.yml": "026540d386ff8d8bd6f4f1951063c2fcd5cb8a96d8c7184f97e0887e3241c01a",
     ".forge/ast-grep/rules/python/no-stub.yml": "0660a06b80fa4e3cccbc89f496275e8f093b873632d1d93ecb48e4315d987bbf",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "a210cdd40c7bc92b5925500c1cab321846ef9b63d87604954482ad3f7d43c905",
+    ".forge/check.sh": "ab13e126f9707e6a7caa9896c2d8a0430569d178afe7a7cf96d688be149baa9d",
     ".forge/helpers/ratchet.py": "4f7e312b9419bd1ee09fe9cd3e988546bba089d706cb1b44e4546c4b4c87173d",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
@@ -19627,13 +19642,13 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 ff61a19974ccfc38fe6771978c9f9fe21253d4132eff8af9f06b112607965a00  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
 83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5  .claude/skills/forge-project/scripts/lib.sh
-efb8ff86c66681f4559aed16d83238a5720387066b9ed90229bfd06acf47ff9f  .claude/skills/forge-project/scripts/post-edit.sh
+8fc79f8542c9cdb495f6f851cd54e10a20e8f215899b40e28cbb9c821d804b33  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
-348e0077532488c13e4aeb8b92bbdad4f3ad40a1bb9b5d951e924815aa6fd48e  .claude/skills/forge-project/scripts/session-start.sh
+c5f25303e9f7abce66785fd76f7f3b1d499cf6e0aa84dab49d224fd20e7cd724  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-50827f6fbb7d6eb0befcecbae6c62e7a53c8fed1d8ddab9c6a7d6c644f580b8f  .claude/skills/forge-project/scripts/test-edit.sh
+d915195bfac6cf7e0b0d2f771904bce03818a87f80e982637fbacbcd4276e411  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-e46a4d93cff2891548a4a6ff2f7f7ee8d4f2241f40a88d9f57b5cad5e89e3a35  .claude/skills/forge-project/scripts/typecheck.sh
+d7c8d5c6df80501d9055fc5b9d0659320a07ebebd7c2dc9b3afdf549d52b58de  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 75507971edac1d4a2eca04e6bceb8a942429c0987372010b39ad0b7f126b55e9  .forge/ast-grep/rule-tests/docker-compose-datastore-loopback-test.yml
 bcd21e7f9112e5f0d44c9f5c9779824661b2f1dc40448323100787f342c4b7a8  .forge/ast-grep/rule-tests/docker-compose-healthy-depends-test.yml
@@ -19654,7 +19669,7 @@ e4fd92858db90ac12b535496548f182e453e83bc9cb24f53a102ab7fc98cd67b  .forge/ast-gre
 026540d386ff8d8bd6f4f1951063c2fcd5cb8a96d8c7184f97e0887e3241c01a  .forge/ast-grep/rules/docker/compose/pinned-images.yml
 0660a06b80fa4e3cccbc89f496275e8f093b873632d1d93ecb48e4315d987bbf  .forge/ast-grep/rules/python/no-stub.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-a210cdd40c7bc92b5925500c1cab321846ef9b63d87604954482ad3f7d43c905  .forge/check.sh
+ab13e126f9707e6a7caa9896c2d8a0430569d178afe7a7cf96d688be149baa9d  .forge/check.sh
 4f7e312b9419bd1ee09fe9cd3e988546bba089d706cb1b44e4546c4b4c87173d  .forge/helpers/ratchet.py
 
 ===== .git/hooks/pre-commit
