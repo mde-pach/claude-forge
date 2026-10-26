@@ -148,6 +148,7 @@ enforce:                       # ordered; see §6.2
 examples:
   match: [example]             # MUST trigger the rule
   no_match: [example]          # MUST NOT trigger the rule
+  deps: [{ecosystem, name, version}]  # rules with a where (§15.1): the packages, exact versions, the examples are type-checked against
 deprecated:                    # optional
   replaced_by: <rule-id>
 review: string                 # optional, one line: for an ask, the one question a reviewer answers (§9.3)
@@ -171,7 +172,7 @@ Every rule blocks, except an `ast-grep` target in `advise` mode (§6.2), for heu
 | Target | Fields | Category | Effect |
 |---|---|---|---|
 | `tool` | `tool: biome \| ruff \| basedpyright \| tsc`, `expects` (diagnostic code or rule name), `snippet` (config to show when unsatisfied) | audited | §11 |
-| `ast-grep` | `rule` (ast-grep rule object), `mode: forbid \| no-increase \| no-decrease \| advise` | owned | `.forge/ast-grep/rules/<rule-id>.yml` |
+| `ast-grep` | `rule` (ast-grep rule object), `mode: forbid \| no-increase \| no-decrease \| advise`, `constraints`, `utils` (passed through), `where` (optional: engine capabilities on metavariables, §15.1) | owned | `.forge/ast-grep/rules/<rule-id>.yml` |
 | `permission` | `decision: deny \| ask`, `rule` (permission rule string) | appended | settings `permissions` |
 | `guard` | `decision: deny \| ask`, `pattern` (POSIX ERE against the JSON-escaped command), `check` (optional, `decision: ask` only: a built-in guard check, `ephemeral-exec`, that decides when `pattern` matches) | owned | `guard.rules` (§9.2) |
 | `sandbox` | `path`, `value` | appended, user only | `~/.claude/settings.json` `sandbox` |
@@ -265,7 +266,7 @@ All scripts are POSIX `sh`. They read file paths and the working directory from 
 
 | Event | Matcher | Script | Mode | Timeout | Behavior |
 |---|---|---|---|---|---|
-| SessionStart | `startup\|resume\|clear\|compact` | `session-start.sh` | sync | 10 s | ≤ 20 lines: branch, number of changed files and first 10 paths, last 5 commits (`%h %s`, ≤ 72 chars), active packs, missing tools (once). |
+| SessionStart | `startup\|resume\|clear\|compact` | `session-start.sh` | sync | 10 s | ≤ 20 lines: branch, number of changed files and first 10 paths, last 5 commits (`%h %s`, ≤ 72 chars), active packs, missing tools (once). Starts the types engines the active rules use, in the background (§15.3). |
 | UserPromptSubmit | — | `turn-start.sh` | sync | 10 s | Snapshots the tree at the start of the turn, resets the Stop block counter (§10.2) and saves the prompt to `<state>/<session_id>.prompt` (for a review of test edits, §10.5). Prints nothing. |
 | PreToolUse | `Bash` | `guard.sh` | sync | 180 s | Project `guard` rules. `onFailure: "block"`. An ask nobody can answer is reviewed (§9.3). |
 | PreToolUse | `Bash` | `bash-snapshot.sh` | sync | 15 s | Snapshots the working tree for the files the command changes (§8.2). Prints nothing. |
@@ -276,6 +277,7 @@ All scripts are POSIX `sh`. They read file paths and the working directory from 
 | PostToolUse | `Edit\|Write\|Bash` | `typecheck.sh` | `asyncRewake: true` | 300 s | Project typecheck, when the edited file (Bash: a file the command changed) is in a typecheck's scope. Errors in files changed during the turn (the Stop hook's change set, §10.2) → exit 2, stderr ≤ 20 lines, those files' diagnostics only; errors only in other files → silent. Skips if one is already running (lock in `<state>`, taken over when its pid is gone, or when it has had no pid for a minute). Does not run where Claude Code would wait for it: Claude Code runs an `asyncRewake` hook in the background only in an interactive session or with streaming input, so under `claude -p "<prompt>"` (`CLAUDE_CODE_ENTRYPOINT=sdk-cli` and no ancestor process with `--input-format stream-json` or `--sdk-url`; the ancestors are looked up once per session, the answer kept in `<state>/<session_id>.rewake`) it exits 0 at once and the Stop check runs the typecheck; `FORGE_EDIT_TYPECHECK=always` runs it anyway, `never` skips it everywhere. |
 | PostToolUseFailure | `Bash` | `post-edit.sh`, `typecheck.sh` | as above | as above | The same two hooks for a Bash command that fails or is interrupted: it may have changed files before stopping (a script that writes three files then fails on the fourth). Same checks and output, with `hookEventName` `PostToolUseFailure`. A failed Edit or Write changes nothing, so they are not matched. |
 | Stop | — | `stop.sh` | sync | 600 s | §10.2. |
+| SessionEnd | — | `session-end.sh` | sync | 10 s | Only when an active rule uses the types engine (§15.3): unregisters the session; the last session to end stops the engines. Prints nothing. |
 
 ### 8.2 Files changed by Bash
 
@@ -1052,3 +1054,121 @@ Clean container with Claude Code ≥ 2.1.295, git, Bun, uv, PostgreSQL, and no F
 4. After `/compact`, SessionStart output is present again.
 5. `guard.sh` deleted → PreToolUse blocked.
 6. Bun absent in a TypeScript repo → hooks exit 0; SessionStart reports the missing runtime once.
+## 15. Engine capabilities
+
+A rule says **what** it needs to know about the code; the engine decides **how** to find it out. A capability is a question a rule asks declaratively in its YAML, answered by **one pinned, provisioned implementation per language** (§15.2). Packs and rules never name the tool that answers: replacing ty or TypeScript's server by another type checker changes the engine, never a rule.
+
+- A capability MUST NOT decide on names the project chose (variables, receivers, helpers, parameters, free text). Literal conventions of a tool or library are allowed (a library's own API names, `Dockerfile`, `*_TOKEN` keys in `.env`), and each one is overridable in `forge.yaml` (§15.4).
+- There is no fallback. A capability that cannot answer is reported with the rules it leaves unchecked, never taken as a pass and never replaced by a weaker heuristic (§15.1).
+
+| Capability | Asked from | Answers | State |
+|---|---|---|---|
+| types | `where: {<VAR>: {type: …}}` on an `ast-grep` target | what the static type of the expression bound to a metavariable is declared as | implemented (§15.1–§15.3) |
+| declared | `where: {<VAR>: {declared: …}}` | what a name refers to (an imported function or class, through aliases): `textDocument/definition` instead of `typeDefinition`, no supertypes | proposed (§15.6) |
+| files | `@<role>` in `scope.files` and in check helpers | the paths of a file role: Forge's defaults, the tool's declarative config, `forge.yaml` | designed (§15.4) |
+| tests | engine helpers of test checks | the tests a runner collects and the ones that failed, from the runner's own reports | proposed (§15.5) |
+
+### 15.1 Types
+
+```yaml
+# packs/python/sqlalchemy/rules/no-query-api.yaml
+enforce:
+  - target: ast-grep
+    mode: forbid                    # forbid or advise
+    rule: {pattern: "$S.query($$$)"}
+    where:
+      S: {type: {package: sqlalchemy, name: [Session, scoped_session, AsyncSession, async_scoped_session]}}
+examples:
+  deps: [{ecosystem: pypi, name: sqlalchemy, version: "2.0.44"}]
+  match: ["from sqlalchemy.orm import Session as Db\n\n\ndef first(db: Db):\n    return db.query(int).first()\n"]
+  no_match: ["class Session:\n    def query(self, q: str) -> list[str]:\n        return [q]\n\n\ndef search(session: Session):\n    return session.query(\"text\")\n"]
+```
+
+`where` maps single metavariables of the rule (`$S`, not `$$$S`) to a condition: `{type: <spec>}` or `{not: <condition>}`. A spec has `package` and/or `module` (a string or a list; at least one: a name alone would be a guess), optionally `name` (a string or a list of identifiers) and `unknown: match | no-match` (default `no-match`).
+
+**Semantics.** For each match, each condition is evaluated on the expression the metavariable is bound to; the match counts only when all of them hold.
+
+1. **The expression's type** is what the language's type checker infers for exactly that expression, in the file as it is on disk: the engine shows the server, in memory only, the file with the expression bound to a fresh name (Python `(__forge_tN := (<expr>))`, TypeScript `({__forge_tN: (<expr>)}).__forge_tN`), asks `textDocument/typeDefinition` at that name, then shows it the file as it is. Any expression works (a name, an attribute, a call such as `sessionmaker(e)()`, a subscript). Nothing is written to the project.
+2. **Declarations.** Each location returned is the declaration of the type, or of one member: a union or intersection gives one per member (`Session | None`: `Session` and `NoneType`). Import aliases, re-exports and type aliases are resolved by the checker: a declaration has the name it is declared with (`Session`, never the alias `Db`).
+3. **Subtypes.** Each declaration counts with its supertypes, transitively, at most 64 (Python: the server's type hierarchy; TypeScript: the classes and interfaces in its `extends` and `implements` clauses, resolved with `textDocument/definition`). A project class deriving from `Session` is a `Session`. Assignability is nominal: a structurally compatible type that does not derive from the declaration does not count.
+4. **Generics.** Type arguments are ignored: `list[Session]` is `list`, `scoped_session[Session]` is `scoped_session`.
+5. **Where a declaration is.** Its file decides. Python: under `site-packages` / `dist-packages`, the package is the first path segment (`<pkg>-stubs` counts as `<pkg>`) and the module the dotted path (`sqlalchemy.orm.session`, `__init__` dropped); typeshed's `stdlib/` and `stubs/<dist>/` likewise. TypeScript: under the innermost `node_modules/`, the package is `<name>` or `@scope/name` (`@types/x` counts as `x`, `@types/a__b` as `@a/b`) and the module `<package>/<path in it without extension>` (`zod/v4/classic/schemas`); TypeScript's own `lib.*.d.ts` are package `typescript`. A declaration in the project has no package; its module is its path (Python: dotted, without a leading `src.`). The package is the one that **declares** the type, which may be a library's internal package (Vitest's `expect` is declared in `@vitest/expect`).
+6. **A spec holds** when one declaration or supertype has the package (one of the list), the module (equal, or a prefix by whole segments: `.` in Python, `/` in TypeScript) and the name (one of the list) that the spec gives. With a union, one member is enough: the expression may hold such a value at run time.
+7. **Unknown types.** When the checker does not know the type (Python `Any` and `Unknown`: an unannotated parameter, an unresolved import; TypeScript `any`, `unknown`, an error: no declaration), a spec does not hold, unless it says `unknown: match`.
+8. `not` inverts its condition. A metavariable the match did not bind (an `any:` branch without it) is not evaluated.
+
+**Where it runs.** A rule's `where` is rendered into its ast-grep rule file as `metadata: {forge_where: …}`, so each match carries it (`ast-grep scan --include-metadata`). post-edit.sh (§8.1) and check.sh step 4 (§10.1) keep the matches on added lines, then pass those with `forge_where` to `forge_types_filter` (engine.sh), which asks the language's engine and keeps the matches it confirms; other matches are untouched. An engine that cannot start or answer prints `forge:forge/types <rule-id> was not checked: <reason>`: after an edit as feedback, in check.sh as a failure.
+
+**Schema and `forge test`.** `where` is allowed on `forbid` and `advise` targets (counted modes would need the base copy's types: not yet), with `scope.language` `python`, `typescript` or `tsx`, on metavariables that occur in the rule. Such a rule MUST have `examples.deps` (packages of its language's ecosystem, exact versions), and its examples are whole files (imports included). Its ast-grep test proves the `match` examples structurally; then every example is scanned and filtered by the generated `forge_types_filter` in a project holding those packages (a uv environment on the engine's Python, or a `bun install`ed `package.json`; kept in `$FORGE_EXAMPLES_CACHE`, default `~/.cache/forge/examples/`): a `match` example must keep a match, a `no_match` example none.
+
+### 15.2 Engines
+
+| Language | Server | Pin | Started as | Adapter |
+|---|---|---|---|---|
+| Python | `ty server` (Astral) | ty 0.0.86 | `uvx --python 3.12 --from ty==0.0.86 python <adapter> <root> <state>` | `types_python.py`: standard library only, on the Python uvx provides next to the pinned `ty` |
+| TypeScript | `tsc --lsp --stdio` of TypeScript 7 (the Go compiler) | typescript 7.0.2 | `bun <adapter> <root> <state> 7.0.2`, the adapter running `bun x --bun -p typescript@7.0.2 tsc --lsp --stdio` | `types_typescript.mjs`: Node-compatible, no Bun-only API |
+
+- Pins follow Forge's rule for its own tools (the newest release older than 14 days; ast-grep, Squawk, zizmor, hadolint), are embedded in the generated scripts with a revision of the adapters, and are the same for every project: the engine is Forge's, like ast-grep, not the project's type checker (basedpyright and `tsc` stay the project's `typecheck` checks).
+- `uvx` (Python) and `bun` (TypeScript) are required tools of the capability: missing, they are listed by `forge_missing_tools` (SessionStart, `forge status`). `forge apply` provisions the pinned engines (fills the uvx / bunx caches), so the hooks run offline afterwards.
+- The engine answers with the project's own environment: ty finds `.venv` (or `VIRTUAL_ENV`) and the project's `[tool.ty]`; TypeScript reads the project's `tsconfig.json` files and `node_modules`, workspace packages included.
+- Both adapters implement one protocol (§15.3) and the semantics of §15.1; only the way supertypes are found differs (ty has a type hierarchy; TypeScript's server has none).
+
+**Evidence** (Apple M2, 2026-10-26; `typeDefinition` on a receiver; cold = spawn to `initialize` reply; first = `didOpen` + first answer; warm = `didChange` + answer, median of 20; RSS after warm-up):
+
+| Project | Server | Cold | First | Warm | RSS |
+|---|---|---|---|---|---|
+| fastapi-app sample | ty 0.0.92 / basedpyright 1.40.2 | 8 / 171 ms | 42 / 478 ms | 0.5 / 11.5 ms | 43 / 354 MB |
+| Netflix dispatch (655 files, SQLAlchemy 2.0.8) | ty 0.0.86 / 0.0.92 / basedpyright | 8 / 8 / 181 ms | 226 / 196 / 1338 ms | 7.5 / 6.0 / 4.3 ms | 103 / 100 / 517 MB |
+| nextjs-prisma-app sample | TypeScript 7.0.2 / typescript-language-server + 5.9.3 | 45 / 65 ms | 41 / 924 ms | 1.0 / 3.5 ms | 103 / 782 MB |
+| documenso (2245 TS files, workspaces) | TypeScript 7.0.2 / typescript-language-server + 5.9.3 | 42 / 63 ms | 408 / 4538 ms | 86 / 97 ms (p95 163 / 122) | 1642 / 1998 MB |
+
+Through the adapters and the FIFO: a question from a POSIX `sh` client costs 5.6 ms of client and transport (bash 3.2 as `sh`); the engine answers a warm question in 2–16 ms (1 to 14 matches), the cold one in 63–250 ms; the whole `forge_types_filter` of an edit takes about 50 ms, sourcing the script included. ty and TypeScript 7 answer correctly through import aliases, re-exports, `sessionmaker()` results, subscripts, unions with `None`, subclasses (with the supertype walk) and generics, and give no declaration for `any`; basedpyright and tsserver answer the same for names but nothing for calls and subscripts, and cost 5–20× more to start.
+
+### 15.3 Daemons
+
+- **One daemon per language and repository**, in `<state>/types/<lang>/` (the hook state outside the repository, §8): `in` (the request FIFO), `started` (FIFO, start reports), `pid`, `ready` (the server's name and version), `want` (engine pin and adapter revision), `log`, `sessions/`, and the adapter (`engine.py` / `engine.mjs`, written from check.sh's here-document at each start).
+- **Start** (`forge_types_up <lang>`): SessionStart starts the engines the active rules use, in the background; any hook that needs an answer starts its engine when it is not running (the same function: there is no other path). A lock directory holding the starter's pid serialises starters; the adapter detaches into its own session (the hook that started it may end) and writes `ready …` or `failed …` to `started`; a launcher failing before it (a first download without network) gives `exited <code>`. A daemon whose `want` differs from the scripts' (another pin, another Forge) is stopped and started again. Starting takes at most `FORGE_TYPES_START_TIMEOUT` seconds (60).
+- **Protocol.** Lines written to `in` are shorter than `PIPE_BUF`, so concurrent writers never interleave, and `in` is opened read-write, so a writer never blocks: `changed<TAB><path>`, `stop`, `restart`, or the absolute path of a question directory, whose `req` holds ast-grep match lines. The client opens the question's `reply` FIFO read-write before asking (the daemon's non-blocking open always finds a reader), reads up to `end` and gives up after `FORGE_TYPES_TIMEOUT` seconds (20). Questions are answered one at a time, in order; parallel hooks queue.
+- **What the server sees.** The asked file is read from disk at each question and sent (`didOpen`, then `didChange` with the full text) when it differs from what the server has. Other files reach the server through `changed` lines: post-edit.sh sends every file of the edit (Edit, Write, the files a Bash command changed), turn-start.sh the uncommitted files and those a commit, checkout or pull changed since the previous turn, check.sh its change set. A change to a lock file, `pyproject.toml`, `ty.toml`, `package.json` or `tsconfig*.json` restarts the daemon instead (`restart`): the next question starts it on the new environment. Nothing is written in the repository.
+- **End.** Sessions register when they start the engine or find it running; SessionEnd (`session-end.sh`) unregisters, and the last session to end stops it. A daemon also exits after `FORGE_TYPES_IDLE` seconds (1800) without a line. check.sh outside a session (pre-commit, CI) stops the engines it started.
+
+### 15.4 File roles
+
+Rules and helpers name the files they are about by **role**, not by literal globs: `scope.files: ["@python-tests"]`, `"!@alembic-migrations"`, `forge_role <role> <path>` in check helpers. Each role has Forge's defaults; `forge.yaml` changes them:
+
+```yaml
+files:
+  python-tests: {add: ["integration/**/check_*.py"]}   # added to the defaults
+  env-files: {set: [".env", ".env.local"]}             # replaces the defaults and the tool's config
+```
+
+- **Effective patterns** are computed by `forge apply` and rendered literally into the generated scripts (shell `case` patterns, ast-grep `files` / `ignores`), so hooks never parse configs. `forge status` prints a `Files:` section: each role an active rule uses, its patterns and where each comes from (`forge default`, the tool's config file, `forge.yaml`); a changed source is drift (`forge diff`).
+- **Defaults from the tool's own config**: only when the config is data Forge reads without running code (INI, TOML, JSON, YAML, `schema.prisma`), and then they replace Forge's defaults for that role: pytest `testpaths` / `python_files` (`[tool.pytest.ini_options]`, `pytest.ini`), `alembic.ini` `script_location`, `schema.prisma` generator `output`, `package.json` `prisma.schema`, `[tool.pytest.ini_options]` `DJANGO_SETTINGS_MODULE`. Code configs (`vitest.config.*`, `playwright.config.*`, `drizzle.config.*`, `prisma.config.ts`) are never evaluated: the tool's documented defaults apply, and the user overrides in `forge.yaml`.
+- **Roles and defaults:**
+
+| Role | Defaults | From the tool's config |
+|---|---|---|
+| `compose` | `compose.yaml`, `compose.yml`, `docker-compose.yaml`, `docker-compose.yml`, `compose.*.yaml`, `docker-compose.*.yml` | — |
+| `dockerfile` | `**/Dockerfile`, `**/Dockerfile.*`, `**/*.Dockerfile` | — |
+| `python-tests` | `**/test_*.py`, `**/*_test.py`, `**/conftest.py` | pytest `testpaths` × `python_files` |
+| `ts-tests` | `**/*.{test,spec}.{ts,tsx,mts,cts,js,jsx,mjs,cjs}`, `**/__tests__/**` | — (code config) |
+| `e2e-tests` | `e2e/**`, `tests/e2e/**` | — (code config) |
+| `alembic-migrations` | `alembic/versions/**`, `migrations/versions/**` | `alembic.ini` `script_location` + `/versions/**` |
+| `prisma-migrations` | `prisma/migrations/**` | `package.json` `prisma.schema` directory + `/migrations/**` |
+| `drizzle-migrations` | `drizzle/**` | — (code config) |
+| `env-files` | `.env`, `.env.*`, `!@env-template` | — |
+| `env-template` | `.env.example`, `.env.sample`, `.env.template` | — |
+| `lockfiles` | `uv.lock`, `bun.lock`, `bun.lockb`, `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock` | — |
+| `docs` | `docs/**/*.{md,mdx,rst}`, `doc/**/*.{md,mdx,rst}`, `README*` | — |
+| `generated-clients` | none | `schema.prisma` generator `output`; the OpenAPI generator outputs of `package.json` scripts |
+| `django-settings` | `**/settings.py`, `**/settings/*.py` | pytest-django `DJANGO_SETTINGS_MODULE` |
+
+- A role may include another (`!@env-template`); cycles are rejected. A role an active rule names but nothing matches is reported by `status`, never guessed.
+
+### 15.5 Tests (proposed)
+
+Test checks read the runner's own reports rather than its console output or ast-grep patterns: the tests a runner collects (`pytest --collect-only -q`, `vitest list --json`) give test identity for test integrity (§10.5) and failing tests come from its machine-readable report (pytest `--junitxml`, Vitest `--reporter=junit`) for §10.6, through engine helpers with the same interface as now. Pack rules keep naming the runner's checks; the helpers change.
+
+### 15.6 Declared names (proposed)
+
+`where: {F: {declared: {package: sqlalchemy, name: text}}}`: the metavariable is a name (or attribute) that refers to that declaration, through import aliases and re-exports (`textDocument/definition`, no supertypes): for functions and decorators (`text()`, `patch`, `pytest.mark.skip`, `React.useState`), where `type` would describe a function type. Same engines, daemons and semantics for package, module and name.

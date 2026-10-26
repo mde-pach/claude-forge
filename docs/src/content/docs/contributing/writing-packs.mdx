@@ -50,6 +50,43 @@ Targets, in order of preference: `tool` (your linter or type checker, audited), 
 A `check` can call the engine's helpers instead of a project tool: `forge_ratchet`, `forge_test_edits`, `forge_hadolint`, `forge_zizmor`, `forge_squawk_files`, … (in `templates/scripts/engine.sh`). A `run` string never calls `exit`: it is a shell function body, and its last command's status is the result. `forge_advise <helper>` makes a check **advisory**: at Stop only, what the helper prints blocks once, and the next Stop of the same turn passes (for advice Claude may have a reason not to follow, such as `forge_untested_change`).
 A pack can also be detected as a library (`detect: {library_any: [pypi]}` or `[npm]`), for rules about a published API.
 
+## Asking the engine: types
+
+A rule must never decide on names the project chose: `session.query()` is not a SQLAlchemy call because the receiver is called `session`, and a rename should neither hide a match nor create one. When a match depends on **what** an expression is, ask the engine with `where` on the ast-grep target, and say what the type must be, not how to find it:
+
+```yaml
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule: {pattern: "$S.query($$$)"}
+    where:
+      S: {type: {package: sqlalchemy, name: [Session, scoped_session, AsyncSession, async_scoped_session]}}
+examples:
+  deps: [{ecosystem: pypi, name: sqlalchemy, version: "2.0.44"}]
+  match:
+    - "from sqlalchemy.orm import Session as Db\n\n\ndef first(db: Db):\n    return db.query(int).first()\n"
+  no_match:
+    - "class Session:\n    def query(self, q: str) -> list[str]:\n        return [q]\n\n\ndef search(session: Session):\n    return session.query(\"text\")\n"
+```
+
+What you write:
+
+| Key | Meaning |
+|---|---|
+| `package` | the installed package that **declares** the type: Python's import name (`sqlalchemy`, `pydantic`), npm's name (`zod`, `@prisma/client`; `@types/x` counts as `x`). Required, or `module`. |
+| `module` | the declaring module, matched by whole segments: `sqlalchemy.orm`, `zod/v4` (npm: the package and its file path without extension). |
+| `name` | the type's declared name (or a list): the library's own API name, never the alias a project imports it under. Optional: without it, any type of that package or module. |
+| `unknown: match` | also match when the checker does not know the type (`Any`, an unannotated parameter, `any`). Default: no match. |
+| `not: {type: …}` | the expression is **not** such a type (for exemptions: "unless the receiver is a Zod schema"). |
+
+How it decides: the type checker infers the type of exactly the expression the metavariable is bound to (a name, `self.db`, `sessionmaker(e)()`, `items[0]` alike), resolves aliases and re-exports to the declaration, counts a subclass as its base (a project's `class AppSession(Session)` is a `Session`), ignores type arguments (`list[Session]` is a `list`), and is satisfied by one member of a union (`Session | None`). It never looks at names in the project. The engine is Forge's own pinned language server per language (ty for Python, TypeScript 7 for TypeScript); your rule does not name it, so it can be replaced without touching a rule.
+
+Finding the right `package`, `module` and `name`: go to the type's definition in your editor and read where it is declared. That file decides, and it is sometimes an internal package (Vitest's `expect` is declared in `@vitest/expect`, not `vitest`). Prefer `module` when one package ships several APIs with the same names (Zod 4's `ZodString` is in `zod/v4`, Zod 3's in `zod/v3`).
+
+Examples of such a rule are whole files, imports included (a receiver whose type cannot be resolved is unknown, and does not match), and `examples.deps` lists the packages, exact versions, they are type-checked against. `bun run test:packs` and `forge test` install them once into a cached project and run every example through the engine; ast-grep alone only checks that the `match` examples match the pattern.
+
+`where` works on `forbid` and `advise` targets. A match whose engine could not answer is reported as `forge:forge/types <rule> was not checked: …`, never passed silently.
+
 ## Examples are tests
 
 `bun run test:packs` (from a clone of Forge) validates every pack and rule against the schemas and runs every example; `bun run test:packs <dir>` does the same for another packs directory. The spec suite runs it in CI, and each rule's result appears on its pack page. (`forge test`, the published command, checks a project's local rules only.)
