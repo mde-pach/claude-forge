@@ -82,8 +82,8 @@ function lockPathProblems(base: string, level: Level, lock: Omit<Lock, "blocks">
 }
 
 /** The lock, read by the CLI only (check.sh reads .forge/manifest.sha256). The lock does not hash itself. */
-export function renderLock(rules: Record<string, string>, files: Record<string, string>, settings: SettingsEntry[], blocks: LockBlock[] = []): string {
-  const sorted = (o: Record<string, string>) => Object.fromEntries(Object.entries(o).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+export function renderLock(rules: Record<string, string>, files: Record<string, string>, settings: SettingsEntry[], blocks: LockBlock[] = [], roles: Record<string, string[]> = {}): string {
+  const sorted = <T>(o: Record<string, T>) => Object.fromEntries(Object.entries(o).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
   const lock: Omit<Lock, "blocks"> & { blocks?: LockBlock[] } = {
     forge_version: FORGE_VERSION,
     claude_code_min: CLAUDE_CODE_MIN,
@@ -91,6 +91,7 @@ export function renderLock(rules: Record<string, string>, files: Record<string, 
     files: sorted(files),
     settings,
     ...(blocks.length ? { blocks } : {}),
+    ...(Object.keys(roles).length ? { roles: sorted(roles) } : {}),
   };
   return JSON.stringify(lock, null, 2) + "\n";
 }

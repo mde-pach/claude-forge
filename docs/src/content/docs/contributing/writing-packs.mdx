@@ -50,6 +50,12 @@ Targets, in order of preference: `tool` (your linter or type checker, audited), 
 A `check` can call the engine's helpers instead of a project tool: `forge_ratchet`, `forge_test_edits`, `forge_hadolint`, `forge_zizmor`, `forge_squawk_files`, … (in `templates/scripts/engine.sh`). A `run` string never calls `exit`: it is a shell function body, and its last command's status is the result. `forge_advise <helper>` makes a check **advisory**: at Stop only, each line the helper prints is a finding that blocks once per turn, after any failing check, and a Stop with nothing new passes (for advice Claude may have a reason not to follow, such as `forge_untested_change`). `forge_once <helper>` does the same at Stop and fails pre-commit and CI on any finding (`forge_lockfile_updated`).
 A pack can also be detected as a library (`detect: {library_any: [pypi]}` or `[npm]`), for rules about a published API.
 
+## Files by role
+
+A rule never hard-codes where a tool keeps its files. `scope.files`, `when_changed`, check commands and a where `module` name a **file role** instead: `scope: {language: python, files: ["@django-migrations"]}`, `"!@python-tests"` to leave tests out, `forge_role @alembic-migrations "$f"` in a helper, `forge_role_files @adr` to list a role's files, `module: "@wrangler-types"` for a type a generated file declares. `forge apply` replaces each role by its effective patterns (Forge's defaults, the tool's declarative config, the project's `forge.yaml`), so the rule follows a project that moved its tests or migrations without a local copy of the rule. A role Forge does not know fails when the rule is loaded; the roles are listed in SPECS §15.4, and a new one is added there and in `src/roles.ts`. Rule examples are written where Forge's defaults put the role's files.
+
+<Spec file="15-4-file-roles" describe="roles in rules" />
+
 ## Asking the engine: types
 
 A rule must never decide on names the project chose: `session.query()` is not a SQLAlchemy call because the receiver is called `session`, and a rename should neither hide a match nor create one. When a match depends on **what** an expression is, ask the engine with `where` on the ast-grep target, and say what the type must be, not how to find it:

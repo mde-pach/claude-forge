@@ -38,7 +38,8 @@ export function examplePath(rule: Rule, stem: string): string {
     .replace(/(^|\/)\*\*\//g, "$1")
     .replace(/\*\*/g, stem)
     .replace(/\*/g, stem)
-    .replace(/\?/g, "x");
+    .replace(/\?/g, "x")
+    .replace(/\[!?(.)[^\]]*\]/g, (m, c: string) => (m[1] === "!" ? "x" : c));
   if (p.endsWith("/")) p += stem;
   if (!/\.[A-Za-z0-9]+$/.test(basename(p))) p += ext;
   return p;

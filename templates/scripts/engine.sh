@@ -996,10 +996,11 @@ forge_zizmor() {
 FORGE_HADOLINT_VERSION="@@HADOLINT_VERSION@@"
 FORGE_HADOLINT_SHA256='@@HADOLINT_SHAS@@'
 
-# forge_dockerfiles: the Dockerfiles / Containerfiles of $FORGE_FILES, else every tracked one.
+# forge_dockerfiles: the files of $FORGE_FILES in file role @dockerfile (§15.4), else every tracked one.
 forge_dockerfiles() {
   if [ -n "$FORGE_FILES" ]; then printf '%s\n' "$FORGE_FILES"; else git ls-files 2>/dev/null; fi \
-    | grep -E '(^|/)(Dockerfile(\.[^/]*)?|[^/]*\.Dockerfile|Containerfile)$' | grep -v '\.dockerignore$'
+    | while IFS= read -r _df_f; do forge_role @dockerfile "$_df_f" && printf '%s\n' "$_df_f"; done
+  return 0
 }
 
 # forge_hadolint <code>...: "path:line CODE: message" for the named hadolint codes.
@@ -1324,10 +1325,12 @@ forge_squawk_files() {
 }
 
 # forge_alembic_files: Alembic revision ids on stdin (as printed by `alembic heads`)
-# -> the revision files under alembic/versions that define them.
+# -> the revision files (file role @alembic-migrations) that define them.
 forge_alembic_files() {
+  forge_role_files @alembic-migrations | grep '\.py$' > "$FORGE_TMP/alembic.all"
   awk '{ print $1 }' | while read -r _fa_id; do
-    [ -n "$_fa_id" ] && find alembic/versions -name '*.py' -exec grep -lE "^revision[^=]*=[[:space:]]*['\"]$_fa_id['\"]" {} + 2>/dev/null
+    # shellcheck disable=SC2046
+    [ -n "$_fa_id" ] && [ -s "$FORGE_TMP/alembic.all" ] && grep -lE "^revision[^=]*=[[:space:]]*['\"]$_fa_id['\"]" $(cat "$FORGE_TMP/alembic.all") 2>/dev/null
   done
 }
 
@@ -1367,10 +1370,12 @@ forge_squawk_alembic() {
 # down_revision), so revisions written before a rule was adopted do not fail CI.
 forge_alembic_targets() {
   if [ -n "$FORGE_FILES" ]; then
-    printf '%s\n' "$FORGE_FILES" | grep -E '^alembic/versions/.*\.py$'
+    printf '%s\n' "$FORGE_FILES" | while IFS= read -r _at_f; do
+      case $_at_f in *.py) forge_role @alembic-migrations "$_at_f" && printf '%s\n' "$_at_f" ;; esac
+    done
     return 0
   fi
-  find alembic/versions -name '*.py' 2>/dev/null | sort > "$FORGE_TMP/alembic.revs"
+  forge_role_files @alembic-migrations | grep '\.py$' | sort > "$FORGE_TMP/alembic.revs"
   [ -s "$FORGE_TMP/alembic.revs" ] || return 0
   # shellcheck disable=SC2046
   awk '
@@ -1887,6 +1892,32 @@ forge_drizzle_migration_present() {
   done < "$FORGE_TMP/dz.schema"
   printf 'Generate it (drizzle-kit generate) and keep the SQL, meta/_journal.json and the snapshot together; never write them by hand.\n'
   return 1
+}
+
+# forge_role_files <@role>: the repository's files (tracked, and untracked but not ignored)
+# of a file role (§15.4), by forge_role (rendered with the role's effective patterns).
+forge_role_files() {
+  git ls-files -co --exclude-standard 2>/dev/null | while IFS= read -r _rf_f; do
+    forge_role "$1" "$_rf_f" && printf '%s\n' "$_rf_f"
+  done
+  return 0
+}
+
+# forge_applied_migrations <@role>...: migrations (the files of the roles) that exist in the
+# base are not modified or deleted; a change goes in a new migration. Not with --all (no base).
+forge_applied_migrations() {
+  [ "$mode" != --all ] || return 0
+  _am_rc=0
+  while IFS= read -r _am_f; do
+    for _am_r in "$@"; do
+      forge_role "$_am_r" "$_am_f" || continue
+      if [ -f "$_am_f" ]; then _am_what=modified; else _am_what=deleted; fi
+      printf '%s: an existing migration was %s; it may already be applied somewhere, so write a new migration instead\n' "$_am_f" "$_am_what"
+      _am_rc=1
+      break
+    done
+  done < "$FORGE_TMP/inbase"
+  return "$_am_rc"
 }
 
 # forge_drizzle_applied: migrations (SQL and snapshots in the out folder) that exist in

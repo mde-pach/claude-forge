@@ -4,12 +4,13 @@ import { dirname, join, relative } from "node:path";
 import { checkTools, renderLib } from "./render.js";
 import { auditRules, projectBinary, type AuditResult } from "./audit.js";
 import { MANIFEST_PATH, readLock, renderLock, renderManifest } from "./lock.js";
-import { loadLocalRules, loadPackBundle } from "./packs.js";
+import { globToRegExp, loadLocalRules, loadPackBundle } from "./packs.js";
+import { roleGlobs } from "./roles.js";
 import { plan, readProjectInputs, type Plan } from "./plan.js";
 import { blockHash, CHECK, hasBlock, hookManager, insertBlock, managerInactive, onlyForge, preCommitPath, removeBlock, runsForgeCheck } from "./precommit.js";
 import { localSelfTest, testSummary } from "./selftest.js";
 import { addEntries, conflictingScalars, entryKey, hasEntry, removeEntries } from "./settings.js";
-import { CLAUDE_CODE_MIN, ENGINE_PYTHON, FORGE_VERSION, TY_VERSION, compareVersions, gitToplevel, lineDiff, ownedHash, packageRoot, run } from "./util.js";
+import { CLAUDE_CODE_MIN, ENGINE_PYTHON, FORGE_VERSION, TY_VERSION, compareVersions, gitToplevel, lineDiff, listRepoFiles, ownedHash, packageRoot, run } from "./util.js";
 import type { Level, Lock, LockBlock, SettingsEntry } from "./types.js";
 import { USAGE } from "./usage.js";
 
@@ -229,6 +230,8 @@ interface Changes {
   lockSettings: SettingsEntry[];
   missingEntries: SettingsEntry[];
   rulesChanged: string[];
+  /** File roles whose effective patterns changed since the last apply (a tool config or forge.yaml changed, §15.4). */
+  rolesChanged: string[];
   /** Scalar settings the user set differently; never overwritten. */
   overridden: string[];
   lockText: string;
@@ -238,7 +241,7 @@ interface Changes {
 
 function computeChanges(ctx: Ctx): Changes {
   const { base, plan: p, lock } = ctx;
-  const ch: Changes = { writes: [], deletes: [], drift: [], conflicts: [], settings: [], blocks: [], blockDrift: [], lockSettings: [], missingEntries: [], rulesChanged: [], overridden: [], lockText: "" };
+  const ch: Changes = { writes: [], deletes: [], drift: [], conflicts: [], settings: [], blocks: [], blockDrift: [], lockSettings: [], missingEntries: [], rulesChanged: [], rolesChanged: [], overridden: [], lockText: "" };
   const owned = lock?.files ?? {};
   for (const [path, after] of p.files) {
     const before = readText(join(base, path));
@@ -307,14 +310,27 @@ function computeChanges(ctx: Ctx): Changes {
   }
 
   for (const [id, hash] of Object.entries(lock?.rules ?? {})) if (p.rules[id] !== undefined && p.rules[id] !== hash) ch.rulesChanged.push(id);
+  const roles = Object.fromEntries(p.roles.map((r) => [r.name, roleGlobs(r)]));
+  for (const r of p.roles) {
+    const was = lock?.roles?.[r.name];
+    if (was && JSON.stringify(was) !== JSON.stringify(roles[r.name])) ch.rolesChanged.push(`files @${r.name} changed since the last apply: ${roleSummary(r)}`);
+  }
   const hashes: Record<string, string> = {};
   for (const [path, text] of p.files) hashes[path] = ownedHash(path, text);
-  ch.lockText = renderLock(p.rules, hashes, ch.lockSettings, ctx.blocks);
+  ch.lockText = renderLock(p.rules, hashes, ch.lockSettings, ctx.blocks, roles);
   if (ctx.level === "project") {
     ch.lockText = formatJson(base, p.lockPath, ch.lockText);
     ch.manifestText = renderManifest(hashes);
   }
   return ch;
+}
+
+/** A role's patterns with their sources: "a/**, b/** (alembic.ini); c/** (forge.yaml)". */
+function roleSummary(r: Plan["roles"][number]): string {
+  if (!r.patterns.length) return "no patterns";
+  const bySource = new Map<string, string[]>();
+  for (const p of r.patterns) bySource.set(p.source, [...(bySource.get(p.source) ?? []), `${p.exclude ? "!" : ""}${p.glob}`]);
+  return [...bySource.entries()].map(([src, globs]) => `${globs.join(", ")} (${src})`).join("; ");
 }
 
 function printDiff(ctx: Ctx, ch: Changes, opts: { withLock: boolean }): boolean {
@@ -337,6 +353,7 @@ function printDiff(ctx: Ctx, ch: Changes, opts: { withLock: boolean }): boolean 
   }
   for (const e of ch.missingEntries) out(`forge: ${e.file}: entry missing, apply re-adds it: ${e.path} ${JSON.stringify(e.value)}`);
   for (const id of ch.rulesChanged) out(`forge: rule ${id} changed since the last apply`);
+  for (const r of ch.rolesChanged) out(`forge: ${r}`);
   if (opts.withLock) {
     // the lock compares as JSON: a formatter reflowing it is not a change
     const before = readText(join(ctx.base, ctx.plan.lockPath)) ?? "";
@@ -359,7 +376,7 @@ function printDiff(ctx: Ctx, ch: Changes, opts: { withLock: boolean }): boolean 
       }
     }
   }
-  return any || ch.missingEntries.length > 0 || ch.rulesChanged.length > 0;
+  return any || ch.missingEntries.length > 0 || ch.rulesChanged.length > 0 || ch.rolesChanged.length > 0;
 }
 
 // ---------------------------------------------------------------- commands
@@ -562,6 +579,22 @@ function enforcementSummary(rules: Enforcement[]): string {
   return `${rules.length} active, ${rules.length - off.length} enforced, ${off.length} not enforced${off.length ? ` (${detail})` : ""}`;
 }
 
+/**
+ * The file roles the active rules name (§15.4): their patterns and where each comes from,
+ * and how many of the repository's files they match (a role matching nothing is reported,
+ * never guessed).
+ */
+function roleFiles(ctx: Ctx): { name: string; summary: string; patterns: string[]; sources: string[]; matching: number; notes: string[]; rules: string[] }[] {
+  if (ctx.level !== "project" || !ctx.plan.roles.length) return [];
+  const files = listRepoFiles(ctx.base);
+  return ctx.plan.roles.map((r) => {
+    const inc = r.patterns.filter((p) => !p.exclude).map((p) => globToRegExp(p.glob));
+    const exc = r.patterns.filter((p) => p.exclude).map((p) => globToRegExp(p.glob));
+    const matching = files.filter((f) => inc.some((re) => re.test(f)) && !exc.some((re) => re.test(f))).length;
+    return { name: r.name, summary: roleSummary(r), patterns: roleGlobs(r), sources: [...new Set(r.patterns.map((p) => p.source))], matching, notes: r.notes, rules: r.rules };
+  });
+}
+
 function cmdStatus(flags: Flags): number {
   const ctx = context(flags);
   const p = ctx.plan;
@@ -587,6 +620,7 @@ function cmdStatus(flags: Flags): number {
           missing_tools: missing,
           pre_commit: ctx.level === "project" ? preCommitState(ctx) : undefined,
           drift: [...ch.drift, ...ch.conflicts, ...ch.blockDrift],
+          files: roleFiles(ctx),
           warnings: p.warnings,
         },
         null,
@@ -615,6 +649,14 @@ function cmdStatus(flags: Flags): number {
     for (const d of p.disabled) out(`  ${d.id}: ${d.reason}`);
   }
   if (p.deprecated.length) for (const d of p.deprecated) out(`  ${d.id}: deprecated, replaced by ${d.replaced_by}`);
+  if (ctx.level === "project" && p.roles.length) {
+    out("");
+    out("Files:");
+    for (const r of roleFiles(ctx)) {
+      out(`  @${r.name}: ${r.summary}${r.matching === 0 ? "; matches no file here" : ""}`);
+      for (const n of r.notes) out(`    ${n}`);
+    }
+  }
   if (ctx.level === "project") {
     if (audits.length) {
       out("");
@@ -626,6 +668,7 @@ function cmdStatus(flags: Flags): number {
   const ch = computeChanges(ctx);
   const drift = [...ch.drift.map((d) => `${d} modified since the last apply`), ...ch.conflicts.map((c) => `${c} is not a forge file`)];
   for (const id of ch.rulesChanged) drift.push(`rule ${id} changed since the last apply`);
+  drift.push(...ch.rolesChanged);
   for (const e of ch.missingEntries) drift.push(`${e.file}: missing ${e.path} ${JSON.stringify(e.value)}`);
   for (const f of ch.blockDrift) drift.push(`${f}: forge's pre-commit block modified since the last apply`);
   for (const b of ch.blocks) drift.push(`${b.path}: forge's pre-commit block is missing (apply adds it back)`);

@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { codeExamples } from "./packs.js";
+import { defaultRoles, type Roles } from "./roles.js";
 import { toYaml } from "./yaml.js";
 import { AST_GREP_VERSION, ENGINE_PYTHON, FORGE_VERSION, HADOLINT_SHA256, HADOLINT_VERSION, packageRoot, sha256, shQuote, SQUAWK_VERSION, TY_VERSION, ZIZMOR_VERSION } from "./util.js";
 import type { AstGrepTarget, CheckTarget, GrepTarget, GuardTarget, Language, Level, Rule } from "./types.js";
@@ -75,7 +76,11 @@ const LANGUAGE_CASE: Record<Language, string[]> = {
 };
 
 function caseEscape(s: string): string {
-  return s.replace(/[^A-Za-z0-9_./*?@+,=:%-]/g, "\\$&");
+  // bracket expressions ([0-9], [!x]) are kept: case patterns have them too
+  return s
+    .split(/(\[!?[^\]/'"\\]+\])/)
+    .map((part, i) => (i % 2 ? part : part.replace(/[^A-Za-z0-9_./*?@+,=:%-]/g, "\\$&")))
+    .join("");
 }
 
 /** A glob as shell `case` patterns. In `case`, `*` also matches `/`. */
@@ -178,8 +183,27 @@ function typesRevision(): string {
   return sha256(text).slice(0, 12);
 }
 
-/** The generated checks fragment (wrappers, per-check functions, grep rules, engine). */
-export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = [], types: TypesLanguage[] = []): string {
+/** The file roles engine helpers name themselves (forge_dockerfiles: @dockerfile, forge_alembic_files: @alembic-migrations): always rendered. */
+export const ENGINE_ROLES = ["dockerfile", "alembic-migrations"];
+
+/**
+ * forge_role <@role> <path> (§15.4): succeeds when the repository path is one of the role's
+ * files, by the effective patterns rendered literally (exclusions first).
+ */
+export function renderRoles(roles: Roles): string[] {
+  const out = ["# File roles (§15.4): forge_role <@role> <path>.", "forge_role() {", "  case ${1#@} in"];
+  for (const [name, role] of [...roles.entries()].sort(([a], [b]) => (a < b ? -1 : 1))) {
+    const inc = casePatterns(role.patterns.filter((p) => !p.exclude).map((p) => p.glob));
+    const exc = casePatterns(role.patterns.filter((p) => p.exclude).map((p) => p.glob));
+    const body = [exc ? `case $2 in ${exc}) return 1 ;; esac` : "", inc ? `case $2 in ${inc}) return 0 ;; esac` : ""].filter(Boolean);
+    out.push(`    ${name}) ${body.length ? body.join("; ") + " " : ""};;`);
+  }
+  out.push("  esac", "  return 1", "}");
+  return out;
+}
+
+/** The generated checks fragment (wrappers, per-check functions, grep rules, file roles, engine). */
+export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = [], types: TypesLanguage[] = [], roles: Roles = defaultRoles()): string {
   const used = new Set(checks.flatMap((c) => checkTools(c.target)));
   const out: string[] = ["# ---- generated checks"];
   // a POSIX shell function name has no "-": such tools are run as `forge_exec_tool <name>`
@@ -217,7 +241,7 @@ export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = [], ty
     if (target.format_stdin) out.push(...formatFunction(n, target.format_stdin, dirs));
     if (target.rerun) out.push(...body(`forge_check_rerun_${n}`, target.rerun.replaceAll("{files}", "$FORGE_FILES"), "files"));
   });
-  out.push("", ...renderGreps(greps));
+  out.push("", ...renderGreps(greps), "", ...renderRoles(roles));
   out.push("# ---- end of generated checks", "", fill(template("engine.sh"), {
       SQUAWK_VERSION,
       ZIZMOR_VERSION,
@@ -275,10 +299,11 @@ export function renderCheckScript(
   ids: { forbid: string; noIncrease: string; noDecrease: string },
   greps: ActiveGrep[] = [],
   types: TypesLanguage[] = [],
+  roles: Roles = defaultRoles(),
 ): string {
   return fill(template("check.sh"), {
     LIB: renderLib().trimEnd(),
-    CHECKS: renderChecks(checks, greps, types),
+    CHECKS: renderChecks(checks, greps, types, roles),
     FORBID: ids.forbid,
     NO_INCREASE: ids.noIncrease,
     NO_DECREASE: ids.noDecrease,

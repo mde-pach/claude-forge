@@ -128,6 +128,8 @@ accept:                     # config-ratchet findings accepted on purpose (§10.
   - rule: <rule-id>
     change: string          # the finding line exactly as check.sh printed it
     reason: string          # required
+files:                      # file roles (§15.4)
+  <role>: {add: [glob], set: [glob]}   # add to the role, or replace its defaults and the tool's config
 ```
 
 `<repo>/.forge/rules/<name>.yaml`: project-local rules. A local rule whose `id` equals a pack rule's `id` replaces it entirely. `forge.yaml` and `.forge/rules/` are inputs, not owned output: `apply` never rewrites them, but they are behind permission `ask` (§8.3).
@@ -476,6 +478,7 @@ Audits run during `forge apply` and `forge status`, never in hooks.
 - `diff` and `status` report owned files whose hash differs, appended entries that are missing, and rules whose source changed since the last apply.
 - `remove` deletes listed files and removes exactly the listed settings entries.
 - **Validation.** Every command reading the lock validates it against its schema and refuses it as a whole (exit 1, nothing written or deleted) when a path is not one Forge writes: `files` keys must be owned paths (§4) or git's `hooks/pre-commit` (`git rev-parse --git-path`), `settings[].file` a settings file of that level, `blocks[].file` the file `hookManager` names for its `kind` (`.pre-commit-config.yaml`, `.husky/pre-commit`, `lefthook.yml` / `.yaml` / `.lefthook.yml`, `<core.hooksPath>/pre-commit`); all relative, without `.` or `..` segments, and inside the repository (or `~/.claude`) once symbolic links are resolved.
+- **`roles`** (present only when an active rule names a file role): `{"<role>": ["<glob>", "!<glob>"]}`, the effective patterns at the last apply (§15.4); `status` and `diff` report a role whose patterns changed since (a tool config or `forge.yaml` changed).
 - **`blocks`** (present only when there is one): `[{file, kind, created, hash}]`, Forge's marked block in a hook manager's file (§10.3); `hash` is the sha256 of the block's lines, indentation removed.
 - **Owned-file hashes** are sha256 of the content, except for `.json` files, which are hashed with spaces, tabs, CR and LF removed, and the scripts in `.forge/helpers/`, hashed also without `'`, `"`, `` ` ``, `,`, `;`, `(` and `)`: a formatter reflowing Forge's JSON, or rewriting its helper scripts (`ruff format .`, `biome check --write .`: layout, quote style, trailing commas, semicolons, parentheses), is not drift; any other change is. (A change made only of those characters, such as moving a parenthesis, is not detected: the price of letting formatters rewrite the scripts.) A file whose owned hash matches is not rewritten by `apply`. The lock is compared as JSON (formatting ignored).
 - **`.forge/manifest.sha256`** (project level) repeats the owned-file hashes of `.forge/` and `.claude/` as `<sha256>  <path>` lines (sha256sum format) for `check.sh`. Non-JSON lines verify with `sha256sum -c`; JSON and helper lines need the normalised content, so `check.sh` hashes each file itself (`sha256sum`, `shasum -a 256` or `openssl`). The manifest and the lock do not hash themselves; `remove` deletes both.
@@ -1082,7 +1085,7 @@ A rule says **what** it needs to know about the code; the engine decides **how**
 |---|---|---|---|
 | types | `where: {<VAR>: {type: …}}` on an `ast-grep` target | what the static type of the expression bound to a metavariable is declared as | implemented (§15.1–§15.3) |
 | declared | `where: {<VAR>: {declared: …}}` | what a name refers to (an imported function or class, through aliases): `textDocument/definition` instead of `typeDefinition`, no supertypes | proposed (§15.6) |
-| files | `@<role>` in `scope.files` and in check helpers | the paths of a file role: Forge's defaults, the tool's declarative config, `forge.yaml` | designed (§15.4) |
+| files | `@<role>` in `scope.files`, `when_changed`, check commands and a where `module` | the paths of a file role: Forge's defaults, the tool's declarative config, `forge.yaml` | implemented (§15.4) |
 | tests | engine helpers of test checks | the tests a runner collects and the ones that failed, from the runner's own reports | proposed (§15.5) |
 
 ### 15.1 Types
@@ -1163,36 +1166,49 @@ Through the adapters and the FIFO: a question from a POSIX `sh` client costs 5.6
 
 ### 15.4 File roles
 
-Rules and helpers name the files they are about by **role**, not by literal globs: `scope.files: ["@python-tests"]`, `"!@alembic-migrations"`, `forge_role <role> <path>` in check helpers. Each role has Forge's defaults; `forge.yaml` changes them:
+Rules and helpers name the files they are about by **role**, not by literal globs: `scope.files: ["@python-tests"]`, `"!@alembic-migrations"`, `when_changed: ["@compose"]`, `forge_role @<role> <path>` in check commands, `module: "@wrangler-types"` in a where type spec. Each role has Forge's defaults; `forge.yaml` changes them:
 
 ```yaml
 files:
-  python-tests: {add: ["integration/**/check_*.py"]}   # added to the defaults
+  python-tests: {add: ["integration/**/check_*.py"]}   # added to the defaults (or to the tool's config)
   env-files: {set: [".env", ".env.local"]}             # replaces the defaults and the tool's config
 ```
 
-- **Effective patterns** are computed by `forge apply` and rendered literally into the generated scripts (shell `case` patterns, ast-grep `files` / `ignores`), so hooks never parse configs. `forge status` prints a `Files:` section: each role an active rule uses, its patterns and where each comes from (`forge default`, the tool's config file, `forge.yaml`); a changed source is drift (`forge diff`).
-- **Defaults from the tool's own config**: only when the config is data Forge reads without running code (INI, TOML, JSON, YAML, `schema.prisma`), and then they replace Forge's defaults for that role: pytest `testpaths` / `python_files` (`[tool.pytest.ini_options]`, `pytest.ini`), `alembic.ini` `script_location`, `schema.prisma` generator `output`, `package.json` `prisma.schema`, `[tool.pytest.ini_options]` `DJANGO_SETTINGS_MODULE`. Code configs (`vitest.config.*`, `playwright.config.*`, `drizzle.config.*`, `prisma.config.ts`) are never evaluated: the tool's documented defaults apply, and the user overrides in `forge.yaml`.
+- **Effective patterns** are computed by `forge apply` and rendered literally into the generated files: a rule's `scope.files` and `when_changed` (shell `case` patterns, ast-grep `files` / `ignores`), and `forge_role` in the checks fragment (the roles the active rules name, and those engine helpers name: `@dockerfile`, `@alembic-migrations`). Hooks never parse configs. `forge status` prints a `Files:` section: each role an active rule names, its patterns and where each comes from (`forge default`, the tool's config file, `forge.yaml`), and `matches no file here` for a role no file matches (`--json`: `files`). The lock records each such role's patterns (`roles`); a changed source is drift (`forge status`, `forge diff`: `files @<role> changed since the last apply: …`).
+- **In rules.** `@<role>` in a glob list stands for the role's patterns (its exclusions included); `!@<role>` excludes its files (a role with exclusions cannot be negated). A role a rule names that Forge does not know is an error when the rule is loaded. A rule whose file selection (`scope.files`, or a `when_changed`) is only roles with no pattern is not enforced, and `forge status` says which role to set: it never runs on other files. A where `module` naming a role (`@wrangler-types`) stands for the modules of the role's files, as §15.1 names a project file's module (TypeScript: the path without its extension; Python: dotted); such a role lists files, not globs.
+- **Check helpers.** `forge_role @<role> <path>` succeeds when the repository path is one of the role's files; `forge_role_files @<role>` prints the repository's files of the role (tracked, and untracked but not ignored); `forge_applied_migrations @<role>…` reports migrations of the roles that exist in the base and were modified or deleted (not with `--all`).
+- **Defaults from the tool's own config**: only when the config is data Forge reads without running code (INI, TOML, JSON, `schema.prisma`, `.adr-dir`, `atlas.hcl` `dir`), read at the repository root, and then they replace Forge's defaults for that role (for `@sql-migrations`, the default of that tool only). What a config says that Forge cannot use as a path (an Alembic package resource `pkg:dir`, a Flyway `classpath:` location) is shown under the role by `forge status`, and the defaults stay. Code configs (`vitest.config.*`, `playwright.config.*`, `drizzle.config.*`, `prisma.config.ts`, `kysely` migrators) are never evaluated: the tool's documented defaults apply, and the user overrides in `forge.yaml`.
 - **Roles and defaults:**
 
 | Role | Defaults | From the tool's config |
 |---|---|---|
-| `compose` | `compose.yaml`, `compose.yml`, `docker-compose.yaml`, `docker-compose.yml`, `compose.*.yaml`, `docker-compose.*.yml` | — |
-| `dockerfile` | `**/Dockerfile`, `**/Dockerfile.*`, `**/*.Dockerfile` | — |
-| `python-tests` | `**/test_*.py`, `**/*_test.py`, `**/conftest.py` | pytest `testpaths` × `python_files` |
-| `ts-tests` | `**/*.{test,spec}.{ts,tsx,mts,cts,js,jsx,mjs,cjs}`, `**/__tests__/**` | — (code config) |
-| `e2e-tests` | `e2e/**`, `tests/e2e/**` | — (code config) |
-| `alembic-migrations` | `alembic/versions/**`, `migrations/versions/**` | `alembic.ini` `script_location` + `/versions/**` |
-| `prisma-migrations` | `prisma/migrations/**` | `package.json` `prisma.schema` directory + `/migrations/**` |
-| `drizzle-migrations` | `drizzle/**` | — (code config) |
-| `env-files` | `.env`, `.env.*`, `!@env-template` | — |
-| `env-template` | `.env.example`, `.env.sample`, `.env.template` | — |
-| `lockfiles` | `uv.lock`, `bun.lock`, `bun.lockb`, `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock` | — |
+| `adr` | `docs/adr/**`, `doc/adr/**`, `docs/decisions/**` | adr-tools `.adr-dir` + `/**` |
+| `alembic-migrations` | `alembic/versions/**`, `migrations/versions/**` | `alembic.ini` (or `[tool.alembic]`) `version_locations`, else `script_location` + `/versions/**` |
+| `better-auth-config` | the auth CLI's search paths: `{,src/,app/}{,lib/server/,server/auth/,server/,auth/,lib/,utils/}{auth,auth/index}{.ts,.tsx,.js,.jsx,.server.js,.server.ts}` | — |
+| `compose` | `**/compose*.yaml`, `**/compose*.yml`, `**/docker-compose*.yaml`, `**/docker-compose*.yml` | — |
+| `django-migrations` | `**/migrations/[0-9]*.py` | — |
+| `django-settings` | `**/settings.py`, `**/settings/*.py` | pytest-django `DJANGO_SETTINGS_MODULE` (`a.b` → `a/b.py`, `a/b/*.py`) |
+| `django-templates` | `**/templates/**/*.html`, `**/templates/**/*.txt` | — |
+| `dockerfile` | `**/Dockerfile`, `**/Dockerfile.*`, `**/*.Dockerfile`, `**/Containerfile`, `!**/*.dockerignore` | — |
 | `docs` | `docs/**/*.{md,mdx,rst}`, `doc/**/*.{md,mdx,rst}`, `README*` | — |
-| `generated-clients` | none | `schema.prisma` generator `output`; the OpenAPI generator outputs of `package.json` scripts |
-| `django-settings` | `**/settings.py`, `**/settings/*.py` | pytest-django `DJANGO_SETTINGS_MODULE` |
+| `drizzle-migrations` | `drizzle/**` | — (code config) |
+| `e2e-tests` | `e2e/**`, `tests/e2e/**` | — (code config) |
+| `env-files` | `**/.env`, `**/.env.*`, `!@env-template` | — |
+| `env-template` | `**/.env.example`, `**/.env.sample`, `**/.env.template`, `**/.env.dist` | — |
+| `esm-modules` | `**/*.mts`, `**/*.mjs` | plus `<dir>/**/*.{ts,tsx,js,jsx}` for each `package.json` with `"type": "module"`, less those under a nested `package.json` without it |
+| `generated-clients` | none | `schema.prisma` generator `output` (relative to the schema) + `/**` |
+| `gunicorn-config` | `**/gunicorn.conf.py` | — |
+| `lockfiles` | `uv.lock`, `bun.lock`, `bun.lockb`, `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock` | — |
+| `prisma-migrations` | `prisma/migrations/**` | `package.json` `prisma.schema` directory + `/migrations/**` |
+| `procfile` | `Procfile`, `Procfile.*` | — |
+| `python-tests` | `**/test_*.py`, `**/*_test.py`, `**/conftest.py` | pytest `testpaths` × `python_files` (`pytest.ini`, `[tool.pytest]` / `[tool.pytest.ini_options]`, `tox.ini`, `setup.cfg`), plus `**/conftest.py` |
+| `sql-migrations` | `db/migration/**/*.sql` (Flyway), `supabase/migrations/*.sql`, `db/migrations/*.sql` (dbmate) | Flyway `flyway.locations` `filesystem:` dirs (`flyway.conf`, `conf/flyway.conf`, `flyway.toml`) replace Flyway's; `deploy/**/*.sql` with `sqitch.plan` (under `sqitch.conf` `top_dir`); Atlas `atlas.hcl` `dir = "file://…"` + `/*.sql` (default `migrations/*.sql`) |
+| `ts-tests` | `**/*.{test,spec}.{ts,tsx,mts,cts,js,jsx,mjs,cjs}`, `**/__tests__/**` | — (code config) |
+| `typeorm-datasource` | none: set it in `forge.yaml` | — (code config) |
+| `wrangler-config` | `**/wrangler.toml`, `**/wrangler.json`, `**/wrangler.jsonc` | — |
+| `wrangler-types` | `worker-configuration.d.ts` | — (a CLI argument) |
 
-- A role may include another (`!@env-template`); cycles are rejected. A role an active rule names but nothing matches is reported by `status`, never guessed.
+- Patterns are globs: `**` spans directories, `*` and `?` one segment, `[0-9]` / `[!x]` one character, `{a,b}` alternatives. A role may include another (`!@env-template`); cycles are rejected, and so are roles `forge.yaml` names that Forge does not know.
 
 ### 15.5 Tests (proposed)
 

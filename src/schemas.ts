@@ -5,6 +5,9 @@ const SEGMENT = "[a-z][a-z0-9-]*";
 const ID = `^${SEGMENT}(/${SEGMENT})*$`;
 /** Rule ids are a pack id plus the rule name. */
 const RULE_ID = `^${SEGMENT}(/${SEGMENT})+$`;
+/** A file role (§15.4): `@<role>` in a glob list, `!@<role>` to exclude its files. */
+const ROLE = "[a-z][a-z0-9-]*";
+const roleGlobs = { type: "array", minItems: 1, items: { type: "string", minLength: 1 } } as const;
 
 export const packSchema = {
   $schema: "https://json-schema.org/draft/2020-12/schema",
@@ -287,6 +290,16 @@ export const projectConfigSchema = {
         properties: { id: { type: "string", pattern: RULE_ID }, reason: { type: "string", minLength: 1 } },
       },
     },
+    files: {
+      type: "object",
+      propertyNames: { pattern: `^${ROLE}$` },
+      additionalProperties: {
+        type: "object",
+        additionalProperties: false,
+        minProperties: 1,
+        properties: { add: roleGlobs, set: roleGlobs },
+      },
+    },
     accept: {
       type: "array",
       items: {
@@ -329,6 +342,7 @@ export const lockSchema = {
         properties: { file: { type: "string", minLength: 1 }, path: { type: "string", minLength: 1 }, value: true },
       },
     },
+    roles: { type: "object", propertyNames: { pattern: `^${ROLE}$` }, additionalProperties: { type: "array", items: { type: "string" } } },
     blocks: {
       type: "array",
       items: {
