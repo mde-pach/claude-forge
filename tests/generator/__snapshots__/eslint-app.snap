@@ -772,11 +772,12 @@ now_hash() {
 }
 
 # base_file <path> <out>: writes <path> as it is in the base to <out>; fails if absent there.
+# _bf_inrev=0 says <path> is not in FORGE_BASE_REV's tree (the caller looked it up).
 base_file() {
   if [ -n "${FORGE_SNAP:-}" ] && _bf=$(awk -F '\t' -v p="$1" '$1 == p { print $2; f = 1; exit } END { exit !f }' "$FORGE_SNAP/dirty" 2>/dev/null); then
     [ "$_bf" != - ] && [ -f "$FORGE_SNAP/files/$1" ] || return 1
     mkdir -p "$(dirname "$2")" && cp "$FORGE_SNAP/files/$1" "$2"
-  elif [ -n "${FORGE_BASE_REV:-}" ] && git cat-file -e "$FORGE_BASE_REV:$1" 2>/dev/null; then
+  elif [ -n "${FORGE_BASE_REV:-}" ] && [ "${_bf_inrev:-1}" != 0 ] && git cat-file -e "$FORGE_BASE_REV:$1" 2>/dev/null; then
     mkdir -p "$(dirname "$2")" && git cat-file blob "$FORGE_BASE_REV:$1" > "$2" 2>/dev/null
   else
     return 1
@@ -911,6 +912,21 @@ forge_kill_tree() {
   kill -CONT "$1" 2>/dev/null
 }
 
+# forge_kill_watch <pid>: stops a timeout watcher, "( sleep <n>; ... ) &" started by
+# this shell, and its sleep.
+# SIGKILL: a SIGTERM that reaches the subshell before it has dropped its parent's traps
+# can be lost, and a watcher left alive holds the parent's saved descriptors (a hook's
+# $(...) pipe) until its sleep ends. Stopped first, so it starts nothing meanwhile.
+forge_kill_watch() {
+  kill -STOP "$1" 2>/dev/null
+  _kw_c=$(ps -A -o pid= -o ppid= 2>/dev/null | awk -v p="$1" '$2 == p { print $1 }')
+  # shellcheck disable=SC2086
+  kill -9 "$1" $_kw_c 2>/dev/null
+  # reaped here, so the shell does not report it ("Killed: 9") when it reaps a later job
+  wait "$1" 2>/dev/null
+  return 0
+}
+
 # ---- files changed by a Bash command (bash-snapshot.sh, post-edit.sh, typecheck.sh)
 
 # bash_state: where Bash-command snapshots live; bash_key: this tool call's id, file-name safe.
@@ -941,7 +957,7 @@ tree_snapshot() {
   _ts_watch=$!
   wait "$_ts_pid" 2>/dev/null
   _ts_rc=$?
-  forge_kill_tree "$_ts_watch"
+  forge_kill_watch "$_ts_watch"
   _ts_tree=$(cat "$_ts_tmp.out" 2>/dev/null)
   rm -f "$_ts_tmp" "$_ts_tmp.out" "$_ts_tmp.lock"
   [ "$_ts_rc" -eq 0 ] && [ -n "$_ts_tree" ] || return 1
@@ -1263,7 +1279,14 @@ forge_change_set() {
   # integrity covers them (check.sh step 1), the project's rules do not
   : > "$FORGE_TMP/existing"; : > "$FORGE_TMP/deleted"; : > "$FORGE_TMP/inbase"; : > "$FORGE_TMP/added"
   mkdir -p "$FORGE_TMP/base"
-  while IFS= read -r _cs_f; do
+  # "<0|1><TAB><path>": 0 when the path is not in FORGE_BASE_REV's tree at all (one ls-tree
+  # for the whole change, instead of a git cat-file per new file in base_file)
+  : > "$FORGE_TMP/inrev"
+  [ -z "${FORGE_BASE_REV:-}" ] || git ls-tree -r -t -z --full-tree --name-only "$FORGE_BASE_REV" 2>/dev/null | tr '\000' '\n' > "$FORGE_TMP/inrev"
+  awk 'FILENAME == ARGV[1] { t[$0] = 1; next } { print (($0 in t) ? 1 : 0) "\t" $0 }' "$FORGE_TMP/inrev" "$FORGE_TMP/changed" > "$FORGE_TMP/changed.inrev"
+  while IFS= read -r _cs_l; do
+    _bf_inrev=${_cs_l%%"	"*}
+    _cs_f=${_cs_l#*"	"}
     if base_file "$_cs_f" "$FORGE_TMP/base/$_cs_f"; then printf '%s\n' "$_cs_f" >> "$FORGE_TMP/inbase"; _cs_b=1; else _cs_b=0; fi
     if [ -f "$_cs_f" ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/existing"
@@ -1271,7 +1294,8 @@ forge_change_set() {
     elif [ "$_cs_b" = 1 ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/deleted"
     fi
-  done < "$FORGE_TMP/changed"
+  done < "$FORGE_TMP/changed.inrev"
+  unset _bf_inrev
   return 0
 }
 
@@ -1327,6 +1351,8 @@ forge_format_base() {
 # base also counts when its text is that of a line added against the formatted base
 # not matched by number (each such line counted once).
 forge_added_lines() {
+  # a file new since the base: every line is added
+  if [ ! -f "$2" ]; then printf '%s\t*\n' "$1"; return 0; fi
   added_lines "$1" "$2" > "$FORGE_TMP/al.raw"
   if [ ! -f "$2" ] || [ ! -s "$FORGE_TMP/al.raw" ] || [ "${FORGE_PLAIN_ADDED:-0}" = 1 ] || ! forge_format_base "$1" "$2" "$FORGE_TMP/al.base" || cmp -s "$2" "$FORGE_TMP/al.base"; then
     cat "$FORGE_TMP/al.raw"
@@ -2481,9 +2507,12 @@ FORGE_SQUAWK_BLOCKING='renaming-column|renaming-table|changing-column-type|addin
 
 # forge_squawk <args>: the pinned Squawk through bunx or uvx; gcc-style output in
 # $FORGE_TMP/squawk. Exit status 0 when Squawk ran (with or without findings).
+# "bunx squawk-cli@<v>" runs the package's one binary from bunx's cache; with
+# "-p squawk-cli@<v> squawk" bunx installs the package again at every run, and
+# runs at the same time then kill each other's install.
 forge_squawk() {
   if command -v bunx >/dev/null 2>&1; then
-    bunx -p "squawk-cli@$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
+    bunx "squawk-cli@$FORGE_SQUAWK_VERSION" --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
   elif command -v uvx >/dev/null 2>&1; then
     uvx -q --from "squawk-cli==$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
   else
@@ -3358,7 +3387,7 @@ forge_exec_check() {
     _fe_watch=$!
     wait "$_fe_pid" 2>/dev/null
     _fe_rc=$?
-    forge_kill_tree "$_fe_watch"
+    forge_kill_watch "$_fe_watch"
     if [ -f "$FORGE_TMP/timedout" ]; then rm -f "$FORGE_TMP/timedout"; _fe_rc=124; fi
   else
     ( "$1" ) > "$FORGE_TMP/out" 2>&1 < /dev/null
@@ -4233,7 +4262,7 @@ if [ -s "$FORGE_TMP/changed" ]; then
   ( sleep "${FORGE_EDIT_BUDGET:-45}"; : > "$FORGE_TMP/over"; forge_kill_tree "$_pe_pid" ) >/dev/null 2>&1 &
   _pe_watch=$!
   wait "$_pe_pid" 2>/dev/null
-  forge_kill_tree "$_pe_watch"
+  forge_kill_watch "$_pe_watch"
   if [ -f "$FORGE_TMP/over" ]; then
     { printf 'forge: the checks after this edit stopped after %ss; findings so far are below, and the Stop check covers the rest.\n' "${FORGE_EDIT_BUDGET:-45}"
       cat "$FORGE_TMP/report"; } > "$FORGE_TMP/report.over"
@@ -4463,7 +4492,14 @@ forge_change_set() {
   # integrity covers them (check.sh step 1), the project's rules do not
   : > "$FORGE_TMP/existing"; : > "$FORGE_TMP/deleted"; : > "$FORGE_TMP/inbase"; : > "$FORGE_TMP/added"
   mkdir -p "$FORGE_TMP/base"
-  while IFS= read -r _cs_f; do
+  # "<0|1><TAB><path>": 0 when the path is not in FORGE_BASE_REV's tree at all (one ls-tree
+  # for the whole change, instead of a git cat-file per new file in base_file)
+  : > "$FORGE_TMP/inrev"
+  [ -z "${FORGE_BASE_REV:-}" ] || git ls-tree -r -t -z --full-tree --name-only "$FORGE_BASE_REV" 2>/dev/null | tr '\000' '\n' > "$FORGE_TMP/inrev"
+  awk 'FILENAME == ARGV[1] { t[$0] = 1; next } { print (($0 in t) ? 1 : 0) "\t" $0 }' "$FORGE_TMP/inrev" "$FORGE_TMP/changed" > "$FORGE_TMP/changed.inrev"
+  while IFS= read -r _cs_l; do
+    _bf_inrev=${_cs_l%%"	"*}
+    _cs_f=${_cs_l#*"	"}
     if base_file "$_cs_f" "$FORGE_TMP/base/$_cs_f"; then printf '%s\n' "$_cs_f" >> "$FORGE_TMP/inbase"; _cs_b=1; else _cs_b=0; fi
     if [ -f "$_cs_f" ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/existing"
@@ -4471,7 +4507,8 @@ forge_change_set() {
     elif [ "$_cs_b" = 1 ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/deleted"
     fi
-  done < "$FORGE_TMP/changed"
+  done < "$FORGE_TMP/changed.inrev"
+  unset _bf_inrev
   return 0
 }
 
@@ -4527,6 +4564,8 @@ forge_format_base() {
 # base also counts when its text is that of a line added against the formatted base
 # not matched by number (each such line counted once).
 forge_added_lines() {
+  # a file new since the base: every line is added
+  if [ ! -f "$2" ]; then printf '%s\t*\n' "$1"; return 0; fi
   added_lines "$1" "$2" > "$FORGE_TMP/al.raw"
   if [ ! -f "$2" ] || [ ! -s "$FORGE_TMP/al.raw" ] || [ "${FORGE_PLAIN_ADDED:-0}" = 1 ] || ! forge_format_base "$1" "$2" "$FORGE_TMP/al.base" || cmp -s "$2" "$FORGE_TMP/al.base"; then
     cat "$FORGE_TMP/al.raw"
@@ -5681,9 +5720,12 @@ FORGE_SQUAWK_BLOCKING='renaming-column|renaming-table|changing-column-type|addin
 
 # forge_squawk <args>: the pinned Squawk through bunx or uvx; gcc-style output in
 # $FORGE_TMP/squawk. Exit status 0 when Squawk ran (with or without findings).
+# "bunx squawk-cli@<v>" runs the package's one binary from bunx's cache; with
+# "-p squawk-cli@<v> squawk" bunx installs the package again at every run, and
+# runs at the same time then kill each other's install.
 forge_squawk() {
   if command -v bunx >/dev/null 2>&1; then
-    bunx -p "squawk-cli@$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
+    bunx "squawk-cli@$FORGE_SQUAWK_VERSION" --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
   elif command -v uvx >/dev/null 2>&1; then
     uvx -q --from "squawk-cli==$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
   else
@@ -6558,7 +6600,7 @@ forge_exec_check() {
     _fe_watch=$!
     wait "$_fe_pid" 2>/dev/null
     _fe_rc=$?
-    forge_kill_tree "$_fe_watch"
+    forge_kill_watch "$_fe_watch"
     if [ -f "$FORGE_TMP/timedout" ]; then rm -f "$FORGE_TMP/timedout"; _fe_rc=124; fi
   else
     ( "$1" ) > "$FORGE_TMP/out" 2>&1 < /dev/null
@@ -7694,7 +7736,14 @@ forge_change_set() {
   # integrity covers them (check.sh step 1), the project's rules do not
   : > "$FORGE_TMP/existing"; : > "$FORGE_TMP/deleted"; : > "$FORGE_TMP/inbase"; : > "$FORGE_TMP/added"
   mkdir -p "$FORGE_TMP/base"
-  while IFS= read -r _cs_f; do
+  # "<0|1><TAB><path>": 0 when the path is not in FORGE_BASE_REV's tree at all (one ls-tree
+  # for the whole change, instead of a git cat-file per new file in base_file)
+  : > "$FORGE_TMP/inrev"
+  [ -z "${FORGE_BASE_REV:-}" ] || git ls-tree -r -t -z --full-tree --name-only "$FORGE_BASE_REV" 2>/dev/null | tr '\000' '\n' > "$FORGE_TMP/inrev"
+  awk 'FILENAME == ARGV[1] { t[$0] = 1; next } { print (($0 in t) ? 1 : 0) "\t" $0 }' "$FORGE_TMP/inrev" "$FORGE_TMP/changed" > "$FORGE_TMP/changed.inrev"
+  while IFS= read -r _cs_l; do
+    _bf_inrev=${_cs_l%%"	"*}
+    _cs_f=${_cs_l#*"	"}
     if base_file "$_cs_f" "$FORGE_TMP/base/$_cs_f"; then printf '%s\n' "$_cs_f" >> "$FORGE_TMP/inbase"; _cs_b=1; else _cs_b=0; fi
     if [ -f "$_cs_f" ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/existing"
@@ -7702,7 +7751,8 @@ forge_change_set() {
     elif [ "$_cs_b" = 1 ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/deleted"
     fi
-  done < "$FORGE_TMP/changed"
+  done < "$FORGE_TMP/changed.inrev"
+  unset _bf_inrev
   return 0
 }
 
@@ -7758,6 +7808,8 @@ forge_format_base() {
 # base also counts when its text is that of a line added against the formatted base
 # not matched by number (each such line counted once).
 forge_added_lines() {
+  # a file new since the base: every line is added
+  if [ ! -f "$2" ]; then printf '%s\t*\n' "$1"; return 0; fi
   added_lines "$1" "$2" > "$FORGE_TMP/al.raw"
   if [ ! -f "$2" ] || [ ! -s "$FORGE_TMP/al.raw" ] || [ "${FORGE_PLAIN_ADDED:-0}" = 1 ] || ! forge_format_base "$1" "$2" "$FORGE_TMP/al.base" || cmp -s "$2" "$FORGE_TMP/al.base"; then
     cat "$FORGE_TMP/al.raw"
@@ -8912,9 +8964,12 @@ FORGE_SQUAWK_BLOCKING='renaming-column|renaming-table|changing-column-type|addin
 
 # forge_squawk <args>: the pinned Squawk through bunx or uvx; gcc-style output in
 # $FORGE_TMP/squawk. Exit status 0 when Squawk ran (with or without findings).
+# "bunx squawk-cli@<v>" runs the package's one binary from bunx's cache; with
+# "-p squawk-cli@<v> squawk" bunx installs the package again at every run, and
+# runs at the same time then kill each other's install.
 forge_squawk() {
   if command -v bunx >/dev/null 2>&1; then
-    bunx -p "squawk-cli@$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
+    bunx "squawk-cli@$FORGE_SQUAWK_VERSION" --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
   elif command -v uvx >/dev/null 2>&1; then
     uvx -q --from "squawk-cli==$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
   else
@@ -9789,7 +9844,7 @@ forge_exec_check() {
     _fe_watch=$!
     wait "$_fe_pid" 2>/dev/null
     _fe_rc=$?
-    forge_kill_tree "$_fe_watch"
+    forge_kill_watch "$_fe_watch"
     if [ -f "$FORGE_TMP/timedout" ]; then rm -f "$FORGE_TMP/timedout"; _fe_rc=124; fi
   else
     ( "$1" ) > "$FORGE_TMP/out" 2>&1 < /dev/null
@@ -10945,7 +11000,14 @@ forge_change_set() {
   # integrity covers them (check.sh step 1), the project's rules do not
   : > "$FORGE_TMP/existing"; : > "$FORGE_TMP/deleted"; : > "$FORGE_TMP/inbase"; : > "$FORGE_TMP/added"
   mkdir -p "$FORGE_TMP/base"
-  while IFS= read -r _cs_f; do
+  # "<0|1><TAB><path>": 0 when the path is not in FORGE_BASE_REV's tree at all (one ls-tree
+  # for the whole change, instead of a git cat-file per new file in base_file)
+  : > "$FORGE_TMP/inrev"
+  [ -z "${FORGE_BASE_REV:-}" ] || git ls-tree -r -t -z --full-tree --name-only "$FORGE_BASE_REV" 2>/dev/null | tr '\000' '\n' > "$FORGE_TMP/inrev"
+  awk 'FILENAME == ARGV[1] { t[$0] = 1; next } { print (($0 in t) ? 1 : 0) "\t" $0 }' "$FORGE_TMP/inrev" "$FORGE_TMP/changed" > "$FORGE_TMP/changed.inrev"
+  while IFS= read -r _cs_l; do
+    _bf_inrev=${_cs_l%%"	"*}
+    _cs_f=${_cs_l#*"	"}
     if base_file "$_cs_f" "$FORGE_TMP/base/$_cs_f"; then printf '%s\n' "$_cs_f" >> "$FORGE_TMP/inbase"; _cs_b=1; else _cs_b=0; fi
     if [ -f "$_cs_f" ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/existing"
@@ -10953,7 +11015,8 @@ forge_change_set() {
     elif [ "$_cs_b" = 1 ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/deleted"
     fi
-  done < "$FORGE_TMP/changed"
+  done < "$FORGE_TMP/changed.inrev"
+  unset _bf_inrev
   return 0
 }
 
@@ -11009,6 +11072,8 @@ forge_format_base() {
 # base also counts when its text is that of a line added against the formatted base
 # not matched by number (each such line counted once).
 forge_added_lines() {
+  # a file new since the base: every line is added
+  if [ ! -f "$2" ]; then printf '%s\t*\n' "$1"; return 0; fi
   added_lines "$1" "$2" > "$FORGE_TMP/al.raw"
   if [ ! -f "$2" ] || [ ! -s "$FORGE_TMP/al.raw" ] || [ "${FORGE_PLAIN_ADDED:-0}" = 1 ] || ! forge_format_base "$1" "$2" "$FORGE_TMP/al.base" || cmp -s "$2" "$FORGE_TMP/al.base"; then
     cat "$FORGE_TMP/al.raw"
@@ -12163,9 +12228,12 @@ FORGE_SQUAWK_BLOCKING='renaming-column|renaming-table|changing-column-type|addin
 
 # forge_squawk <args>: the pinned Squawk through bunx or uvx; gcc-style output in
 # $FORGE_TMP/squawk. Exit status 0 when Squawk ran (with or without findings).
+# "bunx squawk-cli@<v>" runs the package's one binary from bunx's cache; with
+# "-p squawk-cli@<v> squawk" bunx installs the package again at every run, and
+# runs at the same time then kill each other's install.
 forge_squawk() {
   if command -v bunx >/dev/null 2>&1; then
-    bunx -p "squawk-cli@$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
+    bunx "squawk-cli@$FORGE_SQUAWK_VERSION" --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
   elif command -v uvx >/dev/null 2>&1; then
     uvx -q --from "squawk-cli==$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
   else
@@ -13040,7 +13108,7 @@ forge_exec_check() {
     _fe_watch=$!
     wait "$_fe_pid" 2>/dev/null
     _fe_rc=$?
-    forge_kill_tree "$_fe_watch"
+    forge_kill_watch "$_fe_watch"
     if [ -f "$FORGE_TMP/timedout" ]; then rm -f "$FORGE_TMP/timedout"; _fe_rc=124; fi
   else
     ( "$1" ) > "$FORGE_TMP/out" 2>&1 < /dev/null
@@ -14503,11 +14571,12 @@ now_hash() {
 }
 
 # base_file <path> <out>: writes <path> as it is in the base to <out>; fails if absent there.
+# _bf_inrev=0 says <path> is not in FORGE_BASE_REV's tree (the caller looked it up).
 base_file() {
   if [ -n "${FORGE_SNAP:-}" ] && _bf=$(awk -F '\t' -v p="$1" '$1 == p { print $2; f = 1; exit } END { exit !f }' "$FORGE_SNAP/dirty" 2>/dev/null); then
     [ "$_bf" != - ] && [ -f "$FORGE_SNAP/files/$1" ] || return 1
     mkdir -p "$(dirname "$2")" && cp "$FORGE_SNAP/files/$1" "$2"
-  elif [ -n "${FORGE_BASE_REV:-}" ] && git cat-file -e "$FORGE_BASE_REV:$1" 2>/dev/null; then
+  elif [ -n "${FORGE_BASE_REV:-}" ] && [ "${_bf_inrev:-1}" != 0 ] && git cat-file -e "$FORGE_BASE_REV:$1" 2>/dev/null; then
     mkdir -p "$(dirname "$2")" && git cat-file blob "$FORGE_BASE_REV:$1" > "$2" 2>/dev/null
   else
     return 1
@@ -14642,6 +14711,21 @@ forge_kill_tree() {
   kill -CONT "$1" 2>/dev/null
 }
 
+# forge_kill_watch <pid>: stops a timeout watcher, "( sleep <n>; ... ) &" started by
+# this shell, and its sleep.
+# SIGKILL: a SIGTERM that reaches the subshell before it has dropped its parent's traps
+# can be lost, and a watcher left alive holds the parent's saved descriptors (a hook's
+# $(...) pipe) until its sleep ends. Stopped first, so it starts nothing meanwhile.
+forge_kill_watch() {
+  kill -STOP "$1" 2>/dev/null
+  _kw_c=$(ps -A -o pid= -o ppid= 2>/dev/null | awk -v p="$1" '$2 == p { print $1 }')
+  # shellcheck disable=SC2086
+  kill -9 "$1" $_kw_c 2>/dev/null
+  # reaped here, so the shell does not report it ("Killed: 9") when it reaps a later job
+  wait "$1" 2>/dev/null
+  return 0
+}
+
 # ---- files changed by a Bash command (bash-snapshot.sh, post-edit.sh, typecheck.sh)
 
 # bash_state: where Bash-command snapshots live; bash_key: this tool call's id, file-name safe.
@@ -14672,7 +14756,7 @@ tree_snapshot() {
   _ts_watch=$!
   wait "$_ts_pid" 2>/dev/null
   _ts_rc=$?
-  forge_kill_tree "$_ts_watch"
+  forge_kill_watch "$_ts_watch"
   _ts_tree=$(cat "$_ts_tmp.out" 2>/dev/null)
   rm -f "$_ts_tmp" "$_ts_tmp.out" "$_ts_tmp.lock"
   [ "$_ts_rc" -eq 0 ] && [ -n "$_ts_tree" ] || return 1
@@ -14941,7 +15025,14 @@ forge_change_set() {
   # integrity covers them (check.sh step 1), the project's rules do not
   : > "$FORGE_TMP/existing"; : > "$FORGE_TMP/deleted"; : > "$FORGE_TMP/inbase"; : > "$FORGE_TMP/added"
   mkdir -p "$FORGE_TMP/base"
-  while IFS= read -r _cs_f; do
+  # "<0|1><TAB><path>": 0 when the path is not in FORGE_BASE_REV's tree at all (one ls-tree
+  # for the whole change, instead of a git cat-file per new file in base_file)
+  : > "$FORGE_TMP/inrev"
+  [ -z "${FORGE_BASE_REV:-}" ] || git ls-tree -r -t -z --full-tree --name-only "$FORGE_BASE_REV" 2>/dev/null | tr '\000' '\n' > "$FORGE_TMP/inrev"
+  awk 'FILENAME == ARGV[1] { t[$0] = 1; next } { print (($0 in t) ? 1 : 0) "\t" $0 }' "$FORGE_TMP/inrev" "$FORGE_TMP/changed" > "$FORGE_TMP/changed.inrev"
+  while IFS= read -r _cs_l; do
+    _bf_inrev=${_cs_l%%"	"*}
+    _cs_f=${_cs_l#*"	"}
     if base_file "$_cs_f" "$FORGE_TMP/base/$_cs_f"; then printf '%s\n' "$_cs_f" >> "$FORGE_TMP/inbase"; _cs_b=1; else _cs_b=0; fi
     if [ -f "$_cs_f" ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/existing"
@@ -14949,7 +15040,8 @@ forge_change_set() {
     elif [ "$_cs_b" = 1 ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/deleted"
     fi
-  done < "$FORGE_TMP/changed"
+  done < "$FORGE_TMP/changed.inrev"
+  unset _bf_inrev
   return 0
 }
 
@@ -15005,6 +15097,8 @@ forge_format_base() {
 # base also counts when its text is that of a line added against the formatted base
 # not matched by number (each such line counted once).
 forge_added_lines() {
+  # a file new since the base: every line is added
+  if [ ! -f "$2" ]; then printf '%s\t*\n' "$1"; return 0; fi
   added_lines "$1" "$2" > "$FORGE_TMP/al.raw"
   if [ ! -f "$2" ] || [ ! -s "$FORGE_TMP/al.raw" ] || [ "${FORGE_PLAIN_ADDED:-0}" = 1 ] || ! forge_format_base "$1" "$2" "$FORGE_TMP/al.base" || cmp -s "$2" "$FORGE_TMP/al.base"; then
     cat "$FORGE_TMP/al.raw"
@@ -16159,9 +16253,12 @@ FORGE_SQUAWK_BLOCKING='renaming-column|renaming-table|changing-column-type|addin
 
 # forge_squawk <args>: the pinned Squawk through bunx or uvx; gcc-style output in
 # $FORGE_TMP/squawk. Exit status 0 when Squawk ran (with or without findings).
+# "bunx squawk-cli@<v>" runs the package's one binary from bunx's cache; with
+# "-p squawk-cli@<v> squawk" bunx installs the package again at every run, and
+# runs at the same time then kill each other's install.
 forge_squawk() {
   if command -v bunx >/dev/null 2>&1; then
-    bunx -p "squawk-cli@$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
+    bunx "squawk-cli@$FORGE_SQUAWK_VERSION" --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
   elif command -v uvx >/dev/null 2>&1; then
     uvx -q --from "squawk-cli==$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
   else
@@ -17036,7 +17133,7 @@ forge_exec_check() {
     _fe_watch=$!
     wait "$_fe_pid" 2>/dev/null
     _fe_rc=$?
-    forge_kill_tree "$_fe_watch"
+    forge_kill_watch "$_fe_watch"
     if [ -f "$FORGE_TMP/timedout" ]; then rm -f "$FORGE_TMP/timedout"; _fe_rc=124; fi
   else
     ( "$1" ) > "$FORGE_TMP/out" 2>&1 < /dev/null
@@ -17890,24 +17987,46 @@ forge_owned_hash() {
     *) forge_sha256 < "$1" ;;
   esac
 }
+# forge_sha256_files <file>...: "<hex><2 chars><path>" per file, in one run (sha256sum
+# format; openssl's "<hex> *<path>" has the same layout).
+forge_sha256_files() {
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum "$@"
+  elif command -v shasum >/dev/null 2>&1; then shasum -a 256 "$@"
+  else openssl dgst -sha256 -r "$@"
+  fi
+}
 forge_integrity() {
   manifest=.forge/manifest.sha256
   [ -f "$manifest" ] || { report forge/integrity "$manifest is missing (run forge apply)"; return; }
-  awk '/^[0-9a-f]+  ./ { h = $1; p = substr($0, length(h) + 3); print p "\t" h }' "$manifest" > "$FORGE_TMP/owned"
+  awk '/^[0-9a-f]+  ./ { h = $1; p = substr($0, length(h) + 3); if (p ~ /^[.](forge|claude)\//) print p "\t" h }' "$manifest" > "$FORGE_TMP/owned"
+  # "<path><TAB><hash>" lines in $FORGE_TMP/have ("-" for a missing file, none for one
+  # that cannot be read): one hashing run for every owned file but JSON (hashed without whitespace)
+  : > "$FORGE_TMP/have"; : > "$FORGE_TMP/plain"
   while IFS='	' read -r path hash; do
     [ -n "$path" ] || continue
-    case $path in .forge/*|.claude/*) ;; *) continue ;; esac
-    if [ ! -f "$path" ]; then report forge/integrity "$path is missing (run forge apply)"
-    elif [ "$(forge_owned_hash "$path")" != "$hash" ]; then report forge/integrity "$path was modified (run forge diff)"
-    fi
+    [ -f "$path" ] || { printf '%s\t-\n' "$path" >> "$FORGE_TMP/have"; continue; }
+    case $path in
+      *.json) printf '%s\t%s\n' "$path" "$(forge_owned_hash "$path")" >> "$FORGE_TMP/have" ;;
+      *) printf '%s\n' "$path" >> "$FORGE_TMP/plain" ;;
+    esac
   done < "$FORGE_TMP/owned"
+  if [ -s "$FORGE_TMP/plain" ]; then
+    set -f
+    # shellcheck disable=SC2046
+    forge_sha256_files $(cat "$FORGE_TMP/plain") 2>/dev/null | awk '{ h = $1; print substr($0, length(h) + 3) "\t" h }' >> "$FORGE_TMP/have"
+    set +f
+  fi
+  # in manifest order: missing, or modified
+  awk -F '\t' 'FILENAME == ARGV[1] { have[$1] = $2; next }
+    $1 == "" { next }
+    have[$1] == "-" { printf "forge:forge/integrity %s is missing (run forge apply)\n", $1; next }
+    have[$1] != $2 { printf "forge:forge/integrity %s was modified (run forge diff)\n", $1 }' "$FORGE_TMP/have" "$FORGE_TMP/owned" > "$FORGE_TMP/integrity"
   cut -f 1 "$FORGE_TMP/owned" > "$FORGE_TMP/owned-paths"
   { find .forge .claude/skills/forge-project -type f 2>/dev/null; find .claude/rules -name 'forge-*.md' -type f 2>/dev/null; } \
-    | sed 's|^\./||' | while read -r path; do
-      case $path in .forge/state/*|.forge/rules/*|.forge/forge.lock.json|.forge/manifest.sha256) continue ;; esac
-      grep -qxF "$path" "$FORGE_TMP/owned-paths" || printf 'forge:forge/integrity %s is not a forge file (remove it or run forge apply)\n' "$path"
-    done > "$FORGE_TMP/extra"
-  if [ -s "$FORGE_TMP/extra" ]; then cat "$FORGE_TMP/extra"; fail=1; fi
+    | sed 's|^\./||' | awk 'FILENAME == ARGV[1] { owned[$0] = 1; next }
+      /^[.]forge\/(state|rules)\// || $0 == ".forge/forge.lock.json" || $0 == ".forge/manifest.sha256" { next }
+      !($0 in owned) { printf "forge:forge/integrity %s is not a forge file (remove it or run forge apply)\n", $0 }' "$FORGE_TMP/owned-paths" - >> "$FORGE_TMP/integrity"
+  if [ -s "$FORGE_TMP/integrity" ]; then cat "$FORGE_TMP/integrity"; fail=1; fi
 }
 
 # 2. Applied migrations (in the base) are never modified or deleted.
@@ -18065,14 +18184,14 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/bash-snapshot.sh": "29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e",
     ".claude/skills/forge-project/scripts/guard.rules": "ff61a19974ccfc38fe6771978c9f9fe21253d4132eff8af9f06b112607965a00",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
-    ".claude/skills/forge-project/scripts/lib.sh": "97c691d009a979b4dd1f81efd9535346b0027bc12a574653532eca62b978a289",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "60b49e0c04ad9d7420c247665574dd90e92c152c1a0190511f8566a0e09e6836",
+    ".claude/skills/forge-project/scripts/lib.sh": "f9cb6629b5900b5c8d0891b5d69d0d51cb68108a2c99d1bfad86ddd612b3725a",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "417b89d5acee06bc0aa3664787a286ab52a4524d6b9583938bea1de254d18708",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
-    ".claude/skills/forge-project/scripts/session-start.sh": "e05b7b6f260913a311737846a7c591fc7e1cddfce7a453ea00db24fad1d2010e",
+    ".claude/skills/forge-project/scripts/session-start.sh": "1d02445b767216442761ad465b5df278a20c9b8b79779a2a44989fc97962f5ab",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "cac203333e9d05c34d55027475549661f838779655b07323e94c58b3dc17ced9",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "2b14629d0a5b19417965c9d787643f0ab7bfc995831e28745b826e198d1fd636",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "40f489510ae5a76fd02f7b109c3b02b531d678d79db4459cd3fa8bdbaf6c770a",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "c1c15b169b8c39575f51db52f16bee0558b2fcdc55d612a071a9904d06cc4fc1",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml": "c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20",
     ".forge/ast-grep/rule-tests/typescript-no-eval-test.yml": "3716e00219b28a0974a07a56e1d264bb478b35a6ef38d5c13740a9080b09516e",
@@ -18095,7 +18214,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/typescript/no-ts-nocheck.yml": "aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21",
     ".forge/ast-grep/rules/typescript/ts-expect-error-reason.yml": "b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "0fee8d668729f113ff95e8557af127e785d611dffbf16b83bb62e6d223ecb9e2",
+    ".forge/check.sh": "1ce9dbdfc4c75d43c4d9cfc2090a5b4f2a77c9e70ea7bfc7667528077a6615cb",
     ".forge/helpers/ratchet.mjs": "14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
@@ -18287,14 +18406,14 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e  .claude/skills/forge-project/scripts/bash-snapshot.sh
 ff61a19974ccfc38fe6771978c9f9fe21253d4132eff8af9f06b112607965a00  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
-97c691d009a979b4dd1f81efd9535346b0027bc12a574653532eca62b978a289  .claude/skills/forge-project/scripts/lib.sh
-60b49e0c04ad9d7420c247665574dd90e92c152c1a0190511f8566a0e09e6836  .claude/skills/forge-project/scripts/post-edit.sh
+f9cb6629b5900b5c8d0891b5d69d0d51cb68108a2c99d1bfad86ddd612b3725a  .claude/skills/forge-project/scripts/lib.sh
+417b89d5acee06bc0aa3664787a286ab52a4524d6b9583938bea1de254d18708  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
-e05b7b6f260913a311737846a7c591fc7e1cddfce7a453ea00db24fad1d2010e  .claude/skills/forge-project/scripts/session-start.sh
+1d02445b767216442761ad465b5df278a20c9b8b79779a2a44989fc97962f5ab  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-cac203333e9d05c34d55027475549661f838779655b07323e94c58b3dc17ced9  .claude/skills/forge-project/scripts/test-edit.sh
+2b14629d0a5b19417965c9d787643f0ab7bfc995831e28745b826e198d1fd636  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-40f489510ae5a76fd02f7b109c3b02b531d678d79db4459cd3fa8bdbaf6c770a  .claude/skills/forge-project/scripts/typecheck.sh
+c1c15b169b8c39575f51db52f16bee0558b2fcdc55d612a071a9904d06cc4fc1  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20  .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
 3716e00219b28a0974a07a56e1d264bb478b35a6ef38d5c13740a9080b09516e  .forge/ast-grep/rule-tests/typescript-no-eval-test.yml
@@ -18317,7 +18436,7 @@ b21497e3335f2271e6ca5874817957d18c640e7d787cfe76a72ef390ab62d634  .forge/ast-gre
 aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21  .forge/ast-grep/rules/typescript/no-ts-nocheck.yml
 b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad  .forge/ast-grep/rules/typescript/ts-expect-error-reason.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-0fee8d668729f113ff95e8557af127e785d611dffbf16b83bb62e6d223ecb9e2  .forge/check.sh
+1ce9dbdfc4c75d43c4d9cfc2090a5b4f2a77c9e70ea7bfc7667528077a6615cb  .forge/check.sh
 14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38  .forge/helpers/ratchet.mjs
 
 ===== .git/hooks/pre-commit

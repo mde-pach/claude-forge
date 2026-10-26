@@ -198,11 +198,12 @@ now_hash() {
 }
 
 # base_file <path> <out>: writes <path> as it is in the base to <out>; fails if absent there.
+# _bf_inrev=0 says <path> is not in FORGE_BASE_REV's tree (the caller looked it up).
 base_file() {
   if [ -n "${FORGE_SNAP:-}" ] && _bf=$(awk -F '\t' -v p="$1" '$1 == p { print $2; f = 1; exit } END { exit !f }' "$FORGE_SNAP/dirty" 2>/dev/null); then
     [ "$_bf" != - ] && [ -f "$FORGE_SNAP/files/$1" ] || return 1
     mkdir -p "$(dirname "$2")" && cp "$FORGE_SNAP/files/$1" "$2"
-  elif [ -n "${FORGE_BASE_REV:-}" ] && git cat-file -e "$FORGE_BASE_REV:$1" 2>/dev/null; then
+  elif [ -n "${FORGE_BASE_REV:-}" ] && [ "${_bf_inrev:-1}" != 0 ] && git cat-file -e "$FORGE_BASE_REV:$1" 2>/dev/null; then
     mkdir -p "$(dirname "$2")" && git cat-file blob "$FORGE_BASE_REV:$1" > "$2" 2>/dev/null
   else
     return 1
@@ -337,6 +338,21 @@ forge_kill_tree() {
   kill -CONT "$1" 2>/dev/null
 }
 
+# forge_kill_watch <pid>: stops a timeout watcher, "( sleep <n>; ... ) &" started by
+# this shell, and its sleep.
+# SIGKILL: a SIGTERM that reaches the subshell before it has dropped its parent's traps
+# can be lost, and a watcher left alive holds the parent's saved descriptors (a hook's
+# $(...) pipe) until its sleep ends. Stopped first, so it starts nothing meanwhile.
+forge_kill_watch() {
+  kill -STOP "$1" 2>/dev/null
+  _kw_c=$(ps -A -o pid= -o ppid= 2>/dev/null | awk -v p="$1" '$2 == p { print $1 }')
+  # shellcheck disable=SC2086
+  kill -9 "$1" $_kw_c 2>/dev/null
+  # reaped here, so the shell does not report it ("Killed: 9") when it reaps a later job
+  wait "$1" 2>/dev/null
+  return 0
+}
+
 # ---- files changed by a Bash command (bash-snapshot.sh, post-edit.sh, typecheck.sh)
 
 # bash_state: where Bash-command snapshots live; bash_key: this tool call's id, file-name safe.
@@ -367,7 +383,7 @@ tree_snapshot() {
   _ts_watch=$!
   wait "$_ts_pid" 2>/dev/null
   _ts_rc=$?
-  forge_kill_tree "$_ts_watch"
+  forge_kill_watch "$_ts_watch"
   _ts_tree=$(cat "$_ts_tmp.out" 2>/dev/null)
   rm -f "$_ts_tmp" "$_ts_tmp.out" "$_ts_tmp.lock"
   [ "$_ts_rc" -eq 0 ] && [ -n "$_ts_tree" ] || return 1

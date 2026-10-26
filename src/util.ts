@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { spawnSync, type SpawnSyncOptions } from "node:child_process";
 import { existsSync } from "node:fs";
+import { availableParallelism } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -59,6 +60,47 @@ export function run(cmd: string, args: string[], opts: SpawnSyncOptions = {}): R
     stdout: String(r.stdout ?? ""),
     stderr: String(r.stderr ?? ""),
   };
+}
+
+/** A process for runParallel: env holds overrides of the current environment. */
+export interface Job {
+  cmd: string;
+  args: string[];
+  cwd?: string;
+  env?: Record<string, string>;
+  input?: string;
+}
+
+// The pool runParallel starts: reads the jobs (JSON) on stdin, runs <n> at a time, prints the results (JSON).
+const POOL = `const { spawn } = require("node:child_process");
+const jobs = JSON.parse(require("node:fs").readFileSync(0, "utf8"));
+const n = Number(process.argv[process.argv.length - 1]) || 1;
+const out = new Array(jobs.length);
+let next = 0;
+const one = (j) => new Promise((done) => {
+  let stdout = "", stderr = "";
+  const p = spawn(j.cmd, j.args, { cwd: j.cwd, env: { ...process.env, ...(j.env || {}) } });
+  p.stdout.setEncoding("utf8").on("data", (d) => (stdout += d));
+  p.stderr.setEncoding("utf8").on("data", (d) => (stderr += d));
+  p.stdin.on("error", () => {});
+  p.on("error", () => done({ status: 127, stdout, stderr }));
+  p.on("close", (code) => done({ status: code ?? 1, stdout, stderr }));
+  p.stdin.end(j.input || "");
+});
+Promise.all(Array.from({ length: Math.min(n, jobs.length) }, async () => {
+  while (next < jobs.length) { const i = next++; out[i] = await one(jobs[i]); }
+})).then(() => process.stdout.write(JSON.stringify(out)));
+`;
+
+/**
+ * Runs independent processes <n> at a time and returns their results in job order, as
+ * run() would one by one: synchronous for the caller, the processes overlap in a child pool.
+ */
+export function runParallel(jobs: Job[], n = availableParallelism()): RunResult[] {
+  if (jobs.length < 2 || n < 2) return jobs.map((j) => run(j.cmd, j.args, { cwd: j.cwd, env: { ...process.env, ...j.env }, input: j.input ?? "" }));
+  const r = spawnSync(process.execPath, ["-e", POOL, String(n)], { input: JSON.stringify(jobs), encoding: "utf8", maxBuffer: 512 * 1024 * 1024 });
+  if (r.status !== 0) throw new Error(`forge: the process pool failed: ${String(r.stderr || r.error || "").trim()}`);
+  return JSON.parse(r.stdout) as RunResult[];
 }
 
 export function gitToplevel(cwd: string): string | undefined {

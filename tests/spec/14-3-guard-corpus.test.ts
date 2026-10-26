@@ -18,7 +18,7 @@ import { join } from "node:path";
 import { loadPacks } from "../../src/packs";
 import { renderGuardRules, template, type ActiveGuard } from "../../src/render";
 import { availableShells, guardDecision, guardExampleDir, hookInput } from "../../src/selftest";
-import { ROOT } from "../helpers";
+import { othersRunning, ROOT } from "../helpers";
 import type { GuardTarget } from "../../src/types";
 
 const guards: ActiveGuard[] = [...loadPacks(join(ROOT, "packs")).values()]
@@ -109,9 +109,9 @@ describe.each(availableShells().map((s) => [s.name, s.argv] as const))("on %s", 
  * interleaving makes those spikes hit both series alike. Noise only ever adds
  * time, so the measurement is repeated up to three times and the best round
  * counts. The median of a whole guard call, start-up included, must also stay
- * under 20 ms.
+ * under 20 ms. It needs a quiet machine: the parallel runner runs it alone, after the rest.
  */
-test("guard.sh answers within 20 ms at the 99th percentile with 50 rules", () => {
+test.skipIf(othersRunning(import.meta.path))("guard.sh answers within 20 ms at the 99th percentile with 50 rules", () => {
   const padded: ActiveGuard[] = [...guards];
   for (let i = 0; padded.length < 50; i++) padded.push({ ...guards[i % guards.length]! });
   const d = mkdtempSync(join(tmpdir(), "forge-guard-perf-"));

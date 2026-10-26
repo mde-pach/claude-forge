@@ -21,7 +21,7 @@ import {
   typesLanguage,
   type TypesLanguage,
 } from "./render.js";
-import { AST_GREP_VERSION, ENGINE_PYTHON, HADOLINT_SHA256, HADOLINT_VERSION, ownedHash, run, sha256 } from "./util.js";
+import { AST_GREP_VERSION, ENGINE_PYTHON, HADOLINT_SHA256, HADOLINT_VERSION, type Job, ownedHash, run, runParallel, sha256 } from "./util.js";
 import type { AstGrepTarget, CheckTarget, DepSpec, Example, ExampleFixture, GrepTarget, GuardTarget, PermissionTarget, Rule, WhereCondition } from "./types.js";
 
 export interface TestReport {
@@ -58,7 +58,16 @@ export function hookInput(command: string, cwd = "/"): string {
 
 /** Runs guard.sh from <dir> under <shell> (argv) on <command> (from <cwd>); returns "deny" | "ask" | "" (or "error: …"). */
 export function guardDecision(shell: string[], dir: string, command: string, cwd = "/"): string {
-  const r = run(shell[0]!, [...shell.slice(1), join(dir, "guard.sh")], { input: hookInput(command, cwd) });
+  return guardOutcome(run(shell[0]!, [...shell.slice(1), join(dir, "guard.sh")], { input: hookInput(command, cwd) }));
+}
+
+/** The guard.sh run of guardDecision. */
+function guardJob(shell: string[], dir: string, command: string, cwd = "/"): Job {
+  return { cmd: shell[0]!, args: [...shell.slice(1), join(dir, "guard.sh")], input: hookInput(command, cwd) };
+}
+
+/** guardDecision's reading of a guard.sh run. */
+function guardOutcome(r: { status: number; stdout: string; stderr: string }): string {
   if (r.status !== 0) return `error: exit ${r.status} ${r.stderr.trim()}`;
   if (!r.stdout.trim()) return "";
   try {
@@ -179,47 +188,91 @@ export interface CheckExampleResult {
  * example must pass it. Project tools come from `toolBins`, system tools from PATH.
  */
 export function runCheckExample(rule: Rule, t: CheckTarget, ex: Example, kind: "match" | "no_match", toolBins: string[]): CheckExampleResult {
-  const dir = mkdtempSync(join(tmpdir(), "forge-check-example-"));
+  return runCheckExamples([{ rule, target: t, example: ex, kind }], toolBins)[0]!;
+}
+
+export interface CheckExampleRun {
+  rule: Rule;
+  target: CheckTarget;
+  example: Example;
+  kind: "match" | "no_match";
+}
+
+const SNAP = ".forge/state/example.turn";
+/**
+ * One example's run, after its repository holds the head files: commits them, records the
+ * turn's start (the snapshot turn-start.sh would write: that head, a clean tree), writes
+ * the fixture's files (staged in $1) and stages them, then runs check.sh (its mode in $2…).
+ */
+const EXAMPLE_RUN = `g() ( export ${Object.entries(GIT_ENV).map(([k, v]) => `${k}=${v}`).join(" ")}; exec git "$@" )
+g init -q -b main
+g add -A
+g commit -qm head --allow-empty
+mkdir -p ${SNAP}
+g rev-parse HEAD > ${SNAP}/head
+printf '\\n' > ${SNAP}/tree
+: > ${SNAP}/dirty
+stage=$1; shift
+cp -R "$stage/." .
+g add -A
+exec sh .forge/check.sh "$@"
+`;
+
+/** Runs check examples (runCheckExample), several at a time: each in its own repository. */
+export function runCheckExamples(runs: CheckExampleRun[], toolBins: string[]): CheckExampleResult[] {
+  const results: (CheckExampleResult | undefined)[] = [];
+  const jobs: Job[] = [];
+  const pending: number[] = [];
+  const dirs: string[] = [];
   try {
-    const fixture = exampleFixture(rule, ex);
-    const script = renderCheckScript([{ rule, target: t }], { forbid: "", noIncrease: "", noDecrease: "" });
-    const owned: Record<string, string> = {
-      ".forge/check.sh": script,
-      ".forge/.gitignore": "state/\n",
-      ".forge/ast-grep/sgconfig.yml": renderSgConfig(),
-      ...Object.fromEntries(helperFiles([{ rule, target: t }])),
-    };
-    const manifest = Object.entries(owned).map(([p, text]) => `${ownedHash(p, text)}  ${p}`).join("\n") + "\n";
-    writeFiles(dir, { ".gitignore": "node_modules/\n.venv/\n", ...owned, ".forge/manifest.sha256": manifest, ...(fixture.head ?? {}) });
-    for (const tool of checkTools(t)) {
-      if ((PROJECT_TOOLS as readonly string[]).includes(tool) || PYTHON_TOOLS.has(tool)) {
-        const bin = toolBins.map((b) => join(b, tool)).find((p) => existsSync(p));
-        if (!bin) return { outcome: "skip", detail: `${tool} not available` };
-        const to = join(dir, PYTHON_TOOLS.has(tool) ? ".venv/bin" : "node_modules/.bin", tool);
-        mkdirSync(dirname(to), { recursive: true });
-        symlinkSync(bin, to);
-      } else if (run("sh", ["-c", `command -v ${tool === "ty" ? "uvx" : tool}`]).status !== 0) return { outcome: "skip", detail: `${tool === "ty" ? "uvx (for ty)" : tool} not available` };
-    }
-    const git = (...args: string[]) => run("git", args, { cwd: dir, env: { ...process.env, ...GIT_ENV } });
-    git("init", "-q", "-b", "main");
-    git("add", "-A");
-    git("commit", "-qm", "head", "--allow-empty");
-    // the turn starts at the head fixture, with a clean tree (the snapshot turn-start.sh would write)
-    const snap = ".forge/state/example.turn";
-    writeFiles(dir, { [`${snap}/head`]: git("rev-parse", "HEAD").stdout, [`${snap}/tree`]: "\n", [`${snap}/dirty`]: "" });
-    writeFiles(dir, fixture.files);
-    git("add", "-A");
-    const mode = checkExampleMode(t);
-    const r = run("sh", [".forge/check.sh", ...(mode === "--turn" ? [mode, snap] : [mode])], { cwd: dir });
-    const out = (r.stdout + r.stderr).trim();
-    const skipped = new RegExp(`^forge:${rule.id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} skipped: (.*)$`, "m").exec(out);
-    if (skipped) return { outcome: "skip", detail: skipped[1]! };
-    const failed = r.status !== 0 && out.includes(`forge:${rule.id} failed`);
-    const brief = out.split("\n").slice(0, 6).join(" | ") || "(no output)";
-    if (kind === "match") return failed ? { outcome: "pass", detail: "" } : { outcome: "fail", detail: `did not fail the check: ${brief}` };
-    return r.status === 0 ? { outcome: "pass", detail: "" } : { outcome: "fail", detail: `failed the check: ${brief}` };
+    runs.forEach(({ rule, target: t, example: ex }, i) => {
+      const dir = mkdtempSync(join(tmpdir(), "forge-check-example-"));
+      dirs.push(dir);
+      const repo = join(dir, "repo");
+      const stage = join(dir, "files");
+      const fixture = exampleFixture(rule, ex);
+      const script = renderCheckScript([{ rule, target: t }], { forbid: "", noIncrease: "", noDecrease: "" });
+      const owned: Record<string, string> = {
+        ".forge/check.sh": script,
+        ".forge/.gitignore": "state/\n",
+        ".forge/ast-grep/sgconfig.yml": renderSgConfig(),
+        ...Object.fromEntries(helperFiles([{ rule, target: t }])),
+      };
+      const manifest = Object.entries(owned).map(([p, text]) => `${ownedHash(p, text)}  ${p}`).join("\n") + "\n";
+      mkdirSync(repo);
+      mkdirSync(stage);
+      writeFiles(repo, { ".gitignore": "node_modules/\n.venv/\n", ...owned, ".forge/manifest.sha256": manifest, ...(fixture.head ?? {}) });
+      writeFiles(stage, fixture.files);
+      for (const tool of checkTools(t)) {
+        if ((PROJECT_TOOLS as readonly string[]).includes(tool) || PYTHON_TOOLS.has(tool)) {
+          const bin = toolBins.map((b) => join(b, tool)).find((p) => existsSync(p));
+          if (!bin) return void (results[i] = { outcome: "skip", detail: `${tool} not available` });
+          const to = join(repo, PYTHON_TOOLS.has(tool) ? ".venv/bin" : "node_modules/.bin", tool);
+          mkdirSync(dirname(to), { recursive: true });
+          symlinkSync(bin, to);
+        } else if (run("sh", ["-c", `command -v ${tool === "ty" ? "uvx" : tool}`]).status !== 0) return void (results[i] = { outcome: "skip", detail: `${tool === "ty" ? "uvx (for ty)" : tool} not available` });
+      }
+      const mode = checkExampleMode(t);
+      // its own TMPDIR: bunx installs ast-grep there at every run, and two at once in one place fail
+      const tmp = join(dir, "tmp");
+      mkdirSync(tmp);
+      jobs.push({ cmd: "sh", args: ["-c", EXAMPLE_RUN, "sh", stage, ...(mode === "--turn" ? [mode, SNAP] : [mode])], cwd: repo, env: { TMPDIR: `${tmp}/` } });
+      pending.push(i);
+    });
+    runParallel(jobs).forEach((r, j) => {
+      const i = pending[j]!;
+      const { rule, kind } = runs[i]!;
+      const out = (r.stdout + r.stderr).trim();
+      const skipped = new RegExp(`^forge:${rule.id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} skipped: (.*)$`, "m").exec(out);
+      if (skipped) return void (results[i] = { outcome: "skip", detail: skipped[1]! });
+      const failed = r.status !== 0 && out.includes(`forge:${rule.id} failed`);
+      const brief = out.split("\n").slice(0, 6).join(" | ") || "(no output)";
+      if (kind === "match") results[i] = failed ? { outcome: "pass", detail: "" } : { outcome: "fail", detail: `did not fail the check: ${brief}` };
+      else results[i] = r.status === 0 ? { outcome: "pass", detail: "" } : { outcome: "fail", detail: `failed the check: ${brief}` };
+    });
+    return results as CheckExampleResult[];
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    for (const d of dirs) rmSync(d, { recursive: true, force: true });
   }
 }
 
@@ -372,30 +425,36 @@ function testRules(rules: Rule[], repo: string | undefined, opts: { toolBins?: s
     const shells = availableShells();
     for (const s of ["sh", "dash", "bash --posix", "busybox sh"])
       if (!shells.some((x) => x.name === s)) notes.push(`guard: ${s} not available, skipped`);
-    const dir = mkdtempSync(join(tmpdir(), "forge-guard-"));
+    // each rule in its own directory, every example on every shell, several at a time
+    const dirs: string[] = [];
+    const runs: { job: Job; report: (got: string) => void }[] = [];
     try {
-      writeFileSync(join(dir, "guard.sh"), template("guard.sh"));
       for (const r of guardRules) {
+        const dir = mkdtempSync(join(tmpdir(), "forge-guard-"));
+        dirs.push(dir);
+        writeFileSync(join(dir, "guard.sh"), template("guard.sh"));
         const targets = r.enforce.filter((t): t is GuardTarget => t.target === "guard");
         writeFileSync(join(dir, "guard.rules"), renderGuardRules(targets.map((target) => ({ rule: r, target })), "/"));
         const decision = targets.some((t) => t.decision === "deny") ? "deny" : "ask";
         for (const kind of ["match", "no_match"] as const)
           for (const ex of guardExamples(r, kind)) {
             const cwd = guardExampleDir(ex.files);
-            try {
-              for (const sh of shells) {
-                const got = guardDecision(sh.argv, dir, ex.command, cwd);
-                const want = kind === "match" ? decision : "";
-                if (got !== want)
-                  failures.push(`${r.id} [${sh.name}]: expected ${want || "nothing"} for ${JSON.stringify(ex.command)}${ex.files ? ` with ${Object.keys(ex.files).join(", ")}` : ""}, got ${got || "nothing"}`);
-              }
-            } finally {
-              rmSync(cwd, { recursive: true, force: true });
+            dirs.push(cwd);
+            for (const sh of shells) {
+              const want = kind === "match" ? decision : "";
+              runs.push({
+                job: guardJob(sh.argv, dir, ex.command, cwd),
+                report: (got) => {
+                  if (got !== want)
+                    failures.push(`${r.id} [${sh.name}]: expected ${want || "nothing"} for ${JSON.stringify(ex.command)}${ex.files ? ` with ${Object.keys(ex.files).join(", ")}` : ""}, got ${got || "nothing"}`);
+                },
+              });
             }
           }
       }
+      runParallel(runs.map((x) => x.job)).forEach((res, i) => runs[i]!.report(guardOutcome(res)));
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      for (const d of dirs) rmSync(d, { recursive: true, force: true });
     }
   }
 
@@ -432,18 +491,19 @@ function testRules(rules: Rule[], repo: string | undefined, opts: { toolBins?: s
     }
   }
 
-  // check examples, each in its own temporary repository
+  // check examples, each in its own temporary repository, several at a time
   const checkRules = rules.filter((r) => r.enforce.some((t) => t.target === "check") && (r.examples?.match?.length || r.examples?.no_match?.length));
   counts.check = checkRules.length;
   const toolBins = opts.toolBins ?? defaultToolBins(repo);
+  const runs: (CheckExampleRun & { n: number })[] = [];
   for (const r of checkRules)
     for (const t of r.enforce.filter((x): x is CheckTarget => x.target === "check"))
-      for (const kind of ["match", "no_match"] as const)
-        (r.examples?.[kind] ?? []).forEach((ex, i) => {
-          const res = runCheckExample(r, t, ex, kind, toolBins);
-          if (res.outcome === "fail") failures.push(`${r.id}: ${kind} example ${i + 1} ${res.detail}`);
-          else if (res.outcome === "skip") notes.push(`${r.id}: ${kind} example ${i + 1} skipped: ${res.detail}`);
-        });
+      for (const kind of ["match", "no_match"] as const) (r.examples?.[kind] ?? []).forEach((ex, i) => runs.push({ rule: r, target: t, example: ex, kind, n: i + 1 }));
+  runCheckExamples(runs, toolBins).forEach((res, j) => {
+    const { rule: r, kind, n } = runs[j]!;
+    if (res.outcome === "fail") failures.push(`${r.id}: ${kind} example ${n} ${res.detail}`);
+    else if (res.outcome === "skip") notes.push(`${r.id}: ${kind} example ${n} skipped: ${res.detail}`);
+  });
 
   // hadolint: the hadolint-bin wheel's binary is the upstream release binary (§13.3)
   if (rules.some((r) => r.enforce.some((t) => t.target === "check" && /\bforge_hadolint\b/.test(t.run)))) {

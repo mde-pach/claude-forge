@@ -41,7 +41,14 @@ forge_change_set() {
   # integrity covers them (check.sh step 1), the project's rules do not
   : > "$FORGE_TMP/existing"; : > "$FORGE_TMP/deleted"; : > "$FORGE_TMP/inbase"; : > "$FORGE_TMP/added"
   mkdir -p "$FORGE_TMP/base"
-  while IFS= read -r _cs_f; do
+  # "<0|1><TAB><path>": 0 when the path is not in FORGE_BASE_REV's tree at all (one ls-tree
+  # for the whole change, instead of a git cat-file per new file in base_file)
+  : > "$FORGE_TMP/inrev"
+  [ -z "${FORGE_BASE_REV:-}" ] || git ls-tree -r -t -z --full-tree --name-only "$FORGE_BASE_REV" 2>/dev/null | tr '\000' '\n' > "$FORGE_TMP/inrev"
+  awk 'FILENAME == ARGV[1] { t[$0] = 1; next } { print (($0 in t) ? 1 : 0) "\t" $0 }' "$FORGE_TMP/inrev" "$FORGE_TMP/changed" > "$FORGE_TMP/changed.inrev"
+  while IFS= read -r _cs_l; do
+    _bf_inrev=${_cs_l%%"	"*}
+    _cs_f=${_cs_l#*"	"}
     if base_file "$_cs_f" "$FORGE_TMP/base/$_cs_f"; then printf '%s\n' "$_cs_f" >> "$FORGE_TMP/inbase"; _cs_b=1; else _cs_b=0; fi
     if [ -f "$_cs_f" ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/existing"
@@ -49,7 +56,8 @@ forge_change_set() {
     elif [ "$_cs_b" = 1 ]; then
       printf '%s\n' "$_cs_f" >> "$FORGE_TMP/deleted"
     fi
-  done < "$FORGE_TMP/changed"
+  done < "$FORGE_TMP/changed.inrev"
+  unset _bf_inrev
   return 0
 }
 
@@ -105,6 +113,8 @@ forge_format_base() {
 # base also counts when its text is that of a line added against the formatted base
 # not matched by number (each such line counted once).
 forge_added_lines() {
+  # a file new since the base: every line is added
+  if [ ! -f "$2" ]; then printf '%s\t*\n' "$1"; return 0; fi
   added_lines "$1" "$2" > "$FORGE_TMP/al.raw"
   if [ ! -f "$2" ] || [ ! -s "$FORGE_TMP/al.raw" ] || [ "${FORGE_PLAIN_ADDED:-0}" = 1 ] || ! forge_format_base "$1" "$2" "$FORGE_TMP/al.base" || cmp -s "$2" "$FORGE_TMP/al.base"; then
     cat "$FORGE_TMP/al.raw"
@@ -1255,9 +1265,12 @@ FORGE_SQUAWK_BLOCKING='renaming-column|renaming-table|changing-column-type|addin
 
 # forge_squawk <args>: the pinned Squawk through bunx or uvx; gcc-style output in
 # $FORGE_TMP/squawk. Exit status 0 when Squawk ran (with or without findings).
+# "bunx squawk-cli@<v>" runs the package's one binary from bunx's cache; with
+# "-p squawk-cli@<v> squawk" bunx installs the package again at every run, and
+# runs at the same time then kill each other's install.
 forge_squawk() {
   if command -v bunx >/dev/null 2>&1; then
-    bunx -p "squawk-cli@$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
+    bunx "squawk-cli@$FORGE_SQUAWK_VERSION" --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
   elif command -v uvx >/dev/null 2>&1; then
     uvx -q --from "squawk-cli==$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
   else
@@ -2132,7 +2145,7 @@ forge_exec_check() {
     _fe_watch=$!
     wait "$_fe_pid" 2>/dev/null
     _fe_rc=$?
-    forge_kill_tree "$_fe_watch"
+    forge_kill_watch "$_fe_watch"
     if [ -f "$FORGE_TMP/timedout" ]; then rm -f "$FORGE_TMP/timedout"; _fe_rc=124; fi
   else
     ( "$1" ) > "$FORGE_TMP/out" 2>&1 < /dev/null

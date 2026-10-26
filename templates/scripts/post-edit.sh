@@ -108,7 +108,7 @@ if [ -s "$FORGE_TMP/changed" ]; then
   ( sleep "${FORGE_EDIT_BUDGET:-45}"; : > "$FORGE_TMP/over"; forge_kill_tree "$_pe_pid" ) >/dev/null 2>&1 &
   _pe_watch=$!
   wait "$_pe_pid" 2>/dev/null
-  forge_kill_tree "$_pe_watch"
+  forge_kill_watch "$_pe_watch"
   if [ -f "$FORGE_TMP/over" ]; then
     { printf 'forge: the checks after this edit stopped after %ss; findings so far are below, and the Stop check covers the rest.\n' "${FORGE_EDIT_BUDGET:-45}"
       cat "$FORGE_TMP/report"; } > "$FORGE_TMP/report.over"

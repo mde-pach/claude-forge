@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { appendFileSync, chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 
@@ -10,6 +10,33 @@ export const FORGE = join(ROOT, "dist", "forge.js");
 // The hooks keep their state outside the repository, under $FORGE_STATE_HOME
 // (default ~/.claude/forge-state): the suite never writes the user's home.
 process.env.FORGE_STATE_HOME ||= mkdtempSync(join(tmpdir(), "forge-state-home-"));
+
+/**
+ * Version-manager shims (pyenv's `pyenv exec "$program"` scripts) cost about 200 ms per
+ * call, and the hooks and checks call uv, uvx, ruff and python many times. The suite
+ * resolves them once: a directory of symlinks to the executables the shims would run
+ * (looked up from a temporary directory, where the hooks run), ahead of PATH. The tools
+ * are the same; only the shim's lookup is skipped. A parent that did it already (the
+ * runner, scripts/test.ts) passes FORGE_TEST_BIN and the PATH down.
+ */
+function resolveShims(): void {
+  if (process.env.FORGE_TEST_BIN) return;
+  const bin = mkdtempSync(join(tmpdir(), "forge-test-bin-"));
+  process.env.FORGE_TEST_BIN = bin;
+  const shimmed = ["uv", "uvx", "ruff", "python3", "python"].filter((n) => {
+    const r = spawnSync("sh", ["-c", 'command -v "$1"', "sh", n], { encoding: "utf8" });
+    const p = r.status === 0 ? r.stdout.trim() : "";
+    return p.startsWith("/") && /^#!.*\n[\s\S]*pyenv"? exec "\$program"/.test(readFileSync(p).subarray(0, 1024).toString("latin1"));
+  });
+  if (!shimmed.length) return;
+  const r = spawnSync("sh", ["-c", 'for n; do pyenv which "$n" 2>/dev/null || echo; done', "sh", ...shimmed], { cwd: tmpdir(), encoding: "utf8" });
+  const real = (r.stdout ?? "").split("\n");
+  shimmed.forEach((n, i) => {
+    if (real[i]?.startsWith("/")) symlinkSync(real[i]!, join(bin, n));
+  });
+  process.env.PATH = `${bin}:${process.env.PATH}`;
+}
+resolveShims();
 
 /**
  * ty is Forge's own type checker, run through uvx (§15.2). Where a test is not about
@@ -48,6 +75,19 @@ export const TY_FINDS_NOTHING: Record<string, string> = { FORGE_TEST_TY_STAND_IN
 /** The hooks' state directory for <repo> (lib.sh forge_state_of): $FORGE_STATE_HOME/<sha256 of its physical path, 16 hex>. */
 export function stateDir(repo: string): string {
   return join(process.env.FORGE_STATE_HOME as string, createHash("sha256").update(realpathSync(repo)).digest("hex").slice(0, 16));
+}
+
+/**
+ * For a test that measures time (a latency budget) and needs a quiet machine: true while
+ * the parallel runner (tests/run.ts, FORGE_TEST_PHASE=parallel) runs the suite many
+ * processes at a time; the test is then skipped (test.skipIf), and <file> recorded in
+ * $FORGE_TEST_QUIET_LIST so that the runner runs that file's skipped tests again
+ * afterwards, alone. False in any other run (bun test <file>).
+ */
+export function othersRunning(file: string): boolean {
+  if (process.env.FORGE_TEST_PHASE !== "parallel" || !process.env.FORGE_TEST_QUIET_LIST) return false;
+  appendFileSync(process.env.FORGE_TEST_QUIET_LIST, `${file}\n`);
+  return true;
 }
 
 export interface Result {
@@ -179,7 +219,8 @@ export const TOOL_VERSIONS = {
   // python/django/makemigrations runs the project's manage.py (5.2 LTS: Python 3.10+)
   django: "5.2.18",
 };
-export const TOOLS_CACHE = join(tmpdir(), "forge-tools-v2");
+/** Shared by every process of a run: the runner (tests/run.ts) passes it down with each shard's own TMPDIR. */
+export const TOOLS_CACHE = process.env.FORGE_TOOLS_CACHE || join(tmpdir(), "forge-tools-v2");
 export const hasBun = sh("sh", ["-c", "command -v bun"]).status === 0;
 export const hasUv = sh("sh", ["-c", "command -v uv"]).status === 0;
 
