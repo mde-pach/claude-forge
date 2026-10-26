@@ -1,0 +1,25 @@
+id: python/temporal/activity-timeout
+description: workflow.execute_activity(), start_activity() and their local, _method and _class variants pass start_to_close_timeout= or schedule_to_close_timeout= (without one the call fails when the workflow runs).
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call
+      pattern: "$F($$$)"
+      not: {has: {field: arguments, has: {kind: keyword_argument, regex: "^(start_to_close_timeout|schedule_to_close_timeout)[[:space:]]*="}}}
+    # The function called is temporalio's (§15.6), whatever the import calls it.
+    where:
+      F:
+        declared:
+          module: temporalio.workflow
+          name: [execute_activity, start_activity, execute_local_activity, start_local_activity, execute_activity_method, start_activity_method, execute_local_activity_method, start_local_activity_method, execute_activity_class, start_activity_class, execute_local_activity_class, start_local_activity_class]
+examples:
+  deps: [{ecosystem: pypi, name: temporalio, version: "1.34.0"}]
+  match:
+    - "from temporalio import workflow\n\n\n@workflow.defn\nclass Greet:\n    @workflow.run\n    async def run(self, name: str) -> str:\n        return await workflow.execute_activity(\"greet\", name)\n"
+    - "from temporalio.workflow import start_local_activity as start\n\n\nasync def go() -> None:\n    start(\"cleanup\")\n"
+  no_match:
+    - "from datetime import timedelta\n\nfrom temporalio import workflow\n\n\n@workflow.defn\nclass Greet:\n    @workflow.run\n    async def run(self, name: str) -> str:\n        return await workflow.execute_activity(\"greet\", name, start_to_close_timeout=timedelta(seconds=10))\n"
+    - "from datetime import timedelta\n\nfrom temporalio import workflow\n\n\nasync def go() -> None:\n    workflow.start_activity(\"cleanup\", schedule_to_close_timeout=timedelta(minutes=5))\n"
+    - "class Runner:\n    async def execute_activity(self, name: str) -> str:\n        return name\n\n\nasync def go(r: Runner) -> str:\n    return await r.execute_activity(\"greet\")\n"

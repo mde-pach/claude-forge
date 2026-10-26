@@ -1,0 +1,27 @@
+id: python/tortoise/no-generate-schemas
+description: No Tortoise.generate_schemas() and no generate_schemas=True (register_tortoise, RegisterTortoise) outside tests. Tortoise 1.0 ships migrations; create the schema with tortoise makemigrations and tortoise migrate.
+scope: {language: python, files: ["!**/tests/**", "!**/test_*.py", "!**/*_test.py", "!**/conftest.py"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call
+      # the keyword branch first: a match's metavariables are those of the first branch that matches
+      any:
+        - all:
+            - pattern: "$F($$$)"
+            - has: {field: arguments, has: {kind: keyword_argument, regex: "^generate_schemas[[:space:]]*=[[:space:]]*True$"}}
+        - pattern: "$G($$$)"
+    # Tortoise's own functions by what the names refer to (§15.6), whatever the imports call them.
+    where:
+      G: {declared: {package: tortoise, name: generate_schemas}}
+      F: {declared: {package: tortoise}}
+examples:
+  deps: [{ecosystem: pypi, name: tortoise-orm, version: "1.1.9"}, {ecosystem: pypi, name: fastapi, version: "0.162.0"}]
+  match:
+    - "from tortoise import Tortoise\n\n\nasync def init() -> None:\n    await Tortoise.init(db_url=\"sqlite://db.sqlite3\", modules={\"models\": [\"app.models\"]})\n    await Tortoise.generate_schemas()\n"
+    - "from fastapi import FastAPI\nfrom tortoise.contrib.fastapi import register_tortoise\n\napp = FastAPI()\nregister_tortoise(app, db_url=\"sqlite://db.sqlite3\", modules={\"models\": [\"app.models\"]}, generate_schemas=True)\n"
+  no_match:
+    - "from fastapi import FastAPI\nfrom tortoise.contrib.fastapi import register_tortoise\n\napp = FastAPI()\nregister_tortoise(app, db_url=\"sqlite://db.sqlite3\", modules={\"models\": [\"app.models\"]})\n"
+    - "class Schema:\n    async def generate_schemas(self) -> None:\n        pass\n\n\nasync def build() -> None:\n    await Schema().generate_schemas()\n"
+    - "def configure(generate_schemas: bool) -> bool:\n    return generate_schemas\n\n\nconfigure(generate_schemas=True)\n"

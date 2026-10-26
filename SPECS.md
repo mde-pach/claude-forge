@@ -611,6 +611,7 @@ context.md: strict TypeScript and Bun; TypeScript 6 deprecations are migrated, n
 | `python/fastapi/no-on-event` | `ast-grep` forbid: `@app.on_event($$$)` |
 | `python/fastapi/annotated-depends` | `tool` ruff `FAST002` |
 | `python/fastapi/cors-credentials-wildcard` | `ast-grep` forbid: `add_middleware(CORSMiddleware, …)` with both `allow_origins=["*"]` and `allow_credentials=True` |
+| `python/fastapi/deprecated-params` | `ast-grep` forbid: a call with `regex=` or `example=` whose callee is declared (§15.6) by `fastapi` as `Query`, `Path`, `Header`, `Cookie`, `Body`, `Form` or `File` (they return `Any`: the call's type says nothing); a call with `root_path=` whose type is `fastapi`'s `FastAPI` |
 
 context.md: "FastAPI. Dependencies use `Annotated[T, Depends(...)]`. Startup and shutdown use `lifespan`. Request and response bodies are Pydantic v2 models."
 
@@ -680,6 +681,7 @@ Detected by `django` (pypi) or a `manage.py` at the root or one level down.
 | `python/django/makemigrations` | `check` migration: the shallowest tracked `manage.py`, `python <manage.py> makemigrations --check --dry-run --no-input` (no database needed: Django only warns when it cannot check the migration history); fails on "Migrations for", any other failure (settings that need an environment variable, a missing module) prints `skipped:` with the error's last line; `when_changed`: models, migrations, settings; timeout 120 s |
 | `python/django/no-raw-sql-format` | `tool` ruff `S610` (`.extra()` with a non-literal `select` / `where` / `tables` / …), `S611` (`RawSQL()` with non-literal SQL); SQL strings built with an f-string, `.format()`, `%` or `+` (also through a variable) are `python/no-sql-format` (`S608`) |
 | `python/django/flake8-django` | `tool` ruff `DJ001`, `DJ003`, `DJ006`, `DJ007`, `DJ013` |
+| `python/django/user-model-ref` | `ast-grep` forbid: a call whose callee is declared (§15.6) by `django` as `ForeignKey`, `OneToOneField` or `ManyToManyField` and whose first argument is the string `"auth.User"` or a name declared as `django.contrib.auth.models`' `User` |
 
 context.md: migrations generated and committed with model changes; SQL parameters; `select_related()` / `prefetch_related()` against N+1; `transaction.atomic()` and `transaction.on_commit()`.
 
@@ -705,6 +707,56 @@ Detected by `celery` (pypi).
 | `python/celery/no-result-get-in-task` | `ast-grep` forbid: inside a task, `.get()`, `.wait()`, `.join()` on `.delay()` / `.apply_async()` / `AsyncResult()` results (directly, through a variable of the function, or as the variable of a `for` loop or comprehension over them) or on a called `group` / `chord` / `chain`; `disable_sync_subtasks=False` anywhere |
 
 context.md: ids as arguments, idempotent tasks queued from `transaction.on_commit()`, bounded retries, no waiting on results inside tasks.
+
+### python/numpy
+
+Detected by `numpy` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/numpy/no-allow-pickle` | `ast-grep` forbid: a call with `allow_pickle=True` whose callee is declared (§15.6) by `numpy` as `load` (`np.save(allow_pickle=True)` is not matched) |
+
+### python/torch
+
+Detected by `torch` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/torch/save-state-dict` | `ast-grep` advise: a call whose callee is declared (§15.6) in `torch.serialization` as `save` and whose first argument's type is (a subclass of) `torch`'s `Module` (§15.1); `torch.jit.save` is another declaration |
+
+### python/sentry
+
+Detected by `sentry-sdk` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/sentry/span-attributes` | `ast-grep` forbid: a call with `data=` whose callee is declared (§15.6) by `sentry_sdk` as `update_current_span` |
+
+### python/flask
+
+Detected by `flask` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/flask/no-template-string-injection` | `ast-grep` forbid: a call whose callee is declared (§15.6) by `flask` as `render_template_string` and whose first argument is an f-string with an interpolation, a binary operation (`+`, `%`) or a `.format()` call |
+
+### python/tortoise
+
+Detected by `tortoise-orm` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/tortoise/no-generate-schemas` | `ast-grep` forbid, not in tests: a call whose callee is declared (§15.6) by `tortoise` as `generate_schemas`; a call with `generate_schemas=True` whose callee is declared by `tortoise` (`register_tortoise`, `RegisterTortoise`) |
+
+### python/temporal
+
+Detected by `temporalio` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/temporal/workflow-determinism` | `ast-grep` forbid, inside a class decorated with a name declared (§15.6) in `temporalio.workflow` as `defn` (bare or called): a call declared by `datetime` as `now` / `utcnow` / `today`, by `time` as `time`, `time_ns`, `monotonic`, `monotonic_ns`, `perf_counter`, `perf_counter_ns`, `sleep`, by `random`, by `uuid` as `uuid1` / `uuid4`, by `os` as `getenv`, by `builtins` as `open`, by `threading`, by `asyncio` as `to_thread`, `wait`, `as_completed`, `run_in_executor`, or by `httpx`, `requests`, `aiohttp`; an attribute declared by `os` as `environ` |
+| `python/temporal/activity-timeout` | `ast-grep` forbid: a call without `start_to_close_timeout=` or `schedule_to_close_timeout=` whose callee is declared (§15.6) in `temporalio.workflow` as `execute_activity`, `start_activity`, `execute_local_activity`, `start_local_activity` or their `_method` / `_class` variants |
+| `python/temporal/no-sandbox-escape` | `ast-grep` forbid: a call with `sandboxed=False` whose callee is declared (§15.6) in `temporalio.workflow` as `defn`; a call declared by `temporalio` as `UnsandboxedWorkflowRunner` or `sandbox_unrestricted` |
 
 ### python/library
 

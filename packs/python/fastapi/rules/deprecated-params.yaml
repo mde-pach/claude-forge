@@ -1,0 +1,30 @@
+id: python/fastapi/deprecated-params
+description: No FastAPI parameters deprecated only at run time. Query/Path/Header/Cookie/Body/Form/File take pattern= (not regex=) and examples= or openapi_examples= (not example=); FastAPI() takes no root_path= (pass --root-path to fastapi run or uvicorn).
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call
+      any:
+        # these functions return Any: the function called is asked (§15.6), not the call's type
+        - all:
+            - pattern: "$F($$$)"
+            - has: {field: arguments, has: {kind: keyword_argument, regex: "^(regex|example)[[:space:]]*="}}
+        - all:
+            - pattern: $APP
+            - has: {field: arguments, has: {kind: keyword_argument, regex: "^root_path[[:space:]]*="}}
+    where:
+      F: {declared: {package: fastapi, name: [Query, Path, Header, Cookie, Body, Form, File]}}
+      APP: {type: {package: fastapi, name: FastAPI}}
+examples:
+  deps: [{ecosystem: pypi, name: fastapi, version: "0.162.0"}]
+  match:
+    - "from typing import Annotated\n\nfrom fastapi import FastAPI, Query\n\napp = FastAPI()\n\n\n@app.get(\"/items\")\ndef items(q: Annotated[str, Query(regex=\"^[a-z]+$\")]) -> str:\n    return q\n"
+    - "from typing import Annotated\n\nimport fastapi\n\napp = fastapi.FastAPI()\n\n\n@app.post(\"/items\")\ndef create(name: Annotated[str, fastapi.Body(example=\"pen\")]) -> str:\n    return name\n"
+    - "from fastapi import FastAPI\n\napp = FastAPI(title=\"api\", root_path=\"/api/v1\")\n"
+  no_match:
+    - "from typing import Annotated\n\nfrom fastapi import FastAPI, Query\n\napp = FastAPI()\n\n\n@app.get(\"/items\")\ndef items(q: Annotated[str, Query(pattern=\"^[a-z]+$\", examples=[\"pen\"])]) -> str:\n    return q\n"
+    - "from fastapi import FastAPI\n\napp = FastAPI(title=\"api\")\n"
+    - "import re\n\nfrom fastapi import FastAPI\n\napp = FastAPI()\nword = re.compile(\"[a-z]+\")\n\n\ndef Query(regex: str) -> str:\n    return regex\n\n\nq = Query(regex=\"x\")\n"
+    - "from fastapi import APIRouter\n\n\ndef make(root_path: str) -> APIRouter:\n    return APIRouter()\n\n\nrouter = make(root_path=\"/v1\")\n"

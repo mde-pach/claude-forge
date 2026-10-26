@@ -1,0 +1,50 @@
+id: python/temporal/workflow-determinism
+description: "Workflow code is deterministic: inside a @workflow.defn class, no datetime.now/utcnow/today, time.time/monotonic/sleep, random, uuid1/uuid4, os.environ/getenv, open(), threading, asyncio.to_thread/wait/as_completed, run_in_executor or HTTP clients (httpx, requests, aiohttp). Use workflow.now(), workflow.time(), workflow.random(), workflow.uuid4(), asyncio.sleep or workflow.sleep, workflow.wait() and workflow.as_completed(), and activities for I/O (replay fails otherwise)."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        - {kind: call, pattern: "$F($$$)"}
+        - {kind: attribute, pattern: $ENV}
+      inside:
+        stopBy: end
+        kind: decorated_definition
+        all:
+          - has: {field: definition, kind: class_definition}
+          - has:
+              kind: decorator
+              has:
+                any:
+                  - {pattern: $D, regex: "(^|\\.)defn$"}
+                  - {kind: call, has: {field: function, pattern: $D, regex: "(^|\\.)defn$"}}
+    # What the names refer to (§15.6), whatever the imports call them: the class is a
+    # temporalio workflow, the call is one of these non-deterministic APIs.
+    where:
+      D: {declared: {module: temporalio.workflow, name: defn}}
+      F:
+        declared:
+          - {package: datetime, name: [now, utcnow, today]}
+          - {package: time, name: [time, time_ns, monotonic, monotonic_ns, perf_counter, perf_counter_ns, sleep]}
+          - {package: random}
+          - {package: uuid, name: [uuid1, uuid4]}
+          - {package: os, name: getenv}
+          - {package: builtins, name: open}
+          - {package: threading}
+          - {package: asyncio, name: [to_thread, wait, as_completed, run_in_executor]}
+          - {package: [httpx, requests, aiohttp]}
+      ENV: {declared: {package: os, name: environ}}
+examples:
+  deps: [{ecosystem: pypi, name: temporalio, version: "1.34.0"}, {ecosystem: pypi, name: requests, version: "2.34.2"}]
+  match:
+    - "from datetime import datetime\n\nfrom temporalio import workflow\n\n\n@workflow.defn\nclass Report:\n    @workflow.run\n    async def run(self) -> str:\n        return datetime.now().isoformat()\n"
+    - "import random\n\nfrom temporalio import workflow\n\n\n@workflow.defn(name=\"pick\")\nclass Pick:\n    @workflow.run\n    async def run(self, items: list[str]) -> str:\n        return random.choice(items)\n"
+    - "import os\n\nfrom temporalio.workflow import defn, run\n\n\n@defn\nclass Config:\n    @run\n    async def run(self) -> str:\n        return os.environ[\"REGION\"]\n"
+    - "import requests\nfrom temporalio import workflow\n\n\n@workflow.defn\nclass Fetch:\n    @workflow.run\n    async def run(self, url: str) -> int:\n        return requests.get(url, timeout=5).status_code\n"
+    - "from time import sleep as pause\n\nfrom temporalio import workflow\n\n\n@workflow.defn\nclass Wait:\n    @workflow.run\n    async def run(self) -> None:\n        pause(1)\n"
+  no_match:
+    - "from temporalio import workflow\n\n\n@workflow.defn\nclass Report:\n    @workflow.run\n    async def run(self) -> str:\n        return workflow.now().isoformat() + str(workflow.random().random()) + str(workflow.uuid4())\n"
+    - "from datetime import datetime\n\nfrom temporalio import activity\n\n\n@activity.defn\nasync def stamp() -> str:\n    return datetime.now().isoformat()\n"
+    - "import random\nfrom dataclasses import dataclass\n\n\n@dataclass\nclass Deck:\n    cards: list[str]\n\n    def draw(self) -> str:\n        return random.choice(self.cards)\n"
+    - "from datetime import datetime\n\n\ndef defn(cls: type) -> type:\n    return cls\n\n\n@defn\nclass Clock:\n    def now(self) -> str:\n        return datetime.now().isoformat()\n"
