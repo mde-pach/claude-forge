@@ -1,0 +1,19 @@
+id: python/no-forgotten-call
+description: No truthiness test of a method, a callable or an iterable; call the method, compare with None, or use a sequence.
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ty
+    expects: redundant-condition
+    snippet: '[tool.ty.rules] redundant-condition = "error"'
+  - target: tool
+    tool: ty
+    expects: truthiness-test-of-callable
+    snippet: '[tool.ty.rules] truthiness-test-of-callable = "error"'
+  - target: tool
+    tool: ty
+    expects: truthiness-test-of-iterable
+    snippet: '[tool.ty.rules] truthiness-test-of-iterable = "error"'
+examples:
+  match: ["from collections.abc import Callable, Iterable\n\n\nclass User:\n    def is_admin(self) -> bool:\n        return False\n\n\ndef check(user: User, ready: Callable[[], bool], items: Iterable[int]) -> int:\n    n = 0\n    if user.is_admin:\n        n += 1\n    if ready:\n        n += 1\n    if items:\n        n += 1\n    return n\n"]
+  no_match: ["from collections.abc import Callable, Sequence\n\n\nclass User:\n    def is_admin(self) -> bool:\n        return False\n\n\ndef check(user: User, ready: Callable[[], bool] | None, items: Sequence[int]) -> int:\n    n = 0\n    if user.is_admin():\n        n += 1\n    if ready is not None and ready():\n        n += 1\n    if items:\n        n += 1\n    return n\n"]

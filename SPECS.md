@@ -535,6 +535,12 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `python/no-tls-bypass` | `tool` ruff `S501` |
 | `python/no-shell-true` | `tool` ruff `S602` |
 | `python/no-stale-ignore` | `tool` ty `unused-ignore-comment`, `unused-type-ignore-comment` |
+| `python/no-unawaited-coroutine` | `tool` ty `unused-awaitable` |
+| `python/no-forgotten-call` | `tool` ty `redundant-condition`, `truthiness-test-of-callable`, `truthiness-test-of-iterable` |
+| `python/no-possibly-missing-submodule` | `tool` ty `possibly-missing-submodule` |
+| `python/override-decorator` | `tool` ty `missing-override-decorator` |
+| `python/generic-type-args` | `tool` ty `missing-type-argument` |
+| `python/typed-decorators` | `tool` ty `dynamic-function-decorator-return` |
 | `python/aware-datetime` | `tool` ruff `DTZ005` |
 | `python/no-new-suppressions` | `grep` no-increase: `# noqa`, `# ty: ignore`, `# type: ignore`, `# pyright: ignore` (suppression budget) |
 | `python/config-files` | `permission` ask: `Edit(**/ruff.toml)`, `Edit(**/.ruff.toml)`, `Edit(**/ty.toml)` |

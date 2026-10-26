@@ -1,0 +1,11 @@
+id: python/typed-decorators
+description: Decorators keep the decorated function's type; none returns Unknown or Any.
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ty
+    expects: dynamic-function-decorator-return
+    snippet: '[tool.ty.rules] dynamic-function-decorator-return = "error"'
+examples:
+  match: ["def logged(fn):\n    return fn\n\n\n@logged\ndef add(a: int, b: int) -> int:\n    return a + b\n"]
+  no_match: ["from collections.abc import Callable\n\n\ndef logged[**P, R](fn: Callable[P, R]) -> Callable[P, R]:\n    return fn\n\n\n@logged\ndef add(a: int, b: int) -> int:\n    return a + b\n"]
