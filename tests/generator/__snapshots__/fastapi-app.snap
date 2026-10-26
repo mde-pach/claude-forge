@@ -19727,13 +19727,14 @@ forge_integrity() {
   [ -f "$manifest" ] || { report forge/integrity "$manifest is missing (run forge apply)"; return; }
   awk '/^[0-9a-f]+  ./ { h = $1; p = substr($0, length(h) + 3); if (p ~ /^[.](forge|claude)\//) print p "\t" h }' "$manifest" > "$FORGE_TMP/owned"
   # "<path><TAB><hash>" lines in $FORGE_TMP/have ("-" for a missing file, none for one
-  # that cannot be read): one hashing run for every owned file but JSON (hashed without whitespace)
+  # that cannot be read): one hashing run for every owned file but JSON and helper scripts
+  # (hashed without what a formatter changes: forge_owned_hash)
   : > "$FORGE_TMP/have"; : > "$FORGE_TMP/plain"
   while IFS='	' read -r path hash; do
     [ -n "$path" ] || continue
     [ -f "$path" ] || { printf '%s\t-\n' "$path" >> "$FORGE_TMP/have"; continue; }
     case $path in
-      *.json) printf '%s\t%s\n' "$path" "$(forge_owned_hash "$path")" >> "$FORGE_TMP/have" ;;
+      *.json|.forge/helpers/*) printf '%s\t%s\n' "$path" "$(forge_owned_hash "$path")" >> "$FORGE_TMP/have" ;;
       *) printf '%s\n' "$path" >> "$FORGE_TMP/plain" ;;
     esac
   done < "$FORGE_TMP/owned"
@@ -20000,7 +20001,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml": "4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0",
     ".forge/ast-grep/rules/python/sqlalchemy/no-text-fstring.yml": "04c44c9e215449d46b10540e86e999ec1d6383d8c3a849855fe73cb456668fca",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "9dddb023bab526a46c752e266797d2b5a5e874686780eb17c3183bb294c320a4",
+    ".forge/check.sh": "b6f4fff4a3a754a1333cf6bed996392c9c52f82b1c20a239acdb3b23603f3d82",
     ".forge/helpers/fk_index.py": "12e59e9b4be590d77ed8dd6bab82f644440679d5cffd82264bf4c568e4341c9e",
     ".forge/helpers/ratchet.py": "4f7e312b9419bd1ee09fe9cd3e988546bba089d706cb1b44e4546c4b4c87173d",
     ".forge/helpers/types_python.py": "4e76ca3478bcbffc13c820cd1cd9818f0fa567c0c50d68e711d6b6913e9e28b5",
@@ -20997,7 +20998,7 @@ b767983a8b5ac3966b15b7fc7f89fba1e9c94115325f294d1887c3e41cf19727  .forge/ast-gre
 4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0  .forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml
 04c44c9e215449d46b10540e86e999ec1d6383d8c3a849855fe73cb456668fca  .forge/ast-grep/rules/python/sqlalchemy/no-text-fstring.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-9dddb023bab526a46c752e266797d2b5a5e874686780eb17c3183bb294c320a4  .forge/check.sh
+b6f4fff4a3a754a1333cf6bed996392c9c52f82b1c20a239acdb3b23603f3d82  .forge/check.sh
 12e59e9b4be590d77ed8dd6bab82f644440679d5cffd82264bf4c568e4341c9e  .forge/helpers/fk_index.py
 4f7e312b9419bd1ee09fe9cd3e988546bba089d706cb1b44e4546c4b4c87173d  .forge/helpers/ratchet.py
 4e76ca3478bcbffc13c820cd1cd9818f0fa567c0c50d68e711d6b6913e9e28b5  .forge/helpers/types_python.py

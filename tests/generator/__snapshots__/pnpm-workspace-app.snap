@@ -18850,13 +18850,14 @@ forge_integrity() {
   [ -f "$manifest" ] || { report forge/integrity "$manifest is missing (run forge apply)"; return; }
   awk '/^[0-9a-f]+  ./ { h = $1; p = substr($0, length(h) + 3); if (p ~ /^[.](forge|claude)\//) print p "\t" h }' "$manifest" > "$FORGE_TMP/owned"
   # "<path><TAB><hash>" lines in $FORGE_TMP/have ("-" for a missing file, none for one
-  # that cannot be read): one hashing run for every owned file but JSON (hashed without whitespace)
+  # that cannot be read): one hashing run for every owned file but JSON and helper scripts
+  # (hashed without what a formatter changes: forge_owned_hash)
   : > "$FORGE_TMP/have"; : > "$FORGE_TMP/plain"
   while IFS='	' read -r path hash; do
     [ -n "$path" ] || continue
     [ -f "$path" ] || { printf '%s\t-\n' "$path" >> "$FORGE_TMP/have"; continue; }
     case $path in
-      *.json) printf '%s\t%s\n' "$path" "$(forge_owned_hash "$path")" >> "$FORGE_TMP/have" ;;
+      *.json|.forge/helpers/*) printf '%s\t%s\n' "$path" "$(forge_owned_hash "$path")" >> "$FORGE_TMP/have" ;;
       *) printf '%s\n' "$path" >> "$FORGE_TMP/plain" ;;
     esac
   done < "$FORGE_TMP/owned"
@@ -19078,7 +19079,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/typescript/vitest/no-tautological-expect.yml": "ec546003dd3fc5a92950f126fc5ffad8599f20b6dd83a0954151758b3481fe8c",
     ".forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml": "240f482cc1062537b49330dd8577e1c128edb7ef60478a042dab716d79c87b42",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "03153117bc182aeb334f69988e723b5ee5799d3added18e76ad4f8980c3bda0b",
+    ".forge/check.sh": "2a0cbf902608801f0fe7fa987f0d3a70c4a439baf9fb81694acdac4bc49849c0",
     ".forge/helpers/ratchet.mjs": "14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
@@ -19306,7 +19307,7 @@ db9df1c23a73e64e692caa2aa1014e5987a298613dddc37c9113fcfaf28796c3  .forge/ast-gre
 ec546003dd3fc5a92950f126fc5ffad8599f20b6dd83a0954151758b3481fe8c  .forge/ast-grep/rules/typescript/vitest/no-tautological-expect.yml
 240f482cc1062537b49330dd8577e1c128edb7ef60478a042dab716d79c87b42  .forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-03153117bc182aeb334f69988e723b5ee5799d3added18e76ad4f8980c3bda0b  .forge/check.sh
+2a0cbf902608801f0fe7fa987f0d3a70c4a439baf9fb81694acdac4bc49849c0  .forge/check.sh
 14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38  .forge/helpers/ratchet.mjs
 
 ===== .git/hooks/pre-commit

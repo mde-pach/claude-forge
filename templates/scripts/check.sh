@@ -80,13 +80,14 @@ forge_integrity() {
   [ -f "$manifest" ] || { report forge/integrity "$manifest is missing (run forge apply)"; return; }
   awk '/^[0-9a-f]+  ./ { h = $1; p = substr($0, length(h) + 3); if (p ~ /^[.](forge|claude)\//) print p "\t" h }' "$manifest" > "$FORGE_TMP/owned"
   # "<path><TAB><hash>" lines in $FORGE_TMP/have ("-" for a missing file, none for one
-  # that cannot be read): one hashing run for every owned file but JSON (hashed without whitespace)
+  # that cannot be read): one hashing run for every owned file but JSON and helper scripts
+  # (hashed without what a formatter changes: forge_owned_hash)
   : > "$FORGE_TMP/have"; : > "$FORGE_TMP/plain"
   while IFS='	' read -r path hash; do
     [ -n "$path" ] || continue
     [ -f "$path" ] || { printf '%s\t-\n' "$path" >> "$FORGE_TMP/have"; continue; }
     case $path in
-      *.json) printf '%s\t%s\n' "$path" "$(forge_owned_hash "$path")" >> "$FORGE_TMP/have" ;;
+      *.json|.forge/helpers/*) printf '%s\t%s\n' "$path" "$(forge_owned_hash "$path")" >> "$FORGE_TMP/have" ;;
       *) printf '%s\n' "$path" >> "$FORGE_TMP/plain" ;;
     esac
   done < "$FORGE_TMP/owned"

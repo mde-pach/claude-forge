@@ -18878,13 +18878,14 @@ forge_integrity() {
   [ -f "$manifest" ] || { report forge/integrity "$manifest is missing (run forge apply)"; return; }
   awk '/^[0-9a-f]+  ./ { h = $1; p = substr($0, length(h) + 3); if (p ~ /^[.](forge|claude)\//) print p "\t" h }' "$manifest" > "$FORGE_TMP/owned"
   # "<path><TAB><hash>" lines in $FORGE_TMP/have ("-" for a missing file, none for one
-  # that cannot be read): one hashing run for every owned file but JSON (hashed without whitespace)
+  # that cannot be read): one hashing run for every owned file but JSON and helper scripts
+  # (hashed without what a formatter changes: forge_owned_hash)
   : > "$FORGE_TMP/have"; : > "$FORGE_TMP/plain"
   while IFS='	' read -r path hash; do
     [ -n "$path" ] || continue
     [ -f "$path" ] || { printf '%s\t-\n' "$path" >> "$FORGE_TMP/have"; continue; }
     case $path in
-      *.json) printf '%s\t%s\n' "$path" "$(forge_owned_hash "$path")" >> "$FORGE_TMP/have" ;;
+      *.json|.forge/helpers/*) printf '%s\t%s\n' "$path" "$(forge_owned_hash "$path")" >> "$FORGE_TMP/have" ;;
       *) printf '%s\n' "$path" >> "$FORGE_TMP/plain" ;;
     esac
   done < "$FORGE_TMP/owned"
@@ -19117,7 +19118,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/typescript/react/use-action-state.yml": "17b6fc5e510df3154be12c72a584d8bfb31034b577774718a8c50516b2b15a81",
     ".forge/ast-grep/rules/typescript/ts-expect-error-reason.yml": "b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "3f0098cb32a1bb7f3b3b04eb6ac1d27a1a2144e93ad97e7990a4382aa5843d52",
+    ".forge/check.sh": "1f2a6e4081e8fd05519eeb8b07ba0c31b9d8177c5c38517fe7aea7db5f589ad3",
     ".forge/helpers/ratchet.mjs": "14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
@@ -19343,7 +19344,7 @@ aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21  .forge/ast-gre
 17b6fc5e510df3154be12c72a584d8bfb31034b577774718a8c50516b2b15a81  .forge/ast-grep/rules/typescript/react/use-action-state.yml
 b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad  .forge/ast-grep/rules/typescript/ts-expect-error-reason.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-3f0098cb32a1bb7f3b3b04eb6ac1d27a1a2144e93ad97e7990a4382aa5843d52  .forge/check.sh
+1f2a6e4081e8fd05519eeb8b07ba0c31b9d8177c5c38517fe7aea7db5f589ad3  .forge/check.sh
 14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38  .forge/helpers/ratchet.mjs
 
 ===== .git/hooks/pre-commit
