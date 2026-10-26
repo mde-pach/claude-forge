@@ -1,0 +1,10 @@
+id: safety/no-break-system-packages
+description: "Packages are never installed into the system: no --break-system-packages or PIP_BREAK_SYSTEM_PACKAGES (they bypass the PEP 668 protection of the OS's Python), and no sudo pip / npm / pnpm / yarn / bun install, which runs install scripts as root. Use a virtual environment or the project's package manager."
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: deny
+    pattern: '--break-system-packages|PIP_BREAK_SYSTEM_PACKAGES=|(^|[;&|(][[:space:]]*|\\n[[:space:]]*)sudo[[:space:]]+(-[A-Za-z]+[[:space:]]+)*((python[0-9.]*[[:space:]]+-m[[:space:]]+)?pip[0-9.]*[[:space:]]+install|(npm|pnpm|yarn|bun)[[:space:]]+(i|install|add|global)([[:space:]]|$))'
+examples:
+  match: ["pip install --break-system-packages requests", "PIP_BREAK_SYSTEM_PACKAGES=1 pip install x", "sudo pip install requests", "sudo npm i -g typescript", "sudo -H python3 -m pip install x", "cd /tmp && sudo pnpm add -g serve"]
+  no_match: ["pip install requests", "sudo apt-get install -y python3-pip", "npm i -g typescript", "uv tool install ruff", "git commit -m \"drop sudo pip install from docs\""]
