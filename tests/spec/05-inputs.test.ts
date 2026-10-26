@@ -418,6 +418,61 @@ describe("workspaces", () => {
   });
 });
 
+/**
+ * A rule can apply only to some versions of a library (`when: {deps: […]}`): an API
+ * removed in Express 5, a setting removed in pnpm 11. It is active only where every
+ * listed dependency is declared in its range, judged like detection (lock files refine
+ * versions; `package.json` `packageManager` declares the package manager), and in a
+ * monorepo only in the packages where the gate holds. A rule left out by its gate is
+ * listed by `forge status` with what it needs.
+ */
+describe("version gates", () => {
+  const GATED = `id: local/v5-only
+description: Only in Express 5.
+scope: {language: typescript}
+when: {deps: [{ecosystem: npm, name: express, version: ">=5"}]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule: {pattern: "legacy()"}
+examples:
+  match: ["legacy()"]
+  no_match: ["modern()"]
+`;
+  function planWith(files: Record<string, string>) {
+    const repo = mkdtempSync(join(tmpdir(), "forge-gate-"));
+    for (const [rel, text] of Object.entries({ "tsconfig.json": "{}\n", ".forge/rules/v5-only.yaml": GATED, ...files })) put(repo, rel, text);
+    sh("git", ["init", "-q"], { cwd: repo });
+    return { repo, p: plan({ level: "project", base: repo, packs: PACKS, ...readProjectInputs(repo) }) };
+  }
+  const active = (p: ReturnType<typeof plan>) => p.active.some((s) => s.rule.id === "local/v5-only");
+
+  test("a gated rule is active only when the dependency is declared in its range, and status says what an inactive one needs", () => {
+    expect(active(planWith({ "package.json": '{"dependencies": {"express": "^5.1.0"}}\n' }).p)).toBe(true);
+    const old = planWith({ "package.json": '{"dependencies": {"express": "^4.21.0"}}\n' });
+    expect(active(old.p)).toBe(false);
+    expect(old.p.gated).toEqual([{ id: "local/v5-only", needs: "express >=5" }]);
+    expect(forge(["status"], old.repo).stdout).toContain("Inactive (version gate):\n  local/v5-only: needs express >=5");
+    expect(active(planWith({ "package.json": '{"dependencies": {}}\n' }).p)).toBe(false);
+  });
+
+  test("package.json packageManager declares the package manager's version", () => {
+    const gate = GATED.replace('{ecosystem: npm, name: express, version: ">=5"}', '{ecosystem: npm, name: pnpm, version: ">=11 <12"}');
+    expect(active(planWith({ "package.json": '{"packageManager": "pnpm@11.2.0+sha512.abc"}\n', ".forge/rules/v5-only.yaml": gate }).p)).toBe(true);
+    expect(active(planWith({ "package.json": '{"packageManager": "pnpm@10.18.0"}\n', ".forge/rules/v5-only.yaml": gate }).p)).toBe(false);
+  });
+
+  test("in a monorepo, a gated rule applies only in the packages where its gate holds", () => {
+    const { p } = planWith({
+      "package.json": '{"name": "mono", "private": true, "workspaces": ["apps/*"]}\n',
+      "apps/old/package.json": '{"name": "old", "dependencies": {"express": "4.21.2"}}\n',
+      "apps/new/package.json": '{"name": "new", "dependencies": {"express": "5.1.0"}}\n',
+    });
+    const rule = parseStrictYaml(p.files.get(".forge/ast-grep/rules/local/v5-only.yml")!, "rule") as { files?: string[] };
+    expect(rule.files).toEqual(["apps/new/**"]);
+  });
+});
+
 describe("strict YAML", () => {
   test.each([
     ["duplicate keys", "a: 1\na: 2\n", /unique|duplicate/i],

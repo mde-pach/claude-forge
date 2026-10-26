@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parse as parseToml } from "smol-toml";
-import { detectAnywhere, detectPack, lineage, loadLocalRules, loadProjectConfig, readProjectFacts, type DepFacts, type ProjectFacts } from "./packs.js";
+import { depMatches, detectAnywhere, detectPack, lineage, loadLocalRules, loadProjectConfig, readProjectFacts, type DepFacts, type ProjectFacts } from "./packs.js";
 import {
   AUDITED_TOOLS,
   PROJECT_TOOLS,
@@ -66,6 +66,8 @@ export interface Plan {
   removedPacks: PackStatus[];
   active: RuleStatus[];
   disabled: { id: string; reason: string }[];
+  /** Rules of active packs left out by their version gate (`when`), with the dependencies they need. */
+  gated: { id: string; needs: string }[];
   deprecated: { id: string; replaced_by: string }[];
   warnings: string[];
   tools: Record<AuditedTool, boolean>;
@@ -239,11 +241,30 @@ export function plan(opts: PlanOptions): Plan {
     return workspaces.filter((w) => detectPack(pack, w)).map((w) => w.dir);
   };
 
+  /**
+   * Where a rule applies: its pack's places (packDirs), narrowed to those where its
+   * version gate holds (every dependency of `when` declared in its range). A pack that
+   * applies to the whole repository is judged at the root, else (added in forge.yaml,
+   * required) in any workspace package. null: the gate holds nowhere.
+   */
+  const gateHolds = (rule: Rule, facts: DepFacts) => (rule.when?.deps ?? []).every((d) => depMatches(facts, d));
+  const ruleDirs = (rule: Rule): string[] | undefined => {
+    const where = packDirs(rule.pack);
+    if (!rule.when || !opts.facts) return where;
+    if (where) return workspaces.filter((w) => where.includes(w.dir) && gateHolds(rule, w)).map((w) => w.dir);
+    return gateHolds(rule, opts.facts.root) ? undefined : workspaces.filter((w) => gateHolds(rule, w)).map((w) => w.dir);
+  };
+  const gatedOut = (rule: Rule): boolean => {
+    if (!rule.when || !opts.facts) return false;
+    const where = packDirs(rule.pack);
+    return ruleDirs(rule)?.length === 0;
+  };
+
   const checkPlace = (rule: Rule, t: CheckTarget): { dirs?: string[]; absent: string[] } => {
     const audited = checkTools(t).filter((x): x is AuditedTool => (AUDITED_TOOLS as readonly string[]).includes(x));
     const absent = audited.filter((x) => !tools[x]);
     if (absent.length || !places || !opts.facts || !workspaces.length || !perPackage(t)) return { absent };
-    const where = packDirs(rule.pack);
+    const where = ruleDirs(rule);
     if (!where && audited.every((x) => places[x].includes(""))) return { absent: [] };
     const dirs = workspaces
       .filter((w) => (!where || where.includes(w.dir)) && audited.every((x) => places[x].includes(w.dir)))
@@ -275,6 +296,13 @@ export function plan(opts: PlanOptions): Plan {
       deprecated.push({ id, replaced_by: r.deprecated.replaced_by });
     }
 
+  const gated: Plan["gated"] = [];
+  for (const [id, r] of byId)
+    if (level === "project" && gatedOut(r)) {
+      byId.delete(id);
+      gated.push({ id, needs: r.when!.deps.map((d) => `${d.name} ${d.version}`).join(", ") });
+    }
+
   const rulesSorted = [...byId.values()].sort((a, b) => a.id.localeCompare(b.id));
   const active: RuleStatus[] = [];
   const checks: ActiveCheck[] = [];
@@ -300,7 +328,7 @@ export function plan(opts: PlanOptions): Plan {
     if (ast && (toolTargets.length === 0 || !toolTargets.some((t) => present(t.tool)))) {
       if (level === "user") warnings.push(`${rule.id}: ast-grep targets are project-level only`);
       else {
-        const dirs = packDirs(rule.pack);
+        const dirs = ruleDirs(rule);
         st.astgrep = ast;
         astgrep.push({ rule, target: ast, ...(dirs ? { dirs } : {}) });
         const lang = typesLanguage(rule, ast);
@@ -330,7 +358,7 @@ export function plan(opts: PlanOptions): Plan {
           warnings.push(`${rule.id}: grep targets are project-level only`);
           continue;
         }
-        const dirs = packDirs(rule.pack);
+        const dirs = ruleDirs(rule);
         greps.push({ rule, target: t, ...(dirs ? { dirs } : {}) });
         st.enforced.push(`grep ${t.mode} (.forge/check.sh)${dirs ? ` (in ${dirs.join(", ")})` : ""}`);
       } else if (t.target === "check") {
@@ -428,6 +456,7 @@ export function plan(opts: PlanOptions): Plan {
     removedPacks: removed,
     active,
     disabled,
+    gated,
     deprecated,
     warnings,
     tools,

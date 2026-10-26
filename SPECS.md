@@ -149,6 +149,8 @@ examples:
   match: [example]             # MUST trigger the rule
   no_match: [example]          # MUST NOT trigger the rule
   deps: [{ecosystem, name, version}]  # rules with a where (§15.1): the packages, exact versions, the examples are type-checked against
+when:                          # optional version gate
+  deps: [{ecosystem, name, version}]  # every one declared, in its range (semver), where the rule applies
 deprecated:                    # optional
   replaced_by: <rule-id>
 review: string                 # optional, one line: for an ask, the one question a reviewer answers (§9.3)
@@ -162,6 +164,8 @@ An example is a string (code, written to a file inside the rule's scope) or, for
 ```
 
 A `guard` example is a command string or `{command, files}`: the command runs from a directory holding `files` (e.g. `node_modules/.bin/tsc`), which is its repository root.
+
+A rule with `when` is active only where each listed dependency is declared in its version range, read as detection reads it (§5.1; `package.json` `packageManager` and `devEngines.packageManager` declare the package manager as a dependency at that version): at the root for a pack that applies to the whole repository, else in the workspace packages where its pack was detected; a pack added in `forge.yaml` or required takes the packages where the gate holds when the root does not satisfy it. Its ast-grep and grep rules are scoped to those packages. A rule its gate leaves out is listed by `forge status` under `Inactive (version gate):` with what it needs (`--json`: `gated`).
 
 Paths are relative, without `..`. Every rule has examples, except a `check` target that runs the project's tests (stage `test`), its migrations (stage `migration`), `astro check` or a lock-file check (`uv`, `bun`): those need a whole project, and their examples are optional.
 

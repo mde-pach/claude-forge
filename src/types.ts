@@ -128,6 +128,8 @@ export interface Rule {
   /** deps: the packages (exact versions) the examples are type-checked against, for rules with type constraints (§15.1). */
   examples?: { match?: Example[]; no_match?: Example[]; deps?: DepSpec[] };
   deprecated?: { replaced_by: string };
+  /** The rule is active only where every listed dependency is declared in its version range (a version gate). */
+  when?: { deps: DepSpec[] };
   /** For an ask: the one question an independent reviewer answers when nobody can (§9.3). */
   review?: string;
   /** Absolute path of the rule file. */

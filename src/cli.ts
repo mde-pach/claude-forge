@@ -582,6 +582,7 @@ function cmdStatus(flags: Flags): number {
           counts: { active: rules.length, enforced: rules.filter((r) => r.enforced).length, not_enforced: rules.filter((r) => !r.enforced).length },
           rules,
           disabled: p.disabled,
+          gated: p.gated,
           deprecated: p.deprecated,
           audits,
           missing_tools: missing,
@@ -613,6 +614,11 @@ function cmdStatus(flags: Flags): number {
     out("");
     out("Disabled:");
     for (const d of p.disabled) out(`  ${d.id}: ${d.reason}`);
+  }
+  if (p.gated.length) {
+    out("");
+    out("Inactive (version gate):");
+    for (const g of p.gated) out(`  ${g.id}: needs ${g.needs}`);
   }
   if (p.deprecated.length) for (const d of p.deprecated) out(`  ${d.id}: deprecated, replaced by ${d.replaced_by}`);
   if (ctx.level === "project") {
@@ -666,7 +672,9 @@ function cmdExplain(id: string | undefined, flags: Flags): number {
   const ctx = context(flags);
   const st = ctx.plan.active.find((s) => s.rule.id === id);
   const dis = ctx.plan.disabled.find((d) => d.id === id);
+  const gate = ctx.plan.gated.find((g) => g.id === id);
   if (dis) out(`Disabled here: ${dis.reason}`);
+  else if (gate) out(`Not active here: the rule needs ${gate.needs}.`);
   else if (!st) out(`Not active here: pack ${rule.pack} is not active at ${ctx.level} level.`);
   else {
     out("Enforced here:");

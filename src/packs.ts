@@ -253,6 +253,12 @@ function readDeps(dir: string, strict: boolean, hasManagePy = false, published =
   const pkg = read(join(dir, "package.json"), readJson, (t) => JSON.parse(t) as Record<string, any>);
   for (const key of ["dependencies", "devDependencies", "optionalDependencies", "peerDependencies"])
     for (const [name, range] of Object.entries<unknown>(pkg?.[key] ?? {})) if (typeof range === "string") npm.set(name, versionFromRange(range));
+  // the package manager the project pins (corepack's packageManager, devEngines.packageManager) is a dependency on it
+  const pm = [pkg?.packageManager, pkg?.devEngines?.packageManager?.name && `${pkg.devEngines.packageManager.name}@${pkg.devEngines.packageManager.version ?? ""}`];
+  for (const spec of pm) {
+    const m = typeof spec === "string" ? /^(@?[^@\s]+)@([^+\s]*)/.exec(spec) : null;
+    if (m) npm.set(m[1]!, versionFromRange(m[2]!) || (coerce(m[2]!)?.version ?? ""));
+  }
   if (pkg && isNpmLibrary(pkg, published.npm)) library.add("npm");
   const toml = read(join(dir, "pyproject.toml"), readTomlFile, (t) => parseToml(t) as Record<string, any>);
   if (toml) {
@@ -402,7 +408,7 @@ function versionFromPep440(spec: string): string {
   return m ? (coerce(m[1]!)?.version ?? "") : "";
 }
 
-function depMatches(facts: DepFacts, dep: DepSpec): boolean {
+export function depMatches(facts: DepFacts, dep: DepSpec): boolean {
   const map = dep.ecosystem === "npm" ? facts.npm : facts.pypi;
   const name = dep.ecosystem === "pypi" ? normPy(dep.name) : dep.name;
   if (!map.has(name)) return false;

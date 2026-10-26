@@ -255,6 +255,24 @@ export const ruleSchema = {
       },
     },
     review: { type: "string", minLength: 1, pattern: "^[^\\n\\t]+$" },
+    // a version gate: every dependency declared, in its range, where the rule's pack applies
+    when: {
+      type: "object",
+      additionalProperties: false,
+      required: ["deps"],
+      properties: {
+        deps: {
+          type: "array",
+          minItems: 1,
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["ecosystem", "name", "version"],
+            properties: { ecosystem: { enum: ["pypi", "npm"] }, name: { type: "string", minLength: 1 }, version: { type: "string", minLength: 1 } },
+          },
+        },
+      },
+    },
     deprecated: {
       type: "object",
       additionalProperties: false,
