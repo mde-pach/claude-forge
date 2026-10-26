@@ -543,7 +543,7 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `python/no-shell-true` | `tool` ruff `S602` |
 | `python/no-stale-ignore` | `tool` ty `unused-ignore-comment`, `unused-type-ignore-comment` |
 | `python/aware-datetime` | `tool` ruff `DTZ005` |
-| `python/no-new-suppressions` | `grep` no-increase: `# noqa`, `# ty: ignore`, `# type: ignore`, `# pyright: ignore` (suppression budget) |
+| `python/no-new-suppressions` | `grep` no-increase: `# noqa`, `# ty: ignore`, `# type: ignore`, `# pyright: ignore`, `# pragma: no cover`, `# pragma: no branch` (suppression budget) |
 | `python/config-files` | `permission` ask: `Edit(**/ruff.toml)`, `Edit(**/.ruff.toml)`, `Edit(**/ty.toml)` |
 | `python/config-ratchet` | `check` lint: `forge_ratchet python ratchet.py` (§10.4), `when_changed`: the Python config files |
 | `python/no-silent-except` | `tool` ruff `S110`, `S112` |
@@ -587,7 +587,7 @@ context.md: uv and `.venv/bin`, ty, annotated parameters and returns; no blockin
 | `typescript/no-focused-tests` | `tool` biome `lint/suspicious/noFocusedTests`; `ast-grep` forbid `it.only(…)`, `test.only(…)`, `describe.only(…)`, `test.describe.only(…)` in test files and `e2e/**` |
 | `typescript/no-eval` | `tool` biome `lint/security/noGlobalEval`; `ast-grep` forbid `eval(…)`, `globalThis.eval(…)`, `window.eval(…)` |
 | `typescript/unchecked-index` | `tool` tsc: expects `TS18048` on an unchecked array element (`noUncheckedIndexedAccess`; snippet adds it to `strict`) |
-| `typescript/no-new-suppressions` | `grep` no-increase: `biome-ignore` (every form), `@ts-expect-error` (suppression budget; `@ts-ignore` and `@ts-nocheck` are forbidden outright) |
+| `typescript/no-new-suppressions` | `grep` no-increase: `biome-ignore` (every form), `@ts-expect-error`, `istanbul ignore`, `c8 ignore`, `v8 ignore` (suppression budget; `@ts-ignore` and `@ts-nocheck` are forbidden outright) |
 | `typescript/no-empty-block` | `tool` biome `lint/suspicious/noEmptyBlockStatements` |
 | `typescript/no-swallowed-catch` | `ast-grep` forbid: a `catch` that neither throws nor uses its error; `.catch(() => {})`, `.catch(() => undefined)`, `.catch(() => null)` |
 | `typescript/no-console` | `tool` biome `lint/suspicious/noConsole` (snippet allows `warn` and `error`) |
@@ -668,6 +668,9 @@ context.md: "Pydantic v2: `model_validate`, `model_dump`, `model_config = Config
 |---|---|
 | `python/pytest/run` | `check` test: `run: pytest -q`, `changed_run`: changed test files plus `tests/**/test_<module>.py` for each changed module and, at Stop, the test files edited during the turn (`<snapshot>/touched`, §10.5) even when the edit was reverted; `pytest --testmon` when the project depends on pytest-testmon; timeout 300 s |
 | `python/pytest/no-new-skip` | `ast-grep` no-increase on test files: `@pytest.mark.skip($$$)`, `@pytest.mark.skipif($$$)`, `@pytest.mark.xfail($$$)`, `pytest.skip($$$)`, `@unittest.skip($$$)`, `pytest.importorskip($$$)` |
+| `python/pytest/no-hook-tamper` | `ast-grep` advise on test files and `conftest.py`: a `def` of a result-rewriting hook (`pytest_runtest_makereport`, `pytest_report_teststatus`, `pytest_runtest_call`, `pytest_pyfunc_call`, `pytest_runtest_protocol`, `pytest_terminal_summary`, `pytest_collection_modifyitems`) |
+| `python/pytest/no-exitstatus` | `ast-grep` advise: `$S.exitstatus = $V` where `S` is pytest's `Session` (`_pytest.main`, §15.1) |
+| `python/pytest/no-exit-zero` | `ast-grep` forbid on test files and `conftest.py`: `sys.exit(0)`, `os._exit(0)`, `pytest.exit(…, returncode=0)` |
 | `python/pytest/no-fewer-asserts` | `ast-grep` no-decrease on test files: `assert $$$` |
 | `python/pytest/no-test-env-branch` | `ast-grep` forbid on non-test files: `PYTEST_CURRENT_TEST` lookups, `"pytest" in sys.modules` |
 | `python/pytest/no-blind-raises` | `tool` ruff `B017` |
@@ -831,6 +834,8 @@ context.md: Prisma 7: `prisma-client` generator with `output`, driver adapters, 
 | `typescript/vitest/no-fewer-expects` | `ast-grep` no-decrease on test files: `expect($$$)` |
 | `typescript/vitest/no-test-env-branch` | `ast-grep` forbid on non-test files: `process.env.VITEST`, `process.env.NODE_ENV === "test"` |
 | `typescript/vitest/no-tautological-expect` | `ast-grep` forbid on test files: `expect(<literal>).$M(…)` (`true`, `false`, `null`, `undefined`, a number or a string) |
+| `typescript/vitest/no-matcher-override` | `ast-grep` forbid: `$E.extend({…})` defining a built-in matcher name (`toBe`, `toEqual`, `toStrictEqual`, `toMatchObject`, `toThrow`, … the names of `@vitest/expect`'s assertion interfaces and the snapshot matchers) where `E` is Vitest's `ExpectStatic` (declared in `vitest` from 5, `@vitest/expect` before; §15.1) |
+| `typescript/vitest/no-exit-zero` | `ast-grep` forbid on test, setup and mock files: `process.exit(0)` |
 | `typescript/vitest/no-snapshot-update` | `guard` ask: `vitest` with `-u` or `--update` |
 | `typescript/vitest/no-workspace-file` | `check` lint: no tracked `vitest.workspace.*` (Vitest 4 ignores it), `when_changed: [vitest.*]` |
 | `typescript/vitest/no-pass-with-no-tests` | `guard` ask: `vitest … --passWithNoTests` |

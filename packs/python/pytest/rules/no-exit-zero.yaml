@@ -1,0 +1,20 @@
+id: python/pytest/no-exit-zero
+description: "Conftest and test files never exit with status 0 (sys.exit(0), os._exit(0), pytest.exit(..., returncode=0)): the run reports success whatever the tests did."
+scope: {language: python, files: ["**/test_*.py", "**/*_test.py", "**/conftest.py"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        - {pattern: "sys.exit(0)"}
+        - {pattern: "os._exit(0)"}
+        - {pattern: "pytest.exit($$$, returncode=0)"}
+        - {pattern: "pytest.exit($$$, returncode=pytest.ExitCode.OK)"}
+examples:
+  match:
+    - "import sys\n\n\ndef pytest_sessionfinish(session, exitstatus):\n    sys.exit(0)\n"
+    - "import os\n\n\ndef pytest_unconfigure(config):\n    os._exit(0)\n"
+    - "import pytest\n\n\ndef pytest_sessionstart(session):\n    pytest.exit(\"done\", returncode=0)\n"
+  no_match:
+    - "import sys\n\nimport pytest\n\n\ndef test_cli_exits_with_error():\n    with pytest.raises(SystemExit):\n        sys.exit(2)\n"
+    - "import pytest\n\n\ndef pytest_sessionstart(session):\n    pytest.exit(\"no database\", returncode=3)\n"

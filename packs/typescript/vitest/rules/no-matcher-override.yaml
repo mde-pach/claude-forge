@@ -1,0 +1,31 @@
+id: typescript/vitest/no-matcher-override
+description: "expect.extend does not redefine a built-in matcher (toBe, toEqual, toStrictEqual, toMatchObject, toThrow, …): every assertion using it would then pass. Give a custom matcher its own name. The receiver is Vitest's expect by its type, whatever it is called."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      all:
+        - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: "^extend$"}}, {has: {field: object, pattern: $E}}]}
+        - has:
+            field: arguments
+            has:
+              kind: object
+              has:
+                any:
+                  - {kind: pair, has: {field: key, regex: "^[\"']?(toBe|toBeCalled|toBeCalledTimes|toBeCalledWith|toBeCloseTo|toBeDefined|toBeFalsy|toBeGreaterThan|toBeGreaterThanOrEqual|toBeInstanceOf|toBeLessThan|toBeLessThanOrEqual|toBeNaN|toBeNull|toBeNullable|toBeOneOf|toBeTruthy|toBeTypeOf|toBeUndefined|toContain|toContainEqual|toEqual|toHaveBeenCalled|toHaveBeenCalledAfter|toHaveBeenCalledBefore|toHaveBeenCalledExactlyOnceWith|toHaveBeenCalledOnce|toHaveBeenCalledTimes|toHaveBeenCalledWith|toHaveBeenLastCalledWith|toHaveBeenNthCalledWith|toHaveLastResolvedWith|toHaveLastReturnedWith|toHaveLength|toHaveNthResolvedWith|toHaveNthReturnedWith|toHaveProperty|toHaveResolved|toHaveResolvedTimes|toHaveResolvedWith|toHaveReturned|toHaveReturnedTimes|toHaveReturnedWith|toMatch|toMatchObject|toReturn|toReturnTimes|toReturnWith|toSatisfy|toStrictEqual|toThrow|toThrowError|toMatchSnapshot|toMatchInlineSnapshot|toMatchFileSnapshot|toThrowErrorMatchingSnapshot|toThrowErrorMatchingInlineSnapshot)[\"']?$"}}
+                  - {kind: method_definition, has: {field: name, regex: "^[\"']?(toBe|toBeCalled|toBeCalledTimes|toBeCalledWith|toBeCloseTo|toBeDefined|toBeFalsy|toBeGreaterThan|toBeGreaterThanOrEqual|toBeInstanceOf|toBeLessThan|toBeLessThanOrEqual|toBeNaN|toBeNull|toBeNullable|toBeOneOf|toBeTruthy|toBeTypeOf|toBeUndefined|toContain|toContainEqual|toEqual|toHaveBeenCalled|toHaveBeenCalledAfter|toHaveBeenCalledBefore|toHaveBeenCalledExactlyOnceWith|toHaveBeenCalledOnce|toHaveBeenCalledTimes|toHaveBeenCalledWith|toHaveBeenLastCalledWith|toHaveBeenNthCalledWith|toHaveLastResolvedWith|toHaveLastReturnedWith|toHaveLength|toHaveNthResolvedWith|toHaveNthReturnedWith|toHaveProperty|toHaveResolved|toHaveResolvedTimes|toHaveResolvedWith|toHaveReturned|toHaveReturnedTimes|toHaveReturnedWith|toMatch|toMatchObject|toReturn|toReturnTimes|toReturnWith|toSatisfy|toStrictEqual|toThrow|toThrowError|toMatchSnapshot|toMatchInlineSnapshot|toMatchFileSnapshot|toThrowErrorMatchingSnapshot|toThrowErrorMatchingInlineSnapshot)[\"']?$"}}
+                  - {kind: shorthand_property_identifier, regex: "^(toBe|toBeCalled|toBeCalledTimes|toBeCalledWith|toBeCloseTo|toBeDefined|toBeFalsy|toBeGreaterThan|toBeGreaterThanOrEqual|toBeInstanceOf|toBeLessThan|toBeLessThanOrEqual|toBeNaN|toBeNull|toBeNullable|toBeOneOf|toBeTruthy|toBeTypeOf|toBeUndefined|toContain|toContainEqual|toEqual|toHaveBeenCalled|toHaveBeenCalledAfter|toHaveBeenCalledBefore|toHaveBeenCalledExactlyOnceWith|toHaveBeenCalledOnce|toHaveBeenCalledTimes|toHaveBeenCalledWith|toHaveBeenLastCalledWith|toHaveBeenNthCalledWith|toHaveLastResolvedWith|toHaveLastReturnedWith|toHaveLength|toHaveNthResolvedWith|toHaveNthReturnedWith|toHaveProperty|toHaveResolved|toHaveResolvedTimes|toHaveResolvedWith|toHaveReturned|toHaveReturnedTimes|toHaveReturnedWith|toMatch|toMatchObject|toReturn|toReturnTimes|toReturnWith|toSatisfy|toStrictEqual|toThrow|toThrowError|toMatchSnapshot|toMatchInlineSnapshot|toMatchFileSnapshot|toThrowErrorMatchingSnapshot|toThrowErrorMatchingInlineSnapshot)$"}
+    # Vitest 5 declares ExpectStatic in its own bundled types (vitest/dist/chunks), earlier
+    # versions in @vitest/expect.
+    where:
+      E: {type: {package: [vitest, "@vitest/expect"], name: ExpectStatic}}
+examples:
+  deps: [{ecosystem: npm, name: vitest, version: "5.0.4"}]
+  match:
+    - "import { expect } from \"vitest\";\n\nexpect.extend({\n  toEqual() {\n    return { pass: true, message: () => \"\" };\n  },\n});\n"
+    - "import { expect as check } from \"vitest\";\n\ncheck.extend({ toBe: () => ({ pass: true, message: () => \"\" }) });\n"
+  no_match:
+    - "import { expect } from \"vitest\";\n\nexpect.extend({\n  toBeWithinRange(received: number, floor: number, ceiling: number) {\n    const pass = received >= floor && received <= ceiling;\n    return { pass, message: () => \"out of range\" };\n  },\n});\n"
+    - "const registry = { extend(o: object) { return o; } };\n\nregistry.extend({ toEqual: () => true });\n"
