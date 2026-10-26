@@ -1019,6 +1019,24 @@ Detected by `wrangler.toml`, `wrangler.json`, `wrangler.jsonc` or the `wrangler`
 
 context.md: `await stripe.webhooks.constructEventAsync(…)` on Workers.
 
+### typescript/mcp
+
+Detected by `@modelcontextprotocol/sdk` or `@modelcontextprotocol/server`.
+
+| Rule | Targets |
+|---|---|
+| `typescript/mcp/stdio-no-stdout` | `ast-grep` forbid, in a file importing `StdioServerTransport` from `@modelcontextprotocol/sdk/server/stdio.js` or `@modelcontextprotocol/server`: `console.log`, `console.info`, `console.debug`, `process.stdout.write` |
+
+context.md: stdout is the JSON-RPC stream; logs on stderr.
+
+### typescript/upstash-ratelimit
+
+| Rule | Targets |
+|---|---|
+| `typescript/upstash-ratelimit/check-limit` | `ast-grep` forbid: an expression statement `$RL.limit(…)` or `await $RL.limit(…)` (result discarded), where `RL` is `@upstash/ratelimit`'s `Ratelimit` (the exported classes extend it) |
+
+context.md: `limit()` never throws; check `success`.
+
 ### github-actions
 
 Detected by `.github/workflows/*.yml` or `*.yaml`.
