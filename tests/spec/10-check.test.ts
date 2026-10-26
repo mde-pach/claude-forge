@@ -1615,3 +1615,22 @@ describe("pinned release binaries and system tools", () => {
     expect(out.stdout).toBe("forge:demo/rule skipped: offline\nrc=0\n");
   });
 });
+
+/**
+ * A file larger than a rule file can hold: git/large-files has no examples, so it is
+ * proved here, on a real file of 1.2 MiB.
+ * @rule git/large-files
+ */
+test(
+  "git/large-files: a new file over 1 MiB fails the check unless Git LFS stores it; a file that did not grow is left alone",
+  () => {
+    const rule = loadPacks(join(ROOT, "packs")).get("git")!.rules.find((r) => r.id === "git/large-files")!;
+    const target = rule.enforce[0] as CheckTarget;
+    const big = "x".repeat(1200 * 1024);
+    expect(runCheckExample(rule, target, { files: { "assets/dump.sql": big } }, "match", []).outcome).toBe("pass");
+    expect(runCheckExample(rule, target, { head: { ".gitattributes": "*.sql filter=lfs diff=lfs merge=lfs -text\n" }, files: { "assets/dump.sql": big } }, "no_match", []).outcome).toBe("pass");
+    expect(runCheckExample(rule, target, { head: { "assets/dump.sql": big + "y" }, files: { "assets/dump.sql": big } }, "no_match", []).outcome).toBe("pass");
+    expect(runCheckExample(rule, target, { files: { "assets/small.sql": "select 1;\n" } }, "no_match", []).outcome).toBe("pass");
+  },
+  T,
+);

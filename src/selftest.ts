@@ -146,11 +146,12 @@ export function hadolintIntegrity(): { status: "ok" | "mismatch" | "skipped"; de
 
 /**
  * Check targets that need a whole project the examples cannot stand in for:
- * test runs, migrations, `astro check` and the lock-file checks. Their
- * examples are optional.
+ * test runs, migrations, `astro check` and the lock-file checks, and the
+ * large-file check (its files do not fit in a rule). Their examples are optional.
  */
 export function checkExamplesOptional(t: CheckTarget): boolean {
-  return t.stage === "test" || t.stage === "migration" || checkTools(t).some((x) => x === "astro" || x === "uv" || x === "bun");
+  // forge_large_files: a file over its size limit does not fit in a rule file (a spec test runs it)
+  return t.stage === "test" || t.stage === "migration" || checkTools(t).some((x) => x === "astro" || x === "uv" || x === "bun") || /\bforge_large_files\b/.test(t.run);
 }
 
 /** How check examples are run: as Stop runs them, except format checks, which fix files at Stop and are run as CI runs them. */

@@ -1,0 +1,17 @@
+id: git/editorconfig
+description: "When the repository has an .editorconfig, changed files that no formatter of this setup formats respect it (editorconfig-checker, with Forge's config: .editorconfig-checker.json excludes do not apply)."
+scope: {language: any}
+enforce:
+  - target: check
+    stage: lint
+    run: forge_editorconfig
+examples:
+  match:
+    - head: {.editorconfig: "root = true\n\n[*]\nindent_style = space\nindent_size = 2\ntrim_trailing_whitespace = true\ninsert_final_newline = true\n"}
+      files: {deploy/values.yaml: "image:\n\ttag: \"1.2.3\"   \n"}
+    - head: {.editorconfig: "root = true\n\n[*]\nindent_style = space\nindent_size = 2\ninsert_final_newline = true\n", .editorconfig-checker.json: "{\"Exclude\": [\"docs\"]}\n"}
+      files: {docs/guide.md: "# Guide\n\n\tIndented with a tab.\n"}
+  no_match:
+    - head: {.editorconfig: "root = true\n\n[*]\nindent_style = space\nindent_size = 2\ntrim_trailing_whitespace = true\ninsert_final_newline = true\n"}
+      files: {deploy/values.yaml: "image:\n  tag: \"1.2.3\"\n"}
+    - files: {deploy/values.yaml: "image:\n\ttag: \"1.2.3\"   \n"}

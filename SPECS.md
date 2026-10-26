@@ -993,6 +993,28 @@ Detected by `**/compose*.y*ml` or `**/docker-compose*.y*ml`. ast-grep rules use 
 
 context.md: `compose.yaml` + `compose.override.yaml`, healthchecks with `condition: service_healthy`, `develop.watch`, profiles, secrets, loopback-bound database ports, and that docker compose runs outside the sandbox, which makes these rules a real boundary.
 
+### secrets
+
+Active in every repository (`detect: {always: true}`, §5.1). Rules are `check` lint targets.
+
+| Rule | Targets |
+|---|---|
+| `secrets/gitleaks` | `forge_gitleaks`: pinned gitleaks (§13.5) `dir` on copies of the changed files (every tracked file with `--all`), with Forge's config only (`-c`: gitleaks' default rules without `generic-api-key`, which decides on identifier names and entropy, plus LangSmith `lsv2_(pt\|sk)_…` and Pinecone `pcsk_…` keys), `-i` to an empty directory (`.gitleaksignore` does not apply), `--ignore-gitleaks-allow`, `--redact`; findings `path:line rule: description`, on added lines |
+| `secrets/no-credential-files` | `forge_credential_files`, when such a file or an `.npmrc` changed: tracked or added files matching `*.p12`, `*.pfx`, `*.jks`, `*.keystore`, `*.key`, `id_rsa`, `id_ecdsa`, `id_ed25519`, `.pypirc`, `.netrc`, `.git-credentials` (line 0); `.npmrc` lines setting `_authToken`, `_auth` or `_password` to a literal value (`${VAR}` is fine) |
+
+context.md: credentials come from the environment or a secret store; a token or key found in a file, a log or a tool's output is never used to call an API or a CLI (`secrets/no-credential-reuse`); what gitleaks and the credential-file check reject.
+
+### git
+
+Active in every repository (`detect: {always: true}`, §5.1).
+
+| Rule | Targets |
+|---|---|
+| `git/no-conflict-markers` | `grep` forbid, any file: `^(<<<<<<<\|>>>>>>>\|\|\|\|\|\|\|\|)( \|$)` (`=======` is left out: a Markdown or reStructuredText heading underline) |
+| `git/large-files` | `check` lint: `forge_large_files 1048576`: a file of the change over 1 MiB, new or grown, whose `git check-attr filter` is not `lfs` (line 0); the threshold is the argument (replace the rule locally). Proved by a spec test: its files do not fit in examples |
+| `git/generated-files` | `check` lint, advisory (§10.7): `forge_generated_edits`: a changed file marked `linguist-generated` (`git check-attr`) or with `@generated` / `Code generated … DO NOT EDIT.` in its first 15 lines: regenerate it rather than edit it |
+| `git/editorconfig` | `check` lint: `forge_editorconfig`, when `.editorconfig` exists: pinned editorconfig-checker (§13.5) with an empty config of Forge's (`.editorconfig-checker.json` excludes and disables do not apply), `-format gcc`, on the changed files no format check of the setup covers |
+
 ### 13.1 Migration linting
 
 `migration-lint` checks run [Squawk](https://squawkhq.com) (`squawk-cli`, pinned, through `bunx` or `uvx`, like ast-grep) on migration SQL and fail only on the changes that break the running version of the application during a deploy: `renaming-column`, `renaming-table`, `changing-column-type`, `adding-required-field`, `adding-not-nullable-field`, `ban-drop-database`. Squawk's other advice (lock and statement timeouts, `IF NOT EXISTS`, `CONCURRENTLY`, column types) is not enforced: Prisma and Alembic generate SQL that triggers it on every migration. Findings are printed `file:line:column` (from 1). When Squawk cannot run (offline, no `bunx` or `uvx`) or Alembic cannot render a revision, the check prints `forge:<id> skipped: …` and does not block. In CI (`--all`) only the newest migration is linted, so an accepted rename does not fail every later run.
