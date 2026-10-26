@@ -1,0 +1,10 @@
+id: toolchain/pinned-versions
+description: "mise.toml, .mise.toml, mise.*.toml and .tool-versions pin versions, never latest: latest gives every machine and CI a different toolchain."
+scope: {language: any, files: ["mise.toml", ".mise.toml", "mise.*.toml", ".tool-versions"]}
+enforce:
+  - target: grep
+    mode: forbid
+    pattern: "=[[:space:]]*[\"']latest[\"']|^[A-Za-z0-9_-]+[[:space:]]+latest([[:space:]]|$)"
+examples:
+  match: ["[tools]\nnode = \"latest\"\n", "[tools]\npython = 'latest'\n", "nodejs latest\npython 3.13.9\n"]
+  no_match: ["[tools]\nnode = \"24.11.0\"\npython = \"3.13\"\n", "nodejs 24.11.0\npython 3.13.9\n", "# use latest in a scratch clone only\n"]

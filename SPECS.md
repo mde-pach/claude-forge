@@ -1088,6 +1088,15 @@ Detected by `.changeset/config.json`, `release-please-config.json`, `.release-pl
 |---|---|
 | `release/no-hand-changelog` | `permission` ask: `Edit(**/CHANGELOG.md)` (the release tooling writes it) |
 
+### toolchain
+
+Detected by `mise.toml`, `.mise.toml`, `.tool-versions`, `.devcontainer/**` or `.devcontainer.json`.
+
+| Rule | Targets |
+|---|---|
+| `toolchain/pinned-versions` | `grep` forbid on `mise.toml`, `.mise.toml`, `mise.*.toml`, `.tool-versions`: a `latest` version |
+| `toolchain/devcontainer-pinned` | `grep` forbid on `devcontainer.json`: an `"image"` with `:latest` or no tag or digest; `curl` / `wget` piped to `sh`, `bash` or `zsh` |
+
 ### 13.1 Migration linting
 
 `migration-lint` checks run [Squawk](https://squawkhq.com) (`squawk-cli`, pinned, through `bunx` or `uvx`, like ast-grep) on migration SQL and fail only on the changes that break the running version of the application during a deploy: `renaming-column`, `renaming-table`, `changing-column-type`, `adding-required-field`, `adding-not-nullable-field`, `ban-drop-database`. Squawk's other advice (lock and statement timeouts, `IF NOT EXISTS`, `CONCURRENTLY`, column types) is not enforced: Prisma and Alembic generate SQL that triggers it on every migration. Findings are printed `file:line:column` (from 1). When Squawk cannot run (offline, no `bunx` or `uvx`) or Alembic cannot render a revision, the check prints `forge:<id> skipped: …` and does not block. In CI (`--all`) only the newest migration is linted, so an accepted rename does not fail every later run.
