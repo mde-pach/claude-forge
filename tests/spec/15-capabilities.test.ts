@@ -429,6 +429,7 @@ test(
   T,
 );
 
+/** @rule python/sqlalchemy/no-query-api */
 test(
   "a start whose state directory is removed while the engine is starting still ends: the start timeout's line reaches the starter",
   () => {
