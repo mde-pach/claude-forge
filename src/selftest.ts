@@ -199,7 +199,7 @@ const SNAP = ".forge/state/example.turn";
  * turn's start (the snapshot turn-start.sh would write: that head, a clean tree), writes
  * the fixture's files (staged in $1) and stages them, then runs check.sh (its mode in $2…).
  */
-const EXAMPLE_RUN = `g() { env ${Object.entries(GIT_ENV).map(([k, v]) => `${k}=${v}`).join(" ")} git "$@"; }
+const EXAMPLE_RUN = `g() ( export ${Object.entries(GIT_ENV).map(([k, v]) => `${k}=${v}`).join(" ")}; exec git "$@" )
 g init -q -b main
 g add -A
 g commit -qm head --allow-empty
