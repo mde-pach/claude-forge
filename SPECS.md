@@ -1139,6 +1139,14 @@ Detected by `@types/aws-lambda` (or `aws-lambda`).
 
 context.md: async handlers; callback handlers rejected.
 
+### typescript/resend
+
+| Rule | Targets |
+|---|---|
+| `typescript/resend/check-error` | `ast-grep` forbid: an expression statement `$R.emails.send(…)` / `$R.batch.send(…)`, awaited or not (result discarded), where `R` is Resend's `Resend` |
+
+context.md: `{ data, error }` results are handled.
+
 ### github-actions
 
 Detected by `.github/workflows/*.yml` or `*.yaml`.

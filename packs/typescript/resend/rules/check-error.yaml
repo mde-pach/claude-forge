@@ -1,0 +1,23 @@
+id: typescript/resend/check-error
+description: "The result of resend.emails.send(…) / resend.batch.send(…) is used (const { data, error } = await …, then error handled), not discarded: Resend returns errors instead of throwing, so a failed send is otherwise silent."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: expression_statement
+      has:
+        any:
+          - pattern: $R.emails.send($$$)
+          - pattern: $R.batch.send($$$)
+          - {kind: await_expression, has: {any: [{pattern: $R.emails.send($$$)}, {pattern: $R.batch.send($$$)}]}}
+    where:
+      R: {type: {package: resend, name: Resend}}
+examples:
+  deps: [{ecosystem: npm, name: resend, version: "6.32.1"}]
+  match:
+    - "import { Resend } from \"resend\";\n\nconst resend = new Resend(\"re_123\");\n\nexport async function welcome(to: string) {\n  await resend.emails.send({ from: \"a@example.com\", to, subject: \"Hi\", html: \"<p>Hi</p>\" });\n}\n"
+    - "import { Resend } from \"resend\";\n\nexport function notify(resend: Resend, to: string[]) {\n  resend.batch.send(to.map((t) => ({ from: \"a@example.com\", to: t, subject: \"Hi\", text: \"Hi\" })));\n}\n"
+  no_match:
+    - "import { Resend } from \"resend\";\n\nconst resend = new Resend(\"re_123\");\n\nexport async function welcome(to: string) {\n  const { error } = await resend.emails.send({ from: \"a@example.com\", to, subject: \"Hi\", html: \"<p>Hi</p>\" });\n  if (error) throw new Error(error.message);\n}\n"
+    - "const mailer = { emails: { send: async (m: object) => m } };\n\nexport async function go() {\n  await mailer.emails.send({});\n}\n"
