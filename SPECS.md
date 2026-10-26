@@ -1046,6 +1046,22 @@ Detected by `**/*.tf`, `**/*.tofu`. Checks run the project's Terraform CLI, a sy
 | `terraform/tflint` | `check` lint: `forge_tflint`: pinned tflint (§13.5) `--chdir <dir> --format compact` per changed module, with a config of Forge's own (`plugin "terraform"` with `preset = "recommended"`, plus the pinned `aws` 0.49.0 / `google` 0.40.0 / `azurerm` 0.32.0 ruleset when a `.terraform.lock.hcl` names that `hashicorp` provider, installed once by `tflint --init` into `~/.cache/forge/tflint-plugins`; offline: `skipped`); every issue counts, whatever tflint's severity |
 | `terraform/misconfig` | `check` lint: `forge_trivy_config`: pinned trivy (§13.5) `config --misconfig-scanners terraform --severity HIGH,CRITICAL --skip-check-update --ignorefile <empty>` on each changed module and on its base copy (the directory's files with the change undone); a (check, resource) pair new in the change is a finding at line 0. Not with `--all` |
 
+### supply-chain
+
+Detected by `**/package.json`, `**/pyproject.toml`, `**/requirements*.txt`, `**/Pipfile`, `**/setup.py`, `**/Cargo.lock`.
+
+| Rule | Targets |
+|---|---|
+| `supply-chain/vuln-audit` | `check` lint: `forge_osv` on the changed lock files (`package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, `bun.lock`, `uv.lock`, `poetry.lock`, `requirements*.txt`, `Pipfile.lock`, `pdm.lock`, `Cargo.lock`): pinned osv-scanner (§13.5), one backend for every ecosystem, `scan source --config <empty> --format markdown -L <lock>` on the lock and on its base copy (an empty config: `osv-scanner.toml` `[[IgnoredVulns]]` do not apply); each (package, version, advisory) present now and not in the base is a finding at line 0. Needs api.osv.dev: unreachable, `skipped`. `bun.lockb` (binary) is `skipped`. Not with `--all` |
+
+### openapi
+
+Detected by `**/openapi.yaml`, `**/openapi.yml`, `**/openapi.json`, `redocly.yaml`, `.spectral.yaml`, `.spectral.yml`, `.spectral.json`.
+
+| Rule | Targets |
+|---|---|
+| `openapi/no-breaking` | `check` lint, once per turn (§10.7, `forge_once`; pre-commit and CI fail): `forge_oasdiff`, when a YAML or JSON file changed: each OpenAPI document of the repository (an `openapi` / `swagger` version near its top) that existed at the base is compared by the pinned oasdiff (§13.5), `breaking <base> <now> --fail-on ERR --format singleline`; the base side is a copy of the repository's YAML and JSON files with the change undone, so `$ref`s to other files resolve. Each `error at …` line is a finding unless `forge.yaml` accepts it (`accept: [{rule, change: <the line>, reason}]`). Not with `--all` |
+
 ### 13.1 Migration linting
 
 `migration-lint` checks run [Squawk](https://squawkhq.com) (`squawk-cli`, pinned, through `bunx` or `uvx`, like ast-grep) on migration SQL and fail only on the changes that break the running version of the application during a deploy: `renaming-column`, `renaming-table`, `changing-column-type`, `adding-required-field`, `adding-not-nullable-field`, `ban-drop-database`. Squawk's other advice (lock and statement timeouts, `IF NOT EXISTS`, `CONCURRENTLY`, column types) is not enforced: Prisma and Alembic generate SQL that triggers it on every migration. Findings are printed `file:line:column` (from 1). When Squawk cannot run (offline, no `bunx` or `uvx`) or Alembic cannot render a revision, the check prints `forge:<id> skipped: …` and does not block. In CI (`--all`) only the newest migration is linted, so an accepted rename does not fail every later run.
