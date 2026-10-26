@@ -15,7 +15,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { renderChecks, renderLib } from "../../src/render";
-import { commitAll, fakeClaude, forge, git, hasBun, hasUv, hookJson, processesNaming, put, ROOT, sh, stateDir, stopEngines, TOOL_VERSIONS } from "../helpers";
+import { commitAll, fakeClaude, forge, git, hasBun, hasUv, hookJson, othersRunning, processesNaming, put, ROOT, sh, stateDir, stopEngines, TOOL_VERSIONS } from "../helpers";
 
 const T = 300_000;
 const SCRIPTS = ".claude/skills/forge-project/scripts";
@@ -195,7 +195,7 @@ describe.if(hasUv)("Python: the receiver's type, through ty", () => {
     T,
   );
 
-  test(
+  test.skipIf(othersRunning(import.meta.path))(
     `once the engine runs, an edit's type question (client, FIFO and engine) takes under ${WARM_BUDGET_MS} ms`,
     () => {
       put(repo, "app/db.py", DB);
@@ -336,7 +336,7 @@ describe.each(TOOL_VERSIONS.typescriptEngines.map((v) => [v]))("TypeScript %s: t
     T,
   );
 
-  test(
+  test.skipIf(othersRunning(import.meta.path))(
     `once the engine runs, an edit's type question (client, FIFO and engine) takes under ${WARM_BUDGET_MS} ms`,
     () => {
       put(repo, "src/schemas.ts", SCHEMAS);
