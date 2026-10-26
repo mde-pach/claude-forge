@@ -1,0 +1,18 @@
+id: ai-models
+description: Code that calls hosted AI models (Anthropic, OpenAI, and the SDKs and frameworks built on them).
+level: project
+detect:
+  deps_any:
+    - {ecosystem: pypi, name: anthropic}
+    - {ecosystem: pypi, name: openai}
+    - {ecosystem: pypi, name: pydantic-ai}
+    - {ecosystem: pypi, name: litellm}
+    - {ecosystem: pypi, name: langchain-anthropic}
+    - {ecosystem: pypi, name: langchain-openai}
+    - {ecosystem: npm, name: "@anthropic-ai/sdk"}
+    - {ecosystem: npm, name: openai}
+    - {ecosystem: npm, name: ai}
+    - {ecosystem: npm, name: "@ai-sdk/anthropic"}
+    - {ecosystem: npm, name: "@ai-sdk/openai"}
+    - {ecosystem: npm, name: "@langchain/anthropic"}
+    - {ecosystem: npm, name: "@langchain/openai"}
