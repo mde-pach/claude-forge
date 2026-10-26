@@ -1,0 +1,46 @@
+id: typescript/aws-lambda/no-callback-handler
+description: "No callback-style Lambda handler: no parameter annotated with aws-lambda's Callback and no context.callbackWaitsForEmptyEventLoop; the Node.js 24 runtime no longer runs callback handlers, async handlers work on every runtime."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        # a parameter annotated with aws-lambda's Callback (the imported type name, aliases included)
+        - any: [{kind: required_parameter}, {kind: optional_parameter}]
+          all:
+            - has:
+                kind: type_annotation
+                has:
+                  any:
+                    - {kind: type_identifier, pattern: $T}
+                    - {kind: generic_type, has: {field: name, pattern: $T}}
+            - inside:
+                kind: program
+                stopBy: end
+                has:
+                  kind: import_statement
+                  all:
+                    - has: {field: source, regex: "^[\"']aws-lambda[\"']$"}
+                    - has:
+                        stopBy: end
+                        kind: import_specifier
+                        any:
+                          - all: [{has: {field: name, regex: "^Callback$"}}, {has: {field: alias, pattern: $T}}]
+                          - all: [{has: {field: name, regex: "^Callback$", pattern: $T}}, {not: {has: {field: alias, kind: identifier}}}]
+        - kind: member_expression
+          all:
+            - has: {field: object, pattern: $C}
+            - has: {field: property, regex: "^callbackWaitsForEmptyEventLoop$"}
+    where:
+      C: {type: {package: aws-lambda, name: Context}}
+examples:
+  deps: [{ecosystem: npm, name: "@types/aws-lambda", version: "8.10.164"}]
+  match:
+    - "import type { Callback as Cb, SQSEvent } from \"aws-lambda\";\n\nexport const handler = (event: SQSEvent, context: unknown, cb: Cb<void>) => {\n  cb(null);\n};\n"
+    - "import type { APIGatewayProxyEvent, Callback, Context } from \"aws-lambda\";\n\nexport function handler(event: APIGatewayProxyEvent, context: Context, callback: Callback) {\n  callback(null, { statusCode: 200, body: event.path });\n}\n"
+    - "import type { Context } from \"aws-lambda\";\n\nexport async function handler(event: unknown, context: Context) {\n  context.callbackWaitsForEmptyEventLoop = false;\n  return { statusCode: 200 };\n}\n"
+  no_match:
+    - "import type { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from \"aws-lambda\";\n\nexport async function handler(event: APIGatewayProxyEvent, context: Context): Promise<APIGatewayProxyResult> {\n  return { statusCode: 200, body: context.awsRequestId + event.path };\n}\n"
+    - "type Callback = (err: Error | null) => void;\n\nexport function done(cb: Callback) {\n  cb(null);\n}\n"
+    - "import type { Callback } from \"./types\";\n\nexport function done(cb: Callback<string>) {\n  cb(null);\n}\n"

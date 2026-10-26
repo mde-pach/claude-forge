@@ -1129,6 +1129,16 @@ context.md: `verify` with an algorithm list, expiry kept; `decode` is not trust.
 
 context.md: CSRF checks and Secure cookies on; real trusted origins.
 
+### typescript/aws-lambda
+
+Detected by `@types/aws-lambda` (or `aws-lambda`).
+
+| Rule | Targets |
+|---|---|
+| `typescript/aws-lambda/no-callback-handler` | `ast-grep` forbid: a parameter annotated with `Callback` / `Callback<…>` imported from `aws-lambda` (aliases included); `$C.callbackWaitsForEmptyEventLoop`, where `C` is aws-lambda's `Context`. `context.succeed` / `fail` / `done` are `@deprecated`, left to the deprecation rules |
+
+context.md: async handlers; callback handlers rejected.
+
 ### github-actions
 
 Detected by `.github/workflows/*.yml` or `*.yaml`.
