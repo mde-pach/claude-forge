@@ -53,8 +53,9 @@ export interface RunResult {
   stderr: string;
 }
 
+// env: process.env is Node's default; Bun's is the environment the process started with
 export function run(cmd: string, args: string[], opts: SpawnSyncOptions = {}): RunResult {
-  const r = spawnSync(cmd, args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, ...opts });
+  const r = spawnSync(cmd, args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, env: process.env, ...opts });
   return {
     status: r.status ?? (r.error ? 127 : 1),
     stdout: String(r.stdout ?? ""),
@@ -98,7 +99,7 @@ Promise.all(Array.from({ length: Math.min(n, jobs.length) }, async () => {
  */
 export function runParallel(jobs: Job[], n = availableParallelism()): RunResult[] {
   if (jobs.length < 2 || n < 2) return jobs.map((j) => run(j.cmd, j.args, { cwd: j.cwd, env: { ...process.env, ...j.env }, input: j.input ?? "" }));
-  const r = spawnSync(process.execPath, ["-e", POOL, String(n)], { input: JSON.stringify(jobs), encoding: "utf8", maxBuffer: 512 * 1024 * 1024 });
+  const r = spawnSync(process.execPath, ["-e", POOL, String(n)], { input: JSON.stringify(jobs), encoding: "utf8", maxBuffer: 512 * 1024 * 1024, env: process.env });
   if (r.status !== 0) throw new Error(`forge: the process pool failed: ${String(r.stderr || r.error || "").trim()}`);
   return JSON.parse(r.stdout) as RunResult[];
 }

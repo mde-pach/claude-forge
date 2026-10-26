@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { appendFileSync, chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, relative } from "node:path";
+import { dirname, join, relative } from "node:path";
 
 export const ROOT = join(import.meta.dir, "..");
 export const FORGE = join(ROOT, "dist", "forge.js");
@@ -13,28 +13,38 @@ process.env.FORGE_STATE_HOME ||= mkdtempSync(join(tmpdir(), "forge-state-home-")
 
 /**
  * Version-manager shims (pyenv's `pyenv exec "$program"` scripts) cost about 200 ms per
- * call, and the hooks and checks call uv, uvx, ruff and python many times. The suite
- * resolves them once: a directory of symlinks to the executables the shims would run
- * (looked up from a temporary directory, where the hooks run), ahead of PATH. The tools
- * are the same; only the shim's lookup is skipped. A parent that did it already (the
- * runner, scripts/test.ts) passes FORGE_TEST_BIN and the PATH down.
+ * call, and the hooks and checks call uv, uvx, ruff and python many times; with the
+ * shims' directory on PATH, `uvx --python 3.12` also runs the python3.12 shim in its
+ * interpreter discovery (300 ms more per call). The suite resolves them once: a
+ * directory of symlinks to the executables the shims would run (looked up from a
+ * temporary directory, where the hooks run), ahead of PATH, and the shims' directory
+ * off PATH. The tools are the same; only the shim's lookup is skipped. A parent that
+ * did it already (the runner, scripts/test.ts) passes FORGE_TEST_BIN and the PATH down.
+ *
+ * Every spawn passes env: under Bun, a spawn without it gets the environment the process
+ * started with, not process.env as changed here.
  */
 function resolveShims(): void {
   if (process.env.FORGE_TEST_BIN) return;
   const bin = mkdtempSync(join(tmpdir(), "forge-test-bin-"));
   process.env.FORGE_TEST_BIN = bin;
+  const env = process.env;
+  const shims = new Set<string>();
   const shimmed = ["uv", "uvx", "ruff", "python3", "python"].filter((n) => {
-    const r = spawnSync("sh", ["-c", 'command -v "$1"', "sh", n], { encoding: "utf8" });
+    const r = spawnSync("sh", ["-c", 'command -v "$1"', "sh", n], { encoding: "utf8", env });
     const p = r.status === 0 ? r.stdout.trim() : "";
-    return p.startsWith("/") && /^#!.*\n[\s\S]*pyenv"? exec "\$program"/.test(readFileSync(p).subarray(0, 1024).toString("latin1"));
+    const shim = p.startsWith("/") && /^#!.*\n[\s\S]*pyenv"? exec "\$program"/.test(readFileSync(p).subarray(0, 1024).toString("latin1"));
+    if (shim) shims.add(dirname(p));
+    return shim;
   });
-  if (!shimmed.length) return;
-  const r = spawnSync("sh", ["-c", 'for n; do pyenv which "$n" 2>/dev/null || echo; done', "sh", ...shimmed], { cwd: tmpdir(), encoding: "utf8" });
-  const real = (r.stdout ?? "").split("\n");
-  shimmed.forEach((n, i) => {
-    if (real[i]?.startsWith("/")) symlinkSync(real[i]!, join(bin, n));
-  });
-  process.env.PATH = `${bin}:${process.env.PATH}`;
+  if (shimmed.length) {
+    const r = spawnSync("sh", ["-c", 'for n; do pyenv which "$n" 2>/dev/null || echo; done', "sh", ...shimmed], { cwd: tmpdir(), encoding: "utf8", env });
+    const real = (r.stdout ?? "").split("\n");
+    shimmed.forEach((n, i) => {
+      if (real[i]?.startsWith("/")) symlinkSync(real[i]!, join(bin, n));
+    });
+  }
+  process.env.PATH = [bin, ...(process.env.PATH ?? "").split(":").filter((d) => !shims.has(d.replace(/\/$/, "")))].join(":");
 }
 resolveShims();
 
@@ -44,7 +54,7 @@ resolveShims();
  * .venv/bin/ty-stand-in in the repository. This shim, first on PATH for the whole
  * suite, hands `uvx ... --from ty==<v> ty <args>` to it; everything else is the real uvx.
  */
-const REAL_UVX = spawnSync("sh", ["-c", "command -v uvx"], { encoding: "utf8" }).stdout.trim();
+const REAL_UVX = spawnSync("sh", ["-c", "command -v uvx"], { encoding: "utf8", env: process.env }).stdout.trim();
 if (REAL_UVX && !process.env.FORGE_TEST_UVX_SHIM) {
   const shim = mkdtempSync(join(tmpdir(), "forge-uvx-shim-"));
   writeFileSync(
