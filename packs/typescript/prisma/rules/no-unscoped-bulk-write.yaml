@@ -1,0 +1,27 @@
+id: typescript/prisma/no-unscoped-bulk-write
+description: "Advice on a Prisma deleteMany() / updateMany() without a where: it deletes or rewrites the whole table (seeds and test resets do it on purpose)."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: call_expression
+      all:
+        - pattern: $CALL
+        - has: {field: function, kind: member_expression, has: {field: property, regex: "^(deleteMany|updateMany)$"}}
+        - not:
+            has:
+              field: arguments
+              has: {kind: object, has: {kind: pair, has: {field: key, regex: "^[\"']?where[\"']?$"}}}
+    # a model delegate's deleteMany / updateMany by what it returns (the runtime's
+    # PrismaPromise): generated clients are project code, their delegates have no package
+    where:
+      CALL: {type: {package: "@prisma/client", name: PrismaPromise}}
+examples:
+  deps: [{ecosystem: npm, name: "@prisma/client", version: "7.10.0"}]
+  match:
+    - "import type { PrismaPromise } from \"@prisma/client/runtime/client\";\n\ninterface UserDelegate {\n  deleteMany(args?: { where?: { id?: number } }): PrismaPromise<{ count: number }>;\n}\ndeclare const prisma: { user: UserDelegate };\n\nexport async function reset() {\n  await prisma.user.deleteMany();\n  await prisma.user.deleteMany({});\n}\n"
+    - "import type { PrismaPromise } from \"@prisma/client/runtime/client\";\n\ninterface PostDelegate {\n  updateMany(args: { where?: { authorId?: number }; data: { published: boolean } }): PrismaPromise<{ count: number }>;\n}\ndeclare const db: { post: PostDelegate };\n\nexport const hideAll = () => db.post.updateMany({ data: { published: false } });\n"
+  no_match:
+    - "import type { PrismaPromise } from \"@prisma/client/runtime/client\";\n\ninterface UserDelegate {\n  deleteMany(args?: { where?: { id?: number } }): PrismaPromise<{ count: number }>;\n  updateMany(args: { where?: { id?: number }; data: { name: string } }): PrismaPromise<{ count: number }>;\n}\ndeclare const prisma: { user: UserDelegate };\n\nexport async function drop(id: number) {\n  await prisma.user.deleteMany({ where: { id } });\n  await prisma.user.updateMany({ where: { id }, data: { name: \"x\" } });\n}\n"
+    - "const queue = { deleteMany: (ids?: string[]) => ids?.length ?? 0 };\n\nexport const n = queue.deleteMany();\n"
