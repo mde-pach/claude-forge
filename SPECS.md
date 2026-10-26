@@ -806,6 +806,17 @@ Detected by `package-lock.json` or `npm-shrinkwrap.json`.
 
 context.md: npm manages dependencies; peer conflicts are resolved, not forced; dependencies come from the registry.
 
+### typescript/yarn
+
+Detected by `.yarnrc.yml` (Yarn 2 and later).
+
+| Rule | Targets |
+|---|---|
+| `typescript/yarn/no-other-pm` | `guard` ask: `npm install`, `npm i`, `npm ci`, `npm add`, `pnpm`, `bun install`, `bun i`, `bun add` |
+| `typescript/yarn/lock-sync` | `check` lint: `yarn install --immutable --mode=skip-build` (skipped when yarn is not installed or is Yarn 1), `when_changed`: `package.json` files, `yarn.lock`, `.yarnrc.yml` |
+
+context.md: Yarn manages dependencies.
+
 ### typescript/nextjs
 
 | Rule | Targets |
