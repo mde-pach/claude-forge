@@ -98,10 +98,20 @@ export function stateDir(repo: string): string {
  * For a test that measures time (a latency budget) and needs a quiet machine: true while
  * the parallel runner (tests/run.ts, FORGE_TEST_PHASE=parallel) runs the suite many
  * processes at a time; the test is then skipped (test.skipIf), and <file> recorded in
- * $FORGE_TEST_QUIET_LIST so that the runner runs that file's skipped tests again
- * afterwards, alone. False in any other run (bun test <file>).
+ * $FORGE_TEST_QUIET_LIST so that the runner runs that file's skipped tests again, alone.
+ * That run (FORGE_TEST_PHASE=quiet) starts while the other processes still run: its
+ * beforeAll prepares, then each of these tests waits (beforeEach, after creating
+ * $FORGE_TEST_GO.ready) for the runner's go, $FORGE_TEST_GO, given once nothing else runs. False in any other run (bun test <file>).
  */
 export function othersRunning(file: string): boolean {
+  const go = process.env.FORGE_TEST_GO;
+  if (process.env.FORGE_TEST_PHASE === "quiet" && go) {
+    (require("bun:test") as typeof import("bun:test")).beforeEach(() => {
+      writeFileSync(`${go}.ready`, "");
+      while (!existsSync(go)) Bun.sleepSync(50);
+    }, 3_600_000);
+    return false;
+  }
   if (process.env.FORGE_TEST_PHASE !== "parallel" || !process.env.FORGE_TEST_QUIET_LIST) return false;
   appendFileSync(process.env.FORGE_TEST_QUIET_LIST, `${file}\n`);
   return true;

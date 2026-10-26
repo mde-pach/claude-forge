@@ -275,15 +275,37 @@ const prepared = performance.now();
 if (process.env.FORGE_PROF_DIR) appendFileSync(join(process.env.FORGE_PROF_DIR, "shards.tsv"), `prepare\t-\t-\t-\t0\t${((prepared - started) / 1000).toFixed(2)}\t0\n`);
 // every shard, many at a time; tests that need a quiet machine skip themselves (helpers.ts othersRunning)
 const quietList = join(work, "quiet");
-const results = await pool(shards, jobs, (s) => runShard(s, { ...shardEnv(), FORGE_TEST_PHASE: "parallel", FORGE_TEST_QUIET_LIST: quietList }));
-// then those tests, alone: the tests their files skipped
-const quietFiles = existsSync(quietList) ? [...new Set(readFileSync(quietList, "utf8").split("\n").filter(Boolean).map((f) => relative(ROOT, f)))] : [];
-for (const file of quietFiles) {
-  const skipped = results.flatMap((r) => (r.s.file === file ? r.cases.filter((c) => c.skipped) : []));
-  if (!skipped.length) continue;
-  const again = await runShard({ file, names: [...new Set(skipped.map((c) => c.full))], cost: 0 }, shardEnv());
+const quietFiles = () => (existsSync(quietList) ? new Set(readFileSync(quietList, "utf8").split("\n").filter(Boolean).map((f) => relative(ROOT, f))) : new Set<string>());
+// Those tests run again, alone. Once every shard of their file has ended, the run of the
+// tests it skipped starts, so its beforeAll prepares during the parallel phase; its tests
+// wait for their go (FORGE_TEST_GO), given once the parallel phase has ended and every
+// such run is waiting, one file at a time.
+const quiet: { file: string; go: string; run: Promise<ShardResult>; ended?: boolean }[] = [];
+const left = new Map<string, number>();
+for (const s of shards) left.set(s.file, (left.get(s.file) ?? 0) + 1);
+const ended: ShardResult[] = [];
+const results = await pool(shards, jobs, async (s) => {
+  const r = await runShard(s, { ...shardEnv(), FORGE_TEST_PHASE: "parallel", FORGE_TEST_QUIET_LIST: quietList });
+  ended.push(r);
+  left.set(s.file, left.get(s.file)! - 1);
+  if (left.get(s.file) === 0 && quietFiles().has(s.file)) {
+    const skipped = ended.flatMap((e) => (e.s.file === s.file ? e.cases.filter((c) => c.skipped) : []));
+    const go = join(work, `go-${quiet.length}`);
+    if (skipped.length) {
+      const q: (typeof quiet)[number] = { file: s.file, go, run: runShard({ file: s.file, names: [...new Set(skipped.map((c) => c.full))], cost: 0 }, { ...shardEnv(), FORGE_TEST_PHASE: "quiet", FORGE_TEST_GO: go }) };
+      void q.run.then(() => (q.ended = true));
+      quiet.push(q);
+    }
+  }
+  return r;
+});
+// nothing else runs: every quiet run is waiting for its go (or has ended)
+while (!quiet.every((q) => q.ended || existsSync(`${q.go}.ready`))) await Bun.sleep(50);
+for (const q of quiet) {
+  writeFileSync(q.go, "");
+  const again = await q.run;
   const done = new Map(again.cases.map((c) => [c.full, c]));
-  for (const r of results) if (r.s.file === file) r.cases = r.cases.map((c) => (c.skipped && done.get(c.full)) || c);
+  for (const r of results) if (r.s.file === q.file) r.cases = r.cases.map((c) => (c.skipped && done.get(c.full)) || c);
 }
 
 // timings for the next plan: per test, and per file the overhead of a shard
