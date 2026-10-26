@@ -1,0 +1,47 @@
+id: typescript/effect/no-run-inside-gen
+description: "No Effect.runPromise / runSync / runFork (or their Exit / With variants) inside an Effect.gen generator: a nested runtime breaks interruption, context and tracing; compose with yield* instead."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      has: {field: function, kind: member_expression, all: [{has: {field: object, pattern: $E}}, {has: {field: property, regex: "^run(Promise|Sync|Fork)(Exit|With)?$"}}]}
+      inside:
+        kind: generator_function
+        stopBy:
+          any: [{kind: function_declaration}, {kind: function_expression}, {kind: arrow_function}, {kind: method_definition}, {kind: generator_function}, {kind: generator_function_declaration}]
+        inside:
+          kind: arguments
+          stopBy: neighbor
+          inside:
+            kind: call_expression
+            stopBy: neighbor
+            all:
+              - has: {field: function, kind: member_expression, all: [{has: {field: object, pattern: $E}}, {has: {field: property, regex: "^gen$"}}]}
+              # $E is the Effect module: import { Effect } from "effect" (aliases included) or import * as E from "effect/Effect"
+              - inside:
+                  kind: program
+                  stopBy: end
+                  has:
+                    kind: import_statement
+                    any:
+                      - all:
+                          - has: {field: source, regex: "^[\"']effect[\"']$"}
+                          - has:
+                              stopBy: end
+                              kind: import_specifier
+                              any:
+                                - all: [{has: {field: name, regex: "^Effect$"}}, {has: {field: alias, pattern: $E}}]
+                                - all: [{has: {field: name, regex: "^Effect$", pattern: $E}}, {not: {has: {field: alias, kind: identifier}}}]
+                      - all:
+                          - has: {field: source, regex: "^[\"']effect/Effect[\"']$"}
+                          - has: {stopBy: end, kind: namespace_import, has: {kind: identifier, pattern: $E}}
+examples:
+  match:
+    - "import { Effect } from \"effect\";\n\nconst fetchUser = Effect.succeed({ id: 1 });\n\nexport const program = Effect.gen(function* () {\n  const user = yield* Effect.promise(() => Promise.resolve(1));\n  const other = Effect.runSync(fetchUser);\n  return [user, other];\n});\n"
+    - "import * as E from \"effect/Effect\";\n\nexport const program = E.gen(function* () {\n  const n = yield* E.succeed(1);\n  const exit = E.runSyncExit(E.succeed(n));\n  return exit;\n});\n"
+  no_match:
+    - "import { Effect } from \"effect\";\n\nconst fetchUser = Effect.succeed({ id: 1 });\n\nexport const program = Effect.gen(function* () {\n  const user = yield* fetchUser;\n  return user;\n});\n\nEffect.runPromise(program);\n"
+    - "import { Effect } from \"effect\";\n\nexport const program = Effect.gen(function* () {\n  const later = () => Effect.runFork(Effect.succeed(1));\n  return later;\n});\n"
+    - "const Effect = { gen: (f: () => Generator) => f, runSync: (x: number) => x };\n\nexport const p = Effect.gen(function* () {\n  yield Effect.runSync(1);\n});\n"

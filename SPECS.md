@@ -1074,6 +1074,17 @@ context.md: CSRF prevention on; no forced stack traces.
 
 context.md: error masking on; `GraphQLError` for client errors.
 
+### typescript/effect
+
+`Effect` is the binding imported from `effect` (`import { Effect }`, aliases included) or the namespace import of `effect/Effect`. "In a generator" means the nearest enclosing function is the generator passed to `Effect.gen(…)`.
+
+| Rule | Targets |
+|---|---|
+| `typescript/effect/no-run-inside-gen` | `ast-grep` forbid: `Effect.runPromise` / `runSync` / `runFork` (and `…Exit` / `…With`) called in an `Effect.gen` generator |
+| `typescript/effect/no-throw-in-gen` | `ast-grep` forbid: a `throw` statement in an `Effect.gen` generator |
+
+context.md: `yield*` inside generators, `run*` at the edge; `Effect.fail` with tagged errors.
+
 ### github-actions
 
 Detected by `.github/workflows/*.yml` or `*.yaml`.
