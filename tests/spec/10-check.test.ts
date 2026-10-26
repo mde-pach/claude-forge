@@ -200,7 +200,7 @@ describe("steps", () => {
       const started = join(repo, ".venv", "started");
       // outside the repository: the stand-in's sleep outlives the test
       const finished = join(mkdtempSync(join(tmpdir(), "forge-term-")), "finished");
-      stub("pytest", `: > "${started}"; sleep 10; : > "${finished}"; echo late; exit 1`);
+      stub("pytest", `: > "${started}"; sleep 3; : > "${finished}"; echo late; exit 1`);
       put(repo, "app/main.py", 'async def health() -> dict[str, str]:\n    return {"status": "ok"}\n');
       const p = Bun.spawn(["sh", ".forge/check.sh", "--changed"], { cwd: repo, stdout: "pipe", stderr: "pipe" });
       for (let i = 0; i < 600 && !existsSync(started); i++) await Bun.sleep(100);
@@ -214,7 +214,7 @@ describe("steps", () => {
       expect(stdout).not.toContain("forge:python/pytest/run failed");
       // the test run was stopped with check.sh: it never gets to write after its sleep
       await Bun.sleep(4000);
-      expect(existsSync(late)).toBe(false);
+      expect(existsSync(finished)).toBe(false);
       unlinkSync(join(repo, ".venv/bin/pytest"));
       unlinkSync(started);
       reset();
