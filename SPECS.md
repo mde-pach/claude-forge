@@ -960,6 +960,15 @@ Detected by `@nestjs/core` or `@nestjs/common`. Decorators are matched as the bi
 
 context.md: `ValidationPipe` with `whitelist` and `forbidNonWhitelisted`; DTO classes on `@Body()` / `@Query()` / `@Param()`; `@ValidateNested()` with `@Type()`; `HttpException` subclasses in controllers.
 
+### typescript/kysely
+
+| Rule | Targets |
+|---|---|
+| `typescript/kysely/no-sql-raw` | `ast-grep` forbid: a call `$CALL` of `<x>.raw(…)` / `<x>.lit(…)` whose argument is a template with `${}`, a `+` concatenation or a variable declared from one (the `drizzle/no-sql-raw` matcher), where `CALL` is Kysely's `RawBuilder` |
+| `typescript/kysely/write-with-where` | `ast-grep` advise: `$DB.deleteFrom(…)` / `$DB.updateTable(…)` whose method chain reaches `execute()` / `executeTakeFirst()` / `executeTakeFirstOrThrow()` with no `where…` on the way, where `DB` is Kysely's `Kysely` or `Transaction` |
+
+context.md: the `sql` tag binds values, `sql.ref()` / `sql.id()` for names, no `sql.raw()` / `sql.lit()` from a template; deletes and updates have a `where`.
+
 ### github-actions
 
 Detected by `.github/workflows/*.yml` or `*.yaml`.
