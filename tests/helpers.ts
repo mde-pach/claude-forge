@@ -1,8 +1,8 @@
-import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { appendFileSync, chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
+import { spawnCaptured } from "../src/util";
 
 export const ROOT = join(import.meta.dir, "..");
 export const FORGE = join(ROOT, "dist", "forge.js");
@@ -23,8 +23,8 @@ process.env.FORGE_STATE_HOME ||= mkdtempSync(join(tmpdir(), "forge-state-home-")
  * it runs (xcrun -f git) is linked the same way. A parent that did it already (the
  * runner, scripts/test.ts) passes FORGE_TEST_BIN and the PATH down.
  *
- * Every spawn passes env: under Bun, a spawn without it gets the environment the process
- * started with, not process.env as changed here.
+ * Every spawn passes env (spawnCaptured does): under Bun, a spawn without it gets the
+ * environment the process started with, not process.env as changed here.
  */
 function resolveShims(): void {
   if (process.env.FORGE_TEST_BIN) return;
@@ -33,22 +33,22 @@ function resolveShims(): void {
   const env = process.env;
   const shims = new Set<string>();
   const shimmed = ["uv", "uvx", "ruff", "python3", "python"].filter((n) => {
-    const r = spawnSync("sh", ["-c", 'command -v "$1"', "sh", n], { encoding: "utf8", env });
+    const r = spawnCaptured("sh", ["-c", 'command -v "$1"', "sh", n], { env });
     const p = r.status === 0 ? r.stdout.trim() : "";
     const shim = p.startsWith("/") && /^#!.*\n[\s\S]*pyenv"? exec "\$program"/.test(readFileSync(p).subarray(0, 1024).toString("latin1"));
     if (shim) shims.add(dirname(p));
     return shim;
   });
   if (shimmed.length) {
-    const r = spawnSync("sh", ["-c", 'for n; do pyenv which "$n" 2>/dev/null || echo; done', "sh", ...shimmed], { cwd: tmpdir(), encoding: "utf8", env });
+    const r = spawnCaptured("sh", ["-c", 'for n; do pyenv which "$n" 2>/dev/null || echo; done', "sh", ...shimmed], { cwd: tmpdir(), env });
     const real = (r.stdout ?? "").split("\n");
     shimmed.forEach((n, i) => {
       if (real[i]?.startsWith("/")) symlinkSync(real[i]!, join(bin, n));
     });
   }
-  const git = spawnSync("sh", ["-c", "command -v git"], { encoding: "utf8", env }).stdout?.trim();
+  const git = spawnCaptured("sh", ["-c", "command -v git"], { env }).stdout.trim();
   if (git === "/usr/bin/git") {
-    const real = spawnSync("xcrun", ["-f", "git"], { encoding: "utf8", env });
+    const real = spawnCaptured("xcrun", ["-f", "git"], { env });
     if (real.status === 0 && real.stdout.trim().startsWith("/")) symlinkSync(real.stdout.trim(), join(bin, "git"));
   }
   process.env.PATH = [bin, ...(process.env.PATH ?? "").split(":").filter((d) => !shims.has(d.replace(/\/$/, "")))].join(":");
@@ -61,7 +61,7 @@ resolveShims();
  * .venv/bin/ty-stand-in in the repository. This shim, first on PATH for the whole
  * suite, hands `uvx ... --from ty==<v> ty <args>` to it; everything else is the real uvx.
  */
-const REAL_UVX = spawnSync("sh", ["-c", "command -v uvx"], { encoding: "utf8", env: process.env }).stdout.trim();
+const REAL_UVX = spawnCaptured("sh", ["-c", "command -v uvx"]).stdout.trim();
 if (REAL_UVX && !process.env.FORGE_TEST_UVX_SHIM) {
   const shim = mkdtempSync(join(tmpdir(), "forge-uvx-shim-"));
   writeFileSync(
@@ -123,15 +123,10 @@ export interface Result {
   stderr: string;
 }
 
+/** Runs a process to its end (its output through files: src/util.ts spawnCaptured). */
 export function sh(cmd: string, args: string[], opts: { cwd?: string; input?: string; env?: Record<string, string> } = {}): Result {
-  const r = spawnSync(cmd, args, {
-    cwd: opts.cwd,
-    input: opts.input ?? "",
-    encoding: "utf8",
-    env: { ...process.env, ...opts.env },
-    maxBuffer: 64 * 1024 * 1024,
-  });
-  return { status: r.status ?? 1, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
+  const r = spawnCaptured(cmd, args, { cwd: opts.cwd, input: opts.input ?? "", env: { ...process.env, ...opts.env } });
+  return { status: r.status ?? 1, stdout: r.stdout, stderr: r.stderr };
 }
 
 /**
