@@ -1646,10 +1646,10 @@ forge_tflint() {
   forge_release tflint _tl_bin || return 0
   printf 'plugin "terraform" {\n  enabled = true\n  preset  = "recommended"\n}\n' > "$FORGE_TMP/tflint.hcl"
   git ls-files --cached --others --exclude-standard -- '*.terraform.lock.hcl' 2>/dev/null > "$FORGE_TMP/tfl.locks"
-  printf '%s\n' "$FORGE_TFLINT_RULESETS" | while read -r _tl_p _tl_v; do
+  printf '%s\n' "$FORGE_TFLINT_RULESETS" | while IFS=' ' read -r _tl_p _tl_v; do
     [ -n "$_tl_p" ] || continue
     while IFS= read -r _tl_l; do
-      if grep -qE "provider \"registry\.(terraform|opentofu)\.org/hashicorp/$_tl_p\"" "$_tl_l" 2>/dev/null; then
+      if grep -qE "provider \"registry\.(terraform\.io|opentofu\.org)/hashicorp/$_tl_p\"" "$_tl_l" 2>/dev/null; then
         printf 'plugin "%s" {\n  enabled = true\n  version = "%s"\n  source  = "github.com/terraform-linters/tflint-ruleset-%s"\n}\n' "$_tl_p" "$_tl_v" "$_tl_p"
         break
       fi

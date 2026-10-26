@@ -1035,6 +1035,17 @@ Detected by `**/Chart.yaml`.
 |---|---|
 | `kubernetes/helm/lint` | `check` lint: `forge_helm` (needs `helm`, a system tool): for each chart with changed files (the nearest `Chart.yaml` above them), `helm lint --strict`, then `helm template forge <chart>` validated by `forge_kubeconform`: pinned kubeconform (§13.5) `-strict` against Kubernetes' schemas and the CRDs catalog, cached in `~/.cache/forge/kubeconform`; a document with no schema is a finding when its group is Kubernetes' own (none, no dot, or `*.k8s.io`: an apiVersion current Kubernetes no longer serves), else `skipped`; schemas that cannot be downloaded are `skipped`; a chart whose dependencies are not built is `skipped` (`helm dependency build`). Findings name the chart, not lines |
 
+### terraform
+
+Detected by `**/*.tf`, `**/*.tofu`. Checks run the project's Terraform CLI, a system tool (§13.5): `tofu` in an OpenTofu project, else `terraform`.
+
+| Rule | Targets |
+|---|---|
+| `terraform/fmt` | `check` format: `terraform fmt -check -recursive`; changed files: `terraform fmt {files}` (on `*.tf`, `*.tfvars`, `*.tofu`) |
+| `terraform/validate` | `check` typecheck: `forge_tf_validate`: `validate -no-color` in each directory of a changed `.tf` / `.tofu` file; errors as `path:line: Error: summary`; a directory validate cannot judge before `init` (its output asks for `terraform init`: providers or modules not installed) is `skipped` |
+| `terraform/tflint` | `check` lint: `forge_tflint`: pinned tflint (§13.5) `--chdir <dir> --format compact` per changed module, with a config of Forge's own (`plugin "terraform"` with `preset = "recommended"`, plus the pinned `aws` 0.49.0 / `google` 0.40.0 / `azurerm` 0.32.0 ruleset when a `.terraform.lock.hcl` names that `hashicorp` provider, installed once by `tflint --init` into `~/.cache/forge/tflint-plugins`; offline: `skipped`); every issue counts, whatever tflint's severity |
+| `terraform/misconfig` | `check` lint: `forge_trivy_config`: pinned trivy (§13.5) `config --misconfig-scanners terraform --severity HIGH,CRITICAL --skip-check-update --ignorefile <empty>` on each changed module and on its base copy (the directory's files with the change undone); a (check, resource) pair new in the change is a finding at line 0. Not with `--all` |
+
 ### 13.1 Migration linting
 
 `migration-lint` checks run [Squawk](https://squawkhq.com) (`squawk-cli`, pinned, through `bunx` or `uvx`, like ast-grep) on migration SQL and fail only on the changes that break the running version of the application during a deploy: `renaming-column`, `renaming-table`, `changing-column-type`, `adding-required-field`, `adding-not-nullable-field`, `ban-drop-database`. Squawk's other advice (lock and statement timeouts, `IF NOT EXISTS`, `CONCURRENTLY`, column types) is not enforced: Prisma and Alembic generate SQL that triggers it on every migration. Findings are printed `file:line:column` (from 1). When Squawk cannot run (offline, no `bunx` or `uvx`) or Alembic cannot render a revision, the check prints `forge:<id> skipped: …` and does not block. In CI (`--all`) only the newest migration is linted, so an accepted rename does not fail every later run.

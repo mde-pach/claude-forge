@@ -1,0 +1,16 @@
+id: terraform/tflint
+description: "Changed modules pass tflint's terraform ruleset (recommended preset: required_version, required_providers, pinned module sources and versions, typed variables, no unused declarations, no deprecated syntax), plus the aws, google or azurerm ruleset when the lock file lists that provider (invalid instance types, engines, regions); Forge's config: a project .tflint.hcl cannot disable rules."
+scope: {language: any, files: ["**/*.tf", "**/*.tofu"]}
+enforce:
+  - target: check
+    stage: lint
+    run: forge_tflint
+examples:
+  match:
+    - files: {infra/main.tf: "terraform {\n  required_version = \">= 1.9\"\n}\n\nvariable \"name\" {}\n\nresource \"terraform_data\" \"build\" {\n  input = var.name\n}\n"}
+    - head: {.tflint.hcl: "rule \"terraform_unused_declarations\" {\n  enabled = false\n}\n", infra/main.tf: "terraform {\n  required_version = \">= 1.9\"\n}\n"}
+      files: {infra/main.tf: "terraform {\n  required_version = \">= 1.9\"\n}\n\nlocals {\n  unused = \"x\"\n}\n"}
+    - head: {infra/.terraform.lock.hcl: "provider \"registry.terraform.io/hashicorp/aws\" {\n  version     = \"6.20.0\"\n  constraints = \"~> 6.0\"\n}\n", infra/versions.tf: "terraform {\n  required_version = \">= 1.9\"\n  required_providers {\n    aws = {\n      source  = \"hashicorp/aws\"\n      version = \"~> 6.0\"\n    }\n  }\n}\n"}
+      files: {infra/main.tf: "resource \"aws_instance\" \"web\" {\n  ami           = \"ami-0123456789abcdef0\"\n  instance_type = \"t2.mega\"\n}\n"}
+  no_match:
+    - files: {infra/main.tf: "terraform {\n  required_version = \">= 1.9\"\n}\n\nvariable \"name\" {\n  type = string\n}\n\nresource \"terraform_data\" \"build\" {\n  input = var.name\n}\n"}
