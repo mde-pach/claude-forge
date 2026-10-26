@@ -343,12 +343,6 @@ describe.if(hasUv)("Python: the receiver's type, through ty", () => {
   );
 });
 
-/**
- * The project's own TypeScript answers (§15.2): TypeScript 7 through its language server
- * (tsc --lsp), TypeScript 5 and 6 through their tsserver. The same tests run on one
- * version of each.
- */
-/** @rule typescript/zod/v4-string-formats */
 /** A local rule (§5.3) on react-hook-form's UseFormWatch, declared `type UseFormWatch<T> = { … }`. */
 const WATCH_ALL = [
   "id: local/watch-all",
@@ -363,6 +357,12 @@ const WATCH_ALL = [
   "",
 ].join("\n");
 
+/**
+ * The project's own TypeScript answers (§15.2): TypeScript 7 through its language server
+ * (tsc --lsp), TypeScript 5 and 6 through their tsserver. The same tests run on one
+ * version of each.
+ */
+/** @rule typescript/zod/v4-string-formats */
 describe.each(TOOL_VERSIONS.typescriptEngines.map((v) => [v]))("TypeScript %s: the receiver's type, through the project's TypeScript", (version) => {
   let repo = "";
   beforeAll(() => {
