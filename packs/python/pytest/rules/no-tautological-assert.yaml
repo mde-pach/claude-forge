@@ -1,6 +1,6 @@
 id: python/pytest/no-tautological-assert
 description: Assertions test something. No assert True, assert on a literal, or x == x.
-scope: {language: python, files: ["**/test_*.py", "**/*_test.py"]}
+scope: {language: python, files: ["@python-tests", "!**/conftest.py"]}
 enforce:
   - target: ast-grep
     mode: forbid

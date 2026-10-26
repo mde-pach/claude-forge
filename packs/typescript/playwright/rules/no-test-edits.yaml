@@ -1,7 +1,7 @@
 id: typescript/playwright/no-test-edits
 description: Changing an end-to-end test that existed at the start of the turn (anything in it, formatting aside, the pages it visits and its control flow included), or removing it, needs approval; adding tests is fine. Edits ask when made, unapproved changes are blocked at Stop.
 review: "Is this change to existing tests required by the user's request (the request changes the behaviour these tests assert, so they must assert the new behaviour), or does it weaken or remove tests to make the code pass? Allow only the first."
-scope: {language: typescript, files: ["e2e/**"]}
+scope: {language: typescript, files: ["@e2e-tests"]}
 enforce:
   - {target: check, stage: lint, run: "forge_test_edits"}
 examples:

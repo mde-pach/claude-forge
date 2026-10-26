@@ -1,6 +1,6 @@
 id: typescript/vitest/no-test-env-branch
 description: Application code does not branch on whether it runs under Vitest.
-scope: {language: typescript, files: ["**/*", "!**/*.test.*", "!**/*.spec.*", "!**/__tests__/**", "!e2e/**", "!vitest.config.*", "!vitest.setup.*"]}
+scope: {language: typescript, files: ["**/*", "!@ts-tests", "!@e2e-tests", "!vitest.config.*", "!vitest.setup.*"]}
 enforce:
   - target: ast-grep
     mode: forbid

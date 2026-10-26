@@ -1,7 +1,7 @@
 id: typescript/vitest/no-test-edits
 description: Changing a test that existed at the start of the turn (anything in it, formatting aside, input data, .each tables and control flow included), or removing it, needs approval; adding tests is fine. Edits ask when made, unapproved changes are blocked at Stop. Changed test support code (helpers, vi.mock factories, __mocks__, test utils) is reported once.
 review: "Is this change to existing tests required by the user's request (the request changes the behaviour these tests assert, so they must assert the new behaviour), or does it weaken or remove tests to make the code pass? Allow only the first."
-scope: {language: typescript, files: ["**/*.test.*", "**/*.spec.*", "**/__tests__/**", "**/__mocks__/**", "**/test-utils.*", "**/test-helpers.*", "**/vitest.setup.*", "!e2e/**"]}
+scope: {language: typescript, files: ["@ts-tests", "**/__mocks__/**", "**/test-utils.*", "**/test-helpers.*", "**/vitest.setup.*", "!@e2e-tests"]}
 enforce:
   - {target: check, stage: lint, run: "forge_test_edits"}
 examples:

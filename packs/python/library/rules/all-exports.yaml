@@ -1,6 +1,6 @@
 id: python/library/all-exports
 description: "In a module that defines __all__, a new public top-level function or class (a name without a leading underscore) is listed in __all__, or named with a leading underscore if it is internal. Counted per module: more unlisted public names than in the base fails."
-scope: {language: python, files: ["!**/tests/**", "!**/test_*.py", "!**/*_test.py", "!**/conftest.py", "!**/__main__.py"]}
+scope: {language: python, files: ["!**/tests/**", "!@python-tests", "!**/__main__.py"]}
 enforce:
   - target: ast-grep
     mode: no-increase

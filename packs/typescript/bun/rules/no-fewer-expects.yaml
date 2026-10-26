@@ -1,6 +1,6 @@
 id: typescript/bun/no-fewer-expects
 description: Assertions are not removed from tests that import from bun:test.
-scope: {language: typescript, files: ["**/*.test.*", "**/*_test.*", "**/*.spec.*", "**/*_spec.*", "!e2e/**"]}
+scope: {language: typescript, files: ["**/*.test.*", "**/*_test.*", "**/*.spec.*", "**/*_spec.*", "!@e2e-tests"]}
 enforce:
   - target: ast-grep
     mode: no-decrease

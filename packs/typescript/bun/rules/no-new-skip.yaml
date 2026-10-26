@@ -1,6 +1,6 @@
 id: typescript/bun/no-new-skip
 description: Tests that import from bun:test are not skipped, made conditional, marked failing or todo, or focused with .only.
-scope: {language: typescript, files: ["**/*.test.*", "**/*_test.*", "**/*.spec.*", "**/*_spec.*", "!e2e/**"]}
+scope: {language: typescript, files: ["**/*.test.*", "**/*_test.*", "**/*.spec.*", "**/*_spec.*", "!@e2e-tests"]}
 enforce:
   - target: ast-grep
     mode: no-increase

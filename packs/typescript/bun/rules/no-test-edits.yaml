@@ -1,6 +1,6 @@
 id: typescript/bun/no-test-edits
 description: Tests in bun:test files that existed at the start of the turn are not changed (anything in them, formatting aside) or removed by Claude; adding tests is fine. Checked at Stop.
-scope: {language: typescript, files: ["**/*.test.*", "**/*_test.*", "**/*.spec.*", "**/*_spec.*", "!e2e/**"]}
+scope: {language: typescript, files: ["**/*.test.*", "**/*_test.*", "**/*.spec.*", "**/*_spec.*", "!@e2e-tests"]}
 enforce:
   - target: check
     stage: lint

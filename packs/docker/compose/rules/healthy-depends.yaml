@@ -1,6 +1,6 @@
 id: docker/compose/healthy-depends
 description: "depends_on uses the long form with a condition (service_healthy for databases), never the bare list, which only waits for the container to start."
-scope: {language: yaml, files: ["**/compose*.yml", "**/compose*.yaml", "**/docker-compose*.yml", "**/docker-compose*.yaml"]}
+scope: {language: yaml, files: ["@compose"]}
 enforce:
   - target: ast-grep
     mode: forbid

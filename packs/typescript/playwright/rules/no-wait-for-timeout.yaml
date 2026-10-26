@@ -1,6 +1,6 @@
 id: typescript/playwright/no-wait-for-timeout
 description: No fixed waits (waitForTimeout). Wait for a condition with a web-first assertion or waitForURL.
-scope: {language: typescript, files: ["e2e/**", "**/*.spec.*"]}
+scope: {language: typescript, files: ["@e2e-tests", "**/*.spec.*"]}
 enforce:
   - target: ast-grep
     mode: forbid

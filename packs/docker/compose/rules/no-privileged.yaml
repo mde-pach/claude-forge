@@ -1,6 +1,6 @@
 id: docker/compose/no-privileged
 description: "No privileged service, host namespaces (network_mode, pid, ipc, userns_mode, uts: host), ALL or SYS_ADMIN capabilities, or unconfined security options."
-scope: {language: yaml, files: ["**/compose*.yml", "**/compose*.yaml", "**/docker-compose*.yml", "**/docker-compose*.yaml"]}
+scope: {language: yaml, files: ["@compose"]}
 enforce:
   - target: ast-grep
     mode: forbid

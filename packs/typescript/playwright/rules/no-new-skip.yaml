@@ -1,6 +1,6 @@
 id: typescript/playwright/no-new-skip
 description: End-to-end tests are not skipped, marked fixme or fail, or focused.
-scope: {language: typescript, files: ["e2e/**"]}
+scope: {language: typescript, files: ["@e2e-tests"]}
 enforce:
   - target: ast-grep
     mode: no-increase

@@ -1,6 +1,6 @@
 id: typescript/bun/no-mock-increase
 description: A bun:test file may not gain mocks (mock(), mock.module(), spyOn(), jest.fn / vi.fn, also through an import alias such as import { mock as m }); test through the real code or a fake at the boundary.
-scope: {language: typescript, files: ["**/*.test.*", "**/*_test.*", "**/*.spec.*", "**/*_spec.*", "!e2e/**"]}
+scope: {language: typescript, files: ["**/*.test.*", "**/*_test.*", "**/*.spec.*", "**/*_spec.*", "!@e2e-tests"]}
 enforce:
   - target: ast-grep
     mode: no-increase

@@ -5,4 +5,4 @@ enforce:
   - target: check
     stage: migration
     run: 'test "$(alembic heads | wc -l)" -le 1'
-    when_changed: ["alembic/versions/**"]
+    when_changed: ["@alembic-migrations"]

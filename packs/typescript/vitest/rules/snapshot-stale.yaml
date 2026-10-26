@@ -1,6 +1,6 @@
 id: typescript/vitest/snapshot-stale
 description: "Output-producing code changed but its snapshots did not: a source file whose added lines hold a string literal in an expression or an object literal key (not an import, a type annotation, an interface or a type alias), imported by a test that uses toMatchSnapshot, toMatchFileSnapshot, toMatchInlineSnapshot or golden files (testdata/), while no .snap, __snapshots__ or testdata file changed in the turn. Run the snapshot tests with inputs that exercise the new output and update them. Checked at Stop; it blocks once per turn, then accepts."
-scope: {language: typescript, files: ["!**/*.test.*", "!**/*.spec.*", "!**/__tests__/**", "!e2e/**", "!**/*.d.ts"]}
+scope: {language: typescript, files: ["!@ts-tests", "!@e2e-tests", "!**/*.d.ts"]}
 enforce:
   - {target: check, stage: lint, run: "forge_advise forge_snapshot_stale"}
 examples:

@@ -1,8 +1,8 @@
 id: docker/exec-form
 description: "CMD and ENTRYPOINT use the JSON (exec) form, so signals reach the process (hadolint DL3025)."
-scope: {language: any, files: ["**/Dockerfile", "**/Dockerfile.*", "**/*.Dockerfile", "**/Containerfile"]}
+scope: {language: any, files: ["@dockerfile"]}
 enforce:
-  - {target: check, stage: lint, run: "forge_hadolint DL3025", when_changed: ["**/Dockerfile", "**/Dockerfile.*", "**/*.Dockerfile", "**/Containerfile"]}
+  - {target: check, stage: lint, run: "forge_hadolint DL3025", when_changed: ["@dockerfile"]}
 examples:
   match:
     - files: {Dockerfile: "FROM python:3.13-slim\nUSER app\nCMD python -m app\n", .dockerignore: ".env*\n.git\n"}

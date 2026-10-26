@@ -1,8 +1,8 @@
 id: docker/copy-not-add
 description: "COPY, not ADD, for files and folders (hadolint DL3020)."
-scope: {language: any, files: ["**/Dockerfile", "**/Dockerfile.*", "**/*.Dockerfile", "**/Containerfile"]}
+scope: {language: any, files: ["@dockerfile"]}
 enforce:
-  - {target: check, stage: lint, run: "forge_hadolint DL3020", when_changed: ["**/Dockerfile", "**/Dockerfile.*", "**/*.Dockerfile", "**/Containerfile"]}
+  - {target: check, stage: lint, run: "forge_hadolint DL3020", when_changed: ["@dockerfile"]}
 examples:
   match:
     - files: {Dockerfile: "FROM python:3.13-slim\nWORKDIR /app\nADD app /app\nUSER app\n", .dockerignore: ".env*\n.git\n"}

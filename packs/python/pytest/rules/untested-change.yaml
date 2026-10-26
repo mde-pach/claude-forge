@@ -1,6 +1,6 @@
 id: python/pytest/untested-change
 description: A turn that changes application code also adds or updates a test, or says why none is needed; advisory, it blocks Stop once per turn.
-scope: {language: python, files: ["**/*.py", "!**/test_*.py", "!**/*_test.py", "!**/conftest.py", "!**/tests/**", "!**/migrations/**", "!**/alembic/versions/**"]}
+scope: {language: python, files: ["**/*.py", "!@python-tests", "!**/tests/**", "!@django-migrations", "!@alembic-migrations"]}
 enforce:
   - {target: check, stage: lint, run: "forge_advise forge_untested_change"}
 examples:

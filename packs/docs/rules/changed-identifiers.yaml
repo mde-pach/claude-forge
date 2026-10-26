@@ -1,6 +1,6 @@
 id: docs/changed-identifiers
 description: When a turn changes the definition of a public name (a function, class, exported declaration, option or parameter) that the docs mention, and changes no doc, the mentions are shown; advisory, it blocks Stop once per turn.
-scope: {language: any, files: ["**/*.{py,pyi,ts,tsx,mts,cts,js,jsx,mjs,cjs}", "!**/test_*.py", "!**/*_test.py", "!**/conftest.py", "!**/tests/**", "!**/*.test.*", "!**/*.spec.*", "!**/__tests__/**", "!e2e/**"]}
+scope: {language: any, files: ["**/*.{py,pyi,ts,tsx,mts,cts,js,jsx,mjs,cjs}", "!@python-tests", "!**/tests/**", "!@ts-tests", "!@e2e-tests"]}
 enforce:
   - {target: check, stage: lint, run: "forge_advise forge_docs_mentions"}
 examples:

@@ -1,6 +1,6 @@
 id: typescript/vitest/no-mock-increase
 description: "A test file may not gain mocks: vi.mock, vi.doMock, vi.spyOn, vi.fn, also through an import alias (import { vi as v }); test through the real code or a fake at the boundary. vi.stubEnv and vi.stubGlobal are not counted: they set configuration for a test, like pytest's monkeypatch."
-scope: {language: typescript, files: ["**/*.test.*", "**/*.spec.*", "**/__tests__/**", "!e2e/**"]}
+scope: {language: typescript, files: ["@ts-tests", "!@e2e-tests"]}
 enforce:
   - target: ast-grep
     mode: no-increase

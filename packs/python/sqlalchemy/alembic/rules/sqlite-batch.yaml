@@ -1,6 +1,6 @@
 id: python/sqlalchemy/alembic/sqlite-batch
 description: "When migrations also run on SQLite (render_as_batch=True in alembic/env.py, or a sqlite URL in alembic.ini), alter_column, drop_column and constraint operations go through op.batch_alter_table(): SQLite's ALTER TABLE cannot run them."
-scope: {language: python, files: ["alembic/versions/**"]}
+scope: {language: python, files: ["@alembic-migrations"]}
 enforce:
   - {target: check, stage: lint, run: "forge_alembic_batch"}
 examples:

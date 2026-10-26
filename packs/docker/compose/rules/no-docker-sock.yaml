@@ -1,6 +1,6 @@
 id: docker/compose/no-docker-sock
 description: "No service mounts the Docker socket; it gives the container root on the host."
-scope: {language: yaml, files: ["**/compose*.yml", "**/compose*.yaml", "**/docker-compose*.yml", "**/docker-compose*.yaml"]}
+scope: {language: yaml, files: ["@compose"]}
 enforce:
   - target: ast-grep
     mode: forbid
