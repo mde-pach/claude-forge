@@ -1,0 +1,15 @@
+id: typescript/nextjs/no-ignore-build-errors
+description: "next.config does not set typescript.ignoreBuildErrors: true; next build would ship code that does not type-check. Fix the errors."
+scope: {language: typescript, files: ["next.config.*"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: pair
+      all:
+        - has: {field: key, regex: "^[\"']?ignoreBuildErrors[\"']?$"}
+        - has: {field: value, kind: "true"}
+        - inside: {kind: object, inside: {kind: pair, has: {field: key, regex: "^[\"']?typescript[\"']?$"}}}
+examples:
+  match: ["import type { NextConfig } from \"next\";\n\nconst nextConfig: NextConfig = {\n  typescript: { ignoreBuildErrors: true },\n};\nexport default nextConfig;\n", "module.exports = { typescript: { \"ignoreBuildErrors\": true } };\n"]
+  no_match: ["const nextConfig = { typescript: { ignoreBuildErrors: false, tsconfigPath: \"tsconfig.build.json\" } };\nexport default nextConfig;\n", "export default { images: { ignoreBuildErrors: true } };\n"]

@@ -1,0 +1,23 @@
+id: typescript/tailwind/config-referenced
+description: "A tailwind.config.js, .ts, .mjs or .cjs at the root is loaded by a CSS file with @config: Tailwind 4 ignores it otherwise, without a word. Add @config, or move the theme to @theme and delete the file."
+scope: {language: any, files: ["tailwind.config.*", "**/*.css"]}
+enforce:
+  - target: check
+    stage: lint
+    run: |
+      if ! git grep -q --untracked -E '^[[:space:]]*@config[[:space:]]' -- '*.css'; then
+        unloaded=0
+        for f in tailwind.config.js tailwind.config.ts tailwind.config.mjs tailwind.config.cjs; do
+          [ -f "$f" ] && { printf '%s: no CSS file loads it with @config, so Tailwind 4 ignores it\n' "$f"; unloaded=1; }
+        done
+        [ "$unloaded" = 0 ]
+      fi
+    when_changed: ["tailwind.config.*", "**/*.css"]
+examples:
+  match:
+    - files: {tailwind.config.ts: "export default { theme: { extend: { colors: { brand: \"#0af\" } } } };\n", src/app.css: "@import \"tailwindcss\";\n"}
+    - head: {src/app.css: "@import \"tailwindcss\";\n@config \"../tailwind.config.js\";\n"}
+      files: {tailwind.config.js: "module.exports = { theme: {} };\n", src/app.css: "@import \"tailwindcss\";\n"}
+  no_match:
+    - files: {tailwind.config.ts: "export default { theme: { extend: { colors: { brand: \"#0af\" } } } };\n", src/app.css: "@import \"tailwindcss\";\n@config \"../tailwind.config.ts\";\n"}
+    - files: {src/app.css: "@import \"tailwindcss\";\n@theme {\n  --color-brand: #0af;\n}\n"}

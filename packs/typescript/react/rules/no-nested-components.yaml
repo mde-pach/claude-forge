@@ -1,13 +1,17 @@
 id: typescript/react/no-nested-components
-description: "No component defined inside another component: it remounts on every render."
+description: "No component defined inside another component, and no function that defines and returns a component or hook (a factory): each render or call makes a new component type, which remounts."
 scope: {language: "tsx"}
 enforce:
   - target: tool
     tool: biome
     expects: "lint/correctness/noNestedComponentDefinitions"
-    snippet: "\"linter\": {\"rules\": {\"correctness\": {\"noNestedComponentDefinitions\": \"error\"}}}"
+    snippet: "\"linter\": {\"rules\": {\"correctness\": {\"noNestedComponentDefinitions\": \"error\"}, \"nursery\": {\"noComponentHookFactories\": \"error\"}}}"
+  - target: tool
+    tool: biome
+    expects: "lint/nursery/noComponentHookFactories"
+    snippet: "\"linter\": {\"rules\": {\"correctness\": {\"noNestedComponentDefinitions\": \"error\"}, \"nursery\": {\"noComponentHookFactories\": \"error\"}}}"
 examples:
   match:
-    - "export function Page() {\n  function Row() {\n    return <li>row</li>;\n  }\n  return <ul><Row /></ul>;\n}\n"
+    - "export function makeRow(label: string) {\n  return function Row() {\n    return <li>{label}</li>;\n  };\n}\n\nexport function Page() {\n  function Row() {\n    return <li>row</li>;\n  }\n  return <ul><Row /></ul>;\n}\n"
   no_match:
-    - "function Row() {\n  return <li>row</li>;\n}\n\nexport function Page() {\n  return <ul><Row /></ul>;\n}\n"
+    - "function Row({ label }: { label: string }) {\n  return <li>{label}</li>;\n}\n\nexport function Page() {\n  return <ul><Row label=\"row\" /></ul>;\n}\n"

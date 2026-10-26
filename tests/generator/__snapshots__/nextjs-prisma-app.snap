@@ -10,6 +10,7 @@ These are this project's defaults. When the task or the user explicitly asks for
 React 19 in the App Router: components are Server Components unless their file starts with `'use client'`.
 State, effects, context, refs and event handlers need a Client Component; keep `'use client'` at the leaves.
 Server Actions are async functions in a file or function marked `'use server'`.
+A `'use client'` file reads only `NEXT_PUBLIC_*` and `NODE_ENV` from `process.env` and exports no async component; a `'use server'` file exports only async functions.
 
 ===== .claude/rules/forge-typescript-nextjs.md
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
@@ -18,10 +19,12 @@ Next.js 16 App Router. Request APIs (`params`, `searchParams`, `cookies()`, `hea
 Components are Server Components unless the file starts with `'use client'`.
 Request interception lives in `proxy.ts` (not `middleware.ts`).
 `revalidateTag(tag, "max")` takes a cacheLife profile; `updateTag(tag)` in a Server Action gives read-your-writes.
-Remote images are allowed with `images.remotePatterns`.
+Remote images are allowed with `images.remotePatterns` naming the hosts (no `*` / `**` hostname); `dangerouslyAllowSVG` needs a `contentSecurityPolicy`.
 `next lint` no longer exists and `next build` does not lint; lint runs through Biome.
 Server Actions and route handlers (`app/**/route.ts`) are public endpoints: validate their input with a schema and check who is calling (not checked by Forge).
 `NEXT_PUBLIC_` variables are inlined into the browser bundle; one named like `*SECRET*`, `*PRIVATE*`, `*PASSWORD*`, `*SERVICE_ROLE*` or `*DATABASE_URL*` is rejected.
+`'use cache'` code never calls `cookies()`, `headers()` or `draftMode()`; `redirect()`, `notFound()` and friends are not called inside `try` unless the catch calls `unstable_rethrow(e)`.
+`typescript.ignoreBuildErrors` is never set; every parallel route `@slot` has a `default.tsx`; metadata uses the Metadata API, not `next/head`.
 
 ===== .claude/rules/forge-typescript-playwright.md
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
@@ -47,9 +50,10 @@ A new migration that drops a column or table is rejected unless the user accepts
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
 
 React 19: `ref` is a regular prop of function components; `forwardRef` is not needed.
-Form actions use `useActionState` from `react` (not `useFormState` from `react-dom`); `act` comes from `react`.
-Function components have no `propTypes` or `defaultProps`: use TypeScript types and default parameter values.
+Form actions use `useActionState` from `react` (not `useFormState` from `react-dom`); `act` comes from `react`, not `react-dom/test-utils`.
+Function components have no `propTypes` or `defaultProps`: use TypeScript types and default parameter values; an object, array or function default is hoisted to a module constant.
 `ReactDOM.render` is removed: use `createRoot` from `react-dom/client`.
+Components pass React Compiler's checks (Biome `useReactCompiler`): no `setState` called synchronously in an effect, no ref read or written while rendering, no `Date.now()` / `Math.random()` while rendering; props are never assigned to.
 
 ===== .claude/rules/forge-typescript-vitest.md
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
@@ -1238,7 +1242,7 @@ tsc() { forge_exec_tool tsc "$@"; }
 prisma() { forge_exec_tool prisma "$@"; }
 vitest() { forge_exec_tool vitest "$@"; }
 playwright() { forge_exec_tool playwright "$@"; }
-FORGE_NCHECKS=25
+FORGE_NCHECKS=26
 
 # 1. typescript/bun/lock-sync
 forge_check_meta_1() {
@@ -1383,109 +1387,128 @@ forge_check_run_9() {
 forge_once forge_lockfile_updated
 }
 
-# 10. typescript/no-ignore-deprecations
+# 10. typescript/nextjs/parallel-route-default
 forge_check_meta_10() {
+  c_id='typescript/nextjs/parallel-route-default'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_10() {
+  case $1 in app/*|src/app/*) ;; *) return 1 ;; esac
+  return 0
+}
+forge_when_10() { return 1; }
+forge_check_run_10() {
+missing=$(find app src/app -type d -name '@*' 2>/dev/null | while IFS= read -r d; do
+  [ -e "$d/default.tsx" ] || [ -e "$d/default.ts" ] || [ -e "$d/default.jsx" ] || [ -e "$d/default.js" ] || printf '%s\n' "$d"
+done)
+[ -z "$missing" ] || { printf '%s\n' "$missing" | sed 's/$/: parallel route slot without a default.tsx (next build fails)/'; false; }
+
+}
+
+# 11. typescript/no-ignore-deprecations
+forge_check_meta_11() {
   c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_10() {
+forge_scope_11() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_10() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
-forge_check_run_10() {
+forge_when_11() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
+forge_check_run_11() {
 ! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')
 }
 
-# 11. typescript/no-unused-suppressions
-forge_check_meta_11() {
+# 12. typescript/no-unused-suppressions
+forge_check_meta_12() {
   c_id='typescript/no-unused-suppressions'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_11() {
+forge_scope_12() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_11() { return 1; }
-forge_check_run_11() {
+forge_when_12() { return 1; }
+forge_check_run_12() {
 ! biome lint --colors=off --max-diagnostics=none . 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
 }
-forge_check_changed_11() {
+forge_check_changed_12() {
 ! biome lint --colors=off --max-diagnostics=none --no-errors-on-unmatched $FORGE_FILES 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
 }
 
-# 12. typescript/playwright/axe
-forge_check_meta_12() {
+# 13. typescript/playwright/axe
+forge_check_meta_13() {
   c_id='typescript/playwright/axe'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_12() {
+forge_scope_13() {
   return 0
 }
-forge_when_12() { case $1 in package.json|e2e/*|*.spec.*|*/*.spec.*) return 0 ;; esac; return 1; }
-forge_check_run_12() {
+forge_when_13() { case $1 in package.json|e2e/*|*.spec.*|*/*.spec.*) return 0 ;; esac; return 1; }
+forge_check_run_13() {
 ! grep -q '"@axe-core/playwright"' package.json 2>/dev/null || git ls-files -z -- 'e2e/*' '*.spec.*' | xargs -0 grep -l AxeBuilder /dev/null | grep -q . || { echo 'package.json depends on @axe-core/playwright but no e2e test uses AxeBuilder'; false; }
 }
 
-# 13. typescript/playwright/no-test-edits
-forge_check_meta_13() {
+# 14. typescript/playwright/no-test-edits
+forge_check_meta_14() {
   c_id='typescript/playwright/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_13() {
+forge_scope_14() {
   case $1 in e2e/*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_13() { return 1; }
-forge_check_run_13() {
+forge_when_14() { return 1; }
+forge_check_run_14() {
 forge_test_edits
 }
 
-# 14. typescript/playwright/run
-forge_check_meta_14() {
-  c_id='typescript/playwright/run'; c_stage=test; c_tools='playwright'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_14() {
-  return 0
-}
-forge_when_14() { case $1 in e2e/*|playwright.config.*) return 0 ;; esac; return 1; }
-forge_check_run_14() {
-playwright test --reporter=line
-}
-
-# 15. typescript/prisma/client-generator
+# 15. typescript/playwright/run
 forge_check_meta_15() {
-  c_id='typescript/prisma/client-generator'; c_stage=lint; c_tools=''
+  c_id='typescript/playwright/run'; c_stage=test; c_tools='playwright'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_15() {
   return 0
 }
-forge_when_15() { case $1 in *.prisma|*/*.prisma) return 0 ;; esac; return 1; }
+forge_when_15() { case $1 in e2e/*|playwright.config.*) return 0 ;; esac; return 1; }
 forge_check_run_15() {
-! grep -nE 'provider[[:space:]]*=[[:space:]]*"prisma-client-js"' /dev/null $(git ls-files '*.prisma')
+playwright test --reporter=line
 }
 
-# 16. typescript/prisma/destructive-migration
+# 16. typescript/prisma/client-generator
 forge_check_meta_16() {
-  c_id='typescript/prisma/destructive-migration'; c_stage=migration; c_tools=''
+  c_id='typescript/prisma/client-generator'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_16() {
+  return 0
+}
+forge_when_16() { case $1 in *.prisma|*/*.prisma) return 0 ;; esac; return 1; }
+forge_check_run_16() {
+! grep -nE 'provider[[:space:]]*=[[:space:]]*"prisma-client-js"' /dev/null $(git ls-files '*.prisma')
+}
+
+# 17. typescript/prisma/destructive-migration
+forge_check_meta_17() {
+  c_id='typescript/prisma/destructive-migration'; c_stage=migration; c_tools=''
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_17() {
   case $1 in prisma/migrations/migration.sql|prisma/migrations/*/migration.sql) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_16() { case $1 in prisma/migrations/*) return 0 ;; esac; return 1; }
-forge_check_run_16() {
+forge_when_17() { case $1 in prisma/migrations/*) return 0 ;; esac; return 1; }
+forge_check_run_17() {
 set -f
 _dm_files=$FORGE_FILES
 [ -n "$_dm_files" ] || _dm_files=$(git ls-files 'prisma/migrations/*/migration.sql' | sort | tail -n 1)
@@ -1504,42 +1527,28 @@ return 1
 
 }
 
-# 17. typescript/prisma/migration-lint
-forge_check_meta_17() {
+# 18. typescript/prisma/migration-lint
+forge_check_meta_18() {
   c_id='typescript/prisma/migration-lint'; c_stage=migration; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_17() {
+forge_scope_18() {
   case $1 in prisma/migrations/migration.sql|prisma/migrations/*/migration.sql) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_17() { case $1 in prisma/migrations/*) return 0 ;; esac; return 1; }
-forge_check_run_17() {
+forge_when_18() { case $1 in prisma/migrations/*) return 0 ;; esac; return 1; }
+forge_check_run_18() {
 forge_squawk_files $(git ls-files 'prisma/migrations/*/migration.sql' | sort | tail -n 1)
 }
-forge_check_changed_17() {
+forge_check_changed_18() {
 forge_squawk_files $FORGE_FILES
 }
 
-# 18. typescript/prisma/migration-present
-forge_check_meta_18() {
+# 19. typescript/prisma/migration-present
+forge_check_meta_19() {
   c_id='typescript/prisma/migration-present'; c_stage=migration; c_tools='prisma'
   c_when=1; c_localdb=1; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_18() {
-  return 0
-}
-forge_when_18() { case $1 in prisma/schema.prisma) return 0 ;; esac; return 1; }
-forge_check_run_18() {
-if [ ! -d prisma/migrations ] && grep -qE "prisma[[:space:]]+db[[:space:]]+push" package.json 2>/dev/null; then :; elif ! grep -q shadowDatabaseUrl prisma.config.ts 2>/dev/null; then echo "forge:typescript/prisma/migration-present skipped: no shadowDatabaseUrl in prisma.config.ts"; else prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code; fi
-}
-
-# 19. typescript/prisma/validate
-forge_check_meta_19() {
-  c_id='typescript/prisma/validate'; c_stage=migration; c_tools='prisma'
-  c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_19() {
@@ -1547,105 +1556,119 @@ forge_scope_19() {
 }
 forge_when_19() { case $1 in prisma/schema.prisma) return 0 ;; esac; return 1; }
 forge_check_run_19() {
+if [ ! -d prisma/migrations ] && grep -qE "prisma[[:space:]]+db[[:space:]]+push" package.json 2>/dev/null; then :; elif ! grep -q shadowDatabaseUrl prisma.config.ts 2>/dev/null; then echo "forge:typescript/prisma/migration-present skipped: no shadowDatabaseUrl in prisma.config.ts"; else prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code; fi
+}
+
+# 20. typescript/prisma/validate
+forge_check_meta_20() {
+  c_id='typescript/prisma/validate'; c_stage=migration; c_tools='prisma'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_20() {
+  return 0
+}
+forge_when_20() { case $1 in prisma/schema.prisma) return 0 ;; esac; return 1; }
+forge_check_run_20() {
 prisma validate
 }
 
-# 20. typescript/typecheck
-forge_check_meta_20() {
+# 21. typescript/typecheck
+forge_check_meta_21() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_20() {
-  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
-  return 1
-}
-forge_when_20() { return 1; }
-forge_check_run_20() {
-tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile "$(forge_state_file tsc.tsbuildinfo)"
-}
-
-# 21. typescript/vitest/no-test-edits
-forge_check_meta_21() {
-  c_id='typescript/vitest/no-test-edits'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
 forge_scope_21() {
-  case $1 in e2e/*) return 1 ;; esac
-  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|__mocks__/*|*/__mocks__/*|test-utils.*|*/test-utils.*|test-helpers.*|*/test-helpers.*|vitest.setup.*|*/vitest.setup.*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
 forge_when_21() { return 1; }
 forge_check_run_21() {
+tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile "$(forge_state_file tsc.tsbuildinfo)"
+}
+
+# 22. typescript/vitest/no-test-edits
+forge_check_meta_22() {
+  c_id='typescript/vitest/no-test-edits'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_22() {
+  case $1 in e2e/*) return 1 ;; esac
+  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|__mocks__/*|*/__mocks__/*|test-utils.*|*/test-utils.*|test-helpers.*|*/test-helpers.*|vitest.setup.*|*/vitest.setup.*) ;; *) return 1 ;; esac
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+forge_when_22() { return 1; }
+forge_check_run_22() {
 forge_test_edits
 }
 
-# 22. typescript/vitest/no-workspace-file
-forge_check_meta_22() {
+# 23. typescript/vitest/no-workspace-file
+forge_check_meta_23() {
   c_id='typescript/vitest/no-workspace-file'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_22() {
+forge_scope_23() {
   return 0
 }
-forge_when_22() { case $1 in vitest.*) return 0 ;; esac; return 1; }
-forge_check_run_22() {
+forge_when_23() { case $1 in vitest.*) return 0 ;; esac; return 1; }
+forge_check_run_23() {
 ! git ls-files 'vitest.workspace.*' | grep .
 }
 
-# 23. typescript/vitest/run
-forge_check_meta_23() {
+# 24. typescript/vitest/run
+forge_check_meta_24() {
   c_id='typescript/vitest/run'; c_stage=test; c_tools='vitest'
   c_when=0; c_localdb=0; c_timeout=300
   c_changed=1; c_files=0; c_fix=0; c_fmt=0; c_rerun=1; c_warn=0; c_dirs=''
 }
-forge_scope_23() {
-  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
-  return 1
-}
-forge_when_23() { return 1; }
-forge_check_run_23() {
-vitest run
-}
-forge_check_changed_23() {
-vitest run --changed
-}
-forge_check_rerun_23() {
-vitest run $FORGE_FILES
-}
-
-# 24. typescript/vitest/snapshot-stale
-forge_check_meta_24() {
-  c_id='typescript/vitest/snapshot-stale'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
 forge_scope_24() {
-  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
 forge_when_24() { return 1; }
 forge_check_run_24() {
-forge_advise forge_snapshot_stale
+vitest run
+}
+forge_check_changed_24() {
+vitest run --changed
+}
+forge_check_rerun_24() {
+vitest run $FORGE_FILES
 }
 
-# 25. typescript/vitest/untested-change
+# 25. typescript/vitest/snapshot-stale
 forge_check_meta_25() {
-  c_id='typescript/vitest/untested-change'; c_stage=lint; c_tools=''
+  c_id='typescript/vitest/snapshot-stale'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_25() {
-  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts|*.config.*|*/*.config.*) return 1 ;; esac
+  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
 forge_when_25() { return 1; }
 forge_check_run_25() {
+forge_advise forge_snapshot_stale
+}
+
+# 26. typescript/vitest/untested-change
+forge_check_meta_26() {
+  c_id='typescript/vitest/untested-change'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_26() {
+  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts|*.config.*|*/*.config.*) return 1 ;; esac
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+forge_when_26() { return 1; }
+forge_check_run_26() {
 forge_advise forge_untested_change
 }
 
@@ -4669,7 +4692,7 @@ forge_types_filter() {
   return "$_tf_rc"
 }
 
-FORGE_FORBID='typescript/nextjs/no-legacy-image-config|typescript/nextjs/no-next-router|typescript/nextjs/no-pages-data|typescript/nextjs/no-public-secret-env|typescript/nextjs/proxy-not-middleware|typescript/nextjs/react/client-hooks|typescript/nextjs/react/no-server-in-client|typescript/nextjs/revalidate-tag-profile|typescript/no-double-assertion|typescript/no-stub|typescript/no-swallowed-catch|typescript/no-ts-nocheck|typescript/playwright/locators|typescript/playwright/no-wait-for-timeout|typescript/prisma/generated-client-import|typescript/prisma/no-middleware|typescript/prisma/no-network-in-transaction|typescript/prisma/no-raw-unsafe|typescript/react/no-prop-types|typescript/react/use-action-state|typescript/ts-expect-error-reason|typescript/vitest/no-tautological-expect|typescript/vitest/no-test-env-branch|typescript/zod/error-param|typescript/zod/v4-string-formats'
+FORGE_FORBID='typescript/nextjs/cookies-set-in-render|typescript/nextjs/image-remote-patterns-strict|typescript/nextjs/image-unsafe-options|typescript/nextjs/no-ignore-build-errors|typescript/nextjs/no-legacy-image-config|typescript/nextjs/no-next-head-in-app|typescript/nextjs/no-next-router|typescript/nextjs/no-pages-data|typescript/nextjs/no-public-secret-env|typescript/nextjs/no-redirect-in-try|typescript/nextjs/no-request-apis-in-use-cache|typescript/nextjs/proxy-exports|typescript/nextjs/proxy-not-middleware|typescript/nextjs/react/client-env-public-only|typescript/nextjs/react/client-hooks|typescript/nextjs/react/no-server-in-client|typescript/nextjs/react/no-ssr-false-in-server|typescript/nextjs/react/server-functions-async|typescript/nextjs/revalidate-tag-profile|typescript/nextjs/stable-cache-imports|typescript/no-double-assertion|typescript/no-html-sinks|typescript/no-stub|typescript/no-swallowed-catch|typescript/no-ts-nocheck|typescript/playwright/locators|typescript/playwright/no-wait-for-timeout|typescript/postmessage-origin|typescript/prisma/generated-client-import|typescript/prisma/no-middleware|typescript/prisma/no-network-in-transaction|typescript/prisma/no-raw-unsafe|typescript/react/act-from-react|typescript/react/no-prop-types|typescript/react/use-action-state|typescript/ts-expect-error-reason|typescript/vitest/no-tautological-expect|typescript/vitest/no-test-env-branch|typescript/zod/error-param|typescript/zod/v4-string-formats'
 
 # the lines added to each file during the turn (base: the turn snapshot, else HEAD)
 mode=--changed
@@ -4824,7 +4847,7 @@ tsc() { forge_exec_tool tsc "$@"; }
 prisma() { forge_exec_tool prisma "$@"; }
 vitest() { forge_exec_tool vitest "$@"; }
 playwright() { forge_exec_tool playwright "$@"; }
-FORGE_NCHECKS=25
+FORGE_NCHECKS=26
 
 # 1. typescript/bun/lock-sync
 forge_check_meta_1() {
@@ -4969,109 +4992,128 @@ forge_check_run_9() {
 forge_once forge_lockfile_updated
 }
 
-# 10. typescript/no-ignore-deprecations
+# 10. typescript/nextjs/parallel-route-default
 forge_check_meta_10() {
+  c_id='typescript/nextjs/parallel-route-default'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_10() {
+  case $1 in app/*|src/app/*) ;; *) return 1 ;; esac
+  return 0
+}
+forge_when_10() { return 1; }
+forge_check_run_10() {
+missing=$(find app src/app -type d -name '@*' 2>/dev/null | while IFS= read -r d; do
+  [ -e "$d/default.tsx" ] || [ -e "$d/default.ts" ] || [ -e "$d/default.jsx" ] || [ -e "$d/default.js" ] || printf '%s\n' "$d"
+done)
+[ -z "$missing" ] || { printf '%s\n' "$missing" | sed 's/$/: parallel route slot without a default.tsx (next build fails)/'; false; }
+
+}
+
+# 11. typescript/no-ignore-deprecations
+forge_check_meta_11() {
   c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_10() {
+forge_scope_11() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_10() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
-forge_check_run_10() {
+forge_when_11() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
+forge_check_run_11() {
 ! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')
 }
 
-# 11. typescript/no-unused-suppressions
-forge_check_meta_11() {
+# 12. typescript/no-unused-suppressions
+forge_check_meta_12() {
   c_id='typescript/no-unused-suppressions'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_11() {
+forge_scope_12() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_11() { return 1; }
-forge_check_run_11() {
+forge_when_12() { return 1; }
+forge_check_run_12() {
 ! biome lint --colors=off --max-diagnostics=none . 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
 }
-forge_check_changed_11() {
+forge_check_changed_12() {
 ! biome lint --colors=off --max-diagnostics=none --no-errors-on-unmatched $FORGE_FILES 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
 }
 
-# 12. typescript/playwright/axe
-forge_check_meta_12() {
+# 13. typescript/playwright/axe
+forge_check_meta_13() {
   c_id='typescript/playwright/axe'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_12() {
+forge_scope_13() {
   return 0
 }
-forge_when_12() { case $1 in package.json|e2e/*|*.spec.*|*/*.spec.*) return 0 ;; esac; return 1; }
-forge_check_run_12() {
+forge_when_13() { case $1 in package.json|e2e/*|*.spec.*|*/*.spec.*) return 0 ;; esac; return 1; }
+forge_check_run_13() {
 ! grep -q '"@axe-core/playwright"' package.json 2>/dev/null || git ls-files -z -- 'e2e/*' '*.spec.*' | xargs -0 grep -l AxeBuilder /dev/null | grep -q . || { echo 'package.json depends on @axe-core/playwright but no e2e test uses AxeBuilder'; false; }
 }
 
-# 13. typescript/playwright/no-test-edits
-forge_check_meta_13() {
+# 14. typescript/playwright/no-test-edits
+forge_check_meta_14() {
   c_id='typescript/playwright/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_13() {
+forge_scope_14() {
   case $1 in e2e/*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_13() { return 1; }
-forge_check_run_13() {
+forge_when_14() { return 1; }
+forge_check_run_14() {
 forge_test_edits
 }
 
-# 14. typescript/playwright/run
-forge_check_meta_14() {
-  c_id='typescript/playwright/run'; c_stage=test; c_tools='playwright'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_14() {
-  return 0
-}
-forge_when_14() { case $1 in e2e/*|playwright.config.*) return 0 ;; esac; return 1; }
-forge_check_run_14() {
-playwright test --reporter=line
-}
-
-# 15. typescript/prisma/client-generator
+# 15. typescript/playwright/run
 forge_check_meta_15() {
-  c_id='typescript/prisma/client-generator'; c_stage=lint; c_tools=''
+  c_id='typescript/playwright/run'; c_stage=test; c_tools='playwright'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_15() {
   return 0
 }
-forge_when_15() { case $1 in *.prisma|*/*.prisma) return 0 ;; esac; return 1; }
+forge_when_15() { case $1 in e2e/*|playwright.config.*) return 0 ;; esac; return 1; }
 forge_check_run_15() {
-! grep -nE 'provider[[:space:]]*=[[:space:]]*"prisma-client-js"' /dev/null $(git ls-files '*.prisma')
+playwright test --reporter=line
 }
 
-# 16. typescript/prisma/destructive-migration
+# 16. typescript/prisma/client-generator
 forge_check_meta_16() {
-  c_id='typescript/prisma/destructive-migration'; c_stage=migration; c_tools=''
+  c_id='typescript/prisma/client-generator'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_16() {
+  return 0
+}
+forge_when_16() { case $1 in *.prisma|*/*.prisma) return 0 ;; esac; return 1; }
+forge_check_run_16() {
+! grep -nE 'provider[[:space:]]*=[[:space:]]*"prisma-client-js"' /dev/null $(git ls-files '*.prisma')
+}
+
+# 17. typescript/prisma/destructive-migration
+forge_check_meta_17() {
+  c_id='typescript/prisma/destructive-migration'; c_stage=migration; c_tools=''
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_17() {
   case $1 in prisma/migrations/migration.sql|prisma/migrations/*/migration.sql) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_16() { case $1 in prisma/migrations/*) return 0 ;; esac; return 1; }
-forge_check_run_16() {
+forge_when_17() { case $1 in prisma/migrations/*) return 0 ;; esac; return 1; }
+forge_check_run_17() {
 set -f
 _dm_files=$FORGE_FILES
 [ -n "$_dm_files" ] || _dm_files=$(git ls-files 'prisma/migrations/*/migration.sql' | sort | tail -n 1)
@@ -5090,42 +5132,28 @@ return 1
 
 }
 
-# 17. typescript/prisma/migration-lint
-forge_check_meta_17() {
+# 18. typescript/prisma/migration-lint
+forge_check_meta_18() {
   c_id='typescript/prisma/migration-lint'; c_stage=migration; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_17() {
+forge_scope_18() {
   case $1 in prisma/migrations/migration.sql|prisma/migrations/*/migration.sql) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_17() { case $1 in prisma/migrations/*) return 0 ;; esac; return 1; }
-forge_check_run_17() {
+forge_when_18() { case $1 in prisma/migrations/*) return 0 ;; esac; return 1; }
+forge_check_run_18() {
 forge_squawk_files $(git ls-files 'prisma/migrations/*/migration.sql' | sort | tail -n 1)
 }
-forge_check_changed_17() {
+forge_check_changed_18() {
 forge_squawk_files $FORGE_FILES
 }
 
-# 18. typescript/prisma/migration-present
-forge_check_meta_18() {
+# 19. typescript/prisma/migration-present
+forge_check_meta_19() {
   c_id='typescript/prisma/migration-present'; c_stage=migration; c_tools='prisma'
   c_when=1; c_localdb=1; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_18() {
-  return 0
-}
-forge_when_18() { case $1 in prisma/schema.prisma) return 0 ;; esac; return 1; }
-forge_check_run_18() {
-if [ ! -d prisma/migrations ] && grep -qE "prisma[[:space:]]+db[[:space:]]+push" package.json 2>/dev/null; then :; elif ! grep -q shadowDatabaseUrl prisma.config.ts 2>/dev/null; then echo "forge:typescript/prisma/migration-present skipped: no shadowDatabaseUrl in prisma.config.ts"; else prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code; fi
-}
-
-# 19. typescript/prisma/validate
-forge_check_meta_19() {
-  c_id='typescript/prisma/validate'; c_stage=migration; c_tools='prisma'
-  c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_19() {
@@ -5133,105 +5161,119 @@ forge_scope_19() {
 }
 forge_when_19() { case $1 in prisma/schema.prisma) return 0 ;; esac; return 1; }
 forge_check_run_19() {
+if [ ! -d prisma/migrations ] && grep -qE "prisma[[:space:]]+db[[:space:]]+push" package.json 2>/dev/null; then :; elif ! grep -q shadowDatabaseUrl prisma.config.ts 2>/dev/null; then echo "forge:typescript/prisma/migration-present skipped: no shadowDatabaseUrl in prisma.config.ts"; else prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code; fi
+}
+
+# 20. typescript/prisma/validate
+forge_check_meta_20() {
+  c_id='typescript/prisma/validate'; c_stage=migration; c_tools='prisma'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_20() {
+  return 0
+}
+forge_when_20() { case $1 in prisma/schema.prisma) return 0 ;; esac; return 1; }
+forge_check_run_20() {
 prisma validate
 }
 
-# 20. typescript/typecheck
-forge_check_meta_20() {
+# 21. typescript/typecheck
+forge_check_meta_21() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_20() {
-  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
-  return 1
-}
-forge_when_20() { return 1; }
-forge_check_run_20() {
-tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile "$(forge_state_file tsc.tsbuildinfo)"
-}
-
-# 21. typescript/vitest/no-test-edits
-forge_check_meta_21() {
-  c_id='typescript/vitest/no-test-edits'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
 forge_scope_21() {
-  case $1 in e2e/*) return 1 ;; esac
-  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|__mocks__/*|*/__mocks__/*|test-utils.*|*/test-utils.*|test-helpers.*|*/test-helpers.*|vitest.setup.*|*/vitest.setup.*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
 forge_when_21() { return 1; }
 forge_check_run_21() {
+tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile "$(forge_state_file tsc.tsbuildinfo)"
+}
+
+# 22. typescript/vitest/no-test-edits
+forge_check_meta_22() {
+  c_id='typescript/vitest/no-test-edits'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_22() {
+  case $1 in e2e/*) return 1 ;; esac
+  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|__mocks__/*|*/__mocks__/*|test-utils.*|*/test-utils.*|test-helpers.*|*/test-helpers.*|vitest.setup.*|*/vitest.setup.*) ;; *) return 1 ;; esac
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+forge_when_22() { return 1; }
+forge_check_run_22() {
 forge_test_edits
 }
 
-# 22. typescript/vitest/no-workspace-file
-forge_check_meta_22() {
+# 23. typescript/vitest/no-workspace-file
+forge_check_meta_23() {
   c_id='typescript/vitest/no-workspace-file'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_22() {
+forge_scope_23() {
   return 0
 }
-forge_when_22() { case $1 in vitest.*) return 0 ;; esac; return 1; }
-forge_check_run_22() {
+forge_when_23() { case $1 in vitest.*) return 0 ;; esac; return 1; }
+forge_check_run_23() {
 ! git ls-files 'vitest.workspace.*' | grep .
 }
 
-# 23. typescript/vitest/run
-forge_check_meta_23() {
+# 24. typescript/vitest/run
+forge_check_meta_24() {
   c_id='typescript/vitest/run'; c_stage=test; c_tools='vitest'
   c_when=0; c_localdb=0; c_timeout=300
   c_changed=1; c_files=0; c_fix=0; c_fmt=0; c_rerun=1; c_warn=0; c_dirs=''
 }
-forge_scope_23() {
-  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
-  return 1
-}
-forge_when_23() { return 1; }
-forge_check_run_23() {
-vitest run
-}
-forge_check_changed_23() {
-vitest run --changed
-}
-forge_check_rerun_23() {
-vitest run $FORGE_FILES
-}
-
-# 24. typescript/vitest/snapshot-stale
-forge_check_meta_24() {
-  c_id='typescript/vitest/snapshot-stale'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
 forge_scope_24() {
-  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
 forge_when_24() { return 1; }
 forge_check_run_24() {
-forge_advise forge_snapshot_stale
+vitest run
+}
+forge_check_changed_24() {
+vitest run --changed
+}
+forge_check_rerun_24() {
+vitest run $FORGE_FILES
 }
 
-# 25. typescript/vitest/untested-change
+# 25. typescript/vitest/snapshot-stale
 forge_check_meta_25() {
-  c_id='typescript/vitest/untested-change'; c_stage=lint; c_tools=''
+  c_id='typescript/vitest/snapshot-stale'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_25() {
-  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts|*.config.*|*/*.config.*) return 1 ;; esac
+  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
 forge_when_25() { return 1; }
 forge_check_run_25() {
+forge_advise forge_snapshot_stale
+}
+
+# 26. typescript/vitest/untested-change
+forge_check_meta_26() {
+  c_id='typescript/vitest/untested-change'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_26() {
+  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts|*.config.*|*/*.config.*) return 1 ;; esac
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+forge_when_26() { return 1; }
+forge_check_run_26() {
 forge_advise forge_untested_change
 }
 
@@ -8430,7 +8472,7 @@ tsc() { forge_exec_tool tsc "$@"; }
 prisma() { forge_exec_tool prisma "$@"; }
 vitest() { forge_exec_tool vitest "$@"; }
 playwright() { forge_exec_tool playwright "$@"; }
-FORGE_NCHECKS=25
+FORGE_NCHECKS=26
 
 # 1. typescript/bun/lock-sync
 forge_check_meta_1() {
@@ -8575,109 +8617,128 @@ forge_check_run_9() {
 forge_once forge_lockfile_updated
 }
 
-# 10. typescript/no-ignore-deprecations
+# 10. typescript/nextjs/parallel-route-default
 forge_check_meta_10() {
+  c_id='typescript/nextjs/parallel-route-default'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_10() {
+  case $1 in app/*|src/app/*) ;; *) return 1 ;; esac
+  return 0
+}
+forge_when_10() { return 1; }
+forge_check_run_10() {
+missing=$(find app src/app -type d -name '@*' 2>/dev/null | while IFS= read -r d; do
+  [ -e "$d/default.tsx" ] || [ -e "$d/default.ts" ] || [ -e "$d/default.jsx" ] || [ -e "$d/default.js" ] || printf '%s\n' "$d"
+done)
+[ -z "$missing" ] || { printf '%s\n' "$missing" | sed 's/$/: parallel route slot without a default.tsx (next build fails)/'; false; }
+
+}
+
+# 11. typescript/no-ignore-deprecations
+forge_check_meta_11() {
   c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_10() {
+forge_scope_11() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_10() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
-forge_check_run_10() {
+forge_when_11() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
+forge_check_run_11() {
 ! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')
 }
 
-# 11. typescript/no-unused-suppressions
-forge_check_meta_11() {
+# 12. typescript/no-unused-suppressions
+forge_check_meta_12() {
   c_id='typescript/no-unused-suppressions'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_11() {
+forge_scope_12() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_11() { return 1; }
-forge_check_run_11() {
+forge_when_12() { return 1; }
+forge_check_run_12() {
 ! biome lint --colors=off --max-diagnostics=none . 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
 }
-forge_check_changed_11() {
+forge_check_changed_12() {
 ! biome lint --colors=off --max-diagnostics=none --no-errors-on-unmatched $FORGE_FILES 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
 }
 
-# 12. typescript/playwright/axe
-forge_check_meta_12() {
+# 13. typescript/playwright/axe
+forge_check_meta_13() {
   c_id='typescript/playwright/axe'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_12() {
+forge_scope_13() {
   return 0
 }
-forge_when_12() { case $1 in package.json|e2e/*|*.spec.*|*/*.spec.*) return 0 ;; esac; return 1; }
-forge_check_run_12() {
+forge_when_13() { case $1 in package.json|e2e/*|*.spec.*|*/*.spec.*) return 0 ;; esac; return 1; }
+forge_check_run_13() {
 ! grep -q '"@axe-core/playwright"' package.json 2>/dev/null || git ls-files -z -- 'e2e/*' '*.spec.*' | xargs -0 grep -l AxeBuilder /dev/null | grep -q . || { echo 'package.json depends on @axe-core/playwright but no e2e test uses AxeBuilder'; false; }
 }
 
-# 13. typescript/playwright/no-test-edits
-forge_check_meta_13() {
+# 14. typescript/playwright/no-test-edits
+forge_check_meta_14() {
   c_id='typescript/playwright/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_13() {
+forge_scope_14() {
   case $1 in e2e/*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_13() { return 1; }
-forge_check_run_13() {
+forge_when_14() { return 1; }
+forge_check_run_14() {
 forge_test_edits
 }
 
-# 14. typescript/playwright/run
-forge_check_meta_14() {
-  c_id='typescript/playwright/run'; c_stage=test; c_tools='playwright'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_14() {
-  return 0
-}
-forge_when_14() { case $1 in e2e/*|playwright.config.*) return 0 ;; esac; return 1; }
-forge_check_run_14() {
-playwright test --reporter=line
-}
-
-# 15. typescript/prisma/client-generator
+# 15. typescript/playwright/run
 forge_check_meta_15() {
-  c_id='typescript/prisma/client-generator'; c_stage=lint; c_tools=''
+  c_id='typescript/playwright/run'; c_stage=test; c_tools='playwright'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_15() {
   return 0
 }
-forge_when_15() { case $1 in *.prisma|*/*.prisma) return 0 ;; esac; return 1; }
+forge_when_15() { case $1 in e2e/*|playwright.config.*) return 0 ;; esac; return 1; }
 forge_check_run_15() {
-! grep -nE 'provider[[:space:]]*=[[:space:]]*"prisma-client-js"' /dev/null $(git ls-files '*.prisma')
+playwright test --reporter=line
 }
 
-# 16. typescript/prisma/destructive-migration
+# 16. typescript/prisma/client-generator
 forge_check_meta_16() {
-  c_id='typescript/prisma/destructive-migration'; c_stage=migration; c_tools=''
+  c_id='typescript/prisma/client-generator'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_16() {
+  return 0
+}
+forge_when_16() { case $1 in *.prisma|*/*.prisma) return 0 ;; esac; return 1; }
+forge_check_run_16() {
+! grep -nE 'provider[[:space:]]*=[[:space:]]*"prisma-client-js"' /dev/null $(git ls-files '*.prisma')
+}
+
+# 17. typescript/prisma/destructive-migration
+forge_check_meta_17() {
+  c_id='typescript/prisma/destructive-migration'; c_stage=migration; c_tools=''
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_17() {
   case $1 in prisma/migrations/migration.sql|prisma/migrations/*/migration.sql) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_16() { case $1 in prisma/migrations/*) return 0 ;; esac; return 1; }
-forge_check_run_16() {
+forge_when_17() { case $1 in prisma/migrations/*) return 0 ;; esac; return 1; }
+forge_check_run_17() {
 set -f
 _dm_files=$FORGE_FILES
 [ -n "$_dm_files" ] || _dm_files=$(git ls-files 'prisma/migrations/*/migration.sql' | sort | tail -n 1)
@@ -8696,42 +8757,28 @@ return 1
 
 }
 
-# 17. typescript/prisma/migration-lint
-forge_check_meta_17() {
+# 18. typescript/prisma/migration-lint
+forge_check_meta_18() {
   c_id='typescript/prisma/migration-lint'; c_stage=migration; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_17() {
+forge_scope_18() {
   case $1 in prisma/migrations/migration.sql|prisma/migrations/*/migration.sql) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_17() { case $1 in prisma/migrations/*) return 0 ;; esac; return 1; }
-forge_check_run_17() {
+forge_when_18() { case $1 in prisma/migrations/*) return 0 ;; esac; return 1; }
+forge_check_run_18() {
 forge_squawk_files $(git ls-files 'prisma/migrations/*/migration.sql' | sort | tail -n 1)
 }
-forge_check_changed_17() {
+forge_check_changed_18() {
 forge_squawk_files $FORGE_FILES
 }
 
-# 18. typescript/prisma/migration-present
-forge_check_meta_18() {
+# 19. typescript/prisma/migration-present
+forge_check_meta_19() {
   c_id='typescript/prisma/migration-present'; c_stage=migration; c_tools='prisma'
   c_when=1; c_localdb=1; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_18() {
-  return 0
-}
-forge_when_18() { case $1 in prisma/schema.prisma) return 0 ;; esac; return 1; }
-forge_check_run_18() {
-if [ ! -d prisma/migrations ] && grep -qE "prisma[[:space:]]+db[[:space:]]+push" package.json 2>/dev/null; then :; elif ! grep -q shadowDatabaseUrl prisma.config.ts 2>/dev/null; then echo "forge:typescript/prisma/migration-present skipped: no shadowDatabaseUrl in prisma.config.ts"; else prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code; fi
-}
-
-# 19. typescript/prisma/validate
-forge_check_meta_19() {
-  c_id='typescript/prisma/validate'; c_stage=migration; c_tools='prisma'
-  c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_19() {
@@ -8739,105 +8786,119 @@ forge_scope_19() {
 }
 forge_when_19() { case $1 in prisma/schema.prisma) return 0 ;; esac; return 1; }
 forge_check_run_19() {
+if [ ! -d prisma/migrations ] && grep -qE "prisma[[:space:]]+db[[:space:]]+push" package.json 2>/dev/null; then :; elif ! grep -q shadowDatabaseUrl prisma.config.ts 2>/dev/null; then echo "forge:typescript/prisma/migration-present skipped: no shadowDatabaseUrl in prisma.config.ts"; else prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code; fi
+}
+
+# 20. typescript/prisma/validate
+forge_check_meta_20() {
+  c_id='typescript/prisma/validate'; c_stage=migration; c_tools='prisma'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_20() {
+  return 0
+}
+forge_when_20() { case $1 in prisma/schema.prisma) return 0 ;; esac; return 1; }
+forge_check_run_20() {
 prisma validate
 }
 
-# 20. typescript/typecheck
-forge_check_meta_20() {
+# 21. typescript/typecheck
+forge_check_meta_21() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_20() {
-  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
-  return 1
-}
-forge_when_20() { return 1; }
-forge_check_run_20() {
-tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile "$(forge_state_file tsc.tsbuildinfo)"
-}
-
-# 21. typescript/vitest/no-test-edits
-forge_check_meta_21() {
-  c_id='typescript/vitest/no-test-edits'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
 forge_scope_21() {
-  case $1 in e2e/*) return 1 ;; esac
-  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|__mocks__/*|*/__mocks__/*|test-utils.*|*/test-utils.*|test-helpers.*|*/test-helpers.*|vitest.setup.*|*/vitest.setup.*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
 forge_when_21() { return 1; }
 forge_check_run_21() {
+tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile "$(forge_state_file tsc.tsbuildinfo)"
+}
+
+# 22. typescript/vitest/no-test-edits
+forge_check_meta_22() {
+  c_id='typescript/vitest/no-test-edits'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_22() {
+  case $1 in e2e/*) return 1 ;; esac
+  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|__mocks__/*|*/__mocks__/*|test-utils.*|*/test-utils.*|test-helpers.*|*/test-helpers.*|vitest.setup.*|*/vitest.setup.*) ;; *) return 1 ;; esac
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+forge_when_22() { return 1; }
+forge_check_run_22() {
 forge_test_edits
 }
 
-# 22. typescript/vitest/no-workspace-file
-forge_check_meta_22() {
+# 23. typescript/vitest/no-workspace-file
+forge_check_meta_23() {
   c_id='typescript/vitest/no-workspace-file'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_22() {
+forge_scope_23() {
   return 0
 }
-forge_when_22() { case $1 in vitest.*) return 0 ;; esac; return 1; }
-forge_check_run_22() {
+forge_when_23() { case $1 in vitest.*) return 0 ;; esac; return 1; }
+forge_check_run_23() {
 ! git ls-files 'vitest.workspace.*' | grep .
 }
 
-# 23. typescript/vitest/run
-forge_check_meta_23() {
+# 24. typescript/vitest/run
+forge_check_meta_24() {
   c_id='typescript/vitest/run'; c_stage=test; c_tools='vitest'
   c_when=0; c_localdb=0; c_timeout=300
   c_changed=1; c_files=0; c_fix=0; c_fmt=0; c_rerun=1; c_warn=0; c_dirs=''
 }
-forge_scope_23() {
-  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
-  return 1
-}
-forge_when_23() { return 1; }
-forge_check_run_23() {
-vitest run
-}
-forge_check_changed_23() {
-vitest run --changed
-}
-forge_check_rerun_23() {
-vitest run $FORGE_FILES
-}
-
-# 24. typescript/vitest/snapshot-stale
-forge_check_meta_24() {
-  c_id='typescript/vitest/snapshot-stale'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
 forge_scope_24() {
-  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
 forge_when_24() { return 1; }
 forge_check_run_24() {
-forge_advise forge_snapshot_stale
+vitest run
+}
+forge_check_changed_24() {
+vitest run --changed
+}
+forge_check_rerun_24() {
+vitest run $FORGE_FILES
 }
 
-# 25. typescript/vitest/untested-change
+# 25. typescript/vitest/snapshot-stale
 forge_check_meta_25() {
-  c_id='typescript/vitest/untested-change'; c_stage=lint; c_tools=''
+  c_id='typescript/vitest/snapshot-stale'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_25() {
-  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts|*.config.*|*/*.config.*) return 1 ;; esac
+  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
 forge_when_25() { return 1; }
 forge_check_run_25() {
+forge_advise forge_snapshot_stale
+}
+
+# 26. typescript/vitest/untested-change
+forge_check_meta_26() {
+  c_id='typescript/vitest/untested-change'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_26() {
+  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts|*.config.*|*/*.config.*) return 1 ;; esac
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+forge_when_26() { return 1; }
+forge_check_run_26() {
 forge_advise forge_untested_change
 }
 
@@ -11862,8 +11923,8 @@ forge_types_filter() {
 }
 
 FORGE_NTESTRULES=2
-forge_test_rule_1() { t_n=13; t_id='typescript/playwright/no-test-edits'; t_review='Is this change to existing tests required by the user'\''s request (the request changes the behaviour these tests assert, so they must assert the new behaviour), or does it weaken or remove tests to make the code pass? Allow only the first.'; }
-forge_test_rule_2() { t_n=21; t_id='typescript/vitest/no-test-edits'; t_review='Is this change to existing tests required by the user'\''s request (the request changes the behaviour these tests assert, so they must assert the new behaviour), or does it weaken or remove tests to make the code pass? Allow only the first.'; }
+forge_test_rule_1() { t_n=14; t_id='typescript/playwright/no-test-edits'; t_review='Is this change to existing tests required by the user'\''s request (the request changes the behaviour these tests assert, so they must assert the new behaviour), or does it weaken or remove tests to make the code pass? Allow only the first.'; }
+forge_test_rule_2() { t_n=22; t_id='typescript/vitest/no-test-edits'; t_review='Is this change to existing tests required by the user'\''s request (the request changes the behaviour these tests assert, so they must assert the new behaviour), or does it weaken or remove tests to make the code pass? Allow only the first.'; }
 
 # forge_test_rule_for <file>: sets t_n, t_id, t_review for the test-edit rule whose
 # scope holds <file>; fails when none does.
@@ -12058,7 +12119,7 @@ tsc() { forge_exec_tool tsc "$@"; }
 prisma() { forge_exec_tool prisma "$@"; }
 vitest() { forge_exec_tool vitest "$@"; }
 playwright() { forge_exec_tool playwright "$@"; }
-FORGE_NCHECKS=25
+FORGE_NCHECKS=26
 
 # 1. typescript/bun/lock-sync
 forge_check_meta_1() {
@@ -12203,109 +12264,128 @@ forge_check_run_9() {
 forge_once forge_lockfile_updated
 }
 
-# 10. typescript/no-ignore-deprecations
+# 10. typescript/nextjs/parallel-route-default
 forge_check_meta_10() {
+  c_id='typescript/nextjs/parallel-route-default'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_10() {
+  case $1 in app/*|src/app/*) ;; *) return 1 ;; esac
+  return 0
+}
+forge_when_10() { return 1; }
+forge_check_run_10() {
+missing=$(find app src/app -type d -name '@*' 2>/dev/null | while IFS= read -r d; do
+  [ -e "$d/default.tsx" ] || [ -e "$d/default.ts" ] || [ -e "$d/default.jsx" ] || [ -e "$d/default.js" ] || printf '%s\n' "$d"
+done)
+[ -z "$missing" ] || { printf '%s\n' "$missing" | sed 's/$/: parallel route slot without a default.tsx (next build fails)/'; false; }
+
+}
+
+# 11. typescript/no-ignore-deprecations
+forge_check_meta_11() {
   c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_10() {
+forge_scope_11() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_10() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
-forge_check_run_10() {
+forge_when_11() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
+forge_check_run_11() {
 ! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')
 }
 
-# 11. typescript/no-unused-suppressions
-forge_check_meta_11() {
+# 12. typescript/no-unused-suppressions
+forge_check_meta_12() {
   c_id='typescript/no-unused-suppressions'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_11() {
+forge_scope_12() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_11() { return 1; }
-forge_check_run_11() {
+forge_when_12() { return 1; }
+forge_check_run_12() {
 ! biome lint --colors=off --max-diagnostics=none . 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
 }
-forge_check_changed_11() {
+forge_check_changed_12() {
 ! biome lint --colors=off --max-diagnostics=none --no-errors-on-unmatched $FORGE_FILES 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
 }
 
-# 12. typescript/playwright/axe
-forge_check_meta_12() {
+# 13. typescript/playwright/axe
+forge_check_meta_13() {
   c_id='typescript/playwright/axe'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_12() {
+forge_scope_13() {
   return 0
 }
-forge_when_12() { case $1 in package.json|e2e/*|*.spec.*|*/*.spec.*) return 0 ;; esac; return 1; }
-forge_check_run_12() {
+forge_when_13() { case $1 in package.json|e2e/*|*.spec.*|*/*.spec.*) return 0 ;; esac; return 1; }
+forge_check_run_13() {
 ! grep -q '"@axe-core/playwright"' package.json 2>/dev/null || git ls-files -z -- 'e2e/*' '*.spec.*' | xargs -0 grep -l AxeBuilder /dev/null | grep -q . || { echo 'package.json depends on @axe-core/playwright but no e2e test uses AxeBuilder'; false; }
 }
 
-# 13. typescript/playwright/no-test-edits
-forge_check_meta_13() {
+# 14. typescript/playwright/no-test-edits
+forge_check_meta_14() {
   c_id='typescript/playwright/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_13() {
+forge_scope_14() {
   case $1 in e2e/*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_13() { return 1; }
-forge_check_run_13() {
+forge_when_14() { return 1; }
+forge_check_run_14() {
 forge_test_edits
 }
 
-# 14. typescript/playwright/run
-forge_check_meta_14() {
-  c_id='typescript/playwright/run'; c_stage=test; c_tools='playwright'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_14() {
-  return 0
-}
-forge_when_14() { case $1 in e2e/*|playwright.config.*) return 0 ;; esac; return 1; }
-forge_check_run_14() {
-playwright test --reporter=line
-}
-
-# 15. typescript/prisma/client-generator
+# 15. typescript/playwright/run
 forge_check_meta_15() {
-  c_id='typescript/prisma/client-generator'; c_stage=lint; c_tools=''
+  c_id='typescript/playwright/run'; c_stage=test; c_tools='playwright'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_15() {
   return 0
 }
-forge_when_15() { case $1 in *.prisma|*/*.prisma) return 0 ;; esac; return 1; }
+forge_when_15() { case $1 in e2e/*|playwright.config.*) return 0 ;; esac; return 1; }
 forge_check_run_15() {
-! grep -nE 'provider[[:space:]]*=[[:space:]]*"prisma-client-js"' /dev/null $(git ls-files '*.prisma')
+playwright test --reporter=line
 }
 
-# 16. typescript/prisma/destructive-migration
+# 16. typescript/prisma/client-generator
 forge_check_meta_16() {
-  c_id='typescript/prisma/destructive-migration'; c_stage=migration; c_tools=''
+  c_id='typescript/prisma/client-generator'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_16() {
+  return 0
+}
+forge_when_16() { case $1 in *.prisma|*/*.prisma) return 0 ;; esac; return 1; }
+forge_check_run_16() {
+! grep -nE 'provider[[:space:]]*=[[:space:]]*"prisma-client-js"' /dev/null $(git ls-files '*.prisma')
+}
+
+# 17. typescript/prisma/destructive-migration
+forge_check_meta_17() {
+  c_id='typescript/prisma/destructive-migration'; c_stage=migration; c_tools=''
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_17() {
   case $1 in prisma/migrations/migration.sql|prisma/migrations/*/migration.sql) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_16() { case $1 in prisma/migrations/*) return 0 ;; esac; return 1; }
-forge_check_run_16() {
+forge_when_17() { case $1 in prisma/migrations/*) return 0 ;; esac; return 1; }
+forge_check_run_17() {
 set -f
 _dm_files=$FORGE_FILES
 [ -n "$_dm_files" ] || _dm_files=$(git ls-files 'prisma/migrations/*/migration.sql' | sort | tail -n 1)
@@ -12324,42 +12404,28 @@ return 1
 
 }
 
-# 17. typescript/prisma/migration-lint
-forge_check_meta_17() {
+# 18. typescript/prisma/migration-lint
+forge_check_meta_18() {
   c_id='typescript/prisma/migration-lint'; c_stage=migration; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_17() {
+forge_scope_18() {
   case $1 in prisma/migrations/migration.sql|prisma/migrations/*/migration.sql) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_17() { case $1 in prisma/migrations/*) return 0 ;; esac; return 1; }
-forge_check_run_17() {
+forge_when_18() { case $1 in prisma/migrations/*) return 0 ;; esac; return 1; }
+forge_check_run_18() {
 forge_squawk_files $(git ls-files 'prisma/migrations/*/migration.sql' | sort | tail -n 1)
 }
-forge_check_changed_17() {
+forge_check_changed_18() {
 forge_squawk_files $FORGE_FILES
 }
 
-# 18. typescript/prisma/migration-present
-forge_check_meta_18() {
+# 19. typescript/prisma/migration-present
+forge_check_meta_19() {
   c_id='typescript/prisma/migration-present'; c_stage=migration; c_tools='prisma'
   c_when=1; c_localdb=1; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_18() {
-  return 0
-}
-forge_when_18() { case $1 in prisma/schema.prisma) return 0 ;; esac; return 1; }
-forge_check_run_18() {
-if [ ! -d prisma/migrations ] && grep -qE "prisma[[:space:]]+db[[:space:]]+push" package.json 2>/dev/null; then :; elif ! grep -q shadowDatabaseUrl prisma.config.ts 2>/dev/null; then echo "forge:typescript/prisma/migration-present skipped: no shadowDatabaseUrl in prisma.config.ts"; else prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code; fi
-}
-
-# 19. typescript/prisma/validate
-forge_check_meta_19() {
-  c_id='typescript/prisma/validate'; c_stage=migration; c_tools='prisma'
-  c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_19() {
@@ -12367,105 +12433,119 @@ forge_scope_19() {
 }
 forge_when_19() { case $1 in prisma/schema.prisma) return 0 ;; esac; return 1; }
 forge_check_run_19() {
+if [ ! -d prisma/migrations ] && grep -qE "prisma[[:space:]]+db[[:space:]]+push" package.json 2>/dev/null; then :; elif ! grep -q shadowDatabaseUrl prisma.config.ts 2>/dev/null; then echo "forge:typescript/prisma/migration-present skipped: no shadowDatabaseUrl in prisma.config.ts"; else prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code; fi
+}
+
+# 20. typescript/prisma/validate
+forge_check_meta_20() {
+  c_id='typescript/prisma/validate'; c_stage=migration; c_tools='prisma'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_20() {
+  return 0
+}
+forge_when_20() { case $1 in prisma/schema.prisma) return 0 ;; esac; return 1; }
+forge_check_run_20() {
 prisma validate
 }
 
-# 20. typescript/typecheck
-forge_check_meta_20() {
+# 21. typescript/typecheck
+forge_check_meta_21() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_20() {
-  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
-  return 1
-}
-forge_when_20() { return 1; }
-forge_check_run_20() {
-tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile "$(forge_state_file tsc.tsbuildinfo)"
-}
-
-# 21. typescript/vitest/no-test-edits
-forge_check_meta_21() {
-  c_id='typescript/vitest/no-test-edits'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
 forge_scope_21() {
-  case $1 in e2e/*) return 1 ;; esac
-  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|__mocks__/*|*/__mocks__/*|test-utils.*|*/test-utils.*|test-helpers.*|*/test-helpers.*|vitest.setup.*|*/vitest.setup.*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
 forge_when_21() { return 1; }
 forge_check_run_21() {
+tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile "$(forge_state_file tsc.tsbuildinfo)"
+}
+
+# 22. typescript/vitest/no-test-edits
+forge_check_meta_22() {
+  c_id='typescript/vitest/no-test-edits'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_22() {
+  case $1 in e2e/*) return 1 ;; esac
+  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|__mocks__/*|*/__mocks__/*|test-utils.*|*/test-utils.*|test-helpers.*|*/test-helpers.*|vitest.setup.*|*/vitest.setup.*) ;; *) return 1 ;; esac
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+forge_when_22() { return 1; }
+forge_check_run_22() {
 forge_test_edits
 }
 
-# 22. typescript/vitest/no-workspace-file
-forge_check_meta_22() {
+# 23. typescript/vitest/no-workspace-file
+forge_check_meta_23() {
   c_id='typescript/vitest/no-workspace-file'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_22() {
+forge_scope_23() {
   return 0
 }
-forge_when_22() { case $1 in vitest.*) return 0 ;; esac; return 1; }
-forge_check_run_22() {
+forge_when_23() { case $1 in vitest.*) return 0 ;; esac; return 1; }
+forge_check_run_23() {
 ! git ls-files 'vitest.workspace.*' | grep .
 }
 
-# 23. typescript/vitest/run
-forge_check_meta_23() {
+# 24. typescript/vitest/run
+forge_check_meta_24() {
   c_id='typescript/vitest/run'; c_stage=test; c_tools='vitest'
   c_when=0; c_localdb=0; c_timeout=300
   c_changed=1; c_files=0; c_fix=0; c_fmt=0; c_rerun=1; c_warn=0; c_dirs=''
 }
-forge_scope_23() {
-  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
-  return 1
-}
-forge_when_23() { return 1; }
-forge_check_run_23() {
-vitest run
-}
-forge_check_changed_23() {
-vitest run --changed
-}
-forge_check_rerun_23() {
-vitest run $FORGE_FILES
-}
-
-# 24. typescript/vitest/snapshot-stale
-forge_check_meta_24() {
-  c_id='typescript/vitest/snapshot-stale'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
 forge_scope_24() {
-  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
 forge_when_24() { return 1; }
 forge_check_run_24() {
-forge_advise forge_snapshot_stale
+vitest run
+}
+forge_check_changed_24() {
+vitest run --changed
+}
+forge_check_rerun_24() {
+vitest run $FORGE_FILES
 }
 
-# 25. typescript/vitest/untested-change
+# 25. typescript/vitest/snapshot-stale
 forge_check_meta_25() {
-  c_id='typescript/vitest/untested-change'; c_stage=lint; c_tools=''
+  c_id='typescript/vitest/snapshot-stale'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_25() {
-  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts|*.config.*|*/*.config.*) return 1 ;; esac
+  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
 forge_when_25() { return 1; }
 forge_check_run_25() {
+forge_advise forge_snapshot_stale
+}
+
+# 26. typescript/vitest/untested-change
+forge_check_meta_26() {
+  c_id='typescript/vitest/untested-change'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_26() {
+  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts|*.config.*|*/*.config.*) return 1 ;; esac
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+forge_when_26() { return 1; }
+forge_check_run_26() {
 forge_advise forge_untested_change
 }
 
@@ -15626,6 +15706,89 @@ invalid:
 
     test.skipIf(ci)("slow", () => {});
 
+===== .forge/ast-grep/rule-tests/typescript-nextjs-cookies-set-in-render-test.yml
+id: typescript/nextjs/cookies-set-in-render
+valid:
+  - |
+    import { cookies } from "next/headers";
+
+    export default async function Page() {
+      async function accept() {
+        "use server";
+        (await cookies()).set("ok", "1");
+      }
+      const v = (await cookies()).get("ok");
+      return <form action={accept}>{v?.value}</form>;
+    }
+  - |
+    import { cookies } from "next/headers";
+
+    export default async function Page() {
+      const m = new Map<string, string>();
+      m.set("a", "b");
+      const jar = await cookies();
+      return <p>{jar.get("a")?.value}</p>;
+    }
+invalid:
+  - |
+    import { cookies } from "next/headers";
+
+    export default async function Page() {
+      (await cookies()).set("seen", "1");
+      return <p>hi</p>;
+    }
+  - |
+    import { cookies } from "next/headers";
+
+    export default async function Layout({ children }: { children: React.ReactNode }) {
+      const jar = await cookies();
+      jar.delete("old");
+      return <>{children}</>;
+    }
+
+===== .forge/ast-grep/rule-tests/typescript-nextjs-image-remote-patterns-strict-test.yml
+id: typescript/nextjs/image-remote-patterns-strict
+valid:
+  - |
+    export default { images: { remotePatterns: [{ protocol: "https", hostname: "**.example.com" }, new URL("https://cdn.example.com/**")] } };
+invalid:
+  - |
+    export default { images: { remotePatterns: [{ protocol: "https", hostname: "**" }] } };
+  - |
+    export default { images: { remotePatterns: [{ hostname: '*' }] } };
+
+===== .forge/ast-grep/rule-tests/typescript-nextjs-image-unsafe-options-test.yml
+id: typescript/nextjs/image-unsafe-options
+valid:
+  - |
+    export default { images: { dangerouslyAllowSVG: true, contentDispositionType: "attachment", contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;" } };
+  - |
+    export default { images: { dangerouslyAllowLocalIP: false, dangerouslyAllowSVG: false } };
+invalid:
+  - |
+    export default { images: { dangerouslyAllowSVG: true } };
+  - |
+    export default { images: { dangerouslyAllowLocalIP: true } };
+
+===== .forge/ast-grep/rule-tests/typescript-nextjs-no-ignore-build-errors-test.yml
+id: typescript/nextjs/no-ignore-build-errors
+valid:
+  - |
+    const nextConfig = { typescript: { ignoreBuildErrors: false, tsconfigPath: "tsconfig.build.json" } };
+    export default nextConfig;
+  - |
+    export default { images: { ignoreBuildErrors: true } };
+invalid:
+  - |
+    import type { NextConfig } from "next";
+
+    const nextConfig: NextConfig = {
+      typescript: { ignoreBuildErrors: true },
+    };
+    export default nextConfig;
+  - |
+    module.exports = { typescript: { "ignoreBuildErrors": true } };
+
 ===== .forge/ast-grep/rule-tests/typescript-nextjs-no-legacy-image-config-test.yml
 id: typescript/nextjs/no-legacy-image-config
 valid:
@@ -15635,6 +15798,18 @@ valid:
 invalid:
   - import Image from "next/legacy/image";
   - 'export default { images: { domains: ["cdn.x.com"] } };'
+
+===== .forge/ast-grep/rule-tests/typescript-nextjs-no-next-head-in-app-test.yml
+id: typescript/nextjs/no-next-head-in-app
+valid:
+  - |
+    import type { Metadata } from "next";
+
+    export const metadata: Metadata = { title: "x" };
+  - import Script from "next/script";
+invalid:
+  - import Head from "next/head";
+  - import { Html, Main } from 'next/document';
 
 ===== .forge/ast-grep/rule-tests/typescript-nextjs-no-next-router-test.yml
 id: typescript/nextjs/no-next-router
@@ -15668,6 +15843,163 @@ invalid:
   - const k = process.env.NEXT_PUBLIC_STRIPE_SECRET_KEY;
   - const u = process.env.NEXT_PUBLIC_DATABASE_URL;
 
+===== .forge/ast-grep/rule-tests/typescript-nextjs-no-redirect-in-try-test.yml
+id: typescript/nextjs/no-redirect-in-try
+valid:
+  - |
+    import { redirect } from "next/navigation";
+
+    export async function save(f: FormData) {
+      try {
+        await fetch("/x", { method: "POST", body: f });
+      } catch (e) {
+        console.error(e);
+      }
+      redirect("/done");
+    }
+  - |
+    import { redirect, unstable_rethrow } from "next/navigation";
+
+    export async function save(f: FormData) {
+      try {
+        redirect("/done");
+      } catch (e) {
+        unstable_rethrow(e);
+        console.error(e);
+      }
+    }
+  - |
+    import { redirect } from "./nav";
+
+    export async function save() {
+      try {
+        redirect("/done");
+      } catch {}
+    }
+  - |
+    import { redirect } from "next/navigation";
+
+    export async function save() {
+      try {
+        await fetch("/x").then(() => { redirect("/a"); });
+      } catch {}
+    }
+  - |
+    import { redirect } from "next/navigation";
+
+    export async function save() {
+      try {
+        await fetch("/x");
+      } finally {
+        redirect("/a");
+      }
+    }
+  - |
+    import { notFound } from "next/navigation";
+
+    export async function load() {
+      try {
+        await fetch("/x");
+      } catch {
+        notFound();
+      }
+    }
+invalid:
+  - |
+    import { redirect } from "next/navigation";
+
+    export async function save(f: FormData) {
+      try {
+        await fetch("/x", { method: "POST", body: f });
+        redirect("/done");
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  - |
+    import { notFound } from "next/navigation";
+
+    export async function load(id: string) {
+      try {
+        const r = await fetch(`/x/${id}`);
+        if (!r.ok) notFound();
+        return r.json();
+      } catch {
+        return null;
+      }
+    }
+
+===== .forge/ast-grep/rule-tests/typescript-nextjs-no-request-apis-in-use-cache-test.yml
+id: typescript/nextjs/no-request-apis-in-use-cache
+valid:
+  - |
+    import { cookies } from "next/headers";
+
+    async function cached(id: string) {
+      "use cache";
+      return fetch(`/c/${id}`);
+    }
+    export async function getCart() {
+      const id = (await cookies()).get("cart")?.value ?? "";
+      return cached(id);
+    }
+  - |
+    import { cookies } from "./session";
+
+    export async function getCart() {
+      "use cache";
+      return cookies();
+    }
+invalid:
+  - |
+    import { cookies } from "next/headers";
+
+    export async function getCart() {
+      "use cache";
+      const c = await cookies();
+      return c.get("cart")?.value;
+    }
+  - |
+    "use cache";
+    import { headers } from "next/headers";
+
+    export default async function Page() {
+      const h = await headers();
+      return h.get("x");
+    }
+  - |
+    import { cookies } from "next/headers";
+
+    export async function getCart() {
+      'use cache: private';
+      return (await cookies()).get("cart");
+    }
+
+===== .forge/ast-grep/rule-tests/typescript-nextjs-proxy-exports-test.yml
+id: typescript/nextjs/proxy-exports
+valid:
+  - |
+    import { NextResponse } from "next/server";
+
+    export function proxy() {
+      return NextResponse.next();
+    }
+    export const config = { matcher: "/a" };
+  - |
+    export default function middleware() {}
+  - |
+    const middleware = () => {};
+    export { middleware as proxy };
+invalid:
+  - |
+    export function middleware() {}
+  - |
+    const m = () => {};
+    export { m as middleware };
+  - |
+    export const runtime = "nodejs";
+    export function proxy() {}
+
 ===== .forge/ast-grep/rule-tests/typescript-nextjs-proxy-not-middleware-test.yml
 id: typescript/nextjs/proxy-not-middleware
 valid:
@@ -15675,6 +16007,25 @@ valid:
 invalid:
   - |
     export function middleware() {}
+
+===== .forge/ast-grep/rule-tests/typescript-nextjs-react-client-env-public-only-test.yml
+id: typescript/nextjs/react/client-env-public-only
+valid:
+  - |
+    'use client';
+    export const k = process.env.NEXT_PUBLIC_STRIPE_KEY;
+    export const d = process.env.NODE_ENV === "development";
+  - |
+    export const k = process.env.STRIPE_KEY;
+invalid:
+  - |
+    'use client';
+    export const k = process.env.STRIPE_KEY;
+  - |
+    "use client";
+    export function Map() {
+      return <div data-key={process.env.MAPS_API_KEY} />;
+    }
 
 ===== .forge/ast-grep/rule-tests/typescript-nextjs-react-client-hooks-test.yml
 id: typescript/nextjs/react/client-hooks
@@ -15743,10 +16094,71 @@ valid:
 invalid:
   - |
     'use client';
+    import { cookies } from "next/headers";
+  - |
+    'use client';
     import fs from "node:fs";
   - |
     "use client";
     import { prisma } from "@/generated/prisma/client";
+
+===== .forge/ast-grep/rule-tests/typescript-nextjs-react-no-ssr-false-in-server-test.yml
+id: typescript/nextjs/react/no-ssr-false-in-server
+valid:
+  - |
+    'use client';
+    import dynamic from "next/dynamic";
+
+    const Map = dynamic(() => import("./map"), { ssr: false });
+    export default Map;
+  - |
+    import dynamic from "next/dynamic";
+
+    const Map = dynamic(() => import("./map"));
+    export default Map;
+invalid:
+  - |
+    import dynamic from "next/dynamic";
+
+    const Map = dynamic(() => import("./map"), { ssr: false });
+    export default Map;
+
+===== .forge/ast-grep/rule-tests/typescript-nextjs-react-server-functions-async-test.yml
+id: typescript/nextjs/react/server-functions-async
+valid:
+  - |
+    'use server';
+
+    export async function save() {}
+    export const remove = async (id: string) => id;
+    export const archive = withAuth(async (id: string) => id);
+    export type Result = { ok: boolean };
+    export interface I { a: number }
+    export default async function submit() {}
+  - |
+    export const LIMIT = 10;
+    export function f() {}
+invalid:
+  - |
+    'use server';
+
+    export const LIMIT = 10;
+    export async function save() {}
+  - |
+    "use server";
+
+    export function remove(id: string) {
+      return id;
+    }
+    export const rename = (id: string) => id;
+  - |
+    'use server';
+
+    export default { a: 1 };
+  - |
+    'use server';
+
+    export class Store {}
 
 ===== .forge/ast-grep/rule-tests/typescript-nextjs-revalidate-tag-profile-test.yml
 id: typescript/nextjs/revalidate-tag-profile
@@ -15756,6 +16168,15 @@ valid:
 invalid:
   - revalidateTag("posts");
   - revalidateTag(`post-${id}`);
+
+===== .forge/ast-grep/rule-tests/typescript-nextjs-stable-cache-imports-test.yml
+id: typescript/nextjs/stable-cache-imports
+valid:
+  - import { cacheLife, cacheTag, unstable_cache } from "next/cache";
+  - import { unstable_cacheTag } from "./cache";
+invalid:
+  - import { unstable_cacheLife as cacheLife } from "next/cache";
+  - import { unstable_cacheTag } from 'next/cache';
 
 ===== .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
 id: typescript/no-double-assertion
@@ -15767,6 +16188,28 @@ invalid:
   - const p = raw as unknown as Profile;
   - "const u = (req as unknown as { user: User }).user;"
   - const n = s as any as number;
+
+===== .forge/ast-grep/rule-tests/typescript-no-html-sinks-test.yml
+id: typescript/no-html-sinks
+valid: []
+invalid:
+  - |
+    export function show(el: HTMLDivElement, msg: string) {
+      el.innerHTML = msg;
+    }
+  - |
+    export function show(msg: string) {
+      document.body.insertAdjacentHTML("beforeend", `<p>${msg}</p>`);
+    }
+  - |
+    export function frag(r: Range, s: string) {
+      return r.createContextualFragment(s);
+    }
+  - |
+    export function render(root: ShadowRoot | null, html: string) {
+      if (root) root.innerHTML = html;
+      document.write(html);
+    }
 
 ===== .forge/ast-grep/rule-tests/typescript-no-stub-test.yml
 id: typescript/no-stub
@@ -15904,6 +16347,23 @@ invalid:
   - await page.waitForTimeout(2000);
   - await frame.waitForTimeout(500);
 
+===== .forge/ast-grep/rule-tests/typescript-postmessage-origin-test.yml
+id: typescript/postmessage-origin
+valid: []
+invalid:
+  - |
+    export function send(f: HTMLIFrameElement, m: unknown) {
+      f.contentWindow?.postMessage(m, "*");
+    }
+  - |
+    export function up(m: unknown) {
+      window.parent.postMessage(m, '*');
+    }
+  - |
+    export function send(f: HTMLIFrameElement, m: unknown) {
+      f.contentWindow?.postMessage(m, { targetOrigin: "*" });
+    }
+
 ===== .forge/ast-grep/rule-tests/typescript-prisma-generated-client-import-test.yml
 id: typescript/prisma/generated-client-import
 valid:
@@ -15976,6 +16436,16 @@ valid:
 invalid:
   - await prisma.$queryRawUnsafe(`SELECT * FROM u WHERE id=${id}`);
   - await tx.$executeRawUnsafe(sql);
+
+===== .forge/ast-grep/rule-tests/typescript-react-act-from-react-test.yml
+id: typescript/react/act-from-react
+valid:
+  - import { act } from "react";
+  - import { render } from "@testing-library/react";
+  - import { flushSync } from "react-dom";
+invalid:
+  - import { act } from "react-dom/test-utils";
+  - import * as TestUtils from 'react-dom/test-utils';
 
 ===== .forge/ast-grep/rule-tests/typescript-react-no-prop-types-test.yml
 id: typescript/react/no-prop-types
@@ -16245,6 +16715,163 @@ rule:
         field: source
         regex: ^["']bun:test["']$
 
+===== .forge/ast-grep/rules/typescript/nextjs/cookies-set-in-render.yml
+# Generated by forge from typescript/nextjs/cookies-set-in-render (mode: forbid).
+id: typescript/nextjs/cookies-set-in-render
+language: Tsx
+severity: error
+message: "forge:typescript/nextjs/cookies-set-in-render cookies().set() and .delete() are not called while rendering a page, layout, template or default (Next.js throws: cookies can only be modified in a Server Action or route handler); move them into a 'use server' function or a route handler."
+files:
+  - app/**/page.*
+  - app/**/layout.*
+  - app/**/template.*
+  - app/**/default.*
+  - src/app/**/page.*
+  - src/app/**/layout.*
+  - src/app/**/template.*
+  - src/app/**/default.*
+rule:
+  kind: call_expression
+  has:
+    field: function
+    kind: member_expression
+    all:
+      - has:
+          field: property
+          regex: ^(set|delete)$
+      - has:
+          field: object
+          any:
+            - pattern: (await cookies())
+            - all:
+                - pattern: $C
+                - kind: identifier
+                - inside:
+                    stopBy: end
+                    kind: statement_block
+                    has:
+                      stopBy: end
+                      kind: variable_declarator
+                      all:
+                        - has:
+                            field: name
+                            pattern: $C
+                        - has:
+                            field: value
+                            pattern: await cookies()
+  not:
+    inside:
+      stopBy: end
+      kind: statement_block
+      has:
+        kind: expression_statement
+        nthChild: 1
+        regex: ^["']use server["'];?$
+  inside:
+    kind: program
+    stopBy: end
+    all:
+      - has:
+          kind: import_statement
+          has:
+            field: source
+            regex: ^["']next/headers["']$
+      - not:
+          has:
+            kind: expression_statement
+            nthChild: 1
+            regex: ^["']use server["'];?$
+
+===== .forge/ast-grep/rules/typescript/nextjs/image-remote-patterns-strict.yml
+# Generated by forge from typescript/nextjs/image-remote-patterns-strict (mode: forbid).
+id: typescript/nextjs/image-remote-patterns-strict
+language: Tsx
+severity: error
+message: 'forge:typescript/nextjs/image-remote-patterns-strict images.remotePatterns has no hostname "*" or "**": the image optimizer would fetch from any host (an open proxy). Name the hosts.'
+files:
+  - next.config.*
+rule:
+  kind: pair
+  all:
+    - has:
+        field: key
+        regex: ^["']?hostname["']?$
+    - has:
+        field: value
+        regex: ^["'`](\*\*?)(\.\*\*?)*["'`]$
+    - inside:
+        kind: pair
+        stopBy: end
+        has:
+          field: key
+          regex: ^["']?remotePatterns["']?$
+
+===== .forge/ast-grep/rules/typescript/nextjs/image-unsafe-options.yml
+# Generated by forge from typescript/nextjs/image-unsafe-options (mode: forbid).
+id: typescript/nextjs/image-unsafe-options
+language: Tsx
+severity: error
+message: "forge:typescript/nextjs/image-unsafe-options images.dangerouslyAllowSVG: true only with a contentSecurityPolicy next to it (SVG can carry scripts), and no images.dangerouslyAllowLocalIP: true (the optimizer would fetch from the internal network)."
+files:
+  - next.config.*
+rule:
+  kind: pair
+  inside:
+    kind: object
+    inside:
+      kind: pair
+      has:
+        field: key
+        regex: ^["']?images["']?$
+  any:
+    - all:
+        - has:
+            field: key
+            regex: ^["']?dangerouslyAllowSVG["']?$
+        - has:
+            field: value
+            kind: "true"
+        - not:
+            inside:
+              kind: object
+              has:
+                kind: pair
+                has:
+                  field: key
+                  regex: ^["']?contentSecurityPolicy["']?$
+    - all:
+        - has:
+            field: key
+            regex: ^["']?dangerouslyAllowLocalIP["']?$
+        - has:
+            field: value
+            kind: "true"
+
+===== .forge/ast-grep/rules/typescript/nextjs/no-ignore-build-errors.yml
+# Generated by forge from typescript/nextjs/no-ignore-build-errors (mode: forbid).
+id: typescript/nextjs/no-ignore-build-errors
+language: Tsx
+severity: error
+message: "forge:typescript/nextjs/no-ignore-build-errors next.config does not set typescript.ignoreBuildErrors: true; next build would ship code that does not type-check. Fix the errors."
+files:
+  - next.config.*
+rule:
+  kind: pair
+  all:
+    - has:
+        field: key
+        regex: ^["']?ignoreBuildErrors["']?$
+    - has:
+        field: value
+        kind: "true"
+    - inside:
+        kind: object
+        inside:
+          kind: pair
+          has:
+            field: key
+            regex: ^["']?typescript["']?$
+
 ===== .forge/ast-grep/rules/typescript/nextjs/no-legacy-image-config.yml
 # Generated by forge from typescript/nextjs/no-legacy-image-config (mode: forbid).
 id: typescript/nextjs/no-legacy-image-config
@@ -16268,6 +16895,21 @@ rule:
           has:
             field: key
             regex: ^["']?images["']?$
+
+===== .forge/ast-grep/rules/typescript/nextjs/no-next-head-in-app.yml
+# Generated by forge from typescript/nextjs/no-next-head-in-app (mode: forbid).
+id: typescript/nextjs/no-next-head-in-app
+language: Tsx
+severity: error
+message: forge:typescript/nextjs/no-next-head-in-app No next/head or next/document under app/; they do nothing in the App Router. Export metadata or generateMetadata instead.
+files:
+  - app/**
+  - src/app/**
+rule:
+  kind: import_statement
+  has:
+    field: source
+    regex: ^["']next/(head|document)["']$
 
 ===== .forge/ast-grep/rules/typescript/nextjs/no-next-router.yml
 # Generated by forge from typescript/nextjs/no-next-router (mode: forbid).
@@ -16310,6 +16952,128 @@ rule:
     pattern: process.env
   regex: ^process\.env\.NEXT_PUBLIC_[A-Z0-9_]*(SECRET|PRIVATE|PASSWORD|SERVICE_ROLE|DATABASE_URL)
 
+===== .forge/ast-grep/rules/typescript/nextjs/no-redirect-in-try.yml
+# Generated by forge from typescript/nextjs/no-redirect-in-try (mode: forbid).
+id: typescript/nextjs/no-redirect-in-try
+language: Tsx
+severity: error
+message: "forge:typescript/nextjs/no-redirect-in-try redirect(), permanentRedirect(), notFound(), forbidden() and unauthorized() from next/navigation are not called in a try block whose catch does not call unstable_rethrow(error): they throw, and the catch would swallow the navigation. Call them after the try."
+rule:
+  kind: call_expression
+  has:
+    field: function
+    regex: ^(redirect|permanentRedirect|notFound|forbidden|unauthorized)$
+  all:
+    - inside:
+        kind: try_statement
+        stopBy:
+          any:
+            - kind: function_declaration
+            - kind: arrow_function
+            - kind: function_expression
+            - kind: method_definition
+        has:
+          field: handler
+          kind: catch_clause
+          not:
+            has:
+              stopBy: end
+              kind: call_expression
+              has:
+                field: function
+                regex: ^unstable_rethrow$
+    - not:
+        inside:
+          any:
+            - kind: catch_clause
+            - kind: finally_clause
+          stopBy:
+            kind: try_statement
+    - inside:
+        kind: program
+        stopBy: end
+        has:
+          kind: import_statement
+          has:
+            field: source
+            regex: ^["']next/navigation["']$
+
+===== .forge/ast-grep/rules/typescript/nextjs/no-request-apis-in-use-cache.yml
+# Generated by forge from typescript/nextjs/no-request-apis-in-use-cache (mode: forbid).
+id: typescript/nextjs/no-request-apis-in-use-cache
+language: Tsx
+severity: error
+message: forge:typescript/nextjs/no-request-apis-in-use-cache cookies(), headers() and draftMode() from next/headers are not called inside a 'use cache' function or file (an error at run time); read them outside and pass the values in.
+rule:
+  kind: call_expression
+  has:
+    field: function
+    regex: ^(cookies|headers|draftMode)$
+  all:
+    - inside:
+        kind: program
+        stopBy: end
+        has:
+          kind: import_statement
+          has:
+            field: source
+            regex: ^["']next/headers["']$
+    - any:
+        - inside:
+            stopBy: end
+            kind: statement_block
+            has:
+              kind: expression_statement
+              nthChild: 1
+              regex: "^[\"']use cache(: [a-z-]+)?[\"'];?$"
+        - inside:
+            kind: program
+            stopBy: end
+            has:
+              kind: expression_statement
+              nthChild: 1
+              regex: "^[\"']use cache(: [a-z-]+)?[\"'];?$"
+
+===== .forge/ast-grep/rules/typescript/nextjs/proxy-exports.yml
+# Generated by forge from typescript/nextjs/proxy-exports (mode: forbid).
+id: typescript/nextjs/proxy-exports
+language: Tsx
+severity: error
+message: "forge:typescript/nextjs/proxy-exports proxy.ts exports proxy (or a default export), not middleware, and no runtime segment config: Next.js 16 looks for the proxy export, and a proxy always runs on Node.js."
+files:
+  - proxy.ts
+  - src/proxy.ts
+rule:
+  any:
+    - kind: export_statement
+      not:
+        regex: ^export\s+default
+      has:
+        kind: function_declaration
+        has:
+          field: name
+          regex: ^middleware$
+    - kind: export_statement
+      has:
+        kind: lexical_declaration
+        has:
+          kind: variable_declarator
+          has:
+            field: name
+            regex: ^(middleware|runtime)$
+    - kind: export_specifier
+      any:
+        - has:
+            field: alias
+            regex: ^(middleware|runtime)$
+        - not:
+            has:
+              field: alias
+              regex: .
+          has:
+            field: name
+            regex: ^(middleware|runtime)$
+
 ===== .forge/ast-grep/rules/typescript/nextjs/proxy-not-middleware.yml
 # Generated by forge from typescript/nextjs/proxy-not-middleware (mode: forbid).
 id: typescript/nextjs/proxy-not-middleware
@@ -16323,6 +17087,27 @@ rule:
   kind: program
   has:
     regex: .
+
+===== .forge/ast-grep/rules/typescript/nextjs/react/client-env-public-only.yml
+# Generated by forge from typescript/nextjs/react/client-env-public-only (mode: forbid).
+id: typescript/nextjs/react/client-env-public-only
+language: Tsx
+severity: error
+message: forge:typescript/nextjs/react/client-env-public-only A 'use client' file reads only NEXT_PUBLIC_ variables and NODE_ENV from process.env; any other variable is undefined in the browser. Read it in a Server Component and pass the value down.
+rule:
+  kind: member_expression
+  has:
+    field: object
+    pattern: process.env
+  not:
+    regex: ^process\.env\.(NEXT_PUBLIC_[A-Za-z0-9_]*|NODE_ENV)$
+  inside:
+    kind: program
+    stopBy: end
+    has:
+      kind: expression_statement
+      nthChild: 1
+      regex: ^["']use client["'];?$
 
 ===== .forge/ast-grep/rules/typescript/nextjs/react/client-hooks.yml
 # Generated by forge from typescript/nextjs/react/client-hooks (mode: forbid).
@@ -16363,7 +17148,7 @@ rule:
 id: typescript/nextjs/react/no-server-in-client
 language: Tsx
 severity: error
-message: forge:typescript/nextjs/react/no-server-in-client Client Components do not import server-only modules (server-only, node built-ins, the Prisma client).
+message: forge:typescript/nextjs/react/no-server-in-client Client Components do not import server-only modules (server-only, node built-ins, next/headers, next/root-params, the Prisma client).
 files:
   - app/**
   - src/app/**
@@ -16373,13 +17158,109 @@ rule:
   kind: import_statement
   has:
     field: source
-    regex: ^["'](server-only|node:[^"']*|fs|fs/promises|child_process|@prisma/client|@prisma/adapter-[^"']*|[^"']*/generated/prisma[^"']*)["']$
+    regex: ^["'](server-only|node:[^"']*|fs|fs/promises|child_process|next/headers|next/root-params|@prisma/client|@prisma/adapter-[^"']*|[^"']*/generated/prisma[^"']*)["']$
   inside:
     kind: program
     has:
       kind: expression_statement
       nthChild: 1
       regex: ^["']use client["'];?$
+
+===== .forge/ast-grep/rules/typescript/nextjs/react/no-ssr-false-in-server.yml
+# Generated by forge from typescript/nextjs/react/no-ssr-false-in-server (mode: forbid).
+id: typescript/nextjs/react/no-ssr-false-in-server
+language: Tsx
+severity: error
+message: "forge:typescript/nextjs/react/no-ssr-false-in-server dynamic(..., { ssr: false }) from next/dynamic is used only in a 'use client' file; in a Server Component it is a build error. Wrap it in a Client Component."
+files:
+  - app/**
+  - src/app/**
+rule:
+  kind: pair
+  all:
+    - has:
+        field: key
+        regex: ^["']?ssr["']?$
+    - has:
+        field: value
+        kind: "false"
+    - inside:
+        kind: arguments
+        inside:
+          kind: call_expression
+          has:
+            field: function
+            regex: ^dynamic$
+        stopBy: end
+    - inside:
+        kind: program
+        stopBy: end
+        all:
+          - has:
+              kind: import_statement
+              has:
+                field: source
+                regex: ^["']next/dynamic["']$
+          - not:
+              has:
+                kind: expression_statement
+                nthChild: 1
+                regex: ^["']use client["'];?$
+
+===== .forge/ast-grep/rules/typescript/nextjs/react/server-functions-async.yml
+# Generated by forge from typescript/nextjs/react/server-functions-async (mode: forbid).
+id: typescript/nextjs/react/server-functions-async
+language: Tsx
+severity: error
+message: "forge:typescript/nextjs/react/server-functions-async A 'use server' file exports only async functions (and types): no sync function, class, or literal value such as export const LIMIT = 10 (a build error). Move constants to another module."
+rule:
+  kind: export_statement
+  inside:
+    kind: program
+    has:
+      kind: expression_statement
+      nthChild: 1
+      regex: ^["']use server["'];?$
+  any:
+    - has:
+        field: declaration
+        kind: function_declaration
+        not:
+          regex: ^async
+    - has:
+        field: declaration
+        kind: class_declaration
+    - has:
+        field: declaration
+        kind: lexical_declaration
+        has:
+          kind: variable_declarator
+          has:
+            field: value
+            matches: not-a-server-function
+    - has:
+        field: value
+        matches: not-a-server-function
+utils:
+  not-a-server-function:
+    any:
+      - kind: arrow_function
+        not:
+          regex: ^async
+      - kind: function_expression
+        not:
+          regex: ^async
+      - kind: number
+      - kind: string
+      - kind: template_string
+      - kind: object
+      - kind: array
+      - kind: "true"
+      - kind: "false"
+      - kind: "null"
+      - kind: regex
+      - kind: new_expression
+      - kind: class
 
 ===== .forge/ast-grep/rules/typescript/nextjs/revalidate-tag-profile.yml
 # Generated by forge from typescript/nextjs/revalidate-tag-profile (mode: forbid).
@@ -16389,6 +17270,24 @@ severity: error
 message: forge:typescript/nextjs/revalidate-tag-profile revalidateTag takes a cacheLife profile (revalidateTag(tag, "max")); use updateTag(tag) in Server Actions for read-your-writes.
 rule:
   pattern: revalidateTag($A)
+
+===== .forge/ast-grep/rules/typescript/nextjs/stable-cache-imports.yml
+# Generated by forge from typescript/nextjs/stable-cache-imports (mode: forbid).
+id: typescript/nextjs/stable-cache-imports
+language: Tsx
+severity: error
+message: forge:typescript/nextjs/stable-cache-imports Import cacheLife and cacheTag from next/cache, not unstable_cacheLife or unstable_cacheTag (to be removed; no @deprecated tag shows it).
+rule:
+  kind: import_specifier
+  has:
+    field: name
+    regex: ^unstable_(cacheLife|cacheTag)$
+  inside:
+    kind: import_statement
+    stopBy: end
+    has:
+      field: source
+      regex: ^["']next/cache["']$
 
 ===== .forge/ast-grep/rules/typescript/no-double-assertion.yml
 # Generated by forge from typescript/no-double-assertion (mode: forbid).
@@ -16400,6 +17299,71 @@ rule:
   any:
     - pattern: $X as unknown as $T
     - pattern: $X as any as $T
+
+===== .forge/ast-grep/rules/typescript/no-html-sinks.yml
+# Generated by forge from typescript/no-html-sinks (mode: forbid).
+id: typescript/no-html-sinks
+language: Tsx
+severity: error
+message: "forge:typescript/no-html-sinks No HTML built from a value written into the DOM (XSS): no innerHTML or outerHTML assigned anything but a constant string, and no insertAdjacentHTML, document.write, writeln, createContextualFragment or setHTMLUnsafe whose HTML argument is not constant. Set textContent, build elements, or sanitise in one place."
+rule:
+  any:
+    - kind: assignment_expression
+      all:
+        - has:
+            field: left
+            kind: member_expression
+            all:
+              - has:
+                  field: property
+                  regex: ^(innerHTML|outerHTML)$
+              - has:
+                  field: object
+                  pattern: $E
+        - not:
+            has:
+              field: right
+              any:
+                - kind: string
+                - kind: template_string
+                  not:
+                    has:
+                      kind: template_substitution
+    - kind: call_expression
+      all:
+        - has:
+            field: function
+            kind: member_expression
+            all:
+              - has:
+                  field: property
+                  regex: ^(insertAdjacentHTML|write|writeln|createContextualFragment|setHTMLUnsafe)$
+              - has:
+                  field: object
+                  pattern: $E
+        - has:
+            field: arguments
+            has:
+              nthChild:
+                position: 1
+                reverse: true
+              not:
+                any:
+                  - kind: string
+                  - kind: template_string
+                    not:
+                      has:
+                        kind: template_substitution
+metadata:
+  forge_where:
+    E:
+      type:
+        package: typescript
+        name:
+          - Element
+          - Document
+          - Range
+          - ShadowRoot
 
 ===== .forge/ast-grep/rules/typescript/no-stub.yml
 # Generated by forge from typescript/no-stub (mode: forbid).
@@ -16523,6 +17487,49 @@ files:
 rule:
   pattern: $P.waitForTimeout($$$)
 
+===== .forge/ast-grep/rules/typescript/postmessage-origin.yml
+# Generated by forge from typescript/postmessage-origin (mode: forbid).
+id: typescript/postmessage-origin
+language: Tsx
+severity: error
+message: "forge:typescript/postmessage-origin window.postMessage is never sent to targetOrigin \"*\": the message reaches whatever page the frame has navigated to. Name the receiver's origin."
+rule:
+  kind: call_expression
+  all:
+    - has:
+        field: function
+        kind: member_expression
+        all:
+          - has:
+              field: property
+              regex: ^postMessage$
+          - has:
+              field: object
+              pattern: $W
+    - has:
+        field: arguments
+        any:
+          - has:
+              kind: string
+              regex: ^["']\*["']$
+          - has:
+              kind: object
+              has:
+                kind: pair
+                all:
+                  - has:
+                      field: key
+                      regex: ^["']?targetOrigin["']?$
+                  - has:
+                      field: value
+                      regex: ^["']\*["']$
+metadata:
+  forge_where:
+    W:
+      type:
+        package: typescript
+        name: Window
+
 ===== .forge/ast-grep/rules/typescript/prisma/generated-client-import.yml
 # Generated by forge from typescript/prisma/generated-client-import (mode: forbid).
 id: typescript/prisma/generated-client-import
@@ -16607,6 +17614,18 @@ rule:
   any:
     - pattern: $C.$queryRawUnsafe($$$)
     - pattern: $C.$executeRawUnsafe($$$)
+
+===== .forge/ast-grep/rules/typescript/react/act-from-react.yml
+# Generated by forge from typescript/react/act-from-react (mode: forbid).
+id: typescript/react/act-from-react
+language: Tsx
+severity: error
+message: forge:typescript/react/act-from-react act comes from react, not react-dom/test-utils (deprecated in React 19).
+rule:
+  kind: import_statement
+  has:
+    field: source
+    regex: ^["']react-dom/test-utils["']$
 
 ===== .forge/ast-grep/rules/typescript/react/no-prop-types.yml
 # Generated by forge from typescript/react/no-prop-types (mode: forbid).
@@ -17403,7 +18422,7 @@ tsc() { forge_exec_tool tsc "$@"; }
 prisma() { forge_exec_tool prisma "$@"; }
 vitest() { forge_exec_tool vitest "$@"; }
 playwright() { forge_exec_tool playwright "$@"; }
-FORGE_NCHECKS=25
+FORGE_NCHECKS=26
 
 # 1. typescript/bun/lock-sync
 forge_check_meta_1() {
@@ -17548,109 +18567,128 @@ forge_check_run_9() {
 forge_once forge_lockfile_updated
 }
 
-# 10. typescript/no-ignore-deprecations
+# 10. typescript/nextjs/parallel-route-default
 forge_check_meta_10() {
+  c_id='typescript/nextjs/parallel-route-default'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_10() {
+  case $1 in app/*|src/app/*) ;; *) return 1 ;; esac
+  return 0
+}
+forge_when_10() { return 1; }
+forge_check_run_10() {
+missing=$(find app src/app -type d -name '@*' 2>/dev/null | while IFS= read -r d; do
+  [ -e "$d/default.tsx" ] || [ -e "$d/default.ts" ] || [ -e "$d/default.jsx" ] || [ -e "$d/default.js" ] || printf '%s\n' "$d"
+done)
+[ -z "$missing" ] || { printf '%s\n' "$missing" | sed 's/$/: parallel route slot without a default.tsx (next build fails)/'; false; }
+
+}
+
+# 11. typescript/no-ignore-deprecations
+forge_check_meta_11() {
   c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_10() {
+forge_scope_11() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_10() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
-forge_check_run_10() {
+forge_when_11() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
+forge_check_run_11() {
 ! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')
 }
 
-# 11. typescript/no-unused-suppressions
-forge_check_meta_11() {
+# 12. typescript/no-unused-suppressions
+forge_check_meta_12() {
   c_id='typescript/no-unused-suppressions'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_11() {
+forge_scope_12() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_11() { return 1; }
-forge_check_run_11() {
+forge_when_12() { return 1; }
+forge_check_run_12() {
 ! biome lint --colors=off --max-diagnostics=none . 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
 }
-forge_check_changed_11() {
+forge_check_changed_12() {
 ! biome lint --colors=off --max-diagnostics=none --no-errors-on-unmatched $FORGE_FILES 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
 }
 
-# 12. typescript/playwright/axe
-forge_check_meta_12() {
+# 13. typescript/playwright/axe
+forge_check_meta_13() {
   c_id='typescript/playwright/axe'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_12() {
+forge_scope_13() {
   return 0
 }
-forge_when_12() { case $1 in package.json|e2e/*|*.spec.*|*/*.spec.*) return 0 ;; esac; return 1; }
-forge_check_run_12() {
+forge_when_13() { case $1 in package.json|e2e/*|*.spec.*|*/*.spec.*) return 0 ;; esac; return 1; }
+forge_check_run_13() {
 ! grep -q '"@axe-core/playwright"' package.json 2>/dev/null || git ls-files -z -- 'e2e/*' '*.spec.*' | xargs -0 grep -l AxeBuilder /dev/null | grep -q . || { echo 'package.json depends on @axe-core/playwright but no e2e test uses AxeBuilder'; false; }
 }
 
-# 13. typescript/playwright/no-test-edits
-forge_check_meta_13() {
+# 14. typescript/playwright/no-test-edits
+forge_check_meta_14() {
   c_id='typescript/playwright/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_13() {
+forge_scope_14() {
   case $1 in e2e/*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
-forge_when_13() { return 1; }
-forge_check_run_13() {
+forge_when_14() { return 1; }
+forge_check_run_14() {
 forge_test_edits
 }
 
-# 14. typescript/playwright/run
-forge_check_meta_14() {
-  c_id='typescript/playwright/run'; c_stage=test; c_tools='playwright'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_14() {
-  return 0
-}
-forge_when_14() { case $1 in e2e/*|playwright.config.*) return 0 ;; esac; return 1; }
-forge_check_run_14() {
-playwright test --reporter=line
-}
-
-# 15. typescript/prisma/client-generator
+# 15. typescript/playwright/run
 forge_check_meta_15() {
-  c_id='typescript/prisma/client-generator'; c_stage=lint; c_tools=''
+  c_id='typescript/playwright/run'; c_stage=test; c_tools='playwright'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_15() {
   return 0
 }
-forge_when_15() { case $1 in *.prisma|*/*.prisma) return 0 ;; esac; return 1; }
+forge_when_15() { case $1 in e2e/*|playwright.config.*) return 0 ;; esac; return 1; }
 forge_check_run_15() {
-! grep -nE 'provider[[:space:]]*=[[:space:]]*"prisma-client-js"' /dev/null $(git ls-files '*.prisma')
+playwright test --reporter=line
 }
 
-# 16. typescript/prisma/destructive-migration
+# 16. typescript/prisma/client-generator
 forge_check_meta_16() {
-  c_id='typescript/prisma/destructive-migration'; c_stage=migration; c_tools=''
+  c_id='typescript/prisma/client-generator'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_16() {
+  return 0
+}
+forge_when_16() { case $1 in *.prisma|*/*.prisma) return 0 ;; esac; return 1; }
+forge_check_run_16() {
+! grep -nE 'provider[[:space:]]*=[[:space:]]*"prisma-client-js"' /dev/null $(git ls-files '*.prisma')
+}
+
+# 17. typescript/prisma/destructive-migration
+forge_check_meta_17() {
+  c_id='typescript/prisma/destructive-migration'; c_stage=migration; c_tools=''
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_17() {
   case $1 in prisma/migrations/migration.sql|prisma/migrations/*/migration.sql) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_16() { case $1 in prisma/migrations/*) return 0 ;; esac; return 1; }
-forge_check_run_16() {
+forge_when_17() { case $1 in prisma/migrations/*) return 0 ;; esac; return 1; }
+forge_check_run_17() {
 set -f
 _dm_files=$FORGE_FILES
 [ -n "$_dm_files" ] || _dm_files=$(git ls-files 'prisma/migrations/*/migration.sql' | sort | tail -n 1)
@@ -17669,42 +18707,28 @@ return 1
 
 }
 
-# 17. typescript/prisma/migration-lint
-forge_check_meta_17() {
+# 18. typescript/prisma/migration-lint
+forge_check_meta_18() {
   c_id='typescript/prisma/migration-lint'; c_stage=migration; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_17() {
+forge_scope_18() {
   case $1 in prisma/migrations/migration.sql|prisma/migrations/*/migration.sql) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_17() { case $1 in prisma/migrations/*) return 0 ;; esac; return 1; }
-forge_check_run_17() {
+forge_when_18() { case $1 in prisma/migrations/*) return 0 ;; esac; return 1; }
+forge_check_run_18() {
 forge_squawk_files $(git ls-files 'prisma/migrations/*/migration.sql' | sort | tail -n 1)
 }
-forge_check_changed_17() {
+forge_check_changed_18() {
 forge_squawk_files $FORGE_FILES
 }
 
-# 18. typescript/prisma/migration-present
-forge_check_meta_18() {
+# 19. typescript/prisma/migration-present
+forge_check_meta_19() {
   c_id='typescript/prisma/migration-present'; c_stage=migration; c_tools='prisma'
   c_when=1; c_localdb=1; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_18() {
-  return 0
-}
-forge_when_18() { case $1 in prisma/schema.prisma) return 0 ;; esac; return 1; }
-forge_check_run_18() {
-if [ ! -d prisma/migrations ] && grep -qE "prisma[[:space:]]+db[[:space:]]+push" package.json 2>/dev/null; then :; elif ! grep -q shadowDatabaseUrl prisma.config.ts 2>/dev/null; then echo "forge:typescript/prisma/migration-present skipped: no shadowDatabaseUrl in prisma.config.ts"; else prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code; fi
-}
-
-# 19. typescript/prisma/validate
-forge_check_meta_19() {
-  c_id='typescript/prisma/validate'; c_stage=migration; c_tools='prisma'
-  c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_19() {
@@ -17712,105 +18736,119 @@ forge_scope_19() {
 }
 forge_when_19() { case $1 in prisma/schema.prisma) return 0 ;; esac; return 1; }
 forge_check_run_19() {
+if [ ! -d prisma/migrations ] && grep -qE "prisma[[:space:]]+db[[:space:]]+push" package.json 2>/dev/null; then :; elif ! grep -q shadowDatabaseUrl prisma.config.ts 2>/dev/null; then echo "forge:typescript/prisma/migration-present skipped: no shadowDatabaseUrl in prisma.config.ts"; else prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code; fi
+}
+
+# 20. typescript/prisma/validate
+forge_check_meta_20() {
+  c_id='typescript/prisma/validate'; c_stage=migration; c_tools='prisma'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_20() {
+  return 0
+}
+forge_when_20() { case $1 in prisma/schema.prisma) return 0 ;; esac; return 1; }
+forge_check_run_20() {
 prisma validate
 }
 
-# 20. typescript/typecheck
-forge_check_meta_20() {
+# 21. typescript/typecheck
+forge_check_meta_21() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_20() {
-  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
-  return 1
-}
-forge_when_20() { return 1; }
-forge_check_run_20() {
-tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile "$(forge_state_file tsc.tsbuildinfo)"
-}
-
-# 21. typescript/vitest/no-test-edits
-forge_check_meta_21() {
-  c_id='typescript/vitest/no-test-edits'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
 forge_scope_21() {
-  case $1 in e2e/*) return 1 ;; esac
-  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|__mocks__/*|*/__mocks__/*|test-utils.*|*/test-utils.*|test-helpers.*|*/test-helpers.*|vitest.setup.*|*/vitest.setup.*) ;; *) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
 forge_when_21() { return 1; }
 forge_check_run_21() {
+tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile "$(forge_state_file tsc.tsbuildinfo)"
+}
+
+# 22. typescript/vitest/no-test-edits
+forge_check_meta_22() {
+  c_id='typescript/vitest/no-test-edits'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_22() {
+  case $1 in e2e/*) return 1 ;; esac
+  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|__mocks__/*|*/__mocks__/*|test-utils.*|*/test-utils.*|test-helpers.*|*/test-helpers.*|vitest.setup.*|*/vitest.setup.*) ;; *) return 1 ;; esac
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+forge_when_22() { return 1; }
+forge_check_run_22() {
 forge_test_edits
 }
 
-# 22. typescript/vitest/no-workspace-file
-forge_check_meta_22() {
+# 23. typescript/vitest/no-workspace-file
+forge_check_meta_23() {
   c_id='typescript/vitest/no-workspace-file'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_22() {
+forge_scope_23() {
   return 0
 }
-forge_when_22() { case $1 in vitest.*) return 0 ;; esac; return 1; }
-forge_check_run_22() {
+forge_when_23() { case $1 in vitest.*) return 0 ;; esac; return 1; }
+forge_check_run_23() {
 ! git ls-files 'vitest.workspace.*' | grep .
 }
 
-# 23. typescript/vitest/run
-forge_check_meta_23() {
+# 24. typescript/vitest/run
+forge_check_meta_24() {
   c_id='typescript/vitest/run'; c_stage=test; c_tools='vitest'
   c_when=0; c_localdb=0; c_timeout=300
   c_changed=1; c_files=0; c_fix=0; c_fmt=0; c_rerun=1; c_warn=0; c_dirs=''
 }
-forge_scope_23() {
-  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
-  return 1
-}
-forge_when_23() { return 1; }
-forge_check_run_23() {
-vitest run
-}
-forge_check_changed_23() {
-vitest run --changed
-}
-forge_check_rerun_23() {
-vitest run $FORGE_FILES
-}
-
-# 24. typescript/vitest/snapshot-stale
-forge_check_meta_24() {
-  c_id='typescript/vitest/snapshot-stale'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
 forge_scope_24() {
-  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
 forge_when_24() { return 1; }
 forge_check_run_24() {
-forge_advise forge_snapshot_stale
+vitest run
+}
+forge_check_changed_24() {
+vitest run --changed
+}
+forge_check_rerun_24() {
+vitest run $FORGE_FILES
 }
 
-# 25. typescript/vitest/untested-change
+# 25. typescript/vitest/snapshot-stale
 forge_check_meta_25() {
-  c_id='typescript/vitest/untested-change'; c_stage=lint; c_tools=''
+  c_id='typescript/vitest/snapshot-stale'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_25() {
-  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts|*.config.*|*/*.config.*) return 1 ;; esac
+  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts) return 1 ;; esac
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
   return 1
 }
 forge_when_25() { return 1; }
 forge_check_run_25() {
+forge_advise forge_snapshot_stale
+}
+
+# 26. typescript/vitest/untested-change
+forge_check_meta_26() {
+  c_id='typescript/vitest/untested-change'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_26() {
+  case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts|*.config.*|*/*.config.*) return 1 ;; esac
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+forge_when_26() { return 1; }
+forge_check_run_26() {
 forge_advise forge_untested_change
 }
 
@@ -20837,7 +21875,7 @@ forge_types_filter() {
 FORGE_STATE=$(forge_state_of "$(pwd -P)")
 
 
-FORGE_FORBID='typescript/nextjs/no-legacy-image-config|typescript/nextjs/no-next-router|typescript/nextjs/no-pages-data|typescript/nextjs/no-public-secret-env|typescript/nextjs/proxy-not-middleware|typescript/nextjs/react/client-hooks|typescript/nextjs/react/no-server-in-client|typescript/nextjs/revalidate-tag-profile|typescript/no-double-assertion|typescript/no-stub|typescript/no-swallowed-catch|typescript/no-ts-nocheck|typescript/playwright/locators|typescript/playwright/no-wait-for-timeout|typescript/prisma/generated-client-import|typescript/prisma/no-middleware|typescript/prisma/no-network-in-transaction|typescript/prisma/no-raw-unsafe|typescript/react/no-prop-types|typescript/react/use-action-state|typescript/ts-expect-error-reason|typescript/vitest/no-tautological-expect|typescript/vitest/no-test-env-branch|typescript/zod/error-param|typescript/zod/v4-string-formats'
+FORGE_FORBID='typescript/nextjs/cookies-set-in-render|typescript/nextjs/image-remote-patterns-strict|typescript/nextjs/image-unsafe-options|typescript/nextjs/no-ignore-build-errors|typescript/nextjs/no-legacy-image-config|typescript/nextjs/no-next-head-in-app|typescript/nextjs/no-next-router|typescript/nextjs/no-pages-data|typescript/nextjs/no-public-secret-env|typescript/nextjs/no-redirect-in-try|typescript/nextjs/no-request-apis-in-use-cache|typescript/nextjs/proxy-exports|typescript/nextjs/proxy-not-middleware|typescript/nextjs/react/client-env-public-only|typescript/nextjs/react/client-hooks|typescript/nextjs/react/no-server-in-client|typescript/nextjs/react/no-ssr-false-in-server|typescript/nextjs/react/server-functions-async|typescript/nextjs/revalidate-tag-profile|typescript/nextjs/stable-cache-imports|typescript/no-double-assertion|typescript/no-html-sinks|typescript/no-stub|typescript/no-swallowed-catch|typescript/no-ts-nocheck|typescript/playwright/locators|typescript/playwright/no-wait-for-timeout|typescript/postmessage-origin|typescript/prisma/generated-client-import|typescript/prisma/no-middleware|typescript/prisma/no-network-in-transaction|typescript/prisma/no-raw-unsafe|typescript/react/act-from-react|typescript/react/no-prop-types|typescript/react/use-action-state|typescript/ts-expect-error-reason|typescript/vitest/no-tautological-expect|typescript/vitest/no-test-env-branch|typescript/zod/error-param|typescript/zod/v4-string-formats'
 FORGE_NO_INCREASE='typescript/bun/no-mock-increase|typescript/bun/no-new-skip|typescript/playwright/no-new-skip|typescript/vitest/no-mock-increase|typescript/vitest/no-new-skip'
 FORGE_NO_DECREASE='typescript/bun/no-fewer-expects|typescript/vitest/no-fewer-expects'
 
@@ -21045,21 +22083,38 @@ forge_end "$fail"
     "typescript/config-ratchet": "b0ff3b6c064f691984e217acc0388d0900b1a2a1d1ee493935badb41a8a45022",
     "typescript/env-example": "7eab3b03486670f6274d4db65487ccaaf7f2b1fddd39c86a13469cdf46d2140c",
     "typescript/format-lint": "18f0059c55bc0fd6acbd5c7a92fb06989649cd07e9981e421d898991e39aed7b",
+    "typescript/iframe-sandbox": "68a3e25b09d93892dc5c7b884660555a33c7bb4adcfc728d9f6da4c0873ddaf6",
     "typescript/lockfile-updated": "4e73aebc5db80beaa00f712dc0a4d1091ed8ebe051c57e087df110696b49e6b7",
+    "typescript/nextjs/cookies-set-in-render": "bfbccdaddd26a22e56a25ac3db2a5ea01f6193a37d783c3ef230694a80ea6b15",
+    "typescript/nextjs/image-remote-patterns-strict": "f76fe121ee305899265890efe11d37b1e919a8457dca6ca96b1ce83e80a3636f",
+    "typescript/nextjs/image-unsafe-options": "e2189ab383a3545e8ac1acc141101bc3a99d908cd77695769bbf065d022dca11",
+    "typescript/nextjs/no-ignore-build-errors": "e8b6c62746fbe53ea7651ae136edba36bc3c1deb742f79504b30e930deeedba3",
     "typescript/nextjs/no-legacy-image-config": "3fe00293c75da57b6623c1880c86eadb54aa9fce686ac52ffc1720780763fec7",
+    "typescript/nextjs/no-next-head-in-app": "e1a7d74eb70df5cbeee9cd5a55906f3215a461e2a175fd47d563bbaba06ae9be",
     "typescript/nextjs/no-next-router": "e935af017296ba5db9752bf63ad22bea52eb27816f357b18532a1052590d14ea",
     "typescript/nextjs/no-pages-data": "a4d7c707f125ee1f103d922b8765e619c4c293479797d9dbdb81c7e3bbe782fa",
     "typescript/nextjs/no-public-secret-env": "41daab06f32411dacc7b8cd23a5953a407b00761bb07f75827b0a10bdfa50c64",
+    "typescript/nextjs/no-redirect-in-try": "e2c7d465f2372a98efe8359fbb2d442c5ec66a7a0b8f689558c9e93c9fbc4b67",
+    "typescript/nextjs/no-request-apis-in-use-cache": "6561ecdf0f6bcbfa0342cabb6e1fc6e1b2cbb1a0bc942a53abc29674ead9784a",
+    "typescript/nextjs/no-sync-scripts": "24f3e3fd9311e9011eac6f367d95fa720d56afd1ad5bddc0f2a9c908a7224cb1",
+    "typescript/nextjs/parallel-route-default": "1f9b5b2eed8de15b6c013533ab270d961843cf37255546fd1411822a0f09fd3a",
+    "typescript/nextjs/proxy-exports": "0de990af6ae4a7a4aaf3c745656ffa99b042d7d599e25906420ff4c09328bd50",
     "typescript/nextjs/proxy-not-middleware": "c336db03ccf715b6ab786ed10bc073699e2d984144820cbe27d5bc16e072644a",
+    "typescript/nextjs/react/client-env-public-only": "fe46bf1e08c71d9785d1fbd106e58ae886196922f6d12aa53928d130d7f8b047",
     "typescript/nextjs/react/client-hooks": "a5eea520cac5df94a521491b676d69d68dc846a8a289f3d1c306b5977c2eedb6",
-    "typescript/nextjs/react/no-server-in-client": "5de2679ac303f0c0b1fc030713f0cbe4581d2af7e38bf389b3b68b1819aba2da",
+    "typescript/nextjs/react/no-async-client-component": "5fbf42edba5bdb44c586959e78b6d2b56fec358f3faedf90bf2781e2a9792c69",
+    "typescript/nextjs/react/no-server-in-client": "ab4b52967840b5031d5cf4726152e35152424825f81af3565c75d60c1bc7d136",
+    "typescript/nextjs/react/no-ssr-false-in-server": "192c1c1062d3f753e3bbba6576b49f4b1bb180e3e98c42420d99f6d866b61744",
+    "typescript/nextjs/react/server-functions-async": "36d19b81813d1f674a71c61535f4beb7db5e0b88cd10048e48014bb074605ea0",
     "typescript/nextjs/revalidate-tag-profile": "493bbc01d9566347829e9ea78c93e047a6f692868c5f099b6c142c8d9cb9cb37",
+    "typescript/nextjs/stable-cache-imports": "c2d7aca9c0fd78a6c156e0755bd88fa4080d8a2eeb71c03390d46d902e61e8bf",
     "typescript/no-console": "304966850351b07590c05fb22ae0125d1976179b3cd7abc0bc0dd7e82039ada5",
     "typescript/no-double-assertion": "2c5b17cd8daa6bd598b4aa79b30259626c86e6a3afd00630a3a4a2918316ce80",
     "typescript/no-empty-block": "e615b8d48575392c885e65f5b5e69cfaba918ae070473fb229086fe36501a31f",
     "typescript/no-eval": "695bc504e485395796c1500ec90804609a4f5e8c9a5867062271b9caa5f58143",
     "typescript/no-explicit-any": "66e8f9968e8c88a77229e6c092e4489cffced1186a72fa257017fa6a2e612d28",
     "typescript/no-focused-tests": "0c7614dd6db46bbe6d9a19b58cf8130638128e786cd1dc912e58203ecc72a87b",
+    "typescript/no-html-sinks": "b00e86949464b9fce716e918ff071a59d34a3299b64a41976fd3ef10afcdd024",
     "typescript/no-ignore-deprecations": "63044c1f4bd2f841800843fa17b4db5a29e5d8cc32053591a25622f15902c888",
     "typescript/no-implicit-any": "7ac25a953e4d6df85abee5379ea5496788f5d15776ae37623ceff5ebcc034108",
     "typescript/no-new-suppressions": "b49b319f832234670b6d55d259add6b912cd7e49e81fd2143917e7b64976dfed",
@@ -21080,6 +22135,7 @@ forge_end "$fail"
     "typescript/playwright/no-test-edits": "16b6681c7d6009249ff3466e5a531a991506bb8b6bdbbe295e8b925c525d8bdb",
     "typescript/playwright/no-wait-for-timeout": "d6f5471ff500bf60ee5b260325c0cd41d31ba86cb59030036fb7f517dfaaf5e1",
     "typescript/playwright/run": "79dc276c6d71cd329a2360b0560e3b12d47c99d7ea11e13563d794961a0363fa",
+    "typescript/postmessage-origin": "9a3e7264a3eb2d45f3e4ece3e34406a6e2239c8b85f63a2f6022ee58ce742c1c",
     "typescript/prisma/client-generator": "8905dafcbf59a72531bc68fe4ccbcebca6cbd2af461fb39690d748885d375c01",
     "typescript/prisma/db-push": "ea9ca78f9244bfb5a4c56205190683e6148d7ff41b9debebbf9970582290d77e",
     "typescript/prisma/destructive-migration": "6cb32c74f021c89b0a63d09e89b2298c64d251f3c3c2380279bfd804b750ba02",
@@ -21092,12 +22148,16 @@ forge_end "$fail"
     "typescript/prisma/no-reset": "060bf3f7773db9cf87bede89da4d4540b19271ffb9a698aa7a3d84bf9cf7168a",
     "typescript/prisma/validate": "0479a5e9bc602a2d9f0a154719567605623fe73194bceafce1d87bc325d37aad",
     "typescript/react/a11y": "101c3c1b4c43a00525a019cf13d60dd07f9a668569a09b4f5ba8a4a92cdc7c2b",
+    "typescript/react/act-from-react": "6ce6eecb002259cfa74be55c1f0fee63bb28e3fc0d1170fd700584e20b563610",
+    "typescript/react/compiler-rules": "c52d51ae79ed6796f3bcb200d1709ef50b5fd063f57eb95f80bca4756993eba1",
     "typescript/react/hooks-rules": "84b1b31e6f7aace5c2873499123884279cb92d9177bccc8fab5e40b2767b4047",
     "typescript/react/no-dangerous-html": "8003159a1f2e7bfff7e2969b76516240e61ea57c583f97ae5df1f47360895854",
     "typescript/react/no-deprecated-types": "b582f769c408d52526d146d6be00a955a33714945954f053711390edfe30cbf5",
     "typescript/react/no-forward-ref": "36a40a23adb17d7651f8f7ed849fe1341540551ab7c0940943555aca6cff8e07",
-    "typescript/react/no-nested-components": "7d56f7ae6686901210a69036650305f3eefdb68efb27b11fb06bd8799169b9a8",
+    "typescript/react/no-nested-components": "f52f05f4eaabacf0a3434d22d29ceff778b8be4a5cdc163d9619b66d1fd0c5b0",
+    "typescript/react/no-prop-assign": "acb8dde126deb46161d45483181aaff41d2adbc134d8be358e54de12a762b134",
     "typescript/react/no-prop-types": "76b76db62c10d08486cd50217e27d8108355b161ef558d8b764106023764acb1",
+    "typescript/react/stable-default-props": "69a87d67b23a52a36e56f7b141f24a87f5d05d63afd1fed22cee1cc598ea7f03",
     "typescript/react/stable-keys": "7cd742b7ff4eced78ec4ae0dda88fe9cbe7f984429632d9a2da63bb0ce29c79d",
     "typescript/react/use-action-state": "4fb479e74dbdfadf6a395d761fe269009bc694454e9c0bc845f8df8c0aa68c81",
     "typescript/strict-function-types": "7c8945ced7b73b7738f9a5bf3eb864c5cdb35c1eb55b7c3ad606b1db3b6a8263",
@@ -21123,11 +22183,11 @@ forge_end "$fail"
   },
   "files": {
     ".claude/rules/forge-typescript-bun.md": "56d2518521d7559dc4d52e8bc5e96b82e97026bdb48f5281fe9450e0f01e1d53",
-    ".claude/rules/forge-typescript-nextjs-react.md": "2e3462b5d3b2ae7ca170af39cf82bab25bbf97a1dc41f937dcd43239740f2736",
-    ".claude/rules/forge-typescript-nextjs.md": "96a99679c5ddb348fe571a68648c3f7722351fe90d1e12f7d15e3c081953d42a",
+    ".claude/rules/forge-typescript-nextjs-react.md": "fd81b5d4e22fbf1709d1214949dd1b87240060701900052e8d6314389c0af39b",
+    ".claude/rules/forge-typescript-nextjs.md": "a22a0be00fc52ba7b82df6b6a47a69090c2af2a08044b76190118e6d3d66fab0",
     ".claude/rules/forge-typescript-playwright.md": "460ee4a08c77b6c6509a681765f299c2116dd996a79a5040d1516645d8e47663",
     ".claude/rules/forge-typescript-prisma.md": "cf4184031d0c1e5f2a4b8ce5ce8ab676cdbeb65fc59402433cf8e77418daa1d6",
-    ".claude/rules/forge-typescript-react.md": "ae5f638883028fa1744f332b050e244ce57713ad2cc28ab5f8ee259f0088eb20",
+    ".claude/rules/forge-typescript-react.md": "adae513813719331f4e2843a17a1063bf42e49240e34b60d396949247fa855eb",
     ".claude/rules/forge-typescript-vitest.md": "0c60275a6586d66aa3d3ab871383af8cc874c5e849d10646d8940031768cd606",
     ".claude/rules/forge-typescript-zod.md": "a5e2685c59231ba3ce5e994b28fa8dfd5e5e7946275ef3236334776e61329db7",
     ".claude/rules/forge-typescript.md": "48f463a8e59348509f4f2096fb2b61b294b079410555e21d7a0b4ed6767c131d",
@@ -21137,37 +22197,52 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "d0a502f51f51609d7e5e9cd6f39a8ce165c656ee1c1b7a607105a536962058eb",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
     ".claude/skills/forge-project/scripts/lib.sh": "83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "ab34a5b3461e3e60b17d23def2642bc472d772de57e6262169fdac800d1dc775",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "d1a87239ee67432f14dc111bab66eaa8da8c8094b43bf93b499a8754929c1d13",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
     ".claude/skills/forge-project/scripts/session-end.sh": "99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58",
-    ".claude/skills/forge-project/scripts/session-start.sh": "0d2a5f594bde91ef4b3fb295f39355ac08b398cbbfc97e2a0893ca8fafc42eca",
+    ".claude/skills/forge-project/scripts/session-start.sh": "639f5425e27b6f01db0ddcdacc34ab63b2030394f9c73755f00e5050827806d5",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "c2cddd1074d31e85c52c7f837ef7f8551be91d6c16d0df5c6933a32d58a3a667",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "ecf862ed62694b8cb22bad57df7d84b53aeda24b98d788e6e47cc4b828ea313f",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "33fd1933b4a3b529e153a30c27c74d875bfe5cba4e18e32e92f3e2ada553bbf0",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "9c1cabdbe6a47e302b3ea0ee1df192b344fa3485c61310d84a2e83222d7f41a3",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-bun-no-fewer-expects-test.yml": "bd5df50793070bba7b87b0f623ac58ed4599e0ba6f8d731fc0da4b28a0335ec8",
     ".forge/ast-grep/rule-tests/typescript-bun-no-mock-increase-test.yml": "2916d521378a79dbddd4e3a5822e04b4c3e5fad9262a65e019095f58bbfe0310",
     ".forge/ast-grep/rule-tests/typescript-bun-no-new-skip-test.yml": "dc3b69bc7faac87a7d2caa2239db1281086991dd801d38ca06d02812aac0ac8b",
+    ".forge/ast-grep/rule-tests/typescript-nextjs-cookies-set-in-render-test.yml": "1c0b73ba0d3f153638a9b57d6d69f8d409eb220bfb7c9b0886628d023ba18f98",
+    ".forge/ast-grep/rule-tests/typescript-nextjs-image-remote-patterns-strict-test.yml": "2665033953a22b2802fb7b03d03ee2dd21694b3847272c094f57c241b1f03cb5",
+    ".forge/ast-grep/rule-tests/typescript-nextjs-image-unsafe-options-test.yml": "9e3e357e99405e3ea0d0614be2a67494426bb1985e7572f6e723c1b7909d8f6d",
+    ".forge/ast-grep/rule-tests/typescript-nextjs-no-ignore-build-errors-test.yml": "e93a5f3c71416989dba382f5886a621a4c0ddcf9916d30e9bba7526f694632fe",
     ".forge/ast-grep/rule-tests/typescript-nextjs-no-legacy-image-config-test.yml": "9d723e3c62b5697de0fa5ab80b735c3cef23225a07c81425c492cd8827faf06d",
+    ".forge/ast-grep/rule-tests/typescript-nextjs-no-next-head-in-app-test.yml": "2c4326f51c0e536bad508764e29fc290bfd656261a26fd29013fef881432e430",
     ".forge/ast-grep/rule-tests/typescript-nextjs-no-next-router-test.yml": "5da1551f9fa49969cdbfb6ef3ba847589327a2d7430a3cdc79f3637fc81586f1",
     ".forge/ast-grep/rule-tests/typescript-nextjs-no-pages-data-test.yml": "d2c1565050d4c9260d1fcf98bae6a781ceb3a6f2e72c1db475ac459818bd450a",
     ".forge/ast-grep/rule-tests/typescript-nextjs-no-public-secret-env-test.yml": "117593bab047fa93deb238d012c1de40bd3b7abe10f1ec107e7a5156ead649e7",
+    ".forge/ast-grep/rule-tests/typescript-nextjs-no-redirect-in-try-test.yml": "cc9e2cbf7da1aa18b3d8a26f62aa3d59ffb48850bd590df3c41740e77fff441b",
+    ".forge/ast-grep/rule-tests/typescript-nextjs-no-request-apis-in-use-cache-test.yml": "a19730a07f630f28af7e06f6a0ad7df83c9b95648665b071a47892f7cacb080f",
+    ".forge/ast-grep/rule-tests/typescript-nextjs-proxy-exports-test.yml": "28fed9fa87f1366098802799aa12b7c60cd84bc47fc4d1fd30362b405daa61de",
     ".forge/ast-grep/rule-tests/typescript-nextjs-proxy-not-middleware-test.yml": "153ec749432cb54b30c8020cbe4d466b3746e39ee9be7af8129603cab6ca3232",
+    ".forge/ast-grep/rule-tests/typescript-nextjs-react-client-env-public-only-test.yml": "3f6cb83ac538aedcd6e4f6b1ec1265416e7dfe38de55cfb5bff74ea1de47e985",
     ".forge/ast-grep/rule-tests/typescript-nextjs-react-client-hooks-test.yml": "7c405f311ed47f0b1f33bf3a179f600f612babccd820c3067b2305f98fc19db6",
-    ".forge/ast-grep/rule-tests/typescript-nextjs-react-no-server-in-client-test.yml": "d961ad163fef43f625286d82ef70180d240b753eb0b600073751e4f511d98c68",
+    ".forge/ast-grep/rule-tests/typescript-nextjs-react-no-server-in-client-test.yml": "2c155056d844c99271e02ab908994a49027a2628241b3c351b51a7dc7ca2466a",
+    ".forge/ast-grep/rule-tests/typescript-nextjs-react-no-ssr-false-in-server-test.yml": "97213cc4ef3cbc3954c74990c5a19a6da72bae700679c1609f74671780f8ced5",
+    ".forge/ast-grep/rule-tests/typescript-nextjs-react-server-functions-async-test.yml": "e0a8154774d5bf60a49b8e36c6f8251b892fc3ec7ddf5586397aa1d60278faed",
     ".forge/ast-grep/rule-tests/typescript-nextjs-revalidate-tag-profile-test.yml": "82a873549d13a28bd75fe0ec7f7c225c9a0480525e385aa5c9c3c96d15fc0e68",
+    ".forge/ast-grep/rule-tests/typescript-nextjs-stable-cache-imports-test.yml": "1f370bfc3fd9c12d5aba09e7b31d6c87b7f16e3bb7725eddc5e063d49f3086e8",
     ".forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml": "c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20",
+    ".forge/ast-grep/rule-tests/typescript-no-html-sinks-test.yml": "bbc670db152b016114415e70ce66732241002af40e6c73f5887eb2d6ddc64cc2",
     ".forge/ast-grep/rule-tests/typescript-no-stub-test.yml": "b02e7e21f6bd597fe4b3d577b3a2cc6dfee9741674cc1cc99285e22ef90a2778",
     ".forge/ast-grep/rule-tests/typescript-no-swallowed-catch-test.yml": "fb2f02c2bcf9562ed49731349520cde2d48d2f3b3557d2174b5e2e856d6c8e48",
     ".forge/ast-grep/rule-tests/typescript-no-ts-nocheck-test.yml": "c15f604d5317f942de32470aeaff16702116a64d283347c9a9825056b4dbe69e",
     ".forge/ast-grep/rule-tests/typescript-playwright-locators-test.yml": "c65ff86cee9c45671ae158cf4e8c59bbdeb8e2f14ea74c926964debe0a7d0e7e",
     ".forge/ast-grep/rule-tests/typescript-playwright-no-new-skip-test.yml": "bb487493a7aa36a61f149d2d9b1fbe38895749290027dba745f51fdc011f054f",
     ".forge/ast-grep/rule-tests/typescript-playwright-no-wait-for-timeout-test.yml": "6de739c52e05f5d443c247b3a60bc40bd15cc5cfce7f4cc80d428be001cf6c1a",
+    ".forge/ast-grep/rule-tests/typescript-postmessage-origin-test.yml": "a3ee8df93d2883c22e235fcc3ff48e67b49c0ab99b1e1795c3bd92ba97697326",
     ".forge/ast-grep/rule-tests/typescript-prisma-generated-client-import-test.yml": "91fbbe5ce58f7acf72b9885cb48b5d0c6eb692b862834058404f1b58e6007f5a",
     ".forge/ast-grep/rule-tests/typescript-prisma-no-middleware-test.yml": "a0975e619303c2b7ebf6a13a1c424464c86b5f1c37fdf16667de00e241a56998",
     ".forge/ast-grep/rule-tests/typescript-prisma-no-network-in-transaction-test.yml": "52d332f1fd4e10ae42f7a8fc56a7763dca2457c4e5e2a9f02bde5c49f260becd",
     ".forge/ast-grep/rule-tests/typescript-prisma-no-raw-unsafe-test.yml": "011dd0c40d77e238e91f0d592ef3e39b4e17f822215fb2ab749c096f8661ccee",
+    ".forge/ast-grep/rule-tests/typescript-react-act-from-react-test.yml": "0c7b9c2da544dab41718f00b27900fab9d0d83c4e2e5a6b2af8daaa468749919",
     ".forge/ast-grep/rule-tests/typescript-react-no-prop-types-test.yml": "973df0a4b101d1b9d02787a5da612d991b2d66a6dda3727805aefed130706efe",
     ".forge/ast-grep/rule-tests/typescript-react-use-action-state-test.yml": "125b8c736e82d5ef59eaf57dd32da3df326b16bc81cd9534f9a7023aa5d54b35",
     ".forge/ast-grep/rule-tests/typescript-ts-expect-error-reason-test.yml": "7ae5fe613eff1c75cb68f1333b898ad82d6d4889c3cc4da6bb8e5962e825a1b1",
@@ -21181,25 +22256,40 @@ forge_end "$fail"
     ".forge/ast-grep/rules/typescript/bun/no-fewer-expects.yml": "2ca24b5c409a8a142b0f81d7f9501cf3d41c426b2b6e7c037559da5179bb498f",
     ".forge/ast-grep/rules/typescript/bun/no-mock-increase.yml": "bf70d7263b8cc030ea6c1edd627f76c118417cf5a31dd2fd35cce6737e9ee0d4",
     ".forge/ast-grep/rules/typescript/bun/no-new-skip.yml": "33db9ec4783c392bf85ff2bc68f3ed8fcf877fe87da5ad541e31ea55253dc75a",
+    ".forge/ast-grep/rules/typescript/nextjs/cookies-set-in-render.yml": "8928830709643092567b31b91195319d81aa76e6ee2a68aa17d86641724e7651",
+    ".forge/ast-grep/rules/typescript/nextjs/image-remote-patterns-strict.yml": "2052cd4fe2dfac1427f5fe4a7d642e978492ac40986c086b05013858d9a3a2d8",
+    ".forge/ast-grep/rules/typescript/nextjs/image-unsafe-options.yml": "88be848e97c425f761fbe77866398508d6866771fff1db37e4efa1fc455d13ef",
+    ".forge/ast-grep/rules/typescript/nextjs/no-ignore-build-errors.yml": "e1855a57f83245857caa003db9b01a7a95d0c1d9cb584f9045f4890f63fe7a5f",
     ".forge/ast-grep/rules/typescript/nextjs/no-legacy-image-config.yml": "99d6745b72bc71e63a385b0c72edc6a1d5d2f0c2484b32a8edf403a052181538",
+    ".forge/ast-grep/rules/typescript/nextjs/no-next-head-in-app.yml": "332c5e3dadf080973e4e6f32831c402cbd7a294f907c86cab3866a71d24c222a",
     ".forge/ast-grep/rules/typescript/nextjs/no-next-router.yml": "2447380f96c63cf72fcf39285fff2abe7f1edd49646a74ed5ad91fbb77a908e0",
     ".forge/ast-grep/rules/typescript/nextjs/no-pages-data.yml": "c189e6db00b706044708a2c5fc1e5fe8698213059fabf7d6d4f549eb57a759fb",
     ".forge/ast-grep/rules/typescript/nextjs/no-public-secret-env.yml": "566919ce67b7c2e3ea9fcf448bf9e9aba51581c7d7717a0a97a720b0bed9a249",
+    ".forge/ast-grep/rules/typescript/nextjs/no-redirect-in-try.yml": "3a0639655e30ebddcac1af7758cd65aca90b9fe82f527ff3b96617bf0bcaa918",
+    ".forge/ast-grep/rules/typescript/nextjs/no-request-apis-in-use-cache.yml": "e70f9c3a89e32a6f6a24392823a0ff90d99a85ce3b0bc467a37cfbad6344c0c1",
+    ".forge/ast-grep/rules/typescript/nextjs/proxy-exports.yml": "06ec71d53d7542d8f9aefaadd959ca1be234b0435f31c89f952b2fc15edcd0d4",
     ".forge/ast-grep/rules/typescript/nextjs/proxy-not-middleware.yml": "29ce02d4f8748400d9a70259d51631bf7ef50cbdd4bccadd24d96695a289c7f8",
+    ".forge/ast-grep/rules/typescript/nextjs/react/client-env-public-only.yml": "2f857327ecb3a06c11c897a6fed6142ace35e55a6d2d56db96868f737cd4d3cd",
     ".forge/ast-grep/rules/typescript/nextjs/react/client-hooks.yml": "45f618471917a7ea16b4f12797c8b23b764c14b48ac34e2296840c8af78bc0dd",
-    ".forge/ast-grep/rules/typescript/nextjs/react/no-server-in-client.yml": "bb96a57b3d86ff82cceefb7a13e7e17a3996071931386bd40fce989878f9e2de",
+    ".forge/ast-grep/rules/typescript/nextjs/react/no-server-in-client.yml": "a683017b3326720850fa3bf343deaf6fa31d0a7e32c84d05c0ca69bd603af823",
+    ".forge/ast-grep/rules/typescript/nextjs/react/no-ssr-false-in-server.yml": "16f0b55380ae003c25a0115d5620388e679e7a7276e3f55d8db85c4a0cdb7293",
+    ".forge/ast-grep/rules/typescript/nextjs/react/server-functions-async.yml": "80d5d4f9503cbdc6fb5e7d0fe9ceb4f353311531cb585b3caf5854b31e558da0",
     ".forge/ast-grep/rules/typescript/nextjs/revalidate-tag-profile.yml": "cacc0230a82fede425f3e83c4535f49229b9e831f40766fb416f7a2974fc14bd",
+    ".forge/ast-grep/rules/typescript/nextjs/stable-cache-imports.yml": "aaab342f103e5460d9d746d8b8e8da030ed070d4fe07de5f907ff0e3a69de56e",
     ".forge/ast-grep/rules/typescript/no-double-assertion.yml": "c0b8c6e7a7a09608b63f8c9367afb4ac22fb1daa93c79c967373efdab597a48c",
+    ".forge/ast-grep/rules/typescript/no-html-sinks.yml": "f6f9eb49034a2a4a58de5cc8438b3b8346e64f96d288d9bea213b0c9343939bf",
     ".forge/ast-grep/rules/typescript/no-stub.yml": "b21497e3335f2271e6ca5874817957d18c640e7d787cfe76a72ef390ab62d634",
     ".forge/ast-grep/rules/typescript/no-swallowed-catch.yml": "4bd8569b39e21928852fafeaee02ce9d2ff35726699f91b3f50a6ebf57843bd6",
     ".forge/ast-grep/rules/typescript/no-ts-nocheck.yml": "aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21",
     ".forge/ast-grep/rules/typescript/playwright/locators.yml": "c7c96b1437d5c6ac7bf04ec59e777e83def0d9451ef3b6cf238c881ff1909e29",
     ".forge/ast-grep/rules/typescript/playwright/no-new-skip.yml": "2bc5836e747a7dc4b45593074ff04b30a7e89fd2e8c53dc274e37035885c7d5c",
     ".forge/ast-grep/rules/typescript/playwright/no-wait-for-timeout.yml": "e4ed8b571875af6fbce7f92616b4772d90c847e5009403d57f76d46a7b55396d",
+    ".forge/ast-grep/rules/typescript/postmessage-origin.yml": "7ca18b3797ab76739daa6d0d38cc6cb9b53821ff3dfc0025974c6316baa6c1dd",
     ".forge/ast-grep/rules/typescript/prisma/generated-client-import.yml": "7b8a093b0f51e5d6b8f8a132b1ef43888104b1f5985465fc4f0f5984762a79c2",
     ".forge/ast-grep/rules/typescript/prisma/no-middleware.yml": "98cf3096f74f6db07744f597904e3df903a8a886a095cfffa52b133bf3acc1c7",
     ".forge/ast-grep/rules/typescript/prisma/no-network-in-transaction.yml": "4867b2d6d4fcc67ecf3f85d3a7433a27be0204c9a33d17c690d1dd52708d3c35",
     ".forge/ast-grep/rules/typescript/prisma/no-raw-unsafe.yml": "304ac41eb0a4b7025ca081e4a03cb746cdd15b5512a0bac217ad9a89017b3e00",
+    ".forge/ast-grep/rules/typescript/react/act-from-react.yml": "85cee59cd2c3bc3e4774bbf75655ad5f2c3efa05005c426d17c3cc39dbe9e2ef",
     ".forge/ast-grep/rules/typescript/react/no-prop-types.yml": "9626068d2f677a351b7722fbddc5a74e87c539b4c3e46a55d75cfaf717542c62",
     ".forge/ast-grep/rules/typescript/react/use-action-state.yml": "17b6fc5e510df3154be12c72a584d8bfb31034b577774718a8c50516b2b15a81",
     ".forge/ast-grep/rules/typescript/ts-expect-error-reason.yml": "b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad",
@@ -21211,7 +22301,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/typescript/zod/error-param.yml": "88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a",
     ".forge/ast-grep/rules/typescript/zod/v4-string-formats.yml": "1f4b2e54f9767673c6469da4a1d7f0d9dc1d8f39b657460bab8096b8c35a0a45",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "dfb378c45eec785d33e61f6a5bdf7d2e9f8d97c5f71f8fbc0200dcb98e0ccb2e",
+    ".forge/check.sh": "9da71d6e784d6aa25b33b8f9cbdb060aa90bba6099917b188cc8958027e3e0c8",
     ".forge/helpers/ratchet.mjs": "14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38",
     ".forge/helpers/types_typescript.mjs": "16ca7738e134f4b4de59289b647f4d5d2845af42236680028ba0a95790fdb29e",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
@@ -22169,11 +23259,11 @@ main().catch((e) => {
 
 ===== .forge/manifest.sha256
 56d2518521d7559dc4d52e8bc5e96b82e97026bdb48f5281fe9450e0f01e1d53  .claude/rules/forge-typescript-bun.md
-2e3462b5d3b2ae7ca170af39cf82bab25bbf97a1dc41f937dcd43239740f2736  .claude/rules/forge-typescript-nextjs-react.md
-96a99679c5ddb348fe571a68648c3f7722351fe90d1e12f7d15e3c081953d42a  .claude/rules/forge-typescript-nextjs.md
+fd81b5d4e22fbf1709d1214949dd1b87240060701900052e8d6314389c0af39b  .claude/rules/forge-typescript-nextjs-react.md
+a22a0be00fc52ba7b82df6b6a47a69090c2af2a08044b76190118e6d3d66fab0  .claude/rules/forge-typescript-nextjs.md
 460ee4a08c77b6c6509a681765f299c2116dd996a79a5040d1516645d8e47663  .claude/rules/forge-typescript-playwright.md
 cf4184031d0c1e5f2a4b8ce5ce8ab676cdbeb65fc59402433cf8e77418daa1d6  .claude/rules/forge-typescript-prisma.md
-ae5f638883028fa1744f332b050e244ce57713ad2cc28ab5f8ee259f0088eb20  .claude/rules/forge-typescript-react.md
+adae513813719331f4e2843a17a1063bf42e49240e34b60d396949247fa855eb  .claude/rules/forge-typescript-react.md
 0c60275a6586d66aa3d3ab871383af8cc874c5e849d10646d8940031768cd606  .claude/rules/forge-typescript-vitest.md
 a5e2685c59231ba3ce5e994b28fa8dfd5e5e7946275ef3236334776e61329db7  .claude/rules/forge-typescript-zod.md
 48f463a8e59348509f4f2096fb2b61b294b079410555e21d7a0b4ed6767c131d  .claude/rules/forge-typescript.md
@@ -22183,37 +23273,52 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 d0a502f51f51609d7e5e9cd6f39a8ce165c656ee1c1b7a607105a536962058eb  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
 83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5  .claude/skills/forge-project/scripts/lib.sh
-ab34a5b3461e3e60b17d23def2642bc472d772de57e6262169fdac800d1dc775  .claude/skills/forge-project/scripts/post-edit.sh
+d1a87239ee67432f14dc111bab66eaa8da8c8094b43bf93b499a8754929c1d13  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
 99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58  .claude/skills/forge-project/scripts/session-end.sh
-0d2a5f594bde91ef4b3fb295f39355ac08b398cbbfc97e2a0893ca8fafc42eca  .claude/skills/forge-project/scripts/session-start.sh
+639f5425e27b6f01db0ddcdacc34ab63b2030394f9c73755f00e5050827806d5  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-c2cddd1074d31e85c52c7f837ef7f8551be91d6c16d0df5c6933a32d58a3a667  .claude/skills/forge-project/scripts/test-edit.sh
+ecf862ed62694b8cb22bad57df7d84b53aeda24b98d788e6e47cc4b828ea313f  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-33fd1933b4a3b529e153a30c27c74d875bfe5cba4e18e32e92f3e2ada553bbf0  .claude/skills/forge-project/scripts/typecheck.sh
+9c1cabdbe6a47e302b3ea0ee1df192b344fa3485c61310d84a2e83222d7f41a3  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 bd5df50793070bba7b87b0f623ac58ed4599e0ba6f8d731fc0da4b28a0335ec8  .forge/ast-grep/rule-tests/typescript-bun-no-fewer-expects-test.yml
 2916d521378a79dbddd4e3a5822e04b4c3e5fad9262a65e019095f58bbfe0310  .forge/ast-grep/rule-tests/typescript-bun-no-mock-increase-test.yml
 dc3b69bc7faac87a7d2caa2239db1281086991dd801d38ca06d02812aac0ac8b  .forge/ast-grep/rule-tests/typescript-bun-no-new-skip-test.yml
+1c0b73ba0d3f153638a9b57d6d69f8d409eb220bfb7c9b0886628d023ba18f98  .forge/ast-grep/rule-tests/typescript-nextjs-cookies-set-in-render-test.yml
+2665033953a22b2802fb7b03d03ee2dd21694b3847272c094f57c241b1f03cb5  .forge/ast-grep/rule-tests/typescript-nextjs-image-remote-patterns-strict-test.yml
+9e3e357e99405e3ea0d0614be2a67494426bb1985e7572f6e723c1b7909d8f6d  .forge/ast-grep/rule-tests/typescript-nextjs-image-unsafe-options-test.yml
+e93a5f3c71416989dba382f5886a621a4c0ddcf9916d30e9bba7526f694632fe  .forge/ast-grep/rule-tests/typescript-nextjs-no-ignore-build-errors-test.yml
 9d723e3c62b5697de0fa5ab80b735c3cef23225a07c81425c492cd8827faf06d  .forge/ast-grep/rule-tests/typescript-nextjs-no-legacy-image-config-test.yml
+2c4326f51c0e536bad508764e29fc290bfd656261a26fd29013fef881432e430  .forge/ast-grep/rule-tests/typescript-nextjs-no-next-head-in-app-test.yml
 5da1551f9fa49969cdbfb6ef3ba847589327a2d7430a3cdc79f3637fc81586f1  .forge/ast-grep/rule-tests/typescript-nextjs-no-next-router-test.yml
 d2c1565050d4c9260d1fcf98bae6a781ceb3a6f2e72c1db475ac459818bd450a  .forge/ast-grep/rule-tests/typescript-nextjs-no-pages-data-test.yml
 117593bab047fa93deb238d012c1de40bd3b7abe10f1ec107e7a5156ead649e7  .forge/ast-grep/rule-tests/typescript-nextjs-no-public-secret-env-test.yml
+cc9e2cbf7da1aa18b3d8a26f62aa3d59ffb48850bd590df3c41740e77fff441b  .forge/ast-grep/rule-tests/typescript-nextjs-no-redirect-in-try-test.yml
+a19730a07f630f28af7e06f6a0ad7df83c9b95648665b071a47892f7cacb080f  .forge/ast-grep/rule-tests/typescript-nextjs-no-request-apis-in-use-cache-test.yml
+28fed9fa87f1366098802799aa12b7c60cd84bc47fc4d1fd30362b405daa61de  .forge/ast-grep/rule-tests/typescript-nextjs-proxy-exports-test.yml
 153ec749432cb54b30c8020cbe4d466b3746e39ee9be7af8129603cab6ca3232  .forge/ast-grep/rule-tests/typescript-nextjs-proxy-not-middleware-test.yml
+3f6cb83ac538aedcd6e4f6b1ec1265416e7dfe38de55cfb5bff74ea1de47e985  .forge/ast-grep/rule-tests/typescript-nextjs-react-client-env-public-only-test.yml
 7c405f311ed47f0b1f33bf3a179f600f612babccd820c3067b2305f98fc19db6  .forge/ast-grep/rule-tests/typescript-nextjs-react-client-hooks-test.yml
-d961ad163fef43f625286d82ef70180d240b753eb0b600073751e4f511d98c68  .forge/ast-grep/rule-tests/typescript-nextjs-react-no-server-in-client-test.yml
+2c155056d844c99271e02ab908994a49027a2628241b3c351b51a7dc7ca2466a  .forge/ast-grep/rule-tests/typescript-nextjs-react-no-server-in-client-test.yml
+97213cc4ef3cbc3954c74990c5a19a6da72bae700679c1609f74671780f8ced5  .forge/ast-grep/rule-tests/typescript-nextjs-react-no-ssr-false-in-server-test.yml
+e0a8154774d5bf60a49b8e36c6f8251b892fc3ec7ddf5586397aa1d60278faed  .forge/ast-grep/rule-tests/typescript-nextjs-react-server-functions-async-test.yml
 82a873549d13a28bd75fe0ec7f7c225c9a0480525e385aa5c9c3c96d15fc0e68  .forge/ast-grep/rule-tests/typescript-nextjs-revalidate-tag-profile-test.yml
+1f370bfc3fd9c12d5aba09e7b31d6c87b7f16e3bb7725eddc5e063d49f3086e8  .forge/ast-grep/rule-tests/typescript-nextjs-stable-cache-imports-test.yml
 c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20  .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
+bbc670db152b016114415e70ce66732241002af40e6c73f5887eb2d6ddc64cc2  .forge/ast-grep/rule-tests/typescript-no-html-sinks-test.yml
 b02e7e21f6bd597fe4b3d577b3a2cc6dfee9741674cc1cc99285e22ef90a2778  .forge/ast-grep/rule-tests/typescript-no-stub-test.yml
 fb2f02c2bcf9562ed49731349520cde2d48d2f3b3557d2174b5e2e856d6c8e48  .forge/ast-grep/rule-tests/typescript-no-swallowed-catch-test.yml
 c15f604d5317f942de32470aeaff16702116a64d283347c9a9825056b4dbe69e  .forge/ast-grep/rule-tests/typescript-no-ts-nocheck-test.yml
 c65ff86cee9c45671ae158cf4e8c59bbdeb8e2f14ea74c926964debe0a7d0e7e  .forge/ast-grep/rule-tests/typescript-playwright-locators-test.yml
 bb487493a7aa36a61f149d2d9b1fbe38895749290027dba745f51fdc011f054f  .forge/ast-grep/rule-tests/typescript-playwright-no-new-skip-test.yml
 6de739c52e05f5d443c247b3a60bc40bd15cc5cfce7f4cc80d428be001cf6c1a  .forge/ast-grep/rule-tests/typescript-playwright-no-wait-for-timeout-test.yml
+a3ee8df93d2883c22e235fcc3ff48e67b49c0ab99b1e1795c3bd92ba97697326  .forge/ast-grep/rule-tests/typescript-postmessage-origin-test.yml
 91fbbe5ce58f7acf72b9885cb48b5d0c6eb692b862834058404f1b58e6007f5a  .forge/ast-grep/rule-tests/typescript-prisma-generated-client-import-test.yml
 a0975e619303c2b7ebf6a13a1c424464c86b5f1c37fdf16667de00e241a56998  .forge/ast-grep/rule-tests/typescript-prisma-no-middleware-test.yml
 52d332f1fd4e10ae42f7a8fc56a7763dca2457c4e5e2a9f02bde5c49f260becd  .forge/ast-grep/rule-tests/typescript-prisma-no-network-in-transaction-test.yml
 011dd0c40d77e238e91f0d592ef3e39b4e17f822215fb2ab749c096f8661ccee  .forge/ast-grep/rule-tests/typescript-prisma-no-raw-unsafe-test.yml
+0c7b9c2da544dab41718f00b27900fab9d0d83c4e2e5a6b2af8daaa468749919  .forge/ast-grep/rule-tests/typescript-react-act-from-react-test.yml
 973df0a4b101d1b9d02787a5da612d991b2d66a6dda3727805aefed130706efe  .forge/ast-grep/rule-tests/typescript-react-no-prop-types-test.yml
 125b8c736e82d5ef59eaf57dd32da3df326b16bc81cd9534f9a7023aa5d54b35  .forge/ast-grep/rule-tests/typescript-react-use-action-state-test.yml
 7ae5fe613eff1c75cb68f1333b898ad82d6d4889c3cc4da6bb8e5962e825a1b1  .forge/ast-grep/rule-tests/typescript-ts-expect-error-reason-test.yml
@@ -22227,25 +23332,40 @@ b8a0548c0fe777d62794a8a101d54fcb110517e3f5657d0d338d6a0f5b75487a  .forge/ast-gre
 2ca24b5c409a8a142b0f81d7f9501cf3d41c426b2b6e7c037559da5179bb498f  .forge/ast-grep/rules/typescript/bun/no-fewer-expects.yml
 bf70d7263b8cc030ea6c1edd627f76c118417cf5a31dd2fd35cce6737e9ee0d4  .forge/ast-grep/rules/typescript/bun/no-mock-increase.yml
 33db9ec4783c392bf85ff2bc68f3ed8fcf877fe87da5ad541e31ea55253dc75a  .forge/ast-grep/rules/typescript/bun/no-new-skip.yml
+8928830709643092567b31b91195319d81aa76e6ee2a68aa17d86641724e7651  .forge/ast-grep/rules/typescript/nextjs/cookies-set-in-render.yml
+2052cd4fe2dfac1427f5fe4a7d642e978492ac40986c086b05013858d9a3a2d8  .forge/ast-grep/rules/typescript/nextjs/image-remote-patterns-strict.yml
+88be848e97c425f761fbe77866398508d6866771fff1db37e4efa1fc455d13ef  .forge/ast-grep/rules/typescript/nextjs/image-unsafe-options.yml
+e1855a57f83245857caa003db9b01a7a95d0c1d9cb584f9045f4890f63fe7a5f  .forge/ast-grep/rules/typescript/nextjs/no-ignore-build-errors.yml
 99d6745b72bc71e63a385b0c72edc6a1d5d2f0c2484b32a8edf403a052181538  .forge/ast-grep/rules/typescript/nextjs/no-legacy-image-config.yml
+332c5e3dadf080973e4e6f32831c402cbd7a294f907c86cab3866a71d24c222a  .forge/ast-grep/rules/typescript/nextjs/no-next-head-in-app.yml
 2447380f96c63cf72fcf39285fff2abe7f1edd49646a74ed5ad91fbb77a908e0  .forge/ast-grep/rules/typescript/nextjs/no-next-router.yml
 c189e6db00b706044708a2c5fc1e5fe8698213059fabf7d6d4f549eb57a759fb  .forge/ast-grep/rules/typescript/nextjs/no-pages-data.yml
 566919ce67b7c2e3ea9fcf448bf9e9aba51581c7d7717a0a97a720b0bed9a249  .forge/ast-grep/rules/typescript/nextjs/no-public-secret-env.yml
+3a0639655e30ebddcac1af7758cd65aca90b9fe82f527ff3b96617bf0bcaa918  .forge/ast-grep/rules/typescript/nextjs/no-redirect-in-try.yml
+e70f9c3a89e32a6f6a24392823a0ff90d99a85ce3b0bc467a37cfbad6344c0c1  .forge/ast-grep/rules/typescript/nextjs/no-request-apis-in-use-cache.yml
+06ec71d53d7542d8f9aefaadd959ca1be234b0435f31c89f952b2fc15edcd0d4  .forge/ast-grep/rules/typescript/nextjs/proxy-exports.yml
 29ce02d4f8748400d9a70259d51631bf7ef50cbdd4bccadd24d96695a289c7f8  .forge/ast-grep/rules/typescript/nextjs/proxy-not-middleware.yml
+2f857327ecb3a06c11c897a6fed6142ace35e55a6d2d56db96868f737cd4d3cd  .forge/ast-grep/rules/typescript/nextjs/react/client-env-public-only.yml
 45f618471917a7ea16b4f12797c8b23b764c14b48ac34e2296840c8af78bc0dd  .forge/ast-grep/rules/typescript/nextjs/react/client-hooks.yml
-bb96a57b3d86ff82cceefb7a13e7e17a3996071931386bd40fce989878f9e2de  .forge/ast-grep/rules/typescript/nextjs/react/no-server-in-client.yml
+a683017b3326720850fa3bf343deaf6fa31d0a7e32c84d05c0ca69bd603af823  .forge/ast-grep/rules/typescript/nextjs/react/no-server-in-client.yml
+16f0b55380ae003c25a0115d5620388e679e7a7276e3f55d8db85c4a0cdb7293  .forge/ast-grep/rules/typescript/nextjs/react/no-ssr-false-in-server.yml
+80d5d4f9503cbdc6fb5e7d0fe9ceb4f353311531cb585b3caf5854b31e558da0  .forge/ast-grep/rules/typescript/nextjs/react/server-functions-async.yml
 cacc0230a82fede425f3e83c4535f49229b9e831f40766fb416f7a2974fc14bd  .forge/ast-grep/rules/typescript/nextjs/revalidate-tag-profile.yml
+aaab342f103e5460d9d746d8b8e8da030ed070d4fe07de5f907ff0e3a69de56e  .forge/ast-grep/rules/typescript/nextjs/stable-cache-imports.yml
 c0b8c6e7a7a09608b63f8c9367afb4ac22fb1daa93c79c967373efdab597a48c  .forge/ast-grep/rules/typescript/no-double-assertion.yml
+f6f9eb49034a2a4a58de5cc8438b3b8346e64f96d288d9bea213b0c9343939bf  .forge/ast-grep/rules/typescript/no-html-sinks.yml
 b21497e3335f2271e6ca5874817957d18c640e7d787cfe76a72ef390ab62d634  .forge/ast-grep/rules/typescript/no-stub.yml
 4bd8569b39e21928852fafeaee02ce9d2ff35726699f91b3f50a6ebf57843bd6  .forge/ast-grep/rules/typescript/no-swallowed-catch.yml
 aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21  .forge/ast-grep/rules/typescript/no-ts-nocheck.yml
 c7c96b1437d5c6ac7bf04ec59e777e83def0d9451ef3b6cf238c881ff1909e29  .forge/ast-grep/rules/typescript/playwright/locators.yml
 2bc5836e747a7dc4b45593074ff04b30a7e89fd2e8c53dc274e37035885c7d5c  .forge/ast-grep/rules/typescript/playwright/no-new-skip.yml
 e4ed8b571875af6fbce7f92616b4772d90c847e5009403d57f76d46a7b55396d  .forge/ast-grep/rules/typescript/playwright/no-wait-for-timeout.yml
+7ca18b3797ab76739daa6d0d38cc6cb9b53821ff3dfc0025974c6316baa6c1dd  .forge/ast-grep/rules/typescript/postmessage-origin.yml
 7b8a093b0f51e5d6b8f8a132b1ef43888104b1f5985465fc4f0f5984762a79c2  .forge/ast-grep/rules/typescript/prisma/generated-client-import.yml
 98cf3096f74f6db07744f597904e3df903a8a886a095cfffa52b133bf3acc1c7  .forge/ast-grep/rules/typescript/prisma/no-middleware.yml
 4867b2d6d4fcc67ecf3f85d3a7433a27be0204c9a33d17c690d1dd52708d3c35  .forge/ast-grep/rules/typescript/prisma/no-network-in-transaction.yml
 304ac41eb0a4b7025ca081e4a03cb746cdd15b5512a0bac217ad9a89017b3e00  .forge/ast-grep/rules/typescript/prisma/no-raw-unsafe.yml
+85cee59cd2c3bc3e4774bbf75655ad5f2c3efa05005c426d17c3cc39dbe9e2ef  .forge/ast-grep/rules/typescript/react/act-from-react.yml
 9626068d2f677a351b7722fbddc5a74e87c539b4c3e46a55d75cfaf717542c62  .forge/ast-grep/rules/typescript/react/no-prop-types.yml
 17b6fc5e510df3154be12c72a584d8bfb31034b577774718a8c50516b2b15a81  .forge/ast-grep/rules/typescript/react/use-action-state.yml
 b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad  .forge/ast-grep/rules/typescript/ts-expect-error-reason.yml
@@ -22257,7 +23377,7 @@ d3c41a3915d84b21e86e9212a06ad14c52bf2f9bcefb7c5ca433200cc3ec44fb  .forge/ast-gre
 88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a  .forge/ast-grep/rules/typescript/zod/error-param.yml
 1f4b2e54f9767673c6469da4a1d7f0d9dc1d8f39b657460bab8096b8c35a0a45  .forge/ast-grep/rules/typescript/zod/v4-string-formats.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-dfb378c45eec785d33e61f6a5bdf7d2e9f8d97c5f71f8fbc0200dcb98e0ccb2e  .forge/check.sh
+9da71d6e784d6aa25b33b8f9cbdb060aa90bba6099917b188cc8958027e3e0c8  .forge/check.sh
 14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38  .forge/helpers/ratchet.mjs
 16ca7738e134f4b4de59289b647f4d5d2845af42236680028ba0a95790fdb29e  .forge/helpers/types_typescript.mjs
 

@@ -1,0 +1,8 @@
+id: typescript/angular/control-flow
+description: "Templates use built-in control flow (@if, @for (...; track ...), @switch), not the deprecated *ngIf, *ngFor, [ngSwitch], *ngSwitchCase or *ngSwitchDefault. ng generate @angular/core:control-flow migrates them."
+scope: {language: any, files: ["**/*.html", "**/*.ts"]}
+enforce:
+  - {target: grep, mode: forbid, pattern: "\\*ng(If|For|SwitchCase|SwitchDefault)[[:space:]]*=|\\[ngSwitch\\][[:space:]]*="}
+examples:
+  match: ["<div *ngIf=\"user\">{{ user.name }}</div>\n", "@Component({ selector: \"app-list\", template: `<li *ngFor=\"let i of items\">{{ i }}</li>` })\nexport class List {}\n", "<div [ngSwitch]=\"k\"><p *ngSwitchCase=\"'a'\">a</p></div>\n"]
+  no_match: ["@if (user) {\n  <div>{{ user.name }}</div>\n}\n@for (i of items; track i.id) {\n  <li>{{ i }}</li>\n}\n", "<p>Replace ngIf with @if.</p>\n"]

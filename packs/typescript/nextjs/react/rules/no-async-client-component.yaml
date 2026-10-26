@@ -1,0 +1,13 @@
+id: typescript/nextjs/react/no-async-client-component
+description: No async component in a 'use client' file; Client Components cannot be async. Fetch in a Server Component, or use a hook.
+scope: {language: "tsx"}
+enforce:
+  - target: tool
+    tool: biome
+    expects: "lint/correctness/noNextAsyncClientComponent"
+    snippet: "\"linter\": {\"rules\": {\"correctness\": {\"noNextAsyncClientComponent\": \"error\"}}}"
+examples:
+  match:
+    - "\"use client\";\n\nexport default async function Profile({ id }: { id: string }) {\n  const r = await fetch(`/api/u/${id}`);\n  return <p>{r.status}</p>;\n}\n"
+  no_match:
+    - "export default async function Profile({ id }: { id: string }) {\n  const r = await fetch(`/api/u/${id}`);\n  return <p>{r.status}</p>;\n}\n"

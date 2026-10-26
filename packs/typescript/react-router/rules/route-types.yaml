@@ -1,0 +1,13 @@
+id: typescript/react-router/route-types
+description: "Route modules type their exports with the generated Route types (Route.LoaderArgs, Route.ActionArgs, Route.MetaArgs, ... from ./+types/<route>), not the generic LoaderFunctionArgs, ActionFunctionArgs, MetaFunction or LinksFunction, which lose the route's params and loader data."
+scope: {language: typescript, files: ["app/routes/**", "app/root.tsx"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: import_specifier
+      has: {field: name, regex: "^(LoaderFunctionArgs|ActionFunctionArgs|ClientLoaderFunctionArgs|ClientActionFunctionArgs|MetaFunction|LinksFunction|HeadersFunction)$"}
+      inside: {kind: import_statement, stopBy: end, has: {field: source, regex: "^[\"'](react-router|@remix-run/[a-z-]+)[\"']$"}}
+examples:
+  match: ["import type { LoaderFunctionArgs } from \"react-router\";\n\nexport async function loader({ params }: LoaderFunctionArgs) {\n  return params;\n}\n", "import type { MetaFunction } from \"@remix-run/node\";\n\nexport const meta: MetaFunction = () => [{ title: \"Home\" }];\n"]
+  no_match: ["import type { Route } from \"./+types/home\";\n\nexport async function loader({ params }: Route.LoaderArgs) {\n  return params;\n}\n", "import { Link, data } from \"react-router\";\n\nexport const links = [Link, data];\n"]

@@ -614,6 +614,9 @@ context.md: uv and `.venv/bin`, ty, annotated parameters and returns; no blockin
 | `typescript/config-ratchet` | `check` lint: `forge_ratchet bun ratchet.mjs` (§10.4), `when_changed`: Biome, tsconfig and `package.json` files |
 | `typescript/lockfile-updated` | `check` lint: `forge_lockfile_updated`: a `package.json` whose `dependencies`, `devDependencies` or `optionalDependencies` changed since the base needs its lock file (`pnpm-lock.yaml`, `package-lock.json`, `npm-shrinkwrap.json`, `yarn.lock`, `bun.lock`; next to it, else at the root) to have a changed line naming each changed dependency; `bun.lock` is skipped when `typescript/bun/lock-sync` is active (`forge_check_active`); blocks once per turn (`forge_once`) |
 | `typescript/env-example` | `check` lint: `forge_env_example ts`, as `python/env-example` for the UPPER_CASE keys of a Zod env schema (t3-env `createEnv`, or `z.object(…)` with `process.env`) whose value is a `z.` chain; a key with `.default()`, `.optional()` or `.catch()` counts as having a default |
+| `typescript/no-html-sinks` | `ast-grep` forbid, `where` the receiver is `typescript` `Element`, `Document`, `Range` or `ShadowRoot` (lib.dom): `innerHTML` / `outerHTML` assigned anything but a string or a template without substitutions; `insertAdjacentHTML`, `write`, `writeln`, `createContextualFragment`, `setHTMLUnsafe` whose last argument is not one |
+| `typescript/postmessage-origin` | `ast-grep` forbid, `where` the receiver is `typescript` `Window`: `postMessage(…)` with a `"*"` argument or `{targetOrigin: "*"}` |
+| `typescript/iframe-sandbox` | `tool` biome `lint/nursery/noUnsafeIframeSandbox` (tsx): no `sandbox` with both `allow-scripts` and `allow-same-origin` |
 
 context.md: strict TypeScript and Bun; TypeScript 6 deprecations are migrated, never silenced with `ignoreDeprecations`; no `!` or `as unknown as`; search for an existing helper (warn-once, logging, `util.*`) before writing one.
 
@@ -775,17 +778,32 @@ context.md: `bun:test` tests run with `bun test`, what the integrity rules rejec
 | `typescript/nextjs/revalidate-tag-profile` | `ast-grep` forbid: `revalidateTag($A)` with one argument |
 | `typescript/nextjs/no-legacy-image-config` | `ast-grep` forbid: imports of `next/legacy/image`; a `domains` key inside `images` |
 | `typescript/nextjs/no-public-secret-env` | `ast-grep` forbid: `process.env.NEXT_PUBLIC_*` names containing `SECRET`, `PRIVATE`, `PASSWORD`, `SERVICE_ROLE` or `DATABASE_URL` |
+| `typescript/nextjs/proxy-exports` | `ast-grep` forbid in `proxy.ts` / `src/proxy.ts`: a named export `middleware` (declared, or `export { x as middleware }`), an exported `runtime` |
+| `typescript/nextjs/no-ignore-build-errors` | `ast-grep` forbid in `next.config.*`: `ignoreBuildErrors: true` under `typescript` |
+| `typescript/nextjs/no-request-apis-in-use-cache` | `ast-grep` forbid, in a file importing `next/headers`: `cookies()`, `headers()`, `draftMode()` inside a function or file whose first statement is `'use cache'` (or `'use cache: <profile>'`) |
+| `typescript/nextjs/no-redirect-in-try` | `ast-grep` forbid, in a file importing `next/navigation`: `redirect`, `permanentRedirect`, `notFound`, `forbidden`, `unauthorized` called in a `try` block (same function) whose `catch` does not call `unstable_rethrow(…)` |
+| `typescript/nextjs/stable-cache-imports` | `ast-grep` forbid: `unstable_cacheLife`, `unstable_cacheTag` imported from `next/cache` |
+| `typescript/nextjs/no-next-head-in-app` | `ast-grep` forbid in `app/**`, `src/app/**`: imports of `next/head`, `next/document` |
+| `typescript/nextjs/image-remote-patterns-strict` | `ast-grep` forbid in `next.config.*`: `hostname: "*"` or `"**"` (or `*.*`, …) under `remotePatterns` |
+| `typescript/nextjs/image-unsafe-options` | `ast-grep` forbid in `next.config.*`, under `images`: `dangerouslyAllowSVG: true` without a sibling `contentSecurityPolicy`; `dangerouslyAllowLocalIP: true` |
+| `typescript/nextjs/no-sync-scripts` | `tool` biome `lint/performance/noSyncScripts` (tsx) |
+| `typescript/nextjs/parallel-route-default` | `check` lint, scope `app/**`, `src/app/**`: every `@*` directory under `app/` or `src/app/` has a `default.tsx`, `.ts`, `.jsx` or `.js` |
+| `typescript/nextjs/cookies-set-in-render` | `ast-grep` forbid in `page.*`, `layout.*`, `template.*`, `default.*` under `app/**`, `src/app/**`, in a file importing `next/headers` and not starting with `'use server'`: `.set(…)` / `.delete(…)` on `(await cookies())` or on a name bound to `await cookies()` in the same block, outside a function whose first statement is `'use server'` |
 
-context.md: Next.js 16 App Router: async request APIs, Server Components by default, `proxy.ts`, `revalidateTag(tag, profile)` / `updateTag(tag)`, `images.remotePatterns`, no `next lint`, Server Actions and route handlers are public endpoints (guidance only: validating input and checking the caller cannot be decided from syntax, so no rule checks it), no secrets in `NEXT_PUBLIC_`.
+context.md: Next.js 16 App Router: async request APIs, Server Components by default, `proxy.ts`, `revalidateTag(tag, profile)` / `updateTag(tag)`, `images.remotePatterns` without wildcard hosts, no `next lint`, Server Actions and route handlers are public endpoints (guidance only: validating input and checking the caller cannot be decided from syntax, so no rule checks it), no secrets in `NEXT_PUBLIC_`, no request APIs in `'use cache'`, no `redirect()` swallowed by a `try`, no `ignoreBuildErrors`, a `default.tsx` per `@slot`, the Metadata API.
 
 ### typescript/nextjs/react
 
 | Rule | Targets |
 |---|---|
 | `typescript/nextjs/react/client-hooks` | `ast-grep` forbid in `app/**`, `src/app/**`: client-only hooks (`useState`, `useEffect`, `useRef`, `useContext`, …) in a file without `'use client'`, except inside a custom hook (a function named `use…`) |
-| `typescript/nextjs/react/no-server-in-client` | `ast-grep` forbid in `app/**`, `src/app/**`, `components/**`, `src/components/**` (tsx): a file starting with `'use client'` that imports `server-only`, `node:*`, `fs`, `child_process`, `@prisma/client`, `@prisma/adapter-*` or a `generated/prisma` path |
+| `typescript/nextjs/react/no-server-in-client` | `ast-grep` forbid in `app/**`, `src/app/**`, `components/**`, `src/components/**` (tsx): a file starting with `'use client'` that imports `server-only`, `node:*`, `fs`, `child_process`, `next/headers`, `next/root-params`, `@prisma/client`, `@prisma/adapter-*` or a `generated/prisma` path |
+| `typescript/nextjs/react/client-env-public-only` | `ast-grep` forbid in a file starting with `'use client'`: `process.env.X` other than `NEXT_PUBLIC_*` and `NODE_ENV` |
+| `typescript/nextjs/react/no-ssr-false-in-server` | `ast-grep` forbid in `app/**`, `src/app/**`, in a file importing `next/dynamic` and not starting with `'use client'`: `ssr: false` in the arguments of `dynamic(…)` |
+| `typescript/nextjs/react/no-async-client-component` | `tool` biome `lint/correctness/noNextAsyncClientComponent` (tsx) |
+| `typescript/nextjs/react/server-functions-async` | `ast-grep` forbid in a file starting with `'use server'`: an export (named or default) of a non-async function or arrow, a class, or a literal, object, array or `new` value; a call or a name is not judged (it may return an async function) |
 
-context.md: "React 19 in the App Router: components are Server Components unless their file starts with `'use client'`. State, effects, context, refs and event handlers need a Client Component; keep `'use client'` at the leaves. Server Actions are async functions marked `'use server'`."
+context.md: "React 19 in the App Router: components are Server Components unless their file starts with `'use client'`. State, effects, context, refs and event handlers need a Client Component; keep `'use client'` at the leaves. Server Actions are async functions marked `'use server'`. A `'use client'` file reads only `NEXT_PUBLIC_*` and `NODE_ENV` from `process.env` and exports no async component; a `'use server'` file exports only async functions."
 
 ### typescript/react
 
@@ -799,11 +817,15 @@ Detected by `react >= 19` (npm); a sibling of `nextjs` and `astro`, so it applie
 | `typescript/react/no-dangerous-html` | `tool` biome `lint/security/noDangerouslySetInnerHtml`; `ast-grep` forbid the `dangerouslySetInnerHTML` attribute |
 | `typescript/react/hooks-rules` | `tool` biome `lint/correctness/useHookAtTopLevel`, `lint/correctness/useExhaustiveDependencies` |
 | `typescript/react/stable-keys` | `tool` biome `lint/suspicious/noArrayIndexKey` |
-| `typescript/react/no-nested-components` | `tool` biome `lint/correctness/noNestedComponentDefinitions` |
+| `typescript/react/no-nested-components` | `tool` biome `lint/correctness/noNestedComponentDefinitions`, `lint/nursery/noComponentHookFactories` (a function that defines and returns a component or hook) |
 | `typescript/react/a11y` | `tool` biome `lint/a11y/useAltText`, `lint/a11y/useButtonType` (snippet: the whole `a11y` group at error) |
 | `typescript/react/no-deprecated-types` | `tool` biome `lint/suspicious/noDeprecatedImports`, on imports React's types mark `@deprecated` (`ElementRef`, `MutableRefObject`, `LegacyRef`); Biome reads the tags from real `node_modules` directories only (not pnpm's symlinks) |
+| `typescript/react/compiler-rules` | `tool` biome `lint/nursery/useReactCompiler` (snippet: error, `compilationMode: infer`): no synchronous `setState` in an effect, no ref read or written while rendering, no impure call while rendering |
+| `typescript/react/no-prop-assign` | `tool` biome `lint/correctness/noReactPropAssignments` |
+| `typescript/react/stable-default-props` | `tool` biome `lint/nursery/noReactObjectTypeAsDefaultProp`: no object, array or function literal as a destructured prop's default |
+| `typescript/react/act-from-react` | `ast-grep` forbid: imports from `react-dom/test-utils` |
 
-context.md: React 19: `ref` is a prop (no `forwardRef`), `useActionState` and `act` from `react`, no `propTypes` / `defaultProps`, `createRoot` instead of `ReactDOM.render`.
+context.md: React 19: `ref` is a prop (no `forwardRef`), `useActionState` and `act` from `react`, no `propTypes` / `defaultProps` (object defaults hoisted), `createRoot` instead of `ReactDOM.render`, React Compiler's checks, props never assigned to.
 
 ### typescript/astro
 
@@ -927,9 +949,23 @@ context.md: `zValidator` / `validator()` middleware and `c.req.valid()`; which r
 
 Detected by `@react-router/dev >= 7` (framework mode).
 
-No rules: whether an action validates its input and checks the caller cannot be decided from syntax (rules that guessed it from helper names were removed).
+| Rule | Targets |
+|---|---|
+| `typescript/react-router/route-types` | `ast-grep` advise in `app/routes/**`, `app/root.tsx`: `LoaderFunctionArgs`, `ActionFunctionArgs`, `ClientLoaderFunctionArgs`, `ClientActionFunctionArgs`, `MetaFunction`, `LinksFunction`, `HeadersFunction` imported from `react-router` or `@remix-run/*` (the generated `Route.*` types instead) |
+
+Whether an action validates its input and checks the caller cannot be decided from syntax (rules that guessed it from helper names were removed).
 
 context.md: route module `loader` / `action` with `Route.*Args` types; actions are public endpoints (guidance, not checked); `data()` and `redirect()`.
+
+### typescript/tanstack-router
+
+Detected by `@tanstack/react-router` or `@tanstack/solid-router` (npm).
+
+| Rule | Targets |
+|---|---|
+| `typescript/tanstack-router/no-generated-edits` | `permission` deny: `Edit(**/routeTree.gen.ts)` (the default `generatedRouteTree`) |
+
+context.md: `routeTree.gen.ts` is generated from the routes directory and never edited by hand.
 
 ### typescript/vue
 
@@ -940,8 +976,9 @@ Detected by `vue >= 3`. ESLint (`eslint-plugin-vue`) is not audited: `tool` targ
 | `typescript/vue/typecheck` | `check` typecheck: `forge_exec_tool vue-tsc --noEmit` (`--build` when `tsconfig.json` has `references`); skipped while a Nuxt `tsconfig.json` points at a missing `.nuxt/`. A tool whose name has a `-` gets no wrapper function (not a POSIX function name) and is run as `forge_exec_tool <name>` |
 | `typescript/vue/v-for-key` | `check` lint: `forge_vue_vfor_keys`: in `.vue` templates (comments, `<script>`, `<style>` skipped; quotes respected), an element other than `<template>` with `v-for` and no `:key` / `v-bind:key`, reported at the `v-for` line |
 | `typescript/vue/no-v-html` | `grep` forbid in `**/*.vue`: `v-html=`, `:innerHTML=`, `v-bind:innerHTML=` |
+| `typescript/vue/no-vue2-template-syntax` | `grep` forbid in `**/*.vue`: `:x.sync=` / `v-bind:x.sync=`, `slot-scope=`, a `.native` modifier on `@x` / `v-on:x`, `@keyup.<digits>` (and `keydown`, `keypress`) |
 
-context.md: `<script setup lang="ts">`, `vue-tsc` for `.vue` types, `:key` with `v-for`, no `v-html`, eslint-plugin-vue not run by Forge.
+context.md: `<script setup lang="ts">`, `vue-tsc` for `.vue` types, `:key` with `v-for`, no `v-html`, no Vue 2 template syntax, eslint-plugin-vue not run by Forge.
 
 ### typescript/vue/nuxt
 
@@ -949,8 +986,69 @@ context.md: `<script setup lang="ts">`, `vue-tsc` for `.vue` types, `:key` with 
 |---|---|
 | `typescript/vue/nuxt/server-validate` | `ast-grep` forbid in `server/**`: `readBody(…)`, `readFormData(…)`, `readMultipartFormData(…)`, `getQuery(…)`, `getRouterParams(…)`, `getRouterParam(…)` (h3's `readValidatedBody`, `getValidatedQuery`, `getValidatedRouterParams` instead), unless the call (or its `await`) is passed straight to `X.parse` / `safeParse` / `parseAsync` / `safeParseAsync` (not on `JSON`, `Date`, `Number`, `URL`) |
 | `typescript/vue/nuxt/no-public-secret` | `ast-grep` forbid in `nuxt.config.*`: a key under `runtimeConfig.public` whose name contains `secret`, `private`, `password` / `passwd`, `credential`, `token`, `api_key` / `apiKey`, `access_key`, `auth_key`, `service_role`, `dsn` or `database_url` (case-insensitive), unless it also says `publishable`, `public`, `anon` or `site_key` |
+| `typescript/vue/nuxt/no-process-flags` | `grep` forbid in `**/*.vue`: `process.client`, `process.server`, `process.browser`, `process.dev` (`.ts` files: Nuxt marks them `@deprecated`) |
+| `typescript/vue/nuxt/no-shared-module-state` | `ast-grep` forbid in `composables/**`, `app/composables/**`, `utils/**`, `app/utils/**`: `ref(…)`, `reactive(…)`, `shallowRef(…)`, `shallowReactive(…)` as the value of a top-level (or exported) `const` / `let` |
 
-context.md: validated h3 readers in server routes; `runtimeConfig.public` reaches the browser; `vue-tsc` after `nuxt prepare`.
+context.md: validated h3 readers in server routes; `runtimeConfig.public` reaches the browser; `vue-tsc` after `nuxt prepare`; `import.meta.client` in `.vue` files; no module-level reactive state in composables.
+
+### typescript/vue/pinia
+
+| Rule | Targets |
+|---|---|
+| `typescript/vue/pinia/store-to-refs` | `ast-grep` advise, `where` the called function is `pinia` `StoreDefinition`: `const { … } = useStore()` (destructure `storeToRefs(useStore())` instead) |
+
+context.md: state and getters are destructured through `storeToRefs()`.
+
+### typescript/svelte
+
+Detected by `svelte >= 5`. Biome's Svelte rules need its HTML support, so the `.svelte` rules are `grep` targets.
+
+| Rule | Targets |
+|---|---|
+| `typescript/svelte/runes-only` | `grep` forbid in `**/*.svelte`: `export let`, `$:` statements, `on:<event>` directives, `<slot`, `$$slots` / `$$props` / `$$restProps`, `createEventDispatcher`, `beforeUpdate` / `afterUpdate`, imports of `svelte/legacy` (in `.ts` files the deprecated APIs are `@deprecated` in Svelte's types) |
+| `typescript/svelte/no-at-html` | `grep` forbid in `**/*.svelte`: `{@html ` |
+
+context.md: Svelte 5 runes, event attributes and snippets; legacy syntax and `{@html}` are rejected.
+
+### typescript/svelte/kit
+
+| Rule | Targets |
+|---|---|
+| `typescript/svelte/kit/no-csrf-off` | `ast-grep` forbid in `svelte.config.*`, under `csrf`: `checkOrigin: false`, a `"*"` in `trustedOrigins` |
+
+### typescript/angular
+
+Detected by `@angular/core >= 20`.
+
+| Rule | Targets |
+|---|---|
+| `typescript/angular/control-flow` | `grep` forbid in `**/*.html`, `**/*.ts` (inline templates): `*ngIf=`, `*ngFor=`, `*ngSwitchCase=`, `*ngSwitchDefault=`, `[ngSwitch]=` |
+| `typescript/angular/no-bypass-sanitizer` | `ast-grep` forbid, `where` the receiver is `@angular/platform-browser` `DomSanitizer`: `bypassSecurityTrustHtml`, `…Script`, `…Style`, `…Url`, `…ResourceUrl` calls |
+
+context.md: built-in control flow instead of `*ngIf` / `*ngFor` / `[ngSwitch]`; no `bypassSecurityTrust*`.
+
+### typescript/solid
+
+Detected by `solid-js` (npm).
+
+| Rule | Targets |
+|---|---|
+| `typescript/solid/no-destructured-props` | `tool` biome `lint/correctness/noSolidDestructuredProps` (tsx) |
+| `typescript/solid/for-component` | `tool` biome `lint/performance/useSolidForComponent` (tsx) |
+
+context.md: props read as `props.x` or through `splitProps`, lists with `<For>`.
+
+### typescript/tailwind
+
+Detected by `tailwindcss >= 4`.
+
+| Rule | Targets |
+|---|---|
+| `typescript/tailwind/no-removed-utilities` | `grep` forbid in `**/*.{tsx,jsx,vue,svelte,astro,html,css}`: `bg-`, `text-`, `border-`, `divide-`, `ring-`, `placeholder-opacity-<n>`, `flex-shrink(-<n>)`, `flex-grow(-<n>)`, `overflow-ellipsis`, `decoration-slice`, `decoration-clone` as a whole class (not a CSS property: `flex-grow:`) |
+| `typescript/tailwind/config-referenced` | `check` lint, `when_changed`: `tailwind.config.*`, `**/*.css`: a root `tailwind.config.{js,ts,mjs,cjs}` needs a line starting with `@config` in a CSS file (tracked or untracked, not ignored) |
+| `typescript/tailwind/apply-reference` | `check` lint on `.vue`, `.svelte`, `.astro` and `*.module.css` files: one with `@apply` has `@reference` or `@import "tailwindcss"`; each `@apply` line is reported (`path:line`, so only added lines count) |
+
+context.md: CSS-first configuration, `@config` for a JS config, the removed utilities and their replacements, `@reference` with `@apply` in component styles.
 
 ### typescript/openapi
 

@@ -1,0 +1,31 @@
+id: typescript/nextjs/no-request-apis-in-use-cache
+description: "cookies(), headers() and draftMode() from next/headers are not called inside a 'use cache' function or file (an error at run time); read them outside and pass the values in."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      has: {field: function, regex: "^(cookies|headers|draftMode)$"}
+      all:
+        - inside:
+            kind: program
+            stopBy: end
+            has: {kind: import_statement, has: {field: source, regex: "^[\"']next/headers[\"']$"}}
+        - any:
+            - inside:
+                stopBy: end
+                kind: statement_block
+                has: {kind: expression_statement, nthChild: 1, regex: "^[\"']use cache(: [a-z-]+)?[\"'];?$"}
+            - inside:
+                kind: program
+                stopBy: end
+                has: {kind: expression_statement, nthChild: 1, regex: "^[\"']use cache(: [a-z-]+)?[\"'];?$"}
+examples:
+  match:
+    - "import { cookies } from \"next/headers\";\n\nexport async function getCart() {\n  \"use cache\";\n  const c = await cookies();\n  return c.get(\"cart\")?.value;\n}\n"
+    - "\"use cache\";\nimport { headers } from \"next/headers\";\n\nexport default async function Page() {\n  const h = await headers();\n  return h.get(\"x\");\n}\n"
+    - "import { cookies } from \"next/headers\";\n\nexport async function getCart() {\n  'use cache: private';\n  return (await cookies()).get(\"cart\");\n}\n"
+  no_match:
+    - "import { cookies } from \"next/headers\";\n\nasync function cached(id: string) {\n  \"use cache\";\n  return fetch(`/c/${id}`);\n}\nexport async function getCart() {\n  const id = (await cookies()).get(\"cart\")?.value ?? \"\";\n  return cached(id);\n}\n"
+    - "import { cookies } from \"./session\";\n\nexport async function getCart() {\n  \"use cache\";\n  return cookies();\n}\n"

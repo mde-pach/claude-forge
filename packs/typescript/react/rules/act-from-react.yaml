@@ -1,0 +1,10 @@
+id: typescript/react/act-from-react
+description: act comes from react, not react-dom/test-utils (deprecated in React 19).
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule: {kind: import_statement, has: {field: source, regex: "^[\"']react-dom/test-utils[\"']$"}}
+examples:
+  match: ["import { act } from \"react-dom/test-utils\";", "import * as TestUtils from 'react-dom/test-utils';"]
+  no_match: ["import { act } from \"react\";", "import { render } from \"@testing-library/react\";", "import { flushSync } from \"react-dom\";"]
