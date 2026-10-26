@@ -955,8 +955,9 @@ Detected by `vue >= 3`. ESLint (`eslint-plugin-vue`) is not audited: `tool` targ
 | `typescript/vue/typecheck` | `check` typecheck: `forge_exec_tool vue-tsc --noEmit` (`--build` when `tsconfig.json` has `references`); skipped while a Nuxt `tsconfig.json` points at a missing `.nuxt/`. A tool whose name has a `-` gets no wrapper function (not a POSIX function name) and is run as `forge_exec_tool <name>` |
 | `typescript/vue/v-for-key` | `check` lint: `forge_vue_vfor_keys`: in `.vue` templates (comments, `<script>`, `<style>` skipped; quotes respected), an element other than `<template>` with `v-for` and no `:key` / `v-bind:key`, reported at the `v-for` line |
 | `typescript/vue/no-v-html` | `grep` forbid in `**/*.vue`: `v-html=`, `:innerHTML=`, `v-bind:innerHTML=` |
+| `typescript/vue/no-vue2-template-syntax` | `grep` forbid in `**/*.vue`: `:x.sync=` / `v-bind:x.sync=`, `slot-scope=`, a `.native` modifier on `@x` / `v-on:x`, `@keyup.<digits>` (and `keydown`, `keypress`) |
 
-context.md: `<script setup lang="ts">`, `vue-tsc` for `.vue` types, `:key` with `v-for`, no `v-html`, eslint-plugin-vue not run by Forge.
+context.md: `<script setup lang="ts">`, `vue-tsc` for `.vue` types, `:key` with `v-for`, no `v-html`, no Vue 2 template syntax, eslint-plugin-vue not run by Forge.
 
 ### typescript/vue/nuxt
 
@@ -964,8 +965,18 @@ context.md: `<script setup lang="ts">`, `vue-tsc` for `.vue` types, `:key` with 
 |---|---|
 | `typescript/vue/nuxt/server-validate` | `ast-grep` forbid in `server/**`: `readBody(…)`, `readFormData(…)`, `readMultipartFormData(…)`, `getQuery(…)`, `getRouterParams(…)`, `getRouterParam(…)` (h3's `readValidatedBody`, `getValidatedQuery`, `getValidatedRouterParams` instead), unless the call (or its `await`) is passed straight to `X.parse` / `safeParse` / `parseAsync` / `safeParseAsync` (not on `JSON`, `Date`, `Number`, `URL`) |
 | `typescript/vue/nuxt/no-public-secret` | `ast-grep` forbid in `nuxt.config.*`: a key under `runtimeConfig.public` whose name contains `secret`, `private`, `password` / `passwd`, `credential`, `token`, `api_key` / `apiKey`, `access_key`, `auth_key`, `service_role`, `dsn` or `database_url` (case-insensitive), unless it also says `publishable`, `public`, `anon` or `site_key` |
+| `typescript/vue/nuxt/no-process-flags` | `grep` forbid in `**/*.vue`: `process.client`, `process.server`, `process.browser`, `process.dev` (`.ts` files: Nuxt marks them `@deprecated`) |
+| `typescript/vue/nuxt/no-shared-module-state` | `ast-grep` forbid in `composables/**`, `app/composables/**`, `utils/**`, `app/utils/**`: `ref(…)`, `reactive(…)`, `shallowRef(…)`, `shallowReactive(…)` as the value of a top-level (or exported) `const` / `let` |
 
-context.md: validated h3 readers in server routes; `runtimeConfig.public` reaches the browser; `vue-tsc` after `nuxt prepare`.
+context.md: validated h3 readers in server routes; `runtimeConfig.public` reaches the browser; `vue-tsc` after `nuxt prepare`; `import.meta.client` in `.vue` files; no module-level reactive state in composables.
+
+### typescript/vue/pinia
+
+| Rule | Targets |
+|---|---|
+| `typescript/vue/pinia/store-to-refs` | `ast-grep` advise, `where` the called function is `pinia` `StoreDefinition`: `const { … } = useStore()` (destructure `storeToRefs(useStore())` instead) |
+
+context.md: state and getters are destructured through `storeToRefs()`.
 
 ### typescript/openapi
 
