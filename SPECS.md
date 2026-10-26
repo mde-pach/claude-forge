@@ -765,6 +765,18 @@ Detected by the `@types/node` dependency.
 
 context.md: TypeScript runs with `node file.ts` or `tsx`, not `ts-node`; `node:vm` is not a security boundary.
 
+### typescript/eslint
+
+Detected by an `eslint.config.*` file or the `eslint` dependency at 9 or later.
+
+| Rule | Targets |
+|---|---|
+| `typescript/eslint/flat-config-only` | `check` lint: no `.eslintrc`, `.eslintrc.*` or `.eslintignore` file (tracked or untracked, not ignored); `when_changed`: those names |
+| `typescript/eslint/no-eslint-env` | `grep` forbid: `/* eslint-env` comments |
+| `typescript/eslint/ts-version` | `check` lint (with `bun`): the `typescript` that `@typescript-eslint/typescript-estree` resolves (directly, or through `typescript-eslint` / `@typescript-eslint/parser`) exports `createProgram`; TypeScript 7 has no compiler API, typescript-eslint supports `<6.1.0`; `when_changed`: `package.json` files and lock files |
+
+context.md: flat config only (ignores and globals in `eslint.config.*`); typescript-eslint needs TypeScript 6 or older.
+
 ### typescript/nextjs
 
 | Rule | Targets |

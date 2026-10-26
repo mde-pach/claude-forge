@@ -1,0 +1,16 @@
+id: typescript/eslint/flat-config-only
+description: No .eslintrc* or .eslintignore files; ESLint 9 reads only eslint.config.*, so they configure nothing (move ignores to the config's ignores).
+scope: {language: any}
+enforce:
+  - target: check
+    stage: lint
+    run: |
+      _el=$(git ls-files -co --exclude-standard -- '.eslintrc' '.eslintrc.*' '*/.eslintrc' '*/.eslintrc.*' '.eslintignore' '*/.eslintignore')
+      [ -z "$_el" ] || { printf '%s: legacy ESLint config; ESLint 9 reads only eslint.config.* (ignores go in its ignores): move what it sets there and delete it\n' $_el; false; }
+    when_changed: [".eslintrc", ".eslintrc.*", "**/.eslintrc", "**/.eslintrc.*", ".eslintignore", "**/.eslintignore"]
+examples:
+  match:
+    - files: {.eslintrc.json: "{\"extends\": [\"eslint:recommended\"]}\n"}
+    - files: {packages/web/.eslintignore: "dist\n"}
+  no_match:
+    - files: {eslint.config.js: "export default [{ ignores: [\"dist\"] }];\n"}
