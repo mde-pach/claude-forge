@@ -1,0 +1,13 @@
+id: typescript/solid/for-component
+description: "Lists in JSX render with <For each={...}>, not .map(): .map() recreates every node when the array changes."
+scope: {language: "tsx"}
+enforce:
+  - target: tool
+    tool: biome
+    expects: "lint/performance/useSolidForComponent"
+    snippet: "\"linter\": {\"rules\": {\"performance\": {\"useSolidForComponent\": \"error\"}}}"
+examples:
+  match:
+    - "export function List(props: { items: string[] }) {\n  return <ul>{props.items.map((i) => <li>{i}</li>)}</ul>;\n}\n"
+  no_match:
+    - "import { For } from \"solid-js\";\n\nexport function List(props: { items: string[] }) {\n  const upper = () => props.items.map((i) => i.toUpperCase());\n  return <ul><For each={props.items}>{(i) => <li>{i}</li>}</For><span>{upper().length}</span></ul>;\n}\n"
