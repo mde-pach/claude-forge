@@ -608,9 +608,14 @@ context.md: strict TypeScript and Bun; TypeScript 6 deprecations are migrated, n
 
 | Rule | Targets |
 |---|---|
-| `python/fastapi/no-on-event` | `ast-grep` forbid: `@app.on_event($$$)` |
+| `python/fastapi/no-on-event` | `ast-grep` forbid: a call typed `fastapi` `FastAPI` / `APIRouter` (§15.1) with `on_startup=` or `on_shutdown=`; `@app.on_event` is deprecated and reported by `python/no-deprecated` |
 | `python/fastapi/annotated-depends` | `tool` ruff `FAST002` |
 | `python/fastapi/cors-credentials-wildcard` | `ast-grep` forbid: `add_middleware(CORSMiddleware, …)` with both `allow_origins=["*"]` and `allow_credentials=True` |
+| `python/fastapi/unused-path-param` | `tool` ruff `FAST003` |
+| `python/fastapi/no-debug-true` | `ast-grep` forbid, not in tests: a call typed `starlette` `Starlette` (`FastAPI` included) with `debug=True` |
+| `python/fastapi/no-raw-request-body` | `ast-grep` advise: `await $REQ.json()`, `await $REQ.form(…)`, `await $REQ.body()`, `$REQ.stream()` on a `starlette` `Request` |
+| `python/fastapi/testclient-lifespan` | `ast-grep` advise: a call typed `starlette` `TestClient` outside a `with` item |
+| `python/fastapi/no-testclient-in-async-test` | `ast-grep` forbid: a call typed `starlette` `TestClient` inside an `async def` |
 
 context.md: "FastAPI. Dependencies use `Annotated[T, Depends(...)]`. Startup and shutdown use `lifespan`. Request and response bodies are Pydantic v2 models."
 

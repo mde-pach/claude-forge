@@ -1,0 +1,22 @@
+id: python/fastapi/no-debug-true
+description: "No FastAPI(debug=True) or Starlette(debug=True) outside tests: debug mode returns tracebacks (code, settings, local values) to any client that triggers an error."
+scope: {language: python, files: ["!**/tests/**", "!**/test_*.py", "!**/*_test.py", "!**/conftest.py"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call
+      pattern: $C
+      has: {field: arguments, has: {kind: keyword_argument, regex: "^debug[[:space:]]*=[[:space:]]*True$"}}
+    # FastAPI subclasses Starlette
+    where:
+      C: {type: {package: starlette, name: Starlette}}
+examples:
+  deps: [{ecosystem: pypi, name: fastapi, version: "0.162.0"}]
+  match:
+    - "from fastapi import FastAPI\n\napp = FastAPI(title=\"shop\", debug=True)\n"
+    - "from starlette.applications import Starlette\n\napp = Starlette(debug=True, routes=[])\n"
+  no_match:
+    - "import os\n\nfrom fastapi import FastAPI\n\napp = FastAPI(debug=os.environ.get(\"DEBUG\") == \"1\")\n"
+    - "from fastapi import FastAPI\n\napp = FastAPI(debug=False)\n"
+    - "import logging\n\nlogging.basicConfig(level=logging.DEBUG)\n\n\ndef configure(debug: bool) -> None:\n    pass\n\n\nconfigure(debug=True)\n"

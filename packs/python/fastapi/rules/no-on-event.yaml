@@ -1,10 +1,22 @@
 id: python/fastapi/no-on-event
-description: No @app.on_event. Use the lifespan context manager.
+description: "FastAPI() and APIRouter() take no on_startup or on_shutdown handlers: startup and shutdown go in the lifespan context manager (FastAPI(lifespan=lifespan)). The deprecated @app.on_event decorator is python/no-deprecated (ty reads FastAPI's deprecation)."
 scope: {language: python}
 enforce:
   - target: ast-grep
     mode: forbid
-    rule: {kind: decorator, has: {pattern: "$APP.on_event($$$)"}}
+    rule:
+      kind: call
+      pattern: $C
+      has: {field: arguments, has: {kind: keyword_argument, regex: "^on_(startup|shutdown)[[:space:]]*="}}
+    # the call's result is the application or router, whatever the import is called
+    where:
+      C: {type: {package: fastapi, name: [FastAPI, APIRouter]}}
 examples:
-  match: ["@app.on_event(\"startup\")\nasync def start():\n    pass\n", "@router.on_event(\"shutdown\")\ndef stop():\n    pass\n"]
-  no_match: ["app = FastAPI(lifespan=lifespan)\n", "@app.get(\"/\")\ndef root():\n    pass\n"]
+  deps: [{ecosystem: pypi, name: fastapi, version: "0.162.0"}]
+  match:
+    - "from fastapi import FastAPI\n\n\nasync def connect() -> None:\n    pass\n\n\napp = FastAPI(on_startup=[connect])\n"
+    - "from fastapi import APIRouter\n\n\ndef close() -> None:\n    pass\n\n\nrouter = APIRouter(prefix=\"/items\", on_shutdown=[close])\n"
+    - "import fastapi as fa\n\napi = fa.FastAPI(title=\"shop\", on_shutdown=[])\n"
+  no_match:
+    - "from contextlib import asynccontextmanager\n\nfrom fastapi import FastAPI\n\n\n@asynccontextmanager\nasync def lifespan(app: FastAPI):\n    yield\n\n\napp = FastAPI(lifespan=lifespan)\n"
+    - "def schedule(on_startup: list[str]) -> None:\n    pass\n\n\nschedule(on_startup=[\"warm\"])\n"

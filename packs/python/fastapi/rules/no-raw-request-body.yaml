@@ -1,0 +1,23 @@
+id: python/fastapi/no-raw-request-body
+description: "Advice: a route reads its input from a declared parameter (a Pydantic model body, Form(), File()), not from request.json(), .form(), .body() or .stream() on the Starlette Request, which skip validation and the OpenAPI schema. Reading the raw body stays right where the bytes matter, such as a webhook signature check."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      any:
+        - pattern: await $REQ.json()
+        - pattern: await $REQ.form($$$)
+        - pattern: await $REQ.body()
+        - pattern: $REQ.stream()
+    where:
+      REQ: {type: {package: starlette, name: Request}}
+examples:
+  deps: [{ecosystem: pypi, name: fastapi, version: "0.162.0"}]
+  match:
+    - "from fastapi import FastAPI, Request\n\napp = FastAPI()\n\n\n@app.post(\"/items\")\nasync def create(request: Request) -> dict[str, str]:\n    data = await request.json()\n    return {\"name\": data[\"name\"]}\n"
+    - "from fastapi import FastAPI\nfrom starlette.requests import Request\n\napp = FastAPI()\n\n\n@app.post(\"/upload\")\nasync def upload(req: Request) -> int:\n    form = await req.form()\n    return len(form)\n"
+    - "from fastapi import FastAPI, Request\n\napp = FastAPI()\n\n\n@app.post(\"/raw\")\nasync def raw(request: Request) -> int:\n    size = 0\n    async for chunk in request.stream():\n        size += len(chunk)\n    return size\n"
+  no_match:
+    - "from fastapi import FastAPI\nfrom pydantic import BaseModel\n\napp = FastAPI()\n\n\nclass Item(BaseModel):\n    name: str\n\n\n@app.post(\"/items\")\nasync def create(item: Item) -> dict[str, str]:\n    return {\"name\": item.name}\n"
+    - "import httpx\n\n\nasync def fetch(client: httpx.AsyncClient) -> object:\n    response = await client.get(\"https://example.com\")\n    return response.json()\n"
