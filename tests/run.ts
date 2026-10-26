@@ -14,8 +14,10 @@
 // the number of processes at a time (default: the CPU count). Shared work
 // that would race between processes happens once, first: the tool caches (ensureTools,
 // ensureVueTools, ensureTs5) and the bunx/uvx caches of the pinned ast-grep and Squawk.
+// FORGE_PROF_DIR=<dir> keeps each shard's JUnit report there and writes shards.tsv (shard,
+// file, tests, planned cost, start and wall in seconds, exit status), for profiling.
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { availableParallelism, tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { AST_GREP_VERSION, SQUAWK_VERSION } from "../src/util";
@@ -245,8 +247,14 @@ async function runShard(s: Shard, env: Record<string, string | undefined>): Prom
   const args = ["test", "--timeout", T, ...passThrough, s.file, "--reporter=junit", `--reporter-outfile=${out}`];
   if (s.names) args.push("-t", `^(?:${s.names.map(escapeRe).join("|")})$`);
   const t0 = performance.now();
-  const r = await run("bun", args, env);
+  const no = shardNo - 1;
+  // profiling (FORGE_PROF_DIR): the shard's number for the exec tracer, its timeline and report kept
+  const r = await run("bun", args, process.env.FORGE_PROF_DIR ? { ...env, FORGE_PROF_SHARD: `s${no}` } : env);
   const wall = (performance.now() - t0) / 1000;
+  if (process.env.FORGE_PROF_DIR) {
+    if (existsSync(out)) writeFileSync(join(process.env.FORGE_PROF_DIR, `shard-s${no}.xml`), readFileSync(out));
+    appendFileSync(join(process.env.FORGE_PROF_DIR, "shards.tsv"), `s${no}\t${s.file}\t${s.names?.length ?? "all"}\t${s.cost.toFixed(1)}\t${((t0 - started) / 1000).toFixed(2)}\t${wall.toFixed(2)}\t${r.status}\n`);
+  }
   let cases = existsSync(out) ? parseJUnit(readFileSync(out, "utf8")) : [];
   if (s.names) {
     const want = new Set(s.names);
@@ -264,6 +272,7 @@ async function runShard(s: Shard, env: Record<string, string | undefined>): Prom
 await prepare();
 const shards = await plan();
 const prepared = performance.now();
+if (process.env.FORGE_PROF_DIR) appendFileSync(join(process.env.FORGE_PROF_DIR, "shards.tsv"), `prepare\t-\t-\t-\t0\t${((prepared - started) / 1000).toFixed(2)}\t0\n`);
 // every shard, many at a time; tests that need a quiet machine skip themselves (helpers.ts othersRunning)
 const quietList = join(work, "quiet");
 const results = await pool(shards, jobs, (s) => runShard(s, { ...shardEnv(), FORGE_TEST_PHASE: "parallel", FORGE_TEST_QUIET_LIST: quietList }));
