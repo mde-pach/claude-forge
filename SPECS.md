@@ -1057,6 +1057,23 @@ context.md: the two plugin signatures; full JSON Schemas in routes.
 
 context.md: a `body` schema on routes that read the body.
 
+### typescript/apollo
+
+| Rule | Targets |
+|---|---|
+| `typescript/apollo/csrf-prevention` | `ast-grep` forbid: `new $N({…, csrfPrevention: false})`, where `N` is `@apollo/server`'s `ApolloServer` |
+| `typescript/apollo/no-stacktrace` | `ast-grep` forbid: the same with `includeStacktraceInErrorResponses: true` |
+
+context.md: CSRF prevention on; no forced stack traces.
+
+### typescript/graphql-yoga
+
+| Rule | Targets |
+|---|---|
+| `typescript/graphql-yoga/masked-errors` | `ast-grep` forbid: a call of `createYoga` imported from `graphql-yoga` (aliases included) with `maskedErrors: false` |
+
+context.md: error masking on; `GraphQLError` for client errors.
+
 ### github-actions
 
 Detected by `.github/workflows/*.yml` or `*.yaml`.

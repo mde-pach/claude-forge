@@ -1,0 +1,30 @@
+id: typescript/graphql-yoga/masked-errors
+description: "No maskedErrors: false in createYoga({...}) (graphql-yoga, also under an import alias): unexpected resolver errors then reach clients with their messages and internals; throw GraphQLError for errors meant for clients."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      all:
+        - has: {field: function, kind: identifier, pattern: $Y}
+        - has: {field: arguments, has: {kind: object, has: {kind: pair, all: [{has: {field: key, regex: "^[\"']?maskedErrors[\"']?$"}}, {has: {field: value, kind: "false"}}]}}}
+        - inside:
+            kind: program
+            stopBy: end
+            has:
+              kind: import_statement
+              all:
+                - has: {field: source, regex: "^[\"']graphql-yoga[\"']$"}
+                - has:
+                    stopBy: end
+                    kind: import_specifier
+                    any:
+                      - all: [{has: {field: name, regex: "^createYoga$"}}, {has: {field: alias, pattern: $Y}}]
+                      - all: [{has: {field: name, regex: "^createYoga$", pattern: $Y}}, {not: {has: {field: alias, kind: identifier}}}]
+examples:
+  match:
+    - "import { createSchema, createYoga } from \"graphql-yoga\";\n\nexport const yoga = createYoga({ schema: createSchema({ typeDefs: \"type Query { ok: Boolean }\" }), maskedErrors: false });\n"
+  no_match:
+    - "import { createSchema, createYoga } from \"graphql-yoga\";\n\nexport const yoga = createYoga({ schema: createSchema({ typeDefs: \"type Query { ok: Boolean }\" }), maskedErrors: { maskError: (e) => e as Error } });\n"
+    - "import { createYoga } from \"./yoga\";\n\nexport const yoga = createYoga({ maskedErrors: false });\n"
