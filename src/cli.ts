@@ -4,7 +4,7 @@ import { dirname, join, relative } from "node:path";
 import { checkTools, renderLib } from "./render.js";
 import { auditRules, projectBinary, type AuditResult } from "./audit.js";
 import { MANIFEST_PATH, readLock, renderLock, renderManifest } from "./lock.js";
-import { loadLocalRules, loadPacks } from "./packs.js";
+import { loadLocalRules, loadPackBundle } from "./packs.js";
 import { plan, readProjectInputs, type Plan } from "./plan.js";
 import { blockHash, CHECK, hasBlock, hookManager, insertBlock, managerInactive, onlyForge, preCommitPath, removeBlock, runsForgeCheck } from "./precommit.js";
 import { localSelfTest, testSummary } from "./selftest.js";
@@ -109,6 +109,11 @@ function packsDir(): string {
   return join(packageRoot(), "packs");
 }
 
+/** The packs shipped with Forge, as the build bundled them (dist/packs.json, packBundle). */
+function shippedPacks() {
+  return loadPackBundle(join(packageRoot(), "dist", "packs.json"), packsDir());
+}
+
 function context(flags: Flags): Ctx {
   const level: Level = flags.user ? "user" : "project";
   let base: string;
@@ -118,7 +123,7 @@ function context(flags: Flags): Ctx {
     if (!top) throw new ForgeError("forge: not inside a git repository (use --user for the user-level setup)");
     base = top;
   }
-  const packs = loadPacks(packsDir());
+  const packs = shippedPacks();
   const p = plan({ level, base, packs, local: flags.local, ...(level === "project" ? readProjectInputs(base) : {}) });
   const lock = lockOf(base, p.lockPath, level);
   const ctx: Ctx = { level, base, plan: p, lock, flags, blocks: level === "project" ? [...(lock?.blocks ?? [])] : [] };
@@ -646,7 +651,7 @@ function cmdStatus(flags: Flags): number {
 
 function cmdExplain(id: string | undefined, flags: Flags): number {
   if (!id) throw new ForgeError("usage: forge explain <rule-id>", 2);
-  const packs = loadPacks(packsDir());
+  const packs = shippedPacks();
   const top = gitToplevel(process.cwd());
   let rule = [...packs.values()].flatMap((p) => p.rules).find((r) => r.id === id);
   if (top) rule = loadLocalRules(top).find((r) => r.id === id) ?? rule;
@@ -760,7 +765,7 @@ function cmdInit(flags: Flags): number {
   const top = gitToplevel(process.cwd());
   if (!top) throw new ForgeError("forge: not inside a git repository (run git init first)");
   if (existsSync(join(top, ".forge", "forge.lock.json"))) throw new ForgeError("forge: init is for new projects; this one already has forge (use forge apply)");
-  const packs = loadPacks(packsDir());
+  const packs = shippedPacks();
   const p = plan({ level: "project", base: top, packs, ...readProjectInputs(top) });
   for (const pk of p.packs) {
     const dir = packs.get(pk.id)!.initDir;

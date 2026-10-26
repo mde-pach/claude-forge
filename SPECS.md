@@ -39,7 +39,7 @@ Every requirement uses MUST / MUST NOT. Anything not described here is out of sc
 
 - TypeScript, ESM, bundled with `bun build --target=node` into `dist/forge.js` (`#!/usr/bin/env node`). Runs on Node ≥ 20 and Bun. No Bun-only APIs.
 - Published as `@<npm-scope>/forge`; binary `forge`. Run with `bunx` or `npx`.
-- Packs ship inside the package.
+- Packs ship inside the package. The build loads and validates them and writes the result to `dist/packs.json`, which the CLI reads (a pack or rule file that fails validation fails the build).
 - Bundled libraries: YAML parser rejecting duplicate keys, anchors, aliases and custom tags; JSON Schema 2020-12 validator; JSONC reader/writer preserving comments (for `settings.json`).
 
 ### 3.1 Commands

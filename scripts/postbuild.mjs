@@ -1,5 +1,6 @@
-// Adds the node shebang to dist/forge.js, makes it executable, and writes the
-// JSON Schemas shipped in the package (schemas/*.schema.json).
+// Adds the node shebang to dist/forge.js, makes it executable, writes the JSON Schemas
+// shipped in the package (schemas/*.schema.json) and the bundled packs (dist/packs.json:
+// the packs as loadPacks reads and validates them, which the CLI reads).
 import { chmodSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,3 +18,6 @@ if (packSchema) {
   for (const [name, schema] of [["pack", packSchema], ["rule", ruleSchema], ["forge", projectConfigSchema]])
     writeFileSync(join(root, "schemas", `${name}.schema.json`), JSON.stringify(schema, null, 2) + "\n");
 }
+
+const { packBundle } = await import(join(root, "src", "packs.ts"));
+writeFileSync(join(root, "dist", "packs.json"), packBundle(join(root, "packs")));
