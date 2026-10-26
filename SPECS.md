@@ -1178,6 +1178,14 @@ context.md: destroy policies are advice; `cdk.context.json` committed; cdk-nag f
 
 context.md: no literal `secure: false` / `httpOnly: false` session cookies.
 
+### typescript/bullmq
+
+| Rule | Targets |
+|---|---|
+| `typescript/bullmq/worker-connection` | `ast-grep` forbid: `connection: new $R(…)` without `maxRetriesPerRequest: null` in the options of `new $W(…)`, where `W` is BullMQ's `Worker` and `R` ioredis's `Redis` (a connection in a variable is not followed) |
+
+context.md: `maxRetriesPerRequest: null` on worker connections.
+
 ### github-actions
 
 Detected by `.github/workflows/*.yml` or `*.yaml`.

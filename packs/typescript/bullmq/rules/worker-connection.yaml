@@ -1,0 +1,34 @@
+id: typescript/bullmq/worker-connection
+description: "A BullMQ Worker whose connection is an inline new IORedis(…) passes maxRetriesPerRequest: null in that client's options; otherwise blocking commands fail after the retries and the worker stops processing jobs. (A connection held in a variable is not followed.)"
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: pair
+      all:
+        - has: {field: key, regex: "^[\"']?connection[\"']?$"}
+        - has:
+            field: value
+            kind: new_expression
+            all:
+              - pattern: $R
+              - not:
+                  has:
+                    field: arguments
+                    has: {kind: object, has: {kind: pair, all: [{has: {field: key, regex: "^[\"']?maxRetriesPerRequest[\"']?$"}}, {has: {field: value, kind: "null"}}]}}
+        - inside:
+            kind: object
+            stopBy: neighbor
+            inside: {kind: arguments, stopBy: neighbor, inside: {kind: new_expression, stopBy: neighbor, pattern: $W}}
+    where:
+      W: {type: {package: bullmq, name: Worker}}
+      R: {type: {package: ioredis, name: Redis}}
+examples:
+  deps: [{ecosystem: npm, name: bullmq, version: "6.3.12"}, {ecosystem: npm, name: ioredis, version: "6.0.0"}]
+  match:
+    - "import { Worker } from \"bullmq\";\nimport IORedis from \"ioredis\";\n\nexport const worker = new Worker(\"emails\", async (job) => job.data, { connection: new IORedis({ host: \"localhost\" }) });\n"
+    - "import { Worker } from \"bullmq\";\nimport { Redis } from \"ioredis\";\n\nexport const worker = new Worker(\"emails\", async () => {}, { connection: new Redis(\"redis://localhost:6379\") });\n"
+  no_match:
+    - "import { Worker } from \"bullmq\";\nimport IORedis from \"ioredis\";\n\nexport const worker = new Worker(\"emails\", async (job) => job.data, { connection: new IORedis({ host: \"localhost\", maxRetriesPerRequest: null }) });\n"
+    - "import { Queue } from \"bullmq\";\nimport IORedis from \"ioredis\";\n\nexport const queue = new Queue(\"emails\", { connection: new IORedis() });\n"
