@@ -776,8 +776,11 @@ Detected by `library_any: [pypi]` (§13.4).
 |---|---|
 | `python/library/all-exports` | `ast-grep` no-increase, not in tests: in a module with `__all__`, top-level function and class names without a leading underscore that `__all__` does not list |
 | `python/library/deprecation-shim` | `check` lint: `forge_helper python public_api.py` (§13.4), `when_changed`: `**/*.py`, `pyproject.toml` |
+| `python/library/spdx-license` | `grep` forbid in `pyproject.toml`: `license = {…}` (a table), `"License ::` classifiers (PEP 639) |
+| `python/library/no-python-cap` | `grep` forbid in `pyproject.toml`: `requires-python` with `<`, `~=` or `==` |
+| `python/library/no-logging-config` | `ast-grep` forbid, not in tests or `__main__.py`: `logging.basicConfig(…)`, `logging.getLogger().addHandler(…)`, `logging.root.addHandler(…)` |
 
-context.md: `__all__` is the public API; removals and renames warn with `DeprecationWarning` until a major version.
+context.md: `__all__` is the public API; removals and renames warn with `DeprecationWarning` until a major version; SPDX `license` (and the backends that support it), no `requires-python` cap; no logging configuration in library code.
 
 ### typescript/library
 
