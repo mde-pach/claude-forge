@@ -955,7 +955,9 @@ Detected by `.github/workflows/*.yml` or `*.yaml`.
 
 | Rule | Targets |
 |---|---|
-| `github-actions/zizmor` | `check` lint: `forge_zizmor` (§13.2) on changed workflows and actions, failing on the `unpinned-uses`, `template-injection`, `dangerous-triggers`, `excessive-permissions` and `artipacked` audits |
+| `github-actions/zizmor` | `check` lint: `forge_zizmor` (§13.2) on changed workflows, actions and `.github/dependabot.y*ml`, failing on the `unpinned-uses`, `template-injection`, `dangerous-triggers`, `excessive-permissions`, `artipacked`, `cache-poisoning`, `github-env`, `insecure-commands`, `overprovisioned-secrets`, `unredacted-secrets`, `secrets-inherit`, `bot-conditions`, `obfuscation`, `unsound-condition`, `unsound-contains`, `unsound-ternary`, `hardcoded-container-credentials`, `unpinned-images`, `ref-version-mismatch`, `archived-uses`, `typosquat-uses`, `use-trusted-publishing`, `dependabot-cooldown` and `dependabot-execution` audits |
+| `github-actions/zizmor-advice` | `check` lint, advisory (§10.7): `forge_advise forge_zizmor adhoc-packages unpinned-tools superfluous-actions` |
+| `github-actions/ci-ratchet` | `grep` no-increase on workflows: `continue-on-error: true`, a run line ending in `\|\| true` / `\|\| exit 0` / `\|\| :`, `if: false` (or `${{ false }}`), `paths-ignore:` |
 
 context.md: actions pinned to a commit SHA, `permissions: {}` then per job, `persist-credentials: false`, no `${{ }}` inside `run:`, no `pull_request_target` / `workflow_run` on untrusted code.
 
@@ -995,6 +997,19 @@ Detected by `**/compose*.y*ml` or `**/docker-compose*.y*ml`. ast-grep rules use 
 | `docker/compose/env-not-committed` | `check` lint: `git ls-files` lists no `.env` or `.env.*` other than `.env.example`, `.env.sample`, `.env.template` |
 
 context.md: `compose.yaml` + `compose.override.yaml`, healthchecks with `condition: service_healthy`, `develop.watch`, profiles, secrets, loopback-bound database ports, and that docker compose runs outside the sandbox, which makes these rules a real boundary.
+
+### supply-chain
+
+Detected by `**/package.json`, `**/pyproject.toml`, `**/requirements*.txt`, `**/Pipfile` or `**/setup.py`.
+
+| Rule | Targets |
+|---|---|
+| `supply-chain/no-tls-disable` | `grep` forbid, any file: `strict-ssl=false`, `enableStrictSsl: false`, `NODE_TLS_REJECT_UNAUTHORIZED` / `PYTHONHTTPSVERIFY` set to `0`, `sslVerify = false`, `GIT_SSL_NO_VERIFY`, `--trusted-host`, `trusted-host =`, `allow-insecure-host`, `UV_INSECURE_HOST` |
+| `supply-chain/no-tls-disable-command` | `guard` deny: `npm` / `pnpm` / `yarn config set strict-ssl false`, `--strict-ssl=false`, `NODE_TLS_REJECT_UNAUTHORIZED=0`, `PYTHONHTTPSVERIFY=0`, `GIT_SSL_NO_VERIFY=`, `PIP_TRUSTED_HOST=`, `UV_INSECURE_HOST=`, `--allow-insecure-host`, `--trusted-host`, `git -c http.sslVerify=false`, `git config … http.sslVerify false` |
+| `supply-chain/insecure-download` | `guard` ask (`review`: only a local or development server): `curl -k` / `--insecure`, `wget --no-check-certificate` |
+| `supply-chain/no-dependency-confusion` | `grep` forbid on requirements and constraints files, `pip.conf` / `pip.ini`, Dockerfiles, workflows, `.gitlab-ci.yml`, shell scripts, Makefiles, `tox.ini`, `noxfile.py`, `.env.example`, `pyproject.toml`, `uv.toml`: `--extra-index-url`, `PIP_EXTRA_INDEX_URL`, an INI `extra-index-url =` (uv's TOML `extra-index-url` and `[[tool.uv.index]]` are first-index, and fine), uv `index-strategy` / `UV_INDEX_STRATEGY` / `--index-strategy` `unsafe-best-match` or `unsafe-first-match` |
+| `supply-chain/no-dependency-confusion-command` | `guard` ask: `pip install … --extra-index-url`, `--index-strategy unsafe-…` |
+| `supply-chain/audit-ignore-ratchet` | `grep` no-increase on `osv-scanner.toml`, `pnpm-workspace.yaml`, `package.json`, `.nsprc`, `audit-ci.json(c)`, `.trivyignore`, `.grype.yaml`, workflows, `.gitlab-ci.yml`, `Makefile`: advisory ids (`GHSA-…`, `CVE-…`, `PYSEC-…`, `RUSTSEC-…`) |
 
 ### 13.1 Migration linting
 

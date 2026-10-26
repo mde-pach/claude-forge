@@ -1,0 +1,20 @@
+id: supply-chain/no-dependency-confusion
+description: "No pip --extra-index-url (requirements files, pip.conf / pip.ini, PIP_EXTRA_INDEX_URL, pip install in Dockerfiles, CI and scripts) and no uv index strategy unsafe-best-match or unsafe-first-match: pip merges every index and installs the highest version, so a public package with an internal package's name wins. Use one --index-url that proxies the public index, or uv indexes (first-index by default)."
+scope: {language: any, files: ["**/requirements*.txt", "**/constraints*.txt", "**/pip.conf", "**/pip.ini", "**/Dockerfile", "**/Dockerfile.*", "**/*.Dockerfile", "**/Containerfile", ".github/workflows/**", ".gitlab-ci.yml", "**/*.sh", "**/Makefile", "**/tox.ini", "**/noxfile.py", "**/.env.example", "**/pyproject.toml", "**/uv.toml"]}
+enforce:
+  - target: grep
+    mode: forbid
+    pattern: "--extra-index-url|PIP_EXTRA_INDEX_URL|^[[:space:]]*extra-index-url[[:space:]]*=[[:space:]]*[^[:space:]\"'[]|(index-strategy[[:space:]]*=[[:space:]]*[\"']|UV_INDEX_STRATEGY=[\"']?|--index-strategy[= ])unsafe-(best|first)-match"
+examples:
+  match:
+    - "--extra-index-url https://pypi.internal/simple\nacme-utils==1.4.0\n"
+    - "[global]\nextra-index-url = https://pypi.internal/simple\n"
+    - "RUN pip install --extra-index-url https://pypi.internal/simple acme-utils\n"
+    - "PIP_EXTRA_INDEX_URL=https://pypi.internal/simple\n"
+    - "[tool.uv]\nindex-strategy = \"unsafe-best-match\"\n"
+    - "UV_INDEX_STRATEGY=unsafe-first-match\n"
+  no_match:
+    - "--index-url https://pypi.internal/simple\nacme-utils==1.4.0\n"
+    - "[tool.uv]\nextra-index-url = [\"https://download.pytorch.org/whl/cpu\"]\n"
+    - "[[tool.uv.index]]\nname = \"internal\"\nurl = \"https://pypi.internal/simple\"\n"
+    - "[tool.uv]\nindex-strategy = \"first-index\"\n"
