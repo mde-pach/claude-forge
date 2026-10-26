@@ -1186,6 +1186,16 @@ context.md: no literal `secure: false` / `httpOnly: false` session cookies.
 
 context.md: `maxRetriesPerRequest: null` on worker connections.
 
+### typescript/bcrypt
+
+Detected by `bcrypt` or `bcryptjs`.
+
+| Rule | Targets |
+|---|---|
+| `typescript/bcrypt/no-sync-hash-in-async` | `ast-grep` forbid: `hashSync` / `compareSync` / `genSaltSync` of bcrypt's or bcryptjs's default, namespace or named import (aliases included), when the nearest enclosing function is `async` |
+
+context.md: await the async variants in async code.
+
 ### github-actions
 
 Detected by `.github/workflows/*.yml` or `*.yaml`.
