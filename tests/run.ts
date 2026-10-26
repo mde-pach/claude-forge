@@ -151,8 +151,14 @@ function parseJUnit(xml: string): Case[] {
 // ------------------------------------------------------------------ timings
 
 interface FileTimings {
-  /** wall time of a run of the whole file minus the time of its tests: start-up, beforeAll */
+  /** wall time of a run of the whole file minus the time of its tests: start-up, beforeAll (the least of its shards') */
   overhead: number;
+  /**
+   * the most of its shards': a shard that runs several describe blocks pays their
+   * beforeAll each, and one that waits (engines starting) more than its tests' CPU;
+   * it orders the shards, so such a shard starts early instead of ending the phase late
+   */
+  overheadMax?: number;
   tests: Record<string, number>;
 }
 const timingsPath = join(ROOT, "node_modules", ".cache", "forge-spec-timings.json");
@@ -213,13 +219,14 @@ async function plan(): Promise<Shard[]> {
     const testTime = t ? Object.values(t.tests).reduce((a, b) => a + b, 0) : 0;
     // splitting repeats the file's overhead in every shard: each shard's tests take at least twice as long
     const k = t ? Math.min(Math.ceil(testTime / target), Math.floor(testTime / (2 * t.overhead)), 64) : 0;
+    const most = t ? (t.overheadMax ?? t.overhead) : 0;
     if (k < 2) {
-      shards.push({ file, cost: t ? t.overhead + testTime : 1e6 });
+      shards.push({ file, cost: t ? most + testTime : 1e6 });
       return;
     }
     const names = [...new Set((await listTests(file)).map((c) => c.full))];
     if (names.length < 2) {
-      shards.push({ file, cost: t!.overhead + testTime });
+      shards.push({ file, cost: most + testTime });
       return;
     }
     // longest first, each to the cheapest of k shards
@@ -230,7 +237,7 @@ async function plan(): Promise<Shard[]> {
       bin.names.push(n);
       bin.cost += t!.tests[n] ?? median;
     }
-    for (const b of bins) shards.push({ file, names: b.names, cost: b.cost });
+    for (const b of bins) shards.push({ file, names: b.names, cost: b.cost - t!.overhead + most });
   });
   return shards.sort((a, b) => b.cost - a.cost);
 }
@@ -323,7 +330,7 @@ for (const file of files) {
   const tests: Record<string, number> = {};
   for (const r of rs) for (const c of r.cases) tests[c.full] = c.time;
   const overheads = rs.map((r) => r.wall - r.cases.reduce((a, c) => a + c.time, 0));
-  next[file] = { overhead: Math.max(0.3, Math.min(...overheads)), tests };
+  next[file] = { overhead: Math.max(0.3, Math.min(...overheads)), overheadMax: Math.max(0.3, ...overheads), tests };
 }
 try {
   mkdirSync(join(ROOT, "node_modules", ".cache"), { recursive: true });
@@ -333,7 +340,7 @@ try {
     writeFileSync(
       seedPath,
       JSON.stringify(
-        Object.fromEntries(files.map((f) => [f, { overhead: round(next[f]!.overhead), tests: Object.fromEntries(Object.entries(next[f]!.tests).map(([k, v]) => [k, round(v)])) }])),
+        Object.fromEntries(files.map((f) => [f, { overhead: round(next[f]!.overhead), overheadMax: round(next[f]!.overheadMax!), tests: Object.fromEntries(Object.entries(next[f]!.tests).map(([k, v]) => [k, round(v)])) }])),
         null,
         1,
       ) + "\n",
