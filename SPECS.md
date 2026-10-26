@@ -757,17 +757,32 @@ context.md: `bun:test` tests run with `bun test`, what the integrity rules rejec
 | `typescript/nextjs/revalidate-tag-profile` | `ast-grep` forbid: `revalidateTag($A)` with one argument |
 | `typescript/nextjs/no-legacy-image-config` | `ast-grep` forbid: imports of `next/legacy/image`; a `domains` key inside `images` |
 | `typescript/nextjs/no-public-secret-env` | `ast-grep` forbid: `process.env.NEXT_PUBLIC_*` names containing `SECRET`, `PRIVATE`, `PASSWORD`, `SERVICE_ROLE` or `DATABASE_URL` |
+| `typescript/nextjs/proxy-exports` | `ast-grep` forbid in `proxy.ts` / `src/proxy.ts`: a named export `middleware` (declared, or `export { x as middleware }`), an exported `runtime` |
+| `typescript/nextjs/no-ignore-build-errors` | `ast-grep` forbid in `next.config.*`: `ignoreBuildErrors: true` under `typescript` |
+| `typescript/nextjs/no-request-apis-in-use-cache` | `ast-grep` forbid, in a file importing `next/headers`: `cookies()`, `headers()`, `draftMode()` inside a function or file whose first statement is `'use cache'` (or `'use cache: <profile>'`) |
+| `typescript/nextjs/no-redirect-in-try` | `ast-grep` forbid, in a file importing `next/navigation`: `redirect`, `permanentRedirect`, `notFound`, `forbidden`, `unauthorized` called in a `try` block (same function) whose `catch` does not call `unstable_rethrow(…)` |
+| `typescript/nextjs/stable-cache-imports` | `ast-grep` forbid: `unstable_cacheLife`, `unstable_cacheTag` imported from `next/cache` |
+| `typescript/nextjs/no-next-head-in-app` | `ast-grep` forbid in `app/**`, `src/app/**`: imports of `next/head`, `next/document` |
+| `typescript/nextjs/image-remote-patterns-strict` | `ast-grep` forbid in `next.config.*`: `hostname: "*"` or `"**"` (or `*.*`, …) under `remotePatterns` |
+| `typescript/nextjs/image-unsafe-options` | `ast-grep` forbid in `next.config.*`, under `images`: `dangerouslyAllowSVG: true` without a sibling `contentSecurityPolicy`; `dangerouslyAllowLocalIP: true` |
+| `typescript/nextjs/no-sync-scripts` | `tool` biome `lint/performance/noSyncScripts` (tsx) |
+| `typescript/nextjs/parallel-route-default` | `check` lint, scope `app/**`, `src/app/**`: every `@*` directory under `app/` or `src/app/` has a `default.tsx`, `.ts`, `.jsx` or `.js` |
+| `typescript/nextjs/cookies-set-in-render` | `ast-grep` forbid in `page.*`, `layout.*`, `template.*`, `default.*` under `app/**`, `src/app/**`, in a file importing `next/headers` and not starting with `'use server'`: `.set(…)` / `.delete(…)` on `(await cookies())` or on a name bound to `await cookies()` in the same block, outside a function whose first statement is `'use server'` |
 
-context.md: Next.js 16 App Router: async request APIs, Server Components by default, `proxy.ts`, `revalidateTag(tag, profile)` / `updateTag(tag)`, `images.remotePatterns`, no `next lint`, Server Actions and route handlers are public endpoints (guidance only: validating input and checking the caller cannot be decided from syntax, so no rule checks it), no secrets in `NEXT_PUBLIC_`.
+context.md: Next.js 16 App Router: async request APIs, Server Components by default, `proxy.ts`, `revalidateTag(tag, profile)` / `updateTag(tag)`, `images.remotePatterns` without wildcard hosts, no `next lint`, Server Actions and route handlers are public endpoints (guidance only: validating input and checking the caller cannot be decided from syntax, so no rule checks it), no secrets in `NEXT_PUBLIC_`, no request APIs in `'use cache'`, no `redirect()` swallowed by a `try`, no `ignoreBuildErrors`, a `default.tsx` per `@slot`, the Metadata API.
 
 ### typescript/nextjs/react
 
 | Rule | Targets |
 |---|---|
 | `typescript/nextjs/react/client-hooks` | `ast-grep` forbid in `app/**`, `src/app/**`: client-only hooks (`useState`, `useEffect`, `useRef`, `useContext`, …) in a file without `'use client'`, except inside a custom hook (a function named `use…`) |
-| `typescript/nextjs/react/no-server-in-client` | `ast-grep` forbid in `app/**`, `src/app/**`, `components/**`, `src/components/**` (tsx): a file starting with `'use client'` that imports `server-only`, `node:*`, `fs`, `child_process`, `@prisma/client`, `@prisma/adapter-*` or a `generated/prisma` path |
+| `typescript/nextjs/react/no-server-in-client` | `ast-grep` forbid in `app/**`, `src/app/**`, `components/**`, `src/components/**` (tsx): a file starting with `'use client'` that imports `server-only`, `node:*`, `fs`, `child_process`, `next/headers`, `next/root-params`, `@prisma/client`, `@prisma/adapter-*` or a `generated/prisma` path |
+| `typescript/nextjs/react/client-env-public-only` | `ast-grep` forbid in a file starting with `'use client'`: `process.env.X` other than `NEXT_PUBLIC_*` and `NODE_ENV` |
+| `typescript/nextjs/react/no-ssr-false-in-server` | `ast-grep` forbid in `app/**`, `src/app/**`, in a file importing `next/dynamic` and not starting with `'use client'`: `ssr: false` in the arguments of `dynamic(…)` |
+| `typescript/nextjs/react/no-async-client-component` | `tool` biome `lint/correctness/noNextAsyncClientComponent` (tsx) |
+| `typescript/nextjs/react/server-functions-async` | `ast-grep` forbid in a file starting with `'use server'`: an export (named or default) of a non-async function or arrow, a class, or a literal, object, array or `new` value; a call or a name is not judged (it may return an async function) |
 
-context.md: "React 19 in the App Router: components are Server Components unless their file starts with `'use client'`. State, effects, context, refs and event handlers need a Client Component; keep `'use client'` at the leaves. Server Actions are async functions marked `'use server'`."
+context.md: "React 19 in the App Router: components are Server Components unless their file starts with `'use client'`. State, effects, context, refs and event handlers need a Client Component; keep `'use client'` at the leaves. Server Actions are async functions marked `'use server'`. A `'use client'` file reads only `NEXT_PUBLIC_*` and `NODE_ENV` from `process.env` and exports no async component; a `'use server'` file exports only async functions."
 
 ### typescript/react
 

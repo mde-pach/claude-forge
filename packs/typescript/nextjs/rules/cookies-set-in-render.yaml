@@ -1,0 +1,42 @@
+id: typescript/nextjs/cookies-set-in-render
+description: "cookies().set() and .delete() are not called while rendering a page, layout, template or default (Next.js throws: cookies can only be modified in a Server Action or route handler); move them into a 'use server' function or a route handler."
+scope: {language: typescript, files: ["app/**/page.*", "app/**/layout.*", "app/**/template.*", "app/**/default.*", "src/app/**/page.*", "src/app/**/layout.*", "src/app/**/template.*", "src/app/**/default.*"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      has:
+        field: function
+        kind: member_expression
+        all:
+          - has: {field: property, regex: "^(set|delete)$"}
+          - has:
+              field: object
+              any:
+                - pattern: "(await cookies())"
+                - all:
+                    - pattern: $C
+                    - kind: identifier
+                    - inside:
+                        stopBy: end
+                        kind: statement_block
+                        has: {stopBy: end, kind: variable_declarator, all: [{has: {field: name, pattern: $C}}, {has: {field: value, pattern: "await cookies()"}}]}
+      not:
+        inside:
+          stopBy: end
+          kind: statement_block
+          has: {kind: expression_statement, nthChild: 1, regex: "^[\"']use server[\"'];?$"}
+      inside:
+        kind: program
+        stopBy: end
+        all:
+          - has: {kind: import_statement, has: {field: source, regex: "^[\"']next/headers[\"']$"}}
+          - not: {has: {kind: expression_statement, nthChild: 1, regex: "^[\"']use server[\"'];?$"}}
+examples:
+  match:
+    - "import { cookies } from \"next/headers\";\n\nexport default async function Page() {\n  (await cookies()).set(\"seen\", \"1\");\n  return <p>hi</p>;\n}\n"
+    - "import { cookies } from \"next/headers\";\n\nexport default async function Layout({ children }: { children: React.ReactNode }) {\n  const jar = await cookies();\n  jar.delete(\"old\");\n  return <>{children}</>;\n}\n"
+  no_match:
+    - "import { cookies } from \"next/headers\";\n\nexport default async function Page() {\n  async function accept() {\n    \"use server\";\n    (await cookies()).set(\"ok\", \"1\");\n  }\n  const v = (await cookies()).get(\"ok\");\n  return <form action={accept}>{v?.value}</form>;\n}\n"
+    - "import { cookies } from \"next/headers\";\n\nexport default async function Page() {\n  const m = new Map<string, string>();\n  m.set(\"a\", \"b\");\n  const jar = await cookies();\n  return <p>{jar.get(\"a\")?.value}</p>;\n}\n"

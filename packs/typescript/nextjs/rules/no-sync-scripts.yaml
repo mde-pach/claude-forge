@@ -1,0 +1,13 @@
+id: typescript/nextjs/no-sync-scripts
+description: No synchronous <script src> in JSX; it blocks rendering. Use next/script (or async / defer).
+scope: {language: "tsx"}
+enforce:
+  - target: tool
+    tool: biome
+    expects: "lint/performance/noSyncScripts"
+    snippet: "\"linter\": {\"rules\": {\"performance\": {\"noSyncScripts\": \"error\"}}}"
+examples:
+  match:
+    - "export default function Layout({ children }: { children: React.ReactNode }) {\n  return (\n    <html lang=\"en\">\n      <body>\n        <script src=\"https://cdn.example.com/analytics.js\" />\n        {children}\n      </body>\n    </html>\n  );\n}\n"
+  no_match:
+    - "import Script from \"next/script\";\n\nexport default function Layout({ children }: { children: React.ReactNode }) {\n  return (\n    <html lang=\"en\">\n      <body>\n        <Script src=\"https://cdn.example.com/analytics.js\" strategy=\"afterInteractive\" />\n        <script async src=\"https://cdn.example.com/a.js\" />\n        <script defer src=\"https://cdn.example.com/b.js\" />\n        {children}\n      </body>\n    </html>\n  );\n}\n"

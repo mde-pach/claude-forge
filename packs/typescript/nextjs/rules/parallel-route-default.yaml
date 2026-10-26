@@ -1,0 +1,19 @@
+id: typescript/nextjs/parallel-route-default
+description: "Every parallel route slot (an @folder under app/) has a default.tsx (or .ts, .jsx, .js); next build fails without it in Next.js 16."
+scope: {language: any, files: ["app/**", "src/app/**"]}
+enforce:
+  - target: check
+    stage: lint
+    run: |
+      missing=$(find app src/app -type d -name '@*' 2>/dev/null | while IFS= read -r d; do
+        [ -e "$d/default.tsx" ] || [ -e "$d/default.ts" ] || [ -e "$d/default.jsx" ] || [ -e "$d/default.js" ] || printf '%s\n' "$d"
+      done)
+      [ -z "$missing" ] || { printf '%s\n' "$missing" | sed 's/$/: parallel route slot without a default.tsx (next build fails)/'; false; }
+examples:
+  match:
+    - files: {app/layout.tsx: "export default function Layout({ children, modal }: { children: React.ReactNode; modal: React.ReactNode }) {\n  return <>{children}{modal}</>;\n}\n", app/@modal/page.tsx: "export default function Modal() {\n  return null;\n}\n"}
+    - head: {src/app/@team/default.tsx: "export default function Default() {\n  return null;\n}\n"}
+      files: {src/app/dashboard/@stats/page.tsx: "export default function Stats() {\n  return null;\n}\n"}
+  no_match:
+    - files: {app/@modal/page.tsx: "export default function Modal() {\n  return null;\n}\n", app/@modal/default.tsx: "export default function Default() {\n  return null;\n}\n"}
+    - files: {app/page.tsx: "export default function Page() {\n  return <p>@home</p>;\n}\n"}

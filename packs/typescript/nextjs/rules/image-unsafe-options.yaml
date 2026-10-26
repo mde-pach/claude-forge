@@ -1,0 +1,20 @@
+id: typescript/nextjs/image-unsafe-options
+description: "images.dangerouslyAllowSVG: true only with a contentSecurityPolicy next to it (SVG can carry scripts), and no images.dangerouslyAllowLocalIP: true (the optimizer would fetch from the internal network)."
+scope: {language: typescript, files: ["next.config.*"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: pair
+      inside: {kind: object, inside: {kind: pair, has: {field: key, regex: "^[\"']?images[\"']?$"}}}
+      any:
+        - all:
+            - has: {field: key, regex: "^[\"']?dangerouslyAllowSVG[\"']?$"}
+            - has: {field: value, kind: "true"}
+            - not: {inside: {kind: object, has: {kind: pair, has: {field: key, regex: "^[\"']?contentSecurityPolicy[\"']?$"}}}}
+        - all:
+            - has: {field: key, regex: "^[\"']?dangerouslyAllowLocalIP[\"']?$"}
+            - has: {field: value, kind: "true"}
+examples:
+  match: ["export default { images: { dangerouslyAllowSVG: true } };\n", "export default { images: { dangerouslyAllowLocalIP: true } };\n"]
+  no_match: ["export default { images: { dangerouslyAllowSVG: true, contentDispositionType: \"attachment\", contentSecurityPolicy: \"default-src 'self'; script-src 'none'; sandbox;\" } };\n", "export default { images: { dangerouslyAllowLocalIP: false, dangerouslyAllowSVG: false } };\n"]

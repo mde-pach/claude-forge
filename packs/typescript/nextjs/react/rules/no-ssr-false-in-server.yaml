@@ -1,0 +1,21 @@
+id: typescript/nextjs/react/no-ssr-false-in-server
+description: "dynamic(..., { ssr: false }) from next/dynamic is used only in a 'use client' file; in a Server Component it is a build error. Wrap it in a Client Component."
+scope: {language: typescript, files: ["app/**", "src/app/**"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: pair
+      all:
+        - has: {field: key, regex: "^[\"']?ssr[\"']?$"}
+        - has: {field: value, kind: "false"}
+        - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: "^dynamic$"}}, stopBy: end}
+        - inside:
+            kind: program
+            stopBy: end
+            all:
+              - has: {kind: import_statement, has: {field: source, regex: "^[\"']next/dynamic[\"']$"}}
+              - not: {has: {kind: expression_statement, nthChild: 1, regex: "^[\"']use client[\"'];?$"}}
+examples:
+  match: ["import dynamic from \"next/dynamic\";\n\nconst Map = dynamic(() => import(\"./map\"), { ssr: false });\nexport default Map;\n"]
+  no_match: ["'use client';\nimport dynamic from \"next/dynamic\";\n\nconst Map = dynamic(() => import(\"./map\"), { ssr: false });\nexport default Map;\n", "import dynamic from \"next/dynamic\";\n\nconst Map = dynamic(() => import(\"./map\"));\nexport default Map;\n"]
