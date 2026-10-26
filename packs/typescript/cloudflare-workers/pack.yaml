@@ -1,0 +1,6 @@
+id: typescript/cloudflare-workers
+description: Cloudflare Workers projects (wrangler).
+level: project
+detect:
+  files_any: [wrangler.toml, wrangler.json, wrangler.jsonc]
+  deps_any: [{ecosystem: npm, name: wrangler}]

@@ -1,0 +1,23 @@
+id: typescript/cloudflare-workers/stripe/constructevent-async
+description: "In a Workers project, Stripe webhooks are verified with await stripe.webhooks.constructEventAsync(…), not constructEvent(…): on Workers Stripe signs with SubtleCrypto, which is async only, so the synchronous call throws."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      has:
+        field: function
+        kind: member_expression
+        all:
+          - has: {field: property, regex: "^constructEvent$"}
+          - has: {field: object, kind: member_expression, all: [{has: {field: object, pattern: $S}}, {has: {field: property, regex: "^webhooks$"}}]}
+    where:
+      S: {type: {package: stripe, name: Stripe}}
+examples:
+  deps: [{ecosystem: npm, name: stripe, version: "23.0.0"}]
+  match:
+    - "import Stripe from \"stripe\";\n\nexport function verify(stripe: Stripe, body: string, sig: string, secret: string) {\n  return stripe.webhooks.constructEvent(body, sig, secret);\n}\n"
+  no_match:
+    - "import Stripe from \"stripe\";\n\nexport async function verify(stripe: Stripe, body: string, sig: string, secret: string) {\n  return await stripe.webhooks.constructEventAsync(body, sig, secret);\n}\n"
+    - "const hooks = { webhooks: { constructEvent: (p: string) => p } };\n\nexport const e = hooks.webhooks.constructEvent(\"x\");\n"

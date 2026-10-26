@@ -999,6 +999,26 @@ context.md: request input validated or `sanitizeFilter()`ed before a filter; no 
 
 context.md: the workflow sandbox; activities through `proxyActivities` with `import type`; `uuid4()`.
 
+### typescript/stripe
+
+| Rule | Targets |
+|---|---|
+| `typescript/stripe/webhook-raw-body` | `ast-grep` forbid: `$S.webhooks.constructEvent(…)` / `constructEventAsync(…)` whose first argument is `JSON.stringify(…)`, `await <x>.json()` or a variable declared from one in an enclosing block or the module, where `S` is Stripe's `Stripe` |
+
+context.md: webhook payloads are the raw body.
+
+### typescript/cloudflare-workers
+
+Detected by `wrangler.toml`, `wrangler.json`, `wrangler.jsonc` or the `wrangler` dependency.
+
+### typescript/cloudflare-workers/stripe
+
+| Rule | Targets |
+|---|---|
+| `typescript/cloudflare-workers/stripe/constructevent-async` | `ast-grep` forbid: `$S.webhooks.constructEvent(…)`, where `S` is Stripe's `Stripe` (on Workers only `constructEventAsync` works) |
+
+context.md: `await stripe.webhooks.constructEventAsync(…)` on Workers.
+
 ### github-actions
 
 Detected by `.github/workflows/*.yml` or `*.yaml`.

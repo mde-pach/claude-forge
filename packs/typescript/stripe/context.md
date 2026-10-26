@@ -1,0 +1,1 @@
+Stripe webhooks: `stripe.webhooks.constructEvent` / `constructEventAsync` get the raw body (`await req.text()`, `express.raw()`'s Buffer), never `JSON.stringify(…)` or a parsed body; the signature covers the exact bytes.
