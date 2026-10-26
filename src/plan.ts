@@ -9,6 +9,7 @@ import {
   astGrepTestPath,
   checkTools,
   fill,
+  helperFiles,
   renderAstGrepRule,
   renderAstGrepTest,
   renderChecks,
@@ -375,8 +376,6 @@ export function plan(opts: PlanOptions): Plan {
     // the types engines the active ast-grep rules use (§15.2)
     const types = [...new Set(astgrep.map((a) => typesLanguage(a.rule, a.target)).filter((l): l is TypesLanguage => !!l))].sort();
     const fragment = renderChecks(checks, greps, types);
-    // typecheck.sh and test-edit.sh never start a types engine: no adapter in them
-    const lean = types.length ? renderChecks(checks, greps, types, { adapters: false }) : fragment;
     checksFragment = fragment;
     typesUsed = types;
     const root = ".claude/skills/forge-project";
@@ -389,9 +388,9 @@ export function plan(opts: PlanOptions): Plan {
     files.set(`${root}/scripts/session-start.sh`, fill(template("session-start.sh"), { CHECKS: fragment, PACKS: packs.map((p) => p.id).join(", ") || "none" }));
     files.set(`${root}/scripts/bash-snapshot.sh`, template("bash-snapshot.sh"));
     files.set(`${root}/scripts/post-edit.sh`, fill(template("post-edit.sh"), { CHECKS: fragment, FORBID: [ids("forbid"), ids("advise")].filter(Boolean).join("|") }));
-    files.set(`${root}/scripts/typecheck.sh`, fill(template("typecheck.sh"), { CHECKS: lean }));
+    files.set(`${root}/scripts/typecheck.sh`, fill(template("typecheck.sh"), { CHECKS: fragment }));
     files.set(`${root}/scripts/stop.sh`, template("stop.sh"));
-    files.set(`${root}/scripts/test-edit.sh`, fill(template("test-edit.sh"), { CHECKS: lean, TEST_RULES: renderTestRules(checks) }));
+    files.set(`${root}/scripts/test-edit.sh`, fill(template("test-edit.sh"), { CHECKS: fragment, TEST_RULES: renderTestRules(checks) }));
     files.set(`${root}/scripts/turn-start.sh`, template("turn-start.sh"));
     if (types.length) files.set(`${root}/scripts/session-end.sh`, template("session-end.sh"));
     for (const p of packs) {
@@ -400,6 +399,7 @@ export function plan(opts: PlanOptions): Plan {
     }
     files.set(".forge/check.sh", renderCheckScript(checks, { forbid: ids("forbid"), noIncrease: ids("no-increase"), noDecrease: ids("no-decrease") }, greps, types));
     files.set(".forge/.gitignore", "state/\n");
+    for (const [path, text] of helperFiles(checks, types)) files.set(path, text);
     files.set(".forge/ast-grep/sgconfig.yml", renderSgConfig());
     for (const { rule, target, dirs } of astgrep) {
       files.set(`.forge/ast-grep/${astGrepRulePath(rule.id)}`, renderAstGrepRule(rule, target, dirs));

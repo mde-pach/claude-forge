@@ -176,20 +176,8 @@ function typesRevision(): string {
   return sha256(text).slice(0, 12);
 }
 
-/** The engine adapters (§15.2) as forge_script_types_<lang>_<ext> here-document functions. */
-function renderTypesScripts(langs: TypesLanguage[]): string[] {
-  const out: string[] = [];
-  for (const lang of langs) {
-    const file = lang === "python" ? "types_python.py" : "types_typescript.mjs";
-    const text = readFileSync(join(packageRoot(), "templates", "helpers", file), "utf8");
-    if (text.split("\n").includes("FORGE_SCRIPT_END")) throw new Error(`${file}: contains the here-document delimiter`);
-    out.push(`forge_script_${file.replace(/\W/g, "_")}() {`, "cat <<'FORGE_SCRIPT_END'", text.trimEnd(), "FORGE_SCRIPT_END", "}");
-  }
-  return out;
-}
-
-/** The generated checks fragment (wrappers, per-check functions, grep rules, engine, types engine adapters). */
-export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = [], types: TypesLanguage[] = [], opts: { adapters?: boolean } = {}): string {
+/** The generated checks fragment (wrappers, per-check functions, grep rules, engine). */
+export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = [], types: TypesLanguage[] = []): string {
   const used = new Set(checks.flatMap((c) => checkTools(c.target)));
   const out: string[] = ["# ---- generated checks"];
   // a POSIX shell function name has no "-": such tools are run as `forge_exec_tool <name>`
@@ -239,8 +227,6 @@ export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = [], ty
       ENGINE_PYTHON,
       TYPES_REV: types.length ? typesRevision() : "",
     }).trimEnd());
-  // only the scripts that start an engine carry its adapter (post-edit, session-start, check)
-  if (types.length && opts.adapters !== false) out.push("", "# The types engine adapters (§15.2), written to the state directory when started.", ...renderTypesScripts(types));
   return out.join("\n");
 }
 
@@ -291,7 +277,6 @@ export function renderCheckScript(
   return fill(template("check.sh"), {
     LIB: renderLib().trimEnd(),
     CHECKS: renderChecks(checks, greps, types),
-    SCRIPTS: renderHelperScripts(checks),
     FORBID: ids.forbid,
     NO_INCREASE: ids.noIncrease,
     NO_DECREASE: ids.noDecrease,
@@ -302,31 +287,27 @@ export function renderCheckScript(
 export const PYTHON_TOOLS = new Set(["ruff", "basedpyright", "alembic", "pytest", "python"]);
 
 /**
- * Scripts that engine helpers run with the project's own runtime. They are
- * embedded in check.sh as here-documents (forge_script_<name>), only when an
- * active check uses them: as separate files, the project's formatters would
- * rewrite them (ruff format ., biome check --write .).
+ * Scripts that engine helpers and the types engine run with a runtime (§13.4, §15.2),
+ * shipped as plain files in .forge/helpers/, only when an active check or rule uses
+ * them. A project formatter may rewrite them: their integrity hash ignores formatting
+ * (ownedHash).
  */
-const HELPER_SCRIPTS: { name: string; template: string }[] = [
-  { name: "ratchet.py", template: "ratchet.py" },
-  { name: "ratchet.mjs", template: "ratchet.mjs" },
-  { name: "drf_permissions.py", template: "drf_permissions.py" },
-  { name: "public_api.py", template: "public_api.py" },
-  { name: "public_api.mjs", template: "public_api.mjs" },
-  { name: "fk_index.py", template: "fk_index.py" },
-];
+const HELPER_SCRIPTS = ["ratchet.py", "ratchet.mjs", "drf_permissions.py", "public_api.py", "public_api.mjs", "fk_index.py"];
+export const HELPERS_DIR = ".forge/helpers";
 
-/** forge_script_<name>() functions for the helper scripts the checks use. */
-export function renderHelperScripts(checks: ActiveCheck[]): string {
-  const out: string[] = [];
-  for (const h of HELPER_SCRIPTS) {
-    const used = new RegExp(`\\bforge_(ratchet|helper) [a-z]+ ${h.name.replace(".", "\\.")}(\\s|$)`);
-    if (!checks.some((c) => used.test(c.target.run) || used.test(c.target.changed_run ?? ""))) continue;
-    const text = readFileSync(join(packageRoot(), "templates", "helpers", h.template), "utf8");
-    if (text.split("\n").includes("FORGE_SCRIPT_END")) throw new Error(`${h.template}: contains the here-document delimiter`);
-    out.push(`forge_script_${h.name.replace(/\W/g, "_")}() {`, "cat <<'FORGE_SCRIPT_END'", text.trimEnd(), "FORGE_SCRIPT_END", "}");
+/** The helper files the checks and types engines use: path (repository-relative) -> content. */
+export function helperFiles(checks: ActiveCheck[], types: TypesLanguage[] = []): Map<string, string> {
+  const out = new Map<string, string>();
+  const read = (name: string) => readFileSync(join(packageRoot(), "templates", "helpers", name), "utf8");
+  for (const name of HELPER_SCRIPTS) {
+    const used = new RegExp(`\\bforge_(ratchet|helper) [a-z]+ ${name.replace(".", "\\.")}(\\s|$)`);
+    if (checks.some((c) => used.test(c.target.run) || used.test(c.target.changed_run ?? ""))) out.set(`${HELPERS_DIR}/${name}`, read(name));
   }
-  return out.join("\n");
+  for (const lang of types) {
+    const name = lang === "python" ? "types_python.py" : "types_typescript.mjs";
+    out.set(`${HELPERS_DIR}/${name}`, read(name));
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------- guard.rules

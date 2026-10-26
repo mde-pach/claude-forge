@@ -13,6 +13,7 @@ import {
   renderAstGrepTest,
   renderCheckScript,
   renderChecks,
+  helperFiles,
   renderGuardRules,
   renderLib,
   renderSgConfig,
@@ -186,6 +187,7 @@ export function runCheckExample(rule: Rule, t: CheckTarget, ex: Example, kind: "
       ".forge/check.sh": script,
       ".forge/.gitignore": "state/\n",
       ".forge/ast-grep/sgconfig.yml": renderSgConfig(),
+      ...Object.fromEntries(helperFiles([{ rule, target: t }])),
     };
     const manifest = Object.entries(owned).map(([p, text]) => `${ownedHash(p, text)}  ${p}`).join("\n") + "\n";
     writeFiles(dir, { ".gitignore": "node_modules/\n.venv/\n", ...owned, ".forge/manifest.sha256": manifest, ...(fixture.head ?? {}) });
@@ -503,6 +505,11 @@ export function runTypesFilter(project: string, lang: TypesLanguage, matches: st
   ].join("\n");
   const file = join(state, "filter.sh");
   mkdirSync(state, { recursive: true, mode: 0o700 });
+  // the engine's adapter, where the generated scripts start it from
+  for (const [rel, text] of helperFiles([], [lang])) {
+    mkdirSync(dirname(join(project, rel)), { recursive: true });
+    writeFileSync(join(project, rel), text);
+  }
   writeFileSync(file, script);
   const r = run("sh", [file, matches], { cwd: project });
   return { kept: readFileSync(matches, "utf8").split("\n").filter(Boolean), output: r.stdout + r.stderr, status: r.status };

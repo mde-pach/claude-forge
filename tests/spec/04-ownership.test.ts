@@ -9,11 +9,12 @@
  * how `remove` knows exactly what to delete (§4, §12).
  */
 import { describe, expect, test } from "bun:test";
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { addEntries, removeEntries } from "../../src/settings";
-import { applied, commitAll, ensureTools, forge, git, hasBun, linkTools, put, sampleRepo, sh } from "../helpers";
+import { ownedHash } from "../../src/util";
+import { applied, commitAll, ensureTools, forge, git, hasBun, hasUv, linkTools, put, ROOT, sampleRepo, sh, TOOLS_CACHE } from "../helpers";
 
 const T = 120_000;
 
@@ -79,8 +80,8 @@ describe("the lock", () => {
       expect(manifest).toMatch(/^[0-9a-f]{64} {2}\.claude\/rules\/forge-typescript\.md\n/);
       expect(manifest).not.toContain("forge.lock.json");
       expect(manifest).not.toContain("manifest.sha256");
-      // non-JSON entries verify with the standard tool; JSON entries hash without whitespace
-      const plain = manifest.split("\n").filter((l) => l && !l.endsWith(".json")).join("\n") + "\n";
+      // other entries verify with the standard tool; JSON entries hash without whitespace, helper scripts without what formatters change
+      const plain = manifest.split("\n").filter((l) => l && !l.endsWith(".json") && !l.includes("  .forge/helpers/")).join("\n") + "\n";
       const c = sh("sh", ["-c", 'command -v sha256sum >/dev/null && sha256sum -c --quiet || shasum -a 256 -c --quiet'], { cwd: r, input: plain });
       expect(c.status).toBe(0);
       expect(readFileSync(join(r, ".forge/check.sh"), "utf8")).not.toMatch(/awk[^\n]*forge\.lock\.json/);
@@ -300,6 +301,32 @@ describe("formatters and Forge's JSON", () => {
       const again = forge(["apply", "--yes"], r);
       expect(again.stdout).toContain("forge: up to date");
       expect(forge(["diff"], r).status).toBe(0);
+    },
+    T,
+  );
+
+  /**
+   * The helper scripts in `.forge/helpers/` are written as the project's fixers leave
+   * them (sorted imports, current syntax), so that what remains of a project-wide
+   * `biome check --write .`, `ruff check --fix` or `ruff format .` is formatting, which
+   * their integrity hash leaves out (§12).
+   */
+  test.if(hasBun && hasUv)(
+    "every helper script keeps its integrity hash through Biome's check --write and ruff's import and pyupgrade fixes and format",
+    () => {
+      ensureTools();
+      const dir = mkdtempSync(join(tmpdir(), "forge-helpers-"));
+      const helpers = join(ROOT, "templates", "helpers");
+      for (const f of readdirSync(helpers)) writeFileSync(join(dir, f), readFileSync(join(helpers, f), "utf8"));
+      writeFileSync(join(dir, "biome.json"), DEFAULT_BIOME);
+      sh(join(TOOLS_CACHE, "node_modules/.bin/biome"), ["check", "--write", "."], { cwd: dir });
+      const py = readdirSync(dir).filter((f) => f.endsWith(".py"));
+      sh(join(TOOLS_CACHE, ".venv/bin/ruff"), ["check", "--fix", "--select", "I,UP", "--exit-zero", ...py], { cwd: dir });
+      sh(join(TOOLS_CACHE, ".venv/bin/ruff"), ["format", ...py], { cwd: dir });
+      for (const f of readdirSync(helpers)) {
+        const path = `.forge/helpers/${f}`;
+        expect(`${f} ${ownedHash(path, readFileSync(join(dir, f), "utf8"))}`).toBe(`${f} ${ownedHash(path, readFileSync(join(helpers, f), "utf8"))}`);
+      }
     },
     T,
   );

@@ -34,8 +34,6 @@ trap 'forge_types_down; rm -rf "$FORGE_TMP"' EXIT; trap 'forge_kill_jobs; exit 1
 
 FORGE_STATE=$(forge_state_of "$(pwd -P)")
 
-# Scripts that checks run with the project's own runtime (Python, bun).
-@@SCRIPTS@@
 
 FORGE_FORBID='@@FORBID@@'
 FORGE_NO_INCREASE='@@NO_INCREASE@@'
@@ -45,7 +43,7 @@ FORGE_NO_DECREASE='@@NO_DECREASE@@'
 # The change: changed, existing, deleted, base/, inbase and added in $FORGE_TMP.
 forge_change_set || exit 1
 if [ "$mode" = --all ]; then
-  git ls-files -z --cached --others --exclude-standard 2>/dev/null | tr '\000' '\n' | sort -u > "$FORGE_TMP/scope"
+  git ls-files -z --cached --others --exclude-standard 2>/dev/null | tr '\000' '\n' | grep -v '^\.forge/' | sort -u > "$FORGE_TMP/scope"
   : > "$FORGE_TMP/scope.tmp"
   while read -r f; do [ -f "$f" ] && printf '%s\n' "$f" >> "$FORGE_TMP/scope.tmp"; done < "$FORGE_TMP/scope"
   mv "$FORGE_TMP/scope.tmp" "$FORGE_TMP/scope"
@@ -58,9 +56,13 @@ report() { printf 'forge:%s %s\n' "$1" "$2"; fail=1; }
 
 # 1. Integrity: owned files match .forge/manifest.sha256 ("<sha256>  <path>" lines,
 # sha256sum format). JSON files are hashed with spaces, tabs and newlines removed,
-# so a formatter run is not tampering; any other change is.
+# helper scripts also without quotes, commas, semicolons and parentheses, so a
+# formatter run is not tampering; any other change is.
 forge_owned_hash() {
   case $1 in
+    # helper scripts: what a formatter changes (layout, quotes, trailing commas,
+    # semicolons, parentheses) is left out, so ruff format or Biome rewriting them is not tampering
+    .forge/helpers/*) tr -d " \t\r\n,;()'\"\`" < "$1" | forge_sha256 ;;
     *.json) tr -d ' \t\r\n' < "$1" | forge_sha256 ;;
     *) forge_sha256 < "$1" ;;
   esac

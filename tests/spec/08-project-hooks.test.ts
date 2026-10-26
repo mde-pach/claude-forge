@@ -12,7 +12,7 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSyn
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { renderChecks } from "../../src/render";
-import { applied, commitAll, ensureTools, forge, git, hasBun, hasUv, hookJson, linkTools, put, sampleRepo, sh, stateDir, TOOLS_CACHE } from "../helpers";
+import { applied, commitAll, ensureTools, forge, git, hasBun, hasUv, hookJson, linkTools, put, sampleRepo, sh, stateDir, stopEngines, TOOLS_CACHE } from "../helpers";
 
 const T = 180_000;
 const SCRIPTS = ".claude/skills/forge-project/scripts";
@@ -31,6 +31,8 @@ function hook(script: string, fields: Record<string, unknown>, env: Record<strin
  */
 function reset() {
   if (!repo) return;
+  // SessionStart starts the types engines (§15.3): none outlives the test
+  stopEngines(repo);
   git(repo, "reset", "-q", "--hard");
   git(repo, "clean", "-qfdx", "-e", ".venv");
   rmSync(stateDir(repo), { recursive: true, force: true });
@@ -1392,6 +1394,7 @@ test(
     expect(run("post-edit.sh", tsEdit).status).toBe(0);
     expect(run("typecheck.sh", tsEdit).status).toBe(0);
     expect(run("guard.sh", { tool_name: "Bash", tool_input: { command: "ls" } }).status).toBe(0);
+    stopEngines(ts);
   },
   T,
 );

@@ -238,3 +238,28 @@ export function linkTools(repo: string, kind: "node" | "python" | "alembic" | "d
     }
   }
 }
+
+/**
+ * Stops the types engines (§15.3) running for <repo>: the adapter and, with it, its
+ * language server. Tests that run hooks starting them (SessionStart, post-edit) call it
+ * before they drop the state directory, so no engine outlives its test.
+ */
+export function stopEngines(repo: string): void {
+  const dir = join(stateDir(repo), "types");
+  if (!existsSync(dir)) return;
+  // a start in progress (SessionStart starts engines in the background) finishes first
+  for (let i = 0; i < 300 && readdirSync(dir).some((f) => f.endsWith(".lock")); i++) Bun.sleepSync(100);
+  const pids = readdirSync(dir)
+    .filter((lang) => !lang.endsWith(".lock"))
+    .map((lang) => join(dir, lang, "pid"))
+    .filter((f) => existsSync(f))
+    .map((f) => readFileSync(f, "utf8").trim())
+    .filter((p) => /^\d+$/.test(p));
+  for (const p of pids) sh("kill", [p]);
+  for (let i = 0; i < 50 && pids.some((p) => sh("kill", ["-0", p]).status === 0); i++) Bun.sleepSync(100);
+}
+
+/** The processes whose command line names <text> (pgrep -f), e.g. a repository's engines. */
+export function processesNaming(text: string): string[] {
+  return sh("pgrep", ["-f", text]).stdout.split("\n").filter(Boolean);
+}

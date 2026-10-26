@@ -133,6 +133,13 @@ export function lineDiff(before: string, after: string, label: string): string {
  * files are hashed with spaces, tabs and newlines removed, so a formatter run
  * is not tampering (check.sh does the same with `tr -d ' \t\r\n'`).
  */
+/**
+ * The hash of an owned file as check.sh computes it (forge_owned_hash): JSON without
+ * whitespace; the helper scripts in .forge/helpers/ also without quotes, commas,
+ * semicolons and parentheses, so a project formatter (ruff format, Biome) rewriting
+ * them is not tampering (§12); anything else as it is.
+ */
 export function ownedHash(path: string, content: string): string {
+  if (path.startsWith(".forge/helpers/")) return sha256(content.replace(/[ \t\r\n,;()'"`]/g, ""));
   return sha256(path.endsWith(".json") ? content.replace(/[ \t\r\n]/g, "") : content);
 }

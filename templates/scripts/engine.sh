@@ -36,7 +36,9 @@ forge_change_set() {
     --since)
       { git diff --name-only -z --no-renames "$FORGE_BASE_REV" 2>/dev/null; git ls-files -z --others --exclude-standard 2>/dev/null; } | tr '\000' '\n' | sort -u ;;
     *) status_paths | sort -u ;;
-  esac > "$FORGE_TMP/changed"
+  esac | grep -v '^\.forge/' > "$FORGE_TMP/changed"
+  # Forge's own files (.forge/: check.sh, its helper scripts) are not the project's code:
+  # integrity covers them (check.sh step 1), the project's rules do not
   : > "$FORGE_TMP/existing"; : > "$FORGE_TMP/deleted"; : > "$FORGE_TMP/inbase"; : > "$FORGE_TMP/added"
   mkdir -p "$FORGE_TMP/base"
   while IFS= read -r _cs_f; do
@@ -191,16 +193,14 @@ forge_grep_forbid() {
   done
 }
 
-# forge_ratchet <runtime> <script>: the config ratchet. Runs <script> (embedded in
-# check.sh as forge_script_<script>) with the project's runtime on the changed files
-# and their base copies; each printed line is a loosened setting, unless forge.yaml
-# records it as accepted.
+# forge_ratchet <runtime> <script>: the config ratchet. Runs .forge/helpers/<script>
+# with the project's runtime on the changed files and their base copies; each printed
+# line is a loosened setting, unless forge.yaml records it as accepted.
 forge_ratchet() {
-  _fr_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
-  "$_fr_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  [ -f ".forge/helpers/$2" ] || { printf 'forge:%s skipped: .forge/helpers/%s is missing (run forge apply)\n' "$c_id" "$2"; return 0; }
   set -f
   # shellcheck disable=SC2046
-  "$1" "$FORGE_TMP/$2" "$FORGE_TMP/base" $(cat "$FORGE_TMP/existing") > "$FORGE_TMP/ratchet" 2>&1
+  "$1" ".forge/helpers/$2" "$FORGE_TMP/base" $(cat "$FORGE_TMP/existing") > "$FORGE_TMP/ratchet" 2>&1
   _fr_rc=$?
   set +f
   case $_fr_rc in
@@ -218,16 +218,15 @@ forge_ratchet() {
   return 1
 }
 
-# forge_helper <runtime> <script> [file...]: runs <script> (embedded in check.sh as
-# forge_script_<script>) with the project's runtime, as `<script> <FORGE_TMP> [file...]`
+# forge_helper <runtime> <script> [file...]: runs .forge/helpers/<script> with the
+# project's runtime, as `<script> <FORGE_TMP> [file...]`
 # (FORGE_TMP holds changed, existing, inbase and base/ from forge_change_set). Exit 0:
 # nothing found; 1: findings printed ("path:line message"; a line also present in
 # forge.yaml is accepted); 3: cannot run, its "skipped: ..." line is printed.
 forge_helper() {
-  _fh_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
-  "$_fh_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  [ -f ".forge/helpers/$2" ] || { printf 'forge:%s skipped: .forge/helpers/%s is missing (run forge apply)\n' "$c_id" "$2"; return 0; }
   _fh_rt=$1; _fh_s=$2; shift 2
-  "$_fh_rt" "$FORGE_TMP/$_fh_s" "$FORGE_TMP" "$@" > "$FORGE_TMP/helper" 2>&1
+  "$_fh_rt" ".forge/helpers/$_fh_s" "$FORGE_TMP" "$@" > "$FORGE_TMP/helper" 2>&1
   case $? in
     0) return 0 ;;
     1) ;;
@@ -2225,11 +2224,12 @@ forge_diagnostics() {
       else if (index(p, r2 "/") == 1) p = substr(p, length(r2) + 2)
       sub(/^\.\//, "", p)
       named = 1
+      if (p !~ /^\.forge\//) project = 1
       if (level == "line") counts = (p in whole) || (ln == "" || ln == 0 ? (p in ch) : ((p "\t" ln) in ad))
       else counts = (p in ch)
       if (counts) { hit = 1; if (mode == "print") print $0 }
     }
-    END { if (mode != "print") print (hit ? "changed" : named ? "other" : (warned && !erred) ? "warnings" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
+    END { if (mode != "print") print (hit ? "changed" : named && !project ? "forge" : named ? "other" : (warned && !erred) ? "warnings" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
 }
 
 # forge_attribute_level <stage> <whole-project run: 1|0>: how a failed check's
@@ -2289,6 +2289,12 @@ forge_run_check() {
   fi
   # outside --all, only errors in the change count (§10.1 step 5)
   _fc_level=$(forge_attribute_level "$c_stage" "$_fc_whole")
+  # findings only in Forge's own helper scripts (.forge/helpers/, checked by integrity)
+  # are not the project's, in every mode
+  if [ -n "$_fc_level" ] && [ "$(forge_diagnostics "$FORGE_TMP/out" "$_fc_level")" = forge ]; then
+    printf 'forge:%s ok (its findings are only in Forge'"'"'s own .forge/ files)\n' "$c_id"
+    return 0
+  fi
   if [ "$mode" != --all ] && [ -n "$_fc_level" ]; then
     case $(forge_diagnostics "$FORGE_TMP/out" "$_fc_level") in
       other)
@@ -2835,13 +2841,7 @@ forge_types_up() {
     typescript) _tu_want="typescript $FORGE_TS_ENGINE_VERSION $FORGE_TYPES_REV" ;;
     *) printf 'no types engine for %s\n' "$1"; return 1 ;;
   esac
-  if forge_types_alive "$1"; then
-    if [ "$(cat "$_tu_d/want" 2>/dev/null)" = "$_tu_want" ]; then
-      [ -z "${FORGE_INPUT:-}" ] || : > "$_tu_d/sessions/$(session_id)"
-      return 0
-    fi
-    forge_types_line "$1" stop
-  fi
+  forge_types_running "$1" "$_tu_want" && return 0
   forge_state_dir && mkdir -p "$FORGE_STATE/types" || { printf 'cannot create %s\n' "$FORGE_STATE/types"; return 1; }
   # one starter at a time; another one's start is waited for (its lock holds its pid)
   _tu_n=0
@@ -2851,19 +2851,20 @@ forge_types_up() {
     [ "$_tu_n" -lt "${FORGE_TYPES_START_TIMEOUT:-60}" ] || { printf 'another hook is still starting the %s engine\n' "$1"; return 1; }
     sleep 1
     _tu_n=$((_tu_n + 1))
-    forge_types_alive "$1" && return 0
   done
-  printf '%s\n' "$$" > "$_tu_d.lock/pid"
+  # this shell's own pid ($$ is the script's, which a background subshell outlives)
+  _tu_me=$(exec sh -c 'echo "$PPID"')
+  printf '%s\n' "$_tu_me" > "$_tu_d.lock/pid"
+  # started meanwhile by the hook that held the lock
+  if forge_types_running "$1" "$_tu_want"; then rm -rf "$_tu_d.lock"; return 0; fi
+  # another pin or Forge: stopped (and waited for) before its state is replaced
+  forge_types_stop "$1"
   rm -rf "$_tu_d"
   mkdir -p "$_tu_d/sessions" && mkfifo "$_tu_d/in" "$_tu_d/started" || { rm -rf "$_tu_d.lock"; printf 'cannot create %s\n' "$_tu_d"; return 1; }
   printf '%s\n' "$_tu_want" > "$_tu_d/want"
   case $1 in
-    python)
-      forge_script_types_python_py > "$_tu_d/engine.py"
-      set -- uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" python "$_tu_d/engine.py" "$(pwd -P)" "$_tu_d" ;;
-    typescript)
-      forge_script_types_typescript_mjs > "$_tu_d/engine.mjs"
-      set -- bun "$_tu_d/engine.mjs" "$(pwd -P)" "$_tu_d" "$FORGE_TS_ENGINE_VERSION" ;;
+    python) set -- uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" python "$(pwd -P)/.forge/helpers/types_python.py" "$(pwd -P)" "$_tu_d" ;;
+    typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" "$FORGE_TS_ENGINE_VERSION" ;;
   esac
   # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a
   # launcher that fails before (no network for a first download) says "exited <code>"
@@ -2887,11 +2888,18 @@ forge_types_up() {
   return 1
 }
 
-# forge_types_down: stops the daemons this run started when no session uses them
-# (check.sh in CI or a pre-commit hook: nothing is left running).
+# forge_types_running <lang> <want>: its daemon runs with this engine; registers the
+# hook's session with it.
+forge_types_running() {
+  forge_types_alive "$1" && [ "$(cat "$FORGE_STATE/types/$1/want" 2>/dev/null)" = "$2" ] || return 1
+  [ -z "${FORGE_INPUT:-}" ] || : > "$FORGE_STATE/types/$1/sessions/$(session_id)"
+}
+
+# forge_types_down: stops the daemons this run started when no session uses them, and
+# waits until they have exited (check.sh in CI or a pre-commit hook: nothing is left running).
 forge_types_down() {
   for _td_l in ${FORGE_TYPES_STARTED:-}; do
-    [ -n "$(ls "$FORGE_STATE/types/$_td_l/sessions" 2>/dev/null)" ] || forge_types_line "$_td_l" stop
+    [ -n "$(ls "$FORGE_STATE/types/$_td_l/sessions" 2>/dev/null)" ] || forge_types_stop "$_td_l"
   done
   return 0
 }

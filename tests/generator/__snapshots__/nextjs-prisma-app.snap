@@ -1075,14 +1075,15 @@ forge_types_alive() {
 # never mix) to the daemon's FIFO. Opened read-write, so it never blocks.
 forge_types_line() { printf '%s\n' "$2" 1<>"$FORGE_STATE/types/$1/in"; }
 
-# forge_types_ask <lang> <dir>: asks the daemon the question in <dir>/req and prints
-# its answer (without the final "end"); fails when none comes within
+# forge_types_ask <lang> <dir> [stop]: asks the daemon the question in <dir>/req and
+# prints its answer (without the final "end"); with "stop", asks it to stop and waits
+# until it has (its language server ended). Fails when no answer comes within
 # FORGE_TYPES_TIMEOUT seconds (20). The reply FIFO is opened read-write before the
 # question is sent, so the daemon's non-blocking open always finds a reader.
 forge_types_ask() {
   mkfifo "$2/reply" || return 1
   exec 8<>"$2/reply"
-  forge_types_line "$1" "$2"
+  forge_types_line "$1" "${3:+$3	}$2"
   { sleep "${FORGE_TYPES_TIMEOUT:-20}" & printf '%s\n' "$!" > "$2/sleep"; wait "$!"
     printf 'error\tno answer within %ss\nend\n' "${FORGE_TYPES_TIMEOUT:-20}" 1<>"$2/reply"; } >/dev/null 2>&1 &
   _ta_w=$!
@@ -1124,6 +1125,16 @@ forge_types_changed() {
   done
 }
 
+# forge_types_stop <lang>: stops the language's daemon and waits until it and its
+# language server have exited (at most FORGE_TYPES_TIMEOUT seconds).
+forge_types_stop() {
+  forge_types_alive "$1" || return 0
+  _tp_r=$(mktemp -d "${TMPDIR:-/tmp}/forge-types-stop.XXXXXX") || return 1
+  forge_types_ask "$1" "$_tp_r" stop > /dev/null
+  rm -rf "$_tp_r"
+  return 0
+}
+
 # forge_types_session <start|end>: registers this Claude Code session with the running
 # daemons, or unregisters it; the last session to end stops them.
 forge_types_session() {
@@ -1133,7 +1144,7 @@ forge_types_session() {
     if [ "$1" = start ]; then mkdir -p "$_tx_d/sessions" && : > "$_tx_d/sessions/$(session_id)"
     else
       rm -f "$_tx_d/sessions/$(session_id)"
-      [ -n "$(ls "$_tx_d/sessions" 2>/dev/null)" ] || { forge_types_alive "$_tx_lang" && forge_types_line "$_tx_lang" stop; }
+      [ -n "$(ls "$_tx_d/sessions" 2>/dev/null)" ] || forge_types_stop "$_tx_lang"
     fi
   done
   return 0
@@ -1675,7 +1686,9 @@ forge_change_set() {
     --since)
       { git diff --name-only -z --no-renames "$FORGE_BASE_REV" 2>/dev/null; git ls-files -z --others --exclude-standard 2>/dev/null; } | tr '\000' '\n' | sort -u ;;
     *) status_paths | sort -u ;;
-  esac > "$FORGE_TMP/changed"
+  esac | grep -v '^\.forge/' > "$FORGE_TMP/changed"
+  # Forge's own files (.forge/: check.sh, its helper scripts) are not the project's code:
+  # integrity covers them (check.sh step 1), the project's rules do not
   : > "$FORGE_TMP/existing"; : > "$FORGE_TMP/deleted"; : > "$FORGE_TMP/inbase"; : > "$FORGE_TMP/added"
   mkdir -p "$FORGE_TMP/base"
   while IFS= read -r _cs_f; do
@@ -1830,16 +1843,14 @@ forge_grep_forbid() {
   done
 }
 
-# forge_ratchet <runtime> <script>: the config ratchet. Runs <script> (embedded in
-# check.sh as forge_script_<script>) with the project's runtime on the changed files
-# and their base copies; each printed line is a loosened setting, unless forge.yaml
-# records it as accepted.
+# forge_ratchet <runtime> <script>: the config ratchet. Runs .forge/helpers/<script>
+# with the project's runtime on the changed files and their base copies; each printed
+# line is a loosened setting, unless forge.yaml records it as accepted.
 forge_ratchet() {
-  _fr_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
-  "$_fr_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  [ -f ".forge/helpers/$2" ] || { printf 'forge:%s skipped: .forge/helpers/%s is missing (run forge apply)\n' "$c_id" "$2"; return 0; }
   set -f
   # shellcheck disable=SC2046
-  "$1" "$FORGE_TMP/$2" "$FORGE_TMP/base" $(cat "$FORGE_TMP/existing") > "$FORGE_TMP/ratchet" 2>&1
+  "$1" ".forge/helpers/$2" "$FORGE_TMP/base" $(cat "$FORGE_TMP/existing") > "$FORGE_TMP/ratchet" 2>&1
   _fr_rc=$?
   set +f
   case $_fr_rc in
@@ -1857,16 +1868,15 @@ forge_ratchet() {
   return 1
 }
 
-# forge_helper <runtime> <script> [file...]: runs <script> (embedded in check.sh as
-# forge_script_<script>) with the project's runtime, as `<script> <FORGE_TMP> [file...]`
+# forge_helper <runtime> <script> [file...]: runs .forge/helpers/<script> with the
+# project's runtime, as `<script> <FORGE_TMP> [file...]`
 # (FORGE_TMP holds changed, existing, inbase and base/ from forge_change_set). Exit 0:
 # nothing found; 1: findings printed ("path:line message"; a line also present in
 # forge.yaml is accepted); 3: cannot run, its "skipped: ..." line is printed.
 forge_helper() {
-  _fh_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
-  "$_fh_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  [ -f ".forge/helpers/$2" ] || { printf 'forge:%s skipped: .forge/helpers/%s is missing (run forge apply)\n' "$c_id" "$2"; return 0; }
   _fh_rt=$1; _fh_s=$2; shift 2
-  "$_fh_rt" "$FORGE_TMP/$_fh_s" "$FORGE_TMP" "$@" > "$FORGE_TMP/helper" 2>&1
+  "$_fh_rt" ".forge/helpers/$_fh_s" "$FORGE_TMP" "$@" > "$FORGE_TMP/helper" 2>&1
   case $? in
     0) return 0 ;;
     1) ;;
@@ -3868,11 +3878,12 @@ forge_diagnostics() {
       else if (index(p, r2 "/") == 1) p = substr(p, length(r2) + 2)
       sub(/^\.\//, "", p)
       named = 1
+      if (p !~ /^\.forge\//) project = 1
       if (level == "line") counts = (p in whole) || (ln == "" || ln == 0 ? (p in ch) : ((p "\t" ln) in ad))
       else counts = (p in ch)
       if (counts) { hit = 1; if (mode == "print") print $0 }
     }
-    END { if (mode != "print") print (hit ? "changed" : named ? "other" : (warned && !erred) ? "warnings" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
+    END { if (mode != "print") print (hit ? "changed" : named && !project ? "forge" : named ? "other" : (warned && !erred) ? "warnings" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
 }
 
 # forge_attribute_level <stage> <whole-project run: 1|0>: how a failed check's
@@ -3932,6 +3943,12 @@ forge_run_check() {
   fi
   # outside --all, only errors in the change count (§10.1 step 5)
   _fc_level=$(forge_attribute_level "$c_stage" "$_fc_whole")
+  # findings only in Forge's own helper scripts (.forge/helpers/, checked by integrity)
+  # are not the project's, in every mode
+  if [ -n "$_fc_level" ] && [ "$(forge_diagnostics "$FORGE_TMP/out" "$_fc_level")" = forge ]; then
+    printf 'forge:%s ok (its findings are only in Forge'"'"'s own .forge/ files)\n' "$c_id"
+    return 0
+  fi
   if [ "$mode" != --all ] && [ -n "$_fc_level" ]; then
     case $(forge_diagnostics "$FORGE_TMP/out" "$_fc_level") in
       other)
@@ -4465,7 +4482,7 @@ FORGE_TY_VERSION='0.0.86'
 FORGE_TS_ENGINE_VERSION='7.0.2'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='4488c9b0b19a'
+FORGE_TYPES_REV='3f3b5d2e09dd'
 
 # forge_types_up <lang>: the language's daemon runs, with the pinned engine (started
 # when it does not: by the first hook that needs it, or by SessionStart). Prints why
@@ -4478,13 +4495,7 @@ forge_types_up() {
     typescript) _tu_want="typescript $FORGE_TS_ENGINE_VERSION $FORGE_TYPES_REV" ;;
     *) printf 'no types engine for %s\n' "$1"; return 1 ;;
   esac
-  if forge_types_alive "$1"; then
-    if [ "$(cat "$_tu_d/want" 2>/dev/null)" = "$_tu_want" ]; then
-      [ -z "${FORGE_INPUT:-}" ] || : > "$_tu_d/sessions/$(session_id)"
-      return 0
-    fi
-    forge_types_line "$1" stop
-  fi
+  forge_types_running "$1" "$_tu_want" && return 0
   forge_state_dir && mkdir -p "$FORGE_STATE/types" || { printf 'cannot create %s\n' "$FORGE_STATE/types"; return 1; }
   # one starter at a time; another one's start is waited for (its lock holds its pid)
   _tu_n=0
@@ -4494,19 +4505,20 @@ forge_types_up() {
     [ "$_tu_n" -lt "${FORGE_TYPES_START_TIMEOUT:-60}" ] || { printf 'another hook is still starting the %s engine\n' "$1"; return 1; }
     sleep 1
     _tu_n=$((_tu_n + 1))
-    forge_types_alive "$1" && return 0
   done
-  printf '%s\n' "$$" > "$_tu_d.lock/pid"
+  # this shell's own pid ($$ is the script's, which a background subshell outlives)
+  _tu_me=$(exec sh -c 'echo "$PPID"')
+  printf '%s\n' "$_tu_me" > "$_tu_d.lock/pid"
+  # started meanwhile by the hook that held the lock
+  if forge_types_running "$1" "$_tu_want"; then rm -rf "$_tu_d.lock"; return 0; fi
+  # another pin or Forge: stopped (and waited for) before its state is replaced
+  forge_types_stop "$1"
   rm -rf "$_tu_d"
   mkdir -p "$_tu_d/sessions" && mkfifo "$_tu_d/in" "$_tu_d/started" || { rm -rf "$_tu_d.lock"; printf 'cannot create %s\n' "$_tu_d"; return 1; }
   printf '%s\n' "$_tu_want" > "$_tu_d/want"
   case $1 in
-    python)
-      forge_script_types_python_py > "$_tu_d/engine.py"
-      set -- uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" python "$_tu_d/engine.py" "$(pwd -P)" "$_tu_d" ;;
-    typescript)
-      forge_script_types_typescript_mjs > "$_tu_d/engine.mjs"
-      set -- bun "$_tu_d/engine.mjs" "$(pwd -P)" "$_tu_d" "$FORGE_TS_ENGINE_VERSION" ;;
+    python) set -- uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" python "$(pwd -P)/.forge/helpers/types_python.py" "$(pwd -P)" "$_tu_d" ;;
+    typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" "$FORGE_TS_ENGINE_VERSION" ;;
   esac
   # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a
   # launcher that fails before (no network for a first download) says "exited <code>"
@@ -4530,11 +4542,18 @@ forge_types_up() {
   return 1
 }
 
-# forge_types_down: stops the daemons this run started when no session uses them
-# (check.sh in CI or a pre-commit hook: nothing is left running).
+# forge_types_running <lang> <want>: its daemon runs with this engine; registers the
+# hook's session with it.
+forge_types_running() {
+  forge_types_alive "$1" && [ "$(cat "$FORGE_STATE/types/$1/want" 2>/dev/null)" = "$2" ] || return 1
+  [ -z "${FORGE_INPUT:-}" ] || : > "$FORGE_STATE/types/$1/sessions/$(session_id)"
+}
+
+# forge_types_down: stops the daemons this run started when no session uses them, and
+# waits until they have exited (check.sh in CI or a pre-commit hook: nothing is left running).
 forge_types_down() {
   for _td_l in ${FORGE_TYPES_STARTED:-}; do
-    [ -n "$(ls "$FORGE_STATE/types/$_td_l/sessions" 2>/dev/null)" ] || forge_types_line "$_td_l" stop
+    [ -n "$(ls "$FORGE_STATE/types/$_td_l/sessions" 2>/dev/null)" ] || forge_types_stop "$_td_l"
   done
   return 0
 }
@@ -4568,494 +4587,6 @@ forge_types_filter() {
   done
   mv "$1.kept" "$1"
   return "$_tf_rc"
-}
-
-# The types engine adapters (§15.2), written to the state directory when started.
-forge_script_types_typescript_mjs() {
-cat <<'FORGE_SCRIPT_END'
-// Generated by forge. The types engine for TypeScript (SPECS §15): a daemon that keeps
-// TypeScript 7's language server (tsc --lsp) running for one repository and answers
-// the hooks' type questions through a FIFO. Started by forge_types_up as
-//   bun types_typescript.mjs <root> <state-dir> <typescript version>
-// It detaches (its own session), then writes "ready <server> <version>" (or
-// "failed <reason>") to the FIFO <state-dir>/started. The protocol on <state-dir>/in is
-// the Python engine's (types_python.py): "changed<TAB><path>", "stop", "restart", or
-// the absolute path of a question directory (req: ast-grep matches; reply: the matches
-// whose forge_where holds, "error<TAB>..." lines, "end"). Node-compatible: no Bun-only API.
-import { spawn } from "node:child_process";
-import process from "node:process";
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-
-const ROOT = fs.realpathSync(process.argv[2]);
-const STATE = process.argv[3];
-const VERSION = process.argv[4];
-const IDLE = Number(process.env.FORGE_TYPES_IDLE ?? 1800) * 1000;
-const logFile = fs.openSync(path.join(STATE, "log"), "a");
-const log = (...a) => fs.writeSync(logFile, `${new Date().toISOString().slice(11, 19)} ${a.join(" ")}\n`);
-
-const uri = (p) => pathToFileURL(fs.existsSync(p) ? fs.realpathSync(p) : p).href;
-const pathOf = (u) => (u.startsWith("file://") ? fileURLToPath(u) : u);
-
-/** The LSP position (UTF-16 columns, as JS strings count) of a string index. */
-function position(text, index) {
-  let line = 0;
-  for (let i = text.indexOf("\n"); i >= 0 && i < index; i = text.indexOf("\n", i + 1)) line++;
-  return { line, character: index - (text.lastIndexOf("\n", index - 1) + 1) };
-}
-function indexOf(text, pos) {
-  let i = 0;
-  for (let l = 0; l < pos.line; l++) i = text.indexOf("\n", i) + 1;
-  return i + pos.character;
-}
-
-// ---------------------------------------------------------------- the language server
-
-class Server {
-  constructor() {
-    // tsc's bin starts the native compiler; --bun: no Node needed
-    this.proc = spawn(process.execPath, ["x", "--bun", "-p", `typescript@${VERSION}`, "tsc", "--lsp", "--stdio"], { cwd: ROOT, stdio: ["pipe", "pipe", logFile] });
-    this.proc.on("exit", () => {
-      log("server exited");
-      process.exit(3);
-    });
-    this.buf = Buffer.alloc(0);
-    this.next = 0;
-    this.waiting = new Map();
-    this.versions = new Map();
-    this.texts = new Map();
-    this.proc.stdout.on("data", (d) => this.read(d));
-  }
-  read(d) {
-    this.buf = Buffer.concat([this.buf, d]);
-    for (;;) {
-      const sep = this.buf.indexOf("\r\n\r\n");
-      if (sep < 0) return;
-      const len = Number(/content-length: *(\d+)/i.exec(this.buf.subarray(0, sep).toString())[1]);
-      if (this.buf.length < sep + 4 + len) return;
-      const msg = JSON.parse(this.buf.subarray(sep + 4, sep + 4 + len).toString());
-      this.buf = this.buf.subarray(sep + 4 + len);
-      if (msg.method && msg.id !== undefined) {
-        // a request from the server (configuration, registrations): answer with defaults
-        const items = msg.params?.items;
-        this.send({ jsonrpc: "2.0", id: msg.id, result: items ? items.map(() => null) : null });
-      } else if (msg.id !== undefined) {
-        this.waiting.get(msg.id)?.(msg.result);
-        this.waiting.delete(msg.id);
-      }
-    }
-  }
-  send(msg) {
-    const body = Buffer.from(JSON.stringify(msg));
-    this.proc.stdin.write(Buffer.concat([Buffer.from(`Content-Length: ${body.length}\r\n\r\n`), body]));
-  }
-  request(method, params) {
-    const id = ++this.next;
-    return new Promise((resolve) => {
-      this.waiting.set(id, resolve);
-      this.send({ jsonrpc: "2.0", id, method, params });
-    });
-  }
-  notify(method, params) {
-    this.send({ jsonrpc: "2.0", method, params });
-  }
-  async start() {
-    const info = await this.request("initialize", {
-      processId: process.pid,
-      rootUri: uri(ROOT),
-      workspaceFolders: [{ uri: uri(ROOT), name: "root" }],
-      capabilities: {
-        general: { positionEncodings: ["utf-16"] },
-        textDocument: { typeDefinition: { linkSupport: true }, definition: { linkSupport: true } },
-        workspace: { configuration: true, workspaceFolders: true },
-      },
-    });
-    this.notify("initialized", {});
-    return `${info?.serverInfo?.name ?? "tsc"} ${info?.serverInfo?.version ?? ""}`.trim();
-  }
-  /** Makes the server see <text> as the content of <file> (in memory only). */
-  show(file, text) {
-    const u = uri(file);
-    const v = (this.versions.get(u) ?? 0) + 1;
-    this.versions.set(u, v);
-    const languageId = /\.[cm]?tsx?$/.test(file) ? (file.endsWith("x") ? "typescriptreact" : "typescript") : file.endsWith("x") ? "javascriptreact" : "javascript";
-    if (v === 1) this.notify("textDocument/didOpen", { textDocument: { uri: u, languageId, version: v, text } });
-    else this.notify("textDocument/didChange", { textDocument: { uri: u, version: v }, contentChanges: [{ text }] });
-  }
-  /** The file as it is on disk; returns its text. */
-  sync(file) {
-    const text = fs.readFileSync(file, "utf8");
-    if (this.texts.get(file) !== text) {
-      this.show(file, text);
-      this.texts.set(file, text);
-    }
-    return text;
-  }
-  changed(file) {
-    if (this.versions.has(uri(file))) {
-      if (fs.existsSync(file)) this.sync(file);
-      return;
-    }
-    this.notify("workspace/didChangeWatchedFiles", { changes: [{ uri: uri(file), type: fs.existsSync(file) ? 2 : 3 }] });
-  }
-}
-
-// ---------------------------------------------------------------- declarations
-
-/**
- * [package, module] of a declaration file: the npm package of the innermost
- * node_modules directory (@types/x counts as x, @types/a__b as @a/b) and the file's
- * path in it without its extension; TypeScript's own lib files (lib.*.d.ts) are
- * package "typescript"; [null, path] for the project's own files.
- */
-function declaredIn(file) {
-  const p = file.split(path.sep).join("/");
-  const i = p.lastIndexOf("/node_modules/");
-  const strip = (s) => s.replace(/(\.d)?\.[cm]?[jt]sx?$/, "");
-  if (i < 0) {
-    const real = fs.existsSync(file) ? fs.realpathSync(file) : file;
-    return real.startsWith(ROOT + "/") ? [null, strip(real.slice(ROOT.length + 1))] : [null, null];
-  }
-  // TypeScript's own lib files (shipped in typescript or its native @typescript/* package)
-  const lib = /\/node_modules\/(typescript|@typescript\/[^/]+)\/lib\/(lib\.[^/]*)\.d\.ts$/.exec(p);
-  if (lib) return ["typescript", `typescript/lib/${lib[2]}`];
-  const segs = p.slice(i + "/node_modules/".length).split("/");
-  let pkg = segs[0].startsWith("@") ? `${segs[0]}/${segs[1]}` : segs[0];
-  const rest = segs.slice(pkg.split("/").length).join("/");
-  if (pkg.startsWith("@types/")) {
-    const t = pkg.slice(7);
-    pkg = t.includes("__") ? `@${t.replace("__", "/")}` : t;
-  }
-  return [pkg, `${pkg}/${strip(rest)}`];
-}
-
-const WORD = /[A-Za-z_$][\w$]*/y;
-const KEYWORDS = new Set(["export", "declare", "default", "abstract", "class", "interface", "type", "enum", "const", "let", "var", "function", "namespace", "module"]);
-
-function readText(file) {
-  try {
-    return fs.readFileSync(file, "utf8");
-  } catch {
-    return undefined;
-  }
-}
-
-/** The declared name at <index> (keywords skipped). */
-function nameAt(text, index) {
-  for (let i = index; i < text.length; ) {
-    WORD.lastIndex = i;
-    const m = WORD.exec(text);
-    if (!m) {
-      i++;
-      continue;
-    }
-    if (!KEYWORDS.has(m[0])) return { name: m[0], end: i + m[0].length };
-    i += m[0].length;
-  }
-  return undefined;
-}
-
-/**
- * The positions of the names a class or interface header extends or implements
- * (at depth 0 of <>, (), []; the last segment of a qualified name), from the end of
- * its name to its body.
- */
-function heritage(text, from) {
-  const out = [];
-  let depth = 0;
-  let list = false;
-  for (let i = from; i < text.length; ) {
-    const c = text[i];
-    if (c === "/" && text[i + 1] === "/") {
-      i = text.indexOf("\n", i);
-      if (i < 0) break;
-      continue;
-    }
-    if (c === "/" && text[i + 1] === "*") {
-      i = text.indexOf("*/", i) + 2;
-      continue;
-    }
-    if (c === "=" && text[i + 1] === ">") {
-      i += 2;
-      continue;
-    }
-    if ("<([{".includes(c)) {
-      if (c === "{" && depth === 0) break;
-      depth++;
-      i++;
-      continue;
-    }
-    if (">)]}".includes(c)) {
-      depth--;
-      i++;
-      continue;
-    }
-    if ((c === ";" || c === "=") && depth === 0) break;
-    WORD.lastIndex = i;
-    const m = WORD.exec(text);
-    if (!m) {
-      i++;
-      continue;
-    }
-    if (depth === 0 && (m[0] === "extends" || m[0] === "implements")) list = true;
-    else if (depth === 0 && list) {
-      let last = i;
-      let j = i + m[0].length;
-      while (text[j] === "." && /[A-Za-z_$]/.test(text[j + 1] ?? "")) {
-        WORD.lastIndex = j + 1;
-        const n = WORD.exec(text);
-        last = j + 1;
-        j = j + 1 + n[0].length;
-      }
-      out.push(last);
-      i = j;
-      continue;
-    }
-    i += m[0].length;
-  }
-  return out;
-}
-
-class Types {
-  constructor(server) {
-    this.server = server;
-    this.cache = new Map();
-  }
-  /** The declarations [package, module, name] of the type declared at loc and of the classes and interfaces it extends or implements, transitively. */
-  async hierarchy(loc) {
-    const key = `${loc.uri}:${loc.pos.line}:${loc.pos.character}`;
-    if (this.cache.has(key)) return this.cache.get(key);
-    const out = new Map();
-    const seen = new Set();
-    const todo = [loc];
-    while (todo.length && seen.size < 64) {
-      const l = todo.pop();
-      const k = `${l.uri}:${l.pos.line}:${l.pos.character}`;
-      if (seen.has(k)) continue;
-      seen.add(k);
-      const file = pathOf(l.uri);
-      const [pkg, mod] = declaredIn(file);
-      const text = readText(file);
-      if (text === undefined) continue;
-      const at = nameAt(text, indexOf(text, l.pos));
-      if (!at) continue;
-      out.set(`${pkg}\0${mod}\0${at.name}`, [pkg, mod, at.name]);
-      const bases = heritage(text, at.end);
-      const defs = await Promise.all(
-        bases.map((b) => this.server.request("textDocument/definition", { textDocument: { uri: l.uri }, position: position(text, b) })),
-      );
-      // a base in a file the server has not opened: open it as it is on disk first
-      for (const d of defs) for (const x of asArray(d)) todo.push(toLoc(x));
-    }
-    const value = [...out.values()];
-    if (!pathOf(loc.uri).startsWith(ROOT + "/") || loc.uri.includes("/node_modules/")) this.cache.set(key, value);
-    return value;
-  }
-  /**
-   * wanted: [[match index, variable, start byte, end byte]]. Returns a Map
-   * "index\0variable" -> declarations, from the type the server infers for each
-   * expression: the file is shown to the server with each expression wrapped as
-   * ({__forge_t<i>: (<expr>)}).__forge_t<i>, in memory only, and the type definition of
-   * that property is asked; then the file is shown as it is.
-   */
-  async check(file, wanted) {
-    const text = this.server.sync(file);
-    const raw = Buffer.from(text, "utf8");
-    const ranges = [];
-    const slot = wanted.map(([, , s, e]) => {
-      const r = [raw.subarray(0, s).toString("utf8").length, raw.subarray(0, e).toString("utf8").length];
-      let i = ranges.findIndex(([a, b]) => a === r[0] && b === r[1]);
-      if (i < 0) i = ranges.push(r) - 1;
-      return i;
-    });
-    // inserts: at each start the opening, at each end the closing; at the same offset,
-    // closings first (inner first), then openings (outer first)
-    const events = [];
-    ranges.forEach(([s, e], n) => {
-      events.push([s, 1, -(e - s), n, `({__forge_t${n}: (`]);
-      events.push([e, 0, e - s, n, `)}).__forge_t${n}`]);
-    });
-    events.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2] || a[3] - b[3]);
-    let overlay = "";
-    let last = 0;
-    const anchors = [];
-    for (const [off, kind, , n, piece] of events) {
-      overlay += text.slice(last, off);
-      last = off;
-      if (kind === 0) anchors[n] = overlay.length + piece.length - 2; // inside the property name
-      overlay += piece;
-    }
-    overlay += text.slice(last);
-    this.server.show(file, overlay);
-    const results = await Promise.all(
-      ranges.map((_, n) => this.server.request("textDocument/typeDefinition", { textDocument: { uri: uri(file) }, position: position(overlay, anchors[n]) })),
-    );
-    this.server.show(file, text);
-    const perRange = [];
-    for (const r of results) {
-      const decls = [];
-      for (const l of asArray(r)) decls.push(...(await this.hierarchy(toLoc(l))));
-      // any and unknown have no declaration: the checker does not know the type
-      perRange.push({ decls, unknown: decls.length === 0 });
-    }
-    return new Map(wanted.map((w, n) => [`${w[0]}\0${w[1]}`, perRange[slot[n]]]));
-  }
-}
-
-const asArray = (r) => (Array.isArray(r) ? r : r ? [r] : []);
-const toLoc = (l) => ({ uri: l.targetUri ?? l.uri, pos: (l.targetSelectionRange ?? l.targetRange ?? l.range).start });
-
-// ---------------------------------------------------------------- constraints
-
-const listed = (v) => (v === undefined ? undefined : Array.isArray(v) ? v : [v]);
-
-/**
- * A type spec ({package, module, name, unknown}) holds when one declaration of the type
- * (a union member, or a supertype of one) is declared there with that name; a type the
- * checker does not know (any, unknown) holds only with unknown: match.
- */
-function satisfies({ decls, unknown }, spec) {
-  if (unknown) return spec.unknown === "match";
-  const pkgs = listed(spec.package);
-  const mods = listed(spec.module);
-  const names = listed(spec.name);
-  return decls.some(
-    ([pkg, mod, name]) =>
-      (!pkgs || pkgs.includes(pkg)) && (!mods || mods.some((m) => mod === m || (mod ?? "").startsWith(`${m}/`))) && (!names || names.includes(name)),
-  );
-}
-const holds = (decls, cond) => (cond.not ? !holds(decls, cond.not) : satisfies(decls, cond.type));
-
-async function answer(types, matches) {
-  const byFile = new Map();
-  matches.forEach((m, n) => {
-    const where = m.metadata?.forge_where ?? {};
-    const single = m.metaVariables?.single ?? {};
-    for (const v of Object.keys(where)) {
-      if (!single[v]) continue;
-      const b = single[v].range.byteOffset;
-      if (!byFile.has(m.file)) byFile.set(m.file, []);
-      byFile.get(m.file).push([n, v, b.start, b.end]);
-    }
-  });
-  const found = new Map();
-  for (const [f, wanted] of byFile) for (const [k, d] of await types.check(path.join(ROOT, f), wanted)) found.set(k, d);
-  return matches.flatMap((m, n) =>
-    Object.entries(m.metadata?.forge_where ?? {}).every(([v, cond]) => !found.has(`${n}\0${v}`) || holds(found.get(`${n}\0${v}`), cond)) ? [n] : [],
-  );
-}
-
-// ---------------------------------------------------------------- the FIFO loop
-
-function reply(dir, lines) {
-  let fd;
-  try {
-    fd = fs.openSync(path.join(dir, "reply"), fs.constants.O_WRONLY | fs.constants.O_NONBLOCK);
-  } catch {
-    return; // nobody waits for it
-  }
-  const data = Buffer.from([...lines, "end"].map((l) => `${l}\n`).join(""));
-  for (let off = 0; off < data.length; ) {
-    try {
-      off += fs.writeSync(fd, data, off);
-    } catch (e) {
-      if (e.code !== "EAGAIN") break;
-    }
-  }
-  fs.closeSync(fd);
-}
-
-function cleanup() {
-  for (const n of ["ready", "pid", "in"]) fs.rmSync(path.join(STATE, n), { force: true });
-}
-
-/** Tells the starter (waiting on <state>/started) how the start went. */
-function started(line) {
-  try {
-    const fd = fs.openSync(path.join(STATE, "started"), fs.constants.O_WRONLY | fs.constants.O_NONBLOCK);
-    fs.writeSync(fd, `${line}\n`);
-    fs.closeSync(fd);
-  } catch {
-    // nobody waits for it
-  }
-}
-
-async function main() {
-  // detach: a session of its own, so ending the hook that started it does not end it
-  if (!process.env.FORGE_TYPES_DETACHED) {
-    spawn(process.execPath, process.argv.slice(1), { detached: true, stdio: "ignore", env: { ...process.env, FORGE_TYPES_DETACHED: "1" } }).unref();
-    return;
-  }
-  fs.writeFileSync(path.join(STATE, "pid"), `${process.pid}\n`);
-  const fd = fs.openSync(path.join(STATE, "in"), fs.constants.O_RDWR);
-  const server = new Server();
-  const ready = await server.start();
-  fs.writeFileSync(path.join(STATE, "ready"), `${ready}\n`);
-  log("started", ready, "for", ROOT);
-  started(`ready ${ready}`);
-  const types = new Types(server);
-  const stop = (why) => {
-    log("exiting:", why);
-    cleanup();
-    server.proc.removeAllListeners("exit");
-    server.proc.kill();
-    process.exit(0);
-  };
-  let idle = setTimeout(() => stop("idle"), IDLE);
-  let buf = "";
-  let queue = Promise.resolve();
-  const stream = fs.createReadStream(null, { fd, autoClose: false, encoding: "utf8" });
-  stream.on("data", (chunk) => {
-    clearTimeout(idle);
-    idle = setTimeout(() => stop("idle"), IDLE);
-    buf += chunk;
-    for (let i; (i = buf.indexOf("\n")) >= 0; ) {
-      const line = buf.slice(0, i);
-      buf = buf.slice(i + 1);
-      // one line at a time, in order
-      queue = queue.then(() => {
-        if (line.startsWith("changed\t")) server.changed(path.join(ROOT, line.slice(8)));
-        else if (line === "stop" || line === "restart") stop(`asked to ${line}`);
-        else if (line.startsWith("/")) return question(types, line);
-      });
-    }
-  });
-}
-
-async function question(types, dir) {
-  const req = readText(path.join(dir, "req"));
-  if (req === undefined) return;
-  const matches = [];
-  const raw = [];
-  const out = [];
-  for (const l of req.split("\n")) {
-    if (!l) continue;
-    try {
-      matches.push(JSON.parse(l));
-      raw.push(l);
-    } catch {
-      out.push(`error\tunreadable match: ${l.slice(0, 80)}`);
-    }
-  }
-  const t = performance.now();
-  try {
-    for (const n of await answer(types, matches)) out.push(raw[n]);
-  } catch (e) {
-    log("error", e.stack ?? e);
-    out.push(`error\t${e.message ?? e}`);
-  }
-  log(`answered ${matches.length} matches in ${(performance.now() - t).toFixed(1)} ms`);
-  reply(dir, out);
-}
-
-main().catch((e) => {
-  log("failed", e.stack ?? e);
-  started(`failed ${e.message ?? e}`);
-  cleanup();
-  process.exit(2);
-});
-FORGE_SCRIPT_END
 }
 
 FORGE_FORBID='typescript/nextjs/no-legacy-image-config|typescript/nextjs/no-next-router|typescript/nextjs/no-pages-data|typescript/nextjs/no-public-secret-env|typescript/nextjs/proxy-not-middleware|typescript/nextjs/react/client-hooks|typescript/nextjs/react/no-server-in-client|typescript/nextjs/revalidate-tag-profile|typescript/no-double-assertion|typescript/no-stub|typescript/no-swallowed-catch|typescript/no-ts-nocheck|typescript/playwright/locators|typescript/playwright/no-wait-for-timeout|typescript/prisma/generated-client-import|typescript/prisma/no-middleware|typescript/prisma/no-network-in-transaction|typescript/prisma/no-raw-unsafe|typescript/react/no-prop-types|typescript/react/use-action-state|typescript/ts-expect-error-reason|typescript/vitest/no-tautological-expect|typescript/vitest/no-test-env-branch|typescript/zod/error-param|typescript/zod/v4-string-formats'
@@ -5689,7 +5220,9 @@ forge_change_set() {
     --since)
       { git diff --name-only -z --no-renames "$FORGE_BASE_REV" 2>/dev/null; git ls-files -z --others --exclude-standard 2>/dev/null; } | tr '\000' '\n' | sort -u ;;
     *) status_paths | sort -u ;;
-  esac > "$FORGE_TMP/changed"
+  esac | grep -v '^\.forge/' > "$FORGE_TMP/changed"
+  # Forge's own files (.forge/: check.sh, its helper scripts) are not the project's code:
+  # integrity covers them (check.sh step 1), the project's rules do not
   : > "$FORGE_TMP/existing"; : > "$FORGE_TMP/deleted"; : > "$FORGE_TMP/inbase"; : > "$FORGE_TMP/added"
   mkdir -p "$FORGE_TMP/base"
   while IFS= read -r _cs_f; do
@@ -5844,16 +5377,14 @@ forge_grep_forbid() {
   done
 }
 
-# forge_ratchet <runtime> <script>: the config ratchet. Runs <script> (embedded in
-# check.sh as forge_script_<script>) with the project's runtime on the changed files
-# and their base copies; each printed line is a loosened setting, unless forge.yaml
-# records it as accepted.
+# forge_ratchet <runtime> <script>: the config ratchet. Runs .forge/helpers/<script>
+# with the project's runtime on the changed files and their base copies; each printed
+# line is a loosened setting, unless forge.yaml records it as accepted.
 forge_ratchet() {
-  _fr_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
-  "$_fr_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  [ -f ".forge/helpers/$2" ] || { printf 'forge:%s skipped: .forge/helpers/%s is missing (run forge apply)\n' "$c_id" "$2"; return 0; }
   set -f
   # shellcheck disable=SC2046
-  "$1" "$FORGE_TMP/$2" "$FORGE_TMP/base" $(cat "$FORGE_TMP/existing") > "$FORGE_TMP/ratchet" 2>&1
+  "$1" ".forge/helpers/$2" "$FORGE_TMP/base" $(cat "$FORGE_TMP/existing") > "$FORGE_TMP/ratchet" 2>&1
   _fr_rc=$?
   set +f
   case $_fr_rc in
@@ -5871,16 +5402,15 @@ forge_ratchet() {
   return 1
 }
 
-# forge_helper <runtime> <script> [file...]: runs <script> (embedded in check.sh as
-# forge_script_<script>) with the project's runtime, as `<script> <FORGE_TMP> [file...]`
+# forge_helper <runtime> <script> [file...]: runs .forge/helpers/<script> with the
+# project's runtime, as `<script> <FORGE_TMP> [file...]`
 # (FORGE_TMP holds changed, existing, inbase and base/ from forge_change_set). Exit 0:
 # nothing found; 1: findings printed ("path:line message"; a line also present in
 # forge.yaml is accepted); 3: cannot run, its "skipped: ..." line is printed.
 forge_helper() {
-  _fh_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
-  "$_fh_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  [ -f ".forge/helpers/$2" ] || { printf 'forge:%s skipped: .forge/helpers/%s is missing (run forge apply)\n' "$c_id" "$2"; return 0; }
   _fh_rt=$1; _fh_s=$2; shift 2
-  "$_fh_rt" "$FORGE_TMP/$_fh_s" "$FORGE_TMP" "$@" > "$FORGE_TMP/helper" 2>&1
+  "$_fh_rt" ".forge/helpers/$_fh_s" "$FORGE_TMP" "$@" > "$FORGE_TMP/helper" 2>&1
   case $? in
     0) return 0 ;;
     1) ;;
@@ -7882,11 +7412,12 @@ forge_diagnostics() {
       else if (index(p, r2 "/") == 1) p = substr(p, length(r2) + 2)
       sub(/^\.\//, "", p)
       named = 1
+      if (p !~ /^\.forge\//) project = 1
       if (level == "line") counts = (p in whole) || (ln == "" || ln == 0 ? (p in ch) : ((p "\t" ln) in ad))
       else counts = (p in ch)
       if (counts) { hit = 1; if (mode == "print") print $0 }
     }
-    END { if (mode != "print") print (hit ? "changed" : named ? "other" : (warned && !erred) ? "warnings" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
+    END { if (mode != "print") print (hit ? "changed" : named && !project ? "forge" : named ? "other" : (warned && !erred) ? "warnings" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
 }
 
 # forge_attribute_level <stage> <whole-project run: 1|0>: how a failed check's
@@ -7946,6 +7477,12 @@ forge_run_check() {
   fi
   # outside --all, only errors in the change count (§10.1 step 5)
   _fc_level=$(forge_attribute_level "$c_stage" "$_fc_whole")
+  # findings only in Forge's own helper scripts (.forge/helpers/, checked by integrity)
+  # are not the project's, in every mode
+  if [ -n "$_fc_level" ] && [ "$(forge_diagnostics "$FORGE_TMP/out" "$_fc_level")" = forge ]; then
+    printf 'forge:%s ok (its findings are only in Forge'"'"'s own .forge/ files)\n' "$c_id"
+    return 0
+  fi
   if [ "$mode" != --all ] && [ -n "$_fc_level" ]; then
     case $(forge_diagnostics "$FORGE_TMP/out" "$_fc_level") in
       other)
@@ -8479,7 +8016,7 @@ FORGE_TY_VERSION='0.0.86'
 FORGE_TS_ENGINE_VERSION='7.0.2'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='4488c9b0b19a'
+FORGE_TYPES_REV='3f3b5d2e09dd'
 
 # forge_types_up <lang>: the language's daemon runs, with the pinned engine (started
 # when it does not: by the first hook that needs it, or by SessionStart). Prints why
@@ -8492,13 +8029,7 @@ forge_types_up() {
     typescript) _tu_want="typescript $FORGE_TS_ENGINE_VERSION $FORGE_TYPES_REV" ;;
     *) printf 'no types engine for %s\n' "$1"; return 1 ;;
   esac
-  if forge_types_alive "$1"; then
-    if [ "$(cat "$_tu_d/want" 2>/dev/null)" = "$_tu_want" ]; then
-      [ -z "${FORGE_INPUT:-}" ] || : > "$_tu_d/sessions/$(session_id)"
-      return 0
-    fi
-    forge_types_line "$1" stop
-  fi
+  forge_types_running "$1" "$_tu_want" && return 0
   forge_state_dir && mkdir -p "$FORGE_STATE/types" || { printf 'cannot create %s\n' "$FORGE_STATE/types"; return 1; }
   # one starter at a time; another one's start is waited for (its lock holds its pid)
   _tu_n=0
@@ -8508,19 +8039,20 @@ forge_types_up() {
     [ "$_tu_n" -lt "${FORGE_TYPES_START_TIMEOUT:-60}" ] || { printf 'another hook is still starting the %s engine\n' "$1"; return 1; }
     sleep 1
     _tu_n=$((_tu_n + 1))
-    forge_types_alive "$1" && return 0
   done
-  printf '%s\n' "$$" > "$_tu_d.lock/pid"
+  # this shell's own pid ($$ is the script's, which a background subshell outlives)
+  _tu_me=$(exec sh -c 'echo "$PPID"')
+  printf '%s\n' "$_tu_me" > "$_tu_d.lock/pid"
+  # started meanwhile by the hook that held the lock
+  if forge_types_running "$1" "$_tu_want"; then rm -rf "$_tu_d.lock"; return 0; fi
+  # another pin or Forge: stopped (and waited for) before its state is replaced
+  forge_types_stop "$1"
   rm -rf "$_tu_d"
   mkdir -p "$_tu_d/sessions" && mkfifo "$_tu_d/in" "$_tu_d/started" || { rm -rf "$_tu_d.lock"; printf 'cannot create %s\n' "$_tu_d"; return 1; }
   printf '%s\n' "$_tu_want" > "$_tu_d/want"
   case $1 in
-    python)
-      forge_script_types_python_py > "$_tu_d/engine.py"
-      set -- uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" python "$_tu_d/engine.py" "$(pwd -P)" "$_tu_d" ;;
-    typescript)
-      forge_script_types_typescript_mjs > "$_tu_d/engine.mjs"
-      set -- bun "$_tu_d/engine.mjs" "$(pwd -P)" "$_tu_d" "$FORGE_TS_ENGINE_VERSION" ;;
+    python) set -- uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" python "$(pwd -P)/.forge/helpers/types_python.py" "$(pwd -P)" "$_tu_d" ;;
+    typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" "$FORGE_TS_ENGINE_VERSION" ;;
   esac
   # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a
   # launcher that fails before (no network for a first download) says "exited <code>"
@@ -8544,11 +8076,18 @@ forge_types_up() {
   return 1
 }
 
-# forge_types_down: stops the daemons this run started when no session uses them
-# (check.sh in CI or a pre-commit hook: nothing is left running).
+# forge_types_running <lang> <want>: its daemon runs with this engine; registers the
+# hook's session with it.
+forge_types_running() {
+  forge_types_alive "$1" && [ "$(cat "$FORGE_STATE/types/$1/want" 2>/dev/null)" = "$2" ] || return 1
+  [ -z "${FORGE_INPUT:-}" ] || : > "$FORGE_STATE/types/$1/sessions/$(session_id)"
+}
+
+# forge_types_down: stops the daemons this run started when no session uses them, and
+# waits until they have exited (check.sh in CI or a pre-commit hook: nothing is left running).
 forge_types_down() {
   for _td_l in ${FORGE_TYPES_STARTED:-}; do
-    [ -n "$(ls "$FORGE_STATE/types/$_td_l/sessions" 2>/dev/null)" ] || forge_types_line "$_td_l" stop
+    [ -n "$(ls "$FORGE_STATE/types/$_td_l/sessions" 2>/dev/null)" ] || forge_types_stop "$_td_l"
   done
   return 0
 }
@@ -8582,494 +8121,6 @@ forge_types_filter() {
   done
   mv "$1.kept" "$1"
   return "$_tf_rc"
-}
-
-# The types engine adapters (§15.2), written to the state directory when started.
-forge_script_types_typescript_mjs() {
-cat <<'FORGE_SCRIPT_END'
-// Generated by forge. The types engine for TypeScript (SPECS §15): a daemon that keeps
-// TypeScript 7's language server (tsc --lsp) running for one repository and answers
-// the hooks' type questions through a FIFO. Started by forge_types_up as
-//   bun types_typescript.mjs <root> <state-dir> <typescript version>
-// It detaches (its own session), then writes "ready <server> <version>" (or
-// "failed <reason>") to the FIFO <state-dir>/started. The protocol on <state-dir>/in is
-// the Python engine's (types_python.py): "changed<TAB><path>", "stop", "restart", or
-// the absolute path of a question directory (req: ast-grep matches; reply: the matches
-// whose forge_where holds, "error<TAB>..." lines, "end"). Node-compatible: no Bun-only API.
-import { spawn } from "node:child_process";
-import process from "node:process";
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-
-const ROOT = fs.realpathSync(process.argv[2]);
-const STATE = process.argv[3];
-const VERSION = process.argv[4];
-const IDLE = Number(process.env.FORGE_TYPES_IDLE ?? 1800) * 1000;
-const logFile = fs.openSync(path.join(STATE, "log"), "a");
-const log = (...a) => fs.writeSync(logFile, `${new Date().toISOString().slice(11, 19)} ${a.join(" ")}\n`);
-
-const uri = (p) => pathToFileURL(fs.existsSync(p) ? fs.realpathSync(p) : p).href;
-const pathOf = (u) => (u.startsWith("file://") ? fileURLToPath(u) : u);
-
-/** The LSP position (UTF-16 columns, as JS strings count) of a string index. */
-function position(text, index) {
-  let line = 0;
-  for (let i = text.indexOf("\n"); i >= 0 && i < index; i = text.indexOf("\n", i + 1)) line++;
-  return { line, character: index - (text.lastIndexOf("\n", index - 1) + 1) };
-}
-function indexOf(text, pos) {
-  let i = 0;
-  for (let l = 0; l < pos.line; l++) i = text.indexOf("\n", i) + 1;
-  return i + pos.character;
-}
-
-// ---------------------------------------------------------------- the language server
-
-class Server {
-  constructor() {
-    // tsc's bin starts the native compiler; --bun: no Node needed
-    this.proc = spawn(process.execPath, ["x", "--bun", "-p", `typescript@${VERSION}`, "tsc", "--lsp", "--stdio"], { cwd: ROOT, stdio: ["pipe", "pipe", logFile] });
-    this.proc.on("exit", () => {
-      log("server exited");
-      process.exit(3);
-    });
-    this.buf = Buffer.alloc(0);
-    this.next = 0;
-    this.waiting = new Map();
-    this.versions = new Map();
-    this.texts = new Map();
-    this.proc.stdout.on("data", (d) => this.read(d));
-  }
-  read(d) {
-    this.buf = Buffer.concat([this.buf, d]);
-    for (;;) {
-      const sep = this.buf.indexOf("\r\n\r\n");
-      if (sep < 0) return;
-      const len = Number(/content-length: *(\d+)/i.exec(this.buf.subarray(0, sep).toString())[1]);
-      if (this.buf.length < sep + 4 + len) return;
-      const msg = JSON.parse(this.buf.subarray(sep + 4, sep + 4 + len).toString());
-      this.buf = this.buf.subarray(sep + 4 + len);
-      if (msg.method && msg.id !== undefined) {
-        // a request from the server (configuration, registrations): answer with defaults
-        const items = msg.params?.items;
-        this.send({ jsonrpc: "2.0", id: msg.id, result: items ? items.map(() => null) : null });
-      } else if (msg.id !== undefined) {
-        this.waiting.get(msg.id)?.(msg.result);
-        this.waiting.delete(msg.id);
-      }
-    }
-  }
-  send(msg) {
-    const body = Buffer.from(JSON.stringify(msg));
-    this.proc.stdin.write(Buffer.concat([Buffer.from(`Content-Length: ${body.length}\r\n\r\n`), body]));
-  }
-  request(method, params) {
-    const id = ++this.next;
-    return new Promise((resolve) => {
-      this.waiting.set(id, resolve);
-      this.send({ jsonrpc: "2.0", id, method, params });
-    });
-  }
-  notify(method, params) {
-    this.send({ jsonrpc: "2.0", method, params });
-  }
-  async start() {
-    const info = await this.request("initialize", {
-      processId: process.pid,
-      rootUri: uri(ROOT),
-      workspaceFolders: [{ uri: uri(ROOT), name: "root" }],
-      capabilities: {
-        general: { positionEncodings: ["utf-16"] },
-        textDocument: { typeDefinition: { linkSupport: true }, definition: { linkSupport: true } },
-        workspace: { configuration: true, workspaceFolders: true },
-      },
-    });
-    this.notify("initialized", {});
-    return `${info?.serverInfo?.name ?? "tsc"} ${info?.serverInfo?.version ?? ""}`.trim();
-  }
-  /** Makes the server see <text> as the content of <file> (in memory only). */
-  show(file, text) {
-    const u = uri(file);
-    const v = (this.versions.get(u) ?? 0) + 1;
-    this.versions.set(u, v);
-    const languageId = /\.[cm]?tsx?$/.test(file) ? (file.endsWith("x") ? "typescriptreact" : "typescript") : file.endsWith("x") ? "javascriptreact" : "javascript";
-    if (v === 1) this.notify("textDocument/didOpen", { textDocument: { uri: u, languageId, version: v, text } });
-    else this.notify("textDocument/didChange", { textDocument: { uri: u, version: v }, contentChanges: [{ text }] });
-  }
-  /** The file as it is on disk; returns its text. */
-  sync(file) {
-    const text = fs.readFileSync(file, "utf8");
-    if (this.texts.get(file) !== text) {
-      this.show(file, text);
-      this.texts.set(file, text);
-    }
-    return text;
-  }
-  changed(file) {
-    if (this.versions.has(uri(file))) {
-      if (fs.existsSync(file)) this.sync(file);
-      return;
-    }
-    this.notify("workspace/didChangeWatchedFiles", { changes: [{ uri: uri(file), type: fs.existsSync(file) ? 2 : 3 }] });
-  }
-}
-
-// ---------------------------------------------------------------- declarations
-
-/**
- * [package, module] of a declaration file: the npm package of the innermost
- * node_modules directory (@types/x counts as x, @types/a__b as @a/b) and the file's
- * path in it without its extension; TypeScript's own lib files (lib.*.d.ts) are
- * package "typescript"; [null, path] for the project's own files.
- */
-function declaredIn(file) {
-  const p = file.split(path.sep).join("/");
-  const i = p.lastIndexOf("/node_modules/");
-  const strip = (s) => s.replace(/(\.d)?\.[cm]?[jt]sx?$/, "");
-  if (i < 0) {
-    const real = fs.existsSync(file) ? fs.realpathSync(file) : file;
-    return real.startsWith(ROOT + "/") ? [null, strip(real.slice(ROOT.length + 1))] : [null, null];
-  }
-  // TypeScript's own lib files (shipped in typescript or its native @typescript/* package)
-  const lib = /\/node_modules\/(typescript|@typescript\/[^/]+)\/lib\/(lib\.[^/]*)\.d\.ts$/.exec(p);
-  if (lib) return ["typescript", `typescript/lib/${lib[2]}`];
-  const segs = p.slice(i + "/node_modules/".length).split("/");
-  let pkg = segs[0].startsWith("@") ? `${segs[0]}/${segs[1]}` : segs[0];
-  const rest = segs.slice(pkg.split("/").length).join("/");
-  if (pkg.startsWith("@types/")) {
-    const t = pkg.slice(7);
-    pkg = t.includes("__") ? `@${t.replace("__", "/")}` : t;
-  }
-  return [pkg, `${pkg}/${strip(rest)}`];
-}
-
-const WORD = /[A-Za-z_$][\w$]*/y;
-const KEYWORDS = new Set(["export", "declare", "default", "abstract", "class", "interface", "type", "enum", "const", "let", "var", "function", "namespace", "module"]);
-
-function readText(file) {
-  try {
-    return fs.readFileSync(file, "utf8");
-  } catch {
-    return undefined;
-  }
-}
-
-/** The declared name at <index> (keywords skipped). */
-function nameAt(text, index) {
-  for (let i = index; i < text.length; ) {
-    WORD.lastIndex = i;
-    const m = WORD.exec(text);
-    if (!m) {
-      i++;
-      continue;
-    }
-    if (!KEYWORDS.has(m[0])) return { name: m[0], end: i + m[0].length };
-    i += m[0].length;
-  }
-  return undefined;
-}
-
-/**
- * The positions of the names a class or interface header extends or implements
- * (at depth 0 of <>, (), []; the last segment of a qualified name), from the end of
- * its name to its body.
- */
-function heritage(text, from) {
-  const out = [];
-  let depth = 0;
-  let list = false;
-  for (let i = from; i < text.length; ) {
-    const c = text[i];
-    if (c === "/" && text[i + 1] === "/") {
-      i = text.indexOf("\n", i);
-      if (i < 0) break;
-      continue;
-    }
-    if (c === "/" && text[i + 1] === "*") {
-      i = text.indexOf("*/", i) + 2;
-      continue;
-    }
-    if (c === "=" && text[i + 1] === ">") {
-      i += 2;
-      continue;
-    }
-    if ("<([{".includes(c)) {
-      if (c === "{" && depth === 0) break;
-      depth++;
-      i++;
-      continue;
-    }
-    if (">)]}".includes(c)) {
-      depth--;
-      i++;
-      continue;
-    }
-    if ((c === ";" || c === "=") && depth === 0) break;
-    WORD.lastIndex = i;
-    const m = WORD.exec(text);
-    if (!m) {
-      i++;
-      continue;
-    }
-    if (depth === 0 && (m[0] === "extends" || m[0] === "implements")) list = true;
-    else if (depth === 0 && list) {
-      let last = i;
-      let j = i + m[0].length;
-      while (text[j] === "." && /[A-Za-z_$]/.test(text[j + 1] ?? "")) {
-        WORD.lastIndex = j + 1;
-        const n = WORD.exec(text);
-        last = j + 1;
-        j = j + 1 + n[0].length;
-      }
-      out.push(last);
-      i = j;
-      continue;
-    }
-    i += m[0].length;
-  }
-  return out;
-}
-
-class Types {
-  constructor(server) {
-    this.server = server;
-    this.cache = new Map();
-  }
-  /** The declarations [package, module, name] of the type declared at loc and of the classes and interfaces it extends or implements, transitively. */
-  async hierarchy(loc) {
-    const key = `${loc.uri}:${loc.pos.line}:${loc.pos.character}`;
-    if (this.cache.has(key)) return this.cache.get(key);
-    const out = new Map();
-    const seen = new Set();
-    const todo = [loc];
-    while (todo.length && seen.size < 64) {
-      const l = todo.pop();
-      const k = `${l.uri}:${l.pos.line}:${l.pos.character}`;
-      if (seen.has(k)) continue;
-      seen.add(k);
-      const file = pathOf(l.uri);
-      const [pkg, mod] = declaredIn(file);
-      const text = readText(file);
-      if (text === undefined) continue;
-      const at = nameAt(text, indexOf(text, l.pos));
-      if (!at) continue;
-      out.set(`${pkg}\0${mod}\0${at.name}`, [pkg, mod, at.name]);
-      const bases = heritage(text, at.end);
-      const defs = await Promise.all(
-        bases.map((b) => this.server.request("textDocument/definition", { textDocument: { uri: l.uri }, position: position(text, b) })),
-      );
-      // a base in a file the server has not opened: open it as it is on disk first
-      for (const d of defs) for (const x of asArray(d)) todo.push(toLoc(x));
-    }
-    const value = [...out.values()];
-    if (!pathOf(loc.uri).startsWith(ROOT + "/") || loc.uri.includes("/node_modules/")) this.cache.set(key, value);
-    return value;
-  }
-  /**
-   * wanted: [[match index, variable, start byte, end byte]]. Returns a Map
-   * "index\0variable" -> declarations, from the type the server infers for each
-   * expression: the file is shown to the server with each expression wrapped as
-   * ({__forge_t<i>: (<expr>)}).__forge_t<i>, in memory only, and the type definition of
-   * that property is asked; then the file is shown as it is.
-   */
-  async check(file, wanted) {
-    const text = this.server.sync(file);
-    const raw = Buffer.from(text, "utf8");
-    const ranges = [];
-    const slot = wanted.map(([, , s, e]) => {
-      const r = [raw.subarray(0, s).toString("utf8").length, raw.subarray(0, e).toString("utf8").length];
-      let i = ranges.findIndex(([a, b]) => a === r[0] && b === r[1]);
-      if (i < 0) i = ranges.push(r) - 1;
-      return i;
-    });
-    // inserts: at each start the opening, at each end the closing; at the same offset,
-    // closings first (inner first), then openings (outer first)
-    const events = [];
-    ranges.forEach(([s, e], n) => {
-      events.push([s, 1, -(e - s), n, `({__forge_t${n}: (`]);
-      events.push([e, 0, e - s, n, `)}).__forge_t${n}`]);
-    });
-    events.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2] || a[3] - b[3]);
-    let overlay = "";
-    let last = 0;
-    const anchors = [];
-    for (const [off, kind, , n, piece] of events) {
-      overlay += text.slice(last, off);
-      last = off;
-      if (kind === 0) anchors[n] = overlay.length + piece.length - 2; // inside the property name
-      overlay += piece;
-    }
-    overlay += text.slice(last);
-    this.server.show(file, overlay);
-    const results = await Promise.all(
-      ranges.map((_, n) => this.server.request("textDocument/typeDefinition", { textDocument: { uri: uri(file) }, position: position(overlay, anchors[n]) })),
-    );
-    this.server.show(file, text);
-    const perRange = [];
-    for (const r of results) {
-      const decls = [];
-      for (const l of asArray(r)) decls.push(...(await this.hierarchy(toLoc(l))));
-      // any and unknown have no declaration: the checker does not know the type
-      perRange.push({ decls, unknown: decls.length === 0 });
-    }
-    return new Map(wanted.map((w, n) => [`${w[0]}\0${w[1]}`, perRange[slot[n]]]));
-  }
-}
-
-const asArray = (r) => (Array.isArray(r) ? r : r ? [r] : []);
-const toLoc = (l) => ({ uri: l.targetUri ?? l.uri, pos: (l.targetSelectionRange ?? l.targetRange ?? l.range).start });
-
-// ---------------------------------------------------------------- constraints
-
-const listed = (v) => (v === undefined ? undefined : Array.isArray(v) ? v : [v]);
-
-/**
- * A type spec ({package, module, name, unknown}) holds when one declaration of the type
- * (a union member, or a supertype of one) is declared there with that name; a type the
- * checker does not know (any, unknown) holds only with unknown: match.
- */
-function satisfies({ decls, unknown }, spec) {
-  if (unknown) return spec.unknown === "match";
-  const pkgs = listed(spec.package);
-  const mods = listed(spec.module);
-  const names = listed(spec.name);
-  return decls.some(
-    ([pkg, mod, name]) =>
-      (!pkgs || pkgs.includes(pkg)) && (!mods || mods.some((m) => mod === m || (mod ?? "").startsWith(`${m}/`))) && (!names || names.includes(name)),
-  );
-}
-const holds = (decls, cond) => (cond.not ? !holds(decls, cond.not) : satisfies(decls, cond.type));
-
-async function answer(types, matches) {
-  const byFile = new Map();
-  matches.forEach((m, n) => {
-    const where = m.metadata?.forge_where ?? {};
-    const single = m.metaVariables?.single ?? {};
-    for (const v of Object.keys(where)) {
-      if (!single[v]) continue;
-      const b = single[v].range.byteOffset;
-      if (!byFile.has(m.file)) byFile.set(m.file, []);
-      byFile.get(m.file).push([n, v, b.start, b.end]);
-    }
-  });
-  const found = new Map();
-  for (const [f, wanted] of byFile) for (const [k, d] of await types.check(path.join(ROOT, f), wanted)) found.set(k, d);
-  return matches.flatMap((m, n) =>
-    Object.entries(m.metadata?.forge_where ?? {}).every(([v, cond]) => !found.has(`${n}\0${v}`) || holds(found.get(`${n}\0${v}`), cond)) ? [n] : [],
-  );
-}
-
-// ---------------------------------------------------------------- the FIFO loop
-
-function reply(dir, lines) {
-  let fd;
-  try {
-    fd = fs.openSync(path.join(dir, "reply"), fs.constants.O_WRONLY | fs.constants.O_NONBLOCK);
-  } catch {
-    return; // nobody waits for it
-  }
-  const data = Buffer.from([...lines, "end"].map((l) => `${l}\n`).join(""));
-  for (let off = 0; off < data.length; ) {
-    try {
-      off += fs.writeSync(fd, data, off);
-    } catch (e) {
-      if (e.code !== "EAGAIN") break;
-    }
-  }
-  fs.closeSync(fd);
-}
-
-function cleanup() {
-  for (const n of ["ready", "pid", "in"]) fs.rmSync(path.join(STATE, n), { force: true });
-}
-
-/** Tells the starter (waiting on <state>/started) how the start went. */
-function started(line) {
-  try {
-    const fd = fs.openSync(path.join(STATE, "started"), fs.constants.O_WRONLY | fs.constants.O_NONBLOCK);
-    fs.writeSync(fd, `${line}\n`);
-    fs.closeSync(fd);
-  } catch {
-    // nobody waits for it
-  }
-}
-
-async function main() {
-  // detach: a session of its own, so ending the hook that started it does not end it
-  if (!process.env.FORGE_TYPES_DETACHED) {
-    spawn(process.execPath, process.argv.slice(1), { detached: true, stdio: "ignore", env: { ...process.env, FORGE_TYPES_DETACHED: "1" } }).unref();
-    return;
-  }
-  fs.writeFileSync(path.join(STATE, "pid"), `${process.pid}\n`);
-  const fd = fs.openSync(path.join(STATE, "in"), fs.constants.O_RDWR);
-  const server = new Server();
-  const ready = await server.start();
-  fs.writeFileSync(path.join(STATE, "ready"), `${ready}\n`);
-  log("started", ready, "for", ROOT);
-  started(`ready ${ready}`);
-  const types = new Types(server);
-  const stop = (why) => {
-    log("exiting:", why);
-    cleanup();
-    server.proc.removeAllListeners("exit");
-    server.proc.kill();
-    process.exit(0);
-  };
-  let idle = setTimeout(() => stop("idle"), IDLE);
-  let buf = "";
-  let queue = Promise.resolve();
-  const stream = fs.createReadStream(null, { fd, autoClose: false, encoding: "utf8" });
-  stream.on("data", (chunk) => {
-    clearTimeout(idle);
-    idle = setTimeout(() => stop("idle"), IDLE);
-    buf += chunk;
-    for (let i; (i = buf.indexOf("\n")) >= 0; ) {
-      const line = buf.slice(0, i);
-      buf = buf.slice(i + 1);
-      // one line at a time, in order
-      queue = queue.then(() => {
-        if (line.startsWith("changed\t")) server.changed(path.join(ROOT, line.slice(8)));
-        else if (line === "stop" || line === "restart") stop(`asked to ${line}`);
-        else if (line.startsWith("/")) return question(types, line);
-      });
-    }
-  });
-}
-
-async function question(types, dir) {
-  const req = readText(path.join(dir, "req"));
-  if (req === undefined) return;
-  const matches = [];
-  const raw = [];
-  const out = [];
-  for (const l of req.split("\n")) {
-    if (!l) continue;
-    try {
-      matches.push(JSON.parse(l));
-      raw.push(l);
-    } catch {
-      out.push(`error\tunreadable match: ${l.slice(0, 80)}`);
-    }
-  }
-  const t = performance.now();
-  try {
-    for (const n of await answer(types, matches)) out.push(raw[n]);
-  } catch (e) {
-    log("error", e.stack ?? e);
-    out.push(`error\t${e.message ?? e}`);
-  }
-  log(`answered ${matches.length} matches in ${(performance.now() - t).toFixed(1)} ms`);
-  reply(dir, out);
-}
-
-main().catch((e) => {
-  log("failed", e.stack ?? e);
-  started(`failed ${e.message ?? e}`);
-  cleanup();
-  process.exit(2);
-});
-FORGE_SCRIPT_END
 }
 
 branch=$(git branch --show-current 2>/dev/null)
@@ -9723,7 +8774,9 @@ forge_change_set() {
     --since)
       { git diff --name-only -z --no-renames "$FORGE_BASE_REV" 2>/dev/null; git ls-files -z --others --exclude-standard 2>/dev/null; } | tr '\000' '\n' | sort -u ;;
     *) status_paths | sort -u ;;
-  esac > "$FORGE_TMP/changed"
+  esac | grep -v '^\.forge/' > "$FORGE_TMP/changed"
+  # Forge's own files (.forge/: check.sh, its helper scripts) are not the project's code:
+  # integrity covers them (check.sh step 1), the project's rules do not
   : > "$FORGE_TMP/existing"; : > "$FORGE_TMP/deleted"; : > "$FORGE_TMP/inbase"; : > "$FORGE_TMP/added"
   mkdir -p "$FORGE_TMP/base"
   while IFS= read -r _cs_f; do
@@ -9878,16 +8931,14 @@ forge_grep_forbid() {
   done
 }
 
-# forge_ratchet <runtime> <script>: the config ratchet. Runs <script> (embedded in
-# check.sh as forge_script_<script>) with the project's runtime on the changed files
-# and their base copies; each printed line is a loosened setting, unless forge.yaml
-# records it as accepted.
+# forge_ratchet <runtime> <script>: the config ratchet. Runs .forge/helpers/<script>
+# with the project's runtime on the changed files and their base copies; each printed
+# line is a loosened setting, unless forge.yaml records it as accepted.
 forge_ratchet() {
-  _fr_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
-  "$_fr_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  [ -f ".forge/helpers/$2" ] || { printf 'forge:%s skipped: .forge/helpers/%s is missing (run forge apply)\n' "$c_id" "$2"; return 0; }
   set -f
   # shellcheck disable=SC2046
-  "$1" "$FORGE_TMP/$2" "$FORGE_TMP/base" $(cat "$FORGE_TMP/existing") > "$FORGE_TMP/ratchet" 2>&1
+  "$1" ".forge/helpers/$2" "$FORGE_TMP/base" $(cat "$FORGE_TMP/existing") > "$FORGE_TMP/ratchet" 2>&1
   _fr_rc=$?
   set +f
   case $_fr_rc in
@@ -9905,16 +8956,15 @@ forge_ratchet() {
   return 1
 }
 
-# forge_helper <runtime> <script> [file...]: runs <script> (embedded in check.sh as
-# forge_script_<script>) with the project's runtime, as `<script> <FORGE_TMP> [file...]`
+# forge_helper <runtime> <script> [file...]: runs .forge/helpers/<script> with the
+# project's runtime, as `<script> <FORGE_TMP> [file...]`
 # (FORGE_TMP holds changed, existing, inbase and base/ from forge_change_set). Exit 0:
 # nothing found; 1: findings printed ("path:line message"; a line also present in
 # forge.yaml is accepted); 3: cannot run, its "skipped: ..." line is printed.
 forge_helper() {
-  _fh_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
-  "$_fh_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  [ -f ".forge/helpers/$2" ] || { printf 'forge:%s skipped: .forge/helpers/%s is missing (run forge apply)\n' "$c_id" "$2"; return 0; }
   _fh_rt=$1; _fh_s=$2; shift 2
-  "$_fh_rt" "$FORGE_TMP/$_fh_s" "$FORGE_TMP" "$@" > "$FORGE_TMP/helper" 2>&1
+  "$_fh_rt" ".forge/helpers/$_fh_s" "$FORGE_TMP" "$@" > "$FORGE_TMP/helper" 2>&1
   case $? in
     0) return 0 ;;
     1) ;;
@@ -11916,11 +10966,12 @@ forge_diagnostics() {
       else if (index(p, r2 "/") == 1) p = substr(p, length(r2) + 2)
       sub(/^\.\//, "", p)
       named = 1
+      if (p !~ /^\.forge\//) project = 1
       if (level == "line") counts = (p in whole) || (ln == "" || ln == 0 ? (p in ch) : ((p "\t" ln) in ad))
       else counts = (p in ch)
       if (counts) { hit = 1; if (mode == "print") print $0 }
     }
-    END { if (mode != "print") print (hit ? "changed" : named ? "other" : (warned && !erred) ? "warnings" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
+    END { if (mode != "print") print (hit ? "changed" : named && !project ? "forge" : named ? "other" : (warned && !erred) ? "warnings" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
 }
 
 # forge_attribute_level <stage> <whole-project run: 1|0>: how a failed check's
@@ -11980,6 +11031,12 @@ forge_run_check() {
   fi
   # outside --all, only errors in the change count (§10.1 step 5)
   _fc_level=$(forge_attribute_level "$c_stage" "$_fc_whole")
+  # findings only in Forge's own helper scripts (.forge/helpers/, checked by integrity)
+  # are not the project's, in every mode
+  if [ -n "$_fc_level" ] && [ "$(forge_diagnostics "$FORGE_TMP/out" "$_fc_level")" = forge ]; then
+    printf 'forge:%s ok (its findings are only in Forge'"'"'s own .forge/ files)\n' "$c_id"
+    return 0
+  fi
   if [ "$mode" != --all ] && [ -n "$_fc_level" ]; then
     case $(forge_diagnostics "$FORGE_TMP/out" "$_fc_level") in
       other)
@@ -12513,7 +11570,7 @@ FORGE_TY_VERSION='0.0.86'
 FORGE_TS_ENGINE_VERSION='7.0.2'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='4488c9b0b19a'
+FORGE_TYPES_REV='3f3b5d2e09dd'
 
 # forge_types_up <lang>: the language's daemon runs, with the pinned engine (started
 # when it does not: by the first hook that needs it, or by SessionStart). Prints why
@@ -12526,13 +11583,7 @@ forge_types_up() {
     typescript) _tu_want="typescript $FORGE_TS_ENGINE_VERSION $FORGE_TYPES_REV" ;;
     *) printf 'no types engine for %s\n' "$1"; return 1 ;;
   esac
-  if forge_types_alive "$1"; then
-    if [ "$(cat "$_tu_d/want" 2>/dev/null)" = "$_tu_want" ]; then
-      [ -z "${FORGE_INPUT:-}" ] || : > "$_tu_d/sessions/$(session_id)"
-      return 0
-    fi
-    forge_types_line "$1" stop
-  fi
+  forge_types_running "$1" "$_tu_want" && return 0
   forge_state_dir && mkdir -p "$FORGE_STATE/types" || { printf 'cannot create %s\n' "$FORGE_STATE/types"; return 1; }
   # one starter at a time; another one's start is waited for (its lock holds its pid)
   _tu_n=0
@@ -12542,19 +11593,20 @@ forge_types_up() {
     [ "$_tu_n" -lt "${FORGE_TYPES_START_TIMEOUT:-60}" ] || { printf 'another hook is still starting the %s engine\n' "$1"; return 1; }
     sleep 1
     _tu_n=$((_tu_n + 1))
-    forge_types_alive "$1" && return 0
   done
-  printf '%s\n' "$$" > "$_tu_d.lock/pid"
+  # this shell's own pid ($$ is the script's, which a background subshell outlives)
+  _tu_me=$(exec sh -c 'echo "$PPID"')
+  printf '%s\n' "$_tu_me" > "$_tu_d.lock/pid"
+  # started meanwhile by the hook that held the lock
+  if forge_types_running "$1" "$_tu_want"; then rm -rf "$_tu_d.lock"; return 0; fi
+  # another pin or Forge: stopped (and waited for) before its state is replaced
+  forge_types_stop "$1"
   rm -rf "$_tu_d"
   mkdir -p "$_tu_d/sessions" && mkfifo "$_tu_d/in" "$_tu_d/started" || { rm -rf "$_tu_d.lock"; printf 'cannot create %s\n' "$_tu_d"; return 1; }
   printf '%s\n' "$_tu_want" > "$_tu_d/want"
   case $1 in
-    python)
-      forge_script_types_python_py > "$_tu_d/engine.py"
-      set -- uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" python "$_tu_d/engine.py" "$(pwd -P)" "$_tu_d" ;;
-    typescript)
-      forge_script_types_typescript_mjs > "$_tu_d/engine.mjs"
-      set -- bun "$_tu_d/engine.mjs" "$(pwd -P)" "$_tu_d" "$FORGE_TS_ENGINE_VERSION" ;;
+    python) set -- uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" python "$(pwd -P)/.forge/helpers/types_python.py" "$(pwd -P)" "$_tu_d" ;;
+    typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" "$FORGE_TS_ENGINE_VERSION" ;;
   esac
   # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a
   # launcher that fails before (no network for a first download) says "exited <code>"
@@ -12578,11 +11630,18 @@ forge_types_up() {
   return 1
 }
 
-# forge_types_down: stops the daemons this run started when no session uses them
-# (check.sh in CI or a pre-commit hook: nothing is left running).
+# forge_types_running <lang> <want>: its daemon runs with this engine; registers the
+# hook's session with it.
+forge_types_running() {
+  forge_types_alive "$1" && [ "$(cat "$FORGE_STATE/types/$1/want" 2>/dev/null)" = "$2" ] || return 1
+  [ -z "${FORGE_INPUT:-}" ] || : > "$FORGE_STATE/types/$1/sessions/$(session_id)"
+}
+
+# forge_types_down: stops the daemons this run started when no session uses them, and
+# waits until they have exited (check.sh in CI or a pre-commit hook: nothing is left running).
 forge_types_down() {
   for _td_l in ${FORGE_TYPES_STARTED:-}; do
-    [ -n "$(ls "$FORGE_STATE/types/$_td_l/sessions" 2>/dev/null)" ] || forge_types_line "$_td_l" stop
+    [ -n "$(ls "$FORGE_STATE/types/$_td_l/sessions" 2>/dev/null)" ] || forge_types_stop "$_td_l"
   done
   return 0
 }
@@ -13291,7 +12350,9 @@ forge_change_set() {
     --since)
       { git diff --name-only -z --no-renames "$FORGE_BASE_REV" 2>/dev/null; git ls-files -z --others --exclude-standard 2>/dev/null; } | tr '\000' '\n' | sort -u ;;
     *) status_paths | sort -u ;;
-  esac > "$FORGE_TMP/changed"
+  esac | grep -v '^\.forge/' > "$FORGE_TMP/changed"
+  # Forge's own files (.forge/: check.sh, its helper scripts) are not the project's code:
+  # integrity covers them (check.sh step 1), the project's rules do not
   : > "$FORGE_TMP/existing"; : > "$FORGE_TMP/deleted"; : > "$FORGE_TMP/inbase"; : > "$FORGE_TMP/added"
   mkdir -p "$FORGE_TMP/base"
   while IFS= read -r _cs_f; do
@@ -13446,16 +12507,14 @@ forge_grep_forbid() {
   done
 }
 
-# forge_ratchet <runtime> <script>: the config ratchet. Runs <script> (embedded in
-# check.sh as forge_script_<script>) with the project's runtime on the changed files
-# and their base copies; each printed line is a loosened setting, unless forge.yaml
-# records it as accepted.
+# forge_ratchet <runtime> <script>: the config ratchet. Runs .forge/helpers/<script>
+# with the project's runtime on the changed files and their base copies; each printed
+# line is a loosened setting, unless forge.yaml records it as accepted.
 forge_ratchet() {
-  _fr_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
-  "$_fr_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  [ -f ".forge/helpers/$2" ] || { printf 'forge:%s skipped: .forge/helpers/%s is missing (run forge apply)\n' "$c_id" "$2"; return 0; }
   set -f
   # shellcheck disable=SC2046
-  "$1" "$FORGE_TMP/$2" "$FORGE_TMP/base" $(cat "$FORGE_TMP/existing") > "$FORGE_TMP/ratchet" 2>&1
+  "$1" ".forge/helpers/$2" "$FORGE_TMP/base" $(cat "$FORGE_TMP/existing") > "$FORGE_TMP/ratchet" 2>&1
   _fr_rc=$?
   set +f
   case $_fr_rc in
@@ -13473,16 +12532,15 @@ forge_ratchet() {
   return 1
 }
 
-# forge_helper <runtime> <script> [file...]: runs <script> (embedded in check.sh as
-# forge_script_<script>) with the project's runtime, as `<script> <FORGE_TMP> [file...]`
+# forge_helper <runtime> <script> [file...]: runs .forge/helpers/<script> with the
+# project's runtime, as `<script> <FORGE_TMP> [file...]`
 # (FORGE_TMP holds changed, existing, inbase and base/ from forge_change_set). Exit 0:
 # nothing found; 1: findings printed ("path:line message"; a line also present in
 # forge.yaml is accepted); 3: cannot run, its "skipped: ..." line is printed.
 forge_helper() {
-  _fh_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
-  "$_fh_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  [ -f ".forge/helpers/$2" ] || { printf 'forge:%s skipped: .forge/helpers/%s is missing (run forge apply)\n' "$c_id" "$2"; return 0; }
   _fh_rt=$1; _fh_s=$2; shift 2
-  "$_fh_rt" "$FORGE_TMP/$_fh_s" "$FORGE_TMP" "$@" > "$FORGE_TMP/helper" 2>&1
+  "$_fh_rt" ".forge/helpers/$_fh_s" "$FORGE_TMP" "$@" > "$FORGE_TMP/helper" 2>&1
   case $? in
     0) return 0 ;;
     1) ;;
@@ -15484,11 +14542,12 @@ forge_diagnostics() {
       else if (index(p, r2 "/") == 1) p = substr(p, length(r2) + 2)
       sub(/^\.\//, "", p)
       named = 1
+      if (p !~ /^\.forge\//) project = 1
       if (level == "line") counts = (p in whole) || (ln == "" || ln == 0 ? (p in ch) : ((p "\t" ln) in ad))
       else counts = (p in ch)
       if (counts) { hit = 1; if (mode == "print") print $0 }
     }
-    END { if (mode != "print") print (hit ? "changed" : named ? "other" : (warned && !erred) ? "warnings" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
+    END { if (mode != "print") print (hit ? "changed" : named && !project ? "forge" : named ? "other" : (warned && !erred) ? "warnings" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
 }
 
 # forge_attribute_level <stage> <whole-project run: 1|0>: how a failed check's
@@ -15548,6 +14607,12 @@ forge_run_check() {
   fi
   # outside --all, only errors in the change count (§10.1 step 5)
   _fc_level=$(forge_attribute_level "$c_stage" "$_fc_whole")
+  # findings only in Forge's own helper scripts (.forge/helpers/, checked by integrity)
+  # are not the project's, in every mode
+  if [ -n "$_fc_level" ] && [ "$(forge_diagnostics "$FORGE_TMP/out" "$_fc_level")" = forge ]; then
+    printf 'forge:%s ok (its findings are only in Forge'"'"'s own .forge/ files)\n' "$c_id"
+    return 0
+  fi
   if [ "$mode" != --all ] && [ -n "$_fc_level" ]; then
     case $(forge_diagnostics "$FORGE_TMP/out" "$_fc_level") in
       other)
@@ -16081,7 +15146,7 @@ FORGE_TY_VERSION='0.0.86'
 FORGE_TS_ENGINE_VERSION='7.0.2'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='4488c9b0b19a'
+FORGE_TYPES_REV='3f3b5d2e09dd'
 
 # forge_types_up <lang>: the language's daemon runs, with the pinned engine (started
 # when it does not: by the first hook that needs it, or by SessionStart). Prints why
@@ -16094,13 +15159,7 @@ forge_types_up() {
     typescript) _tu_want="typescript $FORGE_TS_ENGINE_VERSION $FORGE_TYPES_REV" ;;
     *) printf 'no types engine for %s\n' "$1"; return 1 ;;
   esac
-  if forge_types_alive "$1"; then
-    if [ "$(cat "$_tu_d/want" 2>/dev/null)" = "$_tu_want" ]; then
-      [ -z "${FORGE_INPUT:-}" ] || : > "$_tu_d/sessions/$(session_id)"
-      return 0
-    fi
-    forge_types_line "$1" stop
-  fi
+  forge_types_running "$1" "$_tu_want" && return 0
   forge_state_dir && mkdir -p "$FORGE_STATE/types" || { printf 'cannot create %s\n' "$FORGE_STATE/types"; return 1; }
   # one starter at a time; another one's start is waited for (its lock holds its pid)
   _tu_n=0
@@ -16110,19 +15169,20 @@ forge_types_up() {
     [ "$_tu_n" -lt "${FORGE_TYPES_START_TIMEOUT:-60}" ] || { printf 'another hook is still starting the %s engine\n' "$1"; return 1; }
     sleep 1
     _tu_n=$((_tu_n + 1))
-    forge_types_alive "$1" && return 0
   done
-  printf '%s\n' "$$" > "$_tu_d.lock/pid"
+  # this shell's own pid ($$ is the script's, which a background subshell outlives)
+  _tu_me=$(exec sh -c 'echo "$PPID"')
+  printf '%s\n' "$_tu_me" > "$_tu_d.lock/pid"
+  # started meanwhile by the hook that held the lock
+  if forge_types_running "$1" "$_tu_want"; then rm -rf "$_tu_d.lock"; return 0; fi
+  # another pin or Forge: stopped (and waited for) before its state is replaced
+  forge_types_stop "$1"
   rm -rf "$_tu_d"
   mkdir -p "$_tu_d/sessions" && mkfifo "$_tu_d/in" "$_tu_d/started" || { rm -rf "$_tu_d.lock"; printf 'cannot create %s\n' "$_tu_d"; return 1; }
   printf '%s\n' "$_tu_want" > "$_tu_d/want"
   case $1 in
-    python)
-      forge_script_types_python_py > "$_tu_d/engine.py"
-      set -- uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" python "$_tu_d/engine.py" "$(pwd -P)" "$_tu_d" ;;
-    typescript)
-      forge_script_types_typescript_mjs > "$_tu_d/engine.mjs"
-      set -- bun "$_tu_d/engine.mjs" "$(pwd -P)" "$_tu_d" "$FORGE_TS_ENGINE_VERSION" ;;
+    python) set -- uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" python "$(pwd -P)/.forge/helpers/types_python.py" "$(pwd -P)" "$_tu_d" ;;
+    typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" "$FORGE_TS_ENGINE_VERSION" ;;
   esac
   # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a
   # launcher that fails before (no network for a first download) says "exited <code>"
@@ -16146,11 +15206,18 @@ forge_types_up() {
   return 1
 }
 
-# forge_types_down: stops the daemons this run started when no session uses them
-# (check.sh in CI or a pre-commit hook: nothing is left running).
+# forge_types_running <lang> <want>: its daemon runs with this engine; registers the
+# hook's session with it.
+forge_types_running() {
+  forge_types_alive "$1" && [ "$(cat "$FORGE_STATE/types/$1/want" 2>/dev/null)" = "$2" ] || return 1
+  [ -z "${FORGE_INPUT:-}" ] || : > "$FORGE_STATE/types/$1/sessions/$(session_id)"
+}
+
+# forge_types_down: stops the daemons this run started when no session uses them, and
+# waits until they have exited (check.sh in CI or a pre-commit hook: nothing is left running).
 forge_types_down() {
   for _td_l in ${FORGE_TYPES_STARTED:-}; do
-    [ -n "$(ls "$FORGE_STATE/types/$_td_l/sessions" 2>/dev/null)" ] || forge_types_line "$_td_l" stop
+    [ -n "$(ls "$FORGE_STATE/types/$_td_l/sessions" 2>/dev/null)" ] || forge_types_stop "$_td_l"
   done
   return 0
 }
@@ -17990,14 +17057,15 @@ forge_types_alive() {
 # never mix) to the daemon's FIFO. Opened read-write, so it never blocks.
 forge_types_line() { printf '%s\n' "$2" 1<>"$FORGE_STATE/types/$1/in"; }
 
-# forge_types_ask <lang> <dir>: asks the daemon the question in <dir>/req and prints
-# its answer (without the final "end"); fails when none comes within
+# forge_types_ask <lang> <dir> [stop]: asks the daemon the question in <dir>/req and
+# prints its answer (without the final "end"); with "stop", asks it to stop and waits
+# until it has (its language server ended). Fails when no answer comes within
 # FORGE_TYPES_TIMEOUT seconds (20). The reply FIFO is opened read-write before the
 # question is sent, so the daemon's non-blocking open always finds a reader.
 forge_types_ask() {
   mkfifo "$2/reply" || return 1
   exec 8<>"$2/reply"
-  forge_types_line "$1" "$2"
+  forge_types_line "$1" "${3:+$3	}$2"
   { sleep "${FORGE_TYPES_TIMEOUT:-20}" & printf '%s\n' "$!" > "$2/sleep"; wait "$!"
     printf 'error\tno answer within %ss\nend\n' "${FORGE_TYPES_TIMEOUT:-20}" 1<>"$2/reply"; } >/dev/null 2>&1 &
   _ta_w=$!
@@ -18039,6 +17107,16 @@ forge_types_changed() {
   done
 }
 
+# forge_types_stop <lang>: stops the language's daemon and waits until it and its
+# language server have exited (at most FORGE_TYPES_TIMEOUT seconds).
+forge_types_stop() {
+  forge_types_alive "$1" || return 0
+  _tp_r=$(mktemp -d "${TMPDIR:-/tmp}/forge-types-stop.XXXXXX") || return 1
+  forge_types_ask "$1" "$_tp_r" stop > /dev/null
+  rm -rf "$_tp_r"
+  return 0
+}
+
 # forge_types_session <start|end>: registers this Claude Code session with the running
 # daemons, or unregisters it; the last session to end stops them.
 forge_types_session() {
@@ -18048,7 +17126,7 @@ forge_types_session() {
     if [ "$1" = start ]; then mkdir -p "$_tx_d/sessions" && : > "$_tx_d/sessions/$(session_id)"
     else
       rm -f "$_tx_d/sessions/$(session_id)"
-      [ -n "$(ls "$_tx_d/sessions" 2>/dev/null)" ] || { forge_types_alive "$_tx_lang" && forge_types_line "$_tx_lang" stop; }
+      [ -n "$(ls "$_tx_d/sessions" 2>/dev/null)" ] || forge_types_stop "$_tx_lang"
     fi
   done
   return 0
@@ -18537,7 +17615,9 @@ forge_change_set() {
     --since)
       { git diff --name-only -z --no-renames "$FORGE_BASE_REV" 2>/dev/null; git ls-files -z --others --exclude-standard 2>/dev/null; } | tr '\000' '\n' | sort -u ;;
     *) status_paths | sort -u ;;
-  esac > "$FORGE_TMP/changed"
+  esac | grep -v '^\.forge/' > "$FORGE_TMP/changed"
+  # Forge's own files (.forge/: check.sh, its helper scripts) are not the project's code:
+  # integrity covers them (check.sh step 1), the project's rules do not
   : > "$FORGE_TMP/existing"; : > "$FORGE_TMP/deleted"; : > "$FORGE_TMP/inbase"; : > "$FORGE_TMP/added"
   mkdir -p "$FORGE_TMP/base"
   while IFS= read -r _cs_f; do
@@ -18692,16 +17772,14 @@ forge_grep_forbid() {
   done
 }
 
-# forge_ratchet <runtime> <script>: the config ratchet. Runs <script> (embedded in
-# check.sh as forge_script_<script>) with the project's runtime on the changed files
-# and their base copies; each printed line is a loosened setting, unless forge.yaml
-# records it as accepted.
+# forge_ratchet <runtime> <script>: the config ratchet. Runs .forge/helpers/<script>
+# with the project's runtime on the changed files and their base copies; each printed
+# line is a loosened setting, unless forge.yaml records it as accepted.
 forge_ratchet() {
-  _fr_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
-  "$_fr_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  [ -f ".forge/helpers/$2" ] || { printf 'forge:%s skipped: .forge/helpers/%s is missing (run forge apply)\n' "$c_id" "$2"; return 0; }
   set -f
   # shellcheck disable=SC2046
-  "$1" "$FORGE_TMP/$2" "$FORGE_TMP/base" $(cat "$FORGE_TMP/existing") > "$FORGE_TMP/ratchet" 2>&1
+  "$1" ".forge/helpers/$2" "$FORGE_TMP/base" $(cat "$FORGE_TMP/existing") > "$FORGE_TMP/ratchet" 2>&1
   _fr_rc=$?
   set +f
   case $_fr_rc in
@@ -18719,16 +17797,15 @@ forge_ratchet() {
   return 1
 }
 
-# forge_helper <runtime> <script> [file...]: runs <script> (embedded in check.sh as
-# forge_script_<script>) with the project's runtime, as `<script> <FORGE_TMP> [file...]`
+# forge_helper <runtime> <script> [file...]: runs .forge/helpers/<script> with the
+# project's runtime, as `<script> <FORGE_TMP> [file...]`
 # (FORGE_TMP holds changed, existing, inbase and base/ from forge_change_set). Exit 0:
 # nothing found; 1: findings printed ("path:line message"; a line also present in
 # forge.yaml is accepted); 3: cannot run, its "skipped: ..." line is printed.
 forge_helper() {
-  _fh_fn=forge_script_$(printf '%s' "$2" | tr -c 'A-Za-z0-9_\n' '_')
-  "$_fh_fn" > "$FORGE_TMP/$2" 2>/dev/null || { printf 'forge:%s skipped: %s is not in check.sh (run forge apply)\n' "$c_id" "$2"; return 0; }
+  [ -f ".forge/helpers/$2" ] || { printf 'forge:%s skipped: .forge/helpers/%s is missing (run forge apply)\n' "$c_id" "$2"; return 0; }
   _fh_rt=$1; _fh_s=$2; shift 2
-  "$_fh_rt" "$FORGE_TMP/$_fh_s" "$FORGE_TMP" "$@" > "$FORGE_TMP/helper" 2>&1
+  "$_fh_rt" ".forge/helpers/$_fh_s" "$FORGE_TMP" "$@" > "$FORGE_TMP/helper" 2>&1
   case $? in
     0) return 0 ;;
     1) ;;
@@ -20730,11 +19807,12 @@ forge_diagnostics() {
       else if (index(p, r2 "/") == 1) p = substr(p, length(r2) + 2)
       sub(/^\.\//, "", p)
       named = 1
+      if (p !~ /^\.forge\//) project = 1
       if (level == "line") counts = (p in whole) || (ln == "" || ln == 0 ? (p in ch) : ((p "\t" ln) in ad))
       else counts = (p in ch)
       if (counts) { hit = 1; if (mode == "print") print $0 }
     }
-    END { if (mode != "print") print (hit ? "changed" : named ? "other" : (warned && !erred) ? "warnings" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
+    END { if (mode != "print") print (hit ? "changed" : named && !project ? "forge" : named ? "other" : (warned && !erred) ? "warnings" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
 }
 
 # forge_attribute_level <stage> <whole-project run: 1|0>: how a failed check's
@@ -20794,6 +19872,12 @@ forge_run_check() {
   fi
   # outside --all, only errors in the change count (§10.1 step 5)
   _fc_level=$(forge_attribute_level "$c_stage" "$_fc_whole")
+  # findings only in Forge's own helper scripts (.forge/helpers/, checked by integrity)
+  # are not the project's, in every mode
+  if [ -n "$_fc_level" ] && [ "$(forge_diagnostics "$FORGE_TMP/out" "$_fc_level")" = forge ]; then
+    printf 'forge:%s ok (its findings are only in Forge'"'"'s own .forge/ files)\n' "$c_id"
+    return 0
+  fi
   if [ "$mode" != --all ] && [ -n "$_fc_level" ]; then
     case $(forge_diagnostics "$FORGE_TMP/out" "$_fc_level") in
       other)
@@ -21327,7 +20411,7 @@ FORGE_TY_VERSION='0.0.86'
 FORGE_TS_ENGINE_VERSION='7.0.2'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='4488c9b0b19a'
+FORGE_TYPES_REV='3f3b5d2e09dd'
 
 # forge_types_up <lang>: the language's daemon runs, with the pinned engine (started
 # when it does not: by the first hook that needs it, or by SessionStart). Prints why
@@ -21340,13 +20424,7 @@ forge_types_up() {
     typescript) _tu_want="typescript $FORGE_TS_ENGINE_VERSION $FORGE_TYPES_REV" ;;
     *) printf 'no types engine for %s\n' "$1"; return 1 ;;
   esac
-  if forge_types_alive "$1"; then
-    if [ "$(cat "$_tu_d/want" 2>/dev/null)" = "$_tu_want" ]; then
-      [ -z "${FORGE_INPUT:-}" ] || : > "$_tu_d/sessions/$(session_id)"
-      return 0
-    fi
-    forge_types_line "$1" stop
-  fi
+  forge_types_running "$1" "$_tu_want" && return 0
   forge_state_dir && mkdir -p "$FORGE_STATE/types" || { printf 'cannot create %s\n' "$FORGE_STATE/types"; return 1; }
   # one starter at a time; another one's start is waited for (its lock holds its pid)
   _tu_n=0
@@ -21356,19 +20434,20 @@ forge_types_up() {
     [ "$_tu_n" -lt "${FORGE_TYPES_START_TIMEOUT:-60}" ] || { printf 'another hook is still starting the %s engine\n' "$1"; return 1; }
     sleep 1
     _tu_n=$((_tu_n + 1))
-    forge_types_alive "$1" && return 0
   done
-  printf '%s\n' "$$" > "$_tu_d.lock/pid"
+  # this shell's own pid ($$ is the script's, which a background subshell outlives)
+  _tu_me=$(exec sh -c 'echo "$PPID"')
+  printf '%s\n' "$_tu_me" > "$_tu_d.lock/pid"
+  # started meanwhile by the hook that held the lock
+  if forge_types_running "$1" "$_tu_want"; then rm -rf "$_tu_d.lock"; return 0; fi
+  # another pin or Forge: stopped (and waited for) before its state is replaced
+  forge_types_stop "$1"
   rm -rf "$_tu_d"
   mkdir -p "$_tu_d/sessions" && mkfifo "$_tu_d/in" "$_tu_d/started" || { rm -rf "$_tu_d.lock"; printf 'cannot create %s\n' "$_tu_d"; return 1; }
   printf '%s\n' "$_tu_want" > "$_tu_d/want"
   case $1 in
-    python)
-      forge_script_types_python_py > "$_tu_d/engine.py"
-      set -- uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" python "$_tu_d/engine.py" "$(pwd -P)" "$_tu_d" ;;
-    typescript)
-      forge_script_types_typescript_mjs > "$_tu_d/engine.mjs"
-      set -- bun "$_tu_d/engine.mjs" "$(pwd -P)" "$_tu_d" "$FORGE_TS_ENGINE_VERSION" ;;
+    python) set -- uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" python "$(pwd -P)/.forge/helpers/types_python.py" "$(pwd -P)" "$_tu_d" ;;
+    typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" "$FORGE_TS_ENGINE_VERSION" ;;
   esac
   # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a
   # launcher that fails before (no network for a first download) says "exited <code>"
@@ -21392,11 +20471,18 @@ forge_types_up() {
   return 1
 }
 
-# forge_types_down: stops the daemons this run started when no session uses them
-# (check.sh in CI or a pre-commit hook: nothing is left running).
+# forge_types_running <lang> <want>: its daemon runs with this engine; registers the
+# hook's session with it.
+forge_types_running() {
+  forge_types_alive "$1" && [ "$(cat "$FORGE_STATE/types/$1/want" 2>/dev/null)" = "$2" ] || return 1
+  [ -z "${FORGE_INPUT:-}" ] || : > "$FORGE_STATE/types/$1/sessions/$(session_id)"
+}
+
+# forge_types_down: stops the daemons this run started when no session uses them, and
+# waits until they have exited (check.sh in CI or a pre-commit hook: nothing is left running).
 forge_types_down() {
   for _td_l in ${FORGE_TYPES_STARTED:-}; do
-    [ -n "$(ls "$FORGE_STATE/types/$_td_l/sessions" 2>/dev/null)" ] || forge_types_line "$_td_l" stop
+    [ -n "$(ls "$FORGE_STATE/types/$_td_l/sessions" 2>/dev/null)" ] || forge_types_stop "$_td_l"
   done
   return 0
 }
@@ -21432,9 +20518,557 @@ forge_types_filter() {
   return "$_tf_rc"
 }
 
-# The types engine adapters (§15.2), written to the state directory when started.
-forge_script_types_typescript_mjs() {
-cat <<'FORGE_SCRIPT_END'
+FORGE_STATE=$(forge_state_of "$(pwd -P)")
+
+
+FORGE_FORBID='typescript/nextjs/no-legacy-image-config|typescript/nextjs/no-next-router|typescript/nextjs/no-pages-data|typescript/nextjs/no-public-secret-env|typescript/nextjs/proxy-not-middleware|typescript/nextjs/react/client-hooks|typescript/nextjs/react/no-server-in-client|typescript/nextjs/revalidate-tag-profile|typescript/no-double-assertion|typescript/no-stub|typescript/no-swallowed-catch|typescript/no-ts-nocheck|typescript/playwright/locators|typescript/playwright/no-wait-for-timeout|typescript/prisma/generated-client-import|typescript/prisma/no-middleware|typescript/prisma/no-network-in-transaction|typescript/prisma/no-raw-unsafe|typescript/react/no-prop-types|typescript/react/use-action-state|typescript/ts-expect-error-reason|typescript/vitest/no-tautological-expect|typescript/vitest/no-test-env-branch|typescript/zod/error-param|typescript/zod/v4-string-formats'
+FORGE_NO_INCREASE='typescript/bun/no-mock-increase|typescript/bun/no-new-skip|typescript/playwright/no-new-skip|typescript/vitest/no-mock-increase|typescript/vitest/no-new-skip'
+FORGE_NO_DECREASE='typescript/bun/no-fewer-expects|typescript/vitest/no-fewer-expects'
+
+
+# The change: changed, existing, deleted, base/, inbase and added in $FORGE_TMP.
+forge_change_set || exit 1
+if [ "$mode" = --all ]; then
+  git ls-files -z --cached --others --exclude-standard 2>/dev/null | tr '\000' '\n' | grep -v '^\.forge/' | sort -u > "$FORGE_TMP/scope"
+  : > "$FORGE_TMP/scope.tmp"
+  while read -r f; do [ -f "$f" ] && printf '%s\n' "$f" >> "$FORGE_TMP/scope.tmp"; done < "$FORGE_TMP/scope"
+  mv "$FORGE_TMP/scope.tmp" "$FORGE_TMP/scope"
+else
+  cp "$FORGE_TMP/existing" "$FORGE_TMP/scope"
+fi
+
+fail=0
+report() { printf 'forge:%s %s\n' "$1" "$2"; fail=1; }
+
+# 1. Integrity: owned files match .forge/manifest.sha256 ("<sha256>  <path>" lines,
+# sha256sum format). JSON files are hashed with spaces, tabs and newlines removed,
+# helper scripts also without quotes, commas, semicolons and parentheses, so a
+# formatter run is not tampering; any other change is.
+forge_owned_hash() {
+  case $1 in
+    # helper scripts: what a formatter changes (layout, quotes, trailing commas,
+    # semicolons, parentheses) is left out, so ruff format or Biome rewriting them is not tampering
+    .forge/helpers/*) tr -d " \t\r\n,;()'\"\`" < "$1" | forge_sha256 ;;
+    *.json) tr -d ' \t\r\n' < "$1" | forge_sha256 ;;
+    *) forge_sha256 < "$1" ;;
+  esac
+}
+forge_integrity() {
+  manifest=.forge/manifest.sha256
+  [ -f "$manifest" ] || { report forge/integrity "$manifest is missing (run forge apply)"; return; }
+  awk '/^[0-9a-f]+  ./ { h = $1; p = substr($0, length(h) + 3); print p "\t" h }' "$manifest" > "$FORGE_TMP/owned"
+  while IFS='	' read -r path hash; do
+    [ -n "$path" ] || continue
+    case $path in .forge/*|.claude/*) ;; *) continue ;; esac
+    if [ ! -f "$path" ]; then report forge/integrity "$path is missing (run forge apply)"
+    elif [ "$(forge_owned_hash "$path")" != "$hash" ]; then report forge/integrity "$path was modified (run forge diff)"
+    fi
+  done < "$FORGE_TMP/owned"
+  cut -f 1 "$FORGE_TMP/owned" > "$FORGE_TMP/owned-paths"
+  { find .forge .claude/skills/forge-project -type f 2>/dev/null; find .claude/rules -name 'forge-*.md' -type f 2>/dev/null; } \
+    | sed 's|^\./||' | while read -r path; do
+      case $path in .forge/state/*|.forge/rules/*|.forge/forge.lock.json|.forge/manifest.sha256) continue ;; esac
+      grep -qxF "$path" "$FORGE_TMP/owned-paths" || printf 'forge:forge/integrity %s is not a forge file (remove it or run forge apply)\n' "$path"
+    done > "$FORGE_TMP/extra"
+  if [ -s "$FORGE_TMP/extra" ]; then cat "$FORGE_TMP/extra"; fail=1; fi
+}
+
+# 2. Applied migrations (in the base) are never modified or deleted.
+forge_applied_migrations() {
+  while read -r f; do
+    case $f in
+      prisma/migrations/migration_lock.toml) ;;
+      alembic/versions/*|prisma/migrations/*)
+        report forge/applied-migration "$f exists at $(forge_base_name) and was modified or deleted; write a new migration instead" ;;
+    esac
+  done < "$FORGE_TMP/inbase"
+}
+
+# forge_base_name: what the change is compared with, for messages.
+forge_base_name() {
+  case $mode in
+    --turn) printf 'the start of the turn' ;;
+    --since) printf 'the merge base with %s' "$FORGE_ARG" ;;
+    *) printf 'HEAD' ;;
+  esac
+}
+
+# 3. Tests and counts: no deleted test files; ast-grep and grep counts compared with the base.
+forge_tests_integrity() {
+  while read -r f; do
+    case $f in
+      test_*.py|*/test_*.py|*_test.py|*/conftest.py|conftest.py|tests/*|*.test.*|*.spec.*|*/__tests__/*|e2e/*)
+        report forge/deleted-test "$f was deleted" ;;
+    esac
+  done < "$FORGE_TMP/deleted"
+  inc=$FORGE_NO_INCREASE
+  [ -n "$FORGE_GREP_NO_INCREASE" ] && inc="${inc:+$inc|}$FORGE_GREP_NO_INCREASE"
+  dec=$FORGE_NO_DECREASE
+  [ -n "$FORGE_GREP_NO_DECREASE" ] && dec="${dec:+$dec|}$FORGE_GREP_NO_DECREASE"
+  [ -n "$inc$dec" ] && [ -s "$FORGE_TMP/existing" ] || return
+  grep -vxF -f "$FORGE_TMP/deleted" "$FORGE_TMP/inbase" > "$FORGE_TMP/athead"
+  : > "$FORGE_TMP/now"; : > "$FORGE_TMP/then"
+  ids=$FORGE_NO_INCREASE
+  [ -n "$FORGE_NO_DECREASE" ] && ids="${ids:+$ids|}$FORGE_NO_DECREASE"
+  if [ -n "$ids" ]; then
+    if forge_counts "$FORGE_ROOT" "$ids" "$FORGE_TMP/existing" > "$FORGE_TMP/now" \
+      && { [ ! -s "$FORGE_TMP/athead" ] || forge_counts "$FORGE_TMP/base" "$ids" "$FORGE_TMP/athead" > "$FORGE_TMP/then"; }; then :
+    else
+      printf 'forge:forge/ast-grep skipped: ast-grep unavailable\n'
+      : > "$FORGE_TMP/now"; : > "$FORGE_TMP/then"
+    fi
+  fi
+  forge_grep_counts "$FORGE_ROOT" "$FORGE_TMP/existing" >> "$FORGE_TMP/now"
+  forge_grep_counts "$FORGE_TMP/base" "$FORGE_TMP/athead" >> "$FORGE_TMP/then"
+  awk -F '\t' -v inc="$inc" -v dec="$dec" '
+    BEGIN { n = split(inc, a, "|"); for (i = 1; i <= n; i++) if (a[i] != "") mi[a[i]] = 1
+            n = split(dec, b, "|"); for (i = 1; i <= n; i++) if (b[i] != "") md[b[i]] = 1 }
+    FILENAME == ARGV[1] { then[$1 "\t" $2] = $3; keys[$1 "\t" $2] = 1; next }
+    { now[$1 "\t" $2] = $3; keys[$1 "\t" $2] = 1 }
+    END {
+      for (k in keys) {
+        split(k, p, "\t"); t = then[k] + 0; w = now[k] + 0
+        if ((p[1] in mi) && w > t) printf "forge:%s %s: %d -> %d\n", p[1], p[2], t, w
+        if ((p[1] in md) && w < t) printf "forge:%s %s: %d -> %d\n", p[1], p[2], t, w
+      }
+    }' "$FORGE_TMP/then" "$FORGE_TMP/now" | sort > "$FORGE_TMP/countfail"
+  if [ -s "$FORGE_TMP/countfail" ]; then cat "$FORGE_TMP/countfail"; fail=1; fi
+}
+
+# forge_counts <dir> <id-regex> <file-list>: "rule<TAB>file<TAB>count" lines.
+forge_counts() {
+  set -f
+  # shellcheck disable=SC2046
+  ( cd "$1" && astgrep scan -c "$FORGE_ROOT/.forge/ast-grep/sgconfig.yml" --filter "^($2)\$" --json=stream $(cat "$3") ) > "$FORGE_TMP/json"
+  rc=$?
+  set +f
+  [ "$rc" -le 1 ] || return 1
+  grep -oE '"(file|ruleId)":"[^"]*"' "$FORGE_TMP/json" \
+    | awk -F '"' '$2 == "file" { f = $4 } $2 == "ruleId" { c[$4 "\t" f]++ } END { for (k in c) print k "\t" c[k] }'
+}
+
+# 4. Forbid rules (ast-grep and grep): outside --all, only matches on added lines.
+forge_forbid() {
+  [ -s "$FORGE_TMP/scope" ] || return
+  forge_grep_forbid "$FORGE_TMP/scope" > "$FORGE_TMP/forbid.out"
+  if [ -n "$FORGE_FORBID" ]; then
+    set -f
+    # shellcheck disable=SC2046
+    astgrep scan -c .forge/ast-grep/sgconfig.yml --filter "^($FORGE_FORBID)\$" --json=stream --include-metadata $(cat "$FORGE_TMP/scope") > "$FORGE_TMP/forbid"
+    rc=$?
+    set +f
+    if [ "$rc" -gt 1 ]; then printf 'forge:forge/ast-grep skipped: ast-grep unavailable\n'
+    else
+      # rules with type constraints: only the matches the types engine confirms (§15.1)
+      forge_sg_report "$FORGE_TMP/forbid" json > "$FORGE_TMP/forbid.added"
+      forge_types_changed $(cat "$FORGE_TMP/changed")
+      forge_types_filter "$FORGE_TMP/forbid.added" >> "$FORGE_TMP/forbid.out"
+      forge_sg_report "$FORGE_TMP/forbid.added" >> "$FORGE_TMP/forbid.out"
+    fi
+  fi
+  if [ -s "$FORGE_TMP/forbid.out" ]; then cat "$FORGE_TMP/forbid.out"; fail=1; fi
+  return 0
+}
+
+# forge_end <status>: advice (§10.7) last, after every failing check, then exit.
+forge_end() { [ ! -s "$FORGE_TMP/advice.out" ] || cat "$FORGE_TMP/advice.out"; exit "$1"; }
+forge_step() { [ "$fail" -eq 0 ] || forge_end "$fail"; "$@"; }
+
+forge_step forge_integrity
+forge_step forge_applied_migrations
+forge_step forge_tests_integrity
+forge_step forge_forbid
+forge_step forge_run_stage format
+forge_step forge_run_stage lint
+forge_step forge_run_stage typecheck
+forge_step forge_run_stage migration
+forge_step forge_run_stage test
+# advice (§10.7) does not stop the steps after it; when it is the only failure, exit 4
+[ "$fail" -ne 0 ] || [ "${advised:-0}" -eq 0 ] || fail=4
+forge_end "$fail"
+
+===== .forge/forge.lock.json
+{
+  "forge_version": "0.5.0",
+  "claude_code_min": "2.1.295",
+  "rules": {
+    "typescript/bun/lock-sync": "9e09d6a5edb31aa8fb18dc32cdf27b4610898b56dceb6715df786d729f80fb3c",
+    "typescript/bun/no-fewer-expects": "5a1ceafdb3fe2b8bb363f18b760e55144f8cae87bd963e26309ab5619a563c3a",
+    "typescript/bun/no-mock-increase": "1bf4f349d6d33eb5993d156a4b7efcd43675ecc158b84998c936d24edeaf0fde",
+    "typescript/bun/no-new-skip": "9aa6a5b58ac541611b827f6eb354be6d67edece10cb6416cc94f9d980d34b67e",
+    "typescript/bun/no-other-pm": "fcdd00d782b97240fbb0c968b667110542cc5ca7fd48ee4bd5b9e7895e51ec05",
+    "typescript/bun/no-snapshot-update": "44f865cdc519d6c573a601582a64a08517db474ca9a2e8dbcb5ab782e9a603f8",
+    "typescript/bun/no-test-edits": "f0def5a284d258b5fc0afb8274636df1a80cec4fe88c6a50a3ad57523859fe91",
+    "typescript/bun/release-age": "a82d38eebf7955af0cef4cb4561d05374438bcd31c28a82eb46e1d644f29c44e",
+    "typescript/bun/test": "53b59f6fdb7da1713a6bb636496cdb705de29a53701bab7cbe016b5a47a1b0f7",
+    "typescript/bun/trusted-deps": "a23199c6bb088f245f833db63f304fdc1c8f304167257caab8125af55bbda732",
+    "typescript/config-files": "77940ff304752f88c143dedc5911b0961de9e16b68e10758a273cfc049505413",
+    "typescript/config-ratchet": "b0ff3b6c064f691984e217acc0388d0900b1a2a1d1ee493935badb41a8a45022",
+    "typescript/env-example": "7eab3b03486670f6274d4db65487ccaaf7f2b1fddd39c86a13469cdf46d2140c",
+    "typescript/format-lint": "18f0059c55bc0fd6acbd5c7a92fb06989649cd07e9981e421d898991e39aed7b",
+    "typescript/lockfile-updated": "4e73aebc5db80beaa00f712dc0a4d1091ed8ebe051c57e087df110696b49e6b7",
+    "typescript/nextjs/no-legacy-image-config": "3fe00293c75da57b6623c1880c86eadb54aa9fce686ac52ffc1720780763fec7",
+    "typescript/nextjs/no-next-router": "e935af017296ba5db9752bf63ad22bea52eb27816f357b18532a1052590d14ea",
+    "typescript/nextjs/no-pages-data": "a4d7c707f125ee1f103d922b8765e619c4c293479797d9dbdb81c7e3bbe782fa",
+    "typescript/nextjs/no-public-secret-env": "41daab06f32411dacc7b8cd23a5953a407b00761bb07f75827b0a10bdfa50c64",
+    "typescript/nextjs/proxy-not-middleware": "c336db03ccf715b6ab786ed10bc073699e2d984144820cbe27d5bc16e072644a",
+    "typescript/nextjs/react/client-hooks": "a5eea520cac5df94a521491b676d69d68dc846a8a289f3d1c306b5977c2eedb6",
+    "typescript/nextjs/react/no-server-in-client": "5de2679ac303f0c0b1fc030713f0cbe4581d2af7e38bf389b3b68b1819aba2da",
+    "typescript/nextjs/revalidate-tag-profile": "493bbc01d9566347829e9ea78c93e047a6f692868c5f099b6c142c8d9cb9cb37",
+    "typescript/no-console": "304966850351b07590c05fb22ae0125d1976179b3cd7abc0bc0dd7e82039ada5",
+    "typescript/no-double-assertion": "2c5b17cd8daa6bd598b4aa79b30259626c86e6a3afd00630a3a4a2918316ce80",
+    "typescript/no-empty-block": "e615b8d48575392c885e65f5b5e69cfaba918ae070473fb229086fe36501a31f",
+    "typescript/no-eval": "695bc504e485395796c1500ec90804609a4f5e8c9a5867062271b9caa5f58143",
+    "typescript/no-explicit-any": "66e8f9968e8c88a77229e6c092e4489cffced1186a72fa257017fa6a2e612d28",
+    "typescript/no-focused-tests": "0c7614dd6db46bbe6d9a19b58cf8130638128e786cd1dc912e58203ecc72a87b",
+    "typescript/no-ignore-deprecations": "63044c1f4bd2f841800843fa17b4db5a29e5d8cc32053591a25622f15902c888",
+    "typescript/no-implicit-any": "7ac25a953e4d6df85abee5379ea5496788f5d15776ae37623ceff5ebcc034108",
+    "typescript/no-new-suppressions": "b49b319f832234670b6d55d259add6b912cd7e49e81fd2143917e7b64976dfed",
+    "typescript/no-non-null-assertion": "24bf5fb3547ff36667d3886eaebc706fc21a387a18d2f5789156220e65462ce2",
+    "typescript/no-placeholder-comment": "940fb140d959d26ffe50ae2978f2efbf8b3e44891a2b7fa0e0156f4752c7fb47",
+    "typescript/no-secrets": "94ad67cd60030c667e22aa4c097abbb17675fdeb5cf944ffb69a6cde2aab365c",
+    "typescript/no-stub": "c0b7945c7b23df7621388872772f9185161a99ca57a0ea316f969a41972840a8",
+    "typescript/no-swallowed-catch": "80a3b4c0071c2d325aefdd8e158b950847eca9159276eb6ab126f21e26015de4",
+    "typescript/no-ts-ignore": "afe518e61003a905fe90ca0548a0c472bc26a897d64cb5509ee1b3534297beee",
+    "typescript/no-ts-nocheck": "25caeef679e03c9b88f75f961ce1b5d13c0f28538112f9642c513658a10f4213",
+    "typescript/no-unused": "d75d0e94afbbd14b74ea3896c6f269d7a6953eed0c9e7edcc4c65534c460c413",
+    "typescript/no-unused-suppressions": "47b77a16691164d172e4f52e2267d0b6f1c7888c6b43a095e3ec41093081c918",
+    "typescript/playwright/axe": "0e5978f59f13347b9842d1dfcf6a51e2486bdcad8bac48509924fd9f5d3d03d3",
+    "typescript/playwright/config-file": "b257557ca4312f58fe449d1cb237fe8c9806b92cd934a3cf955efbb1923b7287",
+    "typescript/playwright/locators": "f71e79219da3569c417936bc942cca4869f76ad630569f169f5022c93e25ac14",
+    "typescript/playwright/no-new-skip": "af6b674bbaf8f67ef5f66749946b7f2fb5660d74f8bbca34506ba8cf97f6bede",
+    "typescript/playwright/no-snapshot-update": "78a18162973e50be255a9cdc5e3dd308ca4c339e29687e45bf9eb3986a8eca3e",
+    "typescript/playwright/no-test-edits": "16b6681c7d6009249ff3466e5a531a991506bb8b6bdbbe295e8b925c525d8bdb",
+    "typescript/playwright/no-wait-for-timeout": "d6f5471ff500bf60ee5b260325c0cd41d31ba86cb59030036fb7f517dfaaf5e1",
+    "typescript/playwright/run": "79dc276c6d71cd329a2360b0560e3b12d47c99d7ea11e13563d794961a0363fa",
+    "typescript/prisma/client-generator": "8905dafcbf59a72531bc68fe4ccbcebca6cbd2af461fb39690d748885d375c01",
+    "typescript/prisma/db-push": "ea9ca78f9244bfb5a4c56205190683e6148d7ff41b9debebbf9970582290d77e",
+    "typescript/prisma/destructive-migration": "6cb32c74f021c89b0a63d09e89b2298c64d251f3c3c2380279bfd804b750ba02",
+    "typescript/prisma/generated-client-import": "89567be06b4754638addfa6a8700297b4739e72cf932328b952b1cfb0621da45",
+    "typescript/prisma/migration-lint": "9a5876481372fb0461b28c9150c4046a4ea45b5cbccce158b08afea89342ebb9",
+    "typescript/prisma/migration-present": "884fb66ed58f8eaab7bc83838363ab83539cd972c45638055d79a93ef1752bde",
+    "typescript/prisma/no-middleware": "f9b87f0cec0365b73fcb60b3f7cb226c6cec8709b1a9891093960051b7969cc1",
+    "typescript/prisma/no-network-in-transaction": "db431e0148e4b401390bba8063e5d616717048b4bd30ac22bc2343486bedfc71",
+    "typescript/prisma/no-raw-unsafe": "b889b504c953cab447f027b52f6abd10c61002854b05ae1ed41c2d2a075365f9",
+    "typescript/prisma/no-reset": "060bf3f7773db9cf87bede89da4d4540b19271ffb9a698aa7a3d84bf9cf7168a",
+    "typescript/prisma/validate": "0479a5e9bc602a2d9f0a154719567605623fe73194bceafce1d87bc325d37aad",
+    "typescript/react/a11y": "101c3c1b4c43a00525a019cf13d60dd07f9a668569a09b4f5ba8a4a92cdc7c2b",
+    "typescript/react/hooks-rules": "84b1b31e6f7aace5c2873499123884279cb92d9177bccc8fab5e40b2767b4047",
+    "typescript/react/no-dangerous-html": "8003159a1f2e7bfff7e2969b76516240e61ea57c583f97ae5df1f47360895854",
+    "typescript/react/no-deprecated-types": "b582f769c408d52526d146d6be00a955a33714945954f053711390edfe30cbf5",
+    "typescript/react/no-forward-ref": "36a40a23adb17d7651f8f7ed849fe1341540551ab7c0940943555aca6cff8e07",
+    "typescript/react/no-nested-components": "7d56f7ae6686901210a69036650305f3eefdb68efb27b11fb06bd8799169b9a8",
+    "typescript/react/no-prop-types": "76b76db62c10d08486cd50217e27d8108355b161ef558d8b764106023764acb1",
+    "typescript/react/stable-keys": "7cd742b7ff4eced78ec4ae0dda88fe9cbe7f984429632d9a2da63bb0ce29c79d",
+    "typescript/react/use-action-state": "4fb479e74dbdfadf6a395d761fe269009bc694454e9c0bc845f8df8c0aa68c81",
+    "typescript/strict-function-types": "7c8945ced7b73b7738f9a5bf3eb864c5cdb35c1eb55b7c3ad606b1db3b6a8263",
+    "typescript/strict-null-checks": "1249d522c4e1a26bf6d951e14a7e9b3033d1be96ebf68d9cc93b0e8df9940df6",
+    "typescript/ts-expect-error-reason": "2d40d771a013778c75bc79c0e3965b3ecc94aea938e6db87ba92d2bee63ddf90",
+    "typescript/typecheck": "9e26565727146ec77b97b763002c2a035a5b077ed2b4b85a3134b2a04850780a",
+    "typescript/unchecked-index": "c8a32a9a463d933695100cbee6ec896fc7bb41bad7d252871fd371ae78801755",
+    "typescript/vitest/config-file": "abe466390dd426b11ccbd6526a81a8a6ea3a720e06604c84ec0ca0d8c51dd3dd",
+    "typescript/vitest/no-fewer-expects": "8f6ef8c18f355e6f87742658e5bddb47ae364a35ee3e601db827eff23b17328e",
+    "typescript/vitest/no-mock-increase": "3429055f565bb02d51426bce4db2922c3fd829c6f845e6d9af489637e94b71b5",
+    "typescript/vitest/no-new-skip": "ba7c386c0e31cf2576e8dc9489d71ec9dec3194dbac1032eeba030108750ed85",
+    "typescript/vitest/no-pass-with-no-tests": "f0ca2c41a2c2d0289f12750c521dbe16bf55a0a94ce38457dd51492fe028a1f3",
+    "typescript/vitest/no-snapshot-update": "519846b6b08b3de78a1bee29e807aba76fd96e6055b3b37aff636232af075f0b",
+    "typescript/vitest/no-tautological-expect": "116c62d9efc9da4497cf9c2e69bdd365ca4f02db4e720e6cdd7fe6ff93dad768",
+    "typescript/vitest/no-test-edits": "bc2ef168386cc51f41b84aa10c492bb7a2a2f75d36df2ddd605ff5a34c70e6fc",
+    "typescript/vitest/no-test-env-branch": "9df6b921e06f85f5b55fcc438225f5d662d3b2998807a1e977705973af5c33fb",
+    "typescript/vitest/no-workspace-file": "239ef7e6cb5e8cf05438582b554b786c681c8a162bafb3d3cb0e033aab96948a",
+    "typescript/vitest/run": "b40ed7dc07ba4276d9f8e40dc353b627d6067a14812d2dad1636240f5d47d300",
+    "typescript/vitest/snapshot-stale": "9158abd81c23110df79622b012fba0b6dcd7e26fe7bfc104b3164c5e20bce861",
+    "typescript/vitest/untested-change": "65b07d8c9d6b6d188323266ba570ad7e9878e6f26d9d3a1d03ce32cd22468344",
+    "typescript/zod/error-param": "98f91bc633e6bf49f35ef19f18911ca916f9a8dd6e31fbe09f7083c5b68c086c",
+    "typescript/zod/v4-string-formats": "7e7373a687ac781f4dc75661e0f5bd51b89998d46d4e836055620fc965723f57"
+  },
+  "files": {
+    ".claude/rules/forge-typescript-bun.md": "56d2518521d7559dc4d52e8bc5e96b82e97026bdb48f5281fe9450e0f01e1d53",
+    ".claude/rules/forge-typescript-nextjs-react.md": "2e3462b5d3b2ae7ca170af39cf82bab25bbf97a1dc41f937dcd43239740f2736",
+    ".claude/rules/forge-typescript-nextjs.md": "96a99679c5ddb348fe571a68648c3f7722351fe90d1e12f7d15e3c081953d42a",
+    ".claude/rules/forge-typescript-playwright.md": "460ee4a08c77b6c6509a681765f299c2116dd996a79a5040d1516645d8e47663",
+    ".claude/rules/forge-typescript-prisma.md": "cf4184031d0c1e5f2a4b8ce5ce8ab676cdbeb65fc59402433cf8e77418daa1d6",
+    ".claude/rules/forge-typescript-react.md": "ae5f638883028fa1744f332b050e244ce57713ad2cc28ab5f8ee259f0088eb20",
+    ".claude/rules/forge-typescript-vitest.md": "0c60275a6586d66aa3d3ab871383af8cc874c5e849d10646d8940031768cd606",
+    ".claude/rules/forge-typescript-zod.md": "a5e2685c59231ba3ce5e994b28fa8dfd5e5e7946275ef3236334776e61329db7",
+    ".claude/rules/forge-typescript.md": "48f463a8e59348509f4f2096fb2b61b294b079410555e21d7a0b4ed6767c131d",
+    ".claude/skills/forge-project/.claude-plugin/plugin.json": "c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2",
+    ".claude/skills/forge-project/hooks/hooks.json": "3763c38c1d21ccd50c22007d10b155255f88c08290dab14d2afe25f4d181740b",
+    ".claude/skills/forge-project/scripts/bash-snapshot.sh": "29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e",
+    ".claude/skills/forge-project/scripts/guard.rules": "d0a502f51f51609d7e5e9cd6f39a8ce165c656ee1c1b7a607105a536962058eb",
+    ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
+    ".claude/skills/forge-project/scripts/lib.sh": "97c691d009a979b4dd1f81efd9535346b0027bc12a574653532eca62b978a289",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "7d522507ca0882e9fc5d696ee8a38ba5787ae4cd6536f579bc9f613c21e90e91",
+    ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
+    ".claude/skills/forge-project/scripts/session-end.sh": "99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58",
+    ".claude/skills/forge-project/scripts/session-start.sh": "9d77b52bd6f343c49fe5ef617bd6e3996528813db3db62b4c192aa6f0f780e87",
+    ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "638d022d6d72d1b0e525df58419b7c2150260c327977743f5baf383a0658b98b",
+    ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "d81550f8add289ace2e57fde9a4232a16ae048a7f9b539f6013a2b9bf585482d",
+    ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
+    ".forge/ast-grep/rule-tests/typescript-bun-no-fewer-expects-test.yml": "bd5df50793070bba7b87b0f623ac58ed4599e0ba6f8d731fc0da4b28a0335ec8",
+    ".forge/ast-grep/rule-tests/typescript-bun-no-mock-increase-test.yml": "2916d521378a79dbddd4e3a5822e04b4c3e5fad9262a65e019095f58bbfe0310",
+    ".forge/ast-grep/rule-tests/typescript-bun-no-new-skip-test.yml": "dc3b69bc7faac87a7d2caa2239db1281086991dd801d38ca06d02812aac0ac8b",
+    ".forge/ast-grep/rule-tests/typescript-nextjs-no-legacy-image-config-test.yml": "9d723e3c62b5697de0fa5ab80b735c3cef23225a07c81425c492cd8827faf06d",
+    ".forge/ast-grep/rule-tests/typescript-nextjs-no-next-router-test.yml": "5da1551f9fa49969cdbfb6ef3ba847589327a2d7430a3cdc79f3637fc81586f1",
+    ".forge/ast-grep/rule-tests/typescript-nextjs-no-pages-data-test.yml": "d2c1565050d4c9260d1fcf98bae6a781ceb3a6f2e72c1db475ac459818bd450a",
+    ".forge/ast-grep/rule-tests/typescript-nextjs-no-public-secret-env-test.yml": "117593bab047fa93deb238d012c1de40bd3b7abe10f1ec107e7a5156ead649e7",
+    ".forge/ast-grep/rule-tests/typescript-nextjs-proxy-not-middleware-test.yml": "153ec749432cb54b30c8020cbe4d466b3746e39ee9be7af8129603cab6ca3232",
+    ".forge/ast-grep/rule-tests/typescript-nextjs-react-client-hooks-test.yml": "7c405f311ed47f0b1f33bf3a179f600f612babccd820c3067b2305f98fc19db6",
+    ".forge/ast-grep/rule-tests/typescript-nextjs-react-no-server-in-client-test.yml": "d961ad163fef43f625286d82ef70180d240b753eb0b600073751e4f511d98c68",
+    ".forge/ast-grep/rule-tests/typescript-nextjs-revalidate-tag-profile-test.yml": "82a873549d13a28bd75fe0ec7f7c225c9a0480525e385aa5c9c3c96d15fc0e68",
+    ".forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml": "c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20",
+    ".forge/ast-grep/rule-tests/typescript-no-stub-test.yml": "b02e7e21f6bd597fe4b3d577b3a2cc6dfee9741674cc1cc99285e22ef90a2778",
+    ".forge/ast-grep/rule-tests/typescript-no-swallowed-catch-test.yml": "fb2f02c2bcf9562ed49731349520cde2d48d2f3b3557d2174b5e2e856d6c8e48",
+    ".forge/ast-grep/rule-tests/typescript-no-ts-nocheck-test.yml": "c15f604d5317f942de32470aeaff16702116a64d283347c9a9825056b4dbe69e",
+    ".forge/ast-grep/rule-tests/typescript-playwright-locators-test.yml": "c65ff86cee9c45671ae158cf4e8c59bbdeb8e2f14ea74c926964debe0a7d0e7e",
+    ".forge/ast-grep/rule-tests/typescript-playwright-no-new-skip-test.yml": "bb487493a7aa36a61f149d2d9b1fbe38895749290027dba745f51fdc011f054f",
+    ".forge/ast-grep/rule-tests/typescript-playwright-no-wait-for-timeout-test.yml": "6de739c52e05f5d443c247b3a60bc40bd15cc5cfce7f4cc80d428be001cf6c1a",
+    ".forge/ast-grep/rule-tests/typescript-prisma-generated-client-import-test.yml": "91fbbe5ce58f7acf72b9885cb48b5d0c6eb692b862834058404f1b58e6007f5a",
+    ".forge/ast-grep/rule-tests/typescript-prisma-no-middleware-test.yml": "a0975e619303c2b7ebf6a13a1c424464c86b5f1c37fdf16667de00e241a56998",
+    ".forge/ast-grep/rule-tests/typescript-prisma-no-network-in-transaction-test.yml": "52d332f1fd4e10ae42f7a8fc56a7763dca2457c4e5e2a9f02bde5c49f260becd",
+    ".forge/ast-grep/rule-tests/typescript-prisma-no-raw-unsafe-test.yml": "011dd0c40d77e238e91f0d592ef3e39b4e17f822215fb2ab749c096f8661ccee",
+    ".forge/ast-grep/rule-tests/typescript-react-no-prop-types-test.yml": "973df0a4b101d1b9d02787a5da612d991b2d66a6dda3727805aefed130706efe",
+    ".forge/ast-grep/rule-tests/typescript-react-use-action-state-test.yml": "125b8c736e82d5ef59eaf57dd32da3df326b16bc81cd9534f9a7023aa5d54b35",
+    ".forge/ast-grep/rule-tests/typescript-ts-expect-error-reason-test.yml": "7ae5fe613eff1c75cb68f1333b898ad82d6d4889c3cc4da6bb8e5962e825a1b1",
+    ".forge/ast-grep/rule-tests/typescript-vitest-no-fewer-expects-test.yml": "b8a0548c0fe777d62794a8a101d54fcb110517e3f5657d0d338d6a0f5b75487a",
+    ".forge/ast-grep/rule-tests/typescript-vitest-no-mock-increase-test.yml": "4ca45816ef065d6769a9ab54b0b20612ca8539507a42e88f47951d091ede45d7",
+    ".forge/ast-grep/rule-tests/typescript-vitest-no-new-skip-test.yml": "98efafe5c4731640c4e4fa728d1711359c677a62a582b8da3efe611d00beea4d",
+    ".forge/ast-grep/rule-tests/typescript-vitest-no-tautological-expect-test.yml": "3d4d3dbd6f33aca3e8927619a223dd0a4b56012f4f896fad27ac301743bf849e",
+    ".forge/ast-grep/rule-tests/typescript-vitest-no-test-env-branch-test.yml": "72dcb1355a54b0a7a880206f4567d94c18f8eaaf6d2dc7d1ab0a9414981250c8",
+    ".forge/ast-grep/rule-tests/typescript-zod-error-param-test.yml": "5ca3e9da32d72d98bb2be00a1341f6b6d5cc431f86e0313d2e51f33384d50fe7",
+    ".forge/ast-grep/rule-tests/typescript-zod-v4-string-formats-test.yml": "0f6c16bcf006eac0bc6bd6584b6a412c3f7277731138738373276f90233a9279",
+    ".forge/ast-grep/rules/typescript/bun/no-fewer-expects.yml": "2ca24b5c409a8a142b0f81d7f9501cf3d41c426b2b6e7c037559da5179bb498f",
+    ".forge/ast-grep/rules/typescript/bun/no-mock-increase.yml": "bf70d7263b8cc030ea6c1edd627f76c118417cf5a31dd2fd35cce6737e9ee0d4",
+    ".forge/ast-grep/rules/typescript/bun/no-new-skip.yml": "33db9ec4783c392bf85ff2bc68f3ed8fcf877fe87da5ad541e31ea55253dc75a",
+    ".forge/ast-grep/rules/typescript/nextjs/no-legacy-image-config.yml": "99d6745b72bc71e63a385b0c72edc6a1d5d2f0c2484b32a8edf403a052181538",
+    ".forge/ast-grep/rules/typescript/nextjs/no-next-router.yml": "2447380f96c63cf72fcf39285fff2abe7f1edd49646a74ed5ad91fbb77a908e0",
+    ".forge/ast-grep/rules/typescript/nextjs/no-pages-data.yml": "c189e6db00b706044708a2c5fc1e5fe8698213059fabf7d6d4f549eb57a759fb",
+    ".forge/ast-grep/rules/typescript/nextjs/no-public-secret-env.yml": "566919ce67b7c2e3ea9fcf448bf9e9aba51581c7d7717a0a97a720b0bed9a249",
+    ".forge/ast-grep/rules/typescript/nextjs/proxy-not-middleware.yml": "29ce02d4f8748400d9a70259d51631bf7ef50cbdd4bccadd24d96695a289c7f8",
+    ".forge/ast-grep/rules/typescript/nextjs/react/client-hooks.yml": "45f618471917a7ea16b4f12797c8b23b764c14b48ac34e2296840c8af78bc0dd",
+    ".forge/ast-grep/rules/typescript/nextjs/react/no-server-in-client.yml": "bb96a57b3d86ff82cceefb7a13e7e17a3996071931386bd40fce989878f9e2de",
+    ".forge/ast-grep/rules/typescript/nextjs/revalidate-tag-profile.yml": "cacc0230a82fede425f3e83c4535f49229b9e831f40766fb416f7a2974fc14bd",
+    ".forge/ast-grep/rules/typescript/no-double-assertion.yml": "c0b8c6e7a7a09608b63f8c9367afb4ac22fb1daa93c79c967373efdab597a48c",
+    ".forge/ast-grep/rules/typescript/no-stub.yml": "b21497e3335f2271e6ca5874817957d18c640e7d787cfe76a72ef390ab62d634",
+    ".forge/ast-grep/rules/typescript/no-swallowed-catch.yml": "4bd8569b39e21928852fafeaee02ce9d2ff35726699f91b3f50a6ebf57843bd6",
+    ".forge/ast-grep/rules/typescript/no-ts-nocheck.yml": "aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21",
+    ".forge/ast-grep/rules/typescript/playwright/locators.yml": "c7c96b1437d5c6ac7bf04ec59e777e83def0d9451ef3b6cf238c881ff1909e29",
+    ".forge/ast-grep/rules/typescript/playwright/no-new-skip.yml": "2bc5836e747a7dc4b45593074ff04b30a7e89fd2e8c53dc274e37035885c7d5c",
+    ".forge/ast-grep/rules/typescript/playwright/no-wait-for-timeout.yml": "e4ed8b571875af6fbce7f92616b4772d90c847e5009403d57f76d46a7b55396d",
+    ".forge/ast-grep/rules/typescript/prisma/generated-client-import.yml": "7b8a093b0f51e5d6b8f8a132b1ef43888104b1f5985465fc4f0f5984762a79c2",
+    ".forge/ast-grep/rules/typescript/prisma/no-middleware.yml": "98cf3096f74f6db07744f597904e3df903a8a886a095cfffa52b133bf3acc1c7",
+    ".forge/ast-grep/rules/typescript/prisma/no-network-in-transaction.yml": "4867b2d6d4fcc67ecf3f85d3a7433a27be0204c9a33d17c690d1dd52708d3c35",
+    ".forge/ast-grep/rules/typescript/prisma/no-raw-unsafe.yml": "304ac41eb0a4b7025ca081e4a03cb746cdd15b5512a0bac217ad9a89017b3e00",
+    ".forge/ast-grep/rules/typescript/react/no-prop-types.yml": "9626068d2f677a351b7722fbddc5a74e87c539b4c3e46a55d75cfaf717542c62",
+    ".forge/ast-grep/rules/typescript/react/use-action-state.yml": "17b6fc5e510df3154be12c72a584d8bfb31034b577774718a8c50516b2b15a81",
+    ".forge/ast-grep/rules/typescript/ts-expect-error-reason.yml": "b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad",
+    ".forge/ast-grep/rules/typescript/vitest/no-fewer-expects.yml": "eb97cf87f7d0754f025a3afb9e1a97ac145789684524424f720d96ce1e8b98b2",
+    ".forge/ast-grep/rules/typescript/vitest/no-mock-increase.yml": "4c44cb2d640e8938692105eaeb084ff7ae7732f3487e7b59ff74bdb3b6bf35b8",
+    ".forge/ast-grep/rules/typescript/vitest/no-new-skip.yml": "ea54564f283a2f3c832fecfd6f4d55c6243ce9922ddf524c48ee5a43738c1472",
+    ".forge/ast-grep/rules/typescript/vitest/no-tautological-expect.yml": "35497c3d5cc2bfdc45837edfa133f8320134101d9a869cebdcebcc9b8e685521",
+    ".forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml": "d3c41a3915d84b21e86e9212a06ad14c52bf2f9bcefb7c5ca433200cc3ec44fb",
+    ".forge/ast-grep/rules/typescript/zod/error-param.yml": "88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a",
+    ".forge/ast-grep/rules/typescript/zod/v4-string-formats.yml": "1f4b2e54f9767673c6469da4a1d7f0d9dc1d8f39b657460bab8096b8c35a0a45",
+    ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
+    ".forge/check.sh": "2ad1f030e8ca70392b45075456775560b64d6db6d14d4cd54fb88cc5ba0208dd",
+    ".forge/helpers/ratchet.mjs": "14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38",
+    ".forge/helpers/types_typescript.mjs": "7a77c4f510148fc32d1c6154073354264e835799e649ecf1ac0b9673e156aa10",
+    ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
+  },
+  "settings": [
+    {
+      "file": ".claude/settings.json",
+      "path": "permissions.ask",
+      "value": "Edit(.forge/**)"
+    },
+    {
+      "file": ".claude/settings.json",
+      "path": "permissions.ask",
+      "value": "Edit(forge.yaml)"
+    },
+    {
+      "file": ".claude/settings.json",
+      "path": "permissions.ask",
+      "value": "Edit(.claude/skills/forge-project/**)"
+    },
+    {
+      "file": ".claude/settings.json",
+      "path": "permissions.ask",
+      "value": "Edit(.claude/rules/forge-*.md)"
+    },
+    {
+      "file": ".claude/settings.json",
+      "path": "permissions.ask",
+      "value": "Edit(**/biome.json)"
+    },
+    {
+      "file": ".claude/settings.json",
+      "path": "permissions.ask",
+      "value": "Edit(**/biome.jsonc)"
+    },
+    {
+      "file": ".claude/settings.json",
+      "path": "permissions.ask",
+      "value": "Edit(**/tsconfig*.json)"
+    },
+    {
+      "file": ".claude/settings.json",
+      "path": "permissions.ask",
+      "value": "Edit(**/playwright.config.*)"
+    },
+    {
+      "file": ".claude/settings.json",
+      "path": "permissions.ask",
+      "value": "Edit(**/vitest.config.*)"
+    }
+  ]
+}
+
+===== .forge/helpers/ratchet.mjs
+// Generated by forge. Config ratchet for JavaScript tool configs (run by
+// .forge/check.sh with bun): compares each changed file with its copy in the base
+// and prints one line per loosened setting. Usage:
+//   bun ratchet.mjs <base-dir> <path>...
+// Exit 0: nothing loosened; 1: findings printed; 3: cannot run ("skipped: …" printed).
+import { readFileSync } from "node:fs";
+
+const findings = [];
+const out = (path, what) => findings.push(`${path}: ${what}`);
+const show = (v) => (v === undefined || v === null ? "unset" : Array.isArray(v) ? `[${v.map(show).join(", ")}]` : typeof v === "object" ? "{…}" : String(v).replace(/["\\]/g, ""));
+const list = (v) => (v === undefined || v === null ? [] : Array.isArray(v) ? v : [v]);
+const obj = (v) => (v && typeof v === "object" && !Array.isArray(v) ? v : {});
+
+/** JSON with comments and trailing commas -> value. */
+function parseJsonc(text) {
+  let s = "";
+  for (let i = 0, str = false; i < text.length; i++) {
+    const c = text[i];
+    if (str) {
+      s += c;
+      if (c === "\\") s += text[++i] ?? "";
+      else if (c === '"') str = false;
+    } else if (c === '"') {
+      str = true;
+      s += c;
+    } else if (text.startsWith("//", i)) {
+      while (i < text.length && text[i] !== "\n") i++;
+      s += "\n";
+    } else if (text.startsWith("/*", i)) {
+      const end = text.indexOf("*/", i + 2);
+      i = end < 0 ? text.length : end + 1;
+    } else s += c;
+  }
+  return JSON.parse(s.replace(/,(\s*[}\]])/g, "$1"));
+}
+
+// ---- Biome
+
+const LEVEL = { off: 0, info: 1, warn: 2, error: 3, on: 2 };
+const level = (v) => (typeof v === "string" ? v : obj(v).level);
+
+function biome(path, b, a) {
+  const lb = obj(b.linter), la = obj(a.linter);
+  if (lb.enabled !== false && la.enabled === false) out(path, "linter.enabled true -> false");
+  if (obj(b.formatter).enabled !== false && obj(a.formatter).enabled === false) out(path, "formatter.enabled true -> false");
+  const rb = obj(lb.rules), ra = obj(la.rules);
+  if (rb.recommended !== false && ra.recommended === false) out(path, `linter.rules.recommended ${show(rb.recommended ?? true)} -> false`);
+  for (const [group, gb] of Object.entries(rb)) {
+    if (group === "recommended") continue;
+    const ga = ra[group];
+    if (typeof gb === "string") {
+      const now = typeof ga === "string" ? ga : undefined;
+      if ((LEVEL[gb] ?? 0) > (LEVEL[now] ?? -1) && now !== undefined) out(path, `linter.rules.${group} ${gb} -> ${now}`);
+      else if (now === undefined && (LEVEL[gb] ?? 0) > 0 && typeof ga !== "object") out(path, `linter.rules.${group} ${gb} -> unset`);
+      continue;
+    }
+    for (const [name, vb] of Object.entries(obj(gb))) {
+      const before = level(vb);
+      const after = typeof ga === "string" ? ga : level(obj(ga)[name]);
+      if (before === undefined || !(before in LEVEL)) continue;
+      if (after === undefined) {
+        if (LEVEL[before] > 0) out(path, `linter.rules.${group}.${name} ${before} -> unset`);
+      } else if ((LEVEL[after] ?? 0) < LEVEL[before]) out(path, `linter.rules.${group}.${name} ${before} -> ${after}`);
+    }
+  }
+  const negated = (cfg) => list(cfg.includes).filter((g) => typeof g === "string" && g.startsWith("!"));
+  for (const [where, cb, ca] of [["files", obj(b.files), obj(a.files)], ["linter", lb, la]]) {
+    for (const g of negated(ca)) if (!negated(cb).includes(g)) out(path, `${where}.includes adds ${g}`);
+    for (const g of list(ca.ignore)) if (!list(cb.ignore).includes(g)) out(path, `${where}.ignore adds ${g}`);
+  }
+  if (JSON.stringify(b.overrides ?? []) !== JSON.stringify(a.overrides ?? [])) {
+    const before = new Set(list(b.overrides).map((o) => JSON.stringify(o)));
+    for (const o of list(a.overrides)) if (!before.has(JSON.stringify(o))) out(path, `overrides adds or changes an entry for ${show(list(obj(o).includes ?? obj(o).include).join(" "))}`);
+  }
+}
+
+// ---- tsconfig
+
+const STRICT = [
+  "strict", "noImplicitAny", "strictNullChecks", "strictFunctionTypes", "strictBindCallApply", "strictPropertyInitialization",
+  "strictBuiltinIteratorReturn", "noImplicitThis", "useUnknownInCatchVariables", "alwaysStrict", "noUncheckedIndexedAccess",
+  "exactOptionalPropertyTypes", "noImplicitReturns", "noFallthroughCasesInSwitch", "noImplicitOverride",
+  "noPropertyAccessFromIndexSignature", "noUnusedLocals", "noUnusedParameters", "checkJs",
+];
+
+function tsconfig(path, b, a) {
+  const cb = obj(b.compilerOptions), ca = obj(a.compilerOptions);
+  for (const k of STRICT) if (cb[k] === true && ca[k] !== true) out(path, `compilerOptions.${k} true -> ${show(ca[k])}`);
+  if (cb.skipLibCheck !== true && ca.skipLibCheck === true) out(path, `compilerOptions.skipLibCheck ${show(cb.skipLibCheck)} -> true`);
+  if (!("ignoreDeprecations" in cb) && "ignoreDeprecations" in ca) out(path, `compilerOptions.ignoreDeprecations unset -> ${show(ca.ignoreDeprecations)}`);
+  for (const x of list(a.exclude)) if (!list(b.exclude).includes(x)) out(path, `exclude adds ${show(x)}`);
+  for (const x of list(b.include)) if (!list(a.include).includes(x)) out(path, `include no longer has ${show(x)}`);
+  if (JSON.stringify(b.extends) !== JSON.stringify(a.extends)) out(path, `extends ${show(b.extends)} -> ${show(a.extends)}`);
+}
+
+// ---- package.json scripts
+
+const CHECK_SCRIPT = /test|check|lint|type|e2e|ci|verify/i;
+const LOOSE = [/--passWithNoTests\b/, /--pass-with-no-tests\b/, /\|\|\s*(true|exit 0|:)\b/, /--no-errors-on-unmatched\b/, /--testPathIgnorePatterns\b/, /--exclude\b/, /--ignore\b/, /--grep-invert\b/, /--skip\b/, /--diagnostic-level[= ](info|warn)\b/, /--max-warnings[= ]\d+/, /--bail[= ]0\b/, /--silent\b/];
+
+function scripts(path, b, a) {
+  const sb = obj(b.scripts), sa = obj(a.scripts);
+  for (const [name, cmd] of Object.entries(sb)) {
+    if (!CHECK_SCRIPT.test(name)) continue;
+    if (!(name in sa)) { out(path, `scripts.${name} removed`); continue; }
+    for (const re of LOOSE) {
+      const m = re.exec(String(sa[name]));
+      if (m && !re.test(String(cmd))) out(path, `scripts.${name} adds ${show(m[0].trim())}`);
+    }
+  }
+}
+
+const [base, ...paths] = process.argv.slice(2);
+try {
+for (const path of paths) {
+  const name = path.split("/").pop();
+  const kind = name === "biome.json" || name === "biome.jsonc" ? biome : /^tsconfig.*\.json$/.test(name) ? tsconfig : name === "package.json" ? scripts : undefined;
+  if (!kind) continue;
+  let before;
+  try {
+    before = parseJsonc(readFileSync(`${base}/${path}`, "utf8"));
+  } catch {
+    continue;
+  }
+  let after;
+  try {
+    after = parseJsonc(readFileSync(path, "utf8"));
+  } catch (e) {
+    out(path, `cannot be parsed (${String(e.message).split("\n")[0]})`);
+    continue;
+  }
+  kind(path, obj(before), obj(after));
+}
+} catch (e) {
+  // never report a crash as a loosened setting
+  console.log(`skipped: the ratchet could not run (${String(e && e.message).split("\n")[0]})`);
+  process.exit(3);
+}
+for (const f of findings) console.log(f);
+process.exit(findings.length ? 1 : 0);
+
+===== .forge/helpers/types_typescript.mjs
 // Generated by forge. The types engine for TypeScript (SPECS §15): a daemon that keeps
 // TypeScript 7's language server (tsc --lsp) running for one repository and answers
 // the hooks' type questions through a FIFO. Started by forge_types_up as
@@ -21445,9 +21079,9 @@ cat <<'FORGE_SCRIPT_END'
 // the absolute path of a question directory (req: ast-grep matches; reply: the matches
 // whose forge_where holds, "error<TAB>..." lines, "end"). Node-compatible: no Bun-only API.
 import { spawn } from "node:child_process";
-import process from "node:process";
 import fs from "node:fs";
 import path from "node:path";
+import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = fs.realpathSync(process.argv[2]);
@@ -21857,14 +21491,38 @@ async function main() {
   log("started", ready, "for", ROOT);
   started(`ready ${ready}`);
   const types = new Types(server);
-  const stop = (why) => {
+  // "stop<TAB><dir>": answered in <dir>/reply once the server has exited
+  const stop = (why, dir) => {
     log("exiting:", why);
     cleanup();
     server.proc.removeAllListeners("exit");
+    const done = () => {
+      if (dir) reply(dir, []);
+      process.exit(0);
+    };
+    if (server.proc.exitCode !== null || server.proc.signalCode !== null) done();
+    server.proc.once("exit", done);
+    setTimeout(() => server.proc.kill("SIGKILL"), 5000).unref();
     server.proc.kill();
-    process.exit(0);
   };
   let idle = setTimeout(() => stop("idle"), IDLE);
+  // the state directory was dropped (its FIFO gone or replaced) or the repository is gone:
+  // nobody can reach this daemon any more
+  const inode = fs.fstatSync(fd).ino;
+  setInterval(() => {
+    let gone;
+    try {
+      gone = fs.statSync(path.join(STATE, "in")).ino !== inode || !fs.existsSync(ROOT);
+    } catch {
+      gone = true;
+    }
+    if (gone) {
+      log("orphaned, exiting");
+      server.proc.removeAllListeners("exit");
+      server.proc.kill();
+      process.exit(0);
+    }
+  }, 10_000).unref();
   let buf = "";
   let queue = Promise.resolve();
   const stream = fs.createReadStream(null, { fd, autoClose: false, encoding: "utf8" });
@@ -21879,6 +21537,7 @@ async function main() {
       queue = queue.then(() => {
         if (line.startsWith("changed\t")) server.changed(path.join(ROOT, line.slice(8)));
         else if (line === "stop" || line === "restart") stop(`asked to ${line}`);
+        else if (line.startsWith("stop\t")) stop("asked to stop", line.slice(5));
         else if (line.startsWith("/")) return question(types, line);
       });
     }
@@ -21917,555 +21576,6 @@ main().catch((e) => {
   cleanup();
   process.exit(2);
 });
-FORGE_SCRIPT_END
-}
-
-FORGE_STATE=$(forge_state_of "$(pwd -P)")
-
-# Scripts that checks run with the project's own runtime (Python, bun).
-forge_script_ratchet_mjs() {
-cat <<'FORGE_SCRIPT_END'
-// Generated by forge. Config ratchet for JavaScript tool configs (run by
-// .forge/check.sh with bun): compares each changed file with its copy in the base
-// and prints one line per loosened setting. Usage:
-//   bun ratchet.mjs <base-dir> <path>...
-// Exit 0: nothing loosened; 1: findings printed; 3: cannot run ("skipped: …" printed).
-import { readFileSync } from "node:fs";
-
-const findings = [];
-const out = (path, what) => findings.push(`${path}: ${what}`);
-const show = (v) => (v === undefined || v === null ? "unset" : Array.isArray(v) ? `[${v.map(show).join(", ")}]` : typeof v === "object" ? "{…}" : String(v).replace(/["\\]/g, ""));
-const list = (v) => (v === undefined || v === null ? [] : Array.isArray(v) ? v : [v]);
-const obj = (v) => (v && typeof v === "object" && !Array.isArray(v) ? v : {});
-
-/** JSON with comments and trailing commas -> value. */
-function parseJsonc(text) {
-  let s = "";
-  for (let i = 0, str = false; i < text.length; i++) {
-    const c = text[i];
-    if (str) {
-      s += c;
-      if (c === "\\") s += text[++i] ?? "";
-      else if (c === '"') str = false;
-    } else if (c === '"') {
-      str = true;
-      s += c;
-    } else if (text.startsWith("//", i)) {
-      while (i < text.length && text[i] !== "\n") i++;
-      s += "\n";
-    } else if (text.startsWith("/*", i)) {
-      const end = text.indexOf("*/", i + 2);
-      i = end < 0 ? text.length : end + 1;
-    } else s += c;
-  }
-  return JSON.parse(s.replace(/,(\s*[}\]])/g, "$1"));
-}
-
-// ---- Biome
-
-const LEVEL = { off: 0, info: 1, warn: 2, error: 3, on: 2 };
-const level = (v) => (typeof v === "string" ? v : obj(v).level);
-
-function biome(path, b, a) {
-  const lb = obj(b.linter), la = obj(a.linter);
-  if (lb.enabled !== false && la.enabled === false) out(path, "linter.enabled true -> false");
-  if (obj(b.formatter).enabled !== false && obj(a.formatter).enabled === false) out(path, "formatter.enabled true -> false");
-  const rb = obj(lb.rules), ra = obj(la.rules);
-  if (rb.recommended !== false && ra.recommended === false) out(path, `linter.rules.recommended ${show(rb.recommended ?? true)} -> false`);
-  for (const [group, gb] of Object.entries(rb)) {
-    if (group === "recommended") continue;
-    const ga = ra[group];
-    if (typeof gb === "string") {
-      const now = typeof ga === "string" ? ga : undefined;
-      if ((LEVEL[gb] ?? 0) > (LEVEL[now] ?? -1) && now !== undefined) out(path, `linter.rules.${group} ${gb} -> ${now}`);
-      else if (now === undefined && (LEVEL[gb] ?? 0) > 0 && typeof ga !== "object") out(path, `linter.rules.${group} ${gb} -> unset`);
-      continue;
-    }
-    for (const [name, vb] of Object.entries(obj(gb))) {
-      const before = level(vb);
-      const after = typeof ga === "string" ? ga : level(obj(ga)[name]);
-      if (before === undefined || !(before in LEVEL)) continue;
-      if (after === undefined) {
-        if (LEVEL[before] > 0) out(path, `linter.rules.${group}.${name} ${before} -> unset`);
-      } else if ((LEVEL[after] ?? 0) < LEVEL[before]) out(path, `linter.rules.${group}.${name} ${before} -> ${after}`);
-    }
-  }
-  const negated = (cfg) => list(cfg.includes).filter((g) => typeof g === "string" && g.startsWith("!"));
-  for (const [where, cb, ca] of [["files", obj(b.files), obj(a.files)], ["linter", lb, la]]) {
-    for (const g of negated(ca)) if (!negated(cb).includes(g)) out(path, `${where}.includes adds ${g}`);
-    for (const g of list(ca.ignore)) if (!list(cb.ignore).includes(g)) out(path, `${where}.ignore adds ${g}`);
-  }
-  if (JSON.stringify(b.overrides ?? []) !== JSON.stringify(a.overrides ?? [])) {
-    const before = new Set(list(b.overrides).map((o) => JSON.stringify(o)));
-    for (const o of list(a.overrides)) if (!before.has(JSON.stringify(o))) out(path, `overrides adds or changes an entry for ${show(list(obj(o).includes ?? obj(o).include).join(" "))}`);
-  }
-}
-
-// ---- tsconfig
-
-const STRICT = [
-  "strict", "noImplicitAny", "strictNullChecks", "strictFunctionTypes", "strictBindCallApply", "strictPropertyInitialization",
-  "strictBuiltinIteratorReturn", "noImplicitThis", "useUnknownInCatchVariables", "alwaysStrict", "noUncheckedIndexedAccess",
-  "exactOptionalPropertyTypes", "noImplicitReturns", "noFallthroughCasesInSwitch", "noImplicitOverride",
-  "noPropertyAccessFromIndexSignature", "noUnusedLocals", "noUnusedParameters", "checkJs",
-];
-
-function tsconfig(path, b, a) {
-  const cb = obj(b.compilerOptions), ca = obj(a.compilerOptions);
-  for (const k of STRICT) if (cb[k] === true && ca[k] !== true) out(path, `compilerOptions.${k} true -> ${show(ca[k])}`);
-  if (cb.skipLibCheck !== true && ca.skipLibCheck === true) out(path, `compilerOptions.skipLibCheck ${show(cb.skipLibCheck)} -> true`);
-  if (!("ignoreDeprecations" in cb) && "ignoreDeprecations" in ca) out(path, `compilerOptions.ignoreDeprecations unset -> ${show(ca.ignoreDeprecations)}`);
-  for (const x of list(a.exclude)) if (!list(b.exclude).includes(x)) out(path, `exclude adds ${show(x)}`);
-  for (const x of list(b.include)) if (!list(a.include).includes(x)) out(path, `include no longer has ${show(x)}`);
-  if (JSON.stringify(b.extends) !== JSON.stringify(a.extends)) out(path, `extends ${show(b.extends)} -> ${show(a.extends)}`);
-}
-
-// ---- package.json scripts
-
-const CHECK_SCRIPT = /test|check|lint|type|e2e|ci|verify/i;
-const LOOSE = [/--passWithNoTests\b/, /--pass-with-no-tests\b/, /\|\|\s*(true|exit 0|:)\b/, /--no-errors-on-unmatched\b/, /--testPathIgnorePatterns\b/, /--exclude\b/, /--ignore\b/, /--grep-invert\b/, /--skip\b/, /--diagnostic-level[= ](info|warn)\b/, /--max-warnings[= ]\d+/, /--bail[= ]0\b/, /--silent\b/];
-
-function scripts(path, b, a) {
-  const sb = obj(b.scripts), sa = obj(a.scripts);
-  for (const [name, cmd] of Object.entries(sb)) {
-    if (!CHECK_SCRIPT.test(name)) continue;
-    if (!(name in sa)) { out(path, `scripts.${name} removed`); continue; }
-    for (const re of LOOSE) {
-      const m = re.exec(String(sa[name]));
-      if (m && !re.test(String(cmd))) out(path, `scripts.${name} adds ${show(m[0].trim())}`);
-    }
-  }
-}
-
-const [base, ...paths] = process.argv.slice(2);
-try {
-for (const path of paths) {
-  const name = path.split("/").pop();
-  const kind = name === "biome.json" || name === "biome.jsonc" ? biome : /^tsconfig.*\.json$/.test(name) ? tsconfig : name === "package.json" ? scripts : undefined;
-  if (!kind) continue;
-  let before;
-  try {
-    before = parseJsonc(readFileSync(`${base}/${path}`, "utf8"));
-  } catch {
-    continue;
-  }
-  let after;
-  try {
-    after = parseJsonc(readFileSync(path, "utf8"));
-  } catch (e) {
-    out(path, `cannot be parsed (${String(e.message).split("\n")[0]})`);
-    continue;
-  }
-  kind(path, obj(before), obj(after));
-}
-} catch (e) {
-  // never report a crash as a loosened setting
-  console.log(`skipped: the ratchet could not run (${String(e && e.message).split("\n")[0]})`);
-  process.exit(3);
-}
-for (const f of findings) console.log(f);
-process.exit(findings.length ? 1 : 0);
-FORGE_SCRIPT_END
-}
-
-FORGE_FORBID='typescript/nextjs/no-legacy-image-config|typescript/nextjs/no-next-router|typescript/nextjs/no-pages-data|typescript/nextjs/no-public-secret-env|typescript/nextjs/proxy-not-middleware|typescript/nextjs/react/client-hooks|typescript/nextjs/react/no-server-in-client|typescript/nextjs/revalidate-tag-profile|typescript/no-double-assertion|typescript/no-stub|typescript/no-swallowed-catch|typescript/no-ts-nocheck|typescript/playwright/locators|typescript/playwright/no-wait-for-timeout|typescript/prisma/generated-client-import|typescript/prisma/no-middleware|typescript/prisma/no-network-in-transaction|typescript/prisma/no-raw-unsafe|typescript/react/no-prop-types|typescript/react/use-action-state|typescript/ts-expect-error-reason|typescript/vitest/no-tautological-expect|typescript/vitest/no-test-env-branch|typescript/zod/error-param|typescript/zod/v4-string-formats'
-FORGE_NO_INCREASE='typescript/bun/no-mock-increase|typescript/bun/no-new-skip|typescript/playwright/no-new-skip|typescript/vitest/no-mock-increase|typescript/vitest/no-new-skip'
-FORGE_NO_DECREASE='typescript/bun/no-fewer-expects|typescript/vitest/no-fewer-expects'
-
-
-# The change: changed, existing, deleted, base/, inbase and added in $FORGE_TMP.
-forge_change_set || exit 1
-if [ "$mode" = --all ]; then
-  git ls-files -z --cached --others --exclude-standard 2>/dev/null | tr '\000' '\n' | sort -u > "$FORGE_TMP/scope"
-  : > "$FORGE_TMP/scope.tmp"
-  while read -r f; do [ -f "$f" ] && printf '%s\n' "$f" >> "$FORGE_TMP/scope.tmp"; done < "$FORGE_TMP/scope"
-  mv "$FORGE_TMP/scope.tmp" "$FORGE_TMP/scope"
-else
-  cp "$FORGE_TMP/existing" "$FORGE_TMP/scope"
-fi
-
-fail=0
-report() { printf 'forge:%s %s\n' "$1" "$2"; fail=1; }
-
-# 1. Integrity: owned files match .forge/manifest.sha256 ("<sha256>  <path>" lines,
-# sha256sum format). JSON files are hashed with spaces, tabs and newlines removed,
-# so a formatter run is not tampering; any other change is.
-forge_owned_hash() {
-  case $1 in
-    *.json) tr -d ' \t\r\n' < "$1" | forge_sha256 ;;
-    *) forge_sha256 < "$1" ;;
-  esac
-}
-forge_integrity() {
-  manifest=.forge/manifest.sha256
-  [ -f "$manifest" ] || { report forge/integrity "$manifest is missing (run forge apply)"; return; }
-  awk '/^[0-9a-f]+  ./ { h = $1; p = substr($0, length(h) + 3); print p "\t" h }' "$manifest" > "$FORGE_TMP/owned"
-  while IFS='	' read -r path hash; do
-    [ -n "$path" ] || continue
-    case $path in .forge/*|.claude/*) ;; *) continue ;; esac
-    if [ ! -f "$path" ]; then report forge/integrity "$path is missing (run forge apply)"
-    elif [ "$(forge_owned_hash "$path")" != "$hash" ]; then report forge/integrity "$path was modified (run forge diff)"
-    fi
-  done < "$FORGE_TMP/owned"
-  cut -f 1 "$FORGE_TMP/owned" > "$FORGE_TMP/owned-paths"
-  { find .forge .claude/skills/forge-project -type f 2>/dev/null; find .claude/rules -name 'forge-*.md' -type f 2>/dev/null; } \
-    | sed 's|^\./||' | while read -r path; do
-      case $path in .forge/state/*|.forge/rules/*|.forge/forge.lock.json|.forge/manifest.sha256) continue ;; esac
-      grep -qxF "$path" "$FORGE_TMP/owned-paths" || printf 'forge:forge/integrity %s is not a forge file (remove it or run forge apply)\n' "$path"
-    done > "$FORGE_TMP/extra"
-  if [ -s "$FORGE_TMP/extra" ]; then cat "$FORGE_TMP/extra"; fail=1; fi
-}
-
-# 2. Applied migrations (in the base) are never modified or deleted.
-forge_applied_migrations() {
-  while read -r f; do
-    case $f in
-      prisma/migrations/migration_lock.toml) ;;
-      alembic/versions/*|prisma/migrations/*)
-        report forge/applied-migration "$f exists at $(forge_base_name) and was modified or deleted; write a new migration instead" ;;
-    esac
-  done < "$FORGE_TMP/inbase"
-}
-
-# forge_base_name: what the change is compared with, for messages.
-forge_base_name() {
-  case $mode in
-    --turn) printf 'the start of the turn' ;;
-    --since) printf 'the merge base with %s' "$FORGE_ARG" ;;
-    *) printf 'HEAD' ;;
-  esac
-}
-
-# 3. Tests and counts: no deleted test files; ast-grep and grep counts compared with the base.
-forge_tests_integrity() {
-  while read -r f; do
-    case $f in
-      test_*.py|*/test_*.py|*_test.py|*/conftest.py|conftest.py|tests/*|*.test.*|*.spec.*|*/__tests__/*|e2e/*)
-        report forge/deleted-test "$f was deleted" ;;
-    esac
-  done < "$FORGE_TMP/deleted"
-  inc=$FORGE_NO_INCREASE
-  [ -n "$FORGE_GREP_NO_INCREASE" ] && inc="${inc:+$inc|}$FORGE_GREP_NO_INCREASE"
-  dec=$FORGE_NO_DECREASE
-  [ -n "$FORGE_GREP_NO_DECREASE" ] && dec="${dec:+$dec|}$FORGE_GREP_NO_DECREASE"
-  [ -n "$inc$dec" ] && [ -s "$FORGE_TMP/existing" ] || return
-  grep -vxF -f "$FORGE_TMP/deleted" "$FORGE_TMP/inbase" > "$FORGE_TMP/athead"
-  : > "$FORGE_TMP/now"; : > "$FORGE_TMP/then"
-  ids=$FORGE_NO_INCREASE
-  [ -n "$FORGE_NO_DECREASE" ] && ids="${ids:+$ids|}$FORGE_NO_DECREASE"
-  if [ -n "$ids" ]; then
-    if forge_counts "$FORGE_ROOT" "$ids" "$FORGE_TMP/existing" > "$FORGE_TMP/now" \
-      && { [ ! -s "$FORGE_TMP/athead" ] || forge_counts "$FORGE_TMP/base" "$ids" "$FORGE_TMP/athead" > "$FORGE_TMP/then"; }; then :
-    else
-      printf 'forge:forge/ast-grep skipped: ast-grep unavailable\n'
-      : > "$FORGE_TMP/now"; : > "$FORGE_TMP/then"
-    fi
-  fi
-  forge_grep_counts "$FORGE_ROOT" "$FORGE_TMP/existing" >> "$FORGE_TMP/now"
-  forge_grep_counts "$FORGE_TMP/base" "$FORGE_TMP/athead" >> "$FORGE_TMP/then"
-  awk -F '\t' -v inc="$inc" -v dec="$dec" '
-    BEGIN { n = split(inc, a, "|"); for (i = 1; i <= n; i++) if (a[i] != "") mi[a[i]] = 1
-            n = split(dec, b, "|"); for (i = 1; i <= n; i++) if (b[i] != "") md[b[i]] = 1 }
-    FILENAME == ARGV[1] { then[$1 "\t" $2] = $3; keys[$1 "\t" $2] = 1; next }
-    { now[$1 "\t" $2] = $3; keys[$1 "\t" $2] = 1 }
-    END {
-      for (k in keys) {
-        split(k, p, "\t"); t = then[k] + 0; w = now[k] + 0
-        if ((p[1] in mi) && w > t) printf "forge:%s %s: %d -> %d\n", p[1], p[2], t, w
-        if ((p[1] in md) && w < t) printf "forge:%s %s: %d -> %d\n", p[1], p[2], t, w
-      }
-    }' "$FORGE_TMP/then" "$FORGE_TMP/now" | sort > "$FORGE_TMP/countfail"
-  if [ -s "$FORGE_TMP/countfail" ]; then cat "$FORGE_TMP/countfail"; fail=1; fi
-}
-
-# forge_counts <dir> <id-regex> <file-list>: "rule<TAB>file<TAB>count" lines.
-forge_counts() {
-  set -f
-  # shellcheck disable=SC2046
-  ( cd "$1" && astgrep scan -c "$FORGE_ROOT/.forge/ast-grep/sgconfig.yml" --filter "^($2)\$" --json=stream $(cat "$3") ) > "$FORGE_TMP/json"
-  rc=$?
-  set +f
-  [ "$rc" -le 1 ] || return 1
-  grep -oE '"(file|ruleId)":"[^"]*"' "$FORGE_TMP/json" \
-    | awk -F '"' '$2 == "file" { f = $4 } $2 == "ruleId" { c[$4 "\t" f]++ } END { for (k in c) print k "\t" c[k] }'
-}
-
-# 4. Forbid rules (ast-grep and grep): outside --all, only matches on added lines.
-forge_forbid() {
-  [ -s "$FORGE_TMP/scope" ] || return
-  forge_grep_forbid "$FORGE_TMP/scope" > "$FORGE_TMP/forbid.out"
-  if [ -n "$FORGE_FORBID" ]; then
-    set -f
-    # shellcheck disable=SC2046
-    astgrep scan -c .forge/ast-grep/sgconfig.yml --filter "^($FORGE_FORBID)\$" --json=stream --include-metadata $(cat "$FORGE_TMP/scope") > "$FORGE_TMP/forbid"
-    rc=$?
-    set +f
-    if [ "$rc" -gt 1 ]; then printf 'forge:forge/ast-grep skipped: ast-grep unavailable\n'
-    else
-      # rules with type constraints: only the matches the types engine confirms (§15.1)
-      forge_sg_report "$FORGE_TMP/forbid" json > "$FORGE_TMP/forbid.added"
-      forge_types_changed $(cat "$FORGE_TMP/changed")
-      forge_types_filter "$FORGE_TMP/forbid.added" >> "$FORGE_TMP/forbid.out"
-      forge_sg_report "$FORGE_TMP/forbid.added" >> "$FORGE_TMP/forbid.out"
-    fi
-  fi
-  if [ -s "$FORGE_TMP/forbid.out" ]; then cat "$FORGE_TMP/forbid.out"; fail=1; fi
-  return 0
-}
-
-# forge_end <status>: advice (§10.7) last, after every failing check, then exit.
-forge_end() { [ ! -s "$FORGE_TMP/advice.out" ] || cat "$FORGE_TMP/advice.out"; exit "$1"; }
-forge_step() { [ "$fail" -eq 0 ] || forge_end "$fail"; "$@"; }
-
-forge_step forge_integrity
-forge_step forge_applied_migrations
-forge_step forge_tests_integrity
-forge_step forge_forbid
-forge_step forge_run_stage format
-forge_step forge_run_stage lint
-forge_step forge_run_stage typecheck
-forge_step forge_run_stage migration
-forge_step forge_run_stage test
-# advice (§10.7) does not stop the steps after it; when it is the only failure, exit 4
-[ "$fail" -ne 0 ] || [ "${advised:-0}" -eq 0 ] || fail=4
-forge_end "$fail"
-
-===== .forge/forge.lock.json
-{
-  "forge_version": "0.5.0",
-  "claude_code_min": "2.1.295",
-  "rules": {
-    "typescript/bun/lock-sync": "9e09d6a5edb31aa8fb18dc32cdf27b4610898b56dceb6715df786d729f80fb3c",
-    "typescript/bun/no-fewer-expects": "5a1ceafdb3fe2b8bb363f18b760e55144f8cae87bd963e26309ab5619a563c3a",
-    "typescript/bun/no-mock-increase": "1bf4f349d6d33eb5993d156a4b7efcd43675ecc158b84998c936d24edeaf0fde",
-    "typescript/bun/no-new-skip": "9aa6a5b58ac541611b827f6eb354be6d67edece10cb6416cc94f9d980d34b67e",
-    "typescript/bun/no-other-pm": "fcdd00d782b97240fbb0c968b667110542cc5ca7fd48ee4bd5b9e7895e51ec05",
-    "typescript/bun/no-snapshot-update": "44f865cdc519d6c573a601582a64a08517db474ca9a2e8dbcb5ab782e9a603f8",
-    "typescript/bun/no-test-edits": "f0def5a284d258b5fc0afb8274636df1a80cec4fe88c6a50a3ad57523859fe91",
-    "typescript/bun/release-age": "a82d38eebf7955af0cef4cb4561d05374438bcd31c28a82eb46e1d644f29c44e",
-    "typescript/bun/test": "53b59f6fdb7da1713a6bb636496cdb705de29a53701bab7cbe016b5a47a1b0f7",
-    "typescript/bun/trusted-deps": "a23199c6bb088f245f833db63f304fdc1c8f304167257caab8125af55bbda732",
-    "typescript/config-files": "77940ff304752f88c143dedc5911b0961de9e16b68e10758a273cfc049505413",
-    "typescript/config-ratchet": "b0ff3b6c064f691984e217acc0388d0900b1a2a1d1ee493935badb41a8a45022",
-    "typescript/env-example": "7eab3b03486670f6274d4db65487ccaaf7f2b1fddd39c86a13469cdf46d2140c",
-    "typescript/format-lint": "18f0059c55bc0fd6acbd5c7a92fb06989649cd07e9981e421d898991e39aed7b",
-    "typescript/lockfile-updated": "4e73aebc5db80beaa00f712dc0a4d1091ed8ebe051c57e087df110696b49e6b7",
-    "typescript/nextjs/no-legacy-image-config": "3fe00293c75da57b6623c1880c86eadb54aa9fce686ac52ffc1720780763fec7",
-    "typescript/nextjs/no-next-router": "e935af017296ba5db9752bf63ad22bea52eb27816f357b18532a1052590d14ea",
-    "typescript/nextjs/no-pages-data": "a4d7c707f125ee1f103d922b8765e619c4c293479797d9dbdb81c7e3bbe782fa",
-    "typescript/nextjs/no-public-secret-env": "41daab06f32411dacc7b8cd23a5953a407b00761bb07f75827b0a10bdfa50c64",
-    "typescript/nextjs/proxy-not-middleware": "c336db03ccf715b6ab786ed10bc073699e2d984144820cbe27d5bc16e072644a",
-    "typescript/nextjs/react/client-hooks": "a5eea520cac5df94a521491b676d69d68dc846a8a289f3d1c306b5977c2eedb6",
-    "typescript/nextjs/react/no-server-in-client": "5de2679ac303f0c0b1fc030713f0cbe4581d2af7e38bf389b3b68b1819aba2da",
-    "typescript/nextjs/revalidate-tag-profile": "493bbc01d9566347829e9ea78c93e047a6f692868c5f099b6c142c8d9cb9cb37",
-    "typescript/no-console": "304966850351b07590c05fb22ae0125d1976179b3cd7abc0bc0dd7e82039ada5",
-    "typescript/no-double-assertion": "2c5b17cd8daa6bd598b4aa79b30259626c86e6a3afd00630a3a4a2918316ce80",
-    "typescript/no-empty-block": "e615b8d48575392c885e65f5b5e69cfaba918ae070473fb229086fe36501a31f",
-    "typescript/no-eval": "695bc504e485395796c1500ec90804609a4f5e8c9a5867062271b9caa5f58143",
-    "typescript/no-explicit-any": "66e8f9968e8c88a77229e6c092e4489cffced1186a72fa257017fa6a2e612d28",
-    "typescript/no-focused-tests": "0c7614dd6db46bbe6d9a19b58cf8130638128e786cd1dc912e58203ecc72a87b",
-    "typescript/no-ignore-deprecations": "63044c1f4bd2f841800843fa17b4db5a29e5d8cc32053591a25622f15902c888",
-    "typescript/no-implicit-any": "7ac25a953e4d6df85abee5379ea5496788f5d15776ae37623ceff5ebcc034108",
-    "typescript/no-new-suppressions": "b49b319f832234670b6d55d259add6b912cd7e49e81fd2143917e7b64976dfed",
-    "typescript/no-non-null-assertion": "24bf5fb3547ff36667d3886eaebc706fc21a387a18d2f5789156220e65462ce2",
-    "typescript/no-placeholder-comment": "940fb140d959d26ffe50ae2978f2efbf8b3e44891a2b7fa0e0156f4752c7fb47",
-    "typescript/no-secrets": "94ad67cd60030c667e22aa4c097abbb17675fdeb5cf944ffb69a6cde2aab365c",
-    "typescript/no-stub": "c0b7945c7b23df7621388872772f9185161a99ca57a0ea316f969a41972840a8",
-    "typescript/no-swallowed-catch": "80a3b4c0071c2d325aefdd8e158b950847eca9159276eb6ab126f21e26015de4",
-    "typescript/no-ts-ignore": "afe518e61003a905fe90ca0548a0c472bc26a897d64cb5509ee1b3534297beee",
-    "typescript/no-ts-nocheck": "25caeef679e03c9b88f75f961ce1b5d13c0f28538112f9642c513658a10f4213",
-    "typescript/no-unused": "d75d0e94afbbd14b74ea3896c6f269d7a6953eed0c9e7edcc4c65534c460c413",
-    "typescript/no-unused-suppressions": "47b77a16691164d172e4f52e2267d0b6f1c7888c6b43a095e3ec41093081c918",
-    "typescript/playwright/axe": "0e5978f59f13347b9842d1dfcf6a51e2486bdcad8bac48509924fd9f5d3d03d3",
-    "typescript/playwright/config-file": "b257557ca4312f58fe449d1cb237fe8c9806b92cd934a3cf955efbb1923b7287",
-    "typescript/playwright/locators": "f71e79219da3569c417936bc942cca4869f76ad630569f169f5022c93e25ac14",
-    "typescript/playwright/no-new-skip": "af6b674bbaf8f67ef5f66749946b7f2fb5660d74f8bbca34506ba8cf97f6bede",
-    "typescript/playwright/no-snapshot-update": "78a18162973e50be255a9cdc5e3dd308ca4c339e29687e45bf9eb3986a8eca3e",
-    "typescript/playwright/no-test-edits": "16b6681c7d6009249ff3466e5a531a991506bb8b6bdbbe295e8b925c525d8bdb",
-    "typescript/playwright/no-wait-for-timeout": "d6f5471ff500bf60ee5b260325c0cd41d31ba86cb59030036fb7f517dfaaf5e1",
-    "typescript/playwright/run": "79dc276c6d71cd329a2360b0560e3b12d47c99d7ea11e13563d794961a0363fa",
-    "typescript/prisma/client-generator": "8905dafcbf59a72531bc68fe4ccbcebca6cbd2af461fb39690d748885d375c01",
-    "typescript/prisma/db-push": "ea9ca78f9244bfb5a4c56205190683e6148d7ff41b9debebbf9970582290d77e",
-    "typescript/prisma/destructive-migration": "6cb32c74f021c89b0a63d09e89b2298c64d251f3c3c2380279bfd804b750ba02",
-    "typescript/prisma/generated-client-import": "89567be06b4754638addfa6a8700297b4739e72cf932328b952b1cfb0621da45",
-    "typescript/prisma/migration-lint": "9a5876481372fb0461b28c9150c4046a4ea45b5cbccce158b08afea89342ebb9",
-    "typescript/prisma/migration-present": "884fb66ed58f8eaab7bc83838363ab83539cd972c45638055d79a93ef1752bde",
-    "typescript/prisma/no-middleware": "f9b87f0cec0365b73fcb60b3f7cb226c6cec8709b1a9891093960051b7969cc1",
-    "typescript/prisma/no-network-in-transaction": "db431e0148e4b401390bba8063e5d616717048b4bd30ac22bc2343486bedfc71",
-    "typescript/prisma/no-raw-unsafe": "b889b504c953cab447f027b52f6abd10c61002854b05ae1ed41c2d2a075365f9",
-    "typescript/prisma/no-reset": "060bf3f7773db9cf87bede89da4d4540b19271ffb9a698aa7a3d84bf9cf7168a",
-    "typescript/prisma/validate": "0479a5e9bc602a2d9f0a154719567605623fe73194bceafce1d87bc325d37aad",
-    "typescript/react/a11y": "101c3c1b4c43a00525a019cf13d60dd07f9a668569a09b4f5ba8a4a92cdc7c2b",
-    "typescript/react/hooks-rules": "84b1b31e6f7aace5c2873499123884279cb92d9177bccc8fab5e40b2767b4047",
-    "typescript/react/no-dangerous-html": "8003159a1f2e7bfff7e2969b76516240e61ea57c583f97ae5df1f47360895854",
-    "typescript/react/no-deprecated-types": "b582f769c408d52526d146d6be00a955a33714945954f053711390edfe30cbf5",
-    "typescript/react/no-forward-ref": "36a40a23adb17d7651f8f7ed849fe1341540551ab7c0940943555aca6cff8e07",
-    "typescript/react/no-nested-components": "7d56f7ae6686901210a69036650305f3eefdb68efb27b11fb06bd8799169b9a8",
-    "typescript/react/no-prop-types": "76b76db62c10d08486cd50217e27d8108355b161ef558d8b764106023764acb1",
-    "typescript/react/stable-keys": "7cd742b7ff4eced78ec4ae0dda88fe9cbe7f984429632d9a2da63bb0ce29c79d",
-    "typescript/react/use-action-state": "4fb479e74dbdfadf6a395d761fe269009bc694454e9c0bc845f8df8c0aa68c81",
-    "typescript/strict-function-types": "7c8945ced7b73b7738f9a5bf3eb864c5cdb35c1eb55b7c3ad606b1db3b6a8263",
-    "typescript/strict-null-checks": "1249d522c4e1a26bf6d951e14a7e9b3033d1be96ebf68d9cc93b0e8df9940df6",
-    "typescript/ts-expect-error-reason": "2d40d771a013778c75bc79c0e3965b3ecc94aea938e6db87ba92d2bee63ddf90",
-    "typescript/typecheck": "9e26565727146ec77b97b763002c2a035a5b077ed2b4b85a3134b2a04850780a",
-    "typescript/unchecked-index": "c8a32a9a463d933695100cbee6ec896fc7bb41bad7d252871fd371ae78801755",
-    "typescript/vitest/config-file": "abe466390dd426b11ccbd6526a81a8a6ea3a720e06604c84ec0ca0d8c51dd3dd",
-    "typescript/vitest/no-fewer-expects": "8f6ef8c18f355e6f87742658e5bddb47ae364a35ee3e601db827eff23b17328e",
-    "typescript/vitest/no-mock-increase": "3429055f565bb02d51426bce4db2922c3fd829c6f845e6d9af489637e94b71b5",
-    "typescript/vitest/no-new-skip": "ba7c386c0e31cf2576e8dc9489d71ec9dec3194dbac1032eeba030108750ed85",
-    "typescript/vitest/no-pass-with-no-tests": "f0ca2c41a2c2d0289f12750c521dbe16bf55a0a94ce38457dd51492fe028a1f3",
-    "typescript/vitest/no-snapshot-update": "519846b6b08b3de78a1bee29e807aba76fd96e6055b3b37aff636232af075f0b",
-    "typescript/vitest/no-tautological-expect": "116c62d9efc9da4497cf9c2e69bdd365ca4f02db4e720e6cdd7fe6ff93dad768",
-    "typescript/vitest/no-test-edits": "bc2ef168386cc51f41b84aa10c492bb7a2a2f75d36df2ddd605ff5a34c70e6fc",
-    "typescript/vitest/no-test-env-branch": "9df6b921e06f85f5b55fcc438225f5d662d3b2998807a1e977705973af5c33fb",
-    "typescript/vitest/no-workspace-file": "239ef7e6cb5e8cf05438582b554b786c681c8a162bafb3d3cb0e033aab96948a",
-    "typescript/vitest/run": "b40ed7dc07ba4276d9f8e40dc353b627d6067a14812d2dad1636240f5d47d300",
-    "typescript/vitest/snapshot-stale": "9158abd81c23110df79622b012fba0b6dcd7e26fe7bfc104b3164c5e20bce861",
-    "typescript/vitest/untested-change": "65b07d8c9d6b6d188323266ba570ad7e9878e6f26d9d3a1d03ce32cd22468344",
-    "typescript/zod/error-param": "98f91bc633e6bf49f35ef19f18911ca916f9a8dd6e31fbe09f7083c5b68c086c",
-    "typescript/zod/v4-string-formats": "7e7373a687ac781f4dc75661e0f5bd51b89998d46d4e836055620fc965723f57"
-  },
-  "files": {
-    ".claude/rules/forge-typescript-bun.md": "56d2518521d7559dc4d52e8bc5e96b82e97026bdb48f5281fe9450e0f01e1d53",
-    ".claude/rules/forge-typescript-nextjs-react.md": "2e3462b5d3b2ae7ca170af39cf82bab25bbf97a1dc41f937dcd43239740f2736",
-    ".claude/rules/forge-typescript-nextjs.md": "96a99679c5ddb348fe571a68648c3f7722351fe90d1e12f7d15e3c081953d42a",
-    ".claude/rules/forge-typescript-playwright.md": "460ee4a08c77b6c6509a681765f299c2116dd996a79a5040d1516645d8e47663",
-    ".claude/rules/forge-typescript-prisma.md": "cf4184031d0c1e5f2a4b8ce5ce8ab676cdbeb65fc59402433cf8e77418daa1d6",
-    ".claude/rules/forge-typescript-react.md": "ae5f638883028fa1744f332b050e244ce57713ad2cc28ab5f8ee259f0088eb20",
-    ".claude/rules/forge-typescript-vitest.md": "0c60275a6586d66aa3d3ab871383af8cc874c5e849d10646d8940031768cd606",
-    ".claude/rules/forge-typescript-zod.md": "a5e2685c59231ba3ce5e994b28fa8dfd5e5e7946275ef3236334776e61329db7",
-    ".claude/rules/forge-typescript.md": "48f463a8e59348509f4f2096fb2b61b294b079410555e21d7a0b4ed6767c131d",
-    ".claude/skills/forge-project/.claude-plugin/plugin.json": "c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2",
-    ".claude/skills/forge-project/hooks/hooks.json": "3763c38c1d21ccd50c22007d10b155255f88c08290dab14d2afe25f4d181740b",
-    ".claude/skills/forge-project/scripts/bash-snapshot.sh": "29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e",
-    ".claude/skills/forge-project/scripts/guard.rules": "d0a502f51f51609d7e5e9cd6f39a8ce165c656ee1c1b7a607105a536962058eb",
-    ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
-    ".claude/skills/forge-project/scripts/lib.sh": "faa8e0826d83c780821f8c42ebf9b58732fcd3dff3902a2e81828d43bbff7322",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "91150e260fdb79c2d2cc662fb282f16ba209c762149281eaa499cb45239281c1",
-    ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
-    ".claude/skills/forge-project/scripts/session-end.sh": "99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58",
-    ".claude/skills/forge-project/scripts/session-start.sh": "8d500f3f4d1e5ece1ab8a4cd5016bf572fb71b4f0c7c6cc2c42cd9c3ffc9297e",
-    ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "a1f0fd4733549b334ce3079df8f91beae9e1b4cf8df8f297a52149d1fcdf82fe",
-    ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "9f2cfd2b359150b87fd90e00a15d78fbe7acb10565d673453697149bf7a3dfea",
-    ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
-    ".forge/ast-grep/rule-tests/typescript-bun-no-fewer-expects-test.yml": "bd5df50793070bba7b87b0f623ac58ed4599e0ba6f8d731fc0da4b28a0335ec8",
-    ".forge/ast-grep/rule-tests/typescript-bun-no-mock-increase-test.yml": "2916d521378a79dbddd4e3a5822e04b4c3e5fad9262a65e019095f58bbfe0310",
-    ".forge/ast-grep/rule-tests/typescript-bun-no-new-skip-test.yml": "dc3b69bc7faac87a7d2caa2239db1281086991dd801d38ca06d02812aac0ac8b",
-    ".forge/ast-grep/rule-tests/typescript-nextjs-no-legacy-image-config-test.yml": "9d723e3c62b5697de0fa5ab80b735c3cef23225a07c81425c492cd8827faf06d",
-    ".forge/ast-grep/rule-tests/typescript-nextjs-no-next-router-test.yml": "5da1551f9fa49969cdbfb6ef3ba847589327a2d7430a3cdc79f3637fc81586f1",
-    ".forge/ast-grep/rule-tests/typescript-nextjs-no-pages-data-test.yml": "d2c1565050d4c9260d1fcf98bae6a781ceb3a6f2e72c1db475ac459818bd450a",
-    ".forge/ast-grep/rule-tests/typescript-nextjs-no-public-secret-env-test.yml": "117593bab047fa93deb238d012c1de40bd3b7abe10f1ec107e7a5156ead649e7",
-    ".forge/ast-grep/rule-tests/typescript-nextjs-proxy-not-middleware-test.yml": "153ec749432cb54b30c8020cbe4d466b3746e39ee9be7af8129603cab6ca3232",
-    ".forge/ast-grep/rule-tests/typescript-nextjs-react-client-hooks-test.yml": "7c405f311ed47f0b1f33bf3a179f600f612babccd820c3067b2305f98fc19db6",
-    ".forge/ast-grep/rule-tests/typescript-nextjs-react-no-server-in-client-test.yml": "d961ad163fef43f625286d82ef70180d240b753eb0b600073751e4f511d98c68",
-    ".forge/ast-grep/rule-tests/typescript-nextjs-revalidate-tag-profile-test.yml": "82a873549d13a28bd75fe0ec7f7c225c9a0480525e385aa5c9c3c96d15fc0e68",
-    ".forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml": "c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20",
-    ".forge/ast-grep/rule-tests/typescript-no-stub-test.yml": "b02e7e21f6bd597fe4b3d577b3a2cc6dfee9741674cc1cc99285e22ef90a2778",
-    ".forge/ast-grep/rule-tests/typescript-no-swallowed-catch-test.yml": "fb2f02c2bcf9562ed49731349520cde2d48d2f3b3557d2174b5e2e856d6c8e48",
-    ".forge/ast-grep/rule-tests/typescript-no-ts-nocheck-test.yml": "c15f604d5317f942de32470aeaff16702116a64d283347c9a9825056b4dbe69e",
-    ".forge/ast-grep/rule-tests/typescript-playwright-locators-test.yml": "c65ff86cee9c45671ae158cf4e8c59bbdeb8e2f14ea74c926964debe0a7d0e7e",
-    ".forge/ast-grep/rule-tests/typescript-playwright-no-new-skip-test.yml": "bb487493a7aa36a61f149d2d9b1fbe38895749290027dba745f51fdc011f054f",
-    ".forge/ast-grep/rule-tests/typescript-playwright-no-wait-for-timeout-test.yml": "6de739c52e05f5d443c247b3a60bc40bd15cc5cfce7f4cc80d428be001cf6c1a",
-    ".forge/ast-grep/rule-tests/typescript-prisma-generated-client-import-test.yml": "91fbbe5ce58f7acf72b9885cb48b5d0c6eb692b862834058404f1b58e6007f5a",
-    ".forge/ast-grep/rule-tests/typescript-prisma-no-middleware-test.yml": "a0975e619303c2b7ebf6a13a1c424464c86b5f1c37fdf16667de00e241a56998",
-    ".forge/ast-grep/rule-tests/typescript-prisma-no-network-in-transaction-test.yml": "52d332f1fd4e10ae42f7a8fc56a7763dca2457c4e5e2a9f02bde5c49f260becd",
-    ".forge/ast-grep/rule-tests/typescript-prisma-no-raw-unsafe-test.yml": "011dd0c40d77e238e91f0d592ef3e39b4e17f822215fb2ab749c096f8661ccee",
-    ".forge/ast-grep/rule-tests/typescript-react-no-prop-types-test.yml": "973df0a4b101d1b9d02787a5da612d991b2d66a6dda3727805aefed130706efe",
-    ".forge/ast-grep/rule-tests/typescript-react-use-action-state-test.yml": "125b8c736e82d5ef59eaf57dd32da3df326b16bc81cd9534f9a7023aa5d54b35",
-    ".forge/ast-grep/rule-tests/typescript-ts-expect-error-reason-test.yml": "7ae5fe613eff1c75cb68f1333b898ad82d6d4889c3cc4da6bb8e5962e825a1b1",
-    ".forge/ast-grep/rule-tests/typescript-vitest-no-fewer-expects-test.yml": "b8a0548c0fe777d62794a8a101d54fcb110517e3f5657d0d338d6a0f5b75487a",
-    ".forge/ast-grep/rule-tests/typescript-vitest-no-mock-increase-test.yml": "4ca45816ef065d6769a9ab54b0b20612ca8539507a42e88f47951d091ede45d7",
-    ".forge/ast-grep/rule-tests/typescript-vitest-no-new-skip-test.yml": "98efafe5c4731640c4e4fa728d1711359c677a62a582b8da3efe611d00beea4d",
-    ".forge/ast-grep/rule-tests/typescript-vitest-no-tautological-expect-test.yml": "3d4d3dbd6f33aca3e8927619a223dd0a4b56012f4f896fad27ac301743bf849e",
-    ".forge/ast-grep/rule-tests/typescript-vitest-no-test-env-branch-test.yml": "72dcb1355a54b0a7a880206f4567d94c18f8eaaf6d2dc7d1ab0a9414981250c8",
-    ".forge/ast-grep/rule-tests/typescript-zod-error-param-test.yml": "5ca3e9da32d72d98bb2be00a1341f6b6d5cc431f86e0313d2e51f33384d50fe7",
-    ".forge/ast-grep/rule-tests/typescript-zod-v4-string-formats-test.yml": "0f6c16bcf006eac0bc6bd6584b6a412c3f7277731138738373276f90233a9279",
-    ".forge/ast-grep/rules/typescript/bun/no-fewer-expects.yml": "2ca24b5c409a8a142b0f81d7f9501cf3d41c426b2b6e7c037559da5179bb498f",
-    ".forge/ast-grep/rules/typescript/bun/no-mock-increase.yml": "bf70d7263b8cc030ea6c1edd627f76c118417cf5a31dd2fd35cce6737e9ee0d4",
-    ".forge/ast-grep/rules/typescript/bun/no-new-skip.yml": "33db9ec4783c392bf85ff2bc68f3ed8fcf877fe87da5ad541e31ea55253dc75a",
-    ".forge/ast-grep/rules/typescript/nextjs/no-legacy-image-config.yml": "99d6745b72bc71e63a385b0c72edc6a1d5d2f0c2484b32a8edf403a052181538",
-    ".forge/ast-grep/rules/typescript/nextjs/no-next-router.yml": "2447380f96c63cf72fcf39285fff2abe7f1edd49646a74ed5ad91fbb77a908e0",
-    ".forge/ast-grep/rules/typescript/nextjs/no-pages-data.yml": "c189e6db00b706044708a2c5fc1e5fe8698213059fabf7d6d4f549eb57a759fb",
-    ".forge/ast-grep/rules/typescript/nextjs/no-public-secret-env.yml": "566919ce67b7c2e3ea9fcf448bf9e9aba51581c7d7717a0a97a720b0bed9a249",
-    ".forge/ast-grep/rules/typescript/nextjs/proxy-not-middleware.yml": "29ce02d4f8748400d9a70259d51631bf7ef50cbdd4bccadd24d96695a289c7f8",
-    ".forge/ast-grep/rules/typescript/nextjs/react/client-hooks.yml": "45f618471917a7ea16b4f12797c8b23b764c14b48ac34e2296840c8af78bc0dd",
-    ".forge/ast-grep/rules/typescript/nextjs/react/no-server-in-client.yml": "bb96a57b3d86ff82cceefb7a13e7e17a3996071931386bd40fce989878f9e2de",
-    ".forge/ast-grep/rules/typescript/nextjs/revalidate-tag-profile.yml": "cacc0230a82fede425f3e83c4535f49229b9e831f40766fb416f7a2974fc14bd",
-    ".forge/ast-grep/rules/typescript/no-double-assertion.yml": "c0b8c6e7a7a09608b63f8c9367afb4ac22fb1daa93c79c967373efdab597a48c",
-    ".forge/ast-grep/rules/typescript/no-stub.yml": "b21497e3335f2271e6ca5874817957d18c640e7d787cfe76a72ef390ab62d634",
-    ".forge/ast-grep/rules/typescript/no-swallowed-catch.yml": "4bd8569b39e21928852fafeaee02ce9d2ff35726699f91b3f50a6ebf57843bd6",
-    ".forge/ast-grep/rules/typescript/no-ts-nocheck.yml": "aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21",
-    ".forge/ast-grep/rules/typescript/playwright/locators.yml": "c7c96b1437d5c6ac7bf04ec59e777e83def0d9451ef3b6cf238c881ff1909e29",
-    ".forge/ast-grep/rules/typescript/playwright/no-new-skip.yml": "2bc5836e747a7dc4b45593074ff04b30a7e89fd2e8c53dc274e37035885c7d5c",
-    ".forge/ast-grep/rules/typescript/playwright/no-wait-for-timeout.yml": "e4ed8b571875af6fbce7f92616b4772d90c847e5009403d57f76d46a7b55396d",
-    ".forge/ast-grep/rules/typescript/prisma/generated-client-import.yml": "7b8a093b0f51e5d6b8f8a132b1ef43888104b1f5985465fc4f0f5984762a79c2",
-    ".forge/ast-grep/rules/typescript/prisma/no-middleware.yml": "98cf3096f74f6db07744f597904e3df903a8a886a095cfffa52b133bf3acc1c7",
-    ".forge/ast-grep/rules/typescript/prisma/no-network-in-transaction.yml": "4867b2d6d4fcc67ecf3f85d3a7433a27be0204c9a33d17c690d1dd52708d3c35",
-    ".forge/ast-grep/rules/typescript/prisma/no-raw-unsafe.yml": "304ac41eb0a4b7025ca081e4a03cb746cdd15b5512a0bac217ad9a89017b3e00",
-    ".forge/ast-grep/rules/typescript/react/no-prop-types.yml": "9626068d2f677a351b7722fbddc5a74e87c539b4c3e46a55d75cfaf717542c62",
-    ".forge/ast-grep/rules/typescript/react/use-action-state.yml": "17b6fc5e510df3154be12c72a584d8bfb31034b577774718a8c50516b2b15a81",
-    ".forge/ast-grep/rules/typescript/ts-expect-error-reason.yml": "b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad",
-    ".forge/ast-grep/rules/typescript/vitest/no-fewer-expects.yml": "eb97cf87f7d0754f025a3afb9e1a97ac145789684524424f720d96ce1e8b98b2",
-    ".forge/ast-grep/rules/typescript/vitest/no-mock-increase.yml": "4c44cb2d640e8938692105eaeb084ff7ae7732f3487e7b59ff74bdb3b6bf35b8",
-    ".forge/ast-grep/rules/typescript/vitest/no-new-skip.yml": "ea54564f283a2f3c832fecfd6f4d55c6243ce9922ddf524c48ee5a43738c1472",
-    ".forge/ast-grep/rules/typescript/vitest/no-tautological-expect.yml": "35497c3d5cc2bfdc45837edfa133f8320134101d9a869cebdcebcc9b8e685521",
-    ".forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml": "d3c41a3915d84b21e86e9212a06ad14c52bf2f9bcefb7c5ca433200cc3ec44fb",
-    ".forge/ast-grep/rules/typescript/zod/error-param.yml": "88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a",
-    ".forge/ast-grep/rules/typescript/zod/v4-string-formats.yml": "1f4b2e54f9767673c6469da4a1d7f0d9dc1d8f39b657460bab8096b8c35a0a45",
-    ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "0575234ecea5f5240318ba8c7bd3fc6f2ba84608e1c33f65b736aa4e588cefa2",
-    ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
-  },
-  "settings": [
-    {
-      "file": ".claude/settings.json",
-      "path": "permissions.ask",
-      "value": "Edit(.forge/**)"
-    },
-    {
-      "file": ".claude/settings.json",
-      "path": "permissions.ask",
-      "value": "Edit(forge.yaml)"
-    },
-    {
-      "file": ".claude/settings.json",
-      "path": "permissions.ask",
-      "value": "Edit(.claude/skills/forge-project/**)"
-    },
-    {
-      "file": ".claude/settings.json",
-      "path": "permissions.ask",
-      "value": "Edit(.claude/rules/forge-*.md)"
-    },
-    {
-      "file": ".claude/settings.json",
-      "path": "permissions.ask",
-      "value": "Edit(**/biome.json)"
-    },
-    {
-      "file": ".claude/settings.json",
-      "path": "permissions.ask",
-      "value": "Edit(**/biome.jsonc)"
-    },
-    {
-      "file": ".claude/settings.json",
-      "path": "permissions.ask",
-      "value": "Edit(**/tsconfig*.json)"
-    },
-    {
-      "file": ".claude/settings.json",
-      "path": "permissions.ask",
-      "value": "Edit(**/playwright.config.*)"
-    },
-    {
-      "file": ".claude/settings.json",
-      "path": "permissions.ask",
-      "value": "Edit(**/vitest.config.*)"
-    }
-  ]
-}
 
 ===== .forge/manifest.sha256
 56d2518521d7559dc4d52e8bc5e96b82e97026bdb48f5281fe9450e0f01e1d53  .claude/rules/forge-typescript-bun.md
@@ -22482,15 +21592,15 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e  .claude/skills/forge-project/scripts/bash-snapshot.sh
 d0a502f51f51609d7e5e9cd6f39a8ce165c656ee1c1b7a607105a536962058eb  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
-faa8e0826d83c780821f8c42ebf9b58732fcd3dff3902a2e81828d43bbff7322  .claude/skills/forge-project/scripts/lib.sh
-91150e260fdb79c2d2cc662fb282f16ba209c762149281eaa499cb45239281c1  .claude/skills/forge-project/scripts/post-edit.sh
+97c691d009a979b4dd1f81efd9535346b0027bc12a574653532eca62b978a289  .claude/skills/forge-project/scripts/lib.sh
+7d522507ca0882e9fc5d696ee8a38ba5787ae4cd6536f579bc9f613c21e90e91  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
 99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58  .claude/skills/forge-project/scripts/session-end.sh
-8d500f3f4d1e5ece1ab8a4cd5016bf572fb71b4f0c7c6cc2c42cd9c3ffc9297e  .claude/skills/forge-project/scripts/session-start.sh
+9d77b52bd6f343c49fe5ef617bd6e3996528813db3db62b4c192aa6f0f780e87  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-a1f0fd4733549b334ce3079df8f91beae9e1b4cf8df8f297a52149d1fcdf82fe  .claude/skills/forge-project/scripts/test-edit.sh
+638d022d6d72d1b0e525df58419b7c2150260c327977743f5baf383a0658b98b  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-9f2cfd2b359150b87fd90e00a15d78fbe7acb10565d673453697149bf7a3dfea  .claude/skills/forge-project/scripts/typecheck.sh
+d81550f8add289ace2e57fde9a4232a16ae048a7f9b539f6013a2b9bf585482d  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 bd5df50793070bba7b87b0f623ac58ed4599e0ba6f8d731fc0da4b28a0335ec8  .forge/ast-grep/rule-tests/typescript-bun-no-fewer-expects-test.yml
 2916d521378a79dbddd4e3a5822e04b4c3e5fad9262a65e019095f58bbfe0310  .forge/ast-grep/rule-tests/typescript-bun-no-mock-increase-test.yml
@@ -22557,7 +21667,9 @@ d3c41a3915d84b21e86e9212a06ad14c52bf2f9bcefb7c5ca433200cc3ec44fb  .forge/ast-gre
 88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a  .forge/ast-grep/rules/typescript/zod/error-param.yml
 1f4b2e54f9767673c6469da4a1d7f0d9dc1d8f39b657460bab8096b8c35a0a45  .forge/ast-grep/rules/typescript/zod/v4-string-formats.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-0575234ecea5f5240318ba8c7bd3fc6f2ba84608e1c33f65b736aa4e588cefa2  .forge/check.sh
+2ad1f030e8ca70392b45075456775560b64d6db6d14d4cd54fb88cc5ba0208dd  .forge/check.sh
+14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38  .forge/helpers/ratchet.mjs
+7a77c4f510148fc32d1c6154073354264e835799e649ecf1ac0b9673e156aa10  .forge/helpers/types_typescript.mjs
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

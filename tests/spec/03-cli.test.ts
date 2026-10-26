@@ -10,7 +10,7 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { applied, commitAll, ensureTools, fakeClaude, forge, git, hasUv, linkTools, put, ROOT, sampleRepo, sh } from "../helpers";
+import { applied, commitAll, ensureTools, fakeClaude, forge, git, hasUv, linkTools, put, ROOT, sampleRepo, sh, stopEngines } from "../helpers";
 
 const T = 120_000;
 
@@ -180,6 +180,7 @@ describe("status, explain, diff", () => {
       const fromStatus = (JSON.parse(forge(["status", "--json"], r).stdout) as { missing_tools: string[] }).missing_tools;
       const hook = sh("sh", [".claude/skills/forge-project/scripts/session-start.sh"], { cwd: r, input: JSON.stringify({ session_id: "s", cwd: r }) }).stdout;
       const line = /forge: missing tools \(checks using them are skipped\): (.*)$/m.exec(hook);
+      stopEngines(r); // SessionStart started the types engine (§15.3)
       expect(line ? line[1]!.split(", ") : []).toEqual(fromStatus);
     },
     T,

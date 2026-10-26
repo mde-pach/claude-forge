@@ -15,7 +15,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { renderChecks, renderLib } from "../../src/render";
-import { commitAll, fakeClaude, forge, git, hasBun, hasUv, hookJson, put, ROOT, sh, stateDir } from "../helpers";
+import { commitAll, fakeClaude, forge, git, hasBun, hasUv, hookJson, processesNaming, put, ROOT, sh, stateDir, stopEngines } from "../helpers";
 
 const T = 300_000;
 const SCRIPTS = ".claude/skills/forge-project/scripts";
@@ -43,14 +43,18 @@ function daemonPid(repo: string, lang: string): number | undefined {
 function alive(pid: number | undefined): boolean {
   return pid !== undefined && sh("kill", ["-0", String(pid)]).status === 0;
 }
-function stopEngines(repo: string) {
-  const dir = join(stateDir(repo), "types");
-  if (!existsSync(dir)) return;
-  for (const lang of readdirSync(dir)) {
-    const pid = daemonPid(repo, lang);
-    if (alive(pid)) sh("kill", [String(pid)]);
-  }
-  for (let i = 0; i < 50 && readdirSync(dir).some((l) => alive(daemonPid(repo, l))); i++) Bun.sleepSync(100);
+/** The engine of <lang> and the processes it started (its language server), by pid. */
+function engineProcesses(repo: string, lang: string): string[] {
+  const pid = daemonPid(repo, lang);
+  if (pid === undefined) return [];
+  const tree = (p: string): string[] => [p, ...sh("pgrep", ["-P", p]).stdout.split("\n").filter(Boolean).flatMap(tree)];
+  return tree(String(pid));
+}
+const running = (pids: string[]) => pids.filter((p) => sh("kill", ["-0", p]).status === 0);
+/** Waits up to 5 s for <pids> to end; returns those still running. */
+function ended(pids: string[]): string[] {
+  for (let i = 0; i < 50 && running(pids).length; i++) Bun.sleepSync(100);
+  return running(pids);
 }
 
 /** A git repository from tests/generator/<sample> (or empty) with <setup> run, committed, and forge applied. */
@@ -211,6 +215,27 @@ describe.if(hasUv)("Python: the receiver's type, through ty", () => {
   );
 
   test(
+    "the engine SessionStart starts ends with the last session: after SessionEnd neither the engine nor its language server runs",
+    () => {
+      stopEngines(repo);
+      const start = (id: string) => hook(repo, "session-start.sh", { session_id: id, hook_event_name: "SessionStart", source: "startup" });
+      const end = (id: string) => hook(repo, "session-end.sh", { session_id: id, hook_event_name: "SessionEnd", reason: "exit" });
+      start("life-1");
+      start("life-2");
+      const sessions = join(stateDir(repo), "types", "python", "sessions");
+      for (let i = 0; i < 100 && (engineProcesses(repo, "python").length < 2 || (existsSync(sessions) ? readdirSync(sessions).length : 0) < 2); i++) Bun.sleepSync(100);
+      const pids = engineProcesses(repo, "python");
+      expect(pids.length).toBeGreaterThanOrEqual(2); // the adapter and ty
+      end("life-1");
+      Bun.sleepSync(500);
+      expect(running(pids)).toEqual(pids); // another session still uses it
+      end("life-2");
+      expect(ended(pids)).toEqual([]);
+    },
+    T,
+  );
+
+  test(
     "check.sh keeps the same matches, and stops the engine it started when no session uses it",
     () => {
       stopEngines(repo);
@@ -222,6 +247,7 @@ describe.if(hasUv)("Python: the receiver's type, through ty", () => {
       expect(r.stdout).toContain("forge:python/sqlalchemy/no-query-api app/repo.py:14:");
       expect(r.stdout).not.toContain("app/search.py");
       expect(alive(daemonPid(repo, "python"))).toBe(false);
+      expect(processesNaming(repo)).toEqual([]); // check.sh waited for it to end
     },
     T,
   );

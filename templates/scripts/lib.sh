@@ -412,14 +412,15 @@ forge_types_alive() {
 # never mix) to the daemon's FIFO. Opened read-write, so it never blocks.
 forge_types_line() { printf '%s\n' "$2" 1<>"$FORGE_STATE/types/$1/in"; }
 
-# forge_types_ask <lang> <dir>: asks the daemon the question in <dir>/req and prints
-# its answer (without the final "end"); fails when none comes within
+# forge_types_ask <lang> <dir> [stop]: asks the daemon the question in <dir>/req and
+# prints its answer (without the final "end"); with "stop", asks it to stop and waits
+# until it has (its language server ended). Fails when no answer comes within
 # FORGE_TYPES_TIMEOUT seconds (20). The reply FIFO is opened read-write before the
 # question is sent, so the daemon's non-blocking open always finds a reader.
 forge_types_ask() {
   mkfifo "$2/reply" || return 1
   exec 8<>"$2/reply"
-  forge_types_line "$1" "$2"
+  forge_types_line "$1" "${3:+$3	}$2"
   { sleep "${FORGE_TYPES_TIMEOUT:-20}" & printf '%s\n' "$!" > "$2/sleep"; wait "$!"
     printf 'error\tno answer within %ss\nend\n' "${FORGE_TYPES_TIMEOUT:-20}" 1<>"$2/reply"; } >/dev/null 2>&1 &
   _ta_w=$!
@@ -461,6 +462,16 @@ forge_types_changed() {
   done
 }
 
+# forge_types_stop <lang>: stops the language's daemon and waits until it and its
+# language server have exited (at most FORGE_TYPES_TIMEOUT seconds).
+forge_types_stop() {
+  forge_types_alive "$1" || return 0
+  _tp_r=$(mktemp -d "${TMPDIR:-/tmp}/forge-types-stop.XXXXXX") || return 1
+  forge_types_ask "$1" "$_tp_r" stop > /dev/null
+  rm -rf "$_tp_r"
+  return 0
+}
+
 # forge_types_session <start|end>: registers this Claude Code session with the running
 # daemons, or unregisters it; the last session to end stops them.
 forge_types_session() {
@@ -470,7 +481,7 @@ forge_types_session() {
     if [ "$1" = start ]; then mkdir -p "$_tx_d/sessions" && : > "$_tx_d/sessions/$(session_id)"
     else
       rm -f "$_tx_d/sessions/$(session_id)"
-      [ -n "$(ls "$_tx_d/sessions" 2>/dev/null)" ] || { forge_types_alive "$_tx_lang" && forge_types_line "$_tx_lang" stop; }
+      [ -n "$(ls "$_tx_d/sessions" 2>/dev/null)" ] || forge_types_stop "$_tx_lang"
     fi
   done
   return 0

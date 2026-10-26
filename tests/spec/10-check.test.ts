@@ -65,6 +65,29 @@ describe("steps", () => {
     T,
   );
 
+  /**
+   * The helper scripts are plain files in `.forge/helpers/`, where a project-wide
+   * `ruff format .` or `biome check --write .` may rewrite them. Their hash leaves out
+   * what formatters change (layout, quotes, trailing commas, semicolons, parentheses),
+   * and they are Forge's files: the project's rules and tools do not judge them.
+   */
+  test(
+    "1. integrity: a helper script rewritten by a formatter passes and is not checked as project code; a change to its code fails",
+    () => {
+      const helper = join(repo, ".forge/helpers/ratchet.py");
+      const text = readFileSync(helper, "utf8");
+      // what a formatter may do: other quotes, blank lines, a trailing comma, parentheses
+      writeFileSync(helper, text.replaceAll('"', "'").replaceAll("\n", "\n\n").replace("sys.argv[1]", "(sys.argv[1],)"));
+      const ok = check();
+      expect(ok.stdout).not.toContain("forge:forge/integrity");
+      expect(ok.stdout).not.toContain(".forge/helpers/ratchet.py");
+      writeFileSync(helper, `${text}\nprint("tampered")\n`);
+      expect(check().stdout).toContain("forge:forge/integrity .forge/helpers/ratchet.py was modified (run forge diff)");
+      reset();
+    },
+    T,
+  );
+
   test(
     "2. applied migrations: a revision that exists at HEAD and is modified fails",
     () => {

@@ -8,9 +8,9 @@
 // the absolute path of a question directory (req: ast-grep matches; reply: the matches
 // whose forge_where holds, "error<TAB>..." lines, "end"). Node-compatible: no Bun-only API.
 import { spawn } from "node:child_process";
-import process from "node:process";
 import fs from "node:fs";
 import path from "node:path";
+import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = fs.realpathSync(process.argv[2]);
@@ -420,14 +420,38 @@ async function main() {
   log("started", ready, "for", ROOT);
   started(`ready ${ready}`);
   const types = new Types(server);
-  const stop = (why) => {
+  // "stop<TAB><dir>": answered in <dir>/reply once the server has exited
+  const stop = (why, dir) => {
     log("exiting:", why);
     cleanup();
     server.proc.removeAllListeners("exit");
+    const done = () => {
+      if (dir) reply(dir, []);
+      process.exit(0);
+    };
+    if (server.proc.exitCode !== null || server.proc.signalCode !== null) done();
+    server.proc.once("exit", done);
+    setTimeout(() => server.proc.kill("SIGKILL"), 5000).unref();
     server.proc.kill();
-    process.exit(0);
   };
   let idle = setTimeout(() => stop("idle"), IDLE);
+  // the state directory was dropped (its FIFO gone or replaced) or the repository is gone:
+  // nobody can reach this daemon any more
+  const inode = fs.fstatSync(fd).ino;
+  setInterval(() => {
+    let gone;
+    try {
+      gone = fs.statSync(path.join(STATE, "in")).ino !== inode || !fs.existsSync(ROOT);
+    } catch {
+      gone = true;
+    }
+    if (gone) {
+      log("orphaned, exiting");
+      server.proc.removeAllListeners("exit");
+      server.proc.kill();
+      process.exit(0);
+    }
+  }, 10_000).unref();
   let buf = "";
   let queue = Promise.resolve();
   const stream = fs.createReadStream(null, { fd, autoClose: false, encoding: "utf8" });
@@ -442,6 +466,7 @@ async function main() {
       queue = queue.then(() => {
         if (line.startsWith("changed\t")) server.changed(path.join(ROOT, line.slice(8)));
         else if (line === "stop" || line === "restart") stop(`asked to ${line}`);
+        else if (line.startsWith("stop\t")) stop("asked to stop", line.slice(5));
         else if (line.startsWith("/")) return question(types, line);
       });
     }

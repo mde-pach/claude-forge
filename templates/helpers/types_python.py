@@ -9,12 +9,14 @@
 # <state-dir>/in is a FIFO of lines (each shorter than PIPE_BUF, so writers never mix):
 #   changed<TAB><path>   a file changed on disk (relative to the root): resynced
 #   restart | stop       the daemon exits (restart: the dependencies changed; the next
-#                        use starts it again)
+#                        use starts it again); "stop<TAB><dir>" answers "end" in the FIFO
+#                        <dir>/reply once its language server has exited
 #   <absolute dir>       a question: <dir>/req holds ast-grep --json=stream matches whose
 #                        metadata has forge_where; the answer goes to the FIFO <dir>/reply:
 #                        the matches whose forge_where holds (verbatim), "error<TAB>..."
 #                        lines, then "end"
-# The daemon exits after FORGE_TYPES_IDLE seconds (1800) without a line.
+# The daemon exits after FORGE_TYPES_IDLE seconds (1800) without a line, and when its
+# state directory or the repository is gone (checked every 10 seconds).
 import json
 import os
 import re
@@ -78,6 +80,7 @@ class Server:
         self.waiting = {}
         self.versions = {}
         self.texts = {}
+        self.stopping = False
         threading.Thread(target=self.read, daemon=True).start()
 
     def send(self, msg):
@@ -87,12 +90,22 @@ class Server:
             self.proc.stdin.flush()
 
     def read(self):
+        try:
+            self.read_messages()
+        except Exception as e:  # noqa: BLE001 - a broken stream is the server ending
+            if not self.stopping:
+                log("server stream broken:", repr(e))
+                os._exit(3)
+
+    def read_messages(self):
         out = self.proc.stdout
         while True:
             length = None
             while True:
                 line = out.readline()
                 if not line:
+                    if self.stopping:
+                        return
                     log("server exited")
                     os._exit(3)
                 if line in (b"\r\n", b"\n"):
@@ -376,22 +389,39 @@ def reply(d, lines):
     os.close(fd)
 
 
+def orphaned(fd):
+    """The state directory was dropped (its FIFO is gone or replaced) or the repository
+    no longer exists: nobody can reach this daemon any more."""
+    try:
+        return os.stat(os.path.join(STATE, "in")).st_ino != os.fstat(fd).st_ino or not os.path.isdir(ROOT)
+    except OSError:
+        return True
+
+
 def serve(server, types, fd):
     buf = b""
+    last = time.time()
     while True:
-        r, _, _ = select.select([fd], [], [], IDLE)
+        r, _, _ = select.select([fd], [], [], min(IDLE, 10))
         if not r:
-            log("idle, exiting")
-            return
+            if time.time() - last >= IDLE:
+                log("idle, exiting")
+                return
+            if orphaned(fd):
+                log("orphaned, exiting")
+                return
+            continue
+        last = time.time()
         buf += os.read(fd, 65536)
         while b"\n" in buf:
             line, buf = buf.split(b"\n", 1)
             line = line.decode("utf-8", errors="surrogateescape")
             if line.startswith("changed\t"):
                 server.changed(os.path.join(ROOT, line[8:]))
-            elif line in ("stop", "restart"):
-                log("asked to", line)
-                return
+            elif line == "restart" or line == "stop" or line.startswith("stop\t"):
+                # "stop<TAB><dir>": answered in <dir>/reply once the server has exited
+                log("asked to", line.split("\t")[0])
+                return line[5:] if line.startswith("stop\t") else None
             elif line.startswith("/"):
                 question(types, line)
 
@@ -438,6 +468,7 @@ def main():
         f.write("%d\n" % os.getpid())
     fd = os.open(os.path.join(STATE, "in"), os.O_RDWR)
     server = None
+    waiting = None
     try:
         server = Server()
         ready = server.start()
@@ -445,23 +476,33 @@ def main():
             f.write(ready + "\n")
         log("started", ready, "for", ROOT)
         started("ready " + ready)
-        serve(server, Types(server), fd)
+        waiting = serve(server, Types(server), fd)
     except Exception as e:  # noqa: BLE001 - the starter reports it
         log("failed", repr(e))
         started("failed %s: %s" % (type(e).__name__, e))
     finally:
-        for name in ("ready", "pid", "in"):
-            try:
-                os.unlink(os.path.join(STATE, name))
-            except OSError:
-                pass
+        if not orphaned(fd):
+            for name in ("ready", "pid", "in"):
+                try:
+                    os.unlink(os.path.join(STATE, name))
+                except OSError:
+                    pass
         if server:
+            server.stopping = True
             try:
                 server.request("shutdown", None)
                 server.notify("exit", None)
             except OSError:
                 pass
             server.proc.terminate()
+            try:
+                server.proc.wait(5)
+            except subprocess.TimeoutExpired:
+                server.proc.kill()
+        if waiting:
+            reply(waiting, [])
+        # no interpreter finalization: the reader thread may still hold the server's pipe
+        os._exit(0)
 
 
 main()
