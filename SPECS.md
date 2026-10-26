@@ -1072,6 +1072,14 @@ Detected by `**/kustomization.yaml`, `**/kustomization.yml` or `**/Kustomization
 |---|---|
 | `kubernetes/kustomize/no-deprecated-fields` | `ast-grep` forbid on `kustomization.y*ml`: a top-level `bases`, `patchesStrategicMerge`, `patchesJson6902`, `commonLabels`, `imageTags`, `vars` or `helmChartInflationGenerator` key |
 
+### pre-commit
+
+Detected by `.pre-commit-config.yaml`.
+
+| Rule | Targets |
+|---|---|
+| `pre-commit/pinned-revs` | `grep` forbid on `.pre-commit-config.yaml`: a `rev:` of `main`, `master`, `HEAD`, `trunk`, `develop` or `latest` |
+
 ### 13.1 Migration linting
 
 `migration-lint` checks run [Squawk](https://squawkhq.com) (`squawk-cli`, pinned, through `bunx` or `uvx`, like ast-grep) on migration SQL and fail only on the changes that break the running version of the application during a deploy: `renaming-column`, `renaming-table`, `changing-column-type`, `adding-required-field`, `adding-not-nullable-field`, `ban-drop-database`. Squawk's other advice (lock and statement timeouts, `IF NOT EXISTS`, `CONCURRENTLY`, column types) is not enforced: Prisma and Alembic generate SQL that triggers it on every migration. Findings are printed `file:line:column` (from 1). When Squawk cannot run (offline, no `bunx` or `uvx`) or Alembic cannot render a revision, the check prints `forge:<id> skipped: …` and does not block. In CI (`--all`) only the newest migration is linted, so an accepted rename does not fail every later run.
