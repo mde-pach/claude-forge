@@ -1,0 +1,66 @@
+id: typescript/better-auth/trusted-origins
+description: "trustedOrigins in betterAuth({...}) has no \"*\" entry and is not a function returning the request's own Origin header (alone, or with a ?? / || fallback): it is the CSRF and redirect allowlist."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: pair
+      all:
+        - has: {field: key, regex: "^[\"']?trustedOrigins[\"']?$"}
+        - has:
+            field: value
+            any:
+              - {kind: array, has: {kind: string, regex: "^[\"'`]\\*[\"'`]$"}}
+              # a function returning [request.headers.get("origin")] (or with a fallback)
+              - all:
+                  - any: [{kind: arrow_function}, {kind: function_expression}]
+                  - any:
+                      - has: {field: parameter, pattern: $O}
+                      - has: {field: parameters, has: {nthChild: 1, has: {field: pattern, pattern: $O}}}
+                  - any:
+                      - has: {field: body, kind: array, has: {matches: reflected-origin}}
+                      - has: {field: body, kind: statement_block, has: {stopBy: end, kind: return_statement, has: {kind: array, has: {matches: reflected-origin}}}}
+        - inside:
+            kind: object
+            stopBy: neighbor
+            inside:
+              kind: arguments
+              stopBy: neighbor
+              inside:
+                kind: call_expression
+                stopBy: neighbor
+                all:
+                  - has: {field: function, kind: identifier, pattern: $B}
+                  - inside:
+                      kind: program
+                      stopBy: end
+                      has:
+                        kind: import_statement
+                        all:
+                          - has: {field: source, regex: "^[\"']better-auth[\"']$"}
+                          - has:
+                              stopBy: end
+                              kind: import_specifier
+                              any:
+                                - all: [{has: {field: name, regex: "^betterAuth$"}}, {has: {field: alias, pattern: $B}}]
+                                - all: [{has: {field: name, regex: "^betterAuth$", pattern: $B}}, {not: {has: {field: alias, kind: identifier}}}]
+    utils:
+      # <param>.headers.get("origin") (optional chaining included), alone or with a ?? / || fallback
+      origin-header:
+        kind: call_expression
+        regex: "\\.headers\\.get\\(\\s*[\"'`][Oo]rigin[\"'`]\\s*\\)$"
+        has: {field: function, has: {stopBy: end, kind: identifier, pattern: $O}}
+      reflected-origin:
+        any:
+          - matches: origin-header
+          - {kind: binary_expression, regex: "(\\?\\?|\\|\\|)", has: {nthChild: 1, matches: origin-header}}
+examples:
+  match:
+    - "import { betterAuth } from \"better-auth\";\n\nexport const auth = betterAuth({ trustedOrigins: [\"https://app.example.com\", \"*\"] });\n"
+    - "import { betterAuth } from \"better-auth\";\n\nexport const auth = betterAuth({ trustedOrigins: (request) => [request?.headers.get(\"origin\") ?? \"\"] });\n"
+    - "import { betterAuth } from \"better-auth\";\n\nexport const auth = betterAuth({\n  trustedOrigins: async (req) => {\n    return [req!.headers.get(\"origin\")];\n  },\n});\n"
+  no_match:
+    - "import { betterAuth } from \"better-auth\";\n\nexport const auth = betterAuth({ trustedOrigins: [\"https://app.example.com\", \"https://*.example.com\"] });\n"
+    - "import { betterAuth } from \"better-auth\";\n\nconst ALLOWED = [\"https://app.example.com\"];\nexport const auth = betterAuth({ trustedOrigins: (request) => ALLOWED.filter((o) => o === request?.headers.get(\"origin\")) });\n"
+    - "import { cors } from \"./cors\";\n\nexport const c = cors({ trustedOrigins: [\"*\"] });\n"

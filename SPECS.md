@@ -1118,6 +1118,17 @@ context.md: `SCAN` iterators instead of `KEYS`.
 
 context.md: `verify` with an algorithm list, expiry kept; `decode` is not trust.
 
+### typescript/better-auth
+
+`betterAuth` is the binding imported from `better-auth` (aliases included).
+
+| Rule | Targets |
+|---|---|
+| `typescript/better-auth/no-csrf-disable` | `ast-grep` forbid: `disableCSRFCheck: true` or `useSecureCookies: false` anywhere in `betterAuth(…)`'s arguments |
+| `typescript/better-auth/trusted-origins` | `ast-grep` forbid: `trustedOrigins` in `betterAuth({…})` that is an array holding `"*"`, or a function whose returned array holds its first parameter's `.headers.get("origin")` (alone or with a `??` / `\|\|` fallback) |
+
+context.md: CSRF checks and Secure cookies on; real trusted origins.
+
 ### github-actions
 
 Detected by `.github/workflows/*.yml` or `*.yaml`.
