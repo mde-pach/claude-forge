@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { appendFileSync, chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 
@@ -41,6 +41,19 @@ resolveShims();
 /** The hooks' state directory for <repo> (lib.sh forge_state_of): $FORGE_STATE_HOME/<sha256 of its physical path, 16 hex>. */
 export function stateDir(repo: string): string {
   return join(process.env.FORGE_STATE_HOME as string, createHash("sha256").update(realpathSync(repo)).digest("hex").slice(0, 16));
+}
+
+/**
+ * For a test that measures time (a latency budget) and needs a quiet machine: true while
+ * the parallel runner (tests/run.ts, FORGE_TEST_PHASE=parallel) runs the suite many
+ * processes at a time; the test is then skipped (test.skipIf), and <file> recorded in
+ * $FORGE_TEST_QUIET_LIST so that the runner runs that file's skipped tests again
+ * afterwards, alone. False in any other run (bun test <file>).
+ */
+export function othersRunning(file: string): boolean {
+  if (process.env.FORGE_TEST_PHASE !== "parallel" || !process.env.FORGE_TEST_QUIET_LIST) return false;
+  appendFileSync(process.env.FORGE_TEST_QUIET_LIST, `${file}\n`);
+  return true;
 }
 
 export interface Result {
