@@ -903,8 +903,9 @@ context.md: `.input(<schema>)` and what is rejected; `TRPCError` with a `code` i
 |---|---|
 | `typescript/hono/validate-input` | `ast-grep` forbid, in files importing `hono`, `hono/*` or `@hono/*`: `.json()`, `.parseBody()`, `.formData()`, `.query()`, `.queries()` on `$C.req` or on a `req` destructured from the handler's parameter (`({ req })`, `({ req: r })`), unless the call (or its `await`) is passed straight to `X.parse` / `safeParse` / `parseAsync` / `safeParseAsync` (not on `JSON`, `Date`, …) or as the second argument of `parse(Schema, …)` / `v.parse(…)`; `c.req.param()` is not checked |
 | `typescript/hono/cors-credentials-wildcard` | `ast-grep` forbid: `cors({…})` with `credentials: true` and `origin: "*"` or an `origin` function that returns its first parameter (as its body, with a `??` / `||` fallback, or in a `return`) |
+| `typescript/hono/no-raw-interpolation` | `ast-grep` forbid: a call of `raw` imported from `hono/html` (aliases included) whose argument is a template with `${}`, a `+` concatenation or a variable declared from one (the `drizzle/no-sql-raw` matcher) |
 
-context.md: `zValidator` / `validator()` middleware and `c.req.valid()`; which raw reads are rejected; `cors()` with credentials names its origins.
+context.md: `zValidator` / `validator()` middleware and `c.req.valid()`; which raw reads are rejected; `cors()` with credentials names its origins; `raw()` is not built from templates.
 
 ### typescript/react-router
 
