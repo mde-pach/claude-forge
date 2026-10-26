@@ -830,6 +830,14 @@ Detected by `turbo.json`.
 
 context.md: `tasks`, strict env mode, every env var read is declared in `env` or `globalEnv`.
 
+### typescript/jest
+
+Detected by the `jest` dependency at 30 or later.
+
+| Rule | Targets |
+|---|---|
+| `typescript/jest/no-test-path-pattern` | `grep` forbid in `package.json`: `--testPathPattern` (Jest 30: `--testPathPatterns`); `guard` deny: a `jest` command with it |
+
 ### typescript/nextjs
 
 | Rule | Targets |
