@@ -1046,57 +1046,6 @@ forge_hadolint() {
     END { exit bad }' "$FORGE_TMP/hadolint.out"
 }
 
-# ---- pinned release binaries (§13.5): tools with no PyPI or npm distribution, run from
-# their GitHub release, pinned by version and by each platform's sha256.
-# "<name> <version> <platform> <url> <sha256>" per line; platform = `uname -s`-`uname -m`.
-FORGE_RELEASES='@@RELEASES@@'
-
-# forge_release_bin <name>: prints the path of the pinned <name> binary. The first use on a
-# machine downloads the release asset (curl or wget; in check.sh, outside the Bash
-# sandbox), checks its sha256, unpacks the binary (.tar.gz, .zip, or the asset itself) and
-# keeps it in ${XDG_CACHE_HOME:-~/.cache}/forge/bin/<name>-<version>-<platform>/<name>.
-# Fails, printing why (one line), when the platform has no pinned asset, the download
-# fails (offline) or the asset does not match its sha256: the caller reports the check
-# skipped, never passed.
-forge_release_bin() {
-  _rb_plat=$(uname -s)-$(uname -m)
-  _rb_row=$(printf '%s\n' "$FORGE_RELEASES" | awk -v n="$1" -v p="$_rb_plat" '$1 == n && $3 == p { print $2 " " $4 " " $5; exit }')
-  if [ -z "$_rb_row" ]; then printf 'no pinned %s release binary for %s' "$1" "$_rb_plat"; return 1; fi
-  _rb_ver=${_rb_row%% *}; _rb_url=${_rb_row#* }; _rb_sha=${_rb_url#* }; _rb_url=${_rb_url%% *}
-  _rb_dir=${XDG_CACHE_HOME:-$HOME/.cache}/forge/bin/$1-$_rb_ver-$_rb_plat
-  if [ -f "$_rb_dir/$1" ] && [ -x "$_rb_dir/$1" ]; then printf '%s' "$_rb_dir/$1"; return 0; fi
-  mkdir -p "$_rb_dir" 2>/dev/null && _rb_tmp=$(mktemp -d "$_rb_dir/.fetch.XXXXXX" 2>/dev/null) \
-    || { printf 'cannot write the cache directory %s' "$_rb_dir"; return 1; }
-  if command -v curl >/dev/null 2>&1; then curl -fsSL --retry 2 --connect-timeout 15 -o "$_rb_tmp/asset" "$_rb_url" 2>/dev/null
-  elif command -v wget >/dev/null 2>&1; then wget -q -T 15 -O "$_rb_tmp/asset" "$_rb_url" 2>/dev/null
-  else rm -rf "$_rb_tmp"; printf 'curl or wget is needed to fetch %s %s' "$1" "$_rb_ver"; return 1
-  fi || { rm -rf "$_rb_tmp"; printf 'could not download %s %s (offline?)' "$1" "$_rb_ver"; return 1; }
-  _rb_have=$(forge_sha256 < "$_rb_tmp/asset")
-  if [ "$_rb_have" != "$_rb_sha" ]; then
-    rm -rf "$_rb_tmp"; printf 'the downloaded %s %s does not match its pinned sha256 (got %s)' "$1" "$_rb_ver" "$_rb_have"; return 1
-  fi
-  case $_rb_url in
-    *.tar.gz|*.tgz) ( cd "$_rb_tmp" && tar -xzf asset "$1" ) >/dev/null 2>&1 ;;
-    *.zip)
-      if ! command -v unzip >/dev/null 2>&1; then rm -rf "$_rb_tmp"; printf 'unzip is needed to unpack %s %s' "$1" "$_rb_ver"; return 1; fi
-      ( cd "$_rb_tmp" && unzip -q -o asset "$1" ) >/dev/null 2>&1 ;;
-    *) mv "$_rb_tmp/asset" "$_rb_tmp/$1" ;;
-  esac
-  if [ ! -f "$_rb_tmp/$1" ] || ! chmod 755 "$_rb_tmp/$1" || ! mv -f "$_rb_tmp/$1" "$_rb_dir/$1"; then
-    rm -rf "$_rb_tmp"; printf 'could not unpack %s %s' "$1" "$_rb_ver"; return 1
-  fi
-  rm -rf "$_rb_tmp"
-  printf '%s' "$_rb_dir/$1"
-}
-
-# forge_release <name> <var>: sets <var> to the pinned binary's path; when it cannot be had,
-# prints "forge:<id> skipped: <why>" for the current check and fails.
-forge_release() {
-  if _rl_bin=$(forge_release_bin "$1"); then eval "$2=\$_rl_bin"; return 0; fi
-  printf 'forge:%s skipped: %s\n' "$c_id" "$_rl_bin"
-  return 1
-}
-
 # forge_dockerfile_records <file>: one "line<TAB>instruction" per instruction,
 # continuation lines joined, comments dropped.
 forge_dockerfile_records() {
@@ -1232,6 +1181,535 @@ forge_docker_ignore() {
     fi
   done < "$FORGE_TMP/dockerfiles"
   return "$_di_rc"
+}
+
+# ---- pinned release binaries (§13.5): tools with no PyPI or npm distribution, run from
+# their GitHub release, pinned by version and by each platform's sha256.
+# "<name> <version> <platform> <url> <sha256>" per line; platform = `uname -s`-`uname -m`.
+FORGE_RELEASES='@@RELEASES@@'
+
+# forge_release_bin <name>: prints the path of the pinned <name> binary. The first use on a
+# machine downloads the release asset (curl or wget; in check.sh, outside the Bash
+# sandbox), checks its sha256, unpacks the binary (.tar.gz, .zip, or the asset itself) and
+# keeps it in ${XDG_CACHE_HOME:-~/.cache}/forge/bin/<name>-<version>-<platform>/<name>.
+# Fails, printing why (one line), when the platform has no pinned asset, the download
+# fails (offline) or the asset does not match its sha256: the caller reports the check
+# skipped, never passed.
+forge_release_bin() {
+  _rb_plat=$(uname -s)-$(uname -m)
+  _rb_row=$(printf '%s\n' "$FORGE_RELEASES" | awk -v n="$1" -v p="$_rb_plat" '$1 == n && $3 == p { print $2 " " $4 " " $5; exit }')
+  if [ -z "$_rb_row" ]; then printf 'no pinned %s release binary for %s' "$1" "$_rb_plat"; return 1; fi
+  _rb_ver=${_rb_row%% *}; _rb_url=${_rb_row#* }; _rb_sha=${_rb_url#* }; _rb_url=${_rb_url%% *}
+  _rb_dir=${XDG_CACHE_HOME:-$HOME/.cache}/forge/bin/$1-$_rb_ver-$_rb_plat
+  if [ -f "$_rb_dir/$1" ] && [ -x "$_rb_dir/$1" ]; then printf '%s' "$_rb_dir/$1"; return 0; fi
+  mkdir -p "$_rb_dir" 2>/dev/null && _rb_tmp=$(mktemp -d "$_rb_dir/.fetch.XXXXXX" 2>/dev/null) \
+    || { printf 'cannot write the cache directory %s' "$_rb_dir"; return 1; }
+  if command -v curl >/dev/null 2>&1; then curl -fsSL --retry 2 --connect-timeout 15 -o "$_rb_tmp/asset" "$_rb_url" 2>/dev/null
+  elif command -v wget >/dev/null 2>&1; then wget -q -T 15 -O "$_rb_tmp/asset" "$_rb_url" 2>/dev/null
+  else rm -rf "$_rb_tmp"; printf 'curl or wget is needed to fetch %s %s' "$1" "$_rb_ver"; return 1
+  fi || { rm -rf "$_rb_tmp"; printf 'could not download %s %s (offline?)' "$1" "$_rb_ver"; return 1; }
+  _rb_have=$(forge_sha256 < "$_rb_tmp/asset")
+  if [ "$_rb_have" != "$_rb_sha" ]; then
+    rm -rf "$_rb_tmp"; printf 'the downloaded %s %s does not match its pinned sha256 (got %s)' "$1" "$_rb_ver" "$_rb_have"; return 1
+  fi
+  case $_rb_url in
+    *.tar.gz|*.tgz) ( cd "$_rb_tmp" && tar -xzf asset "$1" ) >/dev/null 2>&1 ;;
+    *.zip)
+      if ! command -v unzip >/dev/null 2>&1; then rm -rf "$_rb_tmp"; printf 'unzip is needed to unpack %s %s' "$1" "$_rb_ver"; return 1; fi
+      ( cd "$_rb_tmp" && unzip -q -o asset "$1" ) >/dev/null 2>&1 ;;
+    *) mv "$_rb_tmp/asset" "$_rb_tmp/$1" ;;
+  esac
+  if [ ! -f "$_rb_tmp/$1" ] || ! chmod 755 "$_rb_tmp/$1" || ! mv -f "$_rb_tmp/$1" "$_rb_dir/$1"; then
+    rm -rf "$_rb_tmp"; printf 'could not unpack %s %s' "$1" "$_rb_ver"; return 1
+  fi
+  rm -rf "$_rb_tmp"
+  printf '%s' "$_rb_dir/$1"
+}
+
+# forge_release <name> <var>: sets <var> to the pinned binary's path; when it cannot be had,
+# prints "forge:<id> skipped: <why>" for the current check and fails.
+forge_release() {
+  if _rl_bin=$(forge_release_bin "$1"); then eval "$2=\$_rl_bin"; return 0; fi
+  printf 'forge:%s skipped: %s\n' "$c_id" "$_rl_bin"
+  return 1
+}
+
+# forge_scope_files: $FORGE_FILES, else (--all) every tracked file that exists, one per line.
+forge_scope_files() {
+  if [ -n "$FORGE_FILES" ]; then printf '%s\n' "$FORGE_FILES"
+  else git ls-files 2>/dev/null | while IFS= read -r _sf_f; do [ -f "$_sf_f" ] && printf '%s\n' "$_sf_f"; done
+  fi
+}
+
+# ---- secrets (secrets/*)
+
+# Forge's gitleaks config: gitleaks' default rules without generic-api-key (it decides on
+# identifier names and entropy), plus vendor key formats the defaults lack.
+FORGE_GITLEAKS_CONFIG='title = "forge"
+
+[extend]
+useDefault = true
+disabledRules = ["generic-api-key"]
+
+[[rules]]
+id = "langsmith-api-key"
+description = "LangSmith API key"
+regex = "\\blsv2_(?:pt|sk)_[a-f0-9]{32}_[a-f0-9]{10}\\b"
+keywords = ["lsv2_"]
+
+[[rules]]
+id = "pinecone-api-key"
+description = "Pinecone API key"
+regex = "\\bpcsk_[A-Za-z0-9_]{40,}\\b"
+keywords = ["pcsk_"]'
+
+# forge_gitleaks: "path:line rule: description" for each secret the pinned gitleaks finds in
+# the in-scope files (forge_scope_files), scanned as copies with Forge's config only: the
+# project's .gitleaks.toml, GITLEAKS_CONFIG, .gitleaksignore and inline gitleaks:allow
+# comments do not apply. Secrets are redacted; findings count on added lines (lint).
+forge_gitleaks() {
+  forge_release gitleaks _gl_bin || return 0
+  _gl=$FORGE_TMP/gitleaks
+  rm -rf "$_gl"
+  mkdir -p "$_gl/scan" "$_gl/ignore" || return 1
+  forge_scope_files > "$_gl/files"
+  [ -s "$_gl/files" ] || return 0
+  tar -cf - -T "$_gl/files" 2>/dev/null | ( cd "$_gl/scan" && tar -xf - 2>/dev/null )
+  printf '%s\n' "$FORGE_GITLEAKS_CONFIG" > "$_gl/config.toml"
+  printf '{{range .}}{{.File}}:{{.StartLine}} {{.RuleID}}: {{.Description}}\n{{end}}' > "$_gl/report.tmpl"
+  if ! ( cd "$_gl/scan" && "$_gl_bin" dir --no-banner --no-color --redact -l error -c "$_gl/config.toml" -i "$_gl/ignore" --ignore-gitleaks-allow \
+      --exit-code 0 --report-format template --report-template "$_gl/report.tmpl" --report-path "$_gl/report" . ) > "$_gl/err" 2>&1; then
+    printf 'forge:%s skipped: gitleaks could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$_gl/err" | tail -n 1)"
+    return 0
+  fi
+  sed 's|^\./||' "$_gl/report" | sort -u > "$_gl/found"
+  [ -s "$_gl/found" ] || return 0
+  cat "$_gl/found"
+  return 1
+}
+
+# Credential containers: keystores and private keys by their file type, and the auth files
+# of pip, netrc and git (secrets/no-credential-files).
+FORGE_CREDENTIAL_FILES='(^|/)([^/]+\.(p12|pfx|jks|keystore|key)|id_(rsa|ecdsa|ed25519)|\.pypirc|\.netrc|\.git-credentials)$'
+
+# forge_credential_files: "path:0 …" for each tracked or added credential container file,
+# and "path:line …" for each .npmrc line giving _authToken, _auth or _password a literal
+# value (a ${VAR} reference is fine); lint attribution keeps those of the change.
+forge_credential_files() {
+  _cf_rc=0
+  { git ls-files 2>/dev/null; cat "$FORGE_TMP/existing"; } | sort -u > "$FORGE_TMP/cred.files"
+  while IFS= read -r _cf_f; do
+    [ -f "$_cf_f" ] || continue
+    if printf '%s\n' "$_cf_f" | grep -qE "$FORGE_CREDENTIAL_FILES"; then
+      printf '%s:0 is a credential file; keep it out of the repository (git rm --cached, .gitignore) and load it from a secret store\n' "$_cf_f"; _cf_rc=1
+    fi
+    case $_cf_f in
+      .npmrc|*/.npmrc)
+        grep -nE '(_authToken|_auth|_password)[[:space:]]*=[[:space:]]*[^$[:space:]]' "$_cf_f" 2>/dev/null \
+          | awk -v f="$_cf_f" -F ':' '{ print f ":" $1 " sets a registry credential literally; use ${NPM_TOKEN}-style environment references"; bad = 1 } END { exit bad }' || _cf_rc=1 ;;
+    esac
+  done < "$FORGE_TMP/cred.files"
+  return "$_cf_rc"
+}
+
+# ---- git hygiene (git/*)
+
+# forge_large_files <bytes>: each in-scope file (forge_scope_files) larger than <bytes> that is
+# new or grew in the change, and that Git LFS does not store (its filter attribute is not lfs).
+forge_large_files() {
+  _lg_max=$1
+  _lg_rc=0
+  forge_scope_files > "$FORGE_TMP/large.files"
+  while IFS= read -r _lg_f; do
+    [ -f "$_lg_f" ] || continue
+    _lg_n=$(wc -c < "$_lg_f" | tr -d ' ')
+    [ "$_lg_n" -gt "$_lg_max" ] || continue
+    if [ -f "$FORGE_TMP/base/$_lg_f" ] && [ "$(wc -c < "$FORGE_TMP/base/$_lg_f" | tr -d ' ')" -ge "$_lg_n" ]; then continue; fi
+    [ "$(git check-attr filter -- "$_lg_f" 2>/dev/null | sed 's/^.*: filter: //')" = lfs ] && continue
+    printf '%s:0 is %s KiB, over the %s KiB limit, and Git LFS does not store it: keep it out of the repository or track it with git lfs track\n' "$_lg_f" "$((_lg_n / 1024))" "$((_lg_max / 1024))"
+    _lg_rc=1
+  done < "$FORGE_TMP/large.files"
+  return "$_lg_rc"
+}
+
+# forge_generated_edits: each changed in-scope file ($FORGE_FILES) marked generated:
+# linguist-generated in .gitattributes (git check-attr), or "@generated" or "Code generated …
+# DO NOT EDIT." in its first 15 lines. Run as advice (forge_advise): a regeneration changes it too.
+forge_generated_edits() {
+  printf '%s\n' "$FORGE_FILES" | while IFS= read -r _ge_f; do
+    [ -f "$_ge_f" ] || continue
+    if [ "$(git check-attr linguist-generated -- "$_ge_f" 2>/dev/null | sed 's/^.*: linguist-generated: //')" = true ]; then _ge_why='.gitattributes marks it linguist-generated'
+    elif head -n 15 "$_ge_f" | grep -qE '@generated|Code generated .* DO NOT EDIT\.'; then _ge_why='its header says it is generated'
+    else continue
+    fi
+    printf '%s is generated (%s): change its source or generator and regenerate it, rather than editing it by hand\n' "$_ge_f" "$_ge_why"
+  done
+}
+
+# forge_unformatted <list>: the paths of <list> that no format check of this setup covers
+# (a formatter owns the others), one per line.
+forge_unformatted() {
+  ( _uf_i=1
+    while [ "$_uf_i" -le "$FORGE_NCHECKS" ]; do
+      forge_check_meta_"$_uf_i"
+      [ "$c_stage" = format ] && forge_filter "forge_scope_$_uf_i" < "$1"
+      _uf_i=$((_uf_i + 1))
+    done ) | sort -u > "$FORGE_TMP/formatted"
+  grep -vxF -f "$FORGE_TMP/formatted" "$1"
+  return 0
+}
+
+# forge_editorconfig: when the repository has an .editorconfig, the pinned editorconfig-checker
+# on the in-scope files (forge_scope_files) no format check formats, with a config of Forge's
+# own (the project's .editorconfig-checker.json excludes and disables do not apply);
+# "path:line:column: message" per violation.
+forge_editorconfig() {
+  [ -f .editorconfig ] || return 0
+  forge_scope_files > "$FORGE_TMP/ec.scope"
+  forge_unformatted "$FORGE_TMP/ec.scope" > "$FORGE_TMP/ec.files"
+  [ -s "$FORGE_TMP/ec.files" ] || return 0
+  forge_release editorconfig-checker _ec_bin || return 0
+  printf '{}\n' > "$FORGE_TMP/ec.json"
+  set -f
+  # shellcheck disable=SC2046
+  "$_ec_bin" -config "$FORGE_TMP/ec.json" -no-color -format gcc $(cat "$FORGE_TMP/ec.files") > "$FORGE_TMP/ec.out" 2>&1
+  _ec_rc=$?
+  set +f
+  case $_ec_rc in 0) return 0 ;; 1) ;; *) printf 'forge:%s skipped: editorconfig-checker could not run (%s)\n' "$c_id" "$(tail -n 1 "$FORGE_TMP/ec.out")"; return 0 ;; esac
+  grep -E '^[^[:space:]:]+:[0-9]+:[0-9]+: ' "$FORGE_TMP/ec.out" | sed 's/: error: /: /'
+  return 1
+}
+
+# ---- dependency vulnerabilities (supply-chain/vuln-audit)
+
+# forge_osv: for each in-scope lock file of the change ($FORGE_FILES), the pinned osv-scanner
+# (one backend for every ecosystem; an empty config of Forge's, so osv-scanner.toml
+# [[IgnoredVulns]] do not apply) on it and on its base copy: "path:0 package@version id …" for
+# each vulnerability (package, version, advisory) it has now and the base did not. Needs
+# api.osv.dev: unreachable, it is reported skipped. Not with --all (no base to compare).
+forge_osv() {
+  [ "$mode" != --all ] || return 0
+  [ -n "$FORGE_FILES" ] || return 0
+  forge_release osv-scanner _ov_bin || return 0
+  : > "$FORGE_TMP/osv.toml"
+  _ov_rc=0
+  printf '%s\n' "$FORGE_FILES" > "$FORGE_TMP/osv.files"
+  while IFS= read -r _ov_f; do
+    case $_ov_f in
+      *.lockb) printf 'forge:%s skipped: %s is binary; osv-scanner reads bun.lock (bun install --save-text-lockfile)\n' "$c_id" "$_ov_f"; continue ;;
+    esac
+    forge_osv_scan "$_ov_f" > "$FORGE_TMP/osv.now" || { printf 'forge:%s skipped: osv-scanner could not scan %s (%s)\n' "$c_id" "$_ov_f" "$(cat "$FORGE_TMP/osv.why")"; continue; }
+    : > "$FORGE_TMP/osv.then"
+    if [ -f "$FORGE_TMP/base/$_ov_f" ]; then
+      ( cd "$FORGE_TMP/base" && forge_osv_scan "$_ov_f" ) > "$FORGE_TMP/osv.then" || { printf 'forge:%s skipped: osv-scanner could not scan the base %s (%s)\n' "$c_id" "$_ov_f" "$(cat "$FORGE_TMP/osv.why")"; continue; }
+    fi
+    awk -F '\t' -v f="$_ov_f" 'FILENAME == ARGV[1] { old[$1 "\t" $2 "\t" $3] = 1; next }
+      !(($1 "\t" $2 "\t" $3) in old) { printf "%s:0 %s@%s has a known vulnerability, %s (fixed in %s); use a fixed version\n", f, $1, $2, $3, ($4 == "" ? "no release yet" : $4); bad = 1 }
+      END { exit bad }' "$FORGE_TMP/osv.then" "$FORGE_TMP/osv.now" || _ov_rc=1
+  done < "$FORGE_TMP/osv.files"
+  return "$_ov_rc"
+}
+
+# forge_osv_scan <lock>: "package<TAB>version<TAB>advisory id<TAB>fixed version" for each
+# vulnerability osv-scanner reports on <lock> (from the current directory), sorted; fails
+# with the reason in $FORGE_TMP/osv.why when it cannot scan (offline: exit 127).
+forge_osv_scan() {
+  case ${1##*/} in requirements*.txt) set -- "requirements.txt:$1" ;; esac
+  "$_ov_bin" scan source --config "$FORGE_TMP/osv.toml" --format markdown -L "$1" > "$FORGE_TMP/osv.md" 2> "$FORGE_TMP/osv.err"
+  case $? in
+    0|1) ;;
+    *) grep -v '^[[:space:]]*$' "$FORGE_TMP/osv.err" | tail -n 1 > "$FORGE_TMP/osv.why"; return 1 ;;
+  esac
+  # | https://osv.dev/<id>[<br/>…] | CVSS | Ecosystem | Package | Version | Fixed Version | Source |
+  awk -F '|' '$2 ~ /https:\/\/osv\.dev\// {
+      id = $2; sub(/^[[:space:]]*https:\/\/osv\.dev\//, "", id); sub(/<br\/>.*$/, "", id); sub(/[[:space:]]+$/, "", id)
+      for (i = 5; i <= 7; i++) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", $i) }
+      fixed = $7; if (fixed == "--") fixed = ""
+      print $5 "\t" $6 "\t" id "\t" fixed
+    }' "$FORGE_TMP/osv.md" | sort -u
+}
+
+# ---- OpenAPI (openapi/no-breaking)
+
+# forge_oasdiff: each OpenAPI document of the repository (forge_openapi_spec) that existed at the
+# base, compared by the pinned oasdiff with its base version: "error at <path>, in API … [id]."
+# for each breaking change (level ERR). The base side is a copy of the repository's YAML and
+# JSON files as they were, so multi-file $refs resolve. A line recorded in forge.yaml (accept:
+# change) is accepted. Not with --all (no base to compare).
+forge_oasdiff() {
+  [ "$mode" != --all ] || return 0
+  git ls-files --cached --others --exclude-standard -- '*.yaml' '*.yml' '*.json' 2>/dev/null > "$FORGE_TMP/oas.all"
+  forge_filter forge_openapi_spec < "$FORGE_TMP/oas.all" > "$FORGE_TMP/oas.roots"
+  [ -s "$FORGE_TMP/oas.roots" ] || return 0
+  forge_release oasdiff _oa_bin || return 0
+  _oa_base=$FORGE_TMP/oas-base
+  rm -rf "$_oa_base"; mkdir -p "$_oa_base"
+  tar -cf - -T "$FORGE_TMP/oas.all" 2>/dev/null | ( cd "$_oa_base" && tar -xf - 2>/dev/null )
+  while IFS= read -r _oa_f; do
+    rm -f "$_oa_base/$_oa_f"
+    if [ -f "$FORGE_TMP/base/$_oa_f" ]; then mkdir -p "$_oa_base/$(dirname "$_oa_f")" && cp "$FORGE_TMP/base/$_oa_f" "$_oa_base/$_oa_f"; fi
+  done < "$FORGE_TMP/changed"
+  : > "$FORGE_TMP/oas.out"
+  while IFS= read -r _oa_f; do
+    [ -f "$_oa_base/$_oa_f" ] || continue
+    "$_oa_bin" breaking "$_oa_base/$_oa_f" "$_oa_f" --fail-on ERR --format singleline > "$FORGE_TMP/oas.one" 2>&1
+    case $? in
+      0|1) ;;
+      *) printf 'forge:%s skipped: oasdiff could not compare %s (%s)\n' "$c_id" "$_oa_f" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/oas.one" | tail -n 1)"; continue ;;
+    esac
+    grep '^error at ' "$FORGE_TMP/oas.one" | sed "s|$_oa_base/||g; s/[[:space:]]*\$//" >> "$FORGE_TMP/oas.out"
+  done < "$FORGE_TMP/oas.roots"
+  _oa_rc=0
+  while IFS= read -r _oa_l; do
+    [ -f forge.yaml ] && grep -qF -- "$_oa_l" forge.yaml && continue
+    printf '%s\n' "$_oa_l"; _oa_rc=1
+  done < "$FORGE_TMP/oas.out"
+  [ "$_oa_rc" = 0 ] || printf 'Restore what clients rely on, or have the user accept the break in forge.yaml: accept: [{rule: %s, change: "<line above>", reason: "..."}]\n' "$c_id"
+  return "$_oa_rc"
+}
+
+# ---- Kubernetes (kubernetes/*)
+
+# forge_kube_manifest <path>: a .yaml / .yml whose first document has top-level apiVersion and
+# kind (the kubernetes pack's detection, §5.1), outside a Helm chart's templates/.
+forge_kube_manifest() {
+  case $1 in *.yaml|*.yml) ;; *) return 1 ;; esac
+  case $1 in */templates/*|templates/*) [ -f "${1%%templates/*}Chart.yaml" ] && return 1 ;; esac
+  [ -f "$1" ] && awk '
+    /^(---|\.\.\.)([[:space:]]|$)/ { if (body) exit; next }
+    /^[[:space:]]*(#|$)/ || /^%/ { next }
+    { body = 1 }
+    /^apiVersion:/ { a = 1 } /^kind:/ { k = 1 }
+    END { exit !(a && k) }' "$1"
+}
+
+# forge_kube_linter [--no-new-ignores] <check>...: the pinned kube-linter with only the named
+# checks (a config of Forge's own: the project's .kube-linter.yaml does not apply) on the changed
+# manifests (forge_kube_manifest; every one with --all), each linted with the manifests of its
+# directory (dangling-service and mismatching-selector need the objects next to it). Prints
+# "path:0 check: message (object)" for the changed files. --no-new-ignores: a changed manifest
+# also may not gain ignore-check.kube-linter.io annotations (kube-linter cannot be told to
+# disregard them).
+forge_kube_linter() {
+  _kl_ign=0
+  [ "$1" = --no-new-ignores ] && { _kl_ign=1; shift; }
+  forge_scope_files | forge_filter forge_kube_manifest > "$FORGE_TMP/kl.changed"
+  [ -s "$FORGE_TMP/kl.changed" ] || return 0
+  _kl_rc=0
+  if [ "$_kl_ign" = 1 ]; then
+    while IFS= read -r _kl_f; do
+      _kl_now=$(grep -c 'ignore-check\.kube-linter\.io/' "$_kl_f")
+      _kl_then=0
+      [ -f "$FORGE_TMP/base/$_kl_f" ] && _kl_then=$(grep -c 'ignore-check\.kube-linter\.io/' "$FORGE_TMP/base/$_kl_f")
+      if [ "$_kl_now" -gt "$_kl_then" ]; then
+        printf '%s:0 adds ignore-check.kube-linter.io annotations (%s -> %s); fix the manifest instead of silencing the check\n' "$_kl_f" "$_kl_then" "$_kl_now"; _kl_rc=1
+      fi
+    done < "$FORGE_TMP/kl.changed"
+  fi
+  forge_release kube-linter _kl_bin || return "$_kl_rc"
+  awk '{ d = $0; if (sub(/\/[^\/]*$/, "", d) == 0) d = "."; print d }' "$FORGE_TMP/kl.changed" | sort -u > "$FORGE_TMP/kl.dirs"
+  while IFS= read -r _kl_d; do
+    for _kl_f in "$_kl_d"/*.yaml "$_kl_d"/*.yml; do
+      _kl_f=${_kl_f#./}
+      forge_kube_manifest "$_kl_f" && printf '%s\n' "$_kl_f"
+    done
+  done < "$FORGE_TMP/kl.dirs" | sort -u > "$FORGE_TMP/kl.files"
+  { printf 'checks:\n  doNotAutoAddDefaults: true\n  include:\n'; for _kl_c in "$@"; do printf '    - %s\n' "$_kl_c"; done; } > "$FORGE_TMP/kl.yaml"
+  set -f
+  # shellcheck disable=SC2046
+  "$_kl_bin" lint --config "$FORGE_TMP/kl.yaml" --format plain --with-color=false $(cat "$FORGE_TMP/kl.files") > "$FORGE_TMP/kl.out" 2>&1
+  set +f
+  awk -v r1="$(pwd)/" -v r2="$(pwd -P)/" '
+    FILENAME == ARGV[1] { want[$0] = 1; next }
+    match($0, /: \(object: [^)]*\) /) {
+      f = substr($0, 1, RSTART - 1); obj = substr($0, RSTART + 11, RLENGTH - 13); msg = substr($0, RSTART + RLENGTH)
+      if (index(f, r1) == 1) f = substr(f, length(r1) + 1); else if (index(f, r2) == 1) f = substr(f, length(r2) + 1)
+      if (!(f in want)) next
+      check = msg; sub(/^.*\(check: /, "", check); sub(/,.*$/, "", check); sub(/ \(check: .*$/, "", msg)
+      print f ":0 " check ": " msg " (" obj ")"; bad = 1
+    }
+    END { exit bad }' "$FORGE_TMP/kl.changed" "$FORGE_TMP/kl.out" || _kl_rc=1
+  return "$_kl_rc"
+}
+
+# kubeconform's schemas: Kubernetes' own (default) and the CRDs catalog, cached across runs.
+FORGE_KUBECONFORM_CRDS='https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
+
+# forge_kubeconform <label> <file>...: the pinned kubeconform in strict mode (no unknown
+# field) on the files ("-" for stdin), against the schemas of Kubernetes (its newest) and the
+# CRDs catalog. "<label>: <kind> <name>: <message>" per invalid document. A document whose
+# apiVersion has no schema is a finding when its group is one of Kubernetes' own (no group, a
+# group without a dot, or *.k8s.io: a removed apiVersion), else reported skipped; schemas
+# that cannot be downloaded (offline) are reported skipped, never passed.
+forge_kubeconform() {
+  forge_release kubeconform _kc_bin || return 0
+  _kc_label=$1; shift
+  _kc_cache=${XDG_CACHE_HOME:-$HOME/.cache}/forge/kubeconform
+  mkdir -p "$_kc_cache" 2>/dev/null || _kc_cache=$FORGE_TMP
+  "$_kc_bin" -strict -output json -cache "$_kc_cache" -schema-location default -schema-location "$FORGE_KUBECONFORM_CRDS" "$@" > "$FORGE_TMP/kc.json" 2> "$FORGE_TMP/kc.err"
+  awk -v id="$c_id" -v label="$_kc_label" '
+    function flush() {
+      if (status == "statusInvalid") { print label ": " kind " " name ": " msg; bad = 1 }
+      else if (status == "statusError") {
+        g = version; if (g ~ /\//) sub(/\/[^\/]*$/, "", g); else g = ""
+        if (msg ~ /^could not find schema/) {
+          if (g == "" || g !~ /\./ || g ~ /\.k8s\.io$/) { print label ": " kind " " name ": apiVersion " version " is not served by current Kubernetes (no schema); use its current apiVersion"; bad = 1 }
+          else print "forge:" id " skipped: " label ": no schema for " kind " (" version ")"
+        } else if (msg ~ /^failed downloading schema/) print "forge:" id " skipped: " label ": the schema for " kind " could not be downloaded (offline?)"
+        else { print label ": " kind " " name ": " msg; bad = 1 }
+      }
+      status = ""
+    }
+    function val(line,   v) { v = line; sub(/^[^:]*: "/, "", v); sub(/",?$/, "", v); gsub(/\\"/, "\"", v); return v }
+    /^    \{$/ { status = ""; kind = ""; name = ""; version = ""; msg = "" }
+    /^      "kind": / { kind = val($0) } /^      "name": / { name = val($0) } /^      "version": / { version = val($0) }
+    /^      "status": / { status = val($0) } /^      "msg": / { msg = val($0); sub(/^problem validating schema\. Check JSON formatting: jsonschema validation failed with .* - /, "", msg) }
+    /^    \},?$/ { flush() }
+    END { exit bad }' "$FORGE_TMP/kc.json"
+}
+
+# forge_helm: for each Helm chart with changed files (the nearest Chart.yaml above a changed
+# in-scope file; every chart with --all), `helm lint --strict` and its `helm template` output
+# validated by forge_kubeconform. A chart whose dependencies are not built (charts/) is
+# reported skipped (helm dependency build). Findings are the chart's, not attributed to lines.
+forge_helm() {
+  forge_scope_files | while IFS= read -r _hm_f; do
+    _hm_d=$(dirname "$_hm_f")
+    while :; do
+      [ -f "$_hm_d/Chart.yaml" ] && { printf '%s\n' "${_hm_d#./}"; break; }
+      [ "$_hm_d" = . ] && break
+      _hm_d=$(dirname "$_hm_d")
+    done
+  done | sort -u > "$FORGE_TMP/helm.charts"
+  _hm_rc=0
+  while IFS= read -r _hm_c; do
+    command helm lint --strict "$_hm_c" > "$FORGE_TMP/helm.out" 2>&1
+    _hm_lint=$?
+    if grep -q 'chart directory is missing these dependencies' "$FORGE_TMP/helm.out"; then
+      printf 'forge:%s skipped: %s: its dependencies are not built (helm dependency build %s)\n' "$c_id" "$_hm_c" "$_hm_c"; continue
+    fi
+    if [ "$_hm_lint" != 0 ]; then
+      grep -E '^\[(ERROR|WARNING)\]|^Error' "$FORGE_TMP/helm.out" | grep -v '^Error: [0-9]* chart(s) linted' | sed "s|^|$_hm_c: helm lint: |"
+      _hm_rc=1; continue
+    fi
+    if ! command helm template forge "$_hm_c" > "$FORGE_TMP/helm.yaml" 2> "$FORGE_TMP/helm.err"; then
+      printf '%s: helm template: %s\n' "$_hm_c" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/helm.err" | tail -n 1)"; _hm_rc=1; continue
+    fi
+    forge_kubeconform "$_hm_c" "$FORGE_TMP/helm.yaml" || _hm_rc=1
+  done < "$FORGE_TMP/helm.charts"
+  return "$_hm_rc"
+}
+
+# ---- Terraform / OpenTofu (terraform/*)
+
+# forge_tf_dirs: the directories of the in-scope .tf / .tofu files (forge_scope_files), one per line.
+forge_tf_dirs() {
+  forge_scope_files | grep -E '\.(tf|tofu)$' | awk '{ d = $0; if (sub(/\/[^\/]*$/, "", d) == 0) d = "."; print d }' | sort -u
+}
+
+# forge_tf_validate: `validate` in each directory of a changed .tf / .tofu file (every one with
+# --all), with the project's Terraform CLI (forge_terraform): "path:line: Error: summary" per
+# error. A directory validate cannot judge before `init` (providers or modules not installed)
+# is reported skipped: init downloads providers and configures the backend, which a check does not do.
+forge_tf_validate() {
+  _tv_rc=0
+  forge_tf_dirs > "$FORGE_TMP/tf.dirs"
+  while IFS= read -r _tv_d; do
+    forge_terraform -chdir="$_tv_d" validate -no-color > "$FORGE_TMP/tf.out" 2>&1 && continue
+    if grep -qE '(terraform|tofu) init' "$FORGE_TMP/tf.out"; then
+      printf 'forge:%s skipped: %s is not initialised (%s init)\n' "$c_id" "$_tv_d" "$(forge_tf_bin)"; continue
+    fi
+    _tv_rc=1
+    awk -v d="$_tv_d" '
+      function flush() { if (err != "") print (loc != "" ? loc ": " : d ": ") "Error: " err; err = ""; loc = "" }
+      /^Error: / { flush(); err = substr($0, 8); next }
+      err != "" && loc == "" && match($0, /^  on [^ ]+ line [0-9]+/) {
+        n = split(substr($0, 6, RLENGTH - 5), w, " "); loc = (d == "." ? "" : d "/") w[1] ":" w[3]; next
+      }
+      /^Warning: / { flush() }
+      END { flush() }' "$FORGE_TMP/tf.out"
+  done < "$FORGE_TMP/tf.dirs"
+  return "$_tv_rc"
+}
+
+# tflint's provider rulesets, pinned: "<provider> <version>" per line (terraform/tflint).
+FORGE_TFLINT_RULESETS='@@TFLINT_RULESETS@@'
+
+# forge_tflint: the pinned tflint in each directory of a changed .tf / .tofu file (every one
+# with --all), with a config of Forge's own (a project .tflint.hcl cannot disable rules): the
+# terraform ruleset's recommended preset, plus the pinned aws / google / azurerm ruleset when a
+# .terraform.lock.hcl of the repository lists that provider. "path:line:column: message (rule)".
+# Rulesets are installed once (tflint --init, which checks their signatures) under
+# ~/.cache/forge/tflint-plugins; when that fails (offline), the check is reported skipped.
+forge_tflint() {
+  forge_tf_dirs > "$FORGE_TMP/tfl.dirs"
+  [ -s "$FORGE_TMP/tfl.dirs" ] || return 0
+  forge_release tflint _tl_bin || return 0
+  printf 'plugin "terraform" {\n  enabled = true\n  preset  = "recommended"\n}\n' > "$FORGE_TMP/tflint.hcl"
+  git ls-files --cached --others --exclude-standard -- '*.terraform.lock.hcl' 2>/dev/null > "$FORGE_TMP/tfl.locks"
+  printf '%s\n' "$FORGE_TFLINT_RULESETS" | while read -r _tl_p _tl_v; do
+    [ -n "$_tl_p" ] || continue
+    while IFS= read -r _tl_l; do
+      if grep -qE "provider \"registry\.(terraform|opentofu)\.org/hashicorp/$_tl_p\"" "$_tl_l" 2>/dev/null; then
+        printf 'plugin "%s" {\n  enabled = true\n  version = "%s"\n  source  = "github.com/terraform-linters/tflint-ruleset-%s"\n}\n' "$_tl_p" "$_tl_v" "$_tl_p"
+        break
+      fi
+    done < "$FORGE_TMP/tfl.locks"
+  done >> "$FORGE_TMP/tflint.hcl"
+  TFLINT_PLUGIN_DIR=${XDG_CACHE_HOME:-$HOME/.cache}/forge/tflint-plugins
+  export TFLINT_PLUGIN_DIR
+  if grep -q '^  source  = ' "$FORGE_TMP/tflint.hcl"; then
+    "$_tl_bin" --config "$FORGE_TMP/tflint.hcl" --init > "$FORGE_TMP/tfl.init" 2>&1 \
+      || { printf 'forge:%s skipped: tflint could not install its rulesets (offline?): %s\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/tfl.init" | tail -n 1)"; return 0; }
+  fi
+  _tl_rc=0
+  while IFS= read -r _tl_d; do
+    "$_tl_bin" --chdir "$_tl_d" --config "$FORGE_TMP/tflint.hcl" --format compact --force > "$FORGE_TMP/tfl.out" 2>&1
+    # "path:line:col: Severity - message (rule)": every issue counts, whatever tflint's severity
+    grep -E '^[^[:space:]:]+:[0-9]+:[0-9]+: (Error|Warning|Notice) - ' "$FORGE_TMP/tfl.out" | sed -E 's/: (Error|Warning|Notice) - /: /' > "$FORGE_TMP/tfl.found"
+    if [ -s "$FORGE_TMP/tfl.found" ]; then cat "$FORGE_TMP/tfl.found"; _tl_rc=1
+    elif grep -q '^Failed to\|^Error:' "$FORGE_TMP/tfl.out"; then
+      printf 'forge:%s skipped: tflint could not run in %s (%s)\n' "$c_id" "$_tl_d" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/tfl.out" | tail -n 1)"
+    fi
+  done < "$FORGE_TMP/tfl.dirs"
+  return "$_tl_rc"
+}
+
+# forge_trivy_config: the pinned trivy (its bundled checks, no update; an empty ignore file of
+# Forge's, so .trivyignore does not apply) on each directory of a changed .tf / .tofu file,
+# now and as it was at the base (the directory's files with the change undone): "path:0 ID
+# title (resource, line N)" for each HIGH or CRITICAL Terraform misconfiguration (check,
+# resource) the change introduced. Not with --all (no base to compare).
+forge_trivy_config() {
+  [ "$mode" != --all ] || return 0
+  forge_tf_dirs > "$FORGE_TMP/tv.dirs"
+  [ -s "$FORGE_TMP/tv.dirs" ] || return 0
+  forge_release trivy _tr_bin || return 0
+  : > "$FORGE_TMP/trivy.ignore"
+  printf '{{- range . }}{{- $t := .Target }}{{- range .Misconfigurations }}{{ $t }}\t{{ .ID }}\t{{ .CauseMetadata.Resource }}\t{{ .CauseMetadata.StartLine }}\t{{ .Title }}\n{{ end }}{{ end }}' > "$FORGE_TMP/trivy.tpl"
+  _tr_cache=${XDG_CACHE_HOME:-$HOME/.cache}/forge/trivy
+  _tr_rc=0
+  while IFS= read -r _tr_d; do
+    # the directory as it was: its files now, with the change undone
+    _tr_b=$FORGE_TMP/trivy-base/$_tr_d
+    rm -rf "$_tr_b"; mkdir -p "$_tr_b"
+    for _tr_f in "$_tr_d"/*; do [ -f "$_tr_f" ] && cp "$_tr_f" "$_tr_b/"; done
+    awk -v d="$_tr_d" '{ p = $0; if (sub(/\/[^\/]*$/, "", p) == 0) p = "."; if (p == d) print }' "$FORGE_TMP/changed" > "$FORGE_TMP/tv.changed"
+    while IFS= read -r _tr_f; do
+      rm -f "$_tr_b/${_tr_f##*/}"
+      [ -f "$FORGE_TMP/base/$_tr_f" ] && cp "$FORGE_TMP/base/$_tr_f" "$_tr_b/"
+    done < "$FORGE_TMP/tv.changed"
+    for _tr_side in now then; do
+      [ "$_tr_side" = now ] && _tr_dir=$_tr_d || _tr_dir=$_tr_b
+      "$_tr_bin" config --quiet --cache-dir "$_tr_cache" --misconfig-scanners terraform --severity HIGH,CRITICAL --skip-check-update \
+        --ignorefile "$FORGE_TMP/trivy.ignore" --format template --template "@$FORGE_TMP/trivy.tpl" "$_tr_dir" > "$FORGE_TMP/trivy.$_tr_side" 2> "$FORGE_TMP/trivy.err" \
+        || { printf 'forge:%s skipped: trivy could not scan %s (%s)\n' "$c_id" "$_tr_d" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/trivy.err" | tail -n 1)"; continue 2; }
+    done
+    awk -F '\t' -v d="$_tr_d" 'FILENAME == ARGV[1] { old[$2 "\t" $3] = 1; next }
+      NF >= 5 && !(($2 "\t" $3) in old) { printf "%s%s:0 %s %s (%s, line %s)\n", (d == "." ? "" : d "/"), $1, $2, $5, $3, $4; bad = 1 }
+      END { exit bad }' "$FORGE_TMP/trivy.then" "$FORGE_TMP/trivy.now" || _tr_rc=1
+  done < "$FORGE_TMP/tv.dirs"
+  return "$_tr_rc"
 }
 
 # forge_exec_tool <name> <args>: runs the project's own <name>; 127 when absent.
