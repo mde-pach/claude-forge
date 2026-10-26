@@ -1,11 +1,17 @@
 id: python/no-stale-ignore
-description: No ignore comment that silences nothing; remove it once the code it covered is fixed.
+description: "No ignore comment that silences nothing (ty: ignore or type: ignore); remove it once the code it covered is fixed."
 scope: {language: python}
 enforce:
   - target: tool
-    tool: basedpyright
-    expects: reportUnnecessaryTypeIgnoreComment
-    snippet: '[tool.basedpyright] reportUnnecessaryTypeIgnoreComment = "error"'
+    tool: ty
+    expects: unused-ignore-comment
+    snippet: '[tool.ty.rules] unused-ignore-comment = "error"'
+  - target: tool
+    tool: ty
+    expects: unused-type-ignore-comment
+    snippet: '[tool.ty.rules] unused-type-ignore-comment = "error"'
 examples:
-  match: ["x: int = 1  # pyright: ignore[reportAssignmentType]\n", "def f(n: int) -> int:\n    return n  # pyright: ignore[reportReturnType]\n"]
-  no_match: ["x: int = \"a\"  # pyright: ignore[reportAssignmentType]\n", "x: int = 1\n"]
+  match:
+    - "x: int = 1  # ty: ignore[invalid-assignment]\ny = 1  # type: ignore\n"
+    - "def f(n: int) -> int:\n    return n  # ty: ignore[invalid-return-type]\n\n\nz = 2  # type: ignore\n"
+  no_match: ["x: int = \"a\"  # ty: ignore[invalid-assignment]\n", "x: int = 1\n"]

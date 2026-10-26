@@ -117,7 +117,8 @@ function toolsIn(dir: string, deps: DepFacts): Record<AuditedTool, { config: boo
   return {
     biome: { config: has("biome.json") || has("biome.jsonc"), dep: deps.npm.has("@biomejs/biome") },
     ruff: { config: has("ruff.toml") || has(".ruff.toml") || py.tool?.ruff !== undefined, dep: deps.pypi.has("ruff") },
-    basedpyright: { config: py.tool?.basedpyright !== undefined || has("pyrightconfig.json"), dep: deps.pypi.has("basedpyright") },
+    // Forge's own ty (§15.2): wherever there is a Python project; its config is optional
+    ty: { config: has("pyproject.toml") || has("ty.toml"), dep: false },
     tsc: { config: has("tsconfig.json"), dep: deps.npm.has("typescript") },
   };
 }

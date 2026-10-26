@@ -511,7 +511,7 @@ interface Enforcement {
 const UNSATISFIED: Record<string, string> = {
   ruff: "ruff codes not selected",
   biome: "Biome rules not at error",
-  basedpyright: "basedpyright rules not at error",
+  ty: "ty rules not at error",
   tsc: "tsc options not set",
 };
 

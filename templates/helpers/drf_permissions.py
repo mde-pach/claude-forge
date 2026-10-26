@@ -62,9 +62,10 @@ def settings_modules(files):
             continue
         root = path.rsplit("/", 1)[0] if "/" in path else ""
         for node in ast.walk(tree):
-            if isinstance(node, ast.Call) and len(node.args) >= 2 and all(isinstance(a, ast.Constant) for a in node.args[:2]):
-                if node.args[0].value == "DJANGO_SETTINGS_MODULE" and isinstance(node.args[1].value, str):
-                    mod = node.args[1].value.replace(".", "/")
+            if isinstance(node, ast.Call) and len(node.args) >= 2:
+                key, value = node.args[0], node.args[1]
+                if isinstance(key, ast.Constant) and isinstance(value, ast.Constant) and key.value == "DJANGO_SETTINGS_MODULE" and isinstance(value.value, str):
+                    mod = value.value.replace(".", "/")
                     for base in {root, "", "src", root + "/src" if root else "src"}:
                         for cand in (f"{base}/{mod}.py" if base else f"{mod}.py", f"{base}/{mod}/__init__.py" if base else f"{mod}/__init__.py"):
                             if cand in files and cand not in found:

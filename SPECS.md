@@ -25,7 +25,7 @@ Every requirement uses MUST / MUST NOT. Anything not described here is out of sc
 | Data | SQLAlchemy 2.0 async, typed declarative + Alembic async | Prisma 7 |
 | Validation | Pydantic v2 | Zod |
 | Format + lint | ruff | Biome 2 |
-| Typecheck | basedpyright | TypeScript 7 `tsc` |
+| Typecheck | ty (Forge's pinned ty, §15.2) | TypeScript 7 `tsc` |
 | Unit tests | pytest | Vitest |
 | E2E tests | — | Playwright |
 | Database | PostgreSQL | PostgreSQL |
@@ -51,7 +51,7 @@ Every requirement uses MUST / MUST NOT. Anything not described here is out of sc
 | `forge apply --user` | Generate or update the user-level setup. |
 | `forge apply --local` | Like `apply`, but permission entries go to `.claude/settings.local.json` (for repositories you don't own). |
 | `forge diff [--user]` | Show what `apply` would change. Exit 1 if anything differs. |
-| `forge status [--user] [--json]` | Active packs; rules as `Rules: <n> active, <m> enforced, <k> not enforced (<count> <reason>, …)` then each rule with where it is enforced; disabled rules with reasons; audit results with snippets; drift; missing tools. A rule is enforced when at least one of its targets acts here: a satisfied audit, an ast-grep rule, a permission, guard, sandbox or grep target, or a check whose tools are installed. Reasons: `ruff codes not selected`, `Biome rules not at error`, `basedpyright rules not at error`, `tsc options not set` (unsatisfied audits), `<tool> not configured`, `<tool> not installed`. Missing tools are what the generated scripts' `forge_missing_tools` prints (the SessionStart hook reports the same list). `--json` prints all of it as one object: `counts`, `rules` (`id`, `enforced`, `by`, `not_enforced`), `audits`, `missing_tools`, `packs`, `disabled`, `drift`. |
+| `forge status [--user] [--json]` | Active packs; rules as `Rules: <n> active, <m> enforced, <k> not enforced (<count> <reason>, …)` then each rule with where it is enforced; disabled rules with reasons; audit results with snippets; drift; missing tools. A rule is enforced when at least one of its targets acts here: a satisfied audit, an ast-grep rule, a permission, guard, sandbox or grep target, or a check whose tools are installed. Reasons: `ruff codes not selected`, `Biome rules not at error`, `ty rules not at error`, `tsc options not set` (unsatisfied audits), `<tool> not configured`, `<tool> not installed`. Missing tools are what the generated scripts' `forge_missing_tools` prints (the SessionStart hook reports the same list). `--json` prints all of it as one object: `counts`, `rules` (`id`, `enforced`, `by`, `not_enforced`), `audits`, `missing_tools`, `packs`, `disabled`, `drift`. |
 | `forge explain <rule-id>` | The rule file, where it is enforced in this project, and its audit result. |
 | `forge test` | Inside a git repository: validate the project's local rules (`.forge/rules/`; a local rule replacing a pack rule is tested as written) against the schema and run their examples (§14.1). No local rules: prints that there is nothing to test, exit 0. The bundled packs are not run: they are proved by Forge's own test suite. |
 | `forge remove [--user]` | Delete every owned file and exactly the settings entries recorded in the lock. |
@@ -171,7 +171,7 @@ Every rule blocks, except an `ast-grep` target in `advise` mode (§6.2), for heu
 
 | Target | Fields | Category | Effect |
 |---|---|---|---|
-| `tool` | `tool: biome \| ruff \| basedpyright \| tsc`, `expects` (diagnostic code or rule name), `snippet` (config to show when unsatisfied) | audited | §11 |
+| `tool` | `tool: biome \| ruff \| ty \| tsc`, `expects` (diagnostic code or rule name), `snippet` (config to show when unsatisfied) | audited | §11 |
 | `ast-grep` | `rule` (ast-grep rule object), `mode: forbid \| no-increase \| no-decrease \| advise`, `constraints`, `utils` (passed through), `where` (optional: engine capabilities on metavariables, §15.1) | owned | `.forge/ast-grep/rules/<rule-id>.yml` |
 | `permission` | `decision: deny \| ask`, `rule` (permission rule string) | appended | settings `permissions` |
 | `guard` | `decision: deny \| ask`, `pattern` (POSIX ERE against the JSON-escaped command), `check` (optional, `decision: ask` only: a built-in guard check, `ephemeral-exec`, that decides when `pattern` matches) | owned | `guard.rules` (§9.2) |
@@ -359,7 +359,7 @@ Runs in order, stops at the first failing step, prints `forge:<rule-id>` lines:
 2. **Applied migrations:** any file under `alembic/versions/` or `prisma/migrations/` that exists in the base and is modified or deleted → fail.
 3. **Tests and counts:** test files present in the base and deleted → fail; ast-grep and grep `no-increase` / `no-decrease` rules compared with the base (`forge:<id> <path>: <before> -> <after>`).
 4. **Forbid rules** (ast-grep and grep), on added lines outside `--all` (`forge:<id> <path>:<line>[:<column>] <description>`).
-5. **Format, lint, typecheck:** `check` targets of stages `format`, `lint`, `typecheck`, using project binaries: `changed_run` on the changed files with `--turn` and `--changed`, `run` (read-only, whole project) with `--since` and `--all`. Outside `--all`, a failing run's error diagnostics are attributed: `lint` diagnostics count on added lines, `typecheck` diagnostics (and a whole-project `format` run's) on changed files. When none counts, the check prints `forge:<rule-id> ok for the added lines (…)` or `ok for the changed files (…)` and passes; otherwise it prints only the diagnostics that count. Output naming no file at all (configuration error, crash) fails as before. Diagnostic locations are read from the tools' plain output (`path(l,c)`, `path:l:c`, `--> path:l:c`; `Would reformat: path` and Biome's `path format` name a file only; absolute paths under the repository are made relative; warning-only lines are ignored). A failing run whose output has warnings and no error (basedpyright's `recommended` mode exits 1 on warnings alone) prints `forge:<rule-id> ok for the added lines (only warnings)` or `ok for the changed files (only warnings)` and passes; the edit-time hooks stay silent on it. `--all` fails on any error, and on the tool's exit status.
+5. **Format, lint, typecheck:** `check` targets of stages `format`, `lint`, `typecheck`, using project binaries: `changed_run` on the changed files with `--turn` and `--changed`, `run` (read-only, whole project) with `--since` and `--all`. Outside `--all`, a failing run's error diagnostics are attributed: `lint` diagnostics count on added lines, `typecheck` diagnostics (and a whole-project `format` run's) on changed files. When none counts, the check prints `forge:<rule-id> ok for the added lines (…)` or `ok for the changed files (…)` and passes; otherwise it prints only the diagnostics that count. Output naming no file at all (configuration error, crash) fails as before. Diagnostic locations are read from the tools' plain output (`path(l,c)`, `path:l:c`, `--> path:l:c`; `Would reformat: path` and Biome's `path format` name a file only; absolute paths under the repository are made relative; warning-only lines are ignored). A failing run whose output has warnings and no error (ty with `terminal.error-on-warning` exits 1 on warnings alone) prints `forge:<rule-id> ok for the added lines (only warnings)` or `ok for the changed files (only warnings)` and passes; the edit-time hooks stay silent on it. `--all` fails on any error, and on the tool's exit status.
 6. **Migration checks:** `check` targets of stage `migration`, only if a `when_changed` path changed and, when `requires_local_db` is set, the configured database host is `localhost`, `127.0.0.1`, `::1` or a Unix socket. Otherwise print `forge:<rule-id> skipped: no local database` and continue.
 7. **Tests:** `check` targets of stage `test` (`changed_run` with `--changed` and `--turn`). Under `--turn`, failing tests are first compared with the start of the turn (§10.6).
 
@@ -397,7 +397,7 @@ A check with a `timeout` (seconds) that runs past it is stopped with its process
 | File | Loosened when |
 |---|---|
 | `pyproject.toml` `[tool.ruff]`, `ruff.toml`, `.ruff.toml` | a selected code is no longer covered by `select` / `extend-select` (prefixes and `ALL` count); a code added to `ignore` / `extend-ignore` or to a glob of `per-file-ignores`; a path added to `exclude` / `extend-exclude` |
-| `[tool.basedpyright]`, `[tool.pyright]`, `pyrightconfig.json` | `typeCheckingMode` lowered (`off` < `basic` < `standard` < `strict` < `recommended` < `all`; removed = the tool's default); a `report*` level lowered or removed; `failOnWarnings` no longer true; `enableTypeIgnoreComments` no longer false; `exclude` / `ignore` entries added; `strict` paths removed |
+| `[tool.ty]`, `ty.toml` | a `rules` level lowered (`error` > `warn` > `ignore`) or removed; `terminal.error-on-warning` no longer true; `src.exclude` entries added; an `overrides` entry added |
 | `[tool.pytest.ini_options]` | `addopts` gains `--ignore`, `--ignore-glob`, `--deselect`, `-k`, `-m`, `--lf`, `--sw` or `--continue-on-collection-errors`; `testpaths` entries removed; `norecursedirs` entries added; `xfail_strict` no longer true |
 | `[tool.coverage]` | `report.fail_under` lowered or removed; `omit`, `exclude_lines` or `exclude_also` entries added |
 | `biome.json`, `biome.jsonc` | a rule's level lowered (`error` > `warn` > `info` > `off`) or removed; a group's level lowered; `recommended`, `linter.enabled` or `formatter.enabled` turned off; negated `files.includes` / `linter.includes` entries added; an `overrides` entry added or changed |
@@ -456,8 +456,8 @@ Advice does not stop the steps after it (§10.1): the later stages still run, an
 For each `tool` target of an active rule:
 
 1. The tool is not present in the project → the rule's `ast-grep` target is used if it has one; otherwise `forge status` reports "not enforced here: <tool> not configured".
-2. The tool is present → Forge writes each example to a temporary file inside the rule's scope and runs the project's own tool with the project's config, reading machine-readable output: `biome lint --reporter=json <file>`, `ruff check --output-format json --stdin-filename`, `basedpyright --outputjson <file>`, `tsc --noEmit -p <temporary tsconfig extending the project's>`.
-3. Every `match` example gets the expected diagnostic **at a level that fails the tool's run**, and no `no_match` example gets it → satisfied (stricter configs satisfy automatically). A diagnostic fails the run when its severity is `error`, or when it is a warning and the run exits non-zero without any error diagnostic (the tool fails on warnings, e.g. basedpyright's `failOnWarnings`). ruff has no warning level; tsc reports errors only.
+2. The tool is present → Forge writes each example to a temporary file inside the rule's scope and runs the project's own tool with the project's config, reading machine-readable output: `biome lint --reporter=json <file>`, `ruff check --output-format json --stdin-filename`, `ty check --output-format gitlab <file>` (Forge's pinned ty through uvx, with the project's config: present wherever there is a `pyproject.toml` or `ty.toml`; `major` is an error, `minor` a warning), `tsc --noEmit -p <temporary tsconfig extending the project's>`.
+3. Every `match` example gets the expected diagnostic **at a level that fails the tool's run**, and no `no_match` example gets it → satisfied (stricter configs satisfy automatically). A diagnostic fails the run when its severity is `error`, or when it is a warning and the run exits non-zero without any error diagnostic (the tool fails on warnings, e.g. ty's `terminal.error-on-warning`). ruff has no warning level; tsc reports errors only.
 4. Otherwise → `forge status` reports the rule as unsatisfied and prints its `snippet`; when the diagnostic is reported only as a warning, the detail says so. Forge never edits the config. Output that cannot be read → the audit is skipped with the tool's first line of output, never satisfied.
 
 Audits run during `forge apply` and `forge status`, never in hooks.
@@ -524,20 +524,20 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 |---|---|
 | `python/format` | `check` format: `run: ruff format --check .`, `changed_run: ruff format {files}`, `format_stdin: ruff format --stdin-filename {file} -` |
 | `python/lint` | `check` lint: `run: ruff check .`, `changed_run: ruff check {files}`, `fix_run: ruff check --fix --fixable I,UP --exit-zero --show-fixes {files}` (sorted imports and pyupgrade, when the project selects them; never F401 / F841) |
-| `python/typecheck` | `check` typecheck: `run: basedpyright` |
-| `python/no-explicit-any` | `tool` basedpyright `reportExplicitAny`; `tool` ruff `ANN401` |
+| `python/typecheck` | `check` typecheck: `run: ty check --output-format concise` (Forge's pinned ty, §15.2) |
+| `python/no-explicit-any` | `tool` ruff `ANN401` (ty has no equivalent) |
 | `python/no-bare-except` | `tool` ruff `E722` |
-| `python/no-unscoped-ignore` | `tool` basedpyright `reportIgnoreCommentWithoutRule`; `tool` ruff `PGH003` |
-| `python/no-unknown` | `tool` basedpyright `reportUnknownParameterType`, `reportUnknownVariableType` |
-| `python/no-useless-cast` | `tool` basedpyright `reportUnnecessaryCast`, `reportInvalidCast` |
-| `python/no-deprecated` | `tool` basedpyright `reportDeprecated` (PEP 702 and typeshed deprecations) |
+| `python/no-unscoped-ignore` | `tool` ty `blanket-ignore-comment`; `tool` ruff `PGH003` |
+| `python/no-unknown` | `tool` ruff `ANN001`, `ANN002`, `ANN003`, `ANN201`, `ANN202`: parameters and return types annotated, so no receiver is Unknown (§15.1); an unannotated local's type is inferred (ty has no equivalent of `reportUnknownVariableType`) |
+| `python/no-useless-cast` | `tool` ty `redundant-cast`, `disjoint-cast` |
+| `python/no-deprecated` | `tool` ty `deprecated` (PEP 702 and typeshed deprecations) |
 | `python/no-blocking-in-async` | `tool` ruff `ASYNC210`, `ASYNC230`, `ASYNC251` |
 | `python/no-tls-bypass` | `tool` ruff `S501` |
 | `python/no-shell-true` | `tool` ruff `S602` |
-| `python/no-stale-ignore` | `tool` basedpyright `reportUnnecessaryTypeIgnoreComment` |
+| `python/no-stale-ignore` | `tool` ty `unused-ignore-comment`, `unused-type-ignore-comment` |
 | `python/aware-datetime` | `tool` ruff `DTZ005` |
-| `python/no-new-suppressions` | `grep` no-increase: `# noqa`, `# type: ignore`, `# pyright: ignore` (suppression budget) |
-| `python/config-files` | `permission` ask: `Edit(**/ruff.toml)`, `Edit(**/.ruff.toml)`, `Edit(**/pyrightconfig.json)` |
+| `python/no-new-suppressions` | `grep` no-increase: `# noqa`, `# ty: ignore`, `# type: ignore`, `# pyright: ignore` (suppression budget) |
+| `python/config-files` | `permission` ask: `Edit(**/ruff.toml)`, `Edit(**/.ruff.toml)`, `Edit(**/ty.toml)` |
 | `python/config-ratchet` | `check` lint: `forge_ratchet python ratchet.py` (§10.4), `when_changed`: the Python config files |
 | `python/no-silent-except` | `tool` ruff `S110`, `S112` |
 | `python/no-blind-except` | `tool` ruff `BLE001` |
@@ -559,7 +559,7 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `python/no-placeholder-comment` | `grep` forbid (case-insensitive): comments such as `TODO: implement`, "in a real implementation", "placeholder logic", "stub for now" |
 | `python/env-example` | `check` lint: `forge_env_example py`, not with `--all`: a field added to a pydantic-settings `BaseSettings` class (`env_prefix`, `alias`, `case_sensitive` applied) appears in the nearest directory's `.env.example`, `.env.template`, `.env.sample`, `.env.dist` or `.env.<name>.example` (a `# KEY=` line counts): always without a default, also with one when the template lists at least half of the class's variables; a template listing none of them is not about that class |
 
-context.md: uv and `.venv/bin`, basedpyright; no blocking calls in `async def`; ignore comments name their rule; search for an existing helper (warn-once, logging, utils) before writing one.
+context.md: uv and `.venv/bin`, ty, annotated parameters and returns; no blocking calls in `async def`; ignore comments name their rule; search for an existing helper (warn-once, logging, utils) before writing one.
 
 ### typescript
 
@@ -912,7 +912,7 @@ context.md: route module `loader` / `action` with `Route.*Args` types; actions a
 
 ### typescript/vue
 
-Detected by `vue >= 3`. ESLint (`eslint-plugin-vue`) is not audited: `tool` targets are Biome, ruff, basedpyright and tsc; the `.vue` rules are `check` and `grep` targets instead.
+Detected by `vue >= 3`. ESLint (`eslint-plugin-vue`) is not audited: `tool` targets are Biome, ruff, ty and tsc; the `.vue` rules are `check` and `grep` targets instead.
 
 | Rule | Targets |
 |---|---|
@@ -1111,7 +1111,7 @@ examples:
 4. **Generics.** Type arguments are ignored: `list[Session]` is `list`, `scoped_session[Session]` is `scoped_session`.
 5. **Where a declaration is.** Its file decides. Python: under `site-packages` / `dist-packages`, the package is the first path segment (`<pkg>-stubs` counts as `<pkg>`) and the module the dotted path (`sqlalchemy.orm.session`, `__init__` dropped); typeshed's `stdlib/` and `stubs/<dist>/` likewise. TypeScript: under the innermost `node_modules/`, the package is `<name>` or `@scope/name` (`@types/x` counts as `x`, `@types/a__b` as `@a/b`) and the module `<package>/<path in it without extension>` (`zod/v4/classic/schemas`); TypeScript's own `lib.*.d.ts` are package `typescript`. A declaration in the project has no package; its module is its path (Python: dotted, without a leading `src.`). The package is the one that **declares** the type, which may be a library's internal package (Vitest's `expect` is declared in `@vitest/expect`).
 6. **A spec holds** when one declaration or supertype has the package (one of the list), the module (equal, or a prefix by whole segments: `.` in Python, `/` in TypeScript) and the name (one of the list) that the spec gives. With a union, one member is enough: the expression may hold such a value at run time.
-7. **Unknown types.** When the checker does not know the type (Python `Any` and `Unknown`: an unannotated parameter, an unresolved import; TypeScript `any`, `unknown`, an error: no declaration), a spec does not hold, unless it says `unknown: match`.
+7. **Unknown types.** When the checker does not know the type (Python `Any` and `Unknown`: an unannotated parameter, an unresolved import; TypeScript `any`, `unknown`, an error: no declaration), a spec does not hold, unless it says `unknown: match`. Type constraints therefore rely on typed code, which the type-checking rules enforce: `python/no-unknown` (ruff `ANN001`–`ANN003`, `ANN201`, `ANN202`: annotated parameters and returns) and `python/no-explicit-any` (`ANN401`); `typescript/no-implicit-any` (`noImplicitAny`) and `typescript/no-explicit-any`. Removing an annotation to escape a rule is then itself a finding.
 8. `not` inverts its condition. A metavariable the match did not bind (an `any:` branch without it) is not evaluated.
 
 **Where it runs.** A rule's `where` is rendered into its ast-grep rule file as `metadata: {forge_where: …}`, so each match carries it (`ast-grep scan --include-metadata`). post-edit.sh (§8.1) and check.sh step 4 (§10.1) keep the matches on added lines, then pass those with `forge_where` to `forge_types_filter` (engine.sh), which asks the language's engine and keeps the matches it confirms; other matches are untouched. An engine that cannot start or answer prints `forge:forge/types <rule-id> was not checked: <reason>`: after an edit as feedback, in check.sh as a failure.
@@ -1125,6 +1125,7 @@ examples:
 | Python | `ty server` (Astral) | ty 0.0.86 | `uvx --python 3.12 --from ty==0.0.86 python <adapter> <root> <state>` | `types_python.py`: standard library only, on the Python uvx provides next to the pinned `ty` |
 | TypeScript | the project's own TypeScript (`node_modules/typescript`, resolved from the root): 7 and later, its language server (`bin/tsc --lsp --stdio`, the Go compiler); 5 and 6, its `lib/tsserver.js` (tsserver protocol) | the project's (its lock file) | `bun <adapter> <root> <state>` | `types_typescript.mjs`: Node-compatible, no Bun-only API |
 
+- **ty is Python's type checker in Forge, everywhere**: the types engine, `python/typecheck` (`ty check`, as `forge_ty` in the generated scripts) and the `tool: ty` audits run the same pinned ty through uvx, with the project's environment and configuration. basedpyright is not used.
 - ty's pin follows Forge's rule for its own tools (the newest release older than 14 days; ast-grep, Squawk, zizmor, hadolint) and is embedded in the generated scripts with a revision of the adapters.
 - `uvx` (Python) and `bun` (TypeScript) are required tools of the capability: missing, they are listed by `forge_missing_tools` (SessionStart, `forge status`). `forge apply` provisions the pinned ty (fills the uvx cache), so the hooks run offline afterwards. TypeScript's engine is the project's: the version that type-checks the project answers its type questions, and a project without `node_modules/typescript` gets `forge:forge/types <rule> was not checked: the project has no typescript package …`. The same semantics and the same spec tests hold for TypeScript 5, 6 and 7 (one version of each is pinned in the test tools).
 - The engine answers with the project's own environment: ty finds `.venv` (or `VIRTUAL_ENV`) and the project's `[tool.ty]`; TypeScript reads the project's `tsconfig.json` files and `node_modules`, workspace packages included.
@@ -1150,7 +1151,7 @@ Through the TypeScript adapter on documenso (12 tsconfig projects; its own TypeS
 
 tsserver's warm cost is its own program update after an edit in a large project (sending only the changed span, or one update instead of three per question, changed nothing measurable). The fixture of §15.1's tests answers 16 matches in 95–99 ms (5.9.3, 6.0.3) and 33 ms (7.0.2) cold, with the same 12 matches kept.
 
-Through the adapters and the FIFO: a question from a POSIX `sh` client costs 5.6 ms of client and transport (bash 3.2 as `sh`); the engine answers a warm question in 2–16 ms (1 to 14 matches), the cold one in 63–250 ms; the whole `forge_types_filter` of an edit takes about 50 ms, sourcing the script included. ty and TypeScript 7 answer correctly through import aliases, re-exports, `sessionmaker()` results, subscripts, unions with `None`, subclasses (with the supertype walk) and generics, and give no declaration for `any`; queried at the end of a call or subscript, basedpyright and tsserver answer nothing, but through the binding of §15.1 (a name) tsserver answers every case like TypeScript 7.
+Through the adapters and the FIFO: a question from a POSIX `sh` client costs 5.6 ms of client and transport (bash 3.2 as `sh`); the engine answers a warm question in 2–16 ms (1 to 14 matches), the cold one in 63–250 ms; the whole `forge_types_filter` of an edit takes about 50 ms, sourcing the script included. ty and TypeScript 7 answer correctly through import aliases, re-exports, `sessionmaker()` results, subscripts, unions with `None`, subclasses (with the supertype walk) and generics, and give no declaration for `any`; queried at the end of a call or subscript, basedpyright (measured for the choice; Forge no longer uses it) and tsserver answer nothing, but through the binding of §15.1 (a name) tsserver answers every case like TypeScript 7.
 
 ### 15.3 Daemons
 

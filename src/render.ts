@@ -21,8 +21,10 @@ export function renderLib(): string {
 // ---------------------------------------------------------------- tools in commands
 
 /** Project tools resolved through `tool <name>` (audited tools first). */
-export const AUDITED_TOOLS = ["biome", "ruff", "basedpyright", "tsc"] as const;
-export const PROJECT_TOOLS = [...AUDITED_TOOLS, "alembic", "pytest", "prisma", "vitest", "playwright", "astro", "python", "vue-tsc"] as const;
+export const AUDITED_TOOLS = ["biome", "ruff", "ty", "tsc"] as const;
+export const PROJECT_TOOLS = ["biome", "ruff", "tsc", "alembic", "pytest", "prisma", "vitest", "playwright", "astro", "python", "vue-tsc"] as const;
+/** Forge's own pinned tools used in check commands: ty (Python's type checker, through uvx, §15.2). */
+export const FORGE_TOOLS = ["ty"] as const;
 /** System runtimes, checked with `command -v`. */
 export const SYSTEM_TOOLS = ["uv", "uvx", "bun", "docker"] as const;
 
@@ -35,7 +37,7 @@ const HELPER_TOOLS: [RegExp, string][] = [
 /** Tools invoked as commands in a shell string, in order of first use. */
 export function toolsInCommand(cmd: string): string[] {
   const found: { tool: string; at: number }[] = [];
-  for (const tool of [...PROJECT_TOOLS, ...SYSTEM_TOOLS]) {
+  for (const tool of [...PROJECT_TOOLS, ...FORGE_TOOLS, ...SYSTEM_TOOLS]) {
     const m = new RegExp(`(^|[\\s;&|(\`]|\\$\\()${tool}(?=$|[\\s;&|)\`])`).exec(cmd);
     if (m) found.push({ tool, at: m.index });
   }
@@ -186,6 +188,7 @@ export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = [], ty
     out.push("# Project tools used in check commands, resolved through tool().");
     for (const t of wrappers) out.push(`${t}() { forge_exec_tool ${t} "$@"; }`);
   }
+  if (used.has("ty")) out.push("# ty is Forge's own, pinned (§15.2).", 'ty() { forge_ty "$@"; }');
   out.push(`FORGE_NCHECKS=${checks.length}`);
   checks.forEach(({ rule, target, dirs }, i) => {
     const n = i + 1;
@@ -283,7 +286,7 @@ export function renderCheckScript(
 }
 
 /** Tools resolved from the project's .venv/bin (the others from node_modules/.bin). */
-export const PYTHON_TOOLS = new Set(["ruff", "basedpyright", "alembic", "pytest", "python"]);
+export const PYTHON_TOOLS = new Set(["ruff", "alembic", "pytest", "python"]);
 
 /**
  * Scripts that engine helpers and the types engine run with a runtime (§13.4, §15.2),

@@ -2415,6 +2415,8 @@ forge_has_tool() {
   case $1 in
     *@*) ( _fh_root=$(pwd); cd "${1#*@}" 2>/dev/null && FORGE_WS_ROOT=$_fh_root forge_has_tool "${1%%@*}" ) ;;
     uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
+    # Forge's pinned ty runs through uvx (§15.2)
+    ty) command -v uvx >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
@@ -4054,6 +4056,10 @@ FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
 FORGE_TYPES_REV=''
+
+# forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
+# environment (.venv) and configuration ([tool.ty], ty.toml).
+forge_ty() { uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" ty "$@"; }
 
 # forge_types_up <lang>: the language's daemon runs, with the pinned engine (started
 # when it does not: by the first hook that needs it, or by SessionStart). Prints why
@@ -5609,6 +5615,8 @@ forge_has_tool() {
   case $1 in
     *@*) ( _fh_root=$(pwd); cd "${1#*@}" 2>/dev/null && FORGE_WS_ROOT=$_fh_root forge_has_tool "${1%%@*}" ) ;;
     uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
+    # Forge's pinned ty runs through uvx (§15.2)
+    ty) command -v uvx >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
@@ -7248,6 +7256,10 @@ FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
 FORGE_TYPES_REV=''
+
+# forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
+# environment (.venv) and configuration ([tool.ty], ty.toml).
+forge_ty() { uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" ty "$@"; }
 
 # forge_types_up <lang>: the language's daemon runs, with the pinned engine (started
 # when it does not: by the first hook that needs it, or by SessionStart). Prints why
@@ -8834,6 +8846,8 @@ forge_has_tool() {
   case $1 in
     *@*) ( _fh_root=$(pwd); cd "${1#*@}" 2>/dev/null && FORGE_WS_ROOT=$_fh_root forge_has_tool "${1%%@*}" ) ;;
     uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
+    # Forge's pinned ty runs through uvx (§15.2)
+    ty) command -v uvx >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
@@ -10473,6 +10487,10 @@ FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
 FORGE_TYPES_REV=''
+
+# forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
+# environment (.venv) and configuration ([tool.ty], ty.toml).
+forge_ty() { uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" ty "$@"; }
 
 # forge_types_up <lang>: the language's daemon runs, with the pinned engine (started
 # when it does not: by the first hook that needs it, or by SessionStart). Prints why
@@ -12079,6 +12097,8 @@ forge_has_tool() {
   case $1 in
     *@*) ( _fh_root=$(pwd); cd "${1#*@}" 2>/dev/null && FORGE_WS_ROOT=$_fh_root forge_has_tool "${1%%@*}" ) ;;
     uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
+    # Forge's pinned ty runs through uvx (§15.2)
+    ty) command -v uvx >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
@@ -13718,6 +13738,10 @@ FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
 FORGE_TYPES_REV=''
+
+# forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
+# environment (.venv) and configuration ([tool.ty], ty.toml).
+forge_ty() { uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" ty "$@"; }
 
 # forge_types_up <lang>: the language's daemon runs, with the pinned engine (started
 # when it does not: by the first hook that needs it, or by SessionStart). Prints why
@@ -16069,6 +16093,8 @@ forge_has_tool() {
   case $1 in
     *@*) ( _fh_root=$(pwd); cd "${1#*@}" 2>/dev/null && FORGE_WS_ROOT=$_fh_root forge_has_tool "${1%%@*}" ) ;;
     uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
+    # Forge's pinned ty runs through uvx (§15.2)
+    ty) command -v uvx >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
@@ -17709,6 +17735,10 @@ FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
 FORGE_TYPES_REV=''
 
+# forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
+# environment (.venv) and configuration ([tool.ty], ty.toml).
+forge_ty() { uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" ty "$@"; }
+
 # forge_types_up <lang>: the language's daemon runs, with the pinned engine (started
 # when it does not: by the first hook that needs it, or by SessionStart). Prints why
 # and fails when it cannot start. Registers the hook's session, if any.
@@ -18036,13 +18066,13 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "ff61a19974ccfc38fe6771978c9f9fe21253d4132eff8af9f06b112607965a00",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
     ".claude/skills/forge-project/scripts/lib.sh": "97c691d009a979b4dd1f81efd9535346b0027bc12a574653532eca62b978a289",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "48829976de0fa88f3834a44030b07832c8bbdb8d395af184e41c16616fe04cd0",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "60b49e0c04ad9d7420c247665574dd90e92c152c1a0190511f8566a0e09e6836",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
-    ".claude/skills/forge-project/scripts/session-start.sh": "014bd48e57e132ef34d4e78e59d65a1588a5d0381473bca221675b315b82d0d8",
+    ".claude/skills/forge-project/scripts/session-start.sh": "e05b7b6f260913a311737846a7c591fc7e1cddfce7a453ea00db24fad1d2010e",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "634d6c7e8f9b161d0738c538a541e410f5484d7f3e9e27aa1357e11b47acd8a2",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "cac203333e9d05c34d55027475549661f838779655b07323e94c58b3dc17ced9",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "1d31a31dba63bac8d4b45b9d00611b4bed49952947da2c572a485e66c98c19f5",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "40f489510ae5a76fd02f7b109c3b02b531d678d79db4459cd3fa8bdbaf6c770a",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml": "c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20",
     ".forge/ast-grep/rule-tests/typescript-no-eval-test.yml": "3716e00219b28a0974a07a56e1d264bb478b35a6ef38d5c13740a9080b09516e",
@@ -18065,7 +18095,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/typescript/no-ts-nocheck.yml": "aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21",
     ".forge/ast-grep/rules/typescript/ts-expect-error-reason.yml": "b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "ae1f44810aad0220e0f113704e3fbc44c055e18b9ecc70840a69405d31dd6660",
+    ".forge/check.sh": "0fee8d668729f113ff95e8557af127e785d611dffbf16b83bb62e6d223ecb9e2",
     ".forge/helpers/ratchet.mjs": "14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
@@ -18258,13 +18288,13 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 ff61a19974ccfc38fe6771978c9f9fe21253d4132eff8af9f06b112607965a00  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
 97c691d009a979b4dd1f81efd9535346b0027bc12a574653532eca62b978a289  .claude/skills/forge-project/scripts/lib.sh
-48829976de0fa88f3834a44030b07832c8bbdb8d395af184e41c16616fe04cd0  .claude/skills/forge-project/scripts/post-edit.sh
+60b49e0c04ad9d7420c247665574dd90e92c152c1a0190511f8566a0e09e6836  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
-014bd48e57e132ef34d4e78e59d65a1588a5d0381473bca221675b315b82d0d8  .claude/skills/forge-project/scripts/session-start.sh
+e05b7b6f260913a311737846a7c591fc7e1cddfce7a453ea00db24fad1d2010e  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-634d6c7e8f9b161d0738c538a541e410f5484d7f3e9e27aa1357e11b47acd8a2  .claude/skills/forge-project/scripts/test-edit.sh
+cac203333e9d05c34d55027475549661f838779655b07323e94c58b3dc17ced9  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-1d31a31dba63bac8d4b45b9d00611b4bed49952947da2c572a485e66c98c19f5  .claude/skills/forge-project/scripts/typecheck.sh
+40f489510ae5a76fd02f7b109c3b02b531d678d79db4459cd3fa8bdbaf6c770a  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20  .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
 3716e00219b28a0974a07a56e1d264bb478b35a6ef38d5c13740a9080b09516e  .forge/ast-grep/rule-tests/typescript-no-eval-test.yml
@@ -18287,7 +18317,7 @@ b21497e3335f2271e6ca5874817957d18c640e7d787cfe76a72ef390ab62d634  .forge/ast-gre
 aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21  .forge/ast-grep/rules/typescript/no-ts-nocheck.yml
 b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad  .forge/ast-grep/rules/typescript/ts-expect-error-reason.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-ae1f44810aad0220e0f113704e3fbc44c055e18b9ecc70840a69405d31dd6660  .forge/check.sh
+0fee8d668729f113ff95e8557af127e785d611dffbf16b83bb62e6d223ecb9e2  .forge/check.sh
 14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38  .forge/helpers/ratchet.mjs
 
 ===== .git/hooks/pre-commit

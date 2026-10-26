@@ -198,7 +198,7 @@ export function runCheckExample(rule: Rule, t: CheckTarget, ex: Example, kind: "
         const to = join(dir, PYTHON_TOOLS.has(tool) ? ".venv/bin" : "node_modules/.bin", tool);
         mkdirSync(dirname(to), { recursive: true });
         symlinkSync(bin, to);
-      } else if (run("sh", ["-c", `command -v ${tool}`]).status !== 0) return { outcome: "skip", detail: `${tool} not available` };
+      } else if (run("sh", ["-c", `command -v ${tool === "ty" ? "uvx" : tool}`]).status !== 0) return { outcome: "skip", detail: `${tool === "ty" ? "uvx (for ty)" : tool} not available` };
     }
     const git = (...args: string[]) => run("git", args, { cwd: dir, env: { ...process.env, ...GIT_ENV } });
     git("init", "-q", "-b", "main");

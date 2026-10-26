@@ -1,10 +1,10 @@
 id: python/config-files
-description: Claude asks you before editing a dedicated Python tool config (ruff, basedpyright); pyproject.toml is covered by python/config-ratchet.
+description: Claude asks you before editing a dedicated Python tool config (ruff, ty); pyproject.toml is covered by python/config-ratchet.
 scope: {language: any}
 enforce:
   - {target: permission, decision: ask, rule: "Edit(**/ruff.toml)"}
   - {target: permission, decision: ask, rule: "Edit(**/.ruff.toml)"}
-  - {target: permission, decision: ask, rule: "Edit(**/pyrightconfig.json)"}
+  - {target: permission, decision: ask, rule: "Edit(**/ty.toml)"}
 examples:
-  match: ["Edit(ruff.toml)", "Edit(.ruff.toml)", "Edit(services/api/pyrightconfig.json)"]
+  match: ["Edit(ruff.toml)", "Edit(.ruff.toml)", "Edit(services/api/ty.toml)"]
   no_match: ["Edit(pyproject.toml)", "Edit(app/ruff_helpers.py)"]

@@ -12,7 +12,7 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { applied, commitAll, ensureTools, forge, git, hasBun, hasUv, linkTools, linkTs5, put, ROOT, sampleRepo, sh, TOOL_VERSIONS, TOOLS_CACHE } from "../helpers";
+import { applied, commitAll, ensureTools, forge, git, hasBun, hasUv, linkTools, linkTs5, put, ROOT, sampleRepo, sh, TOOL_VERSIONS, TOOLS_CACHE, TY_FINDS_NOTHING } from "../helpers";
 import { loadPacks } from "../../src/packs";
 import { checkTools, renderChecks } from "../../src/render";
 import { insertBlock, removeBlock } from "../../src/precommit";
@@ -43,6 +43,9 @@ beforeAll(() => {
   mkdirSync(join(repo, ".venv", "bin"), { recursive: true });
   const ruff = sh("sh", ["-c", "command -v ruff"]).stdout.trim();
   if (ruff) symlinkSync(ruff, join(repo, ".venv", "bin", "ruff"));
+  // ty (Forge's, through uvx) finds nothing unless a test says otherwise (the sample's
+  // dependencies are not installed; these tests are not about what ty finds)
+  stub("ty-stand-in", "exit 0");
 }, T);
 
 describe("steps", () => {
@@ -169,13 +172,13 @@ describe("steps", () => {
     T,
   );
 
-  /** @rule python/typecheck */
+  /** @rule python/pytest/run */
   test(
     "a check whose tool is not installed prints skipped and does not fail",
     () => {
       put(repo, "app/x.py", "X = 1\n");
       const r = check();
-      expect(r.stdout).toContain("forge:python/typecheck skipped: basedpyright not installed");
+      expect(r.stdout).toContain("forge:python/pytest/run skipped: pytest not installed");
       reset();
     },
     T,
@@ -644,31 +647,29 @@ test(
  */
 describe("errors in unchanged files", () => {
   /**
-   * basedpyright in its "recommended" mode exits 1 on warnings alone (an unused
-   * parameter, an unannotated `__tablename__` in a file nobody touched): warnings
-   * do not count (§10.1), so a run that reports nothing else passes.
+   * ty with `error-on-warning` exits 1 on warnings alone (an unused ignore comment in
+   * a file nobody touched): warnings do not count (§10.1), so a run that reports
+   * nothing else passes.
    * @rule python/typecheck
    */
   test(
     "a typecheck that exits non-zero with warnings only passes outside --all, with a note; one with an error in a changed file still fails",
     () => {
-      // basedpyright prints real paths
-      const root = realpathSync(repo);
-      const warn = (f: string) => `echo "${root}/${f}"; echo "  ${root}/${f}:7:20 - warning: \\"app\\" is not accessed (reportUnusedParameter)"`;
-      stub("basedpyright", `${warn("app/main.py")}; ${warn("app/new.py")}; echo "0 errors, 2 warnings, 0 notes"; exit 1`);
+      const warn = (f: string) => `echo "${f}:7:20: warning[unused-ignore-comment] Unused \\\`ty: ignore\\\` directive"`;
+      stub("ty-stand-in", `${warn("app/main.py")}; ${warn("app/new.py")}; echo "Found 2 diagnostics"; exit 1`);
       try {
         put(repo, "app/new.py", "X = 1\n");
         const ok = check();
         expect(ok.stdout).not.toContain("forge:python/typecheck failed");
         expect(ok.stdout).toContain("forge:python/typecheck ok for the changed files (only warnings)");
-        stub("basedpyright", `${warn("app/main.py")}; echo "  ${root}/app/new.py:1:5 - error: Type mismatch"; echo "1 error, 1 warning, 0 notes"; exit 1`);
+        stub("ty-stand-in", `${warn("app/main.py")}; echo "app/new.py:1:5: error[invalid-assignment] Type mismatch"; echo "Found 2 diagnostics"; exit 1`);
         const bad = check();
-        expect(bad.stdout).toContain(`forge:python/typecheck failed\n  ${root}/app/new.py:1:5 - error: Type mismatch`);
+        expect(bad.stdout).toContain("forge:python/typecheck failed\napp/new.py:1:5: error[invalid-assignment] Type mismatch");
         // "Warning" in prose (a crash, no diagnostic location) is not a warning diagnostic: the run fails
-        stub("basedpyright", `echo "basedpyright stopped: loading the config raised PendingDeprecationWarning"; exit 1`);
-        expect(check().stdout).toContain("forge:python/typecheck failed\nbasedpyright stopped: loading the config raised PendingDeprecationWarning");
+        stub("ty-stand-in", `echo "ty failed: loading the config raised PendingDeprecationWarning"; exit 2`);
+        expect(check().stdout).toContain("forge:python/typecheck failed\nty failed: loading the config raised PendingDeprecationWarning");
       } finally {
-        unlinkSync(join(repo, ".venv/bin/basedpyright"));
+        stub("ty-stand-in", "exit 0");
         reset();
       }
     },
@@ -979,7 +980,7 @@ describe("added lines", () => {
     git(r, "commit", "-qm", "legacy", "--no-verify"); // the forge pre-commit hook would refuse it
     return r;
   }
-  const run = (r: string, ...args: string[]) => sh("sh", [".forge/check.sh", ...args], { cwd: r });
+  const run = (r: string, ...args: string[]) => sh("sh", [".forge/check.sh", ...args], { cwd: r, env: TY_FINDS_NOTHING });
 
   /** @rule python/sqlalchemy/no-declarative-base */
   test(
@@ -1284,7 +1285,7 @@ ALTER TABLE "Post" ADD CONSTRAINT "Post_authorId_fkey" FOREIGN KEY ("authorId") 
     commitAll(r, "forge");
     return r;
   }
-  const run = (r: string, mode: string, env: Record<string, string> = {}) => sh("sh", [".forge/check.sh", mode], { cwd: r, env });
+  const run = (r: string, mode: string, env: Record<string, string> = {}) => sh("sh", [".forge/check.sh", mode], { cwd: r, env: { ...TY_FINDS_NOTHING, ...env } });
 
   /** @rule typescript/prisma/migration-lint */
   test.if(hasBun)(

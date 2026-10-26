@@ -9,10 +9,11 @@
  * it automatically. A diagnostic that is only a warning does not enforce
  * anything: the rule is unsatisfied. Severity is read from the tools'
  * machine-readable output (Biome's JSON reporter, `ruff --output-format json`,
- * `basedpyright --outputjson`; tsc only has errors). Otherwise `forge status`
- * prints the snippet to add. Forge never edits a tool config.
- * These tests install real Biome, TypeScript, ruff and basedpyright once
- * (versions pinned in tests/helpers.ts).
+ * `ty check --output-format gitlab`; tsc only has errors). ty is Forge's own, pinned
+ * (run through uvx with the project's config). Otherwise `forge status` prints the
+ * snippet to add. Forge never edits a tool config.
+ * These tests install real Biome, TypeScript and ruff once (versions pinned in
+ * tests/helpers.ts); ty comes through uvx.
  */
 import { beforeAll, describe, expect, test } from "bun:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
@@ -103,54 +104,52 @@ describe.if(hasBun)("Biome and tsc", () => {
   );
 });
 
-describe.if(hasUv)("ruff and basedpyright", () => {
-  const PYPROJECT = (select: string[], any: string, failOnWarnings?: boolean) =>
-    `[project]\nname = "fastapi-app"\nversion = "0.1.0"\ndependencies = ["fastapi>=0.115", "sqlalchemy>=2.0.36", "alembic>=1.14", "pydantic>=2.9"]\n\n[dependency-groups]\ndev = ["pytest>=8.3", "ruff>=0.8", "basedpyright>=1.22"]\n\n[tool.ruff.lint]\nselect = ${JSON.stringify(select)}\n\n[tool.basedpyright]\nreportExplicitAny = "${any}"\n${failOnWarnings === undefined ? "" : `failOnWarnings = ${failOnWarnings}\n`}`;
+describe.if(hasUv)("ruff and ty", () => {
+  const PYPROJECT = (select: string[], deprecated: string, errorOnWarning?: boolean) =>
+    `[project]\nname = "fastapi-app"\nversion = "0.1.0"\ndependencies = ["fastapi>=0.115", "sqlalchemy>=2.0.36", "alembic>=1.14", "pydantic>=2.9"]\n\n[dependency-groups]\ndev = ["pytest>=8.3", "ruff>=0.8"]\n\n[tool.ruff.lint]\nselect = ${JSON.stringify(select)}\n\n[tool.ty.rules]\ndeprecated = "${deprecated}"\n${errorOnWarning === undefined ? "" : `\n[tool.ty.terminal]\nerror-on-warning = ${errorOnWarning}\n`}`;
 
-  /** @rule python/no-bare-except python/no-explicit-any */
+  /** @rule python/no-bare-except python/no-explicit-any python/no-deprecated */
   test(
-    "a correct config is satisfied: E722 and ANN401 selected, reportExplicitAny on",
+    "a correct config is satisfied: E722 and ANN401 selected, ty's deprecated at error",
     () => {
       const out = audit(repo("fastapi-app", { "pyproject.toml": PYPROJECT(["E", "ANN401"], "error") }));
       expect(out).toContain("forge:python/no-bare-except ruff E722: satisfied");
       expect(out).toContain("forge:python/no-explicit-any ruff ANN401: satisfied");
-      expect(out).toContain("forge:python/no-explicit-any basedpyright reportExplicitAny: satisfied");
+      expect(out).toContain("forge:python/no-deprecated ty deprecated: satisfied");
     },
     T,
   );
 
-  /** @rule python/no-bare-except python/no-explicit-any */
+  /** @rule python/no-bare-except python/no-explicit-any python/no-deprecated */
   test(
     "an incorrect config is unsatisfied and status prints the snippet to add",
     () => {
-      const out = audit(repo("fastapi-app", { "pyproject.toml": PYPROJECT(["F"], "none") }));
+      const out = audit(repo("fastapi-app", { "pyproject.toml": PYPROJECT(["F"], "ignore") }));
       expect(out).toContain("forge:python/no-bare-except ruff E722: unsatisfied");
       expect(out).toContain('add to the ruff config: [tool.ruff.lint] extend-select = ["E722"]');
       expect(out).toContain("forge:python/no-explicit-any ruff ANN401: unsatisfied");
-      expect(out).toContain("forge:python/no-explicit-any basedpyright reportExplicitAny: unsatisfied");
+      expect(out).toContain("forge:python/no-deprecated ty deprecated: unsatisfied");
+      expect(out).toContain('add to the ty config: [tool.ty.rules] deprecated = "error"');
     },
     T,
   );
 
-  /** @rule python/no-explicit-any */
+  /** @rule python/no-deprecated */
   test(
-    "reportExplicitAny as a warning, with failOnWarnings off, does not fail basedpyright: unsatisfied",
+    "deprecated as a warning, without error-on-warning, does not fail ty: unsatisfied",
     () => {
-      const out = audit(repo("fastapi-app", { "pyproject.toml": PYPROJECT(["E", "ANN401"], "warning", false) }));
-      expect(out).toContain(
-        "forge:python/no-explicit-any basedpyright reportExplicitAny: unsatisfied (reportExplicitAny is only a warning in your basedpyright config, so basedpyright does not fail on it",
-      );
-      expect(out).toContain('add to the basedpyright config: [tool.basedpyright] reportExplicitAny = "error"');
+      const out = audit(repo("fastapi-app", { "pyproject.toml": PYPROJECT(["E", "ANN401"], "warn", false) }));
+      expect(out).toContain("forge:python/no-deprecated ty deprecated: unsatisfied (deprecated is only a warning in your ty config, so ty does not fail on it");
     },
     T,
   );
 
-  /** @rule python/no-explicit-any */
+  /** @rule python/no-deprecated */
   test(
-    "reportExplicitAny as a warning, with failOnWarnings on, fails basedpyright: satisfied",
+    "deprecated as a warning, with error-on-warning, fails ty: satisfied",
     () => {
-      const out = audit(repo("fastapi-app", { "pyproject.toml": PYPROJECT(["E", "ANN401"], "warning", true) }));
-      expect(out).toContain("forge:python/no-explicit-any basedpyright reportExplicitAny: satisfied");
+      const out = audit(repo("fastapi-app", { "pyproject.toml": PYPROJECT(["E", "ANN401"], "warn", true) }));
+      expect(out).toContain("forge:python/no-deprecated ty deprecated: satisfied");
     },
     T,
   );
@@ -200,10 +199,10 @@ function projectFor(t: ToolTarget, on: boolean): string {
     writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ compilerOptions: { ...options, noEmit: true, skipLibCheck: true } }));
   } else {
     const ruff = `[tool.ruff.lint]\nselect = ["${t.tool === "ruff" && on ? t.expects : "F"}"]\n`;
-    const pyright = `[tool.basedpyright]\npythonVersion = "3.12"\n${t.tool === "basedpyright" ? `${t.expects} = "${on ? "error" : "none"}"\n` : ""}`;
-    writeFileSync(join(dir, "pyproject.toml"), `[project]\nname = "audit"\nversion = "0.1.0"\n\n${ruff}\n${pyright}`);
+    const ty = `[tool.ty.rules]\n${t.tool === "ty" ? `${t.expects} = "${on ? "error" : "ignore"}"\n` : ""}`;
+    writeFileSync(join(dir, "pyproject.toml"), `[project]\nname = "audit"\nversion = "0.1.0"\nrequires-python = ">=3.12"\n\n${ruff}\n${ty}`);
   }
-  linkTools(dir, t.tool === "ruff" || t.tool === "basedpyright" ? "python" : "node");
+  linkTools(dir, t.tool === "ruff" || t.tool === "ty" ? "python" : "node");
   return dir;
 }
 

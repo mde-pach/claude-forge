@@ -31,7 +31,7 @@ export interface LifecycleEvent {
 const TOOL_STAGE: Record<ToolTarget["tool"], { stage: "lint" | "typecheck"; check: string }> = {
   ruff: { stage: "lint", check: "python/lint" },
   biome: { stage: "lint", check: "typescript/format-lint" },
-  basedpyright: { stage: "typecheck", check: "python/typecheck" },
+  ty: { stage: "typecheck", check: "python/typecheck" },
   tsc: { stage: "typecheck", check: "typescript/typecheck" },
 };
 

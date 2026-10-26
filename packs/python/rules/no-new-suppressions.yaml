@@ -1,15 +1,16 @@
 id: python/no-new-suppressions
-description: No new suppression comments (# noqa, # type ignore, # pyright ignore); a changed file may not have more than it had. Fix the finding instead.
+description: No new suppression comments (# noqa, # ty: ignore, # type: ignore, # pyright: ignore); a changed file may not have more than it had. Fix the finding instead.
 scope: {language: python}
 enforce:
   - target: grep
     mode: no-increase
-    pattern: "#[[:space:]]*(noqa|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore)"
+    pattern: "#[[:space:]]*(noqa|ty:[[:space:]]*ignore|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore)"
 examples:
   match:
     - "import os  # noqa: F401"
     - "x = f()  # type: ignore[attr-defined]"
     - "y = g()  # pyright: ignore[reportUnknownVariableType]"
+    - "w = k()  # ty: ignore[unresolved-attribute]"
     - "z = h()  #noqa"
   no_match:
     - "x = f()  # typed in stubs/f.pyi"

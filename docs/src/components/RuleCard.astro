@@ -127,7 +127,7 @@ const MODE: Record<string, string> = {
           return (
             <>
               <p><strong>{t.tool}</strong> must report <code>{t.expects}</code>. If your config doesn't, <code>forge status</code> asks you to add:</p>
-              <Code code={t.snippet} lang={t.tool === "ruff" || t.tool === "basedpyright" ? "toml" : "json"} />
+              <Code code={t.snippet} lang={t.tool === "ruff" || t.tool === "ty" ? "toml" : "json"} />
             </>
           );
         if (t.target === "ast-grep")

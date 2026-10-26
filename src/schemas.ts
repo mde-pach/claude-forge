@@ -81,7 +81,7 @@ const target = {
         required: ["tool", "expects", "snippet"],
         properties: {
           target: true,
-          tool: { enum: ["biome", "ruff", "basedpyright", "tsc"] },
+          tool: { enum: ["biome", "ruff", "ty", "tsc"] },
           expects: { type: "string", minLength: 1 },
           snippet: { type: "string", minLength: 1 },
         },

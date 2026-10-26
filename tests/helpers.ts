@@ -11,6 +11,40 @@ export const FORGE = join(ROOT, "dist", "forge.js");
 // (default ~/.claude/forge-state): the suite never writes the user's home.
 process.env.FORGE_STATE_HOME ||= mkdtempSync(join(tmpdir(), "forge-state-home-"));
 
+/**
+ * ty is Forge's own type checker, run through uvx (§15.2). Where a test is not about
+ * what ty finds, it gives a stand-in: $FORGE_TEST_TY_STAND_IN (TY_FINDS_NOTHING), or
+ * .venv/bin/ty-stand-in in the repository. This shim, first on PATH for the whole
+ * suite, hands `uvx ... --from ty==<v> ty <args>` to it; everything else is the real uvx.
+ */
+const REAL_UVX = spawnSync("sh", ["-c", "command -v uvx"], { encoding: "utf8" }).stdout.trim();
+if (REAL_UVX && !process.env.FORGE_TEST_UVX_SHIM) {
+  const shim = mkdtempSync(join(tmpdir(), "forge-uvx-shim-"));
+  writeFileSync(
+    join(shim, "uvx"),
+    [
+      "#!/bin/sh",
+      "stand_in() {",
+      '  while [ "$#" -gt 0 ]; do',
+      '    a=$1; shift',
+      '    case $a in ty==*) [ "${1:-}" = ty ] && { shift; exec "$stand" "$@"; } ;; esac',
+      "  done",
+      "}",
+      'stand=${FORGE_TEST_TY_STAND_IN:-.venv/bin/ty-stand-in}',
+      '[ -x "$stand" ] && stand_in "$@"',
+      `exec "${REAL_UVX}" "$@"`,
+      "",
+    ].join("\n"),
+  );
+  chmodSync(join(shim, "uvx"), 0o755);
+  writeFileSync(join(shim, "ty-finds-nothing"), "#!/bin/sh\nexit 0\n");
+  chmodSync(join(shim, "ty-finds-nothing"), 0o755);
+  process.env.FORGE_TEST_UVX_SHIM = shim;
+  process.env.PATH = `${shim}:${process.env.PATH}`;
+}
+/** The environment of a run in which ty finds nothing (the sample's dependencies are not installed, and the test is not about ty). */
+export const TY_FINDS_NOTHING: Record<string, string> = { FORGE_TEST_TY_STAND_IN: join(process.env.FORGE_TEST_UVX_SHIM ?? "", "ty-finds-nothing") };
+
 /** The hooks' state directory for <repo> (lib.sh forge_state_of): $FORGE_STATE_HOME/<sha256 of its physical path, 16 hex>. */
 export function stateDir(repo: string): string {
   return join(process.env.FORGE_STATE_HOME as string, createHash("sha256").update(realpathSync(repo)).digest("hex").slice(0, 16));
@@ -133,7 +167,6 @@ export const TOOL_VERSIONS = {
   /** The TypeScript versions the types engine is proved on (§15.2): one per major. */
   typescriptEngines: ["5.9.3", "6.0.3", "7.0.2"],
   ruff: "0.17.1",
-  basedpyright: "1.40.2",
   // types that Biome reads to report deprecated imports
   react: "19.2.0",
   "@types/react": "19.2.2",
@@ -168,7 +201,7 @@ function ensureVenv(dir: string, probe: string, pkgs: string[]): void {
   if (r.status !== 0) throw new Error(`uv install failed: ${r.stderr}`);
 }
 
-/** Installs Biome, TypeScript and React's types (bun), ruff and basedpyright (uv), and Alembic and Django (uv, own venvs) once into TOOLS_CACHE. */
+/** Installs Biome, TypeScript and React's types (bun), ruff (uv), and Alembic and Django (uv, own venvs) once into TOOLS_CACHE. ty is Forge's own, through uvx. */
 export function ensureTools(): void {
   mkdirSync(TOOLS_CACHE, { recursive: true });
   if (hasBun && !existsSync(join(TOOLS_CACHE, "node_modules/@types/react/package.json"))) {
@@ -180,7 +213,7 @@ export function ensureTools(): void {
   if (!hasUv) return;
   ensureVenv(join(TOOLS_CACHE, ".venv-alembic"), "bin/alembic", [`alembic==${TOOL_VERSIONS.alembic}`, `sqlalchemy[asyncio]==${TOOL_VERSIONS.sqlalchemy}`]);
   ensureVenv(join(TOOLS_CACHE, ".venv-django"), "bin/django-admin", [`django==${TOOL_VERSIONS.django}`]);
-  ensureVenv(join(TOOLS_CACHE, ".venv"), "bin/basedpyright", [`ruff==${TOOL_VERSIONS.ruff}`, `basedpyright==${TOOL_VERSIONS.basedpyright}`]);
+  ensureVenv(join(TOOLS_CACHE, ".venv"), "bin/ruff", [`ruff==${TOOL_VERSIONS.ruff}`]);
 }
 
 /** Installs vue-tsc (TOOL_VERSIONS["vue-tsc"]) with its TypeScript in its own cache directory; returns its bin directory. */

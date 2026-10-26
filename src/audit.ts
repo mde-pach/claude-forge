@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { codeExamples } from "./packs.js";
-import { run } from "./util.js";
+import { ENGINE_PYTHON, run, TY_VERSION } from "./util.js";
 import type { Rule, ToolTarget } from "./types.js";
 
 export interface AuditResult {
@@ -15,6 +15,9 @@ export interface AuditResult {
   detail?: string;
   snippet?: string;
 }
+
+/** Forge's pinned ty (§15.2), run through uvx: the argv before ty's own arguments. */
+export const TY_COMMAND = ["uvx", "-q", "--python", ENGINE_PYTHON, "--from", `ty==${TY_VERSION}`, "ty"];
 
 /** The project's own binary for a tool, or undefined. */
 export function projectBinary(repo: string, tool: string): string | undefined {
@@ -61,8 +64,8 @@ function runTool(repo: string, rule: Rule, t: ToolTarget, bin: string, code: str
   const stem = `forge_audit_${process.pid}_${n}`;
   const rel = examplePath(rule, stem);
   if (t.tool === "ruff") return run(bin, ["check", "--no-cache", "--no-fix", "--output-format", "json", "--stdin-filename", rel, "-"], { cwd: repo, input: code });
-  // biome (its stdin mode prints no lint diagnostics), basedpyright and tsc
-  // read real files: a temporary file inside the project.
+  // biome (its stdin mode prints no lint diagnostics), ty and tsc read real files: a
+  // temporary file inside the project.
   const created: string[] = [];
   const write = (p: string, text: string) => {
     const abs = join(repo, p);
@@ -82,7 +85,7 @@ function runTool(repo: string, rule: Rule, t: ToolTarget, bin: string, code: str
   try {
     write(rel, code);
     if (t.tool === "biome") return run(bin, ["lint", "--reporter=json", "--max-diagnostics=50", rel], { cwd: repo });
-    if (t.tool === "basedpyright") return run(bin, ["--outputjson", rel], { cwd: repo });
+    if (t.tool === "ty") return run(TY_COMMAND[0]!, [...TY_COMMAND.slice(1), "check", "--output-format", "gitlab", rel], { cwd: repo });
     const cfg = `tsconfig.${stem}.json`;
     write(
       cfg,
@@ -103,8 +106,8 @@ function parseJson(text: string): unknown {
 /**
  * Whether the run reported `expects`, and whether that fails the run: an error
  * does; a warning does only when the run exits non-zero with no error
- * diagnostic at all (the tool fails on warnings, e.g. basedpyright's
- * failOnWarnings). Throws when the output cannot be read.
+ * diagnostic at all (the tool fails on warnings, e.g. ty's
+ * terminal.error-on-warning). Throws when the output cannot be read.
  */
 export function verdict(tool: ToolTarget["tool"], expects: string, r: ToolRun): Verdict {
   const judge = (all: { id: string; severity: string }[]): Verdict => {
@@ -124,16 +127,19 @@ export function verdict(tool: ToolTarget["tool"], expects: string, r: ToolRun): 
     const out = parseJson(r.stdout) as { diagnostics?: { category?: string; severity?: string }[] };
     return judge((out.diagnostics ?? []).map((d) => ({ id: d.category ?? "", severity: d.severity ?? "" })));
   }
-  const out = parseJson(r.stdout) as { generalDiagnostics?: { rule?: string; severity?: string }[] };
-  return judge((out.generalDiagnostics ?? []).map((d) => ({ id: d.rule ?? "", severity: d.severity ?? "" })));
+  // ty: GitLab Code Quality JSON; "major" is an error, "minor" a warning
+  const out = parseJson(r.stdout) as { check_name?: string; severity?: string }[];
+  const severity = (s?: string) => (s === "major" || s === "critical" || s === "blocker" ? "error" : s === "minor" ? "warning" : (s ?? ""));
+  return judge(out.map((d) => ({ id: d.check_name ?? "", severity: severity(d.severity) })));
 }
 
 /** §11: every match example fails the tool's run on the expected diagnostic; no no_match example reports it. */
 export function auditTarget(repo: string, rule: Rule, t: ToolTarget, root = repo): AuditResult {
   const base = { rule: rule.id, tool: t.tool, expects: t.expects };
   // in a workspace package, the tool may be installed at the root (hoisted)
-  const bin = projectBinary(repo, t.tool) ?? projectBinary(root, t.tool);
-  if (!bin) return { ...base, status: "skipped", detail: `${t.tool} is configured but not installed (node_modules/.bin or .venv/bin)` };
+  // ty is Forge's own (through uvx); the others are the project's
+  const bin = t.tool === "ty" ? (run("sh", ["-c", "command -v uvx"]).status === 0 ? "uvx" : undefined) : (projectBinary(repo, t.tool) ?? projectBinary(root, t.tool));
+  if (!bin) return { ...base, status: "skipped", detail: t.tool === "ty" ? "uvx is not installed (Forge runs its pinned ty through it)" : `${t.tool} is configured but not installed (node_modules/.bin or .venv/bin)` };
   const match = codeExamples(rule, "match");
   const noMatch = codeExamples(rule, "no_match");
   if (!match.length) return { ...base, status: "skipped", detail: "the rule has no match examples" };

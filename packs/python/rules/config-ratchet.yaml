@@ -1,17 +1,17 @@
 id: python/config-ratchet
-description: Python tool configs are not loosened (ruff rules dropped or ignored, basedpyright mode or report levels lowered, excludes added, pytest paths or coverage thresholds reduced); a deliberate change is accepted in forge.yaml.
-scope: {language: any, files: ["**/pyproject.toml", "**/ruff.toml", "**/.ruff.toml", "**/pyrightconfig.json"]}
+description: Python tool configs are not loosened (ruff rules dropped or ignored, ty rule levels lowered, excludes added, pytest paths or coverage thresholds reduced); a deliberate change is accepted in forge.yaml.
+scope: {language: any, files: ["**/pyproject.toml", "**/ruff.toml", "**/.ruff.toml", "**/ty.toml"]}
 enforce:
   - target: check
     stage: lint
     run: "forge_ratchet python ratchet.py"
-    when_changed: ["**/pyproject.toml", "**/ruff.toml", "**/.ruff.toml", "**/pyrightconfig.json"]
+    when_changed: ["**/pyproject.toml", "**/ruff.toml", "**/.ruff.toml", "**/ty.toml"]
 examples:
   match:
     - head: {pyproject.toml: "[tool.ruff.lint]\nselect = [\"E\", \"F\"]\n"}
       files: {pyproject.toml: "[tool.ruff.lint]\nselect = [\"E\", \"F\"]\nignore = [\"F401\"]\n"}
-    - head: {pyproject.toml: "[tool.basedpyright]\ntypeCheckingMode = \"strict\"\n"}
-      files: {pyproject.toml: "[tool.basedpyright]\ntypeCheckingMode = \"basic\"\n"}
+    - head: {pyproject.toml: "[tool.ty.rules]\ndeprecated = \"error\"\n"}
+      files: {pyproject.toml: "[tool.ty.rules]\ndeprecated = \"warn\"\n"}
     - head: {pyproject.toml: "[tool.coverage.report]\nfail_under = 90\n"}
       files: {pyproject.toml: "[tool.coverage.report]\nfail_under = 75\n"}
     - head: {ruff.toml: "[lint.per-file-ignores]\n\"tests/*\" = [\"S101\"]\n"}

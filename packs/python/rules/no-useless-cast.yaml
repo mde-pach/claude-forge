@@ -3,13 +3,13 @@ description: No cast() that is unnecessary or between unrelated types. Narrow wi
 scope: {language: python}
 enforce:
   - target: tool
-    tool: basedpyright
-    expects: reportUnnecessaryCast
-    snippet: '[tool.basedpyright] reportUnnecessaryCast = "error"'
+    tool: ty
+    expects: redundant-cast
+    snippet: '[tool.ty.rules] redundant-cast = "error"'
   - target: tool
-    tool: basedpyright
-    expects: reportInvalidCast
-    snippet: '[tool.basedpyright] reportInvalidCast = "error"'
+    tool: ty
+    expects: disjoint-cast
+    snippet: '[tool.ty.rules] disjoint-cast = "error"'
 examples:
   match: ["from typing import cast\n\n\ndef f(n: int) -> str:\n    m = cast(int, n)\n    return cast(str, m)\n"]
   no_match: ["from typing import cast\n\n\ndef f(n: object) -> int:\n    return cast(int, n)\n"]

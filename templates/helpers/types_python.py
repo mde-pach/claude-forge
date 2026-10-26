@@ -72,9 +72,19 @@ def index_of(text, pos):
 # ---------------------------------------------------------------- the language server
 
 
+class Slot:
+    """A request waiting for its response."""
+
+    def __init__(self):
+        self.done = threading.Event()
+        self.response = {}
+
+
 class Server:
     def __init__(self):
         self.proc = subprocess.Popen([TY, "server"], cwd=ROOT, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=LOG)
+        assert self.proc.stdin is not None and self.proc.stdout is not None
+        self.stdin, self.stdout = self.proc.stdin, self.proc.stdout
         self.next = 0
         self.lock = threading.Lock()
         self.waiting = {}
@@ -86,8 +96,8 @@ class Server:
     def send(self, msg):
         body = json.dumps(msg).encode()
         with self.lock:
-            self.proc.stdin.write(b"Content-Length: %d\r\n\r\n" % len(body) + body)
-            self.proc.stdin.flush()
+            self.stdin.write(b"Content-Length: %d\r\n\r\n" % len(body) + body)
+            self.stdin.flush()
 
     def read(self):
         try:
@@ -98,7 +108,7 @@ class Server:
                 os._exit(3)
 
     def read_messages(self):
-        out = self.proc.stdout
+        out = self.stdout
         while True:
             length = None
             while True:
@@ -112,6 +122,8 @@ class Server:
                     break
                 if line.lower().startswith(b"content-length:"):
                     length = int(line.split(b":")[1])
+            if length is None:
+                continue
             msg = json.loads(out.read(length))
             if "method" in msg and "id" in msg:
                 # a request from the server (configuration, registrations): answer with defaults
@@ -120,21 +132,21 @@ class Server:
             elif "id" in msg:
                 slot = self.waiting.pop(msg["id"], None)
                 if slot:
-                    slot[1] = msg
-                    slot[0].set()
+                    slot.response = msg
+                    slot.done.set()
 
     def request(self, method, params):
         """Sends a request; returns a function that waits for its result."""
         with self.lock:
             self.next += 1
             rid = self.next
-        slot = [threading.Event(), None]
+        slot = Slot()
         self.waiting[rid] = slot
         self.send({"jsonrpc": "2.0", "id": rid, "method": method, "params": params})
 
         def wait():
-            slot[0].wait(60)
-            return (slot[1] or {}).get("result")
+            slot.done.wait(60)
+            return slot.response.get("result")
 
         return wait
 

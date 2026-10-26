@@ -108,7 +108,7 @@ describe("init", () => {
       put(repo, "ruff.toml", "line-length = 80\n");
       const r = forge(["init", "--yes"], repo);
       expect(r.status).toBe(0);
-      expect(r.stdout).toContain("forge: created pyrightconfig.json (from python)");
+      expect(r.stdout).toContain("forge: created ty.toml (from python)");
       expect(r.stdout).toContain("forge: ruff.toml exists, kept");
       expect(readFileSync(join(repo, "ruff.toml"), "utf8")).toBe("line-length = 80\n");
       expect(existsSync(join(repo, ".forge/check.sh"))).toBe(true);

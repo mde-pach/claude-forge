@@ -29,9 +29,9 @@ Values reach `text()` SQL as bound parameters (`:id`): an f-string, `.format()`,
 ===== .claude/rules/forge-python.md
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
 
-Python project managed with uv. Tools run from `.venv/bin`. Type checking: basedpyright.
+Python project managed with uv. Tools run from `.venv/bin`. Type checking: ty (`[tool.ty]`); parameters and return types are annotated.
 Inside `async def`, the checks reject blocking calls that ruff's ASYNC210, ASYNC230 and ASYNC251 detect (sync HTTP clients, `open()`, `time.sleep`).
-Ignore comments name their rule (`# pyright: ignore[ruleName]`), and a changed file may not gain suppression comments.
+Ignore comments name their rule (`# ty: ignore[rule-name]`), and a changed file may not gain suppression comments.
 Before writing a utility, search the codebase for an existing helper (warn-once and logging helpers, `utils` functions) and reuse it instead of adding a near-duplicate.
 
 ===== .claude/settings.json
@@ -44,7 +44,7 @@ Before writing a utility, search the codebase for an existing helper (warn-once 
       "Edit(.claude/rules/forge-*.md)",
       "Edit(**/ruff.toml)",
       "Edit(**/.ruff.toml)",
-      "Edit(**/pyrightconfig.json)"
+      "Edit(**/ty.toml)"
     ]
   }
 }
@@ -1159,10 +1159,11 @@ fi
 # ---- generated checks
 # Project tools used in check commands, resolved through tool().
 ruff() { forge_exec_tool ruff "$@"; }
-basedpyright() { forge_exec_tool basedpyright "$@"; }
 alembic() { forge_exec_tool alembic "$@"; }
 pytest() { forge_exec_tool pytest "$@"; }
 python() { forge_exec_tool python "$@"; }
+# ty is Forge's own, pinned (§15.2).
+ty() { forge_ty "$@"; }
 FORGE_NCHECKS=19
 
 # 1. python/config-ratchet
@@ -1172,10 +1173,10 @@ forge_check_meta_1() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_1() {
-  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) ;; *) return 1 ;; esac
+  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_1() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) return 0 ;; esac; return 1; }
+forge_when_1() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) return 0 ;; esac; return 1; }
 forge_check_run_1() {
 forge_ratchet python ratchet.py
 }
@@ -1439,7 +1440,7 @@ forge_advise forge_stub_sync
 
 # 17. python/typecheck
 forge_check_meta_17() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
@@ -1449,7 +1450,7 @@ forge_scope_17() {
 }
 forge_when_17() { return 1; }
 forge_check_run_17() {
-basedpyright
+ty check --output-format concise
 }
 
 # 18. python/uv/exclude-newer
@@ -1487,7 +1488,7 @@ FORGE_GREP_NO_DECREASE=''
 # grep 1. python/no-new-suppressions
 forge_grep_meta_1() {
   g_id='python/no-new-suppressions'; g_mode=no-increase; g_flags=-E
-  g_pattern='#[[:space:]]*(noqa|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore)'
+  g_pattern='#[[:space:]]*(noqa|ty:[[:space:]]*ignore|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore)'
   g_desc='No new suppression comments (# noqa,'
 }
 forge_grep_scope_1() {
@@ -2702,6 +2703,8 @@ forge_has_tool() {
   case $1 in
     *@*) ( _fh_root=$(pwd); cd "${1#*@}" 2>/dev/null && FORGE_WS_ROOT=$_fh_root forge_has_tool "${1%%@*}" ) ;;
     uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
+    # Forge's pinned ty runs through uvx (§15.2)
+    ty) command -v uvx >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
@@ -4340,7 +4343,11 @@ FORGE_TYPES_LANGS='python'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='604f166279ee'
+FORGE_TYPES_REV='745bcf5d6dd2'
+
+# forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
+# environment (.venv) and configuration ([tool.ty], ty.toml).
+forge_ty() { uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" ty "$@"; }
 
 # forge_types_up <lang>: the language's daemon runs, with the pinned engine (started
 # when it does not: by the first hook that needs it, or by SessionStart). Prints why
@@ -4609,10 +4616,11 @@ IFS='
 # ---- generated checks
 # Project tools used in check commands, resolved through tool().
 ruff() { forge_exec_tool ruff "$@"; }
-basedpyright() { forge_exec_tool basedpyright "$@"; }
 alembic() { forge_exec_tool alembic "$@"; }
 pytest() { forge_exec_tool pytest "$@"; }
 python() { forge_exec_tool python "$@"; }
+# ty is Forge's own, pinned (§15.2).
+ty() { forge_ty "$@"; }
 FORGE_NCHECKS=19
 
 # 1. python/config-ratchet
@@ -4622,10 +4630,10 @@ forge_check_meta_1() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_1() {
-  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) ;; *) return 1 ;; esac
+  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_1() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) return 0 ;; esac; return 1; }
+forge_when_1() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) return 0 ;; esac; return 1; }
 forge_check_run_1() {
 forge_ratchet python ratchet.py
 }
@@ -4889,7 +4897,7 @@ forge_advise forge_stub_sync
 
 # 17. python/typecheck
 forge_check_meta_17() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
@@ -4899,7 +4907,7 @@ forge_scope_17() {
 }
 forge_when_17() { return 1; }
 forge_check_run_17() {
-basedpyright
+ty check --output-format concise
 }
 
 # 18. python/uv/exclude-newer
@@ -4937,7 +4945,7 @@ FORGE_GREP_NO_DECREASE=''
 # grep 1. python/no-new-suppressions
 forge_grep_meta_1() {
   g_id='python/no-new-suppressions'; g_mode=no-increase; g_flags=-E
-  g_pattern='#[[:space:]]*(noqa|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore)'
+  g_pattern='#[[:space:]]*(noqa|ty:[[:space:]]*ignore|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore)'
   g_desc='No new suppression comments (# noqa,'
 }
 forge_grep_scope_1() {
@@ -6152,6 +6160,8 @@ forge_has_tool() {
   case $1 in
     *@*) ( _fh_root=$(pwd); cd "${1#*@}" 2>/dev/null && FORGE_WS_ROOT=$_fh_root forge_has_tool "${1%%@*}" ) ;;
     uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
+    # Forge's pinned ty runs through uvx (§15.2)
+    ty) command -v uvx >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
@@ -7790,7 +7800,11 @@ FORGE_TYPES_LANGS='python'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='604f166279ee'
+FORGE_TYPES_REV='745bcf5d6dd2'
+
+# forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
+# environment (.venv) and configuration ([tool.ty], ty.toml).
+forge_ty() { uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" ty "$@"; }
 
 # forge_types_up <lang>: the language's daemon runs, with the pinned engine (started
 # when it does not: by the first hook that needs it, or by SessionStart). Prints why
@@ -8079,10 +8093,11 @@ IFS='
 # ---- generated checks
 # Project tools used in check commands, resolved through tool().
 ruff() { forge_exec_tool ruff "$@"; }
-basedpyright() { forge_exec_tool basedpyright "$@"; }
 alembic() { forge_exec_tool alembic "$@"; }
 pytest() { forge_exec_tool pytest "$@"; }
 python() { forge_exec_tool python "$@"; }
+# ty is Forge's own, pinned (§15.2).
+ty() { forge_ty "$@"; }
 FORGE_NCHECKS=19
 
 # 1. python/config-ratchet
@@ -8092,10 +8107,10 @@ forge_check_meta_1() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_1() {
-  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) ;; *) return 1 ;; esac
+  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_1() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) return 0 ;; esac; return 1; }
+forge_when_1() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) return 0 ;; esac; return 1; }
 forge_check_run_1() {
 forge_ratchet python ratchet.py
 }
@@ -8359,7 +8374,7 @@ forge_advise forge_stub_sync
 
 # 17. python/typecheck
 forge_check_meta_17() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
@@ -8369,7 +8384,7 @@ forge_scope_17() {
 }
 forge_when_17() { return 1; }
 forge_check_run_17() {
-basedpyright
+ty check --output-format concise
 }
 
 # 18. python/uv/exclude-newer
@@ -8407,7 +8422,7 @@ FORGE_GREP_NO_DECREASE=''
 # grep 1. python/no-new-suppressions
 forge_grep_meta_1() {
   g_id='python/no-new-suppressions'; g_mode=no-increase; g_flags=-E
-  g_pattern='#[[:space:]]*(noqa|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore)'
+  g_pattern='#[[:space:]]*(noqa|ty:[[:space:]]*ignore|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore)'
   g_desc='No new suppression comments (# noqa,'
 }
 forge_grep_scope_1() {
@@ -9622,6 +9637,8 @@ forge_has_tool() {
   case $1 in
     *@*) ( _fh_root=$(pwd); cd "${1#*@}" 2>/dev/null && FORGE_WS_ROOT=$_fh_root forge_has_tool "${1%%@*}" ) ;;
     uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
+    # Forge's pinned ty runs through uvx (§15.2)
+    ty) command -v uvx >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
@@ -11260,7 +11277,11 @@ FORGE_TYPES_LANGS='python'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='604f166279ee'
+FORGE_TYPES_REV='745bcf5d6dd2'
+
+# forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
+# environment (.venv) and configuration ([tool.ty], ty.toml).
+forge_ty() { uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" ty "$@"; }
 
 # forge_types_up <lang>: the language's daemon runs, with the pinned engine (started
 # when it does not: by the first hook that needs it, or by SessionStart). Prints why
@@ -11570,10 +11591,11 @@ IFS='
 # ---- generated checks
 # Project tools used in check commands, resolved through tool().
 ruff() { forge_exec_tool ruff "$@"; }
-basedpyright() { forge_exec_tool basedpyright "$@"; }
 alembic() { forge_exec_tool alembic "$@"; }
 pytest() { forge_exec_tool pytest "$@"; }
 python() { forge_exec_tool python "$@"; }
+# ty is Forge's own, pinned (§15.2).
+ty() { forge_ty "$@"; }
 FORGE_NCHECKS=19
 
 # 1. python/config-ratchet
@@ -11583,10 +11605,10 @@ forge_check_meta_1() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_1() {
-  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) ;; *) return 1 ;; esac
+  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_1() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) return 0 ;; esac; return 1; }
+forge_when_1() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) return 0 ;; esac; return 1; }
 forge_check_run_1() {
 forge_ratchet python ratchet.py
 }
@@ -11850,7 +11872,7 @@ forge_advise forge_stub_sync
 
 # 17. python/typecheck
 forge_check_meta_17() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
@@ -11860,7 +11882,7 @@ forge_scope_17() {
 }
 forge_when_17() { return 1; }
 forge_check_run_17() {
-basedpyright
+ty check --output-format concise
 }
 
 # 18. python/uv/exclude-newer
@@ -11898,7 +11920,7 @@ FORGE_GREP_NO_DECREASE=''
 # grep 1. python/no-new-suppressions
 forge_grep_meta_1() {
   g_id='python/no-new-suppressions'; g_mode=no-increase; g_flags=-E
-  g_pattern='#[[:space:]]*(noqa|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore)'
+  g_pattern='#[[:space:]]*(noqa|ty:[[:space:]]*ignore|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore)'
   g_desc='No new suppression comments (# noqa,'
 }
 forge_grep_scope_1() {
@@ -13113,6 +13135,8 @@ forge_has_tool() {
   case $1 in
     *@*) ( _fh_root=$(pwd); cd "${1#*@}" 2>/dev/null && FORGE_WS_ROOT=$_fh_root forge_has_tool "${1%%@*}" ) ;;
     uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
+    # Forge's pinned ty runs through uvx (§15.2)
+    ty) command -v uvx >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
@@ -14751,7 +14775,11 @@ FORGE_TYPES_LANGS='python'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='604f166279ee'
+FORGE_TYPES_REV='745bcf5d6dd2'
+
+# forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
+# environment (.venv) and configuration ([tool.ty], ty.toml).
+forge_ty() { uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" ty "$@"; }
 
 # forge_types_up <lang>: the language's daemon runs, with the pinned engine (started
 # when it does not: by the first hook that needs it, or by SessionStart). Prints why
@@ -16248,10 +16276,11 @@ forge_types_session() {
 # ---- generated checks
 # Project tools used in check commands, resolved through tool().
 ruff() { forge_exec_tool ruff "$@"; }
-basedpyright() { forge_exec_tool basedpyright "$@"; }
 alembic() { forge_exec_tool alembic "$@"; }
 pytest() { forge_exec_tool pytest "$@"; }
 python() { forge_exec_tool python "$@"; }
+# ty is Forge's own, pinned (§15.2).
+ty() { forge_ty "$@"; }
 FORGE_NCHECKS=19
 
 # 1. python/config-ratchet
@@ -16261,10 +16290,10 @@ forge_check_meta_1() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_1() {
-  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) ;; *) return 1 ;; esac
+  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_1() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|pyrightconfig.json|*/pyrightconfig.json) return 0 ;; esac; return 1; }
+forge_when_1() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) return 0 ;; esac; return 1; }
 forge_check_run_1() {
 forge_ratchet python ratchet.py
 }
@@ -16528,7 +16557,7 @@ forge_advise forge_stub_sync
 
 # 17. python/typecheck
 forge_check_meta_17() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='basedpyright'
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
@@ -16538,7 +16567,7 @@ forge_scope_17() {
 }
 forge_when_17() { return 1; }
 forge_check_run_17() {
-basedpyright
+ty check --output-format concise
 }
 
 # 18. python/uv/exclude-newer
@@ -16576,7 +16605,7 @@ FORGE_GREP_NO_DECREASE=''
 # grep 1. python/no-new-suppressions
 forge_grep_meta_1() {
   g_id='python/no-new-suppressions'; g_mode=no-increase; g_flags=-E
-  g_pattern='#[[:space:]]*(noqa|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore)'
+  g_pattern='#[[:space:]]*(noqa|ty:[[:space:]]*ignore|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore)'
   g_desc='No new suppression comments (# noqa,'
 }
 forge_grep_scope_1() {
@@ -17791,6 +17820,8 @@ forge_has_tool() {
   case $1 in
     *@*) ( _fh_root=$(pwd); cd "${1#*@}" 2>/dev/null && FORGE_WS_ROOT=$_fh_root forge_has_tool "${1%%@*}" ) ;;
     uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
+    # Forge's pinned ty runs through uvx (§15.2)
+    ty) command -v uvx >/dev/null 2>&1 ;;
     *) [ -n "$(tool "$1")" ] ;;
   esac
 }
@@ -19429,7 +19460,11 @@ FORGE_TYPES_LANGS='python'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='604f166279ee'
+FORGE_TYPES_REV='745bcf5d6dd2'
+
+# forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
+# environment (.venv) and configuration ([tool.ty], ty.toml).
+forge_ty() { uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" ty "$@"; }
 
 # forge_types_up <lang>: the language's daemon runs, with the pinned engine (started
 # when it does not: by the first hook that needs it, or by SessionStart). Prints why
@@ -19722,8 +19757,8 @@ forge_end "$fail"
   "claude_code_min": "2.1.295",
   "rules": {
     "python/aware-datetime": "34edbcba3e80528562da1cc94eaf4c50305b8749f03027d6b653546eb64bd5dc",
-    "python/config-files": "da9ccbb03a788a9d5ef6c200d2fb71befbf02bf9a51d68cb623a258f15d1d8fe",
-    "python/config-ratchet": "f52f4a9010b8e8f25fd8a37629712e683c61ccc162748669e29967b5869ce599",
+    "python/config-files": "10a4c68ce6ad01cd9aef64ddc48117984fc693c065aafd4ec566327a2d109f20",
+    "python/config-ratchet": "97a033be5bce27330c9ddcd5d36728904a6989998278ce50d45fa78812de2db8",
     "python/env-example": "c4597314420b3777fb4b0e819ea37c3d0187c175afcb6e63f00176bab4fff4cd",
     "python/fastapi/annotated-depends": "74fc0e4e89bf389aa7377ee0ab2d47d29257c9d063592ab8156b1f3f9dca7f38",
     "python/fastapi/cors-credentials-wildcard": "1ff2c42562d1d01479da9e3f2bea4be08ad42b140de7d6dae3b80ef4d277d84c",
@@ -19739,24 +19774,24 @@ forge_end "$fail"
     "python/no-blocking-in-async": "153fdfba0b1d27a269663ac9d98ba8cb0f3eea2cc969cba6333e913f109bff16",
     "python/no-commented-out-code": "487d2f33d65136e87513575b109b4b569117c2d674531283b5832f79d92cb101",
     "python/no-dangling-task": "c09a3fd256995061f4760b21789aecc7588fdb4b3ef80458eb79a15d3ecba901",
-    "python/no-deprecated": "30f45650cb871e268ee0bdc12b4ef5b2ad467277a718a859b176ed6f947fb714",
-    "python/no-explicit-any": "937b83f85a06043eec64d4a4aa2c8f237dac489a974924875b80daacd5a1c292",
+    "python/no-deprecated": "4cf9e03410696c5de2a2f099a11c58768679e9f34cc87eb6d2d74c4a64f59afd",
+    "python/no-explicit-any": "e3510c58cd582e5c40bd7eb02d4606708cc1f92e17bb3ac555f264c4e2e5e46b",
     "python/no-hardcoded-password": "d209f33885ad20af5c9fcf483c4537703dff0b26551c922e531bdef8e202c36e",
-    "python/no-new-suppressions": "5891332cf27656ef9ceba4ad56b803c8c404814574488d1b464dbd057095d964",
+    "python/no-new-suppressions": "ca503a681a10fd3e7a96e807f6750247db8168ced4b532412e4173f8dda00abd",
     "python/no-pickle": "b85ea1a2242fa9e0d748e6512ee83c185d91afe515473f1559fd3ba3fac87152",
     "python/no-placeholder-comment": "f527fcb761d164766cd78d64625480135f62bfefc8b9232ea5424cbd2b968286",
     "python/no-print": "64c6bbe79a0f0e0205844745791774acc85e6bfc3e9f24dd9bd9846555f5254a",
     "python/no-shell-true": "3e958140e547ae367e19a44a2b3bd223ec1e095333d7ff7664f4a0d4e31e782f",
     "python/no-silent-except": "cb885f3faac45a814f4f080cecd5b5de600926626ba454fd8776ab5abf10185c",
     "python/no-sql-format": "7946d9a48b8df9239ac68a0bf2b4b3880171d2e72426507d623d36a5c7035e4c",
-    "python/no-stale-ignore": "769b44645c8a286da6db1e30dc04850623474e90f72701c474d535a0008bc26a",
+    "python/no-stale-ignore": "025c59ddb4f717e8f1cdb657b3c4dc20d9956546d59bd263f40bf7ab3f55a6aa",
     "python/no-stub": "eeec4edd5c17679b9c1ffe5fed019b968ed15975a2636b78bdcb632043885be9",
     "python/no-tls-bypass": "4196bdee89c3f655bbbf51c477b21ac4834f3c680211fa6b9d26d3d2a7695695",
-    "python/no-unknown": "4e50d135c9b50a9888cdfbf8e44f0d9c031373df4624dfd6ac614e6c818e3bf4",
+    "python/no-unknown": "6355a10b97485aaad9f6857abef12eba928769a8a9634da109b916b156e2f036",
     "python/no-unsafe-yaml": "3a1aa90fcb8512a33df1c4afff6717b4cb4e95f77c634409f7f7b6221eabad92",
-    "python/no-unscoped-ignore": "829e71fff9f5ee50555bdb947bd66c70f8308e1bf594bceca5bf2115e6806eb8",
+    "python/no-unscoped-ignore": "431b8ace40499bc0444f2d57b5a4a826853bb8d340a4c1091003ad9b7bb8ce0c",
     "python/no-unused-noqa": "451c4baa594552fae0c808e39002665ddfe1a86dd3d9ba95ebc22def6d80edd6",
-    "python/no-useless-cast": "2a210ffd37f7f4aa754f46e6a04e5510b7892518762d360e692ac04f481edc94",
+    "python/no-useless-cast": "69e12c7922cfc0c6a2d6c9d2baa84e04b5746e11393627a6bc1b6076fe300421",
     "python/no-weak-hash": "c089bf6b94415d3a015f154c82037e28b4755268e6f219fb77dd7dc832fc1c03",
     "python/pydantic/v2-api": "530f46e310f2bd30f6347d75b3a2243922cb5aeef921df69c2314e399473e4eb",
     "python/pytest/no-blind-raises": "5e4380936ff598117305786c79894401af219e7a4e3514aa1bfbf603228b3277",
@@ -19786,7 +19821,7 @@ forge_end "$fail"
     "python/sqlalchemy/no-raw-execute": "9412a8f512351567d2b2e9cb3cb8c7d7b9db5dedfbbf09c40a78122803accad0",
     "python/sqlalchemy/no-text-fstring": "d6124c4cd9fb3be0b5014c11bca908f9ed24f7998fce175c36dee6a3cf19740a",
     "python/stub-sync": "73da3b9b1b1b66d958d03306e05f26c601377596348f4632fc3f462242f4bafe",
-    "python/typecheck": "1e41c54ae5a5cd94ab184a0aab1e42e329877240f7e39361e8c35966aed53b2f",
+    "python/typecheck": "8649af2dc8c24e4104e077c4dc5ec03b64dd3ff4a5a11bed706bc9575fa02a9d",
     "python/uv/exclude-newer": "5f47cdc494211d45fb754d0cbb69491f6a4ac161b29e4211bf8dbc552cbce87b",
     "python/uv/lock-sync": "bf3de58f036a46f0407262272fb55e128b2acd4b1c08c46025d3f417eb198e25",
     "python/uv/no-pip": "00667955d4cd816878c5358a3503771adf37b8015214dae0b1ed32583a081537"
@@ -19797,21 +19832,21 @@ forge_end "$fail"
     ".claude/rules/forge-python-pytest.md": "bd0b0ff93d58820d159a875d54f2993d77f965e1f23e98212049517f3415924a",
     ".claude/rules/forge-python-sqlalchemy-alembic.md": "f16da5b69615b1b19ec5997c9f3d54c1b9de2fa09fea0e085ef1ce99f6b6980d",
     ".claude/rules/forge-python-sqlalchemy.md": "5f6196f04c027b1e056e5378adcd2dcf112ea9b1e4160cb1fb7e6b8974b54a69",
-    ".claude/rules/forge-python.md": "7a536c4dd6092df1e8527675372b86fe47afce33d4e7293709406a379350f00f",
+    ".claude/rules/forge-python.md": "901fbb585eee69fe9a3442a8334787233666b61533ed0e5104a57e9996fe3330",
     ".claude/skills/forge-project/.claude-plugin/plugin.json": "c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2",
     ".claude/skills/forge-project/hooks/hooks.json": "3763c38c1d21ccd50c22007d10b155255f88c08290dab14d2afe25f4d181740b",
     ".claude/skills/forge-project/scripts/bash-snapshot.sh": "29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e",
     ".claude/skills/forge-project/scripts/guard.rules": "a3bb50a3648137c8e0c7cda3d1cb07050fcb36f990e50b8b2b7f46b78e363f20",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
     ".claude/skills/forge-project/scripts/lib.sh": "97c691d009a979b4dd1f81efd9535346b0027bc12a574653532eca62b978a289",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "de126a39047abdf4c45ba6cb0e885afc550828b1e3f88ce143f0a83f8066752c",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "ac056a02cdb8c6d56222d83a97e98de71d799f5db91415e76b302c4d7126ae57",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
     ".claude/skills/forge-project/scripts/session-end.sh": "99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58",
-    ".claude/skills/forge-project/scripts/session-start.sh": "9282271ef4040af8269a2c9f60e33c4b626414b99557491bbb386eadb068f749",
+    ".claude/skills/forge-project/scripts/session-start.sh": "c118a4014ac64c6ea01207c811ae1d4079147519eb974f71e36878f006608e1b",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "8a788e46d677ac441fd6dd3bf95bba71ed659b0e3f299665d6844cd698b2e582",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "f9e1ab298b4d1c3ede7ad0d9b1da45ee64129ba00de3dbb3648b3333f253ae66",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "568dca30af23c4442d86afa3bb9c018bfda764994e5c16731566bb0ecf0c3a88",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "97346584526e62ea5f815ec0ce9f2320590f523d8db442def9525679d55ddf6a",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml": "69a94f1a0b16aa08bcf758af3e3dc269266cdd808aba1a4289b4c58c7f969700",
     ".forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml": "1589382e5e0b5cae841a8f47dae9f2b3a8583a4bb1074ceb858d882e648e9b49",
@@ -19846,10 +19881,10 @@ forge_end "$fail"
     ".forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml": "4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0",
     ".forge/ast-grep/rules/python/sqlalchemy/no-text-fstring.yml": "04c44c9e215449d46b10540e86e999ec1d6383d8c3a849855fe73cb456668fca",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "95f3d655b4ccec99c1e3defee610cf1a50304821910ee0c353bea310888797a0",
+    ".forge/check.sh": "2ae2dff14b62aa41e2e9360c2a0ff58ef0ebc7835e061d495dfeed646be48e26",
     ".forge/helpers/fk_index.py": "12e59e9b4be590d77ed8dd6bab82f644440679d5cffd82264bf4c568e4341c9e",
-    ".forge/helpers/ratchet.py": "ebda7c176b4c139548e2028ba63790c5b36cf716190b4711733c65f20f10646d",
-    ".forge/helpers/types_python.py": "20f726d0607c157f85e01bc9ec3fddd389493aaf34adb2d26f53634e6a51173e",
+    ".forge/helpers/ratchet.py": "4f7e312b9419bd1ee09fe9cd3e988546bba089d706cb1b44e4546c4b4c87173d",
+    ".forge/helpers/types_python.py": "4e76ca3478bcbffc13c820cd1cd9818f0fa567c0c50d68e711d6b6913e9e28b5",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -19886,7 +19921,7 @@ forge_end "$fail"
     {
       "file": ".claude/settings.json",
       "path": "permissions.ask",
-      "value": "Edit(**/pyrightconfig.json)"
+      "value": "Edit(**/ty.toml)"
     }
   ]
 }
@@ -20158,36 +20193,30 @@ def ruff(path, before, after, prefix=""):
                 out(path, f"{prefix}lint.{key} adds {x}")
 
 
-# ---- basedpyright / pyright
+# ---- ty
 
-MODES = ["off", "basic", "standard", "strict", "recommended", "all"]
-LEVELS = {"none": 0, False: 0, "false": 0, "information": 1, "warning": 2, "error": 3, True: 3, "true": 3}
+TY_LEVELS = {"ignore": 0, "warn": 1, "error": 2}
 
 
-def pyright(path, b, a, prefix="", default="standard"):
-    mb, ma = b.get("typeCheckingMode"), a.get("typeCheckingMode")
-    if mb in MODES and MODES.index(mb) > MODES.index(ma if ma in MODES else default):
-        out(path, f"{prefix}typeCheckingMode {mb} -> {show(ma)}")
-    for key, vb in b.items():
-        if not key.startswith("report"):
+def ty(path, b, a, prefix=""):
+    rb, ra = b.get("rules") or {}, a.get("rules") or {}
+    for key, vb in rb.items():
+        if vb not in TY_LEVELS:
             continue
-        va = a.get(key)
-        lb, la = LEVELS.get(vb, 0), LEVELS.get(va, -1)
-        if va is None and lb > 0:
-            out(path, f"{prefix}{key} {show(vb)} -> unset")
-        elif la >= 0 and la < lb:
-            out(path, f"{prefix}{key} {show(vb)} -> {show(va)}")
-    if b.get("failOnWarnings") is True and a.get("failOnWarnings") is not True:
-        out(path, f"{prefix}failOnWarnings true -> {show(a.get('failOnWarnings'))}")
-    if b.get("enableTypeIgnoreComments") is False and a.get("enableTypeIgnoreComments") is not False:
-        out(path, f"{prefix}enableTypeIgnoreComments false -> {show(a.get('enableTypeIgnoreComments'))}")
-    for key in ("exclude", "ignore"):
-        for x in as_list(a.get(key)):
-            if x not in as_list(b.get(key)):
-                out(path, f"{prefix}{key} adds {x}")
-    for x in as_list(b.get("strict")):
-        if x not in as_list(a.get("strict")):
-            out(path, f"{prefix}strict no longer has {x}")
+        va = ra.get(key)
+        if va is None and TY_LEVELS[vb] > 0:
+            out(path, f"{prefix}rules.{key} {show(vb)} -> unset")
+        elif va in TY_LEVELS and TY_LEVELS[va] < TY_LEVELS[vb]:
+            out(path, f"{prefix}rules.{key} {show(vb)} -> {show(va)}")
+    tb, ta = b.get("terminal") or {}, a.get("terminal") or {}
+    if tb.get("error-on-warning") is True and ta.get("error-on-warning") is not True:
+        out(path, f"{prefix}terminal.error-on-warning true -> {show(ta.get('error-on-warning'))}")
+    sb, sa = b.get("src") or {}, a.get("src") or {}
+    for x in as_list(sa.get("exclude")):
+        if x not in as_list(sb.get("exclude")):
+            out(path, f"{prefix}src.exclude adds {x}")
+    if len(as_list(a.get("overrides"))) > len(as_list(b.get("overrides"))):
+        out(path, f"{prefix}overrides adds an entry")
 
 
 # ---- pytest
@@ -20234,7 +20263,7 @@ def main():
     base = sys.argv[1]
     for path in sys.argv[2:]:
         name = path.rsplit("/", 1)[-1]
-        if name not in ("pyproject.toml", "ruff.toml", ".ruff.toml", "pyrightconfig.json"):
+        if name not in ("pyproject.toml", "ruff.toml", ".ruff.toml", "ty.toml"):
             continue
         try:
             with open(f"{base}/{path}", encoding="utf-8") as f:
@@ -20252,12 +20281,11 @@ def main():
         if name == "pyproject.toml":
             tb, ta = before.get("tool") or {}, after.get("tool") or {}
             ruff(path, tb.get("ruff") or {}, ta.get("ruff") or {}, "tool.ruff.")
-            for tool, default in (("basedpyright", "recommended"), ("pyright", "standard")):
-                pyright(path, tb.get(tool) or {}, ta.get(tool) or {}, f"tool.{tool}.", default)
+            ty(path, tb.get("ty") or {}, ta.get("ty") or {}, "tool.ty.")
             pytest(path, (tb.get("pytest") or {}).get("ini_options") or {}, (ta.get("pytest") or {}).get("ini_options") or {}, "tool.pytest.ini_options.")
             coverage(path, tb.get("coverage") or {}, ta.get("coverage") or {}, "tool.coverage.")
-        elif name == "pyrightconfig.json":
-            pyright(path, before, after)
+        elif name == "ty.toml":
+            ty(path, before, after)
         else:
             ruff(path, before, after)
     for f in findings:
@@ -20348,9 +20376,19 @@ def index_of(text, pos):
 # ---------------------------------------------------------------- the language server
 
 
+class Slot:
+    """A request waiting for its response."""
+
+    def __init__(self):
+        self.done = threading.Event()
+        self.response = {}
+
+
 class Server:
     def __init__(self):
         self.proc = subprocess.Popen([TY, "server"], cwd=ROOT, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=LOG)
+        assert self.proc.stdin is not None and self.proc.stdout is not None
+        self.stdin, self.stdout = self.proc.stdin, self.proc.stdout
         self.next = 0
         self.lock = threading.Lock()
         self.waiting = {}
@@ -20362,8 +20400,8 @@ class Server:
     def send(self, msg):
         body = json.dumps(msg).encode()
         with self.lock:
-            self.proc.stdin.write(b"Content-Length: %d\r\n\r\n" % len(body) + body)
-            self.proc.stdin.flush()
+            self.stdin.write(b"Content-Length: %d\r\n\r\n" % len(body) + body)
+            self.stdin.flush()
 
     def read(self):
         try:
@@ -20374,7 +20412,7 @@ class Server:
                 os._exit(3)
 
     def read_messages(self):
-        out = self.proc.stdout
+        out = self.stdout
         while True:
             length = None
             while True:
@@ -20388,6 +20426,8 @@ class Server:
                     break
                 if line.lower().startswith(b"content-length:"):
                     length = int(line.split(b":")[1])
+            if length is None:
+                continue
             msg = json.loads(out.read(length))
             if "method" in msg and "id" in msg:
                 # a request from the server (configuration, registrations): answer with defaults
@@ -20396,21 +20436,21 @@ class Server:
             elif "id" in msg:
                 slot = self.waiting.pop(msg["id"], None)
                 if slot:
-                    slot[1] = msg
-                    slot[0].set()
+                    slot.response = msg
+                    slot.done.set()
 
     def request(self, method, params):
         """Sends a request; returns a function that waits for its result."""
         with self.lock:
             self.next += 1
             rid = self.next
-        slot = [threading.Event(), None]
+        slot = Slot()
         self.waiting[rid] = slot
         self.send({"jsonrpc": "2.0", "id": rid, "method": method, "params": params})
 
         def wait():
-            slot[0].wait(60)
-            return (slot[1] or {}).get("result")
+            slot.done.wait(60)
+            return slot.response.get("result")
 
         return wait
 
@@ -20789,21 +20829,21 @@ main()
 bd0b0ff93d58820d159a875d54f2993d77f965e1f23e98212049517f3415924a  .claude/rules/forge-python-pytest.md
 f16da5b69615b1b19ec5997c9f3d54c1b9de2fa09fea0e085ef1ce99f6b6980d  .claude/rules/forge-python-sqlalchemy-alembic.md
 5f6196f04c027b1e056e5378adcd2dcf112ea9b1e4160cb1fb7e6b8974b54a69  .claude/rules/forge-python-sqlalchemy.md
-7a536c4dd6092df1e8527675372b86fe47afce33d4e7293709406a379350f00f  .claude/rules/forge-python.md
+901fbb585eee69fe9a3442a8334787233666b61533ed0e5104a57e9996fe3330  .claude/rules/forge-python.md
 c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills/forge-project/.claude-plugin/plugin.json
 3763c38c1d21ccd50c22007d10b155255f88c08290dab14d2afe25f4d181740b  .claude/skills/forge-project/hooks/hooks.json
 29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e  .claude/skills/forge-project/scripts/bash-snapshot.sh
 a3bb50a3648137c8e0c7cda3d1cb07050fcb36f990e50b8b2b7f46b78e363f20  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
 97c691d009a979b4dd1f81efd9535346b0027bc12a574653532eca62b978a289  .claude/skills/forge-project/scripts/lib.sh
-de126a39047abdf4c45ba6cb0e885afc550828b1e3f88ce143f0a83f8066752c  .claude/skills/forge-project/scripts/post-edit.sh
+ac056a02cdb8c6d56222d83a97e98de71d799f5db91415e76b302c4d7126ae57  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
 99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58  .claude/skills/forge-project/scripts/session-end.sh
-9282271ef4040af8269a2c9f60e33c4b626414b99557491bbb386eadb068f749  .claude/skills/forge-project/scripts/session-start.sh
+c118a4014ac64c6ea01207c811ae1d4079147519eb974f71e36878f006608e1b  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-8a788e46d677ac441fd6dd3bf95bba71ed659b0e3f299665d6844cd698b2e582  .claude/skills/forge-project/scripts/test-edit.sh
+f9e1ab298b4d1c3ede7ad0d9b1da45ee64129ba00de3dbb3648b3333f253ae66  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-568dca30af23c4442d86afa3bb9c018bfda764994e5c16731566bb0ecf0c3a88  .claude/skills/forge-project/scripts/typecheck.sh
+97346584526e62ea5f815ec0ce9f2320590f523d8db442def9525679d55ddf6a  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 69a94f1a0b16aa08bcf758af3e3dc269266cdd808aba1a4289b4c58c7f969700  .forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml
 1589382e5e0b5cae841a8f47dae9f2b3a8583a4bb1074ceb858d882e648e9b49  .forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml
@@ -20838,10 +20878,10 @@ b767983a8b5ac3966b15b7fc7f89fba1e9c94115325f294d1887c3e41cf19727  .forge/ast-gre
 4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0  .forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml
 04c44c9e215449d46b10540e86e999ec1d6383d8c3a849855fe73cb456668fca  .forge/ast-grep/rules/python/sqlalchemy/no-text-fstring.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-95f3d655b4ccec99c1e3defee610cf1a50304821910ee0c353bea310888797a0  .forge/check.sh
+2ae2dff14b62aa41e2e9360c2a0ff58ef0ebc7835e061d495dfeed646be48e26  .forge/check.sh
 12e59e9b4be590d77ed8dd6bab82f644440679d5cffd82264bf4c568e4341c9e  .forge/helpers/fk_index.py
-ebda7c176b4c139548e2028ba63790c5b36cf716190b4711733c65f20f10646d  .forge/helpers/ratchet.py
-20f726d0607c157f85e01bc9ec3fddd389493aaf34adb2d26f53634e6a51173e  .forge/helpers/types_python.py
+4f7e312b9419bd1ee09fe9cd3e988546bba089d706cb1b44e4546c4b4c87173d  .forge/helpers/ratchet.py
+4e76ca3478bcbffc13c820cd1cd9818f0fa567c0c50d68e711d6b6913e9e28b5  .forge/helpers/types_python.py
 
 ===== .git/hooks/pre-commit
 #!/bin/sh
