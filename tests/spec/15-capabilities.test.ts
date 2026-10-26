@@ -199,6 +199,26 @@ describe.if(hasUv)("Python: the receiver's type, through ty", () => {
     T,
   );
 
+  /**
+   * The servers point the type definition of an anonymous type (an object type literal)
+   * at the literal itself: its name is the alias that declares it, never a word of the
+   * literal or of its JSDoc.
+   */
+  test(
+    "a type declared as an alias of an object type literal has the alias's name",
+    () => {
+      put(
+        repo,
+        "src/form.ts",
+        'import { useForm } from "react-hook-form";\n\nexport function useAll() {\n  const { watch: w } = useForm<{ a: string }>();\n  return w();\n}\n\nconst watch = () => 1;\nexport const v = watch();\n',
+      );
+      const ctx = afterEdit(repo, "src/form.ts");
+      expect(ctx).toContain("forge:local/watch-all src/form.ts:5:");
+      expect(ctx).not.toContain("src/form.ts:9:");
+    },
+    T,
+  );
+
   test.skipIf(othersRunning(import.meta.path))(
     `once the engine runs, an edit's type question (client, FIFO and engine) takes under ${WARM_BUDGET_MS} ms`,
     () => {
@@ -329,15 +349,33 @@ describe.if(hasUv)("Python: the receiver's type, through ty", () => {
  * version of each.
  */
 /** @rule typescript/zod/v4-string-formats */
+/** A local rule (§5.3) on react-hook-form's UseFormWatch, declared `type UseFormWatch<T> = { … }`. */
+const WATCH_ALL = [
+  "id: local/watch-all",
+  "description: watch() with no argument re-renders the form on every change.",
+  "scope: {language: typescript}",
+  "enforce:",
+  "  - target: ast-grep",
+  "    mode: forbid",
+  '    rule: {pattern: "$W()"}',
+  "    where:",
+  "      W: {type: {package: react-hook-form, name: UseFormWatch}}",
+  "",
+].join("\n");
+
 describe.each(TOOL_VERSIONS.typescriptEngines.map((v) => [v]))("TypeScript %s: the receiver's type, through the project's TypeScript", (version) => {
   let repo = "";
   beforeAll(() => {
     repo = project(`zod-typescript-${version}`, undefined, (dir) => {
       mkdirSync(join(dir, "src"));
-      writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "zod-app", private: true, type: "module", dependencies: { zod: "4.1.12" }, devDependencies: { typescript: version } }));
+      const dependencies = { zod: "4.1.12", "react-hook-form": "7.66.0", react: "19.2.0", "@types/react": "19.2.2" };
+      writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "zod-app", private: true, type: "module", dependencies, devDependencies: { typescript: version } }));
       writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ compilerOptions: { strict: true, module: "ESNext", moduleResolution: "bundler", target: "ES2022", noEmit: true } }));
       writeFileSync(join(dir, ".gitignore"), "node_modules/\n");
       writeFileSync(join(dir, "src/index.ts"), "export const x = 1;\n");
+      // a type declared as an alias of an object type literal: react-hook-form's UseFormWatch
+      mkdirSync(join(dir, ".forge/rules"), { recursive: true });
+      writeFileSync(join(dir, ".forge/rules/watch-all.yaml"), WATCH_ALL);
       expect(sh("bun", ["install", "--silent"], { cwd: dir }).status).toBe(0);
     });
   }, T);
@@ -386,6 +424,26 @@ describe.each(TOOL_VERSIONS.typescriptEngines.map((v) => [v]))("TypeScript %s: t
         'import { z } from "zod";\n\nclass ZodString {\n  email(): string {\n    return "";\n  }\n}\n\nexport const a = new ZodString().email();\nexport const user = { email: (): string => "a@b" };\nexport const b = user.email();\nexport const c = z.email();\n',
       );
       expect(afterEdit(repo, "src/mine.ts")).toBe("");
+    },
+    T,
+  );
+
+  /**
+   * The servers point the type definition of an anonymous type (an object type literal)
+   * at the literal itself: its name is the alias that declares it, never a word of the
+   * literal or of its JSDoc.
+   */
+  test(
+    "a type declared as an alias of an object type literal has the alias's name",
+    () => {
+      put(
+        repo,
+        "src/form.ts",
+        'import { useForm } from "react-hook-form";\n\nexport function useAll() {\n  const { watch: w } = useForm<{ a: string }>();\n  return w();\n}\n\nconst watch = () => 1;\nexport const v = watch();\n',
+      );
+      const ctx = afterEdit(repo, "src/form.ts");
+      expect(ctx).toContain("forge:local/watch-all src/form.ts:5:");
+      expect(ctx).not.toContain("src/form.ts:9:");
     },
     T,
   );

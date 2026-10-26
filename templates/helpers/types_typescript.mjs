@@ -292,14 +292,88 @@ function readText(file) {
   }
 }
 
-/** The declared name at <index> (keywords skipped). */
+/** The index of the first character at or after <i> that is not whitespace or a comment. */
+function skipTrivia(text, i) {
+  for (;;) {
+    while (i < text.length && /\s/.test(text[i])) i++;
+    if (text.startsWith("//", i)) {
+      const n = text.indexOf("\n", i);
+      i = n < 0 ? text.length : n + 1;
+    } else if (text.startsWith("/*", i)) {
+      const n = text.indexOf("*/", i + 2);
+      i = n < 0 ? text.length : n + 2;
+    } else return i;
+  }
+}
+
+/** The index just past the string literal starting at <i> (its quote). */
+function skipString(text, i) {
+  const q = text[i];
+  for (let j = i + 1; j < text.length; j++) {
+    if (text[j] === "\\") j++;
+    else if (text[j] === q) return j + 1;
+  }
+  return text.length;
+}
+
+/**
+ * The name of the type alias whose body holds <index>, the start of an anonymous type
+ * (an object type literal, a function or tuple type): `type UseFormWatch<T> = { … }`
+ * gives UseFormWatch. The servers point the type definition of such a type at the
+ * literal, which has no name of its own. Undefined when no alias declares it (an inline
+ * type annotation).
+ */
+function enclosingAlias(text, index) {
+  const heads = [...text.slice(0, index).matchAll(/\btype\s+([A-Za-z_$][\w$]*)/g)];
+  for (let h = heads.length - 1; h >= 0; h--) {
+    const head = heads[h];
+    // past the name and its type parameters (balanced <>, where => is not a closing >)
+    let i = skipTrivia(text, head.index + head[0].length);
+    if (text[i] === "<") {
+      let depth = 0;
+      for (; i < index; i++) {
+        if (text[i] === "=" && text[i + 1] === ">") i++;
+        else if (text[i] === "<") depth++;
+        else if (text[i] === ">" && --depth === 0) break;
+      }
+      i = skipTrivia(text, i + 1);
+    }
+    if (text[i] !== "=" || text[i + 1] === ">" || i >= index) continue;
+    // the alias's statement goes on to a ; at depth 0 (or the end of the enclosing block)
+    let depth = 0;
+    let ended = false;
+    for (let j = i + 1; j < index && !ended; ) {
+      const k = skipTrivia(text, j);
+      if (k !== j) {
+        j = k;
+        continue;
+      }
+      const c = text[j];
+      if (c === '"' || c === "'" || c === "`") j = skipString(text, j);
+      else {
+        if ("([{".includes(c)) depth++;
+        else if (")]}".includes(c)) ended = --depth < 0;
+        else if (c === ";" && depth === 0) ended = true;
+        j++;
+      }
+    }
+    if (!ended) return head[1];
+  }
+  return undefined;
+}
+
+/**
+ * The declared name at <index> (keywords and comments skipped): { name, end }, with end
+ * where a class or interface header's heritage clauses start; an anonymous type gets the
+ * name of the alias declaring it, and no heritage (end undefined).
+ */
 function nameAt(text, index) {
-  for (let i = index; i < text.length; ) {
+  for (let i = skipTrivia(text, index); i < text.length; i = skipTrivia(text, i)) {
     WORD.lastIndex = i;
     const m = WORD.exec(text);
     if (!m) {
-      i++;
-      continue;
+      const name = enclosingAlias(text, i);
+      return name ? { name, end: undefined } : undefined;
     }
     if (!KEYWORDS.has(m[0])) return { name: m[0], end: i + m[0].length };
     i += m[0].length;
@@ -392,7 +466,7 @@ class Types {
       const at = nameAt(text, indexOf(text, l.pos));
       if (!at) continue;
       out.set(`${pkg}\0${mod}\0${at.name}`, [pkg, mod, at.name]);
-      const bases = heritage(text, at.end);
+      const bases = at.end === undefined ? [] : heritage(text, at.end);
       const defs = await Promise.all(
         bases.map((b) => this.server.definition(file, position(text, b))),
       );
