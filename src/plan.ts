@@ -254,6 +254,18 @@ export function plan(opts: PlanOptions): Plan {
     if (where) return workspaces.filter((w) => where.includes(w.dir) && gateHolds(rule, w)).map((w) => w.dir);
     return gateHolds(rule, opts.facts.root) ? undefined : workspaces.filter((w) => gateHolds(rule, w)).map((w) => w.dir);
   };
+  /**
+   * The packages an ast-grep target with a where needs (type stubs) that are not declared
+   * where the rule applies: at the root (or in any package) for a repository-wide rule,
+   * in each of its packages otherwise.
+   */
+  const missingNeeds = (rule: Rule, t: AstGrepTarget): string[] => {
+    if (!t.needs || !opts.facts) return t.needs && !opts.facts ? t.needs.map((n) => n.name) : [];
+    const dirs = ruleDirs(rule);
+    const places: DepFacts[] = dirs ? workspaces.filter((w) => dirs.includes(w.dir)) : [opts.facts.root, ...workspaces];
+    const has = (f: DepFacts, n: { ecosystem: "pypi" | "npm"; name: string }) => depMatches(f, n);
+    return t.needs.filter((n) => (dirs ? !places.every((f) => has(f, n)) : !places.some((f) => has(f, n)))).map((n) => n.name);
+  };
   const gatedOut = (rule: Rule): boolean => {
     if (!rule.when || !opts.facts) return false;
     const where = packDirs(rule.pack);
@@ -327,7 +339,9 @@ export function plan(opts: PlanOptions): Plan {
     const ast = astTargets[0];
     if (ast && (toolTargets.length === 0 || !toolTargets.some((t) => present(t.tool)))) {
       if (level === "user") warnings.push(`${rule.id}: ast-grep targets are project-level only`);
-      else {
+      else if (missingNeeds(rule, ast).length) {
+        st.notEnforced.push(`not enforced here: the types engine needs ${missingNeeds(rule, ast).join(", ")} installed to see the types this rule checks (add it as a development dependency)`);
+      } else {
         const dirs = ruleDirs(rule);
         st.astgrep = ast;
         astgrep.push({ rule, target: ast, ...(dirs ? { dirs } : {}) });

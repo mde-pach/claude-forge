@@ -373,6 +373,7 @@ function testRules(rules: Rule[], repo: string | undefined, opts: { toolBins?: s
       const eco = typesLanguage(r, typed) === "python" ? "pypi" : "npm";
       if (!r.examples?.deps?.length) failures.push(`${r.id}: where needs examples.deps (the packages its examples are type-checked against)`);
       else if (r.examples.deps.some((d) => d.ecosystem !== eco)) failures.push(`${r.id}: examples.deps must be ${eco} packages`);
+      for (const n of typed.needs ?? []) if (!r.examples?.deps?.some((d) => d.ecosystem === n.ecosystem && d.name === n.name)) failures.push(`${r.id}: needs ${n.name}, so examples.deps must install it`);
     } else if (r.examples?.deps) failures.push(`${r.id}: examples.deps is for rules with a where`);
   }
 

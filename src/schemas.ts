@@ -99,10 +99,23 @@ const target = {
           constraints: { type: "object" },
           utils: { type: "object" },
           where: { type: "object", minProperties: 1, propertyNames: { pattern: "^[A-Z][A-Z0-9_]*$" }, additionalProperties: { $ref: "#/$defs/where" } },
+          // packages (type stubs) the types engine needs to see the types the where names
+          needs: {
+            type: "array",
+            minItems: 1,
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["ecosystem", "name"],
+              properties: { ecosystem: { enum: ["pypi", "npm"] }, name: { type: "string", minLength: 1 } },
+            },
+          },
         },
-        // engine capabilities decide on single matches: counted modes are not supported yet
-        if: { required: ["where"] },
-        then: { properties: { mode: { enum: ["forbid", "advise"] } } },
+        allOf: [
+          // engine capabilities decide on single matches: counted modes are not supported yet
+          { if: { required: ["where"] }, then: { properties: { mode: { enum: ["forbid", "advise"] } } } },
+          { if: { required: ["needs"] }, then: { required: ["where"] } },
+        ],
       },
     },
     {

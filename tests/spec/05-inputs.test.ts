@@ -473,6 +473,42 @@ examples:
   });
 });
 
+/**
+ * A type rule may need packages installed for the types engine to see a library's
+ * types at all (Django's come from django-stubs): without them every receiver is
+ * Unknown and the rule would pass in silence. Such a rule (`needs` on its ast-grep
+ * target) is not enforced where they are not dependencies, and `forge status` says what
+ * to add.
+ */
+test("a type rule whose stubs are not dependencies is not enforced, and status names them", () => {
+  const RULE = `id: local/qs-len
+description: No len() of a QuerySet.
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule: {pattern: "len($Q)"}
+    where:
+      Q: {type: {package: django, name: QuerySet}}
+    needs: [{ecosystem: pypi, name: django-stubs}]
+examples:
+  deps: [{ecosystem: pypi, name: django, version: "6.1.2"}, {ecosystem: pypi, name: django-stubs, version: "6.1.2"}]
+  match: ["x = 1"]
+`;
+  const planOf = (deps: string) => {
+    const repo = mkdtempSync(join(tmpdir(), "forge-needs-"));
+    put(repo, "pyproject.toml", `[project]\nname = "app"\ndependencies = ["django>=6.1"]\n\n[dependency-groups]\ndev = [${deps}]\n`);
+    put(repo, ".forge/rules/qs-len.yaml", RULE);
+    sh("git", ["init", "-q"], { cwd: repo });
+    return plan({ level: "project", base: repo, packs: PACKS, ...readProjectInputs(repo) });
+  };
+  const without = planOf("").active.find((s) => s.rule.id === "local/qs-len")!;
+  expect(without.astgrep).toBeUndefined();
+  expect(without.notEnforced[0]).toContain("not enforced here: the types engine needs django-stubs installed");
+  const withStubs = planOf('"django-stubs>=6.1"').active.find((s) => s.rule.id === "local/qs-len")!;
+  expect(withStubs.astgrep).toBeDefined();
+});
+
 describe("strict YAML", () => {
   test.each([
     ["duplicate keys", "a: 1\na: 2\n", /unique|duplicate/i],

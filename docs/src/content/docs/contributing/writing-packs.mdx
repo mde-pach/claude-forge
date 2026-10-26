@@ -88,6 +88,10 @@ Finding the right `package`, `module` and `name`: go to the type's definition in
 
 Examples of such a rule are whole files, imports included (a receiver whose type cannot be resolved is unknown, and does not match), and `examples.deps` lists the packages, exact versions, they are type-checked against. `bun run test:packs` and `forge test` install them once into a cached project and run every example through the engine; ast-grep alone only checks that the `match` examples match the pattern.
 
+When the engine sees a library's types only through a stub package (Django through `django-stubs`, Celery through `celery-types`), say so on the target: `needs: [{ecosystem: pypi, name: django-stubs}]`. Where the project does not depend on it, the rule is reported not enforced, with what to add, instead of passing in silence; `examples.deps` must install it.
+
+<Spec file="05-inputs" test="a type rule whose stubs are not dependencies is not enforced, and status names them" />
+
 `where` works on `forbid` and `advise` targets. A match whose engine could not answer is reported as `forge:forge/types <rule> was not checked: …`, never passed silently.
 
 ## Examples are tests

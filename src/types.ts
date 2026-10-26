@@ -42,6 +42,8 @@ export interface AstGrepTarget {
   utils?: Record<string, unknown>;
   /** Engine capabilities on metavariables (§15.1): a match counts only when they hold. */
   where?: Record<string, WhereCondition>;
+  /** Packages the types engine needs installed to see the types the where names (stubs: django-stubs); without them the rule is not enforced. */
+  needs?: { ecosystem: "pypi" | "npm"; name: string }[];
 }
 
 /**
