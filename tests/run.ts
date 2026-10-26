@@ -239,6 +239,8 @@ interface ShardResult {
   s: Shard;
   cases: Case[];
   wall: number;
+  /** cases with the results of the tests that ran again alone (the quiet run) */
+  merged?: Case[];
 }
 let failedShards = 0;
 let shardNo = 0;
@@ -305,10 +307,11 @@ for (const q of quiet) {
   writeFileSync(q.go, "");
   const again = await q.run;
   const done = new Map(again.cases.map((c) => [c.full, c]));
-  for (const r of results) if (r.s.file === q.file) r.cases = r.cases.map((c) => (c.skipped && done.get(c.full)) || c);
+  for (const r of results) if (r.s.file === q.file) r.merged = r.cases.map((c) => (c.skipped && done.get(c.full)) || c);
 }
 
-// timings for the next plan: per test, and per file the overhead of a shard
+// timings for the next plan: per test, and per file the overhead of a shard, as in the
+// parallel phase (a test that runs alone afterwards is skipped there: 0)
 const next: Record<string, FileTimings> = { ...timings };
 for (const file of files) {
   const rs = results.filter((r) => r.s.file === file);
@@ -332,7 +335,7 @@ try {
     );
 } catch {}
 
-const all = results.flatMap((r) => r.cases);
+const all = results.flatMap((r) => r.merged ?? r.cases);
 const pass = all.filter((c) => !c.failed && !c.skipped).length;
 const skip = all.filter((c) => c.skipped).length;
 const fail = all.filter((c) => c.failed).length;
