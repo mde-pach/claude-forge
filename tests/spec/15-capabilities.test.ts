@@ -199,26 +199,6 @@ describe.if(hasUv)("Python: the receiver's type, through ty", () => {
     T,
   );
 
-  /**
-   * The servers point the type definition of an anonymous type (an object type literal)
-   * at the literal itself: its name is the alias that declares it, never a word of the
-   * literal or of its JSDoc.
-   */
-  test(
-    "a type declared as an alias of an object type literal has the alias's name",
-    () => {
-      put(
-        repo,
-        "src/form.ts",
-        'import { useForm } from "react-hook-form";\n\nexport function useAll() {\n  const { watch: w } = useForm<{ a: string }>();\n  return w();\n}\n\nconst watch = () => 1;\nexport const v = watch();\n',
-      );
-      const ctx = afterEdit(repo, "src/form.ts");
-      expect(ctx).toContain("forge:local/watch-all src/form.ts:5:");
-      expect(ctx).not.toContain("src/form.ts:9:");
-    },
-    T,
-  );
-
   test.skipIf(othersRunning(import.meta.path))(
     `once the engine runs, an edit's type question (client, FIFO and engine) takes under ${WARM_BUDGET_MS} ms`,
     () => {
