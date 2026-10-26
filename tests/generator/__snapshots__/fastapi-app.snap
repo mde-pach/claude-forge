@@ -1198,7 +1198,7 @@ FORGE_NCHECKS=19
 forge_check_meta_1() {
   c_id='python/config-ratchet'; c_stage=lint; c_tools='python'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_1() {
   case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) ;; *) return 1 ;; esac
@@ -1213,7 +1213,7 @@ forge_ratchet python ratchet.py
 forge_check_meta_2() {
   c_id='python/env-example'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -1228,7 +1228,7 @@ forge_env_example py
 forge_check_meta_3() {
   c_id='python/format'; c_stage=format; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=1; c_rerun=0; c_dirs=''
+  c_changed=1; c_files=1; c_fix=0; c_fmt=1; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_3() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -1249,7 +1249,7 @@ ruff format --stdin-filename "$FORGE_FILE" -
 forge_check_meta_4() {
   c_id='python/lint'; c_stage=lint; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=1; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=1; c_files=1; c_fix=1; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_4() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -1270,7 +1270,7 @@ ruff check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise
 forge_check_meta_5() {
   c_id='python/pytest/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_5() {
   case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py) ;; *) return 1 ;; esac
@@ -1286,7 +1286,7 @@ forge_test_edits
 forge_check_meta_6() {
   c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
   c_when=0; c_localdb=0; c_timeout=300
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=1; c_dirs=''
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=1; c_warn=0; c_dirs=''
 }
 forge_scope_6() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -1307,7 +1307,7 @@ pytest -q $FORGE_FILES
 forge_check_meta_7() {
   c_id='python/pytest/untested-change'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_7() {
   case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py|tests/*|*/tests/*|migrations/*|*/migrations/*|alembic/versions/*|*/alembic/versions/*) return 1 ;; esac
@@ -1324,7 +1324,7 @@ forge_advise forge_untested_change
 forge_check_meta_8() {
   c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=1; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_8() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -1339,7 +1339,7 @@ alembic check
 forge_check_meta_9() {
   c_id='python/sqlalchemy/alembic/data-migration-downgrade'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_9() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
@@ -1355,7 +1355,7 @@ forge_advise forge_alembic_data_downgrade
 forge_check_meta_10() {
   c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_10() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
@@ -1371,7 +1371,7 @@ forge_advise forge_alembic_fk_index
 forge_check_meta_11() {
   c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_11() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
@@ -1390,7 +1390,7 @@ forge_squawk_alembic $FORGE_FILES
 forge_check_meta_12() {
   c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_12() {
   case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
@@ -1406,7 +1406,7 @@ forge_models_registered
 forge_check_meta_13() {
   c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_13() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -1421,7 +1421,7 @@ test "$(alembic heads | wc -l)" -le 1
 forge_check_meta_14() {
   c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_14() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
@@ -1437,7 +1437,7 @@ forge_alembic_batch
 forge_check_meta_15() {
   c_id='python/sqlalchemy/fk-index'; c_stage=lint; c_tools='python'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_15() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -1454,7 +1454,7 @@ forge_advise forge_helper python fk_index.py
 forge_check_meta_16() {
   c_id='python/stub-sync'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_16() {
   case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
@@ -1470,7 +1470,7 @@ forge_advise forge_stub_sync
 forge_check_meta_17() {
   c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_17() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -1485,7 +1485,7 @@ ty check --output-format concise
 forge_check_meta_18() {
   c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_18() {
   return 0
@@ -1499,7 +1499,7 @@ forge_uv_cooldown
 forge_check_meta_19() {
   c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_19() {
   return 0
@@ -3766,7 +3766,7 @@ forge_excerpt() {
 # failed run by what they name (tsc "path(l,c)", "path:l:c" from Python and JS
 # linters, "--> path:l:c"; "Would reformat: path" and Biome's "path format" name a
 # file only; absolute paths under the repository are made relative; warning-only
-# lines are ignored). A diagnostic counts when it names a file of $FORGE_TMP/changed
+# lines are ignored, unless the check's c_warn is 1: its warnings count as errors). A diagnostic counts when it names a file of $FORGE_TMP/changed
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "warnings" when the output has warnings and no
@@ -3774,19 +3774,19 @@ forge_excerpt() {
 # "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
 # tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
-  awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+  awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" -v warn="${c_warn:-0}" '
     BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
       gsub(ansi, "", line)
-      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
+      if (warn != 1 && line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
         # a warning diagnostic: a location, then "warning" as a word (not DeprecationWarning)
         if (line ~ /^[[:space:]]*(-->[[:space:]]*)?[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+)/ && line ~ /(^|[^A-Za-z])[Ww]arning([^A-Za-z]|$)/) warned = 1
         next
       }
-      if (line ~ /[Ee]rror/ && line !~ /(^|[^0-9])0 errors?([^A-Za-z]|$)/) erred = 1
+      if ((line ~ /[Ee]rror/ || warn == 1 && line ~ /[Ww]arning/) && line !~ /(^|[^0-9])0 (errors?|warnings?)([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
       if (match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) {
@@ -4404,7 +4404,7 @@ FORGE_TYPES_LANGS='python'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='acf150afbdb9'
+FORGE_TYPES_REV='d293bd59f078'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -4691,7 +4691,7 @@ FORGE_NCHECKS=19
 forge_check_meta_1() {
   c_id='python/config-ratchet'; c_stage=lint; c_tools='python'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_1() {
   case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) ;; *) return 1 ;; esac
@@ -4706,7 +4706,7 @@ forge_ratchet python ratchet.py
 forge_check_meta_2() {
   c_id='python/env-example'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -4721,7 +4721,7 @@ forge_env_example py
 forge_check_meta_3() {
   c_id='python/format'; c_stage=format; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=1; c_rerun=0; c_dirs=''
+  c_changed=1; c_files=1; c_fix=0; c_fmt=1; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_3() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -4742,7 +4742,7 @@ ruff format --stdin-filename "$FORGE_FILE" -
 forge_check_meta_4() {
   c_id='python/lint'; c_stage=lint; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=1; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=1; c_files=1; c_fix=1; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_4() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -4763,7 +4763,7 @@ ruff check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise
 forge_check_meta_5() {
   c_id='python/pytest/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_5() {
   case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py) ;; *) return 1 ;; esac
@@ -4779,7 +4779,7 @@ forge_test_edits
 forge_check_meta_6() {
   c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
   c_when=0; c_localdb=0; c_timeout=300
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=1; c_dirs=''
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=1; c_warn=0; c_dirs=''
 }
 forge_scope_6() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -4800,7 +4800,7 @@ pytest -q $FORGE_FILES
 forge_check_meta_7() {
   c_id='python/pytest/untested-change'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_7() {
   case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py|tests/*|*/tests/*|migrations/*|*/migrations/*|alembic/versions/*|*/alembic/versions/*) return 1 ;; esac
@@ -4817,7 +4817,7 @@ forge_advise forge_untested_change
 forge_check_meta_8() {
   c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=1; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_8() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -4832,7 +4832,7 @@ alembic check
 forge_check_meta_9() {
   c_id='python/sqlalchemy/alembic/data-migration-downgrade'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_9() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
@@ -4848,7 +4848,7 @@ forge_advise forge_alembic_data_downgrade
 forge_check_meta_10() {
   c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_10() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
@@ -4864,7 +4864,7 @@ forge_advise forge_alembic_fk_index
 forge_check_meta_11() {
   c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_11() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
@@ -4883,7 +4883,7 @@ forge_squawk_alembic $FORGE_FILES
 forge_check_meta_12() {
   c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_12() {
   case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
@@ -4899,7 +4899,7 @@ forge_models_registered
 forge_check_meta_13() {
   c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_13() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -4914,7 +4914,7 @@ test "$(alembic heads | wc -l)" -le 1
 forge_check_meta_14() {
   c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_14() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
@@ -4930,7 +4930,7 @@ forge_alembic_batch
 forge_check_meta_15() {
   c_id='python/sqlalchemy/fk-index'; c_stage=lint; c_tools='python'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_15() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -4947,7 +4947,7 @@ forge_advise forge_helper python fk_index.py
 forge_check_meta_16() {
   c_id='python/stub-sync'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_16() {
   case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
@@ -4963,7 +4963,7 @@ forge_advise forge_stub_sync
 forge_check_meta_17() {
   c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_17() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -4978,7 +4978,7 @@ ty check --output-format concise
 forge_check_meta_18() {
   c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_18() {
   return 0
@@ -4992,7 +4992,7 @@ forge_uv_cooldown
 forge_check_meta_19() {
   c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_19() {
   return 0
@@ -7259,7 +7259,7 @@ forge_excerpt() {
 # failed run by what they name (tsc "path(l,c)", "path:l:c" from Python and JS
 # linters, "--> path:l:c"; "Would reformat: path" and Biome's "path format" name a
 # file only; absolute paths under the repository are made relative; warning-only
-# lines are ignored). A diagnostic counts when it names a file of $FORGE_TMP/changed
+# lines are ignored, unless the check's c_warn is 1: its warnings count as errors). A diagnostic counts when it names a file of $FORGE_TMP/changed
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "warnings" when the output has warnings and no
@@ -7267,19 +7267,19 @@ forge_excerpt() {
 # "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
 # tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
-  awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+  awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" -v warn="${c_warn:-0}" '
     BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
       gsub(ansi, "", line)
-      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
+      if (warn != 1 && line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
         # a warning diagnostic: a location, then "warning" as a word (not DeprecationWarning)
         if (line ~ /^[[:space:]]*(-->[[:space:]]*)?[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+)/ && line ~ /(^|[^A-Za-z])[Ww]arning([^A-Za-z]|$)/) warned = 1
         next
       }
-      if (line ~ /[Ee]rror/ && line !~ /(^|[^0-9])0 errors?([^A-Za-z]|$)/) erred = 1
+      if ((line ~ /[Ee]rror/ || warn == 1 && line ~ /[Ww]arning/) && line !~ /(^|[^0-9])0 (errors?|warnings?)([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
       if (match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) {
@@ -7897,7 +7897,7 @@ FORGE_TYPES_LANGS='python'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='acf150afbdb9'
+FORGE_TYPES_REV='d293bd59f078'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -8204,7 +8204,7 @@ FORGE_NCHECKS=19
 forge_check_meta_1() {
   c_id='python/config-ratchet'; c_stage=lint; c_tools='python'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_1() {
   case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) ;; *) return 1 ;; esac
@@ -8219,7 +8219,7 @@ forge_ratchet python ratchet.py
 forge_check_meta_2() {
   c_id='python/env-example'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -8234,7 +8234,7 @@ forge_env_example py
 forge_check_meta_3() {
   c_id='python/format'; c_stage=format; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=1; c_rerun=0; c_dirs=''
+  c_changed=1; c_files=1; c_fix=0; c_fmt=1; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_3() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -8255,7 +8255,7 @@ ruff format --stdin-filename "$FORGE_FILE" -
 forge_check_meta_4() {
   c_id='python/lint'; c_stage=lint; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=1; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=1; c_files=1; c_fix=1; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_4() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -8276,7 +8276,7 @@ ruff check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise
 forge_check_meta_5() {
   c_id='python/pytest/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_5() {
   case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py) ;; *) return 1 ;; esac
@@ -8292,7 +8292,7 @@ forge_test_edits
 forge_check_meta_6() {
   c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
   c_when=0; c_localdb=0; c_timeout=300
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=1; c_dirs=''
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=1; c_warn=0; c_dirs=''
 }
 forge_scope_6() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -8313,7 +8313,7 @@ pytest -q $FORGE_FILES
 forge_check_meta_7() {
   c_id='python/pytest/untested-change'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_7() {
   case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py|tests/*|*/tests/*|migrations/*|*/migrations/*|alembic/versions/*|*/alembic/versions/*) return 1 ;; esac
@@ -8330,7 +8330,7 @@ forge_advise forge_untested_change
 forge_check_meta_8() {
   c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=1; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_8() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -8345,7 +8345,7 @@ alembic check
 forge_check_meta_9() {
   c_id='python/sqlalchemy/alembic/data-migration-downgrade'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_9() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
@@ -8361,7 +8361,7 @@ forge_advise forge_alembic_data_downgrade
 forge_check_meta_10() {
   c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_10() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
@@ -8377,7 +8377,7 @@ forge_advise forge_alembic_fk_index
 forge_check_meta_11() {
   c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_11() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
@@ -8396,7 +8396,7 @@ forge_squawk_alembic $FORGE_FILES
 forge_check_meta_12() {
   c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_12() {
   case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
@@ -8412,7 +8412,7 @@ forge_models_registered
 forge_check_meta_13() {
   c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_13() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -8427,7 +8427,7 @@ test "$(alembic heads | wc -l)" -le 1
 forge_check_meta_14() {
   c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_14() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
@@ -8443,7 +8443,7 @@ forge_alembic_batch
 forge_check_meta_15() {
   c_id='python/sqlalchemy/fk-index'; c_stage=lint; c_tools='python'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_15() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -8460,7 +8460,7 @@ forge_advise forge_helper python fk_index.py
 forge_check_meta_16() {
   c_id='python/stub-sync'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_16() {
   case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
@@ -8476,7 +8476,7 @@ forge_advise forge_stub_sync
 forge_check_meta_17() {
   c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_17() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -8491,7 +8491,7 @@ ty check --output-format concise
 forge_check_meta_18() {
   c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_18() {
   return 0
@@ -8505,7 +8505,7 @@ forge_uv_cooldown
 forge_check_meta_19() {
   c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_19() {
   return 0
@@ -10772,7 +10772,7 @@ forge_excerpt() {
 # failed run by what they name (tsc "path(l,c)", "path:l:c" from Python and JS
 # linters, "--> path:l:c"; "Would reformat: path" and Biome's "path format" name a
 # file only; absolute paths under the repository are made relative; warning-only
-# lines are ignored). A diagnostic counts when it names a file of $FORGE_TMP/changed
+# lines are ignored, unless the check's c_warn is 1: its warnings count as errors). A diagnostic counts when it names a file of $FORGE_TMP/changed
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "warnings" when the output has warnings and no
@@ -10780,19 +10780,19 @@ forge_excerpt() {
 # "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
 # tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
-  awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+  awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" -v warn="${c_warn:-0}" '
     BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
       gsub(ansi, "", line)
-      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
+      if (warn != 1 && line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
         # a warning diagnostic: a location, then "warning" as a word (not DeprecationWarning)
         if (line ~ /^[[:space:]]*(-->[[:space:]]*)?[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+)/ && line ~ /(^|[^A-Za-z])[Ww]arning([^A-Za-z]|$)/) warned = 1
         next
       }
-      if (line ~ /[Ee]rror/ && line !~ /(^|[^0-9])0 errors?([^A-Za-z]|$)/) erred = 1
+      if ((line ~ /[Ee]rror/ || warn == 1 && line ~ /[Ww]arning/) && line !~ /(^|[^0-9])0 (errors?|warnings?)([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
       if (match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) {
@@ -11410,7 +11410,7 @@ FORGE_TYPES_LANGS='python'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='acf150afbdb9'
+FORGE_TYPES_REV='d293bd59f078'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -11738,7 +11738,7 @@ FORGE_NCHECKS=19
 forge_check_meta_1() {
   c_id='python/config-ratchet'; c_stage=lint; c_tools='python'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_1() {
   case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) ;; *) return 1 ;; esac
@@ -11753,7 +11753,7 @@ forge_ratchet python ratchet.py
 forge_check_meta_2() {
   c_id='python/env-example'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -11768,7 +11768,7 @@ forge_env_example py
 forge_check_meta_3() {
   c_id='python/format'; c_stage=format; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=1; c_rerun=0; c_dirs=''
+  c_changed=1; c_files=1; c_fix=0; c_fmt=1; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_3() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -11789,7 +11789,7 @@ ruff format --stdin-filename "$FORGE_FILE" -
 forge_check_meta_4() {
   c_id='python/lint'; c_stage=lint; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=1; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=1; c_files=1; c_fix=1; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_4() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -11810,7 +11810,7 @@ ruff check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise
 forge_check_meta_5() {
   c_id='python/pytest/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_5() {
   case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py) ;; *) return 1 ;; esac
@@ -11826,7 +11826,7 @@ forge_test_edits
 forge_check_meta_6() {
   c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
   c_when=0; c_localdb=0; c_timeout=300
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=1; c_dirs=''
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=1; c_warn=0; c_dirs=''
 }
 forge_scope_6() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -11847,7 +11847,7 @@ pytest -q $FORGE_FILES
 forge_check_meta_7() {
   c_id='python/pytest/untested-change'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_7() {
   case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py|tests/*|*/tests/*|migrations/*|*/migrations/*|alembic/versions/*|*/alembic/versions/*) return 1 ;; esac
@@ -11864,7 +11864,7 @@ forge_advise forge_untested_change
 forge_check_meta_8() {
   c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=1; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_8() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -11879,7 +11879,7 @@ alembic check
 forge_check_meta_9() {
   c_id='python/sqlalchemy/alembic/data-migration-downgrade'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_9() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
@@ -11895,7 +11895,7 @@ forge_advise forge_alembic_data_downgrade
 forge_check_meta_10() {
   c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_10() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
@@ -11911,7 +11911,7 @@ forge_advise forge_alembic_fk_index
 forge_check_meta_11() {
   c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_11() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
@@ -11930,7 +11930,7 @@ forge_squawk_alembic $FORGE_FILES
 forge_check_meta_12() {
   c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_12() {
   case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
@@ -11946,7 +11946,7 @@ forge_models_registered
 forge_check_meta_13() {
   c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_13() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -11961,7 +11961,7 @@ test "$(alembic heads | wc -l)" -le 1
 forge_check_meta_14() {
   c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_14() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
@@ -11977,7 +11977,7 @@ forge_alembic_batch
 forge_check_meta_15() {
   c_id='python/sqlalchemy/fk-index'; c_stage=lint; c_tools='python'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_15() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -11994,7 +11994,7 @@ forge_advise forge_helper python fk_index.py
 forge_check_meta_16() {
   c_id='python/stub-sync'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_16() {
   case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
@@ -12010,7 +12010,7 @@ forge_advise forge_stub_sync
 forge_check_meta_17() {
   c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_17() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -12025,7 +12025,7 @@ ty check --output-format concise
 forge_check_meta_18() {
   c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_18() {
   return 0
@@ -12039,7 +12039,7 @@ forge_uv_cooldown
 forge_check_meta_19() {
   c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_19() {
   return 0
@@ -14306,7 +14306,7 @@ forge_excerpt() {
 # failed run by what they name (tsc "path(l,c)", "path:l:c" from Python and JS
 # linters, "--> path:l:c"; "Would reformat: path" and Biome's "path format" name a
 # file only; absolute paths under the repository are made relative; warning-only
-# lines are ignored). A diagnostic counts when it names a file of $FORGE_TMP/changed
+# lines are ignored, unless the check's c_warn is 1: its warnings count as errors). A diagnostic counts when it names a file of $FORGE_TMP/changed
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "warnings" when the output has warnings and no
@@ -14314,19 +14314,19 @@ forge_excerpt() {
 # "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
 # tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
-  awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+  awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" -v warn="${c_warn:-0}" '
     BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
       gsub(ansi, "", line)
-      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
+      if (warn != 1 && line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
         # a warning diagnostic: a location, then "warning" as a word (not DeprecationWarning)
         if (line ~ /^[[:space:]]*(-->[[:space:]]*)?[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+)/ && line ~ /(^|[^A-Za-z])[Ww]arning([^A-Za-z]|$)/) warned = 1
         next
       }
-      if (line ~ /[Ee]rror/ && line !~ /(^|[^0-9])0 errors?([^A-Za-z]|$)/) erred = 1
+      if ((line ~ /[Ee]rror/ || warn == 1 && line ~ /[Ww]arning/) && line !~ /(^|[^0-9])0 (errors?|warnings?)([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
       if (match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) {
@@ -14944,7 +14944,7 @@ FORGE_TYPES_LANGS='python'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='acf150afbdb9'
+FORGE_TYPES_REV='d293bd59f078'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -16487,7 +16487,7 @@ FORGE_NCHECKS=19
 forge_check_meta_1() {
   c_id='python/config-ratchet'; c_stage=lint; c_tools='python'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_1() {
   case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) ;; *) return 1 ;; esac
@@ -16502,7 +16502,7 @@ forge_ratchet python ratchet.py
 forge_check_meta_2() {
   c_id='python/env-example'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -16517,7 +16517,7 @@ forge_env_example py
 forge_check_meta_3() {
   c_id='python/format'; c_stage=format; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=1; c_rerun=0; c_dirs=''
+  c_changed=1; c_files=1; c_fix=0; c_fmt=1; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_3() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -16538,7 +16538,7 @@ ruff format --stdin-filename "$FORGE_FILE" -
 forge_check_meta_4() {
   c_id='python/lint'; c_stage=lint; c_tools='ruff'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=1; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=1; c_files=1; c_fix=1; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_4() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -16559,7 +16559,7 @@ ruff check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise
 forge_check_meta_5() {
   c_id='python/pytest/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_5() {
   case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py) ;; *) return 1 ;; esac
@@ -16575,7 +16575,7 @@ forge_test_edits
 forge_check_meta_6() {
   c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
   c_when=0; c_localdb=0; c_timeout=300
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=1; c_dirs=''
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=1; c_warn=0; c_dirs=''
 }
 forge_scope_6() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -16596,7 +16596,7 @@ pytest -q $FORGE_FILES
 forge_check_meta_7() {
   c_id='python/pytest/untested-change'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_7() {
   case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py|tests/*|*/tests/*|migrations/*|*/migrations/*|alembic/versions/*|*/alembic/versions/*) return 1 ;; esac
@@ -16613,7 +16613,7 @@ forge_advise forge_untested_change
 forge_check_meta_8() {
   c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=1; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_8() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -16628,7 +16628,7 @@ alembic check
 forge_check_meta_9() {
   c_id='python/sqlalchemy/alembic/data-migration-downgrade'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_9() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
@@ -16644,7 +16644,7 @@ forge_advise forge_alembic_data_downgrade
 forge_check_meta_10() {
   c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_10() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
@@ -16660,7 +16660,7 @@ forge_advise forge_alembic_fk_index
 forge_check_meta_11() {
   c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_11() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
@@ -16679,7 +16679,7 @@ forge_squawk_alembic $FORGE_FILES
 forge_check_meta_12() {
   c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_12() {
   case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
@@ -16695,7 +16695,7 @@ forge_models_registered
 forge_check_meta_13() {
   c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_13() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -16710,7 +16710,7 @@ test "$(alembic heads | wc -l)" -le 1
 forge_check_meta_14() {
   c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_14() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
@@ -16726,7 +16726,7 @@ forge_alembic_batch
 forge_check_meta_15() {
   c_id='python/sqlalchemy/fk-index'; c_stage=lint; c_tools='python'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_15() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -16743,7 +16743,7 @@ forge_advise forge_helper python fk_index.py
 forge_check_meta_16() {
   c_id='python/stub-sync'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_16() {
   case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
@@ -16759,7 +16759,7 @@ forge_advise forge_stub_sync
 forge_check_meta_17() {
   c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_17() {
   case $1 in *.py|*.pyi) return 0 ;; esac
@@ -16774,7 +16774,7 @@ ty check --output-format concise
 forge_check_meta_18() {
   c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_18() {
   return 0
@@ -16788,7 +16788,7 @@ forge_uv_cooldown
 forge_check_meta_19() {
   c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_19() {
   return 0
@@ -19055,7 +19055,7 @@ forge_excerpt() {
 # failed run by what they name (tsc "path(l,c)", "path:l:c" from Python and JS
 # linters, "--> path:l:c"; "Would reformat: path" and Biome's "path format" name a
 # file only; absolute paths under the repository are made relative; warning-only
-# lines are ignored). A diagnostic counts when it names a file of $FORGE_TMP/changed
+# lines are ignored, unless the check's c_warn is 1: its warnings count as errors). A diagnostic counts when it names a file of $FORGE_TMP/changed
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "warnings" when the output has warnings and no
@@ -19063,19 +19063,19 @@ forge_excerpt() {
 # "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
 # tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
-  awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+  awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" -v warn="${c_warn:-0}" '
     BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
       gsub(ansi, "", line)
-      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
+      if (warn != 1 && line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
         # a warning diagnostic: a location, then "warning" as a word (not DeprecationWarning)
         if (line ~ /^[[:space:]]*(-->[[:space:]]*)?[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+)/ && line ~ /(^|[^A-Za-z])[Ww]arning([^A-Za-z]|$)/) warned = 1
         next
       }
-      if (line ~ /[Ee]rror/ && line !~ /(^|[^0-9])0 errors?([^A-Za-z]|$)/) erred = 1
+      if ((line ~ /[Ee]rror/ || warn == 1 && line ~ /[Ww]arning/) && line !~ /(^|[^0-9])0 (errors?|warnings?)([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
       if (match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) {
@@ -19693,7 +19693,7 @@ FORGE_TYPES_LANGS='python'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='acf150afbdb9'
+FORGE_TYPES_REV='d293bd59f078'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -20098,14 +20098,14 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "a3bb50a3648137c8e0c7cda3d1cb07050fcb36f990e50b8b2b7f46b78e363f20",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
     ".claude/skills/forge-project/scripts/lib.sh": "83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "8b5f885bdf23a69bf0d84e9614ba3481fc1d3bf7e6e700b959e5463f87bb60e8",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "4004b4231c9a407742ceb5b1f9c6ee6bf2dd8471095c5ba7783e5114ecf0c905",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
     ".claude/skills/forge-project/scripts/session-end.sh": "99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58",
-    ".claude/skills/forge-project/scripts/session-start.sh": "58cb2f464272caa1d972caab9d59f14b03cd370bc03cf6f8d856f81510118487",
+    ".claude/skills/forge-project/scripts/session-start.sh": "f2d8db11864b958ad9b53ee42662790f3d203c3f18a02d29c56aa8e0d0ac2673",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "09418d00d0ab14c266688f6a469efdfec8b0d9d41462be92a3168b36ceea4940",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "ae0d01c835d1c80ff8d865b32c96e3db96306c28b3a0693a7582f235d2548263",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "6e1f3cd2608686dd838f9b230a70c81b3484cd08365760a66b3cde547a654360",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "a9942e7c1b553dba8e36c9311e35da80c8b3f28d91018d54930d7f17a508cef1",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml": "69a94f1a0b16aa08bcf758af3e3dc269266cdd808aba1a4289b4c58c7f969700",
     ".forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml": "1589382e5e0b5cae841a8f47dae9f2b3a8583a4bb1074ceb858d882e648e9b49",
@@ -20140,7 +20140,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml": "4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0",
     ".forge/ast-grep/rules/python/sqlalchemy/no-text-fstring.yml": "04c44c9e215449d46b10540e86e999ec1d6383d8c3a849855fe73cb456668fca",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "0216c7ff8f936c0913d9de755956a44db5fe1711ac684d1291d44d811310fae0",
+    ".forge/check.sh": "0dcd9aa59242a2bcc5bdfa8119d386586af04e9a3464b43b46c2226b12fbcebd",
     ".forge/helpers/fk_index.py": "12e59e9b4be590d77ed8dd6bab82f644440679d5cffd82264bf4c568e4341c9e",
     ".forge/helpers/ratchet.py": "4f7e312b9419bd1ee09fe9cd3e988546bba089d706cb1b44e4546c4b4c87173d",
     ".forge/helpers/types_python.py": "24c9504a4feb098f10dedadbc39f0a0c34eae5b4562f01c4e90e0d0beb0c3639",
@@ -21111,14 +21111,14 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 a3bb50a3648137c8e0c7cda3d1cb07050fcb36f990e50b8b2b7f46b78e363f20  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
 83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5  .claude/skills/forge-project/scripts/lib.sh
-8b5f885bdf23a69bf0d84e9614ba3481fc1d3bf7e6e700b959e5463f87bb60e8  .claude/skills/forge-project/scripts/post-edit.sh
+4004b4231c9a407742ceb5b1f9c6ee6bf2dd8471095c5ba7783e5114ecf0c905  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
 99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58  .claude/skills/forge-project/scripts/session-end.sh
-58cb2f464272caa1d972caab9d59f14b03cd370bc03cf6f8d856f81510118487  .claude/skills/forge-project/scripts/session-start.sh
+f2d8db11864b958ad9b53ee42662790f3d203c3f18a02d29c56aa8e0d0ac2673  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-09418d00d0ab14c266688f6a469efdfec8b0d9d41462be92a3168b36ceea4940  .claude/skills/forge-project/scripts/test-edit.sh
+ae0d01c835d1c80ff8d865b32c96e3db96306c28b3a0693a7582f235d2548263  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-6e1f3cd2608686dd838f9b230a70c81b3484cd08365760a66b3cde547a654360  .claude/skills/forge-project/scripts/typecheck.sh
+a9942e7c1b553dba8e36c9311e35da80c8b3f28d91018d54930d7f17a508cef1  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 69a94f1a0b16aa08bcf758af3e3dc269266cdd808aba1a4289b4c58c7f969700  .forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml
 1589382e5e0b5cae841a8f47dae9f2b3a8583a4bb1074ceb858d882e648e9b49  .forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml
@@ -21153,7 +21153,7 @@ b767983a8b5ac3966b15b7fc7f89fba1e9c94115325f294d1887c3e41cf19727  .forge/ast-gre
 4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0  .forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml
 04c44c9e215449d46b10540e86e999ec1d6383d8c3a849855fe73cb456668fca  .forge/ast-grep/rules/python/sqlalchemy/no-text-fstring.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-0216c7ff8f936c0913d9de755956a44db5fe1711ac684d1291d44d811310fae0  .forge/check.sh
+0dcd9aa59242a2bcc5bdfa8119d386586af04e9a3464b43b46c2226b12fbcebd  .forge/check.sh
 12e59e9b4be590d77ed8dd6bab82f644440679d5cffd82264bf4c568e4341c9e  .forge/helpers/fk_index.py
 4f7e312b9419bd1ee09fe9cd3e988546bba089d706cb1b44e4546c4b4c87173d  .forge/helpers/ratchet.py
 24c9504a4feb098f10dedadbc39f0a0c34eae5b4562f01c4e90e0d0beb0c3639  .forge/helpers/types_python.py

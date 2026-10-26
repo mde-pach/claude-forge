@@ -1163,7 +1163,7 @@ FORGE_NCHECKS=12
 forge_check_meta_1() {
   c_id='typescript/config-ratchet'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_1() {
   case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) ;; *) return 1 ;; esac
@@ -1178,7 +1178,7 @@ forge_ratchet bun ratchet.mjs
 forge_check_meta_2() {
   c_id='typescript/env-example'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_2() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -1193,7 +1193,7 @@ forge_env_example ts
 forge_check_meta_3() {
   c_id='typescript/format-lint'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=1; c_rerun=0; c_dirs='packages/core'
+  c_changed=1; c_files=1; c_fix=0; c_fmt=1; c_rerun=0; c_warn=0; c_dirs='packages/core'
 }
 forge_scope_3() {
   case $1 in packages/core/*) ;; *) return 1 ;; esac
@@ -1225,7 +1225,7 @@ biome format --stdin-file-path="$FORGE_FILE"
 forge_check_meta_4() {
   c_id='typescript/lockfile-updated'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_4() {
   return 0
@@ -1239,7 +1239,7 @@ forge_once forge_lockfile_updated
 forge_check_meta_5() {
   c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_5() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
@@ -1254,7 +1254,7 @@ forge_check_run_5() {
 forge_check_meta_6() {
   c_id='typescript/no-unused-suppressions'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_dirs='packages/core'
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs='packages/core'
 }
 forge_scope_6() {
   case $1 in packages/core/*) ;; *) return 1 ;; esac
@@ -1275,7 +1275,7 @@ forge_check_changed_6_dir() {
 forge_check_meta_7() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs='packages/core'
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs='packages/core'
 }
 forge_scope_7() {
   case $1 in packages/core/*) ;; *) return 1 ;; esac
@@ -1292,7 +1292,7 @@ tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile "$(
 forge_check_meta_8() {
   c_id='typescript/vitest/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_8() {
   case $1 in e2e/*) return 1 ;; esac
@@ -1309,7 +1309,7 @@ forge_test_edits
 forge_check_meta_9() {
   c_id='typescript/vitest/no-workspace-file'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_9() {
   return 0
@@ -1323,7 +1323,7 @@ forge_check_run_9() {
 forge_check_meta_10() {
   c_id='typescript/vitest/run'; c_stage=test; c_tools='vitest'
   c_when=0; c_localdb=0; c_timeout=300
-  c_changed=1; c_files=0; c_fix=0; c_fmt=0; c_rerun=1; c_dirs='packages/core'
+  c_changed=1; c_files=0; c_fix=0; c_fmt=0; c_rerun=1; c_warn=0; c_dirs='packages/core'
 }
 forge_scope_10() {
   case $1 in packages/core/*) ;; *) return 1 ;; esac
@@ -1348,7 +1348,7 @@ vitest run $FORGE_FILES
 forge_check_meta_11() {
   c_id='typescript/vitest/snapshot-stale'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_11() {
   case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts) return 1 ;; esac
@@ -1364,7 +1364,7 @@ forge_advise forge_snapshot_stale
 forge_check_meta_12() {
   c_id='typescript/vitest/untested-change'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_12() {
   case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts|*.config.*|*/*.config.*) return 1 ;; esac
@@ -3635,7 +3635,7 @@ forge_excerpt() {
 # failed run by what they name (tsc "path(l,c)", "path:l:c" from Python and JS
 # linters, "--> path:l:c"; "Would reformat: path" and Biome's "path format" name a
 # file only; absolute paths under the repository are made relative; warning-only
-# lines are ignored). A diagnostic counts when it names a file of $FORGE_TMP/changed
+# lines are ignored, unless the check's c_warn is 1: its warnings count as errors). A diagnostic counts when it names a file of $FORGE_TMP/changed
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "warnings" when the output has warnings and no
@@ -3643,19 +3643,19 @@ forge_excerpt() {
 # "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
 # tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
-  awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+  awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" -v warn="${c_warn:-0}" '
     BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
       gsub(ansi, "", line)
-      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
+      if (warn != 1 && line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
         # a warning diagnostic: a location, then "warning" as a word (not DeprecationWarning)
         if (line ~ /^[[:space:]]*(-->[[:space:]]*)?[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+)/ && line ~ /(^|[^A-Za-z])[Ww]arning([^A-Za-z]|$)/) warned = 1
         next
       }
-      if (line ~ /[Ee]rror/ && line !~ /(^|[^0-9])0 errors?([^A-Za-z]|$)/) erred = 1
+      if ((line ~ /[Ee]rror/ || warn == 1 && line ~ /[Ww]arning/) && line !~ /(^|[^0-9])0 (errors?|warnings?)([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
       if (match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) {
@@ -4546,7 +4546,7 @@ FORGE_NCHECKS=12
 forge_check_meta_1() {
   c_id='typescript/config-ratchet'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_1() {
   case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) ;; *) return 1 ;; esac
@@ -4561,7 +4561,7 @@ forge_ratchet bun ratchet.mjs
 forge_check_meta_2() {
   c_id='typescript/env-example'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_2() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -4576,7 +4576,7 @@ forge_env_example ts
 forge_check_meta_3() {
   c_id='typescript/format-lint'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=1; c_rerun=0; c_dirs='packages/core'
+  c_changed=1; c_files=1; c_fix=0; c_fmt=1; c_rerun=0; c_warn=0; c_dirs='packages/core'
 }
 forge_scope_3() {
   case $1 in packages/core/*) ;; *) return 1 ;; esac
@@ -4608,7 +4608,7 @@ biome format --stdin-file-path="$FORGE_FILE"
 forge_check_meta_4() {
   c_id='typescript/lockfile-updated'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_4() {
   return 0
@@ -4622,7 +4622,7 @@ forge_once forge_lockfile_updated
 forge_check_meta_5() {
   c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_5() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
@@ -4637,7 +4637,7 @@ forge_check_run_5() {
 forge_check_meta_6() {
   c_id='typescript/no-unused-suppressions'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_dirs='packages/core'
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs='packages/core'
 }
 forge_scope_6() {
   case $1 in packages/core/*) ;; *) return 1 ;; esac
@@ -4658,7 +4658,7 @@ forge_check_changed_6_dir() {
 forge_check_meta_7() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs='packages/core'
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs='packages/core'
 }
 forge_scope_7() {
   case $1 in packages/core/*) ;; *) return 1 ;; esac
@@ -4675,7 +4675,7 @@ tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile "$(
 forge_check_meta_8() {
   c_id='typescript/vitest/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_8() {
   case $1 in e2e/*) return 1 ;; esac
@@ -4692,7 +4692,7 @@ forge_test_edits
 forge_check_meta_9() {
   c_id='typescript/vitest/no-workspace-file'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_9() {
   return 0
@@ -4706,7 +4706,7 @@ forge_check_run_9() {
 forge_check_meta_10() {
   c_id='typescript/vitest/run'; c_stage=test; c_tools='vitest'
   c_when=0; c_localdb=0; c_timeout=300
-  c_changed=1; c_files=0; c_fix=0; c_fmt=0; c_rerun=1; c_dirs='packages/core'
+  c_changed=1; c_files=0; c_fix=0; c_fmt=0; c_rerun=1; c_warn=0; c_dirs='packages/core'
 }
 forge_scope_10() {
   case $1 in packages/core/*) ;; *) return 1 ;; esac
@@ -4731,7 +4731,7 @@ vitest run $FORGE_FILES
 forge_check_meta_11() {
   c_id='typescript/vitest/snapshot-stale'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_11() {
   case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts) return 1 ;; esac
@@ -4747,7 +4747,7 @@ forge_advise forge_snapshot_stale
 forge_check_meta_12() {
   c_id='typescript/vitest/untested-change'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_12() {
   case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts|*.config.*|*/*.config.*) return 1 ;; esac
@@ -7018,7 +7018,7 @@ forge_excerpt() {
 # failed run by what they name (tsc "path(l,c)", "path:l:c" from Python and JS
 # linters, "--> path:l:c"; "Would reformat: path" and Biome's "path format" name a
 # file only; absolute paths under the repository are made relative; warning-only
-# lines are ignored). A diagnostic counts when it names a file of $FORGE_TMP/changed
+# lines are ignored, unless the check's c_warn is 1: its warnings count as errors). A diagnostic counts when it names a file of $FORGE_TMP/changed
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "warnings" when the output has warnings and no
@@ -7026,19 +7026,19 @@ forge_excerpt() {
 # "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
 # tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
-  awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+  awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" -v warn="${c_warn:-0}" '
     BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
       gsub(ansi, "", line)
-      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
+      if (warn != 1 && line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
         # a warning diagnostic: a location, then "warning" as a word (not DeprecationWarning)
         if (line ~ /^[[:space:]]*(-->[[:space:]]*)?[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+)/ && line ~ /(^|[^A-Za-z])[Ww]arning([^A-Za-z]|$)/) warned = 1
         next
       }
-      if (line ~ /[Ee]rror/ && line !~ /(^|[^0-9])0 errors?([^A-Za-z]|$)/) erred = 1
+      if ((line ~ /[Ee]rror/ || warn == 1 && line ~ /[Ww]arning/) && line !~ /(^|[^0-9])0 (errors?|warnings?)([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
       if (match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) {
@@ -7960,7 +7960,7 @@ FORGE_NCHECKS=12
 forge_check_meta_1() {
   c_id='typescript/config-ratchet'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_1() {
   case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) ;; *) return 1 ;; esac
@@ -7975,7 +7975,7 @@ forge_ratchet bun ratchet.mjs
 forge_check_meta_2() {
   c_id='typescript/env-example'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_2() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -7990,7 +7990,7 @@ forge_env_example ts
 forge_check_meta_3() {
   c_id='typescript/format-lint'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=1; c_rerun=0; c_dirs='packages/core'
+  c_changed=1; c_files=1; c_fix=0; c_fmt=1; c_rerun=0; c_warn=0; c_dirs='packages/core'
 }
 forge_scope_3() {
   case $1 in packages/core/*) ;; *) return 1 ;; esac
@@ -8022,7 +8022,7 @@ biome format --stdin-file-path="$FORGE_FILE"
 forge_check_meta_4() {
   c_id='typescript/lockfile-updated'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_4() {
   return 0
@@ -8036,7 +8036,7 @@ forge_once forge_lockfile_updated
 forge_check_meta_5() {
   c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_5() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
@@ -8051,7 +8051,7 @@ forge_check_run_5() {
 forge_check_meta_6() {
   c_id='typescript/no-unused-suppressions'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_dirs='packages/core'
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs='packages/core'
 }
 forge_scope_6() {
   case $1 in packages/core/*) ;; *) return 1 ;; esac
@@ -8072,7 +8072,7 @@ forge_check_changed_6_dir() {
 forge_check_meta_7() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs='packages/core'
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs='packages/core'
 }
 forge_scope_7() {
   case $1 in packages/core/*) ;; *) return 1 ;; esac
@@ -8089,7 +8089,7 @@ tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile "$(
 forge_check_meta_8() {
   c_id='typescript/vitest/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_8() {
   case $1 in e2e/*) return 1 ;; esac
@@ -8106,7 +8106,7 @@ forge_test_edits
 forge_check_meta_9() {
   c_id='typescript/vitest/no-workspace-file'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_9() {
   return 0
@@ -8120,7 +8120,7 @@ forge_check_run_9() {
 forge_check_meta_10() {
   c_id='typescript/vitest/run'; c_stage=test; c_tools='vitest'
   c_when=0; c_localdb=0; c_timeout=300
-  c_changed=1; c_files=0; c_fix=0; c_fmt=0; c_rerun=1; c_dirs='packages/core'
+  c_changed=1; c_files=0; c_fix=0; c_fmt=0; c_rerun=1; c_warn=0; c_dirs='packages/core'
 }
 forge_scope_10() {
   case $1 in packages/core/*) ;; *) return 1 ;; esac
@@ -8145,7 +8145,7 @@ vitest run $FORGE_FILES
 forge_check_meta_11() {
   c_id='typescript/vitest/snapshot-stale'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_11() {
   case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts) return 1 ;; esac
@@ -8161,7 +8161,7 @@ forge_advise forge_snapshot_stale
 forge_check_meta_12() {
   c_id='typescript/vitest/untested-change'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_12() {
   case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts|*.config.*|*/*.config.*) return 1 ;; esac
@@ -10432,7 +10432,7 @@ forge_excerpt() {
 # failed run by what they name (tsc "path(l,c)", "path:l:c" from Python and JS
 # linters, "--> path:l:c"; "Would reformat: path" and Biome's "path format" name a
 # file only; absolute paths under the repository are made relative; warning-only
-# lines are ignored). A diagnostic counts when it names a file of $FORGE_TMP/changed
+# lines are ignored, unless the check's c_warn is 1: its warnings count as errors). A diagnostic counts when it names a file of $FORGE_TMP/changed
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "warnings" when the output has warnings and no
@@ -10440,19 +10440,19 @@ forge_excerpt() {
 # "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
 # tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
-  awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+  awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" -v warn="${c_warn:-0}" '
     BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
       gsub(ansi, "", line)
-      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
+      if (warn != 1 && line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
         # a warning diagnostic: a location, then "warning" as a word (not DeprecationWarning)
         if (line ~ /^[[:space:]]*(-->[[:space:]]*)?[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+)/ && line ~ /(^|[^A-Za-z])[Ww]arning([^A-Za-z]|$)/) warned = 1
         next
       }
-      if (line ~ /[Ee]rror/ && line !~ /(^|[^0-9])0 errors?([^A-Za-z]|$)/) erred = 1
+      if ((line ~ /[Ee]rror/ || warn == 1 && line ~ /[Ww]arning/) && line !~ /(^|[^0-9])0 (errors?|warnings?)([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
       if (match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) {
@@ -11395,7 +11395,7 @@ FORGE_NCHECKS=12
 forge_check_meta_1() {
   c_id='typescript/config-ratchet'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_1() {
   case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) ;; *) return 1 ;; esac
@@ -11410,7 +11410,7 @@ forge_ratchet bun ratchet.mjs
 forge_check_meta_2() {
   c_id='typescript/env-example'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_2() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -11425,7 +11425,7 @@ forge_env_example ts
 forge_check_meta_3() {
   c_id='typescript/format-lint'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=1; c_rerun=0; c_dirs='packages/core'
+  c_changed=1; c_files=1; c_fix=0; c_fmt=1; c_rerun=0; c_warn=0; c_dirs='packages/core'
 }
 forge_scope_3() {
   case $1 in packages/core/*) ;; *) return 1 ;; esac
@@ -11457,7 +11457,7 @@ biome format --stdin-file-path="$FORGE_FILE"
 forge_check_meta_4() {
   c_id='typescript/lockfile-updated'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_4() {
   return 0
@@ -11471,7 +11471,7 @@ forge_once forge_lockfile_updated
 forge_check_meta_5() {
   c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_5() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
@@ -11486,7 +11486,7 @@ forge_check_run_5() {
 forge_check_meta_6() {
   c_id='typescript/no-unused-suppressions'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_dirs='packages/core'
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs='packages/core'
 }
 forge_scope_6() {
   case $1 in packages/core/*) ;; *) return 1 ;; esac
@@ -11507,7 +11507,7 @@ forge_check_changed_6_dir() {
 forge_check_meta_7() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs='packages/core'
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs='packages/core'
 }
 forge_scope_7() {
   case $1 in packages/core/*) ;; *) return 1 ;; esac
@@ -11524,7 +11524,7 @@ tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile "$(
 forge_check_meta_8() {
   c_id='typescript/vitest/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_8() {
   case $1 in e2e/*) return 1 ;; esac
@@ -11541,7 +11541,7 @@ forge_test_edits
 forge_check_meta_9() {
   c_id='typescript/vitest/no-workspace-file'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_9() {
   return 0
@@ -11555,7 +11555,7 @@ forge_check_run_9() {
 forge_check_meta_10() {
   c_id='typescript/vitest/run'; c_stage=test; c_tools='vitest'
   c_when=0; c_localdb=0; c_timeout=300
-  c_changed=1; c_files=0; c_fix=0; c_fmt=0; c_rerun=1; c_dirs='packages/core'
+  c_changed=1; c_files=0; c_fix=0; c_fmt=0; c_rerun=1; c_warn=0; c_dirs='packages/core'
 }
 forge_scope_10() {
   case $1 in packages/core/*) ;; *) return 1 ;; esac
@@ -11580,7 +11580,7 @@ vitest run $FORGE_FILES
 forge_check_meta_11() {
   c_id='typescript/vitest/snapshot-stale'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_11() {
   case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts) return 1 ;; esac
@@ -11596,7 +11596,7 @@ forge_advise forge_snapshot_stale
 forge_check_meta_12() {
   c_id='typescript/vitest/untested-change'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_12() {
   case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts|*.config.*|*/*.config.*) return 1 ;; esac
@@ -13867,7 +13867,7 @@ forge_excerpt() {
 # failed run by what they name (tsc "path(l,c)", "path:l:c" from Python and JS
 # linters, "--> path:l:c"; "Would reformat: path" and Biome's "path format" name a
 # file only; absolute paths under the repository are made relative; warning-only
-# lines are ignored). A diagnostic counts when it names a file of $FORGE_TMP/changed
+# lines are ignored, unless the check's c_warn is 1: its warnings count as errors). A diagnostic counts when it names a file of $FORGE_TMP/changed
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "warnings" when the output has warnings and no
@@ -13875,19 +13875,19 @@ forge_excerpt() {
 # "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
 # tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
-  awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+  awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" -v warn="${c_warn:-0}" '
     BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
       gsub(ansi, "", line)
-      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
+      if (warn != 1 && line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
         # a warning diagnostic: a location, then "warning" as a word (not DeprecationWarning)
         if (line ~ /^[[:space:]]*(-->[[:space:]]*)?[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+)/ && line ~ /(^|[^A-Za-z])[Ww]arning([^A-Za-z]|$)/) warned = 1
         next
       }
-      if (line ~ /[Ee]rror/ && line !~ /(^|[^0-9])0 errors?([^A-Za-z]|$)/) erred = 1
+      if ((line ~ /[Ee]rror/ || warn == 1 && line ~ /[Ww]arning/) && line !~ /(^|[^0-9])0 (errors?|warnings?)([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
       if (match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) {
@@ -15706,7 +15706,7 @@ FORGE_NCHECKS=12
 forge_check_meta_1() {
   c_id='typescript/config-ratchet'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_1() {
   case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) ;; *) return 1 ;; esac
@@ -15721,7 +15721,7 @@ forge_ratchet bun ratchet.mjs
 forge_check_meta_2() {
   c_id='typescript/env-example'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_2() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -15736,7 +15736,7 @@ forge_env_example ts
 forge_check_meta_3() {
   c_id='typescript/format-lint'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=1; c_rerun=0; c_dirs='packages/core'
+  c_changed=1; c_files=1; c_fix=0; c_fmt=1; c_rerun=0; c_warn=0; c_dirs='packages/core'
 }
 forge_scope_3() {
   case $1 in packages/core/*) ;; *) return 1 ;; esac
@@ -15768,7 +15768,7 @@ biome format --stdin-file-path="$FORGE_FILE"
 forge_check_meta_4() {
   c_id='typescript/lockfile-updated'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_4() {
   return 0
@@ -15782,7 +15782,7 @@ forge_once forge_lockfile_updated
 forge_check_meta_5() {
   c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_5() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
@@ -15797,7 +15797,7 @@ forge_check_run_5() {
 forge_check_meta_6() {
   c_id='typescript/no-unused-suppressions'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_dirs='packages/core'
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs='packages/core'
 }
 forge_scope_6() {
   case $1 in packages/core/*) ;; *) return 1 ;; esac
@@ -15818,7 +15818,7 @@ forge_check_changed_6_dir() {
 forge_check_meta_7() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs='packages/core'
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs='packages/core'
 }
 forge_scope_7() {
   case $1 in packages/core/*) ;; *) return 1 ;; esac
@@ -15835,7 +15835,7 @@ tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile "$(
 forge_check_meta_8() {
   c_id='typescript/vitest/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_8() {
   case $1 in e2e/*) return 1 ;; esac
@@ -15852,7 +15852,7 @@ forge_test_edits
 forge_check_meta_9() {
   c_id='typescript/vitest/no-workspace-file'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_9() {
   return 0
@@ -15866,7 +15866,7 @@ forge_check_run_9() {
 forge_check_meta_10() {
   c_id='typescript/vitest/run'; c_stage=test; c_tools='vitest'
   c_when=0; c_localdb=0; c_timeout=300
-  c_changed=1; c_files=0; c_fix=0; c_fmt=0; c_rerun=1; c_dirs='packages/core'
+  c_changed=1; c_files=0; c_fix=0; c_fmt=0; c_rerun=1; c_warn=0; c_dirs='packages/core'
 }
 forge_scope_10() {
   case $1 in packages/core/*) ;; *) return 1 ;; esac
@@ -15891,7 +15891,7 @@ vitest run $FORGE_FILES
 forge_check_meta_11() {
   c_id='typescript/vitest/snapshot-stale'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_11() {
   case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts) return 1 ;; esac
@@ -15907,7 +15907,7 @@ forge_advise forge_snapshot_stale
 forge_check_meta_12() {
   c_id='typescript/vitest/untested-change'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_12() {
   case $1 in *.test.*|*/*.test.*|*.spec.*|*/*.spec.*|__tests__/*|*/__tests__/*|e2e/*|*.d.ts|*/*.d.ts|*.config.*|*/*.config.*) return 1 ;; esac
@@ -18178,7 +18178,7 @@ forge_excerpt() {
 # failed run by what they name (tsc "path(l,c)", "path:l:c" from Python and JS
 # linters, "--> path:l:c"; "Would reformat: path" and Biome's "path format" name a
 # file only; absolute paths under the repository are made relative; warning-only
-# lines are ignored). A diagnostic counts when it names a file of $FORGE_TMP/changed
+# lines are ignored, unless the check's c_warn is 1: its warnings count as errors). A diagnostic counts when it names a file of $FORGE_TMP/changed
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
 # they name only other files or lines, "warnings" when the output has warnings and no
@@ -18186,19 +18186,19 @@ forge_excerpt() {
 # "print", prints the lines that count instead. ANSI colour sequences are ignored, so a
 # tool that colours its output (tsc with "pretty": true) is attributed the same way.
 forge_diagnostics() {
-  awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" '
+  awk -v r1="$(pwd)" -v r2="$(pwd -P)" -v level="$2" -v mode="$3" -v warn="${c_warn:-0}" '
     BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
     FILENAME == ARGV[1] { ch[$0] = 1; next }
     FILENAME == ARGV[2] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
     {
       line = $0
       gsub(ansi, "", line)
-      if (line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
+      if (warn != 1 && line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
         # a warning diagnostic: a location, then "warning" as a word (not DeprecationWarning)
         if (line ~ /^[[:space:]]*(-->[[:space:]]*)?[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+)/ && line ~ /(^|[^A-Za-z])[Ww]arning([^A-Za-z]|$)/) warned = 1
         next
       }
-      if (line ~ /[Ee]rror/ && line !~ /(^|[^0-9])0 errors?([^A-Za-z]|$)/) erred = 1
+      if ((line ~ /[Ee]rror/ || warn == 1 && line ~ /[Ww]arning/) && line !~ /(^|[^0-9])0 (errors?|warnings?)([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
       if (match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) {
@@ -19189,13 +19189,13 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "bf28e2c1752c202d3ac96c33fdabe8ae4ff659765ddafe45b4777368573aa186",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
     ".claude/skills/forge-project/scripts/lib.sh": "83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "e9c184ec1ea4752be7554dc6399919ba0cd6126eeaa049e202f02fff4358c4d7",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "d2f2a6593fae85c60c1fdabf88a58a4f6df0c938fd3637f7a414e05252d7cb4c",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
-    ".claude/skills/forge-project/scripts/session-start.sh": "e96e63f90346fc5d92a4c2e7d1fb04d8b90a4c17220b19294a4f2a62f3c2def9",
+    ".claude/skills/forge-project/scripts/session-start.sh": "7309e76219aeb4a27dedbf275a98d1bc0103d0547e95ea266e1e501e11247a95",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "9aae65f46f281a9adad40c2f1b56aceb67d155089df458a24d7b70dd7c023b65",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "acace3db627a71f74526fa24d7a587f460344d274b2731dbf3113e61c0fb3dd6",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "8796d2ded99a6cbe8063f8a5d3c6cd9f21a3a6cfc7a5a47d09744bf8d5172921",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "d34dfc13f82caac4c912c537f96151908f3f43b53f5a5f49575c3fa6efc9fe0c",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml": "c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20",
     ".forge/ast-grep/rule-tests/typescript-no-stub-test.yml": "b02e7e21f6bd597fe4b3d577b3a2cc6dfee9741674cc1cc99285e22ef90a2778",
@@ -19218,7 +19218,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/typescript/vitest/no-tautological-expect.yml": "ec546003dd3fc5a92950f126fc5ffad8599f20b6dd83a0954151758b3481fe8c",
     ".forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml": "240f482cc1062537b49330dd8577e1c128edb7ef60478a042dab716d79c87b42",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "97fe141d282012eb196551f9a5f6ada8ef90e0c6066ea2fac605205f2dea2183",
+    ".forge/check.sh": "ee34df61c6516762d1fe0c39aadd9ea5e65e8df6ca4261d30c7740f22580024e",
     ".forge/helpers/ratchet.mjs": "14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
@@ -19417,13 +19417,13 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 bf28e2c1752c202d3ac96c33fdabe8ae4ff659765ddafe45b4777368573aa186  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
 83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5  .claude/skills/forge-project/scripts/lib.sh
-e9c184ec1ea4752be7554dc6399919ba0cd6126eeaa049e202f02fff4358c4d7  .claude/skills/forge-project/scripts/post-edit.sh
+d2f2a6593fae85c60c1fdabf88a58a4f6df0c938fd3637f7a414e05252d7cb4c  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
-e96e63f90346fc5d92a4c2e7d1fb04d8b90a4c17220b19294a4f2a62f3c2def9  .claude/skills/forge-project/scripts/session-start.sh
+7309e76219aeb4a27dedbf275a98d1bc0103d0547e95ea266e1e501e11247a95  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-9aae65f46f281a9adad40c2f1b56aceb67d155089df458a24d7b70dd7c023b65  .claude/skills/forge-project/scripts/test-edit.sh
+acace3db627a71f74526fa24d7a587f460344d274b2731dbf3113e61c0fb3dd6  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-8796d2ded99a6cbe8063f8a5d3c6cd9f21a3a6cfc7a5a47d09744bf8d5172921  .claude/skills/forge-project/scripts/typecheck.sh
+d34dfc13f82caac4c912c537f96151908f3f43b53f5a5f49575c3fa6efc9fe0c  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20  .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
 b02e7e21f6bd597fe4b3d577b3a2cc6dfee9741674cc1cc99285e22ef90a2778  .forge/ast-grep/rule-tests/typescript-no-stub-test.yml
@@ -19446,7 +19446,7 @@ db9df1c23a73e64e692caa2aa1014e5987a298613dddc37c9113fcfaf28796c3  .forge/ast-gre
 ec546003dd3fc5a92950f126fc5ffad8599f20b6dd83a0954151758b3481fe8c  .forge/ast-grep/rules/typescript/vitest/no-tautological-expect.yml
 240f482cc1062537b49330dd8577e1c128edb7ef60478a042dab716d79c87b42  .forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-97fe141d282012eb196551f9a5f6ada8ef90e0c6066ea2fac605205f2dea2183  .forge/check.sh
+ee34df61c6516762d1fe0c39aadd9ea5e65e8df6ca4261d30c7740f22580024e  .forge/check.sh
 14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38  .forge/helpers/ratchet.mjs
 
 ===== .git/hooks/pre-commit
