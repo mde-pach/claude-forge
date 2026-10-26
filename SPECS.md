@@ -510,6 +510,8 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `safety/lockfile-bash-write` | `guard` ask (`review`: is it a hand rewrite of a lock file the request asks for): the same lock files rewritten through Bash: `sed -i` / `perl -i` (`-0pi` included), a `>` / `>>` redirect or `tee` into one, `cp` / `mv` / `install` / `rsync` with one as the last argument, `dd of=`, `truncate`, a `python` / `node` / `bun` / `deno` / `ruby` command naming one and writing (`.write(`, `write_text`, `writeFile`, `Bun.write`, an `open(…, 'w')` mode) |
 | `safety/prisma-ai-consent` | `guard` deny: any command containing `PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION` (only the user gives that consent) |
 | `safety/terraform-destroy` | `guard` ask: `terraform` / `tofu` `destroy`, `apply … -auto-approve` |
+| `safety/cdk-destructive` | `guard` ask: `cdk deploy … --require-approval never`, `cdk destroy` |
+| `safety/pulumi-destructive` | `guard` ask: `pulumi up` / `pulumi refresh` with `--yes`, `-y` or `--skip-preview`; `pulumi destroy`, `pulumi stack rm`, `pulumi state delete` / `unprotect`, `pulumi cancel` |
 | `safety/git-stash-drop` | `guard` ask: `git stash drop` (`git stash clear` is denied by `git-history-rewrite`) |
 | `safety/git-branch-force-delete` | `guard` ask: `git branch -D`, `--delete --force`, `-f -d` |
 | `safety/ephemeral-exec` | `guard` ask, check `ephemeral-exec` (§9.2): packages fetched from a registry on the fly. `npx tsc`, `bunx prisma`, `uvx ruff` with the tool installed in the project are not asked; `npx some-typo` is |
