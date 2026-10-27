@@ -12,12 +12,14 @@
 #                        use starts it again); "stop<TAB><dir>" answers "end" in the FIFO
 #                        <dir>/reply once its language server has exited
 #   <absolute dir>       a question: <dir>/req holds ast-grep --json=stream matches whose
-#                        metadata has forge_where; the answer goes to the FIFO <dir>/reply:
+#                        metadata has forge_where (a type or a declared name per
+#                        metavariable, SPECS §15.1, §15.6); the answer goes to the FIFO <dir>/reply:
 #                        the matches whose forge_where holds (verbatim), "error<TAB>..."
 #                        lines, then "end"
 # The daemon exits after FORGE_TYPES_IDLE seconds (1800) without a line, and when its
 # state directory or the repository is gone or another daemon took the state directory
 # over (checked every 10 seconds).
+import ast
 import json
 import os
 import re
@@ -205,8 +207,9 @@ class Server:
 
 def declared_in(path):
     """(package, module) of a declaration file: the import package and dotted module
-    under site-packages (a -stubs package counts as its package), typeshed's stdlib or
-    third-party stubs; (None, module) for the project's own files."""
+    under site-packages (a -stubs package counts as its package), the standard library
+    (its sources, lib/python3.X/, or typeshed's stdlib) or typeshed's third-party stubs;
+    (None, module) for the project's own files."""
     p = path.replace(os.sep, "/")
     rel = None
     for marker in ("/site-packages/", "/dist-packages/"):
@@ -214,6 +217,11 @@ def declared_in(path):
         if i >= 0:
             rel = p[i + len(marker):]
             break
+    if rel is None:
+        # the standard library's own sources (a definition goes there rather than to its stub)
+        m = re.search(r"/lib/python3\.\d+/", p)
+        if m:
+            rel = p[m.end():]
     if rel is None:
         i = p.rfind("/typeshed/")
         if i >= 0:
@@ -241,17 +249,45 @@ def declared_in(path):
     return (None if project else segs[0], module)
 
 
-def word_at(path, pos):
+def read_text(path):
     try:
         with open(path, encoding="utf-8", errors="surrogateescape") as f:
-            text = f.read()
+            return f.read()
     except OSError:
+        return None
+
+
+def word_at(path, pos, text=None):
+    text = read_text(path) if text is None else text
+    if text is None:
         return None
     i = index_of(text, pos)
     m = re.compile(r"[A-Za-z_][A-Za-z0-9_]*").search(text, i)
     while m and m.group(0) in ("class", "def", "type", "async"):
         m = re.compile(r"[A-Za-z_][A-Za-z0-9_]*").search(text, m.end())
     return m.group(0) if m else None
+
+
+IMPORTS = {}  # file -> (text, [(start, end) index ranges of its import statements])
+
+
+def in_import(path, text, pos):
+    """Whether pos is inside an import statement of the file (Python's own parser)."""
+    cached = IMPORTS.get(path)
+    if not cached or cached[0] != text:
+        spans = []
+        try:
+            lines = [0]
+            for line in text.splitlines(keepends=True):
+                lines.append(lines[-1] + len(line))
+            for node in ast.walk(ast.parse(text)):
+                if isinstance(node, (ast.Import, ast.ImportFrom)):
+                    spans.append((lines[node.lineno - 1] + node.col_offset, lines[node.end_lineno - 1] + node.end_col_offset))
+        except (SyntaxError, ValueError):
+            pass
+        cached = IMPORTS[path] = (text, spans)
+    i = index_of(text, pos)
+    return any(a <= i < b for a, b in cached[1])
 
 
 class Types:
@@ -285,14 +321,18 @@ class Types:
             self.cache[key] = out
         return out
 
-    def check(self, path, wanted):
-        """wanted: [(match index, variable, start byte, end byte)]. Returns
-        {(match index, variable): set of declarations}, from the type the server infers
-        for each expression: the file is shown to the server with each expression
-        bound to a fresh name ((__forge_t<i> := (<expr>))), in memory only, and the type
+    def check(self, path, wanted, named=()):
+        """wanted: [(match index, variable, start byte, end byte)] whose type is asked;
+        named: the same for the declarations names refer to. Returns {(match index,
+        variable): (set of declarations, unknown)}. A type is the one the server infers
+        for each expression: the file is shown to the server with each expression bound
+        to a fresh name ((__forge_t<i> := (<expr>))), in memory only, and the type
         definition of that name is asked; then the file is shown as it is."""
         text = self.server.sync(path)
         raw = text.encode("utf-8", errors="surrogateescape")
+        found = self.declared(path, text, raw, named) if named else {}
+        if not wanted:
+            return found
         # one fresh name per distinct expression range
         ranges, slot = [], []
         for _, _, s, e in wanted:
@@ -333,7 +373,46 @@ class Types:
             # Any and Unknown (an unannotated parameter, an unresolved import) say nothing
             unknown = all(d[0] == "typing" and d[2] == "Any" or (d[1] or "").startswith("ty_extensions") for d in decls)
             per_range.append((frozenset(decls), unknown))
-        return {(w[0], w[1]): per_range[slot[n]] for n, w in enumerate(wanted)}
+        found.update({(w[0], w[1]): per_range[slot[n]] for n, w in enumerate(wanted)})
+        return found
+
+    def declared(self, path, text, raw, named):
+        """{(match index, variable): (declarations, unknown)} of the names in named: the
+        declarations the server's definition of the expression's last name gives (an
+        import alias or a re-export resolved; overloads each count), on the file as it
+        is. An expression that does not end with a name, a name without a definition and
+        one whose definition is an import the server could not resolve are unknown."""
+        asked, out = {}, {}
+        for n, var, s, e in named:
+            expr = raw[s:e].decode("utf-8", errors="surrogateescape")
+            m = re.search(r"[A-Za-z_][A-Za-z0-9_]*$", expr)
+            if not m or (m.start() > 0 and expr[:m.start()].rstrip()[-1:] not in (".",)):
+                out[(n, var)] = (frozenset(), True)
+                continue
+            at = len(raw[:s].decode("utf-8", errors="surrogateescape")) + m.start()
+            if at not in asked:
+                asked[at] = self.server.request("textDocument/definition", {"textDocument": {"uri": uri(path)}, "position": position(text, at)})
+            out[(n, var)] = at
+        answers = {}
+        for at, wait in asked.items():
+            decls = set()
+            for l in (lambda r: r if isinstance(r, list) else [r] if r else [])(wait()):
+                f = path_of(l.get("targetUri") or l.get("uri"))
+                rg = l.get("targetSelectionRange") or l.get("targetRange") or l.get("range")
+                body = text if os.path.realpath(f) == os.path.realpath(path) else read_text(f)
+                if body is None:
+                    continue
+                if in_import(f, body, rg["start"]):
+                    continue  # the server stopped at an import it could not resolve
+                pkg, mod = declared_in(f)
+                whole = l.get("targetRange") or l.get("range")
+                if whole["start"] == whole["end"] == {"line": 0, "character": 0}:
+                    # a module: declared by its file, with its name
+                    decls.add((pkg, mod, (mod or "").rsplit(".", 1)[-1] or None))
+                else:
+                    decls.add((pkg, mod, word_at(f, rg["start"], body)))
+            answers[at] = (frozenset(decls), not decls)
+        return {k: answers[v] if isinstance(v, int) else v for k, v in out.items()}
 
 
 # ---------------------------------------------------------------- constraints
@@ -365,7 +444,16 @@ def satisfies(found, spec):
 def holds(found, cond):
     if "not" in cond:
         return not holds(found, cond["not"])
-    return satisfies(found, cond["type"])
+    specs = cond["type"] if "type" in cond else cond["declared"]
+    # several specs: one of them is enough
+    return any(satisfies(found, spec) for spec in (specs if isinstance(specs, list) else [specs]))
+
+
+def asks(cond):
+    """What a condition asks of its metavariable: "type" or "declared"."""
+    while "not" in cond:
+        cond = cond["not"]
+    return "declared" if "declared" in cond else "type"
 
 
 def answer(types, matches):
@@ -374,13 +462,14 @@ def answer(types, matches):
     for n, m in enumerate(matches):
         where = (m.get("metadata") or {}).get("forge_where") or {}
         single = (m.get("metaVariables") or {}).get("single") or {}
-        for var in where:
+        for var, cond in where.items():
             if var in single:
                 b = single[var]["range"]["byteOffset"]
-                by_file.setdefault(m["file"], []).append((n, var, b["start"], b["end"]))
+                kinds = by_file.setdefault(m["file"], {"type": [], "declared": []})
+                kinds[asks(cond)].append((n, var, b["start"], b["end"]))
     found = {}
-    for f, wanted in by_file.items():
-        found.update(types.check(os.path.join(ROOT, f), wanted))
+    for f, kinds in by_file.items():
+        found.update(types.check(os.path.join(ROOT, f), kinds["type"], kinds["declared"]))
     keep = []
     for n, m in enumerate(matches):
         where = (m.get("metadata") or {}).get("forge_where") or {}

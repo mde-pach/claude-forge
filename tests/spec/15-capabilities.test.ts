@@ -4,9 +4,10 @@
  * A rule says what it needs; the engine decides how. `where: {S: {type: …}}` on an
  * ast-grep metavariable keeps a match only when the static type of the expression
  * bound to `S` is declared in the named package or module, with one of the named
- * declared names (or is a subtype of such a type): never by the names the project
- * chose for its variables, receivers or imports. The types engine is one pinned
- * language server per language (ty for Python, TypeScript 7's `tsc --lsp`), kept
+ * declared names (or is a subtype of such a type); `where: {F: {declared: …}}` keeps
+ * it only when the name or attribute bound to `F` refers to such a declaration
+ * (§15.6): never by the names the project chose for its variables, receivers or
+ * imports. The types engine is one pinned language server per language (ty for Python, TypeScript 7's `tsc --lsp`), kept
  * running per repository and asked by the hooks through a FIFO. These tests run the
  * generated hooks on projects with the real packages installed.
  */
@@ -15,6 +16,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { renderChecks, renderLib } from "../../src/render";
+import { validate } from "../../src/schemas";
 import { ENGINE_PYTHON, TY_VERSION } from "../../src/util";
 import { commitAll, fakeClaude, fixture, forge, git, hasBun, hasUv, hookJson, othersRunning, processesNaming, put, ROOT, sh, stateDir, stopEngines, TOOL_VERSIONS } from "../helpers";
 
@@ -95,6 +97,23 @@ function typeQuestion(repo: string, lang: "python" | "typescript", file: string)
 }
 const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]!;
 
+/**
+ * A local rule (§5.3) on the function a name refers to (§15.6): SQLAlchemy's text(), or
+ * the standard library's random.choice (a list of specs: one is enough).
+ */
+const NO_TEXT = [
+  "id: local/no-text",
+  "description: No raw SQL text() and no random.choice().",
+  "scope: {language: python}",
+  "enforce:",
+  "  - target: ast-grep",
+  "    mode: forbid",
+  '    rule: {kind: call, pattern: "$F($$$)"}',
+  "    where:",
+  "      F: {declared: [{package: sqlalchemy, name: text}, {package: random, name: choice}]}",
+  "",
+].join("\n");
+
 /** @rule python/sqlalchemy/no-query-api */
 describe.if(hasUv)("Python: the receiver's type, through ty", () => {
   let repo = "";
@@ -102,6 +121,8 @@ describe.if(hasUv)("Python: the receiver's type, through ty", () => {
     repo = project("sqlalchemy", "fastapi-app", (dir) => {
       expect(sh("uv", ["venv", "-q", "--python", "3.12", join(dir, ".venv")]).status).toBe(0);
       expect(sh("uv", ["pip", "install", "-q", "--python", join(dir, ".venv/bin/python"), "sqlalchemy==2.0.44"]).status).toBe(0);
+      mkdirSync(join(dir, ".forge/rules"), { recursive: true });
+      writeFileSync(join(dir, ".forge/rules/no-text.yaml"), NO_TEXT);
     });
   }, T);
   afterAll(() => stopEngines(repo));
@@ -184,6 +205,73 @@ describe.if(hasUv)("Python: the receiver's type, through ty", () => {
   );
 
   test(
+    "a declared name is the function a name or attribute refers to, through import aliases and re-exports: SQLAlchemy's text() however it is imported, the standard library's random.choice",
+    () => {
+      put(repo, "app/sql.py", 'from sqlalchemy import text\n\n__all__ = ["text"]\n');
+      afterEdit(repo, "app/sql.py");
+      put(
+        repo,
+        "app/raw.py",
+        [
+          "import random",
+          "from random import choice as pick",
+          "import sqlalchemy",
+          "import sqlalchemy as sa",
+          "from sqlalchemy import text as sql",
+          "",
+          "from app import sql as project",
+          "",
+          'a = sqlalchemy.text("select 1")',
+          'b = sa.text("select 2")',
+          'c = sql("select 3")',
+          'd = project.text("select 4")',
+          "e = random.choice([1, 2])",
+          "f = pick([1, 2])",
+          "",
+        ].join("\n"),
+      );
+      const ctx = afterEdit(repo, "app/raw.py");
+      for (const line of [9, 10, 11, 12, 13, 14]) expect(ctx).toContain(`forge:local/no-text app/raw.py:${line}:`);
+    },
+    T,
+  );
+
+  test(
+    "a project function named text, a method named text, an unresolved import and an expression that is not a name are not declared by SQLAlchemy",
+    () => {
+      put(
+        repo,
+        "app/own.py",
+        [
+          "from nosuchpackage import text as missing",
+          "",
+          "",
+          "def text(q: str) -> str:",
+          "    return q",
+          "",
+          "",
+          "class Doc:",
+          "    def text(self, q: str) -> str:",
+          "        return q",
+          "",
+          "",
+          "def pick() -> type[Doc]:",
+          "    return Doc",
+          "",
+          "",
+          'a = text("select 1")',
+          'b = Doc().text("select 2")',
+          'c = missing("select 3")',
+          'd = pick()("select 4")',
+          "",
+        ].join("\n"),
+      );
+      expect(afterEdit(repo, "app/own.py")).not.toContain("forge:local/no-text");
+    },
+    T,
+  );
+
+  test(
     "an edit to another file changes the answer: once the re-exported name is the project's own class, its receiver is no longer matched",
     () => {
       put(repo, "app/db.py", DB);
@@ -195,26 +283,6 @@ describe.if(hasUv)("Python: the receiver's type, through ty", () => {
       const ctx = afterEdit(repo, "app/repo.py");
       expect(ctx).not.toContain("app/repo.py:18:");
       expect(ctx).toContain("app/repo.py:14:");
-    },
-    T,
-  );
-
-  /**
-   * The servers point the type definition of an anonymous type (an object type literal)
-   * at the literal itself: its name is the alias that declares it, never a word of the
-   * literal or of its JSDoc.
-   */
-  test(
-    "a type declared as an alias of an object type literal has the alias's name",
-    () => {
-      put(
-        repo,
-        "src/form.ts",
-        'import { useForm } from "react-hook-form";\n\nexport function useAll() {\n  const { watch: w } = useForm<{ a: string }>();\n  return w();\n}\n\nconst watch = () => 1;\nexport const v = watch();\n',
-      );
-      const ctx = afterEdit(repo, "src/form.ts");
-      expect(ctx).toContain("forge:local/watch-all src/form.ts:5:");
-      expect(ctx).not.toContain("src/form.ts:9:");
     },
     T,
   );
@@ -358,6 +426,23 @@ const WATCH_ALL = [
 ].join("\n");
 
 /**
+ * A local rule on the function a name refers to (§15.6): react-hook-form's useForm. Its
+ * type definition would be the type it returns (UseFormReturn), not the function.
+ */
+const USE_FORM = [
+  "id: local/use-form",
+  "description: Forms go through the app's form wrapper.",
+  "scope: {language: typescript}",
+  "enforce:",
+  "  - target: ast-grep",
+  "    mode: forbid",
+  '    rule: {kind: call_expression, pattern: "$F($$$)"}',
+  "    where:",
+  "      F: {declared: {package: react-hook-form, name: useForm}}",
+  "",
+].join("\n");
+
+/**
  * The project's own TypeScript answers (§15.2): TypeScript 7 through its language server
  * (tsc --lsp), TypeScript 5 and 6 through their tsserver. The same tests run on one
  * version of each.
@@ -376,6 +461,7 @@ describe.each(TOOL_VERSIONS.typescriptEngines.map((v) => [v]))("TypeScript %s: t
       // a type declared as an alias of an object type literal: react-hook-form's UseFormWatch
       mkdirSync(join(dir, ".forge/rules"), { recursive: true });
       writeFileSync(join(dir, ".forge/rules/watch-all.yaml"), WATCH_ALL);
+      writeFileSync(join(dir, ".forge/rules/use-form.yaml"), USE_FORM);
       expect(sh("bun", ["install", "--silent"], { cwd: dir }).status).toBe(0);
     });
   }, T);
@@ -444,6 +530,62 @@ describe.each(TOOL_VERSIONS.typescriptEngines.map((v) => [v]))("TypeScript %s: t
       const ctx = afterEdit(repo, "src/form.ts");
       expect(ctx).toContain("forge:local/watch-all src/form.ts:5:");
       expect(ctx).not.toContain("src/form.ts:9:");
+    },
+    T,
+  );
+
+  test(
+    "a declared name is the function a name or attribute refers to, through import aliases, namespaces and re-exports: react-hook-form's useForm however it is imported",
+    () => {
+      put(repo, "src/hooks.ts", 'export { useForm as useAppForm } from "react-hook-form";\n');
+      afterEdit(repo, "src/hooks.ts");
+      put(
+        repo,
+        "src/forms.ts",
+        [
+          'import { useForm } from "react-hook-form";',
+          'import { useForm as useF } from "react-hook-form";',
+          'import * as rhf from "react-hook-form";',
+          'import { useAppForm } from "./hooks";',
+          "",
+          "export function forms() {",
+          "  const a = useForm();",
+          "  const b = useF();",
+          "  const c = rhf.useForm();",
+          "  const d = useAppForm();",
+          "  return [a, b, c, d];",
+          "}",
+          "",
+        ].join("\n"),
+      );
+      const ctx = afterEdit(repo, "src/forms.ts");
+      for (const line of [7, 8, 9, 10]) expect(ctx).toContain(`forge:local/use-form src/forms.ts:${line}:`);
+    },
+    T,
+  );
+
+  test(
+    "a project function named useForm, an object's useForm method, an unresolved import and a call's result are not declared by react-hook-form",
+    () => {
+      put(
+        repo,
+        "src/own.ts",
+        [
+          '// @ts-expect-error: no such package',
+          'import { useForm as missing } from "no-such-package";',
+          'import * as rhf from "react-hook-form";',
+          "",
+          "function useForm(): number {",
+          "  return 1;",
+          "}",
+          "const forms = { useForm: (): number => 2 };",
+          "const pick = () => rhf.useForm;",
+          "",
+          "export const all = [useForm(), forms.useForm(), missing(), pick()()];",
+          "",
+        ].join("\n"),
+      );
+      expect(afterEdit(repo, "src/own.ts")).not.toContain("forge:local/use-form");
     },
     T,
   );
@@ -524,3 +666,23 @@ test(
   },
   T,
 );
+
+/** @rule python/numpy/no-allow-pickle */
+test("a where condition asks a type (§15.1) or a declared name (§15.6), as one spec or a list of them, or negates one; a spec names a package or a module, never a name alone", () => {
+  const rule = (F: unknown) => ({ id: "local/x", description: "d", scope: { language: "python" }, enforce: [{ target: "ast-grep", mode: "forbid", rule: { pattern: "$F()" }, where: { F } }] });
+  const ok = (F: unknown) => {
+    try {
+      validate("rule", rule(F), "rule");
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  expect(ok({ declared: { package: "numpy", name: "load" } })).toBe(true);
+  expect(ok({ declared: [{ package: "datetime", name: ["now", "today"] }, { module: "time" }] })).toBe(true);
+  expect(ok({ type: [{ package: "sqlalchemy", name: "Session" }] })).toBe(true);
+  expect(ok({ not: { declared: { package: "flask" } } })).toBe(true);
+  expect(ok({ declared: { name: "load" } })).toBe(false);
+  expect(ok({ declared: [] })).toBe(false);
+  expect(ok({ declared: { package: "numpy" }, type: { package: "numpy" } })).toBe(false);
+});

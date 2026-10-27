@@ -1,0 +1,33 @@
+id: python/django/user-model-ref
+description: Relations to users name settings.AUTH_USER_MODEL, not django.contrib.auth.models.User nor the string "auth.User" (a hard-coded User breaks once the project has a custom user model).
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call
+      pattern: "$F($$$)"
+      has:
+        field: arguments
+        has:
+          nthChild: 1
+          # the string first: a match's metavariables are those of the first branch that matches
+          any:
+            - {kind: string, regex: "^[\"']auth\\.User[\"']$"}
+            - {pattern: $U}
+    # The field class and the User class by what the names refer to (§15.6), whatever
+    # the imports call them.
+    where:
+      F: {declared: {package: django, name: [ForeignKey, OneToOneField, ManyToManyField]}}
+      U: {declared: {package: django, module: django.contrib.auth.models, name: User}}
+examples:
+  deps: [{ecosystem: pypi, name: django, version: "6.1.2"}]
+  match:
+    - "from django.contrib.auth.models import User\nfrom django.db import models\n\n\nclass Order(models.Model):\n    buyer = models.ForeignKey(User, on_delete=models.CASCADE)\n"
+    - "from django.db import models\n\n\nclass Profile(models.Model):\n    user = models.OneToOneField(\"auth.User\", on_delete=models.CASCADE)\n"
+    - "from django.contrib.auth import models as auth\nfrom django.db.models import ManyToManyField, Model\n\n\nclass Team(Model):\n    members = ManyToManyField(auth.User)\n"
+  no_match:
+    - "from django.conf import settings\nfrom django.db import models\n\n\nclass Order(models.Model):\n    buyer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)\n"
+    - "from django.db import models\n\n\nclass User(models.Model):\n    name = models.CharField(max_length=50)\n\n\nclass Order(models.Model):\n    buyer = models.ForeignKey(User, on_delete=models.CASCADE)\n"
+    - "from django.contrib.auth.models import User\n\n\ndef ForeignKey(model: object) -> object:\n    return model\n\n\nref = ForeignKey(User)\n"
+    - "from django.db import models\n\n\nclass Tag(models.Model):\n    owner = models.ForeignKey(\"shop.User\", on_delete=models.CASCADE)\n"

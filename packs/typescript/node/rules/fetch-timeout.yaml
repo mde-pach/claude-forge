@@ -1,0 +1,37 @@
+id: typescript/node/fetch-timeout
+description: fetch() gets a signal (signal AbortSignal.timeout(ms)); the platform fetch has no overall timeout, so a stalled server hangs the request forever.
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: call_expression
+      any:
+        - pattern: "$F($U)"
+        # an init object written there without a signal (a spread may hold one; an init held in a variable is not read)
+        - all:
+            - pattern: "$F($U, $O)"
+            - has:
+                field: arguments
+                has:
+                  nthChild: 2
+                  kind: object
+                  not:
+                    has:
+                      any:
+                        - {kind: pair, has: {field: key, regex: "^[\"']?signal[\"']?$"}}
+                        - {kind: shorthand_property_identifier, regex: "^signal$"}
+                        - {kind: spread_element}
+    # The platform's fetch (§15.6: TypeScript's DOM library, @types/node, Bun), not a project helper called fetch.
+    where:
+      F: {declared: {package: [typescript, node, undici-types, bun-types], name: fetch}}
+examples:
+  deps: [{ecosystem: npm, name: "@types/node", version: "24.10.1"}]
+  match:
+    - "export async function user(id: string) {\n  const res = await fetch(`https://api.example.com/users/${id}`);\n  return res.json();\n}\n"
+    - "export async function create(body: string) {\n  return globalThis.fetch(\"https://api.example.com/items\", { method: \"POST\", body });\n}\n"
+  no_match:
+    - "export async function user(id: string) {\n  const res = await fetch(`https://api.example.com/users/${id}`, { signal: AbortSignal.timeout(5000) });\n  return res.json();\n}\n"
+    - "export async function create(body: string, signal: AbortSignal) {\n  return fetch(\"https://api.example.com/items\", { method: \"POST\", body, signal });\n}\n"
+    - "async function fetch(url: string): Promise<string> {\n  return url;\n}\n\nexport const page = fetch(\"/home\");\n"
+    - "export async function create(init: RequestInit) {\n  return fetch(\"https://api.example.com/items\", { ...init, method: \"POST\" });\n}\n"

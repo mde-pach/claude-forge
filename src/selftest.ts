@@ -544,7 +544,20 @@ function examplesCache(): string {
  * once per set of packages. Returns its directory, or an error.
  */
 export function examplesProject(lang: TypesLanguage, deps: DepSpec[]): { dir?: string; error?: string } {
-  const key = sha256(JSON.stringify([lang, [...deps].sort((a, b) => (a.name < b.name ? -1 : 1)), lang === "typescript" ? EXAMPLES_TYPESCRIPT : ""])).slice(0, 16);
+  // the TypeScript project's compiler options are part of what makes it
+  const tsconfig = {
+    compilerOptions: {
+      target: "ES2022",
+      module: "ESNext",
+      moduleResolution: "bundler",
+      strict: true,
+      noEmit: true,
+      skipLibCheck: true,
+      // global declarations (@types/node's, @types/bun's) are the ones a project lists: TypeScript 6 and later include none by default
+      types: deps.filter((d) => d.name.startsWith("@types/")).map((d) => d.name.slice("@types/".length)),
+    },
+  };
+  const key = sha256(JSON.stringify([lang, [...deps].sort((a, b) => (a.name < b.name ? -1 : 1)), lang === "typescript" ? [EXAMPLES_TYPESCRIPT, tsconfig] : ""])).slice(0, 16);
   const dir = join(examplesCache(), `${lang}-${key}`);
   const done = join(dir, ".forge-ready");
   if (existsSync(done)) return { dir };
@@ -559,7 +572,7 @@ export function examplesProject(lang: TypesLanguage, deps: DepSpec[]): { dir?: s
     // the types engine is the project's TypeScript (§15.2): the examples get one unless deps name it
     const dependencies = { typescript: EXAMPLES_TYPESCRIPT, ...Object.fromEntries(deps.map((d) => [d.name, d.version])) };
     writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "forge-examples", private: true, type: "module", dependencies }, null, 2));
-    writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ compilerOptions: { target: "ES2022", module: "ESNext", moduleResolution: "bundler", strict: true, noEmit: true, skipLibCheck: true } }, null, 2));
+    writeFileSync(join(dir, "tsconfig.json"), JSON.stringify(tsconfig, null, 2));
     const r = run("bun", ["install", "--silent"], { cwd: dir });
     if (r.status !== 0) return { error: `bun install: ${(r.stderr || r.stdout).trim().split("\n").slice(-3).join(" ")}` };
   }
@@ -667,6 +680,6 @@ function typesExamples(rules: Rule[], report: TestReport): void {
 
 function describeWhere(rule: Rule): string {
   const t = rule.enforce.find((x): x is AstGrepTarget => x.target === "ast-grep")!;
-  const show = (c: WhereCondition): string => ("not" in c ? `not ${show(c.not)}` : JSON.stringify(c.type));
+  const show = (c: WhereCondition): string => ("not" in c ? `not ${show(c.not)}` : "declared" in c ? `declared ${JSON.stringify(c.declared)}` : JSON.stringify(c.type));
   return Object.entries(t.where ?? {}).map(([v, c]) => `$${v}: ${show(c)}`).join(", ");
 }

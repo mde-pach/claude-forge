@@ -4424,7 +4424,7 @@ FORGE_TYPES_LANGS='python'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='d293bd59f078'
+FORGE_TYPES_REV='b72cd7f2aea6'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -4510,8 +4510,9 @@ forge_types_down() {
 
 # forge_types_filter <matches>: keeps in the file of ast-grep --json=stream matches
 # (with --include-metadata) only those whose forge_where the language's types engine
-# confirms (§15.1); matches without forge_where stay. An engine that cannot answer is
-# not a pass: "forge:forge/types ..." lines name the rules left unchecked, and it fails.
+# confirms (types, §15.1; declared names, §15.6); matches without forge_where stay. An
+# engine that cannot answer is not a pass: "forge:forge/types ..." lines name the rules
+# left unchecked, and it fails.
 forge_types_filter() {
   grep -q '"forge_where"' "$1" 2>/dev/null || return 0
   grep -v '"forge_where"' "$1" > "$1.kept"
@@ -4549,7 +4550,7 @@ forge_types_filter() {
   return "$_tf_rc"
 }
 
-FORGE_FORBID='python/fastapi/cors-credentials-wildcard|python/fastapi/no-debug-true|python/fastapi/no-on-event|python/fastapi/no-testclient-in-async-test|python/llm-client-timeout|python/no-stub|python/pydantic/v2-api|python/pytest/no-tautological-assert|python/pytest/no-test-env-branch|python/sqlalchemy/alembic/no-create-all|python/sqlalchemy/async-expire-on-commit|python/sqlalchemy/mapped-column|python/sqlalchemy/no-backref|python/sqlalchemy/no-concurrent-session|python/sqlalchemy/no-declarative-base|python/sqlalchemy/no-lazy-dynamic|python/sqlalchemy/no-query-api|python/sqlalchemy/no-raw-execute|python/sqlalchemy/no-text-fstring|python/fastapi/no-raw-request-body|python/fastapi/testclient-lifespan|python/pydantic/typeadapter-module-level|python/sqlalchemy/session-context'
+FORGE_FORBID='python/fastapi/cors-credentials-wildcard|python/fastapi/deprecated-params|python/fastapi/no-debug-true|python/fastapi/no-on-event|python/fastapi/no-testclient-in-async-test|python/llm-client-timeout|python/no-stub|python/pydantic/v2-api|python/pytest/no-tautological-assert|python/pytest/no-test-env-branch|python/sqlalchemy/alembic/no-create-all|python/sqlalchemy/async-expire-on-commit|python/sqlalchemy/mapped-column|python/sqlalchemy/no-backref|python/sqlalchemy/no-concurrent-session|python/sqlalchemy/no-declarative-base|python/sqlalchemy/no-lazy-dynamic|python/sqlalchemy/no-query-api|python/sqlalchemy/no-raw-execute|python/sqlalchemy/no-text-fstring|python/fastapi/no-raw-request-body|python/fastapi/testclient-lifespan|python/pydantic/typeadapter-module-level|python/sqlalchemy/session-context'
 
 # the lines added to each file during the turn (base: the turn snapshot, else HEAD)
 mode=--changed
@@ -7935,7 +7936,7 @@ FORGE_TYPES_LANGS='python'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='d293bd59f078'
+FORGE_TYPES_REV='b72cd7f2aea6'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -8021,8 +8022,9 @@ forge_types_down() {
 
 # forge_types_filter <matches>: keeps in the file of ast-grep --json=stream matches
 # (with --include-metadata) only those whose forge_where the language's types engine
-# confirms (§15.1); matches without forge_where stay. An engine that cannot answer is
-# not a pass: "forge:forge/types ..." lines name the rules left unchecked, and it fails.
+# confirms (types, §15.1; declared names, §15.6); matches without forge_where stay. An
+# engine that cannot answer is not a pass: "forge:forge/types ..." lines name the rules
+# left unchecked, and it fails.
 forge_types_filter() {
   grep -q '"forge_where"' "$1" 2>/dev/null || return 0
   grep -v '"forge_where"' "$1" > "$1.kept"
@@ -11466,7 +11468,7 @@ FORGE_TYPES_LANGS='python'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='d293bd59f078'
+FORGE_TYPES_REV='b72cd7f2aea6'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -11552,8 +11554,9 @@ forge_types_down() {
 
 # forge_types_filter <matches>: keeps in the file of ast-grep --json=stream matches
 # (with --include-metadata) only those whose forge_where the language's types engine
-# confirms (§15.1); matches without forge_where stay. An engine that cannot answer is
-# not a pass: "forge:forge/types ..." lines name the rules left unchecked, and it fails.
+# confirms (types, §15.1; declared names, §15.6); matches without forge_where stay. An
+# engine that cannot answer is not a pass: "forge:forge/types ..." lines name the rules
+# left unchecked, and it fails.
 forge_types_filter() {
   grep -q '"forge_where"' "$1" 2>/dev/null || return 0
   grep -v '"forge_where"' "$1" > "$1.kept"
@@ -15018,7 +15021,7 @@ FORGE_TYPES_LANGS='python'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='d293bd59f078'
+FORGE_TYPES_REV='b72cd7f2aea6'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -15104,8 +15107,9 @@ forge_types_down() {
 
 # forge_types_filter <matches>: keeps in the file of ast-grep --json=stream matches
 # (with --include-metadata) only those whose forge_where the language's types engine
-# confirms (§15.1); matches without forge_where stay. An engine that cannot answer is
-# not a pass: "forge:forge/types ..." lines name the rules left unchecked, and it fails.
+# confirms (types, §15.1; declared names, §15.6); matches without forge_where stay. An
+# engine that cannot answer is not a pass: "forge:forge/types ..." lines name the rules
+# left unchecked, and it fails.
 forge_types_filter() {
   grep -q '"forge_where"' "$1" 2>/dev/null || return 0
   grep -v '"forge_where"' "$1" > "$1.kept"
@@ -15200,6 +15204,37 @@ invalid:
         allow_methods=["*"],
         allow_origins=['*'],
     )
+
+===== .forge/ast-grep/rule-tests/python-fastapi-deprecated-params-test.yml
+id: python/fastapi/deprecated-params
+valid: []
+invalid:
+  - |
+    from typing import Annotated
+
+    from fastapi import FastAPI, Query
+
+    app = FastAPI()
+
+
+    @app.get("/items")
+    def items(q: Annotated[str, Query(regex="^[a-z]+$")]) -> str:
+        return q
+  - |
+    from typing import Annotated
+
+    import fastapi
+
+    app = fastapi.FastAPI()
+
+
+    @app.post("/items")
+    def create(name: Annotated[str, fastapi.Body(example="pen")]) -> str:
+        return name
+  - |
+    from fastapi import FastAPI
+
+    app = FastAPI(title="api", root_path="/api/v1")
 
 ===== .forge/ast-grep/rule-tests/python-fastapi-no-debug-true-test.yml
 id: python/fastapi/no-debug-true
@@ -15823,6 +15858,47 @@ rule:
         stopBy: end
         kind: keyword_argument
         regex: ^allow_credentials[[:space:]]*=[[:space:]]*True$
+
+===== .forge/ast-grep/rules/python/fastapi/deprecated-params.yml
+# Generated by forge from python/fastapi/deprecated-params (mode: forbid).
+id: python/fastapi/deprecated-params
+language: Python
+severity: error
+message: forge:python/fastapi/deprecated-params No FastAPI parameters deprecated only at run time. Query/Path/Header/Cookie/Body/Form/File take pattern= (not regex=) and examples= or openapi_examples= (not example=); FastAPI() takes no root_path= (pass --root-path to fastapi run or uvicorn).
+rule:
+  kind: call
+  any:
+    - all:
+        - pattern: $F($$$)
+        - has:
+            field: arguments
+            has:
+              kind: keyword_argument
+              regex: ^(regex|example)[[:space:]]*=
+    - all:
+        - pattern: $APP
+        - has:
+            field: arguments
+            has:
+              kind: keyword_argument
+              regex: ^root_path[[:space:]]*=
+metadata:
+  forge_where:
+    F:
+      declared:
+        package: fastapi
+        name:
+          - Query
+          - Path
+          - Header
+          - Cookie
+          - Body
+          - Form
+          - File
+    APP:
+      type:
+        package: fastapi
+        name: FastAPI
 
 ===== .forge/ast-grep/rules/python/fastapi/no-debug-true.yml
 # Generated by forge from python/fastapi/no-debug-true (mode: forbid).
@@ -20248,7 +20324,7 @@ FORGE_TYPES_LANGS='python'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='d293bd59f078'
+FORGE_TYPES_REV='b72cd7f2aea6'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -20334,8 +20410,9 @@ forge_types_down() {
 
 # forge_types_filter <matches>: keeps in the file of ast-grep --json=stream matches
 # (with --include-metadata) only those whose forge_where the language's types engine
-# confirms (§15.1); matches without forge_where stay. An engine that cannot answer is
-# not a pass: "forge:forge/types ..." lines name the rules left unchecked, and it fails.
+# confirms (types, §15.1; declared names, §15.6); matches without forge_where stay. An
+# engine that cannot answer is not a pass: "forge:forge/types ..." lines name the rules
+# left unchecked, and it fails.
 forge_types_filter() {
   grep -q '"forge_where"' "$1" 2>/dev/null || return 0
   grep -v '"forge_where"' "$1" > "$1.kept"
@@ -20376,7 +20453,7 @@ forge_types_filter() {
 FORGE_STATE=$(forge_state_of "$(pwd -P)")
 
 
-FORGE_FORBID='python/fastapi/cors-credentials-wildcard|python/fastapi/no-debug-true|python/fastapi/no-on-event|python/fastapi/no-testclient-in-async-test|python/llm-client-timeout|python/no-stub|python/pydantic/v2-api|python/pytest/no-tautological-assert|python/pytest/no-test-env-branch|python/sqlalchemy/alembic/no-create-all|python/sqlalchemy/async-expire-on-commit|python/sqlalchemy/mapped-column|python/sqlalchemy/no-backref|python/sqlalchemy/no-concurrent-session|python/sqlalchemy/no-declarative-base|python/sqlalchemy/no-lazy-dynamic|python/sqlalchemy/no-query-api|python/sqlalchemy/no-raw-execute|python/sqlalchemy/no-text-fstring'
+FORGE_FORBID='python/fastapi/cors-credentials-wildcard|python/fastapi/deprecated-params|python/fastapi/no-debug-true|python/fastapi/no-on-event|python/fastapi/no-testclient-in-async-test|python/llm-client-timeout|python/no-stub|python/pydantic/v2-api|python/pytest/no-tautological-assert|python/pytest/no-test-env-branch|python/sqlalchemy/alembic/no-create-all|python/sqlalchemy/async-expire-on-commit|python/sqlalchemy/mapped-column|python/sqlalchemy/no-backref|python/sqlalchemy/no-concurrent-session|python/sqlalchemy/no-declarative-base|python/sqlalchemy/no-lazy-dynamic|python/sqlalchemy/no-query-api|python/sqlalchemy/no-raw-execute|python/sqlalchemy/no-text-fstring'
 FORGE_NO_INCREASE='python/pytest/no-mock-increase|python/pytest/no-new-skip'
 FORGE_NO_DECREASE='python/pytest/no-fewer-asserts'
 
@@ -20576,6 +20653,7 @@ forge_end "$fail"
     "python/env-example": "c4597314420b3777fb4b0e819ea37c3d0187c175afcb6e63f00176bab4fff4cd",
     "python/fastapi/annotated-depends": "74fc0e4e89bf389aa7377ee0ab2d47d29257c9d063592ab8156b1f3f9dca7f38",
     "python/fastapi/cors-credentials-wildcard": "1ff2c42562d1d01479da9e3f2bea4be08ad42b140de7d6dae3b80ef4d277d84c",
+    "python/fastapi/deprecated-params": "de3831b362bb016f17b82dd083a133023a43800e4f03d45f203c5ec0b01c1071",
     "python/fastapi/no-debug-true": "c18e5a042914d571469d52a7667fc5085fc5881cbcd67a0082ab6d668638cb9f",
     "python/fastapi/no-on-event": "9964cd2fafef9ee91b7a1a635874b1ee1b201337443ce4d3c9662827c90332b2",
     "python/fastapi/no-raw-request-body": "8d8714dc1c4d63e697799fcdf0098613ac7c69948819a0942a8f65bf9c790f5e",
@@ -20680,16 +20758,17 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "a3bb50a3648137c8e0c7cda3d1cb07050fcb36f990e50b8b2b7f46b78e363f20",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
     ".claude/skills/forge-project/scripts/lib.sh": "83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "776132927c714bc251eec6c3881c0b1bebd542f08b82be03ed61796f1c36a359",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "170103cde0ab1dd517ce50d5d48c752de6f1218a6c323a34bae90abbd8ec0a38",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
     ".claude/skills/forge-project/scripts/session-end.sh": "99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58",
-    ".claude/skills/forge-project/scripts/session-start.sh": "a6b4b72328735771861c18ce9c405dd841fc402361826bbd1494cdf87a21c6ae",
+    ".claude/skills/forge-project/scripts/session-start.sh": "306c72948e6dab3350f5831178cb97ea8d37b8fa1f8c2e75bc6ce4b792552b85",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "16dbca65453ba1a36ff4701eb8dae8fba45a9cc2553dd6976fbfa0c4130f49d6",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "bc98aaa89c9276323965d645dc3159ea1773199a2385c468f0c7ed53e76a28ba",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "14fb03818717e1336d81ec5d29d9af9ca057bbb5e8eb0e95934582539a42150e",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "03436608880d2cc9ffd9ec3959c4e0ea7487816581b3551e42f92a07ee1f9799",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml": "69a94f1a0b16aa08bcf758af3e3dc269266cdd808aba1a4289b4c58c7f969700",
+    ".forge/ast-grep/rule-tests/python-fastapi-deprecated-params-test.yml": "3ab907fdafea1f658c6da3626c3fc0fb0cdc6f63162f45339d7a57a03edce0c4",
     ".forge/ast-grep/rule-tests/python-fastapi-no-debug-true-test.yml": "cc41b4679da7c42ca44eb92af4f9787ad42ff4e396d0e0ddd1d44268f5bbd6e1",
     ".forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml": "5f7964057b29b3b70e2570ddb883c140e396887d1ff6ee60eabc276692078326",
     ".forge/ast-grep/rule-tests/python-fastapi-no-raw-request-body-test.yml": "acc864f4e4e1588d654776d782963cb8eeed53bef9f1d4b689215bbf89e632f9",
@@ -20716,6 +20795,7 @@ forge_end "$fail"
     ".forge/ast-grep/rule-tests/python-sqlalchemy-no-text-fstring-test.yml": "b6ad70dac48994e60453edd07d73a3669d26b21954b227be8177a7a98426baa0",
     ".forge/ast-grep/rule-tests/python-sqlalchemy-session-context-test.yml": "c47d06cd6e01012e44f04ab6fcccff0fc4aa96723a31d2a5e693098fdde80831",
     ".forge/ast-grep/rules/python/fastapi/cors-credentials-wildcard.yml": "166a169b8e196d6820c512fc277f5fcfb1ab03ddfbed4eff4479202c7a34b9cd",
+    ".forge/ast-grep/rules/python/fastapi/deprecated-params.yml": "e9c9abce3eaf90e32efd589ca64a7fd4ac6ed080e6866748a8bad37c86a631f4",
     ".forge/ast-grep/rules/python/fastapi/no-debug-true.yml": "dc64b5d1aacfe0e08b84585850948286cf2290a77e4a80a9ae0df3d98a6fcd3b",
     ".forge/ast-grep/rules/python/fastapi/no-on-event.yml": "b208d24856f9bc5c984e31170c7ededb09af5431663cdef83456209c5ad8c2e1",
     ".forge/ast-grep/rules/python/fastapi/no-raw-request-body.yml": "0afd1cdb84f5ab19adbec245990f34e140fbbf53cb3a2095894d65899857102f",
@@ -20742,10 +20822,10 @@ forge_end "$fail"
     ".forge/ast-grep/rules/python/sqlalchemy/no-text-fstring.yml": "04c44c9e215449d46b10540e86e999ec1d6383d8c3a849855fe73cb456668fca",
     ".forge/ast-grep/rules/python/sqlalchemy/session-context.yml": "085314ebd159593e95b8d7f956bf947428cdc502d1ceadce0999f2f368cb2251",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "b7b1b314df1d93920190feafed4d8812dd87de063e35f316080d570964b9c2bd",
+    ".forge/check.sh": "49e39b9b647b54d9095e54f6e8cf5bcebe587fbe03ab1f1732e08b514f0189b6",
     ".forge/helpers/fk_index.py": "12e59e9b4be590d77ed8dd6bab82f644440679d5cffd82264bf4c568e4341c9e",
     ".forge/helpers/ratchet.py": "4f7e312b9419bd1ee09fe9cd3e988546bba089d706cb1b44e4546c4b4c87173d",
-    ".forge/helpers/types_python.py": "24c9504a4feb098f10dedadbc39f0a0c34eae5b4562f01c4e90e0d0beb0c3639",
+    ".forge/helpers/types_python.py": "bbd4ed6863d3fde7b4f1aa8d578d6a83bd5755c2167057733a1c7d7f99ee919e",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -21177,12 +21257,14 @@ except Exception as e:  # never report a crash as a loosened setting
 #                        use starts it again); "stop<TAB><dir>" answers "end" in the FIFO
 #                        <dir>/reply once its language server has exited
 #   <absolute dir>       a question: <dir>/req holds ast-grep --json=stream matches whose
-#                        metadata has forge_where; the answer goes to the FIFO <dir>/reply:
+#                        metadata has forge_where (a type or a declared name per
+#                        metavariable, SPECS §15.1, §15.6); the answer goes to the FIFO <dir>/reply:
 #                        the matches whose forge_where holds (verbatim), "error<TAB>..."
 #                        lines, then "end"
 # The daemon exits after FORGE_TYPES_IDLE seconds (1800) without a line, and when its
 # state directory or the repository is gone or another daemon took the state directory
 # over (checked every 10 seconds).
+import ast
 import json
 import os
 import re
@@ -21370,8 +21452,9 @@ class Server:
 
 def declared_in(path):
     """(package, module) of a declaration file: the import package and dotted module
-    under site-packages (a -stubs package counts as its package), typeshed's stdlib or
-    third-party stubs; (None, module) for the project's own files."""
+    under site-packages (a -stubs package counts as its package), the standard library
+    (its sources, lib/python3.X/, or typeshed's stdlib) or typeshed's third-party stubs;
+    (None, module) for the project's own files."""
     p = path.replace(os.sep, "/")
     rel = None
     for marker in ("/site-packages/", "/dist-packages/"):
@@ -21379,6 +21462,11 @@ def declared_in(path):
         if i >= 0:
             rel = p[i + len(marker):]
             break
+    if rel is None:
+        # the standard library's own sources (a definition goes there rather than to its stub)
+        m = re.search(r"/lib/python3\.\d+/", p)
+        if m:
+            rel = p[m.end():]
     if rel is None:
         i = p.rfind("/typeshed/")
         if i >= 0:
@@ -21406,17 +21494,45 @@ def declared_in(path):
     return (None if project else segs[0], module)
 
 
-def word_at(path, pos):
+def read_text(path):
     try:
         with open(path, encoding="utf-8", errors="surrogateescape") as f:
-            text = f.read()
+            return f.read()
     except OSError:
+        return None
+
+
+def word_at(path, pos, text=None):
+    text = read_text(path) if text is None else text
+    if text is None:
         return None
     i = index_of(text, pos)
     m = re.compile(r"[A-Za-z_][A-Za-z0-9_]*").search(text, i)
     while m and m.group(0) in ("class", "def", "type", "async"):
         m = re.compile(r"[A-Za-z_][A-Za-z0-9_]*").search(text, m.end())
     return m.group(0) if m else None
+
+
+IMPORTS = {}  # file -> (text, [(start, end) index ranges of its import statements])
+
+
+def in_import(path, text, pos):
+    """Whether pos is inside an import statement of the file (Python's own parser)."""
+    cached = IMPORTS.get(path)
+    if not cached or cached[0] != text:
+        spans = []
+        try:
+            lines = [0]
+            for line in text.splitlines(keepends=True):
+                lines.append(lines[-1] + len(line))
+            for node in ast.walk(ast.parse(text)):
+                if isinstance(node, (ast.Import, ast.ImportFrom)):
+                    spans.append((lines[node.lineno - 1] + node.col_offset, lines[node.end_lineno - 1] + node.end_col_offset))
+        except (SyntaxError, ValueError):
+            pass
+        cached = IMPORTS[path] = (text, spans)
+    i = index_of(text, pos)
+    return any(a <= i < b for a, b in cached[1])
 
 
 class Types:
@@ -21450,14 +21566,18 @@ class Types:
             self.cache[key] = out
         return out
 
-    def check(self, path, wanted):
-        """wanted: [(match index, variable, start byte, end byte)]. Returns
-        {(match index, variable): set of declarations}, from the type the server infers
-        for each expression: the file is shown to the server with each expression
-        bound to a fresh name ((__forge_t<i> := (<expr>))), in memory only, and the type
+    def check(self, path, wanted, named=()):
+        """wanted: [(match index, variable, start byte, end byte)] whose type is asked;
+        named: the same for the declarations names refer to. Returns {(match index,
+        variable): (set of declarations, unknown)}. A type is the one the server infers
+        for each expression: the file is shown to the server with each expression bound
+        to a fresh name ((__forge_t<i> := (<expr>))), in memory only, and the type
         definition of that name is asked; then the file is shown as it is."""
         text = self.server.sync(path)
         raw = text.encode("utf-8", errors="surrogateescape")
+        found = self.declared(path, text, raw, named) if named else {}
+        if not wanted:
+            return found
         # one fresh name per distinct expression range
         ranges, slot = [], []
         for _, _, s, e in wanted:
@@ -21498,7 +21618,46 @@ class Types:
             # Any and Unknown (an unannotated parameter, an unresolved import) say nothing
             unknown = all(d[0] == "typing" and d[2] == "Any" or (d[1] or "").startswith("ty_extensions") for d in decls)
             per_range.append((frozenset(decls), unknown))
-        return {(w[0], w[1]): per_range[slot[n]] for n, w in enumerate(wanted)}
+        found.update({(w[0], w[1]): per_range[slot[n]] for n, w in enumerate(wanted)})
+        return found
+
+    def declared(self, path, text, raw, named):
+        """{(match index, variable): (declarations, unknown)} of the names in named: the
+        declarations the server's definition of the expression's last name gives (an
+        import alias or a re-export resolved; overloads each count), on the file as it
+        is. An expression that does not end with a name, a name without a definition and
+        one whose definition is an import the server could not resolve are unknown."""
+        asked, out = {}, {}
+        for n, var, s, e in named:
+            expr = raw[s:e].decode("utf-8", errors="surrogateescape")
+            m = re.search(r"[A-Za-z_][A-Za-z0-9_]*$", expr)
+            if not m or (m.start() > 0 and expr[:m.start()].rstrip()[-1:] not in (".",)):
+                out[(n, var)] = (frozenset(), True)
+                continue
+            at = len(raw[:s].decode("utf-8", errors="surrogateescape")) + m.start()
+            if at not in asked:
+                asked[at] = self.server.request("textDocument/definition", {"textDocument": {"uri": uri(path)}, "position": position(text, at)})
+            out[(n, var)] = at
+        answers = {}
+        for at, wait in asked.items():
+            decls = set()
+            for l in (lambda r: r if isinstance(r, list) else [r] if r else [])(wait()):
+                f = path_of(l.get("targetUri") or l.get("uri"))
+                rg = l.get("targetSelectionRange") or l.get("targetRange") or l.get("range")
+                body = text if os.path.realpath(f) == os.path.realpath(path) else read_text(f)
+                if body is None:
+                    continue
+                if in_import(f, body, rg["start"]):
+                    continue  # the server stopped at an import it could not resolve
+                pkg, mod = declared_in(f)
+                whole = l.get("targetRange") or l.get("range")
+                if whole["start"] == whole["end"] == {"line": 0, "character": 0}:
+                    # a module: declared by its file, with its name
+                    decls.add((pkg, mod, (mod or "").rsplit(".", 1)[-1] or None))
+                else:
+                    decls.add((pkg, mod, word_at(f, rg["start"], body)))
+            answers[at] = (frozenset(decls), not decls)
+        return {k: answers[v] if isinstance(v, int) else v for k, v in out.items()}
 
 
 # ---------------------------------------------------------------- constraints
@@ -21530,7 +21689,16 @@ def satisfies(found, spec):
 def holds(found, cond):
     if "not" in cond:
         return not holds(found, cond["not"])
-    return satisfies(found, cond["type"])
+    specs = cond["type"] if "type" in cond else cond["declared"]
+    # several specs: one of them is enough
+    return any(satisfies(found, spec) for spec in (specs if isinstance(specs, list) else [specs]))
+
+
+def asks(cond):
+    """What a condition asks of its metavariable: "type" or "declared"."""
+    while "not" in cond:
+        cond = cond["not"]
+    return "declared" if "declared" in cond else "type"
 
 
 def answer(types, matches):
@@ -21539,13 +21707,14 @@ def answer(types, matches):
     for n, m in enumerate(matches):
         where = (m.get("metadata") or {}).get("forge_where") or {}
         single = (m.get("metaVariables") or {}).get("single") or {}
-        for var in where:
+        for var, cond in where.items():
             if var in single:
                 b = single[var]["range"]["byteOffset"]
-                by_file.setdefault(m["file"], []).append((n, var, b["start"], b["end"]))
+                kinds = by_file.setdefault(m["file"], {"type": [], "declared": []})
+                kinds[asks(cond)].append((n, var, b["start"], b["end"]))
     found = {}
-    for f, wanted in by_file.items():
-        found.update(types.check(os.path.join(ROOT, f), wanted))
+    for f, kinds in by_file.items():
+        found.update(types.check(os.path.join(ROOT, f), kinds["type"], kinds["declared"]))
     keep = []
     for n, m in enumerate(matches):
         where = (m.get("metadata") or {}).get("forge_where") or {}
@@ -21713,16 +21882,17 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 a3bb50a3648137c8e0c7cda3d1cb07050fcb36f990e50b8b2b7f46b78e363f20  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
 83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5  .claude/skills/forge-project/scripts/lib.sh
-776132927c714bc251eec6c3881c0b1bebd542f08b82be03ed61796f1c36a359  .claude/skills/forge-project/scripts/post-edit.sh
+170103cde0ab1dd517ce50d5d48c752de6f1218a6c323a34bae90abbd8ec0a38  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
 99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58  .claude/skills/forge-project/scripts/session-end.sh
-a6b4b72328735771861c18ce9c405dd841fc402361826bbd1494cdf87a21c6ae  .claude/skills/forge-project/scripts/session-start.sh
+306c72948e6dab3350f5831178cb97ea8d37b8fa1f8c2e75bc6ce4b792552b85  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-16dbca65453ba1a36ff4701eb8dae8fba45a9cc2553dd6976fbfa0c4130f49d6  .claude/skills/forge-project/scripts/test-edit.sh
+bc98aaa89c9276323965d645dc3159ea1773199a2385c468f0c7ed53e76a28ba  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-14fb03818717e1336d81ec5d29d9af9ca057bbb5e8eb0e95934582539a42150e  .claude/skills/forge-project/scripts/typecheck.sh
+03436608880d2cc9ffd9ec3959c4e0ea7487816581b3551e42f92a07ee1f9799  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 69a94f1a0b16aa08bcf758af3e3dc269266cdd808aba1a4289b4c58c7f969700  .forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml
+3ab907fdafea1f658c6da3626c3fc0fb0cdc6f63162f45339d7a57a03edce0c4  .forge/ast-grep/rule-tests/python-fastapi-deprecated-params-test.yml
 cc41b4679da7c42ca44eb92af4f9787ad42ff4e396d0e0ddd1d44268f5bbd6e1  .forge/ast-grep/rule-tests/python-fastapi-no-debug-true-test.yml
 5f7964057b29b3b70e2570ddb883c140e396887d1ff6ee60eabc276692078326  .forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml
 acc864f4e4e1588d654776d782963cb8eeed53bef9f1d4b689215bbf89e632f9  .forge/ast-grep/rule-tests/python-fastapi-no-raw-request-body-test.yml
@@ -21749,6 +21919,7 @@ e252681713a4306ca3b759cee11ed31df0350ad0355186f6120761fa8b03aa1d  .forge/ast-gre
 b6ad70dac48994e60453edd07d73a3669d26b21954b227be8177a7a98426baa0  .forge/ast-grep/rule-tests/python-sqlalchemy-no-text-fstring-test.yml
 c47d06cd6e01012e44f04ab6fcccff0fc4aa96723a31d2a5e693098fdde80831  .forge/ast-grep/rule-tests/python-sqlalchemy-session-context-test.yml
 166a169b8e196d6820c512fc277f5fcfb1ab03ddfbed4eff4479202c7a34b9cd  .forge/ast-grep/rules/python/fastapi/cors-credentials-wildcard.yml
+e9c9abce3eaf90e32efd589ca64a7fd4ac6ed080e6866748a8bad37c86a631f4  .forge/ast-grep/rules/python/fastapi/deprecated-params.yml
 dc64b5d1aacfe0e08b84585850948286cf2290a77e4a80a9ae0df3d98a6fcd3b  .forge/ast-grep/rules/python/fastapi/no-debug-true.yml
 b208d24856f9bc5c984e31170c7ededb09af5431663cdef83456209c5ad8c2e1  .forge/ast-grep/rules/python/fastapi/no-on-event.yml
 0afd1cdb84f5ab19adbec245990f34e140fbbf53cb3a2095894d65899857102f  .forge/ast-grep/rules/python/fastapi/no-raw-request-body.yml
@@ -21775,10 +21946,10 @@ b767983a8b5ac3966b15b7fc7f89fba1e9c94115325f294d1887c3e41cf19727  .forge/ast-gre
 04c44c9e215449d46b10540e86e999ec1d6383d8c3a849855fe73cb456668fca  .forge/ast-grep/rules/python/sqlalchemy/no-text-fstring.yml
 085314ebd159593e95b8d7f956bf947428cdc502d1ceadce0999f2f368cb2251  .forge/ast-grep/rules/python/sqlalchemy/session-context.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-b7b1b314df1d93920190feafed4d8812dd87de063e35f316080d570964b9c2bd  .forge/check.sh
+49e39b9b647b54d9095e54f6e8cf5bcebe587fbe03ab1f1732e08b514f0189b6  .forge/check.sh
 12e59e9b4be590d77ed8dd6bab82f644440679d5cffd82264bf4c568e4341c9e  .forge/helpers/fk_index.py
 4f7e312b9419bd1ee09fe9cd3e988546bba089d706cb1b44e4546c4b4c87173d  .forge/helpers/ratchet.py
-24c9504a4feb098f10dedadbc39f0a0c34eae5b4562f01c4e90e0d0beb0c3639  .forge/helpers/types_python.py
+bbd4ed6863d3fde7b4f1aa8d578d6a83bd5755c2167057733a1c7d7f99ee919e  .forge/helpers/types_python.py
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

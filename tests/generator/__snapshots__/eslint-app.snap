@@ -4127,7 +4127,7 @@ FORGE_TYPES_LANGS='typescript'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='d293bd59f078'
+FORGE_TYPES_REV='b72cd7f2aea6'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -4213,8 +4213,9 @@ forge_types_down() {
 
 # forge_types_filter <matches>: keeps in the file of ast-grep --json=stream matches
 # (with --include-metadata) only those whose forge_where the language's types engine
-# confirms (§15.1); matches without forge_where stay. An engine that cannot answer is
-# not a pass: "forge:forge/types ..." lines name the rules left unchecked, and it fails.
+# confirms (types, §15.1; declared names, §15.6); matches without forge_where stay. An
+# engine that cannot answer is not a pass: "forge:forge/types ..." lines name the rules
+# left unchecked, and it fails.
 forge_types_filter() {
   grep -q '"forge_where"' "$1" 2>/dev/null || return 0
   grep -v '"forge_where"' "$1" > "$1.kept"
@@ -4252,7 +4253,7 @@ forge_types_filter() {
   return "$_tf_rc"
 }
 
-FORGE_FORBID='typescript/no-double-assertion|typescript/no-eval|typescript/no-explicit-any|typescript/no-focused-tests|typescript/no-html-sinks|typescript/no-non-null-assertion|typescript/no-stub|typescript/no-swallowed-catch|typescript/no-ts-ignore|typescript/no-ts-nocheck|typescript/postmessage-origin|typescript/ts-expect-error-reason'
+FORGE_FORBID='typescript/cors-credentials-wildcard|typescript/no-double-assertion|typescript/no-eval|typescript/no-explicit-any|typescript/no-focused-tests|typescript/no-hardcoded-session-secret|typescript/no-html-sinks|typescript/no-non-null-assertion|typescript/no-stub|typescript/no-swallowed-catch|typescript/no-ts-ignore|typescript/no-ts-nocheck|typescript/postmessage-origin|typescript/ts-expect-error-reason'
 
 # the lines added to each file during the turn (base: the turn snapshot, else HEAD)
 mode=--changed
@@ -7374,7 +7375,7 @@ FORGE_TYPES_LANGS='typescript'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='d293bd59f078'
+FORGE_TYPES_REV='b72cd7f2aea6'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -7460,8 +7461,9 @@ forge_types_down() {
 
 # forge_types_filter <matches>: keeps in the file of ast-grep --json=stream matches
 # (with --include-metadata) only those whose forge_where the language's types engine
-# confirms (§15.1); matches without forge_where stay. An engine that cannot answer is
-# not a pass: "forge:forge/types ..." lines name the rules left unchecked, and it fails.
+# confirms (types, §15.1; declared names, §15.6); matches without forge_where stay. An
+# engine that cannot answer is not a pass: "forge:forge/types ..." lines name the rules
+# left unchecked, and it fails.
 forge_types_filter() {
   grep -q '"forge_where"' "$1" 2>/dev/null || return 0
   grep -v '"forge_where"' "$1" > "$1.kept"
@@ -10641,7 +10643,7 @@ FORGE_TYPES_LANGS='typescript'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='d293bd59f078'
+FORGE_TYPES_REV='b72cd7f2aea6'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -10727,8 +10729,9 @@ forge_types_down() {
 
 # forge_types_filter <matches>: keeps in the file of ast-grep --json=stream matches
 # (with --include-metadata) only those whose forge_where the language's types engine
-# confirms (§15.1); matches without forge_where stay. An engine that cannot answer is
-# not a pass: "forge:forge/types ..." lines name the rules left unchecked, and it fails.
+# confirms (types, §15.1; declared names, §15.6); matches without forge_where stay. An
+# engine that cannot answer is not a pass: "forge:forge/types ..." lines name the rules
+# left unchecked, and it fails.
 forge_types_filter() {
   grep -q '"forge_where"' "$1" 2>/dev/null || return 0
   grep -v '"forge_where"' "$1" > "$1.kept"
@@ -13928,7 +13931,7 @@ FORGE_TYPES_LANGS='typescript'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='d293bd59f078'
+FORGE_TYPES_REV='b72cd7f2aea6'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -14014,8 +14017,9 @@ forge_types_down() {
 
 # forge_types_filter <matches>: keeps in the file of ast-grep --json=stream matches
 # (with --include-metadata) only those whose forge_where the language's types engine
-# confirms (§15.1); matches without forge_where stay. An engine that cannot answer is
-# not a pass: "forge:forge/types ..." lines name the rules left unchecked, and it fails.
+# confirms (types, §15.1; declared names, §15.6); matches without forge_where stay. An
+# engine that cannot answer is not a pass: "forge:forge/types ..." lines name the rules
+# left unchecked, and it fails.
 forge_types_filter() {
   grep -q '"forge_where"' "$1" 2>/dev/null || return 0
   grep -v '"forge_where"' "$1" > "$1.kept"
@@ -14093,6 +14097,44 @@ exit 2
 ===== .forge/.gitignore
 state/
 
+===== .forge/ast-grep/rule-tests/typescript-cors-credentials-wildcard-test.yml
+id: typescript/cors-credentials-wildcard
+valid: []
+invalid:
+  - |
+    import { Hono } from "hono";
+    import { cors } from "hono/cors";
+
+    const app = new Hono();
+    app.use("/api/*", cors({ origin: "*", credentials: true }));
+  - |
+    import cors from "cors";
+
+    export const middleware = cors({ origin: true, credentials: true });
+  - |
+    import { cors as allow } from "hono/cors";
+
+    export const middleware = allow({ origin: (origin) => origin ?? "", credentials: true });
+  - |
+    import Fastify from "fastify";
+    import fastifyCors from "@fastify/cors";
+
+    const app = Fastify();
+    app.register(fastifyCors, { origin: (o, cb) => cb(null, true), credentials: true, ...{} });
+    app.register(fastifyCors, { origin: true, credentials: true });
+  - |
+    import type { INestApplication } from "@nestjs/common";
+
+    export function setup(app: INestApplication) {
+      app.enableCors({ origin: true, credentials: true });
+    }
+  - |
+    import { NestFactory } from "@nestjs/core";
+
+    class AppModule {}
+
+    export const app = NestFactory.create(AppModule, { cors: { origin: true, credentials: true } });
+
 ===== .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
 id: typescript/no-double-assertion
 valid:
@@ -14142,6 +14184,37 @@ invalid:
     it.only("x", () => {});
   - |
     test.describe.only("y", () => {});
+
+===== .forge/ast-grep/rule-tests/typescript-no-hardcoded-session-secret-test.yml
+id: typescript/no-hardcoded-session-secret
+valid: []
+invalid:
+  - |
+    import session from "express-session";
+
+    export const sessions = session({ secret: "keyboard cat", resave: false, saveUninitialized: false });
+  - |
+    import cookieParser from "cookie-parser";
+
+    export const cookies = cookieParser(`my-super-secret-session-key-2024`);
+  - |
+    import jwt from "jsonwebtoken";
+
+    export const token = (id: string) => jwt.sign({ sub: id }, "0123456789abcdef0123456789abcdef");
+  - |
+    import { sign as signJwt } from "hono/jwt";
+
+    export const token = (id: string) => signJwt({ sub: id }, "dev-secret");
+  - |
+    import { betterAuth } from "better-auth";
+
+    export const auth = betterAuth({ secret: "change-me" });
+  - |
+    import Fastify from "fastify";
+    import fastifyCookie from "@fastify/cookie";
+
+    const app = Fastify();
+    app.register(fastifyCookie, { secret: "cookie-secret" });
 
 ===== .forge/ast-grep/rule-tests/typescript-no-html-sinks-test.yml
 id: typescript/no-html-sinks
@@ -14341,6 +14414,158 @@ invalid:
     /* @ts-expect-error */
     const y: number = "b";
 
+===== .forge/ast-grep/rules/typescript/cors-credentials-wildcard.yml
+# Generated by forge from typescript/cors-credentials-wildcard (mode: forbid).
+id: typescript/cors-credentials-wildcard
+language: Tsx
+severity: error
+message: forge:typescript/cors-credentials-wildcard CORS with credentials true names its allowed origins. origin "*" is refused by browsers with credentials; origin true, or a function that returns the origin it is given (alone or with a ?? / || fallback, as an expression or a return), lets any site make credentialed requests. Covers cors (Express), hono/cors, @fastify/cors and Nest's enableCors.
+rule:
+  kind: call_expression
+  any:
+    - all:
+        - has:
+            field: function
+            kind: member_expression
+            has:
+              field: property
+              regex: ^register$
+        - has:
+            field: arguments
+            all:
+              - has:
+                  nthChild: 1
+                  pattern: $PLUGIN
+              - has:
+                  nthChild: 2
+                  matches: any-origin-with-credentials
+    - all:
+        - has:
+            field: function
+            kind: member_expression
+            all:
+              - has:
+                  field: object
+                  pattern: $APP
+              - has:
+                  field: property
+                  regex: ^enableCors$
+        - has:
+            field: arguments
+            has:
+              nthChild: 1
+              matches: any-origin-with-credentials
+    - all:
+        - has:
+            field: function
+            kind: member_expression
+            all:
+              - has:
+                  field: object
+                  pattern: $NEST
+              - has:
+                  field: property
+                  regex: ^create$
+        - has:
+            field: arguments
+            has:
+              nthChild: 2
+              kind: object
+              has:
+                kind: pair
+                all:
+                  - has:
+                      field: key
+                      regex: ^["']?cors["']?$
+                  - has:
+                      field: value
+                      matches: any-origin-with-credentials
+    - all:
+        - has:
+            field: function
+            pattern: $CORS
+        - has:
+            field: arguments
+            has:
+              nthChild: 1
+              matches: any-origin-with-credentials
+utils:
+  any-origin-with-credentials:
+    kind: object
+    all:
+      - has:
+          kind: pair
+          all:
+            - has:
+                field: key
+                regex: ^["']?credentials["']?$
+            - has:
+                field: value
+                kind: "true"
+      - has:
+          kind: pair
+          all:
+            - has:
+                field: key
+                regex: ^["']?origin["']?$
+            - has:
+                field: value
+                any:
+                  - regex: ^["']\*["']$
+                  - kind: "true"
+                  - all:
+                      - any:
+                          - kind: arrow_function
+                          - kind: function_expression
+                      - any:
+                          - has:
+                              field: parameter
+                              pattern: $O
+                          - has:
+                              field: parameters
+                              has:
+                                nthChild: 1
+                                has:
+                                  field: pattern
+                                  pattern: $O
+                      - any:
+                          - has:
+                              field: body
+                              any:
+                                - pattern: $O
+                                - pattern: $O ?? $D
+                                - pattern: $O || $D
+                                - pattern: ($O)
+                          - has:
+                              field: body
+                              kind: statement_block
+                              has:
+                                stopBy: end
+                                kind: return_statement
+                                has:
+                                  any:
+                                    - pattern: $O
+                                    - pattern: $O ?? $D
+                                    - pattern: $O || $D
+metadata:
+  forge_where:
+    CORS:
+      declared:
+        - package: cors
+        - package: hono
+          name: cors
+    PLUGIN:
+      declared:
+        package: "@fastify/cors"
+    APP:
+      type:
+        package: "@nestjs/common"
+        name: INestApplication
+    NEST:
+      declared:
+        package: "@nestjs/core"
+        name: NestFactory
+
 ===== .forge/ast-grep/rules/typescript/no-double-assertion.yml
 # Generated by forge from typescript/no-double-assertion (mode: forbid).
 id: typescript/no-double-assertion
@@ -14393,6 +14618,119 @@ rule:
     field: function
     kind: member_expression
     regex: ^(it|test|describe)(\.describe)?\.only$
+
+===== .forge/ast-grep/rules/typescript/no-hardcoded-session-secret.yml
+# Generated by forge from typescript/no-hardcoded-session-secret (mode: forbid).
+id: typescript/no-hardcoded-session-secret
+language: Tsx
+severity: error
+message: forge:typescript/no-hardcoded-session-secret No string literal as a signing secret (express-session, cookie-parser, better-auth, hono/jwt, jsonwebtoken sign/verify, @fastify/cookie, @fastify/session). Read it from the environment or a secret store; a secret in the code signs every session for whoever reads the repository.
+ignores:
+  - "**/*.test.*"
+  - "**/*.spec.*"
+  - "**/__tests__/**"
+  - e2e/**
+rule:
+  kind: call_expression
+  any:
+    - all:
+        - has:
+            field: function
+            pattern: $OPTS
+        - has:
+            field: arguments
+            has:
+              nthChild: 1
+              matches: literal-secret-option
+    - all:
+        - has:
+            field: function
+            kind: member_expression
+            has:
+              field: property
+              regex: ^register$
+        - has:
+            field: arguments
+            all:
+              - has:
+                  nthChild: 1
+                  pattern: $PLUGIN
+              - has:
+                  nthChild: 2
+                  matches: literal-secret-option
+    - all:
+        - has:
+            field: function
+            pattern: $JWT
+        - has:
+            field: arguments
+            has:
+              nthChild: 2
+              matches: literal
+    - all:
+        - has:
+            field: function
+            pattern: $COOKIES
+        - has:
+            field: arguments
+            has:
+              nthChild: 1
+              matches: literal
+utils:
+  literal:
+    any:
+      - kind: string
+      - kind: template_string
+        not:
+          has:
+            kind: template_substitution
+      - kind: array
+        has:
+          any:
+            - kind: string
+            - kind: template_string
+              not:
+                has:
+                  kind: template_substitution
+  literal-secret-option:
+    kind: object
+    has:
+      kind: pair
+      all:
+        - has:
+            field: key
+            regex: ^["']?secret["']?$
+        - has:
+            field: value
+            matches: literal
+metadata:
+  forge_where:
+    OPTS:
+      declared:
+        - package: express-session
+          name: session
+        - package: better-auth
+          name: betterAuth
+        - package: hono
+          name: jwt
+    PLUGIN:
+      declared:
+        package:
+          - "@fastify/cookie"
+          - "@fastify/session"
+    JWT:
+      declared:
+        - package: jsonwebtoken
+          name:
+            - sign
+            - verify
+        - package: hono
+          name:
+            - sign
+            - verify
+    COOKIES:
+      declared:
+        package: cookie-parser
 
 ===== .forge/ast-grep/rules/typescript/no-html-sinks.yml
 # Generated by forge from typescript/no-html-sinks (mode: forbid).
@@ -18135,7 +18473,7 @@ FORGE_TYPES_LANGS='typescript'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='d293bd59f078'
+FORGE_TYPES_REV='b72cd7f2aea6'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -18221,8 +18559,9 @@ forge_types_down() {
 
 # forge_types_filter <matches>: keeps in the file of ast-grep --json=stream matches
 # (with --include-metadata) only those whose forge_where the language's types engine
-# confirms (§15.1); matches without forge_where stay. An engine that cannot answer is
-# not a pass: "forge:forge/types ..." lines name the rules left unchecked, and it fails.
+# confirms (types, §15.1; declared names, §15.6); matches without forge_where stay. An
+# engine that cannot answer is not a pass: "forge:forge/types ..." lines name the rules
+# left unchecked, and it fails.
 forge_types_filter() {
   grep -q '"forge_where"' "$1" 2>/dev/null || return 0
   grep -v '"forge_where"' "$1" > "$1.kept"
@@ -18263,7 +18602,7 @@ forge_types_filter() {
 FORGE_STATE=$(forge_state_of "$(pwd -P)")
 
 
-FORGE_FORBID='typescript/no-double-assertion|typescript/no-eval|typescript/no-explicit-any|typescript/no-focused-tests|typescript/no-html-sinks|typescript/no-non-null-assertion|typescript/no-stub|typescript/no-swallowed-catch|typescript/no-ts-ignore|typescript/no-ts-nocheck|typescript/postmessage-origin|typescript/ts-expect-error-reason'
+FORGE_FORBID='typescript/cors-credentials-wildcard|typescript/no-double-assertion|typescript/no-eval|typescript/no-explicit-any|typescript/no-focused-tests|typescript/no-hardcoded-session-secret|typescript/no-html-sinks|typescript/no-non-null-assertion|typescript/no-stub|typescript/no-swallowed-catch|typescript/no-ts-ignore|typescript/no-ts-nocheck|typescript/postmessage-origin|typescript/ts-expect-error-reason'
 FORGE_NO_INCREASE=''
 FORGE_NO_DECREASE=''
 
@@ -18459,6 +18798,7 @@ forge_end "$fail"
   "rules": {
     "typescript/config-files": "77940ff304752f88c143dedc5911b0961de9e16b68e10758a273cfc049505413",
     "typescript/config-ratchet": "b0ff3b6c064f691984e217acc0388d0900b1a2a1d1ee493935badb41a8a45022",
+    "typescript/cors-credentials-wildcard": "e779826c44c3e0c5af614b60821892466df49297cf4c3b651c2ce1ef9831145b",
     "typescript/env-example": "7eab3b03486670f6274d4db65487ccaaf7f2b1fddd39c86a13469cdf46d2140c",
     "typescript/format-lint": "18f0059c55bc0fd6acbd5c7a92fb06989649cd07e9981e421d898991e39aed7b",
     "typescript/iframe-sandbox": "68a3e25b09d93892dc5c7b884660555a33c7bb4adcfc728d9f6da4c0873ddaf6",
@@ -18469,6 +18809,7 @@ forge_end "$fail"
     "typescript/no-eval": "695bc504e485395796c1500ec90804609a4f5e8c9a5867062271b9caa5f58143",
     "typescript/no-explicit-any": "66e8f9968e8c88a77229e6c092e4489cffced1186a72fa257017fa6a2e612d28",
     "typescript/no-focused-tests": "0c7614dd6db46bbe6d9a19b58cf8130638128e786cd1dc912e58203ecc72a87b",
+    "typescript/no-hardcoded-session-secret": "3b0d415cf4fa417e518bc9f11ef6fd6e63687bdd4a6a5e132388342895558e26",
     "typescript/no-html-sinks": "b00e86949464b9fce716e918ff071a59d34a3299b64a41976fd3ef10afcdd024",
     "typescript/no-ignore-deprecations": "63044c1f4bd2f841800843fa17b4db5a29e5d8cc32053591a25622f15902c888",
     "typescript/no-implicit-any": "7ac25a953e4d6df85abee5379ea5496788f5d15776ae37623ceff5ebcc034108",
@@ -18497,19 +18838,21 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "ff61a19974ccfc38fe6771978c9f9fe21253d4132eff8af9f06b112607965a00",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
     ".claude/skills/forge-project/scripts/lib.sh": "83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "32c360cf3b0a0dcf88afa4e618b9598cb5e569185b423323346867e6359bed35",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "8d7a8888383c77298eb50c25a2f07853a78c43444bead0bf873d4b202aec8a69",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
     ".claude/skills/forge-project/scripts/session-end.sh": "99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58",
-    ".claude/skills/forge-project/scripts/session-start.sh": "49af6f2358135d3813c5f20e2029f16b0496987b518b46c04351936933f94d6f",
+    ".claude/skills/forge-project/scripts/session-start.sh": "8d956cc2591eb12f3495fbcef26ff1e874336f38f6151e9852c5cf9f03f1d98d",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "7b91f2418d55c3773d51f5b260e49cf7a126a1b9d325cc4d2c12e36746aab453",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "e3b9d2a01a35a2751de5922a8f71e621f92883d683aaa8526743115fbc80ead6",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "4b1955632cbd6aca2648885826f10dc825c9128b3ce7710bc8c3981732722886",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "27e4e66d948eb14f777a1465567799af56324fd7d61d6a758317f33cb3c57985",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
+    ".forge/ast-grep/rule-tests/typescript-cors-credentials-wildcard-test.yml": "d591423dfeff165622a89f63e9ea675277676dfc06aa5b3f3d56ce148223627f",
     ".forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml": "c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20",
     ".forge/ast-grep/rule-tests/typescript-no-eval-test.yml": "3716e00219b28a0974a07a56e1d264bb478b35a6ef38d5c13740a9080b09516e",
     ".forge/ast-grep/rule-tests/typescript-no-explicit-any-test.yml": "eceb8781d7730e333b1d6fa7756eef0fa73a06b755c63def1048f3e781afcc83",
     ".forge/ast-grep/rule-tests/typescript-no-focused-tests-test.yml": "15fbc38ad50f9c7bd1c2eb86d3d1a3822a89dd3264aba34d9bd61cc08929c93d",
+    ".forge/ast-grep/rule-tests/typescript-no-hardcoded-session-secret-test.yml": "4bb82e0ccf213407e475850de23f211251525fecaa743d77e2101590658f28c8",
     ".forge/ast-grep/rule-tests/typescript-no-html-sinks-test.yml": "bbc670db152b016114415e70ce66732241002af40e6c73f5887eb2d6ddc64cc2",
     ".forge/ast-grep/rule-tests/typescript-no-non-null-assertion-test.yml": "af83eb23d31462a3adc9e8e3a6120e08c8b424814d2838333457276d998c04b0",
     ".forge/ast-grep/rule-tests/typescript-no-stub-test.yml": "b02e7e21f6bd597fe4b3d577b3a2cc6dfee9741674cc1cc99285e22ef90a2778",
@@ -18518,10 +18861,12 @@ forge_end "$fail"
     ".forge/ast-grep/rule-tests/typescript-no-ts-nocheck-test.yml": "c15f604d5317f942de32470aeaff16702116a64d283347c9a9825056b4dbe69e",
     ".forge/ast-grep/rule-tests/typescript-postmessage-origin-test.yml": "a3ee8df93d2883c22e235fcc3ff48e67b49c0ab99b1e1795c3bd92ba97697326",
     ".forge/ast-grep/rule-tests/typescript-ts-expect-error-reason-test.yml": "7ae5fe613eff1c75cb68f1333b898ad82d6d4889c3cc4da6bb8e5962e825a1b1",
+    ".forge/ast-grep/rules/typescript/cors-credentials-wildcard.yml": "486c525eb17810b4fa441529c3aa6cc1eb79aa5c462d0ab1cb1c2c21268fde3c",
     ".forge/ast-grep/rules/typescript/no-double-assertion.yml": "c0b8c6e7a7a09608b63f8c9367afb4ac22fb1daa93c79c967373efdab597a48c",
     ".forge/ast-grep/rules/typescript/no-eval.yml": "4530f075a8c35fa0da1643e3ca66309bfe73e45e911a39fd07afbc58a9125718",
     ".forge/ast-grep/rules/typescript/no-explicit-any.yml": "b8d70ef96cab3b10d6555cd162baeb3e8862def634698e805f3873261c44b21a",
     ".forge/ast-grep/rules/typescript/no-focused-tests.yml": "9c4c108fba7ed1ed8f96508aa0d5410c7cebbf90c09f7d078997182dd890e51e",
+    ".forge/ast-grep/rules/typescript/no-hardcoded-session-secret.yml": "d8d2eac95facb1c9f189165913679db559ad8dbbef163ac1a91389d76fc81ccb",
     ".forge/ast-grep/rules/typescript/no-html-sinks.yml": "f6f9eb49034a2a4a58de5cc8438b3b8346e64f96d288d9bea213b0c9343939bf",
     ".forge/ast-grep/rules/typescript/no-non-null-assertion.yml": "360266100827f2fc04116b4a840bff6376ad173bfd074d98570dc76897a52cac",
     ".forge/ast-grep/rules/typescript/no-stub.yml": "b21497e3335f2271e6ca5874817957d18c640e7d787cfe76a72ef390ab62d634",
@@ -18531,9 +18876,9 @@ forge_end "$fail"
     ".forge/ast-grep/rules/typescript/postmessage-origin.yml": "7ca18b3797ab76739daa6d0d38cc6cb9b53821ff3dfc0025974c6316baa6c1dd",
     ".forge/ast-grep/rules/typescript/ts-expect-error-reason.yml": "b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "72dae23ecd2c215ad6970167b4b8ece28a1fba967527c09585dd680f0aca909a",
+    ".forge/check.sh": "7f387dea56c22b20b0d140d5c5d3bde4300d66cd7717d2cb5bf23f2f0515d622",
     ".forge/helpers/ratchet.mjs": "14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38",
-    ".forge/helpers/types_typescript.mjs": "16ca7738e134f4b4de59289b647f4d5d2845af42236680028ba0a95790fdb29e",
+    ".forge/helpers/types_typescript.mjs": "3df893f435f5f0652bb2b68d428f2e6c03f5b2ea7f02cda0cc2904fb2070b875",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -18729,6 +19074,8 @@ process.exit(findings.length ? 1 : 0);
 // <state-dir>/in is the Python engine's (types_python.py): "changed<TAB><path>",
 // "stop", "restart", or the absolute path of a question directory (req: ast-grep
 // matches; reply: the matches whose forge_where holds, "error<TAB>..." lines, "end").
+// A forge_where asks a metavariable's type or the declaration its name refers to
+// (SPECS §15.1, §15.6).
 // Node-compatible: no Bun-only API.
 import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
@@ -19002,7 +19349,7 @@ function declaredIn(file) {
 }
 
 const WORD = /[A-Za-z_$][\w$]*/y;
-const KEYWORDS = new Set(["export", "declare", "default", "abstract", "class", "interface", "type", "enum", "const", "let", "var", "function", "namespace", "module"]);
+const KEYWORDS = new Set(["export", "declare", "default", "abstract", "async", "class", "interface", "type", "enum", "const", "let", "var", "function", "namespace", "module"]);
 
 function readText(file) {
   try {
@@ -19162,6 +19509,20 @@ function heritage(text, from) {
   return out;
 }
 
+/**
+ * Whether <index> is in the clause of an import declaration (`import { a, b as c }`,
+ * `import d, * as ns`): where a server's definition stops when it cannot resolve the
+ * module. The clause holds no string, parenthesis, `=` or `;`.
+ */
+function inImport(text, index) {
+  for (let i = text.lastIndexOf("import", index); i >= 0; i = text.lastIndexOf("import", i - 1)) {
+    if (/[\w$]/.test(text[i - 1] ?? "") || !/\s/.test(text[i + 6] ?? "")) continue;
+    if (/[;'"`()=]/.test(text.slice(i + 6, index))) return false;
+    return /(^|[;}\n])\s*$/.test(text.slice(Math.max(0, i - 200), i));
+  }
+  return false;
+}
+
 class Types {
   constructor(server) {
     this.server = server;
@@ -19201,11 +19562,16 @@ class Types {
    * "index\0variable" -> declarations, from the type the server infers for each
    * expression: the file is shown to the server with each expression wrapped as
    * ({__forge_t<i>: (<expr>)}).__forge_t<i>, in memory only, and the type definition of
-   * that property is asked.
+   * that property is asked. named: the same for the declarations names refer to
+   * (declared below), asked on that same version of the file.
    */
-  async check(file, wanted) {
+  async check(file, wanted, named = []) {
     const text = fs.readFileSync(file, "utf8");
     const raw = Buffer.from(text, "utf8");
+    if (!wanted.length) {
+      this.server.sync(file);
+      return this.declared(file, text, raw, named, text, []);
+    }
     const ranges = [];
     const slot = wanted.map(([, , s, e]) => {
       const r = [raw.subarray(0, s).toString("utf8").length, raw.subarray(0, e).toString("utf8").length];
@@ -19243,7 +19609,51 @@ class Types {
       // any and unknown have no declaration: the checker does not know the type
       perRange.push({ decls, unknown: decls.length === 0 });
     }
-    return new Map(wanted.map((w, n) => [`${w[0]}\0${w[1]}`, perRange[slot[n]]]));
+    const found = await this.declared(file, text, raw, named, overlay, events);
+    for (const [n, w] of wanted.entries()) found.set(`${w[0]}\0${w[1]}`, perRange[slot[n]]);
+    return found;
+  }
+  /**
+   * Map "index\0variable" -> {decls, unknown} of the names in named: the declarations
+   * the server's definition of the expression's last name gives (an import alias or a
+   * re-export resolved; overloads and merged declarations each count), asked on the
+   * version of the file the server has (<shown>: the text with <events> inserted). An
+   * expression that does not end with a name, a name without a definition and one whose
+   * definition is an import the server could not resolve are unknown.
+   */
+  async declared(file, text, raw, named, shown, events) {
+    const found = new Map();
+    const asked = new Map();
+    for (const [n, v, s, e] of named) {
+      const expr = raw.subarray(s, e).toString("utf8");
+      const m = /[A-Za-z_$][\w$]*$/.exec(expr);
+      if (!m || (m.index > 0 && !expr.slice(0, m.index).trimEnd().endsWith("."))) {
+        found.set(`${n}\0${v}`, { decls: [], unknown: true });
+        continue;
+      }
+      const at = raw.subarray(0, s).toString("utf8").length + m.index;
+      // where the name is in the version shown: past every insert at or before it
+      const shift = events.reduce((sum, [off, , , , piece]) => sum + (off <= at ? piece.length : 0), 0);
+      if (!asked.has(at)) asked.set(at, this.server.definition(file, position(shown, at + shift)));
+      found.set(`${n}\0${v}`, at);
+    }
+    const answers = new Map();
+    for (const [at, locations] of asked) {
+      const decls = new Map();
+      for (const l of await locations) {
+        const f = pathOf(l.uri);
+        const body = f === file || (fs.existsSync(f) && fs.realpathSync(f) === fs.realpathSync(file)) ? shown : readText(f);
+        if (body === undefined) continue;
+        const i = indexOf(body, l.pos);
+        if (inImport(body, i)) continue; // the server stopped at an import it could not resolve
+        const [pkg, mod] = declaredIn(f);
+        const name = nameAt(body, i)?.name ?? null;
+        decls.set(`${pkg}\0${mod}\0${name}`, [pkg, mod, name]);
+      }
+      answers.set(at, { decls: [...decls.values()], unknown: decls.size === 0 });
+    }
+    for (const [k, v] of found) if (typeof v === "number") found.set(k, answers.get(v));
+    return found;
   }
 }
 
@@ -19268,22 +19678,25 @@ function satisfies({ decls, unknown }, spec) {
       (!pkgs || pkgs.includes(pkg)) && (!mods || mods.some((m) => mod === m || (mod ?? "").startsWith(`${m}/`))) && (!names || names.includes(name)),
   );
 }
-const holds = (decls, cond) => (cond.not ? !holds(decls, cond.not) : satisfies(decls, cond.type));
+// several specs: one of them is enough
+const holds = (decls, cond) => (cond.not ? !holds(decls, cond.not) : [cond.type ?? cond.declared].flat().some((spec) => satisfies(decls, spec)));
+/** What a condition asks of its metavariable: "type" or "declared". */
+const asks = (cond) => (cond.not ? asks(cond.not) : cond.declared ? "declared" : "type");
 
 async function answer(types, matches) {
   const byFile = new Map();
   matches.forEach((m, n) => {
     const where = m.metadata?.forge_where ?? {};
     const single = m.metaVariables?.single ?? {};
-    for (const v of Object.keys(where)) {
+    for (const [v, cond] of Object.entries(where)) {
       if (!single[v]) continue;
       const b = single[v].range.byteOffset;
-      if (!byFile.has(m.file)) byFile.set(m.file, []);
-      byFile.get(m.file).push([n, v, b.start, b.end]);
+      if (!byFile.has(m.file)) byFile.set(m.file, { type: [], declared: [] });
+      byFile.get(m.file)[asks(cond)].push([n, v, b.start, b.end]);
     }
   });
   const found = new Map();
-  for (const [f, wanted] of byFile) for (const [k, d] of await types.check(path.join(ROOT, f), wanted)) found.set(k, d);
+  for (const [f, kinds] of byFile) for (const [k, d] of await types.check(path.join(ROOT, f), kinds.type, kinds.declared)) found.set(k, d);
   return matches.flatMap((m, n) =>
     Object.entries(m.metadata?.forge_where ?? {}).every(([v, cond]) => !found.has(`${n}\0${v}`) || holds(found.get(`${n}\0${v}`), cond)) ? [n] : [],
   );
@@ -19485,19 +19898,21 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 ff61a19974ccfc38fe6771978c9f9fe21253d4132eff8af9f06b112607965a00  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
 83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5  .claude/skills/forge-project/scripts/lib.sh
-32c360cf3b0a0dcf88afa4e618b9598cb5e569185b423323346867e6359bed35  .claude/skills/forge-project/scripts/post-edit.sh
+8d7a8888383c77298eb50c25a2f07853a78c43444bead0bf873d4b202aec8a69  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
 99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58  .claude/skills/forge-project/scripts/session-end.sh
-49af6f2358135d3813c5f20e2029f16b0496987b518b46c04351936933f94d6f  .claude/skills/forge-project/scripts/session-start.sh
+8d956cc2591eb12f3495fbcef26ff1e874336f38f6151e9852c5cf9f03f1d98d  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-7b91f2418d55c3773d51f5b260e49cf7a126a1b9d325cc4d2c12e36746aab453  .claude/skills/forge-project/scripts/test-edit.sh
+e3b9d2a01a35a2751de5922a8f71e621f92883d683aaa8526743115fbc80ead6  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-4b1955632cbd6aca2648885826f10dc825c9128b3ce7710bc8c3981732722886  .claude/skills/forge-project/scripts/typecheck.sh
+27e4e66d948eb14f777a1465567799af56324fd7d61d6a758317f33cb3c57985  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
+d591423dfeff165622a89f63e9ea675277676dfc06aa5b3f3d56ce148223627f  .forge/ast-grep/rule-tests/typescript-cors-credentials-wildcard-test.yml
 c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20  .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
 3716e00219b28a0974a07a56e1d264bb478b35a6ef38d5c13740a9080b09516e  .forge/ast-grep/rule-tests/typescript-no-eval-test.yml
 eceb8781d7730e333b1d6fa7756eef0fa73a06b755c63def1048f3e781afcc83  .forge/ast-grep/rule-tests/typescript-no-explicit-any-test.yml
 15fbc38ad50f9c7bd1c2eb86d3d1a3822a89dd3264aba34d9bd61cc08929c93d  .forge/ast-grep/rule-tests/typescript-no-focused-tests-test.yml
+4bb82e0ccf213407e475850de23f211251525fecaa743d77e2101590658f28c8  .forge/ast-grep/rule-tests/typescript-no-hardcoded-session-secret-test.yml
 bbc670db152b016114415e70ce66732241002af40e6c73f5887eb2d6ddc64cc2  .forge/ast-grep/rule-tests/typescript-no-html-sinks-test.yml
 af83eb23d31462a3adc9e8e3a6120e08c8b424814d2838333457276d998c04b0  .forge/ast-grep/rule-tests/typescript-no-non-null-assertion-test.yml
 b02e7e21f6bd597fe4b3d577b3a2cc6dfee9741674cc1cc99285e22ef90a2778  .forge/ast-grep/rule-tests/typescript-no-stub-test.yml
@@ -19506,10 +19921,12 @@ fb2f02c2bcf9562ed49731349520cde2d48d2f3b3557d2174b5e2e856d6c8e48  .forge/ast-gre
 c15f604d5317f942de32470aeaff16702116a64d283347c9a9825056b4dbe69e  .forge/ast-grep/rule-tests/typescript-no-ts-nocheck-test.yml
 a3ee8df93d2883c22e235fcc3ff48e67b49c0ab99b1e1795c3bd92ba97697326  .forge/ast-grep/rule-tests/typescript-postmessage-origin-test.yml
 7ae5fe613eff1c75cb68f1333b898ad82d6d4889c3cc4da6bb8e5962e825a1b1  .forge/ast-grep/rule-tests/typescript-ts-expect-error-reason-test.yml
+486c525eb17810b4fa441529c3aa6cc1eb79aa5c462d0ab1cb1c2c21268fde3c  .forge/ast-grep/rules/typescript/cors-credentials-wildcard.yml
 c0b8c6e7a7a09608b63f8c9367afb4ac22fb1daa93c79c967373efdab597a48c  .forge/ast-grep/rules/typescript/no-double-assertion.yml
 4530f075a8c35fa0da1643e3ca66309bfe73e45e911a39fd07afbc58a9125718  .forge/ast-grep/rules/typescript/no-eval.yml
 b8d70ef96cab3b10d6555cd162baeb3e8862def634698e805f3873261c44b21a  .forge/ast-grep/rules/typescript/no-explicit-any.yml
 9c4c108fba7ed1ed8f96508aa0d5410c7cebbf90c09f7d078997182dd890e51e  .forge/ast-grep/rules/typescript/no-focused-tests.yml
+d8d2eac95facb1c9f189165913679db559ad8dbbef163ac1a91389d76fc81ccb  .forge/ast-grep/rules/typescript/no-hardcoded-session-secret.yml
 f6f9eb49034a2a4a58de5cc8438b3b8346e64f96d288d9bea213b0c9343939bf  .forge/ast-grep/rules/typescript/no-html-sinks.yml
 360266100827f2fc04116b4a840bff6376ad173bfd074d98570dc76897a52cac  .forge/ast-grep/rules/typescript/no-non-null-assertion.yml
 b21497e3335f2271e6ca5874817957d18c640e7d787cfe76a72ef390ab62d634  .forge/ast-grep/rules/typescript/no-stub.yml
@@ -19519,9 +19936,9 @@ aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21  .forge/ast-gre
 7ca18b3797ab76739daa6d0d38cc6cb9b53821ff3dfc0025974c6316baa6c1dd  .forge/ast-grep/rules/typescript/postmessage-origin.yml
 b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad  .forge/ast-grep/rules/typescript/ts-expect-error-reason.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-72dae23ecd2c215ad6970167b4b8ece28a1fba967527c09585dd680f0aca909a  .forge/check.sh
+7f387dea56c22b20b0d140d5c5d3bde4300d66cd7717d2cb5bf23f2f0515d622  .forge/check.sh
 14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38  .forge/helpers/ratchet.mjs
-16ca7738e134f4b4de59289b647f4d5d2845af42236680028ba0a95790fdb29e  .forge/helpers/types_typescript.mjs
+3df893f435f5f0652bb2b68d428f2e6c03f5b2ea7f02cda0cc2904fb2070b875  .forge/helpers/types_typescript.mjs
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

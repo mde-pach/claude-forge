@@ -80,7 +80,8 @@ What you write:
 | `module` | the declaring module, matched by whole segments: `sqlalchemy.orm`, `zod/v4` (npm: the package and its file path without extension). |
 | `name` | the type's declared name (or a list): the library's own API name, never the alias a project imports it under. Optional: without it, any type of that package or module. |
 | `unknown: match` | also match when the checker does not know the type (`Any`, an unannotated parameter, `any`). Default: no match. |
-| `not: {type: …}` | the expression is **not** such a type (for exemptions: "unless the receiver is a Zod schema"). |
+| `type: [{…}, {…}]` | a list of specs: one of them is enough (several packages, each with its own names). |
+| `not: {type: …}` | the expression is **not** such a type (for exemptions: "unless the receiver is a Zod schema"); `not: {declared: …}` likewise. |
 
 How it decides: the type checker infers the type of exactly the expression the metavariable is bound to (a name, `self.db`, `sessionmaker(e)()`, `items[0]` alike), resolves aliases and re-exports to the declaration, counts a subclass as its base (a project's `class AppSession(Session)` is a `Session`), ignores type arguments (`list[Session]` is a `list`), and is satisfied by one member of a union (`Session | None`). It never looks at names in the project. The engine is a language server per language (Forge's pinned ty for Python; for TypeScript, the project's own TypeScript: its tsserver for 5 and 6, `tsc --lsp` from 7); your rule does not name it, so it can be replaced without touching a rule.
 
@@ -91,6 +92,23 @@ Examples of such a rule are whole files, imports included (a receiver whose type
 When the engine sees a library's types only through a stub package (Django through `django-stubs`, Celery through `celery-types`), say so on the target: `needs: [{ecosystem: pypi, name: django-stubs}]`. Where the project does not depend on it, the rule is reported not enforced, with what to add, instead of passing in silence; `examples.deps` must install it.
 
 <Spec file="05-inputs" test="a type rule whose stubs are not dependencies is not enforced, and status names them" />
+
+### Declared names: what a name refers to
+
+For a function, decorator or class used by name, ask what the name **refers to** with `declared` instead of `type` (a function's type has no name, and TypeScript's type definition of a function is what it returns):
+
+```yaml
+    rule:
+      kind: call
+      pattern: "$F($$$)"
+      has: {field: arguments, has: {kind: keyword_argument, regex: "^allow_pickle[[:space:]]*=[[:space:]]*True$"}}
+    where:
+      F: {declared: {package: numpy, name: load}}
+```
+
+`declared` takes the same `package`, `module`, `name` and `unknown` keys. The metavariable is bound to a name or an attribute (`load`, `np.load`, `cp.exec`); the checker goes to the definition of its last name through import aliases, namespace imports and re-exports, so `from numpy import load as read` then `read(…)` matches and a project function called `load` does not. No subclasses count, and a name the checker cannot resolve (an unresolved import, an attribute of `Any`) or an expression that is not a name (`pick()(…)`) is unknown. Find the `package`, `module` and `name` with your editor's go to definition on the name. A rule can mix both: `{declared: …}` on the callee and `{type: …}` on an argument.
+
+TypeScript projects declare the global types they use (`@types/node`, `@types/bun`) in `compilerOptions.types`; the examples project of `test:packs` lists the `@types/*` packages of `examples.deps` there.
 
 `where` works on `forbid` and `advise` targets. A match whose engine could not answer is reported as `forge:forge/types <rule> was not checked: …`, never passed silently.
 

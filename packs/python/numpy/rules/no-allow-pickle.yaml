@@ -1,0 +1,23 @@
+id: python/numpy/no-allow-pickle
+description: No numpy.load(..., allow_pickle=True). Loading a pickled object array runs code from the file; store plain arrays.
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call
+      pattern: "$F($$$)"
+      has: {field: arguments, has: {kind: keyword_argument, regex: "^allow_pickle[[:space:]]*=[[:space:]]*True$"}}
+    # The function called is NumPy's load (§15.6), whatever the import calls it:
+    # np.save(allow_pickle=True) writes and is not matched.
+    where:
+      F: {declared: {package: numpy, name: load}}
+examples:
+  deps: [{ecosystem: pypi, name: numpy, version: "2.5.4"}]
+  match:
+    - "import numpy as np\n\narr = np.load(\"data.npy\", allow_pickle=True)\n"
+    - "from numpy import load as read\n\narr = read(\"data.npz\", mmap_mode=None, allow_pickle=True)\n"
+  no_match:
+    - "import numpy as np\n\narr = np.load(\"data.npy\")\n"
+    - "import numpy as np\n\nnp.save(\"data.npy\", np.zeros(3), allow_pickle=True)\n"
+    - "def load(path: str, allow_pickle: bool = False) -> str:\n    return path\n\n\ntext = load(\"a\", allow_pickle=True)\n"

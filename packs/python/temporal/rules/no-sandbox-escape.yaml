@@ -1,0 +1,28 @@
+id: python/temporal/no-sandbox-escape
+description: The workflow sandbox stays on. No @workflow.defn(sandboxed=False), UnsandboxedWorkflowRunner() or workflow.unsafe.sandbox_unrestricted(); escaping it is the user's decision (ask, and a local rule turns this off for that file).
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call
+      # the keyword branch first: a match's metavariables are those of the first branch that matches
+      any:
+        - all:
+            - pattern: "$D($$$)"
+            - has: {field: arguments, has: {kind: keyword_argument, regex: "^sandboxed[[:space:]]*=[[:space:]]*False$"}}
+        - pattern: "$F($$$)"
+    # temporalio's own APIs by what the names refer to (§15.6), whatever the imports call them.
+    where:
+      F: {declared: {package: temporalio, name: [UnsandboxedWorkflowRunner, sandbox_unrestricted]}}
+      D: {declared: {module: temporalio.workflow, name: defn}}
+examples:
+  deps: [{ecosystem: pypi, name: temporalio, version: "1.34.0"}]
+  match:
+    - "from temporalio import workflow\n\n\n@workflow.defn(sandboxed=False)\nclass Report:\n    @workflow.run\n    async def run(self) -> None:\n        pass\n"
+    - "from temporalio.client import Client\nfrom temporalio.worker import UnsandboxedWorkflowRunner, Worker\n\n\nasync def serve(client: Client) -> None:\n    await Worker(client, task_queue=\"q\", workflows=[], workflow_runner=UnsandboxedWorkflowRunner()).run()\n"
+    - "from temporalio import workflow\n\n\ndef read() -> str:\n    with workflow.unsafe.sandbox_unrestricted():\n        return \"x\"\n"
+  no_match:
+    - "from temporalio import workflow\n\n\n@workflow.defn(name=\"report\")\nclass Report:\n    @workflow.run\n    async def run(self) -> None:\n        pass\n"
+    - "from temporalio import workflow\n\n\ndef read() -> bool:\n    return workflow.unsafe.in_sandbox()\n"
+    - "def defn(sandboxed: bool) -> bool:\n    return sandboxed\n\n\nflag = defn(sandboxed=False)\n"
