@@ -1,0 +1,28 @@
+id: typescript/prisma/no-query-in-loop
+description: A Prisma query whose result type is PrismaPromise (findMany, count, aggregate, groupBy, the *Many methods) is not awaited inside a loop body (for, for…of, for…in, while, do) or an async .map / .forEach / .flatMap callback; one query per item is N round trips. Fetch the rows in one query (include, in, a relation filter) or batch them.
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      pattern: "await $Q"
+      any:
+        - inside: {stopBy: end, field: body, any: [{kind: for_statement}, {kind: for_in_statement}, {kind: while_statement}, {kind: do_statement}]}
+        - inside:
+            stopBy: end
+            any: [{kind: arrow_function}, {kind: function_expression}]
+            inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: member_expression, has: {field: property, regex: "^(map|forEach|flatMap)$"}}}}
+    # the awaited value is a Prisma query, by its type (§15.1). findUnique, findFirst, create,
+    # update, upsert and delete return the generated Prisma__<Model>Client, which extends the
+    # generated client's type alias of PrismaPromise: the supertype walk does not follow a type
+    # alias in an extends clause yet, so those are not matched
+    where:
+      Q: {type: {package: "@prisma/client", name: PrismaPromise}}
+examples:
+  deps: [{ecosystem: npm, name: "@prisma/client", version: "7.10.1"}]
+  match:
+    - "import type { PrismaPromise } from \"@prisma/client/runtime/client\";\n\ndeclare const db: { post: { findMany(args: { where: { authorId: number } }): PrismaPromise<{ id: number }[]> } };\n\nexport async function postsOf(authorIds: number[]): Promise<number> {\n  let n = 0;\n  for (const authorId of authorIds) {\n    const posts = await db.post.findMany({ where: { authorId } });\n    n += posts.length;\n  }\n  return n;\n}\n"
+    - "import type { PrismaPromise } from \"@prisma/client/runtime/client\";\n\ndeclare const db: { user: { findUnique(args: { where: { id: number } }): PrismaPromise<{ id: number } | null> } };\n\nexport function users(ids: number[]) {\n  return Promise.all(ids.map(async (id) => await db.user.findUnique({ where: { id } })));\n}\n"
+  no_match:
+    - "import type { PrismaPromise } from \"@prisma/client/runtime/client\";\n\ndeclare const db: { post: { findMany(args: { where: { authorId: { in: number[] } } }): PrismaPromise<{ id: number }[]> } };\n\nexport async function postsOf(authorIds: number[]): Promise<number> {\n  const posts = await db.post.findMany({ where: { authorId: { in: authorIds } } });\n  return posts.length;\n}\n"
+    - "export async function fetchAll(urls: string[]): Promise<number> {\n  let n = 0;\n  for (const url of urls) {\n    const res = await fetch(url);\n    n += res.status;\n  }\n  return n;\n}\n"
