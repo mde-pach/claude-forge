@@ -43,8 +43,9 @@ const group = (xs: Example[] = []): { code: string; lang: string; title?: string
         ? [{ code: x.command, lang, title: x.files ? `with ${Object.keys(x.files).join(", ")}` : undefined }]
         : typeof x !== "string"
         ? [
-            ...Object.entries(x.head ?? {}).map(([p, code]) => ({ code, lang: fileLang(p), title: `${p} (at HEAD)` })),
-            ...Object.entries(x.files).map(([p, code]) => ({ code, lang: fileLang(p), title: x.head && p in x.head ? `${p} (changed)` : p })),
+            // an empty fixture file (py.typed, __init__.py) is shown as such: Code renders no empty string
+            ...Object.entries(x.head ?? {}).map(([p, code]) => ({ code: code || "(empty file)", lang: code ? fileLang(p) : "txt", title: `${p} (at HEAD)` })),
+            ...Object.entries(x.files).map(([p, code]) => ({ code: code || "(empty file)", lang: code ? fileLang(p) : "txt", title: x.head && p in x.head ? `${p} (changed)` : p })),
           ]
         : single.includes(x)
           ? []
