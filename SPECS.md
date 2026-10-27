@@ -1551,6 +1551,9 @@ context.md: Svelte 5 runes, event attributes and snippets; legacy syntax and `{@
 | Rule | Targets |
 |---|---|
 | `typescript/svelte/kit/no-csrf-off` | `ast-grep` forbid in `svelte.config.*`, under `csrf`: `checkOrigin: false`, a `"*"` in `trustedOrigins` |
+| `typescript/svelte/kit/no-app-stores` | `grep` forbid in `.svelte`, `.ts`, `.js`, `.mts`, `.mjs` files, `when` `@sveltejs/kit >= 2.12`: an import (static or dynamic) of `$app/stores` |
+| `typescript/svelte/kit/no-env-modules` | `grep` forbid in the same files, `when` `@sveltejs/kit >= 3`: an import of `$env/static\|dynamic/private\|public` |
+| `typescript/svelte/kit/external-redirect` | `ast-grep` forbid, `when` `@sveltejs/kit >= 3`: a call declared as `@sveltejs/kit`'s `redirect` (§15.6) whose second argument is a string or template starting with `http://` / `https://` and that has no third argument |
 
 ### typescript/angular
 

@@ -1,0 +1,26 @@
+id: typescript/svelte/kit/external-redirect
+description: "SvelteKit 3: redirect() to a literal http(s):// URL passes a third argument ({ external: true } or an allowlist of origins); without it SvelteKit 3 throws on an external location."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      all:
+        - has: {field: function, pattern: $F}
+        - has:
+            field: arguments
+            all:
+              - has: {nthChild: 2, any: [{kind: string}, {kind: template_string}], regex: "^[\"'`]https?://"}
+              - not: {has: {nthChild: 3}}
+    where:
+      F: {declared: {package: "@sveltejs/kit", name: redirect}}
+when:
+  deps: [{ecosystem: npm, name: "@sveltejs/kit", version: ">=3.0.0"}]
+examples:
+  deps: [{ecosystem: npm, name: "@sveltejs/kit", version: "3.1.0"}]
+  match:
+    - "import { redirect } from \"@sveltejs/kit\";\n\nexport function load() {\n  redirect(303, \"https://accounts.example.com/login\");\n}\n"
+  no_match:
+    - "import { redirect } from \"@sveltejs/kit\";\n\nexport function load() {\n  redirect(303, \"/login\");\n}\n\nexport function sso() {\n  redirect(303, \"https://accounts.example.com/login\", { external: true });\n}\n"
+    - "function redirect(status: number, to: string) {\n  return { status, to };\n}\n\nexport const r = redirect(302, \"https://example.com\");\n"

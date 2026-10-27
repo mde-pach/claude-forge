@@ -1,0 +1,12 @@
+id: typescript/svelte/kit/no-env-modules
+description: "No imports of $env/static/private, $env/static/public, $env/dynamic/private or $env/dynamic/public on SvelteKit 3 (deprecated): import from $app/env/private or $app/env/public."
+scope: {language: any, files: ["**/*.svelte", "**/*.ts", "**/*.js", "**/*.mts", "**/*.mjs"]}
+enforce:
+  - target: grep
+    mode: forbid
+    pattern: '(from|import)[[:space:]]*\(?[[:space:]]*["'']\$env/(static|dynamic)/(private|public)["'']'
+when:
+  deps: [{ecosystem: npm, name: "@sveltejs/kit", version: ">=3.0.0"}]
+examples:
+  match: ["import { DATABASE_URL } from '$env/static/private';\n", "<script>\n  import { env } from \"$env/dynamic/public\";\n</script>\n"]
+  no_match: ["import { DATABASE_URL } from '$app/env/private';\n", "import { env } from '$lib/env/static/private';\n"]
