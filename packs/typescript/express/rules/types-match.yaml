@@ -1,0 +1,26 @@
+id: typescript/express/types-match
+description: "@types/express (and @types/express-serve-static-core) has the major version of express in the same package.json: v4 types on Express 5 hide every Express 5 change from the typecheck."
+scope: {language: any}
+enforce:
+  - target: check
+    stage: lint
+    run: "forge_dep_major_match express @types/express @types/express-serve-static-core"
+    when_changed: ["**/package.json"]
+examples:
+  match:
+    - head:
+        package.json: "{\"name\": \"api\", \"private\": true, \"dependencies\": {\"express\": \"^4.21.2\"}, \"devDependencies\": {\"@types/express\": \"^4.17.21\"}}\n"
+      files:
+        package.json: "{\"name\": \"api\", \"private\": true, \"dependencies\": {\"express\": \"^5.1.0\"}, \"devDependencies\": {\"@types/express\": \"^4.17.21\"}}\n"
+    - files:
+        apps/api/package.json: "{\n  \"name\": \"api\",\n  \"dependencies\": {\n    \"express\": \"5.1.0\"\n  },\n  \"devDependencies\": {\n    \"@types/express\": \"^5.0.3\",\n    \"@types/express-serve-static-core\": \"~4.19.6\"\n  }\n}\n"
+  no_match:
+    - head:
+        package.json: "{\"name\": \"api\", \"private\": true, \"dependencies\": {\"express\": \"^4.21.2\"}, \"devDependencies\": {\"@types/express\": \"^4.17.21\"}}\n"
+      files:
+        package.json: "{\"name\": \"api\", \"private\": true, \"dependencies\": {\"express\": \"^5.1.0\"}, \"devDependencies\": {\"@types/express\": \"^5.0.3\"}}\n"
+    # no types package declared: nothing to compare (Express 5 projects may use none)
+    - files:
+        package.json: "{\"name\": \"api\", \"private\": true, \"dependencies\": {\"express\": \">=5.0.0 <6\", \"@types/node\": \"^24.0.0\"}}\n"
+    - files:
+        package.json: "{\"name\": \"api\", \"private\": true, \"dependencies\": {\"express\": \"5.x\"}, \"devDependencies\": {\"@types/express\": \"5\"}}\n"
