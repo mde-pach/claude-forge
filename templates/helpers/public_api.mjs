@@ -9,7 +9,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, normalize } from "node:path";
 
-const [tmp, mode, ...args] = process.argv.slice(2);
+const [tmp, mode] = process.argv.slice(2);
 const lines = (name) => {
   try { return readFileSync(join(tmp, name), "utf8").split("\n").filter(Boolean); } catch { return []; }
 };
@@ -51,7 +51,7 @@ function entries(pkg) {
 function resolve(from, spec) {
   if (!spec.startsWith(".")) return null;
   const base = normalize(join(dirname(from), spec)).replace(/\.[cm]?jsx?$/, "");
-  for (const c of [...SOURCE.map((e) => base + e), ...SOURCE.map((e) => join(base, "index" + e))]) if (existsSync(c) || changed.has(c)) return c;
+  for (const c of [...SOURCE.map((e) => base + e), ...SOURCE.map((e) => join(base, `index${e}`))]) if (existsSync(c) || changed.has(c)) return c;
   return null;
 }
 

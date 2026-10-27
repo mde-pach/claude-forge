@@ -3,6 +3,7 @@ import { appendFileSync, chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, 
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { spawnCaptured } from "../src/util";
+import { selfTest, type TestReport } from "../src/selftest";
 
 export const ROOT = join(import.meta.dir, "..");
 export const FORGE = join(ROOT, "dist", "forge.js");
@@ -127,6 +128,20 @@ export interface Result {
 export function sh(cmd: string, args: string[], opts: { cwd?: string; input?: string; env?: Record<string, string> } = {}): Result {
   const r = spawnCaptured(cmd, args, { cwd: opts.cwd, input: opts.input ?? "", env: { ...process.env, ...opts.env } });
   return { status: r.status ?? 1, stdout: r.stdout, stderr: r.stderr };
+}
+
+/**
+ * A shell script run as `sh <file>` from a temporary file, like sh(): a script holding
+ * engine.sh is past Linux's 128 KiB limit on one argument, so `sh -c` cannot start it.
+ */
+export function shScript(script: string, opts: { cwd?: string; input?: string; env?: Record<string, string> } = {}): Result {
+  const dir = mkdtempSync(join(tmpdir(), "forge-script-"));
+  try {
+    writeFileSync(join(dir, "script.sh"), script);
+    return sh("sh", [join(dir, "script.sh")], opts);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 /**
@@ -504,4 +519,20 @@ export function stopEngines(repo: string): void {
 /** The processes whose command line names <text> (pgrep -f), e.g. a repository's engines. */
 export function processesNaming(text: string): string[] {
   return sh("pgrep", ["-f", text]).stdout.split("\n").filter(Boolean);
+}
+
+/**
+ * The self-test of every bundled pack (scripts/test-packs.ts's), run once per test run: a
+ * fixture that tests/run.ts builds while the other shards run, read by the 13-packs shards
+ * (a plain `bun test` of that file builds it in its beforeAll). The cached project tools
+ * come first on the tools' path, then PATH.
+ */
+export function packsSelfTest(): TestReport {
+  ensureTools();
+  ensureVueTools();
+  const toolBins = [join(TOOLS_CACHE, "node_modules/.bin"), join(TOOLS_CACHE, ".venv/bin"), join(TOOLS_CACHE, ".venv-sqlfluff/bin"), join(TOOLS_CACHE, "vue/node_modules/.bin"), ...ensureExampleTools(), SYSTEM_TOOLS_BIN, ...(process.env.PATH ?? "").split(":")];
+  const dir = fixture("packs-selftest", (d) => {
+    writeFileSync(join(d, "report.json"), JSON.stringify(selfTest(join(ROOT, "packs"), undefined, { toolBins })));
+  });
+  return JSON.parse(readFileSync(join(dir, "report.json"), "utf8")) as TestReport;
 }

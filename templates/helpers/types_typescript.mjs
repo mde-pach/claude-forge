@@ -326,7 +326,7 @@ function declaredIn(file) {
   const strip = (s) => s.replace(/(\.d)?\.[cm]?[jt]sx?$/, "");
   if (i < 0) {
     const real = fs.existsSync(file) ? fs.realpathSync(file) : file;
-    return real.startsWith(ROOT + "/") ? [null, strip(real.slice(ROOT.length + 1))] : [null, null];
+    return real.startsWith(`${ROOT}/`) ? [null, strip(real.slice(ROOT.length + 1))] : [null, null];
   }
   // TypeScript's own lib files (shipped in typescript or its native @typescript/* package)
   const lib = /\/node_modules\/(typescript|@typescript\/[^/]+)\/lib\/(lib\.[^/]*)\.d\.ts$/.exec(p);
@@ -738,7 +738,7 @@ class Types {
       for (const d of defs) todo.push(...d);
     }
     const value = [...out.values()];
-    if (!pathOf(loc.uri).startsWith(ROOT + "/") || loc.uri.includes("/node_modules/")) this.cache.set(key, value);
+    if (!pathOf(loc.uri).startsWith(`${ROOT}/`) || loc.uri.includes("/node_modules/")) this.cache.set(key, value);
     return value;
   }
   /**
@@ -839,7 +839,7 @@ class Types {
    * expression that does not end with a name, a name without a definition and one whose
    * definition is an import the server could not resolve are unknown.
    */
-  async declared(file, text, raw, named, shown, events) {
+  async declared(file, _text, raw, named, shown, events) {
     const found = new Map();
     const asked = new Map();
     for (const [n, v, s, e] of named) {
@@ -1124,7 +1124,7 @@ async function main() {
     clearTimeout(idle);
     idle = setTimeout(() => stop("idle"), IDLE);
     buf += chunk;
-    for (let i; (i = buf.indexOf("\n")) >= 0; ) {
+    for (let i = buf.indexOf("\n"); i >= 0; i = buf.indexOf("\n")) {
       const line = buf.slice(0, i);
       buf = buf.slice(i + 1);
       lines.push(() => {

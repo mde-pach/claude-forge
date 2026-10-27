@@ -216,6 +216,20 @@ export function run(cmd: string, args: string[], opts: SpawnSyncOptions = {}): R
   return { status: r.status ?? (r.error ? 127 : 1), stdout: r.stdout, stderr: r.stderr };
 }
 
+/**
+ * A shell script run from a temporary file (`sh <file>`), never as `sh -c <script>`: Linux
+ * caps one argument at 128 KiB (MAX_ARG_STRLEN), and lib.sh with engine.sh is larger.
+ */
+export function runScript(script: string, opts: SpawnSyncOptions = {}): RunResult {
+  const dir = mkdtempSync(join(tmpdir(), "forge-script-"));
+  try {
+    writeFileSync(join(dir, "script.sh"), script);
+    return run("sh", [join(dir, "script.sh")], opts);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 /** A process for runParallel: env holds overrides of the current environment. */
 export interface Job {
   cmd: string;

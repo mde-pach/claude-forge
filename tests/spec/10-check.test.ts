@@ -12,7 +12,7 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { applied, commitAll, copyRepo, ensureTools, fixture, forge, git, hasBun, hasUv, linkTools, linkTs5, put, ROOT, sampleRepo, sh, TOOL_VERSIONS, TOOLS_CACHE, TY_FINDS_NOTHING } from "../helpers";
+import { applied, commitAll, copyRepo, ensureTools, fixture, forge, git, hasBun, hasUv, linkTools, linkTs5, put, ROOT, sampleRepo, sh, TOOL_VERSIONS, TOOLS_CACHE, TY_FINDS_NOTHING, shScript } from "../helpers";
 import { loadPacks } from "../../src/packs";
 import { checkTools, renderChecks, renderCheckScript, renderLib, renderSgConfig } from "../../src/render";
 import { ownedHash, RELEASE_BINARIES } from "../../src/util";
@@ -416,7 +416,7 @@ FAILED tests/test_db.py::test_db - psycopg.OperationalError: connection refused
 function engine(snippet: string, env: Record<string, string> = {}, cwd = repo) {
   const dir = join(import.meta.dir, "../../templates/scripts");
   const tmp = mkdtempSync(join(tmpdir(), "forge-engine-"));
-  return sh("sh", ["-c", `IFS='\n'\nFORGE_TMP=${tmp}\n${readFileSync(join(dir, "lib.sh"), "utf8")}\n${readFileSync(join(dir, "engine.sh"), "utf8")}\n${snippet}`], { cwd, env });
+  return shScript(`IFS='\n'\nFORGE_TMP=${tmp}\n${readFileSync(join(dir, "lib.sh"), "utf8")}\n${readFileSync(join(dir, "engine.sh"), "utf8")}\n${snippet}`, { cwd, env });
 }
 
 describe("local database detection", () => {
@@ -430,7 +430,7 @@ describe("local database detection", () => {
     ["postgresql://u:p@10.0.0.5/db", false],
   ])("DATABASE_URL=%s is local: %p", (url, local) => {
     const engine = readFileSync(join(import.meta.dir, "../../templates/scripts/engine.sh"), "utf8");
-    const r = sh("sh", ["-c", `tool() { :; }; ${engine}\nforge_local_db && echo local || echo remote`], { env: { DATABASE_URL: url }, cwd: "/" });
+    const r = shScript(`tool() { :; }; ${engine}\nforge_local_db && echo local || echo remote`, { env: { DATABASE_URL: url }, cwd: "/" });
     expect(r.stdout.trim()).toBe(local ? "local" : "remote");
   });
 });
@@ -1919,7 +1919,7 @@ test("prettier --check output is attributed by the files it names: a changed fil
   const attribute = (changed: string[]) => {
     writeFileSync(join(dir, "out"), `${out}\n`);
     const script = `${engine}\nFORGE_TMP=${dir}\nprintf '%s\\n' ${changed.map((c) => `'${c}'`).join(" ")} > "$FORGE_TMP/changed"\n: > "$FORGE_TMP/added"\nforge_diagnostics "$FORGE_TMP/out" file; forge_diagnostics "$FORGE_TMP/out" file print`;
-    return sh("sh", ["-c", script], { cwd: dir }).stdout;
+    return shScript(script, { cwd: dir }).stdout;
   };
   expect(attribute(["src/cart.ts"])).toBe("changed\n[warn] src/cart.ts\n");
   expect(attribute(["src/broken.ts"])).toBe("changed\n[error] src/broken.ts: SyntaxError: Variable declaration expected. (1:7)\n");
@@ -1950,7 +1950,7 @@ test("ESLint's stylish output is attributed by file and line: an error on an add
     writeFileSync(join(dir, "out"), `${out}\n`);
     writeFileSync(join(dir, "added"), added.map((a) => `${a.replace(":", "\t")}\n`).join(""));
     const script = `${engine}\nFORGE_TMP=${dir}\nc_warn=${warn}\nprintf 'src/a.ts\\nsrc/b.ts\\n' > "$FORGE_TMP/changed"\nforge_diagnostics "$FORGE_TMP/out" line; forge_diagnostics "$FORGE_TMP/out" line print`;
-    return sh("sh", ["-c", script], { cwd: dir }).stdout;
+    return shScript(script, { cwd: dir }).stdout;
   };
   expect(attribute(["src/b.ts:2"])).toBe("changed\nsrc/b.ts:2:9  error    'unused' is assigned a value but never used  @typescript-eslint/no-unused-vars\n");
   expect(attribute(["src/a.ts:1"])).toBe("other\n");

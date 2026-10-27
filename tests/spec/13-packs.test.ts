@@ -16,7 +16,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadPackBundle, loadPacks } from "../../src/packs";
 import { checkExamplesOptional, hadolintIntegrity, permissionMatches, runCheckExample, runCheckExamples, selfTest, type TestReport } from "../../src/selftest";
-import { ANGULAR_TOOLS, ensureExampleTools, ensureNodeTools, ensureTools, ensureVueTools, fixture, forge, hasBun, hasUv, ROOT, sh, SYSTEM_TOOLS_BIN, TOOLS_CACHE } from "../helpers";
+import { ANGULAR_TOOLS, ensureExampleTools, ensureNodeTools, ensureTools, ensureVueTools, forge, packsSelfTest, hasBun, hasUv, ROOT, sh, SYSTEM_TOOLS_BIN, TOOLS_CACHE, shScript } from "../helpers";
 import type { CheckTarget } from "../../src/types";
 import { renderChecks, renderLib, SYSTEM_TOOLS } from "../../src/render";
 import { RELEASE_BINARIES } from "../../src/util";
@@ -30,18 +30,9 @@ let report: TestReport;
 /** The cached project tools (tests/helpers.ts), then PATH. */
 const toolBins = () => [join(TOOLS_CACHE, "node_modules/.bin"), join(TOOLS_CACHE, ".venv/bin"), join(TOOLS_CACHE, ".venv-sqlfluff/bin"), join(TOOLS_CACHE, "vue/node_modules/.bin"), ...ensureExampleTools(), SYSTEM_TOOLS_BIN, ...(process.env.PATH ?? "").split(":")];
 
-/**
- * The self-test of every pack runs once per test run: the runner splits this file into
- * shards, and each shard reads the same report (a fixture, built by the first shard while
- * the others wait).
- */
+/** The self-test of every pack, run once per test run (tests/helpers.ts packsSelfTest). */
 beforeAll(() => {
-  ensureTools();
-  ensureVueTools();
-  const dir = fixture("packs-selftest", (d) => {
-    writeFileSync(join(d, "report.json"), JSON.stringify(selfTest(join(ROOT, "packs"), undefined, { toolBins: toolBins() })));
-  });
-  report = JSON.parse(readFileSync(join(dir, "report.json"), "utf8")) as TestReport;
+  report = packsSelfTest();
 }, T);
 
 /** Failures of `forge test` that concern one rule. */
@@ -70,7 +61,7 @@ test("the hadolint-bin wheel ships the upstream hadolint release binary (its sha
 test("every pinned release binary for this platform downloads and matches its embedded sha256", () => {
   const engine = [renderLib(), "IFS='\n'", renderChecks([])].join("\n");
   const names = Object.keys(RELEASE_BINARIES);
-  const r = sh("sh", ["-c", `${engine}\nfor n in ${names.join(" ")}; do b=$(forge_release_bin "$n") && [ -x "$b" ] && echo "$n ok" || echo "$n: $b"; done`]);
+  const r = shScript(`${engine}\nfor n in ${names.join(" ")}; do b=$(forge_release_bin "$n") && [ -x "$b" ] && echo "$n ok" || echo "$n: $b"; done`);
   expect(r.stdout).toBe(names.map((n) => `${n} ok\n`).join(""));
 }, 600_000);
 
@@ -81,7 +72,7 @@ test("every pinned release binary for this platform downloads and matches its em
  */
 test("every check example ran: none was skipped, except for a system tool that is not installed here", () => {
   const engine = [renderLib(), "IFS='\n'", renderChecks([])].join("\n");
-  const absent = (tool: string) => sh("sh", ["-c", `${engine}\nPATH=${SYSTEM_TOOLS_BIN}:$PATH forge_has_tool ${tool}`]).status !== 0;
+  const absent = (tool: string) => shScript(`${engine}\nPATH=${SYSTEM_TOOLS_BIN}:$PATH forge_has_tool ${tool}`).status !== 0;
   const skipped = report.notes.filter((n) => n.includes(" example ") && n.includes("skipped"));
   const system = (n: string) => SYSTEM_TOOLS.find((t) => new RegExp(`skipped: ${t}( 2 or later)? (not available|not installed)`).test(n));
   expect(skipped.filter((n) => !(system(n) && absent(system(n)!)))).toEqual([]);

@@ -11,7 +11,7 @@ import { blockHash, CHECK, hasBlock, hookManager, insertBlock, managerInactive, 
 import { localSelfTest, testSummary } from "./selftest.js";
 import { mergeTomlSnippets } from "./snippets.js";
 import { addEntries, conflictingScalars, entryKey, hasEntry, removeEntries } from "./settings.js";
-import { CLAUDE_CODE_MIN, ENGINE_PYTHON, FORGE_VERSION, TY_VERSION, compareVersions, gitToplevel, lineDiff, listRepoFiles, ownedHash, packageRoot, run } from "./util.js";
+import { CLAUDE_CODE_MIN, ENGINE_PYTHON, FORGE_VERSION, TY_VERSION, compareVersions, gitToplevel, lineDiff, listRepoFiles, ownedHash, packageRoot, run, runScript } from "./util.js";
 import type { Level, Lock, LockBlock, SettingsEntry } from "./types.js";
 import { USAGE } from "./usage.js";
 import { applyEdits, modify } from "jsonc-parser/lib/esm/main.js";
@@ -138,12 +138,12 @@ function context(flags: Flags): Ctx {
 /**
  * JSON (and Markdown, YAML and JavaScript helpers) Forge generates, formatted with the
  * project's own formatter, so `biome ci .` or `prettier --check .` passes on a fresh apply:
- * JSON with Biome when the project has it, else all of them with Prettier (a helper's
- * integrity hash leaves formatting out, §12). Unchanged when there is neither or
- * it declines (e.g. the path is ignored in its config).
+ * JSON and JavaScript helpers with Biome when the project has it, else all of them with
+ * Prettier (a helper's integrity hash leaves formatting out, §12). Unchanged when there is
+ * neither or it declines (e.g. the path is ignored in its config).
  */
 function formatJson(base: string, path: string, text: string): string {
-  const biome = path.endsWith(".json") ? projectBinary(base, "biome") : undefined;
+  const biome = /\.(json|mjs)$/.test(path) ? projectBinary(base, "biome") : undefined;
   const prettier = biome ? undefined : projectBinary(base, "prettier");
   if (!biome && !prettier) return text;
   const r = biome ? run(biome, ["format", `--stdin-file-path=${path}`], { cwd: base, input: text }) : run(prettier!, [`--stdin-filepath=${path}`], { cwd: base, input: text });
@@ -542,7 +542,7 @@ function missingTools(ctx: Ctx): string[] {
     return !has("bunx") && !has("uvx") ? ["bunx or uvx (ast-grep)"] : [];
   }
   const script = `${renderLib()}\nIFS='\n'\n${ctx.plan.checksFragment}\nforge_missing_tools\n`;
-  const r = run("sh", ["-c", script], { cwd: ctx.base });
+  const r = runScript(script, { cwd: ctx.base });
   return r.stdout.trim() ? r.stdout.trim().split(", ") : [];
 }
 

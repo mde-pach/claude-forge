@@ -18,7 +18,7 @@ import { plan, readProjectInputs } from "../../src/plan";
 import { renderLib } from "../../src/render";
 import { auditRules } from "../../src/audit";
 import { parseStrictYaml } from "../../src/yaml";
-import { applied, forge, put, ROOT, sampleRepo, sh } from "../helpers";
+import { applied, forge, put, ROOT, sampleRepo, sh, shScript } from "../helpers";
 import type { Pack } from "../../src/types";
 
 const T = 120_000;
@@ -400,7 +400,7 @@ describe("workspaces", () => {
     chmodSync(join(ws.base, "packages/a/node_modules/.bin/biome"), 0o755);
     put(ws.base, "in.ts", "const a = 1;\n");
     const script = `${renderLib()}\nIFS='\n'\n${ws.checksFragment}\nforge_format_copy packages/a/src/x.ts in.ts out.ts; echo "rc=$?"; cat out.ts`;
-    const r = sh("sh", ["-c", script], { cwd: ws.base });
+    const r = shScript(script, { cwd: ws.base });
     expect(r.stdout).toBe("rc=0\nconst a = 1;\n// in a as --stdin-file-path=src/x.ts\n");
   });
 

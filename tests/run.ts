@@ -299,7 +299,13 @@ const quiet: { file: string; go: string; run: Promise<ShardResult>; ended?: bool
 const left = new Map<string, number>();
 for (const s of shards) left.set(s.file, (left.get(s.file) ?? 0) + 1);
 const ended: ShardResult[] = [];
+// the self-test of every pack (minutes) is built once, alongside the shards; the 13-packs
+// shards, which read it, go last and wait for it
+const SELFTEST_FILE = "tests/spec/13-packs.test.ts";
+const selftestReady = shards.some((s) => s.file === SELFTEST_FILE) ? run("bun", [join(ROOT, "tests", "selftest-report.ts")], shardEnv()) : Promise.resolve(undefined);
+shards.sort((a, b) => Number(a.file === SELFTEST_FILE) - Number(b.file === SELFTEST_FILE));
 const results = await pool(shards, jobs, async (s) => {
+  if (s.file === SELFTEST_FILE) await selftestReady;
   const r = await runShard(s, { ...shardEnv(), FORGE_TEST_PHASE: "parallel", FORGE_TEST_QUIET_LIST: quietList });
   ended.push(r);
   left.set(s.file, left.get(s.file)! - 1);
