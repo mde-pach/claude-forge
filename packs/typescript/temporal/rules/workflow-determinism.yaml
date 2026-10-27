@@ -1,0 +1,36 @@
+id: typescript/temporal/workflow-determinism
+description: "A workflow file (one with a value import of @temporalio/workflow) imports no Node built-in (fs, path, os, crypto, http, https, net, tls, dns, child_process, worker_threads, cluster, node:*) nor @temporalio/activity, client or worker, by import or require(), and calls no crypto.randomUUID() / getRandomValues(): workflow code runs in a deterministic sandbox bundle, where they fail to bundle or break replay. Activities are called through proxyActivities<typeof activities>() with an import type; uuid4() comes from @temporalio/workflow."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        - kind: import_statement
+          all:
+            - not: {regex: "^import\\s+type\\b"}
+            - has: {field: source, regex: "^[\"'](node:[^\"']+|fs|fs/promises|path|os|crypto|http|https|net|tls|dns|child_process|worker_threads|cluster|@temporalio/(activity|client|worker))[\"']$"}
+        - kind: call_expression
+          all:
+            - has: {field: function, regex: "^require$"}
+            - has: {field: arguments, has: {nthChild: 1, kind: string, regex: "^[\"'](node:[^\"']+|fs|fs/promises|path|os|crypto|http|https|net|tls|dns|child_process|worker_threads|cluster|@temporalio/(activity|client|worker))[\"']$"}}
+        - kind: call_expression
+          has: {field: function, regex: "^(globalThis\\.)?crypto\\.(randomUUID|getRandomValues)$"}
+      inside:
+        kind: program
+        stopBy: end
+        has:
+          kind: import_statement
+          all:
+            - not: {regex: "^import\\s+type\\b"}
+            - has: {field: source, regex: "^[\"']@temporalio/workflow[\"']$"}
+examples:
+  match:
+    - "import { proxyActivities } from \"@temporalio/workflow\";\nimport { readFileSync } from \"node:fs\";\n\nexport async function report(): Promise<string> {\n  return readFileSync(\"/tmp/x\", \"utf8\");\n}\n"
+    - "import { proxyActivities } from \"@temporalio/workflow\";\nimport * as activities from \"@temporalio/activity\";\n\nexport async function wf(): Promise<void> {}\n"
+    - "import { sleep } from \"@temporalio/workflow\";\n\nexport async function order(): Promise<string> {\n  await sleep(\"1s\");\n  return crypto.randomUUID();\n}\n"
+    - "import { sleep } from \"@temporalio/workflow\";\n\nconst os = require(\"os\");\n\nexport async function host(): Promise<string> {\n  await sleep(1);\n  return os.hostname();\n}\n"
+  no_match:
+    - "import { proxyActivities, uuid4 } from \"@temporalio/workflow\";\nimport type * as activities from \"./activities\";\n\nconst { charge } = proxyActivities<typeof activities>({ startToCloseTimeout: \"1 minute\" });\n\nexport async function order(): Promise<string> {\n  await charge();\n  return uuid4();\n}\n"
+    - "import { readFile } from \"node:fs/promises\";\nimport { Context } from \"@temporalio/activity\";\n\nexport async function load(path: string): Promise<string> {\n  Context.current().heartbeat();\n  return readFile(path, \"utf8\");\n}\n"
+    - "import type { WorkflowInfo } from \"@temporalio/workflow\";\nimport { createHash } from \"node:crypto\";\n\nexport const id = (info: WorkflowInfo) => createHash(\"sha256\").update(info.workflowId).digest(\"hex\");\n"

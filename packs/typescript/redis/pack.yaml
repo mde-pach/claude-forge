@@ -1,0 +1,5 @@
+id: typescript/redis
+description: Redis clients (ioredis, node-redis).
+level: project
+detect:
+  deps_any: [{ecosystem: npm, name: ioredis}, {ecosystem: npm, name: redis}, {ecosystem: npm, name: "@redis/client"}]

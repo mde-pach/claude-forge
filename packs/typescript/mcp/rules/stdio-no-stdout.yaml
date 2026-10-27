@@ -1,0 +1,24 @@
+id: typescript/mcp/stdio-no-stdout
+description: "A file that imports StdioServerTransport (@modelcontextprotocol/sdk/server/stdio.js or @modelcontextprotocol/server) writes nothing to stdout: no console.log / info / debug, no process.stdout.write; stdout carries the JSON-RPC stream and any print corrupts it. Log with console.error (stderr)."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      has: {field: function, regex: "^(console\\.(log|info|debug)|process\\.stdout\\.write)$"}
+      inside:
+        kind: program
+        stopBy: end
+        has:
+          kind: import_statement
+          all:
+            - has: {field: source, regex: "^[\"'](@modelcontextprotocol/sdk/server/stdio(\\.js)?|@modelcontextprotocol/server)[\"']$"}
+            - has: {stopBy: end, kind: import_specifier, has: {field: name, regex: "^StdioServerTransport$"}}
+examples:
+  match:
+    - "import { McpServer } from \"@modelcontextprotocol/sdk/server/mcp.js\";\nimport { StdioServerTransport } from \"@modelcontextprotocol/sdk/server/stdio.js\";\n\nconst server = new McpServer({ name: \"demo\", version: \"1.0.0\" });\nawait server.connect(new StdioServerTransport());\nconsole.log(\"server started\");\n"
+    - "import { StdioServerTransport as Stdio } from \"@modelcontextprotocol/server\";\n\nexport function debug(msg: string) {\n  process.stdout.write(msg + \"\\n\");\n}\nexport const t = new Stdio();\n"
+  no_match:
+    - "import { McpServer } from \"@modelcontextprotocol/sdk/server/mcp.js\";\nimport { StdioServerTransport } from \"@modelcontextprotocol/sdk/server/stdio.js\";\n\nconst server = new McpServer({ name: \"demo\", version: \"1.0.0\" });\nawait server.connect(new StdioServerTransport());\nconsole.error(\"server started\");\n"
+    - "import { StreamableHTTPServerTransport } from \"@modelcontextprotocol/sdk/server/streamableHttp.js\";\n\nexport const t = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });\nconsole.log(\"http transport\");\n"

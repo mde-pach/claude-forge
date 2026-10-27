@@ -1,0 +1,24 @@
+id: typescript/express/no-permissive-trust-proxy
+description: "Advice: app.set(\"trust proxy\", true) on an Express app trusts every X-Forwarded-For hop, so the client sets req.ip (IP rate limits and logs are spoofable); give the hop count, the proxy subnets or a function."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: call_expression
+      all:
+        - has: {field: function, kind: member_expression, all: [{has: {field: object, pattern: $A}}, {has: {field: property, regex: "^set$"}}]}
+        - has:
+            field: arguments
+            all:
+              - has: {nthChild: 1, kind: string, regex: "^[\"'`]trust proxy[\"'`]$"}
+              - has: {nthChild: 2, kind: "true"}
+    where:
+      A: {type: {package: express-serve-static-core, name: Application}}
+examples:
+  deps: [{ecosystem: npm, name: "@types/express", version: "5.0.6"}]
+  match:
+    - "import express from \"express\";\n\nconst app = express();\napp.set(\"trust proxy\", true);\n"
+  no_match:
+    - "import express from \"express\";\n\nconst app = express();\napp.set(\"trust proxy\", 1);\napp.set(\"etag\", true);\n"
+    - "const settings = new Map<string, unknown>();\nsettings.set(\"trust proxy\", true);\n"

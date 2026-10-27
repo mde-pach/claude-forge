@@ -514,6 +514,8 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `safety/lockfile-bash-write` | `guard` ask (`review`: is it a hand rewrite of a lock file the request asks for): the same lock files rewritten through Bash: `sed -i` / `perl -i` (`-0pi` included), a `>` / `>>` redirect or `tee` into one, `cp` / `mv` / `install` / `rsync` with one as the last argument, `dd of=`, `truncate`, a `python` / `node` / `bun` / `deno` / `ruby` command naming one and writing (`.write(`, `write_text`, `writeFile`, `Bun.write`, an `open(…, 'w')` mode) |
 | `safety/prisma-ai-consent` | `guard` deny: any command containing `PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION` (only the user gives that consent) |
 | `safety/terraform-destroy` | `guard` ask: `terraform` / `tofu` `destroy`, `apply … -auto-approve` |
+| `safety/cdk-destructive` | `guard` ask: `cdk deploy … --require-approval never`, `cdk destroy` |
+| `safety/pulumi-destructive` | `guard` ask: `pulumi up` / `pulumi refresh` with `--yes`, `-y` or `--skip-preview`; `pulumi destroy`, `pulumi stack rm`, `pulumi state delete` / `unprotect`, `pulumi cancel` |
 | `safety/git-stash-drop` | `guard` ask: `git stash drop` (`git stash clear` is denied by `git-history-rewrite`) |
 | `safety/git-branch-force-delete` | `guard` ask: `git branch -D`, `--delete --force`, `-f -d` |
 | `safety/ephemeral-exec` | `guard` ask, check `ephemeral-exec` (§9.2): packages fetched from a registry on the fly. `npx tsc`, `bunx prisma`, `uvx ruff` with the tool installed in the project are not asked; `npx some-typo` is |
@@ -851,12 +853,14 @@ context.md: "React components in Astro render to static HTML; they become intera
 | `typescript/prisma/generated-client-import` | `ast-grep` forbid: `import $$$ from "@prisma/client"` |
 | `typescript/prisma/no-middleware` | `ast-grep` forbid: `$C.$use($$$)` |
 | `typescript/prisma/no-raw-unsafe` | `ast-grep` forbid: `$C.$queryRawUnsafe($$$)`, `$C.$executeRawUnsafe($$$)` |
+| `typescript/prisma/no-raw-interpolation` | `ast-grep` forbid: a call `$CALL` of `raw(…)` / `<x>.raw(…)` whose argument is a template with `${}`, a `+` concatenation or a variable declared from one (the `drizzle/no-sql-raw` matcher), where `CALL` is the runtime's `Sql` (`@prisma/client`, `@prisma/client-runtime-utils`): the generated client's path and import names never matter |
+| `typescript/prisma/no-unscoped-bulk-write` | `ast-grep` advise: `.deleteMany(…)` / `.updateMany(…)` without an object argument holding `where`, where the call is the runtime's `PrismaPromise` (`@prisma/client`; generated delegates are project code) |
 | `typescript/prisma/client-generator` | `check` lint: no `provider = "prisma-client-js"` in tracked `*.prisma` files, `when_changed: [**/*.prisma]` |
 | `typescript/prisma/migration-lint` | `check` migration: changed `prisma/migrations/*/migration.sql` linted with Squawk (§13.1); `--all`: the newest migration; `when_changed: [prisma/migrations/**]` |
 | `typescript/prisma/no-network-in-transaction` | `ast-grep` forbid: inside a function passed to `.$transaction(…)`, a call to the global `fetch` / `globalThis.fetch` / `$fetch`, or to a name (or a method of a name) imported from `axios`, `got`, `ky`, `ofetch`, `node-fetch` or `undici` |
 | `typescript/prisma/destructive-migration` | `check` migration: `DROP COLUMN` / `DROP TABLE` statements (not `--` or `/* */` comments) in the changed `prisma/migrations/*/migration.sql` (`--all`: the newest), read by `forge_prisma_drops`, which follows each table's columns through every `migration.sql`: a SQLite redefinition (`CREATE TABLE "new_X"`, `DROP TABLE "X"`, `RENAME TO "X"`) is reported only for the columns `new_X` lacks (`… (redefinition drops column "C")`), and not when no earlier migration creates `X`; printed `file:line: <statement>`; a line found in `forge.yaml` (an `accept` entry) passes; `when_changed: [prisma/migrations/**]` |
 
-context.md: Prisma 7: `prisma-client` generator with `output`, driver adapters, `prisma.config.ts` (no automatic `.env`), `prisma db seed`, `$extends` (no `$use`), tagged `$queryRaw` only; no network calls in interactive transactions; migrations with schema changes (not under db push); drops accepted in `forge.yaml`.
+context.md: Prisma 7: `prisma-client` generator with `output`, driver adapters, `prisma.config.ts` (no automatic `.env`), `prisma db seed`, `$extends` (no `$use`), tagged `$queryRaw` only (no `Prisma.raw()` from a template); no network calls in interactive transactions; migrations with schema changes (not under db push); drops accepted in `forge.yaml`.
 
 ### typescript/vitest
 
@@ -923,9 +927,11 @@ Detected by `drizzle.config.*` or the `drizzle-orm` / `drizzle-kit` dependency. 
 | `typescript/drizzle/migration-lint` | `check` migration: with `dialect: "postgresql"`, changed `.sql` files in `out` linted with Squawk (§13.1); `--all`: the newest one; `when_changed: [**/*.sql]` |
 | `typescript/drizzle/meta-files` | `permission` deny: `Edit(**/meta/_journal.json)`, `Edit(**/meta/*_snapshot.json)` |
 | `typescript/drizzle/no-push` | `guard` ask: `drizzle-kit push` |
+| `typescript/drizzle/no-push-force` | `guard` deny: `drizzle-kit push … --force` (auto-approves data-loss statements) |
+| `typescript/drizzle/write-with-where` | `ast-grep` forbid: `$DB.delete(…)` / `$DB.update(…)` with no `.where` further along its method chain, where `DB` is a Drizzle database (`PgDatabase`, `MySqlDatabase`, `BaseSQLiteDatabase`, `SingleStoreDatabase`, `GelDatabase`; transactions extend them) |
 | `typescript/drizzle/no-sql-raw` | `ast-grep` forbid: `sql.raw(…)` (or `<alias>.raw(…)` with `import { sql as <alias> } from "drizzle-orm"`) whose argument is a template with `${}` or a `+` concatenation, or a variable declared from one in an enclosing block or the module |
 
-context.md: schema, `out` and `dialect` in `drizzle.config.*`; `drizzle-kit generate` after a schema change, its files committed together and never written by hand; applied migrations are not edited; `push` needs confirmation; the `sql` tag binds values.
+context.md: schema, `out` and `dialect` in `drizzle.config.*`; `drizzle-kit generate` after a schema change, its files committed together and never written by hand; applied migrations are not edited; `push` needs confirmation, `push --force` is refused; deletes and updates have a `where`; the `sql` tag binds values.
 
 ### typescript/trpc
 
@@ -942,8 +948,9 @@ context.md: `.input(<schema>)` and what is rejected; `TRPCError` with a `code` i
 |---|---|
 | `typescript/hono/validate-input` | `ast-grep` forbid, in files importing `hono`, `hono/*` or `@hono/*`: `.json()`, `.parseBody()`, `.formData()`, `.query()`, `.queries()` on `$C.req` or on a `req` destructured from the handler's parameter (`({ req })`, `({ req: r })`), unless the call (or its `await`) is passed straight to `X.parse` / `safeParse` / `parseAsync` / `safeParseAsync` (not on `JSON`, `Date`, …) or as the second argument of `parse(Schema, …)` / `v.parse(…)`; `c.req.param()` is not checked |
 | `typescript/hono/cors-credentials-wildcard` | `ast-grep` forbid: `cors({…})` with `credentials: true` and `origin: "*"` or an `origin` function that returns its first parameter (as its body, with a `??` / `||` fallback, or in a `return`) |
+| `typescript/hono/no-raw-interpolation` | `ast-grep` forbid: a call of `raw` imported from `hono/html` (aliases included) whose argument is a template with `${}`, a `+` concatenation or a variable declared from one (the `drizzle/no-sql-raw` matcher) |
 
-context.md: `zValidator` / `validator()` middleware and `c.req.valid()`; which raw reads are rejected; `cors()` with credentials names its origins.
+context.md: `zValidator` / `validator()` middleware and `c.req.valid()`; which raw reads are rejected; `cors()` with credentials names its origins; `raw()` is not built from templates.
 
 ### typescript/react-router
 
@@ -1060,6 +1067,285 @@ Detected by `openapi-typescript`, `orval` or `@hey-api/openapi-ts`. Both checks 
 | `typescript/openapi/no-generated-edits` | `check` lint: `forge_openapi_sync hand-edits`: a changed generated file fails when no OpenAPI document, `orval.config.*`, `openapi-ts.config.*` or `redocly.*` changed, nor a `package.json` line naming the generator (its script or dependency version), and the repository tracks an OpenAPI document |
 
 context.md: the client comes from the document through a generator script; the two change together, generated files are never edited by hand.
+
+### typescript/nestjs
+
+Detected by `@nestjs/core` or `@nestjs/common`. Decorators are matched as the bindings imported from their package (`import { Body as B } from "@nestjs/common"` included), never by a name alone.
+
+| Rule | Targets |
+|---|---|
+| `typescript/nestjs/validation-pipe-whitelist` | `ast-grep` forbid: `new $N(…)` without `whitelist: true` in its object argument, where `N` is `@nestjs/common`'s `ValidationPipe` |
+| `typescript/nestjs/validation-pipe-forbid-non-whitelisted` | `ast-grep` advise: the same without `forbidNonWhitelisted: true` |
+| `typescript/nestjs/dto-is-class` | `ast-grep` forbid: a parameter decorated `@Body()` / `@Query()` / `@Param()` (from `@nestjs/common`, no arguments) with no type, `any`, `unknown`, `object`, an object type literal or `Record<…>` |
+| `typescript/nestjs/validate-nested-type` | `ast-grep` forbid: a property decorated with class-validator's `ValidateNested` and no class-transformer `Type` decorator |
+| `typescript/nestjs/http-exception` | `ast-grep` advise: `throw new Error(…)` in a method of a class decorated with `@nestjs/common`'s `Controller`, not inside a `try` block |
+
+context.md: `ValidationPipe` with `whitelist` and `forbidNonWhitelisted`; DTO classes on `@Body()` / `@Query()` / `@Param()`; `@ValidateNested()` with `@Type()`; `HttpException` subclasses in controllers.
+
+### typescript/kysely
+
+| Rule | Targets |
+|---|---|
+| `typescript/kysely/no-sql-raw` | `ast-grep` forbid: a call `$CALL` of `<x>.raw(…)` / `<x>.lit(…)` whose argument is a template with `${}`, a `+` concatenation or a variable declared from one (the `drizzle/no-sql-raw` matcher), where `CALL` is Kysely's `RawBuilder` |
+| `typescript/kysely/write-with-where` | `ast-grep` advise: `$DB.deleteFrom(…)` / `$DB.updateTable(…)` whose method chain reaches `execute()` / `executeTakeFirst()` / `executeTakeFirstOrThrow()` with no `where…` on the way, where `DB` is Kysely's `Kysely` or `Transaction` |
+
+context.md: the `sql` tag binds values, `sql.ref()` / `sql.id()` for names, no `sql.raw()` / `sql.lit()` from a template; deletes and updates have a `where`.
+
+### typescript/typeorm
+
+| Rule | Targets |
+|---|---|
+| `typescript/typeorm/no-synchronize` | `ast-grep` forbid: a pair `synchronize: true` / `dropSchema: true` in the object argument of `new $D(…)` where `D` is TypeORM's `DataSource`, of `TypeOrmModule.forRoot(…)`, or in an object a `TypeOrmModule.forRootAsync` `useFactory` returns (`TypeOrmModule` the binding imported from `@nestjs/typeorm`) |
+| `typescript/typeorm/synchronize-expression` | `ast-grep` advise: the same keys set from an expression (not `true` / `false`) |
+| `typescript/typeorm/no-raw-query-interpolation` | `ast-grep` forbid: `$R.query(…)` whose first argument is a template with `${}`, a `+` concatenation or a variable declared from one, where `R` is `DataSource`, `EntityManager`, `QueryRunner` or `Repository` |
+| `typescript/typeorm/no-qb-where-interpolation` | `ast-grep` forbid: `where` / `andWhere` / `orWhere` / `having` / `andHaving` / `orHaving` / `orderBy` / `addOrderBy` with such a first argument on a `SelectQueryBuilder`, `UpdateQueryBuilder`, `DeleteQueryBuilder`, `SoftDeleteQueryBuilder` or `WhereExpressionBuilder` |
+| `typescript/typeorm/schema-sync-guard` | `guard` deny: `typeorm` / `typeorm-ts-node-esm` / `typeorm-ts-node-commonjs` `schema:sync`, `schema:drop` |
+| `typescript/typeorm/migration-revert` | `guard` ask: the same bins with `migration:revert` |
+
+context.md: migrations, never `synchronize` / `dropSchema`; parameters in `.query()` and in query builder conditions.
+
+### typescript/mongoose
+
+| Rule | Targets |
+|---|---|
+| `typescript/mongoose/no-request-filter` | `ast-grep` forbid: `$M.<op>($R.body \| query \| params, …)` or as the second argument, `<op>` one of `find`, `findOne`, `findOneAndUpdate`, `findOneAndDelete`, `findOneAndReplace`, `updateOne`, `updateMany`, `deleteOne`, `deleteMany`, `countDocuments`, `replaceOne`, where `M` is a Mongoose `Model` or `Query` and `R` an Express `Request` or a `FastifyRequest` |
+| `typescript/mongoose/no-where-operator` | `ast-grep` forbid: a `$where` key in the arguments of a call on `$M`, or `$M.$where(…)`, where `M` is a Mongoose `Model` or `Query` |
+
+context.md: request input validated or `sanitizeFilter()`ed before a filter; no `$where`.
+
+### typescript/temporal
+
+| Rule | Targets |
+|---|---|
+| `typescript/temporal/workflow-determinism` | `ast-grep` forbid, in a file with a value import of `@temporalio/workflow`: a value import or `require()` of `node:*`, `fs`, `fs/promises`, `path`, `os`, `crypto`, `http`, `https`, `net`, `tls`, `dns`, `child_process`, `worker_threads`, `cluster`, `@temporalio/activity`, `@temporalio/client` or `@temporalio/worker`; `crypto.randomUUID()` / `crypto.getRandomValues()`. A project module holding activities imported by value is not detected (which module holds activities is not known without guessing) |
+
+context.md: the workflow sandbox; activities through `proxyActivities` with `import type`; `uuid4()`.
+
+### typescript/stripe
+
+| Rule | Targets |
+|---|---|
+| `typescript/stripe/webhook-raw-body` | `ast-grep` forbid: `$S.webhooks.constructEvent(…)` / `constructEventAsync(…)` whose first argument is `JSON.stringify(…)`, `await <x>.json()` or a variable declared from one in an enclosing block or the module, where `S` is Stripe's `Stripe` |
+
+context.md: webhook payloads are the raw body.
+
+### typescript/cloudflare-workers
+
+Detected by `wrangler.toml`, `wrangler.json`, `wrangler.jsonc` or the `wrangler` dependency.
+
+### typescript/cloudflare-workers/stripe
+
+| Rule | Targets |
+|---|---|
+| `typescript/cloudflare-workers/stripe/constructevent-async` | `ast-grep` forbid: `$S.webhooks.constructEvent(…)`, where `S` is Stripe's `Stripe` (on Workers only `constructEventAsync` works) |
+
+context.md: `await stripe.webhooks.constructEventAsync(…)` on Workers.
+
+### typescript/mcp
+
+Detected by `@modelcontextprotocol/sdk` or `@modelcontextprotocol/server`.
+
+| Rule | Targets |
+|---|---|
+| `typescript/mcp/stdio-no-stdout` | `ast-grep` forbid, in a file importing `StdioServerTransport` from `@modelcontextprotocol/sdk/server/stdio.js` or `@modelcontextprotocol/server`: `console.log`, `console.info`, `console.debug`, `process.stdout.write` |
+
+context.md: stdout is the JSON-RPC stream; logs on stderr.
+
+### typescript/upstash-ratelimit
+
+| Rule | Targets |
+|---|---|
+| `typescript/upstash-ratelimit/check-limit` | `ast-grep` forbid: an expression statement `$RL.limit(…)` or `await $RL.limit(…)` (result discarded), where `RL` is `@upstash/ratelimit`'s `Ratelimit` (the exported classes extend it) |
+
+context.md: `limit()` never throws; check `success`.
+
+### typescript/fastify
+
+Detected by `fastify >= 5`. `Fastify()` returns an intersection (`FastifyInstance & SafePromiseLike<…>`), which the TypeScript engine does not resolve (§15.1): calls on it are not checked; calls on a `FastifyInstance` (plugin parameters, annotated instances) are.
+
+| Rule | Targets |
+|---|---|
+| `typescript/fastify/plugin-style` | `ast-grep` forbid: an `async` arrow or function expression with a third parameter, passed first to `$F.register(…)` (where `F` is a `FastifyInstance`) or to fastify-plugin's default import |
+| `typescript/fastify/full-json-schema` | `ast-grep` forbid: in the `schema` of `$F.route({…})` / `$F.<method>(url, {…}, …)` (where `F` is a `FastifyInstance`), a `body`, `querystring`, `params` or `headers` value, or a `response` status value, that is an object literal with properties, no spread and no JSON Schema keyword key |
+| `typescript/fastify/no-permissive-trust-proxy` | `ast-grep` advise: `trustProxy: true` in the object passed to fastify's default or named `fastify` import (aliases included) |
+
+context.md: the two plugin signatures; full JSON Schemas in routes; `trustProxy` is not `true`.
+
+### typescript/elysia
+
+| Rule | Targets |
+|---|---|
+| `typescript/elysia/body-schema` | `ast-grep` forbid: `$APP.post` / `put` / `patch(path, handler, …)` whose handler's first parameter destructures `body`, without a third argument object holding `body`, where `APP` is an `Elysia` |
+
+context.md: a `body` schema on routes that read the body.
+
+### typescript/apollo
+
+| Rule | Targets |
+|---|---|
+| `typescript/apollo/csrf-prevention` | `ast-grep` forbid: `new $N({…, csrfPrevention: false})`, where `N` is `@apollo/server`'s `ApolloServer` |
+| `typescript/apollo/no-stacktrace` | `ast-grep` forbid: the same with `includeStacktraceInErrorResponses: true` |
+
+context.md: CSRF prevention on; no forced stack traces.
+
+### typescript/graphql-yoga
+
+| Rule | Targets |
+|---|---|
+| `typescript/graphql-yoga/masked-errors` | `ast-grep` forbid: a call of `createYoga` imported from `graphql-yoga` (aliases included) with `maskedErrors: false` |
+
+context.md: error masking on; `GraphQLError` for client errors.
+
+### typescript/effect
+
+`Effect` is the binding imported from `effect` (`import { Effect }`, aliases included) or the namespace import of `effect/Effect`. "In a generator" means the nearest enclosing function is the generator passed to `Effect.gen(…)`.
+
+| Rule | Targets |
+|---|---|
+| `typescript/effect/no-run-inside-gen` | `ast-grep` forbid: `Effect.runPromise` / `runSync` / `runFork` (and `…Exit` / `…With`) called in an `Effect.gen` generator |
+| `typescript/effect/no-throw-in-gen` | `ast-grep` forbid: a `throw` statement in an `Effect.gen` generator |
+
+context.md: `yield*` inside generators, `run*` at the edge; `Effect.fail` with tagged errors.
+
+### typescript/mikro-orm
+
+Detected by `@mikro-orm/core`.
+
+| Rule | Targets |
+|---|---|
+| `typescript/mikro-orm/no-global-context` | `ast-grep` forbid, outside test files (`*.test.*`, `*.spec.*`, `__tests__/`, `e2e/`): `allowGlobalContext: true` in the object passed to `MikroORM.init(…)`, `new MikroORM(…)` or `defineConfig(…)`, those names imported from `@mikro-orm/*` (aliases included) |
+| `typescript/mikro-orm/schema-guard` | `guard` deny: `mikro-orm` / `mikro-orm-esm` `schema:drop` or `schema:fresh` with `--run` / `-r` |
+| `typescript/mikro-orm/schema-update` | `guard` ask: `schema:update` with `--run` / `-r`, `migration:fresh` |
+
+context.md: request contexts, never a global one; migrations; which schema commands are refused or asked.
+
+### typescript/redis
+
+Detected by `ioredis`, `redis` or `@redis/client`.
+
+| Rule | Targets |
+|---|---|
+| `typescript/redis/no-keys` | `ast-grep` forbid: `$C.keys(…)` / `$C.KEYS(…)`, where `C` is ioredis's `Redis` or `Cluster`, or node-redis's `RedisClient` or `RedisCluster` (`createClient()`'s result is an intersection the TypeScript engine does not resolve yet, §15.1) |
+
+context.md: `SCAN` iterators instead of `KEYS`.
+
+### typescript/jsonwebtoken
+
+`verify`, `sign` and `decode` are members of jsonwebtoken's default or namespace import, or its named imports (aliases included).
+
+| Rule | Targets |
+|---|---|
+| `typescript/jsonwebtoken/verify-algorithms` | `ast-grep` forbid: `verify(…)` without a third argument that is an object with `algorithms` (or a variable / member holding options); `algorithms` containing `"none"` or `ignoreExpiration: true` in `verify`'s options; `algorithm: "none"` in `sign`'s options |
+| `typescript/jsonwebtoken/no-decode-trust` | `ast-grep` advise: every `decode(…)` call (it does not verify) |
+
+context.md: `verify` with an algorithm list, expiry kept; `decode` is not trust.
+
+### typescript/better-auth
+
+`betterAuth` is the binding imported from `better-auth` (aliases included).
+
+| Rule | Targets |
+|---|---|
+| `typescript/better-auth/no-csrf-disable` | `ast-grep` forbid: `disableCSRFCheck: true` or `useSecureCookies: false` anywhere in `betterAuth(…)`'s arguments |
+| `typescript/better-auth/trusted-origins` | `ast-grep` forbid: `trustedOrigins` in `betterAuth({…})` that is an array holding `"*"`, or a function whose returned array holds its first parameter's `.headers.get("origin")` (alone or with a `??` / `\|\|` fallback) |
+
+context.md: CSRF checks and Secure cookies on; real trusted origins.
+
+### typescript/aws-lambda
+
+Detected by `@types/aws-lambda` (or `aws-lambda`).
+
+| Rule | Targets |
+|---|---|
+| `typescript/aws-lambda/no-callback-handler` | `ast-grep` forbid: a parameter annotated with `Callback` / `Callback<…>` imported from `aws-lambda` (aliases included); `$C.callbackWaitsForEmptyEventLoop`, where `C` is aws-lambda's `Context`. `context.succeed` / `fail` / `done` are `@deprecated`, left to the deprecation rules |
+
+context.md: async handlers; callback handlers rejected.
+
+### typescript/resend
+
+| Rule | Targets |
+|---|---|
+| `typescript/resend/check-error` | `ast-grep` forbid: an expression statement `$R.emails.send(…)` / `$R.batch.send(…)`, awaited or not (result discarded), where `R` is Resend's `Resend` |
+
+context.md: `{ data, error }` results are handled.
+
+### typescript/pulumi
+
+| Rule | Targets |
+|---|---|
+| `typescript/pulumi/protect-ratchet` | `grep` no-decrease: `protect: true` (whole words) |
+
+context.md: protected resources stay protected.
+
+### typescript/aws-cdk
+
+Detected by `cdk.json` or the `aws-cdk-lib` dependency.
+
+| Rule | Targets |
+|---|---|
+| `typescript/aws-cdk/removal-policy-destroy` | `ast-grep` advise: `$E.DESTROY`, where `E` is aws-cdk-lib's `RemovalPolicy`; `new $B(…, {autoDeleteObjects: true})`, where `B` is aws-cdk-lib's `Bucket` |
+| `typescript/aws-cdk/context-committed` | `check` lint: with `cdk.json`, `cdk.context.json` is not git-ignored (`git check-ignore`), `when_changed: [.gitignore, **/.gitignore, cdk.json]` |
+| `typescript/aws-cdk/nag-suppressions` | `ast-grep` no-increase: `NagSuppressions.add…Suppressions…(…)`, `NagSuppressions` imported from `cdk-nag` (aliases included) |
+
+context.md: destroy policies are advice; `cdk.context.json` committed; cdk-nag findings fixed, not suppressed.
+
+### typescript/express
+
+| Rule | Targets |
+|---|---|
+| `typescript/express/session-cookie-flags` | `ast-grep` forbid: `secure: false` / `httpOnly: false` in the `cookie` object of a call of express-session's default import, or in the object passed to cookie-session's default import |
+| `typescript/express/no-permissive-trust-proxy` | `ast-grep` advise: `$A.set("trust proxy", true)`, where `A` is an Express `Application` (`express-serve-static-core`) |
+
+context.md: no literal `secure: false` / `httpOnly: false` session cookies; `trust proxy` is not `true`.
+
+### typescript/bullmq
+
+| Rule | Targets |
+|---|---|
+| `typescript/bullmq/worker-connection` | `ast-grep` forbid: `connection: new $R(…)` without `maxRetriesPerRequest: null` in the options of `new $W(…)`, where `W` is BullMQ's `Worker` and `R` ioredis's `Redis` (a connection in a variable is not followed) |
+
+context.md: `maxRetriesPerRequest: null` on worker connections.
+
+### typescript/bcrypt
+
+Detected by `bcrypt` or `bcryptjs`.
+
+| Rule | Targets |
+|---|---|
+| `typescript/bcrypt/no-sync-hash-in-async` | `ast-grep` forbid: `hashSync` / `compareSync` / `genSaltSync` of bcrypt's or bcryptjs's default, namespace or named import (aliases included), when the nearest enclosing function is `async` |
+
+context.md: await the async variants in async code.
+
+### typescript/aws-s3
+
+Detected by `@aws-sdk/client-s3` or `@aws-sdk/s3-presigned-post`.
+
+| Rule | Targets |
+|---|---|
+| `typescript/aws-s3/no-public-acl` | `ast-grep` advise: the string `public-read` / `public-read-write` as the `ACL` of `new $C({…})`, where `C` is `PutObjectCommand`, `CreateMultipartUploadCommand` or `CopyObjectCommand` (`@aws-sdk/client-s3`), or anywhere in the arguments of `createPresignedPost` imported from `@aws-sdk/s3-presigned-post` |
+
+context.md: no public ACLs on uploads.
+
+### typescript/langchain
+
+Detected by `langchain`, `@langchain/core` or `@langchain/classic`.
+
+| Rule | Targets |
+|---|---|
+| `typescript/langchain/no-legacy-chains` | `ast-grep` advise: importing `LLMChain`, `ConversationChain`, `RetrievalQAChain`, `ConversationalRetrievalQAChain`, `initializeAgentExecutorWithOptions` or `AgentExecutor` from `@langchain/classic…` or `langchain/chains…` / `langchain/agents…` |
+
+context.md: `createAgent`; the legacy chains live in `@langchain/classic`.
+
+### typescript/opentelemetry
+
+Detected by `@opentelemetry/api` or `@opentelemetry/sdk-node`.
+
+| Rule | Targets |
+|---|---|
+| `typescript/opentelemetry/init-before-imports` | `ast-grep` advise: in a file with a value import of `@opentelemetry/sdk-node`, a value import of a library the Node auto-instrumentations patch (`http`, `https`, `net`, `dns` and their `node:` forms, `express`, `fastify`, `koa`, `pg`, `mysql2`, `mongodb`, `mongoose`, `ioredis`, `redis`, `graphql`, `kafkajs`, `undici`, `pino`, `winston`, `@aws-sdk/*`, …) |
+| `typescript/opentelemetry/semconv-stable-keys` | `ast-grep` forbid: `$S.setAttribute(<key>, …)` / `$S.setAttributes({<key>: …})` with an old key (`http.method`, `http.status_code`, `http.url`, `http.target`, `http.scheme`, `http.user_agent`, `net.peer.name` / `port`, `net.host.name` / `port`, `db.statement`, `db.system`), where `S` is `@opentelemetry/api`'s `Span` |
+
+context.md: the SDK in its own file loaded first; stable semantic convention keys.
 
 ### github-actions
 

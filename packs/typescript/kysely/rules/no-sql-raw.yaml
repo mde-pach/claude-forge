@@ -1,0 +1,41 @@
+id: typescript/kysely/no-sql-raw
+description: "No Kysely sql.raw() / sql.lit() built from a template with ${} or a concatenation, directly or through a variable declared from one in the same function or module (Kysely documents both as unescaped: SQL injection); use the sql`...` tag, which binds values, and sql.ref() / sql.id() for names."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      all:
+        - pattern: $CALL
+        - has: {field: function, kind: member_expression, has: {field: property, regex: "^(raw|lit)$"}}
+        - has:
+            field: arguments
+            has:
+              nthChild: 1
+              any:
+                - {kind: template_string, has: {kind: template_substitution}}
+                - {kind: binary_expression, regex: "\\+"}
+                - all:
+                    - {kind: identifier, pattern: $Q}
+                    - inside:
+                        stopBy: end
+                        any: [{kind: statement_block}, {kind: program}]
+                        has:
+                          stopBy: end
+                          kind: variable_declarator
+                          all:
+                            - has: {field: name, pattern: $Q}
+                            - has: {field: value, any: [{kind: template_string, has: {kind: template_substitution}}, {kind: binary_expression, regex: "\\+"}]}
+    # Kysely's sql.raw() and sql.lit() by what they return, under any import name
+    where:
+      CALL: {type: {package: kysely, name: RawBuilder}}
+examples:
+  deps: [{ecosystem: npm, name: kysely, version: "0.29.6"}]
+  match:
+    - "import { sql } from \"kysely\";\n\nexport const orderBy = (column: string) => sql.raw(`ORDER BY ${column}`);\n"
+    - "import { sql as q } from \"kysely\";\n\nexport function byName(name: string) {\n  const where = \"name = '\" + name + \"'\";\n  return q.lit(where);\n}\n"
+  no_match:
+    - "import { sql } from \"kysely\";\n\nexport const byId = (id: number) => sql`SELECT * FROM person WHERE id = ${id}`;\nexport const col = (c: string) => sql.ref(c);\nexport const now = sql.raw(\"now()\");\n"
+    - "import { sql } from \"kysely\";\n\nconst DESC = \"DESC\";\nexport const dir = sql.raw(DESC);\n"
+    - "const cache = { raw: (x: string) => x };\n\nexport const v = (id: string) => cache.raw(`k:${id}`);\n"

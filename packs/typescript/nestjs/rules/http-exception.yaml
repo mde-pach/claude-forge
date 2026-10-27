@@ -1,0 +1,45 @@
+id: typescript/nestjs/http-exception
+description: "Advice: a method of a @Controller() class (from @nestjs/common) throws an HttpException subclass (NotFoundException, BadRequestException, …), not a plain Error, which becomes a generic 500. An Error thrown inside a try block is not concerned: it is caught there."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: throw_statement
+      has: {kind: new_expression, has: {field: constructor, regex: "^Error$"}}
+      inside:
+        kind: method_definition
+        stopBy: end
+        inside:
+          kind: class_body
+          inside:
+            kind: class_declaration
+            any:
+              - has: {kind: decorator, has: {kind: call_expression, has: {field: function, kind: identifier, pattern: $C}}}
+              - inside: {kind: export_statement, has: {kind: decorator, has: {kind: call_expression, has: {field: function, kind: identifier, pattern: $C}}}}
+            inside:
+              kind: program
+              stopBy: end
+              has:
+                kind: import_statement
+                all:
+                  - has: {field: source, regex: "^[\"']@nestjs/common[\"']$"}
+                  - has:
+                      stopBy: end
+                      kind: import_specifier
+                      any:
+                        - all: [{has: {field: name, regex: "^Controller$"}}, {has: {field: alias, pattern: $C}}]
+                        - all: [{has: {field: name, regex: "^Controller$", pattern: $C}}, {not: {has: {field: alias, kind: identifier}}}]
+      not:
+        inside:
+          stopBy: end
+          kind: statement_block
+          inside: {kind: try_statement, stopBy: neighbor}
+examples:
+  match:
+    - "import { Controller, Get, Param } from \"@nestjs/common\";\n\n@Controller(\"cats\")\nexport class CatsController {\n  @Get(\":id\")\n  async one(@Param(\"id\") id: string) {\n    const cat = await find(id);\n    if (!cat) throw new Error(\"Cat not found\");\n    return cat;\n  }\n}\n"
+    - "import { Controller, Post } from \"@nestjs/common\";\n\n@Controller()\nclass AdminController {\n  @Post()\n  run() {\n    try {\n      step();\n    } catch (e) {\n      throw new Error(\"failed\");\n    }\n  }\n}\n"
+  no_match:
+    - "import { Controller, Get, NotFoundException, Param } from \"@nestjs/common\";\n\n@Controller(\"cats\")\nexport class CatsController {\n  @Get(\":id\")\n  async one(@Param(\"id\") id: string) {\n    const cat = await find(id);\n    if (!cat) throw new NotFoundException(\"Cat not found\");\n    return cat;\n  }\n}\n"
+    - "import { Injectable } from \"@nestjs/common\";\n\n@Injectable()\nexport class CatsService {\n  one() {\n    throw new Error(\"service errors are mapped by the controller\");\n  }\n}\n"
+    - "import { Controller, Get } from \"@nestjs/common\";\n\n@Controller(\"cats\")\nexport class CatsController {\n  @Get()\n  all() {\n    try {\n      throw new Error(\"retry\");\n    } catch {\n      return [];\n    }\n  }\n}\n"

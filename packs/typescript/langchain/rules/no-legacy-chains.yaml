@@ -1,0 +1,20 @@
+id: typescript/langchain/no-legacy-chains
+description: "Advice: no new imports of LLMChain, ConversationChain, RetrievalQAChain, ConversationalRetrievalQAChain, initializeAgentExecutorWithOptions or AgentExecutor from @langchain/classic or langchain/chains / langchain/agents: LangChain 1 moved them to @langchain/classic as legacy; build agents with createAgent from langchain."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: import_specifier
+      has: {field: name, regex: "^(LLMChain|ConversationChain|RetrievalQAChain|ConversationalRetrievalQAChain|initializeAgentExecutorWithOptions|AgentExecutor)$"}
+      inside:
+        kind: import_statement
+        stopBy: end
+        has: {field: source, regex: "^[\"'](@langchain/classic|langchain/(chains|agents))(/[^\"']*)?[\"']$"}
+examples:
+  match:
+    - "import { LLMChain } from \"langchain/chains\";\n\nexport const chain = new LLMChain({ llm, prompt });\n"
+    - "import { AgentExecutor as Exec } from \"@langchain/classic/agents\";\n\nexport const e = Exec;\n"
+  no_match:
+    - "import { createAgent } from \"langchain\";\n\nexport const agent = createAgent({ model: \"openai:gpt-5\", tools: [] });\n"
+    - "import { ChatPromptTemplate } from \"@langchain/core/prompts\";\nimport { LLMChain } from \"./legacy\";\n\nexport const p = ChatPromptTemplate.fromTemplate(\"{x}\");\nexport const c = LLMChain;\n"

@@ -1,0 +1,14 @@
+id: typescript/pulumi/protect-ratchet
+description: "A changed file keeps its protect: true resource options (their count does not decrease): removing protection is the step before deleting a resource; that change is the user's to make."
+scope: {language: typescript}
+enforce:
+  - target: grep
+    mode: no-decrease
+    pattern: '(^|[^A-Za-z0-9_$])protect[[:space:]]*:[[:space:]]*true([^A-Za-z0-9_$]|$)'
+examples:
+  match:
+    - "export const db = new aws.rds.Instance(\"db\", { instanceClass: \"db.t4g.micro\" }, { protect: true });\n"
+    - "const opts = {\n  protect:true,\n};\n"
+  no_match:
+    - "export const db = new aws.rds.Instance(\"db\", { instanceClass: \"db.t4g.micro\" }, { protect: false });\n"
+    - "const opts = { protect: trueish, unprotect: true };\n"

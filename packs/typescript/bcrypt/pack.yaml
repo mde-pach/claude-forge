@@ -1,0 +1,5 @@
+id: typescript/bcrypt
+description: bcrypt / bcryptjs password hashing.
+level: project
+detect:
+  deps_any: [{ecosystem: npm, name: bcrypt}, {ecosystem: npm, name: bcryptjs}]

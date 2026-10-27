@@ -1,0 +1,113 @@
+id: typescript/jsonwebtoken/verify-algorithms
+description: "jsonwebtoken's verify(token, key, options) gets an options object with an algorithms list that does not contain 'none' (or an options variable), and no ignoreExpiration: true; sign() gets no algorithm: 'none'. Without a fixed list the token's own header picks the algorithm (algorithm confusion)."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    utils:
+      jwt-verify:
+        any:
+          # jwt.verify, jwt the default or namespace import of jsonwebtoken
+          - kind: member_expression
+            all:
+              - has: {field: property, regex: "^verify$"}
+              - has: {field: object, kind: identifier, pattern: $J}
+              - inside:
+                  kind: program
+                  stopBy: end
+                  has:
+                    kind: import_statement
+                    all:
+                      - has: {field: source, regex: "^[\"']jsonwebtoken[\"']$"}
+                      - has: {stopBy: end, kind: identifier, pattern: $J, inside: {any: [{kind: import_clause}, {kind: namespace_import}], stopBy: neighbor}}
+          # verify imported by name (aliases included)
+          - kind: identifier
+            all:
+              - pattern: $J
+              - inside:
+                  kind: program
+                  stopBy: end
+                  has:
+                    kind: import_statement
+                    all:
+                      - has: {field: source, regex: "^[\"']jsonwebtoken[\"']$"}
+                      - has:
+                          stopBy: end
+                          kind: import_specifier
+                          any:
+                            - all: [{has: {field: name, regex: "^verify$"}}, {has: {field: alias, pattern: $J}}]
+                            - all: [{has: {field: name, regex: "^verify$", pattern: $J}}, {not: {has: {field: alias, kind: identifier}}}]
+      jwt-sign:
+        any:
+          # jwt.sign, jwt the default or namespace import of jsonwebtoken
+          - kind: member_expression
+            all:
+              - has: {field: property, regex: "^sign$"}
+              - has: {field: object, kind: identifier, pattern: $J}
+              - inside:
+                  kind: program
+                  stopBy: end
+                  has:
+                    kind: import_statement
+                    all:
+                      - has: {field: source, regex: "^[\"']jsonwebtoken[\"']$"}
+                      - has: {stopBy: end, kind: identifier, pattern: $J, inside: {any: [{kind: import_clause}, {kind: namespace_import}], stopBy: neighbor}}
+          # sign imported by name (aliases included)
+          - kind: identifier
+            all:
+              - pattern: $J
+              - inside:
+                  kind: program
+                  stopBy: end
+                  has:
+                    kind: import_statement
+                    all:
+                      - has: {field: source, regex: "^[\"']jsonwebtoken[\"']$"}
+                      - has:
+                          stopBy: end
+                          kind: import_specifier
+                          any:
+                            - all: [{has: {field: name, regex: "^sign$"}}, {has: {field: alias, pattern: $J}}]
+                            - all: [{has: {field: name, regex: "^sign$", pattern: $J}}, {not: {has: {field: alias, kind: identifier}}}]
+    rule:
+      any:
+        # verify(token, key) or verify(token, key, {…} / callback) without algorithms
+        - kind: call_expression
+          all:
+            - has: {field: function, matches: jwt-verify}
+            - not:
+                has:
+                  field: arguments
+                  has:
+                    nthChild: 3
+                    any:
+                      - {kind: object, has: {kind: pair, has: {field: key, regex: "^[\"']?algorithms[\"']?$"}}}
+                      - {kind: identifier}
+                      - {kind: member_expression}
+        # algorithms: [..., "none"] or ignoreExpiration: true in verify's options
+        - kind: pair
+          any:
+            - all:
+                - has: {field: key, regex: "^[\"']?algorithms[\"']?$"}
+                - has: {field: value, kind: array, has: {kind: string, regex: "^[\"'`]none[\"'`]$"}}
+            - all:
+                - has: {field: key, regex: "^[\"']?ignoreExpiration[\"']?$"}
+                - has: {field: value, kind: "true"}
+          inside: {kind: object, stopBy: neighbor, inside: {kind: arguments, stopBy: neighbor, inside: {kind: call_expression, stopBy: neighbor, has: {field: function, matches: jwt-verify}}}}
+        # sign(payload, key, { algorithm: "none" })
+        - kind: pair
+          all:
+            - has: {field: key, regex: "^[\"']?algorithm[\"']?$"}
+            - has: {field: value, kind: string, regex: "^[\"'`]none[\"'`]$"}
+          inside: {kind: object, stopBy: neighbor, inside: {kind: arguments, stopBy: neighbor, inside: {kind: call_expression, stopBy: neighbor, has: {field: function, matches: jwt-sign}}}}
+examples:
+  match:
+    - "import jwt from \"jsonwebtoken\";\n\nexport const claims = (token: string, key: string) => jwt.verify(token, key);\n"
+    - "import { verify } from \"jsonwebtoken\";\n\nexport const claims = (token: string, key: string) => verify(token, key, { algorithms: [\"HS256\", \"none\"] });\n"
+    - "import * as jwt from \"jsonwebtoken\";\n\nexport const claims = (token: string, key: string) => jwt.verify(token, key, { algorithms: [\"RS256\"], ignoreExpiration: true });\n"
+    - "import { sign as signToken } from \"jsonwebtoken\";\n\nexport const token = (sub: string) => signToken({ sub }, \"\", { algorithm: \"none\" });\n"
+  no_match:
+    - "import jwt from \"jsonwebtoken\";\n\nexport const claims = (token: string, key: string) => jwt.verify(token, key, { algorithms: [\"HS256\"], audience: \"api\" });\nexport const token = (sub: string, key: string) => jwt.sign({ sub }, key, { algorithm: \"HS256\", expiresIn: \"1h\" });\n"
+    - "import jwt from \"jsonwebtoken\";\n\nconst OPTIONS = { algorithms: [\"RS256\" as const] };\nexport const claims = (token: string, key: string) => jwt.verify(token, key, OPTIONS);\n"
+    - "import { jwtVerify } from \"jose\";\n\nexport const claims = (token: string, key: Uint8Array) => jwtVerify(token, key);\n"
+    - "const signer = { verify: (t: string) => t };\n\nexport const v = (t: string) => signer.verify(t);\n"

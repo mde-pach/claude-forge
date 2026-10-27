@@ -1,0 +1,20 @@
+id: typescript/apollo/no-stacktrace
+description: "No literal includeStacktraceInErrorResponses: true in new ApolloServer({...}): error responses then carry server stack traces in every environment, production included."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: new_expression
+      all:
+        - pattern: $N
+        - has: {field: arguments, has: {kind: object, has: {kind: pair, all: [{has: {field: key, regex: "^[\"']?includeStacktraceInErrorResponses[\"']?$"}}, {has: {field: value, kind: "true"}}]}}}
+    where:
+      N: {type: {package: "@apollo/server", name: ApolloServer}}
+examples:
+  deps: [{ecosystem: npm, name: "@apollo/server", version: "5.5.1"}, {ecosystem: npm, name: graphql, version: "16.14.2"}]
+  match:
+    - "import { ApolloServer as Server } from \"@apollo/server\";\n\nexport const server = new Server({ typeDefs: \"type Query { ok: Boolean }\", resolvers: {}, includeStacktraceInErrorResponses: true });\n"
+  no_match:
+    - "import { ApolloServer } from \"@apollo/server\";\n\nexport const server = new ApolloServer({ typeDefs: \"type Query { ok: Boolean }\", resolvers: {}, includeStacktraceInErrorResponses: process.env.NODE_ENV === \"development\" });\n"
+    - "class ApolloServer {\n  constructor(readonly o: object) {}\n}\n\nexport const s = new ApolloServer({ includeStacktraceInErrorResponses: true });\n"

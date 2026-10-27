@@ -1,0 +1,38 @@
+id: typescript/typeorm/no-qb-where-interpolation
+description: "No TypeORM query builder where / andWhere / orWhere / having / andHaving / orHaving / orderBy / addOrderBy whose condition is a template with ${}, a concatenation or a variable declared from one; use :name parameters with their values."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      all:
+        - has: {field: function, kind: member_expression, all: [{has: {field: object, pattern: $QB}}, {has: {field: property, regex: "^(where|andWhere|orWhere|having|andHaving|orHaving|orderBy|addOrderBy)$"}}]}
+        - has:
+            field: arguments
+            has:
+              nthChild: 1
+              any:
+                - {kind: template_string, has: {kind: template_substitution}}
+                - {kind: binary_expression, regex: "\\+"}
+                - all:
+                    - {kind: identifier, pattern: $Q}
+                    - inside:
+                        stopBy: end
+                        any: [{kind: statement_block}, {kind: program}]
+                        has:
+                          stopBy: end
+                          kind: variable_declarator
+                          all:
+                            - has: {field: name, pattern: $Q}
+                            - has: {field: value, any: [{kind: template_string, has: {kind: template_substitution}}, {kind: binary_expression, regex: "\\+"}]}
+    where:
+      QB: {type: {package: typeorm, name: [SelectQueryBuilder, UpdateQueryBuilder, DeleteQueryBuilder, SoftDeleteQueryBuilder, WhereExpressionBuilder]}}
+examples:
+  deps: [{ecosystem: npm, name: typeorm, version: "1.1.2"}, {ecosystem: npm, name: reflect-metadata, version: "0.2.2"}]
+  match:
+    - "import type { Repository } from \"typeorm\";\n\nexport function byName(repo: Repository<{ id: number; name: string }>, name: string) {\n  return repo.createQueryBuilder(\"u\").where(`u.name = '${name}'`).getMany();\n}\n"
+    - "import type { SelectQueryBuilder } from \"typeorm\";\n\nexport function sorted(qb: SelectQueryBuilder<object>, column: string) {\n  return qb.andWhere(\"u.active = true\").orderBy(\"u.\" + column);\n}\n"
+  no_match:
+    - "import type { Repository } from \"typeorm\";\n\nexport function byName(repo: Repository<{ id: number; name: string }>, name: string) {\n  return repo.createQueryBuilder(\"u\").where(\"u.name = :name\", { name }).orderBy(\"u.id\", \"DESC\").getMany();\n}\n"
+    - "const filters = { where: (s: string) => s };\n\nexport const w = (n: string) => filters.where(`name = ${n}`);\n"

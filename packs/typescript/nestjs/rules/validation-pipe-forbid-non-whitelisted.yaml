@@ -1,0 +1,23 @@
+id: typescript/nestjs/validation-pipe-forbid-non-whitelisted
+description: "Advice: new ValidationPipe({...}) sets forbidNonWhitelisted: true, so a request with undeclared fields is rejected (400) instead of silently stripped."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: new_expression
+      all:
+        - pattern: $N
+        - not:
+            has:
+              field: arguments
+              has: {kind: object, has: {kind: pair, all: [{has: {field: key, regex: "^[\"']?forbidNonWhitelisted[\"']?$"}}, {has: {field: value, kind: "true"}}]}}
+    where:
+      N: {type: {package: "@nestjs/common", name: ValidationPipe}}
+examples:
+  deps: [{ecosystem: npm, name: "@nestjs/common", version: "11.2.7"}, {ecosystem: npm, name: reflect-metadata, version: "0.2.2"}, {ecosystem: npm, name: rxjs, version: "7.8.2"}]
+  match:
+    - "import { ValidationPipe } from \"@nestjs/common\";\n\nexport const pipe = new ValidationPipe({ whitelist: true });\n"
+  no_match:
+    - "import { ValidationPipe } from \"@nestjs/common\";\n\nexport const pipe = new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true });\n"
+    - "class ValidationPipe {\n  constructor(readonly opts: object = {}) {}\n}\n\nexport const pipe = new ValidationPipe();\n"

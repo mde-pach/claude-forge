@@ -1,0 +1,10 @@
+id: typescript/mikro-orm/schema-guard
+description: No mikro-orm schema:drop --run or schema:fresh --run (also -r, and the mikro-orm-esm bin); they wipe the database schema.
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: deny
+    pattern: '(^|[^A-Za-z0-9_-])mikro-orm(-esm)?[[:space:]]+schema:(drop|fresh)[^;&|]*([[:space:]]--run|[[:space:]]-r)([[:space:];&|)]|$)'
+examples:
+  match: ["npx mikro-orm schema:drop --run", "npx mikro-orm-esm schema:fresh -r --seed", "bunx mikro-orm schema:fresh --run && bun dev"]
+  no_match: ["npx mikro-orm schema:drop --dump", "npx mikro-orm schema:update --run", "npx mikro-orm migration:up", "npx mikro-orm schema:fresh --dump; echo --run"]

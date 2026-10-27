@@ -1,0 +1,10 @@
+id: typescript/drizzle/no-push-force
+description: No drizzle-kit push --force; it auto-approves the data-loss statements push would otherwise ask about.
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: deny
+    pattern: '(^|[^A-Za-z0-9_-])drizzle-kit[[:space:]]+push([[:space:]][^;&|]*)?[[:space:]]--force([[:space:];&|)]|$)'
+examples:
+  match: ["npx drizzle-kit push --force", "bunx drizzle-kit push --strict --force", "drizzle-kit push --force && bun dev"]
+  no_match: ["bunx drizzle-kit push", "bunx drizzle-kit generate --force", "drizzle-kit push; git push --force", "bunx drizzle-kit push --forceful"]

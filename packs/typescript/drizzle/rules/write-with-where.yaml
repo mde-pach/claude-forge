@@ -1,0 +1,32 @@
+id: typescript/drizzle/write-with-where
+description: "A Drizzle delete(table) or update(table).set(…) on a database or transaction is chained with .where(…); without it every row of the table is deleted or updated."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      any:
+        - pattern: $DB.delete($T)
+        - pattern: $DB.update($T)
+      # no .where(…) further along the method chain this call starts
+      not:
+        inside:
+          kind: member_expression
+          has: {field: property, regex: "^where$"}
+          stopBy:
+            not: {any: [{kind: member_expression}, {kind: call_expression}]}
+    # the receiver is a Drizzle database (a transaction extends it), not any object with delete().
+    # drizzle()'s result is an intersection (NodePgDatabase & { $client }), which the types
+    # engine does not resolve yet: such a db is not checked until it does.
+    where:
+      DB: {type: {package: drizzle-orm, name: [PgDatabase, MySqlDatabase, BaseSQLiteDatabase, SingleStoreDatabase, GelDatabase]}}
+examples:
+  deps: [{ecosystem: npm, name: drizzle-orm, version: "0.45.4"}, {ecosystem: npm, name: pg, version: "8.23.1"}, {ecosystem: npm, name: "@types/pg", version: "8.23.1"}]
+  match:
+    - "import type { NodePgDatabase } from \"drizzle-orm/node-postgres\";\nimport { pgTable, serial, text } from \"drizzle-orm/pg-core\";\n\nconst users = pgTable(\"users\", { id: serial(\"id\").primaryKey(), name: text(\"name\") });\n\nexport async function wipe(db: NodePgDatabase) {\n  await db.delete(users);\n}\n"
+    - "import { drizzle } from \"drizzle-orm/node-postgres\";\nimport { pgTable, serial, text } from \"drizzle-orm/pg-core\";\n\nconst users = pgTable(\"users\", { id: serial(\"id\").primaryKey(), name: text(\"name\") });\nconst db = drizzle(\"postgres://localhost/app\");\n\nexport async function rename(name: string) {\n  await db.transaction(async (tx) => {\n    await tx.update(users).set({ name }).returning();\n  });\n}\n"
+  no_match:
+    - "import { eq } from \"drizzle-orm\";\nimport { drizzle } from \"drizzle-orm/node-postgres\";\nimport { pgTable, serial, text } from \"drizzle-orm/pg-core\";\n\nconst users = pgTable(\"users\", { id: serial(\"id\").primaryKey(), name: text(\"name\") });\nconst db = drizzle(\"postgres://localhost/app\");\n\nexport async function remove(id: number, name: string) {\n  await db.delete(users).where(eq(users.id, id));\n  await db.update(users).set({ name }).where(eq(users.id, id)).returning();\n}\n"
+    - "const cache = new Map<string, number>();\n\nexport function drop(key: string) {\n  cache.delete(key);\n}\n"
+    - "class Store {\n  delete(table: string) {\n    return table;\n  }\n}\n\nexport const s = new Store().delete(\"users\");\n"

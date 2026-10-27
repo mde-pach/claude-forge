@@ -1,0 +1,57 @@
+id: typescript/bcrypt/no-sync-hash-in-async
+description: "No hashSync / compareSync / genSaltSync from bcrypt or bcryptjs (default, namespace or named import) in an async function: each call blocks the event loop for about 100 ms; await hash() / compare() / genSalt() instead."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      all:
+        - any:
+            # bcrypt.hashSync(…), bcrypt the default or namespace import
+            - has:
+                field: function
+                kind: member_expression
+                all:
+                  - has: {field: property, regex: "^(hashSync|compareSync|genSaltSync)$"}
+                  - has: {field: object, kind: identifier, pattern: $B}
+                  - inside:
+                      kind: program
+                      stopBy: end
+                      has:
+                        kind: import_statement
+                        all:
+                          - has: {field: source, regex: "^[\"']bcrypt(js)?[\"']$"}
+                          - has: {stopBy: end, kind: identifier, pattern: $B, inside: {any: [{kind: import_clause}, {kind: namespace_import}], stopBy: neighbor}}
+            # hashSync(…) imported by name (aliases included)
+            - has:
+                field: function
+                kind: identifier
+                pattern: $B
+                inside:
+                  kind: program
+                  stopBy: end
+                  has:
+                    kind: import_statement
+                    all:
+                      - has: {field: source, regex: "^[\"']bcrypt(js)?[\"']$"}
+                      - has:
+                          stopBy: end
+                          kind: import_specifier
+                          any:
+                            - all: [{has: {field: name, regex: "^(hashSync|compareSync|genSaltSync)$"}}, {has: {field: alias, pattern: $B}}]
+                            - all: [{has: {field: name, regex: "^(hashSync|compareSync|genSaltSync)$", pattern: $B}}, {not: {has: {field: alias, kind: identifier}}}]
+        # the nearest enclosing function is async
+        - inside:
+            any: [{kind: arrow_function}, {kind: function_expression}, {kind: function_declaration}, {kind: method_definition}]
+            regex: "^((public|private|protected|static|override)\\s+)*async\\b"
+            stopBy:
+              any: [{kind: arrow_function}, {kind: function_expression}, {kind: function_declaration}, {kind: method_definition}, {kind: generator_function}, {kind: generator_function_declaration}]
+examples:
+  match:
+    - "import bcrypt from \"bcrypt\";\n\nexport async function register(password: string) {\n  const hash = bcrypt.hashSync(password, 12);\n  return hash;\n}\n"
+    - "import { compareSync as check } from \"bcryptjs\";\n\nexport class Auth {\n  static async login(password: string, hash: string) {\n    return check(password, hash);\n  }\n}\n"
+  no_match:
+    - "import bcrypt from \"bcrypt\";\n\nexport async function register(password: string) {\n  return bcrypt.hash(password, 12);\n}\n"
+    - "import { hashSync } from \"bcryptjs\";\n\nexport function seedHash() {\n  return hashSync(\"seed\", 4);\n}\n"
+    - "import bcrypt from \"bcrypt\";\n\nexport async function later() {\n  return () => bcrypt.genSaltSync(10);\n}\n"

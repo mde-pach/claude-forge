@@ -1,0 +1,46 @@
+id: typescript/effect/no-throw-in-gen
+description: "No throw directly in an Effect.gen generator (nested non-generator functions aside): a thrown error becomes a defect, not a typed failure; use yield* Effect.fail(...) with a tagged error."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: throw_statement
+      inside:
+        kind: generator_function
+        stopBy:
+          any: [{kind: function_declaration}, {kind: function_expression}, {kind: arrow_function}, {kind: method_definition}, {kind: generator_function}, {kind: generator_function_declaration}]
+        inside:
+          kind: arguments
+          stopBy: neighbor
+          inside:
+            kind: call_expression
+            stopBy: neighbor
+            all:
+              - has: {field: function, kind: member_expression, all: [{has: {field: object, pattern: $E}}, {has: {field: property, regex: "^gen$"}}]}
+              # $E is the Effect module: import { Effect } from "effect" (aliases included) or import * as E from "effect/Effect"
+              - inside:
+                  kind: program
+                  stopBy: end
+                  has:
+                    kind: import_statement
+                    any:
+                      - all:
+                          - has: {field: source, regex: "^[\"']effect[\"']$"}
+                          - has:
+                              stopBy: end
+                              kind: import_specifier
+                              any:
+                                - all: [{has: {field: name, regex: "^Effect$"}}, {has: {field: alias, pattern: $E}}]
+                                - all: [{has: {field: name, regex: "^Effect$", pattern: $E}}, {not: {has: {field: alias, kind: identifier}}}]
+                      - all:
+                          - has: {field: source, regex: "^[\"']effect/Effect[\"']$"}
+                          - has: {stopBy: end, kind: namespace_import, has: {kind: identifier, pattern: $E}}
+examples:
+  match:
+    - "import { Effect } from \"effect\";\n\nexport const program = Effect.gen(function* () {\n  const n = yield* Effect.succeed(0);\n  if (n === 0) throw new Error(\"zero\");\n  return n;\n});\n"
+    - "import { Effect as Fx } from \"effect\";\n\nexport const program = Fx.gen(function* () {\n  for (const x of [1, 2]) {\n    if (x > 1) {\n      throw new RangeError(\"too big\");\n    }\n  }\n});\n"
+  no_match:
+    - "import { Data, Effect } from \"effect\";\n\nclass Zero extends Data.TaggedError(\"Zero\") {}\n\nexport const program = Effect.gen(function* () {\n  const n = yield* Effect.succeed(0);\n  if (n === 0) return yield* Effect.fail(new Zero());\n  return n;\n});\n"
+    - "import { Effect } from \"effect\";\n\nexport const program = Effect.gen(function* () {\n  return yield* Effect.try(() => {\n    throw new Error(\"caught by Effect.try\");\n  });\n});\n"
+    - "function* plain() {\n  throw new Error(\"not Effect\");\n}\n\nexport const g = plain;\n"

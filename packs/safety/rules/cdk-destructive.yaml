@@ -1,0 +1,10 @@
+id: safety/cdk-destructive
+description: cdk deploy --require-approval never (deploys IAM and security changes unreviewed) and cdk destroy (deletes stacks) need confirmation.
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: ask
+    pattern: '(^|[^A-Za-z0-9_-])cdk[[:space:]]+(deploy[^;&|]*--require-approval[[:space:]=]+never|destroy)([[:space:];&|)]|$)'
+examples:
+  match: ["npx cdk deploy --all --require-approval never", "cdk deploy MyStack --require-approval=never", "npx cdk destroy --force", "cdk destroy"]
+  no_match: ["npx cdk deploy MyStack", "cdk deploy --require-approval broadening", "npx cdk synth", "npx cdk diff"]

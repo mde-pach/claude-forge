@@ -1,0 +1,48 @@
+id: typescript/aws-s3/no-public-acl
+description: "Advice: no public-read / public-read-write ACL on S3 uploads (PutObjectCommand, CreateMultipartUploadCommand, CopyObjectCommand inputs, createPresignedPost Fields / Conditions): new buckets enforce bucket-owner ownership, so the request fails, or the object becomes public; serve it through CloudFront or presigned GET URLs."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: string
+      regex: "^[\"'`]public-read(-write)?[\"'`]$"
+      any:
+        # new PutObjectCommand({ ACL: "public-read" }) and the other upload commands
+        - inside:
+            kind: pair
+            stopBy: neighbor
+            has: {field: key, regex: "^[\"']?ACL[\"']?$"}
+            inside: {kind: object, stopBy: neighbor, inside: {kind: arguments, stopBy: neighbor, inside: {kind: new_expression, stopBy: neighbor, pattern: $C}}}
+        # createPresignedPost(client, { Fields: { acl: … }, Conditions: [{ acl: … }] })
+        - inside:
+            kind: arguments
+            stopBy: end
+            inside:
+              kind: call_expression
+              stopBy: neighbor
+              all:
+                - has: {field: function, kind: identifier, pattern: $P}
+                - inside:
+                    kind: program
+                    stopBy: end
+                    has:
+                      kind: import_statement
+                      all:
+                        - has: {field: source, regex: "^[\"']@aws-sdk/s3-presigned-post[\"']$"}
+                        - has:
+                            stopBy: end
+                            kind: import_specifier
+                            any:
+                              - all: [{has: {field: name, regex: "^createPresignedPost$"}}, {has: {field: alias, pattern: $P}}]
+                              - all: [{has: {field: name, regex: "^createPresignedPost$", pattern: $P}}, {not: {has: {field: alias, kind: identifier}}}]
+    where:
+      C: {type: {package: "@aws-sdk/client-s3", name: [PutObjectCommand, CreateMultipartUploadCommand, CopyObjectCommand]}}
+examples:
+  deps: [{ecosystem: npm, name: "@aws-sdk/client-s3", version: "3.1149.0"}]
+  match:
+    - "import { PutObjectCommand } from \"@aws-sdk/client-s3\";\n\nexport const put = (Key: string, Body: string) => new PutObjectCommand({ Bucket: \"assets\", Key, Body, ACL: \"public-read\" });\n"
+    - "import { createPresignedPost } from \"@aws-sdk/s3-presigned-post\";\nimport type { S3Client } from \"@aws-sdk/client-s3\";\n\nexport const post = (client: S3Client, Key: string) => createPresignedPost(client, { Bucket: \"assets\", Key, Fields: { acl: \"public-read\" } });\n"
+  no_match:
+    - "import { PutObjectCommand } from \"@aws-sdk/client-s3\";\n\nexport const put = (Key: string, Body: string) => new PutObjectCommand({ Bucket: \"assets\", Key, Body, ACL: \"private\" });\n"
+    - "class Upload {\n  constructor(readonly o: object) {}\n}\n\nexport const u = new Upload({ ACL: \"public-read\" });\n"
