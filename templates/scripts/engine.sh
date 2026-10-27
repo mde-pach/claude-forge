@@ -2979,8 +2979,8 @@ forge_excerpt() {
 
 # forge_diagnostics <output> <file|line> [print]: sorts the error diagnostics of a
 # failed run by what they name (tsc "path(l,c)", "path:l:c" from Python and JS
-# linters, "--> path:l:c"; "Would reformat: path" and Biome's "path format" name a
-# file only; absolute paths under the repository are made relative; warning-only
+# linters, "--> path:l:c"; "Would reformat: path", Biome's "path format" and
+# Prettier's "[warn] path" and "[error] path: …" name a file only; absolute paths under the repository are made relative; warning-only
 # lines are ignored, unless the check's c_warn is 1: its warnings count as errors). A diagnostic counts when it names a file of $FORGE_TMP/changed
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
@@ -3010,6 +3010,9 @@ forge_diagnostics() {
         sub(/([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)$/, "", p)
       } else if (match(line, /^Would reformat: [^[:space:]]+/)) p = substr(line, 18, RLENGTH - 17)
       else if (match(line, /^[^[:space:]:(]+ format /)) { p = line; sub(/ format .*$/, "", p) }
+      # prettier --check: "[warn] <path>" per unformatted file, "[error] <path>: <error>"
+      else if (line ~ /^\[warn\] [^[:space:]]+$/) { p = substr(line, 8); erred = 1 }
+      else if (match(line, /^\[error\] [^[:space:]]+: /)) p = substr(line, 9, RLENGTH - 10)
       else next
       if (index(p, r1 "/") == 1) p = substr(p, length(r1) + 2)
       else if (index(p, r2 "/") == 1) p = substr(p, length(r2) + 2)

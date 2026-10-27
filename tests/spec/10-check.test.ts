@@ -1739,3 +1739,24 @@ test("a failing codegen check stops check.sh before the typecheck; a passing one
   expect(r.stdout).not.toContain("forge:demo/codegen");
   expect(r.stdout).toContain("forge:demo/typecheck failed\ntypecheck ran");
 });
+
+/**
+ * Formatters and linters that do not print `path:line:col`: Prettier names each
+ * unformatted file as `[warn] <path>` (and a file it cannot parse as `[error] <path>: …`),
+ * then a `[warn] Code style issues …` summary that names none. Outside --all, a
+ * whole-project run (`prettier --check .` under --since) is attributed by those files.
+ * @rule typescript/prettier/format
+ */
+test("prettier --check output is attributed by the files it names: a changed file counts, an unchanged one and the summary do not", () => {
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), "forge-attr-")));
+  const engine = [renderLib(), "IFS='\n'", renderChecks([])].join("\n");
+  const out = ["Checking formatting...", "[warn] src/cart.ts", "[warn] src/legacy.ts", "[error] src/broken.ts: SyntaxError: Variable declaration expected. (1:7)", "[error] > 1 | const = ;", "[warn] Code style issues found in 2 files. Run Prettier with --write to fix."].join("\n");
+  const attribute = (changed: string[]) => {
+    writeFileSync(join(dir, "out"), `${out}\n`);
+    const script = `${engine}\nFORGE_TMP=${dir}\nprintf '%s\\n' ${changed.map((c) => `'${c}'`).join(" ")} > "$FORGE_TMP/changed"\n: > "$FORGE_TMP/added"\nforge_diagnostics "$FORGE_TMP/out" file; forge_diagnostics "$FORGE_TMP/out" file print`;
+    return sh("sh", ["-c", script], { cwd: dir }).stdout;
+  };
+  expect(attribute(["src/cart.ts"])).toBe("changed\n[warn] src/cart.ts\n");
+  expect(attribute(["src/broken.ts"])).toBe("changed\n[error] src/broken.ts: SyntaxError: Variable declaration expected. (1:7)\n");
+  expect(attribute(["src/other.ts"])).toBe("other\n");
+});

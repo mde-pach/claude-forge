@@ -418,11 +418,13 @@ export const ANGULAR_TOOLS = [`@angular/compiler-cli@${TOOL_VERSIONS.angular}`, 
 /**
  * The project tools of pack check examples beyond Biome and tsc, each set in a directory of
  * its own (ensureNodeTools): code generators (GraphQL Code Generator; wrangler from the
- * release whose `types --check` the rule needs).
+ * release whose `types --check` the rule needs), Prettier, ESLint and oxlint.
  */
 export const EXAMPLE_NODE_TOOLS: Record<string, string[]> = {
   angular: ANGULAR_TOOLS,
   codegen: ["@graphql-codegen/cli@7.4.6", "graphql@17.0.2", "wrangler@4.153.0"],
+  // other formatters and linters a project may use instead of Biome; ESLint's type-aware rules on TypeScript 6 (typescript-eslint needs < 6.1)
+  lint: ["prettier@3.9.10", "eslint@10.12.0", "typescript-eslint@8.71.2", "typescript@6.0.3", "oxlint@1.88.0", "oxlint-tsgolint@7.0.2004"],
 };
 
 /** Installs EXAMPLE_NODE_TOOLS (once); returns their bin directories. */

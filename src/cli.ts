@@ -130,19 +130,22 @@ function context(flags: Flags): Ctx {
   const lock = lockOf(base, p.lockPath, level);
   const ctx: Ctx = { level, base, plan: p, lock, flags, blocks: level === "project" ? [...(lock?.blocks ?? [])] : [] };
   addPreCommit(ctx);
-  if (level === "project") for (const [path, text] of p.files) if (path.endsWith(".json")) p.files.set(path, formatJson(base, path, text));
+  if (level === "project") for (const [path, text] of p.files) if (/\.(json|md|yml|mjs)$/.test(path)) p.files.set(path, formatJson(base, path, text));
   return ctx;
 }
 
 /**
- * JSON Forge generates, formatted with the project's own Biome when it has one,
- * so `biome ci .` passes on a fresh apply. Unchanged when there is no Biome or
+ * JSON (and Markdown, YAML and JavaScript helpers) Forge generates, formatted with the
+ * project's own formatter, so `biome ci .` or `prettier --check .` passes on a fresh apply:
+ * JSON with Biome when the project has it, else all of them with Prettier (a helper's
+ * integrity hash leaves formatting out, §12). Unchanged when there is neither or
  * it declines (e.g. the path is ignored in its config).
  */
 function formatJson(base: string, path: string, text: string): string {
-  const bin = projectBinary(base, "biome");
-  if (!bin) return text;
-  const r = run(bin, ["format", `--stdin-file-path=${path}`], { cwd: base, input: text });
+  const biome = path.endsWith(".json") ? projectBinary(base, "biome") : undefined;
+  const prettier = biome ? undefined : projectBinary(base, "prettier");
+  if (!biome && !prettier) return text;
+  const r = biome ? run(biome, ["format", `--stdin-file-path=${path}`], { cwd: base, input: text }) : run(prettier!, [`--stdin-filepath=${path}`], { cwd: base, input: text });
   return r.status === 0 && r.stdout.trim() ? r.stdout : text;
 }
 

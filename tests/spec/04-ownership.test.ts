@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { addEntries, removeEntries } from "../../src/settings";
 import { ownedHash } from "../../src/util";
-import { applied, commitAll, ensureTools, forge, git, hasBun, hasUv, linkTools, put, ROOT, sampleRepo, sh, TOOLS_CACHE } from "../helpers";
+import { applied, commitAll, EXAMPLE_NODE_TOOLS, ensureNodeTools, ensureTools, forge, git, hasBun, hasUv, linkTools, put, ROOT, sampleRepo, sh, TOOLS_CACHE } from "../helpers";
 
 const T = 120_000;
 
@@ -301,6 +301,26 @@ describe("formatters and Forge's JSON", () => {
       const again = forge(["apply", "--yes"], r);
       expect(again.stdout).toContain("forge: up to date");
       expect(forge(["diff"], r).status).toBe(0);
+    },
+    T,
+  );
+
+  /** @rule typescript/prettier/format */
+  test.if(hasBun)(
+    "with the project's Prettier and no Biome, a fresh apply formats Forge's JSON, context and YAML files so that prettier --check reports nothing on them",
+    () => {
+      const bin = join(ensureNodeTools("lint", EXAMPLE_NODE_TOOLS.lint!), "node_modules/.bin/prettier");
+      const r = sampleRepo("nextjs-prisma-app");
+      rmSync(join(r, "biome.json"));
+      put(r, ".prettierrc", "{}\n");
+      put(r, ".prettierignore", "src/\nprisma/\ne2e/\n*.ts\npackage.json\ntsconfig.json\n");
+      mkdirSync(join(r, "node_modules/.bin"), { recursive: true });
+      symlinkSync(bin, join(r, "node_modules/.bin/prettier"));
+      commitAll(r, "prettier");
+      expect(forge(["apply", "--yes"], r).status).toBe(0);
+      const check = sh("node_modules/.bin/prettier", ["--check", "."], { cwd: r });
+      expect(forgeLines(check.stdout + check.stderr)).toEqual([]);
+      expect(sh("sh", [".forge/check.sh", "--changed"], { cwd: r }).stdout).not.toContain("forge/integrity");
     },
     T,
   );
