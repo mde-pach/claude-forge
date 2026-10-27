@@ -580,7 +580,11 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `python/no-commented-out-code` | `tool` ruff `ERA001` |
 | `python/no-print` | `tool` ruff `T201` (snippet: per-file-ignores for `scripts/**` and CLIs) |
 | `python/no-dangling-task` | `tool` ruff `RUF006` |
-| `python/log-exception` | `tool` ruff `TRY400` |
+| `python/log-exception` | `ast-grep` forbid: `$L.error(…)` without `exc_info=` inside an `except` handler (not in a function, lambda or class defined there), where `L` is the standard library's `logging.Logger` or `LoggerAdapter` (§15.1, no `examples.deps`); replaces ruff `TRY400`, which picks loggers by their names |
+| `python/lazy-log-args` | `ast-grep` forbid: `$L.debug/info/warning/error/exception/critical(…)` whose first argument (`$L.log(…)`'s second) is an f-string, a `.format()` call or a `%`-formatted string, where `L` is `logging.Logger` / `LoggerAdapter` (§15.1); not ruff `G001`–`G004`, which pick loggers by their names |
+| `python/archive-extract` | `ast-grep` forbid: `$T.extractall(…)` / `$T.extract(…)` where `T` is `tarfile.TarFile` (§15.1), and `…unpack_archive(…)` declared by `shutil` (§15.6), without `filter=`; not ruff `S202`, which flags any `.extractall` and `zipfile` |
+| `python/hmac-compare` | `ast-grep` forbid: a `==` / `!=` comparison with `$H.hexdigest()` / `$H.digest()` where `H` is `hmac.HMAC` (§15.1), or a call declared as `hmac.digest` (§15.6) |
+| `python/no-ssl-verify-off` | `ast-grep` forbid: `$C.check_hostname = False`, or `$C.verify_mode = …CERT_NONE` declared by `ssl` (§15.6), where `C` is `ssl.SSLContext` (§15.1) |
 | `python/no-hardcoded-password` | `tool` ruff `S105`, `S106` (snippet: off under `tests/**`) |
 | `python/no-sql-format` | `tool` ruff `S608` |
 | `python/http-timeout` | `tool` ruff `S113` (requests without `timeout`; httpx with `timeout=None`) |
