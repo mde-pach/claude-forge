@@ -9,7 +9,7 @@
  * files.
  */
 import { beforeAll, describe, expect, test } from "bun:test";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, readdirSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { applied, commitAll, copyRepo, ensureTools, fixture, forge, git, hasBun, hasUv, linkTools, linkTs5, put, ROOT, sampleRepo, sh, TOOL_VERSIONS, TOOLS_CACHE, TY_FINDS_NOTHING, shScript } from "../helpers";
@@ -1645,7 +1645,13 @@ describe("pinned release binaries and system tools", () => {
       chmodSync(join(bin, name), 0o755);
     };
     git(r.cwd, "init", "-q");
-    const PATH = `${bin}:/usr/bin:/bin`;
+    // the system's commands, less the tools under test (GitHub's Ubuntu runners have kubectl and kustomize)
+    const sys = join(r.dir, "sys");
+    mkdirSync(sys);
+    const tested = new Set(["terraform", "tofu", "helm", "kustomize", "kubectl"]);
+    for (const d of ["/usr/bin", "/bin"])
+      for (const f of readdirSync(d)) if (!tested.has(f) && !existsSync(join(sys, f))) symlinkSync(join(d, f), join(sys, f));
+    const PATH = `${bin}:${sys}`;
     const probe = "for t in terraform tofu helm kustomize kubectl; do forge_has_tool $t && echo \"has $t\" || echo \"no $(forge_tool_label $t)\"; done";
     expect(run(probe, r.cwd, { PATH }).stdout).toBe("no terraform\nno tofu\nno helm\nno kustomize or kubectl\nno kubectl\n");
     tool("terraform");
