@@ -16,7 +16,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadPacks } from "../../src/packs";
-import { renderGuardRules, template, type ActiveGuard } from "../../src/render";
+import { renderGuardRules, requiredLiterals, template, type ActiveGuard } from "../../src/render";
 import { availableShells, guardDecision, guardExampleDir, hookInput } from "../../src/selftest";
 import { othersRunning, ROOT } from "../helpers";
 import type { GuardTarget } from "../../src/types";
@@ -99,6 +99,31 @@ describe.each(availableShells().map((s) => [s.name, s.argv] as const))("on %s", 
   test.each(MUST_NOT_TRIGGER.map((c) => [c]))("%s → nothing", (cmd) => {
     expect(guardDecision([...argv], dir, cmd, project)).toBe("");
   });
+});
+
+/**
+ * guard.sh skips a rule when the command contains none of its literals (§9.2), so the
+ * literals forge apply reads from a pattern must be in every command the pattern matches:
+ * every match example of every guard rule contains one.
+ */
+test("every guard rule's match examples contain one of the literals read from its pattern", () => {
+  const missed: string[] = [];
+  for (const p of loadPacks(join(ROOT, "packs")).values())
+    for (const r of p.rules)
+      for (const t of r.enforce.filter((x): x is GuardTarget => x.target === "guard")) {
+        const literals = requiredLiterals(t.pattern);
+        if (!literals.length) continue;
+        for (const ex of r.examples?.match ?? []) {
+          const cmd = JSON.stringify(typeof ex === "string" ? ex : "command" in ex ? ex.command : "").slice(1, -1);
+          // the pattern is a POSIX ERE: grep -E decides whether this target matches the example
+          const matches = spawnSync("grep", ["-qE", "--", t.pattern], { input: cmd }).status === 0;
+          if (matches && !literals.some((l) => cmd.includes(l))) missed.push(`${r.id}: ${cmd} (literals ${literals.join(", ")})`);
+        }
+      }
+  expect(missed).toEqual([]);
+  expect(requiredLiterals("(^|[^[:alnum:]_])(terraform|tofu)[[:space:]]+destroy")).toEqual(["destroy"]);
+  expect(requiredLiterals("abcd|(x|yz)qq")).toEqual(["abcd", "qq"]);
+  expect(requiredLiterals("ab?c*d")).toEqual([]);
 });
 
 /**

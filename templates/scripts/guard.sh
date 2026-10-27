@@ -5,7 +5,8 @@
 # the named guard_check_* function below decides on the parsed command.
 # The sandbox and permissions are the protection boundary; this is a tripwire.
 # An ask nobody can answer (an autonomous run) goes to review.sh instead.
-dir=$(dirname "$0")
+# no process for what the shell can do: each costs milliseconds (macOS)
+case $0 in */*) dir=${0%/*} ;; *) dir=. ;; esac
 input=$(cat)
 
 # guard_check_ephemeral_exec: succeeds, printing why, when the command runs a package
@@ -334,7 +335,7 @@ guard_installed() {
 
 # the matching rules in guard.rules order (denies first), "decision<TAB>id<TAB>check<TAB>review<TAB>description",
 # up to the first one without a check: nothing after it can win
-hits=$(printf '%s' "$input" | awk -F '\t' -v rules="$dir/guard.rules" '
+hits=$(awk -F '\t' -v rules="$dir/guard.rules" '
   { buf = buf $0 " " }
   END {
     if (!match(buf, /"command"[[:space:]]*:[[:space:]]*"/)) exit 0
@@ -347,14 +348,24 @@ hits=$(printf '%s' "$input" | awk -F '\t' -v rules="$dir/guard.rules" '
     }
     while ((getline line < rules) > 0) {
       if (line ~ /^#/ || line == "") continue
-      split(line, f, "\t")
-      if ((f[2] != "deny" && f[2] != "ask") || cmd !~ f[3]) continue
+      nf = split(line, f, "\t")
+      if (f[2] != "deny" && f[2] != "ask") continue
+      # columns 7 on: literals one of which every match contains, tested before the pattern
+      if (nf >= 7) {
+        hit = 0
+        for (j = 7; j <= nf && !hit; j++) if (index(cmd, f[j])) hit = 1
+        if (!hit) continue
+      }
+      if (cmd !~ f[3]) continue
       d = f[4]; gsub(/\\/, "\\\\", d); gsub(/"/, "\\\"", d)
       printf "%s\t%s\t%s\t%s\t%s\n", f[2], f[1], (f[5] == "" ? "-" : f[5]), (f[6] == "" ? "-" : f[6]), d
       if (f[5] == "") exit 0
     }
   }
-') || exit 1
+' <<EOF
+$input
+EOF
+) || exit 1
 [ -n "$hits" ] || exit 0
 out=''
 while IFS='	' read -r decision id check question desc; do
