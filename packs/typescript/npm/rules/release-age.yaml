@@ -1,0 +1,14 @@
+id: typescript/npm/release-age
+description: npm installs only versions published at least 3 days ago (.npmrc min-release-age=3 or more), and package.json requires npm 11.10 or later (devEngines.packageManager or packageManager), which is the first npm to read it; a compromised release is caught before it lands. Packages that must update sooner go in min-release-age-exclude.
+scope: {language: any}
+enforce:
+  - {target: check, stage: lint, run: "forge_helper bun pm_policy.mjs npm-cooldown $FORGE_COOLDOWN_SECONDS", when_changed: [.npmrc, package.json, package-lock.json]}
+examples:
+  match:
+    - files: {package.json: "{\"name\": \"shop\", \"devEngines\": {\"packageManager\": {\"name\": \"npm\", \"version\": \">=11.10.0\"}}}\n"}
+    - files: {.npmrc: "min-release-age=1\n", package.json: "{\"name\": \"shop\", \"packageManager\": \"npm@11.12.0\"}\n"}
+    - files: {.npmrc: "min-release-age=7\n", package.json: "{\"name\": \"shop\", \"packageManager\": \"npm@11.9.0\"}\n"}
+    - files: {.npmrc: "min-release-age=7\n", package.json: "{\"name\": \"shop\"}\n"}
+  no_match:
+    - files: {.npmrc: "registry=https://registry.npmjs.org/\nmin-release-age=3\n", package.json: "{\"name\": \"shop\", \"devEngines\": {\"packageManager\": {\"name\": \"npm\", \"version\": \">=11.10.0\", \"onFail\": \"error\"}}}\n"}
+    - files: {.npmrc: "min-release-age = 7\nmin-release-age-exclude=@acme/ui\n", package.json: "{\"name\": \"shop\", \"packageManager\": \"npm@12.2.1+sha512.abc\"}\n"}

@@ -1,5 +1,8 @@
 id: sql
-description: Plain SQL migrations (Flyway, Supabase, dbmate, sqitch, Atlas).
+description: Plain SQL, its migrations (Flyway, Supabase, dbmate, sqitch, Atlas) and its sqlfluff style.
 level: project
 detect:
-  files_any: [flyway.conf, flyway.toml, conf/flyway.conf, supabase/config.toml, sqitch.plan, atlas.hcl, "db/migrations/*.sql"]
+  files_any: [flyway.conf, flyway.toml, conf/flyway.conf, supabase/config.toml, sqitch.plan, atlas.hcl, "db/migrations/*.sql", .sqlfluff]
+  content_any:
+    - {files: [pyproject.toml], pattern: "^\\[tool\\.sqlfluff(\\]|\\.)"}
+    - {files: [setup.cfg, tox.ini], pattern: "^\\[sqlfluff(\\]|:)"}

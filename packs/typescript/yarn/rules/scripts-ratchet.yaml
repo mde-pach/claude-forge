@@ -1,0 +1,16 @@
+id: typescript/yarn/scripts-ratchet
+description: "Install scripts stay a decision of the user: .yarnrc.yml enableScripts is not turned on (Yarn 4 defaults it to false), and no package.json dependenciesMeta entry gains built: true."
+scope: {language: any}
+enforce:
+  - {target: check, stage: lint, run: "forge_helper bun pm_policy.mjs yarn-scripts || forge_accept_hint", when_changed: [.yarnrc.yml, "**/package.json"]}
+examples:
+  match:
+    - head: {.yarnrc.yml: "nodeLinker: node-modules\n"}
+      files: {.yarnrc.yml: "nodeLinker: node-modules\nenableScripts: true\n"}
+    - head: {package.json: "{\n  \"name\": \"shop\"\n}\n"}
+      files: {package.json: "{\n  \"name\": \"shop\",\n  \"dependenciesMeta\": {\n    \"sharp\": {\"built\": true}\n  }\n}\n"}
+  no_match:
+    - head: {.yarnrc.yml: "enableScripts: true\n"}
+      files: {.yarnrc.yml: "enableScripts: false\n"}
+    - head: {package.json: "{\n  \"name\": \"shop\"\n}\n"}
+      files: {package.json: "{\n  \"name\": \"shop\",\n  \"dependenciesMeta\": {\n    \"fsevents\": {\"optional\": true},\n    \"core-js\": {\"built\": false}\n  }\n}\n"}

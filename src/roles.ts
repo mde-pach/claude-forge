@@ -304,6 +304,10 @@ export const ROLES: Record<string, RoleDef> = {
     about: "the Better Auth config (the auth CLI's search paths)",
     defaults: ["{,src/,app/}{,lib/server/,server/auth/,server/,auth/,lib/,utils/}{auth,auth/index}{.ts,.tsx,.js,.jsx,.server.js,.server.ts}"],
   },
+  "build-artifacts": {
+    about: "dependency, cache and build output that is never committed (directories holding pyvenv.cfg or CACHEDIR.TAG count too)",
+    defaults: ["**/node_modules/**", "**/__pycache__/**", "**/*.pyc", "**/.next/**", "**/.nuxt/**", "**/.svelte-kit/**", "**/.turbo/**", "**/.coverage", "**/.DS_Store"],
+  },
   compose: { about: "Docker Compose files", defaults: ["**/compose*.yaml", "**/compose*.yml", "**/docker-compose*.yaml", "**/docker-compose*.yml"] },
   "django-migrations": { about: "Django migration modules", defaults: ["**/migrations/[0-9]*.py"] },
   "django-settings": { about: "Django settings modules", defaults: ["**/settings.py", "**/settings/*.py"], config: djangoSettings },

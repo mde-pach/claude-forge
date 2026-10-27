@@ -1,0 +1,19 @@
+id: github-actions/actionlint
+description: "Workflows pass actionlint (pinned, with a config of Forge's own: the project's paths ignore entries do not apply): expression type errors, unknown with: inputs of known actions, deprecated set-output / save-state / set-env commands, invalid cron, needs cycles, unknown runner labels (self-hosted labels come from .github/actionlint.yaml)."
+scope: {language: any, files: [".github/workflows/*.yml", ".github/workflows/*.yaml"]}
+enforce:
+  - target: check
+    stage: lint
+    run: forge_actionlint
+    when_changed: [".github/workflows/**", ".github/actionlint.yaml", ".github/actionlint.yml"]
+examples:
+  match:
+    - files: {.github/workflows/ci.yml: "name: ci\non: push\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          fetch-dept: 0\n"}
+    - files: {.github/workflows/ci.yml: "name: ci\non: push\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo \"::set-output name=version::1\"\n"}
+    - files: {.github/workflows/nightly.yml: "name: nightly\non:\n  schedule:\n    - cron: '0 25 * * *'\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo ok\n"}
+    - head: {.github/actionlint.yaml: "paths:\n  .github/workflows/**/*.yml:\n    ignore:\n      - .*\n"}
+      files: {.github/workflows/ci.yml: "name: ci\non: push\njobs:\n  test:\n    runs-on: ubuntu-latest\n    needs: [lint]\n    steps:\n      - run: echo ok\n"}
+  no_match:
+    - files: {.github/workflows/ci.yml: "name: ci\non: push\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          fetch-depth: 0\n      - run: echo \"version=1\" >> \"$GITHUB_OUTPUT\"\n"}
+    - head: {.github/actionlint.yaml: "self-hosted-runner:\n  labels:\n    - gpu-runner\n"}
+      files: {.github/workflows/ci.yml: "name: ci\non: push\njobs:\n  train:\n    runs-on: [self-hosted, gpu-runner]\n    steps:\n      - run: echo ok\n"}

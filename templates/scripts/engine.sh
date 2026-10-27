@@ -2,6 +2,12 @@
 # forge_check_meta_<n>, forge_scope_<n>, forge_when_<n>, forge_check_run_<n>,
 # forge_check_changed_<n>, plus tool() and first_lines() from lib.sh.
 
+# Forge's own files in the repository: .forge/ (check.sh, its helper scripts) and the
+# project plugin (.claude/skills/forge-project/: hooks, guard.rules). They are never part
+# of a change or of --all's scope: integrity (check.sh step 1) covers them, the project's
+# rules and tools do not.
+FORGE_OWN_ERE='^(\.forge|\.claude/skills/forge-project)/'
+
 # forge_change_set: the files a run is about, for $mode (--changed, --since,
 # --turn, --all; $FORGE_ARG is the ref or the snapshot directory). Writes to $FORGE_TMP:
 #   changed   changed paths, one per line   existing  those that exist now
@@ -36,9 +42,7 @@ forge_change_set() {
     --since)
       { git diff --name-only -z --no-renames "$FORGE_BASE_REV" 2>/dev/null; git ls-files -z --others --exclude-standard 2>/dev/null; } | tr '\000' '\n' | sort -u ;;
     *) status_paths | sort -u ;;
-  esac | grep -v '^\.forge/' > "$FORGE_TMP/changed"
-  # Forge's own files (.forge/: check.sh, its helper scripts) are not the project's code:
-  # integrity covers them (check.sh step 1), the project's rules do not
+  esac | grep -vE "$FORGE_OWN_ERE" > "$FORGE_TMP/changed"
   : > "$FORGE_TMP/existing"; : > "$FORGE_TMP/deleted"; : > "$FORGE_TMP/inbase"; : > "$FORGE_TMP/added"
   mkdir -p "$FORGE_TMP/base"
   # "<0|1><TAB><path>": 0 when the path is not in FORGE_BASE_REV's tree at all (one ls-tree
@@ -895,10 +899,14 @@ forge_version_ge() {
     exit 0 }'
 }
 
-# forge_bun_cooldown: bunfig.toml [install] minimumReleaseAge is at least 3 days (259200 s).
+# Forge's one release cooldown (3 days, in seconds): the minimum age of a version the
+# package managers' cooldown settings must ask for, and of a newly added package (new_deps).
+FORGE_COOLDOWN_SECONDS=259200
+
+# forge_bun_cooldown: bunfig.toml [install] minimumReleaseAge is at least FORGE_COOLDOWN_SECONDS.
 forge_bun_cooldown() {
   _bc_v=$(forge_toml_get bunfig.toml install minimumReleaseAge)
-  case $_bc_v in ''|*[!0-9]*) ;; *) [ "$_bc_v" -ge 259200 ] && return 0 ;; esac
+  case $_bc_v in ''|*[!0-9]*) ;; *) [ "$_bc_v" -ge "$FORGE_COOLDOWN_SECONDS" ] && return 0 ;; esac
   printf 'bunfig.toml: [install] minimumReleaseAge is %s; set it to at least 259200 (3 days, in seconds) so a freshly published (possibly compromised) version is not installed. Packages you must update sooner go in minimumReleaseAgeExcludes.\n' "${_bc_v:-unset}"
   return 1
 }
@@ -910,7 +918,7 @@ forge_uv_cooldown() {
   _uc_rc=0
   _uc_v=$(forge_toml_get "$_uc_f" "$_uc_s" exclude-newer)
   _uc_n=$(forge_duration_seconds "$_uc_v")
-  if [ -z "$_uc_n" ] || [ "$_uc_n" -lt 259200 ]; then
+  if [ -z "$_uc_n" ] || [ "$_uc_n" -lt "$FORGE_COOLDOWN_SECONDS" ]; then
     printf '%s: [%s] exclude-newer is %s; set a relative duration of at least 3 days, e.g. exclude-newer = "7 days", so a freshly published (possibly compromised) version is not resolved.\n' "$_uc_f" "${_uc_s:-top level}" "${_uc_v:-unset}"
     _uc_rc=1
   fi
@@ -940,6 +948,43 @@ forge_trusted_deps() {
     fi
   done < "$FORGE_TMP/existing"
   return "$_td_rc"
+}
+
+# ---- package manager policies (typescript/npm, typescript/pnpm, typescript/yarn): the
+# config checks are modes of .forge/helpers/pm_policy.mjs (forge_helper bun pm_policy.mjs <mode>).
+
+# forge_accept_hint: after a ratchet-style forge_helper run that found something (run as
+# "forge_helper … || forge_accept_hint"), says how the user accepts a change; fails.
+forge_accept_hint() {
+  printf 'Restore it, or have the user accept the change in forge.yaml: accept: [{rule: %s, change: "<line above>", reason: "..."}]\n' "$c_id"
+  return 1
+}
+
+FORGE_LOCKFILE_LINT_VERSION="@@LOCKFILE_LINT_VERSION@@"
+
+# forge_lockfile_lint: the pinned lockfile-lint (through bunx) on each in-scope package-lock.json
+# (forge_scope_files): every package resolves from registry.npmjs.org, over https, with a
+# sha512 integrity. "path:0 <package>: <problem> (expected …, actual …)" per finding; when it
+# cannot run (offline, no bunx), the check is reported skipped.
+forge_lockfile_lint() {
+  _ll_rc=0
+  forge_scope_files > "$FORGE_TMP/ll.files"
+  while IFS= read -r _ll_f; do
+    case $_ll_f in package-lock.json|*/package-lock.json) ;; *) continue ;; esac
+    [ -f "$_ll_f" ] || continue
+    command -v bunx >/dev/null 2>&1 || { printf 'forge:%s skipped: bunx is needed to run lockfile-lint\n' "$c_id"; return 0; }
+    bunx "lockfile-lint@$FORGE_LOCKFILE_LINT_VERSION" --type npm --path "$_ll_f" --allowed-hosts npm --validate-https --validate-integrity > "$FORGE_TMP/ll.out" 2>&1 && continue
+    if ! grep -q '^detected ' "$FORGE_TMP/ll.out"; then
+      printf 'forge:%s skipped: lockfile-lint could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/ll.out" | sed 's/\x1b\[[0-9;]*m//g' | grep -v '^[[:space:]]*$' | tail -n 1)"
+      return 0
+    fi
+    awk -v f="$_ll_f" '
+      /^detected / { what = $0; sub(/^detected /, "", what); pkg = what; sub(/^.* for package: /, "", pkg); sub(/ for package: .*$/, "", what); if (match(pkg, /-[0-9a-f]+$/) && RLENGTH == 41) pkg = substr(pkg, 1, RSTART - 1); next }
+      /^[[:space:]]+expected: / { want = $0; sub(/^[[:space:]]+expected: /, "", want); next }
+      /^[[:space:]]+actual: / { got = $0; sub(/^[[:space:]]+actual: /, "", got); printf "%s:0 %s: %s (expected %s, actual %s)\n", f, pkg, what, want, got }' "$FORGE_TMP/ll.out"
+    _ll_rc=1
+  done < "$FORGE_TMP/ll.files"
+  return "$_ll_rc"
 }
 
 FORGE_JS_LOCKS='pnpm-lock.yaml package-lock.json npm-shrinkwrap.json yarn.lock bun.lock bun.lockb'
@@ -1039,16 +1084,15 @@ forge_lockfile_updated() {
 # ignore comments and ignore rules not honoured (disabling goes through forge.yaml).
 FORGE_ZIZMOR_VERSION="@@ZIZMOR_VERSION@@"
 
-# forge_zizmor <audit>...: zizmor on $FORGE_FILES (else every tracked workflow and
-# action); prints "path:line audit message" for the findings of the named audits.
+# forge_zizmor <audit>...: zizmor on the in-scope files (forge_scope_files: the change, or
+# every tracked file of the rule's scope: workflows, actions, dependabot.yml, a pre-commit
+# config, as the rule lists them); prints "path:line audit message" for the findings of the
+# named audits.
 forge_zizmor() {
-  if [ -n "$FORGE_FILES" ]; then set -f; set -- "$@" -- $FORGE_FILES; set +f
-  else
-    set -f
-    # shellcheck disable=SC2046
-    set -- "$@" -- $(git ls-files -- '.github/workflows/*.yml' '.github/workflows/*.yaml' '.github/actions/*action.yml' '.github/actions/*action.yaml' 'action.yml' 'action.yaml')
-    set +f
-  fi
+  set -f
+  # shellcheck disable=SC2046
+  set -- "$@" -- $(forge_scope_files)
+  set +f
   _fz_audits=''
   while [ "$1" != -- ]; do _fz_audits="$_fz_audits|$1"; shift; done
   shift
@@ -1078,10 +1122,9 @@ forge_zizmor() {
 FORGE_HADOLINT_VERSION="@@HADOLINT_VERSION@@"
 FORGE_HADOLINT_SHA256='@@HADOLINT_SHAS@@'
 
-# forge_dockerfiles: the files of $FORGE_FILES in file role @dockerfile (§15.4), else every tracked one.
+# forge_dockerfiles: the in-scope files (forge_scope_files) in file role @dockerfile (§15.4).
 forge_dockerfiles() {
-  if [ -n "$FORGE_FILES" ]; then printf '%s\n' "$FORGE_FILES"; else git ls-files 2>/dev/null; fi \
-    | while IFS= read -r _df_f; do forge_role @dockerfile "$_df_f" && printf '%s\n' "$_df_f"; done
+  forge_scope_files | while IFS= read -r _df_f; do forge_role @dockerfile "$_df_f" && printf '%s\n' "$_df_f"; done
   return 0
 }
 
@@ -1314,11 +1357,401 @@ forge_release() {
   return 1
 }
 
-# forge_scope_files: $FORGE_FILES, else (--all) every tracked file that exists, one per line.
+# forge_scope_files: $FORGE_FILES, else (--all, or a when_changed file changed and none of the
+# check's own) every tracked file that exists in the check's scope (forge_scope_<n> of the
+# check running, FORGE_CHECK_N), Forge's own files left out; one per line.
 forge_scope_files() {
-  if [ -n "$FORGE_FILES" ]; then printf '%s\n' "$FORGE_FILES"
-  else git ls-files 2>/dev/null | while IFS= read -r _sf_f; do [ -f "$_sf_f" ] && printf '%s\n' "$_sf_f"; done
+  if [ -n "$FORGE_FILES" ]; then printf '%s\n' "$FORGE_FILES"; return 0; fi
+  git ls-files 2>/dev/null | grep -vE "$FORGE_OWN_ERE" | while IFS= read -r _sf_f; do
+    [ -f "$_sf_f" ] || continue
+    [ -z "${FORGE_CHECK_N:-}" ] || "forge_scope_$FORGE_CHECK_N" "$_sf_f" || continue
+    printf '%s\n' "$_sf_f"
+  done
+}
+
+# forge_unaccepted: the lines of stdin that forge.yaml does not accept (an accept entry
+# holds the line exactly); when some remain, prints them and how to accept one, and fails.
+forge_unaccepted() {
+  while IFS= read -r _ua_l; do
+    [ -n "$_ua_l" ] || continue
+    [ -f forge.yaml ] && grep -qF -- "$_ua_l" forge.yaml && continue
+    printf '%s\n' "$_ua_l"
+  done > "$FORGE_TMP/unaccepted"
+  [ -s "$FORGE_TMP/unaccepted" ] || return 0
+  cat "$FORGE_TMP/unaccepted"
+  printf 'Restore it, or have the user accept the change in forge.yaml: accept: [{rule: %s, change: "<line above>", reason: "..."}]\n' "$c_id"
+  return 1
+}
+
+# ---- GitHub Actions: actionlint, removed jobs
+
+# forge_actionlint: the pinned actionlint (§13.5) on the in-scope workflows (forge_scope_files),
+# "path:line:column: kind: message" per error. Its shellcheck and pyflakes integrations are off
+# (results do not depend on what is installed), and it runs with a config of Forge's own that
+# copies only the declarative self-hosted-runner and config-variables blocks of the project's
+# .github/actionlint.y*ml: the project's paths: … ignore: entries do not apply.
+forge_actionlint() {
+  forge_scope_files > "$FORGE_TMP/al.files"
+  [ -s "$FORGE_TMP/al.files" ] || return 0
+  forge_release actionlint _al_bin || return 0
+  awk '
+    /^[^[:space:]#]/ { keep = ($0 ~ /^(self-hosted-runner|config-variables)[[:space:]]*:/) }
+    keep' .github/actionlint.yaml .github/actionlint.yml 2>/dev/null > "$FORGE_TMP/actionlint.yaml"
+  set -f
+  # shellcheck disable=SC2046
+  "$_al_bin" -config-file "$FORGE_TMP/actionlint.yaml" -shellcheck= -pyflakes= -no-color \
+    -format '{{range $err := .}}{{$err.Filepath}}:{{$err.Line}}:{{$err.Column}}: {{$err.Kind}}: {{$err.Message}}\n{{end}}' \
+    $(cat "$FORGE_TMP/al.files") > "$FORGE_TMP/al.out" 2>&1
+  _al_rc=$?
+  set +f
+  case $_al_rc in
+    0) return 0 ;;
+    1) cat "$FORGE_TMP/al.out"; return 1 ;;
+    *) printf 'forge:%s skipped: actionlint could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/al.out" | tail -n 1)"; return 0 ;;
+  esac
+}
+
+# forge_workflow_jobs <file>: "on" when the workflow runs on push or pull_request (on: as a
+# scalar, a list or a map), then the ids of its jobs (the keys under the top-level jobs:).
+forge_workflow_jobs() {
+  awk '
+    function trig(s) { if (s ~ /(^|[^A-Za-z_])(push|pull_request)([^A-Za-z_]|$)/) on = 1 }
+    { sub(/\r$/, "") }
+    /^[^[:space:]#]/ {
+      top = $0; sub(/[[:space:]]*:.*$/, "", top); gsub(/["\047]/, "", top)
+      sect = top; ind = ""
+      if (top == "on" || top == "true") { v = $0; sub(/^[^:]*:/, "", v); sub(/#.*$/, "", v); trig(v); sect = "on" }
+      next
+    }
+    /^[[:space:]]*(#|$)/ { next }
+    sect == "on" { l = $0; sub(/#.*$/, "", l); if (l ~ /^[[:space:]]+-/ ) trig(l); else { k = l; sub(/^[[:space:]]+/, "", k); sub(/[[:space:]]*:.*$/, "", k); gsub(/["\047]/, "", k); if (k == "push" || k == "pull_request") on = 1 } ; next }
+    sect == "jobs" {
+      match($0, /^[[:space:]]+/); w = RLENGTH
+      if (ind == "") ind = w
+      if (w == ind) { k = $0; sub(/^[[:space:]]+/, "", k); sub(/[[:space:]]*:.*$/, "", k); gsub(/["\047]/, "", k); jobs[++n] = k }
+    }
+    END { if (on) print "on"; for (i = 1; i <= n; i++) print jobs[i] }' "$1" 2>/dev/null
+}
+
+# forge_ci_jobs: for each workflow of the change that existed in the base and ran on push or
+# pull_request there, each job of the base that is gone now (the whole file deleted included):
+# "path:0 job <id> was removed …", unless forge.yaml accepts that line.
+forge_ci_jobs() {
+  while IFS= read -r _cj_f; do
+    case $_cj_f in .github/workflows/*.yml|.github/workflows/*.yaml) ;; *) continue ;; esac
+    [ -f "$FORGE_TMP/base/$_cj_f" ] || continue
+    forge_workflow_jobs "$FORGE_TMP/base/$_cj_f" > "$FORGE_TMP/jobs.then"
+    [ "$(head -n 1 "$FORGE_TMP/jobs.then")" = on ] || continue
+    if [ -f "$_cj_f" ]; then forge_workflow_jobs "$_cj_f" > "$FORGE_TMP/jobs.now"; else : > "$FORGE_TMP/jobs.now"; fi
+    sed 1d "$FORGE_TMP/jobs.then" | while IFS= read -r _cj_j; do
+      grep -qxF -- "$_cj_j" "$FORGE_TMP/jobs.now" && continue
+      printf '%s:0 job %s was removed from a workflow that runs on push or pull_request; restore it rather than switching a check off\n' "$_cj_f" "$_cj_j"
+    done
+  done < "$FORGE_TMP/changed" | forge_unaccepted
+}
+
+# ---- Dockerfiles: layer order
+
+# forge_docker_copy_order: in each stage of each in-scope Dockerfile (forge_dockerfiles), a RUN
+# that installs dependencies (npm ci / install, bun install, uv sync, pnpm install, yarn,
+# pip install -r) after a COPY or ADD of the whole build context (. or ./): every code change
+# then reinstalls them. "path:line …" at the RUN.
+forge_docker_copy_order() {
+  forge_dockerfiles > "$FORGE_TMP/dockerfiles"
+  while IFS= read -r _co_f; do
+    [ -f "$_co_f" ] || continue
+    forge_dockerfile_records "$_co_f" | awk -F '\t' -v f="$_co_f" '
+      {
+        instr = toupper($2); sub(/[[:space:]].*$/, "", instr)
+        args = $2; sub(/^[[:space:]]*[A-Za-z]+[[:space:]]*/, "", args)
+        if (instr == "FROM") { all = 0; next }
+        if (instr == "COPY" || instr == "ADD") {
+          while (args ~ /^--[^[:space:]]+[[:space:]]/) sub(/^--[^[:space:]]+[[:space:]]+/, "", args)
+          n = split(args, a, /[[:space:]]+/)
+          for (i = 1; i < n; i++) if (a[i] == "." || a[i] == "./") all = NR
+          next
+        }
+        if (instr != "RUN" || !all) next
+        while (args ~ /^--[^[:space:]]+[[:space:]]/) sub(/^--[^[:space:]]+[[:space:]]+/, "", args)
+        n = split(args, cmds, /&&|\|\||;/)
+        for (i = 1; i <= n; i++) {
+          c = cmds[i]; gsub(/[[:space:]]+/, " ", c); sub(/^ /, "", c); sub(/ $/, "", c)
+          while (c ~ /^([A-Za-z_][A-Za-z0-9_]*=[^ ]* |sudo )/) sub(/^[^ ]+ /, "", c)
+          if (c ~ /^(npm (ci|install|i)|bun (install|i)|uv sync|pnpm (install|i)|yarn( install)?|pip3? install( .*)? (-r|--requirement)|uv pip install( .*)? (-r|--requirement))( |$)/ && c !~ /^npm (install|i) .*(-g|--global)/) {
+            printf "%s:%s dependencies are installed after the whole build context is copied, so any code change reinstalls them; copy the manifest and lock file, install, then COPY . .\n", f, $1
+            bad = 1; break
+          }
+        }
+      }
+      END { exit bad }'
+  done < "$FORGE_TMP/dockerfiles"
+}
+
+# ---- Helm charts: version bump
+
+# forge_chart_ver: the top-level version of a Chart.yaml on stdin.
+forge_chart_ver() { sed -n 's/^version:[[:space:]]*//p' | head -n 1 | sed 's/[[:space:]]#.*$//' | tr -d "\"' \t\r"; }
+
+# forge_chart_version: in a chart-testing repository (ct.yaml or ct.yml at the root, its
+# check-version-increment not false), each chart under ct's chart-dirs (default charts) with a
+# changed file keeps the base's Chart.yaml version: "chart <dir> changed but …". A new chart is fine.
+forge_chart_version() {
+  for _cv_ct in ct.yaml ct.yml ''; do [ -z "$_cv_ct" ] || [ -f "$_cv_ct" ] && break; done
+  [ -n "$_cv_ct" ] || return 0
+  grep -qE '^check-version-increment:[[:space:]]*false' "$_cv_ct" && return 0
+  _cv_dirs=$(awk '
+    /^chart-dirs:/ { on = 1; v = $0; sub(/^chart-dirs:[[:space:]]*/, "", v); if (v ~ /^\[/) { gsub(/[][",\047]/, " ", v); n = split(v, a, /[[:space:]]+/); for (i = 1; i <= n; i++) if (a[i] != "") print a[i]; on = 0 }; next }
+    on && /^[[:space:]]+-/ { v = $0; sub(/^[[:space:]]+-[[:space:]]*/, "", v); gsub(/["\047]/, "", v); sub(/[[:space:]]+$/, "", v); sub(/\/$/, "", v); print v; next }
+    on && /^[^[:space:]#]/ { on = 0 }' "$_cv_ct")
+  [ -n "$_cv_dirs" ] || _cv_dirs=charts
+  while IFS= read -r _cv_f; do
+    _cv_d=$(dirname "$_cv_f")
+    while [ "$_cv_d" != . ] && [ ! -f "$_cv_d/Chart.yaml" ]; do _cv_d=$(dirname "$_cv_d"); done
+    [ -f "$_cv_d/Chart.yaml" ] && printf '%s\n' "$_cv_d"
+  done < "$FORGE_TMP/changed" | sort -u | while IFS= read -r _cv_c; do
+    _cv_in=''
+    for _cv_cd in $_cv_dirs; do case $_cv_c in "$_cv_cd"/*) _cv_in=1 ;; esac; done
+    [ -n "$_cv_in" ] && base_file "$_cv_c/Chart.yaml" "$FORGE_TMP/chart.base" || continue
+    _cv_now=$(forge_chart_ver < "$_cv_c/Chart.yaml")
+    _cv_was=$(forge_chart_ver < "$FORGE_TMP/chart.base")
+    [ -n "$_cv_was" ] && [ "$_cv_now" = "$_cv_was" ] || continue
+    printf 'chart %s changed but its Chart.yaml version is still %s; bump it (chart-testing checks it, and a published chart is otherwise not released)\n' "$_cv_c" "$_cv_now"
+  done | grep . && return 1
+  return 0
+}
+
+# ---- release tooling
+
+# forge_json_version <package.json>: its top-level "version" (the first one at depth 1).
+forge_json_version() {
+  awk '{ buf = buf $0 "\n" } END {
+    n = length(buf); d = 0; i = 1
+    while (i <= n) {
+      c = substr(buf, i, 1)
+      if (c == "\"") {
+        j = i + 1; s = ""
+        while (j <= n) { e = substr(buf, j, 1); if (e == "\\") { s = s substr(buf, j, 2); j += 2; continue } if (e == "\"") break; s = s e; j++ }
+        i = j + 1; k = i
+        while (k <= n && substr(buf, k, 1) ~ /[ \t\r\n]/) k++
+        if (d == 1 && substr(buf, k, 1) == ":" && s == "version") {
+          k++; while (k <= n && substr(buf, k, 1) ~ /[ \t\r\n]/) k++
+          if (substr(buf, k, 1) == "\"") { v = substr(buf, k + 1); sub(/".*$/, "", v); print v }
+          exit
+        }
+        continue
+      }
+      if (c == "{" || c == "[") d++; else if (c == "}" || c == "]") d--
+      i++
+    }
+  }' "$1" 2>/dev/null
+}
+
+# forge_manifest_version <file>: the package version a package.json or pyproject.toml ([project]) declares.
+forge_manifest_version() {
+  case $1 in
+    *package.json) forge_json_version "$1" ;;
+    *pyproject.toml) forge_toml_get "$1" project version ;;
+  esac
+}
+
+# forge_version_changed: each changed package.json / pyproject.toml present in the base whose
+# declared version differs from the base's: the release tooling sets versions.
+forge_version_changed() {
+  while IFS= read -r _vc_f; do
+    case $_vc_f in package.json|*/package.json|pyproject.toml|*/pyproject.toml) ;; *) continue ;; esac
+    case /$_vc_f in */node_modules/*) continue ;; esac
+    [ -f "$_vc_f" ] && [ -f "$FORGE_TMP/base/$_vc_f" ] || continue
+    _vc_was=$(forge_manifest_version "$FORGE_TMP/base/$_vc_f")
+    _vc_now=$(forge_manifest_version "$_vc_f")
+    [ "$_vc_was" != "$_vc_now" ] || continue
+    printf '%s: the version changed (%s -> %s); the release tooling sets versions, so revert it unless this change is the release itself\n' "$_vc_f" "${_vc_was:-none}" "${_vc_now:-none}"
+  done < "$FORGE_TMP/changed"
+}
+
+# forge_release_notes <@role>: Changesets (.changeset/config.json): a changed file of a
+# package whose package.json (the nearest one above it) is not "private": true, with no
+# .changeset/*.md added in the change. towncrier ([tool.towncrier] directory in towncrier.toml
+# or pyproject.toml): a changed .py file outside <@role> (tests) and that directory, with no
+# file added there.
+forge_release_notes() {
+  _rn_role=$1
+  awk -F '\t' '$2 == "*" { print $1 }' "$FORGE_TMP/added" | sort -u > "$FORGE_TMP/new.files"
+  if [ -f .changeset/config.json ]; then
+    if ! grep -E '^\.changeset/[^/]+\.md$' "$FORGE_TMP/new.files" | grep -qvxF .changeset/README.md; then
+      while IFS= read -r _rn_f; do
+        case $_rn_f in .changeset/*|*/node_modules/*|node_modules/*) continue ;; esac
+        _rn_d=$(dirname "$_rn_f")
+        while [ "$_rn_d" != . ] && [ ! -f "$_rn_d/package.json" ]; do _rn_d=$(dirname "$_rn_d"); done
+        [ -f "$_rn_d/package.json" ] || continue
+        grep -qE '"private"[[:space:]]*:[[:space:]]*true' "$_rn_d/package.json" && continue
+        printf '%s\n' "$_rn_d"
+      done < "$FORGE_TMP/changed" | sort -u > "$FORGE_TMP/rn.pkgs"
+      if [ -s "$FORGE_TMP/rn.pkgs" ]; then
+        printf 'The change touches published packages (%s) and adds no changeset; add one (.changeset/<name>.md, e.g. bunx changeset) describing it, or say why it needs no release note\n' "$(awk 'NR > 1 { printf ", " } { printf "%s", $0 }' "$FORGE_TMP/rn.pkgs")"
+      fi
+    fi
   fi
+  _rn_dir=''
+  [ -f towncrier.toml ] && _rn_dir=$(forge_toml_get towncrier.toml tool.towncrier directory)
+  [ -z "$_rn_dir" ] && [ -f pyproject.toml ] && _rn_dir=$(forge_toml_get pyproject.toml tool.towncrier directory)
+  if [ -n "$_rn_dir" ]; then
+    _rn_dir=${_rn_dir%/}; _rn_dir=${_rn_dir#./}
+    grep -q "^$_rn_dir/" "$FORGE_TMP/new.files" && return 0
+    while IFS= read -r _rn_f; do
+      case $_rn_f in "$_rn_dir"/*) continue ;; *.py) ;; *) continue ;; esac
+      [ -f "$_rn_f" ] && ! forge_role "$_rn_role" "$_rn_f" && { printf '%s\n' "$_rn_f"; break; }
+    done < "$FORGE_TMP/changed" > "$FORGE_TMP/rn.src"
+    [ -s "$FORGE_TMP/rn.src" ] && printf 'The change touches source code (%s) and adds no news fragment; add one in %s/ (towncrier create), or say why it needs no release note\n' "$(cat "$FORGE_TMP/rn.src")" "$_rn_dir"
+  fi
+  return 0
+}
+
+# ---- SQL style: sqlfluff
+
+# forge_sqlfluff [file...]: when the project configures sqlfluff (.sqlfluff, [tool.sqlfluff] in
+# pyproject.toml, [sqlfluff] in setup.cfg or tox.ini; the dialect lives there), the project's
+# sqlfluff lint on the given .sql files (all of the project's with none); "path:line:column:
+# CODE: message" per violation. Not configured: nothing to check.
+forge_sqlfluff() {
+  [ -f .sqlfluff ] || grep -qE '^\[tool\.sqlfluff(\]|\.)' pyproject.toml 2>/dev/null || grep -qE '^\[sqlfluff(\]|:)' setup.cfg tox.ini 2>/dev/null || return 0
+  _sf_cmd=$(tool sqlfluff)
+  [ -n "$_sf_cmd" ] || { printf 'forge:%s skipped: sqlfluff not installed\n' "$c_id"; return 0; }
+  for _sf_f in "$@"; do shift; case $_sf_f in *.sql) [ -f "$_sf_f" ] && set -- "$@" "$_sf_f" ;; esac; done
+  [ "$#" -gt 0 ] || [ "$mode" = --all ] || return 0
+  [ "$#" -gt 0 ] || set -- .
+  set -f
+  # shellcheck disable=SC2086
+  $_sf_cmd lint --format github-annotation-native --nocolor "$@" > "$FORGE_TMP/sqlfluff" 2>&1
+  _sf_rc=$?
+  set +f
+  case $_sf_rc in 0) return 0 ;; 1) ;; *) printf 'forge:%s skipped: sqlfluff could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/sqlfluff" | tail -n 1)"; return 0 ;; esac
+  awk '/^::(error|warning|notice) / {
+      meta = $0; sub(/^::[a-z]+ /, "", meta); msg = meta; sub(/^[^:]*::/, "", msg); sub(/::.*$/, "", meta)
+      f = meta; sub(/^.*file=/, "", f); sub(/,.*$/, "", f); sub(/^\.\//, "", f)
+      l = meta; sub(/^.*line=/, "", l); sub(/,.*$/, "", l)
+      c = meta; if (c ~ /col=/) { sub(/^.*col=/, "", c); sub(/,.*$/, "", c) } else c = 1
+      print f ":" l ":" c ": " msg; bad = 1 }
+    END { exit !bad }' "$FORGE_TMP/sqlfluff" || { printf 'forge:%s failed\n' "$c_id"; cat "$FORGE_TMP/sqlfluff"; }
+  return 1
+}
+
+# ---- OpenAPI: lint and config ratchet
+
+FORGE_REDOCLY_VERSION="@@REDOCLY_VERSION@@"
+FORGE_SPECTRAL_VERSION="@@SPECTRAL_VERSION@@"
+
+# forge_openapi_lint: when a YAML or JSON file changed (or with --all), each OpenAPI document
+# of the repository (forge_openapi_spec) linted by the project's declared linter: the pinned
+# Redocly CLI with redocly.yaml, the pinned Spectral CLI with .spectral.y*ml / .json (both when
+# both are configured), else Redocly's recommended rules; through bunx. "path:line:column:
+# error rule: message" per error.
+forge_openapi_lint() {
+  git ls-files --cached --others --exclude-standard -- '*.yaml' '*.yml' '*.json' 2>/dev/null | grep -vE "$FORGE_OWN_ERE" | forge_filter forge_openapi_spec > "$FORGE_TMP/oal.roots"
+  [ -s "$FORGE_TMP/oal.roots" ] || return 0
+  command -v bunx >/dev/null 2>&1 || { printf 'forge:%s skipped: bunx is needed to run the OpenAPI linter\n' "$c_id"; return 0; }
+  _ol_rc=0; _ol_any=''
+  _ol_spectral=''
+  for _ol_s in .spectral.yaml .spectral.yml .spectral.json; do [ -f "$_ol_s" ] && _ol_spectral=$_ol_s && break; done
+  if [ -f redocly.yaml ] || [ -z "$_ol_spectral" ]; then
+    _ol_any=1
+    set -f
+    # shellcheck disable=SC2046
+    bunx "@redocly/cli@$FORGE_REDOCLY_VERSION" lint --format=github-actions $(cat "$FORGE_TMP/oal.roots") > "$FORGE_TMP/oal.out" 2> "$FORGE_TMP/oal.err"
+    _ol_r=$?
+    set +f
+    if [ "$_ol_r" -gt 1 ] || { [ "$_ol_r" = 1 ] && ! grep -q '^::error ' "$FORGE_TMP/oal.out"; }; then
+      printf 'forge:%s skipped: redocly could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/oal.err" | tail -n 1)"
+    else
+      awk '/^::error / {
+          meta = $0; sub(/^::error /, "", meta); msg = meta; sub(/^[^:]*::/, "", msg); sub(/::.*$/, "", meta)
+          sub(/%0A.*$/, "", msg)
+          t = meta; sub(/^.*title=/, "", t); sub(/,.*$/, "", t)
+          f = meta; sub(/^.*file=/, "", f); sub(/,.*$/, "", f)
+          l = meta; sub(/^.*line=/, "", l); sub(/,.*$/, "", l)
+          c = meta; sub(/^.*col=/, "", c); sub(/,.*$/, "", c)
+          print f ":" l ":" c ": error " t ": " msg; bad = 1 }
+        END { exit bad }' "$FORGE_TMP/oal.out" || _ol_rc=1
+    fi
+  fi
+  if [ -n "$_ol_spectral" ]; then
+    set -f
+    # shellcheck disable=SC2046
+    bunx "@stoplight/spectral-cli@$FORGE_SPECTRAL_VERSION" lint --ruleset "$_ol_spectral" --format text --fail-severity error $(cat "$FORGE_TMP/oal.roots") > "$FORGE_TMP/oal.out" 2>&1
+    _ol_r=$?
+    set +f
+    if ! grep -qE '^[^[:space:]]+:[0-9]+:[0-9]+ (error|warning|information|hint) ' "$FORGE_TMP/oal.out" && [ "$_ol_r" != 0 ]; then
+      printf 'forge:%s skipped: spectral could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/oal.out" | tail -n 1)"
+    else
+      awk '$2 == "error" && $1 ~ /:[0-9]+:[0-9]+$/ { r = $3; f = $1; m = $0; sub(/^[^ ]+ [^ ]+ [^ ]+ /, "", m); print f ": error " r ": " m; bad = 1 } END { exit bad }' "$FORGE_TMP/oal.out" || _ol_rc=1
+    fi
+  fi
+  return "$_ol_rc"
+}
+
+# forge_yaml_rules <file>: "rule<TAB>level" for each entry of the top-level rules: map of a
+# Redocly or Spectral YAML config (a scalar level, or the severity: of an object), then
+# "extends<TAB><entry>" for each extends entry and "overrides<TAB><n>" for each overrides item.
+forge_yaml_rules() {
+  awk '
+    function val(s) { sub(/^[^:]*:[[:space:]]*/, "", s); sub(/[[:space:]]+#.*$/, "", s); gsub(/["\047]/, "", s); sub(/[[:space:]]+$/, "", s); return s }
+    function key(s) { sub(/^[[:space:]]+/, "", s); sub(/^-[[:space:]]*/, "", s); sub(/[[:space:]]*:.*$/, "", s); gsub(/["\047]/, "", s); return s }
+    { sub(/\r$/, "") }
+    /^[[:space:]]*(#|$)/ { next }
+    /^[^[:space:]]/ {
+      sect = key($0); ind = ""
+      if (sect == "extends") { v = val($0); if (v ~ /^\[/) { gsub(/[][]/, "", v); n = split(v, a, /[[:space:]]*,[[:space:]]*/); for (i = 1; i <= n; i++) if (a[i] != "") print "extends\t" a[i] } else if (v != "") print "extends\t" v }
+      next
+    }
+    {
+      match($0, /^[[:space:]]+/); w = RLENGTH
+      if (ind == "") ind = w
+    }
+    sect == "extends" && w == ind { v = $0; sub(/^[[:space:]]+-[[:space:]]*/, "", v); sub(/^\[/, "", v); gsub(/["\047\]]/, "", v); sub(/,.*$/, "", v); if (v != "") print "extends\t" v; next }
+    sect == "overrides" && w == ind && $0 ~ /^[[:space:]]+-/ { print "overrides\t" ++no; next }
+    sect == "rules" && w == ind { r = key($0); v = val($0); if (v != "") print r "\t" v; else pend = r; next }
+    sect == "rules" && w > ind && pend != "" && key($0) == "severity" { print pend "\t" val($0); pend = ""; next }
+  ' "$1" 2>/dev/null
+}
+
+# forge_lint_level <level>: a Redocly / Spectral level as a number (higher is stricter).
+forge_lint_level() {
+  case $1 in error|0) echo 4 ;; warn|warning|1) echo 3 ;; info|information|2) echo 2 ;; hint|3) echo 1 ;; off|false|-1) echo 0 ;; true|on) echo 4 ;; *) echo '' ;; esac
+}
+
+# forge_openapi_ratchet: for each changed redocly.yaml / .redocly.yaml / .spectral.y*ml present
+# in the base, a rule lowered (error > warn > info|hint > off) or removed, an extends entry
+# removed, an overrides item added; for a changed .redocly.lint-ignore.yaml, entries added.
+# One "path: …" line each, unless forge.yaml accepts it.
+forge_openapi_ratchet() {
+  while IFS= read -r _or_f; do
+    case $_or_f in redocly.yaml|.redocly.yaml|.spectral.yaml|.spectral.yml|.redocly.lint-ignore.yaml) ;; *) continue ;; esac
+    [ -f "$FORGE_TMP/base/$_or_f" ] || continue
+    if [ "$_or_f" = .redocly.lint-ignore.yaml ]; then
+      _or_was=$(grep -cE '^[[:space:]]*-' "$FORGE_TMP/base/$_or_f"); _or_now=$(grep -cE '^[[:space:]]*-' "$_or_f" 2>/dev/null || echo 0)
+      [ "${_or_now:-0}" -gt "$_or_was" ] && printf '%s: ignored problems %s -> %s\n' "$_or_f" "$_or_was" "$_or_now"
+      continue
+    fi
+    forge_yaml_rules "$FORGE_TMP/base/$_or_f" > "$FORGE_TMP/or.then"
+    if [ -f "$_or_f" ]; then forge_yaml_rules "$_or_f" > "$FORGE_TMP/or.now"; else : > "$FORGE_TMP/or.now"; fi
+    while IFS='	' read -r _or_k _or_v; do
+      case $_or_k in
+        extends) grep -qxF "extends	$_or_v" "$FORGE_TMP/or.now" || printf '%s: extends no longer has %s\n' "$_or_f" "$_or_v" ;;
+        overrides) ;;
+        *)
+          _or_n=$(awk -F '\t' -v k="$_or_k" '$1 == k { print $2; exit }' "$FORGE_TMP/or.now")
+          if [ -z "$_or_n" ]; then printf '%s: rule %s no longer set (was %s)\n' "$_or_f" "$_or_k" "$_or_v"
+          else
+            _or_a=$(forge_lint_level "$_or_v"); _or_b=$(forge_lint_level "$_or_n")
+            [ -n "$_or_a" ] && [ -n "$_or_b" ] && [ "$_or_b" -lt "$_or_a" ] && printf '%s: rule %s %s -> %s\n' "$_or_f" "$_or_k" "$_or_v" "$_or_n"
+          fi ;;
+      esac
+    done < "$FORGE_TMP/or.then"
+    awk -F '\t' -v f="$_or_f" 'FILENAME == ARGV[1] { if ($1 != "extends" && $1 != "overrides" && !($1 in seen)) { seen[$1] = 1 } if ($1 == "overrides") o++; next }
+      $1 == "overrides" { n++ }
+      $1 != "extends" && $1 != "overrides" && !($1 in seen) && ($2 == "off" || $2 == "false" || $2 == "-1") { print f ": rule " $1 " turned off" }
+      END { if (n > o) print f ": overrides gains " (n - o) " entr" (n - o == 1 ? "y" : "ies") }' "$FORGE_TMP/or.then" "$FORGE_TMP/or.now"
+    true
+  done < "$FORGE_TMP/changed" | forge_unaccepted
 }
 
 # ---- secrets (secrets/*)
@@ -1392,6 +1825,35 @@ forge_credential_files() {
   return "$_cf_rc"
 }
 
+# forge_env_files: "path:0 …" for each tracked or added dotenv file (file role @env-files:
+# .env, .env.*, not the templates of @env-template); then, when a template or a .gitignore is
+# part of the change (or with --all), each template's directory whose .env git would not ignore.
+forge_env_files() {
+  _ef_rc=0
+  { git ls-files 2>/dev/null; cat "$FORGE_TMP/existing"; } | sort -u > "$FORGE_TMP/env.files"
+  while IFS= read -r _ef_f; do
+    [ -f "$_ef_f" ] && forge_role @env-files "$_ef_f" || continue
+    printf '%s:0 is a dotenv file; keep it out of the repository (git rm --cached, .gitignore) and commit a template (.env.example) instead\n' "$_ef_f"
+    _ef_rc=1
+  done < "$FORGE_TMP/env.files"
+  if [ "$mode" != --all ]; then
+    _ef_any=''
+    while IFS= read -r _ef_f; do
+      case $_ef_f in .gitignore|*/.gitignore) _ef_any=1 ;; *) forge_role @env-template "$_ef_f" && _ef_any=1 ;; esac
+    done < "$FORGE_TMP/changed"
+    [ -n "$_ef_any" ] || return "$_ef_rc"
+  fi
+  while IFS= read -r _ef_f; do
+    [ -f "$_ef_f" ] && forge_role @env-template "$_ef_f" || continue
+    _ef_d=$(dirname "$_ef_f")
+    case $_ef_d in .) _ef_env=.env ;; *) _ef_env=$_ef_d/.env ;; esac
+    git check-ignore -q --no-index -- "$_ef_env" 2>/dev/null && continue
+    printf '%s is not git-ignored next to its template %s; add .env to .gitignore\n' "$_ef_env" "$_ef_f"
+    _ef_rc=1
+  done < "$FORGE_TMP/env.files"
+  return "$_ef_rc"
+}
+
 # ---- git hygiene (git/*)
 
 # forge_large_files <bytes>: each in-scope file (forge_scope_files) larger than <bytes> that is
@@ -1410,6 +1872,33 @@ forge_large_files() {
     _lg_rc=1
   done < "$FORGE_TMP/large.files"
   return "$_lg_rc"
+}
+
+# forge_artifacts <@role>: each file of the change in the role (dependency, cache and build
+# output: node_modules/, __pycache__/, *.pyc, .next/, … by Forge's defaults) or under a
+# directory holding a tool's own marker (pyvenv.cfg: a virtualenv; CACHEDIR.TAG: a cache,
+# per the Cache Directory Tagging spec), reported once per shallowest such directory
+# ("<dir>/ is not ignored …"; a file the role names alone: "<file> is not ignored …"). The
+# change already leaves out ignored files.
+forge_artifacts() {
+  _ba_role=$1
+  while IFS= read -r _ba_f; do
+    [ -n "$_ba_f" ] || continue
+    _ba_d=''; _ba_rest=$_ba_f; _ba_hit=''
+    while :; do
+      case $_ba_rest in */*) ;; *) break ;; esac
+      _ba_d=${_ba_d:+$_ba_d/}${_ba_rest%%/*}
+      _ba_rest=${_ba_rest#*/}
+      if [ -f "$_ba_d/pyvenv.cfg" ] || [ -f "$_ba_d/CACHEDIR.TAG" ] || forge_role "$_ba_role" "$_ba_d/"; then _ba_hit=$_ba_d/; break; fi
+    done
+    [ -n "$_ba_hit" ] || ! forge_role "$_ba_role" "$_ba_f" || _ba_hit=$_ba_f
+    [ -z "$_ba_hit" ] || printf '%s\n' "$_ba_hit"
+  done < "$FORGE_TMP/existing" | sort -u > "$FORGE_TMP/artifacts"
+  [ -s "$FORGE_TMP/artifacts" ] || return 0
+  while IFS= read -r _ba_p; do
+    printf '%s is not ignored: it is dependency, cache or build output; add it to .gitignore (and git rm -r --cached it if it was committed)\n' "$_ba_p"
+  done < "$FORGE_TMP/artifacts"
+  return 1
 }
 
 # forge_generated_edits: each changed in-scope file ($FORGE_FILES) marked generated:
@@ -1964,16 +2453,31 @@ forge_local_db() {
 FORGE_SQUAWK_VERSION="@@SQUAWK_VERSION@@"
 FORGE_SQUAWK_BLOCKING='renaming-column|renaming-table|changing-column-type|adding-required-field|adding-not-nullable-field|ban-drop-database'
 
-# forge_squawk <args>: the pinned Squawk through bunx or uvx; gcc-style output in
-# $FORGE_TMP/squawk. Exit status 0 when Squawk ran (with or without findings).
+# forge_squawk [--stdin-filepath <path>] [file...]: the pinned Squawk through bunx or uvx,
+# on the files (or stdin, reported as <path>); gcc-style output in $FORGE_TMP/squawk. Exit
+# status 0 when Squawk ran (with or without findings). The project cannot silence it: Squawk
+# runs with Forge's own config (an empty .squawk.toml: the project's excluded_rules and
+# excluded_paths do not apply) on copies of the SQL whose "squawk-ignore" comments are
+# rewritten into plain comments (same lines and columns), from the copies' directory so the
+# reported paths are the repository's.
 # "bunx squawk-cli@<v>" runs the package's one binary from bunx's cache; with
 # "-p squawk-cli@<v> squawk" bunx installs the package again at every run, and
 # runs at the same time then kill each other's install.
 forge_squawk() {
+  _sq_src=$FORGE_TMP/squawk.src
+  rm -rf "$_sq_src"; mkdir -p "$_sq_src" || return 2
+  : > "$FORGE_TMP/squawk.toml"
+  if [ "${1:-}" = --stdin-filepath ]; then
+    forge_squawk_unignore > "$_sq_src/.stdin"
+  else
+    for _sq_f in "$@"; do
+      mkdir -p "$_sq_src/$(dirname "$_sq_f")" && forge_squawk_unignore < "$_sq_f" > "$_sq_src/$_sq_f" || return 2
+    done
+  fi
   if command -v bunx >/dev/null 2>&1; then
-    bunx "squawk-cli@$FORGE_SQUAWK_VERSION" --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
+    ( cd "$_sq_src" && if [ -f .stdin ]; then bunx "squawk-cli@$FORGE_SQUAWK_VERSION" --reporter gcc -c "$FORGE_TMP/squawk.toml" "$@" < .stdin; else bunx "squawk-cli@$FORGE_SQUAWK_VERSION" --reporter gcc -c "$FORGE_TMP/squawk.toml" "$@"; fi ) > "$FORGE_TMP/squawk" 2>&1
   elif command -v uvx >/dev/null 2>&1; then
-    uvx -q --from "squawk-cli==$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
+    ( cd "$_sq_src" && if [ -f .stdin ]; then uvx -q --from "squawk-cli==$FORGE_SQUAWK_VERSION" squawk --reporter gcc -c "$FORGE_TMP/squawk.toml" "$@" < .stdin; else uvx -q --from "squawk-cli==$FORGE_SQUAWK_VERSION" squawk --reporter gcc -c "$FORGE_TMP/squawk.toml" "$@"; fi ) > "$FORGE_TMP/squawk" 2>&1
   else
     printf 'bunx or uvx is needed\n' > "$FORGE_TMP/squawk"
     return 2
@@ -1982,6 +2486,10 @@ forge_squawk() {
   # Squawk exits 1 whenever it warns, which is almost always
   [ "$_sq_rc" -eq 0 ] || grep -qE ':[0-9]+:[0-9]+: (warning|error): ' "$FORGE_TMP/squawk"
 }
+
+# forge_squawk_unignore: stdin with Squawk's ignore directives (squawk-ignore,
+# squawk-ignore-file) turned into plain comments of the same length.
+forge_squawk_unignore() { sed 's/squawk-ignore/squawk-IGNORE/g'; }
 
 # forge_squawk_blocking: prints the blocking findings of the last forge_squawk run
 # (Squawk counts lines and columns from 0; printed from 1); fails if any.
@@ -2003,6 +2511,48 @@ forge_squawk_files() {
   [ "$#" -gt 0 ] || return 0
   forge_squawk "$@" || { forge_squawk_skipped; return 0; }
   forge_squawk_blocking
+}
+
+# forge_sql_postgres <file>: succeeds when the plain-SQL migration tool that owns <file> targets
+# Postgres (Squawk lints Postgres only), from literal config only: Supabase always; Flyway
+# (flyway.conf / conf/flyway.conf flyway.url, flyway.toml url) jdbc:postgresql:; sqitch
+# (sqitch.plan) sqitch.conf engine = pg; Atlas (atlas.hcl) a url or dev of postgres(ql)://
+# or docker://postgres; dbmate (none of these) the DATABASE_URL scheme (forge_db_url).
+forge_sql_postgres() {
+  case $1 in supabase/migrations/*) return 0 ;; esac
+  if [ -f flyway.conf ] || [ -f conf/flyway.conf ] || [ -f flyway.toml ]; then
+    cat flyway.conf conf/flyway.conf 2>/dev/null | grep -qE '^[[:space:]]*flyway\.url[[:space:]]*=[[:space:]]*jdbc:postgresql:' && return 0
+    [ -f flyway.toml ] && grep -qE "^[[:space:]]*url[[:space:]]*=[[:space:]]*[\"']jdbc:postgresql:" flyway.toml && return 0
+    return 1
+  fi
+  if [ -f sqitch.plan ]; then
+    [ -f sqitch.conf ] && grep -qE '^[[:space:]]*engine[[:space:]]*=[[:space:]]*pg[[:space:]]*$' sqitch.conf
+    return
+  fi
+  if [ -f atlas.hcl ]; then
+    grep -qE '^[[:space:]]*(url|dev)[[:space:]]*=[[:space:]]*"(postgres(ql)?://|docker://postgres)' atlas.hcl
+    return
+  fi
+  case $(forge_db_url) in postgres://*|postgresql://*) return 0 ;; esac
+  return 1
+}
+
+# forge_squawk_role <@role> [file...]: Squawk (forge_squawk_files) on the files of the role among
+# the given ones that target Postgres (forge_sql_postgres); with none given (--all), on the
+# role's newest file by name, so an accepted change does not fail every later run.
+forge_squawk_role() {
+  _sr_role=$1; shift
+  if [ "$#" -eq 0 ]; then
+    set -f
+    # shellcheck disable=SC2046
+    set -- $(forge_role_files "$_sr_role" | sort | tail -n 1)
+    set +f
+  fi
+  for _sr_f in "$@"; do
+    shift
+    [ -f "$_sr_f" ] && forge_role "$_sr_role" "$_sr_f" && forge_sql_postgres "$_sr_f" && set -- "$@" "$_sr_f"
+  done
+  forge_squawk_files "$@"
 }
 
 # forge_alembic_files: Alembic revision ids on stdin (as printed by `alembic heads`)
@@ -3005,7 +3555,7 @@ forge_diagnostics() {
       else if (index(p, r2 "/") == 1) p = substr(p, length(r2) + 2)
       sub(/^\.\//, "", p)
       named = 1
-      if (p !~ /^\.forge\//) project = 1
+      if (p !~ /^\.forge\// && p !~ /^\.claude\/skills\/forge-project\//) project = 1
       if (level == "line") counts = (p in whole) || (ln == "" || ln == 0 ? (p in ch) : ((p "\t" ln) in ad))
       else counts = (p in ch)
       if (counts) { hit = 1; if (mode == "print") print $0 }
@@ -3029,6 +3579,7 @@ forge_attribute_level() {
 # --since and --all run the whole-project form (read-only, as CI should).
 forge_run_check() {
   forge_check_meta_"$1"
+  FORGE_CHECK_N=$1
   FORGE_FILES=''
   if [ "$mode" != --all ]; then
     if [ "$c_when" = 1 ]; then
@@ -3070,10 +3621,10 @@ forge_run_check() {
   fi
   # outside --all, only errors in the change count (§10.1 step 5)
   _fc_level=$(forge_attribute_level "$c_stage" "$_fc_whole")
-  # findings only in Forge's own helper scripts (.forge/helpers/, checked by integrity)
-  # are not the project's, in every mode
+  # findings only in Forge's own files (.forge/, .claude/skills/forge-project/, checked by
+  # integrity) are not the project's, in every mode
   if [ -n "$_fc_level" ] && [ "$(forge_diagnostics "$FORGE_TMP/out" "$_fc_level")" = forge ]; then
-    printf 'forge:%s ok (its findings are only in Forge'"'"'s own .forge/ files)\n' "$c_id"
+    printf 'forge:%s ok (its findings are only in Forge'"'"'s own files)\n' "$c_id"
     return 0
   fi
   if [ "$mode" != --all ] && [ -n "$_fc_level" ]; then
@@ -3427,7 +3978,10 @@ forge_run_stage() {
         3) cat "$FORGE_TMP/check.out"; [ "$_fs_rc" -ne 0 ] || _fs_rc=3 ;;
         *)
           # advice goes after every real failure (check.sh prints it last)
-          if [ -f "$(forge_advised_mark)" ]; then cat "$FORGE_TMP/check.out" >> "$FORGE_TMP/advice.out"; advised=1
+          # (a helper's own skipped line stays a note: it is not advice)
+          if [ -f "$(forge_advised_mark)" ]; then
+            grep -F "forge:$c_id skipped: " "$FORGE_TMP/check.out"
+            grep -vF "forge:$c_id skipped: " "$FORGE_TMP/check.out" >> "$FORGE_TMP/advice.out"; advised=1
           else cat "$FORGE_TMP/check.out"; _fs_rc=1
           fi ;;
       esac

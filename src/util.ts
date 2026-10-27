@@ -10,6 +10,8 @@ export const CLAUDE_CODE_MIN = "2.1.295";
 export const AST_GREP_VERSION = "0.45.3";
 /** Squawk (Postgres migration linter), run through bunx or uvx by migration-lint checks. */
 export const SQUAWK_VERSION = "2.70.0";
+/** lockfile-lint (package-lock.json hosts, https and integrity), run through bunx by typescript/npm/lockfile-lint. */
+export const LOCKFILE_LINT_VERSION = "5.1.0";
 /**
  * The Python types engine (§15.2), pinned like the other Forge tools (the newest release
  * older than 14 days): ty's language server through uvx on this Python. TypeScript's
@@ -19,6 +21,9 @@ export const TY_VERSION = "0.0.86";
 export const ENGINE_PYTHON = "3.12";
 /** zizmor (GitHub Actions auditor), run through uvx by github-actions/zizmor. */
 export const ZIZMOR_VERSION = "1.30.1";
+/** Redocly CLI and Spectral CLI (OpenAPI linters), run through bunx by openapi/lint, the project's config choosing. */
+export const REDOCLY_VERSION = "2.62.1";
+export const SPECTRAL_VERSION = "6.17.0";
 /** hadolint, run through uvx from the hadolint-bin wheel, whose binary must match the upstream release. */
 export const HADOLINT_VERSION = "2.15.1";
 /**
@@ -48,6 +53,17 @@ export interface ReleaseBinary {
   assets: Record<string, [asset: string, sha256: string]>;
 }
 export const RELEASE_BINARIES: Record<string, ReleaseBinary> = {
+  "actionlint": {
+    version: "1.7.12",
+    base: "https://github.com/rhysd/actionlint/releases/download/v1.7.12/",
+    assets: {
+      "Linux-x86_64": ["actionlint_1.7.12_linux_amd64.tar.gz", "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"],
+      "Linux-aarch64": ["actionlint_1.7.12_linux_arm64.tar.gz", "325e971b6ba9bfa504672e29be93c24981eeb1c07576d730e9f7c8805afff0c6"],
+      "Linux-arm64": ["actionlint_1.7.12_linux_arm64.tar.gz", "325e971b6ba9bfa504672e29be93c24981eeb1c07576d730e9f7c8805afff0c6"],
+      "Darwin-arm64": ["actionlint_1.7.12_darwin_arm64.tar.gz", "aba9ced2dee8d27fecca3dc7feb1a7f9a52caefa1eb46f3271ea66b6e0e6953f"],
+      "Darwin-x86_64": ["actionlint_1.7.12_darwin_amd64.tar.gz", "5b44c3bc2255115c9b69e30efc0fecdf498fdb63c5d58e17084fd5f16324c644"],
+    },
+  },
   "gitleaks": {
     version: "8.30.1",
     base: "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/",

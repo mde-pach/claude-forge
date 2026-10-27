@@ -1,0 +1,11 @@
+id: typescript/npm/allow-scripts-command
+description: Claude asks before approving dependency install scripts (npm approve-scripts, npm install-scripts approve, --allow-scripts, --dangerously-allow-all-scripts); npm 12 blocks them by default, and a failed build is not a reason to run them.
+review: "Did the user ask to let these packages run their install scripts (approve them), rather than Claude working around a failed install?"
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: ask
+    pattern: '(^|[^A-Za-z0-9_-])npm[[:space:]]+(approve-scripts|install-scripts[[:space:]]+approve)[[:space:]]+([^-[:space:]]|--all([[:space:];&|)]|$)|--no-allow-scripts-pin)|--allow-scripts([[:space:]]*=|[[:space:]]+[^-])|--dangerously-allow-all-scripts'
+examples:
+  match: ["npm approve-scripts --all", "npm approve-scripts --no-allow-scripts-pin sharp", "npm install-scripts approve sharp", "npm install -g --allow-scripts=canvas,sharp canvas", "npm ci --dangerously-allow-all-scripts"]
+  no_match: ["npm approve-scripts --allow-scripts-pending", "npm install-scripts ls", "npm deny-scripts core-js", "npm install sharp"]

@@ -1,0 +1,20 @@
+id: release/changeset-present
+description: "Advice, once per turn at Stop: with Changesets, a change to a package whose package.json is not \"private\": true adds a .changeset/*.md; with towncrier ([tool.towncrier] directory), a change to Python code outside the tests (file role @python-tests) adds a news fragment there."
+scope: {language: any}
+enforce:
+  - {target: check, stage: lint, run: "forge_advise forge_release_notes @python-tests"}
+examples:
+  match:
+    - head: {.changeset/config.json: "{\"baseBranch\": \"main\"}\n", package.json: "{\"name\": \"root\", \"private\": true, \"workspaces\": [\"packages/*\"]}\n", packages/sdk/package.json: "{\"name\": \"@acme/sdk\", \"version\": \"1.4.0\"}\n", packages/sdk/src/index.ts: "export const a = 1;\n"}
+      files: {packages/sdk/src/index.ts: "export const a = 2;\n"}
+    - head: {pyproject.toml: "[project]\nname = \"acme\"\nversion = \"2.0.1\"\n\n[tool.towncrier]\ndirectory = \"changelog.d\"\n", src/acme/core.py: "def run() -> int:\n    return 1\n"}
+      files: {src/acme/core.py: "def run() -> int:\n    return 2\n"}
+  no_match:
+    - head: {.changeset/config.json: "{\"baseBranch\": \"main\"}\n", package.json: "{\"name\": \"root\", \"private\": true, \"workspaces\": [\"packages/*\"]}\n", packages/sdk/package.json: "{\"name\": \"@acme/sdk\", \"version\": \"1.4.0\"}\n", packages/sdk/src/index.ts: "export const a = 1;\n"}
+      files: {packages/sdk/src/index.ts: "export const a = 2;\n", .changeset/brave-dogs-sing.md: "---\n\"@acme/sdk\": patch\n---\n\nFix a.\n"}
+    - head: {.changeset/config.json: "{\"baseBranch\": \"main\"}\n", package.json: "{\"name\": \"root\", \"private\": true, \"workspaces\": [\"apps/*\"]}\n", apps/web/package.json: "{\"name\": \"web\", \"private\": true}\n", apps/web/page.ts: "export const a = 1;\n"}
+      files: {apps/web/page.ts: "export const a = 2;\n"}
+    - head: {pyproject.toml: "[project]\nname = \"acme\"\nversion = \"2.0.1\"\n\n[tool.towncrier]\ndirectory = \"changelog.d\"\n", tests/test_core.py: "def test_run() -> None:\n    assert True\n"}
+      files: {tests/test_core.py: "def test_run() -> None:\n    assert 1 == 1\n"}
+    - head: {pyproject.toml: "[project]\nname = \"acme\"\nversion = \"2.0.1\"\n\n[tool.towncrier]\ndirectory = \"changelog.d\"\n", src/acme/core.py: "def run() -> int:\n    return 1\n"}
+      files: {src/acme/core.py: "def run() -> int:\n    return 2\n", changelog.d/123.bugfix.md: "Fix run.\n"}

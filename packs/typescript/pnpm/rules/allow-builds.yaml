@@ -1,0 +1,24 @@
+id: typescript/pnpm/allow-builds
+description: "No new build approvals in pnpm-workspace.yaml: no allowBuilds entry set to true (pnpm 11) or onlyBuiltDependencies entry (pnpm 10) is added, dangerouslyAllowAllBuilds is not turned on, and strictDepBuilds and blockExoticSubdeps are not turned off. Install scripts are the main npm malware vector; the user approves them, not Claude."
+scope: {language: any}
+enforce:
+  - {target: check, stage: lint, run: "forge_helper bun pm_policy.mjs pnpm-builds || forge_accept_hint", when_changed: [pnpm-workspace.yaml]}
+examples:
+  match:
+    - head: {pnpm-workspace.yaml: "packages:\n  - packages/*\nallowBuilds:\n  esbuild: true\n"}
+      files: {pnpm-workspace.yaml: "packages:\n  - packages/*\nallowBuilds:\n  esbuild: true\n  sharp: true\n"}
+    - head: {pnpm-workspace.yaml: "allowBuilds:\n  core-js: false\n"}
+      files: {pnpm-workspace.yaml: "allowBuilds:\n  core-js: true\n"}
+    - head: {pnpm-workspace.yaml: "onlyBuiltDependencies:\n  - esbuild\n"}
+      files: {pnpm-workspace.yaml: "onlyBuiltDependencies:\n  - esbuild\n  - '@swc/core'\n"}
+    - files: {pnpm-workspace.yaml: "dangerouslyAllowAllBuilds: true\n"}
+    - head: {pnpm-workspace.yaml: "strictDepBuilds: true\n"}
+      files: {pnpm-workspace.yaml: "strictDepBuilds: false\n"}
+    - files: {pnpm-workspace.yaml: "blockExoticSubdeps: false\n"}
+  no_match:
+    - head: {pnpm-workspace.yaml: "allowBuilds:\n  esbuild: true\n  sharp: true\n"}
+      files: {pnpm-workspace.yaml: "allowBuilds:\n  esbuild: true\n"}
+    - head: {pnpm-workspace.yaml: "packages:\n  - packages/*\n"}
+      files: {pnpm-workspace.yaml: "packages:\n  - packages/*\nallowBuilds:\n  core-js: false\nstrictDepBuilds: true\n"}
+    - head: {pnpm-workspace.yaml: "packages:\n  - packages/*\n"}
+      files: {pnpm-workspace.yaml: "packages:\n  - packages/*\n  - apps/*\n"}

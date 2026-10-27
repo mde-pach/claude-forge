@@ -28,7 +28,7 @@ const rules = [...packs.values()].flatMap((p) => p.rules);
 let report: TestReport;
 
 /** The cached project tools (tests/helpers.ts), then PATH. */
-const toolBins = () => [join(TOOLS_CACHE, "node_modules/.bin"), join(TOOLS_CACHE, ".venv/bin"), join(TOOLS_CACHE, "vue/node_modules/.bin"), SYSTEM_TOOLS_BIN, ...(process.env.PATH ?? "").split(":")];
+const toolBins = () => [join(TOOLS_CACHE, "node_modules/.bin"), join(TOOLS_CACHE, ".venv/bin"), join(TOOLS_CACHE, ".venv-sqlfluff/bin"), join(TOOLS_CACHE, "vue/node_modules/.bin"), SYSTEM_TOOLS_BIN, ...(process.env.PATH ?? "").split(":")];
 
 beforeAll(() => {
   ensureTools();

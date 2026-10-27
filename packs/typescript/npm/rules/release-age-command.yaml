@@ -1,0 +1,11 @@
+id: typescript/npm/release-age-command
+description: Claude asks before turning npm's release-age cooldown off for a command (--min-release-age=0); a package that must update sooner goes in min-release-age-exclude.
+review: "Does the task need a version published in the last days (a security fix the user asked for), so that skipping the release-age cooldown for this one command is intended?"
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: ask
+    pattern: '--min-release-age([[:space:]]*=[[:space:]]*|[[:space:]]+)0*([^0-9.]|$)'
+examples:
+  match: ["npm install zod@4.1.0 --min-release-age=0", "npm ci --min-release-age 0", "npm i --min-release-age=00 react"]
+  no_match: ["npm install zod@4.1.0", "npm ci --min-release-age=3", "npm i --min-release-age 10 react", "npm config get min-release-age"]

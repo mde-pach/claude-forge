@@ -1,0 +1,16 @@
+id: typescript/pnpm/overrides
+description: "Advice: each overrides entry added or changed in pnpm-workspace.yaml is reported once, so Claude says why (a security fix, an incompatible transitive version): an override can hide a vulnerability or force a version its dependents do not support."
+scope: {language: any}
+enforce:
+  - {target: check, stage: lint, run: "forge_advise forge_helper bun pm_policy.mjs pnpm-overrides", when_changed: [pnpm-workspace.yaml]}
+examples:
+  match:
+    - head: {pnpm-workspace.yaml: "packages:\n  - packages/*\n"}
+      files: {pnpm-workspace.yaml: "packages:\n  - packages/*\noverrides:\n  lodash: 4.17.21\n"}
+    - head: {pnpm-workspace.yaml: "overrides:\n  \"foo@<2\": 1.0.0\n"}
+      files: {pnpm-workspace.yaml: "overrides:\n  \"foo@<2\": 1.5.0\n"}
+  no_match:
+    - head: {pnpm-workspace.yaml: "overrides:\n  lodash: 4.17.21\n  minimist: 1.2.8\n"}
+      files: {pnpm-workspace.yaml: "overrides:\n  lodash: 4.17.21\n"}
+    - head: {pnpm-workspace.yaml: "overrides:\n  lodash: 4.17.21\n"}
+      files: {pnpm-workspace.yaml: "overrides:\n  lodash: 4.17.21\npackages:\n  - packages/*\n"}

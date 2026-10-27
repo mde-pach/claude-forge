@@ -1,0 +1,26 @@
+id: sql/migration-lint
+description: New or changed Postgres migrations of Flyway, Supabase, dbmate, sqitch and Atlas (file role @sql-migrations) do not break the running app during a deploy (no column or table renames, type changes, new required columns or DROP DATABASE); Squawk lints the SQL with Forge's own config, so .squawk.toml excluded_rules and squawk-ignore comments do not silence it.
+scope: {language: any, files: ["@sql-migrations"]}
+enforce:
+  - target: check
+    stage: migration
+    run: "forge_squawk_role @sql-migrations"
+    changed_run: "forge_squawk_role @sql-migrations {files}"
+    when_changed: ["@sql-migrations"]
+examples:
+  match:
+    - head: {supabase/config.toml: "project_id = \"shop\"\n", supabase/migrations/20260101000000_init.sql: "CREATE TABLE orders (id bigint PRIMARY KEY, email text);\n"}
+      files: {supabase/migrations/20260102000000_rename.sql: "ALTER TABLE orders RENAME COLUMN email TO mail;\n"}
+    - head: {supabase/config.toml: "project_id = \"shop\"\n", .squawk.toml: "excluded_rules = [\"renaming-column\"]\n"}
+      files: {supabase/migrations/20260102000000_rename.sql: "-- squawk-ignore renaming-column\nALTER TABLE orders RENAME COLUMN email TO mail;\n"}
+    - head: {flyway.conf: "flyway.url=jdbc:postgresql://localhost:5432/shop\nflyway.locations=filesystem:db/migration\n"}
+      files: {db/migration/V2__paid.sql: "ALTER TABLE orders ADD COLUMN paid boolean NOT NULL;\n"}
+    - head: {.env: "DATABASE_URL=postgres://app@127.0.0.1:5432/shop?sslmode=disable\n", .gitignore: ".env\n"}
+      files: {db/migrations/20260102000000_type.sql: "-- migrate:up\nALTER TABLE orders ALTER COLUMN total TYPE numeric(12, 2);\n\n-- migrate:down\n"}
+  no_match:
+    - head: {supabase/config.toml: "project_id = \"shop\"\n", supabase/migrations/20260101000000_init.sql: "CREATE TABLE orders (id bigint PRIMARY KEY, email text);\n"}
+      files: {supabase/migrations/20260102000000_paid.sql: "ALTER TABLE orders ADD COLUMN paid boolean;\n"}
+    - head: {flyway.conf: "flyway.url=jdbc:mysql://localhost:3306/shop\n"}
+      files: {db/migration/V2__rename.sql: "ALTER TABLE orders RENAME COLUMN email TO mail;\n"}
+    - head: {supabase/config.toml: "project_id = \"shop\"\n"}
+      files: {supabase/seed.sql: "ALTER TABLE orders RENAME COLUMN email TO mail;\n"}

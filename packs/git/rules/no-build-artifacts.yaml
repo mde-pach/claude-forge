@@ -1,0 +1,19 @@
+id: git/no-build-artifacts
+description: "No dependency, cache or build output enters the change (file role @build-artifacts: node_modules/, __pycache__/, *.pyc, .next/, .nuxt/, .svelte-kit/, .turbo/, .coverage, .DS_Store), nor a directory holding pyvenv.cfg (a virtualenv) or CACHEDIR.TAG (pytest, ruff, mypy and uv caches): add it to .gitignore."
+scope: {language: any}
+enforce:
+  - target: check
+    stage: lint
+    run: "forge_artifacts @build-artifacts"
+examples:
+  match:
+    - files: {app/__pycache__/main.cpython-312.pyc: "\u0000bytecode\n", app/main.py: "print(1)\n"}
+    - files: {web/.next/build-manifest.json: "{}\n"}
+    - files: {env/pyvenv.cfg: "home = /usr/bin\n", env/bin/activate: "# activate\n"}
+    - files: {.pytest_cache/CACHEDIR.TAG: "Signature: 8a477f597d28d172789f06886806bc55\n", .pytest_cache/v/cache/lastfailed: "{}\n"}
+    - files: {.DS_Store: "\u0000\u0000\u0000\u0001Bud1\n"}
+  no_match:
+    - files: {app/main.py: "print(1)\n", .gitignore: "node_modules/\n.venv/\n__pycache__/\n"}
+    - head: {.gitignore: "node_modules/\n.venv/\n__pycache__/\n"}
+      files: {app/__pycache__/main.cpython-312.pyc: "\u0000bytecode\n"}
+    - files: {docs/next-steps.md: "# Next\n", src/turbo.ts: "export const turbo = 1;\n"}
