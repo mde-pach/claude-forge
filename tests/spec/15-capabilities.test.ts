@@ -34,11 +34,23 @@ function hook(repo: string, script: string, fields: Record<string, unknown>, env
   return sh("sh", [join(SCRIPTS, script)], { cwd: repo, input: hookJson({ cwd: repo, ...fields }), env: { ...ENV, ...env } });
 }
 const edit = (file: string) => ({ session_id: "types", hook_event_name: "PostToolUse", tool_name: "Edit", tool_input: { file_path: file } });
-/** The additionalContext post-edit.sh returns after an edit of <file>, "" when it prints nothing. */
+/**
+ * The additionalContext post-edit.sh returns after an edit of <file>, "" when it prints
+ * nothing. While the TypeScript engine still loads the project, an edit's question is
+ * left to the Stop check (§15.2, tested on its own): the tests that ask about types wait
+ * for the load to end, as the Stop check does, and edit again.
+ */
 function afterEdit(repo: string, file: string, env: Record<string, string> = {}): string {
-  const r = hook(repo, "post-edit.sh", edit(file), env);
-  expect(r.status).toBe(0);
-  return r.stdout.trim() ? JSON.parse(r.stdout).hookSpecificOutput.additionalContext : "";
+  const once = () => {
+    const r = hook(repo, "post-edit.sh", edit(file), env);
+    expect(r.status).toBe(0);
+    return r.stdout.trim() ? (JSON.parse(r.stdout).hookSpecificOutput.additionalContext as string) : "";
+  };
+  const ctx = once();
+  if (!ctx.includes("is still loading the project")) return ctx;
+  const loading = join(stateDir(repo), "types", "typescript", "loading");
+  for (let i = 0; i < 1200 && existsSync(loading); i++) Bun.sleepSync(100);
+  return once();
 }
 function daemonPid(repo: string, lang: string): number | undefined {
   const f = join(stateDir(repo), "types", lang, "pid");
