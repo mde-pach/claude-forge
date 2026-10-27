@@ -1,0 +1,6 @@
+id: typescript/eslint
+description: ESLint 9 and later (flat config) with typescript-eslint.
+level: project
+detect:
+  files_any: [eslint.config.js, eslint.config.mjs, eslint.config.cjs, eslint.config.ts, eslint.config.mts, eslint.config.cts]
+  deps_any: [{ecosystem: npm, name: eslint, version: ">=9.0.0"}]

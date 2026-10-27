@@ -1,0 +1,11 @@
+id: typescript/turbo/declared-env
+description: Every environment variable read through process.env is declared in turbo.json (env or globalEnv); an undeclared one is not part of the cache key, so a cached build can carry another environment's value.
+scope: {language: typescript}
+enforce:
+  - target: tool
+    tool: biome
+    expects: lint/suspicious/noUndeclaredEnvVars
+    snippet: '"linter": {"rules": {"suspicious": {"noUndeclaredEnvVars": "error"}}}'
+examples:
+  match: ["export const stripeKey = process.env.STRIPE_SECRET_KEY;\n"]
+  no_match: ["export const production = process.env.NODE_ENV === \"production\";\n"]

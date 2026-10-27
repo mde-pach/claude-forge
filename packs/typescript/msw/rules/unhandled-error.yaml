@@ -1,0 +1,29 @@
+id: typescript/msw/unhandled-error
+description: "An msw server is started with onUnhandledRequest: \"error\" (or a function deciding it), so a request no handler covers fails the test instead of passing through to the network."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      pattern: "$S.listen($$$)"
+      not:
+        has:
+          field: arguments
+          has:
+            kind: object
+            has:
+              kind: pair
+              all:
+                - has: {field: key, regex: "^[\"']?onUnhandledRequest[\"']?$"}
+                - has: {field: value, any: [{kind: string, regex: "^[\"']error[\"']$"}, {kind: arrow_function}, {kind: function_expression}]}
+    # the receiver is msw's Node server, by its type (§15.1)
+    where:
+      S: {type: {package: msw, name: [SetupServer, SetupServerCommon]}}
+examples:
+  deps: [{ecosystem: npm, name: msw, version: "2.15.0"}, {ecosystem: npm, name: "@types/node", version: "24.10.1"}]
+  match:
+    - "import { setupServer } from \"msw/node\";\n\nexport const server = setupServer();\nserver.listen();\n"
+    - "import { setupServer } from \"msw/node\";\n\nexport const server = setupServer();\nserver.listen({ onUnhandledRequest: \"bypass\" });\n"
+  no_match:
+    - "import { setupServer } from \"msw/node\";\n\nexport const server = setupServer();\nserver.listen({ onUnhandledRequest: \"error\" });\n"
+    - "import { createServer } from \"node:http\";\n\nexport const server = createServer();\nserver.listen(3000);\n"

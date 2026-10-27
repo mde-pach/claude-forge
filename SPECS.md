@@ -604,7 +604,7 @@ context.md: uv and `.venv/bin`, ty, annotated parameters and returns; no blockin
 | `typescript/no-focused-tests` | `tool` biome `lint/suspicious/noFocusedTests`; `ast-grep` forbid `it.only(…)`, `test.only(…)`, `describe.only(…)`, `test.describe.only(…)` in test files and `e2e/**` |
 | `typescript/no-eval` | `tool` biome `lint/security/noGlobalEval`; `ast-grep` forbid `eval(…)`, `globalThis.eval(…)`, `window.eval(…)` |
 | `typescript/unchecked-index` | `tool` tsc: expects `TS18048` on an unchecked array element (`noUncheckedIndexedAccess`; snippet adds it to `strict`) |
-| `typescript/no-new-suppressions` | `grep` no-increase: `biome-ignore` (every form), `@ts-expect-error` (suppression budget; `@ts-ignore` and `@ts-nocheck` are forbidden outright) |
+| `typescript/no-new-suppressions` | `grep` no-increase: `biome-ignore`, `eslint-disable`, `oxlint-disable` (every form), `deno-lint-ignore`, `prettier-ignore`, `@ts-expect-error` (suppression budget; `@ts-ignore` and `@ts-nocheck` are forbidden outright) |
 | `typescript/no-empty-block` | `tool` biome `lint/suspicious/noEmptyBlockStatements` |
 | `typescript/no-swallowed-catch` | `ast-grep` forbid: a `catch` that neither throws nor uses its error; `.catch(() => {})`, `.catch(() => undefined)`, `.catch(() => null)` |
 | `typescript/no-console` | `tool` biome `lint/suspicious/noConsole` (snippet allows `warn` and `error`) |
@@ -613,7 +613,7 @@ context.md: uv and `.venv/bin`, ty, annotated parameters and returns; no blockin
 | `typescript/no-unused-suppressions` | `check` lint: `biome lint` output has no `suppressions/unused` diagnostic (Biome reports it only as a warning, and no setting raises it) |
 | `typescript/no-stub` | `ast-grep` forbid, not in `*.d.ts`: a `throw` whose message starts with "Not implemented", "unimplemented" or "TODO"; a named function or method (not a constructor) whose body is empty or only comments |
 | `typescript/no-placeholder-comment` | `grep` forbid (case-insensitive): the Python list, after `//`, `/*` or `*` |
-| `typescript/config-files` | `permission` ask: `Edit(**/biome.json)`, `Edit(**/biome.jsonc)`, `Edit(**/tsconfig*.json)` |
+| `typescript/config-files` | `permission` ask: `Edit(**/biome.json)`, `Edit(**/biome.jsonc)`, `Edit(**/tsconfig*.json)`, `Edit(**/eslint.config.*)`, `Edit(**/.oxlintrc.json)`, `Edit(**/deno.json)`, `Edit(**/deno.jsonc)`, `Edit(**/.prettierrc*)`, `Edit(**/prettier.config.*)`, `Edit(**/pnpm-workspace.yaml)`, `Edit(**/.npmrc)`, `Edit(**/.yarnrc.yml)`, `Edit(**/bunfig.toml)`, `Edit(**/turbo.json)` (code configs are not ratcheted, §10.4) |
 | `typescript/config-ratchet` | `check` lint: `forge_ratchet bun ratchet.mjs` (§10.4), `when_changed`: Biome, tsconfig and `package.json` files |
 | `typescript/lockfile-updated` | `check` lint: `forge_lockfile_updated`: a `package.json` whose `dependencies`, `devDependencies` or `optionalDependencies` changed since the base needs its lock file (`pnpm-lock.yaml`, `package-lock.json`, `npm-shrinkwrap.json`, `yarn.lock`, `bun.lock`; next to it, else at the root) to have a changed line naming each changed dependency; `bun.lock` is skipped when `typescript/bun/lock-sync` is active (`forge_check_active`); blocks once per turn (`forge_once`) |
 | `typescript/env-example` | `check` lint: `forge_env_example ts`, as `python/env-example` for the UPPER_CASE keys of a Zod env schema (t3-env `createEnv`, or `z.object(…)` with `process.env`) whose value is a `z.` chain; a key with `.default()`, `.optional()` or `.catch()` counts as having a default |
@@ -622,8 +622,18 @@ context.md: uv and `.venv/bin`, ty, annotated parameters and returns; no blockin
 | `typescript/iframe-sandbox` | `tool` biome `lint/nursery/noUnsafeIframeSandbox` (tsx): no `sandbox` with both `allow-scripts` and `allow-same-origin` |
 | `typescript/cors-credentials-wildcard` | `ast-grep` forbid: an options object with `credentials: true` and `origin` `"*"`, `true` or a function that returns its first parameter (as its body, with a `??` / `||` fallback, or in a `return`), passed to a function declared (§15.6) by `cors` or as `hono`'s `cors`, as the second argument of `.register()` with a first argument declared by `@fastify/cors`, to `.enableCors()` on a value of type `@nestjs/common`'s `INestApplication`, or as `cors` in the second argument of `create()` on `@nestjs/core`'s `NestFactory` |
 | `typescript/no-hardcoded-session-secret` | `ast-grep` forbid, not in tests: a string or a template without `${}` (or an array of them) as `secret` in the first argument of a function declared (§15.6) as `express-session`'s `session`, `better-auth`'s `betterAuth` or `hono`'s `jwt`, or in the second argument of `.register()` with a first argument declared by `@fastify/cookie` or `@fastify/session`; as the second argument of `jsonwebtoken`'s or `hono`'s `sign` / `verify`; as the first argument of a function declared by `cookie-parser` |
+| `typescript/verbatim-imports` | `tool` biome `lint/style/useImportType`, `lint/style/useExportType` (snippet: error; recommended has them as warnings) |
+| `typescript/implicit-returns` | `tool` tsc: expects `TS7030` (`noImplicitReturns`) |
+| `typescript/no-banned-types` | `tool` biome `lint/complexity/noBannedTypes` (snippet: error) |
+| `typescript/no-const-enum` | `tool` biome `lint/suspicious/noConstEnum` (snippet: error) |
+| `typescript/no-object-literal-assertion` | `ast-grep` forbid: `$E as $T` where `E` is an object literal or a non-empty array literal and `T` is not `const` |
+| `typescript/no-unchecked-json` | `ast-grep` forbid: `JSON.parse(…) as T`, `const x: T = JSON.parse(…)`, and the same on `await $R.json()` where `R` is a `Response` (`typescript` lib.dom, `undici-types`); `T` other than `unknown` |
+| `typescript/error-cause` | `tool` biome `lint/style/useErrorCause` |
+| `typescript/array-sort-compare` | `tool` biome `lint/suspicious/useArraySortCompare` (strings too: Biome has no option to exempt them) |
+| `typescript/no-proto` | `tool` biome `lint/suspicious/noProto` (snippet: error) |
+| `typescript/no-dynamic-regexp` | `ast-grep` advise: `new RegExp($A, …)` / `RegExp($A, …)` whose pattern is not a string, a template without substitutions, or `RegExp.escape(…)` (a template whose substitutions are all `RegExp.escape(…)` counts as escaped) |
 
-context.md: strict TypeScript and Bun; TypeScript 6 deprecations are migrated, never silenced with `ignoreDeprecations`; no `!` or `as unknown as`; search for an existing helper (warn-once, logging, `util.*`) before writing one.
+context.md: strict TypeScript; TypeScript 6 deprecations are migrated, never silenced with `ignoreDeprecations`; no `!` or `as unknown as`; `import type` for type-only imports, parsed JSON stays `unknown` until a schema validates it, `satisfies` instead of asserting a literal; search for an existing helper (warn-once, logging, `util.*`) before writing one.
 
 ### python/uv
 
@@ -1017,6 +1027,7 @@ Detected by `library_any: [npm]` (§13.4).
 | Rule | Targets |
 |---|---|
 | `typescript/library/deprecation-shim` | `check` lint: `forge_helper bun public_api.mjs removed` (§13.4), `when_changed`: TypeScript and JavaScript files, `package.json` |
+| `typescript/library/exports-map` | `check` lint (with `bun`): a `package.json` that is not `"private": true` and has no `exports`, reported at its top-level `main`, `module`, `types` or `typings` line (so only when that line is added) |
 
 context.md: entry points are the public API; renamed exports stay as `@deprecated` aliases until a major version.
 
@@ -1035,8 +1046,145 @@ context.md: entry points are the public API; renamed exports stay as `@deprecate
 | `typescript/bun/no-test-edits` | `check` lint: `forge_test_edits` on the in-scope files that import `bun:test` (§10.5) |
 | `typescript/bun/no-snapshot-update` | `guard` ask: `bun test` with `-u` or `--update-snapshots` |
 | `typescript/bun/no-shell-raw` | `ast-grep` forbid: a tagged template whose tag is declared (§15.6) as `bun-types`' `$` with an `${{ raw: … }}` substitution; a call declared as `bun-types`' `spawn` / `spawnSync` whose first argument is an array `["sh" \| "bash" \| "zsh", "-c", <template with ${} or + concatenation>]` |
+| `typescript/bun/text-lockfile` | `check` lint: no `bun.lockb` file (tracked or untracked, not ignored); `when_changed`: `bun.lockb`, `package.json` |
 
-context.md: `bun:test` tests run with `bun test`, what the integrity rules reject in them, and "If an existing test looks wrong, stop and ask; never edit it to make the code pass."
+context.md: Bun is the runtime and package manager; `bun:test` tests run with `bun test`, what the integrity rules reject in them, and "If an existing test looks wrong, stop and ask; never edit it to make the code pass."
+
+### typescript/node
+
+Detected by the `@types/node` dependency.
+
+| Rule | Targets |
+|---|---|
+| `typescript/node/no-ts-node` | `grep` forbid in `package.json`: `ts-node` (scripts or dependencies); `guard` ask: a `ts-node` command |
+| `typescript/node/no-vm-sandbox` | `ast-grep` advise: an import or `require` of `node:vm` / `vm` |
+
+context.md: TypeScript runs with `node file.ts` or `tsx`, not `ts-node`; `node:vm` is not a security boundary.
+
+### typescript/eslint
+
+Detected by an `eslint.config.*` file or the `eslint` dependency at 9 or later.
+
+| Rule | Targets |
+|---|---|
+| `typescript/eslint/flat-config-only` | `check` lint: no `.eslintrc`, `.eslintrc.*` or `.eslintignore` file (tracked or untracked, not ignored); `when_changed`: those names |
+| `typescript/eslint/no-eslint-env` | `grep` forbid: `/* eslint-env` comments |
+| `typescript/eslint/ts-version` | `check` lint (with `bun`): the `typescript` that `@typescript-eslint/typescript-estree` resolves (directly, or through `typescript-eslint` / `@typescript-eslint/parser`) exports `createProgram`; TypeScript 7 has no compiler API, typescript-eslint supports `<6.1.0`; `when_changed`: `package.json` files and lock files |
+
+context.md: flat config only (ignores and globals in `eslint.config.*`); typescript-eslint needs TypeScript 6 or older.
+
+### typescript/pnpm
+
+Detected by `pnpm-lock.yaml` or `pnpm-workspace.yaml`.
+
+| Rule | Targets |
+|---|---|
+| `typescript/pnpm/no-other-pm` | `guard` ask: `npm install`, `npm i`, `npm ci`, `npm add`, `yarn`, `bun install`, `bun i`, `bun add` |
+| `typescript/pnpm/lock-sync` | `check` lint: `pnpm install --frozen-lockfile --lockfile-only` (skipped when pnpm is not installed), `when_changed`: `package.json` files, `pnpm-lock.yaml`, `pnpm-workspace.yaml` |
+| `typescript/pnpm/settings-location` | `check` lint (with `bun`) on changed `package.json` and `.npmrc` files: a top-level `pnpm` field, and pnpm settings in `.npmrc` (`node-linker`, `shamefully-hoist`, `only-built-dependencies`, `minimum-release-age`, …), reported at their line |
+
+context.md: pnpm manages dependencies; its settings live in `pnpm-workspace.yaml`.
+
+### typescript/npm
+
+Detected by `package-lock.json` or `npm-shrinkwrap.json`.
+
+| Rule | Targets |
+|---|---|
+| `typescript/npm/no-other-pm` | `guard` ask: `pnpm`, `yarn`, `bun install`, `bun i`, `bun add` |
+| `typescript/npm/lock-sync` | `check` lint: `npm ci --dry-run --ignore-scripts` (skipped when npm is not installed), `when_changed`: `package.json` files, `package-lock.json`, `npm-shrinkwrap.json` |
+| `typescript/npm/no-exotic-sources` | `grep` forbid in `.npmrc`: `allow-git=all`, `allow-remote=all`; `guard` deny: the same settings in a command |
+| `typescript/npm/no-exotic-deps` | `check` lint: a `dependencies`, `devDependencies` or `optionalDependencies` entry added or changed since the base (`forge_pkg_deps`) whose spec is `git+…`, `git:`, `github:`, `gitlab:`, `bitbucket:`, `http(s)://…` or `user/repo` |
+| `typescript/npm/no-legacy-peer-deps` | `guard` deny: `npm install`, `i`, `ci`, `add` with `--legacy-peer-deps` or `--force` |
+| `typescript/npm/no-legacy-peer-deps-config` | `grep` forbid in `.npmrc`: `legacy-peer-deps=true`, `force=true` |
+| `typescript/npm/no-audit-fix-force` | `guard` ask: `npm audit fix … --force` |
+
+context.md: npm manages dependencies; peer conflicts are resolved, not forced; dependencies come from the registry.
+
+### typescript/yarn
+
+Detected by `.yarnrc.yml` (Yarn 2 and later).
+
+| Rule | Targets |
+|---|---|
+| `typescript/yarn/no-other-pm` | `guard` ask: `npm install`, `npm i`, `npm ci`, `npm add`, `pnpm`, `bun install`, `bun i`, `bun add` |
+
+context.md: Yarn manages dependencies.
+
+### typescript/turbo
+
+Detected by `turbo.json`.
+
+| Rule | Targets |
+|---|---|
+| `typescript/turbo/tasks-key` | `grep` forbid in `turbo.json`: a `"pipeline"` key (Turborepo 2 uses `tasks`) |
+| `typescript/turbo/declared-env` | `tool` biome `lint/suspicious/noUndeclaredEnvVars` (snippet: error; Biome's turborepo domain enables it as a warning only) |
+| `typescript/turbo/no-env-loose` | `grep` forbid in `turbo.json`: `"envMode": "loose"` |
+| `typescript/turbo/no-env-loose-flag` | `guard` deny: `--env-mode=loose`, `--env-mode loose` |
+
+context.md: `tasks`, strict env mode, every env var read is declared in `env` or `globalEnv`.
+
+### typescript/jest
+
+Detected by the `jest` dependency at 30 or later.
+
+| Rule | Targets |
+|---|---|
+| `typescript/jest/no-test-path-pattern` | `grep` forbid in `package.json`: `--testPathPattern` (Jest 30: `--testPathPatterns`); `guard` deny: a `jest` command with it |
+
+### typescript/testing-library
+
+Detected by the `@testing-library/react` dependency.
+
+| Rule | Targets |
+|---|---|
+| `typescript/testing-library/no-hooks-lib` | `ast-grep` forbid: an import or `require` of `@testing-library/react-hooks` |
+
+context.md: `renderHook` from `@testing-library/react`.
+
+### typescript/msw
+
+Detected by the `msw` dependency.
+
+| Rule | Targets |
+|---|---|
+| `typescript/msw/unhandled-error` | `ast-grep` advise: `$S.listen(…)` without `onUnhandledRequest: "error"` (or a function), where `S` is msw's `SetupServer` / `SetupServerCommon` (§15.1) |
+
+context.md: the test server starts with `onUnhandledRequest: "error"`.
+
+### typescript/storybook
+
+Detected by the `storybook` dependency at 9 or later.
+
+| Rule | Targets |
+|---|---|
+| `typescript/storybook/consolidated-imports` | `ast-grep` forbid: imports and re-exports from `@storybook/test`, `addon-actions`, `addon-viewport`, `addon-essentials`, `addon-interactions`, `manager-api`, `preview-api`, `theming`, `blocks` |
+| `typescript/storybook/consolidated-deps` | `grep` forbid in `package.json`: those packages as keys |
+
+context.md: the `storybook/*` entry points that replace them.
+
+### typescript/vite
+
+Detected by the `vite` dependency.
+
+| Rule | Targets |
+|---|---|
+| `typescript/vite/no-public-secret-env` | `ast-grep` forbid: `import.meta.env.VITE_*` names containing `SECRET`, `PRIVATE`, `PASSWORD`, `SERVICE_ROLE` or `DATABASE_URL` (the `typescript/nextjs/no-public-secret-env` list) |
+| `typescript/vite/no-public-secret-env-file` | `grep` forbid in `.env` and `.env.*` files: such `VITE_` variables |
+| `typescript/vite/no-define-process-env` | `ast-grep` forbid in `vite.config.*`: a `"process.env"` key of `define` set to `process.env` or `JSON.stringify(process.env)` |
+| `typescript/vite/no-open-dev-host` | `ast-grep` forbid in `vite.config.*`: `allowedHosts: true` under `server` or `preview` |
+
+context.md: no secrets in `VITE_` variables, `define` never inlines `process.env`, `allowedHosts` lists hosts.
+
+### typescript/t3-env
+
+Detected by `@t3-oss/env-core`, `@t3-oss/env-nextjs` or `@t3-oss/env-nuxt`.
+
+| Rule | Targets |
+|---|---|
+| `typescript/t3-env/no-process-env` | `tool` biome `lint/style/noProcessEnv` (snippet: error, off in `env.ts`, `env.mjs`, `env.js` and `*.config.*`, a convention the project edits in its biome.json) |
+
+context.md: read env vars through the validated `env`.
 
 ### typescript/nextjs
 
@@ -1127,6 +1275,7 @@ context.md: "React components in Astro render to static HTML; they become intera
 | `typescript/prisma/migration-lint` | `check` migration: changed `prisma/migrations/*/migration.sql` linted with Squawk (§13.1); `--all`: the newest migration; `when_changed: [prisma/migrations/**]` |
 | `typescript/prisma/no-network-in-transaction` | `ast-grep` forbid: inside a function passed to `.$transaction(…)`, a call to the global `fetch` / `globalThis.fetch` / `$fetch`, or to a name (or a method of a name) imported from `axios`, `got`, `ky`, `ofetch`, `node-fetch` or `undici` |
 | `typescript/prisma/destructive-migration` | `check` migration: `DROP COLUMN` / `DROP TABLE` statements (not `--` or `/* */` comments) in the changed `prisma/migrations/*/migration.sql` (`--all`: the newest), read by `forge_prisma_drops`, which follows each table's columns through every `migration.sql`: a SQLite redefinition (`CREATE TABLE "new_X"`, `DROP TABLE "X"`, `RENAME TO "X"`) is reported only for the columns `new_X` lacks (`… (redefinition drops column "C")`), and not when no earlier migration creates `X`; printed `file:line: <statement>`; a line found in `forge.yaml` (an `accept` entry) passes; `when_changed: [prisma/migrations/**]` |
+| `typescript/prisma/no-query-in-loop` | `ast-grep` advise: `await $Q` in the body of a `for`, `for…of`, `for…in`, `while` or `do`, or in a function passed to `.map` / `.forEach` / `.flatMap`, where `Q` is `@prisma/client`'s `PrismaPromise` (§15.1): `findMany`, `count`, `aggregate`, `groupBy`, `*Many`; the `Prisma__<Model>Client` of `findUnique`, `findFirst`, `create`, `update`, `upsert`, `delete` extends a type alias of it, which the supertype walk does not follow yet |
 
 context.md: Prisma 7: `prisma-client` generator with `output`, driver adapters, `prisma.config.ts` (no automatic `.env`), `prisma db seed`, `$extends` (no `$use`), tagged `$queryRaw` only (no `Prisma.raw()` from a template); no network calls in interactive transactions; migrations with schema changes (not under db push); drops accepted in `forge.yaml`.
 

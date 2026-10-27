@@ -1,0 +1,8 @@
+id: typescript/t3-env
+description: Environment variables validated with t3-env (createEnv).
+level: project
+detect:
+  deps_any:
+    - {ecosystem: npm, name: "@t3-oss/env-core"}
+    - {ecosystem: npm, name: "@t3-oss/env-nextjs"}
+    - {ecosystem: npm, name: "@t3-oss/env-nuxt"}

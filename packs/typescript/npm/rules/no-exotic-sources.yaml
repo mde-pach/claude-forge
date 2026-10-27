@@ -1,0 +1,13 @@
+id: typescript/npm/no-exotic-sources
+description: npm is not allowed to install from any git or remote source (allow-git=all, allow-remote=all, in .npmrc or as a flag); such dependencies bypass the registry, its release-age checks and --ignore-scripts.
+scope: {language: any, files: ["**/.npmrc"]}
+enforce:
+  - target: grep
+    mode: forbid
+    pattern: "allow-(git|remote)[[:space:]]*=[[:space:]]*all"
+  - target: guard
+    decision: deny
+    pattern: "allow-(git|remote)[= ]all"
+examples:
+  match: ["allow-git=all\n", "npm install --allow-remote=all https://example.com/pkg.tgz"]
+  no_match: ["allow-git=none\n", "npm install --allow-git=root"]

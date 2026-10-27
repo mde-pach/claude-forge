@@ -1,0 +1,13 @@
+id: typescript/jest/no-test-path-pattern
+description: Jest 30 filters test files with --testPathPatterns; the old --testPathPattern flag is rejected by it, in package.json scripts and in commands.
+scope: {language: any, files: ["**/package.json"]}
+enforce:
+  - target: grep
+    mode: forbid
+    pattern: "--testPathPattern([^s]|$)"
+  - target: guard
+    decision: deny
+    pattern: '(^|[^A-Za-z0-9_-])jest[^;&|]*--testPathPattern([^s]|$)'
+examples:
+  match: ["{\"scripts\": {\"test:auth\": \"jest --testPathPattern auth\"}}", "npx jest --testPathPattern=src/auth"]
+  no_match: ["{\"scripts\": {\"test:auth\": \"jest --testPathPatterns auth\"}}", "npx jest --testPathPatterns=src/auth"]

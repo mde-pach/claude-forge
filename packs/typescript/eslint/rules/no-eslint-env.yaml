@@ -1,0 +1,10 @@
+id: typescript/eslint/no-eslint-env
+description: No /* eslint-env */ comments; flat config ignores them (ESLint 10 reports them as errors). Declare globals in the config's languageOptions.globals.
+scope: {language: typescript}
+enforce:
+  - target: grep
+    mode: forbid
+    pattern: "/\\*[[:space:]]*eslint-env"
+examples:
+  match: ["/* eslint-env node, mocha */\nexport const root = process.cwd();\n"]
+  no_match: ["/* eslint-disable-next-line no-console */\nconsole.log(1);\n", "// the eslint-env comment was moved to eslint.config.js\nexport const x = 1;\n"]

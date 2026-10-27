@@ -1,0 +1,10 @@
+id: typescript/turbo/tasks-key
+description: turbo.json declares its tasks under tasks; Turborepo 2 rejects the old pipeline key.
+scope: {language: any, files: ["**/turbo.json"]}
+enforce:
+  - target: grep
+    mode: forbid
+    pattern: '"pipeline"[[:space:]]*:'
+examples:
+  match: ["{\n  \"pipeline\": {\n    \"build\": {\"outputs\": [\"dist/**\"]}\n  }\n}\n"]
+  no_match: ["{\n  \"tasks\": {\n    \"build\": {\"outputs\": [\"dist/**\"]}\n  }\n}\n"]

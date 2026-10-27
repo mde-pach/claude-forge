@@ -1,0 +1,40 @@
+id: typescript/library/exports-map
+description: A published package (not private) declares its entry points in package.json exports, not only main, module or types; reported where main, module or types is added.
+scope: {language: any, files: ["**/package.json"]}
+enforce:
+  - target: check
+    stage: lint
+    run: |
+      _em=''
+      for _f in ${FORGE_FILES:-$(git ls-files -- package.json '*/package.json')}; do
+        [ -f "$_f" ] || continue
+        _em="$_em$(bun --no-install -e '
+          const f = process.argv[1], t = require("fs").readFileSync(f, "utf8");
+          let pkg; try { pkg = JSON.parse(t); } catch { process.exit(0); }
+          if (!pkg || pkg.private === true || "exports" in pkg) process.exit(0);
+          let d = 0, line = 1;
+          for (let i = 0; i < t.length; i++) {
+            const c = t[i];
+            if (c === "\n") line++;
+            else if (c === "{" || c === "[") d++;
+            else if (c === "}" || c === "]") d--;
+            else if (c === "\"") {
+              let j = i + 1;
+              while (j < t.length && t[j] !== "\"") j += t[j] === "\\" ? 2 : 1;
+              const k = t.slice(i + 1, j);
+              if (d === 1 && ["main", "module", "types", "typings"].includes(k) && /^\s*:/.test(t.slice(j + 1))) console.log(`${f}:${line} ${k} without exports: declare the entry points in exports (types condition first), which also keeps internal files private`);
+              i = j;
+            }
+          }' "$_f")
+      "
+      done
+      _em=$(printf '%s' "$_em" | grep .)
+      [ -z "$_em" ] || { printf '%s\n' "$_em"; false; }
+examples:
+  match:
+    - files: {package.json: "{\n  \"name\": \"acme\",\n  \"version\": \"1.0.0\",\n  \"main\": \"./dist/index.js\",\n  \"types\": \"./dist/index.d.ts\"\n}\n"}
+  no_match:
+    - files: {package.json: "{\n  \"name\": \"acme\",\n  \"version\": \"1.0.0\",\n  \"main\": \"./dist/index.js\",\n  \"exports\": {\".\": {\"types\": \"./dist/index.d.ts\", \"default\": \"./dist/index.js\"}}\n}\n"}
+    - files: {package.json: "{\n  \"name\": \"internal\",\n  \"private\": true,\n  \"main\": \"./src/index.ts\"\n}\n"}
+    - head: {package.json: "{\n  \"name\": \"acme\",\n  \"version\": \"1.0.0\",\n  \"main\": \"./dist/index.js\"\n}\n"}
+      files: {package.json: "{\n  \"name\": \"acme\",\n  \"version\": \"1.1.0\",\n  \"main\": \"./dist/index.js\"\n}\n"}

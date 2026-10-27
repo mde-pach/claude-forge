@@ -1,0 +1,24 @@
+id: typescript/no-dynamic-regexp
+description: "A RegExp built from a non-literal pattern (new RegExp(input), RegExp(`^${p}`)) escapes it with RegExp.escape() (ES2025, Node 24) unless the text is meant as a pattern: unescaped input changes what matches and can backtrack for ever."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      any: [{pattern: "new RegExp($A)"}, {pattern: "new RegExp($A, $$$)"}, {pattern: "RegExp($A)"}, {pattern: "RegExp($A, $$$)"}]
+    constraints:
+      A:
+        not:
+          any:
+            - kind: string
+            - kind: template_string
+              not: {has: {kind: template_substitution, not: {has: {pattern: "RegExp.escape($$$)"}}}}
+            - pattern: "RegExp.escape($$$)"
+examples:
+  match:
+    - "export function finder(term: string): RegExp {\n  return new RegExp(term, \"i\");\n}\n"
+    - "export function exact(word: string): RegExp {\n  return RegExp(`^${word}$`);\n}\n"
+  no_match:
+    - "export const slug = new RegExp(\"^[a-z0-9-]+$\");\n"
+    - "export function finder(term: string): RegExp {\n  return new RegExp(RegExp.escape(term), \"i\");\n}\n"
+    - "export function exact(word: string): RegExp {\n  return new RegExp(`^${RegExp.escape(word)}$`);\n}\n"

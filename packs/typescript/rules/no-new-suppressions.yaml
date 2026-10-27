@@ -1,15 +1,21 @@
 id: typescript/no-new-suppressions
-description: No new suppression comments (biome-ignore in any form, @ts-expect-error); a changed file may not have more than it had. Fix the finding instead.
+description: No new suppression comments (biome-ignore, eslint-disable and oxlint-disable in any form, deno-lint-ignore, prettier-ignore, @ts-expect-error); a changed file may not have more than it had. Fix the finding instead.
 scope: {language: typescript}
 enforce:
   - target: grep
     mode: no-increase
-    pattern: "biome-ignore|@ts-expect-error"
+    pattern: "biome-ignore|@ts-expect-error|eslint-disable|oxlint-disable|deno-lint-ignore|prettier-ignore"
 examples:
   match:
     - "// biome-ignore lint/suspicious/noExplicitAny: legacy API\nexport const x: any = 1;"
     - "/** biome-ignore-all lint/style: generated */"
     - "// @ts-expect-error the module has no types\nimport legacy from \"legacy\";"
+    - "// eslint-disable-next-line @typescript-eslint/no-explicit-any\nexport const x: any = 1;"
+    - "/* eslint-disable */\nexport const x = 1;"
+    - "// oxlint-disable-next-line no-console\nconsole.log(1);"
+    - "// deno-lint-ignore-file no-explicit-any\nexport const x = 1;"
+    - "// prettier-ignore\nexport const grid = [1,0,\n  0,1];"
   no_match:
     - "export const x: unknown = 1;"
     - "// ignore the cache when the flag is set"
+    - "// eslint is not used here; Biome lints this file"

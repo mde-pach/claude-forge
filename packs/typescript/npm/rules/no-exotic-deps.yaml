@@ -1,0 +1,30 @@
+id: typescript/npm/no-exotic-deps
+description: "No dependency added (or changed) with a git, GitHub, GitLab, Bitbucket or tarball URL spec (git+…, github:…, user/repo, https://…): they bypass the registry, its release-age checks and --ignore-scripts. Publish to a registry or vendor the code."
+scope: {language: any, files: ["**/package.json"]}
+enforce:
+  - target: check
+    stage: lint
+    run: |
+      _xd=''
+      for _f in $FORGE_FILES; do
+        forge_pkg_deps "$FORGE_TMP/base/$_f" > "$FORGE_TMP/xd.then"
+        forge_pkg_deps "$_f" | awk -F '\t' -v f="$_f" '
+          FILENAME == ARGV[1] { then[$1 "\t" $2] = $3; next }
+          then[$1 "\t" $2] != $3 && $3 ~ /^(git\+|git:|github:|gitlab:|bitbucket:|https?:\/\/|[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(#.*)?$)/ { printf "%s: %s %s is %s, not a registry version\n", f, $1, $2, $3 }' "$FORGE_TMP/xd.then" - > "$FORGE_TMP/xd.now"
+        _xd="$_xd$(cat "$FORGE_TMP/xd.now")
+      "
+      done
+      _xd=$(printf '%s' "$_xd" | grep .)
+      [ -z "$_xd" ] || { printf '%s\n' "$_xd"; false; }
+examples:
+  match:
+    - head: {package.json: "{\"name\": \"shop\", \"dependencies\": {\"zod\": \"4.1.12\"}}\n"}
+      files: {package.json: "{\"name\": \"shop\", \"dependencies\": {\"zod\": \"4.1.12\", \"left-pad\": \"github:stevemao/left-pad\"}}\n"}
+    - head: {package.json: "{\"name\": \"shop\", \"dependencies\": {\"zod\": \"4.1.12\"}}\n"}
+      files: {package.json: "{\"name\": \"shop\", \"dependencies\": {\"zod\": \"git+https://github.com/colinhacks/zod.git#v4.1.12\"}}\n"}
+    - files: {package.json: "{\"name\": \"shop\", \"devDependencies\": {\"utils\": \"https://example.com/utils-1.0.0.tgz\"}}\n"}
+  no_match:
+    - head: {package.json: "{\"name\": \"shop\", \"dependencies\": {\"zod\": \"4.1.12\"}}\n"}
+      files: {package.json: "{\"name\": \"shop\", \"repository\": {\"url\": \"git+https://github.com/acme/shop.git\"}, \"homepage\": \"https://acme.dev\", \"dependencies\": {\"zod\": \"4.1.12\", \"@acme/ui\": \"workspace:*\", \"left\": \"npm:left-pad@1.3.0\"}}\n"}
+    - head: {package.json: "{\"name\": \"shop\", \"dependencies\": {\"legacy\": \"github:acme/legacy\"}}\n"}
+      files: {package.json: "{\"name\": \"shop\", \"dependencies\": {\"legacy\": \"github:acme/legacy\", \"zod\": \"4.1.12\"}}\n"}

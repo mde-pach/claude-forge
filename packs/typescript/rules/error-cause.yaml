@@ -1,0 +1,11 @@
+id: typescript/error-cause
+description: "A catch block that throws a new error passes the caught one as its cause: new Error(\"…\", { cause: err })."
+scope: {language: typescript}
+enforce:
+  - target: tool
+    tool: biome
+    expects: lint/style/useErrorCause
+    snippet: '"linter": {"rules": {"style": {"useErrorCause": "error"}}}'
+examples:
+  match: ["export function parse(text: string): unknown {\n  try {\n    return JSON.parse(text);\n  } catch (err) {\n    throw new Error(`invalid config: ${String(err)}`);\n  }\n}\n"]
+  no_match: ["export function parse(text: string): unknown {\n  try {\n    return JSON.parse(text);\n  } catch (err) {\n    throw new Error(\"invalid config\", { cause: err });\n  }\n}\n"]

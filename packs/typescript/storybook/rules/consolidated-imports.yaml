@@ -1,0 +1,21 @@
+id: typescript/storybook/consolidated-imports
+description: "No imports from the packages Storybook 9 folded into storybook (@storybook/test, addon-actions, addon-viewport, addon-essentials, addon-interactions, manager-api, preview-api, theming, blocks): import storybook/test, storybook/actions, storybook/viewport, storybook/manager-api, storybook/preview-api, storybook/theming, @storybook/addon-docs/blocks."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        - kind: import_statement
+          has: {field: source, regex: "^[\"']@storybook/(test|addon-actions|addon-viewport|addon-essentials|addon-interactions|manager-api|preview-api|theming|blocks)(/.*)?[\"']$"}
+        - kind: export_statement
+          has: {field: source, regex: "^[\"']@storybook/(test|addon-actions|addon-viewport|addon-essentials|addon-interactions|manager-api|preview-api|theming|blocks)(/.*)?[\"']$"}
+examples:
+  match:
+    - "import { expect, fn } from \"@storybook/test\";\n\nexport const onClick = fn();\nexport { expect };\n"
+    - "import { action } from \"@storybook/addon-actions\";\n\nexport const onSave = action(\"save\");\n"
+    - "import { Meta } from \"@storybook/blocks\";\n\nexport { Meta };\n"
+  no_match:
+    - "import { expect, fn } from \"storybook/test\";\n\nexport const onClick = fn();\nexport { expect };\n"
+    - "import { Meta } from \"@storybook/addon-docs/blocks\";\n\nexport { Meta };\n"
+    - "import type { Meta } from \"@storybook/react-vite\";\n\nexport type M = Meta;\n"

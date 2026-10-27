@@ -1,0 +1,10 @@
+id: typescript/storybook/consolidated-deps
+description: "package.json does not depend on the packages Storybook 9 folded into storybook (@storybook/test, addon-actions, addon-viewport, addon-essentials, addon-interactions, manager-api, preview-api, theming, blocks): remove them; storybook provides those APIs."
+scope: {language: any, files: ["**/package.json"]}
+enforce:
+  - target: grep
+    mode: forbid
+    pattern: '"@storybook/(test|addon-actions|addon-viewport|addon-essentials|addon-interactions|manager-api|preview-api|theming|blocks)"[[:space:]]*:'
+examples:
+  match: ["{\n  \"devDependencies\": {\n    \"@storybook/addon-essentials\": \"9.0.8\",\n    \"storybook\": \"9.1.0\"\n  }\n}\n"]
+  no_match: ["{\n  \"devDependencies\": {\n    \"@storybook/addon-docs\": \"9.1.0\",\n    \"@storybook/react-vite\": \"9.1.0\",\n    \"storybook\": \"9.1.0\"\n  }\n}\n"]

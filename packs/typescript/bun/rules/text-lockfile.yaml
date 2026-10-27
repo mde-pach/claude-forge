@@ -1,0 +1,15 @@
+id: typescript/bun/text-lockfile
+description: No binary bun.lockb; Bun's lock file is the text bun.lock, which reviews and merges read (bun install --save-text-lockfile --frozen-lockfile, then delete bun.lockb).
+scope: {language: any}
+enforce:
+  - target: check
+    stage: lint
+    run: |
+      _bl=$(git ls-files -co --exclude-standard -- 'bun.lockb' '*/bun.lockb')
+      [ -z "$_bl" ] || { printf '%s: binary lock file; migrate to the text bun.lock (bun install --save-text-lockfile --frozen-lockfile) and delete it\n' $_bl; false; }
+    when_changed: ["**/bun.lockb", "**/package.json"]
+examples:
+  match:
+    - files: {package.json: "{\"name\": \"shop\"}\n", bun.lockb: "#!/usr/bin/env bun\nbun-lockfile-format-v0\n"}
+  no_match:
+    - files: {package.json: "{\"name\": \"shop\"}\n", bun.lock: "{\"lockfileVersion\": 1}\n"}

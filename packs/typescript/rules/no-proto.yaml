@@ -1,0 +1,11 @@
+id: typescript/no-proto
+description: No __proto__; use Object.getPrototypeOf, Object.setPrototypeOf or Object.create.
+scope: {language: typescript}
+enforce:
+  - target: tool
+    tool: biome
+    expects: lint/suspicious/noProto
+    snippet: '"linter": {"rules": {"suspicious": {"noProto": "error"}}}'
+examples:
+  match: ["export function parentOf(value: object): unknown {\n  return (value as { __proto__: unknown }).__proto__;\n}\n"]
+  no_match: ["export function parentOf(value: object): unknown {\n  return Object.getPrototypeOf(value);\n}\n"]

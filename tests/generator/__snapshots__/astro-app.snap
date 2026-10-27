@@ -16,7 +16,7 @@ Content collections are declared in `src/content.config.ts` with the `glob()` / 
 ===== .claude/rules/forge-typescript-bun.md
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
 
-Tests that import from `bun:test` run with `bun test`. In them, new `.skip`, `.only`, `.todo`, `.failing`, `.if`/`.skipIf`/`.todoIf`, fewer `expect` calls and new mocks (`mock`, `mock.module`, `spyOn`) are rejected.
+Bun is the runtime and package manager. Tests that import from `bun:test` run with `bun test`. In them, new `.skip`, `.only`, `.todo`, `.failing`, `.if`/`.skipIf`/`.todoIf`, fewer `expect` calls and new mocks (`mock`, `mock.module`, `spyOn`) are rejected.
 If an existing test looks wrong, stop and ask; never edit it to make the code pass.
 
 ===== .claude/rules/forge-typescript-react.md
@@ -31,10 +31,11 @@ Components pass React Compiler's checks (Biome `useReactCompiler`): no `setState
 ===== .claude/rules/forge-typescript.md
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
 
-TypeScript, strict. Bun is the runtime and package manager.
+TypeScript, strict.
 TypeScript 6 deprecates `baseUrl`, `moduleResolution: "node10"`, `target: "es5"` and `esModuleInterop: false`, and TypeScript 7 removes them: migrate them; `ignoreDeprecations` in a tsconfig is rejected.
 `!` non-null assertions and `as unknown as T` are rejected: narrow with a check, or parse with a schema.
 Before writing a utility, search the codebase for an existing helper (warn-once and logging helpers, `util.*` functions such as an existing property setter) and reuse it instead of adding a near-duplicate.
+Type-only imports and re-exports use `import type` / `export type`. `JSON.parse` and `res.json()` results stay `unknown` until a schema validates them; literals take `satisfies T` or an annotation, not `as T`.
 
 ===== .claude/settings.json
 {
@@ -46,7 +47,18 @@ Before writing a utility, search the codebase for an existing helper (warn-once 
       "Edit(.claude/rules/forge-*.md)",
       "Edit(**/biome.json)",
       "Edit(**/biome.jsonc)",
-      "Edit(**/tsconfig*.json)"
+      "Edit(**/tsconfig*.json)",
+      "Edit(**/eslint.config.*)",
+      "Edit(**/.oxlintrc.json)",
+      "Edit(**/deno.json)",
+      "Edit(**/deno.jsonc)",
+      "Edit(**/.prettierrc*)",
+      "Edit(**/prettier.config.*)",
+      "Edit(**/pnpm-workspace.yaml)",
+      "Edit(**/.npmrc)",
+      "Edit(**/.yarnrc.yml)",
+      "Edit(**/bunfig.toml)",
+      "Edit(**/turbo.json)"
     ]
   }
 }
@@ -1190,7 +1202,7 @@ fi
 biome() { forge_exec_tool biome "$@"; }
 tsc() { forge_exec_tool tsc "$@"; }
 astro() { forge_exec_tool astro "$@"; }
-FORGE_NCHECKS=13
+FORGE_NCHECKS=14
 
 # 1. typescript/astro/check
 forge_check_meta_1() {
@@ -1271,55 +1283,56 @@ _bt=$(git grep -lE "from[[:space:]]*['\"]bun:test['\"]" -- '*.test.*' '*_test.*'
 
 }
 
-# 6. typescript/bun/trusted-deps
+# 6. typescript/bun/text-lockfile
 forge_check_meta_6() {
-  c_id='typescript/bun/trusted-deps'; c_stage=lint; c_tools='bun'
+  c_id='typescript/bun/text-lockfile'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_6() {
   return 0
 }
-forge_when_6() { case $1 in package.json|*/package.json) return 0 ;; esac; return 1; }
+forge_when_6() { case $1 in bun.lockb|*/bun.lockb|package.json|*/package.json) return 0 ;; esac; return 1; }
 forge_check_run_6() {
-forge_trusted_deps
+_bl=$(git ls-files -co --exclude-standard -- 'bun.lockb' '*/bun.lockb')
+[ -z "$_bl" ] || { printf '%s: binary lock file; migrate to the text bun.lock (bun install --save-text-lockfile --frozen-lockfile) and delete it\n' $_bl; false; }
+
 }
 
-# 7. typescript/config-ratchet
+# 7. typescript/bun/trusted-deps
 forge_check_meta_7() {
-  c_id='typescript/config-ratchet'; c_stage=lint; c_tools='bun'
+  c_id='typescript/bun/trusted-deps'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_7() {
-  case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_7() { case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) return 0 ;; esac; return 1; }
+forge_when_7() { case $1 in package.json|*/package.json) return 0 ;; esac; return 1; }
 forge_check_run_7() {
-forge_ratchet bun ratchet.mjs
+forge_trusted_deps
 }
 
-# 8. typescript/env-example
+# 8. typescript/config-ratchet
 forge_check_meta_8() {
-  c_id='typescript/env-example'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
+  c_id='typescript/config-ratchet'; c_stage=lint; c_tools='bun'
+  c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_8() {
-  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
-  return 1
+  case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) ;; *) return 1 ;; esac
+  return 0
 }
-forge_when_8() { return 1; }
+forge_when_8() { case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) return 0 ;; esac; return 1; }
 forge_check_run_8() {
-forge_env_example ts
+forge_ratchet bun ratchet.mjs
 }
 
-# 9. typescript/format-lint
+# 9. typescript/env-example
 forge_check_meta_9() {
-  c_id='typescript/format-lint'; c_stage=lint; c_tools='biome'
+  c_id='typescript/env-example'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=1; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_9() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -1327,67 +1340,64 @@ forge_scope_9() {
 }
 forge_when_9() { return 1; }
 forge_check_run_9() {
+forge_env_example ts
+}
+
+# 10. typescript/format-lint
+forge_check_meta_10() {
+  c_id='typescript/format-lint'; c_stage=lint; c_tools='biome'
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=1; c_files=1; c_fix=0; c_fmt=1; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_10() {
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+forge_when_10() { return 1; }
+forge_check_run_10() {
 biome ci .
 }
-forge_check_changed_9() {
+forge_check_changed_10() {
 biome check --write --no-errors-on-unmatched $FORGE_FILES
 }
-forge_check_fmt_9() {
+forge_check_fmt_10() {
 biome format --stdin-file-path="$FORGE_FILE"
 }
 
-# 10. typescript/lockfile-updated
-forge_check_meta_10() {
+# 11. typescript/lockfile-updated
+forge_check_meta_11() {
   c_id='typescript/lockfile-updated'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_10() {
+forge_scope_11() {
   return 0
 }
-forge_when_10() { case $1 in package.json|*/package.json) return 0 ;; esac; return 1; }
-forge_check_run_10() {
+forge_when_11() { case $1 in package.json|*/package.json) return 0 ;; esac; return 1; }
+forge_check_run_11() {
 forge_once forge_lockfile_updated
 }
 
-# 11. typescript/no-ignore-deprecations
-forge_check_meta_11() {
+# 12. typescript/no-ignore-deprecations
+forge_check_meta_12() {
   c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_11() {
+forge_scope_12() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_11() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
-forge_check_run_11() {
+forge_when_12() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
+forge_check_run_12() {
 ! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')
 }
 
-# 12. typescript/no-unused-suppressions
-forge_check_meta_12() {
+# 13. typescript/no-unused-suppressions
+forge_check_meta_13() {
   c_id='typescript/no-unused-suppressions'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_12() {
-  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
-  return 1
-}
-forge_when_12() { return 1; }
-forge_check_run_12() {
-! biome lint --colors=off --max-diagnostics=none . 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
-}
-forge_check_changed_12() {
-! biome lint --colors=off --max-diagnostics=none --no-errors-on-unmatched $FORGE_FILES 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
-}
-
-# 13. typescript/typecheck
-forge_check_meta_13() {
-  c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_13() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -1395,6 +1405,24 @@ forge_scope_13() {
 }
 forge_when_13() { return 1; }
 forge_check_run_13() {
+! biome lint --colors=off --max-diagnostics=none . 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
+}
+forge_check_changed_13() {
+! biome lint --colors=off --max-diagnostics=none --no-errors-on-unmatched $FORGE_FILES 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
+}
+
+# 14. typescript/typecheck
+forge_check_meta_14() {
+  c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_14() {
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+forge_when_14() { return 1; }
+forge_check_run_14() {
 tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile "$(forge_state_file tsc.tsbuildinfo)"
 }
 
@@ -1416,8 +1444,8 @@ forge_grep_scope_1() {
 # grep 2. typescript/no-new-suppressions
 forge_grep_meta_2() {
   g_id='typescript/no-new-suppressions'; g_mode=no-increase; g_flags=-E
-  g_pattern='biome-ignore|@ts-expect-error'
-  g_desc='No new suppression comments (biome-ignore in any form, @ts-expect-error); a changed file may not have more than it had. Fix the finding instead.'
+  g_pattern='biome-ignore|@ts-expect-error|eslint-disable|oxlint-disable|deno-lint-ignore|prettier-ignore'
+  g_desc='No new suppression comments (biome-ignore, eslint-disable and oxlint-disable in any form, deno-lint-ignore, prettier-ignore, @ts-expect-error); a changed file may not have more than it had. Fix the finding instead.'
 }
 forge_grep_scope_2() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -4430,7 +4458,7 @@ forge_types_filter() {
   return "$_tf_rc"
 }
 
-FORGE_FORBID='typescript/bun/no-shell-raw|typescript/cors-credentials-wildcard|typescript/no-double-assertion|typescript/no-hardcoded-session-secret|typescript/no-html-sinks|typescript/no-stub|typescript/no-swallowed-catch|typescript/no-ts-nocheck|typescript/postmessage-origin|typescript/react/act-from-react|typescript/react/no-prop-types|typescript/react/use-action-state|typescript/ts-expect-error-reason'
+FORGE_FORBID='typescript/bun/no-shell-raw|typescript/cors-credentials-wildcard|typescript/no-double-assertion|typescript/no-hardcoded-session-secret|typescript/no-html-sinks|typescript/no-object-literal-assertion|typescript/no-stub|typescript/no-swallowed-catch|typescript/no-ts-nocheck|typescript/no-unchecked-json|typescript/postmessage-origin|typescript/react/act-from-react|typescript/react/no-prop-types|typescript/react/use-action-state|typescript/ts-expect-error-reason|typescript/no-dynamic-regexp'
 
 # the lines added to each file during the turn (base: the turn snapshot, else HEAD)
 mode=--changed
@@ -4583,7 +4611,7 @@ IFS='
 biome() { forge_exec_tool biome "$@"; }
 tsc() { forge_exec_tool tsc "$@"; }
 astro() { forge_exec_tool astro "$@"; }
-FORGE_NCHECKS=13
+FORGE_NCHECKS=14
 
 # 1. typescript/astro/check
 forge_check_meta_1() {
@@ -4664,55 +4692,56 @@ _bt=$(git grep -lE "from[[:space:]]*['\"]bun:test['\"]" -- '*.test.*' '*_test.*'
 
 }
 
-# 6. typescript/bun/trusted-deps
+# 6. typescript/bun/text-lockfile
 forge_check_meta_6() {
-  c_id='typescript/bun/trusted-deps'; c_stage=lint; c_tools='bun'
+  c_id='typescript/bun/text-lockfile'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_6() {
   return 0
 }
-forge_when_6() { case $1 in package.json|*/package.json) return 0 ;; esac; return 1; }
+forge_when_6() { case $1 in bun.lockb|*/bun.lockb|package.json|*/package.json) return 0 ;; esac; return 1; }
 forge_check_run_6() {
-forge_trusted_deps
+_bl=$(git ls-files -co --exclude-standard -- 'bun.lockb' '*/bun.lockb')
+[ -z "$_bl" ] || { printf '%s: binary lock file; migrate to the text bun.lock (bun install --save-text-lockfile --frozen-lockfile) and delete it\n' $_bl; false; }
+
 }
 
-# 7. typescript/config-ratchet
+# 7. typescript/bun/trusted-deps
 forge_check_meta_7() {
-  c_id='typescript/config-ratchet'; c_stage=lint; c_tools='bun'
+  c_id='typescript/bun/trusted-deps'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_7() {
-  case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_7() { case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) return 0 ;; esac; return 1; }
+forge_when_7() { case $1 in package.json|*/package.json) return 0 ;; esac; return 1; }
 forge_check_run_7() {
-forge_ratchet bun ratchet.mjs
+forge_trusted_deps
 }
 
-# 8. typescript/env-example
+# 8. typescript/config-ratchet
 forge_check_meta_8() {
-  c_id='typescript/env-example'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
+  c_id='typescript/config-ratchet'; c_stage=lint; c_tools='bun'
+  c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_8() {
-  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
-  return 1
+  case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) ;; *) return 1 ;; esac
+  return 0
 }
-forge_when_8() { return 1; }
+forge_when_8() { case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) return 0 ;; esac; return 1; }
 forge_check_run_8() {
-forge_env_example ts
+forge_ratchet bun ratchet.mjs
 }
 
-# 9. typescript/format-lint
+# 9. typescript/env-example
 forge_check_meta_9() {
-  c_id='typescript/format-lint'; c_stage=lint; c_tools='biome'
+  c_id='typescript/env-example'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=1; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_9() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -4720,67 +4749,64 @@ forge_scope_9() {
 }
 forge_when_9() { return 1; }
 forge_check_run_9() {
+forge_env_example ts
+}
+
+# 10. typescript/format-lint
+forge_check_meta_10() {
+  c_id='typescript/format-lint'; c_stage=lint; c_tools='biome'
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=1; c_files=1; c_fix=0; c_fmt=1; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_10() {
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+forge_when_10() { return 1; }
+forge_check_run_10() {
 biome ci .
 }
-forge_check_changed_9() {
+forge_check_changed_10() {
 biome check --write --no-errors-on-unmatched $FORGE_FILES
 }
-forge_check_fmt_9() {
+forge_check_fmt_10() {
 biome format --stdin-file-path="$FORGE_FILE"
 }
 
-# 10. typescript/lockfile-updated
-forge_check_meta_10() {
+# 11. typescript/lockfile-updated
+forge_check_meta_11() {
   c_id='typescript/lockfile-updated'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_10() {
+forge_scope_11() {
   return 0
 }
-forge_when_10() { case $1 in package.json|*/package.json) return 0 ;; esac; return 1; }
-forge_check_run_10() {
+forge_when_11() { case $1 in package.json|*/package.json) return 0 ;; esac; return 1; }
+forge_check_run_11() {
 forge_once forge_lockfile_updated
 }
 
-# 11. typescript/no-ignore-deprecations
-forge_check_meta_11() {
+# 12. typescript/no-ignore-deprecations
+forge_check_meta_12() {
   c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_11() {
+forge_scope_12() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_11() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
-forge_check_run_11() {
+forge_when_12() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
+forge_check_run_12() {
 ! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')
 }
 
-# 12. typescript/no-unused-suppressions
-forge_check_meta_12() {
+# 13. typescript/no-unused-suppressions
+forge_check_meta_13() {
   c_id='typescript/no-unused-suppressions'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_12() {
-  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
-  return 1
-}
-forge_when_12() { return 1; }
-forge_check_run_12() {
-! biome lint --colors=off --max-diagnostics=none . 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
-}
-forge_check_changed_12() {
-! biome lint --colors=off --max-diagnostics=none --no-errors-on-unmatched $FORGE_FILES 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
-}
-
-# 13. typescript/typecheck
-forge_check_meta_13() {
-  c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_13() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -4788,6 +4814,24 @@ forge_scope_13() {
 }
 forge_when_13() { return 1; }
 forge_check_run_13() {
+! biome lint --colors=off --max-diagnostics=none . 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
+}
+forge_check_changed_13() {
+! biome lint --colors=off --max-diagnostics=none --no-errors-on-unmatched $FORGE_FILES 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
+}
+
+# 14. typescript/typecheck
+forge_check_meta_14() {
+  c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_14() {
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+forge_when_14() { return 1; }
+forge_check_run_14() {
 tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile "$(forge_state_file tsc.tsbuildinfo)"
 }
 
@@ -4809,8 +4853,8 @@ forge_grep_scope_1() {
 # grep 2. typescript/no-new-suppressions
 forge_grep_meta_2() {
   g_id='typescript/no-new-suppressions'; g_mode=no-increase; g_flags=-E
-  g_pattern='biome-ignore|@ts-expect-error'
-  g_desc='No new suppression comments (biome-ignore in any form, @ts-expect-error); a changed file may not have more than it had. Fix the finding instead.'
+  g_pattern='biome-ignore|@ts-expect-error|eslint-disable|oxlint-disable|deno-lint-ignore|prettier-ignore'
+  g_desc='No new suppression comments (biome-ignore, eslint-disable and oxlint-disable in any form, deno-lint-ignore, prettier-ignore, @ts-expect-error); a changed file may not have more than it had. Fix the finding instead.'
 }
 forge_grep_scope_2() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -7996,7 +8040,7 @@ IFS='
 biome() { forge_exec_tool biome "$@"; }
 tsc() { forge_exec_tool tsc "$@"; }
 astro() { forge_exec_tool astro "$@"; }
-FORGE_NCHECKS=13
+FORGE_NCHECKS=14
 
 # 1. typescript/astro/check
 forge_check_meta_1() {
@@ -8077,55 +8121,56 @@ _bt=$(git grep -lE "from[[:space:]]*['\"]bun:test['\"]" -- '*.test.*' '*_test.*'
 
 }
 
-# 6. typescript/bun/trusted-deps
+# 6. typescript/bun/text-lockfile
 forge_check_meta_6() {
-  c_id='typescript/bun/trusted-deps'; c_stage=lint; c_tools='bun'
+  c_id='typescript/bun/text-lockfile'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_6() {
   return 0
 }
-forge_when_6() { case $1 in package.json|*/package.json) return 0 ;; esac; return 1; }
+forge_when_6() { case $1 in bun.lockb|*/bun.lockb|package.json|*/package.json) return 0 ;; esac; return 1; }
 forge_check_run_6() {
-forge_trusted_deps
+_bl=$(git ls-files -co --exclude-standard -- 'bun.lockb' '*/bun.lockb')
+[ -z "$_bl" ] || { printf '%s: binary lock file; migrate to the text bun.lock (bun install --save-text-lockfile --frozen-lockfile) and delete it\n' $_bl; false; }
+
 }
 
-# 7. typescript/config-ratchet
+# 7. typescript/bun/trusted-deps
 forge_check_meta_7() {
-  c_id='typescript/config-ratchet'; c_stage=lint; c_tools='bun'
+  c_id='typescript/bun/trusted-deps'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_7() {
-  case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_7() { case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) return 0 ;; esac; return 1; }
+forge_when_7() { case $1 in package.json|*/package.json) return 0 ;; esac; return 1; }
 forge_check_run_7() {
-forge_ratchet bun ratchet.mjs
+forge_trusted_deps
 }
 
-# 8. typescript/env-example
+# 8. typescript/config-ratchet
 forge_check_meta_8() {
-  c_id='typescript/env-example'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
+  c_id='typescript/config-ratchet'; c_stage=lint; c_tools='bun'
+  c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_8() {
-  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
-  return 1
+  case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) ;; *) return 1 ;; esac
+  return 0
 }
-forge_when_8() { return 1; }
+forge_when_8() { case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) return 0 ;; esac; return 1; }
 forge_check_run_8() {
-forge_env_example ts
+forge_ratchet bun ratchet.mjs
 }
 
-# 9. typescript/format-lint
+# 9. typescript/env-example
 forge_check_meta_9() {
-  c_id='typescript/format-lint'; c_stage=lint; c_tools='biome'
+  c_id='typescript/env-example'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=1; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_9() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -8133,67 +8178,64 @@ forge_scope_9() {
 }
 forge_when_9() { return 1; }
 forge_check_run_9() {
+forge_env_example ts
+}
+
+# 10. typescript/format-lint
+forge_check_meta_10() {
+  c_id='typescript/format-lint'; c_stage=lint; c_tools='biome'
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=1; c_files=1; c_fix=0; c_fmt=1; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_10() {
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+forge_when_10() { return 1; }
+forge_check_run_10() {
 biome ci .
 }
-forge_check_changed_9() {
+forge_check_changed_10() {
 biome check --write --no-errors-on-unmatched $FORGE_FILES
 }
-forge_check_fmt_9() {
+forge_check_fmt_10() {
 biome format --stdin-file-path="$FORGE_FILE"
 }
 
-# 10. typescript/lockfile-updated
-forge_check_meta_10() {
+# 11. typescript/lockfile-updated
+forge_check_meta_11() {
   c_id='typescript/lockfile-updated'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_10() {
+forge_scope_11() {
   return 0
 }
-forge_when_10() { case $1 in package.json|*/package.json) return 0 ;; esac; return 1; }
-forge_check_run_10() {
+forge_when_11() { case $1 in package.json|*/package.json) return 0 ;; esac; return 1; }
+forge_check_run_11() {
 forge_once forge_lockfile_updated
 }
 
-# 11. typescript/no-ignore-deprecations
-forge_check_meta_11() {
+# 12. typescript/no-ignore-deprecations
+forge_check_meta_12() {
   c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_11() {
+forge_scope_12() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_11() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
-forge_check_run_11() {
+forge_when_12() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
+forge_check_run_12() {
 ! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')
 }
 
-# 12. typescript/no-unused-suppressions
-forge_check_meta_12() {
+# 13. typescript/no-unused-suppressions
+forge_check_meta_13() {
   c_id='typescript/no-unused-suppressions'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_12() {
-  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
-  return 1
-}
-forge_when_12() { return 1; }
-forge_check_run_12() {
-! biome lint --colors=off --max-diagnostics=none . 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
-}
-forge_check_changed_12() {
-! biome lint --colors=off --max-diagnostics=none --no-errors-on-unmatched $FORGE_FILES 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
-}
-
-# 13. typescript/typecheck
-forge_check_meta_13() {
-  c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_13() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -8201,6 +8243,24 @@ forge_scope_13() {
 }
 forge_when_13() { return 1; }
 forge_check_run_13() {
+! biome lint --colors=off --max-diagnostics=none . 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
+}
+forge_check_changed_13() {
+! biome lint --colors=off --max-diagnostics=none --no-errors-on-unmatched $FORGE_FILES 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
+}
+
+# 14. typescript/typecheck
+forge_check_meta_14() {
+  c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_14() {
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+forge_when_14() { return 1; }
+forge_check_run_14() {
 tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile "$(forge_state_file tsc.tsbuildinfo)"
 }
 
@@ -8222,8 +8282,8 @@ forge_grep_scope_1() {
 # grep 2. typescript/no-new-suppressions
 forge_grep_meta_2() {
   g_id='typescript/no-new-suppressions'; g_mode=no-increase; g_flags=-E
-  g_pattern='biome-ignore|@ts-expect-error'
-  g_desc='No new suppression comments (biome-ignore in any form, @ts-expect-error); a changed file may not have more than it had. Fix the finding instead.'
+  g_pattern='biome-ignore|@ts-expect-error|eslint-disable|oxlint-disable|deno-lint-ignore|prettier-ignore'
+  g_desc='No new suppression comments (biome-ignore, eslint-disable and oxlint-disable in any form, deno-lint-ignore, prettier-ignore, @ts-expect-error); a changed file may not have more than it had. Fix the finding instead.'
 }
 forge_grep_scope_2() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -11429,7 +11489,7 @@ IFS='
 biome() { forge_exec_tool biome "$@"; }
 tsc() { forge_exec_tool tsc "$@"; }
 astro() { forge_exec_tool astro "$@"; }
-FORGE_NCHECKS=13
+FORGE_NCHECKS=14
 
 # 1. typescript/astro/check
 forge_check_meta_1() {
@@ -11510,55 +11570,56 @@ _bt=$(git grep -lE "from[[:space:]]*['\"]bun:test['\"]" -- '*.test.*' '*_test.*'
 
 }
 
-# 6. typescript/bun/trusted-deps
+# 6. typescript/bun/text-lockfile
 forge_check_meta_6() {
-  c_id='typescript/bun/trusted-deps'; c_stage=lint; c_tools='bun'
+  c_id='typescript/bun/text-lockfile'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_6() {
   return 0
 }
-forge_when_6() { case $1 in package.json|*/package.json) return 0 ;; esac; return 1; }
+forge_when_6() { case $1 in bun.lockb|*/bun.lockb|package.json|*/package.json) return 0 ;; esac; return 1; }
 forge_check_run_6() {
-forge_trusted_deps
+_bl=$(git ls-files -co --exclude-standard -- 'bun.lockb' '*/bun.lockb')
+[ -z "$_bl" ] || { printf '%s: binary lock file; migrate to the text bun.lock (bun install --save-text-lockfile --frozen-lockfile) and delete it\n' $_bl; false; }
+
 }
 
-# 7. typescript/config-ratchet
+# 7. typescript/bun/trusted-deps
 forge_check_meta_7() {
-  c_id='typescript/config-ratchet'; c_stage=lint; c_tools='bun'
+  c_id='typescript/bun/trusted-deps'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_7() {
-  case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_7() { case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) return 0 ;; esac; return 1; }
+forge_when_7() { case $1 in package.json|*/package.json) return 0 ;; esac; return 1; }
 forge_check_run_7() {
-forge_ratchet bun ratchet.mjs
+forge_trusted_deps
 }
 
-# 8. typescript/env-example
+# 8. typescript/config-ratchet
 forge_check_meta_8() {
-  c_id='typescript/env-example'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
+  c_id='typescript/config-ratchet'; c_stage=lint; c_tools='bun'
+  c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_8() {
-  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
-  return 1
+  case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) ;; *) return 1 ;; esac
+  return 0
 }
-forge_when_8() { return 1; }
+forge_when_8() { case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) return 0 ;; esac; return 1; }
 forge_check_run_8() {
-forge_env_example ts
+forge_ratchet bun ratchet.mjs
 }
 
-# 9. typescript/format-lint
+# 9. typescript/env-example
 forge_check_meta_9() {
-  c_id='typescript/format-lint'; c_stage=lint; c_tools='biome'
+  c_id='typescript/env-example'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=1; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_9() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -11566,67 +11627,64 @@ forge_scope_9() {
 }
 forge_when_9() { return 1; }
 forge_check_run_9() {
+forge_env_example ts
+}
+
+# 10. typescript/format-lint
+forge_check_meta_10() {
+  c_id='typescript/format-lint'; c_stage=lint; c_tools='biome'
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=1; c_files=1; c_fix=0; c_fmt=1; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_10() {
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+forge_when_10() { return 1; }
+forge_check_run_10() {
 biome ci .
 }
-forge_check_changed_9() {
+forge_check_changed_10() {
 biome check --write --no-errors-on-unmatched $FORGE_FILES
 }
-forge_check_fmt_9() {
+forge_check_fmt_10() {
 biome format --stdin-file-path="$FORGE_FILE"
 }
 
-# 10. typescript/lockfile-updated
-forge_check_meta_10() {
+# 11. typescript/lockfile-updated
+forge_check_meta_11() {
   c_id='typescript/lockfile-updated'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_10() {
+forge_scope_11() {
   return 0
 }
-forge_when_10() { case $1 in package.json|*/package.json) return 0 ;; esac; return 1; }
-forge_check_run_10() {
+forge_when_11() { case $1 in package.json|*/package.json) return 0 ;; esac; return 1; }
+forge_check_run_11() {
 forge_once forge_lockfile_updated
 }
 
-# 11. typescript/no-ignore-deprecations
-forge_check_meta_11() {
+# 12. typescript/no-ignore-deprecations
+forge_check_meta_12() {
   c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_11() {
+forge_scope_12() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_11() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
-forge_check_run_11() {
+forge_when_12() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
+forge_check_run_12() {
 ! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')
 }
 
-# 12. typescript/no-unused-suppressions
-forge_check_meta_12() {
+# 13. typescript/no-unused-suppressions
+forge_check_meta_13() {
   c_id='typescript/no-unused-suppressions'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_12() {
-  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
-  return 1
-}
-forge_when_12() { return 1; }
-forge_check_run_12() {
-! biome lint --colors=off --max-diagnostics=none . 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
-}
-forge_check_changed_12() {
-! biome lint --colors=off --max-diagnostics=none --no-errors-on-unmatched $FORGE_FILES 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
-}
-
-# 13. typescript/typecheck
-forge_check_meta_13() {
-  c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_13() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -11634,6 +11692,24 @@ forge_scope_13() {
 }
 forge_when_13() { return 1; }
 forge_check_run_13() {
+! biome lint --colors=off --max-diagnostics=none . 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
+}
+forge_check_changed_13() {
+! biome lint --colors=off --max-diagnostics=none --no-errors-on-unmatched $FORGE_FILES 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
+}
+
+# 14. typescript/typecheck
+forge_check_meta_14() {
+  c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_14() {
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+forge_when_14() { return 1; }
+forge_check_run_14() {
 tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile "$(forge_state_file tsc.tsbuildinfo)"
 }
 
@@ -11655,8 +11731,8 @@ forge_grep_scope_1() {
 # grep 2. typescript/no-new-suppressions
 forge_grep_meta_2() {
   g_id='typescript/no-new-suppressions'; g_mode=no-increase; g_flags=-E
-  g_pattern='biome-ignore|@ts-expect-error'
-  g_desc='No new suppression comments (biome-ignore in any form, @ts-expect-error); a changed file may not have more than it had. Fix the finding instead.'
+  g_pattern='biome-ignore|@ts-expect-error|eslint-disable|oxlint-disable|deno-lint-ignore|prettier-ignore'
+  g_desc='No new suppression comments (biome-ignore, eslint-disable and oxlint-disable in any form, deno-lint-ignore, prettier-ignore, @ts-expect-error); a changed file may not have more than it had. Fix the finding instead.'
 }
 forge_grep_scope_2() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -14876,6 +14952,29 @@ invalid:
   - "const u = (req as unknown as { user: User }).user;"
   - const n = s as any as number;
 
+===== .forge/ast-grep/rule-tests/typescript-no-dynamic-regexp-test.yml
+id: typescript/no-dynamic-regexp
+valid:
+  - |
+    export const slug = new RegExp("^[a-z0-9-]+$");
+  - |
+    export function finder(term: string): RegExp {
+      return new RegExp(RegExp.escape(term), "i");
+    }
+  - |
+    export function exact(word: string): RegExp {
+      return new RegExp(`^${RegExp.escape(word)}$`);
+    }
+invalid:
+  - |
+    export function finder(term: string): RegExp {
+      return new RegExp(term, "i");
+    }
+  - |
+    export function exact(word: string): RegExp {
+      return RegExp(`^${word}$`);
+    }
+
 ===== .forge/ast-grep/rule-tests/typescript-no-hardcoded-session-secret-test.yml
 id: typescript/no-hardcoded-session-secret
 valid: []
@@ -14928,6 +15027,33 @@ invalid:
       if (root) root.innerHTML = html;
       document.write(html);
     }
+
+===== .forge/ast-grep/rule-tests/typescript-no-object-literal-assertion-test.yml
+id: typescript/no-object-literal-assertion
+valid:
+  - |
+    type User = { id: number; name: string };
+    export const admin: User = { id: 1, name: "a" };
+  - |
+    type User = { id: number; name: string };
+    export const admin = { id: 1, name: "a" } satisfies User;
+  - |
+    export const roles = ["admin", "editor"] as const;
+  - |
+    export const ids = [] as number[];
+  - |
+    type User = { id: number };
+    declare const raw: User | null;
+    export const user = raw as User;
+invalid:
+  - |
+    type User = { id: number; name: string };
+    export const admin = { id: 1 } as User;
+  - |
+    type User = { id: number; name: string };
+    export const users = [{ id: 1, name: "a" }] as User[];
+  - |
+    export const totals = {} as Record<string, number>;
 
 ===== .forge/ast-grep/rule-tests/typescript-no-stub-test.yml
 id: typescript/no-stub
@@ -15034,6 +15160,39 @@ invalid:
   - |
     /* @ts-nocheck */
     export const y = 2;
+
+===== .forge/ast-grep/rule-tests/typescript-no-unchecked-json-test.yml
+id: typescript/no-unchecked-json
+valid: []
+invalid:
+  - |
+    type Config = { port: number };
+
+    export function load(text: string): Config {
+      return JSON.parse(text) as Config;
+    }
+  - |
+    type Config = { port: number };
+
+    export function load(text: string): number {
+      const config: Config = JSON.parse(text);
+      return config.port;
+    }
+  - |
+    type User = { id: number };
+
+    export async function user(): Promise<User> {
+      const res = await fetch("https://api.example.com/me");
+      return (await res.json()) as User;
+    }
+  - |
+    type User = { id: number };
+
+    export async function user(): Promise<number> {
+      const res = await fetch("https://api.example.com/me");
+      const me: User = await res.json();
+      return me.id;
+    }
 
 ===== .forge/ast-grep/rule-tests/typescript-postmessage-origin-test.yml
 id: typescript/postmessage-origin
@@ -15437,6 +15596,32 @@ rule:
     - pattern: $X as unknown as $T
     - pattern: $X as any as $T
 
+===== .forge/ast-grep/rules/typescript/no-dynamic-regexp.yml
+# Generated by forge from typescript/no-dynamic-regexp (mode: advise).
+id: typescript/no-dynamic-regexp
+language: Tsx
+severity: warning
+message: "forge:typescript/no-dynamic-regexp A RegExp built from a non-literal pattern (new RegExp(input), RegExp(`^${p}`)) escapes it with RegExp.escape() (ES2025, Node 24) unless the text is meant as a pattern: unescaped input changes what matches and can backtrack for ever."
+rule:
+  any:
+    - pattern: new RegExp($A)
+    - pattern: new RegExp($A, $$$)
+    - pattern: RegExp($A)
+    - pattern: RegExp($A, $$$)
+constraints:
+  A:
+    not:
+      any:
+        - kind: string
+        - kind: template_string
+          not:
+            has:
+              kind: template_substitution
+              not:
+                has:
+                  pattern: RegExp.escape($$$)
+        - pattern: RegExp.escape($$$)
+
 ===== .forge/ast-grep/rules/typescript/no-hardcoded-session-secret.yml
 # Generated by forge from typescript/no-hardcoded-session-secret (mode: forbid).
 id: typescript/no-hardcoded-session-secret
@@ -15615,6 +15800,25 @@ metadata:
           - Range
           - ShadowRoot
 
+===== .forge/ast-grep/rules/typescript/no-object-literal-assertion.yml
+# Generated by forge from typescript/no-object-literal-assertion (mode: forbid).
+id: typescript/no-object-literal-assertion
+language: Tsx
+severity: error
+message: forge:typescript/no-object-literal-assertion No type assertion on an object or array literal ({ … } as T, [x] as T[]); it hides missing and misspelled fields. Annotate the variable, use satisfies T, or pass a type argument; as const and an empty [] are fine.
+rule:
+  pattern: $E as $T
+constraints:
+  E:
+    any:
+      - kind: object
+      - kind: array
+        has:
+          nthChild: 1
+  T:
+    not:
+      regex: ^const$
+
 ===== .forge/ast-grep/rules/typescript/no-stub.yml
 # Generated by forge from typescript/no-stub (mode: forbid).
 id: typescript/no-stub
@@ -15688,6 +15892,44 @@ message: forge:typescript/no-ts-nocheck No @ts-nocheck. It turns off type checki
 rule:
   kind: comment
   regex: ^(//|/\*)[[:space:]]*@ts-nocheck
+
+===== .forge/ast-grep/rules/typescript/no-unchecked-json.yml
+# Generated by forge from typescript/no-unchecked-json (mode: forbid).
+id: typescript/no-unchecked-json
+language: Tsx
+severity: error
+message: "forge:typescript/no-unchecked-json The result of JSON.parse() or a fetch Response's .json() is not asserted (as T) or annotated (const x: T =) to a type it was never checked against: take it as unknown and validate it with a schema."
+rule:
+  any:
+    - pattern: JSON.parse($$$) as $T
+    - pattern: await $R.json() as $T
+    - pattern: (await $R.json()) as $T
+    - kind: variable_declarator
+      all:
+        - has:
+            field: type
+            kind: type_annotation
+            not:
+              has:
+                kind: predefined_type
+                regex: ^unknown$
+        - has:
+            field: value
+            any:
+              - pattern: JSON.parse($$$)
+              - pattern: await $R.json()
+constraints:
+  T:
+    not:
+      regex: ^unknown$
+metadata:
+  forge_where:
+    R:
+      type:
+        package:
+          - typescript
+          - undici-types
+        name: Response
 
 ===== .forge/ast-grep/rules/typescript/postmessage-origin.yml
 # Generated by forge from typescript/postmessage-origin (mode: forbid).
@@ -16345,7 +16587,7 @@ forge_types_session() {
 biome() { forge_exec_tool biome "$@"; }
 tsc() { forge_exec_tool tsc "$@"; }
 astro() { forge_exec_tool astro "$@"; }
-FORGE_NCHECKS=13
+FORGE_NCHECKS=14
 
 # 1. typescript/astro/check
 forge_check_meta_1() {
@@ -16426,55 +16668,56 @@ _bt=$(git grep -lE "from[[:space:]]*['\"]bun:test['\"]" -- '*.test.*' '*_test.*'
 
 }
 
-# 6. typescript/bun/trusted-deps
+# 6. typescript/bun/text-lockfile
 forge_check_meta_6() {
-  c_id='typescript/bun/trusted-deps'; c_stage=lint; c_tools='bun'
+  c_id='typescript/bun/text-lockfile'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_6() {
   return 0
 }
-forge_when_6() { case $1 in package.json|*/package.json) return 0 ;; esac; return 1; }
+forge_when_6() { case $1 in bun.lockb|*/bun.lockb|package.json|*/package.json) return 0 ;; esac; return 1; }
 forge_check_run_6() {
-forge_trusted_deps
+_bl=$(git ls-files -co --exclude-standard -- 'bun.lockb' '*/bun.lockb')
+[ -z "$_bl" ] || { printf '%s: binary lock file; migrate to the text bun.lock (bun install --save-text-lockfile --frozen-lockfile) and delete it\n' $_bl; false; }
+
 }
 
-# 7. typescript/config-ratchet
+# 7. typescript/bun/trusted-deps
 forge_check_meta_7() {
-  c_id='typescript/config-ratchet'; c_stage=lint; c_tools='bun'
+  c_id='typescript/bun/trusted-deps'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_7() {
-  case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_7() { case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) return 0 ;; esac; return 1; }
+forge_when_7() { case $1 in package.json|*/package.json) return 0 ;; esac; return 1; }
 forge_check_run_7() {
-forge_ratchet bun ratchet.mjs
+forge_trusted_deps
 }
 
-# 8. typescript/env-example
+# 8. typescript/config-ratchet
 forge_check_meta_8() {
-  c_id='typescript/env-example'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
+  c_id='typescript/config-ratchet'; c_stage=lint; c_tools='bun'
+  c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_8() {
-  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
-  return 1
+  case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) ;; *) return 1 ;; esac
+  return 0
 }
-forge_when_8() { return 1; }
+forge_when_8() { case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) return 0 ;; esac; return 1; }
 forge_check_run_8() {
-forge_env_example ts
+forge_ratchet bun ratchet.mjs
 }
 
-# 9. typescript/format-lint
+# 9. typescript/env-example
 forge_check_meta_9() {
-  c_id='typescript/format-lint'; c_stage=lint; c_tools='biome'
+  c_id='typescript/env-example'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=1; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_9() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -16482,67 +16725,64 @@ forge_scope_9() {
 }
 forge_when_9() { return 1; }
 forge_check_run_9() {
+forge_env_example ts
+}
+
+# 10. typescript/format-lint
+forge_check_meta_10() {
+  c_id='typescript/format-lint'; c_stage=lint; c_tools='biome'
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=1; c_files=1; c_fix=0; c_fmt=1; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_10() {
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+forge_when_10() { return 1; }
+forge_check_run_10() {
 biome ci .
 }
-forge_check_changed_9() {
+forge_check_changed_10() {
 biome check --write --no-errors-on-unmatched $FORGE_FILES
 }
-forge_check_fmt_9() {
+forge_check_fmt_10() {
 biome format --stdin-file-path="$FORGE_FILE"
 }
 
-# 10. typescript/lockfile-updated
-forge_check_meta_10() {
+# 11. typescript/lockfile-updated
+forge_check_meta_11() {
   c_id='typescript/lockfile-updated'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_10() {
+forge_scope_11() {
   return 0
 }
-forge_when_10() { case $1 in package.json|*/package.json) return 0 ;; esac; return 1; }
-forge_check_run_10() {
+forge_when_11() { case $1 in package.json|*/package.json) return 0 ;; esac; return 1; }
+forge_check_run_11() {
 forge_once forge_lockfile_updated
 }
 
-# 11. typescript/no-ignore-deprecations
-forge_check_meta_11() {
+# 12. typescript/no-ignore-deprecations
+forge_check_meta_12() {
   c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_11() {
+forge_scope_12() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_11() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
-forge_check_run_11() {
+forge_when_12() { case $1 in tsconfig*.json|*/tsconfig*.json) return 0 ;; esac; return 1; }
+forge_check_run_12() {
 ! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')
 }
 
-# 12. typescript/no-unused-suppressions
-forge_check_meta_12() {
+# 13. typescript/no-unused-suppressions
+forge_check_meta_13() {
   c_id='typescript/no-unused-suppressions'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_12() {
-  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
-  return 1
-}
-forge_when_12() { return 1; }
-forge_check_run_12() {
-! biome lint --colors=off --max-diagnostics=none . 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
-}
-forge_check_changed_12() {
-! biome lint --colors=off --max-diagnostics=none --no-errors-on-unmatched $FORGE_FILES 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
-}
-
-# 13. typescript/typecheck
-forge_check_meta_13() {
-  c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_13() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -16550,6 +16790,24 @@ forge_scope_13() {
 }
 forge_when_13() { return 1; }
 forge_check_run_13() {
+! biome lint --colors=off --max-diagnostics=none . 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
+}
+forge_check_changed_13() {
+! biome lint --colors=off --max-diagnostics=none --no-errors-on-unmatched $FORGE_FILES 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
+}
+
+# 14. typescript/typecheck
+forge_check_meta_14() {
+  c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_14() {
+  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
+  return 1
+}
+forge_when_14() { return 1; }
+forge_check_run_14() {
 tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile "$(forge_state_file tsc.tsbuildinfo)"
 }
 
@@ -16571,8 +16829,8 @@ forge_grep_scope_1() {
 # grep 2. typescript/no-new-suppressions
 forge_grep_meta_2() {
   g_id='typescript/no-new-suppressions'; g_mode=no-increase; g_flags=-E
-  g_pattern='biome-ignore|@ts-expect-error'
-  g_desc='No new suppression comments (biome-ignore in any form, @ts-expect-error); a changed file may not have more than it had. Fix the finding instead.'
+  g_pattern='biome-ignore|@ts-expect-error|eslint-disable|oxlint-disable|deno-lint-ignore|prettier-ignore'
+  g_desc='No new suppression comments (biome-ignore, eslint-disable and oxlint-disable in any form, deno-lint-ignore, prettier-ignore, @ts-expect-error); a changed file may not have more than it had. Fix the finding instead.'
 }
 forge_grep_scope_2() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -19588,7 +19846,7 @@ forge_types_filter() {
 FORGE_STATE=$(forge_state_of "$(pwd -P)")
 
 
-FORGE_FORBID='typescript/bun/no-shell-raw|typescript/cors-credentials-wildcard|typescript/no-double-assertion|typescript/no-hardcoded-session-secret|typescript/no-html-sinks|typescript/no-stub|typescript/no-swallowed-catch|typescript/no-ts-nocheck|typescript/postmessage-origin|typescript/react/act-from-react|typescript/react/no-prop-types|typescript/react/use-action-state|typescript/ts-expect-error-reason'
+FORGE_FORBID='typescript/bun/no-shell-raw|typescript/cors-credentials-wildcard|typescript/no-double-assertion|typescript/no-hardcoded-session-secret|typescript/no-html-sinks|typescript/no-object-literal-assertion|typescript/no-stub|typescript/no-swallowed-catch|typescript/no-ts-nocheck|typescript/no-unchecked-json|typescript/postmessage-origin|typescript/react/act-from-react|typescript/react/no-prop-types|typescript/react/use-action-state|typescript/ts-expect-error-reason'
 FORGE_NO_INCREASE='typescript/bun/no-mock-increase|typescript/bun/no-new-skip'
 FORGE_NO_DECREASE='typescript/bun/no-fewer-expects'
 
@@ -19782,6 +20040,7 @@ forge_end "$fail"
   "forge_version": "0.5.0",
   "claude_code_min": "2.1.295",
   "rules": {
+    "typescript/array-sort-compare": "630811db75f2514ea3ec4bbe9f0e967a064dc038a0f93ba967ae0b4e48865832",
     "typescript/astro/check": "9fc987a05e9bf4333611dc0d8f01bb309daba7272bd0c69c489689272fbb8d26",
     "typescript/astro/no-set-html": "8fd48bf643b6ca656dd4508132bb356e158a91bac4ea933ebef78e3ad80af45a",
     "typescript/bun/lock-sync": "9e09d6a5edb31aa8fb18dc32cdf27b4610898b56dceb6715df786d729f80fb3c",
@@ -19794,16 +20053,22 @@ forge_end "$fail"
     "typescript/bun/no-test-edits": "f0def5a284d258b5fc0afb8274636df1a80cec4fe88c6a50a3ad57523859fe91",
     "typescript/bun/release-age": "a82d38eebf7955af0cef4cb4561d05374438bcd31c28a82eb46e1d644f29c44e",
     "typescript/bun/test": "53b59f6fdb7da1713a6bb636496cdb705de29a53701bab7cbe016b5a47a1b0f7",
+    "typescript/bun/text-lockfile": "cbdb95a24e3862815c0c3d78ee5911f35e64012228b9a63d9553accb3a3a4384",
     "typescript/bun/trusted-deps": "a23199c6bb088f245f833db63f304fdc1c8f304167257caab8125af55bbda732",
-    "typescript/config-files": "77940ff304752f88c143dedc5911b0961de9e16b68e10758a273cfc049505413",
+    "typescript/config-files": "b98d7d7059861901460da6a7912e65a2b6c0d6cd85d66954b307e761f750a4e9",
     "typescript/config-ratchet": "b0ff3b6c064f691984e217acc0388d0900b1a2a1d1ee493935badb41a8a45022",
     "typescript/cors-credentials-wildcard": "e779826c44c3e0c5af614b60821892466df49297cf4c3b651c2ce1ef9831145b",
     "typescript/env-example": "7eab3b03486670f6274d4db65487ccaaf7f2b1fddd39c86a13469cdf46d2140c",
+    "typescript/error-cause": "9170931e3ac2d03952e9fc2636764ce7dcdbe2c9f79b1609eab1765b95d94b7a",
     "typescript/format-lint": "18f0059c55bc0fd6acbd5c7a92fb06989649cd07e9981e421d898991e39aed7b",
     "typescript/iframe-sandbox": "68a3e25b09d93892dc5c7b884660555a33c7bb4adcfc728d9f6da4c0873ddaf6",
+    "typescript/implicit-returns": "b32a2ba8f0c6734d78b444c5e40e9324c76d050b4737c1c6627ba89c46982629",
     "typescript/lockfile-updated": "4e73aebc5db80beaa00f712dc0a4d1091ed8ebe051c57e087df110696b49e6b7",
+    "typescript/no-banned-types": "b40fe06aae8a3215689c51ea1e79cb1f818ace5397d139aed5721c374445174e",
     "typescript/no-console": "304966850351b07590c05fb22ae0125d1976179b3cd7abc0bc0dd7e82039ada5",
+    "typescript/no-const-enum": "c30d3750ef9c4fdff8c9534f76e35ed04c10ee5bcde208a8cae4ff5d3abd307d",
     "typescript/no-double-assertion": "2c5b17cd8daa6bd598b4aa79b30259626c86e6a3afd00630a3a4a2918316ce80",
+    "typescript/no-dynamic-regexp": "7feba0d9f253c3d0afe8d70f9c01fa27765c9484899bdf70c6faefb0142d697d",
     "typescript/no-empty-block": "e615b8d48575392c885e65f5b5e69cfaba918ae070473fb229086fe36501a31f",
     "typescript/no-eval": "695bc504e485395796c1500ec90804609a4f5e8c9a5867062271b9caa5f58143",
     "typescript/no-explicit-any": "66e8f9968e8c88a77229e6c092e4489cffced1186a72fa257017fa6a2e612d28",
@@ -19812,14 +20077,17 @@ forge_end "$fail"
     "typescript/no-html-sinks": "b00e86949464b9fce716e918ff071a59d34a3299b64a41976fd3ef10afcdd024",
     "typescript/no-ignore-deprecations": "63044c1f4bd2f841800843fa17b4db5a29e5d8cc32053591a25622f15902c888",
     "typescript/no-implicit-any": "7ac25a953e4d6df85abee5379ea5496788f5d15776ae37623ceff5ebcc034108",
-    "typescript/no-new-suppressions": "b49b319f832234670b6d55d259add6b912cd7e49e81fd2143917e7b64976dfed",
+    "typescript/no-new-suppressions": "bb130d6d939ee01b685f5e4f6ed3e9faa06dad5aaf0c216b454c6dff7f275590",
     "typescript/no-non-null-assertion": "24bf5fb3547ff36667d3886eaebc706fc21a387a18d2f5789156220e65462ce2",
+    "typescript/no-object-literal-assertion": "7324c436b6acce6a07f2441bf1a45d3b0a5e89f2ac0cc92cd1119ed75a8cd241",
     "typescript/no-placeholder-comment": "940fb140d959d26ffe50ae2978f2efbf8b3e44891a2b7fa0e0156f4752c7fb47",
+    "typescript/no-proto": "c6f0adc46d66d273c8a812e9f690ee0dd3cab37b5b6e05dc1a939212d217ec41",
     "typescript/no-secrets": "94ad67cd60030c667e22aa4c097abbb17675fdeb5cf944ffb69a6cde2aab365c",
     "typescript/no-stub": "c0b7945c7b23df7621388872772f9185161a99ca57a0ea316f969a41972840a8",
     "typescript/no-swallowed-catch": "80a3b4c0071c2d325aefdd8e158b950847eca9159276eb6ab126f21e26015de4",
     "typescript/no-ts-ignore": "afe518e61003a905fe90ca0548a0c472bc26a897d64cb5509ee1b3534297beee",
     "typescript/no-ts-nocheck": "25caeef679e03c9b88f75f961ce1b5d13c0f28538112f9642c513658a10f4213",
+    "typescript/no-unchecked-json": "0edc9ae044271697c2d2bea389c11c3b79311c68d282ace56a58f6d9e9e73360",
     "typescript/no-unused": "d75d0e94afbbd14b74ea3896c6f269d7a6953eed0c9e7edcc4c65534c460c413",
     "typescript/no-unused-suppressions": "47b77a16691164d172e4f52e2267d0b6f1c7888c6b43a095e3ec41093081c918",
     "typescript/postmessage-origin": "9a3e7264a3eb2d45f3e4ece3e34406a6e2239c8b85f63a2f6022ee58ce742c1c",
@@ -19840,28 +20108,29 @@ forge_end "$fail"
     "typescript/strict-null-checks": "1249d522c4e1a26bf6d951e14a7e9b3033d1be96ebf68d9cc93b0e8df9940df6",
     "typescript/ts-expect-error-reason": "2d40d771a013778c75bc79c0e3965b3ecc94aea938e6db87ba92d2bee63ddf90",
     "typescript/typecheck": "9e26565727146ec77b97b763002c2a035a5b077ed2b4b85a3134b2a04850780a",
-    "typescript/unchecked-index": "c8a32a9a463d933695100cbee6ec896fc7bb41bad7d252871fd371ae78801755"
+    "typescript/unchecked-index": "c8a32a9a463d933695100cbee6ec896fc7bb41bad7d252871fd371ae78801755",
+    "typescript/verbatim-imports": "b0731ddbedb5576baf1a87916537e5e5dff375c563addc184d4bd0c91d3c4bc8"
   },
   "files": {
     ".claude/rules/forge-typescript-astro-react.md": "6171b739150fd0044e80d41cf23c1863986f9b149ce3a86638ac495c7efdf96d",
     ".claude/rules/forge-typescript-astro.md": "0dd306180802b4d702da1994991d67cdfd0d28bb3ca86b5808130e23a229d1cb",
-    ".claude/rules/forge-typescript-bun.md": "56d2518521d7559dc4d52e8bc5e96b82e97026bdb48f5281fe9450e0f01e1d53",
+    ".claude/rules/forge-typescript-bun.md": "59c5b5588ba881fbb04246a4a69fdaa10a3ede76e122b20f2eff0feaf7b3b8ab",
     ".claude/rules/forge-typescript-react.md": "adae513813719331f4e2843a17a1063bf42e49240e34b60d396949247fa855eb",
-    ".claude/rules/forge-typescript.md": "48f463a8e59348509f4f2096fb2b61b294b079410555e21d7a0b4ed6767c131d",
+    ".claude/rules/forge-typescript.md": "4b8c241aeb5ad04685613ea6293353866fff6baef62fcdf6b5711c778f75ad0f",
     ".claude/skills/forge-project/.claude-plugin/plugin.json": "c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2",
     ".claude/skills/forge-project/hooks/hooks.json": "3763c38c1d21ccd50c22007d10b155255f88c08290dab14d2afe25f4d181740b",
     ".claude/skills/forge-project/scripts/bash-snapshot.sh": "29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e",
     ".claude/skills/forge-project/scripts/guard.rules": "cc4a889eb0483cbc1ccca0dfff9bdb83a1707a5d5f3739d4c5e725ab5bcc1648",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
     ".claude/skills/forge-project/scripts/lib.sh": "83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "5eeac5326aaea37057258450f94fa598d8dbcc2fceb1a8b4bd68b43b71af1cc0",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "7f2047c5e036647c064c92b532e353deaf9fffa91558262532b24b834263324a",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
     ".claude/skills/forge-project/scripts/session-end.sh": "99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58",
-    ".claude/skills/forge-project/scripts/session-start.sh": "2e5e6b54d5f5c082d03aba03c68495311bb66f3964669759f97defac1ea977a0",
+    ".claude/skills/forge-project/scripts/session-start.sh": "a8f3f55edfbf5bb4c54c0dfb1ee62df0e44627ea6a8bb37ff8c791c2b25d1f0b",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "6728553a1b13e5bcfb8fb7837e6efc147285e4b62fff6eb4956f239813a7995b",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "248d76245f6adaa625f2bc824f38f7bacb4684459ebb0809eccb4e818c7bcdcf",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "87ff1a21a577acedba863c7f4cd3df35bb0306df10080271f8d48cd7a48fb425",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "d6ce13c3ec0eeb04569a99a8bee7181b79c4c1a4178ceefceb5c38f41daf6e4c",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-bun-no-fewer-expects-test.yml": "bd5df50793070bba7b87b0f623ac58ed4599e0ba6f8d731fc0da4b28a0335ec8",
     ".forge/ast-grep/rule-tests/typescript-bun-no-mock-increase-test.yml": "2916d521378a79dbddd4e3a5822e04b4c3e5fad9262a65e019095f58bbfe0310",
@@ -19869,11 +20138,14 @@ forge_end "$fail"
     ".forge/ast-grep/rule-tests/typescript-bun-no-shell-raw-test.yml": "756360031e056aa7d5c29bee92c66b43f84b96787944f752c5effe920c618936",
     ".forge/ast-grep/rule-tests/typescript-cors-credentials-wildcard-test.yml": "d591423dfeff165622a89f63e9ea675277676dfc06aa5b3f3d56ce148223627f",
     ".forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml": "c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20",
+    ".forge/ast-grep/rule-tests/typescript-no-dynamic-regexp-test.yml": "9b8b0c3df4b3ec738fa1aeab5f9792fc0ba7ab73c1868586f10cf694f44548f9",
     ".forge/ast-grep/rule-tests/typescript-no-hardcoded-session-secret-test.yml": "4bb82e0ccf213407e475850de23f211251525fecaa743d77e2101590658f28c8",
     ".forge/ast-grep/rule-tests/typescript-no-html-sinks-test.yml": "bbc670db152b016114415e70ce66732241002af40e6c73f5887eb2d6ddc64cc2",
+    ".forge/ast-grep/rule-tests/typescript-no-object-literal-assertion-test.yml": "46eeb97068353edd800543ab6e3a4cc272065ff41856b984e8910d7e12c3e6ae",
     ".forge/ast-grep/rule-tests/typescript-no-stub-test.yml": "b02e7e21f6bd597fe4b3d577b3a2cc6dfee9741674cc1cc99285e22ef90a2778",
     ".forge/ast-grep/rule-tests/typescript-no-swallowed-catch-test.yml": "fb2f02c2bcf9562ed49731349520cde2d48d2f3b3557d2174b5e2e856d6c8e48",
     ".forge/ast-grep/rule-tests/typescript-no-ts-nocheck-test.yml": "c15f604d5317f942de32470aeaff16702116a64d283347c9a9825056b4dbe69e",
+    ".forge/ast-grep/rule-tests/typescript-no-unchecked-json-test.yml": "5721763a14d70c3557a9b69892d460518a76642252c225ee7e071923a2062a26",
     ".forge/ast-grep/rule-tests/typescript-postmessage-origin-test.yml": "a3ee8df93d2883c22e235fcc3ff48e67b49c0ab99b1e1795c3bd92ba97697326",
     ".forge/ast-grep/rule-tests/typescript-react-act-from-react-test.yml": "0c7b9c2da544dab41718f00b27900fab9d0d83c4e2e5a6b2af8daaa468749919",
     ".forge/ast-grep/rule-tests/typescript-react-no-prop-types-test.yml": "973df0a4b101d1b9d02787a5da612d991b2d66a6dda3727805aefed130706efe",
@@ -19885,18 +20157,21 @@ forge_end "$fail"
     ".forge/ast-grep/rules/typescript/bun/no-shell-raw.yml": "96ae72c224b1bbe9c3548117de917fc006677d796ab3c73fcefd4340409aff99",
     ".forge/ast-grep/rules/typescript/cors-credentials-wildcard.yml": "486c525eb17810b4fa441529c3aa6cc1eb79aa5c462d0ab1cb1c2c21268fde3c",
     ".forge/ast-grep/rules/typescript/no-double-assertion.yml": "c0b8c6e7a7a09608b63f8c9367afb4ac22fb1daa93c79c967373efdab597a48c",
+    ".forge/ast-grep/rules/typescript/no-dynamic-regexp.yml": "efc08a1f33babab31a30f6494eef74a5d8e83e3748f91fc3bfb980d1669a3ed8",
     ".forge/ast-grep/rules/typescript/no-hardcoded-session-secret.yml": "d8d2eac95facb1c9f189165913679db559ad8dbbef163ac1a91389d76fc81ccb",
     ".forge/ast-grep/rules/typescript/no-html-sinks.yml": "f6f9eb49034a2a4a58de5cc8438b3b8346e64f96d288d9bea213b0c9343939bf",
+    ".forge/ast-grep/rules/typescript/no-object-literal-assertion.yml": "1dd579bba3440341bb424deb8775e3e1b49b8c2368b8f61f2439e979c59b9142",
     ".forge/ast-grep/rules/typescript/no-stub.yml": "b21497e3335f2271e6ca5874817957d18c640e7d787cfe76a72ef390ab62d634",
     ".forge/ast-grep/rules/typescript/no-swallowed-catch.yml": "4bd8569b39e21928852fafeaee02ce9d2ff35726699f91b3f50a6ebf57843bd6",
     ".forge/ast-grep/rules/typescript/no-ts-nocheck.yml": "aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21",
+    ".forge/ast-grep/rules/typescript/no-unchecked-json.yml": "439a75df2c92fb6e6f571c3a86aaf4a655f7721ea4592094d22e552eeb774947",
     ".forge/ast-grep/rules/typescript/postmessage-origin.yml": "7ca18b3797ab76739daa6d0d38cc6cb9b53821ff3dfc0025974c6316baa6c1dd",
     ".forge/ast-grep/rules/typescript/react/act-from-react.yml": "85cee59cd2c3bc3e4774bbf75655ad5f2c3efa05005c426d17c3cc39dbe9e2ef",
     ".forge/ast-grep/rules/typescript/react/no-prop-types.yml": "9626068d2f677a351b7722fbddc5a74e87c539b4c3e46a55d75cfaf717542c62",
     ".forge/ast-grep/rules/typescript/react/use-action-state.yml": "17b6fc5e510df3154be12c72a584d8bfb31034b577774718a8c50516b2b15a81",
     ".forge/ast-grep/rules/typescript/ts-expect-error-reason.yml": "b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "fb1db1d338fd1d49ef83f8b79c4fd38e76e10bb95224ef9706e1c60489c3d24a",
+    ".forge/check.sh": "7798fa89c10e3499a3c20453e7f8b04dcc063c09e283c30138c4eaa3c566f2d9",
     ".forge/helpers/ratchet.mjs": "14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38",
     ".forge/helpers/types_typescript.mjs": "3df893f435f5f0652bb2b68d428f2e6c03f5b2ea7f02cda0cc2904fb2070b875",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
@@ -19936,6 +20211,61 @@ forge_end "$fail"
       "file": ".claude/settings.json",
       "path": "permissions.ask",
       "value": "Edit(**/tsconfig*.json)"
+    },
+    {
+      "file": ".claude/settings.json",
+      "path": "permissions.ask",
+      "value": "Edit(**/eslint.config.*)"
+    },
+    {
+      "file": ".claude/settings.json",
+      "path": "permissions.ask",
+      "value": "Edit(**/.oxlintrc.json)"
+    },
+    {
+      "file": ".claude/settings.json",
+      "path": "permissions.ask",
+      "value": "Edit(**/deno.json)"
+    },
+    {
+      "file": ".claude/settings.json",
+      "path": "permissions.ask",
+      "value": "Edit(**/deno.jsonc)"
+    },
+    {
+      "file": ".claude/settings.json",
+      "path": "permissions.ask",
+      "value": "Edit(**/.prettierrc*)"
+    },
+    {
+      "file": ".claude/settings.json",
+      "path": "permissions.ask",
+      "value": "Edit(**/prettier.config.*)"
+    },
+    {
+      "file": ".claude/settings.json",
+      "path": "permissions.ask",
+      "value": "Edit(**/pnpm-workspace.yaml)"
+    },
+    {
+      "file": ".claude/settings.json",
+      "path": "permissions.ask",
+      "value": "Edit(**/.npmrc)"
+    },
+    {
+      "file": ".claude/settings.json",
+      "path": "permissions.ask",
+      "value": "Edit(**/.yarnrc.yml)"
+    },
+    {
+      "file": ".claude/settings.json",
+      "path": "permissions.ask",
+      "value": "Edit(**/bunfig.toml)"
+    },
+    {
+      "file": ".claude/settings.json",
+      "path": "permissions.ask",
+      "value": "Edit(**/turbo.json)"
     }
   ]
 }
@@ -20913,23 +21243,23 @@ main().catch((e) => {
 ===== .forge/manifest.sha256
 6171b739150fd0044e80d41cf23c1863986f9b149ce3a86638ac495c7efdf96d  .claude/rules/forge-typescript-astro-react.md
 0dd306180802b4d702da1994991d67cdfd0d28bb3ca86b5808130e23a229d1cb  .claude/rules/forge-typescript-astro.md
-56d2518521d7559dc4d52e8bc5e96b82e97026bdb48f5281fe9450e0f01e1d53  .claude/rules/forge-typescript-bun.md
+59c5b5588ba881fbb04246a4a69fdaa10a3ede76e122b20f2eff0feaf7b3b8ab  .claude/rules/forge-typescript-bun.md
 adae513813719331f4e2843a17a1063bf42e49240e34b60d396949247fa855eb  .claude/rules/forge-typescript-react.md
-48f463a8e59348509f4f2096fb2b61b294b079410555e21d7a0b4ed6767c131d  .claude/rules/forge-typescript.md
+4b8c241aeb5ad04685613ea6293353866fff6baef62fcdf6b5711c778f75ad0f  .claude/rules/forge-typescript.md
 c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills/forge-project/.claude-plugin/plugin.json
 3763c38c1d21ccd50c22007d10b155255f88c08290dab14d2afe25f4d181740b  .claude/skills/forge-project/hooks/hooks.json
 29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e  .claude/skills/forge-project/scripts/bash-snapshot.sh
 cc4a889eb0483cbc1ccca0dfff9bdb83a1707a5d5f3739d4c5e725ab5bcc1648  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
 83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5  .claude/skills/forge-project/scripts/lib.sh
-5eeac5326aaea37057258450f94fa598d8dbcc2fceb1a8b4bd68b43b71af1cc0  .claude/skills/forge-project/scripts/post-edit.sh
+7f2047c5e036647c064c92b532e353deaf9fffa91558262532b24b834263324a  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
 99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58  .claude/skills/forge-project/scripts/session-end.sh
-2e5e6b54d5f5c082d03aba03c68495311bb66f3964669759f97defac1ea977a0  .claude/skills/forge-project/scripts/session-start.sh
+a8f3f55edfbf5bb4c54c0dfb1ee62df0e44627ea6a8bb37ff8c791c2b25d1f0b  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-6728553a1b13e5bcfb8fb7837e6efc147285e4b62fff6eb4956f239813a7995b  .claude/skills/forge-project/scripts/test-edit.sh
+248d76245f6adaa625f2bc824f38f7bacb4684459ebb0809eccb4e818c7bcdcf  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-87ff1a21a577acedba863c7f4cd3df35bb0306df10080271f8d48cd7a48fb425  .claude/skills/forge-project/scripts/typecheck.sh
+d6ce13c3ec0eeb04569a99a8bee7181b79c4c1a4178ceefceb5c38f41daf6e4c  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 bd5df50793070bba7b87b0f623ac58ed4599e0ba6f8d731fc0da4b28a0335ec8  .forge/ast-grep/rule-tests/typescript-bun-no-fewer-expects-test.yml
 2916d521378a79dbddd4e3a5822e04b4c3e5fad9262a65e019095f58bbfe0310  .forge/ast-grep/rule-tests/typescript-bun-no-mock-increase-test.yml
@@ -20937,11 +21267,14 @@ dc3b69bc7faac87a7d2caa2239db1281086991dd801d38ca06d02812aac0ac8b  .forge/ast-gre
 756360031e056aa7d5c29bee92c66b43f84b96787944f752c5effe920c618936  .forge/ast-grep/rule-tests/typescript-bun-no-shell-raw-test.yml
 d591423dfeff165622a89f63e9ea675277676dfc06aa5b3f3d56ce148223627f  .forge/ast-grep/rule-tests/typescript-cors-credentials-wildcard-test.yml
 c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20  .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
+9b8b0c3df4b3ec738fa1aeab5f9792fc0ba7ab73c1868586f10cf694f44548f9  .forge/ast-grep/rule-tests/typescript-no-dynamic-regexp-test.yml
 4bb82e0ccf213407e475850de23f211251525fecaa743d77e2101590658f28c8  .forge/ast-grep/rule-tests/typescript-no-hardcoded-session-secret-test.yml
 bbc670db152b016114415e70ce66732241002af40e6c73f5887eb2d6ddc64cc2  .forge/ast-grep/rule-tests/typescript-no-html-sinks-test.yml
+46eeb97068353edd800543ab6e3a4cc272065ff41856b984e8910d7e12c3e6ae  .forge/ast-grep/rule-tests/typescript-no-object-literal-assertion-test.yml
 b02e7e21f6bd597fe4b3d577b3a2cc6dfee9741674cc1cc99285e22ef90a2778  .forge/ast-grep/rule-tests/typescript-no-stub-test.yml
 fb2f02c2bcf9562ed49731349520cde2d48d2f3b3557d2174b5e2e856d6c8e48  .forge/ast-grep/rule-tests/typescript-no-swallowed-catch-test.yml
 c15f604d5317f942de32470aeaff16702116a64d283347c9a9825056b4dbe69e  .forge/ast-grep/rule-tests/typescript-no-ts-nocheck-test.yml
+5721763a14d70c3557a9b69892d460518a76642252c225ee7e071923a2062a26  .forge/ast-grep/rule-tests/typescript-no-unchecked-json-test.yml
 a3ee8df93d2883c22e235fcc3ff48e67b49c0ab99b1e1795c3bd92ba97697326  .forge/ast-grep/rule-tests/typescript-postmessage-origin-test.yml
 0c7b9c2da544dab41718f00b27900fab9d0d83c4e2e5a6b2af8daaa468749919  .forge/ast-grep/rule-tests/typescript-react-act-from-react-test.yml
 973df0a4b101d1b9d02787a5da612d991b2d66a6dda3727805aefed130706efe  .forge/ast-grep/rule-tests/typescript-react-no-prop-types-test.yml
@@ -20953,18 +21286,21 @@ bf70d7263b8cc030ea6c1edd627f76c118417cf5a31dd2fd35cce6737e9ee0d4  .forge/ast-gre
 96ae72c224b1bbe9c3548117de917fc006677d796ab3c73fcefd4340409aff99  .forge/ast-grep/rules/typescript/bun/no-shell-raw.yml
 486c525eb17810b4fa441529c3aa6cc1eb79aa5c462d0ab1cb1c2c21268fde3c  .forge/ast-grep/rules/typescript/cors-credentials-wildcard.yml
 c0b8c6e7a7a09608b63f8c9367afb4ac22fb1daa93c79c967373efdab597a48c  .forge/ast-grep/rules/typescript/no-double-assertion.yml
+efc08a1f33babab31a30f6494eef74a5d8e83e3748f91fc3bfb980d1669a3ed8  .forge/ast-grep/rules/typescript/no-dynamic-regexp.yml
 d8d2eac95facb1c9f189165913679db559ad8dbbef163ac1a91389d76fc81ccb  .forge/ast-grep/rules/typescript/no-hardcoded-session-secret.yml
 f6f9eb49034a2a4a58de5cc8438b3b8346e64f96d288d9bea213b0c9343939bf  .forge/ast-grep/rules/typescript/no-html-sinks.yml
+1dd579bba3440341bb424deb8775e3e1b49b8c2368b8f61f2439e979c59b9142  .forge/ast-grep/rules/typescript/no-object-literal-assertion.yml
 b21497e3335f2271e6ca5874817957d18c640e7d787cfe76a72ef390ab62d634  .forge/ast-grep/rules/typescript/no-stub.yml
 4bd8569b39e21928852fafeaee02ce9d2ff35726699f91b3f50a6ebf57843bd6  .forge/ast-grep/rules/typescript/no-swallowed-catch.yml
 aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21  .forge/ast-grep/rules/typescript/no-ts-nocheck.yml
+439a75df2c92fb6e6f571c3a86aaf4a655f7721ea4592094d22e552eeb774947  .forge/ast-grep/rules/typescript/no-unchecked-json.yml
 7ca18b3797ab76739daa6d0d38cc6cb9b53821ff3dfc0025974c6316baa6c1dd  .forge/ast-grep/rules/typescript/postmessage-origin.yml
 85cee59cd2c3bc3e4774bbf75655ad5f2c3efa05005c426d17c3cc39dbe9e2ef  .forge/ast-grep/rules/typescript/react/act-from-react.yml
 9626068d2f677a351b7722fbddc5a74e87c539b4c3e46a55d75cfaf717542c62  .forge/ast-grep/rules/typescript/react/no-prop-types.yml
 17b6fc5e510df3154be12c72a584d8bfb31034b577774718a8c50516b2b15a81  .forge/ast-grep/rules/typescript/react/use-action-state.yml
 b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad  .forge/ast-grep/rules/typescript/ts-expect-error-reason.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-fb1db1d338fd1d49ef83f8b79c4fd38e76e10bb95224ef9706e1c60489c3d24a  .forge/check.sh
+7798fa89c10e3499a3c20453e7f8b04dcc063c09e283c30138c4eaa3c566f2d9  .forge/check.sh
 14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38  .forge/helpers/ratchet.mjs
 3df893f435f5f0652bb2b68d428f2e6c03f5b2ea7f02cda0cc2904fb2070b875  .forge/helpers/types_typescript.mjs
 

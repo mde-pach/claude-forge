@@ -1,0 +1,44 @@
+id: typescript/pnpm/settings-location
+description: "pnpm settings are in pnpm-workspace.yaml: no pnpm field in package.json, and no pnpm settings in .npmrc (it keeps registry and auth only); pnpm 11 reads neither."
+scope: {language: any, files: ["**/package.json", "**/.npmrc"]}
+enforce:
+  - target: check
+    stage: lint
+    run: |
+      _pf=''
+      for _f in ${FORGE_FILES:-$(git ls-files -- package.json '*/package.json' .npmrc '*/.npmrc')}; do
+        [ -f "$_f" ] || continue
+        case $_f in
+          .npmrc|*/.npmrc)
+            _pf="$_pf$(grep -nE '^[[:space:]]*(minimum-release-age|minimum-release-age-exclude|only-built-dependencies|only-built-dependencies-file|never-built-dependencies|ignored-built-dependencies|allow-builds|strict-dep-builds|dangerously-allow-all-builds|node-linker|shamefully-hoist|hoist|hoist-pattern|public-hoist-pattern|auto-install-peers|strict-peer-dependencies|dedupe-peer-dependents|resolve-peers-from-workspace-root|link-workspace-packages|prefer-workspace-packages|save-workspace-protocol|shared-workspace-lockfile|inject-workspace-packages|catalog-mode|resolution-mode|package-import-method|virtual-store-dir|modules-dir|store-dir|side-effects-cache|enable-pre-post-scripts)[[:space:]]*=' "$_f" | sed "s|^\([0-9]*\):[[:space:]]*\([^=[:space:]]*\).*|$_f:\1 \2 is a pnpm setting: pnpm 11 reads it only from pnpm-workspace.yaml (camelCase), .npmrc keeps registry and auth|")
+      " ;;
+          *)
+            _pf="$_pf$(bun --no-install -e '
+              const f = process.argv[1], t = require("fs").readFileSync(f, "utf8");
+              let d = 0, line = 1;
+              for (let i = 0; i < t.length; i++) {
+                const c = t[i];
+                if (c === "\n") line++;
+                else if (c === "{" || c === "[") d++;
+                else if (c === "}" || c === "]") d--;
+                else if (c === "\"") {
+                  let j = i + 1;
+                  while (j < t.length && t[j] !== "\"") j += t[j] === "\\" ? 2 : 1;
+                  if (d === 1 && t.slice(i + 1, j) === "pnpm" && /^\s*:/.test(t.slice(j + 1))) console.log(`${f}:${line} the pnpm field is not read by pnpm 11: move its settings (overrides, patchedDependencies, allowBuilds, …) to pnpm-workspace.yaml`);
+                  i = j;
+                }
+              }' "$_f")
+      " ;;
+        esac
+      done
+      _pf=$(printf '%s' "$_pf" | grep .)
+      [ -z "$_pf" ] || { printf '%s\n' "$_pf"; false; }
+examples:
+  match:
+    - files: {package.json: "{\n  \"name\": \"shop\",\n  \"pnpm\": {\n    \"overrides\": {\"lodash\": \"4.17.21\"}\n  }\n}\n"}
+    - files: {.npmrc: "registry=https://registry.npmjs.org/\nshamefully-hoist=true\n"}
+  no_match:
+    - files: {package.json: "{\n  \"name\": \"shop\",\n  \"engines\": {\"pnpm\": \">=11\"},\n  \"devDependencies\": {\"pnpm\": \"11.1.0\"}\n}\n"}
+    - files: {.npmrc: "registry=https://registry.npmjs.org/\n//registry.npmjs.org/:_authToken=${NPM_TOKEN}\n"}
+    - head: {package.json: "{\n  \"name\": \"shop\",\n  \"pnpm\": {\n    \"overrides\": {\"lodash\": \"4.17.21\"}\n  }\n}\n"}
+      files: {package.json: "{\n  \"name\": \"shop\",\n  \"version\": \"1.1.0\",\n  \"pnpm\": {\n    \"overrides\": {\"lodash\": \"4.17.21\"}\n  }\n}\n"}
