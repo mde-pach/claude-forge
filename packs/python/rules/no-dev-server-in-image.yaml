@@ -1,0 +1,16 @@
+id: python/no-dev-server-in-image
+description: "Dockerfile CMD / ENTRYPOINT and Procfile processes run no development server: no --reload, fastapi dev or flask run --debug (a reloader wastes CPU in production, and Flask's debugger runs code from the browser). Use fastapi run, uvicorn without --reload, flask run without --debug, or gunicorn."
+scope: {language: any, files: ["@dockerfile", "@procfile"]}
+enforce:
+  - {target: grep, mode: forbid, pattern: "^[[:space:]]*(CMD|ENTRYPOINT|[A-Za-z0-9_-]+:).*(--reload([^-A-Za-z]|$)|fastapi[\"',[:space:]]+dev([^A-Za-z]|$)|flask[\"',[:space:]]+(.*[\"',[:space:]])?--debug)"}
+examples:
+  match:
+    - "FROM python:3.13-slim\nCOPY . /app\nCMD [\"uvicorn\", \"app.main:app\", \"--host\", \"0.0.0.0\", \"--reload\"]\n"
+    - "FROM python:3.13-slim\nCMD [\"fastapi\", \"dev\", \"app/main.py\"]\n"
+    - "web: flask --app app run --debug\n"
+    - "FROM python:3.13-slim\nENTRYPOINT uvicorn app:app --reload\n"
+  no_match:
+    - "FROM python:3.13-slim\nCMD [\"fastapi\", \"run\", \"app/main.py\", \"--port\", \"80\"]\n"
+    - "FROM python:3.13-slim\nRUN pip install --no-cache-dir uvicorn\nCMD [\"uvicorn\", \"app.main:app\", \"--host\", \"0.0.0.0\"]\n"
+    - "web: gunicorn app:app -k uvicorn_worker.UvicornWorker\nrelease: python manage.py migrate\n"
+    - "web: uvicorn app:app --reload-dir app\n"

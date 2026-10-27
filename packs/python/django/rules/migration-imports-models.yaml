@@ -1,0 +1,23 @@
+id: python/django/migration-imports-models
+description: Migrations do not import the project's models modules (they would run against today's models, not the schema at that migration); RunPython code gets models with apps.get_model("app", "Model").
+scope: {language: python, files: ["@django-migrations"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        - kind: import_from_statement
+          has: {field: module_name, regex: '(^|\.)models$', not: {regex: '^django\.'}}
+        - kind: import_from_statement
+          has: {field: name, regex: '^models(\s+as\s+\w+)?$'}
+          not: {has: {field: module_name, regex: '^django(\.|$)'}}
+examples:
+  match:
+    - "from django.db import migrations\n\nfrom shop.models import Order\n\n\ndef forwards(apps, schema_editor):\n    Order.objects.update(paid=True)\n\n\nclass Migration(migrations.Migration):\n    operations = [migrations.RunPython(forwards, migrations.RunPython.noop)]\n"
+    - "from django.db import migrations\n\nfrom ..models import Order\n"
+    - "from django.db import migrations\n\nfrom shop import models\n"
+    - "from django.db import migrations\n\nfrom . import models as shop_models\n"
+  no_match:
+    - "from django.db import migrations, models\n\n\ndef forwards(apps, schema_editor):\n    Order = apps.get_model(\"shop\", \"Order\")\n    Order.objects.update(paid=True)\n\n\nclass Migration(migrations.Migration):\n    operations = [\n        migrations.AddField(\"order\", \"paid\", models.BooleanField(default=False)),\n        migrations.RunPython(forwards, migrations.RunPython.noop),\n    ]\n"
+    - "import django.db.models\nfrom django.db.models import Q\n"
+    - "from shop.models_utils import slugify\n"
