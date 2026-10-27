@@ -1,6 +1,6 @@
 id: supply-chain/no-tls-disable
 description: "Committed files never turn TLS verification off: no strict-ssl=false (.npmrc), enableStrictSsl: false (.yarnrc.yml), NODE_TLS_REJECT_UNAUTHORIZED=0, PYTHONHTTPSVERIFY=0, sslVerify = false (git config), GIT_SSL_NO_VERIFY, pip's --trusted-host / trusted-host =, uv's allow-insecure-host / UV_INSECURE_HOST. Install the proxy's CA certificate instead (NODE_EXTRA_CA_CERTS, PIP_CERT, SSL_CERT_FILE)."
-scope: {language: any, files: ["!.claude/skills/forge-project/**"]}
+scope: {language: any}
 enforce:
   - target: grep
     mode: forbid

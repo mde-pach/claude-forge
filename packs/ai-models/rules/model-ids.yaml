@@ -1,6 +1,6 @@
 id: ai-models/model-ids
 description: "No retired model id in a string literal (any file): Anthropic's and OpenAI's retired models fail every call. Ids as of 2026-10-26, from Anthropic's model deprecations page and OpenAI's deprecations page; pydantic-ai's anthropic: / openai: and LiteLLM's anthropic/ prefixes count, Bedrock and Vertex ids (their own schedules) do not. Use a current model (claude-opus-5-5, claude-sonnet-5-5) or its alias."
-scope: {language: any, files: ["!.claude/skills/forge-project/**"]}
+scope: {language: any}
 enforce:
   - target: grep
     mode: forbid

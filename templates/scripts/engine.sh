@@ -2,6 +2,12 @@
 # forge_check_meta_<n>, forge_scope_<n>, forge_when_<n>, forge_check_run_<n>,
 # forge_check_changed_<n>, plus tool() and first_lines() from lib.sh.
 
+# Forge's own files in the repository: .forge/ (check.sh, its helper scripts) and the
+# project plugin (.claude/skills/forge-project/: hooks, guard.rules). They are never part
+# of a change or of --all's scope: integrity (check.sh step 1) covers them, the project's
+# rules and tools do not.
+FORGE_OWN_ERE='^(\.forge|\.claude/skills/forge-project)/'
+
 # forge_change_set: the files a run is about, for $mode (--changed, --since,
 # --turn, --all; $FORGE_ARG is the ref or the snapshot directory). Writes to $FORGE_TMP:
 #   changed   changed paths, one per line   existing  those that exist now
@@ -36,9 +42,7 @@ forge_change_set() {
     --since)
       { git diff --name-only -z --no-renames "$FORGE_BASE_REV" 2>/dev/null; git ls-files -z --others --exclude-standard 2>/dev/null; } | tr '\000' '\n' | sort -u ;;
     *) status_paths | sort -u ;;
-  esac | grep -v '^\.forge/' > "$FORGE_TMP/changed"
-  # Forge's own files (.forge/: check.sh, its helper scripts) are not the project's code:
-  # integrity covers them (check.sh step 1), the project's rules do not
+  esac | grep -vE "$FORGE_OWN_ERE" > "$FORGE_TMP/changed"
   : > "$FORGE_TMP/existing"; : > "$FORGE_TMP/deleted"; : > "$FORGE_TMP/inbase"; : > "$FORGE_TMP/added"
   mkdir -p "$FORGE_TMP/base"
   # "<0|1><TAB><path>": 0 when the path is not in FORGE_BASE_REV's tree at all (one ls-tree
@@ -1002,16 +1006,15 @@ forge_lockfile_updated() {
 # ignore comments and ignore rules not honoured (disabling goes through forge.yaml).
 FORGE_ZIZMOR_VERSION="@@ZIZMOR_VERSION@@"
 
-# forge_zizmor <audit>...: zizmor on $FORGE_FILES (else every tracked workflow and
-# action); prints "path:line audit message" for the findings of the named audits.
+# forge_zizmor <audit>...: zizmor on the in-scope files (forge_scope_files: the change, or
+# every tracked file of the rule's scope: workflows, actions, dependabot.yml, a pre-commit
+# config, as the rule lists them); prints "path:line audit message" for the findings of the
+# named audits.
 forge_zizmor() {
-  if [ -n "$FORGE_FILES" ]; then set -f; set -- "$@" -- $FORGE_FILES; set +f
-  else
-    set -f
-    # shellcheck disable=SC2046
-    set -- "$@" -- $(git ls-files -- '.github/workflows/*.yml' '.github/workflows/*.yaml' '.github/actions/*action.yml' '.github/actions/*action.yaml' 'action.yml' 'action.yaml')
-    set +f
-  fi
+  set -f
+  # shellcheck disable=SC2046
+  set -- "$@" -- $(forge_scope_files)
+  set +f
   _fz_audits=''
   while [ "$1" != -- ]; do _fz_audits="$_fz_audits|$1"; shift; done
   shift
@@ -1041,10 +1044,9 @@ forge_zizmor() {
 FORGE_HADOLINT_VERSION="@@HADOLINT_VERSION@@"
 FORGE_HADOLINT_SHA256='@@HADOLINT_SHAS@@'
 
-# forge_dockerfiles: the files of $FORGE_FILES in file role @dockerfile (§15.4), else every tracked one.
+# forge_dockerfiles: the in-scope files (forge_scope_files) in file role @dockerfile (§15.4).
 forge_dockerfiles() {
-  if [ -n "$FORGE_FILES" ]; then printf '%s\n' "$FORGE_FILES"; else git ls-files 2>/dev/null; fi \
-    | while IFS= read -r _df_f; do forge_role @dockerfile "$_df_f" && printf '%s\n' "$_df_f"; done
+  forge_scope_files | while IFS= read -r _df_f; do forge_role @dockerfile "$_df_f" && printf '%s\n' "$_df_f"; done
   return 0
 }
 
@@ -1277,11 +1279,16 @@ forge_release() {
   return 1
 }
 
-# forge_scope_files: $FORGE_FILES, else (--all) every tracked file that exists, one per line.
+# forge_scope_files: $FORGE_FILES, else (--all, or a when_changed file changed and none of the
+# check's own) every tracked file that exists in the check's scope (forge_scope_<n> of the
+# check running, FORGE_CHECK_N), Forge's own files left out; one per line.
 forge_scope_files() {
-  if [ -n "$FORGE_FILES" ]; then printf '%s\n' "$FORGE_FILES"
-  else git ls-files 2>/dev/null | while IFS= read -r _sf_f; do [ -f "$_sf_f" ] && printf '%s\n' "$_sf_f"; done
-  fi
+  if [ -n "$FORGE_FILES" ]; then printf '%s\n' "$FORGE_FILES"; return 0; fi
+  git ls-files 2>/dev/null | grep -vE "$FORGE_OWN_ERE" | while IFS= read -r _sf_f; do
+    [ -f "$_sf_f" ] || continue
+    [ -z "${FORGE_CHECK_N:-}" ] || "forge_scope_$FORGE_CHECK_N" "$_sf_f" || continue
+    printf '%s\n' "$_sf_f"
+  done
 }
 
 # ---- secrets (secrets/*)
@@ -1925,16 +1932,31 @@ forge_local_db() {
 FORGE_SQUAWK_VERSION="@@SQUAWK_VERSION@@"
 FORGE_SQUAWK_BLOCKING='renaming-column|renaming-table|changing-column-type|adding-required-field|adding-not-nullable-field|ban-drop-database'
 
-# forge_squawk <args>: the pinned Squawk through bunx or uvx; gcc-style output in
-# $FORGE_TMP/squawk. Exit status 0 when Squawk ran (with or without findings).
+# forge_squawk [--stdin-filepath <path>] [file...]: the pinned Squawk through bunx or uvx,
+# on the files (or stdin, reported as <path>); gcc-style output in $FORGE_TMP/squawk. Exit
+# status 0 when Squawk ran (with or without findings). The project cannot silence it: Squawk
+# runs with Forge's own config (an empty .squawk.toml: the project's excluded_rules and
+# excluded_paths do not apply) on copies of the SQL whose "squawk-ignore" comments are
+# rewritten into plain comments (same lines and columns), from the copies' directory so the
+# reported paths are the repository's.
 # "bunx squawk-cli@<v>" runs the package's one binary from bunx's cache; with
 # "-p squawk-cli@<v> squawk" bunx installs the package again at every run, and
 # runs at the same time then kill each other's install.
 forge_squawk() {
+  _sq_src=$FORGE_TMP/squawk.src
+  rm -rf "$_sq_src"; mkdir -p "$_sq_src" || return 2
+  : > "$FORGE_TMP/squawk.toml"
+  if [ "${1:-}" = --stdin-filepath ]; then
+    forge_squawk_unignore > "$_sq_src/.stdin"
+  else
+    for _sq_f in "$@"; do
+      mkdir -p "$_sq_src/$(dirname "$_sq_f")" && forge_squawk_unignore < "$_sq_f" > "$_sq_src/$_sq_f" || return 2
+    done
+  fi
   if command -v bunx >/dev/null 2>&1; then
-    bunx "squawk-cli@$FORGE_SQUAWK_VERSION" --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
+    ( cd "$_sq_src" && if [ -f .stdin ]; then bunx "squawk-cli@$FORGE_SQUAWK_VERSION" --reporter gcc -c "$FORGE_TMP/squawk.toml" "$@" < .stdin; else bunx "squawk-cli@$FORGE_SQUAWK_VERSION" --reporter gcc -c "$FORGE_TMP/squawk.toml" "$@"; fi ) > "$FORGE_TMP/squawk" 2>&1
   elif command -v uvx >/dev/null 2>&1; then
-    uvx -q --from "squawk-cli==$FORGE_SQUAWK_VERSION" squawk --reporter gcc "$@" > "$FORGE_TMP/squawk" 2>&1
+    ( cd "$_sq_src" && if [ -f .stdin ]; then uvx -q --from "squawk-cli==$FORGE_SQUAWK_VERSION" squawk --reporter gcc -c "$FORGE_TMP/squawk.toml" "$@" < .stdin; else uvx -q --from "squawk-cli==$FORGE_SQUAWK_VERSION" squawk --reporter gcc -c "$FORGE_TMP/squawk.toml" "$@"; fi ) > "$FORGE_TMP/squawk" 2>&1
   else
     printf 'bunx or uvx is needed\n' > "$FORGE_TMP/squawk"
     return 2
@@ -1943,6 +1965,10 @@ forge_squawk() {
   # Squawk exits 1 whenever it warns, which is almost always
   [ "$_sq_rc" -eq 0 ] || grep -qE ':[0-9]+:[0-9]+: (warning|error): ' "$FORGE_TMP/squawk"
 }
+
+# forge_squawk_unignore: stdin with Squawk's ignore directives (squawk-ignore,
+# squawk-ignore-file) turned into plain comments of the same length.
+forge_squawk_unignore() { sed 's/squawk-ignore/squawk-IGNORE/g'; }
 
 # forge_squawk_blocking: prints the blocking findings of the last forge_squawk run
 # (Squawk counts lines and columns from 0; printed from 1); fails if any.
@@ -1964,6 +1990,48 @@ forge_squawk_files() {
   [ "$#" -gt 0 ] || return 0
   forge_squawk "$@" || { forge_squawk_skipped; return 0; }
   forge_squawk_blocking
+}
+
+# forge_sql_postgres <file>: succeeds when the plain-SQL migration tool that owns <file> targets
+# Postgres (Squawk lints Postgres only), from literal config only: Supabase always; Flyway
+# (flyway.conf / conf/flyway.conf flyway.url, flyway.toml url) jdbc:postgresql:; sqitch
+# (sqitch.plan) sqitch.conf engine = pg; Atlas (atlas.hcl) a url or dev of postgres(ql)://
+# or docker://postgres; dbmate (none of these) the DATABASE_URL scheme (forge_db_url).
+forge_sql_postgres() {
+  case $1 in supabase/migrations/*) return 0 ;; esac
+  if [ -f flyway.conf ] || [ -f conf/flyway.conf ] || [ -f flyway.toml ]; then
+    cat flyway.conf conf/flyway.conf 2>/dev/null | grep -qE '^[[:space:]]*flyway\.url[[:space:]]*=[[:space:]]*jdbc:postgresql:' && return 0
+    [ -f flyway.toml ] && grep -qE '^[[:space:]]*url[[:space:]]*=[[:space:]]*["\047]jdbc:postgresql:' flyway.toml && return 0
+    return 1
+  fi
+  if [ -f sqitch.plan ]; then
+    [ -f sqitch.conf ] && grep -qE '^[[:space:]]*engine[[:space:]]*=[[:space:]]*pg[[:space:]]*$' sqitch.conf
+    return
+  fi
+  if [ -f atlas.hcl ]; then
+    grep -qE '^[[:space:]]*(url|dev)[[:space:]]*=[[:space:]]*"(postgres(ql)?://|docker://postgres)' atlas.hcl
+    return
+  fi
+  case $(forge_db_url) in postgres://*|postgresql://*) return 0 ;; esac
+  return 1
+}
+
+# forge_squawk_role <@role> [file...]: Squawk (forge_squawk_files) on the files of the role among
+# the given ones that target Postgres (forge_sql_postgres); with none given (--all), on the
+# role's newest file by name, so an accepted change does not fail every later run.
+forge_squawk_role() {
+  _sr_role=$1; shift
+  if [ "$#" -eq 0 ]; then
+    set -f
+    # shellcheck disable=SC2046
+    set -- $(forge_role_files "$_sr_role" | sort | tail -n 1)
+    set +f
+  fi
+  for _sr_f in "$@"; do
+    shift
+    [ -f "$_sr_f" ] && forge_role "$_sr_role" "$_sr_f" && forge_sql_postgres "$_sr_f" && set -- "$@" "$_sr_f"
+  done
+  forge_squawk_files "$@"
 }
 
 # forge_alembic_files: Alembic revision ids on stdin (as printed by `alembic heads`)
@@ -2966,7 +3034,7 @@ forge_diagnostics() {
       else if (index(p, r2 "/") == 1) p = substr(p, length(r2) + 2)
       sub(/^\.\//, "", p)
       named = 1
-      if (p !~ /^\.forge\//) project = 1
+      if (p !~ /^\.forge\// && p !~ /^\.claude\/skills\/forge-project\//) project = 1
       if (level == "line") counts = (p in whole) || (ln == "" || ln == 0 ? (p in ch) : ((p "\t" ln) in ad))
       else counts = (p in ch)
       if (counts) { hit = 1; if (mode == "print") print $0 }
@@ -2990,6 +3058,7 @@ forge_attribute_level() {
 # --since and --all run the whole-project form (read-only, as CI should).
 forge_run_check() {
   forge_check_meta_"$1"
+  FORGE_CHECK_N=$1
   FORGE_FILES=''
   if [ "$mode" != --all ]; then
     if [ "$c_when" = 1 ]; then
@@ -3031,10 +3100,10 @@ forge_run_check() {
   fi
   # outside --all, only errors in the change count (§10.1 step 5)
   _fc_level=$(forge_attribute_level "$c_stage" "$_fc_whole")
-  # findings only in Forge's own helper scripts (.forge/helpers/, checked by integrity)
-  # are not the project's, in every mode
+  # findings only in Forge's own files (.forge/, .claude/skills/forge-project/, checked by
+  # integrity) are not the project's, in every mode
   if [ -n "$_fc_level" ] && [ "$(forge_diagnostics "$FORGE_TMP/out" "$_fc_level")" = forge ]; then
-    printf 'forge:%s ok (its findings are only in Forge'"'"'s own .forge/ files)\n' "$c_id"
+    printf 'forge:%s ok (its findings are only in Forge'"'"'s own files)\n' "$c_id"
     return 0
   fi
   if [ "$mode" != --all ] && [ -n "$_fc_level" ]; then
@@ -3388,7 +3457,10 @@ forge_run_stage() {
         3) cat "$FORGE_TMP/check.out"; [ "$_fs_rc" -ne 0 ] || _fs_rc=3 ;;
         *)
           # advice goes after every real failure (check.sh prints it last)
-          if [ -f "$(forge_advised_mark)" ]; then cat "$FORGE_TMP/check.out" >> "$FORGE_TMP/advice.out"; advised=1
+          # (a helper's own skipped line stays a note: it is not advice)
+          if [ -f "$(forge_advised_mark)" ]; then
+            grep -F "forge:$c_id skipped: " "$FORGE_TMP/check.out"
+            grep -vF "forge:$c_id skipped: " "$FORGE_TMP/check.out" >> "$FORGE_TMP/advice.out"; advised=1
           else cat "$FORGE_TMP/check.out"; _fs_rc=1
           fi ;;
       esac

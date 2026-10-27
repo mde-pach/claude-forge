@@ -1,6 +1,6 @@
 id: supply-chain/no-dependency-confusion
 description: "No pip --extra-index-url (requirements files, pip.conf / pip.ini, PIP_EXTRA_INDEX_URL, pip install in Dockerfiles, CI and scripts) and no uv index strategy unsafe-best-match or unsafe-first-match: pip merges every index and installs the highest version, so a public package with an internal package's name wins. Use one --index-url that proxies the public index, or uv indexes (first-index by default)."
-scope: {language: any, files: ["**/requirements*.txt", "**/constraints*.txt", "**/pip.conf", "**/pip.ini", "**/Dockerfile", "**/Dockerfile.*", "**/*.Dockerfile", "**/Containerfile", ".github/workflows/**", ".gitlab-ci.yml", "**/*.sh", "**/Makefile", "**/tox.ini", "**/noxfile.py", "**/.env.example", "**/pyproject.toml", "**/uv.toml", "!.claude/skills/forge-project/**"]}
+scope: {language: any, files: ["**/requirements*.txt", "**/constraints*.txt", "**/pip.conf", "**/pip.ini", "@dockerfile", ".github/workflows/**", ".gitlab-ci.yml", "**/*.sh", "**/Makefile", "**/tox.ini", "**/noxfile.py", "@env-template", "**/pyproject.toml", "**/uv.toml"]}
 enforce:
   - target: grep
     mode: forbid

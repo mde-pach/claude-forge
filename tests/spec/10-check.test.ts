@@ -1365,6 +1365,25 @@ ALTER TABLE "Post" ADD CONSTRAINT "Post_authorId_fkey" FOREIGN KEY ("authorId") 
     T,
   );
 
+  /**
+   * Squawk runs with Forge's own (empty) config, on copies of the SQL whose ignore
+   * directives are plain comments: the project silences a blocking rule only by disabling
+   * the Forge rule in forge.yaml, which asks.
+   * @rule typescript/prisma/migration-lint sql/migration-lint
+   */
+  test.if(hasBun)(
+    "the project cannot silence Squawk: .squawk.toml excluded_rules and squawk-ignore comments do not apply",
+    () => {
+      const r = prismaRepo();
+      put(r, ".squawk.toml", 'excluded_rules = ["renaming-column"]\nexcluded_paths = ["prisma/migrations/**"]\n');
+      put(r, "prisma/migrations/20261020000000_rename/migration.sql", `-- squawk-ignore-file\n-- squawk-ignore renaming-column\n${PRISMA_RENAME}`);
+      const out = run(r, "--changed");
+      expect(out.status).toBe(1);
+      expect(out.stdout).toContain("prisma/migrations/20261020000000_rename/migration.sql:3:20: warning: renaming-column");
+    },
+    T,
+  );
+
   /** @rule typescript/prisma/migration-lint */
   test.if(hasBun)(
     "when Squawk cannot run (offline, no bunx or uvx), the check says so and does not block",
@@ -1659,3 +1678,62 @@ test(
   },
   T,
 );
+
+/**
+ * Forge's own files in the repository (`.forge/`, the project plugin under
+ * `.claude/skills/forge-project/`) hold the rules' own patterns (`guard.rules`), so the
+ * project's rules never see them; a helper that lints whole files (`--all`, or a
+ * `when_changed` file changed and none of its own) takes the tracked files of its rule's
+ * scope.
+ */
+describe("Forge's own files and helper scopes", () => {
+  function engineRun(checks: Parameters<typeof renderChecks>[0], body: string, cwd: string) {
+    const script = join(cwd, "..", `t-${Math.random().toString(36).slice(2)}.sh`);
+    writeFileSync(script, `${renderLib()}\nIFS='\n'\n${renderChecks(checks)}\nFORGE_TMP=$(mktemp -d)\n${body}\n`);
+    return sh("sh", [script], { cwd });
+  }
+  function repoWith(files: Record<string, string>) {
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), "forge-own-")));
+    const cwd = join(dir, "w");
+    mkdirSync(cwd);
+    git(cwd, "init", "-q", "-b", "main");
+    for (const [rel, text] of Object.entries(files)) put(cwd, rel, text);
+    commitAll(cwd, "head");
+    return cwd;
+  }
+  const rule = (id: string, files?: string[]) => ({ id, description: "D.", scope: { language: "any", ...(files ? { files } : {}) }, enforce: [], file: "x", hash: "", origin: "pack", pack: "demo" }) as unknown as Rule;
+
+  test(".forge/ and .claude/skills/forge-project/ are never part of a change or of a helper's file list", () => {
+    const cwd = repoWith({ "a.txt": "a\n" });
+    put(cwd, ".claude/skills/forge-project/scripts/guard.rules", "supply-chain/no-tls-disable\tdeny\tstrict-ssl=false\n");
+    put(cwd, ".forge/helpers/x.py", "x\n");
+    put(cwd, ".claude/settings.json", "{}\n");
+    put(cwd, "b.txt", "b\n");
+    commitAll(cwd, "more");
+    put(cwd, ".claude/skills/forge-project/scripts/guard.rules", "changed strict-ssl=false\n");
+    put(cwd, ".forge/helpers/x.py", "y\n");
+    put(cwd, "a.txt", "changed\n");
+    const out = engineRun([], "mode=--changed\nforge_change_set\ncat \"$FORGE_TMP/changed\"\necho ---\nFORGE_FILES=''\nforge_scope_files", cwd);
+    expect(out.stdout).toBe("a.txt\n---\n.claude/settings.json\na.txt\nb.txt\n");
+  });
+
+  test("with no changed file of its own, a helper lints the tracked files of its rule's scope: zizmor's include dependabot.yml when the rule lists it", () => {
+    const cwd = repoWith({ ".github/workflows/ci.yml": "on: push\n", ".github/dependabot.yml": "version: 2\n", ".pre-commit-config.yaml": "repos: []\n", "README.md": "x\n" });
+    const target: CheckTarget = { target: "check", stage: "lint", run: "forge_scope_files" };
+    const checks = [
+      { rule: rule("demo/workflows", [".github/workflows/*.yml"]), target },
+      { rule: rule("demo/dependabot", [".github/workflows/*.yml", ".github/dependabot.yml", ".pre-commit-config.yaml"]), target },
+    ];
+    const out = engineRun(checks, "FORGE_FILES=''\nFORGE_CHECK_N=1 forge_scope_files\necho ---\nFORGE_CHECK_N=2 forge_scope_files", cwd);
+    expect(out.stdout).toBe(".github/workflows/ci.yml\n---\n.github/dependabot.yml\n.github/workflows/ci.yml\n.pre-commit-config.yaml\n");
+  });
+
+  test("forge_advise at Stop prints a helper's skipped line as a note, never as advice", () => {
+    const cwd = repoWith({ "a.txt": "a\n" });
+    const checks = [{ rule: rule("demo/advice"), target: { target: "check", stage: "lint", run: "forge_advise helper" } as CheckTarget }];
+    const helper = 'helper() { printf "forge:%s skipped: the tool is offline\\n" "$c_id"; [ -z "${FINDING:-}" ] || printf "a.txt: %s\\n" "$FINDING"; }';
+    const body = `${helper}\nmode=--turn; FORGE_SNAP=$(mktemp -d); fail=0\nprintf 'a.txt\\n' | tee "$FORGE_TMP/changed" > "$FORGE_TMP/existing"\nforge_run_stage lint; echo "rc=$?"; echo ---; cat "$FORGE_TMP/advice.out" 2>/dev/null; true`;
+    expect(engineRun(checks, body, cwd).stdout).toBe("forge:demo/advice skipped: the tool is offline\nrc=0\n---\n");
+    expect(engineRun(checks, `FINDING='advice here'\n${body}`, cwd).stdout).toBe("forge:demo/advice skipped: the tool is offline\nrc=0\n---\nforge:demo/advice failed\na.txt: advice here\n");
+  });
+});
