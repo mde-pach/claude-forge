@@ -1607,8 +1607,9 @@ Detected by `@nestjs/core` or `@nestjs/common`. Decorators are matched as the bi
 | `typescript/nestjs/dto-is-class` | `ast-grep` forbid: a parameter decorated `@Body()` / `@Query()` / `@Param()` (from `@nestjs/common`, no arguments) with no type, `any`, `unknown`, `object`, an object type literal or `Record<…>` |
 | `typescript/nestjs/validate-nested-type` | `ast-grep` forbid: a property decorated with class-validator's `ValidateNested` and no class-transformer `Type` decorator |
 | `typescript/nestjs/http-exception` | `ast-grep` advise: `throw new Error(…)` in a method of a class decorated with `@nestjs/common`'s `Controller`, not inside a `try` block |
+| `typescript/nestjs/express-path-syntax` | `ast-grep` advise, `when` `@nestjs/platform-express >= 11`: a string argument (or one in an array) with an unnamed `*` or `?`, `+`, `!`, `(`, `)`, `[`, `]` in a decorator call declared as `@nestjs/common`'s `Get`, `Post`, `Put`, `Patch`, `Delete`, `Options`, `Head` or `All` (§15.6), or in `$C.forRoutes(…)` where `C` is a `MiddlewareConfigProxy` (Nest converts the old syntax with a warning) |
 
-context.md: `ValidationPipe` with `whitelist` and `forbidNonWhitelisted`; DTO classes on `@Body()` / `@Query()` / `@Param()`; `@ValidateNested()` with `@Type()`; `HttpException` subclasses in controllers.
+context.md: `ValidationPipe` with `whitelist` and `forbidNonWhitelisted`; DTO classes on `@Body()` / `@Query()` / `@Param()`; `@ValidateNested()` with `@Type()`; `HttpException` subclasses in controllers; path-to-regexp 8 route paths on the Express platform.
 
 ### typescript/kysely
 
