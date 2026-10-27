@@ -1,0 +1,16 @@
+id: typescript/cloudflare-workers/no-pass-through-on-exception
+description: "Advice: no ctx.passThroughOnException(); it fails open to the origin and hides the error. Handle errors with try/catch and return a response; a proxy in front of an origin may keep it on purpose."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule: {pattern: $C.passThroughOnException()}
+    where:
+      C: {type: {module: ["@cloudflare/workers-types", "@wrangler-types"], name: ExecutionContext}}
+examples:
+  deps: [{ecosystem: npm, name: "@cloudflare/workers-types", version: "5.20261010.1"}]
+  match:
+    - "/// <reference types=\"@cloudflare/workers-types\" />\n\nexport default {\n  async fetch(request: Request, env: unknown, ctx: ExecutionContext): Promise<Response> {\n    ctx.passThroughOnException();\n    return fetch(request);\n  },\n};\n"
+  no_match:
+    - "/// <reference types=\"@cloudflare/workers-types\" />\n\nexport default {\n  async fetch(request: Request, env: unknown, ctx: ExecutionContext): Promise<Response> {\n    try {\n      return await fetch(request);\n    } catch (error) {\n      ctx.waitUntil(Promise.resolve(console.error(error)));\n      return new Response(\"upstream failed\", { status: 502 });\n    }\n  },\n};\n"
+    - "/// <reference types=\"@cloudflare/workers-types\" />\n\nclass Gate {\n  passThroughOnException(): void {}\n}\n\nexport function open(gate: Gate): void {\n  gate.passThroughOnException();\n}\n"
