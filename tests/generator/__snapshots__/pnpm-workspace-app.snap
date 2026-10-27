@@ -1200,7 +1200,6 @@ fi
 biome() { forge_exec_tool biome "$@"; }
 tsc() { forge_exec_tool tsc "$@"; }
 vitest() { forge_exec_tool vitest "$@"; }
-auth() { forge_exec_tool auth "$@"; }
 FORGE_NCHECKS=20
 
 # 1. git/editorconfig
@@ -1415,7 +1414,7 @@ pnpm install --frozen-lockfile --lockfile-only
 
 # 14. typescript/pnpm/settings-location
 forge_check_meta_14() {
-  c_id='typescript/pnpm/settings-location'; c_stage=lint; c_tools='pnpm auth bun'
+  c_id='typescript/pnpm/settings-location'; c_stage=lint; c_tools='bun'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
@@ -5553,7 +5552,6 @@ IFS='
 biome() { forge_exec_tool biome "$@"; }
 tsc() { forge_exec_tool tsc "$@"; }
 vitest() { forge_exec_tool vitest "$@"; }
-auth() { forge_exec_tool auth "$@"; }
 FORGE_NCHECKS=20
 
 # 1. git/editorconfig
@@ -5768,7 +5766,7 @@ pnpm install --frozen-lockfile --lockfile-only
 
 # 14. typescript/pnpm/settings-location
 forge_check_meta_14() {
-  c_id='typescript/pnpm/settings-location'; c_stage=lint; c_tools='pnpm auth bun'
+  c_id='typescript/pnpm/settings-location'; c_stage=lint; c_tools='bun'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
@@ -9926,7 +9924,6 @@ IFS='
 biome() { forge_exec_tool biome "$@"; }
 tsc() { forge_exec_tool tsc "$@"; }
 vitest() { forge_exec_tool vitest "$@"; }
-auth() { forge_exec_tool auth "$@"; }
 FORGE_NCHECKS=20
 
 # 1. git/editorconfig
@@ -10141,7 +10138,7 @@ pnpm install --frozen-lockfile --lockfile-only
 
 # 14. typescript/pnpm/settings-location
 forge_check_meta_14() {
-  c_id='typescript/pnpm/settings-location'; c_stage=lint; c_tools='pnpm auth bun'
+  c_id='typescript/pnpm/settings-location'; c_stage=lint; c_tools='bun'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
@@ -14320,7 +14317,6 @@ IFS='
 biome() { forge_exec_tool biome "$@"; }
 tsc() { forge_exec_tool tsc "$@"; }
 vitest() { forge_exec_tool vitest "$@"; }
-auth() { forge_exec_tool auth "$@"; }
 FORGE_NCHECKS=20
 
 # 1. git/editorconfig
@@ -14535,7 +14531,7 @@ pnpm install --frozen-lockfile --lockfile-only
 
 # 14. typescript/pnpm/settings-location
 forge_check_meta_14() {
-  c_id='typescript/pnpm/settings-location'; c_stage=lint; c_tools='pnpm auth bun'
+  c_id='typescript/pnpm/settings-location'; c_stage=lint; c_tools='bun'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
@@ -20409,7 +20405,6 @@ forge_types_session() {
 biome() { forge_exec_tool biome "$@"; }
 tsc() { forge_exec_tool tsc "$@"; }
 vitest() { forge_exec_tool vitest "$@"; }
-auth() { forge_exec_tool auth "$@"; }
 FORGE_NCHECKS=20
 
 # 1. git/editorconfig
@@ -20624,7 +20619,7 @@ pnpm install --frozen-lockfile --lockfile-only
 
 # 14. typescript/pnpm/settings-location
 forge_check_meta_14() {
-  c_id='typescript/pnpm/settings-location'; c_stage=lint; c_tools='pnpm auth bun'
+  c_id='typescript/pnpm/settings-location'; c_stage=lint; c_tools='bun'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
@@ -24823,7 +24818,7 @@ forge_end "$fail"
     "typescript/no-banned-types": "b40fe06aae8a3215689c51ea1e79cb1f818ace5397d139aed5721c374445174e",
     "typescript/no-console": "304966850351b07590c05fb22ae0125d1976179b3cd7abc0bc0dd7e82039ada5",
     "typescript/no-const-enum": "c30d3750ef9c4fdff8c9534f76e35ed04c10ee5bcde208a8cae4ff5d3abd307d",
-    "typescript/no-deprecated": "74f3a4b7fad5da54220291f1f605e5496926092aaf3858f7c764c72bf2f7c839",
+    "typescript/no-deprecated": "95b64775b8c70d6e81054960efe4619b9cc7641fa5ab0c6f8eca20bcbf89953c",
     "typescript/no-double-assertion": "2c5b17cd8daa6bd598b4aa79b30259626c86e6a3afd00630a3a4a2918316ce80",
     "typescript/no-dynamic-regexp": "7feba0d9f253c3d0afe8d70f9c01fa27765c9484899bdf70c6faefb0142d697d",
     "typescript/no-empty-block": "e615b8d48575392c885e65f5b5e69cfaba918ae070473fb229086fe36501a31f",
@@ -24884,14 +24879,14 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "e5aed356f97ea36eaee2a191c92a70c45687cebec3ac7743644cf3ef6766cda9",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
     ".claude/skills/forge-project/scripts/lib.sh": "83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "6265e4e59d499769acd3fe2c3331b002e519a3b731401228a2f611564c698eb5",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "75514e60ee982185b89ea45dd071ada9d90c2b8f2469a52250af651932a419b6",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
     ".claude/skills/forge-project/scripts/session-end.sh": "99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58",
-    ".claude/skills/forge-project/scripts/session-start.sh": "a2f0e2b6b5f664a161a5fe1099f60bb26862ff9e567da8a9fc036650005c3160",
+    ".claude/skills/forge-project/scripts/session-start.sh": "5c12bf096c04411cadde1b3d9b5b169d4dcefbc4e00721e11a163aedcfee1c68",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "7ad38ebc19a2007cc0321349293a4fd08c4f0cf91b8aff1ab730ea5588b07afb",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "ce5499d3abe9a8f75e044bc0da18c6732d047ded908035dd467fd55f1ed5acef",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "e63c3bfd46325e2e30a58cd40679da9066da50e137e98f9f57e35321df5ca59c",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "27b432c73a23d33fae91601bcd3da4aac7a3447120d0c3a95409fadbda2e52c7",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-cors-credentials-wildcard-test.yml": "d591423dfeff165622a89f63e9ea675277676dfc06aa5b3f3d56ce148223627f",
     ".forge/ast-grep/rule-tests/typescript-no-deprecated-test.yml": "46f3313796d0209ffc0d4e18a31182888c4443c1db2d2b86d86a5b2c083c141c",
@@ -24934,7 +24929,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/typescript/vitest/no-tautological-expect.yml": "82f72e924557144bf226fb6baea84d80bc1752f5d721b2a2a4392895a2a9e2ac",
     ".forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml": "9716e0e9f3f6a1e32fe600a3fa424cb0b9b7c8eb1ed517858b22f301a1cfb608",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "187581f7373bbb644debe962d633e6a2850933db382682150f86ec360932a41d",
+    ".forge/check.sh": "85180ff900a1698f40b1739e0bd611fad9fb80d2bc00bfc4d919504300a112c7",
     ".forge/helpers/ratchet.mjs": "14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38",
     ".forge/helpers/types_typescript.mjs": "8d685576dfc25bcf8f73f71977812e9511f84e6d1084cdee6cb6e51b05eb336e",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
@@ -26102,14 +26097,14 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 e5aed356f97ea36eaee2a191c92a70c45687cebec3ac7743644cf3ef6766cda9  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
 83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5  .claude/skills/forge-project/scripts/lib.sh
-6265e4e59d499769acd3fe2c3331b002e519a3b731401228a2f611564c698eb5  .claude/skills/forge-project/scripts/post-edit.sh
+75514e60ee982185b89ea45dd071ada9d90c2b8f2469a52250af651932a419b6  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
 99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58  .claude/skills/forge-project/scripts/session-end.sh
-a2f0e2b6b5f664a161a5fe1099f60bb26862ff9e567da8a9fc036650005c3160  .claude/skills/forge-project/scripts/session-start.sh
+5c12bf096c04411cadde1b3d9b5b169d4dcefbc4e00721e11a163aedcfee1c68  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-7ad38ebc19a2007cc0321349293a4fd08c4f0cf91b8aff1ab730ea5588b07afb  .claude/skills/forge-project/scripts/test-edit.sh
+ce5499d3abe9a8f75e044bc0da18c6732d047ded908035dd467fd55f1ed5acef  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-e63c3bfd46325e2e30a58cd40679da9066da50e137e98f9f57e35321df5ca59c  .claude/skills/forge-project/scripts/typecheck.sh
+27b432c73a23d33fae91601bcd3da4aac7a3447120d0c3a95409fadbda2e52c7  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 d591423dfeff165622a89f63e9ea675277676dfc06aa5b3f3d56ce148223627f  .forge/ast-grep/rule-tests/typescript-cors-credentials-wildcard-test.yml
 46f3313796d0209ffc0d4e18a31182888c4443c1db2d2b86d86a5b2c083c141c  .forge/ast-grep/rule-tests/typescript-no-deprecated-test.yml
@@ -26152,7 +26147,7 @@ a645044b98cb86509165bedeb7c9fa53c975a3480198d29ee0a48268e7219f12  .forge/ast-gre
 82f72e924557144bf226fb6baea84d80bc1752f5d721b2a2a4392895a2a9e2ac  .forge/ast-grep/rules/typescript/vitest/no-tautological-expect.yml
 9716e0e9f3f6a1e32fe600a3fa424cb0b9b7c8eb1ed517858b22f301a1cfb608  .forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-187581f7373bbb644debe962d633e6a2850933db382682150f86ec360932a41d  .forge/check.sh
+85180ff900a1698f40b1739e0bd611fad9fb80d2bc00bfc4d919504300a112c7  .forge/check.sh
 14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38  .forge/helpers/ratchet.mjs
 8d685576dfc25bcf8f73f71977812e9511f84e6d1084cdee6cb6e51b05eb336e  .forge/helpers/types_typescript.mjs
 
