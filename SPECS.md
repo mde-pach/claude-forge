@@ -1012,7 +1012,7 @@ Detected by `**/package.json`, `**/pyproject.toml`, `**/requirements*.txt`, `**/
 
 | Rule | Targets |
 |---|---|
-| `supply-chain/no-tls-disable` | `grep` forbid, any file: `strict-ssl=false`, `enableStrictSsl: false`, `NODE_TLS_REJECT_UNAUTHORIZED` / `PYTHONHTTPSVERIFY` set to `0`, `sslVerify = false`, `GIT_SSL_NO_VERIFY`, `--trusted-host`, `trusted-host =`, `allow-insecure-host`, `UV_INSECURE_HOST` |
+| `supply-chain/no-tls-disable` | `grep` forbid, any file but Forge's own `.claude/skills/forge-project/` (it holds the patterns): `strict-ssl=false`, `enableStrictSsl: false`, `NODE_TLS_REJECT_UNAUTHORIZED` / `PYTHONHTTPSVERIFY` set to `0`, `sslVerify = false`, `GIT_SSL_NO_VERIFY`, `--trusted-host`, `trusted-host =`, `allow-insecure-host`, `UV_INSECURE_HOST` |
 | `supply-chain/no-tls-disable-command` | `guard` deny: `npm` / `pnpm` / `yarn config set strict-ssl false`, `--strict-ssl=false`, `NODE_TLS_REJECT_UNAUTHORIZED=0`, `PYTHONHTTPSVERIFY=0`, `GIT_SSL_NO_VERIFY=`, `PIP_TRUSTED_HOST=`, `UV_INSECURE_HOST=`, `--allow-insecure-host`, `--trusted-host`, `git -c http.sslVerify=false`, `git config … http.sslVerify false` |
 | `supply-chain/insecure-download` | `guard` ask (`review`: only a local or development server): `curl -k` / `--insecure`, `wget --no-check-certificate` |
 | `supply-chain/no-dependency-confusion` | `grep` forbid on requirements and constraints files, `pip.conf` / `pip.ini`, Dockerfiles, workflows, `.gitlab-ci.yml`, shell scripts, Makefiles, `tox.ini`, `noxfile.py`, `.env.example`, `pyproject.toml`, `uv.toml`: `--extra-index-url`, `PIP_EXTRA_INDEX_URL`, an INI `extra-index-url =` (uv's TOML `extra-index-url` and `[[tool.uv.index]]` are first-index, and fine), uv `index-strategy` / `UV_INDEX_STRATEGY` / `--index-strategy` `unsafe-best-match` or `unsafe-first-match` |
@@ -1050,7 +1050,7 @@ Detected by a dependency on `anthropic`, `openai`, `pydantic-ai`, `litellm`, `la
 
 | Rule | Targets |
 |---|---|
-| `ai-models/model-ids` | `grep` forbid, any file: a quoted retired model id (Anthropic's and OpenAI's deprecation pages as of 2026-10-26: `claude-3-*` dated ids and their `-latest` aliases, `claude-opus-4-0` / `-4-1`, `claude-sonnet-4-0`, `claude-2.x`, `claude-1.x`, `claude-instant-1.x`; `gpt-4`, `gpt-4-turbo*`, `gpt-3.5-turbo*`, `gpt-4-32k*`, `gpt-4.1-nano*`, `gpt-4.5-preview`, `o1`, `o1-pro`, `o3-mini`, `dall-e-2` / `-3`, `text-davinci-*`, …), optionally after pydantic-ai's `anthropic:` / `openai:` or LiteLLM's `anthropic/` prefix; Bedrock (`anthropic.`) and Vertex (`@`) ids are not checked |
+| `ai-models/model-ids` | `grep` forbid, any file but Forge's own `.claude/skills/forge-project/`: a quoted retired model id (Anthropic's and OpenAI's deprecation pages as of 2026-10-26: `claude-3-*` dated ids and their `-latest` aliases, `claude-opus-4-0` / `-4-1`, `claude-sonnet-4-0`, `claude-2.x`, `claude-1.x`, `claude-instant-1.x`; `gpt-4`, `gpt-4-turbo*`, `gpt-3.5-turbo*`, `gpt-4-32k*`, `gpt-4.1-nano*`, `gpt-4.5-preview`, `o1`, `o1-pro`, `o3-mini`, `dall-e-2` / `-3`, `text-davinci-*`, …), optionally after pydantic-ai's `anthropic:` / `openai:` or LiteLLM's `anthropic/` prefix; Bedrock (`anthropic.`) and Vertex (`@`) ids are not checked |
 
 ### kubernetes
 

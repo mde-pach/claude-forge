@@ -49,7 +49,7 @@ describe("the pack tree", () => {
     expect(next).toContain("typescript/react");
     expect(next).not.toContain("typescript/astro/react");
     const astro = activePacks("astro-app");
-    expect(astro).toEqual(["typescript", "typescript/astro", "typescript/astro/react", "typescript/bun", "typescript/react"]);
+    expect(astro).toEqual(["supply-chain", "typescript", "typescript/astro", "typescript/astro/react", "typescript/bun", "typescript/react"]);
   });
 
   test("detection follows dependencies with versions, and lock files refine them", () => {
@@ -61,6 +61,7 @@ describe("the pack tree", () => {
       "python/sqlalchemy",
       "python/sqlalchemy/alembic",
       "python/uv",
+      "supply-chain",
     ]);
   });
 
@@ -289,12 +290,12 @@ describe("workspaces", () => {
 
   test("packs are detected inside the packages of pnpm-workspace.yaml, with their dependencies", () => {
     const p = planOf({ "package.json": '{"name": "mono", "private": true}\n', "pnpm-workspace.yaml": "packages:\n  - 'libs/*'\n", ...inDir("libs/core", TS) });
-    expect(p.packs.map((x) => x.id)).toEqual(["typescript", "typescript/vitest"]);
+    expect(p.packs.map((x) => x.id)).toEqual(["supply-chain", "typescript", "typescript/vitest"]);
   });
 
   test("package.json workspaces (npm, Yarn, Bun) and uv workspace members declare packages too; excluded ones are not read", () => {
     const npm = planOf({ "package.json": '{"name": "mono", "workspaces": ["apps/*"]}\n', ...inDir("apps/web", TS), ...inDir("other/x", { "package.json": '{"dependencies": {"zod": "4.0.0"}}\n' }) });
-    expect(npm.packs.map((x) => x.id)).toEqual(["typescript", "typescript/vitest"]);
+    expect(npm.packs.map((x) => x.id)).toEqual(["supply-chain", "typescript", "typescript/vitest"]);
     const yarn = planOf({ "package.json": '{"name": "mono", "workspaces": {"packages": ["apps/*"]}}\n', ...inDir("apps/web", TS) });
     expect(yarn.packs.map((x) => x.id)).toContain("typescript");
     const uv = planOf({
@@ -302,7 +303,7 @@ describe("workspaces", () => {
       "services/api/pyproject.toml": '[project]\nname = "api"\ndependencies = ["fastapi>=0.115"]\n',
       "services/old/pyproject.toml": '[project]\nname = "old"\ndependencies = ["pytest>=8"]\n',
     });
-    expect(uv.packs.map((x) => x.id)).toEqual(["python", "python/fastapi", "python/pydantic"]);
+    expect(uv.packs.map((x) => x.id)).toEqual(["python", "python/fastapi", "python/pydantic", "supply-chain"]);
   });
 
   test("each package is detected on its own dependencies: next@14 at the root and next@16 in a package activates typescript/nextjs (>=16)", () => {
@@ -339,9 +340,9 @@ describe("workspaces", () => {
   });
 
   test("lerna.json declares packages (packages/* by default); without any declaration the repository has no workspace packages", () => {
-    expect(planOf({ "lerna.json": "{}\n", ...inDir("packages/lib", TS) }).packs.map((x) => x.id)).toEqual(["typescript", "typescript/vitest"]);
-    expect(planOf({ "lerna.json": '{"packages": ["modules/*"]}\n', ...inDir("modules/lib", TS) }).packs.map((x) => x.id)).toEqual(["typescript", "typescript/vitest"]);
-    expect(planOf({ "pyproject.toml": '[project]\nname = "app"\n', ...inDir("packages/lib", TS) }).packs.map((x) => x.id)).toEqual(["python"]);
+    expect(planOf({ "lerna.json": "{}\n", ...inDir("packages/lib", TS) }).packs.map((x) => x.id)).toEqual(["supply-chain", "typescript", "typescript/vitest"]);
+    expect(planOf({ "lerna.json": '{"packages": ["modules/*"]}\n', ...inDir("modules/lib", TS) }).packs.map((x) => x.id)).toEqual(["supply-chain", "typescript", "typescript/vitest"]);
+    expect(planOf({ "pyproject.toml": '[project]\nname = "app"\n', ...inDir("packages/lib", TS) }).packs.map((x) => x.id)).toEqual(["python", "supply-chain"]);
   });
 
   test("an exclusion like !**/test/** also excludes a package directory named test", () => {
@@ -433,7 +434,7 @@ test(
   "status shows the whole active tree of a sample with nested packs",
   () => {
     expect(forge(["status"], applied("astro-app")).stdout).toContain(
-      "Packs:\n  typescript (detected)\n  typescript/astro (detected)\n  typescript/astro/react (detected)\n  typescript/bun (detected)\n",
+      "Packs:\n  supply-chain (detected)\n  typescript (detected)\n  typescript/astro (detected)\n  typescript/astro/react (detected)\n  typescript/bun (detected)\n",
     );
   },
   T,
