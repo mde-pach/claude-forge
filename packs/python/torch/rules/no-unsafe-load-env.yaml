@@ -1,0 +1,8 @@
+id: python/torch/no-unsafe-load-env
+description: "TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD is not set (Python, .env files, Dockerfiles, Compose files, CI workflows, shell scripts, config files): it turns torch.load's weights_only protection off for the whole process."
+scope: {language: any, files: ["**/*.py", "**/.env", "**/.env.*", "**/Dockerfile", "**/Dockerfile.*", "**/*.Dockerfile", "**/compose*.y*ml", "**/docker-compose*.y*ml", "**/*.sh", "**/*.toml", "**/*.ini", "**/*.cfg", ".github/workflows/*.y*ml"]}
+enforce:
+  - {target: grep, mode: forbid, pattern: "TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD"}
+examples:
+  match: ["import os\n\nos.environ[\"TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD\"] = \"1\"\n", "ENV TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD=1\n"]
+  no_match: ["import os\n\nos.environ[\"TORCH_HOME\"] = \"/cache\"\n", "ENV TORCH_FORCE_WEIGHTS_ONLY_LOAD=1\n"]

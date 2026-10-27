@@ -1,0 +1,11 @@
+id: python/flask/no-debug-run
+description: "No app.run(debug=True) on a Flask app (ruff S201): the Werkzeug debugger lets anyone who reaches the server run code. Use flask run --debug in development."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: S201
+    snippet: '[tool.ruff.lint] extend-select = ["S201"]'
+examples:
+  match: ["from flask import Flask\n\napp = Flask(__name__)\n\nif __name__ == \"__main__\":\n    app.run(debug=True)\n"]
+  no_match: ["from flask import Flask\n\napp = Flask(__name__)\n\nif __name__ == \"__main__\":\n    app.run()\n"]

@@ -1,0 +1,19 @@
+id: python/piccolo/no-run-sync-in-async
+description: "No .run_sync() on a Piccolo query inside an async def: with a running event loop it runs the query in a thread pool and blocks the loop until it returns. Await the query (await Band.select())."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      pattern: $Q.run_sync($$$)
+      inside: {kind: function_definition, regex: "^async[[:space:]]", stopBy: end}
+    where:
+      Q: {type: {package: piccolo}}
+examples:
+  deps: [{ecosystem: pypi, name: piccolo, version: "1.38.0"}]
+  match:
+    - "from piccolo.columns import Varchar\nfrom piccolo.table import Table\n\n\nclass Band(Table):\n    name = Varchar()\n\n\nasync def bands() -> object:\n    return Band.select().run_sync()\n"
+  no_match:
+    - "from piccolo.columns import Varchar\nfrom piccolo.table import Table\n\n\nclass Band(Table):\n    name = Varchar()\n\n\nasync def bands() -> object:\n    return await Band.select()\n"
+    - "from piccolo.columns import Varchar\nfrom piccolo.table import Table\n\n\nclass Band(Table):\n    name = Varchar()\n\n\ndef bands() -> object:\n    return Band.select().run_sync()\n"
+    - "class Job:\n    def run_sync(self) -> None:\n        pass\n\n\nasync def go(job: Job) -> None:\n    job.run_sync()\n"

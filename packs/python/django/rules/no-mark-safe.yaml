@@ -1,0 +1,11 @@
+id: python/django/no-mark-safe
+description: "No mark_safe() or @mark_safe on text that is not a constant (ruff S308): a value marked safe is not escaped, so user input in it is cross-site scripting. Build HTML with format_html(), which escapes its arguments."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: S308
+    snippet: '[tool.ruff.lint] extend-select = ["S308"]'
+examples:
+  match: ["from django.utils.safestring import mark_safe\n\n\ndef badge(name: str) -> str:\n    return mark_safe(f\"<b>{name}</b>\")\n"]
+  no_match: ["from django.utils.html import format_html\n\n\ndef badge(name: str) -> str:\n    return format_html(\"<b>{}</b>\", name)\n"]

@@ -1,0 +1,10 @@
+id: python/jupyter/no-outputs
+description: "Notebooks are committed without outputs or execution counts (nbformat's output_type and a non-null execution_count): outputs carry data, credentials and large blobs into the history. Clear them (jupyter nbconvert --clear-output --inplace, or nbstripout)."
+scope: {language: any, files: ["**/*.ipynb"]}
+enforce:
+  - {target: grep, mode: forbid, pattern: "\"(output_type|execution_count)\"[[:space:]]*:[[:space:]]*(\"|[0-9])"}
+examples:
+  match:
+    - "{\n \"cells\": [\n  {\n   \"cell_type\": \"code\",\n   \"execution_count\": 3,\n   \"metadata\": {},\n   \"outputs\": [\n    {\n     \"name\": \"stdout\",\n     \"output_type\": \"stream\",\n     \"text\": [\"42\\n\"]\n    }\n   ],\n   \"source\": [\"print(42)\"]\n  }\n ]\n}\n"
+  no_match:
+    - "{\n \"cells\": [\n  {\n   \"cell_type\": \"code\",\n   \"execution_count\": null,\n   \"metadata\": {},\n   \"outputs\": [],\n   \"source\": [\"print(\\\"output_type\\\")\"]\n  }\n ]\n}\n"

@@ -1,0 +1,27 @@
+id: python/litestar/sync-to-thread
+description: "A sync def route handler (@get, @post, @put, @patch, @delete, @route, …) states sync_to_thread=True (it blocks: run it in a thread) or sync_to_thread=False (it does not): otherwise Litestar warns at startup, and a blocking handler run on the event loop stalls every request."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: decorated_definition
+      has:
+        kind: decorator
+        has:
+          kind: call
+          pattern: $D
+          not: {has: {field: arguments, has: {kind: keyword_argument, regex: "^sync_to_thread[[:space:]]*="}}}
+      not: {has: {kind: function_definition, regex: "^async[[:space:]]"}}
+    # the decorator call returns a Litestar route handler (get, post, … are HTTPRouteHandler subclasses)
+    where:
+      D: {type: {package: litestar, name: HTTPRouteHandler}}
+examples:
+  deps: [{ecosystem: pypi, name: litestar, version: "2.25.0"}]
+  match:
+    - "from litestar import get\n\n\n@get(\"/health\")\ndef health() -> str:\n    return \"ok\"\n"
+    - "from litestar import Controller, post\n\n\nclass Orders(Controller):\n    path = \"/orders\"\n\n    @post()\n    def create(self, data: dict[str, int]) -> dict[str, int]:\n        return data\n"
+  no_match:
+    - "from litestar import get\n\n\n@get(\"/health\")\nasync def health() -> str:\n    return \"ok\"\n"
+    - "from litestar import get\n\n\n@get(\"/report\", sync_to_thread=True)\ndef report() -> str:\n    return open(\"report.txt\").read()\n"
+    - "import functools\n\n\n@functools.lru_cache(maxsize=1)\ndef settings() -> str:\n    return \"x\"\n"

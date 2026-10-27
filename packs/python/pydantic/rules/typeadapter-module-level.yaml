@@ -1,0 +1,25 @@
+id: python/pydantic/typeadapter-module-level
+description: "Advice: a TypeAdapter is built once, at module level or in a cached function (@cache, @lru_cache, @cached_property), not in a function body: each construction builds the validator and serializer again."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: call
+      pattern: $C
+      inside: {kind: function_definition, stopBy: end}
+      not:
+        inside:
+          kind: decorated_definition
+          stopBy: end
+          has: {kind: decorator, regex: "^@([A-Za-z_][A-Za-z0-9_]*\\.)*(cache|lru_cache|cached_property)([^A-Za-z0-9_]|$)"}
+    where:
+      C: {type: {package: pydantic, name: TypeAdapter}}
+examples:
+  deps: [{ecosystem: pypi, name: pydantic, version: "2.12.5"}]
+  match:
+    - "from pydantic import TypeAdapter\n\n\ndef parse_ids(raw: bytes) -> list[int]:\n    return TypeAdapter(list[int]).validate_json(raw)\n"
+  no_match:
+    - "from pydantic import TypeAdapter\n\nIDS = TypeAdapter(list[int])\n\n\ndef parse_ids(raw: bytes) -> list[int]:\n    return IDS.validate_json(raw)\n"
+    - "from functools import lru_cache\n\nfrom pydantic import TypeAdapter\n\n\n@lru_cache\ndef adapter(tp: type) -> TypeAdapter[object]:\n    return TypeAdapter(tp)\n"
+    - "import json\n\n\ndef parse_ids(raw: bytes) -> list[int]:\n    return list(json.loads(raw))\n"

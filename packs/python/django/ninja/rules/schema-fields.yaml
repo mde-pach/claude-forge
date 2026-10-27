@@ -1,0 +1,36 @@
+id: python/django/ninja/schema-fields
+description: "A ModelSchema's Meta lists its fields: fields = \"__all__\" and exclude = [...] would expose every column added to the model later, such as a password hash or an is_staff flag."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: class_definition
+      has: {field: superclasses, has: {pattern: $B}}
+      all:
+        - has:
+            field: body
+            has:
+              kind: class_definition
+              all:
+                - has: {field: name, regex: "^Meta$"}
+                - has:
+                    field: body
+                    has:
+                      kind: expression_statement
+                      has:
+                        kind: assignment
+                        any:
+                          - all: [{has: {field: left, regex: "^fields$"}}, {has: {field: right, regex: "^[\"']__all__[\"']$"}}]
+                          - has: {field: left, regex: "^exclude$"}
+    # Ninja's ModelSchema or a subclass of it
+    where:
+      B: {type: {package: ninja, name: ModelSchema}}
+examples:
+  deps: [{ecosystem: pypi, name: django, version: "6.1.2"}, {ecosystem: pypi, name: django-ninja, version: "1.7.1"}]
+  match:
+    - "from django.contrib.auth.models import User\nfrom ninja import ModelSchema\n\n\nclass UserOut(ModelSchema):\n    class Meta:\n        model = User\n        fields = \"__all__\"\n"
+    - "from django.contrib.auth.models import User\nfrom ninja import ModelSchema\n\n\nclass UserOut(ModelSchema):\n    class Meta:\n        model = User\n        exclude = [\"password\"]\n"
+  no_match:
+    - "from django.contrib.auth.models import User\nfrom ninja import ModelSchema\n\n\nclass UserOut(ModelSchema):\n    class Meta:\n        model = User\n        fields = [\"id\", \"username\"]\n"
+    - "class Base:\n    pass\n\n\nclass Filters(Base):\n    class Meta:\n        fields = \"__all__\"\n"

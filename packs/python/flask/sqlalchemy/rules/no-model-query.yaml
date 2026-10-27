@@ -1,0 +1,18 @@
+id: python/flask/sqlalchemy/no-model-query
+description: "No legacy Model.query on Flask-SQLAlchemy models: use db.session.execute(db.select(User)...), db.session.scalars(...), db.session.get(User, id), db.get_or_404(User, id) or db.paginate(db.select(User))."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule: {kind: attribute, pattern: $M.query}
+    # a model class of Flask-SQLAlchemy (db.Model), whatever it is called
+    where:
+      M: {type: {package: flask_sqlalchemy}}
+examples:
+  deps: [{ecosystem: pypi, name: flask, version: "3.1.3"}, {ecosystem: pypi, name: flask-sqlalchemy, version: "3.1.1"}]
+  match:
+    - "from flask_sqlalchemy import SQLAlchemy\n\ndb = SQLAlchemy()\n\n\nclass User(db.Model):\n    pass\n\n\ndef everyone():\n    return User.query.all()\n"
+    - "from flask_sqlalchemy import SQLAlchemy\n\ndb = SQLAlchemy()\n\n\nclass User(db.Model):\n    pass\n\n\ndef one(user_id: int):\n    return User.query.filter_by(id=user_id).first_or_404()\n"
+  no_match:
+    - "from flask_sqlalchemy import SQLAlchemy\n\ndb = SQLAlchemy()\n\n\nclass User(db.Model):\n    pass\n\n\ndef one(user_id: int):\n    return db.session.get(User, user_id)\n"
+    - "class Search:\n    query = \"\"\n\n\nterm = Search.query\n"

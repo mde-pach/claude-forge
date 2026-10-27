@@ -571,6 +571,7 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `python/no-hardcoded-password` | `tool` ruff `S105`, `S106` (snippet: off under `tests/**`) |
 | `python/no-sql-format` | `tool` ruff `S608` |
 | `python/http-timeout` | `tool` ruff `S113` (requests without `timeout`; httpx with `timeout=None`) |
+| `python/llm-client-timeout` | `ast-grep` forbid: a call typed `anthropic` or `openai` (§15.1: a client constructor, `with_options()`, a request) with `timeout=None` |
 | `python/no-weak-hash` | `tool` ruff `S324` |
 | `python/no-pickle` | `tool` ruff `S301` |
 | `python/no-unsafe-yaml` | `tool` ruff `S506` |
@@ -634,11 +635,45 @@ context.md: strict TypeScript and Bun; TypeScript 6 deprecations are migrated, n
 
 | Rule | Targets |
 |---|---|
-| `python/fastapi/no-on-event` | `ast-grep` forbid: `@app.on_event($$$)` |
+| `python/fastapi/no-on-event` | `ast-grep` forbid: a call typed `fastapi` `FastAPI` / `APIRouter` (§15.1) with `on_startup=` or `on_shutdown=`; `@app.on_event` is deprecated and reported by `python/no-deprecated` |
 | `python/fastapi/annotated-depends` | `tool` ruff `FAST002` |
 | `python/fastapi/cors-credentials-wildcard` | `ast-grep` forbid: `add_middleware(CORSMiddleware, …)` with both `allow_origins=["*"]` and `allow_credentials=True` |
+| `python/fastapi/unused-path-param` | `tool` ruff `FAST003` |
+| `python/fastapi/no-debug-true` | `ast-grep` forbid, not in tests: a call typed `starlette` `Starlette` (`FastAPI` included) with `debug=True` |
+| `python/fastapi/no-raw-request-body` | `ast-grep` advise: `await $REQ.json()`, `await $REQ.form(…)`, `await $REQ.body()`, `$REQ.stream()` on a `starlette` `Request` |
+| `python/fastapi/testclient-lifespan` | `ast-grep` advise: a call typed `starlette` `TestClient` outside a `with` item |
+| `python/fastapi/no-testclient-in-async-test` | `ast-grep` forbid: a call typed `starlette` `TestClient` inside an `async def` |
 
-context.md: "FastAPI. Dependencies use `Annotated[T, Depends(...)]`. Startup and shutdown use `lifespan`. Request and response bodies are Pydantic v2 models."
+context.md: "FastAPI. Dependencies use `Annotated[T, Depends(...)]`. Startup and shutdown use `lifespan`. Request and response bodies are Pydantic v2 models." No debug mode outside tests; `with TestClient(app)` so the lifespan runs, `httpx.AsyncClient` with `ASGITransport` in async tests.
+
+### python/litestar
+
+Detected by `litestar` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/litestar/sync-to-thread` | `ast-grep` forbid: a sync `def` decorated with a call typed `litestar` `HTTPRouteHandler` (§15.1: `@get`, `@post`, …, `@route`) without `sync_to_thread=` |
+| `python/litestar/no-debug-true` | `ast-grep` forbid, not in tests: a call typed `litestar` `Litestar` with `debug=True` |
+
+context.md: `sync_to_thread` stated on sync handlers; no debug mode outside tests.
+
+### python/flask
+
+Detected by `flask` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/flask/no-debug-run` | `tool` ruff `S201` |
+
+### python/flask/sqlalchemy
+
+Detected by `flask-sqlalchemy` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/flask/sqlalchemy/no-model-query` | `ast-grep` forbid: `$M.query` where `$M` is typed `flask_sqlalchemy` (§15.1: a `db.Model` class); `db.session.query()` is `python/sqlalchemy/no-query-api` |
+
+context.md: SQLAlchemy 2.0 queries through `db.session`, `db.get_or_404()`, `db.paginate()`.
 
 ### python/sqlalchemy
 
@@ -651,9 +686,13 @@ context.md: "FastAPI. Dependencies use `Annotated[T, Depends(...)]`. Startup and
 | `python/sqlalchemy/no-raw-execute` | `ast-grep` forbid: `$X.execute("$$$")` with a string literal |
 | `python/sqlalchemy/async-expire-on-commit` | `ast-grep` forbid: `async_sessionmaker(…)` without `expire_on_commit=False` |
 | `python/sqlalchemy/no-text-fstring` | `ast-grep` forbid: `text()` whose SQL is an f-string, `.format()`, `%` or `+` concatenation |
+| `python/sqlalchemy/no-concurrent-session` | `ast-grep` forbid: `asyncio.gather(…)` with two calls on one receiver typed `sqlalchemy` `AsyncSession` / `async_scoped_session` (§15.1) |
+| `python/sqlalchemy/no-lazy-dynamic` | `ast-grep` forbid: a call typed in `sqlalchemy.orm` (`relationship`, `backref`, `dynamic_loader`) with `lazy="dynamic"` |
+| `python/sqlalchemy/session-context` | `ast-grep` advise: a call typed `sqlalchemy` `Session` / `AsyncSession` (`Session(engine)`, a sessionmaker's call) outside a `with` item, a `return` or a `yield` |
+| `python/sqlalchemy/asyncio-extra` | `check` lint: when a tracked or new `*.py` imports `sqlalchemy.ext.asyncio`, a `pyproject.toml` or `requirements*.txt` names `sqlalchemy[asyncio]` or `greenlet`; `when_changed`: those files |
 | `python/sqlalchemy/fk-index` | `check` lint, advisory (§10.7): `forge_advise forge_helper python fk_index.py` (§13.4), skipped for a MySQL / MariaDB `forge_db_url` |
 
-context.md: SQLAlchemy 2.0 async models, queries and sessions; no lazy loading in async sessions (`selectinload()`, `lazy="raise"`); values reach `text()` as bound parameters, with f-strings, `.format()`, `%`, `+` in `text()` and literal strings in `.execute()` rejected, and statements that cannot take parameters (`SET`, `SET LOCAL`) free to embed a validated value.
+context.md: SQLAlchemy 2.0 async models, queries and sessions (opened with `async with`, `sqlalchemy[asyncio]` declared); no lazy loading in async sessions (`selectinload()`, `lazy="raise"`, `WriteOnlyMapped` instead of `lazy="dynamic"`), one statement at a time per session; values reach `text()` as bound parameters, with f-strings, `.format()`, `%`, `+` in `text()` and literal strings in `.execute()` rejected, and statements that cannot take parameters (`SET`, `SET LOCAL`) free to embed a validated value.
 
 ### python/sqlalchemy/alembic
 
@@ -666,18 +705,20 @@ context.md: SQLAlchemy 2.0 async models, queries and sessions; no lazy loading i
 | `python/sqlalchemy/alembic/migration-lint` | `check` migration: each changed revision's upgrade rendered offline (`alembic upgrade <down_revision>:<revision> --sql`) and linted with Squawk (§13.1); `--all`: the head revision; merge revisions are skipped; `when_changed: [alembic/versions/**]` |
 | `python/sqlalchemy/alembic/model-registered` | `check` lint on `**/models/**`: `forge_models_registered`: a module of a models package with a mapped class (`__tablename__`) is named in the package's `__init__.py` when that file imports other table modules of the package (the registry), or in `alembic/env.py`; otherwise `Base.metadata` lacks the table and `alembic check` passes without its migration |
 | `python/sqlalchemy/alembic/fk-index` | `check` lint on `alembic/versions/**`, advisory (§10.7): `forge_advise forge_alembic_fk_index`: in `upgrade()`, each column given a foreign key (`sa.Column(…, sa.ForeignKey(…))`, `sa.ForeignKeyConstraint([…])`, `op.create_foreign_key(…, […], …)`) is the first column of an `op.create_index`, `sa.Index`, primary key or unique constraint or `CREATE INDEX`, or has `index=True`, `unique=True` or `primary_key=True`; skipped for a MySQL / MariaDB database URL |
+| `python/sqlalchemy/alembic/no-create-all` | `ast-grep` forbid, not in tests: `$M.create_all` with `$M` typed `sqlalchemy` `MetaData` (§15.1: `Base.metadata`, `SQLModel.metadata`; the call and `run_sync(…create_all)`) |
 | `python/sqlalchemy/alembic/sqlite-batch` | `check` lint on `alembic/versions/**`: `forge_alembic_batch`: when `alembic/env.py` sets `render_as_batch=True` or `alembic.ini` has a sqlite URL, no `op.alter_column`, `op.drop_column`, `op.create_foreign_key`, `op.drop_constraint`, `op.create_unique_constraint`, `op.create_check_constraint`, `op.create_primary_key` outside `op.batch_alter_table()`, except under an `if` on the dialect |
 | `python/sqlalchemy/alembic/data-migration-downgrade` | `check` lint on `alembic/versions/**`, advisory (§10.7): `forge_advise forge_alembic_data_downgrade`: an `upgrade()` that changes rows (`UPDATE … SET`, `INSERT INTO`, `DELETE FROM` with `execute(`, `sa.update/insert/delete(…)`, `.update()/.insert()/.delete()`, `op.bulk_insert(`, `Session(`) has a `downgrade()` that changes rows the same ways or has a `raise` statement; reported at the `downgrade` line |
 
 The migration `check` lint rules above examine the changed revisions, and with `--all` only the head revisions. A required column added without a default (`op.add_column(…, nullable=False)` without `server_default`) is already caught by `migration-lint` (Squawk `adding-required-field`, §13.1).
 
-context.md: "Alembic with an async engine: `alembic/env.py` runs migrations through `run_async_migrations()` and `connection.run_sync()`. New revisions: `alembic revision --autogenerate -m \"<change>\"`. Committed revisions are never edited."
+context.md: "Alembic with an async engine: `alembic/env.py` runs migrations through `run_async_migrations()` and `connection.run_sync()`. New revisions: `alembic revision --autogenerate -m \"<change>\"`. Committed revisions are never edited."; no `metadata.create_all()` outside tests.
 
 ### python/pydantic
 
 | Rule | Targets |
 |---|---|
 | `python/pydantic/v2-api` | `ast-grep` forbid: `$M.dict()`, `$M.json()`, `$M.parse_obj($$$)`, `$M.parse_raw($$$)`, `@validator($$$)`, `@root_validator($$$)`, `class Config:` inside a `BaseModel` subclass |
+| `python/pydantic/typeadapter-module-level` | `ast-grep` advise: a call typed `pydantic` `TypeAdapter` inside a function not decorated with `cache`, `lru_cache` or `cached_property` |
 
 context.md: "Pydantic v2: `model_validate`, `model_dump`, `model_config = ConfigDict(...)`, `@field_validator`, `@model_validator`, `Field(pattern=...)`, `TypeAdapter(T).validate_python(...)` (not `parse_obj_as`)."
 
@@ -706,8 +747,11 @@ Detected by `django` (pypi) or a `manage.py` at the root or one level down.
 | `python/django/makemigrations` | `check` migration: the shallowest tracked `manage.py`, `python <manage.py> makemigrations --check --dry-run --no-input` (no database needed: Django only warns when it cannot check the migration history); fails on "Migrations for", any other failure (settings that need an environment variable, a missing module) prints `skipped:` with the error's last line; `when_changed`: models, migrations, settings; timeout 120 s |
 | `python/django/no-raw-sql-format` | `tool` ruff `S610` (`.extra()` with a non-literal `select` / `where` / `tables` / …), `S611` (`RawSQL()` with non-literal SQL); SQL strings built with an f-string, `.format()`, `%` or `+` (also through a variable) are `python/no-sql-format` (`S608`) |
 | `python/django/flake8-django` | `tool` ruff `DJ001`, `DJ003`, `DJ006`, `DJ007`, `DJ013` |
+| `python/django/csrf-exempt` | `ast-grep` forbid: `@csrf_exempt`, `csrf_exempt(…)`, `csrf_exempt` passed as an argument (`@method_decorator(csrf_exempt, …)`); the user decides, and disables the rule for that file in a local rule |
+| `python/django/no-mark-safe` | `tool` ruff `S308` |
+| `python/django/migrate-guard` | `guard` ask (`review`: is the user aware it resets data or the migration state): `manage.py` / `django-admin` `migrate … --fake`, `migrate <app> zero`, `flush`, `reset_db`, `sqlflush` piped to a command |
 
-context.md: migrations generated and committed with model changes; SQL parameters; `select_related()` / `prefetch_related()` against N+1; `transaction.atomic()` and `transaction.on_commit()`.
+context.md: migrations generated and committed with model changes; SQL parameters; `select_related()` / `prefetch_related()` against N+1; `transaction.atomic()` and `transaction.on_commit()`; `format_html()` rather than `mark_safe()`; `@csrf_exempt` asked for.
 
 ### python/django/drf
 
@@ -716,10 +760,19 @@ Detected by `djangorestframework` (pypi).
 | Rule | Targets |
 |---|---|
 | `python/django/drf/permission-classes` | `check` lint: `forge_helper python drf_permissions.py` (§13.4): unless the settings module Django runs with (`DJANGO_SETTINGS_MODULE` set in `manage.py`, `wsgi.py` or `asgi.py`, star imports followed; else a `settings.py` / `settings/` outside tests) sets `DEFAULT_PERMISSION_CLASSES` to a non-empty list without `AllowAny`, a class inheriting a DRF view or viewset (directly or through project classes and mixins of any kind) gets a non-empty `permission_classes` or `get_permissions` from itself or a project ancestor, and an `@api_view` function has `@permission_classes`; `permission_classes = []` declares nothing; findings on the class or function line |
-| `python/django/drf/serializer-fields` | `ast-grep` forbid: `fields = "__all__"` in the `Meta` of a class whose bases name a `Serializer` |
+| `python/django/drf/serializer-fields` | `ast-grep` forbid: `fields = "__all__"` or `exclude = …` in the `Meta` of a class whose bases name a `Serializer` |
+| `python/django/drf/no-csrf-exempt-session-auth` | `ast-grep` forbid: a class whose base is typed `rest_framework` `SessionAuthentication` (§15.1) and that defines `enforce_csrf` |
 | `python/django/drf/no-allowany-write` | `ast-grep` forbid: `permission_classes` naming `AllowAny` in a `ModelViewSet`, a Create/Update/Destroy generic view or model mixin, or a class with `post`/`put`/`patch`/`delete`/`create`/`update`/`partial_update`/`destroy`; `@permission_classes([AllowAny])` on an `@api_view` with a write method; `AllowAny` as `DEFAULT_PERMISSION_CLASSES` |
 
 context.md: explicit serializer fields and `read_only_fields`; permission defaults; ask before opening a write endpoint.
+
+### python/django/ninja
+
+Detected by `django-ninja` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/django/ninja/schema-fields` | `ast-grep` forbid: `fields = "__all__"` or `exclude = …` in the `Meta` of a class whose base is typed `ninja` `ModelSchema` (§15.1) |
 
 ### python/celery
 
@@ -728,9 +781,157 @@ Detected by `celery` (pypi).
 | Rule | Targets |
 |---|---|
 | `python/celery/bounded-retries` | `ast-grep` forbid: `max_retries=None` in a `shared_task(…)` / `<x>.task(…)` call or a `.retry()`, `.apply_async()`, `.signature()`, `.set()` call; `"max_retries": None` inside `retry_kwargs=`; a `max_retries = None` class attribute of a class whose bases name `Task` |
+| `python/celery/no-pickle` | `grep` forbid (case-insensitive): `task_serializer`, `result_serializer`, `event_serializer` or `serializer` set to `"pickle"` (`=` or `:`); `accept_content` naming `pickle` or `application/x-python-serialize` |
 | `python/celery/no-result-get-in-task` | `ast-grep` forbid: inside a task, `.get()`, `.wait()`, `.join()` on `.delay()` / `.apply_async()` / `AsyncResult()` results (directly, through a variable of the function, or as the variable of a `for` loop or comprehension over them) or on a called `group` / `chord` / `chain`; `disable_sync_subtasks=False` anywhere |
 
-context.md: ids as arguments, idempotent tasks queued from `transaction.on_commit()`, bounded retries, no waiting on results inside tasks.
+context.md: ids as arguments, idempotent tasks queued from `transaction.on_commit()`, bounded retries, no waiting on results inside tasks, the json serializer.
+
+### python/tortoise
+
+Detected by `tortoise-orm` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/tortoise/primary-key-kw` | `ast-grep` forbid: a call typed `tortoise` (§15.1: a field constructor) with `pk=True` |
+
+### python/piccolo
+
+Detected by `piccolo` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/piccolo/no-run-sync-in-async` | `ast-grep` forbid: `$Q.run_sync(…)` inside an `async def`, `$Q` typed `piccolo` |
+
+### python/psycopg
+
+Detected by `psycopg` or `psycopg-pool` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/psycopg/pool-open-explicit` | `ast-grep` forbid: a call typed `psycopg_pool` `ConnectionPool` / `AsyncConnectionPool` without `open=`, outside a `with` item |
+| `python/psycopg/placeholder-style` | `ast-grep` advise: `execute()` / `executemany()` on a receiver typed `psycopg` `Connection`, `Cursor`, `ServerCursor` (and their async forms) with a string literal holding `$<digit>` and no dollar quote (`$$`, `$tag$`) |
+
+context.md: `%s` placeholders; pools opened explicitly in startup.
+
+### python/redis
+
+Detected by `redis` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/redis/no-keys` | `ast-grep` advise: `$R.keys(…)`, `$R` typed `redis` `Redis` / `StrictRedis` / `RedisCluster` (sync and `redis.asyncio`) |
+| `python/redis/aclose` | `ast-grep` forbid: `$R.close()`, `$R` typed `redis.asyncio` `Redis` |
+
+context.md: `scan_iter()` instead of `KEYS`; `aclose()` on asyncio clients.
+
+### python/strawberry
+
+Detected by `strawberry-graphql` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/strawberry/query-limits` | `ast-grep` advise: a call typed `strawberry` `Schema` without an `extensions=` argument naming `QueryDepthLimiter` |
+
+### python/pandas
+
+Detected by `pandas >= 3.0.0` (pypi). The receivers are typed `pandas` `DataFrame` / `Series` (§15.1); without pandas-stubs ty types the frame, so the rules ask for the innermost object (`df` in `df["a"][0]`).
+
+| Rule | Targets |
+|---|---|
+| `python/pandas/no-chained-assignment` | `ast-grep` forbid: `$D[…][…] = …` (and `+=`, `-=`), `$D.loc[…][…] = …`, `$D[…].iloc[…] = …` (`loc`, `iloc`, `at`, `iat`) |
+| `python/pandas/no-chained-inplace` | `ast-grep` forbid: `$D[…].$M(…, inplace=True)`, `$D.loc[…].$M(…, inplace=True)` (`loc`, `iloc`) |
+| `python/pandas/no-deprecated-inplace` | `ast-grep` forbid: `inplace=True` on `rename`, `rename_axis`, `reset_index`, `set_index`, `drop`, `drop_duplicates`, `dropna`, `sort_values`, `sort_index`, `query`, `eval` (deprecated in pandas 3.1) |
+| `python/pandas/no-object-dtype-check` | `ast-grep` forbid: `.dtype` / `.dtypes` compared (`==`, `!=`) with `object`, `"object"`, `"O"` or `<module>.object_`; `select_dtypes(…)` naming `object` / `"O"` |
+| `python/pandas/no-removed-freq-aliases` | `ast-grep` forbid: a call typed `pandas` whose `freq=` / `rule=` or first argument of `resample` / `asfreq` / `rolling` / `to_period` is a removed alias (`BM`, `SM`, `CBM`, `BQ`, `BY`, `A`, `AS`, `BA`, `BAS`, `H`, `BH`, `CBH`, `T`, `L`, `U`, `N`, `S`, with a multiple and an anchor), or `M` / `Q` / `Y` outside `period_range`, `to_period`, `Period`, `PeriodIndex` |
+| `python/pandas/no-row-loops` | `ast-grep` advise: `$R.iterrows()`, `$R.itertuples(…)`, `$R.apply(…, axis=1 / "columns")` on a `DataFrame` |
+
+context.md: pandas 3 Copy-on-Write (one indexer per assignment, results assigned), the `str` dtype, the new frequency aliases, vectorized operations.
+
+### python/polars
+
+Detected by `polars` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/polars/no-python-row-functions` | `ast-grep` advise: `map_elements`, `map_rows`, `iter_rows` on a receiver typed `polars` `Expr` / `Series` / `DataFrame` |
+
+### python/numpy
+
+Detected by `numpy` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/numpy/legacy-random` | `tool` ruff `NPY002` |
+
+### python/torch
+
+Detected by `torch` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/torch/no-unsafe-load` | `ast-grep` forbid: the keyword argument `weights_only=False` |
+| `python/torch/no-unsafe-load-env` | `grep` forbid: `TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD` in `*.py`, `.env` files, Dockerfiles, Compose files, `*.sh`, `*.toml`, `*.ini`, `*.cfg`, `.github/workflows/*` |
+
+### python/huggingface
+
+Detected by `transformers`, `datasets`, `huggingface-hub`, `sentence-transformers`, `diffusers`, `peft` or `vllm` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/huggingface/no-trust-remote-code` | `ast-grep` advise: the keyword argument `trust_remote_code=True` |
+| `python/huggingface/no-pickle-weights` | `ast-grep` forbid: the keyword argument `use_safetensors=False` |
+
+### python/jupyter
+
+Detected by a `*.ipynb` file.
+
+| Rule | Targets |
+|---|---|
+| `python/jupyter/no-outputs` | `grep` forbid on `**/*.ipynb`: `"output_type": "…"`, `"execution_count": <number>` |
+
+context.md: outputs cleared before committing (nbstripout as a git filter).
+
+### python/anthropic
+
+Detected by `anthropic >= 2.0.0` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/anthropic/no-version-header` | `ast-grep` advise: a call typed `anthropic` with `default_headers=` / `extra_headers=` holding an `"anthropic-version"` key |
+| `python/anthropic/stream-long-requests` | `ast-grep` advise: `create(…)` / `parse(…)` on a receiver typed `anthropic` `Messages` / `AsyncMessages` with an integer `max_tokens` above 21,333 and no `stream=True` |
+
+### python/langchain
+
+Detected by `langchain-core` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/langchain/no-dangerous-flags` | `ast-grep` advise: the keyword arguments `allow_dangerous_deserialization=True`, `allow_dangerous_code=True`, `allow_dangerous_requests=True` |
+| `python/langchain/safe-load` | `ast-grep` forbid: the keyword arguments `allowed_objects="all"`, `secrets_from_env=True` |
+
+### python/mcp
+
+Detected by `mcp` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/mcp/dns-rebinding-protection` | `ast-grep` forbid: a call typed `mcp` `TransportSecuritySettings` with `enable_dns_rebinding_protection=False` |
+
+### python/opentelemetry
+
+Detected by `opentelemetry-sdk` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/opentelemetry/batch-processor` | `ast-grep` advise: a call typed `opentelemetry` `SimpleSpanProcessor` / `SimpleLogRecordProcessor` whose argument is typed `opentelemetry.exporter.otlp` `OTLPSpanExporter` / `OTLPLogExporter` |
+
+### python/airflow
+
+Detected by `apache-airflow` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/airflow/dag-schedule` | `tool` ruff `AIR002` |
 
 ### python/library
 

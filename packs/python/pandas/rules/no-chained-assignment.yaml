@@ -1,0 +1,31 @@
+id: python/pandas/no-chained-assignment
+description: "No chained assignment on a pandas object (df[\"a\"][0] = v, df.loc[0][\"a\"] = v, df[\"a\"].iloc[0] = v, and += / -=): under Copy-on-Write (pandas 3) the first selection is a copy, so nothing is written. Use one indexer: df.loc[row, col] = v."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    # the indexer forms first: ast-grep binds the first branch that matches
+    rule:
+      any:
+        - pattern: $D.$I[$$$A][$$$B] = $V
+        - pattern: $D[$$$A].$I[$$$B] = $V
+        - pattern: $D[$$$A].$I[$$$B] += $V
+        - pattern: $D[$$$A][$$$B] = $V
+        - pattern: $D[$$$A][$$$B] += $V
+        - pattern: $D[$$$A][$$$B] -= $V
+    constraints: {I: {regex: "^(loc|iloc|at|iat)$"}}
+    # the innermost object: pandas types resolve on it without pandas-stubs
+    where:
+      D: {type: {package: pandas, name: [DataFrame, Series]}}
+examples:
+  deps: [{ecosystem: pypi, name: pandas, version: "3.1.0"}]
+  match:
+    - "import pandas as pd\n\ndf = pd.DataFrame({\"a\": [1, 2], \"b\": [\"x\", \"y\"]})\ndf[\"a\"][0] = 5\n"
+    - "import pandas as pd\n\ndf = pd.DataFrame({\"a\": [1, 2], \"b\": [\"x\", \"y\"]})\ndf.loc[0][\"a\"] = 5\n"
+    - "import pandas as pd\n\ndf = pd.DataFrame({\"a\": [1, 2], \"b\": [\"x\", \"y\"]})\ndf[\"a\"].iloc[0] = 5\n"
+    - "import pandas as pd\n\n\ndef bump(frame: pd.DataFrame) -> None:\n    frame[\"a\"][frame[\"a\"] > 1] += 1\n"
+  no_match:
+    - "import pandas as pd\n\ndf = pd.DataFrame({\"a\": [1, 2], \"b\": [\"x\", \"y\"]})\ndf.loc[0, \"a\"] = 5\n"
+    - "import pandas as pd\n\ndf = pd.DataFrame({\"a\": [1, 2], \"b\": [\"x\", \"y\"]})\ndf[\"c\"] = 1\n"
+    - "grid = [[0, 0], [0, 0]]\ngrid[0][1] = 5\n"
+    - "rows: dict[str, dict[str, int]] = {\"a\": {}}\nrows[\"a\"][\"b\"] = 1\n"

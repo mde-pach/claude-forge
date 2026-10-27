@@ -1,0 +1,28 @@
+id: python/sqlalchemy/no-concurrent-session
+description: "No asyncio.gather() over calls on one AsyncSession: a session is not safe for concurrent use (InvalidRequestError, or corrupted state). Await the calls one after the other, or give each task its own session. A session passed into helper coroutines is not followed."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call
+      pattern: asyncio.gather($$$)
+      has:
+        field: arguments
+        has:
+          pattern: $S.$M($$$)
+          precedes:
+            stopBy: end
+            any:
+              - pattern: $S.$N($$$)
+              - has: {stopBy: end, pattern: $S.$N($$$)}
+    where:
+      S: {type: {package: sqlalchemy, name: [AsyncSession, async_scoped_session]}}
+examples:
+  deps: [{ecosystem: pypi, name: sqlalchemy, version: "2.0.44"}]
+  match:
+    - "import asyncio\n\nfrom sqlalchemy import select, text\nfrom sqlalchemy.ext.asyncio import AsyncSession\n\n\nasync def dashboard(session: AsyncSession) -> None:\n    await asyncio.gather(session.execute(select(text(\"1\"))), session.scalar(select(text(\"2\"))))\n"
+    - "import asyncio\n\nfrom sqlalchemy.ext.asyncio import AsyncSession\n\n\nasync def ping() -> None:\n    pass\n\n\nasync def load(db: AsyncSession) -> None:\n    await asyncio.gather(ping(), db.get(int, 1), db.get(int, 2))\n"
+  no_match:
+    - "import asyncio\n\nfrom sqlalchemy import select, text\nfrom sqlalchemy.ext.asyncio import AsyncSession\n\n\nasync def dashboard(a: AsyncSession, b: AsyncSession) -> None:\n    await asyncio.gather(a.execute(select(text(\"1\"))), b.execute(select(text(\"2\"))))\n"
+    - "import asyncio\n\n\nasync def drain(queue: asyncio.Queue[int]) -> None:\n    await asyncio.gather(queue.get(), queue.get())\n"

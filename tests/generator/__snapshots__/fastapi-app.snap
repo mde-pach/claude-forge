@@ -1,12 +1,13 @@
 ===== .claude/rules/forge-python-fastapi.md
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
 
-FastAPI. Dependencies use `Annotated[T, Depends(...)]` (FAST002). Startup and shutdown use `lifespan` (`@app.on_event` is rejected). FastAPI reads request and response bodies from Pydantic v2 models.
+FastAPI. Dependencies use `Annotated[T, Depends(...)]` (FAST002). Startup and shutdown use `lifespan` (`@app.on_event`, `on_startup=` and `on_shutdown=` are rejected). FastAPI reads request and response bodies from Pydantic v2 models.
+`FastAPI(debug=True)` is rejected outside tests. Tests enter `with TestClient(app) as client:` so the lifespan runs; async tests use `httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")` (TestClient in an `async def` is rejected).
 
 ===== .claude/rules/forge-python-pydantic.md
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
 
-Pydantic v2: `model_validate`, `model_dump`, `model_config = ConfigDict(...)`, `@field_validator`, `@model_validator`, `Field(pattern=...)`, `TypeAdapter(T).validate_python(...)` (not `parse_obj_as`).
+Pydantic v2: `model_validate`, `model_dump`, `model_config = ConfigDict(...)`, `@field_validator`, `@model_validator`, `Field(pattern=...)`, `TypeAdapter(T).validate_python(...)` (not `parse_obj_as`), with the adapter built once at module level.
 
 ===== .claude/rules/forge-python-pytest.md
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
@@ -18,12 +19,13 @@ When the task changes behaviour an existing test asserts, update that test in pl
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
 
 Alembic with an async engine: `alembic/env.py` runs migrations through `run_async_migrations()` and `connection.run_sync()`. New revisions: `alembic revision --autogenerate -m "<change>"`. Committed revisions are never edited.
+Alembic owns the schema: tables are created by revisions, and `metadata.create_all()` outside tests is rejected.
 
 ===== .claude/rules/forge-python-sqlalchemy.md
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
 
-SQLAlchemy 2.0 async. Models: `class Base(DeclarativeBase)`, `Mapped[T]`, `mapped_column()`, `relationship(back_populates=...)`. Queries: `select()` with `session.execute()` or `session.scalars()` (`session.query()` is rejected). Sessions: `async_sessionmaker(engine, expire_on_commit=False)`.
-Async sessions cannot lazy-load (`MissingGreenlet`): load related rows with `selectinload()`, or declare `lazy="raise"`.
+SQLAlchemy 2.0 async. Models: `class Base(DeclarativeBase)`, `Mapped[T]`, `mapped_column()`, `relationship(back_populates=...)`. Queries: `select()` with `session.execute()` or `session.scalars()` (`session.query()` is rejected). Sessions: `async_sessionmaker(engine, expire_on_commit=False)`, opened with `async with`; the project depends on `sqlalchemy[asyncio]`.
+Async sessions cannot lazy-load (`MissingGreenlet`): load related rows with `selectinload()`, or declare `lazy="raise"`; large collections are `WriteOnlyMapped[...]` (`lazy="dynamic"` is rejected). One session never runs two statements at once (`asyncio.gather()` over one session is rejected).
 Values reach `text()` SQL as bound parameters (`:id`): an f-string, `.format()`, `%` or `+` inside `text()`, and a string literal passed to `.execute()`, are rejected. Statements that cannot take parameters (`SET`, `SET LOCAL`) may embed a validated value such as an int.
 
 ===== .claude/rules/forge-python.md
@@ -1192,7 +1194,7 @@ pytest() { forge_exec_tool pytest "$@"; }
 python() { forge_exec_tool python "$@"; }
 # ty is Forge's own, pinned (§15.2).
 ty() { forge_ty "$@"; }
-FORGE_NCHECKS=19
+FORGE_NCHECKS=20
 
 # 1. python/config-ratchet
 forge_check_meta_1() {
@@ -1433,79 +1435,97 @@ forge_check_run_14() {
 forge_alembic_batch
 }
 
-# 15. python/sqlalchemy/fk-index
+# 15. python/sqlalchemy/asyncio-extra
 forge_check_meta_15() {
+  c_id='python/sqlalchemy/asyncio-extra'; c_stage=lint; c_tools='uv'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_15() {
+  return 0
+}
+forge_when_15() { case $1 in pyproject.toml|*/pyproject.toml|requirements*.txt|*/requirements*.txt|*.py|*/*.py) return 0 ;; esac; return 1; }
+forge_check_run_15() {
+git grep -q --untracked -E '^[[:space:]]*(from[[:space:]]+sqlalchemy\.ext\.asyncio[[:space:]]|import[[:space:]]+sqlalchemy\.ext\.asyncio|from[[:space:]]+sqlalchemy\.ext[[:space:]]+import[[:space:]].*asyncio)' -- '*.py' || return 0
+git ls-files -z --cached --others --exclude-standard -- pyproject.toml '*/pyproject.toml' 'requirements*.txt' '*/requirements*.txt' | xargs -0 grep -qiE 'sqlalchemy[[:space:]]*\[[^]]*asyncio|(^|["'"'"'[:space:]])greenlet([^A-Za-z0-9_.-]|$)' /dev/null && return 0
+echo 'sqlalchemy.ext.asyncio is imported but no pyproject.toml or requirements*.txt declares sqlalchemy[asyncio] (or greenlet): uv add "sqlalchemy[asyncio]"'
+return 1
+
+}
+
+# 16. python/sqlalchemy/fk-index
+forge_check_meta_16() {
   c_id='python/sqlalchemy/fk-index'; c_stage=lint; c_tools='python'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_15() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_15() { return 1; }
-forge_check_run_15() {
-case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
-forge_advise forge_helper python fk_index.py
-
-}
-
-# 16. python/stub-sync
-forge_check_meta_16() {
-  c_id='python/stub-sync'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
 forge_scope_16() {
-  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_16() { return 1; }
 forge_check_run_16() {
-forge_advise forge_stub_sync
+case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
+forge_advise forge_helper python fk_index.py
+
 }
 
-# 17. python/typecheck
+# 17. python/stub-sync
 forge_check_meta_17() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_id='python/stub-sync'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_17() {
+  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_17() { return 1; }
 forge_check_run_17() {
-ty check --output-format concise
+forge_advise forge_stub_sync
 }
 
-# 18. python/uv/exclude-newer
+# 18. python/typecheck
 forge_check_meta_18() {
-  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
-  c_when=1; c_localdb=0; c_timeout=''
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_18() {
-  return 0
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
 }
-forge_when_18() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
+forge_when_18() { return 1; }
 forge_check_run_18() {
-forge_uv_cooldown
+ty check --output-format concise
 }
 
-# 19. python/uv/lock-sync
+# 19. python/uv/exclude-newer
 forge_check_meta_19() {
-  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_19() {
   return 0
 }
-forge_when_19() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_when_19() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
 forge_check_run_19() {
+forge_uv_cooldown
+}
+
+# 20. python/uv/lock-sync
+forge_check_meta_20() {
+  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_20() {
+  return 0
+}
+forge_when_20() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_check_run_20() {
 uv lock --check
 }
 
@@ -4529,7 +4549,7 @@ forge_types_filter() {
   return "$_tf_rc"
 }
 
-FORGE_FORBID='python/fastapi/cors-credentials-wildcard|python/fastapi/no-on-event|python/no-stub|python/pydantic/v2-api|python/pytest/no-tautological-assert|python/pytest/no-test-env-branch|python/sqlalchemy/async-expire-on-commit|python/sqlalchemy/mapped-column|python/sqlalchemy/no-backref|python/sqlalchemy/no-declarative-base|python/sqlalchemy/no-query-api|python/sqlalchemy/no-raw-execute|python/sqlalchemy/no-text-fstring'
+FORGE_FORBID='python/fastapi/cors-credentials-wildcard|python/fastapi/no-debug-true|python/fastapi/no-on-event|python/fastapi/no-testclient-in-async-test|python/llm-client-timeout|python/no-stub|python/pydantic/v2-api|python/pytest/no-tautological-assert|python/pytest/no-test-env-branch|python/sqlalchemy/alembic/no-create-all|python/sqlalchemy/async-expire-on-commit|python/sqlalchemy/mapped-column|python/sqlalchemy/no-backref|python/sqlalchemy/no-concurrent-session|python/sqlalchemy/no-declarative-base|python/sqlalchemy/no-lazy-dynamic|python/sqlalchemy/no-query-api|python/sqlalchemy/no-raw-execute|python/sqlalchemy/no-text-fstring|python/fastapi/no-raw-request-body|python/fastapi/testclient-lifespan|python/pydantic/typeadapter-module-level|python/sqlalchemy/session-context'
 
 # the lines added to each file during the turn (base: the turn snapshot, else HEAD)
 mode=--changed
@@ -4685,7 +4705,7 @@ pytest() { forge_exec_tool pytest "$@"; }
 python() { forge_exec_tool python "$@"; }
 # ty is Forge's own, pinned (§15.2).
 ty() { forge_ty "$@"; }
-FORGE_NCHECKS=19
+FORGE_NCHECKS=20
 
 # 1. python/config-ratchet
 forge_check_meta_1() {
@@ -4926,79 +4946,97 @@ forge_check_run_14() {
 forge_alembic_batch
 }
 
-# 15. python/sqlalchemy/fk-index
+# 15. python/sqlalchemy/asyncio-extra
 forge_check_meta_15() {
+  c_id='python/sqlalchemy/asyncio-extra'; c_stage=lint; c_tools='uv'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_15() {
+  return 0
+}
+forge_when_15() { case $1 in pyproject.toml|*/pyproject.toml|requirements*.txt|*/requirements*.txt|*.py|*/*.py) return 0 ;; esac; return 1; }
+forge_check_run_15() {
+git grep -q --untracked -E '^[[:space:]]*(from[[:space:]]+sqlalchemy\.ext\.asyncio[[:space:]]|import[[:space:]]+sqlalchemy\.ext\.asyncio|from[[:space:]]+sqlalchemy\.ext[[:space:]]+import[[:space:]].*asyncio)' -- '*.py' || return 0
+git ls-files -z --cached --others --exclude-standard -- pyproject.toml '*/pyproject.toml' 'requirements*.txt' '*/requirements*.txt' | xargs -0 grep -qiE 'sqlalchemy[[:space:]]*\[[^]]*asyncio|(^|["'"'"'[:space:]])greenlet([^A-Za-z0-9_.-]|$)' /dev/null && return 0
+echo 'sqlalchemy.ext.asyncio is imported but no pyproject.toml or requirements*.txt declares sqlalchemy[asyncio] (or greenlet): uv add "sqlalchemy[asyncio]"'
+return 1
+
+}
+
+# 16. python/sqlalchemy/fk-index
+forge_check_meta_16() {
   c_id='python/sqlalchemy/fk-index'; c_stage=lint; c_tools='python'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_15() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_15() { return 1; }
-forge_check_run_15() {
-case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
-forge_advise forge_helper python fk_index.py
-
-}
-
-# 16. python/stub-sync
-forge_check_meta_16() {
-  c_id='python/stub-sync'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
 forge_scope_16() {
-  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_16() { return 1; }
 forge_check_run_16() {
-forge_advise forge_stub_sync
+case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
+forge_advise forge_helper python fk_index.py
+
 }
 
-# 17. python/typecheck
+# 17. python/stub-sync
 forge_check_meta_17() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_id='python/stub-sync'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_17() {
+  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_17() { return 1; }
 forge_check_run_17() {
-ty check --output-format concise
+forge_advise forge_stub_sync
 }
 
-# 18. python/uv/exclude-newer
+# 18. python/typecheck
 forge_check_meta_18() {
-  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
-  c_when=1; c_localdb=0; c_timeout=''
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_18() {
-  return 0
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
 }
-forge_when_18() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
+forge_when_18() { return 1; }
 forge_check_run_18() {
-forge_uv_cooldown
+ty check --output-format concise
 }
 
-# 19. python/uv/lock-sync
+# 19. python/uv/exclude-newer
 forge_check_meta_19() {
-  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_19() {
   return 0
 }
-forge_when_19() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_when_19() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
 forge_check_run_19() {
+forge_uv_cooldown
+}
+
+# 20. python/uv/lock-sync
+forge_check_meta_20() {
+  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_20() {
+  return 0
+}
+forge_when_20() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_check_run_20() {
 uv lock --check
 }
 
@@ -8198,7 +8236,7 @@ pytest() { forge_exec_tool pytest "$@"; }
 python() { forge_exec_tool python "$@"; }
 # ty is Forge's own, pinned (§15.2).
 ty() { forge_ty "$@"; }
-FORGE_NCHECKS=19
+FORGE_NCHECKS=20
 
 # 1. python/config-ratchet
 forge_check_meta_1() {
@@ -8439,79 +8477,97 @@ forge_check_run_14() {
 forge_alembic_batch
 }
 
-# 15. python/sqlalchemy/fk-index
+# 15. python/sqlalchemy/asyncio-extra
 forge_check_meta_15() {
+  c_id='python/sqlalchemy/asyncio-extra'; c_stage=lint; c_tools='uv'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_15() {
+  return 0
+}
+forge_when_15() { case $1 in pyproject.toml|*/pyproject.toml|requirements*.txt|*/requirements*.txt|*.py|*/*.py) return 0 ;; esac; return 1; }
+forge_check_run_15() {
+git grep -q --untracked -E '^[[:space:]]*(from[[:space:]]+sqlalchemy\.ext\.asyncio[[:space:]]|import[[:space:]]+sqlalchemy\.ext\.asyncio|from[[:space:]]+sqlalchemy\.ext[[:space:]]+import[[:space:]].*asyncio)' -- '*.py' || return 0
+git ls-files -z --cached --others --exclude-standard -- pyproject.toml '*/pyproject.toml' 'requirements*.txt' '*/requirements*.txt' | xargs -0 grep -qiE 'sqlalchemy[[:space:]]*\[[^]]*asyncio|(^|["'"'"'[:space:]])greenlet([^A-Za-z0-9_.-]|$)' /dev/null && return 0
+echo 'sqlalchemy.ext.asyncio is imported but no pyproject.toml or requirements*.txt declares sqlalchemy[asyncio] (or greenlet): uv add "sqlalchemy[asyncio]"'
+return 1
+
+}
+
+# 16. python/sqlalchemy/fk-index
+forge_check_meta_16() {
   c_id='python/sqlalchemy/fk-index'; c_stage=lint; c_tools='python'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_15() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_15() { return 1; }
-forge_check_run_15() {
-case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
-forge_advise forge_helper python fk_index.py
-
-}
-
-# 16. python/stub-sync
-forge_check_meta_16() {
-  c_id='python/stub-sync'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
 forge_scope_16() {
-  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_16() { return 1; }
 forge_check_run_16() {
-forge_advise forge_stub_sync
+case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
+forge_advise forge_helper python fk_index.py
+
 }
 
-# 17. python/typecheck
+# 17. python/stub-sync
 forge_check_meta_17() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_id='python/stub-sync'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_17() {
+  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_17() { return 1; }
 forge_check_run_17() {
-ty check --output-format concise
+forge_advise forge_stub_sync
 }
 
-# 18. python/uv/exclude-newer
+# 18. python/typecheck
 forge_check_meta_18() {
-  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
-  c_when=1; c_localdb=0; c_timeout=''
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_18() {
-  return 0
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
 }
-forge_when_18() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
+forge_when_18() { return 1; }
 forge_check_run_18() {
-forge_uv_cooldown
+ty check --output-format concise
 }
 
-# 19. python/uv/lock-sync
+# 19. python/uv/exclude-newer
 forge_check_meta_19() {
-  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_19() {
   return 0
 }
-forge_when_19() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_when_19() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
 forge_check_run_19() {
+forge_uv_cooldown
+}
+
+# 20. python/uv/lock-sync
+forge_check_meta_20() {
+  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_20() {
+  return 0
+}
+forge_when_20() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_check_run_20() {
 uv lock --check
 }
 
@@ -11732,7 +11788,7 @@ pytest() { forge_exec_tool pytest "$@"; }
 python() { forge_exec_tool python "$@"; }
 # ty is Forge's own, pinned (§15.2).
 ty() { forge_ty "$@"; }
-FORGE_NCHECKS=19
+FORGE_NCHECKS=20
 
 # 1. python/config-ratchet
 forge_check_meta_1() {
@@ -11973,79 +12029,97 @@ forge_check_run_14() {
 forge_alembic_batch
 }
 
-# 15. python/sqlalchemy/fk-index
+# 15. python/sqlalchemy/asyncio-extra
 forge_check_meta_15() {
+  c_id='python/sqlalchemy/asyncio-extra'; c_stage=lint; c_tools='uv'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_15() {
+  return 0
+}
+forge_when_15() { case $1 in pyproject.toml|*/pyproject.toml|requirements*.txt|*/requirements*.txt|*.py|*/*.py) return 0 ;; esac; return 1; }
+forge_check_run_15() {
+git grep -q --untracked -E '^[[:space:]]*(from[[:space:]]+sqlalchemy\.ext\.asyncio[[:space:]]|import[[:space:]]+sqlalchemy\.ext\.asyncio|from[[:space:]]+sqlalchemy\.ext[[:space:]]+import[[:space:]].*asyncio)' -- '*.py' || return 0
+git ls-files -z --cached --others --exclude-standard -- pyproject.toml '*/pyproject.toml' 'requirements*.txt' '*/requirements*.txt' | xargs -0 grep -qiE 'sqlalchemy[[:space:]]*\[[^]]*asyncio|(^|["'"'"'[:space:]])greenlet([^A-Za-z0-9_.-]|$)' /dev/null && return 0
+echo 'sqlalchemy.ext.asyncio is imported but no pyproject.toml or requirements*.txt declares sqlalchemy[asyncio] (or greenlet): uv add "sqlalchemy[asyncio]"'
+return 1
+
+}
+
+# 16. python/sqlalchemy/fk-index
+forge_check_meta_16() {
   c_id='python/sqlalchemy/fk-index'; c_stage=lint; c_tools='python'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_15() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_15() { return 1; }
-forge_check_run_15() {
-case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
-forge_advise forge_helper python fk_index.py
-
-}
-
-# 16. python/stub-sync
-forge_check_meta_16() {
-  c_id='python/stub-sync'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
 forge_scope_16() {
-  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_16() { return 1; }
 forge_check_run_16() {
-forge_advise forge_stub_sync
+case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
+forge_advise forge_helper python fk_index.py
+
 }
 
-# 17. python/typecheck
+# 17. python/stub-sync
 forge_check_meta_17() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_id='python/stub-sync'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_17() {
+  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_17() { return 1; }
 forge_check_run_17() {
-ty check --output-format concise
+forge_advise forge_stub_sync
 }
 
-# 18. python/uv/exclude-newer
+# 18. python/typecheck
 forge_check_meta_18() {
-  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
-  c_when=1; c_localdb=0; c_timeout=''
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_18() {
-  return 0
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
 }
-forge_when_18() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
+forge_when_18() { return 1; }
 forge_check_run_18() {
-forge_uv_cooldown
+ty check --output-format concise
 }
 
-# 19. python/uv/lock-sync
+# 19. python/uv/exclude-newer
 forge_check_meta_19() {
-  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_19() {
   return 0
 }
-forge_when_19() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_when_19() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
 forge_check_run_19() {
+forge_uv_cooldown
+}
+
+# 20. python/uv/lock-sync
+forge_check_meta_20() {
+  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_20() {
+  return 0
+}
+forge_when_20() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_check_run_20() {
 uv lock --check
 }
 
@@ -15127,24 +15201,136 @@ invalid:
         allow_origins=['*'],
     )
 
-===== .forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml
-id: python/fastapi/no-on-event
-valid:
-  - |
-    app = FastAPI(lifespan=lifespan)
-  - |
-    @app.get("/")
-    def root():
-        pass
+===== .forge/ast-grep/rule-tests/python-fastapi-no-debug-true-test.yml
+id: python/fastapi/no-debug-true
+valid: []
 invalid:
   - |
-    @app.on_event("startup")
-    async def start():
-        pass
+    from fastapi import FastAPI
+
+    app = FastAPI(title="shop", debug=True)
   - |
-    @router.on_event("shutdown")
-    def stop():
+    from starlette.applications import Starlette
+
+    app = Starlette(debug=True, routes=[])
+
+===== .forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml
+id: python/fastapi/no-on-event
+valid: []
+invalid:
+  - |
+    from fastapi import FastAPI
+
+
+    async def connect() -> None:
         pass
+
+
+    app = FastAPI(on_startup=[connect])
+  - |
+    from fastapi import APIRouter
+
+
+    def close() -> None:
+        pass
+
+
+    router = APIRouter(prefix="/items", on_shutdown=[close])
+  - |
+    import fastapi as fa
+
+    api = fa.FastAPI(title="shop", on_shutdown=[])
+
+===== .forge/ast-grep/rule-tests/python-fastapi-no-raw-request-body-test.yml
+id: python/fastapi/no-raw-request-body
+valid: []
+invalid:
+  - |
+    from fastapi import FastAPI, Request
+
+    app = FastAPI()
+
+
+    @app.post("/items")
+    async def create(request: Request) -> dict[str, str]:
+        data = await request.json()
+        return {"name": data["name"]}
+  - |
+    from fastapi import FastAPI
+    from starlette.requests import Request
+
+    app = FastAPI()
+
+
+    @app.post("/upload")
+    async def upload(req: Request) -> int:
+        form = await req.form()
+        return len(form)
+  - |
+    from fastapi import FastAPI, Request
+
+    app = FastAPI()
+
+
+    @app.post("/raw")
+    async def raw(request: Request) -> int:
+        size = 0
+        async for chunk in request.stream():
+            size += len(chunk)
+        return size
+
+===== .forge/ast-grep/rule-tests/python-fastapi-no-testclient-in-async-test-test.yml
+id: python/fastapi/no-testclient-in-async-test
+valid: []
+invalid:
+  - |
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    app = FastAPI()
+
+
+    async def test_root() -> None:
+        with TestClient(app) as client:
+            assert client.get("/").status_code == 404
+
+===== .forge/ast-grep/rule-tests/python-fastapi-testclient-lifespan-test.yml
+id: python/fastapi/testclient-lifespan
+valid: []
+invalid:
+  - |
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    app = FastAPI()
+    client = TestClient(app)
+
+
+    def test_root() -> None:
+        assert client.get("/").status_code == 404
+
+===== .forge/ast-grep/rule-tests/python-llm-client-timeout-test.yml
+id: python/llm-client-timeout
+valid: []
+invalid:
+  - |
+    from anthropic import Anthropic
+
+    client = Anthropic(timeout=None)
+  - |
+    from anthropic import Anthropic
+
+    client = Anthropic()
+    slow = client.with_options(timeout=None)
+  - |
+    from openai import OpenAI
+
+    client = OpenAI(timeout=None)
+  - |
+    from anthropic import Anthropic
+
+    client = Anthropic()
+    reply = client.messages.create(model="claude-opus-5-5", max_tokens=1024, messages=[], timeout=None)
 
 ===== .forge/ast-grep/rule-tests/python-no-stub-test.yml
 id: python/no-stub
@@ -15195,6 +15381,17 @@ invalid:
     def total(items: list[int]) -> int:
         # TODO
         pass
+
+===== .forge/ast-grep/rule-tests/python-pydantic-typeadapter-module-level-test.yml
+id: python/pydantic/typeadapter-module-level
+valid: []
+invalid:
+  - |
+    from pydantic import TypeAdapter
+
+
+    def parse_ids(raw: bytes) -> list[int]:
+        return TypeAdapter(list[int]).validate_json(raw)
 
 ===== .forge/ast-grep/rule-tests/python-pydantic-v2-api-test.yml
 id: python/pydantic/v2-api
@@ -15386,6 +15583,33 @@ invalid:
     if "pytest" in sys.modules:
         pass
 
+===== .forge/ast-grep/rule-tests/python-sqlalchemy-alembic-no-create-all-test.yml
+id: python/sqlalchemy/alembic/no-create-all
+valid: []
+invalid:
+  - |
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import DeclarativeBase
+
+
+    class Base(DeclarativeBase):
+        pass
+
+
+    Base.metadata.create_all(create_engine("sqlite://"))
+  - |
+    from sqlalchemy.ext.asyncio import AsyncEngine
+    from sqlalchemy.orm import DeclarativeBase
+
+
+    class Base(DeclarativeBase):
+        pass
+
+
+    async def init(engine: AsyncEngine) -> None:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
 ===== .forge/ast-grep/rule-tests/python-sqlalchemy-async-expire-on-commit-test.yml
 id: python/sqlalchemy/async-expire-on-commit
 valid:
@@ -15428,6 +15652,32 @@ invalid:
   - posts = relationship("Post", backref="author")
   - x = relationship("A", backref="b", lazy="selectin")
 
+===== .forge/ast-grep/rule-tests/python-sqlalchemy-no-concurrent-session-test.yml
+id: python/sqlalchemy/no-concurrent-session
+valid: []
+invalid:
+  - |
+    import asyncio
+
+    from sqlalchemy import select, text
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+
+    async def dashboard(session: AsyncSession) -> None:
+        await asyncio.gather(session.execute(select(text("1"))), session.scalar(select(text("2"))))
+  - |
+    import asyncio
+
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+
+    async def ping() -> None:
+        pass
+
+
+    async def load(db: AsyncSession) -> None:
+        await asyncio.gather(ping(), db.get(int, 1), db.get(int, 2))
+
 ===== .forge/ast-grep/rule-tests/python-sqlalchemy-no-declarative-base-test.yml
 id: python/sqlalchemy/no-declarative-base
 valid:
@@ -15436,6 +15686,26 @@ valid:
         pass
 invalid:
   - Base = declarative_base()
+
+===== .forge/ast-grep/rule-tests/python-sqlalchemy-no-lazy-dynamic-test.yml
+id: python/sqlalchemy/no-lazy-dynamic
+valid: []
+invalid:
+  - |
+    from sqlalchemy.orm import DeclarativeBase, relationship
+
+
+    class Base(DeclarativeBase):
+        pass
+
+
+    class User(Base):
+        __tablename__ = "users"
+        posts = relationship("Post", lazy="dynamic")
+  - |
+    from sqlalchemy import orm
+
+    posts = orm.relationship("Post", back_populates="author", lazy='dynamic')
 
 ===== .forge/ast-grep/rule-tests/python-sqlalchemy-no-query-api-test.yml
 id: python/sqlalchemy/no-query-api
@@ -15511,6 +15781,31 @@ invalid:
   - |
     sa.text("SELECT * FROM u WHERE id=%s" % uid)
 
+===== .forge/ast-grep/rule-tests/python-sqlalchemy-session-context-test.yml
+id: python/sqlalchemy/session-context
+valid: []
+invalid:
+  - |
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session
+
+    engine = create_engine("sqlite://")
+
+
+    def count() -> None:
+        session = Session(engine)
+        session.commit()
+  - |
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    SessionLocal = sessionmaker(create_engine("sqlite://"))
+
+
+    def count() -> None:
+        db = SessionLocal()
+        db.commit()
+
 ===== .forge/ast-grep/rules/python/fastapi/cors-credentials-wildcard.yml
 # Generated by forge from python/fastapi/cors-credentials-wildcard (mode: forbid).
 id: python/fastapi/cors-credentials-wildcard
@@ -15529,16 +15824,135 @@ rule:
         kind: keyword_argument
         regex: ^allow_credentials[[:space:]]*=[[:space:]]*True$
 
+===== .forge/ast-grep/rules/python/fastapi/no-debug-true.yml
+# Generated by forge from python/fastapi/no-debug-true (mode: forbid).
+id: python/fastapi/no-debug-true
+language: Python
+severity: error
+message: "forge:python/fastapi/no-debug-true No FastAPI(debug=True) or Starlette(debug=True) outside tests: debug mode returns tracebacks (code, settings, local values) to any client that triggers an error."
+ignores:
+  - "**/tests/**"
+  - "**/test_*.py"
+  - "**/*_test.py"
+  - "**/conftest.py"
+rule:
+  kind: call
+  pattern: $C
+  has:
+    field: arguments
+    has:
+      kind: keyword_argument
+      regex: ^debug[[:space:]]*=[[:space:]]*True$
+metadata:
+  forge_where:
+    C:
+      type:
+        package: starlette
+        name: Starlette
+
 ===== .forge/ast-grep/rules/python/fastapi/no-on-event.yml
 # Generated by forge from python/fastapi/no-on-event (mode: forbid).
 id: python/fastapi/no-on-event
 language: Python
 severity: error
-message: forge:python/fastapi/no-on-event No @app.on_event. Use the lifespan context manager.
+message: "forge:python/fastapi/no-on-event FastAPI() and APIRouter() take no on_startup or on_shutdown handlers: startup and shutdown go in the lifespan context manager (FastAPI(lifespan=lifespan)). The deprecated @app.on_event decorator is python/no-deprecated (ty reads FastAPI's deprecation)."
 rule:
-  kind: decorator
+  kind: call
+  pattern: $C
   has:
-    pattern: $APP.on_event($$$)
+    field: arguments
+    has:
+      kind: keyword_argument
+      regex: ^on_(startup|shutdown)[[:space:]]*=
+metadata:
+  forge_where:
+    C:
+      type:
+        package: fastapi
+        name:
+          - FastAPI
+          - APIRouter
+
+===== .forge/ast-grep/rules/python/fastapi/no-raw-request-body.yml
+# Generated by forge from python/fastapi/no-raw-request-body (mode: advise).
+id: python/fastapi/no-raw-request-body
+language: Python
+severity: warning
+message: "forge:python/fastapi/no-raw-request-body Advice: a route reads its input from a declared parameter (a Pydantic model body, Form(), File()), not from request.json(), .form(), .body() or .stream() on the Starlette Request, which skip validation and the OpenAPI schema. Reading the raw body stays right where the bytes matter, such as a webhook signature check."
+rule:
+  any:
+    - pattern: await $REQ.json()
+    - pattern: await $REQ.form($$$)
+    - pattern: await $REQ.body()
+    - pattern: $REQ.stream()
+metadata:
+  forge_where:
+    REQ:
+      type:
+        package: starlette
+        name: Request
+
+===== .forge/ast-grep/rules/python/fastapi/no-testclient-in-async-test.yml
+# Generated by forge from python/fastapi/no-testclient-in-async-test (mode: forbid).
+id: python/fastapi/no-testclient-in-async-test
+language: Python
+severity: error
+message: 'forge:python/fastapi/no-testclient-in-async-test No TestClient inside an async def: it runs the app on another event loop in a thread, so async fixtures (database sessions, pools) cross loops and fail or hang. Use httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test").'
+rule:
+  kind: call
+  pattern: $C
+  inside:
+    kind: function_definition
+    regex: ^async[[:space:]]
+    stopBy: end
+metadata:
+  forge_where:
+    C:
+      type:
+        package: starlette
+        name: TestClient
+
+===== .forge/ast-grep/rules/python/fastapi/testclient-lifespan.yml
+# Generated by forge from python/fastapi/testclient-lifespan (mode: advise).
+id: python/fastapi/testclient-lifespan
+language: Python
+severity: warning
+message: "forge:python/fastapi/testclient-lifespan Advice: TestClient(app) is entered as a context manager (with TestClient(app) as client:, a fixture yielding inside the with): otherwise the app's lifespan never runs, and startup work such as opening the database pool is skipped."
+rule:
+  kind: call
+  pattern: $C
+  not:
+    inside:
+      kind: with_item
+      stopBy: end
+metadata:
+  forge_where:
+    C:
+      type:
+        package: starlette
+        name: TestClient
+
+===== .forge/ast-grep/rules/python/llm-client-timeout.yml
+# Generated by forge from python/llm-client-timeout (mode: forbid).
+id: python/llm-client-timeout
+language: Python
+severity: error
+message: "forge:python/llm-client-timeout Anthropic and OpenAI SDK clients and calls never set timeout=None (the client constructor, with_options(), a request): a request could then wait forever, and is retried. Keep the SDK's default or pass a number of seconds. requests and httpx are python/http-timeout."
+rule:
+  kind: call
+  pattern: $CALL
+  has:
+    field: arguments
+    has:
+      kind: keyword_argument
+      regex: ^timeout[[:space:]]*=[[:space:]]*None$
+metadata:
+  forge_where:
+    CALL:
+      type:
+        package:
+          - anthropic
+          - openai
 
 ===== .forge/ast-grep/rules/python/no-stub.yml
 # Generated by forge from python/no-stub (mode: forbid).
@@ -15590,6 +16004,32 @@ rule:
           has:
             field: superclasses
             regex: \b(Protocol|ABC)\b
+
+===== .forge/ast-grep/rules/python/pydantic/typeadapter-module-level.yml
+# Generated by forge from python/pydantic/typeadapter-module-level (mode: advise).
+id: python/pydantic/typeadapter-module-level
+language: Python
+severity: warning
+message: "forge:python/pydantic/typeadapter-module-level Advice: a TypeAdapter is built once, at module level or in a cached function (@cache, @lru_cache, @cached_property), not in a function body: each construction builds the validator and serializer again."
+rule:
+  kind: call
+  pattern: $C
+  inside:
+    kind: function_definition
+    stopBy: end
+  not:
+    inside:
+      kind: decorated_definition
+      stopBy: end
+      has:
+        kind: decorator
+        regex: ^@([A-Za-z_][A-Za-z0-9_]*\.)*(cache|lru_cache|cached_property)([^A-Za-z0-9_]|$)
+metadata:
+  forge_where:
+    C:
+      type:
+        package: pydantic
+        name: TypeAdapter
 
 ===== .forge/ast-grep/rules/python/pydantic/v2-api.yml
 # Generated by forge from python/pydantic/v2-api (mode: forbid).
@@ -15798,6 +16238,27 @@ rule:
     - pattern: '"pytest" in sys.modules'
     - pattern: "'pytest' in sys.modules"
 
+===== .forge/ast-grep/rules/python/sqlalchemy/alembic/no-create-all.yml
+# Generated by forge from python/sqlalchemy/alembic/no-create-all (mode: forbid).
+id: python/sqlalchemy/alembic/no-create-all
+language: Python
+severity: error
+message: "forge:python/sqlalchemy/alembic/no-create-all No MetaData.create_all() outside tests (Base.metadata.create_all, SQLModel.metadata.create_all, conn.run_sync(Base.metadata.create_all)): Alembic manages the schema, and tables created behind its back diverge between environments and break the next autogenerate. Add a revision instead."
+ignores:
+  - "**/tests/**"
+  - "**/test_*.py"
+  - "**/*_test.py"
+  - "**/conftest.py"
+rule:
+  kind: attribute
+  pattern: $M.create_all
+metadata:
+  forge_where:
+    M:
+      type:
+        package: sqlalchemy
+        name: MetaData
+
 ===== .forge/ast-grep/rules/python/sqlalchemy/async-expire-on-commit.yml
 # Generated by forge from python/sqlalchemy/async-expire-on-commit (mode: forbid).
 id: python/sqlalchemy/async-expire-on-commit
@@ -15847,6 +16308,35 @@ rule:
         field: name
         regex: ^backref$
 
+===== .forge/ast-grep/rules/python/sqlalchemy/no-concurrent-session.yml
+# Generated by forge from python/sqlalchemy/no-concurrent-session (mode: forbid).
+id: python/sqlalchemy/no-concurrent-session
+language: Python
+severity: error
+message: "forge:python/sqlalchemy/no-concurrent-session No asyncio.gather() over calls on one AsyncSession: a session is not safe for concurrent use (InvalidRequestError, or corrupted state). Await the calls one after the other, or give each task its own session. A session passed into helper coroutines is not followed."
+rule:
+  kind: call
+  pattern: asyncio.gather($$$)
+  has:
+    field: arguments
+    has:
+      pattern: $S.$M($$$)
+      precedes:
+        stopBy: end
+        any:
+          - pattern: $S.$N($$$)
+          - has:
+              stopBy: end
+              pattern: $S.$N($$$)
+metadata:
+  forge_where:
+    S:
+      type:
+        package: sqlalchemy
+        name:
+          - AsyncSession
+          - async_scoped_session
+
 ===== .forge/ast-grep/rules/python/sqlalchemy/no-declarative-base.yml
 # Generated by forge from python/sqlalchemy/no-declarative-base (mode: forbid).
 id: python/sqlalchemy/no-declarative-base
@@ -15855,6 +16345,26 @@ severity: error
 message: forge:python/sqlalchemy/no-declarative-base No declarative_base(). Subclass DeclarativeBase.
 rule:
   pattern: declarative_base($$$)
+
+===== .forge/ast-grep/rules/python/sqlalchemy/no-lazy-dynamic.yml
+# Generated by forge from python/sqlalchemy/no-lazy-dynamic (mode: forbid).
+id: python/sqlalchemy/no-lazy-dynamic
+language: Python
+severity: error
+message: 'forge:python/sqlalchemy/no-lazy-dynamic No lazy="dynamic" relationships: dynamic loaders are legacy in SQLAlchemy 2.0 and do not work with asyncio. Declare the collection as WriteOnlyMapped[...] (lazy="write_only") and query it with select().'
+rule:
+  kind: call
+  pattern: $C
+  has:
+    field: arguments
+    has:
+      kind: keyword_argument
+      regex: ^lazy[[:space:]]*=[[:space:]]*["']dynamic["']$
+metadata:
+  forge_where:
+    C:
+      type:
+        module: sqlalchemy.orm
 
 ===== .forge/ast-grep/rules/python/sqlalchemy/no-query-api.yml
 # Generated by forge from python/sqlalchemy/no-query-api (mode: forbid).
@@ -15916,6 +16426,33 @@ rule:
               has:
                 kind: string
               regex: \+
+
+===== .forge/ast-grep/rules/python/sqlalchemy/session-context.yml
+# Generated by forge from python/sqlalchemy/session-context (mode: advise).
+id: python/sqlalchemy/session-context
+language: Python
+severity: warning
+message: "forge:python/sqlalchemy/session-context Advice: a Session or AsyncSession (Session(engine), a sessionmaker's call) is opened in a with / async with block, or returned or yielded to the code that closes it (a framework dependency): a session left open keeps its connection. A try/finally that calls close() is also right."
+rule:
+  kind: call
+  pattern: $C
+  not:
+    any:
+      - inside:
+          kind: with_item
+          stopBy: end
+      - inside:
+          kind: return_statement
+      - inside:
+          kind: yield
+metadata:
+  forge_where:
+    C:
+      type:
+        package: sqlalchemy
+        name:
+          - Session
+          - AsyncSession
 
 ===== .forge/ast-grep/sgconfig.yml
 # Generated by forge.
@@ -16481,7 +17018,7 @@ pytest() { forge_exec_tool pytest "$@"; }
 python() { forge_exec_tool python "$@"; }
 # ty is Forge's own, pinned (§15.2).
 ty() { forge_ty "$@"; }
-FORGE_NCHECKS=19
+FORGE_NCHECKS=20
 
 # 1. python/config-ratchet
 forge_check_meta_1() {
@@ -16722,79 +17259,97 @@ forge_check_run_14() {
 forge_alembic_batch
 }
 
-# 15. python/sqlalchemy/fk-index
+# 15. python/sqlalchemy/asyncio-extra
 forge_check_meta_15() {
+  c_id='python/sqlalchemy/asyncio-extra'; c_stage=lint; c_tools='uv'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_15() {
+  return 0
+}
+forge_when_15() { case $1 in pyproject.toml|*/pyproject.toml|requirements*.txt|*/requirements*.txt|*.py|*/*.py) return 0 ;; esac; return 1; }
+forge_check_run_15() {
+git grep -q --untracked -E '^[[:space:]]*(from[[:space:]]+sqlalchemy\.ext\.asyncio[[:space:]]|import[[:space:]]+sqlalchemy\.ext\.asyncio|from[[:space:]]+sqlalchemy\.ext[[:space:]]+import[[:space:]].*asyncio)' -- '*.py' || return 0
+git ls-files -z --cached --others --exclude-standard -- pyproject.toml '*/pyproject.toml' 'requirements*.txt' '*/requirements*.txt' | xargs -0 grep -qiE 'sqlalchemy[[:space:]]*\[[^]]*asyncio|(^|["'"'"'[:space:]])greenlet([^A-Za-z0-9_.-]|$)' /dev/null && return 0
+echo 'sqlalchemy.ext.asyncio is imported but no pyproject.toml or requirements*.txt declares sqlalchemy[asyncio] (or greenlet): uv add "sqlalchemy[asyncio]"'
+return 1
+
+}
+
+# 16. python/sqlalchemy/fk-index
+forge_check_meta_16() {
   c_id='python/sqlalchemy/fk-index'; c_stage=lint; c_tools='python'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_15() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_15() { return 1; }
-forge_check_run_15() {
-case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
-forge_advise forge_helper python fk_index.py
-
-}
-
-# 16. python/stub-sync
-forge_check_meta_16() {
-  c_id='python/stub-sync'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
 forge_scope_16() {
-  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_16() { return 1; }
 forge_check_run_16() {
-forge_advise forge_stub_sync
+case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
+forge_advise forge_helper python fk_index.py
+
 }
 
-# 17. python/typecheck
+# 17. python/stub-sync
 forge_check_meta_17() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_id='python/stub-sync'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_17() {
+  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_17() { return 1; }
 forge_check_run_17() {
-ty check --output-format concise
+forge_advise forge_stub_sync
 }
 
-# 18. python/uv/exclude-newer
+# 18. python/typecheck
 forge_check_meta_18() {
-  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
-  c_when=1; c_localdb=0; c_timeout=''
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_18() {
-  return 0
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
 }
-forge_when_18() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
+forge_when_18() { return 1; }
 forge_check_run_18() {
-forge_uv_cooldown
+ty check --output-format concise
 }
 
-# 19. python/uv/lock-sync
+# 19. python/uv/exclude-newer
 forge_check_meta_19() {
-  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_19() {
   return 0
 }
-forge_when_19() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_when_19() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
 forge_check_run_19() {
+forge_uv_cooldown
+}
+
+# 20. python/uv/lock-sync
+forge_check_meta_20() {
+  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_20() {
+  return 0
+}
+forge_when_20() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_check_run_20() {
 uv lock --check
 }
 
@@ -19821,7 +20376,7 @@ forge_types_filter() {
 FORGE_STATE=$(forge_state_of "$(pwd -P)")
 
 
-FORGE_FORBID='python/fastapi/cors-credentials-wildcard|python/fastapi/no-on-event|python/no-stub|python/pydantic/v2-api|python/pytest/no-tautological-assert|python/pytest/no-test-env-branch|python/sqlalchemy/async-expire-on-commit|python/sqlalchemy/mapped-column|python/sqlalchemy/no-backref|python/sqlalchemy/no-declarative-base|python/sqlalchemy/no-query-api|python/sqlalchemy/no-raw-execute|python/sqlalchemy/no-text-fstring'
+FORGE_FORBID='python/fastapi/cors-credentials-wildcard|python/fastapi/no-debug-true|python/fastapi/no-on-event|python/fastapi/no-testclient-in-async-test|python/llm-client-timeout|python/no-stub|python/pydantic/v2-api|python/pytest/no-tautological-assert|python/pytest/no-test-env-branch|python/sqlalchemy/alembic/no-create-all|python/sqlalchemy/async-expire-on-commit|python/sqlalchemy/mapped-column|python/sqlalchemy/no-backref|python/sqlalchemy/no-concurrent-session|python/sqlalchemy/no-declarative-base|python/sqlalchemy/no-lazy-dynamic|python/sqlalchemy/no-query-api|python/sqlalchemy/no-raw-execute|python/sqlalchemy/no-text-fstring'
 FORGE_NO_INCREASE='python/pytest/no-mock-increase|python/pytest/no-new-skip'
 FORGE_NO_DECREASE='python/pytest/no-fewer-asserts'
 
@@ -20021,12 +20576,18 @@ forge_end "$fail"
     "python/env-example": "c4597314420b3777fb4b0e819ea37c3d0187c175afcb6e63f00176bab4fff4cd",
     "python/fastapi/annotated-depends": "74fc0e4e89bf389aa7377ee0ab2d47d29257c9d063592ab8156b1f3f9dca7f38",
     "python/fastapi/cors-credentials-wildcard": "1ff2c42562d1d01479da9e3f2bea4be08ad42b140de7d6dae3b80ef4d277d84c",
-    "python/fastapi/no-on-event": "b271f0c2fcd5a098e169a20049f3734d1e74c555ef94815f85965c0f89dd13b7",
+    "python/fastapi/no-debug-true": "c18e5a042914d571469d52a7667fc5085fc5881cbcd67a0082ab6d668638cb9f",
+    "python/fastapi/no-on-event": "9964cd2fafef9ee91b7a1a635874b1ee1b201337443ce4d3c9662827c90332b2",
+    "python/fastapi/no-raw-request-body": "8d8714dc1c4d63e697799fcdf0098613ac7c69948819a0942a8f65bf9c790f5e",
+    "python/fastapi/no-testclient-in-async-test": "20c2abe9d2838865b3268d75f2b014dce28d4e9df9e1fa5c69a6684b1fc86b78",
+    "python/fastapi/testclient-lifespan": "8c3089bd55b8ee8f99b314a7f88af28c89b4111dbd7d6dba1e1f9b52835a1731",
+    "python/fastapi/unused-path-param": "82bb1ec3e4cf1b41d581e50cb522bc85bffc81f3f77a4a6c0d6b23ce63d9526f",
     "python/format": "1aa3a77806c5786996cdfd0c51317768523af3ed210a5dce7039fcb038f58989",
     "python/generic-type-args": "e5482c9180512f5108b343c341e7838779923ee5737812bc6a659766a33af3e4",
     "python/http-timeout": "6dd6636dced7f6e05fa730e2e89e612def7de4c8824b792b268efbacd58bca94",
     "python/jinja-autoescape": "ce92237b1d07b1e3ca62b3bc850f072c0ac6c689bccb1041f0b1b1af15734f52",
     "python/lint": "ee52570ea6ee01c0688c5f22c3f364dbf5b7208a2a0f6bc1953bc872e488686e",
+    "python/llm-client-timeout": "c6bef4ca599af7fc8444ddb81f6e732822f7f09f7ce05002a0297e02f9828ac8",
     "python/log-exception": "66fed902165c9cc84ef1f614b239888767e9a90c8b5b6549e5593eb70f2d3e3f",
     "python/no-async-timeout": "4cb4ebed582e7c990d9205d07ea88d943bf3356edeb9f9162bb900fcfa352ffe",
     "python/no-bare-except": "1ea911085040c162828227d499b90871d6a395de928351c6bd4b1843c31b26ca",
@@ -20066,6 +20627,7 @@ forge_end "$fail"
     "python/no-useless-cast": "69e12c7922cfc0c6a2d6c9d2baa84e04b5746e11393627a6bc1b6076fe300421",
     "python/no-weak-hash": "c089bf6b94415d3a015f154c82037e28b4755268e6f219fb77dd7dc832fc1c03",
     "python/override-decorator": "92dea8b42d6c25df4875b5bf77d28a495f5bd878dc0053d502962c63389d2089",
+    "python/pydantic/typeadapter-module-level": "9055642fc8900ac8af6d9b0a553233a93f7ef38ad7a45a4c83f04f7f5312ea24",
     "python/pydantic/v2-api": "530f46e310f2bd30f6347d75b3a2243922cb5aeef921df69c2314e399473e4eb",
     "python/pytest/no-blind-raises": "5e4380936ff598117305786c79894401af219e7a4e3514aa1bfbf603228b3277",
     "python/pytest/no-fewer-asserts": "3fa20da5240c91db137cfaad8d04235b2c15fc7bc40d772682edc2618c74cb4f",
@@ -20082,17 +20644,22 @@ forge_end "$fail"
     "python/sqlalchemy/alembic/fk-index": "02ece1a7009de27c91b24fb801de58a306b388a8b7b940c48411a7fdbfac3fa5",
     "python/sqlalchemy/alembic/migration-lint": "2ac77a340c31cd459a710f2f48c425efbf32db6fbaac006352dc50d1a24a31c6",
     "python/sqlalchemy/alembic/model-registered": "9bf9e4138717c73c3958b80129243d7332f1fdb53b5c35ad19939a5182568521",
+    "python/sqlalchemy/alembic/no-create-all": "277c5982e162bda3c651a12d687ed49c444003c500a5bd11898a42f5e1fc9c54",
     "python/sqlalchemy/alembic/no-downgrade-base": "64399d2ccfb81a42cd95eb0d187143e4694829edeabe8d1005e930e9a6b7030b",
     "python/sqlalchemy/alembic/single-head": "dc936810ec4da1923a67833e0a5ce4ee5a45a0413637dad35aec38273c71309d",
     "python/sqlalchemy/alembic/sqlite-batch": "39d6b7ae40f9ee7589eae96f2832df4277f30242254d2e126f756da319dd947b",
     "python/sqlalchemy/async-expire-on-commit": "6fce73f809a395ca43afda54db104f1352d624589698ec0f91bab90a9848054b",
+    "python/sqlalchemy/asyncio-extra": "71ea9790379cb49b54e24b33a2632024623c225169aff4803985647df6e595fc",
     "python/sqlalchemy/fk-index": "e95c1b2966eb44c593de8eb4f2ad2c807395947255d7e567f283cb693638b540",
     "python/sqlalchemy/mapped-column": "6427c117e9e210af344a1a9f48361832151670ca25bd382d47fbfc60fe896112",
     "python/sqlalchemy/no-backref": "dcbee3478c89bcb1ece428ca1259e7bac091ed43c6c8e4da75787c4c06a258f4",
+    "python/sqlalchemy/no-concurrent-session": "0f936f3c2ed3ed7f6980c676d761eaa1831c56463e359a6a9e5c7e5df032b64c",
     "python/sqlalchemy/no-declarative-base": "10b289e5cc6d65882309cf305285e365372000cb1f1c37ac6649b13d43929852",
+    "python/sqlalchemy/no-lazy-dynamic": "523b0ef95de1683978fae918ff6b2cf82a361f6a1802455f4d6835e7cd5d90ff",
     "python/sqlalchemy/no-query-api": "4a3897fffdaeb901ea51eab3e40b99c901dc168b7d02501825d15e786fb97be1",
     "python/sqlalchemy/no-raw-execute": "9412a8f512351567d2b2e9cb3cb8c7d7b9db5dedfbbf09c40a78122803accad0",
     "python/sqlalchemy/no-text-fstring": "d6124c4cd9fb3be0b5014c11bca908f9ed24f7998fce175c36dee6a3cf19740a",
+    "python/sqlalchemy/session-context": "d82d5556d244e6bb0de557a738c1f680f7ada159bc744b5df60f6129c371bb6f",
     "python/stub-sync": "73da3b9b1b1b66d958d03306e05f26c601377596348f4632fc3f462242f4bafe",
     "python/typecheck": "8649af2dc8c24e4104e077c4dc5ec03b64dd3ff4a5a11bed706bc9575fa02a9d",
     "python/typed-decorators": "66b653512ceac7b90b1ade3aee59fffd19229659209bac9a9eb9ba063b44df75",
@@ -20101,11 +20668,11 @@ forge_end "$fail"
     "python/uv/no-pip": "00667955d4cd816878c5358a3503771adf37b8015214dae0b1ed32583a081537"
   },
   "files": {
-    ".claude/rules/forge-python-fastapi.md": "034ae6ae486c1c3657732c602c5e411ae2dad337d994de55231005807a8b40df",
-    ".claude/rules/forge-python-pydantic.md": "814dc766e022a4439f6b24578b90d34027f49f6e23ed46ee3b6d64519bfe9d07",
+    ".claude/rules/forge-python-fastapi.md": "1793d6be335ee31cf71d7d0755a9772590d14eeb4cb418bd392b1a66c261875e",
+    ".claude/rules/forge-python-pydantic.md": "cfe0903149609caed4e6ba29390fe72ca5fbe4bfad82f960d82ee3751f60e75d",
     ".claude/rules/forge-python-pytest.md": "bd0b0ff93d58820d159a875d54f2993d77f965e1f23e98212049517f3415924a",
-    ".claude/rules/forge-python-sqlalchemy-alembic.md": "f16da5b69615b1b19ec5997c9f3d54c1b9de2fa09fea0e085ef1ce99f6b6980d",
-    ".claude/rules/forge-python-sqlalchemy.md": "5f6196f04c027b1e056e5378adcd2dcf112ea9b1e4160cb1fb7e6b8974b54a69",
+    ".claude/rules/forge-python-sqlalchemy-alembic.md": "dbf9fc34de9d1cd97ecdac7256edcfdbf419b925772e29c2207ec768cd2e825d",
+    ".claude/rules/forge-python-sqlalchemy.md": "45415c50775a7637029fae55dd7dcef41b1cbe2fcbace978e88c05eeed67431e",
     ".claude/rules/forge-python.md": "901fbb585eee69fe9a3442a8334787233666b61533ed0e5104a57e9996fe3330",
     ".claude/skills/forge-project/.claude-plugin/plugin.json": "c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2",
     ".claude/skills/forge-project/hooks/hooks.json": "3763c38c1d21ccd50c22007d10b155255f88c08290dab14d2afe25f4d181740b",
@@ -20113,49 +20680,69 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "a3bb50a3648137c8e0c7cda3d1cb07050fcb36f990e50b8b2b7f46b78e363f20",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
     ".claude/skills/forge-project/scripts/lib.sh": "83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "4004b4231c9a407742ceb5b1f9c6ee6bf2dd8471095c5ba7783e5114ecf0c905",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "776132927c714bc251eec6c3881c0b1bebd542f08b82be03ed61796f1c36a359",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
     ".claude/skills/forge-project/scripts/session-end.sh": "99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58",
-    ".claude/skills/forge-project/scripts/session-start.sh": "f2d8db11864b958ad9b53ee42662790f3d203c3f18a02d29c56aa8e0d0ac2673",
+    ".claude/skills/forge-project/scripts/session-start.sh": "a6b4b72328735771861c18ce9c405dd841fc402361826bbd1494cdf87a21c6ae",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "ae0d01c835d1c80ff8d865b32c96e3db96306c28b3a0693a7582f235d2548263",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "16dbca65453ba1a36ff4701eb8dae8fba45a9cc2553dd6976fbfa0c4130f49d6",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "a9942e7c1b553dba8e36c9311e35da80c8b3f28d91018d54930d7f17a508cef1",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "14fb03818717e1336d81ec5d29d9af9ca057bbb5e8eb0e95934582539a42150e",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml": "69a94f1a0b16aa08bcf758af3e3dc269266cdd808aba1a4289b4c58c7f969700",
-    ".forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml": "1589382e5e0b5cae841a8f47dae9f2b3a8583a4bb1074ceb858d882e648e9b49",
+    ".forge/ast-grep/rule-tests/python-fastapi-no-debug-true-test.yml": "cc41b4679da7c42ca44eb92af4f9787ad42ff4e396d0e0ddd1d44268f5bbd6e1",
+    ".forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml": "5f7964057b29b3b70e2570ddb883c140e396887d1ff6ee60eabc276692078326",
+    ".forge/ast-grep/rule-tests/python-fastapi-no-raw-request-body-test.yml": "acc864f4e4e1588d654776d782963cb8eeed53bef9f1d4b689215bbf89e632f9",
+    ".forge/ast-grep/rule-tests/python-fastapi-no-testclient-in-async-test-test.yml": "e883f61b194e9a1c9df39b834fbe1984abb7f5ad08a28f021f9c41f89dc31a47",
+    ".forge/ast-grep/rule-tests/python-fastapi-testclient-lifespan-test.yml": "83b1a552b00e4702557022df97ad8d91ab3513fff1a5dc7bedc2e20c8875b6f7",
+    ".forge/ast-grep/rule-tests/python-llm-client-timeout-test.yml": "75030e1f874dde137461d40541297c31398c57143669d2d574239e626590eb26",
     ".forge/ast-grep/rule-tests/python-no-stub-test.yml": "caa135cd54c3f53d5d2fbb85c518a2e94d263fd9a4860a63d224c7187432275b",
+    ".forge/ast-grep/rule-tests/python-pydantic-typeadapter-module-level-test.yml": "20a26571984c9145822cde4f3c2837ef9babcccda1f7c63b22975dd4fc7616c3",
     ".forge/ast-grep/rule-tests/python-pydantic-v2-api-test.yml": "190345231426a2518af45845d7e40c71d9a4cc0f68b656a91b17fb10156c4f0c",
     ".forge/ast-grep/rule-tests/python-pytest-no-fewer-asserts-test.yml": "09250fc39904625fa6b9fbf8e680592026afa92b309bb44978ceced953e85443",
     ".forge/ast-grep/rule-tests/python-pytest-no-mock-increase-test.yml": "66adc9b375c0fe1f6fe6554d9679e0ffbe286bad6d5f8879c0d894c8837e3cf1",
     ".forge/ast-grep/rule-tests/python-pytest-no-new-skip-test.yml": "90b83caced6f255771a83c90da08e127fc52f2a1340d1749b81440a896d960f5",
     ".forge/ast-grep/rule-tests/python-pytest-no-tautological-assert-test.yml": "96cfb1aacfb5a86d5c235bd2a619a8ec518697943eefd02a6088d3486b9bc255",
     ".forge/ast-grep/rule-tests/python-pytest-no-test-env-branch-test.yml": "b6b6511eb85b39a21fbfa8473e4c6c0b3a247493989c35b12ff669f142ba4ea9",
+    ".forge/ast-grep/rule-tests/python-sqlalchemy-alembic-no-create-all-test.yml": "b095bb593df42cb37d3daeff0abd46bcaeb55df8b2900424400dda0b50f30a7b",
     ".forge/ast-grep/rule-tests/python-sqlalchemy-async-expire-on-commit-test.yml": "b0949d9f9be5bd6c2ca2d8c383c74d1379e2abd0dd75ce9f0e669a462638abef",
     ".forge/ast-grep/rule-tests/python-sqlalchemy-mapped-column-test.yml": "5e88453376b1a27b0f6616dc5980226ab0dfb537778763ba31d6448e4045a448",
     ".forge/ast-grep/rule-tests/python-sqlalchemy-no-backref-test.yml": "11bc076c2bb5996c604661efcb8b63c92b5452a42620ff6bee23c8abff645c0a",
+    ".forge/ast-grep/rule-tests/python-sqlalchemy-no-concurrent-session-test.yml": "7f9b519a7a9d76cc409393188d0ede4b94c0cd1067aeb417970f1699daee10ea",
     ".forge/ast-grep/rule-tests/python-sqlalchemy-no-declarative-base-test.yml": "4b93be91c7de1f3e2da242f86fd8a55dd79f4b4b629fe15163f656e62ac18892",
+    ".forge/ast-grep/rule-tests/python-sqlalchemy-no-lazy-dynamic-test.yml": "9f66a176d11abb28e4baa9856d51ede7cafce2494f1d5730b3117014ef3fbcf9",
     ".forge/ast-grep/rule-tests/python-sqlalchemy-no-query-api-test.yml": "01033db0b07cb2ab1801e720c72f3e5eed5cb529df206e10a3d7bb5bc67a3731",
     ".forge/ast-grep/rule-tests/python-sqlalchemy-no-raw-execute-test.yml": "e252681713a4306ca3b759cee11ed31df0350ad0355186f6120761fa8b03aa1d",
     ".forge/ast-grep/rule-tests/python-sqlalchemy-no-text-fstring-test.yml": "b6ad70dac48994e60453edd07d73a3669d26b21954b227be8177a7a98426baa0",
+    ".forge/ast-grep/rule-tests/python-sqlalchemy-session-context-test.yml": "c47d06cd6e01012e44f04ab6fcccff0fc4aa96723a31d2a5e693098fdde80831",
     ".forge/ast-grep/rules/python/fastapi/cors-credentials-wildcard.yml": "166a169b8e196d6820c512fc277f5fcfb1ab03ddfbed4eff4479202c7a34b9cd",
-    ".forge/ast-grep/rules/python/fastapi/no-on-event.yml": "98309160f9dfe6735de68fbbaebda767ddabd8c79bbd89ff63d9edaf7d6a723f",
+    ".forge/ast-grep/rules/python/fastapi/no-debug-true.yml": "dc64b5d1aacfe0e08b84585850948286cf2290a77e4a80a9ae0df3d98a6fcd3b",
+    ".forge/ast-grep/rules/python/fastapi/no-on-event.yml": "b208d24856f9bc5c984e31170c7ededb09af5431663cdef83456209c5ad8c2e1",
+    ".forge/ast-grep/rules/python/fastapi/no-raw-request-body.yml": "0afd1cdb84f5ab19adbec245990f34e140fbbf53cb3a2095894d65899857102f",
+    ".forge/ast-grep/rules/python/fastapi/no-testclient-in-async-test.yml": "b72f3428ab91e438f0a87abb050528198af17ada55fe41cfab020be5588d6ef3",
+    ".forge/ast-grep/rules/python/fastapi/testclient-lifespan.yml": "f0c942050eac1c5e3858e388b9a11da2981e340f523666cfd0c0e79984e6dbab",
+    ".forge/ast-grep/rules/python/llm-client-timeout.yml": "e5f6e62d4108157ce6f7f73a1a9843b7111bd2566f4ff61ba54f3ab23e297869",
     ".forge/ast-grep/rules/python/no-stub.yml": "0660a06b80fa4e3cccbc89f496275e8f093b873632d1d93ecb48e4315d987bbf",
+    ".forge/ast-grep/rules/python/pydantic/typeadapter-module-level.yml": "55ed9e6a95ab3337d0ec6547c529f5cf766f39be8a66885cbad0d12a12d63418",
     ".forge/ast-grep/rules/python/pydantic/v2-api.yml": "0285c193f340cfebcfd12ac21c1b8a21b96bea3970e1cbd8dd48aca0b1af5776",
     ".forge/ast-grep/rules/python/pytest/no-fewer-asserts.yml": "6a5651b8e53b3fcd6d075650f3e52439916dde0d825bba80f5db0c5a9f3e1363",
     ".forge/ast-grep/rules/python/pytest/no-mock-increase.yml": "7263cfd0177902c44c2e9cf3836d2447260580371e0d7b75b556888a62ab8c30",
     ".forge/ast-grep/rules/python/pytest/no-new-skip.yml": "882b64b10b0c388c6bb23fdc688690f8bf530c0f57fee012254572dbf7afe422",
     ".forge/ast-grep/rules/python/pytest/no-tautological-assert.yml": "7de47e969bf4614418e4b8b5ebec4e2aed80b2dceb35b6f29d406d39de54b0a0",
     ".forge/ast-grep/rules/python/pytest/no-test-env-branch.yml": "8876a2eb9e568b666a50631bc5629de93ec3a7804fed41f2e90507017f64ba13",
+    ".forge/ast-grep/rules/python/sqlalchemy/alembic/no-create-all.yml": "08912cacb82e084e6ce6ddfb50e94c462acb0fad408afdc4fc072ab57bca2e41",
     ".forge/ast-grep/rules/python/sqlalchemy/async-expire-on-commit.yml": "637fca3fce2ffff8d64e094b4e9b168cc9bc8fcdcc6496efc30cbc127161ccac",
     ".forge/ast-grep/rules/python/sqlalchemy/mapped-column.yml": "e1a15384665afb7aae24664c55f4d81523622a6ef117385b17f806bc30cd3c3f",
     ".forge/ast-grep/rules/python/sqlalchemy/no-backref.yml": "13b73b70944eb1efd7c182f38a1832a0f639b622778db9c53c050c8f07511bcb",
+    ".forge/ast-grep/rules/python/sqlalchemy/no-concurrent-session.yml": "84bf88282de6892b93768d67f6478764eefdc0e697bfd9da6fd0553058a4f665",
     ".forge/ast-grep/rules/python/sqlalchemy/no-declarative-base.yml": "781d607290d560e8852c307a0e21211408c06731043ef0af7b44655f39f64d01",
+    ".forge/ast-grep/rules/python/sqlalchemy/no-lazy-dynamic.yml": "c144566b7a8de8794eb05c8c9cee3a4cd842fb950e05ef22fa1dd71a2bcda8d0",
     ".forge/ast-grep/rules/python/sqlalchemy/no-query-api.yml": "b767983a8b5ac3966b15b7fc7f89fba1e9c94115325f294d1887c3e41cf19727",
     ".forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml": "4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0",
     ".forge/ast-grep/rules/python/sqlalchemy/no-text-fstring.yml": "04c44c9e215449d46b10540e86e999ec1d6383d8c3a849855fe73cb456668fca",
+    ".forge/ast-grep/rules/python/sqlalchemy/session-context.yml": "085314ebd159593e95b8d7f956bf947428cdc502d1ceadce0999f2f368cb2251",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "0dcd9aa59242a2bcc5bdfa8119d386586af04e9a3464b43b46c2226b12fbcebd",
+    ".forge/check.sh": "b7b1b314df1d93920190feafed4d8812dd87de063e35f316080d570964b9c2bd",
     ".forge/helpers/fk_index.py": "12e59e9b4be590d77ed8dd6bab82f644440679d5cffd82264bf4c568e4341c9e",
     ".forge/helpers/ratchet.py": "4f7e312b9419bd1ee09fe9cd3e988546bba089d706cb1b44e4546c4b4c87173d",
     ".forge/helpers/types_python.py": "24c9504a4feb098f10dedadbc39f0a0c34eae5b4562f01c4e90e0d0beb0c3639",
@@ -21114,11 +21701,11 @@ def main():
 main()
 
 ===== .forge/manifest.sha256
-034ae6ae486c1c3657732c602c5e411ae2dad337d994de55231005807a8b40df  .claude/rules/forge-python-fastapi.md
-814dc766e022a4439f6b24578b90d34027f49f6e23ed46ee3b6d64519bfe9d07  .claude/rules/forge-python-pydantic.md
+1793d6be335ee31cf71d7d0755a9772590d14eeb4cb418bd392b1a66c261875e  .claude/rules/forge-python-fastapi.md
+cfe0903149609caed4e6ba29390fe72ca5fbe4bfad82f960d82ee3751f60e75d  .claude/rules/forge-python-pydantic.md
 bd0b0ff93d58820d159a875d54f2993d77f965e1f23e98212049517f3415924a  .claude/rules/forge-python-pytest.md
-f16da5b69615b1b19ec5997c9f3d54c1b9de2fa09fea0e085ef1ce99f6b6980d  .claude/rules/forge-python-sqlalchemy-alembic.md
-5f6196f04c027b1e056e5378adcd2dcf112ea9b1e4160cb1fb7e6b8974b54a69  .claude/rules/forge-python-sqlalchemy.md
+dbf9fc34de9d1cd97ecdac7256edcfdbf419b925772e29c2207ec768cd2e825d  .claude/rules/forge-python-sqlalchemy-alembic.md
+45415c50775a7637029fae55dd7dcef41b1cbe2fcbace978e88c05eeed67431e  .claude/rules/forge-python-sqlalchemy.md
 901fbb585eee69fe9a3442a8334787233666b61533ed0e5104a57e9996fe3330  .claude/rules/forge-python.md
 c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills/forge-project/.claude-plugin/plugin.json
 3763c38c1d21ccd50c22007d10b155255f88c08290dab14d2afe25f4d181740b  .claude/skills/forge-project/hooks/hooks.json
@@ -21126,49 +21713,69 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 a3bb50a3648137c8e0c7cda3d1cb07050fcb36f990e50b8b2b7f46b78e363f20  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
 83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5  .claude/skills/forge-project/scripts/lib.sh
-4004b4231c9a407742ceb5b1f9c6ee6bf2dd8471095c5ba7783e5114ecf0c905  .claude/skills/forge-project/scripts/post-edit.sh
+776132927c714bc251eec6c3881c0b1bebd542f08b82be03ed61796f1c36a359  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
 99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58  .claude/skills/forge-project/scripts/session-end.sh
-f2d8db11864b958ad9b53ee42662790f3d203c3f18a02d29c56aa8e0d0ac2673  .claude/skills/forge-project/scripts/session-start.sh
+a6b4b72328735771861c18ce9c405dd841fc402361826bbd1494cdf87a21c6ae  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-ae0d01c835d1c80ff8d865b32c96e3db96306c28b3a0693a7582f235d2548263  .claude/skills/forge-project/scripts/test-edit.sh
+16dbca65453ba1a36ff4701eb8dae8fba45a9cc2553dd6976fbfa0c4130f49d6  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-a9942e7c1b553dba8e36c9311e35da80c8b3f28d91018d54930d7f17a508cef1  .claude/skills/forge-project/scripts/typecheck.sh
+14fb03818717e1336d81ec5d29d9af9ca057bbb5e8eb0e95934582539a42150e  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 69a94f1a0b16aa08bcf758af3e3dc269266cdd808aba1a4289b4c58c7f969700  .forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml
-1589382e5e0b5cae841a8f47dae9f2b3a8583a4bb1074ceb858d882e648e9b49  .forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml
+cc41b4679da7c42ca44eb92af4f9787ad42ff4e396d0e0ddd1d44268f5bbd6e1  .forge/ast-grep/rule-tests/python-fastapi-no-debug-true-test.yml
+5f7964057b29b3b70e2570ddb883c140e396887d1ff6ee60eabc276692078326  .forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml
+acc864f4e4e1588d654776d782963cb8eeed53bef9f1d4b689215bbf89e632f9  .forge/ast-grep/rule-tests/python-fastapi-no-raw-request-body-test.yml
+e883f61b194e9a1c9df39b834fbe1984abb7f5ad08a28f021f9c41f89dc31a47  .forge/ast-grep/rule-tests/python-fastapi-no-testclient-in-async-test-test.yml
+83b1a552b00e4702557022df97ad8d91ab3513fff1a5dc7bedc2e20c8875b6f7  .forge/ast-grep/rule-tests/python-fastapi-testclient-lifespan-test.yml
+75030e1f874dde137461d40541297c31398c57143669d2d574239e626590eb26  .forge/ast-grep/rule-tests/python-llm-client-timeout-test.yml
 caa135cd54c3f53d5d2fbb85c518a2e94d263fd9a4860a63d224c7187432275b  .forge/ast-grep/rule-tests/python-no-stub-test.yml
+20a26571984c9145822cde4f3c2837ef9babcccda1f7c63b22975dd4fc7616c3  .forge/ast-grep/rule-tests/python-pydantic-typeadapter-module-level-test.yml
 190345231426a2518af45845d7e40c71d9a4cc0f68b656a91b17fb10156c4f0c  .forge/ast-grep/rule-tests/python-pydantic-v2-api-test.yml
 09250fc39904625fa6b9fbf8e680592026afa92b309bb44978ceced953e85443  .forge/ast-grep/rule-tests/python-pytest-no-fewer-asserts-test.yml
 66adc9b375c0fe1f6fe6554d9679e0ffbe286bad6d5f8879c0d894c8837e3cf1  .forge/ast-grep/rule-tests/python-pytest-no-mock-increase-test.yml
 90b83caced6f255771a83c90da08e127fc52f2a1340d1749b81440a896d960f5  .forge/ast-grep/rule-tests/python-pytest-no-new-skip-test.yml
 96cfb1aacfb5a86d5c235bd2a619a8ec518697943eefd02a6088d3486b9bc255  .forge/ast-grep/rule-tests/python-pytest-no-tautological-assert-test.yml
 b6b6511eb85b39a21fbfa8473e4c6c0b3a247493989c35b12ff669f142ba4ea9  .forge/ast-grep/rule-tests/python-pytest-no-test-env-branch-test.yml
+b095bb593df42cb37d3daeff0abd46bcaeb55df8b2900424400dda0b50f30a7b  .forge/ast-grep/rule-tests/python-sqlalchemy-alembic-no-create-all-test.yml
 b0949d9f9be5bd6c2ca2d8c383c74d1379e2abd0dd75ce9f0e669a462638abef  .forge/ast-grep/rule-tests/python-sqlalchemy-async-expire-on-commit-test.yml
 5e88453376b1a27b0f6616dc5980226ab0dfb537778763ba31d6448e4045a448  .forge/ast-grep/rule-tests/python-sqlalchemy-mapped-column-test.yml
 11bc076c2bb5996c604661efcb8b63c92b5452a42620ff6bee23c8abff645c0a  .forge/ast-grep/rule-tests/python-sqlalchemy-no-backref-test.yml
+7f9b519a7a9d76cc409393188d0ede4b94c0cd1067aeb417970f1699daee10ea  .forge/ast-grep/rule-tests/python-sqlalchemy-no-concurrent-session-test.yml
 4b93be91c7de1f3e2da242f86fd8a55dd79f4b4b629fe15163f656e62ac18892  .forge/ast-grep/rule-tests/python-sqlalchemy-no-declarative-base-test.yml
+9f66a176d11abb28e4baa9856d51ede7cafce2494f1d5730b3117014ef3fbcf9  .forge/ast-grep/rule-tests/python-sqlalchemy-no-lazy-dynamic-test.yml
 01033db0b07cb2ab1801e720c72f3e5eed5cb529df206e10a3d7bb5bc67a3731  .forge/ast-grep/rule-tests/python-sqlalchemy-no-query-api-test.yml
 e252681713a4306ca3b759cee11ed31df0350ad0355186f6120761fa8b03aa1d  .forge/ast-grep/rule-tests/python-sqlalchemy-no-raw-execute-test.yml
 b6ad70dac48994e60453edd07d73a3669d26b21954b227be8177a7a98426baa0  .forge/ast-grep/rule-tests/python-sqlalchemy-no-text-fstring-test.yml
+c47d06cd6e01012e44f04ab6fcccff0fc4aa96723a31d2a5e693098fdde80831  .forge/ast-grep/rule-tests/python-sqlalchemy-session-context-test.yml
 166a169b8e196d6820c512fc277f5fcfb1ab03ddfbed4eff4479202c7a34b9cd  .forge/ast-grep/rules/python/fastapi/cors-credentials-wildcard.yml
-98309160f9dfe6735de68fbbaebda767ddabd8c79bbd89ff63d9edaf7d6a723f  .forge/ast-grep/rules/python/fastapi/no-on-event.yml
+dc64b5d1aacfe0e08b84585850948286cf2290a77e4a80a9ae0df3d98a6fcd3b  .forge/ast-grep/rules/python/fastapi/no-debug-true.yml
+b208d24856f9bc5c984e31170c7ededb09af5431663cdef83456209c5ad8c2e1  .forge/ast-grep/rules/python/fastapi/no-on-event.yml
+0afd1cdb84f5ab19adbec245990f34e140fbbf53cb3a2095894d65899857102f  .forge/ast-grep/rules/python/fastapi/no-raw-request-body.yml
+b72f3428ab91e438f0a87abb050528198af17ada55fe41cfab020be5588d6ef3  .forge/ast-grep/rules/python/fastapi/no-testclient-in-async-test.yml
+f0c942050eac1c5e3858e388b9a11da2981e340f523666cfd0c0e79984e6dbab  .forge/ast-grep/rules/python/fastapi/testclient-lifespan.yml
+e5f6e62d4108157ce6f7f73a1a9843b7111bd2566f4ff61ba54f3ab23e297869  .forge/ast-grep/rules/python/llm-client-timeout.yml
 0660a06b80fa4e3cccbc89f496275e8f093b873632d1d93ecb48e4315d987bbf  .forge/ast-grep/rules/python/no-stub.yml
+55ed9e6a95ab3337d0ec6547c529f5cf766f39be8a66885cbad0d12a12d63418  .forge/ast-grep/rules/python/pydantic/typeadapter-module-level.yml
 0285c193f340cfebcfd12ac21c1b8a21b96bea3970e1cbd8dd48aca0b1af5776  .forge/ast-grep/rules/python/pydantic/v2-api.yml
 6a5651b8e53b3fcd6d075650f3e52439916dde0d825bba80f5db0c5a9f3e1363  .forge/ast-grep/rules/python/pytest/no-fewer-asserts.yml
 7263cfd0177902c44c2e9cf3836d2447260580371e0d7b75b556888a62ab8c30  .forge/ast-grep/rules/python/pytest/no-mock-increase.yml
 882b64b10b0c388c6bb23fdc688690f8bf530c0f57fee012254572dbf7afe422  .forge/ast-grep/rules/python/pytest/no-new-skip.yml
 7de47e969bf4614418e4b8b5ebec4e2aed80b2dceb35b6f29d406d39de54b0a0  .forge/ast-grep/rules/python/pytest/no-tautological-assert.yml
 8876a2eb9e568b666a50631bc5629de93ec3a7804fed41f2e90507017f64ba13  .forge/ast-grep/rules/python/pytest/no-test-env-branch.yml
+08912cacb82e084e6ce6ddfb50e94c462acb0fad408afdc4fc072ab57bca2e41  .forge/ast-grep/rules/python/sqlalchemy/alembic/no-create-all.yml
 637fca3fce2ffff8d64e094b4e9b168cc9bc8fcdcc6496efc30cbc127161ccac  .forge/ast-grep/rules/python/sqlalchemy/async-expire-on-commit.yml
 e1a15384665afb7aae24664c55f4d81523622a6ef117385b17f806bc30cd3c3f  .forge/ast-grep/rules/python/sqlalchemy/mapped-column.yml
 13b73b70944eb1efd7c182f38a1832a0f639b622778db9c53c050c8f07511bcb  .forge/ast-grep/rules/python/sqlalchemy/no-backref.yml
+84bf88282de6892b93768d67f6478764eefdc0e697bfd9da6fd0553058a4f665  .forge/ast-grep/rules/python/sqlalchemy/no-concurrent-session.yml
 781d607290d560e8852c307a0e21211408c06731043ef0af7b44655f39f64d01  .forge/ast-grep/rules/python/sqlalchemy/no-declarative-base.yml
+c144566b7a8de8794eb05c8c9cee3a4cd842fb950e05ef22fa1dd71a2bcda8d0  .forge/ast-grep/rules/python/sqlalchemy/no-lazy-dynamic.yml
 b767983a8b5ac3966b15b7fc7f89fba1e9c94115325f294d1887c3e41cf19727  .forge/ast-grep/rules/python/sqlalchemy/no-query-api.yml
 4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0  .forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml
 04c44c9e215449d46b10540e86e999ec1d6383d8c3a849855fe73cb456668fca  .forge/ast-grep/rules/python/sqlalchemy/no-text-fstring.yml
+085314ebd159593e95b8d7f956bf947428cdc502d1ceadce0999f2f368cb2251  .forge/ast-grep/rules/python/sqlalchemy/session-context.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-0dcd9aa59242a2bcc5bdfa8119d386586af04e9a3464b43b46c2226b12fbcebd  .forge/check.sh
+b7b1b314df1d93920190feafed4d8812dd87de063e35f316080d570964b9c2bd  .forge/check.sh
 12e59e9b4be590d77ed8dd6bab82f644440679d5cffd82264bf4c568e4341c9e  .forge/helpers/fk_index.py
 4f7e312b9419bd1ee09fe9cd3e988546bba089d706cb1b44e4546c4b4c87173d  .forge/helpers/ratchet.py
 24c9504a4feb098f10dedadbc39f0a0c34eae5b4562f01c4e90e0d0beb0c3639  .forge/helpers/types_python.py

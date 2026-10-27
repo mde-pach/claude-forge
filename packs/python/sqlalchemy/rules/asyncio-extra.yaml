@@ -1,0 +1,27 @@
+id: python/sqlalchemy/asyncio-extra
+description: "When code imports sqlalchemy.ext.asyncio, the project declares sqlalchemy[asyncio] (or greenlet) as a dependency in pyproject.toml or a requirements*.txt: SQLAlchemy installs greenlet only through that extra (2.1), and without it the async engine fails at run time."
+scope: {language: any}
+enforce:
+  - target: check
+    stage: lint
+    run: |
+      git grep -q --untracked -E '^[[:space:]]*(from[[:space:]]+sqlalchemy\.ext\.asyncio[[:space:]]|import[[:space:]]+sqlalchemy\.ext\.asyncio|from[[:space:]]+sqlalchemy\.ext[[:space:]]+import[[:space:]].*asyncio)' -- '*.py' || return 0
+      git ls-files -z --cached --others --exclude-standard -- pyproject.toml '*/pyproject.toml' 'requirements*.txt' '*/requirements*.txt' | xargs -0 grep -qiE 'sqlalchemy[[:space:]]*\[[^]]*asyncio|(^|["'"'"'[:space:]])greenlet([^A-Za-z0-9_.-]|$)' /dev/null && return 0
+      echo 'sqlalchemy.ext.asyncio is imported but no pyproject.toml or requirements*.txt declares sqlalchemy[asyncio] (or greenlet): uv add "sqlalchemy[asyncio]"'
+      return 1
+    when_changed: [pyproject.toml, "**/pyproject.toml", "requirements*.txt", "**/requirements*.txt", "**/*.py"]
+examples:
+  match:
+    - files:
+        pyproject.toml: "[project]\nname = \"shop\"\nversion = \"0.1.0\"\ndependencies = [\"sqlalchemy>=2.1\", \"asyncpg>=0.30\"]\n"
+        app/db.py: "from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine\n\nengine = create_async_engine(\"postgresql+asyncpg://localhost/shop\")\nSessionLocal = async_sessionmaker(engine, expire_on_commit=False)\n"
+  no_match:
+    - files:
+        pyproject.toml: "[project]\nname = \"shop\"\nversion = \"0.1.0\"\ndependencies = [\"sqlalchemy[asyncio]>=2.1\", \"asyncpg>=0.30\"]\n"
+        app/db.py: "from sqlalchemy.ext.asyncio import create_async_engine\n\nengine = create_async_engine(\"postgresql+asyncpg://localhost/shop\")\n"
+    - files:
+        requirements.txt: "SQLAlchemy==2.1.6\ngreenlet==3.2.4\n"
+        app/db.py: "from sqlalchemy.ext.asyncio import create_async_engine\n\nengine = create_async_engine(\"sqlite+aiosqlite://\")\n"
+    - files:
+        pyproject.toml: "[project]\nname = \"shop\"\nversion = \"0.1.0\"\ndependencies = [\"sqlalchemy>=2.1\"]\n"
+        app/db.py: "from sqlalchemy import create_engine\n\nengine = create_engine(\"sqlite://\")\n"

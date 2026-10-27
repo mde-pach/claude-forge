@@ -1,0 +1,20 @@
+id: python/tortoise/primary-key-kw
+description: "Tortoise fields take primary_key=True, not the deprecated pk=True (a DeprecationWarning at run time that the type checker does not report)."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call
+      pattern: $C
+      has: {field: arguments, has: {kind: keyword_argument, regex: "^pk[[:space:]]*=[[:space:]]*True$"}}
+    # a Tortoise field constructor, whatever it is imported as
+    where:
+      C: {type: {package: tortoise}}
+examples:
+  deps: [{ecosystem: pypi, name: tortoise-orm, version: "1.1.9"}]
+  match:
+    - "from tortoise import fields\nfrom tortoise.models import Model\n\n\nclass Tournament(Model):\n    id = fields.IntField(pk=True)\n"
+  no_match:
+    - "from tortoise import fields\nfrom tortoise.models import Model\n\n\nclass Tournament(Model):\n    id = fields.IntField(primary_key=True)\n"
+    - "def lookup(pk: bool) -> bool:\n    return pk\n\n\nlookup(pk=True)\n"

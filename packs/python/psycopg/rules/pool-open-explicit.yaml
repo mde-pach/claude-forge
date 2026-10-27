@@ -1,0 +1,23 @@
+id: python/psycopg/pool-open-explicit
+description: "ConnectionPool() and AsyncConnectionPool() pass open= unless entered with with / async with: opening the pool in the constructor is deprecated, and an async pool cannot open there (RuntimeWarning). Use open=False, then await pool.open() in the application's startup (lifespan)."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call
+      pattern: $C
+      not:
+        any:
+          - has: {field: arguments, has: {kind: keyword_argument, regex: "^open[[:space:]]*="}}
+          - inside: {kind: with_item, stopBy: end}
+    where:
+      C: {type: {package: psycopg_pool, name: [ConnectionPool, AsyncConnectionPool]}}
+examples:
+  deps: [{ecosystem: pypi, name: psycopg, version: "3.3.6"}, {ecosystem: pypi, name: psycopg-pool, version: "3.3.3"}]
+  match:
+    - "from psycopg_pool import AsyncConnectionPool\n\npool = AsyncConnectionPool(\"dbname=shop\")\n"
+    - "import psycopg_pool\n\npool = psycopg_pool.ConnectionPool(\"dbname=shop\", min_size=2)\n"
+  no_match:
+    - "from psycopg_pool import AsyncConnectionPool\n\npool = AsyncConnectionPool(\"dbname=shop\", open=False)\n\n\nasync def startup() -> None:\n    await pool.open()\n"
+    - "from psycopg_pool import ConnectionPool\n\n\ndef run() -> None:\n    with ConnectionPool(\"dbname=shop\") as pool:\n        pool.wait()\n"

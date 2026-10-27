@@ -1,0 +1,16 @@
+id: python/redis/aclose
+description: "An asyncio Redis client is closed with await r.aclose(), not r.close(): close() is deprecated through redis' own decorator, which the type checker does not read."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule: {pattern: $R.close()}
+    where:
+      R: {type: {package: redis, module: redis.asyncio, name: Redis}}
+examples:
+  deps: [{ecosystem: pypi, name: redis, version: "8.1.0"}]
+  match:
+    - "import redis.asyncio as aredis\n\n\nasync def shutdown(r: aredis.Redis) -> None:\n    await r.close()\n"
+  no_match:
+    - "import redis.asyncio as aredis\n\n\nasync def shutdown(r: aredis.Redis) -> None:\n    await r.aclose()\n"
+    - "import redis\n\nr = redis.Redis()\nr.close()\n"

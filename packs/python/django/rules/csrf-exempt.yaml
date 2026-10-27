@@ -1,0 +1,20 @@
+id: python/django/csrf-exempt
+description: "No @csrf_exempt and no csrf_exempt(view): turning off CSRF protection is the user's decision. Ask them (is the endpoint authenticated by something other than cookies, such as a signed webhook?); if they confirm, they disable the rule for that file in a local rule."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        - {kind: decorator, regex: "^@([A-Za-z_][A-Za-z0-9_]*\\.)*csrf_exempt$"}
+        - {kind: call, has: {field: function, regex: "^([A-Za-z_][A-Za-z0-9_]*\\.)*csrf_exempt$"}}
+        # passed to a decorator factory: @method_decorator(csrf_exempt, name="dispatch")
+        - {any: [{kind: identifier}, {kind: attribute}], regex: "^([A-Za-z_][A-Za-z0-9_]*\\.)*csrf_exempt$", inside: {kind: argument_list}}
+examples:
+  match:
+    - "from django.http import HttpResponse\nfrom django.views.decorators.csrf import csrf_exempt\n\n\n@csrf_exempt\ndef hook(request):\n    return HttpResponse()\n"
+    - "from django.urls import path\nfrom django.views.decorators.csrf import csrf_exempt\n\nfrom .views import Hook\n\nurlpatterns = [path(\"hook/\", csrf_exempt(Hook.as_view()))]\n"
+    - "from django.utils.decorators import method_decorator\nfrom django.views import View\nfrom django.views.decorators import csrf\n\n\n@method_decorator(csrf.csrf_exempt, name=\"dispatch\")\nclass Hook(View):\n    pass\n"
+  no_match:
+    - "from django.http import HttpResponse\nfrom django.views.decorators.csrf import csrf_protect\n\n\n@csrf_protect\ndef form(request):\n    return HttpResponse()\n"
+    - "def is_csrf_exempt(view) -> bool:\n    return getattr(view, \"csrf_exempt\", False)\n"
