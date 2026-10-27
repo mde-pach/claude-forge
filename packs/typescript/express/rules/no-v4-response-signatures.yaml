@@ -1,0 +1,28 @@
+id: typescript/express/no-v4-response-signatures
+description: "No Express 4 response signatures that Express 5 changed: res.send(<number>) sends the number as a JSON body with status 200 (use res.sendStatus(n) or res.status(n).send(...)), and res.redirect(\"back\") redirects to a path named back (use req.get(\"Referrer\") || \"/\")."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      has: {field: function, kind: member_expression, has: {field: object, pattern: $R}}
+      any:
+        - all:
+            - has: {field: function, has: {field: property, regex: "^send$"}}
+            - has: {field: arguments, all: [{has: {nthChild: 1, kind: number}}, {not: {has: {nthChild: 2}}}]}
+        - all:
+            - has: {field: function, has: {field: property, regex: "^redirect$"}}
+            - has: {field: arguments, has: {nthChild: 1, kind: string, regex: "^[\"']back[\"']$"}}
+    where:
+      R: {type: {package: express-serve-static-core, name: Response}}
+when:
+  deps: [{ecosystem: npm, name: express, version: ">=5.0.0"}]
+examples:
+  deps: [{ecosystem: npm, name: "@types/express", version: "5.0.6"}]
+  match:
+    - "import type { Response } from \"express\";\n\nexport function missing(res: Response) {\n  res.send(404);\n}\n"
+    - "import type { Response } from \"express\";\n\nexport function back(res: Response) {\n  res.redirect(\"back\");\n}\n"
+  no_match:
+    - "import type { Request, Response } from \"express\";\n\nexport function done(req: Request, res: Response) {\n  res.sendStatus(404);\n  res.status(404).send(\"Not found\");\n  res.send(\"404\");\n  res.redirect(req.get(\"Referrer\") || \"/\");\n}\n"
+    - "const socket = { send: (n: number) => n };\nsocket.send(404);\n"

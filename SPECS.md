@@ -1242,8 +1242,9 @@ Detected by `pnpm-lock.yaml` or `pnpm-workspace.yaml`.
 | `typescript/pnpm/no-other-pm` | `guard` ask: `npm install`, `npm i`, `npm ci`, `npm add`, `yarn`, `bun install`, `bun i`, `bun add` |
 | `typescript/pnpm/lock-sync` | `check` lint: `pnpm install --frozen-lockfile --lockfile-only` (skipped when pnpm is not installed), `when_changed`: `package.json` files, `pnpm-lock.yaml`, `pnpm-workspace.yaml` |
 | `typescript/pnpm/settings-location` | `check` lint (with `bun`) on changed `package.json` and `.npmrc` files: a top-level `pnpm` field, and pnpm settings in `.npmrc` (`node-linker`, `shamefully-hoist`, `only-built-dependencies`, `minimum-release-age`, …), reported at their line |
+| `typescript/pnpm/no-removed-settings` | `grep` forbid in `pnpm-workspace.yaml`, `when` `pnpm >= 11` (`packageManager`): the top-level keys `onlyBuiltDependencies`, `neverBuiltDependencies`, `ignoredBuiltDependencies`, `ignoreDepScripts`, `allowNonAppliedPatches`, and `ignoreCves` (under `auditConfig`) |
 
-context.md: pnpm manages dependencies; its settings live in `pnpm-workspace.yaml`.
+context.md: pnpm manages dependencies; its settings live in `pnpm-workspace.yaml`; pnpm 11's `allowBuilds`, `allowUnusedPatches`, `auditConfig.ignoreGhsas`.
 
 ### typescript/npm
 
@@ -1614,6 +1615,9 @@ context.md: Svelte 5 runes, event attributes and snippets; legacy syntax and `{@
 | Rule | Targets |
 |---|---|
 | `typescript/svelte/kit/no-csrf-off` | `ast-grep` forbid in `svelte.config.*`, under `csrf`: `checkOrigin: false`, a `"*"` in `trustedOrigins` |
+| `typescript/svelte/kit/no-app-stores` | `grep` forbid in `.svelte`, `.ts`, `.js`, `.mts`, `.mjs` files, `when` `@sveltejs/kit >= 2.12`: an import (static or dynamic) of `$app/stores` |
+| `typescript/svelte/kit/no-env-modules` | `grep` forbid in the same files, `when` `@sveltejs/kit >= 3`: an import of `$env/static\|dynamic/private\|public` |
+| `typescript/svelte/kit/external-redirect` | `ast-grep` forbid, `when` `@sveltejs/kit >= 3`: a call declared as `@sveltejs/kit`'s `redirect` (§15.6) whose second argument is a string or template starting with `http://` / `https://` and that has no third argument |
 
 ### typescript/angular
 
@@ -1671,8 +1675,9 @@ Detected by `@nestjs/core` or `@nestjs/common`. Decorators are matched as the bi
 | `typescript/nestjs/dto-is-class` | `ast-grep` forbid: a parameter decorated `@Body()` / `@Query()` / `@Param()` (from `@nestjs/common`, no arguments) with no type, `any`, `unknown`, `object`, an object type literal or `Record<…>` |
 | `typescript/nestjs/validate-nested-type` | `ast-grep` forbid: a property decorated with class-validator's `ValidateNested` and no class-transformer `Type` decorator |
 | `typescript/nestjs/http-exception` | `ast-grep` advise: `throw new Error(…)` in a method of a class decorated with `@nestjs/common`'s `Controller`, not inside a `try` block |
+| `typescript/nestjs/express-path-syntax` | `ast-grep` advise, `when` `@nestjs/platform-express >= 11`: a string argument (or one in an array) with an unnamed `*` or `?`, `+`, `!`, `(`, `)`, `[`, `]` in a decorator call declared as `@nestjs/common`'s `Get`, `Post`, `Put`, `Patch`, `Delete`, `Options`, `Head` or `All` (§15.6), or in `$C.forRoutes(…)` where `C` is a `MiddlewareConfigProxy` (Nest converts the old syntax with a warning) |
 
-context.md: `ValidationPipe` with `whitelist` and `forbidNonWhitelisted`; DTO classes on `@Body()` / `@Query()` / `@Param()`; `@ValidateNested()` with `@Type()`; `HttpException` subclasses in controllers.
+context.md: `ValidationPipe` with `whitelist` and `forbidNonWhitelisted`; DTO classes on `@Body()` / `@Query()` / `@Param()`; `@ValidateNested()` with `@Type()`; `HttpException` subclasses in controllers; path-to-regexp 8 route paths on the Express platform.
 
 ### typescript/kysely
 
@@ -1703,8 +1708,9 @@ context.md: migrations, never `synchronize` / `dropSchema`; parameters in `.quer
 |---|---|
 | `typescript/mongoose/no-request-filter` | `ast-grep` forbid: `$M.<op>($R.body \| query \| params, …)` or as the second argument, `<op>` one of `find`, `findOne`, `findOneAndUpdate`, `findOneAndDelete`, `findOneAndReplace`, `updateOne`, `updateMany`, `deleteOne`, `deleteMany`, `countDocuments`, `replaceOne`, where `M` is a Mongoose `Model` or `Query` and `R` an Express `Request` or a `FastifyRequest` |
 | `typescript/mongoose/no-where-operator` | `ast-grep` forbid: a `$where` key in the arguments of a call on `$M`, or `$M.$where(…)`, where `M` is a Mongoose `Model` or `Query` |
+| `typescript/mongoose/update-pipeline` | `ast-grep` advise, `when` `mongoose >= 9`: `$M.updateOne\|updateMany\|findOneAndUpdate\|findByIdAndUpdate(f, [<array>], …)` without an object argument holding `updatePipeline: true`, where `M` is a Mongoose `Model` or `Query` (advice: `mongoose.set("updatePipeline", true)` may be set elsewhere) |
 
-context.md: request input validated or `sanitizeFilter()`ed before a filter; no `$where`.
+context.md: request input validated or `sanitizeFilter()`ed before a filter; no `$where`; update pipelines pass `updatePipeline: true`.
 
 ### typescript/temporal
 
@@ -1895,8 +1901,13 @@ context.md: destroy policies are advice; `cdk.context.json` committed; cdk-nag f
 |---|---|
 | `typescript/express/session-cookie-flags` | `ast-grep` forbid: `secure: false` / `httpOnly: false` in the `cookie` object of a call of express-session's default import, or in the object passed to cookie-session's default import |
 | `typescript/express/no-permissive-trust-proxy` | `ast-grep` advise: `$A.set("trust proxy", true)`, where `A` is an Express `Application` (`express-serve-static-core`) |
+| `typescript/express/path-syntax-v5` | `ast-grep` forbid, `when` `express >= 5`: a first argument of `$R.get\|post\|put\|patch\|delete\|options\|head\|all\|use\|route(…)` (a string, or a string in an array) with an unnamed `*` or `?`, `+`, `!`, `(`, `)`, `[`, `]` (path-to-regexp 8 throws), where `R` is an Express `IRouter` (`express-serve-static-core`: applications and routers) |
+| `typescript/express/no-req-query-assign` | `ast-grep` forbid, `when` `express >= 5`: an assignment (or `+=`, …) to `$R.query`, `$R.query.<p>` or `$R.query[<k>]`, where `R` is an Express `Request` (a getter in Express 5) |
+| `typescript/express/no-async-errors` | `ast-grep` forbid, `when` `express >= 5`: an import or `require` of `express-async-errors` |
+| `typescript/express/no-async-handler` | `ast-grep` advise, `when` `express >= 5`: an import or `require` of `express-async-handler` or `express-promise-router` (redundant: Express 5 handles rejected promises) |
+| `typescript/express/no-v4-response-signatures` | `ast-grep` forbid, `when` `express >= 5`: `$R.send(<number>)` (one argument) and `$R.redirect("back")`, where `R` is an Express `Response` |
 
-context.md: no literal `secure: false` / `httpOnly: false` session cookies; `trust proxy` is not `true`.
+context.md: no literal `secure: false` / `httpOnly: false` session cookies; `trust proxy` is not `true`; Express 5 path syntax, `req.query` read-only, no async wrappers, no Express 4 `res.send(<number>)` / `res.redirect("back")`.
 
 ### typescript/bullmq
 
@@ -1944,6 +1955,16 @@ Detected by `langchain`, `@langchain/core` or `@langchain/classic`.
 | `typescript/langchain/no-legacy-chains` | `ast-grep` advise: importing `LLMChain`, `ConversationChain`, `RetrievalQAChain`, `ConversationalRetrievalQAChain`, `initializeAgentExecutorWithOptions` or `AgentExecutor` from `@langchain/classic…` or `langchain/chains…` / `langchain/agents…` |
 
 context.md: `createAgent`; the legacy chains live in `@langchain/classic`.
+
+### typescript/ai
+
+Detected by `ai` (the Vercel AI SDK).
+
+| Rule | Targets |
+|---|---|
+| `typescript/ai/no-system-in-messages` | `ast-grep` forbid, `when` `ai >= 7`: a call declared as `ai`'s `generateText` or `streamText` (§15.6) whose options object has a `messages` or `prompt` array literal holding an object with `role: "system"`, and no `allowSystemInMessages: true` |
+
+context.md: system prompts go in `instructions`.
 
 ### typescript/opentelemetry
 

@@ -1,0 +1,15 @@
+id: typescript/express/no-async-errors
+description: "No express-async-errors with Express 5: it patches Express 4's router, which Express 5 no longer has, and Express 5 already passes a rejected promise of a handler to next(err)."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        - {kind: import_statement, has: {field: source, regex: "^[\"']express-async-errors[\"']$"}}
+        - {kind: call_expression, all: [{has: {field: function, regex: "^require$"}}, {has: {field: arguments, has: {kind: string, regex: "^[\"']express-async-errors[\"']$"}}}]}
+when:
+  deps: [{ecosystem: npm, name: express, version: ">=5.0.0"}]
+examples:
+  match: ["import \"express-async-errors\";\nimport express from \"express\";\n", "require(\"express-async-errors\");\n"]
+  no_match: ["import express from \"express\";\n", "import \"express-async-errors-handler\";\n"]

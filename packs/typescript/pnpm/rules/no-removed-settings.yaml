@@ -1,0 +1,16 @@
+id: typescript/pnpm/no-removed-settings
+description: "No pnpm-workspace.yaml settings removed in pnpm 11: onlyBuiltDependencies, neverBuiltDependencies, ignoredBuiltDependencies, ignoreDepScripts (use allowBuilds), allowNonAppliedPatches (use allowUnusedPatches), auditConfig.ignoreCves (use auditConfig.ignoreGhsas)."
+scope: {language: any, files: ["**/pnpm-workspace.yaml"]}
+enforce:
+  - target: grep
+    mode: forbid
+    pattern: '^["'']?(onlyBuiltDependencies|neverBuiltDependencies|ignoredBuiltDependencies|ignoreDepScripts|allowNonAppliedPatches)["'']?[[:space:]]*:|^[[:space:]]+["'']?ignoreCves["'']?[[:space:]]*:'
+when:
+  deps: [{ecosystem: npm, name: pnpm, version: ">=11.0.0"}]
+examples:
+  match:
+    - "packages:\n  - packages/*\nonlyBuiltDependencies:\n  - esbuild\n"
+    - "auditConfig:\n  ignoreCves:\n    - CVE-2024-1234\n"
+  no_match:
+    - "packages:\n  - packages/*\nallowBuilds:\n  esbuild: true\n"
+    - "auditConfig:\n  ignoreGhsas:\n    - GHSA-xxxx-yyyy-zzzz\n"

@@ -1,0 +1,15 @@
+id: typescript/express/no-async-handler
+description: "Advice: express-async-handler and express-promise-router are redundant with Express 5, which passes a rejected promise of a handler to next(err); use plain async handlers and express.Router()."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      any:
+        - {kind: import_statement, has: {field: source, regex: "^[\"'](express-async-handler|express-promise-router)[\"']$"}}
+        - {kind: call_expression, all: [{has: {field: function, regex: "^require$"}}, {has: {field: arguments, has: {kind: string, regex: "^[\"'](express-async-handler|express-promise-router)[\"']$"}}}]}
+when:
+  deps: [{ecosystem: npm, name: express, version: ">=5.0.0"}]
+examples:
+  match: ["import asyncHandler from \"express-async-handler\";\n", "const Router = require(\"express-promise-router\");\n"]
+  no_match: ["import { Router } from \"express\";\n", "import { asyncHandler } from \"./lib/async-handler\";\n"]

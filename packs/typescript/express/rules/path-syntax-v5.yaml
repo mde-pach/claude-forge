@@ -1,0 +1,31 @@
+id: typescript/express/path-syntax-v5
+description: "Express 5 route paths (path-to-regexp 8) have no unnamed * (write /*splat or /{*splat}) and no ?, +, !, (, ), [ or ] (an optional segment is {...}, e.g. /file{.:ext}): Express 5 throws on them when the route is registered."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      all:
+        - has: {field: function, kind: member_expression, all: [{has: {field: object, pattern: $R}}, {has: {field: property, regex: "^(get|post|put|patch|delete|options|head|all|use|route)$"}}]}
+        - has:
+            field: arguments
+            has:
+              nthChild: 1
+              any:
+                - {kind: string, regex: "[()\\[\\]?+!]|\\*([^A-Za-z_$]|$)"}
+                - {kind: array, has: {kind: string, regex: "[()\\[\\]?+!]|\\*([^A-Za-z_$]|$)"}}
+    # an Express application or router (express(), express.Router())
+    where:
+      R: {type: {package: express-serve-static-core, name: IRouter}}
+when:
+  deps: [{ecosystem: npm, name: express, version: ">=5.0.0"}]
+examples:
+  deps: [{ecosystem: npm, name: "@types/express", version: "5.0.6"}]
+  match:
+    - "import express from \"express\";\n\nconst app = express();\napp.get(\"/files/*\", (req, res) => res.send(req.path));\n"
+    - "import express from \"express\";\n\nconst app = express();\napp.get(\"/user/:id?\", (req, res) => res.send(req.params.id));\n"
+    - "import { Router } from \"express\";\n\nexport const router = Router();\nrouter.use([\"/api\", \"/v1(.*)\"], (req, res, next) => next());\n"
+  no_match:
+    - "import express from \"express\";\n\nconst app = express();\napp.get(\"/files/*splat\", (req, res) => res.send(req.path));\napp.get(\"/file{.:ext}\", (req, res) => res.send(req.path));\napp.get(\"/user/:id\", (req, res) => res.send(req.params.id));\n"
+    - "const params = new URLSearchParams();\nparams.get(\"q?\");\n"

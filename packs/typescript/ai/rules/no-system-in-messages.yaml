@@ -1,0 +1,34 @@
+id: typescript/ai/no-system-in-messages
+description: "No { role: \"system\" } entry in the messages (or prompt) array literal of a generateText or streamText call from ai 7, unless the same options set allowSystemInMessages: true: ai 7 rejects it with InvalidPromptError. Put it in instructions."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      all:
+        - has: {field: function, pattern: $F}
+        - has:
+            field: arguments
+            has:
+              nthChild: 1
+              kind: object
+              all:
+                - has:
+                    kind: pair
+                    all:
+                      - has: {field: key, regex: "^[\"']?(messages|prompt)[\"']?$"}
+                      - has: {field: value, kind: array, has: {kind: object, has: {kind: pair, all: [{has: {field: key, regex: "^[\"']?role[\"']?$"}}, {has: {field: value, regex: "^[\"'`]system[\"'`]$"}}]}}}
+                - not: {has: {kind: pair, all: [{has: {field: key, regex: "^[\"']?allowSystemInMessages[\"']?$"}}, {has: {field: value, kind: "true"}}]}}
+    where:
+      F: {declared: {package: ai, name: [generateText, streamText]}}
+when:
+  deps: [{ecosystem: npm, name: ai, version: ">=7.0.0"}]
+examples:
+  deps: [{ecosystem: npm, name: ai, version: "7.0.154"}]
+  match:
+    - "import { generateText, type LanguageModel } from \"ai\";\n\nexport async function answer(model: LanguageModel, question: string) {\n  return generateText({\n    model,\n    messages: [\n      { role: \"system\", content: \"You are terse.\" },\n      { role: \"user\", content: question },\n    ],\n  });\n}\n"
+    - "import { streamText as stream, type LanguageModel } from \"ai\";\n\nexport const run = (model: LanguageModel) => stream({ model, prompt: [{ role: \"system\", content: \"Be terse.\" }] });\n"
+  no_match:
+    - "import { generateText, type LanguageModel } from \"ai\";\n\nexport async function answer(model: LanguageModel, question: string) {\n  await generateText({ model, instructions: \"You are terse.\", messages: [{ role: \"user\", content: question }] });\n  return generateText({ model, allowSystemInMessages: true, messages: [{ role: \"system\", content: \"You are terse.\" }] });\n}\n"
+    - "function generateText(o: { messages: { role: string; content: string }[] }) {\n  return o;\n}\n\nexport const r = generateText({ messages: [{ role: \"system\", content: \"x\" }] });\n"
