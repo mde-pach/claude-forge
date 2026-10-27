@@ -38,7 +38,7 @@ Prisma 7. Generator `prisma-client` with an explicit `output`; the client is imp
 SQL databases connect through a driver adapter (e.g. `@prisma/adapter-pg`) passed to `new PrismaClient({ adapter })`.
 CLI configuration and the connection URL live in `prisma.config.ts`; `.env` is not loaded automatically.
 `prisma migrate dev` does not seed: run `prisma db seed`. Query hooks use Client Extensions (`$extends`; `$use` is removed).
-Raw SQL uses the tagged `$queryRaw` / `$executeRaw` forms; the `Unsafe` variants are rejected.
+Raw SQL uses the tagged `$queryRaw` / `$executeRaw` forms; the `Unsafe` variants, and `Prisma.raw()` built from a template or concatenation, are rejected.
 `$transaction(async (tx) => …)` callbacks make no network calls (SDKs included): call them before or after the transaction; `fetch` and calls through an imported axios, got, ky, ofetch, node-fetch or undici there are rejected.
 A schema change comes with a migration (`prisma migrate dev`), except in a db push workflow (no `prisma/migrations`, a `prisma db push` script), where none is required.
 A new migration that drops a column or table is rejected unless the user accepts that line in `forge.yaml`: drop only after a deploy in which no code reads it (expand and contract).
@@ -4669,7 +4669,7 @@ forge_types_filter() {
   return "$_tf_rc"
 }
 
-FORGE_FORBID='typescript/nextjs/no-legacy-image-config|typescript/nextjs/no-next-router|typescript/nextjs/no-pages-data|typescript/nextjs/no-public-secret-env|typescript/nextjs/proxy-not-middleware|typescript/nextjs/react/client-hooks|typescript/nextjs/react/no-server-in-client|typescript/nextjs/revalidate-tag-profile|typescript/no-double-assertion|typescript/no-stub|typescript/no-swallowed-catch|typescript/no-ts-nocheck|typescript/playwright/locators|typescript/playwright/no-wait-for-timeout|typescript/prisma/generated-client-import|typescript/prisma/no-middleware|typescript/prisma/no-network-in-transaction|typescript/prisma/no-raw-unsafe|typescript/react/no-prop-types|typescript/react/use-action-state|typescript/ts-expect-error-reason|typescript/vitest/no-tautological-expect|typescript/vitest/no-test-env-branch|typescript/zod/error-param|typescript/zod/v4-string-formats'
+FORGE_FORBID='typescript/nextjs/no-legacy-image-config|typescript/nextjs/no-next-router|typescript/nextjs/no-pages-data|typescript/nextjs/no-public-secret-env|typescript/nextjs/proxy-not-middleware|typescript/nextjs/react/client-hooks|typescript/nextjs/react/no-server-in-client|typescript/nextjs/revalidate-tag-profile|typescript/no-double-assertion|typescript/no-stub|typescript/no-swallowed-catch|typescript/no-ts-nocheck|typescript/playwright/locators|typescript/playwright/no-wait-for-timeout|typescript/prisma/generated-client-import|typescript/prisma/no-middleware|typescript/prisma/no-network-in-transaction|typescript/prisma/no-raw-interpolation|typescript/prisma/no-raw-unsafe|typescript/react/no-prop-types|typescript/react/use-action-state|typescript/ts-expect-error-reason|typescript/vitest/no-tautological-expect|typescript/vitest/no-test-env-branch|typescript/zod/error-param|typescript/zod/v4-string-formats|typescript/prisma/no-unscoped-bulk-write'
 
 # the lines added to each file during the turn (base: the turn snapshot, else HEAD)
 mode=--changed
@@ -15968,6 +15968,28 @@ invalid:
       await Promise.all(items.map(async (item) => axios.post(syncUrl, item)));
     });
 
+===== .forge/ast-grep/rule-tests/typescript-prisma-no-raw-interpolation-test.yml
+id: typescript/prisma/no-raw-interpolation
+valid: []
+invalid:
+  - |
+    import * as Prisma from "@prisma/client/runtime/client";
+
+    export function orderBy(column: string) {
+      return Prisma.raw(`ORDER BY ${column}`);
+    }
+  - |
+    import * as Prisma from "@prisma/client/runtime/client";
+
+    export function where(email: string) {
+      const q = "WHERE email = '" + email + "'";
+      return Prisma.raw(q);
+    }
+  - |
+    import { raw } from "@prisma/client/runtime/client";
+
+    export const by = (table: string) => raw("SELECT * FROM " + table);
+
 ===== .forge/ast-grep/rule-tests/typescript-prisma-no-raw-unsafe-test.yml
 id: typescript/prisma/no-raw-unsafe
 valid:
@@ -15976,6 +15998,32 @@ valid:
 invalid:
   - await prisma.$queryRawUnsafe(`SELECT * FROM u WHERE id=${id}`);
   - await tx.$executeRawUnsafe(sql);
+
+===== .forge/ast-grep/rule-tests/typescript-prisma-no-unscoped-bulk-write-test.yml
+id: typescript/prisma/no-unscoped-bulk-write
+valid: []
+invalid:
+  - |
+    import type { PrismaPromise } from "@prisma/client/runtime/client";
+
+    interface UserDelegate {
+      deleteMany(args?: { where?: { id?: number } }): PrismaPromise<{ count: number }>;
+    }
+    declare const prisma: { user: UserDelegate };
+
+    export async function reset() {
+      await prisma.user.deleteMany();
+      await prisma.user.deleteMany({});
+    }
+  - |
+    import type { PrismaPromise } from "@prisma/client/runtime/client";
+
+    interface PostDelegate {
+      updateMany(args: { where?: { authorId?: number }; data: { published: boolean } }): PrismaPromise<{ count: number }>;
+    }
+    declare const db: { post: PostDelegate };
+
+    export const hideAll = () => db.post.updateMany({ data: { published: false } });
 
 ===== .forge/ast-grep/rule-tests/typescript-react-no-prop-types-test.yml
 id: typescript/react/no-prop-types
@@ -16597,6 +16645,61 @@ rule:
           field: function
           regex: \.\$transaction$
 
+===== .forge/ast-grep/rules/typescript/prisma/no-raw-interpolation.yml
+# Generated by forge from typescript/prisma/no-raw-interpolation (mode: forbid).
+id: typescript/prisma/no-raw-interpolation
+language: Tsx
+severity: error
+message: forge:typescript/prisma/no-raw-interpolation No Prisma.raw() built from a template with ${} or a concatenation, directly or through a variable declared from one in the same function or module; raw() inserts its text unescaped. Use the tagged $queryRaw`...` / Prisma.sql`...` forms, which bind values.
+rule:
+  kind: call_expression
+  all:
+    - pattern: $CALL
+    - has:
+        field: function
+        regex: ^([A-Za-z_$][A-Za-z0-9_$]*\.)?raw$
+    - has:
+        field: arguments
+        has:
+          nthChild: 1
+          any:
+            - kind: template_string
+              has:
+                kind: template_substitution
+            - kind: binary_expression
+              regex: \+
+            - all:
+                - kind: identifier
+                  pattern: $Q
+                - inside:
+                    stopBy: end
+                    any:
+                      - kind: statement_block
+                      - kind: program
+                    has:
+                      stopBy: end
+                      kind: variable_declarator
+                      all:
+                        - has:
+                            field: name
+                            pattern: $Q
+                        - has:
+                            field: value
+                            any:
+                              - kind: template_string
+                                has:
+                                  kind: template_substitution
+                              - kind: binary_expression
+                                regex: \+
+metadata:
+  forge_where:
+    CALL:
+      type:
+        package:
+          - "@prisma/client"
+          - "@prisma/client-runtime-utils"
+        name: Sql
+
 ===== .forge/ast-grep/rules/typescript/prisma/no-raw-unsafe.yml
 # Generated by forge from typescript/prisma/no-raw-unsafe (mode: forbid).
 id: typescript/prisma/no-raw-unsafe
@@ -16607,6 +16710,39 @@ rule:
   any:
     - pattern: $C.$queryRawUnsafe($$$)
     - pattern: $C.$executeRawUnsafe($$$)
+
+===== .forge/ast-grep/rules/typescript/prisma/no-unscoped-bulk-write.yml
+# Generated by forge from typescript/prisma/no-unscoped-bulk-write (mode: advise).
+id: typescript/prisma/no-unscoped-bulk-write
+language: Tsx
+severity: warning
+message: "forge:typescript/prisma/no-unscoped-bulk-write Advice on a Prisma deleteMany() / updateMany() without a where: it deletes or rewrites the whole table (seeds and test resets do it on purpose)."
+rule:
+  kind: call_expression
+  all:
+    - pattern: $CALL
+    - has:
+        field: function
+        kind: member_expression
+        has:
+          field: property
+          regex: ^(deleteMany|updateMany)$
+    - not:
+        has:
+          field: arguments
+          has:
+            kind: object
+            has:
+              kind: pair
+              has:
+                field: key
+                regex: ^["']?where["']?$
+metadata:
+  forge_where:
+    CALL:
+      type:
+        package: "@prisma/client"
+        name: PrismaPromise
 
 ===== .forge/ast-grep/rules/typescript/react/no-prop-types.yml
 # Generated by forge from typescript/react/no-prop-types (mode: forbid).
@@ -20837,7 +20973,7 @@ forge_types_filter() {
 FORGE_STATE=$(forge_state_of "$(pwd -P)")
 
 
-FORGE_FORBID='typescript/nextjs/no-legacy-image-config|typescript/nextjs/no-next-router|typescript/nextjs/no-pages-data|typescript/nextjs/no-public-secret-env|typescript/nextjs/proxy-not-middleware|typescript/nextjs/react/client-hooks|typescript/nextjs/react/no-server-in-client|typescript/nextjs/revalidate-tag-profile|typescript/no-double-assertion|typescript/no-stub|typescript/no-swallowed-catch|typescript/no-ts-nocheck|typescript/playwright/locators|typescript/playwright/no-wait-for-timeout|typescript/prisma/generated-client-import|typescript/prisma/no-middleware|typescript/prisma/no-network-in-transaction|typescript/prisma/no-raw-unsafe|typescript/react/no-prop-types|typescript/react/use-action-state|typescript/ts-expect-error-reason|typescript/vitest/no-tautological-expect|typescript/vitest/no-test-env-branch|typescript/zod/error-param|typescript/zod/v4-string-formats'
+FORGE_FORBID='typescript/nextjs/no-legacy-image-config|typescript/nextjs/no-next-router|typescript/nextjs/no-pages-data|typescript/nextjs/no-public-secret-env|typescript/nextjs/proxy-not-middleware|typescript/nextjs/react/client-hooks|typescript/nextjs/react/no-server-in-client|typescript/nextjs/revalidate-tag-profile|typescript/no-double-assertion|typescript/no-stub|typescript/no-swallowed-catch|typescript/no-ts-nocheck|typescript/playwright/locators|typescript/playwright/no-wait-for-timeout|typescript/prisma/generated-client-import|typescript/prisma/no-middleware|typescript/prisma/no-network-in-transaction|typescript/prisma/no-raw-interpolation|typescript/prisma/no-raw-unsafe|typescript/react/no-prop-types|typescript/react/use-action-state|typescript/ts-expect-error-reason|typescript/vitest/no-tautological-expect|typescript/vitest/no-test-env-branch|typescript/zod/error-param|typescript/zod/v4-string-formats'
 FORGE_NO_INCREASE='typescript/bun/no-mock-increase|typescript/bun/no-new-skip|typescript/playwright/no-new-skip|typescript/vitest/no-mock-increase|typescript/vitest/no-new-skip'
 FORGE_NO_DECREASE='typescript/bun/no-fewer-expects|typescript/vitest/no-fewer-expects'
 
@@ -21088,8 +21224,10 @@ forge_end "$fail"
     "typescript/prisma/migration-present": "884fb66ed58f8eaab7bc83838363ab83539cd972c45638055d79a93ef1752bde",
     "typescript/prisma/no-middleware": "f9b87f0cec0365b73fcb60b3f7cb226c6cec8709b1a9891093960051b7969cc1",
     "typescript/prisma/no-network-in-transaction": "db431e0148e4b401390bba8063e5d616717048b4bd30ac22bc2343486bedfc71",
+    "typescript/prisma/no-raw-interpolation": "c2ae2476097df3df6abc95bd4249c5f393512d9cfc225cb3fd9c295a5f2f74a0",
     "typescript/prisma/no-raw-unsafe": "b889b504c953cab447f027b52f6abd10c61002854b05ae1ed41c2d2a075365f9",
     "typescript/prisma/no-reset": "060bf3f7773db9cf87bede89da4d4540b19271ffb9a698aa7a3d84bf9cf7168a",
+    "typescript/prisma/no-unscoped-bulk-write": "1372fd1bdce2e8fde38e3a4b47061f397469be74458bbc602fa880cdc2790e23",
     "typescript/prisma/validate": "0479a5e9bc602a2d9f0a154719567605623fe73194bceafce1d87bc325d37aad",
     "typescript/react/a11y": "101c3c1b4c43a00525a019cf13d60dd07f9a668569a09b4f5ba8a4a92cdc7c2b",
     "typescript/react/hooks-rules": "84b1b31e6f7aace5c2873499123884279cb92d9177bccc8fab5e40b2767b4047",
@@ -21126,7 +21264,7 @@ forge_end "$fail"
     ".claude/rules/forge-typescript-nextjs-react.md": "2e3462b5d3b2ae7ca170af39cf82bab25bbf97a1dc41f937dcd43239740f2736",
     ".claude/rules/forge-typescript-nextjs.md": "96a99679c5ddb348fe571a68648c3f7722351fe90d1e12f7d15e3c081953d42a",
     ".claude/rules/forge-typescript-playwright.md": "460ee4a08c77b6c6509a681765f299c2116dd996a79a5040d1516645d8e47663",
-    ".claude/rules/forge-typescript-prisma.md": "cf4184031d0c1e5f2a4b8ce5ce8ab676cdbeb65fc59402433cf8e77418daa1d6",
+    ".claude/rules/forge-typescript-prisma.md": "41ee74bcbf8112daeceea29b2cc6e9a9ca7fdc952a6466d10508664ce69df61a",
     ".claude/rules/forge-typescript-react.md": "ae5f638883028fa1744f332b050e244ce57713ad2cc28ab5f8ee259f0088eb20",
     ".claude/rules/forge-typescript-vitest.md": "0c60275a6586d66aa3d3ab871383af8cc874c5e849d10646d8940031768cd606",
     ".claude/rules/forge-typescript-zod.md": "a5e2685c59231ba3ce5e994b28fa8dfd5e5e7946275ef3236334776e61329db7",
@@ -21137,7 +21275,7 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "d0a502f51f51609d7e5e9cd6f39a8ce165c656ee1c1b7a607105a536962058eb",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
     ".claude/skills/forge-project/scripts/lib.sh": "83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "16818d5c2a0c669597e661137cf8d4cdc9fcbb8d8c9b54f680ef8a7fc6234d6e",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "7851655eb9867332c264ba7c2b116e078ca6091f62146f229e06070d059cf015",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
     ".claude/skills/forge-project/scripts/session-end.sh": "99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58",
     ".claude/skills/forge-project/scripts/session-start.sh": "d78f0a86f13810af4a23e5d6b7bf5b6a079d99331ee739441919afd1c5df6ba8",
@@ -21167,7 +21305,9 @@ forge_end "$fail"
     ".forge/ast-grep/rule-tests/typescript-prisma-generated-client-import-test.yml": "91fbbe5ce58f7acf72b9885cb48b5d0c6eb692b862834058404f1b58e6007f5a",
     ".forge/ast-grep/rule-tests/typescript-prisma-no-middleware-test.yml": "a0975e619303c2b7ebf6a13a1c424464c86b5f1c37fdf16667de00e241a56998",
     ".forge/ast-grep/rule-tests/typescript-prisma-no-network-in-transaction-test.yml": "52d332f1fd4e10ae42f7a8fc56a7763dca2457c4e5e2a9f02bde5c49f260becd",
+    ".forge/ast-grep/rule-tests/typescript-prisma-no-raw-interpolation-test.yml": "f7b37d34bfe112cc573af32995fef25bafd77c50ac37a781e26a3143a99f1735",
     ".forge/ast-grep/rule-tests/typescript-prisma-no-raw-unsafe-test.yml": "011dd0c40d77e238e91f0d592ef3e39b4e17f822215fb2ab749c096f8661ccee",
+    ".forge/ast-grep/rule-tests/typescript-prisma-no-unscoped-bulk-write-test.yml": "fd99b11febbd1ff40496c211498c96e40ec3290050e262e8f587bcbb47cab88f",
     ".forge/ast-grep/rule-tests/typescript-react-no-prop-types-test.yml": "973df0a4b101d1b9d02787a5da612d991b2d66a6dda3727805aefed130706efe",
     ".forge/ast-grep/rule-tests/typescript-react-use-action-state-test.yml": "125b8c736e82d5ef59eaf57dd32da3df326b16bc81cd9534f9a7023aa5d54b35",
     ".forge/ast-grep/rule-tests/typescript-ts-expect-error-reason-test.yml": "7ae5fe613eff1c75cb68f1333b898ad82d6d4889c3cc4da6bb8e5962e825a1b1",
@@ -21199,7 +21339,9 @@ forge_end "$fail"
     ".forge/ast-grep/rules/typescript/prisma/generated-client-import.yml": "7b8a093b0f51e5d6b8f8a132b1ef43888104b1f5985465fc4f0f5984762a79c2",
     ".forge/ast-grep/rules/typescript/prisma/no-middleware.yml": "98cf3096f74f6db07744f597904e3df903a8a886a095cfffa52b133bf3acc1c7",
     ".forge/ast-grep/rules/typescript/prisma/no-network-in-transaction.yml": "4867b2d6d4fcc67ecf3f85d3a7433a27be0204c9a33d17c690d1dd52708d3c35",
+    ".forge/ast-grep/rules/typescript/prisma/no-raw-interpolation.yml": "e989b1133f2436311a10229814fa568e19da18c4453223e9e99d9f067f6e1f5f",
     ".forge/ast-grep/rules/typescript/prisma/no-raw-unsafe.yml": "304ac41eb0a4b7025ca081e4a03cb746cdd15b5512a0bac217ad9a89017b3e00",
+    ".forge/ast-grep/rules/typescript/prisma/no-unscoped-bulk-write.yml": "fb7e10fb83f16846a078b5ac4b29d242795a8f00154263708f60c8c7a7a59b34",
     ".forge/ast-grep/rules/typescript/react/no-prop-types.yml": "9626068d2f677a351b7722fbddc5a74e87c539b4c3e46a55d75cfaf717542c62",
     ".forge/ast-grep/rules/typescript/react/use-action-state.yml": "17b6fc5e510df3154be12c72a584d8bfb31034b577774718a8c50516b2b15a81",
     ".forge/ast-grep/rules/typescript/ts-expect-error-reason.yml": "b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad",
@@ -21211,7 +21353,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/typescript/zod/error-param.yml": "88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a",
     ".forge/ast-grep/rules/typescript/zod/v4-string-formats.yml": "1f4b2e54f9767673c6469da4a1d7f0d9dc1d8f39b657460bab8096b8c35a0a45",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "8516ea105c4f4decd358efa899f9014cd3591fcb5ee23ef241086f9e0af02e1e",
+    ".forge/check.sh": "2d7de5396afc158c06e0b9236c81ab4d90ea07845a6ffe005fa7b5593f15d915",
     ".forge/helpers/ratchet.mjs": "14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38",
     ".forge/helpers/types_typescript.mjs": "6e762a63e5d062fec1c24302266e2a0f186fb2541487fe820f10e76f9015c177",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
@@ -22098,7 +22240,7 @@ main().catch((e) => {
 2e3462b5d3b2ae7ca170af39cf82bab25bbf97a1dc41f937dcd43239740f2736  .claude/rules/forge-typescript-nextjs-react.md
 96a99679c5ddb348fe571a68648c3f7722351fe90d1e12f7d15e3c081953d42a  .claude/rules/forge-typescript-nextjs.md
 460ee4a08c77b6c6509a681765f299c2116dd996a79a5040d1516645d8e47663  .claude/rules/forge-typescript-playwright.md
-cf4184031d0c1e5f2a4b8ce5ce8ab676cdbeb65fc59402433cf8e77418daa1d6  .claude/rules/forge-typescript-prisma.md
+41ee74bcbf8112daeceea29b2cc6e9a9ca7fdc952a6466d10508664ce69df61a  .claude/rules/forge-typescript-prisma.md
 ae5f638883028fa1744f332b050e244ce57713ad2cc28ab5f8ee259f0088eb20  .claude/rules/forge-typescript-react.md
 0c60275a6586d66aa3d3ab871383af8cc874c5e849d10646d8940031768cd606  .claude/rules/forge-typescript-vitest.md
 a5e2685c59231ba3ce5e994b28fa8dfd5e5e7946275ef3236334776e61329db7  .claude/rules/forge-typescript-zod.md
@@ -22109,7 +22251,7 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 d0a502f51f51609d7e5e9cd6f39a8ce165c656ee1c1b7a607105a536962058eb  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
 83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5  .claude/skills/forge-project/scripts/lib.sh
-16818d5c2a0c669597e661137cf8d4cdc9fcbb8d8c9b54f680ef8a7fc6234d6e  .claude/skills/forge-project/scripts/post-edit.sh
+7851655eb9867332c264ba7c2b116e078ca6091f62146f229e06070d059cf015  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
 99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58  .claude/skills/forge-project/scripts/session-end.sh
 d78f0a86f13810af4a23e5d6b7bf5b6a079d99331ee739441919afd1c5df6ba8  .claude/skills/forge-project/scripts/session-start.sh
@@ -22139,7 +22281,9 @@ bb487493a7aa36a61f149d2d9b1fbe38895749290027dba745f51fdc011f054f  .forge/ast-gre
 91fbbe5ce58f7acf72b9885cb48b5d0c6eb692b862834058404f1b58e6007f5a  .forge/ast-grep/rule-tests/typescript-prisma-generated-client-import-test.yml
 a0975e619303c2b7ebf6a13a1c424464c86b5f1c37fdf16667de00e241a56998  .forge/ast-grep/rule-tests/typescript-prisma-no-middleware-test.yml
 52d332f1fd4e10ae42f7a8fc56a7763dca2457c4e5e2a9f02bde5c49f260becd  .forge/ast-grep/rule-tests/typescript-prisma-no-network-in-transaction-test.yml
+f7b37d34bfe112cc573af32995fef25bafd77c50ac37a781e26a3143a99f1735  .forge/ast-grep/rule-tests/typescript-prisma-no-raw-interpolation-test.yml
 011dd0c40d77e238e91f0d592ef3e39b4e17f822215fb2ab749c096f8661ccee  .forge/ast-grep/rule-tests/typescript-prisma-no-raw-unsafe-test.yml
+fd99b11febbd1ff40496c211498c96e40ec3290050e262e8f587bcbb47cab88f  .forge/ast-grep/rule-tests/typescript-prisma-no-unscoped-bulk-write-test.yml
 973df0a4b101d1b9d02787a5da612d991b2d66a6dda3727805aefed130706efe  .forge/ast-grep/rule-tests/typescript-react-no-prop-types-test.yml
 125b8c736e82d5ef59eaf57dd32da3df326b16bc81cd9534f9a7023aa5d54b35  .forge/ast-grep/rule-tests/typescript-react-use-action-state-test.yml
 7ae5fe613eff1c75cb68f1333b898ad82d6d4889c3cc4da6bb8e5962e825a1b1  .forge/ast-grep/rule-tests/typescript-ts-expect-error-reason-test.yml
@@ -22171,7 +22315,9 @@ e4ed8b571875af6fbce7f92616b4772d90c847e5009403d57f76d46a7b55396d  .forge/ast-gre
 7b8a093b0f51e5d6b8f8a132b1ef43888104b1f5985465fc4f0f5984762a79c2  .forge/ast-grep/rules/typescript/prisma/generated-client-import.yml
 98cf3096f74f6db07744f597904e3df903a8a886a095cfffa52b133bf3acc1c7  .forge/ast-grep/rules/typescript/prisma/no-middleware.yml
 4867b2d6d4fcc67ecf3f85d3a7433a27be0204c9a33d17c690d1dd52708d3c35  .forge/ast-grep/rules/typescript/prisma/no-network-in-transaction.yml
+e989b1133f2436311a10229814fa568e19da18c4453223e9e99d9f067f6e1f5f  .forge/ast-grep/rules/typescript/prisma/no-raw-interpolation.yml
 304ac41eb0a4b7025ca081e4a03cb746cdd15b5512a0bac217ad9a89017b3e00  .forge/ast-grep/rules/typescript/prisma/no-raw-unsafe.yml
+fb7e10fb83f16846a078b5ac4b29d242795a8f00154263708f60c8c7a7a59b34  .forge/ast-grep/rules/typescript/prisma/no-unscoped-bulk-write.yml
 9626068d2f677a351b7722fbddc5a74e87c539b4c3e46a55d75cfaf717542c62  .forge/ast-grep/rules/typescript/react/no-prop-types.yml
 17b6fc5e510df3154be12c72a584d8bfb31034b577774718a8c50516b2b15a81  .forge/ast-grep/rules/typescript/react/use-action-state.yml
 b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad  .forge/ast-grep/rules/typescript/ts-expect-error-reason.yml
@@ -22183,7 +22329,7 @@ d3c41a3915d84b21e86e9212a06ad14c52bf2f9bcefb7c5ca433200cc3ec44fb  .forge/ast-gre
 88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a  .forge/ast-grep/rules/typescript/zod/error-param.yml
 1f4b2e54f9767673c6469da4a1d7f0d9dc1d8f39b657460bab8096b8c35a0a45  .forge/ast-grep/rules/typescript/zod/v4-string-formats.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-8516ea105c4f4decd358efa899f9014cd3591fcb5ee23ef241086f9e0af02e1e  .forge/check.sh
+2d7de5396afc158c06e0b9236c81ab4d90ea07845a6ffe005fa7b5593f15d915  .forge/check.sh
 14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38  .forge/helpers/ratchet.mjs
 6e762a63e5d062fec1c24302266e2a0f186fb2541487fe820f10e76f9015c177  .forge/helpers/types_typescript.mjs
 
