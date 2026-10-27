@@ -124,6 +124,10 @@ For a function, decorator or class used by name, ask what the name **refers to**
 
 TypeScript projects declare the global types they use (`@types/node`, `@types/bun`) in `compilerOptions.types`; the examples project of `test:packs` lists the `@types/*` packages of `examples.deps` there.
 
+### Deprecated uses
+
+`{deprecated: true}` asks whether a name is a use of a declaration marked `@deprecated`, as the project's TypeScript reports it: a call (of the overload it resolves to), a property, a type, an import, and an object literal key whose property is deprecated. `typescript/no-deprecated` asks it of every name, so one rule replaces lists of removed APIs per library.
+
 `where` works on `forbid` and `advise` targets. A match whose engine could not answer is reported as `forge:forge/types <rule> was not checked: …`, never passed silently.
 
 ## Examples are tests

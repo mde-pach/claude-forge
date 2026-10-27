@@ -654,6 +654,7 @@ context.md: uv and `.venv/bin`, ty, annotated parameters and returns; no blockin
 | `typescript/no-double-assertion` | `ast-grep` forbid: `$X as unknown as $T`, `$X as any as $T` |
 | `typescript/no-ts-nocheck` | `ast-grep` forbid comment `@ts-nocheck` |
 | `typescript/ts-expect-error-reason` | `ast-grep` forbid comment `@ts-expect-error` with nothing after it |
+| `typescript/no-deprecated` | `ast-grep` forbid, `where` `{deprecated: true}` (§15.7) on every identifier, property, type and shorthand name: a use of a declaration marked `@deprecated` (the project's, a library's, `@types/node`'s: `url.parse`, `new Buffer()`, React's `ElementRef`) as TypeScript reports it, including the overload a call resolves to, and an object literal key of a deprecated property |
 | `typescript/no-ignore-deprecations` | `check` lint: no `"ignoreDeprecations"` in tracked `tsconfig*.json`, `when_changed: [tsconfig*.json]` |
 | `typescript/no-focused-tests` | `tool` biome `lint/suspicious/noFocusedTests`; `ast-grep` forbid `it.only(…)`, `test.only(…)`, `describe.only(…)`, `test.describe.only(…)` in test files and `e2e/**` |
 | `typescript/no-eval` | `tool` biome `lint/security/noGlobalEval`; `ast-grep` forbid `eval(…)`, `globalThis.eval(…)`, `window.eval(…)` |
@@ -1372,7 +1373,7 @@ Detected by `react >= 19` (npm); a sibling of `nextjs` and `astro`, so it applie
 | `typescript/react/stable-keys` | `tool` biome `lint/suspicious/noArrayIndexKey` |
 | `typescript/react/no-nested-components` | `tool` biome `lint/correctness/noNestedComponentDefinitions`, `lint/nursery/noComponentHookFactories` (a function that defines and returns a component or hook) |
 | `typescript/react/a11y` | deprecated, replaced by `typescript/a11y` (which covers the Vue, Svelte, Astro and HTML templates too) |
-| `typescript/react/no-deprecated-types` | `tool` biome `lint/suspicious/noDeprecatedImports`, on imports React's types mark `@deprecated` (`ElementRef`, `MutableRefObject`, `LegacyRef`); Biome reads the tags from real `node_modules` directories only (not pnpm's symlinks) |
+| `typescript/react/no-deprecated-types` | deprecated, replaced by `typescript/no-deprecated` (every deprecated use, React's types included, through the project's TypeScript) |
 | `typescript/react/compiler-rules` | `tool` biome `lint/nursery/useReactCompiler` (snippet: error, `compilationMode: infer`): no synchronous `setState` in an effect, no ref read or written while rendering, no impure call while rendering |
 | `typescript/react/no-prop-assign` | `tool` biome `lint/correctness/noReactPropAssignments` |
 | `typescript/react/stable-default-props` | `tool` biome `lint/nursery/noReactObjectTypeAsDefaultProp`: no object, array or function literal as a destructured prop's default |
@@ -2235,6 +2236,7 @@ A rule says **what** it needs to know about the code; the engine decides **how**
 |---|---|---|---|
 | types | `where: {<VAR>: {type: …}}` on an `ast-grep` target | what the static type of the expression bound to a metavariable is declared as | implemented (§15.1–§15.3) |
 | declared | `where: {<VAR>: {declared: …}}` | what a name refers to (an imported function or class, through aliases): `textDocument/definition` instead of `typeDefinition`, no supertypes | implemented (§15.6) |
+| deprecated | `where: {<VAR>: {deprecated: true}}` | whether the name is a use of a declaration marked `@deprecated`, as the project's TypeScript reports it | implemented (§15.7), TypeScript |
 | files | `@<role>` in `scope.files`, `when_changed`, check commands and a where `module` | the paths of a file role: Forge's defaults, the tool's declarative config, `forge.yaml` | implemented (§15.4) |
 | tests | engine helpers of test checks | the tests a runner collects and the ones that failed, from the runner's own reports | proposed (§15.5) |
 
@@ -2254,7 +2256,7 @@ examples:
   no_match: ["class Session:\n    def query(self, q: str) -> list[str]:\n        return [q]\n\n\ndef search(session: Session):\n    return session.query(\"text\")\n"]
 ```
 
-`where` maps single metavariables of the rule (`$S`, not `$$$S`) to a condition: `{type: <spec>}`, `{declared: <spec>}` (the declaration a name refers to, §15.6) or `{not: <condition>}`. A spec has `package` and/or `module` (a string or a list; at least one: a name alone would be a guess), optionally `name` (a string or a list of identifiers) and `unknown: match | no-match` (default `no-match`).
+`where` maps single metavariables of the rule (`$S`, not `$$$S`) to a condition: `{type: <spec>}`, `{declared: <spec>}` (the declaration a name refers to, §15.6), `{deprecated: true}` (a deprecated use, §15.7) or `{not: <condition>}`. A spec has `package` and/or `module` (a string or a list; at least one: a name alone would be a guess), optionally `name` (a string or a list of identifiers) and `unknown: match | no-match` (default `no-match`).
 
 **Semantics.** For each match, each condition is evaluated on the expression the metavariable is bound to; the match counts only when all of them hold.
 
@@ -2391,3 +2393,23 @@ enforce:
 5. A name bound to a project variable refers to that variable (`run = np.load`, then `run(…)`): the declaration is the project's, whatever its value.
 
 Same engines, daemons, protocol and `forge test` as §15.1: a rule may mix `type` and `declared` conditions on different metavariables. Through the adapters, ty, tsserver (TypeScript 5, 6) and `tsc --lsp` (7) answer `definition` on a name through aliases, namespaces and re-exports; an unresolved import gives the import itself or nothing, and an attribute of `any` / `Any` nothing.
+
+### 15.7 Deprecated uses
+
+```yaml
+# packs/typescript/rules/no-deprecated.yaml
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule: {any: [{kind: identifier, pattern: $N}, {kind: property_identifier, pattern: $N}, {kind: type_identifier, pattern: $N}, {kind: shorthand_property_identifier, pattern: $N}]}
+    where:
+      N: {deprecated: true}
+```
+
+`{deprecated: true}` holds when the name the metavariable is bound to is a use of a declaration marked `@deprecated`, as the project's own TypeScript reports it (the strikethrough of an editor), in the file as it is on disk:
+
+1. **Uses the checker reports.** TypeScript's suggestion diagnostics `6385` ("'X' is deprecated.") and `6387` ("The signature … of 'X' is deprecated."): a reference, a property access, a call or construction (for an overloaded function, the signature the call resolves to: a call of a non-deprecated overload is not one), a type, an import. The name holds when its range overlaps one of them. tsserver (TypeScript 5, 6) answers `suggestionDiagnosticsSync` and `tsc --lsp` (7) `textDocument/diagnostic`, one request per file and question.
+2. **Object literal keys**, which TypeScript checks against the contextual type but never reports: a name in a key's position (`{ name: …`, `, name: …`, a shorthand `{ name }`) holds when the server documents the property as deprecated (tsserver's `quickinfo` kind modifiers; the language server's hover, which renders the tag as `*@deprecated*`) and its definition is not the name itself (an interface or type member declaring a deprecated property is not a use of it).
+3. A declaration is never a use: the checker reports none on a deprecated function's or property's own name.
+
+Only TypeScript's engine answers it: a Python rule with `deprecated` is rejected when it is loaded (ty's own `deprecated` rule covers Python, `python/no-deprecated`). The same spec tests hold for TypeScript 5, 6 and 7.

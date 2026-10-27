@@ -131,7 +131,7 @@ class Lsp extends Base {
       workspaceFolders: [{ uri: uri(ROOT), name: "root" }],
       capabilities: {
         general: { positionEncodings: ["utf-16"] },
-        textDocument: { typeDefinition: { linkSupport: true }, definition: { linkSupport: true } },
+        textDocument: { typeDefinition: { linkSupport: true }, definition: { linkSupport: true }, diagnostic: {}, hover: { contentFormat: ["markdown"] } },
         workspace: { configuration: true, workspaceFolders: true },
       },
     });
@@ -161,6 +161,18 @@ class Lsp extends Base {
   }
   definition(file, pos) {
     return this.locations("definition", file, pos);
+  }
+  /** The ranges the server reports as deprecated uses (suggestions 6385, 6387), as LSP ranges. */
+  async deprecatedRanges(file) {
+    const r = await this.request("textDocument/diagnostic", { textDocument: { uri: uri(file) } });
+    return (r?.items ?? []).filter((d) => DEPRECATED_CODES.has(Number(d.code))).map((d) => d.range);
+  }
+  /** Whether the server's hover at pos documents a @deprecated declaration (rendered "*@deprecated*"). */
+  async deprecatedAt(file, pos) {
+    const r = await this.request("textDocument/hover", { textDocument: { uri: uri(file) }, position: pos });
+    const c = r?.contents;
+    const text = typeof c === "string" ? c : Array.isArray(c) ? c.map((x) => (typeof x === "string" ? x : x.value)).join("\n") : (c?.value ?? "");
+    return /(^|\n)\*@deprecated\*/.test(text);
   }
 }
 
@@ -248,7 +260,21 @@ class TsServer extends Base {
   definition(file, pos) {
     return this.locations("definition", file, pos);
   }
+  /** The ranges the server reports as deprecated uses (suggestions 6385, 6387), as LSP ranges. */
+  async deprecatedRanges(file) {
+    const body = await this.command("suggestionDiagnosticsSync", { file });
+    const lsp = (p) => ({ line: p.line - 1, character: p.offset - 1 });
+    return asArray(body).filter((d) => DEPRECATED_CODES.has(d.code)).map((d) => ({ start: lsp(d.start), end: lsp(d.end) }));
+  }
+  /** Whether the symbol at pos is deprecated (quickinfo's kind modifiers). */
+  async deprecatedAt(file, pos) {
+    const body = await this.command("quickinfo", { file, line: pos.line + 1, offset: pos.character + 1 });
+    return (body?.kindModifiers ?? "").split(",").includes("deprecated");
+  }
 }
+
+/** TypeScript's suggestion diagnostics for a deprecated use: "'X' is deprecated." (6385), "The signature … of 'X' is deprecated." (6387). */
+const DEPRECATED_CODES = new Set([6385, 6387]);
 
 const languageId = (file) =>
   /\.[cm]?tsx?$/.test(file) ? (file.endsWith("x") ? "typescriptreact" : "typescript") : file.endsWith("x") ? "javascriptreact" : "javascript";
@@ -592,6 +618,48 @@ class Types {
   }
 }
 
+/**
+ * Whether a name is in the position of an object literal's key (`{ name: …`, `, name: …`,
+ * or a shorthand `{ name }`): the one use of a deprecated declaration TypeScript reports no
+ * suggestion for (its key is checked against the contextual type, §15.7). Comments are skipped.
+ */
+function keyPosition(text, start, end) {
+  let i = start - 1;
+  for (;;) {
+    while (i >= 0 && /\s/.test(text[i])) i--;
+    if (i >= 1 && text[i] === "/" && text[i - 1] === "*") {
+      const open = text.lastIndexOf("/*", i - 2);
+      if (open < 0) return false;
+      i = open - 1;
+      continue;
+    }
+    break;
+  }
+  if (i < 0 || (text[i] !== "{" && text[i] !== ",")) return false;
+  const after = skipTrivia(text, end);
+  return text[after] === ":" ? text[after + 1] !== ":" : text[after] === "," || text[after] === "}";
+}
+
+Types.prototype.deprecated = async function deprecated(file, items) {
+  // the file as it is on disk (a type question may have shown the server another version)
+  const text = this.server.sync(file);
+  const raw = Buffer.from(text, "utf8");
+  const ranges = (await this.server.deprecatedRanges(file)).map((r) => [indexOf(text, r.start), indexOf(text, r.end)]);
+  const found = new Map();
+  for (const [n, v, s, e] of items) {
+    const a = raw.subarray(0, s).toString("utf8").length;
+    const b = raw.subarray(0, e).toString("utf8").length;
+    let deprecated = ranges.some(([rs, re]) => rs < b && a < re);
+    if (!deprecated && keyPosition(text, a, b) && (await this.server.deprecatedAt(file, position(text, a)))) {
+      // a key that declares the property (an interface or type member) is not a use of it
+      const defs = await this.server.definition(file, position(text, a));
+      deprecated = !defs.some((l) => fs.realpathSync(pathOf(l.uri)) === fs.realpathSync(file) && indexOf(text, l.pos) === a);
+    }
+    found.set(`${n}\0${v}`, { deprecated });
+  }
+  return found;
+};
+
 const asArray = (r) => (Array.isArray(r) ? r : r ? [r] : []);
 
 // ---------------------------------------------------------------- constraints
@@ -614,9 +682,10 @@ function satisfies({ decls, unknown }, spec) {
   );
 }
 // several specs: one of them is enough
-const holds = (decls, cond) => (cond.not ? !holds(decls, cond.not) : [cond.type ?? cond.declared].flat().some((spec) => satisfies(decls, spec)));
-/** What a condition asks of its metavariable: "type" or "declared". */
-const asks = (cond) => (cond.not ? asks(cond.not) : cond.declared ? "declared" : "type");
+const holds = (decls, cond) =>
+  cond.not ? !holds(decls, cond.not) : cond.deprecated !== undefined ? decls.deprecated === cond.deprecated : [cond.type ?? cond.declared].flat().some((spec) => satisfies(decls, spec));
+/** What a condition asks of its metavariable: "type", "declared" or "deprecated". */
+const asks = (cond) => (cond.not ? asks(cond.not) : cond.deprecated !== undefined ? "deprecated" : cond.declared ? "declared" : "type");
 
 async function answer(types, matches) {
   const byFile = new Map();
@@ -626,12 +695,16 @@ async function answer(types, matches) {
     for (const [v, cond] of Object.entries(where)) {
       if (!single[v]) continue;
       const b = single[v].range.byteOffset;
-      if (!byFile.has(m.file)) byFile.set(m.file, { type: [], declared: [] });
+      if (!byFile.has(m.file)) byFile.set(m.file, { type: [], declared: [], deprecated: [] });
       byFile.get(m.file)[asks(cond)].push([n, v, b.start, b.end]);
     }
   });
   const found = new Map();
-  for (const [f, kinds] of byFile) for (const [k, d] of await types.check(path.join(ROOT, f), kinds.type, kinds.declared)) found.set(k, d);
+  for (const [f, kinds] of byFile) {
+    const file = path.join(ROOT, f);
+    if (kinds.type.length || kinds.declared.length) for (const [k, d] of await types.check(file, kinds.type, kinds.declared)) found.set(k, d);
+    if (kinds.deprecated.length) for (const [k, d] of await types.deprecated(file, kinds.deprecated)) found.set(k, d);
+  }
   return matches.flatMap((m, n) =>
     Object.entries(m.metadata?.forge_where ?? {}).every(([v, cond]) => !found.has(`${n}\0${v}`) || holds(found.get(`${n}\0${v}`), cond)) ? [n] : [],
   );

@@ -86,7 +86,7 @@ export interface TypeSpec {
  * aliases and re-exports, no supertypes), or the negation of one. A list of specs holds
  * when one of them does.
  */
-export type WhereCondition = { type: TypeSpec | TypeSpec[] } | { declared: TypeSpec | TypeSpec[] } | { not: WhereCondition };
+export type WhereCondition = { type: TypeSpec | TypeSpec[] } | { declared: TypeSpec | TypeSpec[] } | { deprecated: true } | { not: WhereCondition };
 export interface PermissionTarget {
   target: "permission";
   decision: Decision;

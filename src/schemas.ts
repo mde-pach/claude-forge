@@ -110,6 +110,8 @@ const whereCondition = {
   oneOf: [
     { type: "object", additionalProperties: false, required: ["type"], properties: { type: typeSpecs } },
     { type: "object", additionalProperties: false, required: ["declared"], properties: { declared: typeSpecs } },
+    // the name is a use the checker reports as deprecated (§15.7)
+    { type: "object", additionalProperties: false, required: ["deprecated"], properties: { deprecated: { const: true } } },
     { type: "object", additionalProperties: false, required: ["not"], properties: { not: { $ref: "#/$defs/where" } } },
   ],
 } as const;

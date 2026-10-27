@@ -439,6 +439,7 @@ export function rolesOfRule(rule: Pick<Rule, "scope" | "enforce">): string[] {
 
 /** The specs of a where condition's type or declared (a spec or a list of them). */
 function specsOf(c: Exclude<WhereCondition, { not: WhereCondition }>): TypeSpec[] {
+  if ("deprecated" in c) return [];
   const v = "type" in c ? c.type : c.declared;
   return Array.isArray(v) ? v : [v];
 }
@@ -493,6 +494,7 @@ function roleModules(name: string, roles: Roles, python: boolean): string[] {
 
 function mapWhere(c: WhereCondition, roles: Roles, python: boolean): WhereCondition {
   if ("not" in c) return { not: mapWhere(c.not, roles, python) };
+  if ("deprecated" in c) return c;
   const map = (t: TypeSpec): TypeSpec => {
     const m = t.module;
     if (m === undefined) return t;

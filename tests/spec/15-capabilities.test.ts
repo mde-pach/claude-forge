@@ -17,6 +17,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { renderChecks, renderLib } from "../../src/render";
 import { validate } from "../../src/schemas";
+import { loadRuleFile } from "../../src/packs";
 import { ENGINE_PYTHON, TY_VERSION } from "../../src/util";
 import { commitAll, fakeClaude, fixture, forge, git, hasBun, hasUv, hookJson, othersRunning, processesNaming, put, ROOT, sh, stateDir, stopEngines, TOOL_VERSIONS } from "../helpers";
 
@@ -590,6 +591,51 @@ describe.each(TOOL_VERSIONS.typescriptEngines.map((v) => [v]))("TypeScript %s: t
     T,
   );
 
+  /**
+   * The checker's own deprecation report (§15.7): a use TypeScript reports as deprecated
+   * (6385, 6387: for an overloaded function, the signature the call resolves to), and an
+   * object literal key whose contextual property is deprecated, which it never reports.
+   * @rule typescript/no-deprecated
+   */
+  test(
+    "deprecated uses are what the project's TypeScript reports: a library type imported and used, a call of a deprecated function or overload, a deprecated key; not their declarations nor the other overload",
+    () => {
+      put(
+        repo,
+        "src/legacy.ts",
+        [
+          'import type { ElementRef } from "react";',
+          "",
+          "export type Box = ElementRef<\"div\">;",
+          "/** @deprecated use total() */",
+          "export function sum(a: number, b: number): number {",
+          "  return a + b;",
+          "}",
+          "export interface Options {",
+          "  /** @deprecated use timeoutMs */",
+          "  timeout?: number;",
+          "  timeoutMs?: number;",
+          "}",
+          "declare function connect(options: Options): void;",
+          "declare function format(value: string): string;",
+          "/** @deprecated pass a string */",
+          "declare function format(value: number): string;",
+          "export const s = sum(1, 2);",
+          "connect({ timeout: 5 });",
+          "connect({ timeoutMs: 5 });",
+          "export const f = [format(1), format(\"1\")];",
+          "",
+        ].join("\n"),
+      );
+      const lines = afterEdit(repo, "src/legacy.ts")
+        .split("\n")
+        .filter((l) => l.startsWith("forge:typescript/no-deprecated "))
+        .map((l) => /src\/legacy\.ts:(\d+):(\d+)/.exec(l)!.slice(1, 3).join(":"));
+      expect(lines).toEqual(["1:15", "3:19", "17:18", "18:11", "20:19"]);
+    },
+    T,
+  );
+
   test.skipIf(othersRunning(import.meta.path))(
     `once the engine runs, an edit's type question (client, FIFO and engine) takes under ${WARM_BUDGET_MS} ms`,
     () => {
@@ -599,7 +645,8 @@ describe.each(TOOL_VERSIONS.typescriptEngines.map((v) => [v]))("TypeScript %s: t
       for (let i = 0; i < 9; i++) {
         put(repo, "src/schemas.ts", `${SCHEMAS}// edit ${i}\n`);
         const q = typeQuestion(repo, "typescript", "src/schemas.ts");
-        expect(q.kept).toBe(3);
+        // Zod 4's .email(), .url() and .uuid(): the zod rule and typescript/no-deprecated (§15.7)
+        expect(q.kept).toBe(6);
         times.push(q.ms);
       }
       expect(median(times)).toBeLessThan(WARM_BUDGET_MS);
@@ -668,7 +715,7 @@ test(
 );
 
 /** @rule python/numpy/no-allow-pickle */
-test("a where condition asks a type (§15.1) or a declared name (§15.6), as one spec or a list of them, or negates one; a spec names a package or a module, never a name alone", () => {
+test("a where condition asks a type (§15.1), a declared name (§15.6), as one spec or a list of them, or a deprecated use (§15.7), or negates one; a spec names a package or a module, never a name alone", () => {
   const rule = (F: unknown) => ({ id: "local/x", description: "d", scope: { language: "python" }, enforce: [{ target: "ast-grep", mode: "forbid", rule: { pattern: "$F()" }, where: { F } }] });
   const ok = (F: unknown) => {
     try {
@@ -682,7 +729,17 @@ test("a where condition asks a type (§15.1) or a declared name (§15.6), as one
   expect(ok({ declared: [{ package: "datetime", name: ["now", "today"] }, { module: "time" }] })).toBe(true);
   expect(ok({ type: [{ package: "sqlalchemy", name: "Session" }] })).toBe(true);
   expect(ok({ not: { declared: { package: "flask" } } })).toBe(true);
+  expect(ok({ deprecated: true })).toBe(true);
+  expect(ok({ deprecated: false })).toBe(false);
   expect(ok({ declared: { name: "load" } })).toBe(false);
   expect(ok({ declared: [] })).toBe(false);
   expect(ok({ declared: { package: "numpy" }, type: { package: "numpy" } })).toBe(false);
+});
+
+/** Only the TypeScript engine answers deprecated uses (§15.7): ty's own rule covers Python. */
+test("a Python rule asking deprecated is rejected when it is loaded", () => {
+  const dir = mkdtempSync(join(tmpdir(), "forge-dep-"));
+  const file = join(dir, "x.yaml");
+  writeFileSync(file, 'id: local/x\ndescription: d\nscope: {language: python}\nenforce: [{target: ast-grep, mode: forbid, rule: {kind: identifier, pattern: $N}, where: {N: {deprecated: true}}}]\n');
+  expect(() => loadRuleFile(file, "local")).toThrow("where deprecated is answered for TypeScript only");
 });

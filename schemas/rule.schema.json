@@ -54,6 +54,18 @@
           "type": "object",
           "additionalProperties": false,
           "required": [
+            "deprecated"
+          ],
+          "properties": {
+            "deprecated": {
+              "const": true
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
             "not"
           ],
           "properties": {

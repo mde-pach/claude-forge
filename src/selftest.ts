@@ -707,6 +707,7 @@ function typesExamples(rules: Rule[], report: TestReport): void {
 
 function describeWhere(rule: Rule): string {
   const t = rule.enforce.find((x): x is AstGrepTarget => x.target === "ast-grep")!;
-  const show = (c: WhereCondition): string => ("not" in c ? `not ${show(c.not)}` : "declared" in c ? `declared ${JSON.stringify(c.declared)}` : JSON.stringify(c.type));
+  const show = (c: WhereCondition): string =>
+    "not" in c ? `not ${show(c.not)}` : "deprecated" in c ? "deprecated" : "declared" in c ? `declared ${JSON.stringify(c.declared)}` : JSON.stringify(c.type);
   return Object.entries(t.where ?? {}).map(([v, c]) => `$${v}: ${show(c)}`).join(", ");
 }
