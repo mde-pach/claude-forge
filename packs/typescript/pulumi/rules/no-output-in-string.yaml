@@ -1,0 +1,35 @@
+id: typescript/pulumi/no-output-in-string
+description: "An Output<T> is not put in a template literal or concatenated with a string: it is a promise-like value, so the text gets \"Calling [toString] on an [Output<T>] is not supported\" instead of the value. Use pulumi.interpolate`…`, pulumi.concat(…) or output.apply((v) => …)."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      all:
+        - any: [{kind: identifier}, {kind: member_expression}, {kind: call_expression}, {kind: subscript_expression}]
+        - pattern: $E
+        - any:
+            # `…${E}…`, not a tagged template (pulumi.interpolate`…${E}…`)
+            - inside:
+                kind: template_substitution
+                stopBy: neighbor
+                inside: {kind: template_string, stopBy: neighbor, not: {inside: {kind: call_expression, stopBy: neighbor}}}
+            # "…" + E, E + "…"
+            - inside:
+                kind: binary_expression
+                stopBy: neighbor
+                all:
+                  - has: {field: operator, regex: "^\\+$"}
+                  - has: {any: [{kind: string}, {kind: template_string}]}
+    # the value is a Pulumi Output by its type (§15.1): Output<T> is an alias of the
+    # intersection OutputInstance<T> & Lifted<T>
+    where:
+      E: {type: {package: "@pulumi/pulumi", name: [Output, OutputInstance]}}
+examples:
+  deps: [{ecosystem: npm, name: "@pulumi/pulumi", version: "3.268.0"}]
+  match:
+    - "import * as pulumi from \"@pulumi/pulumi\";\n\nexport function url(host: pulumi.Output<string>) {\n  return `https://${host}/health`;\n}\n"
+    - "import * as pulumi from \"@pulumi/pulumi\";\n\nconst config = new pulumi.Config();\nconst port = pulumi.output(config.requireNumber(\"port\"));\n\nexport const address = \"0.0.0.0:\" + port;\n"
+  no_match:
+    - "import * as pulumi from \"@pulumi/pulumi\";\n\nexport function url(host: pulumi.Output<string>) {\n  const viaInterpolate = pulumi.interpolate`https://${host}/health`;\n  const viaApply = host.apply((h) => `https://${h}/health`);\n  return [viaInterpolate, viaApply];\n}\n"
+    - "export function url(host: string, port: number) {\n  return `https://${host}:` + port;\n}\n"
