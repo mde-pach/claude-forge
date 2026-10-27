@@ -1414,6 +1414,7 @@ forge_grep_meta_2() {
   g_desc='No pip --extra-index-url (requirements files, pip.conf / pip.ini, PIP_EXTRA_INDEX_URL, pip install in Dockerfiles, CI and scripts) and no uv index strategy unsafe-best-match or unsafe-first-match: pip merges every index and installs the highest version, so a public package with an internal package'\''s name wins. Use one --index-url that proxies the public index, or uv indexes (first-index by default).'
 }
 forge_grep_scope_2() {
+  case $1 in .claude/skills/forge-project/*) return 1 ;; esac
   case $1 in requirements*.txt|*/requirements*.txt|constraints*.txt|*/constraints*.txt|pip.conf|*/pip.conf|pip.ini|*/pip.ini|Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|.github/workflows/*|.gitlab-ci.yml|*.sh|*/*.sh|Makefile|*/Makefile|tox.ini|*/tox.ini|noxfile.py|*/noxfile.py|.env.example|*/.env.example|pyproject.toml|*/pyproject.toml|uv.toml|*/uv.toml) ;; *) return 1 ;; esac
   return 0
 }
@@ -1425,6 +1426,7 @@ forge_grep_meta_3() {
   g_desc='Committed files never turn TLS verification off: no strict-ssl=false (.npmrc), enableStrictSsl: false (.yarnrc.yml), NODE_TLS_REJECT_UNAUTHORIZED=0, PYTHONHTTPSVERIFY=0, sslVerify = false (git config), GIT_SSL_NO_VERIFY, pip'\''s --trusted-host / trusted-host =, uv'\''s allow-insecure-host / UV_INSECURE_HOST. Install the proxy'\''s CA certificate instead (NODE_EXTRA_CA_CERTS, PIP_CERT, SSL_CERT_FILE).'
 }
 forge_grep_scope_3() {
+  case $1 in .claude/skills/forge-project/*) return 1 ;; esac
   return 0
 }
 
@@ -4840,6 +4842,7 @@ forge_grep_meta_2() {
   g_desc='No pip --extra-index-url (requirements files, pip.conf / pip.ini, PIP_EXTRA_INDEX_URL, pip install in Dockerfiles, CI and scripts) and no uv index strategy unsafe-best-match or unsafe-first-match: pip merges every index and installs the highest version, so a public package with an internal package'\''s name wins. Use one --index-url that proxies the public index, or uv indexes (first-index by default).'
 }
 forge_grep_scope_2() {
+  case $1 in .claude/skills/forge-project/*) return 1 ;; esac
   case $1 in requirements*.txt|*/requirements*.txt|constraints*.txt|*/constraints*.txt|pip.conf|*/pip.conf|pip.ini|*/pip.ini|Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|.github/workflows/*|.gitlab-ci.yml|*.sh|*/*.sh|Makefile|*/Makefile|tox.ini|*/tox.ini|noxfile.py|*/noxfile.py|.env.example|*/.env.example|pyproject.toml|*/pyproject.toml|uv.toml|*/uv.toml) ;; *) return 1 ;; esac
   return 0
 }
@@ -4851,6 +4854,7 @@ forge_grep_meta_3() {
   g_desc='Committed files never turn TLS verification off: no strict-ssl=false (.npmrc), enableStrictSsl: false (.yarnrc.yml), NODE_TLS_REJECT_UNAUTHORIZED=0, PYTHONHTTPSVERIFY=0, sslVerify = false (git config), GIT_SSL_NO_VERIFY, pip'\''s --trusted-host / trusted-host =, uv'\''s allow-insecure-host / UV_INSECURE_HOST. Install the proxy'\''s CA certificate instead (NODE_EXTRA_CA_CERTS, PIP_CERT, SSL_CERT_FILE).'
 }
 forge_grep_scope_3() {
+  case $1 in .claude/skills/forge-project/*) return 1 ;; esac
   return 0
 }
 
@@ -8286,6 +8290,7 @@ forge_grep_meta_2() {
   g_desc='No pip --extra-index-url (requirements files, pip.conf / pip.ini, PIP_EXTRA_INDEX_URL, pip install in Dockerfiles, CI and scripts) and no uv index strategy unsafe-best-match or unsafe-first-match: pip merges every index and installs the highest version, so a public package with an internal package'\''s name wins. Use one --index-url that proxies the public index, or uv indexes (first-index by default).'
 }
 forge_grep_scope_2() {
+  case $1 in .claude/skills/forge-project/*) return 1 ;; esac
   case $1 in requirements*.txt|*/requirements*.txt|constraints*.txt|*/constraints*.txt|pip.conf|*/pip.conf|pip.ini|*/pip.ini|Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|.github/workflows/*|.gitlab-ci.yml|*.sh|*/*.sh|Makefile|*/Makefile|tox.ini|*/tox.ini|noxfile.py|*/noxfile.py|.env.example|*/.env.example|pyproject.toml|*/pyproject.toml|uv.toml|*/uv.toml) ;; *) return 1 ;; esac
   return 0
 }
@@ -8297,6 +8302,7 @@ forge_grep_meta_3() {
   g_desc='Committed files never turn TLS verification off: no strict-ssl=false (.npmrc), enableStrictSsl: false (.yarnrc.yml), NODE_TLS_REJECT_UNAUTHORIZED=0, PYTHONHTTPSVERIFY=0, sslVerify = false (git config), GIT_SSL_NO_VERIFY, pip'\''s --trusted-host / trusted-host =, uv'\''s allow-insecure-host / UV_INSECURE_HOST. Install the proxy'\''s CA certificate instead (NODE_EXTRA_CA_CERTS, PIP_CERT, SSL_CERT_FILE).'
 }
 forge_grep_scope_3() {
+  case $1 in .claude/skills/forge-project/*) return 1 ;; esac
   return 0
 }
 
@@ -11753,6 +11759,7 @@ forge_grep_meta_2() {
   g_desc='No pip --extra-index-url (requirements files, pip.conf / pip.ini, PIP_EXTRA_INDEX_URL, pip install in Dockerfiles, CI and scripts) and no uv index strategy unsafe-best-match or unsafe-first-match: pip merges every index and installs the highest version, so a public package with an internal package'\''s name wins. Use one --index-url that proxies the public index, or uv indexes (first-index by default).'
 }
 forge_grep_scope_2() {
+  case $1 in .claude/skills/forge-project/*) return 1 ;; esac
   case $1 in requirements*.txt|*/requirements*.txt|constraints*.txt|*/constraints*.txt|pip.conf|*/pip.conf|pip.ini|*/pip.ini|Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|.github/workflows/*|.gitlab-ci.yml|*.sh|*/*.sh|Makefile|*/Makefile|tox.ini|*/tox.ini|noxfile.py|*/noxfile.py|.env.example|*/.env.example|pyproject.toml|*/pyproject.toml|uv.toml|*/uv.toml) ;; *) return 1 ;; esac
   return 0
 }
@@ -11764,6 +11771,7 @@ forge_grep_meta_3() {
   g_desc='Committed files never turn TLS verification off: no strict-ssl=false (.npmrc), enableStrictSsl: false (.yarnrc.yml), NODE_TLS_REJECT_UNAUTHORIZED=0, PYTHONHTTPSVERIFY=0, sslVerify = false (git config), GIT_SSL_NO_VERIFY, pip'\''s --trusted-host / trusted-host =, uv'\''s allow-insecure-host / UV_INSECURE_HOST. Install the proxy'\''s CA certificate instead (NODE_EXTRA_CA_CERTS, PIP_CERT, SSL_CERT_FILE).'
 }
 forge_grep_scope_3() {
+  case $1 in .claude/skills/forge-project/*) return 1 ;; esac
   return 0
 }
 
@@ -16197,6 +16205,7 @@ forge_grep_meta_2() {
   g_desc='No pip --extra-index-url (requirements files, pip.conf / pip.ini, PIP_EXTRA_INDEX_URL, pip install in Dockerfiles, CI and scripts) and no uv index strategy unsafe-best-match or unsafe-first-match: pip merges every index and installs the highest version, so a public package with an internal package'\''s name wins. Use one --index-url that proxies the public index, or uv indexes (first-index by default).'
 }
 forge_grep_scope_2() {
+  case $1 in .claude/skills/forge-project/*) return 1 ;; esac
   case $1 in requirements*.txt|*/requirements*.txt|constraints*.txt|*/constraints*.txt|pip.conf|*/pip.conf|pip.ini|*/pip.ini|Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|.github/workflows/*|.gitlab-ci.yml|*.sh|*/*.sh|Makefile|*/Makefile|tox.ini|*/tox.ini|noxfile.py|*/noxfile.py|.env.example|*/.env.example|pyproject.toml|*/pyproject.toml|uv.toml|*/uv.toml) ;; *) return 1 ;; esac
   return 0
 }
@@ -16208,6 +16217,7 @@ forge_grep_meta_3() {
   g_desc='Committed files never turn TLS verification off: no strict-ssl=false (.npmrc), enableStrictSsl: false (.yarnrc.yml), NODE_TLS_REJECT_UNAUTHORIZED=0, PYTHONHTTPSVERIFY=0, sslVerify = false (git config), GIT_SSL_NO_VERIFY, pip'\''s --trusted-host / trusted-host =, uv'\''s allow-insecure-host / UV_INSECURE_HOST. Install the proxy'\''s CA certificate instead (NODE_EXTRA_CA_CERTS, PIP_CERT, SSL_CERT_FILE).'
 }
 forge_grep_scope_3() {
+  case $1 in .claude/skills/forge-project/*) return 1 ;; esac
   return 0
 }
 
@@ -19428,9 +19438,9 @@ forge_end "$fail"
   "rules": {
     "supply-chain/audit-ignore-ratchet": "776a5a5bddfdf35c92ceec3b91e7e06aad0ae83638ac3ce9a6f5b0f103b787c5",
     "supply-chain/insecure-download": "857919418f09839d386248631285abc53838bd8e7657044467037b0e216b99ee",
-    "supply-chain/no-dependency-confusion": "c2cb991c7bb954addf482a5ea28f4be094d1480413e6e1382247fb790b1c5e60",
+    "supply-chain/no-dependency-confusion": "70cc953fa09ae34c44aeec1e4e0a1b4308da623807176c5991016a63ee0753a2",
     "supply-chain/no-dependency-confusion-command": "b6e3da32764a408a4ca0b898cadfb9d59d60792db47240310282016b78cba84c",
-    "supply-chain/no-tls-disable": "a7534ef466675254037644cb6520e52325e262d55d71dd629a98d26eec701124",
+    "supply-chain/no-tls-disable": "57ae06d4e830965d5548bda1b20bd82608f35963700bfb4902b104be3984f8a8",
     "supply-chain/no-tls-disable-command": "0657f0d795fce30f651cccdcb4128be73a0ef98c52cabadfceb76b4f2fac1542",
     "typescript/config-files": "77940ff304752f88c143dedc5911b0961de9e16b68e10758a273cfc049505413",
     "typescript/config-ratchet": "b0ff3b6c064f691984e217acc0388d0900b1a2a1d1ee493935badb41a8a45022",
@@ -19485,14 +19495,14 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "597821535e77068b779d904c83e334bfc83e8a5fe0922d8505ab84eac5da183f",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
     ".claude/skills/forge-project/scripts/lib.sh": "83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "848ae867f47d5c073837842ae436a39a399c28cc0abd93acd0f2716fedfaae78",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "2c762e78c8606f706c9b7b28500237ec5f60182546070ea26cac6af2fe71918a",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
     ".claude/skills/forge-project/scripts/session-end.sh": "99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58",
-    ".claude/skills/forge-project/scripts/session-start.sh": "6d5bd74092897e809ae87566e9bca24a962ca34381c6158774e83ec7171a606c",
+    ".claude/skills/forge-project/scripts/session-start.sh": "fab8fcea89cff2f7cc20f0b7f68c3069a4dcd6f3ad671aebebb6d9c2f99a687e",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "7630dbf39391704c15d180ecf46a3e12fe5bd9ba4c3c347b791066b03eb9b641",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "21d1dbfcd41bdfd21f96b5132baf1cb04a1ef5400ccfd26b91153ac76694088c",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "880b164acc2a8352f4e433abd6212ed0a2051224a20f6d0ab8a97a526bb583ec",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "c13e3a3d1e623154a12ac86d0ab8f5aa19de272aa18a52ccea2adf976f9e2c9a",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml": "c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20",
     ".forge/ast-grep/rule-tests/typescript-no-stub-test.yml": "b02e7e21f6bd597fe4b3d577b3a2cc6dfee9741674cc1cc99285e22ef90a2778",
@@ -19519,7 +19529,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/typescript/vitest/no-tautological-expect.yml": "ec546003dd3fc5a92950f126fc5ffad8599f20b6dd83a0954151758b3481fe8c",
     ".forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml": "240f482cc1062537b49330dd8577e1c128edb7ef60478a042dab716d79c87b42",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "fdcea98a689e01535870c70042dbd32082cb09ab59fe2e8a5de7726f98bc1e5c",
+    ".forge/check.sh": "22a2e3fd1c41e6371b497c8f024385c12d11295d2060391192d4788406d5322b",
     ".forge/helpers/ratchet.mjs": "14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38",
     ".forge/helpers/types_typescript.mjs": "6e762a63e5d062fec1c24302266e2a0f186fb2541487fe820f10e76f9015c177",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
@@ -20405,14 +20415,14 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 597821535e77068b779d904c83e334bfc83e8a5fe0922d8505ab84eac5da183f  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
 83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5  .claude/skills/forge-project/scripts/lib.sh
-848ae867f47d5c073837842ae436a39a399c28cc0abd93acd0f2716fedfaae78  .claude/skills/forge-project/scripts/post-edit.sh
+2c762e78c8606f706c9b7b28500237ec5f60182546070ea26cac6af2fe71918a  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
 99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58  .claude/skills/forge-project/scripts/session-end.sh
-6d5bd74092897e809ae87566e9bca24a962ca34381c6158774e83ec7171a606c  .claude/skills/forge-project/scripts/session-start.sh
+fab8fcea89cff2f7cc20f0b7f68c3069a4dcd6f3ad671aebebb6d9c2f99a687e  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-7630dbf39391704c15d180ecf46a3e12fe5bd9ba4c3c347b791066b03eb9b641  .claude/skills/forge-project/scripts/test-edit.sh
+21d1dbfcd41bdfd21f96b5132baf1cb04a1ef5400ccfd26b91153ac76694088c  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-880b164acc2a8352f4e433abd6212ed0a2051224a20f6d0ab8a97a526bb583ec  .claude/skills/forge-project/scripts/typecheck.sh
+c13e3a3d1e623154a12ac86d0ab8f5aa19de272aa18a52ccea2adf976f9e2c9a  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20  .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
 b02e7e21f6bd597fe4b3d577b3a2cc6dfee9741674cc1cc99285e22ef90a2778  .forge/ast-grep/rule-tests/typescript-no-stub-test.yml
@@ -20439,7 +20449,7 @@ db9df1c23a73e64e692caa2aa1014e5987a298613dddc37c9113fcfaf28796c3  .forge/ast-gre
 ec546003dd3fc5a92950f126fc5ffad8599f20b6dd83a0954151758b3481fe8c  .forge/ast-grep/rules/typescript/vitest/no-tautological-expect.yml
 240f482cc1062537b49330dd8577e1c128edb7ef60478a042dab716d79c87b42  .forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-fdcea98a689e01535870c70042dbd32082cb09ab59fe2e8a5de7726f98bc1e5c  .forge/check.sh
+22a2e3fd1c41e6371b497c8f024385c12d11295d2060391192d4788406d5322b  .forge/check.sh
 14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38  .forge/helpers/ratchet.mjs
 6e762a63e5d062fec1c24302266e2a0f186fb2541487fe820f10e76f9015c177  .forge/helpers/types_typescript.mjs
 
