@@ -409,6 +409,8 @@ A check with a `timeout` (seconds) that runs past it is stopped with its process
 | `[tool.ty]`, `ty.toml` | a `rules` level lowered (`error` > `warn` > `ignore`) or removed; `terminal.error-on-warning` no longer true; `src.exclude` entries added; an `overrides` entry added |
 | `[tool.pytest.ini_options]` | `addopts` gains `--ignore`, `--ignore-glob`, `--deselect`, `-k`, `-m`, `--lf`, `--sw` or `--continue-on-collection-errors`; `testpaths` entries removed; `norecursedirs` entries added; `xfail_strict` no longer true |
 | `[tool.coverage]` | `report.fail_under` lowered or removed; `omit`, `exclude_lines` or `exclude_also` entries added |
+| `[tool.mypy]`, `mypy.ini`, `.mypy.ini` | `strict`, a `disallow_*`, `warn_*` or `strict_*` option no longer true; `ignore_missing_imports` or `ignore_errors` turned on globally or added for a module (`[[tool.mypy.overrides]]`, `[mypy-<module>]`) |
+| `[tool.pyright]`, `[tool.basedpyright]`, `pyrightconfig.json` | `typeCheckingMode` lowered (`all` > `strict` > `recommended` > `standard` > `basic` > `off`) or removed; a `report*` level lowered (`error` > `warning` > `information` > `none`; `true` to `false`) or removed |
 | `biome.json`, `biome.jsonc` | a rule's level lowered (`error` > `warn` > `info` > `off`) or removed; a group's level lowered; `recommended`, `linter.enabled` or `formatter.enabled` turned off; negated `files.includes` / `linter.includes` entries added; an `overrides` entry added or changed |
 | `tsconfig*.json` | a strict flag (`strict`, `noImplicitAny`, `strictNullChecks`, … `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noUnused*`, `checkJs`) no longer true; `skipLibCheck` or `ignoreDeprecations` added; `exclude` entries added; `include` entries removed; `extends` changed |
 | `package.json` `scripts` | a script named like `test`, `check`, `lint`, `type…`, `e2e`, `ci`, `verify` removed, or given `--passWithNoTests`, `\|\| true`, `--no-errors-on-unmatched`, an exclude/ignore/skip flag, `--max-warnings N`, `--silent` |
@@ -459,9 +461,9 @@ Advice does not stop the steps after it (§10.1): the later stages still run, an
 | `forge_untested_change` | when the change has a code line (not blank, not only a comment) added or removed in an in-scope file and no existing file matching `FORGE_TEST_PATH_ERE` (pytest, Vitest and Playwright test paths) changed: "You changed behaviour in <files, up to 3> without adding or updating a test; add a test that fails without your change, or say why none is needed." |
 | `forge_stub_sync` | for each changed `*.py` module that gained public names (the entries of `__all__` when it has one, else top-level `def` / `class` names without `_`; compared with the base's names) and each `.pyi` in the repository with the same module path inside its top-level package (packages are directories with `__init__.py` or `__init__.pyi`: `logfire/experimental/query_client.py` ↔ `logfire-api/logfire_api/experimental/query_client.pyi`), the new names the stub does not mention: "The stub <pyi> does not have <names>, new in <py>; add it there too." |
 | `forge_docs_mentions` | when no documentation file changed (Markdown, MDX or reStructuredText under a `docs/` or `doc/` directory, and `README*`): the public names whose definition the change added, removed or edited on a removed or added line of an in-scope file (Python `def`, `class`, annotated names and parameters, module-level assignments; TypeScript and JavaScript `export` declarations, optional properties `name?:`, typed members `name: T;`, methods with a modifier; a line that only moved does not count; names starting with `_`, shorter than 4 characters or on a stop list of common words are dropped), then the documentation lines mentioning one (as a whole word; a name without `_` or an inner capital only in a code span or a fenced block): "These docs mention identifiers you changed; check they still describe the behaviour:" and up to 5 `path:line name` lines. |
+| `forge_model_ids <deprecated> <known>` | for each quoted id on an added line of an in-scope file (after an optional `anthropic:` / `openai:` / `anthropic/` / `openai/` prefix): an id of `<deprecated>` (`<id>\|<retires>\|<replacement>;…`) prints `<path>:<line> <id> retires <date>; use <replacement>`; a dated Claude id (`claude-<family>-<version>-20YYMMDD`) not in `<known>` prints `<path>:<line> <id> is not a published Claude model id; use its alias (e.g. claude-opus-5-5)` |
 
 ## 11. Audit of tool targets
-| `forge_model_ids <deprecated> <known>` | for each quoted id on an added line of an in-scope file (after an optional `anthropic:` / `openai:` / `anthropic/` / `openai/` prefix): an id of `<deprecated>` (`<id>\|<retires>\|<replacement>;…`) prints `<path>:<line> <id> retires <date>; use <replacement>`; a dated Claude id (`claude-<family>-<version>-20YYMMDD`) not in `<known>` prints `<path>:<line> <id> is not a published Claude model id; use its alias (e.g. claude-opus-5-5)` |
 
 For each `tool` target of an active rule:
 
@@ -572,7 +574,7 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `python/no-removed-stdlib` | `tool` ruff `TID251`, banned-api: the modules removed in Python 3.12 (`distutils`, `imp`, `asynchat`, `asyncore`, `smtpd`) and 3.13 (PEP 594's 19, `lib2to3`) |
 | `python/aware-datetime` | `tool` ruff `DTZ005`, `DTZ001`, `DTZ002`, `DTZ006`, `DTZ011`, `DTZ012`, `DTZ901` (not `DTZ007`: it flags date-only `strptime(…).date()`) |
 | `python/no-new-suppressions` | `grep` no-increase: `# noqa`, `# ty: ignore`, `# type: ignore`, `# pyright: ignore`, `# pragma: no cover`, `# pragma: no branch` (suppression budget) |
-| `python/config-files` | `permission` ask: `Edit(**/ruff.toml)`, `Edit(**/.ruff.toml)`, `Edit(**/ty.toml)` |
+| `python/config-files` | `permission` ask: `Edit(**/ruff.toml)`, `Edit(**/.ruff.toml)`, `Edit(**/ty.toml)`, `Edit(**/mypy.ini)`, `Edit(**/.mypy.ini)`, `Edit(**/pyrightconfig.json)` |
 | `python/config-ratchet` | `check` lint: `forge_ratchet python ratchet.py` (§10.4), `when_changed`: the Python config files |
 | `python/no-silent-except` | `tool` ruff `S110`, `S112` |
 | `python/no-blind-except` | `tool` ruff `BLE001` |
@@ -827,6 +829,9 @@ Detected by `attrs` (pypi).
 | `python/pytest/no-mock-increase` | `ast-grep` no-increase on test files: calls to `patch`, `patch.object`, `patch.dict`, `patch.multiple`, `Mock`, `MagicMock`, `AsyncMock`, `NonCallableMock`, `create_autospec` (bare, `mock.`, `unittest.mock.`, or through an alias: `from unittest.mock import patch as p`, `import unittest.mock as um`, `from unittest import mock as m`), and `mocker.patch*`, `mocker.spy`, `mocker.stub`, `mocker.Mock*`; `monkeypatch` is not counted (pytest's way to set configuration) |
 | `python/pytest/no-test-edits` | `check` lint: `forge_test_edits` on `**/test_*.py`, `**/*_test.py`, `**/conftest.py`; edits ask (§10.5); `review`: is the change required by the user's request, or does it weaken the tests |
 | `python/pytest/untested-change` | `check` lint, advisory (§10.7): `forge_untested_change` on non-test `*.py` (not migrations) |
+| `python/pytest/django-deprecations-error` | `check` lint: `forge_helper python pytest_filterwarnings.py error::django.utils.deprecation.RemovedInNextVersionWarning django` (§13.4), `when_changed`: the pytest config files; only with `django` (`when`) |
+| `python/pytest/drf-deprecations-error` | `check` lint: `forge_helper python pytest_filterwarnings.py error::rest_framework.deprecation.RemovedInNextDRFVersionWarning djangorestframework` (§13.4), `when_changed`: the pytest config files; only with `djangorestframework` (`when`) |
+| `python/pytest/pydantic-deprecations-error` | `check` lint: `forge_helper python pytest_filterwarnings.py error::pydantic.warnings.PydanticDeprecationWarning pydantic` (§13.4), `when_changed`: the pytest config files; only with `pydantic >= 2.0.0` (`when`) |
 
 context.md: tests assert behaviour, never weakened; "When the task changes behaviour an existing test asserts, update that test in place with Edit or Write (keep its name; Forge asks for approval) and say so in your summary. Otherwise never edit an existing test to make the code pass."
 
@@ -1029,12 +1034,12 @@ Detected by `anthropic >= 2.0.0` (pypi).
 |---|---|
 | `python/anthropic/no-version-header` | `ast-grep` advise: a call typed `anthropic` with `default_headers=` / `extra_headers=` holding an `"anthropic-version"` key |
 | `python/anthropic/stream-long-requests` | `ast-grep` advise: `create(…)` / `parse(…)` on a receiver typed `anthropic` `Messages` / `AsyncMessages` with an integer `max_tokens` above 21,333 and no `stream=True` |
+| `python/anthropic/no-budget-tokens` | `ast-grep` forbid: `$C.$M(…)` (`create`, `stream`, `parse`, `count_tokens`) on a receiver typed `anthropic` `Messages` / `AsyncMessages` with a `model=` string literal from the data file's `rejects budget_tokens` rows (`ai-models`; optionally `anthropic.`-prefixed) and a `thinking=` dict holding a `budget_tokens` key |
 
 ### python/langchain
 
 Detected by `langchain-core` (pypi).
 
-| `python/anthropic/no-budget-tokens` | `ast-grep` forbid: `$C.$M(…)` (`create`, `stream`, `parse`, `count_tokens`) on a receiver typed `anthropic` `Messages` / `AsyncMessages` with a `model=` string literal from the data file's `rejects budget_tokens` rows (`ai-models`; optionally `anthropic.`-prefixed) and a `thinking=` dict holding a `budget_tokens` key |
 | Rule | Targets |
 |---|---|
 | `python/langchain/no-dangerous-flags` | `ast-grep` advise: the keyword arguments `allow_dangerous_deserialization=True`, `allow_dangerous_code=True`, `allow_dangerous_requests=True` |
@@ -1115,6 +1120,7 @@ Detected by `library_any: [pypi]` (§13.4).
 | `python/library/spdx-license` | `grep` forbid in `pyproject.toml`: `license = {…}` (a table), `"License ::` classifiers (PEP 639) |
 | `python/library/no-python-cap` | `grep` forbid in `pyproject.toml`: `requires-python` with `<`, `~=` or `==` |
 | `python/library/no-logging-config` | `ast-grep` forbid, not in tests or `__main__.py`: `logging.basicConfig(…)`, `logging.getLogger().addHandler(…)`, `logging.root.addHandler(…)` |
+| `python/library/py-typed` | `check` lint, `when_changed`: `pyproject.toml`, `**/py.typed`: `uv build --wheel` into the check's temporary directory, then each top-level package of the wheel (a directory with `.py` files, not `.dist-info` / `.data`) holds `py.typed` (PEP 561); a failed build prints `skipped` with its last line |
 
 context.md: `__all__` is the public API; removals and renames warn with `DeprecationWarning` until a major version; SPDX `license` (and the backends that support it), no `requires-python` cap; no logging configuration in library code.
 
@@ -1920,12 +1926,6 @@ Detected by `@aws-sdk/client-s3` or `@aws-sdk/s3-presigned-post`.
 
 context.md: no public ACLs on uploads.
 
-### typescript/langchain
-
-Detected by `langchain`, `@langchain/core` or `@langchain/classic`.
-
-| Rule | Targets |
-|---|---|
 ### typescript/anthropic
 
 Detected by `@anthropic-ai/sdk` (npm).
@@ -1935,6 +1935,12 @@ Detected by `@anthropic-ai/sdk` (npm).
 | `typescript/anthropic/no-budget-tokens` | `ast-grep` forbid: `$C.messages.$M({…})` / `$C.beta.messages.$M({…})` (`create`, `stream`, `parse`, `countTokens`), `$C` typed `@anthropic-ai/sdk` `Anthropic` / `BaseAnthropic`, whose options have a `model` string literal from the data file's `rejects budget_tokens` rows (`ai-models`) and a `thinking` object with a `budget_tokens` key |
 | `typescript/anthropic/no-forced-tool-choice` | `ast-grep` forbid: the same calls with a `model` literal from the `rejects forced_tool_choice` rows and `tool_choice: {type: 'any' \| 'tool'}` |
 
+### typescript/langchain
+
+Detected by `langchain`, `@langchain/core` or `@langchain/classic`.
+
+| Rule | Targets |
+|---|---|
 | `typescript/langchain/no-legacy-chains` | `ast-grep` advise: importing `LLMChain`, `ConversationChain`, `RetrievalQAChain`, `ConversationalRetrievalQAChain`, `initializeAgentExecutorWithOptions` or `AgentExecutor` from `@langchain/classic…` or `langchain/chains…` / `langchain/agents…` |
 
 context.md: `createAgent`; the legacy chains live in `@langchain/classic`.
@@ -2177,6 +2183,7 @@ Detected by `mise.toml`, `.mise.toml`, `.tool-versions`, `.devcontainer/**` or `
 
 - `drf_permissions.py`: §13 `python/django/drf/permission-classes`.
 - `fk_index.py`: §13 `python/sqlalchemy/fk-index`: in each changed `.py` file outside `versions/`, the foreign key columns (a `ForeignKey(…)` argument of `mapped_column` / `Column`, a `ForeignKeyConstraint` in `__table_args__`; per class or `Table(…)`) not in the base copy that no index leads with: `index=True` / `unique=True`, the first `primary_key=True` column, or the first column of an `Index` (after its name), `UniqueConstraint` or `PrimaryKeyConstraint`. Reported at the column's line.
+- `pytest_filterwarnings.py <entry> <dependency>`: §13 `python/pytest/*-deprecations-error`: the pytest configuration pytest uses (the first of `pytest.ini`, `.pytest.ini`, `pyproject.toml` with `[tool.pytest]` or `[tool.pytest.ini_options]`, `tox.ini` with `[pytest]`, `setup.cfg` with `[tool:pytest]`) has `<entry>` or a bare `error` in `filterwarnings` (spaces ignored); otherwise a finding at line 0 of that file.
 - `public_api.py`: for each changed module whose base copy has a literal `__all__`, each name that left it, or every name of a deleted module, must still be defined with a deprecation, read from the syntax tree: a `def` of that name decorated with `@deprecated` (`typing_extensions`, `warnings`) or calling `warnings.warn(…, DeprecationWarning | FutureWarning | PendingDeprecationWarning)` (or a subclass defined in the project, or a category parameter defaulting to one); a `class` with that decorator or such a call in `__init__` / `__new__` / `__init_subclass__` / `__post_init__`; an alias `name = deprecated(…)(…)`; or a module `__getattr__` that warns that way and names it (or reads a module-level table naming it). A project function that warns that way counts when the shim calls it or decorates with it. The word in a docstring or a comment does not count. A major version bump does not allow a removal by itself (the agent could make it): an intended removal is accepted in `forge.yaml`, which asks.
 - `public_api.mjs removed`: the names the package's entry points (`exports`, `main`, `module`, `types`, with `dist/`, `lib/`, `build/`, … mapped to `src/` and `.js` / `.d.ts` to the source file; `export *` followed through relative modules) export in the base are still exported, a major version bump included (an intended removal is accepted in `forge.yaml`); reported at line 0 of the module that declared the name. A name that became an alias of another exported name (`export const old = renamed`, `export { renamed as old }`; it was not one in the base) needs a `/** … @deprecated … */` JSDoc block right before its export statement or specifier.
 

@@ -334,7 +334,7 @@ export const PYTHON_TOOLS = new Set(["ruff", "alembic", "pytest", "python"]);
  * them. A project formatter may rewrite them: their integrity hash ignores formatting
  * (ownedHash).
  */
-const HELPER_SCRIPTS = ["ratchet.py", "ratchet.mjs", "drf_permissions.py", "public_api.py", "public_api.mjs", "fk_index.py"];
+const HELPER_SCRIPTS = ["ratchet.py", "ratchet.mjs", "drf_permissions.py", "public_api.py", "public_api.mjs", "fk_index.py", "pytest_filterwarnings.py"];
 export const HELPERS_DIR = ".forge/helpers";
 
 /** The helper files the checks and types engines use: path (repository-relative) -> content. */

@@ -1,0 +1,16 @@
+id: python/pytest/django-deprecations-error
+description: "When django is a dependency, pytest's filterwarnings turns Django's RemovedInNextVersionWarning (what the next Django release removes) into errors with \"error::django.utils.deprecation.RemovedInNextVersionWarning\" (or a bare \"error\"): as a warning it lets the tests pass on code the next release breaks."
+scope: {language: any, files: ["**/pyproject.toml", "**/pytest.ini", "**/.pytest.ini", "**/tox.ini", "**/setup.cfg"]}
+enforce:
+  - target: check
+    stage: lint
+    run: "forge_helper python pytest_filterwarnings.py error::django.utils.deprecation.RemovedInNextVersionWarning django"
+    when_changed: ["pyproject.toml", "pytest.ini", ".pytest.ini", "tox.ini", "setup.cfg"]
+when:
+  deps: [{ecosystem: pypi, name: django, version: "*"}]
+examples:
+  match:
+    - files: {pyproject.toml: "[project]\nname = \"app\"\nversion = \"0.1.0\"\ndependencies = [\"django\"]\n\n[tool.pytest.ini_options]\nfilterwarnings = [\n    \"ignore::DeprecationWarning:botocore.*\",\n]\n"}
+  no_match:
+    - files: {pyproject.toml: "[project]\nname = \"app\"\nversion = \"0.1.0\"\ndependencies = [\"django\"]\n\n[tool.pytest.ini_options]\nfilterwarnings = [\n    \"error::django.utils.deprecation.RemovedInNextVersionWarning\",\n]\n"}
+    - files: {pyproject.toml: "[project]\nname = \"app\"\nversion = \"0.1.0\"\ndependencies = [\"django\"]\n\n[tool.pytest.ini_options]\nfilterwarnings = [\n    \"ignore::DeprecationWarning:botocore.*\",\n]\n", pytest.ini: "[pytest]\nfilterwarnings =\n    error\n    ignore::DeprecationWarning:botocore.*\n"}

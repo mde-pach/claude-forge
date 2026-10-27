@@ -1,0 +1,16 @@
+id: python/pytest/pydantic-deprecations-error
+description: "When pydantic is a dependency, pytest's filterwarnings turns PydanticDeprecationWarning (the v1-style APIs Pydantic 3 removes) into errors with \"error::pydantic.warnings.PydanticDeprecationWarning\" (or a bare \"error\"): as a warning it lets the tests pass on code the next release breaks."
+scope: {language: any, files: ["**/pyproject.toml", "**/pytest.ini", "**/.pytest.ini", "**/tox.ini", "**/setup.cfg"]}
+enforce:
+  - target: check
+    stage: lint
+    run: "forge_helper python pytest_filterwarnings.py error::pydantic.warnings.PydanticDeprecationWarning pydantic"
+    when_changed: ["pyproject.toml", "pytest.ini", ".pytest.ini", "tox.ini", "setup.cfg"]
+when:
+  deps: [{ecosystem: pypi, name: pydantic, version: ">=2.0.0"}]
+examples:
+  match:
+    - files: {pyproject.toml: "[project]\nname = \"app\"\nversion = \"0.1.0\"\ndependencies = [\"pydantic\"]\n\n[tool.pytest.ini_options]\nfilterwarnings = [\n    \"ignore::DeprecationWarning:botocore.*\",\n]\n"}
+  no_match:
+    - files: {pyproject.toml: "[project]\nname = \"app\"\nversion = \"0.1.0\"\ndependencies = [\"pydantic\"]\n\n[tool.pytest.ini_options]\nfilterwarnings = [\n    \"error::pydantic.warnings.PydanticDeprecationWarning\",\n]\n"}
+    - files: {pyproject.toml: "[project]\nname = \"app\"\nversion = \"0.1.0\"\ndependencies = [\"pydantic\"]\n\n[tool.pytest.ini_options]\nfilterwarnings = [\n    \"ignore::DeprecationWarning:botocore.*\",\n]\n", pytest.ini: "[pytest]\nfilterwarnings =\n    error\n    ignore::DeprecationWarning:botocore.*\n"}
