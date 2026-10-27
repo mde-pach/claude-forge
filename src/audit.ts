@@ -1,5 +1,5 @@
 import { defaultRoles, expandGlobs } from "./roles.js";
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { codeExamples } from "./packs.js";
 import { ENGINE_PYTHON, run, TY_VERSION } from "./util.js";
@@ -93,9 +93,13 @@ function withFiles<T>(repo: string, files: [string, string][], fn: () => T): T {
   }
 }
 
-/** biome and ty on example files (relative paths), with machine-readable output. */
+/** Tools that report by file: the examples of a target are checked in one run (batchVerdicts). */
+const BY_FILE = new Set<ToolTarget["tool"]>(["biome", "ty", "eslint"]);
+
+/** biome, eslint and ty on example files (relative paths), with machine-readable output. */
 function runOnFiles(repo: string, t: ToolTarget, bin: string, rels: string[]): ToolRun {
   if (t.tool === "biome") return run(bin, ["lint", "--reporter=json", "--max-diagnostics=50", ...rels], { cwd: repo });
+  if (t.tool === "eslint") return run(bin, ["--format", "json", "--no-warn-ignored", ...rels], { cwd: repo });
   return run(TY_COMMAND[0]!, [...TY_COMMAND.slice(1), "check", "--output-format", "gitlab", ...rels], { cwd: repo });
 }
 
@@ -106,7 +110,7 @@ function runTool(repo: string, rule: Rule, t: ToolTarget, bin: string, code: str
   if (t.tool === "ruff") return run(bin, ["check", "--no-cache", "--no-fix", "--output-format", "json", "--stdin-filename", rel, "-"], { cwd: repo, input: code });
   // biome (its stdin mode prints no lint diagnostics), ty and tsc read real files: a
   // temporary file inside the project.
-  if (t.tool === "biome" || t.tool === "ty") return withFiles(repo, [[rel, code]], () => runOnFiles(repo, t, bin, [rel]));
+  if (BY_FILE.has(t.tool)) return withFiles(repo, [[rel, code]], () => runOnFiles(repo, t, bin, [rel]));
   const cfg = `tsconfig.${stem}.json`;
   const tsconfig = JSON.stringify({ extends: "./tsconfig.json", compilerOptions: { noEmit: true, incremental: false, composite: false }, include: [], files: [rel] });
   return withFiles(repo, [[rel, code], [cfg, tsconfig]], () => run(bin, ["--noEmit", "-p", cfg, "--pretty", "false"], { cwd: repo }));
@@ -130,7 +134,7 @@ export function verdict(tool: ToolTarget["tool"], expects: string, r: ToolRun): 
     const items = parseJson(r.stdout) as { code: string | null }[];
     return items.some((d) => d.code === expects) ? "fails" : "absent";
   }
-  return judge(expects, diagnostics(tool, r).list);
+  return judge(expects, diagnostics(tool, r, "").list);
 }
 
 interface Diagnostic {
@@ -140,8 +144,27 @@ interface Diagnostic {
   file: string;
 }
 
-/** biome's or ty's diagnostics; complete: none left out (biome's --max-diagnostics). Throws when the output cannot be read. */
-function diagnostics(tool: "biome" | "ty", r: ToolRun): { list: Diagnostic[]; complete: boolean } {
+/**
+ * biome's, eslint's or ty's diagnostics; complete: none left out (biome's --max-diagnostics).
+ * Throws when the output cannot be read, and on a file eslint could not parse (a fatal
+ * message: nothing was linted, so nothing can be judged). eslint names files by absolute
+ * path: made relative to repo.
+ */
+function diagnostics(tool: "biome" | "ty" | "eslint", r: ToolRun, repo: string): { list: Diagnostic[]; complete: boolean } {
+  if (tool === "eslint") {
+    const out = parseJson(r.stdout) as { filePath?: string; messages?: { ruleId?: string | null; severity?: number; fatal?: boolean; message?: string }[] }[];
+    const roots = repo ? [repo, realpathSync(repo)] : [];
+    const rel = (f = "") => {
+      for (const root of roots) if (f.startsWith(`${root}/`)) return f.slice(root.length + 1);
+      return f;
+    };
+    const fatal = out.flatMap((f) => f.messages ?? []).find((m) => m.fatal);
+    if (fatal) throw new Error(`eslint could not parse the example: ${fatal.message ?? ""}`);
+    return {
+      list: out.flatMap((f) => (f.messages ?? []).map((m) => ({ id: m.ruleId ?? "", severity: m.severity === 2 ? "error" : m.severity === 1 ? "warning" : "", file: rel(f.filePath) }))),
+      complete: true,
+    };
+  }
   if (tool === "biome") {
     const out = parseJson(r.stdout) as {
       summary?: { diagnosticsNotPrinted?: number };
@@ -190,7 +213,7 @@ function batchVerdicts(repo: string, rule: Rule, t: ToolTarget, bin: string, cod
     );
     let d: ReturnType<typeof diagnostics>;
     try {
-      d = diagnostics(t.tool as "biome" | "ty", r);
+      d = diagnostics(t.tool as "biome" | "ty" | "eslint", r, repo);
     } catch {
       continue;
     }
@@ -219,15 +242,15 @@ export function auditTarget(repo: string, rule: Rule, t: ToolTarget, root = repo
   const match = codeExamples(rule, "match");
   const noMatch = codeExamples(rule, "no_match");
   if (!match.length) return { ...base, status: "skipped", detail: "the rule has no match examples" };
-  const batched = t.tool === "biome" || t.tool === "ty" ? batchVerdicts(repo, rule, t, bin, [...match, ...noMatch]) : [];
+  const batched = BY_FILE.has(t.tool) ? batchVerdicts(repo, rule, t, bin, [...match, ...noMatch]) : [];
   const judge = (code: string, n: number): Verdict | AuditResult => {
     const v = batched[n];
     if (v) return v;
     const r = runTool(repo, rule, t, bin, code, n);
     try {
       return verdict(t.tool, t.expects, r);
-    } catch {
-      const said = (r.stdout + r.stderr).split("\n").map((l) => l.trim()).find((l) => l && !/^[━─-]+$/.test(l));
+    } catch (e) {
+      const said = /^eslint could not parse/.test((e as Error).message) ? (e as Error).message : (r.stdout + r.stderr).split("\n").map((l) => l.trim()).find((l) => l && !/^[━─-]+$/.test(l));
       return { ...base, status: "skipped", detail: `could not read ${t.tool}'s output${said ? `: ${firstLine(said)}` : ""}` };
     }
   };

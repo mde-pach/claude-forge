@@ -565,6 +565,7 @@ const UNSATISFIED: Record<string, string> = {
   biome: "Biome rules not at error",
   ty: "ty rules not at error",
   tsc: "tsc options not set",
+  eslint: "ESLint rules not at error",
 };
 
 /** Whether each active rule is actually enforced in this project, and why not. */

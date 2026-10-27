@@ -266,7 +266,10 @@ export function runCheckExamples(runs: CheckExampleRun[], toolBins: string[]): C
           if (!bin) return void (results[i] = { outcome: "skip", detail: `${tool} not available` });
           const to = join(repo, PYTHON_TOOLS.has(tool) ? ".venv/bin" : "node_modules/.bin", tool);
           mkdirSync(dirname(to), { recursive: true });
-          symlinkSync(bin, to);
+          if (!existsSync(to)) symlinkSync(bin, to);
+          // a node tool's companions installed with it (oxlint runs oxlint-tsgolint's tsgolint from node_modules/.bin)
+          if (!PYTHON_TOOLS.has(tool))
+            for (const c of COMPANIONS[tool] ?? []) if (existsSync(join(dirname(bin), c)) && !existsSync(join(dirname(to), c))) symlinkSync(join(dirname(bin), c), join(dirname(to), c));
         } else {
           // a system tool (§13.5): from the tool directories, else PATH; its directory goes first on the example's PATH
           const want = tool === "ty" ? "uvx" : tool;
@@ -300,6 +303,9 @@ export function runCheckExamples(runs: CheckExampleRun[], toolBins: string[]): C
     for (const d of dirs) rmSync(d, { recursive: true, force: true });
   }
 }
+
+/** Binaries a project tool runs from the project's node_modules/.bin, installed next to it. */
+const COMPANIONS: Record<string, string[]> = { oxlint: ["tsgolint"] };
 
 /** Bin directories that hold the project tools for check examples: the project's, then PATH. */
 export function defaultToolBins(repo?: string): string[] {

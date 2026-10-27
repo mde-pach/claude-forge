@@ -2979,7 +2979,8 @@ forge_excerpt() {
 
 # forge_diagnostics <output> <file|line> [print]: sorts the error diagnostics of a
 # failed run by what they name (tsc "path(l,c)", "path:l:c" from Python and JS
-# linters, "--> path:l:c"; "Would reformat: path", Biome's "path format" and
+# linters, "--> path:l:c", ESLint's stylish "<path>" then "  l:c  error …" lines,
+# printed as "path:l:c  error …"; "Would reformat: path", Biome's "path format" and
 # Prettier's "[warn] path" and "[error] path: …" name a file only; absolute paths under the repository are made relative; warning-only
 # lines are ignored, unless the check's c_warn is 1: its warnings count as errors). A diagnostic counts when it names a file of $FORGE_TMP/changed
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
@@ -2996,6 +2997,11 @@ forge_diagnostics() {
     {
       line = $0
       gsub(ansi, "", line)
+      # ESLint (stylish): a file named by its absolute path alone on a line, then its
+      # "  <l>:<c>  error|warning  <message>  <rule>" lines
+      if (line ~ /^\/[^[:space:]]*$/) { hdr = line; next }
+      sty = hdr != "" && line ~ /^[[:space:]]+[0-9]+:[0-9]+[[:space:]]+(error|warning)[[:space:]]/
+      if (!sty && line ~ /^[^[:space:]]/) hdr = ""
       if (warn != 1 && line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
         # a warning diagnostic: a location, then "warning" as a word (not DeprecationWarning)
         if (line ~ /^[[:space:]]*(-->[[:space:]]*)?[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+)/ && line ~ /(^|[^A-Za-z])[Ww]arning([^A-Za-z]|$)/) warned = 1
@@ -3004,7 +3010,8 @@ forge_diagnostics() {
       if ((line ~ /[Ee]rror/ || warn == 1 && line ~ /[Ww]arning/) && line !~ /(^|[^0-9])0 (errors?|warnings?)([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
-      if (match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) {
+      if (sty) { p = hdr; ln = line + 0 }
+      else if (match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) {
         p = substr(line, 1, RLENGTH)
         loc = p; sub(/^[^[:space:]:(]+[(:]/, "", loc); ln = loc + 0
         sub(/([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)$/, "", p)
@@ -3021,7 +3028,7 @@ forge_diagnostics() {
       if (p !~ /^\.forge\//) project = 1
       if (level == "line") counts = (p in whole) || (ln == "" || ln == 0 ? (p in ch) : ((p "\t" ln) in ad))
       else counts = (p in ch)
-      if (counts) { hit = 1; if (mode == "print") print $0 }
+      if (counts) { hit = 1; if (mode == "print") print (sty ? p ":" line : $0) }
     }
     END { if (mode != "print") print (hit ? "changed" : named && !project ? "forge" : named ? "other" : (warned && !erred) ? "warnings" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
 }

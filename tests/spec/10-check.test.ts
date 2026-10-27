@@ -1760,3 +1760,35 @@ test("prettier --check output is attributed by the files it names: a changed fil
   expect(attribute(["src/broken.ts"])).toBe("changed\n[error] src/broken.ts: SyntaxError: Variable declaration expected. (1:7)\n");
   expect(attribute(["src/other.ts"])).toBe("other\n");
 });
+
+/**
+ * ESLint 9 and later ship no `path:line:col` formatter: its default (stylish) names a file
+ * by its absolute path alone on a line, then that file's `l:c  error|warning  …` lines.
+ * Those lines are attributed to that file (shown as `path:l:c  …`); a check run with
+ * `--max-warnings=0` declares `fail_on_warnings`, so its warnings count too.
+ * @rule typescript/eslint/lint
+ */
+test("ESLint's stylish output is attributed by file and line: an error on an added line counts, one on another line does not, and warnings count only with fail_on_warnings", () => {
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), "forge-attr-")));
+  const engine = [renderLib(), "IFS='\n'", renderChecks([])].join("\n");
+  const out = [
+    `${dir}/src/a.ts`,
+    "  4:9  error  'unused' is assigned a value but never used  @typescript-eslint/no-unused-vars",
+    "",
+    `${dir}/src/b.ts`,
+    "  2:9  error    'unused' is assigned a value but never used  @typescript-eslint/no-unused-vars",
+    "  3:3  warning  Unexpected console statement                 no-console",
+    "",
+    "✖ 3 problems (2 errors, 1 warning)",
+  ].join("\n");
+  const attribute = (added: string[], warn = 0) => {
+    writeFileSync(join(dir, "out"), `${out}\n`);
+    writeFileSync(join(dir, "added"), added.map((a) => `${a.replace(":", "\t")}\n`).join(""));
+    const script = `${engine}\nFORGE_TMP=${dir}\nc_warn=${warn}\nprintf 'src/a.ts\\nsrc/b.ts\\n' > "$FORGE_TMP/changed"\nforge_diagnostics "$FORGE_TMP/out" line; forge_diagnostics "$FORGE_TMP/out" line print`;
+    return sh("sh", ["-c", script], { cwd: dir }).stdout;
+  };
+  expect(attribute(["src/b.ts:2"])).toBe("changed\nsrc/b.ts:2:9  error    'unused' is assigned a value but never used  @typescript-eslint/no-unused-vars\n");
+  expect(attribute(["src/a.ts:1"])).toBe("other\n");
+  expect(attribute(["src/b.ts:3"])).toBe("other\n");
+  expect(attribute(["src/b.ts:3"], 1)).toBe("changed\nsrc/b.ts:3:3  warning  Unexpected console statement                 no-console\n");
+});

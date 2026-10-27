@@ -22,8 +22,8 @@ export function renderLib(): string {
 // ---------------------------------------------------------------- tools in commands
 
 /** Project tools resolved through `tool <name>` (audited tools first). */
-export const AUDITED_TOOLS = ["biome", "ruff", "ty", "tsc"] as const;
-export const PROJECT_TOOLS = ["biome", "ruff", "tsc", "alembic", "pytest", "prisma", "vitest", "playwright", "astro", "python", "vue-tsc", "ngc", "mikro-orm", "graphql-codegen", "wrangler", "auth", "prettier"] as const;
+export const AUDITED_TOOLS = ["biome", "ruff", "ty", "tsc", "eslint"] as const;
+export const PROJECT_TOOLS = ["biome", "ruff", "tsc", "alembic", "pytest", "prisma", "vitest", "playwright", "astro", "python", "vue-tsc", "ngc", "mikro-orm", "graphql-codegen", "wrangler", "auth", "prettier", "eslint", "oxlint"] as const;
 /** Forge's own pinned tools used in check commands: ty (Python's type checker, through uvx, §15.2). */
 export const FORGE_TOOLS = ["ty"] as const;
 /**

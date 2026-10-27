@@ -130,6 +130,9 @@ function readPyproject(dir: string): Record<string, any> {
   }
 }
 
+/** ESLint's flat config files (ESLint 9 and later read nothing else). */
+export const ESLINT_CONFIGS = ["eslint.config.js", "eslint.config.mjs", "eslint.config.cjs", "eslint.config.ts", "eslint.config.mts", "eslint.config.cts"];
+
 /** Whether each audited tool has a config file in dir, and whether its package depends on the tool. */
 function toolsIn(dir: string, deps: DepFacts): Record<AuditedTool, { config: boolean; dep: boolean }> {
   const has = (f: string) => existsSync(join(dir, f));
@@ -140,6 +143,8 @@ function toolsIn(dir: string, deps: DepFacts): Record<AuditedTool, { config: boo
     // Forge's own ty (§15.2): wherever there is a Python project; its config is optional
     ty: { config: has("pyproject.toml") || has("ty.toml"), dep: false },
     tsc: { config: has("tsconfig.json"), dep: deps.npm.has("typescript") },
+    // ESLint 9 and later: the flat config only
+    eslint: { config: ESLINT_CONFIGS.some(has), dep: deps.npm.has("eslint") },
   };
 }
 
