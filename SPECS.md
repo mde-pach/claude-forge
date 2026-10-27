@@ -1128,6 +1128,7 @@ Detected by `@types/node` (npm).
 | `typescript/node/no-ecb-cipher` | `ast-grep` forbid: a call declared (§15.6) in `node/crypto` as `createCipheriv` / `createDecipheriv` whose first argument is a string ending in `-ecb` (any case) |
 | `typescript/node/no-ts-node` | `grep` forbid in `package.json`: `ts-node` (scripts or dependencies); `guard` ask: a `ts-node` command |
 | `typescript/node/no-vm-sandbox` | `ast-grep` advise: an import or `require` of `node:vm` / `vm` |
+| `typescript/node/esm-globals` | `ast-grep` forbid in `@esm-modules`: `__dirname`, `__filename`, `require(…)`, `module.exports`, `exports.x = …`, where the name is declared (§15.6) by `node` (`@types/node`'s globals; a module's own `const __dirname` or `createRequire` result is not); not Biome `noGlobalDirnameFilename` / `noCommonJs`, which ignore the module type |
 
 context.md: TypeScript runs with `node file.ts` or `tsx`, not `ts-node`; `node:vm` is not a security boundary.
 
@@ -1239,6 +1240,7 @@ Detected by the `@testing-library/react` dependency.
 | Rule | Targets |
 |---|---|
 | `typescript/testing-library/no-hooks-lib` | `ast-grep` forbid: an import or `require` of `@testing-library/react-hooks` |
+| `typescript/testing-library/no-container-queries` | `ast-grep` advise in `@ts-tests`: `$R.container.querySelector(…)` / `querySelectorAll(…)` and `const { container } = $R`, where `R` is `@testing-library/react`'s `RenderResult` (§15.1: an alias of an intersection) |
 
 context.md: `renderHook` from `@testing-library/react`.
 
@@ -1832,6 +1834,7 @@ context.md: `{ data, error }` results are handled.
 | Rule | Targets |
 |---|---|
 | `typescript/pulumi/protect-ratchet` | `grep` no-decrease: `protect: true` (whole words) |
+| `typescript/pulumi/no-output-in-string` | `ast-grep` forbid: an expression in a `${…}` of an untagged template literal, or an operand of `+` with a string or template operand, whose type is `@pulumi/pulumi`'s `Output` / `OutputInstance` (§15.1: `Output<T>` is an alias of an intersection) |
 
 context.md: protected resources stay protected.
 
@@ -2361,6 +2364,6 @@ enforce:
 2. **The declaration** is what the language's checker answers to `textDocument/definition` at that name, in the file as it is on disk (TypeScript: in the version of §15.1 the server has, the position moved past the bindings). The checker resolves import aliases, namespace imports and re-exports, the project's included (`from numpy import load as read`, `import * as cp from "node:child_process"`, `export { useForm as useAppForm } from "react-hook-form"`): a declaration has the name it is declared with. Overloads and merged declarations each give one. No supertypes are added: a class's subclass is not that class.
 3. **Where it is** decides as in §15.1 rule 5: the package and module of its file, the name it is declared with. A module (`import numpy as np` then `$F` bound to `np`) is declared by its file, with its module's last segment as name (Python).
 4. **Unknown.** A name the checker gives no definition for (an attribute of `Any`, an unresolved name), one whose definition is an import the checker could not resolve (the definition stops at the project's import statement), and an expression that does not end with a name are unknown: the spec does not hold unless it says `unknown: match`.
-5. A name bound to a project variable refers to that variable (`run = np.load`, then `run(…)`): the declaration is the project's, whatever its value.
+5. A name bound to a project variable refers to that variable (`run = np.load`, then `run(…)`): the declaration is the project's, whatever its value. TypeScript's servers answer a called variable with its declarations and then the declaration of the signature it is called with (`useForm`'s for `const make = rhf.useForm; make()`, `NodeJS.Require`'s call signature for a module's own `const require = createRequire(…)`): that last one is what the value is, not what the name refers to, and is left out.
 
 Same engines, daemons, protocol and `forge test` as §15.1: a rule may mix `type` and `declared` conditions on different metavariables. Through the adapters, ty, tsserver (TypeScript 5, 6) and `tsc --lsp` (7) answer `definition` on a name through aliases, namespaces and re-exports; an unresolved import gives the import itself or nothing, and an attribute of `any` / `Any` nothing.

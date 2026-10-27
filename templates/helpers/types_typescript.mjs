@@ -826,7 +826,14 @@ class Types {
       const at = raw.subarray(0, s).toString("utf8").length + m.index;
       // where the name is in the version shown: past every insert at or before it
       const shift = events.reduce((sum, [off, , , , piece]) => sum + (off <= at ? piece.length : 0), 0);
-      if (!asked.has(at)) asked.set(at, this.server.definition(file, position(shown, at + shift)));
+      if (!asked.has(at)) {
+        // a called name (f(…), f<T>(…), f`…`): the servers add the declaration of the signature
+        // it is called with after the name's own declarations, when that is another one (a
+        // variable holding a function): what it is called with, not what the name refers to
+        const after = skipTrivia(shown, at + shift + m[0].length);
+        const called = "(<`".includes(shown[after] ?? "");
+        asked.set(at, this.server.definition(file, position(shown, at + shift)).then((ls) => (called && ls.length > 1 ? ls.slice(0, -1) : ls)));
+      }
       found.set(`${n}\0${v}`, at);
     }
     const answers = new Map();

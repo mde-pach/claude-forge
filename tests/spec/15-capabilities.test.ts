@@ -529,11 +529,11 @@ describe.each(TOOL_VERSIONS.typescriptEngines.map((v) => [v]))("TypeScript %s: t
         "react-hook-form": "7.66.0",
         react: "19.2.0",
         "@types/react": "19.2.2",
-        zustand: "5.0.16",
+        zustand: "5.0.15",
         "drizzle-orm": "0.45.4",
         pg: "8.23.1",
         "@types/pg": "8.23.1",
-        redis: "5.10.0",
+        redis: "6.3.0",
         "@types/node": "24.10.1",
       };
       writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "zod-app", private: true, type: "module", dependencies, devDependencies: { typescript: version } }));
@@ -727,7 +727,7 @@ describe.each(TOOL_VERSIONS.typescriptEngines.map((v) => [v]))("TypeScript %s: t
   );
 
   test(
-    "a project function named useForm, an object's useForm method, an unresolved import and a call's result are not declared by react-hook-form",
+    "a project function named useForm, an object's useForm method, an unresolved import, a call's result and a project variable holding useForm are not declared by react-hook-form",
     () => {
       put(
         repo,
@@ -742,8 +742,9 @@ describe.each(TOOL_VERSIONS.typescriptEngines.map((v) => [v]))("TypeScript %s: t
           "}",
           "const forms = { useForm: (): number => 2 };",
           "const pick = () => rhf.useForm;",
+          "const make = rhf.useForm;",
           "",
-          "export const all = [useForm(), forms.useForm(), missing(), pick()()];",
+          "export const all = [useForm(), forms.useForm(), missing(), pick()(), make()];",
           "",
         ].join("\n"),
       );

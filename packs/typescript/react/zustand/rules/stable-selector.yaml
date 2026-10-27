@@ -24,7 +24,7 @@ enforce:
     where:
       S: {type: {package: zustand, name: UseBoundStore}}
 examples:
-  deps: [{ecosystem: npm, name: zustand, version: "5.0.16"}, {ecosystem: npm, name: react, version: "19.2.0"}, {ecosystem: npm, name: "@types/react", version: "19.2.2"}]
+  deps: [{ecosystem: npm, name: zustand, version: "5.0.15"}, {ecosystem: npm, name: react, version: "19.2.0"}, {ecosystem: npm, name: "@types/react", version: "19.2.2"}]
   match:
     - "import { create } from \"zustand\";\n\ntype Cart = { items: string[]; total: number };\nconst useCart = create<Cart>()(() => ({ items: [], total: 0 }));\n\nexport function useSummary() {\n  return useCart((s) => ({ count: s.items.length, total: s.total }));\n}\n"
     - "import { create } from \"zustand\";\n\nconst useBears = create<{ bears: number; fish: number }>()(() => ({ bears: 0, fish: 0 }));\n\nexport function useBoth() {\n  const [bears, fish] = useBears((state) => [state.bears, state.fish]);\n  return bears + fish;\n}\n"
