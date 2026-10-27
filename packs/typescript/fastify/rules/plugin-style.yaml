@@ -37,9 +37,8 @@ enforce:
                           all:
                             - has: {field: source, regex: "^[\"']fastify-plugin[\"']$"}
                             - has: {stopBy: end, kind: identifier, pattern: $P, inside: {kind: import_clause, stopBy: neighbor}}
-    # the receiver of register() is a Fastify instance. Fastify()'s own result is an
-    # intersection (FastifyInstance & SafePromiseLike), which the types engine does not
-    # resolve yet: registrations on it are not checked until it does.
+    # the receiver of register() is a Fastify instance; Fastify()'s own result is an
+    # intersection (FastifyInstance & SafePromiseLike): its member counts (§15.1)
     where:
       F: {type: {package: fastify, name: FastifyInstance}}
 examples:
@@ -47,6 +46,7 @@ examples:
   match:
     - "import type { FastifyInstance } from \"fastify\";\n\nexport function routes(app: FastifyInstance) {\n  app.register(async (instance, opts, done) => {\n    instance.get(\"/\", async () => \"ok\");\n    done();\n  });\n}\n"
     - "import fp from \"fastify-plugin\";\nimport type { FastifyInstance } from \"fastify\";\n\nexport default fp(async function db(app: FastifyInstance, opts: object, done: () => void) {\n  app.decorate(\"db\", {});\n  done();\n});\n"
+    - "import Fastify from \"fastify\";\n\nconst app = Fastify();\n\napp.register(async (instance, opts, done) => {\n  done();\n});\n"
   no_match:
     - "import type { FastifyInstance } from \"fastify\";\n\nexport function routes(app: FastifyInstance) {\n  app.register(async (instance) => {\n    instance.get(\"/\", async () => \"ok\");\n  });\n  app.register((instance, opts, done) => {\n    done();\n  });\n}\n"
     - "const bus = { register: (f: (a: number, b: number, c: number) => Promise<void>) => f };\n\nexport const r = bus.register(async (a, b, c) => {});\n"

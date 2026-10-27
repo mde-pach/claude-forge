@@ -8,7 +8,9 @@
 // tsconfig projects in the background (questions go first). The protocol on
 // <state-dir>/in is the Python engine's (types_python.py): "changed<TAB><path>",
 // "stop", "restart", or the absolute path of a question directory (req: ast-grep
-// matches; reply: the matches whose forge_where holds, "error<TAB>..." lines, "end").
+// matches; reply: the matches whose forge_where holds, "error<TAB>..." lines,
+// "unchecked<TAB><rule id><TAB><why>" for a match whose metavariable's type cannot be
+// asked, "end").
 // A forge_where asks a metavariable's type or the declaration its name refers to
 // (SPECS §15.1, §15.6).
 // Node-compatible: no Bun-only API.
@@ -101,9 +103,11 @@ class Lsp extends Base {
       const msg = JSON.parse(this.buf.subarray(sep + 4, sep + 4 + len).toString());
       this.buf = this.buf.subarray(sep + 4 + len);
       if (msg.method && msg.id !== undefined) {
-        // a request from the server (configuration, registrations): answer with defaults
+        // a request from the server (configuration, registrations): defaults, but for the
+        // inlay hints of parameter types (typeOfIntersection below)
         const items = msg.params?.items;
-        this.send({ jsonrpc: "2.0", id: msg.id, result: items ? items.map(() => null) : null });
+        const config = (item) => (item.section === "js/ts" || item.section === "typescript" ? { inlayHints: { parameterTypes: { enabled: true } } } : null);
+        this.send({ jsonrpc: "2.0", id: msg.id, result: items ? items.map(config) : null });
       } else if (msg.id !== undefined) {
         this.waiting.get(msg.id)?.(msg.result);
         this.waiting.delete(msg.id);
@@ -131,7 +135,7 @@ class Lsp extends Base {
       workspaceFolders: [{ uri: uri(ROOT), name: "root" }],
       capabilities: {
         general: { positionEncodings: ["utf-16"] },
-        textDocument: { typeDefinition: { linkSupport: true }, definition: { linkSupport: true } },
+        textDocument: { typeDefinition: { linkSupport: true }, definition: { linkSupport: true }, inlayHint: {}, diagnostic: {} },
         workspace: { configuration: true, workspaceFolders: true },
       },
     });
@@ -161,6 +165,19 @@ class Lsp extends Base {
   }
   definition(file, pos) {
     return this.locations("definition", file, pos);
+  }
+  /** The positions of the file's syntax errors (TypeScript's diagnostics 1000-1999: the parser's and grammar errors). */
+  async syntaxErrors(file) {
+    const r = await this.request("textDocument/diagnostic", { textDocument: { uri: uri(file) } });
+    return (r?.items ?? []).filter((d) => d.code >= 1000 && d.code < 2000).map((d) => d.range.start);
+  }
+  /** The inlay hints from <start> to <end>: [{pos, parts: [{text, uri, pos}]}] (uri and pos when the part names a declaration). */
+  async inlayHints(file, start, end) {
+    const r = await this.request("textDocument/inlayHint", { textDocument: { uri: uri(file) }, range: { start, end } });
+    return asArray(r).map((h) => ({
+      pos: h.position,
+      parts: (Array.isArray(h.label) ? h.label : [{ value: h.label }]).map((p) => ({ text: p.value, uri: p.location?.uri, pos: p.location?.range.start })),
+    }));
   }
 }
 
@@ -204,7 +221,8 @@ class TsServer extends Base {
     return new Promise((resolve) => this.waiting.set(seq, resolve));
   }
   async start() {
-    await this.command("configure", { preferences: {}, hostInfo: "forge" });
+    // inlay hints of parameter types, with the declarations they name (typeOfIntersection below)
+    await this.command("configure", { preferences: { includeInlayFunctionParameterTypeHints: true, interactiveInlayHints: true }, hostInfo: "forge" });
     return `tsserver ${this.version}`;
   }
   show(file, text) {
@@ -247,6 +265,20 @@ class TsServer extends Base {
   }
   definition(file, pos) {
     return this.locations("definition", file, pos);
+  }
+  async syntaxErrors(file) {
+    const body = await this.command("syntacticDiagnosticsSync", { file });
+    return asArray(body).map((d) => ({ line: d.start.line - 1, character: d.start.offset - 1 }));
+  }
+  async inlayHints(file, start, end) {
+    const text = this.shown.get(file);
+    const offset = (p) => indexOf(text, p);
+    const body = await this.command("provideInlayHints", { file, start: offset(start), length: offset(end) - offset(start) });
+    const lsp = (p) => ({ line: p.line - 1, character: p.offset - 1 });
+    return asArray(body).map((h) => ({
+      pos: lsp(h.position),
+      parts: (h.displayParts ?? [{ text: h.text }]).map((p) => ({ text: p.text, uri: p.span ? pathToFileURL(p.span.file).href : undefined, pos: p.span ? lsp(p.span.start) : undefined })),
+    }));
   }
 }
 
@@ -365,11 +397,13 @@ function enclosingAlias(text, index) {
 }
 
 /**
- * The declared name at <index> (keywords and comments skipped): { name, end }, with end
- * where a class or interface header's heritage clauses start; an anonymous type gets the
- * name of the alias declaring it, and no heritage (end undefined).
+ * The declared name at <index> (keywords and comments skipped): { name, end, alias }, with
+ * end where a class or interface header's heritage clauses start (or a type alias's type
+ * parameters), alias true for a type alias; an anonymous type gets the name of the alias
+ * declaring it, and no heritage (end undefined).
  */
 function nameAt(text, index) {
+  let alias = false;
   for (let i = skipTrivia(text, index); i < text.length; i = skipTrivia(text, i)) {
     WORD.lastIndex = i;
     const m = WORD.exec(text);
@@ -377,10 +411,163 @@ function nameAt(text, index) {
       const name = enclosingAlias(text, i);
       return name ? { name, end: undefined } : undefined;
     }
-    if (!KEYWORDS.has(m[0])) return { name: m[0], end: i + m[0].length };
+    // a type alias: `type` before its name (the server points at the name, or at the statement)
+    if (!KEYWORDS.has(m[0])) return { name: m[0], end: i + m[0].length, alias: alias || /\btype\s+$/.test(text.slice(Math.max(0, i - 64), i)) };
+    alias = m[0] === "type";
     i += m[0].length;
   }
   return undefined;
+}
+
+// words of a type that name no declaration
+const TYPE_WORDS = new Set([
+  "string", "number", "boolean", "bigint", "symbol", "object", "unknown", "any", "never", "void", "null", "undefined", "true", "false",
+  "this", "readonly", "unique", "asserts", "is", "infer", "new", "abstract",
+]);
+
+/** The index just past the group (<>, (), [], {}) opening at <i>; => is not a closing >. */
+function skipGroup(text, i, to = text.length) {
+  let depth = 0;
+  for (let j = i; j < to; ) {
+    const k = skipTrivia(text, j);
+    if (k !== j) {
+      j = k;
+      continue;
+    }
+    const c = text[j];
+    if (c === '"' || c === "'" || c === "`") {
+      j = skipString(text, j);
+      continue;
+    }
+    if (c === "=" && text[j + 1] === ">") {
+      j += 2;
+      continue;
+    }
+    if ("<([{".includes(c)) depth++;
+    else if (">)]}".includes(c) && --depth === 0) return j + 1;
+    j++;
+  }
+  return to;
+}
+
+/**
+ * The positions of the names a type expression (text from <from> to <to>) is made of at
+ * its top level: the type it names, or each member of a union or intersection, through
+ * grouping parentheses (the last segment of a qualified name). Type arguments, object
+ * and tuple literals, function types, indexed accesses and arrays (`T[]`), `typeof` and
+ * `keyof` operands and <skip> (type parameters) name none; a conditional type names none
+ * (it is one of its branches, decided by its arguments).
+ */
+function topLevelNames(text, from, to, skip = new Set()) {
+  const out = [];
+  let i = from;
+  let operand = false; // the next name is an operand of typeof / keyof
+  while (i < to) {
+    i = skipTrivia(text, i);
+    if (i >= to) break;
+    const c = text[i];
+    if (c === '"' || c === "'" || c === "`") {
+      i = skipString(text, i);
+      continue;
+    }
+    if (c === "?") return []; // a conditional type
+    if (c === "=" && text[i + 1] === ">") break; // a function type's result
+    if (c === "(") {
+      const end = skipGroup(text, i, to);
+      if (text.startsWith("=>", skipTrivia(text, end))) break; // a function type
+      i++; // grouping: transparent
+      continue;
+    }
+    if (c === ")") {
+      i++;
+      continue;
+    }
+    if ("<[{".includes(c)) {
+      i = skipGroup(text, i, to);
+      continue;
+    }
+    WORD.lastIndex = i;
+    const m = WORD.exec(text);
+    if (!m) {
+      i++;
+      continue;
+    }
+    if (m[0] === "extends") return []; // a conditional type
+    // a qualified name: its last segment (import("m").X: X)
+    let last = i;
+    let j = i + m[0].length;
+    if (m[0] === "import" && text[skipTrivia(text, j)] === "(") {
+      j = skipGroup(text, skipTrivia(text, j), to);
+      last = -1;
+    }
+    while (text[skipTrivia(text, j)] === "." && /[A-Za-z_$]/.test(text[skipTrivia(text, skipTrivia(text, j) + 1)] ?? "")) {
+      const k = skipTrivia(text, skipTrivia(text, j) + 1);
+      WORD.lastIndex = k;
+      const n = WORD.exec(text);
+      last = k;
+      j = k + n[0].length;
+    }
+    if (m[0] === "typeof" || m[0] === "keyof") {
+      operand = true;
+      i = j;
+      continue;
+    }
+    let after = skipTrivia(text, j);
+    if (text[after] === "<") after = skipTrivia(text, skipGroup(text, after, to));
+    const indexed = text[after] === "[";
+    const qualified = last !== i;
+    if (last >= 0 && !operand && !indexed && (qualified || (!TYPE_WORDS.has(m[0]) && !skip.has(m[0])))) out.push(last);
+    operand = false;
+    i = after;
+  }
+  return out;
+}
+
+/**
+ * The positions of the names a type alias's body is made of at its top level
+ * (topLevelNames): from the end of its name, past its type parameters, to the end of its
+ * statement (a ; or a line that does not go on with & or |).
+ */
+function aliasMembers(text, from) {
+  let i = skipTrivia(text, from);
+  const params = new Set();
+  if (text[i] === "<") {
+    const end = skipGroup(text, i);
+    // each type parameter's name: the first word of each item of the list
+    for (let j = skipTrivia(text, i + 1); j < end - 1; ) {
+      WORD.lastIndex = j;
+      const m = WORD.exec(text);
+      if (m) params.add(m[0]);
+      // on to the next item: past groups, to the next , of the list
+      while (j < end - 1 && text[j] !== ",") j = "<([{".includes(text[j]) ? skipGroup(text, j, end) : text[j] === '"' || text[j] === "'" ? skipString(text, j) : j + 1;
+      j = skipTrivia(text, j + 1);
+    }
+    i = skipTrivia(text, end);
+  }
+  if (text[i] !== "=" || text[i + 1] === ">") return [];
+  // the end of the statement
+  let to = text.length;
+  for (let j = i + 1; j < text.length; ) {
+    const k = skipTrivia(text, j);
+    if (k !== j) {
+      const gap = text.slice(j, k);
+      const before = text.slice(i + 1, j).trimEnd();
+      if (gap.includes("\n") && before && !/[&|=,<(]$/.test(before) && !/^[&|]/.test(text.slice(k))) {
+        to = j;
+        break;
+      }
+      j = k;
+      continue;
+    }
+    const c = text[j];
+    if (c === '"' || c === "'" || c === "`") j = skipString(text, j);
+    else if ("<([{".includes(c)) j = skipGroup(text, j);
+    else if (c === ";" || ")]}".includes(c)) {
+      to = j;
+      break;
+    } else j++;
+  }
+  return topLevelNames(text, i + 1, to, params);
 }
 
 /**
@@ -458,12 +645,48 @@ function inImport(text, index) {
   return false;
 }
 
+/**
+ * The text with the expressions of <ranges> (string indices) for which <active>(n) holds
+ * each bound to a fresh parameter, ((__forge_t<n> = (<expr>)) => __forge_t<n>)():
+ * {overlay, events (the inserts: [offset, kind, size, n, text]), anchors (n -> [start,
+ * end] of the parameter's name), refs (n -> where the arrow uses it)}.
+ */
+function bindings(text, ranges, active) {
+  // inserts: at each start the opening, at each end the closing; at the same offset,
+  // closings first (inner first), then openings (outer first)
+  const events = [];
+  ranges.forEach(([s, e], n) => {
+    if (!active(n)) return;
+    events.push([s, 1, -(e - s), n, `((__forge_t${n} = (`]);
+    events.push([e, 0, e - s, n, `)) => __forge_t${n})()`]);
+  });
+  events.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2] || a[3] - b[3]);
+  let overlay = "";
+  let last = 0;
+  const anchors = [];
+  const refs = [];
+  for (const [off, kind, , n, piece] of events) {
+    overlay += text.slice(last, off);
+    last = off;
+    if (kind === 1) anchors[n] = [overlay.length + 2, overlay.length + 2 + `__forge_t${n}`.length]; // the parameter's name
+    else refs[n] = overlay.length + 6; // the arrow's use of it
+    overlay += piece;
+  }
+  overlay += text.slice(last);
+  return { overlay, events, anchors, refs };
+}
+
 class Types {
   constructor(server) {
     this.server = server;
     this.cache = new Map();
   }
-  /** The declarations [package, module, name] of the type declared at loc and of the classes and interfaces it extends or implements, transitively. */
+  /**
+   * The declarations [package, module, name] of the type declared at loc and of its
+   * supertypes, transitively: the classes and interfaces it extends or implements and,
+   * for a type alias, the types its body is made of (the one it renames, or the members
+   * of its union or intersection).
+   */
   async hierarchy(loc) {
     const key = `${loc.uri}:${loc.pos.line}:${loc.pos.character}`;
     if (this.cache.has(key)) return this.cache.get(key);
@@ -482,7 +705,7 @@ class Types {
       const at = nameAt(text, indexOf(text, l.pos));
       if (!at) continue;
       out.set(`${pkg}\0${mod}\0${at.name}`, [pkg, mod, at.name]);
-      const bases = at.end === undefined ? [] : heritage(text, at.end);
+      const bases = at.end === undefined ? [] : at.alias ? aliasMembers(text, at.end) : heritage(text, at.end);
       const defs = await Promise.all(
         bases.map((b) => this.server.definition(file, position(text, b))),
       );
@@ -496,9 +719,12 @@ class Types {
    * wanted: [[match index, variable, start byte, end byte]]. Returns a Map
    * "index\0variable" -> declarations, from the type the server infers for each
    * expression: the file is shown to the server with each expression wrapped as
-   * ({__forge_t<i>: (<expr>)}).__forge_t<i>, in memory only, and the type definition of
-   * that property is asked. named: the same for the declarations names refer to
-   * (declared below), asked on that same version of the file.
+   * ((__forge_t<i> = (<expr>)) => __forge_t<i>)(), in memory only, and the type
+   * definition of that parameter is asked. A type without a declaration of its own (an
+   * intersection, an alias of one) gets none: then the parameter's inlay hint, the type
+   * as the checker prints it with the declaration each name refers to, gives the
+   * declarations of its top-level members (typeOfIntersection). named: the same for the
+   * declarations names refer to (declared below), asked on that same version of the file.
    */
   async check(file, wanted, named = []) {
     const text = fs.readFileSync(file, "utf8");
@@ -514,39 +740,70 @@ class Types {
       if (i < 0) i = ranges.push(r) - 1;
       return i;
     });
-    // inserts: at each start the opening, at each end the closing; at the same offset,
-    // closings first (inner first), then openings (outer first)
-    const events = [];
-    ranges.forEach(([s, e], n) => {
-      events.push([s, 1, -(e - s), n, `({__forge_t${n}: (`]);
-      events.push([e, 0, e - s, n, `)}).__forge_t${n}`]);
-    });
-    events.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2] || a[3] - b[3]);
-    let overlay = "";
-    let last = 0;
-    const anchors = [];
-    for (const [off, kind, , n, piece] of events) {
-      overlay += text.slice(last, off);
-      last = off;
-      if (kind === 0) anchors[n] = overlay.length + piece.length - 2; // inside the property name
-      overlay += piece;
+    // code that is not an expression (a parameter's or a property's name) makes the file
+    // unparsable once bound: such a binding is dropped and the others asked again, so the
+    // rest of the file is still answered; its matches are not checked
+    const unchecked = new Set();
+    let shown;
+    let results;
+    for (;;) {
+      shown = bindings(text, ranges, (n) => !unchecked.has(n));
+      // the server keeps this version until the file changes: the wrapping binds no name, so
+      // what other files see of this one is unchanged (one program update per question)
+      this.server.show(file, shown.overlay);
+      this.server.texts.set(file, shown.overlay);
+      const { overlay, anchors, refs } = shown;
+      results = await Promise.all(ranges.map((_, n) => (unchecked.has(n) ? [] : this.server.typeDefinition(file, position(overlay, anchors[n][0] + 1)))));
+      const unknown = [];
+      for (const [n, r] of results.entries()) {
+        if (r.length || unchecked.has(n)) continue;
+        results[n] = await this.typeOfIntersection(file, overlay, anchors[n]);
+        if (!results[n].length) unknown.push(n);
+      }
+      // a binding the parser rejects: a syntax error in the code it inserts
+      const errors = unknown.length ? (await this.server.syntaxErrors(file)).map((p) => indexOf(overlay, p)) : [];
+      const inserted = (n) => [
+        [anchors[n][0] - 2, anchors[n][1] + 4], // ((__forge_t<n> = (
+        [refs[n] - 6, refs[n] + `__forge_t${n})()`.length], // )) => __forge_t<n>)()
+      ];
+      const unbound = unknown.filter((n) => errors.some((i) => inserted(n).some(([a, b]) => a <= i && i < b)));
+      if (!unbound.length) break;
+      // the first one: those after it may only be broken by it
+      unchecked.add(unbound.reduce((a, b) => (ranges[b][0] < ranges[a][0] ? b : a)));
     }
-    overlay += text.slice(last);
-    // the server keeps this version until the file changes: the wrapping binds no name, so
-    // what other files see of this one is unchanged (one program update per question)
-    this.server.show(file, overlay);
-    this.server.texts.set(file, overlay);
-    const results = await Promise.all(ranges.map((_, n) => this.server.typeDefinition(file, position(overlay, anchors[n]))));
     const perRange = [];
-    for (const r of results) {
+    for (const [n, r] of results.entries()) {
       const decls = [];
       for (const l of r) decls.push(...(await this.hierarchy(l)));
       // any and unknown have no declaration: the checker does not know the type
-      perRange.push({ decls, unknown: decls.length === 0 });
+      perRange.push({ decls, unknown: decls.length === 0, unchecked: unchecked.has(n) });
     }
-    const found = await this.declared(file, text, raw, named, overlay, events);
+    const found = await this.declared(file, text, raw, named, shown.overlay, shown.events);
     for (const [n, w] of wanted.entries()) found.set(`${w[0]}\0${w[1]}`, perRange[slot[n]]);
     return found;
+  }
+  /**
+   * The declarations of the top-level members of the type of the parameter whose name is
+   * at [start, end) in <overlay>: its inlay hint is the type as the checker prints it
+   * (an alias's name when it has one), each name in it with the declaration it refers to;
+   * the names at the top level of that text (topLevelNames) give the locations. None when
+   * the server gives no hint (any, unknown, an error type print nothing that names a
+   * declaration).
+   */
+  async typeOfIntersection(file, overlay, [start, end]) {
+    const at = position(overlay, end);
+    const hints = await this.server.inlayHints(file, position(overlay, start), at);
+    const hint = hints.find((h) => h.pos.line === at.line && h.pos.character === at.character);
+    if (!hint) return [];
+    // the printed type as one text, with where each part naming a declaration starts
+    let text = "";
+    const named = new Map();
+    for (const p of hint.parts) {
+      if (p.uri && p.pos) named.set(text.length, { uri: p.uri, pos: p.pos });
+      text += p.text;
+    }
+    const from = text.indexOf(":") + 1; // the hint is ": <type>"
+    return topLevelNames(text, from, text.length).flatMap((i) => (named.has(i) ? [named.get(i)] : []));
   }
   /**
    * Map "index\0variable" -> {decls, unknown} of the names in named: the declarations
@@ -632,12 +889,22 @@ async function answer(types, matches) {
   });
   const found = new Map();
   for (const [f, kinds] of byFile) for (const [k, d] of await types.check(path.join(ROOT, f), kinds.type, kinds.declared)) found.set(k, d);
-  return matches.flatMap((m, n) =>
-    Object.entries(m.metadata?.forge_where ?? {}).every(([v, cond]) => !found.has(`${n}\0${v}`) || holds(found.get(`${n}\0${v}`), cond)) ? [n] : [],
+  // a match with a metavariable whose type cannot be asked is not checked (never passed)
+  const unchecked = matches.flatMap((m, n) => Object.keys(m.metadata?.forge_where ?? {}).filter((v) => found.get(`${n}\0${v}`)?.unchecked).map((v) => [n, v]));
+  const keep = matches.flatMap((m, n) =>
+    !unchecked.some(([u]) => u === n) &&
+    Object.entries(m.metadata?.forge_where ?? {}).every(([v, cond]) => !found.has(`${n}\0${v}`) || holds(found.get(`${n}\0${v}`), cond))
+      ? [n]
+      : [],
   );
+  return { keep, unchecked };
 }
 
 // ---------------------------------------------------------------- the FIFO loop
+
+/** "unchecked<TAB><rule id><TAB><why>": a match the engine cannot check. */
+const uncheckedLine = (m, v) =>
+  `unchecked\t${m.ruleId}\t${m.file}:${m.range.start.line + 1}: $${v} is bound to \`${m.metaVariables.single[v].text.split("\n")[0].slice(0, 40)}\`, which is not an expression: its type cannot be asked`;
 
 function reply(dir, lines) {
   let fd;
@@ -809,7 +1076,9 @@ async function question(types, dir) {
   }
   const t = performance.now();
   try {
-    for (const n of await answer(types, matches)) out.push(raw[n]);
+    const { keep, unchecked } = await answer(types, matches);
+    for (const n of keep) out.push(raw[n]);
+    for (const [n, v] of unchecked) out.push(uncheckedLine(matches[n], v));
   } catch (e) {
     log("error", e.stack ?? e);
     out.push(`error\t${e.message ?? e}`);

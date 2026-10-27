@@ -93,11 +93,11 @@ What you write:
 | `type: [{…}, {…}]` | a list of specs: one of them is enough (several packages, each with its own names). |
 | `not: {type: …}` | the expression is **not** such a type (for exemptions: "unless the receiver is a Zod schema"); `not: {declared: …}` likewise. |
 
-How it decides: the type checker infers the type of exactly the expression the metavariable is bound to (a name, `self.db`, `sessionmaker(e)()`, `items[0]` alike), resolves aliases and re-exports to the declaration, counts a subclass as its base (a project's `class AppSession(Session)` is a `Session`), ignores type arguments (`list[Session]` is a `list`), and is satisfied by one member of a union (`Session | None`). It never looks at names in the project. The engine is a language server per language (Forge's pinned ty for Python; for TypeScript, the project's own TypeScript: its tsserver for 5 and 6, `tsc --lsp` from 7); your rule does not name it, so it can be replaced without touching a rule.
+How it decides: the type checker infers the type of exactly the expression the metavariable is bound to (a name, `self.db`, `sessionmaker(e)()`, `items[0]` alike), resolves aliases and re-exports to the declaration, counts a subclass as its base (a project's `class AppSession(Session)` is a `Session`), and a type alias as the types it is made of, ignores type arguments (`list[Session]` is a `list`), and is satisfied by one member of a union (`Session | None`) or of an intersection (drizzle's `NodePgDatabase & { $client: Pool }` is a `NodePgDatabase`; an alias of an intersection, such as zustand's `UseBoundStore`, is named by the alias). It never looks at names in the project. The engine is a language server per language (Forge's pinned ty for Python; for TypeScript, the project's own TypeScript: its tsserver for 5 and 6, `tsc --lsp` from 7); your rule does not name it, so it can be replaced without touching a rule.
 
 Finding the right `package`, `module` and `name`: go to the type's definition in your editor and read where it is declared. That file decides, and it is sometimes an internal package (Vitest's `expect` is declared in `@vitest/expect`, not `vitest`). Prefer `module` when one package ships several APIs with the same names (Zod 4's `ZodString` is in `zod/v4`, Zod 3's in `zod/v3`).
 
-Examples of such a rule are whole files, imports included (a receiver whose type cannot be resolved is unknown, and does not match), and `examples.deps` lists the packages, exact versions, they are type-checked against. `bun run test:packs` and `forge test` install them once into a cached project and run every example through the engine; ast-grep alone only checks that the `match` examples match the pattern.
+Examples of such a rule are whole files, imports included (a receiver whose type cannot be resolved is unknown, and does not match), and `examples.deps` lists the packages, exact versions, they are type-checked against: none when the types are the standard library's (`{module: logging, name: Logger}`) or TypeScript's own (`{package: typescript, name: Map}`). `bun run test:packs` and `forge test` install them once into a cached project and run every example through the engine; ast-grep alone only checks that the `match` examples match the pattern.
 
 When the engine sees a library's types only through a stub package (Django through `django-stubs`, Celery through `celery-types`), say so on the target: `needs: [{ecosystem: pypi, name: django-stubs}]`. Where the project does not depend on it, the rule is reported not enforced, with what to add, instead of passing in silence; `examples.deps` must install it.
 
@@ -120,7 +120,7 @@ For a function, decorator or class used by name, ask what the name **refers to**
 
 TypeScript projects declare the global types they use (`@types/node`, `@types/bun`) in `compilerOptions.types`; the examples project of `test:packs` lists the `@types/*` packages of `examples.deps` there.
 
-`where` works on `forbid` and `advise` targets. A match whose engine could not answer is reported as `forge:forge/types <rule> was not checked: …`, never passed silently.
+`where` works on `forbid` and `advise` targets, on metavariables bound to expressions: a match whose metavariable is bound to something else (a parameter's name, a type) cannot be asked, and is reported like a match whose engine could not answer, as `forge:forge/types <rule> was not checked: …`, never passed silently.
 
 ## Examples are tests
 

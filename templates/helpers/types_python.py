@@ -15,7 +15,8 @@
 #                        metadata has forge_where (a type or a declared name per
 #                        metavariable, SPECS §15.1, §15.6); the answer goes to the FIFO <dir>/reply:
 #                        the matches whose forge_where holds (verbatim), "error<TAB>..."
-#                        lines, then "end"
+#                        lines, "unchecked<TAB><rule id><TAB><why>" for each match whose
+#                        metavariable's type cannot be asked, then "end"
 # The daemon exits after FORGE_TYPES_IDLE seconds (1800) without a line, and when its
 # state directory or the repository is gone or another daemon took the state directory
 # over (checked every 10 seconds).
@@ -290,6 +291,42 @@ def in_import(path, text, pos):
     return any(a <= i < b for a, b in cached[1])
 
 
+def bind(text, ranges, which):
+    """The text with the expressions of ranges[n] (n in which) each bound to a fresh name
+    ((__forge_t<n> := (<expr>))), and {n: index inside that name}."""
+    # inserts: at each start the opening, at each end the closing; at the same offset,
+    # closings first (inner first), then openings (outer first)
+    events = []
+    for n in which:
+        s, e = ranges[n]
+        events.append((s, 1, -(e - s), n, "(__forge_t%d := (" % n))
+        events.append((e, 0, e - s, n, "))"))
+    events.sort()
+    out, last, anchors, size = [], 0, {}, 0
+    for off, kind, _, n, piece in events:
+        out.append(text[last:off])
+        size += off - last
+        last = off
+        if kind == 1:
+            anchors[n] = size + 1 + 2  # inside the name
+        out.append(piece)
+        size += len(piece)
+    out.append(text[last:])
+    return "".join(out), anchors
+
+
+def parses(text):
+    try:
+        ast.parse(text)
+        return True
+    except (SyntaxError, ValueError):
+        return False
+
+
+# a metavariable whose type cannot be asked: the match is reported, not checked
+UNCHECKED = (frozenset(), True, True)
+
+
 class Types:
     def __init__(self, server):
         self.server = server
@@ -340,31 +377,25 @@ class Types:
             if r not in ranges:
                 ranges.append(r)
             slot.append(ranges.index(r))
-        # inserts: at each start the opening, at each end the closing; at the same offset,
-        # closings first (inner first), then openings (outer first)
-        events = []
-        for n, (s, e) in enumerate(ranges):
-            events.append((s, 1, -(e - s), n, "(__forge_t%d := (" % n))
-            events.append((e, 0, e - s, n, "))"))
-        events.sort()
-        out, last, anchors = [], 0, {}
-        for off, kind, _, n, piece in events:
-            out.append(text[last:off])
-            last = off
-            if kind == 1:
-                anchors[n] = sum(len(x) for x in out) + 1 + 2  # inside the name
-            out.append(piece)
-        out.append(text[last:])
-        overlay = "".join(out)
+        # code that is not an expression (a parameter's name, a keyword argument's name)
+        # makes the binding unparsable: its type cannot be asked, and the match is not checked
+        unchecked = set()
+        overlay, anchors = bind(text, ranges, range(len(ranges)))
+        if not parses(overlay) and parses(text):
+            unchecked = {n for n in range(len(ranges)) if not parses(bind(text, ranges, [n])[0])}
+            overlay, anchors = bind(text, ranges, [n for n in range(len(ranges)) if n not in unchecked])
         self.server.show(path, overlay)
-        waits = [
-            self.server.request("textDocument/typeDefinition", {"textDocument": {"uri": uri(path)}, "position": position(overlay, anchors[n])})
-            for n in range(len(ranges))
-        ]
-        results = [w() for w in waits]
+        waits = {
+            n: self.server.request("textDocument/typeDefinition", {"textDocument": {"uri": uri(path)}, "position": position(overlay, anchors[n])})
+            for n in anchors
+        }
+        results = [waits[n]() if n in waits else None for n in range(len(ranges))]
         self.server.show(path, text)
         per_range = []
-        for r in results:
+        for n, r in enumerate(results):
+            if n in unchecked:
+                per_range.append(UNCHECKED)
+                continue
             decls = set()
             for l in (r if isinstance(r, list) else [r] if r else []):
                 u = l.get("targetUri") or l.get("uri")
@@ -470,12 +501,22 @@ def answer(types, matches):
     found = {}
     for f, kinds in by_file.items():
         found.update(types.check(os.path.join(ROOT, f), kinds["type"], kinds["declared"]))
-    keep = []
+    keep, unchecked = [], []
     for n, m in enumerate(matches):
         where = (m.get("metadata") or {}).get("forge_where") or {}
-        if all((n, var) not in found or holds(found[(n, var)], cond) for var, cond in where.items()):
+        bad = [var for var in where if found.get((n, var)) is UNCHECKED]
+        if bad:
+            unchecked.append((n, bad[0]))
+        elif all((n, var) not in found or holds(found[(n, var)], cond) for var, cond in where.items()):
             keep.append(n)
-    return keep
+    return keep, unchecked
+
+
+def unchecked_line(m, var):
+    """unchecked<TAB><rule id><TAB><why>: a match the engine cannot check."""
+    text = m["metaVariables"]["single"][var]["text"].split("\n")[0][:40]
+    return "unchecked\t%s\t%s:%d: $%s is bound to `%s`, which is not an expression: its type cannot be asked" % (
+        m.get("ruleId"), m["file"], m["range"]["start"]["line"] + 1, var, text)
 
 
 # ---------------------------------------------------------------- the FIFO loop
@@ -558,7 +599,9 @@ def question(types, d):
             out.append("error\tunreadable match: " + l[:80])
     t = time.time()
     try:
-        out.extend(raw[n] for n in answer(types, matches))
+        keep, unchecked = answer(types, matches)
+        out.extend(raw[n] for n in keep)
+        out.extend(unchecked_line(matches[n], var) for n, var in unchecked)
     except Exception as e:  # noqa: BLE001 - reported to the hook, which fails visibly
         log("error", repr(e))
         out.append("error\t%s: %s" % (type(e).__name__, e))

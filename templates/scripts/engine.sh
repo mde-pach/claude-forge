@@ -3678,7 +3678,14 @@ forge_types_filter() {
     # not in a subshell: forge_types_up records what it started (FORGE_TYPES_STARTED)
     if forge_types_up "$_tf_lang" > "$_tf_q/why" && FORGE_TYPES_TIMEOUT=$_tf_t forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
       && ! grep -q '^error	' "$_tf_q/answer"; then
-      cat "$_tf_q/answer" >> "$1.kept"
+      grep -v '^unchecked	' "$_tf_q/answer" >> "$1.kept"
+      # a match whose metavariable is bound to code that is not an expression: not checked, never passed
+      if grep -q '^unchecked	' "$_tf_q/answer"; then
+        grep '^unchecked	' "$_tf_q/answer" | while IFS='	' read -r _ _tf_id _tf_why; do
+          printf 'forge:forge/types %s was not checked: %s\n' "$_tf_id" "$_tf_why"
+        done
+        _tf_rc=1
+      fi
     elif [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then
       grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
         printf 'forge:forge/types %s was not checked after this edit: the %s engine (%s) is still loading the project; the Stop check runs it\n' "$_tf_id" "$_tf_lang" "$(cat "$FORGE_STATE/types/$_tf_lang/ready" 2>/dev/null)"

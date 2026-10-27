@@ -114,6 +114,23 @@ const NO_TEXT = [
   "",
 ].join("\n");
 
+/**
+ * A local rule whose metavariable is bound to a parameter's name: code that is not an
+ * expression, whose type the engine cannot ask (§15.1).
+ */
+const PARAM_PY = [
+  "id: local/param-session",
+  "description: A parameter typed as a SQLAlchemy Session.",
+  'scope: {language: python, files: ["app/params.py"]}',
+  "enforce:",
+  "  - target: ast-grep",
+  "    mode: forbid",
+  '    rule: {pattern: "def $F($P: $T): $$$B"}',
+  "    where:",
+  "      P: {type: {package: sqlalchemy, name: Session}}",
+  "",
+].join("\n");
+
 /** @rule python/sqlalchemy/no-query-api */
 describe.if(hasUv)("Python: the receiver's type, through ty", () => {
   let repo = "";
@@ -123,6 +140,7 @@ describe.if(hasUv)("Python: the receiver's type, through ty", () => {
       expect(sh("uv", ["pip", "install", "-q", "--python", join(dir, ".venv/bin/python"), "sqlalchemy==2.0.44"]).status).toBe(0);
       mkdirSync(join(dir, ".forge/rules"), { recursive: true });
       writeFileSync(join(dir, ".forge/rules/no-text.yaml"), NO_TEXT);
+      writeFileSync(join(dir, ".forge/rules/param-session.yaml"), PARAM_PY);
     });
   }, T);
   afterAll(() => stopEngines(repo));
@@ -267,6 +285,24 @@ describe.if(hasUv)("Python: the receiver's type, through ty", () => {
         ].join("\n"),
       );
       expect(afterEdit(repo, "app/own.py")).not.toContain("forge:local/no-text");
+    },
+    T,
+  );
+
+  test(
+    "a metavariable bound to code that is not an expression (a parameter's name) is reported not checked, and the file's other matches are still answered",
+    () => {
+      put(
+        repo,
+        "app/params.py",
+        ["from sqlalchemy.orm import Session", "", "", "def first(db: Session):", "    return db.query(int).first()", ""].join("\n"),
+      );
+      const ctx = afterEdit(repo, "app/params.py");
+      expect(ctx).toContain("forge:forge/types local/param-session was not checked: app/params.py:4: $P is bound to `db`, which is not an expression");
+      expect(ctx).toContain("forge:python/sqlalchemy/no-query-api app/params.py:5:");
+      const r = sh("sh", [".forge/check.sh", "--changed"], { cwd: repo, env: ENV });
+      expect(r.status).not.toBe(0);
+      expect(r.stdout).toContain("forge:forge/types local/param-session was not checked");
     },
     T,
   );
@@ -443,6 +479,41 @@ const USE_FORM = [
 ].join("\n");
 
 /**
+ * A local rule on types without a declaration of their own (§15.1): zustand's
+ * UseBoundStore (an alias of `{ … } & S`), drizzle()'s `NodePgDatabase & { $client }`
+ * (an intersection written inline) and node-redis's RedisClientType (an alias of
+ * `(RedisClient & …)`).
+ */
+const MEMBERS = [
+  "id: local/members",
+  "description: Intersections are their members.",
+  "scope: {language: typescript}",
+  "enforce:",
+  "  - target: ast-grep",
+  "    mode: forbid",
+  '    rule: {any: [{pattern: "$S()"}, {pattern: "$DB.delete($$$)"}, {pattern: "$C.keys($$$)"}]}',
+  "    where:",
+  "      S: {type: {package: zustand, name: UseBoundStore}}",
+  "      DB: {type: {package: drizzle-orm, name: PgDatabase}}",
+  '      C: {type: {package: "@redis/client", name: RedisClient}}',
+  "",
+].join("\n");
+
+/** A local rule whose metavariable is bound to a parameter's name (§15.1): not an expression. */
+const PARAM_TS = [
+  "id: local/param-zod",
+  "description: A parameter typed as a Zod string.",
+  'scope: {language: typescript, files: ["src/params.ts"]}',
+  "enforce:",
+  "  - target: ast-grep",
+  "    mode: forbid",
+  '    rule: {kind: required_parameter, has: {field: pattern, pattern: $P}}',
+  "    where:",
+  "      P: {type: {package: zod, name: ZodString}}",
+  "",
+].join("\n");
+
+/**
  * The project's own TypeScript answers (§15.2): TypeScript 7 through its language server
  * (tsc --lsp), TypeScript 5 and 6 through their tsserver. The same tests run on one
  * version of each.
@@ -453,7 +524,18 @@ describe.each(TOOL_VERSIONS.typescriptEngines.map((v) => [v]))("TypeScript %s: t
   beforeAll(() => {
     repo = project(`zod-typescript-${version}`, undefined, (dir) => {
       mkdirSync(join(dir, "src"));
-      const dependencies = { zod: "4.1.12", "react-hook-form": "7.66.0", react: "19.2.0", "@types/react": "19.2.2" };
+      const dependencies = {
+        zod: "4.1.12",
+        "react-hook-form": "7.66.0",
+        react: "19.2.0",
+        "@types/react": "19.2.2",
+        zustand: "5.0.16",
+        "drizzle-orm": "0.45.4",
+        pg: "8.23.1",
+        "@types/pg": "8.23.1",
+        redis: "5.10.0",
+        "@types/node": "24.10.1",
+      };
       writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "zod-app", private: true, type: "module", dependencies, devDependencies: { typescript: version } }));
       writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ compilerOptions: { strict: true, module: "ESNext", moduleResolution: "bundler", target: "ES2022", noEmit: true } }));
       writeFileSync(join(dir, ".gitignore"), "node_modules/\n");
@@ -462,6 +544,8 @@ describe.each(TOOL_VERSIONS.typescriptEngines.map((v) => [v]))("TypeScript %s: t
       mkdirSync(join(dir, ".forge/rules"), { recursive: true });
       writeFileSync(join(dir, ".forge/rules/watch-all.yaml"), WATCH_ALL);
       writeFileSync(join(dir, ".forge/rules/use-form.yaml"), USE_FORM);
+      writeFileSync(join(dir, ".forge/rules/members.yaml"), MEMBERS);
+      writeFileSync(join(dir, ".forge/rules/param-zod.yaml"), PARAM_TS);
       expect(sh("bun", ["install", "--silent"], { cwd: dir }).status).toBe(0);
     });
   }, T);
@@ -530,6 +614,84 @@ describe.each(TOOL_VERSIONS.typescriptEngines.map((v) => [v]))("TypeScript %s: t
       const ctx = afterEdit(repo, "src/form.ts");
       expect(ctx).toContain("forge:local/watch-all src/form.ts:5:");
       expect(ctx).not.toContain("src/form.ts:9:");
+    },
+    T,
+  );
+
+  test(
+    "an intersection is its members, and an alias of one the alias and its members: zustand's store hook, drizzle()'s database, node-redis's createClient()",
+    () => {
+      put(
+        repo,
+        "src/stores.ts",
+        [
+          'import { drizzle } from "drizzle-orm/node-postgres";',
+          'import { pgTable, serial } from "drizzle-orm/pg-core";',
+          'import { createClient } from "redis";',
+          'import { create } from "zustand";',
+          "",
+          "const users = pgTable(\"users\", { id: serial(\"id\") });",
+          "const useCount = create<{ n: number }>()(() => ({ n: 1 }));",
+          'const db = drizzle("postgres://localhost/app");',
+          "const client = createClient();",
+          "",
+          "export function all() {",
+          "  return [useCount(), db.delete(users), client.keys(\"*\")];",
+          "}",
+          "",
+        ].join("\n"),
+      );
+      const ctx = afterEdit(repo, "src/stores.ts");
+      expect(ctx.match(/forge:local\/members src\/stores\.ts:12:/g)).toHaveLength(3);
+    },
+    T,
+  );
+
+  test(
+    "an intersection of other types is not its look-alikes: the standard library's Map, a project class named PgDatabase",
+    () => {
+      put(
+        repo,
+        "src/fakes.ts",
+        [
+          "class PgDatabase {",
+          "  delete(n: number): number {",
+          "    return n;",
+          "  }",
+          "}",
+          "declare const own: Map<string, number> & { tag: string };",
+          "declare const fake: PgDatabase & { tag: string };",
+          "type Keyed = { keys(p: string): string[] } & { tag: string };",
+          "declare const keyed: Keyed;",
+          'export const all = [own.delete("a"), fake.delete(1), keyed.keys("*")];',
+          "",
+        ].join("\n"),
+      );
+      expect(afterEdit(repo, "src/fakes.ts")).toBe("");
+    },
+    T,
+  );
+
+  test(
+    "the supertypes of an interface include those of a type alias it extends",
+    () => {
+      put(
+        repo,
+        "src/aliased.ts",
+        ['import { z } from "zod";', "", "type Str = z.ZodString;", "interface Field extends Str {}", "", "export function email(f: Field) {", "  return f.email();", "}", ""].join("\n"),
+      );
+      expect(afterEdit(repo, "src/aliased.ts")).toContain("forge:typescript/zod/v4-string-formats src/aliased.ts:7:");
+    },
+    T,
+  );
+
+  test(
+    "a metavariable bound to code that is not an expression (a parameter's name) is reported not checked, and the file's other matches are still answered",
+    () => {
+      put(repo, "src/params.ts", ['import { z } from "zod";', "", "export function email(s: z.ZodString) {", "  return s.email();", "}", ""].join("\n"));
+      const ctx = afterEdit(repo, "src/params.ts");
+      expect(ctx).toContain("forge:forge/types local/param-zod was not checked: src/params.ts:3: $P is bound to `s`, which is not an expression");
+      expect(ctx).toContain("forge:typescript/zod/v4-string-formats src/params.ts:4:");
     },
     T,
   );
@@ -663,6 +825,59 @@ test(
     expect(r.stdout).toContain("did not start: failed: not started within 2s");
     expect(r.stdout).toContain("rc=1");
     expect(performance.now() - t).toBeLessThan(20_000);
+  },
+  T,
+);
+
+/** @rule python/log-exception */
+test.if(hasUv)(
+  "a where rule whose types come from the standard library or TypeScript's own lib needs no examples.deps: forge test checks its examples against them alone",
+  () => {
+    const dir = mkdtempSync(join(tmpdir(), "forge-stdlib-"));
+    git(dir, "init", "-q", "-b", "main");
+    put(
+      dir,
+      ".forge/rules/ssl-off.yaml",
+      [
+        "id: local/ssl-off",
+        "description: No hostname check turned off on an SSLContext.",
+        "scope: {language: python}",
+        "enforce:",
+        "  - target: ast-grep",
+        "    mode: forbid",
+        '    rule: {pattern: "$C.check_hostname = False"}',
+        "    where:",
+        "      C: {type: {module: ssl, name: SSLContext}}",
+        "examples:",
+        '  match: ["import ssl\\n\\nctx = ssl.create_default_context()\\nctx.check_hostname = False\\n"]',
+        '  no_match: ["class Conf:\\n    check_hostname = True\\n\\n\\nconf = Conf()\\nconf.check_hostname = False\\n"]',
+        "",
+      ].join("\n"),
+    );
+    put(
+      dir,
+      ".forge/rules/map-clear.yaml",
+      [
+        "id: local/map-clear",
+        "description: No Map.clear().",
+        "scope: {language: typescript}",
+        "enforce:",
+        "  - target: ast-grep",
+        "    mode: forbid",
+        '    rule: {pattern: "$M.clear()"}',
+        "    where:",
+        "      M: {type: {package: typescript, name: Map}}",
+        "examples:",
+        '  match: ["export const m = new Map<string, number>();\\nm.clear();\\n"]',
+        '  no_match: ["export const s = { clear(): void {} };\\ns.clear();\\n"]',
+        "",
+      ].join("\n"),
+    );
+    const r = forge(["test"], dir);
+    expect(r.stderr).toBe("");
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain("types (python): 2 examples of 1 rule(s) checked with the standard library");
+    expect(r.stdout).toContain("types (typescript): 2 examples of 1 rule(s) checked with TypeScript 7.0.2's lib");
   },
   T,
 );
