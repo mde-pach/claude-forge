@@ -1,0 +1,16 @@
+id: typescript/pnpm/catalog
+description: "Advice: a dependency added or changed in a package.json whose name is in the pnpm catalog (catalog or catalogs in pnpm-workspace.yaml) uses catalog: (or catalog:<name>), so every package gets the same version; not reported when catalogMode is strict (pnpm enforces it)."
+scope: {language: any, files: ["**/package.json"]}
+enforce:
+  - {target: check, stage: lint, run: "forge_advise forge_helper bun pm_policy.mjs pnpm-catalog", when_changed: ["**/package.json"]}
+examples:
+  match:
+    - head: {pnpm-workspace.yaml: "packages:\n  - packages/*\ncatalog:\n  react: ^19.2.0\n"}
+      files: {packages/ui/package.json: "{\n  \"name\": \"@acme/ui\",\n  \"dependencies\": {\n    \"react\": \"^19.1.0\"\n  }\n}\n"}
+    - head: {pnpm-workspace.yaml: "packages:\n  - packages/*\ncatalogs:\n  test:\n    vitest: 4.0.0\n"}
+      files: {packages/ui/package.json: "{\n  \"name\": \"@acme/ui\",\n  \"devDependencies\": {\n    \"vitest\": \"4.0.0\"\n  }\n}\n"}
+  no_match:
+    - head: {pnpm-workspace.yaml: "packages:\n  - packages/*\ncatalog:\n  react: ^19.2.0\n"}
+      files: {packages/ui/package.json: "{\n  \"name\": \"@acme/ui\",\n  \"dependencies\": {\n    \"react\": \"catalog:\",\n    \"zod\": \"^4.1.0\"\n  }\n}\n"}
+    - head: {pnpm-workspace.yaml: "packages:\n  - packages/*\ncatalogMode: strict\ncatalog:\n  react: ^19.2.0\n"}
+      files: {packages/ui/package.json: "{\n  \"name\": \"@acme/ui\",\n  \"dependencies\": {\n    \"react\": \"^19.1.0\"\n  }\n}\n"}

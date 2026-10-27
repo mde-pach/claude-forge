@@ -1,0 +1,14 @@
+id: typescript/pnpm/workspace-protocol
+description: "A dependency on a package of the pnpm workspace (pnpm-workspace.yaml packages) uses the workspace: protocol; since pnpm 9 a plain version range can install a registry copy instead of linking the local package (linkWorkspacePackages is false by default)."
+scope: {language: any, files: ["**/package.json"]}
+enforce:
+  - {target: check, stage: lint, run: "forge_helper bun pm_policy.mjs pnpm-workspace", when_changed: ["**/package.json", pnpm-workspace.yaml]}
+examples:
+  match:
+    - head: {pnpm-workspace.yaml: "packages:\n  - packages/*\n  - apps/*\n", packages/ui/package.json: "{\n  \"name\": \"@acme/ui\",\n  \"version\": \"1.2.0\"\n}\n"}
+      files: {apps/web/package.json: "{\n  \"name\": \"web\",\n  \"dependencies\": {\n    \"@acme/ui\": \"^1.2.0\"\n  }\n}\n"}
+  no_match:
+    - head: {pnpm-workspace.yaml: "packages:\n  - packages/*\n  - apps/*\n", packages/ui/package.json: "{\n  \"name\": \"@acme/ui\",\n  \"version\": \"1.2.0\"\n}\n"}
+      files: {apps/web/package.json: "{\n  \"name\": \"web\",\n  \"dependencies\": {\n    \"@acme/ui\": \"workspace:^\",\n    \"zod\": \"^4.1.0\"\n  }\n}\n"}
+    - head: {pnpm-workspace.yaml: "packages:\n  - packages/*\n  - apps/*\n  - '!packages/legacy'\n", packages/legacy/package.json: "{\n  \"name\": \"@acme/legacy\",\n  \"version\": \"0.1.0\"\n}\n"}
+      files: {apps/web/package.json: "{\n  \"name\": \"web\",\n  \"dependencies\": {\n    \"@acme/legacy\": \"^0.1.0\"\n  }\n}\n"}

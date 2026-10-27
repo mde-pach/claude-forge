@@ -1179,6 +1179,10 @@ Detected by `pnpm-lock.yaml` or `pnpm-workspace.yaml`.
 | `typescript/pnpm/no-other-pm` | `guard` ask: `npm install`, `npm i`, `npm ci`, `npm add`, `yarn`, `bun install`, `bun i`, `bun add` |
 | `typescript/pnpm/lock-sync` | `check` lint: `pnpm install --frozen-lockfile --lockfile-only` (skipped when pnpm is not installed), `when_changed`: `package.json` files, `pnpm-lock.yaml`, `pnpm-workspace.yaml` |
 | `typescript/pnpm/settings-location` | `check` lint (with `bun`) on changed `package.json` and `.npmrc` files: a top-level `pnpm` field, and pnpm settings in `.npmrc` (`node-linker`, `shamefully-hoist`, `only-built-dependencies`, `minimum-release-age`, …), reported at their line |
+| `typescript/pnpm/allow-builds` | `check` lint: `.forge/helpers/pm_policy.mjs` (`forge_helper bun pm_policy.mjs <mode>`) `pnpm-builds`, when `pnpm-workspace.yaml` changed, compared with the base: an `allowBuilds` entry newly `true`, a new `onlyBuiltDependencies` entry, `dangerouslyAllowAllBuilds: true`, `strictDepBuilds` or `blockExoticSubdeps` turned `false`; each at its line, accepted in `forge.yaml` |
+| `typescript/pnpm/workspace-protocol` | `check` lint: `pnpm-workspace`: in a changed `package.json`, a dependency on a package of the workspace (`pnpm-workspace.yaml` `packages`, `!` exclusions applied) whose spec has no protocol (`^1.2.0`, not `workspace:`), at its line |
+| `typescript/pnpm/catalog` | `check` lint, advisory (§10.7): `pnpm-catalog`: a dependency added or changed in a `package.json` whose name is a key of `catalog` or of a `catalogs` entry and whose spec is not `catalog:…` / `workspace:…`; nothing when `catalogMode: strict` |
+| `typescript/pnpm/overrides` | `check` lint, advisory (§10.7): `pnpm-overrides`: each `overrides` entry of `pnpm-workspace.yaml` added or changed since the base |
 
 context.md: pnpm manages dependencies; its settings live in `pnpm-workspace.yaml`.
 
@@ -1195,6 +1199,11 @@ Detected by `package-lock.json` or `npm-shrinkwrap.json`.
 | `typescript/npm/no-legacy-peer-deps` | `guard` deny: `npm install`, `i`, `ci`, `add` with `--legacy-peer-deps` or `--force` |
 | `typescript/npm/no-legacy-peer-deps-config` | `grep` forbid in `.npmrc`: `legacy-peer-deps=true`, `force=true` |
 | `typescript/npm/no-audit-fix-force` | `guard` ask: `npm audit fix … --force` |
+| `typescript/npm/release-age` | `check` lint: `.forge/helpers/pm_policy.mjs` (`forge_helper bun pm_policy.mjs <mode>`) `npm-cooldown`, when `.npmrc`, `package.json` or `package-lock.json` changed: root `.npmrc` `min-release-age` is at least 3 (days), and `package.json` requires npm ≥ 11.10 (`devEngines.packageManager` `{name: npm}` version range, or `packageManager` `npm@…`), the first npm that reads it |
+| `typescript/npm/release-age-command` | `guard` ask: `--min-release-age=0` (or `0` as the next word) |
+| `typescript/npm/allow-scripts` | `check` lint: `npm-scripts`, compared with the base: root `package.json` `allowScripts` gains an entry that is not `false` (or one turns from `false`); `.npmrc` gains `ignore-scripts=false`, `dangerously-allow-all-scripts=true` or an `allow-scripts` package; accepted in `forge.yaml` |
+| `typescript/npm/allow-scripts-command` | `guard` ask: `npm approve-scripts` / `npm install-scripts approve` with a package, `--all` or `--no-allow-scripts-pin` (not the read-only `--allow-scripts-pending`), `--allow-scripts`, `--dangerously-allow-all-scripts` |
+| `typescript/npm/lockfile-lint` | `check` lint: `forge_lockfile_lint` on changed `package-lock.json` files (`@lockfiles`): pinned lockfile-lint 5.1.0 through `bunx`, `--type npm --allowed-hosts npm --validate-https --validate-integrity`; findings `path:0 <package>: <problem> (expected …, actual …)`; a private registry replaces the rule locally |
 
 context.md: npm manages dependencies; peer conflicts are resolved, not forced; dependencies come from the registry.
 
@@ -1205,6 +1214,7 @@ Detected by `.yarnrc.yml` (Yarn 2 and later).
 | Rule | Targets |
 |---|---|
 | `typescript/yarn/no-other-pm` | `guard` ask: `npm install`, `npm i`, `npm ci`, `npm add`, `pnpm`, `bun install`, `bun i`, `bun add` |
+| `typescript/yarn/scripts-ratchet` | `check` lint: `.forge/helpers/pm_policy.mjs` (`forge_helper bun pm_policy.mjs <mode>`) `yarn-scripts`, compared with the base: `.yarnrc.yml` `enableScripts` turned `true`; a `package.json` `dependenciesMeta` entry gaining `built: true`; accepted in `forge.yaml` |
 
 context.md: Yarn manages dependencies.
 

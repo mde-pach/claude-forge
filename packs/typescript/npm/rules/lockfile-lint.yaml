@@ -1,0 +1,13 @@
+id: typescript/npm/lockfile-lint
+description: package-lock.json resolves every package from registry.npmjs.org, over https, with a sha512 integrity (pinned lockfile-lint); a project on a private registry replaces the rule locally with its hosts.
+scope: {language: any, files: ["@lockfiles"]}
+enforce:
+  - {target: check, stage: lint, run: forge_lockfile_lint, when_changed: ["@lockfiles"]}
+examples:
+  match:
+    - files: {package-lock.json: "{\"name\": \"shop\", \"lockfileVersion\": 3, \"packages\": {\"\": {\"name\": \"shop\"}, \"node_modules/left-pad\": {\"version\": \"1.3.0\", \"resolved\": \"https://evil.example.com/left-pad-1.3.0.tgz\", \"integrity\": \"sha512-XI5MPzVNApjAyhQzphX8BkmKsKUxD4LdyK24iZeQuQyQqBRUKpBq8TtrjZ8GZIqdZDw3aQ9LsfHKjVf+7obxSA==\"}}}\n"}
+    - files: {package-lock.json: "{\"name\": \"shop\", \"lockfileVersion\": 3, \"packages\": {\"\": {\"name\": \"shop\"}, \"node_modules/left-pad\": {\"version\": \"1.3.0\", \"resolved\": \"http://registry.npmjs.org/left-pad/-/left-pad-1.3.0.tgz\", \"integrity\": \"sha512-XI5MPzVNApjAyhQzphX8BkmKsKUxD4LdyK24iZeQuQyQqBRUKpBq8TtrjZ8GZIqdZDw3aQ9LsfHKjVf+7obxSA==\"}}}\n"}
+    - files: {package-lock.json: "{\"name\": \"shop\", \"lockfileVersion\": 3, \"packages\": {\"\": {\"name\": \"shop\"}, \"node_modules/left-pad\": {\"version\": \"1.3.0\", \"resolved\": \"https://registry.npmjs.org/left-pad/-/left-pad-1.3.0.tgz\", \"integrity\": \"sha1-W4o6d2Xf4AEmHd6RVYnngvjJTR4=\"}}}\n"}
+  no_match:
+    - files: {package-lock.json: "{\"name\": \"shop\", \"lockfileVersion\": 3, \"packages\": {\"\": {\"name\": \"shop\"}, \"node_modules/left-pad\": {\"version\": \"1.3.0\", \"resolved\": \"https://registry.npmjs.org/left-pad/-/left-pad-1.3.0.tgz\", \"integrity\": \"sha512-XI5MPzVNApjAyhQzphX8BkmKsKUxD4LdyK24iZeQuQyQqBRUKpBq8TtrjZ8GZIqdZDw3aQ9LsfHKjVf+7obxSA==\"}}}\n"}
+    - files: {pnpm-lock.yaml: "lockfileVersion: '9.0'\n"}
