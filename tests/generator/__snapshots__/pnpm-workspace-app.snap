@@ -1824,7 +1824,7 @@ forge_grep_counts() {
   _gc_i=1
   while [ "$_gc_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gc_i"
-    if [ "$g_mode" != forbid ]; then
+    if [ "$g_mode" = no-increase ] || [ "$g_mode" = no-decrease ]; then
       while IFS= read -r _gc_f; do
         [ -f "$1/$_gc_f" ] && forge_grep_scope_"$_gc_i" "$_gc_f" || continue
         printf '%s\t%s\t%s\n' "$g_id" "$_gc_f" "$(grep -c "$g_flags" -- "$g_pattern" "$1/$_gc_f")"
@@ -1834,13 +1834,14 @@ forge_grep_counts() {
   done
 }
 
-# forge_grep_forbid <file-list>: "forge:<rule> path:line <description>" for each
-# match of a forbid grep rule; unless $mode is --all, only on lines of $FORGE_TMP/added.
+# forge_grep_forbid <file-list> [advise]: "forge:<rule> path:line <description>" for each
+# match of a forbid grep rule (and, with advise, of an advise one: after an edit only);
+# unless $mode is --all, only on lines of $FORGE_TMP/added.
 forge_grep_forbid() {
   _gf_i=1
   while [ "$_gf_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gf_i"
-    if [ "$g_mode" = forbid ]; then
+    if [ "$g_mode" = forbid ] || { [ "$g_mode" = advise ] && [ "${2:-}" = advise ]; }; then
       while IFS= read -r _gf_f; do
         [ -f "$_gf_f" ] && forge_grep_scope_"$_gf_i" "$_gf_f" || continue
         grep -n "$g_flags" -- "$g_pattern" "$_gf_f" 2>/dev/null | awk -F: -v f="$_gf_f" -v id="$g_id" -v d="$g_desc" -v all="$([ "$mode" = --all ] && printf 1)" '
@@ -5425,7 +5426,7 @@ forge_edit_checks() {
     forge_added_lines "$file" "$FORGE_TMP/base" >> "$FORGE_TMP/added"
   done < "$FORGE_TMP/changed"
   forge_file_report lint >> "$FORGE_TMP/report" 2>&1
-  [ -s "$FORGE_TMP/changed" ] && forge_grep_forbid "$FORGE_TMP/changed" >> "$FORGE_TMP/report"
+  [ -s "$FORGE_TMP/changed" ] && forge_grep_forbid "$FORGE_TMP/changed" advise >> "$FORGE_TMP/report"
   if [ -s "$FORGE_TMP/changed" ] && [ -n "$FORGE_FORBID" ] && [ -f .forge/ast-grep/sgconfig.yml ]; then
     set -f
     # shellcheck disable=SC2046
@@ -6169,7 +6170,7 @@ forge_grep_counts() {
   _gc_i=1
   while [ "$_gc_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gc_i"
-    if [ "$g_mode" != forbid ]; then
+    if [ "$g_mode" = no-increase ] || [ "$g_mode" = no-decrease ]; then
       while IFS= read -r _gc_f; do
         [ -f "$1/$_gc_f" ] && forge_grep_scope_"$_gc_i" "$_gc_f" || continue
         printf '%s\t%s\t%s\n' "$g_id" "$_gc_f" "$(grep -c "$g_flags" -- "$g_pattern" "$1/$_gc_f")"
@@ -6179,13 +6180,14 @@ forge_grep_counts() {
   done
 }
 
-# forge_grep_forbid <file-list>: "forge:<rule> path:line <description>" for each
-# match of a forbid grep rule; unless $mode is --all, only on lines of $FORGE_TMP/added.
+# forge_grep_forbid <file-list> [advise]: "forge:<rule> path:line <description>" for each
+# match of a forbid grep rule (and, with advise, of an advise one: after an edit only);
+# unless $mode is --all, only on lines of $FORGE_TMP/added.
 forge_grep_forbid() {
   _gf_i=1
   while [ "$_gf_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gf_i"
-    if [ "$g_mode" = forbid ]; then
+    if [ "$g_mode" = forbid ] || { [ "$g_mode" = advise ] && [ "${2:-}" = advise ]; }; then
       while IFS= read -r _gf_f; do
         [ -f "$_gf_f" ] && forge_grep_scope_"$_gf_i" "$_gf_f" || continue
         grep -n "$g_flags" -- "$g_pattern" "$_gf_f" 2>/dev/null | awk -F: -v f="$_gf_f" -v id="$g_id" -v d="$g_desc" -v all="$([ "$mode" = --all ] && printf 1)" '
@@ -10534,7 +10536,7 @@ forge_grep_counts() {
   _gc_i=1
   while [ "$_gc_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gc_i"
-    if [ "$g_mode" != forbid ]; then
+    if [ "$g_mode" = no-increase ] || [ "$g_mode" = no-decrease ]; then
       while IFS= read -r _gc_f; do
         [ -f "$1/$_gc_f" ] && forge_grep_scope_"$_gc_i" "$_gc_f" || continue
         printf '%s\t%s\t%s\n' "$g_id" "$_gc_f" "$(grep -c "$g_flags" -- "$g_pattern" "$1/$_gc_f")"
@@ -10544,13 +10546,14 @@ forge_grep_counts() {
   done
 }
 
-# forge_grep_forbid <file-list>: "forge:<rule> path:line <description>" for each
-# match of a forbid grep rule; unless $mode is --all, only on lines of $FORGE_TMP/added.
+# forge_grep_forbid <file-list> [advise]: "forge:<rule> path:line <description>" for each
+# match of a forbid grep rule (and, with advise, of an advise one: after an edit only);
+# unless $mode is --all, only on lines of $FORGE_TMP/added.
 forge_grep_forbid() {
   _gf_i=1
   while [ "$_gf_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gf_i"
-    if [ "$g_mode" = forbid ]; then
+    if [ "$g_mode" = forbid ] || { [ "$g_mode" = advise ] && [ "${2:-}" = advise ]; }; then
       while IFS= read -r _gf_f; do
         [ -f "$_gf_f" ] && forge_grep_scope_"$_gf_i" "$_gf_f" || continue
         grep -n "$g_flags" -- "$g_pattern" "$_gf_f" 2>/dev/null | awk -F: -v f="$_gf_f" -v id="$g_id" -v d="$g_desc" -v all="$([ "$mode" = --all ] && printf 1)" '
@@ -14920,7 +14923,7 @@ forge_grep_counts() {
   _gc_i=1
   while [ "$_gc_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gc_i"
-    if [ "$g_mode" != forbid ]; then
+    if [ "$g_mode" = no-increase ] || [ "$g_mode" = no-decrease ]; then
       while IFS= read -r _gc_f; do
         [ -f "$1/$_gc_f" ] && forge_grep_scope_"$_gc_i" "$_gc_f" || continue
         printf '%s\t%s\t%s\n' "$g_id" "$_gc_f" "$(grep -c "$g_flags" -- "$g_pattern" "$1/$_gc_f")"
@@ -14930,13 +14933,14 @@ forge_grep_counts() {
   done
 }
 
-# forge_grep_forbid <file-list>: "forge:<rule> path:line <description>" for each
-# match of a forbid grep rule; unless $mode is --all, only on lines of $FORGE_TMP/added.
+# forge_grep_forbid <file-list> [advise]: "forge:<rule> path:line <description>" for each
+# match of a forbid grep rule (and, with advise, of an advise one: after an edit only);
+# unless $mode is --all, only on lines of $FORGE_TMP/added.
 forge_grep_forbid() {
   _gf_i=1
   while [ "$_gf_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gf_i"
-    if [ "$g_mode" = forbid ]; then
+    if [ "$g_mode" = forbid ] || { [ "$g_mode" = advise ] && [ "${2:-}" = advise ]; }; then
       while IFS= read -r _gf_f; do
         [ -f "$_gf_f" ] && forge_grep_scope_"$_gf_i" "$_gf_f" || continue
         grep -n "$g_flags" -- "$g_pattern" "$_gf_f" 2>/dev/null | awk -F: -v f="$_gf_f" -v id="$g_id" -v d="$g_desc" -v all="$([ "$mode" = --all ] && printf 1)" '
@@ -20944,7 +20948,7 @@ forge_grep_counts() {
   _gc_i=1
   while [ "$_gc_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gc_i"
-    if [ "$g_mode" != forbid ]; then
+    if [ "$g_mode" = no-increase ] || [ "$g_mode" = no-decrease ]; then
       while IFS= read -r _gc_f; do
         [ -f "$1/$_gc_f" ] && forge_grep_scope_"$_gc_i" "$_gc_f" || continue
         printf '%s\t%s\t%s\n' "$g_id" "$_gc_f" "$(grep -c "$g_flags" -- "$g_pattern" "$1/$_gc_f")"
@@ -20954,13 +20958,14 @@ forge_grep_counts() {
   done
 }
 
-# forge_grep_forbid <file-list>: "forge:<rule> path:line <description>" for each
-# match of a forbid grep rule; unless $mode is --all, only on lines of $FORGE_TMP/added.
+# forge_grep_forbid <file-list> [advise]: "forge:<rule> path:line <description>" for each
+# match of a forbid grep rule (and, with advise, of an advise one: after an edit only);
+# unless $mode is --all, only on lines of $FORGE_TMP/added.
 forge_grep_forbid() {
   _gf_i=1
   while [ "$_gf_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gf_i"
-    if [ "$g_mode" = forbid ]; then
+    if [ "$g_mode" = forbid ] || { [ "$g_mode" = advise ] && [ "${2:-}" = advise ]; }; then
       while IFS= read -r _gf_f; do
         [ -f "$_gf_f" ] && forge_grep_scope_"$_gf_i" "$_gf_f" || continue
         grep -n "$g_flags" -- "$g_pattern" "$_gf_f" 2>/dev/null | awk -F: -v f="$_gf_f" -v id="$g_id" -v d="$g_desc" -v all="$([ "$mode" = --all ] && printf 1)" '
@@ -24783,14 +24788,14 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "e5aed356f97ea36eaee2a191c92a70c45687cebec3ac7743644cf3ef6766cda9",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
     ".claude/skills/forge-project/scripts/lib.sh": "83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "531aa39cb391617cab38ed56992dc0a3e0c979f90c76a6d50fa05aa2e8873489",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "1b6c6153b2ef8b6feec6234f9b9151a4ac76633742f870d9c312098efa72ae32",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
     ".claude/skills/forge-project/scripts/session-end.sh": "99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58",
-    ".claude/skills/forge-project/scripts/session-start.sh": "241bb8b80e8b030f910f182f47938afd9b83f4020d35f891efcf94c452d84ae4",
+    ".claude/skills/forge-project/scripts/session-start.sh": "50b252472712634ebef9e17f30cfcea15bd2ca9d9f1ee74d39c31e9d119c6e2a",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "6a08ed68e1260683ef512c6825c6e8ff91eda48e76c6383ebdfd32907e721168",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "f088308d5a06cad0092e0df27a38d5ff01f9b516c0ce7caceabefec22e6febc1",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "4b5a4d7fb92feabc8e86b59dbb412ad561a4955061e72deae31b2dd5a13193e7",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "cc4cf88cc6efe4f6a5f7ec86d81a9382fe54ab7d270778c902f5639964e58c52",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-cors-credentials-wildcard-test.yml": "d591423dfeff165622a89f63e9ea675277676dfc06aa5b3f3d56ce148223627f",
     ".forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml": "c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20",
@@ -24831,7 +24836,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/typescript/vitest/no-tautological-expect.yml": "82f72e924557144bf226fb6baea84d80bc1752f5d721b2a2a4392895a2a9e2ac",
     ".forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml": "9716e0e9f3f6a1e32fe600a3fa424cb0b9b7c8eb1ed517858b22f301a1cfb608",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "2fcf08f66b4376e34b0446caf475c98a7cc84dbd3f0869bed32ff8c8302b3504",
+    ".forge/check.sh": "9d961dd08224b484f971c267d58aae516647a70402c3ec8067244de69e2ee646",
     ".forge/helpers/ratchet.mjs": "14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38",
     ".forge/helpers/types_typescript.mjs": "3df893f435f5f0652bb2b68d428f2e6c03f5b2ea7f02cda0cc2904fb2070b875",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
@@ -25926,14 +25931,14 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 e5aed356f97ea36eaee2a191c92a70c45687cebec3ac7743644cf3ef6766cda9  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
 83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5  .claude/skills/forge-project/scripts/lib.sh
-531aa39cb391617cab38ed56992dc0a3e0c979f90c76a6d50fa05aa2e8873489  .claude/skills/forge-project/scripts/post-edit.sh
+1b6c6153b2ef8b6feec6234f9b9151a4ac76633742f870d9c312098efa72ae32  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
 99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58  .claude/skills/forge-project/scripts/session-end.sh
-241bb8b80e8b030f910f182f47938afd9b83f4020d35f891efcf94c452d84ae4  .claude/skills/forge-project/scripts/session-start.sh
+50b252472712634ebef9e17f30cfcea15bd2ca9d9f1ee74d39c31e9d119c6e2a  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-6a08ed68e1260683ef512c6825c6e8ff91eda48e76c6383ebdfd32907e721168  .claude/skills/forge-project/scripts/test-edit.sh
+f088308d5a06cad0092e0df27a38d5ff01f9b516c0ce7caceabefec22e6febc1  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-4b5a4d7fb92feabc8e86b59dbb412ad561a4955061e72deae31b2dd5a13193e7  .claude/skills/forge-project/scripts/typecheck.sh
+cc4cf88cc6efe4f6a5f7ec86d81a9382fe54ab7d270778c902f5639964e58c52  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 d591423dfeff165622a89f63e9ea675277676dfc06aa5b3f3d56ce148223627f  .forge/ast-grep/rule-tests/typescript-cors-credentials-wildcard-test.yml
 c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20  .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
@@ -25974,7 +25979,7 @@ a645044b98cb86509165bedeb7c9fa53c975a3480198d29ee0a48268e7219f12  .forge/ast-gre
 82f72e924557144bf226fb6baea84d80bc1752f5d721b2a2a4392895a2a9e2ac  .forge/ast-grep/rules/typescript/vitest/no-tautological-expect.yml
 9716e0e9f3f6a1e32fe600a3fa424cb0b9b7c8eb1ed517858b22f301a1cfb608  .forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-2fcf08f66b4376e34b0446caf475c98a7cc84dbd3f0869bed32ff8c8302b3504  .forge/check.sh
+9d961dd08224b484f971c267d58aae516647a70402c3ec8067244de69e2ee646  .forge/check.sh
 14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38  .forge/helpers/ratchet.mjs
 3df893f435f5f0652bb2b68d428f2e6c03f5b2ea7f02cda0cc2904fb2070b875  .forge/helpers/types_typescript.mjs
 
