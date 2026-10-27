@@ -1,0 +1,65 @@
+id: typescript/nestjs/dto-not-type-import
+description: "The type of a @Body(), @Query() or @Param() parameter (from @nestjs/common) is not imported with import type / { type X }: a type-only import erases the class from design:paramtypes, and ValidationPipe then validates nothing. Import the DTO as a value."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any: [{kind: required_parameter}, {kind: optional_parameter}]
+      all:
+        - has:
+            kind: decorator
+            has:
+              kind: call_expression
+              has: {field: function, kind: identifier, pattern: $D}
+        - has: {kind: type_annotation, has: {kind: type_identifier, pattern: $T}}
+        - inside:
+            kind: program
+            stopBy: end
+            has:
+              kind: import_statement
+              all:
+                - has: {field: source, regex: "^[\"']@nestjs/common[\"']$"}
+                - has:
+                    stopBy: end
+                    kind: import_specifier
+                    any:
+                      - all: [{has: {field: name, regex: "^(Body|Query|Param)$"}}, {has: {field: alias, pattern: $D}}]
+                      - all: [{has: {field: name, regex: "^(Body|Query|Param)$", pattern: $D}}, {not: {has: {field: alias, kind: identifier}}}]
+        # $T is bound by a type-only import: import type { T }, import { type T }, import type T
+        - inside:
+            kind: program
+            stopBy: end
+            has:
+              kind: import_statement
+              any:
+                - all:
+                    - regex: "^import\\s+type\\s"
+                    - has:
+                        stopBy: end
+                        any:
+                          - kind: import_specifier
+                            any:
+                              - has: {field: alias, pattern: $T}
+                              - all: [{has: {field: name, pattern: $T}}, {not: {has: {field: alias, kind: identifier}}}]
+                          - {kind: identifier, pattern: $T, inside: {kind: import_clause}}
+                - has:
+                    stopBy: end
+                    kind: import_specifier
+                    regex: "^type\\s"
+                    any:
+                      - has: {field: alias, pattern: $T}
+                      - all: [{has: {field: name, pattern: $T}}, {not: {has: {field: alias, kind: identifier}}}]
+examples:
+  match:
+    - "import { Body, Controller, Post } from \"@nestjs/common\";\nimport type { CreateUserDto } from \"./create-user.dto\";\n\n@Controller(\"users\")\nexport class UsersController {\n  @Post()\n  create(@Body() dto: CreateUserDto) {\n    return dto;\n  }\n}\n"
+    - "import { Controller, Get, Query } from \"@nestjs/common\";\nimport { type ListUsersQuery, UsersService } from \"./users\";\n\n@Controller(\"users\")\nexport class UsersController {\n  constructor(private readonly users: UsersService) {}\n\n  @Get()\n  list(@Query() q: ListUsersQuery) {\n    return this.users.list(q);\n  }\n}\n"
+    - "import { Body as Payload, Controller, Post } from \"@nestjs/common\";\nimport { type CreateUserDto as Dto } from \"./create-user.dto\";\n\n@Controller(\"users\")\nexport class UsersController {\n  @Post()\n  create(@Payload() dto: Dto) {\n    return dto;\n  }\n}\n"
+  no_match:
+    - "import { Body, Controller, Post } from \"@nestjs/common\";\nimport { CreateUserDto } from \"./create-user.dto\";\n\n@Controller(\"users\")\nexport class UsersController {\n  @Post()\n  create(@Body() dto: CreateUserDto) {\n    return dto;\n  }\n}\n"
+    # a type-only import used elsewhere, not as a decorated parameter's type
+    - "import { Body, Controller, Post } from \"@nestjs/common\";\nimport { CreateUserDto } from \"./create-user.dto\";\nimport type { User } from \"./user\";\n\n@Controller(\"users\")\nexport class UsersController {\n  @Post()\n  create(@Body() dto: CreateUserDto): User {\n    return { name: dto.name };\n  }\n}\n"
+    # not Nest's decorator
+    - "import { Body } from \"./decorators\";\nimport type { CreateUserDto } from \"./create-user.dto\";\n\nexport class Handler {\n  run(@Body() dto: CreateUserDto) {\n    return dto;\n  }\n}\n"
+    # an injected service typed by a type-only import: no validation involved
+    - "import { Controller, Get } from \"@nestjs/common\";\nimport type { UsersService } from \"./users\";\n\n@Controller(\"users\")\nexport class UsersController {\n  constructor(private readonly users: UsersService) {}\n\n  @Get()\n  list() {\n    return this.users.list();\n  }\n}\n"
