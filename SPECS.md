@@ -665,6 +665,7 @@ context.md: uv and `.venv/bin`, ty, annotated parameters and returns; no blockin
 | `typescript/no-placeholder-comment` | `grep` forbid (case-insensitive): the Python list, after `//`, `/*` or `*` |
 | `typescript/config-files` | `permission` ask: `Edit(**/biome.json)`, `Edit(**/biome.jsonc)`, `Edit(**/tsconfig*.json)`, `Edit(**/eslint.config.*)`, `Edit(**/.oxlintrc.json)`, `Edit(**/deno.json)`, `Edit(**/deno.jsonc)`, `Edit(**/.prettierrc*)`, `Edit(**/prettier.config.*)`, `Edit(**/pnpm-workspace.yaml)`, `Edit(**/.npmrc)`, `Edit(**/.yarnrc.yml)`, `Edit(**/bunfig.toml)`, `Edit(**/turbo.json)` (code configs are not ratcheted, §10.4) |
 | `typescript/config-ratchet` | `check` lint: `forge_ratchet bun ratchet.mjs` (§10.4), `when_changed`: Biome, tsconfig and `package.json` files |
+| `typescript/node-version-file` | `check` lint: `forge_helper bun node_version.mjs` (§13.4), when `.nvmrc`, `.node-version` or `package.json` changed: the root `.nvmrc` / `.node-version` is a version (an alias such as `lts/*` is reported) satisfying `package.json` `engines.node` and `devEngines.runtime` (`name: node`) ranges; a partial version (`22`) stands for the newest release of its line (what nvm, fnm and setup-node install) |
 | `typescript/lockfile-updated` | `check` lint: `forge_lockfile_updated`: a `package.json` whose `dependencies`, `devDependencies` or `optionalDependencies` changed since the base needs its lock file (`pnpm-lock.yaml`, `package-lock.json`, `npm-shrinkwrap.json`, `yarn.lock`, `bun.lock`; next to it, else at the root) to have a changed line naming each changed dependency; `bun.lock` is skipped when `typescript/bun/lock-sync` is active (`forge_check_active`); blocks once per turn (`forge_once`) |
 | `typescript/env-example` | `check` lint: `forge_env_example ts`, as `python/env-example` for the UPPER_CASE keys of a Zod env schema (t3-env `createEnv`, or `z.object(…)` with `process.env`) whose value is a `z.` chain; a key with `.default()`, `.optional()` or `.catch()` counts as having a default |
 | `typescript/no-html-sinks` | `ast-grep` forbid, `where` the receiver is `typescript` `Element`, `Document`, `Range` or `ShadowRoot` (lib.dom): `innerHTML` / `outerHTML` assigned anything but a string or a template without substitutions; `insertAdjacentHTML`, `write`, `writeln`, `createContextualFragment`, `setHTMLUnsafe` whose last argument is not one |
@@ -1892,6 +1893,8 @@ Detected by `.github/workflows/*.yml` or `*.yaml`.
 | `github-actions/zizmor` | `check` lint: `forge_zizmor` (§13.2) on changed workflows, actions and `.github/dependabot.y*ml`, failing on the `unpinned-uses`, `template-injection`, `dangerous-triggers`, `excessive-permissions`, `artipacked`, `cache-poisoning`, `github-env`, `insecure-commands`, `overprovisioned-secrets`, `unredacted-secrets`, `secrets-inherit`, `bot-conditions`, `obfuscation`, `unsound-condition`, `unsound-contains`, `unsound-ternary`, `hardcoded-container-credentials`, `unpinned-images`, `ref-version-mismatch`, `archived-uses`, `typosquat-uses`, `use-trusted-publishing`, `dependabot-cooldown` and `dependabot-execution` audits |
 | `github-actions/zizmor-advice` | `check` lint, advisory (§10.7): `forge_advise forge_zizmor adhoc-packages unpinned-tools superfluous-actions` |
 | `github-actions/ci-ratchet` | `grep` no-increase on workflows: `continue-on-error: true`, a run line ending in `\|\| true` / `\|\| exit 0` / `\|\| :`, `if: false` (or `${{ false }}`), `paths-ignore:` |
+| `github-actions/no-removed-jobs` | `check` lint: `forge_ci_jobs`: a job of a changed workflow that ran on `push` or `pull_request` in the base and is gone now (the whole file deleted included), `path:0 job <id> was removed …`, unless `forge.yaml` accepts that line |
+| `github-actions/actionlint` | `check` lint: `forge_actionlint`: pinned actionlint (§13.5) on the changed workflows (every tracked one with `--all`), `-shellcheck= -pyflakes=` (results do not depend on what is installed), with a config of Forge's own holding only the `self-hosted-runner` and `config-variables` blocks of `.github/actionlint.y*ml` (its `paths: … ignore:` do not apply); `path:line:column: kind: message` |
 
 context.md: actions pinned to a commit SHA, `permissions: {}` then per job, `persist-credentials: false`, no `${{ }}` inside `run:`, no `pull_request_target` / `workflow_run` on untrusted code.
 
@@ -1912,6 +1915,7 @@ Detected by `**/Dockerfile`, `**/Dockerfile.*`, `**/*.Dockerfile`, `**/Container
 | `docker/dockerignore` | `forge_docker_ignore`: each Dockerfile has a `.dockerignore` (`<Dockerfile>.dockerignore`, its directory's, or the root's) that excludes `.env` files |
 | `docker/hadolint-correctness` | `forge_hadolint DL3000 DL3004 DL3014 DL3022 DL3023 DL3024 DL3027 DL3044 DL3061 DL3063 DL3067 DL4000 DL4003 DL4004` (relative `WORKDIR`, `sudo`, `apt-get install` without `-y`, stage references and aliases, `apt`, self-referencing `ENV`, instruction order, `COPY --from` to `/`, `MAINTAINER`, several `CMD` / `ENTRYPOINT`) |
 | `docker/image-size` | advisory (§10.7): `forge_advise forge_hadolint DL3009 DL3015 DL3042 DL3059` (apt lists, `--no-install-recommends`, pip cache, consecutive `RUN`) |
+| `docker/deps-before-copy` | advisory (§10.7): `forge_advise forge_docker_copy_order`: in a stage, a `RUN` installing dependencies (`npm ci` / `install`, `bun install`, `uv sync`, `pnpm install`, `yarn`, `pip install -r`) after a `COPY` / `ADD` of `.` or `./` |
 
 Structural findings (`non-root-user`, `dockerignore`) are reported at line 0, so they count whenever the Dockerfile changed (removing a `USER` adds no line). context.md: multi-stage builds, a non-root final stage, lock-file installs with cache mounts, build secrets, pinned base images; the sandbox blocks docker unless the user lists it in `sandbox.excludedCommands`. Forge does not write that setting; `forge status` prints the line to add when the pack is active.
 
@@ -2029,6 +2033,7 @@ Detected by `**/Chart.yaml`.
 | Rule | Targets |
 |---|---|
 | `kubernetes/helm/lint` | `check` lint: `forge_helm` (needs `helm`, a system tool): for each chart with changed files (the nearest `Chart.yaml` above them), `helm lint --strict`, then `helm template forge <chart>` validated by `forge_kubeconform`: pinned kubeconform (§13.5) `-strict` against Kubernetes' schemas and the CRDs catalog, cached in `~/.cache/forge/kubeconform`; a document with no schema is a finding when its group is Kubernetes' own (none, no dot, or `*.k8s.io`: an apiVersion current Kubernetes no longer serves), else `skipped`; schemas that cannot be downloaded are `skipped`; a chart whose dependencies are not built is `skipped` (`helm dependency build`). Findings name the chart, not lines |
+| `kubernetes/helm/version-bump` | `check` lint: `forge_chart_version`, only with chart-testing's `ct.yaml` / `ct.yml` at the root (its `check-version-increment` not `false`): each chart under its `chart-dirs` (default `charts`) with a changed file whose `Chart.yaml` `version` equals the base's; a new chart is fine |
 
 ### openapi
 
@@ -2037,6 +2042,8 @@ Detected by `**/openapi.yaml`, `**/openapi.yml`, `**/openapi.json`, `redocly.yam
 | Rule | Targets |
 |---|---|
 | `openapi/no-breaking` | `check` lint, once per turn (§10.7, `forge_once`; pre-commit and CI fail): `forge_oasdiff`, when a YAML or JSON file changed: each OpenAPI document of the repository (an `openapi` / `swagger` version near its top) that existed at the base is compared by the pinned oasdiff (§13.5), `breaking <base> <now> --fail-on ERR --format singleline`; the base side is a copy of the repository's YAML and JSON files with the change undone, so `$ref`s to other files resolve. Each `error at …` line is a finding unless `forge.yaml` accepts it (`accept: [{rule, change: <the line>, reason}]`). Not with `--all` |
+| `openapi/lint` | `check` lint: `forge_openapi_lint`, when a YAML or JSON file changed: every OpenAPI document of the repository linted by the project's declared linter, through `bunx`: pinned `@redocly/cli` 2.62.1 with `redocly.yaml`, pinned `@stoplight/spectral-cli` 6.17.0 with `.spectral.yaml` / `.yml` / `.json` (both when both are configured), else Redocly's `recommended` rules; errors as `path:line:column: error <rule>: message`, attributed to added lines |
+| `openapi/config-ratchet` | `check` lint: `forge_openapi_ratchet`: in a changed `redocly.yaml` / `.spectral.y*ml`, a rule lowered (`error` > `warn` > `info` / `hint` > `off`) or removed, an `extends` entry removed, an `overrides` entry added; entries added to `.redocly.lint-ignore.yaml`; unless `forge.yaml` accepts the line |
 
 ### python/uvicorn
 
@@ -2050,12 +2057,13 @@ Detected by `uvicorn` (pypi).
 
 ### sql
 
-Detected by `flyway.conf`, `flyway.toml`, `conf/flyway.conf`, `supabase/config.toml`, `sqitch.plan`, `atlas.hcl` or `db/migrations/*.sql`. Not tied to a language.
+Detected by `flyway.conf`, `flyway.toml`, `conf/flyway.conf`, `supabase/config.toml`, `sqitch.plan`, `atlas.hcl`, `db/migrations/*.sql`, `.sqlfluff`, or a `[tool.sqlfluff]` (`pyproject.toml`) / `[sqlfluff]` (`setup.cfg`, `tox.ini`) section. Not tied to a language.
 
 | Rule | Targets |
 |---|---|
 | `sql/applied-migrations` | `check` migration: `forge_applied_migrations @sql-migrations` (§15.4): a migration that exists in the base is not modified or deleted (not with `--all`) |
 | `sql/migration-lint` | `check` migration: `forge_squawk_role @sql-migrations` (§13.1) on the changed migrations (the newest one with `--all`) whose tool targets Postgres, read from literal config only: Supabase always; Flyway `flyway.url` / `url` `jdbc:postgresql:`; sqitch `sqitch.conf` `engine = pg`; Atlas `atlas.hcl` `url` / `dev` `postgres://` or `docker://postgres`; dbmate the `DATABASE_URL` scheme. Other dialects are not linted |
+| `sql/sqlfluff` | `check` lint, where `sqlfluff` is a declared PyPI dependency (`when`): `forge_sqlfluff {files}`, when the project configures sqlfluff (`.sqlfluff`, `[tool.sqlfluff]` in `pyproject.toml`, `[sqlfluff]` in `setup.cfg` / `tox.ini`): the project's `sqlfluff lint --format github-annotation-native` on the changed `.sql` files (the project with `--all`), `path:line:column: CODE: message` |
 
 ### kubernetes/kustomize
 
@@ -2080,6 +2088,8 @@ Detected by `.changeset/config.json`, `release-please-config.json`, `.release-pl
 | Rule | Targets |
 |---|---|
 | `release/no-hand-changelog` | `permission` ask: `Edit(**/CHANGELOG.md)` (the release tooling writes it) |
+| `release/no-hand-version` | `check` lint, advisory (§10.7): `forge_advise forge_version_changed`: a changed `package.json` `version` or `pyproject.toml` `[project] version` (the split-off advisory half of the no-hand-changelog proposal) |
+| `release/changeset-present` | `check` lint, advisory: `forge_advise forge_release_notes @python-tests`: with `.changeset/config.json`, a changed file of a package whose nearest `package.json` is not `"private": true` and no `.changeset/*.md` added; with `[tool.towncrier] directory` (`towncrier.toml` or `pyproject.toml`), a changed `.py` file outside `@python-tests` and that directory and no file added there |
 
 ### toolchain
 
@@ -2115,7 +2125,7 @@ Detected by `mise.toml`, `.mise.toml`, `.tool-versions`, `.devcontainer/**` or `
 
 ### 13.5 Pinned release binaries and system tools
 
-Tools with no PyPI or npm distribution run from their GitHub release binaries, pinned like Forge's other tools (the newest release older than 14 days) by version and by an embedded sha256 per platform (`uname -s`-`uname -m`: Linux and macOS on x86_64 and arm64), computed from the release assets and matching both GitHub's asset digest and the release's checksum file: gitleaks 8.30.1, kubeconform 0.8.0, kube-linter 0.8.3, tflint 0.64.0, trivy 0.75.0, osv-scanner 2.7.0, oasdiff 1.33.0, editorconfig-checker 4.0.2 (`RELEASE_BINARIES` in `src/util.ts`). `forge_release_bin <name>` (and `forge_release <name> <var>`, which prints the check's skipped line) is the one way a helper gets such a binary: the first use on a machine downloads the asset with `curl` (or `wget`) from `check.sh`, which hooks, pre-commit and CI run outside the Bash sandbox; it checks the asset's sha256, unpacks the binary (`.tar.gz`, `.zip` with `unzip`, or the asset itself) and keeps it in `${XDG_CACHE_HOME:-~/.cache}/forge/bin/<name>-<version>-<platform>/<name>` (written to a temporary name and renamed, so concurrent runs never see half a file). No asset for the platform, no network on the first use, no `curl`/`wget` (or `unzip`), or a sha256 mismatch prints `forge:<id> skipped: …`, never a pass. A helper's skipped line under `forge_once` / `forge_advise` is printed, not counted as a finding.
+Tools with no PyPI or npm distribution run from their GitHub release binaries, pinned like Forge's other tools (the newest release older than 14 days) by version and by an embedded sha256 per platform (`uname -s`-`uname -m`: Linux and macOS on x86_64 and arm64), computed from the release assets and matching both GitHub's asset digest and the release's checksum file: actionlint 1.7.12, gitleaks 8.30.1, kubeconform 0.8.0, kube-linter 0.8.3, tflint 0.64.0, trivy 0.75.0, osv-scanner 2.7.0, oasdiff 1.33.0, editorconfig-checker 4.0.2 (`RELEASE_BINARIES` in `src/util.ts`). `forge_release_bin <name>` (and `forge_release <name> <var>`, which prints the check's skipped line) is the one way a helper gets such a binary: the first use on a machine downloads the asset with `curl` (or `wget`) from `check.sh`, which hooks, pre-commit and CI run outside the Bash sandbox; it checks the asset's sha256, unpacks the binary (`.tar.gz`, `.zip` with `unzip`, or the asset itself) and keeps it in `${XDG_CACHE_HOME:-~/.cache}/forge/bin/<name>-<version>-<platform>/<name>` (written to a temporary name and renamed, so concurrent runs never see half a file). No asset for the platform, no network on the first use, no `curl`/`wget` (or `unzip`), or a sha256 mismatch prints `forge:<id> skipped: …`, never a pass. A helper's skipped line under `forge_once` / `forge_advise` is printed, not counted as a finding.
 
 System tools a project installs outside `node_modules` and `.venv` (`terraform`, `tofu`, `helm`, `kustomize`, `kubectl`) are found on `PATH`, like the runtimes (`uv`, `bun`, `docker`), never as a shell function of that name. A check that names `terraform` runs the project's Terraform CLI: `tofu` when the repository has a `*.tofu` file or a `.terraform.lock.hcl` naming `registry.opentofu.org` providers, else `terraform`; `kustomize` is `kubectl kustomize` when only kubectl is installed. A missing one is reported like any missing tool, by the binary's name (`forge:<id> skipped: tofu not installed`, `forge status`, SessionStart).
 

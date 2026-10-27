@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { codeExamples } from "./packs.js";
 import { defaultRoles, type Roles } from "./roles.js";
 import { toYaml } from "./yaml.js";
-import { AST_GREP_VERSION, ENGINE_PYTHON, FORGE_VERSION, HADOLINT_SHA256, HADOLINT_VERSION, packageRoot, releaseTable, sha256, shQuote, SQUAWK_VERSION, TFLINT_RULESETS, TY_VERSION, ZIZMOR_VERSION } from "./util.js";
+import { AST_GREP_VERSION, ENGINE_PYTHON, FORGE_VERSION, HADOLINT_SHA256, HADOLINT_VERSION, packageRoot, REDOCLY_VERSION, releaseTable, sha256, shQuote, SPECTRAL_VERSION, SQUAWK_VERSION, TFLINT_RULESETS, TY_VERSION, ZIZMOR_VERSION } from "./util.js";
 import type { AstGrepTarget, CheckTarget, GrepTarget, GuardTarget, Language, Level, Rule } from "./types.js";
 
 export function template(name: string): string {
@@ -23,7 +23,7 @@ export function renderLib(): string {
 
 /** Project tools resolved through `tool <name>` (audited tools first). */
 export const AUDITED_TOOLS = ["biome", "ruff", "ty", "tsc"] as const;
-export const PROJECT_TOOLS = ["biome", "ruff", "tsc", "alembic", "pytest", "prisma", "vitest", "playwright", "astro", "python", "vue-tsc"] as const;
+export const PROJECT_TOOLS = ["biome", "ruff", "tsc", "alembic", "pytest", "prisma", "vitest", "playwright", "astro", "python", "sqlfluff", "vue-tsc"] as const;
 /** Forge's own pinned tools used in check commands: ty (Python's type checker, through uvx, §15.2). */
 export const FORGE_TOOLS = ["ty"] as const;
 /**
@@ -38,9 +38,10 @@ const RESOLVED_TOOLS = ["terraform", "kustomize"] as const;
 /** Tools that engine helpers run, which their name in a command does not show. */
 const HELPER_TOOLS: [RegExp, string][] = [
   [/\bforge_(zizmor|hadolint)\b/, "uvx"],
-  [/\bforge_trusted_deps\b/, "bun"],
+  [/\bforge_(trusted_deps|openapi_lint)\b/, "bun"],
   [/\bforge_tf_validate\b/, "terraform"],
   [/\bforge_helm\b/, "helm"],
+  [/\bforge_sqlfluff\b/, "sqlfluff"],
 ];
 
 /** Tools invoked as commands in a shell string, in order of first use. */
@@ -257,6 +258,8 @@ export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = [], ty
   out.push("", ...renderGreps(greps), "", ...renderRoles(roles));
   out.push("# ---- end of generated checks", "", fill(template("engine.sh"), {
       SQUAWK_VERSION,
+      REDOCLY_VERSION,
+      SPECTRAL_VERSION,
       ZIZMOR_VERSION,
       HADOLINT_VERSION,
       HADOLINT_SHAS: Object.entries(HADOLINT_SHA256).map(([p, h]) => `${p} ${h}`).join("\n"),
@@ -326,7 +329,7 @@ export function renderCheckScript(
 }
 
 /** Tools resolved from the project's .venv/bin (the others from node_modules/.bin). */
-export const PYTHON_TOOLS = new Set(["ruff", "alembic", "pytest", "python"]);
+export const PYTHON_TOOLS = new Set(["ruff", "alembic", "pytest", "python", "sqlfluff"]);
 
 /**
  * Scripts that engine helpers and the types engine run with a runtime (§13.4, §15.2),
@@ -334,7 +337,7 @@ export const PYTHON_TOOLS = new Set(["ruff", "alembic", "pytest", "python"]);
  * them. A project formatter may rewrite them: their integrity hash ignores formatting
  * (ownedHash).
  */
-const HELPER_SCRIPTS = ["ratchet.py", "ratchet.mjs", "drf_permissions.py", "public_api.py", "public_api.mjs", "fk_index.py"];
+const HELPER_SCRIPTS = ["ratchet.py", "ratchet.mjs", "drf_permissions.py", "public_api.py", "public_api.mjs", "fk_index.py", "node_version.mjs"];
 export const HELPERS_DIR = ".forge/helpers";
 
 /** The helper files the checks and types engines use: path (repository-relative) -> content. */

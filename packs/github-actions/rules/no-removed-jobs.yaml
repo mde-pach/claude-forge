@@ -1,0 +1,21 @@
+id: github-actions/no-removed-jobs
+description: "A job removed from a workflow that runs on push or pull_request (the whole workflow deleted included) is reported: restore it rather than switching a check off; an intended removal is accepted in forge.yaml."
+scope: {language: any, files: [".github/workflows/*.yml", ".github/workflows/*.yaml"]}
+enforce:
+  - target: check
+    stage: lint
+    run: forge_ci_jobs
+    when_changed: [".github/workflows/*.yml", ".github/workflows/*.yaml"]
+examples:
+  match:
+    - head: {.github/workflows/ci.yml: "name: ci\non:\n  pull_request:\n  push:\n    branches: [main]\njobs:\n  lint:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm run lint\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n"}
+      files: {.github/workflows/ci.yml: "name: ci\non:\n  pull_request:\n  push:\n    branches: [main]\njobs:\n  lint:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm run lint\n"}
+    - head: {.github/workflows/ci.yml: "name: ci\non: [push, pull_request]\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n"}
+      files: {.github/workflows/ci.yml: "name: ci\non: [push, pull_request]\njobs:\n  'test-unit':\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n"}
+  no_match:
+    - head: {.github/workflows/ci.yml: "name: ci\non: pull_request\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n"}
+      files: {.github/workflows/ci.yml: "name: ci\non: pull_request\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n  e2e:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm run e2e\n"}
+    - head: {.github/workflows/release.yml: "name: release\non:\n  workflow_dispatch:\njobs:\n  publish:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm publish\n"}
+      files: {.github/workflows/release.yml: "name: release\non:\n  workflow_dispatch:\njobs:\n  release:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm publish\n"}
+    - head: {.github/workflows/ci.yml: "name: ci\non: push\njobs:\n  lint:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm run lint\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n", forge.yaml: "forge: \"0.5\"\naccept:\n  - rule: github-actions/no-removed-jobs\n    change: \".github/workflows/ci.yml:0 job lint was removed from a workflow that runs on push or pull_request; restore it rather than switching a check off\"\n    reason: lint moved to the pre-commit job\n"}
+      files: {.github/workflows/ci.yml: "name: ci\non: push\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n"}

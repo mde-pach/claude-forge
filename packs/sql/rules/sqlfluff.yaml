@@ -1,0 +1,21 @@
+id: sql/sqlfluff
+description: "Changed .sql files pass the project's sqlfluff lint when the project configures it (.sqlfluff, [tool.sqlfluff] in pyproject.toml, [sqlfluff] in setup.cfg or tox.ini: the dialect and rules are the project's)."
+scope: {language: any, files: ["**/*.sql"]}
+enforce:
+  - target: check
+    stage: lint
+    run: forge_sqlfluff
+    changed_run: "forge_sqlfluff {files}"
+    when_changed: ["**/*.sql", .sqlfluff, pyproject.toml, setup.cfg, tox.ini]
+when:
+  deps: [{ecosystem: pypi, name: sqlfluff, version: ">=2"}]
+examples:
+  match:
+    - head: {.sqlfluff: "[sqlfluff]\ndialect = postgres\n"}
+      files: {queries/orders.sql: "SELECT id,total FROM orders\n"}
+    - head: {pyproject.toml: "[project]\nname = \"shop\"\nversion = \"0.1.0\"\n\n[tool.sqlfluff.core]\ndialect = \"postgres\"\n"}
+      files: {db/report.sql: "select ID from orders;\n"}
+  no_match:
+    - head: {.sqlfluff: "[sqlfluff]\ndialect = postgres\n"}
+      files: {queries/orders.sql: "SELECT\n    id,\n    total\nFROM orders\n"}
+    - files: {queries/orders.sql: "SELECT id,total FROM orders\n"}
