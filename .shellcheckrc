@@ -1,4 +1,4 @@
-# shellcheck for templates/scripts (POSIX sh). Run: shellcheck -S warning templates/scripts/*.sh
+# shellcheck for templates/scripts and templates/engine (POSIX sh): bun run lint
 shell=sh
 # The generated scripts are assembled from several templates (lib.sh, the generated
 # checks, engine.sh, the hook script): a variable set in one is read in another.

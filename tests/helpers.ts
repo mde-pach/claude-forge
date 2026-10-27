@@ -3,7 +3,7 @@ import { appendFileSync, chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, 
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { spawnCaptured } from "../src/util";
-import { renderEngine, renderLib, type TypesLanguage } from "../src/render";
+import { engineModules, renderEngineModule, renderLib, type TypesLanguage } from "../src/render";
 import { selfTest, type TestReport } from "../src/selftest";
 
 export const ROOT = join(import.meta.dir, "..");
@@ -248,15 +248,20 @@ function walk(dir: string, base: string, out: string[]): void {
 
 /** Every file forge writes in a project (owned, settings, pre-commit), as one text. */
 /**
- * Text Forge copies from its templates as it is, whatever the plan: engine.sh (its pins
- * filled in; per set of types engines), lib.sh, the hook scripts and helpers written
+ * Text Forge copies from its templates as it is, whatever the plan: each engine module (its
+ * pins filled in; per set of types engines), lib.sh, the hook scripts and helpers written
  * unchanged. A snapshot shows each as one marker line, so it holds what the plan decides
  * (generated checks, rules, settings, context) and a template edit does not rewrite it.
  */
 function verbatimBlocks(): [string, string][] {
   const out: [string, string][] = [];
-  for (const types of [[], ["python"], ["typescript"], ["python", "typescript"], ["typescript", "python"]] as TypesLanguage[][])
-    out.push([renderEngine(types), `@@ templates/scripts/engine.sh${types.length ? ` (types: ${types.join(" ")})` : ""} @@`]);
+  // each engine module as one line: a snapshot shows which modules a project gets
+  for (const m of engineModules())
+    for (const types of [[], ["python"], ["typescript"], ["python", "typescript"], ["typescript", "python"]] as TypesLanguage[][]) {
+      const text = renderEngineModule(m.name, types);
+      if (types.length && text === renderEngineModule(m.name)) continue;
+      out.push([text, `@@ templates/engine/${m.name}.sh${types.length ? ` (types: ${types.join(" ")})` : ""} @@`]);
+    }
   out.push([renderLib().trimEnd(), "@@ templates/scripts/lib.sh @@"]);
   for (const dir of ["scripts", "helpers"])
     for (const f of readdirSync(join(ROOT, "templates", dir))) {

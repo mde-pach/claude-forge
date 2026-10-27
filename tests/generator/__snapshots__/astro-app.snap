@@ -296,7 +296,43 @@ fi
 
 @@ the generated checks of .forge/check.sh @@
 
-@@ templates/scripts/engine.sh (types: typescript) @@
+@@ templates/engine/core.sh @@
+
+@@ templates/engine/tools.sh @@
+
+@@ templates/engine/advice.sh @@
+
+@@ templates/engine/tests.sh @@
+
+@@ templates/engine/types.sh (types: typescript) @@
+
+@@ templates/engine/ai-models.sh @@
+
+@@ templates/engine/docker.sh @@
+
+@@ templates/engine/docs.sh @@
+
+@@ templates/engine/env.sh @@
+
+@@ templates/engine/github-actions.sh @@
+
+@@ templates/engine/javascript.sh @@
+
+@@ templates/engine/kubernetes.sh @@
+
+@@ templates/engine/openapi.sh @@
+
+@@ templates/engine/python.sh @@
+
+@@ templates/engine/release.sh @@
+
+@@ templates/engine/repository.sh @@
+
+@@ templates/engine/sql.sh @@
+
+@@ templates/engine/supply-chain.sh @@
+
+@@ templates/engine/terraform.sh @@
 
 FORGE_FORBID='typescript/bun/no-shell-raw|typescript/cors-credentials-wildcard|typescript/no-deprecated|typescript/no-double-assertion|typescript/no-hardcoded-session-secret|typescript/no-html-sinks|typescript/no-object-literal-assertion|typescript/no-stub|typescript/no-swallowed-catch|typescript/no-ts-nocheck|typescript/no-unchecked-json|typescript/postmessage-origin|typescript/react/act-from-react|typescript/react/no-prop-types|typescript/react/use-action-state|typescript/ts-expect-error-reason|typescript/no-dynamic-regexp'
 
@@ -386,7 +422,43 @@ IFS='
 
 @@ the generated checks of .forge/check.sh @@
 
-@@ templates/scripts/engine.sh (types: typescript) @@
+@@ templates/engine/core.sh @@
+
+@@ templates/engine/tools.sh @@
+
+@@ templates/engine/advice.sh @@
+
+@@ templates/engine/tests.sh @@
+
+@@ templates/engine/types.sh (types: typescript) @@
+
+@@ templates/engine/ai-models.sh @@
+
+@@ templates/engine/docker.sh @@
+
+@@ templates/engine/docs.sh @@
+
+@@ templates/engine/env.sh @@
+
+@@ templates/engine/github-actions.sh @@
+
+@@ templates/engine/javascript.sh @@
+
+@@ templates/engine/kubernetes.sh @@
+
+@@ templates/engine/openapi.sh @@
+
+@@ templates/engine/python.sh @@
+
+@@ templates/engine/release.sh @@
+
+@@ templates/engine/repository.sh @@
+
+@@ templates/engine/sql.sh @@
+
+@@ templates/engine/supply-chain.sh @@
+
+@@ templates/engine/terraform.sh @@
 
 branch=$(git branch --show-current 2>/dev/null)
 [ -n "$branch" ] || branch="(detached $(git rev-parse --short HEAD 2>/dev/null))"
@@ -452,7 +524,43 @@ IFS='
 
 @@ the generated checks of .forge/check.sh @@
 
-@@ templates/scripts/engine.sh (types: typescript) @@
+@@ templates/engine/core.sh @@
+
+@@ templates/engine/tools.sh @@
+
+@@ templates/engine/advice.sh @@
+
+@@ templates/engine/tests.sh @@
+
+@@ templates/engine/types.sh (types: typescript) @@
+
+@@ templates/engine/ai-models.sh @@
+
+@@ templates/engine/docker.sh @@
+
+@@ templates/engine/docs.sh @@
+
+@@ templates/engine/env.sh @@
+
+@@ templates/engine/github-actions.sh @@
+
+@@ templates/engine/javascript.sh @@
+
+@@ templates/engine/kubernetes.sh @@
+
+@@ templates/engine/openapi.sh @@
+
+@@ templates/engine/python.sh @@
+
+@@ templates/engine/release.sh @@
+
+@@ templates/engine/repository.sh @@
+
+@@ templates/engine/sql.sh @@
+
+@@ templates/engine/supply-chain.sh @@
+
+@@ templates/engine/terraform.sh @@
 
 FORGE_NTESTRULES=0
 
@@ -617,7 +725,43 @@ IFS='
 
 @@ the generated checks of .forge/check.sh @@
 
-@@ templates/scripts/engine.sh (types: typescript) @@
+@@ templates/engine/core.sh @@
+
+@@ templates/engine/tools.sh @@
+
+@@ templates/engine/advice.sh @@
+
+@@ templates/engine/tests.sh @@
+
+@@ templates/engine/types.sh (types: typescript) @@
+
+@@ templates/engine/ai-models.sh @@
+
+@@ templates/engine/docker.sh @@
+
+@@ templates/engine/docs.sh @@
+
+@@ templates/engine/env.sh @@
+
+@@ templates/engine/github-actions.sh @@
+
+@@ templates/engine/javascript.sh @@
+
+@@ templates/engine/kubernetes.sh @@
+
+@@ templates/engine/openapi.sh @@
+
+@@ templates/engine/python.sh @@
+
+@@ templates/engine/release.sh @@
+
+@@ templates/engine/repository.sh @@
+
+@@ templates/engine/sql.sh @@
+
+@@ templates/engine/supply-chain.sh @@
+
+@@ templates/engine/terraform.sh @@
 
 # the first changed file in a typecheck's scope
 file=''
@@ -2482,7 +2626,43 @@ forge_role() {
 }
 # ---- end of generated checks
 
-@@ templates/scripts/engine.sh (types: typescript) @@
+@@ templates/engine/core.sh @@
+
+@@ templates/engine/tools.sh @@
+
+@@ templates/engine/advice.sh @@
+
+@@ templates/engine/tests.sh @@
+
+@@ templates/engine/types.sh (types: typescript) @@
+
+@@ templates/engine/ai-models.sh @@
+
+@@ templates/engine/docker.sh @@
+
+@@ templates/engine/docs.sh @@
+
+@@ templates/engine/env.sh @@
+
+@@ templates/engine/github-actions.sh @@
+
+@@ templates/engine/javascript.sh @@
+
+@@ templates/engine/kubernetes.sh @@
+
+@@ templates/engine/openapi.sh @@
+
+@@ templates/engine/python.sh @@
+
+@@ templates/engine/release.sh @@
+
+@@ templates/engine/repository.sh @@
+
+@@ templates/engine/sql.sh @@
+
+@@ templates/engine/supply-chain.sh @@
+
+@@ templates/engine/terraform.sh @@
 
 FORGE_STATE=$(forge_state_of "$(pwd -P)")
 
@@ -2773,14 +2953,14 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "b5152f7d125e436305432703f518b7b0c0aa1e4636212d4f5646add1eb4c6fae",
     ".claude/skills/forge-project/scripts/guard.sh": "1d892db2c9236bbd4f73742e1de1185a1b6bbc2ed8b0d8d6e7252692a1366538",
     ".claude/skills/forge-project/scripts/lib.sh": "83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "4d6045aa3bd5ba08bfc487e35268af6986eabb730c9fb40e10254b3b9f9c9cc0",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "a7c81d1c7cfff855a75e848b7c47f720726663ab95cc441d11af3d2ff258b209",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
     ".claude/skills/forge-project/scripts/session-end.sh": "99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58",
-    ".claude/skills/forge-project/scripts/session-start.sh": "2050000bdb8cc69da52444cff181de96a3064dc20dea6db2ccfd35afa3f98c24",
+    ".claude/skills/forge-project/scripts/session-start.sh": "f2e8ddc2353048de1f6b28aed4dbde121f3ca79251a2fc3a0e21940b16488c9d",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "12f67b10dee6d323831c1072506ac0549336013cbdba319d52ebd55ee609dac7",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "f40aee37c8f64ea5c87c6edf36c7990ce5b0edadb34c9c81843300c73c88428f",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "1a47e500e403dfe849eee09f5b0fe87239763dceab819e9a1a1da436880ffa27",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "635640347283f094afc5e7c6aa1ce7ae1efe14de42ec2f43f57e7440a083511a",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-bun-no-fewer-expects-test.yml": "bd5df50793070bba7b87b0f623ac58ed4599e0ba6f8d731fc0da4b28a0335ec8",
     ".forge/ast-grep/rule-tests/typescript-bun-no-mock-increase-test.yml": "2916d521378a79dbddd4e3a5822e04b4c3e5fad9262a65e019095f58bbfe0310",
@@ -2823,7 +3003,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/typescript/react/use-action-state.yml": "17b6fc5e510df3154be12c72a584d8bfb31034b577774718a8c50516b2b15a81",
     ".forge/ast-grep/rules/typescript/ts-expect-error-reason.yml": "b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "65f808a9802d5a7ea9121654a2bfd6d89c34e89cea49e4874ae51f89bd6f92ab",
+    ".forge/check.sh": "71bf035d4fc390c0cd7ee9ff86f3435ae6eebcf7b8f73c40c3537fc2200c02d1",
     ".forge/helpers/new_deps.mjs": "8a768498205d62eee0b96c05a840fc0338762abb5ed302343e087aaaa1dcf565",
     ".forge/helpers/new_deps.py": "7119435e36e4107d347842e8b763f84dcd37bfa0071931e80adb215735da36a0",
     ".forge/helpers/node_version.mjs": "4759bf340bd01d4555cb531a44f95e4604ad0ecd4a95ccf69715883ce06ce91f",
@@ -2995,14 +3175,14 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 b5152f7d125e436305432703f518b7b0c0aa1e4636212d4f5646add1eb4c6fae  .claude/skills/forge-project/scripts/guard.rules
 1d892db2c9236bbd4f73742e1de1185a1b6bbc2ed8b0d8d6e7252692a1366538  .claude/skills/forge-project/scripts/guard.sh
 83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5  .claude/skills/forge-project/scripts/lib.sh
-4d6045aa3bd5ba08bfc487e35268af6986eabb730c9fb40e10254b3b9f9c9cc0  .claude/skills/forge-project/scripts/post-edit.sh
+a7c81d1c7cfff855a75e848b7c47f720726663ab95cc441d11af3d2ff258b209  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
 99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58  .claude/skills/forge-project/scripts/session-end.sh
-2050000bdb8cc69da52444cff181de96a3064dc20dea6db2ccfd35afa3f98c24  .claude/skills/forge-project/scripts/session-start.sh
+f2e8ddc2353048de1f6b28aed4dbde121f3ca79251a2fc3a0e21940b16488c9d  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-12f67b10dee6d323831c1072506ac0549336013cbdba319d52ebd55ee609dac7  .claude/skills/forge-project/scripts/test-edit.sh
+f40aee37c8f64ea5c87c6edf36c7990ce5b0edadb34c9c81843300c73c88428f  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-1a47e500e403dfe849eee09f5b0fe87239763dceab819e9a1a1da436880ffa27  .claude/skills/forge-project/scripts/typecheck.sh
+635640347283f094afc5e7c6aa1ce7ae1efe14de42ec2f43f57e7440a083511a  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 bd5df50793070bba7b87b0f623ac58ed4599e0ba6f8d731fc0da4b28a0335ec8  .forge/ast-grep/rule-tests/typescript-bun-no-fewer-expects-test.yml
 2916d521378a79dbddd4e3a5822e04b4c3e5fad9262a65e019095f58bbfe0310  .forge/ast-grep/rule-tests/typescript-bun-no-mock-increase-test.yml
@@ -3045,7 +3225,7 @@ aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21  .forge/ast-gre
 17b6fc5e510df3154be12c72a584d8bfb31034b577774718a8c50516b2b15a81  .forge/ast-grep/rules/typescript/react/use-action-state.yml
 b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad  .forge/ast-grep/rules/typescript/ts-expect-error-reason.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-65f808a9802d5a7ea9121654a2bfd6d89c34e89cea49e4874ae51f89bd6f92ab  .forge/check.sh
+71bf035d4fc390c0cd7ee9ff86f3435ae6eebcf7b8f73c40c3537fc2200c02d1  .forge/check.sh
 8a768498205d62eee0b96c05a840fc0338762abb5ed302343e087aaaa1dcf565  .forge/helpers/new_deps.mjs
 7119435e36e4107d347842e8b763f84dcd37bfa0071931e80adb215735da36a0  .forge/helpers/new_deps.py
 4759bf340bd01d4555cb531a44f95e4604ad0ecd4a95ccf69715883ce06ce91f  .forge/helpers/node_version.mjs

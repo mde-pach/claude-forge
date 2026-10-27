@@ -18,7 +18,7 @@
   "scripts": {
     "build": "bun build src/cli.ts --target=node --outfile=dist/forge.js && bun scripts/postbuild.mjs",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tests/tsconfig.json",
-    "lint": "biome ci --error-on-warnings . && shellcheck -S warning templates/scripts/*.sh",
+    "lint": "biome ci --error-on-warnings . && shellcheck -S warning templates/scripts/*.sh templates/engine/*.sh",
     "format": "biome format --write .",
     "test": "bun run build && bun tests/run.ts",
     "test:packs": "bun scripts/test-packs.ts",

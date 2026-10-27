@@ -285,7 +285,43 @@ fi
 
 @@ the generated checks of .forge/check.sh @@
 
-@@ templates/scripts/engine.sh (types: python) @@
+@@ templates/engine/core.sh @@
+
+@@ templates/engine/tools.sh @@
+
+@@ templates/engine/advice.sh @@
+
+@@ templates/engine/tests.sh @@
+
+@@ templates/engine/types.sh (types: python) @@
+
+@@ templates/engine/ai-models.sh @@
+
+@@ templates/engine/docker.sh @@
+
+@@ templates/engine/docs.sh @@
+
+@@ templates/engine/env.sh @@
+
+@@ templates/engine/github-actions.sh @@
+
+@@ templates/engine/javascript.sh @@
+
+@@ templates/engine/kubernetes.sh @@
+
+@@ templates/engine/openapi.sh @@
+
+@@ templates/engine/python.sh @@
+
+@@ templates/engine/release.sh @@
+
+@@ templates/engine/repository.sh @@
+
+@@ templates/engine/sql.sh @@
+
+@@ templates/engine/supply-chain.sh @@
+
+@@ templates/engine/terraform.sh @@
 
 FORGE_FORBID='docker/compose/datastore-loopback|docker/compose/healthy-depends|docker/compose/no-docker-sock|docker/compose/no-host-root-mounts|docker/compose/no-inline-secrets|docker/compose/no-links|docker/compose/no-privileged|docker/compose/no-version-key|docker/compose/pinned-images|python/archive-extract|python/contextmanager-finally|python/hmac-compare|python/lazy-log-args|python/llm-client-timeout|python/log-exception|python/no-ssl-verify-off|python/no-stub|python/no-swallowed-cancel|python/taskgroup-except-star|python/typeis-over-typeguard'
 
@@ -375,7 +411,43 @@ IFS='
 
 @@ the generated checks of .forge/check.sh @@
 
-@@ templates/scripts/engine.sh (types: python) @@
+@@ templates/engine/core.sh @@
+
+@@ templates/engine/tools.sh @@
+
+@@ templates/engine/advice.sh @@
+
+@@ templates/engine/tests.sh @@
+
+@@ templates/engine/types.sh (types: python) @@
+
+@@ templates/engine/ai-models.sh @@
+
+@@ templates/engine/docker.sh @@
+
+@@ templates/engine/docs.sh @@
+
+@@ templates/engine/env.sh @@
+
+@@ templates/engine/github-actions.sh @@
+
+@@ templates/engine/javascript.sh @@
+
+@@ templates/engine/kubernetes.sh @@
+
+@@ templates/engine/openapi.sh @@
+
+@@ templates/engine/python.sh @@
+
+@@ templates/engine/release.sh @@
+
+@@ templates/engine/repository.sh @@
+
+@@ templates/engine/sql.sh @@
+
+@@ templates/engine/supply-chain.sh @@
+
+@@ templates/engine/terraform.sh @@
 
 branch=$(git branch --show-current 2>/dev/null)
 [ -n "$branch" ] || branch="(detached $(git rev-parse --short HEAD 2>/dev/null))"
@@ -441,7 +513,43 @@ IFS='
 
 @@ the generated checks of .forge/check.sh @@
 
-@@ templates/scripts/engine.sh (types: python) @@
+@@ templates/engine/core.sh @@
+
+@@ templates/engine/tools.sh @@
+
+@@ templates/engine/advice.sh @@
+
+@@ templates/engine/tests.sh @@
+
+@@ templates/engine/types.sh (types: python) @@
+
+@@ templates/engine/ai-models.sh @@
+
+@@ templates/engine/docker.sh @@
+
+@@ templates/engine/docs.sh @@
+
+@@ templates/engine/env.sh @@
+
+@@ templates/engine/github-actions.sh @@
+
+@@ templates/engine/javascript.sh @@
+
+@@ templates/engine/kubernetes.sh @@
+
+@@ templates/engine/openapi.sh @@
+
+@@ templates/engine/python.sh @@
+
+@@ templates/engine/release.sh @@
+
+@@ templates/engine/repository.sh @@
+
+@@ templates/engine/sql.sh @@
+
+@@ templates/engine/supply-chain.sh @@
+
+@@ templates/engine/terraform.sh @@
 
 FORGE_NTESTRULES=0
 
@@ -606,7 +714,43 @@ IFS='
 
 @@ the generated checks of .forge/check.sh @@
 
-@@ templates/scripts/engine.sh (types: python) @@
+@@ templates/engine/core.sh @@
+
+@@ templates/engine/tools.sh @@
+
+@@ templates/engine/advice.sh @@
+
+@@ templates/engine/tests.sh @@
+
+@@ templates/engine/types.sh (types: python) @@
+
+@@ templates/engine/ai-models.sh @@
+
+@@ templates/engine/docker.sh @@
+
+@@ templates/engine/docs.sh @@
+
+@@ templates/engine/env.sh @@
+
+@@ templates/engine/github-actions.sh @@
+
+@@ templates/engine/javascript.sh @@
+
+@@ templates/engine/kubernetes.sh @@
+
+@@ templates/engine/openapi.sh @@
+
+@@ templates/engine/python.sh @@
+
+@@ templates/engine/release.sh @@
+
+@@ templates/engine/repository.sh @@
+
+@@ templates/engine/sql.sh @@
+
+@@ templates/engine/supply-chain.sh @@
+
+@@ templates/engine/terraform.sh @@
 
 # the first changed file in a typecheck's scope
 file=''
@@ -2624,7 +2768,43 @@ forge_role() {
 }
 # ---- end of generated checks
 
-@@ templates/scripts/engine.sh (types: python) @@
+@@ templates/engine/core.sh @@
+
+@@ templates/engine/tools.sh @@
+
+@@ templates/engine/advice.sh @@
+
+@@ templates/engine/tests.sh @@
+
+@@ templates/engine/types.sh (types: python) @@
+
+@@ templates/engine/ai-models.sh @@
+
+@@ templates/engine/docker.sh @@
+
+@@ templates/engine/docs.sh @@
+
+@@ templates/engine/env.sh @@
+
+@@ templates/engine/github-actions.sh @@
+
+@@ templates/engine/javascript.sh @@
+
+@@ templates/engine/kubernetes.sh @@
+
+@@ templates/engine/openapi.sh @@
+
+@@ templates/engine/python.sh @@
+
+@@ templates/engine/release.sh @@
+
+@@ templates/engine/repository.sh @@
+
+@@ templates/engine/sql.sh @@
+
+@@ templates/engine/supply-chain.sh @@
+
+@@ templates/engine/terraform.sh @@
 
 FORGE_STATE=$(forge_state_of "$(pwd -P)")
 
@@ -2964,14 +3144,14 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "0c5658eed717b3ed7963195d269d48a3856a8ba31443f0f5ac54ff989dbd7f3f",
     ".claude/skills/forge-project/scripts/guard.sh": "1d892db2c9236bbd4f73742e1de1185a1b6bbc2ed8b0d8d6e7252692a1366538",
     ".claude/skills/forge-project/scripts/lib.sh": "83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "083b15a55a6441c6329a3584d61348d961bf55039614545f42d9b041bde08639",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "cefb22647e98963ae4d11616b5d2f0b2d4e05b22fbf284fd0017d7184b47fca6",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
     ".claude/skills/forge-project/scripts/session-end.sh": "99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58",
-    ".claude/skills/forge-project/scripts/session-start.sh": "4c4398298c7afed3e70c02b95a9cc7fbcb586ee20066a627be35a97c27031165",
+    ".claude/skills/forge-project/scripts/session-start.sh": "8efe2398fe92c2b18acda872678675c402ee91f75b0463af1368cb97f52c0a41",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "d88e33c6adb02d8d1b2fea28a928ca8d05d0987e4be76111f62bfb3e85efb41b",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "9f001fd1f5fa63a803846fc92b3a7aa8221c6e8b7784fd92be50e89af84a3b0a",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "21c092a5ca270f639de07b7aa2132246fe084613164b41a129b1f9fc68ad2278",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "c2677456eb0960f15cd204fd74f799e25eb36bd049a8aaaaf6ce3f5395c89104",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/docker-compose-datastore-loopback-test.yml": "75507971edac1d4a2eca04e6bceb8a942429c0987372010b39ad0b7f126b55e9",
     ".forge/ast-grep/rule-tests/docker-compose-healthy-depends-test.yml": "bcd21e7f9112e5f0d44c9f5c9779824661b2f1dc40448323100787f342c4b7a8",
@@ -3014,7 +3194,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/python/taskgroup-except-star.yml": "4f4806fe42c584f0222eb866ced97c6626fc229b1c115d6f709c891d0a21bd60",
     ".forge/ast-grep/rules/python/typeis-over-typeguard.yml": "0d6cf9bb8a4afebb3e0b7b2bc6748c845108f57005db63b70004c3b1a2a6d8af",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "5fe62d999dbcb6bb6a040ab888981d5ee4b9902ac72ba8c131d6478948a7d197",
+    ".forge/check.sh": "37e4bd2dc1ed297c8e884dbbb0413b5b3c62f4f1a50f13fad529ad06e181d5eb",
     ".forge/helpers/new_deps.mjs": "8a768498205d62eee0b96c05a840fc0338762abb5ed302343e087aaaa1dcf565",
     ".forge/helpers/new_deps.py": "7119435e36e4107d347842e8b763f84dcd37bfa0071931e80adb215735da36a0",
     ".forge/helpers/ratchet.py": "59f8939c4dea3268d17724b6496635f1443727b1c03d9ce712b6cfbf1218dadf",
@@ -3160,14 +3340,14 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 0c5658eed717b3ed7963195d269d48a3856a8ba31443f0f5ac54ff989dbd7f3f  .claude/skills/forge-project/scripts/guard.rules
 1d892db2c9236bbd4f73742e1de1185a1b6bbc2ed8b0d8d6e7252692a1366538  .claude/skills/forge-project/scripts/guard.sh
 83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5  .claude/skills/forge-project/scripts/lib.sh
-083b15a55a6441c6329a3584d61348d961bf55039614545f42d9b041bde08639  .claude/skills/forge-project/scripts/post-edit.sh
+cefb22647e98963ae4d11616b5d2f0b2d4e05b22fbf284fd0017d7184b47fca6  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
 99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58  .claude/skills/forge-project/scripts/session-end.sh
-4c4398298c7afed3e70c02b95a9cc7fbcb586ee20066a627be35a97c27031165  .claude/skills/forge-project/scripts/session-start.sh
+8efe2398fe92c2b18acda872678675c402ee91f75b0463af1368cb97f52c0a41  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-d88e33c6adb02d8d1b2fea28a928ca8d05d0987e4be76111f62bfb3e85efb41b  .claude/skills/forge-project/scripts/test-edit.sh
+9f001fd1f5fa63a803846fc92b3a7aa8221c6e8b7784fd92be50e89af84a3b0a  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-21c092a5ca270f639de07b7aa2132246fe084613164b41a129b1f9fc68ad2278  .claude/skills/forge-project/scripts/typecheck.sh
+c2677456eb0960f15cd204fd74f799e25eb36bd049a8aaaaf6ce3f5395c89104  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 75507971edac1d4a2eca04e6bceb8a942429c0987372010b39ad0b7f126b55e9  .forge/ast-grep/rule-tests/docker-compose-datastore-loopback-test.yml
 bcd21e7f9112e5f0d44c9f5c9779824661b2f1dc40448323100787f342c4b7a8  .forge/ast-grep/rule-tests/docker-compose-healthy-depends-test.yml
@@ -3210,7 +3390,7 @@ a15e6941ec0e8c33957ca6f33e30dc7dbafa60986fd4264e6031740da40941aa  .forge/ast-gre
 4f4806fe42c584f0222eb866ced97c6626fc229b1c115d6f709c891d0a21bd60  .forge/ast-grep/rules/python/taskgroup-except-star.yml
 0d6cf9bb8a4afebb3e0b7b2bc6748c845108f57005db63b70004c3b1a2a6d8af  .forge/ast-grep/rules/python/typeis-over-typeguard.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-5fe62d999dbcb6bb6a040ab888981d5ee4b9902ac72ba8c131d6478948a7d197  .forge/check.sh
+37e4bd2dc1ed297c8e884dbbb0413b5b3c62f4f1a50f13fad529ad06e181d5eb  .forge/check.sh
 8a768498205d62eee0b96c05a840fc0338762abb5ed302343e087aaaa1dcf565  .forge/helpers/new_deps.mjs
 7119435e36e4107d347842e8b763f84dcd37bfa0071931e80adb215735da36a0  .forge/helpers/new_deps.py
 59f8939c4dea3268d17724b6496635f1443727b1c03d9ce712b6cfbf1218dadf  .forge/helpers/ratchet.py

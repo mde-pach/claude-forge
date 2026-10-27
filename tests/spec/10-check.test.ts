@@ -35,7 +35,7 @@ import {
 } from "../helpers";
 import { loadPacks } from "../../src/packs";
 import { checkTools } from "../../src/core/tools";
-import { renderChecks, renderCheckScript, renderLib, renderSgConfig } from "../../src/render";
+import { renderCheckScript, renderChecks, renderEngine, renderLib, renderSgConfig } from "../../src/render";
 import { ownedHash, RELEASE_BINARIES } from "../../src/util";
 import { insertBlock, removeBlock } from "../../src/precommit";
 import { runCheckExample } from "../../src/selftest";
@@ -453,11 +453,10 @@ FAILED tests/test_db.py::test_db - psycopg.OperationalError: connection refused
 ========================= 1 failed, 2 passed in 0.12s ==========================
 `;
 
-/** Runs a snippet with lib.sh and engine.sh loaded, as check.sh has them, in a fresh temporary directory. */
+/** Runs a snippet with lib.sh and the whole engine loaded, as check.sh has them, in a fresh temporary directory. */
 function engine(snippet: string, env: Record<string, string> = {}, cwd = repo) {
-  const dir = join(import.meta.dir, "../../templates/scripts");
   const tmp = mkdtempSync(join(tmpdir(), "forge-engine-"));
-  return shScript(`IFS='\n'\nFORGE_TMP=${tmp}\n${readFileSync(join(dir, "lib.sh"), "utf8")}\n${readFileSync(join(dir, "engine.sh"), "utf8")}\n${snippet}`, { cwd, env });
+  return shScript(`IFS='\n'\nFORGE_TMP=${tmp}\n${renderLib()}\n${renderEngine()}\n${snippet}`, { cwd, env });
 }
 
 describe("local database detection", () => {
@@ -470,8 +469,7 @@ describe("local database detection", () => {
     ["postgresql://u:p@db.example.com:5432/db", false],
     ["postgresql://u:p@10.0.0.5/db", false],
   ])("DATABASE_URL=%s is local: %p", (url, local) => {
-    const engine = readFileSync(join(import.meta.dir, "../../templates/scripts/engine.sh"), "utf8");
-    const r = shScript(`tool() { :; }; ${engine}\nforge_local_db && echo local || echo remote`, { env: { DATABASE_URL: url }, cwd: "/" });
+    const r = shScript(`tool() { :; }; ${renderEngine()}\nforge_local_db && echo local || echo remote`, { env: { DATABASE_URL: url }, cwd: "/" });
     expect(r.stdout.trim()).toBe(local ? "local" : "remote");
   });
 });
