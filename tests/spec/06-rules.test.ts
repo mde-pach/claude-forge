@@ -115,6 +115,10 @@ describe("permission, guard and context targets", () => {
         "Edit(**/ruff.toml)",
         "Edit(**/.ruff.toml)",
         "Edit(**/ty.toml)",
+        "Write(**/setup.py)",
+        "Write(**/setup.cfg)",
+        "Write(**/requirements*.txt)",
+        "Edit(**/requirements*.txt)",
       ]);
     },
     T,
