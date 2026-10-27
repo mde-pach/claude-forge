@@ -33,6 +33,7 @@ const TOOL_STAGE: Record<ToolTarget["tool"], { stage: "lint" | "typecheck"; chec
   biome: { stage: "lint", check: "typescript/format-lint" },
   ty: { stage: "typecheck", check: "python/typecheck" },
   tsc: { stage: "typecheck", check: "typescript/typecheck" },
+  eslint: { stage: "lint", check: "typescript/eslint/lint" },
 };
 
 const code = (s: string) => "`" + s + "`";
@@ -99,6 +100,12 @@ function checkEvents(rule: Rule, t: CheckTarget): LifecycleEvent[] {
       out.push(...changed("blocks", "Runs"));
       for (const e of out) if (e.step === "stop" || e.step === "commit") e.text += " Only errors in changed files count.";
       out.push({ step: "ci", effect: "blocks", text: `Runs ${cmd(t.run, "--all")}; any error fails.` });
+      break;
+    case "codegen":
+      // between lint and the typecheck; a stale generated file stops check.sh before the typecheck (§10.1)
+      out.push(...changed("blocks", "Runs"));
+      for (const e of out) if (e.step === "stop" || e.step === "commit") e.text += " A failure stops the check there, before the typecheck.";
+      out.push({ step: "ci", effect: "blocks", text: `Runs ${cmd(t.run, "--all")}${timeout}.` });
       break;
     case "migration":
     case "test":
