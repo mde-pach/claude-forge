@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { spawnSync, type SpawnSyncOptions } from "node:child_process";
-import { closeSync, existsSync, mkdtempSync, openSync, readFileSync, rmSync } from "node:fs";
+import { closeSync, existsSync, mkdtempSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { availableParallelism, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -169,19 +169,26 @@ export interface RunResult {
 }
 
 /**
- * spawnSync with the output written to temporary files instead of pipes: under load,
- * Bun's spawnSync (1.3) can return a pipe's output empty although the process wrote it
- * (Forge's own test suite and `bun run test:packs` run this code under Bun). env:
- * process.env is Node's default; Bun's is the environment the process started with.
+ * spawnSync with no pipe at all: the input is read from a temporary file (none: /dev/null)
+ * and the output written to temporary files. Under load, Bun's spawnSync (1.3) can return
+ * a pipe's output empty although the process wrote it, and Node's (24) can leave a piped
+ * input unwritten, the child waiting on its stdin for ever (seen with ruff
+ * --stdin-filename during forge apply's audits). Forge's own test suite and `bun run
+ * test:packs` run this code under Bun. env: process.env is Node's default; Bun's is the
+ * environment the process started with.
  */
 export function spawnCaptured(cmd: string, args: string[], opts: SpawnSyncOptions = {}): { status: number | null; error?: Error; stdout: string; stderr: string } {
   const dir = mkdtempSync(join(tmpdir(), "forge-run-"));
+  const { input, ...rest } = opts;
+  if (input !== undefined) writeFileSync(join(dir, "in"), input);
+  const inp = input !== undefined ? openSync(join(dir, "in"), "r") : "ignore";
   const out = openSync(join(dir, "out"), "w");
   const err = openSync(join(dir, "err"), "w");
   try {
-    const r = spawnSync(cmd, args, { env: process.env, ...opts, stdio: ["pipe", out, err] });
+    const r = spawnSync(cmd, args, { env: process.env, ...rest, stdio: [inp, out, err] });
     return { status: r.status, error: r.error, stdout: readFileSync(join(dir, "out"), "utf8"), stderr: readFileSync(join(dir, "err"), "utf8") };
   } finally {
+    if (typeof inp === "number") closeSync(inp);
     closeSync(out);
     closeSync(err);
     rmSync(dir, { recursive: true, force: true });
