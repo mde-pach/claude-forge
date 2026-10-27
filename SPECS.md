@@ -1883,6 +1883,16 @@ Detected by `langchain`, `@langchain/core` or `@langchain/classic`.
 
 context.md: `createAgent`; the legacy chains live in `@langchain/classic`.
 
+### typescript/ai
+
+Detected by `ai` (the Vercel AI SDK).
+
+| Rule | Targets |
+|---|---|
+| `typescript/ai/no-system-in-messages` | `ast-grep` forbid, `when` `ai >= 7`: a call declared as `ai`'s `generateText` or `streamText` (§15.6) whose options object has a `messages` or `prompt` array literal holding an object with `role: "system"`, and no `allowSystemInMessages: true` |
+
+context.md: system prompts go in `instructions`.
+
 ### typescript/opentelemetry
 
 Detected by `@opentelemetry/api` or `@opentelemetry/sdk-node`.
