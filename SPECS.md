@@ -805,6 +805,16 @@ Detected by `pyjwt` (pypi).
 
 context.md: `algorithms=[…]` always, never `"none"`; no signature check turned off; `jwt.get_unverified_header()` for an unverified header.
 
+### python/typer
+
+Detected by `typer` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/typer/annotated-params` | `ast-grep` forbid: a parameter whose default value is a `typer.Option(…)` / `typer.Argument(…)` call (or `Option(…)` / `Argument(…)` imported from `typer`) |
+
+context.md: parameters declared with `Annotated[T, typer.Option(...)]`, the default as the parameter's default.
+
 ### typescript/library
 
 Detected by `library_any: [npm]` (§13.4).
