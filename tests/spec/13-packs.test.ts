@@ -16,9 +16,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadPackBundle, loadPacks } from "../../src/packs";
 import { checkExamplesOptional, hadolintIntegrity, permissionMatches, runCheckExample, runCheckExamples, selfTest, type TestReport } from "../../src/selftest";
-import { ensureTools, ensureVueTools, forge, hasUv, ROOT, sh, SYSTEM_TOOLS_BIN, TOOLS_CACHE } from "../helpers";
+import { ANGULAR_TOOLS, ensureExampleTools, ensureNodeTools, ensureTools, ensureVueTools, forge, hasBun, hasUv, ROOT, sh, SYSTEM_TOOLS_BIN, TOOLS_CACHE } from "../helpers";
 import type { CheckTarget } from "../../src/types";
-import { renderChecks, renderLib } from "../../src/render";
+import { renderChecks, renderLib, SYSTEM_TOOLS } from "../../src/render";
 import { RELEASE_BINARIES } from "../../src/util";
 
 const T = 300_000;
@@ -27,7 +27,7 @@ const rules = [...packs.values()].flatMap((p) => p.rules);
 let report: TestReport;
 
 /** The cached project tools (tests/helpers.ts), then PATH. */
-const toolBins = () => [join(TOOLS_CACHE, "node_modules/.bin"), join(TOOLS_CACHE, ".venv/bin"), join(TOOLS_CACHE, "vue/node_modules/.bin"), SYSTEM_TOOLS_BIN, ...(process.env.PATH ?? "").split(":")];
+const toolBins = () => [join(TOOLS_CACHE, "node_modules/.bin"), join(TOOLS_CACHE, ".venv/bin"), join(TOOLS_CACHE, "vue/node_modules/.bin"), ...ensureExampleTools(), SYSTEM_TOOLS_BIN, ...(process.env.PATH ?? "").split(":")];
 
 beforeAll(() => {
   ensureTools();
@@ -44,7 +44,7 @@ describe("every rule", () => {
   });
 });
 
-test("every check target has examples, except test and migration runs, astro check and the lock-file checks", () => {
+test("every check target has examples, except test and migration runs, astro check, ngc and the lock-file checks", () => {
   const missing = rules.filter((r) => r.enforce.some((t) => t.target === "check" && !checkExamplesOptional(t as CheckTarget)) && !(r.examples?.match?.length && r.examples?.no_match?.length));
   expect(missing.map((r) => r.id)).toEqual([]);
 });
@@ -65,11 +65,17 @@ test("every pinned release binary for this platform downloads and matches its em
   expect(r.stdout).toBe(names.map((n) => `${n} ok\n`).join(""));
 }, 600_000);
 
-/** Only a system tool this machine does not have (docker on CI's macOS runners) may skip an example. */
+/**
+ * Only a system tool (§13.5) this machine does not have (docker on CI's macOS runners, a
+ * package manager the project does not use) may skip an example; the engine decides, as
+ * check.sh does (forge_has_tool: Yarn 1 is not the yarn a .yarnrc.yml project needs).
+ */
 test("every check example ran: none was skipped, except for a system tool that is not installed here", () => {
-  const absent = (tool: string) => sh("sh", ["-c", `command -v ${tool}`]).status !== 0;
+  const engine = [renderLib(), "IFS='\n'", renderChecks([])].join("\n");
+  const absent = (tool: string) => sh("sh", ["-c", `${engine}\nPATH=${SYSTEM_TOOLS_BIN}:$PATH forge_has_tool ${tool}`]).status !== 0;
   const skipped = report.notes.filter((n) => n.includes(" example ") && n.includes("skipped"));
-  expect(skipped.filter((n) => !(/skipped: (docker) (not available|not installed)/.test(n) && absent("docker")))).toEqual([]);
+  const system = (n: string) => SYSTEM_TOOLS.find((t) => new RegExp(`skipped: ${t}( 2 or later)? (not available|not installed)`).test(n));
+  expect(skipped.filter((n) => !(system(n) && absent(system(n)!)))).toEqual([]);
 });
 
 describe("every pack", () => {
@@ -293,3 +299,28 @@ describe("permission matching used by forge test", () => {
     expect(permissionMatches(rule, call)).toBe(want);
   });
 });
+
+/**
+ * ngc needs the framework's packages, so typescript/angular/typecheck has no examples in
+ * its file: here a component imports @angular/core from the tools cache (tsconfig paths).
+ * @rule typescript/angular/typecheck
+ */
+test.if(hasBun)(
+  "typescript/angular/typecheck: ngc reports a template error of a changed component, and passes a correct one",
+  () => {
+    const ng = ensureNodeTools("angular", ANGULAR_TOOLS);
+    const rule = rules.find((r) => r.id === "typescript/angular/typecheck")!;
+    const target = rule.enforce[0] as CheckTarget;
+    const head = {
+      "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true, target: "ES2022", module: "preserve", moduleResolution: "bundler", skipLibCheck: true, paths: { "@angular/*": [join(ng, "node_modules/@angular/*")] } }, angularCompilerOptions: { strictTemplates: true } }),
+      "tsconfig.app.json": '{"extends": "./tsconfig.json", "files": ["src/main.ts"]}\n',
+    };
+    const component = (field: string) => `import { Component } from "@angular/core";\n\n@Component({\n  selector: "app-root",\n  template: "<p>{{ user.${field} }}</p>",\n})\nexport class App {\n  user = { name: "Ada" };\n}\n`;
+    const bins = [join(ng, "node_modules/.bin")];
+    expect(runCheckExample(rule, target, { head, files: { "src/main.ts": component("nme") } }, "match", bins)).toEqual({ outcome: "pass", detail: "" });
+    expect(runCheckExample(rule, target, { head, files: { "src/main.ts": component("name") } }, "no_match", bins)).toEqual({ outcome: "pass", detail: "" });
+    // no application tsconfig: reported, never passed
+    expect(runCheckExample(rule, target, { files: { "src/main.ts": component("nme") } }, "match", bins).outcome).toBe("skip");
+  },
+  T,
+);

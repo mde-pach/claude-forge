@@ -53,7 +53,9 @@ A rule about one version of a library carries a gate: `when: {deps: [{ecosystem:
 
 A pack can also be detected as a library (`detect: {library_any: [pypi]}` or `[npm]`), for rules about a published API.
 
-A tool with no PyPI or npm package runs from its GitHub release: a helper asks the engine for it with `forge_release <name> <var>`, which fetches the pinned binary once (checked against the sha256 Forge embeds for the platform) or prints the check's `skipped` line. Infrastructure CLIs the project installs itself (`terraform`, `tofu`, `helm`, `kustomize`, `kubectl`) are named in `run` like project tools and found on `PATH`; `terraform` runs `tofu` in an OpenTofu project.
+A tool with no PyPI or npm package runs from its GitHub release: a helper asks the engine for it with `forge_release <name> <var>`, which fetches the pinned binary once (checked against the sha256 Forge embeds for the platform) or prints the check's `skipped` line. Infrastructure CLIs the project installs itself (`terraform`, `tofu`, `helm`, `kustomize`, `kubectl`) and the package managers (`npm`, `pnpm`, `yarn`) are named in `run` like project tools and found on `PATH`, so a check whose tool is absent is reported skipped; `terraform` runs `tofu` in an OpenTofu project, and `yarn` counts only from Yarn 2 on (what a `.yarnrc.yml` project uses). A project tool whose name has a `-` is run as `forge_exec_tool <name>` (`forge_exec_tool graphql-codegen --check`).
+
+A check that verifies generated code (`graphql-codegen --check`, `wrangler types --check`) takes `stage: codegen`: it runs after lint and before the typecheck, and when it fails check.sh stops there instead of reporting the typecheck errors stale generated code causes.
 
 <Spec file="10-check" describe="pinned release binaries and system tools" />
 
@@ -137,7 +139,7 @@ examples:
     - files: {compose.yaml: "services:\n  db:\n    image: postgres:17\n"}
 ```
 
-Only checks that need a whole project (test and migration runs, `astro check`, lock-file checks) may go without examples. An example whose tool is not installed is reported skipped, never passed.
+Only checks that need a whole project (test and migration runs, `astro check`, `ngc`, lock-file checks) may go without examples; a spec test proves them instead. An example whose tool is not installed is reported skipped, never passed.
 
 The self-test cannot run a `tool` target: that needs the tool. The test suite does it instead, with the pinned Biome, TypeScript, ruff and ty: for each `tool` target, the rule's examples must make the audit satisfied when the project's config reports the expected diagnostic as an error, and unsatisfied when that diagnostic is off. Every `match` example must therefore trigger every `tool` target of its rule; put all the variants a rule covers into each `match` example when the rule has several targets.
 

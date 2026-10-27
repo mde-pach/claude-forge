@@ -163,7 +163,8 @@ export function hadolintIntegrity(): { status: "ok" | "mismatch" | "skipped"; de
  */
 export function checkExamplesOptional(t: CheckTarget): boolean {
   // forge_large_files: a file over its size limit does not fit in a rule file (a spec test runs it)
-  return t.stage === "test" || t.stage === "migration" || checkTools(t).some((x) => x === "astro" || x === "uv" || x === "bun") || /\bforge_large_files\b/.test(t.run);
+  // astro check and ngc: the framework's packages must be installed (a whole project)
+  return t.stage === "test" || t.stage === "migration" || checkTools(t).some((x) => x === "astro" || x === "ngc" || x === "uv" || x === "bun") || /\bforge_large_files\b/.test(t.run);
 }
 
 /** How check examples are run: as Stop runs them, except format checks, which fix files at Stop and are run as CI runs them. */

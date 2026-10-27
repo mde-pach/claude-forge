@@ -13,7 +13,7 @@
 // Other options go to every `bun test` (e.g. --randomize --seed=42); FORGE_TEST_JOBS sets
 // the number of processes at a time (default: the CPU count). Shared work
 // that would race between processes happens once, first: the tool caches (ensureTools,
-// ensureVueTools, ensureTs5) and the bunx/uvx caches of the pinned ast-grep and Squawk.
+// ensureVueTools, ensureTs5, ensureExampleTools) and the bunx/uvx caches of the pinned ast-grep and Squawk.
 // FORGE_PROF_DIR=<dir> keeps each shard's JUnit report there and writes shards.tsv (shard,
 // file, tests, planned cost, start and wall in seconds, exit status), for profiling.
 import { spawn } from "node:child_process";
@@ -22,7 +22,7 @@ import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFi
 import { availableParallelism, tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { AST_GREP_VERSION, SQUAWK_VERSION } from "../src/util";
-import { ensureTools, ensureTs5, ensureVueTools, hasBun, hasUv, ROOT, TOOLS_CACHE } from "./helpers";
+import { ensureExampleTools, ensureTools, ensureTs5, ensureVueTools, hasBun, hasUv, ROOT, TOOLS_CACHE } from "./helpers";
 
 const T = "300000";
 const argv = process.argv.slice(2);
@@ -180,6 +180,7 @@ async function prepare(): Promise<void> {
   if (hasBun) {
     ensureVueTools();
     ensureTs5();
+    ensureExampleTools();
   }
   // first runs of bunx/uvx install into shared caches: once here, not racing in the shards
   const warm: [string, string[]][] = [];

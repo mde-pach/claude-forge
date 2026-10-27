@@ -142,6 +142,13 @@ describe("defaults from the tool's config", () => {
     expect(role("prisma-migrations", { "package.json": '{"prisma": {"schema": "db/schema.prisma"}}' })).toEqual(["db/migrations/**"]);
   });
 
+  /** @rule typescript/angular/typecheck */
+  test("angular.json's build tsConfig of each project names @angular-tsconfig, else Angular CLI's tsconfig.app.json", () => {
+    expect(role("angular-tsconfig", {})).toEqual(["**/tsconfig.app.json"]);
+    const angular = { projects: { shop: { architect: { build: { options: { tsConfig: "tsconfig.app.json" } } } }, admin: { root: "projects/admin", targets: { build: { options: { tsConfig: "projects/admin/tsconfig.app.json" } } } } } };
+    expect(role("angular-tsconfig", { "angular.json": JSON.stringify(angular) })).toEqual(["tsconfig.app.json", "projects/admin/tsconfig.app.json"]);
+  });
+
   test("DJANGO_SETTINGS_MODULE of pytest-django names @django-settings; .adr-dir names @adr", () => {
     expect(role("django-settings", { "pyproject.toml": '[tool.pytest.ini_options]\nDJANGO_SETTINGS_MODULE = "mysite.settings.test"\n' })).toEqual([
       "mysite/settings/test.py",

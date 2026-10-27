@@ -299,6 +299,9 @@ export const TOOL_VERSIONS = {
   typescriptForVue: "5.9.3",
   // python/django/makemigrations runs the project's manage.py (5.2 LTS: Python 3.10+)
   django: "5.2.18",
+  // typescript/angular/typecheck: ngc, on the TypeScript its peer range allows (>=6.0 <6.1)
+  angular: "22.2.2",
+  typescriptForAngular: "6.0.3",
 };
 /** Shared by every process of a run: the runner (tests/run.ts) passes it down with each shard's own TMPDIR. */
 export const TOOLS_CACHE = process.env.FORGE_TOOLS_CACHE || join(tmpdir(), "forge-tools-v2");
@@ -325,13 +328,17 @@ function ensureVenv(dir: string, probe: string, pkgs: string[]): void {
 
 /**
  * Infrastructure CLIs that pack checks run from PATH (§13.5), for their examples: the newest
- * releases older than 14 days, checked against each release's own checksum file.
+ * releases older than 14 days, checked against each release's own checksum file. Yarn 2 and
+ * later (Berry) is one JavaScript file run by node, from its npm package (checked against the
+ * sha256 of that tarball): a machine usually has Yarn 1 on PATH, which a .yarnrc.yml project
+ * does not use.
  */
-export const SYSTEM_TOOL_VERSIONS = { terraform: "1.16.5", helm: "4.3.0" };
-/** Where ensureTools puts terraform and helm (13-packs adds it to the example tools). */
+export const SYSTEM_TOOL_VERSIONS = { terraform: "1.16.5", helm: "4.3.0", yarn: "4.18.1" };
+const YARN_SHA256 = "f6729593ad4c17784e3d4ade53b3ed684e3dba3af5adb9bebe21bb854fe0b153";
+/** Where ensureTools puts terraform, helm and yarn (13-packs adds it to the example tools). */
 export const SYSTEM_TOOLS_BIN = join(TOOLS_CACHE, "system", "bin");
 
-/** Downloads terraform and helm (SYSTEM_TOOL_VERSIONS) for this platform into SYSTEM_TOOLS_BIN, once. */
+/** Downloads terraform, helm and yarn (SYSTEM_TOOL_VERSIONS) for this platform into SYSTEM_TOOLS_BIN, once. */
 function ensureSystemTools(): void {
   const os = process.platform === "darwin" ? "darwin" : "linux";
   const arch = process.arch === "arm64" ? "arm64" : "amd64";
@@ -340,12 +347,18 @@ function ensureSystemTools(): void {
   const fetch = [
     ["terraform", `https://releases.hashicorp.com/terraform/${t}/terraform_${t}_${os}_${arch}.zip`, `https://releases.hashicorp.com/terraform/${t}/terraform_${t}_SHA256SUMS`, "unzip -o -q asset terraform"],
     ["helm", `https://get.helm.sh/helm-v${h}-${os}-${arch}.tar.gz`, `https://get.helm.sh/helm-v${h}-${os}-${arch}.tar.gz.sha256sum`, `tar -xzf asset && mv ${os}-${arch}/helm helm`],
+    [
+      "yarn",
+      `https://registry.npmjs.org/@yarnpkg/cli-dist/-/cli-dist-${SYSTEM_TOOL_VERSIONS.yarn}.tgz`,
+      `data:,${YARN_SHA256}`,
+      `tar -xzf asset && mv package/bin/yarn.js "$3/yarn-berry.js" && printf '#!/bin/sh\\nexec node "$(dirname "$0")/yarn-berry.js" "$@"\\n' > yarn`,
+    ],
   ];
   mkdirSync(SYSTEM_TOOLS_BIN, { recursive: true });
   for (const [name, url, sums, unpack] of fetch) {
     if (existsSync(join(SYSTEM_TOOLS_BIN, name!))) continue;
     const dir = mkdtempSync(join(TOOLS_CACHE, `.${name}-`));
-    const script = `set -e; curl -fsSL -o asset "$1"; want=$(curl -fsSL "$2" | awk -v f="\${1##*/}" '$2 == f || NF == 1 { print $1; exit }'); have=$( (sha256sum asset 2>/dev/null || shasum -a 256 asset) | cut -d ' ' -f 1); [ -n "$want" ] && [ "$want" = "$have" ]; ${unpack}; chmod 755 ${name}; mv -f ${name} "$3/"`;
+    const script = `set -e; curl -fsSL -o asset "$1"; want=$(case $2 in (data:,*) printf '%s\\n' "\${2#data:,}" ;; (*) curl -fsSL "$2" ;; esac | awk -v f="\${1##*/}" '$2 == f || NF == 1 { print $1; exit }'); have=$( (sha256sum asset 2>/dev/null || shasum -a 256 asset) | cut -d ' ' -f 1); [ -n "$want" ] && [ "$want" = "$have" ]; ${unpack}; chmod 755 ${name}; mv -f ${name} "$3/"`;
     const r = sh("sh", ["-c", script, "sh", url!, sums!, SYSTEM_TOOLS_BIN], { cwd: dir });
     rmSync(dir, { recursive: true, force: true });
     if (r.status !== 0) throw new Error(`could not install ${name}: ${r.stderr}`);
@@ -378,6 +391,43 @@ export function ensureVueTools(): string {
     if (r.status !== 0) throw new Error(`bun add failed: ${r.stderr}`);
   }
   return join(dir, "node_modules", ".bin");
+}
+
+/**
+ * Node packages installed with bun into their own directory of the tools cache (once per
+ * set of packages: a marker names them); returns that directory. Packs whose checks need
+ * a framework's packages (ngc) or other linters (ESLint, Prettier, oxlint) get theirs here.
+ */
+export function ensureNodeTools(name: string, pkgs: string[]): string {
+  const dir = join(TOOLS_CACHE, name);
+  const marker = join(dir, `.installed-${createHash("sha256").update(pkgs.join(" ")).digest("hex").slice(0, 12)}`);
+  if (hasBun && !existsSync(marker)) {
+    rmSync(dir, { recursive: true, force: true });
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "package.json"), `{"name":"tools-${name}","private":true}`);
+    const r = sh("bun", ["add", "-d", ...pkgs], { cwd: dir });
+    if (r.status !== 0) throw new Error(`bun add failed: ${r.stderr}`);
+    writeFileSync(marker, "");
+  }
+  return dir;
+}
+
+/** The Angular compiler with the framework packages a component imports (typescript/angular/typecheck). */
+export const ANGULAR_TOOLS = [`@angular/compiler-cli@${TOOL_VERSIONS.angular}`, `@angular/compiler@${TOOL_VERSIONS.angular}`, `@angular/core@${TOOL_VERSIONS.angular}`, `typescript@${TOOL_VERSIONS.typescriptForAngular}`, "rxjs@7.8.2"];
+
+/**
+ * The project tools of pack check examples beyond Biome and tsc, each set in a directory of
+ * its own (ensureNodeTools): code generators (GraphQL Code Generator; wrangler from the
+ * release whose `types --check` the rule needs).
+ */
+export const EXAMPLE_NODE_TOOLS: Record<string, string[]> = {
+  angular: ANGULAR_TOOLS,
+  codegen: ["@graphql-codegen/cli@7.4.6", "graphql@17.0.2", "wrangler@4.153.0"],
+};
+
+/** Installs EXAMPLE_NODE_TOOLS (once); returns their bin directories. */
+export function ensureExampleTools(): string[] {
+  return Object.entries(EXAMPLE_NODE_TOOLS).map(([name, pkgs]) => join(ensureNodeTools(name, pkgs), "node_modules", ".bin"));
 }
 
 /** Installs the real tsc 5.x (TOOL_VERSIONS.typescript5) in its own cache directory. */

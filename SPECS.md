@@ -173,7 +173,7 @@ A `guard` example is a command string or `{command, files}`: the command runs fr
 
 A rule with `when` is active only where each listed dependency is declared in its version range, read as detection reads it (§5.1; `package.json` `packageManager` and `devEngines.packageManager` declare the package manager as a dependency at that version): at the root for a pack that applies to the whole repository, else in the workspace packages where its pack was detected; a pack added in `forge.yaml` or required takes the packages where the gate holds when the root does not satisfy it. Its ast-grep and grep rules are scoped to those packages. A rule its gate leaves out is listed by `forge status` under `Inactive (version gate):` with what it needs (`--json`: `gated`).
 
-Paths are relative, without `..`. Every rule has examples, except a `check` target that runs the project's tests (stage `test`), its migrations (stage `migration`), `astro check` or a lock-file check (`uv`, `bun`): those need a whole project, and their examples are optional.
+Paths are relative, without `..`. Every rule has examples, except a `check` target that runs the project's tests (stage `test`), its migrations (stage `migration`), `astro check`, the Angular compiler (`ngc`) or a lock-file check (`uv`, `bun`): those need a whole project, and their examples are optional.
 
 Every rule blocks, except an `ast-grep` target in `advise` mode (§6.2), for heuristics whose matches need judgement. A rule you don't want is disabled with a reason.
 
@@ -186,7 +186,7 @@ Every rule blocks, except an `ast-grep` target in `advise` mode (§6.2), for heu
 | `permission` | `decision: deny \| ask`, `rule` (permission rule string) | appended | settings `permissions` |
 | `guard` | `decision: deny \| ask`, `pattern` (POSIX ERE against the JSON-escaped command), `check` (optional, `decision: ask` only: a built-in guard check, `ephemeral-exec`, that decides when `pattern` matches) | owned | `guard.rules` (§9.2) |
 | `sandbox` | `path`, `value` | appended, user only | `~/.claude/settings.json` `sandbox` |
-| `check` | `stage: format \| lint \| typecheck \| migration \| test`, `run`, `changed_run` (optional, `{files}`), `fix_run` (optional, lint only, `{files}`: safe fixes applied after an edit, §8.1), `format_stdin` (optional, format or lint, `{file}`: the formatter as a filter, formatting stdin as if it were `{file}`; formats base copies for added lines, §10.1), `rerun` (optional, test only, `{files}`: runs only the given test files, §10.6), `when_changed` (optional), `requires_local_db` (optional, boolean), `fail_on_warnings` (optional, `true`: the run fails on warnings, e.g. `oxlint --deny-warnings`, and its warning diagnostics are attributed like errors, §10.1) | owned | `.forge/check.sh` (§10) |
+| `check` | `stage: format \| lint \| codegen \| typecheck \| migration \| test` (`codegen`: generated code is up to date, or is generated, before the typecheck, §10.1), `run`, `changed_run` (optional, `{files}`), `fix_run` (optional, lint only, `{files}`: safe fixes applied after an edit, §8.1), `format_stdin` (optional, format or lint, `{file}`: the formatter as a filter, formatting stdin as if it were `{file}`; formats base copies for added lines, §10.1), `rerun` (optional, test only, `{files}`: runs only the given test files, §10.6), `when_changed` (optional), `requires_local_db` (optional, boolean), `fail_on_warnings` (optional, `true`: the run fails on warnings, e.g. `oxlint --deny-warnings`, and its warning diagnostics are attributed like errors, §10.1) | owned | `.forge/check.sh` (§10) |
 | `grep` | `pattern` (POSIX ERE, matched line by line), `mode: forbid \| no-increase \| no-decrease`, `ignore_case` (optional) | owned | `.forge/check.sh` (§10): counts are matching lines per file |
 
 ast-grep and grep modes:
@@ -368,7 +368,7 @@ Runs in order, stops at the first failing step, prints `forge:<rule-id>` lines:
 1. **Integrity:** every owned file under `.forge/` and `.claude/` matches its hash in `.forge/manifest.sha256`, and no other file sits in Forge's directories. check.sh never parses `forge.lock.json`, so the lock's formatting does not matter.
 2. **Tests and counts:** test files present in the base and deleted → fail; ast-grep and grep `no-increase` / `no-decrease` rules compared with the base (`forge:<id> <path>: <before> -> <after>`).
 3. **Forbid rules** (ast-grep and grep), on added lines outside `--all` (`forge:<id> <path>:<line>[:<column>] <description>`).
-4. **Format, lint, typecheck:** `check` targets of stages `format`, `lint`, `typecheck`, using project binaries: `changed_run` on the changed files with `--turn` and `--changed`, `run` (read-only, whole project) with `--since` and `--all`. Outside `--all`, a failing run's error diagnostics are attributed: `lint` diagnostics count on added lines, `typecheck` diagnostics (and a whole-project `format` run's) on changed files. When none counts, the check prints `forge:<rule-id> ok for the added lines (…)` or `ok for the changed files (…)` and passes; otherwise it prints only the diagnostics that count. Output naming no file at all (configuration error, crash) fails as before. Diagnostic locations are read from the tools' plain output (`path(l,c)`, `path:l:c`, `--> path:l:c`; `Would reformat: path` and Biome's `path format` name a file only; absolute paths under the repository are made relative; warning-only lines are ignored, except in a check with `fail_on_warnings`, where they count as errors). A failing run whose output has warnings and no error (ty with `terminal.error-on-warning` exits 1 on warnings alone) prints `forge:<rule-id> ok for the added lines (only warnings)` or `ok for the changed files (only warnings)` and passes; the edit-time hooks stay silent on it. `--all` fails on any error, and on the tool's exit status.
+4. **Format, lint, codegen, typecheck:** `check` targets of stages `format`, `lint`, `codegen`, `typecheck`, in that order, each stage a step of its own: a failing `codegen` check (stale generated code: `graphql-codegen --check`, `wrangler types --check`) stops before the typecheck, whose errors would only repeat it; a `codegen` failure is not attributed (its output is shown). The edit-time typecheck (`typecheck.sh`, §8.1) runs the `typecheck` stage only. Checks use project binaries: `changed_run` on the changed files with `--turn` and `--changed`, `run` (read-only, whole project) with `--since` and `--all`. Outside `--all`, a failing run's error diagnostics are attributed: `lint` diagnostics count on added lines, `typecheck` diagnostics (and a whole-project `format` run's) on changed files. When none counts, the check prints `forge:<rule-id> ok for the added lines (…)` or `ok for the changed files (…)` and passes; otherwise it prints only the diagnostics that count. Output naming no file at all (configuration error, crash) fails as before. Diagnostic locations are read from the tools' plain output (`path(l,c)`, `path:l:c`, `--> path:l:c`; `Would reformat: path` and Biome's `path format` name a file only; absolute paths under the repository are made relative; warning-only lines are ignored, except in a check with `fail_on_warnings`, where they count as errors). A failing run whose output has warnings and no error (ty with `terminal.error-on-warning` exits 1 on warnings alone) prints `forge:<rule-id> ok for the added lines (only warnings)` or `ok for the changed files (only warnings)` and passes; the edit-time hooks stay silent on it. `--all` fails on any error, and on the tool's exit status.
 5. **Migration checks:** `check` targets of stage `migration`, only if a `when_changed` path changed and, when `requires_local_db` is set, the configured database host is `localhost`, `127.0.0.1`, `::1` or a Unix socket. Otherwise print `forge:<rule-id> skipped: no local database` and continue.
 6. **Tests:** `check` targets of stage `test` (`changed_run` with `--changed` and `--turn`). Under `--turn`, failing tests are first compared with the start of the turn (§10.6).
 
@@ -1204,6 +1204,7 @@ Detected by `.yarnrc.yml` (Yarn 2 and later).
 | Rule | Targets |
 |---|---|
 | `typescript/yarn/no-other-pm` | `guard` ask: `npm install`, `npm i`, `npm ci`, `npm add`, `pnpm`, `bun install`, `bun i`, `bun add` |
+| `typescript/yarn/lock-sync` | `check` lint: `yarn install --immutable --mode=skip-build` (skipped when yarn is not installed or is Yarn 1, §13.5), `when_changed`: `package.json` files, `yarn.lock`, `.yarnrc.yml` |
 
 context.md: Yarn manages dependencies.
 
@@ -1559,6 +1560,7 @@ Detected by `@angular/core >= 20`.
 |---|---|
 | `typescript/angular/control-flow` | `grep` forbid in `**/*.html`, `**/*.ts` (inline templates): `*ngIf=`, `*ngFor=`, `*ngSwitchCase=`, `*ngSwitchDefault=`, `[ngSwitch]=` |
 | `typescript/angular/no-bypass-sanitizer` | `ast-grep` forbid, `where` the receiver is `@angular/platform-browser` `DomSanitizer`: `bypassSecurityTrustHtml`, `…Script`, `…Style`, `…Url`, `…ResourceUrl` calls |
+| `typescript/angular/typecheck` | `check` typecheck: `ngc -p <tsconfig> --noEmit` for each file of role `@angular-tsconfig` (§15.4); the role naming no file prints `skipped`; on changes to `**/*.ts`, `**/*.html` |
 
 context.md: built-in control flow instead of `*ngIf` / `*ngFor` / `[ngSwitch]`; no `bypassSecurityTrust*`.
 
@@ -1667,6 +1669,7 @@ Detected by `wrangler.toml`, `wrangler.json`, `wrangler.jsonc` or the `wrangler`
 |---|---|
 | `typescript/cloudflare-workers/no-ctx-destructure` | `ast-grep` forbid: `const { … } = $C` where `C: {type: {module: ["@cloudflare/workers-types", "@wrangler-types"], name: ExecutionContext}}` (the `wrangler types` output through role `@wrangler-types`, §15.4) |
 | `typescript/cloudflare-workers/no-pass-through-on-exception` | `ast-grep` advise: `$C.passThroughOnException()`, `C` as above |
+| `typescript/cloudflare-workers/env-types-generated` | `check` codegen (§10.1), `when` wrangler `>=4.153.0`: `wrangler types <file> --check` for each file of role `@wrangler-types` (the config hash the file records is the current config's); `when_changed: [@wrangler-config, @wrangler-types]` |
 | `kubernetes/helm/chart-api-v2` | `grep` forbid on `Chart.yaml`: a top-level `apiVersion: v1` |
 
 ### typescript/cloudflare-workers/stripe
@@ -1732,6 +1735,16 @@ context.md: CSRF prevention on; no forced stack traces.
 
 context.md: error masking on; `GraphQLError` for client errors.
 
+### typescript/graphql-codegen
+
+Detected by `@graphql-codegen/cli`.
+
+| Rule | Targets |
+|---|---|
+| `typescript/graphql-codegen/up-to-date` | `check` codegen (§10.1): `graphql-codegen --check` (exit 1 and the stale files when an output would change), on changes to `.graphql`, `.gql`, TypeScript and JavaScript files and the codegen config |
+
+context.md: generated files are regenerated, never edited by hand.
+
 ### typescript/effect
 
 `Effect` is the binding imported from `effect` (`import { Effect }`, aliases included) or the namespace import of `effect/Effect`. "In a generator" means the nearest enclosing function is the generator passed to `Effect.gen(…)`.
@@ -1752,6 +1765,7 @@ Detected by `@mikro-orm/core`.
 | `typescript/mikro-orm/no-global-context` | `ast-grep` forbid, outside test files (`*.test.*`, `*.spec.*`, `__tests__/`, `e2e/`): `allowGlobalContext: true` in the object passed to `MikroORM.init(…)`, `new MikroORM(…)` or `defineConfig(…)`, those names imported from `@mikro-orm/*` (aliases included) |
 | `typescript/mikro-orm/schema-guard` | `guard` deny: `mikro-orm` / `mikro-orm-esm` `schema:drop` or `schema:fresh` with `--run` / `-r` |
 | `typescript/mikro-orm/schema-update` | `guard` ask: `schema:update` with `--run` / `-r`, `migration:fresh` |
+| `typescript/mikro-orm/migration-present` | `check` migration, `requires_local_db`: `mikro-orm migration:up`, then `mikro-orm migration:check` (exit 1 when the entities differ from the migrated schema) |
 
 context.md: request contexts, never a global one; migrations; which schema commands are refused or asked.
 
@@ -1831,6 +1845,7 @@ context.md: destroy policies are advice; `cdk.context.json` committed; cdk-nag f
 |---|---|
 | `typescript/express/session-cookie-flags` | `ast-grep` forbid: `secure: false` / `httpOnly: false` in the `cookie` object of a call of express-session's default import, or in the object passed to cookie-session's default import |
 | `typescript/express/no-permissive-trust-proxy` | `ast-grep` advise: `$A.set("trust proxy", true)`, where `A` is an Express `Application` (`express-serve-static-core`) |
+| `typescript/express/types-match` | `check` lint: `forge_dep_major_match express @types/express @types/express-serve-static-core`: in each changed `package.json` declaring both, the lowest major of the types package's range equals express's (`^4.17.21` on `^5.1.0` fails); a spec that is not a range (`catalog:`, `workspace:`, `*`) is reported as not compared; `when_changed: [**/package.json]` |
 
 context.md: no literal `secure: false` / `httpOnly: false` session cookies; `trust proxy` is not `true`.
 
@@ -2114,7 +2129,7 @@ Detected by `mise.toml`, `.mise.toml`, `.tool-versions`, `.devcontainer/**` or `
 
 Tools with no PyPI or npm distribution run from their GitHub release binaries, pinned like Forge's other tools (the newest release older than 14 days) by version and by an embedded sha256 per platform (`uname -s`-`uname -m`: Linux and macOS on x86_64 and arm64), computed from the release assets and matching both GitHub's asset digest and the release's checksum file: gitleaks 8.30.1, kubeconform 0.8.0, kube-linter 0.8.3, tflint 0.64.0, trivy 0.75.0, osv-scanner 2.7.0, oasdiff 1.33.0, editorconfig-checker 4.0.2 (`RELEASE_BINARIES` in `src/util.ts`). `forge_release_bin <name>` (and `forge_release <name> <var>`, which prints the check's skipped line) is the one way a helper gets such a binary: the first use on a machine downloads the asset with `curl` (or `wget`) from `check.sh`, which hooks, pre-commit and CI run outside the Bash sandbox; it checks the asset's sha256, unpacks the binary (`.tar.gz`, `.zip` with `unzip`, or the asset itself) and keeps it in `${XDG_CACHE_HOME:-~/.cache}/forge/bin/<name>-<version>-<platform>/<name>` (written to a temporary name and renamed, so concurrent runs never see half a file). No asset for the platform, no network on the first use, no `curl`/`wget` (or `unzip`), or a sha256 mismatch prints `forge:<id> skipped: …`, never a pass. A helper's skipped line under `forge_once` / `forge_advise` is printed, not counted as a finding.
 
-System tools a project installs outside `node_modules` and `.venv` (`terraform`, `tofu`, `helm`, `kustomize`, `kubectl`) are found on `PATH`, like the runtimes (`uv`, `bun`, `docker`), never as a shell function of that name. A check that names `terraform` runs the project's Terraform CLI: `tofu` when the repository has a `*.tofu` file or a `.terraform.lock.hcl` naming `registry.opentofu.org` providers, else `terraform`; `kustomize` is `kubectl kustomize` when only kubectl is installed. A missing one is reported like any missing tool, by the binary's name (`forge:<id> skipped: tofu not installed`, `forge status`, SessionStart).
+System tools a project installs outside `node_modules` and `.venv` (`terraform`, `tofu`, `helm`, `kustomize`, `kubectl`) and the package managers (`npm`, `pnpm`, `yarn`) are found on `PATH`, like the runtimes (`uv`, `bun`, `docker`), never as a shell function of that name. `yarn` counts only as Yarn 2 or later (`yarn --version` in the repository: a `.yarnrc.yml` project's `yarnPath` answers there), the Yarn the `typescript/yarn` pack is for; Yarn 1 is reported as `yarn 2 or later not installed`. A check that names `terraform` runs the project's Terraform CLI: `tofu` when the repository has a `*.tofu` file or a `.terraform.lock.hcl` naming `registry.opentofu.org` providers, else `terraform`; `kustomize` is `kubectl kustomize` when only kubectl is installed. A missing one is reported like any missing tool, by the binary's name (`forge:<id> skipped: tofu not installed`, `forge status`, SessionStart).
 
 ## 14. Acceptance tests
 
@@ -2287,6 +2302,7 @@ files:
 |---|---|---|
 | `adr` | `docs/adr/**`, `doc/adr/**`, `docs/decisions/**` | adr-tools `.adr-dir` + `/**` |
 | `alembic-migrations` | `alembic/versions/**`, `migrations/versions/**` | `alembic.ini` (or `[tool.alembic]`) `version_locations`, else `script_location` + `/versions/**` |
+| `angular-tsconfig` | `**/tsconfig.app.json` | `angular.json`: each project's `architect` (or `targets`) `build.options.tsConfig` |
 | `better-auth-config` | the auth CLI's search paths: `{,src/,app/}{,lib/server/,server/auth/,server/,auth/,lib/,utils/}{auth,auth/index}{.ts,.tsx,.js,.jsx,.server.js,.server.ts}` | — |
 | `compose` | `**/compose*.yaml`, `**/compose*.yml`, `**/docker-compose*.yaml`, `**/docker-compose*.yml` | — |
 | `django-migrations` | `**/migrations/[0-9]*.py` | — |

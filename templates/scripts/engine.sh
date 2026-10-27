@@ -939,6 +939,52 @@ forge_pkg_deps() {
     }' "$1" | sort
 }
 
+# forge_dep_major_match <package> <types-package>...: in each package.json of the check's
+# scope ($FORGE_TMP/scope: the changed files, every file with --all) that declares
+# <package> and a <types-package>, the lowest major version their ranges allow is the
+# same (a types package of another major describes another API). The lowest major of a
+# range is the smallest major its alternatives (||) start at: ^4.17.1, ~4.1, 4.x, >=4 <6
+# and 4 || 5 are 4. A spec that names no lower version (*, latest, workspace:, catalog:,
+# npm: aliases, git and file sources, <5) is reported as not compared, never passed.
+forge_dep_major_match() {
+  _dm_pkg=$1
+  shift
+  _dm_types=$(printf '%s ' "$@")
+  _dm_rc=0
+  while IFS= read -r _dm_f; do
+    case $_dm_f in package.json|*/package.json) ;; *) continue ;; esac
+    [ -f "$_dm_f" ] || continue
+    forge_pkg_deps "$_dm_f" | awk -F '\t' -v pkg="$_dm_pkg" -v types="$_dm_types" -v f="$_dm_f" -v id="${c_id:-}" '
+      function lowest(spec,   alts, n, i, a, m, best) {
+        best = ""
+        n = split(spec, alts, /[|][|]/)
+        for (i = 1; i <= n; i++) {
+          a = alts[i]
+          gsub(/^[ \t]+|[ \t]+$/, "", a)
+          if (a !~ /^(\^|~|>=|=|v)?[ \t]*v?[0-9]+([.]|[ \t]|$)/) return ""
+          sub(/^(\^|~|>=|=)?[ \t]*v?/, "", a)
+          m = a; sub(/[^0-9].*$/, "", m)
+          if (best == "" || m + 0 < best + 0) best = m
+        }
+        return best
+      }
+      BEGIN { nt = split(types, ts, " "); for (i = 1; i <= nt; i++) want[ts[i]] = 1 }
+      $2 == pkg { have = $3 }
+      ($2 in want) { tspec[$2] = $3 }
+      END {
+        if (have == "") exit 0
+        pm = lowest(have)
+        for (t in tspec) {
+          tm = lowest(tspec[t])
+          if (pm == "" || tm == "") { printf "forge:%s skipped: %s: %s \"%s\" and %s \"%s\" are not both version ranges, so their majors were not compared\n", id, f, pkg, have, t, tspec[t]; continue }
+          if (pm != tm) { printf "%s:0 %s \"%s\" (major %s) describes another API than %s \"%s\" (major %s): declare %s@^%s.0.0 (or the %s release you run)\n", f, t, tspec[t], tm, pkg, have, pm, t, pm, pkg; bad = 1 }
+        }
+        exit bad
+      }' || _dm_rc=1
+  done < "$FORGE_TMP/scope"
+  return "$_dm_rc"
+}
+
 # forge_check_active <rule-id>: the rule has a check in this check.sh.
 forge_check_active() {
   (
@@ -1793,7 +1839,9 @@ forge_has_tool() {
   case $1 in
     *@*) ( _fh_root=$(pwd); cd "${1#*@}" 2>/dev/null && FORGE_WS_ROOT=$_fh_root forge_has_tool "${1%%@*}" ) ;;
     uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
-    tofu|helm|kubectl) forge_on_path "$1" ;;
+    tofu|helm|kubectl|npm|pnpm) forge_on_path "$1" ;;
+    # Yarn 1 is another tool (a .yarnrc.yml project needs Yarn 2 or later): absent then
+    yarn) forge_on_path yarn && case $(yarn --version 2>/dev/null) in ''|0.*|1.*) false ;; esac ;;
     terraform) forge_on_path "$(forge_tf_bin)" ;;
     kustomize) forge_on_path kustomize || forge_on_path kubectl ;;
     # Forge's pinned ty runs through uvx (§15.2)
@@ -1807,6 +1855,7 @@ forge_tool_label() {
   case $1 in
     terraform) forge_tf_bin ;;
     kustomize) printf 'kustomize or kubectl' ;;
+    yarn) printf 'yarn 2 or later' ;;
     *) printf '%s' "$1" ;;
   esac
 }

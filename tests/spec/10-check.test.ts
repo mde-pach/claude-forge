@@ -14,8 +14,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { applied, commitAll, copyRepo, ensureTools, fixture, forge, git, hasBun, hasUv, linkTools, linkTs5, put, ROOT, sampleRepo, sh, TOOL_VERSIONS, TOOLS_CACHE, TY_FINDS_NOTHING } from "../helpers";
 import { loadPacks } from "../../src/packs";
-import { checkTools, renderChecks, renderLib } from "../../src/render";
-import { RELEASE_BINARIES } from "../../src/util";
+import { checkTools, renderChecks, renderCheckScript, renderLib, renderSgConfig } from "../../src/render";
+import { ownedHash, RELEASE_BINARIES } from "../../src/util";
 import { insertBlock, removeBlock } from "../../src/precommit";
 import { runCheckExample } from "../../src/selftest";
 import { parse as parseYaml } from "yaml";
@@ -1625,6 +1625,51 @@ describe("pinned release binaries and system tools", () => {
     expect(run("helm() { :; }\nforge_has_tool helm && echo has || echo no", r.cwd, { PATH }).stdout).toBe("no\n");
   });
 
+  /**
+   * The package managers a lock-file check runs are system tools: absent, the check is
+   * skipped, never passed. A .yarnrc.yml project needs Yarn 2 or later (Berry); Yarn 1 on
+   * PATH is another tool, reported as missing.
+   * @rule typescript/pnpm/lock-sync typescript/npm/lock-sync typescript/yarn/lock-sync
+   */
+  test("npm, pnpm and yarn are system tools found on PATH; yarn counts only from Yarn 2 on", () => {
+    const r = release({});
+    const bin = join(r.dir, "bin");
+    const tool = (name: string, version: string) => {
+      put(bin, name, `#!/bin/sh
+echo "${version}"
+`);
+      chmodSync(join(bin, name), 0o755);
+    };
+    const PATH = `${bin}:/usr/bin:/bin`;
+    const probe = "for t in npm pnpm yarn; do forge_has_tool $t && echo \"has $t\" || echo \"no $(forge_tool_label $t)\"; done";
+    expect(run(probe, r.cwd, { PATH }).stdout).toBe("no npm\nno pnpm\nno yarn 2 or later\n");
+    tool("npm", "11.4.2");
+    tool("pnpm", "10.18.0");
+    tool("yarn", "1.22.22");
+    expect(run(probe, r.cwd, { PATH }).stdout).toBe("has npm\nhas pnpm\nno yarn 2 or later\n");
+    tool("yarn", "4.18.1");
+    expect(run(probe, r.cwd, { PATH }).stdout).toBe("has npm\nhas pnpm\nhas yarn\n");
+    expect(checkTools({ target: "check", stage: "lint", run: "yarn install --immutable --mode=skip-build" })).toEqual(["yarn"]);
+  });
+
+  /** @rule typescript/express/types-match */
+  test("forge_dep_major_match compares the lowest major of two declared ranges in each package.json, and reports a spec that is not a range as not compared", () => {
+    const r = release({});
+    put(r.cwd, "package.json", '{"dependencies": {"express": "^5.1.0"}, "devDependencies": {"@types/express": "~4.17.21"}}\n');
+    put(r.cwd, "b/package.json", '{"dependencies": {"express": ">=4.21 <6 || 5"}, "devDependencies": {"@types/express": "4.x"}}\n');
+    put(r.cwd, "c/package.json", '{"dependencies": {"express": "catalog:"}, "devDependencies": {"@types/express": "^5.0.3"}}\n');
+    put(r.cwd, "d/package.json", '{"dependencies": {"express": "5.1.0"}}\n');
+    const out = run(`printf 'package.json\\nb/package.json\\nc/package.json\\nd/package.json\\n' > "$FORGE_TMP/scope"\nforge_dep_major_match express @types/express; echo "rc=$?"`, r.cwd);
+    expect(out.stdout).toBe(
+      [
+        'package.json:0 @types/express "~4.17.21" (major 4) describes another API than express "^5.1.0" (major 5): declare @types/express@^5.0.0 (or the express release you run)',
+        'forge:demo/rule skipped: c/package.json: express "catalog:" and @types/express "^5.0.3" are not both version ranges, so their majors were not compared',
+        "rc=1",
+        "",
+      ].join("\n"),
+    );
+  });
+
   test("a check naming terraform or kustomize gets a wrapper that runs the engine's choice, and its tool is reported missing by that name", () => {
     const rule = { id: "demo/tf", description: "D.", scope: { language: "any" }, enforce: [], file: "x", hash: "", origin: "local", pack: "demo" } as unknown as Rule;
     const target: CheckTarget = { target: "check", stage: "format", run: "terraform fmt -check -recursive", changed_run: "terraform fmt {files}" };
@@ -1659,3 +1704,38 @@ test(
   },
   T,
 );
+
+/**
+ * Generated code is checked (or generated) in a stage of its own between lint and the
+ * typecheck: when it is stale, the typecheck's errors would only repeat that, so check.sh
+ * stops there and shows the generator's output.
+ * @rule typescript/graphql-codegen/up-to-date typescript/cloudflare-workers/env-types-generated
+ */
+test("a failing codegen check stops check.sh before the typecheck; a passing one lets it run", () => {
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), "forge-codegen-")));
+  const rule = (id: string) => ({ id, description: "D.", scope: { language: "any" }, enforce: [], file: "x", hash: "", origin: "local", pack: "demo" }) as unknown as Rule;
+  const script = (codegen: string) =>
+    renderCheckScript(
+      [
+        { rule: rule("demo/typecheck"), target: { target: "check", stage: "typecheck", run: "printf 'typecheck ran\\n'; false" } },
+        { rule: rule("demo/codegen"), target: { target: "check", stage: "codegen", run: codegen } },
+      ],
+      { forbid: "", noIncrease: "", noDecrease: "" },
+    );
+  const write = (codegen: string) => {
+    const owned = { ".forge/check.sh": script(codegen), ".forge/.gitignore": "state/\n", ".forge/ast-grep/sgconfig.yml": renderSgConfig() };
+    for (const [p, text] of Object.entries(owned)) put(dir, p, text);
+    put(dir, ".forge/manifest.sha256", Object.entries(owned).map(([p, text]) => `${ownedHash(p, text)}  ${p}`).join("\n") + "\n");
+  };
+  git(dir, "init", "-q");
+  write("printf 'The following stale files were detected:\\n  - src/gql/types.ts\\n'; false");
+  put(dir, "src/a.ts", "export const a = 1;\n");
+  let r = sh("sh", [".forge/check.sh", "--all"], { cwd: dir });
+  expect(r.status).toBe(1);
+  expect(r.stdout).toContain("forge:demo/codegen failed\nThe following stale files were detected:\n  - src/gql/types.ts");
+  expect(r.stdout).not.toContain("typecheck ran");
+  write("true");
+  r = sh("sh", [".forge/check.sh", "--all"], { cwd: dir });
+  expect(r.stdout).not.toContain("forge:demo/codegen");
+  expect(r.stdout).toContain("forge:demo/typecheck failed\ntypecheck ran");
+});

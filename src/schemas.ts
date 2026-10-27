@@ -205,7 +205,7 @@ const target = {
         required: ["stage", "run"],
         properties: {
           target: true,
-          stage: { enum: ["format", "lint", "typecheck", "migration", "test"] },
+          stage: { enum: ["format", "lint", "codegen", "typecheck", "migration", "test"] },
           run: { type: "string", minLength: 1 },
           changed_run: { type: "string", minLength: 1 },
           fix_run: { type: "string", minLength: 1, pattern: "\\{files\\}" },

@@ -1,7 +1,7 @@
 export type Level = "user" | "project";
 export type Language = "python" | "typescript" | "tsx" | "yaml" | "any";
 export type Decision = "deny" | "ask";
-export type Stage = "format" | "lint" | "typecheck" | "migration" | "test";
+export type Stage = "format" | "lint" | "codegen" | "typecheck" | "migration" | "test";
 export type ToolName = "biome" | "ruff" | "ty" | "tsc";
 export type AstGrepMode = "forbid" | "no-increase" | "no-decrease" | "advise";
 

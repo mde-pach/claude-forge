@@ -4,9 +4,7 @@ scope: {language: any}
 enforce:
   - target: check
     stage: lint
-    run: |
-      if command -v pnpm >/dev/null 2>&1; then pnpm install --frozen-lockfile --lockfile-only
-      else printf 'forge:%s skipped: pnpm not installed\n' "$c_id"; fi
+    run: pnpm install --frozen-lockfile --lockfile-only
     when_changed: ["**/package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml"]
 examples:
   match:
