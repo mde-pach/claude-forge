@@ -19,6 +19,7 @@ import { renderLib } from "../../src/render";
 import { auditRules } from "../../src/audit";
 import { parseStrictYaml } from "../../src/yaml";
 import { applied, forge, put, ROOT, sampleRepo, sh } from "../helpers";
+import type { Pack } from "../../src/types";
 
 const T = 120_000;
 const PACKS = loadPacks(join(ROOT, "packs"));
@@ -49,11 +50,12 @@ describe("the pack tree", () => {
     expect(next).toContain("typescript/react");
     expect(next).not.toContain("typescript/astro/react");
     const astro = activePacks("astro-app");
-    expect(astro).toEqual(["typescript", "typescript/astro", "typescript/astro/react", "typescript/bun", "typescript/react"]);
+    expect(astro).toEqual(["git", "secrets", "supply-chain", "typescript", "typescript/astro", "typescript/astro/react", "typescript/bun", "typescript/react"]);
   });
 
   test("detection follows dependencies with versions, and lock files refine them", () => {
     expect(activePacks("fastapi-app")).toEqual([
+      "git",
       "python",
       "python/fastapi",
       "python/pydantic",
@@ -61,6 +63,8 @@ describe("the pack tree", () => {
       "python/sqlalchemy",
       "python/sqlalchemy/alembic",
       "python/uv",
+      "secrets",
+      "supply-chain",
     ]);
   });
 
@@ -289,12 +293,12 @@ describe("workspaces", () => {
 
   test("packs are detected inside the packages of pnpm-workspace.yaml, with their dependencies", () => {
     const p = planOf({ "package.json": '{"name": "mono", "private": true}\n', "pnpm-workspace.yaml": "packages:\n  - 'libs/*'\n", ...inDir("libs/core", TS) });
-    expect(p.packs.map((x) => x.id)).toEqual(["typescript", "typescript/pnpm", "typescript/vitest"]);
+    expect(p.packs.map((x) => x.id)).toEqual(["git", "secrets", "supply-chain", "typescript", "typescript/pnpm", "typescript/vitest"]);
   });
 
   test("package.json workspaces (npm, Yarn, Bun) and uv workspace members declare packages too; excluded ones are not read", () => {
     const npm = planOf({ "package.json": '{"name": "mono", "workspaces": ["apps/*"]}\n', ...inDir("apps/web", TS), ...inDir("other/x", { "package.json": '{"dependencies": {"zod": "4.0.0"}}\n' }) });
-    expect(npm.packs.map((x) => x.id)).toEqual(["typescript", "typescript/vitest"]);
+    expect(npm.packs.map((x) => x.id)).toEqual(["git", "secrets", "supply-chain", "typescript", "typescript/vitest"]);
     const yarn = planOf({ "package.json": '{"name": "mono", "workspaces": {"packages": ["apps/*"]}}\n', ...inDir("apps/web", TS) });
     expect(yarn.packs.map((x) => x.id)).toContain("typescript");
     const uv = planOf({
@@ -302,7 +306,7 @@ describe("workspaces", () => {
       "services/api/pyproject.toml": '[project]\nname = "api"\ndependencies = ["fastapi>=0.115"]\n',
       "services/old/pyproject.toml": '[project]\nname = "old"\ndependencies = ["pytest>=8"]\n',
     });
-    expect(uv.packs.map((x) => x.id)).toEqual(["python", "python/fastapi", "python/pydantic"]);
+    expect(uv.packs.map((x) => x.id)).toEqual(["git", "python", "python/fastapi", "python/pydantic", "secrets", "supply-chain"]);
   });
 
   test("each package is detected on its own dependencies: next@14 at the root and next@16 in a package activates typescript/nextjs (>=16)", () => {
@@ -339,9 +343,9 @@ describe("workspaces", () => {
   });
 
   test("lerna.json declares packages (packages/* by default); without any declaration the repository has no workspace packages", () => {
-    expect(planOf({ "lerna.json": "{}\n", ...inDir("packages/lib", TS) }).packs.map((x) => x.id)).toEqual(["typescript", "typescript/vitest"]);
-    expect(planOf({ "lerna.json": '{"packages": ["modules/*"]}\n', ...inDir("modules/lib", TS) }).packs.map((x) => x.id)).toEqual(["typescript", "typescript/vitest"]);
-    expect(planOf({ "pyproject.toml": '[project]\nname = "app"\n', ...inDir("packages/lib", TS) }).packs.map((x) => x.id)).toEqual(["python"]);
+    expect(planOf({ "lerna.json": "{}\n", ...inDir("packages/lib", TS) }).packs.map((x) => x.id)).toEqual(["git", "secrets", "supply-chain", "typescript", "typescript/vitest"]);
+    expect(planOf({ "lerna.json": '{"packages": ["modules/*"]}\n', ...inDir("modules/lib", TS) }).packs.map((x) => x.id)).toEqual(["git", "secrets", "supply-chain", "typescript", "typescript/vitest"]);
+    expect(planOf({ "pyproject.toml": '[project]\nname = "app"\n', ...inDir("packages/lib", TS) }).packs.map((x) => x.id)).toEqual(["git", "python", "secrets", "supply-chain"]);
   });
 
   test("an exclusion like !**/test/** also excludes a package directory named test", () => {
@@ -509,6 +513,91 @@ examples:
   expect(withStubs.astgrep).toBeDefined();
 });
 
+/**
+ * Detection beyond files and dependencies (§5.1): a root pack can be active in every
+ * repository (`always`), a pack can be detected by a literal value in a literal config file
+ * (`content_any`) or by the structure of a YAML document (`yaml_keys`). File contents are read
+ * only for packs that ask, and `forge.yaml` `packs.add` / `packs.remove` still decide last.
+ */
+describe("detection by content", () => {
+  function packsDir(files: Record<string, string>): Map<string, Pack> {
+    const dir = mkdtempSync(join(tmpdir(), "forge-detect-packs-"));
+    for (const [rel, text] of Object.entries(files)) put(dir, rel, text);
+    return loadPacks(dir);
+  }
+  function activeIn(packs: Map<string, Pack>, files: Record<string, string>): string[] {
+    const repo = mkdtempSync(join(tmpdir(), "forge-detect-"));
+    for (const [rel, text] of Object.entries(files)) put(repo, rel, text);
+    sh("git", ["init", "-q"], { cwd: repo });
+    return plan({ level: "project", base: repo, packs, ...readProjectInputs(repo) }).packs.map((p) => p.id);
+  }
+
+  test("a root pack with detect.always is active in every repository, with its context file", () => {
+    const packs = packsDir({ "everywhere/pack.yaml": "id: everywhere\ndescription: E.\nlevel: project\ndetect: {always: true}\n", "everywhere/context.md": "- A fact.\n" });
+    const repo = mkdtempSync(join(tmpdir(), "forge-detect-"));
+    sh("git", ["init", "-q"], { cwd: repo });
+    const p = plan({ level: "project", base: repo, packs, ...readProjectInputs(repo) });
+    expect(p.packs).toEqual([{ id: "everywhere", why: "detected" }]);
+    expect(p.files.get(".claude/rules/forge-everywhere.md")).toContain("- A fact.");
+    expect(activeIn(packs, { "forge.yaml": 'forge: "0.5"\npacks: {remove: [everywhere]}\n' })).toEqual([]);
+  });
+
+  test("detect.always: true is the only value; false is rejected", () => {
+    expect(() => packsDir({ "x/pack.yaml": "id: x\ndescription: X.\nlevel: project\ndetect: {always: false}\n" })).toThrow("invalid pack");
+  });
+
+  test("detect.yaml_keys: a .yaml or .yml file whose first document has all the keys at its top level", () => {
+    const packs = packsDir({ "k8s/pack.yaml": "id: k8s\ndescription: K.\nlevel: project\ndetect: {yaml_keys: [apiVersion, kind]}\n" });
+    expect(activeIn(packs, { "deploy/app.yaml": "# a comment\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata: {name: web}\n" })).toEqual(["k8s"]);
+    expect(activeIn(packs, { "k/svc.yml": "apiVersion: v1\nkind: Service\n---\nother: 1\n" })).toEqual(["k8s"]);
+    // one key only, keys below the top level, a later document, a list, a template that is not YAML, another extension
+    expect(activeIn(packs, { "a.yaml": "kind: Deployment\n" })).toEqual([]);
+    expect(activeIn(packs, { "b.yaml": "spec:\n  apiVersion: v1\n  kind: Pod\n" })).toEqual([]);
+    expect(activeIn(packs, { "c.yaml": "name: x\n---\napiVersion: v1\nkind: Pod\n" })).toEqual([]);
+    expect(activeIn(packs, { "d.yaml": "- apiVersion: v1\n  kind: Pod\n" })).toEqual([]);
+    expect(activeIn(packs, { "e.yaml": "{{- if .Values.pod }}\napiVersion: v1\nkind: Pod\n{{- end }}\n" })).toEqual([]);
+    expect(activeIn(packs, { "f.json": '{"apiVersion": "v1", "kind": "Pod"}\n' })).toEqual([]);
+  });
+
+  test("detect.content_any: a line of a literal config file matches the pattern; a comment or another file does not", () => {
+    const packs = packsDir({
+      "next/pack.yaml": "id: next\ndescription: N.\nlevel: project\ndetect: {files_any: [next.config.*]}\n",
+      "next/cc/pack.yaml": 'id: next/cc\ndescription: C.\nlevel: project\ndetect:\n  content_any: [{files: ["next.config.{js,mjs,ts}"], pattern: "^\\\\s*cacheComponents\\\\s*:\\\\s*true\\\\b"}]\n',
+    });
+    expect(activeIn(packs, { "next.config.ts": "export default {\n  cacheComponents: true,\n};\n" })).toEqual(["next", "next/cc"]);
+    expect(activeIn(packs, { "next.config.ts": "export default {\n  // cacheComponents: true,\n  cacheComponents: false,\n};\n" })).toEqual(["next"]);
+    expect(activeIn(packs, { "next.config.ts": "export default {};\n", "notes.md": "cacheComponents: true\n" })).toEqual(["next"]);
+    expect(activeIn(packs, { "next.config.ts": "export default {};\n", "forge.yaml": 'forge: "0.5"\npacks: {add: [next/cc]}\n' })).toEqual(["next", "next/cc"]);
+    expect(activeIn(packs, { "next.config.mjs": "export default {\n  cacheComponents: true };\n", "forge.yaml": 'forge: "0.5"\npacks: {remove: [next/cc]}\n' })).toEqual(["next"]);
+  });
+
+  test("content and YAML detection read the files of each workspace package, relative to it", () => {
+    const packs = packsDir({
+      "next/pack.yaml": "id: next\ndescription: N.\nlevel: project\ndetect: {content_any: [{files: [next.config.ts], pattern: cacheComponents}]}\n",
+    });
+    const ws = { "package.json": '{"name": "mono", "private": true, "workspaces": ["apps/*"]}\n', "apps/web/package.json": '{"name": "web"}\n' };
+    expect(activeIn(packs, { ...ws, "apps/web/next.config.ts": "export default { cacheComponents: true };\n" })).toEqual(["next"]);
+    expect(activeIn(packs, { ...ws, "apps/next.config.ts": "export default { cacheComponents: true };\n" })).toEqual([]);
+  });
+
+  /** @pack kubernetes */
+  test("a Kubernetes manifest activates the kubernetes pack whatever its file is called; a workflow or a compose file does not", () => {
+    expect(activeIn(PACKS, { "ops/web.yaml": "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: web\n" })).toContain("kubernetes");
+    expect(activeIn(PACKS, { ".github/workflows/ci.yml": "name: ci\non: push\njobs: {}\n", "compose.yaml": "services:\n  db:\n    image: postgres:17\n" })).not.toContain("kubernetes");
+  });
+
+  /** @pack typescript/nextjs/cache-components */
+  test("a Next.js app whose next.config sets cacheComponents: true activates typescript/nextjs/cache-components; one that does not, or only mentions it in a comment, does not", () => {
+    const pkg = { "package.json": '{"name": "web", "dependencies": {"next": "16.2.0"}}\n', "tsconfig.json": "{}\n" };
+    expect(activeIn(PACKS, { ...pkg, "next.config.ts": "const config = {\n  cacheComponents: true,\n};\nexport default config;\n" })).toContain("typescript/nextjs/cache-components");
+    expect(activeIn(PACKS, { ...pkg, "next.config.ts": "const config = {\n  // cacheComponents: true,\n};\nexport default config;\n" })).not.toContain("typescript/nextjs/cache-components");
+  });
+
+  test("a content_any pattern that is not a regular expression is rejected when the packs load", () => {
+    expect(() => packsDir({ "x/pack.yaml": 'id: x\ndescription: X.\nlevel: project\ndetect: {content_any: [{files: [a], pattern: "("}]}\n' })).toThrow("is not a regular expression");
+  });
+});
+
 describe("strict YAML", () => {
   test.each([
     ["duplicate keys", "a: 1\na: 2\n", /unique|duplicate/i],
@@ -524,7 +613,7 @@ test(
   "status shows the whole active tree of a sample with nested packs",
   () => {
     expect(forge(["status"], applied("astro-app")).stdout).toContain(
-      "Packs:\n  typescript (detected)\n  typescript/astro (detected)\n  typescript/astro/react (detected)\n  typescript/bun (detected)\n",
+      "Packs:\n  git (detected)\n  secrets (detected)\n  supply-chain (detected)\n  typescript (detected)\n  typescript/astro (detected)\n  typescript/astro/react (detected)\n  typescript/bun (detected)\n",
     );
   },
   T,

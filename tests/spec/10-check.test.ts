@@ -14,11 +14,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { applied, commitAll, copyRepo, ensureTools, fixture, forge, git, hasBun, hasUv, linkTools, linkTs5, put, ROOT, sampleRepo, sh, TOOL_VERSIONS, TOOLS_CACHE, TY_FINDS_NOTHING } from "../helpers";
 import { loadPacks } from "../../src/packs";
-import { checkTools, renderChecks } from "../../src/render";
+import { checkTools, renderChecks, renderLib } from "../../src/render";
+import { RELEASE_BINARIES } from "../../src/util";
 import { insertBlock, removeBlock } from "../../src/precommit";
 import { runCheckExample } from "../../src/selftest";
 import { parse as parseYaml } from "yaml";
-import type { CheckTarget } from "../../src/types";
+import type { CheckTarget, Rule } from "../../src/types";
 
 const T = 180_000;
 const hasRuff = sh("sh", ["-c", "command -v ruff"]).status === 0;
@@ -1527,3 +1528,132 @@ describe("project tools whose name is not a shell function name", () => {
     expect(runCheckExample(rule, target, example, "match", [bin]).outcome).toBe("pass");
   });
 });
+
+/**
+ * Tools with no PyPI or npm distribution (gitleaks, kube-linter, tflint, trivy, osv-scanner,
+ * oasdiff, …) run from their GitHub release, pinned by version and by each platform's sha256
+ * (§13.5); infrastructure CLIs a project installs itself (terraform, tofu, helm, kustomize,
+ * kubectl) are found on PATH like the runtimes. Whatever cannot run is reported, never passed.
+ */
+describe("pinned release binaries and system tools", () => {
+  const engine = [renderLib(), "IFS='\n'", renderChecks([])].join("\n");
+  function run(body: string, cwd: string, env: Record<string, string> = {}) {
+    const script = join(cwd, "..", `t-${Math.random().toString(36).slice(2)}.sh`);
+    writeFileSync(script, `${engine}\nc_id=demo/rule\nFORGE_TMP=$(mktemp -d)\n${body}\n`);
+    return sh("sh", [script], { cwd, env });
+  }
+  function release(files: Record<string, string>) {
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), "forge-release-")));
+    const src = join(dir, "src");
+    for (const [rel, text] of Object.entries(files)) {
+      put(src, rel, text);
+      chmodSync(join(src, rel), 0o755);
+    }
+    mkdirSync(join(dir, "w"));
+    return { dir, src, cwd: join(dir, "w"), cache: join(dir, "cache") };
+  }
+  const shaOf = (file: string) => sh("sh", ["-c", `shasum -a 256 "$1" | cut -d ' ' -f 1`, "sh", file]).stdout.trim();
+  const platform = `${sh("uname", ["-s"]).stdout.trim()}-${sh("uname", ["-m"]).stdout.trim()}`;
+
+  test("a release asset (.tar.gz, .zip or the binary itself) is downloaded once, checked against its pinned sha256, and its binary kept in ~/.cache/forge/bin", () => {
+    const r = release({ demo: "#!/bin/sh\necho demo-ran\n", raw: "#!/bin/sh\necho raw-ran\n" });
+    sh("tar", ["-czf", join(r.dir, "demo.tar.gz"), "demo"], { cwd: r.src });
+    sh("zip", ["-q", join(r.dir, "zipped.zip"), "demo"], { cwd: r.src });
+    sh("sh", ["-c", "cp demo zipped"], { cwd: r.src });
+    sh("zip", ["-q", "-j", join(r.dir, "zipped.zip"), join(r.src, "zipped")]);
+    const table = [
+      `demo 1.0 ${platform} file://${r.dir}/demo.tar.gz ${shaOf(join(r.dir, "demo.tar.gz"))}`,
+      `zipped 2.0 ${platform} file://${r.dir}/zipped.zip ${shaOf(join(r.dir, "zipped.zip"))}`,
+      `raw 3.0 ${platform} file://${r.src}/raw ${shaOf(join(r.src, "raw"))}`,
+    ].join("\n");
+    const out = run(`FORGE_RELEASES='${table}'\nfor t in demo zipped raw; do b=$(forge_release_bin $t) && "$b"; done\nrm "${r.dir}/demo.tar.gz"\nforge_release demo B && "$B"`, r.cwd, { XDG_CACHE_HOME: r.cache });
+    expect(out.stdout).toBe("demo-ran\ndemo-ran\nraw-ran\ndemo-ran\n");
+    expect(existsSync(join(r.cache, `forge/bin/demo-1.0-${platform}/demo`))).toBe(true);
+    expect(existsSync(join(r.cache, `forge/bin/raw-3.0-${platform}/raw`))).toBe(true);
+  });
+
+  test("an asset that does not match its sha256, cannot be downloaded (offline) or does not exist for the platform makes the check skipped, never passed", () => {
+    const r = release({ demo: "#!/bin/sh\necho demo-ran\n" });
+    sh("tar", ["-czf", join(r.dir, "demo.tar.gz"), "demo"], { cwd: r.src });
+    const table = [`bad 1.0 ${platform} file://${r.dir}/demo.tar.gz ${"0".repeat(64)}`, `gone 1.0 ${platform} file://${r.dir}/nothing.tar.gz ${"0".repeat(64)}`, `elsewhere 1.0 Plan9-mips file://${r.dir}/demo.tar.gz ${"0".repeat(64)}`].join("\n");
+    const out = run(`FORGE_RELEASES='${table}'\nfor t in bad gone elsewhere; do forge_release $t B || echo "rc=$?"; done`, r.cwd, { XDG_CACHE_HOME: r.cache });
+    expect(out.stdout).toBe(
+      [
+        `forge:demo/rule skipped: the downloaded bad 1.0 does not match its pinned sha256 (got ${shaOf(join(r.dir, "demo.tar.gz"))})`,
+        "rc=1",
+        "forge:demo/rule skipped: could not download gone 1.0 (offline?)",
+        "rc=1",
+        `forge:demo/rule skipped: no pinned elsewhere release binary for ${platform}`,
+        "rc=1",
+        "",
+      ].join("\n"),
+    );
+    expect(existsSync(join(r.cache, `forge/bin/bad-1.0-${platform}/bad`))).toBe(false);
+  });
+
+  test("every pinned release names an asset and a sha256 for Linux and macOS on x86_64 and arm64", () => {
+    for (const [name, r] of Object.entries(RELEASE_BINARIES))
+      for (const p of ["Linux-x86_64", "Linux-aarch64", "Linux-arm64", "Darwin-arm64", "Darwin-x86_64"]) {
+        expect(r.assets[p]?.[1] ?? `${name}: no ${p} asset`).toMatch(/^[0-9a-f]{64}$/);
+        expect(r.assets[p]![0]).toMatch(/\.(tar\.gz|zip)$|^[a-z-]+_[a-z]+_[a-z0-9]+$/);
+      }
+  });
+
+  test("system tools are found on PATH, never as a shell function; terraform is tofu in an OpenTofu project and kustomize falls back to kubectl kustomize", () => {
+    const r = release({});
+    const bin = join(r.dir, "bin");
+    const tool = (name: string) => {
+      put(bin, name, `#!/bin/sh\necho "${name} $*"\n`);
+      chmodSync(join(bin, name), 0o755);
+    };
+    git(r.cwd, "init", "-q");
+    const PATH = `${bin}:/usr/bin:/bin`;
+    const probe = "for t in terraform tofu helm kustomize kubectl; do forge_has_tool $t && echo \"has $t\" || echo \"no $(forge_tool_label $t)\"; done";
+    expect(run(probe, r.cwd, { PATH }).stdout).toBe("no terraform\nno tofu\nno helm\nno kustomize or kubectl\nno kubectl\n");
+    tool("terraform");
+    tool("kubectl");
+    expect(run(`${probe}\nforge_terraform version\nforge_kustomize build .`, r.cwd, { PATH }).stdout).toBe("has terraform\nno tofu\nno helm\nhas kustomize\nhas kubectl\nterraform version\nkubectl kustomize build .\n");
+    put(r.cwd, "infra/main.tofu", "");
+    expect(run(`${probe}\nforge_tf_bin`, r.cwd, { PATH }).stdout).toBe("no tofu\nno tofu\nno helm\nhas kustomize\nhas kubectl\ntofu");
+    sh("rm", [join(r.cwd, "infra/main.tofu")]);
+    put(r.cwd, "infra/.terraform.lock.hcl", 'provider "registry.opentofu.org/hashicorp/aws" {\n}\n');
+    tool("tofu");
+    expect(run("forge_terraform version", r.cwd, { PATH }).stdout).toBe("tofu version\n");
+    // a function named like the tool (the generated wrapper) is not the tool
+    expect(run("helm() { :; }\nforge_has_tool helm && echo has || echo no", r.cwd, { PATH }).stdout).toBe("no\n");
+  });
+
+  test("a check naming terraform or kustomize gets a wrapper that runs the engine's choice, and its tool is reported missing by that name", () => {
+    const rule = { id: "demo/tf", description: "D.", scope: { language: "any" }, enforce: [], file: "x", hash: "", origin: "local", pack: "demo" } as unknown as Rule;
+    const target: CheckTarget = { target: "check", stage: "format", run: "terraform fmt -check -recursive", changed_run: "terraform fmt {files}" };
+    expect(checkTools(target)).toEqual(["terraform"]);
+    expect(renderChecks([{ rule, target }])).toContain('terraform() { forge_terraform "$@"; }');
+    expect(checkTools({ target: "check", stage: "lint", run: "forge_helm" })).toEqual(["helm"]);
+    expect(checkTools({ target: "check", stage: "typecheck", run: "forge_tf_validate" })).toEqual(["terraform"]);
+  });
+
+  test("forge_once prints a helper's skipped line, which is not a finding", () => {
+    const r = release({});
+    const out = run('mode=--changed\nhelper() { printf "forge:%s skipped: offline\\n" "$c_id"; }\nforge_once helper; echo "rc=$?"', r.cwd);
+    expect(out.stdout).toBe("forge:demo/rule skipped: offline\nrc=0\n");
+  });
+});
+
+/**
+ * A file larger than a rule file can hold: git/large-files has no examples, so it is
+ * proved here, on a real file of 1.2 MiB.
+ * @rule git/large-files
+ */
+test(
+  "git/large-files: a new file over 1 MiB fails the check unless Git LFS stores it; a file that did not grow is left alone",
+  () => {
+    const rule = loadPacks(join(ROOT, "packs")).get("git")!.rules.find((r) => r.id === "git/large-files")!;
+    const target = rule.enforce[0] as CheckTarget;
+    const big = "x".repeat(1200 * 1024);
+    expect(runCheckExample(rule, target, { files: { "assets/dump.sql": big } }, "match", []).outcome).toBe("pass");
+    expect(runCheckExample(rule, target, { head: { ".gitattributes": "*.sql filter=lfs diff=lfs merge=lfs -text\n" }, files: { "assets/dump.sql": big } }, "no_match", []).outcome).toBe("pass");
+    expect(runCheckExample(rule, target, { head: { "assets/dump.sql": big + "y" }, files: { "assets/dump.sql": big } }, "no_match", []).outcome).toBe("pass");
+    expect(runCheckExample(rule, target, { files: { "assets/small.sql": "select 1;\n" } }, "no_match", []).outcome).toBe("pass");
+  },
+  T,
+);

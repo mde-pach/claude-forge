@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { codeExamples } from "./packs.js";
 import { toYaml } from "./yaml.js";
-import { AST_GREP_VERSION, ENGINE_PYTHON, FORGE_VERSION, HADOLINT_SHA256, HADOLINT_VERSION, packageRoot, sha256, shQuote, SQUAWK_VERSION, TY_VERSION, ZIZMOR_VERSION } from "./util.js";
+import { AST_GREP_VERSION, ENGINE_PYTHON, FORGE_VERSION, HADOLINT_SHA256, HADOLINT_VERSION, packageRoot, releaseTable, sha256, shQuote, SQUAWK_VERSION, TFLINT_RULESETS, TY_VERSION, ZIZMOR_VERSION } from "./util.js";
 import type { AstGrepTarget, CheckTarget, GrepTarget, GuardTarget, Language, Level, Rule } from "./types.js";
 
 export function template(name: string): string {
@@ -25,13 +25,21 @@ export const AUDITED_TOOLS = ["biome", "ruff", "ty", "tsc"] as const;
 export const PROJECT_TOOLS = ["biome", "ruff", "tsc", "alembic", "pytest", "prisma", "vitest", "playwright", "astro", "python", "vue-tsc"] as const;
 /** Forge's own pinned tools used in check commands: ty (Python's type checker, through uvx, §15.2). */
 export const FORGE_TOOLS = ["ty"] as const;
-/** System runtimes, checked with `command -v`. */
-export const SYSTEM_TOOLS = ["uv", "uvx", "bun", "docker"] as const;
+/**
+ * System tools, found on PATH: runtimes, and infrastructure CLIs a project installs
+ * outside node_modules and .venv. A check names terraform, kustomize: the engine runs the
+ * project's own (tofu in an OpenTofu project; `kubectl kustomize` without kustomize).
+ */
+export const SYSTEM_TOOLS = ["uv", "uvx", "bun", "docker", "terraform", "tofu", "helm", "kustomize", "kubectl"] as const;
+/** System tools a check runs through an engine function that picks the binary (forge_terraform, forge_kustomize). */
+const RESOLVED_TOOLS = ["terraform", "kustomize"] as const;
 
 /** Tools that engine helpers run, which their name in a command does not show. */
 const HELPER_TOOLS: [RegExp, string][] = [
   [/\bforge_(zizmor|hadolint)\b/, "uvx"],
   [/\bforge_trusted_deps\b/, "bun"],
+  [/\bforge_tf_validate\b/, "terraform"],
+  [/\bforge_helm\b/, "helm"],
 ];
 
 /** Tools invoked as commands in a shell string, in order of first use. */
@@ -189,6 +197,11 @@ export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = [], ty
     for (const t of wrappers) out.push(`${t}() { forge_exec_tool ${t} "$@"; }`);
   }
   if (used.has("ty")) out.push("# ty is Forge's own, pinned (§15.2).", 'ty() { forge_ty "$@"; }');
+  const resolved = RESOLVED_TOOLS.filter((t) => used.has(t));
+  if (resolved.length) {
+    out.push("# System tools whose binary the engine picks (forge_has_tool).");
+    for (const t of resolved) out.push(`${t}() { forge_${t} "$@"; }`);
+  }
   out.push(`FORGE_NCHECKS=${checks.length}`);
   checks.forEach(({ rule, target, dirs }, i) => {
     const n = i + 1;
@@ -223,6 +236,8 @@ export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = [], ty
       ZIZMOR_VERSION,
       HADOLINT_VERSION,
       HADOLINT_SHAS: Object.entries(HADOLINT_SHA256).map(([p, h]) => `${p} ${h}`).join("\n"),
+      RELEASES: releaseTable(),
+      TFLINT_RULESETS: Object.entries(TFLINT_RULESETS).map(([p, v]) => `${p} ${v}`).join("\n"),
       // newline-separated: IFS is a newline in the generated scripts
       TYPES_LANGS: types.join("\n"),
       TY_VERSION,

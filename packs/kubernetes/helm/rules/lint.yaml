@@ -1,0 +1,19 @@
+id: kubernetes/helm/lint
+description: "A changed chart passes helm lint --strict, and its helm template output validates with kubeconform in strict mode (no unknown fields, no apiVersion current Kubernetes no longer serves)."
+scope: {language: any}
+enforce:
+  - target: check
+    stage: lint
+    run: forge_helm
+examples:
+  match:
+    - head: {charts/web/Chart.yaml: "apiVersion: v2\nname: web\nversion: 0.1.0\n", charts/web/values.yaml: "replicas: 1\n", charts/web/templates/deployment.yaml: "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: {{ .Release.Name }}\nspec:\n  replicas: {{ .Values.replicas }}\n  selector:\n    matchLabels: {app: web}\n  template:\n    metadata:\n      labels: {app: web}\n    spec:\n      containers:\n        - name: web\n          image: ghcr.io/acme/web:2.3.1\n"}
+      files: {charts/web/templates/deployment.yaml: "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: {{ .Release.Name }}\nspec:\n  replicas: {{ .Values.replicas }}\n  strategy:\n    rollingUpdate: {maxSurge: 1}\n    canary: true\n  selector:\n    matchLabels: {app: web}\n  template:\n    metadata:\n      labels: {app: web}\n    spec:\n      containers:\n        - name: web\n          image: ghcr.io/acme/web:2.3.1\n"}
+    - head: {charts/web/Chart.yaml: "apiVersion: v2\nname: web\nversion: 0.1.0\n", charts/web/values.yaml: "host: web.example.com\n"}
+      files: {charts/web/templates/ingress.yaml: "apiVersion: extensions/v1beta1\nkind: Ingress\nmetadata:\n  name: {{ .Release.Name }}\nspec:\n  rules:\n    - host: {{ .Values.host }}\n"}
+    - head: {charts/web/Chart.yaml: "apiVersion: v2\nname: web\nversion: 0.1.0\n", charts/web/values.yaml: "replicas: 1\n"}
+      files: {charts/web/templates/service.yaml: "apiVersion: v1\nkind: Service\nmetadata:\n  name: {{ .Release.Name }}\nspec:\n  ports:\n    - port: {{ .Values.port | required \"port is required\" }}\n"}
+  no_match:
+    - head: {charts/web/Chart.yaml: "apiVersion: v2\nname: web\nversion: 0.1.0\n", charts/web/values.yaml: "replicas: 1\n"}
+      files: {charts/web/templates/deployment.yaml: "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: {{ .Release.Name }}\nspec:\n  replicas: {{ .Values.replicas }}\n  selector:\n    matchLabels: {app: web}\n  template:\n    metadata:\n      labels: {app: web}\n    spec:\n      containers:\n        - name: web\n          image: ghcr.io/acme/web:2.3.1\n"}
+    - files: {deploy/web.yaml: "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: web\n"}

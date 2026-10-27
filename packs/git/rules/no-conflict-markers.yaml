@@ -1,0 +1,12 @@
+id: git/no-conflict-markers
+description: "No added line starts with a merge conflict marker (<<<<<<< , >>>>>>> , ||||||| ), in any file."
+scope: {language: any}
+enforce:
+  - {target: grep, mode: forbid, pattern: "^(<<<<<<<|>>>>>>>|\\|\\|\\|\\|\\|\\|\\|)( |$)"}
+examples:
+  match:
+    - "services:\n<<<<<<< HEAD\n  image: postgres:17\n=======\n  image: postgres:16\n>>>>>>> feature/db\n"
+    - "a = 1\n||||||| merged common ancestors\n"
+  no_match:
+    - "Title\n=======\n\nText with <<<<<<< inside a line.\n"
+    - "<<<< not a marker\n>>>>>>>no space\n"

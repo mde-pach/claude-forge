@@ -1,0 +1,22 @@
+id: openapi/no-breaking
+description: "A changed OpenAPI document has no breaking change against its base version (oasdiff breaking, level ERR: removed paths and fields, new required parameters, narrowed types), $refs to other files included; reported once per turn at Stop, and fails pre-commit and CI until fixed or accepted in forge.yaml."
+scope: {language: any, files: ["**/*.yaml", "**/*.yml", "**/*.json"]}
+enforce:
+  - target: check
+    stage: lint
+    run: forge_once forge_oasdiff
+    when_changed: ["**/*.yaml", "**/*.yml", "**/*.json"]
+examples:
+  match:
+    - head: {api/openapi.yaml: "openapi: 3.1.0\ninfo: {title: Shop, version: 1.0.0}\npaths:\n  /orders:\n    get:\n      parameters:\n        - {name: status, in: query, schema: {type: string}}\n      responses:\n        \"200\": {description: OK}\n  /refunds:\n    post:\n      responses:\n        \"201\": {description: Created}\n"}
+      files: {api/openapi.yaml: "openapi: 3.1.0\ninfo: {title: Shop, version: 1.0.0}\npaths:\n  /orders:\n    get:\n      parameters:\n        - {name: status, in: query, schema: {type: string}}\n      responses:\n        \"200\": {description: OK}\n"}
+    - head: {api/openapi.yaml: "openapi: 3.1.0\ninfo: {title: Shop, version: 1.0.0}\npaths:\n  /orders:\n    get:\n      parameters:\n        - {name: status, in: query, schema: {type: string}}\n      responses:\n        \"200\": {description: OK}\n  /refunds:\n    post:\n      responses:\n        \"201\": {description: Created}\n"}
+      files: {api/openapi.yaml: "openapi: 3.1.0\ninfo: {title: Shop, version: 1.0.0}\npaths:\n  /orders:\n    get:\n      parameters:\n        - {name: status, in: query, required: true, schema: {type: string}}\n      responses:\n        \"200\": {description: OK}\n  /refunds:\n    post:\n      responses:\n        \"201\": {description: Created}\n"}
+    - head: {openapi.yaml: "openapi: 3.1.0\ninfo: {title: Shop, version: 1.0.0}\npaths:\n  /orders:\n    get:\n      responses:\n        \"200\":\n          description: OK\n          content:\n            application/json:\n              schema: {$ref: \"./schemas/order.yaml\"}\n", schemas/order.yaml: "type: object\nrequired: [id, total]\nproperties:\n  id: {type: string}\n  total: {type: number}\n"}
+      files: {schemas/order.yaml: "type: object\nrequired: [id]\nproperties:\n  id: {type: string}\n"}
+  no_match:
+    - head: {api/openapi.yaml: "openapi: 3.1.0\ninfo: {title: Shop, version: 1.0.0}\npaths:\n  /orders:\n    get:\n      parameters:\n        - {name: status, in: query, schema: {type: string}}\n      responses:\n        \"200\": {description: OK}\n  /refunds:\n    post:\n      responses:\n        \"201\": {description: Created}\n"}
+      files: {api/openapi.yaml: "openapi: 3.1.0\ninfo: {title: Shop, version: 1.1.0}\npaths:\n  /orders:\n    get:\n      parameters:\n        - {name: status, in: query, schema: {type: string}}\n        - {name: limit, in: query, schema: {type: integer}}\n      responses:\n        \"200\": {description: OK}\n  /refunds:\n    post:\n      responses:\n        \"201\": {description: Created}\n  /refunds/{id}:\n    get:\n      parameters:\n        - {name: id, in: path, required: true, schema: {type: string}}\n      responses:\n        \"200\": {description: OK}\n"}
+    - head: {api/openapi.yaml: "openapi: 3.1.0\ninfo: {title: Shop, version: 1.0.0}\npaths:\n  /orders:\n    get:\n      parameters:\n        - {name: status, in: query, schema: {type: string}}\n      responses:\n        \"200\": {description: OK}\n  /refunds:\n    post:\n      responses:\n        \"201\": {description: Created}\n", forge.yaml: "forge: \"0.5\"\naccept:\n  - rule: openapi/no-breaking\n    change: \"error at api/openapi.yaml, in API POST /refunds api path removed without deprecation [api-path-removed-without-deprecation].\"\n    reason: refunds moved to the payments API\n"}
+      files: {api/openapi.yaml: "openapi: 3.1.0\ninfo: {title: Shop, version: 1.0.0}\npaths:\n  /orders:\n    get:\n      parameters:\n        - {name: status, in: query, schema: {type: string}}\n      responses:\n        \"200\": {description: OK}\n"}
+    - files: {api/openapi.yaml: "openapi: 3.1.0\ninfo: {title: Shop, version: 1.0.0}\npaths:\n  /orders:\n    get:\n      parameters:\n        - {name: status, in: query, schema: {type: string}}\n      responses:\n        \"200\": {description: OK}\n  /refunds:\n    post:\n      responses:\n        \"201\": {description: Created}\n"}

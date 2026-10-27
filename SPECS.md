@@ -77,7 +77,7 @@ Every requirement uses MUST / MUST NOT. Anything not described here is out of sc
 
 ### 5.1 Packs
 
-Packs form a tree: **language first, then package, then sub-package** (`typescript` → `typescript/nextjs` → `typescript/nextjs/react`). The same package can appear under several parents with different rules (`typescript/nextjs/react`, `typescript/astro/react`). Packs that are not tied to a language are roots of their own: `safety` (user level), `docs` (project level).
+Packs form a tree: **language first, then package, then sub-package** (`typescript` → `typescript/nextjs` → `typescript/nextjs/react`). The same package can appear under several parents with different rules (`typescript/nextjs/react`, `typescript/astro/react`). Packs that are not tied to a language are roots of their own: `safety` (user level), `docs`, `secrets`, `git` (project level).
 
 `packs/<path>/pack.yaml`:
 
@@ -86,16 +86,20 @@ id: string                  # the pack's path in the tree: ^seg(/seg)*$, seg = ^
 description: string
 level: user | project       # equal to the parent's level
 requires: [pack-id]         # other branches only; the parent is implied
-detect:                     # omitted for user-level packs
+detect:                     # omitted for user-level packs; any one of these detects the pack
+  always: true               # every repository (a root pack not tied to a language: secrets, git)
   files_any: [glob]
   deps_any: [{ecosystem: pypi | npm, name: string, version: semver-range}]
   library_any: [pypi | npm]  # the project is a library published there (§13.4)
+  content_any: [{files: [glob], pattern: regex}]  # a line of a matching file matches (a literal value in a literal config file)
+  yaml_keys: [key]           # a .yaml/.yml file whose first document is a mapping with all these top-level keys
 ```
 
 - A root pack is active when detected; a child pack is active when its parent is active **and** it is detected.
+- `content_any` and `yaml_keys` read file contents, only for packs that use them and only files of at most 1 MiB. `content_any` patterns are JavaScript regular expressions tested on each line (`^` and `$` anchor lines); one that does not compile rejects the pack. `yaml_keys` reads a file's first document (up to the next `---` or `...`); a file that is not YAML (a template that renders to YAML) does not count. Detection by content stays a detection: `packs.add` and `packs.remove` decide last.
 - `forge.yaml` `packs.add` activates a pack and its ancestors. `requires` activates the required pack and its ancestors.
 - `packs.remove` deactivates a pack, its whole subtree, and every pack that requires a removed pack.
-- Detection reads `pyproject.toml`, `uv.lock`, `package.json`, `bun.lock`.
+- Detection reads `pyproject.toml`, `uv.lock`, `package.json`, `bun.lock`, and the files `content_any` and `yaml_keys` name.
 - **Workspaces.** Detection also reads the workspace packages of a monorepo: the directories (holding a `package.json` or `pyproject.toml`) matched by `pnpm-workspace.yaml` `packages`, `package.json` `workspaces` (array, or `{packages}`), `[tool.uv.workspace] members`, or `lerna.json` `packages` (default `packages/*`), minus `!` patterns and uv `exclude` (an exclusion like `**/test/**` also excludes the `test` directory itself); without any declaration, the repository has no workspace packages. Globs support `**`, `*`, `?` and `{a,b}` alternatives, which may nest and hold `**`. The file list is read once and bucketed by package. A pack is detected when it is detected at the root or in one package, each judged on its own dependencies and files (versions are never merged across packages; `files_any` globs match relative to each package, and the root's files are those outside the packages). The root's lock files resolve versions.
 - **Where checks run.** A `check` target that runs a project tool (and no engine helper other than `forge_exec_tool`, which runs a project tool whose name has a `-`, e.g. `vue-tsc`) runs at the root when its pack is detected at the root and the root configures its audited tools (as without workspaces). Otherwise it runs in each workspace package that has its pack (any package, for a pack active at the root) and configures those tools (a config file, or a dependency when no config file is at the root); `status` shows `(in <dirs>)`. There, `{files}` gets the package's changed files relative to it, the tool is the package's own or the root's (hoisted), and relative paths in the output are prefixed with the package directory, so diagnostics are attributed as at the root. Its `format_stdin` filter runs in the package holding the file, on the path relative to it. Tool audits run in every package that configures the tool (`(in <dir>)` in the audit line), and a rule counts as enforced by the tool only when every package's config enforces it.
 - **Where other rules apply.** A pack detected only in some workspace packages (not at the root, not added in `forge.yaml` or required) scopes its ast-grep rule files (`files` / `ignores`) and grep rules to those packages, its globs relative to each. Its guard, permission and sandbox entries and its context file apply to the whole repository, and helper checks (ratchet, migrations, Docker, test integrity) run from the root with globs relative to it. Package directories with spaces are not read.
@@ -1333,6 +1337,17 @@ context.md: Next.js 16 App Router: async request APIs, Server Components by defa
 
 context.md: "React 19 in the App Router: components are Server Components unless their file starts with `'use client'`. State, effects, context, refs and event handlers need a Client Component; keep `'use client'` at the leaves. Server Actions are async functions marked `'use server'`. A `'use client'` file reads only `NEXT_PUBLIC_*` and `NODE_ENV` from `process.env` and exports no async component; a `'use server'` file exports only async functions."
 
+### typescript/nextjs/cache-components
+
+Detected by a `next.config.{js,mjs,cjs,ts,mts}` line matching `^\s*cacheComponents\s*:\s*true\b` (`content_any`, §5.1; `packs.add` / `packs.remove` override it).
+
+| Rule | Targets |
+|---|---|
+| `typescript/nextjs/cache-components/no-segment-config` | `ast-grep` forbid in `app/**`, `src/app/**`: an exported `const` named `dynamic`, `revalidate`, `fetchCache` or `experimental_ppr` (`next build` rejects them under `cacheComponents`) |
+| `typescript/nextjs/cache-components/no-unstable-cache` | `ast-grep` advise: `unstable_cache` imported from `next/cache` (use `'use cache'` with `cacheTag()` / `cacheLife()`) |
+
+context.md: caching with `'use cache'`, `cacheLife()`, `cacheTag()`; no segment config exports; `<Suspense>` around request data.
+
 ### typescript/react
 
 Detected by `react >= 19` (npm); a sibling of `nextjs` and `astro`, so it applies to every React setup.
@@ -1921,6 +1936,75 @@ Detected by `**/compose*.y*ml` or `**/docker-compose*.y*ml`. ast-grep rules use 
 
 context.md: `compose.yaml` + `compose.override.yaml`, healthchecks with `condition: service_healthy`, `develop.watch`, profiles, secrets, loopback-bound database ports, and that docker compose runs outside the sandbox, which makes these rules a real boundary.
 
+### secrets
+
+Active in every repository (`detect: {always: true}`, §5.1). Rules are `check` lint targets.
+
+| Rule | Targets |
+|---|---|
+| `secrets/gitleaks` | `forge_gitleaks`: pinned gitleaks (§13.5) `dir` on copies of the changed files (every tracked file with `--all`), with Forge's config only (`-c`: gitleaks' default rules without `generic-api-key`, which decides on identifier names and entropy, plus LangSmith `lsv2_(pt\|sk)_…` and Pinecone `pcsk_…` keys), `-i` to an empty directory (`.gitleaksignore` does not apply), `--ignore-gitleaks-allow`, `--redact`; findings `path:line rule: description`, on added lines |
+| `secrets/no-credential-files` | `forge_credential_files`, when such a file or an `.npmrc` changed: tracked or added files matching `*.p12`, `*.pfx`, `*.jks`, `*.keystore`, `*.key`, `id_rsa`, `id_ecdsa`, `id_ed25519`, `.pypirc`, `.netrc`, `.git-credentials` (line 0); `.npmrc` lines setting `_authToken`, `_auth` or `_password` to a literal value (`${VAR}` is fine) |
+
+context.md: credentials come from the environment or a secret store; a token or key found in a file, a log or a tool's output is never used to call an API or a CLI (`secrets/no-credential-reuse`); what gitleaks and the credential-file check reject.
+
+### git
+
+Active in every repository (`detect: {always: true}`, §5.1).
+
+| Rule | Targets |
+|---|---|
+| `git/no-conflict-markers` | `grep` forbid, any file: `^(<<<<<<<\|>>>>>>>\|\|\|\|\|\|\|\|)( \|$)` (`=======` is left out: a Markdown or reStructuredText heading underline) |
+| `git/large-files` | `check` lint: `forge_large_files 1048576`: a file of the change over 1 MiB, new or grown, whose `git check-attr filter` is not `lfs` (line 0); the threshold is the argument (replace the rule locally). Proved by a spec test: its files do not fit in examples |
+| `git/generated-files` | `check` lint, advisory (§10.7): `forge_generated_edits`: a changed file marked `linguist-generated` (`git check-attr`) or with `@generated` / `Code generated … DO NOT EDIT.` in its first 15 lines: regenerate it rather than edit it |
+| `git/editorconfig` | `check` lint: `forge_editorconfig`, when `.editorconfig` exists: pinned editorconfig-checker (§13.5) with an empty config of Forge's (`.editorconfig-checker.json` excludes and disables do not apply), `-format gcc`, on the changed files no format check of the setup covers |
+
+### kubernetes
+
+Detected by a YAML file whose first document has top-level `apiVersion` and `kind` (`yaml_keys`, §5.1; manifest file names are the project's), or by `**/kustomization.yaml`, `**/kustomization.yml`, `**/Kustomization`, `**/Chart.yaml`.
+
+| Rule | Targets |
+|---|---|
+| `kubernetes/kube-linter` | `check` lint: `forge_kube_linter --no-new-ignores <checks>`: pinned kube-linter (§13.5) with a config of Forge's own (`doNotAutoAddDefaults`, `include` the checks; a project `.kube-linter.yaml` does not apply) on the changed manifests (first document with `apiVersion` and `kind`, outside a chart's `templates/`), each linted with the manifests of its directory; findings of changed files at line 0: `run-as-non-root`, `privilege-escalation-container`, `privileged-container`, `no-read-only-root-fs`, `unset-memory-requirements`, `latest-tag`, `host-network`, `host-pid`, `host-ipc`, `docker-sock`, `sensitive-host-mounts`, `drop-net-raw-capability`, `mismatching-selector`, `dangling-service`, `deprecated-service-account-field`, `invalid-target-ports`, `liveness-port`, `readiness-port`, `startup-port`, `unsafe-sysctls`, `duplicate-env-var`; a changed manifest also may not gain `ignore-check.kube-linter.io/` annotations (kube-linter has no flag to disregard them) |
+| `kubernetes/rbac-advice` | `check` lint, advisory (§10.7): `forge_kube_linter wildcard-in-rules cluster-admin-role-binding` |
+| `kubernetes/no-plain-secret` | `ast-grep` forbid (`yaml`, not under `templates/`): `data` / `stringData` of a document with `apiVersion: v1`, `kind: Secret` and no top-level `sops` |
+
+context.md: what kube-linter enforces, no ignore annotations, Secrets through SealedSecret / ExternalSecret / SOPS, RBAC without wildcards or `cluster-admin`.
+
+### kubernetes/helm
+
+Detected by `**/Chart.yaml`.
+
+| Rule | Targets |
+|---|---|
+| `kubernetes/helm/lint` | `check` lint: `forge_helm` (needs `helm`, a system tool): for each chart with changed files (the nearest `Chart.yaml` above them), `helm lint --strict`, then `helm template forge <chart>` validated by `forge_kubeconform`: pinned kubeconform (§13.5) `-strict` against Kubernetes' schemas and the CRDs catalog, cached in `~/.cache/forge/kubeconform`; a document with no schema is a finding when its group is Kubernetes' own (none, no dot, or `*.k8s.io`: an apiVersion current Kubernetes no longer serves), else `skipped`; schemas that cannot be downloaded are `skipped`; a chart whose dependencies are not built is `skipped` (`helm dependency build`). Findings name the chart, not lines |
+
+### terraform
+
+Detected by `**/*.tf`, `**/*.tofu`. Checks run the project's Terraform CLI, a system tool (§13.5): `tofu` in an OpenTofu project, else `terraform`.
+
+| Rule | Targets |
+|---|---|
+| `terraform/fmt` | `check` format: `terraform fmt -check -recursive`; changed files: `terraform fmt {files}` (on `*.tf`, `*.tfvars`, `*.tofu`) |
+| `terraform/validate` | `check` typecheck: `forge_tf_validate`: `validate -no-color` in each directory of a changed `.tf` / `.tofu` file; errors as `path:line: Error: summary`; a directory validate cannot judge before `init` (its output asks for `terraform init`: providers or modules not installed) is `skipped` |
+| `terraform/tflint` | `check` lint: `forge_tflint`: pinned tflint (§13.5) `--chdir <dir> --format compact` per changed module, with a config of Forge's own (`plugin "terraform"` with `preset = "recommended"`, plus the pinned `aws` 0.49.0 / `google` 0.40.0 / `azurerm` 0.32.0 ruleset when a `.terraform.lock.hcl` names that `hashicorp` provider, installed once by `tflint --init` into `~/.cache/forge/tflint-plugins`; offline: `skipped`); every issue counts, whatever tflint's severity |
+| `terraform/misconfig` | `check` lint: `forge_trivy_config`: pinned trivy (§13.5) `config --misconfig-scanners terraform --severity HIGH,CRITICAL --skip-check-update --ignorefile <empty>` on each changed module and on its base copy (the directory's files with the change undone); a (check, resource) pair new in the change is a finding at line 0. Not with `--all` |
+
+### supply-chain
+
+Detected by `**/package.json`, `**/pyproject.toml`, `**/requirements*.txt`, `**/Pipfile`, `**/setup.py`, `**/Cargo.lock`.
+
+| Rule | Targets |
+|---|---|
+| `supply-chain/vuln-audit` | `check` lint: `forge_osv` on the changed lock files (`package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, `bun.lock`, `uv.lock`, `poetry.lock`, `requirements*.txt`, `Pipfile.lock`, `pdm.lock`, `Cargo.lock`): pinned osv-scanner (§13.5), one backend for every ecosystem, `scan source --config <empty> --format markdown -L <lock>` on the lock and on its base copy (an empty config: `osv-scanner.toml` `[[IgnoredVulns]]` do not apply); each (package, version, advisory) present now and not in the base is a finding at line 0. Needs api.osv.dev: unreachable, `skipped`. `bun.lockb` (binary) is `skipped`. Not with `--all` |
+
+### openapi
+
+Detected by `**/openapi.yaml`, `**/openapi.yml`, `**/openapi.json`, `redocly.yaml`, `.spectral.yaml`, `.spectral.yml`, `.spectral.json`.
+
+| Rule | Targets |
+|---|---|
+| `openapi/no-breaking` | `check` lint, once per turn (§10.7, `forge_once`; pre-commit and CI fail): `forge_oasdiff`, when a YAML or JSON file changed: each OpenAPI document of the repository (an `openapi` / `swagger` version near its top) that existed at the base is compared by the pinned oasdiff (§13.5), `breaking <base> <now> --fail-on ERR --format singleline`; the base side is a copy of the repository's YAML and JSON files with the change undone, so `$ref`s to other files resolve. Each `error at …` line is a finding unless `forge.yaml` accepts it (`accept: [{rule, change: <the line>, reason}]`). Not with `--all` |
+
 ### 13.1 Migration linting
 
 `migration-lint` checks run [Squawk](https://squawkhq.com) (`squawk-cli`, pinned, through `bunx` or `uvx`, like ast-grep) on migration SQL and fail only on the changes that break the running version of the application during a deploy: `renaming-column`, `renaming-table`, `changing-column-type`, `adding-required-field`, `adding-not-nullable-field`, `ban-drop-database`. Squawk's other advice (lock and statement timeouts, `IF NOT EXISTS`, `CONCURRENTLY`, column types) is not enforced: Prisma and Alembic generate SQL that triggers it on every migration. Findings are printed `file:line:column` (from 1). When Squawk cannot run (offline, no `bunx` or `uvx`) or Alembic cannot render a revision, the check prints `forge:<id> skipped: …` and does not block. In CI (`--all`) only the newest migration is linted, so an accepted rename does not fail every later run.
@@ -1943,6 +2027,12 @@ context.md: `compose.yaml` + `compose.override.yaml`, healthchecks with `conditi
 - `fk_index.py`: §13 `python/sqlalchemy/fk-index`: in each changed `.py` file outside `versions/`, the foreign key columns (a `ForeignKey(…)` argument of `mapped_column` / `Column`, a `ForeignKeyConstraint` in `__table_args__`; per class or `Table(…)`) not in the base copy that no index leads with: `index=True` / `unique=True`, the first `primary_key=True` column, or the first column of an `Index` (after its name), `UniqueConstraint` or `PrimaryKeyConstraint`. Reported at the column's line.
 - `public_api.py`: for each changed module whose base copy has a literal `__all__`, each name that left it, or every name of a deleted module, must still be defined with a deprecation, read from the syntax tree: a `def` of that name decorated with `@deprecated` (`typing_extensions`, `warnings`) or calling `warnings.warn(…, DeprecationWarning | FutureWarning | PendingDeprecationWarning)` (or a subclass defined in the project, or a category parameter defaulting to one); a `class` with that decorator or such a call in `__init__` / `__new__` / `__init_subclass__` / `__post_init__`; an alias `name = deprecated(…)(…)`; or a module `__getattr__` that warns that way and names it (or reads a module-level table naming it). A project function that warns that way counts when the shim calls it or decorates with it. The word in a docstring or a comment does not count. A major version bump does not allow a removal by itself (the agent could make it): an intended removal is accepted in `forge.yaml`, which asks.
 - `public_api.mjs removed`: the names the package's entry points (`exports`, `main`, `module`, `types`, with `dist/`, `lib/`, `build/`, … mapped to `src/` and `.js` / `.d.ts` to the source file; `export *` followed through relative modules) export in the base are still exported, a major version bump included (an intended removal is accepted in `forge.yaml`); reported at line 0 of the module that declared the name. A name that became an alias of another exported name (`export const old = renamed`, `export { renamed as old }`; it was not one in the base) needs a `/** … @deprecated … */` JSDoc block right before its export statement or specifier.
+
+### 13.5 Pinned release binaries and system tools
+
+Tools with no PyPI or npm distribution run from their GitHub release binaries, pinned like Forge's other tools (the newest release older than 14 days) by version and by an embedded sha256 per platform (`uname -s`-`uname -m`: Linux and macOS on x86_64 and arm64), computed from the release assets and matching both GitHub's asset digest and the release's checksum file: gitleaks 8.30.1, kubeconform 0.8.0, kube-linter 0.8.3, tflint 0.64.0, trivy 0.75.0, osv-scanner 2.7.0, oasdiff 1.33.0, editorconfig-checker 4.0.2 (`RELEASE_BINARIES` in `src/util.ts`). `forge_release_bin <name>` (and `forge_release <name> <var>`, which prints the check's skipped line) is the one way a helper gets such a binary: the first use on a machine downloads the asset with `curl` (or `wget`) from `check.sh`, which hooks, pre-commit and CI run outside the Bash sandbox; it checks the asset's sha256, unpacks the binary (`.tar.gz`, `.zip` with `unzip`, or the asset itself) and keeps it in `${XDG_CACHE_HOME:-~/.cache}/forge/bin/<name>-<version>-<platform>/<name>` (written to a temporary name and renamed, so concurrent runs never see half a file). No asset for the platform, no network on the first use, no `curl`/`wget` (or `unzip`), or a sha256 mismatch prints `forge:<id> skipped: …`, never a pass. A helper's skipped line under `forge_once` / `forge_advise` is printed, not counted as a finding.
+
+System tools a project installs outside `node_modules` and `.venv` (`terraform`, `tofu`, `helm`, `kustomize`, `kubectl`) are found on `PATH`, like the runtimes (`uv`, `bun`, `docker`), never as a shell function of that name. A check that names `terraform` runs the project's Terraform CLI: `tofu` when the repository has a `*.tofu` file or a `.terraform.lock.hcl` naming `registry.opentofu.org` providers, else `terraform`; `kustomize` is `kubectl kustomize` when only kubectl is installed. A missing one is reported like any missing tool, by the binary's name (`forge:<id> skipped: tofu not installed`, `forge status`, SessionStart).
 
 ## 14. Acceptance tests
 

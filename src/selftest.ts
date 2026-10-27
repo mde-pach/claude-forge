@@ -157,11 +157,12 @@ export function hadolintIntegrity(): { status: "ok" | "mismatch" | "skipped"; de
 
 /**
  * Check targets that need a whole project the examples cannot stand in for:
- * test runs, migrations, `astro check` and the lock-file checks. Their
- * examples are optional.
+ * test runs, migrations, `astro check` and the lock-file checks, and the
+ * large-file check (its files do not fit in a rule). Their examples are optional.
  */
 export function checkExamplesOptional(t: CheckTarget): boolean {
-  return t.stage === "test" || t.stage === "migration" || checkTools(t).some((x) => x === "astro" || x === "uv" || x === "bun");
+  // forge_large_files: a file over its size limit does not fit in a rule file (a spec test runs it)
+  return t.stage === "test" || t.stage === "migration" || checkTools(t).some((x) => x === "astro" || x === "uv" || x === "bun") || /\bforge_large_files\b/.test(t.run);
 }
 
 /** How check examples are run: as Stop runs them, except format checks, which fix files at Stop and are run as CI runs them. */
@@ -256,6 +257,7 @@ export function runCheckExamples(runs: CheckExampleRun[], toolBins: string[]): C
       mkdirSync(stage);
       writeFiles(repo, { ".gitignore": "node_modules/\n.venv/\n", ...owned, ".forge/manifest.sha256": manifest, ...(fixture.head ?? {}) });
       writeFiles(stage, fixture.files);
+      const path = new Set<string>();
       for (const tool of checkTools(t)) {
         if ((PROJECT_TOOLS as readonly string[]).includes(tool) || PYTHON_TOOLS.has(tool)) {
           const bin = toolBins.map((b) => join(b, tool)).find((p) => existsSync(p));
@@ -263,13 +265,21 @@ export function runCheckExamples(runs: CheckExampleRun[], toolBins: string[]): C
           const to = join(repo, PYTHON_TOOLS.has(tool) ? ".venv/bin" : "node_modules/.bin", tool);
           mkdirSync(dirname(to), { recursive: true });
           symlinkSync(bin, to);
-        } else if (run("sh", ["-c", `command -v ${tool === "ty" ? "uvx" : tool}`]).status !== 0) return void (results[i] = { outcome: "skip", detail: `${tool === "ty" ? "uvx (for ty)" : tool} not available` });
+        } else {
+          // a system tool (§13.5): from the tool directories, else PATH; its directory goes first on the example's PATH
+          const want = tool === "ty" ? "uvx" : tool;
+          const dir = toolBins.find((b) => existsSync(join(b, want)));
+          if (dir) path.add(dir);
+          else if (run("sh", ["-c", `command -v ${want}`]).status !== 0) return void (results[i] = { outcome: "skip", detail: `${tool === "ty" ? "uvx (for ty)" : tool} not available` });
+        }
       }
       const mode = checkExampleMode(t);
       // its own TMPDIR: bunx installs ast-grep there at every run, and two at once in one place fail
       const tmp = join(dir, "tmp");
       mkdirSync(tmp);
-      jobs.push({ cmd: "sh", args: ["-c", EXAMPLE_RUN, "sh", stage, ...(mode === "--turn" ? [mode, SNAP] : [mode])], cwd: repo, env: { TMPDIR: `${tmp}/` } });
+      const env: Record<string, string> = { TMPDIR: `${tmp}/` };
+      if (path.size) env.PATH = [...path, process.env.PATH ?? ""].join(delimiter);
+      jobs.push({ cmd: "sh", args: ["-c", EXAMPLE_RUN, "sh", stage, ...(mode === "--turn" ? [mode, SNAP] : [mode])], cwd: repo, env });
       pending.push(i);
     });
     runParallel(jobs).forEach((r, j) => {
