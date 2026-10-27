@@ -18,7 +18,7 @@ import { plan, readProjectInputs } from "../../src/plan";
 import { renderRoles } from "../../src/render";
 import { applyRoles, defaultRoles, resolveRoles, roleGlobs, type Roles } from "../../src/roles";
 import type { Rule } from "../../src/types";
-import { commitAll, forge, put, ROOT, sampleRepo, sh } from "../helpers";
+import { commitAll, forge, git, put, ROOT, sampleRepo, sh } from "../helpers";
 import { loadPacks } from "../../src/packs";
 
 const T = 120_000;
@@ -233,6 +233,56 @@ describe("status and drift", () => {
       expect(forge(["apply", "--yes"], repo).status).toBe(0);
       expect(readFileSync(join(repo, ".forge/check.sh"), "utf8")).toContain("    alembic-migrations) case $2 in db/versions/*) return 0 ;; esac ;;");
       expect(forge(["status"], repo).stdout).not.toContain("changed since the last apply");
+    },
+    T,
+  );
+});
+
+describe("rules on roles", () => {
+  /** A TypeScript project with TypeORM, its typeorm-ts-node-commonjs replaced by a script printing <out> (exit <code>). */
+  function typeormRepo(out: string, code: number, forgeYaml = ""): string {
+    const repo = mkdtempSync(join(tmpdir(), "forge-typeorm-"));
+    git(repo, "init", "-q", "-b", "main");
+    put(repo, "package.json", '{"name": "api", "private": true, "dependencies": {"typeorm": "1.1.2"}}\n');
+    put(repo, "tsconfig.json", '{"compilerOptions": {"strict": true}}\n');
+    put(repo, ".gitignore", "node_modules/\n");
+    put(repo, "src/data-source.ts", 'import { DataSource } from "typeorm";\n\nexport default new DataSource({ type: "postgres", url: process.env.DATABASE_URL });\n');
+    put(repo, "src/user.entity.ts", "export class User {\n  id!: number;\n}\n");
+    put(repo, "node_modules/.bin/typeorm-ts-node-commonjs", `#!/bin/sh\necho "$*" >> calls.log\ncase $1 in migration:run) exit 0 ;; esac\necho '${out}'\nexit ${code}\n`);
+    sh("chmod", ["+x", join(repo, "node_modules/.bin/typeorm-ts-node-commonjs")]);
+    if (forgeYaml) put(repo, "forge.yaml", forgeYaml);
+    expect(forge(["apply", "--yes"], repo).status).toBe(0);
+    commitAll(repo, "init");
+    put(repo, "src/user.entity.ts", "export class User {\n  id!: number;\n  name!: string;\n}\n");
+    return repo;
+  }
+  const DS = 'forge: "0.5"\nfiles:\n  typeorm-datasource: {set: [src/data-source.ts]}\n';
+  const run = (repo: string) => sh("sh", [".forge/check.sh", "--changed"], { cwd: repo, env: { DATABASE_URL: "postgres://app@localhost:5432/app" } });
+
+  /** @rule typescript/typeorm/migration-present */
+  test(
+    "the data source is file role @typeorm-datasource: the migrations run, then migration:generate --check fails on a schema change no migration has",
+    () => {
+      const repo = typeormRepo("Unexpected changes in database schema were found in check mode:", 1, DS);
+      const r = run(repo);
+      expect(r.status).toBe(1);
+      expect(r.stdout).toContain("forge:typescript/typeorm/migration-present failed");
+      expect(r.stdout).toContain("generate one (typeorm-ts-node-commonjs migration:generate -d src/data-source.ts <path>)");
+      expect(readFileSync(join(repo, "calls.log"), "utf8").split("\n")[0]).toBe("migration:run -d src/data-source.ts");
+      expect(run(typeormRepo("No changes in database schema were found", 0, DS)).status).toBe(0);
+    },
+    T,
+  );
+
+  /** @rule typescript/typeorm/migration-present */
+  test(
+    "without a data source in forge.yaml, the TypeORM check reports itself skipped and runs nothing",
+    () => {
+      const repo = typeormRepo("Unexpected changes in database schema were found in check mode:", 1);
+      const r = run(repo);
+      expect(r.status).toBe(0);
+      expect(r.stdout).toContain("forge:typescript/typeorm/migration-present skipped: file role @typeorm-datasource names no file");
+      expect(forge(["status"], repo).stdout).toContain("  @typeorm-datasource: no patterns; matches no file here\n");
     },
     T,
   );
