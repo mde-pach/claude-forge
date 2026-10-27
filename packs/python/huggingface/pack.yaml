@@ -1,0 +1,5 @@
+id: python/huggingface
+description: Hugging Face model and dataset loading.
+level: project
+detect:
+  deps_any: [{ecosystem: pypi, name: transformers}, {ecosystem: pypi, name: datasets}, {ecosystem: pypi, name: huggingface-hub}, {ecosystem: pypi, name: sentence-transformers}, {ecosystem: pypi, name: diffusers}, {ecosystem: pypi, name: peft}, {ecosystem: pypi, name: vllm}]

@@ -1,0 +1,17 @@
+id: safety/kubernetes-change
+description: Claude asks before changing a cluster outside the manifests (kubectl delete, drain, edit, patch, replace, scale to 0 replicas, helm uninstall or rollback); the current kube context may be production.
+review: "Is the target cluster a local or development one, and is this change what the user asked for?"
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: ask
+    pattern: '(^|[^A-Za-z0-9_-])kubectl[[:space:]]([^;&|]*[[:space:]])?(delete|drain|edit|patch|replace)([[:space:];&|)]|$)'
+  - target: guard
+    decision: ask
+    pattern: '(^|[^A-Za-z0-9_-])kubectl[[:space:]]([^;&|]*[[:space:]])?scale[[:space:]][^;&|]*--replicas[= ]0([[:space:];&|)]|$)'
+  - target: guard
+    decision: ask
+    pattern: '(^|[^A-Za-z0-9_-])helm[[:space:]]([^;&|]*[[:space:]])?(uninstall|delete|del|un|rollback)([[:space:];&|)]|$)'
+examples:
+  match: ["kubectl delete pod web-7d4b9", "kubectl drain node-1 --ignore-daemonsets", "kubectl -n shop edit deploy web", "kubectl patch svc web -p '{}'", "kubectl replace -f web.yaml", "kubectl scale deploy web --replicas=0", "helm uninstall shop", "helm -n prod rollback shop 3"]
+  no_match: ["kubectl get pods", "kubectl scale deploy web --replicas=3", "kubectl apply -f k8s/", "helm upgrade --install shop ./chart", "helm list", "kubectl describe pod deleted-pod"]

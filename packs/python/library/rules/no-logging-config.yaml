@@ -1,0 +1,19 @@
+id: python/library/no-logging-config
+description: "Library code does not configure logging (no logging.basicConfig(), no handler on the root logger): the application that imports it decides; a library logs through logging.getLogger(__name__)."
+scope: {language: python, files: ["!**/tests/**", "!**/test_*.py", "!**/*_test.py", "!**/conftest.py", "!**/__main__.py"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        - {pattern: "logging.basicConfig($$$)"}
+        - {pattern: "logging.getLogger().addHandler($$$)"}
+        - {pattern: "logging.root.addHandler($$$)"}
+examples:
+  match:
+    - "import logging\n\nlogging.basicConfig(level=logging.INFO)\n"
+    - "import logging\n\nlogging.getLogger().addHandler(logging.StreamHandler())\n"
+    - "import logging\n\nlogging.root.addHandler(logging.StreamHandler())\n"
+  no_match:
+    - "import logging\n\nlog = logging.getLogger(__name__)\nlog.addHandler(logging.NullHandler())\n"
+    - "import logging\n\nlogging.getLogger(\"mylib\").addHandler(logging.NullHandler())\n"

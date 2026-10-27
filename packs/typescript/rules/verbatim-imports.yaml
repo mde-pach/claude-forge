@@ -1,0 +1,17 @@
+id: typescript/verbatim-imports
+description: Imports and re-exports used only as types are written import type / export type, so type stripping and isolated transpilers drop them instead of importing a module that has no such value at run time.
+scope: {language: typescript}
+enforce:
+  - target: tool
+    tool: biome
+    expects: lint/style/useImportType
+    snippet: '"linter": {"rules": {"style": {"useImportType": "error", "useExportType": "error"}}}'
+  - target: tool
+    tool: biome
+    expects: lint/style/useExportType
+    snippet: '"linter": {"rules": {"style": {"useImportType": "error", "useExportType": "error"}}}'
+examples:
+  match:
+    - "import type { Role } from \"./role\";\nimport { User } from \"./user\";\n\nexport { Role };\n\nexport function label(user: User): string {\n  return user.name;\n}\n"
+  no_match:
+    - "import type { Role } from \"./role\";\nimport type { User } from \"./user\";\n\nexport type { Role };\n\nexport function label(user: User): string {\n  return user.name;\n}\n"

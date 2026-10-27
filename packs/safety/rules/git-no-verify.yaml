@@ -1,10 +1,55 @@
 id: safety/git-no-verify
-description: Commits never skip hooks with --no-verify.
+description: "Commit hooks are never bypassed: no git commit --no-verify or -n, no SKIP=, PRE_COMMIT_ALLOW_NO_CONFIG=, HUSKY=, HUSKY_SKIP_HOOKS=, LEFTHOOK= or LEFTHOOK_EXCLUDE= assignment, no git -c core.hooksPath=…, no setting or unsetting core.hooksPath, no pre-commit or lefthook uninstall, and no rm, mv, chmod or truncate on .git/hooks/ or .husky/ (Forge's check runs from those hooks). Reading core.hooksPath is fine."
 scope: {language: any}
 enforce:
   - target: guard
     decision: deny
     pattern: '(^|[^A-Za-z0-9_-])git[[:space:]]+(-C[[:space:]]+[^[:space:];&|]+[[:space:]]+)*commit([[:space:]]+[^[:space:];&|"'']+)*[[:space:]]+(--no-verify|-[A-Za-z]*n[A-Za-z]*)([[:space:];&|)]|$)'
+  - target: guard
+    decision: deny
+    pattern: '(^|[;&|(][[:space:]]*|\\n[[:space:]]*)(export[[:space:]]+)?(SKIP|PRE_COMMIT_ALLOW_NO_CONFIG|HUSKY|HUSKY_SKIP_HOOKS|LEFTHOOK|LEFTHOOK_EXCLUDE)='
+  - target: guard
+    decision: deny
+    pattern: '(^|[^A-Za-z0-9_-])git[[:space:]]+(-C[[:space:]]+[^[:space:];&|]+[[:space:]]+)*-c[[:space:]]*core\.hooks[Pp]ath='
+  - target: guard
+    decision: deny
+    pattern: '(^|[^A-Za-z0-9_-])git[[:space:]]+config([[:space:]]+(set|--[A-Za-z-]+|-[A-Za-z]))*[[:space:]]+(core\.hooks[Pp]ath[[:space:]]+[^-[:space:];&|][^[:space:];&|]*|(--unset|unset)[[:space:]]+core\.hooks[Pp]ath)'
+  - target: guard
+    decision: deny
+    pattern: '(^|[^A-Za-z0-9_-])(pre-commit|lefthook)[[:space:]]+uninstall'
+  - target: guard
+    decision: deny
+    pattern: '(^|[^A-Za-z0-9_-])(rm|mv|chmod|truncate)[[:space:]][^;&|]*(\.git/hooks/|\.husky/)'
 examples:
-  match: ["git commit --no-verify -m x", "git commit -nm x", "git commit -a -n -m x", "git commit -m wip --no-verify"]
-  no_match: ["git commit -m \"fix --no-verify typo\"", "git commit -m x", "git commit --amend", "git commit -am x"]
+  match:
+    - "git commit --no-verify -m x"
+    - "git commit -nm x"
+    - "git commit -a -n -m x"
+    - "git commit -m wip --no-verify"
+    - "SKIP=forge-check git commit -m x"
+    - "export HUSKY=0"
+    - "LEFTHOOK=0 git commit -m x"
+    - "git add -A && HUSKY_SKIP_HOOKS=1 git commit -m x"
+    - "git -c core.hooksPath=/dev/null commit -m x"
+    - "git config core.hooksPath .nohooks"
+    - "git config --local core.hooksPath /tmp/none"
+    - "git config set core.hooksPath x"
+    - "git config --unset core.hooksPath"
+    - "git config unset core.hooksPath"
+    - "pre-commit uninstall"
+    - "lefthook uninstall"
+    - "rm .husky/pre-commit"
+    - "chmod -x .git/hooks/pre-commit"
+    - "mv .git/hooks/pre-commit /tmp/"
+  no_match:
+    - "git commit -m \"fix --no-verify typo\""
+    - "git commit -m x"
+    - "git commit --amend"
+    - "git commit -am x"
+    - "git config core.hooksPath"
+    - "git config --get core.hooksPath"
+    - "pre-commit run --all-files"
+    - "pre-commit install"
+    - "cat .husky/pre-commit"
+    - "git commit -m \"SKIP=x\""
+    - "SKIPPED=1 make test"

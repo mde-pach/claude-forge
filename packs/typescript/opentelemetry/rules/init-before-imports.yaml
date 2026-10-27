@@ -1,0 +1,27 @@
+id: typescript/opentelemetry/init-before-imports
+description: "Advice: a file that imports @opentelemetry/sdk-node does not also import a library the Node auto-instrumentations patch (express, fastify, koa, http, pg, mysql2, ioredis, redis, mongodb, mongoose, graphql, …): ES imports are hoisted, so the library loads before the SDK starts and its spans go missing. Start the SDK in its own file loaded with node --import ./instrumentation.mjs."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: import_statement
+      all:
+        - not: {regex: "^import\\s+type\\b"}
+        - has: {field: source, regex: "^[\"'](node:)?(http|https|net|dns)[\"']$|^[\"'](express|fastify|koa|@koa/router|connect|restify|@hapi/hapi|@nestjs/core|router|pg|pg-pool|mysql|mysql2|tedious|knex|mongodb|mongoose|ioredis|redis|@redis/client|memcached|cassandra-driver|graphql|dataloader|kafkajs|amqplib|@grpc/grpc-js|socket\\.io|undici|generic-pool|lru-memoizer|winston|pino|bunyan|aws-sdk|@aws-sdk/[^\"']+)[\"']$"}
+        - inside:
+            kind: program
+            stopBy: end
+            has:
+              kind: import_statement
+              all:
+                - not: {regex: "^import\\s+type\\b"}
+                - has: {field: source, regex: "^[\"']@opentelemetry/sdk-node[\"']$"}
+examples:
+  match:
+    - "import { NodeSDK } from \"@opentelemetry/sdk-node\";\nimport { getNodeAutoInstrumentations } from \"@opentelemetry/auto-instrumentations-node\";\nimport express from \"express\";\n\nnew NodeSDK({ instrumentations: [getNodeAutoInstrumentations()] }).start();\nexpress().listen(3000);\n"
+    - "import * as http from \"node:http\";\nimport { NodeSDK } from \"@opentelemetry/sdk-node\";\n\nnew NodeSDK().start();\nhttp.createServer().listen(3000);\n"
+  no_match:
+    - "import { NodeSDK } from \"@opentelemetry/sdk-node\";\nimport { getNodeAutoInstrumentations } from \"@opentelemetry/auto-instrumentations-node\";\n\nnew NodeSDK({ instrumentations: [getNodeAutoInstrumentations()] }).start();\n"
+    - "import express from \"express\";\nimport { trace } from \"@opentelemetry/api\";\n\nconst tracer = trace.getTracer(\"app\");\nexpress().get(\"/\", (_req, res) => tracer.startActiveSpan(\"x\", (s) => { s.end(); res.send(\"ok\"); }));\n"
+    - "import { NodeSDK } from \"@opentelemetry/sdk-node\";\nimport type { Express } from \"express\";\n\nexport const start = (app: Express) => { new NodeSDK().start(); return app; };\n"

@@ -32,11 +32,22 @@ json_get() {
     }'
 }
 
-# json_escape: stdin -> JSON string body (no surrounding quotes).
+# json_escape: stdin -> JSON string body (no surrounding quotes). Carriage returns
+# are dropped; every other control character is escaped (\t, \n, \u00XX): one
+# left raw makes the whole JSON invalid.
 json_escape() {
-  awk 'BEGIN { ORS = "" } {
+  awk 'BEGIN {
+    ORS = ""
+    for (c = 1; c < 32; c++) if (c != 9 && c != 10 && c != 13) { ch = sprintf("%c", c); ctl[ch] = sprintf("\\u%04x", c); re = re ch }
+    re = "[" re "]"
+  }
+  {
     gsub(/\\/, "\\\\"); gsub(/"/, "\\\""); gsub(/\t/, "\\t"); gsub(/\r/, "")
-    gsub(/\033/, "\\u001b")
+    if ($0 ~ re) {
+      s = ""; n = length($0)
+      for (i = 1; i <= n; i++) { ch = substr($0, i, 1); s = s ((ch in ctl) ? ctl[ch] : ch) }
+      $0 = s
+    }
     if (NR > 1) printf "\\n"
     printf "%s", $0
   }'
@@ -54,6 +65,10 @@ tool() {
     printf 'node_modules/.bin/%s' "$1"
   elif [ -x ".venv/bin/$1" ]; then
     printf '.venv/bin/%s' "$1"
+  elif [ -n "${FORGE_WS_ROOT:-}" ] && [ "$FORGE_WS_ROOT" != "$(pwd)" ]; then
+    # in a workspace package: the root's install (hoisted by bun, npm and Yarn; uv's .venv)
+    _tw=$(cd "$FORGE_WS_ROOT" && FORGE_WS_ROOT='' tool "$1")
+    case $_tw in ''|bun\ *) printf '%s' "$_tw" ;; *) printf '%s/%s' "$FORGE_WS_ROOT" "$_tw" ;; esac
   fi
 }
 
@@ -61,7 +76,7 @@ tool() {
 # Exit status: 0 no finding, 1 findings, other = could not run.
 astgrep() {
   if { [ -f bun.lock ] || [ -f bun.lockb ]; } && command -v bunx >/dev/null 2>&1; then
-    bunx -p "@ast-grep/cli@$FORGE_AST_GREP_VERSION" ast-grep "$@" 2>/dev/null
+    astgrep_bunx "$@"
   elif command -v uvx >/dev/null 2>&1; then
     uvx -q --from "ast-grep-cli==$FORGE_AST_GREP_VERSION" ast-grep "$@" 2>/dev/null
     _rc=$?
@@ -71,21 +86,49 @@ astgrep() {
     fi
     return "$_rc"
   elif command -v bunx >/dev/null 2>&1; then
-    bunx -p "@ast-grep/cli@$FORGE_AST_GREP_VERSION" ast-grep "$@" 2>/dev/null
+    astgrep_bunx "$@"
   else
     return 127
   fi
 }
 
+# astgrep_bunx <args>: `bunx -p <package> <bin>` installs the package again at every
+# run (about a second); with --no-install it runs the copy in bunx's cache, which is
+# installed first when it is not there (once per shell).
+astgrep_bunx() {
+  if [ -z "${_ag_bunx:-}" ]; then
+    bunx --no-install -p "@ast-grep/cli@$FORGE_AST_GREP_VERSION" ast-grep --version >/dev/null 2>&1 \
+      || bunx -p "@ast-grep/cli@$FORGE_AST_GREP_VERSION" ast-grep --version >/dev/null 2>&1
+    _ag_bunx=1
+  fi
+  bunx --no-install -p "@ast-grep/cli@$FORGE_AST_GREP_VERSION" ast-grep "$@" 2>/dev/null
+}
+
 # first_lines <n>: keep the first n lines of stdin.
 first_lines() { awk -v n="$1" 'NR <= n'; }
 
-# repo_root: cd to the git repository containing the hook's cwd.
+# repo_root: cd to the git repository containing the hook's cwd; sets FORGE_STATE.
 repo_root() {
   _cwd=$(json_get cwd)
   [ -n "$_cwd" ] && cd "$_cwd" 2>/dev/null || return 1
   _top=$(git rev-parse --show-toplevel 2>/dev/null) || return 1
   cd "$_top" || return 1
+  FORGE_STATE=$(forge_state_of "$(pwd -P)")
+}
+
+# forge_state_of <repository root>: where the hooks keep this repository's state
+# (turn snapshots, Stop results, the saved prompt, review verdicts, Bash snapshots):
+# outside the repository, so that the agent's own Bash commands (sandboxed to the
+# repository) cannot forge it: $FORGE_STATE_HOME (default ~/.claude/forge-state)
+# /<first 16 hex of the sha256 of the root's physical path>.
+forge_state_of() {
+  printf '%s/%s' "${FORGE_STATE_HOME:-$HOME/.claude/forge-state}" "$(printf '%s' "$1" | forge_sha256 | cut -c 1-16)"
+}
+
+# forge_state_dir: creates $FORGE_STATE (readable by the user only); fails when it cannot.
+forge_state_dir() {
+  [ -n "${FORGE_STATE:-}" ] || return 1
+  [ -d "$FORGE_STATE" ] || (umask 077 && mkdir -p "$FORGE_STATE") 2>/dev/null
 }
 
 # rel_path <path>: <path> relative to the current directory (the repository
@@ -118,16 +161,16 @@ forge_sha256() {
 tree_hash() {
   {
     if git rev-parse --verify -q HEAD >/dev/null; then git diff HEAD --binary 2>/dev/null; else git diff --cached --binary 2>/dev/null; fi
-    git ls-files --others --exclude-standard 2>/dev/null | while IFS= read -r _th_f; do
+    git ls-files -z --others --exclude-standard 2>/dev/null | tr '\000' '\n' | while IFS= read -r _th_f; do
       printf '%s ' "$_th_f"; git hash-object -- "$_th_f" 2>/dev/null || printf '\n'
     done
   } | forge_sha256
 }
 
-# status_paths: changed paths (staged, unstaged, untracked; renames as delete + add), one per line.
+# status_paths: changed paths (staged, unstaged, untracked; renames as delete + add),
+# one per line, as they are (-z: git quotes non-ASCII names otherwise).
 status_paths() {
-  git status --porcelain --no-renames --untracked-files=all 2>/dev/null \
-    | sed -e 's/^...//' -e 's/^"\(.*\)"$/\1/'
+  git status --porcelain -z --no-renames --untracked-files=all 2>/dev/null | tr '\000' '\n' | sed 's/^...//'
 }
 
 # snapshot <dir>: the working tree at the start of a turn, for the Stop hook:
@@ -167,11 +210,12 @@ now_hash() {
 }
 
 # base_file <path> <out>: writes <path> as it is in the base to <out>; fails if absent there.
+# _bf_inrev=0 says <path> is not in FORGE_BASE_REV's tree (the caller looked it up).
 base_file() {
   if [ -n "${FORGE_SNAP:-}" ] && _bf=$(awk -F '\t' -v p="$1" '$1 == p { print $2; f = 1; exit } END { exit !f }' "$FORGE_SNAP/dirty" 2>/dev/null); then
     [ "$_bf" != - ] && [ -f "$FORGE_SNAP/files/$1" ] || return 1
     mkdir -p "$(dirname "$2")" && cp "$FORGE_SNAP/files/$1" "$2"
-  elif [ -n "${FORGE_BASE_REV:-}" ] && git cat-file -e "$FORGE_BASE_REV:$1" 2>/dev/null; then
+  elif [ -n "${FORGE_BASE_REV:-}" ] && [ "${_bf_inrev:-1}" != 0 ] && git cat-file -e "$FORGE_BASE_REV:$1" 2>/dev/null; then
     mkdir -p "$(dirname "$2")" && git cat-file blob "$FORGE_BASE_REV:$1" > "$2" 2>/dev/null
   else
     return 1
@@ -188,7 +232,7 @@ added_lines() {
 }
 
 # turn_dir: the turn snapshot of this session (written by turn-start.sh).
-turn_dir() { printf '.forge/state/%s.turn' "$(session_id)"; }
+turn_dir() { printf '%s/%s.turn' "$FORGE_STATE" "$(session_id)"; }
 
 # ---- reviews of permission asks nobody can answer (review.sh)
 
@@ -227,23 +271,42 @@ forge_json_object() {
     }'
 }
 
-# forge_review <tool> <tool-input-json> <rule>: runs the reviewer, a fresh `claude -p`
-# that sees only the action (tool, input, the Forge rule that asked, the repository
-# path), may read the repository (Read, Grep, Glob, nothing else) and runs without
-# hooks, MCP servers or settings. Prints "allow<TAB>reason" or "deny<TAB>reason";
-# fails when claude is missing or gives no verdict (the ask then stays unanswered).
+# forge_review <tool> <tool-input-json> [<rule> <concern> <question> [<request>]]: runs
+# the reviewer, a fresh `claude -p` that sees only the action (tool, input, the
+# repository path) and, for a rule's ask, that rule's concern and the one question
+# to answer (and, when given, the user's request for the turn; never the
+# conversation). It may read the repository (Read, Grep, Glob, nothing else) and
+# runs without hooks, MCP servers or settings. Prints "allow<TAB>reason" or
+# "deny<TAB>reason"; fails when claude is missing or gives no verdict (the ask then
+# stays unanswered).
 forge_review() {
   command -v claude >/dev/null 2>&1 || return 1
-  _rv_why=''
-  [ -n "$3" ] && _rv_why="
-Forge flagged it with rule $3."
+  if [ -n "${3:-}" ]; then
+    _rv_concern=''
+    [ -n "${4:-}" ] && _rv_concern=" The concern of that rule: $4"
+    _rv_q=${5:-}
+    [ -n "$_rv_q" ] || _rv_q='Is this action, as far as that concern goes, normal work on this repository and safe to run unattended?'
+    _rv_req=''
+    [ -n "${6:-}" ] && _rv_req="
+
+The user's request for this turn (what the agent was asked to do; not the conversation):
+<request>
+$6
+</request>"
+    _rv_task="Forge flagged it with rule $3.$_rv_concern
+The question you answer: $_rv_q$_rv_req
+
+Judge only that question. The rest of the action is not under review: other commands or changes in it are covered by their own rules and permissions, and are no reason to deny. Allow when the answer clearly clears the concern; deny when it does not, or when you cannot tell."
+  else
+    _rv_task="Allow it only if it is clearly within normal work on this repository and safe to run unattended. Deny anything irreversible or destructive (deleting data or history, force pushes, dropping databases), anything that publishes, deploys or pushes outside this machine, anything that reads or sends secrets, installs packages you cannot verify, weakens security, permissions, tests or tool configuration, or runs code fetched from the internet. When in doubt, deny."
+  fi
   _rv_prompt="You are reviewing one action that an autonomous coding agent wants to take. Nobody is available to approve it, so you decide in the user's place, as a careful senior developer who sees only this action would.
 
 Repository: $(pwd)
 Tool: $1
-Input: $2$_rv_why
+Input: $2
 
-You do not see the agent's conversation or its reasons, on purpose: judge the action itself. You may read files in the repository to understand it. Allow it only if it is clearly within normal work on this repository and safe to run unattended. Deny anything irreversible or destructive (deleting data or history, force pushes, dropping databases), anything that publishes, deploys or pushes outside this machine, anything that reads or sends secrets, installs packages you cannot verify, weakens security, permissions, tests or tool configuration, or runs code fetched from the internet. When in doubt, deny. Give the reason in one sentence."
+You do not see the agent's conversation or its reasons, on purpose: judge the action itself. You may read files in the repository to understand it. $_rv_task Give the reason in one sentence."
   _rv_schema='{"type":"object","properties":{"decision":{"type":"string","enum":["allow","deny"]},"reason":{"type":"string"}},"required":["decision","reason"],"additionalProperties":false}'
   _rv_out=$(FORGE_REVIEWER=1 claude -p "$_rv_prompt" --output-format json --json-schema "$_rv_schema" \
     --tools Read,Grep,Glob --allowedTools Read,Grep,Glob --permission-mode dontAsk --max-turns "${FORGE_REVIEW_MAX_TURNS:-12}" \
@@ -256,29 +319,56 @@ You do not see the agent's conversation or its reasons, on purpose: judge the ac
   case $_rv_d in allow|deny) printf '%s\t%s' "$_rv_d" "${_rv_r:-no reason given}" ;; *) return 1 ;; esac
 }
 
-# forge_review_log <decision> <tool> <input> <reason>: one line per review in
-# .forge/state/reviews.log (in a Forge project) or ~/.claude/forge-reviews.log.
-forge_review_log() {
-  _rl_f="$HOME/.claude/forge-reviews.log"
-  if _rl_top=$(cd "$(json_get cwd)" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null) && [ -d "$_rl_top/.forge" ]; then
-    mkdir -p "$_rl_top/.forge/state" 2>/dev/null && _rl_f="$_rl_top/.forge/state/reviews.log"
+# forge_review_state: where reviews are logged and cached: the repository's state
+# directory (forge_state_of) in a Forge project, else ~/.claude.
+forge_review_state() {
+  if _rs_top=$(cd "$(json_get cwd)" 2>/dev/null && cd "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null && pwd -P) \
+    && [ -d "$_rs_top/.forge" ] && FORGE_STATE=$(forge_state_of "$_rs_top") && forge_state_dir; then
+    printf '%s' "$FORGE_STATE"
+  else
+    printf '%s/.claude' "$HOME"
   fi
+}
+
+# forge_review_log <decision> <tool> <input> <reason>: one line per review in
+# reviews.log in the state directory (in a Forge project) or ~/.claude/forge-reviews.log.
+forge_review_log() {
+  _rl_f=$(forge_review_state)
+  case $_rl_f in "$HOME/.claude") _rl_f=$_rl_f/forge-reviews.log ;; *) _rl_f=$_rl_f/reviews.log ;; esac
   printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$(session_id)" "$1" "$2" "$(printf '%s' "$3" | tr '\t\n' '  ')" "$4" >> "$_rl_f" 2>/dev/null
   return 0
 }
 
 # forge_kill_tree <pid>: kills a process and its descendants.
+# It is stopped first, so it cannot start a new child while its children are killed.
 forge_kill_tree() {
+  kill -STOP "$1" 2>/dev/null
   for _fk_c in $(ps -A -o pid= -o ppid= 2>/dev/null | awk -v p="$1" '$2 == p { print $1 }'); do
     forge_kill_tree "$_fk_c"
   done
   kill "$1" 2>/dev/null
+  kill -CONT "$1" 2>/dev/null
+}
+
+# forge_kill_watch <pid>: stops a timeout watcher, "( sleep <n>; ... ) &" started by
+# this shell, and its sleep.
+# SIGKILL: a SIGTERM that reaches the subshell before it has dropped its parent's traps
+# can be lost, and a watcher left alive holds the parent's saved descriptors (a hook's
+# $(...) pipe) until its sleep ends. Stopped first, so it starts nothing meanwhile.
+forge_kill_watch() {
+  kill -STOP "$1" 2>/dev/null
+  _kw_c=$(ps -A -o pid= -o ppid= 2>/dev/null | awk -v p="$1" '$2 == p { print $1 }')
+  # shellcheck disable=SC2086
+  kill -9 "$1" $_kw_c 2>/dev/null
+  # reaped here, so the shell does not report it ("Killed: 9") when it reaps a later job
+  wait "$1" 2>/dev/null
+  return 0
 }
 
 # ---- files changed by a Bash command (bash-snapshot.sh, post-edit.sh, typecheck.sh)
 
 # bash_state: where Bash-command snapshots live; bash_key: this tool call's id, file-name safe.
-bash_state() { printf '.forge/state/bash'; }
+bash_state() { printf '%s/bash' "$FORGE_STATE"; }
 bash_key() {
   _bk=$(json_get tool_use_id | tr -c 'A-Za-z0-9_-' '_')
   [ -n "$_bk" ] && printf '%s' "$_bk"
@@ -305,7 +395,7 @@ tree_snapshot() {
   _ts_watch=$!
   wait "$_ts_pid" 2>/dev/null
   _ts_rc=$?
-  forge_kill_tree "$_ts_watch"
+  forge_kill_watch "$_ts_watch"
   _ts_tree=$(cat "$_ts_tmp.out" 2>/dev/null)
   rm -f "$_ts_tmp" "$_ts_tmp.out" "$_ts_tmp.lock"
   [ "$_ts_rc" -eq 0 ] && [ -n "$_ts_tree" ] || return 1
@@ -333,5 +423,94 @@ bash_cleanup() {
   # shellcheck disable=SC2012
   ls -t "$_bl_s" 2>/dev/null | grep -E '\.(tree|files)$' | sed '1,50d' | while IFS= read -r _bl_f; do rm -f "$_bl_s/$_bl_f"; done
   if [ -z "$(ls "$_bl_s" 2>/dev/null | grep -E '\.tree$')" ]; then rm -rf "$_bl_s/objects"; fi
+  return 0
+}
+
+# ---- engine capabilities (SPECS §15): the types engine, one daemon per language and
+# repository in $FORGE_STATE/types/<lang>/ (in: the request FIFO; pid, ready, want,
+# log; sessions/ holds one file per Claude Code session using it).
+
+# forge_types_alive <lang>: its daemon is running.
+forge_types_alive() {
+  [ -p "$FORGE_STATE/types/$1/in" ] && [ -f "$FORGE_STATE/types/$1/ready" ] \
+    && kill -0 "$(cat "$FORGE_STATE/types/$1/pid" 2>/dev/null)" 2>/dev/null
+}
+
+# forge_types_line <lang> <line>: writes one line (shorter than PIPE_BUF, so writers
+# never mix) to the daemon's FIFO. Opened read-write, so it never blocks.
+forge_types_line() { printf '%s\n' "$2" 1<>"$FORGE_STATE/types/$1/in"; }
+
+# forge_types_ask <lang> <dir> [stop]: asks the daemon the question in <dir>/req and
+# prints its answer (without the final "end"); with "stop", asks it to stop and waits
+# until it has (its language server ended). Fails when no answer comes within
+# FORGE_TYPES_TIMEOUT seconds (20). The reply FIFO is opened read-write before the
+# question is sent, so the daemon's non-blocking open always finds a reader.
+forge_types_ask() {
+  mkfifo "$2/reply" || return 1
+  exec 8<>"$2/reply"
+  forge_types_line "$1" "${3:+$3	}$2"
+  { sleep "${FORGE_TYPES_TIMEOUT:-20}" & printf '%s\n' "$!" > "$2/sleep"; wait "$!"
+    printf 'error\tno answer within %ss\nend\n' "${FORGE_TYPES_TIMEOUT:-20}" 1<>"$2/reply"; } >/dev/null 2>&1 &
+  _ta_w=$!
+  _ta_rc=1
+  while IFS= read -r _ta_l <&8; do
+    [ "$_ta_l" = end ] && { _ta_rc=0; break; }
+    printf '%s\n' "$_ta_l"
+  done
+  forge_types_unwatch "$_ta_w" "$2/sleep"
+  exec 8<&-
+  return "$_ta_rc"
+}
+
+# forge_types_unwatch <watchdog pid> <file with its sleep's pid>: ends a watchdog by
+# its sleep, so the watchdog ends on its own (killing it would make some shells print
+# "Terminated"); its late line goes to a FIFO nobody reads any more.
+forge_types_unwatch() {
+  _tw_n=0
+  while [ ! -s "$2" ] && [ "$_tw_n" -lt 100 ]; do _tw_n=$((_tw_n + 1)); done
+  if [ -s "$2" ] && read -r _tw_p < "$2"; then kill "$_tw_p" 2>/dev/null; else kill "$1" 2>/dev/null; fi
+  wait "$1" 2>/dev/null
+  return 0
+}
+
+# forge_types_changed <path>...: tells the running daemons that files changed on disk
+# (they resync them). A dependency or configuration change restarts them instead: the
+# next question starts them again on the new environment.
+forge_types_changed() {
+  [ -d "$FORGE_STATE/types" ] || return 0
+  for _tc_lang in python typescript; do
+    forge_types_alive "$_tc_lang" || continue
+    for _tc_f in "$@"; do
+      case $_tc_f in
+        uv.lock|*/uv.lock|pyproject.toml|*/pyproject.toml|ty.toml|bun.lock|bun.lockb|package-lock.json|pnpm-lock.yaml|yarn.lock|package.json|*/package.json|tsconfig*.json|*/tsconfig*.json)
+          forge_types_line "$_tc_lang" restart; break ;;
+        *) forge_types_line "$_tc_lang" "changed	$_tc_f" ;;
+      esac
+    done
+  done
+}
+
+# forge_types_stop <lang>: stops the language's daemon and waits until it and its
+# language server have exited (at most FORGE_TYPES_TIMEOUT seconds).
+forge_types_stop() {
+  forge_types_alive "$1" || return 0
+  _tp_r=$(mktemp -d "${TMPDIR:-/tmp}/forge-types-stop.XXXXXX") || return 1
+  forge_types_ask "$1" "$_tp_r" stop > /dev/null
+  rm -rf "$_tp_r"
+  return 0
+}
+
+# forge_types_session <start|end>: registers this Claude Code session with the running
+# daemons, or unregisters it; the last session to end stops them.
+forge_types_session() {
+  for _tx_lang in python typescript; do
+    _tx_d=$FORGE_STATE/types/$_tx_lang
+    [ -d "$_tx_d" ] || continue
+    if [ "$1" = start ]; then mkdir -p "$_tx_d/sessions" && : > "$_tx_d/sessions/$(session_id)"
+    else
+      rm -f "$_tx_d/sessions/$(session_id)"
+      [ -n "$(ls "$_tx_d/sessions" 2>/dev/null)" ] || forge_types_stop "$_tx_lang"
+    fi
+  done
   return 0
 }

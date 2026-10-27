@@ -140,7 +140,8 @@ function sh(cmd: string, cwd: string, env: Record<string, string> = {}) {
 
 function runScenario(s: Scenario, i: number): { ok: boolean; why: string[] } {
   const repo = join(WORK, s.repo);
-  sh("git reset -q --hard && git clean -qfdx -e .venv -e node_modules -e .env && rm -rf .forge/state", repo);
+  // the hooks' state lives outside the repository (lib.sh forge_state_of)
+  sh('git reset -q --hard && git clean -qfdx -e .venv -e node_modules -e .env && rm -rf .forge/state "${FORGE_STATE_HOME:-$HOME/.claude/forge-state}/$(printf %s "$(pwd -P)" | { sha256sum 2>/dev/null || shasum -a 256; } | cut -c 1-16)"', repo);
   if (s.setup) {
     const r = sh(s.setup, repo, { GIT_AUTHOR_NAME: "e2e", GIT_AUTHOR_EMAIL: "e2e@example.com", GIT_COMMITTER_NAME: "e2e", GIT_COMMITTER_EMAIL: "e2e@example.com" });
     if (r.status !== 0) return { ok: false, why: [`setup failed: ${r.stderr}`] };

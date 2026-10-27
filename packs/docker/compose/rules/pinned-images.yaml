@@ -1,6 +1,6 @@
 id: docker/compose/pinned-images
 description: "Images name a version tag (or a digest), never latest or nothing, except in a service that builds its own image."
-scope: {language: yaml, files: ["**/compose*.yml", "**/compose*.yaml", "**/docker-compose*.yml", "**/docker-compose*.yaml"]}
+scope: {language: yaml, files: ["@compose"]}
 enforce:
   - target: ast-grep
     mode: forbid

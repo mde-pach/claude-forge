@@ -1,0 +1,18 @@
+id: python/no-nest-asyncio
+description: "No nest_asyncio (archived); call async code with await, or run it in a thread."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: TID251
+    snippet: |
+      [tool.ruff.lint]
+      extend-select = ["TID251"]
+
+      [tool.ruff.lint.flake8-tidy-imports.banned-api]
+      "nest_asyncio".msg = "archived; call async code with await, or run it in a thread"
+examples:
+  match:
+    - "import nest_asyncio\n\nnest_asyncio.apply()\n"
+  no_match:
+    - "import asyncio\n\n\nasync def work() -> None:\n    loop = asyncio.get_running_loop()\n    await loop.run_in_executor(None, print)\n\n\nasyncio.run(work())\n"

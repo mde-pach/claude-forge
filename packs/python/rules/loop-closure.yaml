@@ -1,0 +1,14 @@
+id: python/loop-closure
+description: "Closures and lambdas defined in a loop do not capture the loop variable (it is read when they run, not when they are made): bind it as a default argument or with functools.partial."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: B023
+    snippet: '[tool.ruff.lint] extend-select = ["B023"]'
+examples:
+  match:
+    - "def handlers(names: list[str]) -> list:\n    out = []\n    for name in names:\n        out.append(lambda: print(name))\n    return out\n"
+  no_match:
+    - "def handlers(names: list[str]) -> list:\n    out = []\n    for name in names:\n        out.append(lambda name=name: print(name))\n    return out\n"
+    - "def lengths(names: list[str]) -> list[int]:\n    return [(lambda n: len(n))(name) for name in names]\n"

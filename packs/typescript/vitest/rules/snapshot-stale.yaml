@@ -1,0 +1,44 @@
+id: typescript/vitest/snapshot-stale
+description: "Output-producing code changed but its snapshots did not: a source file whose added lines hold a string literal in an expression or an object literal key (not an import, a type annotation, an interface or a type alias), imported by a test that uses toMatchSnapshot, toMatchFileSnapshot, toMatchInlineSnapshot or golden files (testdata/), while no .snap, __snapshots__ or testdata file changed in the turn. Run the snapshot tests with inputs that exercise the new output and update them. Checked at Stop; it blocks once per turn, then accepts."
+scope: {language: typescript, files: ["!@ts-tests", "!@e2e-tests", "!**/*.d.ts"]}
+enforce:
+  - {target: check, stage: lint, run: "forge_advise forge_snapshot_stale"}
+examples:
+  match:
+    - head:
+        src/format.ts: "export function describeSpan(name: string) {\n  return { name };\n}\n"
+        src/format.test.ts: "import { expect, it } from \"vitest\";\nimport { describeSpan } from \"./format.ts\";\n\nit(\"describes a span\", () => {\n  expect(describeSpan(\"chat\")).toMatchSnapshot();\n});\n"
+        src/__snapshots__/format.test.ts.snap: "exports[`describes a span 1`] = `\n{\n  \"name\": \"chat\",\n}\n`;\n"
+      files:
+        src/format.ts: "export function describeSpan(name: string) {\n  return { name, kind: \"llm\" };\n}\n"
+    - head:
+        src/otel/extract.ts: "export const extract = (span: Span) => ({ model: span.model });\n"
+        src/otel/extract.test.ts: "import { readFileSync } from \"node:fs\";\nimport { expect, it } from \"vitest\";\nimport { extract } from \"./extract\";\n\nit(\"matches the golden output\", async () => {\n  const span = JSON.parse(readFileSync(\"src/otel/testdata/chat.json\", \"utf8\"));\n  await expect(JSON.stringify(extract(span))).toMatchFileSnapshot(\"testdata/chat.json.snap\");\n});\n"
+        src/otel/testdata/chat.json.snap: "{\"model\":\"gpt\"}\n"
+      files:
+        src/otel/extract.ts: "export const extract = (span: Span) => ({ model: span.model, cacheTokens: span.cache });\n"
+  no_match:
+    - head:
+        src/format.ts: "export function describeSpan(name: string) {\n  return { name };\n}\n"
+        src/format.test.ts: "import { expect, it } from \"vitest\";\nimport { describeSpan } from \"./format.ts\";\n\nit(\"describes a span\", () => {\n  expect(describeSpan(\"chat\")).toMatchSnapshot();\n});\n"
+        src/__snapshots__/format.test.ts.snap: "exports[`describes a span 1`] = `\n{\n  \"name\": \"chat\",\n}\n`;\n"
+      files:
+        src/format.ts: "export function describeSpan(name: string) {\n  return { name, kind: \"llm\" };\n}\n"
+        src/__snapshots__/format.test.ts.snap: "exports[`describes a span 1`] = `\n{\n  \"kind\": \"llm\",\n  \"name\": \"chat\",\n}\n`;\n"
+    - head:
+        src/format.ts: "export function describeSpan(name: string) {\n  return { name };\n}\n"
+        src/format.test.ts: "import { expect, it } from \"vitest\";\nimport { describeSpan } from \"./format.ts\";\n\nit(\"describes a span\", () => {\n  expect(describeSpan(\"chat\").name).toBe(\"chat\");\n});\n"
+      files:
+        src/format.ts: "export function describeSpan(name: string) {\n  return { name, kind: \"llm\" };\n}\n"
+    - head:
+        src/format.ts: "export function retries(n: number) {\n  return n + 1;\n}\n"
+        src/format.test.ts: "import { expect, it } from \"vitest\";\nimport { retries } from \"./format.ts\";\n\nit(\"retries\", () => {\n  expect(retries(1)).toMatchSnapshot();\n});\n"
+        src/__snapshots__/format.test.ts.snap: "exports[`retries 1`] = `2`;\n"
+      files:
+        src/format.ts: "export function retries(n: number) {\n  return n + 2;\n}\n"
+    - head:
+        src/format.ts: "export interface Span {\n  name: string;\n}\n\nexport function describeSpan(span: Span) {\n  return { name: span.name };\n}\n"
+        src/format.test.ts: "import { expect, it } from \"vitest\";\nimport { describeSpan } from \"./format.ts\";\n\nit(\"describes a span\", () => {\n  expect(describeSpan({ name: \"chat\" })).toMatchSnapshot();\n});\n"
+        src/__snapshots__/format.test.ts.snap: "exports[`describes a span 1`] = `\n{\n  \"name\": \"chat\",\n}\n`;\n"
+      files:
+        src/format.ts: "import type { Kind } from \"./kind\";\n\nexport interface Span {\n  name: string;\n  kind?: Kind;\n  mode: \"a\" | \"b\";\n}\n\nexport function describeSpan(span: Span, _opts?: { verbose: boolean }) {\n  return { name: span.name };\n}\n"

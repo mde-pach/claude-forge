@@ -1,0 +1,21 @@
+id: python/django/makemigrations
+description: "Model changes come with their migration: python manage.py makemigrations --check --dry-run finds nothing to generate (run makemigrations and commit the new file). No database is needed; when manage.py cannot run here (settings that need an environment variable, a missing module), the check is skipped and says why."
+scope: {language: python}
+enforce:
+  - target: check
+    stage: migration
+    timeout: 120
+    when_changed: ["**/models.py", "**/models/**", "@django-migrations", "@django-settings"]
+    run: |
+      m=$(git ls-files manage.py '*/manage.py' | awk '{ print gsub("/", "/") "\t" $0 }' | sort -n | head -n 1 | cut -f 2)
+      if [ -z "$m" ]; then printf 'forge:%s skipped: no manage.py in the repository\n' "$c_id"; return 0; fi
+      python "$m" makemigrations --check --dry-run --no-input > "$FORGE_TMP/makemigrations" 2>&1
+      rc=$?
+      if [ "$rc" -eq 0 ]; then return 0; fi
+      if grep -q "^Migrations for '" "$FORGE_TMP/makemigrations"; then
+        grep -v 'RuntimeWarning\|warnings.warn\|consistent migration history' "$FORGE_TMP/makemigrations"
+        printf 'Generate them: python %s makemigrations (then review and commit the new files)\n' "$m"
+        return 1
+      fi
+      printf 'forge:%s skipped: python %s makemigrations could not run: %s\n' "$c_id" "$m" "$(grep . "$FORGE_TMP/makemigrations" | tail -n 1)"
+      return 0

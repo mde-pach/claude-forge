@@ -1,0 +1,11 @@
+id: python/override-decorator
+description: A method overriding a base-class method carries @typing.override.
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ty
+    expects: missing-override-decorator
+    snippet: '[tool.ty.rules] missing-override-decorator = "error"'
+examples:
+  match: ["class Base:\n    def run(self) -> int:\n        return 1\n\n\nclass Job(Base):\n    def run(self) -> int:\n        return 2\n"]
+  no_match: ["from typing import override\n\n\nclass Base:\n    def run(self) -> int:\n        return 1\n\n\nclass Job(Base):\n    @override\n    def run(self) -> int:\n        return 2\n"]

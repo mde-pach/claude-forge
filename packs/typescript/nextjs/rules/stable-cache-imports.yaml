@@ -1,0 +1,13 @@
+id: typescript/nextjs/stable-cache-imports
+description: Import cacheLife and cacheTag from next/cache, not unstable_cacheLife or unstable_cacheTag (to be removed; no @deprecated tag shows it).
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: import_specifier
+      has: {field: name, regex: "^unstable_(cacheLife|cacheTag)$"}
+      inside: {kind: import_statement, stopBy: end, has: {field: source, regex: "^[\"']next/cache[\"']$"}}
+examples:
+  match: ["import { unstable_cacheLife as cacheLife } from \"next/cache\";", "import { unstable_cacheTag } from 'next/cache';"]
+  no_match: ["import { cacheLife, cacheTag, unstable_cache } from \"next/cache\";", "import { unstable_cacheTag } from \"./cache\";"]

@@ -1,0 +1,54 @@
+id: safety/lockfile-bash-write
+description: "Rewriting a lock file (those of safety/lockfile-hand-edit) through Bash asks first: sed -i / perl -i (perl -0pi included), a redirect or tee into one, cp, mv, install or rsync onto one, dd of=, truncate, or a Python, Node, Bun, Deno or Ruby command that names one and writes. Reading one does not ask, unless such a script also writes something. Change the manifest and run the package manager (bun install, pnpm install, uv lock, cargo update -p …) instead."
+review: "Does this command write a lock file by hand (rather than only read it, or run the package manager that owns it)? Deny a hand rewrite unless the user's request asks for exactly that; allow a read or a package-manager run."
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: ask
+    pattern: '(^|[^A-Za-z0-9_-])(sed|perl)[[:space:]]([^;&|]*[[:space:]])?(-[A-Za-z0-9]*i|--in-place)[^;&|]*(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?|uv\.lock|poetry\.lock|Cargo\.lock|deno\.lock|pdm\.lock|pixi\.lock|Pipfile\.lock|\.terraform\.lock\.hcl|flake\.lock|mise\.lock|go\.sum|Gemfile\.lock|composer\.lock|packages\.lock\.json)([^A-Za-z0-9_.-]|$)'
+  - target: guard
+    decision: ask
+    pattern: '(>|(^|[^A-Za-z0-9_-])tee[[:space:]]([^;&|]*[[:space:]])?)[[:space:]]*(\\?["''])?([^[:space:];&|<>"'']*/)?(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?|uv\.lock|poetry\.lock|Cargo\.lock|deno\.lock|pdm\.lock|pixi\.lock|Pipfile\.lock|\.terraform\.lock\.hcl|flake\.lock|mise\.lock|go\.sum|Gemfile\.lock|composer\.lock|packages\.lock\.json)([^A-Za-z0-9_.-]|$)'
+  - target: guard
+    decision: ask
+    pattern: '(^|[^A-Za-z0-9_-])(cp|mv|install|rsync)[[:space:]][^;&|]*[[:space:]](\\?["''])?([^[:space:];&|<>"'']*/)?(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?|uv\.lock|poetry\.lock|Cargo\.lock|deno\.lock|pdm\.lock|pixi\.lock|Pipfile\.lock|\.terraform\.lock\.hcl|flake\.lock|mise\.lock|go\.sum|Gemfile\.lock|composer\.lock|packages\.lock\.json)(\\?["''])?[[:space:]]*($|[;&|)])'
+  - target: guard
+    decision: ask
+    pattern: '(^|[^A-Za-z0-9_-])(dd[[:space:]][^;&|]*of=([^[:space:];&|]*/)?(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?|uv\.lock|poetry\.lock|Cargo\.lock|deno\.lock|pdm\.lock|pixi\.lock|Pipfile\.lock|\.terraform\.lock\.hcl|flake\.lock|mise\.lock|go\.sum|Gemfile\.lock|composer\.lock|packages\.lock\.json)|truncate[[:space:]][^;&|]*(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?|uv\.lock|poetry\.lock|Cargo\.lock|deno\.lock|pdm\.lock|pixi\.lock|Pipfile\.lock|\.terraform\.lock\.hcl|flake\.lock|mise\.lock|go\.sum|Gemfile\.lock|composer\.lock|packages\.lock\.json))([^A-Za-z0-9_.-]|$)'
+  - target: guard
+    decision: ask
+    pattern: '(^|[^A-Za-z0-9_-])(python[0-9.]*|node|bun|deno|ruby)[[:space:]].*((pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?|uv\.lock|poetry\.lock|Cargo\.lock|deno\.lock|pdm\.lock|pixi\.lock|Pipfile\.lock|\.terraform\.lock\.hcl|flake\.lock|mise\.lock|go\.sum|Gemfile\.lock|composer\.lock|packages\.lock\.json).*(\.write\(|write_text|writeFile|Bun\.write|[(,][[:space:]]*\\?["'']w[+b]?\\?["''])|(\.write\(|write_text|writeFile|Bun\.write|[(,][[:space:]]*\\?["'']w[+b]?\\?["'']).*(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?|uv\.lock|poetry\.lock|Cargo\.lock|deno\.lock|pdm\.lock|pixi\.lock|Pipfile\.lock|\.terraform\.lock\.hcl|flake\.lock|mise\.lock|go\.sum|Gemfile\.lock|composer\.lock|packages\.lock\.json))'
+examples:
+  match:
+    - "sed -i 's/0.25.4/0.25.5/' pnpm-lock.yaml"
+    - "sed -i.bak -e 's/x/y/' packages/web/package-lock.json"
+    - "perl -pi -e 's/1.2.3/1.2.4/' uv.lock"
+    - "cat lock.tmp > pnpm-lock.yaml"
+    - "printf 'x' >> yarn.lock"
+    - "jq '.packages' package-lock.json | tee package-lock.json"
+    - "python3 - <<'EOF'\np='/work/pnpm-lock.yaml'\ns=open(p).read()\ns=s.replace('packages/zod: {}', 'packages/zod:')\nopen(p,'w').write(s)\nEOF"
+    - "python -c \"import pathlib; pathlib.Path('uv.lock').write_text(new)\""
+    - "node -e \"fs.writeFileSync('bun.lock', out)\""
+    - "perl -0pi -e 's/a\\nb/c/' pnpm-lock.yaml"
+    - "cp /tmp/lock.yaml pnpm-lock.yaml"
+    - "mv lock.new packages/web/package-lock.json"
+    - "dd if=/tmp/x of=yarn.lock"
+    - "truncate -s 0 uv.lock"
+    - "sed -i 's/h1:abc/h1:def/' go.sum"
+    - "cat new.lock > infra/.terraform.lock.hcl"
+    - "cp /tmp/Gemfile.lock Gemfile.lock"
+  no_match:
+    - "pnpm install"
+    - "uv lock"
+    - "cat pnpm-lock.yaml"
+    - "grep -n esbuild pnpm-lock.yaml"
+    - "sed -n '300,330p' pnpm-lock.yaml"
+    - "git diff pnpm-lock.yaml > /tmp/lock.diff"
+    - "python3 -c \"print(open('uv.lock').read()[:200])\""
+    - "sed -i 's/a/b/' package.json"
+    - "cp pnpm-lock.yaml /tmp/pnpm-lock.yaml.bak"
+    - "mv pnpm-lock.yaml pnpm-lock.yaml.bak && pnpm install"
+    - "python3 -c \"import json; d = json.load(open('package-lock.json')); print(len(d['packages']))\""
+    - "git checkout -- pnpm-lock.yaml"
+    - "sed -i 's/a/b/' go.mod"
+    - "cat Gemfile.lock"

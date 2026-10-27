@@ -1,0 +1,29 @@
+id: python/no-mutable-defaults
+description: "No mutable defaults: function arguments (B006), ContextVar defaults (B039), dataclass fields (RUF008) and no function call as a dataclass default (RUF009); __post_init__ parameters take no defaults (RUF033: put them on the InitVar field)."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: B006
+    snippet: '[tool.ruff.lint] extend-select = ["B006"]'
+  - target: tool
+    tool: ruff
+    expects: B039
+    snippet: '[tool.ruff.lint] extend-select = ["B039"]'
+  - target: tool
+    tool: ruff
+    expects: RUF008
+    snippet: '[tool.ruff.lint] extend-select = ["RUF008"]'
+  - target: tool
+    tool: ruff
+    expects: RUF009
+    snippet: '[tool.ruff.lint] extend-select = ["RUF009"]'
+  - target: tool
+    tool: ruff
+    expects: RUF033
+    snippet: '[tool.ruff.lint] extend-select = ["RUF033"]'
+examples:
+  match:
+    - "from contextvars import ContextVar\nfrom dataclasses import InitVar, dataclass\nfrom datetime import UTC, datetime\n\nrequest_tags: ContextVar[list[str]] = ContextVar(\"request_tags\", default=[])\n\n\ndef add(item: str, items: list[str] = []) -> list[str]:\n    items.append(item)\n    return items\n\n\n@dataclass\nclass Job:\n    tags: list[str] = []\n    created: datetime = datetime.now(UTC)\n    seed: InitVar[int] = 0\n\n    def __post_init__(self, seed: int = 1) -> None:\n        pass\n"
+  no_match:
+    - "from contextvars import ContextVar\nfrom dataclasses import InitVar, dataclass, field\nfrom datetime import UTC, datetime\n\nrequest_id: ContextVar[str | None] = ContextVar(\"request_id\", default=None)\n\n\ndef add(item: str, items: list[str] | None = None) -> list[str]:\n    items = [] if items is None else items\n    items.append(item)\n    return items\n\n\n@dataclass\nclass Job:\n    tags: list[str] = field(default_factory=list)\n    created: datetime = field(default_factory=lambda: datetime.now(UTC))\n    seed: InitVar[int] = 0\n\n    def __post_init__(self, seed: int) -> None:\n        pass\n"

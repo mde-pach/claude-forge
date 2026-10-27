@@ -1,0 +1,22 @@
+id: kubernetes/helm/version-bump
+description: "In a chart-testing repository (ct.yaml or ct.yml; check-version-increment not false), a chart under its chart-dirs (default charts/) with changed files bumps its Chart.yaml version."
+scope: {language: any}
+enforce:
+  - target: check
+    stage: lint
+    run: forge_chart_version
+examples:
+  match:
+    - head: {ct.yaml: "target-branch: main\n", charts/web/Chart.yaml: "apiVersion: v2\nname: web\nversion: 1.2.0\n", charts/web/values.yaml: "replicas: 1\n"}
+      files: {charts/web/values.yaml: "replicas: 2\n"}
+    - head: {ct.yml: "chart-dirs:\n  - deploy/charts\n", deploy/charts/api/Chart.yaml: "apiVersion: v2\nname: api\nversion: \"0.3.1\"\n", deploy/charts/api/templates/svc.yaml: "kind: Service\n"}
+      files: {deploy/charts/api/Chart.yaml: "apiVersion: v2\nname: api\nversion: \"0.3.1\"\nappVersion: \"2.0\"\n"}
+  no_match:
+    - head: {ct.yaml: "target-branch: main\n", charts/web/Chart.yaml: "apiVersion: v2\nname: web\nversion: 1.2.0\n", charts/web/values.yaml: "replicas: 1\n"}
+      files: {charts/web/values.yaml: "replicas: 2\n", charts/web/Chart.yaml: "apiVersion: v2\nname: web\nversion: 1.2.1\n"}
+    - head: {charts/web/Chart.yaml: "apiVersion: v2\nname: web\nversion: 1.2.0\n", charts/web/values.yaml: "replicas: 1\n"}
+      files: {charts/web/values.yaml: "replicas: 2\n"}
+    - head: {ct.yaml: "check-version-increment: false\n", charts/web/Chart.yaml: "apiVersion: v2\nname: web\nversion: 1.2.0\n", charts/web/values.yaml: "replicas: 1\n"}
+      files: {charts/web/values.yaml: "replicas: 2\n"}
+    - head: {ct.yaml: "target-branch: main\n"}
+      files: {charts/new/Chart.yaml: "apiVersion: v2\nname: new\nversion: 0.1.0\n"}

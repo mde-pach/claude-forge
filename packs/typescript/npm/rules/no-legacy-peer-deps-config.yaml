@@ -1,0 +1,10 @@
+id: typescript/npm/no-legacy-peer-deps-config
+description: No legacy-peer-deps=true or force=true in .npmrc; they hide every peer dependency conflict of every install.
+scope: {language: any, files: ["**/.npmrc"]}
+enforce:
+  - target: grep
+    mode: forbid
+    pattern: "^[[:space:]]*(legacy-peer-deps|force)[[:space:]]*=[[:space:]]*true"
+examples:
+  match: ["registry=https://registry.npmjs.org/\nlegacy-peer-deps=true\n", "force = true\n"]
+  no_match: ["registry=https://registry.npmjs.org/\nlegacy-peer-deps=false\n", "# legacy-peer-deps=true\n"]

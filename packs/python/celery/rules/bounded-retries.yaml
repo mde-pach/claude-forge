@@ -1,0 +1,44 @@
+id: python/celery/bounded-retries
+description: "Celery retries are bounded: no max_retries=None (retry forever) in a @shared_task / @<app>.task decorator, its retry_kwargs, a self.retry(), apply_async(), signature() or .set() call, or as a class attribute of a Task subclass. Use autoretry_for with max_retries and retry_backoff, or self.retry() with Celery's default of 3. Other libraries' max_retries (requests' HTTPAdapter, urllib3) are not concerned."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        - kind: keyword_argument
+          regex: "^max_retries[[:space:]]*=[[:space:]]*None$"
+          inside:
+            kind: argument_list
+            stopBy: neighbor
+            inside:
+              kind: call
+              stopBy: neighbor
+              any:
+                - has: {field: function, regex: "(^|\\.)(shared_task|task)$"}
+                - has: {field: function, kind: attribute, regex: "\\.(retry|apply_async|signature|set)$"}
+        - kind: pair
+          regex: "^[\"']max_retries[\"'][[:space:]]*:[[:space:]]*None$"
+          inside:
+            kind: keyword_argument
+            stopBy: end
+            regex: "^retry_kwargs[[:space:]]*="
+        - kind: assignment
+          regex: "^max_retries[[:space:]]*(:[^=]*)?=[[:space:]]*None$"
+          inside:
+            kind: class_definition
+            stopBy: end
+            has: {field: superclasses, regex: "(^|[^A-Za-z0-9_])Task\\b"}
+examples:
+  match:
+    - "@shared_task(bind=True, autoretry_for=(IOError,), max_retries=None)\ndef fetch(self, url_id: int) -> None:\n    download(url_id)\n"
+    - "@shared_task(bind=True)\ndef fetch(self, url_id: int) -> None:\n    try:\n        download(url_id)\n    except IOError as exc:\n        raise self.retry(exc=exc, max_retries=None)\n"
+    - "@app.task(autoretry_for=(IOError,), retry_kwargs={\"max_retries\": None})\ndef fetch(url_id: int) -> None:\n    download(url_id)\n"
+    - "fetch.apply_async((1,), max_retries=None)\n"
+    - "class FetchTask(celery.Task):\n    autoretry_for = (IOError,)\n    max_retries = None\n"
+  no_match:
+    - "@shared_task(bind=True, autoretry_for=(IOError,), max_retries=5, retry_backoff=True)\ndef fetch(self, url_id: int) -> None:\n    download(url_id)\n"
+    - "@shared_task(bind=True)\ndef fetch(self, url_id: int) -> None:\n    try:\n        download(url_id)\n    except IOError as exc:\n        raise self.retry(exc=exc, countdown=60)\n"
+    - "from requests.adapters import HTTPAdapter\n\n\ndef session_adapter():\n    adapter = HTTPAdapter(max_retries=None)\n    return adapter\n"
+    - "from urllib3 import PoolManager\n\nhttp = PoolManager(retries=None)\nconfig = {\"max_retries\": None}\n"
+    - "class Settings:\n    max_retries = None\n"

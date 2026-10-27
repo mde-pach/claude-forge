@@ -1,0 +1,21 @@
+id: typescript/upstash-ratelimit/check-limit
+description: "The result of ratelimit.limit(id) is used and its success checked, not discarded: limit() never throws, so a bare call (awaited or not) rate-limits nothing."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: expression_statement
+      has:
+        any:
+          - pattern: $RL.limit($$$)
+          - {kind: await_expression, has: {pattern: $RL.limit($$$)}}
+    where:
+      RL: {type: {package: "@upstash/ratelimit", name: Ratelimit}}
+examples:
+  deps: [{ecosystem: npm, name: "@upstash/ratelimit", version: "2.2.0"}, {ecosystem: npm, name: "@upstash/redis", version: "1.39.0"}]
+  match:
+    - "import type { Ratelimit } from \"@upstash/ratelimit\";\n\nexport async function handler(ratelimit: Ratelimit, ip: string) {\n  await ratelimit.limit(ip);\n  return \"ok\";\n}\n"
+  no_match:
+    - "import type { Ratelimit } from \"@upstash/ratelimit\";\n\nexport async function handler(ratelimit: Ratelimit, ip: string) {\n  const { success } = await ratelimit.limit(ip);\n  if (!success) return \"too many requests\";\n  return \"ok\";\n}\n"
+    - "const quota = { limit: async (id: string) => id.length };\n\nexport async function run() {\n  await quota.limit(\"x\");\n}\n"

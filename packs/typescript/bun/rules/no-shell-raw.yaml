@@ -1,0 +1,40 @@
+id: typescript/bun/no-shell-raw
+description: "Bun Shell escapes what it interpolates: no { raw: … } in a $`…` command, and no Bun.spawn/spawnSync of sh, bash or zsh -c with a command built from values (both bypass the escaping: command injection). Interpolate the values, or pass them as argv."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      any:
+        # $`rm ${{ raw: path }}`
+        - all:
+            - has: {field: function, pattern: $TAG}
+            - has: {field: arguments, kind: template_string, has: {kind: template_substitution, has: {kind: object, has: {kind: pair, has: {field: key, regex: "^[\"']?raw[\"']?$"}}}}}
+        # Bun.spawn(["sh", "-c", `… ${x}`])
+        - all:
+            - has: {field: function, pattern: $SPAWN}
+            - has:
+                field: arguments
+                has:
+                  nthChild: 1
+                  kind: array
+                  all:
+                    - has: {nthChild: 1, kind: string, regex: "^[\"'`](sh|bash|zsh)[\"'`]$"}
+                    - has: {nthChild: 2, kind: string, regex: "^[\"'`]-c[\"'`]$"}
+                    - has: {nthChild: 3, any: [{kind: template_string, has: {kind: template_substitution}}, {kind: binary_expression, regex: "\\+"}]}
+    # Bun's own $ and spawn (§15.6), whatever the import calls them.
+    where:
+      TAG: {declared: {package: bun-types, name: $}}
+      SPAWN: {declared: {package: bun-types, name: [spawn, spawnSync]}}
+examples:
+  deps: [{ecosystem: npm, name: "@types/bun", version: "1.3.1"}]
+  match:
+    - "import { $ } from \"bun\";\n\nexport async function remove(path: string) {\n  await $`rm -rf ${{ raw: path }}`;\n}\n"
+    - "export function grep(pattern: string) {\n  return Bun.spawnSync([\"sh\", \"-c\", `grep -r ${pattern} .`]);\n}\n"
+    - "import { $ as sh } from \"bun\";\n\nexport async function list(flags: string) {\n  return sh`ls ${{ raw: flags }}`.text();\n}\n"
+  no_match:
+    - "import { $ } from \"bun\";\n\nexport async function remove(path: string) {\n  await $`rm -rf ${path}`;\n}\n"
+    - "export function grep(pattern: string) {\n  return Bun.spawnSync([\"grep\", \"-r\", pattern, \".\"]);\n}\n"
+    - "const $ = (s: TemplateStringsArray, ...v: unknown[]) => s.join(\"\") + v.length;\n\nexport const text = $`a ${{ raw: \"b\" }}`;\n"
+    - "export function status() {\n  return Bun.spawnSync([\"sh\", \"-c\", \"git status\"]);\n}\n"

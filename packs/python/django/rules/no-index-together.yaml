@@ -1,0 +1,29 @@
+id: python/django/no-index-together
+description: "A model's Meta lists its indexes in indexes = [models.Index(fields=[…])], not index_together: Django 5.1 removed index_together and ignores it in silence, so the index is never created."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: assignment
+      has: {field: left, regex: "^index_together$"}
+      inside:
+        kind: class_definition
+        stopBy: end
+        has: {field: name, regex: "^Meta$"}
+        inside:
+          kind: class_definition
+          stopBy: end
+          # the last base: a model's mixins come before its model base
+          has: {field: superclasses, has: {nthChild: {position: 1, reverse: true}, pattern: $B}}
+    # the class is a Django model: its base is (a subclass of) Model, by its type (§15.1)
+    where:
+      B: {type: {package: django, name: Model}}
+    needs: [{ecosystem: pypi, name: django-stubs}]
+examples:
+  deps: [{ecosystem: pypi, name: django, version: "6.1.2"}, {ecosystem: pypi, name: django-stubs, version: "6.1.2"}]
+  match:
+    - "from django.db import models\n\n\nclass Stamped(models.Model):\n    created = models.DateTimeField()\n\n    class Meta:\n        abstract = True\n\n\nclass Article(Stamped):\n    title = models.CharField(max_length=100)\n\n    class Meta:\n        index_together = [(\"title\", \"created\")]\n"
+  no_match:
+    - "from django.db import models\n\n\nclass Article(models.Model):\n    title = models.CharField(max_length=100)\n\n    class Meta:\n        indexes = [models.Index(fields=[\"title\"])]\n"
+    - "class Table:\n    class Meta:\n        index_together = [(\"a\", \"b\")]\n"

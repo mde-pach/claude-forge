@@ -1,0 +1,18 @@
+id: python/no-pkg-resources
+description: "Use importlib.metadata and importlib.resources, not pkg_resources."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: TID251
+    snippet: |
+      [tool.ruff.lint]
+      extend-select = ["TID251"]
+
+      [tool.ruff.lint.flake8-tidy-imports.banned-api]
+      "pkg_resources".msg = "use importlib.metadata / importlib.resources"
+examples:
+  match:
+    - "import pkg_resources\n\nversion = pkg_resources.get_distribution(\"requests\").version\n"
+  no_match:
+    - "from importlib.metadata import version\n\nv = version(\"requests\")\n"

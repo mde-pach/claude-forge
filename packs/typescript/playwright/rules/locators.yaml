@@ -1,6 +1,6 @@
 id: typescript/playwright/locators
 description: Use locators (getByRole, getByLabel, locator()), not element handles or waitForSelector/waitForNavigation.
-scope: {language: typescript, files: ["e2e/**", "**/*.spec.*"]}
+scope: {language: typescript, files: ["@e2e-tests", "**/*.spec.*"]}
 enforce:
   - target: ast-grep
     mode: forbid

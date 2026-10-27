@@ -39,10 +39,13 @@ const group = (xs: Example[] = []): { code: string; lang: string; title?: string
   return [
     ...(single.length ? [{ code: single.join("\n"), lang }] : []),
     ...xs.flatMap((x) =>
-      typeof x !== "string"
+      typeof x !== "string" && "command" in x
+        ? [{ code: x.command, lang, title: x.files ? `with ${Object.keys(x.files).join(", ")}` : undefined }]
+        : typeof x !== "string"
         ? [
-            ...Object.entries(x.head ?? {}).map(([p, code]) => ({ code, lang: fileLang(p), title: `${p} (at HEAD)` })),
-            ...Object.entries(x.files).map(([p, code]) => ({ code, lang: fileLang(p), title: x.head && p in x.head ? `${p} (changed)` : p })),
+            // an empty fixture file (py.typed, __init__.py) is shown as such: Code renders no empty string
+            ...Object.entries(x.head ?? {}).map(([p, code]) => ({ code: code || "(empty file)", lang: code ? fileLang(p) : "txt", title: `${p} (at HEAD)` })),
+            ...Object.entries(x.files).map(([p, code]) => ({ code: code || "(empty file)", lang: code ? fileLang(p) : "txt", title: x.head && p in x.head ? `${p} (changed)` : p })),
           ]
         : single.includes(x)
           ? []
@@ -54,7 +57,7 @@ const oneLiners = [...(rule.examples?.match ?? []), ...(rule.examples?.no_match 
 const verdict = (() => {
   const t = rule.enforce.find((x) => x.target !== "tool") ?? rule.enforce[0]!;
   if (t.target === "guard" || t.target === "permission") return t.decision === "deny" ? "denied" : "asks you first";
-  if (t.target === "ast-grep" || t.target === "grep") return t.mode === "forbid" ? "flagged" : t.mode === "no-increase" ? "counted: may not increase" : "counted: may not decrease";
+  if (t.target === "ast-grep" || t.target === "grep") return t.mode === "forbid" ? "flagged" : t.mode === "advise" ? "flagged (advice)" : t.mode === "no-increase" ? "counted: may not increase" : "counted: may not decrease";
   if (t.target === "tool") return `reported by ${t.tool}`;
   return "fails";
 })();
@@ -62,6 +65,7 @@ const MODE: Record<string, string> = {
   forbid: "A match on an added line fails (any match, in CI with --all).",
   "no-increase": "A changed file may not have more matches than in the base (the start of the turn, HEAD, or the merge base).",
   "no-decrease": "A changed file may not have fewer matches than in the base (the start of the turn, HEAD, or the merge base).",
+  advise: "A match on a line added during the turn is reported to Claude after the edit; it never fails Stop, a commit or CI.",
 };
 ---
 
@@ -124,7 +128,7 @@ const MODE: Record<string, string> = {
           return (
             <>
               <p><strong>{t.tool}</strong> must report <code>{t.expects}</code>. If your config doesn't, <code>forge status</code> asks you to add:</p>
-              <Code code={t.snippet} lang={t.tool === "ruff" || t.tool === "basedpyright" ? "toml" : "json"} />
+              <Code code={t.snippet} lang={t.tool === "ruff" || t.tool === "ty" ? "toml" : "json"} />
             </>
           );
         if (t.target === "ast-grep")
@@ -157,6 +161,8 @@ const MODE: Record<string, string> = {
             <Code code={t.run} lang="sh" title="--all (CI)" />
             {t.changed_run && <Code code={t.changed_run} lang="sh" title="--changed (Stop, pre-commit, after an edit)" />}
             {t.fix_run && <Code code={t.fix_run} lang="sh" title="safe fixes, after an edit" />}
+            {t.format_stdin && <Code code={t.format_stdin} lang="sh" title="formats base copies, for added lines" />}
+            {t.rerun && <Code code={t.rerun} lang="sh" title="failing test files, at the start of the turn (Stop)" />}
           </>
         );
       })

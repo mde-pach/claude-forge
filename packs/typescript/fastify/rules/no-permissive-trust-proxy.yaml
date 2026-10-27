@@ -1,0 +1,44 @@
+id: typescript/fastify/no-permissive-trust-proxy
+description: "Advice: trustProxy: true in Fastify({...}) (fastify's default or named import, any local name) trusts every X-Forwarded-For hop, so the client sets request.ip (IP rate limits and logs are spoofable); give the hop count, the proxy addresses or a function."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: pair
+      all:
+        - has: {field: key, regex: "^[\"']?trustProxy[\"']?$"}
+        - has: {field: value, kind: "true"}
+        - inside:
+            kind: object
+            stopBy: neighbor
+            inside:
+              kind: arguments
+              stopBy: neighbor
+              inside:
+                kind: call_expression
+                stopBy: neighbor
+                all:
+                  - has: {field: function, kind: identifier, pattern: $F}
+                  - inside:
+                      kind: program
+                      stopBy: end
+                      has:
+                        kind: import_statement
+                        all:
+                          - has: {field: source, regex: "^[\"']fastify[\"']$"}
+                          - any:
+                              - has: {stopBy: end, kind: identifier, pattern: $F, inside: {kind: import_clause, stopBy: neighbor}}
+                              - has:
+                                  stopBy: end
+                                  kind: import_specifier
+                                  any:
+                                    - all: [{has: {field: name, regex: "^fastify$"}}, {has: {field: alias, pattern: $F}}]
+                                    - all: [{has: {field: name, regex: "^fastify$", pattern: $F}}, {not: {has: {field: alias, kind: identifier}}}]
+examples:
+  match:
+    - "import Fastify from \"fastify\";\n\nexport const app = Fastify({ logger: true, trustProxy: true });\n"
+    - "import { fastify as create } from \"fastify\";\n\nexport const app = create({ trustProxy: true });\n"
+  no_match:
+    - "import Fastify from \"fastify\";\n\nexport const app = Fastify({ trustProxy: \"10.0.0.0/8\" });\n"
+    - "import { createServer } from \"./server\";\n\nexport const app = createServer({ trustProxy: true });\n"

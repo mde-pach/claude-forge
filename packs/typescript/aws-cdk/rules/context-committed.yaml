@@ -1,0 +1,14 @@
+id: typescript/aws-cdk/context-committed
+description: cdk.context.json is not git-ignored in a CDK app (cdk.json present); CDK caches context lookups there, and it is committed so synth stays deterministic.
+scope: {language: any}
+enforce:
+  - target: check
+    stage: lint
+    run: 'if [ -f cdk.json ] && git check-ignore -q cdk.context.json; then echo "cdk.context.json is git-ignored: commit it (CDK caches context lookups there for deterministic synth)"; false; fi'
+    when_changed: [.gitignore, "**/.gitignore", cdk.json]
+examples:
+  match:
+    - files: {cdk.json: "{\"app\": \"npx tsx bin/app.ts\"}\n", .gitignore: "node_modules\ncdk.out\ncdk.context.json\n"}
+  no_match:
+    - files: {cdk.json: "{\"app\": \"npx tsx bin/app.ts\"}\n", .gitignore: "node_modules\ncdk.out\n"}
+    - files: {.gitignore: "cdk.context.json\n"}

@@ -133,7 +133,7 @@ for (const path of paths) {
 }
 } catch (e) {
   // never report a crash as a loosened setting
-  console.log(`skipped: the ratchet could not run (${String(e && e.message).split("\n")[0]})`);
+  console.log(`skipped: the ratchet could not run (${String(e?.message).split("\n")[0]})`);
   process.exit(3);
 }
 for (const f of findings) console.log(f);

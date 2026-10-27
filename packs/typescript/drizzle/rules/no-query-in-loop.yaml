@@ -1,0 +1,25 @@
+id: typescript/drizzle/no-query-in-loop
+description: "A Drizzle query (a QueryPromise: select, insert, update, delete, db.query.*.findMany / findFirst) is not awaited inside a loop body (for, for…of, for…in, while, do) or an async .map / .forEach / .flatMap callback; one query per item is N round trips. Fetch the rows in one query (inArray, a join, with: relations) or batch them."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      pattern: "await $Q"
+      any:
+        - inside: {stopBy: end, field: body, any: [{kind: for_statement}, {kind: for_in_statement}, {kind: while_statement}, {kind: do_statement}]}
+        - inside:
+            stopBy: end
+            any: [{kind: arrow_function}, {kind: function_expression}]
+            inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: member_expression, has: {field: property, regex: "^(map|forEach|flatMap)$"}}}}
+    # the awaited value is a Drizzle query, by its type (§15.1)
+    where:
+      Q: {type: {package: drizzle-orm, name: QueryPromise}}
+examples:
+  deps: [{ecosystem: npm, name: drizzle-orm, version: "0.45.4"}, {ecosystem: npm, name: pg, version: "8.23.1"}, {ecosystem: npm, name: "@types/pg", version: "8.23.1"}]
+  match:
+    - "import { eq } from \"drizzle-orm\";\nimport { drizzle } from \"drizzle-orm/node-postgres\";\nimport { integer, pgTable, serial } from \"drizzle-orm/pg-core\";\n\nconst posts = pgTable(\"posts\", { id: serial(\"id\").primaryKey(), authorId: integer(\"author_id\") });\nconst db = drizzle(\"postgres://localhost/app\");\n\nexport async function postsOf(authorIds: number[]): Promise<number> {\n  let n = 0;\n  for (const authorId of authorIds) {\n    const rows = await db.select().from(posts).where(eq(posts.authorId, authorId));\n    n += rows.length;\n  }\n  return n;\n}\n"
+    - "import { drizzle } from \"drizzle-orm/node-postgres\";\nimport { integer, pgTable, serial } from \"drizzle-orm/pg-core\";\n\nconst posts = pgTable(\"posts\", { id: serial(\"id\").primaryKey(), authorId: integer(\"author_id\") });\nconst db = drizzle(\"postgres://localhost/app\");\n\nexport function copy(authorIds: number[]) {\n  return Promise.all(authorIds.map(async (authorId) => await db.insert(posts).values({ authorId })));\n}\n"
+  no_match:
+    - "import { inArray } from \"drizzle-orm\";\nimport { drizzle } from \"drizzle-orm/node-postgres\";\nimport { integer, pgTable, serial } from \"drizzle-orm/pg-core\";\n\nconst posts = pgTable(\"posts\", { id: serial(\"id\").primaryKey(), authorId: integer(\"author_id\") });\nconst db = drizzle(\"postgres://localhost/app\");\n\nexport async function postsOf(authorIds: number[]): Promise<number> {\n  const rows = await db.select().from(posts).where(inArray(posts.authorId, authorIds));\n  return rows.length;\n}\n"
+    - "export async function fetchAll(urls: string[]): Promise<number> {\n  let n = 0;\n  for (const url of urls) {\n    const res = await fetch(url);\n    n += res.status;\n  }\n  return n;\n}\n"

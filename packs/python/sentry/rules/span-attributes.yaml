@@ -1,0 +1,21 @@
+id: python/sentry/span-attributes
+description: sentry_sdk.update_current_span() takes attributes=, not the deprecated data= (deprecated in sentry-sdk 2.35, a runtime warning only).
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call
+      pattern: "$F($$$)"
+      has: {field: arguments, has: {kind: keyword_argument, regex: "^data[[:space:]]*="}}
+    # The function called is the SDK's (§15.6); span.set_data() is not deprecated.
+    where:
+      F: {declared: {package: sentry_sdk, name: update_current_span}}
+examples:
+  deps: [{ecosystem: pypi, name: sentry-sdk, version: "2.73.0"}]
+  match:
+    - "import sentry_sdk\n\nsentry_sdk.update_current_span(data={\"user.id\": 1})\n"
+    - "from sentry_sdk import update_current_span\n\nupdate_current_span(name=\"load\", data={\"rows\": 3})\n"
+  no_match:
+    - "import sentry_sdk\n\nsentry_sdk.update_current_span(attributes={\"user.id\": 1})\n"
+    - "def update_current_span(data: dict[str, int]) -> None:\n    pass\n\n\nupdate_current_span(data={\"rows\": 3})\n"

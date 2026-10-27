@@ -1,0 +1,21 @@
+id: typescript/node/no-ecb-cipher
+description: No ECB mode in createCipheriv/createDecipheriv (equal plaintext blocks give equal ciphertext blocks); use an authenticated mode such as aes-256-gcm.
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      pattern: "$F($$$)"
+      has: {field: arguments, has: {nthChild: 1, kind: string, regex: "(?i)-ecb[\"']$"}}
+    # The function called is node:crypto's (§15.6), whatever the import calls it.
+    where:
+      F: {declared: {package: node, module: node/crypto, name: [createCipheriv, createDecipheriv]}}
+examples:
+  deps: [{ecosystem: npm, name: "@types/node", version: "24.10.1"}]
+  match:
+    - "import { createCipheriv } from \"node:crypto\";\n\nexport const cipher = (key: Buffer) => createCipheriv(\"aes-256-ecb\", key, null);\n"
+    - "import * as crypto from \"crypto\";\n\nexport const decipher = (key: Buffer) => crypto.createDecipheriv(\"AES-128-ECB\", key, null);\n"
+  no_match:
+    - "import { createCipheriv, randomBytes } from \"node:crypto\";\n\nexport const cipher = (key: Buffer) => createCipheriv(\"aes-256-gcm\", key, randomBytes(12));\n"
+    - "function createCipheriv(alg: string, key: string, iv: null): string {\n  return alg + key + String(iv);\n}\n\nexport const c = createCipheriv(\"aes-256-ecb\", \"k\", null);\n"

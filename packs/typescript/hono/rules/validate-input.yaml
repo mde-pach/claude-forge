@@ -1,0 +1,52 @@
+id: typescript/hono/validate-input
+description: "Hono handlers read the body and query through a validator middleware (zValidator, validator) and c.req.valid(), or pass the read straight to a schema (Schema.parse(await c.req.json()), safeParse, parseAsync, valibot's parse(Schema, …)); not c.req.json(), parseBody(), formData(), query() or queries() whose result is used unvalidated. The request may come from c.req or a destructured ({ req }) parameter."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      all:
+        - has:
+            field: function
+            kind: member_expression
+            all:
+              - has: {field: property, regex: "^(json|parseBody|formData|query|queries)$"}
+              - has:
+                  field: object
+                  any:
+                    - {kind: member_expression, has: {field: property, regex: "^req$"}}
+                    - all:
+                        - {kind: identifier, pattern: $R}
+                        - inside:
+                            stopBy: end
+                            any: [{kind: arrow_function}, {kind: function_expression}, {kind: function_declaration}]
+                            has:
+                              field: parameters
+                              has:
+                                stopBy: end
+                                kind: object_pattern
+                                any:
+                                  - has: {kind: shorthand_property_identifier_pattern, regex: "^req$", pattern: $R}
+                                  - has: {kind: pair_pattern, all: [{has: {field: key, regex: "^req$"}}, {has: {field: value, pattern: $R}}]}
+        - inside: {stopBy: end, kind: program, has: {kind: import_statement, has: {field: source, regex: "^[\"'](hono(/[^\"']*)?|@hono/[^\"']+)[\"']$"}}}
+        # passed straight to a schema: Schema.parse(read), parse(Schema, read)
+        - not:
+            any:
+              - inside: {kind: arguments, stopBy: neighbor, inside: {kind: call_expression, stopBy: neighbor, has: {field: function, kind: member_expression, all: [{has: {field: property, regex: "^(parse|safeParse|parseAsync|safeParseAsync)$"}}, {not: {has: {field: object, regex: "^(JSON|Date|Number|URL|path|qs|querystring)$"}}}]}}}
+              - inside: {kind: await_expression, stopBy: neighbor, inside: {kind: arguments, stopBy: neighbor, inside: {kind: call_expression, stopBy: neighbor, has: {field: function, kind: member_expression, all: [{has: {field: property, regex: "^(parse|safeParse|parseAsync|safeParseAsync)$"}}, {not: {has: {field: object, regex: "^(JSON|Date|Number|URL|path|qs|querystring)$"}}}]}}}}
+              - inside: {kind: await_expression, stopBy: neighbor, nthChild: 2, inside: {kind: arguments, stopBy: neighbor, inside: {kind: call_expression, stopBy: neighbor, has: {field: function, regex: "^(v\\.)?(parse|safeParse|parseAsync|safeParseAsync)$"}}}}
+examples:
+  match:
+    - "import { Hono } from \"hono\";\n\nconst app = new Hono();\n\napp.post(\"/posts\", async (c) => {\n  const body = await c.req.json();\n  return c.json(await db.post.create({ data: body }), 201);\n});\n"
+    - "import type { Context } from \"hono\";\n\nexport async function search(c: Context) {\n  const q = c.req.query(\"q\");\n  return c.json(await find(q));\n}\n"
+    - "import { Hono } from \"hono\";\n\nconst app = new Hono();\napp.post(\"/p\", async ({ req, json }) => json(await db.p.create({ data: await req.json() })));\n"
+    - "import { Hono } from \"hono\";\n\nconst app = new Hono();\napp.post(\"/p\", async ({ req: r, json }) => json(await db.p.create({ data: await r.parseBody() })));\n"
+    - "import { Hono } from \"hono\";\n\nconst app = new Hono();\napp.post(\"/p\", async (c) => {\n  const at = Date.parse(await c.req.json());\n  return c.json(await db.p.create({ data: { at } }));\n});\n"
+  no_match:
+    - "import { Hono } from \"hono\";\nimport { zValidator } from \"@hono/zod-validator\";\nimport { z } from \"zod\";\n\nconst app = new Hono();\n\napp.post(\"/posts\", zValidator(\"json\", z.object({ title: z.string() })), async (c) => {\n  const body = c.req.valid(\"json\");\n  return c.json(await db.post.create({ data: body }), 201);\n});\n"
+    - "import { Hono } from \"hono\";\n\nconst app = new Hono();\n\napp.get(\"/posts/:id\", (c) => c.json(find(c.req.param(\"id\"))));\n"
+    - "export async function handler(c: { req: { json(): Promise<unknown> } }) {\n  return c.req.json();\n}\n"
+    - "import { Hono } from \"hono\";\n\nconst app = new Hono();\napp.post(\"/p\", async (c) => {\n  const b = Post.parse(await c.req.json());\n  return c.json(b);\n});\n"
+    - "import { Hono } from \"hono\";\nimport * as v from \"valibot\";\n\nconst app = new Hono();\napp.post(\"/p\", async (c) => {\n  const b = v.parse(PostSchema, await c.req.json());\n  return c.json(b);\n});\n"
+    - "import { Hono } from \"hono\";\n\nconst app = new Hono();\napp.get(\"/s\", async ({ req }) => Response.json(await search(Search.parse(req.query()))));\n"

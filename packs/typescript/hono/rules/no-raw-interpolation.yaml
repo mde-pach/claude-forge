@@ -1,0 +1,49 @@
+id: typescript/hono/no-raw-interpolation
+description: "No raw() from hono/html (also under an import alias) given a template with ${}, a concatenation or a variable declared from one in the same function or module: raw() inserts its text unescaped (XSS); the html`...` tag escapes values."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      all:
+        - has: {field: function, kind: identifier, pattern: $R}
+        - inside:
+            kind: program
+            stopBy: end
+            has:
+              kind: import_statement
+              all:
+                - has: {field: source, regex: "^[\"']hono/html[\"']$"}
+                - has:
+                    stopBy: end
+                    kind: import_specifier
+                    any:
+                      - all: [{has: {field: name, regex: "^raw$"}}, {has: {field: alias, pattern: $R}}]
+                      - all: [{has: {field: name, regex: "^raw$", pattern: $R}}, {not: {has: {field: alias, kind: identifier}}}]
+        - has:
+            field: arguments
+            has:
+              nthChild: 1
+              any:
+                - {kind: template_string, has: {kind: template_substitution}}
+                - {kind: binary_expression, regex: "\\+"}
+                - all:
+                    - {kind: identifier, pattern: $Q}
+                    - inside:
+                        stopBy: end
+                        any: [{kind: statement_block}, {kind: program}]
+                        has:
+                          stopBy: end
+                          kind: variable_declarator
+                          all:
+                            - has: {field: name, pattern: $Q}
+                            - has: {field: value, any: [{kind: template_string, has: {kind: template_substitution}}, {kind: binary_expression, regex: "\\+"}]}
+examples:
+  match:
+    - "import { raw } from \"hono/html\";\n\nexport const greet = (name: string) => raw(`<p>Hello ${name}</p>`);\n"
+    - "import { html, raw as unsafe } from \"hono/html\";\n\nexport function card(title: string) {\n  const body = \"<h2>\" + title + \"</h2>\";\n  return html`<div>${unsafe(body)}</div>`;\n}\n"
+  no_match:
+    - "import { html } from \"hono/html\";\n\nexport const greet = (name: string) => html`<p>Hello ${name}</p>`;\n"
+    - "import { raw } from \"hono/html\";\n\nconst ICON = \"<svg></svg>\";\nexport const icon = raw(ICON);\nexport const hr = raw(\"<hr>\");\n"
+    - "const raw = (s: string) => s;\n\nexport const v = (id: string) => raw(`k:${id}`);\n"

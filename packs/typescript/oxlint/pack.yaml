@@ -1,0 +1,6 @@
+id: typescript/oxlint
+description: oxlint with its type-aware rules (oxlint-tsgolint).
+level: project
+detect:
+  files_any: [.oxlintrc.json, oxlint.config.ts]
+  deps_any: [{ecosystem: npm, name: oxlint}]

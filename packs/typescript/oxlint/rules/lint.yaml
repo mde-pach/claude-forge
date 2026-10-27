@@ -1,0 +1,19 @@
+id: typescript/oxlint/lint
+description: oxlint passes on the added lines with its type-aware rules and no warning (oxlint --type-aware --deny-warnings); without oxlint-tsgolint installed the type-aware run fails, so those rules are never skipped silently.
+scope: {language: typescript}
+enforce:
+  - target: check
+    stage: lint
+    run: "oxlint --type-aware --deny-warnings --format unix"
+    changed_run: "oxlint --type-aware --deny-warnings --format unix {files}"
+    # --deny-warnings makes warnings fail the run: they are attributed like errors
+    fail_on_warnings: true
+examples:
+  match:
+    - head: {tsconfig.json: "{\"compilerOptions\": {\"strict\": true, \"module\": \"esnext\", \"moduleResolution\": \"bundler\", \"target\": \"es2022\"}, \"include\": [\"src\"]}\n"}
+      files: {src/sync.ts: "async function save(): Promise<void> {}\n\nexport function sync(): void {\n  save();\n}\n"}
+    - head: {tsconfig.json: "{\"compilerOptions\": {\"strict\": true, \"module\": \"esnext\", \"moduleResolution\": \"bundler\", \"target\": \"es2022\"}, \"include\": [\"src\"]}\n"}
+      files: {src/sync.ts: "export function sync(): number {\n  const unused = 1;\n  return 2;\n}\n"}
+  no_match:
+    - head: {tsconfig.json: "{\"compilerOptions\": {\"strict\": true, \"module\": \"esnext\", \"moduleResolution\": \"bundler\", \"target\": \"es2022\"}, \"include\": [\"src\"]}\n"}
+      files: {src/sync.ts: "async function save(): Promise<void> {}\n\nexport async function sync(): Promise<void> {\n  await save();\n}\n"}

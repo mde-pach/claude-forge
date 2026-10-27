@@ -1,0 +1,14 @@
+id: sql/applied-migrations
+description: SQL migrations already in the base (file role @sql-migrations) are not modified or deleted; they may already be applied (Flyway checksums them), so a change goes in a new migration.
+scope: {language: any}
+enforce:
+  - {target: check, stage: migration, run: "forge_applied_migrations @sql-migrations"}
+examples:
+  match:
+    - head: {supabase/config.toml: "project_id = \"shop\"\n", supabase/migrations/20260101000000_init.sql: "CREATE TABLE orders (id bigint PRIMARY KEY);\n"}
+      files: {supabase/migrations/20260101000000_init.sql: "CREATE TABLE orders (id bigint PRIMARY KEY, paid boolean);\n"}
+  no_match:
+    - head: {supabase/config.toml: "project_id = \"shop\"\n", supabase/migrations/20260101000000_init.sql: "CREATE TABLE orders (id bigint PRIMARY KEY);\n"}
+      files: {supabase/migrations/20260102000000_paid.sql: "ALTER TABLE orders ADD COLUMN paid boolean;\n"}
+    - head: {db/migrations/20260101000000_init.sql: "-- migrate:up\nCREATE TABLE orders (id bigint PRIMARY KEY);\n", db/schema.sql: "CREATE TABLE orders (id bigint PRIMARY KEY);\n"}
+      files: {db/schema.sql: "CREATE TABLE orders (id bigint PRIMARY KEY, paid boolean);\n"}

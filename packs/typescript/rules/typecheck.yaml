@@ -2,7 +2,8 @@ id: typescript/typecheck
 description: The project passes tsc.
 scope: {language: typescript}
 enforce:
-  - {target: check, stage: typecheck, run: "tsc --noEmit -p tsconfig.json"}
+  # plain diagnostics (--pretty false); incremental, with the build info kept in the root's .forge/state/ (ignored; one file per workspace package), never next to the project's tsconfig or its composite build info
+  - {target: check, stage: typecheck, run: "tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile \"$(forge_state_file tsc.tsbuildinfo)\""}
 examples:
   match:
     - files:

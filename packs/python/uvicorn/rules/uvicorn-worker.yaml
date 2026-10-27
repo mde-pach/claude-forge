@@ -1,0 +1,13 @@
+id: python/uvicorn/uvicorn-worker
+description: "Gunicorn runs Uvicorn through uvicorn_worker.UvicornWorker (package uvicorn-worker), not the deprecated uvicorn.workers.UvicornWorker; or Uvicorn runs alone with --workers N."
+scope: {language: any, files: ["@dockerfile", "@procfile", "@compose", "@gunicorn-config", "**/*.py"]}
+enforce:
+  - {target: grep, mode: forbid, pattern: "uvicorn\\.workers\\.Uvicorn(H11)?Worker"}
+examples:
+  match:
+    - "FROM python:3.13-slim\nCMD [\"gunicorn\", \"app.main:app\", \"-k\", \"uvicorn.workers.UvicornWorker\"]\n"
+    - "web: gunicorn app.main:app --worker-class uvicorn.workers.UvicornH11Worker\n"
+    - "worker_class = \"uvicorn.workers.UvicornWorker\"\n"
+  no_match:
+    - "FROM python:3.13-slim\nCMD [\"gunicorn\", \"app.main:app\", \"-k\", \"uvicorn_worker.UvicornWorker\"]\n"
+    - "web: uvicorn app.main:app --workers 4\n"

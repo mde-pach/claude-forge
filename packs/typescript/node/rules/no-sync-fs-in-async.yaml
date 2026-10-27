@@ -1,0 +1,29 @@
+id: typescript/node/no-sync-fs-in-async
+description: No node:fs *Sync call inside an async function; await node:fs/promises instead (a sync call blocks the event loop for every request).
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: call_expression
+      pattern: "$F($$$)"
+      # Node's own naming of its blocking variants
+      has: {field: function, regex: "Sync$"}
+      inside:
+        stopBy: end
+        any: [{kind: function_declaration}, {kind: function_expression}, {kind: arrow_function}, {kind: method_definition}]
+        regex: "^((public|private|protected|static|override)[[:space:]]+)*async[[:space:]]"
+    # The function called is node:fs's (§15.6), whatever the import calls it.
+    where:
+      F: {declared: {package: node, module: node/fs}}
+examples:
+  deps: [{ecosystem: npm, name: "@types/node", version: "24.10.1"}]
+  match:
+    - "import { readFileSync } from \"node:fs\";\n\nexport async function config(path: string) {\n  return JSON.parse(readFileSync(path, \"utf8\"));\n}\n"
+    - "import fs from \"fs\";\n\nexport const handler = async (dir: string) => fs.readdirSync(dir);\n"
+    - "import * as fs from \"node:fs\";\n\nexport class Store {\n  async save(path: string, data: string) {\n    fs.writeFileSync(path, data);\n  }\n}\n"
+  no_match:
+    - "import { readFile } from \"node:fs/promises\";\n\nexport async function config(path: string) {\n  return JSON.parse(await readFile(path, \"utf8\"));\n}\n"
+    - "import { readFileSync } from \"node:fs\";\n\nexport function config(path: string) {\n  return JSON.parse(readFileSync(path, \"utf8\"));\n}\n"
+    - "import { execSync } from \"node:child_process\";\n\nexport async function head() {\n  return execSync(\"git rev-parse HEAD\").toString();\n}\n"
+    - "const cache = { loadSync: (key: string) => key };\n\nexport async function get(key: string) {\n  return cache.loadSync(key);\n}\n"

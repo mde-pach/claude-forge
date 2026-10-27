@@ -30,11 +30,28 @@ Every rule blocks, so a rule you don't want is disabled with a reason.
 <Spec file="05-inputs" describe="forge.yaml" />
 <Spec file="05-inputs" top />
 
+## File roles
+
+Rules name the files they are about by role (`@python-tests`, `@alembic-migrations`, `@dockerfile`, …), never by globs of their own. A role starts from Forge's defaults, which the tool's own config replaces when Forge can read it as data: pytest's `testpaths` and `python_files`, `alembic.ini`'s `script_location`, `schema.prisma`'s generator `output`, `package.json`'s `prisma.schema`. Code configs (`vitest.config.ts`, `playwright.config.ts`, …) are never run, so a layout they set goes in `forge.yaml`:
+
+```yaml
+files:
+  python-tests: {add: ["integration/**/check_*.py"]}   # added to the role
+  e2e-tests: {set: ["apps/web/e2e/**"]}                # replaces the defaults and the tool's config
+  typeorm-datasource: {set: [src/data-source.ts]}      # a role with no default
+```
+
+`forge status` lists each role the active rules use, its patterns and where each comes from, and says when one matches no file; a rule whose role has no pattern at all is reported as not enforced rather than run on other files. A changed tool config or `files:` entry shows as drift until the next `forge apply`. SPECS.md §15.4 lists the roles and their defaults.
+
+<Spec file="15-4-file-roles" describe="defaults from the tool's config" />
+<Spec file="15-4-file-roles" describe="forge.yaml" />
+<Spec file="15-4-file-roles" describe="status and drift" />
+
 ## Project-local rules
 
-Rule files in `.forge/rules/` use the same format as pack rules. A local rule whose `id` equals a pack rule's id replaces it; a new id adds a rule. `forge test`, run inside the repository, tests their examples too.
+Rule files in `.forge/rules/` use the same format as pack rules. A local rule whose `id` equals a pack rule's id replaces it; a new id adds a rule. `forge test`, run inside the repository, validates them and runs their examples (a local rule replacing a pack rule is tested as written); it does not re-run the bundled packs, which Forge's own test suite proves. Without local rules it has nothing to test.
 
-Rules have no parameters; a local rule of the same id is how you adapt one. For example, to exempt a public endpoint from `typescript/nextjs/server-action-auth`, or to add your own auth helper's name, copy the rule from its [pack page](../../packs/typescript/nextjs/) into `.forge/rules/server-action-auth.yaml` and add `"!app/api/newsletter/route.ts"` to `scope.files`, or the helper's name to the regex.
+Rules have no parameters; a local rule of the same id is how you adapt one: copy the rule from its pack page into `.forge/rules/<name>.yaml` and change it, for example add `"!path/to/file.ts"` to `scope.files` to exempt a file.
 
 <Spec file="05-inputs" describe="project-local rules" />
 

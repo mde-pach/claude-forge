@@ -1,0 +1,19 @@
+id: python/redis/no-aioredis
+description: "No aioredis: it is unmaintained (merged into redis-py 4.2); use redis.asyncio."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: TID251
+    snippet: |
+      [tool.ruff.lint]
+      extend-select = ["TID251"]
+
+      [tool.ruff.lint.flake8-tidy-imports.banned-api]
+      "aioredis".msg = "aioredis is unmaintained; use redis.asyncio"
+examples:
+  match:
+    - "import aioredis\n\nredis = aioredis.from_url(\"redis://localhost\")\n"
+    - "from aioredis import Redis\n\nclient = Redis(host=\"localhost\")\n"
+  no_match:
+    - "import redis.asyncio as redis\n\nclient = redis.from_url(\"redis://localhost\")\n"

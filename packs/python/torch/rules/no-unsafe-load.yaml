@@ -1,0 +1,10 @@
+id: python/torch/no-unsafe-load
+description: "No weights_only=False (torch.load, and the libraries that pass it on to torch.load): the file is then unpickled, which runs any code it holds. Load a state_dict, or allow the checkpoint's own classes with torch.serialization.add_safe_globals()."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule: {kind: keyword_argument, regex: "^weights_only[[:space:]]*=[[:space:]]*False$"}
+examples:
+  match: ["import torch\n\nstate = torch.load(\"model.pt\", weights_only=False)\n"]
+  no_match: ["import torch\n\nstate = torch.load(\"model.pt\")\n", "import torch\n\nstate = torch.load(\"model.pt\", weights_only=True)\n"]

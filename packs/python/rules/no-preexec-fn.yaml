@@ -1,0 +1,14 @@
+id: python/no-preexec-fn
+description: "subprocess does not take preexec_fn: it is not safe with threads; use start_new_session, process_group, user or group."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: PLW1509
+    snippet: '[tool.ruff.lint] extend-select = ["PLW1509"]'
+examples:
+  match:
+    - "import os\nimport subprocess\n\nsubprocess.Popen([\"job\"], preexec_fn=os.setsid)\n"
+  no_match:
+    - "import subprocess\n\nsubprocess.Popen([\"job\"], start_new_session=True)\n"
+    - "import subprocess\n\nsubprocess.Popen([\"job\"], preexec_fn=None)\n"

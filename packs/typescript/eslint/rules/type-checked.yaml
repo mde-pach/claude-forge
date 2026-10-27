@@ -1,0 +1,73 @@
+id: typescript/eslint/type-checked
+description: "typescript-eslint's type-aware rules that Biome has no equivalent for are errors: no any flowing through assignments, calls, member access, returns and arguments; return await in try; no unbound methods, misused spreads, array delete or for-in over arrays; template expressions, promise rejections and catch callbacks typed; no unnecessary assertions or conditions; no object literal assertions. They need parserOptions.projectService and TypeScript 6 or older."
+scope: {language: typescript}
+enforce:
+  - target: tool
+    tool: eslint
+    expects: "@typescript-eslint/no-unsafe-assignment"
+    snippet: "\"rules\": {\"@typescript-eslint/no-unsafe-assignment\": \"error\"}"
+  - target: tool
+    tool: eslint
+    expects: "@typescript-eslint/no-unsafe-call"
+    snippet: "\"rules\": {\"@typescript-eslint/no-unsafe-call\": \"error\"}"
+  - target: tool
+    tool: eslint
+    expects: "@typescript-eslint/no-unsafe-member-access"
+    snippet: "\"rules\": {\"@typescript-eslint/no-unsafe-member-access\": \"error\"}"
+  - target: tool
+    tool: eslint
+    expects: "@typescript-eslint/no-unsafe-return"
+    snippet: "\"rules\": {\"@typescript-eslint/no-unsafe-return\": \"error\"}"
+  - target: tool
+    tool: eslint
+    expects: "@typescript-eslint/no-unsafe-argument"
+    snippet: "\"rules\": {\"@typescript-eslint/no-unsafe-argument\": \"error\"}"
+  - target: tool
+    tool: eslint
+    expects: "@typescript-eslint/return-await"
+    snippet: "\"rules\": {\"@typescript-eslint/return-await\": \"error\"}"
+  - target: tool
+    tool: eslint
+    expects: "@typescript-eslint/unbound-method"
+    snippet: "\"rules\": {\"@typescript-eslint/unbound-method\": \"error\"}"
+  - target: tool
+    tool: eslint
+    expects: "@typescript-eslint/no-misused-spread"
+    snippet: "\"rules\": {\"@typescript-eslint/no-misused-spread\": \"error\"}"
+  - target: tool
+    tool: eslint
+    expects: "@typescript-eslint/no-array-delete"
+    snippet: "\"rules\": {\"@typescript-eslint/no-array-delete\": \"error\"}"
+  - target: tool
+    tool: eslint
+    expects: "@typescript-eslint/no-for-in-array"
+    snippet: "\"rules\": {\"@typescript-eslint/no-for-in-array\": \"error\"}"
+  - target: tool
+    tool: eslint
+    expects: "@typescript-eslint/restrict-template-expressions"
+    snippet: "\"rules\": {\"@typescript-eslint/restrict-template-expressions\": \"error\"}"
+  - target: tool
+    tool: eslint
+    expects: "@typescript-eslint/prefer-promise-reject-errors"
+    snippet: "\"rules\": {\"@typescript-eslint/prefer-promise-reject-errors\": \"error\"}"
+  - target: tool
+    tool: eslint
+    expects: "@typescript-eslint/use-unknown-in-catch-callback-variable"
+    snippet: "\"rules\": {\"@typescript-eslint/use-unknown-in-catch-callback-variable\": \"error\"}"
+  - target: tool
+    tool: eslint
+    expects: "@typescript-eslint/no-unnecessary-type-assertion"
+    snippet: "\"rules\": {\"@typescript-eslint/no-unnecessary-type-assertion\": \"error\"}"
+  - target: tool
+    tool: eslint
+    expects: "@typescript-eslint/no-unnecessary-condition"
+    snippet: "\"rules\": {\"@typescript-eslint/no-unnecessary-condition\": \"error\"}"
+  - target: tool
+    tool: eslint
+    expects: "@typescript-eslint/consistent-type-assertions"
+    snippet: "\"rules\": {\"@typescript-eslint/consistent-type-assertions\": [\"error\", {\"assertionStyle\": \"as\", \"objectLiteralTypeAssertions\": \"never\"}]}"
+examples:
+  match:
+    - "declare const input: any;\ndeclare function load(): Promise<number>;\ndeclare function show(s: string): string;\n\nclass Counter {\n  n = 0;\n  inc(): number {\n    return ++this.n;\n  }\n}\n\nexport const name: string = input;\ninput.run();\nexport function raw(): string {\n  return input;\n}\nshow(input);\nexport async function fetchOne(): Promise<number> {\n  try {\n    return load();\n  } catch {\n    return 0;\n  }\n}\nexport const inc = new Counter().inc;\nexport const chars = [...\"hello\"];\nconst list = [1, 2, 3];\ndelete list[0];\nfor (const i in list) show(i);\nexport const label = `count: ${{ a: 1 }}`;\nexport const rejected = Promise.reject(\"nope\");\nexport const caught = load().catch((err) => show(err));\nconst text: string = \"x\";\nexport const same = text as string;\nconst box = { a: 1 };\nif (box) show(\"always\");\nexport const cfg = { port: 1 } as { port: number };\n"
+  no_match:
+    - "declare const input: unknown;\ndeclare function load(): Promise<number>;\ndeclare function show(s: string): string;\n\nclass Counter {\n  n = 0;\n  inc = (): number => ++this.n;\n}\n\nexport const name: string = typeof input === \"string\" ? input : \"\";\nexport function raw(): string {\n  return String(input);\n}\nshow(String(input));\nexport async function fetchOne(): Promise<number> {\n  try {\n    return await load();\n  } catch {\n    return 0;\n  }\n}\nexport const inc = new Counter().inc;\nexport const chars = Array.from(\"hello\");\nconst list = [1, 2, 3];\nlist.splice(0, 1);\nfor (const i of list) show(String(i));\nexport const label = `count: ${JSON.stringify({ a: 1 })}`;\nexport const rejected = Promise.reject(new Error(\"nope\"));\nexport const caught = load().catch((err: unknown) => show(String(err)));\nconst text: string = \"x\";\nexport const same = text;\nconst box: { a: number } | undefined = list.length ? { a: 1 } : undefined;\nif (box) show(\"sometimes\");\nexport const cfg: { port: number } = { port: 1 };\n"

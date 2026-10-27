@@ -1,0 +1,11 @@
+id: supply-chain/insecure-download
+description: Claude asks before downloading without certificate checks (curl -k / --insecure, wget --no-check-certificate); fine for a local server with a self-signed certificate, not for anything fetched from the internet.
+review: "Does this command skip certificate checks only for a local or development server (localhost, a self-signed dev certificate), not for anything fetched from the internet?"
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: ask
+    pattern: '(^|[^A-Za-z0-9_-])(curl[[:space:]]([^;&|]*[[:space:]])?(-[A-Za-z]*k[A-Za-z]*|--insecure)|wget[[:space:]]([^;&|]*[[:space:]])?--no-check-certificate)([[:space:];&|)]|$)'
+examples:
+  match: ["curl -k https://localhost:8443/health", "curl -fsSLk https://localhost:8443/health", "curl --insecure -o tool.tgz https://downloads.example.com/tool.tgz", "wget --no-check-certificate https://example.com/x.sh"]
+  no_match: ["curl -fsSL https://example.com/x.json", "curl -o out-k https://example.com/x", "curl --keepalive-time 5 https://example.com", "wget https://example.com/x.tgz"]

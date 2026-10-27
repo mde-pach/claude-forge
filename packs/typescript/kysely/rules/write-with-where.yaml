@@ -1,0 +1,35 @@
+id: typescript/kysely/write-with-where
+description: "Advice: a Kysely deleteFrom(table) / updateTable(table) chain executed with execute*() has a where…(); without it the whole table is deleted or updated."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: call_expression
+      any:
+        - pattern: $DB.deleteFrom($T)
+        - pattern: $DB.updateTable($T)
+      all:
+        # executed in the same method chain (a builder kept in a variable is not followed)
+        - inside:
+            kind: member_expression
+            has: {field: property, regex: "^execute(TakeFirst|TakeFirstOrThrow)?$"}
+            stopBy:
+              not: {any: [{kind: member_expression}, {kind: call_expression}]}
+        - not:
+            inside:
+              kind: member_expression
+              has: {field: property, regex: "^where"}
+              stopBy:
+                not: {any: [{kind: member_expression}, {kind: call_expression}]}
+    where:
+      DB: {type: {package: kysely, name: [Kysely, Transaction]}}
+examples:
+  deps: [{ecosystem: npm, name: kysely, version: "0.29.6"}]
+  match:
+    - "import type { Kysely } from \"kysely\";\n\ninterface DB {\n  person: { id: number; name: string };\n}\n\nexport async function wipe(db: Kysely<DB>) {\n  await db.deleteFrom(\"person\").execute();\n}\n"
+    - "import type { Kysely } from \"kysely\";\n\ninterface DB {\n  person: { id: number; name: string };\n}\n\nexport async function rename(db: Kysely<DB>, name: string) {\n  await db.transaction().execute(async (trx) => {\n    await trx.updateTable(\"person\").set({ name }).executeTakeFirst();\n  });\n}\n"
+  no_match:
+    - "import type { Kysely } from \"kysely\";\n\ninterface DB {\n  person: { id: number; name: string };\n}\n\nexport async function remove(db: Kysely<DB>, id: number, name: string) {\n  await db.deleteFrom(\"person\").where(\"id\", \"=\", id).execute();\n  await db.updateTable(\"person\").set({ name }).whereRef(\"id\", \"=\", \"id\").executeTakeFirstOrThrow();\n}\n"
+    - "import type { Kysely } from \"kysely\";\n\ninterface DB {\n  person: { id: number; name: string };\n}\n\nexport function builder(db: Kysely<DB>) {\n  return db.deleteFrom(\"person\");\n}\n"
+    - "const store = { deleteFrom: (t: string) => ({ execute: () => t }) };\n\nexport const r = store.deleteFrom(\"person\").execute();\n"

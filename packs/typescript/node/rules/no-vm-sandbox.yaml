@@ -1,0 +1,21 @@
+id: typescript/node/no-vm-sandbox
+description: Importing node:vm is reported for review; it is not a security boundary, so code from users or the network must not run in it.
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      any:
+        - {kind: import_statement, has: {field: source, regex: "^[\"'](node:)?vm[\"']$"}}
+        - kind: call_expression
+          all:
+            - has: {field: function, regex: "^(require|import)$"}
+            - has: {field: arguments, has: {kind: string, regex: "^[\"'](node:)?vm[\"']$"}}
+examples:
+  match:
+    - "import vm from \"node:vm\";\n\nexport function run(code: string): unknown {\n  return vm.runInNewContext(code, {});\n}\n"
+    - "import { runInNewContext } from \"vm\";\n\nexport const run = (code: string): unknown => runInNewContext(code);\n"
+    - "const vm = require(\"node:vm\");\n\nexports.run = (code) => vm.runInNewContext(code);\n"
+  no_match:
+    - "import { readFile } from \"node:fs/promises\";\n\nexport const load = (path: string) => readFile(path, \"utf8\");\n"
+    - "import { vm } from \"./view-model\";\n\nexport const title = vm.title;\n"

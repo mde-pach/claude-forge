@@ -1,0 +1,17 @@
+id: typescript/nextjs/react/client-env-public-only
+description: "A 'use client' file reads only NEXT_PUBLIC_ variables and NODE_ENV from process.env; any other variable is undefined in the browser. Read it in a Server Component and pass the value down."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: member_expression
+      has: {field: object, pattern: "process.env"}
+      not: {regex: "^process\\.env\\.(NEXT_PUBLIC_[A-Za-z0-9_]*|NODE_ENV)$"}
+      inside:
+        kind: program
+        stopBy: end
+        has: {kind: expression_statement, nthChild: 1, regex: "^[\"']use client[\"'];?$"}
+examples:
+  match: ["'use client';\nexport const k = process.env.STRIPE_KEY;\n", "\"use client\";\nexport function Map() {\n  return <div data-key={process.env.MAPS_API_KEY} />;\n}\n"]
+  no_match: ["'use client';\nexport const k = process.env.NEXT_PUBLIC_STRIPE_KEY;\nexport const d = process.env.NODE_ENV === \"development\";\n", "export const k = process.env.STRIPE_KEY;\n"]

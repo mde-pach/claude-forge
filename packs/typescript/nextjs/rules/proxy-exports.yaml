@@ -1,0 +1,14 @@
+id: typescript/nextjs/proxy-exports
+description: "proxy.ts exports proxy (or a default export), not middleware, and no runtime segment config: Next.js 16 looks for the proxy export, and a proxy always runs on Node.js."
+scope: {language: typescript, files: ["proxy.ts", "src/proxy.ts"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        - {kind: export_statement, not: {regex: "^export\\s+default"}, has: {kind: function_declaration, has: {field: name, regex: "^middleware$"}}}
+        - {kind: export_statement, has: {kind: lexical_declaration, has: {kind: variable_declarator, has: {field: name, regex: "^(middleware|runtime)$"}}}}
+        - {kind: export_specifier, any: [{has: {field: alias, regex: "^(middleware|runtime)$"}}, {not: {has: {field: alias, regex: "."}}, has: {field: name, regex: "^(middleware|runtime)$"}}]}
+examples:
+  match: ["export function middleware() {}\n", "const m = () => {};\nexport { m as middleware };\n", "export const runtime = \"nodejs\";\nexport function proxy() {}\n"]
+  no_match: ["import { NextResponse } from \"next/server\";\n\nexport function proxy() {\n  return NextResponse.next();\n}\nexport const config = { matcher: \"/a\" };\n", "export default function middleware() {}\n", "const middleware = () => {};\nexport { middleware as proxy };\n"]

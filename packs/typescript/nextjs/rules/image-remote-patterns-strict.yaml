@@ -1,0 +1,15 @@
+id: typescript/nextjs/image-remote-patterns-strict
+description: "images.remotePatterns has no hostname \"*\" or \"**\": the image optimizer would fetch from any host (an open proxy). Name the hosts."
+scope: {language: typescript, files: ["next.config.*"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: pair
+      all:
+        - has: {field: key, regex: "^[\"']?hostname[\"']?$"}
+        - has: {field: value, regex: "^[\"'`](\\*\\*?)(\\.\\*\\*?)*[\"'`]$"}
+        - inside: {kind: pair, stopBy: end, has: {field: key, regex: "^[\"']?remotePatterns[\"']?$"}}
+examples:
+  match: ["export default { images: { remotePatterns: [{ protocol: \"https\", hostname: \"**\" }] } };\n", "export default { images: { remotePatterns: [{ hostname: '*' }] } };\n"]
+  no_match: ["export default { images: { remotePatterns: [{ protocol: \"https\", hostname: \"**.example.com\" }, new URL(\"https://cdn.example.com/**\")] } };\n"]

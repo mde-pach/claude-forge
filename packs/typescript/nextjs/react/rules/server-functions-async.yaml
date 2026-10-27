@@ -1,0 +1,42 @@
+id: typescript/nextjs/react/server-functions-async
+description: "A 'use server' file exports only async functions (and types): no sync function, class, or literal value such as export const LIMIT = 10 (a build error). Move constants to another module."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: export_statement
+      inside:
+        kind: program
+        has: {kind: expression_statement, nthChild: 1, regex: "^[\"']use server[\"'];?$"}
+      any:
+        - has: {field: declaration, kind: function_declaration, not: {regex: "^async"}}
+        - has: {field: declaration, kind: class_declaration}
+        - has: {field: declaration, kind: lexical_declaration, has: {kind: variable_declarator, has: {field: value, matches: not-a-server-function}}}
+        - has: {field: value, matches: not-a-server-function}
+    utils:
+      # a value that is certainly not an async function; a call (withAuth(async …)) or a name may return one
+      not-a-server-function:
+        any:
+          - {kind: arrow_function, not: {regex: "^async"}}
+          - {kind: function_expression, not: {regex: "^async"}}
+          - kind: number
+          - kind: string
+          - kind: template_string
+          - kind: object
+          - kind: array
+          - kind: "true"
+          - kind: "false"
+          - kind: "null"
+          - kind: regex
+          - kind: new_expression
+          - kind: class
+examples:
+  match:
+    - "'use server';\n\nexport const LIMIT = 10;\nexport async function save() {}\n"
+    - "\"use server\";\n\nexport function remove(id: string) {\n  return id;\n}\nexport const rename = (id: string) => id;\n"
+    - "'use server';\n\nexport default { a: 1 };\n"
+    - "'use server';\n\nexport class Store {}\n"
+  no_match:
+    - "'use server';\n\nexport async function save() {}\nexport const remove = async (id: string) => id;\nexport const archive = withAuth(async (id: string) => id);\nexport type Result = { ok: boolean };\nexport interface I { a: number }\nexport default async function submit() {}\n"
+    - "export const LIMIT = 10;\nexport function f() {}\n"

@@ -31,8 +31,9 @@ export interface LifecycleEvent {
 const TOOL_STAGE: Record<ToolTarget["tool"], { stage: "lint" | "typecheck"; check: string }> = {
   ruff: { stage: "lint", check: "python/lint" },
   biome: { stage: "lint", check: "typescript/format-lint" },
-  basedpyright: { stage: "typecheck", check: "python/typecheck" },
+  ty: { stage: "typecheck", check: "python/typecheck" },
   tsc: { stage: "typecheck", check: "typescript/typecheck" },
+  eslint: { stage: "lint", check: "typescript/eslint/lint" },
 };
 
 const code = (s: string) => "`" + s + "`";
@@ -53,9 +54,24 @@ function cmd(command: string, which: "--all" | "--changed"): string {
 function checkEvents(rule: Rule, t: CheckTarget): LifecycleEvent[] {
   if (/\bforge_test_edits\b/.test(t.run))
     return [
-      { step: "stop", effect: "blocks", text: "A test that existed at the start of the turn and was changed or removed blocks Stop; new tests are fine." },
+      { step: "tool", effect: "asks", text: "An Edit or Write that changes what a test that existed at the start of the turn asserts, or removes it, asks first (nobody being there, an independent reviewer answers, given the turn's request); new tests and setup-only changes are fine." },
+      { step: "stop", effect: "blocks", text: "Such a change nobody approved (made through Bash, for instance) blocks Stop; an approved edit does not. Changed test support code is reported once." },
       { step: "commit", effect: "inactive", text: "Not checked: a human edits tests on purpose." },
       { step: "ci", effect: "inactive", text: "Not checked: a human edits tests on purpose." },
+    ];
+  // advice (§10.7): each finding blocks Stop once per turn, after the failing checks
+  const once = `when the turn changed a ${scopeNoun(rule)} and the check finds something, it blocks Stop once per finding, after any failing check; a Stop that finds nothing new passes, so Claude acts on it or says why it does not apply.`;
+  if (/^\s*forge_advise\b/.test(t.run))
+    return [
+      { step: "stop", effect: "blocks", text: `Advisory: ${once}` },
+      { step: "commit", effect: "inactive", text: "Not checked: the advice is for Claude's turn." },
+      { step: "ci", effect: "inactive", text: "Not checked: the advice is for Claude's turn." },
+    ];
+  if (/^\s*forge_once\b/.test(t.run))
+    return [
+      { step: "stop", effect: "blocks", text: `Reported once: ${once}` },
+      { step: "commit", effect: "blocks", text: "Fails the commit on any finding." },
+      { step: "ci", effect: "blocks", text: "Fails CI on any finding." },
     ];
   const files = t.changed_run?.includes("{files}");
   const changedCmd = t.changed_run ? cmd(t.changed_run, "--changed") : cmd(t.run, "--all");
@@ -74,15 +90,22 @@ function checkEvents(rule: Rule, t: CheckTarget): LifecycleEvent[] {
     case "lint":
       if (files) out.push({ step: "edit", effect: "feedback", text: `Lints the edited file with ${cmd(t.changed_run!.replace("{files}", "<file>"), "--changed")}; findings go back to Claude.` });
       if (t.fix_run) out.push({ step: "edit", effect: "fixes", text: "First applies the safe fixes below to the edited file, and tells Claude when the file changed." });
+      else if (files && /--write|--fix/.test(t.changed_run!)) out.push({ step: "edit", effect: "fixes", text: "The same run applies the tool's safe fixes, and tells Claude when they changed the file beyond formatting." });
       out.push(...changed("blocks", "Runs"));
       for (const e of out) if (e.step === "stop" || e.step === "commit") e.text += " Only findings on added lines count.";
       out.push({ step: "ci", effect: "blocks", text: `Runs ${cmd(t.run, "--all")}: with \`--since\`, findings on the lines the branch added count; with \`--all\`, any finding.` });
       break;
     case "typecheck":
-      out.push({ step: "edit", effect: "wakes", text: `Runs ${cmd(t.run, "--all")} in the background after an edit to a ${scopeNoun(rule)}; errors in changed files wake Claude, errors only in other files stay silent.` });
+      out.push({ step: "edit", effect: "wakes", text: `Runs ${cmd(t.run, "--all")} in the background after an edit to a ${scopeNoun(rule)}; errors in changed files wake Claude, errors only in other files stay silent. Under \`claude -p\` with a prompt, where Claude Code would wait for it, Stop runs it instead.` });
       out.push(...changed("blocks", "Runs"));
       for (const e of out) if (e.step === "stop" || e.step === "commit") e.text += " Only errors in changed files count.";
       out.push({ step: "ci", effect: "blocks", text: `Runs ${cmd(t.run, "--all")}; any error fails.` });
+      break;
+    case "codegen":
+      // between lint and the typecheck; a stale generated file stops check.sh before the typecheck (§10.1)
+      out.push(...changed("blocks", "Runs"));
+      for (const e of out) if (e.step === "stop" || e.step === "commit") e.text += " A failure stops the check there, before the typecheck.";
+      out.push({ step: "ci", effect: "blocks", text: `Runs ${cmd(t.run, "--all")}${timeout}.` });
       break;
     case "migration":
     case "test":
@@ -110,6 +133,8 @@ function targetEvents(rule: Rule, t: Target): LifecycleEvent[] {
     case "grep": {
       const condition = t.target === "ast-grep" && toolTargets.length ? `without ${toolTargets.map((x) => x.tool).join(" or ")}` : undefined;
       const scope = `a changed ${scopeNoun(rule)}`;
+      if (t.mode === "advise")
+        return [{ step: "edit" as const, effect: "feedback" as const, text: `Matches on lines added during the turn go back to Claude with ${t.target === "grep" ? "file:line" : "file:line:column"}, as advice: Stop, commits and CI do not fail on them.`, condition }];
       if (t.mode === "forbid")
         return [
           { step: "edit", effect: "feedback", text: "Matches on lines added during the turn go back to Claude with file:line:column." },
@@ -139,7 +164,9 @@ function targetEvents(rule: Rule, t: Target): LifecycleEvent[] {
           step: "tool",
           via: "guard",
           effect: t.decision === "deny" ? "blocks" : "asks",
-          text: `The PreToolUse guard ${t.decision === "deny" ? "denies" : "asks you before"} any Bash command matching the pattern below.`,
+          text: t.check
+            ? `The PreToolUse guard ${t.decision === "deny" ? "denies" : "asks you before"} a Bash command its ${code(t.check)} check flags (the pattern below only pre-filters).`
+            : `The PreToolUse guard ${t.decision === "deny" ? "denies" : "asks you before"} any Bash command matching the pattern below.`,
         },
       ];
     case "sandbox":

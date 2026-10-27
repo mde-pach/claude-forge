@@ -1,0 +1,8 @@
+id: typescript/vue/nuxt/no-process-flags
+description: "In .vue files, use import.meta.client, .server, .browser and .dev, not process.client, process.server, process.browser or process.dev (deprecated in Nuxt; .ts files get the deprecation from tsc)."
+scope: {language: any, files: ["**/*.vue"]}
+enforce:
+  - {target: grep, mode: forbid, pattern: "(^|[^.a-zA-Z0-9_$])process\\.(client|server|browser|dev)([^a-zA-Z0-9_$]|$)"}
+examples:
+  match: ["<script setup lang=\"ts\">\nif (process.client) { window.scrollTo(0, 0); }\n</script>\n", "<template>\n  <p v-if=\"process.dev\">debug</p>\n</template>\n"]
+  no_match: ["<script setup lang=\"ts\">\nif (import.meta.client) { window.scrollTo(0, 0); }\nconst e = process.env.NODE_ENV;\nconst d = process.development;\n</script>\n"]

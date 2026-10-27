@@ -1,0 +1,20 @@
+id: python/pydantic/settings/no-load-dotenv
+description: "Settings read .env through SettingsConfigDict(env_file=...), not dotenv.load_dotenv(): pydantic-settings reads the file itself, and load_dotenv() also copies it into os.environ for the whole process."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: TID251
+    snippet: |
+      [tool.ruff.lint]
+      extend-select = ["TID251"]
+
+      [tool.ruff.lint.flake8-tidy-imports.banned-api]
+      "dotenv.load_dotenv".msg = "read .env through pydantic-settings: model_config = SettingsConfigDict(env_file=\".env\")"
+examples:
+  match:
+    - "import os\n\nfrom dotenv import load_dotenv\n\nload_dotenv()\nDATABASE_URL = os.environ[\"DATABASE_URL\"]\n"
+    - "import dotenv\n\ndotenv.load_dotenv(\".env.local\")\n"
+  no_match:
+    - "from pydantic_settings import BaseSettings, SettingsConfigDict\n\n\nclass Settings(BaseSettings):\n    model_config = SettingsConfigDict(env_file=\".env\")\n\n    database_url: str\n"
+    - "from dotenv import dotenv_values\n\nvalues = dotenv_values(\".env.test\")\n"

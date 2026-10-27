@@ -1,0 +1,16 @@
+id: python/structlog/typed-logger
+description: "structlog.get_logger() returns Any: assign it to an annotated name (log: structlog.typing.FilteringBoundLogger = structlog.get_logger()), or use structlog.stdlib.get_logger() with the stdlib wrapper, so type checks and python/structlog/constant-event see the logger."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      pattern: "structlog.get_logger($$$)"
+      not: {inside: {kind: assignment, has: {field: type, regex: "."}}}
+examples:
+  match:
+    - "import structlog\n\nlog = structlog.get_logger()\n"
+    - "import structlog\n\n\ndef handler() -> None:\n    structlog.get_logger().info(\"called\")\n"
+  no_match:
+    - "import structlog\n\nlog: structlog.typing.FilteringBoundLogger = structlog.get_logger()\n"
+    - "import structlog\n\nlog = structlog.stdlib.get_logger()\n"

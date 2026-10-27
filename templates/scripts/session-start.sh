@@ -22,12 +22,20 @@ if git rev-parse --verify -q HEAD >/dev/null; then
 fi
 printf 'forge: packs @@PACKS@@\n'
 
+# the types engines the rules use start now, in the background, so the first edit
+# does not wait for them (§15.3); this session is registered with them
+if [ -n "$FORGE_TYPES_LANGS" ] && forge_state_dir; then
+  for _ss_l in $FORGE_TYPES_LANGS; do
+    ( forge_types_up "$_ss_l" ) < /dev/null > /dev/null 2>&1 &
+  done
+fi
+
 missing=$(forge_missing_tools)
-state=.forge/state/missing-tools
+state=$FORGE_STATE/missing-tools
 if [ -n "$missing" ]; then
   if [ "$missing" != "$(cat "$state" 2>/dev/null)" ]; then
     printf 'forge: missing tools (checks using them are skipped): %s\n' "$missing"
-    mkdir -p .forge/state 2>/dev/null && printf '%s\n' "$missing" > "$state"
+    forge_state_dir && printf '%s\n' "$missing" > "$state"
   fi
 else
   rm -f "$state" 2>/dev/null

@@ -1,0 +1,5 @@
+id: typescript/openapi
+description: Clients generated from an OpenAPI document (openapi-typescript, orval, @hey-api/openapi-ts) stay in sync with it.
+level: project
+detect:
+  deps_any: [{ecosystem: npm, name: openapi-typescript}, {ecosystem: npm, name: orval}, {ecosystem: npm, name: "@hey-api/openapi-ts"}]

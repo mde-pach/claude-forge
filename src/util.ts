@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { spawnSync, type SpawnSyncOptions } from "node:child_process";
-import { existsSync } from "node:fs";
+import { closeSync, existsSync, mkdtempSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { availableParallelism, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -9,8 +10,20 @@ export const CLAUDE_CODE_MIN = "2.1.295";
 export const AST_GREP_VERSION = "0.45.3";
 /** Squawk (Postgres migration linter), run through bunx or uvx by migration-lint checks. */
 export const SQUAWK_VERSION = "2.70.0";
+/** lockfile-lint (package-lock.json hosts, https and integrity), run through bunx by typescript/npm/lockfile-lint. */
+export const LOCKFILE_LINT_VERSION = "5.1.0";
+/**
+ * The Python types engine (§15.2), pinned like the other Forge tools (the newest release
+ * older than 14 days): ty's language server through uvx on this Python. TypeScript's
+ * engine is the project's own TypeScript (its tsserver, or tsc --lsp from 7 on).
+ */
+export const TY_VERSION = "0.0.86";
+export const ENGINE_PYTHON = "3.12";
 /** zizmor (GitHub Actions auditor), run through uvx by github-actions/zizmor. */
 export const ZIZMOR_VERSION = "1.30.1";
+/** Redocly CLI and Spectral CLI (OpenAPI linters), run through bunx by openapi/lint, the project's config choosing. */
+export const REDOCLY_VERSION = "2.62.1";
+export const SPECTRAL_VERSION = "6.17.0";
 /** hadolint, run through uvx from the hadolint-bin wheel, whose binary must match the upstream release. */
 export const HADOLINT_VERSION = "2.15.1";
 /**
@@ -24,6 +37,168 @@ export const HADOLINT_SHA256: Record<string, string> = {
   "Darwin-arm64": "5c09f3213f8e40406abe048233d985eebef336d4a6a20021be47fadb6cf480a2",
   "Darwin-x86_64": "ffe9bb18b23d5ed1eae50237aecdbb523d016e96da0bd4e7aa432040acfc3fde",
 };
+
+/**
+ * Tools that ship only as GitHub release binaries (no PyPI or npm distribution), pinned
+ * like the other Forge tools (the newest release older than 14 days). By `uname -s`-`uname -m`:
+ * the release asset (a .tar.gz or .zip holding the binary, named like the tool, at its
+ * root; or the binary itself) and its sha256, computed from the downloaded asset and
+ * matching both GitHub's asset digest and the release's checksum file. check.sh fetches
+ * an asset once, checks it, and keeps the binary under ~/.cache/forge/bin (§13.5).
+ */
+export interface ReleaseBinary {
+  version: string;
+  /** The release's download URL; the asset name is appended. */
+  base: string;
+  assets: Record<string, [asset: string, sha256: string]>;
+}
+export const RELEASE_BINARIES: Record<string, ReleaseBinary> = {
+  "actionlint": {
+    version: "1.7.12",
+    base: "https://github.com/rhysd/actionlint/releases/download/v1.7.12/",
+    assets: {
+      "Linux-x86_64": ["actionlint_1.7.12_linux_amd64.tar.gz", "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"],
+      "Linux-aarch64": ["actionlint_1.7.12_linux_arm64.tar.gz", "325e971b6ba9bfa504672e29be93c24981eeb1c07576d730e9f7c8805afff0c6"],
+      "Linux-arm64": ["actionlint_1.7.12_linux_arm64.tar.gz", "325e971b6ba9bfa504672e29be93c24981eeb1c07576d730e9f7c8805afff0c6"],
+      "Darwin-arm64": ["actionlint_1.7.12_darwin_arm64.tar.gz", "aba9ced2dee8d27fecca3dc7feb1a7f9a52caefa1eb46f3271ea66b6e0e6953f"],
+      "Darwin-x86_64": ["actionlint_1.7.12_darwin_amd64.tar.gz", "5b44c3bc2255115c9b69e30efc0fecdf498fdb63c5d58e17084fd5f16324c644"],
+    },
+  },
+  "gitleaks": {
+    version: "8.30.1",
+    base: "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/",
+    assets: {
+      "Linux-x86_64": ["gitleaks_8.30.1_linux_x64.tar.gz", "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"],
+      "Linux-aarch64": ["gitleaks_8.30.1_linux_arm64.tar.gz", "e4a487ee7ccd7d3a7f7ec08657610aa3606637dab924210b3aee62570fb4b080"],
+      "Linux-arm64": ["gitleaks_8.30.1_linux_arm64.tar.gz", "e4a487ee7ccd7d3a7f7ec08657610aa3606637dab924210b3aee62570fb4b080"],
+      "Darwin-arm64": ["gitleaks_8.30.1_darwin_arm64.tar.gz", "b40ab0ae55c505963e365f271a8d3846efbc170aa17f2607f13df610a9aeb6a5"],
+      "Darwin-x86_64": ["gitleaks_8.30.1_darwin_x64.tar.gz", "dfe101a4db2255fc85120ac7f3d25e4342c3c20cf749f2c20a18081af1952709"],
+    },
+  },
+  "kubeconform": {
+    version: "0.8.0",
+    base: "https://github.com/yannh/kubeconform/releases/download/v0.8.0/",
+    assets: {
+      "Linux-x86_64": ["kubeconform-linux-amd64.tar.gz", "9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883"],
+      "Linux-aarch64": ["kubeconform-linux-arm64.tar.gz", "1f53fc8e81258197a35e8603054162a5af1de8c5af13746c71ab680d9534ed87"],
+      "Linux-arm64": ["kubeconform-linux-arm64.tar.gz", "1f53fc8e81258197a35e8603054162a5af1de8c5af13746c71ab680d9534ed87"],
+      "Darwin-arm64": ["kubeconform-darwin-arm64.tar.gz", "f84f4dfbebf4a6b0b230385fa065a39ea35e02608c2b50d025dcf64775a69d67"],
+      "Darwin-x86_64": ["kubeconform-darwin-amd64.tar.gz", "71dbc87ac9f24099a62b93570e65aa06312ba6ac8aea63b7f86e9d999edf5a92"],
+    },
+  },
+  "kube-linter": {
+    version: "0.8.3",
+    base: "https://github.com/stackrox/kube-linter/releases/download/v0.8.3/",
+    assets: {
+      "Linux-x86_64": ["kube-linter-linux.tar.gz", "1a6d8419b11971372971fdbc22682b684ebfb7cf1c39591662d1b6ca736c41df"],
+      "Linux-aarch64": ["kube-linter-linux_arm64.tar.gz", "802e1b09eabd08f6f0a060a6b8ab2bf7bc7e6bf4f673bb2692303704c84b3e22"],
+      "Linux-arm64": ["kube-linter-linux_arm64.tar.gz", "802e1b09eabd08f6f0a060a6b8ab2bf7bc7e6bf4f673bb2692303704c84b3e22"],
+      "Darwin-arm64": ["kube-linter-darwin_arm64.tar.gz", "6e3443a8ff8625a9fc31a38682c783988d7559018f7ff707a4f8c77c18c92f14"],
+      "Darwin-x86_64": ["kube-linter-darwin.tar.gz", "c62e8af3c9df2557c7a3922119ea1b35597794737d1ccad493f63a0d66e7b8fc"],
+    },
+  },
+  "tflint": {
+    version: "0.64.0",
+    base: "https://github.com/terraform-linters/tflint/releases/download/v0.64.0/",
+    assets: {
+      "Linux-x86_64": ["tflint_linux_amd64.zip", "cca9d13e2e1d7a2c627af60ff899a3c9b74212899416aeb96ec764d2ef954537"],
+      "Linux-aarch64": ["tflint_linux_arm64.zip", "560da89aacf59389d4eb029730dd5b109b7288096c32f2726a0d9e783a5ea8eb"],
+      "Linux-arm64": ["tflint_linux_arm64.zip", "560da89aacf59389d4eb029730dd5b109b7288096c32f2726a0d9e783a5ea8eb"],
+      "Darwin-arm64": ["tflint_darwin_arm64.zip", "2496e9cb3d24992d553b45e7c87a0fdc9449ca975233876247a9bfeda857e6c0"],
+      "Darwin-x86_64": ["tflint_darwin_amd64.zip", "0f3a9fd17526014646a2dfc3f9122f7b4161abe3d6b0f0f03f9014483ddf4d19"],
+    },
+  },
+  // a tflint ruleset (terraform/tflint), fetched as an asset like the tools, not by tflint --init (GitHub's API)
+  "tflint-ruleset-aws": {
+    version: "0.49.0",
+    base: "https://github.com/terraform-linters/tflint-ruleset-aws/releases/download/v0.49.0/",
+    assets: {
+      "Linux-x86_64": ["tflint-ruleset-aws_linux_amd64.zip", "98a530130d33efd49408f3d0ab9198072192ede413cc2a2ce38295d0922eb1c6"],
+      "Linux-aarch64": ["tflint-ruleset-aws_linux_arm64.zip", "94f4f965a959d1699ae59687ffccc25031f8aaeae6f49756e5d8ca6e36d9f95b"],
+      "Linux-arm64": ["tflint-ruleset-aws_linux_arm64.zip", "94f4f965a959d1699ae59687ffccc25031f8aaeae6f49756e5d8ca6e36d9f95b"],
+      "Darwin-arm64": ["tflint-ruleset-aws_darwin_arm64.zip", "246818b24c65a60d2b95d7c88921480d72bdca89cfbb936f23bb583b8c631f87"],
+      "Darwin-x86_64": ["tflint-ruleset-aws_darwin_amd64.zip", "f68a67291f0635911793934b9d02f9f3aa654264f11364eca98c06af3a4d60d5"],
+    },
+  },
+  // a tflint ruleset (terraform/tflint), fetched as an asset like the tools, not by tflint --init (GitHub's API)
+  "tflint-ruleset-google": {
+    version: "0.40.0",
+    base: "https://github.com/terraform-linters/tflint-ruleset-google/releases/download/v0.40.0/",
+    assets: {
+      "Linux-x86_64": ["tflint-ruleset-google_linux_amd64.zip", "a5c02b3de937456de2521155831eaf1cc876014a21445bf7dd1621654511fe28"],
+      "Linux-aarch64": ["tflint-ruleset-google_linux_arm64.zip", "cdda9b8ef8647885ca81ba2d9c6b1a213a1f608860452d79a9c0ac7de9b2750a"],
+      "Linux-arm64": ["tflint-ruleset-google_linux_arm64.zip", "cdda9b8ef8647885ca81ba2d9c6b1a213a1f608860452d79a9c0ac7de9b2750a"],
+      "Darwin-arm64": ["tflint-ruleset-google_darwin_arm64.zip", "93e1a6f2c196e9ba5fa6359cd8d2116d18c1770bddb09bf333e0617e216a5e22"],
+      "Darwin-x86_64": ["tflint-ruleset-google_darwin_amd64.zip", "9b32d94e4b32ae35b67dcddef02932a970e09a38421448d33160109b0b91c1d0"],
+    },
+  },
+  // a tflint ruleset (terraform/tflint), fetched as an asset like the tools, not by tflint --init (GitHub's API)
+  "tflint-ruleset-azurerm": {
+    version: "0.32.0",
+    base: "https://github.com/terraform-linters/tflint-ruleset-azurerm/releases/download/v0.32.0/",
+    assets: {
+      "Linux-x86_64": ["tflint-ruleset-azurerm_linux_amd64.zip", "f1150b2dea7aef001ad07002671c75b5495f4521ddf3538ededf00896f7b0aaa"],
+      "Linux-aarch64": ["tflint-ruleset-azurerm_linux_arm64.zip", "70510c58a2d550c548645c42a5ff8acc93940a7dd9ce18a5de207c326f5f3cd3"],
+      "Linux-arm64": ["tflint-ruleset-azurerm_linux_arm64.zip", "70510c58a2d550c548645c42a5ff8acc93940a7dd9ce18a5de207c326f5f3cd3"],
+      "Darwin-arm64": ["tflint-ruleset-azurerm_darwin_arm64.zip", "f0140f15332e15e710f149d53cf9cbc2d48da051fadd6eec84f52db6094dc43f"],
+      "Darwin-x86_64": ["tflint-ruleset-azurerm_darwin_amd64.zip", "f956b4c80eee7d2ae1b40ffb9748d8ef2248cc91417500231e17c85ff0a7e849"],
+    },
+  },
+  "trivy": {
+    version: "0.75.0",
+    base: "https://github.com/aquasecurity/trivy/releases/download/v0.75.0/",
+    assets: {
+      "Linux-x86_64": ["trivy_0.75.0_Linux-64bit.tar.gz", "c6e65abddb348e25f10549df887045629cf28cc72453cd1c63acb717316b3f3f"],
+      "Linux-aarch64": ["trivy_0.75.0_Linux-ARM64.tar.gz", "a1ee9f6ffb7d112b64ff726a2a0717c21175c1114361391f4a132956751a13b3"],
+      "Linux-arm64": ["trivy_0.75.0_Linux-ARM64.tar.gz", "a1ee9f6ffb7d112b64ff726a2a0717c21175c1114361391f4a132956751a13b3"],
+      "Darwin-arm64": ["trivy_0.75.0_macOS-ARM64.tar.gz", "4a77108cccf8e55c8d6823e1e759939a622277e66cd0daa3c1fc621ed69e4568"],
+      "Darwin-x86_64": ["trivy_0.75.0_macOS-64bit.tar.gz", "291edaa9778acbe4693d067b5ad60ee11570e5ac68296e85595417528ca641e4"],
+    },
+  },
+  "osv-scanner": {
+    version: "2.7.0",
+    base: "https://github.com/google/osv-scanner/releases/download/v2.7.0/",
+    assets: {
+      "Linux-x86_64": ["osv-scanner_linux_amd64", "160c6253e2922e9e0a6a9771c5c4c40a4b3c6090b34a3cdd5e80c96cc2e4218b"],
+      "Linux-aarch64": ["osv-scanner_linux_arm64", "4061ef4c021ed3c47f203b818f337e351336cc5cd67c0274fc36bd1dfc728dd7"],
+      "Linux-arm64": ["osv-scanner_linux_arm64", "4061ef4c021ed3c47f203b818f337e351336cc5cd67c0274fc36bd1dfc728dd7"],
+      "Darwin-arm64": ["osv-scanner_darwin_arm64", "d4926ef8da134332543be276dff157e4c170f99ad91fc48e89448a8816bdf70b"],
+      "Darwin-x86_64": ["osv-scanner_darwin_amd64", "e82c5df7ab0a42dff29a1cd0660711447b56b4c0483ff66ad8634df10fd81a45"],
+    },
+  },
+  "oasdiff": {
+    version: "1.33.0",
+    base: "https://github.com/oasdiff/oasdiff/releases/download/v1.33.0/",
+    assets: {
+      "Linux-x86_64": ["oasdiff_1.33.0_linux_amd64.tar.gz", "43a4e328e2d13ba1552d760aa68d2485c75c5621f309f6ff64ae895188345247"],
+      "Linux-aarch64": ["oasdiff_1.33.0_linux_arm64.tar.gz", "4ae3c362d6074d919aada2dea82d0ee84366591600384455d0bdc658ddf8f7ae"],
+      "Linux-arm64": ["oasdiff_1.33.0_linux_arm64.tar.gz", "4ae3c362d6074d919aada2dea82d0ee84366591600384455d0bdc658ddf8f7ae"],
+      "Darwin-arm64": ["oasdiff_1.33.0_darwin_all.tar.gz", "2a479337c15afdcbf0b1e89c0b4d0cf0176472dbc11483358fed1f831d1e46c5"],
+      "Darwin-x86_64": ["oasdiff_1.33.0_darwin_all.tar.gz", "2a479337c15afdcbf0b1e89c0b4d0cf0176472dbc11483358fed1f831d1e46c5"],
+    },
+  },
+  "editorconfig-checker": {
+    version: "4.0.2",
+    base: "https://github.com/editorconfig-checker/editorconfig-checker/releases/download/v4.0.2/",
+    assets: {
+      "Linux-x86_64": ["editorconfig-checker-linux-amd64.tar.gz", "44efaef3ed14c6ab52eb87481d78e5e5c204796dccf26e2f4598a61ba17f8003"],
+      "Linux-aarch64": ["editorconfig-checker-linux-arm64.tar.gz", "abad76da8c9950fdc2a314bcd66969172aa823e9c595fa7e3a389a91e34d025e"],
+      "Linux-arm64": ["editorconfig-checker-linux-arm64.tar.gz", "abad76da8c9950fdc2a314bcd66969172aa823e9c595fa7e3a389a91e34d025e"],
+      "Darwin-arm64": ["editorconfig-checker-darwin-all.tar.gz", "ff59f57717d95fc62b8e372c8051dbbb766f7d660942409a85d027b0feb2422c"],
+      "Darwin-x86_64": ["editorconfig-checker-darwin-all.tar.gz", "ff59f57717d95fc62b8e372c8051dbbb766f7d660942409a85d027b0feb2422c"],
+    },
+  },
+};
+
+/** The release table as check.sh reads it: "<name> <version> <platform> <url> <sha256>" per line. */
+export function releaseTable(): string {
+  return Object.entries(RELEASE_BINARIES)
+    .flatMap(([name, r]) => Object.entries(r.assets).map(([plat, [asset, sha]]) => `${name} ${r.version} ${plat} ${r.base}${asset} ${sha}`))
+    .join("\n");
+}
+
+/** tflint's provider rulesets (terraform/tflint): release binaries of their own (RELEASE_BINARIES tflint-ruleset-<name>). */
+export const TFLINT_RULESETS: Record<string, string> = Object.fromEntries(["aws", "google", "azurerm"].map((n) => [n, RELEASE_BINARIES[`tflint-ruleset-${n}`]!.version]));
 
 export function sha256(text: string | Buffer): string {
   return createHash("sha256").update(text).digest("hex");
@@ -45,13 +220,91 @@ export interface RunResult {
   stderr: string;
 }
 
+/**
+ * spawnSync with no pipe at all: the input is read from a temporary file (none: /dev/null)
+ * and the output written to temporary files. Under load, Bun's spawnSync (1.3) can return
+ * a pipe's output empty although the process wrote it, and Node's (24) can leave a piped
+ * input unwritten, the child waiting on its stdin for ever (seen with ruff
+ * --stdin-filename during forge apply's audits). Forge's own test suite and `bun run
+ * test:packs` run this code under Bun. env: process.env is Node's default; Bun's is the
+ * environment the process started with.
+ */
+export function spawnCaptured(cmd: string, args: string[], opts: SpawnSyncOptions = {}): { status: number | null; error?: Error; stdout: string; stderr: string } {
+  const dir = mkdtempSync(join(tmpdir(), "forge-run-"));
+  const { input, ...rest } = opts;
+  if (input !== undefined) writeFileSync(join(dir, "in"), input);
+  const inp = input !== undefined ? openSync(join(dir, "in"), "r") : "ignore";
+  const out = openSync(join(dir, "out"), "w");
+  const err = openSync(join(dir, "err"), "w");
+  try {
+    const r = spawnSync(cmd, args, { env: process.env, ...rest, stdio: [inp, out, err] });
+    return { status: r.status, error: r.error, stdout: readFileSync(join(dir, "out"), "utf8"), stderr: readFileSync(join(dir, "err"), "utf8") };
+  } finally {
+    if (typeof inp === "number") closeSync(inp);
+    closeSync(out);
+    closeSync(err);
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 export function run(cmd: string, args: string[], opts: SpawnSyncOptions = {}): RunResult {
-  const r = spawnSync(cmd, args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, ...opts });
-  return {
-    status: r.status ?? (r.error ? 127 : 1),
-    stdout: String(r.stdout ?? ""),
-    stderr: String(r.stderr ?? ""),
-  };
+  const r = spawnCaptured(cmd, args, opts);
+  return { status: r.status ?? (r.error ? 127 : 1), stdout: r.stdout, stderr: r.stderr };
+}
+
+/**
+ * A shell script run from a temporary file (`sh <file>`), never as `sh -c <script>`: Linux
+ * caps one argument at 128 KiB (MAX_ARG_STRLEN), and lib.sh with engine.sh is larger.
+ */
+export function runScript(script: string, opts: SpawnSyncOptions = {}): RunResult {
+  const dir = mkdtempSync(join(tmpdir(), "forge-script-"));
+  try {
+    writeFileSync(join(dir, "script.sh"), script);
+    return run("sh", [join(dir, "script.sh")], opts);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+/** A process for runParallel: env holds overrides of the current environment. */
+export interface Job {
+  cmd: string;
+  args: string[];
+  cwd?: string;
+  env?: Record<string, string>;
+  input?: string;
+}
+
+// The pool runParallel starts: reads the jobs (JSON) on stdin, runs <n> at a time, prints the results (JSON).
+const POOL = `const { spawn } = require("node:child_process");
+const jobs = JSON.parse(require("node:fs").readFileSync(0, "utf8"));
+const n = Number(process.argv[process.argv.length - 1]) || 1;
+const out = new Array(jobs.length);
+let next = 0;
+const one = (j) => new Promise((done) => {
+  let stdout = "", stderr = "";
+  const p = spawn(j.cmd, j.args, { cwd: j.cwd, env: { ...process.env, ...(j.env || {}) } });
+  p.stdout.setEncoding("utf8").on("data", (d) => (stdout += d));
+  p.stderr.setEncoding("utf8").on("data", (d) => (stderr += d));
+  p.stdin.on("error", () => {});
+  p.on("error", () => done({ status: 127, stdout, stderr }));
+  p.on("close", (code) => done({ status: code ?? 1, stdout, stderr }));
+  p.stdin.end(j.input || "");
+});
+Promise.all(Array.from({ length: Math.min(n, jobs.length) }, async () => {
+  while (next < jobs.length) { const i = next++; out[i] = await one(jobs[i]); }
+})).then(() => process.stdout.write(JSON.stringify(out)));
+`;
+
+/**
+ * Runs independent processes <n> at a time and returns their results in job order, as
+ * run() would one by one: synchronous for the caller, the processes overlap in a child pool.
+ */
+export function runParallel(jobs: Job[], n = availableParallelism()): RunResult[] {
+  if (jobs.length < 2 || n < 2) return jobs.map((j) => run(j.cmd, j.args, { cwd: j.cwd, env: { ...process.env, ...j.env }, input: j.input ?? "" }));
+  const r = spawnCaptured(process.execPath, ["-e", POOL, String(n)], { input: JSON.stringify(jobs) });
+  if (r.status !== 0) throw new Error(`forge: the process pool failed: ${String(r.stderr || r.error || "").trim()}`);
+  return JSON.parse(r.stdout) as RunResult[];
 }
 
 export function gitToplevel(cwd: string): string | undefined {
@@ -125,6 +378,13 @@ export function lineDiff(before: string, after: string, label: string): string {
  * files are hashed with spaces, tabs and newlines removed, so a formatter run
  * is not tampering (check.sh does the same with `tr -d ' \t\r\n'`).
  */
+/**
+ * The hash of an owned file as check.sh computes it (forge_owned_hash): JSON without
+ * whitespace; the helper scripts in .forge/helpers/ also without quotes, commas,
+ * semicolons and parentheses, so a project formatter (ruff format, Biome) rewriting
+ * them is not tampering (§12); anything else as it is.
+ */
 export function ownedHash(path: string, content: string): string {
+  if (path.startsWith(".forge/helpers/")) return sha256(content.replace(/[ \t\r\n,;()'"`]/g, ""));
   return sha256(path.endsWith(".json") ? content.replace(/[ \t\r\n]/g, "") : content);
 }

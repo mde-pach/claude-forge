@@ -1,0 +1,28 @@
+id: typescript/postmessage-origin
+description: "window.postMessage is never sent to targetOrigin \"*\": the message reaches whatever page the frame has navigated to. Name the receiver's origin."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      all:
+        - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: "^postMessage$"}}, {has: {field: object, pattern: $W}}]}
+        - has:
+            field: arguments
+            any:
+              - has: {kind: string, regex: "^[\"']\\*[\"']$"}
+              - has: {kind: object, has: {kind: pair, all: [{has: {field: key, regex: "^[\"']?targetOrigin[\"']?$"}}, {has: {field: value, regex: "^[\"']\\*[\"']$"}}]}}
+    # A Window by its type (§15.1): a Worker's or a MessagePort's postMessage has no origin.
+    where:
+      W: {type: {package: typescript, name: Window}}
+examples:
+  deps: [{ecosystem: npm, name: typescript, version: "7.0.2"}]
+  match:
+    - "export function send(f: HTMLIFrameElement, m: unknown) {\n  f.contentWindow?.postMessage(m, \"*\");\n}\n"
+    - "export function up(m: unknown) {\n  window.parent.postMessage(m, '*');\n}\n"
+    - "export function send(f: HTMLIFrameElement, m: unknown) {\n  f.contentWindow?.postMessage(m, { targetOrigin: \"*\" });\n}\n"
+  no_match:
+    - "export function send(f: HTMLIFrameElement, m: unknown) {\n  f.contentWindow?.postMessage(m, \"https://pay.example.com\");\n}\n"
+    - "export function w(worker: Worker) {\n  worker.postMessage(\"*\");\n}\n"
+    - "export function up(m: unknown) {\n  window.parent.postMessage(m, { targetOrigin: window.location.origin });\n}\n"

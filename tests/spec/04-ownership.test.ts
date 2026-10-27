@@ -9,10 +9,12 @@
  * how `remove` knows exactly what to delete (§4, §12).
  */
 import { describe, expect, test } from "bun:test";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, relative } from "node:path";
 import { addEntries, removeEntries } from "../../src/settings";
-import { applied, commitAll, ensureTools, forge, git, hasBun, linkTools, put, sampleRepo, sh } from "../helpers";
+import { ownedHash } from "../../src/util";
+import { applied, commitAll, EXAMPLE_NODE_TOOLS, ensureNodeTools, ensureTools, forge, git, hasBun, hasUv, linkTools, put, ROOT, sampleRepo, sh, TOOLS_CACHE } from "../helpers";
 
 const T = 120_000;
 
@@ -75,14 +77,65 @@ describe("the lock", () => {
     () => {
       const r = applied("eslint-app");
       const manifest = readFileSync(join(r, ".forge/manifest.sha256"), "utf8");
-      expect(manifest).toMatch(/^[0-9a-f]{64} {2}\.claude\/rules\/forge-typescript\.md\n/);
+      expect(manifest).toMatch(/^[0-9a-f]{64} {2}\.claude\/rules\/forge-typescript\.md\n/m);
       expect(manifest).not.toContain("forge.lock.json");
       expect(manifest).not.toContain("manifest.sha256");
-      // non-JSON entries verify with the standard tool; JSON entries hash without whitespace
-      const plain = manifest.split("\n").filter((l) => l && !l.endsWith(".json")).join("\n") + "\n";
+      // other entries verify with the standard tool; JSON entries hash without whitespace, helper scripts without what formatters change
+      const plain = manifest.split("\n").filter((l) => l && !l.endsWith(".json") && !l.includes("  .forge/helpers/")).join("\n") + "\n";
       const c = sh("sh", ["-c", 'command -v sha256sum >/dev/null && sha256sum -c --quiet || shasum -a 256 -c --quiet'], { cwd: r, input: plain });
       expect(c.status).toBe(0);
       expect(readFileSync(join(r, ".forge/check.sh"), "utf8")).not.toMatch(/awk[^\n]*forge\.lock\.json/);
+    },
+    T,
+  );
+
+  /**
+   * `remove` deletes the lock's files and blocks and `apply` writes them: a lock
+   * naming a path outside what Forge owns (outside the repository, through a
+   * symbolic link, or a hook file no hook manager uses) is refused as a whole.
+   */
+  test.each([
+    ["files", (lock: any, victim: string) => (lock.files[victim] = "0".repeat(64))],
+    ["files (through a symbolic link)", (lock: any) => (lock.files[".forge/link/victim.sh"] = "0".repeat(64))],
+    ["settings", (lock: any, victim: string) => lock.settings.push({ file: victim, path: "permissions.ask", value: "x" })],
+    ["blocks", (lock: any, victim: string) => (lock.blocks = [{ file: victim, kind: "husky", created: true, hash: "0".repeat(64) }])],
+    ["blocks (a file no hook manager uses)", (lock: any) => (lock.blocks = [{ file: "src/index.ts", kind: "husky", created: true, hash: "0".repeat(64) }])],
+  ] as const)(
+    "a lock whose %s name a path forge does not own is refused; apply and remove touch nothing",
+    (_what, craft) => {
+      const repo = applied("eslint-app");
+      const outside = mkdtempSync(join(tmpdir(), "forge-victim-"));
+      writeFileSync(join(outside, "victim.sh"), "#!/bin/sh\necho mine\n");
+      symlinkSync(outside, join(repo, ".forge/link"));
+      const victim = relative(repo, join(outside, "victim.sh"));
+      const lockFile = join(repo, ".forge/forge.lock.json");
+      const lock = JSON.parse(readFileSync(lockFile, "utf8"));
+      craft(lock, victim);
+      writeFileSync(lockFile, JSON.stringify(lock, null, 2) + "\n");
+      const index = readFileSync(join(repo, "src/index.ts"), "utf8");
+      for (const args of [["remove", "--yes"], ["apply", "--yes", "--force"]]) {
+        const r = forge(args, repo);
+        expect(r.status).toBe(1);
+        expect(r.stderr).toContain("forge: .forge/forge.lock.json: refused:");
+      }
+      expect(readFileSync(join(outside, "victim.sh"), "utf8")).toBe("#!/bin/sh\necho mine\n");
+      expect(readFileSync(join(repo, "src/index.ts"), "utf8")).toBe(index);
+      expect(existsSync(join(repo, ".forge/check.sh"))).toBe(true);
+    },
+    T,
+  );
+
+  test(
+    "a lock that is not valid JSON or does not match the lock schema is refused",
+    () => {
+      const repo = applied("eslint-app");
+      const lockFile = join(repo, ".forge/forge.lock.json");
+      const lock = JSON.parse(readFileSync(lockFile, "utf8"));
+      writeFileSync(lockFile, JSON.stringify({ ...lock, blocks: [{ file: ".husky/pre-commit", kind: "shell", created: true, hash: "0".repeat(64) }] }));
+      expect(forge(["remove", "--yes"], repo).stderr).toContain("invalid lock");
+      writeFileSync(lockFile, "{");
+      expect(forge(["remove", "--yes"], repo).stderr).toContain("not valid JSON");
+      expect(existsSync(join(repo, ".forge/check.sh"))).toBe(true);
     },
     T,
   );
@@ -248,6 +301,52 @@ describe("formatters and Forge's JSON", () => {
       const again = forge(["apply", "--yes"], r);
       expect(again.stdout).toContain("forge: up to date");
       expect(forge(["diff"], r).status).toBe(0);
+    },
+    T,
+  );
+
+  /** @rule typescript/prettier/format */
+  test.if(hasBun)(
+    "with the project's Prettier and no Biome, a fresh apply formats Forge's JSON, context and YAML files so that prettier --check reports nothing on them",
+    () => {
+      const bin = join(ensureNodeTools("lint", EXAMPLE_NODE_TOOLS.lint!), "node_modules/.bin/prettier");
+      const r = sampleRepo("nextjs-prisma-app");
+      rmSync(join(r, "biome.json"));
+      put(r, ".prettierrc", "{}\n");
+      put(r, ".prettierignore", "src/\nprisma/\ne2e/\n*.ts\npackage.json\ntsconfig.json\n");
+      mkdirSync(join(r, "node_modules/.bin"), { recursive: true });
+      symlinkSync(bin, join(r, "node_modules/.bin/prettier"));
+      commitAll(r, "prettier");
+      expect(forge(["apply", "--yes"], r).status).toBe(0);
+      const check = sh("node_modules/.bin/prettier", ["--check", "."], { cwd: r });
+      expect(forgeLines(check.stdout + check.stderr)).toEqual([]);
+      expect(sh("sh", [".forge/check.sh", "--changed"], { cwd: r }).stdout).not.toContain("forge/integrity");
+    },
+    T,
+  );
+
+  /**
+   * The helper scripts in `.forge/helpers/` are written as the project's fixers leave
+   * them (sorted imports, current syntax), so that what remains of a project-wide
+   * `biome check --write .`, `ruff check --fix` or `ruff format .` is formatting, which
+   * their integrity hash leaves out (§12).
+   */
+  test.if(hasBun && hasUv)(
+    "every helper script keeps its integrity hash through Biome's check --write and ruff's import and pyupgrade fixes and format",
+    () => {
+      ensureTools();
+      const dir = mkdtempSync(join(tmpdir(), "forge-helpers-"));
+      const helpers = join(ROOT, "templates", "helpers");
+      for (const f of readdirSync(helpers)) writeFileSync(join(dir, f), readFileSync(join(helpers, f), "utf8"));
+      writeFileSync(join(dir, "biome.json"), DEFAULT_BIOME);
+      sh(join(TOOLS_CACHE, "node_modules/.bin/biome"), ["check", "--write", "."], { cwd: dir });
+      const py = readdirSync(dir).filter((f) => f.endsWith(".py"));
+      sh(join(TOOLS_CACHE, ".venv/bin/ruff"), ["check", "--fix", "--select", "I,UP", "--exit-zero", ...py], { cwd: dir });
+      sh(join(TOOLS_CACHE, ".venv/bin/ruff"), ["format", ...py], { cwd: dir });
+      for (const f of readdirSync(helpers)) {
+        const path = `.forge/helpers/${f}`;
+        expect(`${f} ${ownedHash(path, readFileSync(join(dir, f), "utf8"))}`).toBe(`${f} ${ownedHash(path, readFileSync(join(helpers, f), "utf8"))}`);
+      }
     },
     T,
   );

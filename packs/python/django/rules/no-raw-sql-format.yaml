@@ -1,0 +1,20 @@
+id: python/django/no-raw-sql-format
+description: "QuerySet.extra() and RawSQL() take no SQL built at run time (ruff S610, S611): pass constant SQL with %s placeholders and params, or use annotate() and filter() with expressions. SQL strings built with f-strings, .format(), % or + anywhere, a variable passed to .raw() or cursor.execute() included, are python/no-sql-format (ruff S608)."
+scope: {language: python, files: ["!@django-migrations"]}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: S610
+    snippet: '[tool.ruff.lint] extend-select = ["S608", "S610", "S611"]'
+  - target: tool
+    tool: ruff
+    expects: S611
+    snippet: '[tool.ruff.lint] extend-select = ["S608", "S610", "S611"]'
+examples:
+  match:
+    - "from django.db.models.expressions import RawSQL\n\n\ndef tagged(qs, where: str, column: str):\n    return qs.extra(where=[where]).annotate(v=RawSQL(column, []))\n"
+    - "from django.db.models.expressions import RawSQL\n\n\ndef tagged(qs, tag: str, name: str):\n    clause = \"tag = '\" + tag + \"'\"\n    return qs.extra(where=[clause]).annotate(v=RawSQL(\"SELECT {} FROM t\".format(name), []))\n"
+  no_match:
+    - "from django.db.models.expressions import RawSQL\n\nCUTOFF = \"2006-01-01\"\n\n\ndef recent(qs):\n    return qs.annotate(is_recent=RawSQL(\"pub_date > %s\", [CUTOFF]))\n"
+    - "def published(qs):\n    return qs.extra(where=[\"published = true\"])\n"
+    - "import logging\n\nlogging.getLogger(__name__).info(\"saved\", extra={\"id\": 1})\n"

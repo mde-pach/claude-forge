@@ -1,0 +1,9 @@
+id: typescript/nestjs
+description: NestJS controllers, validation pipes and DTOs.
+level: project
+detect:
+  deps_any: [{ecosystem: npm, name: "@nestjs/core"}, {ecosystem: npm, name: "@nestjs/common"}]
+tool_off:
+  - tool: biome
+    expects: lint/style/useImportType
+    reason: "a DTO imported with import type erases design:paramtypes, so ValidationPipe stops validating the body; Biome's own docs advise turning useImportType off with decorators"

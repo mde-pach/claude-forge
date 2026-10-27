@@ -1,0 +1,16 @@
+id: python/pytest/no-hook-tamper
+description: "Advice after the edit: a new pytest hook that can rewrite results (pytest_runtest_makereport, pytest_report_teststatus, pytest_runtest_call, pytest_pyfunc_call, pytest_runtest_protocol, pytest_terminal_summary, pytest_collection_modifyitems) in a conftest or test file; say what it is for. Rewriting reports or deselecting tests makes a failing suite pass."
+scope: {language: python, files: ["**/test_*.py", "**/*_test.py", "**/conftest.py"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: function_definition
+      has: {field: name, regex: "^pytest_(runtest_makereport|report_teststatus|runtest_call|pyfunc_call|runtest_protocol|terminal_summary|collection_modifyitems)$"}
+examples:
+  match:
+    - "import pytest\n\n\n@pytest.hookimpl(hookwrapper=True)\ndef pytest_runtest_makereport(item, call):\n    outcome = yield\n    outcome.get_result().outcome = \"passed\"\n"
+    - "def pytest_collection_modifyitems(config, items):\n    items[:] = [i for i in items if \"slow\" not in i.keywords]\n"
+  no_match:
+    - "import pytest\n\n\n@pytest.fixture\ndef client():\n    return object()\n"
+    - "def pytest_configure(config):\n    config.addinivalue_line(\"markers\", \"slow: slow tests\")\n"

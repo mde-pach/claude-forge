@@ -1,0 +1,23 @@
+id: python/pandas/no-row-loops
+description: "Advice: no row loops over a DataFrame (iterrows(), itertuples(), apply(..., axis=1)): they run Python per row, orders of magnitude slower than column operations. Write vectorized expressions (df[\"a\"] * df[\"b\"], np.where, merge)."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      any:
+        - pattern: $R.iterrows()
+        - pattern: $R.itertuples($$$)
+        - pattern: $R.apply($$$)
+          has: {field: arguments, has: {kind: keyword_argument, regex: "^axis[[:space:]]*=[[:space:]]*(1|[\"']columns[\"'])$"}}
+    where:
+      R: {type: {package: pandas, name: DataFrame}}
+examples:
+  deps: [{ecosystem: pypi, name: pandas, version: "3.1.0"}]
+  match:
+    - "import pandas as pd\n\ndf = pd.DataFrame({\"a\": [1, 2], \"b\": [\"x\", \"y\"]})\nfor _, row in df.iterrows():\n    print(row)\n"
+    - "import pandas as pd\n\ndf = pd.DataFrame({\"a\": [1, 2], \"b\": [\"x\", \"y\"]})\ns = df.apply(lambda r: r[\"a\"] * 2, axis=1)\n"
+  no_match:
+    - "import pandas as pd\n\ndf = pd.DataFrame({\"a\": [1, 2], \"b\": [\"x\", \"y\"]})\ns = df[\"a\"] * 2\n"
+    - "import pandas as pd\n\ndf = pd.DataFrame({\"a\": [1, 2], \"b\": [\"x\", \"y\"]})\ns = df.apply(len)\n"
+    - "class Report:\n    def iterrows(self) -> list[int]:\n        return []\n\n\nfor r in Report().iterrows():\n    pass\n"

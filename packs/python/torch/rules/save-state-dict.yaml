@@ -1,0 +1,24 @@
+id: python/torch/save-state-dict
+description: torch.save() a model's state_dict(), never the nn.Module itself (a pickled module loads only with weights_only=False, which runs code from the file); safetensors.torch.save_file() for weights to share.
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: call
+      pattern: "$F($$$)"
+      has: {field: arguments, has: {nthChild: 1, pattern: $M}}
+    # torch.save by what the name refers to (§15.6; torch.jit.save of a ScriptModule is
+    # another function), and its first argument a Module by its type (§15.1).
+    where:
+      F: {declared: {module: torch.serialization, name: save}}
+      M: {type: {package: torch, name: Module}}
+examples:
+  deps: [{ecosystem: pypi, name: torch, version: "2.14.1"}]
+  match:
+    - "import torch\nfrom torch import nn\n\n\nclass Net(nn.Module):\n    def __init__(self) -> None:\n        super().__init__()\n        self.fc = nn.Linear(4, 2)\n\n\nmodel = Net()\ntorch.save(model, \"model.pt\")\n"
+    - "from torch import nn, save as store\n\nstore(nn.Linear(4, 2), \"linear.pt\")\n"
+  no_match:
+    - "import torch\nfrom torch import nn\n\nmodel = nn.Linear(4, 2)\ntorch.save(model.state_dict(), \"model.pt\")\n"
+    - "import torch\nfrom torch import nn\n\nscripted = torch.jit.script(nn.Linear(4, 2))\ntorch.jit.save(scripted, \"model.pt\")\n"
+    - "from torch import nn\n\n\ndef save(m: nn.Module, path: str) -> None:\n    pass\n\n\nsave(nn.Linear(4, 2), \"model.pt\")\n"

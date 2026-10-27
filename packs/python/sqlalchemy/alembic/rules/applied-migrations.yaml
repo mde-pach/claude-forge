@@ -1,0 +1,12 @@
+id: python/sqlalchemy/alembic/applied-migrations
+description: Alembic revisions already in the base (file role @alembic-migrations, the versions directory of alembic.ini's script_location) are not modified or deleted; they may already be applied, so a change goes in a new revision (alembic revision --autogenerate).
+scope: {language: any}
+enforce:
+  - {target: check, stage: migration, run: "forge_applied_migrations @alembic-migrations"}
+examples:
+  match:
+    - head: {alembic.ini: "[alembic]\nscript_location = alembic\n", alembic/versions/0001_init.py: "revision = \"0001\"\ndown_revision = None\n\n\ndef upgrade() -> None:\n    op.create_table(\"orders\", sa.Column(\"id\", sa.Integer(), primary_key=True))\n"}
+      files: {alembic/versions/0001_init.py: "revision = \"0001\"\ndown_revision = None\n\n\ndef upgrade() -> None:\n    op.create_table(\"orders\", sa.Column(\"id\", sa.Integer(), primary_key=True), sa.Column(\"paid\", sa.Boolean()))\n"}
+  no_match:
+    - head: {alembic.ini: "[alembic]\nscript_location = alembic\n", alembic/versions/0001_init.py: "revision = \"0001\"\ndown_revision = None\n\n\ndef upgrade() -> None:\n    op.create_table(\"orders\", sa.Column(\"id\", sa.Integer(), primary_key=True))\n"}
+      files: {alembic/versions/0002_paid.py: "revision = \"0002\"\ndown_revision = \"0001\"\n\n\ndef upgrade() -> None:\n    op.add_column(\"orders\", sa.Column(\"paid\", sa.Boolean()))\n"}

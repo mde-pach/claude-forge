@@ -1,0 +1,52 @@
+id: python/celery/no-model-args
+description: "A task's arguments (.delay(…), .s(…), .si(…), apply_async(args=…, kwargs=…)) are not Django model instances: they are serialized at send time and stale (or unserializable) when the worker runs. Pass the primary key and load the row in the task."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      all:
+        - any: [{kind: identifier}, {kind: attribute}, {kind: call}, {kind: subscript}]
+        - pattern: $A
+        # not a keyword argument's name
+        - not: {inside: {kind: keyword_argument, field: name, stopBy: neighbor}}
+      any:
+        # .delay(a), .s(a), .si(a), keyword arguments included
+        - inside:
+            kind: argument_list
+            stopBy: neighbor
+            inside: {kind: call, stopBy: neighbor, has: {field: function, kind: attribute, all: [{has: {field: object, pattern: $T}}, {has: {field: attribute, regex: "^(delay|s|si)$"}}]}}
+        - inside:
+            kind: keyword_argument
+            stopBy: neighbor
+            inside:
+              kind: argument_list
+              stopBy: neighbor
+              inside: {kind: call, stopBy: neighbor, has: {field: function, kind: attribute, all: [{has: {field: object, pattern: $T}}, {has: {field: attribute, regex: "^(delay|s|si)$"}}]}}
+        # .apply_async(args=[a], kwargs={"k": a})
+        - inside:
+            any: [{kind: list}, {kind: tuple}, {kind: pair}]
+            stopBy: neighbor
+            inside:
+              stopBy: end
+              kind: keyword_argument
+              regex: "^(args|kwargs)[[:space:]]*="
+              inside:
+                kind: argument_list
+                stopBy: neighbor
+                inside: {kind: call, stopBy: neighbor, has: {field: function, kind: attribute, all: [{has: {field: object, pattern: $T}}, {has: {field: attribute, regex: "^apply_async$"}}]}}
+    # a Celery task (§15.1, through celery-types) given a Django model (through django-stubs)
+    where:
+      T: {type: {package: celery, name: Task}}
+      A: {type: {package: django, name: Model}}
+    needs: [{ecosystem: pypi, name: celery-types}, {ecosystem: pypi, name: django-stubs}]
+when:
+  deps: [{ecosystem: pypi, name: django, version: ">=4.2"}]
+examples:
+  deps: [{ecosystem: pypi, name: celery, version: "5.6.3"}, {ecosystem: pypi, name: celery-types, version: "0.26.0"}, {ecosystem: pypi, name: django, version: "6.1.2"}, {ecosystem: pypi, name: django-stubs, version: "6.1.2"}]
+  match:
+    - "from celery import shared_task\nfrom django.db import models, transaction\n\n\nclass Article(models.Model):\n    title = models.CharField(max_length=100)\n\n\n@shared_task\ndef notify(article_id: int) -> None:\n    print(article_id)\n\n\n@shared_task\ndef send(article: Article) -> None:\n    print(article.title)\n\n\ndef publish(pk: int) -> None:\n    article = Article.objects.get(pk=pk)\n    send.delay(article)\n"
+    - "from celery import shared_task\nfrom django.db import models, transaction\n\n\nclass Article(models.Model):\n    title = models.CharField(max_length=100)\n\n\n@shared_task\ndef notify(article_id: int) -> None:\n    print(article_id)\n\n\n@shared_task\ndef send(n: int, article: Article) -> None:\n    print(n, article.title)\n\n\ndef publish(pk: int) -> None:\n    send.apply_async(args=[1, Article.objects.get(pk=pk)])\n    send.s(2, article=Article.objects.get(pk=pk))"
+    - "from celery import shared_task\nfrom django.db import models, transaction\n\n\nclass Article(models.Model):\n    title = models.CharField(max_length=100)\n\n\n@shared_task\ndef notify(article_id: int) -> None:\n    print(article_id)\n\n\n@shared_task\ndef send(n: int, article: Article) -> None:\n    print(n, article.title)\n\n\ndef again(article: Article) -> None:\n    send.delay(1, article=article)\n"
+  no_match:
+    - "from celery import shared_task\nfrom django.db import models, transaction\n\n\nclass Article(models.Model):\n    title = models.CharField(max_length=100)\n\n\n@shared_task\ndef notify(article_id: int) -> None:\n    print(article_id)\n\n\ndef publish(pk: int) -> None:\n    article = Article.objects.get(pk=pk)\n    notify.delay(article.pk)\n    notify.apply_async(args=[article.pk], countdown=5)\n"

@@ -1,0 +1,23 @@
+id: typescript/npm/allow-scripts
+description: "No new install-script approvals: package.json allowScripts gains no entry that is not false, and .npmrc gains no ignore-scripts=false, allow-scripts entry or dangerously-allow-all-scripts=true. npm 12 blocks dependency install scripts by default; the user approves them, not Claude."
+scope: {language: any}
+enforce:
+  - {target: check, stage: lint, run: "forge_helper bun pm_policy.mjs npm-scripts || forge_accept_hint", when_changed: [package.json, .npmrc]}
+examples:
+  match:
+    - head: {package.json: "{\n  \"name\": \"shop\",\n  \"allowScripts\": {\"esbuild@0.25.0\": true}\n}\n"}
+      files: {package.json: "{\n  \"name\": \"shop\",\n  \"allowScripts\": {\"esbuild@0.25.0\": true, \"sharp\": true}\n}\n"}
+    - head: {package.json: "{\n  \"name\": \"shop\",\n  \"allowScripts\": {\"core-js\": false}\n}\n"}
+      files: {package.json: "{\n  \"name\": \"shop\",\n  \"allowScripts\": {\"core-js\": true}\n}\n"}
+    - files: {.npmrc: "ignore-scripts=false\n"}
+    - files: {.npmrc: "allow-scripts=canvas,sharp\n"}
+    - head: {.npmrc: "allow-scripts=canvas\n"}
+      files: {.npmrc: "allow-scripts=canvas,sharp\n"}
+    - files: {.npmrc: "dangerously-allow-all-scripts=true\n"}
+  no_match:
+    - head: {package.json: "{\n  \"name\": \"shop\",\n  \"allowScripts\": {\"esbuild\": true, \"sharp\": true}\n}\n"}
+      files: {package.json: "{\n  \"name\": \"shop\",\n  \"allowScripts\": {\"esbuild\": true}\n}\n"}
+    - head: {package.json: "{\n  \"name\": \"shop\"\n}\n"}
+      files: {package.json: "{\n  \"name\": \"shop\",\n  \"allowScripts\": {\"core-js\": false}\n}\n"}
+    - files: {.npmrc: "ignore-scripts=true\nallow-scripts-pin=true\n"}
+    - files: {packages/ui/package.json: "{\n  \"name\": \"ui\",\n  \"dependencies\": {\"zod\": \"4.1.0\"}\n}\n"}

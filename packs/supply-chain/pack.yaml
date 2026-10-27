@@ -1,0 +1,5 @@
+id: supply-chain
+description: Package sources and their verification (TLS, package indexes, vulnerability audits).
+level: project
+detect:
+  files_any: ["**/package.json", "**/pyproject.toml", "**/requirements*.txt", "**/Pipfile", "**/setup.py", "**/Cargo.lock"]

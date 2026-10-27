@@ -1,0 +1,26 @@
+id: safety/lockfile-hand-edit
+description: "Lock files are not edited by hand: an Edit or Write of pnpm-lock.yaml, package-lock.json, npm-shrinkwrap.json, yarn.lock, bun.lock, deno.lock, uv.lock, poetry.lock, pdm.lock, pixi.lock, Pipfile.lock, Cargo.lock, go.sum, Gemfile.lock, composer.lock, packages.lock.json, flake.lock, mise.lock or .terraform.lock.hcl needs confirmation. Change the manifest and run the package manager (bun install, pnpm install, uv lock, cargo update -p …) instead."
+scope: {language: any}
+enforce:
+  - {target: permission, decision: ask, rule: "Edit(**/pnpm-lock.yaml)"}
+  - {target: permission, decision: ask, rule: "Edit(**/package-lock.json)"}
+  - {target: permission, decision: ask, rule: "Edit(**/npm-shrinkwrap.json)"}
+  - {target: permission, decision: ask, rule: "Edit(**/yarn.lock)"}
+  - {target: permission, decision: ask, rule: "Edit(**/bun.lock)"}
+  - {target: permission, decision: ask, rule: "Edit(**/uv.lock)"}
+  - {target: permission, decision: ask, rule: "Edit(**/poetry.lock)"}
+  - {target: permission, decision: ask, rule: "Edit(**/Cargo.lock)"}
+  - {target: permission, decision: ask, rule: "Edit(**/deno.lock)"}
+  - {target: permission, decision: ask, rule: "Edit(**/pdm.lock)"}
+  - {target: permission, decision: ask, rule: "Edit(**/pixi.lock)"}
+  - {target: permission, decision: ask, rule: "Edit(**/Pipfile.lock)"}
+  - {target: permission, decision: ask, rule: "Edit(**/.terraform.lock.hcl)"}
+  - {target: permission, decision: ask, rule: "Edit(**/flake.lock)"}
+  - {target: permission, decision: ask, rule: "Edit(**/mise.lock)"}
+  - {target: permission, decision: ask, rule: "Edit(**/go.sum)"}
+  - {target: permission, decision: ask, rule: "Edit(**/Gemfile.lock)"}
+  - {target: permission, decision: ask, rule: "Edit(**/composer.lock)"}
+  - {target: permission, decision: ask, rule: "Edit(**/packages.lock.json)"}
+examples:
+  match: ["Edit(pnpm-lock.yaml)", "Edit(packages/web/package-lock.json)", "Edit(yarn.lock)", "Edit(bun.lock)", "Edit(uv.lock)", "Edit(poetry.lock)", "Edit(crates/Cargo.lock)", "Edit(deno.lock)", "Edit(pdm.lock)", "Edit(pixi.lock)", "Edit(Pipfile.lock)", "Edit(infra/.terraform.lock.hcl)", "Edit(flake.lock)", "Edit(mise.lock)", "Edit(go.sum)", "Edit(Gemfile.lock)", "Edit(composer.lock)", "Edit(src/App/packages.lock.json)"]
+  no_match: ["Edit(package.json)", "Edit(pyproject.toml)", "Edit(docs/pnpm-lock.yaml.md)", "Read(pnpm-lock.yaml)", "Edit(go.mod)", "Edit(Gemfile)", "Edit(infra/main.tf)"]

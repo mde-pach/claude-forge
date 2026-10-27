@@ -1,0 +1,9 @@
+id: python/uv/no-requirements-txt
+description: Claude asks you before writing or editing requirements*.txt in a uv project; dependencies go through uv add, and uv export writes a requirements file for consumers that need one.
+scope: {language: any}
+enforce:
+  - {target: permission, decision: ask, rule: "Write(**/requirements*.txt)"}
+  - {target: permission, decision: ask, rule: "Edit(**/requirements*.txt)"}
+examples:
+  match: ["Write(requirements.txt)", "Edit(requirements-dev.txt)", "Write(docker/requirements.prod.txt)"]
+  no_match: ["Edit(pyproject.toml)", "Write(docs/requirements.md)", "Bash(uv export -o requirements.txt)"]

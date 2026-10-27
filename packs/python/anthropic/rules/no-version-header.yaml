@@ -1,0 +1,26 @@
+id: python/anthropic/no-version-header
+description: "Advice: no hand-set anthropic-version header in default_headers or extra_headers of an Anthropic client or call: it pins the app to older API behaviour than the SDK was built for. The SDK sends the right version."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: call
+      pattern: $CALL
+      has:
+        field: arguments
+        has:
+          kind: keyword_argument
+          regex: "^(default_headers|extra_headers)[[:space:]]*="
+          has: {stopBy: end, kind: pair, has: {field: key, regex: "^[\"']anthropic-version[\"']$"}}
+    # the call returns an anthropic object: a client, with_options(), a Message
+    where:
+      CALL: {type: {package: anthropic}}
+examples:
+  deps: [{ecosystem: pypi, name: anthropic, version: "2.3.0"}, {ecosystem: pypi, name: openai, version: "3.37.0"}]
+  match:
+    - "from anthropic import Anthropic\n\nclient = Anthropic(default_headers={\"anthropic-version\": \"2023-06-01\"})\n"
+    - "from anthropic import Anthropic\n\nclient = Anthropic()\nreply = client.messages.create(\n    model=\"claude-opus-5-5\",\n    max_tokens=1024,\n    messages=[{\"role\": \"user\", \"content\": \"Hi\"}],\n    extra_headers={\"anthropic-version\": \"2023-06-01\"},\n)\n"
+  no_match:
+    - "from anthropic import Anthropic\n\nclient = Anthropic(default_headers={\"x-team\": \"search\"})\n"
+    - "def send(default_headers: dict[str, str]) -> None:\n    pass\n\n\nsend(default_headers={\"anthropic-version\": \"2023-06-01\"})\n"

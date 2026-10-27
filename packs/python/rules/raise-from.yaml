@@ -1,0 +1,14 @@
+id: python/raise-from
+description: Inside except, a new exception is raised from the caught one (raise X from err) or explicitly from None, so the cause is kept.
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: B904
+    snippet: '[tool.ruff.lint] extend-select = ["B904"]'
+examples:
+  match:
+    - "def parse(s: str) -> int:\n    try:\n        return int(s)\n    except ValueError:\n        raise RuntimeError(f\"bad number: {s}\")\n"
+  no_match:
+    - "def parse(s: str) -> int:\n    try:\n        return int(s)\n    except ValueError as err:\n        raise RuntimeError(f\"bad number: {s}\") from err\n"
+    - "def parse(s: str) -> int:\n    try:\n        return int(s)\n    except ValueError:\n        raise\n"

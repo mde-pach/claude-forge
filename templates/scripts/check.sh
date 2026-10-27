@@ -19,14 +19,21 @@ FORGE_ROOT=$(pwd)
 IFS='
 '
 FORGE_TMP=$(mktemp -d "${TMPDIR:-/tmp}/forge-check.XXXXXX") || exit 2
-trap 'rm -rf "$FORGE_TMP"' EXIT HUP INT TERM
+# forge_kill_jobs: stops every process this run started (a check, its timeout watcher),
+# so none outlives it (the Stop hook's timeout, a Ctrl-C at commit). A types engine
+# detaches into its own session; one this run started is stopped at the end unless a
+# session uses it (§15.3).
+forge_kill_jobs() {
+  for _kj in $(ps -A -o pid= -o ppid= 2>/dev/null | awk -v p="$$" '$2 == p { print $1 }'); do forge_kill_tree "$_kj"; done
+}
+trap 'forge_types_down; rm -rf "$FORGE_TMP"' EXIT; trap 'forge_kill_jobs; exit 143' HUP INT TERM
 
 @@LIB@@
 
 @@CHECKS@@
 
-# Scripts that checks run with the project's own runtime (Python, bun).
-@@SCRIPTS@@
+FORGE_STATE=$(forge_state_of "$(pwd -P)")
+
 
 FORGE_FORBID='@@FORBID@@'
 FORGE_NO_INCREASE='@@NO_INCREASE@@'
@@ -36,7 +43,7 @@ FORGE_NO_DECREASE='@@NO_DECREASE@@'
 # The change: changed, existing, deleted, base/, inbase and added in $FORGE_TMP.
 forge_change_set || exit 1
 if [ "$mode" = --all ]; then
-  git ls-files --cached --others --exclude-standard 2>/dev/null | sort -u > "$FORGE_TMP/scope"
+  git ls-files -z --cached --others --exclude-standard 2>/dev/null | tr '\000' '\n' | grep -vE "$FORGE_OWN_ERE" | sort -u > "$FORGE_TMP/scope"
   : > "$FORGE_TMP/scope.tmp"
   while read -r f; do [ -f "$f" ] && printf '%s\n' "$f" >> "$FORGE_TMP/scope.tmp"; done < "$FORGE_TMP/scope"
   mv "$FORGE_TMP/scope.tmp" "$FORGE_TMP/scope"
@@ -49,42 +56,58 @@ report() { printf 'forge:%s %s\n' "$1" "$2"; fail=1; }
 
 # 1. Integrity: owned files match .forge/manifest.sha256 ("<sha256>  <path>" lines,
 # sha256sum format). JSON files are hashed with spaces, tabs and newlines removed,
-# so a formatter run is not tampering; any other change is.
+# helper scripts also without quotes, commas, semicolons and parentheses, so a
+# formatter run is not tampering; any other change is.
 forge_owned_hash() {
   case $1 in
+    # helper scripts: what a formatter changes (layout, quotes, trailing commas,
+    # semicolons, parentheses) is left out, so ruff format or Biome rewriting them is not tampering
+    .forge/helpers/*) tr -d " \t\r\n,;()'\"\`" < "$1" | forge_sha256 ;;
     *.json) tr -d ' \t\r\n' < "$1" | forge_sha256 ;;
     *) forge_sha256 < "$1" ;;
   esac
 }
+# forge_sha256_files <file>...: "<hex><2 chars><path>" per file, in one run (sha256sum
+# format; openssl's "<hex> *<path>" has the same layout).
+forge_sha256_files() {
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum "$@"
+  elif command -v shasum >/dev/null 2>&1; then shasum -a 256 "$@"
+  else openssl dgst -sha256 -r "$@"
+  fi
+}
 forge_integrity() {
   manifest=.forge/manifest.sha256
   [ -f "$manifest" ] || { report forge/integrity "$manifest is missing (run forge apply)"; return; }
-  awk '/^[0-9a-f]+  ./ { h = $1; p = substr($0, length(h) + 3); print p "\t" h }' "$manifest" > "$FORGE_TMP/owned"
+  awk '/^[0-9a-f]+  ./ { h = $1; p = substr($0, length(h) + 3); if (p ~ /^[.](forge|claude)\//) print p "\t" h }' "$manifest" > "$FORGE_TMP/owned"
+  # "<path><TAB><hash>" lines in $FORGE_TMP/have ("-" for a missing file, none for one
+  # that cannot be read): one hashing run for every owned file but JSON and helper scripts
+  # (hashed without what a formatter changes: forge_owned_hash)
+  : > "$FORGE_TMP/have"; : > "$FORGE_TMP/plain"
   while IFS='	' read -r path hash; do
     [ -n "$path" ] || continue
-    case $path in .forge/*|.claude/*) ;; *) continue ;; esac
-    if [ ! -f "$path" ]; then report forge/integrity "$path is missing (run forge apply)"
-    elif [ "$(forge_owned_hash "$path")" != "$hash" ]; then report forge/integrity "$path was modified (run forge diff)"
-    fi
+    [ -f "$path" ] || { printf '%s\t-\n' "$path" >> "$FORGE_TMP/have"; continue; }
+    case $path in
+      *.json|.forge/helpers/*) printf '%s\t%s\n' "$path" "$(forge_owned_hash "$path")" >> "$FORGE_TMP/have" ;;
+      *) printf '%s\n' "$path" >> "$FORGE_TMP/plain" ;;
+    esac
   done < "$FORGE_TMP/owned"
+  if [ -s "$FORGE_TMP/plain" ]; then
+    set -f
+    # shellcheck disable=SC2046
+    forge_sha256_files $(cat "$FORGE_TMP/plain") 2>/dev/null | awk '{ h = $1; print substr($0, length(h) + 3) "\t" h }' >> "$FORGE_TMP/have"
+    set +f
+  fi
+  # in manifest order: missing, or modified
+  awk -F '\t' 'FILENAME == ARGV[1] { have[$1] = $2; next }
+    $1 == "" { next }
+    have[$1] == "-" { printf "forge:forge/integrity %s is missing (run forge apply)\n", $1; next }
+    have[$1] != $2 { printf "forge:forge/integrity %s was modified (run forge diff)\n", $1 }' "$FORGE_TMP/have" "$FORGE_TMP/owned" > "$FORGE_TMP/integrity"
   cut -f 1 "$FORGE_TMP/owned" > "$FORGE_TMP/owned-paths"
   { find .forge .claude/skills/forge-project -type f 2>/dev/null; find .claude/rules -name 'forge-*.md' -type f 2>/dev/null; } \
-    | sed 's|^\./||' | while read -r path; do
-      case $path in .forge/state/*|.forge/rules/*|.forge/forge.lock.json|.forge/manifest.sha256) continue ;; esac
-      grep -qxF "$path" "$FORGE_TMP/owned-paths" || printf 'forge:forge/integrity %s is not a forge file (remove it or run forge apply)\n' "$path"
-    done > "$FORGE_TMP/extra"
-  if [ -s "$FORGE_TMP/extra" ]; then cat "$FORGE_TMP/extra"; fail=1; fi
-}
-
-# 2. Applied migrations (in the base) are never modified or deleted.
-forge_applied_migrations() {
-  while read -r f; do
-    case $f in
-      prisma/migrations/migration_lock.toml) ;;
-      alembic/versions/*|prisma/migrations/*)
-        report forge/applied-migration "$f exists at $(forge_base_name) and was modified or deleted; write a new migration instead" ;;
-    esac
-  done < "$FORGE_TMP/inbase"
+    | sed 's|^\./||' | awk 'FILENAME == ARGV[1] { owned[$0] = 1; next }
+      /^[.]forge\/(state|rules)\// || $0 == ".forge/forge.lock.json" || $0 == ".forge/manifest.sha256" { next }
+      !($0 in owned) { printf "forge:forge/integrity %s is not a forge file (remove it or run forge apply)\n", $0 }' "$FORGE_TMP/owned-paths" - >> "$FORGE_TMP/integrity"
+  if [ -s "$FORGE_TMP/integrity" ]; then cat "$FORGE_TMP/integrity"; fail=1; fi
 }
 
 # forge_base_name: what the change is compared with, for messages.
@@ -96,7 +119,7 @@ forge_base_name() {
   esac
 }
 
-# 3. Tests and counts: no deleted test files; ast-grep and grep counts compared with the base.
+# 2. Tests and counts: no deleted test files; ast-grep and grep counts compared with the base.
 forge_tests_integrity() {
   while read -r f; do
     case $f in
@@ -150,33 +173,43 @@ forge_counts() {
     | awk -F '"' '$2 == "file" { f = $4 } $2 == "ruleId" { c[$4 "\t" f]++ } END { for (k in c) print k "\t" c[k] }'
 }
 
-# 4. Forbid rules (ast-grep and grep): outside --all, only matches on added lines.
+# 3. Forbid rules (ast-grep and grep): outside --all, only matches on added lines.
 forge_forbid() {
   [ -s "$FORGE_TMP/scope" ] || return
   forge_grep_forbid "$FORGE_TMP/scope" > "$FORGE_TMP/forbid.out"
   if [ -n "$FORGE_FORBID" ]; then
     set -f
     # shellcheck disable=SC2046
-    astgrep scan -c .forge/ast-grep/sgconfig.yml --filter "^($FORGE_FORBID)\$" --json=stream $(cat "$FORGE_TMP/scope") > "$FORGE_TMP/forbid"
+    astgrep scan -c .forge/ast-grep/sgconfig.yml --filter "^($FORGE_FORBID)\$" --json=stream --include-metadata $(cat "$FORGE_TMP/scope") > "$FORGE_TMP/forbid"
     rc=$?
     set +f
     if [ "$rc" -gt 1 ]; then printf 'forge:forge/ast-grep skipped: ast-grep unavailable\n'
-    else forge_sg_report "$FORGE_TMP/forbid" >> "$FORGE_TMP/forbid.out"
+    else
+      # rules with type constraints: only the matches the types engine confirms (§15.1)
+      forge_sg_report "$FORGE_TMP/forbid" json > "$FORGE_TMP/forbid.added"
+      forge_types_changed $(cat "$FORGE_TMP/changed")
+      forge_types_filter "$FORGE_TMP/forbid.added" >> "$FORGE_TMP/forbid.out"
+      forge_sg_report "$FORGE_TMP/forbid.added" >> "$FORGE_TMP/forbid.out"
     fi
   fi
   if [ -s "$FORGE_TMP/forbid.out" ]; then cat "$FORGE_TMP/forbid.out"; fail=1; fi
   return 0
 }
 
-forge_step() { [ "$fail" -eq 0 ] || exit 1; "$@"; }
+# forge_end <status>: advice (§10.7) last, after every failing check, then exit.
+forge_end() { [ ! -s "$FORGE_TMP/advice.out" ] || cat "$FORGE_TMP/advice.out"; exit "$1"; }
+forge_step() { [ "$fail" -eq 0 ] || forge_end "$fail"; "$@"; }
 
 forge_step forge_integrity
-forge_step forge_applied_migrations
 forge_step forge_tests_integrity
 forge_step forge_forbid
 forge_step forge_run_stage format
 forge_step forge_run_stage lint
+# generated code first: a stale one would only make the typecheck repeat it (§10.1)
+forge_step forge_run_stage codegen
 forge_step forge_run_stage typecheck
 forge_step forge_run_stage migration
 forge_step forge_run_stage test
-exit "$fail"
+# advice (§10.7) does not stop the steps after it; when it is the only failure, exit 4
+[ "$fail" -ne 0 ] || [ "${advised:-0}" -eq 0 ] || fail=4
+forge_end "$fail"

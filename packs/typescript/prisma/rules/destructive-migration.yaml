@@ -1,0 +1,49 @@
+# Expand and contract: a column or table is dropped only once no deployed version of the
+# app reads it, in a later deploy than the change that stopped using it; the old
+# Prisma Client still selects every scalar field of a model during a rolling deploy
+# (https://www.prisma.io/docs/guides/data-migration). Squawk's ban-drop-column and
+# ban-drop-table are not among migration-lint's blocking rules (SPECS §13.1); this rule
+# adds them with an approval path: the user accepts the drop in forge.yaml, which is
+# behind permission ask. A SQLite table redefinition (CREATE TABLE "new_X", DROP TABLE
+# "X", ALTER TABLE "new_X" RENAME TO "X") drops the columns of "X" (followed through the
+# earlier migrations) that "new_X" lacks (forge_prisma_drops).
+id: typescript/prisma/destructive-migration
+description: A new Prisma migration does not drop a column or table (a SQLite table redefinition that leaves columns out included) unless the user accepted that drop in forge.yaml (expand and contract - drop only after a deploy in which no code reads it).
+scope: {language: any, files: ["prisma/migrations/**/migration.sql"]}
+enforce:
+  - target: check
+    stage: migration
+    when_changed: ["prisma/migrations/**"]
+    run: |
+      set -f
+      _dm_files=$FORGE_FILES
+      [ -n "$_dm_files" ] || _dm_files=$(git ls-files 'prisma/migrations/*/migration.sql' | sort | tail -n 1)
+      [ -n "$_dm_files" ] || { set +f; return 0; }
+      # shellcheck disable=SC2086
+      forge_prisma_drops $_dm_files > "$FORGE_TMP/drops"
+      set +f
+      while IFS= read -r _dm_l; do
+        [ -f forge.yaml ] && grep -qF -- "$_dm_l" forge.yaml && continue
+        printf '%s\n' "$_dm_l"
+      done < "$FORGE_TMP/drops" > "$FORGE_TMP/drops.open"
+      [ -s "$FORGE_TMP/drops.open" ] || return 0
+      cat "$FORGE_TMP/drops.open"
+      printf 'Drop a column or table only after a deploy in which no code reads it (expand and contract), or have the user accept it in forge.yaml: accept: [{rule: typescript/prisma/destructive-migration, change: '"'"'<line above>'"'"', reason: "..."}]\n'
+      return 1
+examples:
+  match:
+    - files: {prisma/migrations/20261020000000_drop_legacy/migration.sql: "/*\n  Warnings:\n\n  - You are about to drop the column `legacyId` on the `User` table. All the data in the column will be lost.\n\n*/\n-- AlterTable\nALTER TABLE \"User\" DROP COLUMN \"legacyId\";\n"}
+    - files: {prisma/migrations/20261020000000_drop_post/migration.sql: "-- DropTable\nDROP TABLE \"Post\";\n"}
+    - head:
+        prisma/migrations/20261001000000_init/migration.sql: "-- CreateTable\nCREATE TABLE \"User\" (\n    \"id\" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,\n    \"name\" TEXT,\n    \"legacyId\" TEXT\n);\n"
+      files:
+        prisma/migrations/20261020000000_drop_legacy/migration.sql: "/*\n  Warnings:\n\n  - You are about to drop the column `legacyId` on the `User` table. All the data in the column will be lost.\n\n*/\n-- RedefineTables\nPRAGMA defer_foreign_keys=ON;\nPRAGMA foreign_keys=OFF;\nCREATE TABLE \"new_User\" (\n    \"id\" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,\n    \"name\" TEXT\n);\nINSERT INTO \"new_User\" (\"id\", \"name\") SELECT \"id\", \"name\" FROM \"User\";\nDROP TABLE \"User\";\nALTER TABLE \"new_User\" RENAME TO \"User\";\nPRAGMA foreign_keys=ON;\nPRAGMA defer_foreign_keys=OFF;\n"
+  no_match:
+    - files: {prisma/migrations/20261020000000_post/migration.sql: "-- CreateTable\nCREATE TABLE \"Post\" (\n    \"id\" SERIAL NOT NULL,\n    CONSTRAINT \"Post_pkey\" PRIMARY KEY (\"id\")\n);\n\n-- DropIndex\nDROP INDEX \"User_email_key\";\n"}
+    - files: {prisma/migrations/20261020000000_user_name/migration.sql: "-- RedefineTables\nPRAGMA foreign_keys=OFF;\nCREATE TABLE \"new_User\" (\"id\" INTEGER NOT NULL PRIMARY KEY, \"name\" TEXT);\nINSERT INTO \"new_User\" (\"id\") SELECT \"id\" FROM \"User\";\nDROP TABLE \"User\";\nALTER TABLE \"new_User\" RENAME TO \"User\";\nPRAGMA foreign_keys=ON;\n"}
+    - head: {forge.yaml: "forge: \"0.5\"\naccept:\n  - rule: typescript/prisma/destructive-migration\n    change: 'prisma/migrations/20261020000000_drop_legacy/migration.sql:2: ALTER TABLE \"User\" DROP COLUMN \"legacyId\";'\n    reason: legacyId unread since release 4.2\n"}
+      files: {prisma/migrations/20261020000000_drop_legacy/migration.sql: "-- AlterTable\nALTER TABLE \"User\" DROP COLUMN \"legacyId\";\n"}
+    - head:
+        prisma/migrations/20261001000000_init/migration.sql: "-- CreateTable\nCREATE TABLE \"User\" (\n    \"id\" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,\n    \"name\" TEXT,\n    \"legacyId\" TEXT\n);\n"
+      files:
+        prisma/migrations/20261020000000_name_required/migration.sql: "-- RedefineTables\nPRAGMA foreign_keys=OFF;\nCREATE TABLE \"new_User\" (\n    \"id\" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,\n    \"name\" TEXT NOT NULL,\n    \"legacyId\" TEXT\n);\nINSERT INTO \"new_User\" (\"id\", \"name\", \"legacyId\") SELECT \"id\", \"name\", \"legacyId\" FROM \"User\";\nDROP TABLE \"User\";\nALTER TABLE \"new_User\" RENAME TO \"User\";\nPRAGMA foreign_keys=ON;\n"

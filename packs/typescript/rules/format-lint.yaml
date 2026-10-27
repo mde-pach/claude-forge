@@ -1,13 +1,16 @@
 id: typescript/format-lint
-description: TypeScript files are formatted and linted with Biome.
-scope: {language: typescript}
+description: TypeScript and JavaScript files, and the Vue, Svelte, Astro and HTML templates Biome reads, are formatted and linted with Biome.
+# biome ci . covers every file Biome supports; the changed files too (templates fully with html.experimentalFullSupportEnabled)
+scope: {language: any, files: ["**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,vue,svelte,astro,html}"]}
 enforce:
   - target: check
     stage: lint
     run: "biome ci ."
     changed_run: "biome check --write --no-errors-on-unmatched {files}"
-    # after an edit: Biome's safe lint fixes and import sorting, without formatting; never removing unused imports or variables
-    fix_run: "biome check --write --formatter-enabled=false --skip=correctness/noUnusedImports --skip=correctness/noUnusedVariables --no-errors-on-unmatched {files}"
+    # no fix_run: changed_run already applies Biome's safe fixes (removing unused imports or variables is an unsafe fix, so they stay);
+    # after an edit it runs once, and a change beyond formatting is reported as a fix
+    # formats a file's base copy, so lines that only formatting changed are not counted as added
+    format_stdin: "biome format --stdin-file-path={file}"
 examples:
   match: ["export const same = (a: number, b: number) => a == b;\n"]
   no_match: ["export const same = (a: number, b: number) => a === b;\n"]

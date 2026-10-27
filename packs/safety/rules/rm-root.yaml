@@ -1,10 +1,13 @@
 id: safety/rm-root
-description: No recursive rm on /, ~, $HOME or the parent directory.
+description: "No recursive rm on /, ~, $HOME or the parent directory, nor on a bare variable followed by / or /* ($DIR/, ${OUT}/*), which is / when the variable is empty; ${VAR:?}/ fails instead and is fine."
 scope: {language: any}
 enforce:
   - target: guard
     decision: deny
     pattern: '(^|[^A-Za-z0-9_-])rm([[:space:]]+[^[:space:];&|]+)*[[:space:]]+(-[A-Za-z]*[rR][A-Za-z]*|--recursive)([[:space:]]+[^[:space:];&|]+)*[[:space:]]+(\\"|'')?(/|~/?|\$HOME/?|\$\{HOME\}/?|\.\./?)\*?(\\"|'')?([[:space:];&|)]|$)'
+  - target: guard
+    decision: deny
+    pattern: '(^|[^A-Za-z0-9_-])rm([[:space:]]+[^[:space:];&|]+)*[[:space:]]+(-[A-Za-z]*[rR][A-Za-z]*|--recursive)([[:space:]]+[^[:space:];&|]+)*[[:space:]]+(\\"|'')?\$\{?[A-Za-z_][A-Za-z0-9_]*\}?(\\"|'')?/(\\"|'')?\*?(\\"|'')?([[:space:];&|)]|$)'
 examples:
-  match: ["rm -rf /", "rm -rf ~", "sudo rm -rf /", "rm -fr ~/", "rm -rf $HOME", "rm -r ..", "rm -rf /*", "rm --recursive --force /", "rm -rf \"$HOME\""]
-  no_match: ["rm -rf node_modules", "rm -rf /tmp/build", "rm -rf ~/projects/old", "rm file.txt", "rm -rf ./dist", "rm -rf ../sibling/dist"]
+  match: ["rm -rf /", "rm -rf ~", "sudo rm -rf /", "rm -fr ~/", "rm -rf $HOME", "rm -r ..", "rm -rf /*", "rm --recursive --force /", "rm -rf \"$HOME\"", "rm -rf $DIR/", "rm -rf \"$BUILD_DIR/\"*", "rm -rf ${OUT}/*", "rm -r $HOME_DIR/"]
+  no_match: ["rm -rf node_modules", "rm -rf /tmp/build", "rm -rf ~/projects/old", "rm file.txt", "rm -rf ./dist", "rm -rf ../sibling/dist", "rm -rf \"$DIR/build\"", "rm -rf ${OUT:?}/", "rm -rf \"$tmp\"", "rm -f $X/", "rm -rf $DIR/dist/*", "rm -rf ./$X/"]

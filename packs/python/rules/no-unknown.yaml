@@ -1,15 +1,39 @@
 id: python/no-unknown
-description: No implicit Any (Unknown). Annotate parameters, and validate untyped data into typed models.
+description: Parameters and return types are annotated (special, static and class methods included), so no value is Unknown to the type checker (and type constraints of other rules see every receiver).
 scope: {language: python}
 enforce:
   - target: tool
-    tool: basedpyright
-    expects: reportUnknownParameterType
-    snippet: '[tool.basedpyright] reportUnknownParameterType = "error"'
+    tool: ruff
+    expects: ANN001
+    snippet: '[tool.ruff.lint] extend-select = ["ANN001"]'
   - target: tool
-    tool: basedpyright
-    expects: reportUnknownVariableType
-    snippet: '[tool.basedpyright] reportUnknownVariableType = "error"'
+    tool: ruff
+    expects: ANN002
+    snippet: '[tool.ruff.lint] extend-select = ["ANN002"]'
+  - target: tool
+    tool: ruff
+    expects: ANN003
+    snippet: '[tool.ruff.lint] extend-select = ["ANN003"]'
+  - target: tool
+    tool: ruff
+    expects: ANN201
+    snippet: '[tool.ruff.lint] extend-select = ["ANN201"]'
+  - target: tool
+    tool: ruff
+    expects: ANN202
+    snippet: '[tool.ruff.lint] extend-select = ["ANN202"]'
+  - target: tool
+    tool: ruff
+    expects: ANN204
+    snippet: '[tool.ruff.lint] extend-select = ["ANN204"]'
+  - target: tool
+    tool: ruff
+    expects: ANN205
+    snippet: '[tool.ruff.lint] extend-select = ["ANN205"]'
+  - target: tool
+    tool: ruff
+    expects: ANN206
+    snippet: '[tool.ruff.lint] extend-select = ["ANN206"]'
 examples:
-  match: ["def f(x):\n    y = x\n    return y\n", "def g(a, b: int) -> int:\n    c = a\n    return b + len(c)\n"]
-  no_match: ["def f(x: int) -> int:\n    y = x\n    return y\n", "def g(a: list[int], b: int) -> int:\n    c = a\n    return b + len(c)\n"]
+  match: ["def f(x, *args, **kwargs):\n    return x\n\n\ndef _g(y):\n    return y\n\n\nclass C:\n    def __init__(self, x: int):\n        self.x = x\n\n    @staticmethod\n    def make(x: int):\n        return C(x)\n\n    @classmethod\n    def zero(cls):\n        return cls(0)\n"]
+  no_match: ["def f(x: int, *args: int, **kwargs: str) -> int:\n    return x\n\n\ndef _g(y: str) -> str:\n    return y\n\n\nclass C:\n    def __init__(self, x: int) -> None:\n        self.x = x\n\n    @staticmethod\n    def make(x: int) -> \"C\":\n        return C(x)\n\n    @classmethod\n    def zero(cls) -> \"C\":\n        return cls(0)\n"]

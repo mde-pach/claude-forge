@@ -1,0 +1,18 @@
+id: python/no-pytz
+description: "Use zoneinfo.ZoneInfo, not pytz."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: TID251
+    snippet: |
+      [tool.ruff.lint]
+      extend-select = ["TID251"]
+
+      [tool.ruff.lint.flake8-tidy-imports.banned-api]
+      "pytz".msg = "use zoneinfo.ZoneInfo"
+examples:
+  match:
+    - "from datetime import datetime\n\nimport pytz\n\nnow = datetime.now(pytz.timezone(\"Europe/Paris\"))\n"
+  no_match:
+    - "from datetime import datetime\nfrom zoneinfo import ZoneInfo\n\nnow = datetime.now(ZoneInfo(\"Europe/Paris\"))\n"

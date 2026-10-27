@@ -1,0 +1,63 @@
+id: typescript/library/deprecation-shim
+description: "A name exported by a package entry point (package.json exports, main, module, types, mapped from dist/ to src/; export * followed through relative modules) in the base is still exported, and a name that became an alias of another export (export const old = renamed, export { renamed as old }) carries a /** @deprecated */ JSDoc comment on that export. A major version bump does not allow a removal by itself: an intended removal is accepted in forge.yaml (accept)."
+scope: {language: typescript, files: ["!@ts-tests", "!@e2e-tests"]}
+enforce:
+  - target: check
+    stage: lint
+    run: "forge_helper bun public_api.mjs removed"
+    when_changed: ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.js", "**/*.mjs", "package.json"]
+examples:
+  match:
+    - head:
+        package.json: "{\n  \"name\": \"acme\",\n  \"version\": \"1.2.0\",\n  \"exports\": { \".\": { \"types\": \"./dist/index.d.ts\", \"import\": \"./dist/index.js\" } }\n}\n"
+        src/index.ts: "export * from \"./parse.js\";\n"
+        src/parse.ts: "export function parseJson(text: string): unknown {\n  return JSON.parse(text);\n}\n"
+      files:
+        src/parse.ts: "export function parse(text: string): unknown {\n  return JSON.parse(text);\n}\n"
+    - head:
+        package.json: "{\n  \"name\": \"acme\",\n  \"version\": \"1.2.0\",\n  \"exports\": { \".\": { \"types\": \"./dist/index.d.ts\", \"import\": \"./dist/index.js\" } }\n}\n"
+        src/index.ts: "export * from \"./parse.js\";\n"
+        src/parse.ts: "export function parseJson(text: string): unknown {\n  return JSON.parse(text);\n}\n"
+      files:
+        package.json: "{\n  \"name\": \"acme\",\n  \"version\": \"2.0.0\",\n  \"exports\": { \".\": { \"types\": \"./dist/index.d.ts\", \"import\": \"./dist/index.js\" } }\n}\n"
+        src/parse.ts: "export function parse(text: string): unknown {\n  return JSON.parse(text);\n}\n"
+    - head:
+        package.json: "{\n  \"name\": \"acme\",\n  \"version\": \"1.2.0\",\n  \"exports\": { \".\": { \"types\": \"./dist/index.d.ts\", \"import\": \"./dist/index.js\" } }\n}\n"
+        src/index.ts: "export * from \"./parse.js\";\n"
+        src/parse.ts: "export function parseJson(text: string): unknown {\n  return JSON.parse(text);\n}\n"
+      files:
+        src/parse.ts: "export function parse(text: string): unknown {\n  return JSON.parse(text);\n}\n\n// deprecated: use parse\nexport const parseJson = parse;\n"
+    - head:
+        package.json: "{\n  \"name\": \"acme\",\n  \"version\": \"1.2.0\",\n  \"exports\": { \".\": { \"types\": \"./dist/index.d.ts\", \"import\": \"./dist/index.js\" } }\n}\n"
+        src/index.ts: "export { parseJson } from \"./parse.js\";\n"
+        src/parse.ts: "export function parseJson(text: string): unknown {\n  return JSON.parse(text);\n}\n"
+      files:
+        src/index.ts: "export { parse, parse as parseJson } from \"./parse.js\";\n"
+        src/parse.ts: "export function parse(text: string): unknown {\n  return JSON.parse(text);\n}\n"
+  no_match:
+    - head:
+        package.json: "{\n  \"name\": \"acme\",\n  \"version\": \"1.2.0\",\n  \"exports\": { \".\": { \"types\": \"./dist/index.d.ts\", \"import\": \"./dist/index.js\" } }\n}\n"
+        src/index.ts: "export * from \"./parse.js\";\n"
+        src/parse.ts: "export function parseJson(text: string): unknown {\n  return JSON.parse(text);\n}\n"
+      files:
+        src/parse.ts: "export function parse(text: string): unknown {\n  return JSON.parse(text);\n}\n\n/** @deprecated Use parse. */\nexport const parseJson = parse;\n"
+    - head:
+        package.json: "{\n  \"name\": \"acme\",\n  \"version\": \"1.2.0\",\n  \"exports\": { \".\": { \"types\": \"./dist/index.d.ts\", \"import\": \"./dist/index.js\" } }\n}\n"
+        src/index.ts: "export { parseJson } from \"./parse.js\";\n"
+        src/parse.ts: "export function parseJson(text: string): unknown {\n  return JSON.parse(text);\n}\n"
+      files:
+        src/index.ts: "export { parse } from \"./parse.js\";\n/** @deprecated Use parse. */\nexport { parse as parseJson } from \"./parse.js\";\n"
+        src/parse.ts: "export function parse(text: string): unknown {\n  return JSON.parse(text);\n}\n"
+    - head:
+        package.json: "{\n  \"name\": \"acme\",\n  \"version\": \"1.2.0\",\n  \"exports\": { \".\": { \"types\": \"./dist/index.d.ts\", \"import\": \"./dist/index.js\" } }\n}\n"
+        src/index.ts: "export * from \"./parse.js\";\n"
+        src/parse.ts: "export function parseJson(text: string): unknown {\n  return JSON.parse(text);\n}\n"
+      files:
+        src/parse.ts: "function parseImpl(text: string): unknown {\n  return JSON.parse(text);\n}\n\nexport const parseJson = parseImpl;\n"
+    - head:
+        package.json: "{\n  \"name\": \"acme\",\n  \"version\": \"1.2.0\",\n  \"exports\": { \".\": { \"types\": \"./dist/index.d.ts\", \"import\": \"./dist/index.js\" } }\n}\n"
+        src/index.ts: "export * from \"./parse.js\";\n"
+        src/parse.ts: "export function parseJson(text: string): unknown {\n  return JSON.parse(text);\n}\n"
+      files:
+        forge.yaml: "forge: \"0.5\"\naccept:\n  - rule: typescript/library/deprecation-shim\n    change: \"src/parse.ts:0 parseJson was exported by the package entry src/index.ts and is gone: keep it exported as a /** @deprecated Use <new name> */ alias; a removal intended for a major version is accepted in forge.yaml (accept)\"\n    reason: removed in 2.0\n"
+        src/parse.ts: "export function parse(text: string): unknown {\n  return JSON.parse(text);\n}\n"

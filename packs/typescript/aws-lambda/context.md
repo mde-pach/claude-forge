@@ -1,0 +1,1 @@
+AWS Lambda: handlers are `async (event, context) => result` and return or throw; callback handlers (a `Callback` parameter, `context.callbackWaitsForEmptyEventLoop`) are rejected (the Node.js 24 runtime does not run them).

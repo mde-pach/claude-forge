@@ -1,0 +1,25 @@
+id: typescript/a11y
+description: Biome's accessibility rules are errors in JSX and in Vue, Svelte, Astro and HTML templates (the European Accessibility Act applies to e-commerce since June 2025); Biome lints templates with html.experimentalFullSupportEnabled.
+scope: {language: any, files: ["**/*.{tsx,jsx,vue,svelte,astro,html}"]}
+enforce:
+  - target: tool
+    tool: biome
+    expects: "lint/a11y/useAltText"
+    snippet: "\"html\": {\"experimentalFullSupportEnabled\": true}, \"linter\": {\"rules\": {\"a11y\": \"error\"}}"
+  - target: tool
+    tool: biome
+    expects: "lint/a11y/useButtonType"
+    snippet: "\"html\": {\"experimentalFullSupportEnabled\": true}, \"linter\": {\"rules\": {\"a11y\": \"error\"}}"
+examples:
+  match:
+    - "export function Hero() {\n  return (\n    <div>\n      <img src=\"/hero.png\" />\n      <button>Buy</button>\n    </div>\n  );\n}\n"
+    - files: {src/components/Hero.vue: "<script setup lang=\"ts\">\nconst src = \"/hero.png\";\n</script>\n\n<template>\n  <img :src=\"src\" />\n  <button>Buy</button>\n</template>\n"}
+    - files: {src/lib/Hero.svelte: "<script lang=\"ts\">\n  let { src } = $props();\n</script>\n\n<img {src} />\n<button>Buy</button>\n"}
+    - files: {src/components/Hero.astro: "---\nconst src = \"/hero.png\";\n---\n<img src={src} />\n<button>Buy</button>\n"}
+    - files: {public/index.html: "<!doctype html>\n<html lang=\"en\">\n  <body>\n    <img src=\"/hero.png\" />\n    <button>Buy</button>\n  </body>\n</html>\n"}
+  no_match:
+    - "export function Hero() {\n  return (\n    <div>\n      <img src=\"/hero.png\" alt=\"A pair of red sneakers\" />\n      <button type=\"button\">Buy</button>\n    </div>\n  );\n}\n"
+    - files: {src/components/Hero.vue: "<script setup lang=\"ts\">\nconst src = \"/hero.png\";\n</script>\n\n<template>\n  <img :src=\"src\" alt=\"A pair of red sneakers\" />\n  <button type=\"button\">Buy</button>\n</template>\n"}
+    - files: {src/lib/Hero.svelte: "<script lang=\"ts\">\n  let { src } = $props();\n</script>\n\n<img {src} alt=\"A pair of red sneakers\" />\n<button type=\"button\">Buy</button>\n"}
+    - files: {src/components/Hero.astro: "---\nconst src = \"/hero.png\";\n---\n<img src={src} alt=\"A pair of red sneakers\" />\n<button type=\"button\">Buy</button>\n"}
+    - files: {public/index.html: "<!doctype html>\n<html lang=\"en\">\n  <body>\n    <img src=\"/hero.png\" alt=\"A pair of red sneakers\" />\n    <button type=\"button\">Buy</button>\n  </body>\n</html>\n"}

@@ -4,7 +4,10 @@
 # looking at it. A separate, context-free Claude session reviews the action alone
 # (no conversation, read-only tools, no hooks) and allows or denies it.
 #   PermissionRequest hook:  sh review.sh            (hook input on stdin)
-#   from guard.sh:           sh review.sh pre <rule> (a guard ask; input on stdin)
+#   from guard.sh:           sh review.sh pre <rule> <concern> <question> [<request>]
+#   and test-edit.sh         (a rule's ask; input on stdin): the reviewer judges only
+#                            that rule's concern, by answering its question (with the
+#                            user's request for the turn, when given)
 # Prints nothing (the usual dialog, or the usual denial) when a human can answer,
 # when FORGE_ASK_REVIEW=never, in dontAsk mode, or when claude cannot run.
 dir=$(cd "$(dirname "$0")" && pwd)
@@ -12,6 +15,9 @@ FORGE_INPUT=$(cat)
 . "$dir/lib.sh"
 event=${1:-permission}
 why=${2:-}
+concern=${3:-}
+question=${4:-}
+request=${5:-}
 
 forge_review_wanted || exit 0
 # the project-level copy defers to the user-level one, so an ask is reviewed once
@@ -20,7 +26,22 @@ if [ "$event" = permission ] && [ "$(basename "$(dirname "$dir")")" = forge-proj
 
 tool=$(json_get tool_name)
 input=$(printf '%s' "$FORGE_INPUT" | forge_json_object tool_input)
-verdict=$(forge_review "$tool" "$input" "$why") || exit 0
+# the same rule on the same input (whitespace aside), with the same concern and the same
+# request for the turn, gets the same verdict within a session (an approval given for
+# one request is not reused once the user asks for something else)
+key=''
+verdict=''
+if [ "$event" = pre ]; then
+  key=$(printf '%s\t%s\t%s\t%s' "$why" "$input" "$concern" "$request" | tr -s ' \t\n' '   ' | forge_sha256)
+  cache=$(forge_review_state)
+  case $cache in "$HOME/.claude") cache=$cache/forge-review-cache ;; *) cache=$cache/review-cache ;; esac
+  verdict=$(awk -F '\t' -v s="$(session_id)" -v k="$key" '$1 == s && $2 == k { v = $3 "\t" $4 } END { if (v != "") print v; else exit 1 }' "$cache" 2>/dev/null) \
+    || verdict=''
+fi
+if [ -z "$verdict" ]; then
+  verdict=$(forge_review "$tool" "$input" "$why" "$concern" "$question" "$request") || exit 0
+  [ -n "$key" ] && printf '%s\t%s\t%s\n' "$(session_id)" "$key" "$verdict" >> "$cache" 2>/dev/null
+fi
 decision=${verdict%%"	"*}
 reason=$(printf '%s' "${verdict#*"	"}" | json_escape)
 forge_review_log "$decision" "$tool" "$input" "${verdict#*"	"}"

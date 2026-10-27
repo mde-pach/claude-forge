@@ -1,0 +1,1 @@
+PyJWT. `jwt.decode(token, key, algorithms=["RS256"])` always names the accepted algorithms (never `"none"`) and never turns verification off (`options={"verify_signature": False}`, `verify=False`); read an unverified header with `jwt.get_unverified_header()`.

@@ -1,0 +1,44 @@
+id: typescript/eslint/ts-version
+description: The typescript package that typescript-eslint resolves has the compiler API (TypeScript below 6.1); TypeScript 7 ships none, so typescript-eslint cannot parse with it.
+scope: {language: any}
+enforce:
+  - target: check
+    stage: lint
+    run: |
+      bun --no-install -e '
+        const { createRequire } = require("module");
+        const { dirname } = require("path");
+        const from = (base, name) => { try { return createRequire(base).resolve(name); } catch { return undefined; } };
+        const root = process.cwd() + "/package.json";
+        const estree = from(root, "@typescript-eslint/typescript-estree")
+          ?? [from(root, "typescript-eslint"), from(root, "@typescript-eslint/parser")].map((b) => b && from(b, "@typescript-eslint/typescript-estree")).find(Boolean);
+        if (!estree) process.exit(0);
+        const req = createRequire(estree);
+        let api = false;
+        try { api = typeof req("typescript").createProgram === "function"; } catch {}
+        if (!api) {
+          let v = "?";
+          try { v = req("typescript/package.json").version; } catch {}
+          console.log(`typescript-eslint (${dirname(estree)}) resolves typescript ${v}, which has no compiler API (TypeScript 7 ships none): typescript-eslint supports TypeScript below 6.1, so install TypeScript 6 where it resolves typescript`);
+          process.exit(1);
+        }'
+    when_changed: ["**/package.json", "pnpm-lock.yaml", "package-lock.json", "yarn.lock", "bun.lock"]
+examples:
+  match:
+    - head:
+        node_modules/@typescript-eslint/typescript-estree/package.json: "{\"name\": \"@typescript-eslint/typescript-estree\", \"version\": \"8.46.2\", \"main\": \"index.js\"}\n"
+        node_modules/@typescript-eslint/typescript-estree/index.js: "module.exports = {};\n"
+      files:
+        package.json: "{\"name\": \"app\", \"devDependencies\": {\"typescript\": \"7.0.2\", \"typescript-eslint\": \"8.46.2\"}}\n"
+        node_modules/typescript/package.json: "{\"name\": \"typescript\", \"version\": \"7.0.2\", \"exports\": {\"./package.json\": \"./package.json\", \"./lib/version.cjs\": \"./lib/version.cjs\"}}\n"
+        node_modules/typescript/lib/version.cjs: "module.exports = \"7.0.2\";\n"
+  no_match:
+    - head:
+        node_modules/@typescript-eslint/typescript-estree/package.json: "{\"name\": \"@typescript-eslint/typescript-estree\", \"version\": \"8.46.2\", \"main\": \"index.js\"}\n"
+        node_modules/@typescript-eslint/typescript-estree/index.js: "module.exports = {};\n"
+      files:
+        package.json: "{\"name\": \"app\", \"devDependencies\": {\"typescript\": \"6.0.3\", \"typescript-eslint\": \"8.46.2\"}}\n"
+        node_modules/typescript/package.json: "{\"name\": \"typescript\", \"version\": \"6.0.3\", \"main\": \"lib/typescript.js\"}\n"
+        node_modules/typescript/lib/typescript.js: "exports.createProgram = function createProgram() {};\n"
+    - files:
+        package.json: "{\"name\": \"app\", \"devDependencies\": {\"typescript\": \"7.0.2\"}}\n"

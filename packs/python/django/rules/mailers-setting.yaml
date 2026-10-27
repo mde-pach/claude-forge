@@ -1,0 +1,17 @@
+id: python/django/mailers-setting
+description: "From Django 6.1, the email backend is configured in MAILERS, not the EMAIL_BACKEND / EMAIL_HOST / EMAIL_PORT / EMAIL_HOST_USER / EMAIL_HOST_PASSWORD / EMAIL_USE_TLS / EMAIL_USE_SSL / EMAIL_TIMEOUT / EMAIL_FILE_PATH / EMAIL_SSL_CERTFILE / EMAIL_SSL_KEYFILE settings, which are deprecated."
+scope: {language: python, files: ["@django-settings"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: assignment
+      has: {field: left, kind: identifier, regex: "^EMAIL_(BACKEND|HOST|PORT|HOST_USER|HOST_PASSWORD|USE_TLS|USE_SSL|TIMEOUT|FILE_PATH|SSL_CERTFILE|SSL_KEYFILE)$"}
+      inside: {kind: expression_statement, stopBy: neighbor, inside: {kind: module, stopBy: neighbor}}
+when:
+  deps: [{ecosystem: pypi, name: django, version: ">=6.1"}]
+examples:
+  match:
+    - "EMAIL_BACKEND = \"django.core.mail.backends.smtp.EmailBackend\"\nEMAIL_HOST = \"smtp.example.com\"\n"
+  no_match:
+    - "EMAIL_SUBJECT_PREFIX = \"[shop] \"\nDEFAULT_FROM_EMAIL = \"shop@example.com\"\n"

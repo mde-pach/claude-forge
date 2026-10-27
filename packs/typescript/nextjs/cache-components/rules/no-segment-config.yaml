@@ -1,0 +1,22 @@
+id: typescript/nextjs/cache-components/no-segment-config
+description: "With cacheComponents, route files under app/ export no dynamic, revalidate, fetchCache or experimental_ppr (next build rejects them); use 'use cache' with cacheLife()."
+scope: {language: typescript, files: ["app/**", "src/app/**"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: identifier
+      regex: "^(dynamic|revalidate|fetchCache|experimental_ppr)$"
+      inside:
+        kind: variable_declarator
+        field: name
+        inside: {kind: lexical_declaration, inside: {kind: export_statement}}
+examples:
+  match:
+    - "export const dynamic = \"force-dynamic\";\n\nexport default async function Page() {\n  return null;\n}\n"
+    - "export const revalidate = 3600;\n"
+    - "export const fetchCache = \"force-no-store\", experimental_ppr = true;\n"
+  no_match:
+    - "export const metadata = { title: \"Orders\" };\nexport const dynamicParams = false;\n"
+    - "const revalidate = 60;\n\nexport default async function Page() {\n  return revalidate;\n}\n"
+    - "import { cacheLife } from \"next/cache\";\n\nexport default async function Page() {\n  \"use cache\";\n  cacheLife(\"hours\");\n  return null;\n}\n"

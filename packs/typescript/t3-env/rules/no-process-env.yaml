@@ -1,0 +1,11 @@
+id: typescript/t3-env/no-process-env
+description: No process.env outside the env module (env.ts, env.mjs) and tool config files; import the validated env instead.
+scope: {language: typescript}
+enforce:
+  - target: tool
+    tool: biome
+    expects: lint/style/noProcessEnv
+    snippet: '"linter": {"rules": {"style": {"noProcessEnv": "error"}}}, "overrides": [{"includes": ["**/env.ts", "**/env.mjs", "**/env.js", "**/*.config.*"], "linter": {"rules": {"style": {"noProcessEnv": "off"}}}}]'
+examples:
+  match: ["export const stripe = process.env.STRIPE_SECRET_KEY;\n"]
+  no_match: ["import { env } from \"./env\";\n\nexport const stripe = env.STRIPE_SECRET_KEY;\n"]

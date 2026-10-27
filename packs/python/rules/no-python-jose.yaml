@@ -1,0 +1,18 @@
+id: python/no-python-jose
+description: "No python-jose (jose), which is unmaintained; use PyJWT or joserfc."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: TID251
+    snippet: |
+      [tool.ruff.lint]
+      extend-select = ["TID251"]
+
+      [tool.ruff.lint.flake8-tidy-imports.banned-api]
+      "jose".msg = "python-jose is unmaintained; use PyJWT or joserfc"
+examples:
+  match:
+    - "from jose import jwt\n\n\ndef decode(token: str, key: str) -> dict[str, object]:\n    return jwt.decode(token, key, algorithms=[\"HS256\"])\n"
+  no_match:
+    - "import jwt\n\n\ndef decode(token: str, key: str) -> dict[str, object]:\n    return jwt.decode(token, key, algorithms=[\"HS256\"])\n"

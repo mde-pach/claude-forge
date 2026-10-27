@@ -1,0 +1,9 @@
+id: typescript/drizzle/meta-files
+description: The migration journal and snapshots (meta/_journal.json, meta/*_snapshot.json) are written by drizzle-kit generate, never edited by hand.
+scope: {language: any}
+enforce:
+  - {target: permission, decision: deny, rule: "Edit(**/meta/_journal.json)"}
+  - {target: permission, decision: deny, rule: "Edit(**/meta/*_snapshot.json)"}
+examples:
+  match: ["Edit(drizzle/meta/_journal.json)", "Edit(src/db/migrations/meta/0003_snapshot.json)"]
+  no_match: ["Edit(drizzle/0003_add_phone.sql)", "Edit(src/db/schema.ts)"]

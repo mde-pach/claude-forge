@@ -1,0 +1,10 @@
+id: python/uv/dependency-groups
+description: "Development dependencies live in [dependency-groups] (PEP 735, uv add --dev), not in the deprecated [tool.uv] dev-dependencies."
+scope: {language: any, files: ["**/pyproject.toml"]}
+enforce:
+  - target: grep
+    mode: forbid
+    pattern: "^[[:space:]]*dev-dependencies[[:space:]]*="
+examples:
+  match: ["[tool.uv]\ndev-dependencies = [\"pytest>=8\"]\n"]
+  no_match: ["[dependency-groups]\ndev = [\"pytest>=8\"]\n", "[tool.pdm.dev-dependencies]\ntest = [\"pytest>=8\"]\n"]

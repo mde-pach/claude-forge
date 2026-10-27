@@ -1,0 +1,45 @@
+id: python/pandas/no-removed-freq-aliases
+description: "No frequency aliases pandas 3 removed (they raise ValueError): BM, SM, CBM, BQ, BY, A, AS, BA, BAS, H, BH, CBH, T, L, U, N, S (with a number or a -JAN anchor), and M, Q, Y as offsets (resample, date_range, Grouper, rolling); M, Q and Y stay valid periods (to_period, period_range, Period, PeriodIndex). Use ME, QE, YE, h, min, s, ms, us, ns."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call
+      pattern: $CALL
+      any:
+        - matches: removed-everywhere
+        - all:
+            - matches: removed-offset
+            - not: {has: {field: function, regex: "(^|\\.)(period_range|to_period|Period|PeriodIndex)$"}}
+    utils:
+      removed-everywhere:
+        any:
+          - has: {field: arguments, has: {kind: keyword_argument, all: [{regex: "^(freq|rule)[[:space:]]*="}, {has: {field: value, kind: string, regex: "^[\"'][0-9]*(BM|SM|CBM|BQ|BY|A|AS|BA|BAS|H|BH|CBH|T|L|U|N|S)(-[A-Z]{3})?[\"']$"}}]}}
+          - all:
+              - has: {field: function, kind: attribute, has: {field: attribute, regex: "^(resample|asfreq|rolling|to_period)$"}}
+              - has: {field: arguments, has: {nthChild: 1, kind: string, regex: "^[\"'][0-9]*(BM|SM|CBM|BQ|BY|A|AS|BA|BAS|H|BH|CBH|T|L|U|N|S)(-[A-Z]{3})?[\"']$"}}
+      removed-offset:
+        any:
+          - has: {field: arguments, has: {kind: keyword_argument, all: [{regex: "^(freq|rule)[[:space:]]*="}, {has: {field: value, kind: string, regex: "^[\"'][0-9]*(M|Q|Y)(-[A-Z]{3})?[\"']$"}}]}}
+          - all:
+              - has: {field: function, kind: attribute, has: {field: attribute, regex: "^(resample|asfreq|rolling|to_period)$"}}
+              - has: {field: arguments, has: {nthChild: 1, kind: string, regex: "^[\"'][0-9]*(M|Q|Y)(-[A-Z]{3})?[\"']$"}}
+    # the call's result is a pandas object (DatetimeIndex, Resampler, Rolling, Grouper, ...): freq= of other libraries is left alone
+    where:
+      CALL: {type: {package: pandas}}
+examples:
+  deps: [{ecosystem: pypi, name: pandas, version: "3.1.0"}]
+  match:
+    - "import pandas as pd\n\nidx = pd.date_range(\"2024-01-01\", periods=3, freq=\"H\")\n"
+    - "import pandas as pd\n\nidx = pd.date_range(\"2024-01-01\", periods=3, freq=\"M\")\n"
+    - "import pandas as pd\n\n\ndef monthly(s: pd.Series) -> pd.Series:\n    return s.resample(\"M\").sum()\n"
+    - "import pandas as pd\n\n\ndef roll(s: pd.Series) -> pd.Series:\n    return s.rolling(\"2T\").sum()\n"
+    - "import pandas as pd\n\ng = pd.Grouper(freq=\"A-DEC\")\n"
+    - "import pandas as pd\n\n\ndef hourly(s: pd.Series) -> pd.Series:\n    return s.to_period(\"H\")\n"
+  no_match:
+    - "import pandas as pd\n\nidx = pd.date_range(\"2024-01-01\", periods=3, freq=\"ME\")\n"
+    - "import pandas as pd\n\nidx = pd.period_range(\"2024-01-01\", periods=3, freq=\"M\")\n"
+    - "import pandas as pd\n\n\ndef quarterly(s: pd.Series) -> pd.Series:\n    return s.to_period(\"Q\")\n"
+    - "def date_range(start: str, freq: str) -> list[str]:\n    return [start, freq]\n\n\nx = date_range(\"2024\", freq=\"M\")\n"
+    - "import pandas as pd\n\nlabel = str(\"M\")\n"

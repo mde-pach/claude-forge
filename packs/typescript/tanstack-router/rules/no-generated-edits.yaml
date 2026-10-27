@@ -1,0 +1,8 @@
+id: typescript/tanstack-router/no-generated-edits
+description: routeTree.gen.ts is generated from the route files and never edited by hand (TanStack Router's default generatedRouteTree name); edit the routes and regenerate.
+scope: {language: any}
+enforce:
+  - {target: permission, decision: deny, rule: "Edit(**/routeTree.gen.ts)"}
+examples:
+  match: ["Edit(src/routeTree.gen.ts)", "Edit(apps/web/src/routeTree.gen.ts)"]
+  no_match: ["Edit(src/routes/__root.tsx)", "Edit(src/routes/posts.$id.tsx)"]

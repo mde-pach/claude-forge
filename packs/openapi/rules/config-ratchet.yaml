@@ -1,0 +1,23 @@
+id: openapi/config-ratchet
+description: "The OpenAPI linter config is not loosened: in redocly.yaml or .spectral.yaml a rule lowered (error > warn > info / hint > off) or removed, an extends entry removed or an overrides entry added, and new entries in .redocly.lint-ignore.yaml, are reported; an accepted change goes in forge.yaml."
+scope: {language: any, files: [redocly.yaml, .redocly.yaml, .spectral.yaml, .spectral.yml, .redocly.lint-ignore.yaml]}
+enforce:
+  - target: check
+    stage: lint
+    run: forge_openapi_ratchet
+    when_changed: [redocly.yaml, .redocly.yaml, .spectral.yaml, .spectral.yml, .redocly.lint-ignore.yaml]
+examples:
+  match:
+    - head: {redocly.yaml: "extends:\n  - recommended\nrules:\n  operation-summary: error\n"}
+      files: {redocly.yaml: "extends:\n  - recommended\nrules:\n  operation-summary: off\n"}
+    - head: {.spectral.yaml: "extends: [\"spectral:oas\"]\nrules:\n  operation-tags:\n    severity: error\n"}
+      files: {.spectral.yaml: "rules:\n  operation-tags:\n    severity: error\n"}
+    - head: {.spectral.yaml: "extends: [\"spectral:oas\"]\n"}
+      files: {.spectral.yaml: "extends: [\"spectral:oas\"]\nrules:\n  oas3-api-servers: off\n"}
+    - head: {.redocly.lint-ignore.yaml: "openapi.yaml:\n  no-empty-servers:\n    - '#/servers'\n"}
+      files: {.redocly.lint-ignore.yaml: "openapi.yaml:\n  no-empty-servers:\n    - '#/servers'\n  security-defined:\n    - '#/paths/~1orders/get'\n"}
+  no_match:
+    - head: {redocly.yaml: "extends:\n  - recommended\nrules:\n  operation-summary: warn\n"}
+      files: {redocly.yaml: "extends:\n  - recommended\nrules:\n  operation-summary: error\n  info-license: error\n"}
+    - head: {redocly.yaml: "extends:\n  - recommended\nrules:\n  operation-summary: error\n", forge.yaml: "forge: \"0.5\"\naccept:\n  - rule: openapi/config-ratchet\n    change: \"redocly.yaml: rule operation-summary error -> warn\"\n    reason: summaries are optional for internal endpoints\n"}
+      files: {redocly.yaml: "extends:\n  - recommended\nrules:\n  operation-summary: warn\n"}

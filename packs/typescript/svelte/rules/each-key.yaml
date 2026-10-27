@@ -1,0 +1,11 @@
+id: typescript/svelte/each-key
+description: "An {#each} block has a key ({#each items as item (item.id)}), so Svelte can track each item instead of patching in place."
+scope: {language: any, files: ["**/*.svelte"]}
+enforce:
+  - target: tool
+    tool: biome
+    expects: lint/nursery/useSvelteRequireEachKey
+    snippet: "\"html\": {\"experimentalFullSupportEnabled\": true}, \"linter\": {\"rules\": {\"nursery\": {\"useSvelteRequireEachKey\": \"error\"}}}"
+examples:
+  match: ["<script lang=\"ts\">\n  let { items }: { items: { id: number; name: string }[] } = $props();\n</script>\n\n<ul>\n  {#each items as item}\n    <li>{item.name}</li>\n  {/each}\n</ul>\n"]
+  no_match: ["<script lang=\"ts\">\n  let { items }: { items: { id: number; name: string }[] } = $props();\n</script>\n\n<ul>\n  {#each items as item (item.id)}\n    <li>{item.name}</li>\n  {/each}\n</ul>\n"]

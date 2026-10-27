@@ -12,3 +12,4 @@ examples:
     - files: {api/.env.local: "API_KEY=abc\n"}
   no_match:
     - files: {.env.example: "POSTGRES_PASSWORD=\n", .gitignore: ".env\n"}
+deprecated: {replaced_by: secrets/env-not-committed}

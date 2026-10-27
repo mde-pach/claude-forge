@@ -1,0 +1,20 @@
+id: python/sqlalchemy/alembic/data-migration-downgrade
+description: "Advice, once per turn at Stop: a revision whose upgrade() changes rows (UPDATE, INSERT or DELETE through execute(), sa.update/insert/delete, op.bulk_insert, an ORM Session) has a downgrade() that changes rows the same ways (the inverse) or raises: a downgrade that only passes, prints or changes the schema reports success and leaves the data changed."
+scope: {language: python, files: ["@alembic-migrations"]}
+enforce:
+  - {target: check, stage: lint, run: "forge_advise forge_alembic_data_downgrade"}
+examples:
+  match:
+    - files: {alembic/versions/0002_status.py: "revision = \"0002\"\ndown_revision = \"0001\"\n\n\ndef upgrade() -> None:\n    op.execute(\n        \"\"\"\n        UPDATE orders\n        SET status = 'paid'\n        WHERE paid_at IS NOT NULL\n        \"\"\"\n    )\n\n\ndef downgrade() -> None:\n    pass\n"}
+    - files: {alembic/versions/0003_roles.py: "revision = \"0003\"\ndown_revision = \"0002\"\n\n\ndef upgrade() -> None:\n    roles = sa.table(\"roles\", sa.column(\"name\", sa.String))\n    op.bulk_insert(roles, [{\"name\": \"admin\"}])\n\n\ndef downgrade() -> None:\n    \"\"\"Nothing to do.\"\"\"\n"}
+    - files: {alembic/versions/0002_status.py: "revision = \"0002\"\ndown_revision = \"0001\"\n\n\ndef upgrade() -> None:\n    op.execute(\"UPDATE orders SET status = 'paid' WHERE paid_at IS NOT NULL\")\n\n\ndef downgrade() -> None:\n    print(\"nothing to revert\")\n"}
+    - files: {alembic/versions/0002_status.py: "revision = \"0002\"\ndown_revision = \"0001\"\n\n\ndef upgrade() -> None:\n    op.add_column(\"orders\", sa.Column(\"status\", sa.Text()))\n    op.execute(\"UPDATE orders SET status = 'paid' WHERE paid_at IS NOT NULL\")\n\n\ndef downgrade() -> None:\n    op.drop_column(\"orders\", \"status\")\n    op.execute(\"SELECT 1\")\n"}
+    # testing the migrations does not make a no-op downgrade revert the rows
+    - head: {tests/test_migrations.py: "from pytest_alembic.tests import test_single_head_revision, test_upgrade\n"}
+      files: {alembic/versions/0002_status.py: "revision = \"0002\"\ndown_revision = \"0001\"\n\n\ndef upgrade() -> None:\n    op.execute(\"UPDATE orders SET status = 'paid' WHERE paid_at IS NOT NULL\")\n\n\ndef downgrade() -> None:\n    pass\n"}
+  no_match:
+    - files: {alembic/versions/0002_status.py: "revision = \"0002\"\ndown_revision = \"0001\"\n\n\ndef upgrade() -> None:\n    op.execute(\"UPDATE orders SET status = 'paid' WHERE paid_at IS NOT NULL\")\n\n\ndef downgrade() -> None:\n    op.execute(\"UPDATE orders SET status = 'pending' WHERE status = 'paid'\")\n"}
+    - files: {alembic/versions/0002_status.py: "revision = \"0002\"\ndown_revision = \"0001\"\n\n\ndef upgrade() -> None:\n    op.execute(\"DELETE FROM sessions WHERE expires_at < now()\")\n\n\ndef downgrade() -> None:\n    raise NotImplementedError(\"expired sessions are not restored\")\n"}
+    # schema only
+    - files: {alembic/versions/0002_nick.py: "revision = \"0002\"\ndown_revision = \"0001\"\n\n\ndef upgrade() -> None:\n    # update the users table\n    op.add_column(\"users\", sa.Column(\"nick\", sa.Text(), nullable=True))\n    op.create_foreign_key(None, \"users\", \"teams\", [\"team_id\"], [\"id\"], onupdate=\"CASCADE\")\n\n\ndef downgrade() -> None:\n    pass\n"}
+    - files: {alembic/versions/0003_roles.py: "revision = \"0003\"\ndown_revision = \"0002\"\n\n\ndef upgrade() -> None:\n    roles = sa.table(\"roles\", sa.column(\"name\", sa.String))\n    op.bulk_insert(roles, [{\"name\": \"admin\"}])\n\n\ndef downgrade() -> None:\n    roles = sa.table(\"roles\", sa.column(\"name\", sa.String))\n    op.execute(sa.delete(roles).where(roles.c.name == \"admin\"))\n"}

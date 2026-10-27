@@ -1,0 +1,11 @@
+id: python/airflow/dag-schedule
+description: "Every DAG() and @dag states schedule= (ruff AIR002), schedule=None included: the default changed between Airflow versions (None in Airflow 3), so an implicit schedule silently changes on upgrade."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: AIR002
+    snippet: '[tool.ruff.lint] extend-select = ["AIR002"]'
+examples:
+  match: ["from airflow import DAG\n\ndag = DAG(\"nightly_export\")\n"]
+  no_match: ["from airflow import DAG\n\ndag = DAG(\"nightly_export\", schedule=\"@daily\")\n"]

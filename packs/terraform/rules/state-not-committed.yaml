@@ -1,0 +1,22 @@
+id: terraform/state-not-committed
+description: "No Terraform state is committed or added (*.tfstate, *.tfstate.backup, .terraform/, crash.log): state holds every secret Terraform manages; keep it in a remote backend. A .terraform.lock.hcl next to the configuration is committed, not git-ignored."
+scope: {language: any}
+enforce:
+  - target: check
+    stage: lint
+    run: |
+      git ls-files -co --exclude-standard | grep -E '(^|/)([^/]+\.tfstate(\.backup)?|crash\.log)$|(^|/)\.terraform/' | sed 's/$/ is committed or added: git-ignore it (Terraform state holds secrets)/' > "$FORGE_TMP/tf-state"
+      git ls-files -co --exclude-standard -- '*.tf' '*.tofu' | sed 's|[^/]*$||' | sort -u | while IFS= read -r _tf_d; do
+        [ -f "${_tf_d}.terraform.lock.hcl" ] && git check-ignore -q "${_tf_d}.terraform.lock.hcl" && printf '%s.terraform.lock.hcl is git-ignored: commit it (it pins the providers)\n' "$_tf_d"
+      done >> "$FORGE_TMP/tf-state"
+      cat "$FORGE_TMP/tf-state"
+      [ ! -s "$FORGE_TMP/tf-state" ]
+    when_changed: ["**/*.tf", "**/*.tofu", "**/*.tfstate", "**/*.tfstate.backup", "**/.terraform/**", "**/crash.log", "**/.terraform.lock.hcl", "**/.gitignore"]
+examples:
+  match:
+    - files: {main.tf: "terraform {}\n", terraform.tfstate: "{\"version\": 4}\n"}
+    - files: {infra/main.tf: "terraform {}\n", infra/terraform.tfstate.backup: "{\"version\": 4}\n"}
+    - files: {main.tf: "terraform {}\n", .terraform/terraform.tfstate: "{\"version\": 3}\n"}
+    - files: {main.tf: "terraform {}\n", .gitignore: ".terraform.lock.hcl\n", .terraform.lock.hcl: "provider \"registry.terraform.io/hashicorp/aws\" {}\n"}
+  no_match:
+    - files: {main.tf: "terraform {}\n", .gitignore: "*.tfstate\n*.tfstate.*\n.terraform/\ncrash.log\n", terraform.tfstate: "{\"version\": 4}\n", .terraform.lock.hcl: "provider \"registry.terraform.io/hashicorp/aws\" {}\n"}

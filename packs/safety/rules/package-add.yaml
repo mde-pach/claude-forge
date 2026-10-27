@@ -1,9 +1,41 @@
 id: safety/package-add
-description: Adding a dependency needs confirmation; models invent package names that attackers then register (slopsquatting).
+description: Adding a named package through any package manager needs confirmation (npm, pnpm, yarn and bun install / i / add, yarn and pnpm global add, pip and uv pip install, python -m pip install, uv add, poetry add, pdm add, pipenv install, pipx install, uv tool install); models invent package names that attackers then register (slopsquatting). Installs from the lock file or a requirements file, and local installs (-e, .), do not ask.
+review: "Is each package this command adds a well-known, legitimate package that this work plausibly needs, spelled right? Deny a name you cannot place, a likely typo or a lookalike of a known package."
 scope: {language: any}
 enforce:
-  - {target: permission, decision: ask, rule: "Bash(bun add:*)"}
-  - {target: permission, decision: ask, rule: "Bash(uv add:*)"}
+  - target: guard
+    decision: ask
+    pattern: '(^|[;&|(][[:space:]]*|\\n[[:space:]]*)((sudo|env|[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*)[[:space:]]+)*((npm|pnpm|yarn|bun)[[:space:]]+(install|i|add)|(yarn|pnpm)[[:space:]]+global[[:space:]]+add|(uv[[:space:]]+)?pip3?[[:space:]]+install|python[0-9.]*[[:space:]]+-m[[:space:]]+pip[[:space:]]+install|(uv|poetry|pdm)[[:space:]]+add|pipenv[[:space:]]+install|pipx[[:space:]]+install|uv[[:space:]]+tool[[:space:]]+install)([[:space:]]+(-[A-Za-z]*[rce]|--requirement|--constraint|--editable)[[:space:]]+[^[:space:];&|]+|[[:space:]]+-[A-Za-z]*[abd-qs-zA-Z0-9]|[[:space:]]+--[A-Za-z][A-Za-z-]*(=[^[:space:];&|]*)?)*[[:space:]]+[^-.[:space:];&|"][^[:space:];&|]*'
 examples:
-  match: ["Bash(bun add zod-email-validator)", "Bash(uv add fastapi-auth-utils)", "Bash(bun add -d vitest)"]
-  no_match: ["Bash(bun install)", "Bash(uv sync)"]
+  match:
+    - "bun add zod-email-validator"
+    - "uv add fastapi-auth-utils"
+    - "bun add -d vitest"
+    - "npm i -D vitest"
+    - "npm install --save-dev @types/node"
+    - "pnpm add zod"
+    - "yarn global add serve"
+    - "pip3 install --user requests"
+    - "uv pip install httpx"
+    - "python3 -m pip install requests"
+    - "poetry add pydantic"
+    - "pdm add rich"
+    - "pipenv install flask"
+    - "pipx install cowsay"
+    - "uv tool install ruff"
+    - "sudo pip install requests"
+    - "pip install -r requirements.txt flask"
+    - "cd web && npm install left-pad"
+    - "pip install 'requests>=2'"
+  no_match:
+    - "npm install"
+    - "npm ci"
+    - "bun install"
+    - "pnpm install --frozen-lockfile"
+    - "uv sync"
+    - "pip install -r requirements.txt"
+    - "pip install -U -r requirements.txt"
+    - "pip install -e ./pkg"
+    - "pip install ."
+    - "git commit -m \"npm install zod\""
+    - "uv pip compile requirements.in"

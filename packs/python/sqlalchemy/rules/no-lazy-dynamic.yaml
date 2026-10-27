@@ -1,0 +1,21 @@
+id: python/sqlalchemy/no-lazy-dynamic
+description: "No lazy=\"dynamic\" relationships: dynamic loaders are legacy in SQLAlchemy 2.0 and do not work with asyncio. Declare the collection as WriteOnlyMapped[...] (lazy=\"write_only\") and query it with select()."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call
+      pattern: $C
+      has: {field: arguments, has: {kind: keyword_argument, regex: "^lazy[[:space:]]*=[[:space:]]*[\"']dynamic[\"']$"}}
+    # relationship(), backref(), dynamic_loader() of sqlalchemy.orm, whatever they are imported as
+    where:
+      C: {type: {module: sqlalchemy.orm}}
+examples:
+  deps: [{ecosystem: pypi, name: sqlalchemy, version: "2.0.44"}]
+  match:
+    - "from sqlalchemy.orm import DeclarativeBase, relationship\n\n\nclass Base(DeclarativeBase):\n    pass\n\n\nclass User(Base):\n    __tablename__ = \"users\"\n    posts = relationship(\"Post\", lazy=\"dynamic\")\n"
+    - "from sqlalchemy import orm\n\nposts = orm.relationship(\"Post\", back_populates=\"author\", lazy='dynamic')\n"
+  no_match:
+    - "from sqlalchemy.orm import DeclarativeBase, WriteOnlyMapped, relationship\n\n\nclass Base(DeclarativeBase):\n    pass\n\n\nclass User(Base):\n    __tablename__ = \"users\"\n    posts: WriteOnlyMapped[\"Post\"] = relationship()\n"
+    - "def widget(lazy: str) -> str:\n    return lazy\n\n\nw = widget(lazy=\"dynamic\")\n"

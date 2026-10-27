@@ -1,0 +1,19 @@
+id: typescript/vite/no-define-process-env
+description: "define in vite.config.* does not inline the whole process.env (\"process.env\": process.env or JSON.stringify(process.env)): every server variable, secrets included, would land in the client bundle. Define the variables you need, or use import.meta.env."
+scope: {language: typescript, files: ["**/vite.config.*"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: pair
+      all:
+        - has: {field: key, regex: "^[\"']?process\\.env[\"']?$"}
+        - has: {field: value, any: [{pattern: "process.env"}, {pattern: "JSON.stringify(process.env)"}]}
+      inside: {kind: object, inside: {kind: pair, has: {field: key, regex: "^[\"']?define[\"']?$"}}}
+examples:
+  match:
+    - "import { defineConfig } from \"vite\";\n\nexport default defineConfig({\n  define: { \"process.env\": process.env },\n});\n"
+    - "import { defineConfig } from \"vite\";\n\nexport default defineConfig({\n  define: { \"process.env\": JSON.stringify(process.env) },\n});\n"
+  no_match:
+    - "import { defineConfig } from \"vite\";\n\nexport default defineConfig({\n  define: { \"process.env.NODE_ENV\": JSON.stringify(\"production\") },\n});\n"
+    - "import { defineConfig } from \"vite\";\n\nexport default defineConfig({\n  define: { __APP_VERSION__: JSON.stringify(\"1.2.0\") },\n});\n"

@@ -1,0 +1,11 @@
+id: python/fastapi/unused-path-param
+description: "Every {param} in a route's path is a parameter of its function (ruff FAST003): a path parameter missing from the signature is ignored, and the route serves the wrong resource."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: FAST003
+    snippet: '[tool.ruff.lint] extend-select = ["FAST003"]'
+examples:
+  match: ["from fastapi import FastAPI\n\napp = FastAPI()\n\n\n@app.get(\"/items/{item_id}\")\ndef read_item() -> dict[str, str]:\n    return {}\n"]
+  no_match: ["from fastapi import FastAPI\n\napp = FastAPI()\n\n\n@app.get(\"/items/{item_id}\")\ndef read_item(item_id: int) -> dict[str, int]:\n    return {\"id\": item_id}\n"]

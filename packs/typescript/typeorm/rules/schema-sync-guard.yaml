@@ -1,0 +1,10 @@
+id: typescript/typeorm/schema-sync-guard
+description: No typeorm schema:sync or schema:drop (any typeorm bin, typeorm-ts-node-esm / -commonjs included); they change or wipe the schema without a migration.
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: deny
+    pattern: '(^|[^A-Za-z0-9_-])typeorm(-ts-node-(esm|commonjs))?[[:space:]]+schema:(sync|drop)([[:space:];&|)]|$)'
+examples:
+  match: ["npx typeorm schema:sync -d src/data-source.ts", "npx typeorm-ts-node-esm schema:drop -d ./src/db.ts", "bunx typeorm schema:sync && bun dev"]
+  no_match: ["npx typeorm migration:run -d src/data-source.ts", "npx typeorm schema:log -d src/data-source.ts", "npx typeorm-ts-node-commonjs migration:generate src/migrations/Init -d src/db.ts"]

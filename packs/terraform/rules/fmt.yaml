@@ -1,0 +1,13 @@
+id: terraform/fmt
+description: Terraform and OpenTofu files are formatted (terraform fmt; tofu fmt in an OpenTofu project).
+scope: {language: any, files: ["**/*.tf", "**/*.tfvars", "**/*.tofu"]}
+enforce:
+  - target: check
+    stage: format
+    run: "terraform fmt -check -recursive"
+    changed_run: "terraform fmt {files}"
+examples:
+  match:
+    - files: {infra/main.tf: "resource \"terraform_data\" \"build\" {\ninput=\"v1\"\n}\n"}
+  no_match:
+    - files: {infra/main.tf: "resource \"terraform_data\" \"build\" {\n  input = \"v1\"\n}\n"}

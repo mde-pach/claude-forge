@@ -1,0 +1,8 @@
+id: safety/forge-state-edit
+description: Claude does not edit Forge's hook state (~/.claude/forge-state/), also in a permission mode that allows edits outside the project.
+scope: {language: any}
+enforce:
+  - {target: permission, decision: deny, rule: "Edit(~/.claude/forge-state/**)"}
+examples:
+  match: ["Edit(~/.claude/forge-state/0123456789abcdef/review-cache)", "Edit(~/.claude/forge-state/0123456789abcdef/s1.turn/pass)"]
+  no_match: ["Edit(~/.claude/settings.json)", "Edit(src/forge-state.ts)"]

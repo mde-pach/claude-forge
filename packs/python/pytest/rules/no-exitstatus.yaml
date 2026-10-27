@@ -1,0 +1,17 @@
+id: python/pytest/no-exitstatus
+description: "Advice after the edit: an assignment to a pytest Session's exitstatus (decided by its type, pytest's Session) rewrites the suite's result; say what it is for."
+scope: {language: python, files: ["@python-tests"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule: {pattern: "$S.exitstatus = $V"}
+    where:
+      S: {type: {module: _pytest.main, name: Session}}
+examples:
+  deps: [{ecosystem: pypi, name: pytest, version: "8.4.2"}]
+  match:
+    - "import pytest\n\n\ndef pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:\n    session.exitstatus = 0\n"
+    - "import pytest\nfrom _pytest.main import Session as S\n\n\ndef pytest_sessionfinish(s: S) -> None:\n    s.exitstatus = pytest.ExitCode.OK\n"
+  no_match:
+    - "class Job:\n    exitstatus: int = 1\n\n\ndef finish(session: Job) -> None:\n    session.exitstatus = 0\n"
+    - "import pytest\n\n\ndef pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:\n    print(session.exitstatus)\n"

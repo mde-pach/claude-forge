@@ -1,0 +1,40 @@
+id: safety/cloud-destructive
+description: "Claude asks before a cloud CLI deletes resources: aws delete-*, terminate-instances, deregister-*, s3 rb and s3 rm --recursive; gcloud, az and doctl delete; gsutil rm and rb; fly apps / volumes / postgres / machines destroy or delete; railway down and delete; vercel remove; heroku apps:destroy; netlify sites:delete; wrangler … delete. One command can delete production."
+review: "Does this command delete only a disposable or development resource, and is that deletion what the user asked for?"
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: ask
+    pattern: '(^|[^A-Za-z0-9_-])aws[[:space:]]([^;&|]*[[:space:]])?([a-z0-9-]+[[:space:]]+)(delete-[a-z0-9-]+|terminate-instances|deregister-[a-z0-9-]+|rb|rm[[:space:]][^;&|]*--recursive)([[:space:];&|)]|$)'
+  - target: guard
+    decision: ask
+    pattern: '(^|[^A-Za-z0-9_-])(gcloud|az|doctl)[[:space:]]([^;&|]*[[:space:]])?delete([[:space:];&|)]|$)'
+  - target: guard
+    decision: ask
+    pattern: '(^|[^A-Za-z0-9_-])(gsutil[[:space:]]+(-m[[:space:]]+)?(rm|rb)|fly(ctl)?[[:space:]]+(apps|volumes?|postgres|machines?)[[:space:]]+(destroy|delete|remove|rm)|railway[[:space:]]+(down|volume[[:space:]]+delete|delete)|vercel[[:space:]]+(remove|rm)|heroku[[:space:]]+apps:destroy|netlify[[:space:]]+sites:delete|wrangler[[:space:]]+[a-z0-9:-]+([[:space:]]+[a-z0-9:-]+)?[[:space:]]+delete)([[:space:];&|)]|$)'
+examples:
+  match:
+    - "aws s3 rm s3://shop-assets --recursive"
+    - "aws s3 rb s3://shop-assets --force"
+    - "aws ec2 terminate-instances --instance-ids i-0abc"
+    - "aws rds delete-db-instance --db-instance-identifier shop"
+    - "aws --profile prod dynamodb delete-table --table-name orders"
+    - "gcloud sql instances delete shop-db"
+    - "az group delete --name shop-rg"
+    - "doctl compute droplet delete web-1"
+    - "gsutil -m rm -r gs://shop-assets"
+    - "fly apps destroy shop"
+    - "flyctl volumes delete vol_123"
+    - "railway down"
+    - "vercel rm shop-preview"
+    - "heroku apps:destroy shop"
+    - "netlify sites:delete"
+    - "wrangler kv namespace delete --binding CACHE"
+  no_match:
+    - "aws s3 ls"
+    - "aws s3 rm s3://shop-assets/tmp/file.txt"
+    - "gcloud sql instances list"
+    - "az group list"
+    - "fly deploy"
+    - "vercel deploy"
+    - "wrangler deploy"

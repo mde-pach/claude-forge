@@ -1,0 +1,31 @@
+id: typescript/tailwind/apply-reference
+description: "A .vue, .svelte or .astro file, or a CSS module, that uses @apply also has @reference (or @import \"tailwindcss\"): Tailwind 4 builds these stylesheets on their own, and @apply fails with 'Cannot apply unknown utility class'."
+scope: {language: any, files: ["**/*.vue", "**/*.svelte", "**/*.astro", "**/*.module.css"]}
+enforce:
+  - target: check
+    stage: lint
+    run: |
+      found=0
+      for f in $(git ls-files '*.vue' '*.svelte' '*.astro' '*.module.css'); do
+        grep -q '@apply' "$f" || continue
+        grep -qE '@reference[[:space:]]|@import[[:space:]]+["'"'"']tailwindcss' "$f" && continue
+        awk '/@apply/ { print FILENAME ":" FNR ": @apply without @reference \"<main CSS>\" in this file" }' "$f"
+        found=1
+      done
+      [ "$found" = 0 ]
+    changed_run: |
+      found=0
+      for f in {files}; do
+        grep -q '@apply' "$f" || continue
+        grep -qE '@reference[[:space:]]|@import[[:space:]]+["'"'"']tailwindcss' "$f" && continue
+        awk '/@apply/ { print FILENAME ":" FNR ": @apply without @reference \"<main CSS>\" in this file" }' "$f"
+        found=1
+      done
+      [ "$found" = 0 ]
+examples:
+  match:
+    - files: {src/components/Card.vue: "<template>\n  <div class=\"card\"><slot /></div>\n</template>\n\n<style scoped>\n.card {\n  @apply rounded-lg p-4;\n}\n</style>\n"}
+    - files: {src/Button.module.css: ".button {\n  @apply px-3 py-1;\n}\n"}
+  no_match:
+    - files: {src/components/Card.svelte: "<div class=\"card\"></div>\n\n<style>\n  @reference \"../app.css\";\n  .card {\n    @apply rounded-lg p-4;\n  }\n</style>\n"}
+    - files: {src/components/Plain.vue: "<template>\n  <div class=\"rounded-lg p-4\" />\n</template>\n"}

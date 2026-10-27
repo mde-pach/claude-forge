@@ -1,0 +1,10 @@
+id: kubernetes/helm/chart-api-v2
+description: "Chart.yaml declares apiVersion: v2 (Helm 3); v1 with requirements.yaml is the Helm 2 format."
+scope: {language: any, files: ["**/Chart.yaml"]}
+enforce:
+  - target: grep
+    mode: forbid
+    pattern: "^apiVersion:[[:space:]]*[\"']?v1[\"']?[[:space:]]*$"
+examples:
+  match: ["apiVersion: v1\nname: shop\nversion: 0.1.0\n", "apiVersion: \"v1\"\nname: shop\nversion: 0.1.0\n"]
+  no_match: ["apiVersion: v2\nname: shop\nversion: 0.1.0\ntype: application\n", "apiVersion: v2\nname: shop\nversion: 0.1.0\nannotations:\n  apiVersion: v1\n"]

@@ -1,0 +1,18 @@
+id: docs/adr-immutable
+description: An accepted architecture decision record (file role @adr, adr-tools' .adr-dir) is not rewritten; only its status may change (superseded, deprecated), and a new decision goes in a new ADR that supersedes it. Advisory, it blocks Stop once per turn.
+scope: {language: any, files: ["@adr"]}
+enforce:
+  - {target: check, stage: lint, run: "forge_advise forge_adr_edits"}
+examples:
+  match:
+    - head: {docs/adr/0002-use-postgres.md: "# 2. Use PostgreSQL\n\nDate: 2026-03-02\n\n## Status\n\nAccepted\n\n## Context\n\nWe need transactions across orders and payments.\n\n## Decision\n\nWe use PostgreSQL 17.\n"}
+      files: {docs/adr/0002-use-postgres.md: "# 2. Use PostgreSQL\n\nDate: 2026-03-02\n\n## Status\n\nAccepted\n\n## Context\n\nWe need transactions across orders and payments.\n\n## Decision\n\nWe use MySQL 9.\n"}
+    - head: {docs/decisions/0003-queue.md: "---\nstatus: accepted\ndate: 2026-04-01\n---\n# Use SQS for jobs\n\nJobs go through SQS.\n"}
+      files: {docs/decisions/0003-queue.md: "---\nstatus: accepted\ndate: 2026-04-01\n---\n# Use Redis for jobs\n\nJobs go through Redis streams.\n"}
+  no_match:
+    - head: {docs/adr/0002-use-postgres.md: "# 2. Use PostgreSQL\n\nDate: 2026-03-02\n\n## Status\n\nAccepted\n\n## Context\n\nWe need transactions across orders and payments.\n\n## Decision\n\nWe use PostgreSQL 17.\n"}
+      files:
+        docs/adr/0002-use-postgres.md: "# 2. Use PostgreSQL\n\nDate: 2026-03-02\n\n## Status\n\nSuperseded by [5. Use MySQL](0005-use-mysql.md)\n\n## Context\n\nWe need transactions across orders and payments.\n\n## Decision\n\nWe use PostgreSQL 17.\n"
+        docs/adr/0005-use-mysql.md: "# 5. Use MySQL\n\nDate: 2026-10-01\n\n## Status\n\nAccepted\n\nSupersedes [2. Use PostgreSQL](0002-use-postgres.md)\n\n## Decision\n\nWe use MySQL 9.\n"
+    - head: {docs/decisions/0003-queue.md: "---\nstatus: proposed\n---\n# Use SQS for jobs\n\nJobs go through SQS.\n"}
+      files: {docs/decisions/0003-queue.md: "---\nstatus: proposed\n---\n# Use Redis for jobs\n\nJobs go through Redis streams.\n"}

@@ -1,0 +1,10 @@
+id: safety/kubernetes-destructive
+description: "No kubectl delete of namespaces, persistent volumes or their claims, or custom resource definitions, and none with --all, -A or --all-namespaces: the current kube context may be production, and the data goes with them."
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: deny
+    pattern: '(^|[^A-Za-z0-9_-])kubectl[[:space:]]([^;&|]*[[:space:]])?delete[[:space:]]+([^;&|]*[[:space:]])?((ns|namespaces?|pv|pvc|persistentvolumes?|persistentvolumeclaims?|crds?|customresourcedefinitions?)([[:space:]/.,;&|)]|$)|(--all|-A|--all-namespaces)([[:space:]=;&|)]|$))'
+examples:
+  match: ["kubectl delete ns staging", "kubectl -n prod delete pvc data-db-0", "kubectl delete pods --all", "kubectl delete crd/foos.example.com", "kubectl delete deploy web -A", "kubectl --context prod delete namespace shop"]
+  no_match: ["kubectl delete pod web-7d4b9", "kubectl get ns", "kubectl describe pod deleted-pod", "kubectl get pvc -A", "kubectl apply -f k8s/"]

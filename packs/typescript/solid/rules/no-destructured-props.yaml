@@ -1,0 +1,13 @@
+id: typescript/solid/no-destructured-props
+description: "Solid components do not destructure props: the value is read once and stops updating. Read props.x, or use splitProps / mergeProps."
+scope: {language: "tsx"}
+enforce:
+  - target: tool
+    tool: biome
+    expects: "lint/correctness/noSolidDestructuredProps"
+    snippet: "\"linter\": {\"rules\": {\"correctness\": {\"noSolidDestructuredProps\": \"error\"}}}"
+examples:
+  match:
+    - "export function Greeting({ name }: { name: string }) {\n  return <p>Hello {name}</p>;\n}\n"
+  no_match:
+    - "import { splitProps } from \"solid-js\";\n\nexport function Greeting(props: { name: string; class?: string }) {\n  const [local] = splitProps(props, [\"name\"]);\n  return <p>Hello {local.name}</p>;\n}\n"

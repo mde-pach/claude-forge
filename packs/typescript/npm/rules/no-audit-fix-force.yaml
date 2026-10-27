@@ -1,0 +1,10 @@
+id: typescript/npm/no-audit-fix-force
+description: npm audit fix --force asks; it installs versions outside the declared ranges, major upgrades included.
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: ask
+    pattern: '(^|[^A-Za-z0-9_-])npm[[:space:]]+audit[[:space:]]+fix[[:space:]][^;&|]*--force'
+examples:
+  match: ["npm audit fix --force", "npm audit fix --omit=dev --force"]
+  no_match: ["npm audit fix", "npm audit", "npm audit fix && git push --force"]

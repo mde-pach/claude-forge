@@ -1,0 +1,14 @@
+id: gitlab-ci/no-debug-trace
+description: "No committed CI_DEBUG_TRACE or CI_DEBUG_SERVICES set to true: debug tracing prints every variable, masked secrets included, into the job log. Set it for one manual run instead."
+scope: {language: any, files: [".gitlab-ci.yml", ".gitlab/ci/**/*.yml", ".gitlab/ci/**/*.yaml"]}
+enforce:
+  - target: grep
+    mode: forbid
+    pattern: "(CI_DEBUG_TRACE|CI_DEBUG_SERVICES)[\"']?[[:space:]]*:[[:space:]]*[\"']?(true|1)"
+examples:
+  match:
+    - "variables:\n  CI_DEBUG_TRACE: \"true\"\n"
+    - "test:\n  variables:\n    CI_DEBUG_SERVICES: 'true'\n"
+  no_match:
+    - "variables:\n  CI_DEBUG_TRACE: \"false\"\n"
+    - "variables:\n  FF_SCRIPT_SECTIONS: \"true\"\n"

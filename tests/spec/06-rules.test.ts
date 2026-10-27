@@ -114,7 +114,14 @@ describe("permission, guard and context targets", () => {
         "Edit(.claude/rules/forge-*.md)",
         "Edit(**/ruff.toml)",
         "Edit(**/.ruff.toml)",
+        "Edit(**/ty.toml)",
+        "Edit(**/mypy.ini)",
+        "Edit(**/.mypy.ini)",
         "Edit(**/pyrightconfig.json)",
+        "Write(**/setup.py)",
+        "Write(**/setup.cfg)",
+        "Write(**/requirements*.txt)",
+        "Edit(**/requirements*.txt)",
       ]);
     },
     T,
@@ -124,11 +131,17 @@ describe("permission, guard and context targets", () => {
     "guard targets become guard.rules lines, deny before ask, with a header naming the source rule files",
     () => {
       const rules = read(applied("fastapi-app"), ".claude/skills/forge-project/scripts/guard.rules").split("\n");
-      expect(rules[2]).toBe("# Sources: packs/python/sqlalchemy/alembic/rules/downgrade.yaml, packs/python/sqlalchemy/alembic/rules/no-downgrade-base.yaml, packs/python/uv/rules/no-pip.yaml");
-      expect(rules.slice(3, 6).map((l) => l.split("\t").slice(0, 2).join(" "))).toEqual([
+      expect(rules[2]).toBe("# Sources: packs/python/sqlalchemy/alembic/rules/downgrade.yaml, packs/python/sqlalchemy/alembic/rules/no-downgrade-base.yaml, packs/python/uv/rules/no-pip.yaml, packs/supply-chain/rules/insecure-download.yaml, packs/supply-chain/rules/no-dependency-confusion-command.yaml, packs/supply-chain/rules/no-tls-disable-command.yaml");
+      expect(rules.slice(3, 12).map((l) => l.split("\t").slice(0, 2).join(" "))).toEqual([
         "python/sqlalchemy/alembic/no-downgrade-base deny",
+        "supply-chain/no-tls-disable-command deny",
+        "supply-chain/no-tls-disable-command deny",
+        "supply-chain/no-tls-disable-command deny",
         "python/sqlalchemy/alembic/downgrade ask",
         "python/uv/no-pip ask",
+        "python/uv/no-pip ask",
+        "supply-chain/insecure-download ask",
+        "supply-chain/no-dependency-confusion-command ask",
       ]);
     },
     T,

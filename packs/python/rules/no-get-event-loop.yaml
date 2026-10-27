@@ -1,0 +1,19 @@
+id: python/no-get-event-loop
+description: "No asyncio.get_event_loop(); use asyncio.run() at the entry point and asyncio.get_running_loop() inside coroutines."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: TID251
+    snippet: |
+      [tool.ruff.lint]
+      extend-select = ["TID251"]
+
+      [tool.ruff.lint.flake8-tidy-imports.banned-api]
+      "asyncio.get_event_loop".msg = "use asyncio.run() at the entry point and asyncio.get_running_loop() inside coroutines"
+examples:
+  match:
+    - "import asyncio\n\n\ndef main() -> None:\n    loop = asyncio.get_event_loop()\n    loop.run_until_complete(asyncio.sleep(0))\n"
+    - "from asyncio import get_event_loop as gel\n\nloop = gel()\n"
+  no_match:
+    - "import asyncio\n\n\nasync def work() -> None:\n    loop = asyncio.get_running_loop()\n    await loop.run_in_executor(None, print)\n\n\nasyncio.run(work())\n"

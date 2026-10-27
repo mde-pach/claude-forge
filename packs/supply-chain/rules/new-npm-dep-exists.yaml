@@ -1,0 +1,18 @@
+id: supply-chain/new-npm-dep-exists
+description: "Each dependency a package.json gains (dependencies, devDependencies, optionalDependencies, peerDependencies; registry specs) exists on registry.npmjs.org, the newest version its range allows is not deprecated, and the package was first published at least Forge's cooldown (3 days) ago; names a private registry serves (.npmrc @scope:registry=, or another default registry) are not looked up, and an unreachable registry is reported skipped."
+scope: {language: any, files: ["**/package.json"]}
+enforce:
+  - target: check
+    stage: lint
+    run: "forge_helper bun new_deps.mjs $FORGE_COOLDOWN_SECONDS"
+    when_changed: ["**/package.json"]
+examples:
+  match:
+    - head: {package.json: "{\n  \"name\": \"shop\",\n  \"dependencies\": {\n    \"express\": \"^5.1.0\"\n  }\n}\n"}
+      files: {package.json: "{\n  \"name\": \"shop\",\n  \"dependencies\": {\n    \"express\": \"^5.1.0\",\n    \"csurf\": \"^1.11.0\"\n  }\n}\n"}
+    - files: {package.json: "{\n  \"name\": \"shop\",\n  \"devDependencies\": {\n    \"forge-hallucinated-package-0f3a9c\": \"^1.0.0\"\n  }\n}\n"}
+    - files: {package.json: "{\n  \"name\": \"shop\",\n  \"dependencies\": {\n    \"sdk\": \"npm:aws-sdk@^2.1692.0\"\n  }\n}\n"}
+  no_match:
+    - head: {package.json: "{\n  \"name\": \"shop\",\n  \"dependencies\": {\n    \"csurf\": \"^1.11.0\"\n  }\n}\n"}
+      files: {package.json: "{\n  \"name\": \"shop\",\n  \"dependencies\": {\n    \"csurf\": \"^1.11.0\",\n    \"zod\": \"^4.1.12\"\n  }\n}\n"}
+    - files: {package.json: "{\n  \"name\": \"shop\",\n  \"dependencies\": {\n    \"@acme/internal-ui\": \"^2.0.0\",\n    \"@acme/shared\": \"workspace:*\",\n    \"local\": \"file:../local\"\n  }\n}\n", .npmrc: "@acme:registry=https://npm.acme.internal/\n"}

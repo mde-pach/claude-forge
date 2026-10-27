@@ -5,7 +5,7 @@ enforce:
   - target: check
     stage: lint
     run: "! grep -q '\"@axe-core/playwright\"' package.json 2>/dev/null || git ls-files -z -- 'e2e/*' '*.spec.*' | xargs -0 grep -l AxeBuilder /dev/null | grep -q . || { echo 'package.json depends on @axe-core/playwright but no e2e test uses AxeBuilder'; false; }"
-    when_changed: [package.json, "e2e/**", "**/*.spec.*"]
+    when_changed: [package.json, "@e2e-tests", "**/*.spec.*"]
 examples:
   match:
     - files:

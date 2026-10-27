@@ -1,0 +1,11 @@
+id: python/generic-type-args
+description: Generic classes are parameterised in annotations (list[str], re.Match[str]), never bare.
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ty
+    expects: missing-type-argument
+    snippet: '[tool.ty.rules] missing-type-argument = "error"'
+examples:
+  match: ["import re\n\n\ndef names(m: re.Match) -> list:\n    return [m.group(0)]\n"]
+  no_match: ["import re\n\n\ndef names(m: re.Match[str]) -> list[str]:\n    return [m.group(0)]\n"]

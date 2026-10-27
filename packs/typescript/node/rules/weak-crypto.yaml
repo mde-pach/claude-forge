@@ -1,0 +1,21 @@
+id: typescript/node/weak-crypto
+description: "createHash/createHmac with md5 or sha1 only for checksums, never for passwords, tokens or signatures: use sha256 or better (and scrypt or argon2 for passwords)."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: call_expression
+      pattern: "$F($$$)"
+      has: {field: arguments, has: {nthChild: 1, kind: string, regex: "^[\"'](?i:md5|sha1)[\"']$"}}
+    # The function called is node:crypto's (§15.6), whatever the import calls it.
+    where:
+      F: {declared: {package: node, module: node/crypto, name: [createHash, createHmac]}}
+examples:
+  deps: [{ecosystem: npm, name: "@types/node", version: "24.10.1"}]
+  match:
+    - "import { createHash } from \"node:crypto\";\n\nexport const digest = (password: string) => createHash(\"md5\").update(password).digest(\"hex\");\n"
+    - "import crypto from \"crypto\";\n\nexport const sign = (key: string, body: string) => crypto.createHmac('SHA1', key).update(body).digest(\"hex\");\n"
+  no_match:
+    - "import { createHash } from \"node:crypto\";\n\nexport const digest = (data: string) => createHash(\"sha256\").update(data).digest(\"hex\");\n"
+    - "function createHash(alg: string): string {\n  return alg;\n}\n\nexport const label = createHash(\"md5\");\n"

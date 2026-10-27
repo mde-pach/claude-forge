@@ -1,0 +1,1 @@
+MCP: a server on the stdio transport writes only JSON-RPC to stdout; logs go to stderr (`console.error`), and `console.log` / `info` / `debug` or `process.stdout.write` in a file importing `StdioServerTransport` are rejected.

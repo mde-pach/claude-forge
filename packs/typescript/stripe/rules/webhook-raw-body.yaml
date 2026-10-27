@@ -1,0 +1,47 @@
+id: typescript/stripe/webhook-raw-body
+description: "The payload given to stripe.webhooks.constructEvent / constructEventAsync is the raw request body (text or Buffer), not JSON.stringify(…), await req.json() or a variable declared from one in the same function: the signature is computed over the exact bytes Stripe sent, so a re-serialised body never verifies."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      all:
+        - has:
+            field: function
+            kind: member_expression
+            all:
+              - has: {field: property, regex: "^(constructEvent|constructEventAsync)$"}
+              - has: {field: object, kind: member_expression, all: [{has: {field: object, pattern: $S}}, {has: {field: property, regex: "^webhooks$"}}]}
+        - has:
+            field: arguments
+            has:
+              nthChild: 1
+              any:
+                - {kind: call_expression, has: {field: function, regex: "^JSON\\.stringify$"}}
+                - {kind: await_expression, has: {kind: call_expression, all: [{has: {field: function, kind: member_expression, has: {field: property, regex: "^json$"}}}, {has: {field: arguments, regex: "^\\(\\s*\\)$"}}]}}
+                - all:
+                    - {kind: identifier, pattern: $B}
+                    - inside:
+                        stopBy: end
+                        any: [{kind: statement_block}, {kind: program}]
+                        has:
+                          stopBy: end
+                          kind: variable_declarator
+                          all:
+                            - has: {field: name, pattern: $B}
+                            - has:
+                                field: value
+                                any:
+                                  - {kind: call_expression, has: {field: function, regex: "^JSON\\.stringify$"}}
+                                  - {kind: await_expression, has: {kind: call_expression, all: [{has: {field: function, kind: member_expression, has: {field: property, regex: "^json$"}}}, {has: {field: arguments, regex: "^\\(\\s*\\)$"}}]}}
+    where:
+      S: {type: {package: stripe, name: Stripe}}
+examples:
+  deps: [{ecosystem: npm, name: stripe, version: "23.0.0"}]
+  match:
+    - "import Stripe from \"stripe\";\n\nconst stripe = new Stripe(\"sk_test\");\n\nexport async function POST(req: Request) {\n  const sig = req.headers.get(\"stripe-signature\") ?? \"\";\n  const body = await req.json();\n  const event = stripe.webhooks.constructEvent(JSON.stringify(body), sig, \"whsec\");\n  return Response.json({ type: event.type });\n}\n"
+    - "import Stripe from \"stripe\";\n\nconst stripe = new Stripe(\"sk_test\");\n\nexport async function POST(req: Request) {\n  const payload = JSON.stringify(await req.json());\n  const event = await stripe.webhooks.constructEventAsync(payload, req.headers.get(\"stripe-signature\") ?? \"\", \"whsec\");\n  return Response.json({ type: event.type });\n}\n"
+  no_match:
+    - "import Stripe from \"stripe\";\n\nconst stripe = new Stripe(\"sk_test\");\n\nexport async function POST(req: Request) {\n  const body = await req.text();\n  const event = await stripe.webhooks.constructEventAsync(body, req.headers.get(\"stripe-signature\") ?? \"\", \"whsec\");\n  return Response.json({ type: event.type });\n}\n"
+    - "const hooks = { webhooks: { constructEvent: (p: string) => p } };\n\nexport const e = hooks.webhooks.constructEvent(JSON.stringify({ a: 1 }));\n"

@@ -1,0 +1,33 @@
+id: python/sqlalchemy/alembic/model-registered
+description: "A new mapped class in a models package is imported where the other models are (the package's __init__.py, or alembic/env.py): otherwise Base.metadata lacks its table, autogenerate writes no migration for it and alembic check still passes."
+scope: {language: python, files: ["**/models/**"]}
+enforce:
+  - {target: check, stage: lint, run: "forge_models_registered"}
+examples:
+  match:
+    - head:
+        app/models/__init__.py: "from .base import Base\nfrom .user import User\n\n__all__ = [\"Base\", \"User\"]\n"
+        app/models/base.py: "from sqlalchemy.orm import DeclarativeBase\n\n\nclass Base(DeclarativeBase):\n    pass\n"
+        app/models/user.py: "from sqlalchemy.orm import Mapped, mapped_column\n\nfrom .base import Base\n\n\nclass User(Base):\n    __tablename__ = \"users\"\n    id: Mapped[int] = mapped_column(primary_key=True)\n"
+      files:
+        app/models/invoice.py: "from sqlalchemy.orm import Mapped, mapped_column\n\nfrom .base import Base\n\n\nclass Invoice(Base):\n    __tablename__ = \"invoices\"\n    id: Mapped[int] = mapped_column(primary_key=True)\n"
+  no_match:
+    - head:
+        app/models/__init__.py: "from .base import Base\nfrom .user import User\n"
+        app/models/base.py: "from sqlalchemy.orm import DeclarativeBase\n\n\nclass Base(DeclarativeBase):\n    pass\n"
+        app/models/user.py: "from sqlalchemy.orm import Mapped, mapped_column\n\nfrom .base import Base\n\n\nclass User(Base):\n    __tablename__ = \"users\"\n    id: Mapped[int] = mapped_column(primary_key=True)\n"
+      files:
+        app/models/__init__.py: "from .base import Base\nfrom .invoice import Invoice\nfrom .user import User\n"
+        app/models/invoice.py: "from sqlalchemy.orm import Mapped, mapped_column\n\nfrom .base import Base\n\n\nclass Invoice(Base):\n    __tablename__ = \"invoices\"\n    id: Mapped[int] = mapped_column(primary_key=True)\n"
+    # __init__.py imports no model: the project registers them some other way
+    - head:
+        app/models/__init__.py: ""
+        app/models/user.py: "class User(Base):\n    __tablename__ = \"users\"\n"
+      files:
+        app/models/invoice.py: "class Invoice(Base):\n    __tablename__ = \"invoices\"\n"
+    # a mixin maps no table
+    - head:
+        app/models/__init__.py: "from .user import User\n"
+        app/models/user.py: "class User(Base):\n    __tablename__ = \"users\"\n"
+      files:
+        app/models/mixins.py: "class TimestampMixin:\n    created_at: Mapped[datetime] = mapped_column(server_default=func.now())\n"

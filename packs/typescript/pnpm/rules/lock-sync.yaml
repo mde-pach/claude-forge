@@ -1,0 +1,22 @@
+id: typescript/pnpm/lock-sync
+description: pnpm-lock.yaml matches the package.json files (pnpm install --frozen-lockfile --lockfile-only, which writes nothing).
+scope: {language: any}
+enforce:
+  - target: check
+    stage: lint
+    run: pnpm install --frozen-lockfile --lockfile-only
+    when_changed: ["**/package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml"]
+examples:
+  match:
+    - head:
+        package.json: "{\"name\": \"shop\", \"private\": true}\n"
+        pnpm-lock.yaml: "lockfileVersion: '9.0'\n\nsettings:\n  autoInstallPeers: true\n  excludeLinksFromLockfile: false\n\nimporters:\n\n  .: {}\n"
+      files:
+        package.json: "{\"name\": \"shop\", \"private\": true, \"dependencies\": {\"zod\": \"4.1.12\"}}\n"
+  no_match:
+    # nothing the lock depends on changed: not run
+    - head:
+        package.json: "{\"name\": \"shop\", \"private\": true}\n"
+        pnpm-lock.yaml: "lockfileVersion: '9.0'\n\nsettings:\n  autoInstallPeers: true\n  excludeLinksFromLockfile: false\n\nimporters:\n\n  .: {}\n"
+      files:
+        src/index.ts: "export const x = 1;\n"

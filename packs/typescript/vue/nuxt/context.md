@@ -1,0 +1,5 @@
+Nuxt: server routes in `server/api/` and `server/routes/` read input with h3's validated helpers, `readValidatedBody(event, schema.parse)`, `getValidatedQuery(event, schema.parse)`, `getValidatedRouterParams(event, schema.parse)`; `readBody`, `readFormData`, `readMultipartFormData`, `getQuery`, `getRouterParams` and `getRouterParam` under `server/` are rejected unless passed straight to a schema (`Schema.parse(await readBody(event))`).
+`runtimeConfig.public` is sent to the browser: keys naming a secret, private key, password, credential, token, API or access key, service role, DSN or database URL there are rejected (unless they say publishable, public, anon or site key); secrets stay at the top level of `runtimeConfig`.
+`vue-tsc` checks types once `nuxt prepare` has written `.nuxt/`.
+In `.vue` files, `import.meta.client` / `.server` / `.dev`, never `process.client` / `.server` / `.dev`.
+No module-level `ref()` / `reactive()` in `composables/` or `utils/` (shared by every SSR request): `useState("key", …)` instead.

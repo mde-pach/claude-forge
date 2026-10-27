@@ -1,0 +1,22 @@
+id: python/django/drf/no-csrf-exempt-session-auth
+description: "No SessionAuthentication subclass that overrides enforce_csrf (the \"CsrfExemptSessionAuthentication\" snippet): it turns off CSRF protection for cookie-authenticated API calls. Send the CSRF token from the client, or authenticate the client with tokens instead of the session."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: class_definition
+      has: {field: superclasses, has: {pattern: $B}}
+      all:
+        - has: {field: body, has: {kind: function_definition, has: {field: name, regex: "^enforce_csrf$"}}}
+    # DRF's SessionAuthentication or a subclass of it, whatever the import is called
+    where:
+      B: {type: {package: rest_framework, name: SessionAuthentication}}
+examples:
+  deps: [{ecosystem: pypi, name: django, version: "6.1.2"}, {ecosystem: pypi, name: djangorestframework, version: "3.18.3"}]
+  match:
+    - "from rest_framework.authentication import SessionAuthentication\n\n\nclass CsrfExemptSessionAuthentication(SessionAuthentication):\n    def enforce_csrf(self, request):\n        return None\n"
+    - "from rest_framework import authentication\n\n\nclass NoCsrf(authentication.SessionAuthentication):\n    def enforce_csrf(self, request):\n        pass\n"
+  no_match:
+    - "class SessionAuthentication:\n    def enforce_csrf(self, request):\n        return None\n\n\nclass Relaxed(SessionAuthentication):\n    def enforce_csrf(self, request):\n        return None\n"
+    - "from rest_framework.authentication import SessionAuthentication\n\n\nclass AuditedSession(SessionAuthentication):\n    def authenticate(self, request):\n        return super().authenticate(request)\n"

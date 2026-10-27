@@ -1,0 +1,11 @@
+id: typescript/implicit-returns
+description: Every code path of a function that returns a value returns one (noImplicitReturns); a branch that falls through would yield undefined.
+scope: {language: typescript}
+enforce:
+  - target: tool
+    tool: tsc
+    expects: TS7030
+    snippet: '"compilerOptions": {"noImplicitReturns": true}'
+examples:
+  match: ["export function label(n: number): string | undefined {\n  if (n > 0) {\n    return \"positive\";\n  }\n}\n"]
+  no_match: ["export function label(n: number): string | undefined {\n  if (n > 0) {\n    return \"positive\";\n  }\n  return undefined;\n}\n"]

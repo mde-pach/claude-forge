@@ -1,0 +1,42 @@
+id: typescript/mikro-orm/no-global-context
+description: "No allowGlobalContext: true in the options of MikroORM.init(…), new MikroORM(…) or defineConfig(…) (bindings imported from @mikro-orm/*) outside test files: one identity map is then shared across requests (data leaks, stale entities); use RequestContext or em.fork()."
+scope: {language: typescript, files: ["!**/*.test.*", "!**/*.spec.*", "!**/__tests__/**", "!e2e/**"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: pair
+      all:
+        - has: {field: key, regex: "^[\"']?allowGlobalContext[\"']?$"}
+        - has: {field: value, kind: "true"}
+        - inside:
+            kind: object
+            stopBy: neighbor
+            inside:
+              kind: arguments
+              stopBy: neighbor
+              inside:
+                any:
+                  - {kind: call_expression, has: {field: function, kind: member_expression, all: [{has: {field: object, pattern: $B}}, {has: {field: property, regex: "^init$"}}]}}
+                  - {kind: new_expression, has: {field: constructor, pattern: $B}}
+                  - {kind: call_expression, has: {field: function, kind: identifier, pattern: $B}}
+        - inside:
+            kind: program
+            stopBy: end
+            has:
+              kind: import_statement
+              all:
+                - has: {field: source, regex: "^[\"']@mikro-orm/[^\"']+[\"']$"}
+                - has:
+                    stopBy: end
+                    kind: import_specifier
+                    any:
+                      - all: [{has: {field: name, regex: "^(MikroORM|defineConfig)$"}}, {has: {field: alias, pattern: $B}}]
+                      - all: [{has: {field: name, regex: "^(MikroORM|defineConfig)$", pattern: $B}}, {not: {has: {field: alias, kind: identifier}}}]
+examples:
+  match:
+    - "import { MikroORM } from \"@mikro-orm/postgresql\";\n\nexport const orm = await MikroORM.init({ dbName: \"app\", allowGlobalContext: true });\n"
+    - "import { defineConfig } from \"@mikro-orm/sqlite\";\n\nexport default defineConfig({ dbName: \"app.db\", allowGlobalContext: true });\n"
+  no_match:
+    - "import { MikroORM } from \"@mikro-orm/postgresql\";\n\nexport const orm = await MikroORM.init({ dbName: \"app\" });\n"
+    - "import { defineConfig } from \"./config\";\n\nexport default defineConfig({ allowGlobalContext: true });\n"

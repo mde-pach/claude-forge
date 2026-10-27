@@ -1,0 +1,2 @@
+Hooks are tested with `renderHook` from `@testing-library/react` (`@testing-library/react-hooks` is for React 17 and older and is rejected).
+Async queries are awaited, `findBy*` replaces `waitFor` + `getBy*`, queries go through `screen`, `waitFor` callbacks have no side effects, no needless `act()` and no DOM node access (eslint-plugin-testing-library, in ESLint projects).

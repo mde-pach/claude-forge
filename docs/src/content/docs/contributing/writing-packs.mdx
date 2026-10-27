@@ -1,6 +1,6 @@
 ---
 title: Writing packs
-description: The pack tree, the rule file, and forge test.
+description: The pack tree, the rule file, and the pack self-test (bun run test:packs).
 ---
 
 import Spec from "../../../components/Spec.astro";
@@ -24,7 +24,7 @@ packs/
 
 | Path | |
 |---|---|
-| `pack.yaml` | `id` (its path), `description`, `level`, optional `detect` and `requires` — [schema](../../reference/schemas/#pack) |
+| `pack.yaml` | `id` (its path), `description`, `level`, optional `detect` and `requires` — [schema](../../reference/schemas/#pack). `detect` is any one of: `always: true`, `files_any`, `deps_any`, `library_any`, `content_any` (a line of a literal config file matches a pattern), `yaml_keys` (a YAML file's first document has these top-level keys) |
 | `rules/<name>.yaml` | one rule each; its id is `<pack id>/<name>` — [schema](../../reference/schemas/#rule) |
 | `context.md` | optional, ≤ 10 lines of facts for Claude |
 | `init/` | optional templates for `forge init` |
@@ -45,13 +45,104 @@ examples:
   no_match: [ … ]    # must not — include the near misses
 ```
 
-Targets, in order of preference: `tool` (your linter or type checker, audited), `ast-grep` (Python, TypeScript or YAML, by `scope.language`), `grep` (a POSIX regex per line, for comments, config text and `.astro` files), `permission`, `sandbox`, `guard`, `check`. The [lifecycle](../../lifecycle/) of a rule follows from its targets, and every rule's page shows it.
+Targets, in order of preference: `tool` (your linter or type checker, audited: `biome`, `ruff`, `ty`, `tsc`, `eslint`; an ESLint target's `expects` is the rule's name, its `snippet` a `"rules": {…}` entry of the flat config), `ast-grep` (Python, TypeScript or YAML, by `scope.language`), `grep` (a POSIX regex per line, for comments, config text and `.astro` files), `permission`, `sandbox`, `guard`, `check`. A `guard` target is a regex on the command, or a pre-filter regex plus a built-in `check` that parses the command (`ephemeral-exec` looks for the tool in `node_modules/.bin` or `.venv/bin`); its examples can then be `{command, files}`, run from a directory holding those files. A rule that asks can carry `review:`, the one question an independent reviewer answers in autonomous runs (it judges only that concern, not the rest of the command). The [lifecycle](../../lifecycle/) of a rule follows from its targets, and every rule's page shows it.
 
-A `check` can call the engine's helpers instead of a project tool: `forge_ratchet`, `forge_test_edits`, `forge_hadolint`, `forge_zizmor`, `forge_squawk_files`, … (in `templates/scripts/engine.sh`). A `run` string never calls `exit`: it is a shell function body, and its last command's status is the result.
+`ast-grep` and `grep` targets in `advise` mode report a match on a line added during the turn to Claude after the edit, and never fail Stop, a commit or CI: for heuristics whose matches need judgement (a Django template's `|safe`).
+
+<Spec file="08-project-hooks" test="a grep advise rule's match on an added line is returned after the edit, and check.sh does not fail on it" />
+
+A lint `check` whose tool also lints its own config file (ruff's `RUF200` validates `pyproject.toml`) names it in `config_files: ["**/pyproject.toml"]`: a changed one joins the check's `{files}`, so its diagnostics are attributed like those of the code.
+
+<Spec file="10-check" test="4. a lint check's config_files are linted when they changed: an invalid pyproject.toml fails python/lint (ruff RUF200) on its line" />
+
+A `check` can call the engine's helpers instead of a project tool: `forge_ratchet`, `forge_test_edits`, `forge_hadolint`, `forge_zizmor`, `forge_squawk_files`, … (in `templates/scripts/engine.sh`). A `run` string never calls `exit`: it is a shell function body, and its last command's status is the result. `forge_advise <helper>` makes a check **advisory**: at Stop only, each line the helper prints is a finding that blocks once per turn, after any failing check, and a Stop with nothing new passes (for advice Claude may have a reason not to follow, such as `forge_untested_change`). `forge_once <helper>` does the same at Stop and fails pre-commit and CI on any finding (`forge_lockfile_updated`).
+A rule about one version of a library carries a gate: `when: {deps: [{ecosystem: npm, name: express, version: ">=5"}]}` keeps it inactive (and listed by `forge status`) wherever Express 5 is not declared; `package.json`'s `packageManager` counts as a dependency on that package manager (`{ecosystem: npm, name: pnpm, version: ">=11"}`).
+<Spec file="05-inputs" describe="version gates" />
+
+A rule that names model ids (a retired model, the models that reject `budget_tokens`) never lists them itself: `packs/ai-models/models.tsv` is the one list, and a rule line after a `# models.tsv: <kind>` comment holds its rendering (`retired`, `rejects <feature>`, `advise`). After editing the data file, `bun scripts/models.ts` rewrites those lines; the pack test fails while a rule differs from the file.
+
+A pack can also be detected as a library (`detect: {library_any: [pypi]}` or `[npm]`), for rules about a published API.
+
+When a framework makes one of the tool rules Forge asks for harmful, its pack switches that diagnostic off: `tool_off: [{tool: biome, expects: lint/style/useImportType, reason: "…"}]` (NestJS: the fix turns DTO imports into `import type`, which erases them from the decorator metadata). Where the pack is active, no rule asks for it, `forge status` shows which pack switched it off and why, and `forge init` writes the Biome config with it off.
+
+A tool with no PyPI or npm package runs from its GitHub release: a helper asks the engine for it with `forge_release <name> <var>`, which fetches the pinned binary once (checked against the sha256 Forge embeds for the platform) or prints the check's `skipped` line. Infrastructure CLIs the project installs itself (`terraform`, `tofu`, `helm`, `kustomize`, `kubectl`) and the package managers (`npm`, `pnpm`, `yarn`) are named in `run` like project tools and found on `PATH`, so a check whose tool is absent is reported skipped; `terraform` runs `tofu` in an OpenTofu project, and `yarn` counts only from Yarn 2 on (what a `.yarnrc.yml` project uses). A project tool whose name has a `-` is run as `forge_exec_tool <name>` (`forge_exec_tool graphql-codegen --check`).
+
+A check that verifies generated code (`graphql-codegen --check`, `wrangler types --check`) takes `stage: codegen`: it runs after lint and before the typecheck, and when it fails check.sh stops there instead of reporting the typecheck errors stale generated code causes.
+
+<Spec file="10-check" describe="pinned release binaries and system tools" />
+
+## Files by role
+
+A rule never hard-codes where a tool keeps its files. `scope.files`, `when_changed`, check commands and a where `module` name a **file role** instead: `scope: {language: python, files: ["@django-migrations"]}`, `"!@python-tests"` to leave tests out, `forge_role @alembic-migrations "$f"` in a helper, `forge_role_files @adr` to list a role's files, `module: "@wrangler-types"` for a type a generated file declares. `forge apply` replaces each role by its effective patterns (Forge's defaults, the tool's declarative config, the project's `forge.yaml`), so the rule follows a project that moved its tests or migrations without a local copy of the rule. A role Forge does not know fails when the rule is loaded; the roles are listed in SPECS §15.4, and a new one is added there and in `src/roles.ts`. Rule examples are written where Forge's defaults put the role's files.
+
+<Spec file="15-4-file-roles" describe="roles in rules" />
+
+## Asking the engine: types
+
+A rule must never decide on names the project chose: `session.query()` is not a SQLAlchemy call because the receiver is called `session`, and a rename should neither hide a match nor create one. When a match depends on **what** an expression is, ask the engine with `where` on the ast-grep target, and say what the type must be, not how to find it:
+
+```yaml
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule: {pattern: "$S.query($$$)"}
+    where:
+      S: {type: {package: sqlalchemy, name: [Session, scoped_session, AsyncSession, async_scoped_session]}}
+examples:
+  deps: [{ecosystem: pypi, name: sqlalchemy, version: "2.0.44"}]
+  match:
+    - "from sqlalchemy.orm import Session as Db\n\n\ndef first(db: Db):\n    return db.query(int).first()\n"
+  no_match:
+    - "class Session:\n    def query(self, q: str) -> list[str]:\n        return [q]\n\n\ndef search(session: Session):\n    return session.query(\"text\")\n"
+```
+
+What you write:
+
+| Key | Meaning |
+|---|---|
+| `package` | the installed package that **declares** the type: Python's import name (`sqlalchemy`, `pydantic`), npm's name (`zod`, `@prisma/client`; `@types/x` counts as `x`). Required, or `module`. |
+| `module` | the declaring module, matched by whole segments: `sqlalchemy.orm`, `zod/v4` (npm: the package and its file path without extension). |
+| `name` | the type's declared name (or a list): the library's own API name, never the alias a project imports it under. Optional: without it, any type of that package or module. |
+| `unknown: match` | also match when the checker does not know the type (`Any`, an unannotated parameter, `any`). Default: no match. |
+| `type: [{…}, {…}]` | a list of specs: one of them is enough (several packages, each with its own names). |
+| `not: {type: …}` | the expression is **not** such a type (for exemptions: "unless the receiver is a Zod schema"); `not: {declared: …}` likewise. |
+
+How it decides: the type checker infers the type of exactly the expression the metavariable is bound to (a name, `self.db`, `sessionmaker(e)()`, `items[0]` alike), resolves aliases and re-exports to the declaration, counts a subclass as its base (a project's `class AppSession(Session)` is a `Session`), and a type alias as the types it is made of, ignores type arguments (`list[Session]` is a `list`), and is satisfied by one member of a union (`Session | None`) or of an intersection (drizzle's `NodePgDatabase & { $client: Pool }` is a `NodePgDatabase`; an alias of an intersection, such as zustand's `UseBoundStore`, is named by the alias). It never looks at names in the project. The engine is a language server per language (Forge's pinned ty for Python; for TypeScript, the project's own TypeScript: its tsserver for 5 and 6, `tsc --lsp` from 7); your rule does not name it, so it can be replaced without touching a rule.
+
+Finding the right `package`, `module` and `name`: go to the type's definition in your editor and read where it is declared. That file decides, and it is sometimes an internal package (Vitest's `expect` is declared in `@vitest/expect`, not `vitest`). Prefer `module` when one package ships several APIs with the same names (Zod 4's `ZodString` is in `zod/v4`, Zod 3's in `zod/v3`).
+
+Examples of such a rule are whole files, imports included (a receiver whose type cannot be resolved is unknown, and does not match), and `examples.deps` lists the packages, exact versions, they are type-checked against: none when the types are the standard library's (`{module: logging, name: Logger}`) or TypeScript's own (`{package: typescript, name: Map}`). `bun run test:packs` and `forge test` install them once into a cached project and run every example through the engine; ast-grep alone only checks that the `match` examples match the pattern.
+
+When the engine sees a library's types only through a stub package (Django through `django-stubs`, Celery through `celery-types`), say so on the target: `needs: [{ecosystem: pypi, name: django-stubs}]`. Where the project does not depend on it, the rule is reported not enforced, with what to add, instead of passing in silence; `examples.deps` must install it.
+
+<Spec file="05-inputs" test="a type rule whose stubs are not dependencies is not enforced, and status names them" />
+
+### Declared names: what a name refers to
+
+For a function, decorator or class used by name, ask what the name **refers to** with `declared` instead of `type` (a function's type has no name, and TypeScript's type definition of a function is what it returns):
+
+```yaml
+    rule:
+      kind: call
+      pattern: "$F($$$)"
+      has: {field: arguments, has: {kind: keyword_argument, regex: "^allow_pickle[[:space:]]*=[[:space:]]*True$"}}
+    where:
+      F: {declared: {package: numpy, name: load}}
+```
+
+`declared` takes the same `package`, `module`, `name` and `unknown` keys. The metavariable is bound to a name or an attribute (`load`, `np.load`, `cp.exec`); the checker goes to the definition of its last name through import aliases, namespace imports and re-exports, so `from numpy import load as read` then `read(…)` matches and a project function called `load` does not. No subclasses count, and a name the checker cannot resolve (an unresolved import, an attribute of `Any`) or an expression that is not a name (`pick()(…)`) is unknown. Find the `package`, `module` and `name` with your editor's go to definition on the name. A rule can mix both: `{declared: …}` on the callee and `{type: …}` on an argument.
+
+TypeScript projects declare the global types they use (`@types/node`, `@types/bun`) in `compilerOptions.types`; the examples project of `test:packs` lists the `@types/*` packages of `examples.deps` there.
+
+### Deprecated uses
+
+`{deprecated: true}` asks whether a name is a use of a declaration marked `@deprecated`, as the project's TypeScript reports it: a call (of the overload it resolves to), a property, a type, an import, and an object literal key whose property is deprecated. `typescript/no-deprecated` asks it of every name, so one rule replaces lists of removed APIs per library.
+
+`where` works on `forbid` and `advise` targets, on metavariables bound to expressions: a match whose metavariable is bound to something else (a parameter's name, a type) cannot be asked, and is reported like a match whose engine could not answer, as `forge:forge/types <rule> was not checked: …`, never passed silently.
 
 ## Examples are tests
 
-`forge test` validates every pack and rule against the schemas and runs every example. Each rule's result appears on its pack page.
+`bun run test:packs` (from a clone of Forge) validates every pack and rule against the schemas and runs every example; `bun run test:packs <dir>` does the same for another packs directory. The spec suite runs it in CI, and each rule's result appears on its pack page. (`forge test`, the published command, checks a project's local rules only.)
 
 A `check` rule's examples are **fixtures**: files written into a temporary repository, which `check.sh` (holding only that check) then examines as Stop would. `head` files are committed first; `files` are the change:
 
@@ -64,9 +155,9 @@ examples:
     - files: {compose.yaml: "services:\n  db:\n    image: postgres:17\n"}
 ```
 
-Only checks that need a whole project (test and migration runs, `astro check`, lock-file checks) may go without examples. An example whose tool is not installed is reported skipped, never passed.
+Only checks that need a whole project (test and migration runs, `astro check`, `ngc`, lock-file checks) may go without examples; a spec test proves them instead. An example whose tool is not installed is reported skipped, never passed.
 
-`forge test` cannot run a `tool` target: that needs the tool. The test suite does it instead, with the pinned Biome, TypeScript, ruff and basedpyright: for each `tool` target, the rule's examples must make the audit satisfied when the project's config reports the expected diagnostic as an error, and unsatisfied when that diagnostic is off. Every `match` example must therefore trigger every `tool` target of its rule; put all the variants a rule covers into each `match` example when the rule has several targets.
+The self-test cannot run a `tool` target: that needs the tool. The test suite does it instead, with the pinned Biome, TypeScript, ruff, ty and ESLint (with typescript-eslint, type-aware): for each `tool` target, the rule's examples must make the audit satisfied when the project's config reports the expected diagnostic as an error, and unsatisfied when that diagnostic is off. Every `match` example must therefore trigger every `tool` target of its rule; put all the variants a rule covers into each `match` example when the rule has several targets. A rule whose files are of several types (JSX and Vue, Svelte, Astro or HTML templates) gives an example per type as one file, `{files: {src/components/Hero.vue: "…"}}`: the audit writes it with that file type.
 
 <Spec file="13-packs" top />
 <Spec file="13-packs" describe="forge test catches broken packs" />

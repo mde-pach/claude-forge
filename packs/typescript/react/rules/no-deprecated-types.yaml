@@ -1,6 +1,7 @@
 id: typescript/react/no-deprecated-types
 description: No imports React's types mark @deprecated (ElementRef, MutableRefObject, LegacyRef, ...). Use the replacement the deprecation names. Biome reads the tags from node_modules, and only from real directories (not pnpm's symlinks).
 scope: {language: tsx}
+deprecated: {replaced_by: typescript/no-deprecated}
 enforce:
   - target: tool
     tool: biome

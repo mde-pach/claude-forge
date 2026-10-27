@@ -1,0 +1,27 @@
+id: typescript/opentelemetry/semconv-stable-keys
+description: "span.setAttribute(s) uses the stable semantic convention keys, not the old ones: http.request.method (not http.method), http.response.status_code (http.status_code), url.full (http.url), url.path / url.query (http.target), url.scheme (http.scheme), user_agent.original (http.user_agent), server.address / server.port (net.peer.name / net.peer.port, net.host.name / net.host.port), db.query.text (db.statement), db.system.name (db.system). A backend that still wants the old keys overrides this rule in .forge/rules."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      all:
+        - has: {field: function, kind: member_expression, all: [{has: {field: object, pattern: $S}}, {has: {field: property, regex: "^setAttributes?$"}}]}
+        - has:
+            field: arguments
+            has:
+              nthChild: 1
+              any:
+                - {kind: string, regex: "^[\"'`](http\\.(method|status_code|url|target|scheme|user_agent)|net\\.(peer|host)\\.(name|port)|db\\.(statement|system))[\"'`]$"}
+                - {kind: object, has: {kind: pair, has: {field: key, kind: string, regex: "^[\"'](http\\.(method|status_code|url|target|scheme|user_agent)|net\\.(peer|host)\\.(name|port)|db\\.(statement|system))[\"']$"}}}
+    where:
+      S: {type: {package: "@opentelemetry/api", name: Span}}
+examples:
+  deps: [{ecosystem: npm, name: "@opentelemetry/api", version: "1.9.1"}]
+  match:
+    - "import { trace } from \"@opentelemetry/api\";\n\nconst span = trace.getTracer(\"app\").startSpan(\"GET /\");\nspan.setAttribute(\"http.method\", \"GET\");\nspan.end();\n"
+    - "import type { Span } from \"@opentelemetry/api\";\n\nexport function tag(span: Span, sql: string) {\n  span.setAttributes({ \"db.statement\": sql, \"db.system\": \"postgresql\" });\n}\n"
+  no_match:
+    - "import { trace } from \"@opentelemetry/api\";\n\nconst span = trace.getTracer(\"app\").startSpan(\"GET /\");\nspan.setAttributes({ \"http.request.method\": \"GET\", \"http.response.status_code\": 200, \"db.system.name\": \"postgresql\" });\nspan.end();\n"
+    - "const headers = new Map<string, string>();\nconst el = { setAttribute: (k: string, v: string) => headers.set(k, v) };\nel.setAttribute(\"http.method\", \"GET\");\n"

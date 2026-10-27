@@ -1,0 +1,11 @@
+id: python/no-unawaited-coroutine
+description: Every coroutine is awaited or handed to a task API; a call whose awaitable is dropped never runs.
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ty
+    expects: unused-awaitable
+    snippet: '[tool.ty.rules] unused-awaitable = "error"'
+examples:
+  match: ["async def work() -> int:\n    return 1\n\n\nasync def main() -> None:\n    work()\n"]
+  no_match: ["import asyncio\n\n\nasync def work() -> int:\n    return 1\n\n\nasync def main() -> None:\n    await work()\n    task = asyncio.create_task(work())\n    await task\n"]

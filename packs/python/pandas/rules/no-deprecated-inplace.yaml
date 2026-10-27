@@ -1,0 +1,21 @@
+id: python/pandas/no-deprecated-inplace
+description: "No inplace=True on the DataFrame and Series methods pandas 3.1 deprecates it for (rename, rename_axis, reset_index, set_index, drop, drop_duplicates, dropna, sort_values, sort_index, query, eval): a Pandas4Warning now, removed in pandas 4. Assign the result: df = df.rename(...). fillna, replace, where, mask, clip, interpolate, ffill and bfill keep inplace."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      pattern: $R.$M($$$)
+      has: {field: arguments, has: {kind: keyword_argument, regex: "^inplace[[:space:]]*=[[:space:]]*True$"}}
+    constraints: {M: {regex: "^(rename|rename_axis|reset_index|set_index|drop|drop_duplicates|dropna|sort_values|sort_index|query|eval)$"}}
+    where:
+      R: {type: {package: pandas, name: [DataFrame, Series]}}
+examples:
+  deps: [{ecosystem: pypi, name: pandas, version: "3.1.0"}]
+  match:
+    - "import pandas as pd\n\ndf = pd.DataFrame({\"a\": [1, 2], \"b\": [\"x\", \"y\"]})\ndf.rename(columns={\"a\": \"c\"}, inplace=True)\n"
+    - "import pandas as pd\n\n\ndef tidy(df: pd.DataFrame) -> None:\n    df.sort_values(\"a\", inplace=True)\n"
+  no_match:
+    - "import pandas as pd\n\ndf = pd.DataFrame({\"a\": [1, 2], \"b\": [\"x\", \"y\"]})\ndf = df.rename(columns={\"a\": \"c\"})\n"
+    - "import pandas as pd\n\ndf = pd.DataFrame({\"a\": [1, 2], \"b\": [\"x\", \"y\"]})\ndf.fillna(0, inplace=True)\n"
+    - "class Store:\n    def drop(self, key: str, inplace: bool = False) -> None:\n        pass\n\n\nStore().drop(\"k\", inplace=True)\n"

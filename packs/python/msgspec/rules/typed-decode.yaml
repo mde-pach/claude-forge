@@ -1,0 +1,18 @@
+id: python/msgspec/typed-decode
+description: "msgspec.json / msgpack / yaml / toml .decode() passes type= (a Struct or another type) so the input is validated; without it the result is untyped Any."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      pattern: "msgspec.$F.decode($$$)"
+      not: {has: {field: arguments, has: {kind: keyword_argument, regex: "^type\\s*="}}}
+    constraints:
+      F: {regex: "^(json|msgpack|yaml|toml)$"}
+examples:
+  match:
+    - "import msgspec\n\n\ndef load(raw: bytes) -> object:\n    return msgspec.json.decode(raw)\n"
+    - "import msgspec\n\n\ndef load(raw: bytes) -> object:\n    return msgspec.msgpack.decode(raw, strict=False)\n"
+  no_match:
+    - "import msgspec\n\n\nclass User(msgspec.Struct):\n    name: str\n\n\ndef load(raw: bytes) -> User:\n    return msgspec.json.decode(raw, type=User)\n"
+    - "import msgspec\n\n\ndef load(raw: bytes) -> str:\n    return msgspec.json.encode({\"a\": 1}).decode()\n"

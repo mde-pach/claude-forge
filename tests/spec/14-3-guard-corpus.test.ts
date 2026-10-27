@@ -3,9 +3,12 @@
  *
  * All guard rules of all packs together, against the corpus of commands that
  * must and must not trigger, on every available shell. Accepted misses:
- * commands hidden behind variables, `eval` of built strings, encodings other
- * than `base64 -d | sh`. The guard is a tripwire; permissions and the sandbox
- * are the protection boundary.
+ * commands hidden behind variables (a command name expanded at run time is
+ * asked about by safety/ephemeral-exec, which cannot follow it), `eval` of
+ * strings built at run time, encodings other than `base64 -d | sh`. The guard is a tripwire; permissions and the sandbox
+ * are the protection boundary. The commands run from a repository whose
+ * `node_modules/.bin` holds `tsc` and `vitest`, and that has a `packages/app`
+ * directory.
  */
 import { describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
@@ -13,9 +16,9 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadPacks } from "../../src/packs";
-import { renderGuardRules, template, type ActiveGuard } from "../../src/render";
-import { availableShells, guardDecision, hookInput } from "../../src/selftest";
-import { ROOT } from "../helpers";
+import { renderGuardRules, requiredLiterals, template, type ActiveGuard } from "../../src/render";
+import { availableShells, guardDecision, guardExampleDir, hookInput } from "../../src/selftest";
+import { othersRunning, ROOT } from "../helpers";
 import type { GuardTarget } from "../../src/types";
 
 const guards: ActiveGuard[] = [...loadPacks(join(ROOT, "packs")).values()]
@@ -25,6 +28,7 @@ const guards: ActiveGuard[] = [...loadPacks(join(ROOT, "packs")).values()]
 const dir = mkdtempSync(join(tmpdir(), "forge-guard-corpus-"));
 writeFileSync(join(dir, "guard.sh"), template("guard.sh"));
 writeFileSync(join(dir, "guard.rules"), renderGuardRules(guards, ROOT));
+const project = guardExampleDir({ "node_modules/.bin/tsc": "", "node_modules/.bin/vitest": "", "packages/app/src/a.test.ts": "" });
 
 const MUST_TRIGGER: [string, "deny" | "ask"][] = [
   ["rm -rf /", "deny"],
@@ -47,16 +51,79 @@ const MUST_TRIGGER: [string, "deny" | "ask"][] = [
   ["npm install lodash", "ask"],
   ["pip install requests", "ask"],
   ["git push --force-with-lease", "ask"],
+  ["npx some-unknown-tool", "ask"],
+  // launcher options before the subcommand, wrappers with option arguments, eval, find -exec
+  ["npm --yes exec cowsay", "ask"],
+  ["npm -y x cowsay", "ask"],
+  ["bun --bun x cowsay", "ask"],
+  ["nice -n 5 npx cowsay", "ask"],
+  ["timeout -s KILL 5 npx cowsay", "ask"],
+  ["sudo -u bob npx cowsay", "ask"],
+  ['eval "npx cowsay"', "ask"],
+  ["env -S 'npx cowsay'", "ask"],
+  ["N=npx; $N cowsay", "ask"],
+  ["find . -exec npx cowsay {} \\;", "ask"],
+  ["find . -name '*.txt' -exec npx cowsay {} +", "ask"],
+  ["deno run npm:cowsay", "ask"],
+  // create / init run an initializer package (create-<name>)
+  ["npm create vite@latest app", "ask"],
+  ["npm init vite app", "ask"],
+  ["pnpm create vite", "ask"],
+  ["yarn create vite", "ask"],
+  ["bun create vite", "ask"],
 ];
-const MUST_NOT_TRIGGER = ["rm -rf node_modules", "git checkout -b feat", "git push", 'git commit -m "fix --no-verify typo"', "cat .env.example", "git log --stat"];
+const MUST_NOT_TRIGGER = [
+  "rm -rf node_modules",
+  "git checkout -b feat",
+  "git push",
+  'git commit -m "fix --no-verify typo"',
+  "cat .env.example",
+  "git log --stat",
+  "npx tsc --noEmit -p tsconfig.json",
+  "cd packages/app && npx vitest run src/a.test.ts",
+  "npm --yes exec tsc -- --noEmit",
+  "bun --bun x tsc --noEmit",
+  "nice -n 5 npx tsc --noEmit",
+  "timeout -s KILL 60 npx vitest run",
+  'eval "npx tsc --noEmit"',
+  "find packages -name '*.ts' -exec npx tsc --noEmit {} +",
+  "npm exec tsc -- --package=x",
+  "npm init -y",
+  "deno run main.ts",
+];
 
 describe.each(availableShells().map((s) => [s.name, s.argv] as const))("on %s", (_name, argv) => {
   test.each(MUST_TRIGGER)("%s → %s", (cmd, decision) => {
-    expect(guardDecision([...argv], dir, cmd)).toBe(decision);
+    expect(guardDecision([...argv], dir, cmd, project)).toBe(decision);
   });
   test.each(MUST_NOT_TRIGGER.map((c) => [c]))("%s → nothing", (cmd) => {
-    expect(guardDecision([...argv], dir, cmd)).toBe("");
+    expect(guardDecision([...argv], dir, cmd, project)).toBe("");
   });
+});
+
+/**
+ * guard.sh skips a rule when the command contains none of its literals (§9.2), so the
+ * literals forge apply reads from a pattern must be in every command the pattern matches:
+ * every match example of every guard rule contains one.
+ */
+test("every guard rule's match examples contain one of the literals read from its pattern", () => {
+  const missed: string[] = [];
+  for (const p of loadPacks(join(ROOT, "packs")).values())
+    for (const r of p.rules)
+      for (const t of r.enforce.filter((x): x is GuardTarget => x.target === "guard")) {
+        const literals = requiredLiterals(t.pattern);
+        if (!literals.length) continue;
+        for (const ex of r.examples?.match ?? []) {
+          const cmd = JSON.stringify(typeof ex === "string" ? ex : "command" in ex ? ex.command : "").slice(1, -1);
+          // the pattern is a POSIX ERE: grep -E decides whether this target matches the example
+          const matches = spawnSync("grep", ["-qE", "--", t.pattern], { input: cmd }).status === 0;
+          if (matches && !literals.some((l) => cmd.includes(l))) missed.push(`${r.id}: ${cmd} (literals ${literals.join(", ")})`);
+        }
+      }
+  expect(missed).toEqual([]);
+  expect(requiredLiterals("(^|[^[:alnum:]_])(terraform|tofu)[[:space:]]+destroy")).toEqual(["destroy"]);
+  expect(requiredLiterals("abcd|(x|yz)qq")).toEqual(["abcd", "qq"]);
+  expect(requiredLiterals("ab?c*d")).toEqual([]);
 });
 
 /**
@@ -67,9 +134,9 @@ describe.each(availableShells().map((s) => [s.name, s.argv] as const))("on %s", 
  * interleaving makes those spikes hit both series alike. Noise only ever adds
  * time, so the measurement is repeated up to three times and the best round
  * counts. The median of a whole guard call, start-up included, must also stay
- * under 20 ms.
+ * under 20 ms. It needs a quiet machine: the parallel runner runs it alone, after the rest.
  */
-test("guard.sh answers within 20 ms at the 99th percentile with 50 rules", () => {
+test.skipIf(othersRunning(import.meta.path))("guard.sh answers within 20 ms at the 99th percentile with 50 rules", () => {
   const padded: ActiveGuard[] = [...guards];
   for (let i = 0; padded.length < 50; i++) padded.push({ ...guards[i % guards.length]! });
   const d = mkdtempSync(join(tmpdir(), "forge-guard-perf-"));

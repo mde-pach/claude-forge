@@ -1,0 +1,19 @@
+id: typescript/testing-library/no-hooks-lib
+description: No imports from @testing-library/react-hooks (React 16 and 17 only); renderHook comes from @testing-library/react.
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        - {kind: import_statement, has: {field: source, regex: "^[\"']@testing-library/react-hooks(/.*)?[\"']$"}}
+        - kind: call_expression
+          all:
+            - has: {field: function, regex: "^(require|import)$"}
+            - has: {field: arguments, has: {kind: string, regex: "^[\"']@testing-library/react-hooks(/.*)?[\"']$"}}
+examples:
+  match:
+    - "import { renderHook } from \"@testing-library/react-hooks\";\n\nrenderHook(() => useCart());\n"
+    - "const { renderHook } = require(\"@testing-library/react-hooks/dom\");\n"
+  no_match:
+    - "import { renderHook } from \"@testing-library/react\";\n\nrenderHook(() => useCart());\n"

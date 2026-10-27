@@ -1,0 +1,25 @@
+id: typescript/typeorm/no-query-in-loop
+description: "A TypeORM Repository or EntityManager call (find, findOne, findOneBy, count, save, update, delete, query, …) is not awaited inside a loop body (for, for…of, for…in, while, do) or an async .map / .forEach / .flatMap callback; one query per item is N round trips. Fetch the rows in one query (In([...]), relations, a join) or save an array."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      pattern: "await $R.$M($$$)"
+      any:
+        - inside: {stopBy: end, field: body, any: [{kind: for_statement}, {kind: for_in_statement}, {kind: while_statement}, {kind: do_statement}]}
+        - inside:
+            stopBy: end
+            any: [{kind: arrow_function}, {kind: function_expression}]
+            inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: member_expression, has: {field: property, regex: "^(map|forEach|flatMap)$"}}}}
+    # the receiver is a TypeORM Repository or EntityManager, by its type (§15.1)
+    where:
+      R: {type: {package: typeorm, name: [Repository, EntityManager]}}
+examples:
+  deps: [{ecosystem: npm, name: typeorm, version: "1.1.2"}, {ecosystem: npm, name: reflect-metadata, version: "0.2.2"}]
+  match:
+    - "import type { Repository } from \"typeorm\";\n\ntype Post = { id: number; authorId: number };\n\nexport async function postsOf(posts: Repository<Post>, authorIds: number[]): Promise<number> {\n  let n = 0;\n  for (const authorId of authorIds) {\n    n += await posts.countBy({ authorId });\n  }\n  return n;\n}\n"
+    - "import type { EntityManager } from \"typeorm\";\n\nexport function rename(em: EntityManager, ids: number[]) {\n  return Promise.all(ids.map(async (id) => await em.update(\"post\", { id }, { title: \"x\" })));\n}\n"
+  no_match:
+    - "import { In, type Repository } from \"typeorm\";\n\ntype Post = { id: number; authorId: number };\n\nexport async function postsOf(posts: Repository<Post>, authorIds: number[]): Promise<number> {\n  return posts.countBy({ authorId: In(authorIds) });\n}\n"
+    - "export async function fetchAll(urls: string[]): Promise<number> {\n  let n = 0;\n  for (const url of urls) {\n    const res = await fetch(url);\n    n += res.status;\n  }\n  return n;\n}\n"

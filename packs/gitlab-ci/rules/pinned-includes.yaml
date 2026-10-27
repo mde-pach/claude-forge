@@ -1,0 +1,27 @@
+id: gitlab-ci/pinned-includes
+description: "include: project: entries name a ref: that is not main, master, HEAD or develop, and CI/CD component: references do not end in @~latest, @main or @master: an unpinned include runs whatever the other project pushes."
+scope: {language: yaml, files: [".gitlab-ci.yml", ".gitlab/ci/**/*.yml", ".gitlab/ci/**/*.yaml"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      inside: {stopBy: end, kind: block_mapping_pair, has: {field: key, regex: "^[\"']?include[\"']?$"}}
+      any:
+        - kind: block_mapping
+          has: {kind: block_mapping_pair, has: {field: key, regex: "^[\"']?project[\"']?$"}}
+          any:
+            - not: {has: {kind: block_mapping_pair, has: {field: key, regex: "^[\"']?ref[\"']?$"}}}
+            - has: {kind: block_mapping_pair, all: [{has: {field: key, regex: "^[\"']?ref[\"']?$"}}, {has: {field: value, regex: "^[\"']?(main|master|HEAD|develop)[\"']?$"}}]}
+        - kind: block_mapping_pair
+          has: {field: key, regex: "^[\"']?component[\"']?$"}
+          all: [{has: {field: value, regex: "@(~latest|main|master)[\"']?$"}}]
+examples:
+  match:
+    - "include:\n  - project: acme/ci-templates\n    file: /python.yml\n"
+    - "include:\n  - project: acme/ci-templates\n    ref: main\n    file: /python.yml\n"
+    - "include:\n  project: acme/ci-templates\n  ref: \"master\"\n  file: /python.yml\n"
+    - "include:\n  - component: $CI_SERVER_FQDN/acme/components/sast@~latest\n"
+    - "include:\n  - component: gitlab.com/acme/components/lint@main\n"
+  no_match:
+    - "include:\n  - project: acme/ci-templates\n    ref: v2.3.0\n    file: /python.yml\n  - component: $CI_SERVER_FQDN/acme/components/sast@1.4.0\n  - local: /.gitlab/ci/test.yml\n"
+    - "test:\n  trigger:\n    project: acme/deploy\n    branch: main\n"

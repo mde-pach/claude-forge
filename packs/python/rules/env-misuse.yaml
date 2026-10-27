@@ -1,0 +1,21 @@
+id: python/env-misuse
+description: "No assignment to os.environ (it is a mapping: set keys), os.getenv defaults are strings, and os.environ is copied with .copy(), not copy.copy()."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: B003
+    snippet: '[tool.ruff.lint] extend-select = ["B003"]'
+  - target: tool
+    tool: ruff
+    expects: PLW1508
+    snippet: '[tool.ruff.lint] extend-select = ["PLW1508"]'
+  - target: tool
+    tool: ruff
+    expects: PLW1507
+    snippet: '[tool.ruff.lint] extend-select = ["PLW1507"]'
+examples:
+  match:
+    - "import copy\nimport os\n\nos.environ = {\"MODE\": \"test\"}\nport = os.getenv(\"PORT\", 8000)\nenv = copy.copy(os.environ)\n"
+  no_match:
+    - "import os\n\nos.environ[\"MODE\"] = \"test\"\nport = int(os.getenv(\"PORT\", \"8000\"))\nenv = os.environ.copy()\n"

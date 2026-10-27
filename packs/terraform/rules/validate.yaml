@@ -1,0 +1,15 @@
+id: terraform/validate
+description: "Each changed Terraform or OpenTofu module passes validate (arguments and attributes checked against the provider schemas); a module validate cannot judge before init (providers or modules not installed) is reported skipped."
+scope: {language: any, files: ["**/*.tf", "**/*.tofu"]}
+enforce:
+  - target: check
+    stage: typecheck
+    run: forge_tf_validate
+examples:
+  match:
+    - files: {infra/main.tf: "resource \"terraform_data\" \"build\" {\n  input   = \"v1\"\n  trigger = \"always\"\n}\n"}
+    - head: {infra/variables.tf: "variable \"region\" {\n  type = string\n}\n"}
+      files: {infra/main.tf: "resource \"terraform_data\" \"build\" {\n  input = var.regoin\n}\n"}
+  no_match:
+    - head: {infra/variables.tf: "variable \"region\" {\n  type = string\n}\n"}
+      files: {infra/main.tf: "resource \"terraform_data\" \"build\" {\n  input = var.region\n}\n"}

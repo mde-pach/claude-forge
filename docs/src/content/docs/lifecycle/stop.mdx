@@ -11,13 +11,17 @@ When you send a prompt, `turn-start.sh` (UserPromptSubmit) snapshots the working
 
 ## The steps of check.sh
 
-`check.sh` runs these steps in order and stops at the first that fails: integrity of Forge's files, applied migrations, test integrity, ast-grep `forbid` rules, format, lint and typecheck, migration checks, tests.
+`check.sh` runs these steps in order and stops at the first that fails: integrity of Forge's files, test integrity, ast-grep `forbid` rules, format, lint and typecheck, migration checks, tests.
 
 <Spec file="10-check" describe="steps" />
 
+Forge's own files (`.forge/`, and the hooks and `guard.rules` under `.claude/skills/forge-project/`) are never part of the change, so the rules' own patterns never match themselves. Advisory checks report what Claude may have a reason to leave as it is, once per turn; a check that could not run says `skipped`, which is a note, not advice.
+
+<Spec file="10-check" describe="Forge's own files and helper scopes" />
+
 ## Added lines
 
-Outside `--all`, an ast-grep `forbid` match or a lint finding counts only on a line the change added: `git diff -U0` against the base (the start of the turn, `HEAD` for a commit, the merge base in a pull request). An edited line counts, a match spanning an edited line counts, and moved code counts; a new file counts fully. Counting rules (`no-increase`, `no-decrease`) compare whole files, and type checks, migrations and tests are not line-scoped.
+Outside `--all`, an ast-grep `forbid` match or a lint finding counts only on a line the change added: `git diff -U0` against the base (the start of the turn, `HEAD` for a commit, the merge base in a pull request). An edited line counts, a match spanning an edited line counts, and moved code counts; a new file counts fully. Formatting rewrites whole files, so after Claude edits one function, `ruff format` or Biome may also change lines Claude never touched; those are not Claude's. When the formatter can read stdin (`format_stdin` on the check), the base copy is formatted the same way and a line counts only when it is added against both. If the formatter is missing or fails on the base (it does not parse), the plain comparison applies. Counting rules (`no-increase`, `no-decrease`) compare whole files, and type checks, migrations and tests are not line-scoped.
 
 <Spec file="10-check" describe="added lines" />
 
@@ -27,6 +31,20 @@ A whole-project type check blocks only for errors in files that are part of the 
 
 <Spec file="10-check" describe="errors in unchanged files" />
 <Spec file="08-project-hooks" describe="errors in unchanged files" />
+
+## Workspace packages
+
+In a monorepo whose tool config lives in a workspace package, the checks run in that package, with the tools installed there or hoisted to the root; their diagnostics are read back as repository paths.
+
+<Spec file="10-check" describe="workspace packages" />
+
+## Tests that were already failing
+
+When the tests fail at Stop, Forge runs the failing test files again in a copy of the project as it was at the start of the turn (your working tree, index and stash are left alone). A test that passed then and fails now blocks as usual. When every failing test also failed then — typically because the machine has no database or no network — Claude is told once which tests, which errors look environmental (`Postgres refused the connection at 127.0.0.1:5432`), and to set up what they need (e.g. `docker compose up -d`) and run them again. If it cannot, it stops again without changing anything: the stop is allowed, and you get a message listing the tests that could not be verified and why.
+
+A tree that failed is not checked again: if Claude stops again without changing a file, it gets the same result at once instead of another full test run, and the block still counts toward the hand-over.
+
+<Spec file="08-project-hooks" describe="failing tests at the start of the turn" />
 
 ## Local databases
 

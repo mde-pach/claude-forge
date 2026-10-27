@@ -1,0 +1,43 @@
+id: typescript/prisma/no-raw-interpolation
+description: "No Prisma.raw() built from a template with ${} or a concatenation, directly or through a variable declared from one in the same function or module; raw() inserts its text unescaped. Use the tagged $queryRaw`...` / Prisma.sql`...` forms, which bind values."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      all:
+        - pattern: $CALL
+        - has: {field: function, regex: "^([A-Za-z_$][A-Za-z0-9_$]*\\.)?raw$"}
+        - has:
+            field: arguments
+            has:
+              nthChild: 1
+              any:
+                - {kind: template_string, has: {kind: template_substitution}}
+                - {kind: binary_expression, regex: "\\+"}
+                - all:
+                    - {kind: identifier, pattern: $Q}
+                    - inside:
+                        stopBy: end
+                        any: [{kind: statement_block}, {kind: program}]
+                        has:
+                          stopBy: end
+                          kind: variable_declarator
+                          all:
+                            - has: {field: name, pattern: $Q}
+                            - has: {field: value, any: [{kind: template_string, has: {kind: template_substitution}}, {kind: binary_expression, regex: "\\+"}]}
+    # Prisma's raw() by what it returns (the runtime's Sql), so the path the generated
+    # client is imported from, and the name it is imported under, never matter
+    where:
+      CALL: {type: {package: ["@prisma/client", "@prisma/client-runtime-utils"], name: Sql}}
+examples:
+  deps: [{ecosystem: npm, name: "@prisma/client", version: "7.10.0"}]
+  match:
+    - "import * as Prisma from \"@prisma/client/runtime/client\";\n\nexport function orderBy(column: string) {\n  return Prisma.raw(`ORDER BY ${column}`);\n}\n"
+    - "import * as Prisma from \"@prisma/client/runtime/client\";\n\nexport function where(email: string) {\n  const q = \"WHERE email = '\" + email + \"'\";\n  return Prisma.raw(q);\n}\n"
+    - "import { raw } from \"@prisma/client/runtime/client\";\n\nexport const by = (table: string) => raw(\"SELECT * FROM \" + table);\n"
+  no_match:
+    - "import * as Prisma from \"@prisma/client/runtime/client\";\n\nexport const now = Prisma.raw(\"now()\");\nexport const q = (id: number) => Prisma.sql`SELECT * FROM u WHERE id = ${id}`;\n"
+    - "import * as Prisma from \"@prisma/client/runtime/client\";\n\nconst NOW = \"now()\";\nexport const now = Prisma.raw(NOW);\n"
+    - "const cache = { raw: (x: string) => x };\n\nexport const v = (id: string) => cache.raw(`k:${id}`);\n"

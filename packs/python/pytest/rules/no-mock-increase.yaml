@@ -1,19 +1,58 @@
 id: python/pytest/no-mock-increase
-description: A test file may not gain mocks (patch, patch.object, MagicMock, AsyncMock); test through the real code or a fake at the boundary.
-scope: {language: python, files: ["**/test_*.py", "**/*_test.py", "**/conftest.py"]}
+description: "A test file may not gain mocks: unittest.mock's patch (patch.object, patch.dict, patch.multiple), Mock, MagicMock, AsyncMock, NonCallableMock, create_autospec, under their names or an import alias (from unittest.mock import patch as p, import unittest.mock as um), and pytest-mock's mocker.patch*, mocker.spy, mocker.stub and mocker.Mock*; test through the real code or a fake at the boundary. monkeypatch (setattr, setenv, setitem) is not counted: it is pytest's way to set configuration for a test."
+scope: {language: python, files: ["@python-tests"]}
 enforce:
   - target: ast-grep
     mode: no-increase
     rule:
       kind: call
-      has:
-        field: function
-        regex: "^((unittest\\.)?mock\\.|mocker\\.)?(patch|patch\\.object|patch\\.dict|MagicMock|AsyncMock|Mock)$"
+      any:
+        - has:
+            field: function
+            regex: "^(((unittest\\.)?mock\\.)?(patch(\\.object|\\.dict|\\.multiple)?|Mock|MagicMock|AsyncMock|NonCallableMock|NonCallableMagicMock|create_autospec)|mocker\\.(patch(\\.object|\\.dict|\\.multiple)?|spy|stub|async_stub|Mock|MagicMock|AsyncMock|NonCallableMock|create_autospec))$"
+        - all:
+            - has: {field: function, kind: identifier, pattern: $F}
+            - inside:
+                kind: module
+                stopBy: end
+                has:
+                  kind: import_from_statement
+                  all:
+                    - has: {field: module_name, regex: "^(unittest\\.)?mock$"}
+                    - has: {kind: aliased_import, all: [{has: {field: name, regex: "^(patch|Mock|MagicMock|AsyncMock|NonCallableMock|NonCallableMagicMock|create_autospec)$"}}, {has: {field: alias, pattern: $F}}]}
+        - all:
+            - has:
+                field: function
+                kind: attribute
+                regex: "^[A-Za-z_][A-Za-z0-9_]*\\.(patch(\\.object|\\.dict|\\.multiple)?|Mock|MagicMock|AsyncMock|NonCallableMock|NonCallableMagicMock|create_autospec)$"
+                any:
+                  - has: {field: object, kind: identifier, pattern: $M}
+                  - has: {field: object, has: {field: object, kind: identifier, pattern: $M}}
+            - inside:
+                kind: module
+                stopBy: end
+                has:
+                  any:
+                    - kind: import_statement
+                      has: {kind: aliased_import, all: [{has: {field: name, regex: "^(unittest\\.)?mock$"}}, {has: {field: alias, pattern: $M}}]}
+                    - kind: import_from_statement
+                      all:
+                        - has: {field: module_name, regex: "^unittest$"}
+                        - has: {kind: aliased_import, all: [{has: {field: name, regex: "^mock$"}}, {has: {field: alias, pattern: $M}}]}
 examples:
   match:
     - "from unittest.mock import patch\n\n\n@patch(\"app.billing.stripe\")\ndef test_charge(stripe) -> None:\n    charge()\n"
     - "from unittest.mock import AsyncMock\n\n\nasync def test_send() -> None:\n    client = AsyncMock()\n    await send(client)\n"
     - "def test_charge(mocker) -> None:\n    mocker.patch.object(Billing, \"pay\")\n    charge()\n"
+    - "from unittest.mock import patch as p\n\n\ndef test_charge() -> None:\n    with p(\"app.billing.stripe\"):\n        charge()\n"
+    - "import unittest.mock as um\n\n\ndef test_charge() -> None:\n    with um.patch.object(Billing, \"pay\"):\n        charge()\n"
+    - "from unittest import mock as m\n\n\ndef test_charge() -> None:\n    gateway = m.MagicMock()\n    charge(gateway)\n"
+    - "from unittest.mock import create_autospec\n\n\ndef test_charge() -> None:\n    gateway = create_autospec(Gateway)\n    charge(gateway)\n"
+    - "from unittest.mock import patch\n\n\ndef test_charge() -> None:\n    with patch.multiple(\"app.billing\", pay=None, refund=None):\n        charge()\n"
+    - "def test_charge(mocker) -> None:\n    spy = mocker.spy(billing, \"pay\")\n    charge()\n    assert spy.call_count == 1\n"
   no_match:
     - "def test_update(client) -> None:\n    r = client.patch(\"/items/1\", json={\"name\": \"x\"})\n    assert r.status_code == 200\n"
+    - "def test_env(monkeypatch) -> None:\n    monkeypatch.setenv(\"TZ\", \"UTC\")\n    assert tz() == \"UTC\"\n"
     - "def test_charge(fake_gateway) -> None:\n    charge(gateway=fake_gateway)\n    assert fake_gateway.charged == 1\n"
+    - "def test_debug(monkeypatch) -> None:\n    monkeypatch.setattr(settings, \"DEBUG\", True)\n    monkeypatch.setitem(app.config, \"TESTING\", True)\n    assert debug_page().status_code == 200\n"
+    - "from requests import Session as S\n\n\ndef test_session() -> None:\n    s = S()\n    assert s.patch is not None\n"

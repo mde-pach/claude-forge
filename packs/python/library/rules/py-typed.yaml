@@ -1,0 +1,32 @@
+id: python/library/py-typed
+description: "The library's wheel ships py.typed in each of its packages (PEP 561): without it, type checkers ignore the library's annotations and its users see Any. Checked on a wheel built with uv build when pyproject.toml or a py.typed file changes."
+scope: {language: any, files: ["**/pyproject.toml", "**/py.typed"]}
+enforce:
+  - target: check
+    stage: lint
+    when_changed: ["pyproject.toml", "**/py.typed"]
+    run: |
+      rm -rf "$FORGE_TMP/wheel"
+      uv build --wheel --quiet -o "$FORGE_TMP/wheel" > "$FORGE_TMP/wheel.log" 2>&1 || { printf 'forge:%s skipped: uv build --wheel failed: %s\n' "$c_id" "$(grep . "$FORGE_TMP/wheel.log" | tail -n 1)"; return 0; }
+      uv run --no-project --quiet python -I -c '
+      import os, sys, zipfile
+      bad = 0
+      for wheel in sorted(w for w in os.listdir(sys.argv[1]) if w.endswith(".whl")):
+          names = set(zipfile.ZipFile(os.path.join(sys.argv[1], wheel)).namelist())
+          tops = sorted({n.split("/")[0] for n in names if n.endswith(".py") and "/" in n and not n.split("/")[0].endswith((".dist-info", ".data"))})
+          for top in tops:
+              if top + "/py.typed" not in names:
+                  bad = 1
+                  print(f"{wheel}: package {top} has no py.typed: add an empty py.typed file next to its __init__.py (PEP 561), included in the wheel")
+      sys.exit(bad)
+      ' "$FORGE_TMP/wheel"
+examples:
+  match:
+    - files:
+        pyproject.toml: "[project]\nname = \"geo\"\nversion = \"0.1.0\"\nrequires-python = \">=3.12\"\n\n[build-system]\nrequires = [\"uv_build>=0.8,<1\"]\nbuild-backend = \"uv_build\"\n"
+        src/geo/__init__.py: "def area(width: float, height: float) -> float:\n    return width * height\n"
+  no_match:
+    - files:
+        pyproject.toml: "[project]\nname = \"geo\"\nversion = \"0.1.0\"\nrequires-python = \">=3.12\"\n\n[build-system]\nrequires = [\"uv_build>=0.8,<1\"]\nbuild-backend = \"uv_build\"\n"
+        src/geo/__init__.py: "def area(width: float, height: float) -> float:\n    return width * height\n"
+        src/geo/py.typed: ""

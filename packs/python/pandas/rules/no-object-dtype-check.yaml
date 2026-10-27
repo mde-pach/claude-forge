@@ -1,0 +1,39 @@
+id: python/pandas/no-object-dtype-check
+description: "Strings are not found with dtype == object (or \"O\", np.object_) nor select_dtypes(\"object\"): pandas 3 stores strings in the str dtype, so the comparison is False and select_dtypes includes them only for backward compatibility. Use pd.api.types.is_string_dtype() or select_dtypes(\"string\")."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        - pattern: $D[$C].dtype == $O
+        - pattern: $D[$C].dtype != $O
+        - pattern: $R.dtype == $O
+        - pattern: $R.dtype != $O
+        - pattern: $R.dtypes == $O
+        - pattern: $R.dtypes != $O
+        - pattern: $R.select_dtypes($$$)
+          has:
+            field: arguments
+            has:
+              stopBy: end
+              any:
+                - {kind: string, regex: "^[\"'](object|O)[\"']$"}
+                - {kind: identifier, regex: "^object$"}
+    # object_ is numpy's own name for the object dtype
+    constraints: {O: {regex: "^(object|[\"']object[\"']|[\"']O[\"']|[A-Za-z_][A-Za-z0-9_.]*\\.object_)$"}}
+    # D: df[col] is typed without pandas-stubs through the frame
+    where:
+      R: {type: {package: pandas}}
+      D: {type: {package: pandas, name: DataFrame}}
+examples:
+  deps: [{ecosystem: pypi, name: pandas, version: "3.1.0"}]
+  match:
+    - "import pandas as pd\n\ndf = pd.DataFrame({\"a\": [1, 2], \"b\": [\"x\", \"y\"]})\ntext = df[\"b\"].dtype == object\n"
+    - "import pandas as pd\n\ndf = pd.DataFrame({\"a\": [1, 2], \"b\": [\"x\", \"y\"]})\ncols = df.select_dtypes(include=\"object\")\n"
+    - "import pandas as pd\n\ndf = pd.DataFrame({\"a\": [1, 2], \"b\": [\"x\", \"y\"]})\ncols = df.select_dtypes(include=[\"O\"])\n"
+    - "import numpy as np\nimport pandas as pd\n\n\ndef is_text(s: pd.Series) -> bool:\n    return s.dtype == np.object_\n"
+  no_match:
+    - "import pandas as pd\nfrom pandas.api.types import is_string_dtype\n\ndf = pd.DataFrame({\"a\": [1, 2], \"b\": [\"x\", \"y\"]})\ntext = is_string_dtype(df[\"b\"])\n"
+    - "import pandas as pd\n\ndf = pd.DataFrame({\"a\": [1, 2], \"b\": [\"x\", \"y\"]})\ncols = df.select_dtypes(include=\"number\")\n"
+    - "import numpy as np\n\narr = np.array([1])\nok = arr.dtype == object\n"

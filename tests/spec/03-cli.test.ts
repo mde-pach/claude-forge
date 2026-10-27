@@ -10,7 +10,7 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { applied, commitAll, ensureTools, fakeClaude, forge, git, hasUv, linkTools, put, ROOT, sampleRepo, sh } from "../helpers";
+import { applied, commitAll, ensureTools, fakeClaude, forge, git, hasUv, linkTools, put, ROOT, sampleRepo, sh, stopEngines } from "../helpers";
 
 const T = 120_000;
 
@@ -108,10 +108,37 @@ describe("init", () => {
       put(repo, "ruff.toml", "line-length = 80\n");
       const r = forge(["init", "--yes"], repo);
       expect(r.status).toBe(0);
-      expect(r.stdout).toContain("forge: created pyrightconfig.json (from python)");
+      expect(r.stdout).toContain("forge: created ty.toml (from python)");
       expect(r.stdout).toContain("forge: ruff.toml exists, kept");
       expect(readFileSync(join(repo, "ruff.toml"), "utf8")).toBe("line-length = 80\n");
       expect(existsSync(join(repo, ".forge/check.sh"))).toBe(true);
+    },
+    T,
+  );
+
+  /**
+   * A pack can switch a tool diagnostic off where it is active (pack.yaml `tool_off`): NestJS
+   * needs DTOs imported as values, so Biome's useImportType (whose fix turns them into
+   * `import type`) is off in the biome.json init writes, no rule asks for it, and status
+   * says which pack switched it off and why.
+   * @rule typescript/nestjs/dto-not-type-import typescript/verbatim-imports
+   */
+  test(
+    "a pack's tool_off: init writes Biome's diagnostic off, no rule's audit asks for it, and status lists it with the pack and the reason",
+    () => {
+      const repo = mkdtempSync(join(tmpdir(), "forge-init-"));
+      git(repo, "init", "-q");
+      put(repo, "package.json", JSON.stringify({ name: "api", private: true, dependencies: { "@nestjs/common": "11.1.6", "@nestjs/core": "11.1.6" }, devDependencies: { typescript: "6.0.3" } }));
+      expect(forge(["init", "--yes"], repo).status).toBe(0);
+      const biome = JSON.parse(readFileSync(join(repo, "biome.json"), "utf8")) as { linter: { rules: { style: Record<string, string> } } };
+      expect(biome.linter.rules.style.useImportType).toBe("off");
+      expect(biome.linter.rules.style.useExportType).toBe("error");
+      const status = forge(["status"], repo).stdout;
+      expect(status).toContain("not enforced here: biome lint/style/useImportType switched off by typescript/nestjs (a DTO imported with import type erases design:paramtypes");
+      expect(status).toContain("Switched off by packs:\n  biome lint/style/useImportType (typescript/nestjs): a DTO imported with import type erases design:paramtypes");
+      expect(status).toContain("not asked for by typescript/verbatim-imports");
+      const json = JSON.parse(forge(["status", "--json"], repo).stdout) as { switched_off: { pack: string; expects: string; rules: string[] }[] };
+      expect(json.switched_off).toEqual([expect.objectContaining({ pack: "typescript/nestjs", tool: "biome", expects: "lint/style/useImportType", rules: ["typescript/verbatim-imports"] })]);
     },
     T,
   );
@@ -180,6 +207,7 @@ describe("status, explain, diff", () => {
       const fromStatus = (JSON.parse(forge(["status", "--json"], r).stdout) as { missing_tools: string[] }).missing_tools;
       const hook = sh("sh", [".claude/skills/forge-project/scripts/session-start.sh"], { cwd: r, input: JSON.stringify({ session_id: "s", cwd: r }) }).stdout;
       const line = /forge: missing tools \(checks using them are skipped\): (.*)$/m.exec(hook);
+      stopEngines(r); // SessionStart started the types engine (§15.3)
       expect(line ? line[1]!.split(", ") : []).toEqual(fromStatus);
     },
     T,

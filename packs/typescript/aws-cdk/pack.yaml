@@ -1,0 +1,6 @@
+id: typescript/aws-cdk
+description: AWS CDK apps in TypeScript.
+level: project
+detect:
+  files_any: [cdk.json]
+  deps_any: [{ecosystem: npm, name: aws-cdk-lib}]

@@ -1,0 +1,21 @@
+id: typescript/vue/pinia/store-to-refs
+description: "State and getters destructured from a Pinia store go through storeToRefs(); a plain destructure copies the values and loses reactivity (actions may be destructured directly, so this is advice)."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: variable_declarator
+      all:
+        - has: {field: name, kind: object_pattern}
+        - has: {field: value, kind: call_expression, has: {field: function, pattern: $F}}
+    # The called function is a store (the useX that defineStore returns) by its type (§15.1).
+    where:
+      F: {type: {package: pinia, name: StoreDefinition}}
+examples:
+  deps: [{ecosystem: npm, name: pinia, version: "4.1.0"}, {ecosystem: npm, name: vue, version: "3.5.44"}]
+  match:
+    - "import { defineStore } from \"pinia\";\n\nexport const useCounter = defineStore(\"c\", { state: () => ({ n: 0 }) });\nexport function f() {\n  const { n } = useCounter();\n  return n;\n}\n"
+  no_match:
+    - "import { defineStore, storeToRefs } from \"pinia\";\n\nexport const useCounter = defineStore(\"c\", { state: () => ({ n: 0 }) });\nexport function f() {\n  const { n } = storeToRefs(useCounter());\n  return n;\n}\n"
+    - "function useCounter() {\n  return { n: 1 };\n}\nexport function f() {\n  const { n } = useCounter();\n  return n;\n}\n"

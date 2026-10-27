@@ -1,0 +1,82 @@
+# Prisma: "Try to avoid performing network requests and executing slow queries inside
+# your interactive transactions" — the transaction holds a connection and its locks
+# until the callback returns, and a timeout rolls it back
+# (https://www.prisma.io/docs/orm/prisma-client/queries/transactions#interactive-transactions).
+# Only HTTP client APIs are matched: the global fetch, and axios, got, ky, ofetch,
+# node-fetch and undici bound by an import (not variable names, nor every await), so it blocks.
+id: typescript/prisma/no-network-in-transaction
+description: "An interactive transaction callback ($transaction(async (tx) => ...)) makes no HTTP calls: the global fetch / $fetch, or a function or method of axios, got, ky, ofetch, node-fetch or undici imported in the file; call them before or after the transaction. SDK clients and the project's own helpers are not recognised."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      any:
+        - has: {field: function, regex: "^(fetch|globalThis\\.fetch|\\$fetch)$"}
+        - all:
+            - any:
+                - has: {field: function, kind: identifier, pattern: $C}
+                - has: {field: function, kind: member_expression, has: {field: object, kind: identifier, pattern: $C}}
+            - inside:
+                kind: program
+                stopBy: end
+                has:
+                  kind: import_statement
+                  all:
+                    - has: {field: source, regex: "^[\"'](axios|got|ky|ofetch|node-fetch|undici)[\"']$"}
+                    - has: {kind: import_clause, has: {stopBy: end, kind: identifier, pattern: $C}}
+      inside:
+        stopBy: end
+        any: [{kind: arrow_function}, {kind: function_expression}]
+        inside:
+          kind: arguments
+          inside: {kind: call_expression, has: {field: function, regex: "\\.\\$transaction$"}}
+examples:
+  match:
+    - |
+      await prisma.$transaction(async (tx) => {
+        const order = await tx.order.create({ data });
+        await fetch("https://hooks.example.com/orders", { method: "POST", body: JSON.stringify(order) });
+      });
+    - |
+      import ky from "ky";
+
+      await prisma.$transaction(async (tx) => {
+        const order = await tx.order.create({ data });
+        await ky.post("https://hooks.example.com/orders", { json: order });
+      });
+    - |
+      import { request as send } from "undici";
+
+      await prisma.$transaction(async (tx) => {
+        await tx.order.create({ data });
+        await send("https://hooks.example.com/orders");
+      });
+    - |
+      import axios from "axios";
+
+      await db.$transaction(async function (tx) {
+        await Promise.all(items.map(async (item) => axios.post(syncUrl, item)));
+      });
+  no_match:
+    - |
+      const order = await prisma.$transaction(async (tx) => {
+        const created = await tx.order.create({ data });
+        await tx.stock.update({ where: { id: data.productId }, data: { count: { decrement: 1 } } });
+        return created;
+      });
+      await fetch("https://hooks.example.com/orders", { method: "POST", body: JSON.stringify(order) });
+    - |
+      await prisma.$transaction([prisma.audit.create({ data }), prisma.post.delete({ where: { id } })]);
+    - |
+      await prisma.$transaction(async (tx) => {
+        const m = openai.model.toUpperCase();
+        await tx.audit.create({ data: { m } });
+      });
+    - |
+      import { got } from "./got-like";
+
+      await prisma.$transaction(async (tx) => {
+        await got(tx);
+      });

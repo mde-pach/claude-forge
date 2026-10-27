@@ -1,0 +1,19 @@
+id: python/mcp/dns-rebinding-protection
+description: "An MCP HTTP server keeps DNS rebinding protection: no TransportSecuritySettings(enable_dns_rebinding_protection=False), which lets any web page the user opens reach a local server. List allowed_hosts and allowed_origins instead."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call
+      pattern: $CALL
+      has: {field: arguments, has: {kind: keyword_argument, regex: "^enable_dns_rebinding_protection[[:space:]]*=[[:space:]]*False$"}}
+    where:
+      CALL: {type: {package: mcp, name: TransportSecuritySettings}}
+examples:
+  deps: [{ecosystem: pypi, name: mcp, version: "2.3.0"}]
+  match:
+    - "from mcp.server.transport_security import TransportSecuritySettings\n\nsecurity = TransportSecuritySettings(enable_dns_rebinding_protection=False)\n"
+  no_match:
+    - "from mcp.server.transport_security import TransportSecuritySettings\n\nsecurity = TransportSecuritySettings(allowed_hosts=[\"localhost:8000\"])\n"
+    - "def settings(enable_dns_rebinding_protection: bool) -> None:\n    pass\n\n\nsettings(enable_dns_rebinding_protection=False)\n"

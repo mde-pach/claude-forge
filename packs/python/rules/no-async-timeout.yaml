@@ -1,0 +1,18 @@
+id: python/no-async-timeout
+description: "Use asyncio.timeout(), not the async_timeout package."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: TID251
+    snippet: |
+      [tool.ruff.lint]
+      extend-select = ["TID251"]
+
+      [tool.ruff.lint.flake8-tidy-imports.banned-api]
+      "async_timeout".msg = "use asyncio.timeout()"
+examples:
+  match:
+    - "import async_timeout\n\n\nasync def f() -> None:\n    async with async_timeout.timeout(5):\n        pass\n"
+  no_match:
+    - "import asyncio\n\n\nasync def f() -> None:\n    async with asyncio.timeout(5):\n        pass\n"

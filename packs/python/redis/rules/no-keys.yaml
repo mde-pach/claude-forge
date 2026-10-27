@@ -1,0 +1,18 @@
+id: python/redis/no-keys
+description: "Advice: application code does not call KEYS (r.keys(pattern)): it walks every key and blocks Redis while it runs. Iterate with scan_iter(match=pattern)."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule: {pattern: $R.keys($$$)}
+    # the sync and redis.asyncio clients
+    where:
+      R: {type: {package: redis, name: [Redis, StrictRedis, RedisCluster]}}
+examples:
+  deps: [{ecosystem: pypi, name: redis, version: "8.1.0"}]
+  match:
+    - "import redis\n\nr = redis.Redis()\nsessions = r.keys(\"session:*\")\n"
+    - "from redis.asyncio import Redis\n\n\nasync def sessions(r: Redis) -> list[bytes]:\n    return await r.keys(\"session:*\")\n"
+  no_match:
+    - "import redis\n\nr = redis.Redis()\nsessions = list(r.scan_iter(match=\"session:*\"))\n"
+    - "settings = {\"a\": 1}\nnames = settings.keys()\n"

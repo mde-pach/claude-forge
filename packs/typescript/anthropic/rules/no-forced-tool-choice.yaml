@@ -1,0 +1,31 @@
+id: typescript/anthropic/no-forced-tool-choice
+description: "No tool_choice: { type: 'any' } or { type: 'tool' } in a messages call whose model is a literal that rejects forced tool use with a 400 (claude-opus-5-5, claude-sonnet-5-5, claude-fable-5-1, claude-mythos-5-1): use tool_choice: { type: 'auto' } with strict: true tools and an instruction naming the tool, or structured outputs (output_config.format). The model list comes from packs/ai-models/models.tsv."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      # the beta form first: ast-grep binds the first branch that matches
+      any: [{pattern: "$C.beta.messages.$M($$$)"}, {pattern: "$C.messages.$M($$$)"}]
+      has:
+        field: arguments
+        has:
+          kind: object
+          all:
+            - has: {kind: pair, all: [{has: {field: key, regex: "^[\"']?model[\"']?$"}}, {has: {field: value, kind: string, pattern: $MODEL}}]}
+            - has: {kind: pair, all: [{has: {field: key, regex: "^[\"']?tool_choice[\"']?$"}}, {has: {field: value, kind: object, has: {kind: pair, all: [{has: {field: key, regex: "^[\"']?type[\"']?$"}}, {has: {field: value, regex: "^[\"'](any|tool)[\"']$"}}]}}}]}
+    constraints:
+      M: {regex: "^(create|stream|parse|countTokens)$"}
+      MODEL:
+        # models.tsv: rejects forced_tool_choice
+        regex: '^["''](anthropic\.)?(claude-fable-5-1|claude-mythos-5-1|claude-opus-5-5|claude-sonnet-5-5)["'']$'
+    where:
+      C: {type: {package: "@anthropic-ai/sdk", name: [Anthropic, BaseAnthropic]}}
+examples:
+  deps: [{ecosystem: npm, name: "@anthropic-ai/sdk", version: "1.3.0"}]
+  match:
+    - "import Anthropic from \"@anthropic-ai/sdk\";\n\nconst client = new Anthropic();\nexport const reply = await client.messages.create({\n  model: \"claude-opus-5-5\",\n  max_tokens: 16000,\n  tools: [{ name: \"lookup\", input_schema: { type: \"object\" } }],\n  tool_choice: { type: \"tool\", name: \"lookup\" },\n  messages: [{ role: \"user\", content: \"Hi\" }],\n});\n"
+    - "import Anthropic from \"@anthropic-ai/sdk\";\n\nexport function ask(client: Anthropic) {\n  return client.messages.stream({ model: \"claude-sonnet-5-5\", max_tokens: 64000, tools: [], tool_choice: { type: \"any\" }, messages: [] });\n}\n"
+  no_match:
+    - "import Anthropic from \"@anthropic-ai/sdk\";\n\nconst client = new Anthropic();\nexport const reply = await client.messages.create({\n  model: \"claude-opus-5\",\n  max_tokens: 16000,\n  tools: [],\n  tool_choice: { type: \"any\" },\n  messages: [],\n});\n"
+    - "import Anthropic from \"@anthropic-ai/sdk\";\n\nconst client = new Anthropic();\nexport const reply = await client.messages.create({\n  model: \"claude-opus-5-5\",\n  max_tokens: 16000,\n  tools: [],\n  tool_choice: { type: \"auto\" },\n  messages: [],\n});\n"

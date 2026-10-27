@@ -1,0 +1,44 @@
+id: typescript/trpc/trpc-error
+description: "A procedure resolver (the function passed to .query(), .mutation() or .subscription(), in a file importing @trpc/server or taking tRPC's { ctx, input } options) throws TRPCError with a code, not a plain Error, with or without new (it reaches the client as INTERNAL_SERVER_ERROR). An Error thrown inside a try block is not concerned: it is caught there."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: throw_statement
+      has:
+        any:
+          - {kind: new_expression, has: {field: constructor, regex: "^Error$"}}
+          - {kind: call_expression, has: {field: function, regex: "^Error$"}}
+      inside:
+        stopBy: end
+        all:
+          - any: [{kind: arrow_function}, {kind: function_expression}]
+          - any:
+              - inside: {kind: program, stopBy: end, has: {kind: import_statement, has: {field: source, regex: "^[\"']@trpc/server"}}}
+              - has: {field: parameters, has: {stopBy: end, kind: object_pattern, has: {regex: "^(ctx|input)\\b"}}}
+        nthChild: 1
+        inside:
+          kind: arguments
+          stopBy: neighbor
+          inside:
+            kind: call_expression
+            stopBy: neighbor
+            has: {field: function, kind: member_expression, has: {field: property, regex: "^(query|mutation|subscription)$"}}
+      not:
+        inside:
+          stopBy: end
+          kind: statement_block
+          inside: {kind: try_statement, stopBy: neighbor}
+examples:
+  match:
+    - "export const byId = publicProcedure.input(z.object({ id: z.string() })).query(async ({ input }) => {\n  const post = await db.post.find(input.id);\n  if (!post) throw new Error(\"Post not found\");\n  return post;\n});\n"
+    - "import { initTRPC } from \"@trpc/server\";\n\nconst t = initTRPC.create();\nexport const q = t.procedure.query(() => {\n  throw Error(\"nope\");\n});\n"
+    - "import { initTRPC } from \"@trpc/server\";\n\nconst t = initTRPC.create();\nconst authed = t.procedure.use(isAuthed);\nexport const q = authed.query(() => {\n  throw new Error(\"nope\");\n});\n"
+    - "export const del = authed.mutation(async ({ ctx, input }) => {\n  const rows = input.ids.map((id) => {\n    if (!id) throw new Error(\"empty id\");\n    return id;\n  });\n  await ctx.db.post.deleteMany({ where: { id: { in: rows } } });\n});\n"
+  no_match:
+    - "export const byId = publicProcedure.input(z.object({ id: z.string() })).query(async ({ input }) => {\n  const post = await db.post.find(input.id);\n  if (!post) throw new TRPCError({ code: \"NOT_FOUND\", message: \"Post not found\" });\n  return post;\n});\n"
+    - "const rows = await pool.query(sql, () => { throw new Error(\"x\"); });"
+    - "export function load() {\n  throw new Error(\"not a procedure\");\n}\n"
+    - "export const q = publicProcedure.query(async ({ ctx }) => {\n  try {\n    await retry(() => {\n      throw new Error(\"retry\");\n    });\n  } catch {\n    throw new TRPCError({ code: \"BAD_REQUEST\" });\n  }\n});\n"
+    - "const result = useQuery(() => {\n  throw new Error(\"not tRPC\");\n});\nconst r = db.query(() => {\n  throw new Error(\"no ctx\");\n});\n"

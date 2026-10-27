@@ -1,0 +1,43 @@
+id: python/prefect/no-removed-v2-api
+description: "No Prefect 2 API that Prefect 3 removed or moved (from Prefect's own migration table): Deployment.build_from_flow (use flow.deploy() or flow.serve()), the S3 / GCS / Azure / GitHub filesystem blocks (use the prefect-aws, prefect-gcp, prefect-azure, prefect-github blocks), agents and infrastructure blocks (use workers), and the moved names (load_flow_from_flow_run, variables.get, pause_flow_run / resume_flow_run / suspend_flow_run, prefect.client.get_client)."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: TID251
+    snippet: |
+      [tool.ruff.lint]
+      extend-select = ["TID251"]
+
+      [tool.ruff.lint.flake8-tidy-imports.banned-api]
+      "prefect.deployments.deployments.load_flow_from_flow_run".msg = "moved in Prefect 3: use prefect.flows.load_flow_from_flow_run"
+      "prefect.deployments.load_flow_from_flow_run".msg = "moved in Prefect 3: use prefect.flows.load_flow_from_flow_run"
+      "prefect.variables.get".msg = "moved in Prefect 3: use prefect.variables.Variable.get"
+      "prefect.engine.pause_flow_run".msg = "moved in Prefect 3: use prefect.flow_runs.pause_flow_run"
+      "prefect.engine.resume_flow_run".msg = "moved in Prefect 3: use prefect.flow_runs.resume_flow_run"
+      "prefect.engine.suspend_flow_run".msg = "moved in Prefect 3: use prefect.flow_runs.suspend_flow_run"
+      "prefect.client.get_client".msg = "moved in Prefect 3: use prefect.client.orchestration.get_client"
+      "prefect.client.schemas.objects.MinimalDeploymentSchedule".msg = "removed in Prefect 3: use prefect.client.schemas.actions.DeploymentScheduleCreate"
+      "prefect.context.PrefectObjectRegistry".msg = "removed in Prefect 3; see the Prefect 3 upgrade guide (agents to workers)"
+      "prefect.deployments.deployments.Deployment".msg = "removed in Prefect 3: use flow.serve(), flow.deploy(), or prefect deploy"
+      "prefect.deployments.Deployment".msg = "removed in Prefect 3: use flow.serve(), flow.deploy(), or prefect deploy"
+      "prefect.filesystems.GCS".msg = "removed in Prefect 3: use prefect_gcp.GcsBucket"
+      "prefect.filesystems.Azure".msg = "removed in Prefect 3: use prefect_azure.AzureBlobStorageContainer"
+      "prefect.filesystems.S3".msg = "removed in Prefect 3: use prefect_aws.S3Bucket"
+      "prefect.filesystems.GitHub".msg = "removed in Prefect 3: use prefect_github.GitHubRepository"
+      "prefect.engine._out_of_process_pause".msg = "removed in Prefect 3: use prefect.flow_runs.pause_flow_run"
+      "prefect.engine._in_process_pause".msg = "removed in Prefect 3: use prefect.flow_runs.pause_flow_run"
+      "prefect.agent.PrefectAgent".msg = "removed in Prefect 3: use workers"
+      "prefect.infrastructure.KubernetesJob".msg = "removed in Prefect 3: use workers"
+      "prefect.infrastructure.base.Infrastructure".msg = "removed in Prefect 3: use the BaseWorker class to create custom infrastructure integrations"
+      "prefect.workers.block.BlockWorkerJobConfiguration".msg = "removed in Prefect 3; see the Prefect 3 upgrade guide (agents to workers)"
+      "prefect.workers.cloud.BlockWorker".msg = "removed in Prefect 3; see the Prefect 3 upgrade guide (agents to workers)"
+when:
+  deps: [{ecosystem: pypi, name: prefect, version: ">=3.0.0"}]
+examples:
+  match:
+    - "from prefect.deployments import Deployment\n\nfrom flows import etl\n\ndeployment = Deployment.build_from_flow(flow=etl, name=\"nightly\")\n"
+    - "from prefect.filesystems import S3\n\nstorage = S3(bucket_path=\"flows/etl\")\n"
+    - "from prefect import variables\n\nregion = variables.get(\"region\")\n"
+  no_match:
+    - "from prefect import flow\nfrom prefect.variables import Variable\n\n\n@flow\ndef etl() -> None:\n    region = Variable.get(\"region\")\n    print(region)\n\n\nif __name__ == \"__main__\":\n    etl.serve(name=\"nightly\")\n"

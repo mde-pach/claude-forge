@@ -1,0 +1,6 @@
+id: kubernetes
+description: Kubernetes manifests, linted with kube-linter.
+level: project
+detect:
+  yaml_keys: [apiVersion, kind]
+  files_any: ["**/kustomization.yaml", "**/kustomization.yml", "**/Kustomization", "**/Chart.yaml"]

@@ -1,0 +1,22 @@
+id: python/opentelemetry/batch-processor
+description: "Advice: spans and log records go to an OTLP exporter through BatchSpanProcessor / BatchLogRecordProcessor, not SimpleSpanProcessor / SimpleLogRecordProcessor, which export synchronously on every span and block the request. The console exporter is not concerned."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: call
+      pattern: $CALL
+      all: [{pattern: $P($E)}]
+    # grpc and http exporters, held in a variable or imported under another name
+    where:
+      CALL: {type: {package: opentelemetry, name: [SimpleSpanProcessor, SimpleLogRecordProcessor]}}
+      E: {type: {module: opentelemetry.exporter.otlp, name: [OTLPSpanExporter, OTLPLogExporter]}}
+examples:
+  deps: [{ecosystem: pypi, name: opentelemetry-sdk, version: "1.45.1"}, {ecosystem: pypi, name: opentelemetry-exporter-otlp, version: "1.45.1"}]
+  match:
+    - "from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter\nfrom opentelemetry.sdk.trace.export import SimpleSpanProcessor\n\nprocessor = SimpleSpanProcessor(OTLPSpanExporter())\n"
+    - "from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter as Exporter\nfrom opentelemetry.sdk.trace.export import SimpleSpanProcessor\n\nexporter = Exporter()\nprocessor = SimpleSpanProcessor(exporter)\n"
+  no_match:
+    - "from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter\nfrom opentelemetry.sdk.trace.export import BatchSpanProcessor\n\nprocessor = BatchSpanProcessor(OTLPSpanExporter())\n"
+    - "from opentelemetry.sdk.trace.export import ConsoleSpanExporter, SimpleSpanProcessor\n\nprocessor = SimpleSpanProcessor(ConsoleSpanExporter())\n"

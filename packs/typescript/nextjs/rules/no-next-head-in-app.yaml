@@ -1,0 +1,10 @@
+id: typescript/nextjs/no-next-head-in-app
+description: No next/head or next/document under app/; they do nothing in the App Router. Export metadata or generateMetadata instead.
+scope: {language: typescript, files: ["app/**", "src/app/**"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule: {kind: import_statement, has: {field: source, regex: "^[\"']next/(head|document)[\"']$"}}
+examples:
+  match: ["import Head from \"next/head\";", "import { Html, Main } from 'next/document';"]
+  no_match: ["import type { Metadata } from \"next\";\n\nexport const metadata: Metadata = { title: \"x\" };\n", "import Script from \"next/script\";"]

@@ -1,0 +1,21 @@
+id: typescript/npm/lock-sync
+description: package-lock.json matches the package.json files (npm ci --dry-run --ignore-scripts, which leaves node_modules alone).
+scope: {language: any}
+enforce:
+  - target: check
+    stage: lint
+    run: npm ci --dry-run --ignore-scripts --no-audit --no-fund
+    when_changed: ["**/package.json", "package-lock.json", "npm-shrinkwrap.json"]
+examples:
+  match:
+    - head:
+        package.json: "{\"name\": \"shop\", \"version\": \"1.0.0\", \"private\": true}\n"
+        package-lock.json: "{\n  \"name\": \"shop\",\n  \"version\": \"1.0.0\",\n  \"lockfileVersion\": 3,\n  \"requires\": true,\n  \"packages\": {\n    \"\": {\n      \"name\": \"shop\",\n      \"version\": \"1.0.0\"\n    }\n  }\n}\n"
+      files:
+        package.json: "{\"name\": \"shop\", \"version\": \"1.0.0\", \"private\": true, \"dependencies\": {\"zod\": \"4.1.12\"}}\n"
+  no_match:
+    - head:
+        package.json: "{\"name\": \"shop\", \"version\": \"1.0.0\", \"private\": true}\n"
+        package-lock.json: "{\n  \"name\": \"shop\",\n  \"version\": \"1.0.0\",\n  \"lockfileVersion\": 3,\n  \"requires\": true,\n  \"packages\": {\n    \"\": {\n      \"name\": \"shop\",\n      \"version\": \"1.0.0\"\n    }\n  }\n}\n"
+      files:
+        package.json: "{\"name\": \"shop\", \"version\": \"1.0.0\", \"private\": true, \"scripts\": {\"test\": \"vitest run\"}}\n"

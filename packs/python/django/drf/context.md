@@ -1,0 +1,3 @@
+Django REST framework. A `ModelSerializer`'s `Meta.fields` lists the fields; `fields = "__all__"` is rejected. Fields the client must not set are in `read_only_fields`.
+Views inheriting a DRF view or viewset get a non-empty `permission_classes` (from the class or a project base or mixin) unless the settings Django runs with set a non-`AllowAny` `DEFAULT_PERMISSION_CLASSES` (DRF's default is `AllowAny`); `permission_classes = []` is rejected there; `AllowAny` on a write endpoint, or as the default, is rejected: ask the user first.
+Querysets behind list endpoints and nested serializers use `select_related()` / `prefetch_related()`.

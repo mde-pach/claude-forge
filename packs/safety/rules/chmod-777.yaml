@@ -1,0 +1,13 @@
+id: safety/chmod-777
+description: "No world-writable permissions (chmod 777, 0777, a+rwx, ugo+rwx, =rwx) and no recursive chown of /, ~ or $HOME: give the one user or group that needs it access instead."
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: deny
+    pattern: '(^|[^A-Za-z0-9_-])chmod[[:space:]]([^;&|]*[[:space:]])?(0?777|a\+rwx|ugo\+rwx|=rwx)([[:space:];&|)]|$)'
+  - target: guard
+    decision: deny
+    pattern: '(^|[^A-Za-z0-9_-])(sudo[[:space:]]+)?chown[[:space:]]+(-[A-Za-z]*R[A-Za-z]*|--recursive)[[:space:]][^;&|]*[[:space:]](/|~/?|\$HOME/?|\$\{HOME\}/?)([[:space:];&|)]|$)'
+examples:
+  match: ["chmod 777 uploads", "chmod -R 777 .", "chmod 0777 /var/www", "chmod a+rwx file", "chmod =rwx run.sh", "sudo chown -R me /", "chown -R me:staff ~"]
+  no_match: ["chmod 755 script.sh", "chmod +x run.sh", "chmod 7770 x", "chown -R me ./dist", "chown me /tmp/file"]

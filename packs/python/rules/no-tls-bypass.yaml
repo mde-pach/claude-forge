@@ -1,11 +1,19 @@
 id: python/no-tls-bypass
-description: HTTPS certificate checks stay on (no verify=False).
+description: TLS certificate checks stay on (no verify=False, no ssl._create_unverified_context()) and no insecure protocol version is requested (ssl_version= / method= SSLv2, SSLv3, TLSv1, TLSv1.1).
 scope: {language: python}
 enforce:
   - target: tool
     tool: ruff
     expects: S501
     snippet: '[tool.ruff.lint] extend-select = ["S501"]'
+  - target: tool
+    tool: ruff
+    expects: S323
+    snippet: '[tool.ruff.lint] extend-select = ["S323"]'
+  - target: tool
+    tool: ruff
+    expects: S502
+    snippet: '[tool.ruff.lint] extend-select = ["S502"]'
 examples:
-  match: ["import httpx\n\nhttpx.get(\"https://x\", verify=False)\n", "import requests\n\nrequests.post(\"https://x\", verify=False)\n"]
-  no_match: ["import httpx\n\nhttpx.get(\"https://x\")\n", "import httpx\n\nhttpx.get(\"https://x\", verify=\"/etc/ca.pem\")\n"]
+  match: ["import ssl\n\nimport httpx\nfrom OpenSSL import SSL\n\nhttpx.get(\"https://x\", verify=False)\nctx = ssl._create_unverified_context()\nlegacy = SSL.Context(method=SSL.TLSv1_METHOD)\n", "import ssl\n\nimport requests\nfrom OpenSSL import SSL\n\nrequests.post(\"https://x\", verify=False)\nctx = ssl._create_unverified_context()\nlegacy = SSL.Context(method=SSL.SSLv3_METHOD)\n"]
+  no_match: ["import httpx\n\nhttpx.get(\"https://x\")\n", "import ssl\n\nimport httpx\nfrom OpenSSL import SSL\n\nctx = ssl.create_default_context(cafile=\"/etc/ca.pem\")\nhttpx.get(\"https://x\", verify=ctx)\nclient = SSL.Context(method=SSL.TLS_CLIENT_METHOD)\n"]

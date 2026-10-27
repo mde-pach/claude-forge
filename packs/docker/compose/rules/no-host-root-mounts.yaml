@@ -1,6 +1,6 @@
 id: docker/compose/no-host-root-mounts
 description: "No service mounts /, /etc, /root, /home or the home directory from the host."
-scope: {language: yaml, files: ["**/compose*.yml", "**/compose*.yaml", "**/docker-compose*.yml", "**/docker-compose*.yaml"]}
+scope: {language: yaml, files: ["@compose"]}
 enforce:
   - target: ast-grep
     mode: forbid

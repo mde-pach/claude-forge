@@ -1,9 +1,13 @@
+# A project without prisma/migrations whose package.json runs `prisma db push` (a
+# db push workflow, e.g. PlanetScale: https://www.prisma.io/docs/orm/prisma-migrate/workflows/prototyping-your-schema)
+# has no migration history to compare with: the check passes there instead of failing
+# on the missing directory.
 id: typescript/prisma/migration-present
-description: Schema changes come with a migration.
+description: Schema changes come with a migration (not in a db push workflow - no prisma/migrations and a package.json script running prisma db push).
 scope: {language: any}
 enforce:
   - target: check
     stage: migration
-    run: 'if ! grep -q shadowDatabaseUrl prisma.config.ts 2>/dev/null; then echo "forge:typescript/prisma/migration-present skipped: no shadowDatabaseUrl in prisma.config.ts"; else prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code; fi'
+    run: 'if [ ! -d prisma/migrations ] && grep -qE "prisma[[:space:]]+db[[:space:]]+push" package.json 2>/dev/null; then :; elif ! grep -q shadowDatabaseUrl prisma.config.ts 2>/dev/null; then echo "forge:typescript/prisma/migration-present skipped: no shadowDatabaseUrl in prisma.config.ts"; else prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code; fi'
     when_changed: [prisma/schema.prisma]
     requires_local_db: true

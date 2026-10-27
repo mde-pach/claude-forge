@@ -1,0 +1,8 @@
+id: typescript/vue/no-vue2-template-syntax
+description: "No Vue 2 template syntax, which Vue 3 compiles without a word and ignores: the .sync modifier (v-model:prop), slot-scope (v-slot / #name), the .native modifier, numeric key codes (@keyup.enter)."
+scope: {language: any, files: ["**/*.vue"]}
+enforce:
+  - {target: grep, mode: forbid, pattern: "[[:space:]](:|v-bind:)[a-zA-Z-]+\\.sync[[:space:]]*=|[[:space:]]slot-scope[[:space:]]*=|[[:space:]](@|v-on:)[a-zA-Z-]+(\\.[a-z]+)*\\.native([.=[:space:]]|$)|[[:space:]](@|v-on:)key(up|down|press)\\.[0-9]+"}
+examples:
+  match: ["<template>\n  <Dialog :visible.sync=\"open\" />\n</template>\n", "<template>\n  <List><template slot-scope=\"{ item }\">{{ item }}</template></List>\n</template>\n", "<template>\n  <Btn @click.native=\"go\" />\n</template>\n", "<template>\n  <Btn @click.stop.native=\"go\" />\n</template>\n", "<template>\n  <input @keyup.13=\"send\" />\n</template>\n"]
+  no_match: ["<template>\n  <Dialog v-model:visible=\"open\" />\n  <List><template #default=\"{ item }\">{{ item }}</template></List>\n  <Btn @click=\"go\" />\n  <input @keyup.enter=\"send\" />\n  <my-el slot=\"x\" />\n</template>\n"]

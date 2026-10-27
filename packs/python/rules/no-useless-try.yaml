@@ -1,0 +1,17 @@
+id: python/no-useless-try
+description: No except handler that only re-raises (drop the try), and re-raise with a bare raise, not raise err.
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: TRY203
+    snippet: '[tool.ruff.lint] extend-select = ["TRY203"]'
+  - target: tool
+    tool: ruff
+    expects: TRY201
+    snippet: '[tool.ruff.lint] extend-select = ["TRY201"]'
+examples:
+  match:
+    - "def load(path: str) -> str:\n    try:\n        return open(path).read()\n    except OSError as err:\n        raise err\n"
+  no_match:
+    - "import logging\n\nlog = logging.getLogger(__name__)\n\n\ndef load(path: str) -> str:\n    try:\n        return open(path).read()\n    except OSError:\n        log.warning(\"cannot read %s\", path)\n        raise\n"

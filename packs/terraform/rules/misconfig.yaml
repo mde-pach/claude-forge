@@ -1,0 +1,18 @@
+id: terraform/misconfig
+description: "A change introduces no new HIGH or CRITICAL Terraform misconfiguration found by trivy (public buckets, ingress open to the world, unencrypted storage); its bundled checks, and an ignore file of Forge's, so .trivyignore does not apply."
+scope: {language: any, files: ["**/*.tf", "**/*.tofu"]}
+enforce:
+  - target: check
+    stage: lint
+    run: forge_trivy_config
+examples:
+  match:
+    - head: {infra/network.tf: "resource \"aws_security_group\" \"web\" {\n  name        = \"web\"\n  description = \"Web servers\"\n}\n"}
+      files: {infra/network.tf: "resource \"aws_security_group\" \"web\" {\n  name        = \"web\"\n  description = \"Web servers\"\n\n  ingress {\n    description = \"SSH\"\n    from_port   = 22\n    to_port     = 22\n    protocol    = \"tcp\"\n    cidr_blocks = [\"0.0.0.0/0\"]\n  }\n}\n"}
+    - head: {.trivyignore: "AWS-0107\n", infra/network.tf: "resource \"aws_security_group\" \"web\" {\n  name        = \"web\"\n  description = \"Web servers\"\n}\n"}
+      files: {infra/network.tf: "resource \"aws_security_group\" \"web\" {\n  name        = \"web\"\n  description = \"Web servers\"\n\n  ingress {\n    description = \"SSH\"\n    from_port   = 22\n    to_port     = 22\n    protocol    = \"tcp\"\n    cidr_blocks = [\"0.0.0.0/0\"]\n  }\n}\n"}
+  no_match:
+    - head: {infra/network.tf: "resource \"aws_security_group\" \"web\" {\n  name        = \"web\"\n  description = \"Web servers\"\n\n  ingress {\n    description = \"SSH\"\n    from_port   = 22\n    to_port     = 22\n    protocol    = \"tcp\"\n    cidr_blocks = [\"0.0.0.0/0\"]\n  }\n}\n"}
+      files: {infra/network.tf: "resource \"aws_security_group\" \"web\" {\n  name        = \"web-servers\"\n  description = \"Web servers\"\n\n  ingress {\n    description = \"SSH\"\n    from_port   = 22\n    to_port     = 22\n    protocol    = \"tcp\"\n    cidr_blocks = [\"0.0.0.0/0\"]\n  }\n}\n"}
+    - head: {infra/network.tf: "resource \"aws_security_group\" \"web\" {\n  name        = \"web\"\n  description = \"Web servers\"\n}\n"}
+      files: {infra/network.tf: "resource \"aws_security_group\" \"web\" {\n  name        = \"web\"\n  description = \"Web servers\"\n\n  ingress {\n    description = \"HTTPS from the office\"\n    from_port   = 443\n    to_port     = 443\n    protocol    = \"tcp\"\n    cidr_blocks = [\"203.0.113.0/24\"]\n  }\n}\n"}

@@ -23,7 +23,9 @@ All guard rules together, against the commands that must and must not trigger:
 
 ### When nobody can answer an ask
 
-In an autonomous run (`claude -p`, the Agent SDK, the GitHub Action) nobody is there to answer an ask, and Claude Code denies it without anyone looking at it. Forge sends the ask to an **independent reviewer** instead: a fresh `claude -p` that sees only the action (the tool, its input, the Forge rule that asked, the repository path), may read the repository, and runs without hooks, MCP servers, settings or the agent's conversation. It allows or denies as a careful developer seeing only that action would, so the decision is not made in the agent's rush. Every review is logged in `.forge/state/reviews.log` (or `~/.claude/forge-reviews.log`).
+In an autonomous run (`claude -p`, the Agent SDK, the GitHub Action) nobody is there to answer an ask, and Claude Code denies it without anyone looking at it. Forge sends the ask to an **independent reviewer** instead: a fresh `claude -p` that sees only the action (the tool, its input, the Forge rule that asked, the repository path), may read the repository, and runs without hooks, MCP servers, settings or the agent's conversation. It allows or denies as a careful developer seeing only that action would, so the decision is not made in the agent's rush. Every review is logged in `reviews.log` in the hooks' state directory (or `~/.claude/forge-reviews.log`).
+
+The hooks keep their state (verdicts, your request for the turn, approvals, turn snapshots and Stop results) in `~/.claude/forge-state/<id>/`, one directory per repository, readable by you only (`FORGE_STATE_HOME` moves it). It is outside the repository on purpose: Claude's Bash commands, which the sandbox confines to the repository, cannot plant a verdict that would let an action through, or rewrite the request a reviewer reads. `safety/forge-state` denies Bash commands that name it and `safety/forge-state-edit` denies edits there, for runs without the sandbox.
 
 It covers both kinds of ask: a guard rule's `ask` (in `guard.sh`) and any permission prompt (a `PermissionRequest` hook, `review.sh`; the project-level one defers to the user-level one). It only acts when nobody can answer: in an interactive session, the usual prompt appears.
 
@@ -37,13 +39,19 @@ In `dontAsk` mode asks stay denied (you chose that). `FORGE_REVIEW_MODEL` picks 
 
 <Spec file="08-project-hooks" describe="asks nobody can answer" />
 
+### Edits to existing tests
+
+An Edit or Write that changes a test (anything in it, formatting aside: its assertions, but also its input data, `.each` table or an early `return`), or removes it, when the test existed at the start of the turn, asks first: the change is right when the task changes the behaviour the test asserts, and wrong when it only makes failing code pass. In an autonomous run an independent reviewer answers, given your request for the turn. New tests do not ask. An edit that ran was approved; a change nobody approved (made through Bash, say) is blocked at Stop. A changed fake, fixture or helper in a test file (or `conftest.py`) is reported once at Stop: test doubles encode the interface callers rely on, so production usually keeps it (a property alias for a moved attribute).
+
+<Spec file="08-project-hooks" describe="test edits" />
+
 ## After an edit
 
-After an `Edit` or `Write` (or a Bash command that changes files, below), `post-edit.sh` formats the file silently, lints it and runs the ast-grep `forbid` rules on it; findings go back to Claude as context. `typecheck.sh` runs the project type check in the background and wakes Claude when it fails.
+After an `Edit` or `Write` (or a Bash command that changes files, below), `post-edit.sh` formats the file silently, lints it and runs the ast-grep `forbid` rules on it; findings go back to Claude as context. `typecheck.sh` runs the project type check in the background and wakes Claude when it fails. Claude Code runs it in the background only in an interactive session or with streaming input (the Agent SDK, `--input-format stream-json`); under `claude -p "<prompt>"` it would wait for it after every edit (32 to 64 s per edit in a large TypeScript repository), so there `typecheck.sh` steps aside and the Stop check runs the type check once per turn. `FORGE_EDIT_TYPECHECK=always` runs it after every edit anyway; `never` never does. tsc runs incrementally, with its build info in `.forge/state/`.
 
 <Spec file="08-project-hooks" describe="PostToolUse" />
 
-Before the lint report, a lint check's safe fixes run (`fix_run`): sorted imports and pyupgrade with ruff, when your config selects them, and Biome's safe fixes. Unused imports are never removed, since an import added now is often used in the next edit. When a fix changes the file, Claude is told in one line, so it re-reads the file before editing it again.
+Before the lint report, a lint check's safe fixes run (`fix_run`): sorted imports and pyupgrade with ruff, when your config selects them, and Biome's safe fixes. Unused imports are never removed, since an import added now is often used in the next edit. When a fix changes the file, Claude is told in one line, so it re-reads the file before editing it again. Biome applies its safe fixes in the lint run itself (`biome check --write`), so it runs once per edit; Claude is told when that run changed more than the formatting. Each tool runs once with all the files a command changed, and the checks after an edit get 45 s (`FORGE_EDIT_BUDGET`, under the hook's 60 s timeout): past that, Claude gets what was found so far, and the Stop check covers the rest.
 
 <Spec file="08-project-hooks" describe="safe fixes after an edit" />
 

@@ -1,0 +1,30 @@
+id: typescript/node/esm-globals
+description: "An ES module (.mts / .mjs, or a .ts / .js file under a package.json with \"type\": \"module\") uses no CommonJS globals: no __dirname / __filename (import.meta.dirname / import.meta.filename, Node 20.11+), no require() (import, or createRequire), no module.exports or exports.x (export). @types/node declares them, so tsc accepts them, but they throw ReferenceError when the module runs."
+scope: {language: typescript, files: ["@esm-modules"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        - {kind: identifier, regex: "^(__dirname|__filename)$", pattern: $G}
+        - kind: call_expression
+          has: {field: function, kind: identifier, regex: "^require$", pattern: $G}
+        - kind: member_expression
+          all:
+            - has: {field: object, kind: identifier, regex: "^module$", pattern: $G}
+            - has: {field: property, regex: "^exports$"}
+        - kind: assignment_expression
+          has: {field: left, kind: member_expression, has: {field: object, kind: identifier, regex: "^exports$", pattern: $G}}
+    # the name is the global @types/node declares (§15.6): a module's own const __dirname = …
+    # (the usual fileURLToPath shim) or a local require is not matched
+    where:
+      G: {declared: {package: node}}
+examples:
+  deps: [{ecosystem: npm, name: "@types/node", version: "24.10.1"}]
+  match:
+    - "import { join } from \"node:path\";\n\nexport const config = join(__dirname, \"config.json\");\n"
+    - "const pkg = require(\"./package.json\");\n\nmodule.exports = { version: pkg.version };\n"
+    - "exports.handler = async () => ({ statusCode: 200 });\n"
+  no_match:
+    - "import { dirname, join } from \"node:path\";\nimport { fileURLToPath } from \"node:url\";\n\nconst __dirname = dirname(fileURLToPath(import.meta.url));\n\nexport const config = join(__dirname, \"config.json\");\nexport const here = import.meta.dirname;\n"
+    - "import { createRequire } from \"node:module\";\n\nconst require = createRequire(import.meta.url);\n\nexport const pkg = require(\"./package.json\");\n"

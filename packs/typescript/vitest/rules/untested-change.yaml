@@ -1,0 +1,16 @@
+id: typescript/vitest/untested-change
+description: A turn that changes application code also adds or updates a test, or says why none is needed; advisory, it blocks Stop once per turn.
+scope: {language: typescript, files: ["!@ts-tests", "!@e2e-tests", "!**/*.d.ts", "!**/*.config.*"]}
+enforce:
+  - {target: check, stage: lint, run: "forge_advise forge_untested_change"}
+examples:
+  match:
+    - head: {src/cart.ts: "export const total = (xs: number[]) => xs.reduce((a, b) => a + b, 0);\n", src/cart.test.ts: "import { expect, it } from \"vitest\";\nimport { total } from \"./cart\";\n\nit(\"totals\", () => {\n  expect(total([1, 2])).toBe(3);\n});\n"}
+      files: {src/cart.ts: "export const total = (xs: number[]) => xs.reduce((a, b) => a + b, 1);\n"}
+  no_match:
+    - head: {src/cart.ts: "export const total = (xs: number[]) => xs.reduce((a, b) => a + b, 0);\n", src/cart.test.ts: "import { expect, it } from \"vitest\";\nimport { total } from \"./cart\";\n\nit(\"totals\", () => {\n  expect(total([1, 2])).toBe(3);\n});\n"}
+      files:
+        src/cart.ts: "export const total = (xs: number[]) => xs.reduce((a, b) => a + b, 1);\n"
+        src/cart.test.ts: "import { expect, it } from \"vitest\";\nimport { total } from \"./cart\";\n\nit(\"totals\", () => {\n  expect(total([1, 2])).toBe(3);\n});\n\nit(\"starts at one\", () => {\n  expect(total([])).toBe(1);\n});\n"
+    - head: {src/cart.ts: "export const total = (xs: number[]) => xs.reduce((a, b) => a + b, 0);\n"}
+      files: {src/cart.ts: "// Sums the cart.\nexport const total = (xs: number[]) => xs.reduce((a, b) => a + b, 0);\n"}

@@ -1,0 +1,22 @@
+id: typescript/node-version-file
+description: "The root .nvmrc / .node-version is a Node version (not an alias like lts/*) that satisfies package.json engines.node and devEngines.runtime (name node); a partial version (22) stands for the newest release of that line."
+scope: {language: any, files: [.nvmrc, .node-version, package.json]}
+enforce:
+  - target: check
+    stage: lint
+    run: "forge_helper bun node_version.mjs"
+    when_changed: [.nvmrc, .node-version, package.json]
+examples:
+  match:
+    - head: {package.json: "{\"name\": \"shop\", \"engines\": {\"node\": \">=22.12\"}}\n"}
+      files: {.nvmrc: "20\n"}
+    - head: {.nvmrc: "v22.11.0\n"}
+      files: {package.json: "{\"name\": \"shop\", \"devEngines\": {\"runtime\": {\"name\": \"node\", \"version\": \"^24\"}}}\n"}
+    - head: {package.json: "{\"name\": \"shop\", \"engines\": {\"node\": \">=22\"}}\n"}
+      files: {.node-version: "lts/*\n"}
+  no_match:
+    - head: {package.json: "{\"name\": \"shop\", \"engines\": {\"node\": \">=22.12 <25\"}}\n"}
+      files: {.nvmrc: "22\n"}
+    - head: {.nvmrc: "24.11.1\n"}
+      files: {package.json: "{\"name\": \"shop\", \"devEngines\": {\"runtime\": [{\"name\": \"bun\", \"version\": \"^1\"}, {\"name\": \"node\", \"version\": \"^24\"}]}}\n"}
+    - files: {package.json: "{\"name\": \"shop\", \"engines\": {\"node\": \">=22\"}}\n"}

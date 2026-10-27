@@ -1,0 +1,12 @@
+id: typescript/bun/no-fewer-expects
+description: Assertions are not removed from tests that import from bun:test.
+scope: {language: typescript, files: ["**/*.test.*", "**/*_test.*", "**/*.spec.*", "**/*_spec.*", "!@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: no-decrease
+    rule:
+      pattern: "expect($$$)"
+      inside: {stopBy: end, kind: program, has: {kind: import_statement, has: {field: source, regex: "^[\"']bun:test[\"']$"}}}
+examples:
+  match: ["import { expect, test } from \"bun:test\";\n\ntest(\"a\", () => {\n  expect(f()).toBe(1);\n});\n"]
+  no_match: ["import { test } from \"bun:test\";\n\ntest(\"a\", () => {\n  f();\n});\n", "import { expect, it } from \"vitest\";\n\nit(\"a\", () => {\n  expect(f()).toBe(1);\n});\n"]

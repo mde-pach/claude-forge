@@ -1,13 +1,34 @@
 id: typescript/vitest/no-mock-increase
-description: A test file may not gain mocks (vi.mock, vi.spyOn, vi.fn); test through the real code or a fake at the boundary.
-scope: {language: typescript, files: ["**/*.test.*", "**/*.spec.*", "**/__tests__/**", "!e2e/**"]}
+description: "A test file may not gain mocks: vi.mock, vi.doMock, vi.spyOn, vi.fn, also through an import alias (import { vi as v }); test through the real code or a fake at the boundary. vi.stubEnv and vi.stubGlobal are not counted: they set configuration for a test, like pytest's monkeypatch."
+scope: {language: typescript, files: ["@ts-tests", "!@e2e-tests"]}
 enforce:
   - target: ast-grep
     mode: no-increase
-    rule: {kind: call_expression, has: {field: function, regex: "^vi\\.(mock|doMock|spyOn|fn)$"}}
+    rule:
+      kind: call_expression
+      any:
+        - has: {field: function, regex: "^vi\\.(mock|doMock|spyOn|fn)$"}
+        - all:
+            - has:
+                field: function
+                kind: member_expression
+                all:
+                  - has: {field: object, kind: identifier, pattern: $V}
+                  - has: {field: property, regex: "^(mock|doMock|spyOn|fn)$"}
+            - inside:
+                kind: program
+                stopBy: end
+                has:
+                  kind: import_statement
+                  all:
+                    - has: {field: source, regex: "^[\"']vitest[\"']$"}
+                    - has: {stopBy: end, kind: import_specifier, all: [{has: {field: name, regex: "^vi$"}}, {has: {field: alias, pattern: $V}}]}
 examples:
   match:
     - "import { vi } from \"vitest\";\n\nvi.mock(\"./billing\");\n"
     - "import { expect, it, vi } from \"vitest\";\n\nit(\"charges\", () => {\n  const pay = vi.fn();\n  charge(pay);\n  expect(pay).toHaveBeenCalled();\n});\n"
+    - "import { expect, it, vi as v } from \"vitest\";\n\nit(\"charges\", () => {\n  const pay = v.fn();\n  charge(pay);\n  expect(pay).toHaveBeenCalled();\n});\n"
   no_match:
     - "import { expect, it } from \"vitest\";\n\nit(\"charges\", () => {\n  const gateway = new FakeGateway();\n  charge(gateway);\n  expect(gateway.charged).toBe(1);\n});\n"
+    - "import { expect, it, vi } from \"vitest\";\n\nit(\"reads the zone\", () => {\n  vi.stubEnv(\"TZ\", \"UTC\");\n  expect(zone()).toBe(\"UTC\");\n});\n"
+    - "import { expect, it } from \"vitest\";\nimport { fetcher as v } from \"./http\";\n\nit(\"fetches\", async () => {\n  expect(await v.fn()).toBe(1);\n});\n"

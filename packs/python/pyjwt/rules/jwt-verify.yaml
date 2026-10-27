@@ -1,0 +1,39 @@
+id: python/pyjwt/jwt-verify
+description: "jwt.decode() names the accepted algorithms (algorithms=[...], never \"none\") and keeps the signature check: no options={\"verify_signature\": False}, no verify=False."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      all:
+        - any:
+            # PyJWT's module-level API (jwt is its package)
+            - pattern: "jwt.decode($$$)"
+            - pattern: "$J.decode($$$)"
+        - has:
+            field: arguments
+            any:
+              # no algorithms: neither the keyword nor the third positional argument
+              - all:
+                  - not: {has: {kind: keyword_argument, regex: "^algorithms\\s*="}}
+                  - not: {has: {nthChild: 3, not: {kind: keyword_argument}}}
+                  - not: {has: {kind: dictionary_splat}}
+              - has: {kind: keyword_argument, regex: "^verify\\s*=\\s*False$"}
+              - has: {kind: keyword_argument, regex: "^options\\s*=", has: {stopBy: end, kind: pair, regex: "^[\"']verify_signature[\"']\\s*:\\s*False$"}}
+              - has: {kind: keyword_argument, regex: "^algorithms\\s*=", has: {stopBy: end, kind: string, regex: "^[\"'](?i:none)[\"']$"}}
+              - has: {nthChild: 3, kind: list, has: {kind: string, regex: "^[\"'](?i:none)[\"']$"}}
+    # a PyJWT / PyJWS instance by its type (§15.1), whatever it is called
+    where:
+      J: {type: {package: jwt, name: [PyJWT, PyJWS]}}
+examples:
+  deps: [{ecosystem: pypi, name: pyjwt, version: "2.15.1"}]
+  match:
+    - "import jwt\n\n\ndef claims(token: str, key: str) -> dict:\n    return jwt.decode(token, key)\n"
+    - "import jwt\n\n\ndef claims(token: str) -> dict:\n    return jwt.decode(token, options={\"verify_signature\": False})\n"
+    - "import jwt\n\n\ndef claims(token: str, key: str) -> dict:\n    return jwt.decode(token, key, algorithms=[\"HS256\", \"none\"])\n"
+    - "from jwt import PyJWT\n\ncodec = PyJWT()\n\n\ndef claims(token: str, key: str) -> dict:\n    return codec.decode(token, key, algorithms=[\"HS256\"], verify=False)\n"
+  no_match:
+    - "import jwt\n\n\ndef claims(token: str, key: str) -> dict:\n    return jwt.decode(token, key, algorithms=[\"HS256\"], audience=\"api\")\n"
+    - "import jwt\n\n\ndef claims(token: str, key: str) -> dict:\n    return jwt.decode(token, key, [\"RS256\"])\n"
+    - "from jwt import PyJWT\n\ncodec = PyJWT()\n\n\ndef claims(token: str, key: str) -> dict:\n    return codec.decode(token, key, algorithms=[\"RS256\"], options={\"verify_exp\": True})\n"
+    - "import base64\n\n\ndef raw(data: bytes) -> str:\n    return base64.b64decode(data).decode()\n"

@@ -1,0 +1,19 @@
+id: python/strawberry/query-limits
+description: "Advice: a strawberry.Schema() limits query depth with extensions=[QueryDepthLimiter(max_depth=...)] (and consider MaxTokensLimiter, MaxAliasesLimiter): without limits, one deeply nested query costs the server far more than the client."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: call
+      pattern: $C
+      not: {has: {field: arguments, has: {kind: keyword_argument, regex: "^extensions[[:space:]]*=[\\s\\S]*QueryDepthLimiter"}}}
+    where:
+      C: {type: {package: strawberry, name: Schema}}
+examples:
+  deps: [{ecosystem: pypi, name: strawberry-graphql, version: "0.338.0"}]
+  match:
+    - "import strawberry\n\n\n@strawberry.type\nclass Query:\n    hello: str\n\n\nschema = strawberry.Schema(query=Query)\n"
+  no_match:
+    - "import strawberry\nfrom strawberry.extensions import QueryDepthLimiter\n\n\n@strawberry.type\nclass Query:\n    hello: str\n\n\nschema = strawberry.Schema(\n    query=Query,\n    extensions=[\n        QueryDepthLimiter(max_depth=10),\n    ],\n)\n"
+    - "class Schema:\n    def __init__(self, query: type) -> None:\n        self.query = query\n\n\nclass Query:\n    pass\n\n\nschema = Schema(query=Query)\n"

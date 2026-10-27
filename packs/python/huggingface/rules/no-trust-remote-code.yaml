@@ -1,0 +1,10 @@
+id: python/huggingface/no-trust-remote-code
+description: "Advice: trust_remote_code=True (from_pretrained, pipeline, load_dataset, SentenceTransformer, vLLM) runs Python from the model or dataset repository. Prefer a model that does not need it; otherwise pin the revision= that was reviewed."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule: {kind: keyword_argument, regex: "^trust_remote_code[[:space:]]*=[[:space:]]*True$"}
+examples:
+  match: ["from transformers import AutoModel\n\nmodel = AutoModel.from_pretrained(\"org/model\", trust_remote_code=True)\n"]
+  no_match: ["from transformers import AutoModel\n\nmodel = AutoModel.from_pretrained(\"org/model\")\n", "from datasets import load_dataset\n\nds = load_dataset(\"org/data\", trust_remote_code=False)\n"]

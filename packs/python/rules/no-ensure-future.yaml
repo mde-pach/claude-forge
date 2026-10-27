@@ -1,0 +1,18 @@
+id: python/no-ensure-future
+description: "Schedule coroutines with asyncio.create_task() or a TaskGroup, not asyncio.ensure_future()."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: TID251
+    snippet: |
+      [tool.ruff.lint]
+      extend-select = ["TID251"]
+
+      [tool.ruff.lint.flake8-tidy-imports.banned-api]
+      "asyncio.ensure_future".msg = "use asyncio.create_task() or a TaskGroup"
+examples:
+  match:
+    - "import asyncio\n\n\nasync def main() -> None:\n    task = asyncio.ensure_future(asyncio.sleep(1))\n    await task\n"
+  no_match:
+    - "import asyncio\n\n\nasync def main() -> None:\n    task = asyncio.create_task(asyncio.sleep(1))\n    await task\n"

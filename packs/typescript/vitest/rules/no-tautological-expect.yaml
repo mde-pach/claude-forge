@@ -1,6 +1,6 @@
 id: typescript/vitest/no-tautological-expect
 description: Assertions test something. No expect() on a literal, such as expect(true).toBe(true).
-scope: {language: typescript, files: ["**/*.test.*", "**/*.spec.*", "**/__tests__/**", "!e2e/**"]}
+scope: {language: typescript, files: ["@ts-tests", "!@e2e-tests"]}
 enforce:
   - target: ast-grep
     mode: forbid

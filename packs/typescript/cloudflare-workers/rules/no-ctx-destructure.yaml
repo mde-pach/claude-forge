@@ -1,0 +1,22 @@
+id: typescript/cloudflare-workers/no-ctx-destructure
+description: "The Workers ExecutionContext is not destructured (const { waitUntil } = ctx): a method taken off it loses its this and throws Illegal invocation when called. Call ctx.waitUntil(...) on the context."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: variable_declarator
+      all:
+        - has: {field: name, kind: object_pattern}
+        - has: {field: value, pattern: $C}
+    where:
+      C: {type: {module: ["@cloudflare/workers-types", "@wrangler-types"], name: ExecutionContext}}
+examples:
+  deps: [{ecosystem: npm, name: "@cloudflare/workers-types", version: "5.20261010.1"}]
+  match:
+    - "/// <reference types=\"@cloudflare/workers-types\" />\n\nexport default {\n  async fetch(request: Request, env: unknown, ctx: ExecutionContext): Promise<Response> {\n    const { waitUntil } = ctx;\n    waitUntil(fetch(\"https://example.com/log\"));\n    return new Response(\"ok\");\n  },\n};\n"
+    - "/// <reference types=\"@cloudflare/workers-types\" />\n\nexport function track(context: ExecutionContext, work: Promise<void>): void {\n  const { waitUntil, passThroughOnException } = context;\n  passThroughOnException();\n  waitUntil(work);\n}\n"
+  no_match:
+    - "/// <reference types=\"@cloudflare/workers-types\" />\n\nexport default {\n  async fetch(request: Request, env: unknown, ctx: ExecutionContext): Promise<Response> {\n    ctx.waitUntil(fetch(\"https://example.com/log\"));\n    return new Response(\"ok\");\n  },\n};\n"
+    - "/// <reference types=\"@cloudflare/workers-types\" />\n\ninterface Job {\n  waitUntil: (p: Promise<void>) => void;\n}\n\nexport function run(ctx: Job, work: Promise<void>): void {\n  const { waitUntil } = ctx;\n  waitUntil(work);\n}\n"
+    - "/// <reference types=\"@cloudflare/workers-types\" />\n\nexport function headers(request: Request): string | null {\n  const { url } = request;\n  return url;\n}\n"

@@ -1,0 +1,15 @@
+id: typescript/vue/nuxt/no-shared-module-state
+description: "No ref(), reactive(), shallowRef() or shallowReactive() at module level in composables/ or utils/: on the server it is shared by every request (one user's data leaks to another). Use useState('key', ...) or create it inside the composable."
+scope: {language: typescript, files: ["composables/**", "app/composables/**", "utils/**", "app/utils/**"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      has: {field: function, regex: "^(ref|reactive|shallowRef|shallowReactive)$"}
+      inside:
+        kind: variable_declarator
+        inside: {kind: lexical_declaration, any: [{inside: {kind: program}}, {inside: {kind: export_statement, inside: {kind: program}}}]}
+examples:
+  match: ["import { ref } from \"vue\";\n\nconst user = ref<string | null>(null);\nexport function useUser() {\n  return user;\n}\n", "export const cart = reactive({ items: [] as string[] });\n"]
+  no_match: ["export function useUser() {\n  const user = ref<string | null>(null);\n  return user;\n}\n", "export const useCart = () => useState(\"cart\", () => [] as string[]);\n", "export const useFlag = () => {\n  const on = shallowRef(false);\n  return on;\n};\n"]

@@ -48,8 +48,10 @@ test(
     const { home: h, env } = home();
     expect(forge(["apply", "--user", "--yes"], "/", env).status).toBe(0);
     const s = JSON.parse(readFileSync(join(h, ".claude/settings.json"), "utf8"));
-    expect(s.permissions.deny).toEqual(expect.arrayContaining(["Bash(git reset --hard:*)", "Read(~/.ssh/**)", "Edit(**/.env)", "Bash(npm publish:*)"]));
-    expect(s.permissions.ask).toEqual(["Bash(bun add:*)", "Bash(uv add:*)", "Edit(~/.claude/skills/forge-user/**)", "Edit(~/.claude/forge.lock.json)"]);
+    expect(s.permissions.deny).toEqual(expect.arrayContaining(["Bash(git reset --hard:*)", "Read(~/.ssh/**)", "Edit(**/.env)", "Bash(npm publish:*)", "Edit(**/node_modules/**)"]));
+    expect(s.permissions.ask).toEqual([
+      ...["pnpm-lock.yaml", "package-lock.json", "npm-shrinkwrap.json", "yarn.lock", "bun.lock", "uv.lock", "poetry.lock", "Cargo.lock", "deno.lock", "pdm.lock", "pixi.lock", "Pipfile.lock", ".terraform.lock.hcl", "flake.lock", "mise.lock", "go.sum", "Gemfile.lock", "composer.lock", "packages.lock.json"].map((f) => `Edit(**/${f})`),
+      "Edit(~/.claude/skills/forge-user/**)", "Edit(~/.claude/forge.lock.json)"]);
     expect(s.sandbox).toEqual({ enabled: true, network: { allowedDomains: ["registry.npmjs.org", "pypi.org", "files.pythonhosted.org", "github.com"] } });
   },
   T,
@@ -144,6 +146,25 @@ describe.if(process.platform === "linux")("a sandbox that cannot start", () => {
       expect(a.stdout).toContain("--security-opt seccomp=unconfined");
       expect(a.stdout).toContain('set "sandbox": {"enabled": false} in ~/.claude/settings.json');
       expect(forge(["status", "--user"], "/", e).stdout).toContain("Sandbox: Claude Code's sandbox cannot start here");
+    },
+    T,
+  );
+
+  /**
+   * Docker masks /proc: bubblewrap creates the namespaces but cannot mount a new
+   * proc, which Claude Code's sandbox does. The stand-in fails only with --proc.
+   */
+  /** @rule safety/sandbox */
+  test(
+    "the probe mounts /proc like Claude Code's sandbox, so a container with a masked /proc is reported with systempaths=unconfined",
+    () => {
+      const { env } = home();
+      const bin = fakeBin(
+        "#!/bin/sh\nfor a; do [ \"$a\" = --proc ] && { echo \"bwrap: Can't mount proc on /newroot/proc: Operation not permitted\" >&2; exit 1; }; done\nexit 0\n",
+      );
+      const a = forge(["apply", "--user", "--yes"], "/", { ...env, PATH: `${bin}:${env.PATH ?? process.env.PATH}` });
+      expect(a.stdout).toContain("bubblewrap failed (bwrap: Can't mount proc on /newroot/proc: Operation not permitted)");
+      expect(a.stdout).toContain("--security-opt systempaths=unconfined");
     },
     T,
   );

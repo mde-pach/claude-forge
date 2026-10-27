@@ -1,0 +1,10 @@
+id: typescript/npm/no-legacy-peer-deps
+description: npm install, ci and add run without --legacy-peer-deps or --force; resolve the peer dependency conflict instead of hiding it.
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: deny
+    pattern: '(^|[^A-Za-z0-9_-])npm[[:space:]]+(install|i|ci|add)[[:space:]][^;&|]*(--legacy-peer-deps|--force)'
+examples:
+  match: ["npm install --legacy-peer-deps", "npm i react@19 --force", "npm ci --legacy-peer-deps"]
+  no_match: ["npm install", "npm i react@19", "npm audit fix --force", "npm ci && git push --force-with-lease"]

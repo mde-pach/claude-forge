@@ -1,0 +1,18 @@
+id: openapi/lint
+description: "OpenAPI documents pass the project's linter on the lines the change adds: the pinned Redocly CLI with redocly.yaml, the pinned Spectral CLI with .spectral.yaml (.yml, .json), both when both are configured, else Redocly's recommended rules; errors count."
+scope: {language: any, files: ["**/*.yaml", "**/*.yml", "**/*.json"]}
+enforce:
+  - target: check
+    stage: lint
+    run: forge_openapi_lint
+    when_changed: ["**/*.yaml", "**/*.yml", "**/*.json"]
+examples:
+  match:
+    - files: {openapi.yaml: "openapi: 3.1.0\ninfo:\n  title: Shop\n  version: 1.0.0\n  license: {name: MIT, url: https://opensource.org/licenses/MIT}\nservers:\n  - url: https://api.example.com\nsecurity: []\npaths:\n  /orders:\n    get:\n      summary: List orders\n      operationId: listOrders\n      responses:\n        \"200\": {description: OK}\n        \"400\": {description: Bad request}\n    post:\n      operationId: listOrders\n      summary: Create an order\n      responses:\n        \"201\": {description: Created}\n        \"400\": {description: Bad request}\n"}
+    - head: {.spectral.yaml: "extends: [\"spectral:oas\"]\nrules:\n  operation-tags: error\n"}
+      files: {api/openapi.yaml: "openapi: 3.1.0\ninfo: {title: Shop, version: 1.0.0}\npaths:\n  /orders:\n    get:\n      responses:\n        \"200\": {description: OK}\n"}
+  no_match:
+    - files: {openapi.yaml: "openapi: 3.1.0\ninfo:\n  title: Shop\n  version: 1.0.0\n  license: {name: MIT, url: https://opensource.org/licenses/MIT}\nservers:\n  - url: https://api.example.com\nsecurity: []\npaths:\n  /orders:\n    get:\n      summary: List orders\n      operationId: listOrders\n      responses:\n        \"200\": {description: OK}\n        \"400\": {description: Bad request}\n"}
+    - head: {.spectral.yaml: "extends: [\"spectral:oas\"]\nrules:\n  operation-tags: error\n"}
+      files: {api/openapi.yaml: "openapi: 3.1.0\ninfo: {title: Shop, version: 1.0.0}\npaths:\n  /orders:\n    get:\n      tags: [orders]\n      responses:\n        \"200\": {description: OK}\n"}
+    - files: {config/app.yaml: "servers: []\n"}

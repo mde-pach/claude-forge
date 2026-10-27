@@ -1,0 +1,10 @@
+id: typescript/yarn/no-other-pm
+description: Dependencies are managed with Yarn; installing with npm, pnpm or bun asks.
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: ask
+    pattern: '(^|[^A-Za-z0-9_-])(npm[[:space:]]+(install|i|ci|add)|pnpm|bun[[:space:]]+(install|i|add))([[:space:];&|)]|$)'
+examples:
+  match: ["npm install lodash", "npm ci", "pnpm add zod", "pnpm install", "bun add zod", "bun install"]
+  no_match: ["yarn add zod", "yarn install --immutable", "npm view zod version", "npm run build", "bun run build"]

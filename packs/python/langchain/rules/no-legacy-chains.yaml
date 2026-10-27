@@ -1,0 +1,20 @@
+id: python/langchain/no-legacy-chains
+description: "No langchain_classic imports (LLMChain, ConversationChain, RetrievalQA, initialize_agent, AgentExecutor, ...): the legacy chains and agents left langchain 1.0. Compose LCEL runnables, or use langchain.agents.create_agent or LangGraph."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: TID251
+    snippet: |
+      [tool.ruff.lint]
+      extend-select = ["TID251"]
+
+      [tool.ruff.lint.flake8-tidy-imports.banned-api]
+      "langchain_classic".msg = "legacy chains and agents; use LCEL runnables, langchain.agents.create_agent or LangGraph"
+examples:
+  match:
+    - "from langchain_classic.chains import LLMChain\n\nchain = LLMChain(llm=llm, prompt=prompt)\n"
+    - "import langchain_classic.agents\n\nagent = langchain_classic.agents.initialize_agent(tools, llm)\n"
+  no_match:
+    - "from langchain.agents import create_agent\n\nagent = create_agent(model=\"claude-opus-5-5\", tools=tools)\n"
+    - "from langchain_core.output_parsers import StrOutputParser\n\nchain = prompt | llm | StrOutputParser()\n"

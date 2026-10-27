@@ -1,0 +1,11 @@
+id: python/no-possibly-missing-submodule
+description: Import the submodule you use (import xml.etree.ElementTree), not only its parent package.
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ty
+    expects: possibly-missing-submodule
+    snippet: '[tool.ty.rules] possibly-missing-submodule = "error"'
+examples:
+  match: ["import xml\n\n\ndef parse(text: str) -> object:\n    return xml.etree.ElementTree.fromstring(text)\n"]
+  no_match: ["import xml.etree.ElementTree\n\n\ndef parse(text: str) -> object:\n    return xml.etree.ElementTree.fromstring(text)\n"]

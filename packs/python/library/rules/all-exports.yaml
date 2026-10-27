@@ -1,0 +1,40 @@
+id: python/library/all-exports
+description: "In a module that defines __all__, a new public top-level function or class (a name without a leading underscore) is listed in __all__, or named with a leading underscore if it is internal. Counted per module: more unlisted public names than in the base fails."
+scope: {language: python, files: ["!**/tests/**", "!@python-tests", "!**/__main__.py"]}
+enforce:
+  - target: ast-grep
+    mode: no-increase
+    rule:
+      kind: identifier
+      pattern: $N
+      all:
+        - any:
+            - inside: {field: name, kind: function_definition, stopBy: neighbor, inside: {kind: module, stopBy: neighbor}}
+            - inside: {field: name, kind: class_definition, stopBy: neighbor, inside: {kind: module, stopBy: neighbor}}
+            - inside: {field: name, kind: function_definition, stopBy: neighbor, inside: {kind: decorated_definition, stopBy: neighbor, inside: {kind: module, stopBy: neighbor}}}
+            - inside: {field: name, kind: class_definition, stopBy: neighbor, inside: {kind: decorated_definition, stopBy: neighbor, inside: {kind: module, stopBy: neighbor}}}
+        - inside:
+            kind: module
+            stopBy: end
+            has: {kind: expression_statement, has: {kind: assignment, has: {field: left, regex: "^__all__$"}}}
+        - not:
+            inside:
+              kind: module
+              stopBy: end
+              has:
+                kind: expression_statement
+                has:
+                  any:
+                    - {kind: assignment, all: [{has: {field: left, regex: "^__all__$"}}, {has: {field: right, has: {kind: string, has: {kind: string_content, pattern: $N}}}}]}
+                    - {kind: augmented_assignment, all: [{has: {field: left, regex: "^__all__$"}}, {has: {field: right, has: {kind: string, has: {kind: string_content, pattern: $N}}}}]}
+    constraints:
+      N: {regex: "^[^_]"}
+examples:
+  match:
+    - "__all__ = [\"Client\", \"connect\"]\n\n\nclass Client:\n    pass\n\n\ndef connect() -> Client:\n    return Client()\n\n\ndef disconnect(client: Client) -> None:\n    pass\n"
+    - "__all__ = (\"parse\",)\n\n\ndef parse(text: str) -> dict:\n    return {}\n\n\n@dataclass\nclass ParseOptions:\n    strict: bool = False\n"
+  no_match:
+    - "__all__ = [\"Client\", \"connect\", \"disconnect\"]\n\n\nclass Client:\n    pass\n\n\ndef connect() -> Client:\n    return Client()\n\n\ndef disconnect(client: Client) -> None:\n    pass\n"
+    - "__all__ = [\"connect\"]\n\n\ndef connect() -> None:\n    _handshake()\n\n\ndef _handshake() -> None:\n    def inner() -> None:\n        pass\n"
+    - "def helper() -> None:\n    pass\n"
+    - "__all__ = [\"connect\"]\n__all__ += [\"disconnect\"]\n\n\ndef connect() -> None:\n    pass\n\n\ndef disconnect() -> None:\n    pass\n"

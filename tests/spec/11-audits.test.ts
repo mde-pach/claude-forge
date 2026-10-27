@@ -3,24 +3,27 @@
  *
  * For each `tool` target of an active rule, Forge runs the project's own tool
  * with the project's own config on the rule's examples. Every `match` example
- * must get the expected diagnostic **at a level that fails the tool's run**
- * (an error, or a warning when the tool fails on warnings), and no `no_match`
+ * must get the expected diagnostic **as an error**, and no `no_match`
  * example may get it; then the rule is satisfied, and stricter configs satisfy
  * it automatically. A diagnostic that is only a warning does not enforce
- * anything: the rule is unsatisfied. Severity is read from the tools'
+ * anything, since the checks never block on warnings (§10.1), even when the tool
+ * exits non-zero on them: the rule is unsatisfied. Severity is read from the tools'
  * machine-readable output (Biome's JSON reporter, `ruff --output-format json`,
- * `basedpyright --outputjson`; tsc only has errors). Otherwise `forge status`
- * prints the snippet to add. Forge never edits a tool config.
- * These tests install real Biome, TypeScript, ruff and basedpyright once
- * (versions pinned in tests/helpers.ts).
+ * `ty check --output-format gitlab`; tsc only has errors). ty is Forge's own, pinned
+ * (run through uvx with the project's config). Otherwise `forge status` prints the
+ * snippet to add. Forge never edits a tool config.
+ * These tests install real Biome, TypeScript and ruff once (versions pinned in
+ * tests/helpers.ts); ty comes through uvx.
  */
 import { beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { parse as parseToml } from "smol-toml";
+import { mergeTomlSnippets } from "../../src/snippets";
+import { mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { auditTarget, examplePath } from "../../src/audit";
 import { loadPacks } from "../../src/packs";
-import { commitAll, ensureTools, forge, git, hasBun, hasUv, linkTools, ROOT, sampleRepo, TOOL_VERSIONS } from "../helpers";
+import { commitAll, EXAMPLE_NODE_TOOLS, ensureNodeTools, ensureTools, forge, git, hasBun, hasUv, linkTools, ROOT, sampleRepo, TOOL_VERSIONS } from "../helpers";
 import type { Rule, ToolTarget } from "../../src/types";
 
 const T = 300_000;
@@ -85,7 +88,7 @@ describe.if(hasBun)("Biome and tsc", () => {
     () => {
       const out = audit(repo("nextjs-prisma-app", { "biome.json": JSON.stringify({ linter: { enabled: true, rules: { recommended: true } } }), "tsconfig.json": TSCONFIG(true) }));
       expect(out).toContain(
-        "forge:typescript/no-explicit-any biome lint/suspicious/noExplicitAny: unsatisfied (lint/suspicious/noExplicitAny is only a warning in your biome config, so biome does not fail on it",
+        "forge:typescript/no-explicit-any biome lint/suspicious/noExplicitAny: unsatisfied (lint/suspicious/noExplicitAny is only a warning in your biome config, and Forge's checks do not block on warnings",
       );
       expect(out).toContain('add to the biome config: "linter": {"rules": {"suspicious": {"noExplicitAny": "error"}}}');
     },
@@ -103,54 +106,78 @@ describe.if(hasBun)("Biome and tsc", () => {
   );
 });
 
-describe.if(hasUv)("ruff and basedpyright", () => {
-  const PYPROJECT = (select: string[], any: string, failOnWarnings?: boolean) =>
-    `[project]\nname = "fastapi-app"\nversion = "0.1.0"\ndependencies = ["fastapi>=0.115", "sqlalchemy>=2.0.36", "alembic>=1.14", "pydantic>=2.9"]\n\n[dependency-groups]\ndev = ["pytest>=8.3", "ruff>=0.8", "basedpyright>=1.22"]\n\n[tool.ruff.lint]\nselect = ${JSON.stringify(select)}\n\n[tool.basedpyright]\nreportExplicitAny = "${any}"\n${failOnWarnings === undefined ? "" : `failOnWarnings = ${failOnWarnings}\n`}`;
+describe.if(hasUv)("ruff and ty", () => {
+  const PYPROJECT = (select: string[], deprecated: string, errorOnWarning?: boolean) =>
+    `[project]\nname = "fastapi-app"\nversion = "0.1.0"\ndependencies = ["fastapi>=0.115", "sqlalchemy>=2.0.36", "alembic>=1.14", "pydantic>=2.9"]\n\n[dependency-groups]\ndev = ["pytest>=8.3", "ruff>=0.8"]\n\n[tool.ruff.lint]\nselect = ${JSON.stringify(select)}\n\n[tool.ty.rules]\ndeprecated = "${deprecated}"\n${errorOnWarning === undefined ? "" : `\n[tool.ty.terminal]\nerror-on-warning = ${errorOnWarning}\n`}`;
 
-  /** @rule python/no-bare-except python/no-explicit-any */
+  /** @rule python/no-bare-except python/no-explicit-any python/no-deprecated */
   test(
-    "a correct config is satisfied: E722 and ANN401 selected, reportExplicitAny on",
+    "a correct config is satisfied: E722 and ANN401 selected, ty's deprecated at error",
     () => {
       const out = audit(repo("fastapi-app", { "pyproject.toml": PYPROJECT(["E", "ANN401"], "error") }));
       expect(out).toContain("forge:python/no-bare-except ruff E722: satisfied");
       expect(out).toContain("forge:python/no-explicit-any ruff ANN401: satisfied");
-      expect(out).toContain("forge:python/no-explicit-any basedpyright reportExplicitAny: satisfied");
+      expect(out).toContain("forge:python/no-deprecated ty deprecated: satisfied");
     },
     T,
   );
 
-  /** @rule python/no-bare-except python/no-explicit-any */
+  /**
+   * Several rules add entries to the same tables (ruff's `extend-select` and banned-api,
+   * ty's `rules`), and a TOML table may appear only once: next to each rule's snippet,
+   * status prints one block per tool holding them all, which parses.
+   * @rule python/no-bare-except python/no-explicit-any python/no-deprecated
+   */
+  test(
+    "the snippets of a tool's unsatisfied audits are also printed merged into one valid block",
+    () => {
+      const dir = repo("fastapi-app", { "pyproject.toml": PYPROJECT(["F"], "ignore") });
+      const json = JSON.parse(forge(["status", "--json"], dir).stdout) as { snippets: Record<string, string> };
+      const ruff = parseToml(json.snippets.ruff!) as { tool: { ruff: { lint: { "extend-select": string[] } } } };
+      expect(ruff.tool.ruff.lint["extend-select"]).toEqual(expect.arrayContaining(["E722", "ANN401", "S501", "DTZ005"]));
+      const ty = parseToml(json.snippets.ty!) as { tool: { ty: { rules: Record<string, string> } } };
+      expect(ty.tool.ty.rules).toMatchObject({ deprecated: "error", "unused-awaitable": "error", "redundant-cast": "error" });
+      expect(audit(dir)).toContain("forge: to satisfy every unsatisfied ruff audit, add to the ruff config:\n    [tool.ruff.lint]\n    extend-select = [");
+    },
+    T,
+  );
+
+  /** @rule python/no-bare-except python/no-explicit-any python/no-deprecated */
   test(
     "an incorrect config is unsatisfied and status prints the snippet to add",
     () => {
-      const out = audit(repo("fastapi-app", { "pyproject.toml": PYPROJECT(["F"], "none") }));
+      const out = audit(repo("fastapi-app", { "pyproject.toml": PYPROJECT(["F"], "ignore") }));
       expect(out).toContain("forge:python/no-bare-except ruff E722: unsatisfied");
       expect(out).toContain('add to the ruff config: [tool.ruff.lint] extend-select = ["E722"]');
       expect(out).toContain("forge:python/no-explicit-any ruff ANN401: unsatisfied");
-      expect(out).toContain("forge:python/no-explicit-any basedpyright reportExplicitAny: unsatisfied");
+      expect(out).toContain("forge:python/no-deprecated ty deprecated: unsatisfied");
+      expect(out).toContain('add to the ty config: [tool.ty.rules] deprecated = "error"');
     },
     T,
   );
 
-  /** @rule python/no-explicit-any */
+  /** @rule python/no-deprecated */
   test(
-    "reportExplicitAny as a warning, with failOnWarnings off, does not fail basedpyright: unsatisfied",
+    "deprecated as a warning, without error-on-warning, does not enforce the rule: unsatisfied",
     () => {
-      const out = audit(repo("fastapi-app", { "pyproject.toml": PYPROJECT(["E", "ANN401"], "warning", false) }));
-      expect(out).toContain(
-        "forge:python/no-explicit-any basedpyright reportExplicitAny: unsatisfied (reportExplicitAny is only a warning in your basedpyright config, so basedpyright does not fail on it",
-      );
-      expect(out).toContain('add to the basedpyright config: [tool.basedpyright] reportExplicitAny = "error"');
+      const out = audit(repo("fastapi-app", { "pyproject.toml": PYPROJECT(["E", "ANN401"], "warn", false) }));
+      expect(out).toContain("forge:python/no-deprecated ty deprecated: unsatisfied (deprecated is only a warning in your ty config, and Forge's checks do not block on warnings");
     },
     T,
   );
 
-  /** @rule python/no-explicit-any */
+  /**
+   * ty exits 1 on warnings with `terminal.error-on-warning`, but its warnings still do
+   * not block a change (§10.1: warning-only output is not attributed), so the rule asks
+   * for the error level.
+   * @rule python/no-deprecated
+   */
   test(
-    "reportExplicitAny as a warning, with failOnWarnings on, fails basedpyright: satisfied",
+    "deprecated as a warning, with error-on-warning, does not enforce the rule either: unsatisfied",
     () => {
-      const out = audit(repo("fastapi-app", { "pyproject.toml": PYPROJECT(["E", "ANN401"], "warning", true) }));
-      expect(out).toContain("forge:python/no-explicit-any basedpyright reportExplicitAny: satisfied");
+      const out = audit(repo("fastapi-app", { "pyproject.toml": PYPROJECT(["E", "ANN401"], "warn", true) }));
+      expect(out).toContain("forge:python/no-deprecated ty deprecated: unsatisfied (deprecated is only a warning in your ty config");
+      expect(out).toContain('add to the ty config: [tool.ty.rules] deprecated = "error"');
     },
     T,
   );
@@ -193,19 +220,56 @@ function projectFor(t: ToolTarget, on: boolean): string {
     // inside a package, as in a real project: Biome resolves imported types there
     // (noDeprecatedImports) and reads the React version (noReactForwardRef is for React 19)
     writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "audit", private: true, dependencies: { react: TOOL_VERSIONS.react } }));
-    writeFileSync(join(dir, "biome.json"), JSON.stringify({ linter: { enabled: true, rules: { recommended: false, [group!]: { [name!]: on ? "error" : "off" } } } }));
+    // a Turborepo config declaring no env var: noUndeclaredEnvVars checks env reads against it, and is silent without one
+    writeFileSync(join(dir, "turbo.json"), JSON.stringify({ tasks: {} }));
+    // the snippet's html section too: Vue, Svelte and Astro templates are linted only with html.experimentalFullSupportEnabled
+    const { html } = JSON.parse(`{${t.snippet}}`) as { html?: object };
+    writeFileSync(join(dir, "biome.json"), JSON.stringify({ ...(html ? { html } : {}), linter: { enabled: true, rules: { recommended: false, [group!]: { [name!]: on ? "error" : "off" } } } }));
+  } else if (t.tool === "eslint") {
+    // ESLint, typescript-eslint (type-aware: projectService, on TypeScript 6) and the plugins, from the tools cache;
+    // on: the rule's own snippet (its level and options), off: "off"
+    symlinkSync(join(ensureNodeTools("lint", EXAMPLE_NODE_TOOLS.lint!), "node_modules"), join(dir, "node_modules"));
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "audit", private: true, type: "module" }));
+    writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ compilerOptions: { strict: true, noEmit: true, skipLibCheck: true, module: "esnext", moduleResolution: "bundler", target: "es2022", lib: ["es2023", "dom"], jsx: "react-jsx" }, include: ["**/*.ts", "**/*.tsx"] }));
+    const rules = on ? (JSON.parse(`{${t.snippet}}`) as { rules: object }).rules : { [t.expects]: "off" };
+    writeFileSync(
+      join(dir, "eslint.config.mjs"),
+      `import tseslint from "typescript-eslint";\nimport testingLibrary from "eslint-plugin-testing-library";\n\nexport default [{ files: ["**/*.ts", "**/*.tsx"], languageOptions: { parser: tseslint.parser, parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname } }, plugins: { "@typescript-eslint": tseslint.plugin, "testing-library": testingLibrary }, rules: ${JSON.stringify(rules)} }];\n`,
+    );
+    return dir;
   } else if (t.tool === "tsc") {
     // on: the rule's own snippet (e.g. strict plus noUncheckedIndexedAccess); off: not strict
     const options = on ? (JSON.parse(`{${t.snippet}}`) as { compilerOptions: object }).compilerOptions : { strict: false };
     writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ compilerOptions: { ...options, noEmit: true, skipLibCheck: true } }));
   } else {
-    const ruff = `[tool.ruff.lint]\nselect = ["${t.tool === "ruff" && on ? t.expects : "F"}"]\n`;
-    const pyright = `[tool.basedpyright]\npythonVersion = "3.12"\n${t.tool === "basedpyright" ? `${t.expects} = "${on ? "error" : "none"}"\n` : ""}`;
-    writeFileSync(join(dir, "pyproject.toml"), `[project]\nname = "audit"\nversion = "0.1.0"\n\n${ruff}\n${pyright}`);
+    // on: the code selected, with the rule's snippet's tables (a banned-api table for TID251)
+    const ruff =
+      t.tool === "ruff" && on ? `${mergeTomlSnippets([`[tool.ruff.lint] select = ["${t.expects}"]`, t.snippet])}\n` : `[tool.ruff.lint]\nselect = ["F"]\n`;
+    const ty = `[tool.ty.rules]\n${t.tool === "ty" ? `${t.expects} = "${on ? "error" : "ignore"}"\n` : ""}`;
+    writeFileSync(join(dir, "pyproject.toml"), `[project]\nname = "audit"\nversion = "0.1.0"\nrequires-python = ">=3.12"\n\n${ruff}\n${ty}`);
   }
-  linkTools(dir, t.tool === "ruff" || t.tool === "basedpyright" ? "python" : "node");
+  linkTools(dir, t.tool === "ruff" || t.tool === "ty" ? "python" : "node");
   return dir;
 }
+
+/**
+ * ESLint reports by file in its JSON format (severity 2 an error, 1 a warning). An example
+ * ESLint could not parse (a type-aware config whose projectService does not cover the
+ * file) proves nothing either way: the audit is skipped with ESLint's message.
+ * @rule typescript/eslint/type-checked
+ */
+test.if(hasBun)("an ESLint audit is satisfied at error, unsatisfied as a warning, and skipped when ESLint cannot parse the example", () => {
+  const rule = toolRules.find((r) => r.id === "typescript/eslint/type-checked")!;
+  const t = rule.enforce.find((x): x is ToolTarget => x.target === "tool" && x.expects === "@typescript-eslint/no-unsafe-assignment")!;
+  const dir = projectFor(t, true);
+  expect(auditTarget(dir, rule, t).status).toBe("satisfied");
+  writeFileSync(join(dir, "eslint.config.mjs"), readFileSync(join(dir, "eslint.config.mjs"), "utf8").replace('"error"', '"warn"'));
+  expect(auditTarget(dir, rule, t).detail).toContain("is only a warning in your eslint config");
+  writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ compilerOptions: { strict: true }, include: ["src"] }));
+  const r = auditTarget(dir, rule, t);
+  expect(r.status).toBe("skipped");
+  expect(r.detail).toContain("could not read eslint's output: eslint could not parse the example");
+}, T);
 
 const toolRules = [...loadPacks(join(ROOT, "packs")).values()].flatMap((p) => p.rules).filter((r) => r.enforce.some((t) => t.target === "tool"));
 

@@ -1,0 +1,36 @@
+id: python/lazy-log-args
+description: "A logging Logger or LoggerAdapter call (debug, info, warning, error, exception, critical, and log's message) passes a constant format string and its arguments (log.info(\"user %s\", uid)), not an f-string, .format() or %-formatted string: the message would be built even when the level is off, and log tools could not group it."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call
+      any:
+        - all:
+            - pattern: "$L.$M($$$)"
+            - has: {field: arguments, has: {nthChild: 1, matches: eager}}
+        # log(level, msg, …): the message is the second argument
+        - all:
+            - pattern: "$L.log($$$)"
+            - has: {field: arguments, has: {nthChild: 2, matches: eager}}
+    constraints:
+      M: {regex: "^(debug|info|warning|error|exception|critical)$"}
+    utils:
+      eager:
+        any:
+          - {kind: string, regex: "^[rRbBuU]?[fF]"}
+          - {kind: call, has: {field: function, kind: attribute, regex: "\\.format$"}}
+          - {kind: binary_operator, regex: "^[\\s\\S]*%[\\s\\S]*$", has: {field: left, kind: string}}
+    # the receiver is a logging Logger by its type (§15.1), whatever it is called: not ruff's
+    # G001-G004, which pick loggers by their names
+    where:
+      L: {type: {module: logging, name: [Logger, LoggerAdapter]}}
+examples:
+  match:
+    - "import logging\n\nlogger = logging.getLogger(__name__)\n\n\ndef login(uid: int) -> None:\n    logger.info(f\"user {uid} logged in\")\n"
+    - "import logging\n\naudit = logging.LoggerAdapter(logging.getLogger(\"audit\"), {\"app\": \"shop\"})\n\n\ndef login(uid: int, ip: str) -> None:\n    audit.warning(\"user {} from {}\".format(uid, ip))\n    audit.error(\"user %s failed\" % uid)\n"
+    - "import logging\n\nlog = logging.getLogger(__name__)\n\n\ndef login(uid: int) -> None:\n    log.log(logging.INFO, rf\"user {uid}\")\n"
+  no_match:
+    - "import logging\n\nlogger = logging.getLogger(__name__)\n\n\ndef login(uid: int) -> None:\n    logger.info(\"user %s logged in\", uid)\n    logger.log(logging.INFO, \"user %s\", uid)\n"
+    - "class Console:\n    def info(self, text: str) -> None:\n        print(text)\n\n\nlogger = Console()\n\n\ndef login(uid: int) -> None:\n    logger.info(f\"user {uid} logged in\")\n"

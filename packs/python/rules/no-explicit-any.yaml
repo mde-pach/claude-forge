@@ -3,10 +3,6 @@ description: No explicit Any. Use a precise type, a Protocol, or object with nar
 scope: {language: python}
 enforce:
   - target: tool
-    tool: basedpyright
-    expects: reportExplicitAny
-    snippet: '[tool.basedpyright] reportExplicitAny = "error"'
-  - target: tool
     tool: ruff
     expects: ANN401
     snippet: '[tool.ruff.lint] extend-select = ["ANN401"]'

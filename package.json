@@ -18,8 +18,9 @@
   "scripts": {
     "build": "bun build src/cli.ts --target=node --outfile=dist/forge.js && bun scripts/postbuild.mjs",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tests/tsconfig.json",
-    "test": "bun run build && bun test --timeout 300000 ./tests/spec/*.test.ts",
-    "test:report": "bun run build && mkdir -p test-results && bun test --timeout 300000 --reporter=junit --reporter-outfile=test-results/$(node -p process.platform).xml ./tests/spec/*.test.ts",
+    "test": "bun run build && bun tests/run.ts",
+    "test:packs": "bun scripts/test-packs.ts",
+    "test:report": "bun run build && bun tests/run.ts --junit test-results/$(node -p process.platform).xml",
     "docs:dev": "bun --bun astro dev --root docs",
     "docs:build": "bun --bun astro build --root docs",
     "docs:preview": "bun --bun astro preview --root docs"

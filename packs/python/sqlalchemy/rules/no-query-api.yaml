@@ -5,8 +5,21 @@ enforce:
   - target: ast-grep
     mode: forbid
     rule: {pattern: "$S.query($$$)"}
-    # Only session-like receivers: other libraries also have .query().
-    constraints: {S: {regex: "(^|\\.|_)([Ss]ession|db|sess|s)$"}}
+    # The receiver is a SQLAlchemy session by its type (§15.1), whatever it is called:
+    # other libraries have .query() too, and a project class named Session is not one.
+    where:
+      S: {type: {package: sqlalchemy, name: [Session, scoped_session, AsyncSession, async_scoped_session]}}
 examples:
-  match: ["users = session.query(User).all()", "db.query(User).filter(User.id == 1)"]
-  no_match: ["results = index.query(\"text\")", "users = (await session.scalars(select(User))).all()", "query = select(User)"]
+  deps: [{ecosystem: pypi, name: sqlalchemy, version: "2.0.44"}]
+  match:
+    - "from sqlalchemy.orm import Session\n\n\ndef users(session: Session):\n    return session.query(int).all()\n"
+    - "from sqlalchemy.orm import Session as Db\n\n\ndef first(db: Db):\n    return db.query(int).first()\n"
+    - "from sqlalchemy import create_engine\nfrom sqlalchemy.orm import sessionmaker\n\nSessionLocal = sessionmaker(create_engine(\"sqlite://\"))\n\n\ndef count():\n    with SessionLocal() as s:\n        return s.query(int).count()\n"
+    - "from sqlalchemy import create_engine\nfrom sqlalchemy.orm import scoped_session, sessionmaker\n\ndb = scoped_session(sessionmaker(create_engine(\"sqlite://\")))\nrows = db.query(int).all()\n"
+    - "from sqlalchemy.orm import Session\n\n\nclass AppSession(Session):\n    pass\n\n\ndef rows(s: AppSession):\n    return s.query(int).all()\n"
+    - "from sqlalchemy import create_engine\nfrom sqlalchemy.orm import sessionmaker\n\nrows = sessionmaker(create_engine(\"sqlite://\"))().query(int).all()\n"
+  no_match:
+    - "from sqlalchemy import select\nfrom sqlalchemy.orm import Session\n\n\ndef users(session: Session):\n    return session.scalars(select(int)).all()\n"
+    - "class Session:\n    def query(self, q: str) -> list[str]:\n        return [q]\n\n\ndef search(session: Session):\n    return session.query(\"text\")\n"
+    - "class Index:\n    def query(self, q: str) -> list[str]:\n        return [q]\n\n\nresults = Index().query(\"text\")\n"
+    - "from typing import Any\n\n\ndef f(db: Any):\n    return db.query(int)\n"

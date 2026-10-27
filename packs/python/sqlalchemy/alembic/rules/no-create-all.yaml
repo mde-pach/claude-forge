@@ -1,0 +1,18 @@
+id: python/sqlalchemy/alembic/no-create-all
+description: "No MetaData.create_all() outside tests (Base.metadata.create_all, SQLModel.metadata.create_all, conn.run_sync(Base.metadata.create_all)): Alembic manages the schema, and tables created behind its back diverge between environments and break the next autogenerate. Add a revision instead."
+scope: {language: python, files: ["!**/tests/**", "!**/test_*.py", "!**/*_test.py", "!**/conftest.py"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    # the attribute, so both create_all(engine) and run_sync(metadata.create_all) match
+    rule: {kind: attribute, pattern: $M.create_all}
+    where:
+      M: {type: {package: sqlalchemy, name: MetaData}}
+examples:
+  deps: [{ecosystem: pypi, name: sqlalchemy, version: "2.0.44"}]
+  match:
+    - "from sqlalchemy import create_engine\nfrom sqlalchemy.orm import DeclarativeBase\n\n\nclass Base(DeclarativeBase):\n    pass\n\n\nBase.metadata.create_all(create_engine(\"sqlite://\"))\n"
+    - "from sqlalchemy.ext.asyncio import AsyncEngine\nfrom sqlalchemy.orm import DeclarativeBase\n\n\nclass Base(DeclarativeBase):\n    pass\n\n\nasync def init(engine: AsyncEngine) -> None:\n    async with engine.begin() as conn:\n        await conn.run_sync(Base.metadata.create_all)\n"
+  no_match:
+    - "class Registry:\n    def create_all(self) -> None:\n        pass\n\n\nRegistry().create_all()\n"
+    - "from sqlalchemy import MetaData, create_engine\n\nmetadata = MetaData()\nmetadata.reflect(create_engine(\"sqlite://\"))\n"

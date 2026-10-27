@@ -1,0 +1,51 @@
+id: typescript/drizzle/no-sql-raw
+description: "No sql.raw() (also under an import alias of drizzle-orm's sql) built from a template with ${} or a concatenation, directly or through a variable declared from one in the same function or module; the sql`...` tag binds values as parameters (sql.identifier() for names)."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      all:
+        - any:
+            - has: {field: function, regex: "^sql\\.raw$"}
+            - all:
+                - has: {field: function, kind: member_expression, all: [{has: {field: object, kind: identifier, pattern: $S}}, {has: {field: property, regex: "^raw$"}}]}
+                - inside:
+                    kind: program
+                    stopBy: end
+                    has:
+                      kind: import_statement
+                      all:
+                        - has: {field: source, regex: "^[\"']drizzle-orm(/[^\"']*)?[\"']$"}
+                        - has: {stopBy: end, kind: import_specifier, all: [{has: {field: name, regex: "^sql$"}}, {has: {field: alias, pattern: $S}}]}
+        - has:
+            field: arguments
+            has:
+              nthChild: 1
+              any:
+                - {kind: template_string, has: {kind: template_substitution}}
+                - {kind: binary_expression, regex: "\\+"}
+                - all:
+                    - {kind: identifier, pattern: $Q}
+                    - inside:
+                        stopBy: end
+                        any: [{kind: statement_block}, {kind: program}]
+                        has:
+                          stopBy: end
+                          kind: variable_declarator
+                          all:
+                            - has: {field: name, pattern: $Q}
+                            - has: {field: value, any: [{kind: template_string, has: {kind: template_substitution}}, {kind: binary_expression, regex: "\\+"}]}
+examples:
+  match:
+    - "await db.execute(sql.raw(`SELECT * FROM users WHERE email = '${email}'`));"
+    - "const order = sql.raw(\"ORDER BY \" + column);"
+    - "export async function find(email: string) {\n  const q = `SELECT * FROM u WHERE e = '${email}'`;\n  return db.execute(sql.raw(q));\n}\n"
+    - "import { sql as s } from \"drizzle-orm\";\n\nawait db.execute(s.raw(`DELETE FROM ${table}`));\n"
+  no_match:
+    - "await db.execute(sql`SELECT * FROM users WHERE email = ${email}`);"
+    - "const now = sql.raw(\"now()\");"
+    - "const by = sql`ORDER BY ${sql.identifier(column)}`;"
+    - "const NOW = \"now()\";\nconst now = sql.raw(NOW);\n"
+    - "import { sql as s } from \"drizzle-orm\";\n\nconst cache = { raw: (x: string) => x };\nconst v = cache.raw(`k:${id}`);\n"

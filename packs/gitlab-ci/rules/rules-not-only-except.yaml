@@ -1,0 +1,26 @@
+id: gitlab-ci/rules-not-only-except
+description: "Jobs use rules:, not only: / except:, which GitLab no longer develops."
+scope: {language: yaml, files: [".gitlab-ci.yml", ".gitlab/ci/**/*.yml", ".gitlab/ci/**/*.yaml"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: block_mapping_pair
+      has: {field: key, regex: "^[\"']?(only|except)[\"']?$"}
+      inside:
+        kind: block_mapping
+        inside:
+          kind: block_node
+          inside:
+            kind: block_mapping_pair
+            not: {has: {field: key, regex: "^[\"']?(variables|workflow|default|include|stages)[\"']?$"}}
+            inside: {kind: block_mapping, inside: {kind: block_node, inside: {kind: document}}}
+examples:
+  match:
+    - "test:\n  script: pytest\n  only:\n    - main\n"
+    - "deploy:\n  script: ./deploy.sh\n  except:\n    - tags\n"
+    - ".base:\n  only: [merge_requests]\n"
+  no_match:
+    - "test:\n  script: pytest\n  rules:\n    - if: $CI_COMMIT_BRANCH == \"main\"\n"
+    - "test:\n  script: pytest\n  rules:\n    - changes:\n        only: [src/**]\n"
+    - "variables:\n  only: \"x\"\n"

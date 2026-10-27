@@ -1,0 +1,13 @@
+id: typescript/react/no-prop-assign
+description: "Props are never assigned to (props.x = ...): they are read-only, and a mutation breaks rendering and memoization. Derive a local value instead."
+scope: {language: "tsx"}
+enforce:
+  - target: tool
+    tool: biome
+    expects: "lint/correctness/noReactPropAssignments"
+    snippet: "\"linter\": {\"rules\": {\"correctness\": {\"noReactPropAssignments\": \"error\"}}}"
+examples:
+  match:
+    - "export function Card(props: { title: string }) {\n  props.title = props.title.trim();\n  return <h2>{props.title}</h2>;\n}\n"
+  no_match:
+    - "export function Card(props: { title: string }) {\n  const title = props.title.trim();\n  return <h2>{title}</h2>;\n}\n"

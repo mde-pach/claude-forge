@@ -1,0 +1,42 @@
+id: python/airflow/airflow3
+description: "No Airflow 2 API that Airflow 3 removed, moved or deprecated (ruff AIR301, AIR302, AIR303, AIR311, AIR312: days_ago, schedule_interval, execution_date, DummyOperator, airflow.operators.* now in the standard provider, airflow.models / airflow.decorators names now in airflow.sdk), and no direct metadata-database session (airflow.settings.Session, provide_session, create_session): Airflow 3 tasks reach the database only through the Task SDK and the API server."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: AIR301
+    snippet: '[tool.ruff.lint] extend-select = ["AIR301"]'
+  - target: tool
+    tool: ruff
+    expects: AIR302
+    snippet: '[tool.ruff.lint] extend-select = ["AIR302"]'
+  - target: tool
+    tool: ruff
+    expects: AIR303
+    snippet: '[tool.ruff.lint] extend-select = ["AIR303"]'
+  - target: tool
+    tool: ruff
+    expects: AIR311
+    snippet: '[tool.ruff.lint] extend-select = ["AIR311"]'
+  - target: tool
+    tool: ruff
+    expects: AIR312
+    snippet: '[tool.ruff.lint] extend-select = ["AIR312"]'
+  - target: tool
+    tool: ruff
+    expects: TID251
+    snippet: |
+      [tool.ruff.lint]
+      extend-select = ["TID251"]
+
+      [tool.ruff.lint.flake8-tidy-imports.banned-api]
+      "airflow.settings.Session".msg = "Airflow 3 tasks have no metadata-database access; use the Task SDK (airflow.sdk) or the REST API"
+      "airflow.utils.session.provide_session".msg = "Airflow 3 tasks have no metadata-database access; use the Task SDK (airflow.sdk) or the REST API"
+      "airflow.utils.session.create_session".msg = "Airflow 3 tasks have no metadata-database access; use the Task SDK (airflow.sdk) or the REST API"
+when:
+  deps: [{ecosystem: pypi, name: apache-airflow, version: ">=3.0.0"}]
+examples:
+  match:
+    - "from airflow import DAG\nfrom airflow.lineage.hook import HookLineageCollector\nfrom airflow.operators.dummy import DummyOperator\nfrom airflow.operators.python import PythonOperator\nfrom airflow.utils.dates import days_ago\nfrom airflow.utils.session import provide_session\n\n\n@provide_session\ndef count_runs(session=None):\n    return session.query(1).count()\n\n\ndef report():\n    HookLineageCollector().create_asset(\"s3://bucket/key\")\n\n\nwith DAG(\"report\", start_date=days_ago(1), schedule=\"@daily\"):\n    start = DummyOperator(task_id=\"start\")\n    run = PythonOperator(task_id=\"run\", python_callable=report)\n"
+  no_match:
+    - "from datetime import datetime\n\nfrom airflow.providers.standard.operators.empty import EmptyOperator\nfrom airflow.providers.standard.operators.python import PythonOperator\nfrom airflow.sdk import DAG\n\n\ndef report():\n    print(\"done\")\n\n\nwith DAG(\"report\", start_date=datetime(2026, 1, 1), schedule=\"@daily\"):\n    start = EmptyOperator(task_id=\"start\")\n    run = PythonOperator(task_id=\"run\", python_callable=report)\n"

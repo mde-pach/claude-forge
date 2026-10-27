@@ -1,0 +1,26 @@
+id: python/hmac-compare
+description: "An HMAC digest is compared with hmac.compare_digest(), never == or !=: == stops at the first differing byte, so its timing lets an attacker forge a webhook signature byte by byte."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: comparison_operator
+      has: {field: operators, regex: "^(==|!=)$"}
+      all:
+        - has:
+            any:
+              - pattern: "$H.hexdigest()"
+              - pattern: "$H.digest()"
+              - {kind: call, pattern: "$D($$$)", has: {field: function, regex: "digest$"}}
+    # the digest is an hmac HMAC's (§15.1) or hmac.digest()'s (§15.6), not any object's digest()
+    where:
+      H: {type: {module: hmac, name: HMAC}}
+      D: {declared: {module: hmac, name: digest}}
+examples:
+  match:
+    - "import hashlib\nimport hmac\n\n\ndef valid(secret: bytes, body: bytes, sig: str) -> bool:\n    mac = hmac.new(secret, body, hashlib.sha256)\n    return mac.hexdigest() == sig\n"
+    - "import hmac\n\n\ndef invalid(secret: bytes, body: bytes, sig: bytes) -> bool:\n    return sig != hmac.digest(secret, body, \"sha256\")\n"
+  no_match:
+    - "import hashlib\nimport hmac\n\n\ndef valid(secret: bytes, body: bytes, sig: str) -> bool:\n    mac = hmac.new(secret, body, hashlib.sha256)\n    return hmac.compare_digest(mac.hexdigest(), sig)\n"
+    - "import hashlib\n\n\ndef same(a: bytes, b: str) -> bool:\n    return hashlib.sha256(a).hexdigest() == b\n"

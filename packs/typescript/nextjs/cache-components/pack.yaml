@@ -1,0 +1,5 @@
+id: typescript/nextjs/cache-components
+description: Next.js with cacheComponents enabled ('use cache', cacheLife, cacheTag).
+level: project
+detect:
+  content_any: [{files: ["next.config.{js,mjs,cjs,ts,mts}"], pattern: "^\\s*cacheComponents\\s*:\\s*true\\b"}]

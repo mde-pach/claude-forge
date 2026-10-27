@@ -1,0 +1,14 @@
+id: typescript/vue/v-for-key
+description: An element with v-for in a .vue template binds :key, so Vue can track each item instead of patching in place.
+scope: {language: any, files: ["**/*.vue"]}
+deprecated: {replaced_by: typescript/vue/valid-templates}
+enforce:
+  - target: tool
+    tool: biome
+    expects: lint/correctness/useVueVForKey
+    snippet: "\"html\": {\"experimentalFullSupportEnabled\": true}, \"linter\": {\"rules\": {\"correctness\": {\"useVueVForKey\": \"error\"}}}"
+examples:
+  match:
+    - files: {src/TodoList.vue: "<script setup lang=\"ts\">\ndefineProps<{ todos: { id: number; title: string }[] }>();\n</script>\n\n<template>\n  <ul>\n    <li v-for=\"todo in todos\">{{ todo.title }}</li>\n  </ul>\n</template>\n"}
+  no_match:
+    - files: {src/TodoList.vue: "<script setup lang=\"ts\">\ndefineProps<{ todos: { id: number; title: string }[] }>();\n</script>\n\n<template>\n  <ul>\n    <li v-for=\"todo in todos\" :key=\"todo.id\">{{ todo.title }}</li>\n  </ul>\n</template>\n"}

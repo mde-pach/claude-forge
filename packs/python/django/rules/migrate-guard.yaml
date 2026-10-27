@@ -1,0 +1,11 @@
+id: python/django/migrate-guard
+description: "manage.py or django-admin migrate --fake, migrate <app> zero, flush, reset_db and sqlflush piped to a shell reset data or the database's migration state; confirm them."
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: ask
+    pattern: '(^|[^A-Za-z0-9_-])(manage\.py|django-admin)[[:space:]]+(migrate[[:space:]].*(--fake([[:space:]]|$)|[[:space:]]zero([[:space:]]|$))|flush([[:space:];&|)]|$)|reset_db([[:space:];&|)]|$)|sqlflush.*\|)'
+review: Is the user aware that this resets data or the migration state of the target database, and does the request ask for it?
+examples:
+  match: ["python manage.py migrate --fake", "python manage.py migrate shop zero", "uv run python manage.py flush --no-input", "django-admin sqlflush | python manage.py dbshell", "./manage.py reset_db"]
+  no_match: ["python manage.py migrate", "python manage.py migrate shop 0003", "python manage.py makemigrations", "python manage.py migrate --fake-initial", "python manage.py sqlflush"]

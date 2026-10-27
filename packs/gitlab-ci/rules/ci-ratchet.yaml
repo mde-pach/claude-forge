@@ -1,0 +1,17 @@
+id: gitlab-ci/ci-ratchet
+description: "Pipeline changes do not switch checks off: a changed CI file may not have more allow_failure: true, when: manual, or script lines ending in || true / || exit 0 / || : than it had. Fix the failing job instead; an accepted change goes through forge.yaml."
+scope: {language: any, files: [".gitlab-ci.yml", ".gitlab/ci/**/*.yml", ".gitlab/ci/**/*.yaml"]}
+enforce:
+  - target: grep
+    mode: no-increase
+    pattern: "allow_failure:[[:space:]]*true|when:[[:space:]]*manual|\\|\\|[[:space:]]*(true|exit[[:space:]]+0|:)([[:space:];)\"']|$)"
+examples:
+  match:
+    - "test:\n  script: pytest\n  allow_failure: true\n"
+    - "deploy:\n  script: ./deploy.sh\n  when: manual\n"
+    - "lint:\n  script:\n    - npm run lint || true\n"
+    - "test:\n  script:\n    - uv run pytest || exit 0\n"
+  no_match:
+    - "test:\n  script: pytest\n  allow_failure:\n    exit_codes: 137\n"
+    - "test:\n  script:\n    - test -f a || cp b a\n"
+    - "deploy:\n  script: ./deploy.sh\n  when: on_success\n"

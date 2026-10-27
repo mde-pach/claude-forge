@@ -1,0 +1,30 @@
+id: typescript/nextjs/no-redirect-in-try
+description: "redirect(), permanentRedirect(), notFound(), forbidden() and unauthorized() from next/navigation are not called in a try block whose catch does not call unstable_rethrow(error): they throw, and the catch would swallow the navigation. Call them after the try."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      has: {field: function, regex: "^(redirect|permanentRedirect|notFound|forbidden|unauthorized)$"}
+      all:
+        - inside:
+            kind: try_statement
+            stopBy: {any: [{kind: function_declaration}, {kind: arrow_function}, {kind: function_expression}, {kind: method_definition}]}
+            has: {field: handler, kind: catch_clause, not: {has: {stopBy: end, kind: call_expression, has: {field: function, regex: "^unstable_rethrow$"}}}}
+        - not: {inside: {any: [{kind: catch_clause}, {kind: finally_clause}], stopBy: {kind: try_statement}}}
+        - inside:
+            kind: program
+            stopBy: end
+            has: {kind: import_statement, has: {field: source, regex: "^[\"']next/navigation[\"']$"}}
+examples:
+  match:
+    - "import { redirect } from \"next/navigation\";\n\nexport async function save(f: FormData) {\n  try {\n    await fetch(\"/x\", { method: \"POST\", body: f });\n    redirect(\"/done\");\n  } catch (e) {\n    console.error(e);\n  }\n}\n"
+    - "import { notFound } from \"next/navigation\";\n\nexport async function load(id: string) {\n  try {\n    const r = await fetch(`/x/${id}`);\n    if (!r.ok) notFound();\n    return r.json();\n  } catch {\n    return null;\n  }\n}\n"
+  no_match:
+    - "import { redirect } from \"next/navigation\";\n\nexport async function save(f: FormData) {\n  try {\n    await fetch(\"/x\", { method: \"POST\", body: f });\n  } catch (e) {\n    console.error(e);\n  }\n  redirect(\"/done\");\n}\n"
+    - "import { redirect, unstable_rethrow } from \"next/navigation\";\n\nexport async function save(f: FormData) {\n  try {\n    redirect(\"/done\");\n  } catch (e) {\n    unstable_rethrow(e);\n    console.error(e);\n  }\n}\n"
+    - "import { redirect } from \"./nav\";\n\nexport async function save() {\n  try {\n    redirect(\"/done\");\n  } catch {}\n}\n"
+    - "import { redirect } from \"next/navigation\";\n\nexport async function save() {\n  try {\n    await fetch(\"/x\").then(() => { redirect(\"/a\"); });\n  } catch {}\n}\n"
+    - "import { redirect } from \"next/navigation\";\n\nexport async function save() {\n  try {\n    await fetch(\"/x\");\n  } finally {\n    redirect(\"/a\");\n  }\n}\n"
+    - "import { notFound } from \"next/navigation\";\n\nexport async function load() {\n  try {\n    await fetch(\"/x\");\n  } catch {\n    notFound();\n  }\n}\n"

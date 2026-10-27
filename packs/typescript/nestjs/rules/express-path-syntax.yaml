@@ -1,0 +1,31 @@
+id: typescript/nestjs/express-path-syntax
+description: "Advice: on Nest 11's Express platform (path-to-regexp 8), route paths in @Get/@Post/.../@All() and in forRoutes() have no unnamed * (write *splat or {*splat}) and no ?, +, !, (, ), [ or ] (an optional segment is {...}): Nest converts the old syntax with a warning, Express 5 itself rejects it."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: call_expression
+      any:
+        - {inside: {kind: decorator}, has: {field: function, pattern: $D}}
+        - has: {field: function, kind: member_expression, all: [{has: {field: object, pattern: $C}}, {has: {field: property, regex: "^forRoutes$"}}]}
+      has:
+        field: arguments
+        has:
+          any:
+            - {kind: string, regex: "[()\\[\\]?+!]|\\*([^A-Za-z_$]|$)"}
+            - {kind: array, has: {kind: string, regex: "[()\\[\\]?+!]|\\*([^A-Za-z_$]|$)"}}
+    where:
+      D: {declared: {package: "@nestjs/common", name: [Get, Post, Put, Patch, Delete, Options, Head, All]}}
+      C: {type: {package: "@nestjs/common", name: MiddlewareConfigProxy}}
+when:
+  deps: [{ecosystem: npm, name: "@nestjs/platform-express", version: ">=11.0.0"}]
+examples:
+  deps: [{ecosystem: npm, name: "@nestjs/common", version: "11.2.8"}, {ecosystem: npm, name: reflect-metadata, version: "0.2.2"}, {ecosystem: npm, name: rxjs, version: "7.8.2"}]
+  match:
+    - "import { Controller, Get } from \"@nestjs/common\";\n\n@Controller(\"files\")\nexport class FilesController {\n  @Get(\"*\")\n  all() {\n    return [];\n  }\n}\n"
+    - "import { Get as Read } from \"@nestjs/common\";\n\nexport class UsersController {\n  @Read(\"users/:id?\")\n  one() {\n    return {};\n  }\n}\n"
+    - "import { type MiddlewareConsumer, Module, type NestModule } from \"@nestjs/common\";\n\n@Module({})\nexport class AppModule implements NestModule {\n  configure(consumer: MiddlewareConsumer) {\n    consumer.apply(() => {}).forRoutes(\"api/(.*)\");\n  }\n}\n"
+  no_match:
+    - "import { Controller, Get, type MiddlewareConsumer } from \"@nestjs/common\";\n\n@Controller(\"files\")\nexport class FilesController {\n  @Get(\"*splat\")\n  all() {\n    return [];\n  }\n\n  @Get(\"{*splat}\")\n  rest() {\n    return [];\n  }\n}\n\nexport const mount = (consumer: MiddlewareConsumer) => consumer.apply(() => {}).forRoutes(\"api/*path\");\n"
+    - "function Get(path: string) {\n  return (target: object, key: string) => {};\n}\n\nexport class Local {\n  @Get(\"*\")\n  all() {}\n}\n"

@@ -1,0 +1,13 @@
+id: typescript/react/compiler-rules
+description: "Components and hooks pass React Compiler's checks: no setState called synchronously in an effect (derive the value while rendering), no ref read or written while rendering, no impure call (Date.now(), Math.random()) while rendering."
+scope: {language: "tsx"}
+enforce:
+  - target: tool
+    tool: biome
+    expects: "lint/nursery/useReactCompiler"
+    snippet: "\"linter\": {\"rules\": {\"nursery\": {\"useReactCompiler\": {\"level\": \"error\", \"options\": {\"compilationMode\": \"infer\"}}}}}"
+examples:
+  match:
+    - "import { useEffect, useRef, useState } from \"react\";\n\nexport function Clock({ start }: { start: number }) {\n  const [now, setNow] = useState(start);\n  const renders = useRef(0);\n  renders.current += 1;\n  useEffect(() => {\n    setNow(Date.now());\n  }, []);\n  return <p>{now} {Math.random()} {renders.current}</p>;\n}\n"
+  no_match:
+    - "import { useEffect, useRef, useState } from \"react\";\n\nexport function Clock({ start }: { start: number }) {\n  const [now, setNow] = useState(start);\n  const renders = useRef(0);\n  useEffect(() => {\n    renders.current += 1;\n    const id = setInterval(() => setNow(Date.now()), 1000);\n    return () => clearInterval(id);\n  }, []);\n  const label = `${now}`;\n  return <button type=\"button\" onClick={() => setNow(Date.now())}>{label}</button>;\n}\n"
