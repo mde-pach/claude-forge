@@ -263,7 +263,10 @@ export function runCheckExamples(runs: CheckExampleRun[], toolBins: string[]): C
       for (const tool of checkTools(t)) {
         if ((PROJECT_TOOLS as readonly string[]).includes(tool) || PYTHON_TOOLS.has(tool)) {
           const bin = toolBins.map((b) => join(b, tool)).find((p) => existsSync(p));
-          if (!bin) return void (results[i] = { outcome: "skip", detail: `${tool} not available` });
+          if (!bin) {
+          results[i] = { outcome: "skip", detail: `${tool} not available` };
+          return;
+        }
           const to = join(repo, PYTHON_TOOLS.has(tool) ? ".venv/bin" : "node_modules/.bin", tool);
           mkdirSync(dirname(to), { recursive: true });
           if (!existsSync(to)) symlinkSync(bin, to);
@@ -275,7 +278,10 @@ export function runCheckExamples(runs: CheckExampleRun[], toolBins: string[]): C
           const want = tool === "ty" ? "uvx" : tool;
           const dir = toolBins.find((b) => existsSync(join(b, want)));
           if (dir) path.add(dir);
-          else if (run("sh", ["-c", `command -v ${want}`]).status !== 0) return void (results[i] = { outcome: "skip", detail: `${tool === "ty" ? "uvx (for ty)" : tool} not available` });
+          else if (run("sh", ["-c", `command -v ${want}`]).status !== 0) {
+          results[i] = { outcome: "skip", detail: `${tool === "ty" ? "uvx (for ty)" : tool} not available` };
+          return;
+        }
         }
       }
       const mode = checkExampleMode(t);
@@ -292,7 +298,10 @@ export function runCheckExamples(runs: CheckExampleRun[], toolBins: string[]): C
       const { rule, kind } = runs[i]!;
       const out = (r.stdout + r.stderr).trim();
       const skipped = new RegExp(`^forge:${rule.id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} skipped: (.*)$`, "m").exec(out);
-      if (skipped) return void (results[i] = { outcome: "skip", detail: skipped[1]! });
+      if (skipped) {
+          results[i] = { outcome: "skip", detail: skipped[1]! };
+          return;
+        }
       const failed = r.status !== 0 && out.includes(`forge:${rule.id} failed`);
       const brief = out.split("\n").slice(0, 6).join(" | ") || "(no output)";
       if (kind === "match") results[i] = failed ? { outcome: "pass", detail: "" } : { outcome: "fail", detail: `did not fail the check: ${brief}` };
@@ -493,7 +502,9 @@ function testRules(written: Rule[], repo: string | undefined, opts: { toolBins?:
             }
           }
       }
-      runParallel(runs.map((x) => x.job)).forEach((res, i) => runs[i]!.report(guardOutcome(res)));
+      runParallel(runs.map((x) => x.job)).forEach((res, i) => {
+        runs[i]!.report(guardOutcome(res));
+      });
     } finally {
       for (const d of dirs) rmSync(d, { recursive: true, force: true });
     }
@@ -539,7 +550,9 @@ function testRules(written: Rule[], repo: string | undefined, opts: { toolBins?:
   const runs: (CheckExampleRun & { n: number })[] = [];
   for (const r of checkRules)
     for (const t of r.enforce.filter((x): x is CheckTarget => x.target === "check"))
-      for (const kind of ["match", "no_match"] as const) (r.examples?.[kind] ?? []).forEach((ex, i) => runs.push({ rule: r, target: t, example: ex, kind, n: i + 1 }));
+      for (const kind of ["match", "no_match"] as const) (r.examples?.[kind] ?? []).forEach((ex, i) => {
+          runs.push({ rule: r, target: t, example: ex, kind, n: i + 1 });
+        });
   runCheckExamples(runs, toolBins).forEach((res, j) => {
     const { rule: r, kind, n } = runs[j]!;
     if (res.outcome === "fail") failures.push(`${r.id}: ${kind} example ${n} ${res.detail}`);

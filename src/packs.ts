@@ -344,7 +344,7 @@ export function workspaceDirs(repo: string, files: string[]): string[] {
   for (const f of files) {
     const m = /^(.+)\/(?:package\.json|pyproject\.toml)$/.exec(f);
     // check.sh lists package directories in a word list: names with spaces or quotes are left out
-    if (!m || /(^|\/)node_modules\//.test(f) || !/^[A-Za-z0-9._@+\/-]+$/.test(m[1]!)) continue;
+    if (!m || /(^|\/)node_modules\//.test(f) || !/^[A-Za-z0-9._@+/-]+$/.test(m[1]!)) continue;
     const dir = m[1]!;
     // an exclusion like "**/test/**" also excludes the test directory itself
     if (include.some((g) => globMatch(g, dir)) && !exclude.some((g) => globMatch(g, dir) || globMatch(g, dir + "/"))) dirs.add(dir);

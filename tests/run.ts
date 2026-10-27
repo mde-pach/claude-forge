@@ -127,7 +127,7 @@ function parseJUnit(xml: string): Case[] {
   const cases: Case[] = [];
   const stack: string[] = [];
   const re = /<testsuite\b[^>]*?(\/?)>|<\/testsuite>|<testcase\b([^>]*?)(\/>|>([\s\S]*?)<\/testcase>)/g;
-  for (let m; (m = re.exec(xml)); ) {
+  for (let m = re.exec(xml); m; m = re.exec(xml)) {
     const tag = m[0];
     if (tag.startsWith("<testsuite")) {
       if (!m[1]) stack.push(attr(tag, "name") ?? "");

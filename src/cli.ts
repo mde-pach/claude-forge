@@ -1,6 +1,6 @@
 import { chmodSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmdirSync, rmSync, statSync, writeFileSync, readSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join, relative } from "node:path";
+import { dirname, join } from "node:path";
 import { checkTools, renderLib } from "./render.js";
 import { auditRules, projectBinary, type AuditResult } from "./audit.js";
 import { MANIFEST_PATH, readLock, renderLock, renderManifest } from "./lock.js";

@@ -19,7 +19,7 @@ import { renderChecks, renderLib } from "../../src/render";
 import { validate } from "../../src/schemas";
 import { loadRuleFile } from "../../src/packs";
 import { ENGINE_PYTHON, TY_VERSION } from "../../src/util";
-import { commitAll, fakeClaude, fixture, forge, git, hasBun, hasUv, hookJson, othersRunning, processesNaming, put, ROOT, sh, stateDir, stopEngines, TOOL_VERSIONS } from "../helpers";
+import { commitAll, fakeClaude, fixture, forge, git, hasUv, hookJson, othersRunning, processesNaming, put, ROOT, sh, stateDir, stopEngines, TOOL_VERSIONS } from "../helpers";
 
 const T = 300_000;
 const SCRIPTS = ".claude/skills/forge-project/scripts";

@@ -429,7 +429,9 @@ export function roleGlobs(role: EffectiveRole): string[] {
 /** The roles a rule names: in scope.files, when_changed, config_files, check commands and where modules. */
 export function rolesOfRule(rule: Pick<Rule, "scope" | "enforce">): string[] {
   const out = new Set<string>();
-  const fromList = (l?: string[]) => l?.forEach((g) => REF.test(g) && out.add(REF.exec(g)![2]!));
+  const fromList = (l?: string[]) => {
+    for (const g of l ?? []) if (REF.test(g)) out.add(REF.exec(g)![2]!);
+  };
   fromList(rule.scope.files);
   for (const t of rule.enforce) {
     if (t.target === "check") {

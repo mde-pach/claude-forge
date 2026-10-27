@@ -16,7 +16,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadPackBundle, loadPacks } from "../../src/packs";
 import { checkExamplesOptional, hadolintIntegrity, permissionMatches, runCheckExample, runCheckExamples, selfTest, type TestReport } from "../../src/selftest";
-import { ANGULAR_TOOLS, ensureExampleTools, ensureNodeTools, ensureTools, ensureVueTools, forge, packsSelfTest, hasBun, hasUv, ROOT, sh, SYSTEM_TOOLS_BIN, TOOLS_CACHE, shScript } from "../helpers";
+import { ANGULAR_TOOLS, ensureNodeTools, packsSelfTest, hasBun, hasUv, ROOT, sh, SYSTEM_TOOLS_BIN, shScript } from "../helpers";
 import type { CheckTarget } from "../../src/types";
 import { renderChecks, renderLib, SYSTEM_TOOLS } from "../../src/render";
 import { RELEASE_BINARIES } from "../../src/util";
@@ -26,9 +26,6 @@ const T = 300_000;
 const packs = loadPacks(join(ROOT, "packs"));
 const rules = [...packs.values()].flatMap((p) => p.rules);
 let report: TestReport;
-
-/** The cached project tools (tests/helpers.ts), then PATH. */
-const toolBins = () => [join(TOOLS_CACHE, "node_modules/.bin"), join(TOOLS_CACHE, ".venv/bin"), join(TOOLS_CACHE, ".venv-sqlfluff/bin"), join(TOOLS_CACHE, "vue/node_modules/.bin"), ...ensureExampleTools(), SYSTEM_TOOLS_BIN, ...(process.env.PATH ?? "").split(":")];
 
 /** The self-test of every pack, run once per test run (tests/helpers.ts packsSelfTest). */
 beforeAll(() => {

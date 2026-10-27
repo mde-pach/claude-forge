@@ -1,0 +1,29 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "root": true,
+  "files": {
+    "includes": ["src/**", "tests/**/*.ts", "scripts/**", "docs/src/**/*.ts", "docs/astro.config.ts", "!packs", "!templates", "!tests/generator", "!tests/e2e/work", "!docs/dist"]
+  },
+  "formatter": { "indentStyle": "space", "indentWidth": 2, "lineWidth": 200 },
+  "javascript": { "formatter": { "quoteStyle": "double", "trailingCommas": "all", "semicolons": "always", "arrowParentheses": "always" } },
+  "assist": { "enabled": true, "actions": { "source": { "organizeImports": "off" } } },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "style": {
+        "noNonNullAssertion": "off",
+        "useTemplate": "off"
+      },
+      "suspicious": {
+        "noExplicitAny": "off",
+        "noAssignInExpressions": "off",
+        "noTemplateCurlyInString": "off",
+        "noThenProperty": "off"
+      },
+      "correctness": {
+        "noEmptyCharacterClassInRegex": "off"
+      }
+    }
+  }
+}

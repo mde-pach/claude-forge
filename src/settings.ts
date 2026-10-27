@@ -1,4 +1,4 @@
-import { applyEdits, modify, parse, type FormattingOptions, type JSONPath, type ParseError } from "jsonc-parser/lib/esm/main.js";
+import { applyEdits, modify, parse, type EditResult, type FormattingOptions, type JSONPath, type ParseError } from "jsonc-parser/lib/esm/main.js";
 import type { SettingsEntry } from "./types.js";
 import type { DesiredEntry } from "./plan.js";
 
@@ -54,7 +54,7 @@ export function addEntries(text: string, entries: DesiredEntry[]): { text: strin
   for (const e of entries) {
     const path = e.path.split(".");
     const cur = at(read(out), path);
-    let edits;
+    let edits: EditResult;
     if (e.append) {
       if (Array.isArray(cur)) {
         if (cur.some((v) => equal(v, e.value))) continue;

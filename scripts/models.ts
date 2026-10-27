@@ -34,9 +34,9 @@ export function loadModels(file = MODELS_FILE): ModelRow[] {
     });
 }
 
-const escape = (id: string) => id.replace(/[.]/g, "\\.");
+const escapeDots = (id: string) => id.replace(/[.]/g, "\\.");
 /** An id as a regex alternative: a trailing `*` also covers the suffixed variants. */
-const alternative = (id: string) => (id.endsWith("*") ? `${escape(id.slice(0, -1))}(-[a-z0-9-]+)?` : escape(id));
+const alternative = (id: string) => (id.endsWith("*") ? `${escapeDots(id.slice(0, -1))}(-[a-z0-9-]+)?` : escapeDots(id));
 
 export function render(kind: string, rows: ModelRow[]): string {
   const [name, arg] = kind.split(/\s+/);

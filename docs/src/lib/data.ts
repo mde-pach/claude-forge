@@ -102,8 +102,10 @@ export type { Pack, Rule, Target, Status, TestResult, SpecNode, SpecSection, Res
 /** Fails the build when a CI result cannot be placed on a test in tests/spec (the docs would be lying by omission). */
 export function assertResultsMatch(sections: SpecSection[], r: Results): void {
   const known = new Set<string>();
-  const visit = (file: string, nodes: SpecNode[]) => nodes.forEach((n) => (n.kind === "test" ? known.add(`${file}:${n.line}`) : visit(file, n.children)));
-  sections.forEach((s) => visit(s.file, s.children));
+  const visit = (file: string, nodes: SpecNode[]) => {
+    for (const n of nodes) n.kind === "test" ? known.add(`${file}:${n.line}`) : visit(file, n.children);
+  };
+  for (const s of sections) visit(s.file, s.children);
   const unmatched = [...r.byLocation.keys()].filter((k) => !known.has(k));
   if (unmatched.length) throw new Error(`forge docs: test results without a matching test in tests/spec: ${unmatched.slice(0, 10).join(", ")}`);
 }
@@ -119,8 +121,13 @@ export interface PlacedTest {
 
 function findTests(sections: SpecSection[], keep: (t: Extract<SpecNode, { kind: "test" }>) => boolean): { file: string; node: Extract<SpecNode, { kind: "test" }> }[] {
   const out: { file: string; node: Extract<SpecNode, { kind: "test" }> }[] = [];
-  const visit = (file: string, nodes: SpecNode[]) => nodes.forEach((n) => (n.kind === "test" ? keep(n) && out.push({ file, node: n }) : visit(file, n.children)));
-  sections.forEach((s) => visit(s.file, s.children));
+  const visit = (file: string, nodes: SpecNode[]) => {
+    for (const n of nodes) {
+      if (n.kind !== "test") visit(file, n.children);
+      else if (keep(n)) out.push({ file, node: n });
+    }
+  };
+  for (const s of sections) visit(s.file, s.children);
   return out;
 }
 
