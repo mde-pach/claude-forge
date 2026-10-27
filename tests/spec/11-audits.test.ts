@@ -222,7 +222,9 @@ function projectFor(t: ToolTarget, on: boolean): string {
     writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "audit", private: true, dependencies: { react: TOOL_VERSIONS.react } }));
     // a Turborepo config declaring no env var: noUndeclaredEnvVars checks env reads against it, and is silent without one
     writeFileSync(join(dir, "turbo.json"), JSON.stringify({ tasks: {} }));
-    writeFileSync(join(dir, "biome.json"), JSON.stringify({ linter: { enabled: true, rules: { recommended: false, [group!]: { [name!]: on ? "error" : "off" } } } }));
+    // the snippet's html section too: Vue, Svelte and Astro templates are linted only with html.experimentalFullSupportEnabled
+    const { html } = JSON.parse(`{${t.snippet}}`) as { html?: object };
+    writeFileSync(join(dir, "biome.json"), JSON.stringify({ ...(html ? { html } : {}), linter: { enabled: true, rules: { recommended: false, [group!]: { [name!]: on ? "error" : "off" } } } }));
   } else if (t.tool === "eslint") {
     // ESLint, typescript-eslint (type-aware: projectService, on TypeScript 6) and the plugins, from the tools cache;
     // on: the rule's own snippet (its level and options), off: "off"

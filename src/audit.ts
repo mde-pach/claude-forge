@@ -1,7 +1,7 @@
 import { defaultRoles, expandGlobs } from "./roles.js";
 import { existsSync, mkdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
-import { basename, dirname, join } from "node:path";
-import { codeExamples } from "./packs.js";
+import { basename, dirname, join, posix } from "node:path";
+import { toolExamples } from "./packs.js";
 import { ENGINE_PYTHON, run, TY_VERSION } from "./util.js";
 import type { Rule, ToolTarget } from "./types.js";
 
@@ -46,6 +46,17 @@ export function examplePath(rule: Rule, stem: string): string {
   if (!/\.[A-Za-z0-9]+$/.test(basename(p))) p += ext;
   return p;
 }
+
+/** Where example n is written: in the rule's scope, or, for a one-file fixture, next to its path with its file type (stem.vue). */
+function exampleRel(rule: Rule, ex: Example, n: number): string {
+  if (!ex.path) return examplePath(rule, stemOf(n));
+  const name = posix.basename(ex.path);
+  const dir = posix.dirname(ex.path);
+  const rel = stemOf(n) + (name.includes(".") ? name.slice(name.indexOf(".")) : "");
+  return dir === "." ? rel : `${dir}/${rel}`;
+}
+
+type Example = { code: string; path?: string };
 
 /** How the tool reported the expected diagnostic on one example. */
 export type Verdict =
@@ -104,9 +115,10 @@ function runOnFiles(repo: string, t: ToolTarget, bin: string, rels: string[]): T
 }
 
 /** Runs the project's tool on one example with machine-readable output where the tool has it. */
-function runTool(repo: string, rule: Rule, t: ToolTarget, bin: string, code: string, n: number): ToolRun {
+function runTool(repo: string, rule: Rule, t: ToolTarget, bin: string, ex: Example, n: number): ToolRun {
   const stem = stemOf(n);
-  const rel = examplePath(rule, stem);
+  const rel = exampleRel(rule, ex, n);
+  const code = ex.code;
   if (t.tool === "ruff") return run(bin, ["check", "--no-cache", "--no-fix", "--output-format", "json", "--stdin-filename", rel, "-"], { cwd: repo, input: code });
   // biome (its stdin mode prints no lint diagnostics), ty and tsc read real files: a
   // temporary file inside the project.
@@ -196,9 +208,10 @@ function judge(expects: string, all: { id: string; severity: string }[]): Verdic
  * an example the batch cannot judge (output not read, diagnostics left out, a file name
  * that is not one of the examples'): it runs alone.
  */
-function batchVerdicts(repo: string, rule: Rule, t: ToolTarget, bin: string, codes: string[]): (Verdict | undefined)[] {
-  const out: (Verdict | undefined)[] = new Array(codes.length);
-  const rels = codes.map((_, n) => examplePath(rule, stemOf(n)));
+function batchVerdicts(repo: string, rule: Rule, t: ToolTarget, bin: string, examples: Example[]): (Verdict | undefined)[] {
+  const out: (Verdict | undefined)[] = new Array(examples.length);
+  const codes = examples.map((e) => e.code);
+  const rels = examples.map((e, n) => exampleRel(rule, e, n));
   const batches: number[][] = [];
   rels.forEach((rel, n) => {
     const free = batches.find((b) => !b.some((m) => rels[m] === rel));
@@ -239,14 +252,14 @@ export function auditTarget(repo: string, rule: Rule, t: ToolTarget, root = repo
   // ty is Forge's own (through uvx); the others are the project's
   const bin = t.tool === "ty" ? (hasUvx() ? "uvx" : undefined) : (projectBinary(repo, t.tool) ?? projectBinary(root, t.tool));
   if (!bin) return { ...base, status: "skipped", detail: t.tool === "ty" ? "uvx is not installed (Forge runs its pinned ty through it)" : `${t.tool} is configured but not installed (node_modules/.bin or .venv/bin)` };
-  const match = codeExamples(rule, "match");
-  const noMatch = codeExamples(rule, "no_match");
+  const match = toolExamples(rule, "match");
+  const noMatch = toolExamples(rule, "no_match");
   if (!match.length) return { ...base, status: "skipped", detail: "the rule has no match examples" };
   const batched = BY_FILE.has(t.tool) ? batchVerdicts(repo, rule, t, bin, [...match, ...noMatch]) : [];
-  const judge = (code: string, n: number): Verdict | AuditResult => {
+  const judge = (ex: Example, n: number): Verdict | AuditResult => {
     const v = batched[n];
     if (v) return v;
-    const r = runTool(repo, rule, t, bin, code, n);
+    const r = runTool(repo, rule, t, bin, ex, n);
     try {
       return verdict(t.tool, t.expects, r);
     } catch (e) {
@@ -255,8 +268,9 @@ export function auditTarget(repo: string, rule: Rule, t: ToolTarget, root = repo
     }
   };
   let n = 0;
-  for (const code of match) {
-    const v = judge(code, n++);
+  for (const ex of match) {
+    const v = judge(ex, n++);
+    const code = ex.path ? `${ex.path}: ${ex.code}` : ex.code;
     if (typeof v !== "string") return v;
     if (v === "absent") return { ...base, status: "unsatisfied", detail: `${t.expects} not reported for: ${firstLine(code)}`, snippet: t.snippet };
     if (v === "warning")
@@ -267,8 +281,9 @@ export function auditTarget(repo: string, rule: Rule, t: ToolTarget, root = repo
         snippet: t.snippet,
       };
   }
-  for (const code of noMatch) {
-    const v = judge(code, n++);
+  for (const ex of noMatch) {
+    const v = judge(ex, n++);
+    const code = ex.path ? `${ex.path}: ${ex.code}` : ex.code;
     if (typeof v !== "string") return v;
     if (v !== "absent") return { ...base, status: "unsatisfied", detail: `${t.expects} reported for a no_match example: ${firstLine(code)}`, snippet: t.snippet };
   }

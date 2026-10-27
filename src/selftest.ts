@@ -395,8 +395,11 @@ function testRules(written: Rule[], repo: string | undefined, opts: { toolBins?:
     if (needsExamples && !(r.examples?.match?.length && r.examples?.no_match?.length))
       failures.push(`${r.id}: needs match and no_match examples`);
     const all = [...(r.examples?.match ?? []), ...(r.examples?.no_match ?? [])];
-    if (all.some((e) => typeof e !== "string" && !("command" in e)) && r.enforce.some((t) => t.target !== "check"))
-      failures.push(`${r.id}: fixture examples (files) are for check rules only`);
+    // fixtures (files): check rules; a rule of tool targets only may give one file without head (its path picks the file type)
+    const fixtures = all.filter((e): e is ExampleFixture => typeof e !== "string" && !("command" in e));
+    const toolOnly = r.enforce.every((t) => t.target === "tool");
+    if (fixtures.length && !r.enforce.every((t) => t.target === "check") && !(toolOnly && fixtures.every((f) => !f.head && Object.keys(f.files).length === 1)))
+      failures.push(`${r.id}: fixture examples (files) are for check rules only, or one file without head for a rule of tool targets`);
     if (all.some((e) => typeof e !== "string" && "command" in e) && r.enforce.some((t) => t.target !== "guard"))
       failures.push(`${r.id}: command examples are for guard rules only`);
     // engine capabilities (§15.1): metavariables of the rule, a parsed language, examples with their packages

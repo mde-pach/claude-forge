@@ -1792,3 +1792,27 @@ test("ESLint's stylish output is attributed by file and line: an error on an add
   expect(attribute(["src/b.ts:3"])).toBe("other\n");
   expect(attribute(["src/b.ts:3"], 1)).toBe("changed\nsrc/b.ts:3:3  warning  Unexpected console statement                 no-console\n");
 });
+
+/**
+ * Biome reads Vue, Svelte, Astro and HTML files (their templates with
+ * html.experimentalFullSupportEnabled), and `biome ci .` covers them: so do the changed
+ * files format-lint lints after an edit and at Stop. An accessibility error in a changed
+ * `.vue` template blocks like one in a `.tsx` file.
+ * @rule typescript/format-lint typescript/a11y
+ */
+test.if(hasBun)("format-lint lints changed .vue, .svelte, .astro and .html files with Biome: an error in a template blocks", () => {
+  ensureTools();
+  const rule = loadPacks(join(ROOT, "packs")).get("typescript")!.rules.find((r) => r.id === "typescript/format-lint")!;
+  const target = rule.enforce[0] as CheckTarget;
+  const head = { "biome.json": JSON.stringify({ html: { experimentalFullSupportEnabled: true }, formatter: { enabled: false }, linter: { enabled: true, rules: { recommended: false, a11y: "error" } } }) };
+  const bins = [join(TOOLS_CACHE, "node_modules/.bin")];
+  for (const [path, bad, good] of [
+    ["src/components/Hero.vue", '<template>\n  <img src="/hero.png" />\n</template>\n', '<template>\n  <img src="/hero.png" alt="Sneakers" />\n</template>\n'],
+    ["src/lib/Hero.svelte", '<img src="/hero.png" />\n', '<img src="/hero.png" alt="Sneakers" />\n'],
+    ["src/pages/index.astro", '---\n---\n<img src="/hero.png" />\n', '---\n---\n<img src="/hero.png" alt="Sneakers" />\n'],
+    ["public/index.html", '<!doctype html>\n<html lang="en">\n  <body><img src="/hero.png" /></body>\n</html>\n', '<!doctype html>\n<html lang="en">\n  <body><img src="/hero.png" alt="Sneakers" /></body>\n</html>\n'],
+  ] as const) {
+    expect(`${path} ${runCheckExample(rule, target, { head, files: { [path]: bad } }, "match", bins).outcome}`).toBe(`${path} pass`);
+    expect(`${path} ${runCheckExample(rule, target, { head, files: { [path]: good } }, "no_match", bins).outcome}`).toBe(`${path} pass`);
+  }
+}, T);

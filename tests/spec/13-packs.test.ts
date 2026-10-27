@@ -275,9 +275,14 @@ describe("forge test catches broken packs", () => {
     expect(f).toContain('demo/g2: grep pattern does not match match example 1: "x  # type: ignore"');
     expect(f).toContain('demo/g2: grep pattern matches no_match example 1: "y  # noqa"');
   });
-  test("fixture examples are for check rules only", () => {
+  test("fixture examples are for check rules only, or one file without head for a rule of tool targets", () => {
+    const failure = "demo/f: fixture examples (files) are for check rules only, or one file without head for a rule of tool targets";
     const rule = 'id: demo/f\ndescription: F.\nscope: {language: any}\nenforce: [{target: guard, decision: ask, pattern: "x"}]\nexamples: {match: [{files: {a: x}}], no_match: ["y"]}\n';
-    expect(selfTest(packsWith({ "demo/rules/f.yaml": rule })).failures).toContain("demo/f: fixture examples (files) are for check rules only");
+    expect(selfTest(packsWith({ "demo/rules/f.yaml": rule })).failures).toContain(failure);
+    const tool = (ex: string) => `id: demo/f\ndescription: F.\nscope: {language: any}\nenforce: [{target: tool, tool: biome, expects: lint/a11y/useAltText, snippet: x}]\nexamples: {match: [${ex}], no_match: ["y"]}\n`;
+    expect(selfTest(packsWith({ "demo/rules/f.yaml": tool("{files: {src/Card.vue: x}}") })).failures).toEqual([]);
+    expect(selfTest(packsWith({ "demo/rules/f.yaml": tool("{files: {a.vue: x, b.vue: y}}") })).failures).toContain(failure);
+    expect(selfTest(packsWith({ "demo/rules/f.yaml": tool("{head: {a.vue: x}, files: {b.vue: y}}") })).failures).toContain(failure);
   });
   test("a pack requiring an unknown pack fails", () => {
     expect(selfTest(packsWith({ "demo/pack.yaml": "id: demo\ndescription: D.\nlevel: project\nrequires: [ghost]\n" })).failures[0]).toContain("requires unknown pack ghost");

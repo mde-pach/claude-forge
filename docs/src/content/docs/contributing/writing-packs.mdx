@@ -143,7 +143,7 @@ examples:
 
 Only checks that need a whole project (test and migration runs, `astro check`, `ngc`, lock-file checks) may go without examples; a spec test proves them instead. An example whose tool is not installed is reported skipped, never passed.
 
-The self-test cannot run a `tool` target: that needs the tool. The test suite does it instead, with the pinned Biome, TypeScript, ruff, ty and ESLint (with typescript-eslint, type-aware): for each `tool` target, the rule's examples must make the audit satisfied when the project's config reports the expected diagnostic as an error, and unsatisfied when that diagnostic is off. Every `match` example must therefore trigger every `tool` target of its rule; put all the variants a rule covers into each `match` example when the rule has several targets.
+The self-test cannot run a `tool` target: that needs the tool. The test suite does it instead, with the pinned Biome, TypeScript, ruff, ty and ESLint (with typescript-eslint, type-aware): for each `tool` target, the rule's examples must make the audit satisfied when the project's config reports the expected diagnostic as an error, and unsatisfied when that diagnostic is off. Every `match` example must therefore trigger every `tool` target of its rule; put all the variants a rule covers into each `match` example when the rule has several targets. A rule whose files are of several types (JSX and Vue, Svelte, Astro or HTML templates) gives an example per type as one file, `{files: {src/components/Hero.vue: "…"}}`: the audit writes it with that file type.
 
 <Spec file="13-packs" top />
 <Spec file="13-packs" describe="forge test catches broken packs" />

@@ -1,6 +1,7 @@
 id: typescript/format-lint
-description: TypeScript files are formatted and linted with Biome.
-scope: {language: typescript}
+description: TypeScript and JavaScript files, and the Vue, Svelte, Astro and HTML templates Biome reads, are formatted and linted with Biome.
+# biome ci . covers every file Biome supports; the changed files too (templates fully with html.experimentalFullSupportEnabled)
+scope: {language: any, files: ["**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,vue,svelte,astro,html}"]}
 enforce:
   - target: check
     stage: lint

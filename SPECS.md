@@ -165,7 +165,7 @@ deprecated:                    # optional
 review: string                 # optional, one line: for an ask, the one question a reviewer answers (§9.3)
 ```
 
-An example is a string (code, written to a file inside the rule's scope) or, for rules whose targets are all `check`, a **fixture**:
+An example is a string (code, written to a file inside the rule's scope), for a rule whose targets are all `tool`, one file `{files: {<path>: <code>}}` (the code written with that path's file type, §11), or, for rules whose targets are all `check`, a **fixture**:
 
 ```yaml
 - head: {<path>: <content>}    # optional: committed first
@@ -468,7 +468,7 @@ Advice does not stop the steps after it (§10.1): the later stages still run, an
 For each `tool` target of an active rule:
 
 1. The tool is not present in the project → the rule's `ast-grep` target is used if it has one; otherwise `forge status` reports "not enforced here: <tool> not configured".
-2. The tool is present → Forge writes each example to a temporary file inside the rule's scope and runs the project's own tool with the project's config, reading machine-readable output: `biome lint --reporter=json <file>…`, `ruff check --output-format json --stdin-filename`, `ty check --output-format gitlab <file>` (Forge's pinned ty through uvx, with the project's config: present wherever there is a `pyproject.toml` or `ty.toml`; `major` is an error, `minor` a warning), `tsc --noEmit -p <temporary tsconfig extending the project's>`, `eslint --format json --no-warn-ignored <file>` (ESLint 9 and later: present with an `eslint.config.*` file or the `eslint` dependency; severity 2 is an error, 1 a warning; a file ESLint cannot parse, e.g. one its `projectService` does not cover, skips the audit with ESLint's message). Biome, ESLint and ty report by file, so the examples of a target are checked in one run (one per path when two examples share a path); each example gets the verdict a run on it alone would give, and runs alone when the shared run cannot tell (output not read, diagnostics left out, or a warning-only diagnostic while another file got an error).
+2. The tool is present → Forge writes each example to a temporary file inside the rule's scope (an example given as one file, `{files: {src/Card.vue: …}}`, next to that path with its file type: a rule covering several file types proves each) and runs the project's own tool with the project's config, reading machine-readable output: `biome lint --reporter=json <file>…`, `ruff check --output-format json --stdin-filename`, `ty check --output-format gitlab <file>` (Forge's pinned ty through uvx, with the project's config: present wherever there is a `pyproject.toml` or `ty.toml`; `major` is an error, `minor` a warning), `tsc --noEmit -p <temporary tsconfig extending the project's>`, `eslint --format json --no-warn-ignored <file>` (ESLint 9 and later: present with an `eslint.config.*` file or the `eslint` dependency; severity 2 is an error, 1 a warning; a file ESLint cannot parse, e.g. one its `projectService` does not cover, skips the audit with ESLint's message). Biome, ESLint and ty report by file, so the examples of a target are checked in one run (one per path when two examples share a path); each example gets the verdict a run on it alone would give, and runs alone when the shared run cannot tell (output not read, diagnostics left out, or a warning-only diagnostic while another file got an error).
 3. Every `match` example gets the expected diagnostic **as an error**, and no `no_match` example gets it → satisfied (stricter configs satisfy automatically). A warning never enforces a rule, even when the tool exits non-zero on warnings (ty's `terminal.error-on-warning`): the checks do not block on warning-only output (§10.1), so a rule's snippet sets the error level. ruff has no warning level; tsc reports errors only.
 4. Otherwise → `forge status` reports the rule as unsatisfied and prints its `snippet`; when the diagnostic is reported only as a warning, the detail says so. Rules of a TOML-configured tool (ruff, ty) add entries to the same tables (`extend-select`, the `flake8-tidy-imports.banned-api` table, `[tool.ty.rules]`), and a TOML table may be written only once: when several of a tool's audits are unsatisfied (per audited package), `apply` and `status` also print their snippets merged into one block (tables merged key by key, arrays joined; `--json`: `snippets`, keyed `<tool>` or `<tool> (in <dir>)`). Forge never edits the config. Output that cannot be read → the audit is skipped with the tool's first line of output, never satisfied.
 
@@ -642,7 +642,8 @@ context.md: uv and `.venv/bin`, ty, annotated parameters and returns; no blockin
 
 | Rule | Targets |
 |---|---|
-| `typescript/format-lint` | `check` lint: `run: biome ci .`, `changed_run: biome check --write {files}`, `format_stdin: biome format --stdin-file-path={file}`; no `fix_run`: `changed_run` applies Biome's safe fixes itself (removing unused imports or variables is unsafe, so it is not done) |
+| `typescript/a11y` | `tool` biome `lint/a11y/useAltText`, `lint/a11y/useButtonType` in `.tsx`, `.jsx`, `.vue`, `.svelte`, `.astro` and `.html` files (snippet: `html.experimentalFullSupportEnabled` and the whole `a11y` group at error; examples in each file type, §11) |
+| `typescript/format-lint` | `check` lint, on TypeScript and JavaScript files and the `.vue`, `.svelte`, `.astro` and `.html` files Biome also reads (their templates with `html.experimentalFullSupportEnabled`): `run: biome ci .`, `changed_run: biome check --write {files}`, `format_stdin: biome format --stdin-file-path={file}`; no `fix_run`: `changed_run` applies Biome's safe fixes itself (removing unused imports or variables is unsafe, so it is not done) |
 | `typescript/typecheck` | `check` typecheck: `run: tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile "$(forge_state_file tsc.tsbuildinfo)"` (plain diagnostics; incremental, TypeScript ≥ 4.0, with the build info under the repository root's `.forge/state/`, as an absolute path, one file per workspace package (`<package dir, / as ->.tsc.tsbuildinfo`), so a project's own or composite build info is never written and a package never gets a `.forge/` of its own) |
 | `typescript/no-implicit-any` | `tool` tsc: expects `TS7006` on an untyped parameter (`noImplicitAny`, part of `strict`) |
 | `typescript/strict-null-checks` | `tool` tsc: expects `TS18047` on a possibly-null access (`strictNullChecks`) |
@@ -1370,7 +1371,7 @@ Detected by `react >= 19` (npm); a sibling of `nextjs` and `astro`, so it applie
 | `typescript/react/hooks-rules` | `tool` biome `lint/correctness/useHookAtTopLevel`, `lint/correctness/useExhaustiveDependencies` |
 | `typescript/react/stable-keys` | `tool` biome `lint/suspicious/noArrayIndexKey` |
 | `typescript/react/no-nested-components` | `tool` biome `lint/correctness/noNestedComponentDefinitions`, `lint/nursery/noComponentHookFactories` (a function that defines and returns a component or hook) |
-| `typescript/react/a11y` | `tool` biome `lint/a11y/useAltText`, `lint/a11y/useButtonType` (snippet: the whole `a11y` group at error) |
+| `typescript/react/a11y` | deprecated, replaced by `typescript/a11y` (which covers the Vue, Svelte, Astro and HTML templates too) |
 | `typescript/react/no-deprecated-types` | `tool` biome `lint/suspicious/noDeprecatedImports`, on imports React's types mark `@deprecated` (`ElementRef`, `MutableRefObject`, `LegacyRef`); Biome reads the tags from real `node_modules` directories only (not pnpm's symlinks) |
 | `typescript/react/compiler-rules` | `tool` biome `lint/nursery/useReactCompiler` (snippet: error, `compilationMode: infer`): no synchronous `setState` in an effect, no ref read or written while rendering, no impure call while rendering |
 | `typescript/react/no-prop-assign` | `tool` biome `lint/correctness/noReactPropAssignments` |
@@ -1531,16 +1532,19 @@ context.md: `routeTree.gen.ts` is generated from the routes directory and never 
 
 ### typescript/vue
 
-Detected by `vue >= 3`. ESLint (`eslint-plugin-vue`) is not audited: `tool` targets are Biome, ruff, ty and tsc; the `.vue` rules are `check` and `grep` targets instead.
+Detected by `vue >= 3`. Biome lints `.vue` templates with `html.experimentalFullSupportEnabled` (every snippet sets it); `eslint-plugin-vue` is not audited.
 
 | Rule | Targets |
 |---|---|
 | `typescript/vue/typecheck` | `check` typecheck: `forge_exec_tool vue-tsc --noEmit` (`--build` when `tsconfig.json` has `references`); skipped while a Nuxt `tsconfig.json` points at a missing `.nuxt/`. A tool whose name has a `-` gets no wrapper function (not a POSIX function name) and is run as `forge_exec_tool <name>` |
-| `typescript/vue/v-for-key` | `check` lint: `forge_vue_vfor_keys`: in `.vue` templates (comments, `<script>`, `<style>` skipped; quotes respected), an element other than `<template>` with `v-for` and no `:key` / `v-bind:key`, reported at the `v-for` line |
+| `typescript/vue/v-for-key` | deprecated, replaced by `typescript/vue/valid-templates` (`tool` biome `lint/correctness/useVueVForKey`) |
+| `typescript/vue/valid-templates` | `tool` biome in `.vue` files: `lint/correctness/useVueVForKey`, `noVueVIfWithVFor`, `useVueValidVBind`, `useVueValidVOn`, `useVueValidVIf`, `useVueValidVElse`, `useVueValidVElseIf`, `useVueValidVHtml`, `useVueValidVText`, `useVueValidTemplateRoot`, `lint/nursery/useVueValidVFor` (snippet: error) |
+| `typescript/vue/ref-value` | `tool` biome `lint/nursery/noVueRefAsOperand` in `.vue` and `.ts` files: a ref as an operand, a condition or a template-literal value |
+| `typescript/vue/no-setup-props-destructure` | `tool` biome `lint/correctness/noVueSetupPropsReactivityLoss`: `setup({ a })` (destructuring in the body is not detected) |
 | `typescript/vue/no-v-html` | `grep` forbid in `**/*.vue`: `v-html=`, `:innerHTML=`, `v-bind:innerHTML=` |
 | `typescript/vue/no-vue2-template-syntax` | `grep` forbid in `**/*.vue`: `:x.sync=` / `v-bind:x.sync=`, `slot-scope=`, a `.native` modifier on `@x` / `v-on:x`, `@keyup.<digits>` (and `keydown`, `keypress`) |
 
-context.md: `<script setup lang="ts">`, `vue-tsc` for `.vue` types, `:key` with `v-for`, no `v-html`, no Vue 2 template syntax, eslint-plugin-vue not run by Forge.
+context.md: `<script setup lang="ts">`, `vue-tsc` for `.vue` types, valid templates (`:key` with `v-for`, no `v-if` with `v-for`), `.value` on refs, props not destructured in `setup()`, no `v-html`, no Vue 2 template syntax.
 
 ### typescript/vue/nuxt
 
@@ -1563,14 +1567,16 @@ context.md: state and getters are destructured through `storeToRefs()`.
 
 ### typescript/svelte
 
-Detected by `svelte >= 5`. Biome's Svelte rules need its HTML support, so the `.svelte` rules are `grep` targets.
+Detected by `svelte >= 5`. Biome lints `.svelte` templates with `html.experimentalFullSupportEnabled` (the snippets set it); the syntax rules are `grep` targets.
 
 | Rule | Targets |
 |---|---|
 | `typescript/svelte/runes-only` | `grep` forbid in `**/*.svelte`: `export let`, `$:` statements, `on:<event>` directives, `<slot`, `$$slots` / `$$props` / `$$restProps`, `createEventDispatcher`, `beforeUpdate` / `afterUpdate`, imports of `svelte/legacy` (in `.ts` files the deprecated APIs are `@deprecated` in Svelte's types) |
 | `typescript/svelte/no-at-html` | `grep` forbid in `**/*.svelte`: `{@html ` |
+| `typescript/svelte/each-key` | `tool` biome `lint/nursery/useSvelteRequireEachKey`: `{#each}` with a key |
+| `typescript/svelte/no-debug-tags` | `tool` biome `lint/nursery/noSvelteAtDebugTags`: no `{@debug}` |
 
-context.md: Svelte 5 runes, event attributes and snippets; legacy syntax and `{@html}` are rejected.
+context.md: Svelte 5 runes, event attributes and snippets; legacy syntax and `{@html}` are rejected; keyed `{#each}`, no `{@debug}`.
 
 ### typescript/svelte/kit
 
