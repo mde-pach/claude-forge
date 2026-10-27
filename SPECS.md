@@ -734,6 +734,7 @@ Detected by `library_any: [npm]` (§13.4).
 | Rule | Targets |
 |---|---|
 | `typescript/library/deprecation-shim` | `check` lint: `forge_helper bun public_api.mjs removed` (§13.4), `when_changed`: TypeScript and JavaScript files, `package.json` |
+| `typescript/library/exports-map` | `check` lint (with `bun`): a `package.json` that is not `"private": true` and has no `exports`, reported at its top-level `main`, `module`, `types` or `typings` line (so only when that line is added) |
 
 context.md: entry points are the public API; renamed exports stay as `@deprecated` aliases until a major version.
 
@@ -881,6 +882,16 @@ Detected by the `vite` dependency.
 | `typescript/vite/no-open-dev-host` | `ast-grep` forbid in `vite.config.*`: `allowedHosts: true` under `server` or `preview` |
 
 context.md: no secrets in `VITE_` variables, `define` never inlines `process.env`, `allowedHosts` lists hosts.
+
+### typescript/t3-env
+
+Detected by `@t3-oss/env-core`, `@t3-oss/env-nextjs` or `@t3-oss/env-nuxt`.
+
+| Rule | Targets |
+|---|---|
+| `typescript/t3-env/no-process-env` | `tool` biome `lint/style/noProcessEnv` (snippet: error, off in `env.ts`, `env.mjs`, `env.js` and `*.config.*`, a convention the project edits in its biome.json) |
+
+context.md: read env vars through the validated `env`.
 
 ### typescript/nextjs
 
