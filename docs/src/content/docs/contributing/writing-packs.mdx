@@ -51,6 +51,8 @@ A `check` can call the engine's helpers instead of a project tool: `forge_ratche
 A rule about one version of a library carries a gate: `when: {deps: [{ecosystem: npm, name: express, version: ">=5"}]}` keeps it inactive (and listed by `forge status`) wherever Express 5 is not declared; `package.json`'s `packageManager` counts as a dependency on that package manager (`{ecosystem: npm, name: pnpm, version: ">=11"}`).
 <Spec file="05-inputs" describe="version gates" />
 
+A rule that names model ids (a retired model, the models that reject `budget_tokens`) never lists them itself: `packs/ai-models/models.tsv` is the one list, and a rule line after a `# models.tsv: <kind>` comment holds its rendering (`retired`, `rejects <feature>`, `advise`). After editing the data file, `bun scripts/models.ts` rewrites those lines; the pack test fails while a rule differs from the file.
+
 A pack can also be detected as a library (`detect: {library_any: [pypi]}` or `[npm]`), for rules about a published API.
 
 A tool with no PyPI or npm package runs from its GitHub release: a helper asks the engine for it with `forge_release <name> <var>`, which fetches the pinned binary once (checked against the sha256 Forge embeds for the platform) or prints the check's `skipped` line. Infrastructure CLIs the project installs itself (`terraform`, `tofu`, `helm`, `kustomize`, `kubectl`) are named in `run` like project tools and found on `PATH`; `terraform` runs `tofu` in an OpenTofu project.

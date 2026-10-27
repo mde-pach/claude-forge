@@ -461,6 +461,7 @@ Advice does not stop the steps after it (§10.1): the later stages still run, an
 | `forge_docs_mentions` | when no documentation file changed (Markdown, MDX or reStructuredText under a `docs/` or `doc/` directory, and `README*`): the public names whose definition the change added, removed or edited on a removed or added line of an in-scope file (Python `def`, `class`, annotated names and parameters, module-level assignments; TypeScript and JavaScript `export` declarations, optional properties `name?:`, typed members `name: T;`, methods with a modifier; a line that only moved does not count; names starting with `_`, shorter than 4 characters or on a stop list of common words are dropped), then the documentation lines mentioning one (as a whole word; a name without `_` or an inner capital only in a code span or a fenced block): "These docs mention identifiers you changed; check they still describe the behaviour:" and up to 5 `path:line name` lines. |
 
 ## 11. Audit of tool targets
+| `forge_model_ids <deprecated> <known>` | for each quoted id on an added line of an in-scope file (after an optional `anthropic:` / `openai:` / `anthropic/` / `openai/` prefix): an id of `<deprecated>` (`<id>\|<retires>\|<replacement>;…`) prints `<path>:<line> <id> retires <date>; use <replacement>`; a dated Claude id (`claude-<family>-<version>-20YYMMDD`) not in `<known>` prints `<path>:<line> <id> is not a published Claude model id; use its alias (e.g. claude-opus-5-5)` |
 
 For each `tool` target of an active rule:
 
@@ -1033,6 +1034,7 @@ Detected by `anthropic >= 2.0.0` (pypi).
 
 Detected by `langchain-core` (pypi).
 
+| `python/anthropic/no-budget-tokens` | `ast-grep` forbid: `$C.$M(…)` (`create`, `stream`, `parse`, `count_tokens`) on a receiver typed `anthropic` `Messages` / `AsyncMessages` with a `model=` string literal from the data file's `rejects budget_tokens` rows (`ai-models`; optionally `anthropic.`-prefixed) and a `thinking=` dict holding a `budget_tokens` key |
 | Rule | Targets |
 |---|---|
 | `python/langchain/no-dangerous-flags` | `ast-grep` advise: the keyword arguments `allow_dangerous_deserialization=True`, `allow_dangerous_code=True`, `allow_dangerous_requests=True` |
@@ -1924,6 +1926,15 @@ Detected by `langchain`, `@langchain/core` or `@langchain/classic`.
 
 | Rule | Targets |
 |---|---|
+### typescript/anthropic
+
+Detected by `@anthropic-ai/sdk` (npm).
+
+| Rule | Targets |
+|---|---|
+| `typescript/anthropic/no-budget-tokens` | `ast-grep` forbid: `$C.messages.$M({…})` / `$C.beta.messages.$M({…})` (`create`, `stream`, `parse`, `countTokens`), `$C` typed `@anthropic-ai/sdk` `Anthropic` / `BaseAnthropic`, whose options have a `model` string literal from the data file's `rejects budget_tokens` rows (`ai-models`) and a `thinking` object with a `budget_tokens` key |
+| `typescript/anthropic/no-forced-tool-choice` | `ast-grep` forbid: the same calls with a `model` literal from the `rejects forced_tool_choice` rows and `tool_choice: {type: 'any' \| 'tool'}` |
+
 | `typescript/langchain/no-legacy-chains` | `ast-grep` advise: importing `LLMChain`, `ConversationChain`, `RetrievalQAChain`, `ConversationalRetrievalQAChain`, `initializeAgentExecutorWithOptions` or `AgentExecutor` from `@langchain/classic…` or `langchain/chains…` / `langchain/agents…` |
 
 context.md: `createAgent`; the legacy chains live in `@langchain/classic`.
@@ -2074,7 +2085,10 @@ Detected by a dependency on `anthropic`, `openai`, `pydantic-ai`, `litellm`, `la
 
 | Rule | Targets |
 |---|---|
-| `ai-models/model-ids` | `grep` forbid, any file but Forge's own `.claude/skills/forge-project/`: a quoted retired model id (Anthropic's and OpenAI's deprecation pages as of 2026-10-26: `claude-3-*` dated ids and their `-latest` aliases, `claude-opus-4-0` / `-4-1`, `claude-sonnet-4-0`, `claude-2.x`, `claude-1.x`, `claude-instant-1.x`; `gpt-4`, `gpt-4-turbo*`, `gpt-3.5-turbo*`, `gpt-4-32k*`, `gpt-4.1-nano*`, `gpt-4.5-preview`, `o1`, `o1-pro`, `o3-mini`, `dall-e-2` / `-3`, `text-davinci-*`, …), optionally after pydantic-ai's `anthropic:` / `openai:` or LiteLLM's `anthropic/` prefix; Bedrock (`anthropic.`) and Vertex (`@`) ids are not checked |
+| `ai-models/model-ids` | `grep` forbid, rendered from the data file's `retired` rows, any file but Forge's own `.claude/skills/forge-project/`: a quoted retired model id (Anthropic's and OpenAI's deprecation pages as of 2026-10-26: `claude-3-*` dated ids and their `-latest` aliases, `claude-opus-4-0` / `-4-1`, `claude-sonnet-4-0`, `claude-2.x`, `claude-1.x`, `claude-instant-1.x`; `gpt-4`, `gpt-4-turbo*`, `gpt-3.5-turbo*`, `gpt-4-32k*`, `gpt-4.1-nano*`, `gpt-4.5-preview`, `o1`, `o1-pro`, `o3-mini`, `dall-e-2` / `-3`, `text-davinci-*`, …), optionally after pydantic-ai's `anthropic:` / `openai:` or LiteLLM's `anthropic/` prefix; Bedrock (`anthropic.`) and Vertex (`@`) ids are not checked |
+| `ai-models/deprecated-model-ids` | `check` lint, advisory (§10.7): `forge_advise forge_model_ids` with the data file's `deprecated` rows and Claude ids: a quoted deprecated id on an added line (`<path>:<line> <id> retires <date>; use <replacement>`), and a dated Claude id (`claude-<family>-<version>-20YYMMDD`) the data file does not list (`… is not a published Claude model id; use its alias`); advice, so that a model published after the data file only asks |
+
+**The data file** `packs/ai-models/models.tsv` is the one list of model ids (`id`, `provider`, `status` `active` / `deprecated` / `retired`, `retires`, `replacement`, `rejects`: the request features the API rejects with a 400 on that model, `budget_tokens` and `forced_tool_choice`), dated, from the providers' deprecation pages; an id ending in `*` also covers its suffixed variants. Rules render it: a rule line after a `# models.tsv: <kind>` comment (`retired`, `rejects <feature>`, `advise`) holds the rendering, which `bun scripts/models.ts` writes after an edit of the file; the pack test fails while a rule differs from it. It is regenerated with each Forge release.
 
 ### kubernetes/helm
 
